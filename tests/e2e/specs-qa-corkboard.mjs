@@ -308,7 +308,7 @@ test('BUG: a new card made while a filter is on disappears at once', withTidy(as
 
 // ---- rename / delete ----
 
-test('BUG: renaming a card to its folder’s name turns the note into the folder note (the card vanishes)', withTidy(async (p, h, t) => {
+test('renaming a card to its folder’s name is refused (it would become the folder note)', withTidy(async (p, h, t) => {
 	const before = await texts(p);
 	await openView(p);
 	const c = await at(p, 'Part One/Arrival.md');
@@ -338,6 +338,25 @@ test('dragging a note into a folder of the same name is refused (it would become
 	p.errors.length = 0;
 	const became = await exists(p, L + 'Part Two/Part Two.md');
 	t.ok(!became, 'refused: it would become Part Two’s folder note and vanish from the board');
+}));
+
+test('renaming a stack to the name of a note in it is refused (the note would become its folder note)', withTidy(async (p, h, t) => {
+	const before = await texts(p);
+	await openView(p);
+	await p.ev(`(() => { const v = ${VIEW}; v.options = { stacks: true }; v.setMode('plotgrid'); v.setMode('corkboard'); return 1; })()`);
+	await until(p, `!!document.querySelector('${card(L + 'Part One')}')`);
+	const c = await at(p, 'Part One');
+	await p.right(c.x, c.y);
+	await clickMenu(p, 'Rename');
+	await p.key('a', 'ctrl');
+	await p.type('Arrival');
+	await p.key('Enter');
+	await p.sleep(800);
+	p.errors.length = 0;
+	t.ok(await exists(p, L + 'Part One/Arrival.md') && !(await exists(p, L + 'Arrival')), 'the folder keeps its name');
+	t.eq(await p.ev(`document.activeElement?.value`), 'Arrival', 'what was typed stays in the field');
+	await p.key('Escape');
+	same(t, before, await texts(p));
 }));
 
 test('rename a stack keeps its folder note and synopsis', withTidy(async (p, h, t) => {

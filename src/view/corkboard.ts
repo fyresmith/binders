@@ -697,6 +697,9 @@ class Corkboard implements BinderMode {
 
 	private async rename(f: TAbstractFile, name: string): Promise<void> {
 		if (BAD_NAME.test(name)) throw new Error('A name can’t contain \\ / or :');
+		// a note named like its folder, or a folder named like a note in it, would make that note the folder note
+		if (f instanceof TFile && f.extension === 'md' && name === f.parent?.name) throw new Error('A note can’t have its folder’s name: it would become the folder’s note.');
+		if (f instanceof TFolder && f.children.some((c) => c instanceof TFile && c.extension === 'md' && c.basename === name)) throw new Error(`“${f.name}” already has a note called “${name}”, which would become its folder note.`);
 		const parent = f.parent?.path ?? '';
 		const to = normalizePath(`${parent}/${name}${f instanceof TFile ? '.' + f.extension : ''}`);
 		if (to === f.path) return;
