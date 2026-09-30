@@ -478,8 +478,10 @@ export class BinderStore extends Events implements ExplorerSource {
 			if (this.renamedFolders.length) { window.clearTimeout(this.followTimer); this.followTimer = window.setTimeout(() => { void this.followFolderNotes(); }, 50); }
 			return;
 		}
+		// a folder from another binder brings its order along
+		const inner = isFolder && o && or && nr ? this.contents(o).filter((p) => p !== or && p.startsWith(or)).map((p) => nr + p.slice(or.length)) : [];
 		if (o && or) this.queue(o, { op: 'remove', item: or });
-		if (n && nr) { if (this.isHiddenNote(file)) this.touch(n); else this.queue(n, { op: 'append', item: nr }); }
+		if (n && nr) { if (this.isHiddenNote(file)) this.touch(n); else this.queue(n, inner.length ? { op: 'append', item: nr, inner } : { op: 'append', item: nr }); }
 	}
 
 	/** Is this a binder note or Longform index, or a folder with one somewhere inside? */

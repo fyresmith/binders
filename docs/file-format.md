@@ -76,7 +76,7 @@ Binders creates it when you first give the folder a synopsis, status or label in
 
 - Renaming an item inside a binder, from anywhere in Obsidian, keeps its place (a folder's items move with it). Moving
   an item to another folder of the binder puts it at the end of that folder, with its items. Moving an item out removes
-  it from `contents`; moving one in adds it at the end of its folder. Deleting removes it.
+  it from `contents`; moving one in adds it at the end of its folder (a folder from another binder brings its order along). Deleting removes it.
 - A new note isn't written into `contents` until you move it: until then it shows after the listed items.
 - Moving an item in a binder writes down the place of everything there that isn't listed yet, files that aren't notes
   (images, PDFs) included, so what you see is what's kept.

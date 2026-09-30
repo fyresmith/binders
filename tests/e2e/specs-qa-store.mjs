@@ -222,6 +222,15 @@ test('moving a note between two binders: out of one, appended to the other', wit
 	await rename(p, 'Sequel/Act/Arrival.md', 'The Lighthouse/Part One/Arrival.md');
 }));
 
+test('a folder moved from one binder to another keeps its inner order', withTidy(async (p, h, t) => {
+	await makeSequel(p);
+	await rename(p, 'Sequel/Act', 'The Lighthouse/Act');
+	await p.sleep(600); await flush(p);
+	t.eq(j(await contents(p)), j([...LIST, 'Act/', 'Act/Z', 'Act/Y']), 'in the first, with its items in their old order');
+	t.eq(j(await kids(p, 'The Lighthouse/Act')), j(['Z.md', 'Y.md']), 'shown in their old order');
+	t.eq(j(await contents(p, 'Sequel/Sequel.md')), j(['B', 'A']), 'gone from the second');
+}));
+
 test('a binder moved into another becomes a folder of it; moved out, it is a binder again, its note untouched', withTidy(async (p, h, t) => {
 	await makeSequel(p);
 	const seq = await read(p, 'Sequel/Sequel.md');

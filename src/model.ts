@@ -177,7 +177,8 @@ export function readingOrder(contents: string[], childrenOf: (folder: string) =>
 export type ListOp =
 	| { op: 'rename'; from: string; to: string }
 	| { op: 'remove'; item: string }
-	| { op: 'append'; item: string }
+	/** `inner`: a folder's own entries, in order (one moved from another binder brings its order along). */
+	| { op: 'append'; item: string; inner?: string[] }
 	| { op: 'move'; item: string; folder: string; index: number };
 
 /** Applies a batch of changes. `known` is every item in the binder in the order it shows, for moves. An item appended
@@ -191,7 +192,12 @@ export function applyOps(contents: string[], ops: ListOp[], known: string[]): st
 	for (const o of ops) {
 		if (o.op === 'rename') list = parentOf(o.from) !== parentOf(o.to) && !carried(o) ? relocate(list, o.from, o.to) : renameIn(list, o.from, o.to);
 		else if (o.op === 'remove') list = removeFrom(list, o.item);
-		else if (o.op === 'append') { if (!list.includes(o.item) && !withFolder(o.item)) list = insertInFolder(list, o.item, Infinity); }
+		else if (o.op === 'append') {
+			if (list.includes(o.item) || withFolder(o.item)) continue;
+			list = insertInFolder(list, o.item, Infinity);
+			const at = list.indexOf(o.item) + 1, inner = (o.inner ?? []).filter((p) => p.startsWith(o.item) && !list.includes(p));
+			list = [...list.slice(0, at), ...inner, ...list.slice(at)];
+		}
 		else list = moveTo(list, known, o.item, o.folder, o.index);
 	}
 	return list;

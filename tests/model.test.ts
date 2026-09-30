@@ -88,6 +88,7 @@ const j = (x: unknown) => JSON.stringify(x);
 	eq(j(applyOps(c, [{ op: 'append', item: 'C' }, { op: 'append', item: 'P/y' }], known)), j(['A', 'P/', 'P/x', 'P/y', 'B', 'C']), 'appended at the end of their folder');
 	eq(j(applyOps(c, [{ op: 'append', item: 'A' }], known)), j(c), 'appending a listed item changes nothing');
 	eq(j(applyOps(c, [{ op: 'append', item: 'Q/a' }, { op: 'append', item: 'Q/' }, { op: 'append', item: 'Q/b' }], known)), j([...c, 'Q/']), 'a folder moved in comes in alone, whatever order the events arrive in');
+	eq(j(applyOps(c, [{ op: 'append', item: 'Q/', inner: ['Q/b', 'Q/S/', 'Q/S/z', 'Q/a', 'elsewhere'] }, { op: 'append', item: 'Q/a' }, { op: 'append', item: 'Q/b' }], known)), j([...c, 'Q/', 'Q/b', 'Q/S/', 'Q/S/z', 'Q/a']), 'a folder from another binder brings its order');
 	eq(j(applyOps(c, [{ op: 'rename', from: 'P/', to: 'R/' }, { op: 'rename', from: 'P/x', to: 'R/x' }], known)), j(['A', 'R/', 'R/x', 'B']), 'a folder rename and then its children’s renames');
 	eq(j(applyOps(c, [{ op: 'rename', from: 'P/x', to: 'R/x' }, { op: 'rename', from: 'P/', to: 'R/' }], known)), j(['A', 'R/', 'R/x', 'B']), 'or the other way round');
 	eq(j(applyOps(c, [{ op: 'move', item: 'B', folder: '', index: 0 }], known)), j(['B', 'A', 'P/', 'P/x']), 'moves');
