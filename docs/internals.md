@@ -9,6 +9,8 @@ a fallback, and has an e2e test. Keep this list current.
 | File explorer view's `fileItems` (path → item with `file`, `selfEl`, `innerEl`) | `src/explorer.ts` | Putting the binder icon on binder folders | No icon (only used when the patch is possible) | `specs-explorer.mjs` |
 | File explorer view's `requestSort()` (or `sort()`) | `src/explorer.ts` | Re-sorting after a binder changes, a setting changes, and on unload | Obsidian re-sorts on its next file change | `specs-explorer.mjs` |
 | Explorer DOM: `.workspace-leaf-content[data-type="file-explorer"] .nav-folder-title[data-path]`, `.collapse-icon` | `src/explorer.ts` | Click (or tap) to open a binder | Clicking only expands the folder, as usual | `specs-explorer.mjs` |
+| A menu item's `setSubmenu()` (returns the submenu, a `Menu`) | `src/view/internals.ts` | "Set status" and "Set label" on the corkboard | The item opens the submenu as a menu of its own | `specs-corkboard.mjs` |
+| An `ItemView`'s `titleEl`, and `leaf.updateHeader()` | `src/view/internals.ts` | The header and tab titles when a binder view changes folder, or its folder is renamed | The titles catch up when the view is next opened | `specs-view.mjs` |
 | `app.embedRegistry.embedByExtension.md(ctx, file, '')`: the editable Markdown embed Canvas and hover popovers use | `src/view/editable-embed.ts` | One live editor per manuscript section | The whole manuscript read only (rendered with the public `MarkdownRenderer`), with a notice; clicking a section opens its note | `specs-manuscript.mjs` (the fallback test removes it) |
 | The embed's `editable`, `loadFile()`, `showEditor()`, `save(text, now)`, `set(text, clear)`, `loadFileInternal(data, cache)`, `onFileChanged`, `requestSave.cancel()`, `text`/`data`/`dirty`, `unload()` | `src/view/editable-embed.ts` | Mounting, saving, merging outside edits, flushing on teardown (see below) | Checked in `embedSupported()`; a section whose mount throws stays rendered | `specs-manuscript.mjs` |
 | The embed's `editMode`: `get()`, `sourceMode`, `toggleSource()`, `saveHistory()`, `cm` (the CodeMirror `EditorView`) | `src/view/editable-embed.ts` | Reading typing, keeping live preview, undo across remounts, moving the caret between sections | Without `cm`, arrow keys stop at a section's edge (no crossing) | `specs-manuscript.mjs` |
@@ -62,3 +64,14 @@ touches it; `mountEditor()` builds one embed and patches that instance only:
   the mobile toolbar). On desktop, undo is CodeMirror's own Ctrl+Z; `editor:undo`/`editor:redo` are mobile commands.
 - Obsidian keeps undo history for the 20 most recent files; a section scrolled far away and unmounted beyond that loses
   its undo history, as closing a tab does.
+
+## The binder view (checked on Obsidian 1.13.7)
+
+- A view's `setState(state, result)` gets `result.history = false` when only its state changes. Setting it to `true`
+  records the change in the tab's history (as file views do when their file changes), so Back returns to the folder
+  before. This is public API.
+- Obsidian's own hotkey Mod-Enter ("Open link in new tab") runs, and swallows the key, whenever an editor was active
+  last, even while a binder view has the focus. The view claims Mod-Enter in its own `scope` while a synopsis is being
+  typed.
+- In the e2e harness, `activeDocument` can be another of Obsidian's windows, so menus opened without a position open
+  there; the view specs focus the main window first.

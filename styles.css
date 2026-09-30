@@ -497,3 +497,677 @@
 	text-align: center;
 	padding: var(--size-4-8);
 }
+
+/* ---- Binder view: toolbar, notice, synopsis ---- */
+
+/* Names for screen readers, not tooltips: Obsidian shows an element's aria-label on hover unless it's told not to. The
+   toolbar's buttons show theirs only when their labels are hidden (narrow panes, below). */
+.binders-card,
+.binders-editable,
+.binders-group-title,
+.binders-breadcrumbs,
+.binders-cards,
+.binders-toolbar-button {
+	--no-tooltip: true;
+}
+
+.binders-view {
+	display: flex;
+	flex-direction: column;
+	padding: 0;
+	overflow: hidden; /* each mode scrolls itself, under a toolbar that stays put */
+	container-type: inline-size;
+	container-name: binders-view;
+}
+
+.binders-toolbar {
+	flex: none;
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-1);
+	padding: var(--size-4-2) var(--size-4-4) var(--size-4-1);
+	background-color: var(--background-primary);
+}
+
+.binders-breadcrumbs {
+	display: flex;
+	align-items: center;
+	gap: var(--size-2-1);
+	min-width: 0;
+	flex: 0 1 auto;
+	overflow: hidden;
+	font-size: var(--font-ui-small);
+	color: var(--text-muted);
+}
+
+.binders-crumb {
+	min-width: 3em;
+	flex: 0 1 auto;
+	padding: var(--size-2-1) var(--size-2-2);
+	border-radius: var(--radius-s);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.binders-crumb[role="link"] {
+	cursor: var(--cursor);
+}
+
+.binders-crumb.is-current {
+	color: var(--text-normal);
+	font-weight: var(--font-medium);
+}
+
+.binders-crumb:focus-visible {
+	outline: none;
+	box-shadow: 0 0 0 2px var(--background-modifier-border-focus);
+}
+
+.binders-crumb-sep {
+	display: flex;
+	color: var(--text-faint);
+	--icon-size: var(--icon-xs);
+	--icon-stroke: var(--icon-xs-stroke-width);
+}
+
+.binders-toolbar-spacer {
+	flex: 1 1 0;
+}
+
+.binders-word-count {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+	white-space: nowrap;
+	font-variant-numeric: tabular-nums;
+	padding-inline: var(--size-2-2);
+}
+
+.binders-word-count.is-complete {
+	color: var(--text-success);
+}
+
+.binders-toolbar-button {
+	flex-shrink: 0;
+}
+
+.binders-toolbar-button.is-hidden {
+	display: none;
+}
+
+.binders-filter-button.is-active {
+	color: var(--text-accent);
+}
+
+@media (hover: hover) {
+	.binders-crumb[role="link"]:hover {
+		color: var(--text-normal);
+		background-color: var(--background-modifier-hover);
+	}
+	.binders-toolbar-button:hover {
+		color: var(--text-normal);
+		background-color: var(--background-modifier-hover);
+	}
+}
+
+.binders-notice {
+	display: none;
+	align-items: center;
+	gap: var(--size-4-2);
+	margin: var(--size-4-1) var(--size-4-4) var(--size-4-2);
+	padding: var(--size-4-2) var(--size-4-3);
+	border-radius: var(--radius-m);
+	background-color: var(--background-secondary);
+	border: var(--border-width) solid var(--background-modifier-border);
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.binders-notice.is-shown {
+	display: flex;
+}
+
+.binders-notice-icon {
+	display: flex;
+	flex-shrink: 0;
+	color: var(--text-warning);
+}
+
+.binders-view-synopsis-row {
+	flex: none;
+	max-height: 40%;
+	overflow-y: auto;
+	padding: 2px var(--size-4-4) var(--size-4-2); /* room for the focus ring */
+}
+
+.binders-view-synopsis:not(.is-editing) {
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 3;
+	overflow: hidden;
+}
+
+.binders-view-synopsis-row.is-hidden {
+	display: none;
+}
+
+.binders-view-synopsis {
+	max-width: var(--file-line-width);
+	padding: var(--size-2-1) var(--size-2-2);
+	margin-inline: calc(-1 * var(--size-2-2));
+	color: var(--text-muted);
+	font-size: var(--font-ui-medium);
+	line-height: var(--line-height-normal);
+}
+
+/* Narrow panes and phones: icons only in the toolbar, as Bases does, and tighter margins. */
+@container binders-view (width < 540px) {
+	.binders-toolbar-button .text-button-label {
+		display: none;
+	}
+	.binders-toolbar-button {
+		--no-tooltip: false;
+	}
+	.binders-toolbar,
+	.binders-view-synopsis-row {
+		padding-inline: var(--size-4-3);
+	}
+	.binders-notice {
+		margin-inline: var(--size-4-3);
+	}
+}
+
+.binders-mode {
+	flex: 1 1 auto;
+	min-height: 0; /* a definite height, for the modes that scroll themselves */
+	position: relative;
+}
+
+.binders-notice {
+	flex: none;
+}
+
+/* An empty state, like Obsidian's own "No file is open". */
+.binders-empty {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: var(--size-4-2);
+	height: 100%;
+	min-height: 200px;
+	padding: var(--size-4-8) var(--size-4-4);
+	text-align: center;
+}
+
+.binders-empty-title {
+	font-size: var(--font-ui-large);
+	font-weight: var(--font-semibold);
+	color: var(--text-normal);
+}
+
+.binders-empty-text {
+	max-width: 360px;
+	font-size: var(--font-ui-small);
+	color: var(--text-muted);
+}
+
+/* Text edited in place: looks like text until it's clicked, like a value in the Properties panel. */
+.binders-editable {
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	border-radius: var(--radius-s);
+}
+
+.binders-editable.is-editable {
+	cursor: text;
+}
+
+.binders-editable.is-empty {
+	color: var(--text-faint);
+}
+
+@media (hover: hover) {
+	.binders-editable.is-editable:not(.is-editing):hover {
+		background-color: var(--background-modifier-hover);
+	}
+}
+
+.binders-editable.is-editing {
+	background-color: var(--background-primary);
+	box-shadow: 0 0 0 2px var(--background-modifier-border-focus);
+}
+
+/* The field sits exactly where the text was, so nothing jumps when editing starts. (Two classes and the element, to
+   outrank Obsidian's own input styles, which would add a border and padding.) */
+.binders-editable textarea.binders-edit-field,
+.binders-editable input.binders-edit-field,
+.binders-card-new input.binders-edit-field {
+	display: block;
+	width: 100%;
+	height: auto;
+	margin: 0;
+	padding: 0;
+	font: inherit;
+	line-height: inherit;
+	color: var(--text-normal);
+	background: transparent;
+	border: none;
+	border-radius: 0;
+	box-shadow: none;
+	resize: none;
+	overflow: hidden;
+}
+
+.binders-editable textarea.binders-edit-field:hover,
+.binders-editable textarea.binders-edit-field:focus,
+.binders-editable input.binders-edit-field:hover,
+.binders-editable input.binders-edit-field:focus,
+.binders-card-new input.binders-edit-field:hover,
+.binders-card-new input.binders-edit-field:focus {
+	background: transparent;
+	border: none;
+	box-shadow: none;
+}
+
+/* Labels: Obsidian's accent colors, so every theme sets them. */
+.binders-card,
+.binders-label-dot {
+	--binders-label: transparent;
+}
+
+.binders-card.mod-label-red, .binders-label-dot.mod-red { --binders-label: var(--color-red); }
+.binders-card.mod-label-orange, .binders-label-dot.mod-orange { --binders-label: var(--color-orange); }
+.binders-card.mod-label-yellow, .binders-label-dot.mod-yellow { --binders-label: var(--color-yellow); }
+.binders-card.mod-label-green, .binders-label-dot.mod-green { --binders-label: var(--color-green); }
+.binders-card.mod-label-cyan, .binders-label-dot.mod-cyan { --binders-label: var(--color-cyan); }
+.binders-card.mod-label-blue, .binders-label-dot.mod-blue { --binders-label: var(--color-blue); }
+.binders-card.mod-label-purple, .binders-label-dot.mod-purple { --binders-label: var(--color-purple); }
+.binders-card.mod-label-pink, .binders-label-dot.mod-pink { --binders-label: var(--color-pink); }
+.binders-card.mod-label-other, .binders-label-dot.mod-other { --binders-label: var(--text-faint); }
+
+.binders-label-dot {
+	display: inline-block;
+	flex-shrink: 0;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background-color: var(--binders-label);
+	vertical-align: middle;
+}
+
+.menu-item-title .binders-label-dot {
+	margin-inline-end: var(--size-4-2);
+}
+
+.binders-label-dot.mod-none {
+	box-shadow: inset 0 0 0 1px var(--text-faint);
+}
+
+/* A status: a small pill, like a list value in the Properties panel. */
+.binders-chip {
+	display: inline-flex;
+	align-items: center;
+	min-width: 0;
+	padding: 0 var(--size-4-2);
+	border-radius: var(--radius-s);
+	background-color: var(--background-modifier-hover);
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	line-height: 1.6;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* ---- Corkboard ---- */
+
+.binders-corkboard {
+	height: 100%;
+	overflow-y: auto;
+}
+
+.binders-board {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-4);
+	padding: var(--size-4-2) var(--size-4-4) var(--size-4-8);
+}
+
+/* A subfolder: a panel with its heading, so the notes after it are plainly back in the folder shown. */
+.binders-group.is-folder {
+	padding: var(--size-4-3);
+	border-radius: var(--radius-l);
+	background-color: var(--background-secondary);
+}
+
+.binders-group-heading {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-2-2);
+	margin-bottom: var(--size-4-3);
+}
+
+.binders-group-title-row {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	min-width: 0;
+}
+
+.binders-group-title {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-1);
+	min-width: 0;
+	padding: var(--size-2-1) var(--size-2-2);
+	margin-inline-start: calc(-1 * var(--size-2-2));
+	border-radius: var(--radius-s);
+	font-size: var(--font-ui-medium);
+	font-weight: var(--font-semibold);
+	color: var(--text-normal);
+	cursor: var(--cursor);
+}
+
+.binders-group-title > span:last-child {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.binders-group-icon {
+	display: flex;
+	color: var(--icon-color);
+	--icon-size: var(--icon-s);
+	--icon-stroke: var(--icon-s-stroke-width);
+}
+
+.binders-group-title:focus-visible {
+	outline: none;
+	box-shadow: 0 0 0 2px var(--background-modifier-border-focus);
+}
+
+@media (hover: hover) {
+	.binders-group-title:hover {
+		background-color: var(--background-modifier-hover);
+	}
+}
+
+.binders-group-count {
+	margin-inline-start: auto;
+	flex-shrink: 0;
+	font-size: var(--font-ui-smaller);
+	color: var(--text-faint);
+	font-variant-numeric: tabular-nums;
+}
+
+.binders-group-synopsis {
+	max-width: var(--file-line-width);
+	padding: var(--size-2-1) var(--size-2-2);
+	margin-inline: calc(-1 * var(--size-2-2));
+	font-size: var(--font-ui-small);
+	color: var(--text-muted);
+}
+
+/* An empty heading synopsis only offers itself when the heading is pointed at, so a board of new folders stays quiet. */
+@media (hover: hover) {
+	.binders-group-synopsis.is-empty:not(:focus-visible) {
+		visibility: hidden;
+	}
+	.binders-group-heading:hover .binders-group-synopsis.is-empty {
+		visibility: visible;
+	}
+}
+
+.binders-editable[tabindex]:focus-visible {
+	outline: none;
+	box-shadow: 0 0 0 2px var(--background-modifier-border-focus);
+}
+
+.binders-cards {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr));
+	gap: var(--size-4-3);
+}
+
+/* An index card: one of Obsidian's own surfaces, with its label as a stripe along the top. */
+.binders-card {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-2-3);
+	min-height: 132px;
+	padding: var(--size-4-3) var(--size-4-3) var(--size-4-2);
+	border-radius: var(--radius-m);
+	border: var(--border-width) solid var(--background-modifier-border);
+	background-color: var(--background-primary);
+	box-shadow: var(--shadow-s);
+	user-select: none;
+	-webkit-user-select: none;
+	-webkit-touch-callout: none;
+	overflow: hidden;
+	cursor: default;
+	transition: box-shadow 120ms ease, opacity 120ms ease, transform 120ms ease;
+}
+
+.binders-card::before {
+	content: "";
+	position: absolute;
+	inset: 0 0 auto 0;
+	height: 3px;
+	background-color: var(--binders-label);
+}
+
+.binders-card:focus {
+	outline: none;
+}
+
+.binders-card:focus-visible {
+	box-shadow: 0 0 0 2px var(--background-modifier-border-focus), var(--shadow-s);
+}
+
+.binders-card.is-selected {
+	border-color: var(--interactive-accent);
+	box-shadow: 0 0 0 1px var(--interactive-accent), var(--shadow-s);
+}
+
+.binders-card.is-selected:focus-visible {
+	box-shadow: 0 0 0 1px var(--interactive-accent), 0 0 0 4px var(--background-modifier-border-focus);
+}
+
+.binders-card-head {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-1);
+	min-width: 0;
+}
+
+.binders-card-icon {
+	display: flex;
+	flex-shrink: 0;
+	color: var(--icon-color);
+	--icon-size: var(--icon-s);
+	--icon-stroke: var(--icon-s-stroke-width);
+}
+
+.binders-card-title {
+	flex: 1 1 auto;
+	min-width: 0;
+	font-size: var(--font-ui-medium);
+	font-weight: var(--font-semibold);
+	line-height: var(--line-height-tight);
+	color: var(--text-normal);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.binders-card-synopsis {
+	flex: 1 1 auto;
+	margin-inline: calc(-1 * var(--size-2-2));
+	padding: var(--size-2-1) var(--size-2-2);
+	font-size: var(--font-ui-small);
+	line-height: var(--line-height-normal);
+	color: var(--text-muted);
+}
+
+.binders-card-synopsis:not(.is-editing) {
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 6;
+	overflow: hidden;
+}
+
+.binders-board.is-read-only .binders-card-synopsis.is-empty {
+	display: none;
+}
+
+.binders-card-footer {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	min-height: 20px;
+}
+
+.binders-card-spacer {
+	flex: 1 1 0;
+}
+
+.binders-card-words {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-faint);
+	white-space: nowrap;
+	font-variant-numeric: tabular-nums;
+}
+
+/* A subfolder shown as one card: a stack, with the cards under it peeking out. */
+.binders-card.is-stack {
+	--binders-stack: 3px 3px 0 -1px var(--background-primary), 3px 3px 0 0 var(--background-modifier-border), 6px 6px 0 -1px var(--background-primary), 6px 6px 0 0 var(--background-modifier-border);
+	overflow: visible;
+	margin-inline-end: 6px;
+	margin-bottom: 6px;
+	box-shadow: var(--binders-stack);
+}
+
+.binders-card.is-stack::before {
+	border-radius: var(--radius-m) var(--radius-m) 0 0;
+}
+
+.binders-card.is-stack:focus-visible {
+	box-shadow: 0 0 0 2px var(--background-modifier-border-focus), var(--binders-stack);
+}
+
+.binders-card.is-stack.is-selected {
+	box-shadow: 0 0 0 1px var(--interactive-accent), var(--binders-stack);
+}
+
+/* The "+" at the end of each group. */
+.binders-card-new {
+	align-items: center;
+	justify-content: center;
+	flex-direction: row;
+	gap: var(--size-4-1);
+	border-style: dashed;
+	background-color: transparent;
+	box-shadow: none;
+	color: var(--text-faint);
+	font-size: var(--font-ui-small);
+	cursor: var(--cursor);
+}
+
+.binders-card-new::before {
+	display: none;
+}
+
+.binders-card-new-icon {
+	display: flex;
+	--icon-size: var(--icon-s);
+}
+
+.binders-card-new:focus-visible {
+	box-shadow: 0 0 0 2px var(--background-modifier-border-focus);
+}
+
+.binders-card-new.is-editing {
+	align-items: flex-start;
+	justify-content: flex-start;
+	border-style: solid;
+	border-color: var(--interactive-accent);
+	background-color: var(--background-primary);
+	box-shadow: 0 0 0 1px var(--interactive-accent), var(--shadow-s);
+	cursor: default;
+}
+
+.binders-card-new.is-editing input.binders-edit-field {
+	font-size: var(--font-ui-medium);
+	font-weight: var(--font-semibold);
+	line-height: var(--line-height-tight);
+}
+
+@media (hover: hover) {
+	.binders-card-new:not(.is-editing):hover {
+		color: var(--text-muted);
+		border-color: var(--background-modifier-border-hover);
+		background-color: var(--background-modifier-hover);
+	}
+}
+
+/* Dragging: the cards being moved fade, a line shows where they'll go, Obsidian's own drag ghost follows the pointer. */
+.binders-board.is-dragging,
+.binders-board.is-dragging .binders-card {
+	cursor: grabbing;
+}
+
+.binders-card.is-dragging {
+	opacity: 0.4;
+}
+
+.binders-card.is-lifted {
+	transform: scale(1.02);
+	box-shadow: var(--shadow-l);
+}
+
+.binders-drag-ghost {
+	top: 0;
+	left: 0;
+}
+
+.binders-drop-indicator {
+	position: absolute;
+	display: none;
+	height: 0;
+	border-top: 2px solid var(--interactive-accent);
+	border-radius: 1px;
+	pointer-events: none;
+	z-index: 1;
+}
+
+.binders-drop-indicator.is-vertical {
+	width: 0;
+	border-top: none;
+	border-inline-start: 2px solid var(--interactive-accent);
+}
+
+.binders-drop-indicator.is-active {
+	display: block;
+}
+
+/* Narrow panes and phones: one column of cards, tighter margins. */
+@container binders-view (width < 540px) {
+	.binders-board {
+		padding-inline: var(--size-4-3);
+	}
+}
+
+@container binders-view (width < 480px) {
+	.binders-cards {
+		grid-template-columns: 1fr;
+	}
+	.binders-card {
+		min-height: 0;
+	}
+	.binders-card-new {
+		min-height: 48px;
+	}
+}
