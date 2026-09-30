@@ -856,7 +856,7 @@ class Corkboard implements BinderMode {
 			i.setSection('props').setTitle('Set status').setIcon('circle-dot');
 			submenu(i, (m) => {
 				const now = cur('status');
-				for (const s of this.inUse('status')) m.addItem((x) => x.setTitle(display(s)).setChecked(now === s).onClick(() => void this.setAll(items, { status: s })));
+				for (const s of this.inUse('status')) m.addItem((x) => x.setTitle(s).setChecked(now === s).onClick(() => void this.setAll(items, { status: s })));
 				m.addItem((x) => x.setSection('new').setTitle('New status…').setIcon('plus').onClick(async () => {
 					const s = await ask(this.ctx.app, { title: 'New status', placeholder: 'Draft, revised, done…', cta: 'Set status' });
 					if (s) await this.setAll(items, { status: s });

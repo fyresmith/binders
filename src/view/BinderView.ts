@@ -336,8 +336,8 @@ export class BinderView extends ItemView {
 			for (const v of values) {
 				menu.addItem((i) => {
 					const t = createFragment();
-					if (kind === 'label') labelDot(t, v);
-					t.appendText(display(v));
+					// a status shows as it's written, as on the cards; a label by its color's name
+					if (kind === 'label') { labelDot(t, v); t.appendText(display(v)); } else t.appendText(v);
 					i.setSection(kind).setTitle(t).setChecked(this.filter[kind].includes(v)).onClick(() => toggle(kind, v));
 				});
 			}

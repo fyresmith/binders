@@ -28,8 +28,8 @@ async function filterBy(p, title) {
 
 test('Alt+Down while filtered moves the card past the next card shown, keeping hidden ones in place', withTidy(async (p, h, t) => {
 	await openView(p, 'The Lighthouse/Part One');
-	await filterBy(p, 'Revised');
-	await filterBy(p, 'Idea');
+	await filterBy(p, 'revised');
+	await filterBy(p, 'idea');
 	t.eq(j(await cards(p)), j([L + 'Part One/Arrival.md', L + 'Part One/Storm warning.md']), 'filtered');
 	const a = await at(p, 'Part One/Arrival.md');
 	await p.click(a.x, a.t + 12);
@@ -40,7 +40,7 @@ test('Alt+Down while filtered moves the card past the next card shown, keeping h
 
 test('Alt+Up on the first card shown while filtered changes nothing, though hidden cards are above it', withTidy(async (p, h, t) => {
 	await openView(p, 'The Lighthouse/Part One');
-	await filterBy(p, 'Draft'); // Part One: Arrival (revised), The keeper (draft), Storm warning (?)
+	await filterBy(p, 'draft'); // Part One: Arrival (revised), The keeper (draft), Storm warning (?)
 	const shown = await cards(p);
 	t.ok(shown.includes(L + 'Part One/The keeper.md') && !shown.includes(L + 'Part One/Arrival.md'), 'filtered: ' + j(shown));
 	const k = await at(p, 'Part One/The keeper.md');
@@ -54,7 +54,7 @@ test('Alt+Up on the first card shown while filtered changes nothing, though hidd
 
 test('drag while filtered keeps hidden cards where they were', withTidy(async (p, h, t) => {
 	await openView(p);
-	await filterBy(p, 'Draft');
+	await filterBy(p, 'draft');
 	t.eq(j(await cards(p)), j([L + 'Prologue.md', L + 'Part One/The keeper.md', L + 'Part Two/The wreck.md']), 'drafts only');
 	const w = await at(p, 'Part Two/The wreck.md'), k = await at(p, 'Part One/The keeper.md');
 	await drag(p, { x: w.x, y: w.t + 12 }, { x: k.l + 8, y: k.y });
@@ -309,7 +309,7 @@ test('new card: typing the next title right after Enter loses nothing', withTidy
 
 test('a new card made while a filter is on stays until the filter changes', withTidy(async (p, h, t) => {
 	await openView(p, 'The Lighthouse/Part One');
-	await filterBy(p, 'Draft');
+	await filterBy(p, 'draft');
 	const nc = await p.at(`.workspace-leaf.mod-active .binders-group:last-child .binders-card-new`);
 	await p.click(nc.x, nc.y);
 	await p.type('Filtered');
@@ -319,7 +319,7 @@ test('a new card made while a filter is on stays until the filter changes', with
 	await p.key('Escape');
 	await p.shot(`${SHOTS}/new-card-filtered-${await theme(p)}.png`);
 	t.ok((await cards(p)).includes(L + 'Part One/Filtered.md'), 'the new card shows, though it has no status yet');
-	await filterBy(p, 'Revised');
+	await filterBy(p, 'revised');
 	await p.sleep(300);
 	t.ok(!(await cards(p)).includes(L + 'Part One/Filtered.md'), 'once the filter changes, the filter decides');
 }));

@@ -255,8 +255,8 @@ test('status and label from the menu', withTidy(async (p, h, t) => {
 	t.ok(await p.ev(`!!document.querySelector('.menu .menu-item.has-submenu')`), 'Obsidian’s menus still have submenus (MenuItem.setSubmenu, an internal: see docs/internals.md)');
 	await hoverMenu(p, 'Set status');
 	const items = await menuItems(p);
-	t.ok(['Draft', 'Revised', 'Idea', 'New status…'].every((x) => items.includes(x)), 'statuses in use, and a new one: ' + items.join(', '));
-	await clickMenu(p, 'Revised');
+	t.ok(['draft', 'revised', 'idea', 'New status…'].every((x) => items.includes(x)), 'statuses in use, and a new one: ' + items.join(', '));
+	await clickMenu(p, 'revised');
 	await until(p, `app.vault.adapter.read('The Lighthouse/Epilogue.md').then(s => s.includes('status: revised'))`);
 	const d = await at(p, 'Epilogue.md');
 	await p.right(d.x, d.y);

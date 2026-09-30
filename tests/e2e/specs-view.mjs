@@ -250,13 +250,13 @@ test('filter by status and label', async (p, h, t) => {
 	const at = await p.at(`.workspace-leaf.mod-active .binders-filter-button`);
 	await p.click(at.x, at.y);
 	const items = await menuItems(p);
-	t.ok(['Status', 'Draft', 'Revised', 'Idea'].every((x) => items.includes(x)), 'the statuses in use: ' + items.join(', '));
-	await clickMenu(p, 'Draft');
+	t.ok(['Status', 'draft', 'revised', 'idea'].every((x) => items.includes(x)), 'the statuses in use: ' + items.join(', '));
+	await clickMenu(p, 'draft');
 	t.eq(j(await cards(p)), j(['The Lighthouse/Prologue.md', 'The Lighthouse/Part One/The keeper.md', 'The Lighthouse/Part Two/The wreck.md']), 'only drafts');
 	t.eq(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-filter-button .text-button-label').textContent`), 'Filter (1)', 'the button says a filter is on');
 	t.eq(j((await viewState(p)).filter.status), j(['draft']), 'kept in the view’s state');
 	await p.click(at.x, at.y);
-	await clickMenu(p, 'Idea');
+	await clickMenu(p, 'idea');
 	t.eq((await cards(p)).length, 6, 'drafts or ideas');
 	await p.click(at.x, at.y);
 	await clickMenu(p, 'Clear filter');
