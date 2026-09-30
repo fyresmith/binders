@@ -241,6 +241,8 @@ export class BinderStore extends Events implements ExplorerSource {
 		if (this.isHiddenNote(item)) throw new Error('Binder and folder notes stay with their folder.');
 		if (t.kind === 'longform') return this.lfMove(t, item, folder, index, depth);
 		if (item instanceof TFolder && (folder === item || folder.path.startsWith(item.path + '/'))) throw new Error('A folder can’t go inside itself.');
+		// a note named like the folder it goes into would become that folder's note, and leave the binder
+		if (item instanceof TFile && item.extension === 'md' && item.basename === folder.name && item.parent !== folder) throw new Error(`“${item.basename}” can’t go into a folder with the same name: it would become the folder’s note.`);
 		if (item.parent !== folder) {
 			const to = normalizePath(`${folder.path}/${item.name}`);
 			if (this.app.vault.getAbstractFileByPath(to)) throw new Error(`“${folder.name}” already has an item called “${item.name}”.`);

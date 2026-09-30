@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.6.1 (2026-09-30)
+
+### Fixed
+
+- Moving a note into a folder with the same name is refused, so the note no longer turns into that folder's note and disappears.
+
 ## 0.6.0 (2026-09-30)
 
 ### Added
