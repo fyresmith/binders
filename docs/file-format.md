@@ -18,6 +18,8 @@ contents:                 # the order of everything in the binder, as paths rela
 plotlines:                # the plot grid's columns, in order
   - Mara
   - The keeper's secret
+plotlineColors:           # optional: a color per plotline
+  Mara: blue
 ---
 Anything you like: a synopsis of the whole book, notes, links.
 ```
@@ -26,7 +28,8 @@ Anything you like: a synopsis of the whole book, notes, links.
 |---|---|---|
 | `binder` | number | Format version. Binders refuses (and never rewrites) a binder note with a version newer than it knows. |
 | `contents` | list of text | The binder's order. Paths use `/`, are relative to the binder folder, have no `.md`, and folders end in `/`. |
-| `plotlines` | list of text | The plot grid's columns. |
+| `plotlines` | list of text | The plot grid's columns, in order. |
+| `plotlineColors` | map of text | Optional. A color for some plotlines, by name: `red`, `orange`, `yellow`, `green`, `cyan`, `blue`, `purple` or `pink` (the theme's own shades). Plotlines without one use the accent color; unknown colors are ignored. |
 | `target` | number | Optional word count goal for the binder. |
 | `synopsis`, `status`, `label` | | The binder's own card data, as for scenes (below). |
 
@@ -53,6 +56,9 @@ Binders creates it when you first give the folder a synopsis, status or label in
 - If a folder has several binder notes, the one named like the folder is the binder note; otherwise the first by name.
 - The vault's top level can't be a binder.
 - Binders writes only `contents` (and its own properties above) in the binder note, and never changes the rest of it.
+- Renaming a plotline in the plot grid renames it in `plotlines`, in `plotlineColors`, and in the `plotlines` of every
+  scene in the binder that lists it. Deleting one removes it from `plotlines` and `plotlineColors`, and from the scenes
+  only if you ask. Binders doesn't write `plot` yet.
 
 ## Keeping the list up to date
 
@@ -75,7 +81,7 @@ settings.
 | `synopsis` | text | The corkboard card's text |
 | `status` | text | A chip on the card, and a filter (for example idea, draft, revised, done) |
 | `label` | text | The card's color |
-| `plotlines` | list of text | The plot grid's ticks for this scene |
+| `plotlines` | list of text | The plot grid's ticks for this scene. Names the binder has no column for still show, under "Other" |
 | `plot` | object | Reserved: text per plotline for this scene (`plot: {Mara: "…"}`), for a later version of the plot grid |
 
 ## Compatibility

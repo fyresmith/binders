@@ -2,6 +2,8 @@ import { Notice, Plugin, TFile, TFolder, type Menu, type TAbstractFile } from 'o
 import { BinderStore } from './binders';
 import { BindersSettingTab, DEFAULT_SETTINGS, type BindersSettings } from './settings';
 import { installExplorer, type Explorer } from './explorer'; // explorer (0.3)
+import type { ModeFactory } from './view/mode';
+import { plotgrid } from './view/plotgrid'; // plot grid (0.5)
 
 /* Binders: ordered folders for long-form writing. See docs/plan.md for the design. */
 export default class BindersPlugin extends Plugin {
@@ -9,6 +11,10 @@ export default class BindersPlugin extends Plugin {
 	explorer: Explorer; // explorer (0.3)
 	/** Every binder in the vault; views, the explorer and tests go through this. */
 	binders: BinderStore;
+	/** The binder view's modes by id: the view mounts one into its content (see view/mode.ts). */
+	readonly modeFactories: Record<string, ModeFactory> = {
+		plotgrid, // plot grid (0.5)
+	};
 
 	async onload() {
 		await this.loadSettings();
