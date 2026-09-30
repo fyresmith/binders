@@ -308,3 +308,17 @@ test('follows its folder when it’s renamed, and says so when it’s gone', wit
 	t.ok(/isn’t in a binder/.test(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-empty').textContent`)), 'an empty state says the folder is gone');
 	t.ok(await exists(p, 'The Lighthouse/Part Two/The wreck.md'), 'nothing else went');
 }));
+
+test('a narrow pane: folder names win over the counts', withTidy(async (p, h, t) => {
+	await openView(p);
+	const cut = (sel) => p.ev(`(() => { const e = document.querySelector('.workspace-leaf.mod-active ${sel}'); return !e ? 'missing' : e.scrollWidth > e.clientWidth + 1; })()`);
+	for (const width of [700, 620]) {
+		await p.send('Emulation.setDeviceMetricsOverride', { width, height: 800, deviceScaleFactor: 1, mobile: false });
+		await p.sleep(400);
+		const pane = await p.ev(`Math.round(document.querySelector('.workspace-leaf.mod-active .binders-view').getBoundingClientRect().width)`);
+		t.eq(await cut('.binders-crumb.is-current'), false, `the breadcrumb shows the whole name (pane ${pane}px)`);
+		t.eq(await cut('.binders-group.is-folder .binders-group-title > span:last-child'), false, `a heading shows the whole name (pane ${pane}px)`);
+	}
+	await p.send('Emulation.setDeviceMetricsOverride', { width: p.width, height: p.height, deviceScaleFactor: 1, mobile: false });
+	await p.sleep(300);
+}));

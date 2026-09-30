@@ -551,6 +551,7 @@
 }
 
 .binders-crumb[role="link"] {
+	flex-shrink: 10; /* the folder shown keeps its name longest */
 	cursor: var(--cursor);
 }
 
@@ -576,6 +577,11 @@
 }
 
 .binders-word-count {
+	/* in a narrow pane the names win: the count gives way first, then goes */
+	flex: 0 1000 auto;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
 	font-size: var(--font-ui-smaller);
 	color: var(--text-muted);
 	white-space: nowrap;
@@ -674,6 +680,12 @@
 	}
 	.binders-notice {
 		margin-inline: var(--size-4-3);
+	}
+}
+
+@container binders-view (width < 360px) {
+	.binders-word-count {
+		display: none;
 	}
 }
 
@@ -909,7 +921,11 @@
 
 .binders-group-count {
 	margin-inline-start: auto;
-	flex-shrink: 0;
+	flex: 0 1000 auto; /* the folder's name wins */
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 	font-size: var(--font-ui-smaller);
 	color: var(--text-faint);
 	font-variant-numeric: tabular-nums;
