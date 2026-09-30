@@ -303,9 +303,10 @@ class Manuscript implements BinderMode {
 				s.live = live;
 				s.shown = null;
 			} catch (e) {
+				host.remove();
+				if (this.dead || this.byKey.get(s.file) !== s) return; // closed while it was opening
 				console.error(`Binders: couldn't open “${s.file.path}” for editing in the manuscript`, e);
 				s.broken = true;
-				host.remove();
 			} finally {
 				s.mounting = null;
 			}

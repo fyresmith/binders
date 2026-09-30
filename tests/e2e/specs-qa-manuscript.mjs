@@ -533,7 +533,7 @@ test('IME composition, committed, then switching modes at once: the composed tex
 	t.eq(disk(p, f), TAIL(f, before, ' 仮名 ok'), 'composed text saved');
 });
 
-test('BUG: the same binder in two tabs of one pane: type in one, switch tabs, type in the other: first typing lost, second doubled', async (p, h, t) => {
+test('fixed: the same binder in two tabs of one pane: type in one, switch tabs, type in the other: first typing lost, second doubled', async (p, h, t) => {
 	await openMs(p);
 	await openMs(p, B, 'tab');
 	const leaves = `app.workspace.getLeavesOfType('binders-view')`;
@@ -619,7 +619,7 @@ test('unsaved typing in a tab, then the note is opened in the manuscript (split)
 	t.eq(await p.ev(`__t1.view.editor.getValue()`), disk(p, f), 'the tab agrees');
 });
 
-test('BUG: a section mounted while another manuscript has unsaved typing in the same note loads the old text; typing there loses the first typing', async (p, h, t) => {
+test('fixed: a section mounted while another manuscript has unsaved typing in the same note loads the old text; typing there loses the first typing', async (p, h, t) => {
 	await openMs(p);
 	const f = ORDER[0], before = disk(p, f);
 	await focusEnd(p, f); await typeFast(p, ' first');

@@ -62,6 +62,10 @@ export function embedSupported(app: App, probe: TFile): boolean {
 	}
 }
 
+/** Every live editor, by note, across all manuscripts (a split, another tab of the binder): a new one waits for
+    the others' pending typing to be written, or it would load the old text and typing in it would lose theirs. */
+const openEditors = new Map<TFile, Set<() => Promise<void>>>();
+
 export interface LiveEditor {
 	readonly file: TFile;
 	readonly editor: Editor | undefined;
@@ -111,10 +115,13 @@ export async function mountEditor(app: App, container: HTMLElement, file: TFile,
 		if (!now) opts.onChange?.(text);
 		return p;
 	};
+	// the write in flight: a flush while it runs (dirty is already false) must still wait for it
+	let writing: Promise<void> = Promise.resolve();
 	const flush = (): Promise<void> => {
 		embed.requestSave.cancel();
 		if (embed.editMode) embed.text = embed.editMode.get();
-		return embed.dirty ? embed.save(embed.text, true) : Promise.resolve();
+		if (embed.dirty) writing = embed.save(embed.text, true);
+		return writing;
 	};
 	// 6. Whoever tears the embed down (us, the view closing, the plugin unloading), typing is written first; the
 	//    debounced save isn't relied on. Undo history goes to Obsidian's per-file cache so a remount gets it back.
@@ -122,6 +129,8 @@ export async function mountEditor(app: App, container: HTMLElement, file: TFile,
 	embed.unload = function (this: MdEmbed) {
 		if (!gone) {
 			gone = true;
+			openEditors.get(file)?.delete(flush);
+			if (!openEditors.get(file)?.size) openEditors.delete(file);
 			try {
 				saved = flush().catch((e) => console.error('Binders: saving failed', e));
 				this.editMode?.saveHistory();
@@ -132,8 +141,12 @@ export async function mountEditor(app: App, container: HTMLElement, file: TFile,
 
 	parent.addChild(embed);
 	try {
+		await Promise.all([...(openEditors.get(file) ?? [])].map((f) => f()));
+		if (gone) throw new Error('Closed while opening.');
 		// 3. save() does nothing until loadFile() resolves, so the editor is only shown after it.
 		await embed.loadFile();
+		if (!openEditors.has(file)) openEditors.set(file, new Set());
+		openEditors.get(file).add(flush);
 		// 2. A reload calls set(text, true), which rebuilds the editor state: cursor, scroll and undo lost. A plain
 		//    set() applies the change as a minimal diff, as a normal note does.
 		embed.set = function (this: MdEmbed, text: string) { proto.set.call(this, text, false); };

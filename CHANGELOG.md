@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.6.30 (2026-09-30)
+
+### Fixed
+
+- Opening a binder's manuscript in a split or second tab while typing in another no longer loses or doubles what you typed.
+
 ## 0.6.29 (2026-09-30)
 
 ### Fixed

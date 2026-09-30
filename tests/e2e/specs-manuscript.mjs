@@ -256,6 +256,28 @@ test('an outside edit to a section keeps its cursor and undo history', async (p,
 	await flushAll(p);
 });
 
+test('a second manuscript mounting a note with unsaved typing elsewhere starts from that typing, not the old file', async (p, h, t) => {
+	await mount(p);
+	const f = ORDER[0], before = disk(p, f);
+	await focusEnd(p, f); await p.type(' first');
+	// another view of the binder opens without taking focus (the first section keeps its unsaved typing)
+	const second = await p.ev(`(async () => {
+		const leaf = app.workspace.getLeaf('split'); await leaf.setViewState({ type: 'empty' });
+		const host = leaf.view.contentEl; host.empty();
+		const ctx = Object.assign({}, __ms.ctx, { owner: leaf.view });
+		const m = app.plugins.plugins.binders.modeFactories.manuscript(host, ctx); m.render();
+		window.__ms2 = { mode: m, leaf };
+		const s = m.scenes[0]; await m.mount(s);
+		return s.live.editor.getValue(); })()`);
+	t.ok(await activeIn(p, f), 'focus stayed in the first manuscript');
+	t.ok(second.endsWith(' first\n'), 'the new section has the unsaved typing: ' + J(second.slice(-30)));
+	await p.ev(`(() => { const ed = __ms2.mode.scenes[0].live.editor; ed.focus(); let n = ed.lastLine(); while (n > 0 && !ed.getLine(n)) n--; ed.setCursor({ line: n, ch: ed.getLine(n).length }); return 1; })()`);
+	await p.type(' second');
+	await p.sleep(2800);
+	t.eq(disk(p, f), before.replace(/\n$/, '') + ' first second\n', 'both, once');
+	await p.ev(`(() => { __ms2.leaf.detach(); return 1; })()`);
+});
+
 // ---- moving between sections ----
 
 test('ArrowDown at the end of a section goes into the next; ArrowUp at the start goes back', async (p, h, t) => {
