@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.6.26 (2026-09-30)
+
+### Fixed
+
+- A binder moved out of another binder, or a binder note or Longform index moved into a folder, is recognised right away.
+
 ## 0.6.25 (2026-09-30)
 
 ### Fixed

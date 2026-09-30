@@ -457,8 +457,9 @@ export class BinderStore extends Events implements ExplorerSource {
 
 	private onRename(file: TAbstractFile, oldPath: string): void {
 		const isFolder = file instanceof TFolder;
-		// the binder note moved, or a folder holding a binder: which folders are binders may have changed
-		if ((file instanceof TFile && this.states.has(file)) || (isFolder && [...this.states.values()].some((s) => s.path === oldPath || s.path.startsWith(oldPath + '/')))) this.rescan();
+		// the binder note moved, a folder holding a binder, or a note that could make a folder a binder (a binder note or
+		// Longform index moved into a plain folder, or out of a binder): which folders are binders may have changed
+		if ((file instanceof TFile && this.states.has(file)) || (isFolder && [...this.states.values()].some((s) => s.path === oldPath || s.path.startsWith(oldPath + '/'))) || this.holdsBinderNote(file)) this.rescan();
 		let o = this.at(oldPath, true), n = this.at(file.path);
 		// Longform projects know scenes by name; a note moving between a project and a binder is handled half by each
 		if (o?.kind === 'longform' || n?.kind === 'longform') {
@@ -479,6 +480,13 @@ export class BinderStore extends Events implements ExplorerSource {
 		}
 		if (o && or) this.queue(o, { op: 'remove', item: or });
 		if (n && nr) { if (this.isHiddenNote(file)) this.touch(n); else this.queue(n, { op: 'append', item: nr }); }
+	}
+
+	/** Is this a binder note or Longform index, or a folder with one somewhere inside? */
+	private holdsBinderNote(f: TAbstractFile): boolean {
+		if (f instanceof TFolder) return f.children.some((c) => this.holdsBinderNote(c));
+		const fm = f instanceof TFile && f.extension === 'md' ? this.app.metadataCache.getFileCache(f)?.frontmatter : null;
+		return !!fm && (isBinderNote(fm) || isLongformIndex(fm));
 	}
 
 	private onDelete(file: TAbstractFile): void {

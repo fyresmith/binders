@@ -222,6 +222,25 @@ test('moving a note between two binders: out of one, appended to the other', wit
 	await rename(p, 'Sequel/Act/Arrival.md', 'The Lighthouse/Part One/Arrival.md');
 }));
 
+test('a binder moved into another becomes a folder of it; moved out, it is a binder again, its note untouched', withTidy(async (p, h, t) => {
+	await makeSequel(p);
+	const seq = await read(p, 'Sequel/Sequel.md');
+	await rename(p, 'Sequel', 'The Lighthouse/Sequel');
+	await p.sleep(700); await flush(p);
+	t.eq(j(await p.ev(`${BINDERS}.map(b => b.folder.path)`)), j(['The Lighthouse']), 'one binder: nested binders are ordinary folders');
+	t.ok(await p.ev(`${B}.isHiddenNote(${file('The Lighthouse/Sequel/Sequel.md')})`), 'its binder note is now a folder note');
+	const c = await contents(p);
+	t.eq(j(c.slice(LIST.length)), j(['Sequel/']), 'appended; its items come in with it, unlisted');
+	t.eq(await read(p, 'The Lighthouse/Sequel/Sequel.md'), seq, 'the inner binder note is untouched');
+	await rename(p, 'The Lighthouse/Sequel', 'Sequel');
+	await p.sleep(700); await flush(p);
+	t.eq(j(await contents(p)), j(LIST), 'the first binder is as before');
+	await until(p, `${BINDERS}.length === 2`, 3000);
+	t.eq(await p.ev(`${BINDERS}.length`), 2, 'a binder again');
+	t.eq(j(await kids(p, 'Sequel')), j(['B.md', 'Act', 'A.md']), 'in its own order');
+	t.eq(await read(p, 'Sequel/Sequel.md'), seq, 'its note never changed');
+}));
+
 test('the binder note moved into a subfolder and back keeps the binder’s order', withTidy(async (p, h, t) => {
 	// e.g. "Move file to…" on the binder note by mistake, while a rename happens, then moving it back
 	const before = await texts(p);
@@ -272,6 +291,31 @@ test('a list that would lose most of its entries is kept as it is', withTidy(asy
 	await flush(p);
 	t.eq(j(await contents(p)), j(['Prologue', 'Part One/', 'Part One/Landfall', 'Part One/Storm warning', 'Part One/The keeper', 'Part Two/', 'Part Two/Lights out', 'Part Two/The wreck']), 'a deleted note is dropped, and so are the few missing entries');
 	await rename(p, 'The Lighthouse/Part One/Landfall.md', 'The Lighthouse/Part One/Arrival.md');
+}));
+
+test('a binder note moved into a plain folder makes it a binder', withTidy(async (p, h, t) => {
+	await p.ev(`(async () => { await app.vault.createFolder('Plain'); await app.vault.create('Plain/b.md', 'b'); await app.vault.create('Plain/a.md', 'a'); await app.vault.create('Plain.md', '---\\nbinder: 1\\ncontents:\\n  - b\\n  - a\\n---\\n'); })().then(() => 1)`);
+	await p.sleep(500);
+	t.eq(await p.ev(`${BINDERS}.length`), 1, 'at the vault’s top level it is not a binder');
+	await rename(p, 'Plain.md', 'Plain/Plain.md');
+	await until(p, `${B}.isBinderFolder(${file('Plain')})`, 3000);
+	t.ok(await p.ev(`${B}.isBinderFolder(${file('Plain')})`), 'Plain is a binder');
+	t.eq(j(await kids(p, 'Plain')), j(['b.md', 'a.md']), 'in its order');
+}));
+
+test('a Longform index note moved into a plain folder makes it a project, and back out stops it', withTidy(async (p, h, t) => {
+	await p.ev(`(async () => { await app.vault.createFolder('Ferry'); await app.vault.create('Ferry/b.md', 'b'); await app.vault.create('Ferry/a.md', 'a'); await app.vault.create('Ferry index.md', '---\\nlongform:\\n  format: scenes\\n  title: Ferry\\n  sceneFolder: /\\n  scenes:\\n    - b\\n    - a\\n---\\n'); })().then(() => 1)`);
+	await p.sleep(500);
+	const kinds = `${B}.all().filter(b => b.folder.path === 'Ferry').map(b => b.kind)`;
+	t.eq(j(await p.ev(kinds)), '[]', 'at the vault’s top level its scene folder is the vault: not a project');
+	await rename(p, 'Ferry index.md', 'Ferry/Ferry index.md');
+	await until(p, `${kinds}.length`, 3000);
+	t.eq(j(await p.ev(kinds)), j(['longform']), 'Ferry is a Longform project');
+	t.eq(j(await kids(p, 'Ferry')), j(['b.md', 'a.md']), 'in its order');
+	await rename(p, 'Ferry/Ferry index.md', 'Ferry index.md');
+	await p.sleep(500);
+	t.eq(j(await p.ev(kinds)), '[]', 'moved out: not a project');
+	await p.ev(`app.vault.delete(${file('Ferry index.md')}).then(() => 1)`);
 }));
 
 test('a binder note moved out of its folder stops it being a binder', withTidy(async (p, h, t) => {
