@@ -65,6 +65,8 @@ export async function launch({ vault = 'test-vault', theme = 'light', width = 14
 	}
 	await sleep(400);
 	await ev(`document.querySelectorAll('.modal-close-button').forEach(b => b.click())`).catch(() => {});
+	// headless, activeWindow points at an about:blank iframe, so Obsidian's hotkeys never fire; redo after an app reload
+	await ev(`(() => { window.activeWindow = window; window.activeDocument = document; return 1; })()`);
 
 	const named = { Escape: ['Escape', 27], Enter: ['Enter', 13], Backspace: ['Backspace', 8], Delete: ['Delete', 46], Tab: ['Tab', 9], ArrowDown: ['ArrowDown', 40], ArrowUp: ['ArrowUp', 38], ArrowLeft: ['ArrowLeft', 37], ArrowRight: ['ArrowRight', 39], '/': ['Slash', 191], '.': ['Period', 190], '?': ['Slash', 191], '+': ['Equal', 187], '=': ['Equal', 187], '-': ['Minus', 189] };
 	const mods = { alt: 1, ctrl: 2, meta: 4, shift: 8 };
