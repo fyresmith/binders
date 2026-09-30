@@ -222,6 +222,58 @@ test('moving a note between two binders: out of one, appended to the other', wit
 	await rename(p, 'Sequel/Act/Arrival.md', 'The Lighthouse/Part One/Arrival.md');
 }));
 
+test('the binder note moved into a subfolder and back keeps the binder’s order', withTidy(async (p, h, t) => {
+	// e.g. "Move file to…" on the binder note by mistake, while a rename happens, then moving it back
+	const before = await texts(p);
+	const MOVED = 'The Lighthouse/Part One/The Lighthouse.md';
+	await rename(p, NOTE, MOVED);
+	await until(p, `${B}.isBinderFolder(${file('The Lighthouse/Part One')})`);
+	t.ok(await p.ev(`${B}.isBinderFolder(${file('The Lighthouse/Part One')})`), 'Part One is the binder now');
+	t.eq(j(await kids(p, 'The Lighthouse/Part One')), j(['Arrival.md', 'Storm warning.md', 'The keeper.md']), 'by name: the list describes another folder');
+	// a rename there, while the note is away, writes nothing: the list isn’t rewritten for its new folder
+	await countWrites(p, MOVED);
+	await rename(p, 'The Lighthouse/Part One/Arrival.md', 'The Lighthouse/Part One/Landfall.md');
+	await flush(p);
+	t.eq(await writes(p), 0, 'no write');
+	t.eq(await read(p, MOVED), before[NOTE], 'the moved note is byte-identical');
+	// a move there is written, and the old entries are kept after it
+	await p.ev(`${B}.moveDown(${file('The Lighthouse/Part One/Landfall.md')}).then(() => 1)`);
+	await flush(p);
+	t.eq(j(await contents(p, MOVED)), j(['Storm warning', 'Landfall', 'The keeper', ...LIST]), 'the move, then the old list');
+	t.eq(split(await read(p, MOVED)).body, split(before[NOTE]).body, 'its text untouched');
+	await rename(p, MOVED, NOTE);
+	await until(p, `${B}.isBinderFolder(${file('The Lighthouse')})`);
+	await p.sleep(400); await flush(p); await cacheSettles(p);
+	t.eq(j(await kids(p, 'The Lighthouse')), j(['Prologue.md', 'Part One', 'Part Two', 'Epilogue.md']), 'the binder’s order is still there');
+	t.eq(j(await kids(p, 'The Lighthouse/Part Two')), j(['The wreck.md', 'Lights out.md']), 'in its folders too');
+	// the next write drops the entries Part One wrote for itself, and keeps the binder’s own
+	await p.ev(`${B}.moveDown(${file('The Lighthouse/Prologue.md')}).then(() => 1)`);
+	await flush(p);
+	t.eq(j(await contents(p)), j(['Part One/', 'Part One/The keeper', 'Part One/Storm warning', 'Part One/Landfall', 'Prologue', 'Part Two/', 'Part Two/The wreck', 'Part Two/Lights out', 'Epilogue']), 'the list');
+	t.eq(split(await read(p, NOTE)).body, split(before[NOTE]).body, 'the binder note’s text is untouched');
+	await rename(p, 'The Lighthouse/Part One/Landfall.md', 'The Lighthouse/Part One/Arrival.md');
+}));
+
+test('a list that would lose most of its entries is kept as it is', withTidy(async (p, h, t) => {
+	// most entries name something that isn’t there (the list is for another folder); a change is still written, and
+	// those entries stay, after it
+	const text = (await read(p, NOTE)).replace(/contents:\n(  - .*\n)+/, 'contents:\n  - Gone/\n  - Gone/a\n  - Gone/b\n  - Prologue\n');
+	await writeRaw(p, NOTE, text);
+	await until(p, `(app.metadataCache.getFileCache(${file(NOTE)})?.frontmatter?.contents || []).includes('Gone/')`);
+	await p.sleep(200);
+	await rename(p, 'The Lighthouse/Part One/Arrival.md', 'The Lighthouse/Part One/Landfall.md');
+	await p.ev(`${B}.moveDown(${file('The Lighthouse/Prologue.md')}).then(() => 1)`);
+	await flush(p);
+	const c = await contents(p);
+	t.eq(j(c.slice(-3)), j(['Gone/', 'Gone/a', 'Gone/b']), 'missing entries kept, last: ' + j(c));
+	t.eq(j(c.slice(0, 2)), j(['Epilogue', 'Prologue']), 'and the move written');
+	// a few missing entries among many found are dropped, as ever
+	await p.ev(`app.vault.delete(${file('The Lighthouse/Epilogue.md')}).then(() => 1)`);
+	await flush(p);
+	t.eq(j(await contents(p)), j(['Prologue', 'Part One/', 'Part One/Landfall', 'Part One/Storm warning', 'Part One/The keeper', 'Part Two/', 'Part Two/Lights out', 'Part Two/The wreck']), 'a deleted note is dropped, and so are the few missing entries');
+	await rename(p, 'The Lighthouse/Part One/Landfall.md', 'The Lighthouse/Part One/Arrival.md');
+}));
+
 test('a binder note moved out of its folder stops it being a binder', withTidy(async (p, h, t) => {
 	await p.ev(`(async () => { await app.vault.createFolder('Plain'); await app.vault.create('Plain/b.md', 'b'); await app.vault.create('Plain/Plain.md', '---\\nbinder: 1\\n---\\n'); })().then(() => 1)`);
 	await until(p, `${B}.isBinderFolder(${file('Plain')})`, 3000);

@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.6.25 (2026-09-30)
+
+### Fixed
+
+- Moving a binder note into another folder by mistake no longer wipes the binder's order; moving it back restores it.
+
 ## 0.6.24 (2026-09-30)
 
 ### Fixed

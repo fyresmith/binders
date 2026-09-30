@@ -48,7 +48,12 @@ Binders creates it when you first give the folder a synopsis, status or label in
 ## Rules
 
 - Items in the folder that `contents` doesn't mention appear after the listed items of their own folder, in name order.
-- Items in `contents` that don't exist are ignored, and dropped the next time Binders writes the list.
+- Items in `contents` that don't exist are ignored, and dropped the next time Binders writes the list. If more than
+  half of the entries are missing (and weren't renamed or deleted in Binders' sight), they're kept, after the others: the
+  list most likely describes another folder (a binder note moved here by mistake), and moving the note back finds its
+  order intact.
+- A binder note moved to another folder makes that folder the binder (if nothing else does), with the note's list read
+  afresh.
 - Duplicate entries count once. Paths that leave the folder (`..`) are ignored.
 - An entry YAML reads as a number (a note called `1984`, typed bare) counts as that name. Binders writes such names
   quoted.

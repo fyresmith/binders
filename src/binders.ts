@@ -115,8 +115,10 @@ class State implements Binder {
 	/** Cached: the list with `ops` applied, and the items per folder. Cleared on any change. */
 	contents: string[] | null = null;
 	items: Map<string, Item[]> | null = null;
+	/** The folder the binder note was in when found. If the note moves to another folder, that's another binder. */
+	home: TFolder | null;
 	/** `dir`: a Longform project's scene folder. */
-	constructor(public note: TFile, public dir: TFolder | null = null) { this.kind = dir ? 'longform' : 'binder'; this.path = this.folder?.path ?? ''; }
+	constructor(public note: TFile, public dir: TFolder | null = null) { this.kind = dir ? 'longform' : 'binder'; this.path = this.folder?.path ?? ''; this.home = note.parent; }
 	get folder(): TFolder { return this.dir ?? this.note.parent; }
 }
 
@@ -409,7 +411,8 @@ export class BinderStore extends Events implements ExplorerSource {
 			dirs.add(dir); want.set(f, dir);
 		}
 		for (const [note, s] of this.states) {
-			if (want.has(note) && want.get(note) === s.dir) continue;
+			// a binder note moved to another folder makes that folder the binder: its list is re-read, never re-pointed
+			if (want.has(note) && want.get(note) === s.dir && (s.kind === 'longform' || note.parent === s.home)) continue;
 			window.clearTimeout(s.timer);
 			this.states.delete(note);
 			this.emit(s.path);
@@ -601,7 +604,7 @@ export class BinderStore extends Events implements ExplorerSource {
 		this.touch(s);
 	}
 
-	/** Writes a binder's pending changes: applied to what the note says now, missing items dropped. One write per batch,
+	/** Writes a binder's pending changes: applied to what the note says now, missing items dropped (see `next`). One write per batch,
 	    and none if nothing changed. */
 	private async write(s: State): Promise<void> {
 		if (s.kind === 'longform') return this.writeScenes(s);
@@ -614,7 +617,16 @@ export class BinderStore extends Events implements ExplorerSource {
 		const items = [...this.items(s).values()].flat();
 		const exists = new Set(items.map((i) => i.rel));
 		const known = this.known(s);
-		const next = (list: string[]) => applyOps(list, ops, known).filter((p) => exists.has(p));
+		// A write drops entries not found in the folder. Safety net: if that's every entry, or more than half, and no rename
+		// or delete accounts for them, the list doesn't describe this folder (say, its binder note was moved here by
+		// mistake): they're kept, after the rest, so moving the note back finds its order intact.
+		const under = (p: string, x: string) => p === x || (x.endsWith('/') && p.startsWith(x));
+		const accounted = (p: string) => ops.some((o) => (o.op === 'remove' && under(p, o.item)) || (o.op === 'rename' && under(p, o.from)));
+		const next = (list: string[]) => {
+			const out = applyOps(list, ops, known).filter((p) => exists.has(p));
+			const lost = list.filter((p) => !exists.has(p) && !accounted(p));
+			return lost.length && lost.length * 2 > list.length ? [...out, ...lost.filter((p) => !out.includes(p))] : out;
+		};
 		const same = (a: string[], b: string[]) => a.length === b.length && a.every((x, i) => x === b[i]);
 		if (same(next(s.base), s.base)) { this.touch(s, false); return; }
 		const shown = this.contents(s);
