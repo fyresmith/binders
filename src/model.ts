@@ -92,6 +92,18 @@ export function renameIn(contents: string[], from: string, to: string): string[]
 	return contents.map((p) => (p === from ? to : isFolder && p.startsWith(from) ? to + p.slice(from.length) : p));
 }
 
+/** Follows a move to another folder of the binder: the item goes last there, as one moved in from outside does, and a
+    folder's contents move with it. An item the list doesn't mention stays unlisted. */
+export function relocate(contents: string[], from: string, to: string): string[] {
+	if (!contents.includes(from)) return renameIn(contents, from, to);
+	// a folder's items, including any already reported renamed into it
+	const inside = (p: string) => from.endsWith('/') && p !== from && p !== to && (p.startsWith(from) || p.startsWith(to));
+	const kids = contents.filter(inside).map((p) => (p.startsWith(from) ? to + p.slice(from.length) : p));
+	const list = insertInFolder(contents.filter((p) => p !== from && p !== to && !inside(p)), to, Infinity);
+	const at = list.indexOf(to) + 1;
+	return [...list.slice(0, at), ...kids, ...list.slice(at)];
+}
+
 /** Drops an item (and, for a folder, everything in it). */
 export function removeFrom(contents: string[], item: string): string[] {
 	return contents.filter((p) => p !== item && !(item.endsWith('/') && p.startsWith(item)));
@@ -173,9 +185,11 @@ export type ListOp =
 export function applyOps(contents: string[], ops: ListOp[], known: string[]): string[] {
 	const folders = ops.flatMap((o) => (o.op === 'append' && o.item.endsWith('/') ? [o.item] : []));
 	const withFolder = (p: string) => folders.some((f) => f !== p && p.startsWith(f));
+	// a folder's items are reported renamed one by one, before or after it: they keep their place in it
+	const carried = (o: { from: string; to: string }) => ops.some((f) => f !== o && f.op === 'rename' && f.from.endsWith('/') && o.from.startsWith(f.from) && o.to === f.to + o.from.slice(f.from.length));
 	let list = contents;
 	for (const o of ops) {
-		if (o.op === 'rename') list = renameIn(list, o.from, o.to);
+		if (o.op === 'rename') list = parentOf(o.from) !== parentOf(o.to) && !carried(o) ? relocate(list, o.from, o.to) : renameIn(list, o.from, o.to);
 		else if (o.op === 'remove') list = removeFrom(list, o.item);
 		else if (o.op === 'append') { if (!list.includes(o.item) && !withFolder(o.item)) list = insertInFolder(list, o.item, Infinity); }
 		else list = moveTo(list, known, o.item, o.folder, o.index);

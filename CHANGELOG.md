@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.6.22 (2026-09-30)
+
+### Fixed
+
+- A note or folder moved to another folder of its binder goes to the end of that folder, as one moved in from outside does.
+
 ## 0.6.21 (2026-09-30)
 
 ### Fixed

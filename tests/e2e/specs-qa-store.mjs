@@ -177,6 +177,14 @@ test('renaming there and back within a moment writes nothing', withTidy(async (p
 	t.eq(await read(p, NOTE), before, 'byte-identical');
 }));
 
+test('a note moved to another folder of the same binder goes last there, as moving one in does', withTidy(async (p, h, t) => {
+	await rename(p, 'The Lighthouse/Part One/Arrival.md', 'The Lighthouse/Part Two/Arrival.md');
+	await flush(p);
+	t.eq(j(await kids(p, 'The Lighthouse/Part Two')), j(['The wreck.md', 'Lights out.md', 'Arrival.md']), 'last in Part Two');
+	t.eq(j(await contents(p)), j(['Prologue', 'Part One/', 'Part One/The keeper', 'Part One/Storm warning', 'Part Two/', 'Part Two/The wreck', 'Part Two/Lights out', 'Part Two/Arrival', 'Epilogue']), 'the list stays a table of contents: Part Two’s items under Part Two');
+	await rename(p, 'The Lighthouse/Part Two/Arrival.md', 'The Lighthouse/Part One/Arrival.md');
+}));
+
 // ---- two binders ----
 
 async function makeSequel(p) {
@@ -326,6 +334,26 @@ test('explorer: order holds after collapse and expand, and after a new note from
 	const r = await rows(p);
 	t.eq(r[r.indexOf('The Lighthouse/Part One/Storm warning.md') + 1], 'The Lighthouse/Part One/Fresh.md', 'the new note is after the listed ones');
 	t.ok(await p.ev(`!!document.querySelector('.nav-file-title[data-path="The Lighthouse/Part One/Fresh.md"]')`), 'and shown');
+}));
+
+test('explorer: a note dragged to another folder of the binder goes last there', withTidy(async (p, h, t) => {
+	await rows(p);
+	const src = await p.at(`.nav-file-title[data-path="The Lighthouse/Part One/Arrival.md"]`);
+	const dst = await p.at(`.nav-folder-title[data-path="The Lighthouse/Part Two"]`);
+	t.ok(src && dst, 'both on screen');
+	// Obsidian's explorer drags with HTML5 drag and drop; synthesize the events it listens for
+	await p.ev(`(() => {
+		const s = document.querySelector('.nav-file-title[data-path="The Lighthouse/Part One/Arrival.md"]'), d = document.querySelector('.nav-folder-title[data-path="The Lighthouse/Part Two"]');
+		const dt = new DataTransfer();
+		const fire = (el, type) => { const r = el.getBoundingClientRect(); el.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: dt, clientX: r.x + 10, clientY: r.y + r.height / 2 })); };
+		fire(s, 'dragstart'); fire(d, 'dragenter'); fire(d, 'dragover'); fire(d, 'drop'); fire(s, 'dragend');
+		return 1;
+	})()`);
+	await p.sleep(800);
+	if (!(await exists(p, 'The Lighthouse/Part Two/Arrival.md'))) { t.ok(true, 'drag not simulated; skipped'); return; }
+	await flush(p);
+	t.eq(j(await kids(p, 'The Lighthouse/Part Two')), j(['The wreck.md', 'Lights out.md', 'Arrival.md']), 'last in Part Two, as a note moved in from outside would be');
+	await rename(p, 'The Lighthouse/Part Two/Arrival.md', 'The Lighthouse/Part One/Arrival.md');
 }));
 
 test('explorer: two explorer panes both show binder order, and both go back to name order', withTidy(async (p, h, t) => {
