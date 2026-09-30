@@ -366,6 +366,38 @@ test('editing the synopsis of a card half out of sight scrolls the card into vie
 	await p.send('Emulation.setDeviceMetricsOverride', { width: p.width, height: p.height, deviceScaleFactor: 1, mobile: false });
 }));
 
+test('Rename in a group heading’s menu renames the folder in place; its folder note follows', withTidy(async (p, h, t) => {
+	const before = await texts(p);
+	await p.ev(`app.vault.create('The Lighthouse/Part One/Part One.md', '---\\nsynopsis: Arrivals.\\n---\\n').then(() => 1)`);
+	await openView(p);
+	await until(p, `document.querySelector('.workspace-leaf.mod-active .binders-group-synopsis')?.textContent === 'Arrivals.'`);
+	const hd = await p.at(`.workspace-leaf.mod-active .binders-group.is-folder .binders-group-title-row`);
+	await p.right(hd.x, hd.y);
+	await clickMenu(p, 'Rename');
+	t.ok(await p.ev(`document.activeElement.matches('.binders-group-name input')`), 'the heading’s name is a field');
+	await p.key('a', 'ctrl');
+	await p.type('Book one');
+	await p.key('Enter');
+	await until(p, `app.vault.adapter.exists('The Lighthouse/Book one/Book one.md')`, 4000);
+	t.ok(!(await exists(p, L + 'Part One')), 'the folder is renamed');
+	await until(p, `document.querySelector('.workspace-leaf.mod-active .binders-group-name')?.textContent === 'Book one'`);
+	t.eq(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-group-synopsis')?.textContent`), 'Arrivals.', 'its synopsis comes along');
+	t.eq(await p.ev(`app.workspace.getMostRecentLeaf().getViewState().state.folder`), 'The Lighthouse', 'the view stays where it was');
+	// Escape cancels
+	const hd2 = await p.at(`.workspace-leaf.mod-active .binders-group.is-folder .binders-group-title-row`);
+	await p.right(hd2.x, hd2.y);
+	await clickMenu(p, 'Rename');
+	await p.type('Nope');
+	await p.key('Escape');
+	await p.sleep(300);
+	t.ok(await exists(p, L + 'Book one'), 'Escape leaves the name');
+	await p.ev(`app.fileManager.renameFile(${file(L + 'Book one')}, 'The Lighthouse/Part One').then(() => 1)`);
+	await until(p, `app.vault.adapter.exists('The Lighthouse/Part One/Part One.md')`, 4000);
+	await p.ev(`app.vault.delete(app.vault.getAbstractFileByPath('The Lighthouse/Part One/Part One.md')).then(() => 1)`);
+	await p.sleep(300);
+	same(t, before, await texts(p), { skip: [NOTE] });
+}));
+
 // Reloads Obsidian twice (into mobile and back), so it is last in this file.
 test('mobile: one column, tap to open, long press for the menu, long press and drag to move', withTidy(async (p, h, t) => {
 	const touch = async (type, x, y) => p.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y }] });

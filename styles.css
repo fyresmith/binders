@@ -895,10 +895,17 @@
 	cursor: var(--cursor);
 }
 
-.binders-group-title > span:last-child {
+.binders-group-title > span:last-child,
+.binders-group-name {
+	min-width: 0;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+}
+
+.binders-group-name.is-editing {
+	min-width: 12em;
+	padding-inline: var(--size-2-1);
 }
 
 .binders-group-icon {

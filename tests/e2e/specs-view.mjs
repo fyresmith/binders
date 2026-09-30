@@ -317,7 +317,7 @@ test('a narrow pane: folder names win over the counts', withTidy(async (p, h, t)
 		await p.sleep(400);
 		const pane = await p.ev(`Math.round(document.querySelector('.workspace-leaf.mod-active .binders-view').getBoundingClientRect().width)`);
 		t.eq(await cut('.binders-crumb.is-current'), false, `the breadcrumb shows the whole name (pane ${pane}px)`);
-		t.eq(await cut('.binders-group.is-folder .binders-group-title > span:last-child'), false, `a heading shows the whole name (pane ${pane}px)`);
+		t.eq(await cut('.binders-group.is-folder .binders-group-name'), false, `a heading shows the whole name (pane ${pane}px)`);
 	}
 	await p.send('Emulation.setDeviceMetricsOverride', { width: p.width, height: p.height, deviceScaleFactor: 1, mobile: false });
 	await p.sleep(300);

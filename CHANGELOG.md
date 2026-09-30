@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.6.18 (2026-09-30)
+
+### Added
+
+- Rename a folder from its heading's menu.
+
 ## 0.6.17 (2026-09-30)
 
 ### Fixed

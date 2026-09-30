@@ -198,6 +198,7 @@ class Corkboard implements BinderMode {
 		this.sig = this.signature();
 		this.board.empty();
 		this.editors.clear();
+		this.headings.clear();
 		this.board.toggleClass('is-read-only', this.ctx.readOnly);
 		this.groups.forEach((g, gi) => this.drawGroup(g, gi));
 		// keep only what still exists selected
@@ -226,15 +227,22 @@ class Corkboard implements BinderMode {
 		const note = this.store.folderNote(folder), p = note ? this.ctx.props(note) : null;
 		const title = row.createDiv({ cls: 'binders-group-title', attr: { role: 'link', tabindex: '0', 'aria-label': `Show ${folder.name}` } });
 		setIcon(title.createSpan({ cls: 'binders-group-icon' }), 'folder');
-		title.createSpan({ text: folder.name });
-		title.addEventListener('click', (e) => this.ctx.navigate(folder, Keymap.isModEvent(e)));
+		// renamed from the heading's menu, in place, as a card's title is
+		this.headings.set(folder.path, editable(title, {
+			cls: 'binders-group-name', value: folder.name, placeholder: 'Name', label: 'Rename', singleLine: true, clickToEdit: false, readOnly: this.ctx.readOnly,
+			save: (t) => this.rename(folder, t), onEditing: (on) => this.onEditing(on),
+		}));
+		title.addEventListener('click', (e) => { if (!title.querySelector('.is-editing')) this.ctx.navigate(folder, Keymap.isModEvent(e)); });
 		title.addEventListener('auxclick', (e) => { if (e.button === 1) { e.stopPropagation(); this.ctx.navigate(folder, 'tab'); } });
 		title.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.stopPropagation(); this.ctx.navigate(folder, Keymap.isModEvent(e)); } });
 		if (p?.label) labelDot(row, p.label).setAttr('aria-label', `Label: ${p.label}`);
 		if (p?.status) row.createSpan({ cls: 'binders-chip', text: p.status });
 		const scenes = this.store.scenes(folder), n = this.sum(scenes);
 		row.createSpan({ cls: 'binders-group-count', text: `${scenes.length} ${scenes.length === 1 ? 'note' : 'notes'}${n == null ? '' : ' · ' + wordsLabel(n)}` });
-		row.addEventListener('contextmenu', (e) => { e.preventDefault(); e.stopPropagation(); this.folderMenu(folder, null).showAtMouseEvent(e); });
+		row.addEventListener('contextmenu', (e) => {
+			e.preventDefault(); e.stopPropagation();
+			if (!(e.target as HTMLElement).closest('.is-editing')) this.folderMenu(folder, null).showAtMouseEvent(e);
+		});
 		this.synopsis(h, folder, 'binders-group-synopsis', undefined, true);
 	}
 
@@ -749,6 +757,8 @@ class Corkboard implements BinderMode {
 
 	/** Each card's title and synopsis fields, for Rename, Edit synopsis and F2. */
 	private editors = new Map<string, { title: Editable; synopsis: Editable }>();
+	/** Each group heading's folder name, for Rename in the heading's menu. */
+	private headings = new Map<string, Editable>();
 	private editTitle(card: HTMLElement): void { this.editors.get(card.dataset.path)?.title.edit(); }
 	private editSynopsis(card: HTMLElement): void { this.editors.get(card.dataset.path)?.synopsis.edit(); }
 
@@ -841,6 +851,8 @@ class Corkboard implements BinderMode {
 			if (card) {
 				menu.addItem((i) => i.setSection('edit').setTitle('Rename').setIcon('pencil-line').onClick(() => this.editTitle(card)));
 				menu.addItem((i) => i.setSection('edit').setTitle('Edit synopsis').setIcon('text').onClick(() => this.editSynopsis(card)));
+			} else if (this.headings.has(folder.path)) {
+				menu.addItem((i) => i.setSection('edit').setTitle('Rename').setIcon('pencil-line').onClick(() => this.headings.get(folder.path)?.edit()));
 			}
 			this.propItems(menu, [folder]);
 			this.orderItems(menu, folder);
