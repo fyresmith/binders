@@ -223,7 +223,7 @@ test('synopsis being typed survives the note being deleted meanwhile (text stays
 
 // ---- new cards ----
 
-test('BUG: a new card titled with a leading dot makes a note Obsidian hides', withTidy(async (p, h, t) => {
+test('a new card titled with a leading dot is refused (Obsidian would hide the note)', withTidy(async (p, h, t) => {
 	await openView(p);
 	const nc = await p.at(`.workspace-leaf.mod-active .binders-group:last-child .binders-card-new`);
 	await p.click(nc.x, nc.y);
@@ -236,6 +236,9 @@ test('BUG: a new card titled with a leading dot makes a note Obsidian hides', wi
 	p.errors.length = 0;
 	await p.ev(`app.vault.adapter.exists('The Lighthouse/.notes.md').then(e => e && app.vault.adapter.remove('The Lighthouse/.notes.md')).then(() => 1)`);
 	t.ok(!hidden || shown, `no invisible note is made (file on disk: ${hidden}, card shown: ${shown})`);
+	// the store never makes one either
+	const made = await p.ev(`${B}.newScene(${file('The Lighthouse')}, Infinity, '.. hidden').then(f => f.path)`);
+	t.eq(made, L + 'hidden.md', 'newScene drops the leading dots');
 }));
 
 test('BUG: a new card’s title that fails to save is lost', withTidy(async (p, h, t) => {
@@ -511,7 +514,7 @@ test('Alt+Down pressed quickly three times moves three places, keeping the focus
 	t.eq(await p.ev(`document.activeElement?.dataset?.path`), L + 'Prologue.md', 'still focused');
 }));
 
-test('BUG: renaming a card with a leading dot hides the note from Obsidian', withTidy(async (p, h, t) => {
+test('renaming a card with a leading dot is refused (Obsidian would hide the note)', withTidy(async (p, h, t) => {
 	await openView(p);
 	const c = await at(p, 'Epilogue.md');
 	await p.right(c.x, c.y);

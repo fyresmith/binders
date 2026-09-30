@@ -28,8 +28,10 @@ interface Drop { group: Group; anchor: TAbstractFile | null }
 
 const isNote = (f: TAbstractFile): f is TFile => f instanceof TFile && f.extension === 'md';
 const LONG_PRESS = 450;
-// names Obsidian refuses, or that would break links to the note
-const BAD_NAME = /[\\/:]/;
+/** Why a typed name can't be a file's name, or null: characters Obsidian refuses or that break links, and a leading dot,
+    which makes a hidden file Obsidian doesn't show. */
+const badName = (name: string): string | null =>
+	/[\\/:]/.test(name) ? 'A name can’t contain \\ / or :' : name.startsWith('.') ? 'A name can’t start with a dot.' : null;
 
 export const corkboard: ModeFactory = (container, ctx) => new Corkboard(container, ctx);
 
@@ -302,7 +304,8 @@ class Corkboard implements BinderMode {
 				this.newIn = null;
 				nc.removeClass('is-editing');
 				if (!t) { idle(); if (this.dirty) this.draw(); return; }
-				if (BAD_NAME.test(t)) { new Notice('A note’s name can’t contain \\ / or :'); done = false; this.newIn = key; nc.addClass('is-editing'); input.focus(); return; }
+				const bad = badName(t);
+				if (bad) { new Notice(bad); done = false; this.newIn = key; nc.addClass('is-editing'); input.focus(); return; }
 				try {
 					const sibs = this.store.orderedChildren(g.folder) ?? [];
 					const file = await this.store.newScene(g.folder, g.end ? Math.max(0, sibs.indexOf(g.end)) : Infinity, t, g.depth);
@@ -696,7 +699,8 @@ class Corkboard implements BinderMode {
 	private editSynopsis(card: HTMLElement): void { this.editors.get(card.dataset.path)?.synopsis.edit(); }
 
 	private async rename(f: TAbstractFile, name: string): Promise<void> {
-		if (BAD_NAME.test(name)) throw new Error('A name can’t contain \\ / or :');
+		const bad = badName(name);
+		if (bad) throw new Error(bad);
 		// a note named like its folder, or a folder named like a note in it, would make that note the folder note
 		if (f instanceof TFile && f.extension === 'md' && name === f.parent?.name) throw new Error('A note can’t have its folder’s name: it would become the folder’s note.');
 		if (f instanceof TFolder && f.children.some((c) => c instanceof TFile && c.extension === 'md' && c.basename === name)) throw new Error(`“${f.name}” already has a note called “${name}”, which would become its folder note.`);

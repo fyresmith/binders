@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.6.3 (2026-09-30)
+
+### Fixed
+
+- Note names can't start with a dot, which would make a hidden file Obsidian doesn't show.
+
 ## 0.6.2 (2026-09-30)
 
 ### Fixed

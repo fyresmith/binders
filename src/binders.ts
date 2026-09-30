@@ -270,7 +270,8 @@ export class BinderStore extends Events implements ExplorerSource {
 	async newScene(folder: TFolder, index = Infinity, title = 'Untitled', depth?: number): Promise<TFile> {
 		const t = this.writable(folder);
 		if (t.kind === 'longform' && folder !== t.folder) throw new Error(`“${folder.name}” isn’t in a binder.`);
-		const base = title.replace(/[\\/:]/g, ' ').trim() || 'Untitled';
+		// a leading dot would make a hidden file, which Obsidian doesn't show
+		const base = title.replace(/[\\/:]/g, ' ').trim().replace(/^\.+\s*/, '') || 'Untitled';
 		let name = base;
 		// a note named like its folder would be the folder note, not a scene
 		for (let n = 1; name === folder.name || this.app.vault.getAbstractFileByPath(normalizePath(`${folder.path}/${name}.md`)); n++) name = `${base} ${n}`;
