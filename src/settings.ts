@@ -6,9 +6,11 @@ export interface BindersSettings {
 	orderExplorer: boolean;
 	/** Clicking a binder, or a folder inside one, in the file explorer opens its binder view. */
 	openOnClick: boolean;
+	/** Hide binder notes and folder notes in the file explorer, since clicking the folder opens the binder. */
+	hideBinderNotes: boolean;
 }
 
-export const DEFAULT_SETTINGS: BindersSettings = { orderExplorer: true, openOnClick: true };
+export const DEFAULT_SETTINGS: BindersSettings = { orderExplorer: true, openOnClick: true, hideBinderNotes: true };
 
 const TEXT = {
 	order: ['Order binders in the file explorer', 'Show the notes and folders in a binder in its own order instead of by name. Turn this off if another plugin replaces the file explorer.'],

@@ -2,3 +2,16 @@
  * Binders. Everything is scoped under .binders-view (binder views) or .binders-* classes, and built from Obsidian's own
  * variables so every theme, light or dark, looks native. No !important, no `all:`, no scrollbar styling (see AGENTS.md).
  */
+
+/* File explorer: the binder icon before a binder folder's name, sized and coloured like Obsidian's own tree icons. */
+.binders-folder-icon {
+	display: flex;
+	align-items: center;
+	flex-shrink: 0;
+	align-self: center; /* the title aligns to its text's baseline, which an icon has none of */
+	margin-inline-end: var(--size-4-1);
+	color: var(--icon-color);
+	opacity: var(--icon-opacity);
+	--icon-size: var(--icon-xs);
+	--icon-stroke: var(--icon-xs-stroke-width);
+}
