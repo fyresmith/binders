@@ -52,15 +52,16 @@ export function cleanPath(p: string): string {
 	return parts.join('/') + (folder ? '/' : '');
 }
 
-/** The index from a binder note's frontmatter. Refuses newer formats; tolerates anything else. */
-export function readIndex(fm: Record<string, unknown>): BinderIndex {
+/** The index from a binder note's frontmatter. Refuses newer formats; tolerates anything else. `binderNote` is the binder
+    note's own path in the binder (its name, without ".md"): it and folder notes are never part of the list. */
+export function readIndex(fm: Record<string, unknown>, binderNote = ''): BinderIndex {
 	checkFormat(fm);
 	const raw = Array.isArray(fm.contents) ? fm.contents : [];
 	const seen = new Set<string>(), contents: string[] = [];
 	for (const x of raw) {
 		if (typeof x !== 'string') continue;
 		const p = cleanPath(x);
-		if (!p || seen.has(p) || p.split('/').includes('..')) continue;
+		if (!p || seen.has(p) || p.split('/').includes('..') || p === binderNote || isFolderNote(p)) continue;
 		seen.add(p); contents.push(p);
 	}
 	return { version: FORMAT_VERSION, contents };
@@ -120,4 +121,65 @@ function insertInFolder(list: string[], p: string, index: number): string[] {
 	else if (folder && at === 0) at = list.length;
 	else if (!folder) at = list.length;
 	return [...list.slice(0, at), p, ...list.slice(at)];
+}
+
+/* Folder notes. A subfolder's folder note is the note directly inside it with the folder's name ("Part One/Part One");
+   it holds the folder's own synopsis, status and label. The binder note is the binder folder's folder note. Neither is
+   a scene: they never appear in the list, the binder views or the reading order. */
+
+/** The folder note of a folder in the binder ("Part One/" → "Part One/Part One"); "" for the binder's top level. */
+export const folderNoteOf = (folder: string): string => (folder ? folder + nameOf(folder) : '');
+
+/** Is this path (relative to the binder) a subfolder's folder note? */
+export function isFolderNote(p: string): boolean {
+	if (!p || p.endsWith('/')) return false;
+	const parent = parentOf(p);
+	return !!parent && nameOf(p) === nameOf(parent);
+}
+
+/** An item's path relative to a binder folder, as the list writes it, or null if it isn't inside it. */
+export function relPath(binderFolder: string, path: string, isFolder: boolean): string | null {
+	if (!binderFolder || !path.startsWith(binderFolder + '/')) return null;
+	const r = path.slice(binderFolder.length + 1);
+	if (!r) return null;
+	return isFolder ? r + '/' : r.replace(/\.md$/i, '');
+}
+
+/** Every item in the binder in reading order, depth first. `childrenOf` gives the items in a folder ("" for the top). */
+export function readingOrder(contents: string[], childrenOf: (folder: string) => string[]): string[] {
+	const out: string[] = [];
+	const walk = (folder: string) => {
+		for (const c of orderChildren(contents, folder, childrenOf(folder))) { out.push(c); if (c.endsWith('/')) walk(c); }
+	};
+	walk('');
+	return out;
+}
+
+/** A change to the list waiting to be written. Kept as data so a batch applies to whatever the binder note says when
+    it is written, not to a copy an external edit may have made stale. */
+export type ListOp =
+	| { op: 'rename'; from: string; to: string }
+	| { op: 'remove'; item: string }
+	| { op: 'append'; item: string }
+	| { op: 'move'; item: string; folder: string; index: number };
+
+/** Applies a batch of changes. `known` is every item in the binder in the order it shows, for moves. An item appended
+    along with its folder (a folder moved into the binder) isn't written separately: it comes in with the folder. */
+export function applyOps(contents: string[], ops: ListOp[], known: string[]): string[] {
+	const folders = ops.flatMap((o) => (o.op === 'append' && o.item.endsWith('/') ? [o.item] : []));
+	const withFolder = (p: string) => folders.some((f) => f !== p && p.startsWith(f));
+	let list = contents;
+	for (const o of ops) {
+		if (o.op === 'rename') list = renameIn(list, o.from, o.to);
+		else if (o.op === 'remove') list = removeFrom(list, o.item);
+		else if (o.op === 'append') { if (!list.includes(o.item) && !withFolder(o.item)) list = insertInFolder(list, o.item, Infinity); }
+		else list = moveTo(list, known, o.item, o.folder, o.index);
+	}
+	return list;
+}
+
+/** Where an item sits among its folder's children, and where one step up or down would put it (null: it can't move). */
+export function stepIndex(siblings: string[], item: string, delta: number): number | null {
+	const i = siblings.indexOf(item), j = i + delta;
+	return i < 0 || j < 0 || j >= siblings.length ? null : j;
 }

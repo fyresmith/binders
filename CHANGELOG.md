@@ -3,6 +3,18 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.2.0 (2026-09-30)
+
+### Added
+
+- Binders are found and kept in order as notes and folders are renamed, moved or deleted.
+- Commands and right-click menu items: Make this folder a binder, New scene here, Move up, Move down.
+- Settings to hide binder and folder notes, and to rename the synopsis, status, label and plotlines properties.
+
+### Changed
+
+- Renaming a subfolder in a binder also renames its folder note, so it stays the folder's note.
+
 ## 0.1.3 (2026-09-30)
 
 ### Added

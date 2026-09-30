@@ -1,4 +1,4 @@
-import { checkFormat, cleanPath, isBinderNote, moveTo, orderChildren, readIndex, removeFrom, renameIn, UnsupportedBinder } from '../src/model';
+import { applyOps, checkFormat, cleanPath, folderNoteOf, isBinderNote, isFolderNote, moveTo, orderChildren, readIndex, readingOrder, relPath, removeFrom, renameIn, stepIndex, UnsupportedBinder } from '../src/model';
 import { done, eq, ok } from './harness';
 
 const j = (x: unknown) => JSON.stringify(x);
@@ -45,6 +45,59 @@ const j = (x: unknown) => JSON.stringify(x);
 	eq(j(moveTo(c, known, 'P/', '', 2)), j(['A', 'B', 'P/', 'P/x', 'P/y']), 'moving a folder brings its contents');
 	eq(j(moveTo(['A'], ['A', 'B', 'C'], 'C', '', 0)), j(['C', 'A', 'B']), 'items the list did not mention get written down in place');
 	eq(j(moveTo(c, known, 'P/y', 'P/', 0)), j(['A', 'P/', 'P/y', 'P/x', 'B']), 'reorder within a folder');
+}
+
+// folder notes and the binder note are never part of the list
+{
+	eq(folderNoteOf('Part One/'), 'Part One/Part One', 'a folder note is named like its folder');
+	eq(folderNoteOf('A/B/'), 'A/B/B', 'nested folders too');
+	eq(folderNoteOf(''), '', 'the top level has none (the binder note is its note)');
+	ok(isFolderNote('Part One/Part One') && isFolderNote('A/B/B'), 'folder notes recognised');
+	ok(!isFolderNote('Part One/Arrival') && !isFolderNote('Novel') && !isFolderNote('A/A/') && !isFolderNote('A/B/A'), 'others are not');
+	ok(!isFolderNote('Part One/Part One.png'), 'only notes (other files keep their extension)');
+	const idx = readIndex({ binder: 1, contents: ['Novel', 'Prologue', 'Part One/', 'Part One/Part One', 'Part One/Arrival'] }, 'Novel');
+	eq(j(idx.contents), j(['Prologue', 'Part One/', 'Part One/Arrival']), 'binder note and folder notes dropped from the list');
+}
+
+// paths relative to the binder
+{
+	eq(relPath('Books/Novel', 'Books/Novel/Part One/Arrival.md', false), 'Part One/Arrival', 'notes lose .md');
+	eq(relPath('Books/Novel', 'Books/Novel/Part One', true), 'Part One/', 'folders gain /');
+	eq(relPath('Books/Novel', 'Books/Novel/map.png', false), 'map.png', 'other files keep their extension');
+	eq(relPath('Books/Novel', 'Books/Novella/x.md', false), null, 'a folder with a longer name is not inside');
+	eq(relPath('Books/Novel', 'Books/Novel', true), null, 'the binder folder itself is not inside');
+	eq(relPath('', 'x.md', false), null, 'the vault root is never a binder');
+}
+
+// reading order, depth first
+{
+	const tree: Record<string, string[]> = { '': ['Epilogue', 'Part One/', 'Prologue'], 'Part One/': ['Part One/B', 'Part One/A'] };
+	eq(j(readingOrder(['Prologue', 'Part One/', 'Part One/A', 'Epilogue'], (f) => tree[f] ?? [])), j(['Prologue', 'Part One/', 'Part One/A', 'Part One/B', 'Epilogue']), 'folders are followed by their contents, unlisted last');
+	eq(j(readingOrder([], () => [])), '[]', 'an empty binder');
+}
+
+// batches of changes
+{
+	const c = ['A', 'P/', 'P/x', 'B'];
+	const known = ['A', 'P/', 'P/x', 'B'];
+	eq(j(applyOps(c, [{ op: 'rename', from: 'A', to: 'Alpha' }, { op: 'remove', item: 'B' }], known)), j(['Alpha', 'P/', 'P/x']), 'applied in order');
+	eq(j(applyOps(c, [{ op: 'append', item: 'C' }, { op: 'append', item: 'P/y' }], known)), j(['A', 'P/', 'P/x', 'P/y', 'B', 'C']), 'appended at the end of their folder');
+	eq(j(applyOps(c, [{ op: 'append', item: 'A' }], known)), j(c), 'appending a listed item changes nothing');
+	eq(j(applyOps(c, [{ op: 'append', item: 'Q/a' }, { op: 'append', item: 'Q/' }, { op: 'append', item: 'Q/b' }], known)), j([...c, 'Q/']), 'a folder moved in comes in alone, whatever order the events arrive in');
+	eq(j(applyOps(c, [{ op: 'rename', from: 'P/', to: 'R/' }, { op: 'rename', from: 'P/x', to: 'R/x' }], known)), j(['A', 'R/', 'R/x', 'B']), 'a folder rename and then its children’s renames');
+	eq(j(applyOps(c, [{ op: 'rename', from: 'P/x', to: 'R/x' }, { op: 'rename', from: 'P/', to: 'R/' }], known)), j(['A', 'R/', 'R/x', 'B']), 'or the other way round');
+	eq(j(applyOps(c, [{ op: 'move', item: 'B', folder: '', index: 0 }], known)), j(['B', 'A', 'P/', 'P/x']), 'moves');
+	eq(j(applyOps(c, [], known)), j(c), 'no changes');
+}
+
+// one step up or down
+{
+	const s = ['a', 'b', 'c'];
+	eq(stepIndex(s, 'b', -1), 0, 'up');
+	eq(stepIndex(s, 'b', 1), 2, 'down');
+	eq(stepIndex(s, 'a', -1), null, 'the first can’t go up');
+	eq(stepIndex(s, 'c', 1), null, 'the last can’t go down');
+	eq(stepIndex(s, 'z', 1), null, 'not there');
 }
 
 done('model');

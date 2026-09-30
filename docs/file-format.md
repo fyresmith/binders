@@ -39,6 +39,8 @@ Binders creates it when you first give the folder a synopsis, status or label in
 - A folder note is not a scene: it never appears in `contents`, on the corkboard, in the plot grid or in the manuscript.
 - The binder note and folder notes are hidden in the file explorer by default.
 - The binder folder's own data lives in the binder note, which is its folder note.
+- Renaming a subfolder in a binder renames its folder note to match (`Part 1/Part 1.md`), so it stays the folder note.
+  This is the only file Binders renames on its own.
 
 ## Rules
 
@@ -46,8 +48,22 @@ Binders creates it when you first give the folder a synopsis, status or label in
 - Items in `contents` that don't exist are ignored, and dropped the next time Binders writes the list.
 - Duplicate entries count once. Paths that leave the folder (`..`) are ignored.
 - The binder note and folder notes never appear in `contents` or as scenes in the binder views.
-- A binder note inside a binder (a nested binder) is an ordinary note in 1.0.
+- A binder note inside a binder (a nested binder) is an ordinary note in 1.0, or the folder note if it's named like its
+  folder.
+- If a folder has several binder notes, the one named like the folder is the binder note; otherwise the first by name.
+- The vault's top level can't be a binder.
 - Binders writes only `contents` (and its own properties above) in the binder note, and never changes the rest of it.
+
+## Keeping the list up to date
+
+- Renaming or moving an item inside a binder, from anywhere in Obsidian, keeps its place (a folder's items move with
+  it). Moving an item out removes it from `contents`; moving one in adds it at the end of its folder. Deleting removes it.
+- A new note isn't written into `contents` until you move it: until then it shows after the listed items.
+- Changes are written together, a moment after the last one: moving a folder of 40 notes writes the binder note once.
+  They're applied to what the binder note says at that moment, so edits made to it meanwhile are kept.
+- "Make this folder a binder" creates `Folder/Folder.md` with `binder: 1` and `contents` in the order the file explorer
+  showed (folders first, then notes, by name). If `Folder/Folder.md` already exists, it adds `binder: 1` (and
+  `contents`, if it has none) to its properties and leaves its text alone.
 
 ## Scene properties
 
