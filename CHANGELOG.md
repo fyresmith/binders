@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.1.1 (2026-09-30)
+
+### Added
+
+- CLAUDE.md: where the project stands, decisions so far, and the open questions to settle first.
+
 ## 0.1.0 (2026-09-30)
 
 ### Added
