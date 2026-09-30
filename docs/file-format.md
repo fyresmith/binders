@@ -43,7 +43,8 @@ Binders creates it when you first give the folder a synopsis, status or label in
 - The binder note and folder notes are hidden in the file explorer by default.
 - The binder folder's own data lives in the binder note, which is its folder note.
 - Renaming a subfolder in a binder renames its folder note to match (`Part 1/Part 1.md`), so it stays the folder note.
-  This is the only file Binders renames on its own.
+  This is the only file Binders renames on its own. If the folder already has a note with the new name, neither note
+  is renamed, and that note is the folder note from then on.
 
 ## Rules
 

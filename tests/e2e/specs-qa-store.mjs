@@ -342,6 +342,25 @@ test('two binders swapping names, then a rename in one, keeps its place', withTi
 
 // ---- folder notes ----
 
+test('renaming a folder to the name of a note in it (with a folder note) succeeds, and loses no file', withTidy(async (p, h, t) => {
+	await p.ev(`(async () => { await app.vault.create('The Lighthouse/Part One/Part One.md', '---\\nsynopsis: The arrival.\\n---\\n'); await app.vault.create('The Lighthouse/Part One/Beacon.md', 'A scene called Beacon.'); })().then(() => 1)`);
+	await p.sleep(200);
+	await p.ev(`${B}.move(${file('The Lighthouse/Part One/Beacon.md')}, ${file('The Lighthouse/Part One')}, 0).then(() => 1)`);
+	await flush(p);
+	const before = await texts(p);
+	const err = await p.ev(`app.fileManager.renameFile(${file('The Lighthouse/Part One')}, 'The Lighthouse/Beacon').then(() => '', (e) => String(e))`);
+	await p.sleep(700); await flush(p);
+	t.eq(err, '', 'the folder rename doesn’t fail (without Binders it succeeds)');
+	const moved = Object.fromEntries(Object.keys(before).filter((x) => x.startsWith('The Lighthouse/Part One/')).map((x) => [x, x.replace('/Part One/', '/Beacon/')]));
+	same(t, before, await texts(p), { skip: [NOTE], moved });
+	t.eq(j(await p.ev(`${file('The Lighthouse/Beacon')}.children.map(c => c.name).sort()`)), j(['Arrival.md', 'Beacon.md', 'Part One.md', 'Storm warning.md', 'The keeper.md']), 'both notes still there, neither renamed');
+	// by the folder-note rule, Beacon.md is the folder note now; the old one is a scene
+	t.ok(await p.ev(`${B}.isHiddenNote(${file('The Lighthouse/Beacon/Beacon.md')})`), 'the note named like the folder is its folder note');
+	await rename(p, 'The Lighthouse/Beacon', 'The Lighthouse/Part One');
+	await p.sleep(500);
+	t.ok(await exists(p, 'The Lighthouse/Part One/Part One.md') && await exists(p, 'The Lighthouse/Part One/Beacon.md'), 'renamed back: both there');
+}));
+
 test('a folder note follows two quick renames of its folder', withTidy(async (p, h, t) => {
 	await p.ev(`app.vault.create('The Lighthouse/Part One/Part One.md', 'folder note text').then(() => 1)`);
 	await p.sleep(200);

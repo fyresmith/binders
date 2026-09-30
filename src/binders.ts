@@ -128,8 +128,9 @@ export class BinderStore extends Events implements ExplorerSource {
 	ready: Promise<void>;
 	private states = new Map<TFile, State>();
 	private warned = new Set<string>();
-	/** Subfolders renamed since the last write, with their old names, so their folder notes can follow. */
-	private renamedFolders = new Map<TFolder, string>();
+	/** Subfolders renamed, with their old names, so their folder notes can follow once the renames settle. */
+	private renamedFolders: { folder: TFolder; oldName: string }[] = [];
+	private followTimer = 0;
 	private emits = new Set<string>();
 	private emitTimer = 0;
 	private app: App;
@@ -151,7 +152,7 @@ export class BinderStore extends Events implements ExplorerSource {
 			plugin.registerEvent(vault.on('create', (f) => { const s = this.at(f.path); if (s) this.touch(s); }));
 			done();
 		});
-		plugin.register(() => { void this.flush(); window.clearTimeout(this.emitTimer); });
+		plugin.register(() => { void this.flush(); window.clearTimeout(this.emitTimer); window.clearTimeout(this.followTimer); });
 	}
 
 	// ---- the public API (see the top of the file) ----
@@ -471,11 +472,10 @@ export class BinderStore extends Events implements ExplorerSource {
 		if (o && o === n) {
 			if (or && nr && or !== nr) {
 				this.queue(o, { op: 'rename', from: or, to: nr });
-				if (isFolder && nameOf(or) !== file.name) this.renamedFolders.set(file, nameOf(or));
+				if (isFolder && nameOf(or) !== file.name) this.renamedFolders.push({ folder: file, oldName: nameOf(or) });
 			} else this.touch(o, false); // an item of a renamed folder: its place in the binder is the same
-			// Obsidian reports a folder's items one by one after the folder, so its note may only just have arrived
-			const folder = isFolder ? file : file.parent;
-			if (this.renamedFolders.has(folder)) this.followFolderNote(folder);
+			// Obsidian reports a folder's items one by one after the folder: folder notes follow once they're all in
+			if (this.renamedFolders.length) { window.clearTimeout(this.followTimer); this.followTimer = window.setTimeout(() => { void this.followFolderNotes(); }, 50); }
 			return;
 		}
 		if (o && or) this.queue(o, { op: 'remove', item: or });
@@ -587,14 +587,23 @@ export class BinderStore extends Events implements ExplorerSource {
 		if (JSON.stringify(this.contents(s)) !== JSON.stringify(shown)) this.emit(s.path);
 	}
 
-	/** A renamed subfolder keeps its folder note: "Part One/Part One" follows the folder to "Part 1/Part 1". */
-	private followFolderNote(folder: TFolder): void {
-		const oldName = this.renamedFolders.get(folder);
-		const note = this.app.vault.getAbstractFileByPath(normalizePath(`${folder.path}/${oldName}.md`));
-		const to = normalizePath(`${folder.path}/${folder.name}.md`);
-		if (!(note instanceof TFile)) return;
-		this.renamedFolders.delete(folder);
-		if (!this.app.vault.getAbstractFileByPath(to)) void this.app.fileManager.renameFile(note, to);
+	/** A renamed subfolder keeps its folder note: "Part One/Part One" follows the folder to "Part 1/Part 1". Run after the
+	    rename's events settle, never during it (the vault is then half updated). If the folder already has a note with
+	    the new name, both are left alone: that note is the folder note now, and no file is overwritten. */
+	private async followFolderNotes(): Promise<void> {
+		const pending = this.renamedFolders;
+		this.renamedFolders = [];
+		const { vault, fileManager } = this.app;
+		for (const { folder, oldName } of pending) {
+			const note = vault.getAbstractFileByPath(normalizePath(`${folder.path}/${oldName}.md`));
+			const to = normalizePath(`${folder.path}/${folder.name}.md`);
+			if (!(note instanceof TFile) || note.path === to) continue;
+			// a case-only rename is the same file on some disks, so only the vault's own map can tell
+			const clash = vault.getAbstractFileByPath(to) || (note.path.toLowerCase() !== to.toLowerCase() && await vault.adapter.exists(to));
+			if (clash) continue;
+			try { await fileManager.renameFile(note, to); }
+			catch (e) { new Notice(`The folder note “${note.basename}” couldn’t be renamed to match its folder. ${e instanceof Error ? e.message : String(e)}`); }
+		}
 	}
 
 	private relAt(s: State, path: string, isFolder: boolean): string | null {
@@ -620,7 +629,6 @@ export class BinderStore extends Events implements ExplorerSource {
 		const ops = s.ops;
 		s.ops = [];
 		s.aliases.clear();
-		this.renamedFolders.clear();
 		if (!ops.length || s.problem || this.states.get(s.note) !== s || this.app.vault.getAbstractFileByPath(s.note.path) !== s.note) return;
 		const items = [...this.items(s).values()].flat();
 		const exists = new Set(items.map((i) => i.rel));
