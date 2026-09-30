@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.6.5 (2026-09-30)
+
+### Fixed
+
+- A note made while a filter is on stays on the board until you change the filter.
+
 ## 0.6.4 (2026-09-30)
 
 ### Fixed

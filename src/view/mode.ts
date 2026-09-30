@@ -60,6 +60,8 @@ export interface BinderMode {
 	menu?(menu: Menu): void;
 	/** Optional: the mode shows only what passes `ctx.visible()`, so the view offers its status and label filter. */
 	readonly filters?: boolean;
+	/** Optional: the filter changed (before the refresh that follows), e.g. to stop showing notes just made that it hides. */
+	filterChanged?(): void;
 }
 
 export type ModeFactory = (container: HTMLElement, ctx: ModeContext) => BinderMode;

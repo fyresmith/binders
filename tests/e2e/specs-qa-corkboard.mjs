@@ -307,7 +307,7 @@ test('new card: typing the next title right after Enter loses nothing', withTidy
 	t.ok(await exists(p, L + 'Part Two/Two.md'), 'Two made, with every letter typed: ' + j((await cards(p)).map((c) => c.split('/').pop())));
 }));
 
-test('BUG: a new card made while a filter is on disappears at once', withTidy(async (p, h, t) => {
+test('a new card made while a filter is on stays until the filter changes', withTidy(async (p, h, t) => {
 	await openView(p, 'The Lighthouse/Part One');
 	await filterBy(p, 'Draft');
 	const nc = await p.at(`.workspace-leaf.mod-active .binders-group:last-child .binders-card-new`);
@@ -319,6 +319,9 @@ test('BUG: a new card made while a filter is on disappears at once', withTidy(as
 	await p.key('Escape');
 	await p.shot(`${SHOTS}/new-card-filtered-${await theme(p)}.png`);
 	t.ok((await cards(p)).includes(L + 'Part One/Filtered.md'), 'the new card shows, though it has no status yet');
+	await filterBy(p, 'Revised');
+	await p.sleep(300);
+	t.ok(!(await cards(p)).includes(L + 'Part One/Filtered.md'), 'once the filter changes, the filter decides');
 }));
 
 // ---- rename / delete ----

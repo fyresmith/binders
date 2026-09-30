@@ -311,10 +311,7 @@ export class BinderView extends ItemView {
 		const menu = new Menu();
 		const toggle = (kind: keyof Filter, v: string) => {
 			const list = this.filter[kind];
-			this.filter = { ...this.filter, [kind]: list.includes(v) ? list.filter((x) => x !== v) : [...list, v] };
-			this.app.workspace.requestSaveLayout();
-			this.drawToolbar();
-			this.current?.refresh();
+			this.setFilter({ ...this.filter, [kind]: list.includes(v) ? list.filter((x) => x !== v) : [...list, v] });
 		};
 		const group = (kind: keyof Filter, title: string, values: Set<string>, none: boolean, noneTitle: string) => {
 			if (!values.size) return;
@@ -333,14 +330,17 @@ export class BinderView extends ItemView {
 		group('label', 'Label', labels, noLabel, 'No label');
 		if (!statuses.size && !labels.size) menu.addItem((i) => i.setTitle('No statuses or labels to filter by').setIsLabel(true));
 		if (this.filter.status.length || this.filter.label.length) {
-			menu.addItem((i) => i.setSection('clear').setTitle('Clear filter').setIcon('x').onClick(() => {
-				this.filter = { status: [], label: [] };
-				this.app.workspace.requestSaveLayout();
-				this.drawToolbar();
-				this.current?.refresh();
-			}));
+			menu.addItem((i) => i.setSection('clear').setTitle('Clear filter').setIcon('x').onClick(() => this.setFilter({ status: [], label: [] })));
 		}
 		this.showBelow(menu, e);
+	}
+
+	private setFilter(filter: Filter): void {
+		this.filter = filter;
+		this.app.workspace.requestSaveLayout();
+		this.drawToolbar();
+		this.current?.filterChanged?.();
+		this.current?.refresh();
 	}
 
 	private showBelow(menu: Menu, e: MouseEvent): void {

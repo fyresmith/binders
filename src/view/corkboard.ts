@@ -47,6 +47,9 @@ class Corkboard implements BinderMode {
 	private editing = 0;
 	private dirty = false;
 	private newIn: string | null = null;
+	/** Notes made here since the filter last changed: they show though the filter would hide them (a new note has no
+	    status yet), so a note just made doesn't vanish. */
+	private made = new Set<TFile>();
 	private press: { id: number; x: number; y: number; touch: boolean; card: HTMLElement; armed: boolean; timer: number } | null = null;
 	private drag: { items: TAbstractFile[]; ghost: HTMLElement; indicator: HTMLElement; drop: Drop | null; x: number; y: number; raf: number } | null = null;
 	private lastPointer = 'mouse';
@@ -141,7 +144,10 @@ class Corkboard implements BinderMode {
 		return out;
 	}
 
-	private shown(g: Group): TAbstractFile[] { return g.items.filter((f) => !(f instanceof TFile) || this.ctx.visible(f)); }
+	private shown(g: Group): TAbstractFile[] { return g.items.filter((f) => this.isShown(f)); }
+	private isShown(f: TAbstractFile): boolean { return !(f instanceof TFile) || this.made.has(f) || this.ctx.visible(f); }
+
+	filterChanged(): void { this.made.clear(); }
 
 	/** Where an item's card data lives: the note itself, or a folder's folder note (null until it has one). */
 	private noteOf(f: TAbstractFile): TFile | null { return f instanceof TFolder ? this.store.folderNote(f) : f instanceof TFile ? f : null; }
@@ -309,6 +315,7 @@ class Corkboard implements BinderMode {
 				try {
 					const sibs = this.store.orderedChildren(g.folder) ?? [];
 					const file = await this.store.newScene(g.folder, g.end ? Math.max(0, sibs.indexOf(g.end)) : Infinity, t, g.depth);
+					this.made.add(file);
 					this.select([file.path], file.path);
 				} catch (e) { new Notice(e instanceof Error ? e.message : String(e)); }
 				this.draw();
@@ -696,7 +703,7 @@ class Corkboard implements BinderMode {
 	private async stepPast(f: TAbstractFile, delta: number): Promise<boolean> {
 		const folder = f.parent;
 		if (!folder) return false;
-		const shown = this.children(folder).filter((x) => !(x instanceof TFile) || this.ctx.visible(x));
+		const shown = this.children(folder).filter((x) => this.isShown(x));
 		const next = shown[shown.indexOf(f) + (delta < 0 ? -1 : 1)];
 		if (!next || shown.indexOf(f) < 0) return false;
 		const sibs = (this.store.orderedChildren(folder) ?? []).filter((x) => x !== f);
@@ -834,7 +841,7 @@ class Corkboard implements BinderMode {
 
 	private orderItems(menu: Menu, f: TAbstractFile): void {
 		// among the cards shown, as Alt+Up and Alt+Down
-		const sibs = f.parent ? this.children(f.parent).filter((x) => !(x instanceof TFile) || this.ctx.visible(x)) : [], i = sibs.indexOf(f);
+		const sibs = f.parent ? this.children(f.parent).filter((x) => this.isShown(x)) : [], i = sibs.indexOf(f);
 		if (i > 0) menu.addItem((x) => x.setSection('order').setTitle('Move up').setIcon('arrow-up').onClick(() => void this.stepPast(f, -1)));
 		if (i >= 0 && i < sibs.length - 1) menu.addItem((x) => x.setSection('order').setTitle('Move down').setIcon('arrow-down').onClick(() => void this.stepPast(f, 1)));
 	}
