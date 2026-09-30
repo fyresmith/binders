@@ -1,0 +1,4 @@
+/*
+ * Binders. Everything is scoped under .binders-view (binder views) or .binders-* classes, and built from Obsidian's own
+ * variables so every theme, light or dark, looks native. No !important, no `all:`, no scrollbar styling (see AGENTS.md).
+ */

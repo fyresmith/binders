@@ -1,0 +1,11 @@
+node_modules/
+main.js
+*.map
+data.json
+test-dist/
+test-vault/.obsidian/plugins/binders/
+test-vault/.obsidian/workspace*.json
+test-vault/.obsidian/community-plugins.json
+.DS_Store
+.claude/worktrees/
+.claude/settings.local.json

@@ -1,0 +1,88 @@
+// End-to-end tests in real, headless Obsidian (see driver.mjs). Each run uses a throwaway copy of test-vault.
+//   npm run e2e                     all tests, light theme
+//   npm run e2e -- --theme dark     or: --theme both
+//   npm run e2e -- --grep order     only tests whose name matches
+//   npm run e2e -- --repeat 3       run everything several times
+//   npm run e2e -- --specs a.mjs,b.mjs    only these spec files (default: every tests/e2e/specs*.mjs)
+//   npm run e2e -- --shots dir      where failure screenshots go (default test-dist/e2e-failures)
+import { mkdirSync, readFileSync, readdirSync, statSync } from 'fs';
+import { join, relative } from 'path';
+import { pathToFileURL } from 'url';
+import { launch } from './driver.mjs';
+
+const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i > 0 ? process.argv[i + 1] : d; };
+const themes = arg('theme', 'light') === 'both' ? ['light', 'dark'] : [arg('theme', 'light')];
+const grep = arg('grep', '') ? new RegExp(arg('grep'), 'i') : null;
+const repeat = Number(arg('repeat', '1'));
+const shots = arg('shots', 'test-dist/e2e-failures');
+mkdirSync(shots, { recursive: true });
+
+// the pristine test vault, so each test starts from the same notes
+const pristine = new Map();
+const walk = (dir) => { for (const f of readdirSync(dir)) { const p = join(dir, f); if (f === '.obsidian') continue; if (statSync(p).isDirectory()) walk(p); else if (/\.md$/.test(f)) pristine.set(relative('test-vault', p), readFileSync(p, 'utf8')); } };
+walk('test-vault');
+
+const specFiles = arg('specs', '') ? arg('specs').split(',') : readdirSync('tests/e2e').filter((f) => /^specs.*\.mjs$/.test(f)).map((f) => 'tests/e2e/' + f);
+const specs = [];
+for (const f of specFiles) specs.push(...(await import(pathToFileURL(f).href)).specs);
+
+class Fail extends Error {}
+const results = [];
+for (let round = 1; round <= repeat; round++) {
+	for (const theme of themes) {
+		const p = await launch({ theme });
+		const h = helpers(p);
+		for (const s of specs) {
+			if (grep && !grep.test(s.name)) continue;
+			const name = `${s.name} [${theme}${repeat > 1 ? ' #' + round : ''}]`;
+			const t0 = Date.now();
+			p.errors.length = 0;
+			let err = null;
+			try {
+				await h.reset();
+				await s.fn(p, h, {
+					ok: (c, m) => { if (!c) throw new Fail(m); },
+					eq: (a, b, m) => { if (a !== b) throw new Fail(`${m}: expected ${JSON.stringify(b)}, got ${JSON.stringify(a)}`); },
+				});
+				await p.sleep(80);
+				const bad = p.errors.filter((e) => !/ERR_|net::|DevTools|favicon|Failed to load resource|Electron Security Warning/.test(e));
+				if (bad.length) throw new Fail('errors logged: ' + bad.slice(0, 3).join(' ; '));
+			} catch (e) {
+				err = e instanceof Fail ? e.message : 'crashed: ' + (e.stack || e).toString().split('\n').slice(0, 3).join(' | ');
+				await p.shot(join(shots, name.replace(/[^\w]+/g, '_') + '.png')).catch(() => {});
+			}
+			results.push({ name, ok: !err, err, ms: Date.now() - t0 });
+			console.log(`${err ? '✗' : '✓'} ${name} ${err ? '\n    ' + err : ''} (${Date.now() - t0}ms)`);
+		}
+		await p.close();
+	}
+}
+const failed = results.filter((r) => !r.ok);
+console.log(`\n${results.length - failed.length} passed, ${failed.length} failed`);
+process.exit(failed.length ? 1 : 0);
+
+function helpers(p) {
+	const h = {
+		/** Close every pane, put every test note back as it was, delete anything tests created, reset settings. */
+		async reset() {
+			await p.ev(`(async () => {
+				document.querySelectorAll('.modal-close-button').forEach(b => b.click());
+				const leaves = []; app.workspace.iterateRootLeaves(l => { leaves.push(l); }); leaves.forEach(l => l.detach()); // not while iterating
+				await new Promise(r => setTimeout(r, 150));
+				const files = ${JSON.stringify([...pristine])};
+				for (const [path, text] of files) {
+					const f = app.vault.getAbstractFileByPath(path);
+					if (f) await app.vault.modify(f, text); else { const dir = path.split('/').slice(0, -1).join('/'); if (dir && !app.vault.getAbstractFileByPath(dir)) await app.vault.createFolder(dir); await app.vault.create(path, text); }
+				}
+				const keep = new Set(files.map(f => f[0]));
+				for (const f of app.vault.getFiles()) if (!keep.has(f.path) && f.extension === 'md') await app.vault.delete(f);
+				const pl = app.plugins.plugins.binders; if (pl) { pl.settings = Object.assign({}, pl.settings, { orderExplorer: true, openOnClick: true }); await pl.saveSettings(); }
+			})().then(() => 1)`);
+			await p.sleep(250);
+		},
+		open: (path) => p.ev(`app.workspace.getLeaf(false).openFile(app.vault.getAbstractFileByPath(${JSON.stringify(path)})).then(() => 1)`).then(() => p.sleep(400)),
+		run: (id) => p.ev(`app.commands.executeCommandById('binders:${id}')`),
+		Fail,
+	};
+	return h;
+}

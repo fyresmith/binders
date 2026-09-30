@@ -1,0 +1,10 @@
+{
+	"id": "binders",
+	"name": "Binders",
+	"version": "0.1.0",
+	"minAppVersion": "1.6.0",
+	"description": "Ordered folders for long-form writing: a binder in the file explorer, a corkboard, a plot grid and an editable manuscript.",
+	"author": "Caleb Smith",
+	"authorUrl": "https://calebmsmith.com",
+	"isDesktopOnly": false
+}

@@ -1,0 +1,36 @@
+{
+  "name": "binders",
+  "version": "0.1.0",
+  "description": "Ordered folders for long-form writing in Obsidian: a binder in the file explorer, a corkboard, a plot grid and an editable manuscript.",
+  "main": "main.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+    "test": "node scripts/run-tests.mjs",
+    "lint": "eslint src",
+    "check": "npm run build && npm run lint && npm test",
+    "install-vault": "node scripts/install-to-vault.mjs",
+    "e2e": "node tests/e2e/run.mjs",
+    "ship": "node scripts/ship.mjs",
+    "version": "node version-bump.mjs && git add manifest.json versions.json"
+  },
+  "keywords": ["obsidian", "obsidian-plugin", "writing", "manuscript", "corkboard", "binder", "longform"],
+  "author": "Caleb Smith",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "esbuild": "^0.25.0",
+    "eslint": "^9.0.0",
+    "eslint-plugin-obsidianmd": "^0.4.2",
+    "obsidian": "latest",
+    "tslib": "^2.8.0",
+    "typescript": "^5.6.0",
+    "typescript-eslint": "^8.0.0"
+  },
+  "repository": { "type": "git", "url": "https://github.com/fyresmith/binders.git" },
+  "homepage": "https://github.com/fyresmith/binders",
+  "bugs": { "url": "https://github.com/fyresmith/binders/issues" }
+}
