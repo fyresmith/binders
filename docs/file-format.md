@@ -52,6 +52,8 @@ Binders creates it when you first give the folder a synopsis, status or label in
 - Duplicate entries count once. Paths that leave the folder (`..`) are ignored.
 - An entry YAML reads as a number (a note called `1984`, typed bare) counts as that name. Binders writes such names
   quoted.
+- Reading drops one `.md` from an entry. A note whose own name ends in `.md` (`notes.md.md`) is written with its full
+  name, so it reads back as itself.
 - The binder note and folder notes never appear in `contents` or as scenes in the binder views.
 - A binder note inside a binder (a nested binder) is an ordinary note in 1.0, or the folder note if it's named like its
   folder.

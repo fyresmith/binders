@@ -146,6 +146,10 @@ export function relPath(binderFolder: string, path: string, isFolder: boolean): 
 	return isFolder ? r + '/' : r.replace(/\.md$/i, '');
 }
 
+/** An item as the list writes it. Reading drops one ".md", so a note whose own name ends in ".md" ("notes.md.md", which
+    `relPath` gives as "notes.md") is written with its full name, to read back as itself. */
+export const diskPath = (p: string): string => (!p.endsWith('/') && /\.md$/i.test(p) ? p + '.md' : p);
+
 /** Every item in the binder in reading order, depth first. `childrenOf` gives the items in a folder ("" for the top). */
 export function readingOrder(contents: string[], childrenOf: (folder: string) => string[]): string[] {
 	const out: string[] = [];

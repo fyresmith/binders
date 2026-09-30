@@ -66,6 +66,16 @@ test('a note named like a number keeps its place when Binders writes the list', 
 	t.eq(j(await kids(p, 'The Lighthouse')), j(['Prologue.md', '1984.md', 'Part One', 'Part Two', 'Epilogue.md']), 'in its place after the cache re-reads it');
 }));
 
+test('a note whose name ends in ".md" (notes.md.md) keeps its place', withTidy(async (p, h, t) => {
+	await p.ev(`app.vault.create('The Lighthouse/Part One/notes.md.md', 'x').then(() => 1)`);
+	await p.sleep(200);
+	await p.ev(`${B}.move(${file('The Lighthouse/Part One/notes.md.md')}, ${file('The Lighthouse/Part One')}, 0).then(() => 1)`);
+	t.eq((await kids(p, 'The Lighthouse/Part One'))[0], 'notes.md.md', 'first at once');
+	await flush(p); await cacheSettles(p);
+	t.eq(j(await kids(p, 'The Lighthouse/Part One')), j(['notes.md.md', 'Arrival.md', 'The keeper.md', 'Storm warning.md']), 'still first once the list is read back');
+	t.eq((await contents(p))[2], 'Part One/notes.md.md', 'written with its full name');
+}));
+
 test('names with emoji, #, brackets, quotes and accents keep their place through rename, write and re-read', withTidy(async (p, h, t) => {
 	const odd = 'Ärrival 🌊 #1 [draft] "q" it\'s -x & ~y';
 	const before = await texts(p);

@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.6.21 (2026-09-30)
+
+### Fixed
+
+- Notes whose names end in “.md” (like notes.md.md) keep their place.
+
 ## 0.6.20 (2026-09-30)
 
 ### Fixed

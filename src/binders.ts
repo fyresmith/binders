@@ -1,7 +1,7 @@
 import { Events, Notice, TFile, TFolder, normalizePath, stringifyYaml, type App, type EventRef, type TAbstractFile } from 'obsidian';
 import type { ExplorerSource } from './explorer';
 import type BindersPlugin from './main';
-import { applyOps, checkFormat, FORMAT_VERSION, isBinderNote, isFolderNote, nameOf, orderChildren, readIndex, relPath, stepIndex, UnsupportedBinder, type ListOp } from './model';
+import { applyOps, checkFormat, diskPath, FORMAT_VERSION, isBinderNote, isFolderNote, nameOf, orderChildren, readIndex, relPath, stepIndex, UnsupportedBinder, type ListOp } from './model';
 import { applySceneOps, conversionPlan, isIgnored, isLongformIndex, longformRunning, readProject, sameScenes, sceneGroups, shownScenes, writeScenes, type Project, type Scene, type SceneOp } from './longform';
 
 /* The binders in the vault: finds them, keeps each one's order in step with the vault, and writes changes back.
@@ -301,11 +301,11 @@ export class BinderStore extends Events implements ExplorerSource {
 		if (existing) {
 			await this.app.fileManager.processFrontMatter(existing, (fm: Record<string, unknown>) => {
 				fm.binder = FORMAT_VERSION;
-				if (!Array.isArray(fm.contents)) fm.contents = contents;
+				if (!Array.isArray(fm.contents)) fm.contents = contents.map(diskPath);
 			});
 			return existing;
 		}
-		return this.app.vault.create(this.folderNotePath(folder), `---\n${stringifyYaml({ binder: FORMAT_VERSION, contents })}---\n`);
+		return this.app.vault.create(this.folderNotePath(folder), `---\n${stringifyYaml({ binder: FORMAT_VERSION, contents: contents.map(diskPath) })}---\n`);
 	}
 
 	async flush(): Promise<void> { await Promise.all([...this.states.values()].map((s) => this.write(s))); }
@@ -339,7 +339,7 @@ export class BinderStore extends Events implements ExplorerSource {
 		try {
 			for (const f of plan.folders) { const p = normalizePath(`${s.folder.path}/${f}`); if (!vault.getAbstractFileByPath(p)) await vault.createFolder(p); }
 			for (const m of plan.moves) await fileManager.renameFile(m.file, m.to);
-			const binderProps = (fm: Record<string, unknown>) => { fm.binder = FORMAT_VERSION; fm.contents = plan.contents; };
+			const binderProps = (fm: Record<string, unknown>) => { fm.binder = FORMAT_VERSION; fm.contents = plan.contents.map(diskPath); };
 			const dropLongform = (fm: Record<string, unknown>) => { if (opts.removeLongform) delete fm.longform; };
 			if (!plan.creates) {
 				await fileManager.processFrontMatter(s.note, (fm: Record<string, unknown>) => { binderProps(fm); dropLongform(fm); });
@@ -618,7 +618,7 @@ export class BinderStore extends Events implements ExplorerSource {
 				if (!isBinderNote(fm)) throw new NotABinder();
 				checkFormat(fm); // refuses a newer format before anything is written
 				const list = next(readIndex(fm, s.note.basename).contents);
-				fm.contents = list;
+				fm.contents = list.map(diskPath);
 				s.base = list; // don't wait for the cache, so the order doesn't flicker back
 			});
 		} catch (e) {

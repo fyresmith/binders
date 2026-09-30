@@ -1,4 +1,4 @@
-import { applyOps, checkFormat, cleanPath, folderNoteOf, isBinderNote, isFolderNote, moveTo, orderChildren, readIndex, readingOrder, relPath, removeFrom, renameIn, stepIndex, UnsupportedBinder } from '../src/model';
+import { applyOps, checkFormat, cleanPath, diskPath, folderNoteOf, isBinderNote, isFolderNote, moveTo, orderChildren, readIndex, readingOrder, relPath, removeFrom, renameIn, stepIndex, UnsupportedBinder } from '../src/model';
 import { done, eq, ok } from './harness';
 
 const j = (x: unknown) => JSON.stringify(x);
@@ -68,6 +68,9 @@ const j = (x: unknown) => JSON.stringify(x);
 	eq(relPath('Books/Novel', 'Books/Novella/x.md', false), null, 'a folder with a longer name is not inside');
 	eq(relPath('Books/Novel', 'Books/Novel', true), null, 'the binder folder itself is not inside');
 	eq(relPath('', 'x.md', false), null, 'the vault root is never a binder');
+	eq(diskPath('Part One/Arrival'), 'Part One/Arrival', 'written as is');
+	eq(diskPath('notes.md'), 'notes.md.md', 'a note named notes.md.md is written in full, as reading drops one .md');
+	eq(diskPath('A.md/'), 'A.md/', 'folders as they are');
 }
 
 // reading order, depth first
