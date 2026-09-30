@@ -450,7 +450,7 @@ test('two views of the same binder: a drag in one shows in the other; typing in 
 	t.eq(j(lefts), j(['done', 'done']), 'both views show the status');
 }));
 
-test('BUG: Back after the folder it came from was renamed says it isn’t in a binder', withTidy(async (p, h, t) => {
+test('Back after the folder it came from was renamed shows the renamed folder', withTidy(async (p, h, t) => {
 	await openView(p, 'The Lighthouse/Part Two');
 	const c = await p.at(`.workspace-leaf.mod-active .binders-crumb[role="link"]`);
 	await p.click(c.x, c.y);

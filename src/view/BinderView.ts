@@ -27,6 +27,17 @@ interface BinderViewState { folder?: string; mode?: ModeName; filter?: Filter; o
 const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
 const text = (v: unknown): string => (typeof v === 'string' ? v : typeof v === 'number' || typeof v === 'boolean' ? String(v) : Array.isArray(v) ? v.filter((x) => typeof x === 'string').join(', ') : '');
 
+/** Folders renamed or moved since Obsidian started, old path to new, so a tab's history (Back) still finds them. */
+const moved = new Map<string, string>();
+function followMoves(path: string): string {
+	for (let i = 0; i < 32; i++) {
+		const hit = [...moved].find(([from]) => path === from || path.startsWith(from + '/'));
+		if (!hit) break;
+		path = hit[1] + path.slice(hit[0].length);
+	}
+	return path;
+}
+
 /** A mode that isn't built yet: an empty state, like Obsidian's own. */
 const comingSoon = (name: string): ModeFactory => (el) => ({
 	render() {
@@ -112,7 +123,8 @@ export class BinderView extends ItemView {
 			const f = this.folder;
 			if (f && (file.path.startsWith(f.path + '/') || file === this.binder?.note)) this.schedule();
 		}));
-		this.registerEvent(vault.on('rename', (file) => {
+		this.registerEvent(vault.on('rename', (file, old) => {
+			if (file instanceof TFolder) { moved.delete(file.path); moved.set(old, file.path); }
 			if (!this.folder || !(file instanceof TFolder) || (file !== this.folder && !this.folder.path.startsWith(file.path + '/'))) return;
 			this.path = this.folder.path;
 			refreshHeader(this);
@@ -161,7 +173,12 @@ export class BinderView extends ItemView {
 	}
 
 	private resolve(): void {
-		const f = this.app.vault.getAbstractFileByPath(this.path);
+		let f = this.app.vault.getAbstractFileByPath(this.path);
+		// a folder renamed since this view was on it (Back to it, after a rename)
+		if (!(f instanceof TFolder)) {
+			const to = followMoves(this.path), g = to !== this.path ? this.app.vault.getAbstractFileByPath(to) : null;
+			if (g instanceof TFolder) { f = g; this.path = to; }
+		}
 		this.folder = f instanceof TFolder ? f : null;
 		this.binder = this.folder ? this.store.binderOf(this.folder) : null;
 		if (!this.binder) this.folder = null;

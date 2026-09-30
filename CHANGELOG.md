@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.6.9 (2026-09-30)
+
+### Fixed
+
+- Back returns to a folder even after it was renamed.
+
 ## 0.6.8 (2026-09-30)
 
 ### Fixed

@@ -1,6 +1,6 @@
 {
   "name": "binders",
-  "version": "0.6.8",
+  "version": "0.6.9",
   "description": "Ordered folders for long-form writing in Obsidian: a binder in the file explorer, a corkboard, a plot grid and an editable manuscript.",
   "main": "main.js",
   "type": "module",
