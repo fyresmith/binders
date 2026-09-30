@@ -78,7 +78,8 @@ Binders creates it when you first give the folder a synopsis, status or label in
   They're applied to what the binder note says at that moment, so edits made to it meanwhile are kept.
 - "Make this folder a binder" creates `Folder/Folder.md` with `binder: 1` and `contents` in the order the file explorer
   showed (folders first, then notes, by name). If `Folder/Folder.md` already exists, it adds `binder: 1` (and
-  `contents`, if it has none) to its properties and leaves its text alone.
+  `contents`, if it has none) to its properties and leaves its text alone. If that note already has a `contents` property
+  that isn't a list, Binders leaves the note as it is and doesn't make the folder a binder.
 
 ## Scene properties
 

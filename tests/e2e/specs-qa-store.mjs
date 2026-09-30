@@ -319,6 +319,22 @@ test('a newer format that arrives while changes are waiting is not written over'
 
 // ---- make a binder ----
 
+test('make-binder refuses a folder note whose own "contents" isn’t a list, and changes nothing', withTidy(async (p, h, t) => {
+	const before = '---\ncontents: My table of contents, by hand\n---\nText\n';
+	await p.ev(`(async () => { await app.vault.createFolder('Notes'); await app.vault.create('Notes/a.md', 'a'); await app.vault.create('Notes/Notes.md', ${j(before)}); })().then(() => 1)`);
+	await p.sleep(300);
+	const err = await p.ev(`${B}.makeBinder(${file('Notes')}).then(() => '', (e) => String(e.message))`);
+	t.ok(/already has a “contents” property that isn’t a list/.test(err), 'refused with a clear message: ' + err);
+	t.eq(await read(p, 'Notes/Notes.md'), before, 'the note is byte-identical (rule 3: only Binders’ own properties)');
+	await p.sleep(200);
+	t.ok(!(await p.ev(`${B}.isBinderFolder(${file('Notes')})`)), 'not a binder');
+	// an empty `contents:` is Binders’ to fill
+	await p.ev(`app.vault.modify(${file('Notes/Notes.md')}, '---\\ncontents:\\n---\\nText\\n').then(() => 1)`);
+	await p.sleep(300);
+	await p.ev(`${B}.makeBinder(${file('Notes')}).then(() => 1)`);
+	t.eq(await read(p, 'Notes/Notes.md'), '---\ncontents:\n  - a\nbinder: 1\n---\nText\n', 'filled in');
+}));
+
 test('make-binder on a folder with binder-ish notes and a nested binder', withTidy(async (p, h, t) => {
 	await p.ev(`(async () => {
 		await app.vault.createFolder('Draft'); await app.vault.createFolder('Draft/Old');

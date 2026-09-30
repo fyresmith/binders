@@ -299,9 +299,14 @@ export class BinderStore extends Events implements ExplorerSource {
 		walk(folder);
 		const existing = this.folderNote(folder);
 		if (existing) {
+			// `contents` of its own that isn't a list is the user's, not ours to overwrite: refuse, changing nothing
+			const theirs = (fm: Record<string, unknown>) => fm.contents != null && !Array.isArray(fm.contents);
+			const refuse = () => new Error(`“${existing.basename}” already has a “contents” property that isn’t a list. Rename or remove it to make “${folder.name}” a binder.`);
+			if (theirs(this.app.metadataCache.getFileCache(existing)?.frontmatter ?? {})) throw refuse();
 			await this.app.fileManager.processFrontMatter(existing, (fm: Record<string, unknown>) => {
+				if (theirs(fm)) throw refuse(); // checked again on what the note says now
 				fm.binder = FORMAT_VERSION;
-				if (!Array.isArray(fm.contents)) fm.contents = contents.map(diskPath);
+				if (fm.contents == null) fm.contents = contents.map(diskPath);
 			});
 			return existing;
 		}

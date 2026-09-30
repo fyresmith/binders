@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.6.24 (2026-09-30)
+
+### Fixed
+
+- “Make this folder a binder” no longer overwrites a folder note's own “contents” property; it explains why it can't go ahead instead.
+
 ## 0.6.23 (2026-09-30)
 
 ### Fixed
