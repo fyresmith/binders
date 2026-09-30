@@ -1066,9 +1066,9 @@
 
 /* A subfolder shown as one card: a stack, with the cards under it peeking out. */
 .binders-card.is-stack {
-	--binders-stack: 3px 3px 0 -1px var(--background-primary), 3px 3px 0 0 var(--background-modifier-border), 6px 6px 0 -1px var(--background-primary), 6px 6px 0 0 var(--background-modifier-border);
+	/* the cards under it peek out below, each a little narrower, so a stack is as wide as a note's card */
+	--binders-stack: 0 6px 0 -4px var(--background-primary), 0 6px 0 -3px var(--background-modifier-border), 0 12px 0 -7px var(--background-primary), 0 12px 0 -6px var(--background-modifier-border);
 	overflow: visible;
-	margin-inline-end: 6px;
 	margin-bottom: 6px;
 	box-shadow: var(--binders-stack);
 }
