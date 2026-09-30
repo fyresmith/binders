@@ -842,6 +842,14 @@
 	background-color: var(--background-secondary);
 }
 
+/* Longform: scenes indented under a scene, a panel like a subfolder's, indented once per level. */
+.binders-group.is-indented {
+	margin-inline-start: calc((var(--binders-group-depth, 1) - 1) * var(--size-4-6));
+	padding: var(--size-4-3);
+	border-radius: var(--radius-l);
+	background-color: var(--background-secondary);
+}
+
 .binders-group-heading {
 	display: flex;
 	flex-direction: column;

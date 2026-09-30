@@ -17,6 +17,7 @@ a fallback, and has an e2e test. Keep this list current.
 | `workspace.unsetActiveEditor(editor)` | `src/view/editable-embed.ts` | Mounting a section doesn't make it the active editor | Required by `embedSupported()` | `specs-manuscript.mjs` |
 | `workspace.onQuickPreview(file, text)` | `src/view/editable-embed.ts` | After merging an outside edit into unsaved typing, other views of the note get the merged text | Skipped if missing (other views then show the outside version until the save lands, as in Obsidian) | `specs-manuscript.mjs` (same note in a tab) |
 | `vault.on('config-changed')` | `src/view/manuscript.ts` | Keeping sections in live preview when the vault's editing mode changes | Also checked on `css-change` | `specs-manuscript.mjs` |
+| `app.plugins.plugins.longform` (loaded plugins by id) | `src/longform.ts` (`longformRunning`) | Leaving rename and delete tracking in Longform projects to Longform while it runs, so the index note isn't written twice | Treated as not running: Binders writes renames and deletes itself (the same change Longform would make) | `specs-longform.mjs` (a stand-in plugin) |
 
 ## The file explorer (checked on Obsidian 1.13.7, desktop and `app.emulateMobile(true)`)
 

@@ -86,6 +86,7 @@ class PlotGrid implements BinderMode {
 
 	// ---- what the grid shows ----
 
+	private get longform(): boolean { return this.ctx.binder.kind === 'longform'; }
 	private get ro(): boolean { return this.ctx.readOnly || !!this.ctx.binder.problem; }
 
 	private frontmatter(f: TFile): Record<string, unknown> { return this.ctx.app.metadataCache.getFileCache(f)?.frontmatter ?? {}; }
@@ -102,16 +103,22 @@ class PlotGrid implements BinderMode {
 
 	private rows(cols: string[]): Row[] {
 		const out: Row[] = [], store = this.ctx.store;
+		const scene = (c: TFile, depth: number) => {
+			const lines = this.linesOf(c);
+			out.push({ item: c, depth, lines, text: [...readPlotText(this.frontmatter(c)[PLOT_TEXT])], other: lines.filter((l) => !cols.includes(l)) });
+		};
+		// a Longform project has no subfolders: its scenes are indented as in Longform, under the scene above them
+		if (this.ctx.binder.kind === 'longform') {
+			for (const g of store.groups(this.ctx.folder)) for (const f of g.files) scene(f, g.depth);
+			return out;
+		}
 		const walk = (folder: TFolder, depth: number) => {
 			for (const c of store.orderedChildren(folder) ?? []) {
 				if (c instanceof TFolder) {
 					if (!this.collapsed.has(c.path)) { out.push({ item: c, depth }); walk(c, depth + 1); continue; }
 					const scenes = store.scenes(c).map((f) => this.linesOf(f));
 					out.push({ item: c, depth, counts: cols.map((p) => scenes.filter((l) => l.includes(p)).length) });
-				} else if (c instanceof TFile && c.extension === 'md') {
-					const lines = this.linesOf(c);
-					out.push({ item: c, depth, lines, text: [...readPlotText(this.frontmatter(c)[PLOT_TEXT])], other: lines.filter((l) => !cols.includes(l)) });
-				}
+				} else if (c instanceof TFile && c.extension === 'md') scene(c, depth);
 			}
 		};
 		walk(this.ctx.folder, 0);
@@ -367,8 +374,8 @@ class PlotGrid implements BinderMode {
 		this.focusSpot(spotKey(item.path, TITLE));
 	}
 
-	private async moveItem(item: TFile | TFolder, folder: TFolder, index: number): Promise<void> {
-		await this.tell(this.ctx.store.move(item, folder, index));
+	private async moveItem(item: TFile | TFolder, folder: TFolder, index: number, depth?: number): Promise<void> {
+		await this.tell(this.ctx.store.move(item, folder, index, depth));
 		this.setSpot(spotKey(item.path, TITLE)); // its path after a move to another folder
 	}
 
@@ -635,7 +642,7 @@ class PlotGrid implements BinderMode {
 	}
 
 	private dragRow(e: PointerEvent, item: TFile | TFolder): void {
-		let to: { folder: TFolder; index: number } | null = null;
+		let to: { folder: TFolder; index: number; depth?: number } | null = null;
 		const tr = () => this.table?.tBodies[0]?.querySelector<HTMLElement>(`tr[data-path="${CSS.escape(item.path)}"]`);
 		this.track(e, {
 			start: () => tr()?.addClass('is-dragged'),
@@ -645,21 +652,21 @@ class PlotGrid implements BinderMode {
 				to = t;
 				t?.el.addClass(t.mark);
 			},
-			drop: () => { if (to) void this.moveItem(item, to.folder, to.index); },
+			drop: () => { if (to) void this.moveItem(item, to.folder, to.index, to.depth); },
 			end: () => this.marks(),
 		});
 	}
 
 	/** Where a row dropped at `y` goes: before or after the row under it, in that row's folder; the lower half of an open
 	    group's header puts it first in that group; below the last row, last in the folder shown. */
-	private rowTarget(item: TFile | TFolder, y: number): { folder: TFolder; index: number; el: HTMLElement; mark: string } | null {
+	private rowTarget(item: TFile | TFolder, y: number): { folder: TFolder; index: number; depth?: number; el: HTMLElement; mark: string } | null {
 		const rows = [...(this.table?.tBodies[0]?.rows ?? [])];
 		if (!rows.length) return null;
 		if (this.end && y >= rows[rows.length - 1].getBoundingClientRect().bottom) {
 			const folder = this.ctx.folder, sibs = this.ctx.store.orderedChildren(folder) ?? [];
 			const index = sibs.filter((c: TAbstractFile) => c !== item).length;
 			if (item.parent === folder && sibs.indexOf(item) === index) return null; // last already
-			return { folder, index, el: this.end, mark: 'is-drop-target' };
+			return { folder, index, depth: this.longform ? 0 : undefined, el: this.end, mark: 'is-drop-target' };
 		}
 		let tr = rows.find((r) => { const b = r.getBoundingClientRect(); return y >= b.top && y < b.bottom; }), after: boolean;
 		if (tr) { const b = tr.getBoundingClientRect(); after = y > b.top + b.height / 2; }
@@ -671,8 +678,14 @@ class PlotGrid implements BinderMode {
 		if (item instanceof TFolder && (folder === item || folder.path.startsWith(item.path + '/'))) return null;
 		const sibs = (this.ctx.store.orderedChildren(folder) ?? []).filter((c: TAbstractFile) => c !== item);
 		const index = into ? 0 : sibs.indexOf(over) + (after ? 1 : 0);
-		if (item.parent === folder && (this.ctx.store.orderedChildren(folder) ?? []).indexOf(item) === index) return null; // where it is
-		return { folder, index, el: tr, mark: after ? 'is-drop-after' : 'is-drop-before' };
+		// Longform: a dropped scene takes the indent of the row it's dropped against; right under a scene with scenes
+		// indented under it, it's the first of those
+		const level = (r: HTMLElement | undefined) => (r ? Number(r.getAttribute('aria-level')) - 1 : 0);
+		const next = rows[rows.indexOf(tr) + 1];
+		const depth = !this.longform ? undefined : after && next && level(next) > level(tr) ? level(next) : level(tr);
+		const same = item.parent === folder && (this.ctx.store.orderedChildren(folder) ?? []).indexOf(item) === index;
+		if (same && (depth === undefined || depth === level(this.table?.tBodies[0]?.querySelector<HTMLElement>(`tr[data-path="${CSS.escape(item.path)}"]`) ?? undefined))) return null; // where it is
+		return { folder, index, depth, el: tr, mark: after ? 'is-drop-after' : 'is-drop-before' };
 	}
 
 	private dragColumn(e: PointerEvent, name: string): void {

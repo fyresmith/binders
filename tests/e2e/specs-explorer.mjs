@@ -45,7 +45,7 @@ test('shows a binder in binder order, not by name', async (p, h, t) => {
 test('binder icon on binder folders only', async (p, h, t) => {
 	await rows(p);
 	const icons = await p.ev(`[...document.querySelectorAll('.nav-folder-title .binders-folder-icon')].map(e => e.closest('[data-path]').dataset.path)`);
-	same(t, icons, ['The Lighthouse'], 'only the binder folder has the icon');
+	same(t, icons, ['Longform demo', 'The Lighthouse'], 'only binder folders (and Longform projects) have the icon');
 	t.ok(await p.ev(`!!document.querySelector('.nav-folder-title[data-path="The Lighthouse"] .binders-folder-icon svg.lucide-book')`), 'it is the book icon');
 });
 

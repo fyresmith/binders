@@ -86,6 +86,35 @@ settings.
 | `plotlines` | list of text | The plot grid's ticks for this scene. Names the binder has no column for still show, under "Other" |
 | `plot` | object | Reserved: text per plotline for this scene (`plot: {Mara: "…"}`), for a later version of the plot grid |
 
+## Longform projects
+
+Binders also shows [Longform](https://github.com/kevboh/longform) multi-scene projects as binders, in Longform's own
+format, and writes only `longform.scenes` in the index note:
+
+```yaml
+---
+longform:
+  format: scenes            # only multi-scene projects; `single` isn't a binder
+  sceneFolder: /            # the binder folder, relative to this note
+  scenes:                   # the order, by note name; a nested list is indented under the scene before it
+    - Harbor
+    - - Ticket office       # a group under "Harbor"
+      - The crossing
+    - Island
+  ignoredFiles:             # names (wildcards * and ?) that aren't scenes
+    - Notes*
+plotlines:                  # the plot grid's columns: outside `longform`, as in a binder note
+  - Ines
+---
+```
+
+- Scenes are the notes directly in the scene folder. Notes `scenes` doesn't list show after the listed ones, by name.
+- A reorder rewrites `scenes` in the same nested shape Longform writes; nothing else in the note changes.
+- Renames and deletes of scenes update `scenes` when Longform isn't running (when it is, Longform does it).
+- A Longform project inside a binder is ordinary notes, and a note with both `binder` and `longform` is a binder note.
+- "Convert to binder" writes `binder: 1` and `contents` into the index note (or a new binder note named like the scene
+  folder, if the index note is outside it), and optionally moves groups into subfolders and removes `longform`.
+
 ## Compatibility
 
 - Later versions of format 1 only add optional properties.

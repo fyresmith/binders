@@ -73,7 +73,7 @@ const LIST = ['Prologue', 'Part One/', 'Part One/Arrival', 'Part One/The keeper'
 test('binders: finds the binder, orders it, and tells binder and folder notes from scenes', async (p, h, t) => {
 	await addFolderNote(p);
 	await p.ev(`${B}.ready.then(() => 1)`);
-	t.eq(j(await p.ev(`${B}.all().map(b => b.folder.path)`)), j(['The Lighthouse']), 'one binder');
+	t.eq(j(await p.ev(`${B}.all().filter(b => b.kind === 'binder').map(b => b.folder.path)`)), j(['The Lighthouse']), 'one binder (and a Longform project, in specs-longform)');
 	t.ok(await p.ev(`${B}.isBinderFolder(${file('The Lighthouse')})`), 'the folder is a binder');
 	t.ok(!(await p.ev(`${B}.isBinderFolder(${file('The Lighthouse/Part One')})`)), 'a subfolder is not');
 	t.eq(await p.ev(`${B}.binderOf(${j('The Lighthouse/Part One/Arrival.md')}).note.path`), NOTE, 'a scene knows its binder');

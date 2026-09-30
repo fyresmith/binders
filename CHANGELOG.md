@@ -3,6 +3,13 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.6.0 (2026-09-30)
+
+### Added
+
+- Longform projects show as binders in the file explorer, the corkboard, the plot grid and the manuscript; reordering writes only Longform's own scene list.
+- Convert to binder: turns a Longform project into a binder, optionally moving its groups into folders.
+
 ## 0.5.0 (2026-09-30)
 
 ### Added

@@ -1,5 +1,5 @@
 import { Keymap, Notice, Plugin, TFile, TFolder, type Menu, type PaneType, type TAbstractFile, type WorkspaceLeaf } from 'obsidian';
-import { BinderStore } from './binders';
+import { BinderStore, type Binder } from './binders';
 import { BinderView, MODES, VIEW_TYPE } from './view/BinderView';
 import { corkboard } from './view/corkboard';
 import { BindersSettingTab, DEFAULT_SETTINGS, type BindersSettings } from './settings';
@@ -7,6 +7,7 @@ import { installExplorer, type Explorer } from './explorer'; // explorer (0.3)
 import type { ModeFactory } from './view/mode';
 import { plotgrid } from './view/plotgrid'; // plot grid (0.5)
 import { manuscript } from './view/manuscript'; // manuscript (0.6)
+import { ConvertModal } from './longform-convert'; // longform (0.7)
 
 /* Binders: ordered folders for long-form writing. See docs/plan.md for the design. */
 export default class BindersPlugin extends Plugin {
@@ -34,7 +35,7 @@ export default class BindersPlugin extends Plugin {
 		this.registerEvent(this.app.workspace.on('file-menu', (menu, file) => this.fileMenu(menu, file)));
 		const active = () => this.app.workspace.getActiveFile();
 		this.addCommand({ id: 'open-binder', name: 'Open binder', checkCallback: (checking) => {
-			const file = active(), folder = file?.parent;
+			const file = active(), folder = this.folderOf(file);
 			if (!file || !folder || !this.binders.binderOf(file)) return false;
 			if (!checking) void this.openBinder(folder, false, this.binders.isHiddenNote(file) ? null : file);
 			return true;
@@ -54,7 +55,7 @@ export default class BindersPlugin extends Plugin {
 			return true;
 		} });
 		this.addCommand({ id: 'new-scene', name: 'New scene here', checkCallback: (checking) => {
-			const file = active(), folder = file?.parent;
+			const file = active(), folder = this.folderOf(file);
 			if (!file || !folder || !this.binders.binderOf(file) || this.binders.problem(file)) return false;
 			if (!checking) {
 				// right after the note you're in; from a binder or folder note, at the end of that folder
@@ -63,6 +64,14 @@ export default class BindersPlugin extends Plugin {
 			}
 			return true;
 		} });
+		// longform (0.7) >>>
+		this.addCommand({ id: 'convert-longform', name: 'Convert to binder', checkCallback: (checking) => {
+			const b = this.longformOf(active());
+			if (!b) return false;
+			if (!checking) new ConvertModal(this.app, this.binders, b).open();
+			return true;
+		} });
+		// <<< longform (0.7)
 		for (const [id, name, delta] of [['move-up', 'Move up', -1], ['move-down', 'Move down', 1]] as const) {
 			this.addCommand({ id, name, checkCallback: (checking) => {
 				const file = active();
@@ -110,8 +119,23 @@ export default class BindersPlugin extends Plugin {
 		if (file instanceof TFolder && b.binderOf(file) && !b.problem(file)) {
 			menu.addItem((i) => i.setTitle('New scene here').setIcon('file-plus').onClick(() => void this.newScene(file)));
 		}
+		const lf = this.longformOf(file); // longform (0.7)
+		if (lf && (file === lf.note || file === lf.folder)) menu.addItem((i) => i.setTitle('Convert to binder').setIcon('library').onClick(() => new ConvertModal(this.app, b, lf).open()));
 		if (this.canStep(file, -1)) menu.addItem((i) => i.setTitle('Move up').setIcon('arrow-up').onClick(() => void this.step(file, -1)));
 		if (this.canStep(file, 1)) menu.addItem((i) => i.setTitle('Move down').setIcon('arrow-down').onClick(() => void this.step(file, 1)));
+	}
+
+	/** The folder a note is in, as far as its binder goes: a Longform index note may be outside its project's scene
+	    folder, and stands for that folder. */
+	private folderOf(file: TFile | null): TFolder | null {
+		const b = file && this.binders.binderOf(file);
+		return b && file === b.note ? b.folder : file?.parent ?? null;
+	}
+
+	/** The Longform project a note or folder is in, if any. longform (0.7) */
+	private longformOf(item: TAbstractFile | null): Binder | null {
+		const b = item && this.binders.binderOf(item);
+		return b && b.kind === 'longform' ? b : null;
 	}
 
 	private canStep(item: TAbstractFile, delta: number): boolean {

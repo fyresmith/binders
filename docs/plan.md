@@ -122,13 +122,37 @@ One view type (`binders-view`) per binder or subfolder, with a header: breadcrum
 
 ## Longform integration
 
-- Detect Longform projects (notes with a `longform` property of `format: scenes`).
-- Show each as a binder in the explorer order, the corkboard, the plot grid and the manuscript. Its order comes from
-  Longform's `scenes` list (nested lists become groups).
-- Reordering writes only `longform.scenes`, in Longform's own shape, so Longform keeps working.
-- "Convert to binder": copy the order into a binder note's `contents` (optionally moving indented groups into subfolders).
-- Constraints: Longform keeps all scenes in one folder and its nesting is free-form indentation, so Longform projects
-  have no subfolders in Binders; they show their groups instead.
+Supported (0.7): Longform's multi-scene projects. Single-note projects (`format: single`) aren't binders.
+
+- **Detection**: a note whose `longform` property has `format: scenes` is a project. Its **scene folder**
+  (`sceneFolder`, relative to the index note) is the binder folder and gets the binder icon; the index note is the
+  binder note (hidden in the explorer when it's in the scene folder). The vault root can't be one. A project inside a
+  binder is ordinary notes; a note with both `binder` and `longform` is a binder.
+- **What's in it**: only the notes directly in the scene folder, as in Longform. Subfolders and notes matching
+  `ignoredFiles` aren't scenes (the explorer still shows them, after the scenes).
+- **Order**: `longform.scenes`, flattened with an indent per scene, as Longform reads it. Notes it doesn't list show
+  after the listed ones, by name (Longform's "new scenes"). Listed names with no note are skipped.
+- **Groups**: Longform projects have no subfolders; scenes indented under a scene form a group headed by it.
+  `store.groups(folder)` gives groups for both kinds (a binder's groups are its subfolders), for the views' headings.
+  The corkboard shows each group as an indented panel headed by its scene (dropping a card or making a new one there
+  indents it); the plot grid indents rows as Longform does; the manuscript runs the scenes in order, with no headings.
+- **Writing**: reordering (the views, Move up/down, New scene here) writes only `longform.scenes`, through
+  `processFrontMatter`, batched and applied to what the note says then, in the nested shape Longform writes. Every other
+  property, and every other key inside `longform`, is kept. A moved scene keeps its indent unless a view gives a new one
+  (dropping it into a group); a note not listed yet takes the indent of the scene before it. Files never move.
+- **Renames and deletes**: when Longform is running it updates `scenes` itself, so Binders only shows the change.
+  Otherwise Binders writes them, as Longform would: a rename keeps the scene's place, a deleted or moved-out scene is
+  dropped, a note moved in shows after the listed ones.
+- **Plot grid**: `plotlines` and `plotlineColors` live at the top level of the index note, not inside `longform`.
+- **Convert to binder** (command, and the index note's and scene folder's right-click menu): a dialog says what will
+  happen, then writes `binder: 1` and `contents` (the Longform order) into the index note (or, if the index note is
+  outside the scene folder, a new binder note named like that folder, with the plotlines). Options, both off by default:
+  - *Move groups into folders*: each top-level scene with scenes indented under it gets a subfolder named after it,
+    next to it, and those scenes move into it (deeper indents are flattened; links update). Scenes indented under
+    nothing go in "Group 1", "Group 2"…
+  - *Remove the "longform" property* from the index note. Left on, Longform still lists the project, but its order no
+    longer follows changes made in Binders.
+  Notes Longform ignored, and subfolders, become part of the binder. No text changes.
 
 ## Architecture
 
@@ -144,7 +168,8 @@ src/
     corkboard.ts
     plotgrid.ts
     manuscript.ts    embedded editors (isolated; feature-detected)
-  longform.ts        Longform projects as binders
+  longform.ts        Longform projects: reading and writing `longform.scenes` (pure, unit-tested)
+  longform-convert.ts  the "Convert to binder" dialog
 ```
 
 - `model.ts` has no Obsidian imports; everything that touches the vault goes through `binders.ts`.

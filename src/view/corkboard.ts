@@ -7,7 +7,7 @@ import type { BinderMode, ModeContext, ModeFactory } from './mode';
 import { wordsLabel } from './words';
 
 /* The corkboard: one index card per note, in binder order. Subfolders show as groups with a heading (or, as an option,
-   as one stacked card each). Cards are edited in place (synopsis, title), reordered by dragging (mouse, pen or touch:
+   as one stacked card each); in a Longform project, which has no subfolders, scenes indented under a scene do. Cards are edited in place (synopsis, title), reordered by dragging (mouse, pen or touch:
    touch starts a drag with a long press, so a swipe still scrolls) or with the keyboard, and moved between folders by
    dropping them in another group. Redraws wait while something is being typed or dragged, so neither is interrupted. */
 
@@ -18,6 +18,10 @@ interface Group {
 	items: TAbstractFile[];
 	/** The folder's item just after this group, where its end is (null: the folder's end). */
 	end: TAbstractFile | null;
+	/** Longform: the indent of the group's scenes (a drop or a new card there gets it), and the scene they're indented
+	    under (the heading; null for none, or for a group that continues one shown above). */
+	depth?: number;
+	head?: TFile | null;
 }
 
 interface Drop { group: Group; anchor: TAbstractFile | null }
@@ -52,6 +56,7 @@ class Corkboard implements BinderMode {
 
 	private get store() { return this.ctx.store; }
 	private get stacks(): boolean { return this.ctx.option('stacks', false); }
+	private get longform(): boolean { return this.ctx.binder.kind === 'longform'; }
 
 	render(): void {
 		this.container.addClass('binders-corkboard');
@@ -97,6 +102,7 @@ class Corkboard implements BinderMode {
 	}
 
 	menu(menu: Menu): void {
+		if (this.longform) return; // no subfolders to stack
 		menu.addItem((i) => i.setSection('view').setTitle('Show subfolders as stacks').setIcon('layers').setChecked(this.stacks).onClick(() => {
 			this.ctx.setOption('stacks', !this.stacks);
 			this.draw();
@@ -110,7 +116,16 @@ class Corkboard implements BinderMode {
 	}
 
 	private model(): Group[] {
-		const top = this.ctx.folder, list = this.children(top);
+		const top = this.ctx.folder;
+		if (this.longform) {
+			// one flat folder: the groups are runs of scenes by indent, from the store
+			const groups = this.store.groups(top), flat = groups.flatMap((g) => g.files), out: Group[] = [];
+			let n = 0;
+			for (const g of groups) { n += g.files.length; out.push({ folder: top, sub: false, items: g.files, end: flat[n] ?? null, depth: g.depth, head: g.continued ? null : g.head }); }
+			if (!out.length || out[out.length - 1].depth) out.push({ folder: top, sub: false, items: [], end: null, depth: 0, head: null });
+			return out;
+		}
+		const list = this.children(top);
 		if (this.stacks) return [{ folder: top, sub: false, items: list, end: null }];
 		const out: Group[] = [];
 		let run: TAbstractFile[] = [];
@@ -143,7 +158,7 @@ class Corkboard implements BinderMode {
 		const groups = this.model();
 		return JSON.stringify([this.ctx.readOnly, this.stacks, groups.map((g) => {
 			const note = g.sub ? this.store.folderNote(g.folder) : null, p = note ? this.ctx.props(note) : null;
-			return [g.folder.path, g.sub, g.end?.path, p?.synopsis, p?.status, p?.label, g.sub ? this.sum(this.store.scenes(g.folder)) : 0, this.shown(g).map(card)];
+			return [g.folder.path, g.sub, g.end?.path, g.depth, g.head?.path, p?.synopsis, p?.status, p?.label, g.sub ? this.sum(this.store.scenes(g.folder)) : 0, this.shown(g).map(card)];
 		})]);
 	}
 
@@ -177,8 +192,10 @@ class Corkboard implements BinderMode {
 	}
 
 	private drawGroup(g: Group, gi: number): void {
-		const sec = this.board.createDiv({ cls: 'binders-group' + (g.sub ? ' is-folder' : ''), attr: { 'data-group': String(gi) } });
+		const sec = this.board.createDiv({ cls: 'binders-group' + (g.sub ? ' is-folder' : '') + (g.depth ? ' is-indented' : ''), attr: { 'data-group': String(gi) } });
+		if (g.depth) sec.setCssProps({ '--binders-group-depth': String(g.depth) });
 		if (g.sub) this.drawHeading(sec, g.folder);
+		else if (g.head) this.drawSceneHeading(sec, g.head, g.items);
 		const list = sec.createDiv({ cls: 'binders-cards', attr: { role: 'listbox', 'aria-multiselectable': 'true', 'aria-label': g.folder.name } });
 		for (const f of this.shown(g)) this.drawCard(list, f);
 		if (!this.ctx.readOnly) this.drawNewCard(list, g);
@@ -199,6 +216,19 @@ class Corkboard implements BinderMode {
 		row.createSpan({ cls: 'binders-group-count', text: `${scenes.length} ${scenes.length === 1 ? 'note' : 'notes'}${n == null ? '' : ' · ' + wordsLabel(n)}` });
 		row.addEventListener('contextmenu', (e) => { e.preventDefault(); e.stopPropagation(); this.folderMenu(folder, null).showAtMouseEvent(e); });
 		this.synopsis(h, folder, 'binders-group-synopsis', undefined, true);
+	}
+
+	/** Longform: the heading of scenes indented under a scene. Clicking it selects that scene's card. */
+	private drawSceneHeading(parent: HTMLElement, head: TFile, items: TAbstractFile[]): void {
+		const row = parent.createDiv({ cls: 'binders-group-heading' }).createDiv({ cls: 'binders-group-title-row' });
+		const title = row.createDiv({ cls: 'binders-group-title', attr: { role: 'link', tabindex: '0', 'aria-label': `Go to ${head.basename}` } });
+		setIcon(title.createSpan({ cls: 'binders-group-icon' }), 'corner-down-right');
+		title.createSpan({ text: head.basename });
+		const go = () => this.reveal(head);
+		title.addEventListener('click', go);
+		title.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.stopPropagation(); go(); } });
+		const scenes = items.filter(isNote), n = this.sum(scenes);
+		row.createSpan({ cls: 'binders-group-count', text: `${scenes.length} ${scenes.length === 1 ? 'note' : 'notes'}${n == null ? '' : ' · ' + wordsLabel(n)}` });
 	}
 
 	/** A folder's synopsis, kept in its folder note (made the first time one is written). */
@@ -275,7 +305,7 @@ class Corkboard implements BinderMode {
 				if (BAD_NAME.test(t)) { new Notice('A note’s name can’t contain \\ / or :'); done = false; this.newIn = key; nc.addClass('is-editing'); input.focus(); return; }
 				try {
 					const sibs = this.store.orderedChildren(g.folder) ?? [];
-					const file = await this.store.newScene(g.folder, g.end ? Math.max(0, sibs.indexOf(g.end)) : Infinity, t);
+					const file = await this.store.newScene(g.folder, g.end ? Math.max(0, sibs.indexOf(g.end)) : Infinity, t, g.depth);
 					this.select([file.path], file.path);
 				} catch (e) { new Notice(e instanceof Error ? e.message : String(e)); }
 				this.draw();
@@ -563,18 +593,19 @@ class Corkboard implements BinderMode {
 		for (const c of this.cards()) c.removeClass('is-dragging');
 		this.drag = null;
 		// after this task: the redraw replaces the card under the finger, and its touchend must still reach the board
-		if (drop && d.drop) window.setTimeout(() => { void this.moveItems(d.items, d.drop.group.folder, d.drop.anchor); }, 0);
+		if (drop && d.drop) window.setTimeout(() => { void this.moveItems(d.items, d.drop.group.folder, d.drop.anchor, d.drop.group.depth); }, 0);
 		else if (this.dirty) this.draw();
 	}
 
-	/** Moves items, in order, just before `anchor` in `folder` (or to its end), moving files between folders. */
-	private async moveItems(items: TAbstractFile[], folder: TFolder, anchor: TAbstractFile | null): Promise<void> {
+	/** Moves items, in order, just before `anchor` in `folder` (or to its end), moving files between folders. In a
+	    Longform project, `depth` is the group's indent, which the items take. */
+	private async moveItems(items: TAbstractFile[], folder: TFolder, anchor: TAbstractFile | null, depth?: number): Promise<void> {
 		try {
 			for (const f of items) {
 				if (f === anchor) continue;
 				const sibs = (this.store.orderedChildren(folder) ?? []).filter((x) => x !== f);
 				const i = anchor ? sibs.indexOf(anchor) : -1;
-				await this.store.move(f, folder, i < 0 ? sibs.length : i);
+				await this.store.move(f, folder, i < 0 ? sibs.length : i, depth);
 			}
 		} catch (e) { new Notice(e instanceof Error ? e.message : String(e)); }
 		this.select(items.map((f) => f.path), items[0]?.path ?? null);

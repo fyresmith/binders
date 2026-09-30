@@ -34,7 +34,7 @@ export const flush = (p) => p.ev(`${B}.flush().then(() => 1)`);
 /** Removes folders and notes a test made (the runner restores the rest), then writes anything pending. */
 export async function tidy(p) {
 	await p.ev(`(async () => {
-		const keep = new Set(['The Lighthouse', 'The Lighthouse/Part One', 'The Lighthouse/Part Two']);
+		const keep = new Set(['The Lighthouse', 'The Lighthouse/Part One', 'The Lighthouse/Part Two', 'Longform demo']);
 		const extra = app.vault.getAllLoadedFiles().filter(f => f.children && f.path !== '/' && !keep.has(f.path));
 		for (const f of extra.sort((a, b) => b.path.length - a.path.length)) if (app.vault.getAbstractFileByPath(f.path)) await app.vault.delete(f, true);
 		await ${B}.flush();
