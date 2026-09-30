@@ -1177,6 +1177,12 @@
 	opacity: 0.4;
 }
 
+/* a stack a drop would go into, tinted as a folder in the file explorer is */
+.binders-card.is-stack.is-being-dragged-over {
+	border-color: var(--interactive-accent);
+	background-color: color-mix(in srgb, var(--interactive-accent) 10%, var(--background-primary));
+}
+
 .binders-card.is-lifted {
 	transform: scale(1.02);
 	box-shadow: var(--shadow-l);

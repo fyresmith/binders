@@ -577,6 +577,14 @@ class Corkboard implements BinderMode {
 	/** Where a drop at (x, y) would put the dragged items, and the insertion line that shows it. */
 	private dropAt(x: number, y: number): Drop | null {
 		const d = this.drag, line = d.indicator;
+		// over the middle of a stack: into that folder, at its end (its edges still place the items beside it)
+		const into = this.stackAt(x, y);
+		for (const c of this.board.querySelectorAll('.is-being-dragged-over')) if (c !== into?.el) c.removeClass('is-being-dragged-over');
+		if (into) {
+			into.el.addClass('is-being-dragged-over');
+			line.removeClass('is-active');
+			return { group: { folder: into.folder, sub: true, items: this.children(into.folder), end: null }, anchor: null };
+		}
 		const secs = [...this.board.querySelectorAll<HTMLElement>('.binders-group')];
 		if (!secs.length) return null;
 		// the group under the pointer, or the nearest one above or below it
@@ -621,10 +629,24 @@ class Corkboard implements BinderMode {
 		return { group: g, anchor };
 	}
 
+	/** The stack whose middle is at (x, y), if the dragged items can go into its folder. */
+	private stackAt(x: number, y: number): { el: HTMLElement; folder: TFolder } | null {
+		if (!this.stacks || this.longform) return null;
+		const el = this.board.doc.elementFromPoint(x, y)?.closest<HTMLElement>('.binders-card.is-stack[data-path]');
+		const folder = el && this.item(el.dataset.path);
+		if (!el || !(folder instanceof TFolder)) return null;
+		const r = el.getBoundingClientRect();
+		if (x < r.left + r.width * 0.2 || x > r.right - r.width * 0.2 || y < r.top + r.height * 0.25 || y > r.bottom - r.height * 0.25) return null;
+		// not into itself, or into a folder inside one being moved
+		if (this.drag.items.some((f) => f === folder || (f instanceof TFolder && folder.path.startsWith(f.path + '/')))) return null;
+		return { el, folder };
+	}
+
 	private endDrag(drop: boolean): void {
 		const d = this.drag;
 		if (!d) return;
 		window.cancelAnimationFrame(d.raf);
+		for (const c of this.board.querySelectorAll('.is-being-dragged-over')) c.removeClass('is-being-dragged-over');
 		d.off();
 		d.ghost.remove();
 		d.indicator.remove();

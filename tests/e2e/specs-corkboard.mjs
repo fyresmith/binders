@@ -398,6 +398,24 @@ test('Rename in a group heading’s menu renames the folder in place; its folder
 	same(t, before, await texts(p), { skip: [NOTE] });
 }));
 
+test('stacks: a note dropped on the middle of a stack goes into that folder, at its end', withTidy(async (p, h, t) => {
+	const before = await texts(p);
+	await openView(p);
+	await p.ev(`(() => { const v = ${VIEW}; v.options = { stacks: true }; v.setMode('plotgrid'); v.setMode('corkboard'); return 1; })()`);
+	await until(p, `!!document.querySelector('${card(L + 'Part Two')}')`);
+	const e = await at(p, 'Epilogue.md'), s = await at(p, 'Part Two');
+	await p.move(e.x, e.t + 12, 2);
+	await p.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: e.x, y: e.t + 12, button: 'left', clickCount: 1 });
+	await p.move(s.x, s.y, 12, { buttons: 1 });
+	t.ok(await p.ev(`document.querySelector('${card(L + 'Part Two')}').classList.contains('is-being-dragged-over')`), 'the stack shows it will take it');	t.ok(!(await p.ev(`document.querySelector('.binders-drop-indicator')?.classList.contains('is-active')`)), 'no insertion line');
+	await p.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: s.x, y: s.y, button: 'left', clickCount: 1 });
+	await until(p, `app.vault.adapter.exists('The Lighthouse/Part Two/Epilogue.md')`);
+	await flush(p);
+	t.eq(j(await contents(p)), j(['Prologue', 'Part One/', 'Part One/Arrival', 'Part One/The keeper', 'Part One/Storm warning', 'Part Two/', 'Part Two/The wreck', 'Part Two/Lights out', 'Part Two/Epilogue']), 'last in Part Two');
+	t.eq(await p.ev(`document.querySelectorAll('.is-being-dragged-over').length`), 0, 'no highlight left');
+	same(t, before, await texts(p), { skip: [NOTE], moved: { [L + 'Epilogue.md']: L + 'Part Two/Epilogue.md' } });
+}));
+
 // Reloads Obsidian twice (into mobile and back), so it is last in this file.
 test('mobile: one column, tap to open, long press for the menu, long press and drag to move', withTidy(async (p, h, t) => {
 	const touch = async (type, x, y) => p.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y }] });
