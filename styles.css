@@ -835,6 +835,11 @@
 	padding: var(--size-4-2) var(--size-4-4) var(--size-4-8);
 }
 
+/* Phones: room at the end for Obsidian's floating navigation bar, as its own views leave (Bases). */
+.is-phone .binders-board {
+	padding-bottom: calc(var(--size-4-8) + var(--view-bottom-spacing, 0px));
+}
+
 /* A subfolder: a panel with its heading, so the notes after it are plainly back in the folder shown. */
 .binders-group.is-folder {
 	padding: var(--size-4-3);

@@ -677,7 +677,7 @@ test('mobile: a swipe scrolls, a tap selects then edits a synopsis, long press a
 		await p.sleep(300);
 		await p.shot(`${SHOTS}/mobile-bottom-${th}.png`);
 		const last = await p.ev(`(() => { const n = [...document.querySelectorAll('.workspace-leaf.mod-active .binders-card-new')].pop().getBoundingClientRect(), bar = document.querySelector('.mobile-navbar')?.getBoundingClientRect(); return { newBottom: Math.round(n.bottom), barTop: bar ? Math.round(bar.top) : null }; })()`);
-		console.log('    mobile bottom: ' + j(last));
+		t.ok(last.barTop == null || last.newBottom <= last.barTop, 'scrolled to the end, the last New note card clears the navigation bar: ' + j(last));
 		await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-corkboard').scrollTop = 0`);
 		await p.sleep(200);
 		// a tap on a synopsis selects the card; a second tap edits
