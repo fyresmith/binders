@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.2.2 (2026-09-30)
+
+### Changed
+
+- Internal: proof that the manuscript can edit notes in place safely, and the notes for building it.
+
 ## 0.2.1 (2026-09-30)
 
 ### Changed
