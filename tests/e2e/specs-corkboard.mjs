@@ -333,6 +333,21 @@ test('double-click opens a note, Ctrl+double-click in a new tab, but not on a sy
 	await p.key('Escape');
 });
 
+test('a middle click opens a note in a new tab, and a stack or heading’s folder in a new binder tab', withTidy(async (p, h, t) => {
+	await openView(p);
+	let c = await at(p, 'Part One/Arrival.md');
+	await p.click(c.x, c.t + 12, { button: 'middle' });
+	await until(p, `app.workspace.getLeavesOfType('markdown').length === 1`);
+	t.eq(await p.ev(`app.workspace.getLeavesOfType('markdown')[0].view.file.path`), L + 'Part One/Arrival.md', 'the note, in a new tab');
+	t.eq(await p.ev(`app.workspace.getLeavesOfType('binders-view').length`), 1, 'keeping the corkboard');
+	await p.ev(`(() => { app.workspace.setActiveLeaf(app.workspace.getLeavesOfType('binders-view')[0], { focus: true }); return 1; })()`);
+	await p.sleep(300);
+	const hd = await p.at(`.workspace-leaf.mod-active .binders-group.is-folder .binders-group-title`);
+	await p.click(hd.x, hd.y, { button: 'middle' });
+	await until(p, `app.workspace.getLeavesOfType('binders-view').length === 2`);
+	t.ok(await p.ev(`app.workspace.getLeavesOfType('binders-view').some(l => l.view.getState().folder === 'The Lighthouse/Part One')`), 'the heading’s folder, in a new binder tab');
+}));
+
 // Reloads Obsidian twice (into mobile and back), so it is last in this file.
 test('mobile: one column, tap to open, long press for the menu, long press and drag to move', withTidy(async (p, h, t) => {
 	const touch = async (type, x, y) => p.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y }] });

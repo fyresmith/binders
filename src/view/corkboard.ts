@@ -75,6 +75,14 @@ class Corkboard implements BinderMode {
 		on('pointerdown', (e) => this.onPointerDown(e));
 		on('click', (e) => this.onClick(e));
 		on('dblclick', (e) => this.onDblClick(e));
+		// a middle click opens a card in a new tab, as it does a link or a breadcrumb (and doesn't start autoscroll)
+		on('mousedown', (e) => { if (e.button === 1 && (e.target as HTMLElement).closest('.binders-card[data-path]')) e.preventDefault(); });
+		on('auxclick', (e) => {
+			const card = (e.target as HTMLElement).closest<HTMLElement>('.binders-card[data-path]');
+			if (e.button !== 1 || !card || (e.target as HTMLElement).closest('input, textarea')) return;
+			e.preventDefault();
+			this.open(card, 'tab');
+		});
 		on('contextmenu', (e) => this.onContextMenu(e));
 		on('keydown', (e) => this.onKey(e));
 		// while a card is held or dragged by touch, the page mustn't scroll instead
@@ -220,6 +228,7 @@ class Corkboard implements BinderMode {
 		setIcon(title.createSpan({ cls: 'binders-group-icon' }), 'folder');
 		title.createSpan({ text: folder.name });
 		title.addEventListener('click', (e) => this.ctx.navigate(folder, Keymap.isModEvent(e)));
+		title.addEventListener('auxclick', (e) => { if (e.button === 1) { e.stopPropagation(); this.ctx.navigate(folder, 'tab'); } });
 		title.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.stopPropagation(); this.ctx.navigate(folder, Keymap.isModEvent(e)); } });
 		if (p?.label) labelDot(row, p.label).setAttr('aria-label', `Label: ${p.label}`);
 		if (p?.status) row.createSpan({ cls: 'binders-chip', text: p.status });
