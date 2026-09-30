@@ -33,6 +33,8 @@ export interface ModeContext {
 	openFile(file: TFile, newLeaf?: boolean): Promise<void>;
 	/** Shows another folder in this view (breadcrumbs, a subfolder's stack). */
 	navigate(folder: TFolder): void;
+	/** Optional: a note's text changed as the user types in the view (before it's saved), e.g. to update a word count. */
+	onTextChange?(file: TFile, text: string): void;
 }
 
 export interface BinderMode {

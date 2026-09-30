@@ -4,6 +4,7 @@ import { BindersSettingTab, DEFAULT_SETTINGS, type BindersSettings } from './set
 import { installExplorer, type Explorer } from './explorer'; // explorer (0.3)
 import type { ModeFactory } from './view/mode';
 import { plotgrid } from './view/plotgrid'; // plot grid (0.5)
+import { manuscript } from './view/manuscript'; // manuscript (0.6)
 
 /* Binders: ordered folders for long-form writing. See docs/plan.md for the design. */
 export default class BindersPlugin extends Plugin {
@@ -14,6 +15,7 @@ export default class BindersPlugin extends Plugin {
 	/** The binder view's modes by id: the view mounts one into its content (see view/mode.ts). */
 	readonly modeFactories: Record<string, ModeFactory> = {
 		plotgrid, // plot grid (0.5)
+		manuscript, // manuscript (0.6)
 	};
 
 	async onload() {

@@ -1,6 +1,6 @@
 {
   "name": "binders",
-  "version": "0.3.3",
+  "version": "0.4.0",
   "description": "Ordered folders for long-form writing in Obsidian: a binder in the file explorer, a corkboard, a plot grid and an editable manuscript.",
   "main": "main.js",
   "type": "module",
@@ -27,6 +27,8 @@
   "author": "Caleb Smith",
   "license": "MIT",
   "devDependencies": {
+    "@codemirror/state": "^6.5.0",
+    "@codemirror/view": "^6.38.6",
     "@types/node": "^22.0.0",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",

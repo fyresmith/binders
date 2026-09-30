@@ -345,3 +345,155 @@
 .binders-plotgrid-color-blue { --binders-plotline: var(--color-blue); }
 .binders-plotgrid-color-purple { --binders-plotline: var(--color-purple); }
 .binders-plotgrid-color-pink { --binders-plotline: var(--color-pink); }
+
+/* Manuscript: the folder's notes as one page, in Obsidian's own editor type and readable line width. Properties are
+   hidden with Obsidian's own variables; the embed's frame (border, padding, link icon, inline title) is taken off so
+   the sections read as one document. */
+.binders-manuscript {
+	height: 100%;
+	overflow-y: auto;
+	padding: var(--file-margins);
+	padding-bottom: 50vh; /* room to type at the end, like "scroll past end" */
+	background-color: var(--background-primary);
+	overflow-anchor: none; /* the manuscript anchors scrolling itself, the same on every platform */
+	--metadata-display-editing: none;
+	--metadata-display-reading: none;
+}
+
+.binders-manuscript-page {
+	max-width: var(--file-line-width);
+	margin-inline: auto;
+}
+
+.binders-manuscript-heading.markdown-rendered > :is(h1, h2, h3, h4, h5, h6) {
+	margin-block: var(--size-4-8) var(--size-4-2);
+}
+
+.binders-manuscript-list > .binders-manuscript-heading:first-child > * {
+	margin-top: 0;
+}
+
+.binders-manuscript-break {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-3);
+	margin-block: var(--size-4-6) var(--size-4-2);
+}
+
+/* each note's title, then a quiet rule to the margin */
+.binders-manuscript-break::after {
+	content: "";
+	flex: 1;
+	border-top: 1px solid var(--background-modifier-border);
+}
+
+.binders-manuscript-list > .binders-manuscript-scene:first-child .binders-manuscript-break {
+	margin-top: 0;
+}
+
+.binders-manuscript-title {
+	color: var(--text-faint);
+	font-size: var(--font-ui-small);
+	cursor: var(--cursor-link);
+	border-radius: var(--radius-s);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.binders-manuscript-title:hover,
+.binders-manuscript-title:focus-visible {
+	color: var(--text-accent);
+}
+
+.binders-manuscript-title.is-renaming {
+	color: var(--text-normal);
+	cursor: text;
+	white-space: pre;
+	box-shadow: 0 0 0 1px var(--background-modifier-border-focus);
+}
+
+.binders-manuscript-body {
+	position: relative;
+}
+
+/* an editor being built sits invisibly over the rendered text until it's ready, so nothing jumps */
+.binders-manuscript-editor.is-mounting {
+	position: absolute;
+	inset-inline: 0;
+	top: 0;
+	visibility: hidden;
+}
+
+.binders-manuscript .markdown-embed {
+	border: none;
+	padding: 0;
+	margin: 0;
+	border-radius: 0;
+}
+
+.binders-manuscript .markdown-embed-link,
+.binders-manuscript .inline-title {
+	display: none;
+}
+
+.binders-manuscript .markdown-embed-content {
+	max-height: none;
+	overflow: visible;
+}
+
+.binders-manuscript.is-readonly .binders-manuscript-body {
+	cursor: var(--cursor-link);
+}
+
+/* A section not being edited is rendered, spaced like the live editor that replaces it (a blank line between
+   paragraphs, the empty last line), so swapping one for the other hardly moves the page. */
+.binders-manuscript {
+	font-family: var(--font-text);
+	font-size: var(--font-text-size);
+	line-height: var(--line-height-normal);
+}
+
+.binders-manuscript-rendered {
+	--p-spacing: calc(var(--line-height-normal) * 1em);
+}
+
+.binders-manuscript-rendered > :first-child {
+	margin-top: 0;
+}
+
+.binders-manuscript-rendered.has-last-line {
+	padding-bottom: calc(var(--line-height-normal) * 1em);
+}
+
+.binders-manuscript-rendered > :last-child {
+	margin-bottom: 0;
+}
+
+/* why the manuscript is read only: quiet, above the text */
+.binders-manuscript-notice {
+	display: flex;
+	gap: var(--size-4-2);
+	align-items: flex-start;
+	margin-bottom: var(--size-4-8);
+	padding: var(--size-4-2) var(--size-4-3);
+	border-radius: var(--radius-m);
+	background-color: var(--background-secondary);
+	color: var(--text-muted);
+	font-family: var(--font-interface);
+	font-size: var(--font-ui-small);
+	line-height: var(--line-height-tight);
+}
+
+.binders-manuscript-notice-icon {
+	display: flex;
+	flex-shrink: 0;
+	color: var(--icon-color);
+	--icon-size: var(--icon-s);
+}
+
+.binders-manuscript-empty {
+	color: var(--text-muted);
+	text-align: center;
+	padding: var(--size-4-8);
+}

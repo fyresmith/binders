@@ -10,8 +10,8 @@ scenes. Real iOS and Android devices remain untested.
 - Tested on: **Obsidian 1.13.7** (`/usr/lib/obsidian/obsidian.asar`, run by `/usr/lib/electron43/electron`), headless,
   2026-09-30.
 - Proof: `tests/e2e/specs-spike-embed.mjs`, 18 scenarios, all passing (over several full runs, once with `--repeat 2`, and alongside the smoke specs).
-  It builds the embeds in the page with plain JS. `src/` is untouched.
-  `npm run e2e -- --specs tests/e2e/specs-spike-embed.mjs`
+  It built the embeds in the page with plain JS. At 0.6 its scenarios moved into `tests/e2e/specs-manuscript.mjs`,
+  against the real manuscript, and the spike spec was deleted.
 
 ## The route
 
