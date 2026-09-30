@@ -27,6 +27,8 @@ import { applyOps, checkFormat, FORMAT_VERSION, isBinderNote, isFolderNote, name
                                                        the folder changes
      moveUp(item) / moveDown(item): Promise<boolean>   one step within its folder; false if it can't go further
      setProps(file, patch): Promise<void>              sets properties (undefined removes one) through processFrontMatter
+     editProps(file, edit): Promise<void>              changes properties in place, in one write, from what the note says
+                                                       at the time of writing (e.g. renaming a key inside an object)
      newScene(folder, index?, title?): Promise<TFile>  creates an empty note in the binder at that place (default: last)
      makeBinder(folder): Promise<TFile>                makes a folder a binder; returns the binder note
      flush(): Promise<void>                            writes pending list changes now (they are otherwise debounced)
@@ -162,12 +164,16 @@ export class BinderStore extends Events implements ExplorerSource {
 	moveUp(item: TAbstractFile): Promise<boolean> { return this.step(item, -1); }
 	moveDown(item: TAbstractFile): Promise<boolean> { return this.step(item, 1); }
 
-	async setProps(file: TFile, patch: Record<string, unknown>): Promise<void> {
-		const s = this.at(file.path);
-		if (s && s.note === file && s.problem) throw new UnsupportedBinder(s.problem);
-		await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+	setProps(file: TFile, patch: Record<string, unknown>): Promise<void> {
+		return this.editProps(file, (fm) => {
 			for (const [k, v] of Object.entries(patch)) { if (v === undefined) delete fm[k]; else fm[k] = v; }
 		});
+	}
+
+	async editProps(file: TFile, edit: (fm: Record<string, unknown>) => void): Promise<void> {
+		const s = this.at(file.path);
+		if (s && s.note === file && s.problem) throw new UnsupportedBinder(s.problem);
+		await this.app.fileManager.processFrontMatter(file, edit);
 	}
 
 	async newScene(folder: TFolder, index = Infinity, title = 'Untitled'): Promise<TFile> {
