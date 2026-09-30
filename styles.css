@@ -1085,18 +1085,26 @@
 	box-shadow: 0 0 0 1px var(--interactive-accent), var(--binders-stack);
 }
 
-/* The "+" at the end of each group. */
+/* "New note" at the end of each group: a quiet button in the next card's place, like Obsidian's own subtle buttons;
+   it becomes a card while its title is typed. */
 .binders-card-new {
+	align-self: start;
 	align-items: center;
-	justify-content: center;
+	justify-content: flex-start;
 	flex-direction: row;
 	gap: var(--size-4-1);
-	border-style: dashed;
+	padding: var(--size-4-1) var(--size-4-2);
+	border-color: transparent;
+	border-radius: var(--radius-s);
 	background-color: transparent;
 	box-shadow: none;
 	color: var(--text-faint);
 	font-size: var(--font-ui-small);
 	cursor: var(--cursor);
+}
+
+.binders-card-new:not(.is-editing) {
+	min-height: 0;
 }
 
 .binders-card-new::before {
@@ -1113,9 +1121,10 @@
 }
 
 .binders-card-new.is-editing {
+	align-self: stretch;
 	align-items: flex-start;
-	justify-content: flex-start;
-	border-style: solid;
+	padding: var(--size-4-3) var(--size-4-3) var(--size-4-2);
+	border-radius: var(--radius-m);
 	border-color: var(--interactive-accent);
 	background-color: var(--background-primary);
 	box-shadow: 0 0 0 1px var(--interactive-accent), var(--shadow-s);
@@ -1130,8 +1139,7 @@
 
 @media (hover: hover) {
 	.binders-card-new:not(.is-editing):hover {
-		color: var(--text-muted);
-		border-color: var(--background-modifier-border-hover);
+		color: var(--text-normal);
 		background-color: var(--background-modifier-hover);
 	}
 }
@@ -1190,7 +1198,9 @@
 	.binders-card {
 		min-height: 0;
 	}
-	.binders-card-new {
-		min-height: 48px;
-	}
+}
+
+/* a finger's width to tap */
+.is-mobile .binders-card-new:not(.is-editing) {
+	min-height: 40px;
 }
