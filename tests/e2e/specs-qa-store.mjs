@@ -110,6 +110,22 @@ test('a folder and a note with the same name are told apart', withTidy(async (p,
 
 // ---- non-note files ----
 
+test('Move down past an image that isn’t in the list', withTidy(async (p, h, t) => {
+	await p.ev(`app.vault.createBinary('The Lighthouse/Part One/map.png', new Uint8Array([137,80,78,71]).buffer).then(() => 1)`);
+	await p.sleep(250);
+	t.eq(j(await kids(p, 'The Lighthouse/Part One')), j(['Arrival.md', 'The keeper.md', 'Storm warning.md', 'map.png']), 'the image shows last');
+	const moved = await p.ev(`${B}.moveDown(${file('The Lighthouse/Part One/Storm warning.md')})`);
+	t.eq(moved, true, 'moveDown says it moved');
+	await flush(p);
+	t.eq(j(await kids(p, 'The Lighthouse/Part One')), j(['Arrival.md', 'The keeper.md', 'map.png', 'Storm warning.md']), 'Storm warning went below the image');
+	t.eq(j(await contents(p)), j(['Prologue', 'Part One/', 'Part One/Arrival', 'Part One/The keeper', 'Part One/map.png', 'Part One/Storm warning', 'Part Two/', 'Part Two/The wreck', 'Part Two/Lights out', 'Epilogue']), 'the image is written down in its place');
+	// a drop just before the image (as the corkboard computes it: an index among the shown items) lands there
+	await p.ev(`${B}.move(${file('The Lighthouse/Prologue.md')}, ${file('The Lighthouse/Part One')}, 2).then(() => 1)`);
+	await flush(p);
+	t.eq(j(await kids(p, 'The Lighthouse/Part One')), j(['Arrival.md', 'The keeper.md', 'Prologue.md', 'map.png', 'Storm warning.md']), 'an index counts the image');
+	await rename(p, 'The Lighthouse/Part One/Prologue.md', 'The Lighthouse/Prologue.md');
+}));
+
 test('Move up and down stop at the edges; the binder, binder note and folder notes don’t move', withTidy(async (p, h, t) => {
 	await p.ev(`app.vault.create('The Lighthouse/Part One/Part One.md', '').then(() => 1)`);
 	await p.sleep(200);

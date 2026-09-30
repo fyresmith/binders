@@ -72,6 +72,8 @@ Binders creates it when you first give the folder a synopsis, status or label in
   an item to another folder of the binder puts it at the end of that folder, with its items. Moving an item out removes
   it from `contents`; moving one in adds it at the end of its folder. Deleting removes it.
 - A new note isn't written into `contents` until you move it: until then it shows after the listed items.
+- Moving an item in a binder writes down the place of everything there that isn't listed yet, files that aren't notes
+  (images, PDFs) included, so what you see is what's kept.
 - Changes are written together, a moment after the last one: moving a folder of 40 notes writes the binder note once.
   They're applied to what the binder note says at that moment, so edits made to it meanwhile are kept.
 - "Make this folder a binder" creates `Folder/Folder.md` with `binder: 1` and `contents` in the order the file explorer

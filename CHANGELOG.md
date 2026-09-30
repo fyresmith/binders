@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.6.23 (2026-09-30)
+
+### Fixed
+
+- Move down now works past images and other files in a binder, and drops next to them land in the right place.
+
 ## 0.6.22 (2026-09-30)
 
 ### Fixed

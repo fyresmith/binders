@@ -676,15 +676,15 @@ export class BinderStore extends Events implements ExplorerSource {
 		return (s.items = map);
 	}
 
-	/** The binder's items in the order they show, for moves: notes, folders, and other files only if already listed. */
+	/** The binder's items in the order they show, for moves. The same items `orderedChildren` shows (other files too), so
+	    an index among a folder's shown items means the same place here. */
 	private known(s: State): string[] {
 		const items = this.items(s), out: string[] = [];
 		const walk = (folder: string) => {
 			const kids = items.get(folder) ?? [];
 			for (const r of orderChildren(s.base, folder, kids.map((k) => k.rel))) {
-				const f = kids.find((k) => k.rel === r)?.file;
-				if (f instanceof TFolder || (f instanceof TFile && f.extension === 'md') || s.base.includes(r)) out.push(r);
-				if (f instanceof TFolder) walk(r);
+				out.push(r);
+				if (r.endsWith('/')) walk(r);
 			}
 		};
 		walk('');
