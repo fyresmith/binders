@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.6.7 (2026-09-30)
+
+### Fixed
+
+- Escape cancels a card drag, as in the file explorer.
+
 ## 0.6.6 (2026-09-30)
 
 ### Fixed

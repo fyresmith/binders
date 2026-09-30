@@ -99,7 +99,7 @@ test('drag a card onto itself changes nothing; released outside the board change
 	t.eq(await p.ev(`document.querySelectorAll('.binders-drag-ghost, .binders-drop-indicator').length`), 0, 'no ghost left behind');
 }));
 
-test('BUG: Escape doesn’t cancel a card drag', withTidy(async (p, h, t) => {
+test('Escape cancels a card drag', withTidy(async (p, h, t) => {
 	await openView(p);
 	const a = await at(p, 'Part One/The keeper.md'), b = await at(p, 'Part Two/The wreck.md');
 	await p.move(a.x, a.t + 12, 2);

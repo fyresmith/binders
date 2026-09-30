@@ -51,7 +51,7 @@ class Corkboard implements BinderMode {
 	    status yet), so a note just made doesn't vanish. */
 	private made = new Set<TFile>();
 	private press: { id: number; x: number; y: number; touch: boolean; card: HTMLElement; armed: boolean; timer: number } | null = null;
-	private drag: { items: TAbstractFile[]; ghost: HTMLElement; indicator: HTMLElement; drop: Drop | null; x: number; y: number; raf: number } | null = null;
+	private drag: { items: TAbstractFile[]; ghost: HTMLElement; indicator: HTMLElement; drop: Drop | null; x: number; y: number; raf: number; off: () => void } | null = null;
 	private lastPointer = 'mouse';
 	private noClick = false;
 	private swallowTouch = false;
@@ -518,7 +518,11 @@ class Corkboard implements BinderMode {
 		const indicator = this.board.createDiv({ cls: 'binders-drop-indicator' });
 		for (const c of this.cards()) if (items.some((f) => f.path === c.dataset.path)) c.addClass('is-dragging');
 		this.board.addClass('is-dragging');
-		this.drag = { items, ghost, indicator, drop: null, x, y, raf: 0 };
+		// Escape cancels, as in the file explorer
+		const doc = this.board.doc;
+		const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); this.cancelDrag(); } };
+		doc.addEventListener('keydown', onKey, true);
+		this.drag = { items, ghost, indicator, drop: null, x, y, raf: 0, off: () => doc.removeEventListener('keydown', onKey, true) };
 		this.press.card.removeClass('is-lifted');
 		this.dragTo(x, y);
 		const tick = () => {
@@ -599,6 +603,7 @@ class Corkboard implements BinderMode {
 		const d = this.drag;
 		if (!d) return;
 		window.cancelAnimationFrame(d.raf);
+		d.off();
 		d.ghost.remove();
 		d.indicator.remove();
 		this.board.removeClass('is-dragging');
@@ -607,6 +612,19 @@ class Corkboard implements BinderMode {
 		// after this task: the redraw replaces the card under the finger, and its touchend must still reach the board
 		if (drop && d.drop) window.setTimeout(() => { void this.moveItems(d.items, d.drop.group.folder, d.drop.anchor, d.drop.group.depth); }, 0);
 		else if (this.dirty) this.draw();
+	}
+
+	/** Ends a drag with nothing moved; the button or finger still down then does nothing when it lifts. */
+	private cancelDrag(): void {
+		const touch = !!this.press?.touch;
+		this.endPress();
+		this.endDrag(false);
+		this.noClick = true;
+		const doc = this.board.doc;
+		doc.addEventListener('pointerup', () => {
+			if (touch) this.swallowTouch = true;
+			window.setTimeout(() => { this.noClick = false; this.swallowTouch = false; }, 0);
+		}, { once: true, capture: true });
 	}
 
 	/** Moves items, in order, just before `anchor` in `folder` (or to its end), moving files between folders. In a
