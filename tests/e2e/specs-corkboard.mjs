@@ -348,6 +348,24 @@ test('a middle click opens a note in a new tab, and a stack or heading’s folde
 	t.ok(await p.ev(`app.workspace.getLeavesOfType('binders-view').some(l => l.view.getState().folder === 'The Lighthouse/Part One')`), 'the heading’s folder, in a new binder tab');
 }));
 
+test('editing the synopsis of a card half out of sight scrolls the card into view', withTidy(async (p, h, t) => {
+	await openView(p);
+	await p.send('Emulation.setDeviceMetricsOverride', { width: p.width, height: 560, deviceScaleFactor: 1, mobile: false });
+	await p.sleep(300);
+	const sc = `document.querySelector('.workspace-leaf.mod-active .binders-corkboard')`, c = `document.querySelector('${card(L + 'Part One/Arrival.md')}')`;
+	// scroll so the card's top is cut off by the top edge
+	await p.ev(`(() => { const s = ${sc}; s.scrollTop += ${c}.getBoundingClientRect().top - s.getBoundingClientRect().top + 50; return 1; })()`);
+	await p.sleep(200);
+	const cut = () => p.ev(`Math.round(${sc}.getBoundingClientRect().top - ${c}.getBoundingClientRect().top) || 0`); // never -0, which doesn't come back
+	t.ok(await cut() > 20, 'cut off at first: ' + (await cut()));
+	const syn = await p.at(`${card(L + 'Part One/Arrival.md')} .binders-card-synopsis`);
+	await p.click(syn.x, syn.t + syn.h - 4);
+	t.ok(await p.ev(`document.activeElement.matches('textarea')`), 'editing');
+	t.ok(await cut() <= 0, 'the whole card shows: ' + (await cut()));
+	await p.key('Escape');
+	await p.send('Emulation.setDeviceMetricsOverride', { width: p.width, height: p.height, deviceScaleFactor: 1, mobile: false });
+}));
+
 // Reloads Obsidian twice (into mobile and back), so it is last in this file.
 test('mobile: one column, tap to open, long press for the menu, long press and drag to move', withTidy(async (p, h, t) => {
 	const touch = async (type, x, y) => p.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y }] });

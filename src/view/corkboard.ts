@@ -262,12 +262,14 @@ class Corkboard implements BinderMode {
 				const f = item instanceof TFolder ? await this.store.ensureFolderNote(item) : note;
 				await this.ctx.setProps(f, { synopsis: t });
 			},
-			onEditing: (on) => this.onEditing(on),
+			onEditing: (on) => this.onEditing(on, card),
 		});
 	}
 
-	private onEditing(on: boolean): void {
+	private onEditing(on: boolean, card?: HTMLElement): void {
 		this.editing += on ? 1 : -1;
+		// a card half out of sight comes into view to be edited
+		if (on) card?.scrollIntoView({ block: 'nearest' });
 		if (!on && !this.busy()) window.setTimeout(() => { if (!this.busy() && (this.dirty || this.signature() !== this.sig)) this.draw(); }, 0);
 	}
 
@@ -283,7 +285,7 @@ class Corkboard implements BinderMode {
 		if (folder) setIcon(head.createSpan({ cls: 'binders-card-icon' }), 'folder');
 		const title = editable(head, {
 			cls: 'binders-card-title', value: name, placeholder: 'Title', label: 'Rename', singleLine: true, clickToEdit: false, readOnly: this.ctx.readOnly,
-			save: (t) => this.rename(f, t), onEditing: (on) => this.onEditing(on),
+			save: (t) => this.rename(f, t), onEditing: (on) => this.onEditing(on, card),
 		});
 		card.setAttr('aria-label', name);
 		this.editors.set(f.path, { title, synopsis: this.synopsis(card, f, 'binders-card-synopsis', card) });

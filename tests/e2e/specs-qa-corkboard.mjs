@@ -181,7 +181,7 @@ test('synopsis saved when clicking another card, and when switching modes mid-ed
 	await p.key('End', 'ctrl');
 	await p.type(' Blur.');
 	const o = await at(p, 'Prologue.md');
-	await p.click(o.x, o.t + 8);
+	await p.click(o.x, o.t + o.h - 8); // its foot: editing Epilogue scrolled it into view, which can cut off Prologue's top
 	await until(p, `app.vault.adapter.read('The Lighthouse/Epilogue.md').then(s => s.includes('museum. Blur.'))`);
 	t.ok((await read(p, L + 'Epilogue.md')).includes('museum. Blur.'), 'saved on clicking another card');
 	t.eq(j(await selected(p)), j([L + 'Prologue.md']), 'and that card is selected');
