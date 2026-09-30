@@ -980,6 +980,16 @@
 	box-shadow: 0 0 0 2px var(--background-modifier-border-focus), var(--shadow-s);
 }
 
+/* Pointed at: the border darkens a little, as other Obsidian surfaces do (a selected card keeps its accent border). */
+@media (hover: hover) {
+	.binders-card[data-path]:not(.is-selected):hover {
+		border-color: var(--background-modifier-border-hover);
+	}
+	.binders-board.is-dragging .binders-card[data-path]:hover {
+		border-color: var(--background-modifier-border);
+	}
+}
+
 .binders-card.is-selected {
 	border-color: var(--interactive-accent);
 	box-shadow: 0 0 0 1px var(--interactive-accent), var(--shadow-s);

@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.6.11 (2026-09-30)
+
+### Changed
+
+- Cards show when you point at them.
+
 ## 0.6.10 (2026-09-30)
 
 ### Fixed
