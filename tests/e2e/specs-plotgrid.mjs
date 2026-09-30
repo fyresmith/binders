@@ -459,6 +459,32 @@ test('drag a row to reorder, and into another folder', withGrid({}, async (p, h,
 	t.eq(j((await shown(p)).rows.map((r) => r.path)), j([EPILOGUE, P1, ARRIVAL, KEEPER, STORM, P2, WRECK, P2 + '/Prologue.md', LIGHTS]), 'the grid shows the new order');
 }));
 
+test('drop below the last row: last in the folder shown, even when the last row is in a subfolder', async (p, h, t) => {
+	await p.ev(`app.vault.delete(app.vault.getAbstractFileByPath(${j(EPILOGUE)})).then(() => 1)`);
+	await p.ev(`${B}.flush().then(() => 1)`);
+	await mount(p);
+	try {
+		const before = await texts(p);
+		t.eq((await shown(p)).rows.at(-1).path, LIGHTS, 'the last row is in Part Two');
+		// the lower half of the last row still means after it, inside Part Two
+		let a = await p.at(rowHeadSel(ARRIVAL)), b = await p.at(rowHeadSel(LIGHTS));
+		await p.drag(a.x, a.y, b.x, b.t + b.h - 4);
+		await until(p, `app.vault.adapter.exists(${j(P2 + '/Arrival.md')})`);
+		await settle(p);
+		t.eq(j(yamlList(await read(p, NOTE), 'contents').slice(-3)), j(['Part Two/The wreck', 'Part Two/Lights out', 'Part Two/Arrival']), 'Arrival went last in Part Two');
+		// below the last row: last at the top level
+		a = await p.at(rowHeadSel(PROLOGUE));
+		const last = await p.at(`${T} tbody tr:last-child th`);
+		await p.drag(a.x, a.y, last.x, last.t + last.h + 12);
+		await until(p, `app.vault.adapter.read(${j(NOTE)}).then((x) => /  - Prologue\n(?!  - )/.test(x))`);
+		await settle(p);
+		t.eq(j(yamlList(await read(p, NOTE), 'contents')), j(['Part One/', 'Part One/The keeper', 'Part One/Storm warning', 'Part Two/', 'Part Two/The wreck', 'Part Two/Lights out', 'Part Two/Arrival', 'Prologue']), 'Prologue is last in the binder, after Part Two');
+		t.ok(await p.ev(`app.vault.adapter.exists(${j(PROLOGUE)})`), 'still at the top level, not moved into a folder');
+		t.eq((await shown(p)).rows.at(-1).path, PROLOGUE, 'and shown last');
+		kept(t, before, await texts(p), { changed: [NOTE], moved: { [ARRIVAL]: P2 + '/Arrival.md' } });
+	} finally { await unmount(p); }
+});
+
 test('a group collapses to counts; titles open their scene', withGrid({}, async (p, h, t) => {
 	await clickOn(p, `${T} tr[data-path="${P1}"] .binders-plotgrid-group-name`);
 	t.eq(j((await shown(p)).rows.map((r) => r.path)), j([PROLOGUE, P1, P2, WRECK, LIGHTS, EPILOGUE]), 'Part One’s scenes are hidden');

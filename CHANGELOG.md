@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.3.3 (2026-09-30)
+
+### Fixed
+
+- In the plot grid, a scene can be dropped last in the folder even when the last row is inside a subfolder.
+
 ## 0.3.2 (2026-09-30)
 
 ### Fixed

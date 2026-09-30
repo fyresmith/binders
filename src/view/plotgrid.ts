@@ -33,6 +33,8 @@ class PlotGrid implements BinderMode {
 	private root: HTMLElement;
 	private table: HTMLTableElement | null = null;
 	private empty: HTMLElement | null = null;
+	/** Room under the last row: dropping a row there puts it last in the folder shown, even after a group. */
+	private end: HTMLElement | null = null;
 	private pending: Pending;
 	private collapsed = new Set<string>();
 	/** The cell that takes Tab, as a spot key, and the grid of spot keys ("" for none) for arrow keys. */
@@ -201,6 +203,8 @@ class PlotGrid implements BinderMode {
 
 		if (this.table) this.table.replaceWith(table); else this.root.append(table);
 		this.table = table;
+		this.end ??= createDiv({ cls: 'binders-plotgrid-end' });
+		table.after(this.end);
 		this.empty?.remove();
 		this.empty = rows.length ? null : this.root.createDiv({ cls: 'binders-plotgrid-empty', text: 'No scenes in this folder yet.' });
 
@@ -627,7 +631,7 @@ class PlotGrid implements BinderMode {
 	}
 
 	private marks(): void {
-		this.table?.querySelectorAll('.is-drop-before, .is-drop-after, .is-dragged').forEach((el) => el.removeClasses(['is-drop-before', 'is-drop-after', 'is-dragged']));
+		this.root.querySelectorAll('.is-drop-before, .is-drop-after, .is-drop-target, .is-dragged').forEach((el) => el.removeClasses(['is-drop-before', 'is-drop-after', 'is-drop-target', 'is-dragged']));
 	}
 
 	private dragRow(e: PointerEvent, item: TFile | TFolder): void {
@@ -636,10 +640,10 @@ class PlotGrid implements BinderMode {
 		this.track(e, {
 			start: () => tr()?.addClass('is-dragged'),
 			move: (_x, y) => {
-				this.table?.querySelectorAll('.is-drop-before, .is-drop-after').forEach((el) => el.removeClasses(['is-drop-before', 'is-drop-after']));
+				this.root.querySelectorAll('.is-drop-before, .is-drop-after, .is-drop-target').forEach((el) => el.removeClasses(['is-drop-before', 'is-drop-after', 'is-drop-target']));
 				const t = this.rowTarget(item, y);
 				to = t;
-				t?.el.addClass(t.after ? 'is-drop-after' : 'is-drop-before');
+				t?.el.addClass(t.mark);
 			},
 			drop: () => { if (to) void this.moveItem(item, to.folder, to.index); },
 			end: () => this.marks(),
@@ -647,10 +651,16 @@ class PlotGrid implements BinderMode {
 	}
 
 	/** Where a row dropped at `y` goes: before or after the row under it, in that row's folder; the lower half of an open
-	    group's header puts it first in that group. */
-	private rowTarget(item: TFile | TFolder, y: number): { folder: TFolder; index: number; el: HTMLElement; after: boolean } | null {
+	    group's header puts it first in that group; below the last row, last in the folder shown. */
+	private rowTarget(item: TFile | TFolder, y: number): { folder: TFolder; index: number; el: HTMLElement; mark: string } | null {
 		const rows = [...(this.table?.tBodies[0]?.rows ?? [])];
 		if (!rows.length) return null;
+		if (this.end && y >= rows[rows.length - 1].getBoundingClientRect().bottom) {
+			const folder = this.ctx.folder, sibs = this.ctx.store.orderedChildren(folder) ?? [];
+			const index = sibs.filter((c: TAbstractFile) => c !== item).length;
+			if (item.parent === folder && sibs.indexOf(item) === index) return null; // last already
+			return { folder, index, el: this.end, mark: 'is-drop-target' };
+		}
 		let tr = rows.find((r) => { const b = r.getBoundingClientRect(); return y >= b.top && y < b.bottom; }), after: boolean;
 		if (tr) { const b = tr.getBoundingClientRect(); after = y > b.top + b.height / 2; }
 		else { after = y >= rows[0].getBoundingClientRect().top; tr = after ? rows[rows.length - 1] : rows[0]; }
@@ -662,7 +672,7 @@ class PlotGrid implements BinderMode {
 		const sibs = (this.ctx.store.orderedChildren(folder) ?? []).filter((c: TAbstractFile) => c !== item);
 		const index = into ? 0 : sibs.indexOf(over) + (after ? 1 : 0);
 		if (item.parent === folder && (this.ctx.store.orderedChildren(folder) ?? []).indexOf(item) === index) return null; // where it is
-		return { folder, index, el: tr, after };
+		return { folder, index, el: tr, mark: after ? 'is-drop-after' : 'is-drop-before' };
 	}
 
 	private dragColumn(e: PointerEvent, name: string): void {
