@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.3.2 (2026-09-30)
+
+### Fixed
+
+- Renaming or deleting a plotline now renames or removes its text in each scene's plot property.
+
 ## 0.3.1 (2026-09-30)
 
 ### Changed

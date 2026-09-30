@@ -1,6 +1,6 @@
 import { ButtonComponent, Keymap, Menu, Modal, Notice, Setting, TFile, TFolder, requireApiVersion, setIcon, setTooltip, type App, type EventRef, type TAbstractFile } from 'obsidian';
 import type { BinderMode, ModeContext, ModeFactory } from './mode';
-import { COLORS, PLOT_TEXT, PLOTLINE_COLORS, PLOTLINES, move, nameProblem, readColors, readList, readPlotText, recolor, rename, toggle, type PlotColor } from './plotgrid-data';
+import { COLORS, PLOT_TEXT, PLOTLINE_COLORS, PLOTLINES, dropPlotKey, hasPlotKey, move, nameProblem, readColors, readList, readPlotText, recolor, rename, renamePlotKey, toggle, type PlotColor } from './plotgrid-data';
 
 /* The plot grid: the folder's scenes down the side (in binder order, under their subfolders), the binder's plotlines
    across the top. A cell says whether that plotline runs through that scene: the scene's `plotlines` property.
@@ -475,20 +475,38 @@ class PlotGrid implements BinderMode {
 		await this.writeBinder({ colors });
 	}
 
-	/** Renames the column and the name in every scene in the binder that lists it (not only this folder's). */
+	/** Renames the column and the name in every scene in the binder that lists it (not only this folder's), with its
+	    key in the scene's `plot` text, one write per note. */
 	private async renamePlotline(from: string, to: string): Promise<void> {
 		const cols = this.columns(), colors = this.colors();
 		if (!cols.includes(from)) return;
 		if (!(await this.writeBinder({ plotlines: rename(cols, from, to), ...(from in colors ? { colors: recolor(colors, from, to) ?? {} } : {}) }))) return;
-		const scenes = this.ctx.store.scenes(this.ctx.binder.folder).filter((f) => this.linesOf(f).includes(from));
-		const res = await Promise.allSettled(scenes.map((f) => this.writeScene(f, rename(this.linesOf(f), from, to), false)));
+		let kept = 0;
+		const res = await Promise.allSettled(this.scenesWith(from).map((f) => {
+			const lines = this.linesOf(f), listed = lines.includes(from), next = listed ? rename(lines, from, to) : lines;
+			if (!this.plotHas(f, from)) return this.writeScene(f, next, false);
+			return this.editScene(f, next, (fm) => {
+				if (listed) this.putLines(fm, next);
+				if (renamePlotKey(fm, from, to) === 'conflict') kept++;
+			});
+		}));
 		const failed = res.filter((r) => r.status === 'rejected' || !r.value).length;
 		if (failed) new Notice(`Couldn’t rename “${from}” in ${failed} ${failed === 1 ? 'scene' : 'scenes'}.`);
+		if (kept) new Notice(`${kept} ${kept === 1 ? 'scene already has' : 'scenes already have'} notes for “${to}”, so ${kept === 1 ? 'its' : 'their'} notes for “${from}” stay under that name.`);
 	}
 
+	/** The scenes in the binder that list a plotline or have notes for it. */
+	private scenesWith(name: string): TFile[] {
+		return this.ctx.store.scenes(this.ctx.binder.folder).filter((f) => this.linesOf(f).includes(name) || this.plotHas(f, name));
+	}
+
+	private plotHas(f: TFile, name: string): boolean { return hasPlotKey(this.frontmatter(f), name); }
+
 	private confirmDelete(name: string): void {
-		const scenes = this.ctx.store.scenes(this.ctx.binder.folder).filter((f) => this.linesOf(f).includes(name));
-		new DeleteModal(this.ctx.app, name, scenes.length, (fromScenes) => void this.deletePlotline(name, fromScenes ? scenes : [])).open();
+		const scenes = this.scenesWith(name);
+		const listed = scenes.filter((f) => this.linesOf(f).includes(name)).length;
+		const notes = scenes.filter((f) => readPlotText(this.frontmatter(f)[PLOT_TEXT]).has(name)).length;
+		new DeleteModal(this.ctx.app, name, listed, notes, (fromScenes) => void this.deletePlotline(name, fromScenes ? scenes : [])).open();
 	}
 
 	private async deletePlotline(name: string, scenes: TFile[]): Promise<void> {
@@ -497,7 +515,11 @@ class PlotGrid implements BinderMode {
 		const next = cols.filter((x) => x !== name);
 		if (this.spot === spotKey(HEAD, name)) this.spot = spotKey(HEAD, next[Math.min(i, next.length - 1)] ?? ADD);
 		if (!(await this.writeBinder({ plotlines: next, ...(name in colors ? { colors: recolor(colors, name, null) ?? {} } : {}) }))) return;
-		const res = await Promise.allSettled(scenes.map((f) => this.writeScene(f, this.linesOf(f).filter((x) => x !== name), false)));
+		const res = await Promise.allSettled(scenes.map((f) => {
+			const lines = this.linesOf(f), listed = lines.includes(name), rest = lines.filter((x) => x !== name);
+			if (!this.plotHas(f, name)) return this.writeScene(f, rest, false);
+			return this.editScene(f, rest, (fm) => { if (listed) this.putLines(fm, rest); dropPlotKey(fm, name); });
+		}));
 		const failed = res.filter((r) => r.status === 'rejected' || !r.value).length;
 		if (failed) new Notice(`Couldn’t remove “${name}” from ${failed} ${failed === 1 ? 'scene' : 'scenes'}.`);
 		if (this.root.contains(this.root.doc.activeElement) || this.root.doc.activeElement === this.root.doc.body) this.focusSpot(this.spot);
@@ -515,6 +537,17 @@ class PlotGrid implements BinderMode {
 
 	private writeScene(file: TFile, lines: string[], notice = true): Promise<boolean> {
 		return this.write(file, { [PLOTLINES]: lines }, () => this.ctx.setProps(file, { plotlines: lines }), notice);
+	}
+
+	/** A scene write that also changes its `plot` text: done inside the write, on the note as it is then, so nothing
+	    else in `plot` can change. The plotlines property is written as setProps would (an empty list removes it). */
+	private editScene(file: TFile, lines: string[], edit: (fm: Record<string, unknown>) => void): Promise<boolean> {
+		return this.write(file, { [PLOTLINES]: lines }, () => this.ctx.store.editProps(file, edit), false);
+	}
+
+	private putLines(fm: Record<string, unknown>, lines: string[]): void {
+		const prop = this.ctx.plugin.settings.plotlinesProp;
+		if (lines.length) fm[prop] = lines; else delete fm[prop];
 	}
 
 	private async write(file: TFile, shown: Record<string, unknown>, write: () => Promise<void>, notice = true): Promise<boolean> {
@@ -714,19 +747,25 @@ class Pending {
 
 class DeleteModal extends Modal {
 	private fromScenes = true;
-	constructor(app: App, private name: string, private count: number, private onDelete: (fromScenes: boolean) => void) { super(app); }
+	constructor(app: App, private name: string, private listed: number, private notes: number, private onDelete: (fromScenes: boolean) => void) { super(app); }
 
 	onOpen(): void {
 		this.titleEl.setText(`Delete “${this.name}”?`);
 		this.contentEl.createEl('p', { text: 'It will no longer be a column in the plot grid.' });
-		if (this.count) {
+		if (this.listed || this.notes) {
+			const n = (k: number, one: string, many: string) => `${k} ${k === 1 ? one : many}`;
+			const desc = [
+				this.listed ? `${n(this.listed, 'scene lists', 'scenes list')} it.` : '',
+				this.notes ? `${n(this.notes, 'scene has', 'scenes have')} notes for it, which would be deleted too.` : '',
+				'If you keep it there, it shows under “Other”.',
+			].filter((x) => x).join(' ');
 			new Setting(this.contentEl)
 				.setName('Also remove it from scenes')
-				.setDesc(`${this.count} ${this.count === 1 ? 'scene lists' : 'scenes list'} it. If you keep it there, it shows under “Other”.`)
+				.setDesc(desc)
 				.addToggle((t) => t.setValue(this.fromScenes).onChange((v) => { this.fromScenes = v; }));
 		}
 		const buttons = this.contentEl.createDiv({ cls: 'modal-button-container' });
-		const del = new ButtonComponent(buttons).setButtonText('Delete').onClick(() => { this.close(); this.onDelete(this.count > 0 && this.fromScenes); });
+		const del = new ButtonComponent(buttons).setButtonText('Delete').onClick(() => { this.close(); this.onDelete((this.listed > 0 || this.notes > 0) && this.fromScenes); });
 		if (requireApiVersion('1.13.0')) del.setDestructive().setCta(); else del.buttonEl.addClass('mod-warning'); // setWarning() before 1.13
 		new ButtonComponent(buttons).setButtonText('Cancel').onClick(() => this.close());
 	}

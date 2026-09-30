@@ -56,9 +56,11 @@ Binders creates it when you first give the folder a synopsis, status or label in
 - If a folder has several binder notes, the one named like the folder is the binder note; otherwise the first by name.
 - The vault's top level can't be a binder.
 - Binders writes only `contents` (and its own properties above) in the binder note, and never changes the rest of it.
-- Renaming a plotline in the plot grid renames it in `plotlines`, in `plotlineColors`, and in the `plotlines` of every
-  scene in the binder that lists it. Deleting one removes it from `plotlines` and `plotlineColors`, and from the scenes
-  only if you ask. Binders doesn't write `plot` yet.
+- Renaming a plotline in the plot grid renames it in `plotlines`, in `plotlineColors`, and in every scene in the binder:
+  in its `plotlines` and as a key in its `plot`, in one write per note. If a scene's `plot` already has an entry under
+  the new name, that scene's `plot` is left as it is, so no text replaces another. Deleting a plotline removes it from
+  `plotlines` and `plotlineColors`, and, only if you ask, from the scenes' `plotlines` and `plot` (a `plot` left empty
+  is removed). Binders changes nothing else in `plot` yet.
 
 ## Keeping the list up to date
 

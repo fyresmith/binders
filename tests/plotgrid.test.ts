@@ -1,4 +1,4 @@
-import { move, nameProblem, readColors, readList, readPlotText, recolor, rename, toggle } from '../src/view/plotgrid-data';
+import { dropPlotKey, hasPlotKey, move, nameProblem, readColors, readList, readPlotText, recolor, rename, renamePlotKey, toggle } from '../src/view/plotgrid-data';
 import { done, eq, ok } from './harness';
 
 const j = (x: unknown) => JSON.stringify(x);
@@ -29,6 +29,24 @@ const j = (x: unknown) => JSON.stringify(x);
 	eq(nameProblem('', ['Mara']), 'A plotline needs a name.', 'a name is needed');
 	ok(/already a plotline called “Mara”/.test(nameProblem('Mara', ['Mara']) ?? ''), 'no two plotlines with one name');
 	eq(nameProblem('Mara', ['Mara'], 'Mara'), null, 'keeping its own name is fine');
+}
+
+// renaming and removing a plotline's key in a scene's plot text
+{
+	const fm: Record<string, unknown> = { plotlines: ['Mara'], plot: { A: 'a', Mara: 'm', B: 'b' } };
+	ok(hasPlotKey(fm, 'Mara') && !hasPlotKey(fm, 'C') && !hasPlotKey({ plot: 'x' }, 'x'), 'finds keys in a plot map only');
+	eq(renamePlotKey(fm, 'Mara', 'Voss'), 'renamed', 'renamed');
+	eq(j(fm.plot), j({ A: 'a', Voss: 'm', B: 'b' }), 'in its place, the rest untouched');
+	eq(j(fm.plotlines), j(['Mara']), 'nothing else in the note changes');
+	const clash: Record<string, unknown> = { plot: { Mara: 'm', Voss: 'v' } };
+	eq(renamePlotKey(clash, 'Mara', 'Voss'), 'conflict', 'the new name has text already');
+	eq(j(clash.plot), j({ Mara: 'm', Voss: 'v' }), 'so nothing changes');
+	eq(renamePlotKey({ plot: { A: 'a' } }, 'Mara', 'Voss'), 'none', 'no key: nothing to do');
+	eq(renamePlotKey({ plot: { ' Mara ': 'm' } }, 'Mara', 'Voss'), 'renamed', 'keys are matched trimmed');
+	const d: Record<string, unknown> = { plot: { A: 'a', Mara: 'm' } };
+	ok(dropPlotKey(d, 'Mara') && j(d.plot) === j({ A: 'a' }), 'drop removes just that key');
+	ok(dropPlotKey(d, 'A') && !('plot' in d), 'an empty plot goes');
+	ok(!dropPlotKey({ x: 1 }, 'A'), 'nothing to drop');
 }
 
 done('plot grid data');

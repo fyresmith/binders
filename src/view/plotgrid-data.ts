@@ -4,7 +4,8 @@
 /** The binder note's properties for the grid (format 1): the columns in order, and optional colors by plotline. */
 export const PLOTLINES = 'plotlines';
 export const PLOTLINE_COLORS = 'plotlineColors';
-/** Reserved: a scene's text per plotline (`plot: {Mara: "…"}`), for a later version. Read only, never written. */
+/** Reserved: a scene's text per plotline (`plot: {Mara: "…"}`), for a later version. Not edited yet; the grid only
+    renames or removes a plotline's key in it along with the plotline. */
 export const PLOT_TEXT = 'plot';
 
 /** Obsidian's palette: each has a `--color-<name>` (and `-rgb`) variable in every theme. */
@@ -75,4 +76,40 @@ export function nameProblem(name: string, plotlines: string[], current?: string)
 	if (!name) return 'A plotline needs a name.';
 	if (name !== current && plotlines.includes(name)) return `There’s already a plotline called “${name}”.`;
 	return null;
+}
+
+/** The key in a `plot` map that stands for a plotline (keys are read trimmed), or null. */
+function plotKey(plot: Record<string, unknown>, name: string): string | null {
+	return Object.keys(plot).find((k) => k.trim() === name) ?? null;
+}
+
+/** Whether a note's properties have a `plot` entry for this plotline (with text or not). */
+export function hasPlotKey(fm: Record<string, unknown>, name: string): boolean {
+	const plot = fm[PLOT_TEXT];
+	return isObj(plot) && plotKey(plot, name) != null;
+}
+
+/** Renames a plotline's key in a note's `plot` map in place, keeping its place and everything else as it is. "conflict":
+    the new name has an entry already, so nothing changes rather than one text replacing another. */
+export function renamePlotKey(fm: Record<string, unknown>, from: string, to: string): 'renamed' | 'none' | 'conflict' {
+	const plot = fm[PLOT_TEXT];
+	if (!isObj(plot)) return 'none';
+	const key = plotKey(plot, from);
+	if (key == null) return 'none';
+	if (plotKey(plot, to) != null) return 'conflict';
+	const out: Record<string, unknown> = {};
+	for (const [k, v] of Object.entries(plot)) out[k === key ? to : k] = v;
+	fm[PLOT_TEXT] = out;
+	return 'renamed';
+}
+
+/** Removes a plotline's key from a note's `plot` map in place; the property goes when nothing is left in it. */
+export function dropPlotKey(fm: Record<string, unknown>, name: string): boolean {
+	const plot = fm[PLOT_TEXT];
+	if (!isObj(plot)) return false;
+	const key = plotKey(plot, name);
+	if (key == null) return false;
+	delete plot[key];
+	if (!Object.keys(plot).length) delete fm[PLOT_TEXT];
+	return true;
 }

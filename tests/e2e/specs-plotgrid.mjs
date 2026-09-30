@@ -321,6 +321,78 @@ test('delete a plotline but keep it in scenes: they show it under “Other”', 
 	t.eq(rows.find((r) => r.path === ARRIVAL).other, null, 'others don’t');
 }));
 
+/** Gives scenes `plot` text (before mounting, so the grid starts from it). */
+const setPlot = (p, plots) => p.ev(`(async () => {
+	for (const [path, plot] of Object.entries(${j(plots)})) await app.fileManager.processFrontMatter(app.vault.getAbstractFileByPath(path), (fm) => { fm.plot = plot; });
+	await new Promise((r) => setTimeout(r, 300));
+})().then(() => 1)`);
+/** A note's `plot` as the cache reads it, as [key, value] pairs so the order counts. */
+const plotOf = (p, path) => p.ev(`(() => { const v = app.metadataCache.getFileCache(app.vault.getAbstractFileByPath(${j(path)}))?.frontmatter?.plot; return v ? Object.entries(v) : null; })()`);
+
+test('rename a plotline: its key in each scene’s plot text follows, in the same write, and nothing else in it changes', async (p, h, t) => {
+	await setPlot(p, {
+		[ARRIVAL]: { Mara: 'She hides the letter.', [SECRET]: 'He watches.', Harbour: 'Fog.' },
+		[LIGHTS]: { Mara: 'She sees the dark tower.' }, // notes, though it doesn't list Mara
+		[STORM]: { Mara: 'Hers.', 'Mara Voss': 'Already here.' }, // the new name has notes already: both stay
+	});
+	await mount(p);
+	try {
+		const before = await texts(p);
+		await countWrites(p);
+		await clickOn(p, headSel('Mara'));
+		await pick(p, 'Rename');
+		await p.type('Mara Voss');
+		await p.key('Enter');
+		await until(p, `app.vault.adapter.read(${j(LIGHTS)}).then((x) => x.includes('Mara Voss'))`);
+		await settle(p);
+		t.eq(j(await plotOf(p, ARRIVAL)), j([['Mara Voss', 'She hides the letter.'], [SECRET, 'He watches.'], ['Harbour', 'Fog.']]), 'Arrival: the key renamed in its place, the rest as it was');
+		t.eq(j(yamlList(await read(p, ARRIVAL), 'plotlines')), j(['Mara Voss']), 'and its plotlines renamed');
+		t.eq(j(await plotOf(p, LIGHTS)), j([['Mara Voss', 'She sees the dark tower.']]), 'Lights out: its notes follow');
+		t.eq(j(yamlList(await read(p, LIGHTS), 'plotlines')), j([SECRET]), 'its plotlines are untouched');
+		t.eq(j(await plotOf(p, STORM)), j([['Mara', 'Hers.'], ['Mara Voss', 'Already here.']]), 'Storm warning: no text replaces another');
+		t.eq(j(yamlList(await read(p, STORM), 'plotlines')), j(['Mara Voss']), 'but its plotlines are renamed');
+		const w = await writes(p);
+		t.ok([ARRIVAL, LIGHTS, STORM, KEEPER, WRECK, EPILOGUE, NOTE].every((f) => w[f] === 1), 'one write per note: ' + j(w));
+		const after = await texts(p);
+		for (const f of Object.keys(before)) t.eq(split(after[f]).body, split(before[f]).body, `“${f}” keeps its text`);
+		for (const f of [ARRIVAL, LIGHTS, STORM]) {
+			const strip = (x) => split(x).yaml.split('\n').filter((l) => !/^(plotlines:|plot:|  )/.test(l)).join('\n');
+			t.eq(strip(after[f]), strip(before[f]), `“${f}”: other properties untouched`);
+		}
+	} finally { await unmount(p); }
+});
+
+test('delete a plotline from scenes: its plot text goes too; kept in scenes, it stays', async (p, h, t) => {
+	await setPlot(p, { [ARRIVAL]: { Mara: 'She hides the letter.', Harbour: 'Fog.' }, [EPILOGUE]: { Mara: 'Postcards.' }, [PROLOGUE]: { [SECRET]: 'The light.' } });
+	await mount(p);
+	try {
+		const before = await texts(p);
+		// kept in scenes first: nothing but the binder note changes
+		await clickOn(p, headSel(SECRET));
+		await pick(p, 'Delete');
+		await until(p, `!!document.querySelector('.modal')`);
+		t.ok(/1 scene has notes for it, which would be deleted too/.test(await p.ev(`document.querySelector('.modal').textContent`)), 'the modal says notes would go');
+		await clickOn(p, '.modal .checkbox-container');
+		await clickOn(p, '.modal .mod-warning, .modal .mod-destructive');
+		await until(p, `app.vault.adapter.read(${j(NOTE)}).then((x) => !x.includes('secret'))`);
+		await settle(p);
+		kept(t, before, await texts(p), { changed: [NOTE] });
+		// removed from scenes: the key goes, the rest of plot stays; an empty plot goes
+		await clickOn(p, headSel('Mara'));
+		await pick(p, 'Delete');
+		await until(p, `!!document.querySelector('.modal')`);
+		await clickOn(p, '.modal .mod-warning, .modal .mod-destructive');
+		await until(p, `app.vault.adapter.read(${j(EPILOGUE)}).then((x) => !x.includes('Mara'))`);
+		await settle(p);
+		t.eq(j(await plotOf(p, ARRIVAL)), j([['Harbour', 'Fog.']]), 'Arrival keeps its other notes');
+		t.eq(yamlList(await read(p, ARRIVAL), 'plotlines'), null, 'and has no plotlines left');
+		t.eq(await plotOf(p, EPILOGUE), null, 'Epilogue’s plot, now empty, is gone');
+		t.eq(j(await plotOf(p, PROLOGUE)), j([[SECRET, 'The light.']]), 'notes for other plotlines stay');
+		const after = await texts(p);
+		for (const f of Object.keys(before)) t.eq(split(after[f]).body, split(before[f]).body, `“${f}” keeps its text`);
+	} finally { await unmount(p); }
+});
+
 test('unknown plotlines show under “Other”; cell text shows as a dot', withGrid({}, async (p, h, t) => {
 	await p.ev(`(async () => {
 		await app.fileManager.processFrontMatter(app.vault.getAbstractFileByPath(${j(EPILOGUE)}), (fm) => { fm.plotlines = ['Mara', 'Ghost', 'Harbour']; });
