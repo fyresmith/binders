@@ -26,7 +26,19 @@ async function filterBy(p, title) {
 
 // ---- order ----
 
-test('BUG: Alt+Up while filtered moves the card past a hidden one, so nothing visible changes', withTidy(async (p, h, t) => {
+test('Alt+Down while filtered moves the card past the next card shown, keeping hidden ones in place', withTidy(async (p, h, t) => {
+	await openView(p, 'The Lighthouse/Part One');
+	await filterBy(p, 'Revised');
+	await filterBy(p, 'Idea');
+	t.eq(j(await cards(p)), j([L + 'Part One/Arrival.md', L + 'Part One/Storm warning.md']), 'filtered');
+	const a = await at(p, 'Part One/Arrival.md');
+	await p.click(a.x, a.t + 12);
+	await p.key('ArrowDown', 'alt');
+	t.eq(j(await written(p, '  - Part One/Storm warning\n  - Part One/Arrival')), j(['Prologue', 'Part One/', 'Part One/The keeper', 'Part One/Storm warning', 'Part One/Arrival', 'Part Two/', 'Part Two/The wreck', 'Part Two/Lights out', 'Epilogue']), 'past Storm warning; The keeper stays first');
+	t.eq(await p.ev(`document.activeElement?.dataset?.path`), L + 'Part One/Arrival.md', 'still focused');
+}));
+
+test('Alt+Up on the first card shown while filtered changes nothing, though hidden cards are above it', withTidy(async (p, h, t) => {
 	await openView(p, 'The Lighthouse/Part One');
 	await filterBy(p, 'Draft'); // Part One: Arrival (revised), The keeper (draft), Storm warning (?)
 	const shown = await cards(p);

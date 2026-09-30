@@ -685,10 +685,23 @@ class Corkboard implements BinderMode {
 	private async step(card: HTMLElement, delta: number): Promise<void> {
 		const items = this.targets(card);
 		const list = delta < 0 ? items : [...items].reverse();
-		for (const f of list) if (!(await (delta < 0 ? this.store.moveUp(f) : this.store.moveDown(f)))) break;
+		for (const f of list) if (!(await this.stepPast(f, delta))) break;
 		this.select(items.map((f) => f.path), card.dataset.path);
 		this.draw();
 		this.cardEl(card.dataset.path)?.focus();
+	}
+
+	/** Moves an item one card up or down: past the next card shown, so a filter's hidden notes (and attachments) keep
+	    their places. False if no card is shown on that side. */
+	private async stepPast(f: TAbstractFile, delta: number): Promise<boolean> {
+		const folder = f.parent;
+		if (!folder) return false;
+		const shown = this.children(folder).filter((x) => !(x instanceof TFile) || this.ctx.visible(x));
+		const next = shown[shown.indexOf(f) + (delta < 0 ? -1 : 1)];
+		if (!next || shown.indexOf(f) < 0) return false;
+		const sibs = (this.store.orderedChildren(folder) ?? []).filter((x) => x !== f);
+		await this.store.move(f, folder, sibs.indexOf(next) + (delta < 0 ? 0 : 1));
+		return true;
 	}
 
 	// ---- actions ----
@@ -820,8 +833,9 @@ class Corkboard implements BinderMode {
 	}
 
 	private orderItems(menu: Menu, f: TAbstractFile): void {
-		const sibs = f.parent ? this.store.orderedChildren(f.parent) ?? [] : [], i = sibs.indexOf(f);
-		if (i > 0) menu.addItem((x) => x.setSection('order').setTitle('Move up').setIcon('arrow-up').onClick(() => void this.store.moveUp(f)));
-		if (i >= 0 && i < sibs.length - 1) menu.addItem((x) => x.setSection('order').setTitle('Move down').setIcon('arrow-down').onClick(() => void this.store.moveDown(f)));
+		// among the cards shown, as Alt+Up and Alt+Down
+		const sibs = f.parent ? this.children(f.parent).filter((x) => !(x instanceof TFile) || this.ctx.visible(x)) : [], i = sibs.indexOf(f);
+		if (i > 0) menu.addItem((x) => x.setSection('order').setTitle('Move up').setIcon('arrow-up').onClick(() => void this.stepPast(f, -1)));
+		if (i >= 0 && i < sibs.length - 1) menu.addItem((x) => x.setSection('order').setTitle('Move down').setIcon('arrow-down').onClick(() => void this.stepPast(f, 1)));
 	}
 }
