@@ -121,6 +121,8 @@ class Manuscript implements BinderMode {
 		c.registerDomEvent(this.list, 'click', (e) => this.onClick(e));
 		c.registerDomEvent(this.list, 'contextmenu', (e) => this.onMenu(e));
 		c.registerEvent(vault.on('modify', (f) => this.onModify(f)));
+		// Quitting doesn't unload views or embeds, and Obsidian's own quit handler only saves real views: save ours
+		c.registerEvent(workspace.on('quit', (tasks) => { for (const s of this.scenes) if (s.live?.dirty) tasks.addPromise(s.live.flush()); }));
 		// Obsidian may put an editor back in source mode when the vault's live preview setting changes
 		const keepLp = () => { for (const s of this.scenes) s.live?.keepLivePreview(); };
 		c.registerEvent((vault as Events).on('config-changed', keepLp));

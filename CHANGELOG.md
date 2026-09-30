@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.6.29 (2026-09-30)
+
+### Fixed
+
+- Typing in the manuscript is no longer lost if you quit Obsidian within two seconds of your last keystroke.
+
 ## 0.6.28 (2026-09-30)
 
 ### Fixed
