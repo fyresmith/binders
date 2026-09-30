@@ -3,6 +3,16 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.1.2 (2026-09-30)
+
+### Added
+
+- The plot property is reserved for text per plotline in the plot grid.
+
+### Changed
+
+- Subfolders get a hidden folder note for their synopsis, status and label; binder and folder notes are hidden in the explorer by default; mobile is required for 1.0.
+
 ## 0.1.1 (2026-09-30)
 
 ### Added

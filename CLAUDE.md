@@ -13,7 +13,7 @@
 - **Version:** 0.1.0, the scaffold. Only `src/model.ts` (the binder index), the settings tab and the test harness exist.
   Next milestone: **0.2**, binders in the vault: detection, index cache, rename/move/delete tracking, "Make this folder
   a binder", "New scene here". See the milestone table in `docs/plan.md`.
-- **Git:** local only; no GitHub remote yet.
+- **Git:** remote `origin` is `github.com/fyresmith/binders`.
 
 ## Decisions already made (don't reopen without cause)
 
@@ -27,38 +27,14 @@
   its nesting has no fixed meaning.
 - **1.0 ships all three views:** corkboard, plot grid and the editable manuscript.
 
-## First thing to do in a new chat
+## Answers (2026-09-30)
 
-**If the answers below aren't recorded yet** (no "Answers" section below, or questions still unanswered), start by
-asking the maintainer these questions, in one message, with your recommendation for each. Record the answers here under
-"Answers", update `docs/plan.md` and `docs/file-format.md` to match, and ship the change (`npm run ship -- patch …`)
-before starting 0.2.
-
-1. **Subfolder synopses.** Where should a subfolder's card text (a chapter's synopsis) come from?
-   - a folder note inside the subfolder (`Part One/Part One.md`);
-   - an entry in the binder note;
-   - no synopsis for folders in 1.0.
-
-   Recommended: a folder note, so it's plain Markdown and works with folder-note plugins.
-2. **Hiding the binder note.** Should the binder note be hidden in the file explorer by default, since clicking the
-   folder opens the binder view? Recommended: yes, with a setting to show it.
-3. **Plot grid cell text.** 1.0 cells are on/off (a scene's `plotlines` property). If cells later hold text, where should
-   it live?
-   - in the scene's properties (`plot: {Mara: "…"}`), though nested objects aren't editable in Obsidian's Properties
-     panel;
-   - under a heading in the scene note;
-   - separate notes.
-
-   Recommended: decide later, but reserve a property name now.
-4. **Mobile.** Is mobile a 1.0 requirement, or best-effort? The explorer patch should work there; the manuscript's
-   embedded editors need testing on iOS and Android. Recommended: best-effort for 1.0, with the manuscript read-only on
-   mobile if editing isn't solid.
-5. **GitHub.** Create `fyresmith/binders` now? Public or private? Recommended: private until 0.4 (the first usable
-   corkboard), then public.
-
-## Answers
-
-(None yet.)
+1. **Folder data:** binders and subfolders each have a hidden note (the binder note; a folder note named like the
+   folder) that stores their data. Their synopsis is set in the binder view. See `docs/file-format.md`.
+2. **Hiding:** binder and folder notes are hidden in the explorer by default, with a setting to show them.
+3. **Plot grid cell text:** in scene properties, `plot: {Mara: "…"}` (reserved now, used after 1.0).
+4. **Mobile:** a 1.0 requirement, including the editable manuscript. Test on iOS and Android from 0.3 on.
+5. **GitHub:** `fyresmith/binders` (remote `origin`).
 
 ## Working with the maintainer
 

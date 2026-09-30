@@ -44,8 +44,12 @@ See [file-format.md](file-format.md) for the full specification.
   convention it is named like the folder (`Novel/Novel.md`), which also works with folder-note plugins.
 - **`contents`**: the binder's table of contents, a list of paths relative to the binder, folders ending in `/`, in
   reading order. It is one list for the whole binder, so it reads like a table of contents and is easy to fix by hand.
+- **Folder notes**: each subfolder in a binder can have a note named like it (`Part One/Part One.md`) that holds the
+  folder's own data: its synopsis, status and label. Binders creates it the first time you give the folder a synopsis,
+  status or label in a binder view. It never shows as a scene, in `contents`, or in the manuscript.
 - **Per-note properties** (names configurable): `synopsis` (the card text), `status` (draft, revised…), `label` (a
-  color), `plotlines` (a list). They show in Obsidian's Properties panel and work with Bases and Dataview.
+  color), `plotlines` (a list), `plot` (text per plotline, reserved). They show in Obsidian's Properties panel and work
+  with Bases and Dataview. The binder note and folder notes use the same `synopsis`, `status` and `label`.
 - **Binder options**, in the binder note: `plotlines` (the grid's columns, in order), `target` (word count goal), and
   view preferences.
 - **Not in the list**: notes and folders the list doesn't mention show after the listed ones, by name. Listed items
@@ -70,8 +74,9 @@ See [file-format.md](file-format.md) for the full specification.
   Feature-detected: if the method isn't there, Binders shows a one-time notice and the explorer stays alphabetical.
 - **Opening**: clicking a binder or a folder inside one opens the binder view on that folder (a setting; on by default),
   while still expanding the folder. Implemented as a click listener on the explorer's folder titles, not a patch.
-- **Marking**: a small binder icon on binder folders; the binder note itself can be hidden from the explorer (a setting),
-  as folder-note plugins do, since clicking the folder opens it.
+- **Marking**: a small binder icon on binder folders. The binder note and folder notes are hidden from the explorer by
+  default (a setting shows them), as folder-note plugins do, since clicking the folder opens the binder view. The
+  folder's right-click menu and the binder view header have "Open folder note".
 - **Reordering in the explorer**: not in 1.0 (dragging there moves files between folders, which Obsidian owns).
   Reorder in the binder view, or with "Move up/down" in the explorer's right-click menu.
 - **Commands and menus**: "Make this folder a binder", "Open binder", "Move up", "Move down", "New scene here".
@@ -87,6 +92,8 @@ One view type (`binders-view`) per binder or subfolder, with a header: breadcrum
 
 - Cards in a responsive grid (or one column on narrow panes), grouped under subfolder headings; a subfolder can also show
   as a single stacked card (like Scrivener) with its own synopsis from its folder note.
+- The synopsis of the binder or folder being viewed shows under the header, editable in place, as do a subfolder's
+  synopsis on its heading or stacked card. Editing writes to that folder's note (creating it if needed).
 - Card: title, synopsis (editable in place), status chip, label color stripe, word count. Double-click opens the note.
 - Drag to reorder, including between groups (moves the file into that folder). Multi-select with Shift/Ctrl.
 - New card: creates a note in that folder at that position; the title is typed on the card.
@@ -97,7 +104,9 @@ One view type (`binders-view`) per binder or subfolder, with a header: breadcrum
 - Rows are scenes in binder order (grouped by subfolder); columns are the binder's plotlines.
 - Clicking a cell toggles that plotline in the scene's `plotlines` property. Rows and columns can be reordered;
   columns can be added, renamed and colored.
-- 1.0 cells are on or off; notes in cells (text per scene per plotline) are a later version, stored in the scene note.
+- 1.0 cells are on or off; notes in cells (text per scene per plotline) are a later version, stored in the scene's
+  `plot` property (`plot: {Mara: "…"}`), edited in the grid. The name is reserved in format 1. Obsidian's Properties
+  panel can't edit nested properties, so the grid is where they're edited.
 
 ### Manuscript
 
@@ -155,7 +164,7 @@ Each is a minor version; patches in between. Every commit bumps the version (see
 | 0.5 | Plot grid |
 | 0.6 | Manuscript: read-only first, then editable embedded editors, virtualization |
 | 0.7 | Longform integration |
-| 0.8 | Polish: keyboard, touch, mobile, themes, performance on a 1,000-scene binder |
+| 0.8 | Polish: keyboard, touch, themes, performance on a 1,000-scene binder, a full mobile pass |
 | 0.9 | QA rounds (as with Evra: parallel QA agents, e2e suites, fixes) |
 | 1.0 | Release and directory submission |
 
@@ -167,12 +176,13 @@ Each is a minor version; patches in between. Every commit bumps the version (see
 | Embedded editors (internal API) | Isolated; read-only fallback; heavy e2e on typing, undo, switching notes, external edits |
 | Losing text in the manuscript | Each editor saves its own file through Obsidian; merge-on-external-change like Evra; soak tests |
 | Conflicts with explorer plugins | Setting to turn the patch off; documented |
+| Mobile (a 1.0 requirement) | Test each milestone from 0.3 on iOS and Android; touch drag and long-press menus; the manuscript's editors must be solid there, not read-only |
 | Big binders | Index cache; virtualized manuscript; batched writes; a generated 1,000-scene test binder |
 | Review (patching core UI) | Minimal patch, clean unload, explained in the README |
 
-## Open questions
+## Decided
 
-- Should a subfolder's synopsis come from a folder note inside it, or from the binder note?
-- Should the binder note be hidden in the explorer by default?
-- Plot grid cell notes: store per scene (`plot: {Mara: "…"}`) or as separate notes?
-- Mobile: the explorer patch works there too; the manuscript's embedded editors need testing on iOS/Android.
+- **Folder data**: binders and subfolders each have a note (the binder note, and folder notes named like the folder),
+  hidden in the explorer by default. Their synopsis is edited in the binder view.
+- **Plot grid cell text** (after 1.0): the scene's `plot` property.
+- **Mobile**: a 1.0 requirement, including the editable manuscript.

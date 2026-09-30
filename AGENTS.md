@@ -11,8 +11,8 @@ Read this before changing anything. It is the contract every contributor, human 
    `npm run install-vault` defaults to `test-vault`; never pass it a path to someone's real vault.
 2. **Never lose writing.** Any change to how notes are read, written, renamed or edited needs an e2e test that proves no
    text is lost, including external edits and undo.
-3. **Plain files.** Binders only writes its own properties in binder notes and the properties the user edits through
-   its views. It never rewrites note bodies except through an editor the user is typing in.
+3. **Plain files.** Binders only writes its own properties in binder and folder notes (and creates folder notes), and the
+   properties the user edits through its views. It never rewrites note bodies except through an editor the user is typing in.
 4. **Native look.** Use Obsidian's CSS variables, `setIcon`, `Menu`, `Modal`, `Setting`, sentence case. No `!important`,
    no `all:`, no scrollbar styling, no inline `innerHTML`; use `createEl` or `sanitizeHTMLToDom`. The Obsidian review
    bot flags these.
