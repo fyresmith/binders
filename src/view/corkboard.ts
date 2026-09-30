@@ -50,6 +50,8 @@ class Corkboard implements BinderMode {
 	/** Notes made here since the filter last changed: they show though the filter would hide them (a new note has no
 	    status yet), so a note just made doesn't vanish. */
 	private made = new Set<TFile>();
+	/** A card to focus after the next redraw (the one after a deleted card). */
+	private refocus: string | null = null;
 	private press: { id: number; x: number; y: number; touch: boolean; card: HTMLElement; armed: boolean; timer: number } | null = null;
 	private drag: { items: TAbstractFile[]; ghost: HTMLElement; indicator: HTMLElement; drop: Drop | null; x: number; y: number; raf: number; off: () => void } | null = null;
 	private lastPointer = 'mouse';
@@ -196,7 +198,8 @@ class Corkboard implements BinderMode {
 		if (this.focused && !paths.has(this.focused)) this.focused = null;
 		this.paintSelection();
 		scroller.scrollTop = top;
-		if (hadFocus) this.cardEl(this.focused)?.focus({ preventScroll: true });
+		if (this.refocus) { this.focused = this.refocus; this.cardEl(this.refocus)?.focus({ preventScroll: true }); this.refocus = null; }
+		else if (hadFocus) this.cardEl(this.focused)?.focus({ preventScroll: true });
 	}
 
 	private drawGroup(g: Group, gi: number): void {
@@ -765,9 +768,18 @@ class Corkboard implements BinderMode {
 			cta: 'Delete', warning: true,
 		});
 		if (!ok) { this.focus(); return; }
+		// the focus goes to the card after the deleted ones (or before them), so the keyboard carries on from there
+		const order = this.cards().map((c) => c.dataset.path), gone = new Set(items.map((f) => f.path));
+		const last = Math.max(...items.map((f) => order.indexOf(f.path)));
+		const next = order.slice(last + 1).find((p) => !gone.has(p)) ?? order.slice(0, last).reverse().find((p) => !gone.has(p)) ?? null;
 		for (const f of items) {
 			try { await this.ctx.app.fileManager.trashFile(f); } catch (e) { new Notice(e instanceof Error ? e.message : String(e)); break; }
 		}
+		// no card left: the New note card, so the keyboard still has somewhere to be
+		if (!next) { this.board.querySelector<HTMLElement>('.binders-card-new')?.focus(); return; }
+		this.select([next]);
+		this.refocus = next;
+		if (!this.busy()) this.draw(); // else the redraw after typing focuses it
 	}
 
 	private async setAll(items: TAbstractFile[], patch: { status?: string; label?: string }): Promise<void> {

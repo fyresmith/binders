@@ -397,7 +397,7 @@ test('rename a stack keeps its folder note and synopsis', withTidy(async (p, h, 
 	await p.ev(`(async () => { const f = app.vault.getAbstractFileByPath('The Lighthouse/Part One/Book one.md') || app.vault.getAbstractFileByPath('The Lighthouse/Part One/Part One.md'); if (f) await app.vault.delete(f); })().then(() => 1)`);
 }));
 
-test('BUG: after deleting with the keyboard, the focus is lost (arrows stop working)', withTidy(async (p, h, t) => {
+test('after deleting with the keyboard, the next card has the focus', withTidy(async (p, h, t) => {
 	await openView(p);
 	const c = await at(p, 'Part One/The keeper.md');
 	await p.click(c.x, c.t + 12);
@@ -407,7 +407,9 @@ test('BUG: after deleting with the keyboard, the focus is lost (arrows stop work
 	await until(p, `!document.querySelector('${card(L + 'Part One/The keeper.md')}')`);
 	await p.sleep(1000);
 	const f = await p.ev(`document.activeElement?.closest?.('.binders-board') ? document.activeElement.dataset.path ?? 'board' : document.activeElement?.className`);
-	t.ok(await p.ev(`!!document.activeElement?.closest?.('.binders-board')`), 'a card has the focus, so the arrows still work: ' + f);
+	t.eq(f, L + 'Part One/Storm warning.md', 'the card after it has the focus, so the arrows still work');
+	await p.key('ArrowLeft');
+	t.eq(await p.ev(`document.activeElement?.dataset?.path`), L + 'Part One/Arrival.md', 'and the arrows work');
 }));
 
 test('Ctrl+Enter on a card opens it in exactly one new tab', withTidy(async (p, h, t) => {
@@ -493,6 +495,7 @@ test('an empty binder: one New note card, 0 words, a filter menu that says so', 
 	await openView(p, 'Empty');
 	t.eq(await p.ev(`document.querySelectorAll('.workspace-leaf.mod-active .binders-card-new').length`), 1, 'one New note card');
 	t.eq(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-word-count').textContent`), '0 words', '0 words');
+	await p.ev(`document.querySelectorAll('.notice').forEach(n => n.remove())`); // a notice from another test can cover the button
 	const f = await p.at(`.workspace-leaf.mod-active .binders-filter-button`);
 	await p.click(f.x, f.y);
 	t.eq(j(await menuItems(p)), j(['No statuses or labels to filter by']), 'the filter menu');
