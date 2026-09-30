@@ -50,6 +50,8 @@ Binders creates it when you first give the folder a synopsis, status or label in
 - Items in the folder that `contents` doesn't mention appear after the listed items of their own folder, in name order.
 - Items in `contents` that don't exist are ignored, and dropped the next time Binders writes the list.
 - Duplicate entries count once. Paths that leave the folder (`..`) are ignored.
+- An entry YAML reads as a number (a note called `1984`, typed bare) counts as that name. Binders writes such names
+  quoted.
 - The binder note and folder notes never appear in `contents` or as scenes in the binder views.
 - A binder note inside a binder (a nested binder) is an ordinary note in 1.0, or the folder note if it's named like its
   folder.

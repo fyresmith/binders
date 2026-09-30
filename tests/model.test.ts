@@ -20,7 +20,8 @@ const j = (x: unknown) => JSON.stringify(x);
 	eq(cleanPath('./Part One//Arrival.md'), 'Part One/Arrival', 'paths tidied, .md dropped');
 	eq(cleanPath('Part One\\'), 'Part One/', 'backslashes become slashes; a trailing slash marks a folder');
 	const idx = readIndex({ binder: 1, contents: ['Prologue', 'Prologue', 7, '../escape', 'Part One/', ' Part One/Arrival.md '] });
-	eq(j(idx.contents), j(['Prologue', 'Part One/', 'Part One/Arrival']), 'duplicates, non-strings and paths leaving the binder dropped');
+	eq(j(idx.contents), j(['Prologue', '7', 'Part One/', 'Part One/Arrival']), 'duplicates and paths leaving the binder dropped; numbers read as names');
+	eq(j(readIndex({ binder: 1, contents: [true, null, { a: 1 }, ['x'], NaN, 'ok'] }).contents), j(['ok']), 'other non-strings dropped');
 	eq(j(readIndex({ binder: 1 }).contents), '[]', 'no contents: empty list');
 }
 

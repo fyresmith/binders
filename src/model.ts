@@ -59,8 +59,9 @@ export function readIndex(fm: Record<string, unknown>, binderNote = ''): BinderI
 	const raw = Array.isArray(fm.contents) ? fm.contents : [];
 	const seen = new Set<string>(), contents: string[] = [];
 	for (const x of raw) {
-		if (typeof x !== 'string') continue;
-		const p = cleanPath(x);
+		// a name typed by hand that YAML reads as a number (a note called "1984") is still that name
+		if (typeof x !== 'string' && !(typeof x === 'number' && Number.isFinite(x))) continue;
+		const p = cleanPath(String(x));
 		if (!p || seen.has(p) || p.split('/').includes('..') || p === binderNote || isFolderNote(p)) continue;
 		seen.add(p); contents.push(p);
 	}
