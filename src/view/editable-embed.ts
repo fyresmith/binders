@@ -22,6 +22,7 @@ interface MdEmbed extends Component {
 	/** What would be written: text plus anything around the subpath (nothing here). */
 	data: string;
 	dirty: boolean;
+	lastSavedData: string | null;
 	editMode: EditMode | null;
 	editor: Editor | undefined;
 	requestSave: { cancel(): void };
@@ -60,6 +61,17 @@ export function embedSupported(app: App, probe: TFile): boolean {
 	} catch {
 		return false;
 	}
+}
+
+/** Does `theirs` already hold the change from `base` to `ours`: our edited start, then anything, then base's untouched
+    end? */
+export function contains(base: string, ours: string, theirs: string): boolean {
+	let p = 0;
+	while (p < base.length && p < ours.length && base[p] === ours[p]) p++;
+	let e = 0;
+	while (e < base.length - p && e < ours.length - p && base[base.length - 1 - e] === ours[ours.length - 1 - e]) e++;
+	const head = ours.slice(0, ours.length - e), tail = base.slice(base.length - e);
+	return theirs.length >= head.length + tail.length && theirs.startsWith(head) && theirs.endsWith(tail);
 }
 
 /** Every live editor, by note, across all manuscripts (a split, another tab of the binder): a new one waits for
@@ -102,6 +114,9 @@ export async function mountEditor(app: App, container: HTMLElement, file: TFile,
 	//    already does Obsidian's 3-way merge when dirty, so always go through it. Must be set before load() binds it.
 	embed.onFileChanged = function (this: MdEmbed, f: TFile, data: string, cache: unknown) {
 		if (f !== this.file || data === this.data) return;
+		// Another view took our typing live and saved it with its own on top: the file already has ours, and a merge
+		// would see two overlapping insertions and keep both (doubled text). Load it as it is.
+		if (this.dirty && this.lastSavedData !== null && contains(this.lastSavedData, this.data, data)) this.dirty = false;
 		const merging = this.dirty;
 		this.loadFileInternal(data, cache);
 		// Other views of the note (a tab) took our typing live, then reloaded the outside version and dropped it: give

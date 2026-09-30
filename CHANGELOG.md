@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.6.31 (2026-09-30)
+
+### Fixed
+
+- Typing in the manuscript and in the same note in another tab no longer doubles text when you switch between them quickly.
+
 ## 0.6.30 (2026-09-30)
 
 ### Fixed
