@@ -253,7 +253,7 @@ test('a new card titled with a leading dot is refused (Obsidian would hide the n
 	t.eq(made, L + 'hidden.md', 'newScene drops the leading dots');
 }));
 
-test('BUG: a new card’s title that fails to save is lost', withTidy(async (p, h, t) => {
+test('a new card’s title that fails to save stays in the field', withTidy(async (p, h, t) => {
 	await openView(p);
 	const nc = await p.at(`.workspace-leaf.mod-active .binders-group:last-child .binders-card-new`);
 	await p.click(nc.x, nc.y);

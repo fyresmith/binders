@@ -307,17 +307,19 @@ class Corkboard implements BinderMode {
 				if (done) return;
 				done = true;
 				const t = input.value.trim();
-				this.newIn = null;
-				nc.removeClass('is-editing');
-				if (!t) { idle(); if (this.dirty) this.draw(); return; }
+				// a name that can't be used stays in the field, as a failed rename's does, so nothing typed is lost
+				const refuse = (why: string) => { new Notice(why); done = false; input.focus(); };
+				if (!t) { this.newIn = null; nc.removeClass('is-editing'); idle(); if (this.dirty) this.draw(); return; }
 				const bad = badName(t);
-				if (bad) { new Notice(bad); done = false; this.newIn = key; nc.addClass('is-editing'); input.focus(); return; }
+				if (bad) { refuse(bad); return; }
+				// still busy while the note is made, so no redraw takes the field away meanwhile
 				try {
 					const sibs = this.store.orderedChildren(g.folder) ?? [];
 					const file = await this.store.newScene(g.folder, g.end ? Math.max(0, sibs.indexOf(g.end)) : Infinity, t, g.depth);
 					this.made.add(file);
 					this.select([file.path], file.path);
-				} catch (e) { new Notice(e instanceof Error ? e.message : String(e)); }
+				} catch (e) { refuse(e instanceof Error ? e.message : String(e)); return; }
+				this.newIn = null;
 				this.draw();
 				// Enter keeps the new card open for the next one; clicking away ends it
 				if (again) (this.board.querySelector<HTMLElement>(`.binders-card-new[data-new="${CSS.escape(key)}"]`) as HTMLElement & { binderStart?: () => void })?.binderStart?.();
