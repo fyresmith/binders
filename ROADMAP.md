@@ -26,9 +26,14 @@ only to notes inside a binder; a note anywhere else in the vault is left exactly
     notes in binder order as Scrivener's Draft, each note's text as rich text (headings, bold, italics, lists, links
     and footnotes kept; what has no match in rich text stays as plain Markdown), and what a writer set here carried
     across: synopsis, label (with its color), status, word count targets, and snapshots once those are built. One
-    way only: it writes a new project and never reads one back or changes the vault. Built without outside tools, so
-    it works on phones. To settle first: Scrivener 3 only or the Windows version 1 format too; whether notes that
-    aren't part of the manuscript go to Research; and a test that opens the result in Scrivener itself.
+    way only: it writes a new project and never changes the vault (reading one is **Import**, below). Built without
+    outside tools, so it works on phones. Settled 2026-10-01: Scrivener 3's format only; a toggle in the export
+    dialog, **Include notes outside the manuscript**, puts those in Scrivener's Research folder; the maintainer has
+    Scrivener and opens each build's result in it before this ships.
+- [ ] **Import from Scrivener.** A Scrivener 3 project (`.scriv`) in as a new binder: the Draft's folders and
+      documents as folders and notes in the same order, rich text as Markdown, and synopsis, label, status, targets
+      and snapshots carried across, with the same toggle for Research. Makes a new folder and never writes into an
+      existing one or changes the Scrivener project. After export, which settles how the two formats map.
 - [ ] **Find and replace across the manuscript.** One search over every note of the binder, in binder order, with
       replace one or replace all, from the manuscript. Never loses writing: replace all is one step to undo, and says
       how many notes it will change before it does.

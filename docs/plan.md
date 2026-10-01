@@ -341,7 +341,7 @@ already has milestones 0.1 to 0.7). Every commit bumps the version (see AGENTS.m
 | 0.7 | Longform integration | Done |
 | 0.8 | Polish: keyboard, touch, themes, performance on a 1,000-scene binder, a full mobile pass, README | In progress: explorer Mod-click, cold start, keyboard and screen readers, themes, mobile emulation pass, perf guard (`specs-perf.mjs`), README, and a native-look pass against Obsidian's own Bases and drag styles (toolbar, flat cards, drag and glide, explorer drag-to-reorder) done; real-device iOS and Android checks to do |
 | 0.9 | QA rounds (as with Evra: parallel QA agents, e2e suites, fixes). Added on the maintainer's request (2026-10-01), from Scrivener: the outliner in place of the plot grid, labels and statuses in settings, custom label colors, label tint and explorer label dots, word count targets, split, merge, duplicate, group and ungroup, synopsis from text, compile, undo and redo of moves | In progress: two QA rounds written (`specs-qa-*.mjs`, `specs-qa2-*.mjs`); the added features are built and unreleased |
-| 0.10 | Before release (2026-10-01): mobile QA to the end; export (EPUB, DOCX, PDF, and a Scrivener project); find and replace across the manuscript; versions of a scene ("Rewrite"); focus mode. See ROADMAP.md | Mobile QA in progress |
+| 0.10 | Before release (2026-10-01): mobile QA to the end; export (EPUB, DOCX, PDF, and a Scrivener project); import from Scrivener; find and replace across the manuscript; versions of a scene ("Rewrite"); focus mode. See ROADMAP.md | Mobile QA in progress |
 | 1.0 | Release and directory submission | |
 
 ## Risks
