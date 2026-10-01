@@ -12,10 +12,11 @@ only to notes inside a binder; a note anywhere else in the vault is left exactly
 
 ## Next, in this order
 
-- [ ] **Arrange by label.** The corkboard's cards laid along one line per label, in binder order, as Scrivener's
-      "Arrange by Label" does: which thread each scene is on, and how the threads interleave. Lines run across or
-      down; dragging a card to another line gives it that label. A design is being drawn up for the maintainer to
-      approve (2026-10-01); nothing is built until then.
+- [x] **Arrange by label.** The corkboard's cards laid along one line per label, in binder order, as Scrivener's
+      "Arrange by Label" does: which thread each scene is on, and how the threads interleave. "Arrange" in the
+      corkboard's toolbar chooses; lines run across or down; dragging a card to another line gives it that label,
+      along the lines changes its place, and Undo takes both back. Design approved by the maintainer and built
+      (2026-10-01); see `docs/plan.md`, "Arranged by label".
 
 - [ ] **Export.** A binder (or a folder of it) out as a book: EPUB, DOCX and PDF, with front and back matter, a
       title page, chapters from folders, and scene breaks. "Compile" today makes one Markdown note; export builds on

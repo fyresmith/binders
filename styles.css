@@ -2197,3 +2197,397 @@
 }
 
 
+
+/* ---- Corkboard, by label ("Arrange": by label) ----
+   Each label is a line, drawn as an edge on a canvas is (in its color, two pixels, behind the cards); the cards stand
+   along the lines in the binder's order, each in a place of its own, on its label's line: a card with its border in
+   its label's color, on a line of that color, is a card on a canvas with its edge. A line's name is at its start, as
+   a folder's name is before its rule. One grid: a lane is a row (lines across) or a column (lines down), a card's
+   place the next column (or row). The lines may be closer together than a card is tall (or wide): cards on
+   neighbouring lines never share a place, so they pass each other. */
+.binders-corkboard.mod-lanes {
+	overflow: auto;
+}
+
+.binders-corkboard.mod-lanes > .binders-board {
+	width: max-content;
+	min-width: 100%;
+	padding-bottom: var(--size-4-3);
+}
+
+.is-phone .binders-corkboard.mod-lanes > .binders-board {
+	padding-bottom: calc(var(--size-4-3) + var(--view-bottom-spacing, 0px));
+}
+
+.binders-lanes-board.is-empty {
+	display: none;
+}
+
+/* (the folder's synopsis stays in sight while the lines scroll sideways) */
+.binders-corkboard.mod-lanes > .binders-view-synopsis-row {
+	position: sticky;
+	inset-inline-start: 0;
+	max-width: 100cqw;
+}
+
+.binders-lanes {
+	position: relative;
+	display: grid;
+	gap: var(--size-4-3);
+	justify-content: start;
+	align-items: stretch;
+}
+
+.binders-lane {
+	--binders-line: var(--background-modifier-border-hover);
+	position: relative;
+	z-index: 0;
+	min-width: 0;
+	pointer-events: none;
+	transition: background-color var(--anim-duration-fast, 140ms) ease-in-out;
+}
+
+.binders-lane.has-label {
+	--binders-line: color-mix(in oklch, var(--binders-label) 70%, transparent);
+}
+
+.binders-lane::before {
+	content: "";
+	position: absolute;
+	background-color: var(--binders-line);
+	border-radius: 1px;
+}
+
+/* the line the cards in hand would go onto: its full color, on a band of it, as a folder is tinted that cards are
+   dragged over */
+.binders-lane.is-drop-target {
+	--binders-line: var(--text-muted);
+	background-color: color-mix(in oklch, var(--binders-line) 8%, transparent);
+}
+
+.binders-lane.has-label.is-drop-target {
+	--binders-line: var(--binders-label);
+}
+
+.binders-lanes > .binders-card {
+	z-index: 1;
+}
+
+/* (what the lines' names stand on, so the cards scroll under them) */
+.binders-lane-gutter {
+	z-index: 2;
+	background-color: var(--background-primary);
+	pointer-events: none;
+}
+
+/* A line's name: its color, its name, how many notes are on it. */
+.binders-lane-heads {
+	display: contents;
+}
+
+.binders-lane-head {
+	z-index: 3;
+	display: flex;
+	align-items: center;
+	gap: var(--size-2-3);
+	min-width: 0;
+	border-radius: var(--radius-s);
+	background-color: var(--background-primary);
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	white-space: nowrap;
+	cursor: var(--cursor);
+	--no-tooltip: true;
+}
+
+.binders-lane-head.is-empty {
+	color: var(--text-faint);
+}
+
+.binders-lane-name {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.binders-lane-count {
+	color: var(--text-faint);
+	font-size: var(--font-ui-smaller);
+	font-variant-numeric: tabular-nums;
+}
+
+.binders-lane-head.is-drop-target {
+	color: var(--text-normal);
+	font-weight: var(--font-semibold);
+}
+
+.binders-lane-head:focus-visible {
+	outline: none;
+	box-shadow: inset 0 0 0 2px var(--background-modifier-border-focus);
+}
+
+@media (hover: hover) {
+	.binders-lane-head:hover {
+		color: var(--text-normal);
+	}
+}
+
+/* Lines across: a row each; their names in a column that stays while the lines scroll by. (Rows: the folders' names,
+   room for the first line's cards, the lines, room for the last line's.) */
+.binders-lanes.mod-across {
+	grid-template-columns: max-content var(--binders-slot-tracks);
+	grid-template-rows: auto var(--binders-lane-pad) repeat(var(--binders-lanes), var(--binders-lane-pitch)) var(--binders-lane-pad);
+	row-gap: 0;
+	--binders-card-lines: 3;
+}
+
+.binders-board.mod-cards-small .binders-lanes.mod-across { --binders-card-lines: 1; }
+.binders-board.mod-cards-large .binders-lanes.mod-across { --binders-card-lines: 4; }
+
+/* (a card is as tall as a card and no taller, so the lines can stand close: its synopsis is cut to fit) */
+.binders-lanes.mod-across > .binders-card {
+	grid-row: calc(var(--binders-lane) + 2);
+	grid-column: calc(var(--binders-slot) + 1);
+	align-self: center;
+	height: var(--binders-card-height, 132px);
+	min-height: 0;
+}
+
+.binders-lanes.mod-across > .binders-card.is-stack[data-path] {
+	height: calc(var(--binders-card-height, 132px) - 8px);
+	min-height: 0;
+	margin-bottom: 0;
+}
+
+.binders-lanes.mod-across > .binders-card:not(:has(.is-editing)) > .binders-card-synopsis,
+.binders-drag-ghost.mod-lanes > .binders-card > .binders-card-synopsis {
+	flex: 0 1 auto;
+}
+
+/* (a card being written in grows to hold it) */
+.binders-lanes.mod-across > .binders-card:has(.is-editing) {
+	height: auto;
+	min-height: var(--binders-card-height, 132px);
+	z-index: 2;
+}
+
+.binders-lanes.mod-across > .binders-lane {
+	grid-row: calc(var(--binders-lane) + 2);
+	grid-column: 1 / -1;
+}
+
+.binders-lanes.mod-across > .binders-lane::before {
+	inset-inline: 0;
+	top: calc(50% - 1px);
+	height: 2px;
+}
+
+.binders-lanes.mod-across > .binders-lane-gutter {
+	grid-row: 1 / -1;
+	grid-column: 1;
+	position: sticky;
+	inset-inline-start: 0;
+	margin-inline-start: calc(-1 * var(--size-4-3));
+	margin-block: calc(-1 * var(--size-4-3));
+}
+
+.binders-lanes.mod-across .binders-lane-head {
+	grid-row: calc(var(--binders-lane) + 2);
+	grid-column: 1;
+	position: sticky;
+	inset-inline-start: var(--size-4-3);
+	align-self: center;
+	max-width: 11em;
+	padding-block: var(--size-2-2);
+	padding-inline-end: var(--size-4-2);
+}
+
+/* a narrow pane or a phone: the names take less of it */
+@container binders-view (width < 520px) {
+	.binders-lanes.mod-across .binders-lane-head {
+		max-width: 6.5em;
+		inset-inline-start: var(--size-4-2);
+	}
+}
+
+/* Lines down: a column each, their names along the top. */
+.binders-lanes.mod-down {
+	grid-template-columns: var(--binders-lane-pad) repeat(var(--binders-lanes), var(--binders-lane-pitch)) var(--binders-lane-pad);
+	grid-template-rows: auto repeat(var(--binders-slots), auto);
+	column-gap: 0;
+}
+
+.binders-lanes.mod-down > .binders-card {
+	grid-column: calc(var(--binders-lane) + 1);
+	grid-row: calc(var(--binders-slot) + 1);
+	justify-self: center;
+	width: var(--binders-card-width, 210px);
+}
+
+.binders-lanes.mod-down > .binders-card.is-stack[data-path] {
+	width: calc(var(--binders-card-width, 210px) - 8px);
+	margin-inline-end: 0;
+}
+
+.binders-lanes.mod-down > .binders-lane {
+	grid-column: calc(var(--binders-lane) + 1);
+	grid-row: 1 / -1;
+}
+
+.binders-lanes.mod-down > .binders-lane::before {
+	inset-block: 0;
+	inset-inline-start: calc(50% - 1px);
+	width: 2px;
+}
+
+.binders-lanes.mod-down > .binders-lane-gutter {
+	grid-column: 1 / -1;
+	grid-row: 1;
+	position: sticky;
+	top: 0;
+	margin-top: calc(-1 * var(--size-4-3));
+	margin-inline: calc(-1 * var(--size-4-3));
+}
+
+.binders-lanes.mod-down .binders-lane-head {
+	grid-column: calc(var(--binders-lane) + 1);
+	grid-row: 1;
+	position: sticky;
+	top: 0;
+	justify-self: center;
+	max-width: 100%;
+	padding: 0 var(--size-2-3) var(--size-2-3);
+}
+
+/* A folder's name where its notes begin (with the notes in subfolders shown). */
+.binders-lane-divider {
+	z-index: 2;
+	min-width: 0;
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	cursor: var(--cursor);
+}
+
+.binders-lane-divider-name {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--size-4-1);
+	white-space: nowrap;
+}
+
+.binders-lane-divider:focus-visible {
+	outline: none;
+	box-shadow: 0 0 0 2px var(--background-modifier-border-focus);
+	border-radius: var(--radius-s);
+}
+
+.binders-lane-break {
+	z-index: 0;
+	pointer-events: none;
+}
+
+.binders-lanes.mod-across > .binders-lane-divider {
+	grid-row: 1;
+	grid-column: calc(var(--binders-slot) + 1) / span var(--binders-span);
+	padding-bottom: var(--size-4-1);
+}
+
+.binders-lanes.mod-across > .binders-lane-break {
+	grid-row: 1 / -1;
+	grid-column: calc(var(--binders-slot) + 1);
+	width: 0;
+	border-inline-start: var(--border-width) solid var(--background-modifier-border);
+}
+
+.binders-lanes.mod-across > .binders-lane-divider > .binders-lane-divider-name {
+	padding-inline-start: var(--size-4-2);
+}
+
+.binders-lanes.mod-down > .binders-lane-divider {
+	grid-column: 1 / -1;
+	grid-row: calc(var(--binders-slot) + 1);
+	padding-top: var(--size-4-2);
+}
+
+.binders-lanes.mod-down > .binders-lane-divider > .binders-lane-divider-name {
+	padding-inline-end: var(--size-4-2);
+	background-color: var(--background-primary);
+}
+
+.binders-lanes.mod-down > .binders-lane-break {
+	display: none;
+}
+
+@media (hover: hover) {
+	.binders-lane-divider:hover {
+		color: var(--text-normal);
+	}
+}
+
+/* What the lines are for, until a card has a label. */
+.binders-lanes-hint {
+	display: none;
+	position: sticky;
+	inset-inline-start: var(--size-4-3);
+	width: max-content;
+	max-width: calc(100cqw - 2 * var(--size-4-3));
+	margin-bottom: var(--size-4-3);
+	color: var(--text-faint);
+	font-size: var(--font-ui-small);
+}
+
+.binders-lanes-hint.is-shown {
+	display: block;
+}
+
+/* The label the card in hand would take, said beside it as a tooltip says a thing's name. */
+.binders-lane-tag {
+	position: absolute;
+	top: calc(100% + var(--size-4-2));
+	inset-inline-start: 0;
+	display: flex;
+	align-items: center;
+	gap: var(--size-2-3);
+	padding: var(--size-2-2) var(--size-4-2);
+	border-radius: var(--radius-s);
+	background-color: var(--background-modifier-message);
+	color: var(--text-on-accent);
+	font-size: var(--font-ui-smaller);
+	white-space: nowrap;
+}
+
+/* (said to a screen reader, not shown: a card's new label when it changes line) */
+.binders-live {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+}
+
+.binders-arrange-button.is-active {
+	color: var(--text-accent);
+}
+
+/* A phone, inside a folder, on the corkboard: the way up, the count, "Arrange", "Filter" and "New" don't all fit. The
+   way up keeps its name (it's how you leave the folder), and the count gives way, as it does on the narrowest phones
+   in every mode. */
+@container binders-view (width < 440px) {
+	.binders-toolbar:has(> .binders-arrange-button:not(.is-hidden)):has(> .binders-breadcrumbs:not(.is-root)) > .binders-word-count {
+		display: none;
+	}
+}
+
+/* (and on the narrowest, with large text, the view's name is cut short rather than push "New" off the edge) */
+@container binders-view (width < 360px) {
+	.binders-mode-button {
+		flex-shrink: 1;
+		min-width: 0;
+	}
+	.binders-mode-button > .text-button-label {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+}

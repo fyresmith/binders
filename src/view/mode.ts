@@ -74,6 +74,9 @@ export interface BinderMode {
 	create?(kind: 'note' | 'folder'): void;
 	/** Optional: the mode's own items for the view's "More options" menu (e.g. the corkboard's stacks). */
 	menu?(menu: Menu): void;
+	/** Optional: the mode's own items for the toolbar's "Arrange" menu, after the arrangements themselves (the
+	    corkboard by label: which way its lines run, and what's on them). */
+	arrangeItems?(menu: Menu): void;
 	/** Optional: what the mode can make (a note, a folder), as items for the toolbar's "New" menu. Without it, or in a
 	    read-only binder, the toolbar has no "New". */
 	newMenu?(menu: Menu): void;

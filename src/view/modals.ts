@@ -1,5 +1,5 @@
-import { ButtonComponent, ColorComponent, Modal, TextComponent, type App } from 'obsidian';
-import { hexColor } from './labels';
+import { ButtonComponent, ColorComponent, DropdownComponent, Modal, TextComponent, type App } from 'obsidian';
+import { PALETTE, display, hexColor, type LabelPreset } from './labels';
 
 /* Small dialogs built from Obsidian's Modal, laid out as its own are: what it asks, a field if it needs one, and the
    buttons in Obsidian's button row. Each resolves once it closes. */
@@ -107,6 +107,38 @@ export function pickColor(app: App, o: { title: string; value: string; cta: stri
 		window.setTimeout(() => f.text.inputEl.select(), 0);
 		buttons(m, o.cta, done);
 		m.onClose = () => resolve(ok ? value : null);
+		m.open();
+	});
+}
+
+/** Asks for a new label: its name, and one of Obsidian's colors (the first no label has yet is offered; any color can
+    be given it later in settings). Resolves with the label, or null. `taken`: the labels there are, whose names it
+    can't have. */
+export function newLabel(app: App, taken: readonly LabelPreset[]): Promise<LabelPreset | null> {
+	return new Promise((resolve) => {
+		const used = new Set(taken.map((l) => l.color));
+		let name = '', color: string = PALETTE.find((c) => !used.has(c)) ?? PALETTE[0], ok = false;
+		const m = new Modal(app);
+		m.setTitle('New label');
+		const f = field(m, 'Name, such as a character or a storyline', name);
+		f.text.inputEl.setAttr('aria-label', 'Label name');
+		f.text.inputEl.parentElement?.addClass('mod-color');
+		const pick = new DropdownComponent(f.text.inputEl.parentElement ?? m.contentEl);
+		for (const c of PALETTE) pick.addOption(c, display(c));
+		pick.setValue(color).onChange((c) => { color = c; });
+		pick.selectEl.setAttr('aria-label', 'Color');
+		const done = () => {
+			const n = name.trim();
+			const why = !n ? 'A label needs a name.' : taken.some((l) => l.name.toLowerCase() === n.toLowerCase()) ? `There’s a label called “${n}” already.` : null;
+			if (why) { f.refuse(why); return; }
+			ok = true;
+			m.close();
+		};
+		f.text.onChange((v) => { name = v; });
+		f.text.inputEl.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); done(); } });
+		window.setTimeout(() => f.text.inputEl.focus(), 0);
+		buttons(m, 'Add label', done);
+		m.onClose = () => resolve(ok ? { name: name.trim(), color } : null);
 		m.open();
 	});
 }

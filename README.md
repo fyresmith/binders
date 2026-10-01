@@ -57,6 +57,31 @@ come back out. So the board is always one folder's items, in one order.
   Shift+F10 opens the card's menu. Ctrl+arrows (Cmd on macOS) move the focus without changing the selection, and
   Space adds the focused card to it or takes it out.
 
+#### Arrange by label
+
+**Arrange** in the toolbar shows the same cards **By label** instead of **In a grid**: one line for each label, and
+the cards along the lines in the binder's order, each in a place of its own, on its label's line. It shows which
+thread (a storyline, a point of view, a character) each scene is on, and how the threads take turns through the
+book. Cards with no label are on the first line; then come the labels from settings, in their order.
+
+- **Drag a card to another line** to give it that line's label: the card takes the line's color as you hold it
+  there, and the label's name shows beside it. **Drag it along the lines** to change its place in the binder. Do
+  both at once and it does both. Several selected cards go together. **Undo last move** takes the label and the
+  place back as one change.
+- **Lines across** (as it comes) or **Lines down**, in the **Arrange** menu. The lines stand as far apart as the
+  pane has room for; when there are many they close up, and the cards pass each other.
+- **Show unused labels** (on as it comes) keeps a line for every label, so there's always one to drop a card on;
+  turn it off to see only the labels in use. **Show notes in subfolders** (off as it comes) shows every note under
+  the folder, each subfolder's after its name, instead of one stack per subfolder.
+- Click a line's name for its menu: **New note with this label**, **Select its notes**, **New label...** (a name and
+  a color, added to the labels in settings) and **Edit labels...**. Double-click a line where there's no card to
+  make a note there, with that line's label.
+- With the keyboard: the arrows along the lines go through the binder's order, the arrows across them to the
+  nearest card on the next line. Alt with an arrow along the lines moves the card; Alt with an arrow across them
+  gives it the next line's label. Enter, F2, Delete and Shift+F10 are as in the grid.
+- The filter, the card size, the numbers and the tint are the corkboard's own, and apply here too. The command
+  **Arrange corkboard by label** goes from the grid to the lines and back. It works in a Longform project as well.
+
 ### Outliner
 
 ![Outliner](docs/images/outliner.png)
@@ -135,8 +160,9 @@ you scroll to them.
 ## Undoing a move
 
 **Undo last move** and **Redo last move** take back, or make again, a drag, a **Move up** or **Move down**, a sort
-kept as the binder's order, or a folder made around notes (or taken away from them): each note goes back beside the
-neighbours it had, and to the folder it was in. Whatever you renamed or added since stays as it is. In the binder
+kept as the binder's order, a folder made around notes (or taken away from them), or a card dragged to another
+label's line on the corkboard: each note goes back beside the neighbours it had, to the folder it was in, and to the
+label it had. Whatever you renamed or added since stays as it is. In the binder
 view, Ctrl+Z and Ctrl+Shift+Z (Cmd on macOS) do the same when you aren't typing. Undo of text is still the editor's
 own.
 
@@ -237,6 +263,9 @@ What a mouse and a keyboard do differently there:
   item to the selection or takes it out, and the menu of any of them offers **Merge**, **New folder from selection**
   and the rest. A tap on the empty board ends it.
 - **Undo:** **Undo** and **Redo** of the last move are in the view's **More options** menu.
+- **Arrange by label:** on a phone the cards are small and the lines run across, their names down the left edge;
+  swipe to go along the lines, hold a card and drag it to another line to give it that label. **Arrange** is an icon
+  in the toolbar, and its menu a sheet.
 - **The outliner's headers:** a tap opens a column's menu (sort, **Move left**, **Move right**, hide); on a phone the
   label column shows the color alone.
 - **Targets:** on the narrowest phones the word count leaves the toolbar; **Set word count target** in the command

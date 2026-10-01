@@ -108,7 +108,8 @@ See [file-format.md](file-format.md) for the full specification.
     folder, or a note that would become the folder's note.
   - It works in an explorer popped out into its own window.
 - **Labels**: a dot in its label's color after each labeled note and folder in a binder (a setting, on by default).
-- **Commands**: "Open binder", "Show corkboard", "Show outliner", "Show manuscript", "Make this folder a binder",
+- **Commands**: "Open binder", "Show corkboard", "Show outliner", "Show manuscript", "Arrange corkboard by label",
+  "Make this folder a binder",
   "New scene here", "Convert to binder" (Longform), "Split scene at cursor", "Split scene with selection as title",
   "Compile binder", "Undo last move", "Redo last move", "Move up", "Move down". None has a default hotkey.
 - **File menu** (a note's or folder's right-click menu): "Open binder", "Make this folder a binder", "New scene here", "Compile...",
@@ -159,6 +160,44 @@ New (note, folder). The view runs edge to edge, as a base, a canvas or a note do
 - A card's menu is the shared item menu (above).
 - Keyboard: arrows move the selection, Enter opens, Alt+arrows reorder, F2 renames, Mod+A selects all, Delete asks
   before trashing, Shift+F10 opens the menu.
+
+#### Arranged by label
+
+Approved by the maintainer on 2026-10-01, after a design study and a prototype (Scrivener's "Arrange by Label").
+
+- **Where it lives:** an arrangement of the corkboard, not a mode. "Arrange" in the toolbar (where a base has
+  "Sort") is a menu: "In a grid" / "By label"; then, by label, "Lines across" / "Lines down", "Show notes in
+  subfolders" (off by default) and "Show unused labels" (on by default). The button reads "By label" when on. The
+  same items are in the corkboard's part of "More options", and "Arrange corkboard by label" is a command. The state
+  is in the corkboard's view options: `arrange` (`grid` or `label`), `lines` (`across` or `down`), `linesFlat`,
+  `linesUnused`; card size, numbers and tint are the grid's own options.
+- **The lines:** "No label" first, then the labels in settings in their order, then any other labels the cards
+  have (a name that isn't in settings, a color of a note's own), as they first come. Each has its name at its
+  start: its color, its name, how many notes are on it. A line is drawn as an edge on a canvas is (two pixels, its
+  label's color, behind the cards); a card is the grid's card, unchanged.
+- **The places:** the binder's order, one place per card (so the order still reads), each card on its label's
+  line. Since no two cards share a place, the lines may stand closer than a card is tall: they spread to fill the
+  pane and close up to a little over half a card when there are many. A subfolder is one stack, on its own label's
+  line; with "Show notes in subfolders" every note under the folder shows, each folder's after its name.
+- **Dragging:** across the lines changes the label (only that property is written, through `processFrontMatter`; a
+  folder's goes in its folder note, made if need be); along them changes the place in the binder; both at once does
+  both. The line is the one under the middle of the card in hand. Before the drop the card in hand takes the line's
+  color and the label's name shows beside it, the line is tinted, and an insertion line across all the lines shows
+  the place. Several cards let go where the held one already is keep their places. It is one change to undo.
+- **A line's menu:** "New note with this label", "Select its notes", "New label..." (name and color, saved to
+  settings), "Edit labels...". A double-click on a line where there's no card makes a note there with its label.
+- **Keyboard:** arrows along the lines go through the binder's order, arrows across to the nearest card on the next
+  line; Alt+arrow along moves the card, Alt+arrow across gives it the next line's label; the rest as in the grid.
+  The board is a `listbox`; each line is a named `group` that owns its cards (`aria-owns`), a card's name says its
+  label, and a change of label is said in a polite live region.
+- **Phones and narrow panes** (under 520px): the same lines across, with small cards unless a size was chosen.
+- **Longform projects:** the scenes are one flat run; a new place writes only `longform.scenes`.
+- **Code:** `src/view/lanes.ts` is the corkboard mode the view sees and hands on to the board in use
+  (`corkboard.ts`, the grid; `lanes.ts`, by label); `lanes-data.ts` is the pure model (the lines, the places, what a
+  drop means), unit-tested in `tests/lanes.test.ts`; `card.ts` draws the card both boards use. e2e:
+  `tests/e2e/specs-lanes.mjs`.
+- **Not done:** dropping a card onto a stack or onto a folder in the breadcrumb (as the grid allows) while arranged
+  by label; "Arrange by status".
 
 ### Outliner
 
@@ -249,6 +288,10 @@ twice before it exists once.
   and writes the order back (a `set` op); redo is the same the other way. The last 50 changes are kept, in memory.
 - "Undo last move" and "Redo last move" (commands), and Mod+Z, Mod+Shift+Z or Mod+Y in the binder view when no text
   is being typed. Text undo stays the editor's own.
+- A change may carry a property it gave its items as well (`BinderStore.label()`: a card dragged to another label's
+  line): what each had before, as written, and what it was given. Undo puts the property back (or takes it away)
+  along with the places; redo gives it again. A folder note made to hold a folder's label stays when it's undone,
+  without the property.
 - Not undone this way: renames, deletes, splits, merges, duplicates, grouping and ungrouping.
 
 ## Longform integration
@@ -309,6 +352,10 @@ src/
     manuscript.ts
     editable-embed.ts  embedded editors (isolated; feature-detected)
     actions.ts         an item's menu and what it does, shared by the corkboard and the outliner
+    arrange.ts         the corkboard as the view sees it: its cards in a grid (corkboard.ts) or by label (lanes.ts)
+    card.ts            an index card, as both boards draw it
+    lanes.ts           the corkboard's cards by label: a line per label, the cards along them
+    lanes-data.ts      what that board is, as data: the lines, the places, what a drop means
     drag.ts            a press that may become a drag (mouse, pen, long press), and gliding after a redraw
     edit.ts            text edited in place (titles, synopses, cells)
     labels.ts          labels and statuses: colors, names, reading saved ones (pure, unit-tested)
@@ -341,7 +388,7 @@ already has milestones 0.1 to 0.7). Every commit bumps the version (see AGENTS.m
 | 0.7 | Longform integration | Done |
 | 0.8 | Polish: keyboard, touch, themes, performance on a 1,000-scene binder, a full mobile pass, README | In progress: explorer Mod-click, cold start, keyboard and screen readers, themes, mobile emulation pass, perf guard (`specs-perf.mjs`), README, and a native-look pass against Obsidian's own Bases and drag styles (toolbar, flat cards, drag and glide, explorer drag-to-reorder) done; real-device iOS and Android checks to do |
 | 0.9 | QA rounds (as with Evra: parallel QA agents, e2e suites, fixes). Added on the maintainer's request (2026-10-01), from Scrivener: the outliner in place of the plot grid, labels and statuses in settings, custom label colors, label tint and explorer label dots, word count targets, split, merge, duplicate, group and ungroup, synopsis from text, compile, undo and redo of moves | In progress: two QA rounds written (`specs-qa-*.mjs`, `specs-qa2-*.mjs`); the added features are built and unreleased |
-| 0.10 | Before release (2026-10-01): mobile QA to the end; export (EPUB, DOCX, PDF, and a Scrivener project); import from Scrivener; find and replace across the manuscript; versions of a scene ("Rewrite"); focus mode. See ROADMAP.md | Mobile QA in progress |
+| 0.10 | Before release (2026-10-01): mobile QA to the end; export (EPUB, DOCX, PDF, and a Scrivener project); import from Scrivener; find and replace across the manuscript; versions of a scene ("Rewrite"); focus mode. See ROADMAP.md | Mobile QA in progress; the corkboard arranged by label is built |
 | 1.0 | Release and directory submission | |
 
 ## Risks

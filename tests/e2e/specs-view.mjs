@@ -306,8 +306,8 @@ test('word count, and the binder’s target', withTidy(async (p, h, t) => {
 
 test('the toolbar is laid out as a base’s: the view first, the way up only inside a subfolder, the target as a bar', withTidy(async (p, h, t) => {
 	await openView(p);
-	const order = () => p.ev(`[...document.querySelector('.workspace-leaf.mod-active .binders-toolbar').children].filter(e => e.getBoundingClientRect().width > 0 && !e.classList.contains('binders-toolbar-spacer')).map(e => e.className.split(' ').find(c => /^binders-(mode|filter|new)-button$|^binders-(breadcrumbs|progress|word-count)$/.test(c)))`);
-	t.eq(j(await order()), j(['binders-mode-button', 'binders-word-count', 'binders-filter-button', 'binders-new-button']), 'on the binder itself: the view, the count, Filter, New');
+	const order = () => p.ev(`[...document.querySelector('.workspace-leaf.mod-active .binders-toolbar').children].filter(e => e.getBoundingClientRect().width > 0 && !e.classList.contains('binders-toolbar-spacer')).map(e => e.className.split(' ').find(c => /^binders-(mode|arrange|filter|new)-button$|^binders-(breadcrumbs|progress|word-count)$/.test(c)))`);
+	t.eq(j(await order()), j(['binders-mode-button', 'binders-word-count', 'binders-arrange-button', 'binders-filter-button', 'binders-new-button']), 'on the binder itself: the view, the count, Arrange, Filter, New');
 	const bar = await p.ev(`(() => { const b = document.querySelector('.workspace-leaf.mod-active .binders-toolbar').getBoundingClientRect(), v = document.querySelector('.workspace-leaf.mod-active .view-content').getBoundingClientRect(); return { left: b.left - v.left, right: v.right - b.right, top: b.top - v.top }; })()`);
 	t.eq(j(bar), j({ left: 0, right: 0, top: 0 }), 'edge to edge under the header, as a base’s toolbar is');
 	await p.ev(`app.fileManager.processFrontMatter(${file(NOTE)}, fm => { fm.target = 212; }).then(() => 1)`);
@@ -316,7 +316,7 @@ test('the toolbar is laid out as a base’s: the view first, the way up only ins
 	const fill = await p.ev(`(() => { const b = document.querySelector('.workspace-leaf.mod-active .binders-progress'), f = b.firstElementChild; f.getAnimations().forEach(a => a.finish()); return f.getBoundingClientRect().width / b.getBoundingClientRect().width; })()`);
 	t.ok(Math.abs(fill - 0.5) < 0.05, 'and is half full: ' + fill);
 	await openView(p, 'The Lighthouse/Part One');
-	t.eq(j(await order()), j(['binders-mode-button', 'binders-breadcrumbs', 'binders-word-count', 'binders-filter-button', 'binders-new-button']), 'in a subfolder: the way up too');
+	t.eq(j(await order()), j(['binders-mode-button', 'binders-breadcrumbs', 'binders-word-count', 'binders-arrange-button', 'binders-filter-button', 'binders-new-button']), 'in a subfolder: the way up too');
 	t.eq(j(await crumbs(p)), j(['The Lighthouse', 'Part One']), 'the binder, then the folder');
 }));
 

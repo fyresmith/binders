@@ -5,6 +5,7 @@ import type BindersPlugin from '../main';
 import { commitAll, commitFocused, editable, type Editable } from './edit';
 import { keepOpen, readableLineLength, refreshHeader, selectMenuItem } from './internals';
 import { canonical, labelDot, labelName, rank, readLabel } from './labels';
+import { readArrangement, type Arrangement } from './lanes-data';
 import { ask } from './modals';
 import { parseTarget, readTarget } from './outliner-data';
 import type { BinderMode, ModeContext, ModeFactory, SceneProps } from './mode';
@@ -22,6 +23,9 @@ export const MODES: readonly { id: ModeName; name: string; icon: string }[] = [
 	{ id: 'outliner', name: 'Outliner', icon: 'list-tree' },
 	{ id: 'manuscript', name: 'Manuscript', icon: 'scroll-text' },
 ];
+/** The corkboard arranged by label isn't a mode of its own: it's the board the corkboard shows while "Arrange" says
+    "By label" (`arrange` in the view's options). This is its place among the plugin's mode factories. */
+export const BY_LABEL = 'corkboard-by-label';
 const isMode = (m: unknown): m is ModeName => MODES.some((x) => x.id === m);
 /** A mode as saved: the plot grid of earlier versions is the outliner now. */
 const readMode = (m: unknown): ModeName | null => (m === 'plotgrid' ? 'outliner' : isMode(m) ? m : null);
@@ -73,7 +77,7 @@ export class BinderView extends ItemView {
 	private found = false;
 	private synopsis: Editable | null = null;
 	private relaying = false;
-	private ui: { crumbs: HTMLElement; progress: HTMLElement; count: HTMLElement; filter: HTMLElement; add: HTMLElement; modeBtn: HTMLElement; notice: HTMLElement; synopsis: HTMLElement; body: HTMLElement } | null = null;
+	private ui: { crumbs: HTMLElement; progress: HTMLElement; count: HTMLElement; filter: HTMLElement; arrange: HTMLElement; add: HTMLElement; modeBtn: HTMLElement; notice: HTMLElement; synopsis: HTMLElement; body: HTMLElement } | null = null;
 
 	constructor(leaf: WorkspaceLeaf, private plugin: BindersPlugin) {
 		super(leaf);
@@ -180,7 +184,7 @@ export class BinderView extends ItemView {
 
 	/** Where each mode was left, by folder, so a look at another mode (or folder) comes back to the same place. */
 	private places = new Map<string, unknown>();
-	private placeKey(): string { return `${this.mode}\n${this.folder?.path ?? this.path}`; }
+	private placeKey(): string { return `${this.mode}${this.arrangement === 'label' ? ' by label' : ''}\n${this.folder?.path ?? this.path}`; }
 	private placeNow(): unknown { return this.current?.place ? { key: this.placeKey(), at: this.current.place() } : undefined; }
 	private restorePlace(place: unknown): void {
 		const p = place as { key?: unknown; at?: unknown } | null;
@@ -236,6 +240,7 @@ export class BinderView extends ItemView {
 		if (source === 'more-options' && this.folder) {
 			// the modes, then how this one shows (a section each), then the note behind the folder
 			for (const m of MODES) menu.addItem((i) => i.setSection('binders-mode').setTitle(m.name).setIcon(m.icon).setChecked(this.mode === m.id).onClick(() => this.setMode(m.id)));
+			if (this.mode === 'corkboard') this.arrangeItems(menu);
 			this.current?.menu?.(menu);
 			const note = this.store.folderNote(this.folder), binder = this.store.binderOf(this.folder)?.folder === this.folder;
 			const folder = this.folder;
@@ -282,6 +287,35 @@ export class BinderView extends ItemView {
 		this.entered();
 	}
 
+	/** How the corkboard's cards are arranged: in a grid, or by label (each label a line, the cards along them). */
+	get arrangement(): Arrangement { return this.mode === 'corkboard' ? readArrangement(this.options.arrange) : 'grid'; }
+
+	/** Arranges the corkboard's cards the other way ("Arrange" in the toolbar, the command): the board is made again,
+	    on the card the first was on. */
+	arrange(to: Arrangement): void {
+		if (this.mode !== 'corkboard' || to === this.arrangement) return;
+		this.keepPlace();
+		// (the card the writer went to is the one the other board opens on, as when the mode is switched)
+		const now = this.current?.current?.() ?? null, on = now && now !== this.enteredOn ? now : null;
+		const focused = this.contentEl.contains(this.contentEl.doc.activeElement);
+		this.options = { ...this.options, arrange: to };
+		this.remember();
+		this.rebuild();
+		if (on && this.app.vault.getAbstractFileByPath(on.path) === on) this.current?.reveal?.(on);
+		this.app.workspace.requestSaveLayout();
+		if (focused || this.app.workspace.getActiveViewOfType(BinderView) === this) this.current?.focus?.();
+		this.entered();
+	}
+
+	/** "In a grid" and "By label", then what the board by label says of its lines: the "Arrange" menu, and the
+	    corkboard's part of "More options". */
+	private arrangeItems(menu: Menu): void {
+		const by = this.arrangement;
+		menu.addItem((i) => i.setSection('binders-arrange').setTitle('In a grid').setIcon('layout-grid').setChecked(by === 'grid').onClick(() => this.arrange('grid')));
+		menu.addItem((i) => i.setSection('binders-arrange').setTitle('By label').setIcon('chart-gantt').setChecked(by === 'label').onClick(() => this.arrange('label')));
+		this.current?.arrangeItems?.(menu);
+	}
+
 	private keepPlace(): void { if (this.current?.place && this.folder) this.places.set(this.placeKey(), this.current.place()); }
 
 	/** Shows another folder, recorded in the tab's history so Back returns. */
@@ -320,7 +354,7 @@ export class BinderView extends ItemView {
 	}
 
 	/** What the whole view depends on: when it changes, the mode is made again. */
-	private key(): string { return JSON.stringify([this.folder?.path, this.binder?.note.path, this.binder?.kind, this.binder?.problem, this.mode]); }
+	private key(): string { return JSON.stringify([this.folder?.path, this.binder?.note.path, this.binder?.kind, this.binder?.problem, this.mode, this.arrangement]); }
 
 	private rebuild(): void {
 		void commitAll(this.contentEl);
@@ -359,15 +393,17 @@ export class BinderView extends ItemView {
 		const count = bar.createDiv({ cls: 'binders-word-count', attr: { role: 'button', tabindex: '0' } });
 		count.addEventListener('click', () => void this.setTarget());
 		count.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); void this.setTarget(); } });
+		// (how the corkboard lays out its cards, where a base has "Sort": in a grid, or by label)
+		const arrange = this.button(bar, 'layout-grid', 'Arrange', 'binders-arrange-button', (e) => { const menu = new Menu(); this.arrangeItems(menu); this.showBelow(menu, e); });
 		const filter = this.button(bar, 'list-filter', 'Filter', 'binders-filter-button', (e) => this.filterMenu(e));
 		const add = this.button(bar, 'plus', 'New', 'binders-new-button', (e) => this.newMenu(e));
-		for (const b of [filter, modeBtn, add]) b.setAttr('aria-haspopup', 'menu');
+		for (const b of [filter, arrange, modeBtn, add]) b.setAttr('aria-haspopup', 'menu');
 		const notice = el.createDiv({ cls: 'binders-notice' });
 		const synopsis = el.createDiv({ cls: 'binders-view-synopsis-row' });
 		const body = el.createDiv({ cls: `binders-mode binders-mode-${this.mode}` });
-		this.ui = { crumbs, progress, count, filter, add, modeBtn, notice, synopsis, body };
+		this.ui = { crumbs, progress, count, filter, arrange, add, modeBtn, notice, synopsis, body };
 		this.drawToolbar();
-		const factory = this.plugin.modeFactories[this.mode] ?? comingSoon(MODES.find((m) => m.id === this.mode)?.name ?? 'This view');
+		const factory = this.plugin.modeFactories[this.arrangement === 'label' ? BY_LABEL : this.mode] ?? comingSoon(MODES.find((m) => m.id === this.mode)?.name ?? 'This view');
 		this.current = factory(body, this.context());
 		this.current.render();
 		if (this.current.adopt) { synopsis.addClass('is-adopted'); this.current.adopt(synopsis); }
@@ -455,6 +491,13 @@ export class BinderView extends ItemView {
 		const on = this.filter.status.length + this.filter.label.length;
 		ui.filter.toggleClass('is-active', on > 0);
 		ui.filter.querySelector('.text-button-label')?.setText(on ? `Filter (${on})` : 'Filter');
+		// "Arrange", on the corkboard; it says how, when the cards aren't in their grid
+		const by = this.arrangement === 'label';
+		ui.arrange.toggleClass('is-hidden', this.mode !== 'corkboard');
+		ui.arrange.toggleClass('is-active', by);
+		ui.arrange.querySelector('.text-button-label')?.setText(by ? 'By label' : 'Arrange');
+		ui.arrange.setAttr('aria-label', by ? 'Arrange: by label' : 'Arrange');
+		setIcon(ui.arrange.querySelector<HTMLElement>('.text-button-icon'), by ? 'chart-gantt' : 'layout-grid');
 		const mode = MODES.find((m) => m.id === this.mode);
 		setIcon(ui.modeBtn.querySelector<HTMLElement>('.text-button-icon'), mode.icon);
 		ui.modeBtn.querySelector('.text-button-label')?.setText(mode.name);

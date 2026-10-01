@@ -37,6 +37,10 @@ import { applySceneOps, conversionPlan, isIgnored, isLongformIndex, longformRunn
                                                        indent (default: its own)
      moveUp(item) / moveDown(item): Promise<boolean>   one step within its folder; false if it can't go further
      setProps(file, patch): Promise<void>              sets properties (undefined removes one) through processFrontMatter
+     label(items, key, value, label, to?): Promise<void>
+                                                       gives every item the same value of a property (a folder's goes
+                                                       in its folder note, made if need be) and, with `to`, puts them
+                                                       there, as one change that "Undo" takes back
      editProps(file, edit): Promise<void>              changes properties in place, in one write, from what the note says
                                                        at the time of writing (e.g. renaming a key inside an object)
      newScene(folder, index?, title?, depth?): Promise<TFile>
@@ -130,12 +134,16 @@ class State implements Binder {
 }
 
 interface Item { rel: string; file: TAbstractFile }
+const sameValue = (a: unknown, b: unknown): boolean => a === b || JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 const moveLabel = (items: TAbstractFile[]): string => (items.length === 1 ? `Move “${items[0] instanceof TFile ? items[0].basename : items[0].name}”` : `Move ${items.length} items`);
 /** Where an item is among its folder's: the folder (and its path then, in case it's deleted and made again), the items
     on either side, and a Longform scene's indent. */
 interface Pos { parent: TFolder; path: string; next: TAbstractFile | null; prev: TAbstractFile | null; depth?: number; at: number }
 /** A change to a binder's order made by hand: what it moved, from where to where, and a folder it made to move them into. */
-interface Undo { failed?: boolean; note: TFile; label: string; items: { file: TAbstractFile; before: Pos; after: Pos }[]; made?: { folder: TFolder; name: string; pos: Pos } }
+interface Undo { failed?: boolean; note: TFile; label: string; items: { file: TAbstractFile; before: Pos; after: Pos }[]; made?: { folder: TFolder; name: string; pos: Pos }; props?: PropChange[]; still?: boolean }
+/** A property a change by hand gave an item (a card dragged to another label's line): what it had (as written; undefined
+    for none) and what it has now. A folder's is in its folder note. `still` on the change: nothing moved. */
+interface PropChange { file: TAbstractFile; key: string; before: unknown; after: unknown }
 
 export class BinderStore extends Events implements ExplorerSource {
 	ready: Promise<void>;
@@ -377,6 +385,37 @@ export class BinderStore extends Events implements ExplorerSource {
 		});
 	}
 
+	/** Gives every item the same value of a property (`undefined` takes it away): a note's own, a folder's in its folder
+	    note (made if need be). With `to`, the items are put there too, as `put` does. One change that "Undo" takes back
+	    whole, the property and the places; `label` says what it was. Only that property is written, through
+	    processFrontMatter: a note's text is never touched. */
+	label(items: TAbstractFile[], key: string, value: unknown, label: string, to?: { folder: TFolder; anchor: TAbstractFile | null; depth?: number }): Promise<void> {
+		const first = items[0]?.parent;
+		if (first) this.writable(first);
+		const props: PropChange[] = items.map((file) => ({ file, key, before: this.propOf(file, key), after: value }));
+		return this.change(label, items, async () => {
+			if (to) for (const f of items) {
+				if (f === to.anchor) continue;
+				const sibs = (this.orderedChildren(to.folder) ?? []).filter((x) => x !== f);
+				const i = to.anchor ? sibs.indexOf(to.anchor) : -1;
+				await this.move(f, to.folder, i < 0 ? sibs.length : i, to.depth);
+			}
+			for (const c of props) await this.setProp(c.file, key, value);
+		}, undefined, props);
+	}
+
+	/** The note an item's properties are in: the note itself, or a folder's folder note (null if it has none). */
+	private propNote(item: TAbstractFile): TFile | null { return item instanceof TFolder ? this.folderNote(item) : item instanceof TFile ? item : null; }
+	private propOf(item: TAbstractFile, key: string): unknown {
+		const note = this.propNote(item);
+		return note ? (this.app.metadataCache.getFileCache(note)?.frontmatter as Record<string, unknown> | undefined)?.[key] : undefined;
+	}
+	private async setProp(item: TAbstractFile, key: string, value: unknown): Promise<void> {
+		// (a folder with no note of its own gets one only to hold a value, never to say it has none)
+		const note = item instanceof TFolder && value !== undefined ? await this.ensureFolderNote(item) : this.propNote(item);
+		if (note) await this.setProps(note, { [key]: value });
+	}
+
 	// ---- undo ----
 
 	/** Changes made by hand to binders' orders (a drag, Move up, a sort kept, a folder made around notes), newest last:
@@ -423,7 +462,7 @@ export class BinderStore extends Events implements ExplorerSource {
 	/** Runs a change to a binder's order made by hand, remembering where each of `items` (in the order they show) was,
 	    so "Undo" can put them back. `label` says what it was ("Move “Arrival”"). `made`: a folder the change made to
 	    hold them, which undoing it takes away again. */
-	async change<T>(label: string, items: TAbstractFile[], fn: () => Promise<T>, made?: (out: T) => TFolder | null): Promise<T> {
+	async change<T>(label: string, items: TAbstractFile[], fn: () => Promise<T>, made?: (out: T) => TFolder | null, props?: PropChange[]): Promise<T> {
 		const moving = new Set(items);
 		const before = items.map((file) => ({ file, pos: this.posOf(file, moving) }));
 		const record = (out?: T) => {
@@ -434,9 +473,10 @@ export class BinderStore extends Events implements ExplorerSource {
 			const moved: Undo['items'] = [];
 			for (const b of before) { const after = this.posOf(b.file, moving); if (b.pos && after && this.app.vault.getAbstractFileByPath(b.file.path) === b.file) moved.push({ file: b.file, before: b.pos, after }); }
 			// (a change that came to nothing isn't one to undo)
-			if (!moved.some((x) => !same(x.before, x.after))) return;
+			const still = !moved.some((x) => !same(x.before, x.after)), given = props?.filter((c) => !sameValue(c.before, c.after));
+			if (still && !given?.length) return;
 			const folder = out === undefined ? null : made?.(out) ?? null, at = folder ? this.posOf(folder) : null;
-			this.undos.push({ note: s.note, label, items: moved, made: folder && at ? { folder, name: folder.name, pos: at } : undefined });
+			this.undos.push({ note: s.note, label, items: moved, made: folder && at ? { folder, name: folder.name, pos: at } : undefined, props: given?.length ? given : undefined, still });
 			if (this.undos.length > 50) this.undos.shift();
 			this.redos = [];
 		};
@@ -508,7 +548,9 @@ export class BinderStore extends Events implements ExplorerSource {
 			// in the order they stood in there (whatever order they were moved in): when all of a folder moved at once, as
 			// a sort kept does, that order is all there is to go by
 			const run = new Map<TAbstractFile | string, TAbstractFile>();
-			for (const x of [...here].sort((a, b) => place(a).at - place(b).at)) await this.putBack(x.file, place(x), run);
+			if (!u.still) for (const x of [...here].sort((a, b) => place(a).at - place(b).at)) await this.putBack(x.file, place(x), run);
+			// and the property it gave them is as it was before (or, made again, as it gave it)
+			for (const c of u.props ?? []) if (vault.getAbstractFileByPath(c.file.path) === c.file) await this.setProp(c.file, c.key, redo ? c.after : c.before);
 			if (!redo && u.made && vault.getAbstractFileByPath(u.made.folder.path) === u.made.folder) {
 				// (the name it has now, typed since it was made, is the one it's made again with)
 				u.made.name = u.made.folder.name;

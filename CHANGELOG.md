@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.9.7 (2026-10-01)
+
+### Added
+
+- Arrange corkboard cards along label lines to see how story threads interleave, and drag to change their label and order together.
+
 ## 0.9.6 (2026-10-01)
 
 ### Changed

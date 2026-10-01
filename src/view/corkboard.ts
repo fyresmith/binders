@@ -1,12 +1,11 @@
 import { Keymap, Menu, Notice, TFile, TFolder, setIcon, type PaneType, type TAbstractFile } from 'obsidian';
+import { buildCard, countLabel, synopsisField, type CardHost } from './card';
 import { editable, type Editable } from './edit';
 import { emptyState, badName, isNote, itemMenu, noteOf, plain, removeItems, renameItem } from './actions';
 import { held, settle, visibleBottom } from './drag';
 import { submenu } from './internals';
-import { display, labelDot, labelName, paintLabel } from './labels';
+import { display, labelDot, labelName } from './labels';
 import type { BinderMode, ModeContext, ModeFactory } from './mode';
-import { progress } from './outliner-data';
-import { wordsLabel } from './words';
 
 /* The corkboard: one index card per note, in binder order. Subfolders show as groups with a heading (or, as an option,
    as one stacked card each); in a Longform project, which has no subfolders, scenes indented under a scene do. Cards are edited in place (synopsis, title), reordered by dragging (mouse, pen or touch:
@@ -567,31 +566,24 @@ class Corkboard implements BinderMode {
 	}
 
 	/** "3 notes · 51 words" for a heading; with a filter on, how many of them show ("2 of 3 notes"), and their words. */
-	private countLabel(scenes: TFile[], folder?: TFolder): string {
-		const shown = this.ctx.filtering() ? scenes.filter((f) => this.ctx.visible(f)) : scenes, n = this.sum(shown);
-		const count = shown.length === scenes.length ? `${scenes.length} ${scenes.length === 1 ? 'note' : 'notes'}` : `${shown.length} of ${scenes.length} notes`;
-		// a folder with a target of its own says how far along it is, as a card with one does
-		const note = folder && shown.length === scenes.length ? this.store.folderNote(folder) : null, target = note ? this.ctx.props(note).target : 0;
-		return count + (n == null ? '' : ' · ' + (target ? `${n.toLocaleString()} / ${wordsLabel(target)}` : wordsLabel(n)));
-	}
+	private countLabel(scenes: TFile[], folder?: TFolder): string { return countLabel(this.ctx, scenes, folder); }
 
 	/** A folder's synopsis, kept in its folder note (made the first time one is written). */
 	private synopsis(parent: HTMLElement, item: TAbstractFile, cls: string, card?: HTMLElement, focusable = false): Editable {
-		const note = this.noteOf(item);
-		return editable(parent, {
-			cls, value: note ? this.ctx.props(note).synopsis : '', placeholder: 'Add a synopsis', label: `Synopsis of ${item instanceof TFile ? item.basename : item.name}`, readOnly: this.ctx.readOnly, focusable,
-			// a click (or a tap) on a card selects it; on a card that's already selected, it edits its synopsis. The
-			// middle of a card is where it's clicked to select it or picked up to move it, so that mustn't open a field.
-			// (a stack is gone into by a double-click anywhere on it: the second click of one, on its synopsis, isn't a
-			// request to edit, so there it takes a click on a card that was already selected a moment ago)
-			shouldEdit: () => !card || (this.sel.has(card.dataset.path) && (!card.hasClass('is-stack') || performance.now() - this.selectedAt > 500)),
-			save: async (t) => {
-				const f = item instanceof TFolder ? await this.store.ensureFolderNote(item) : note;
-				await this.ctx.setProps(f, { synopsis: t });
-			},
-			onEditing: (on) => this.onEditing(on, card),
-		});
+		return synopsisField(this.host, parent, item, cls, card, focusable);
 	}
+
+	/** What a card (card.ts, shared with the board arranged by label) asks of this board. */
+	private host: CardHost = {
+		ctx: this.ctx,
+		rename: (f, t) => this.rename(f, t),
+		onEditing: (on, card) => this.onEditing(on, card),
+		// a click (or a tap) on a card selects it; on a card that's already selected, it edits its synopsis. The
+		// middle of a card is where it's clicked to select it or picked up to move it, so that mustn't open a field.
+		// (a stack is gone into by a double-click anywhere on it: the second click of one, on its synopsis, isn't a
+		// request to edit, so there it takes a click on a card that was already selected a moment ago)
+		editOnClick: (card) => this.sel.has(card.dataset.path) && (!card.hasClass('is-stack') || performance.now() - this.selectedAt > 500),
+	};
 
 	private onEditing(on: boolean, card?: HTMLElement): void {
 		this.editing += on ? 1 : -1;
@@ -613,44 +605,10 @@ class Corkboard implements BinderMode {
 			this.drawn.set(f.path, hit);
 			return hit.el;
 		}
-		const folder = f instanceof TFolder;
-		const note = this.noteOf(f);
-		const p = note ? this.ctx.props(note) : { synopsis: '', status: '', label: '', target: 0 };
-		const name = f instanceof TFile ? f.basename : f.name;
-		const card = createDiv({ cls: 'binders-card' + (folder ? ' is-stack' : ''), attr: { role: 'option', tabindex: '-1', 'data-path': f.path, 'aria-selected': 'false' } });
-		paintLabel(card, p.label, this.presets);
-		const head = card.createDiv({ cls: 'binders-card-head' });
-		if (folder) setIcon(head.createSpan({ cls: 'binders-card-icon' }), 'folder');
-		else head.createSpan({ cls: 'binders-card-number', attr: { 'aria-hidden': 'true' } }); // (filled in by number())
-		const title = editable(head, {
-			cls: 'binders-card-title', value: name, placeholder: 'Title', label: 'Rename', singleLine: true, clickToEdit: false, readOnly: this.ctx.readOnly,
-			save: (t) => this.rename(f, t), onEditing: (on) => this.onEditing(on, card),
-		});
-		card.setAttr('aria-label', name);
-		// what a screen reader says after the name: what the card shows besides it
-		const words = folder ? null : f instanceof TFile ? this.ctx.words(f) : null;
-		// (a folder's stack says what it holds, as printed on it)
-		const holds = f instanceof TFolder ? this.countLabel(this.store.scenes(f), f) : null;
-		const about = [p.status && `Status: ${p.status}`, p.label && `Label: ${labelName(p.label, this.presets)}`, holds, words != null && wordsLabel(words), p.target > 0 && `Target: ${wordsLabel(p.target)}`].filter(Boolean).join(', ');
-		if (about) card.setAttr('aria-description', about);
-		const editors = { title, synopsis: this.synopsis(card, f, 'binders-card-synopsis', card) };
+		const { el: card, editors } = buildCard(this.host, f);
 		this.editors.set(f.path, editors);
 		this.drawn.set(f.path, { el: card, key, file: f, editors });
 		this.fresh.push(card);
-		const foot = card.createDiv({ cls: 'binders-card-footer' });
-		if (p.status) foot.createSpan({ cls: 'binders-chip', text: p.status });
-		foot.createDiv({ cls: 'binders-card-spacer' });
-		if (folder) {
-			foot.createSpan({ cls: 'binders-card-words', text: this.countLabel(this.store.scenes(f), f) });
-		} else {
-			const n = f instanceof TFile ? this.ctx.words(f) : null;
-			// with a target of its own: how far along it is, as the count and as a line along the card's foot
-			if (n != null) foot.createSpan({ cls: 'binders-card-words', text: p.target > 0 ? `${n.toLocaleString()} / ${wordsLabel(p.target)}` : wordsLabel(n) });
-			const done = progress(n, p.target);
-			card.toggleClass('has-target', done != null);
-			card.toggleClass('is-complete', done != null && done >= 1);
-			card.setCssProps({ '--binders-card-progress': done == null ? '' : `${Math.round(done * 100)}%` });
-		}
 		return card;
 	}
 

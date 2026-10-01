@@ -1,9 +1,10 @@
 import { Keymap, MarkdownView, Notice, Platform, Plugin, TFile, TFolder, normalizePath, type Menu, type PaneType, type TAbstractFile, type WorkspaceLeaf } from 'obsidian';
 import { BinderStore, type Binder } from './binders';
-import { BinderView, MODES, VIEW_TYPE } from './view/BinderView';
+import { BY_LABEL, BinderView, MODES, VIEW_TYPE } from './view/BinderView';
 import { ITEM_MENU } from './view/actions';
 import { openForRename } from './view/internals';
 import { corkboard } from './view/corkboard';
+import { byLabel } from './view/lanes';
 import { BindersSettingTab, readSettings, type BindersSettings } from './settings';
 import { installExplorer, renameInExplorer, type Explorer } from './explorer'; // explorer (0.3)
 import type { ModeFactory } from './view/mode';
@@ -22,6 +23,8 @@ export default class BindersPlugin extends Plugin {
 	    "coming soon". */
 	readonly modeFactories: Record<string, ModeFactory> = {
 		corkboard,
+		// (the corkboard arranged by label: not a mode of its own, but the board the corkboard shows then)
+		[BY_LABEL]: byLabel,
 		outliner,
 		manuscript, // manuscript (0.6)
 	};
@@ -53,6 +56,13 @@ export default class BindersPlugin extends Plugin {
 				return true;
 			} });
 		}
+		// the corkboard's cards by label (each label a line), or back in their grid
+		this.addCommand({ id: 'arrange-by-label', name: 'Arrange corkboard by label', icon: 'chart-gantt', checkCallback: (checking) => {
+			const view = this.app.workspace.getActiveViewOfType(BinderView);
+			if (!view?.folder || view.mode !== 'corkboard') return false;
+			if (!checking) view.arrange(view.arrangement === 'label' ? 'grid' : 'label');
+			return true;
+		} });
 		this.addCommand({ id: 'make-binder', name: 'Make this folder a binder', checkCallback: (checking) => {
 			const folder = active()?.parent;
 			if (!folder || folder.isRoot() || this.binders.binderOf(folder)) return false;
