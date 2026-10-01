@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.9.6 (2026-10-01)
+
+### Changed
+
+- Design rounds build and refine in the real plugin again; the saving comes from settling questions first and looking more cheaply.
+
 ## 0.9.5 (2026-10-01)
 
 ### Changed

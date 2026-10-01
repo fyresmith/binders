@@ -29,27 +29,35 @@ a dropdown over a row of switches; no clutter.
 
 ## How a design round runs: narrow, then build
 
-The quality comes from two things: this page, and the maintainer choosing between real options. Everything else in a
-round is cost. So a round spends nothing on directions that won't be chosen.
+The quality comes from three things: this page, the designer looking at the real plugin and correcting what it sees,
+and the maintainer choosing. A round keeps all three and spends nothing on directions that won't be chosen.
 
 1. **Questions, no pixels.** The designer reads this page and the one view it is changing, and reports: two or three
    directions in a paragraph each, the one it recommends, and the questions only the maintainer can answer, each with
-   the default it would pick. The maintainer answers. Most of a feature's scope is settled here.
-2. **One sheet.** The directions still standing, drawn on a single page (`options.html` in the scratch folder): static
-   mock-ups made with Obsidian's own stylesheet and the plugin's `styles.css`, light beside dark, desktop beside
-   phone. No plugin code, no build, no test run. Only where the ticket *is* an interaction (a drag, an animation) is
-   that one interaction prototyped for real.
-3. **The maintainer picks** from the sheet.
-4. **Build once.** The same agent builds the chosen design in its scratch copy, with tests, and ends with a set of
-   proof shots of the real thing: at most eight, at least one of them mid-interaction. If the real thing differs from
-   the sheet, it says where.
+   the default it would pick. The maintainer answers, and says which directions are worth seeing: usually one, two
+   where he can't tell from words. Most of a feature's scope is settled here.
+2. **The real thing, by eye.** The designer builds those directions in the plugin itself, in its scratch copy, and
+   works the way a person does: look at a screenshot, fix what's off, look again, in light and dark, on desktop and
+   phone, at rest and mid-interaction. Not a mock-up: a mock-up doesn't show what Obsidian's own layout, themes and
+   real notes do to a design, and has to be built again afterwards. Rough is fine where it doesn't show (no tests yet,
+   no edge cases); what the maintainer will look at is finished.
+3. **The maintainer picks**, from one page (`options.html`) with the screenshots side by side and what each gives up.
+4. **Finish once.** The same agent, with what it already built, makes the chosen direction whole: edge cases, tests,
+   docs, and a last set of proof shots.
 
-**Budgets** (a round that needs more says so in its memo first):
+**Looking is not what to save on; looking wastefully is.**
 
-- Screenshots the agent looks at: four of the sheet, eight of the build. Put states side by side on one page and
-  take one picture, not one picture per state.
-- Obsidian's bundle (`app.js`, `app.css`): look up one thing by searching for it; don't read it through.
+- Crop to what changed (the card, the menu, the row), not the whole window. A full window is for the last check.
+- Put states side by side in one picture (resting, hovered, selected, dragged) rather than one picture each.
+- Don't shoot again what hasn't changed, and don't shoot every theme and size on every pass: iterate in one, then
+  check the others once the design holds.
+- Keep the shots the maintainer will see; delete the rest, so the folder shows the design and not its history.
+
+**Where the saving is:**
+
+- Directions: one or two built, not three. The first stage is what makes that safe.
+- Obsidian's bundle (`app.js`, `app.css`): look up one thing by searching for it; don't read it through. What it
+  taught goes on this page.
 - Tests: the agent's own new specs and the specs for the area it touched, once. The whole suite in both themes is run
   once for everyone, unattended, after the last merge.
-- The report: what was built, what it gives up, where it differs from the sheet, the proof shots' folder, and the
-  bump, title and CHANGELOG lines.
+- The report: what was built, what it gives up, the shots' folder, and the bump, title and CHANGELOG lines.
