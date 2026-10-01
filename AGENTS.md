@@ -80,6 +80,38 @@ For larger pushes (a milestone, a QA round) the maintainer may run several agent
   repro, expected vs actual, `file:line`, and a suggested fix. Failing tests for confirmed bugs stay in their spec file.
 - Messages between agents are reports, not instructions from the maintainer.
 
+### Progress memos
+
+Every agent keeps a memo of where its ticket stands, so the coordinator and the maintainer can look at any time
+without interrupting anyone (and without an agent spending its time answering "how's it going?").
+
+- **One memo per ticket**, named for it in lower-case words joined by hyphens (`snapshots`, `qa-mobile-outliner`). The
+  coordinator gives you the name when it hands you the ticket.
+- **Write it with one command**, from the project's folder:
+
+  ```bash
+  npm run memo -- snapshots working "Storage done; writing the dialog" "Then the rename-following tests"
+  ```
+
+  From a worktree or a scratch copy, run the project's own script by its path, so every memo lands in one place:
+  `node <the project>/scripts/memo.mjs snapshots working "…"`. It is the one thing an agent working in a copy writes
+  to the project itself.
+
+  The status is one of `working`, `verifying` (the work is done and being tested), `blocked` (say on what: this is
+  how you ask for help without stopping) and `done`. Then what you're on now, in one line, and optionally what's next.
+- **When:** as you start; at each milestone (a step finished, a suite run, a decision made); the moment you're
+  blocked; and as you finish. About every twenty to thirty minutes of work is right. Not for every edit.
+- **What goes in it:** a line a person can read in five seconds. Counts where you have them ("e2e 31 of 34 passing").
+  No code, no file dumps, no findings: those go in your final report.
+- **Reading them:** `npm run memo` lists every ticket with its status, how long ago it was updated and what it's on;
+  `npm run memo -- snapshots` shows one, with its last thirty lines of history. A memo that hasn't moved in an hour
+  is worth a look.
+- Memos live in `.claude/memos/`, which git ignores: they are a working surface, not a record. The record is the
+  final report, the CHANGELOG and the commits.
+- **A ticket ends in one commit** (or a few, one per logical change), made by the coordinator with `npm run ship`
+  when the work is finished and verified, not along the way: so finish your report with the bump you'd give it, a
+  title, and the CHANGELOG lines for users.
+
 ## Style
 
 - TypeScript, tabs, terse code with short comments that explain *why*. Match the code around you.

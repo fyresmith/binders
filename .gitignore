@@ -8,4 +8,5 @@ test-vault/.obsidian/workspace*.json
 test-vault/.obsidian/community-plugins.json
 .DS_Store
 .claude/worktrees/
+.claude/memos/
 .claude/settings.local.json
