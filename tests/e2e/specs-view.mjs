@@ -95,6 +95,53 @@ test('state (folder, mode, filter, options) comes back after a reload', async (p
 	t.eq(await headerTitle(p), 'Part One', 'the header after a reload');
 });
 
+test('before the vault’s metadata is complete, a view says it’s loading, never that its folder isn’t in a binder', withTidy(async (p, h, t) => {
+	await p.ev(`app.vault.createFolder('Plain').then(() => 1)`);
+	await p.ev(`(() => { window.__settled = ${B}.settled; ${B}.settled = new Promise(r => { window.__settle = r; }); return 1; })()`);
+	try {
+		// a folder the store hasn't found as a binder yet (on a cold start it may be one once the cache is complete)
+		await p.ev(`app.workspace.getLeaf(true).setViewState({ type: 'binders-view', state: { folder: 'Plain' }, active: true }).then(() => 1)`);
+		await p.sleep(1000);
+		const empty = () => p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-view .binders-empty')?.textContent ?? null`);
+		t.eq(await empty(), 'Loading…', 'a quiet loading state');
+		t.eq(await p.ev(`getComputedStyle(document.querySelector('.workspace-leaf.mod-active .binders-empty')).opacity`), '1', 'shown after a moment');
+		// a binder that has been found draws at once
+		await openView(p, 'The Lighthouse', true);
+		t.ok((await cards(p)).length > 0, 'a binder already found shows its cards');
+		await p.ev(`(() => { app.workspace.setActiveLeaf(app.workspace.getLeavesOfType('binders-view').find(l => l.getViewState().state.folder === 'Plain'), { focus: true }); return 1; })()`);
+		await p.sleep(200);
+		t.eq(await empty(), 'Loading…', 'still loading');
+		await p.ev(`(() => { window.__settle(); return 1; })()`);
+		await until(p, `/isn’t in a binder/.test(document.querySelector('.workspace-leaf.mod-active .binders-empty')?.textContent)`);
+		t.ok(/isn’t in a binder/.test(await empty()), 'once it is complete: the folder isn’t in a binder');
+	} finally {
+		await p.ev(`(() => { window.__settle?.(); ${B}.settled = window.__settled; return 1; })()`);
+	}
+}));
+
+test('a cold start (no metadata cache) restores a binder view without saying its folder isn’t in a binder', async (p, h, t) => {
+	await openView(p, 'The Lighthouse/Part One');
+	await p.ev(`app.workspace.requestSaveLayout.run().then(() => 1)`);
+	await p.sleep(300);
+	// Obsidian keeps the metadata cache in IndexedDB: drop it, so the restart parses every note again
+	await p.ev(`(() => { app.metadataCache.db?.close?.(); indexedDB.deleteDatabase(app.appId + '-cache'); setTimeout(() => location.reload(), 100); return 1; })()`);
+	await p.sleep(150);
+	const seen = [];
+	let shown = false;
+	for (let i = 0; i < 600 && !shown; i++) {
+		const v = await p.ev(`(() => { const e = document.querySelector('.binders-view'); return e ? { text: e.textContent, bar: !!e.querySelector('.binders-toolbar') } : null; })()`).catch(() => null);
+		if (v) { seen.push(v.text.slice(0, 60)); shown = v.bar; }
+		await p.sleep(20);
+	}
+	for (let i = 0; i < 80 && !(await p.ev(`!!(window.app && app.workspace?.layoutReady && app.plugins?.plugins?.binders?.explorer)`).catch(() => false)); i++) await p.sleep(250);
+	await p.ev(`app.plugins.plugins.binders.binders.settled.then(() => 1)`);
+	await p.ev(`(() => { window.activeWindow = window; window.activeDocument = document; return 1; })()`);
+	await p.sleep(500);
+	p.errors.length = 0; // a restart logs Electron's own warnings again
+	t.ok(shown, 'the binder view is restored');
+	t.ok(!seen.some((x) => /isn’t in a binder/.test(x)), 'never said its folder isn’t in a binder: ' + j([...new Set(seen)]));
+});
+
 test('the breadcrumb goes up, and Back comes down again', async (p, h, t) => {
 	await openView(p, 'The Lighthouse/Part Two');
 	const at = await p.at(`.workspace-leaf.mod-active .binders-crumb[role="link"]`);

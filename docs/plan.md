@@ -1,6 +1,7 @@
 # Binders: plan
 
-Status: planning. Target: 1.0 with the binder tree, corkboard, plot grid and manuscript.
+Status: feature-complete for 1.0 (0.8, polish). The explorer, binder store, corkboard, plot grid, editable manuscript and
+Longform integration all work, on desktop and mobile. Next: QA rounds (0.9), then release (1.0).
 
 ## What it is
 
@@ -180,18 +181,18 @@ src/
 
 Each is a minor version; patches in between. Every commit bumps the version (see AGENTS.md).
 
-| Version | Scope |
-|---|---|
-| 0.1 | Scaffold: build, lint, tests, e2e harness, release workflow, docs, binder index model |
-| 0.2 | Binders in the vault: detection, index cache, rename/move/delete tracking, commands to make a binder and add scenes |
-| 0.3 | File explorer: order patch, binder icon, click to open, move up/down, hide binder note |
-| 0.4 | Binder view shell and corkboard (read, reorder, move between folders, new card, edit synopsis/status/label) |
-| 0.5 | Plot grid |
-| 0.6 | Manuscript: read-only first, then editable embedded editors, virtualization |
-| 0.7 | Longform integration |
-| 0.8 | Polish: keyboard, touch, themes, performance on a 1,000-scene binder, a full mobile pass |
-| 0.9 | QA rounds (as with Evra: parallel QA agents, e2e suites, fixes) |
-| 1.0 | Release and directory submission |
+| Version | Scope | Status |
+|---|---|---|
+| 0.1 | Scaffold: build, lint, tests, e2e harness, release workflow, docs, binder index model | Done |
+| 0.2 | Binders in the vault: detection, index cache, rename/move/delete tracking, commands to make a binder and add scenes | Done |
+| 0.3 | File explorer: order patch, binder icon, click to open, move up/down, hide binder note | Done |
+| 0.4 | Binder view shell and corkboard (read, reorder, move between folders, new card, edit synopsis/status/label) | Done |
+| 0.5 | Plot grid | Done |
+| 0.6 | Manuscript: read-only first, then editable embedded editors, virtualization | Done |
+| 0.7 | Longform integration | Done |
+| 0.8 | Polish: keyboard, touch, themes, performance on a 1,000-scene binder, a full mobile pass, README | In progress: explorer Mod-click, cold start, keyboard and screen readers, themes, mobile emulation pass, perf guard (`specs-perf.mjs`) and README done; real-device iOS and Android checks to do |
+| 0.9 | QA rounds (as with Evra: parallel QA agents, e2e suites, fixes) | |
+| 1.0 | Release and directory submission | |
 
 ## Risks
 
@@ -202,7 +203,7 @@ Each is a minor version; patches in between. Every commit bumps the version (see
 | Losing text in the manuscript | Each editor saves its own file through Obsidian; merge-on-external-change like Evra; soak tests |
 | Conflicts with explorer plugins | Setting to turn the patch off; documented |
 | Mobile (a 1.0 requirement) | Test each milestone from 0.3 on iOS and Android; touch drag and long-press menus; the manuscript's editors must be solid there, not read-only |
-| Big binders | Index cache; virtualized manuscript; batched writes; a generated 1,000-scene test binder |
+| Big binders | Index cache; virtualized manuscript; corkboard and plot grid redraw only what changed (cards off screen aren't laid out); batched writes; a generated 1,000-scene binder with a perf guard (`specs-perf.mjs`) |
 | Review (patching core UI) | Minimal patch, clean unload, explained in the README |
 
 ## Decided

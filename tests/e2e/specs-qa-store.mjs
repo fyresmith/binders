@@ -12,7 +12,7 @@ const LIST = ['Prologue', 'Part One/', 'Part One/Arrival', 'Part One/The keeper'
 const KEEP_FOLDERS = ['The Lighthouse', 'The Lighthouse/Part One', 'The Lighthouse/Part Two'];
 const KEEP_FILES = new Set(['The Lighthouse/The Lighthouse.md', 'The Lighthouse/Prologue.md', 'The Lighthouse/Epilogue.md', 'The Lighthouse/Part One/Arrival.md', 'The Lighthouse/Part One/Storm warning.md', 'The Lighthouse/Part One/The keeper.md', 'The Lighthouse/Part Two/Lights out.md', 'The Lighthouse/Part Two/The wreck.md']);
 
-/** Removes every folder and non-note file a test made (the runner restores notes), puts settings and sort back. */
+/** Removes every folder and non-note file a test made (the runner restores notes and settings), puts the sort back. */
 async function tidy(p) {
 	await p.ev(`(async () => {
 		window.__ref && app.vault.offref(window.__ref); window.__ref = null;
@@ -23,9 +23,8 @@ async function tidy(p) {
 		const extra = app.vault.getAllLoadedFiles().filter(f => f.children && f.path !== '/' && !keep.has(f.path));
 		for (const f of extra.sort((a, b) => b.path.length - a.path.length)) if (app.vault.getAbstractFileByPath(f.path)) await app.vault.delete(f, true);
 		for (const k of keep) if (!app.vault.getAbstractFileByPath(k)) await app.vault.createFolder(k);
-		const pl = ${PL}; Object.assign(pl.settings, { hideBinderNotes: true, orderExplorer: true, openOnClick: true }); await pl.saveSettings();
 		const e = app.workspace.getLeavesOfType('file-explorer')[0]?.view; if (e?.sortOrder && e.sortOrder !== 'alphabetical') e.setSortOrder('alphabetical');
-		await pl.binders.flush();
+		await ${PL}.binders.flush();
 	})().then(() => 1)`);
 	await p.sleep(150);
 }

@@ -1,7 +1,7 @@
 // The corkboard (src/view/corkboard.ts): cards in binder order, groups and stacks, dragging (within and between groups,
 // several at once, by touch), editing a synopsis (also while the note changes on disk), new cards, rename, delete,
 // status and label, the keyboard, and mobile. Every test that changes files checks no text was lost.
-import { B, NOTE, VIEW, card, cards, dblclick, clickMenu, closeMenus, contents, exists, file, flush, hoverMenu, j, menuItems, openView, read, reload, same, selected, split, texts, until, withTidy, writeRaw } from './view-helpers.mjs';
+import { B, NOTE, VIEW, card, cards, clickMenu, closeMenus, contents, exists, file, flush, hoverMenu, j, menuItems, openView, read, reload, same, selected, split, texts, until, withTidy, writeRaw } from './view-helpers.mjs';
 
 export const specs = [];
 const test = (name, fn) => specs.push({ name: 'corkboard: ' + name, fn });
@@ -41,7 +41,7 @@ test('subfolders as stacks: one card each, opened by double-click', async (p, h,
 	t.eq(await p.ev(`document.querySelector('${card(L + 'Part One')} .binders-card-words').textContent`), '3 notes · 51 words', 'a stack counts its notes');
 	t.eq(await p.ev(`${VIEW}.getState().options.stacks`), true, 'the option is kept with the view');
 	const s = await at(p, 'Part One');
-	await dblclick(p, s.x, s.t + 14);
+	await p.dbl(s.x, s.t + 14);
 	await until(p, `app.workspace.getMostRecentLeaf().getViewState().state?.folder === 'The Lighthouse/Part One'`);
 	t.eq(j(await cards(p)), j(['Arrival', 'The keeper', 'Storm warning'].map((x) => L + 'Part One/' + x + '.md')), 'double-click shows the folder');
 });
@@ -313,21 +313,21 @@ test('keyboard: arrows move, Enter opens, Alt+arrows reorder', withTidy(async (p
 test('double-click opens a note, Ctrl+double-click in a new tab, but not on a synopsis', async (p, h, t) => {
 	await openView(p);
 	let c = await at(p, 'Part One/Arrival.md');
-	await dblclick(p, c.x, c.t + 12, 2);
+	await p.dbl(c.x, c.t + 12, 2);
 	await until(p, `app.workspace.getLeavesOfType('markdown').length === 1`);
 	t.eq(await p.ev(`app.workspace.getLeavesOfType('markdown')[0].view.file.path`), L + 'Part One/Arrival.md', 'Ctrl+double-click opens the note');
 	t.eq(await p.ev(`app.workspace.getLeavesOfType('binders-view').length`), 1, 'in a new tab, keeping the corkboard');
 	await p.ev(`(() => { app.workspace.setActiveLeaf(app.workspace.getLeavesOfType('binders-view')[0], { focus: true }); return 1; })()`);
 	await p.sleep(300);
 	c = await at(p, 'Part One/The keeper.md');
-	await dblclick(p, c.x, c.t + 12);
+	await p.dbl(c.x, c.t + 12);
 	await until(p, `app.workspace.getActiveFile()?.path === 'The Lighthouse/Part One/The keeper.md'`);
 	t.eq(await p.ev(`app.workspace.getLeavesOfType('binders-view').length`), 0, 'a double-click opens it in the same tab, as a link would');
 	// on the synopsis, a double-click edits instead
 	await p.ev(`app.commands.executeCommandById('app:go-back')`);
 	await until(p, `!!document.querySelector('.workspace-leaf.mod-active .binders-card')`);
 	const s = await p.at(`${card(L + 'Prologue.md')} .binders-card-synopsis`);
-	await dblclick(p, s.x, s.y);
+	await p.dbl(s.x, s.y);
 	t.ok(await p.ev(`document.activeElement.matches('textarea')`), 'a double-click on a synopsis edits it');
 	t.eq(await p.ev(`app.workspace.getLeavesOfType('markdown').length`), 1, 'and opens nothing');
 	await p.key('Escape');
@@ -468,7 +468,6 @@ test('mobile: one column, tap to open, long press for the menu, long press and d
 		await p.send('Emulation.setDeviceMetricsOverride', { width: p.width, height: p.height, deviceScaleFactor: 1, mobile: false });
 		await reload(p, false);
 		// leave no mobile layout behind: the next test in mobile starts as this one did (with the explorer loaded)
-		await p.ev(`(async () => { const f = app.vault.configDir + '/workspace-mobile.json'; if (await app.vault.adapter.exists(f)) await app.vault.adapter.remove(f); })().then(() => 1)`);
 	}
 	t.ok(!(await p.ev(`app.isMobile`)), 'back on desktop');
 }));

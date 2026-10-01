@@ -45,8 +45,7 @@ export const withTidy = (fn) => async (p, h, t) => { try { await fn(p, h, t); } 
 
 /** Opens the binder view on a folder, as the plugin does, and waits for it to draw. */
 export async function openView(p, folder = 'The Lighthouse', newLeaf = false) {
-	// the main window is where menus go (the harness can leave Obsidian thinking another of its windows is active)
-	await p.ev(`(async () => { window.dispatchEvent(new FocusEvent('focus')); await ${B}.ready; await ${PL}.openBinder(${file(folder)}, ${j(newLeaf)}); })().then(() => 1)`);
+	await p.ev(`(async () => { await ${B}.ready; await ${PL}.openBinder(${file(folder)}, ${j(newLeaf)}); })().then(() => 1)`);
 	await until(p, `!!document.querySelector('.workspace-leaf.mod-active .binders-view .binders-toolbar')`);
 	await p.sleep(250);
 }
@@ -93,14 +92,4 @@ export async function reload(p, mobile = null) {
 	await p.ev(`app.plugins.plugins.binders.binders.ready.then(() => 1)`);
 	await p.sleep(800);
 	p.errors.length = 0; // a reload logs Electron's own warnings again
-}
-/** A real double-click (the driver's `dbl` sends two single clicks, which browsers don't count as one). */
-export async function dblclick(p, x, y, modifiers = 0) {
-	await p.move(x, y, 2);
-	for (const clickCount of [1, 2]) {
-		await p.send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount, modifiers });
-		await p.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount, modifiers });
-		await p.sleep(40);
-	}
-	await p.sleep(150);
 }

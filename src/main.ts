@@ -28,7 +28,7 @@ export default class BindersPlugin extends Plugin {
 		this.binders = new BinderStore(this);
 		this.addSettingTab(new BindersSettingTab(this.app, this));
 		// explorer (0.3) >>>
-		this.explorer = installExplorer(this, this.binders, () => this.settings, (f) => void this.openBinder(f));
+		this.explorer = installExplorer(this, this.binders, () => this.settings, (f, newLeaf) => void this.openBinder(f, newLeaf));
 		// <<< explorer (0.3)
 
 		this.registerView(VIEW_TYPE, (leaf) => new BinderView(leaf, this));

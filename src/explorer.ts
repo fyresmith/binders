@@ -5,7 +5,7 @@
    to show in a folder. Everything undocumented is in the "Internals" block below and listed in docs/internals.md. If the
    method is missing, Binders says so once and the explorer keeps Obsidian's own order. */
 import { around } from 'monkey-around';
-import { Notice, TFolder, setIcon, type App, type EventRef, type Plugin, type TAbstractFile, type View } from 'obsidian';
+import { Keymap, Notice, TFolder, setIcon, type App, type EventRef, type PaneType, type Plugin, type TAbstractFile, type View } from 'obsidian';
 
 /** What the explorer needs to know about binders. The binder store implements it. */
 export interface ExplorerSource {
@@ -67,7 +67,7 @@ const resort = (v: ExplorerView) => { if (typeof v.requestSort === 'function') v
 
 const ICON = 'book';
 
-export function installExplorer(plugin: Plugin, source: ExplorerSource, settings: () => ExplorerSettings, openBinder: (folder: TFolder) => void): Explorer {
+export function installExplorer(plugin: Plugin, source: ExplorerSource, settings: () => ExplorerSettings, openBinder: (folder: TFolder, newLeaf: boolean | PaneType) => void): Explorer {
 	const { app } = plugin;
 	let unpatch: (() => void) | null = null, noticed = false, loaded = true;
 	let status: Explorer['status'] = 'waiting';
@@ -127,15 +127,20 @@ export function installExplorer(plugin: Plugin, source: ExplorerSource, settings
 		for (const v of views) { for (const k in v.fileItems) { const it = v.fileItems[k]; if (it) mark(it); } resort(v); }
 	};
 
-	/** Clicking a binder, or a folder in one, opens it. Obsidian's own handler still expands or collapses the folder. */
+	/** Clicking a binder, or a folder in one, opens it; Mod-click or a middle click opens it in a new tab, as for a note.
+	    Obsidian's own handler still expands or collapses the folder. Shift and Alt clicks select, so they're left alone. */
 	const onClick = (e: MouseEvent) => {
-		if (!settings().openOnClick || e.defaultPrevented || e.button !== 0 || e.shiftKey || e.ctrlKey || e.metaKey || e.altKey) return;
+		if (!settings().openOnClick || e.defaultPrevented) return;
+		const middle = e.type === 'auxclick' && e.button === 1;
+		if (!middle && e.button !== 0) return;
+		const newLeaf = middle ? 'tab' : Keymap.isModEvent(e);
+		if (!newLeaf && (e.shiftKey || e.altKey)) return;
 		const t = e.target;
 		if (!(t instanceof Element) || t.closest('.collapse-icon, [contenteditable="true"], input')) return;
 		const title = t.closest<HTMLElement>('.nav-folder-title');
 		if (!title || !title.closest('.workspace-leaf-content[data-type="file-explorer"]')) return;
 		const f = app.vault.getAbstractFileByPath(title.dataset.path ?? '');
-		if (f instanceof TFolder && (source.isBinderFolder(f) || source.inBinder(f))) openBinder(f);
+		if (f instanceof TFolder && (source.isBinderFolder(f) || source.inBinder(f))) openBinder(f, newLeaf);
 	};
 
 	app.workspace.onLayoutReady(() => {
@@ -145,6 +150,7 @@ export function installExplorer(plugin: Plugin, source: ExplorerSource, settings
 		const ref = source.on('changed', refresh);
 		plugin.register(() => source.offref(ref));
 		plugin.registerDomEvent(document, 'click', onClick);
+		plugin.registerDomEvent(document, 'auxclick', onClick);
 	});
 
 	plugin.register(() => {

@@ -327,6 +327,10 @@
 	width: min(100%, var(--binders-plotgrid-first));
 	height: var(--binders-plotgrid-row);
 }
+/* Phones: room after the last row for Obsidian's floating navigation bar, as Bases leaves in its table. */
+.is-phone .binders-plotgrid-end {
+	height: calc(var(--binders-plotgrid-row) + var(--view-bottom-spacing, 0px));
+}
 .binders-plotgrid-end.is-drop-target {
 	box-shadow: inset 0 2px 0 var(--interactive-accent);
 }
@@ -358,11 +362,18 @@
 	overflow-anchor: none; /* the manuscript anchors scrolling itself, the same on every platform */
 	--metadata-display-editing: none;
 	--metadata-display-reading: none;
+	/* on phones Obsidian pads a note's editor for its floating header; sections of the manuscript aren't notes */
+	--view-top-spacing-markdown: 0;
 }
 
 .binders-manuscript-page {
 	max-width: var(--file-line-width);
 	margin-inline: auto;
+}
+
+/* "Readable line length" off: the page is as wide as the pane, as a note is. */
+.binders-view:not(.is-readable-line-width) .binders-manuscript-page {
+	max-width: none;
 }
 
 .binders-manuscript-heading.markdown-rendered > :is(h1, h2, h3, h4, h5, h6) {
@@ -404,6 +415,11 @@
 .binders-manuscript-title:hover,
 .binders-manuscript-title:focus-visible {
 	color: var(--text-accent);
+}
+
+.binders-manuscript-title:focus-visible {
+	outline: none;
+	box-shadow: 0 0 0 2px var(--background-modifier-border-focus);
 }
 
 .binders-manuscript-title.is-renaming {
@@ -507,8 +523,14 @@
 .binders-group-title,
 .binders-breadcrumbs,
 .binders-cards,
-.binders-toolbar-button {
+.binders-toolbar-button,
+.binders-plotgrid-table {
 	--no-tooltip: true;
+}
+
+/* In the plot grid, only the table's own name is kept from showing: its headers and counts show theirs. */
+.binders-plotgrid-table [aria-label] {
+	--no-tooltip: initial;
 }
 
 .binders-view {
@@ -722,6 +744,16 @@
 	max-width: 360px;
 	font-size: var(--font-ui-small);
 	color: var(--text-muted);
+}
+
+/* Waiting for the vault's metadata at startup: nothing for a moment, then a quiet word, so a quick start doesn't flash. */
+.binders-empty.is-loading {
+	animation: binders-appear 200ms ease-in 600ms both;
+}
+
+@keyframes binders-appear {
+	from { opacity: 0; }
+	to { opacity: 1; }
 }
 
 /* Text edited in place: looks like text until it's clicked, like a value in the Properties panel. */
@@ -985,6 +1017,13 @@
 	overflow: hidden;
 	cursor: default;
 	transition: box-shadow 120ms ease, opacity 120ms ease, transform 120ms ease;
+}
+
+/* A big binder's cards off screen aren't laid out or painted until they're near (the browser keeps their last size), so
+   a board of a thousand cards opens and redraws quickly. */
+.binders-card[data-path] {
+	content-visibility: auto;
+	contain-intrinsic-size: auto 132px;
 }
 
 .binders-card::before {

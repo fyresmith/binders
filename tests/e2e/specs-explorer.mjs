@@ -183,6 +183,35 @@ test('without the internal method: a notice, and nothing breaks', async (p, h, t
 	same(t, await rows(p), IN_ORDER, 'binder order once the method is back');
 });
 
+test('Mod-click and middle-click open a binder in a new tab; a plain click reuses its tab', async (p, h, t) => {
+	await rows(p);
+	await p.ev(`(() => { ${EXP}.fileItems['The Lighthouse/Part One'].setCollapsed(true); ${EXP}.fileItems['The Lighthouse/Part Two'].setCollapsed(true); return 1; })()`);
+	await p.sleep(200);
+	const title = (path) => p.at(`.nav-folder-title[data-path="${path}"] .nav-folder-title-content`);
+	const tabs = () => p.ev(`app.workspace.getLeavesOfType('binders-view').map(l => l.getViewState().state.folder)`);
+	const active = () => p.ev(`app.workspace.getMostRecentLeaf()?.getViewState().state?.folder ?? null`);
+	let at = await title('The Lighthouse');
+	await p.click(at.x, at.y); await p.sleep(500);
+	same(t, await tabs(), ['The Lighthouse'], 'a plain click opens the binder');
+	await p.ev(`(() => { ${EXP}.fileItems['The Lighthouse'].setCollapsed(false); return 1; })()`); await p.sleep(200); // the click collapsed it
+	at = await title('The Lighthouse/Part One');
+	await p.click(at.x, at.y, { modifiers: process.platform === 'darwin' ? 4 : 2 }); await p.sleep(500);
+	same(t, await tabs(), ['The Lighthouse', 'The Lighthouse/Part One'], 'Mod-click opens the folder in a new tab, the first tab unchanged');
+	t.eq(await active(), 'The Lighthouse/Part One', 'the new tab is active');
+	t.eq(await p.ev(`${EXP}.fileItems['The Lighthouse/Part One'].collapsed`), false, 'and the folder still expands');
+	at = await title('The Lighthouse/Part Two');
+	await p.click(at.x, at.y, { button: 'middle' }); await p.sleep(500);
+	same(t, await tabs(), ['The Lighthouse', 'The Lighthouse/Part One', 'The Lighthouse/Part Two'], 'a middle click opens a new tab too');
+	at = await title('The Lighthouse/Part Two');
+	await p.click(at.x, at.y); await p.sleep(500);
+	t.eq((await tabs()).length, 3, 'a plain click opens no new tab: it goes to the tab showing that binder');
+	// Alt and Shift clicks select in the explorer: they open nothing
+	at = await title('The Lighthouse');
+	await p.click(at.x, at.y, { modifiers: 1 }); await p.sleep(300);
+	await p.click(at.x, at.y, { modifiers: 8 }); await p.sleep(300);
+	t.eq((await tabs()).length, 3, 'Alt and Shift clicks open nothing');
+});
+
 // Reloads Obsidian twice (into mobile and back), so it is last in this file.
 test('mobile: binder order, hidden notes, and tap to open and expand', async (p, h, t) => {
 	const reload = async (mobile) => {

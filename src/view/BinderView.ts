@@ -1,8 +1,8 @@
-import { ItemView, Keymap, Menu, Scope, TFile, TFolder, setIcon, type PaneType, type TAbstractFile, type ViewStateResult, type WorkspaceLeaf } from 'obsidian';
+import { ItemView, Keymap, Menu, Scope, type Events, TFile, TFolder, setIcon, type PaneType, type TAbstractFile, type ViewStateResult, type WorkspaceLeaf } from 'obsidian';
 import type { Binder } from '../binders';
 import type BindersPlugin from '../main';
 import { commitAll, commitFocused, editable, type Editable } from './edit';
-import { refreshHeader } from './internals';
+import { readableLineLength, refreshHeader } from './internals';
 import { display, labelDot } from './labels';
 import type { BinderMode, ModeContext, ModeFactory, SceneProps } from './mode';
 import { WordCounter, wordsLabel } from './words';
@@ -63,9 +63,11 @@ export class BinderView extends ItemView {
 	private identity = '';
 	private timer = 0;
 	private reveal: string | null = null;
-	/** Binders have been looked for (until then, a folder not found yet isn't a problem to show). */
+	/** Binders have been looked for with the metadata cache complete (until then, a folder not found yet may still be
+	    found: the view says it's loading, not that the folder isn't in a binder). */
 	private found = false;
 	private synopsis: Editable | null = null;
+	private relaying = false;
 	private ui: { crumbs: HTMLElement; count: HTMLElement; filter: HTMLElement; modeBtn: HTMLElement; notice: HTMLElement; synopsis: HTMLElement; body: HTMLElement } | null = null;
 
 	constructor(leaf: WorkspaceLeaf, private plugin: BindersPlugin) {
@@ -75,6 +77,15 @@ export class BinderView extends ItemView {
 		// editor was active last.
 		this.scope = new Scope(this.app.scope);
 		this.scope.register(['Mod'], 'Enter', () => !commitFocused());
+		// F2 renames the focused card or plotline, as it renames the focused item in the file explorer. Obsidian's own F2
+		// ("Rename file") would otherwise take it before the view sees it: pass it on to what has the focus.
+		this.scope.register([], 'F2', () => {
+			const el = this.contentEl.doc.activeElement;
+			if (this.relaying || !el?.instanceOf(HTMLElement) || !this.contentEl.contains(el) || el.matches('input, textarea, [contenteditable="true"], .cm-content')) return true;
+			this.relaying = true;
+			try { el.dispatchEvent(new KeyboardEvent('keydown', { key: 'F2', code: 'F2', bubbles: true, cancelable: true })); } finally { this.relaying = false; }
+			return false;
+		});
 	}
 
 	getViewType(): string { return VIEW_TYPE; }
@@ -97,9 +108,9 @@ export class BinderView extends ItemView {
 		if (s.options && typeof s.options === 'object') this.options = { ...s.options };
 		await super.setState(state, result);
 		this.rebuild();
-		// binders are found once the layout is ready; a view restored before that draws again then (never awaited here:
-		// the layout waits for this)
-		void this.store.ready.then(() => {
+		// binders are found once the layout is ready, and for sure once the metadata cache is complete; a view restored
+		// before that shows it's loading, and draws again then (never awaited here: the layout waits for this)
+		void this.store.settled.then(() => {
 			this.found = true;
 			if (!this.folder) this.rebuild(); else this.schedule();
 		});
@@ -113,6 +124,10 @@ export class BinderView extends ItemView {
 
 	async onOpen(): Promise<void> {
 		this.contentEl.addClass('binders-view');
+		// the manuscript's page follows the editor's "Readable line length", as a note does
+		const readable = () => this.contentEl.toggleClass('is-readable-line-width', readableLineLength(this.app));
+		readable();
+		this.registerEvent((this.app.vault as Events).on('config-changed', readable));
 		const { vault, metadataCache } = this.app;
 		const ref = this.store.on('changed', (p: string) => {
 			const f = this.folder?.path ?? this.path;
@@ -199,8 +214,13 @@ export class BinderView extends ItemView {
 		this.ui = null;
 		refreshHeader(this);
 		if (!this.folder) {
-			if (!this.found) return;
 			const box = el.createDiv({ cls: 'binders-empty' });
+			if (!this.found) {
+				// quiet, and only after a moment (CSS), so a quick start shows nothing at all
+				box.addClass('is-loading');
+				box.createDiv({ cls: 'binders-empty-text', text: 'Loading…', attr: { role: 'status' } });
+				return;
+			}
 			box.createDiv({ cls: 'binders-empty-title', text: 'This folder isn’t in a binder' });
 			box.createDiv({ cls: 'binders-empty-text', text: this.path ? `“${this.path}” was moved or deleted, or is no longer part of a binder.` : 'Open a binder from the file explorer.' });
 			return;
@@ -211,6 +231,7 @@ export class BinderView extends ItemView {
 		const count = bar.createDiv({ cls: 'binders-word-count' });
 		const filter = this.button(bar, 'filter', 'Filter', 'binders-filter-button', (e) => this.filterMenu(e));
 		const modeBtn = this.button(bar, 'layout-grid', 'Corkboard', 'binders-mode-button', (e) => this.modeMenu(e));
+		for (const b of [filter, modeBtn]) b.setAttr('aria-haspopup', 'menu');
 		setIcon(modeBtn.createDiv({ cls: 'text-button-icon mod-aux' }), 'chevron-down');
 		const notice = el.createDiv({ cls: 'binders-notice' });
 		const synopsis = el.createDiv({ cls: 'binders-view-synopsis-row' });
@@ -295,7 +316,7 @@ export class BinderView extends ItemView {
 		ui.synopsis.empty();
 		ui.synopsis.toggleClass('is-hidden', this.readOnly && !value);
 		this.synopsis = editable(ui.synopsis, {
-			cls: 'binders-view-synopsis', value, placeholder: 'Add a synopsis', label: 'Edit the synopsis', readOnly: this.readOnly, focusable: true,
+			cls: 'binders-view-synopsis', value, placeholder: 'Add a synopsis', label: `Synopsis of ${folder.name}`, readOnly: this.readOnly, focusable: true,
 			save: async (t) => { const f = await this.store.ensureFolderNote(folder); await this.setProps(f, { synopsis: t }); },
 			onEditing: (on) => { if (!on) this.schedule(); },
 		});

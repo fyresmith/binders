@@ -25,6 +25,7 @@ interface Group {
 }
 
 interface Drop { group: Group; anchor: TAbstractFile | null }
+interface DrawnCard { el: HTMLElement; key: string; file: TAbstractFile; editors: { title: Editable; synopsis: Editable } }
 
 const isNote = (f: TAbstractFile): f is TFile => f instanceof TFile && f.extension === 'md';
 const LONG_PRESS = 450;
@@ -164,20 +165,23 @@ class Corkboard implements BinderMode {
 
 	/** Everything a redraw would show, so a refresh that changes nothing visible draws nothing. */
 	private signature(): string {
-		const card = (f: TAbstractFile) => {
-			if (f instanceof TFolder) {
-				const note = this.store.folderNote(f), p = note ? this.ctx.props(note) : null, scenes = this.store.scenes(f);
-				return [f.path, 'folder', p?.synopsis, p?.status, p?.label, scenes.length, this.sum(scenes)];
-			}
-			if (!(f instanceof TFile)) return [f.path];
-			const p = this.ctx.props(f);
-			return [f.path, p.synopsis, p.status, p.label, this.ctx.words(f)];
-		};
+		const card = (f: TAbstractFile) => this.cardKey(f);
 		const groups = this.model();
 		return JSON.stringify([this.ctx.readOnly, this.stacks, groups.map((g) => {
 			const note = g.sub ? this.store.folderNote(g.folder) : null, p = note ? this.ctx.props(note) : null;
 			return [g.folder.path, g.sub, g.end?.path, g.depth, g.head?.path, p?.synopsis, p?.status, p?.label, g.sub ? this.sum(this.store.scenes(g.folder)) : 0, this.shown(g).map(card)];
 		})]);
+	}
+
+	/** Everything a card shows: when it's the same, the card drawn last time is used again. */
+	private cardKey(f: TAbstractFile): unknown[] {
+		if (f instanceof TFolder) {
+			const note = this.store.folderNote(f), p = note ? this.ctx.props(note) : null, scenes = this.store.scenes(f);
+			return [f.path, 'folder', p?.synopsis, p?.status, p?.label, scenes.length, this.sum(scenes)];
+		}
+		if (!(f instanceof TFile)) return [f.path];
+		const p = this.ctx.props(f);
+		return [f.path, p.synopsis, p.status, p.label, this.ctx.words(f)];
 	}
 
 	private sum(files: TFile[]): number | null {
@@ -196,11 +200,22 @@ class Corkboard implements BinderMode {
 		this.dirty = false;
 		this.groups = this.model();
 		this.sig = this.signature();
-		this.board.empty();
 		this.editors.clear();
 		this.headings.clear();
 		this.board.toggleClass('is-read-only', this.ctx.readOnly);
-		this.groups.forEach((g, gi) => this.drawGroup(g, gi));
+		// Everything that didn't change stays in place in the page (a big binder then redraws quickly); the rest is drawn
+		// again and put in its place.
+		this.drawn = new Map();
+		const sections = this.sections;
+		this.sections = new Map();
+		let at = this.board.firstChild;
+		this.groups.forEach((g, gi) => {
+			const sec = this.drawGroup(g, gi, sections);
+			if (sec === at) at = at.nextSibling; else this.board.insertBefore(sec, at);
+		});
+		while (at) { const next = at.nextSibling; at.remove(); at = next; }
+		// cards not shown any more are let go
+		this.cardCache = this.drawn;
 		// keep only what still exists selected
 		const paths = new Set(this.cards().map((c) => c.dataset.path));
 		for (const p of [...this.sel]) if (!paths.has(p)) this.sel.delete(p);
@@ -211,14 +226,34 @@ class Corkboard implements BinderMode {
 		else if (hadFocus) this.cardEl(this.focused)?.focus({ preventScroll: true });
 	}
 
-	private drawGroup(g: Group, gi: number): void {
-		const sec = this.board.createDiv({ cls: 'binders-group' + (g.sub ? ' is-folder' : '') + (g.depth ? ' is-indented' : ''), attr: { 'data-group': String(gi) } });
-		if (g.depth) sec.setCssProps({ '--binders-group-depth': String(g.depth) });
+	/** Group sections drawn last time, by what they are; a section is used again with its heading drawn afresh. */
+	private sections = new Map<string, HTMLElement>();
+
+	private drawGroup(g: Group, gi: number, old: Map<string, HTMLElement>): HTMLElement {
+		const key = JSON.stringify([g.folder.path, g.sub, g.end?.path, g.depth, g.head?.path]);
+		let sec = old.get(key), list: HTMLElement;
+		old.delete(key);
+		if (sec) {
+			sec.querySelector(':scope > .binders-group-heading')?.remove();
+			list = sec.querySelector<HTMLElement>(':scope > .binders-cards');
+		} else {
+			sec = createDiv({ cls: 'binders-group' + (g.sub ? ' is-folder' : '') + (g.depth ? ' is-indented' : '') });
+			if (g.depth) sec.setCssProps({ '--binders-group-depth': String(g.depth) });
+			list = sec.createDiv({ cls: 'binders-cards', attr: { role: 'listbox', 'aria-multiselectable': 'true', 'aria-label': g.folder.name } });
+		}
+		this.sections.set(key, sec);
+		sec.dataset.group = String(gi);
 		if (g.sub) this.drawHeading(sec, g.folder);
 		else if (g.head) this.drawSceneHeading(sec, g.head, g.items);
-		const list = sec.createDiv({ cls: 'binders-cards', attr: { role: 'listbox', 'aria-multiselectable': 'true', 'aria-label': g.folder.name } });
-		for (const f of this.shown(g)) this.drawCard(list, f);
-		if (!this.ctx.readOnly) this.drawNewCard(list, g);
+		const heading = sec.querySelector(':scope > .binders-group-heading');
+		if (heading) sec.insertBefore(heading, list);
+		// the cards, in order, moving as few as possible
+		const want = this.shown(g).map((f) => this.drawCard(f));
+		if (!this.ctx.readOnly) want.push(this.drawNewCard(g));
+		let at = list.firstChild;
+		for (const el of want) { if (el === at) at = at.nextSibling; else list.insertBefore(el, at); }
+		while (at) { const next = at.nextSibling; at.remove(); at = next; }
+		return sec;
 	}
 
 	private drawHeading(parent: HTMLElement, folder: TFolder): void {
@@ -263,7 +298,7 @@ class Corkboard implements BinderMode {
 	private synopsis(parent: HTMLElement, item: TAbstractFile, cls: string, card?: HTMLElement, focusable = false): Editable {
 		const note = this.noteOf(item);
 		return editable(parent, {
-			cls, value: note ? this.ctx.props(note).synopsis : '', placeholder: 'Add a synopsis', label: 'Edit the synopsis', readOnly: this.ctx.readOnly, focusable,
+			cls, value: note ? this.ctx.props(note).synopsis : '', placeholder: 'Add a synopsis', label: `Synopsis of ${item instanceof TFile ? item.basename : item.name}`, readOnly: this.ctx.readOnly, focusable,
 			// a tap only edits a card that's already selected, so tapping a card first selects it
 			shouldEdit: () => !card || this.lastPointer !== 'touch' || this.sel.has(card.dataset.path),
 			save: async (t) => {
@@ -281,12 +316,24 @@ class Corkboard implements BinderMode {
 		if (!on && !this.busy()) window.setTimeout(() => { if (!this.busy() && (this.dirty || this.signature() !== this.sig)) this.draw(); }, 0);
 	}
 
-	private drawCard(list: HTMLElement, f: TAbstractFile): void {
+	/** Cards drawn last time, by path, with what they showed: a big binder redraws in a few milliseconds when only a
+	    card or two changed, instead of building a thousand cards again. */
+	private cardCache = new Map<string, DrawnCard>();
+	private drawn = new Map<string, DrawnCard>();
+
+	private drawCard(f: TAbstractFile): HTMLElement {
+		const key = JSON.stringify([this.ctx.readOnly, this.cardKey(f)]), hit = this.cardCache.get(f.path);
+		if (hit && hit.key === key && hit.file === f && !this.drawn.has(f.path)) {
+			hit.el.removeClasses(['is-dragging', 'is-lifted', 'is-being-dragged-over']);
+			this.editors.set(f.path, hit.editors);
+			this.drawn.set(f.path, hit);
+			return hit.el;
+		}
 		const folder = f instanceof TFolder;
 		const note = this.noteOf(f);
 		const p = note ? this.ctx.props(note) : { synopsis: '', status: '', label: '', plotlines: [] };
 		const name = f instanceof TFile ? f.basename : f.name;
-		const card = list.createDiv({ cls: 'binders-card' + (folder ? ' is-stack' : ''), attr: { role: 'option', tabindex: '-1', 'data-path': f.path, 'aria-selected': 'false' } });
+		const card = createDiv({ cls: 'binders-card' + (folder ? ' is-stack' : ''), attr: { role: 'option', tabindex: '-1', 'data-path': f.path, 'aria-selected': 'false' } });
 		const color = labelColor(p.label);
 		if (color) { card.addClass(`mod-label-${color}`); card.dataset.label = p.label; }
 		const head = card.createDiv({ cls: 'binders-card-head' });
@@ -296,7 +343,13 @@ class Corkboard implements BinderMode {
 			save: (t) => this.rename(f, t), onEditing: (on) => this.onEditing(on, card),
 		});
 		card.setAttr('aria-label', name);
-		this.editors.set(f.path, { title, synopsis: this.synopsis(card, f, 'binders-card-synopsis', card) });
+		// what a screen reader says after the name: what the card shows besides it
+		const words = folder ? null : f instanceof TFile ? this.ctx.words(f) : null;
+		const about = [p.status && `Status: ${p.status}`, p.label && `Label: ${p.label}`, words != null && wordsLabel(words)].filter(Boolean).join(', ');
+		if (about) card.setAttr('aria-description', about);
+		const editors = { title, synopsis: this.synopsis(card, f, 'binders-card-synopsis', card) };
+		this.editors.set(f.path, editors);
+		this.drawn.set(f.path, { el: card, key, file: f, editors });
 		const foot = card.createDiv({ cls: 'binders-card-footer' });
 		if (p.status) foot.createSpan({ cls: 'binders-chip', text: p.status });
 		foot.createDiv({ cls: 'binders-card-spacer' });
@@ -307,11 +360,12 @@ class Corkboard implements BinderMode {
 			const n = f instanceof TFile ? this.ctx.words(f) : null;
 			if (n != null) foot.createSpan({ cls: 'binders-card-words', text: wordsLabel(n) });
 		}
+		return card;
 	}
 
-	private drawNewCard(list: HTMLElement, g: Group): void {
+	private drawNewCard(g: Group): HTMLElement {
 		const key = `${g.folder.path}\n${g.end?.path ?? ''}`;
-		const nc = list.createDiv({ cls: 'binders-card binders-card-new', attr: { role: 'button', tabindex: '0', 'aria-label': `New note in ${g.folder.name}`, 'data-new': key } });
+		const nc = createDiv({ cls: 'binders-card binders-card-new', attr: { role: 'button', tabindex: '0', 'aria-label': `New note in ${g.folder.name}`, 'data-new': key } });
 		const idle = () => {
 			nc.empty();
 			setIcon(nc.createSpan({ cls: 'binders-card-new-icon' }), 'plus');
@@ -358,6 +412,7 @@ class Corkboard implements BinderMode {
 		(nc as HTMLElement & { binderStart?: () => void }).binderStart = start;
 		nc.addEventListener('click', (e) => { e.stopPropagation(); start(); });
 		nc.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === nc) { e.preventDefault(); e.stopPropagation(); start(); } });
+		return nc;
 	}
 
 	// ---- selection ----

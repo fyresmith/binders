@@ -114,8 +114,11 @@ export function removeFrom(contents: string[], item: string): string[] {
 export function moveTo(contents: string[], known: string[], item: string, folder: string, index: number): string[] {
 	const moved = (folder + nameOf(item) + (item.endsWith('/') ? '/' : ''));
 	// write every existing item into the list first, in the order they show, so the move has a complete order to work with
-	let list = [...contents.filter((p) => known.includes(p))];
-	for (const k of known) if (!list.includes(k)) list = insertInFolder(list, k, Infinity);
+	// (sets, not includes(): a binder of a thousand notes would take a million comparisons per move)
+	const isKnown = new Set(known);
+	let list = contents.filter((p) => isKnown.has(p));
+	const listed = new Set(list);
+	for (const k of known) if (!listed.has(k)) { list = insertInFolder(list, k, Infinity); listed.add(k); }
 	const kids = item.endsWith('/') ? list.filter((p) => p !== item && p.startsWith(item)) : [];
 	list = removeFrom(list, item);
 	const renamedKids = kids.map((p) => moved + p.slice(item.length));

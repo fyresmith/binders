@@ -29,6 +29,8 @@ interface Row {
 	counts?: number[];
 }
 
+interface DrawnRow { tr: HTMLElement; key: string; cells: [string, HTMLElement][] }
+
 class PlotGrid implements BinderMode {
 	private root: HTMLElement;
 	private table: HTMLTableElement | null = null;
@@ -42,6 +44,9 @@ class PlotGrid implements BinderMode {
 	private grid: string[][] = [];
 	private els = new Map<string, HTMLElement>();
 	private signature = '';
+	private headKey = '';
+	private headCells: [string, HTMLElement][] = [];
+	private rowCache = new Map<string, DrawnRow>();
 	/** Editing a name or dragging: redraws wait until it's done. */
 	private busy = false;
 	private stale = false;
@@ -127,89 +132,48 @@ class PlotGrid implements BinderMode {
 
 	// ---- drawing ----
 
-	/** Redraws if anything shown changed, keeping scroll (the scroller stays) and focus (by spot key). */
+	/** Redraws if anything shown changed, keeping scroll (the scroller stays) and focus (by spot key). Rows are drawn
+	    again only when what they show changed, and put in place with as few DOM moves as possible, so a click in a
+	    thousand-scene grid changes one row, not the table. */
 	private draw(force = false): void {
 		const cols = this.columns(), colors = this.colors(), rows = this.rows(cols), ro = this.ro;
-		const sig = JSON.stringify([cols, colors, ro, rows.map((r) => [r.item.path, r.depth, r.lines, r.text, r.counts])]);
+		const headKey = JSON.stringify([cols, colors, ro]);
+		// a row's shape, and its ticks: a tick changing is shown on the cells as they are (no layout, so it's quick)
+		const rowKey = (r: Row) => JSON.stringify([r.item.path, r.depth, r.other, r.text, r.counts, r.item instanceof TFolder && this.collapsed.has(r.item.path)]);
+		const sig = headKey + rows.map((r) => rowKey(r) + JSON.stringify(r.lines)).join('\n');
 		if (!force && sig === this.signature && this.table) return;
 		this.signature = sig;
 		const had = this.root.contains(this.root.doc.activeElement);
+		if (force || headKey !== this.headKey) { this.rowCache.clear(); this.headKey = headKey; this.table?.remove(); this.table = null; }
+
+		let table = this.table;
+		if (!table) {
+			table = createEl('table', { cls: 'binders-plotgrid-table', attr: { role: 'grid', 'aria-label': 'Plot grid' } });
+			this.drawHead(table, cols, colors, ro);
+			table.createTBody();
+			this.root.prepend(table);
+			this.table = table;
+		}
+		table.setAttrs({ 'aria-readonly': String(ro), 'aria-rowcount': String(rows.length + 1), 'aria-colcount': String(cols.length + 1) });
 		this.els.clear();
-		this.grid = [];
+		for (const [k, el] of this.headCells) if (k) { el.setAttr('tabindex', '-1'); this.els.set(k, el); }
+		this.grid = [this.headCells.map(([k]) => k)];
 
-		const table = createEl('table', { cls: 'binders-plotgrid-table', attr: { role: 'grid', 'aria-label': 'Plot grid', 'aria-readonly': String(ro), 'aria-rowcount': String(rows.length + 1), 'aria-colcount': String(cols.length + 1) } });
-		const head = table.createTHead().insertRow();
-		head.addClass('binders-plotgrid-head');
-		head.setAttr('role', 'row');
-		const headKeys = [''];
-		head.createEl('th', { cls: 'binders-plotgrid-corner', text: 'Scene', attr: { role: 'columnheader', scope: 'col' } });
-		for (const name of cols) {
-			const th = head.createEl('th', { cls: ['binders-plotgrid-col', colorClass(colors[name])], attr: { role: 'columnheader', scope: 'col', 'data-plotline': name } });
-			if (!ro) th.setAttr('aria-haspopup', 'menu');
-			const inner = th.createDiv({ cls: 'binders-plotgrid-col-inner' });
-			inner.createSpan({ cls: 'binders-plotgrid-swatch' });
-			inner.createSpan({ cls: 'binders-plotgrid-col-name', text: name });
-			setTooltip(th, name, { placement: 'top' });
-			headKeys.push(this.cell(th, HEAD, name));
-		}
-		if (!ro) {
-			const th = head.createEl('th', { cls: 'binders-plotgrid-add', attr: { role: 'columnheader', 'aria-label': 'Add plotline' } });
-			if (cols.length) setTooltip(th, 'Add plotline');
-			setIcon(th.createDiv({ cls: 'binders-plotgrid-add-icon' }), 'plus');
-			if (!cols.length) { th.addClass('mod-wide'); th.createSpan({ cls: 'binders-plotgrid-add-text', text: 'Add plotline' }); }
-			headKeys.push(this.cell(th, HEAD, ADD));
-		}
-		this.grid.push(headKeys);
-
-		const body = table.createTBody();
+		const body = table.tBodies[0], drawn = new Map<string, DrawnRow>();
+		let at: ChildNode | null = body.firstChild;
 		for (const r of rows) {
-			const tr = body.insertRow(), path = r.item.path, keys: string[] = [];
-			tr.setAttrs({ role: 'row', 'data-path': path, 'aria-level': String(r.depth + 1) });
-			const th = tr.createEl('th', { attr: { role: 'rowheader', scope: 'row' } });
-			th.setCssProps({ '--binders-plotgrid-depth': String(r.depth) });
-			if (r.item instanceof TFolder) {
-				const open = !this.collapsed.has(path);
-				tr.addClass('binders-plotgrid-group');
-				th.addClass('binders-plotgrid-group-header');
-				th.setAttr('aria-expanded', String(open));
-				const inner = th.createDiv({ cls: 'binders-plotgrid-row-inner' });
-				if (!ro) setIcon(inner.createDiv({ cls: 'binders-plotgrid-grip', attr: { 'aria-hidden': 'true' } }), 'grip-vertical');
-				const chevron = inner.createDiv({ cls: ['binders-plotgrid-chevron', 'collapse-icon'] });
-				chevron.toggleClass('is-collapsed', !open);
-				setIcon(chevron, 'right-triangle');
-				inner.createSpan({ cls: 'binders-plotgrid-group-name', text: r.item.name });
-				keys.push(this.cell(th, path, TITLE));
-				cols.forEach((name, i) => {
-					const td = tr.createEl('td', { cls: ['binders-plotgrid-count', colorClass(colors[name])], attr: { role: 'gridcell', 'data-plotline': name } });
-					if (r.counts?.[i]) td.createSpan({ text: String(r.counts[i]), attr: { 'aria-label': `${r.counts[i]} ${r.counts[i] === 1 ? 'scene' : 'scenes'}` } });
-					keys.push('');
-				});
-			} else {
-				tr.addClass('binders-plotgrid-row');
-				const inner = th.createDiv({ cls: 'binders-plotgrid-row-inner' });
-				if (!ro) setIcon(inner.createDiv({ cls: 'binders-plotgrid-grip', attr: { 'aria-hidden': 'true' } }), 'grip-vertical');
-				const label = inner.createDiv({ cls: 'binders-plotgrid-label' });
-				label.createSpan({ cls: 'binders-plotgrid-title', text: r.item.basename });
-				if (r.other?.length) {
-					const other = label.createDiv({ cls: 'binders-plotgrid-other', text: `Other: ${r.other.join(', ')}` });
-					setTooltip(other, 'Plotlines this binder has no column for');
-				}
-				keys.push(this.cell(th, path, TITLE));
-				for (const name of cols) {
-					const on = !!r.lines?.includes(name);
-					const td = tr.createEl('td', { cls: ['binders-plotgrid-cell', colorClass(colors[name])], attr: { role: 'gridcell', 'data-plotline': name, 'aria-selected': String(on) } });
-					td.toggleClass('is-on', on);
-					td.createDiv({ cls: 'binders-plotgrid-mark' });
-					if (r.text?.includes(name)) td.createDiv({ cls: 'binders-plotgrid-text-dot', attr: { 'aria-label': 'Has notes' } });
-					keys.push(this.cell(td, path, name));
-				}
-			}
-			if (!ro) { tr.createEl('td', { cls: 'binders-plotgrid-filler', attr: { role: 'gridcell' } }); keys.push(''); }
-			this.grid.push(keys);
+			const key = rowKey(r), hit = this.rowCache.get(r.item.path);
+			const row = hit && hit.key === key && !drawn.has(r.item.path) ? hit : this.drawRow(r, cols, colors, ro, key);
+			drawn.set(r.item.path, row);
+			if (row === hit && r.lines) this.tick(row, cols, r.lines);
+			row.tr.removeClasses(['is-dragged', 'is-drop-before', 'is-drop-after']);
+			if (row.tr === at) at = at.nextSibling; else body.insertBefore(row.tr, at);
+			for (const [k, el] of row.cells) if (k) { el.setAttr('tabindex', '-1'); this.els.set(k, el); }
+			this.grid.push(row.cells.map(([k]) => k));
 		}
+		while (at) { const next = at.nextSibling; at.remove(); at = next; }
+		this.rowCache = drawn;
 
-		if (this.table) this.table.replaceWith(table); else this.root.append(table);
-		this.table = table;
 		this.end ??= createDiv({ cls: 'binders-plotgrid-end' });
 		table.after(this.end);
 		this.empty?.remove();
@@ -223,6 +187,88 @@ class PlotGrid implements BinderMode {
 		}
 		this.els.get(this.spot)?.setAttr('tabindex', '0');
 		if (had) this.els.get(this.spot)?.focus({ preventScroll: true });
+	}
+
+	/** Shows a reused row's ticks. */
+	private tick(row: DrawnRow, cols: string[], lines: string[]): void {
+		cols.forEach((name, i) => {
+			const td = row.cells[i + 1]?.[1], on = lines.includes(name);
+			if (!td || td.hasClass('is-on') === on) return;
+			td.toggleClass('is-on', on);
+			td.setAttr('aria-selected', String(on));
+		});
+	}
+
+	private drawHead(table: HTMLTableElement, cols: string[], colors: Record<string, PlotColor>, ro: boolean): void {
+		const head = table.createTHead().insertRow();
+		head.addClass('binders-plotgrid-head');
+		head.setAttr('role', 'row');
+		const cells: [string, HTMLElement][] = [];
+		const corner = head.createEl('th', { cls: 'binders-plotgrid-corner', text: 'Scene', attr: { role: 'columnheader', scope: 'col' } });
+		cells.push(['', corner]);
+		for (const name of cols) {
+			const th = head.createEl('th', { cls: ['binders-plotgrid-col', colorClass(colors[name])], attr: { role: 'columnheader', scope: 'col', 'data-plotline': name } });
+			if (!ro) th.setAttr('aria-haspopup', 'menu');
+			const inner = th.createDiv({ cls: 'binders-plotgrid-col-inner' });
+			inner.createSpan({ cls: 'binders-plotgrid-swatch' });
+			inner.createSpan({ cls: 'binders-plotgrid-col-name', text: name });
+			setTooltip(th, name, { placement: 'top' });
+			cells.push([this.cell(th, HEAD, name), th]);
+		}
+		if (!ro) {
+			const th = head.createEl('th', { cls: 'binders-plotgrid-add', attr: { role: 'columnheader', 'aria-label': 'Add plotline' } });
+			if (cols.length) setTooltip(th, 'Add plotline');
+			setIcon(th.createDiv({ cls: 'binders-plotgrid-add-icon' }), 'plus');
+			if (!cols.length) { th.addClass('mod-wide'); th.createSpan({ cls: 'binders-plotgrid-add-text', text: 'Add plotline' }); }
+			cells.push([this.cell(th, HEAD, ADD), th]);
+		}
+		this.headCells = cells;
+	}
+
+	private drawRow(r: Row, cols: string[], colors: Record<string, PlotColor>, ro: boolean, key: string): DrawnRow {
+		const tr = createEl('tr'), path = r.item.path, cells: [string, HTMLElement][] = [];
+		tr.setAttrs({ role: 'row', 'data-path': path, 'aria-level': String(r.depth + 1) });
+		const th = tr.createEl('th', { attr: { role: 'rowheader', scope: 'row' } });
+		th.setCssProps({ '--binders-plotgrid-depth': String(r.depth) });
+		if (r.item instanceof TFolder) {
+			const open = !this.collapsed.has(path);
+			tr.addClass('binders-plotgrid-group');
+			th.addClass('binders-plotgrid-group-header');
+			th.setAttr('aria-expanded', String(open));
+			const inner = th.createDiv({ cls: 'binders-plotgrid-row-inner' });
+			if (!ro) setIcon(inner.createDiv({ cls: 'binders-plotgrid-grip', attr: { 'aria-hidden': 'true' } }), 'grip-vertical');
+			const chevron = inner.createDiv({ cls: ['binders-plotgrid-chevron', 'collapse-icon'] });
+			chevron.toggleClass('is-collapsed', !open);
+			setIcon(chevron, 'right-triangle');
+			inner.createSpan({ cls: 'binders-plotgrid-group-name', text: r.item.name });
+			cells.push([this.cell(th, path, TITLE), th]);
+			cols.forEach((name, i) => {
+				const td = tr.createEl('td', { cls: ['binders-plotgrid-count', colorClass(colors[name])], attr: { role: 'gridcell', 'data-plotline': name } });
+				if (r.counts?.[i]) td.createSpan({ text: String(r.counts[i]), attr: { 'aria-label': `${r.counts[i]} ${r.counts[i] === 1 ? 'scene' : 'scenes'}` } });
+				cells.push(['', td]);
+			});
+		} else {
+			tr.addClass('binders-plotgrid-row');
+			const inner = th.createDiv({ cls: 'binders-plotgrid-row-inner' });
+			if (!ro) setIcon(inner.createDiv({ cls: 'binders-plotgrid-grip', attr: { 'aria-hidden': 'true' } }), 'grip-vertical');
+			const label = inner.createDiv({ cls: 'binders-plotgrid-label' });
+			label.createSpan({ cls: 'binders-plotgrid-title', text: r.item.basename });
+			if (r.other?.length) {
+				const other = label.createDiv({ cls: 'binders-plotgrid-other', text: `Other: ${r.other.join(', ')}` });
+				setTooltip(other, 'Plotlines this binder has no column for');
+			}
+			cells.push([this.cell(th, path, TITLE), th]);
+			for (const name of cols) {
+				const on = !!r.lines?.includes(name);
+				const td = tr.createEl('td', { cls: ['binders-plotgrid-cell', colorClass(colors[name])], attr: { role: 'gridcell', 'data-plotline': name, 'aria-selected': String(on) } });
+				td.toggleClass('is-on', on);
+				td.createDiv({ cls: 'binders-plotgrid-mark' });
+				if (r.text?.includes(name)) td.createDiv({ cls: 'binders-plotgrid-text-dot', attr: { 'aria-label': 'Has notes' } });
+				cells.push([this.cell(td, path, name), td]);
+			}
+		}
+		if (!ro) cells.push(['', tr.createEl('td', { cls: 'binders-plotgrid-filler', attr: { role: 'gridcell' } })]);
+		return { tr, key, cells };
 	}
 
 	/** Makes an element a focusable grid cell; returns its spot key. */

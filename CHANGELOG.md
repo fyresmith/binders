@@ -3,6 +3,16 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.7.0 (2026-10-01)
+
+### Added
+
+- Screenshots and a fuller guide in the README.
+
+### Changed
+
+- The binder view works on phones and tablets, follows your theme's colors, fonts and corners, can be used from the keyboard and with a screen reader, and stays quick in binders of a thousand notes.
+
 ## 0.6.31 (2026-09-30)
 
 ### Fixed

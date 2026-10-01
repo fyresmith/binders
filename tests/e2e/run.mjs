@@ -63,10 +63,14 @@ process.exit(failed.length ? 1 : 0);
 
 function helpers(p) {
 	const h = {
-		/** Close every pane, put every test note back as it was, delete anything tests created, reset settings. */
+		/** Close every pane, put every test note back as it was, delete anything tests created, reset settings, clear
+		    notices and the saved mobile layout, and focus the main window. */
 		async reset() {
+			await p.focusMain();
 			await p.ev(`(async () => {
 				document.querySelectorAll('.modal-close-button').forEach(b => b.click());
+				// the layout saved in mobile mode, so a test that switches to mobile starts from the same one every time
+				const mobile = app.vault.configDir + '/workspace-mobile.json'; if (await app.vault.adapter.exists(mobile)) await app.vault.adapter.remove(mobile);
 				const leaves = []; app.workspace.iterateRootLeaves(l => { leaves.push(l); }); leaves.forEach(l => l.detach()); // not while iterating
 				await new Promise(r => setTimeout(r, 150));
 				const files = ${JSON.stringify([...pristine])};
@@ -76,9 +80,13 @@ function helpers(p) {
 				}
 				const keep = new Set(files.map(f => f[0]));
 				for (const f of app.vault.getFiles()) if (!keep.has(f.path) && f.extension === 'md') await app.vault.delete(f);
-				const pl = app.plugins.plugins.binders; if (pl) { pl.settings = Object.assign({}, pl.settings, { orderExplorer: true, openOnClick: true }); await pl.saveSettings(); }
+				// every setting back to its default: with no saved data, loadSettings() takes the defaults
+				const pl = app.plugins.plugins.binders; if (pl) { await pl.saveData({}); await pl.loadSettings(); await pl.saveSettings(); pl.binders.refresh(); }
 			})().then(() => 1)`);
 			await p.sleep(250);
+			// notices left by the last test (or by closing its views) could cover what the next one clicks; Obsidian 1.13
+			// may show them in a window of their own, found through a notice of ours
+			await p.ev(`(() => { const probe = new Notice(''), docs = new Set([document, probe.noticeEl.ownerDocument]); probe.hide(); for (const d of docs) d.querySelectorAll('.notice').forEach(n => n.remove()); return 1; })()`);
 		},
 		open: (path) => p.ev(`app.workspace.getLeaf(false).openFile(app.vault.getAbstractFileByPath(${JSON.stringify(path)})).then(() => 1)`).then(() => p.sleep(400)),
 		run: (id) => p.ev(`app.commands.executeCommandById('binders:${id}')`),

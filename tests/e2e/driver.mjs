@@ -65,26 +65,30 @@ export async function launch({ vault = 'test-vault', theme = 'light', width = 14
 	}
 	await sleep(400);
 	await ev(`document.querySelectorAll('.modal-close-button').forEach(b => b.click())`).catch(() => {});
-	// headless, activeWindow points at an about:blank iframe, so Obsidian's hotkeys never fire; redo after an app reload
-	await ev(`(() => { window.activeWindow = window; window.activeDocument = document; return 1; })()`);
+	// headless, activeWindow points at an about:blank iframe (or Obsidian's notice window), so Obsidian's hotkeys never
+	// fire and menus shown without a position open there: focus the main window again (after a reload too)
+	const focusMain = () => ev(`(() => { window.dispatchEvent(new FocusEvent('focus')); window.activeWindow = window; window.activeDocument = document; return 1; })()`);
+	await focusMain();
 
-	const named = { Escape: ['Escape', 27], Enter: ['Enter', 13], Backspace: ['Backspace', 8], Delete: ['Delete', 46], Tab: ['Tab', 9], ArrowDown: ['ArrowDown', 40], ArrowUp: ['ArrowUp', 38], ArrowLeft: ['ArrowLeft', 37], ArrowRight: ['ArrowRight', 39], '/': ['Slash', 191], '.': ['Period', 190], '?': ['Slash', 191], '+': ['Equal', 187], '=': ['Equal', 187], '-': ['Minus', 189] };
+	const named = { Escape: ['Escape', 27], Enter: ['Enter', 13], Backspace: ['Backspace', 8], Delete: ['Delete', 46], Tab: ['Tab', 9], ArrowDown: ['ArrowDown', 40], ArrowUp: ['ArrowUp', 38], ArrowLeft: ['ArrowLeft', 37], ArrowRight: ['ArrowRight', 39], '/': ['Slash', 191], '.': ['Period', 190], '?': ['Slash', 191], '+': ['Equal', 187], '=': ['Equal', 187], '-': ['Minus', 189], ' ': ['Space', 32], Home: ['Home', 36], End: ['End', 35], F2: ['F2', 113], F10: ['F10', 121], ContextMenu: ['ContextMenu', 93] };
 	const mods = { alt: 1, ctrl: 2, meta: 4, shift: 8 };
 	let mx = width / 2, my = height / 2;
 	const mouse = (type, x, y, extra = {}) => send('Input.dispatchMouseEvent', { type, x, y, button: 'left', clickCount: 1, ...extra });
 	const o = {
-		ev, send, sleep, errors, width, height, vaultDir,
+		ev, send, sleep, errors, width, height, vaultDir, focusMain,
 		async move(x, y, steps = 6, extra = {}) { for (let i = 1; i <= steps; i++) await mouse('mouseMoved', mx + (x - mx) * i / steps, my + (y - my) * i / steps, { button: extra.buttons ? 'left' : 'none', ...extra }); mx = x; my = y; },
-		async click(x, y, extra = {}) { await o.move(x, y, 2); await mouse('mousePressed', x, y, extra); await mouse('mouseReleased', x, y, extra); await sleep(60); },
-		async dbl(x, y) { await o.move(x, y, 2); for (let i = 0; i < 2; i++) { await mouse('mousePressed', x, y); await mouse('mouseReleased', x, y); await sleep(60); } await sleep(80); },
-		async right(x, y) { await o.move(x, y, 2); await mouse('mousePressed', x, y, { button: 'right' }); await mouse('mouseReleased', x, y, { button: 'right' }); await sleep(120); },
+		async click(x, y, extra = {}) { await o.focusMain(); await o.move(x, y, 2); await mouse('mousePressed', x, y, extra); await mouse('mouseReleased', x, y, extra); await sleep(60); },
+		/** A real double-click: the second press has clickCount 2, so the page gets a `dblclick`. */
+		async dbl(x, y, modifiers = 0) { await o.move(x, y, 2); for (const clickCount of [1, 2]) { await mouse('mousePressed', x, y, { clickCount, modifiers }); await mouse('mouseReleased', x, y, { clickCount, modifiers }); await sleep(40); } await sleep(150); },
+		async right(x, y) { await o.focusMain(); await o.move(x, y, 2); await mouse('mousePressed', x, y, { button: 'right' }); await mouse('mouseReleased', x, y, { button: 'right' }); await sleep(120); },
 		async drag(x0, y0, x1, y1, steps = 14, extra = {}) { await o.move(x0, y0, 2); await mouse('mousePressed', x0, y0, extra); mx = x0; my = y0; await o.move(x1, y1, steps, { buttons: 1, ...extra }); await mouse('mouseReleased', x1, y1, extra); await sleep(120); },
 		async wheel(x, y, dy, ctrl = false, dx = 0) { await send('Input.dispatchMouseEvent', { type: 'mouseWheel', x, y, deltaX: dx, deltaY: dy, modifiers: ctrl ? 2 : 0 }); },
 		async key(key, ...m) {
 			const modifiers = m.reduce((a, k) => a | mods[k], 0);
 			const code = named[key] ? named[key][0] : /^[a-z]$/i.test(key) ? 'Key' + key.toUpperCase() : /^[0-9]$/.test(key) ? 'Digit' + key : undefined;
 			const vk = named[key] ? named[key][1] : key.length === 1 ? key.toUpperCase().charCodeAt(0) : undefined;
-			const text = key.length === 1 && !(modifiers & 2) && !(modifiers & 4) ? key : undefined;
+			// Enter types a new line, as a real key does (in a textarea or a contenteditable, unless a handler prevents it)
+			const text = !(modifiers & 2) && !(modifiers & 4) ? (key.length === 1 ? key : key === 'Enter' ? '\r' : undefined) : undefined;
 			await send('Input.dispatchKeyEvent', { type: 'keyDown', key, code, windowsVirtualKeyCode: vk, text, modifiers });
 			await send('Input.dispatchKeyEvent', { type: 'keyUp', key, code, windowsVirtualKeyCode: vk, modifiers });
 			await sleep(40);

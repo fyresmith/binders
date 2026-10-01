@@ -9,7 +9,10 @@ import { applySceneOps, conversionPlan, isIgnored, isLongformIndex, longformRunn
 
    Public API (plugin.binders):
 
-     ready: Promise<void>                              resolves once binders have been found at startup
+     ready: Promise<void>                              resolves once binders have been looked for at startup
+     settled: Promise<void>                            resolves once they've been looked for with the metadata cache
+                                                       complete (on a cold start it fills after `ready`), so a folder not
+                                                       found by then isn't in a binder
      on('changed', (binderPath: string) => …)          a binder's items, order or state changed ("" when it's unknown
                                                        which, e.g. a setting changed); unsubscribe with offref()
      all(): Binder[]                                   every binder
@@ -93,6 +96,8 @@ export interface Conversion {
 }
 
 const DEBOUNCE = 300;
+/** The longest a view waits for the metadata cache at startup before saying a folder isn't in a binder, in ms. */
+const SETTLE_MAX = 10000;
 
 class State implements Binder {
 	kind: 'binder' | 'longform';
@@ -126,6 +131,7 @@ interface Item { rel: string; file: TAbstractFile }
 
 export class BinderStore extends Events implements ExplorerSource {
 	ready: Promise<void>;
+	settled: Promise<void>;
 	private states = new Map<TFile, State>();
 	private warned = new Set<string>();
 	/** Subfolders renamed, with their old names, so their folder notes can follow once the renames settle. */
@@ -138,15 +144,36 @@ export class BinderStore extends Events implements ExplorerSource {
 	constructor(private plugin: BindersPlugin) {
 		super();
 		this.app = plugin.app;
-		let done: () => void = () => {};
+		let done: () => void = () => {}, settle: () => void = () => {};
 		this.ready = new Promise((r) => { done = r; });
+		this.settled = new Promise((r) => { settle = r; });
 		const { vault, metadataCache } = this.app;
 		this.app.workspace.onLayoutReady(() => {
 			this.rescan();
-			// the cache may still be filling on a cold start: look again once it's complete
-			let resolved = false;
-			plugin.registerEvent(metadataCache.on('resolved', () => { if (!resolved) { resolved = true; this.rescan(); } }));
-			plugin.registerEvent(metadataCache.on('changed', (f, _d, cache) => this.onMeta(f, isBinderNote(cache.frontmatter), isLongformIndex(cache.frontmatter))));
+			// The cache may still be filling on a cold start: look again once every note that wasn't in it has been read.
+			// ('resolved' alone isn't enough: Obsidian sends it whenever its link queue empties, even between batches.) If
+			// every note is already in it (a warm start, or Binders turned on later), this first look was complete. Never
+			// wait longer than SETTLE_MAX.
+			let waiting: Set<string> | null = new Set(vault.getMarkdownFiles().filter((f) => !metadataCache.getFileCache(f)).map((f) => f.path));
+			const complete = () => {
+				if (!waiting) return;
+				waiting = null;
+				window.clearTimeout(timer);
+				this.rescan();
+				settle();
+			};
+			const check = () => {
+				if (waiting) for (const p of waiting) { const f = vault.getFileByPath(p); if (!f || metadataCache.getFileCache(f)) waiting.delete(p); }
+				if (waiting?.size === 0) complete();
+			};
+			const timer = window.setTimeout(complete, SETTLE_MAX);
+			plugin.register(() => window.clearTimeout(timer));
+			if (!waiting.size) { waiting = null; settle(); }
+			else plugin.registerEvent(metadataCache.on('resolved', check));
+			plugin.registerEvent(metadataCache.on('changed', (f, _d, cache) => {
+				if (waiting?.delete(f.path) && !waiting.size) { complete(); return; }
+				this.onMeta(f, isBinderNote(cache.frontmatter), isLongformIndex(cache.frontmatter));
+			}));
 			plugin.registerEvent(vault.on('rename', (f, old) => this.onRename(f, old)));
 			plugin.registerEvent(vault.on('delete', (f) => this.onDelete(f)));
 			plugin.registerEvent(vault.on('create', (f) => { const s = this.at(f.path); if (s) this.touch(s); }));

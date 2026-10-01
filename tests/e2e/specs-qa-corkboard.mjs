@@ -1,6 +1,6 @@
 // QA: the binder view and the corkboard. Scenarios named "BUG: …" fail until the bug they show is fixed; the others
 // are regressions that pass.
-import { B, NOTE, PL, VIEW, card, cards, clickMenu, closeMenus, contents, dblclick, exists, file, flush, hoverMenu, j, menuItems, openView, read, reload, same, selected, split, texts, until, viewState, withTidy, writeRaw } from './view-helpers.mjs';
+import { B, NOTE, PL, VIEW, card, cards, clickMenu, closeMenus, contents, exists, file, flush, hoverMenu, j, menuItems, openView, read, reload, same, selected, split, texts, until, viewState, withTidy, writeRaw } from './view-helpers.mjs';
 import { mkdirSync } from 'fs';
 
 export const specs = [];
@@ -270,7 +270,7 @@ test('new card: a duplicate title, the folder’s own name, slashes, empty', wit
 	const before = await texts(p);
 	await openView(p, 'The Lighthouse/Part One');
 	const newCard = async (title) => {
-		await p.ev(`document.querySelectorAll('.notice').forEach(n => n.remove())`); // a notice from another test can cover the card
+		await p.ev(`document.querySelectorAll('.notice').forEach(n => n.remove())`); // the last title's notice can cover the card
 		const nc = await p.at(`.workspace-leaf.mod-active .binders-group:last-child .binders-card-new`);
 		await p.click(nc.x, nc.y);
 		await p.type(title);
@@ -495,7 +495,6 @@ test('an empty binder: one New note card, 0 words, a filter menu that says so', 
 	await openView(p, 'Empty');
 	t.eq(await p.ev(`document.querySelectorAll('.workspace-leaf.mod-active .binders-card-new').length`), 1, 'one New note card');
 	t.eq(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-word-count').textContent`), '0 words', '0 words');
-	await p.ev(`document.querySelectorAll('.notice').forEach(n => n.remove())`); // a notice from another test can cover the button
 	const f = await p.at(`.workspace-leaf.mod-active .binders-filter-button`);
 	await p.click(f.x, f.y);
 	t.eq(j(await menuItems(p)), j(['No statuses or labels to filter by']), 'the filter menu');
@@ -714,6 +713,5 @@ test('mobile: a swipe scrolls, a tap selects then edits a synopsis, long press a
 		await p.send('Emulation.setTouchEmulationEnabled', { enabled: false });
 		await p.send('Emulation.setDeviceMetricsOverride', { width: p.width, height: p.height, deviceScaleFactor: 1, mobile: false });
 		await reload(p, false);
-		await p.ev(`(async () => { const f = app.vault.configDir + '/workspace-mobile.json'; if (await app.vault.adapter.exists(f)) await app.vault.adapter.remove(f); })().then(() => 1)`);
 	}
 }));

@@ -8,7 +8,7 @@ a fallback, and has an e2e test. Keep this list current.
 | File explorer view's `getSortedFolderItems(folder)`, patched on its prototype with `monkey-around` | `src/explorer.ts` | Binder order, and hiding binder and folder notes | Obsidian's own order and all notes shown, with a one-time notice | `specs-explorer.mjs` |
 | File explorer view's `fileItems` (path → item with `file`, `selfEl`, `innerEl`) | `src/explorer.ts` | Putting the binder icon on binder folders | No icon (only used when the patch is possible) | `specs-explorer.mjs` |
 | File explorer view's `requestSort()` (or `sort()`) | `src/explorer.ts` | Re-sorting after a binder changes, a setting changes, and on unload | Obsidian re-sorts on its next file change | `specs-explorer.mjs` |
-| Explorer DOM: `.workspace-leaf-content[data-type="file-explorer"] .nav-folder-title[data-path]`, `.collapse-icon` | `src/explorer.ts` | Click (or tap) to open a binder | Clicking only expands the folder, as usual | `specs-explorer.mjs` |
+| Explorer DOM: `.workspace-leaf-content[data-type="file-explorer"] .nav-folder-title[data-path]`, `.collapse-icon` | `src/explorer.ts` | Click (or tap) to open a binder; Mod-click or middle-click for a new tab | Clicking only expands the folder, as usual | `specs-explorer.mjs` |
 | A menu item's `setSubmenu()` (returns the submenu, a `Menu`) | `src/view/internals.ts` | "Set status" and "Set label" on the corkboard | The item opens the submenu as a menu of its own | `specs-corkboard.mjs` |
 | An `ItemView`'s `titleEl`, and `leaf.updateHeader()` | `src/view/internals.ts` | The header and tab titles when a binder view changes folder, or its folder is renamed | The titles catch up when the view is next opened | `specs-view.mjs` |
 | `app.embedRegistry.embedByExtension.md(ctx, file, '')`: the editable Markdown embed Canvas and hover popovers use | `src/view/editable-embed.ts` | One live editor per manuscript section | The whole manuscript read only (rendered with the public `MarkdownRenderer`), with a notice; clicking a section opens its note | `specs-manuscript.mjs` (the fallback test removes it) |
@@ -16,6 +16,7 @@ a fallback, and has an e2e test. Keep this list current.
 | The embed's `editMode`: `get()`, `sourceMode`, `toggleSource()`, `saveHistory()`, `cm` (the CodeMirror `EditorView`) | `src/view/editable-embed.ts` | Reading typing, keeping live preview, undo across remounts, moving the caret between sections | Without `cm`, arrow keys stop at a section's edge (no crossing) | `specs-manuscript.mjs` |
 | `workspace.unsetActiveEditor(editor)` | `src/view/editable-embed.ts` | Mounting a section doesn't make it the active editor | Required by `embedSupported()` | `specs-manuscript.mjs` |
 | `workspace.onQuickPreview(file, text)` | `src/view/editable-embed.ts` | After merging an outside edit into unsaved typing, other views of the note get the merged text | Skipped if missing (other views then show the outside version until the save lands, as in Obsidian) | `specs-manuscript.mjs` (same note in a tab) |
+| `vault.getConfig('readableLineLength')`, and `vault.on('config-changed')` for changes | `src/view/internals.ts` (`readableLineLength`), `src/view/BinderView.ts` | The manuscript's page follows the editor's "Readable line length" | Readable width, as by default | `specs-themes.mjs` |
 | `vault.on('config-changed')` | `src/view/manuscript.ts` | Keeping sections in live preview when the vault's editing mode changes | Also checked on `css-change` | `specs-manuscript.mjs` |
 | `app.plugins.plugins.longform` (loaded plugins by id) | `src/longform.ts` (`longformRunning`) | Leaving rename and delete tracking in Longform projects to Longform while it runs, so the index note isn't written twice | Treated as not running: Binders writes renames and deletes itself (the same change Longform would make) | `specs-longform.mjs` (a stand-in plugin) |
 
@@ -33,9 +34,11 @@ a fallback, and has an e2e test. Keep this list current.
 - `requestSort` is a debounced own property of the view; `sort()` only runs while the explorer is shown and otherwise
   waits until it is.
 - Clicking a folder title runs the view's `onFileClick` → item `onSelfClick` → `toggleCollapsed`. Clicking the chevron
-  runs `onCollapseClick`, which calls `preventDefault()`. Binders listens for `click` on the document after these, never
-  prevents anything, and skips clicks that were prevented or on the chevron, so expanding and selecting work as before. A
-  touch tap on mobile arrives as the same `click`.
+  runs `onCollapseClick`, which calls `preventDefault()`. Binders listens for `click` (and `auxclick`, for the middle
+  button) on the document after these, never prevents anything, and skips clicks that were prevented or on the chevron,
+  so expanding and selecting work as before. Alt-click and Shift-click select in the explorer, so Binders ignores them;
+  Mod-click doesn't select there, so it opens the binder in a new tab, as it opens a note. A touch tap on mobile arrives
+  as the same `click`.
 - Leaves that aren't loaded yet (`leaf.isDeferred`, 1.7.2+) are skipped; Binders patches once a loaded explorer
   appears (`layout-change`).
 - Obsidian 1.13 shows notices in a window of their own, so tests find them through a notice's `noticeEl.ownerDocument`.
@@ -73,6 +76,7 @@ touches it; `mountEditor()` builds one embed and patches that instance only:
   before. This is public API.
 - Obsidian's own hotkey Mod-Enter ("Open link in new tab") runs, and swallows the key, whenever an editor was active
   last, even while a binder view has the focus. The view claims Mod-Enter in its own `scope` while a synopsis is being
-  typed.
+  typed. Likewise F2 is Obsidian's "Rename file": the view's `scope` claims it and passes it on to the focused card or
+  plotline, which it renames.
 - In the e2e harness, `activeDocument` can be another of Obsidian's windows, so menus opened without a position open
-  there; the view specs focus the main window first.
+  there; the harness focuses the main window before each test, click and right-click.

@@ -36,8 +36,13 @@ npm run e2e -- --specs tests/e2e/specs-corkboard.mjs
 It expects Obsidian at `/usr/lib/electron43/electron` with `/usr/lib/obsidian/app.asar`; set `OBSIDIAN_ELECTRON` and
 `OBSIDIAN_ASAR` otherwise. Failure screenshots go to `test-dist/e2e-failures`.
 
-Each spec file exports `specs`, a list of `{ name, fn(p, h, t) }`: `p` drives Obsidian (`p.ev`, `p.click`, `p.key`,
-`p.drag`, `p.at`, `p.shot`…), `h` has helpers (`h.open`, `h.run`), `t` asserts (`t.ok`, `t.eq`).
+Each spec file exports `specs`, a list of `{ name, fn(p, h, t) }`: `p` drives Obsidian (`p.ev`, `p.click`, `p.dbl`,
+`p.key`, `p.drag`, `p.at`, `p.shot`…), `h` has helpers (`h.open`, `h.run`), `t` asserts (`t.ok`, `t.eq`). Input is
+real: `p.dbl` is a double-click the page sees as one, and `p.key('Enter')` types a new line where a real key would.
+
+Before each test the runner closes every tab, restores the test notes, deletes what tests made, puts every setting back
+to its default, removes the saved mobile layout, clears notices and focuses the main window, so tests don't depend on
+their order.
 
 ## Versions and commits
 

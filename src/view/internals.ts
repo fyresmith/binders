@@ -1,4 +1,4 @@
-import { Menu, type ItemView, type MenuItem, type WorkspaceLeaf } from 'obsidian';
+import { Menu, type App, type ItemView, type MenuItem, type WorkspaceLeaf } from 'obsidian';
 
 /* Obsidian internals the binder view uses, each feature-detected with a fallback (see docs/internals.md).
 
@@ -33,4 +33,12 @@ export function refreshHeader(view: ItemView): void {
 		if (title instanceof HTMLElement) title.setText(view.getDisplayText());
 		if (typeof leaf.updateHeader === 'function') leaf.updateHeader();
 	} catch { /* keep the old titles */ }
+}
+
+/* The "Readable line length" setting (Editor settings), which Obsidian's views follow and the manuscript should too. It
+   isn't in the API: the vault's undocumented `getConfig()` reads it, as Obsidian's own views do. Without it, the line
+   width is readable (the default). Changes arrive with the vault's undocumented 'config-changed' event. */
+export function readableLineLength(app: App): boolean {
+	const get = (app.vault as { getConfig?: (key: string) => unknown }).getConfig;
+	try { return typeof get !== 'function' || get.call(app.vault, 'readableLineLength') !== false; } catch { return true; }
 }
