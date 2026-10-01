@@ -71,15 +71,16 @@ test('a 1,000-scene binder: every mode opens, and interactions stay quick', with
 	})()`);
 	out.reorderWrite = await timed(p, `${B}.flush()`);
 
-	// ---- plot grid ----
-	out.plotgridOpen = await timed(p, `Promise.resolve(${VIEW}.setMode('plotgrid'))`);
-	// a click on a cell, until it's painted
-	out.plotgridToggle = await timed(p, `(async () => { document.querySelectorAll('.workspace-leaf.mod-active .binders-plotgrid-cell')[40].click(); })()`);
-	const cell = await p.at(`.workspace-leaf.mod-active .binders-plotgrid-cell`);
-	await p.click(cell.x, cell.y);
+	// ---- outliner ----
+	out.outlinerOpen = await timed(p, `Promise.resolve(${VIEW}.setMode('outliner'))`);
+	out.outlinerRows = await p.ev(`document.querySelectorAll('.workspace-leaf.mod-active .binders-outliner-row').length`);
+	// folding a folder of 50 rows, until it's painted
+	out.outlinerFold = await timed(p, `(async () => { document.querySelector('.workspace-leaf.mod-active .binders-outliner-row.is-folder .binders-outliner-chevron').click(); })()`);
+	const row = await p.at(`.workspace-leaf.mod-active .binders-outliner-row:nth-child(3) .binders-outliner-name`);
+	await p.click(row.x, row.y);
 	await record(p);
-	for (const k of ['ArrowDown', 'ArrowRight', 'ArrowDown', 'Enter']) await p.key(k);
-	out.plotgridKeys = await recorded(p);
+	for (const k of ['ArrowDown', 'ArrowDown', 'ArrowRight', 'ArrowDown', 'ArrowUp']) await p.key(k);
+	out.outlinerKeys = await recorded(p);
 
 	// ---- manuscript ----
 	out.manuscriptOpen = await timed(p, `Promise.resolve(${VIEW}.setMode('manuscript'))`);
@@ -102,11 +103,12 @@ test('a 1,000-scene binder: every mode opens, and interactions stay quick', with
 
 	console.log('    perf ' + j(out));
 	t.ok(out.corkboardCards >= PARTS * PER, `every card drawn (${out.corkboardCards})`);
-	for (const k of ['corkboardOpen', 'plotgridOpen', 'manuscriptOpen', 'explorerExpandBinder', 'explorerExpandPart']) t.ok(out[k] < LIMIT.open, `${k}: ${out[k]} ms (limit ${LIMIT.open})`);
+	t.ok(out.outlinerRows >= PARTS * PER, `every row drawn (${out.outlinerRows})`);
+	for (const k of ['corkboardOpen', 'outlinerOpen', 'manuscriptOpen', 'explorerExpandBinder', 'explorerExpandPart']) t.ok(out[k] < LIMIT.open, `${k}: ${out[k]} ms (limit ${LIMIT.open})`);
 	t.ok(out.corkboardReorder < LIMIT.interaction, `a reorder shows in ${out.corkboardReorder} ms (limit ${LIMIT.interaction})`);
-	t.ok(out.plotgridToggle < LIMIT.interaction, `a plot grid click shows in ${out.plotgridToggle} ms (limit ${LIMIT.interaction})`);
+	t.ok(out.outlinerFold < LIMIT.interaction, `folding a folder in the outliner shows in ${out.outlinerFold} ms (limit ${LIMIT.interaction})`);
 	t.ok(out.reorderWrite < LIMIT.write, `its write takes ${out.reorderWrite} ms (limit ${LIMIT.write})`);
-	for (const k of ['corkboardKeys', 'plotgridKeys']) t.ok(out[k].slowestEvent < LIMIT.interaction, `${k}: slowest event ${out[k].slowestEvent} ms (limit ${LIMIT.interaction})`);
+	for (const k of ['corkboardKeys', 'outlinerKeys']) t.ok(out[k].slowestEvent < LIMIT.interaction, `${k}: slowest event ${out[k].slowestEvent} ms (limit ${LIMIT.interaction})`);
 	t.ok(out.manuscriptTyping.slowestEvent < LIMIT.keystroke, `typing: slowest keystroke ${out.manuscriptTyping.slowestEvent} ms (limit ${LIMIT.keystroke})`);
 	t.ok(out.manuscriptTyping.longest < LIMIT.interaction, `typing: longest task ${out.manuscriptTyping.longest} ms (limit ${LIMIT.interaction})`);
 }));

@@ -1,25 +1,30 @@
-import { ItemView, Keymap, Menu, Scope, type Events, TFile, TFolder, setIcon, type PaneType, type TAbstractFile, type ViewStateResult, type WorkspaceLeaf } from 'obsidian';
+import { ItemView, Keymap, Menu, Notice, Scope, type Events, TFile, TFolder, setIcon, type PaneType, type TAbstractFile, type ViewStateResult, type WorkspaceLeaf } from 'obsidian';
 import type { Binder } from '../binders';
+import { CompileModal } from '../scenes';
 import type BindersPlugin from '../main';
 import { commitAll, commitFocused, editable, type Editable } from './edit';
-import { readableLineLength, refreshHeader } from './internals';
-import { display, labelDot } from './labels';
+import { readableLineLength, refreshHeader, selectMenuItem } from './internals';
+import { canonical, labelDot, labelName, rank, readLabel } from './labels';
+import { ask } from './modals';
+import { parseTarget, readTarget } from './outliner-data';
 import type { BinderMode, ModeContext, ModeFactory, SceneProps } from './mode';
 import { WordCounter, wordsLabel } from './words';
 
-/* The binder view: one folder of a binder, shown as a corkboard, a plot grid or a manuscript. The view owns the toolbar
+/* The binder view: one folder of a binder, shown as a corkboard, an outliner or a manuscript. The view owns the toolbar
    (breadcrumb, word count, filter, mode), the folder's synopsis and the subscriptions; the mode draws the rest (mode.ts).
    Its state (folder, mode, filter, the modes' options) lives in the workspace, so it comes back after a reload. */
 
 export const VIEW_TYPE = 'binders-view';
 
-export type ModeName = 'corkboard' | 'plotgrid' | 'manuscript';
+export type ModeName = 'corkboard' | 'outliner' | 'manuscript';
 export const MODES: readonly { id: ModeName; name: string; icon: string }[] = [
 	{ id: 'corkboard', name: 'Corkboard', icon: 'layout-grid' },
-	{ id: 'plotgrid', name: 'Plot grid', icon: 'table' },
+	{ id: 'outliner', name: 'Outliner', icon: 'list-tree' },
 	{ id: 'manuscript', name: 'Manuscript', icon: 'scroll-text' },
 ];
 const isMode = (m: unknown): m is ModeName => MODES.some((x) => x.id === m);
+/** A mode as saved: the plot grid of earlier versions is the outliner now. */
+const readMode = (m: unknown): ModeName | null => (m === 'plotgrid' ? 'outliner' : isMode(m) ? m : null);
 
 interface Filter { status: string[]; label: string[] }
 interface BinderViewState { folder?: string; mode?: ModeName; filter?: Filter; options?: Record<string, unknown> }
@@ -68,7 +73,7 @@ export class BinderView extends ItemView {
 	private found = false;
 	private synopsis: Editable | null = null;
 	private relaying = false;
-	private ui: { crumbs: HTMLElement; count: HTMLElement; filter: HTMLElement; modeBtn: HTMLElement; notice: HTMLElement; synopsis: HTMLElement; body: HTMLElement } | null = null;
+	private ui: { crumbs: HTMLElement; progress: HTMLElement; count: HTMLElement; filter: HTMLElement; add: HTMLElement; modeBtn: HTMLElement; notice: HTMLElement; synopsis: HTMLElement; body: HTMLElement } | null = null;
 
 	constructor(leaf: WorkspaceLeaf, private plugin: BindersPlugin) {
 		super(leaf);
@@ -77,11 +82,25 @@ export class BinderView extends ItemView {
 		// editor was active last.
 		this.scope = new Scope(this.app.scope);
 		this.scope.register(['Mod'], 'Enter', () => !commitFocused());
-		// F2 renames the focused card or plotline, as it renames the focused item in the file explorer. Obsidian's own F2
+		// F2 renames the focused card or row, as it renames the focused item in the file explorer. Obsidian's own F2
 		// ("Rename file") would otherwise take it before the view sees it: pass it on to what has the focus.
+		// Mod+Z takes back the last move (a drop, Move up) when it isn't for text being typed; Mod+Shift+Z (or Mod+Y)
+		// makes it again. Anywhere text is edited, undo stays the text's own.
+		const undo = (redo: boolean) => () => {
+			const el = this.contentEl.doc.activeElement;
+			if (!this.folder || (el?.instanceOf(HTMLElement) && (el.isContentEditable || el.matches('input, textarea, .cm-content')))) return true;
+			if (!this.plugin.binders.undoable(this.folder, redo)) return true;
+			void this.plugin.undoMove(this.folder, redo);
+			return false;
+		};
+		this.scope.register(['Mod'], 'z', undo(false));
+		this.scope.register(['Mod', 'Shift'], 'z', undo(true));
+		this.scope.register(['Mod'], 'y', undo(true));
 		this.scope.register([], 'F2', () => {
 			const el = this.contentEl.doc.activeElement;
-			if (this.relaying || !el?.instanceOf(HTMLElement) || !this.contentEl.contains(el) || el.matches('input, textarea, [contenteditable="true"], .cm-content')) return true;
+			// (in the manuscript, F2 in a section's text renames that section, as F2 in a note renames the note)
+			const section = !!el?.instanceOf(HTMLElement) && el.matches('.cm-content') && !!el.closest('.binders-manuscript-scene');
+			if (this.relaying || !el?.instanceOf(HTMLElement) || !this.contentEl.contains(el) || (!section && el.matches('input, textarea, [contenteditable="true"], [contenteditable="plaintext-only"], .cm-content'))) return true;
 			this.relaying = true;
 			try { el.dispatchEvent(new KeyboardEvent('keydown', { key: 'F2', code: 'F2', bubbles: true, cancelable: true })); } finally { this.relaying = false; }
 			return false;
@@ -96,15 +115,26 @@ export class BinderView extends ItemView {
 	get readOnly(): boolean { return !!this.binder?.problem; }
 
 	getState(): Record<string, unknown> {
+		this.remember();
 		return { ...super.getState(), folder: this.folder?.path ?? this.path, mode: this.mode, filter: this.filter, options: this.options };
 	}
+
+	/** How this view is set up now is what the binder's next view starts from (see openBinder). */
+	private remember(): void {
+		if (this.binder) this.plugin.lastView.set(this.binder.note.path, { mode: this.mode, filter: this.filter, options: this.options });
+	}
+
+	/** Puts the keyboard in the mode (on what it was on, or at its start). */
+	focusMode(): void { this.current?.focus?.(); }
 
 	async setState(state: unknown, result: ViewStateResult): Promise<void> {
 		const s = (state ?? {}) as BinderViewState;
 		// another folder is a step in the tab's history, so Back returns to this one
 		if (typeof s.folder === 'string' && s.folder !== this.path) { if (this.path) result.history = true; this.path = s.folder; }
-		if (isMode(s.mode)) this.mode = s.mode;
-		if (s.filter && typeof s.filter === 'object') this.filter = { status: strings(s.filter.status), label: strings(s.filter.label) };
+		this.mode = readMode(s.mode) ?? this.mode;
+		// (as settings spell them: a filter saved as "draft" still means Draft)
+		const st = this.plugin.settings;
+		if (s.filter && typeof s.filter === 'object') this.filter = { status: strings(s.filter.status).map((x) => canonical(x, st.statuses)), label: strings(s.filter.label).map((x) => canonical(x, st.labels.map((l) => l.name))) };
 		if (s.options && typeof s.options === 'object') this.options = { ...s.options };
 		await super.setState(state, result);
 		this.rebuild();
@@ -116,10 +146,35 @@ export class BinderView extends ItemView {
 		});
 	}
 
+	/** What the mode was on when it was opened: only a move from there is carried to the next mode. */
+	private enteredOn: TAbstractFile | null = null;
+
+	/** The view was asked to take the focus (Obsidian's `focus` in the state it opens a view with). */
+	private wantFocus = false;
+
 	setEphemeralState(state: unknown): void {
-		const r = (state as { reveal?: unknown } | null)?.reveal;
-		if (typeof r === 'string') { this.reveal = r; this.applyReveal(); }
+		const s = (state ?? {}) as { reveal?: unknown; place?: unknown; places?: unknown; focus?: unknown };
+		if (typeof s.reveal === 'string') { this.reveal = s.reveal; this.applyReveal(); }
+		// Back to this view: where it was scrolled to, and what was selected; and where its other modes were left
+		if (Array.isArray(s.places)) for (const e of s.places as unknown[]) if (Array.isArray(e) && typeof e[0] === 'string' && !this.places.has(e[0])) this.places.set(e[0], e[1]);
+		if (s.place !== undefined) this.restorePlace(s.place);
+		// (the keyboard last, so it goes where the place says it was)
+		if (s.focus === true) { if (this.current) this.current.focus?.(); else this.wantFocus = true; }
 		super.setEphemeralState(state);
+	}
+
+	getEphemeralState(): Record<string, unknown> {
+		this.keepPlace();
+		return { ...super.getEphemeralState(), place: this.placeNow(), places: [...this.places] };
+	}
+
+	/** Where each mode was left, by folder, so a look at another mode (or folder) comes back to the same place. */
+	private places = new Map<string, unknown>();
+	private placeKey(): string { return `${this.mode}\n${this.folder?.path ?? this.path}`; }
+	private placeNow(): unknown { return this.current?.place ? { key: this.placeKey(), at: this.current.place() } : undefined; }
+	private restorePlace(place: unknown): void {
+		const p = place as { key?: unknown; at?: unknown } | null;
+		if (p && p.key === this.placeKey() && this.current?.restore) this.current.restore(p.at);
 	}
 
 	async onOpen(): Promise<void> {
@@ -150,6 +205,7 @@ export class BinderView extends ItemView {
 
 	async onClose(): Promise<void> {
 		await commitAll(this.contentEl);
+		this.places.clear();
 		window.clearTimeout(this.timer);
 		this.current?.unload();
 		this.current = null;
@@ -157,10 +213,13 @@ export class BinderView extends ItemView {
 
 	onPaneMenu(menu: Menu, source: string): void {
 		if (source === 'more-options' && this.folder) {
-			for (const m of MODES) menu.addItem((i) => i.setSection('view').setTitle(m.name).setIcon(m.icon).setChecked(this.mode === m.id).onClick(() => this.setMode(m.id)));
+			// the modes, then how this one shows (a section each), then the note behind the folder
+			for (const m of MODES) menu.addItem((i) => i.setSection('binders-mode').setTitle(m.name).setIcon(m.icon).setChecked(this.mode === m.id).onClick(() => this.setMode(m.id)));
 			this.current?.menu?.(menu);
-			const note = this.store.folderNote(this.folder);
-			if (note) menu.addItem((i) => i.setSection('open').setTitle('Open folder note').setIcon('file-text').onClick((e) => void this.app.workspace.getLeaf(Keymap.isModEvent(e)).openFile(note)));
+			const note = this.store.folderNote(this.folder), binder = this.store.binderOf(this.folder)?.folder === this.folder;
+			const folder = this.folder;
+			menu.addItem((i) => i.setSection('binders-note').setTitle('Compile...').setIcon('book-check').onClick(() => new CompileModal(this.plugin, folder).open()));
+			if (note) menu.addItem((i) => i.setSection('binders-note').setTitle(binder ? 'Open binder note' : 'Open folder note').setIcon('file-text').onClick((e) => void this.app.workspace.getLeaf(Keymap.isModEvent(e)).openFile(note)));
 		}
 		super.onPaneMenu(menu, source);
 	}
@@ -168,14 +227,27 @@ export class BinderView extends ItemView {
 	/** Switches the view to another mode (the "Show corkboard" commands, the mode menu). */
 	setMode(mode: ModeName): void {
 		if (mode === this.mode) return;
+		this.keepPlace();
+		// the card, row or section the writer went to in this mode is the one the next mode opens on (if they went
+		// nowhere, the next mode opens where it was left)
+		const now = this.current?.current?.() ?? null, on = now && now !== this.enteredOn ? now : null;
 		this.mode = mode;
+		this.remember();
 		this.rebuild();
+		if (on && this.app.vault.getAbstractFileByPath(on.path) === on) this.current?.reveal?.(on);
 		this.app.workspace.requestSaveLayout();
+		// the keyboard carries on in the new mode: where it was before, or at its start
+		if (this.app.workspace.getActiveViewOfType(BinderView) === this) this.current?.focus?.();
+		// (where the mode starts, the keyboard put there included, isn't somewhere the writer went)
+		this.enteredOn = this.current?.current?.() ?? null;
 	}
+
+	private keepPlace(): void { if (this.current?.place && this.folder) this.places.set(this.placeKey(), this.current.place()); }
 
 	/** Shows another folder, recorded in the tab's history so Back returns. */
 	async navigate(folder: TFolder, newLeaf?: boolean | PaneType): Promise<void> {
 		if (newLeaf) { await this.plugin.openBinder(folder, newLeaf); return; }
+		this.keepPlace();
 		await this.leaf.setViewState({ type: VIEW_TYPE, state: { ...this.getState(), folder: folder.path }, active: true });
 	}
 
@@ -200,7 +272,7 @@ export class BinderView extends ItemView {
 	}
 
 	/** What the whole view depends on: when it changes, the mode is made again. */
-	private key(): string { return JSON.stringify([this.folder?.path, this.binder?.note.path, this.binder?.problem, this.mode]); }
+	private key(): string { return JSON.stringify([this.folder?.path, this.binder?.note.path, this.binder?.kind, this.binder?.problem, this.mode]); }
 
 	private rebuild(): void {
 		void commitAll(this.contentEl);
@@ -209,6 +281,8 @@ export class BinderView extends ItemView {
 		this.synopsis = null;
 		this.resolve();
 		this.identity = this.key();
+		// (the file explorer marks the folder shown, as it marks the open note)
+		this.plugin.explorer?.active();
 		const el = this.contentEl;
 		el.empty();
 		this.ui = null;
@@ -225,29 +299,48 @@ export class BinderView extends ItemView {
 			box.createDiv({ cls: 'binders-empty-text', text: this.path ? `“${this.path}” was moved or deleted, or is no longer part of a binder.` : 'Open a binder from the file explorer.' });
 			return;
 		}
+		// laid out as a base's toolbar is: the view on the left, then where it is and what it holds, then its actions
 		const bar = el.createDiv({ cls: 'binders-toolbar' });
+		const modeBtn = this.button(bar, 'layout-grid', 'Corkboard', 'binders-mode-button', (e) => this.modeMenu(e));
+		setIcon(modeBtn.createSpan({ cls: 'text-button-icon mod-aux' }), 'chevrons-up-down');
 		const crumbs = bar.createEl('nav', { cls: 'binders-breadcrumbs', attr: { 'aria-label': 'Folders' } });
 		bar.createDiv({ cls: 'binders-toolbar-spacer' });
-		const count = bar.createDiv({ cls: 'binders-word-count' });
-		const filter = this.button(bar, 'filter', 'Filter', 'binders-filter-button', (e) => this.filterMenu(e));
-		const modeBtn = this.button(bar, 'layout-grid', 'Corkboard', 'binders-mode-button', (e) => this.modeMenu(e));
-		for (const b of [filter, modeBtn]) b.setAttr('aria-haspopup', 'menu');
-		setIcon(modeBtn.createDiv({ cls: 'text-button-icon mod-aux' }), 'chevron-down');
+		const progress = bar.createDiv({ cls: 'binders-progress is-hidden', attr: { role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': '100' } });
+		progress.createDiv({ cls: 'binders-progress-bar' });
+		// (a click on the count sets the target of the folder shown: the binder's own, on the binder)
+		const count = bar.createDiv({ cls: 'binders-word-count', attr: { role: 'button', tabindex: '0' } });
+		count.addEventListener('click', () => void this.setTarget());
+		count.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); void this.setTarget(); } });
+		const filter = this.button(bar, 'list-filter', 'Filter', 'binders-filter-button', (e) => this.filterMenu(e));
+		const add = this.button(bar, 'plus', 'New', 'binders-new-button', (e) => this.newMenu(e));
+		for (const b of [filter, modeBtn, add]) b.setAttr('aria-haspopup', 'menu');
 		const notice = el.createDiv({ cls: 'binders-notice' });
 		const synopsis = el.createDiv({ cls: 'binders-view-synopsis-row' });
 		const body = el.createDiv({ cls: `binders-mode binders-mode-${this.mode}` });
-		this.ui = { crumbs, count, filter, modeBtn, notice, synopsis, body };
+		this.ui = { crumbs, progress, count, filter, add, modeBtn, notice, synopsis, body };
 		this.drawToolbar();
 		const factory = this.plugin.modeFactories[this.mode] ?? comingSoon(MODES.find((m) => m.id === this.mode)?.name ?? 'This view');
 		this.current = factory(body, this.context());
 		this.current.render();
+		if (this.current.adopt) { synopsis.addClass('is-adopted'); this.current.adopt(synopsis); }
 		filter.toggleClass('is-hidden', !this.current.filters);
+		add.toggleClass('is-hidden', !this.current.newMenu || this.readOnly);
+		// (again, now that there's a mode: what the count says depends on whether the mode filters)
+		this.drawToolbar();
+		// (last, with everything above the page's text drawn: the place is measured from the top)
+		const was = this.places.get(this.placeKey());
+		if (was !== undefined) this.current.restore?.(was);
 		this.applyReveal();
+		// the keyboard is in the view it's looking at: after going into a folder, up by the breadcrumb, or Back
+		if (this.wantFocus || (this.app.workspace.getActiveViewOfType(BinderView) === this && this.contentEl.doc.activeElement === this.contentEl.doc.body)) this.current.focus?.();
+		this.wantFocus = false;
+		this.enteredOn = this.current.current?.() ?? null;
 	}
 
 	private refresh(): void {
 		this.resolve();
-		if (this.key() !== this.identity) { this.rebuild(); return; }
+		// (made again, where it was: the same folder may have become another kind of binder, or read only)
+		if (this.key() !== this.identity) { this.keepPlace(); this.rebuild(); return; }
 		if (!this.folder) return;
 		this.drawToolbar();
 		this.current?.refresh();
@@ -269,6 +362,7 @@ export class BinderView extends ItemView {
 		ui.crumbs.empty();
 		const chain: TFolder[] = [];
 		for (let f: TFolder | null = folder; f; f = f === binder.folder ? null : f.parent) chain.unshift(f);
+		ui.crumbs.toggleClass('is-root', chain.length < 2);
 		chain.forEach((f, i) => {
 			if (i) setIcon(ui.crumbs.createSpan({ cls: 'binders-crumb-sep', attr: { 'aria-hidden': 'true' } }), 'chevron-right');
 			const last = i === chain.length - 1;
@@ -280,13 +374,24 @@ export class BinderView extends ItemView {
 			c.addEventListener('keydown', (e) => { if (e.key === 'Enter') void this.navigate(f, Keymap.isModEvent(e)); });
 		});
 		// word count, with the binder's target on the binder itself
-		const n = this.words.sum(this.store.scenes(folder));
-		const target = Number(this.app.metadataCache.getFileCache(binder.note)?.frontmatter?.target);
+		const all = this.store.scenes(folder), n = this.words.sum(all);
+		// with a filter on, the words of the notes that pass, out of all of them
+		const filtering = this.filter.status.length + this.filter.label.length > 0 && !!this.current?.filters, shown = filtering ? this.words.sum(all.filter((f) => this.visible(f))) : null;
+		// with the target of the folder shown: the binder's own, or a subfolder's from its folder note
+		const note = this.store.folderNote(folder), goal = note ? this.props(note).target : 0;
+		const whose = folder === binder.folder ? 'the binder’s' : 'this folder’s';
+		ui.count.toggleClass('is-clickable', !this.readOnly);
 		if (n != null) {
-			const goal = folder === binder.folder && target > 0 ? target : 0;
-			ui.count.setText(goal ? `${n.toLocaleString()} / ${wordsLabel(goal)}` : wordsLabel(n));
-			ui.count.setAttr('aria-label', goal ? `${Math.floor((n / goal) * 100)}% of the binder’s target` : 'Words in this folder');
+			ui.count.setText(shown != null ? `${shown.toLocaleString()} of ${wordsLabel(n)}` : goal ? `${n.toLocaleString()} / ${wordsLabel(goal)}` : wordsLabel(n));
+			const what = shown != null ? 'Words in the notes that pass the filter' : goal ? `${Math.floor((n / goal) * 100)}% of ${whose} target` : 'Words in this folder';
+			ui.count.setAttr('aria-label', this.readOnly ? what : `${what}. ${goal ? 'Change' : 'Set'} ${whose} target`);
 			ui.count.toggleClass('is-complete', !!goal && n >= goal);
+			// and how far along that is, as a bar
+			const pct = goal ? Math.min(100, Math.floor((n / goal) * 100)) : 0;
+			ui.progress.toggleClass('is-hidden', !goal);
+			ui.progress.toggleClass('is-complete', !!goal && n >= goal);
+			ui.progress.setAttrs({ 'aria-valuenow': String(pct), 'aria-label': 'Progress to the target' });
+			ui.progress.querySelector<HTMLElement>('.binders-progress-bar')?.setCssStyles({ width: `${pct}%` });
 		}
 		// the filter, when on, says how many values it keeps; only for modes that filter
 		ui.filter.toggleClass('is-hidden', !this.current?.filters);
@@ -326,7 +431,8 @@ export class BinderView extends ItemView {
 		if (!this.reveal || !this.current) return;
 		const f = this.app.vault.getAbstractFileByPath(this.reveal);
 		this.reveal = null;
-		if (f) this.current.reveal?.(f);
+		if (f) this.current.reveal?.(f, this.fresh);
+		this.fresh = false;
 	}
 
 	// ---- menus ----
@@ -337,7 +443,14 @@ export class BinderView extends ItemView {
 		this.showBelow(menu, e);
 	}
 
-	private filterMenu(e: MouseEvent): void {
+	private newMenu(e: MouseEvent): void {
+		const menu = new Menu();
+		this.current?.newMenu?.(menu);
+		this.showBelow(menu, e);
+	}
+
+	private filterMenu(e?: MouseEvent, where?: { x: number; y: number; width: number }, picked?: string): void {
+		const r = this.ui?.filter.getBoundingClientRect(), at = where ?? (r ? { x: r.left, y: r.bottom + 4, width: r.width } : undefined);
 		const scenes = this.folder ? this.store.scenes(this.folder) : [];
 		const statuses = new Set<string>(), labels = new Set<string>();
 		let noStatus = false, noLabel = false;
@@ -346,10 +459,19 @@ export class BinderView extends ItemView {
 			if (p.status) statuses.add(p.status); else noStatus = true;
 			if (p.label) labels.add(p.label); else noLabel = true;
 		}
+		// what's being filtered by is always listed, though no note has it any more: else it couldn't be taken off
+		for (const v of this.filter.status) { if (v) statuses.add(v); else noStatus = true; }
+		for (const v of this.filter.label) { if (v) labels.add(v); else noLabel = true; }
+		// in the order settings list them, then the others as they come
+		const st = this.plugin.settings, byRank = (values: Set<string>, order: string[]) => new Set([...values].map((v, i) => ({ v, i, r: rank(v, order) })).sort((a, b) => a.r - b.r || a.i - b.i).map((x) => x.v));
 		const menu = new Menu();
-		const toggle = (kind: keyof Filter, v: string) => {
+		const toggle = (kind: keyof Filter, v: string, title: string) => {
 			const list = this.filter[kind];
 			this.setFilter({ ...this.filter, [kind]: list.includes(v) ? list.filter((x) => x !== v) : [...list, v] });
+			// the menu stays for the next pick (a menu closes when an item is chosen: it's opened again, where it was:
+			// the button grows as it counts what's picked, and the menu mustn't follow it about)
+			// (and the keyboard carries on from the item just picked)
+			window.setTimeout(() => { if (this.ui?.filter.isConnected) this.filterMenu(undefined, at, title); }, 0);
 		};
 		const group = (kind: keyof Filter, title: string, values: Set<string>, none: boolean, noneTitle: string) => {
 			if (!values.size) return;
@@ -358,32 +480,36 @@ export class BinderView extends ItemView {
 				menu.addItem((i) => {
 					const t = createFragment();
 					// a status shows as it's written, as on the cards; a label by its color's name
-					if (kind === 'label') { labelDot(t, v); t.appendText(display(v)); } else t.appendText(v);
-					i.setSection(kind).setTitle(t).setChecked(this.filter[kind].includes(v)).onClick(() => toggle(kind, v));
+					if (kind === 'label') { labelDot(t, v, this.plugin.settings.labels); t.appendText(labelName(v, this.plugin.settings.labels)); } else t.appendText(v);
+					i.setSection(kind).setTitle(t).setChecked(this.filter[kind].includes(v)).onClick(() => toggle(kind, v, kind === 'label' ? labelName(v, this.plugin.settings.labels) : v));
 				});
 			}
-			if (none) menu.addItem((i) => i.setSection(kind).setTitle(noneTitle).setChecked(this.filter[kind].includes('')).onClick(() => toggle(kind, '')));
+			if (none) menu.addItem((i) => i.setSection(kind).setTitle(noneTitle).setChecked(this.filter[kind].includes('')).onClick(() => toggle(kind, '', noneTitle)));
 		};
-		group('status', 'Status', statuses, noStatus, 'No status');
-		group('label', 'Label', labels, noLabel, 'No label');
+		group('status', 'Status', byRank(statuses, st.statuses), noStatus, 'No status');
+		group('label', 'Label', byRank(labels, st.labels.map((l) => l.name)), noLabel, 'No label');
 		if (!statuses.size && !labels.size) menu.addItem((i) => i.setTitle('No statuses or labels to filter by').setIsLabel(true));
 		if (this.filter.status.length || this.filter.label.length) {
 			menu.addItem((i) => i.setSection('clear').setTitle('Clear filter').setIcon('x').onClick(() => this.setFilter({ status: [], label: [] })));
 		}
-		this.showBelow(menu, e);
+		if (at && this.ui) menu.showAtPosition({ ...at, overlap: true, left: false }, this.ui.filter.doc);
+		else this.showBelow(menu, e, this.ui?.filter);
+		if (picked !== undefined) selectMenuItem(menu, picked);
 	}
 
 	private setFilter(filter: Filter): void {
 		this.filter = filter;
+		this.remember();
+		this.madeHere.clear();
 		this.app.workspace.requestSaveLayout();
 		this.drawToolbar();
 		this.current?.filterChanged?.();
 		this.current?.refresh();
 	}
 
-	private showBelow(menu: Menu, e: MouseEvent): void {
-		const t = e.currentTarget instanceof HTMLElement ? e.currentTarget : null;
-		if (!t) { menu.showAtMouseEvent(e); return; }
+	private showBelow(menu: Menu, e?: MouseEvent, anchor?: HTMLElement): void {
+		const t = anchor ?? (e?.currentTarget instanceof HTMLElement ? e.currentTarget : null);
+		if (!t) { if (e) menu.showAtMouseEvent(e); return; }
 		const r = t.getBoundingClientRect();
 		menu.showAtPosition({ x: r.left, y: r.bottom + 4, width: r.width, overlap: true, left: false }, t.doc);
 	}
@@ -393,29 +519,33 @@ export class BinderView extends ItemView {
 	props(file: TFile): SceneProps {
 		const fm = this.app.metadataCache.getFileCache(file)?.frontmatter ?? {};
 		const s = this.plugin.settings;
-		const lines = fm[s.plotlinesProp] as unknown;
 		return {
 			synopsis: text(fm[s.synopsisProp]),
-			status: text(fm[s.statusProp]).trim(),
-			label: text(fm[s.labelProp]).trim(),
-			plotlines: typeof lines === 'string' ? [lines] : strings(lines),
+			// as settings spell them, whatever case the note has them in
+			status: canonical(text(fm[s.statusProp]), s.statuses),
+			label: readLabel(fm[s.labelProp], s.labels.map((l) => l.name)),
+			target: readTarget(fm[s.targetProp]),
 		};
 	}
 
 	async setProps(file: TFile, patch: Partial<SceneProps>): Promise<void> {
 		if (this.readOnly) throw new Error('This binder is read only.');
 		const s = this.plugin.settings;
-		const names: Record<keyof SceneProps, string> = { synopsis: s.synopsisProp, status: s.statusProp, label: s.labelProp, plotlines: s.plotlinesProp };
+		const names: Record<keyof SceneProps, string> = { synopsis: s.synopsisProp, status: s.statusProp, label: s.labelProp, target: s.targetProp };
 		const out: Record<string, unknown> = {};
 		for (const [k, v] of Object.entries(patch) as [keyof SceneProps, unknown][]) {
-			out[names[k]] = v === '' || (Array.isArray(v) && !v.length) ? undefined : v;
+			out[names[k]] = v === '' || v === 0 || (Array.isArray(v) && !v.length) ? undefined : v;
 		}
 		await this.store.setProps(file, out);
 	}
 
+	/** Notes made in this view since the filter last changed: they show though it would hide them. */
+	private madeHere = new Set<TFile>();
+
 	private visible(file: TFile): boolean {
 		const { status, label } = this.filter;
 		if (!status.length && !label.length) return true;
+		if (this.madeHere.has(file)) return true;
 		const p = this.props(file);
 		return (!status.length || status.includes(p.status)) && (!label.length || label.includes(p.label));
 	}
@@ -426,17 +556,52 @@ export class BinderView extends ItemView {
 			readOnly: this.readOnly,
 			props: (f) => this.props(f),
 			setProps: (f, p) => this.setProps(f, p),
-			openFile: async (f, newLeaf) => { await this.app.workspace.getLeaf(newLeaf || false).openFile(f); },
+			// (what's typed into it here and not saved yet is written first: the note opens with it)
+			openFile: async (f, newLeaf) => { await this.current?.save?.([f]); await this.app.workspace.getLeaf(newLeaf || false).openFile(f); },
 			navigate: (f, newLeaf) => void this.navigate(f, newLeaf),
 			words: (f) => this.words.get(f),
 			// typing in the manuscript: the counts follow as you type, before the note is saved
 			onTextChange: (f, t) => { this.words.typed(f, t); this.schedule(); },
 			visible: (f) => this.visible(f),
+			made: (f) => { this.madeHere.add(f); },
+			filtering: () => this.filter.status.length + this.filter.label.length > 0,
 			option: <T>(key: string, fallback: T): T => (key in this.options ? this.options[key] : fallback) as T,
-			setOption: (key, value) => { this.options = { ...this.options, [key]: value }; this.app.workspace.requestSaveLayout(); },
+			setOption: (key, value) => { this.options = { ...this.options, [key]: value }; this.remember(); this.app.workspace.requestSaveLayout(); },
 		};
 	}
 
-	/** For "Open binder" on a note: the card to select once the view is drawn. */
-	revealItem(item: TAbstractFile): void { this.reveal = item.path; this.applyReveal(); }
+	/** Asks for the word count target of the folder shown, and keeps it in its note (the binder's note, on the binder; a
+	    folder's note is made for it if it has none). */
+	async setTarget(): Promise<void> {
+		const folder = this.folder, binder = this.binder;
+		if (!folder || !binder || this.readOnly) return;
+		const note = this.store.folderNote(folder), now = note ? this.props(note).target : 0;
+		const typed = await ask(this.app, {
+			title: folder === binder.folder ? 'Word count target for the binder' : `Word count target for “${folder.name}”`, placeholder: 'Words, such as 80,000', cta: 'Set target',
+			value: now ? String(now) : '', allowEmpty: true, check: (v: string) => (parseTarget(v) == null ? 'A target is a whole number of words.' : null),
+		});
+		const n = typed == null ? null : parseTarget(typed);
+		if (n == null || n === now) return;
+		try {
+			const file = note ?? (n ? await this.store.ensureFolderNote(folder) : null);
+			if (file) await this.setProps(file, { target: n });
+		} catch (e) { new Notice(e instanceof Error ? e.message : String(e)); }
+	}
+
+	/** Writes down anything typed into these notes here that isn't saved yet (see BinderMode.save). */
+	async saveNotes(files: TFile[]): Promise<void> { await this.current?.save?.(files); }
+
+	/** For "Open binder" on a note: the card to select once the view is drawn. `fresh`: a note just made, to be named. */
+	revealItem(item: TAbstractFile, fresh = false): void {
+		if (fresh && item instanceof TFile) { this.madeHere.add(item); this.schedule(); }
+		this.reveal = item.path; this.fresh = fresh; this.applyReveal();
+	}
+	private fresh = false;
+
+	/** "New scene here" while this view has the focus: the mode makes it where it would (false if it can't). */
+	create(kind: 'note' | 'folder'): boolean {
+		if (!this.current?.create || this.readOnly) return false;
+		this.current.create(kind);
+		return true;
+	}
 }

@@ -3,352 +3,592 @@
  * variables so every theme, light or dark, looks native. No !important, no `all:`, no scrollbar styling (see AGENTS.md).
  */
 
-/* File explorer: the binder icon before a binder folder's name, sized and coloured like Obsidian's own tree icons. */
-.binders-folder-icon {
-	display: flex;
-	align-items: center;
-	flex-shrink: 0;
-	align-self: center; /* the title aligns to its text's baseline, which an icon has none of */
-	margin-inline-end: var(--size-4-1);
-	color: var(--icon-color);
-	opacity: var(--icon-opacity);
-	--icon-size: var(--icon-xs);
-	--icon-stroke: var(--icon-xs-stroke-width);
+/* File explorer: a binder folder says "binder" at the end of its row, in Obsidian's own tag (`nav-file-tag`, what says
+   "canvas" or "base" after a file that isn't a note): nothing of it is styled here but that it isn't squeezed. */
+.binders-folder-tag {
+	flex: none;
 }
 
-/* Plot grid */
-/* A table like Obsidian's Bases table view. Sticky header row and first column; every sticky cell has an opaque
-   background, so hover and group tints are layered on as background images. */
-.binders-plotgrid {
-	--binders-plotgrid-col: 112px;
-	--binders-plotgrid-first: 240px;
-	--binders-plotgrid-row: var(--size-4-8);
-	--binders-plotgrid-indent: var(--size-4-4);
-	--binders-plotgrid-mark: 12px;
-	--binders-plotgrid-border: var(--background-modifier-border);
-	--binders-plotgrid-tint: linear-gradient(var(--background-modifier-hover), var(--background-modifier-hover));
+.tree-item-self:has(> .binders-folder-tag) > .tree-item-inner {
+	margin-inline-end: var(--size-4-1);
+}
+
+/* File explorer: where a dragged note or folder would go in a binder's order. Obsidian's own insertion line (the one a
+   dragged bookmark gets), placed over the explorer. */
+.drop-indicator.binders-explorer-drop {
+	position: fixed;
+	border-radius: 2px;
+	z-index: var(--layer-cover);
+}
+
+/* File explorer: a labeled note's color, as a chip after its name (Scrivener's "label color in binder"), where
+   Obsidian puts a file's own tag ("canvas", "base"). The chip is a small card: the same mark as in the outliner, the
+   headings and the menus. */
+.binders-explorer-label {
+	flex: none;
+	align-self: center;
+	width: 10px;
+	height: 7px;
+	margin-inline-start: auto;
+	border-radius: 2px;
+	background-color: var(--binders-label);
+}
+
+/* (a long name cut short doesn't run into its dot) */
+.tree-item-self:has(> .binders-explorer-label) > .tree-item-inner {
+	margin-inline-end: var(--size-4-1);
+}
+
+.tree-item-self > .binders-explorer-label + .nav-file-tag,
+.tree-item-self > .nav-file-tag + .binders-explorer-label {
+	margin-inline-start: var(--size-4-1);
+}
+
+/* Settings: a label's or status's name is typed where a setting's name is, so the rows line up. */
+.binders-settings-label .setting-item-name input,
+.binders-settings-status .setting-item-name input {
+	width: 100%;
+	max-width: 280px;
+}
+
+/* On a phone a row's name and its color sit on lines of their own, so neither is squeezed to nothing. */
+.is-phone .binders-settings-label,
+.is-phone .binders-settings-status {
+	flex-wrap: wrap;
+	row-gap: var(--size-4-2);
+}
+
+.is-phone .binders-settings-label .setting-item-info,
+.is-phone .binders-settings-status .setting-item-info {
+	flex: 1 1 100%;
+}
+
+.is-phone .binders-settings-label .setting-item-name input,
+.is-phone .binders-settings-status .setting-item-name input {
+	max-width: none;
+}
+
+.binders-label-dot.binders-settings-probe,
+.binders-settings-probe {
+	display: none;
+}
+
+/* Outliner */
+/* A grid of rows, drawn as a base's table is: Obsidian's own variables for its row height, header and borders where it
+   has them. The header row and the title column stay put while the rest scrolls; every cell that stays put has an
+   opaque background, so hover, selection and drop tints are layered on as background images. */
+.binders-outliner {
+	--binders-ol-row: var(--bases-table-row-height, 30px);
+	--binders-ol-indent: var(--size-4-5);
+	--binders-ol-border: var(--bases-table-border-color, var(--background-modifier-border));
+	--binders-ol-pad: var(--size-4-2);
+	--binders-ol-tint: none;
+	--binders-ol-title-min: 220px;
 	position: relative;
 	height: 100%;
 	overflow: auto;
-	font-size: var(--font-ui-small);
-	scroll-padding-top: var(--binders-plotgrid-row);
-	scroll-padding-left: var(--binders-plotgrid-first);
-}
-.is-mobile .binders-plotgrid {
-	--binders-plotgrid-col: 88px;
-	--binders-plotgrid-first: min(42vw, 200px);
-	--binders-plotgrid-row: 44px;
-	--binders-plotgrid-mark: 16px;
-	--binders-plotgrid-indent: var(--size-4-3);
-}
-.binders-plotgrid.is-dragging,
-.binders-plotgrid.is-dragging * {
-	cursor: grabbing;
-	user-select: none;
-}
-.binders-plotgrid-table {
-	border-collapse: separate;
-	border-spacing: 0;
-	table-layout: fixed;
-	width: 0; /* as wide as its columns: fixed layout needs a width, and grows to fit them */
-}
-.binders-plotgrid-table th,
-.binders-plotgrid-table td {
-	height: var(--binders-plotgrid-row);
-	padding: 0;
-	border-bottom: var(--border-width) solid var(--binders-plotgrid-border);
-	border-inline-end: var(--border-width) solid var(--binders-plotgrid-border);
-	background-color: var(--background-primary);
-	font-weight: var(--font-normal);
-	text-align: start;
-	vertical-align: middle;
-	user-select: none;
-}
-.binders-plotgrid-table [data-spot]:focus {
-	outline: none;
-}
-.binders-plotgrid-table [data-spot]:focus-visible {
-	box-shadow: inset 0 0 0 2px var(--background-modifier-border-focus);
+	/* (room for the scrollbar whether or not there's one, so folding a folder doesn't move the columns) */
+	scrollbar-gutter: stable;
+	font-size: var(--bases-table-font-size, var(--font-ui-small));
+	scroll-padding-top: var(--binders-ol-row);
 }
 
-/* The header row */
-.binders-plotgrid-head th {
-	position: sticky;
-	top: 0;
-	z-index: 2;
-	color: var(--text-muted);
+.is-phone .binders-outliner {
+	--binders-ol-title-min: 180px;
 }
-.binders-plotgrid-head .binders-plotgrid-corner {
-	inset-inline-start: 0;
-	z-index: 3;
-	width: var(--binders-plotgrid-first);
-	padding-inline: var(--size-4-2);
+
+.is-mobile .binders-outliner {
+	--binders-ol-row: 40px;
+	--binders-ol-indent: var(--size-4-4);
 }
-.binders-plotgrid-table[aria-readonly="false"] .binders-plotgrid-corner {
-	padding-inline-start: calc(var(--size-4-2) + var(--icon-xs)); /* lines up with the titles, after the grips */
-}
-.is-mobile .binders-plotgrid-table[aria-readonly="false"] .binders-plotgrid-corner {
-	padding-inline-start: calc(var(--size-4-2) + var(--size-4-4) + var(--icon-s));
-}
-.binders-plotgrid-col {
-	width: var(--binders-plotgrid-col);
-	cursor: pointer;
-	touch-action: pan-y; /* a sideways drag on a header moves the column */
-}
-.binders-plotgrid-col-inner {
+
+.binders-outliner-table {
 	display: flex;
-	align-items: center;
-	justify-content: center;
-	gap: var(--size-4-1);
-	padding-inline: var(--size-4-2);
-	min-width: 0;
-}
-.binders-plotgrid-col-name {
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-.is-mobile .binders-plotgrid-col-name {
-	/* narrow columns: two lines of the name rather than one cut short */
-	display: -webkit-box;
-	-webkit-line-clamp: 2;
-	-webkit-box-orient: vertical;
-	white-space: normal;
-	text-align: center;
-	line-height: var(--line-height-tight);
-}
-.binders-plotgrid-col.is-editing > .binders-plotgrid-col-inner {
-	display: none;
-}
-.binders-plotgrid-input[type="text"] {
-	display: block;
-	width: calc(100% - var(--size-4-2));
-	height: calc(100% - var(--size-4-2));
-	margin: var(--size-4-1);
-	padding-inline: var(--size-4-1);
-	font-size: var(--font-ui-small);
-}
-.binders-plotgrid-add {
-	width: var(--size-4-9);
-	color: var(--text-faint);
-	cursor: pointer;
-}
-.binders-plotgrid-add.mod-wide {
-	width: 144px;
-}
-.binders-plotgrid-add,
-.binders-plotgrid-add-icon {
-	--icon-size: var(--icon-s);
-}
-.binders-plotgrid-add-icon {
-	display: inline-flex;
-	vertical-align: middle;
-	padding-inline: var(--size-4-2);
-}
-.binders-plotgrid-add-text {
-	vertical-align: middle;
-}
-.binders-plotgrid-swatch {
-	flex: none;
-	width: 8px;
-	height: 8px;
-	border-radius: 50%;
-	background-color: var(--binders-plotline);
-}
-.binders-plotgrid-col.binders-plotgrid-color-none .binders-plotgrid-swatch {
-	display: none;
-}
-.binders-plotgrid-menu-swatch {
-	display: inline-block;
-	margin-inline-end: var(--size-4-2);
+	flex-direction: column;
+	/* the title takes what the columns leave, and never less than it needs */
+	min-width: max(100%, calc(var(--binders-ol-title-min) + var(--binders-ol-columns, 0px) + var(--size-4-8)));
+	width: 0;
 }
 
-/* The first column: scene titles and group headers */
-.binders-plotgrid-table tbody th {
+.binders-outliner-table.is-empty .binders-outliner-foot {
+	display: none;
+}
+
+.binders-outliner-head,
+.binders-outliner-row,
+.binders-outliner-foot {
+	display: flex;
+	align-items: stretch;
+	min-width: 100%;
+}
+
+.binders-outliner-cell,
+.binders-outliner-th {
+	display: flex;
+	flex: none;
+	align-items: center;
+	gap: var(--size-4-1);
+	min-width: 0;
+	min-height: var(--binders-ol-row);
+	padding-inline: var(--binders-ol-pad);
+	background-color: var(--background-primary);
+	background-image: var(--binders-ol-tint);
+	overflow: hidden;
+}
+
+/* The line between columns, as a base's table rules them: down the whole table, not only its header. */
+.binders-outliner-cell:not(.mod-title),
+.binders-outliner-th:not(.mod-title) {
+	border-inline-start: var(--bases-table-column-border-width, var(--border-width)) solid var(--binders-ol-border);
+}
+
+.binders-outliner-cell.mod-numeric,
+.binders-outliner-th.mod-numeric {
+	justify-content: flex-end;
+	font-variant-numeric: tabular-nums;
+}
+
+.binders-outliner .mod-title {
 	position: sticky;
 	inset-inline-start: 0;
 	z-index: 1;
-	color: var(--text-normal);
+	flex: 1 1 0;
+	min-width: var(--binders-ol-title-min);
+	justify-content: flex-start;
 }
-.binders-plotgrid-row-inner {
-	display: flex;
-	align-items: center;
-	gap: var(--size-4-1);
-	min-width: 0;
-	height: 100%;
-	padding-inline: var(--size-4-2);
+
+.binders-outliner .mod-filler {
+	flex: 0 0 var(--size-4-8);
+	padding: 0;
 }
-.binders-plotgrid-row-inner > :first-child:not(.binders-plotgrid-grip),
-.binders-plotgrid-grip + * {
-	margin-inline-start: calc(var(--binders-plotgrid-depth, 0) * var(--binders-plotgrid-indent));
+
+/* The header row */
+.binders-outliner-head {
+	position: sticky;
+	top: 0;
+	z-index: 3;
 }
-.binders-plotgrid-grip {
-	display: flex;
-	flex: none;
-	align-self: stretch;
-	align-items: center;
-	margin-inline-start: calc(-1 * var(--size-4-1));
-	color: var(--text-faint);
-	opacity: 0;
-	cursor: grab;
-	touch-action: none; /* on touch, rows move by their grip */
-	--icon-size: var(--icon-xs);
+
+/* The rule between rows is drawn along each row's top, over its own cells: a row's height isn't a whole number of
+   pixels, and a rule along its bottom would be painted over by the next row as often as not. */
+.binders-outliner-row::before,
+.binders-outliner-foot::before {
+	content: "";
+	position: absolute;
+	inset: 0 0 auto 0;
+	z-index: 2;
+	height: var(--border-width);
+	background-color: var(--binders-ol-border);
+	pointer-events: none;
 }
-.is-mobile .binders-plotgrid-grip {
-	opacity: 1;
-	padding-inline: var(--size-4-2); /* a wider target for a thumb */
-	--icon-size: var(--icon-s);
+
+.binders-outliner-row:first-child::before {
+	display: none;
 }
-.binders-plotgrid-label {
-	display: flex;
-	flex: 1;
-	flex-direction: column;
-	justify-content: center;
-	min-width: 0;
-	align-self: stretch;
-	cursor: pointer;
+
+.binders-outliner-foot {
+	position: relative;
 }
-.binders-plotgrid-title,
-.binders-plotgrid-other,
-.binders-plotgrid-group-name {
+
+.binders-outliner-th {
+	border-bottom: var(--border-width) solid var(--binders-ol-border);
+	position: relative;
+	color: var(--bases-table-header-color, var(--text-muted));
+	user-select: none;
+	cursor: var(--cursor);
+	overflow: visible;
+}
+
+.binders-outliner-head .binders-outliner-th.mod-title {
+	z-index: 4;
+	padding-inline-start: calc(var(--binders-ol-pad) + var(--icon-s) + var(--size-4-1)); /* lines up with the titles */
+}
+
+.binders-outliner-th-name {
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
-.binders-plotgrid-other {
-	color: var(--text-faint);
-	font-size: var(--font-ui-smaller);
-}
-.binders-plotgrid-table .binders-plotgrid-group > * {
-	background-image: var(--binders-plotgrid-tint);
-}
-.binders-plotgrid-group-header {
-	cursor: pointer;
-}
-.binders-plotgrid-group-name {
-	font-weight: var(--font-semibold);
-}
-.binders-plotgrid-chevron {
+
+.binders-outliner-th-sort {
 	display: flex;
 	flex: none;
+	color: var(--text-muted);
+	--icon-size: var(--icon-xs);
+	--icon-stroke: var(--icon-xs-stroke-width);
+}
+
+.binders-outliner-th[aria-sort="ascending"],
+.binders-outliner-th[aria-sort="descending"] {
+	color: var(--text-normal);
+}
+
+.binders-outliner-th:focus {
+	outline: none;
+}
+
+.binders-outliner-th:focus-visible {
+	box-shadow: inset 0 0 0 2px var(--background-modifier-border-focus);
+}
+
+.binders-outliner-th.is-dragging {
+	color: var(--text-faint);
+}
+
+.binders-outliner-th.mod-add {
+	flex: 0 0 var(--size-4-8);
+	justify-content: center;
+	padding: 0;
+	border-radius: 0;
+	color: var(--text-faint);
+	--icon-size: var(--icon-s);
+}
+
+/* a column's edge: drag it to resize the column, as in a base's table */
+.binders-outliner-resizer {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	inset-inline-end: -4px;
+	width: 8px;
+	z-index: 1;
+	cursor: col-resize;
+	touch-action: none;
+}
+
+/* (the column's own line is what's dragged; it shows in the accent color while it's pointed at or moved) */
+.binders-outliner-resizer::after {
+	content: "";
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	inset-inline-start: 3px;
+	width: 2px;
+}
+
+.binders-outliner.is-resizing,
+.binders-outliner.is-resizing * {
+	cursor: col-resize;
+	user-select: none;
+}
+
+@media (hover: hover) {
+	.binders-outliner-th:hover {
+		--binders-ol-tint: linear-gradient(var(--bases-table-header-background-hover, var(--background-modifier-hover)), var(--bases-table-header-background-hover, var(--background-modifier-hover)));
+		color: var(--text-normal);
+	}
+	.binders-outliner-resizer:hover::after,
+	.binders-outliner.is-resizing .binders-outliner-resizer::after {
+		background-color: var(--interactive-accent);
+	}
+}
+
+/* Rows */
+.binders-outliner-row {
+	position: relative;
+	color: var(--text-normal);
+	cursor: default;
+	user-select: none;
+	-webkit-user-select: none;
+	-webkit-touch-callout: none;
+	content-visibility: auto;
+	contain-intrinsic-block-size: auto var(--binders-ol-row);
+}
+
+.binders-outliner-row:focus {
+	outline: none;
+}
+
+.binders-outliner-row .mod-title {
+	align-items: flex-start;
+	padding-inline-start: calc(var(--binders-ol-pad) + var(--binders-ol-depth, 0) * var(--binders-ol-indent));
+	padding-block: calc((var(--binders-ol-row) - 1lh) / 2 - 1px);
+	line-height: var(--line-height-tight);
+}
+
+.binders-outliner-chevron {
+	display: flex;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	width: var(--icon-s);
+	height: 1lh;
 	color: var(--icon-color);
 	--icon-size: var(--icon-xs);
 	--icon-stroke: var(--icon-xs-stroke-width);
 }
-.binders-plotgrid-chevron svg {
-	transition: transform 100ms ease-in-out;
+
+.binders-outliner-chevron.collapse-icon {
+	cursor: var(--cursor);
+	border-radius: var(--radius-s);
 }
-.binders-plotgrid-chevron.is-collapsed svg {
+
+/* a folder with nothing in it has nothing to fold */
+.binders-outliner-chevron.is-empty {
+	visibility: hidden;
+}
+
+/* (a finger needs more than the arrow to hit: the target is 40 px each way, drawn where the arrow was) */
+.is-mobile .binders-outliner-chevron.collapse-icon {
+	width: 40px;
+	height: 40px;
+	margin: calc((1lh - 40px) / 2) calc((var(--icon-s) - 40px) / 2);
+	/* (over the name beside it, which its edges reach across) */
+	position: relative;
+	z-index: 1;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	.binders-outliner-chevron svg {
+		transition: transform 100ms ease-in-out;
+	}
+}
+
+/* Indentation guides, as the file explorer draws them: a line down from each folder the row is in. */
+.binders-outliner-row .mod-title::before {
+	content: "";
+	position: absolute;
+	inset-block: 0;
+	inset-inline-start: calc(var(--binders-ol-pad) + var(--icon-s) / 2);
+	width: calc(var(--binders-ol-depth, 0) * var(--binders-ol-indent));
+	background-image: repeating-linear-gradient(to right, var(--nav-indentation-guide-color, var(--background-modifier-border)) 0 var(--nav-indentation-guide-width, 1px), transparent 0 var(--binders-ol-indent));
+	pointer-events: none;
+}
+
+.mod-rtl .binders-outliner-row .mod-title::before {
+	background-image: repeating-linear-gradient(to left, var(--nav-indentation-guide-color, var(--background-modifier-border)) 0 var(--nav-indentation-guide-width, 1px), transparent 0 var(--binders-ol-indent));
+}
+
+.binders-outliner-chevron.is-collapsed svg {
 	transform: rotate(calc(var(--direction, 1) * -90deg));
 }
-.binders-plotgrid-count {
-	color: var(--text-faint);
+
+.binders-outliner-main {
+	display: flex;
+	flex: 1 1 auto;
+	flex-direction: column;
+	gap: var(--size-2-1);
+	min-width: 0;
+}
+
+.binders-outliner-name {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.binders-outliner-row.is-folder .binders-outliner-name {
+	font-weight: var(--font-semibold);
+}
+
+/* (after the rule for text edited in place, which wraps: a title or a cell is one line, cut with an ellipsis) */
+.binders-outliner .binders-outliner-name:not(.is-editing),
+.binders-outliner .binders-outliner-field:not(.is-editing) {
+	white-space: nowrap;
+	overflow-wrap: normal;
+}
+
+/* right-to-left text starts where the row's indent puts it, not at the far end of the column (the text takes its own
+   direction, so its start would be the column's other side) */
+.binders-outliner-name,
+.binders-outliner-synopsis {
+	text-align: left;
+}
+
+.mod-rtl .binders-outliner-name,
+.mod-rtl .binders-outliner-synopsis {
+	text-align: right;
+}
+
+/* A pane as narrow as a sidebar: the title gives the other columns room, and scrolls away with them. */
+@container binders-view (width < 420px) {
+	.binders-outliner {
+		--binders-ol-title-min: 140px;
+	}
+	.binders-outliner .mod-title {
+		position: relative;
+		inset-inline-start: auto;
+	}
+}
+
+.binders-outliner-name.is-editing {
+	overflow: visible;
+}
+
+.binders-outliner-synopsis {
+	color: var(--text-muted);
 	font-size: var(--font-ui-smaller);
-	font-variant-numeric: tabular-nums;
-	text-align: center;
-}
-.binders-plotgrid-table .binders-plotgrid-count {
-	text-align: center;
+	line-height: var(--line-height-tight);
+	margin-inline: calc(-1 * var(--size-2-2));
+	padding: var(--size-2-1) var(--size-2-2);
 }
 
-/* Cells */
-.binders-plotgrid-cell {
-	position: relative;
-	cursor: pointer;
-}
-.binders-plotgrid-mark {
-	width: var(--binders-plotgrid-mark);
-	height: var(--binders-plotgrid-mark);
-	margin: auto;
-	border-radius: 50%;
-}
-.binders-plotgrid-cell.is-on .binders-plotgrid-mark {
-	background-color: var(--binders-plotline);
-}
-.binders-plotgrid-text-dot {
-	position: absolute;
-	top: var(--size-4-1);
-	inset-inline-end: var(--size-4-1);
-	width: 5px;
-	height: 5px;
-	border-radius: 50%;
-	background-color: var(--text-faint);
-}
-.binders-plotgrid-table .binders-plotgrid-filler {
-	border-inline-end: none;
-}
-.binders-plotgrid-table[aria-readonly="true"] .binders-plotgrid-cell,
-.binders-plotgrid-table[aria-readonly="true"] .binders-plotgrid-col {
-	cursor: default;
-}
-@media (hover: hover) {
-	.binders-plotgrid-table tbody tr:hover > *,
-	.binders-plotgrid-head .binders-plotgrid-col:hover,
-	.binders-plotgrid-head .binders-plotgrid-add:hover {
-		background-image: var(--binders-plotgrid-tint);
-	}
-	.binders-plotgrid-table tbody tr:hover .binders-plotgrid-grip {
-		opacity: 1;
-	}
-	.binders-plotgrid-table[aria-readonly="false"] .binders-plotgrid-cell:not(.is-on):hover .binders-plotgrid-mark {
-		box-shadow: inset 0 0 0 1.5px var(--background-modifier-border-hover);
-	}
-	.binders-plotgrid-head .binders-plotgrid-add:hover {
-		color: var(--text-muted);
-	}
+.binders-outliner-synopsis:not(.is-editing) {
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 3;
+	overflow: hidden;
 }
 
-/* Dragging: the dragged row or column fades, a line in the accent color shows where it goes */
-.binders-plotgrid-table tr.is-dragged > *,
-.binders-plotgrid-table .is-dragged {
-	color: var(--text-faint);
+/* a row without a synopsis stays one line tall, selected or not (a row that grew when it was clicked would move the
+   rows under the pointer): "Edit synopsis" in its menu gives it one */
+.binders-outliner-synopsis.is-empty:not(.is-editing) {
+	display: none;
 }
-.binders-plotgrid-table tr.is-dragged .binders-plotgrid-mark,
-.binders-plotgrid-table .is-dragged .binders-plotgrid-mark {
-	opacity: 0.4;
+
+.binders-outliner-value {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
-.binders-plotgrid-table tr.is-drop-before > * {
-	box-shadow: inset 0 2px 0 var(--interactive-accent);
-}
-.binders-plotgrid-table tr.is-drop-after > * {
-	box-shadow: inset 0 -2px 0 var(--interactive-accent);
-}
-.binders-plotgrid-table th.is-drop-before,
-.binders-plotgrid-table td.is-drop-before {
-	box-shadow: inset 2px 0 0 var(--interactive-accent);
-}
-.binders-plotgrid-table th.is-drop-after,
-.binders-plotgrid-table td.is-drop-after {
-	box-shadow: inset -2px 0 0 var(--interactive-accent);
-}
-.binders-plotgrid-end {
-	position: sticky;
-	inset-inline-start: 0;
-	width: min(100%, var(--binders-plotgrid-first));
-	height: var(--binders-plotgrid-row);
-}
-/* Phones: room after the last row for Obsidian's floating navigation bar, as Bases leaves in its table. */
-.is-phone .binders-plotgrid-end {
-	height: calc(var(--binders-plotgrid-row) + var(--view-bottom-spacing, 0px));
-}
-.binders-plotgrid-end.is-drop-target {
-	box-shadow: inset 0 2px 0 var(--interactive-accent);
-}
-.binders-plotgrid-empty {
-	padding: var(--size-4-4);
+
+.binders-outliner-row.is-folder .binders-outliner-cell:not(.mod-title),
+.binders-outliner-cell.is-total .binders-outliner-field.is-empty {
 	color: var(--text-muted);
 }
 
-/* Plotline colors, from Obsidian's palette (the menu's swatches use them too, outside the grid) */
-.binders-plotgrid-color-none { --binders-plotline: var(--interactive-accent); }
-.binders-plotgrid-color-red { --binders-plotline: var(--color-red); }
-.binders-plotgrid-color-orange { --binders-plotline: var(--color-orange); }
-.binders-plotgrid-color-yellow { --binders-plotline: var(--color-yellow); }
-.binders-plotgrid-color-green { --binders-plotline: var(--color-green); }
-.binders-plotgrid-color-cyan { --binders-plotline: var(--color-cyan); }
-.binders-plotgrid-color-blue { --binders-plotline: var(--color-blue); }
-.binders-plotgrid-color-purple { --binders-plotline: var(--color-purple); }
-.binders-plotgrid-color-pink { --binders-plotline: var(--color-pink); }
+.binders-outliner-cell.is-menu {
+	cursor: var(--cursor);
+}
+
+.binders-outliner-field {
+	flex: 1 1 auto;
+	min-width: 0;
+	min-height: 1lh;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	padding-inline: var(--size-2-2);
+	margin-inline: calc(-1 * var(--size-2-2));
+}
+
+.binders-outliner-cell.mod-numeric .binders-outliner-field {
+	text-align: end;
+}
+
+.binders-outliner-field.is-editing {
+	overflow: visible;
+}
+
+.binders-outliner-cell .binders-progress {
+	flex: 1 1 auto;
+	width: auto;
+	min-width: var(--size-4-4);
+}
+
+.binders-outliner-percent {
+	flex: none;
+	min-width: 4ch;
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	text-align: end;
+}
+
+.binders-outliner-cell input[type="checkbox"] {
+	margin: 0;
+	/* (a column of ticks, most of them on: quiet, so the eye finds the ones that are off) */
+	--checkbox-color: var(--text-faint);
+	--checkbox-color-hover: var(--text-muted);
+}
+
+/* A cell with the keyboard's focus (the arrow keys go from a row into its cells), as a base's table shows one. */
+.binders-outliner-cell:focus {
+	outline: none;
+}
+
+.binders-outliner-cell:not(.mod-title):focus-visible {
+	box-shadow: inset 0 0 0 2px var(--interactive-accent);
+	border-radius: var(--bases-table-cell-radius-focus, 2px);
+}
+
+.binders-outliner:focus {
+	outline: none;
+}
+
+/* The last row: what the columns add up to */
+.binders-outliner-foot .binders-outliner-cell {
+	color: var(--text-faint);
+	font-size: var(--font-ui-smaller);
+}
+
+.binders-outliner-foot .mod-title {
+	padding-inline-start: calc(var(--binders-ol-pad) + var(--icon-s) + var(--size-4-1));
+}
+
+/* Room after the last row to drop a row at the end, and on phones for Obsidian's floating navigation bar. */
+.binders-outliner-table {
+	padding-bottom: var(--size-4-8);
+}
+
+.is-phone .binders-outliner-table {
+	padding-bottom: calc(var(--size-4-8) + var(--view-bottom-spacing, 0px));
+}
+
+/* Pointed at, selected, focused: as an item in the file explorer is */
+@media (hover: hover) {
+	/* (a base's own row hover is transparent in the default theme: the explorer's is what a list of notes shows) */
+	.binders-outliner-row:hover {
+		--binders-ol-tint: linear-gradient(var(--nav-item-background-hover, var(--background-modifier-hover)), var(--nav-item-background-hover, var(--background-modifier-hover)));
+	}
+	.binders-outliner.is-dragging .binders-outliner-row:hover:not(.is-being-dragged-over) {
+		--binders-ol-tint: none;
+	}
+	.binders-outliner:not(.is-read-only) .binders-outliner-cell.is-menu:hover {
+		box-shadow: inset 0 0 0 1px var(--background-modifier-border-hover);
+	}
+	.binders-outliner-chevron.collapse-icon:hover {
+		color: var(--text-normal);
+	}
+}
+
+.binders-outliner-row.is-selected {
+	--binders-ol-tint: linear-gradient(var(--nav-item-background-selected, hsla(var(--color-accent-hsl), 0.15)), var(--nav-item-background-selected, hsla(var(--color-accent-hsl), 0.15)));
+}
+
+/* The focus ring is drawn over the row's cells: the title cell stays put with a background of its own, and would
+   cover half of an outline on the row. */
+.binders-outliner-row:focus-visible::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	z-index: 2;
+	box-shadow: inset 0 0 0 2px var(--background-modifier-border-focus);
+	pointer-events: none;
+}
+
+/* Dragging rows: as dragging notes in the file explorer. The rows being moved dim, Obsidian's own ghost follows the
+   pointer, its insertion line shows where they'd go, and a folder they'd go into is tinted. */
+.binders-outliner-row.is-dragging {
+	opacity: 0.45;
+}
+
+.binders-outliner-row.is-being-dragged-over {
+	--binders-ol-tint: linear-gradient(color-mix(in oklch, var(--interactive-accent) 10%, transparent), color-mix(in oklch, var(--interactive-accent) 10%, transparent));
+	color: var(--nav-item-color-highlighted, var(--text-accent));
+}
+
+.binders-outliner-row.is-lifted {
+	--binders-ol-tint: linear-gradient(var(--background-modifier-hover), var(--background-modifier-hover));
+}
+
+.binders-outliner-ghost {
+	top: 0;
+	left: 0;
+}
+
+.drop-indicator.binders-drop-line {
+	position: fixed;
+	border-radius: 2px;
+	z-index: var(--layer-cover);
+}
+
+.binders-outliner > .binders-empty,
+.binders-corkboard > .binders-empty,
+.binders-manuscript .binders-empty {
+	height: auto;
+	min-height: 200px;
+	font-family: var(--font-interface);
+}
 
 /* Manuscript: the folder's notes as one page, in Obsidian's own editor type and readable line width. Properties are
    hidden with Obsidian's own variables; the embed's frame (border, padding, link icon, inline title) is taken off so
@@ -405,16 +645,17 @@
 .binders-manuscript-title {
 	color: var(--text-faint);
 	font-size: var(--font-ui-small);
-	cursor: var(--cursor-link);
+	cursor: text;
 	border-radius: var(--radius-s);
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
 }
 
+/* (a click renames it, as a note's own title: it's text to type in, not a link) */
 .binders-manuscript-title:hover,
 .binders-manuscript-title:focus-visible {
-	color: var(--text-accent);
+	color: var(--text-muted);
 }
 
 .binders-manuscript-title:focus-visible {
@@ -422,11 +663,42 @@
 	box-shadow: 0 0 0 2px var(--background-modifier-border-focus);
 }
 
+/* a folder's name being typed over, as a section's title is */
+.binders-manuscript-heading > :is(h1, h2, h3, h4, h5, h6).is-renaming {
+	cursor: text;
+	outline: none;
+	border-radius: var(--radius-s);
+	box-shadow: 0 0 0 2px var(--interactive-accent);
+}
+
 .binders-manuscript-title.is-renaming {
 	color: var(--text-normal);
 	cursor: text;
 	white-space: pre;
-	box-shadow: 0 0 0 1px var(--background-modifier-border-focus);
+	/* the whole name shows while it's typed, however long */
+	overflow: visible;
+	text-overflow: clip;
+	padding-inline: var(--size-2-2);
+	margin-inline: calc(-1 * var(--size-2-2));
+	box-shadow: 0 0 0 2px var(--interactive-accent);
+}
+
+/* A folder's heading goes into the folder. */
+.binders-manuscript-heading > :is(h1, h2, h3, h4, h5, h6) {
+	width: fit-content;
+	cursor: var(--cursor-link);
+	border-radius: var(--radius-s);
+}
+
+.binders-manuscript-heading > :is(h1, h2, h3, h4, h5, h6):focus-visible {
+	outline: none;
+	box-shadow: 0 0 0 2px var(--background-modifier-border-focus);
+}
+
+@media (hover: hover) {
+	.binders-manuscript-heading > :is(h1, h2, h3, h4, h5, h6):hover {
+		color: var(--text-accent);
+	}
 }
 
 .binders-manuscript-body {
@@ -458,6 +730,30 @@
 	overflow: visible;
 }
 
+/* A section's editor is as wide as the page and never scrolls up and down by itself (the manuscript does). In a note
+   of its own it's a scroller, which here would keep a scrollbar's width free at the side; and a table's handles reach a
+   little past the text, which a note has margins for: here the editor reaches into the page's margins by as much, so
+   only a table really wider than the page scrolls sideways. */
+.binders-manuscript .markdown-source-view.mod-cm6 .cm-scroller {
+	overflow: auto hidden;
+	scrollbar-gutter: auto;
+	margin-inline: calc(-1 * var(--size-4-4));
+	padding-inline: var(--size-4-4);
+}
+
+.binders-manuscript {
+	overflow-x: hidden;
+}
+
+/* A note with no text yet still has a line to click into. */
+.binders-manuscript-rendered {
+	min-height: calc(var(--line-height-normal) * 1em);
+}
+
+.binders-manuscript-title {
+	cursor: text;
+}
+
 .binders-manuscript.is-readonly .binders-manuscript-body {
 	cursor: var(--cursor-link);
 }
@@ -471,7 +767,58 @@
 }
 
 .binders-manuscript-rendered {
-	--p-spacing: calc(var(--line-height-normal) * 1em);
+	/* one line of text, the same wherever it's used (a heading's own em is bigger) */
+	--binders-line: calc(var(--line-height-normal) * var(--font-text-size));
+	--p-spacing: var(--binders-line);
+}
+
+/* A heading has a blank line on either side and, as in the editor, a little room above itself. */
+.binders-manuscript .binders-manuscript-rendered > :is(h1, h2, h3, h4, h5, h6) {
+	margin-block: var(--binders-line);
+	padding-top: 1rem;
+}
+
+.binders-manuscript .binders-manuscript-rendered > :is(h1, h2, h3, h4, h5, h6):first-child {
+	margin-top: 0;
+}
+
+.binders-manuscript .binders-manuscript-rendered > :is(h1, h2, h3, h4, h5, h6):last-child {
+	margin-bottom: 0;
+}
+
+/* The editor's table has its handles' room around it. */
+.binders-manuscript-rendered > table,
+.binders-manuscript-rendered > table:first-child,
+.binders-manuscript-rendered > table:last-child {
+	margin-block: calc(var(--binders-line) + var(--size-4-4));
+}
+
+.binders-manuscript-rendered > table:first-child {
+	margin-top: var(--size-4-4);
+}
+
+.binders-manuscript-rendered > table:last-child {
+	margin-bottom: var(--size-4-4);
+}
+
+/* A code block: its lines at the code's size, and a line each for the fences the editor shows. */
+.binders-manuscript .binders-manuscript-rendered > pre {
+	font-size: var(--code-size);
+	padding-block: calc(var(--line-height-normal) * 1em);
+}
+
+.binders-manuscript .binders-manuscript-rendered > pre > code {
+	font-size: 1em;
+}
+
+/* A rule takes a line, with a blank line on either side. */
+.binders-manuscript-rendered > hr {
+	margin-block: calc(var(--binders-line) * 1.5 - var(--hr-thickness) / 2);
+}
+
+/* Inside a callout the editor spaces paragraphs as reading view does. */
+.binders-manuscript-rendered .callout {
+	--p-spacing: 1rem;
 }
 
 .binders-manuscript-rendered > :first-child {
@@ -486,16 +833,55 @@
 	margin-bottom: 0;
 }
 
-/* why the manuscript is read only: quiet, above the text */
+/* Spaced from the note itself (see space() in manuscript.ts): each block as many lines below the last as the note has
+   blank lines between them, and the note's blank last lines under it all. */
+.binders-manuscript .binders-manuscript-rendered.is-spaced.is-spaced {
+	display: flow-root;
+	padding-bottom: calc(var(--binders-tail, 0) * var(--binders-line));
+}
+
+.binders-manuscript .binders-manuscript-rendered.is-spaced.is-spaced > * {
+	margin-block: calc(var(--binders-gap, 1) * var(--binders-line)) 0;
+}
+
+/* (the room the editor gives a table's handles, and the line a rule stands in the middle of) */
+.binders-manuscript .binders-manuscript-rendered.is-spaced.is-spaced > table {
+	margin-block: calc(var(--binders-gap, 1) * var(--binders-line) + var(--size-4-4)) var(--size-4-4);
+}
+
+.binders-manuscript .binders-manuscript-rendered.is-spaced.is-spaced > hr {
+	margin-block: calc(var(--binders-gap, 1) * var(--binders-line) + (var(--binders-line) - var(--hr-thickness)) / 2) calc((var(--binders-line) - var(--hr-thickness)) / 2);
+}
+
+/* (margins between blocks collapse into the larger: what follows a table or a rule carries that one's room too) */
+.binders-manuscript .binders-manuscript-rendered.is-spaced.is-spaced > table + * {
+	margin-top: calc(var(--binders-gap, 1) * var(--binders-line) + var(--size-4-4));
+}
+
+.binders-manuscript .binders-manuscript-rendered.is-spaced.is-spaced > table + table {
+	margin-top: calc(var(--binders-gap, 1) * var(--binders-line) + 2 * var(--size-4-4));
+}
+
+.binders-manuscript .binders-manuscript-rendered.is-spaced.is-spaced > hr + * {
+	margin-top: calc(var(--binders-gap, 1) * var(--binders-line) + (var(--binders-line) - var(--hr-thickness)) / 2);
+}
+
+.binders-manuscript .binders-manuscript-rendered.is-spaced.is-spaced > hr + hr {
+	margin-top: calc(var(--binders-gap, 1) * var(--binders-line) + var(--binders-line) - var(--hr-thickness));
+}
+
+/* why the manuscript is read only: above the text, drawn as a callout in a note is (a block tinted with its color,
+   its icon in that color) */
 .binders-manuscript-notice {
+	--binders-notice-color: var(--callout-info, var(--color-blue));
 	display: flex;
 	gap: var(--size-4-2);
 	align-items: flex-start;
 	margin-bottom: var(--size-4-8);
 	padding: var(--size-4-2) var(--size-4-3);
-	border-radius: var(--radius-m);
-	background-color: var(--background-secondary);
-	color: var(--text-muted);
+	border-radius: var(--callout-radius, var(--radius-s));
+	background-color: color-mix(in oklch, var(--binders-notice-color) 10%, transparent);
+	color: var(--text-normal);
 	font-family: var(--font-interface);
 	font-size: var(--font-ui-small);
 	line-height: var(--line-height-tight);
@@ -504,14 +890,8 @@
 .binders-manuscript-notice-icon {
 	display: flex;
 	flex-shrink: 0;
-	color: var(--icon-color);
+	color: var(--binders-notice-color);
 	--icon-size: var(--icon-s);
-}
-
-.binders-manuscript-empty {
-	color: var(--text-muted);
-	text-align: center;
-	padding: var(--size-4-8);
 }
 
 /* ---- Binder view: toolbar, notice, synopsis ---- */
@@ -524,31 +904,63 @@
 .binders-breadcrumbs,
 .binders-cards,
 .binders-toolbar-button,
-.binders-plotgrid-table {
+.binders-outliner-row,
+.binders-outliner-foot,
+.binders-outliner-th[data-col],
+.binders-outliner-value {
 	--no-tooltip: true;
 }
 
-/* In the plot grid, only the table's own name is kept from showing: its headers and counts show theirs. */
-.binders-plotgrid-table [aria-label] {
-	--no-tooltip: initial;
+/* Edge to edge, as a base, a canvas or a note is: Obsidian pads a view's content unless it's told not to, which would
+   leave the toolbar's rule short of the pane's edges and the scrollbar away from its side. */
+.workspace-leaf-content[data-type="binders-view"] .view-content {
+	padding: 0;
 }
 
 .binders-view {
 	display: flex;
 	flex-direction: column;
-	padding: 0;
 	overflow: hidden; /* each mode scrolls itself, under a toolbar that stays put */
 	container-type: inline-size;
 	container-name: binders-view;
 }
 
+/* The toolbar: as a base's header is (the view on the left, what it holds, then its actions), with the same height,
+   margins and rule under it, from Obsidian's own variables where it has them. */
 .binders-toolbar {
 	flex: none;
 	display: flex;
 	align-items: center;
-	gap: var(--size-4-1);
-	padding: var(--size-4-2) var(--size-4-4) var(--size-4-1);
+	gap: var(--size-2-2);
+	height: var(--bases-header-height, 40px);
+	padding-inline: var(--size-2-3); /* with the buttons' own margin, where a base's toolbar starts and ends */
+	border-bottom: var(--border-width) solid var(--background-modifier-border);
 	background-color: var(--background-primary);
+}
+
+.binders-toolbar .binders-toolbar-button {
+	margin: 2px;
+}
+
+/* on a phone or a tablet: as big as a base's toolbar there */
+.is-mobile .binders-toolbar {
+	--icon-size: var(--icon-l);
+	--icon-stroke: var(--icon-l-stroke-width);
+	column-gap: var(--size-4-2);
+}
+
+.is-mobile .binders-toolbar .binders-toolbar-button {
+	min-width: 32px;
+	min-height: 32px;
+}
+
+/* the view's name reads as the title it is */
+.binders-mode-button {
+	color: var(--text-normal);
+}
+
+.binders-mode-button .mod-aux {
+	margin-inline-start: auto;
 }
 
 .binders-breadcrumbs {
@@ -560,6 +972,11 @@
 	overflow: hidden;
 	font-size: var(--font-ui-small);
 	color: var(--text-muted);
+}
+
+/* On the binder itself there's nowhere to go up to, and its name is on the tab. */
+.binders-breadcrumbs.is-root {
+	display: none;
 }
 
 .binders-crumb {
@@ -574,6 +991,7 @@
 
 .binders-crumb[role="link"] {
 	flex-shrink: 10; /* the folder shown keeps its name longest */
+	max-width: 14em;
 	cursor: var(--cursor);
 }
 
@@ -587,8 +1005,16 @@
 	box-shadow: 0 0 0 2px var(--background-modifier-border-focus);
 }
 
+/* A narrow pane or a phone: the folder shown and the one above it; the rest of the way up is a tap on that one away. */
+@container binders-view (width < 540px) {
+	.binders-breadcrumbs > :not(:nth-last-child(-n+3)) {
+		display: none;
+	}
+}
+
 .binders-crumb-sep {
 	display: flex;
+	flex: none;
 	color: var(--text-faint);
 	--icon-size: var(--icon-xs);
 	--icon-stroke: var(--icon-xs-stroke-width);
@@ -599,8 +1025,8 @@
 }
 
 .binders-word-count {
-	/* in a narrow pane the names win: the count gives way first, then goes */
-	flex: 0 1000 auto;
+	/* it keeps its width (a long breadcrumb gives way instead), and in a very narrow pane it goes */
+	flex: none;
 	min-width: 0;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -613,6 +1039,80 @@
 
 .binders-word-count.is-complete {
 	color: var(--text-success);
+}
+
+/* (a click on it sets the target of the folder shown) */
+.binders-word-count.is-clickable {
+	cursor: var(--cursor);
+	border-radius: var(--radius-s);
+	padding-block: var(--size-2-1);
+}
+
+.binders-word-count:focus-visible {
+	outline: none;
+	box-shadow: 0 0 0 2px var(--background-modifier-border-focus);
+}
+
+@media (hover: hover) {
+	.binders-word-count.is-clickable:hover {
+		background-color: var(--background-modifier-hover);
+		color: var(--text-normal);
+	}
+}
+
+/* How far along the binder's target is: a bar before the count, drawn as Obsidian draws its own progress bars (a
+   <progress> in a note, a download in settings): a track in the secondary background with a hairline, filled in the
+   accent color. */
+.binders-progress {
+	flex: none;
+	width: 56px;
+	height: var(--size-2-3);
+	border-radius: var(--radius-s);
+	background-color: var(--background-secondary);
+	box-shadow: inset 0 0 0 var(--border-width) var(--background-modifier-border);
+	overflow: hidden;
+}
+
+.binders-progress.is-hidden {
+	display: none;
+}
+
+.binders-progress-bar {
+	height: 100%;
+	background-color: var(--interactive-accent);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	.binders-progress-bar {
+		transition: width var(--anim-duration-moderate, 300ms) ease-out;
+	}
+}
+
+/* Small dialogs: a field as wide as the dialog, and under it why what's typed can't be used. */
+.binders-ask {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+}
+
+.binders-ask input[type="text"] {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.binders-ask input.is-invalid {
+	border-color: var(--background-modifier-error);
+}
+
+.binders-ask-error {
+	min-height: 1lh;
+	margin-top: var(--size-4-1);
+	color: var(--text-error);
+	font-size: var(--font-ui-small);
+}
+
+.binders-progress.is-complete .binders-progress-bar {
+	background-color: var(--text-success);
 }
 
 .binders-toolbar-button {
@@ -638,16 +1138,18 @@
 	}
 }
 
+/* Why a binder is read only: as a warning callout in a note (a block tinted with the warning's color, its icon in
+   that color), not a box of our own. */
 .binders-notice {
+	--binders-notice-color: var(--callout-warning, var(--color-orange));
 	display: none;
 	align-items: center;
 	gap: var(--size-4-2);
-	margin: var(--size-4-1) var(--size-4-4) var(--size-4-2);
+	margin: var(--size-4-3) var(--size-4-3) 0;
 	padding: var(--size-4-2) var(--size-4-3);
-	border-radius: var(--radius-m);
-	background-color: var(--background-secondary);
-	border: var(--border-width) solid var(--background-modifier-border);
-	color: var(--text-muted);
+	border-radius: var(--callout-radius, var(--radius-s));
+	background-color: color-mix(in oklch, var(--binders-notice-color) 10%, transparent);
+	color: var(--text-normal);
 	font-size: var(--font-ui-small);
 }
 
@@ -658,14 +1160,33 @@
 .binders-notice-icon {
 	display: flex;
 	flex-shrink: 0;
-	color: var(--text-warning);
+	color: var(--binders-notice-color);
+	--icon-size: var(--icon-s);
 }
 
 .binders-view-synopsis-row {
 	flex: none;
 	max-height: 40%;
 	overflow-y: auto;
-	padding: 2px var(--size-4-4) var(--size-4-2); /* room for the focus ring */
+	padding: var(--size-4-2) var(--size-4-3) 0;
+}
+
+/* In a mode's own page (the corkboard, the outliner, the manuscript), it's the first thing there and scrolls with it. */
+.binders-view-synopsis-row.is-adopted {
+	max-height: none;
+	overflow: visible;
+}
+
+.binders-outliner > .binders-view-synopsis-row {
+	position: sticky;
+	inset-inline-start: 0;
+	width: 100%;
+	max-width: 100cqw;
+	padding-bottom: var(--size-4-1);
+}
+
+.binders-manuscript-page > .binders-view-synopsis-row {
+	padding: 0 0 var(--size-4-6);
 }
 
 .binders-view-synopsis:not(.is-editing) {
@@ -684,24 +1205,27 @@
 	padding: var(--size-2-1) var(--size-2-2);
 	margin-inline: calc(-1 * var(--size-2-2));
 	color: var(--text-muted);
+	font-family: var(--font-text);
 	font-size: var(--font-ui-medium);
 	line-height: var(--line-height-normal);
 }
 
 /* Narrow panes and phones: icons only in the toolbar, as Bases does, and tighter margins. */
 @container binders-view (width < 540px) {
-	.binders-toolbar-button .text-button-label {
+	.binders-toolbar-button:not(.binders-mode-button) .text-button-label {
 		display: none;
 	}
 	.binders-toolbar-button {
 		--no-tooltip: false;
 	}
-	.binders-toolbar,
-	.binders-view-synopsis-row {
-		padding-inline: var(--size-4-3);
-	}
 	.binders-notice {
 		margin-inline: var(--size-4-3);
+	}
+}
+
+@container binders-view (width < 440px) {
+	.binders-progress {
+		display: none;
 	}
 }
 
@@ -771,15 +1295,35 @@
 	color: var(--text-faint);
 }
 
+/* Pointed at, a short line (a folder's synopsis, the binder's) is tinted to say it can be typed in. A card's or a
+   row's synopsis isn't: it fills most of the card, and a grey slab under the pointer says nothing a text cursor doesn't. */
 @media (hover: hover) {
 	.binders-editable.is-editable:not(.is-editing):hover {
 		background-color: var(--background-modifier-hover);
+	}
+	.binders-card-synopsis.is-editable:not(.is-editing):hover,
+	.binders-outliner-synopsis.is-editable:not(.is-editing):hover,
+	.binders-board.is-dragging .binders-editable:hover,
+	.binders-outliner.is-dragging .binders-editable:hover {
+		background-color: transparent;
 	}
 }
 
 .binders-editable.is-editing {
 	background-color: var(--background-primary);
 	box-shadow: 0 0 0 2px var(--background-modifier-border-focus);
+}
+
+/* a name being typed has the ring Obsidian gives a name being typed in the file explorer */
+.binders-card-title.is-editing,
+.binders-outliner-name.is-editing,
+.binders-group-name.is-editing {
+	box-shadow: 0 0 0 2px var(--interactive-accent);
+}
+
+/* what's typed can't be saved as it is (a name that's taken, a target that isn't a number) */
+.binders-editable.is-editing.is-invalid {
+	box-shadow: 0 0 0 2px var(--background-modifier-error);
 }
 
 /* The field sits exactly where the text was, so nothing jumps when editing starts. (Two classes and the element, to
@@ -794,7 +1338,7 @@
 	padding: 0;
 	font: inherit;
 	line-height: inherit;
-	color: var(--text-normal);
+	color: inherit; /* as it was shown: only the caret says it's being edited */
 	background: transparent;
 	border: none;
 	border-radius: 0;
@@ -829,13 +1373,15 @@
 .binders-card.mod-label-purple, .binders-label-dot.mod-purple { --binders-label: var(--color-purple); }
 .binders-card.mod-label-pink, .binders-label-dot.mod-pink { --binders-label: var(--color-pink); }
 .binders-card.mod-label-other, .binders-label-dot.mod-other { --binders-label: var(--text-faint); }
+/* (a label from settings, or a color of the note's own, sets --binders-label on the element itself) */
 
+/* A label's mark: a color chip the shape of a card, not a dot. */
 .binders-label-dot {
 	display: inline-block;
 	flex-shrink: 0;
-	width: 8px;
-	height: 8px;
-	border-radius: 50%;
+	width: 10px;
+	height: 7px;
+	border-radius: 2px;
 	background-color: var(--binders-label);
 	vertical-align: middle;
 }
@@ -848,25 +1394,28 @@
 	box-shadow: inset 0 0 0 1px var(--text-faint);
 }
 
-/* A status: a small pill, like a list value in the Properties panel. */
+/* A status: a text property's value, shown as a base and the Properties panel show one: as plain text, no box. */
 .binders-chip {
-	display: inline-flex;
-	align-items: center;
+	display: inline-block;
 	min-width: 0;
-	padding: 0 var(--size-4-2);
-	border-radius: var(--radius-s);
-	background-color: var(--background-modifier-hover);
+	max-width: 100%;
 	color: var(--text-muted);
 	font-size: var(--font-ui-smaller);
-	line-height: 1.6;
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
 }
 
+.binders-outliner-cell .binders-chip {
+	color: inherit;
+	font-size: inherit;
+}
+
 /* ---- Corkboard ---- */
 
 .binders-corkboard {
+	display: flex;
+	flex-direction: column;
 	height: 100%;
 	overflow-y: auto;
 }
@@ -876,7 +1425,8 @@
 	display: flex;
 	flex-direction: column;
 	gap: var(--size-4-4);
-	padding: var(--size-4-2) var(--size-4-4) var(--size-4-8);
+	flex: 1 0 auto; /* to the pane's foot, so the board's menu opens anywhere below the last card too */
+	padding: var(--size-4-3) var(--size-4-3) var(--size-4-8);
 }
 
 /* Phones: room at the end for Obsidian's floating navigation bar, as its own views leave (Bases). */
@@ -884,26 +1434,40 @@
 	padding-bottom: calc(var(--size-4-8) + var(--view-bottom-spacing, 0px));
 }
 
-/* A subfolder: a panel with its heading, so the notes after it are plainly back in the folder shown. */
-.binders-group.is-folder {
-	padding: var(--size-4-3);
-	border-radius: var(--radius-l);
-	background-color: var(--background-secondary);
+/* A subfolder: its heading, then its cards along a guide like the one under a folder in the file explorer, so the
+   notes after it are plainly back in the folder shown. A Longform project's indented scenes show the same way. */
+.binders-group.is-folder > .binders-cards,
+.binders-group.is-indented > .binders-cards {
+	margin-inline-start: var(--size-4-2);
+	padding-inline-start: var(--size-4-3);
+	border-inline-start: var(--nav-indentation-guide-width, 1px) solid var(--nav-indentation-guide-color, var(--background-modifier-border));
 }
 
-/* Longform: scenes indented under a scene, a panel like a subfolder's, indented once per level. */
 .binders-group.is-indented {
 	margin-inline-start: calc((var(--binders-group-depth, 1) - 1) * var(--size-4-6));
-	padding: var(--size-4-3);
-	border-radius: var(--radius-l);
-	background-color: var(--background-secondary);
+}
+
+/* A group the dragged cards would move into, tinted as a folder in the file explorer is. */
+.binders-group {
+	border-radius: var(--radius-m);
+	transition: background-color var(--anim-duration-fast, 140ms) ease-in-out, box-shadow var(--anim-duration-fast, 140ms) ease-in-out;
+}
+
+.binders-group.is-drop-target {
+	--binders-drop-tint: color-mix(in oklch, var(--interactive-accent) 10%, transparent);
+	background-color: var(--binders-drop-tint);
+	box-shadow: 0 0 0 var(--size-4-2) var(--binders-drop-tint);
+}
+
+.binders-group.is-drop-target .binders-group-title,
+.binders-group.is-drop-target .binders-group-icon {
+	color: var(--nav-item-color-highlighted, var(--text-accent));
 }
 
 .binders-group-heading {
 	display: flex;
 	flex-direction: column;
-	gap: var(--size-2-2);
-	margin-bottom: var(--size-4-3);
+	margin-bottom: var(--size-4-2);
 }
 
 .binders-group-title-row {
@@ -921,6 +1485,7 @@
 	padding: var(--size-2-1) var(--size-2-2);
 	margin-inline-start: calc(-1 * var(--size-2-2));
 	border-radius: var(--radius-s);
+	font-family: var(--font-text);
 	font-size: var(--font-ui-medium);
 	font-weight: var(--font-semibold);
 	color: var(--text-normal);
@@ -958,6 +1523,15 @@
 	}
 }
 
+/* The binder's rule: a folder's name, then a hairline to what's known about it (its label, status and counts) at the
+   far side. The manuscript sets each note's title the same way. */
+.binders-group-rule {
+	flex: 1 1 var(--size-4-4);
+	min-width: var(--size-4-2);
+	height: 0;
+	border-top: var(--border-width) solid var(--background-modifier-border);
+}
+
 .binders-group-count {
 	margin-inline-start: auto;
 	flex: 0 1000 auto; /* the folder's name wins */
@@ -973,7 +1547,9 @@
 .binders-group-synopsis {
 	max-width: var(--file-line-width);
 	padding: var(--size-2-1) var(--size-2-2);
-	margin-inline: calc(-1 * var(--size-2-2));
+	/* under the folder's name, past its icon */
+	margin-inline-start: calc(var(--icon-s) + var(--size-4-1) - var(--size-2-2));
+	font-family: var(--font-text);
 	font-size: var(--font-ui-small);
 	color: var(--text-muted);
 }
@@ -995,75 +1571,120 @@
 
 .binders-cards {
 	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr));
+	grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--binders-card-width, 210px)), 1fr));
 	gap: var(--size-4-3);
 }
 
-/* An index card: one of Obsidian's own surfaces, with its label as a stripe along the top. */
+/* A card or row just made is laid out in full while what moved is measured (see settle() in drag.ts). */
+.binders-card.is-fresh,
+.binders-outliner-row.is-fresh {
+	content-visibility: visible;
+}
+
+/* Card size (the view's menu) */
+.binders-board.mod-cards-small { --binders-card-width: 160px; --binders-card-height: 104px; --binders-card-lines: 4; }
+.binders-board.mod-cards-large { --binders-card-width: 290px; --binders-card-height: 168px; --binders-card-lines: 9; }
+
+/* An index card: drawn as a card in a base is (flat, a hairline border that darkens when pointed at, Obsidian's own
+   variables for it where it has them). Its label shows as a card's color does on a canvas: the whole border takes it,
+   two pixels of it, and (tinted, an option) the card's face takes a little of it too.
+
+   The card's edge is put together from parts, so each state changes only its own: the outline (a hairline; the
+   selection's ring), the label's line inside it, and for a stack the cards under it. */
 .binders-card {
+	--binders-edge: var(--background-modifier-border);
+	--binders-outline: var(--bases-cards-shadow, 0 0 0 1px var(--binders-edge));
+	--binders-label-line: 0 0 0 0 transparent;
+	--binders-pile: 0 0 0 0 transparent;
 	position: relative;
 	display: flex;
 	flex-direction: column;
 	gap: var(--size-2-3);
-	min-height: 132px;
+	min-height: var(--binders-card-height, 132px);
 	padding: var(--size-4-3) var(--size-4-3) var(--size-4-2);
-	border-radius: var(--radius-m);
-	border: var(--border-width) solid var(--background-modifier-border);
-	background-color: var(--background-primary);
-	box-shadow: var(--shadow-s);
+	border-radius: var(--bases-cards-radius, var(--radius-m));
+	background-color: var(--bases-cards-background, var(--background-primary));
+	box-shadow: var(--binders-outline), var(--binders-label-line), var(--binders-pile);
+	min-width: 0; /* a long name is cut, it doesn't widen the column */
 	user-select: none;
 	-webkit-user-select: none;
 	-webkit-touch-callout: none;
 	overflow: hidden;
 	cursor: default;
-	transition: box-shadow 120ms ease, opacity 120ms ease, transform 120ms ease;
+	transition: box-shadow var(--anim-duration-fast, 140ms) ease-in-out, opacity var(--anim-duration-fast, 140ms) ease-in-out;
 }
 
 /* A big binder's cards off screen aren't laid out or painted until they're near (the browser keeps their last size), so
-   a board of a thousand cards opens and redraws quickly. */
+   a board of a thousand cards opens and redraws quickly. Until a card has been drawn once it stands in at a card's least
+   height (the size is its content's, so without the padding): rows don't change height as they scroll into view. */
 .binders-card[data-path] {
 	content-visibility: auto;
-	contain-intrinsic-size: auto 132px;
+	contain-intrinsic-block-size: auto calc(var(--binders-card-height, 132px) - var(--size-4-3) - var(--size-4-2));
 }
 
-.binders-card::before {
-	content: "";
-	position: absolute;
-	inset: 0 0 auto 0;
-	height: 3px;
-	background-color: var(--binders-label);
+/* A labeled card: its border in the label's color, a pixel outside the card's edge and a pixel inside, as a colored
+   card's is on a canvas. */
+.binders-card.has-label {
+	--binders-edge: color-mix(in oklch, var(--binders-label) 70%, transparent);
+	--binders-outline: 0 0 0 1px var(--binders-edge);
+	--binders-label-line: inset 0 0 0 1px var(--binders-edge);
 }
 
-.binders-card:focus {
+.binders-card:focus:not(.is-selected) {
 	outline: none;
 }
 
 .binders-card:focus-visible {
-	box-shadow: 0 0 0 2px var(--background-modifier-border-focus), var(--shadow-s);
+	--binders-outline: 0 0 0 2px var(--background-modifier-border-focus);
 }
 
-/* Pointed at: the border darkens a little, as other Obsidian surfaces do (a selected card keeps its accent border). */
+/* Pointed at: the border darkens a little, as a base's cards do (a selected card keeps its accent border); a labeled
+   card's comes to its label's full color. */
 @media (hover: hover) {
-	.binders-card[data-path]:not(.is-selected):hover {
-		border-color: var(--background-modifier-border-hover);
+	.binders-card[data-path]:not(.is-selected):not(:focus-visible):hover {
+		--binders-edge: var(--background-modifier-border-hover);
+		--binders-outline: var(--bases-cards-shadow-hover, 0 0 0 1px var(--binders-edge));
 	}
-	.binders-board.is-dragging .binders-card[data-path]:hover {
-		border-color: var(--background-modifier-border);
+	.binders-card.has-label[data-path]:not(.is-selected):not(:focus-visible):hover {
+		--binders-edge: var(--binders-label);
+		--binders-outline: 0 0 0 1px var(--binders-edge);
+	}
+	.binders-board.is-dragging .binders-card[data-path]:not(.is-selected):hover {
+		--binders-edge: var(--background-modifier-border);
+		--binders-outline: var(--bases-cards-shadow, 0 0 0 1px var(--binders-edge));
+	}
+	.binders-board.is-dragging .binders-card.has-label[data-path]:not(.is-selected):hover {
+		--binders-edge: color-mix(in oklch, var(--binders-label) 70%, transparent);
+		--binders-outline: 0 0 0 1px var(--binders-edge);
 	}
 }
 
-.binders-card.is-selected {
-	border-color: var(--interactive-accent);
-	box-shadow: 0 0 0 1px var(--interactive-accent), var(--shadow-s);
+/* Selected, as a card on a canvas is: its border grows to a ring two pixels wide in the card's own color (its label's,
+   at full strength), and its face takes a little more of that color. A card without a label has a plain ring, in the
+   color of quiet text: nothing on the board is the accent color but what's being dragged or dropped on. */
+.binders-card {
+	--binders-ring: var(--text-muted);
 }
 
-.binders-card.is-selected:focus-visible {
-	box-shadow: 0 0 0 1px var(--interactive-accent), 0 0 0 4px var(--background-modifier-border-focus);
+.binders-card.has-label {
+	--binders-ring: var(--binders-label);
+}
+
+.binders-card.is-selected,
+.binders-drag-ghost > .binders-card {
+	--binders-edge: var(--binders-ring);
+	--binders-outline: 0 0 0 2px var(--binders-ring);
+	background-color: color-mix(in oklch, var(--binders-ring) 6%, var(--bases-cards-background, var(--background-primary)));
+}
+
+.binders-board.mod-label-tint .binders-card.has-label.is-selected,
+.binders-drag-ghost > .binders-card.has-label {
+	background-color: color-mix(in oklch, var(--binders-label) 14%, var(--bases-cards-background, var(--background-primary)));
 }
 
 .binders-card-head {
 	display: flex;
-	align-items: center;
+	align-items: baseline;
 	gap: var(--size-4-1);
 	min-width: 0;
 }
@@ -1071,14 +1692,29 @@
 .binders-card-icon {
 	display: flex;
 	flex-shrink: 0;
+	align-self: center;
 	color: var(--icon-color);
 	--icon-size: var(--icon-s);
 	--icon-stroke: var(--icon-s-stroke-width);
 }
 
+/* "Number the cards": each note's place in the order, before its title, quiet. */
+.binders-card-number {
+	display: none;
+	flex: none;
+	color: var(--text-faint);
+	font-size: var(--font-ui-small);
+	font-variant-numeric: tabular-nums;
+}
+
+.binders-board.mod-numbers .binders-card-number {
+	display: block;
+}
+
 .binders-card-title {
 	flex: 1 1 auto;
 	min-width: 0;
+	font-family: var(--font-text);
 	font-size: var(--font-ui-medium);
 	font-weight: var(--font-semibold);
 	line-height: var(--line-height-tight);
@@ -1088,19 +1724,22 @@
 	white-space: nowrap;
 }
 
+/* What the writer wrote (a synopsis) is set in the vault's text font and its ink, as a card's text is on a canvas;
+   what Binders says about it (status, counts) in the interface's. */
 .binders-card-synopsis {
 	flex: 1 1 auto;
 	margin-inline: calc(-1 * var(--size-2-2));
 	padding: var(--size-2-1) var(--size-2-2);
+	font-family: var(--font-text);
 	font-size: var(--font-ui-small);
 	line-height: var(--line-height-normal);
-	color: var(--text-muted);
+	color: var(--text-normal);
 }
 
 .binders-card-synopsis:not(.is-editing) {
 	display: -webkit-box;
 	-webkit-box-orient: vertical;
-	-webkit-line-clamp: 6;
+	-webkit-line-clamp: var(--binders-card-lines, 6);
 	overflow: hidden;
 }
 
@@ -1108,43 +1747,66 @@
 	display: none;
 }
 
+/* "Add a synopsis" only offers itself on the card in hand (selected, focused or pointed at), so a board of new notes
+   isn't a wall of it. */
+.binders-card:not(.is-selected):not(:focus-within) .binders-card-synopsis.is-empty:not(.is-editing) {
+	visibility: hidden;
+}
+
+@media (hover: hover) {
+	.binders-card:not(.is-selected):not(:focus-within):hover .binders-card-synopsis.is-empty:not(.is-editing) {
+		visibility: visible;
+	}
+}
+
 .binders-card-footer {
 	display: flex;
 	align-items: center;
 	gap: var(--size-4-2);
 	min-height: 20px;
+	margin-top: auto; /* at the card's foot, with or without a synopsis above it */
 }
 
 .binders-card-spacer {
 	flex: 1 1 0;
 }
 
+/* (a status is a word or two and is shown whole, up to most of the card; the count gives way to it) */
+.binders-card-footer > .binders-chip {
+	flex: none;
+	max-width: 70%;
+}
+
 .binders-card-words {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
 	font-size: var(--font-ui-smaller);
 	color: var(--text-faint);
 	white-space: nowrap;
 	font-variant-numeric: tabular-nums;
 }
 
-/* A subfolder shown as one card: a stack, with the cards under it peeking out. */
-.binders-card.is-stack {
-	/* the cards under it peek out below, each a little narrower, so a stack is as wide as a note's card */
-	--binders-stack: 0 6px 0 -4px var(--background-primary), 0 6px 0 -3px var(--background-modifier-border), 0 12px 0 -7px var(--background-primary), 0 12px 0 -6px var(--background-modifier-border);
+/* A subfolder shown as one card: a pile, squared up not quite true, so the edges of two cards under it show along its
+   right and its foot. Several cards carried at once are the same pile (below). */
+.binders-card.is-stack,
+.binders-drag-ghost.is-multiple > .binders-card {
+	--binders-pile-edge: var(--background-modifier-border-hover);
+	--binders-pile-face: var(--bases-cards-background, var(--background-primary));
+	--binders-pile: 4px 4px 0 -1px var(--binders-pile-face), 4px 4px 0 0 var(--binders-pile-edge), 8px 8px 0 -1px var(--binders-pile-face), 8px 8px 0 0 var(--binders-pile-edge);
 	overflow: visible;
-	margin-bottom: 6px;
-	box-shadow: var(--binders-stack);
 }
 
-.binders-card.is-stack::before {
-	border-radius: var(--radius-m) var(--radius-m) 0 0;
+.mod-rtl .binders-card.is-stack,
+.mod-rtl .binders-drag-ghost.is-multiple > .binders-card {
+	--binders-pile: -4px 4px 0 -1px var(--binders-pile-face), -4px 4px 0 0 var(--binders-pile-edge), -8px 8px 0 -1px var(--binders-pile-face), -8px 8px 0 0 var(--binders-pile-edge);
 }
 
-.binders-card.is-stack:focus-visible {
-	box-shadow: 0 0 0 2px var(--background-modifier-border-focus), var(--binders-stack);
-}
-
-.binders-card.is-stack.is-selected {
-	box-shadow: 0 0 0 1px var(--interactive-accent), var(--binders-stack);
+/* (the pile takes room in the card's place in the grid: the card is that much smaller, and no taller than the others) */
+.binders-card.is-stack[data-path] {
+	margin-inline-end: 8px;
+	margin-bottom: 8px;
+	min-height: calc(var(--binders-card-height, 132px) - 8px);
 }
 
 /* "New note" at the end of each group: a quiet button in the next card's place, like Obsidian's own subtle buttons;
@@ -1156,10 +1818,9 @@
 	flex-direction: row;
 	gap: var(--size-4-1);
 	padding: var(--size-4-1) var(--size-4-2);
-	border-color: transparent;
 	border-radius: var(--radius-s);
 	background-color: transparent;
-	box-shadow: none;
+	--binders-outline: 0 0 0 0 transparent;
 	color: var(--text-faint);
 	font-size: var(--font-ui-small);
 	cursor: var(--cursor);
@@ -1169,31 +1830,28 @@
 	min-height: 0;
 }
 
-.binders-card-new::before {
-	display: none;
-}
-
 .binders-card-new-icon {
 	display: flex;
 	--icon-size: var(--icon-s);
 }
 
 .binders-card-new:focus-visible {
-	box-shadow: 0 0 0 2px var(--background-modifier-border-focus);
+	--binders-outline: 0 0 0 2px var(--background-modifier-border-focus);
 }
 
 .binders-card-new.is-editing {
+	color: var(--text-normal);
 	align-self: stretch;
 	align-items: flex-start;
 	padding: var(--size-4-3) var(--size-4-3) var(--size-4-2);
-	border-radius: var(--radius-m);
-	border-color: var(--interactive-accent);
-	background-color: var(--background-primary);
-	box-shadow: 0 0 0 1px var(--interactive-accent), var(--shadow-s);
+	border-radius: var(--bases-cards-radius, var(--radius-m));
+	background-color: var(--bases-cards-background, var(--background-primary));
+	--binders-outline: 0 0 0 2px var(--interactive-accent);
 	cursor: default;
 }
 
 .binders-card-new.is-editing input.binders-edit-field {
+	font-family: var(--font-text);
 	font-size: var(--font-ui-medium);
 	font-weight: var(--font-semibold);
 	line-height: var(--line-height-tight);
@@ -1206,25 +1864,78 @@
 	}
 }
 
-/* Dragging: the cards being moved fade, a line shows where they'll go, Obsidian's own drag ghost follows the pointer. */
-.binders-board.is-dragging,
-.binders-board.is-dragging .binders-card {
-	cursor: grabbing;
+/* Dragging, as Obsidian reorders its own items: the card follows the pointer, its place is held by a tinted slot, and a
+   line in the accent color shows where it will go. (The cursor is Obsidian's own, from `is-grabbing` on the body.) */
+.binders-card.is-dragging,
+.binders-board.mod-label-tint .binders-card.has-label.is-dragging {
+	box-shadow: none;
+	outline: none;
+	background-color: color-mix(in oklch, var(--interactive-accent) 12%, transparent);
 }
 
-.binders-card.is-dragging {
-	opacity: 0.4;
+.binders-card.is-dragging > * {
+	visibility: hidden;
 }
 
 /* a stack a drop would go into, tinted as a folder in the file explorer is */
 .binders-card.is-stack.is-being-dragged-over {
-	border-color: var(--interactive-accent);
-	background-color: color-mix(in srgb, var(--interactive-accent) 10%, var(--background-primary));
+	--binders-outline: 0 0 0 2px var(--interactive-accent);
+	background-color: color-mix(in oklch, var(--interactive-accent) 10%, var(--background-primary));
 }
 
+/* held by a finger, about to move or to open its menu */
 .binders-card.is-lifted {
-	transform: scale(1.02);
-	box-shadow: var(--shadow-l);
+	--binders-outline: 0 0 0 1px var(--background-modifier-border-hover), var(--shadow-l);
+}
+
+/* Tinted cards (as they come; the view's menu turns it off): the card's face takes its label's color too, as lightly as
+   a colored card's does on a canvas. */
+.binders-board.mod-label-tint .binders-card.has-label {
+	background-color: color-mix(in oklch, var(--binders-label) 7%, var(--bases-cards-background, var(--background-primary)));
+}
+
+/* (on a tint, the faintest ink is too faint to read) */
+.binders-board.mod-label-tint .binders-card.has-label .binders-card-words {
+	color: var(--text-muted);
+}
+
+/* A note with a target of its own: how far along it is, as the toolbar says it for the binder: a small bar, then the
+   count. */
+.binders-card.has-target .binders-card-words::before {
+	content: "";
+	display: inline-block;
+	width: var(--size-4-6);
+	height: var(--size-2-3);
+	margin-inline-end: var(--size-2-3);
+	border-radius: var(--radius-s);
+	--binders-card-fill: var(--interactive-accent);
+	background-color: var(--background-secondary);
+	background-image: linear-gradient(to right, var(--binders-card-fill) var(--binders-card-progress, 0%), transparent 0);
+	box-shadow: inset 0 0 0 var(--border-width) var(--background-modifier-border);
+}
+
+.mod-rtl .binders-card.has-target .binders-card-words::before {
+	background-image: linear-gradient(to left, var(--binders-card-fill) var(--binders-card-progress, 0%), transparent 0);
+}
+
+/* (a small card has room for the count alone) */
+.binders-board.mod-cards-small .binders-card.has-target .binders-card-words::before {
+	display: none;
+}
+
+.binders-card.has-target.is-complete .binders-card-words::before {
+	--binders-card-fill: var(--text-success);
+}
+
+/* a card gliding to its place goes over the others; one just dropped (not one put back) keeps its ring on the way */
+.binders-card.is-landing {
+	z-index: 2;
+}
+
+.binders-card.is-landing.is-dropped {
+	box-shadow: var(--binders-outline), var(--binders-label-line), var(--binders-pile), var(--shadow-s);
+	outline: 2px solid var(--interactive-accent);
+	outline-offset: 2px;
 }
 
 .binders-drag-ghost {
@@ -1232,20 +1943,46 @@
 	left: 0;
 }
 
-.binders-drop-indicator {
+/* lifted: the selected card it is (its ring, above), over a deep shadow, as a card being moved on a canvas is: so it
+   reads as held on dark themes too */
+.binders-drag-ghost > .binders-card {
+	background-color: var(--bases-cards-background, var(--background-primary));
+	box-shadow: var(--binders-outline), var(--binders-label-line), var(--binders-pile), var(--shadow-drag, var(--shadow-l));
+	/* (a little of the board shows through, the line where it will go most of all) */
+	opacity: 0.9;
+}
+
+/* several cards at once: a pile, as a stack is, and a count says how many */
+
+.binders-drag-count {
 	position: absolute;
+	top: calc(-1 * var(--size-4-2));
+	inset-inline-end: calc(-1 * var(--size-4-2));
+	min-width: var(--size-4-5);
+	padding: 0 var(--size-2-3);
+	border-radius: var(--size-4-3);
+	background-color: var(--interactive-accent);
+	color: var(--text-on-accent);
+	font-size: var(--font-ui-smaller);
+	font-weight: var(--font-semibold);
+	line-height: var(--size-4-5);
+	text-align: center;
+	font-variant-numeric: tabular-nums;
+}
+
+.binders-drop-indicator {
+	position: fixed;
 	display: none;
-	height: 0;
-	border-top: 2px solid var(--interactive-accent);
+	height: 2px;
 	border-radius: 1px;
+	background-color: var(--interactive-accent);
 	pointer-events: none;
-	z-index: 1;
+	/* under the card being carried: the line marks a place on the board, it isn't drawn across the card */
+	z-index: calc(var(--layer-dragged-item, 80) - 1);
 }
 
 .binders-drop-indicator.is-vertical {
-	width: 0;
-	border-top: none;
-	border-inline-start: 2px solid var(--interactive-accent);
+	width: 2px;
 }
 
 .binders-drop-indicator.is-active {
@@ -1253,17 +1990,12 @@
 }
 
 /* Narrow panes and phones: one column of cards, tighter margins. */
-@container binders-view (width < 540px) {
-	.binders-board {
-		padding-inline: var(--size-4-3);
-	}
-}
-
-@container binders-view (width < 480px) {
+@container binders-view (width < 520px) {
 	.binders-cards {
-		grid-template-columns: 1fr;
+		grid-template-columns: minmax(0, 1fr);
 	}
-	.binders-card {
+	.binders-card,
+	.binders-card.is-stack[data-path] {
 		min-height: 0;
 	}
 }

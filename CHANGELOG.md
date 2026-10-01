@@ -3,6 +3,28 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.8.0 (2026-10-01)
+
+### Added
+
+- An outliner: the binder as a table of titles, synopses, labels, statuses, word counts and targets, with columns you choose, sorting, folding, and dragging to reorder.
+- Labels and statuses are yours to set: rename them, pick their colors, or give one note a custom color, in Binders' settings and from any card or row.
+- Word targets for a note, a folder or the whole binder, with progress on cards, rows and the toolbar.
+- Scene tools: split a note at the cursor, merge notes, duplicate, put notes in a new folder or ungroup one, fill a synopsis from the text, and compile a folder into one note.
+- Undo and redo for moves made by hand, in the binder view and the file explorer.
+- New binder in the file explorer's menu, beside New note and New folder.
+- The filter works in the manuscript too, and a folder's name can be changed where it stands there.
+
+### Changed
+
+- A new look for cards, after Obsidian's canvas: a label colors the card's border and faintly its face, and a selected card has a ring in its own color.
+- In the file explorer a binder says “binder” at the end of its row, the folder a binder view shows is marked like the open note, and a click that opens a folder's view no longer folds it.
+- The manuscript keeps its place and its cursor more reliably, saves a section as soon as you leave it, and moves less when a section turns into its editor.
+
+### Removed
+
+- The plot grid, in favor of the outliner.
+
 ## 0.7.0 (2026-10-01)
 
 ### Added

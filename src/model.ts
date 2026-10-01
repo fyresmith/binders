@@ -82,6 +82,9 @@ export function orderChildren(contents: string[], folder: string, children: stri
 		if (ra != null && rb != null) return ra - rb;
 		if (ra != null) return -1;
 		if (rb != null) return 1;
+		// what the list doesn't mention: folders first, then notes, each by name, as the file explorer has them (and as
+		// "Make this folder a binder" writes them down)
+		if (a.endsWith('/') !== b.endsWith('/')) return a.endsWith('/') ? -1 : 1;
 		return nameOf(a).localeCompare(nameOf(b), undefined, { numeric: true, sensitivity: 'base' });
 	});
 }
@@ -182,7 +185,10 @@ export type ListOp =
 	| { op: 'remove'; item: string }
 	/** `inner`: a folder's own entries, in order (one moved from another binder brings its order along). */
 	| { op: 'append'; item: string; inner?: string[] }
-	| { op: 'move'; item: string; folder: string; index: number };
+	/** `known`: every item in the binder when the move was made, in the order they showed. A move is worked out against
+	    that, not against the binder as it is when the list is written: by then a later change (a rename, a folder gone)
+	    may have taken away the very entries the move counts its place among. */
+	| { op: 'move'; item: string; folder: string; index: number; known?: string[] };
 
 /** Applies a batch of changes. `known` is every item in the binder in the order it shows, for moves. An item appended
     along with its folder (a folder moved into the binder) isn't written separately: it comes in with the folder. */
@@ -193,7 +199,12 @@ export function applyOps(contents: string[], ops: ListOp[], known: string[]): st
 	const carried = (o: { from: string; to: string }) => ops.some((f) => f !== o && f.op === 'rename' && f.from.endsWith('/') && o.from.startsWith(f.from) && o.to === f.to + o.from.slice(f.from.length));
 	let list = contents;
 	for (const o of ops) {
-		if (o.op === 'rename') list = parentOf(o.from) !== parentOf(o.to) && !carried(o) ? relocate(list, o.from, o.to) : renameIn(list, o.from, o.to);
+		if (o.op === 'rename') {
+			// an item put somewhere and renamed before the list was written: a move wrote in everything that exists, its
+			// new name too, so the entry under that name goes and the one that was put stays, at its place
+			if (list.includes(o.from) && list.includes(o.to)) list = list.filter((p) => p !== o.to);
+			list = parentOf(o.from) !== parentOf(o.to) && !carried(o) ? relocate(list, o.from, o.to) : renameIn(list, o.from, o.to);
+		}
 		else if (o.op === 'remove') list = removeFrom(list, o.item);
 		else if (o.op === 'append') {
 			if (list.includes(o.item) || withFolder(o.item)) continue;
@@ -201,9 +212,15 @@ export function applyOps(contents: string[], ops: ListOp[], known: string[]): st
 			const at = list.indexOf(o.item) + 1, inner = (o.inner ?? []).filter((p) => p.startsWith(o.item) && !list.includes(p));
 			list = [...list.slice(0, at), ...inner, ...list.slice(at)];
 		}
-		else list = moveTo(list, known, o.item, o.folder, o.index);
+		else list = moveTo(list, o.known ?? known, o.item, o.folder, o.index);
 	}
-	return list;
+	// a move writes down the place of everything: also what was made after it, while it waited to be written
+	if (ops.some((o) => o.op === 'move')) {
+		const listed = new Set(list);
+		for (const k of known) if (!listed.has(k)) { list = insertInFolder(list, k, Infinity); listed.add(k); }
+	}
+	// (each entry once, whatever a run of changes did: the first place it was given)
+	return [...new Set(list)];
 }
 
 /** Where an item sits among its folder's children, and where one step up or down would put it (null: it can't move). */

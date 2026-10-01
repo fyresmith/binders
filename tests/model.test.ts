@@ -87,6 +87,18 @@ const j = (x: unknown) => JSON.stringify(x);
 	eq(j(applyOps(c, [{ op: 'rename', from: 'A', to: 'Alpha' }, { op: 'remove', item: 'B' }], known)), j(['Alpha', 'P/', 'P/x']), 'applied in order');
 	eq(j(applyOps(c, [{ op: 'append', item: 'C' }, { op: 'append', item: 'P/y' }], known)), j(['A', 'P/', 'P/x', 'P/y', 'B', 'C']), 'appended at the end of their folder');
 	eq(j(applyOps(c, [{ op: 'append', item: 'A' }], known)), j(c), 'appending a listed item changes nothing');
+	// changes close together, written in one go: a move is worked out against the binder as it was when it was made
+	{
+		const was = ['A', 'P/', 'P/x', 'B'];
+		eq(j(applyOps(c, [{ op: 'move', item: 'B', folder: '', index: 0, known: was }, { op: 'rename', from: 'A', to: 'A2' }], ['A2', 'P/', 'P/x', 'B'])), j(['B', 'A2', 'P/', 'P/x']), 'a note renamed right after another was moved keeps its place');
+		// (moving a note into a folder is its rename there, then its place among what the folder holds)
+		eq(j(applyOps(c, [{ op: 'rename', from: 'A', to: 'P/A' }, { op: 'move', item: 'P/A', folder: 'P/', index: 0, known: ['P/', 'P/x', 'P/A', 'B'] }, { op: 'rename', from: 'P/', to: 'Q/' }], ['Q/', 'Q/x', 'Q/A', 'B'])), j(['Q/', 'Q/A', 'Q/x', 'B']), 'a folder renamed right after a move keeps its place and its items’ order');
+		eq(j(applyOps(c, [{ op: 'move', item: 'P/x', folder: '', index: 2, known: was }, { op: 'remove', item: 'P/' }], ['A', 'x', 'B'])), j(['A', 'x', 'B']), 'a moved note keeps the place it was put when a folder before it leaves');
+		eq(j(applyOps(['A', 'A', 'B', 'A'], [], ['A', 'B'])), j(['A', 'B']), 'no entry is ever listed twice');
+	}
+	// a new item put somewhere and renamed before the list is written (a new folder, named in place): `known` has its new name
+	eq(j(applyOps(c, [{ op: 'move', item: 'New/', folder: '', index: Infinity }, { op: 'rename', from: 'New/', to: 'Part/' }], [...known, 'Part/'])), j([...c, 'Part/']), 'an item moved, then renamed, is listed once');
+	eq(j(applyOps(c, [{ op: 'move', item: 'New', folder: '', index: 0 }, { op: 'rename', from: 'New', to: 'First' }], [...known, 'First'])), j(['First', ...c]), 'at the place it was put');
 	eq(j(applyOps(c, [{ op: 'append', item: 'Q/a' }, { op: 'append', item: 'Q/' }, { op: 'append', item: 'Q/b' }], known)), j([...c, 'Q/']), 'a folder moved in comes in alone, whatever order the events arrive in');
 	eq(j(applyOps(c, [{ op: 'append', item: 'Q/', inner: ['Q/b', 'Q/S/', 'Q/S/z', 'Q/a', 'elsewhere'] }, { op: 'append', item: 'Q/a' }, { op: 'append', item: 'Q/b' }], known)), j([...c, 'Q/', 'Q/b', 'Q/S/', 'Q/S/z', 'Q/a']), 'a folder from another binder brings its order');
 	eq(j(applyOps(c, [{ op: 'rename', from: 'P/', to: 'R/' }, { op: 'rename', from: 'P/x', to: 'R/x' }], known)), j(['A', 'R/', 'R/x', 'B']), 'a folder rename and then its children’s renames');

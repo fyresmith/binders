@@ -9,7 +9,8 @@ const test = (name, fn) => specs.push({ name: 'keyboard: ' + name, fn });
 const focused = `(() => {
 	const e = document.activeElement; if (!e) return null;
 	const cs = getComputedStyle(e);
-	const ring = (cs.outlineStyle !== 'none' && parseFloat(cs.outlineWidth) > 0) || cs.boxShadow !== 'none';
+	// (an outliner row draws its ring over its cells, on its ::after)
+	const ring = (cs.outlineStyle !== 'none' && parseFloat(cs.outlineWidth) > 0) || cs.boxShadow !== 'none' || getComputedStyle(e, '::after').boxShadow !== 'none';
 	const name = (e.getAttribute('aria-label') || (e.getAttribute('role') === 'link' ? e.textContent : '') || '').trim();
 	return { cls: String(e.className), role: e.getAttribute('role') || e.tagName.toLowerCase(), name, ring, inView: !!e.closest('.binders-view') };
 })()`;
@@ -31,7 +32,7 @@ async function tabThrough(p, max = 30) {
 test('Tab reaches every control of each mode; each is named and shows a focus ring', async (p, h, t) => {
 	const want = {
 		corkboard: ['binders-filter-button', 'binders-mode-button', 'binders-view-synopsis', 'binders-card', 'binders-card-new', 'binders-group-title', 'binders-group-synopsis'],
-		plotgrid: ['binders-mode-button', 'binders-view-synopsis', 'binders-plotgrid-cell'],
+		outliner: ['binders-mode-button', 'binders-view-synopsis', 'binders-outliner-th', 'binders-outliner-row'],
 		manuscript: ['binders-mode-button', 'binders-view-synopsis', 'binders-manuscript-title'],
 	};
 	for (const mode of Object.keys(want)) {
@@ -58,7 +59,7 @@ test('menus and modes from the keyboard: the mode menu, the commands, a card’s
 	t.ok(await p.ev(`!!document.querySelector('.menu')`), 'Enter opens the mode menu');
 	await p.key('ArrowDown'); await p.key('ArrowDown'); await p.key('Enter');
 	await p.sleep(400);
-	t.eq((await viewState(p)).mode, 'plotgrid', 'arrows and Enter pick a mode in it');
+	t.eq((await viewState(p)).mode, 'outliner', 'arrows and Enter pick a mode in it');
 	await h.run('show-manuscript');
 	await p.sleep(400);
 	t.eq((await viewState(p)).mode, 'manuscript', 'the “Show manuscript” command');
@@ -95,13 +96,13 @@ test('Escape leaves every inline editor, and the focus goes back to what holds i
 	t.eq(await active(), 'field', 'Enter starts a new card');
 	await p.key('Escape');
 	t.eq(await active(), 'binders-card binders-card-new', 'Escape: back on the New note button');
-	// a plotline's name
-	await p.ev(`(() => { ${VIEW}.setMode('plotgrid'); return 1; })()`);
+	// an outliner row's title
+	await p.ev(`(() => { ${VIEW}.setMode('outliner'); return 1; })()`);
 	await p.sleep(500);
-	await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-plotgrid-col').focus()`);
+	await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-outliner-row').focus()`);
 	await p.key('F2');
-	t.eq(await active(), 'field', 'F2 renames a plotline');
+	t.eq(await active(), 'field', 'F2 renames a row');
 	await p.key('Escape');
-	t.ok((await active())?.includes('binders-plotgrid-col'), 'Escape: back on its column');
-	t.ok(await p.ev(`!!document.querySelector('.workspace-leaf.mod-active .binders-plotgrid-col[data-plotline="Mara"]')`), 'nothing renamed');
+	t.ok((await active())?.includes('binders-outliner-row'), 'Escape: back on its row');
+	t.ok(await p.ev(`app.vault.adapter.exists('The Lighthouse/Prologue.md')`), 'nothing renamed');
 });

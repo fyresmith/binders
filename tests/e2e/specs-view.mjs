@@ -77,9 +77,15 @@ test('“Open binder” in a folder’s menu; Mod-click opens a new tab', async 
 	t.eq(await leaves(p), 2, 'Ctrl-click on a crumb opened another tab');
 });
 
+test('a tab saved on the plot grid of an earlier version opens as the outliner', async (p, h, t) => {
+	await p.ev(`(async () => { await ${B}.ready; await app.workspace.getLeaf(false).setViewState({ type: 'binders-view', state: { folder: 'The Lighthouse', mode: 'plotgrid' }, active: true }); })().then(() => 1)`);
+	await until(p, `!!document.querySelector('.workspace-leaf.mod-active .binders-view .binders-mode-outliner .binders-outliner-row')`);
+	t.eq((await viewState(p)).mode, 'outliner', 'the outliner');
+});
+
 test('state (folder, mode, filter, options) comes back after a reload', async (p, h, t) => {
 	await openView(p, 'The Lighthouse/Part One');
-	await p.ev(`(() => { const v = ${VIEW}; v.setMode('plotgrid'); return 1; })()`);
+	await p.ev(`(() => { const v = ${VIEW}; v.setMode('outliner'); return 1; })()`);
 	await p.ev(`(() => { const v = ${VIEW}; v.filter = { status: ['draft'], label: [] }; v.options = { stacks: true }; app.workspace.requestSaveLayout(); return 1; })()`);
 	await p.ev(`app.workspace.requestSaveLayout.run().then(() => 1)`);
 	await p.sleep(300);
@@ -87,11 +93,11 @@ test('state (folder, mode, filter, options) comes back after a reload', async (p
 	await until(p, `app.workspace.getLeavesOfType('binders-view').length > 0`);
 	const st = await p.ev(`(async () => { const l = app.workspace.getLeavesOfType('binders-view')[0]; await l.loadIfDeferred?.(); return l.getViewState().state; })()`);
 	t.eq(st.folder, 'The Lighthouse/Part One', 'the folder');
-	t.eq(st.mode, 'plotgrid', 'the mode');
-	t.eq(j(st.filter?.status), j(['draft']), 'the filter');
+	t.eq(st.mode, 'outliner', 'the mode');
+	t.eq(j(st.filter?.status), j(['Draft']), 'the filter (a status saved in another case is the one settings have)');
 	t.eq(st.options?.stacks, true, 'the corkboard’s option');
 	await p.ev(`(async () => { const l = app.workspace.getLeavesOfType('binders-view')[0]; app.workspace.setActiveLeaf(l, { focus: true }); })().then(() => 1)`);
-	await until(p, `!!document.querySelector('.workspace-leaf.mod-active .binders-view .binders-mode-plotgrid')`);
+	await until(p, `!!document.querySelector('.workspace-leaf.mod-active .binders-view .binders-mode-outliner')`);
 	t.eq(await headerTitle(p), 'Part One', 'the header after a reload');
 });
 
@@ -163,12 +169,12 @@ test('the breadcrumb goes up, and Back comes down again', async (p, h, t) => {
 
 test('the mode menu and commands switch modes; missing modes say they’re coming', async (p, h, t) => {
 	await h.open('The Lighthouse/Prologue.md');
-	t.ok(!(await p.ev(`app.commands.findCommand('binders:show-plotgrid').checkCallback(true)`)), 'mode commands need a binder view');
+	t.ok(!(await p.ev(`app.commands.findCommand('binders:show-outliner').checkCallback(true)`)), 'mode commands need a binder view');
 	await openView(p);
-	t.ok(await p.ev(`app.commands.findCommand('binders:show-plotgrid').checkCallback(true)`), 'offered in a binder view');
+	t.ok(await p.ev(`app.commands.findCommand('binders:show-outliner').checkCallback(true)`), 'offered in a binder view');
 	const at = await p.at(`.workspace-leaf.mod-active .binders-mode-button`);
 	await p.click(at.x, at.y);
-	t.eq(j(await menuItems(p)), j(['Corkboard', 'Plot grid', 'Manuscript']), 'the mode menu');
+	t.eq(j(await menuItems(p)), j(['Corkboard', 'Outliner', 'Manuscript']), 'the mode menu');
 	await clickMenu(p, 'Manuscript');
 	t.eq((await viewState(p)).mode, 'manuscript', 'switched');
 	t.eq(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-mode-button .text-button-label').textContent`), 'Manuscript', 'the button says so');
@@ -181,7 +187,7 @@ test('the mode menu and commands switch modes; missing modes say they’re comin
 	const more = await p.at(`.workspace-leaf.mod-active .view-action[aria-label="More options"]`);
 	await p.click(more.x, more.y);
 	const items = await menuItems(p);
-	t.ok(['Corkboard', 'Plot grid', 'Manuscript', 'Show subfolders as stacks'].every((x) => items.includes(x)), 'More options lists the modes and the stacks option: ' + items.join(', '));
+	t.ok(['Corkboard', 'Outliner', 'Manuscript', 'Show subfolders as stacks'].every((x) => items.includes(x)), 'More options lists the modes and the stacks option: ' + items.join(', '));
 	await closeMenus(p);
 });
 
@@ -193,11 +199,11 @@ test('all three modes mount in the view, each scrolling itself; typing in the ma
 	let b = await box('.binders-corkboard');
 	t.ok(b && b.h > 200 && b.inside && b.scrolls === 'auto', 'the corkboard fills the view and scrolls itself: ' + j(b));
 	t.ok(!(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-filter-button').hasClass('is-hidden')`)), 'the corkboard has the filter');
-	await h.run('show-plotgrid');
-	await until(p, `!!document.querySelector('.workspace-leaf.mod-active .binders-plotgrid table')`);
-	b = await box('.binders-plotgrid');
-	t.ok(b && b.h > 200 && b.inside, 'the plot grid fills the view: ' + j(b));
-	t.ok(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-filter-button').hasClass('is-hidden')`), 'and has no filter (it shows every scene)');
+	await h.run('show-outliner');
+	await until(p, `!!document.querySelector('.workspace-leaf.mod-active .binders-outliner .binders-outliner-row')`);
+	b = await box('.binders-outliner');
+	t.ok(b && b.h > 200 && b.inside && b.scrolls === 'auto', 'the outliner fills the view and scrolls itself: ' + j(b));
+	t.ok(!(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-filter-button').hasClass('is-hidden')`)), 'and has the filter too');
 	await h.run('show-manuscript');
 	await until(p, `(() => { const m = ${VIEW}.current; return m && m.scenes?.length === 3 && m.scenes.some(s => s.live); })()`, 5000);
 	b = await box('.binders-manuscript');
@@ -217,9 +223,10 @@ test('all three modes mount in the view, each scrolling itself; typing in the ma
 	same(t, before, await texts(p), { skip: [ARR] });
 	t.eq((await cards(p)).length, 3, 'the corkboard is back');
 	// and round again, with nothing lost or left behind
-	for (const m of ['manuscript', 'plotgrid', 'corkboard', 'plotgrid', 'manuscript', 'corkboard']) { await h.run('show-' + m); await p.sleep(150); }
+	for (const m of ['manuscript', 'outliner', 'corkboard', 'outliner', 'manuscript', 'corkboard']) { await h.run('show-' + m); await p.sleep(150); }
 	await p.sleep(400);
-	t.eq(await p.ev(`document.querySelectorAll('.workspace-leaf.mod-active .binders-mode > *').length`), 1, 'one mode drawn at a time');
+	// (the corkboard takes the folder's synopsis line in, above its cards, so the two scroll together)
+	t.eq(await p.ev(`document.querySelectorAll('.workspace-leaf.mod-active .binders-mode > :not(.binders-view-synopsis-row)').length`), 1, 'one mode drawn at a time');
 	same(t, { ...before, [ARR]: now }, await texts(p));
 }));
 
@@ -249,6 +256,23 @@ test('word count, and the binder’s target', withTidy(async (p, h, t) => {
 	await openView(p, 'The Lighthouse/Part One');
 	const partOne = ['Arrival', 'The keeper', 'Storm warning'].reduce((a, x) => a + perCard['The Lighthouse/Part One/' + x + '.md'], 0);
 	t.eq(await count(), `${partOne} words`, 'a subfolder counts its own notes, without the binder’s target');
+	t.eq(await p.at(`.workspace-leaf.mod-active .binders-progress`), null, 'and shows no progress bar');
+}));
+
+test('the toolbar is laid out as a base’s: the view first, the way up only inside a subfolder, the target as a bar', withTidy(async (p, h, t) => {
+	await openView(p);
+	const order = () => p.ev(`[...document.querySelector('.workspace-leaf.mod-active .binders-toolbar').children].filter(e => e.getBoundingClientRect().width > 0 && !e.classList.contains('binders-toolbar-spacer')).map(e => e.className.split(' ').find(c => /^binders-(mode|filter|new)-button$|^binders-(breadcrumbs|progress|word-count)$/.test(c)))`);
+	t.eq(j(await order()), j(['binders-mode-button', 'binders-word-count', 'binders-filter-button', 'binders-new-button']), 'on the binder itself: the view, the count, Filter, New');
+	const bar = await p.ev(`(() => { const b = document.querySelector('.workspace-leaf.mod-active .binders-toolbar').getBoundingClientRect(), v = document.querySelector('.workspace-leaf.mod-active .view-content').getBoundingClientRect(); return { left: b.left - v.left, right: v.right - b.right, top: b.top - v.top }; })()`);
+	t.eq(j(bar), j({ left: 0, right: 0, top: 0 }), 'edge to edge under the header, as a base’s toolbar is');
+	await p.ev(`app.fileManager.processFrontMatter(${file(NOTE)}, fm => { fm.target = 212; }).then(() => 1)`);
+	await until(p, `document.querySelector('.workspace-leaf.mod-active .binders-progress')?.getAttribute('aria-valuenow') === '50'`);
+	t.eq(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-progress').getAttribute('aria-valuenow')`), '50', '106 of 212 words: the bar says 50%');
+	const fill = await p.ev(`(() => { const b = document.querySelector('.workspace-leaf.mod-active .binders-progress'), f = b.firstElementChild; f.getAnimations().forEach(a => a.finish()); return f.getBoundingClientRect().width / b.getBoundingClientRect().width; })()`);
+	t.ok(Math.abs(fill - 0.5) < 0.05, 'and is half full: ' + fill);
+	await openView(p, 'The Lighthouse/Part One');
+	t.eq(j(await order()), j(['binders-mode-button', 'binders-breadcrumbs', 'binders-word-count', 'binders-filter-button', 'binders-new-button']), 'in a subfolder: the way up too');
+	t.eq(j(await crumbs(p)), j(['The Lighthouse', 'Part One']), 'the binder, then the folder');
 }));
 
 test('the folder’s synopsis: edited in place, into its folder note or the binder note', withTidy(async (p, h, t) => {
@@ -297,13 +321,13 @@ test('filter by status and label', async (p, h, t) => {
 	const at = await p.at(`.workspace-leaf.mod-active .binders-filter-button`);
 	await p.click(at.x, at.y);
 	const items = await menuItems(p);
-	t.ok(['Status', 'draft', 'revised', 'idea'].every((x) => items.includes(x)), 'the statuses in use: ' + items.join(', '));
-	await clickMenu(p, 'draft');
+	t.eq(j(items.slice(0, 4)), j(['Status', 'Idea', 'Draft', 'Revised']), 'the statuses in use, in the order settings have them: ' + items.join(', '));
+	await clickMenu(p, 'Draft');
 	t.eq(j(await cards(p)), j(['The Lighthouse/Prologue.md', 'The Lighthouse/Part One/The keeper.md', 'The Lighthouse/Part Two/The wreck.md']), 'only drafts');
 	t.eq(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-filter-button .text-button-label').textContent`), 'Filter (1)', 'the button says a filter is on');
-	t.eq(j((await viewState(p)).filter.status), j(['draft']), 'kept in the view’s state');
+	t.eq(j((await viewState(p)).filter.status), j(['Draft']), 'kept in the view’s state');
 	await p.click(at.x, at.y);
-	await clickMenu(p, 'idea');
+	await clickMenu(p, 'Idea');
 	t.eq((await cards(p)).length, 6, 'drafts or ideas');
 	await p.click(at.x, at.y);
 	await clickMenu(p, 'Clear filter');
@@ -368,4 +392,26 @@ test('a narrow pane: folder names win over the counts', withTidy(async (p, h, t)
 	}
 	await p.send('Emulation.setDeviceMetricsOverride', { width: p.width, height: p.height, deviceScaleFactor: 1, mobile: false });
 	await p.sleep(300);
+}));
+
+test('the manuscript shows the notes that pass the filter, under the folders that have any; a section being typed in stays till it’s saved', withTidy(async (p, h, t) => {
+	const before = await texts(p);
+	await openView(p);
+	await h.run('show-manuscript');
+	const titles = () => p.ev(`[...document.querySelectorAll('.workspace-leaf.mod-active .binders-manuscript-title, .workspace-leaf.mod-active .binders-manuscript-heading')].map(e => e.textContent)`);
+	await until(p, `document.querySelectorAll('.workspace-leaf.mod-active .binders-manuscript-title').length === 7`);
+	t.ok(await p.ev(`!document.querySelector('.workspace-leaf.mod-active .binders-filter-button').classList.contains('is-hidden')`), 'the manuscript has the Filter button too');
+	const f = await p.at('.workspace-leaf.mod-active .binders-filter-button');
+	await p.click(f.x, f.y);
+	await clickMenu(p, 'Revised');
+	await closeMenus(p);
+	await until(p, `document.querySelectorAll('.workspace-leaf.mod-active .binders-manuscript-title').length === 1`);
+	t.eq(j(await titles()), j(['Part One', 'Arrival']), 'only the revised note, under its folder');
+	t.eq(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-word-count').textContent`), '18 of 106 words', 'the count says how much of the folder shows');
+	await p.click(f.x, f.y);
+	await clickMenu(p, 'Clear filter');
+	await closeMenus(p);
+	await until(p, `document.querySelectorAll('.workspace-leaf.mod-active .binders-manuscript-title').length === 7`);
+	t.eq((await titles()).length, 9, 'cleared: everything is back');
+	same(t, before, await texts(p));
 }));

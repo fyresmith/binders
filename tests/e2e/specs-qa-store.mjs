@@ -1,4 +1,4 @@
-// QA: the binder store (order tracking), the file explorer integration and the plot grid, pushed at their edges.
+// QA: the binder store (order tracking) and the file explorer integration, pushed at their edges.
 // Tests named "BUG: …" fail on purpose until the bug they show is fixed; the rest are regressions.
 import { B, PL, NOTE, j, file, until, read, exists, texts, split, contents, flush, same, writeRaw } from './view-helpers.mjs';
 
@@ -293,11 +293,12 @@ test('a list that would lose most of its entries is kept as it is', withTidy(asy
 	await flush(p);
 	const c = await contents(p);
 	t.eq(j(c.slice(-3)), j(['Gone/', 'Gone/a', 'Gone/b']), 'missing entries kept, last: ' + j(c));
-	t.eq(j(c.slice(0, 2)), j(['Epilogue', 'Prologue']), 'and the move written');
+	// (Prologue was first, then what the list doesn't mention: folders, then notes, by name)
+	t.eq(j(c.filter((x) => !x.startsWith('Gone/') && !/\/./.test(x))), j(['Part One/', 'Prologue', 'Part Two/', 'Epilogue']), 'and the move written: ' + j(c));
 	// a few missing entries among many found are dropped, as ever
 	await p.ev(`app.vault.delete(${file('The Lighthouse/Epilogue.md')}).then(() => 1)`);
 	await flush(p);
-	t.eq(j(await contents(p)), j(['Prologue', 'Part One/', 'Part One/Landfall', 'Part One/Storm warning', 'Part One/The keeper', 'Part Two/', 'Part Two/Lights out', 'Part Two/The wreck']), 'a deleted note is dropped, and so are the few missing entries');
+	t.eq(j(await contents(p)), j(['Part One/', 'Part One/Landfall', 'Part One/Storm warning', 'Part One/The keeper', 'Prologue', 'Part Two/', 'Part Two/Lights out', 'Part Two/The wreck']), 'a deleted note is dropped, and so are the few missing entries');
 	await rename(p, 'The Lighthouse/Part One/Landfall.md', 'The Lighthouse/Part One/Arrival.md');
 }));
 
@@ -404,7 +405,7 @@ test('contents that isn’t a list: order by name, and no crash on a write', wit
 	await writeRaw(p, NOTE, `---\nbinder: 1\ncontents: Prologue\n---\nbody\n`);
 	await until(p, `app.metadataCache.getFileCache(${file(NOTE)})?.frontmatter?.contents === 'Prologue'`);
 	await p.sleep(200);
-	t.eq(j(await kids(p, 'The Lighthouse')), j(['Epilogue.md', 'Part One', 'Part Two', 'Prologue.md']), 'by name');
+	t.eq(j(await kids(p, 'The Lighthouse')), j(['Part One', 'Part Two', 'Epilogue.md', 'Prologue.md']), 'folders, then notes, by name');
 	await p.ev(`${B}.moveUp(${file('The Lighthouse/Prologue.md')}).then(() => 1)`);
 	await flush(p);
 	t.eq(split(await read(p, NOTE)).body, 'body\n', 'body kept');
@@ -420,7 +421,7 @@ test('a newer format is never written: renames, moves, deletes and commands leav
 	await rename(p, 'The Lighthouse/Part Two', 'The Lighthouse/Part 2');
 	await p.ev(`app.vault.delete(${file('The Lighthouse/Epilogue.md')}).then(() => 1)`);
 	await p.ev(`app.vault.create('The Lighthouse/New.md', '').then(() => 1)`);
-	const errs = await p.ev(`(async () => { const out = []; for (const f of [() => ${B}.moveUp(${file('The Lighthouse/Part 2')}), () => ${B}.newScene(${file('The Lighthouse')}), () => ${B}.move(${file('The Lighthouse/New.md')}, ${file('The Lighthouse/Part One')}, 0), () => ${B}.setProps(${file(NOTE)}, { plotlines: ['x'] })]) { try { await f(); out.push('ok'); } catch (e) { out.push('refused'); } } return out; })()`);
+	const errs = await p.ev(`(async () => { const out = []; for (const f of [() => ${B}.moveDown(${file('The Lighthouse/Part 2')}), () => ${B}.newScene(${file('The Lighthouse')}), () => ${B}.move(${file('The Lighthouse/New.md')}, ${file('The Lighthouse/Part One')}, 0), () => ${B}.setProps(${file(NOTE)}, { plotlines: ['x'] })]) { try { await f(); out.push('ok'); } catch (e) { out.push('refused'); } } return out; })()`);
 	t.eq(j(errs), j(['refused', 'refused', 'refused', 'refused']), 'every change refused');
 	t.ok(!(await exists(p, 'The Lighthouse/Part One/New.md')), 'nothing moved');
 	await p.sleep(700); await flush(p);
@@ -537,7 +538,7 @@ test('explorer: disabling Binders gives exactly Obsidian’s order in every sort
 	await p.ev(`app.plugins.disablePlugin('binders').then(() => 1)`);
 	try {
 		for (const o of orders) { await p.ev(`(() => { ${EXP}.setSortOrder(${j(o)}); return 1; })()`); t.eq(j(await rows(p)), j(native[o]), `after disabling, ${o} is Obsidian’s`); }
-		t.eq(await p.ev(`document.querySelectorAll('.binders-folder-icon').length`), 0, 'no icon');
+		t.eq(await p.ev(`document.querySelectorAll('.binders-folder-tag').length`), 0, 'no icon');
 	} finally { await p.ev(`(async () => { ${EXP}.setSortOrder('alphabetical'); await app.plugins.enablePlugin('binders'); })().then(() => 1)`); }
 	for (let i = 0; i < 40 && (await p.ev(`${PL}?.explorer?.status ?? 'none'`)) !== 'patched'; i++) await p.sleep(100);
 }));
@@ -553,7 +554,7 @@ test('explorer: hide setting off and on, and reveal a binder note with it off', 
 	t.ok(await p.ev(`!!document.querySelector('.nav-file-title[data-path="${NOTE}"].is-active')`), 'revealed and active');
 	await setSettings(p, { hideBinderNotes: true });
 	t.eq(j(await rows(p)), j(IN), 'hidden again, order unchanged');
-	t.eq(await p.ev(`document.querySelectorAll('.nav-folder-title[data-path="The Lighthouse"] .binders-folder-icon').length`), 1, 'exactly one icon');
+	t.eq(await p.ev(`document.querySelectorAll('.nav-folder-title[data-path="The Lighthouse"] .binders-folder-tag').length`), 1, 'exactly one icon');
 }));
 
 // ---- scale ----
@@ -610,126 +611,4 @@ test('300 notes moved into a binder at once: appended in one write, quickly', wi
 	t.ok(ms2 < 30000, `300 single moves took ${ms2.toFixed(0)} ms`);
 	t.ok(await writes(p) <= 3, `written ${await writes(p)} times`);
 	t.eq((await kids(p, 'The Lighthouse/Part Two')).length, 302, 'all shown in Part Two');
-}));
-
-// ---- the plot grid ----
-
-async function mount(p, { folder = 'The Lighthouse', readOnly = false } = {}) {
-	await p.ev(`(async () => {
-		const plugin = ${PL}, store = plugin.binders, s = plugin.settings;
-		await store.ready;
-		const leaf = app.workspace.getLeaf('tab');
-		await leaf.setViewState({ type: 'empty', active: true });
-		const view = leaf.view, host = view.contentEl;
-		host.empty(); host.style.padding = '0';
-		const folder = app.vault.getAbstractFileByPath(${j(folder)}), binder = store.binderOf(folder);
-		const list = (v) => Array.isArray(v) ? v.filter((x) => typeof x === 'string') : typeof v === 'string' && v ? [v] : [];
-		const str = (v) => (typeof v === 'string' ? v : '');
-		const ctx = {
-			app, plugin, store, binder, folder, owner: view, readOnly: ${readOnly},
-			props(f) { const fm = app.metadataCache.getFileCache(f)?.frontmatter ?? {}; return { synopsis: str(fm[s.synopsisProp]), status: str(fm[s.statusProp]), label: str(fm[s.labelProp]), plotlines: list(fm[s.plotlinesProp]) }; },
-			async setProps(f, patch) { const o = {}; for (const [k, v] of Object.entries(patch)) o[s[k + 'Prop']] = (Array.isArray(v) ? v.length : v) ? v : undefined; await store.setProps(f, o); },
-			async openFile() {}, navigate() {},
-		};
-		const mode = plugin.modeFactories.plotgrid(host, ctx);
-		mode.render();
-		const refs = [[store, store.on('changed', () => mode.refresh())], [app.metadataCache, app.metadataCache.on('changed', (f) => { if (store.binderOf(f) === binder) mode.refresh(); })]];
-		window.__pg = { mode, ctx, leaf, refs };
-	})().then(() => 1)`);
-	await p.sleep(200);
-}
-async function unmount(p) {
-	await p.ev(`(async () => { const g = window.__pg; if (!g) return; g.mode.unload(); for (const [src, r] of g.refs) src.offref(r); window.__pg = null; await ${B}.flush(); document.querySelectorAll('.menu').forEach((m) => m.remove()); })().then(() => 1)`);
-	await p.sleep(100);
-}
-const withGrid = (opts, fn) => withTidy(async (p, h, t) => { await mount(p, opts); try { await fn(p, h, t); } finally { await unmount(p); } });
-const T = '.binders-plotgrid-table';
-const cellSel = (path, name) => `${T} tr[data-path="${path}"] td[data-plotline="${name.replace(/["\\]/g, '\\$&')}"]`;
-const ARRIVAL = 'The Lighthouse/Part One/Arrival.md', PROLOGUE = 'The Lighthouse/Prologue.md';
-const fmOf = (p, path) => p.ev(`app.metadataCache.getFileCache(${file(path)})?.frontmatter ?? null`);
-const settle = (p) => p.ev(`${B}.flush().then(() => new Promise((r) => setTimeout(r, 700))).then(() => 1)`);
-const setBinderPlotlines = (p, list) => p.ev(`${B}.setProps(${file(NOTE)}, { plotlines: ${j(list)} }).then(() => 1)`).then(() => p.sleep(400));
-
-test('plot grid: eleven fast clicks on one cell end on, on disk and on screen', withGrid({}, async (p, h, t) => {
-	const a = await p.at(cellSel(ARRIVAL, "The keeper's secret"));
-	for (let i = 0; i < 11; i++) { await p.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: a.x, y: a.y, button: 'left', clickCount: 1 }); await p.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: a.x, y: a.y, button: 'left', clickCount: 1 }); }
-	await settle(p); await p.sleep(1600);
-	t.eq(j((await fmOf(p, ARRIVAL)).plotlines), j(['Mara', "The keeper's secret"]), 'on, on disk');
-	t.ok(await p.ev(`document.querySelector(${j(cellSel(ARRIVAL, "The keeper's secret"))}).classList.contains('is-on')`), 'on, on screen');
-}));
-
-const ODD = ['He said "no"', 'Act: two', '🌊 Sea', "it's", '#tag', '- dash', '[x]', 'yes', '12'];
-test('plot grid: plotlines with odd names are added, toggled, renamed and deleted cleanly', withGrid({}, async (p, h, t) => {
-	await setBinderPlotlines(p, ['Mara', ...ODD]);
-	await until(p, `document.querySelectorAll('${T} .binders-plotgrid-col[data-plotline]').length === ${ODD.length + 1}`);
-	t.eq(j(await p.ev(`[...document.querySelectorAll('${T} .binders-plotgrid-col[data-plotline]')].map(e => e.dataset.plotline)`)), j(['Mara', ...ODD]), 'columns read back as text (yes, 12 included)');
-	for (const n of ODD) { await p.ev(`document.querySelector(${j(cellSel(PROLOGUE, n))}).scrollIntoView({ block: 'nearest', inline: 'nearest' })`); await p.sleep(50); const a = await p.at(cellSel(PROLOGUE, n)); t.ok(a, 'cell for ' + n); await p.click(a.x, a.y); }
-	await settle(p);
-	t.eq(j((await fmOf(p, PROLOGUE)).plotlines), j(["The keeper's secret", ...ODD]), 'the scene lists them all, as text');
-	// rename each through the grid's own code path, as the rename box does
-	for (const n of ODD) await p.ev(`(async () => { const m = ${`window.__pg.mode`}; await m.renamePlotline(${j(n)}, ${j(n + ' 2')}); })().then(() => 1)`);
-	await settle(p); await p.sleep(400);
-	t.eq(j((await fmOf(p, NOTE)).plotlines), j(['Mara', ...ODD.map((n) => n + ' 2')]), 'renamed in the binder');
-	t.eq(j((await fmOf(p, PROLOGUE)).plotlines), j(["The keeper's secret", ...ODD.map((n) => n + ' 2')]), 'renamed in the scene');
-	for (const n of ODD) await p.ev(`window.__pg.mode.deletePlotline(${j(n + ' 2')}, [${file(PROLOGUE)}]).then(() => 1)`);
-	await settle(p); await p.sleep(400);
-	t.eq(j((await fmOf(p, NOTE)).plotlines), j(['Mara']), 'deleted from the binder');
-	t.eq(j((await fmOf(p, PROLOGUE)).plotlines), j(["The keeper's secret"]), 'and from the scene');
-}));
-
-test('plot grid: a case-only rename, and a name differing only by case', withGrid({}, async (p, h, t) => {
-	await p.ev(`window.__pg.mode.renamePlotline('Mara', 'MARA').then(() => 1)`);
-	await settle(p);
-	t.eq(j((await fmOf(p, NOTE)).plotlines), j(['MARA', "The keeper's secret"]), 'renamed');
-	t.eq(j((await fmOf(p, ARRIVAL)).plotlines), j(['MARA']), 'in scenes too');
-	await p.ev(`window.__pg.mode.renamePlotline('MARA', 'Mara').then(() => 1)`);
-	await settle(p);
-	t.eq(j((await fmOf(p, ARRIVAL)).plotlines), j(['Mara']), 'and back');
-}));
-
-test('plot grid: color menu sets and clears a color; only plotlineColors changes', withGrid({}, async (p, h, t) => {
-	const before = await read(p, NOTE);
-	await p.ev(`window.__pg.mode.setColor('Mara', 'blue').then(() => 1)`);
-	await settle(p);
-	t.ok(await p.ev(`document.querySelector('${T} th[data-plotline="Mara"]').classList.contains('binders-plotgrid-color-blue')`), 'blue shows');
-	t.ok(/plotlineColors:\n  Mara: blue/.test(await read(p, NOTE)), 'written');
-	await p.ev(`window.__pg.mode.setColor('Mara', null).then(() => 1)`);
-	await settle(p);
-	t.eq(await read(p, NOTE), before, 'cleared: the note is byte-for-byte as it was');
-}));
-
-test('plot grid: 30 plotlines × 300 scenes draw and toggle quickly', withGrid({ folder: 'The Lighthouse' }, async (p, h, t) => {
-	await p.ev(`(async () => { await app.vault.createFolder('The Lighthouse/Many'); for (let i = 0; i < 300; i++) await app.vault.create('The Lighthouse/Many/S' + String(i).padStart(3, '0') + '.md', '---\\nplotlines: [P' + (i % 30) + ']\\n---\\nx'); })().then(() => 1)`);
-	const cols = Array.from({ length: 30 }, (_, i) => 'P' + i);
-	await setBinderPlotlines(p, cols);
-	await p.sleep(1500);
-	const ms = await p.ev(`(() => { const t0 = performance.now(); window.__pg.mode.draw(true); return performance.now() - t0; })()`);
-	t.eq(await p.ev(`document.querySelectorAll('${T} tbody tr').length`), 9 + 301, 'every row');
-	t.ok(ms < 1500, `a full redraw took ${ms.toFixed(0)} ms`);
-	const noop = await p.ev(`(() => { const t0 = performance.now(); window.__pg.mode.refresh(); return performance.now() - t0; })()`);
-	t.ok(noop < 300, `a refresh with no change took ${noop.toFixed(0)} ms`);
-	const a = await p.at(cellSel('The Lighthouse/Prologue.md', 'P5'));
-	const t0 = Date.now();
-	await p.click(a.x, a.y);
-	await until(p, `document.querySelector(${j(cellSel('The Lighthouse/Prologue.md', 'P5'))}).classList.contains('is-on')`);
-	t.ok(Date.now() - t0 < 1500, `a click shows in ${Date.now() - t0} ms`);
-}));
-
-test('plot grid: a binder in a newer format is read only and never written', withTidy(async (p, h, t) => {
-	const v2 = (await read(p, NOTE)).replace('binder: 1', 'binder: 2');
-	await writeRaw(p, NOTE, v2);
-	await until(p, `!!${B}.problem(${j(NOTE)})`);
-	const before = await texts(p);
-	await mount(p);
-	try {
-		t.eq(await p.ev(`document.querySelector('${T}').getAttribute('aria-readonly')`), 'true', 'read only');
-		const a = await p.at(cellSel(ARRIVAL, 'Mara'));
-		await p.click(a.x, a.y);
-		await p.ev(`(() => { const e = document.querySelector('${T} th[data-plotline="Mara"]'); e.focus(); return 1; })()`);
-		await p.key('F2'); await p.key('Delete'); await p.key('ArrowRight', 'alt');
-		await p.ev(`window.__pg.mode.setColor('Mara', 'red').catch(() => 0).then(() => 1)`);
-		await p.ev(`window.__pg.mode.renamePlotline('Mara', 'X').catch(() => 0).then(() => 1)`);
-		await p.sleep(800);
-		same(t, before, await texts(p));
-	} finally { await unmount(p); }
 }));

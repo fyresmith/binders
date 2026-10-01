@@ -20,21 +20,22 @@ export function wordsLabel(n: number): string {
 }
 
 export class WordCounter {
-	private cache = new Map<string, { mtime: number; n: number }>();
-	private reading = new Set<string>();
+	/** By note, not by path: a note keeps its count when it's renamed or moved (Obsidian keeps the same file object). */
+	private cache = new WeakMap<TFile, { mtime: number; n: number }>();
+	private reading = new WeakSet<TFile>();
 
 	/** `changed` runs once counts that weren't known yet have been read. */
 	constructor(private app: App, private changed: () => void) {}
 
 	/** The note's word count; while it's being read, the last known count (or null). */
 	get(file: TFile): number | null {
-		const c = this.cache.get(file.path);
+		const c = this.cache.get(file);
 		if (c && c.mtime === file.stat.mtime) return c.n;
-		if (!this.reading.has(file.path)) {
-			this.reading.add(file.path);
+		if (!this.reading.has(file)) {
+			this.reading.add(file);
 			void this.app.vault.cachedRead(file).then((text) => {
-				this.cache.set(file.path, { mtime: file.stat.mtime, n: countWords(text) });
-			}, () => { /* gone: counts as unknown */ }).finally(() => { this.reading.delete(file.path); this.changed(); });
+				this.cache.set(file, { mtime: file.stat.mtime, n: countWords(text) });
+			}, () => { /* gone: counts as unknown */ }).finally(() => { this.reading.delete(file); this.changed(); });
 		}
 		return c ? c.n : null;
 	}
@@ -47,7 +48,5 @@ export class WordCounter {
 	}
 
 	/** Text typed but not saved yet (the manuscript): its count shows now, and stays until the saved note is read. */
-	typed(file: TFile, text: string): void { this.cache.set(file.path, { mtime: file.stat.mtime, n: countWords(text) }); }
-
-	forget(path: string): void { this.cache.delete(path); }
+	typed(file: TFile, text: string): void { this.cache.set(file, { mtime: file.stat.mtime, n: countWords(text) }); }
 }

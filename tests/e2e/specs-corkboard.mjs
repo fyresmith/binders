@@ -1,7 +1,7 @@
 // The corkboard (src/view/corkboard.ts): cards in binder order, groups and stacks, dragging (within and between groups,
 // several at once, by touch), editing a synopsis (also while the note changes on disk), new cards, rename, delete,
 // status and label, the keyboard, and mobile. Every test that changes files checks no text was lost.
-import { B, NOTE, VIEW, card, cards, clickMenu, closeMenus, contents, exists, file, flush, hoverMenu, j, menuItems, openView, read, reload, same, selected, split, texts, until, withTidy, writeRaw } from './view-helpers.mjs';
+import { B, NOTE, VIEW, card, cards, clickMenu, closeMenus, contents, exists, file, flush, hoverMenu, j, menuItems, openView, read, reload, same, selected, split, texts, until, viewState, withTidy, writeRaw } from './view-helpers.mjs';
 
 export const specs = [];
 const test = (name, fn) => specs.push({ name: 'corkboard: ' + name, fn });
@@ -27,7 +27,7 @@ test('cards in binder order, grouped under their folders', async (p, h, t) => {
 	const groups = await p.ev(`[...document.querySelectorAll('.workspace-leaf.mod-active .binders-group')].map(g => (g.querySelector('.binders-group-title')?.textContent ?? '') + ':' + [...g.querySelectorAll('.binders-card[data-path]')].length)`);
 	t.eq(j(groups), j([':1', 'Part One:3', 'Part Two:2', ':1']), 'Prologue, the two parts with headings, then Epilogue');
 	const c = await p.ev(`(() => { const c = document.querySelector('${card(L + 'Part One/Arrival.md')}'); return { title: c.querySelector('.binders-card-title').textContent, syn: c.querySelector('.binders-card-synopsis').textContent, chip: c.querySelector('.binders-chip').textContent, words: c.querySelector('.binders-card-words').textContent, role: c.getAttribute('role'), list: c.parentElement.getAttribute('role') }; })()`);
-	t.eq(j(c), j({ title: 'Arrival', syn: 'Mara arrives on the island with the supply boat.', chip: 'revised', words: '18 words', role: 'option', list: 'listbox' }), 'a card shows title, synopsis, status and words');
+	t.eq(j(c), j({ title: 'Arrival', syn: 'Mara arrives on the island with the supply boat.', chip: 'Revised', words: '18 words', role: 'option', list: 'listbox' }), 'a card shows title, synopsis, status and words');
 	t.eq(await p.ev(`document.querySelectorAll('.workspace-leaf.mod-active .binders-card-new').length`), 4, 'a “New note” card ends each group');
 });
 
@@ -150,8 +150,8 @@ test('a synopsis being typed survives the note changing on disk', withTidy(async
 	t.eq(split(now).body, split(external).body, 'the other app’s text is kept');
 	t.ok(/status: revised/.test(now), 'and its property');
 	t.ok(/synopsis: The light has not gone out in forty years\. Or has it\? Yes\./.test(now), 'with the new synopsis');
-	await until(p, `document.querySelector('${card(L + 'Prologue.md')} .binders-chip')?.textContent === 'revised'`);
-	t.eq(await p.ev(`document.querySelector('${card(L + 'Prologue.md')} .binders-chip').textContent`), 'revised', 'the card shows the change once editing ends');
+	await until(p, `document.querySelector('${card(L + 'Prologue.md')} .binders-chip')?.textContent === 'Revised'`);
+	t.eq(await p.ev(`document.querySelector('${card(L + 'Prologue.md')} .binders-chip').textContent`), 'Revised', 'the card shows the change once editing ends');
 }));
 
 test('a subfolder’s heading synopsis goes to its folder note', withTidy(async (p, h, t) => {
@@ -255,9 +255,9 @@ test('status and label from the menu', withTidy(async (p, h, t) => {
 	t.ok(await p.ev(`!!document.querySelector('.menu .menu-item.has-submenu')`), 'Obsidian’s menus still have submenus (MenuItem.setSubmenu, an internal: see docs/internals.md)');
 	await hoverMenu(p, 'Set status');
 	const items = await menuItems(p);
-	t.ok(['draft', 'revised', 'idea', 'New status…'].every((x) => items.includes(x)), 'statuses in use, and a new one: ' + items.join(', '));
-	await clickMenu(p, 'revised');
-	await until(p, `app.vault.adapter.read('The Lighthouse/Epilogue.md').then(s => s.includes('status: revised'))`);
+	t.eq(j(items.slice(-6)), j(['Idea', 'Draft', 'Revised', 'Done', 'New status...', 'No status']), 'the statuses from settings (the notes’ own “draft” is “Draft”), a new one, and none: ' + items.join(', '));
+	await clickMenu(p, 'Revised');
+	await until(p, `app.vault.adapter.read('The Lighthouse/Epilogue.md').then(s => s.includes('status: Revised'))`);
 	const d = await at(p, 'Epilogue.md');
 	await p.right(d.x, d.y);
 	await hoverMenu(p, 'Set label');
@@ -265,16 +265,17 @@ test('status and label from the menu', withTidy(async (p, h, t) => {
 	t.ok(['Red', 'Orange', 'Yellow', 'Green', 'Cyan', 'Blue', 'Purple', 'Pink'].every((x) => colors.includes(x)), 'the colors: ' + colors.join(', '));
 	await clickMenu(p, 'Blue');
 	await until(p, `!!document.querySelector('${card(L + 'Epilogue.md')}.mod-label-blue')`);
-	const stripe = await p.ev(`getComputedStyle(document.querySelector('${card(L + 'Epilogue.md')}'), '::before').backgroundColor`);
+	// (the label is the card's border: its color is the card's --binders-label)
+	const stripe = await p.ev(`(() => { const c = document.querySelector('${card(L + 'Epilogue.md')}'); return (() => { const v = getComputedStyle(c).getPropertyValue('--binders-label').trim(); if (!v) return 'rgba(0, 0, 0, 0)'; const d = document.body.createDiv(); d.style.color = v; const out = getComputedStyle(d).color; d.remove(); return out; })(); })()`);
 	const blue = await p.ev(`(() => { const e = document.body.createDiv(); e.style.color = 'var(--color-blue)'; const c = getComputedStyle(e).color; e.remove(); return c; })()`);
-	t.eq(stripe, blue, 'the stripe is the theme’s blue');
+	t.eq(stripe, blue, 'the card’s label color is the theme’s blue');
 	const text = await read(p, L + 'Epilogue.md');
-	t.ok(/label: blue/.test(text) && /status: revised/.test(text), 'both written');
+	t.ok(/label: Blue/.test(text) && /status: Revised/.test(text), 'both written');
 	t.eq(split(text).body, split(before).body, 'the body is untouched');
 	// a new status, through the dialog
 	await p.right(d.x, d.y);
 	await hoverMenu(p, 'Set status');
-	await clickMenu(p, 'New status…');
+	await clickMenu(p, 'New status...');
 	await until(p, `!!document.querySelector('.modal input')`);
 	await p.type('final');
 	await p.key('Enter');
@@ -401,7 +402,7 @@ test('Rename in a group heading’s menu renames the folder in place; its folder
 test('stacks: a note dropped on the middle of a stack goes into that folder, at its end', withTidy(async (p, h, t) => {
 	const before = await texts(p);
 	await openView(p);
-	await p.ev(`(() => { const v = ${VIEW}; v.options = { stacks: true }; v.setMode('plotgrid'); v.setMode('corkboard'); return 1; })()`);
+	await p.ev(`(() => { const v = ${VIEW}; v.options = { stacks: true }; v.setMode('outliner'); v.setMode('corkboard'); return 1; })()`);
 	await until(p, `!!document.querySelector('${card(L + 'Part Two')}')`);
 	const e = await at(p, 'Epilogue.md'), s = await at(p, 'Part Two');
 	await p.move(e.x, e.t + 12, 2);
@@ -417,6 +418,178 @@ test('stacks: a note dropped on the middle of a stack goes into that folder, at 
 }));
 
 // Reloads Obsidian twice (into mobile and back), so it is last in this file.
+// ---- how a drag looks: Obsidian's own reordering (the card follows the pointer, a slot holds its place, a line) ----
+
+/** Presses a card and moves to a point with the button held, in steps, as a person would. */
+async function hold(p, from, to) {
+	await p.move(from.x, from.y, 2);
+	await p.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: from.x, y: from.y, button: 'left', clickCount: 1 });
+	await p.move(to.x, to.y, 12, { buttons: 1 });
+	await p.sleep(150);
+}
+const letGo = async (p, at) => { await p.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: at.x, y: at.y, button: 'left', clickCount: 1 }); };
+const rectOf = (p, sel) => p.ev(`(() => { const r = document.querySelector(${j(sel)})?.getBoundingClientRect(); return r ? { l: Math.round(r.left), t: Math.round(r.top), r: Math.round(r.right), b: Math.round(r.bottom), w: Math.round(r.width), h: Math.round(r.height) } : null; })()`);
+
+test('a dragged card follows the pointer, a slot holds its place, and a line shows where it goes (a row’s end too)', withTidy(async (p, h, t) => {
+	await openView(p);
+	const a = await at(p, 'Part One/Arrival.md'), k = await at(p, 'Part One/The keeper.md'), s = await at(p, 'Part One/Storm warning.md');
+	const grab = { x: a.l + 30, y: a.t + 12 };
+	// past the middle of the last card in the row: after it
+	await hold(p, grab, { x: s.x + 40, y: s.y });
+	const ghost = await rectOf(p, '.binders-drag-ghost > .binders-card');
+	t.ok(ghost && Math.abs(ghost.w - a.w) <= 1 && Math.abs(ghost.h - a.h) <= 1, 'the card itself follows the pointer, at its own size');
+	t.eq(await p.ev(`document.querySelector('.binders-drag-ghost .binders-card-title')?.textContent`), 'Arrival', 'with its title');
+	t.ok(Math.abs(ghost.l + 30 - (s.x + 40)) <= 2 && Math.abs(ghost.t + 12 - s.y) <= 2, 'held where it was taken hold of');
+	t.ok(await p.ev(`document.querySelector('.drag-reorder-ghost.binders-drag-ghost > .mod-dragged-item') !== null && document.body.classList.contains('is-grabbing')`), 'drawn as Obsidian draws an item being reordered');
+	t.eq(j(await p.ev(`[...document.querySelectorAll('.workspace-leaf.mod-active .binders-card.is-dragging')].map(c => c.dataset.path)`)), j([L + 'Part One/Arrival.md']), 'its place is held by a slot');
+	t.eq(await p.ev(`getComputedStyle(document.querySelector('${card(L + 'Part One/Arrival.md')} .binders-card-title')).visibility`), 'hidden', 'which shows nothing of the card');
+	let line = await rectOf(p, '.binders-drop-indicator.is-active');
+	t.ok(line && line.l > s.l + s.w && line.l < s.l + s.w + 12 && Math.abs(line.t - s.t) <= 1 && Math.abs(line.h - s.h) <= 1, `the line is just past the row’s last card, as tall as the row (${j(line)})`);
+	t.eq(await p.ev(`document.querySelector('.binders-drag-ghost').contains(document.elementFromPoint(${s.x + 40}, ${s.y}))`), false, 'the card under the pointer takes no clicks');
+	// between two cards: in the gap between them
+	await p.move(k.l + 20, k.y, 6, { buttons: 1 });
+	await p.sleep(120);
+	line = await rectOf(p, '.binders-drop-indicator.is-active');
+	t.eq(line, null, 'no line where the card already is (before the card after it)');
+	await p.move(s.l + 20, s.y, 6, { buttons: 1 });
+	await p.sleep(120);
+	line = await rectOf(p, '.binders-drop-indicator.is-active');
+	t.ok(line && line.l > k.l + k.w && line.r < s.l + 1, `the line is in the gap before Storm warning (${j(line)})`);
+	// back over itself: nothing to do, and letting go puts it back
+	await p.move(a.x, a.y, 6, { buttons: 1 });
+	await p.sleep(120);
+	t.eq(await rectOf(p, '.binders-drop-indicator.is-active'), null, 'no line over its own place');
+	await letGo(p, a);
+	await p.sleep(500);
+	await flush(p);
+	t.eq(j(await contents(p)), j(LIST), 'nothing moved');
+	t.eq(await p.ev(`document.querySelectorAll('.binders-drag-ghost, .binders-drop-indicator, .binders-card.is-dragging').length`), 0, 'nothing of the drag is left');
+	t.ok(!(await p.ev(`document.body.classList.contains('is-grabbing')`)), 'and the pointer is back to normal');
+}));
+
+test('dropped cards glide to their places, and the others make room; with reduced motion they just show', withTidy(async (p, h, t) => {
+	await openView(p);
+	const moving = () => p.ev(`[...document.querySelectorAll('.workspace-leaf.mod-active .binders-card[data-path]')].filter(c => c.getAnimations().some(a => !(a instanceof CSSTransition))).map(c => c.dataset.path.split('/').pop())`);
+	let a = await at(p, 'Part One/Storm warning.md'), b = await at(p, 'Part One/Arrival.md');
+	await hold(p, { x: a.x, y: a.t + 12 }, { x: b.l + 10, y: b.y });
+	await letGo(p, { x: b.l + 10, y: b.y });
+	await until(p, `document.querySelectorAll('.binders-drag-ghost').length === 0`);
+	const glide = await moving();
+	t.ok(['Storm warning.md', 'Arrival.md', 'The keeper.md'].every((n) => glide.includes(n)), 'the dropped card and the two it passed are on their way: ' + glide.join(', '));
+	t.ok(await p.ev(`document.querySelector('${card(L + 'Part One/Storm warning.md')}').classList.contains('is-landing')`), 'the dropped one over the others');
+	await until(p, `document.querySelectorAll('.binders-card.is-landing').length === 0`);
+	t.eq(j((await cards(p)).slice(1, 4)), j(['Storm warning', 'Arrival', 'The keeper'].map((x) => L + 'Part One/' + x + '.md')), 'in their new order');
+	const now = await at(p, 'Part One/Storm warning.md');
+	t.ok(Math.abs(now.l - b.l) <= 1 && Math.abs(now.t - b.t) <= 1, `and the dropped card is where Arrival was (${j(now)} vs ${j(b)})`);
+	// "reduce motion": no gliding
+	await p.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+	try {
+		a = await at(p, 'Part One/The keeper.md'); b = await at(p, 'Part One/Storm warning.md');
+		await hold(p, { x: a.x, y: a.t + 12 }, { x: b.l + 10, y: b.y });
+		await letGo(p, { x: b.l + 10, y: b.y });
+		await until(p, `document.querySelectorAll('.binders-drag-ghost').length === 0`);
+		t.eq(j(await moving()), j([]), 'nothing glides when the system asks for less motion');
+		t.eq(j((await cards(p)).slice(1, 4)), j(['The keeper', 'Storm warning', 'Arrival'].map((x) => L + 'Part One/' + x + '.md')), 'the move is still made');
+	} finally { await p.send('Emulation.setEmulatedMedia', { features: [] }); }
+}));
+
+test('several cards dragged at once say how many, and the group they would move into is tinted', withTidy(async (p, h, t) => {
+	await openView(p);
+	const a = await at(p, 'Part One/Arrival.md'), s = await at(p, 'Part One/Storm warning.md'), w = await at(p, 'Part Two/Lights out.md');
+	await p.click(a.x, a.t + 12);
+	await p.click(s.x, s.t + 12, { modifiers: 2 });
+	await hold(p, { x: s.x, y: s.t + 12 }, { x: w.x + 40, y: w.y });
+	t.eq(await p.ev(`document.querySelector('.binders-drag-ghost.is-multiple .binders-drag-count')?.textContent`), '2', 'the count');
+	t.eq(await p.ev(`document.querySelectorAll('.workspace-leaf.mod-active .binders-card.is-dragging').length`), 2, 'both places are held');
+	t.eq(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-group.is-drop-target .binders-group-title')?.textContent`), 'Part Two', 'Part Two is tinted');
+	await p.move(a.x, a.y, 8, { buttons: 1 });
+	await p.sleep(120);
+	t.eq(await p.ev(`document.querySelectorAll('.binders-group.is-drop-target').length`), 0, 'not their own group');
+	await p.key('Escape');
+	await letGo(p, a);
+	await p.sleep(400);
+	await flush(p);
+	t.eq(j(await contents(p)), j(LIST), 'Escape: nothing moved');
+}));
+
+// ---- new folders, card size, the board's menu, other plugins' items ----
+
+test('New folder (the toolbar’s New): made last, named in place, and written to the list', withTidy(async (p, h, t) => {
+	const before = await texts(p);
+	await openView(p);
+	const btn = await p.at(`.workspace-leaf.mod-active .binders-new-button`);
+	await p.click(btn.x, btn.y);
+	await p.sleep(200);
+	t.eq(j(await menuItems(p)), j(['New note', 'New folder']), 'the New menu');
+	await clickMenu(p, 'New folder');
+	await until(p, `document.activeElement?.matches('.workspace-leaf.mod-active .binders-group-name input')`);
+	t.eq(await p.ev(`document.activeElement.value`), 'Untitled', 'the new folder’s name is ready to type over');
+	await p.type('Part Three');
+	await p.key('Enter');
+	await until(p, `app.vault.adapter.exists('The Lighthouse/Part Three')`);
+	t.ok(!(await exists(p, 'The Lighthouse/Untitled')), 'renamed, not copied');
+	t.eq(j(await written(p, '  - Part Three/')), j([...LIST, 'Part Three/']), 'last in the list');
+	const groups = await p.ev(`[...document.querySelectorAll('.workspace-leaf.mod-active .binders-group .binders-group-title')].map(e => e.textContent)`);
+	t.eq(j(groups), j(['Part One', 'Part Two', 'Part Three']), 'and shown as a group');
+	same(t, before, await texts(p), { skip: [NOTE] });
+	// New note from the same menu: the title is typed in the last "New note" card
+	await p.click(btn.x, btn.y);
+	await p.sleep(200);
+	await clickMenu(p, 'New note');
+	await until(p, `document.activeElement?.matches('.workspace-leaf.mod-active .binders-group:last-child .binders-card-new input')`);
+	await p.type('Afterword');
+	await p.key('Enter');
+	await until(p, `app.vault.adapter.exists('The Lighthouse/Afterword.md')`);
+	await p.key('Escape');
+	t.eq(j((await written(p, '  - Afterword')).slice(-2)), j(['Part Three/', 'Afterword']), 'the note goes last');
+}));
+
+test('card size, from the board’s own menu, is kept with the view', withTidy(async (p, h, t) => {
+	await openView(p);
+	const width = () => p.ev(`document.querySelector('${card(L + 'Prologue.md')}').getBoundingClientRect().width`);
+	const medium = await width();
+	// a right-click on the board, away from any card
+	const board = await rectOf(p, '.workspace-leaf.mod-active .binders-board');
+	await p.right(board.r - 30, board.t + 40);
+	const items = await menuItems(p);
+	t.eq(j(items), j(['New note', 'New folder', 'Card size', 'Tint cards with their label color', 'Number the cards', 'Show subfolders as stacks']), 'the board’s menu');
+	await hoverMenu(p, 'Card size');
+	await clickMenu(p, 'Large');
+	await p.sleep(200);
+	t.ok(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-board').classList.contains('mod-cards-large')`), 'the board shows large cards');
+	t.ok((await width()) > medium + 40, 'which are wider');
+	t.eq(await p.ev(`${VIEW}.getState().options.cardSize`), 'large', 'the size is kept with the view');
+	await closeMenus(p);
+	await p.right(board.r - 30, board.t + 40);
+	await hoverMenu(p, 'Card size');
+	await clickMenu(p, 'Small');
+	await p.sleep(200);
+	t.ok((await width()) < medium, 'small cards are narrower');
+	await closeMenus(p);
+}));
+
+test('a card’s menu has what other plugins add for its note, and not Binders’ own explorer items', withTidy(async (p, h, t) => {
+	await openView(p);
+	await p.ev(`(() => { window.__ref = app.workspace.on('file-menu', (menu, file, source) => menu.addItem((i) => i.setTitle('Plugin item: ' + file.path + ' from ' + source))); window.__refs = app.workspace.on('files-menu', (menu, files, source) => menu.addItem((i) => i.setTitle('Plugin item: ' + files.length + ' files from ' + source))); return 1; })()`);
+	try {
+		const c = await at(p, 'Part One/The keeper.md');
+		await p.right(c.x, c.y);
+		let items = await menuItems(p);
+		t.ok(items.includes('Plugin item: The Lighthouse/Part One/The keeper.md from binders-card'), 'another plugin’s item for the note: ' + items.join(', '));
+		t.eq(items.filter((x) => x === 'Move up').length, 1, '“Move up” once (the card’s own)');
+		t.ok(!items.includes('New scene here') && !items.includes('Open binder'), 'none of Binders’ items for the file explorer');
+		await closeMenus(p);
+		// several cards: the event for several files
+		const a = await at(p, 'Part One/Arrival.md');
+		await p.click(a.x, a.t + 12);
+		await p.click(c.x, c.t + 12, { modifiers: 2 });
+		await p.right(c.x, c.y);
+		items = await menuItems(p);
+		t.ok(items.includes('Plugin item: 2 files from binders-card'), 'and for a selection: ' + items.join(', '));
+		await closeMenus(p);
+	} finally { await p.ev(`(() => { app.workspace.offref(window.__ref); app.workspace.offref(window.__refs); return 1; })()`); }
+}));
+
 test('mobile: one column, tap to open, long press for the menu, long press and drag to move', withTidy(async (p, h, t) => {
 	const touch = async (type, x, y) => p.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y }] });
 	await reload(p, true);
@@ -470,4 +643,99 @@ test('mobile: one column, tap to open, long press for the menu, long press and d
 		// leave no mobile layout behind: the next test in mobile starts as this one did (with the explorer loaded)
 	}
 	t.ok(!(await p.ev(`app.isMobile`)), 'back on desktop');
+}));
+
+test('a group heading’s menu: “Edit synopsis” edits the folder’s synopsis where it is; “Delete” asks, then trashes the folder and keeps the focus', withTidy(async (p, h, t) => {
+	const before = await texts(p);
+	await openView(p);
+	const hd = await p.at(`.workspace-leaf.mod-active .binders-group.is-folder .binders-group-title-row`);
+	await p.right(hd.x, hd.y);
+	const items = await menuItems(p);
+	t.ok(items.includes('Edit synopsis') && items.includes('Delete') && items.indexOf('Delete') === items.length - 1, 'the heading’s menu has Edit synopsis, and Delete last: ' + items.join(', '));
+	await clickMenu(p, 'Edit synopsis');
+	await until(p, `document.activeElement?.closest('.binders-group-synopsis') != null`);
+	await p.type('Mara lands.');
+	await p.key('Enter', 'ctrl');
+	await until(p, `app.vault.adapter.exists(${j(L + 'Part One/Part One.md')})`);
+	await until(p, `app.metadataCache.getFileCache(${file(L + 'Part One/Part One.md')})?.frontmatter?.synopsis === 'Mara lands.'`);
+	t.eq(await p.ev(`app.metadataCache.getFileCache(${file(L + 'Part One/Part One.md')})?.frontmatter?.synopsis`), 'Mara lands.', 'written to the folder’s note (made for it)');
+	same(t, before, await texts(p), { skip: [L + 'Part One/Part One.md'] });
+	// delete: asked first; Cancel leaves everything
+	const hd2 = await p.at(`.workspace-leaf.mod-active .binders-group.is-folder .binders-group-title-row`);
+	await p.right(hd2.x, hd2.y);
+	await clickMenu(p, 'Delete');
+	await until(p, `!!document.querySelector('.modal')`);
+	t.ok(/Part One/.test(await p.ev(`document.querySelector('.modal').textContent`)), 'it asks, naming the folder');
+	await p.ev(`(() => { [...document.querySelectorAll('.modal button')].find(b => b.textContent === 'Cancel').click(); return 1; })()`);
+	await p.sleep(300);
+	t.ok(await exists(p, L + 'Part One/Arrival.md'), 'Cancel deletes nothing');
+	await p.right(hd2.x, hd2.y);
+	await clickMenu(p, 'Delete');
+	await until(p, `!!document.querySelector('.modal')`);
+	await p.ev(`(() => { const b = [...document.querySelectorAll('.modal button')]; (b.find(x => x.classList.contains('mod-warning')) ?? b.find(x => /delete|trash/i.test(x.textContent))).click(); return 1; })()`);
+	await until(p, `!app.vault.getAbstractFileByPath(${j(L + 'Part One')})`);
+	t.ok(!(await exists(p, L + 'Part One')), 'the folder is gone, with what was in it');
+	await until(p, `document.activeElement?.closest('.workspace-leaf.mod-active .binders-card') != null`);
+	t.eq(await p.ev(`document.activeElement?.closest('.binders-card')?.dataset.path`), L + 'Part Two/The wreck.md', 'the focus is on the card that came after the folder’s');
+	await flush(p);
+	await until(p, `app.vault.adapter.read(${j(NOTE)}).then(s => !s.includes('Part One/'))`);
+	t.eq(j(await contents(p)), j(['Prologue', 'Part Two/', 'Part Two/The wreck', 'Part Two/Lights out', 'Epilogue']), 'and the list no longer has them');
+}));
+
+test('with a filter on, a group heading counts the notes that show (“1 of 3 notes”) and their words', withTidy(async (p, h, t) => {
+	await openView(p);
+	const count = () => p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-group.is-folder .binders-group-count').textContent`);
+	t.eq(await count(), '3 notes · 51 words', 'all of them, with no filter');
+	// Filter → Revised, from the toolbar
+	const f = await p.at('.workspace-leaf.mod-active .binders-filter-button');
+	await p.click(f.x, f.y);
+	await clickMenu(p, 'Revised');
+	await closeMenus(p);
+	await until(p, `/ of /.test(document.querySelector('.workspace-leaf.mod-active .binders-group.is-folder .binders-group-count').textContent)`);
+	t.eq(await count(), '1 of 3 notes · 18 words', 'only Arrival is revised');
+}));
+
+test('keyboard: Mod+arrows move the focus and leave the selection; Space adds the focused card to it or takes it out', withTidy(async (p, h, t) => {
+	await openView(p);
+	const c = await p.at(card(L + 'Prologue.md'));
+	await p.click(c.x, c.t + 12);
+	const focus = () => p.ev(`document.activeElement?.closest('.binders-card')?.dataset.path ?? null`);
+	await p.key('ArrowRight', 'ctrl');
+	t.eq(await focus(), L + 'Part One/Arrival.md', 'Mod+Right moves the focus to the next card');
+	t.eq(j(await selected(p)), j([L + 'Prologue.md']), 'and the selection stays');
+	await p.key('ArrowRight', 'ctrl');
+	await p.key(' ');
+	t.eq(j(await selected(p)), j([L + 'Prologue.md', L + 'Part One/The keeper.md']), 'Space adds the focused card');
+	t.eq(await focus(), L + 'Part One/The keeper.md', 'the focus stays on it');
+	await p.key(' ');
+	t.eq(j(await selected(p)), j([L + 'Prologue.md']), 'Space again takes it out');
+	t.eq(await p.ev(`getComputedStyle(document.activeElement).outlineStyle !== 'none' || getComputedStyle(document.activeElement).boxShadow !== 'none'`), true, 'the focused card shows where the focus is');
+	// a plain arrow selects again, as before
+	await p.key('ArrowRight');
+	t.eq(j(await selected(p)), j([L + 'Part One/Storm warning.md']), 'a plain arrow selects the card it goes to');
+	// Space on the only selected card keeps it selected
+	await p.key(' ');
+	t.eq(j(await selected(p)), j([L + 'Part One/Storm warning.md']), 'the last selected card stays selected');
+}));
+
+test('“Number the cards” shows each note’s place in the order, follows a move, and is kept with the view', withTidy(async (p, h, t) => {
+	await openView(p);
+	const nums = () => p.ev(`[...document.querySelectorAll('.workspace-leaf.mod-active .binders-card[data-path]')].map(c => { const n = c.querySelector('.binders-card-number'); return (n && getComputedStyle(n).display !== 'none' ? n.textContent : '') + ' ' + c.querySelector('.binders-card-title').textContent; })`);
+	t.eq(j((await nums()).slice(0, 2)), j([' Prologue', ' Arrival']), 'no numbers at first');
+	const board = await rectOf(p, '.workspace-leaf.mod-active .binders-board');
+	await p.right(board.r - 30, board.t + 40);
+	await clickMenu(p, 'Number the cards');
+	await p.sleep(300);
+	t.eq(j(await nums()), j(['1 Prologue', '2 Arrival', '3 The keeper', '4 Storm warning', '5 The wreck', '6 Lights out', '7 Epilogue']), 'numbered in reading order, across folders');
+	// a move renumbers
+	await p.ev(`${B}.put([${file(L + 'Epilogue.md')}], ${file('The Lighthouse')}, ${file(L + 'Prologue.md')}).then(() => 1)`);
+	await until(p, `document.querySelector(${j(card(L + 'Epilogue.md'))} + ' .binders-card-number') || true`);
+	await p.sleep(600);
+	t.eq(j((await nums()).slice(0, 3)), j(['1 Epilogue', '2 Prologue', '3 Arrival']), 'a move renumbers them');
+	t.eq((await viewState(p)).options?.numbers, true, 'the choice is kept with the view');
+	// stacks aren't numbered: they're folders
+	await p.right(board.r - 30, board.t + 40);
+	await clickMenu(p, 'Show subfolders as stacks');
+	await p.sleep(400);
+	t.eq(j(await nums()), j(['1 Epilogue', '2 Prologue', ' Part One', ' Part Two']), 'a stack has no number; the notes around it count on');
 }));

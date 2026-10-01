@@ -30,8 +30,9 @@ async function mount(p, folder = B, { readOnly = false, owner = 'view' } = {}) {
 		if (${J(owner)} === 'plugin') { const C = Object.getPrototypeOf(Object.getPrototypeOf(Object.getPrototypeOf(pl))).constructor; owner = new C(); pl.addChild(owner); }
 		const typed = [];
 		const ctx = { app, plugin: pl, store, binder, folder: f, owner, readOnly: ${J(readOnly)},
-			props: () => ({ synopsis: '', status: '', label: '', plotlines: [] }), setProps: async () => {},
+			props: () => ({ synopsis: '', status: '', label: '', target: 0 }), setProps: async () => {},
 			openFile: (file, n) => app.workspace.getLeaf(n ? 'tab' : 'split').openFile(file), navigate: () => {},
+			visible: () => true, filtering: () => false, made: () => {}, words: () => null, option: (k, d) => d, setOption: () => {},
 			onTextChange: (file, text) => typed.push([file.path, text]) };
 		const mode = pl.modeFactories.manuscript(host, ctx);
 		mode.render();
@@ -108,9 +109,12 @@ test('a nested folder heading goes one level down, and a subfolder shows only it
 test('an empty folder says so', async (p, h, t) => {
 	await p.ev(`app.vault.createFolder('${B}/Part Three').then(() => 1)`);
 	await p.sleep(400);
-	await mount(p, `${B}/Part Three`);
-	t.eq(await p.ev(`${M}.root.querySelector('.binders-manuscript-empty')?.textContent`), 'No notes here yet.', 'empty state');
-	await p.ev(`app.vault.delete(app.vault.getAbstractFileByPath('${B}/Part Three'), true).then(() => 1)`);
+	try {
+		await mount(p, `${B}/Part Three`);
+		t.eq(await p.ev(`${M}.root.querySelector('.binders-empty-title')?.textContent`), 'No notes in this folder yet', 'empty state');
+	} finally {
+		await p.ev(`app.vault.delete(app.vault.getAbstractFileByPath('${B}/Part Three'), true).then(() => 1)`);
+	}
 });
 
 // ---- typing and saving ----
@@ -303,25 +307,35 @@ test('ArrowDown at the end of a section goes into the next; ArrowUp at the start
 	await flushAll(p);
 });
 
-test('clicking a note title opens the note; the context menu renames it in place', async (p, h, t) => {
+test('a section’s title is its note’s name: a click renames it in place, Mod-click and its menu open the note', async (p, h, t) => {
 	await mount(p);
 	const f = ORDER[6];
 	await p.ev(`(() => { ${M}.scenes[${idx(f)}].el.scrollIntoView(); return 1; })()`);
 	await p.sleep(200);
 	const at = await p.ev(`(() => { const r = ${M}.scenes[${idx(f)}].titleEl.getBoundingClientRect(); return { x: r.x + 10, y: r.y + r.height / 2 }; })()`);
-	await p.click(at.x, at.y);
-	await p.sleep(400);
-	t.ok(await p.ev(`app.workspace.getLeavesOfType('markdown').some(l => l.view.file?.path === ${J(f)})`), 'the note opened');
 	const at2 = await p.ev(`(() => { const r = ${M}.scenes[${idx(f)}].titleEl.getBoundingClientRect(); return { x: r.x + 10, y: r.y + r.height / 2 }; })()`);
 	await p.right(at2.x, at2.y);
 	const items = await p.ev(`[...document.querySelectorAll('.menu .menu-item-title')].map(e => e.textContent)`);
-	t.eq(items.join('|'), 'Open in new tab|Rename', 'menu');
-	await p.ev(`(() => { [...document.querySelectorAll('.menu .menu-item')].find(e => e.textContent === 'Rename').click(); return 1; })()`);
-	await p.sleep(100);
+	// the menu a card has for the same note: open it, rename it, set its status and label, move it, delete it (last)
+	t.eq(items.slice(0, 3).join('|'), 'Open|Open in new tab|Open to the right', 'menu: ' + items.join('|'));
+	for (const x of ['Rename', 'Set status', 'Set label', 'Duplicate', 'Move up', 'New note after this']) t.ok(items.includes(x), `the menu has “${x}”`);
+	t.eq(items[items.length - 1], 'Delete', 'Delete comes last');
+	t.ok(!items.includes('Move down'), 'the last section can’t move down');
+	await p.key('Escape');
+	await p.sleep(150);
+	// a click: the title is edited where it is, as a note's own title is
+	await p.click(at2.x, at2.y);
+	await p.sleep(150);
+	t.ok(await p.ev(`document.activeElement === ${M}.scenes[${idx(f)}].titleEl && document.activeElement.isContentEditable`), 'a click puts the title in edit');
 	await p.key('a', 'ctrl'); await p.type('Afterword'); await p.key('Enter');
 	await p.sleep(800);
 	t.ok(existsSync(join(p.vaultDir, `${B}/Afterword.md`)) && !existsSync(join(p.vaultDir, f)), 'renamed on disk');
 	t.eq(await p.ev(`${M}.scenes[${M}.scenes.length - 1].titleEl.textContent`), 'Afterword', 'title follows');
+	// Mod-click: the note, in a new tab, as a link would
+	const at3 = await p.ev(`(() => { const r = ${M}.scenes[${M}.scenes.length - 1].titleEl.getBoundingClientRect(); return { x: r.x + 10, y: r.y + r.height / 2 }; })()`);
+	await p.click(at3.x, at3.y, { modifiers: 2 });
+	await p.sleep(500);
+	t.ok(await p.ev(`app.workspace.getLeavesOfType('markdown').some(l => l.view.file?.path === ${J(B + '/Afterword.md')})`), 'Mod-click opened the note');
 });
 
 // ---- the binder changing while the manuscript is open ----
@@ -451,10 +465,42 @@ test('fallback: without editable embeds the manuscript is read only, says so, op
 	}
 });
 
+test('a section’s menu: “New note after this” adds a section with its title ready to type; “Move up” moves the note; typing in other sections is kept', async (p, h, t) => {
+	await mount(p);
+	const f = ORDER[1], next = ORDER[2], before = snapshot(p);
+	// unsaved typing in another section, to see it survive
+	await focusEnd(p, ORDER[0]);
+	await p.type(' Kept.');
+	const menuOn = async (path, title) => {
+		await p.ev(`(() => { ${M}.scenes.find(s => s.file.path === ${J(path)}).el.scrollIntoView({ block: 'center' }); return 1; })()`);
+		await p.sleep(200);
+		const at = await p.ev(`(() => { const r = ${M}.scenes.find(s => s.file.path === ${J(path)}).titleEl.getBoundingClientRect(); return { x: r.x + 10, y: r.y + r.height / 2 }; })()`);
+		await p.right(at.x, at.y);
+		await p.ev(`(() => { [...document.querySelectorAll('.menu .menu-item')].find(e => e.querySelector('.menu-item-title')?.textContent === ${J(title)}).click(); return 1; })()`);
+		await p.sleep(400);
+	};
+	await menuOn(f, 'New note after this');
+	const names = () => p.ev(`${M}.scenes.map(s => s.file.path)`);
+	const at = (await names()).indexOf(f) + 1, made = (await names())[at];
+	t.ok(made && made !== next && /Untitled/.test(made), 'a new section right after it: ' + made);
+	t.ok(await p.ev(`document.activeElement === ${M}.scenes[${at}].titleEl && document.activeElement.isContentEditable`), 'its title is ready to type');
+	await p.key('a', 'ctrl'); await p.type('Interlude'); await p.key('Enter');
+	await p.sleep(800);
+	t.ok((await names()).some((x) => x.endsWith('/Interlude.md')), 'named');
+	// move the section after it up, past the new one
+	await menuOn(next, 'Move up');
+	await p.sleep(400);
+	const after = await names();
+	t.ok(after.indexOf(next) === after.findIndex((x) => x.endsWith('/Interlude.md')) - 1, 'Move up puts the section before the one above it: ' + after.map((x) => x.split('/').pop()).join(', '));
+	await flushAll(p);
+	t.ok(disk(p, ORDER[0]).trimEnd().endsWith('Kept.'), 'typing in another section was kept through it all: ' + J(disk(p, ORDER[0]).slice(-30)));
+	for (const k of ORDER.slice(1)) t.eq(disk(p, k), before[k], `${k} untouched`);
+});
 test('a read-only binder shows the manuscript read only', async (p, h, t) => {
 	await mount(p, B, { readOnly: true });
 	t.eq(await p.ev(`${M}.root.querySelectorAll('[contenteditable=true]').length`), 0, 'nothing editable');
-	t.ok(/read only here/.test(await p.ev(`${M}.root.querySelector('.binders-manuscript-notice')?.textContent || ''`)), 'notice');
+	// (the binder view says why above its toolbar, once: the manuscript doesn't say it again)
+	t.eq(await p.ev(`${M}.root.querySelectorAll('.binders-manuscript-notice').length`), 0, 'no second notice');
 });
 
 test('with live preview off in the vault, sections still hide the frontmatter', async (p, h, t) => {
@@ -527,9 +573,16 @@ test('300 scenes: a few live editors, smooth scrolling, typing far down saved, t
 		// scroll back to the top while that section has focus and unsaved typing
 		await p.ev(`(async () => { ${M}.root.scrollTop = 0; for (let i = 0; i < 20; i++) await new Promise(r => requestAnimationFrame(r)); return 1; })()`);
 		await settle(p);
-		t.ok(await p.ev(`!!${M}.scenes[${idx(far)}].live`), 'the focused section stays mounted when scrolled away');
-		t.ok(await activeIn(p, far), 'and keeps focus');
-		await p.type(' Still.');
+		// (left that far behind, the section is saved there and then: its editor is free to go)
+		t.ok(disk(p, far).includes(' Far down.'), 'what was typed is saved once its section is scrolled away');
+		// its editor lets go of the focus that far out of sight, but not of the cursor: the next key goes there
+		t.ok(!(await activeIn(p, far)), 'its editor isn’t focused while it’s far out of sight');
+		// (typed at once: what's typed while its editor comes back isn't lost)
+		for (const ch of ' Still') await p.key(ch); // (real keys: with nothing in focus, only a key press can be heard)
+		await p.sleep(300); await p.type('.');
+		let back = false;
+		for (let i = 0; i < 40 && !(back = await activeIn(p, far)); i++) await p.sleep(100);
+		t.ok(back, 'a key typed puts the cursor back in it');
 		t.ok(await p.ev(`(() => { const r = ${M}.scenes[${idx(far)}].el.getBoundingClientRect(), v = ${M}.root.getBoundingClientRect(); return r.bottom > v.top && r.top < v.bottom; })()`), 'typing brings the caret back into view');
 		// leave it: once saved and not focused, it goes back to rendered text
 		await p.ev(`(() => { document.activeElement.blur(); ${M}.root.scrollTop = 0; return 1; })()`);

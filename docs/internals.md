@@ -1,24 +1,43 @@
 # Obsidian internals Binders relies on
 
 Undocumented APIs can change in any Obsidian update. Each one is wrapped in a single function with a feature check and
-a fallback, and has an e2e test. Keep this list current.
+a fallback, and has an e2e test. Where one of those is still missing, the table says so. Keep this list current.
 
 | Internal | Where | Used for | Fallback | Test |
 |---|---|---|---|---|
-| File explorer view's `getSortedFolderItems(folder)`, patched on its prototype with `monkey-around` | `src/explorer.ts` | Binder order, and hiding binder and folder notes | Obsidian's own order and all notes shown, with a one-time notice | `specs-explorer.mjs` |
-| File explorer view's `fileItems` (path → item with `file`, `selfEl`, `innerEl`) | `src/explorer.ts` | Putting the binder icon on binder folders | No icon (only used when the patch is possible) | `specs-explorer.mjs` |
+| File explorer view's `getSortedFolderItems(folder)`, patched on its prototype with `monkey-around` | `src/explorer.ts` | Binder order, and hiding binder and folder notes | Obsidian's own order and all notes shown, with a one-time notice (checked in `isExplorerView`) | `specs-explorer.mjs` |
+| File explorer view's `fileItems` (path → item with `file`, `selfEl`, `innerEl`) | `src/explorer.ts` | The “binder” tag on binder folders (Obsidian's own `nav-file-tag` class), the label dot after a labeled item's name, and `is-active` on the folder a binder view in front shows | No tag, no dots, no mark (only used when the patch is possible; an item without `selfEl` is skipped) | `specs-explorer.mjs` (the icon), `specs-labels.mjs` (the dots) |
+| A folder item's `collapsed` and `toggleCollapsed(animate)`, and the explorer's `tree.handleItemSelection(event, item)` | `src/explorer.ts` (`onClickFirst`) | A click that opens a folder's view doesn't also fold the folder: the click is taken ahead of Obsidian when the folder is open and its view isn't in front. A click on the folder whose view is in front (marked `is-active`, which Obsidian would only focus) folds or unfolds it | The click isn't taken: the view opens and the folder folds, as Obsidian does it | `specs-explorer.mjs` (a click that opens a folder's view doesn't fold it) |
 | File explorer view's `requestSort()` (or `sort()`) | `src/explorer.ts` | Re-sorting after a binder changes, a setting changes, and on unload | Obsidian re-sorts on its next file change | `specs-explorer.mjs` |
+| File explorer view's `startRenameFile(file)` | `src/explorer.ts` (`renameInExplorer`) | "New folder from selection" in the explorer's menu leaves the new folder's name ready to type, as Obsidian's "New folder" does | The folder keeps the name "Untitled" | `specs-explorer.mjs` |
 | Explorer DOM: `.workspace-leaf-content[data-type="file-explorer"] .nav-folder-title[data-path]`, `.collapse-icon` | `src/explorer.ts` | Click (or tap) to open a binder; Mod-click or middle-click for a new tab | Clicking only expands the folder, as usual | `specs-explorer.mjs` |
-| A menu item's `setSubmenu()` (returns the submenu, a `Menu`) | `src/view/internals.ts` | "Set status" and "Set label" on the corkboard | The item opens the submenu as a menu of its own | `specs-corkboard.mjs` |
-| An `ItemView`'s `titleEl`, and `leaf.updateHeader()` | `src/view/internals.ts` | The header and tab titles when a binder view changes folder, or its folder is renamed | The titles catch up when the view is next opened | `specs-view.mjs` |
+| Explorer DOM while dragging: `.nav-file-title` and `.nav-folder-title` with `data-path`, `.tree-item-self[data-path]`, `.tree-item-inner`, `.tree-item-children`, `is-collapsed` on a folder's item, `.nav-files-container` | `src/explorer.ts` (`placeAt`, `onDragOver`) | Which row the pointer is over, whether a folder is open, where names start (the line's indent, and "further left is after the folder"), and the list's edges | No title under the pointer: the drag is Obsidian's own. Without `.tree-item-inner` the row's own edge is used; without `.nav-files-container` the line isn't clipped | `specs-explorer.mjs`, `specs-qa2-explorer.mjs` |
+| `app.dragManager`: `draggable` (`{ type: 'file' \| 'folder', file }` or `{ type: 'files', files }`), `setAction(text)`, `updateHover(el, cls)` | `src/explorer.ts` | Dragging in the explorer to reorder a binder: what's being dragged, the hint under the pointer (or why a drop is refused), clearing Obsidian's folder tint | Without `dragManager` or `draggable` nothing is taken: dragging in the explorer is Obsidian's own (it moves things into folders). `setAction` and `updateHover` are optional: without them there's no hint | `specs-explorer.mjs`, `specs-qa2-explorer.mjs` |
+| Explorer rows' own drop handlers skip a `dragover`/`drop` event that already has `preventDefault()` called | `src/explorer.ts` | Taking a drop between two rows before the explorer does | The explorer would also move the item into the folder: caught by the tests | `specs-explorer.mjs` |
+| CSS classes `drag-reorder-ghost`, `mod-dragged-item` (a dragged card); `drag-ghost`, `drag-ghost-self`, `drag-ghost-action` (dragged outliner rows, with the hint); `drop-indicator` (the explorer's and the outliner's insertion line); `is-grabbing` on the body; `collapse-icon`, `is-collapsed` and the `right-triangle` icon (the outliner's fold arrows) | `src/view/corkboard.ts`, `src/view/outliner.ts`, `src/explorer.ts`, `styles.css` | A drag, an insertion line, the grabbing cursor and a fold arrow look as Obsidian's own do, in every theme | Binders' own classes are on the same elements (`binders-drag-ghost`, `binders-outliner-ghost`, `binders-drop-line`, `binders-explorer-drop`, `binders-outliner-chevron`), so they're still placed and shown, less finished | `specs-corkboard.mjs`, `specs-outliner.mjs` |
+| A menu item's `setSubmenu()` (returns the submenu, a `Menu`) | `src/view/internals.ts` (`submenu`) | "Set status" and "Set label" in an item's menu, "Card size" on the corkboard, "Columns" in the outliner's options | The item opens the submenu as a menu of its own | `specs-corkboard.mjs` |
+| `app.setting.open()` and `app.setting.openTabById(id)` | `src/view/internals.ts` (`openPluginSettings`) | "Edit labels..." in the label menu opens Binders' settings | Nothing opens (returns false) | `specs-labels.mjs` |
+| An `ItemView`'s `titleEl`, and `leaf.updateHeader()` | `src/view/internals.ts` (`refreshHeader`) | The header and tab titles when a binder view changes folder, or its folder is renamed | The titles catch up when the view is next opened | `specs-view.mjs` |
+| `openFile(file, { eState: { rename: 'all' } })`: a Markdown view's ephemeral state that selects the note's title for renaming, as Obsidian's "New note" does | `src/view/internals.ts` (`openForRename`) | "New scene here" outside a binder view leaves the new note's name ready to type over | Obsidian ignores state it doesn't know: the note just opens | `specs-qa2-explorer.mjs` |
 | `app.embedRegistry.embedByExtension.md(ctx, file, '')`: the editable Markdown embed Canvas and hover popovers use | `src/view/editable-embed.ts` | One live editor per manuscript section | The whole manuscript read only (rendered with the public `MarkdownRenderer`), with a notice; clicking a section opens its note | `specs-manuscript.mjs` (the fallback test removes it) |
-| The embed's `editable`, `loadFile()`, `showEditor()`, `save(text, now)`, `set(text, clear)`, `loadFileInternal(data, cache)`, `onFileChanged`, `requestSave.cancel()`, `text`/`data`/`dirty`, `unload()` | `src/view/editable-embed.ts` | Mounting, saving, merging outside edits, flushing on teardown (see below) | Checked in `embedSupported()`; a section whose mount throws stays rendered | `specs-manuscript.mjs` |
-| The embed's `editMode`: `get()`, `sourceMode`, `toggleSource()`, `saveHistory()`, `cm` (the CodeMirror `EditorView`) | `src/view/editable-embed.ts` | Reading typing, keeping live preview, undo across remounts, moving the caret between sections | Without `cm`, arrow keys stop at a section's edge (no crossing) | `specs-manuscript.mjs` |
+| The embed's `editable`, `loadFile()`, `showEditor()`, `save(text, now)`, `set(text, clear)`, `loadFileInternal(data, cache)`, `onFileChanged`, `requestSave.cancel()`, `text`/`data`/`dirty`/`lastSavedData`, `unload()` | `src/view/editable-embed.ts` | Mounting, saving, merging outside edits, flushing on teardown (see below) | Checked in `embedSupported()`; a section whose mount throws stays rendered | `specs-manuscript.mjs`, `specs-qa-manuscript.mjs` |
+| The embed's `showPreview()` and `toggleMode()`, replaced on each embed with functions that do nothing | `src/view/editable-embed.ts` | Escape and "Toggle reading view" would swap a section's editor for a reading view and destroy the editor: a section stays an editor | Not checked (assigning them is harmless if Obsidian stops calling them). If Obsidian leaves the editor some other way, the manuscript mounts a new one when the section is next focused | `specs-qa2-manuscript.mjs` (Escape, "Toggle reading view") |
+| The embed's `editMode`: `get()`, `sourceMode`, `toggleSource()`, `saveHistory()`, `cm` (the CodeMirror `EditorView`; else the `Editor`'s own `cm`) | `src/view/editable-embed.ts` | Reading typing, keeping live preview, undo across remounts, moving the caret between sections, the page following the caret | Without `cm`, arrow keys stop at a section's edge (no crossing) and the section is focused through `editor.focus()` | `specs-manuscript.mjs`, `specs-qa2-manuscript.mjs` |
 | `workspace.unsetActiveEditor(editor)` | `src/view/editable-embed.ts` | Mounting a section doesn't make it the active editor | Required by `embedSupported()` | `specs-manuscript.mjs` |
 | `workspace.onQuickPreview(file, text)` | `src/view/editable-embed.ts` | After merging an outside edit into unsaved typing, other views of the note get the merged text | Skipped if missing (other views then show the outside version until the save lands, as in Obsidian) | `specs-manuscript.mjs` (same note in a tab) |
+| `vault.getConfig('trashOption')` | `src/view/internals.ts` (`trashKind`, `trashPhrase`) | Saying where deleted and merged-away notes go (the system trash, the vault's trash, or nowhere) in the questions asked before deleting | "The system trash" (Obsidian's default) | `specs-qa3-scenes.mjs` |
+| `vault.getConfig('alwaysUpdateLinks')` | `src/view/internals.ts` (`updatesLinks`) | After a merge or a split, pointing links at the note that has the text now, only if Obsidian is set to update links itself | Links are left as they are, and the merge says how many will stop working | `specs-qa3-scenes.mjs` |
+| A menu's `items` (each with its `dom`) and `select(index)` | `src/view/internals.ts` (`selectMenuItem`) | The filter menu, opened again after a pick, has the picked item marked for the keyboard to carry on from | Nothing is marked, as in any menu | `specs-qa3-labels.mjs` |
+| A submenu's own `addItem` and its items' `onClick` (public methods, replaced on the instance) | `src/view/internals.ts` (`submenu`) | Choosing something in "Set status" or "Set label" closes the menu it came from too (Obsidian only does that for a mouse click) | Only reached when `setSubmenu()` exists; if replacing them throws, the item opens a menu of its own | `specs-qa3-labels.mjs` |
 | `vault.getConfig('readableLineLength')`, and `vault.on('config-changed')` for changes | `src/view/internals.ts` (`readableLineLength`), `src/view/BinderView.ts` | The manuscript's page follows the editor's "Readable line length" | Readable width, as by default | `specs-themes.mjs` |
 | `vault.on('config-changed')` | `src/view/manuscript.ts` | Keeping sections in live preview when the vault's editing mode changes | Also checked on `css-change` | `specs-manuscript.mjs` |
 | `app.plugins.plugins.longform` (loaded plugins by id) | `src/longform.ts` (`longformRunning`) | Leaving rename and delete tracking in Longform projects to Longform while it runs, so the index note isn't written twice | Treated as not running: Binders writes renames and deletes itself (the same change Longform would make) | `specs-longform.mjs` (a stand-in plugin) |
+
+Public API that looks like an internal, and isn't: CodeMirror's `EditorView.scrollHandler` and
+`StateEffect.appendConfig` (`src/view/editable-embed.ts`); `leaf.isDeferred` (Obsidian 1.7.2); the workspace's `quit`
+event and its `tasks.addPromise()` (`src/view/manuscript.ts`); `getSettingDefinitions()`, `setControlValue()` and
+`update()` on the setting tab (Obsidian 1.13, behind `requireApiVersion('1.13.0')`, with `display()` for older
+versions); a view's `setEphemeralState()` and `getEphemeralState()`; `MenuItem.setIsLabel()`.
 
 ## The file explorer (checked on Obsidian 1.13.7, desktop and `app.emulateMobile(true)`)
 
@@ -41,7 +60,47 @@ a fallback, and has an e2e test. Keep this list current.
   as the same `click`.
 - Leaves that aren't loaded yet (`leaf.isDeferred`, 1.7.2+) are skipped; Binders patches once a loaded explorer
   appears (`layout-change`).
+- The patched method also puts the binder icon and the label dots on the items it returns (`mark`), so rows that
+  appear later (a folder expanded) get theirs. A label dot is a `div.binders-explorer-label` appended to the item's
+  `selfEl`; the metadata cache's `changed` event repaints the dot of that note, and of its folder if it's the
+  folder's note. Unloading removes every icon and dot.
+- An explorer popped out into its own window has its own `document`. The click and drag listeners are added to every
+  window's document: the ones open at start, and new ones on `window-open` and `layout-change`.
 - Obsidian 1.13 shows notices in a window of their own, so tests find them through a notice's `noticeEl.ownerDocument`.
+
+### Dragging to reorder (checked on Obsidian 1.13.7)
+
+- The explorer makes every row draggable through `app.dragManager.handleDrag`, which fills `dragManager.draggable`
+  when a drag starts (`dragFile`, `dragFolder`, `dragFiles`) and clears it on `dragend`. Each row's drop handler is
+  added by `dragManager.handleDrop(el, handler)`: its `dragover`, `dragenter` and `drop` listeners all begin with
+  `if (!e.defaultPrevented)`. Binders listens for the same events on the document in the capture phase, so it sees
+  them first; when the pointer is over the top or bottom of a row in a binder it calls `preventDefault()` and the
+  explorer's handler does nothing. Everywhere else the event is left alone and the explorer behaves as it always does.
+- The line is a `div.drop-indicator.is-active` (the class of the line Obsidian shows where a dragged bookmark would
+  go), placed over the explorer with `position: fixed`, in the document of the window the drag is in. `setAction()`
+  words the hint in Obsidian's drag ghost, and `updateHover(null, '')` clears the tint a folder got while the pointer
+  was over its middle.
+- Where a drop goes is read from the rows: a note's top or bottom half, a folder's top or bottom quarter (its middle
+  is left to Obsidian: "move into"). Below an open folder's name is the top of what's in it. Below the last item of
+  a folder, the pointer left of where that item's name starts (`.tree-item-inner`'s edge; right of it in
+  right-to-left layouts) means after the folder itself, and so on outward.
+- Several dragged items are put in the order they show in (`store.inOrder`), not the order they were clicked in; an
+  item dragged along with the folder it's in comes with the folder.
+- A place the items can't take is refused, not left to Obsidian: the event is still taken, `dropEffect` is `none`,
+  no line shows, the hint says why ("“Part One” already has “Arrival”", a note that would become the folder's note,
+  two dragged items of one name), and a drop there shows the reason as a notice. Where it isn't a binder's to say
+  (a newer-format binder, a binder or folder note, a folder into itself), the drag is Obsidian's own.
+- A drop goes through `store.put()`, one change that "Undo last move" takes back.
+- Escape cancels a drag in Chromium itself, which then sends `dragend` and no `drop`; nothing can test that in the
+  harness, where drags are made of mouse events.
+- On the corkboard a drag is pointer events, not HTML drag and drop; it only borrows the look: Obsidian's reordering
+  (`Yv` in its bundle: a base's toolbar, a note's properties) clones the item into a `div.drag-reorder-ghost`, adds
+  `mod-dragged-item`, sets `is-grabbing` on the body, and animates the others to their new places over 300ms with
+  `cubic-bezier(0.2, 0, 0, 1)`. The corkboard uses the same classes and the same timing.
+- The outliner's rows are dragged with pointer events too (`src/view/drag.ts`: a mouse or pen after 5px, a finger
+  after a 450ms press). They borrow the look of a note dragged in the file explorer: a `div.drag-ghost` with a
+  `drag-ghost-self` (icon and name, or "3 items") and a `drag-ghost-action` (where it would go), a `drop-indicator`
+  line, and `is-being-dragged-over` on a folder's row. Rows glide to their places with the same timing.
 
 ## The editable embed (checked on Obsidian 1.13.7, desktop and `app.emulateMobile(true)`)
 
@@ -60,8 +119,29 @@ touches it; `mountEditor()` builds one embed and patches that instance only:
   remount of the same note waits for it, so it never loads the old text.
 - `save()` does nothing until `loadFile()` resolves, so the editor is only shown after it.
 - `showEditor()` focuses the new editor and queues "scroll to the top of the note" for CodeMirror's next measure. The
-  wrapper puts focus back, unsets the active editor, and adds a CodeMirror `EditorView.scrollHandler` (public API) that
-  swallows scrolling while the section has no focus, so mounting never moves the page.
+  wrapper puts focus back, unsets the active editor, and restores the scroll position of every scrolled ancestor.
+- The editor never scrolls the page. The wrapper adds a CodeMirror `EditorView.scrollHandler` (public CodeMirror
+  API, added with `StateEffect.appendConfig`) that always says the scroll is handled. An editor asked to scroll to a
+  caret that's off screen measures itself over and over ("Measure loop restarted"), and the queued scroll above
+  would move the whole manuscript. When the editor has the focus, the handler passes the position on (`onCaret`) and
+  the manuscript scrolls its own page so the caret is in sight. It runs while CodeMirror measures, so the caret's
+  place is read from the DOM (`domAtPos` and a range's rectangles), not from `coordsAtPos`. Without
+  `EditorView.scrollHandler` (an older CodeMirror) nothing is added and the editor scrolls as it would.
+- **`showPreview`** and **`toggleMode`**, after `showEditor()`: an embed leaves its editor for its reading view on
+  Escape and on "Toggle reading view", and destroys the editor as it goes. Both are replaced with functions that do
+  nothing, on that embed only, so a section is always its editor.
+- **`onFileChanged`** also handles a second view of the same note saving our typing with its own on top: if the
+  file already holds our change (`contains(lastSavedData, data, theirs)`), it's loaded as it is, not merged, which
+  would double the text.
+- A new editor on a note waits for the pending writes of every other live editor on that note (`openEditors`:
+  another manuscript in a split or tab), or it would load the old text.
+- When the page is scrolled more than a screen and a half past the section with the caret, the manuscript blurs
+  that editor (one kept that far out of sight can't draw its caret) and remembers the place. The next key typed, or
+  scrolling back to the section, puts the caret back; keys typed while its editor is mounted again go in at the
+  caret. This reads `.modal-container`, `.menu`, `.suggestion-container` and `.prompt` in the document to tell that
+  nothing else is using the keyboard.
+- Quitting doesn't unload views: the manuscript adds each unsaved section's write to the workspace's `quit` tasks
+  (public API).
 - With live preview off in the vault the editor opens in source mode and shows raw frontmatter: `toggleSource()` on that
   editor only; re-checked on `config-changed` and `css-change`.
 - Commands and hotkeys need nothing: the embed sets `workspace.activeEditor` to itself when it gets focus (and updates
@@ -71,12 +151,30 @@ touches it; `mountEditor()` builds one embed and patches that instance only:
 
 ## The binder view (checked on Obsidian 1.13.7)
 
+- Obsidian pads every view's content (`.view-content`) unless a rule for that view type says otherwise, as it has for
+  notes, bases and canvases. Binders has one for `data-type="binders-view"`, so the view runs edge to edge and its
+  scrollbar is at the pane's side.
+- The toolbar and the cards read a base's own CSS variables where Obsidian defines them (`--bases-header-height`,
+  `--bases-cards-background`, `--bases-cards-radius`, `--bases-cards-shadow`, `--bases-cards-shadow-hover`), each with
+  a fallback for versions before Bases, so a theme that restyles bases restyles binders the same way.
+- A card's or an outliner row's menu (`src/view/actions.ts`) sends the public `file-menu` and `files-menu` workspace
+  events with the source `binders-card`, which is how Obsidian's own file explorer items ("Reveal file in
+  navigation", "Bookmark…") and other plugins' get into it.
+- The toolbar's buttons use Obsidian's `text-icon-button`, `text-button-icon` and `text-button-label` classes (a
+  base's toolbar), the outliner's "+" its `clickable-icon`, and rendered manuscript sections its `markdown-rendered`.
+  These only style: without them the controls still work.
+
 - A view's `setState(state, result)` gets `result.history = false` when only its state changes. Setting it to `true`
   records the change in the tab's history (as file views do when their file changes), so Back returns to the folder
   before. This is public API.
 - Obsidian's own hotkey Mod-Enter ("Open link in new tab") runs, and swallows the key, whenever an editor was active
   last, even while a binder view has the focus. The view claims Mod-Enter in its own `scope` while a synopsis is being
-  typed. Likewise F2 is Obsidian's "Rename file": the view's `scope` claims it and passes it on to the focused card or
-  plotline, which it renames.
+  typed. Likewise F2 is Obsidian's "Rename file": the view's `scope` claims it and passes it on to the focused card,
+  outliner row or manuscript section, which it renames.
+- Mod+Z, Mod+Shift+Z and Mod+Y are registered in the view's `scope` for "Undo last move" and "Redo last move". They
+  do nothing (and the key goes on to whoever wants it) while the focus is in an input, a text area, something
+  editable or an editor (`.cm-content`), or when the binder has no move to undo.
+- A view's `getEphemeralState()` and `setEphemeralState()` (public API) carry `place`: where the mode was scrolled
+  to and what was selected, so Back returns there. Switching modes keeps a place per mode and folder in the view.
 - In the e2e harness, `activeDocument` can be another of Obsidian's windows, so menus opened without a position open
   there; the harness focuses the main window before each test, click and right-click.

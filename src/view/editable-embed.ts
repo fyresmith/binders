@@ -32,6 +32,8 @@ interface MdEmbed extends Component {
 	set(text: string, clear?: boolean): void;
 	loadFileInternal(data: string, cache?: unknown): void;
 	onFileChanged(file: TFile, data: string, cache: unknown): void;
+	showPreview?: (...args: unknown[]) => void;
+	toggleMode?: () => void;
 }
 
 type Factory = (ctx: { app: App; containerEl: HTMLElement; state: object }, file: TFile, subpath: string) => MdEmbed;
@@ -74,6 +76,17 @@ export function contains(base: string, ours: string, theirs: string): boolean {
 	return theirs.length >= head.length + tail.length && theirs.startsWith(head) && theirs.endsWith(tail);
 }
 
+/** Tabs of `file` that show exactly `text` are told it's what the file holds (their undocumented `lastSavedData`, the
+    text a view merges outside changes against): a write of that text is then no change to them. */
+function markSaved(app: App, file: TFile, text: string): void {
+	for (const leaf of app.workspace.getLeavesOfType('markdown')) {
+		const view = leaf.view as unknown as { file?: TFile | null; getViewData?: () => string; lastSavedData?: string | null };
+		try {
+			if (view.file === file && typeof view.lastSavedData === 'string' && typeof view.getViewData === 'function' && view.getViewData() === text) view.lastSavedData = text;
+		} catch { /* a view that isn't as expected merges as it always did */ }
+	}
+}
+
 /** Every live editor, by note, across all manuscripts (a split, another tab of the binder): a new one waits for
     the others' pending typing to be written, or it would load the old text and typing in it would lose theirs. */
 const openEditors = new Map<TFile, Set<() => Promise<void>>>();
@@ -99,6 +112,11 @@ export interface LiveEditor {
 export interface MountOptions {
 	/** Called on every change the editor makes to the text (typing, undo, paste), before it's saved. */
 	onChange?(text: string): void;
+	/** Called when the editor, with the focus, wants its cursor in sight (a key moved it, text was typed): the
+	    manuscript scrolls its page, since the editor has no scrolling of its own here. */
+	/** The editor would scroll this position (its cursor) into view: called while it measures itself, so only the page
+	    may be read and scrolled here, not the editor asked (`coordsAtPos` would make it measure again). */
+	onCaret?(cm: EditorView, pos: number): void;
 }
 
 /** Mounts a live editor for `file` into `container`, as a child of `parent`. Throws if the embed can't be built;
@@ -117,6 +135,11 @@ export async function mountEditor(app: App, container: HTMLElement, file: TFile,
 		// Another view took our typing live and saved it with its own on top: the file already has ours, and a merge
 		// would see two overlapping insertions and keep both (doubled text). Load it as it is.
 		if (this.dirty && this.lastSavedData !== null && contains(this.lastSavedData, this.data, data)) this.dirty = false;
+		// Another editor of this note (the note in a tab, a second manuscript) wrote a text this editor has shown and
+		// typed on from: each shows the other's typing as it happens, so there's nothing in it this one lacks. Merged
+		// against the file as this editor last saved it, what both have would go in twice. It's the saved text now, and
+		// this editor's own goes over it at its next save.
+		else if (this.dirty && shown.includes(data)) { this.lastSavedData = data; return; }
 		const merging = this.dirty;
 		this.loadFileInternal(data, cache);
 		// Other views of the note (a tab) took our typing live, then reloaded the outside version and dropped it: give
@@ -126,10 +149,16 @@ export async function mountEditor(app: App, container: HTMLElement, file: TFile,
 	};
 	// Every edit goes through save(text) (the editor calls it on each update); save(text, true) is the real write.
 	embed.save = function (this: MdEmbed, text: string, now?: boolean): Promise<void> {
+		// (the other way round: a tab of the note showing this very text takes it as saved, so that typing there while
+		// the write is on its way isn't merged with it as if it were an outside change, and doubled)
+		if (now && this.dirty && this.lastSavedData !== null && this.lastSavedData !== text) markSaved(app, file, text);
 		const p = proto.save.call(this, text, now) as Promise<void>;
-		if (!now) opts.onChange?.(text);
+		if (!now) { opts.onChange?.(text); show(text); }
 		return p;
 	};
+	// The last few texts this editor has shown (typed here, or taken live from another editor of the note).
+	const shown: string[] = [];
+	const show = (text: string) => { if (shown[shown.length - 1] !== text) { shown.push(text); if (shown.length > 32) shown.shift(); } };
 	// the write in flight: a flush while it runs (dirty is already false) must still wait for it
 	let writing: Promise<void> = Promise.resolve();
 	const flush = (): Promise<void> => {
@@ -164,7 +193,7 @@ export async function mountEditor(app: App, container: HTMLElement, file: TFile,
 		openEditors.get(file).add(flush);
 		// 2. A reload calls set(text, true), which rebuilds the editor state: cursor, scroll and undo lost. A plain
 		//    set() applies the change as a minimal diff, as a normal note does.
-		embed.set = function (this: MdEmbed, text: string) { proto.set.call(this, text, false); };
+		embed.set = function (this: MdEmbed, text: string) { show(text); proto.set.call(this, text, false); };
 		const doc = container.ownerDocument;
 		const prev = doc.activeElement as HTMLElement | null;
 		// showEditor() focuses without preventScroll, so the browser scrolls the new editor into view
@@ -172,6 +201,11 @@ export async function mountEditor(app: App, container: HTMLElement, file: TFile,
 		for (let el = container.parentElement; el; el = el.parentElement) if (el.scrollTop || el.scrollLeft) scrolled.push([el, el.scrollTop, el.scrollLeft]);
 		embed.showEditor();
 		if (!embed.editMode) throw new Error('The embed has no editor.');
+		// 7. An embed leaves its editor for its reading view on Escape and on "Toggle reading view", and destroys the
+		//    editor as it goes: in the manuscript that would leave a section that can't be typed in. Here a section
+		//    is always its editor.
+		embed.showPreview = () => { /* stays an editor */ };
+		embed.toggleMode = () => { /* stays an editor */ };
 		// 5. Properties are hidden; with live preview off in the vault the editor would show raw frontmatter.
 		const keepLivePreview = () => { if (embed.editMode?.sourceMode) embed.editMode.toggleSource(); };
 		keepLivePreview();
@@ -184,11 +218,16 @@ export async function mountEditor(app: App, container: HTMLElement, file: TFile,
 		}
 		for (const [el, top, left] of scrolled) { el.scrollTop = top; el.scrollLeft = left; }
 		// Obsidian also queues "scroll to the top of the note" for CodeMirror's next measure, which would scroll the
-		// whole manuscript. An editor without focus (in it, or in its find bar) never scrolls the page; one with focus
-		// does, as usual. Public CodeMirror API: a handler that returns true has handled the scroll.
+		// whole manuscript; and an editor asked to scroll to a cursor that's off screen measures itself over and over
+		// ("Measure loop restarted"). So the editor never scrolls the page: a handler that returns true has handled the
+		// scroll (public CodeMirror API). Instead, whenever it would have scrolled its cursor into view, it says so, and
+		// the manuscript moves its page.
 		const cm = embed.editMode.cm;
 		if (cm && EditorView.scrollHandler) {
-			cm.dispatch({ effects: StateEffect.appendConfig.of(EditorView.scrollHandler.of(() => !container.contains(container.ownerDocument.activeElement))) });
+			cm.dispatch({ effects: StateEffect.appendConfig.of(EditorView.scrollHandler.of((view, range) => {
+				if (view.hasFocus) { try { opts.onCaret?.(view, range.head); } catch (e) { console.error(e); } }
+				return true;
+			})) });
 		}
 		return {
 			file,

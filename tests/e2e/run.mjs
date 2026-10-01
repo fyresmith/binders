@@ -8,7 +8,7 @@
 import { mkdirSync, readFileSync, readdirSync, statSync } from 'fs';
 import { join, relative } from 'path';
 import { pathToFileURL } from 'url';
-import { launch } from './driver.mjs';
+import { launch, VAULT } from './driver.mjs';
 
 const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i > 0 ? process.argv[i + 1] : d; };
 const themes = arg('theme', 'light') === 'both' ? ['light', 'dark'] : [arg('theme', 'light')];
@@ -19,8 +19,8 @@ mkdirSync(shots, { recursive: true });
 
 // the pristine test vault, so each test starts from the same notes
 const pristine = new Map();
-const walk = (dir) => { for (const f of readdirSync(dir)) { const p = join(dir, f); if (f === '.obsidian') continue; if (statSync(p).isDirectory()) walk(p); else if (/\.md$/.test(f)) pristine.set(relative('test-vault', p), readFileSync(p, 'utf8')); } };
-walk('test-vault');
+const walk = (dir) => { for (const f of readdirSync(dir)) { const p = join(dir, f); if (f === '.obsidian') continue; if (statSync(p).isDirectory()) walk(p); else if (/\.md$/.test(f)) pristine.set(relative(VAULT, p), readFileSync(p, 'utf8')); } };
+walk(VAULT);
 
 const specFiles = arg('specs', '') ? arg('specs').split(',') : readdirSync('tests/e2e').filter((f) => /^specs.*\.mjs$/.test(f)).map((f) => 'tests/e2e/' + f);
 const specs = [];
@@ -72,6 +72,8 @@ function helpers(p) {
 				// the layout saved in mobile mode, so a test that switches to mobile starts from the same one every time
 				const mobile = app.vault.configDir + '/workspace-mobile.json'; if (await app.vault.adapter.exists(mobile)) await app.vault.adapter.remove(mobile);
 				const leaves = []; app.workspace.iterateRootLeaves(l => { leaves.push(l); }); leaves.forEach(l => l.detach()); // not while iterating
+				// (a binder opens as its view was last left: each test starts with none remembered)
+				app.plugins.plugins.binders?.lastView?.clear();
 				await new Promise(r => setTimeout(r, 150));
 				const files = ${JSON.stringify([...pristine])};
 				for (const [path, text] of files) {

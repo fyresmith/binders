@@ -2,6 +2,8 @@ import { Events, Notice, TFile, TFolder, normalizePath, stringifyYaml, type App,
 import type { ExplorerSource } from './explorer';
 import type BindersPlugin from './main';
 import { applyOps, checkFormat, diskPath, FORMAT_VERSION, isBinderNote, isFolderNote, nameOf, orderChildren, readIndex, relPath, stepIndex, UnsupportedBinder, type ListOp } from './model';
+import { nextName } from './scene-text';
+import { labelCss, readLabel } from './view/labels';
 import { applySceneOps, conversionPlan, isIgnored, isLongformIndex, longformRunning, readProject, sameScenes, sceneGroups, shownScenes, writeScenes, type Project, type Scene, type SceneOp } from './longform';
 
 /* The binders in the vault: finds them, keeps each one's order in step with the vault, and writes changes back.
@@ -128,6 +130,12 @@ class State implements Binder {
 }
 
 interface Item { rel: string; file: TAbstractFile }
+const moveLabel = (items: TAbstractFile[]): string => (items.length === 1 ? `Move “${items[0] instanceof TFile ? items[0].basename : items[0].name}”` : `Move ${items.length} items`);
+/** Where an item is among its folder's: the folder (and its path then, in case it's deleted and made again), the items
+    on either side, and a Longform scene's indent. */
+interface Pos { parent: TFolder; path: string; next: TAbstractFile | null; prev: TAbstractFile | null; depth?: number; at: number }
+/** A change to a binder's order made by hand: what it moved, from where to where, and a folder it made to move them into. */
+interface Undo { note: TFile; label: string; items: { file: TAbstractFile; before: Pos; after: Pos }[]; made?: { folder: TFolder; name: string; pos: Pos } }
 
 export class BinderStore extends Events implements ExplorerSource {
 	ready: Promise<void>;
@@ -176,7 +184,13 @@ export class BinderStore extends Events implements ExplorerSource {
 			}));
 			plugin.registerEvent(vault.on('rename', (f, old) => this.onRename(f, old)));
 			plugin.registerEvent(vault.on('delete', (f) => this.onDelete(f)));
-			plugin.registerEvent(vault.on('create', (f) => { const s = this.at(f.path); if (s) this.touch(s); }));
+			plugin.registerEvent(vault.on('create', (f) => {
+				if (this.orphans && f instanceof TFolder) this.rescan();
+				const s = this.at(f.path);
+				if (!s) return;
+				this.touch(s);
+				this.placeCopy(s, f);
+			}));
 			done();
 		});
 		plugin.register(() => { void this.flush(); window.clearTimeout(this.emitTimer); window.clearTimeout(this.followTimer); });
@@ -201,6 +215,15 @@ export class BinderStore extends Events implements ExplorerSource {
 		const s = this.at(file.path);
 		if (s?.kind === 'longform') return file === s.note;
 		return !!s && file instanceof TFile && (file === s.note || (file.extension === 'md' && !!file.parent && file.parent !== s.folder && file.basename === file.parent.name));
+	}
+
+	labelColor(item: TAbstractFile): string | null {
+		if (!this.at(item.path) || this.isHiddenNote(item)) return null;
+		const note = item instanceof TFolder ? this.folderNote(item) : item instanceof TFile && item.extension === 'md' ? item : null;
+		const s = this.plugin.settings, label = note ? this.app.metadataCache.getFileCache(note)?.frontmatter?.[s.labelProp] as unknown : null;
+		// (read as the cards read it: a list's first entry, a color in any spelling)
+		const name = readLabel(label, s.labels.map((l) => l.name));
+		return name ? labelCss(name, s.labels) : null;
 	}
 
 	problem(item: TAbstractFile | string): string | null { return this.binderOf(item)?.problem ?? null; }
@@ -282,8 +305,215 @@ export class BinderStore extends Events implements ExplorerSource {
 		if (rel) this.queue(t, { op: 'move', item: rel, folder: this.folderRel(t, folder), index });
 	}
 
+	/** Whether `move` could put this item somewhere in this folder's order (the file explorer asks while dragging). */
+	canPlace(item: TAbstractFile, folder: TFolder): boolean {
+		const t = this.at(folder.path);
+		if (!t || t.problem || t.frozen || this.isHiddenNote(item)) return false;
+		const clash = item.parent !== folder && !!this.app.vault.getAbstractFileByPath(normalizePath(`${folder.path}/${item.name}`));
+		if (t.kind === 'longform') {
+			// its scenes are the notes in one folder; one it ignores stays as it is
+			if (folder !== t.folder || !(item instanceof TFile) || item.extension !== 'md') return false;
+			return item.parent === folder ? (this.orderedChildren(folder) ?? []).includes(item) : !clash;
+		}
+		if (item instanceof TFolder && (folder === item || folder.path.startsWith(item.path + '/'))) return false;
+		if (item instanceof TFile && item.extension === 'md' && item.basename === folder.name && item.parent !== folder) return false;
+		return !clash;
+	}
+
+	whyNot(item: TAbstractFile, folder: TFolder): string | null {
+		const t = this.at(folder.path);
+		if (!t || t.problem || t.frozen || this.isHiddenNote(item)) return '';
+		const base = item instanceof TFile ? item.basename : item.name;
+		if (t.kind === 'longform') {
+			if (folder !== t.folder || !(item instanceof TFile) || item.extension !== 'md') return '';
+			if (item.parent === folder) return (this.orderedChildren(folder) ?? []).includes(item) ? null : '';
+		} else if (item instanceof TFolder && (folder === item || folder.path.startsWith(item.path + '/'))) return '';
+		if (item.parent === folder) return null;
+		if (item instanceof TFile && item.extension === 'md' && item.basename === folder.name) return `“${base}” would become the note of the folder “${folder.name}”, not a scene in it`;
+		if (this.app.vault.getAbstractFileByPath(normalizePath(`${folder.path}/${item.name}`))) return `“${folder.name}” already has “${base}”`;
+		return null;
+	}
+
+	inOrder(items: TAbstractFile[]): TAbstractFile[] {
+		// each item's place as the indexes down from its binder's folder: [2, 0] is the first item of the third
+		const place = (f: TAbstractFile): number[] | null => {
+			const s = this.at(f.path);
+			if (!s || f === s.folder) return null;
+			const out: number[] = [];
+			for (let c: TAbstractFile = f; c !== s.folder; c = c.parent) {
+				if (!c.parent) return null;
+				out.unshift((this.orderedChildren(c.parent, { hidden: true }) ?? []).indexOf(c));
+			}
+			return out;
+		};
+		const keyed = items.map((f, i) => ({ f, i, b: this.at(f.path)?.path ?? null, p: place(f) }));
+		return keyed.sort((x, y) => {
+			if (!x.p || !y.p) return x.p ? -1 : y.p ? 1 : x.i - y.i;
+			if (x.b !== y.b) return (x.b ?? '').localeCompare(y.b ?? '');
+			for (let k = 0; k < Math.max(x.p.length, y.p.length); k++) { const d = (x.p[k] ?? -1) - (y.p[k] ?? -1); if (d) return d; }
+			return x.i - y.i;
+		}).map((x) => x.f);
+	}
+
+	depthOf(item: TAbstractFile): number | undefined {
+		const s = this.at(item.path);
+		return s?.kind === 'longform' && item instanceof TFile ? this.shownScenes(s).find((x) => x.title === item.basename)?.indent : undefined;
+	}
+
 	moveUp(item: TAbstractFile): Promise<boolean> { return this.step(item, -1); }
 	moveDown(item: TAbstractFile): Promise<boolean> { return this.step(item, 1); }
+
+	/** Puts items, in the order given, just before `anchor` in `folder` (or at its end), moving them there from other
+	    folders if need be: what a drop does, as one change that "Undo" takes back. In a Longform project, `depth` is the
+	    indent they take. */
+	put(items: TAbstractFile[], folder: TFolder, anchor: TAbstractFile | null, depth?: number): Promise<void> {
+		return this.change(moveLabel(items), items, async () => {
+			for (const f of items) {
+				if (f === anchor) continue;
+				const sibs = (this.orderedChildren(folder) ?? []).filter((x) => x !== f);
+				const i = anchor ? sibs.indexOf(anchor) : -1;
+				await this.move(f, folder, i < 0 ? sibs.length : i, depth);
+			}
+		});
+	}
+
+	// ---- undo ----
+
+	/** Changes made by hand to binders' orders (a drag, Move up, a sort kept, a folder made around notes), newest last:
+	    for each item moved, where it was and where it went. Undoing one puts its items back beside the neighbours they
+	    had, in the binder as it is now: whatever was renamed, added or reordered since stays as it is. */
+	private undos: Undo[] = [];
+	private redos: Undo[] = [];
+
+	/** Where an item is: its folder and its neighbours there (and a Longform scene's indent). The neighbours are the
+	    nearest that aren't `moving` too: what moves with it can't say where it was. */
+	private posOf(item: TAbstractFile, moving?: Set<TAbstractFile>): Pos | null {
+		const parent = item.parent;
+		if (!parent) return null;
+		const sibs = this.orderedChildren(parent) ?? [], i = sibs.indexOf(item), still = (f: TAbstractFile) => !moving?.has(f);
+		const next = i < 0 ? null : sibs.slice(i + 1).find(still) ?? null, prev = i < 0 ? null : sibs.slice(0, i).reverse().find(still) ?? null;
+		return { parent, path: parent.path, next, prev, depth: this.depthOf(item), at: i };
+	}
+
+	/** The folder a remembered place is in, if it's still there (by name, if it was deleted and made again). */
+	private folderOf(pos: Pos): TFolder | null {
+		const { vault } = this.app;
+		if (vault.getAbstractFileByPath(pos.parent.path) === pos.parent) return pos.parent;
+		const again = vault.getAbstractFileByPath(pos.path);
+		return again instanceof TFolder ? again : null;
+	}
+
+	/** Puts an item back at a remembered place: before the neighbour that followed it, or after the one before it, or
+	    last, whichever is still there. */
+	private async putBack(item: TAbstractFile, pos: Pos, run: Map<TAbstractFile | string, TAbstractFile>): Promise<void> {
+		const parent = this.folderOf(pos);
+		if (!parent) return;
+		// (it came from outside any binder: back to its folder, which has no order to put it in)
+		if (!this.at(parent.path)) { if (item.parent !== parent) await this.app.fileManager.renameFile(item, normalizePath(`${parent.path}/${item.name}`)); return; }
+		const sibs = (this.orderedChildren(parent) ?? []).filter((f) => f !== item);
+		// before what followed it, or after what came before it; with neither there any more, first if it was first
+		// (several that stood together go back in the order they're given, first first: each after the one before it)
+		const after = (key: TAbstractFile | string, i: number) => { const last = run.get(key); run.set(key, item); return last && sibs.includes(last) ? sibs.indexOf(last) + 1 : i; };
+		const i = pos.next && sibs.includes(pos.next) ? sibs.indexOf(pos.next)
+			: pos.prev && sibs.includes(pos.prev) ? after(pos.prev, sibs.indexOf(pos.prev) + 1)
+			: pos.prev === null && pos.next !== null ? after(parent.path, 0) : sibs.length;
+		await this.move(item, parent, i, pos.depth);
+	}
+
+	/** Runs a change to a binder's order made by hand, remembering where each of `items` (in the order they show) was,
+	    so "Undo" can put them back. `label` says what it was ("Move “Arrival”"). `made`: a folder the change made to
+	    hold them, which undoing it takes away again. */
+	async change<T>(label: string, items: TAbstractFile[], fn: () => Promise<T>, made?: (out: T) => TFolder | null): Promise<T> {
+		const moving = new Set(items);
+		const before = items.map((file) => ({ file, pos: this.posOf(file, moving) }));
+		const record = (out?: T) => {
+			// (the binder they're in now: a note dragged in from outside any binder had none before)
+			const s = items.map((f) => this.at(f.path)).find((x) => !!x);
+			if (!s || s.problem) return;
+			const same = (a: Pos, b: Pos) => a.parent === b.parent && a.next === b.next && a.prev === b.prev && a.depth === b.depth && a.at === b.at;
+			const moved: Undo['items'] = [];
+			for (const b of before) { const after = this.posOf(b.file, moving); if (b.pos && after && this.app.vault.getAbstractFileByPath(b.file.path) === b.file) moved.push({ file: b.file, before: b.pos, after }); }
+			// (a change that came to nothing isn't one to undo)
+			if (!moved.some((x) => !same(x.before, x.after))) return;
+			const folder = out === undefined ? null : made?.(out) ?? null, at = folder ? this.posOf(folder) : null;
+			this.undos.push({ note: s.note, label, items: moved, made: folder && at ? { folder, name: folder.name, pos: at } : undefined });
+			if (this.undos.length > 50) this.undos.shift();
+			this.redos = [];
+		};
+		let out: T;
+		// (a change that failed half-way is still one to take back, as far as it got)
+		try { out = await fn(); } catch (e) { record(); throw e; }
+		record(out);
+		return out;
+	}
+
+	/** What "Undo" (or "Redo") would take back in this binder, or null. */
+	undoable(item: TAbstractFile | string, redo = false): string | null {
+		const s = this.at(typeof item === 'string' ? item : item.path), stack = redo ? this.redos : this.undos;
+		for (let i = stack.length - 1; i >= 0; i--) if (stack[i].note === s?.note) return stack[i].label;
+		return null;
+	}
+
+	/** The binder whose order was last changed by hand (or, with `redo`, last had a change undone): its folder. */
+	lastChanged(redo = false): TFolder | null {
+		const stack = redo ? this.redos : this.undos;
+		for (let i = stack.length - 1; i >= 0; i--) { const s = this.states.get(stack[i].note); if (s) return s.folder; }
+		return null;
+	}
+
+	/** Takes back the last change made by hand to this binder's order (or, with `redo`, makes it again): each item it
+	    moved goes back to the folder and the neighbours it had. Nothing is moved unless everything can be; then the
+	    change stays to be undone later. Returns what was undone, or null. */
+	async undo(item: TAbstractFile | string, redo = false): Promise<string | null> {
+		const s = this.at(typeof item === 'string' ? item : item.path), from = redo ? this.redos : this.undos, to = redo ? this.undos : this.redos;
+		if (!s) return null;
+		if (s.problem) throw new UnsupportedBinder(s.problem);
+		const { vault } = this.app, name = (f: TAbstractFile) => (f instanceof TFile ? f.basename : f.name);
+		for (;;) {
+			let i = from.length - 1;
+			while (i >= 0 && from[i].note !== s.note) i--;
+			if (i < 0) return null;
+			const u = from[i];
+			const here = u.items.filter((x) => vault.getAbstractFileByPath(x.file.path) === x.file);
+			// (everything it moved has been deleted since: nothing to take back, so the change before it is the one)
+			if (!here.length) { from.splice(i, 1); continue; }
+			const place = (x: Undo['items'][number]) => (redo ? x.after : x.before);
+			try {
+				// a folder the change made, taken away by undoing it, is made again to redo it
+				if (redo && u.made && vault.getAbstractFileByPath(u.made.folder.path) !== u.made.folder) {
+					const parent = this.folderOf(u.made.pos), old = u.made.folder;
+					if (!parent) throw new Error(`“${u.made.name}” can’t be made again: its folder is gone.`);
+					const sibs = this.orderedChildren(parent) ?? [], next = u.made.pos.next;
+					u.made.folder = await this.newFolder(parent, next && sibs.includes(next) ? sibs.indexOf(next) : Infinity, u.made.name);
+					for (const x of u.items) if (x.after.parent === old) x.after = { ...x.after, parent: u.made.folder, path: u.made.folder.path };
+				}
+				// everything can go back, or nothing does
+				for (const x of here) {
+					const parent = this.folderOf(place(x));
+					if (!parent) throw new Error(`“${name(x.file)}” can’t go back: its folder is gone.`);
+					if (x.file.parent === parent) continue;
+					const taken = vault.getAbstractFileByPath(normalizePath(`${parent.path}/${x.file.name}`));
+					if (taken && taken !== x.file) throw new Error(`“${name(x.file)}” can’t go back: “${parent.name}” has another “${name(x.file)}” now.`);
+				}
+			} catch (e) {
+				// (it can't be taken back as things are, and it isn't left in the way of the changes before it)
+				from.splice(from.indexOf(u), 1);
+				throw e;
+			}
+			// in the order they stood in there (whatever order they were moved in): when all of a folder moved at once, as
+			// a sort kept does, that order is all there is to go by
+			const run = new Map<TAbstractFile | string, TAbstractFile>();
+			for (const x of [...here].sort((a, b) => place(a).at - place(b).at)) await this.putBack(x.file, place(x), run);
+			if (!redo && u.made && vault.getAbstractFileByPath(u.made.folder.path) === u.made.folder) {
+				// (the name it has now, typed since it was made, is the one it's made again with)
+				u.made.name = u.made.folder.name;
+				if (!u.made.folder.children.length) await this.app.fileManager.trashFile(u.made.folder);
+			}
+			from.splice(from.indexOf(u), 1);
+			to.push(u);
+			return u.label;
+		}
+	}
 
 	setProps(file: TFile, patch: Record<string, unknown>): Promise<void> {
 		return this.editProps(file, (fm) => {
@@ -297,7 +527,7 @@ export class BinderStore extends Events implements ExplorerSource {
 		await this.app.fileManager.processFrontMatter(file, edit);
 	}
 
-	async newScene(folder: TFolder, index = Infinity, title = 'Untitled', depth?: number): Promise<TFile> {
+	async newScene(folder: TFolder, index = Infinity, title = 'Untitled', depth?: number, content = ''): Promise<TFile> {
 		const t = this.writable(folder);
 		if (t.kind === 'longform' && folder !== t.folder) throw new Error(`“${folder.name}” isn’t in a binder.`);
 		// a leading dot would make a hidden file, which Obsidian doesn't show
@@ -305,10 +535,127 @@ export class BinderStore extends Events implements ExplorerSource {
 		let name = base;
 		// a note named like its folder would be the folder note, not a scene
 		for (let n = 1; name === folder.name || this.app.vault.getAbstractFileByPath(normalizePath(`${folder.path}/${name}.md`)); n++) name = `${base} ${n}`;
-		const file = await this.app.vault.create(normalizePath(`${folder.path}/${name}.md`), '');
+		const file = await this.app.vault.create(normalizePath(`${folder.path}/${name}.md`), content);
 		if (t.kind === 'longform') { this.queueScenes(t, { op: 'move', item: file.basename, index, indent: depth }); return file; }
 		this.queue(t, { op: 'move', item: relPath(t.folder.path, file.path, false), folder: this.folderRel(t, folder), index });
 		return file;
+	}
+
+	/** Makes a subfolder in a binder's folder, at `index` among its items (default: last). */
+	async newFolder(folder: TFolder, index = Infinity, title = 'Untitled'): Promise<TFolder> {
+		const t = this.writable(folder);
+		if (t.kind === 'longform') throw new Error('A Longform project has no folders. Convert it to a binder to use them.');
+		const base = title.replace(/[\\/:]/g, ' ').trim().replace(/^\.+\s*/, '') || 'Untitled';
+		let name = base;
+		for (let n = 1; this.app.vault.getAbstractFileByPath(normalizePath(`${folder.path}/${name}`)); n++) name = `${base} ${n}`;
+		const made = await this.app.vault.createFolder(normalizePath(`${folder.path}/${name}`));
+		this.queue(t, { op: 'move', item: relPath(t.folder.path, made.path, true), folder: this.folderRel(t, folder), index });
+		return made;
+	}
+
+	/** A copy of a note or a folder (with everything in it, in its order), right after it, named by counting on:
+	    "Scene" gives "Scene 2". */
+	async duplicate(item: TAbstractFile): Promise<TAbstractFile> {
+		const folder = item.parent;
+		if (!folder) throw new Error('That can’t be copied.');
+		const t = this.writable(folder), { vault } = this.app;
+		if (item === t.folder || this.isHiddenNote(item)) throw new Error('Binder and folder notes stay with their folder.');
+		const ext = item instanceof TFile ? '.' + item.extension : '', base = item instanceof TFile ? item.basename : item.name;
+		// (a note named like its folder would be the folder's note)
+		// (and a folder's copy can't take the name of a note in it: that note would be the copy's own)
+		const inside = item instanceof TFolder ? new Set(item.children.filter((c): c is TFile => c instanceof TFile && c.extension === 'md').map((c) => c.basename)) : null;
+		const name = nextName(base, (n) => !!vault.getAbstractFileByPath(normalizePath(`${folder.path}/${n}${ext}`)) || (ext === '.md' && n === folder.name) || !!inside?.has(n));
+		const to = normalizePath(`${folder.path}/${name}${ext}`), index = (this.orderedChildren(folder) ?? []).indexOf(item) + 1;
+		if (item instanceof TFile) {
+			const made = await this.copyFile(item, to);
+			if (t.kind === 'longform') { this.queueScenes(t, { op: 'move', item: made.basename, index, indent: this.shownScenes(t).find((x) => x.title === item.basename)?.indent }); return made; }
+			const rel = relPath(t.folder.path, made.path, false);
+			if (rel) this.queue(t, { op: 'move', item: rel, folder: this.folderRel(t, folder), index });
+			return made;
+		}
+		if (!(item instanceof TFolder) || t.kind === 'longform') throw new Error('That can’t be copied.');
+		const was = relPath(t.folder.path, item.path, true), inner = was ? this.contents(t).filter((p) => p !== was && p.startsWith(was)) : [];
+		const copy = async (from: TFolder, dest: string): Promise<void> => {
+			await vault.createFolder(dest);
+			for (const c of [...from.children]) {
+				if (c instanceof TFolder) await copy(c, normalizePath(`${dest}/${c.name}`));
+				// a folder's own note is named like it, so it's the copy's own note too
+				else if (c instanceof TFile) await this.copyFile(c, normalizePath(`${dest}/${c.extension === 'md' && c.basename === from.name ? dest.split('/').pop() : c.basename}.${c.extension}`));
+			}
+		};
+		try { await copy(item, to); } catch (e) {
+			// half a copy is no use: it goes (it holds only copies), and the reason is passed on
+			const half = vault.getAbstractFileByPath(to);
+			if (half instanceof TFolder) await this.app.fileManager.trashFile(half).catch(() => { /* left as it is */ });
+			throw e;
+		}
+		const made = vault.getAbstractFileByPath(to);
+		if (!(made instanceof TFolder)) throw new Error('The copy couldn’t be made.');
+		const rel = relPath(t.folder.path, made.path, true);
+		if (rel && was) {
+			// the copy keeps the order of what's in it
+			this.queue(t, { op: 'append', item: rel, inner: inner.map((p) => rel + p.slice(was.length)) });
+			this.queue(t, { op: 'move', item: rel, folder: this.folderRel(t, folder), index });
+		}
+		return made;
+	}
+
+	/** A note made next to one it's named after ("Arrival 1" beside "Arrival": Obsidian's "Make a copy", or a split by
+	    hand) goes right after that one, not to the end of the folder. Only when the original has a place in the list. */
+	private placeCopy(s: State, f: TAbstractFile): void {
+		if (s.kind !== 'binder' || s.problem || !(f instanceof TFile) || f.extension !== 'md' || !f.parent || this.isHiddenNote(f)) return;
+		const m = /^(.+) (\d+)$/.exec(f.basename), original = m ? this.app.vault.getAbstractFileByPath(normalizePath(`${f.parent.path}/${m[1]}.md`)) : null;
+		const rel = original ? relPath(s.folder.path, original.path, false) : null, mine = relPath(s.folder.path, f.path, false);
+		if (!original || !rel || !mine || !this.contents(s).includes(rel) || s.ops.some((o) => o.op === 'move' && o.item === mine)) return;
+		// after this task: whoever made it may be about to place it itself (New scene, Duplicate)
+		window.setTimeout(() => {
+			if (s.ops.some((o) => o.op === 'move' && o.item === mine) || this.contents(s).includes(mine) || this.app.vault.getAbstractFileByPath(f.path) !== f || !f.parent) return;
+			const sibs = this.orderedChildren(f.parent) ?? [], at = sibs.filter((x) => x !== f).indexOf(original);
+			if (at >= 0) this.queue(s, { op: 'move', item: mine, folder: this.folderRel(s, f.parent), index: at + 1 });
+		}, 0);
+	}
+
+	/** A byte-for-byte copy of a file. */
+	private async copyFile(file: TFile, to: string): Promise<TFile> {
+		return this.app.vault.createBinary(to, await this.app.vault.readBinary(file));
+	}
+
+	/** Puts items into a new folder, made where the first of them is (Scrivener's "group"). */
+	async group(items: TAbstractFile[], title = 'Untitled'): Promise<TFolder> {
+		const parent = items[0]?.parent;
+		if (!parent) throw new Error('Nothing to put in a folder.');
+		const t = this.writable(parent);
+		if (t.kind === 'longform') throw new Error('A Longform project has no folders. Convert it to a binder to use them.');
+		if (items.some((f) => f === t.folder || this.isHiddenNote(f))) throw new Error('Binder and folder notes stay with their folder.');
+		// a name nothing here has, and none of the notes going in (a note named like its folder would be the folder's own)
+		const base = title.replace(/[\\/:]/g, ' ').trim().replace(/^\.+\s*/, '') || 'Untitled', names = new Set(items.map((f) => (f instanceof TFile ? f.basename : f.name)));
+		let name = base;
+		for (let n = 1; names.has(name) || this.app.vault.getAbstractFileByPath(normalizePath(`${parent.path}/${name}`)); n++) name = `${base} ${n}`;
+		const label = items.length === 1 ? `Put “${items[0] instanceof TFile ? items[0].basename : items[0].name}” in a folder` : `Put ${items.length} items in a folder`;
+		return this.change(label, items, async () => {
+			const made = await this.newFolder(parent, Math.max(0, (this.orderedChildren(parent) ?? []).indexOf(items[0])), name);
+			let i = 0;
+			for (const f of items) await this.move(f, made, i++);
+			return made;
+		}, (made) => made);
+	}
+
+	/** Moves everything in a folder out of it, to just after it, in order. The folder stays, empty (with its note). */
+	async ungroup(folder: TFolder): Promise<void> {
+		const parent = folder.parent;
+		if (!parent) return;
+		const t = this.writable(parent);
+		if (folder === t.folder || t.kind === 'longform') throw new Error('A binder’s own folder can’t be emptied this way.');
+		const items = this.orderedChildren(folder) ?? [], name = (f: TAbstractFile) => (f instanceof TFile ? f.basename : f.name);
+		// all of them can come out, or none does
+		for (const f of items) {
+			if (this.app.vault.getAbstractFileByPath(normalizePath(`${parent.path}/${f.name}`))) throw new Error(`“${parent.name}” already has “${name(f)}”. Rename one of them first.`);
+			if (f instanceof TFile && f.extension === 'md' && f.basename === parent.name) throw new Error(`“${name(f)}” would become the note of the folder “${parent.name}”. Rename it first.`);
+		}
+		await this.change(`Ungroup “${folder.name}”`, items, async () => {
+			let index = (this.orderedChildren(parent) ?? []).indexOf(folder) + 1;
+			for (const f of items) await this.move(f, parent, index++);
+		});
 	}
 
 	async makeBinder(folder: TFolder): Promise<TFile> {
@@ -380,10 +727,8 @@ export class BinderStore extends Events implements ExplorerSource {
 				await fileManager.processFrontMatter(s.note, (fm: Record<string, unknown>) => { binderProps(fm); dropLongform(fm); });
 				return s.note;
 			}
-			// the plot grid's columns come along from the index note
-			const fm = this.app.metadataCache.getFileCache(s.note)?.frontmatter ?? {}, props: Record<string, unknown> = {};
+			const props: Record<string, unknown> = {};
 			binderProps(props);
-			for (const k of ['plotlines', 'plotlineColors']) if (fm[k] !== undefined) props[k] = fm[k];
 			const note = await vault.create(plan.note, `---\n${stringifyYaml(props)}---\n`);
 			if (opts.removeLongform) await fileManager.processFrontMatter(s.note, dropLongform);
 			return note;
@@ -413,6 +758,12 @@ export class BinderStore extends Events implements ExplorerSource {
 
 	/** Finds every binder: a folder with a note whose properties have `binder`. A binder inside another is an ordinary
 	    note. If a folder has several, the one named like the folder wins. */
+	/** Renames the store makes itself (a folder's note taking its folder's new name), by the path they end at. */
+	private own = new Set<string>();
+
+	/** Some Longform project's scene folder wasn't found by the last look: a folder made or renamed may be it. */
+	private orphans = false;
+
 	private rescan(): void {
 		const { vault, metadataCache } = this.app;
 		const found = new Map<string, TFile>();
@@ -430,10 +781,13 @@ export class BinderStore extends Events implements ExplorerSource {
 		const want = new Map<TFile, TFolder | null>(keep.map((k): [TFile, null] => [k, null]));
 		const inBinder = (p: string) => keep.some((k) => p === k.parent.path || p.startsWith(k.parent.path + '/'));
 		const dirs = new Set<TFolder>();
+		this.orphans = false;
 		for (const f of vault.getMarkdownFiles().sort((a, b) => a.path.localeCompare(b.path))) {
 			const fm = metadataCache.getFileCache(f)?.frontmatter;
 			if (isBinderNote(fm)) continue;
-			const dir = this.sceneFolder(f, readProject(fm));
+			const project = readProject(fm), dir = this.sceneFolder(f, project);
+			// a project whose scene folder isn't there (yet): looked for again when a folder appears
+			if (project && !dir) this.orphans = true;
 			// a Longform project inside a binder is ordinary notes; two projects in one folder: the first by path
 			if (!dir || inBinder(dir.path) || inBinder(f.path) || dirs.has(dir)) continue;
 			dirs.add(dir); want.set(f, dir);
@@ -469,7 +823,9 @@ export class BinderStore extends Events implements ExplorerSource {
 		} catch (e) {
 			if (!(e instanceof UnsupportedBinder)) throw e;
 			s.base = []; s.ops = []; s.problem = e.message;
-			if (!this.warned.has(s.note.path)) { this.warned.add(s.note.path); new Notice(`Binders can’t change “${s.folder.name}”. ${e.message}`); }
+			// said once; not at all while a binder view shows this binder, which says it above its toolbar
+			const shown = this.app.workspace.getLeavesOfType('binders-view').some((l) => { const f = (l.view as { folder?: TFolder | null }).folder; return !!f && this.at(f.path) === s; });
+			if (!this.warned.has(s.note.path) && !shown) { this.warned.add(s.note.path); new Notice(`Binders can’t change “${s.folder.name}”. ${e.message}`); }
 		}
 	}
 
@@ -487,8 +843,15 @@ export class BinderStore extends Events implements ExplorerSource {
 		const isFolder = file instanceof TFolder;
 		// the binder note moved, a folder holding a binder, or a note that could make a folder a binder (a binder note or
 		// Longform index moved into a plain folder, or out of a binder): which folders are binders may have changed
-		if ((file instanceof TFile && this.states.has(file)) || (isFolder && [...this.states.values()].some((s) => s.path === oldPath || s.path.startsWith(oldPath + '/'))) || this.holdsBinderNote(file)) this.rescan();
+		if ((file instanceof TFile && this.states.has(file)) || (isFolder && ([...this.states.values()].some((s) => s.path === oldPath || s.path.startsWith(oldPath + '/')) || this.orphans)) || this.holdsBinderNote(file)) this.rescan();
 		let o = this.at(oldPath, true), n = this.at(file.path);
+		// a scene renamed to its folder's name, or moved into a folder of its own name, becomes that folder's note and
+		// stops showing as a scene: said, since nothing else would tell
+		if (file instanceof TFile && file.extension === 'md' && file.parent && o && n && n.kind === 'binder' && file !== n.note && file.basename === file.parent.name && file.parent !== n.folder) {
+			// (not when it was the folder's note already, nor when it's a folder's note following its folder's new name)
+			const was = oldPath.replace(/\.md$/i, '').split('/'), wasNote = was.length > 1 && was[was.length - 1] === was[was.length - 2];
+			if (!wasNote && !this.own.delete(file.path)) new Notice(`“${file.basename}” is now the note of the folder “${file.parent.name}”, so it no longer shows as a scene. Rename it to make it a scene again.`, 8000);
+		}
 		// Longform projects know scenes by name; a note moving between a project and a binder is handled half by each
 		if (o?.kind === 'longform' || n?.kind === 'longform') {
 			this.lfRename(file, oldPath, o?.kind === 'longform' ? o : null, n?.kind === 'longform' ? n : null);
@@ -630,6 +993,7 @@ export class BinderStore extends Events implements ExplorerSource {
 			// a case-only rename is the same file on some disks, so only the vault's own map can tell
 			const clash = vault.getAbstractFileByPath(to) || (note.path.toLowerCase() !== to.toLowerCase() && await vault.adapter.exists(to));
 			if (clash) continue;
+			this.own.add(to);
 			try { await fileManager.renameFile(note, to); }
 			catch (e) { new Notice(`The folder note “${note.basename}” couldn’t be renamed to match its folder. ${e instanceof Error ? e.message : String(e)}`); }
 		}
@@ -644,6 +1008,8 @@ export class BinderStore extends Events implements ExplorerSource {
 
 	private queue(s: State, op: ListOp): void {
 		if (s.problem) { this.touch(s); return; }
+		// a move remembers what the binder held when it was made (see ListOp)
+		if (op.op === 'move' && !op.known) { s.items = null; op.known = this.known(s); }
 		s.ops.push(op);
 		window.clearTimeout(s.timer);
 		s.timer = window.setTimeout(() => { void this.write(s); }, DEBOUNCE);
@@ -699,7 +1065,7 @@ export class BinderStore extends Events implements ExplorerSource {
 		if (!s || !folder || item === s.folder || this.isHiddenNote(item)) return Promise.resolve(false);
 		const sibs = this.orderedChildren(folder) ?? [];
 		const j = stepIndex(sibs.map((f) => f.path), item.path, delta);
-		return j == null ? Promise.resolve(false) : this.move(item, folder, j).then(() => true);
+		return j == null ? Promise.resolve(false) : this.change(moveLabel([item]), [item], () => this.move(item, folder, j)).then(() => true);
 	}
 
 	private writable(folder: TFolder): State {

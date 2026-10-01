@@ -1,6 +1,17 @@
-import { Modal, Setting, type App } from 'obsidian';
+import { ButtonComponent, ColorComponent, Modal, TextComponent, type App } from 'obsidian';
+import { hexColor } from './labels';
 
-/* Small dialogs built from Obsidian's Modal and Setting, so they look like its own. Each resolves once it closes. */
+/* Small dialogs built from Obsidian's Modal, laid out as its own are: what it asks, a field if it needs one, and the
+   buttons in Obsidian's button row. Each resolves once it closes. */
+
+/** The row of buttons at the foot of a dialog, as Obsidian's own dialogs have it: what it does first, Cancel last. */
+function buttons(m: Modal, cta: string, done: () => void, warning = false): ButtonComponent {
+	const row = m.contentEl.createDiv({ cls: 'modal-button-container' });
+	const go = new ButtonComponent(row).setButtonText(cta).onClick(done);
+	if (warning) go.buttonEl.addClass('mod-warning'); else go.setCta();
+	new ButtonComponent(row).setButtonText('Cancel').onClick(() => m.close());
+	return go;
+}
 
 /** Asks before something that can't be undone from here. Resolves true for the confirming button. */
 export function confirm(app: App, o: { title: string; text: string; cta: string; warning?: boolean }): Promise<boolean> {
@@ -9,34 +20,74 @@ export function confirm(app: App, o: { title: string; text: string; cta: string;
 		const m = new Modal(app);
 		m.setTitle(o.title);
 		m.contentEl.createEl('p', { text: o.text });
-		new Setting(m.contentEl)
-			.addButton((b) => b.setButtonText('Cancel').onClick(() => m.close()))
-			.addButton((b) => {
-				b.setButtonText(o.cta).onClick(() => { ok = true; m.close(); });
-				if (o.warning) b.buttonEl.addClass('mod-warning'); else b.setCta();
-				window.setTimeout(() => b.buttonEl.focus(), 0); // Enter confirms, as in Obsidian's own dialogs
-			});
+		const go = buttons(m, o.cta, () => { ok = true; m.close(); }, o.warning);
+		window.setTimeout(() => go.buttonEl.focus(), 0); // Enter confirms, as in Obsidian's own dialogs
 		m.onClose = () => resolve(ok);
 		m.open();
 	});
 }
 
-/** Asks for a line of text. Resolves with it (trimmed), or null if cancelled or empty. */
-export function ask(app: App, o: { title: string; placeholder: string; cta: string; value?: string }): Promise<string | null> {
+/** A field that fills the dialog, and under it a line for why what's typed can't be used (empty until it can't). */
+function field(m: Modal, placeholder: string, value: string): { text: TextComponent; refuse(why: string | null): void } {
+	const box = m.contentEl.createDiv({ cls: 'binders-ask' });
+	const text = new TextComponent(box).setPlaceholder(placeholder).setValue(value);
+	const why = m.contentEl.createDiv({ cls: 'binders-ask-error', attr: { 'aria-live': 'polite' } });
+	const refuse = (reason: string | null) => { why.setText(reason ?? ''); text.inputEl.toggleClass('is-invalid', !!reason); if (reason) { text.inputEl.focus(); text.inputEl.select(); } };
+	text.inputEl.addEventListener('input', () => refuse(null));
+	return { text, refuse };
+}
+
+/** Asks for a line of text. Resolves with it (trimmed), or null if cancelled or empty (with `allowEmpty`, an emptied
+    field is an answer too: ""). `check` says why an answer can't be used (or null if it can): the dialog then stays
+    open with what was typed, and says so. */
+export function ask(app: App, o: { title: string; placeholder: string; cta: string; value?: string; allowEmpty?: boolean; check?(value: string): string | null }): Promise<string | null> {
 	return new Promise((resolve) => {
 		let value = o.value ?? '', ok = false;
 		const m = new Modal(app);
 		m.setTitle(o.title);
-		const done = () => { ok = true; m.close(); };
-		new Setting(m.contentEl).setClass('binders-ask').addText((t) => {
-			t.setPlaceholder(o.placeholder).setValue(value).onChange((v) => { value = v; });
-			t.inputEl.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); done(); } });
-			window.setTimeout(() => t.inputEl.select(), 0);
-		});
-		new Setting(m.contentEl)
-			.addButton((b) => b.setButtonText('Cancel').onClick(() => m.close()))
-			.addButton((b) => b.setButtonText(o.cta).setCta().onClick(done));
-		m.onClose = () => resolve(ok && value.trim() ? value.trim() : null);
+		const f = field(m, o.placeholder, value);
+		const done = () => {
+			const why = value.trim() || o.allowEmpty ? o.check?.(value.trim()) ?? null : null;
+			if (why) { f.refuse(why); return; }
+			ok = true;
+			m.close();
+		};
+		f.text.onChange((v) => { value = v; });
+		f.text.inputEl.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); done(); } });
+		window.setTimeout(() => f.text.inputEl.select(), 0);
+		buttons(m, o.cta, done);
+		m.onClose = () => resolve(ok && (value.trim() || o.allowEmpty) ? value.trim() : null);
+		m.open();
+	});
+}
+
+/** Asks for a color, with Obsidian's own color picker and a field for a hex color. Resolves with "#rrggbb", or null. */
+export function pickColor(app: App, o: { title: string; value: string; cta: string }): Promise<string | null> {
+	return new Promise((resolve) => {
+		let value = hexColor(o.value) ?? '#808080', ok = false;
+		const m = new Modal(app);
+		m.setTitle(o.title);
+		const f = field(m, 'Hex color, such as #7c3aed', value);
+		// "7c3aed" is a color too: the # is only how it's usually written
+		const read = (v: string) => hexColor(v.trim()) ?? hexColor('#' + v.trim());
+		const done = () => {
+			// what's in the field is what's asked for: if it isn't a color, the dialog says so and stays
+			const typed = read(f.text.getValue());
+			if (!typed) { f.refuse('That isn’t a color. Write it as #rrggbb, or pick one.'); return; }
+			value = typed;
+			ok = true;
+			m.close();
+		};
+		let typing = false;
+		f.text.inputEl.setAttr('aria-label', 'Hex color');
+		f.text.inputEl.parentElement?.addClass('mod-color');
+		// (the picker follows what's typed, and mustn't write its own spelling of it back into the field meanwhile)
+		const picker = new ColorComponent(f.text.inputEl.parentElement ?? m.contentEl).setValue(value).onChange((c) => { if (typing) return; value = hexColor(c) ?? value; f.text.setValue(value); f.refuse(null); });
+		f.text.onChange((v) => { const c = read(v); if (c) { value = c; typing = true; try { picker.setValue(c); } finally { typing = false; } } });
+		f.text.inputEl.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); done(); } });
+		window.setTimeout(() => f.text.inputEl.select(), 0);
+		buttons(m, o.cta, done);
+		m.onClose = () => resolve(ok ? value : null);
 		m.open();
 	});
 }

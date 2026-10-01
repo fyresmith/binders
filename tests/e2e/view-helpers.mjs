@@ -30,6 +30,20 @@ export async function contents(p, path = NOTE) {
 	for (const l of lines.slice(i + 1)) { const m = /^\s+- (.*)$/.exec(l); if (!m) break; out.push(m[1].replace(/^(["'])(.*)\1$/, '$2')); }
 	return out;
 }
+/** Presses a button of the dialog that's asking something, in whichever window it opened (the settings have their own
+    in Obsidian 1.13). True if there was one. */
+export const answer = (p, button) => p.ev(`(async () => {
+	const tab = app.setting?.activeTab?.containerEl, docs = [...new Set([document, tab?.ownerDocument].filter(Boolean))];
+	for (let i = 0; i < 30; i++) {
+		for (const d of docs) {
+			const m = [...d.querySelectorAll('.modal')].filter(m => !tab || !m.contains(tab)).pop();
+			const b = m && [...m.querySelectorAll('button')].find(b => b.textContent === ${j(button)});
+			if (b) { b.click(); await new Promise(r => setTimeout(r, 300)); return true; }
+		}
+		await new Promise(r => setTimeout(r, 100));
+	}
+	return false;
+})()`);
 export const flush = (p) => p.ev(`${B}.flush().then(() => 1)`);
 /** Removes folders and notes a test made (the runner restores the rest), then writes anything pending. */
 export async function tidy(p) {

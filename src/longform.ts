@@ -116,8 +116,11 @@ export function applySceneOps(scenes: Scene[], ops: SceneOp[], files: string[], 
 		}
 		else if (o.op === 'remove') list = list.filter((s) => s.title !== o.item);
 		else {
-			const shown = shownScenes(list, [...have, o.item], ignored);
+			// (the moved scene counts as there even if its note isn't yet; once, or it would be listed twice)
+			const shown = shownScenes(list, [...new Set([...have, o.item])], ignored);
 			const from = shown.findIndex((s) => s.title === o.item);
+			// (a note the project ignores has no place in it: nothing moves, least of all some other scene)
+			if (from < 0) continue;
 			const wasListed = list.some((s) => s.title === o.item);
 			const [it] = shown.splice(from, 1);
 			const at = Math.max(0, Math.min(o.index, shown.length));

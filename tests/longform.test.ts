@@ -69,6 +69,8 @@ const flat = (s: Scene[]) => s.map((x) => '  '.repeat(x.indent) + x.title).join(
 	eq(run([{ op: 'move', item: 'D', index: 2, indent: 1 }]), 'A|  B|  D|  C', 'move with an indent joins a group');
 	eq(run([{ op: 'move', item: 'U', index: 1 }]), 'A|U|  B|  C|D', 'an unlisted scene gets listed, with the indent of the scene before it');
 	eq(run([{ op: 'move', item: 'U', index: 2 }]), 'A|  B|  U|  C|D', 'so one put inside a group joins it');
+	eq(run([{ op: 'move', item: 'U', index: 99 }]), 'A|  B|  C|D|U', 'an unlisted scene put last is listed once');
+	eq(run([{ op: 'move', item: 'N', index: 99 }], base, ['A', 'B', 'C', 'D', 'N', 'U']), 'A|  B|  C|D|U|N', 'as is a new one put after another unlisted one');
 	eq(run([{ op: 'move', item: 'A', index: 3 }]), '  B|  C|D|A', 'moving within the listed ones leaves unlisted ones unlisted');
 	eq(run([{ op: 'move', item: 'A', index: 4 }]), '  B|  C|D|U|A', 'moving past an unlisted one lists it');
 	eq(run([{ op: 'move', item: 'A', index: 99 }]), '  B|  C|D|U|A', 'an index past the end is the end');
@@ -78,6 +80,7 @@ const flat = (s: Scene[]) => s.map((x) => '  '.repeat(x.indent) + x.title).join(
 	ok(sameScenes(base, flatten(['A', ['B', 'C'], 'D'])) && !sameScenes(base, flatten(['A', 'B', 'C', 'D'])), 'sameScenes compares indents');
 	// a reorder written back keeps the untouched nesting exactly
 	eq(j(nest(applySceneOps(flatten(['A', ['B', 'C'], 'D', ['E']]), [{ op: 'move', item: 'A', index: 5 }], ['A', 'B', 'C', 'D', 'E'], []))), j([['B', 'C'], 'D', ['E'], 'A']), 'nested lists preserved');
+	eq(j(nest(applySceneOps(flatten(['A', 'B', 'C']), [{ op: 'move', item: 'Notes on tides', index: 1 }], ['A', 'B', 'C', 'Notes on tides'], ['Notes*']))), j(['A', 'B', 'C']), 'moving a note the project ignores moves nothing (not the last scene, either)');
 }
 
 // groups

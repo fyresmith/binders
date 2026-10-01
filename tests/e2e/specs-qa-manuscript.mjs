@@ -382,11 +382,13 @@ test('a read-only (newer format) binder in the real view: clicking and typing wr
 	await openMs(p);
 	console.log('    ' + J(await p.ev(`(() => { const m = ${M}; return { mode: ${VIEW}.mode, n: m?.scenes?.length, ro: ${VIEW}.readOnly, html: ${VIEW}.contentEl.innerText.slice(0, 200) }; })()`)));
 	t.eq(await p.ev(`${M}.editable`), false, 'not editable');
-	for (let i = 0; i < 2; i++) {
-		const at = await p.ev(`(() => { const r = ${M}.list.querySelectorAll('.binders-manuscript-heading')[${i}].getBoundingClientRect(); return { x: r.x + 30, y: r.y + r.height / 2 }; })()`);
+	// beside the text and below it (a click on a section itself opens its note; a folder's heading goes into the folder)
+	for (const dy of [120, 300]) {
+		const at = await p.ev(`(() => { const r = ${M}.root.getBoundingClientRect(); return { x: r.x + 6, y: r.y + ${dy} }; })()`);
 		await p.click(at.x, at.y);
 		await typeFast(p, 'x'); await p.key('Enter');
 	}
+	t.eq(await p.ev(`${VIEW}?.mode`), 'manuscript', 'still in the manuscript');
 	await p.sleep(2600);
 	for (const k of ALL) t.eq(disk(p, k), snap[k], `${k} unchanged`);
 });
@@ -397,7 +399,8 @@ test('fallback (no editable embeds) in the real view: typing anywhere writes not
 	try {
 		await openMs(p);
 		t.eq(await p.ev(`${M}.editable`), false, 'read only');
-		const at = await p.ev(`(() => { const r = ${M}.root.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + 200 }; })()`);
+		// beside the text (a click on a section itself opens its note, to be edited there)
+		const at = await p.ev(`(() => { const r = ${M}.root.getBoundingClientRect(); return { x: r.x + 6, y: r.y + 200 }; })()`);
 		await p.click(at.x, at.y);
 		await typeFast(p, 'typed');
 		await p.key('Enter');
@@ -531,7 +534,7 @@ test('IME composition, committed, then switching modes at once: the composed tex
 	for (const part of ['k', 'か', 'かn', 'かな']) await p.send('Input.imeSetComposition', { text: part, selectionStart: part.length, selectionEnd: part.length });
 	await p.send('Input.insertText', { text: '仮名' });
 	await typeFast(p, ' ok');
-	await p.ev(`(() => { ${VIEW}.setMode('plotgrid'); return 1; })()`);
+	await p.ev(`(() => { ${VIEW}.setMode('outliner'); return 1; })()`);
 	await p.sleep(400);
 	t.eq(disk(p, f), TAIL(f, before, ' 仮名 ok'), 'composed text saved');
 });

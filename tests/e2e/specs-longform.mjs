@@ -228,7 +228,7 @@ test('a project whose scenes are in a subfolder', withTidy(async (p, h, t) => {
 	await p.ev(`${B}.convertToBinder(${B}.binderOf('Novel/Scenes/One.md'), { folders: false, removeLongform: true }).then(() => 1)`);
 	t.ok(await until(p, `${B}.binderOf('Novel/Scenes/One.md')?.kind === 'binder'`), 'converted');
 	const { yaml } = split(await read(p, 'Novel/Scenes/Scenes.md'));
-	t.ok(/^binder: 1$/m.test(yaml) && yaml.includes('contents:\n  - Two\n  - One') && yaml.includes('plotlines:\n  - Ines'), 'a new binder note with the order and the plotlines');
+	t.ok(/^binder: 1$/m.test(yaml) && yaml.includes('contents:\n  - Two\n  - One'), 'a new binder note with the order');
 	t.eq(await read(p, 'Novel/Novel.md'), '---\nplotlines:\n  - Ines\n---\nThe project.\n', 'the index note keeps everything but longform');
 }));
 
@@ -268,6 +268,18 @@ test('corkboard: dragging a card into a group indents it; only longform.scenes c
 	t.eq(await block(p), ['    - Harbor', '    - - Return', '      - The crossing', '    - Island', '    - Ticket office'].join('\n'), 'out of the group, last');
 }));
 
+test('corkboard: a new card at the end of the project is listed once', withTidy(async (p, h, t) => {
+	await openView(p, DIR);
+	const tile = await p.at(`.workspace-leaf.mod-active .binders-group:last-child .binders-card-new`);
+	await p.click(tile.x, tile.y);
+	await p.type('Landfall');
+	await p.key('Enter');
+	await until(p, `!!${scene('Landfall')}`);
+	await p.key('Escape');
+	await flush(p);
+	t.eq(await block(p), ['    - Harbor', '    - - Ticket office', '      - The crossing', '    - Island', '    - Return', '    - Landfall'].join('\n'), 'the new scene is last, once');
+}));
+
 test('corkboard: a new card in a group makes the scene there, in the group', withTidy(async (p, h, t) => {
 	await openView(p, DIR);
 	const nc = await p.at(`.workspace-leaf.mod-active .binders-group.is-indented .binders-card-new`);
@@ -281,25 +293,25 @@ test('corkboard: a new card in a group makes the scene there, in the group', wit
 	t.eq(j(await groupsShown(p)), j([':Harbor', 'Harbor:Ticket office,The crossing,Queue', ':Island,Return']), 'shown there');
 }));
 
-test('plot grid: scenes indented as in Longform, plotlines from the index note', withTidy(async (p, h, t) => {
+test('outliner: scenes indented as in Longform; a status from its cell writes only the scene; a row dragged under a group joins it', withTidy(async (p, h, t) => {
 	const before = await texts(p);
 	await openView(p, DIR);
-	await setMode(p, 'plotgrid');
-	const g = await p.ev(`(() => ({
-		cols: [...document.querySelectorAll('.workspace-leaf.mod-active .binders-plotgrid-col[data-plotline]')].map((e) => e.dataset.plotline),
-		rows: [...document.querySelectorAll('.workspace-leaf.mod-active .binders-plotgrid-table tbody tr[data-path]')].map((tr) => [tr.dataset.path.split('/').pop(), +tr.getAttribute('aria-level'), tr.querySelectorAll('.binders-plotgrid-cell.is-on').length]),
-	}))()`);
-	t.eq(j(g.cols), j(['Ines']), 'columns from the index note');
-	t.eq(j(g.rows), j([['Harbor.md', 1, 1], ['Ticket office.md', 2, 0], ['The crossing.md', 2, 0], ['Island.md', 1, 0], ['Return.md', 1, 0]]), 'rows in order, the group indented, ticks from the scenes');
-	t.eq(await p.ev(`document.querySelectorAll('.workspace-leaf.mod-active .binders-plotgrid-group').length`), 0, 'no folder rows');
-	// ticking a cell writes the scene only
-	const cell = await p.at(`.workspace-leaf.mod-active tr[data-path="${DIR}/Island.md"] td[data-plotline="Ines"]`);
-	await p.click(cell.x, cell.y);
-	t.ok(await until(p, `app.vault.adapter.read(${j(DIR + '/Island.md')}).then(s => s.includes('plotlines:'))`), 'the scene gets the plotline');
+	await setMode(p, 'outliner');
+	const R = '.workspace-leaf.mod-active .binders-outliner-row';
+	const rows = await p.ev(`[...document.querySelectorAll('${R}')].map((r) => [r.dataset.path.split('/').pop(), +r.getAttribute('aria-level')])`);
+	t.eq(j(rows), j([['Harbor.md', 1], ['Ticket office.md', 2], ['The crossing.md', 2], ['Island.md', 1], ['Return.md', 1]]), 'rows in order, the group indented');
+	t.eq(await p.ev(`document.querySelectorAll('${R}.is-folder').length`), 0, 'no folder rows');
+	// a status from the row's cell
+	const cell = await p.at(`${R}[data-path="${DIR}/Island.md"] [data-col="status"]`);
+	await p.click(cell.x, cell.y); // (selects the row)
+	await p.click(cell.x, cell.y); // (opens the cell's menu)
+	await p.sleep(250);
+	await p.ev(`(() => { [...document.querySelectorAll('.menu .menu-item')].find(e => e.querySelector('.menu-item-title')?.textContent === 'Draft').click(); return 1; })()`);
+	t.ok(await until(p, `app.vault.adapter.read(${j(DIR + '/Island.md')}).then(s => s.includes('status: Draft'))`), 'the scene gets the status');
 	await flush(p);
 	same(t, before, await texts(p), { skip: [`${DIR}/Island.md`] });
 	// dragging a row below the group's first row puts it in the group
-	const r = await p.at(`.workspace-leaf.mod-active tr[data-path="${DIR}/Return.md"] th`), o = await p.at(`.workspace-leaf.mod-active tr[data-path="${DIR}/Ticket office.md"] th`);
+	const r = await p.at(`${R}[data-path="${DIR}/Return.md"] .binders-outliner-name`), o = await p.at(`${R}[data-path="${DIR}/Ticket office.md"]`);
 	await p.drag(r.x, r.y, o.x, o.t + o.h * 0.75, 16);
 	await p.sleep(300);
 	await flush(p);

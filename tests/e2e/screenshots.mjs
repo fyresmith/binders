@@ -13,7 +13,7 @@ try {
 	// a little more to see: a synopsis for the book and for Part One, labels on a few scenes
 	await p.ev(`(async () => {
 		const pm = (path, fn) => app.fileManager.processFrontMatter(app.vault.getAbstractFileByPath(path), fn);
-		await pm('The Lighthouse/The Lighthouse.md', (fm) => { fm.synopsis = 'A keeper, a newcomer, and the night the light went out.'; fm.target = 50000; fm.plotlineColors = { Mara: 'blue', "The keeper's secret": 'orange' }; });
+		await pm('The Lighthouse/The Lighthouse.md', (fm) => { fm.synopsis = 'A keeper, a newcomer, and the night the light went out.'; fm.target = 50000; });
 		await app.vault.create('The Lighthouse/Part One/Part One.md', '---\\nsynopsis: Mara comes to the island and learns the rules of the light.\\nstatus: revised\\n---\\n');
 		await app.vault.create('The Lighthouse/Part Two/Part Two.md', '---\\nsynopsis: The storm, the wreck, and what the keeper kept.\\nstatus: draft\\n---\\n');
 		for (const [f, l] of [['Prologue', 'purple'], ['Part One/Arrival', 'blue'], ['Part One/Storm warning', 'orange'], ['Part Two/The wreck', 'red'], ['Epilogue', 'purple']]) await pm('The Lighthouse/' + f + '.md', (fm) => { fm.label = l; });
@@ -41,8 +41,8 @@ try {
 	// the file explorer, close up
 	const r = await p.send('Page.captureScreenshot', { format: 'png', clip: { x: 0, y: 0, width: 720, height: 420, scale: 1 } });
 	writeFileSync(`${out}/explorer.png`, Buffer.from(r.result.data, 'base64'));
-	await show('plotgrid');
-	await p.shot(`${out}/plotgrid.png`);
+	await show('outliner');
+	await p.shot(`${out}/outliner.png`);
 	await show('manuscript');
 	await p.shot(`${out}/manuscript.png`);
 	// a phone

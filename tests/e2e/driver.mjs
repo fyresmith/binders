@@ -22,7 +22,10 @@ function connect(url, onEvent) {
 	return new Promise((r, j) => { ws.addEventListener('open', () => r({ ws, send })); ws.addEventListener('error', j); });
 }
 
-export async function launch({ vault = 'test-vault', theme = 'light', width = 1440, height = 900 } = {}) {
+// BINDERS_TEST_VAULT: another vault to copy (say, a clean checkout of test-vault while the working one is in use)
+export const VAULT = process.env.BINDERS_TEST_VAULT || 'test-vault';
+
+export async function launch({ vault = VAULT, theme = 'light', width = 1440, height = 900 } = {}) {
 	if (!existsSync(ELECTRON) || !existsSync(ASAR)) throw new Error(`Obsidian not found. Set OBSIDIAN_ELECTRON and OBSIDIAN_ASAR (looked for ${ELECTRON} and ${ASAR}).`);
 	const work = mkdtempSync(join(tmpdir(), 'binders-e2e-'));
 	const vaultDir = join(work, 'vault');
