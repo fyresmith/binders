@@ -135,6 +135,8 @@ export class BindersSettingTab extends PluginSettingTab {
 	private propRow(setting: Setting, k: Prop): void {
 		setting.addText((t) => {
 			t.setPlaceholder(DEFAULT_SETTINGS[k]).setValue(this.s[k]);
+			// (a property's name is taken as typed: a phone's keyboard mustn't capitalize or "correct" it)
+			t.inputEl.setAttrs({ autocapitalize: 'none', autocorrect: 'off', spellcheck: 'false' });
 			this.field(t.inputEl, () => t.getValue() !== this.s[k], () => { t.setValue(this.s[k]); }, () => {
 				const name = t.getValue().trim() || DEFAULT_SETTINGS[k];
 				if (name === this.s[k]) { t.setValue(name); return; }

@@ -60,7 +60,7 @@ export interface BinderMode {
 	unload(): void;
 	/** Optional: writes down, now, anything typed into these notes that the mode hasn't saved yet (the manuscript's
 	    editors save a moment after typing stops): something is about to read them from the vault. */
-	save?(files: TFile[]): Promise<void>;
+	save?(files?: TFile[]): Promise<void>;
 	/** Optional: the item the mode is on (the card or row with the focus, the section with the cursor), so another mode
 	    can open on the same one. */
 	current?(): TAbstractFile | null;

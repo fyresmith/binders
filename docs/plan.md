@@ -134,16 +134,21 @@ New (note, folder). The view runs edge to edge, as a base, a canvas or a note do
 
 ### Corkboard
 
-- Cards in a responsive grid (or one column on narrow panes), drawn as a base's cards are (flat, a hairline border),
-  grouped under subfolder headings with an indent guide like the file explorer's; a subfolder can also show as a single
-  stacked card (like Scrivener) with its own synopsis from its folder note. Card size (small, medium, large) is a view
-  option.
-- The synopsis of the binder or folder being viewed shows under the header, editable in place, as do a subfolder's
-  synopsis on its heading or stacked card. Editing writes to that folder's note (creating it if needed).
+- Cards in a responsive grid (or one column on narrow panes), drawn as a base's cards are (flat, a hairline border).
+  The board shows one folder: each of its items is a card, in the binder's order. A subfolder is a single card drawn
+  as a stack, as on Scrivener's corkboard, with its own synopsis from its folder note; it's gone into to see what it
+  holds, and the breadcrumb leads back out. (Decided 2026-10-01, after a study of three layouts: before that,
+  subfolders showed as sections under headings, which left loose notes in rows of their own between them.) A
+  Longform project, which has no folders, still shows the scenes indented under a scene as a group below it. Card
+  size (small, medium, large) is a view option.
+- The synopsis of the binder or folder being viewed shows under the header, editable in place, as does a subfolder's
+  synopsis on its stacked card. Editing writes to that folder's note (creating it if needed).
+- One "New note" tile ends the board: the next card's place, with a plus and the words in its middle; it becomes a
+  card while the title is typed.
 - Card: title, synopsis (editable in place), status chip, label color (a stripe along the top, or, as a view option,
   the whole card tinted), word count. A note with a target shows "words / target" and a progress line along the
   card's foot. Double-click opens the note.
-- Drag to reorder, including between groups (moves the file into that folder). Multi-select with Shift/Ctrl. A drag
+- Drag to reorder; onto a stack to move into that folder; onto a folder in the breadcrumb to move out to it. Multi-select with Shift/Ctrl. A drag
   looks like Obsidian's own reordering: the card follows the pointer (`drag-reorder-ghost`), a tinted slot holds its
   place, an insertion line shows where it goes, and the group it would move into is tinted as a folder in the explorer
   is. Nothing on the board moves until the drop (what's under the pointer stays there); then every card glides to its
@@ -319,6 +324,9 @@ src/
 
 ## Milestones
 
+**What's left before 1.0 is in [ROADMAP.md](../ROADMAP.md)**: mobile QA to the end, then export, find and replace
+across the manuscript, versions of a scene, and a focus mode (all four only for notes in a binder).
+
 The numbers are the plan's milestones, not the versions in the CHANGELOG (the last committed is 0.6.31, which
 already has milestones 0.1 to 0.7). Every commit bumps the version (see AGENTS.md).
 
@@ -333,6 +341,7 @@ already has milestones 0.1 to 0.7). Every commit bumps the version (see AGENTS.m
 | 0.7 | Longform integration | Done |
 | 0.8 | Polish: keyboard, touch, themes, performance on a 1,000-scene binder, a full mobile pass, README | In progress: explorer Mod-click, cold start, keyboard and screen readers, themes, mobile emulation pass, perf guard (`specs-perf.mjs`), README, and a native-look pass against Obsidian's own Bases and drag styles (toolbar, flat cards, drag and glide, explorer drag-to-reorder) done; real-device iOS and Android checks to do |
 | 0.9 | QA rounds (as with Evra: parallel QA agents, e2e suites, fixes). Added on the maintainer's request (2026-10-01), from Scrivener: the outliner in place of the plot grid, labels and statuses in settings, custom label colors, label tint and explorer label dots, word count targets, split, merge, duplicate, group and ungroup, synopsis from text, compile, undo and redo of moves | In progress: two QA rounds written (`specs-qa-*.mjs`, `specs-qa2-*.mjs`); the added features are built and unreleased |
+| 0.10 | Before release (2026-10-01): mobile QA to the end; export (EPUB, DOCX, PDF); find and replace across the manuscript; versions of a scene ("Rewrite"); focus mode. See ROADMAP.md | Mobile QA in progress |
 | 1.0 | Release and directory submission | |
 
 ## Risks

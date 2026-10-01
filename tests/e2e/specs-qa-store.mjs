@@ -167,7 +167,8 @@ test('a rapid sequence of renames, moves and deletes ends in the right list, wri
 }));
 
 test('renaming the binder folder, then its items at once', withTidy(async (p, h, t) => {
-	await countWrites(p, 'Lighthouse/The Lighthouse.md');
+	// (the binder note is named like its folder, and follows the folder's new name: "Lighthouse/Lighthouse.md")
+	const before = await texts(p);
 	await p.ev(`(async () => {
 		const fm = app.fileManager, g = (x) => app.vault.getAbstractFileByPath(x);
 		await fm.renameFile(g('The Lighthouse'), 'Lighthouse');
@@ -175,10 +176,17 @@ test('renaming the binder folder, then its items at once', withTidy(async (p, h,
 		await fm.renameFile(g('Lighthouse/Part One'), 'Lighthouse/Part 1');
 		await fm.renameFile(g('Lighthouse/Part 1/Arrival.md'), 'Lighthouse/Part 1/Landfall.md');
 	})().then(() => 1)`);
+	await until(p, `app.vault.adapter.exists('Lighthouse/Lighthouse.md')`);
 	await p.sleep(800);
 	await flush(p);
-	t.eq(j(await contents(p, 'Lighthouse/The Lighthouse.md')), j(LIST.map((x) => x.replace('Prologue', 'Opening').replace(/^Part One\//, 'Part 1/').replace('Part 1/Arrival', 'Part 1/Landfall'))), 'the list');
+	t.ok(await exists(p, 'Lighthouse/Lighthouse.md') && !(await exists(p, 'Lighthouse/The Lighthouse.md')), 'the binder note took its folder’s new name');
+	t.eq(j(await contents(p, 'Lighthouse/Lighthouse.md')), j(LIST.map((x) => x.replace('Prologue', 'Opening').replace(/^Part One\//, 'Part 1/').replace('Part 1/Arrival', 'Part 1/Landfall'))), 'the list');
 	t.eq(j(await p.ev(`${BINDERS}.map(b => b.folder.path)`)), j(['Lighthouse']), 'still one binder, at its new path');
+	t.eq(await p.ev(`${BINDERS}[0].note.path`), 'Lighthouse/Lighthouse.md', 'with that note as its binder note');
+	// every note's text as it was, under its new name
+	const re = (x) => x.replace(/^The Lighthouse\//, 'Lighthouse/').replace('/Part One/', '/Part 1/').replace('Lighthouse/Prologue.md', 'Lighthouse/Opening.md').replace('Part 1/Arrival.md', 'Part 1/Landfall.md');
+	same(t, before, await texts(p), { skip: [NOTE], moved: Object.fromEntries(Object.keys(before).map((k) => [k, re(k)])) });
+	t.eq(split(await read(p, 'Lighthouse/Lighthouse.md')).body, split(before[NOTE]).body, 'the binder note’s own text too');
 	await p.ev(`(async () => { const fm = app.fileManager, g = (x) => app.vault.getAbstractFileByPath(x); await fm.renameFile(g('Lighthouse/Part 1'), 'Lighthouse/Part One'); await fm.renameFile(g('Lighthouse'), 'The Lighthouse'); })().then(() => 1)`);
 }));
 
@@ -346,7 +354,12 @@ test('two binders swapping names, then a rename in one, keeps its place', withTi
 	await rename(p, 'Sequel', 'Draft');
 	await rename(p, 'Draft/B.md', 'Draft/Bee.md');
 	await p.sleep(600); await flush(p);
-	t.eq(j(await contents(p, 'Draft/Sequel.md')), j(['Bee', 'Act/', 'Act/Z', 'Act/Y', 'A']), 'Bee keeps B’s place');
+	// (each binder's note follows its folder's new name: "Old draft/Old draft.md", "Draft/Draft.md")
+	await until(p, `app.vault.adapter.exists('Draft/Draft.md') && app.vault.adapter.exists('Old draft/Old draft.md')`);
+	await p.sleep(400); await flush(p);
+	t.ok(!(await exists(p, 'Draft/Sequel.md')), 'the binder notes took their folders’ new names');
+	t.eq(j(await contents(p, 'Draft/Draft.md')), j(['Bee', 'Act/', 'Act/Z', 'Act/Y', 'A']), 'Bee keeps B’s place');
+	t.eq(j(await contents(p, 'Old draft/Old draft.md')), j(['q', 'p']), 'and the other binder’s list is its own still');
 }));
 
 // ---- folder notes ----

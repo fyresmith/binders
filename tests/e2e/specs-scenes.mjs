@@ -91,7 +91,7 @@ test('“Split scene with selection as title” names the new note from the sele
 
 test('merging notes: their text joined in order into the first, their synopses too, the others in the trash; nothing lost', withTidy(async (p, h, t) => {
 	const before = await texts(p);
-	await openView(p);
+	await openView(p, L + 'Part One');
 	const a = await at(p, 'Part One/Arrival.md'), s = await at(p, 'Part One/Storm warning.md');
 	await p.click(a.x, a.t + 12);
 	await p.click(s.x, s.t + 12, { modifiers: 2 });
@@ -111,12 +111,24 @@ test('merging notes: their text joined in order into the first, their synopses t
 	t.eq(j((await written(p, 'Part One/The keeper\n  - Part Two/')).slice(2, 5)), j(['Part One/Arrival', 'Part One/The keeper', 'Part Two/']), 'the merged-away note is out of the list');
 	t.eq(j(await p.ev(`[...document.querySelectorAll('.workspace-leaf.mod-active .binders-card.is-selected')].map(c => c.dataset.path)`)), j([L + 'Part One/Arrival.md']), 'the merged note is selected');
 	same(t, before, await texts(p), { skip: [NOTE, L + 'Part One/Arrival.md', L + 'Part One/Storm warning.md'] });
-	// a folder in the selection: no merge offered
-	const one = await p.at('.workspace-leaf.mod-active .binders-group-title');
+	// a folder in the selection (its stack, on the binder's board): no merge offered
 	await closeMenus(p);
-	await p.right(one.x + 300, one.y);
+	await openView(p);
+	const pro = await at(p, 'Prologue.md'), e = await at(p, 'Epilogue.md'), one = await at(p, 'Part One');
+	await p.click(pro.x, pro.t + 12);
+	await p.click(e.x, e.t + 12, { modifiers: 2 });
+	await p.right(e.x, e.y);
+	t.ok((await menuItems(p)).includes('Merge 2 notes'), 'two notes of the binder’s own: offered');
+	await closeMenus(p);
+	// (picked afresh: closing the menu may have changed what is selected)
+	await p.click(pro.x, pro.t + 12);
+	await p.click(e.x, e.t + 12, { modifiers: 2 });
+	await p.click(one.x, one.t + 12, { modifiers: 2 });
+	await p.right(one.x, one.y);
+	t.eq((await p.ev(`document.querySelectorAll('.workspace-leaf.mod-active .binders-card.is-selected').length`)), 3, 'two notes and a folder selected');
 	t.ok(!(await menuItems(p)).some((x) => /^Merge/.test(x)), 'a folder isn’t merged');
 	await closeMenus(p);
+	same(t, before, await texts(p), { skip: [NOTE, L + 'Part One/Arrival.md', L + 'Part One/Storm warning.md'] });
 }));
 
 test('“Set synopsis from text” takes a note’s opening lines; one that has a synopsis is asked about, several fill only the empty ones', withTidy(async (p, h, t) => {
@@ -131,6 +143,7 @@ test('“Set synopsis from text” takes a note’s opening lines; one that has 
 	t.eq((await fm(p, L + 'Epilogue.md')).synopsis, split(before[L + 'Epilogue.md']).body.trim().split('\n')[0], 'the note’s first paragraph is its synopsis');
 	t.eq(split(await read(p, L + 'Epilogue.md')).body, split(before[L + 'Epilogue.md']).body, 'its text is untouched');
 	// one that has a synopsis: asked first
+	await openView(p, L + 'Part One');
 	const a = await at(p, 'Part One/Arrival.md');
 	await p.right(a.x, a.y);
 	await clickMenu(p, 'Set synopsis from text');
@@ -140,6 +153,7 @@ test('“Set synopsis from text” takes a note’s opening lines; one that has 
 	await p.sleep(300);
 	t.eq(await read(p, L + 'Part One/Arrival.md'), before[L + 'Part One/Arrival.md'], 'Cancel leaves it');
 	// a note with no text
+	await openView(p);
 	const b = await at(p, 'Blank.md');
 	await p.right(b.x, b.y);
 	await clickMenu(p, 'Set synopsis from text');
@@ -152,7 +166,7 @@ test('Duplicate: a copy right after the original, named by counting on; a folder
 	const before = await texts(p);
 	await p.ev(`${B}.ensureFolderNote(${file(L + 'Part One')}).then(f => app.fileManager.processFrontMatter(f, fm => { fm.synopsis = 'The first part.'; })).then(() => 1)`);
 	await p.sleep(300);
-	await openView(p);
+	await openView(p, L + 'Part One');
 	const k = await at(p, 'Part One/The keeper.md');
 	await p.right(k.x, k.y);
 	await clickMenu(p, 'Duplicate');
@@ -161,11 +175,15 @@ test('Duplicate: a copy right after the original, named by counting on; a folder
 	t.eq(j((await written(p, 'Part One/The keeper 2')).slice(3, 5)), j(['Part One/The keeper', 'Part One/The keeper 2']), 'right after the original');
 	await until(p, `document.querySelector('.workspace-leaf.mod-active .binders-card.is-selected')?.dataset.path === ${j(L + 'Part One/The keeper 2.md')}`);
 	t.ok(true, 'and selected');
-	// a folder, from its heading
-	const hd = await p.at('.workspace-leaf.mod-active .binders-group-title');
-	await p.right(hd.x + 300, hd.y);
+	// a folder, from its stack on the binder's board
+	await openView(p);
+	const hd = await at(p, 'Part One');
+	await p.right(hd.x, hd.y);
 	await clickMenu(p, 'Duplicate');
 	await until(p, `app.vault.adapter.exists(${j(L + 'Part One 2/Part One 2.md')})`);
+	await until(p, `!!document.querySelector(${j(card(L + 'Part One 2'))})`);
+	t.eq(j(await cards(p)), j([L + 'Prologue.md', L + 'Part One', L + 'Part One 2', L + 'Part Two', L + 'Epilogue.md']), 'the copy is a stack of its own, right after the original');
+	t.eq(await p.ev(`document.querySelector(${j(card(L + 'Part One 2'))} + ' .binders-card-synopsis')?.textContent`), 'The first part.', 'showing the synopsis that came along');
 	const list = await written(p, 'Part One 2/');
 	const i = list.indexOf('Part One 2/');
 	t.eq(j(list.slice(i, i + 5)), j(['Part One 2/', 'Part One 2/Arrival', 'Part One 2/The keeper', 'Part One 2/The keeper 2', 'Part One 2/Storm warning']), 'the folder’s copy, right after it, with its notes in the same order');
@@ -184,14 +202,18 @@ test('“New folder from selection” groups notes where the first was, named in
 	await p.click(k.x, k.t + 12, { modifiers: 2 });
 	await p.right(k.x, k.y);
 	await clickMenu(p, 'New folder from selection');
-	await until(p, `document.activeElement?.matches('.workspace-leaf.mod-active .binders-group-name input')`);
+	// (the new folder is a stack where the first note was, its name being typed on it)
+	await until(p, `document.activeElement?.matches('.workspace-leaf.mod-active .binders-card.is-stack .binders-card-title input')`);
+	t.ok(await p.ev(`document.activeElement?.matches('.workspace-leaf.mod-active .binders-card.is-stack .binders-card-title input')`), 'the new folder’s name is being typed, on its stack');
 	await p.type('On the island');
 	await p.key('Enter');
 	await until(p, `app.vault.adapter.exists(${j(P + 'On the island/Arrival.md')})`);
 	t.eq(j((await written(p, 'Part One/On the island/The keeper')).slice(1, 6)), j(['Part One/', 'Part One/On the island/', 'Part One/On the island/Arrival', 'Part One/On the island/The keeper', 'Part One/Storm warning']), 'a folder where the first note was, holding both in order');
-	// ungroup, from the folder's heading
-	const hd = await p.at('.workspace-leaf.mod-active .binders-group-title');
-	await p.right(hd.x + 300, hd.y);
+	await until(p, `!!document.querySelector(${j(card(P + 'On the island'))})`);
+	t.eq(j(await cards(p)), j([P + 'On the island', P + 'Storm warning.md']), 'the board shows the stack in their place');
+	// ungroup, from the folder's stack
+	const hd = await p.at(card(P + 'On the island'));
+	await p.right(hd.x, hd.y);
 	await clickMenu(p, 'Ungroup');
 	await until(p, `app.vault.adapter.exists(${j(P + 'The keeper.md')})`);
 	const list = await written(p, 'Part One/The keeper\n');
@@ -201,7 +223,7 @@ test('“New folder from selection” groups notes where the first was, named in
 
 test('compile: the binder as one note beside it, in order, folders as headings; notes left out of the compile aren’t in it', withTidy(async (p, h, t) => {
 	const before = await texts(p);
-	await openView(p);
+	await openView(p, L + 'Part One');
 	// leave The keeper out, from its card's menu
 	const k = await at(p, 'Part One/The keeper.md');
 	await p.right(k.x, k.y);
@@ -209,6 +231,7 @@ test('compile: the binder as one note beside it, in order, folders as headings; 
 	await clickMenu(p, 'Include in compile');
 	await until(p, `app.metadataCache.getFileCache(${file(L + 'Part One/The keeper.md')})?.frontmatter?.compile === false`);
 	t.eq(split(await read(p, L + 'Part One/The keeper.md')).body, split(before[L + 'Part One/The keeper.md']).body, 'only a property changed');
+	await openView(p);
 	await run(p, 'compile');
 	await until(p, `!!document.querySelector('.modal .binders-compile-path')`);
 	const says = await p.ev(`document.querySelector('.modal').textContent`);

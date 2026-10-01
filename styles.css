@@ -44,6 +44,12 @@
 	margin-inline-start: var(--size-4-1);
 }
 
+/* "Move to" in an item's menu: the binder's folders, each set in by its depth, as the file explorer nests them. */
+.binders-menu-indent {
+	display: inline-block;
+	width: calc(var(--binders-depth, 0) * var(--size-4-3));
+}
+
 /* Settings: a label's or status's name is typed where a setting's name is, so the rows line up. */
 .binders-settings-label .setting-item-name input,
 .binders-settings-status .setting-item-name input {
@@ -51,16 +57,26 @@
 	max-width: 280px;
 }
 
-/* On a phone a row's name and its color sit on lines of their own, so neither is squeezed to nothing. */
-.is-phone .binders-settings-label,
-.is-phone .binders-settings-status {
+/* On a phone a label's name and its color sit on lines of their own, so neither is squeezed to nothing. (A status has
+   only its name and its buttons: one line, but on the narrowest phones.) */
+.is-phone .binders-settings-label {
 	flex-wrap: wrap;
 	row-gap: var(--size-4-2);
 }
 
-.is-phone .binders-settings-label .setting-item-info,
-.is-phone .binders-settings-status .setting-item-info {
+.is-phone .binders-settings-label .setting-item-info {
 	flex: 1 1 100%;
+}
+
+@media (max-width: 359px) {
+	.is-phone .binders-settings-status {
+		flex-wrap: wrap;
+		row-gap: var(--size-4-2);
+	}
+
+	.is-phone .binders-settings-status .setting-item-info {
+		flex: 1 1 100%;
+	}
 }
 
 .is-phone .binders-settings-label .setting-item-name input,
@@ -94,7 +110,8 @@
 }
 
 .is-phone .binders-outliner {
-	--binders-ol-title-min: 180px;
+	/* (what a phone's width leaves beside a color, a status and a word count, so those are in sight without scrolling) */
+	--binders-ol-title-min: clamp(110px, 100vw - 212px, 220px);
 }
 
 .is-mobile .binders-outliner {
@@ -277,10 +294,14 @@
 		--binders-ol-tint: linear-gradient(var(--bases-table-header-background-hover, var(--background-modifier-hover)), var(--bases-table-header-background-hover, var(--background-modifier-hover)));
 		color: var(--text-normal);
 	}
-	.binders-outliner-resizer:hover::after,
-	.binders-outliner.is-resizing .binders-outliner-resizer::after {
+	.binders-outliner-resizer:hover::after {
 		background-color: var(--interactive-accent);
 	}
+}
+
+/* (while it's moved, by a finger too) */
+.binders-outliner.is-resizing .binders-outliner-resizer::after {
+	background-color: var(--interactive-accent);
 }
 
 /* Rows */
@@ -505,6 +526,34 @@
 	outline: none;
 }
 
+/* On a phone a label is its color alone (see compact() in outliner.ts): the name is in the cell's own list. */
+.binders-outliner-th.mod-compact .binders-outliner-th-name,
+.binders-outliner-cell.mod-compact .binders-outliner-value {
+	display: none;
+}
+
+.binders-outliner-th.mod-compact,
+.binders-outliner-cell.mod-compact {
+	justify-content: center;
+}
+
+.binders-outliner-th-icon {
+	display: flex;
+	--icon-size: var(--icon-s);
+	color: var(--text-faint);
+}
+
+/* (after a touch, nothing wears a keyboard's focus ring: see BinderView) */
+.binders-view.is-touch .binders-outliner-cell:not(.mod-title):focus-visible,
+.binders-view.is-touch .binders-outliner-row:focus-visible::after,
+.binders-view.is-touch .binders-word-count:focus-visible {
+	box-shadow: none;
+}
+
+.binders-view.is-touch .binders-card:focus-visible:not(.is-selected) {
+	--binders-outline: var(--bases-cards-shadow, 0 0 0 1px var(--binders-edge));
+}
+
 /* The last row: what the columns add up to */
 .binders-outliner-foot .binders-outliner-cell {
 	color: var(--text-faint);
@@ -674,8 +723,10 @@
 .binders-manuscript-title.is-renaming {
 	color: var(--text-normal);
 	cursor: text;
-	white-space: pre;
-	/* the whole name shows while it's typed, however long */
+	/* the whole name shows while it's typed, however long: on more lines if it needs them (kept on one, a long name
+	   would push the page sideways on a phone) */
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
 	overflow: visible;
 	text-overflow: clip;
 	padding-inline: var(--size-2-2);
@@ -917,6 +968,11 @@
 	padding: 0;
 }
 
+/* (each mode scrolls itself: on a phone Obsidian would otherwise let the whole view scroll under its header) */
+.is-mobile .workspace-leaf-content[data-type="binders-view"] .view-content.binders-view {
+	overflow: hidden;
+}
+
 .binders-view {
 	display: flex;
 	flex-direction: column;
@@ -1000,6 +1056,14 @@
 	font-weight: var(--font-medium);
 }
 
+/* cards dragged over a folder in the breadcrumb would go to it: tinted as a folder in the file explorer is */
+.binders-crumb.is-being-dragged-over,
+.binders-crumb-up.is-being-dragged-over {
+	color: var(--nav-item-color-highlighted, var(--text-accent));
+	background-color: color-mix(in oklch, var(--interactive-accent) 15%, transparent);
+	border-radius: var(--radius-s);
+}
+
 .binders-crumb:focus-visible {
 	outline: none;
 	box-shadow: 0 0 0 2px var(--background-modifier-border-focus);
@@ -1009,6 +1073,32 @@
 @container binders-view (width < 540px) {
 	.binders-breadcrumbs > :not(:nth-last-child(-n+3)) {
 		display: none;
+	}
+}
+
+/* On a phone the header above names the folder shown: here is the way up, an arrow and the folder it leads to. */
+.binders-crumb-up {
+	display: none;
+	flex: none;
+	align-items: center;
+	color: var(--text-faint);
+	--icon-size: var(--icon-s);
+}
+
+@container binders-view (width < 540px) {
+	.is-phone .binders-breadcrumbs > .binders-crumb-up {
+		display: flex;
+	}
+
+	.is-phone .binders-breadcrumbs > .binders-crumb.is-current,
+	.is-phone .binders-breadcrumbs > .binders-crumb-sep,
+	.is-phone .binders-breadcrumbs > .binders-crumb[role="link"]:not(:nth-last-child(3)) {
+		display: none;
+	}
+
+	.is-phone .binders-breadcrumbs > .binders-crumb[role="link"]:nth-last-child(3) {
+		max-width: none;
+		flex-shrink: 1;
 	}
 }
 
@@ -1046,6 +1136,16 @@
 	cursor: var(--cursor);
 	border-radius: var(--radius-s);
 	padding-block: var(--size-2-1);
+}
+
+/* (on a phone or tablet it's as tall as the buttons beside it, to be tapped) */
+.is-mobile .binders-word-count.is-clickable {
+	line-height: 28px;
+}
+
+/* The compile dialog: nothing in it is squeezed to make room (on a phone its sheet scrolls instead). */
+.binders-compile .modal-content > * {
+	flex-shrink: 0;
 }
 
 .binders-word-count:focus-visible {
@@ -1434,6 +1534,21 @@
 	padding-bottom: calc(var(--size-4-8) + var(--view-bottom-spacing, 0px));
 }
 
+/* On a phone Obsidian's bar of buttons lies over the foot of every pane: what's scrolled into sight (a card shown from
+   its note, a row gone to with the keyboard) stops above it. (Not the manuscript: it follows its own cursor, and the
+   browser bringing an editor into sight by this margin moves the page between two taps of a double tap.) */
+.is-phone .binders-mode-corkboard,
+.is-phone .binders-outliner {
+	scroll-padding-bottom: calc(var(--view-bottom-spacing, 0px) + var(--size-4-2));
+}
+
+/* (a label's color in settings shows its name whole on a phone too) */
+@media (min-width: 360px) {
+	.is-phone .binders-settings-label select.dropdown {
+		min-width: 6.6em;
+	}
+}
+
 /* A subfolder: its heading, then its cards along a guide like the one under a folder in the file explorer, so the
    notes after it are plainly back in the folder shown. A Longform project's indented scenes show the same way. */
 .binders-group.is-folder > .binders-cards,
@@ -1552,6 +1667,13 @@
 	font-family: var(--font-text);
 	font-size: var(--font-ui-small);
 	color: var(--text-muted);
+}
+
+/* (by touch there's no pointing: it shows while it has the focus or is typed in; the heading's menu opens it) */
+@media (hover: none) {
+	.binders-group-synopsis.is-empty:not(:focus-visible):not(.is-editing) {
+		display: none;
+	}
 }
 
 /* An empty heading synopsis only offers itself when the heading is pointed at, so a board of new folders stays quiet. */
@@ -1802,6 +1924,24 @@
 	--binders-pile: -4px 4px 0 -1px var(--binders-pile-face), -4px 4px 0 0 var(--binders-pile-edge), -8px 8px 0 -1px var(--binders-pile-face), -8px 8px 0 0 var(--binders-pile-edge);
 }
 
+/* A labeled folder is its label's color all through: the cards under it have the border, and the tint, of the one on
+   top. */
+.binders-card.is-stack.has-label {
+	--binders-pile-edge: color-mix(in oklch, var(--binders-label) 70%, var(--background-primary));
+}
+
+.binders-board.mod-label-tint .binders-card.is-stack.has-label {
+	--binders-pile-face: color-mix(in oklch, var(--binders-label) 7%, var(--bases-cards-background, var(--background-primary)));
+}
+
+.binders-board.mod-label-tint .binders-card.is-stack.has-label.is-selected {
+	--binders-pile-face: color-mix(in oklch, var(--binders-label) 14%, var(--bases-cards-background, var(--background-primary)));
+}
+
+.binders-card.is-stack.has-label.is-selected {
+	--binders-pile-edge: var(--binders-label);
+}
+
 /* (the pile takes room in the card's place in the grid: the card is that much smaller, and no taller than the others) */
 .binders-card.is-stack[data-path] {
 	margin-inline-end: 8px;
@@ -1809,42 +1949,40 @@
 	min-height: calc(var(--binders-card-height, 132px) - 8px);
 }
 
-/* "New note" at the end of each group: a quiet button in the next card's place, like Obsidian's own subtle buttons;
-   it becomes a card while its title is typed. */
+/* "New note": the next card's place at the end of the board, empty, with a plus and the words in its middle. Pointed
+   at or focused it takes a card's edge and the plus makes a quarter turn (the one bit of motion); it becomes a card
+   while its title is typed. */
 .binders-card-new {
-	align-self: start;
 	align-items: center;
-	justify-content: flex-start;
-	flex-direction: row;
-	gap: var(--size-4-1);
-	padding: var(--size-4-1) var(--size-4-2);
-	border-radius: var(--radius-s);
+	justify-content: center;
+	gap: var(--size-2-3);
 	background-color: transparent;
 	--binders-outline: 0 0 0 0 transparent;
 	color: var(--text-faint);
 	font-size: var(--font-ui-small);
 	cursor: var(--cursor);
-}
-
-.binders-card-new:not(.is-editing) {
-	min-height: 0;
+	transition: color var(--anim-duration-fast, 140ms) ease-in-out, background-color var(--anim-duration-fast, 140ms) ease-in-out, box-shadow var(--anim-duration-fast, 140ms) ease-in-out;
 }
 
 .binders-card-new-icon {
 	display: flex;
-	--icon-size: var(--icon-s);
+	--icon-size: var(--icon-m);
+	transition: transform var(--anim-duration-moderate, 300ms) var(--anim-motion-swing, cubic-bezier(0, 0.55, 0.45, 1));
 }
 
-.binders-card-new:focus-visible {
+.binders-card-new:not(.is-editing):focus-visible {
+	color: var(--text-muted);
 	--binders-outline: 0 0 0 2px var(--background-modifier-border-focus);
+}
+
+.binders-card-new:not(.is-editing):focus-visible > .binders-card-new-icon {
+	transform: rotate(90deg);
 }
 
 .binders-card-new.is-editing {
 	color: var(--text-normal);
-	align-self: stretch;
-	align-items: flex-start;
-	padding: var(--size-4-3) var(--size-4-3) var(--size-4-2);
-	border-radius: var(--bases-cards-radius, var(--radius-m));
+	align-items: stretch;
+	justify-content: flex-start;
 	background-color: var(--bases-cards-background, var(--background-primary));
 	--binders-outline: 0 0 0 2px var(--interactive-accent);
 	cursor: default;
@@ -1858,9 +1996,36 @@
 }
 
 @media (hover: hover) {
-	.binders-card-new:not(.is-editing):hover {
-		color: var(--text-normal);
+	.binders-card-new:not(.is-editing):not(:focus-visible):hover {
+		color: var(--text-muted);
 		background-color: var(--background-modifier-hover);
+		--binders-outline: var(--bases-cards-shadow, 0 0 0 1px var(--background-modifier-border));
+	}
+	.binders-card-new:not(.is-editing):hover > .binders-card-new-icon {
+		transform: rotate(90deg);
+	}
+	.binders-board.is-dragging .binders-card-new:not(.is-editing):hover {
+		color: var(--text-faint);
+		background-color: transparent;
+		--binders-outline: 0 0 0 0 transparent;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.binders-card-new,
+	.binders-card-new-icon {
+		transition: none;
+	}
+	.binders-card-new:not(.is-editing) > .binders-card-new-icon {
+		transform: none;
+	}
+}
+
+/* In one column (a phone, a narrow pane) it's a row a finger tall, the plus beside the words. */
+@container binders-view (width < 520px) {
+	.binders-card-new:not(.is-editing) {
+		flex-direction: row;
+		min-height: 48px;
 	}
 }
 
@@ -1883,9 +2048,19 @@
 	background-color: color-mix(in oklch, var(--interactive-accent) 10%, var(--background-primary));
 }
 
-/* held by a finger, about to move or to open its menu */
+/* held by a finger, about to move or to open its menu: it comes up off the board a little (seen in a dark theme too,
+   where a shadow alone isn't) */
 .binders-card.is-lifted {
-	--binders-outline: 0 0 0 1px var(--background-modifier-border-hover), var(--shadow-l);
+	--binders-outline: 0 0 0 2px var(--binders-ring), var(--shadow-l);
+	background-color: color-mix(in oklch, var(--binders-ring) 10%, var(--bases-cards-background, var(--background-primary)));
+	z-index: 1;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	.binders-card.is-lifted {
+		transform: scale(1.02);
+		transition: transform var(--anim-duration-fast, 140ms) ease-out, box-shadow var(--anim-duration-fast, 140ms) ease-in-out;
+	}
 }
 
 /* Tinted cards (as they come; the view's menu turns it off): the card's face takes its label's color too, as lightly as
@@ -1941,6 +2116,27 @@
 .binders-drag-ghost {
 	top: 0;
 	left: 0;
+}
+
+/* (over a folder in the breadcrumb the card in hand is seen through, so the folder it would go to shows) */
+.binders-drag-ghost.is-over-crumb > .binders-card {
+	opacity: 0.45;
+}
+
+/* (on a phone the card in hand is as wide as the column, right over where it would go: seen through, so the line
+   that says where shows under it) */
+.is-phone .binders-drag-ghost > .binders-card {
+	opacity: 0.6;
+}
+
+/* (and the line that says where it would go is drawn over it) */
+.is-phone .drop-indicator.binders-drop-line {
+	z-index: calc(var(--layer-cover) + 10);
+}
+
+/* (a field being typed in is brought into sight with a little room under it) */
+.binders-edit-field {
+	scroll-margin-block: var(--size-4-4);
 }
 
 /* lifted: the selected card it is (its ring, above), over a deep shadow, as a card being moved on a canvas is: so it
@@ -2000,7 +2196,4 @@
 	}
 }
 
-/* a finger's width to tap */
-.is-mobile .binders-card-new:not(.is-editing) {
-	min-height: 40px;
-}
+

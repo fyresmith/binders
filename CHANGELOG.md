@@ -3,6 +3,31 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.9.0 (2026-10-01)
+
+### Added
+
+- “Move to” in a card's or row's menu: every folder of the binder, to move the selection to.
+- Drop cards on a folder in the breadcrumb to move them out to it.
+- “New binder”, as a command and in the file explorer's menu, and “Open binder” in a binder note's menu.
+- “Select more” in a card's or row's menu on a phone or tablet, to select several by touch; Undo and Redo of the last move in the view's More options.
+- Compile remembers where each folder was last compiled to.
+
+### Changed
+
+- The corkboard shows one folder at a time: every note and folder in it is a card in one grid, in binder order. A folder is a stack you double-click to go into, and the breadcrumb leads back out. The option to show subfolders as stacks is gone, since it is always so.
+- One “New note” tile ends the board, the size of a card, and the toolbar's New makes a note after the selected card.
+- A selected card has a ring in its own label color instead of the accent color, and labeled cards are tinted faintly by default, as cards on a canvas are. A labeled folder's stack is colored all the way through.
+- In the file explorer a click that opens a folder's view no longer folds the folder, and a binder's note follows its folder's name when the folder is renamed.
+- Dialogs are Obsidian's own confirmation sheets on a phone, with Cancel last; the filter's sheet stays open while you tick; target fields ask for a number pad.
+
+### Fixed
+
+- What you are typing is saved when the app goes to the background, and typing during a slow save is no longer lost.
+- In the manuscript, a tap in another section after the cursor sat at the edge of a wrapped line no longer leaves the typing in the first note; the page keeps its place when you switch mode and come back.
+- On a phone, new notes, renamed cards and revealed cards no longer end up under Obsidian's button bar; the navigation bar's Back lights up inside a binder; a long press that wobbles still opens the menu.
+- Undoing a move of several notes puts each back in its own place, and an undo that can't be made no longer blocks the ones before it.
+
 ## 0.8.0 (2026-10-01)
 
 ### Added

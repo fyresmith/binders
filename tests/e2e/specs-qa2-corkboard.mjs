@@ -1,7 +1,7 @@
 // QA round 2 on the corkboard (src/view/corkboard.ts, edit.ts, the toolbar in BinderView.ts): the rewritten drag (ghost,
 // slot, insertion line, glide), the toolbar, focus and keyboard, narrow panes, touch, and a big board. Tests named
 // "BUG:" fail on purpose: each is a confirmed bug (see the QA report); the rest passed and pin down what is solid.
-import { B, NOTE, PL, VIEW, card, cards, closeMenus, contents, exists, file, flush, j, openView, selected, texts, same, until, withTidy } from './view-helpers.mjs';
+import { B, NOTE, PL, VIEW, card, cards, closeMenus, contents, exists, file, flush, j, openView, selected, texts, same, until, viewState, withTidy } from './view-helpers.mjs';
 
 export const specs = [];
 const test = (name, fn) => specs.push({ name: 'qa2 corkboard: ' + name, fn });
@@ -41,18 +41,20 @@ async function bigFolder(p, name, n) {
 
 // ---- confirmed bugs (these fail) ----
 
-test('BUG: a card dropped on a group’s “New note” tile, when the tile has wrapped onto its own row, goes to the group’s end', withTidy(async (p, h, t) => {
-	// a fourth note in Part One fills its row of four, so its "New note" tile sits alone on the next row
+test('BUG: a card dropped on the “New note” tile, when the tile has wrapped onto its own row, goes to the board’s end', withTidy(async (p, h, t) => {
+	// a fourth note in Part One fills its row of four, so the "New note" tile sits alone on the next row
 	await p.ev(`app.vault.create(${j(L + 'Part One/Fourth.md')}, 'four words are here').then(() => 1)`);
 	await p.sleep(700);
-	await openView(p);
-	const tile = await p.at(`${LEAF} .binders-group:nth-child(2) .binders-card-new`), last = await at(p, 'Part One/Fourth.md'), e = await at(p, 'Epilogue.md');
+	await openView(p, L + 'Part One');
+	const tile = await p.at(`${LEAF} .binders-card-new`), last = await at(p, 'Part One/Fourth.md'), e = await at(p, 'Part One/Arrival.md');
 	t.ok(tile.t > last.t + last.h - 1, `the tile is on a row of its own (${j(tile)} under ${j(last)})`);
 	await hold(p, { x: e.x, y: e.t + 12 }, { x: tile.x, y: tile.y });
 	const mark = await line(p);
 	await letGo(p, tile.x, tile.y);
 	await p.sleep(600);
-	t.eq(j((await names(p)).slice(1, 6)), j(['Part One/Arrival', 'Part One/The keeper', 'Part One/Storm warning', 'Part One/Fourth', 'Part One/Epilogue']), `dropped on the tile after the last card, it is last (the line was at ${j(mark)}, the pointer at ${j({ x: tile.x, y: tile.y })})`);
+	t.eq(j(await names(p)), j(['Part One/The keeper', 'Part One/Storm warning', 'Part One/Fourth', 'Part One/Arrival']), `dropped on the tile after the last card, it is last (the line was at ${j(mark)}, the pointer at ${j({ x: tile.x, y: tile.y })})`);
+	await flush(p);
+	t.eq(j((await contents(p)).slice(1, 6)), j(['Part One/', 'Part One/The keeper', 'Part One/Storm warning', 'Part One/Fourth', 'Part One/Arrival']), 'and in the binder’s list');
 }));
 
 test('BUG: an insertion line shows only where letting go moves the card (not just outside the pane, not over the toolbar)', withTidy(async (p, h, t) => {
@@ -71,7 +73,7 @@ test('BUG: an insertion line shows only where letting go moves the card (not jus
 	};
 	const out = [];
 	// a short board (nothing to scroll): a few pixels left of the pane, the card itself still mostly over the board
-	await openView(p);
+	await openView(p, L + 'Part One');
 	let s = await at(p, 'Part One/Storm warning.md'), k = await at(p, 'Part One/The keeper.md');
 	const pane = await rectOf(p, `${LEAF} .binders-corkboard`);
 	out.push(await tryAt('5px left of the pane', { x: s.x, y: s.t + 12 }, pane.l - 5, k.y));
@@ -79,7 +81,8 @@ test('BUG: an insertion line shows only where letting go moves the card (not jus
 	await bigFolder(p, 'Big', 30);
 	await openView(p, L + 'Big');
 	await until(p, `document.querySelectorAll('${LEAF} .binders-card[data-path]').length === 30`);
-	const c = await p.at(card(L + 'Big/Scene 005.md')), bar = await p.at(`${LEAF} .binders-toolbar`);
+	// (over the toolbar's word count: a folder in its breadcrumb is a place to drop, the rest of it isn't)
+	const c = await p.at(card(L + 'Big/Scene 005.md')), bar = await p.at(`${LEAF} .binders-word-count`);
 	out.push(await tryAt('over the toolbar of a board that scrolls', { x: c.x, y: c.t + 12 }, bar.x, bar.y));
 	const lied = out.filter((o) => o.line !== o.moved);
 	t.eq(lied.length, 0, 'the line and the drop disagree: ' + j(lied));
@@ -110,7 +113,7 @@ test('BUG: Back from a note opened from a card returns to the board where it was
 }));
 
 test('BUG: cancelling Delete leaves the focus on the card, not on the first card of the board', withTidy(async (p, h, t) => {
-	await openView(p);
+	await openView(p, L + 'Part Two');
 	const c = await at(p, 'Part Two/Lights out.md');
 	await p.click(c.x, c.t + 12);
 	await p.key('Delete');
@@ -119,6 +122,17 @@ test('BUG: cancelling Delete leaves the focus on the card, not on the first card
 	await p.sleep(300);
 	t.eq(j(await selected(p)), j([L + 'Part Two/Lights out.md']), 'still selected');
 	t.eq(await p.ev(`document.activeElement?.dataset?.path ?? null`), L + 'Part Two/Lights out.md', 'and focused (so the arrows carry on from it)');
+	// and a folder's stack, on the binder's board
+	await openView(p);
+	const two = await at(p, 'Part Two');
+	await p.click(two.x, two.t + 12);
+	await p.key('Delete');
+	await until(p, `!!document.querySelector('.modal')`);
+	await p.key('Escape');
+	await p.sleep(300);
+	t.ok(await exists(p, L + 'Part Two/The wreck.md'), 'cancelled: the folder and its notes are still there');
+	t.eq(j(await selected(p)), j([L + 'Part Two']), 'the stack is still selected');
+	t.eq(await p.ev(`document.activeElement?.dataset?.path ?? null`), L + 'Part Two', 'and focused');
 }));
 
 test('BUG: Escape after a note made with Enter leaves the focus on the “New note” tile, not on the page', withTidy(async (p, h, t) => {
@@ -144,11 +158,12 @@ test('BUG: Escape after a note made with Enter leaves the focus on the “New no
 	t.ok(await p.ev(`!!document.activeElement?.closest('${LEAF} .binders-board')`), 'after Escape the focus is still on the board, not on ' + await active(p));
 }));
 
-test('BUG: a narrow pane (one column): a subfolder with a long name inside a group doesn’t widen the cards past the pane', withTidy(async (p, h, t) => {
+test('BUG: a narrow pane (one column): a stack with a long name doesn’t widen the cards past the pane', withTidy(async (p, h, t) => {
 	await p.ev(`app.vault.createFolder(${j(L + 'Part One/Chapter three in which nothing much happens for a very long time')}).then(() => 1)`);
 	await p.sleep(800);
 	await narrow(p, 430, async () => {
-		await openView(p);
+		await openView(p, L + 'Part One');
+		t.ok(await p.ev(`!!document.querySelector('${LEAF} .binders-card.is-stack')`), 'the folder is a stack on Part One’s board');
 		const m = await p.ev(`(() => { const b = document.querySelector('${LEAF} .binders-corkboard'); return { pane: b.clientWidth, content: b.scrollWidth, right: Math.max(...[...b.querySelectorAll('.binders-card')].map(c => Math.round(c.getBoundingClientRect().right))), edge: Math.round(b.getBoundingClientRect().right) }; })()`);
 		t.ok(m.content <= m.pane + 1 && m.right <= m.edge, `nothing is wider than the pane: ${j(m)}`);
 	});
@@ -168,7 +183,7 @@ test('BUG: the toolbar’s word count isn’t squeezed away by a long breadcrumb
 }));
 
 test('BUG: a right-click while a card is being dragged opens no menu (and doesn’t change the selection)', withTidy(async (p, h, t) => {
-	await openView(p);
+	await openView(p, L + 'Part One');
 	const a = await at(p, 'Part One/Arrival.md'), s = await at(p, 'Part One/Storm warning.md');
 	const to = { x: s.x + 60, y: s.y };
 	await hold(p, { x: a.x, y: a.t + 12 }, to);
@@ -190,7 +205,7 @@ test('BUG: a right-click while a card is being dragged opens no menu (and doesn�
 // ---- verified solid (these pass) ----
 
 test('a click that wobbles up to 5px is still a click: it selects, and on a synopsis it edits; nothing is dragged', withTidy(async (p, h, t) => {
-	await openView(p);
+	await openView(p, L + 'Part One');
 	const a = await at(p, 'Part One/Arrival.md');
 	for (const d of [3, 5]) {
 		await p.move(a.x, a.t + 12, 2);
@@ -241,7 +256,7 @@ test('a drop on a long board of uneven rows: the scroll never jumps, the card la
 }));
 
 test('Escape mid-drag: the button still down then does nothing, the next click is a click; let go outside the window: nothing moves', withTidy(async (p, h, t) => {
-	await openView(p);
+	await openView(p, L + 'Part One');
 	const a = await at(p, 'Part One/Arrival.md'), k = await at(p, 'Part One/The keeper.md');
 	await hold(p, { x: a.x, y: a.t + 12 }, { x: k.x + 60, y: k.y });
 	await p.key('Escape');
@@ -279,46 +294,56 @@ test('the wheel scrolls the board mid-drag and the line follows; a second drag s
 	await letGo(p, a.x + 300, 500);
 	await p.sleep(300);
 	// a drop into another folder (a file move), and at once another drag
+	// (onto the middle of Part Two's stack: Epilogue goes into that folder; then a card before it, which stays put)
 	await openView(p);
-	const arr = await at(p, 'Part One/Arrival.md'), w = await at(p, 'Part Two/The wreck.md');
-	await hold(p, { x: arr.x, y: arr.t + 12 }, { x: w.l + 5, y: w.y }, 6);
-	await letGo(p, w.l + 5, w.y);
-	const s = await at(p, 'Part One/Storm warning.md');
+	const arr = await at(p, 'Epilogue.md'), w = await at(p, 'Part Two');
+	await hold(p, { x: arr.x, y: arr.t + 12 }, { x: w.x, y: w.y }, 6);
+	await letGo(p, w.x, w.y);
+	const s = await at(p, 'Prologue.md');
 	await press(p, s.x, s.t + 12);
 	await p.move(s.x + 40, s.t + 40, 3, { buttons: 1 });
 	await p.sleep(350);
-	t.eq(j(await p.ev(`[...document.querySelectorAll('.binders-drag-ghost .binders-card-title')].map(e => e.textContent)`)), j(['Storm warning']), 'the second card follows the pointer, alone');
-	t.eq(j(await p.ev(`[...document.querySelectorAll('${LEAF} .binders-card.is-dragging')].map(c => c.dataset.path)`)), j([L + 'Part One/Storm warning.md']), 'its slot holds its place through the first drop’s redraw');
+	t.eq(j(await p.ev(`[...document.querySelectorAll('.binders-drag-ghost .binders-card-title')].map(e => e.textContent)`)), j(['Prologue']), 'the second card follows the pointer, alone');
+	t.eq(j(await p.ev(`[...document.querySelectorAll('${LEAF} .binders-card.is-dragging')].map(c => c.dataset.path)`)), j([L + 'Prologue.md']), 'its slot holds its place through the first drop’s redraw');
 	await letGo(p, s.x + 40, s.t + 40);
-	await until(p, `app.vault.adapter.exists(${j(L + 'Part Two/Arrival.md')})`);
+	await until(p, `app.vault.adapter.exists(${j(L + 'Part Two/Epilogue.md')})`);
 	await p.sleep(500);
 	t.eq(await leftovers(p), 0, 'nothing is left of either');
-	t.eq(j((await names(p)).slice(0, 5)), j(['Prologue', 'Part One/The keeper', 'Part One/Storm warning', 'Part Two/Arrival', 'Part Two/The wreck']), 'the first drop was made');
+	t.eq(j((await names(p)).slice(0, 3)), j(['Prologue', 'Part One', 'Part Two']), 'the first drop was made: Epilogue is off the binder’s board');
+	t.ok(!(await names(p)).includes('Epilogue'), 'its card is gone from here');
+	await flush(p);
+	t.eq(j((await contents(p)).slice(0, 9)), j(['Prologue', 'Part One/', 'Part One/Arrival', 'Part One/The keeper', 'Part One/Storm warning', 'Part Two/', 'Part Two/The wreck', 'Part Two/Lights out', 'Part Two/Epilogue']), 'and last in Part Two; the second drag, let go where it was, moved nothing');
 }));
 
-test('cards selected here and there in two folders, dropped between two cards, arrive together in board order, all selected', withTidy(async (p, h, t) => {
+test('cards selected here and there on a board, a folder among them, dropped between two cards, arrive together in board order, all selected', withTidy(async (p, h, t) => {
+	// (a board shows one folder, so what's selected is always in one folder: here the binder's own, with two more notes)
+	await p.ev(`(async () => { await ${B}.newScene(${file('The Lighthouse')}, Infinity, 'Coda'); await ${B}.newScene(${file('The Lighthouse')}, Infinity, 'Afterword'); })().then(() => 1)`);
+	await p.sleep(600);
 	const before = await texts(p);
 	await openView(p);
-	const a = await at(p, 'Part One/Arrival.md'), s = await at(p, 'Part One/Storm warning.md'), lo = await at(p, 'Part Two/Lights out.md'), k = await at(p, 'Part One/The keeper.md');
-	await p.click(a.x, a.t + 12);
-	await p.click(s.x, s.t + 12, { modifiers: 2 });
-	await p.click(lo.x, lo.t + 12, { modifiers: 2 });
-	await hold(p, { x: s.x, y: s.t + 12 }, { x: k.x + 30, y: k.y });
+	t.eq(j(await names(p)), j(['Prologue', 'Part One', 'Part Two', 'Epilogue', 'Coda', 'Afterword']), 'the board');
+	const pro = await at(p, 'Prologue.md'), two = await at(p, 'Part Two'), af = await at(p, 'Afterword.md'), e = await at(p, 'Epilogue.md');
+	// picked out of order
+	await p.click(af.x, af.t + 12);
+	await p.click(pro.x, pro.t + 12, { modifiers: 2 });
+	await p.click(two.x, two.t + 12, { modifiers: 2 });
+	// held by the folder's stack, and put down just after Epilogue
+	await hold(p, { x: two.x, y: two.t + 12 }, { x: e.x + 30, y: e.y });
 	t.eq(await p.ev(`document.querySelector('.binders-drag-ghost .binders-drag-count')?.textContent`), '3', 'three are held');
-	t.eq(await p.ev(`document.querySelectorAll('${LEAF} .binders-card.is-dragging').length`), 3, 'each place is held by a slot, in both folders');
-	await letGo(p, k.x + 30, k.y);
-	await until(p, `app.vault.adapter.exists(${j(L + 'Part One/Lights out.md')})`);
+	t.eq(await p.ev(`document.querySelectorAll('${LEAF} .binders-card.is-dragging').length`), 3, 'each place is held by a slot');
+	await letGo(p, e.x + 30, e.y);
+	await until(p, `[...document.querySelectorAll('${LEAF} .binders-card[data-path]')][0]?.dataset.path === ${j(L + 'Part One')}`);
 	await p.sleep(500);
-	t.eq(j(await names(p)), j(['Prologue', 'Part One/The keeper', 'Part One/Arrival', 'Part One/Storm warning', 'Part One/Lights out', 'Part Two/The wreck', 'Epilogue']), 'after The keeper, in the order they were on the board');
-	t.eq(j(await selected(p)), j(['Arrival', 'Storm warning', 'Lights out'].map((x) => L + 'Part One/' + x + '.md')), 'all three still selected');
-	same(t, before, await texts(p), { skip: [NOTE], moved: { [L + 'Part Two/Lights out.md']: L + 'Part One/Lights out.md' } });
+	t.eq(j(await names(p)), j(['Part One', 'Epilogue', 'Prologue', 'Part Two', 'Afterword', 'Coda']), 'after Epilogue, in the order they were on the board');
+	t.eq(j(await selected(p)), j([L + 'Prologue.md', L + 'Part Two', L + 'Afterword.md']), 'all three still selected');
+	await flush(p);
+	t.eq(j(await contents(p)), j(['Part One/', 'Part One/Arrival', 'Part One/The keeper', 'Part One/Storm warning', 'Epilogue', 'Prologue', 'Part Two/', 'Part Two/The wreck', 'Part Two/Lights out', 'Afterword', 'Coda']), 'and so the binder’s list, the folder with its notes');
+	same(t, before, await texts(p), { skip: [NOTE] });
 }));
 
 test('stacks: a folder dropped on the middle of another goes into it with its notes; its edge puts it beside', withTidy(async (p, h, t) => {
 	const before = await texts(p);
 	await openView(p);
-	await p.ev(`(() => { const v = ${VIEW}; v.options = { ...v.options, stacks: true }; v.current.draw(); return 1; })()`);
-	await p.sleep(300);
 	const one = await at(p, 'Part One'), two = await at(p, 'Part Two');
 	await hold(p, { x: two.x, y: two.t + 12 }, { x: one.l + 8, y: one.y });
 	t.eq(await p.ev(`document.querySelectorAll('.is-being-dragged-over').length`), 0, 'at its edge: not into it');
@@ -339,7 +364,7 @@ test('stacks: a folder dropped on the middle of another goes into it with its no
 }));
 
 test('renaming with an input method: Enter while composing doesn’t save the half-typed title', withTidy(async (p, h, t) => {
-	await openView(p);
+	await openView(p, L + 'Part One');
 	const c = await at(p, 'Part One/The keeper.md');
 	await p.click(c.x, c.t + 12);
 	await p.key('F2');
@@ -355,20 +380,37 @@ test('renaming with an input method: Enter while composing doesn’t save the ha
 	t.ok(await exists(p, L + 'Part One/灯台.md'), 'Enter after the composition saves it');
 }));
 
-test('keyboard: Down and Up cross groups by position, Shift extends, and Alt+Up carries a note past the folder before it', withTidy(async (p, h, t) => {
+test('keyboard: Down and Up go between rows by position, Left and Right through notes and stacks alike, Shift extends, and Alt+Up carries a note past the folder before it', withTidy(async (p, h, t) => {
+	const walk = async (...keys) => { const out = []; for (const k of keys) { await p.key(...[].concat(k)); await p.sleep(60); out.push((await p.ev(`document.activeElement?.dataset?.path ?? '?'`)).replace(L, '').replace('.md', '')); } return out; };
+	// a board of two rows: Part One with three more notes
+	await p.ev(`(async () => { for (const n of ['Fourth', 'Fifth', 'Sixth']) await ${B}.newScene(${file(L + 'Part One')}, Infinity, n); })().then(() => 1)`);
+	await p.sleep(600);
+	await openView(p, L + 'Part One');
+	const rows = await p.ev(`(() => { const out = []; for (const c of document.querySelectorAll('${LEAF} .binders-card[data-path]')) { const top = Math.round(c.getBoundingClientRect().top); (out.find(r => r.top === top) ?? out[out.push({ top, cards: [] }) - 1]).cards.push(c.dataset.path.replace(${j(L)}, '').replace('.md', '')); } return out.map(r => r.cards); })()`);
+	t.ok(rows.length === 2 && rows[0].length > rows[1].length && rows[1].length >= 2, 'two rows, the second shorter: ' + j(rows));
+	const [r1, r2] = rows, all = [...r1, ...r2];
+	const a = await at(p, 'Part One/Arrival.md');
+	await p.click(a.x, a.t + 12);
+	t.eq(j(await walk('ArrowDown', 'ArrowDown', 'ArrowRight', 'ArrowUp', 'End', 'Home')), j([r2[0], r2[0], r2[1], r1[1], all[all.length - 1], r1[0]]), 'the arrows');
+	// from the end of the first row, Down goes to the nearest card below: the last
+	await walk('End', 'ArrowUp');
+	const above = await p.ev(`document.activeElement?.dataset?.path`);
+	t.eq(above.replace(L, '').replace('.md', ''), r1[r2.length - 1], 'Up from the last card: the card above it');
+	await p.click(a.x, a.t + 12);
+	await walk(['ArrowRight', 'shift'], ['ArrowDown', 'shift']);
+	t.eq(j((await selected(p)).map((x) => x.replace(L, '').replace('.md', ''))), j(all.slice(0, r1.length + 2)), 'Shift+arrows select everything between');
+	// the binder's board: notes and stacks are one run of cards
 	await openView(p);
 	const c = await at(p, 'Prologue.md');
 	await p.click(c.x, c.t + 12);
-	const walk = async (...keys) => { const out = []; for (const k of keys) { await p.key(...[].concat(k)); await p.sleep(60); out.push((await p.ev(`document.activeElement?.dataset?.path ?? '?'`)).replace(L, '').replace('.md', '')); } return out; };
-	t.eq(j(await walk('ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowUp', 'ArrowRight', 'End', 'Home')), j(['Part One/Arrival', 'Part Two/The wreck', 'Epilogue', 'Epilogue', 'Part Two/The wreck', 'Part Two/Lights out', 'Epilogue', 'Prologue']), 'the arrows');
-	await walk(['ArrowRight', 'shift'], ['ArrowDown', 'shift']);
-	t.eq(j((await selected(p)).map((x) => x.replace(L, ''))), j(['Prologue.md', 'Part One/Arrival.md', 'Part One/The keeper.md', 'Part One/Storm warning.md', 'Part Two/The wreck.md']), 'Shift+arrows select everything between');
+	t.eq(j(await walk('ArrowRight', 'ArrowRight', 'ArrowRight', 'ArrowRight', 'ArrowLeft', 'ArrowDown', 'Home')), j(['Part One', 'Part Two', 'Epilogue', 'Epilogue', 'Part Two', 'Part Two', 'Prologue']), 'through the stacks, one card each; nothing below a single row');
+	t.eq((await viewState(p)).folder, 'The Lighthouse', 'the arrows go into no folder');
 	const e = await at(p, 'Epilogue.md');
 	await p.click(e.x, e.t + 12);
 	await p.key('ArrowUp', 'alt');
 	await p.sleep(400);
 	await flush(p);
-	t.eq(j(await contents(p)), j(['Prologue', 'Part One/', 'Part One/Arrival', 'Part One/The keeper', 'Part One/Storm warning', 'Epilogue', 'Part Two/', 'Part Two/The wreck', 'Part Two/Lights out']), 'Alt+Up: Epilogue is before Part Two');
+	t.eq(j(await contents(p)), j(['Prologue', 'Part One/', 'Part One/Arrival', 'Part One/The keeper', 'Part One/Storm warning', 'Part One/Fourth', 'Part One/Fifth', 'Part One/Sixth', 'Epilogue', 'Part Two/', 'Part Two/The wreck', 'Part Two/Lights out']), 'Alt+Up: Epilogue is before Part Two');
 	t.eq(await p.ev(`document.activeElement?.dataset?.path`), L + 'Epilogue.md', 'and keeps the focus');
 }));
 
@@ -393,7 +435,7 @@ test('a new note typed in the last tile, after a last subfolder, is made last in
 
 test('touch: a tap selects a card, a second tap edits its synopsis; a drag cut short by the system leaves nothing behind', withTidy(async (p, h, t) => {
 	const touch = (type, x, y) => p.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' || type === 'touchCancel' ? [] : [{ x, y }] });
-	await openView(p);
+	await openView(p, L + 'Part One');
 	await p.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 1 });
 	try {
 		const syn = await p.at(`${card(L + 'Part One/Arrival.md')} .binders-card-synopsis`);
@@ -415,12 +457,15 @@ test('touch: a tap selects a card, a second tap edits its synopsis; a drag cut s
 	} finally { await p.send('Emulation.setTouchEmulationEnabled', { enabled: false }); }
 }));
 
-test('330 cards in six folders: opens and redraws quickly, and scrolls through without a long frame', withTidy(async (p, h, t) => {
-	await p.ev(`(async () => { for (let g = 0; g < 6; g++) { const dir = ${j(L)} + 'Act ' + g; await app.vault.createFolder(dir); for (let i = 0; i < 55; i++) { const s = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit sed do. '.repeat((i * 7 + g) % 6).trim(); await app.vault.create(dir + '/S' + g + '-' + String(i).padStart(2, '0') + '.md', '---\\n' + (s ? 'synopsis: ' + s + '\\n' : '') + (i % 3 ? 'status: draft\\n' : '') + '---\\n' + 'word '.repeat(50 + i)); } } })().then(() => 1)`);
+test('a board of 330 cards (notes, and six folders of ten among them): opens and redraws quickly, and scrolls through without a long frame', withTidy(async (p, h, t) => {
+	// (the board shows one folder: so one folder of 330 notes and, here and there among them, six subfolders as stacks)
+	await p.ev(`(async () => { const dir = ${j(L)} + 'Act'; await app.vault.createFolder(dir); for (let i = 0; i < 330; i++) { const s = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit sed do. '.repeat((i * 7) % 6).trim(); await app.vault.create(dir + '/S' + String(i).padStart(3, '0') + '.md', '---\\n' + (s ? 'synopsis: ' + s + '\\n' : '') + (i % 3 ? 'status: draft\\n' : '') + '---\\n' + 'word '.repeat(50 + i % 55)); if (i % 55 === 54) { const sub = dir + '/Z' + String(i).padStart(3, '0'); await app.vault.createFolder(sub); for (let k = 0; k < 10; k++) await app.vault.create(sub + '/n' + k + '.md', 'word '.repeat(20)); } } })().then(() => 1)`);
 	await p.sleep(2500);
 	const t0 = Date.now();
-	await openView(p);
-	await until(p, `document.querySelectorAll('${LEAF} .binders-card[data-path]').length === 337`, 10000);
+	await openView(p, L + 'Act');
+	await until(p, `document.querySelectorAll('${LEAF} .binders-card[data-path]').length === 336`, 10000);
+	t.eq(await p.ev(`document.querySelectorAll('${LEAF} .binders-card[data-path]').length`), 336, '330 notes and six stacks');
+	t.eq(await p.ev(`document.querySelectorAll('${LEAF} .binders-card.is-stack').length`), 6, 'the folders are stacks');
 	const open = Date.now() - t0;
 	const draw = await p.ev(`(() => { const m = ${VIEW}.current; const t = performance.now(); m.draw(); return Math.round(performance.now() - t); })()`);
 	await p.ev(`(() => { window.__gaps = []; let last = performance.now(); window.__run = true; const tick = () => { const n = performance.now(); window.__gaps.push(Math.round(n - last)); last = n; if (window.__run) requestAnimationFrame(tick); }; requestAnimationFrame(tick); return 1; })()`);
@@ -430,9 +475,10 @@ test('330 cards in six folders: opens and redraws quickly, and scrolls through w
 	// a card moved near the top: the time from the drop to the board showing it
 	await p.ev(`document.querySelector('${LEAF} .binders-corkboard').scrollTop = 0`);
 	await p.sleep(300);
-	const a = await at(p, 'Part One/Arrival.md'), s = await at(p, 'Part One/Storm warning.md');
+	const first = await cards(p);
+	const a = await p.at(card(first[0])), s = await p.at(card(first[2]));
 	await hold(p, { x: a.x, y: a.t + 12 }, { x: s.x + 60, y: s.y });
-	await p.ev(`(() => { window.__t0 = performance.now(); window.__moved = 0; const mo = new MutationObserver(() => { if (window.__moved) return; const c = [...document.querySelectorAll('${LEAF} .binders-card[data-path]')].map(c => c.dataset.path); if (c.indexOf(${j(L + 'Part One/Arrival.md')}) === 3) { window.__moved = performance.now() - window.__t0; mo.disconnect(); } }); mo.observe(document.querySelector('${LEAF} .binders-board'), { childList: true, subtree: true }); return 1; })()`);
+	await p.ev(`(() => { window.__t0 = performance.now(); window.__moved = 0; const mo = new MutationObserver(() => { if (window.__moved) return; const c = [...document.querySelectorAll('${LEAF} .binders-card[data-path]')].map(c => c.dataset.path); if (c.indexOf(${j(first[0])}) === 2) { window.__moved = performance.now() - window.__t0; mo.disconnect(); } }); mo.observe(document.querySelector('${LEAF} .binders-board'), { childList: true, subtree: true }); return 1; })()`);
 	await letGo(p, s.x + 60, s.y);
 	await until(p, `window.__moved > 0`);
 	const moved = Math.round(await p.ev(`window.__moved`));

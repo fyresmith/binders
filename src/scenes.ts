@@ -1,9 +1,9 @@
-import { ButtonComponent, MarkdownView, Modal, Notice, Setting, TFile, TFolder, getFrontMatterInfo, normalizePath, parseYaml, stringifyYaml, type App, type Editor, type TAbstractFile } from 'obsidian';
+import { ButtonComponent, MarkdownView, Modal, Notice, Platform, Setting, TFile, TFolder, getFrontMatterInfo, normalizePath, parseYaml, stringifyYaml, type App, type Editor, type TAbstractFile } from 'obsidian';
 import type BindersPlugin from './main';
 import { COMPILE_DEFAULTS, compile, joinBodies, linkTargets, nextName, pointsAt, repointLinks, synopsisFrom, tidyHead, tidyTail, titleFrom, type CompileItem, type CompileOptions } from './scene-text';
 import { COMPILED_KEPT } from './settings-data';
 import { trashPhrase, updatesLinks } from './view/internals';
-import { confirm } from './view/modals';
+import { buttonRow, cancelButton, confirm } from './view/modals';
 
 /* Working on scenes as a writer does in Scrivener: splitting one in two where the cursor is, merging several into one,
    giving one a synopsis from its opening lines, and compiling a binder into a single note. The text rules are in
@@ -120,6 +120,8 @@ export async function splitScene(plugin: BindersPlugin, editor: Editor, file: TF
 		while (k < head.length && k < text.length && head[k] === text[k]) k++;
 		editor.replaceRange(head.slice(k), editor.offsetToPos(k), editor.offsetToPos(text.length));
 		editor.setCursor(editor.offsetToPos(head.length));
+		// (written at once: until it is, the second half is in both notes on disk)
+		await saveOpen(app, [file]);
 		// links to the headings and blocks that went with the second half follow them there
 		const moved = linkTargets(tail);
 		if (moved.headings.size || moved.blocks.size) await repoint(app, file, made, (sub) => pointsAt(sub, moved), [made]).catch(say);
@@ -220,7 +222,8 @@ export class CompileModal extends Modal {
 		this.o = { ...COMPILE_DEFAULTS, ...plugin.settings.compile };
 		// beside the binder, not in it (there it would be one of its scenes)
 		const binder = plugin.binders.binderOf(folder)?.folder ?? folder, dir = binder.parent && !binder.parent.isRoot() ? binder.parent.path + '/' : '';
-		this.path = `${dir}${folder.name} (compiled).md`;
+		// (where it went last time, if it's been compiled before: compiling again replaces that note)
+		this.path = plugin.settings.compiledTo[folder.path] ?? `${dir}${folder.name} (compiled).md`;
 	}
 
 	onOpen(): void {
@@ -240,12 +243,16 @@ export class CompileModal extends Modal {
 		new Setting(contentEl).setName('Save as').setDesc('A note beside the binder. Compiling again replaces it; a note that’s been written in since is asked about first.').addText((t) => {
 			t.setValue(this.path).onChange((v) => { this.path = v.trim(); });
 			t.inputEl.addClass('binders-compile-path');
+			// Enter (a phone's "Done") compiles, as it sets a target in that dialog
+			t.inputEl.setAttr('enterkeyhint', 'done');
+			t.inputEl.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); void this.run(true); } });
 		});
 		// (Obsidian's own row of buttons: what the dialog does first, Cancel last)
-		const row = contentEl.createDiv({ cls: 'modal-button-container' });
+		this.modalEl.addClass('binders-compile');
+		const row = buttonRow(this);
 		new ButtonComponent(row).setButtonText('Compile').setCta().onClick(() => void this.run(true));
 		new ButtonComponent(row).setButtonText('Copy').setTooltip('Copy the compiled text instead of saving it').onClick(() => void this.run(false));
-		new ButtonComponent(row).setButtonText('Cancel').onClick(() => this.close());
+		cancelButton(row, this);
 	}
 
 	onClose(): void { this.contentEl.empty(); }
@@ -283,13 +290,18 @@ export class CompileModal extends Modal {
 			const file = at instanceof TFile ? (await app.vault.modify(at, text), at) : await app.vault.create(path, text);
 			delete memory[path];
 			memory[path] = fingerprint(text);
+			const to = this.plugin.settings.compiledTo;
+			delete to[this.folder.path];
+			to[this.folder.path] = path;
+			for (const k of Object.keys(to).slice(0, -COMPILED_KEPT)) delete to[k];
 			for (const k of Object.keys(memory).slice(0, -COMPILED_KEPT)) delete memory[k];
 			await this.plugin.saveData(this.plugin.settings);
 			this.close();
 			// in the tab it's open in already, if there is one
 			const open = app.workspace.getLeavesOfType('markdown').find((l) => l.view instanceof MarkdownView && l.view.file === file);
 			if (open) app.workspace.setActiveLeaf(open, { focus: true });
-			else await app.workspace.getLeaf('tab').openFile(file);
+			// (on a phone in the tab the binder is in, so Back returns to it: a tab of its own there is out of sight)
+			else await app.workspace.getLeaf(Platform.isPhone ? false : 'tab').openFile(file);
 			new Notice(`Compiled ${scenes.toLocaleString()} ${scenes === 1 ? 'note' : 'notes'} into “${file.basename}”.`);
 		} catch (e) { say(e); }
 	}

@@ -6,7 +6,7 @@
    to show in a folder. Everything undocumented is in the "Internals" block below and listed in docs/internals.md. If the
    method is missing, Binders says so once and the explorer keeps Obsidian's own order. */
 import { around } from 'monkey-around';
-import { Keymap, Notice, TAbstractFile, TFolder, type App, type EventRef, type PaneType, type Plugin, type View } from 'obsidian';
+import { Keymap, Notice, Platform, TAbstractFile, TFolder, type App, type EventRef, type PaneType, type Plugin, type View } from 'obsidian';
 
 /** What the explorer needs to know about binders. The binder store implements it. */
 export interface ExplorerSource {
@@ -221,7 +221,11 @@ export function installExplorer(plugin: Plugin, source: ExplorerSource, settings
 		const title = t.closest<HTMLElement>('.nav-folder-title');
 		if (!title || !title.closest('.workspace-leaf-content[data-type="file-explorer"]')) return null;
 		const f = app.vault.getAbstractFileByPath(title.dataset.path ?? '');
-		return f instanceof TFolder && (source.isBinderFolder(f) || source.inBinder(f)) ? { f, title, newLeaf, middle } : null;
+		if (!(f instanceof TFolder)) return null;
+		// (on a phone the explorer is a drawer that closes when something opens: a tap on a folder inside a binder
+		// only unfolds it, so the notes in it can be reached; the binder itself opens, and its folders from there)
+		if (Platform.isPhone && !source.isBinderFolder(f)) return null;
+		return source.isBinderFolder(f) || source.inBinder(f) ? { f, title, newLeaf, middle } : null;
 	};
 	const onClick = (e: MouseEvent) => { const c = clicked(e); if (c) openBinder(c.f, c.newLeaf); };
 	/** A click on a folder's row folds or unfolds it, which is Obsidian's doing. A click that opens the folder's view

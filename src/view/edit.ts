@@ -20,6 +20,8 @@ export interface EditableOptions {
 	/** Whether this click should start editing (e.g. a tap only edits a card that's already selected). */
 	shouldEdit?(e: MouseEvent): boolean;
 	label?: string;
+	/** The field takes a number: a phone shows its number keys. */
+	numeric?: boolean;
 	/** A single line emptied is saved as empty (a cell's value taken away); otherwise that's leaving it as it was. */
 	allowEmpty?: boolean;
 	save(text: string): Promise<void>;
@@ -32,7 +34,9 @@ export interface Editable {
 	/** Starts editing. `at`: where the caret goes in the text (default: its end; a single line is selected whole). */
 	edit(at?: number): void;
 	/** Saves what's typed, if editing. */
-	commit(): Promise<void>;
+	/** Saves what's typed and ends the edit. With `keep`, saves and leaves the field as it is (the app is going to the
+	    background: what's typed is safe, and still there to carry on with). */
+	commit(keep?: boolean): Promise<void>;
 	readonly editing: boolean;
 }
 
@@ -45,7 +49,7 @@ export function commitFocused(): boolean {
 	void ed.commit();
 	return true;
 }
-export const commitAll = (root: HTMLElement): Promise<unknown> => Promise.all([...open].filter((e) => root.contains(e.el) || !e.el.isConnected).map((e) => e.commit()));
+export const commitAll = (root: HTMLElement, keep = false): Promise<unknown> => Promise.all([...open].filter((e) => root.contains(e.el) || !e.el.isConnected).map((e) => e.commit(keep)));
 
 /** Holders that already keep presses beside their field from ending an edit. */
 const guarded = new WeakSet<HTMLElement>();
@@ -55,6 +59,8 @@ export function editable(parent: HTMLElement, o: EditableOptions): Editable {
 	// (`dir="auto"`: text in a right-to-left script reads from the right, whatever the interface's direction)
 	const el = parent.createDiv({ cls: ['binders-editable', o.cls], attr: { dir: 'auto' } });
 	let field: HTMLInputElement | HTMLTextAreaElement | null = null, saving = false, refused: string | null = null;
+	let left = false; // the commit under way came from leaving the field
+	let refusedAt = 0; // when what's in the field was first refused
 	const typed = () => o.editValue ?? o.value;
 	const show = (text: string) => {
 		el.empty();
@@ -102,8 +108,9 @@ export function editable(parent: HTMLElement, o: EditableOptions): Editable {
 			el.empty();
 			el.addClass('is-editing');
 			el.removeClass('is-empty');
-			const f = field = el.createEl(tag, { cls: 'binders-edit-field', attr: { placeholder: o.placeholder, 'aria-label': o.label ?? o.placeholder, spellcheck: 'true', ...(o.singleLine ? {} : { rows: '1' }) } });
+			const f = field = el.createEl(tag, { cls: 'binders-edit-field', attr: { placeholder: o.placeholder, 'aria-label': o.label ?? o.placeholder, spellcheck: 'true', ...(o.singleLine ? { enterkeyhint: 'done' } : { rows: '1' }) } });
 			f.value = typed();
+			if (o.numeric) f.inputMode = 'numeric';
 			open.add(ed);
 			o.onEditing?.(true);
 			const fit = () => { if (f instanceof HTMLTextAreaElement) { f.setCssStyles({ height: '0px' }); f.setCssStyles({ height: `${f.scrollHeight}px` }); } };
@@ -115,7 +122,7 @@ export function editable(parent: HTMLElement, o: EditableOptions): Editable {
 				// Tab saves too, and the focus stays with what holds the text (the card, the row) instead of leaving the view
 				else if (e.key === 'Tab' && !e.isComposing && !Keymap.isModEvent(e) && !e.altKey) { e.preventDefault(); void ed.commit(); }
 			});
-			f.addEventListener('blur', () => { void ed.commit(); });
+			f.addEventListener('blur', () => { left = true; void ed.commit().finally(() => { left = false; }); });
 			// a press beside the field, still inside what holds it (the rest of a card's synopsis box, say), is a press
 			// on the text being edited: it doesn't end the edit, or start a drag or a selection around it
 			if (!guarded.has(el)) {
@@ -132,20 +139,30 @@ export function editable(parent: HTMLElement, o: EditableOptions): Editable {
 			if (f instanceof HTMLTextAreaElement) { const p = Math.min(at ?? f.value.length, f.value.length); f.setSelectionRange(p, p); } else f.select();
 			fit();
 		},
-		async commit() {
+		async commit(keep = false) {
 			if (!field || saving) return;
-			const text = o.singleLine ? field.value.trim() : field.value.replace(/\s+$/, '');
-			if (text === typed().trim() || (o.singleLine && !text && !o.allowEmpty)) { end(o.value); return; }
+			const read = () => (field ? (o.singleLine ? field.value.trim() : field.value.replace(/\s+$/, '')) : '');
+			const text = read();
+			if (text === typed().trim() || (o.singleLine && !text && !o.allowEmpty)) { if (!keep) end(o.value); return; }
 			saving = true;
 			try {
 				await o.save(text);
 				o.value = text;
 				if (o.editValue !== undefined) o.editValue = text;
-				end(text);
+				// (typed in while it was being saved, on a slow phone say: that's saved too, not thrown away with the field)
+				// (the field left meanwhile or not: a leave while this save was under way was told to wait for it)
+				if (field && read() !== text) { saving = false; await ed.commit(keep); return; }
+				if (!keep) end(text);
 			} catch (e) {
 				// keep the text in the field, so nothing typed is lost; why is said once for the same text, and the
 				// field stays marked until it's changed
-				if (refused !== text) new Notice(e instanceof Error ? e.message : String(e));
+				// (left a second time with the same text that can't be saved: it's given up, and what was there stays.
+				// Without that there'd be no way out of the field on a phone, which has no Escape.)
+				// Only a line (a name, a number), and only on a later press than the one that was told why: a single tap
+				// leaves a field twice (the press, then whatever it lands on taking the focus). A synopsis is writing:
+				// it stays in its field until it can be saved.
+				if (o.singleLine && refused === text && left && performance.now() - refusedAt > 400) { end(o.value); return; }
+				if (refused !== text) { new Notice(e instanceof Error ? e.message : String(e)); refusedAt = performance.now(); }
 				refused = text;
 				el.addClass('is-invalid');
 				field?.focus();

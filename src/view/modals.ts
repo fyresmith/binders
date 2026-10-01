@@ -4,12 +4,29 @@ import { hexColor } from './labels';
 /* Small dialogs built from Obsidian's Modal, laid out as its own are: what it asks, a field if it needs one, and the
    buttons in Obsidian's button row. Each resolves once it closes. */
 
+/** Makes a dialog one of Obsidian's own small ones (its `mod-confirmation`): on a phone it's a sheet from the bottom
+    of the screen, its title has the full width (there's no ✕ to make room for), and its buttons are a column with
+    Cancel last. Returns the row its buttons go in, at the foot of the dialog. */
+export function buttonRow(m: Modal): HTMLElement {
+	m.containerEl.addClass('mod-confirmation');
+	return m.modalEl.createDiv({ cls: 'modal-button-container' });
+}
+
+/** A dialog's Cancel button, marked as Obsidian marks its own (which is what puts it last on a phone). */
+export function cancelButton(row: HTMLElement, m: Modal): ButtonComponent {
+	const b = new ButtonComponent(row).setButtonText('Cancel').onClick(() => m.close());
+	b.buttonEl.addClass('mod-cancel');
+	return b;
+}
+
 /** The row of buttons at the foot of a dialog, as Obsidian's own dialogs have it: what it does first, Cancel last. */
 function buttons(m: Modal, cta: string, done: () => void, warning = false): ButtonComponent {
-	const row = m.contentEl.createDiv({ cls: 'modal-button-container' });
+	const row = buttonRow(m);
 	const go = new ButtonComponent(row).setButtonText(cta).onClick(done);
-	if (warning) go.buttonEl.addClass('mod-warning'); else go.setCta();
-	new ButtonComponent(row).setButtonText('Cancel').onClick(() => m.close());
+	// (a deletion's button is filled, in the color of a warning, as Obsidian's own is)
+	go.setCta();
+	if (warning) go.buttonEl.addClass('mod-destructive');
+	cancelButton(row, m);
 	return go;
 }
 
@@ -40,12 +57,14 @@ function field(m: Modal, placeholder: string, value: string): { text: TextCompon
 /** Asks for a line of text. Resolves with it (trimmed), or null if cancelled or empty (with `allowEmpty`, an emptied
     field is an answer too: ""). `check` says why an answer can't be used (or null if it can): the dialog then stays
     open with what was typed, and says so. */
-export function ask(app: App, o: { title: string; placeholder: string; cta: string; value?: string; allowEmpty?: boolean; check?(value: string): string | null }): Promise<string | null> {
+export function ask(app: App, o: { title: string; placeholder: string; cta: string; value?: string; allowEmpty?: boolean; numeric?: boolean; check?(value: string): string | null }): Promise<string | null> {
 	return new Promise((resolve) => {
 		let value = o.value ?? '', ok = false;
 		const m = new Modal(app);
 		m.setTitle(o.title);
 		const f = field(m, o.placeholder, value);
+		// (a number: a phone shows its number keys)
+		if (o.numeric) f.text.inputEl.inputMode = 'numeric';
 		const done = () => {
 			const why = value.trim() || o.allowEmpty ? o.check?.(value.trim()) ?? null : null;
 			if (why) { f.refuse(why); return; }

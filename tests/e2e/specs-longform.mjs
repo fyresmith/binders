@@ -241,6 +241,18 @@ test('corkboard: scenes in Longform order, indented scenes grouped under the sce
 	t.eq(j(await cards(p)), j(SCENES.map((n) => `${DIR}/${n}.md`)), 'cards in order');
 	t.eq(j(await groupsShown(p)), j([':Harbor', 'Harbor:Ticket office,The crossing', ':Island,Return']), 'the group has the scene above it as heading');
 	t.ok(await p.ev(`document.querySelectorAll('.workspace-leaf.mod-active .binders-group.is-indented').length === 1`), 'and is indented');
+	// (a project has no folders: nothing on its board is a stack, and each group ends in its own "New note" tile)
+	t.eq(await p.ev(`document.querySelectorAll('.workspace-leaf.mod-active .binders-card.is-stack').length`), 0, 'no card is a stack');
+	t.eq(await p.ev(`document.querySelectorAll('.workspace-leaf.mod-active .binders-group').length + ' groups, ' + document.querySelectorAll('.workspace-leaf.mod-active .binders-card-new').length + ' tiles'`), '3 groups, 3 tiles', 'each group has its “New note” tile');
+	t.eq(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-group.is-indented .binders-group-count')?.textContent`), '2 notes · 13 words'.replace('13', String(await p.ev(`[...document.querySelectorAll('.workspace-leaf.mod-active .binders-group.is-indented .binders-card-words')].map(e => parseInt(e.textContent, 10)).reduce((a, b) => a + b, 0)`))), 'the group’s heading counts its scenes and their words');
+	t.eq(await p.ev(`document.querySelectorAll('.workspace-leaf.mod-active .binders-breadcrumbs .binders-crumb[data-path]').length`), 0, 'and there is no folder above to go out to');
+	// the toolbar's New has no folder to offer
+	const nb = await p.at('.workspace-leaf.mod-active .binders-new-button');
+	await p.click(nb.x, nb.y);
+	await p.sleep(200);
+	t.eq(j(await p.ev(`[...document.querySelectorAll('.menu .menu-item-title')].map(e => e.textContent)`)), j(['New note']), 'New offers a note, and no folder');
+	await p.key('Escape');
+	await p.sleep(150);
 	t.eq(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-view-synopsis')?.textContent`), 'Add a synopsis', 'the synopsis row edits the index note');
 	// the heading selects its scene
 	const hd = await p.at(`.workspace-leaf.mod-active .binders-group.is-indented .binders-group-title`);

@@ -272,13 +272,19 @@ test('what a label is: a preset in any case, a theme color by name, #abc or #AAB
 	await showExplorer(p);
 	const want = { 'Prologue.md': ['mod-label-red', 'rgb(233, 49, 71)'], 'Part One/Arrival.md': ['mod-label-cyan', 'rgb(0, 191, 188)'], 'Part One/The keeper.md': ['mod-label-custom', 'rgb(170, 187, 204)'], 'Part One/Storm warning.md': ['mod-label-blue', 'rgb(8, 109, 221)'], 'Part Two/The wreck.md': ['mod-label-custom', 'rgb(255, 136, 0)'], 'Part Two/Lights out.md': ['mod-label-other', null] };
 	const light = await p.ev(`document.body.classList.contains('theme-light')`), d = await dots(p);
+	// (a board shows one folder: each note's card is looked at on its own folder's board)
+	let shown = '';
 	for (const [path, [kind, rgb]] of Object.entries(want)) {
+		const dir = path.includes('/') ? '/' + path.split('/')[0] : '';
+		if (dir !== shown) { await openView(p, 'The Lighthouse' + dir); shown = dir; }
 		const c = await cardLabel(p, path);
+		t.ok(c, `${path} has a card on the board of “The Lighthouse${dir}”`);
 		t.eq(c.kind, kind, `${vals[path]}: the card’s kind`);
 		// (theme colors differ by theme: the shades are checked in the light one)
 		if (rgb && (light || kind === 'mod-label-custom')) t.eq(c.stripe, rgb, `${vals[path]}: the card’s stripe`);
 		t.eq(d[L + path], c.stripe, `${vals[path]}: the explorer’s dot is the card’s color`);
 	}
+	await openView(p);
 	t.eq((await cardLabel(p, 'Epilogue.md')).has, false, 'an empty label is no label');
 	t.ok(!(L + 'Epilogue.md' in d), 'and no dot');
 	// the menu ticks the preset whatever the case, and lists what notes use after the presets
@@ -324,15 +330,17 @@ test('menus: ticks for the current value, none for a mixed selection; by keyboar
 	await until(p, `app.metadataCache.getFileCache(${file(L + 'Prologue.md')})?.frontmatter?.status === 'Proofed'`);
 	t.eq((await fm(p, L + 'Prologue.md')).status, 'Proofed', 'a new status, trimmed, on the note');
 	t.eq(j(await p.ev(`${PL}.settings.statuses`)), j(['Idea', 'Draft', 'Revised', 'Done']), 'and not added to settings');
-	// two cards that differ: nothing ticked
+	// two cards that differ: nothing ticked (in Part One, on its own board)
+	await openView(p, L + 'Part One');
 	const a = await p.at(card(L + 'Part One/Arrival.md')), k = await p.at(card(L + 'Part One/The keeper.md'));
 	await p.click(a.x, a.t + 12);
 	await p.click(k.x, k.t + 12, { modifiers: 2 });
 	await p.right(k.x, k.y);
 	await hoverMenu(p, 'Set status');
-	t.eq(j((await menuItems(p)).slice(-7)), j(['Idea', 'Draft', 'Revised', 'Done', 'Proofed', 'New status...', 'No status']), 'a status a note uses is offered after the presets');
+	t.eq(j((await menuItems(p)).slice(-7)), j(['Idea', 'Draft', 'Revised', 'Done', 'Proofed', 'New status...', 'No status']), 'a status a note uses (elsewhere in the binder) is offered after the presets');
 	t.eq(j((await checked(p)).filter((x) => x !== 'Include in compile')), j([]), 'a mixed selection ticks nothing');
 	await closeMenus(p);
+	await openView(p);
 	// keyboard only: the card's menu, down to "Set label", into its submenu, a label
 	const c = await p.at(card(L + 'Epilogue.md'));
 	await p.click(c.x, c.t + 12);
@@ -351,13 +359,14 @@ test('menus: ticks for the current value, none for a mixed selection; by keyboar
 	// a folder (first closing the card's menu, which a pick by keyboard leaves open: see the BUG test below)
 	await closeMenus(p);
 	await p.sleep(300);
-	const g = await p.at('.workspace-leaf.mod-active .binders-group-title');
-	await p.right(g.x, g.y);
-	await hoverMenu(p, 'Set label');
+	// (its stack on the binder's board: the stack's menu is the folder's)
+	await openItemMenu(p, 'Part One', 'Set label');
 	await clickMenu(p, 'Red');
 	await until(p, `!!app.vault.getAbstractFileByPath(${j(L + 'Part One/Part One.md')})`);
 	await until(p, `app.metadataCache.getFileCache(${file(L + 'Part One/Part One.md')})?.frontmatter?.label === 'Red'`);
 	t.eq((await fm(p, L + 'Part One/Part One.md')).label, 'Red', 'a folder’s label is in its folder note');
+	await until(p, `document.querySelector(${j(card(L + 'Part One'))})?.classList.contains('mod-label-red')`);
+	t.eq((await cardLabel(p, 'Part One')).kind, 'mod-label-red', 'and its stack shows it');
 	await showExplorer(p);
 	t.ok(L + 'Part One' in (await dots(p)), 'and the folder has a dot in the explorer');
 	same(t, before, await texts(p), { skip: [L + 'Prologue.md', L + 'Epilogue.md'] });
@@ -398,32 +407,42 @@ test('custom color dialog: starts from the color shown; a three-digit hex in cap
 
 test('tint: title and synopsis read on every theme color (contrast ≥ 4.5), tinted or not', async (p, h, t) => {
 	await openView(p);
-	await moreOptions(p, 'Tint cards with their label color');
 	const sel = card(L + 'Prologue.md');
-	for (const v of ['red', 'orange', 'yellow', 'green', 'cyan', 'blue', 'purple', 'pink', 'Nobody']) {
-		await setFm(p, L + 'Prologue.md', { label: v });
-		await until(p, `document.querySelector(${j(sel)})?.dataset.label?.toLowerCase() === ${j(v.toLowerCase())}`);
-		const c = await p.ev(`(${CONTRAST})(${j(sel)})`);
-		t.ok(c.title >= 4.5 && c.synopsis >= 4.5 && c.chip >= 4.5, `${v}: title ${c.title}, synopsis ${c.synopsis}, status ${c.chip}`);
-	}
+	const tinted = () => p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-board').classList.contains('mod-label-tint')`);
+	t.eq(await tinted(), true, 'cards are tinted as the board comes');
+	const read = async (how) => {
+		for (const v of ['red', 'orange', 'yellow', 'green', 'cyan', 'blue', 'purple', 'pink', 'Nobody']) {
+			await setFm(p, L + 'Prologue.md', { label: v });
+			await until(p, `document.querySelector(${j(sel)})?.dataset.label?.toLowerCase() === ${j(v.toLowerCase())}`);
+			const c = await p.ev(`(${CONTRAST})(${j(sel)})`);
+			t.ok(c.title >= 4.5 && c.synopsis >= 4.5 && c.chip >= 4.5, `${v}, ${how}: title ${c.title}, synopsis ${c.synopsis}, status ${c.chip}`);
+		}
+	};
+	await read('tinted');
 	// selected and tinted: the selection ring, over the tint
 	const at = await p.at(sel);
 	await p.click(at.x, at.t + 12);
 	await p.sleep(400); // (the ring fades in)
 	// (the selection is the card's border grown to a ring, in its label's color)
 	t.ok(/0px 0px 0px 2px/.test(await p.ev(`getComputedStyle(document.querySelector(${j(sel)})).boxShadow`)), 'a selected tinted card has the selection ring');
+	// the menu item turns the tint off: the label is the border alone
+	await moreOptions(p, 'Tint cards with their label color');
+	t.eq(await tinted(), false, '“Tint cards with their label color” turns it off');
+	await read('not tinted');
 });
 
 test('targets: several notes at once; by hand as text; never more than a full line; a folder’s shows in the toolbar; the outliner agrees', async (p, h, t) => {
 	const before = await texts(p);
-	await openView(p);
+	await openView(p, L + 'Part One');
 	const a = await p.at(card(L + 'Part One/Arrival.md')), k = await p.at(card(L + 'Part One/The keeper.md'));
 	await p.click(a.x, a.t + 12);
 	await p.click(k.x, k.t + 12, { modifiers: 2 });
 	await typeTarget(p, 'Part One/The keeper.md', '40');
 	await until(p, `app.metadataCache.getFileCache(${file(L + 'Part One/Arrival.md')})?.frontmatter?.target === 40`);
 	t.eq(j([(await fm(p, L + 'Part One/Arrival.md')).target, (await fm(p, L + 'Part One/The keeper.md')).target]), j([40, 40]), 'a target for every selected note');
+	await until(p, `document.querySelector(${j(card(L + 'Part One/Arrival.md'))}).querySelector('.binders-card-words')?.textContent === '18 / 40 words'`);
 	t.eq((await foot(p, 'Part One/Arrival.md')).text, '18 / 40 words', 'said on the card');
+	await openView(p);
 	for (const [v, text, pct] of [['1,500', '21 / 1,500 words', '1%'], ['10', '21 / 10 words', '100%'], [-3, '21 words', ''], [0, '21 words', ''], ['lots', '21 words', '']]) {
 		await setFm(p, L + 'Prologue.md', { target: v });
 		await until(p, `document.querySelector(${j(card(L + 'Prologue.md'))}).querySelector('.binders-card-words')?.textContent === ${j(text)}`);
@@ -436,14 +455,16 @@ test('targets: several notes at once; by hand as text; never more than a full li
 	await p.key('Escape');
 	await p.sleep(250);
 	await p.ev(`document.querySelectorAll('.modal-close-button').forEach(b => b.click())`);
-	// a folder's target: in its folder note; the toolbar shows it when the folder is the one shown
-	const g = await p.at('.workspace-leaf.mod-active .binders-group-title');
-	await p.right(g.x, g.y);
+	// a folder's target (from its stack's menu): in its folder note; its stack says how far along it is, and the
+	// toolbar shows it when the folder is the one shown
+	await openItemMenu(p, 'Part One');
 	await clickMenu(p, 'Set target...');
 	await until(p, `!!document.querySelector('.modal .binders-ask input')`);
 	await p.type('100');
 	await p.key('Enter');
 	await until(p, `app.metadataCache.getFileCache(${file(L + 'Part One/Part One.md')})?.frontmatter?.target === 100`);
+	await until(p, `/100/.test(document.querySelector(${j(card(L + 'Part One'))}).querySelector('.binders-card-words')?.textContent ?? '')`);
+	t.eq((await foot(p, 'Part One')).text, '3 notes · 51 / 100 words', 'the stack counts its notes’ words against the folder’s target');
 	t.eq(j(await toolbar(p)), j({ count: '106 words', hidden: true, complete: false, width: '0%' }), 'the binder has no target: no bar');
 	await p.ev(`${VIEW}.navigate(${file('The Lighthouse/Part One')})`);
 	await until(p, `document.querySelector('.workspace-leaf.mod-active .binders-word-count')?.textContent === '51 / 100 words'`);
@@ -463,26 +484,27 @@ test('targets: several notes at once; by hand as text; never more than a full li
 });
 
 test('filter: status and label together, kept across modes and in the view’s state; “Clear filter”; a note made while filtering shows', async (p, h, t) => {
-	await setFm(p, L + 'Prologue.md', { label: 'Red' });
+	// (in Part One, on its own board: Arrival is revised, The keeper a draft, Storm warning an idea)
+	await setFm(p, L + 'Part One/The keeper.md', { label: 'Red' });
 	await setFm(p, L + 'Part One/Arrival.md', { label: 'Red' });
-	await openView(p);
+	await openView(p, L + 'Part One');
 	await openFilter(p);
 	await clickMenu(p, 'Draft');
 	await p.sleep(350);
 	t.ok((await p.ev(`document.querySelectorAll('.menu').length`)) === 1, 'the menu is there again for the next pick');
 	await clickMenu(p, 'Idea');
 	await p.sleep(350);
-	t.eq(j(short(await cards(p))), j(['Prologue', 'The keeper', 'Storm warning', 'The wreck', 'Lights out', 'Epilogue']), 'two statuses: either');
+	t.eq(j(short(await cards(p))), j(['The keeper', 'Storm warning']), 'two statuses: either');
 	await clickMenu(p, 'Red');
 	await p.sleep(350);
-	t.eq(j(short(await cards(p))), j(['Prologue']), 'and a label: both');
+	t.eq(j(short(await cards(p))), j(['The keeper']), 'and a label: both (Arrival is red, but revised)');
 	t.eq(await p.ev(`document.querySelector('${filterButton}').innerText`), 'Filter (3)', 'the button counts what’s picked');
 	t.eq(j((await viewState(p)).filter), j({ status: ['Draft', 'Idea'], label: ['Red'] }), 'in the view’s state');
 	await p.key('Escape');
 	await p.sleep(200);
 	t.ok(await p.ev(`document.activeElement === document.querySelector('${filterButton}')`), 'Escape gives the focus back to the button');
 	await setMode(p, 'outliner');
-	t.eq(j(Object.keys(await outlinerCells(p, 'label'))), j(['Prologue.md']), 'the outliner filters the same');
+	t.eq(j(Object.keys(await outlinerCells(p, 'label'))), j(['Part One/The keeper.md']), 'the outliner filters the same');
 	await setMode(p, 'corkboard');
 	// a new note while filtering: shown, though it has no status
 	const nb = await p.at('.workspace-leaf.mod-active .binders-new-button');
@@ -492,13 +514,14 @@ test('filter: status and label together, kept across modes and in the view’s s
 	await p.sleep(400);
 	await p.type('Fresh');
 	await p.key('Enter');
-	await until(p, `!!app.vault.getAbstractFileByPath(${j(L + 'Fresh.md')})`);
+	await until(p, `!!app.vault.getAbstractFileByPath(${j(L + 'Part One/Fresh.md')})`);
 	await p.sleep(400);
 	t.ok(short(await cards(p)).includes('Fresh'), 'a note just made shows though the filter would hide it');
 	await openFilter(p);
 	await clickMenu(p, 'Clear filter');
 	await p.sleep(300);
-	t.eq((await cards(p)).length, 8, 'cleared: every card');
+	t.eq(j(short(await cards(p)).sort()), j(['Arrival', 'Fresh', 'Storm warning', 'The keeper']), 'cleared: every card');
+	t.eq(short(await cards(p)).length, 4, 'four of them');
 	t.eq(await p.ev(`document.querySelectorAll('.menu').length`), 0, 'and the menu closes');
 });
 
@@ -662,17 +685,20 @@ bug('keyboard: Enter on a label in the “Set label” submenu closes the card�
 bug('tint: a labeled stack keeps its stack edges', async (p, h, t) => {
 	await p.ev(`(async () => { const n = await ${B}.ensureFolderNote(${file('The Lighthouse/Part One')}); await app.fileManager.processFrontMatter(n, fm => { fm.label = 'green'; }); })().then(() => 1)`);
 	await openView(p);
-	await moreOptions(p, 'Show subfolders as stacks');
 	await until(p, `!!document.querySelector(${j(card(L + 'Part One'))})?.classList.contains('is-stack')`);
+	await until(p, `!!document.querySelector(${j(card(L + 'Part One'))})?.classList.contains('mod-label-green')`);
 	await p.move(5, 5);
 	const layers = (path) => p.ev(`getComputedStyle(document.querySelector(${j(card(L + path))})).boxShadow.split(/,(?![^(]*\\))/).length`);
 	const plain = await layers('Part Two');
 	t.ok(plain > 1, 'a stack is drawn as a pile of cards');
-	t.eq(await layers('Part One'), plain, 'a labeled one too, before tinting');
+	// (cards are tinted as the board comes)
+	t.ok(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-board').classList.contains('mod-label-tint')`), 'the board tints its cards');
+	t.eq(await layers('Part One'), plain, 'a labeled one too, tinted (the tint’s ring replaces the pile: it looks like a single card)');
 	await moreOptions(p, 'Tint cards with their label color');
 	await p.move(5, 5);
 	await p.sleep(300);
-	t.eq(await layers('Part One'), plain, 'and tinted (the tint’s ring replaces the pile: it looks like a single card)');
+	t.ok(!(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-board').classList.contains('mod-label-tint')`)), 'the tint turned off');
+	t.eq(await layers('Part One'), plain, 'and with the tint off');
 });
 
 bug('explorer: a label written as a list shows its dot, as its card shows its color', async (p, h, t) => {
@@ -698,9 +724,7 @@ bug('explorer: a name cut short doesn’t run into its dot', async (p, h, t) => 
 
 bug('a labeled folder renamed in the explorer isn’t told its note “is now the note of the folder”', async (p, h, t) => {
 	await openView(p);
-	const g = await p.at('.workspace-leaf.mod-active .binders-group-title');
-	await p.right(g.x, g.y);
-	await hoverMenu(p, 'Set label');
+	await openItemMenu(p, 'Part One', 'Set label');
 	await clickMenu(p, 'Red');
 	await until(p, `!!app.vault.getAbstractFileByPath(${j(L + 'Part One/Part One.md')})`);
 	await clearNotices(p);
@@ -709,6 +733,9 @@ bug('a labeled folder renamed in the explorer isn’t told its note “is now th
 	await p.sleep(500);
 	t.ok(await exists(p, L + 'Part 1/Part 1.md'), 'the folder note follows its folder');
 	t.eq(j((await notices(p)).filter((n) => /is now the note of the folder/.test(n))), j([]), 'without a notice about a scene becoming a folder note');
+	await until(p, `!!document.querySelector(${j(card(L + 'Part 1'))})`);
+	t.eq((await cardLabel(p, 'Part 1')).kind, 'mod-label-red', 'and the stack, under its new name, keeps its label');
+	t.eq(j(short(await cards(p))), j(['Prologue', 'Part 1', 'Part Two', 'Epilogue']), 'the folder note has no card of its own');
 });
 
 bug('targets: “1.500” isn’t a target of 2 words', async (p, h, t) => {
@@ -826,12 +853,13 @@ ux('targets: the binder’s own target can be set from the view', async (p, h, t
 	t.ok(found.some((x) => /target/i.test(x)), 'the word count, the view’s menu or a command sets the target of the folder shown (only editing the hidden binder note’s properties does)');
 });
 
-ux('targets: a folder’s target shows on the corkboard, on its heading', async (p, h, t) => {
+ux('targets: a folder’s target shows on the corkboard, on its stack', async (p, h, t) => {
 	await p.ev(`(async () => { const n = await ${B}.ensureFolderNote(${file('The Lighthouse/Part One')}); await app.fileManager.processFrontMatter(n, fm => { fm.target = 100; }); })().then(() => 1)`);
 	await openView(p);
-	await p.sleep(400);
-	const head = await p.ev(`[...document.querySelectorAll('.workspace-leaf.mod-active .binders-group-heading')].find(h => h.querySelector('.binders-group-name')?.textContent === 'Part One')?.innerText ?? ''`);
-	t.ok(/100/.test(head), `Part One’s heading says how far along its 100 words it is (it says “${head.replace(/\n/g, ' · ')}”)`);
+	await until(p, `/100/.test(document.querySelector(${j(card(L + 'Part One'))})?.querySelector('.binders-card-words')?.textContent ?? '')`);
+	const head = await p.ev(`document.querySelector(${j(card(L + 'Part One'))})?.querySelector('.binders-card-words')?.textContent ?? ''`);
+	t.eq(head, '3 notes · 51 / 100 words', 'Part One’s stack says how far along its 100 words it is');
+	t.eq((await foot(p, 'Part Two')).text, '2 notes · 28 words', 'a folder without a target says its words alone');
 });
 
 ux('filter: the menu stays where it is after a pick', async (p, h, t) => {
@@ -860,14 +888,15 @@ ux('filter: by keyboard, the menu keeps its place after a pick', async (p, h, t)
 });
 
 ux('filter: a value no note has any more can still be unticked, and an empty board says why', async (p, h, t) => {
-	await setFm(p, L + 'Epilogue.md', { status: 'Proofed' });
-	await openView(p);
+	// (in a folder of notes alone: on a board with folders, their stacks stay whatever the filter)
+	await setFm(p, L + 'Part Two/The wreck.md', { status: 'Proofed' });
+	await openView(p, L + 'Part Two');
 	await openFilter(p);
 	await clickMenu(p, 'Proofed');
 	await p.sleep(300);
 	await closeMenus(p);
-	t.eq(j(short(await cards(p))), j(['Epilogue']), 'filtered to the one proofed note');
-	await setFm(p, L + 'Epilogue.md', { status: 'Done' });
+	t.eq(j(short(await cards(p))), j(['The wreck']), 'filtered to the one proofed note');
+	await setFm(p, L + 'Part Two/The wreck.md', { status: 'Done' });
 	await until(p, `document.querySelectorAll('.workspace-leaf.mod-active .binders-card[data-path]').length === 0`);
 	const said = await p.ev(`/filter|no notes|nothing/i.test(document.querySelector('.workspace-leaf.mod-active .binders-mode').innerText)`);
 	await openFilter(p);
@@ -877,15 +906,48 @@ ux('filter: a value no note has any more can still be unticked, and an empty boa
 	t.ok(said, 'and the empty board says the filter hides every note');
 });
 
-ux('filter: headings and the toolbar count what’s shown', async (p, h, t) => {
+// BUG (2026-10-01, the one-folder board): a stack says "N of M notes" under a filter, but only if it happens to be drawn
+// afresh: what a stack's card is cached by (cardKey) and the board's signature leave the filter out, so a stack drawn
+// before the filter changed keeps its old count ("2 notes · 28 words" with none of the two showing).
+bug('filter: stacks count what’s shown, as the toolbar does', async (p, h, t) => {
+	await openView(p);
+	await until(p, `/words/.test(document.querySelector(${j(card(L + 'Part Two'))})?.querySelector('.binders-card-words')?.textContent ?? '')`);
+	await openFilter(p);
+	await clickMenu(p, 'Revised');
+	await p.sleep(300);
+	await closeMenus(p);
+	// (only Arrival, in Part One, is revised: none of the binder's own notes shows, its folders do)
+	t.eq(j(short(await cards(p))), j(['Part One', 'Part Two']), 'no note of the binder’s own shown; the folders stay');
+	t.eq(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-word-count').textContent`), '18 of 106 words', 'the toolbar counts what the filter leaves');
+	await p.sleep(600);
+	const count = (await foot(p, 'Part Two')).text;
+	t.ok(!/^2 notes/.test(count), `Part Two, with none of its notes shown, doesn’t say “${count}” as if they were`);
+	t.eq(count.split(' · ')[0], '0 of 2 notes', 'it says none of its two shows');
+	t.eq((await foot(p, 'Part One')).text, '1 of 3 notes · 18 words', 'Part One: the one that shows, and its words');
+	// and back to the whole count when the filter is cleared
+	await openFilter(p);
+	await clickMenu(p, 'Clear filter');
+	await p.sleep(600);
+	t.eq((await foot(p, 'Part Two')).text, '2 notes · 28 words', 'cleared: every note counted again');
+});
+
+test('filter: it goes along into a folder, and a board opened with a filter on counts its stacks by it', async (p, h, t) => {
 	await openView(p);
 	await openFilter(p);
 	await clickMenu(p, 'Revised');
 	await p.sleep(300);
 	await closeMenus(p);
-	t.eq(j(short(await cards(p))), j(['Arrival']), 'one note shown');
-	const count = await p.ev(`[...document.querySelectorAll('.workspace-leaf.mod-active .binders-group-heading')].find(h => h.querySelector('.binders-group-name')?.textContent === 'Part Two')?.querySelector('.binders-group-count')?.textContent ?? ''`);
-	t.ok(!/^2 notes/.test(count), `Part Two, with none of its notes shown, doesn’t say “${count}” as if they were`);
+	// inside Part One (the filter is the view's, and goes along): the one note
+	await p.ev(`${VIEW}.navigate(${file('The Lighthouse/Part One')})`);
+	await until(p, `document.querySelectorAll('.workspace-leaf.mod-active .binders-card[data-path]').length === 1`);
+	t.eq(j(short(await cards(p))), j(['Arrival']), 'one note shown in Part One');
+	t.eq(j((await viewState(p)).filter.status), j(['Revised']), 'the filter is still on');
+	// back on the binder's board, drawn afresh with the filter on: the stacks say what shows
+	await p.ev(`${VIEW}.navigate(${file('The Lighthouse')})`);
+	await until(p, `document.querySelectorAll('.workspace-leaf.mod-active .binders-card.is-stack').length === 2`);
+	await until(p, `/of/.test(document.querySelector(${j(card(L + 'Part One'))})?.querySelector('.binders-card-words')?.textContent ?? '')`);
+	t.eq((await foot(p, 'Part One')).text, '1 of 3 notes · 18 words', 'Part One: the one that shows, and its words');
+	t.eq((await foot(p, 'Part Two')).text.split(' · ')[0], '0 of 2 notes', 'Part Two: none of its two');
 });
 
 ux('filter: one entry for one color, however its hex is written', async (p, h, t) => {
@@ -902,7 +964,8 @@ ux('tint: the word count on a tinted card reads no worse than on a plain one', a
 	await setFm(p, L + 'Prologue.md', { label: 'blue' });
 	await openView(p);
 	const plain = (await p.ev(`(${CONTRAST})(${j(card(L + 'Epilogue.md'))})`)).words;
-	await moreOptions(p, 'Tint cards with their label color');
+	// (cards are tinted as the board comes)
+	t.ok(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-board').classList.contains('mod-label-tint') && document.querySelector(${j(card(L + 'Prologue.md'))}).classList.contains('mod-label-blue')`), 'Prologue’s card is tinted blue');
 	const tinted = (await p.ev(`(${CONTRAST})(${j(card(L + 'Prologue.md'))})`)).words;
 	t.ok(tinted >= plain - 0.05, `contrast ${tinted} on the tint, ${plain} on a plain card`);
 });

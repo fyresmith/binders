@@ -10,6 +10,16 @@ interface WithSubmenu { setSubmenu(): Menu }
 const hasSubmenu = (i: MenuItem): i is MenuItem & WithSubmenu => typeof (i as Partial<WithSubmenu>).setSubmenu === 'function';
 
 /** Makes `item` open a submenu built by `build`. */
+/** Lets an item of a menu be picked without the menu closing (a list to tick several things in): `pick` does it and
+    says whether the item is ticked now. Not in the API: the item's `dom`, whose click Obsidian closes the menu on.
+    False if this Obsidian has no such thing; the caller then opens the menu again after each pick. */
+export function keepOpen(item: MenuItem, pick: () => boolean): boolean {
+	const dom = (item as unknown as { dom?: HTMLElement }).dom;
+	if (!dom || typeof dom.addEventListener !== 'function') return false;
+	dom.addEventListener('click', (e) => { e.preventDefault(); e.stopImmediatePropagation(); item.setChecked(pick()); }, true);
+	return true;
+}
+
 export function submenu(item: MenuItem, build: (menu: Menu) => void, root?: Menu): void {
 	if (hasSubmenu(item)) {
 		try {

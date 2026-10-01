@@ -69,6 +69,8 @@ export class Press<T> {
 
 	private onDown(e: PointerEvent): void {
 		this.pointer = e.pointerType;
+		// (a second finger isn't a press of its own: it ends the first's, so two fingers never hold or drag anything)
+		if (!e.isPrimary) { this.endPress(); return; }
 		if (e.button !== 0 || this.dragging || (e.target as HTMLElement).closest('input, textarea, select')) return;
 		const hit = this.host.pick(e);
 		if (!hit) return;
@@ -103,7 +105,8 @@ export class Press<T> {
 		if (this.dragging) { this.host.move(e.clientX, e.clientY); return; }
 		const d = Math.hypot(e.clientX - p.x, e.clientY - p.y);
 		if (p.touch && !p.armed) { if (d > 10) this.endPress(); return; } // a swipe: let it scroll
-		if (d <= DRAG_START) return;
+		// (a finger held still isn't quite still: see the corkboard's own press)
+		if (d <= (p.touch ? 12 : DRAG_START)) return;
 		if (!this.host.canDrag(p.data)) { this.endPress(); return; }
 		this.dragging = true;
 		p.el.removeClass('is-lifted');
@@ -162,6 +165,17 @@ export function places(root: HTMLElement, selector: string, key: (el: HTMLElemen
 
 /** Moves each element from where it was (`before`, or `from(el)` for one just dropped) to where it is. Returns the
     animations started, by element. */
+/** The lowest point of a scrolling pane that can be seen: its own bottom edge, or the top of the bar of buttons
+    Obsidian lays over the foot of the screen on a phone. Dragging near it scrolls the pane. */
+export function visibleBottom(el: HTMLElement): number {
+	const r = el.getBoundingClientRect(), bar = el.doc.querySelector('.mobile-navbar')?.getBoundingClientRect();
+	return bar && bar.height > 0 && bar.top > r.top && bar.top < r.bottom ? bar.top : r.bottom;
+}
+
+/** How much faster a pane scrolls for a drag held at its edge since `since`: twice as fast each second, up to eight
+    times, so the far end of a long binder isn't a minute away. */
+export const held = (since: number): number => Math.min(8, 2 ** ((performance.now() - since) / 1000));
+
 export function glide(root: HTMLElement, selector: string, key: (el: HTMLElement) => string | null, before: Map<string, DOMRect>, view: DOMRect, from?: (el: HTMLElement) => DOMRect | undefined, how: KeyframeAnimationOptions = GLIDE): Map<HTMLElement, Animation> {
 	const out = new Map<HTMLElement, Animation>();
 	if (root.win.matchMedia('(prefers-reduced-motion: reduce)').matches) return out;

@@ -1,4 +1,5 @@
 import { ButtonComponent, Modal, Notice, Setting, type App } from 'obsidian';
+import { buttonRow, cancelButton } from './view/modals';
 import type { Binder, BinderStore } from './binders';
 import { longformRunning } from './longform';
 
@@ -23,9 +24,9 @@ export class ConvertModal extends Modal {
 			.addToggle((t) => t.setValue(this.removeLongform).onChange((v) => { this.removeLongform = v; this.update(); }));
 		contentEl.createEl('p', { text: 'What will happen:' });
 		this.summaryEl = contentEl.createEl('ul');
-		const row = contentEl.createDiv({ cls: 'modal-button-container' });
+		const row = buttonRow(this);
 		this.convertBtn = new ButtonComponent(row).setButtonText('Convert').setCta().onClick(() => void this.convert()).buttonEl;
-		new ButtonComponent(row).setButtonText('Cancel').onClick(() => this.close());
+		cancelButton(row, this);
 		this.update();
 	}
 

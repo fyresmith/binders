@@ -78,10 +78,22 @@ async function splitNote(p, text, at, opts = {}) {
 const rejoined = (r) => split(r.first).body.replace(/\s+$/, '') + '|' + split(r.second).body.replace(/^\s+/, '');
 const seam = (body, at) => body.slice(0, at).replace(/\s+$/, '') + '|' + body.slice(at).replace(/^\s+/, '');
 
-/** Selects cards (in click order) and opens the menu on the last. */
+/** Selects cards (in click order) and opens the menu on the last. A board shows one folder, so the cards of notes in a
+    subfolder are on that folder's own board: it's opened if the board shown doesn't have them. */
 async function selectCards(p, paths) {
+	const dir = (x) => x.slice(0, x.lastIndexOf('/'));
+	if (!(await p.at(card(paths[0]))) && paths.every((x) => dir(x) === dir(paths[0])) && (await p.ev(`!!${B}.binderOf(${j(dir(paths[0]))})`).catch(() => false))) await openView(p, dir(paths[0]));
 	let i = 0, a;
 	for (const path of paths) { a = await p.at(card(path)); if (!a) throw new Error('no card ' + path); await p.click(a.x, a.t + 12, i++ ? { modifiers: 2 } : {}); await p.sleep(80); }
+	await p.right(a.x, a.y);
+	await p.sleep(150);
+}
+/** Selects rows of the outliner (in click order) and opens the menu on the last: the outliner shows a folder's notes
+    under it, so notes of several folders can be picked together there. */
+async function selectRows(p, paths) {
+	const R = (path) => `.workspace-leaf.mod-active .binders-outliner-row[data-path="${path}"] .binders-outliner-name`;
+	let i = 0, a;
+	for (const path of paths) { a = await p.at(R(path)); if (!a) throw new Error('no row ' + path); await p.click(a.x, a.y, i++ ? { modifiers: 2 } : {}); await p.sleep(80); }
 	await p.right(a.x, a.y);
 	await p.sleep(150);
 }
@@ -368,7 +380,16 @@ test('merge: five notes from three folders, clicked in a jumbled order, join in 
 	t.ok(/joined into “Arrival”/.test(said), 'the dialog says which note they go into');
 	t.eq(j(await texts(p)), j(before), 'Cancel: every note as it was');
 	t.eq(j(await contents(p)), j(LIST), 'and the list');
-	const said5 = await mergeUI(p, [L + 'Epilogue.md', P2 + 'Lights out.md', L + 'Prologue.md', P1 + 'The keeper.md', P2 + 'The wreck.md']);
+	// (notes of three folders: picked in the outliner, where they all show)
+	await openView(p);
+	await modeOf(p, 'outliner');
+	await selectRows(p, [L + 'Epilogue.md', P2 + 'Lights out.md', L + 'Prologue.md', P1 + 'The keeper.md', P2 + 'The wreck.md']);
+	t.ok((await menuItems(p)).includes('Merge 5 notes'), 'five notes of three folders: offered');
+	await clickMenu(p, 'Merge 5 notes');
+	await until(p, `!!document.querySelector('.modal')`);
+	const said5 = await modalText(p);
+	await pressModal(p, 'Merge');
+	await p.sleep(1200);
 	t.ok(/Merge 5 notes/.test(said5) && /joined into “Prologue”/.test(said5) && /The other 4 go to the (system|vault’s) trash/.test(said5), 'five: into the first in binder order, whatever was clicked first');
 	const body = (path) => split(before[L + path]).body.trim();
 	t.eq(split(await read(p, L + 'Prologue.md')).body, ['Prologue.md', 'Part One/The keeper.md', 'Part Two/The wreck.md', 'Part Two/Lights out.md', 'Epilogue.md'].map(body).join('\n\n') + '\n', 'the five texts in binder order, a blank line between');
@@ -457,7 +478,7 @@ test('merge: CRLF notes, an empty note and one with only properties join cleanly
 	await writeRaw(p, NOTE, raw.replace('binder: 1', 'binder: 99'));
 	await p.sleep(800);
 	await openView(p);
-	t.eq(await mergeUI(p, [P1 + 'Arrival.md', L + 'Prologue.md']), null, 'no “Merge” in a read-only binder');
+	t.eq(await mergeUI(p, [L + 'Prologue.md', L + 'Epilogue.md']), null, 'no “Merge” in a read-only binder');
 	await writeRaw(p, NOTE, raw);
 	await p.sleep(800);
 });
@@ -485,10 +506,10 @@ test('BUG: merging into a note that is only properties, with no line break after
 });
 
 test('BUG: words typed in the manuscript a moment before aren’t lost when that note is merged away from another view', async (p, h, t) => {
-	// two views of the binder: the manuscript, and a corkboard beside it with two cards selected
+	// two views: the binder's manuscript, and beside it the corkboard of Part One with two cards selected
 	await openView(p);
 	await modeOf(p, 'manuscript');
-	await p.ev(`(async () => { const l = app.workspace.getLeaf('split'); await l.setViewState({ type: 'binders-view', state: { folder: 'The Lighthouse', mode: 'corkboard' }, active: true }); })().then(() => 1)`);
+	await p.ev(`(async () => { const l = app.workspace.getLeaf('split'); await l.setViewState({ type: 'binders-view', state: { folder: 'The Lighthouse/Part One', mode: 'corkboard' }, active: true }); })().then(() => 1)`);
 	await p.sleep(1200);
 	const any = (path) => `.binders-card[data-path="${path}"]`; // (the corkboard's: the manuscript has no cards)
 	const a = await p.at(any(P1 + 'Arrival.md')), s = await p.at(any(P1 + 'Storm warning.md'));
@@ -625,18 +646,30 @@ test('BUG: duplicating a folder that holds a note named like the copy (“Part T
 test('group: cards that aren’t next to each other, and a folder among them, go into a folder where the first was; Escape while naming keeps the folder; not offered across folders or in Longform', async (p, h, t) => {
 	const before = await texts(p);
 	await openView(p);
-	// notes of different folders: no one folder could hold them where they are
-	await selectCards(p, [P1 + 'Arrival.md', P2 + 'The wreck.md']);
+	// notes of different folders (picked in the outliner; a board shows one folder): no one folder could hold them
+	// where they are
+	await modeOf(p, 'outliner');
+	await selectRows(p, [P1 + 'Arrival.md', P2 + 'The wreck.md']);
 	t.ok(!(await menuItems(p)).some((x) => /folder/i.test(x)), 'not offered for notes of different folders');
 	await closeMenus(p);
+	await modeOf(p, 'corkboard');
 	await selectCards(p, [L + 'Epilogue.md', L + 'Prologue.md']);
 	await clickMenu(p, 'New folder from selection');
-	await until(p, `document.activeElement?.matches('.workspace-leaf.mod-active .binders-group-name input')`);
+	// (the new folder is a stack where the first note was, its name being typed on it)
+	await until(p, `document.activeElement?.matches('.workspace-leaf.mod-active .binders-card.is-stack .binders-card-title input')`);
+	t.ok(await p.ev(`document.activeElement?.matches('.workspace-leaf.mod-active .binders-card.is-stack .binders-card-title input')`), 'the folder’s name is being typed on its stack');
 	await p.key('Escape');
 	await settle(p);
 	t.eq(j(await contents(p)), j(['Untitled/', 'Untitled/Prologue', 'Untitled/Epilogue', ...LIST.slice(1, 8)]), 'Escape leaves the folder with its first name, the notes in it in binder order');
-	// a folder and a note together, by the store (a folder has no card at the binder's top)
-	await p.ev(`${B}.group([${file(L + 'Part One')}, ${file(L + 'Part Two')}], 'Act one').then(() => 1)`);
+	t.eq(j(await p.ev(`[...document.querySelectorAll('.workspace-leaf.mod-active .binders-card[data-path]')].map(c => c.dataset.path)`)), j([L + 'Untitled', L + 'Part One', L + 'Part Two']), 'the board: the new folder’s stack first, where Prologue was');
+	// folders too, from their stacks
+	await selectCards(p, [L + 'Part Two', L + 'Part One']);
+	await clickMenu(p, 'New folder from selection');
+	await until(p, `document.activeElement?.matches('.workspace-leaf.mod-active .binders-card.is-stack .binders-card-title input')`);
+	await p.key('a', 'ctrl');
+	await p.type('Act one');
+	await p.key('Enter');
+	await until(p, `app.vault.adapter.exists(${j(L + 'Act one/Part Two/The wreck.md')})`);
 	await settle(p);
 	t.eq(j((await contents(p)).slice(3)), j(['Act one/', 'Act one/Part One/', 'Act one/Part One/Arrival', 'Act one/Part One/The keeper', 'Act one/Part One/Storm warning', 'Act one/Part Two/', 'Act one/Part Two/The wreck', 'Act one/Part Two/Lights out']), 'folders go in with what they hold, in order');
 	same(t, before, await texts(p), { skip: [NOTE], moved: Object.fromEntries(Object.keys(before).filter((k) => k.startsWith(L) && k !== NOTE).map((k) => [k, /Part/.test(k) ? k.replace(L, L + 'Act one/') : k.replace(L, L + 'Untitled/')])) });
@@ -755,8 +788,11 @@ test('synopsis from text: with the synopsis kept under another property; several
 	t.eq(await read(p, P1 + 'Arrival.md'), '---\nsummary: Has one.\nsynopsis: old key\n---\nArrival text.\n', 'the one that had a synopsis is untouched');
 	t.eq(await read(p, K), '---\nsummary: Keeper text.\n---\nKeeper text.\n', 'a note without properties gets them');
 	t.eq(await read(p, P1 + 'Storm warning.md'), '---\nsummary: Storm text.\n---\nStorm text.\n', 'an empty synopsis is filled');
-	const hd = await p.at('.workspace-leaf.mod-active .binders-group-title');
-	await p.right(hd.x + 300, hd.y);
+	// (a folder: its stack, on the binder's board)
+	await openView(p);
+	const hd = await p.at(card(L + 'Part One'));
+	await p.right(hd.x, hd.y);
+	t.ok((await menuItems(p)).includes('Edit synopsis'), 'a folder’s menu has its synopsis to edit');
 	t.ok(!(await menuItems(p)).includes('Set synopsis from text'), 'a folder has no text to take one from');
 	await closeMenus(p);
 	// typing a moment before
@@ -978,22 +1014,25 @@ test('UX: footnotes of two notes with the same label don’t run into each other
 // Undo and redo of moves
 // =====================================================================================================================
 
-test('undo: real drags in the corkboard (two cards together to another folder, then one) are taken back by Mod+Z one by one, to the byte; Mod+Shift+Z and Mod+Y redo; a new move ends redo', async (p, h, t) => {
+test('undo: real drags in the corkboard (two cards together onto another folder’s stack, then a stack) are taken back by Mod+Z one by one, to the byte; Mod+Shift+Z and Mod+Y redo; a new move ends redo', async (p, h, t) => {
 	const before = await texts(p), f0 = await files(p);
 	await openView(p);
-	const a = await p.at(card(P1 + 'Arrival.md')), s = await p.at(card(P1 + 'Storm warning.md'));
+	// the binder's two own notes, dropped together on the middle of Part Two's stack: into that folder, at its end
+	const a = await p.at(card(L + 'Prologue.md')), s = await p.at(card(L + 'Epilogue.md'));
 	await p.click(a.x, a.t + 12); await p.click(s.x, s.t + 12, { modifiers: 2 });
-	const w = await p.at(card(P2 + 'The wreck.md'));
-	await p.drag(s.x, s.t + 12, w.l + 10, w.y, 16);
+	const w = await p.at(card(L + 'Part Two'));
+	await p.drag(s.x, s.t + 12, w.x, w.y, 16);
 	await p.sleep(600); await settle(p);
-	const one = ['Prologue', 'Part One/', 'Part One/The keeper', 'Part Two/', 'Part Two/Arrival', 'Part Two/Storm warning', 'Part Two/The wreck', 'Part Two/Lights out', 'Epilogue'];
-	t.eq(j(await contents(p)), j(one), 'two cards dropped before The wreck');
-	const e = await p.at(card(L + 'Epilogue.md')), pr = await p.at(card(L + 'Prologue.md'));
+	const one = ['Part One/', 'Part One/Arrival', 'Part One/The keeper', 'Part One/Storm warning', 'Part Two/', 'Part Two/The wreck', 'Part Two/Lights out', 'Part Two/Prologue', 'Part Two/Epilogue'];
+	t.eq(j(await contents(p)), j(one), 'two cards dropped on Part Two’s stack');
+	t.ok(await exists(p, P2 + 'Prologue.md') && await exists(p, P2 + 'Epilogue.md'), 'their files are in that folder');
+	// then that stack itself, to the left edge of Part One's: before it
+	const e = await p.at(card(L + 'Part Two')), pr = await p.at(card(L + 'Part One'));
 	await p.drag(e.x, e.t + 12, pr.l + 10, pr.y, 16);
 	await p.sleep(600); await settle(p);
-	const two = ['Epilogue', ...one.slice(0, -1)];
-	t.eq(j(await contents(p)), j(two), 'then Epilogue to the top');
-	t.eq(await stacks(p), j([['Move 2 items', 'Move “Epilogue”'], []]), 'two changes to undo: the drop of two cards is one');
+	const two = [...one.slice(4), ...one.slice(0, 4)];
+	t.eq(j(await contents(p)), j(two), 'then Part Two to the top, with what it holds');
+	t.eq(await stacks(p), j([['Move 2 items', 'Move “Part Two”'], []]), 'two changes to undo: the drop of two cards is one');
 	await p.key('z', 'ctrl'); await settle(p);
 	t.eq(j(await contents(p)), j(one), 'Mod+Z takes back the last');
 	await p.key('z', 'ctrl'); await settle(p);
@@ -1005,17 +1044,17 @@ test('undo: real drags in the corkboard (two cards together to another folder, t
 	await p.key('y', 'ctrl'); await settle(p);
 	t.eq(j(await contents(p)), j(two), 'Mod+Y the second');
 	await p.key('z', 'ctrl'); await settle(p);
-	t.eq(await undoable(p, 'The Lighthouse', true), 'Move “Epilogue”', 'something to redo');
-	await put(p, [L + 'Prologue.md'], 'The Lighthouse', null); await settle(p);
+	t.eq(await undoable(p, 'The Lighthouse', true), 'Move “Part Two”', 'something to redo');
+	await put(p, [P2 + 'Prologue.md'], 'The Lighthouse', null); await settle(p);
 	t.eq(await undoable(p, 'The Lighthouse', true), null, 'a new move ends redo');
-	same(t, before, await texts(p), { skip: [NOTE], moved: { [P1 + 'Arrival.md']: P2 + 'Arrival.md', [P1 + 'Storm warning.md']: P2 + 'Storm warning.md' } });
+	same(t, before, await texts(p), { skip: [NOTE], moved: { [L + 'Epilogue.md']: P2 + 'Epilogue.md' } });
 });
 
 test('undo: Mod+Z does nothing to the order while a menu or a dialog is open, a name is being typed, or in the manuscript’s text (there it’s the text’s own undo)', async (p, h, t) => {
 	await openView(p);
 	await put(p, [L + 'Epilogue.md'], 'The Lighthouse', L + 'Prologue.md'); await settle(p);
 	const still = async (m) => { await p.sleep(300); t.eq(await undoable(p), 'Move “Epilogue”', m); };
-	const c = await p.at(card(P1 + 'Arrival.md'));
+	const c = await p.at(card(L + 'Prologue.md'));
 	await p.right(c.x, c.y);
 	await p.key('z', 'ctrl');
 	await still('a menu open');
@@ -1026,7 +1065,7 @@ test('undo: Mod+Z does nothing to the order while a menu or a dialog is open, a 
 	await p.key('z', 'ctrl');
 	await still('a dialog open');
 	await p.key('Escape'); await p.sleep(300);
-	const c2 = await p.at(card(P1 + 'Arrival.md'));
+	const c2 = await p.at(card(L + 'Prologue.md'));
 	await p.click(c2.x, c2.t + 12); await p.key('F2'); await p.sleep(300);
 	await p.type('x'); await p.key('z', 'ctrl');
 	await still('a card’s name being typed');
@@ -1105,7 +1144,8 @@ test('undo: a drag in the file explorer is taken back by “Undo last move” (w
 	await clearUndo(p);
 	await put(p, [P2 + 'The wreck.md'], L + 'Part One', P1 + 'Arrival.md'); await settle(p);
 	await p.ev(`app.vault.delete(${file(P1 + 'The wreck.md')}).then(() => 1)`); await settle(p);
-	t.eq(await undo(p), 'Move “The wreck”', 'undo after the moved note was deleted');
+	// (nothing of that move is left to take back: it's dropped, and there's no move before it)
+	t.eq(await undo(p), null, 'undo after the moved note was deleted has nothing to do');
 	await settle(p);
 	t.eq(j(await contents(p)), j(LIST.filter((x) => x !== 'Part Two/The wreck')), 'the rest in order, no entry for the note that’s gone');
 });

@@ -129,7 +129,8 @@ test('cards: a label is a preset by name, a theme color by name, or a color of y
 	t.eq((await fm(p, L + 'Prologue.md')).label, '#12ab34', 'the note’s label is the color');
 	await until(p, `document.querySelector(${j(card(L + 'Prologue.md'))})?.style.getPropertyValue('--binders-label') === '#12ab34'`);
 	t.eq((await cardLabel(p, 'Prologue.md')).color, '#12ab34', 'and its card shows it');
-	// several at once, then none
+	// several at once (on the board of the folder they're in), then none
+	await openView(p, L + 'Part One');
 	const a = await p.at(card(L + 'Part One/Arrival.md')), k = await p.at(card(L + 'Part One/The keeper.md'));
 	await p.click(a.x, a.t + 12);
 	await p.click(k.x, k.t + 12, { modifiers: 2 });
@@ -138,6 +139,25 @@ test('cards: a label is a preset by name, a theme color by name, or a color of y
 	await clickMenu(p, 'Mara');
 	await until(p, `['Arrival', 'The keeper'].every(n => app.metadataCache.getFileCache(app.vault.getAbstractFileByPath(${j(L + 'Part One/')} + n + '.md'))?.frontmatter?.label === 'Mara')`);
 	t.eq(j([(await fm(p, L + 'Part One/Arrival.md')).label, (await fm(p, L + 'Part One/The keeper.md')).label]), j(['Mara', 'Mara']), 'a label set on every selected note');
+	await until(p, `document.querySelectorAll('.workspace-leaf.mod-active .binders-card.mod-label-purple').length === 2`);
+	t.eq(j(await p.ev(`[...document.querySelectorAll('.workspace-leaf.mod-active .binders-card[data-path]')].map(c => c.classList.contains('mod-label-purple'))`)), j([true, true, false]), 'and both cards show it, the third not');
+	// a note and a folder's stack together: the folder's label goes to its folder note
+	await openView(p);
+	const e = await p.at(card(L + 'Epilogue.md')), st = await p.at(card(L + 'Part Two'));
+	await p.click(e.x, e.t + 12);
+	await p.click(st.x, st.t + 12, { modifiers: 2 });
+	await p.right(st.x, st.t + 12);
+	await hoverMenu(p, 'Set label');
+	await clickMenu(p, 'Storm');
+	await until(p, `app.metadataCache.getFileCache(${file(L + 'Part Two/Part Two.md')})?.frontmatter?.label === 'Storm' && app.metadataCache.getFileCache(${file(L + 'Epilogue.md')})?.frontmatter?.label === 'Storm'`);
+	t.eq(j([(await fm(p, L + 'Epilogue.md')).label, (await fm(p, L + 'Part Two/Part Two.md'))?.label]), j(['Storm', 'Storm']), 'a label set on a note and a folder together: the folder’s is in its folder note');
+	await until(p, `document.querySelector(${j(card(L + 'Part Two'))})?.classList.contains('mod-label-custom')`);
+	const stack = await cardLabel(p, 'Part Two');
+	t.eq(j([stack.kind, stack.color]), j(['mod-label-custom', '#ff8800']), 'and its stack shows the color');
+	t.eq((await cardLabel(p, 'Part One')).has, false, 'the other stack has none');
+	t.eq(split(await read(p, L + 'Epilogue.md')).body, split(before[L + 'Epilogue.md']).body, 'Epilogue’s text untouched');
+	await p.ev(`app.fileManager.processFrontMatter(${file(L + 'Epilogue.md')}, fm => { fm.label = 'red'; }).then(() => 1)`);
+	await until(p, `app.metadataCache.getFileCache(${file(L + 'Epilogue.md')})?.frontmatter?.label === 'red'`);
 	await setLabelMenu(p, 'Prologue.md');
 	t.ok((await menuItems(p)).includes('No label'), 'a labeled note can have its label taken away');
 	await clickMenu(p, 'No label');
@@ -158,8 +178,9 @@ test('cards: “Tint cards with their label color” washes a labeled card in it
 	await openView(p);
 	await until(p, `document.querySelector(${j(card(L + 'Prologue.md'))})?.classList.contains('has-label')`);
 	const bg = () => p.ev(`[${j(card(L + 'Prologue.md'))}, ${j(card(L + 'Epilogue.md'))}].map(s => getComputedStyle(document.querySelector(s)).backgroundColor)`);
-	// (the board's own menu: a right-click away from any card)
-	const board = await p.at('.workspace-leaf.mod-active .binders-board');
+	// (the board's own menu: a right-click away from any card, below them, where the board is empty)
+	const box = await p.at('.workspace-leaf.mod-active .binders-corkboard');
+	const board = { l: box.l, w: box.w, t: box.t + box.h - 120 };
 	// as it comes, a labeled card is tinted, as a colored card on a canvas is; the menu turns that off
 	const first = await bg();
 	t.ok(first[0] !== first[1], `at first a labeled card is tinted (${first[0]})`);

@@ -303,7 +303,9 @@ test('a long binder (300 notes): quick to draw, the header stays, autoscroll is 
 	await p.sleep(500);
 	let frames = await sampleStop(p);
 	const steps = frames.slice(1).map((f, i) => Math.round(f.scroll - frames[i].scroll)).filter((s, i, all) => i > 0 && i < all.length - 1);
-	t.ok(steps.length > 10 && steps.every((s) => s > 0 && Math.abs(s - steps[0]) <= 2), 'the same step every frame: ' + steps.slice(0, 12).join(' '));
+	// (it picks up speed the longer the row is held at the edge, gently: about half as fast again over half a second)
+	t.ok(steps.length > 10 && steps.every((s, i) => s > 0 && (i === 0 || Math.abs(s - steps[i - 1]) <= 2)), 'no jump from one frame to the next: ' + steps.slice(0, 12).join(' '));
+	t.ok(steps[steps.length - 1] >= steps[0] - 2 && steps[steps.length - 1] <= steps[0] * 1.6 + 2, 'and no faster than the gentle speeding up of a row held at the edge: ' + steps[0] + ' → ' + steps[steps.length - 1]);
 	await p.key('Escape');
 	await release(p, mid.x, o.t + o.h - 20);
 	await p.sleep(300);

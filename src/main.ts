@@ -1,4 +1,4 @@
-import { Keymap, MarkdownView, Notice, Plugin, TFile, TFolder, normalizePath, type Menu, type PaneType, type TAbstractFile, type WorkspaceLeaf } from 'obsidian';
+import { Keymap, MarkdownView, Notice, Platform, Plugin, TFile, TFolder, normalizePath, type Menu, type PaneType, type TAbstractFile, type WorkspaceLeaf } from 'obsidian';
 import { BinderStore, type Binder } from './binders';
 import { BinderView, MODES, VIEW_TYPE } from './view/BinderView';
 import { ITEM_MENU } from './view/actions';
@@ -36,7 +36,7 @@ export default class BindersPlugin extends Plugin {
 
 		this.registerView(VIEW_TYPE, (leaf) => new BinderView(leaf, this));
 		// (not in a card's own menu, which has these already)
-		this.registerEvent(this.app.workspace.on('file-menu', (menu, file, source) => { if (source !== ITEM_MENU) this.fileMenu(menu, file); }));
+		this.registerEvent(this.app.workspace.on('file-menu', (menu, file, source) => { if (source !== ITEM_MENU) this.fileMenu(menu, file, source); }));
 		this.registerEvent(this.app.workspace.on('files-menu', (menu, files, source) => { if (source !== ITEM_MENU) this.filesMenu(menu, files); }));
 		const active = () => this.app.workspace.getActiveFile();
 		this.addCommand({ id: 'open-binder', name: 'Open binder', checkCallback: (checking) => {
@@ -59,6 +59,11 @@ export default class BindersPlugin extends Plugin {
 			if (!checking) void this.makeBinder(folder);
 			return true;
 		} });
+		// a binder from nothing: beside the note that's open if that's outside a binder, else at the top of the vault
+		this.addCommand({ id: 'new-binder', name: 'New binder', icon: 'book', callback: () => {
+			const file = active(), parent = file?.parent && !this.binders.binderOf(file) ? file.parent : this.app.vault.getRoot();
+			void this.newBinder(parent);
+		} });
 		this.addCommand({ id: 'new-scene', name: 'New scene here', checkCallback: (checking) => {
 			const file = active(), folder = this.folderOf(file);
 			// in a binder view with nothing being typed in: where the view would put one (after the selection, or last)
@@ -67,8 +72,9 @@ export default class BindersPlugin extends Plugin {
 			if (!file || !folder || !this.binders.binderOf(file) || this.binders.problem(file)) return false;
 			if (!checking) {
 				// right after the note you're in; from a binder or folder note, at the end of that folder
-				const at = this.binders.isHiddenNote(file) ? undefined : (this.binders.orderedChildren(folder) ?? []).indexOf(file) + 1;
-				void this.newScene(folder, at);
+				// (from a note the binder doesn't list, a Longform project's ignored note say, at the end too)
+				const i = (this.binders.orderedChildren(folder) ?? []).indexOf(file);
+				void this.newScene(folder, this.binders.isHiddenNote(file) || i < 0 ? undefined : i + 1);
 			}
 			return true;
 		} });
@@ -135,7 +141,10 @@ export default class BindersPlugin extends Plugin {
 		let leaf: WorkspaceLeaf | null = null;
 		if (!newLeaf) {
 			// by its saved state, so tabs that haven't loaded yet count too
-			leaf = ws.getLeavesOfType(VIEW_TYPE).find((l) => { const f = (l.getViewState().state as { folder?: unknown } | undefined)?.folder; return typeof f === 'string' && this.binders.binderOf(f) === binder; }) ?? null;
+			// (the tab in front, if it shows this binder: with the binder in two tabs, that's the one that goes there)
+			const shows = (l: WorkspaceLeaf) => { const f = (l.getViewState().state as { folder?: unknown } | undefined)?.folder; return l.getViewState().type === VIEW_TYPE && typeof f === 'string' && this.binders.binderOf(f) === binder; };
+			const front = ws.getMostRecentLeaf();
+			leaf = (front && shows(front) ? front : ws.getLeavesOfType(VIEW_TYPE).find(shows)) ?? null;
 		}
 		leaf ??= ws.getLeaf(newLeaf);
 		const was = leaf.getViewState();
@@ -164,8 +173,13 @@ export default class BindersPlugin extends Plugin {
 		this.binders?.refresh(); // the views: labels and statuses may have changed
 	}
 
-	private fileMenu(menu: Menu, file: TAbstractFile): void {
+	private fileMenu(menu: Menu, file: TAbstractFile, source = ''): void {
 		const b = this.binders;
+		// (a note's own "More options" has no section for making things: there, with what else is done to the note)
+		const make = source === 'more-options' ? 'action' : 'action-primary';
+		// the binder's own note (where the quick switcher lands for a binder's name) leads to its binder
+		const own = file instanceof TFile ? b.binderOf(file) : null;
+		if (own && file === own.note) menu.addItem((i) => i.setSection('open').setTitle('Open binder').setIcon('book').onClick((e) => void this.openBinder(own.folder, Keymap.isModEvent(e))));
 		if (file instanceof TFolder && b.binderOf(file)) {
 			// (in the sections Obsidian's own items of the kind are in: opening with "Open in new tab", making with "New note")
 			menu.addItem((i) => i.setSection('open').setTitle('Open binder').setIcon('book').onClick((e) => void this.openBinder(file, Keymap.isModEvent(e))));
@@ -185,7 +199,7 @@ export default class BindersPlugin extends Plugin {
 		const folder = file.parent;
 		if (file instanceof TFile && folder && b.binderOf(file) && !b.isHiddenNote(file) && (b.orderedChildren(folder) ?? []).includes(file)) {
 			menu.addItem((i) => i.setSection('open').setTitle('Show in binder').setIcon('book').onClick((e) => void this.openBinder(folder, Keymap.isModEvent(e), file)));
-			if (file.extension === 'md' && !b.problem(file)) menu.addItem((i) => i.setSection('action-primary').setTitle('New scene after this').setIcon('file-plus').onClick(() => void this.newScene(folder, (b.orderedChildren(folder) ?? []).indexOf(file) + 1)));
+			if (file.extension === 'md' && !b.problem(file)) menu.addItem((i) => i.setSection(make).setTitle('New scene after this').setIcon('file-plus').onClick(() => void this.newScene(folder, (b.orderedChildren(folder) ?? []).indexOf(file) + 1)));
 		}
 		const lf = this.longformOf(file); // longform (0.7)
 		if (lf && (file === lf.note || file === lf.folder)) menu.addItem((i) => i.setSection('action-primary').setTitle('Convert to binder').setIcon('library').onClick(() => new ConvertModal(this.app, b, lf).open()));
@@ -245,15 +259,27 @@ export default class BindersPlugin extends Plugin {
 		for (let n = 1; vault.getAbstractFileByPath(at(name)); n++) name = `Untitled binder ${n}`;
 		const folder = await this.tell(vault.createFolder(at(name)));
 		if (!folder || !(await this.tell(this.binders.makeBinder(folder)))) return;
-		window.setTimeout(() => renameInExplorer(this.app, folder), 100); // (once the explorer has its row)
+		window.setTimeout(() => {
+			// (once the explorer has its row) its name ready to type there; with the explorer out of sight (the command,
+			// with a phone's drawer shut), the new binder opens instead, so there's something to see
+			if (!renameInExplorer(this.app, folder)) void this.openBinder(folder);
+		}, 100);
 	}
 
 	private async newScene(folder: TFolder, index?: number) {
 		const file = await this.tell(this.binders.newScene(folder, index));
 		if (!(file instanceof TFile)) return;
 		// in a binder view on that folder, the new note shows there, ready to be named: the view isn't left for the note
-		const view = this.app.workspace.getActiveViewOfType(BinderView);
-		if (view?.folder && (file.parent === view.folder || file.path.startsWith(view.folder.path + '/'))) { view.revealItem(file, true); return; }
+		// (the view in front: with the file explorer in use, a phone's drawer say, no view is "active")
+		const front = this.app.workspace.getMostRecentLeaf(), view = this.app.workspace.getActiveViewOfType(BinderView) ?? (front?.view instanceof BinderView ? front.view : null);
+		if (view?.folder && (file.parent === view.folder || file.path.startsWith(view.folder.path + '/'))) {
+			// the keyboard goes to the view (on a phone that closes the drawer over it) before the name is asked for
+			if (Platform.isPhone) this.app.workspace.leftSplit?.collapse();
+			this.app.workspace.setActiveLeaf(view.leaf, { focus: true });
+			// (once the drawer has gone: as it goes it takes the focus from whatever has it)
+			window.setTimeout(() => view.revealItem(file, true), Platform.isPhone ? 350 : 0);
+			return;
+		}
 		// its name ready to type over, as a new note made in the file explorer is
 		await openForRename(this.app.workspace.getLeaf(false), file);
 	}

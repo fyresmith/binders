@@ -1,7 +1,7 @@
 import { Keymap, Menu, Notice, Platform, TFile, TFolder, setIcon, type EventRef, type TAbstractFile } from 'obsidian';
 import { compiles, emptyState, isNote, plain, itemMenu, labelItems, nameOf, noteOf, removeItems, renameItem, setAll, setCompile, statusItems } from './actions';
 import { COMPILE_PROP } from '../scenes';
-import { GLIDE_QUICK, Press, glide, places, settle } from './drag';
+import { GLIDE_QUICK, Press, glide, held, places, settle, visibleBottom } from './drag';
 import { editable, type Editable } from './edit';
 import { submenu } from './internals';
 import { labelDot, labelName, rank } from './labels';
@@ -104,6 +104,7 @@ class Outliner implements BinderMode {
 	render(): void {
 		// (focusable, so a click on the space below the rows leaves the keyboard in the outliner)
 		this.root = this.container.createDiv({ cls: 'binders-outliner', attr: { tabindex: '-1' } });
+		this.fit.observe(this.root);
 		this.moved = this.ctx.app.vault.on('rename', (f, old) => this.onMoved(f.path, old));
 		this.table = this.root.createDiv({ cls: 'binders-outliner-table', attr: { role: 'treegrid', 'aria-label': 'Outliner', 'aria-multiselectable': 'true' } });
 		this.head = this.table.createDiv({ cls: 'binders-outliner-head', attr: { role: 'row' } });
@@ -128,7 +129,10 @@ class Outliner implements BinderMode {
 			el: this.body,
 			pick: (e) => {
 				const t = e.target as HTMLElement, row = t.closest<HTMLElement>('.binders-outliner-row');
-				return row && !t.closest('.is-editing, .binders-outliner-chevron, input, .binders-outliner-cell.is-menu') ? { el: row, data: row.dataset.path } : null;
+				// (a label or status cell opens its own list on a click; under a finger it's part of the row all the same: a
+				// long press there opens the row's menu or lifts the row, as anywhere else on it)
+				if (!row || t.closest('.is-editing, .binders-outliner-chevron, input')) return null;
+				return e.pointerType === 'touch' || !t.closest('.binders-outliner-cell.is-menu') ? { el: row, data: row.dataset.path } : null;
 			},
 			canDrag: () => {
 				if (this.ro) return false;
@@ -175,6 +179,7 @@ class Outliner implements BinderMode {
 	}
 
 	unload(): void {
+		this.fit.disconnect();
 		if (this.moved) this.ctx.app.vault.offref(this.moved);
 		this.said?.hide();
 		this.press.destroy();
@@ -188,7 +193,12 @@ class Outliner implements BinderMode {
 
 	current(): TAbstractFile | null { return this.item(this.focused ?? [...this.sel][0]); }
 
-	place(): unknown { return { scroll: this.root.scrollTop, left: this.root.scrollLeft, sel: [...this.sel], focused: this.focused }; }
+	/** Where the table is: the first row in sight and how far it's scrolled past the top (rows out of sight are
+	    stand-ins of a guessed height, so a scroll position alone wouldn't find the same place again). */
+	place(): unknown {
+		const top = this.root.getBoundingClientRect().top + this.head.offsetHeight, first = this.rowEls().find((r) => r.getBoundingClientRect().bottom > top + 1);
+		return { scroll: this.root.scrollTop, top: first?.dataset.path ?? null, offset: first ? Math.round(top - first.getBoundingClientRect().top) : 0, left: this.root.scrollLeft, sel: [...this.sel], focused: this.focused };
+	}
 
 	restore(place: unknown): void {
 		const p = (place ?? {}) as { scroll?: unknown; left?: unknown; sel?: unknown; focused?: unknown };
@@ -196,6 +206,16 @@ class Outliner implements BinderMode {
 		this.select(sel, typeof p.focused === 'string' && this.drawn.has(p.focused) ? p.focused : sel[sel.length - 1] ?? null);
 		if (typeof p.scroll === 'number') this.root.scrollTop = p.scroll;
 		if (typeof p.left === 'number') this.root.scrollLeft = p.left;
+		// the row that was at the top is put there again, now and once more when the rows around it have been laid out
+		const q = place as { top?: unknown; offset?: unknown } | null, path = typeof q?.top === 'string' ? q.top : null, offset = typeof q?.offset === 'number' ? q.offset : 0;
+		const again = () => {
+			const row = path ? this.rowEl(path) : null;
+			if (row) this.root.scrollTop += row.getBoundingClientRect().top - (this.root.getBoundingClientRect().top + this.head.offsetHeight) + offset;
+		};
+		again();
+		const stop = () => { window.clearTimeout(t1); window.clearTimeout(t2); };
+		const t1 = window.setTimeout(again, 30), t2 = window.setTimeout(again, 200);
+		for (const type of ['wheel', 'touchstart', 'pointerdown', 'keydown'] as const) this.root.addEventListener(type, stop, { once: true, passive: true });
 	}
 
 	/** The folder's synopsis scrolls away with the rows; the column headers stay. */
@@ -212,6 +232,8 @@ class Outliner implements BinderMode {
 		el.scrollIntoView({ block: 'nearest' });
 		el.focus({ preventScroll: true });
 		if (fresh && !this.ro) this.drawn.get(item.path)?.title.edit();
+		// (and once the pane has been laid out: shown right after the view opens, the rows aren't yet where they'll be)
+		else window.setTimeout(() => { if (this.sel.has(item.path)) this.rowEl(item.path)?.scrollIntoView({ block: 'nearest' }); }, 350);
 	}
 
 	filterChanged(): void { /* the next refresh shows what passes */ }
@@ -346,13 +368,44 @@ class Outliner implements BinderMode {
 		return Array.isArray(v) ? text(v) : v;
 	}
 
+	/** The pane changing size while something is typed (a phone's keyboard coming up over it): the field stays in sight. */
+	private fit = new ResizeObserver(() => {
+		const a = this.root.doc.activeElement;
+		if (this.editing > 0 && a?.instanceOf(HTMLElement) && this.body.contains(a)) a.scrollIntoView({ block: 'nearest' });
+	});
+
+	/** On a phone a label is its color alone, in a column a finger wide (unless the column has been given a width):
+	    the room goes to the title, the status and the word count, which are words. */
+	private labelCompact = false;
+	private compact(c: ColumnSpec): boolean { return Platform.isPhone && c.id === 'label' && c.width == null && this.root.clientWidth < 520; }
+	/** (and on a phone's narrow pane a status and a word count are a little narrower than elsewhere, unless they've
+	    been given a width: the room goes to the title) */
+	private widthOf(c: ColumnSpec): number {
+		if (this.compact(c)) return 44;
+		if (c.width == null && Platform.isPhone && this.root.clientWidth < 520) { if (c.id === 'status') return 88; if (c.id === 'words') return 64; }
+		return columnWidth(c);
+	}
+
+	/** Under a finger a tick's whole cell is the tick (the box alone is too small to hit). */
+	private tickByCell(td: HTMLElement, box: HTMLInputElement): void {
+		td.addEventListener('click', (e) => {
+			if (e.target === box || box.disabled || this.press.pointer !== 'touch') return;
+			e.stopPropagation();
+			box.click();
+		});
+	}
+
 	// ---- drawing ----
 
 	private busy(): boolean { return this.editing > 0 || !!this.drag || this.moving || this.press?.dragging; }
 
 	private onEditing(on: boolean, row?: HTMLElement): void {
 		this.editing += on ? 1 : -1;
-		if (on) row?.scrollIntoView({ block: 'nearest' });
+		if (on && row) {
+			// (rows still gliding to their places are measured where they started: they're put where they're going first)
+			for (const a of this.body.getAnimations({ subtree: true })) a.finish();
+			row.scrollIntoView({ block: 'nearest' });
+		}
 		if (!on && !this.busy()) window.setTimeout(() => { if (!this.busy()) this.draw(); }, 0);
 	}
 
@@ -372,15 +425,16 @@ class Outliner implements BinderMode {
 		this.root.toggleClass('is-read-only', ro);
 		this.root.toggleClass('is-sorted', !!sort);
 		this.root.toggleClass('mod-synopses', synopses);
-		cols.forEach((c, i) => this.table.setCssProps({ [`--binders-ol-c${i}`]: `${columnWidth(c)}px` }));
+		this.labelCompact = cols.some((c) => this.compact(c));
+		cols.forEach((c, i) => this.table.setCssProps({ [`--binders-ol-c${i}`]: `${this.widthOf(c)}px` }));
 		// as wide as the pane, the title taking what the columns leave; wider only when they leave it too little
-		this.table.setCssProps({ '--binders-ol-columns': `${cols.reduce((a, c) => a + columnWidth(c), 0)}px` });
+		this.table.setCssProps({ '--binders-ol-columns': `${cols.reduce((a, c) => a + this.widthOf(c), 0)}px` });
 
-		const headKey = JSON.stringify([cols.map((c) => c.id), sort, ro]);
+		const headKey = JSON.stringify([cols.map((c) => c.id), sort, ro, this.labelCompact]);
 		if (headKey !== this.headKey) { this.headKey = headKey; this.drawHead(cols, sort); }
 
 		// everything a row shows: when it's the same, the row drawn last time is used again
-		const shared = JSON.stringify([cols.map((c) => c.id), ro, synopses, this.settings.labels, !!sort]);
+		const shared = JSON.stringify([this.labelCompact, cols.map((c) => c.id), ro, synopses, this.settings.labels, !!sort]);
 		const drawn = new Map<string, Drawn>(), fresh: HTMLElement[] = [];
 		let at: ChildNode | null = this.body.firstChild;
 		for (const r of rows) {
@@ -448,6 +502,7 @@ class Outliner implements BinderMode {
 			const el = this.head.createDiv({ cls: 'binders-outliner-th', attr: { role: 'columnheader', 'data-col': id, tabindex: id === TITLE ? '0' : '-1', 'aria-haspopup': 'menu', 'aria-label': columnName(id) } });
 			if (id === TITLE) el.addClass('mod-title'); else el.setCssStyles({ width: `var(--binders-ol-c${i})` });
 			if (builtIn(id)?.numeric) el.addClass('mod-numeric');
+			if (i >= 0 && cols[i] && this.compact(cols[i])) { el.addClass('mod-compact'); setIcon(el.createSpan({ cls: 'binders-outliner-th-icon' }), 'palette'); }
 			el.createSpan({ cls: 'binders-outliner-th-name', text: columnName(id) });
 			const on = sort?.id === id;
 			el.setAttr('aria-sort', on ? (sort.dir === 1 ? 'ascending' : 'descending') : 'none');
@@ -520,6 +575,9 @@ class Outliner implements BinderMode {
 		switch (id) {
 			case 'label':
 				if (!ro) td.addClass('is-menu');
+				td.toggleClass('mod-compact', this.labelCompact);
+				// (the color alone says nothing to a screen reader)
+				if (this.labelCompact && p.label) td.setAttr('aria-label', `Label: ${labelName(p.label, presets)}`);
 				if (p.label) { labelDot(td, p.label, presets); td.createSpan({ cls: 'binders-outliner-value', text: labelName(p.label, presets) }); }
 				return null;
 			case 'status':
@@ -538,7 +596,7 @@ class Outliner implements BinderMode {
 				return editable(td, {
 					// (shown as numbers are written here; typed as plain digits, so what's shown never has to be read back)
 					cls: 'binders-outliner-field', value: t.own && t.n ? t.n.toLocaleString() : '', editValue: t.own && t.n ? String(t.n) : '', placeholder: !t.own && t.n ? t.n.toLocaleString() : '', label: `Target of ${nameOf(item)}`,
-					singleLine: true, allowEmpty: true, readOnly: ro, shouldEdit: () => this.sel.has(item.path),
+					singleLine: true, allowEmpty: true, numeric: true, readOnly: ro, shouldEdit: () => this.sel.has(item.path),
 					save: async (typed) => {
 						const n = parseTarget(typed);
 						if (n == null) throw new Error('A target is a whole number of words.');
@@ -564,6 +622,7 @@ class Outliner implements BinderMode {
 				box.disabled = ro || (!box.checked && this.frontmatter(item).compile !== false);
 				box.addEventListener('click', (e) => e.stopPropagation());
 				box.addEventListener('change', () => void setCompile(this.ctx, [item], box.checked));
+				this.tickByCell(td, box);
 				return null;
 			}
 			case 'created': case 'modified':
@@ -586,6 +645,7 @@ class Outliner implements BinderMode {
 			box.disabled = ro;
 			box.addEventListener('click', (e) => e.stopPropagation());
 			box.addEventListener('change', () => { void write(box.checked).catch((e) => new Notice(plain(e))); });
+			this.tickByCell(td, box);
 			return null;
 		}
 		if (v && typeof v === 'object' && !Array.isArray(v)) { td.createSpan({ cls: 'binders-outliner-value', text: '…' }); return null; }
@@ -676,14 +736,18 @@ class Outliner implements BinderMode {
 			const order = this.rowEls().map((r) => r.dataset.path), a = order.indexOf(this.anchor), b = order.indexOf(path);
 			if (a >= 0 && b >= 0) { const range = order.slice(Math.min(a, b), Math.max(a, b) + 1); this.select(Keymap.isModEvent(e) ? [...new Set([...this.sel, ...range])] : range, path, this.anchor); return; }
 		}
-		if (Keymap.isModEvent(e)) {
+		// ("Select more" in a row's menu, by touch: each tap adds a row or takes it out, until none is left)
+		if (Keymap.isModEvent(e) || this.picking) {
 			const next = new Set(this.sel);
 			if (next.has(path)) next.delete(path); else next.add(path);
 			this.select([...next], path, path);
+			if (!next.size) this.picking = false;
 			return;
 		}
 		this.select([path]);
 	}
+	private picking = false;
+	private edgeSince = 0;
 
 	// ---- pointer ----
 
@@ -697,7 +761,7 @@ class Outliner implements BinderMode {
 		const item = this.item(row.dataset.path);
 		if (t.closest('.binders-outliner-chevron') && item instanceof TFolder) { this.toggle(item); return; }
 		// a tap on a note's name opens it, as a tap on a note in the file explorer does
-		if (this.press.pointer === 'touch' && t.closest('.binders-outliner-name') && !t.closest('.is-editing')) { this.select([row.dataset.path]); this.open(row, false); return; }
+		if (this.press.pointer === 'touch' && !this.picking && t.closest('.binders-outliner-name') && !t.closest('.is-editing')) { this.select([row.dataset.path]); this.open(row, false); return; }
 		const editing = !!t.closest('.is-editing');
 		const plain = !e.shiftKey && !Keymap.isModEvent(e);
 		// a cell with a menu or a field acts on a row that's already selected (the click that selects a row only
@@ -764,6 +828,7 @@ class Outliner implements BinderMode {
 		const items = this.targets(row), one = items.length === 1 ? items[0] : null;
 		const sibs = one?.parent && !this.sort ? this.children(one.parent).filter((f) => this.isShown(f)) : [], i = one ? sibs.indexOf(one) : -1;
 		return itemMenu(this.ctx, items, {
+			pick: () => { this.picking = true; },
 			rename: (f) => this.drawn.get(f.path)?.title.edit(),
 			synopsis: (f) => this.editSynopsis(f),
 			up: one && i > 0 ? () => void this.step(one, -1) : null,
@@ -1070,10 +1135,15 @@ class Outliner implements BinderMode {
 		this.head.querySelector<HTMLElement>(`.binders-outliner-th[data-col="${CSS.escape(id)}"]`)?.focus();
 	}
 
+	/** A column just added is brought into sight (in a narrow pane it's past the edge). */
+	private showColumn(id: string): void {
+		window.setTimeout(() => Array.from(this.head.querySelectorAll<HTMLElement>('[data-col]')).find((h) => h.dataset.col === id)?.scrollIntoView({ block: 'nearest', inline: 'nearest' }), 50);
+	}
+
 	/** Which columns show: Binders' own, then your notes' properties, each ticked when it's shown. */
 	private columnItems(menu: Menu): void {
 		const cols = this.columns(), has = (id: string) => cols.some((c) => c.id === id);
-		const flip = (id: string) => this.setColumns(has(id) ? cols.filter((c) => c.id !== id) : [...cols, { id }]);
+		const flip = (id: string) => { this.setColumns(has(id) ? cols.filter((c) => c.id !== id) : [...cols, { id }]); if (!has(id)) this.showColumn(id); };
 		for (const b of BUILT_IN) menu.addItem((i) => i.setSection('built-in').setTitle(b.name).setIcon(b.icon).setChecked(has(b.id)).onClick(() => flip(b.id)));
 		const s = this.settings, own = [s.synopsisProp, s.statusProp, s.labelProp, s.targetProp, COMPILE_PROP, 'binder', 'contents', 'longform', 'aliases', 'cssclasses'];
 		const shown = cols.map((c) => propOf(c.id)).filter((p): p is string => !!p);
@@ -1081,7 +1151,7 @@ class Outliner implements BinderMode {
 		for (const p of [...shown, ...found.slice(0, 12)]) menu.addItem((i) => i.setSection('props').setTitle(p).setIcon('text').setChecked(has(propId(p))).onClick(() => flip(propId(p))));
 		menu.addItem((i) => i.setSection('add').setTitle('Other property...').setIcon('plus').onClick(async () => {
 			const name = await ask(this.ctx.app, { title: 'Add a column', placeholder: 'A property’s name, such as POV', cta: 'Add column' });
-			if (name && !has(propId(name))) this.setColumns([...this.columns(), { id: propId(name) }]);
+			if (name && !has(propId(name))) { this.setColumns([...this.columns(), { id: propId(name) }]); this.showColumn(propId(name)); }
 		}));
 	}
 
@@ -1126,7 +1196,7 @@ class Outliner implements BinderMode {
 		e.preventDefault();
 		const cols = this.columns(), col = cols.find((c) => c.id === id);
 		if (!col) return;
-		const start = columnWidth(col), x0 = e.clientX, rtl = getComputedStyle(this.head).direction === 'rtl';
+		const start = this.widthOf(col), x0 = e.clientX, rtl = getComputedStyle(this.head).direction === 'rtl';
 		let w = start;
 		this.root.addClass('is-resizing');
 		this.track(e, {
@@ -1192,10 +1262,10 @@ class Outliner implements BinderMode {
 		const tick = () => {
 			const d = this.drag;
 			if (!d) return;
-			const r = this.root.getBoundingClientRect(), top = r.top + this.head.offsetHeight;
-			const v = d.y < top + EDGE ? -(top + EDGE - d.y) : d.y > r.bottom - EDGE ? d.y - (r.bottom - EDGE) : 0;
+			const r = this.root.getBoundingClientRect(), top = r.top + this.head.offsetHeight, bottom = visibleBottom(this.root);
+			const v = d.y < top + EDGE ? -(top + EDGE - d.y) : d.y > bottom - EDGE ? d.y - (bottom - EDGE) : 0;
 			// (the line is put right in the same frame: the scroll's own event comes a frame later)
-			if (v) { const was = this.root.scrollTop; this.root.scrollTop += Math.max(-20, Math.min(20, v / 2)); if (this.root.scrollTop !== was) this.dragTo(d.x, d.y); }
+			if (v) { this.edgeSince ||= performance.now(); const was = this.root.scrollTop; this.root.scrollTop += Math.max(-20, Math.min(20, v / 2)) * held(this.edgeSince); if (this.root.scrollTop !== was) this.dragTo(d.x, d.y); } else this.edgeSince = 0;
 			d.raf = window.requestAnimationFrame(tick);
 		};
 		this.drag.raf = window.requestAnimationFrame(tick);
@@ -1205,7 +1275,11 @@ class Outliner implements BinderMode {
 		const d = this.drag;
 		if (!d) return;
 		d.x = x; d.y = y;
-		d.ghost.setCssStyles({ left: `${x + 5}px`, top: `${y + 5}px` });
+		// (by a finger: above it and centred, as Obsidian puts what it drags on a phone, and never off the screen's side)
+		if (Platform.isMobile) {
+			const w = d.ghost.offsetWidth, h = d.ghost.offsetHeight, max = this.root.doc.documentElement.clientWidth - w - 4;
+			d.ghost.setCssStyles({ left: `${Math.max(4, Math.min(max, x - w / 2))}px`, top: `${Math.max(4, y - h - 20)}px` });
+		} else d.ghost.setCssStyles({ left: `${x + 5}px`, top: `${y + 5}px` });
 		const place = d.place = this.placeAt(x, y);
 		for (const el of this.body.querySelectorAll('.is-being-dragged-over')) if (el !== place?.into) el.removeClass('is-being-dragged-over');
 		place?.into?.addClass('is-being-dragged-over');

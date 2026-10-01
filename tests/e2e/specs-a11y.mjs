@@ -31,7 +31,8 @@ async function tabThrough(p, max = 30) {
 
 test('Tab reaches every control of each mode; each is named and shows a focus ring', async (p, h, t) => {
 	const want = {
-		corkboard: ['binders-filter-button', 'binders-mode-button', 'binders-view-synopsis', 'binders-card', 'binders-card-new', 'binders-group-title', 'binders-group-synopsis'],
+		// (the cards are one stop, as a list is: the arrows go from card to card, a folder's stack among them)
+		corkboard: ['binders-filter-button', 'binders-new-button', 'binders-mode-button', 'binders-view-synopsis', 'binders-card', 'binders-card-new'],
 		outliner: ['binders-mode-button', 'binders-view-synopsis', 'binders-outliner-th', 'binders-outliner-row'],
 		manuscript: ['binders-mode-button', 'binders-view-synopsis', 'binders-manuscript-title'],
 	};
@@ -73,6 +74,46 @@ test('menus and modes from the keyboard: the mode menu, the commands, a card’s
 	await p.sleep(200);
 	t.ok(await p.ev(`!document.querySelector('.menu')`), 'Escape closes it');
 	t.ok(await p.ev(`document.activeElement?.matches('.binders-card[data-path]')`), 'and the focus is back on the card');
+	// a folder's stack: reached with the arrows, its menu is the folder's, and Enter goes into it
+	await p.key('ArrowRight');
+	t.eq(await p.ev(`document.activeElement?.dataset?.path`), 'The Lighthouse/Part One', 'Right goes on to the folder’s stack');
+	t.ok((await p.ev(focused)).ring, 'which shows where the focus is');
+	await p.key('F10', 'shift');
+	await p.sleep(200);
+	const items = await p.ev(`[...document.querySelectorAll('.menu .menu-item-title')].map(e => e.textContent)`);
+	t.ok(['Open', 'Rename', 'Edit synopsis', 'Ungroup', 'Delete'].every((x) => items.includes(x)), 'Shift+F10 opens the folder’s menu: ' + items.join(', '));
+	await p.key('Escape');
+	await p.sleep(200);
+	t.eq(await p.ev(`document.activeElement?.dataset?.path`), 'The Lighthouse/Part One', 'Escape: back on the stack');
+	await p.key('Enter');
+	await until(p, `app.workspace.getMostRecentLeaf().getViewState().state?.folder === 'The Lighthouse/Part One'`);
+	await until(p, `document.activeElement?.matches('.workspace-leaf.mod-active .binders-card[data-path]')`);
+	t.eq(await p.ev(`document.activeElement?.dataset?.path`), 'The Lighthouse/Part One/Arrival.md', 'Enter goes into the folder, with the keyboard on its first card');
+	// and out again from the keyboard: the breadcrumb is a link
+	await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-crumb[role="link"]').focus()`);
+	const crumb = await p.ev(focused);
+	t.ok(crumb.name === 'The Lighthouse' && crumb.role === 'link', 'the folder above is a link in the breadcrumb, named: ' + j(crumb));
+	await p.key('Enter');
+	await until(p, `app.workspace.getMostRecentLeaf().getViewState().state?.folder === 'The Lighthouse'`);
+	await until(p, `document.activeElement?.dataset?.path === 'The Lighthouse/Part One'`);
+	t.eq(await p.ev(`document.activeElement?.dataset?.path`), 'The Lighthouse/Part One', 'Enter on it comes back out, to the stack');
+});
+
+test('a card tells a screen reader what it is: a note’s card its name, status and words; a stack its folder’s name', async (p, h, t) => {
+	await openView(p, 'The Lighthouse');
+	const said = (path) => p.ev(`(() => { const c = document.querySelector('.workspace-leaf.mod-active .binders-card[data-path="${path}"]'); return { role: c.getAttribute('role'), name: c.getAttribute('aria-label'), about: c.getAttribute('aria-description') ?? '', selected: c.getAttribute('aria-selected'), list: c.parentElement.getAttribute('role') + ' ' + c.parentElement.getAttribute('aria-label') }; })()`);
+	t.eq(j(await said('The Lighthouse/Prologue.md')), j({ role: 'option', name: 'Prologue', about: 'Status: Draft, 21 words', selected: 'false', list: 'listbox The Lighthouse' }), 'a note’s card: its name, then its status and words');
+	const stack = await said('The Lighthouse/Part One');
+	t.eq(j([stack.role, stack.name, stack.list]), j(['option', 'Part One', 'listbox The Lighthouse']), 'a folder’s stack is an option of the same list, named for the folder');
+	t.eq(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-card-new').getAttribute('aria-label')`), 'New note in The Lighthouse', 'the “New note” tile says where the note goes');
+});
+
+test('BUG: a stack tells a screen reader what it holds (“3 notes, 51 words”), as a note’s card says its words (a stack’s description leaves the count out)', async (p, h, t) => {
+	await openView(p, 'The Lighthouse');
+	const about = await p.ev(`(() => { const c = document.querySelector('.workspace-leaf.mod-active .binders-card.is-stack[data-path="The Lighthouse/Part One"]'); return [c.getAttribute('aria-label'), c.getAttribute('aria-description'), c.getAttribute('aria-roledescription')].filter(Boolean).join(' | '); })()`);
+	// (the card is an option with a name of its own, so a screen reader says that name and the description: not the
+	// "3 notes · 51 words" printed on it)
+	t.ok(/3 notes/.test(about) && /51 words/.test(about), 'what the stack says includes its count: ' + j(about));
 });
 
 test('Escape leaves every inline editor, and the focus goes back to what holds it', async (p, h, t) => {
@@ -90,6 +131,13 @@ test('Escape leaves every inline editor, and the focus goes back to what holds i
 	t.eq(await active(), 'field', 'F2 renames a card');
 	await p.key('Escape');
 	t.eq(await active(), 'binders-card', 'Escape: back on the card');
+	// a stack's name (F2), and its synopsis (from its menu)
+	await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-card.is-stack').focus()`);
+	await p.key('F2');
+	t.eq(await active(), 'field', 'F2 renames a folder’s stack');
+	await p.key('Escape');
+	t.eq(await active(), 'binders-card', 'Escape: back on its card');
+	t.ok(await p.ev(`document.activeElement.classList.contains('is-stack')`), '(the stack itself)');
 	// a new card
 	await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-card-new').focus()`);
 	await p.key('Enter');
@@ -105,4 +153,5 @@ test('Escape leaves every inline editor, and the focus goes back to what holds i
 	await p.key('Escape');
 	t.ok((await active())?.includes('binders-outliner-row'), 'Escape: back on its row');
 	t.ok(await p.ev(`app.vault.adapter.exists('The Lighthouse/Prologue.md')`), 'nothing renamed');
+	t.ok(await p.ev(`app.vault.adapter.exists('The Lighthouse/Part One/Arrival.md')`), 'no folder either');
 });

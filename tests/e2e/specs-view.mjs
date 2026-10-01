@@ -10,7 +10,9 @@ const leaves = (p) => p.ev(`app.workspace.getLeavesOfType('binders-view').length
 const headerTitle = (p) => p.ev(`document.querySelector('.workspace-leaf.mod-active .view-header-title')?.textContent`);
 const tabTitle = (p) => p.ev(`app.workspace.getMostRecentLeaf().tabHeaderInnerTitleEl?.textContent`);
 const crumbs = (p) => p.ev(`[...document.querySelectorAll('.workspace-leaf.mod-active .binders-crumb')].map(e => e.textContent)`);
-const LIGHTHOUSE_CARDS = ['The Lighthouse/Prologue.md', 'The Lighthouse/Part One/Arrival.md', 'The Lighthouse/Part One/The keeper.md', 'The Lighthouse/Part One/Storm warning.md', 'The Lighthouse/Part Two/The wreck.md', 'The Lighthouse/Part Two/Lights out.md', 'The Lighthouse/Epilogue.md'];
+// (the corkboard shows one folder: its notes as cards, and one stacked card for each of its folders)
+const LIGHTHOUSE_CARDS = ['The Lighthouse/Prologue.md', 'The Lighthouse/Part One', 'The Lighthouse/Part Two', 'The Lighthouse/Epilogue.md'];
+const PART_ONE_CARDS = ['Arrival', 'The keeper', 'Storm warning'].map((x) => 'The Lighthouse/Part One/' + x + '.md');
 
 test('clicking a binder in the file explorer opens it; a folder in it opens in the same tab', async (p, h, t) => {
 	await p.ev(`(() => { app.workspace.leftSplit.expand(); const l = app.workspace.getLeavesOfType('file-explorer')[0]; app.workspace.revealLeaf(l); l.view.fileItems['The Lighthouse'].setCollapsed(true); return 1; })()`);
@@ -23,7 +25,7 @@ test('clicking a binder in the file explorer opens it; a folder in it opens in t
 	t.eq((await viewState(p)).folder, 'The Lighthouse', 'on the binder');
 	t.eq(await headerTitle(p), 'The Lighthouse', 'the header shows the folder’s name');
 	t.eq(await p.ev(`${VIEW}.getIcon()`), 'book', 'its icon is the book');
-	t.eq(j(await cards(p)), j(LIGHTHOUSE_CARDS), 'the cards are in binder order');
+	t.eq(j(await cards(p)), j(LIGHTHOUSE_CARDS), 'the cards are in binder order, a folder as one card');
 	at = await p.at(`.nav-folder-title[data-path="The Lighthouse/Part One"] .nav-folder-title-content`);
 	await p.click(at.x, at.y);
 	await until(p, `app.workspace.getLeavesOfType('binders-view')[0]?.getViewState().state.folder === 'The Lighthouse/Part One'`);
@@ -32,6 +34,7 @@ test('clicking a binder in the file explorer opens it; a folder in it opens in t
 	t.eq(await headerTitle(p), 'Part One', 'the header follows');
 	t.eq(await tabTitle(p), 'Part One', 'so does the tab');
 	t.eq(j(await crumbs(p)), j(['The Lighthouse', 'Part One']), 'the breadcrumb shows the way down');
+	t.eq(j(await cards(p)), j(PART_ONE_CARDS), 'and the board shows that folder’s notes');
 });
 
 test('“Open binder” from a note shows its folder with the note’s card selected', async (p, h, t) => {
@@ -86,7 +89,7 @@ test('a tab saved on the plot grid of an earlier version opens as the outliner',
 test('state (folder, mode, filter, options) comes back after a reload', async (p, h, t) => {
 	await openView(p, 'The Lighthouse/Part One');
 	await p.ev(`(() => { const v = ${VIEW}; v.setMode('outliner'); return 1; })()`);
-	await p.ev(`(() => { const v = ${VIEW}; v.filter = { status: ['draft'], label: [] }; v.options = { stacks: true }; app.workspace.requestSaveLayout(); return 1; })()`);
+	await p.ev(`(() => { const v = ${VIEW}; v.filter = { status: ['draft'], label: [] }; v.options = { cardSize: 'large', numbers: true }; app.workspace.requestSaveLayout(); return 1; })()`);
 	await p.ev(`app.workspace.requestSaveLayout.run().then(() => 1)`);
 	await p.sleep(300);
 	await reload(p);
@@ -95,10 +98,25 @@ test('state (folder, mode, filter, options) comes back after a reload', async (p
 	t.eq(st.folder, 'The Lighthouse/Part One', 'the folder');
 	t.eq(st.mode, 'outliner', 'the mode');
 	t.eq(j(st.filter?.status), j(['Draft']), 'the filter (a status saved in another case is the one settings have)');
-	t.eq(st.options?.stacks, true, 'the corkboard’s option');
+	t.eq(j([st.options?.cardSize, st.options?.numbers]), j(['large', true]), 'the corkboard’s options');
 	await p.ev(`(async () => { const l = app.workspace.getLeavesOfType('binders-view')[0]; app.workspace.setActiveLeaf(l, { focus: true }); })().then(() => 1)`);
 	await until(p, `!!document.querySelector('.workspace-leaf.mod-active .binders-view .binders-mode-outliner')`);
 	t.eq(await headerTitle(p), 'Part One', 'the header after a reload');
+	await p.ev(`(() => { ${VIEW}.setMode('corkboard'); return 1; })()`);
+	await until(p, `!!document.querySelector('.workspace-leaf.mod-active .binders-board.mod-cards-large.mod-numbers')`);
+	t.ok(await p.ev(`!!document.querySelector('.workspace-leaf.mod-active .binders-board.mod-cards-large.mod-numbers')`), 'and the corkboard is drawn with them');
+});
+
+test('a tab saved by an earlier version with subfolders as sections (“stacks” off) shows them as stacks', async (p, h, t) => {
+	await p.ev(`(async () => { await ${B}.ready; await app.workspace.getLeaf(false).setViewState({ type: 'binders-view', state: { folder: 'The Lighthouse', mode: 'corkboard', options: { stacks: false } }, active: true }); })().then(() => 1)`);
+	await until(p, `!!document.querySelector('.workspace-leaf.mod-active .binders-view .binders-card.is-stack')`);
+	t.eq(j(await cards(p)), j(LIGHTHOUSE_CARDS), 'one card per folder, as every board has now');
+	t.eq(await p.ev(`document.querySelectorAll('.workspace-leaf.mod-active .binders-group-heading').length`), 0, 'and no headings');
+	const more = await p.at(`.workspace-leaf.mod-active .view-action[aria-label="More options"]`);
+	await p.click(more.x, more.y);
+	const items = await menuItems(p);
+	t.ok(!items.some((x) => /stacks/i.test(x)), 'nothing in the menu turns stacks off: ' + items.join(', '));
+	await closeMenus(p);
 });
 
 test('before the vault’s metadata is complete, a view says it’s loading, never that its folder isn’t in a binder', withTidy(async (p, h, t) => {
@@ -159,12 +177,21 @@ test('the breadcrumb goes up, and Back comes down again', async (p, h, t) => {
 	await until(p, `app.workspace.getMostRecentLeaf().getViewState().state?.folder === 'The Lighthouse/Part Two'`);
 	t.eq((await viewState(p)).folder, 'The Lighthouse/Part Two', 'Back returns to Part Two');
 	t.eq(j(await cards(p)), j(['The Lighthouse/Part Two/The wreck.md', 'The Lighthouse/Part Two/Lights out.md']), 'and draws it');
-	// a subfolder's heading goes down
+	// a subfolder's stack goes down, and Back and the breadcrumb both come up again
 	await openView(p, 'The Lighthouse');
-	const hd = await p.at(`.workspace-leaf.mod-active .binders-group-title`);
-	await p.click(hd.x, hd.y);
+	const hd = await p.at(card('The Lighthouse/Part One'));
+	await p.dbl(hd.x, hd.t + 14);
 	await until(p, `app.workspace.getMostRecentLeaf().getViewState().state?.folder === 'The Lighthouse/Part One'`);
-	t.eq(await headerTitle(p), 'Part One', 'the heading opens its folder');
+	t.eq(await headerTitle(p), 'Part One', 'a double-click on a folder’s stack opens its folder');
+	t.eq(await leaves(p), 1, 'in the same tab');
+	t.eq(j(await crumbs(p)), j(['The Lighthouse', 'Part One']), 'with the way back up in the breadcrumb');
+	await p.ev(`app.commands.executeCommandById('app:go-back')`);
+	await until(p, `app.workspace.getMostRecentLeaf().getViewState().state?.folder === 'The Lighthouse'`);
+	t.eq(await headerTitle(p), 'The Lighthouse', 'Back comes up again');
+	t.eq(j(await cards(p)), j(LIGHTHOUSE_CARDS), 'to the binder’s board');
+	await p.ev(`app.commands.executeCommandById('app:go-forward')`);
+	await until(p, `app.workspace.getMostRecentLeaf().getViewState().state?.folder === 'The Lighthouse/Part One'`);
+	t.eq(j(await cards(p)), j(PART_ONE_CARDS), 'and Forward goes down into the folder');
 });
 
 test('the mode menu and commands switch modes; missing modes say they’re coming', async (p, h, t) => {
@@ -182,12 +209,12 @@ test('the mode menu and commands switch modes; missing modes say they’re comin
 	await h.run('show-corkboard');
 	await p.sleep(200);
 	t.eq((await viewState(p)).mode, 'corkboard', 'the command switches back');
-	t.eq((await cards(p)).length, 7, 'the corkboard is drawn again');
+	t.eq((await cards(p)).length, 4, 'the corkboard is drawn again');
 	// the pane's "More options" menu has them too
 	const more = await p.at(`.workspace-leaf.mod-active .view-action[aria-label="More options"]`);
 	await p.click(more.x, more.y);
 	const items = await menuItems(p);
-	t.ok(['Corkboard', 'Outliner', 'Manuscript', 'Show subfolders as stacks'].every((x) => items.includes(x)), 'More options lists the modes and the stacks option: ' + items.join(', '));
+	t.ok(['Corkboard', 'Outliner', 'Manuscript', 'Card size', 'Tint cards with their label color', 'Number the cards'].every((x) => items.includes(x)), 'More options lists the modes and the corkboard’s options: ' + items.join(', '));
 	await closeMenus(p);
 });
 
@@ -233,10 +260,23 @@ test('all three modes mount in the view, each scrolling itself; typing in the ma
 test('word count, and the binder’s target', withTidy(async (p, h, t) => {
 	await openView(p);
 	const count = () => p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-word-count').textContent`);
-	const cardWords = await p.ev(`[...document.querySelectorAll('.workspace-leaf.mod-active .binders-card-words')].filter(e => !e.closest('.is-stack')).map(e => parseInt(e.textContent.replace(/,/g, ''), 10)).reduce((a, b) => a + b, 0)`);
-	t.eq(await count(), `${cardWords} words`, 'the sum of the cards');
+	// a note's card says its words; a folder's stack, the words of the notes in it ("3 notes · 51 words")
+	const words = () => p.ev(`Object.fromEntries([...document.querySelectorAll('.workspace-leaf.mod-active .binders-card[data-path]')].map(c => [c.dataset.path, parseInt(c.querySelector('.binders-card-words').textContent.split(' · ').pop().replace(/,/g, ''), 10)]))`);
+	const onBoard = await words();
+	const cardWords = Object.values(onBoard).reduce((a, b) => a + b, 0);
+	t.eq(Object.keys(onBoard).length, 4, 'two notes and two stacks');
+	t.eq(await count(), `${cardWords} words`, 'the sum of the cards: the notes’ words and the stacks’');
+	// each folder's stack says what its own board adds up to
+	const perCard = { 'The Lighthouse/Prologue.md': onBoard['The Lighthouse/Prologue.md'], 'The Lighthouse/Epilogue.md': onBoard['The Lighthouse/Epilogue.md'] };
+	for (const part of ['The Lighthouse/Part One', 'The Lighthouse/Part Two']) {
+		await openView(p, part);
+		const inside = await words();
+		t.eq(Object.values(inside).reduce((a, b) => a + b, 0), onBoard[part], `the stack of “${part}” counts the words of the cards on its board`);
+		t.eq(await count(), `${onBoard[part]} words`, 'as the toolbar does there');
+		Object.assign(perCard, inside);
+	}
+	t.eq(Object.keys(perCard).length, 7, 'seven notes in all');
 	// each card agrees with Obsidian's own count in the status bar
-	const perCard = await p.ev(`Object.fromEntries([...document.querySelectorAll('.workspace-leaf.mod-active .binders-card[data-path]')].map(c => [c.dataset.path, parseInt(c.querySelector('.binders-card-words').textContent, 10)]))`);
 	for (const [path, n] of Object.entries(perCard)) {
 		await p.ev(`app.workspace.getLeaf('tab').openFile(app.vault.getAbstractFileByPath(${j(path)})).then(() => 1)`);
 		const bar = await until(p, `(() => { const e = document.querySelector('.status-bar-item.plugin-word-count'); return e && /\\d/.test(e.textContent) && app.workspace.getActiveFile()?.path === ${j(path)} ? e.textContent : null; })()`);
@@ -253,6 +293,11 @@ test('word count, and the binder’s target', withTidy(async (p, h, t) => {
 	await p.ev(`app.vault.process(${file('The Lighthouse/Epilogue.md')}, s => s + ' Four more words here.').then(() => 1)`);
 	await until(p, `document.querySelector('.workspace-leaf.mod-active .binders-word-count').textContent.startsWith('${cardWords + 4}')`);
 	t.eq(await count(), `${cardWords + 4} / 1,000 words`, 'after an edit');
+	// and typing in a note inside a folder updates that folder's stack
+	await p.ev(`app.vault.process(${file('The Lighthouse/Part Two/The wreck.md')}, s => s + ' Three more words.').then(() => 1)`);
+	await until(p, `document.querySelector('.workspace-leaf.mod-active .binders-card[data-path="The Lighthouse/Part Two"] .binders-card-words').textContent === '2 notes · ${onBoard['The Lighthouse/Part Two'] + 3} words'`);
+	t.eq(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-card[data-path="The Lighthouse/Part Two"] .binders-card-words').textContent`), `2 notes · ${onBoard['The Lighthouse/Part Two'] + 3} words`, 'a stack’s count follows an edit to a note in it');
+	t.eq(await count(), `${cardWords + 7} / 1,000 words`, 'and so does the binder’s');
 	await openView(p, 'The Lighthouse/Part One');
 	const partOne = ['Arrival', 'The keeper', 'Storm warning'].reduce((a, x) => a + perCard['The Lighthouse/Part One/' + x + '.md'], 0);
 	t.eq(await count(), `${partOne} words`, 'a subfolder counts its own notes, without the binder’s target');
@@ -323,15 +368,28 @@ test('filter by status and label', async (p, h, t) => {
 	const items = await menuItems(p);
 	t.eq(j(items.slice(0, 4)), j(['Status', 'Idea', 'Draft', 'Revised']), 'the statuses in use, in the order settings have them: ' + items.join(', '));
 	await clickMenu(p, 'Draft');
-	t.eq(j(await cards(p)), j(['The Lighthouse/Prologue.md', 'The Lighthouse/Part One/The keeper.md', 'The Lighthouse/Part Two/The wreck.md']), 'only drafts');
+	t.eq(j(await cards(p)), j(['The Lighthouse/Prologue.md', 'The Lighthouse/Part One', 'The Lighthouse/Part Two']), 'only the drafts among the notes (Epilogue is an idea); folders stay, as the way to theirs');
 	t.eq(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-filter-button .text-button-label').textContent`), 'Filter (1)', 'the button says a filter is on');
 	t.eq(j((await viewState(p)).filter.status), j(['Draft']), 'kept in the view’s state');
+	// the filter goes along into a folder
+	const st = await p.at(card('The Lighthouse/Part One'));
+	await p.dbl(st.x, st.t + 14);
+	await until(p, `app.workspace.getMostRecentLeaf().getViewState().state?.folder === 'The Lighthouse/Part One'`);
+	await until(p, `document.querySelectorAll('.workspace-leaf.mod-active .binders-card[data-path]').length === 1`);
+	t.eq(j(await cards(p)), j(['The Lighthouse/Part One/The keeper.md']), 'in Part One, only its draft');
+	t.eq(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-filter-button .text-button-label').textContent`), 'Filter (1)', 'the filter is still on there');
 	await p.click(at.x, at.y);
 	await clickMenu(p, 'Idea');
-	t.eq((await cards(p)).length, 6, 'drafts or ideas');
+	t.eq(j(await cards(p)), j(['The Lighthouse/Part One/The keeper.md', 'The Lighthouse/Part One/Storm warning.md']), 'drafts or ideas');
 	await p.click(at.x, at.y);
 	await clickMenu(p, 'Clear filter');
-	t.eq((await cards(p)).length, 7, 'all again');
+	t.eq(j(await cards(p)), j(PART_ONE_CARDS), 'all again');
+	// (up by the breadcrumb: Back would return to the board as it was left, filter and all)
+	const up = await p.at(`.workspace-leaf.mod-active .binders-crumb[role="link"]`);
+	await p.click(up.x, up.y);
+	await until(p, `app.workspace.getMostRecentLeaf().getViewState().state?.folder === 'The Lighthouse'`);
+	await until(p, `document.querySelectorAll('.workspace-leaf.mod-active .binders-card[data-path]').length === 4`);
+	t.eq(j(await cards(p)), j(LIGHTHOUSE_CARDS), 'and on the binder’s board too');
 });
 
 test('a binder in a newer format opens read only and writes nothing', async (p, h, t) => {
@@ -362,7 +420,7 @@ test('a binder in a newer format opens read only and writes nothing', async (p, 
 	} finally { await writeRaw(p, NOTE, orig); await until(p, `!${B}.problem('The Lighthouse')`); }
 });
 
-test('follows its folder when it’s renamed, and says so when it’s gone', withTidy(async (p, h, t) => {
+test('follows its folder when it’s renamed; when it’s deleted, shows the folder above; and says so when the binder is gone', withTidy(async (p, h, t) => {
 	await openView(p, 'The Lighthouse/Part Two');
 	await p.ev(`app.fileManager.renameFile(${file('The Lighthouse/Part Two')}, 'The Lighthouse/Part 2').then(() => 1)`);
 	await until(p, `app.workspace.getMostRecentLeaf().getViewState().state?.folder === 'The Lighthouse/Part 2'`);
@@ -370,13 +428,28 @@ test('follows its folder when it’s renamed, and says so when it’s gone', wit
 	t.eq(await tabTitle(p), 'Part 2', 'and the tab');
 	await until(p, `document.querySelector('.workspace-leaf.mod-active .binders-card')?.dataset.path.startsWith('The Lighthouse/Part 2/')`);
 	t.eq(j(await cards(p)), j(['The Lighthouse/Part 2/The wreck.md', 'The Lighthouse/Part 2/Lights out.md']), 'the cards too');
+	t.eq(j(await crumbs(p)), j(['The Lighthouse', 'Part 2']), 'and the breadcrumb');
 	await p.ev(`app.fileManager.renameFile(${file('The Lighthouse/Part 2')}, 'The Lighthouse/Part Two').then(() => 1)`);
 	await p.sleep(300);
+	// the folder shown is deleted: the view goes up to the folder above it, which is still in the binder
 	await p.ev(`(async () => { await app.vault.createFolder('The Lighthouse/Part Three'); await app.vault.create('The Lighthouse/Part Three/Coda.md', 'x'); })().then(() => 1)`);
 	await openView(p, 'The Lighthouse/Part Three');
+	t.eq(j(await cards(p)), j(['The Lighthouse/Part Three/Coda.md']), 'a new folder’s board');
 	await p.ev(`app.vault.delete(${file('The Lighthouse/Part Three')}, true).then(() => 1)`);
+	await until(p, `app.workspace.getMostRecentLeaf().getViewState().state?.folder === 'The Lighthouse'`);
+	t.eq((await viewState(p)).folder, 'The Lighthouse', 'its folder deleted, the view shows the binder it was in');
+	t.eq(await headerTitle(p), 'The Lighthouse', 'named in the header');
+	await until(p, `document.querySelectorAll('.workspace-leaf.mod-active .binders-card[data-path]').length === 4`);
+	t.eq(j(await cards(p)), j(LIGHTHOUSE_CARDS), 'with the board of what is left');
+	t.ok(await exists(p, 'The Lighthouse/Part Two/The wreck.md'), 'nothing else went');
+	// a binder deleted whole: nothing above it to show
+	await p.ev(`(async () => { await app.vault.createFolder('Scratch'); await app.vault.create('Scratch/One.md', 'x'); await app.vault.create('Scratch/Scratch.md', '---\\nbinder: 1\\ncontents:\\n  - One\\n---\\n'); })().then(() => 1)`);
+	await until(p, `!!${B}.binderOf(${file('Scratch')})`);
+	await openView(p, 'Scratch');
+	t.eq(j(await cards(p)), j(['Scratch/One.md']), 'another binder’s board');
+	await p.ev(`app.vault.delete(${file('Scratch')}, true).then(() => 1)`);
 	await until(p, `!!document.querySelector('.workspace-leaf.mod-active .binders-empty')`);
-	t.ok(/isn’t in a binder/.test(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-empty').textContent`)), 'an empty state says the folder is gone');
+	t.ok(/isn’t in a binder/.test(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-empty')?.textContent ?? ''`)), 'an empty state says the folder is gone');
 	t.ok(await exists(p, 'The Lighthouse/Part Two/The wreck.md'), 'nothing else went');
 }));
 
@@ -388,7 +461,8 @@ test('a narrow pane: folder names win over the counts', withTidy(async (p, h, t)
 		await p.sleep(400);
 		const pane = await p.ev(`Math.round(document.querySelector('.workspace-leaf.mod-active .binders-view').getBoundingClientRect().width)`);
 		t.eq(await cut('.binders-crumb.is-current'), false, `the breadcrumb shows the whole name (pane ${pane}px)`);
-		t.eq(await cut('.binders-group.is-folder .binders-group-name'), false, `a heading shows the whole name (pane ${pane}px)`);
+		t.eq(await cut('.binders-card.is-stack .binders-card-title'), false, `a folder’s stack shows the whole name (pane ${pane}px)`);
+		t.eq(await p.ev(`(() => { const c = document.querySelector('.workspace-leaf.mod-active .binders-card.is-stack'), n = c.querySelector('.binders-card-title').getBoundingClientRect(), w = c.querySelector('.binders-card-words').getBoundingClientRect(); return n.bottom <= w.top + 1; })()`), true, `with its count under it, out of the name’s way (pane ${pane}px)`);
 	}
 	await p.send('Emulation.setDeviceMetricsOverride', { width: p.width, height: p.height, deviceScaleFactor: 1, mobile: false });
 	await p.sleep(300);

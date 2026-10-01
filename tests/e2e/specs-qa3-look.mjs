@@ -273,6 +273,10 @@ test('04 corkboard: card states', async (p) => {
 	await openView(p);
 	await park(p);
 	await shot(p, '04-corkboard-wide');
+	// (the binder's board: its notes, and its folders as stacks; a folder's notes are on that folder's own board)
+	await openView(p, L + 'Part One');
+	await park(p);
+	await shot(p, '04-corkboard-folder');
 	const a = await p.at(card('Part One/The keeper.md'));
 	const row = async (name) => { const g = await p.at(card('Part One/Arrival.md')); await zoom(p, name, g.l - 30, g.t - 60, 860, g.h + 80, 2); };
 	await row('04-cards-rest');
@@ -312,13 +316,34 @@ test('04 corkboard: card states', async (p) => {
 	await row('04-cards-synopsis-editing');
 	await p.key('Escape'); await p.sleep(200);
 	await note(p, '04-hover', hov);
-	// a group's heading pointed at, and its empty synopsis
-	const head = await p.at(`${LEAF} .binders-group.is-folder .binders-group-title`);
-	await p.move(head.x, head.y, 3); await p.sleep(300);
-	await zoom(p, '04-group-heading-hover', head.l - 20, head.t - 14, 700, 70, 2);
-	await shot(p, '04-group-heading-hover-full');
+	// the breadcrumb that leads back out, pointed at
+	const up = await p.at(`${LEAF} .binders-crumb[role="link"]`);
+	await p.move(up.x, up.y, 3); await p.sleep(300);
+	await zoom(p, '04-breadcrumb-hover', up.l - 120, up.t - 14, 700, 70, 2);
+	// a folder's stack on the binder's board: at rest, pointed at, selected, its synopsis being edited, its name
+	await openView(p);
+	await park(p);
+	const st = await p.at(card('Part One')), stack = async (name) => zoom(p, name, st.l - 30, st.t - 30, st.w * 2 + 80, st.h + 60, 2);
+	await stack('04-stack-rest');
+	await p.move(st.x, st.t + 22, 3); await p.sleep(350);
+	await stack('04-stack-hover');
+	await shot(p, '04-stack-hover-full');
+	await p.click(st.x, st.t + 22); await park(p); await p.sleep(300);
+	await stack('04-stack-selected');
+	hov.stack = { selected: await p.ev(`getComputedStyle(document.querySelector(${j(card('Part One'))})).boxShadow`), rest: await p.ev(`getComputedStyle(document.querySelector(${j(card('Part Two'))})).boxShadow`) };
+	// (a stack's synopsis is edited with a click once the card has been selected a moment; a double-click goes in)
+	await p.sleep(700);
+	const ss = await p.at(card('Part One') + ' .binders-card-synopsis');
+	await p.click(ss.x, ss.y); await p.sleep(350);
+	await stack('04-stack-synopsis-editing');
+	hov.stack.editing = await p.ev(`document.activeElement.tagName + '.' + document.activeElement.className`);
+	await p.key('Escape'); await p.sleep(200);
+	await p.key('F2'); await p.sleep(300);
+	await stack('04-stack-rename');
+	await p.key('Escape'); await p.sleep(200);
+	await note(p, '04-hover', hov);
 	// "New note": pointed at, focused, typing
-	const tile = await p.at(`${LEAF} .binders-group.is-folder .binders-card-new`);
+	const tile = await p.at(`${LEAF} .binders-card-new`);
 	await p.move(tile.x, tile.y, 3); await p.sleep(300);
 	await zoom(p, '04-new-tile-hover', tile.l - 280, tile.t - 20, 600, 170, 2);
 	await p.click(tile.x, tile.y); await p.sleep(350);
@@ -327,15 +352,16 @@ test('04 corkboard: card states', async (p) => {
 	await zoom(p, '04-new-tile-typed', tile.l - 280, tile.t - 20, 600, 170, 2);
 	await p.key('Escape'); await p.sleep(250);
 	await note(p, '04-card', {
-		card: await css(p, card('Part One/Arrival.md'), [...BOX, 'minHeight', 'transition']),
-		title: await css(p, card('Part One/Arrival.md') + ' .binders-card-title', TYPE),
-		synopsis: await css(p, card('Part One/Arrival.md') + ' .binders-card-synopsis', [...TYPE, 'padding', 'margin']),
-		chip: await css(p, card('Part One/Arrival.md') + ' .binders-chip', [...TYPE, ...BOX]),
-		words: await css(p, card('Part One/Arrival.md') + ' .binders-card-words', TYPE),
-		footer: await css(p, card('Part One/Arrival.md') + ' .binders-card-footer', ['gap', 'minHeight']),
-		groupTitle: await css(p, `${LEAF} .binders-group-title`, [...TYPE, ...BOX]),
-		groupCount: await css(p, `${LEAF} .binders-group-count`, TYPE),
-		groupSynopsis: await css(p, `${LEAF} .binders-group-synopsis`, [...TYPE, 'padding', 'margin']),
+		card: await css(p, card('Prologue.md'), [...BOX, 'minHeight', 'transition']),
+		title: await css(p, card('Prologue.md') + ' .binders-card-title', TYPE),
+		synopsis: await css(p, card('Prologue.md') + ' .binders-card-synopsis', [...TYPE, 'padding', 'margin']),
+		chip: await css(p, card('Prologue.md') + ' .binders-chip', [...TYPE, ...BOX]),
+		words: await css(p, card('Prologue.md') + ' .binders-card-words', TYPE),
+		footer: await css(p, card('Prologue.md') + ' .binders-card-footer', ['gap', 'minHeight']),
+		stack: await css(p, card('Part One'), [...BOX, 'minHeight', 'transition']),
+		stackTitle: await css(p, card('Part One') + ' .binders-card-title', TYPE),
+		stackCount: await css(p, card('Part One') + ' .binders-card-words', TYPE),
+		stackSynopsis: await css(p, card('Part One') + ' .binders-card-synopsis', [...TYPE, 'padding', 'margin']),
 		viewSynopsis: await css(p, `${LEAF} .binders-view-synopsis`, [...TYPE, 'padding', 'margin']),
 		grid: await css(p, `${LEAF} .binders-cards`, ['gap', 'gridTemplateColumns']),
 		board: await css(p, `${LEAF} .binders-board`, ['padding', 'gap']),
@@ -347,14 +373,16 @@ test('04b corkboard: options, sizes, a long folder, empty and read-only', async 
 	await seed(p);
 	await sidebar(p, false);
 	await openView(p);
-	await options(p, { labelStyle: 'tint' });
+	// (cards are tinted with their label's color as the board comes; 'stripe' is the border alone)
 	await park(p);
 	await shot(p, '04b-tint');
-	await options(p, { labelStyle: 'stripe', stacks: true });
+	await options(p, { labelStyle: 'stripe' });
 	await shot(p, '04b-stacks');
 	const st = await p.at(`${LEAF} .binders-card.is-stack`);
 	if (st) { await zoom(p, '04b-stack-rest', st.l - 20, st.t - 20, st.w * 2 + 60, st.h + 50, 2); await p.move(st.x, st.y, 3); await p.sleep(300); await zoom(p, '04b-stack-hover', st.l - 20, st.t - 20, st.w * 2 + 60, st.h + 50, 2); await p.click(st.x, st.y + 30); await park(p); await p.sleep(300); await zoom(p, '04b-stack-selected', st.l - 20, st.t - 20, st.w * 2 + 60, st.h + 50, 2); }
-	await options(p, { stacks: false, cardSize: 'small' });
+	await options(p, { labelStyle: 'tint', numbers: true });
+	await shot(p, '04b-numbers');
+	await options(p, { numbers: false, cardSize: 'small' });
 	await shot(p, '04b-small');
 	await options(p, { cardSize: 'large' });
 	await shot(p, '04b-large');
@@ -394,7 +422,7 @@ test('04b corkboard: options, sizes, a long folder, empty and read-only', async 
 test('05 corkboard: mid-drag', async (p) => {
 	await seed(p, { big: false });
 	await sidebar(p, false);
-	await openView(p);
+	await openView(p, L + 'Part One');
 	const a = await p.at(card('Part One/The keeper.md')), b = await p.at(card('Part One/The long night in which nothing happens and everything changes, told twice.md'));
 	await hold(p, { x: a.x, y: a.t + 14 }, { x: b.l + 4, y: b.y });
 	await shot(p, '05-drag-one');
@@ -406,27 +434,38 @@ test('05 corkboard: mid-drag', async (p) => {
 		nativeGhost: await p.ev(`(() => { const r = [...document.styleSheets].flatMap(s => { try { return [...s.cssRules]; } catch { return []; } }).filter(r => /\\.drag-ghost|\\.drop-indicator|is-being-dragged/.test(r.selectorText || '')).map(r => r.cssText); return r.slice(0, 30); })()`),
 		cursor: await p.ev(`getComputedStyle(document.body).cursor + ' / ' + document.body.className`),
 	});
-	// over another group
-	const w = await p.at(card('Part Two/Lights out.md'));
-	await p.move(w.l + 3, w.y, 10, { buttons: 1 }); await p.sleep(250);
-	await shot(p, '05-drag-other-group');
-	// over a group heading
-	const head = await p.at(`${LEAF} .binders-group.is-folder .binders-group-title`);
-	await p.move(head.x + 60, head.y, 10, { buttons: 1 }); await p.sleep(250);
-	await shot(p, '05-drag-over-heading');
-	await p.key('Escape'); await letGo(p, head.x + 60, head.y); await p.sleep(500);
+	// over the "New note" tile: the board's end
+	const w = await p.at(`${LEAF} .binders-card-new`);
+	await p.move(w.x, w.y, 10, { buttons: 1 }); await p.sleep(250);
+	await shot(p, '05-drag-to-end');
+	// over the binder in the breadcrumb: the way out of this folder
+	const head = await p.at(`${LEAF} .binders-crumb[data-path="The Lighthouse"]`);
+	await p.move(head.x, head.y, 10, { buttons: 1 }); await p.sleep(250);
+	await shot(p, '05-drag-over-breadcrumb');
+	await zoom(p, '05-drag-over-breadcrumb-zoom', Math.max(0, head.l - 200), Math.max(0, head.t - 20), 700, 120, 2);
+	await note(p, '05-drag-crumb', { crumb: await css(p, `${LEAF} .binders-crumb.is-being-dragged-over`, ['backgroundColor', 'color', 'boxShadow', 'borderRadius']) });
+	await p.key('Escape'); await letGo(p, head.x, head.y); await p.sleep(500);
 	// several at once
 	await p.click(a.x, a.y + 30);
 	const s = await p.at(card('Part One/Storm warning.md'));
 	await p.click(s.x, s.y + 30, { modifiers: 8 });
-	await hold(p, { x: a.x, y: a.t + 14 }, { x: w.l + 60, y: w.y + 30 });
+	await hold(p, { x: a.x, y: a.t + 14 }, { x: b.l + 60, y: b.y + 30 });
 	await shot(p, '05-drag-two');
-	await p.key('Escape'); await letGo(p, w.l + 60, w.y + 30); await p.sleep(500);
-	// onto a stack
-	await options(p, { stacks: true });
-	const stack = await p.at(`${LEAF} .binders-card.is-stack`), pr = await p.at(card('Prologue.md'));
-	if (stack) { await hold(p, { x: pr.x, y: pr.t + 14 }, { x: stack.x, y: stack.y }); await shot(p, '05-drag-onto-stack'); await p.key('Escape'); await letGo(p, stack.x, stack.y); await p.sleep(400); }
-	await options(p, { stacks: false });
+	await p.key('Escape'); await letGo(p, b.l + 60, b.y + 30); await p.sleep(500);
+	// on the binder's board: beside a stack (a line), then onto its middle (into that folder)
+	await openView(p);
+	const stack = await p.at(card('Part Two')), pr = await p.at(card('Prologue.md'));
+	await hold(p, { x: pr.x, y: pr.t + 14 }, { x: stack.l + 6, y: stack.y });
+	await shot(p, '05-drag-beside-stack');
+	await p.move(stack.x, stack.y, 8, { buttons: 1 }); await p.sleep(250);
+	await shot(p, '05-drag-onto-stack');
+	await note(p, '05-drag-stack', { stack: await css(p, `${LEAF} .binders-card.is-stack.is-being-dragged-over`, ['backgroundColor', 'boxShadow', 'borderColor']) });
+	await p.key('Escape'); await letGo(p, stack.x, stack.y); await p.sleep(400);
+	// a stack itself, carried
+	const one = await p.at(card('Part One')), ep = await p.at(card('Epilogue.md'));
+	await hold(p, { x: one.x, y: one.t + 14 }, { x: ep.x + 40, y: ep.y });
+	await shot(p, '05-drag-a-stack');
+	await p.key('Escape'); await letGo(p, ep.x + 40, ep.y); await p.sleep(400);
 });
 
 
@@ -699,7 +738,8 @@ const menus = (p) => p.ev(`[...document.querySelectorAll('.menu')].map(m => [...
 test('09 menus: every menu, and Obsidian’s own beside them', async (p) => {
 	await seed(p, { big: false });
 	await sidebar(p, false);
-	await openView(p);
+	// (a folder's notes are on its own board)
+	await openView(p, L + 'Part One');
 	const out = {};
 	const grab = async (name) => { await p.sleep(350); await shot(p, `09-menu-${name}`); out[name] = await menus(p); };
 	const a = await p.at(card('Part One/The keeper.md'));
@@ -715,9 +755,15 @@ test('09 menus: every menu, and Obsidian’s own beside them', async (p) => {
 	await p.click(s.x, s.t + 22, { modifiers: 8 });
 	await p.right(s.x, s.t + 22); await grab('cards-two');
 	await closeMenus(p);
-	// a folder's heading, and the board itself
-	const head = await p.at(`${LEAF} .binders-group.is-folder .binders-group-title`);
-	await p.right(head.x, head.y); await grab('group-heading');
+	// a folder's stack (on the binder's board), a stack and a note together, and the board itself
+	await openView(p);
+	const head = await p.at(card('Part One'));
+	await p.right(head.x, head.t + 22); await grab('stack');
+	await closeMenus(p);
+	const pro = await p.at(card('Prologue.md'));
+	await p.click(pro.x, pro.t + 22);
+	await p.click(head.x, head.t + 22, { modifiers: 2 });
+	await p.right(head.x, head.t + 22); await grab('stack-and-note');
 	await closeMenus(p);
 	const board = await p.at(`${LEAF} .binders-board`);
 	await p.right(board.l + board.w - 200, board.t + 60); await grab('board');
@@ -772,6 +818,11 @@ test('10 dialogs: compile, merge, target, color, delete, settings', async (p, h)
 		out[name] = await p.ev(`(() => { const m = [...document.querySelectorAll('.modal')].pop(); if (!m) return null; return { title: m.querySelector('.modal-title')?.textContent, text: [...m.querySelectorAll('.modal-content p, .modal-content .setting-item-name, .modal-content .setting-item-description')].map(e => e.textContent), buttons: [...m.querySelectorAll('button')].map(b => b.textContent + (b.matches('.mod-cta') ? ' [cta]' : '') + (b.matches('.mod-warning') ? ' [warning]' : '')), inputs: [...m.querySelectorAll('input')].map(i => i.type + ':' + i.placeholder), width: Math.round(m.getBoundingClientRect().width) }; })()`);
 		for (let i = 0; i < 3 && (await p.ev(`document.querySelectorAll('.modal').length`)); i++) { await p.key('Escape'); await p.sleep(250); }
 	};
+	// a folder, from its stack on the binder's board
+	const head = await p.at(card('Part One'));
+	await p.right(head.x, head.t + 22); await p.sleep(250); await clickMenu(p, 'Delete').catch(() => {}); await dialog('delete-folder');
+	// the rest from notes' cards, on their folder's board
+	await openView(p, L + 'Part One');
 	const a = await p.at(card('Part One/The keeper.md')), s = await p.at(card('Part One/Storm warning.md'));
 	const menu = async (items) => { await p.right(a.x, a.t + 22); await p.sleep(250); for (const [i, t] of items.entries()) { if (i < items.length - 1) await hoverMenu(p, t); else await clickMenu(p, t); } };
 	await p.click(a.x, a.t + 22);
@@ -782,8 +833,6 @@ test('10 dialogs: compile, merge, target, color, delete, settings', async (p, h)
 	// Obsidian's own delete confirmation
 	await p.ev(`(() => { app.vault.setConfig('promptDelete', true); app.fileManager.promptForDeletion(app.vault.getAbstractFileByPath('The Lighthouse/Part One/The keeper.md')); return 1; })()`);
 	await dialog('native-delete');
-	const head = await p.at(`${LEAF} .binders-group.is-folder .binders-group-title`);
-	await p.right(head.x, head.y); await p.sleep(250); await clickMenu(p, 'Delete').catch(() => {}); await dialog('delete-folder');
 	await p.click(a.x, a.t + 22); await p.click(s.x, s.t + 22, { modifiers: 8 });
 	await p.right(s.x, s.t + 22); await p.sleep(250); await clickMenu(p, 'Merge 2 notes'); await dialog('merge');
 	await p.right(s.x, s.t + 22); await p.sleep(250); await clickMenu(p, 'Delete 2 items'); await dialog('delete-two');
@@ -947,6 +996,7 @@ test('13 motion: mode switch, reorder, fold, hover; and reduced motion', async (
 	const out = {};
 	const run = async (tag) => {
 		const o = out[tag] = {};
+		await openView(p);
 		// mode switch: is there a frame with nothing drawn, or a toolbar that moves?
 		for (const m of ['outliner', 'manuscript', 'corkboard']) {
 			await record(p, `(() => { const v = document.querySelector('${LEAF} .binders-view'); const b = v.querySelector('.binders-toolbar')?.getBoundingClientRect(); const body = v.querySelector('.binders-mode'); const mb = v.querySelector('.binders-mode-button')?.getBoundingClientRect(); const cnt = v.querySelector('.binders-word-count')?.getBoundingClientRect(); const syn = v.querySelector('.binders-view-synopsis')?.getBoundingClientRect(); return [b ? Math.round(b.height * 10) / 10 : null, mb ? Math.round(mb.width) : null, cnt ? Math.round(cnt.left) : null, syn ? Math.round(syn.top * 10) / 10 + '@' + Math.round(syn.left) : null, body ? body.querySelectorAll('.binders-card[data-path], .binders-outliner-row, .binders-manuscript-scene').length : -1, body ? Math.round(body.scrollHeight) : -1]; })()`, 700);
@@ -957,9 +1007,11 @@ test('13 motion: mode switch, reorder, fold, hover; and reduced motion', async (
 			o['switch-' + m] = { ...settle(rec), values: rec.filter((r, i) => i === 0 || JSON.stringify(r[1]) !== JSON.stringify(rec[i - 1][1])).slice(0, 12) };
 		}
 		// a card dragged two places along: how long do the others glide, and the dropped card land?
+		// (in Part One, on its own board)
+		await openView(p, L + 'Part One');
 		const a = await p.at(card('Part One/Arrival.md')), c = await p.at(card('Part One/Storm warning.md'));
 		await hold(p, { x: a.x, y: a.t + 14 }, { x: c.l + c.w - 6, y: c.y });
-		await record(p, `[...document.querySelectorAll('${LEAF} .binders-group.is-folder .binders-card[data-path]')].slice(0, 4).map(e => { const r = e.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.top), getComputedStyle(e).boxShadow.slice(0, 18), e.className.replace('binders-card', '').trim().split(' ').filter(c => /is-/.test(c)).join('.')]; }).concat([[document.querySelectorAll('.binders-drag-ghost').length, document.getAnimations().length]])`, 900);
+		await record(p, `[...document.querySelectorAll('${LEAF} .binders-card[data-path]')].slice(0, 4).map(e => { const r = e.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.top), getComputedStyle(e).boxShadow.slice(0, 18), e.className.replace('binders-card', '').trim().split(' ').filter(c => /is-/.test(c)).join('.')]; }).concat([[document.querySelectorAll('.binders-drag-ghost').length, document.getAnimations().length]])`, 900);
 		await letGo(p, c.l + c.w - 6, c.y);
 		await p.sleep(60); await shot(p, `13-${tag}-drop-60ms`); await p.sleep(100); await shot(p, `13-${tag}-drop-160ms`);
 		await p.sleep(900);
@@ -967,6 +1019,25 @@ test('13 motion: mode switch, reorder, fold, hover; and reduced motion', async (
 		o.drop = { ...settle(rec), sample: rec.filter((_, i) => i % 4 === 0).slice(0, 16) };
 		// "Move up" by the keyboard (Alt+ArrowUp or the menu): the same glide without a drop
 		await p.ev(`(() => { const s = document.querySelector('${LEAF} .binders-corkboard'); s.scrollTop = 0; return 1; })()`);
+		// going into a folder from its stack, and back out by the breadcrumb: is there a frame with no cards?
+		await openView(p);
+		const probe = `(() => { const v = document.querySelector('${LEAF} .binders-view'); return [v.querySelectorAll('.binders-card[data-path]').length, v.querySelectorAll('.binders-crumb').length, Math.round(v.querySelector('.binders-toolbar')?.getBoundingClientRect().height * 10) / 10, document.getAnimations().length]; })()`;
+		const st = await p.at(card('Part Two'));
+		await record(p, probe, 700);
+		await p.dbl(st.x, st.t + 22);
+		await p.sleep(30); await shot(p, `13-${tag}-into-stack-30ms`);
+		await p.sleep(800);
+		let nav = await recorded(p);
+		o.intoStack = { ...settle(nav), values: nav.filter((r, i) => i === 0 || JSON.stringify(r[1]) !== JSON.stringify(nav[i - 1][1])).slice(0, 12) };
+		const up = await p.at(`${LEAF} .binders-crumb[data-path="The Lighthouse"]`);
+		if (up) {
+			await record(p, probe, 700);
+			await p.click(up.x, up.y);
+			await p.sleep(800);
+			nav = await recorded(p);
+			o.outOfStack = { ...settle(nav), values: nav.filter((r, i) => i === 0 || JSON.stringify(r[1]) !== JSON.stringify(nav[i - 1][1])).slice(0, 12) };
+		}
+		await openView(p);
 		// a folder folded and unfolded in the outliner
 		await mode(p, 'outliner');
 		const ch = await p.at(row('Part One') + ' .binders-outliner-chevron');
@@ -993,7 +1064,7 @@ test('13 motion: mode switch, reorder, fold, hover; and reduced motion', async (
 			o.nativeFold = { ...settle(rec), values: rec.filter((r, i) => i === 0 || JSON.stringify(r[1]) !== JSON.stringify(rec[i - 1][1])).slice(0, 14) };
 		}
 		await sidebar(p, false);
-		await openView(p);
+		await openView(p, L + 'Part One');
 		await mode(p, 'corkboard');
 		// hover: how long the card's border and a toolbar button take
 		const k = await p.at(card('Part One/The keeper.md'));
@@ -1002,7 +1073,7 @@ test('13 motion: mode switch, reorder, fold, hover; and reduced motion', async (
 		await p.move(k.x, k.t + 22, 2); await p.sleep(700);
 		rec = await recorded(p);
 		o.hoverCard = settle(rec);
-		o.transitions = await p.ev(`(() => { const t = (s) => { const e = document.querySelector(s); return e ? getComputedStyle(e).transitionProperty + ' / ' + getComputedStyle(e).transitionDuration : null; }; return { card: t('${LEAF} .binders-card[data-path]'), group: t('${LEAF} .binders-group'), progressBar: t('${LEAF} .binders-progress-bar'), toolbarButton: t('${LEAF} .binders-toolbar-button'), newTile: t('${LEAF} .binders-card-new'), editable: t('${LEAF} .binders-editable'), nativeNavItem: t('.nav-file-title'), nativeClickable: t('.clickable-icon'), reduce: matchMedia('(prefers-reduced-motion: reduce)').matches }; })()`);
+		o.transitions = await p.ev(`(() => { const t = (s) => { const e = document.querySelector(s); return e ? getComputedStyle(e).transitionProperty + ' / ' + getComputedStyle(e).transitionDuration : null; }; return { card: t('${LEAF} .binders-card[data-path]'), stack: t('${LEAF} .binders-card.is-stack'), crumb: t('${LEAF} .binders-crumb'), progressBar: t('${LEAF} .binders-progress-bar'), toolbarButton: t('${LEAF} .binders-toolbar-button'), newTile: t('${LEAF} .binders-card-new'), editable: t('${LEAF} .binders-editable'), nativeNavItem: t('.nav-file-title'), nativeClickable: t('.clickable-icon'), reduce: matchMedia('(prefers-reduced-motion: reduce)').matches }; })()`);
 	};
 	await run('normal');
 	await p.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
@@ -1025,13 +1096,17 @@ test('14 settings and consistency', async (p) => {
 	await p.ev(`(() => { app.workspace.revealLeaf(app.workspace.getLeavesOfType('file-explorer')[0]); for (const f of ['The Lighthouse', 'The Lighthouse/Part One']) ${EXP}.fileItems[f]?.setCollapsed(false); return 1; })()`); await p.sleep(600);
 	const P = ['fontSize', 'fontWeight', 'lineHeight', 'color', 'backgroundColor', 'borderRadius', 'padding', 'boxShadow', 'width', 'height', 'outline'];
 	const keeper = 'Part One/The keeper.md';
+	// what a folder's stack shows, on the binder's board; then a note's card, on its folder's
+	const stack = { title: await css(p, card('Part One') + ' .binders-card-title', P), chip: await css(p, card('Part One') + ' .binders-chip', P), count: await css(p, card('Part One') + ' .binders-card-words', P), synopsis: await css(p, card('Part One') + ' .binders-card-synopsis', P), folderIcon: await css(p, card('Part One') + ' .binders-card-icon svg', ['width', 'height', 'color']) };
+	await openView(p, L + 'Part One');
 	const a = await p.at(card(keeper));
 	await p.click(a.x, a.t + 22); await park(p); await p.sleep(300);
 	out.corkboard = {
 		title: await css(p, card(keeper) + ' .binders-card-title', P), synopsis: await css(p, card(keeper) + ' .binders-card-synopsis', P), chip: await css(p, card(keeper) + ' .binders-chip', P), words: await css(p, card(keeper) + ' .binders-card-words', P),
 		labelStripe: await p.ev(`(() => { const c = document.querySelector(${j(card(keeper))}); return { backgroundColor: (() => { const v = getComputedStyle(c).getPropertyValue('--binders-label').trim(); if (!v) return 'rgba(0, 0, 0, 0)'; const d = document.body.createDiv(); d.style.color = v; const out = getComputedStyle(d).color; d.remove(); return out; })() }; })()`),
-		selected: await css(p, card(keeper), P), groupTitle: await css(p, `${LEAF} .binders-group-title`, P), groupChip: await css(p, `${LEAF} .binders-group-heading .binders-chip`, P), groupCount: await css(p, `${LEAF} .binders-group-count`, P), groupSynopsis: await css(p, `${LEAF} .binders-group-synopsis`, P), viewSynopsis: await css(p, `${LEAF} .binders-view-synopsis`, P), toolbarCount: await css(p, `${LEAF} .binders-word-count`, P), folderIcon: await css(p, `${LEAF} .binders-group-icon svg`, ['width', 'height', 'color']),
+		selected: await css(p, card(keeper), P), stack, crumb: await css(p, `${LEAF} .binders-crumb[role="link"]`, P), crumbCurrent: await css(p, `${LEAF} .binders-crumb.is-current`, P), viewSynopsis: await css(p, `${LEAF} .binders-view-synopsis`, P), toolbarCount: await css(p, `${LEAF} .binders-word-count`, P),
 	};
+	await openView(p);
 	out.explorer = { dot: await css(p, `.tree-item-self[data-path="${L}${keeper}"] .binders-explorer-label`, P), title: await css(p, `.tree-item-self[data-path="${L}${keeper}"]`, P), selectedNative: await p.ev(`(() => { const e = document.querySelector('.tree-item-self.is-active, .tree-item-self.has-focus'); return e ? getComputedStyle(e).backgroundColor : null; })()`) };
 	await mode(p, 'outliner');
 	const nm = await p.at(row(keeper) + ' .binders-outliner-name');
@@ -1041,6 +1116,7 @@ test('14 settings and consistency', async (p) => {
 	out.manuscript = { title: await css(p, `${LEAF} .binders-manuscript-title`, P), folderHeading: await css(p, `${LEAF} .binders-manuscript-heading > *`, P), viewSynopsis: await css(p, `${LEAF} .binders-view-synopsis`, P), text: await css(p, `${LEAF} .binders-manuscript .cm-line`, P) };
 	// the menu's label dot
 	await mode(p, 'corkboard');
+	await openView(p, L + 'Part One');
 	await p.right(a.x, a.t + 22); await p.sleep(250); await hoverMenu(p, 'Set label');
 	out.menu = { dot: await css(p, `.menu .binders-label-dot`, P), item: await css(p, `.menu .menu-item-title`, P) };
 	await closeMenus(p);

@@ -32,6 +32,33 @@ test('the accent color and the theme’s radii and fonts are the view’s own', 
 	}
 });
 
+test('a folder’s stack is drawn from the theme: the cards under it have a card’s face and the theme’s border, at the theme’s radius', async (p, h, t) => {
+	await p.ev(`(() => { const s = document.head.createEl('style', { attr: { id: 'binders-theme-probe' } }); s.textContent = 'body { --radius-m: 13px; --background-modifier-border-hover: rgb(200, 30, 40); --background-primary: rgb(250, 240, 230); --text-muted: rgb(10, 120, 60); }'; return 1; })()`);
+	try {
+		await openView(p);
+		const stack = '.binders-card.is-stack[data-path="The Lighthouse/Part One"]';
+		// nothing selected or pointed at
+		const box = await p.at('.workspace-leaf.mod-active .binders-corkboard');
+		await p.click(box.l + box.w - 40, box.t + box.h - 40);
+		await p.sleep(300);
+		const colors = (s) => s.match(/(?:rgba?|oklch|oklab|color)\([^)]*\)/g) ?? [];
+		const pile = colors(await p.ev(style(stack, 'boxShadow'))).slice(-4);
+		t.eq(j(pile), j(['rgb(250, 240, 230)', 'rgb(200, 30, 40)', 'rgb(250, 240, 230)', 'rgb(200, 30, 40)']), 'two cards under it: the theme’s background for their faces, its border color for their edges');
+		t.eq(await p.ev(style(stack, 'backgroundColor')), 'rgb(250, 240, 230)', 'the card on top has the same face');
+		t.eq(await p.ev(style(stack, 'borderTopLeftRadius')), '13px', 'a stack follows --radius-m');
+		// selected: a ring in the theme's quiet text color, as any card without a label
+		const c = await p.at(`.workspace-leaf.mod-active ${stack}`);
+		await p.click(c.x, c.t + 14);
+		await p.sleep(400);
+		const ring = await p.ev(style(stack, 'boxShadow'));
+		t.ok(ring.startsWith('rgb(10, 120, 60) 0px 0px 0px 2px'), 'selected, its ring is the theme’s quiet text color: ' + ring);
+		const accent = await p.ev(`(() => { const e = document.body.createDiv(); e.style.color = 'var(--interactive-accent)'; const v = getComputedStyle(e).color; e.remove(); return v; })()`);
+		t.ok(!ring.includes(accent), 'not the accent color');
+	} finally {
+		await p.ev(`(() => { document.getElementById('binders-theme-probe')?.remove(); return 1; })()`);
+	}
+});
+
 test('the manuscript follows the editor’s “Readable line length”', async (p, h, t) => {
 	await openView(p);
 	await p.ev(`(() => { ${VIEW}.setMode('manuscript'); return 1; })()`);

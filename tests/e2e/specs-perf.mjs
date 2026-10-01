@@ -1,12 +1,15 @@
 // Performance on a big binder: 1,000 scenes in 10 parts, made in the throwaway vault copy. Measures opening each mode,
 // expanding it in the file explorer, a reorder and its write, and typing in the manuscript, and fails only past generous
 // limits (a guard against slowdowns, not a benchmark). The numbers are printed, for docs and reports.
+// The corkboard shows one folder at a time: the binder's board is ten stacks, a part's a hundred cards; a second, flat
+// binder of 1,000 notes keeps the guard on a board of a thousand cards.
 import { B, PL, VIEW, j, until, withTidy } from './view-helpers.mjs';
 
 export const specs = [];
 const test = (name, fn) => specs.push({ name: 'perf: ' + name, fn });
 
 const SAGA = 'Saga', PARTS = 10, PER = 100;
+const HEAP = 'Heap', HEAP_NOTES = 1000;
 const EXP = `app.workspace.getLeavesOfType('file-explorer')[0].view`;
 /** Limits in ms: several times what a desktop takes, so a slow test machine passes and a real slowdown doesn't. */
 const LIMIT = { open: 1500, interaction: 250, write: 3000, keystroke: 120 };
@@ -47,13 +50,20 @@ test('a 1,000-scene binder: every mode opens, and interactions stay quick', with
 	await makeSaga(p);
 	const saga = `app.vault.getAbstractFileByPath(${j(SAGA)})`;
 
-	// ---- corkboard ----
+	// ---- corkboard: the binder's board (a stack for each part), a part's board (100 cards), a flat folder's (1,000) ----
 	out.corkboardOpen = await timed(p, `${PL}.openBinder(${saga})`);
 	await until(p, `!!document.querySelector('.workspace-leaf.mod-active .binders-card[data-path]')`);
 	const t0 = Date.now();
 	await until(p, `/\\d/.test(document.querySelector('.workspace-leaf.mod-active .binders-word-count')?.textContent ?? '')`, 20000);
 	out.corkboardWordCounts = Date.now() - t0;
-	out.corkboardCards = await p.ev(`document.querySelectorAll('.workspace-leaf.mod-active .binders-card[data-path]').length`);
+	out.corkboardStacks = await p.ev(`document.querySelectorAll('.workspace-leaf.mod-active .binders-card.is-stack[data-path]').length`);
+	// each stack adds up the hundred notes in it
+	await until(p, `[...document.querySelectorAll('.workspace-leaf.mod-active .binders-card.is-stack .binders-card-words')].every(e => /^100 notes · [\\d,]+ words$/.test(e.textContent))`, 20000);
+	out.stackCounts = await p.ev(`[...new Set([...document.querySelectorAll('.workspace-leaf.mod-active .binders-card.is-stack .binders-card-words')].map(e => e.textContent))]`);
+	// into a part: a hundred cards
+	out.partOpen = await timed(p, `${PL}.openBinder(app.vault.getAbstractFileByPath(${j(SAGA + '/Part 01')}))`);
+	await until(p, `document.querySelectorAll('.workspace-leaf.mod-active .binders-card[data-path]').length === ${PER}`);
+	out.partCards = await p.ev(`document.querySelectorAll('.workspace-leaf.mod-active .binders-card[data-path]').length`);
 	// select a card, arrow through a few, as a person would
 	const first = await p.at(`.workspace-leaf.mod-active .binders-card[data-path]`);
 	await record(p);
@@ -62,14 +72,32 @@ test('a 1,000-scene binder: every mode opens, and interactions stay quick', with
 	await p.key('ArrowDown');
 	out.corkboardKeys = await recorded(p);
 	// a reorder from the keyboard (Alt+Right), until the card shows in its new place, and its write to the binder note
-	out.corkboardReorder = await p.ev(`(async () => {
+	const reorder = `(async () => {
 		const sel = '.workspace-leaf.mod-active .binders-card[data-path]', first = () => document.querySelector(sel).dataset.path;
 		const was = first(), t = performance.now();
 		document.querySelector(sel).dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', altKey: true, bubbles: true }));
 		while (first() === was && performance.now() - t < 5000) await new Promise(r => requestAnimationFrame(r));
 		return Math.round(performance.now() - t);
-	})()`);
+	})()`;
+	out.corkboardReorder = await p.ev(reorder);
 	out.reorderWrite = await timed(p, `${B}.flush()`);
+	t.eq(await p.ev(`(${B}.orderedChildren(app.vault.getAbstractFileByPath(${j(SAGA + '/Part 01')})) ?? []).slice(0, 2).map(f => f.basename).join()`), 'Scene 0002,Scene 0001', 'the reorder was made');
+	// a folder with no folders in it: a thousand cards on one board
+	await p.ev(`(async () => {
+		await app.vault.createFolder(${j(HEAP)});
+		const names = [];
+		for (let n = 1; n <= ${HEAP_NOTES}; n++) { const name = 'Card ' + String(n).padStart(4, '0'); names.push(name); await app.vault.create(${j(HEAP)} + '/' + name + '.md', '---\\nsynopsis: Card ' + n + ' of the heap.\\nstatus: ' + ['draft', 'revised', 'done'][n % 3] + '\\n---\\nA few words for card ' + n + '.\\n'); }
+		await app.vault.create(${j(HEAP + '/' + HEAP + '.md')}, '---\\nbinder: 1\\ncontents:\\n' + names.map(c => '  - ' + c).join('\\n') + '\\n---\\n');
+	})().then(() => 1)`);
+	t0ok(await until(p, `${B}.scenes(app.vault.getAbstractFileByPath(${j(HEAP)}) ?? app.vault.getRoot())?.length === ${HEAP_NOTES} && app.vault.getMarkdownFiles().filter(f => f.path.startsWith(${j(HEAP + '/')})).every(f => app.metadataCache.getFileCache(f)?.frontmatter)`, 60000), 'the flat binder is made');
+	out.heapOpen = await timed(p, `${PL}.openBinder(app.vault.getAbstractFileByPath(${j(HEAP)}))`);
+	await until(p, `document.querySelector('.workspace-leaf.mod-active .binders-card[data-path]')?.dataset.path.startsWith(${j(HEAP + '/')})`);
+	out.heapCards = await p.ev(`document.querySelectorAll('.workspace-leaf.mod-active .binders-card[data-path]').length`);
+	out.heapReorder = await p.ev(reorder);
+	await p.ev(`${B}.flush().then(() => 1)`);
+	// back to the big binder for the other modes
+	await p.ev(`${PL}.openBinder(${saga}).then(() => 1)`);
+	await until(p, `app.workspace.getMostRecentLeaf().getViewState().state?.folder === ${j(SAGA)}`);
 
 	// ---- outliner ----
 	out.outlinerOpen = await timed(p, `Promise.resolve(${VIEW}.setMode('outliner'))`);
@@ -102,10 +130,15 @@ test('a 1,000-scene binder: every mode opens, and interactions stay quick', with
 	out.explorerOrder = await p.ev(`[...document.querySelectorAll('.nav-file-title[data-path^="Saga/Part 01/"]')].slice(0, 3).map(e => e.dataset.path.split('/').pop())`);
 
 	console.log('    perf ' + j(out));
-	t.ok(out.corkboardCards >= PARTS * PER, `every card drawn (${out.corkboardCards})`);
+	t.eq(out.corkboardStacks, PARTS, `the binder’s board: a stack for each part (${out.corkboardStacks})`);
+	t.eq(j(out.stackCounts), j(['100 notes · 45,000 words']), 'each counting its hundred notes');
+	t.eq(out.partCards, PER, `a part’s board: every card drawn (${out.partCards})`);
+	t.eq(out.heapCards, HEAP_NOTES, `a folder of a thousand notes: every card drawn (${out.heapCards})`);
 	t.ok(out.outlinerRows >= PARTS * PER, `every row drawn (${out.outlinerRows})`);
-	for (const k of ['corkboardOpen', 'outlinerOpen', 'manuscriptOpen', 'explorerExpandBinder', 'explorerExpandPart']) t.ok(out[k] < LIMIT.open, `${k}: ${out[k]} ms (limit ${LIMIT.open})`);
+	for (const k of ['corkboardOpen', 'partOpen', 'heapOpen', 'outlinerOpen', 'manuscriptOpen', 'explorerExpandBinder', 'explorerExpandPart']) t.ok(out[k] < LIMIT.open, `${k}: ${out[k]} ms (limit ${LIMIT.open})`);
 	t.ok(out.corkboardReorder < LIMIT.interaction, `a reorder shows in ${out.corkboardReorder} ms (limit ${LIMIT.interaction})`);
+	// (every card of the one grid is measured before and after, for the glide: some 150 ms on a desktop, so twice the limit)
+	t.ok(out.heapReorder < LIMIT.interaction * 2, `and among a thousand cards in ${out.heapReorder} ms (limit ${LIMIT.interaction * 2})`);
 	t.ok(out.outlinerFold < LIMIT.interaction, `folding a folder in the outliner shows in ${out.outlinerFold} ms (limit ${LIMIT.interaction})`);
 	t.ok(out.reorderWrite < LIMIT.write, `its write takes ${out.reorderWrite} ms (limit ${LIMIT.write})`);
 	for (const k of ['corkboardKeys', 'outlinerKeys']) t.ok(out[k].slowestEvent < LIMIT.interaction, `${k}: slowest event ${out[k].slowestEvent} ms (limit ${LIMIT.interaction})`);

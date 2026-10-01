@@ -200,7 +200,11 @@ test('BUG: a section changes height when its editor replaces the rendered text (
 
 // ---- rough edges: where the manuscript doesn't do what a note (or the rest of the view) does ----
 
-test('UX: switching to the corkboard and back keeps the place in the manuscript', async (p, h, t) => {
+// BUG (found 2026-10-01; not from the one-folder board: the outliner and back does the same): the page comes back at
+// Scene 01. Opening the manuscript puts the caret in its first section a moment after setMode has noted where the mode
+// started (`enteredOn`, read before the section's editor is mounted), so at the next switch that section looks like
+// somewhere the writer went: it's carried to the other mode and revealed again on the way back, over the kept place.
+test('BUG: switching to the corkboard and back keeps the place in the manuscript', async (p, h, t) => {
 	await novel(p);
 	await scrollTo(p, 3000);
 	const before = await topScene(p);

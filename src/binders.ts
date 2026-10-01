@@ -135,7 +135,7 @@ const moveLabel = (items: TAbstractFile[]): string => (items.length === 1 ? `Mov
     on either side, and a Longform scene's indent. */
 interface Pos { parent: TFolder; path: string; next: TAbstractFile | null; prev: TAbstractFile | null; depth?: number; at: number }
 /** A change to a binder's order made by hand: what it moved, from where to where, and a folder it made to move them into. */
-interface Undo { note: TFile; label: string; items: { file: TAbstractFile; before: Pos; after: Pos }[]; made?: { folder: TFolder; name: string; pos: Pos } }
+interface Undo { failed?: boolean; note: TFile; label: string; items: { file: TAbstractFile; before: Pos; after: Pos }[]; made?: { folder: TFolder; name: string; pos: Pos } }
 
 export class BinderStore extends Events implements ExplorerSource {
 	ready: Promise<void>;
@@ -450,7 +450,9 @@ export class BinderStore extends Events implements ExplorerSource {
 	/** What "Undo" (or "Redo") would take back in this binder, or null. */
 	undoable(item: TAbstractFile | string, redo = false): string | null {
 		const s = this.at(typeof item === 'string' ? item : item.path), stack = redo ? this.redos : this.undos;
-		for (let i = stack.length - 1; i >= 0; i--) if (stack[i].note === s?.note) return stack[i].label;
+		// (a change whose items have all been deleted since has nothing to take back: it isn't offered)
+		const alive = (u: Undo) => u.items.some((x) => this.app.vault.getAbstractFileByPath(x.file.path) === x.file);
+		for (let i = stack.length - 1; i >= 0; i--) if (stack[i].note === s?.note && alive(stack[i])) return stack[i].label;
 		return null;
 	}
 
@@ -496,10 +498,13 @@ export class BinderStore extends Events implements ExplorerSource {
 					if (taken && taken !== x.file) throw new Error(`“${name(x.file)}” can’t go back: “${parent.name}” has another “${name(x.file)}” now.`);
 				}
 			} catch (e) {
-				// (it can't be taken back as things are, and it isn't left in the way of the changes before it)
-				from.splice(from.indexOf(u), 1);
+				// It can't be taken back as things are. Said once, and it stays, to try again when what's in the way has
+				// been put right; asked again with nothing changed, it's given up, and the change before it is the one.
+				if (u.failed) { from.splice(from.indexOf(u), 1); continue; }
+				u.failed = true;
 				throw e;
 			}
+			u.failed = false;
 			// in the order they stood in there (whatever order they were moved in): when all of a folder moved at once, as
 			// a sort kept does, that order is all there is to go by
 			const run = new Map<TAbstractFile | string, TAbstractFile>();
@@ -844,6 +849,15 @@ export class BinderStore extends Events implements ExplorerSource {
 		// the binder note moved, a folder holding a binder, or a note that could make a folder a binder (a binder note or
 		// Longform index moved into a plain folder, or out of a binder): which folders are binders may have changed
 		if ((file instanceof TFile && this.states.has(file)) || (isFolder && ([...this.states.values()].some((s) => s.path === oldPath || s.path.startsWith(oldPath + '/')) || this.orphans)) || this.holdsBinderNote(file)) this.rescan();
+		// a binder's own folder renamed: its note, named like the folder, follows the new name (as a folder's note does)
+		if (isFolder) {
+			const own = [...this.states.values()].find((s) => s.kind === 'binder' && s.folder === file), oldName = nameOf(oldPath);
+			if (own && own.note.parent === file && own.note.basename === oldName && oldName !== file.name) {
+				this.renamedFolders.push({ folder: file, oldName });
+				window.clearTimeout(this.followTimer);
+				this.followTimer = window.setTimeout(() => { void this.followFolderNotes(); }, 50);
+			}
+		}
 		let o = this.at(oldPath, true), n = this.at(file.path);
 		// a scene renamed to its folder's name, or moved into a folder of its own name, becomes that folder's note and
 		// stops showing as a scene: said, since nothing else would tell

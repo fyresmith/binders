@@ -1,9 +1,9 @@
-import { ItemView, Keymap, Menu, Notice, Scope, type Events, TFile, TFolder, setIcon, type PaneType, type TAbstractFile, type ViewStateResult, type WorkspaceLeaf } from 'obsidian';
+import { ItemView, Keymap, Menu, Notice, Platform, Scope, type Events, TFile, TFolder, setIcon, type PaneType, type TAbstractFile, type ViewStateResult, type WorkspaceLeaf } from 'obsidian';
 import type { Binder } from '../binders';
 import { CompileModal } from '../scenes';
 import type BindersPlugin from '../main';
 import { commitAll, commitFocused, editable, type Editable } from './edit';
-import { readableLineLength, refreshHeader, selectMenuItem } from './internals';
+import { keepOpen, readableLineLength, refreshHeader, selectMenuItem } from './internals';
 import { canonical, labelDot, labelName, rank, readLabel } from './labels';
 import { ask } from './modals';
 import { parseTarget, readTarget } from './outliner-data';
@@ -130,7 +130,17 @@ export class BinderView extends ItemView {
 	async setState(state: unknown, result: ViewStateResult): Promise<void> {
 		const s = (state ?? {}) as BinderViewState;
 		// another folder is a step in the tab's history, so Back returns to this one
-		if (typeof s.folder === 'string' && s.folder !== this.path) { if (this.path) result.history = true; this.path = s.folder; }
+		// (and a change to the layout, as opening another note in a tab is: Obsidian's Back and Forward buttons, a
+		// phone's too, look at the tab's history again when the layout changes)
+		if (typeof s.folder === 'string' && s.folder !== this.path) {
+			if (this.path) {
+				result.history = true;
+				// (a phone's bar of buttons looks at the tab's history only when the tab in front changes: it's told,
+				// once the step is in the history, so its Back and Forward are lit when there's somewhere to go)
+				window.setTimeout(() => { if (this.app.workspace.getMostRecentLeaf() === this.leaf && this.app.workspace.activeLeaf === this.leaf) this.app.workspace.trigger('active-leaf-change', this.leaf); }, 60);
+			}
+			this.path = s.folder;
+		}
 		this.mode = readMode(s.mode) ?? this.mode;
 		// (as settings spell them: a filter saved as "draft" still means Draft)
 		const st = this.plugin.settings;
@@ -183,6 +193,17 @@ export class BinderView extends ItemView {
 		const readable = () => this.contentEl.toggleClass('is-readable-line-width', readableLineLength(this.app));
 		readable();
 		this.registerEvent((this.app.vault as Events).on('config-changed', readable));
+		// The app going to the background (another app in front, the screen off): on a phone it may never come back, and
+		// nothing says so first. What's being typed is written there and then: a title or synopsis in its field (which
+		// stays open, to carry on with), and the manuscript's sections.
+		// A ring around what has the focus is for a keyboard: after a touch nothing shows one, until a key that moves
+		// the focus is pressed (a tablet with a keyboard beside it).
+		this.registerDomEvent(this.contentEl, 'touchstart', () => this.contentEl.addClass('is-touch'), { passive: true });
+		this.registerDomEvent(this.contentEl, 'keydown', (e) => { if (e.key === 'Tab' || e.key.startsWith('Arrow')) this.contentEl.removeClass('is-touch'); });
+		for (const type of ['pointerdown', 'keydown'] as const) this.registerDomEvent(this.contentEl, type, () => { this.presses++; }, { capture: true, passive: true });
+		const away = () => { void commitAll(this.contentEl, true); void this.current?.save?.(); };
+		this.registerDomEvent(this.contentEl.doc, 'visibilitychange', () => { if (this.contentEl.doc.visibilityState === 'hidden') away(); });
+		this.registerDomEvent(this.contentEl.win, 'pagehide', away);
 		const { vault, metadataCache } = this.app;
 		const ref = this.store.on('changed', (p: string) => {
 			const f = this.folder?.path ?? this.path;
@@ -218,11 +239,28 @@ export class BinderView extends ItemView {
 			this.current?.menu?.(menu);
 			const note = this.store.folderNote(this.folder), binder = this.store.binderOf(this.folder)?.folder === this.folder;
 			const folder = this.folder;
+			// (a move taken back or made again: on a phone there's no Ctrl+Z to do it with)
+			for (const redo of [false, true]) {
+				const what = this.store.undoable(folder, redo);
+				if (what) menu.addItem((i) => i.setSection('binders-note').setTitle(`${redo ? 'Redo' : 'Undo'}: ${what.charAt(0).toLowerCase()}${what.slice(1)}`).setIcon(redo ? 'redo-2' : 'undo-2').onClick(() => void this.plugin.undoMove(folder, redo)));
+			}
 			menu.addItem((i) => i.setSection('binders-note').setTitle('Compile...').setIcon('book-check').onClick(() => new CompileModal(this.plugin, folder).open()));
 			if (note) menu.addItem((i) => i.setSection('binders-note').setTitle(binder ? 'Open binder note' : 'Open folder note').setIcon('file-text').onClick((e) => void this.app.workspace.getLeaf(Keymap.isModEvent(e)).openFile(note)));
 		}
 		super.onPaneMenu(menu, source);
 	}
+
+	/** Notes what the mode is on as it starts: now, and again a moment later if nothing has been pressed meanwhile
+	    (the manuscript puts its cursor once its editor has loaded, which is after this). */
+	private entered(): void {
+		this.enteredOn = this.current?.current?.() ?? null;
+		const mode = this.current, presses = this.presses;
+		window.setTimeout(() => { if (this.current === mode && this.presses === presses) this.enteredOn = mode?.current?.() ?? null; }, 500);
+	}
+	private presses = 0;
+
+	/** What the last switch of mode was carried to (see setMode). */
+	private carried: TAbstractFile | null = null;
 
 	/** Switches the view to another mode (the "Show corkboard" commands, the mode menu). */
 	setMode(mode: ModeName): void {
@@ -230,7 +268,9 @@ export class BinderView extends ItemView {
 		this.keepPlace();
 		// the card, row or section the writer went to in this mode is the one the next mode opens on (if they went
 		// nowhere, the next mode opens where it was left)
-		const now = this.current?.current?.() ?? null, on = now && now !== this.enteredOn ? now : null;
+		// (and it stays the one through a second switch, until they go to something else)
+		const now = this.current?.current?.() ?? null, on = now && now !== this.enteredOn ? now : this.carried;
+		this.carried = on;
 		this.mode = mode;
 		this.remember();
 		this.rebuild();
@@ -239,7 +279,7 @@ export class BinderView extends ItemView {
 		// the keyboard carries on in the new mode: where it was before, or at its start
 		if (this.app.workspace.getActiveViewOfType(BinderView) === this) this.current?.focus?.();
 		// (where the mode starts, the keyboard put there included, isn't somewhere the writer went)
-		this.enteredOn = this.current?.current?.() ?? null;
+		this.entered();
 	}
 
 	private keepPlace(): void { if (this.current?.place && this.folder) this.places.set(this.placeKey(), this.current.place()); }
@@ -265,6 +305,14 @@ export class BinderView extends ItemView {
 		if (!(f instanceof TFolder)) {
 			const to = followMoves(this.path), g = to !== this.path ? this.app.vault.getAbstractFileByPath(to) : null;
 			if (g instanceof TFolder) { f = g; this.path = to; }
+		}
+		// the folder shown was deleted: the nearest folder above it that's still in a binder is shown instead
+		if (!(f instanceof TFolder) && this.found) {
+			for (let p = this.path; p.includes('/');) {
+				p = p.slice(0, p.lastIndexOf('/'));
+				const up = this.app.vault.getAbstractFileByPath(p);
+				if (up instanceof TFolder && this.store.binderOf(up)) { f = up; this.path = p; this.app.workspace.requestSaveLayout(); break; }
+			}
 		}
 		this.folder = f instanceof TFolder ? f : null;
 		this.binder = this.folder ? this.store.binderOf(this.folder) : null;
@@ -334,7 +382,7 @@ export class BinderView extends ItemView {
 		// the keyboard is in the view it's looking at: after going into a folder, up by the breadcrumb, or Back
 		if (this.wantFocus || (this.app.workspace.getActiveViewOfType(BinderView) === this && this.contentEl.doc.activeElement === this.contentEl.doc.body)) this.current.focus?.();
 		this.wantFocus = false;
-		this.enteredOn = this.current.current?.() ?? null;
+		this.entered();
 	}
 
 	private refresh(): void {
@@ -363,12 +411,21 @@ export class BinderView extends ItemView {
 		const chain: TFolder[] = [];
 		for (let f: TFolder | null = folder; f; f = f === binder.folder ? null : f.parent) chain.unshift(f);
 		ui.crumbs.toggleClass('is-root', chain.length < 2);
+		// (on a phone the folder shown is named in the header above: the breadcrumb is the way up, with an arrow)
+		if (chain.length > 1) {
+			const up = ui.crumbs.createSpan({ cls: 'binders-crumb-up', attr: { 'aria-hidden': 'true' } });
+			setIcon(up, 'arrow-up-left');
+			up.addEventListener('click', () => void this.navigate(chain[chain.length - 2]));
+			up.dataset.path = chain[chain.length - 2].path;
+		}
 		chain.forEach((f, i) => {
 			if (i) setIcon(ui.crumbs.createSpan({ cls: 'binders-crumb-sep', attr: { 'aria-hidden': 'true' } }), 'chevron-right');
 			const last = i === chain.length - 1;
 			const c = ui.crumbs.createSpan({ cls: 'binders-crumb' + (last ? ' is-current' : ''), text: f.name });
 			if (last) { c.setAttr('aria-current', 'page'); return; }
 			c.setAttrs({ role: 'link', tabindex: '0' });
+			// (cards dragged onto it go to that folder: the way out of the folder shown)
+			c.dataset.path = f.path;
 			c.addEventListener('click', (e) => void this.navigate(f, Keymap.isModEvent(e)));
 			c.addEventListener('auxclick', (e) => { if (e.button === 1) void this.navigate(f, 'tab'); });
 			c.addEventListener('keydown', (e) => { if (e.key === 'Enter') void this.navigate(f, Keymap.isModEvent(e)); });
@@ -465,9 +522,16 @@ export class BinderView extends ItemView {
 		// in the order settings list them, then the others as they come
 		const st = this.plugin.settings, byRank = (values: Set<string>, order: string[]) => new Set([...values].map((v, i) => ({ v, i, r: rank(v, order) })).sort((a, b) => a.r - b.r || a.i - b.i).map((x) => x.v));
 		const menu = new Menu();
+		// On a phone or tablet the menu is a sheet from the foot of the screen: it stays where it is while things are
+		// ticked in it (opened again after each pick, it would slide in again each time).
+		const sheet = Platform.isMobile;
+		const flip = (kind: keyof Filter, v: string): boolean => {
+			const list = this.filter[kind], on = !list.includes(v);
+			this.setFilter({ ...this.filter, [kind]: on ? [...list, v] : list.filter((x) => x !== v) });
+			return on;
+		};
 		const toggle = (kind: keyof Filter, v: string, title: string) => {
-			const list = this.filter[kind];
-			this.setFilter({ ...this.filter, [kind]: list.includes(v) ? list.filter((x) => x !== v) : [...list, v] });
+			flip(kind, v);
 			// the menu stays for the next pick (a menu closes when an item is chosen: it's opened again, where it was:
 			// the button grows as it counts what's picked, and the menu mustn't follow it about)
 			// (and the keyboard carries on from the item just picked)
@@ -482,14 +546,16 @@ export class BinderView extends ItemView {
 					// a status shows as it's written, as on the cards; a label by its color's name
 					if (kind === 'label') { labelDot(t, v, this.plugin.settings.labels); t.appendText(labelName(v, this.plugin.settings.labels)); } else t.appendText(v);
 					i.setSection(kind).setTitle(t).setChecked(this.filter[kind].includes(v)).onClick(() => toggle(kind, v, kind === 'label' ? labelName(v, this.plugin.settings.labels) : v));
+					if (sheet) keepOpen(i, () => flip(kind, v));
 				});
 			}
-			if (none) menu.addItem((i) => i.setSection(kind).setTitle(noneTitle).setChecked(this.filter[kind].includes('')).onClick(() => toggle(kind, '', noneTitle)));
+			if (none) menu.addItem((i) => { i.setSection(kind).setTitle(noneTitle).setChecked(this.filter[kind].includes('')).onClick(() => toggle(kind, '', noneTitle)); if (sheet) keepOpen(i, () => flip(kind, '')); });
 		};
 		group('status', 'Status', byRank(statuses, st.statuses), noStatus, 'No status');
 		group('label', 'Label', byRank(labels, st.labels.map((l) => l.name)), noLabel, 'No label');
 		if (!statuses.size && !labels.size) menu.addItem((i) => i.setTitle('No statuses or labels to filter by').setIsLabel(true));
-		if (this.filter.status.length || this.filter.label.length) {
+		// (on a sheet that stays open, always: there may be something to clear by the time it's wanted)
+		if (this.filter.status.length || this.filter.label.length || (sheet && (statuses.size || labels.size))) {
 			menu.addItem((i) => i.setSection('clear').setTitle('Clear filter').setIcon('x').onClick(() => this.setFilter({ status: [], label: [] })));
 		}
 		if (at && this.ui) menu.showAtPosition({ ...at, overlap: true, left: false }, this.ui.filter.doc);
@@ -576,9 +642,12 @@ export class BinderView extends ItemView {
 		const folder = this.folder, binder = this.binder;
 		if (!folder || !binder || this.readOnly) return;
 		const note = this.store.folderNote(folder), now = note ? this.props(note).target : 0;
+		// (on a phone or tablet the dialog gives the focus back to the count as it closes, which would then show a
+		// keyboard's focus ring nobody asked for)
+		if (Platform.isMobile) this.ui?.count.blur();
 		const typed = await ask(this.app, {
 			title: folder === binder.folder ? 'Word count target for the binder' : `Word count target for “${folder.name}”`, placeholder: 'Words, such as 80,000', cta: 'Set target',
-			value: now ? String(now) : '', allowEmpty: true, check: (v: string) => (parseTarget(v) == null ? 'A target is a whole number of words.' : null),
+			value: now ? String(now) : '', allowEmpty: true, numeric: true, check: (v: string) => (parseTarget(v) == null ? 'A target is a whole number of words.' : null),
 		});
 		const n = typed == null ? null : parseTarget(typed);
 		if (n == null || n === now) return;

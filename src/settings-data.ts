@@ -30,12 +30,14 @@ export interface BindersSettings {
 	/** What "Compile" last wrote, by path (a fingerprint of the text): a note that's still as Compile left it is
 	    replaced without asking; one that's been written in since, or was never a compile, is asked about first. */
 	compiled: Record<string, string>;
+	/** Where each folder was last compiled to (its path → the note's path): offered again the next time. */
+	compiledTo: Record<string, string>;
 }
 
 export const DEFAULT_SETTINGS: BindersSettings = {
 	orderExplorer: true, openOnClick: true, hideBinderNotes: true, explorerLabels: true,
 	synopsisProp: 'synopsis', statusProp: 'status', labelProp: 'label', targetProp: 'target',
-	labels: DEFAULT_LABELS, statuses: DEFAULT_STATUSES, outlinerColumns: DEFAULT_COLUMNS, compile: COMPILE_DEFAULTS, compiled: {},
+	labels: DEFAULT_LABELS, statuses: DEFAULT_STATUSES, outlinerColumns: DEFAULT_COLUMNS, compile: COMPILE_DEFAULTS, compiled: {}, compiledTo: {},
 };
 
 export type Toggle = 'orderExplorer' | 'openOnClick' | 'hideBinderNotes' | 'explorerLabels';
@@ -70,6 +72,8 @@ export function readSettings(data: unknown): BindersSettings {
 	s.compile = { ...COMPILE_DEFAULTS };
 	for (const k of ['folderHeadings', 'sceneHeadings', 'title', 'stripComments'] as const) if (typeof c[k] === 'boolean') s.compile[k] = c[k];
 	if (typeof c.separator === 'string') s.compile.separator = c.separator;
+	s.compiledTo = {};
+	if (d.compiledTo && typeof d.compiledTo === 'object' && !Array.isArray(d.compiledTo)) for (const [k, v] of Object.entries(d.compiledTo).slice(-COMPILED_KEPT)) if (typeof v === 'string') s.compiledTo[k] = v;
 	s.compiled = {};
 	if (d.compiled && typeof d.compiled === 'object' && !Array.isArray(d.compiled)) for (const [k, v] of Object.entries(d.compiled).slice(-COMPILED_KEPT)) if (typeof v === 'string') s.compiled[k] = v;
 	return s;

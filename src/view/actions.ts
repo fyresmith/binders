@@ -158,7 +158,7 @@ export function labelItems(ctx: ModeContext, m: Menu, items: TAbstractFile[]): v
 export async function askTarget(ctx: ModeContext, items: TAbstractFile[]): Promise<void> {
 	const one = items.length === 1 ? noteOf(ctx, items[0]) : null, now = one ? ctx.props(one).target : 0;
 	// (something that isn't a number keeps the dialog open, with what was typed, to put right)
-	const typed = await ask(ctx.app, { title: 'Word count target', placeholder: 'Words, such as 1,500', cta: 'Set target', value: now ? String(now) : '', allowEmpty: true, check: (v) => (parseTarget(v) == null ? 'A target is a whole number of words.' : null) });
+	const typed = await ask(ctx.app, { title: 'Word count target', placeholder: 'Words, such as 1,500', cta: 'Set target', value: now ? String(now) : '', allowEmpty: true, numeric: true, check: (v) => (parseTarget(v) == null ? 'A target is a whole number of words.' : null) });
 	if (typed == null) return;
 	const n = parseTarget(typed);
 	if (n != null) await setAll(ctx, items, { target: n });
@@ -169,7 +169,8 @@ export function emptyState(ctx: ModeContext, parent: HTMLElement): HTMLElement {
 	const box = parent.createDiv({ cls: 'binders-empty' }), filtering = ctx.filtering();
 	box.createDiv({ cls: 'binders-empty-title', text: filtering ? 'No notes match the filter' : 'No notes in this folder yet' });
 	if (filtering) box.createDiv({ cls: 'binders-empty-text', text: 'Choose “Filter” above to change it, or clear it.' });
-	else if (!ctx.readOnly) box.createDiv({ cls: 'binders-empty-text', text: 'Use “New” above to add one.' });
+	// (on a phone "New" is a plus sign with no word beside it)
+	else if (!ctx.readOnly) box.createDiv({ cls: 'binders-empty-text', text: Platform.isPhone ? 'Tap + above to add one.' : 'Use “New” above to add one.' });
 	return box;
 }
 
@@ -243,11 +244,48 @@ export interface Hooks {
 	/** Something was made from the menu (a copy, a folder around the selection): select it, and with `rename`, start
 	    naming it in place once it shows. */
 	made?: (f: TAbstractFile, rename: boolean) => void;
+	/** By touch there's no Shift or Ctrl to select several with: this starts a spell in which each tap adds an item to
+	    the selection or takes it out (null or missing: not offered). */
+	pick?: (() => void) | null;
+}
+
+/** "Move to": every folder of the binder, as the file explorer nests them, to move the items to (at its end). A way
+    to another folder that needs no dragging: across a long binder, by touch, or from a board that shows one folder. */
+function moveItems(ctx: ModeContext, menu: Menu, items: TAbstractFile[]): void {
+	const binder = ctx.binder, store = ctx.store;
+	// (a Longform project is one flat folder: there's nowhere else in it to go)
+	if (binder.kind === 'longform') return;
+	const folders: { folder: TFolder; depth: number }[] = [];
+	const walk = (f: TFolder, depth: number) => {
+		folders.push({ folder: f, depth });
+		for (const c of store.orderedChildren(f) ?? []) if (c instanceof TFolder) walk(c, depth + 1);
+	};
+	walk(binder.folder, 0);
+	if (folders.length < 2) return;
+	menu.addItem((i) => {
+		i.setSection('order').setTitle('Move to').setIcon('folder-input');
+		submenu(i, (m) => {
+			for (const { folder, depth } of folders) {
+				// not into itself or a folder inside it; and where it already is says so, and does nothing
+				const inside = items.some((x) => x instanceof TFolder && (folder === x || folder.path.startsWith(x.path + '/')));
+				const here = items.every((x) => x.parent === folder);
+				m.addItem((x) => {
+					const title = createFragment();
+					title.createSpan({ cls: 'binders-menu-indent' }).setCssProps({ '--binders-depth': String(depth) });
+					title.appendText(folder.name);
+					x.setTitle(title).setIcon(depth ? 'folder' : 'book').setChecked(here).setDisabled(inside || here)
+						.onClick(() => void tell(store.put(store.inOrder(items), folder, null)));
+				});
+			}
+		}, menu);
+	});
 }
 
 /** The menu of one item, or of several selected together. */
 export function itemMenu(ctx: ModeContext, items: TAbstractFile[], h: Hooks): Menu {
 	const menu = new Menu(), ro = ctx.readOnly, one = items.length === 1 ? items[0] : null;
+	const pick = h.pick;
+	if (Platform.isMobile && pick) menu.addItem((i) => i.setSection('open').setTitle('Select more').setIcon('list-checks').onClick(() => pick()));
 	if (one instanceof TFolder) {
 		menu.addItem((i) => i.setSection('open').setTitle('Open').setIcon('layout-grid').onClick(() => ctx.navigate(one)));
 		menu.addItem((i) => i.setSection('open').setTitle('Open in new tab').setIcon('file-plus').onClick(() => ctx.navigate(one, 'tab')));
@@ -270,6 +308,7 @@ export function itemMenu(ctx: ModeContext, items: TAbstractFile[], h: Hooks): Me
 		structureItems(ctx, menu, items, h);
 		if (one && h.up) menu.addItem((x) => x.setSection('order').setTitle('Move up').setIcon('arrow-up').onClick(() => h.up?.()));
 		if (one && h.down) menu.addItem((x) => x.setSection('order').setTitle('Move down').setIcon('arrow-down').onClick(() => h.down?.()));
+		moveItems(ctx, menu, items);
 	}
 	h.more?.(menu);
 	otherItems(ctx, menu, items);

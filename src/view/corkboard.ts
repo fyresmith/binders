@@ -1,7 +1,7 @@
 import { Keymap, Menu, Notice, TFile, TFolder, setIcon, type PaneType, type TAbstractFile } from 'obsidian';
 import { editable, type Editable } from './edit';
 import { emptyState, badName, isNote, itemMenu, noteOf, plain, removeItems, renameItem } from './actions';
-import { settle } from './drag';
+import { held, settle, visibleBottom } from './drag';
 import { submenu } from './internals';
 import { display, labelDot, labelName, paintLabel } from './labels';
 import type { BinderMode, ModeContext, ModeFactory } from './mode';
@@ -36,6 +36,8 @@ interface Drag {
 	ghost: HTMLElement;
 	indicator: HTMLElement;
 	drop: Drop | null;
+	/** The folder in the breadcrumb a drop would move the cards to. */
+	crumb?: HTMLElement | null;
 	x: number; y: number;
 	/** Where in the card it was taken hold of, so it stays under the pointer there. */
 	ox: number; oy: number;
@@ -94,13 +96,17 @@ class Corkboard implements BinderMode {
 	constructor(private container: HTMLElement, private ctx: ModeContext) {}
 
 	private get store() { return this.ctx.store; }
-	private get stacks(): boolean { return this.ctx.option('stacks', false); }
+	/** A folder on the board is one card, a stack, that's gone into to see what it holds: every item of the folder shown
+	    is a card in one grid, in the binder's order (as on Scrivener's corkboard). A Longform project has no folders:
+	    its indented scenes show in groups under the scene they belong to. */
+	private get stacks(): boolean { return !this.longform; }
 	private get longform(): boolean { return this.ctx.binder.kind === 'longform'; }
 	private get presets() { return this.ctx.plugin.settings.labels; }
 
 	render(): void {
 		this.container.addClass('binders-corkboard');
 		this.board = this.container.createDiv({ cls: 'binders-board' });
+		this.fit.observe(this.container);
 		const moved = this.ctx.app.vault.on('rename', (f, old) => this.onMoved(f.path, old));
 		this.cleanup.push(() => this.ctx.app.vault.offref(moved));
 		const b = this.board, on = <K extends keyof HTMLElementEventMap>(t: K, fn: (e: HTMLElementEventMap[K]) => void, opts?: AddEventListenerOptions) => {
@@ -132,7 +138,14 @@ class Corkboard implements BinderMode {
 		if (this.signature() !== this.sig) this.draw();
 	}
 
+	/** The board made shorter while something is typed (a phone's keyboard coming up over it): the field stays in sight. */
+	private fit = new ResizeObserver(() => {
+		const a = this.board.doc.activeElement;
+		if ((this.editing > 0 || this.newIn) && a?.instanceOf(HTMLElement) && this.board.contains(a)) { a.scrollIntoView({ block: 'nearest' }); this.inSight(a); }
+	});
+
 	unload(): void {
+		this.fit.disconnect();
 		this.endDrag(false, true);
 		this.endPress();
 		for (const f of this.cleanup) f();
@@ -184,6 +197,9 @@ class Corkboard implements BinderMode {
 		if (!el) return;
 		this.select([item.path], item.path);
 		el.scrollIntoView({ block: 'nearest' });
+		this.inSight(el);
+		// (and once the board has settled: cards still gliding, or counts still coming in, move it)
+		window.setTimeout(() => { const now = this.cardEl(item.path); if (now && this.sel.has(item.path)) this.inSight(now); }, 350);
 		el.focus({ preventScroll: true });
 		if (fresh && !this.ctx.readOnly) this.editTitle(el);
 	}
@@ -230,7 +246,7 @@ class Corkboard implements BinderMode {
 					this.ctx.setOption('cardSize', size);
 					this.applyCardSize();
 				}));
-			});
+			}, menu);
 		});
 		menu.addItem((i) => i.setSection('view').setTitle('Tint cards with their label color').setIcon('paint-bucket').setChecked(this.labelStyle === 'tint').onClick(() => {
 			this.ctx.setOption('labelStyle', this.labelStyle === 'tint' ? 'stripe' : 'tint');
@@ -241,15 +257,11 @@ class Corkboard implements BinderMode {
 			this.ctx.setOption('numbers', !this.numbers);
 			this.applyCardSize();
 		}));
-		if (this.longform) return; // no subfolders to stack
-		menu.addItem((i) => i.setSection('view').setTitle('Show subfolders as stacks').setIcon('layers').setChecked(this.stacks).onClick(() => {
-			this.ctx.setOption('stacks', !this.stacks);
-			this.draw();
-		}));
 	}
 
 	newMenu(menu: Menu, sec?: HTMLElement | null): void {
-		menu.addItem((i) => i.setSection('new').setTitle('New note').setIcon('file-plus').onClick(() => this.startNew(sec)));
+		// (in a group's own menu, at that group's end; from the toolbar, after the selected card, as in the other modes)
+		menu.addItem((i) => i.setSection('new').setTitle('New note').setIcon('file-plus').onClick(() => { if (sec) this.startNew(sec); else void this.create('note'); }));
 		if (!this.longform) menu.addItem((i) => i.setSection('new').setTitle('New folder').setIcon('folder-plus').onClick(() => void this.newFolder()));
 	}
 
@@ -288,6 +300,7 @@ class Corkboard implements BinderMode {
 		const all = [...this.board.querySelectorAll<HTMLElement>('.binders-card-new')];
 		const tile = sec?.querySelector<HTMLElement>('.binders-card-new') ?? all[all.length - 1];
 		tile?.scrollIntoView({ block: 'nearest' });
+		if (tile) this.inSight(tile);
 		(tile as (HTMLElement & { binderStart?: () => void }) | undefined)?.binderStart?.();
 	}
 
@@ -298,6 +311,7 @@ class Corkboard implements BinderMode {
 			this.draw();
 			const name = this.stacks ? this.editors.get(folder.path)?.title : this.headings.get(folder.path);
 			name?.el.scrollIntoView({ block: 'nearest' });
+			if (name) this.inSight(name.el);
 			name?.edit();
 		} catch (e) { new Notice(plain(e)); }
 	}
@@ -354,7 +368,8 @@ class Corkboard implements BinderMode {
 	private cardKey(f: TAbstractFile): unknown[] {
 		if (f instanceof TFolder) {
 			const note = this.store.folderNote(f), p = note ? this.ctx.props(note) : null, scenes = this.store.scenes(f);
-			return [f.path, 'folder', p?.synopsis, p?.status, p?.label, p?.target, scenes.length, this.sum(scenes)];
+			// (with what its count says: under a filter that's the notes that pass, which the filter changes)
+			return [f.path, 'folder', p?.synopsis, p?.status, p?.label, p?.target, scenes.length, this.sum(scenes), this.countLabel(scenes, f)];
 		}
 		if (!(f instanceof TFile)) return [f.path];
 		const p = this.ctx.props(f);
@@ -422,6 +437,9 @@ class Corkboard implements BinderMode {
 		else if (this.focusOnDraw && this.cards().length) this.focus();
 		else if (hadFocus) this.cardEl(this.focused)?.focus({ preventScroll: true });
 		if (this.cards().length) this.focusOnDraw = false;
+		// (a title being typed for a new note stays in sight, whatever was drawn above it meanwhile)
+		const typing = this.board.querySelector<HTMLElement>('.binders-card-new.is-editing');
+		if (typing?.contains(doc.activeElement)) this.inSight(typing);
 	}
 
 	/** Where every card and heading is, by what it is, to glide from after a redraw. */
@@ -564,7 +582,9 @@ class Corkboard implements BinderMode {
 			cls, value: note ? this.ctx.props(note).synopsis : '', placeholder: 'Add a synopsis', label: `Synopsis of ${item instanceof TFile ? item.basename : item.name}`, readOnly: this.ctx.readOnly, focusable,
 			// a click (or a tap) on a card selects it; on a card that's already selected, it edits its synopsis. The
 			// middle of a card is where it's clicked to select it or picked up to move it, so that mustn't open a field.
-			shouldEdit: () => !card || this.sel.has(card.dataset.path),
+			// (a stack is gone into by a double-click anywhere on it: the second click of one, on its synopsis, isn't a
+			// request to edit, so there it takes a click on a card that was already selected a moment ago)
+			shouldEdit: () => !card || (this.sel.has(card.dataset.path) && (!card.hasClass('is-stack') || performance.now() - this.selectedAt > 500)),
 			save: async (t) => {
 				const f = item instanceof TFolder ? await this.store.ensureFolderNote(item) : note;
 				await this.ctx.setProps(f, { synopsis: t });
@@ -576,7 +596,7 @@ class Corkboard implements BinderMode {
 	private onEditing(on: boolean, card?: HTMLElement): void {
 		this.editing += on ? 1 : -1;
 		// a card half out of sight comes into view to be edited
-		if (on) card?.scrollIntoView({ block: 'nearest' });
+		if (on && card) { card.scrollIntoView({ block: 'nearest' }); this.inSight(card); }
 		if (!on && !this.busy()) window.setTimeout(() => { if (!this.busy() && (this.dirty || this.signature() !== this.sig)) this.draw(); }, 0);
 	}
 
@@ -609,7 +629,9 @@ class Corkboard implements BinderMode {
 		card.setAttr('aria-label', name);
 		// what a screen reader says after the name: what the card shows besides it
 		const words = folder ? null : f instanceof TFile ? this.ctx.words(f) : null;
-		const about = [p.status && `Status: ${p.status}`, p.label && `Label: ${labelName(p.label, this.presets)}`, words != null && wordsLabel(words), p.target > 0 && `Target: ${wordsLabel(p.target)}`].filter(Boolean).join(', ');
+		// (a folder's stack says what it holds, as printed on it)
+		const holds = f instanceof TFolder ? this.countLabel(this.store.scenes(f), f) : null;
+		const about = [p.status && `Status: ${p.status}`, p.label && `Label: ${labelName(p.label, this.presets)}`, holds, words != null && wordsLabel(words), p.target > 0 && `Target: ${wordsLabel(p.target)}`].filter(Boolean).join(', ');
 		if (about) card.setAttr('aria-description', about);
 		const editors = { title, synopsis: this.synopsis(card, f, 'binders-card-synopsis', card) };
 		this.editors.set(f.path, editors);
@@ -663,9 +685,20 @@ class Corkboard implements BinderMode {
 					const file = await this.store.newScene(g.folder, g.end ? Math.max(0, sibs.indexOf(g.end)) : Infinity, t, g.depth);
 					this.made.add(file);
 					this.ctx.made(file);
-					this.select([file.path], file.path);
+					// (unless another field has been opened meanwhile: selecting takes the focus, and would close it)
+					if (this.newIn === key && this.editing === 0) this.select([file.path], file.path);
 				} catch (e) { refuse(e instanceof Error ? e.message : String(e)); return; }
-				this.newIn = null;
+				if (this.newIn === key) this.newIn = null;
+				// (left for another field, another tile or a folder's synopsis, which is open by now: the board is drawn
+				// again when that one is done, not now, or the redraw would take it away)
+				if (this.newIn || this.editing > 0) { this.dirty = true; return; }
+				// (left by a tap on something else: the board is drawn again once that tap has landed, not under it,
+				// where the new card would move what the finger is coming down on)
+				if (!again && this.lastPointer === 'touch') {
+					this.dirty = true;
+					window.setTimeout(() => { if (!this.busy() && this.dirty) this.draw(); }, 350);
+					return;
+				}
 				this.draw();
 				// Enter keeps the new card open for the next one; clicking away ends it
 				if (again) (this.board.querySelector<HTMLElement>(`.binders-card-new[data-new="${CSS.escape(key)}"]`) as HTMLElement & { binderStart?: () => void })?.binderStart?.();
@@ -678,12 +711,23 @@ class Corkboard implements BinderMode {
 			});
 			input.addEventListener('blur', () => void finish(false));
 			for (const t of ['click', 'dblclick', 'pointerdown', 'contextmenu'] as const) input.addEventListener(t, (e) => e.stopPropagation());
-			input.focus();
+			input.focus({ preventScroll: true });
+			this.inSight(nc);
+			// (and once the cards have glided to their places: while they move, the field isn't yet where it will be)
+			window.setTimeout(() => { if (nc.isConnected && nc.contains(nc.doc.activeElement)) this.inSight(nc); }, 320);
 		};
 		(nc as HTMLElement & { binderStart?: () => void }).binderStart = start;
 		nc.addEventListener('click', (e) => { e.stopPropagation(); start(); });
 		nc.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === nc) { e.preventDefault(); e.stopPropagation(); start(); } });
 		return nc;
+	}
+
+	/** Scrolls the board just enough for this to be in sight: clear of the toolbar above and, on a phone, of the bar of
+	    buttons Obsidian lays over the foot of the pane. */
+	private inSight(el: HTMLElement): void {
+		const s = this.scroller(), r = el.getBoundingClientRect(), top = s.getBoundingClientRect().top + 8, bottom = visibleBottom(s) - 8;
+		if (r.bottom > bottom) s.scrollTop += r.bottom - bottom;
+		else if (r.top < top) s.scrollTop -= top - r.top;
 	}
 
 	// ---- selection ----
@@ -693,6 +737,7 @@ class Corkboard implements BinderMode {
 	private item(path: string): TAbstractFile | null { return this.ctx.app.vault.getAbstractFileByPath(path); }
 
 	private select(paths: string[], focus: string | null = paths[paths.length - 1] ?? null, anchor = focus): void {
+		if (paths.length !== this.sel.size || paths.some((x) => !this.sel.has(x))) this.selectedAt = performance.now();
 		this.sel = new Set(paths);
 		this.focused = focus;
 		this.anchor = anchor;
@@ -723,14 +768,20 @@ class Corkboard implements BinderMode {
 			const a = order.indexOf(this.anchor), b = order.indexOf(path);
 			if (a >= 0 && b >= 0) { const range = order.slice(Math.min(a, b), Math.max(a, b) + 1); this.select(Keymap.isModEvent(e) ? [...new Set([...this.sel, ...range])] : range, path, this.anchor); return; }
 		}
-		if (Keymap.isModEvent(e)) {
+		// ("Select more" in a card's menu, by touch: each tap adds a card or takes it out, until none is left)
+		if (Keymap.isModEvent(e) || this.picking) {
 			const next = new Set(this.sel);
 			if (next.has(path)) next.delete(path); else next.add(path);
 			this.select([...next], path, path);
+			if (!next.size) this.picking = false;
 			return;
 		}
 		this.select([path]);
 	}
+	private picking = false;
+	private edgeSince = 0;
+	/** When the selection last changed. */
+	private selectedAt = 0;
 
 	// ---- pointer: select, open, menu, drag ----
 
@@ -739,11 +790,11 @@ class Corkboard implements BinderMode {
 		const t = e.target as HTMLElement;
 		const card = t.closest<HTMLElement>('.binders-card[data-path]');
 		if (!card) {
-			if (!t.closest('.binders-group-heading, .binders-card-new') && !e.shiftKey && !Keymap.isModEvent(e)) this.select([]);
+			if (!t.closest('.binders-group-heading, .binders-card-new') && !e.shiftKey && !Keymap.isModEvent(e)) { this.select([]); this.picking = false; }
 			return;
 		}
 		// a tap on a note's title opens it, as a tap on a note in the file explorer does
-		if (this.lastPointer === 'touch' && t.closest('.binders-card-head') && !t.closest('.is-editing')) {
+		if (this.lastPointer === 'touch' && !this.picking && t.closest('.binders-card-head') && !t.closest('.is-editing')) {
 			this.select([card.dataset.path]);
 			this.open(card, false);
 			return;
@@ -755,7 +806,8 @@ class Corkboard implements BinderMode {
 
 	private onDblClick(e: MouseEvent): void {
 		const card = (e.target as HTMLElement).closest<HTMLElement>('.binders-card[data-path]');
-		if (!card || (e.target as HTMLElement).closest('.is-editing, .binders-card-synopsis.is-editable')) return;
+		// (on a note's synopsis a double-click edits it; a folder's stack is gone into wherever it's double-clicked)
+		if (!card || (e.target as HTMLElement).closest(card.hasClass('is-stack') ? '.is-editing' : '.is-editing, .binders-card-synopsis.is-editable')) return;
 		this.open(card, Keymap.isModEvent(e));
 	}
 
@@ -791,6 +843,8 @@ class Corkboard implements BinderMode {
 		this.lastPointer = e.pointerType;
 		const t = e.target as HTMLElement;
 		const card = t.closest<HTMLElement>('.binders-card[data-path]');
+		// (a second finger isn't a press of its own: it ends the first's, so two fingers never hold or drag a card)
+		if (!e.isPrimary) { this.endPress(); return; }
 		if (!card || e.button !== 0 || t.closest('input, textarea') || this.drag) return;
 		this.endPress();
 		const touch = e.pointerType === 'touch';
@@ -829,7 +883,9 @@ class Corkboard implements BinderMode {
 		if (this.drag) { this.dragTo(e.clientX, e.clientY); return; }
 		const d = Math.hypot(e.clientX - p.x, e.clientY - p.y);
 		if (p.touch && !p.armed) { if (d > 10) this.endPress(); return; } // a swipe: let it scroll
-		if (d > (p.touch ? 6 : 5)) {
+		// (a finger held still isn't quite still: it takes a real move to start a drag, so a long press that wobbles
+		// still opens the menu when it's let go)
+		if (d > (p.touch ? 12 : 5)) {
 			if (this.ctx.readOnly) { this.endPress(); return; }
 			// from where it was pressed, so the card stays under the pointer where it was taken hold of
 			this.startDrag(p.card, p.x, p.y);
@@ -850,8 +906,9 @@ class Corkboard implements BinderMode {
 			window.setTimeout(() => { this.noClick = false; }, 0);
 			this.endPress();
 			// let go outside the board: nothing moves, as when a drag in the file explorer ends outside it
-			const inside = this.over(e.clientX, e.clientY);
-			if (inside) this.dragTo(e.clientX, e.clientY);
+			// (or on a folder in the breadcrumb above the board: there they go to that folder)
+			this.dragTo(e.clientX, e.clientY);
+			const inside = this.over(e.clientX, e.clientY) || !!this.drag.crumb;
 			this.endDrag(!cancelled && inside);
 			return;
 		}
@@ -911,6 +968,20 @@ class Corkboard implements BinderMode {
 		if (!d) return;
 		d.x = x; d.y = y;
 		d.ghost.setCssStyles({ transform: `translate(${x - d.ox}px, ${y - d.oy}px)` });
+		// Over a folder in the breadcrumb: the cards go to that folder, at its end (the way out of the folder shown, a
+		// level up or more, since the board shows one folder at a time).
+		const crumb = this.board.doc.elementsFromPoint(x, y).map((el) => el.closest<HTMLElement>('.binders-crumb[data-path], .binders-crumb-up[data-path]')).find((el) => !!el && !!this.container.parentElement?.contains(el)) ?? null;
+		const up = crumb ? this.ctx.app.vault.getAbstractFileByPath(crumb.dataset.path ?? '') : null;
+		const out = !this.ctx.readOnly && !this.longform && up instanceof TFolder && d.items.every((f) => f.parent !== up && this.store.whyNot(f, up) == null) ? up : null;
+		if (d.crumb && d.crumb !== (out ? crumb : null)) d.crumb.removeClass('is-being-dragged-over');
+		d.crumb = out ? crumb : null;
+		d.ghost.toggleClass('is-over-crumb', !!out);
+		if (out && crumb) {
+			crumb.addClass('is-being-dragged-over');
+			this.dropAt(-1, -1); // (no line on the board meanwhile)
+			d.drop = { group: { folder: out, sub: false, items: [], end: null }, anchor: null };
+			return;
+		}
 		d.drop = this.dropAt(x, y);
 	}
 
@@ -919,11 +990,14 @@ class Corkboard implements BinderMode {
 		if (!d) return;
 		const r = s.getBoundingClientRect(), edge = 48;
 		if (d.x < r.left - 24 || d.x > r.right + 24) return; // over another pane: this one stays put
-		const v = d.y < r.top + edge ? -(r.top + edge - d.y) : d.y > r.bottom - edge ? d.y - (r.bottom - edge) : 0;
-		if (!v) return;
-		// gently at first, faster the nearer the edge
+		// (the foot of what can be seen: on a phone Obsidian's bar of buttons lies over the end of the pane)
+		const bottom = visibleBottom(s);
+		const v = d.y < r.top + edge ? -(r.top + edge - d.y) : d.y > bottom - edge ? d.y - (bottom - edge) : 0;
+		if (!v) { this.edgeSince = 0; return; }
+		// gently at first, faster the nearer the edge; and faster the longer it's held there (a long binder is a long way)
 		const depth = Math.min(1, Math.abs(v) / edge);
-		s.scrollTop += Math.sign(v) * Math.max(1, 14 * depth * depth); // the scroll listener moves the line
+		this.edgeSince ||= performance.now();
+		s.scrollTop += Math.sign(v) * Math.max(1, 14 * depth * depth) * held(this.edgeSince); // the scroll listener moves the line
 	}
 
 	/** The group a drop would move the cards into from another folder, tinted as a folder in the file explorer is. */
@@ -1031,6 +1105,7 @@ class Corkboard implements BinderMode {
 		if (!d) return;
 		window.cancelAnimationFrame(d.raf);
 		for (const c of this.board.querySelectorAll('.is-being-dragged-over')) c.removeClass('is-being-dragged-over');
+		d.crumb?.removeClass('is-being-dragged-over');
 		this.markTarget(null);
 		d.off();
 		d.indicator.remove();
@@ -1224,6 +1299,7 @@ class Corkboard implements BinderMode {
 	private cardMenu(card: HTMLElement): Menu {
 		const items = this.targets(card), one = items.length === 1 ? items[0] : null;
 		return itemMenu(this.ctx, items, {
+			pick: () => { this.picking = true; },
 			rename: () => this.editTitle(card),
 			synopsis: () => this.editSynopsis(card),
 			...this.orderHooks(one),

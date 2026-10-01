@@ -15,14 +15,14 @@ is in that scene's own properties. Turn Binders off and your notes are still ord
 ## Getting started
 
 1. Right-click a folder in the file explorer and choose **Make this folder a binder**. Its notes and subfolders keep the
-   order they show in now. Or start a new one: **New binder**, beside **New note** and **New folder** in the menu of
+   order they show in now. Or start a new one: the **New binder** command, or **New binder** beside **New note** and **New folder** in the menu of
    the file explorer's empty space (and of any folder that isn't in a binder).
 2. Click the folder. The binder view opens on it, as a corkboard. A click that opens a folder's view doesn't fold the
    folder; click it again, or its arrow, to fold it.
 3. Drag cards into the order you want, or drag the notes themselves up and down in the file explorer. Each follows
    the other.
 
-To add a scene, use **New note** at the end of a group on the corkboard, **New** in the view's toolbar (which makes
+To add a scene, use **New note** at the end of the corkboard, **New** in the view's toolbar (which makes
 folders too), or **New scene here** in the folder's right-click menu or the command palette.
 
 ## The binder view
@@ -36,16 +36,18 @@ keeps its place when you look at another, and when you open a note and come back
 ### Corkboard
 
 One index card per note, in order, with its title, synopsis, status, label color and word count (and, for a note with
-a target, how far along it is). Subfolders show under their own heading and synopsis, or, from the view's **More
-options** menu, as single stacked cards.
+a target, how far along it is). A folder is one card too, drawn as a stack, with its own synopsis and the
+count of what it holds: double-click it (or tap its name) to go into it, and use the breadcrumb above the board to
+come back out. So the board is always one folder's items, in one order.
 
-- Drag cards to reorder them, or into another folder's group to move the notes there. The card follows the pointer,
+- Drag cards to reorder them, onto a stack to move them into that folder, or onto a folder in the breadcrumb to move
+  them out to it. The card follows the pointer,
   a line shows where it will go, and the others glide aside when you let go. Shift-click or Ctrl-click (Cmd-click on
   macOS) selects several, and they move together.
 - Click a card to select it; click a selected card's synopsis to edit it. Right-click a card to rename it, set its status, label or target, duplicate
   it, move it or delete it; the menu also has what Obsidian and your other plugins offer for that note (bookmark it,
   reveal it in the file explorer, and so on).
-- Right-click the board itself for a new note or folder, the card size (small, medium or large), stacks,
+- Right-click the board itself for a new note or folder, the card size (small, medium or large),
   **Number the cards** (each note's place in the order), and **Tint cards with their label color** (on as it comes: a
   labeled card has its border and, faintly, its face in that color, as a colored card on a canvas; turn it off for the
   border alone).
@@ -127,7 +129,7 @@ you scroll to them.
 - **Compile binder** (a command, and **Compile...** in a binder folder's right-click menu) writes the whole binder, or
   the folder shown, as one note beside the binder, or copies it. You choose the title, whether folders and note
   titles become headings, what goes between notes, and whether comments are left out. Your notes aren't changed.
-  Turn off **Include in compile** on a note or folder to leave it out. Compiling again replaces the last compile; a
+  Turn off **Include in compile** on a note or folder to leave it out. Compiling again offers the same note, and replaces the last compile; a
   note that has been written in since, or wasn't made by Compile, is asked about first.
 
 ## Undoing a move
@@ -219,14 +221,27 @@ menu or the command palette, turns a project into a binder, and can move groups 
 | Statuses | The statuses a note can have, in the order a draft goes through them. |
 | Property names | The properties for the synopsis, status, label and target, if your notes already use other names. |
 
-Renaming a label or status in settings doesn't change the notes that have it: a note has a label when its property
-says that name.
+A note has a label when its property says that name, so renaming a label or status in settings asks whether to rename
+it in the notes that have it too.
 
 ## On phones and tablets
 
 Binders works on iOS and Android. Tap a card to select it, then tap its synopsis to edit it or its title to open the
-note; press and hold for its menu, and hold and drag to move it. Rows in the outliner work the same way. Menus open
-as Obsidian's own sheets, and the manuscript uses Obsidian's editor and its toolbar.
+note; press and hold for its menu, and hold and drag to move it. Rows in the outliner work the same way (a row
+without a synopsis gets one from **Edit synopsis** in its menu). On a phone menus open as Obsidian's own sheets, on a
+tablet beside the finger; the manuscript uses Obsidian's editor and its toolbar.
+
+What a mouse and a keyboard do differently there:
+
+- **Several at once:** there's no Shift or Ctrl, so a card's or row's menu has **Select more**: each tap then adds an
+  item to the selection or takes it out, and the menu of any of them offers **Merge**, **New folder from selection**
+  and the rest. A tap on the empty board ends it.
+- **Undo:** **Undo** and **Redo** of the last move are in the view's **More options** menu.
+- **The outliner's headers:** a tap opens a column's menu (sort, **Move left**, **Move right**, hide); on a phone the
+  label column shows the color alone.
+- **Targets:** on the narrowest phones the word count leaves the toolbar; **Set word count target** in the command
+  palette sets a target there.
+- **The file explorer:** on a phone a tap on a binder opens it, and a tap on a folder inside it folds or unfolds it.
 
 ![Binders on a phone](docs/images/mobile.png)
 
@@ -250,6 +265,7 @@ Binders makes no network requests and collects nothing. Everything it does happe
 | | |
 |---|---|
 | [File format](docs/file-format.md) | Binder notes, folder notes, scene properties, Longform projects |
+| [Roadmap](ROADMAP.md) | What's left before 1.0: mobile QA, export, find and replace, versions of a scene, focus mode |
 | [Plan](docs/plan.md) | The design, and what's done |
 | [Obsidian internals](docs/internals.md) | The undocumented parts of Obsidian Binders uses, and their fallbacks |
 | [Development](docs/development.md) | Building, testing, releasing |

@@ -2,6 +2,7 @@ import { Component, Keymap, MarkdownRenderer, Menu, Notice, Platform, TFile, TFo
 import type { EditorView } from '@codemirror/view';
 import { badName, emptyState, itemMenu, plain, removeItems, renameItem } from './actions';
 import { vimMode } from './internals';
+import { visibleBottom } from './drag';
 import type { BinderMode, ModeContext, ModeFactory } from './mode';
 import { embedSupported, mountEditor, type LiveEditor } from './editable-embed';
 
@@ -180,6 +181,16 @@ class Manuscript implements BinderMode {
 		c.registerDomEvent(this.list, 'contextmenu', (e) => this.onMenu(e));
 		// the caret's place is remembered as it moves, for coming back to
 		c.registerDomEvent(this.root, 'focusout', (e) => this.keepCaret(e.target));
+		// (a moment after the focus has gone, and before CodeMirror looks at it: not in the middle of the browser's own
+		// change of focus, where the editor would measure itself over and over)
+c.registerDomEvent(this.root, 'focusout', (e) => { const cm = this.sceneOf(e.target)?.live?.cm; if (cm) window.setTimeout(() => { if (!cm.hasFocus) this.letGo(cm); }, 0); });
+		// the keyboard coming up over the page: the cursor is brought back above it
+		const vv = this.root.win.visualViewport;
+		if (vv) {
+			const seen = () => { const at = this.sceneOf(this.root.ownerDocument.activeElement), cm = at?.live?.cm; if (at && cm?.hasFocus) this.follow(at, cm); };
+// BISECT vv off
+			c.register(() => vv.removeEventListener('resize', seen));
+		}
 		for (const type of ['wheel', 'touchmove', 'pointerdown', 'keydown'] as const) c.registerDomEvent(this.root, type, () => { this.pin = null; }, { passive: true });
 		// a section is written down as soon as the cursor leaves it, not a moment later: whatever opens its note next (a
 		// tab, another pane, a command) starts from what was typed, not from the file as it was before
@@ -292,6 +303,9 @@ class Manuscript implements BinderMode {
 		const e = this.byKey.get(item) ?? (this.sync(), this.byKey.get(item));
 		if (!e) return;
 		e.el.scrollIntoView({ block: 'nearest' });
+		// (its title clear of the bar of buttons a phone lays over the foot of the page)
+		const head = e.kind === 'scene' ? e.titleEl : e.el, r = head.getBoundingClientRect(), bottom = visibleBottom(this.root) - 8;
+		if (r.bottom > bottom) this.root.scrollTop += Math.min(r.bottom - bottom + this.root.clientHeight / 3, r.top - this.root.getBoundingClientRect().top - 8);
 		// (a folder just made has its name ready to type over, as on the corkboard)
 		if (e.kind === 'heading') { if (fresh && !this.ctx.readOnly) this.renameHeading(e); return; }
 		if (e.kind !== 'scene') return;
@@ -299,8 +313,8 @@ class Manuscript implements BinderMode {
 		if (fresh && this.editable) this.rename(e); else if (this.editable && !Platform.isMobile) void this.focusScene(e, this.caret?.file === e.file ? 'caret' : 'start');
 	}
 
-	async save(files: TFile[]): Promise<void> {
-		await Promise.all(this.scenes.filter((s) => s.live?.dirty && files.includes(s.file)).map((s) => s.live?.flush()));
+	async save(files?: TFile[]): Promise<void> {
+		await Promise.all(this.scenes.filter((s) => s.live?.dirty && (!files || files.includes(s.file))).map((s) => s.live?.flush()));
 	}
 
 	current(): TAbstractFile | null {
@@ -314,9 +328,11 @@ class Manuscript implements BinderMode {
 	/** A new note after the section the caret is in (or last), its title ready to be typed. */
 	create(kind: 'note' | 'folder'): void {
 		if (kind !== 'note') return;
-		const at = this.sceneOf(this.root.ownerDocument.activeElement) ?? (this.caret ? this.byKey.get(this.caret.file) : null);
-		const folder = at?.kind === 'scene' && at.file.parent ? at.file.parent : this.ctx.folder;
-		const index = at?.kind === 'scene' ? (this.ctx.store.orderedChildren(folder) ?? []).indexOf(at.file) + 1 : Infinity;
+		// after the note the cursor is in, or was last in (which a filter may have taken off the page since)
+		const f = this.sceneOf(this.root.ownerDocument.activeElement)?.file ?? this.caret?.file ?? null;
+		const inBinder = !!f?.parent && this.ctx.app.vault.getAbstractFileByPath(f.path) === f && (f.parent === this.ctx.folder || f.parent.path.startsWith(this.ctx.folder.path + '/'));
+		const folder = inBinder && f?.parent ? f.parent : this.ctx.folder;
+		const index = inBinder && f ? (this.ctx.store.orderedChildren(folder) ?? []).indexOf(f) + 1 : Infinity;
 		void this.ctx.store.newScene(folder, index || Infinity).then((file) => { this.ctx.made(file); this.anchored(() => this.sync()); this.reveal(file, true); }, (e) => new Notice(plain(e)));
 	}
 
@@ -325,6 +341,16 @@ class Manuscript implements BinderMode {
 	    restarted"); once saved it goes back to plain text like any other. The cursor isn't lost: where it was is kept
 	    (`left`, `caret`), and the next key typed, or scrolling back to the section, puts it back there, as typing in a
 	    note scrolled away from its cursor goes back to it. */
+	/** An editor that's losing the focus has its cursor made a plain one. A cursor at the start or end of a wrapped line
+	    remembers which side of the wrap it's on, and CodeMirror, putting that right a moment after any change of focus,
+	    sets the browser's selection inside the editor again, which takes the focus back: the next tap elsewhere (another
+	    section, a title, a dialog's field) would leave the cursor here, and what's typed would go into this note. With
+	    every section an editor of its own, that isn't a rare thing here as it is between two panes. */
+	private letGo(cm: EditorView | null | undefined): void {
+		const m = cm?.state.selection.main;
+		if (cm && m?.empty && m.assoc) cm.dispatch({ selection: { anchor: m.head } });
+	}
+
 	private leaveBehind(): void {
 		const doc = this.root.ownerDocument, active = doc.activeElement;
 		if (this.left) {
@@ -496,6 +522,8 @@ class Manuscript implements BinderMode {
 		h.renaming = true;
 		this.asked++;
 		el.contentEditable = 'plaintext-only';
+		// (as a note's own title asks a phone's keyboard)
+		el.setAttrs({ enterkeyhint: 'done', autocapitalize: 'on', spellcheck: 'true' });
 		el.addClass('is-renaming');
 		el.focus();
 		const range = doc.createRange();
@@ -521,7 +549,7 @@ class Manuscript implements BinderMode {
 		};
 		const key = (e: KeyboardEvent) => {
 			e.stopPropagation();
-			if (e.key === 'Enter') { e.preventDefault(); void done(true, false); }
+			if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); void done(true, false); }
 			else if (e.key === 'Escape') { e.preventDefault(); void done(false, false); }
 		};
 		const blur = (): void => { void done(true, true); };
@@ -802,8 +830,10 @@ class Manuscript implements BinderMode {
 	/** Scrolls the page so the cursor is in sight, a couple of lines clear of the edge. CodeMirror does this for an
 	    editor that's on screen; one that's wholly off it isn't measured, and its cursor would stay out of sight. */
 	private showCaret(s: Scene, c: { top: number; bottom: number } | null, fallback: 'start' | 'end'): void {
-		const view = this.root.getBoundingClientRect(), body = s.bodyEl.getBoundingClientRect();
-		const line = c ? c.bottom - c.top : 24, pad = Math.min(view.height / 4, line * 2);
+		const r = this.root.getBoundingClientRect(), body = s.bodyEl.getBoundingClientRect();
+		// (what can be seen of the page: on a phone the keyboard may lie over its foot without making it any shorter)
+		const view = { top: r.top, bottom: r.bottom };
+		const line = c ? c.bottom - c.top : 24, pad = Math.min((view.bottom - view.top) / 4, line * 2);
 		const top = c?.top ?? (fallback === 'end' ? body.bottom - line : body.top), bottom = c?.bottom ?? top + line;
 		if (top < view.top + pad) this.root.scrollTop -= view.top + pad - top;
 		else if (bottom > view.bottom - pad) this.root.scrollTop += bottom - (view.bottom - pad);
@@ -886,6 +916,28 @@ class Manuscript implements BinderMode {
 			if (pane || !this.editable) void this.ctx.openFile(s.file, pane); else this.rename(s);
 			return;
 		}
+		// A section that's still plain text (its editor comes when it's near the middle of the page, or tapped): what
+		// can be tapped in it works as it will once it's an editor. A link opens; a task's box turns the section into
+		// its editor and ticks the box there (ticked in the plain text, the note itself would stay as it was).
+		if (s && !s.live && s.bodyEl.contains(target)) {
+			const link = target.closest<HTMLElement>('a.internal-link');
+			if (link) { evt.preventDefault(); void this.app.workspace.openLinkText(link.getAttr('data-href') ?? link.getAttr('href') ?? '', s.file.path, Keymap.isModEvent(evt)); return; }
+			if (target.matches('input[type="checkbox"]')) {
+				evt.preventDefault();
+				if (!this.editable || s.broken) return;
+				const x = evt.clientX, y = evt.clientY, doc = this.root.ownerDocument;
+				void this.focusScene(s, { x, y }, undefined, false).then(() => window.setTimeout(() => {
+					// (the box nearest where the tap was: the editor's lines aren't to the pixel where the plain text's were)
+					let best: HTMLInputElement | null = null, d = 24;
+					for (const b of Array.from(s.bodyEl.querySelectorAll<HTMLInputElement>('input[type="checkbox"]'))) {
+						const r = b.getBoundingClientRect(), dy = Math.abs((r.top + r.bottom) / 2 - y);
+						if (dy < d && Math.abs((r.left + r.right) / 2 - x) < 40) { d = dy; best = b; }
+					}
+					best?.click();
+				}, 60));
+				return;
+			}
+		}
 		if (target.closest('.binders-manuscript-heading, .binders-view-synopsis-row, .binders-manuscript-notice, a, button, input')) return;
 		// text being selected (in a rendered section, or across the page): leave it
 		if (!this.root.ownerDocument.getSelection()?.isCollapsed) return;
@@ -952,6 +1004,8 @@ class Manuscript implements BinderMode {
 		this.asked++;
 		if (typed != null) el.setText(typed);
 		el.contentEditable = 'plaintext-only';
+		// (as a note's own title asks a phone's keyboard)
+		el.setAttrs({ enterkeyhint: 'done', autocapitalize: 'on', spellcheck: 'true' });
 		el.addClass('is-renaming');
 		el.focus();
 		const range = doc.createRange();
@@ -984,7 +1038,7 @@ class Manuscript implements BinderMode {
 		};
 		const key = (e: KeyboardEvent) => {
 			e.stopPropagation();
-			if (e.key === 'Enter') { e.preventDefault(); void done(true, false); }
+			if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); void done(true, false); }
 			else if (e.key === 'Escape') { e.preventDefault(); void done(false, false); }
 		};
 		const blur = (): void => { void done(true, true); };

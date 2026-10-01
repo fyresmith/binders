@@ -43,8 +43,9 @@ row.
 - The binder note and folder notes are hidden in the file explorer by default.
 - The binder folder's own data lives in the binder note, which is its folder note.
 - Renaming a subfolder in a binder renames its folder note to match (`Part 1/Part 1.md`), so it stays the folder note.
-  This is the only file Binders renames on its own. If the folder already has a note with the new name, neither note
-  is renamed, and that note is the folder note from then on.
+  Renaming the binder's own folder does the same for the binder note, if it was named like the folder. These are the
+  only files Binders renames on its own. If the folder already has a note with the new name, neither note is renamed
+  (for a subfolder, that note is the folder note from then on; a binder note is one whatever its name).
 - A scene renamed to its folder's name, or moved into a folder of its own name by something other than Binders,
   becomes that folder's note and stops showing as a scene; Binders says so. Binders itself refuses such a rename or
   move.
