@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.9.5 (2026-10-01)
+
+### Changed
+
+- Design rounds now go in stages (questions, one sheet of options, then one build), and what makes Binders look native is written down in one place.
+
 ## 0.9.4 (2026-10-01)
 
 ### Changed
