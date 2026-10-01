@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.9.3 (2026-10-01)
+
+### Changed
+
+- The roadmap's export now includes a Scrivener project, alongside EPUB, DOCX and PDF.
+
 ## 0.9.2 (2026-10-01)
 
 ### Added
