@@ -707,6 +707,31 @@ test('lines down run the full height of the pane: at any height, after a resize,
 });
 
 const LONG = 'Subplot: the harbor fire that nobody saw coming';
+test('a line starts at the pane’s edge: a piece of it runs from the edge to its head, across and down; hovering the board shows no tooltip', withTidy(async (p, h, t) => {
+	await openBy(p, 'The Lighthouse', {});
+	const piece = (i) => p.ev(`(() => { const hd = document.querySelector(${j(head(i))}), b = getComputedStyle(hd, '::before'), a = getComputedStyle(hd, '::after'), r = hd.getBoundingClientRect(), board = hd.closest('.binders-lanes-board').getBoundingClientRect(), c = hd.querySelector('.binders-lane-cap').getBoundingClientRect();
+		return { content: b.content, w: parseFloat(b.width), h: parseFloat(b.height), same: b.backgroundColor === a.backgroundColor || a.content === 'none', color: b.backgroundColor, fromEdge: Math.round(c.left - board.left), fromTop: Math.round(c.top - board.top), start: parseFloat(b.marginInlineStart) }; })()`);
+	for (const i of [0, 1, 3]) {
+		const x = await piece(i);
+		t.ok(x.content !== 'none' && x.h === 2 && x.w > 0 && Math.abs(x.w - x.fromEdge) <= 1 && Math.abs(x.w + x.start) <= 1, `across, line ${i}: a 2px piece of the line from the pane’s edge to the head: ${j(x)}`);
+		t.ok(x.same && x.color !== 'rgba(0, 0, 0, 0)', `in the line’s own color: ${j(x)}`);
+	}
+	await options(p, { lines: 'down' });
+	await until(p, `!!document.querySelector('${LEAF} .binders-lanes.mod-down')`);
+	const d = await piece(1);
+	t.ok(d.content !== 'none' && d.w === 2 && d.h > 0 && d.color !== 'rgba(0, 0, 0, 0)', `down: the same piece, from the pane’s top to the head: ${j(d)}`);
+	// hovering the board, a line or a card: these have names for screen readers, which Obsidian would show as tooltips
+	await options(p, { lines: 'across' });
+	await until(p, `!!document.querySelector('${LEAF} .binders-lanes.mod-across')`);
+	const spots = await p.ev(`(() => { const g = document.querySelector('${LEAF} .binders-lanes'), r = g.getBoundingClientRect(), l = document.querySelector(${j(laneEl(2))}).getBoundingClientRect(), c = document.querySelector('${LEAF} .binders-lanes > .binders-card').getBoundingClientRect(); return [{ x: l.left + l.width * 0.7, y: l.top + 4 }, { x: c.left + 20, y: c.top + 20 }, { x: r.left + r.width * 0.6, y: r.bottom - 3 }]; })()`);
+	for (const at of spots) {
+		await p.move(at.x - 30, at.y); await p.move(at.x, at.y);
+		await p.sleep(1200);
+		t.eq(await p.ev(`[...document.querySelectorAll('.tooltip')].map(e => e.textContent)`).then(j), j([]), `no tooltip over the board at ${Math.round(at.x)}, ${Math.round(at.y)}`);
+	}
+	t.eq(await p.ev(`getComputedStyle(document.querySelector('${LEAF} .binders-lanes')).getPropertyValue('--no-tooltip').trim()`), 'true', 'the board is told not to show its name on hover');
+}));
+
 test('a line’s head: its name and its count in one shape of the line’s color, joined to the line; its menu, the keyboard and its name as before', withTidy(async (p, h, t) => {
 	await p.ev(`(async () => { Object.assign(${PL}.settings, { labels: [...${PL}.settings.labels, { name: ${j(LONG)}, color: '#2a9d8f' }] }); await ${PL}.saveSettings(); })().then(() => 1)`);
 	await setLabel(p, PART_ONE[0], 'Blue');

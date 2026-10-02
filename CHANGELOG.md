@@ -3,6 +3,16 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.4 (2026-10-02)
+
+### Changed
+
+- On the corkboard by label, each line now runs from the edge of the pane through its head.
+
+### Fixed
+
+- Hovering the corkboard by label or the outliner no longer shows a tooltip at the bottom of the view.
+
 ## 0.12.3 (2026-10-02)
 
 ### Fixed

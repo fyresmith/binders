@@ -960,6 +960,8 @@
 .binders-group-title,
 .binders-breadcrumbs,
 .binders-cards,
+.binders-lanes,
+.binders-outliner-table,
 .binders-toolbar-button,
 .binders-outliner-row,
 .binders-outliner-foot,
@@ -2474,6 +2476,15 @@
 	height: 2px;
 }
 
+/* (and the line starts at the pane's edge: a short piece of it before the head, across the board's margin) */
+.binders-lanes.mod-across .binders-lane-head::before {
+	content: "";
+	flex: 0 0 var(--size-4-3);
+	height: 2px;
+	margin-inline-start: calc(-1 * var(--size-4-3));
+	background-color: var(--binders-line);
+}
+
 .binders-lanes.mod-across .binders-lane-cap {
 	max-width: 14em;
 }
@@ -2541,6 +2552,17 @@
 
 .binders-lanes.mod-down .binders-lane-head::after {
 	content: none;
+}
+
+/* (the same piece of line, from the pane's top down to the head) */
+.binders-lanes.mod-down .binders-lane-head::before {
+	content: "";
+	position: absolute;
+	bottom: 100%;
+	inset-inline-start: calc(50% - 1px);
+	width: 2px;
+	height: var(--size-4-3);
+	background-color: var(--binders-line);
 }
 
 .binders-lanes.mod-down .binders-lane-cap {
