@@ -254,6 +254,7 @@ export class BinderView extends ItemView {
 	async onClose(): Promise<void> {
 		await commitAll(this.contentEl);
 		this.places.clear();
+		this.leftOn.clear();
 		window.clearTimeout(this.timer);
 		this.current?.unload();
 		this.current = null;
@@ -304,7 +305,9 @@ export class BinderView extends ItemView {
 		this.mode = mode;
 		this.remember();
 		this.rebuild();
-		if (on && this.app.vault.getAbstractFileByPath(on.path) === on) this.current?.reveal?.(on);
+		// (a mode that was left on that very item has just been put back where it was, with it selected: a look at
+		// another mode and back doesn't move the page, whether or not the item is in sight)
+		if (on && this.app.vault.getAbstractFileByPath(on.path) === on && this.leftOn.get(this.placeKey()) !== on.path) this.current?.reveal?.(on);
 		this.app.workspace.requestSaveLayout();
 		// the keyboard carries on in the new mode: where it was before, or at its start
 		if (this.app.workspace.getActiveViewOfType(BinderView) === this) this.current?.focus?.();
@@ -372,7 +375,14 @@ export class BinderView extends ItemView {
 		}
 	}
 
-	private keepPlace(): void { if (this.current?.place && this.folder) this.places.set(this.placeKey(), this.current.place()); }
+	private keepPlace(): void {
+		if (!this.current?.place || !this.folder) return;
+		this.places.set(this.placeKey(), this.current.place());
+		this.leftOn.set(this.placeKey(), this.current.current?.()?.path ?? null);
+	}
+	/** What each mode was on when it was left (by the same key as its place): coming back to it still on that, it's
+	    where it was left, not scrolled to that item. */
+	private leftOn = new Map<string, string | null>();
 
 	/** Shows another folder, recorded in the tab's history so Back returns. */
 	async navigate(folder: TFolder, newLeaf?: boolean | PaneType): Promise<void> {
