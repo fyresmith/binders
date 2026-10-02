@@ -833,9 +833,13 @@ class Outliner implements BinderMode {
 		if (cell.dataset.col === 'label') labelItems(this.ctx, menu, items); else statusItems(this.ctx, menu, items);
 		// the focus comes back to the cell when the menu goes, whatever was picked
 		const path = row.dataset.path ?? '', col = cell.dataset.col ?? '', inCell = this.root.doc.activeElement === cell;
-		menu.onHide(() => window.setTimeout(() => { const a = this.root.doc.activeElement; if (this.root.isConnected && (a === this.root.doc.body || a === cell) && path) { if (inCell) this.focusCell(path, col); else this.rowEl(path)?.focus({ preventScroll: true }); } }, 0));
+		this.cellMenuOpen = true;
+		menu.onHide(() => window.setTimeout(() => { this.cellMenuOpen = false; const a = this.root.doc.activeElement; if (this.root.isConnected && (a === this.root.doc.body || a === cell) && path) { if (inCell) this.focusCell(path, col); else this.rowEl(path)?.focus({ preventScroll: true }); } }, 0));
 		showUnder(menu, cell);
 	}
+	/** A cell's menu is open (and until the key that closed it has been heard): its keys are the menu's, not the
+	    cell's. Escape closes the menu and leaves the keyboard on the cell, where one more goes back to the row. */
+	private cellMenuOpen = false;
 
 	// ---- keyboard ----
 
@@ -926,7 +930,7 @@ class Outliner implements BinderMode {
 	/** Keys with the focus in a cell: the arrows go from cell to cell (and Left from the first, or Escape, back to the
 	    row); Enter, F2 or Space does what the cell does. */
 	private onCellKey(e: KeyboardEvent, cell: HTMLElement, row: HTMLElement): void {
-		if (e.altKey || Keymap.isModEvent(e)) return;
+		if (e.altKey || Keymap.isModEvent(e) || this.cellMenuOpen) return;
 		const cells = this.cells(row), i = cells.indexOf(cell), rows = this.rowEls(), r = rows.indexOf(row), col = cell.dataset.col ?? '';
 		const rtl = getComputedStyle(this.root).direction === 'rtl', back = rtl ? 'ArrowRight' : 'ArrowLeft', on = rtl ? 'ArrowLeft' : 'ArrowRight';
 		const to = (el: HTMLElement | null | undefined) => { if (el) { el.focus({ preventScroll: true }); el.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } };

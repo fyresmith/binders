@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.37 (2026-10-02)
+
+### Fixed
+
+- In the outliner, Escape in the Status or Label menu closes the menu and leaves the keyboard on that cell.
+
 ## 0.12.36 (2026-10-02)
 
 ### Fixed
