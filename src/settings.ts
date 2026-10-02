@@ -1,6 +1,6 @@
-import { Notice, PluginSettingTab, Setting, TextComponent, requireApiVersion, type App, type SettingDefinition, type SettingDefinitionItem } from 'obsidian';
+import { Notice, Platform, PluginSettingTab, Setting, TextComponent, requireApiVersion, type App, type SettingDefinition, type SettingDefinitionItem } from 'obsidian';
 import type BindersPlugin from './main';
-import { DEFAULT_SETTINGS, FOCUS_TEXT, FOCUS_TOGGLES, PROPS, TEXT, TOGGLES, type BindersSettings, type FocusToggle, type Prop, type Toggle } from './settings-data';
+import { DEFAULT_SETTINGS, FOCUS_TEXT, FOCUS_TOGGLES, focusToggles, PROPS, TEXT, TOGGLES, type BindersSettings, type FocusToggle, type Prop, type Toggle } from './settings-data';
 import { parseGoal } from './focus/session'; // focus mode
 import { COMPILE_PROP } from './scenes';
 import { DEFAULT_LABELS, DEFAULT_STATUSES, PALETTE, colorCss, display, freeName, hexColor } from './view/labels';
@@ -52,8 +52,8 @@ export class BindersSettingTab extends PluginSettingTab {
 				addItem: { name: 'Add status', action: () => this.addStatus() },
 				extraButtons: [(b) => b.setIcon('rotate-ccw').setTooltip('Restore the default statuses').onClick(() => void this.restore('statuses'))],
 			},
-			// focus mode: what shows besides the text, each to turn on (typewriter scrolling is on to begin with)
-			{ type: 'group', heading: 'Focus mode', items: [...FOCUS_TOGGLES.map((k): SettingDefinition => ({ name: FOCUS_TEXT[k][0], desc: FOCUS_TEXT[k][1], control: { type: 'toggle', key: k } })), { name: FOCUS_TEXT.focusGoal[0], desc: FOCUS_TEXT.focusGoal[1], render: (setting) => { this.goalRow(setting); } }] },
+			// focus mode: what shows besides the text, each to turn on or off (typewriter scrolling and dimming are on to begin with)
+			{ type: 'group', heading: 'Focus mode', items: [...focusToggles(Platform.isMobile).map((k): SettingDefinition => ({ name: FOCUS_TEXT[k][0], desc: FOCUS_TEXT[k][1], control: { type: 'toggle', key: k } })), { name: FOCUS_TEXT.focusGoal[0], desc: FOCUS_TEXT.focusGoal[1], render: (setting) => { this.goalRow(setting); } }] },
 			{ type: 'group', heading: 'Property names', items: PROPS.map((k): SettingDefinition => ({ name: TEXT[k][0], desc: TEXT[k][1], render: (setting) => { this.propRow(setting, k); } })) },
 		];
 	}
@@ -290,7 +290,7 @@ export class BindersSettingTab extends PluginSettingTab {
 		list('Statuses', 'binders-settings-statuses', s.statuses, (st, i) => this.statusRow(st, i), () => this.addStatus(), 'Add status');
 		// focus mode
 		new Setting(containerEl).setName('Focus mode').setHeading();
-		for (const k of FOCUS_TOGGLES) new Setting(containerEl).setName(FOCUS_TEXT[k][0]).setDesc(FOCUS_TEXT[k][1])
+		for (const k of focusToggles(Platform.isMobile)) new Setting(containerEl).setName(FOCUS_TEXT[k][0]).setDesc(FOCUS_TEXT[k][1])
 			.addToggle((t) => t.setValue(s[k]).onChange(async (v) => { s[k] = v; await this.save(); }));
 		this.goalRow(new Setting(containerEl).setName(FOCUS_TEXT.focusGoal[0]).setDesc(FOCUS_TEXT.focusGoal[1]));
 		new Setting(containerEl).setName('Property names').setHeading();

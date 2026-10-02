@@ -3,6 +3,16 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.0 (2026-10-02)
+
+### Added
+
+- Focus mode has an "Enter fullscreen" option, off to begin with: it takes the whole screen and gives it back when you leave.
+
+### Changed
+
+- "Dim other paragraphs" is on by default in focus mode. If you have changed Binders' settings before, yours stay as they are.
+
 ## 0.11.3 (2026-10-02)
 
 ### Changed

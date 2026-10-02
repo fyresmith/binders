@@ -17,7 +17,8 @@ const VIEWOF = `app.workspace.getMostRecentLeaf().view`;
 const ED = `${VIEWOF}.editor`, CM = `${ED}.cm`;
 const M = `${VIEW}.current`;
 const disk = (p, path) => readFileSync(join(p.vaultDir, path), 'utf8');
-const OFF = { focusTypewriter: true, focusNeighbours: false, focusPlace: false, focusNumbers: false, focusDim: false, focusGoal: 0 };
+// (what each test starts from; not the defaults: dimming is on by default, and off here so that each test turns on what it looks at)
+const OFF = { focusTypewriter: true, focusNeighbours: false, focusPlace: false, focusNumbers: false, focusDim: false, focusFullscreen: false, focusGoal: 0 };
 const set = (p, s) => p.ev(`(async () => { Object.assign(${PL}.settings, ${j(s)}); await ${PL}.saveSettings(); })().then(() => 1)`).then(() => p.sleep(250));
 const inFocus = (p) => p.ev(`document.body.classList.contains('binders-focus')`);
 
@@ -132,7 +133,7 @@ test('with the defaults the page is the text and the way out, and the last line 
 	t.eq(j(await chrome(p)), j(['0x0', '0x0', '0x0', '0x0', '0x0']), 'everything Obsidian draws around the note is out of sight');
 	t.eq(await layout(p), saved, 'and nothing of Obsidian’s layout has changed: it’s hidden, not closed');
 	await wiggle(p);
-	t.eq(j(await pieces(p)), j({ way: true, place: false, numbers: false, before: false, here: false, after: false, title: false, properties: false, toolbar: false, dim: false }), 'the page has the text and the way out, and nothing else');
+	t.eq(j(await pieces(p)), j({ way: true, place: false, numbers: false, before: false, here: false, after: false, title: false, properties: false, toolbar: false, dim: true }), 'the page has the text and the way out, and nothing else (dimming is on, and shows only while typing)');
 	t.eq(await p.ev(`[...document.querySelector('.binders-focus-leaf .workspace-leaf-content').children].filter(e => /binders/.test(e.className)).map(e => e.className).join(' | ')`), 'binders-focus-top', 'one thing of focus mode’s is on the page');
 	t.eq(await p.ev(`[...document.querySelector('.binders-focus-top').children].map(e => e.className).join(' | ')`), 'binders-focus-way', 'and it holds only the button');
 	// the line being written, at the end of the scene
@@ -222,7 +223,7 @@ test('the manuscript: the last line of the section being written is held; anywhe
 	await enter(p, h);
 	t.ok(await inFocus(p), 'the manuscript goes into focus');
 	t.eq(j(await chrome(p)), j(['0x0', '0x0', '0x0', '0x0', '0x0']), 'with everything around it out of sight');
-	t.eq(j(await pieces(p)), j({ way: true, place: false, numbers: false, before: false, here: false, after: false, title: false, properties: false, toolbar: false, dim: false }), 'its toolbar too: the page and the way out');
+	t.eq(j(await pieces(p)), j({ way: true, place: false, numbers: false, before: false, here: false, after: false, title: false, properties: false, toolbar: false, dim: true }), 'its toolbar too: the page and the way out');
 	let g = await atMs(p);
 	t.ok(g && held(g), `the last line of the section with the cursor is brought to the line: ${j(g)}`);
 	for (let i = 0; i < 3; i++) {
@@ -255,6 +256,7 @@ test('each option shows its piece, from the settings and from the menu, and take
 	await openNote(p, KEEPER);
 	await caretEnd(p);
 	await enter(p, h);
+	await set(p, { focusDim: false }); // (on by default)
 	await wiggle(p);
 	const off = { way: true, place: false, numbers: false, before: false, here: false, after: false, title: false, properties: false, toolbar: false, dim: false };
 	t.eq(j(await pieces(p)), j(off), 'to begin with: the text and the way out');
@@ -298,7 +300,7 @@ test('each option shows its piece, from the settings and from the menu, and take
 	// from the menu on the way out
 	const b = await p.at('.binders-focus-leave');
 	await p.right(b.x, b.y);
-	t.eq(j((await menuItems(p)).filter((x) => !/^(Previous|Next) scene/.test(x))), j(['Typewriter scrolling', 'Show the scenes before and after', 'Show where you are', 'Show word counts', 'Dim other paragraphs', 'Leave focus mode']), 'a right click on the way out lists the options');
+	t.eq(j((await menuItems(p)).filter((x) => !/^(Previous|Next) scene/.test(x))), j(['Typewriter scrolling', 'Show the scenes before and after', 'Show where you are', 'Show word counts', 'Dim other paragraphs', 'Enter fullscreen', 'Leave focus mode']), 'a right click on the way out lists the options');
 	await clickMenu(p, 'Show word counts');
 	await p.sleep(400);
 	t.ok((await pieces(p)).numbers, 'picking one turns it on');
@@ -756,18 +758,82 @@ test('the day’s words: counted in and out of focus, kept on this device and ne
 	t.eq(await p.ev(`${F}.session.words('The Lighthouse')`), 2, 'a note renamed keeps the words written in it today');
 });
 
+// ---- fullscreen ----
+
+/* Headless Obsidian has no screen to fill and a script has no user gesture to ask with, so the window's own
+   fullscreen is stood in for: asked, it says yes and is in fullscreen; what's tested is when focus mode asks and
+   when it gives it back. */
+const fakeScreen = (p) => p.ev(`(() => { const d = document, el = d.documentElement, log = window.__fs = { asked: 0, left: 0 };
+	const put = (v) => { Object.defineProperty(d, 'fullscreenElement', { value: v, configurable: true }); d.dispatchEvent(new Event('fullscreenchange')); };
+	el.requestFullscreen = () => { log.asked++; put(el); return Promise.resolve(); };
+	d.exitFullscreen = () => { log.left++; put(null); return Promise.resolve(); };
+	window.__fsPut = put; return 1; })()`);
+const realScreen = (p) => p.ev(`(() => { delete document.documentElement.requestFullscreen; delete document.exitFullscreen; delete document.fullscreenElement; delete window.__fs; delete window.__fsPut; return 1; })()`);
+const screen = (p) => p.ev(`JSON.stringify({ ...window.__fs, full: !!document.fullscreenElement })`);
+
+test('fullscreen: off to begin with; on, focus mode takes the screen and gives it back; Esc out of fullscreen leaves; a window already in fullscreen is left alone', async (p, h, t) => {
+	t.eq(await p.ev(`${PL}.settings.focusFullscreen`), false, 'off unless turned on');
+	await openNote(p, KEEPER);
+	await fakeScreen(p);
+	try {
+		await enter(p, h);
+		t.eq(await screen(p), j({ asked: 0, left: 0, full: false }), 'off: focus mode doesn’t touch the screen');
+		// turned on while in focus: taken at once; turned off: given back, and focus mode stays
+		await set(p, { focusFullscreen: true });
+		await p.ev(`${F}.optionsChanged()`);
+		await p.sleep(150);
+		t.eq(await screen(p), j({ asked: 1, left: 0, full: true }), 'turned on in focus mode: the screen is taken');
+		await set(p, { focusFullscreen: false });
+		await p.ev(`${F}.optionsChanged()`);
+		await p.sleep(150);
+		t.eq(await screen(p), j({ asked: 1, left: 1, full: false }), 'turned off: it’s given back');
+		t.ok(await inFocus(p), 'and focus mode stays');
+		await leave(p, h);
+		// on: taken on the way in, given back on the way out
+		await set(p, { focusFullscreen: true });
+		await enter(p, h);
+		t.eq(await screen(p), j({ asked: 2, left: 1, full: true }), 'on: entering focus mode takes the screen');
+		await leave(p, h);
+		t.eq(await screen(p), j({ asked: 2, left: 2, full: false }), 'and leaving gives it back');
+		// Esc in fullscreen is the system's: it ends fullscreen, and focus mode goes with it
+		await enter(p, h);
+		await p.ev(`(() => { window.__fsPut(null); return 1; })()`);
+		await until(p, `!document.body.classList.contains('binders-focus')`);
+		t.eq(await screen(p), j({ asked: 3, left: 2, full: false }), 'fullscreen ended from outside: focus mode leaves with it, and doesn’t ask to leave it twice');
+		// already in fullscreen (the writer's own doing): not ours to take or give back
+		await p.ev(`(() => { window.__fsPut(document.documentElement); return 1; })()`);
+		await enter(p, h);
+		await leave(p, h);
+		t.eq(await screen(p), j({ asked: 3, left: 2, full: true }), 'a window already in fullscreen is left as it was');
+		t.eq(await p.ev(`${ED}.getValue() === ${j(disk(p, KEEPER))}`), true, 'the note is as it was');
+	} finally { await realScreen(p); }
+});
+
+test('fullscreen: for real, the window goes to fullscreen with focus mode and comes back out with it', async (p, h, t) => {
+	await set(p, { focusFullscreen: true });
+	await openNote(p, KEEPER);
+	await enter(p, h);
+	t.ok(await inFocus(p), 'in focus mode');
+	await until(p, `!!document.fullscreenElement`);
+	t.ok(true, 'and the window is in fullscreen');
+	await leave(p, h);
+	await until(p, `!document.fullscreenElement`);
+	t.ok(!(await inFocus(p)), 'out of focus mode, and out of fullscreen');
+	t.eq(await p.ev(`${ED}.getValue() === ${j(disk(p, KEEPER))}`), true, 'the note is as it was');
+});
+
 // ---- the settings tab ----
 
-test('settings: a “Focus mode” group with every option, only typewriter scrolling on; a change there shows on the page at once', async (p, h, t) => {
+test('settings: a “Focus mode” group with every option; a change there shows on the page at once', async (p, h, t) => {
 	const TAB = `app.setting.activeTab.containerEl`;
-	t.eq(await p.ev(`JSON.stringify(['focusTypewriter', 'focusNeighbours', 'focusPlace', 'focusNumbers', 'focusDim', 'focusGoal'].map(k => ${PL}.settings[k]))`), j([true, false, false, false, false, 0]), 'the defaults: typewriter scrolling on, everything else off');
+	await set(p, OFF);
 	await openNote(p, KEEPER);
 	await enter(p, h);
 	await p.ev(`(() => { app.setting.open(); app.setting.openTabById('binders'); return 1; })()`);
 	await until(p, `[...${TAB}.querySelectorAll('.setting-item-heading, .setting-group .setting-item-name')].some(e => e.textContent === 'Focus mode')`);
-	const rows = await p.ev(`(() => { const c = ${TAB}, all = [...c.querySelectorAll('.setting-item')], names = all.map(e => e.querySelector('.setting-item-name')?.textContent ?? ''); const from = names.indexOf('Typewriter scrolling'); return all.slice(from, from + 6).map(e => ({ name: e.querySelector('.setting-item-name').textContent, desc: !!e.querySelector('.setting-item-description')?.textContent, on: e.querySelector('.checkbox-container') ? e.querySelector('.checkbox-container').classList.contains('is-enabled') : e.querySelector('input[type="text"]')?.value })); })()`);
-	t.eq(j(rows.map((r) => r.name)), j(['Typewriter scrolling', 'Show the scenes before and after', 'Show where you are', 'Show word counts', 'Dim other paragraphs', 'Words to write today']), 'the options, in plain words');
-	t.eq(j(rows.map((r) => r.on)), j([true, false, false, false, false, '']), 'only typewriter scrolling is on');
+	const rows = await p.ev(`(() => { const c = ${TAB}, all = [...c.querySelectorAll('.setting-item')], names = all.map(e => e.querySelector('.setting-item-name')?.textContent ?? ''); const from = names.indexOf('Typewriter scrolling'); return all.slice(from, from + 7).map(e => ({ name: e.querySelector('.setting-item-name').textContent, desc: !!e.querySelector('.setting-item-description')?.textContent, on: e.querySelector('.checkbox-container') ? e.querySelector('.checkbox-container').classList.contains('is-enabled') : e.querySelector('input[type="text"]')?.value })); })()`);
+	t.eq(j(rows.map((r) => r.name)), j(['Typewriter scrolling', 'Show the scenes before and after', 'Show where you are', 'Show word counts', 'Dim other paragraphs', 'Enter fullscreen', 'Words to write today']), 'the options, in plain words');
+	t.eq(j(rows.map((r) => r.on)), j([true, false, false, false, false, false, '']), 'each shows whether it is on');
 	t.ok(rows.every((r) => r.desc), 'each says what it does');
 	// turn one on there
 	await p.ev(`(() => { const row = [...${TAB}.querySelectorAll('.setting-item')].find(e => e.querySelector('.setting-item-name')?.textContent === 'Show where you are'); row.querySelector('.checkbox-container').click(); return 1; })()`);

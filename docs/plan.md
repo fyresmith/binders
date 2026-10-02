@@ -333,7 +333,9 @@ of its own, so the editor being typed in is never remounted. `src/focus/focus.ts
 - **What it does to Obsidian:** a class on the window's `<body>` and one on the tab; the style sheet hides the ribbon,
   sidebars, tab bar, status bar, view header, other panes, the binder toolbar and, on a phone, the bar of buttons.
   Nothing is collapsed, closed or saved, and nothing is kept that says focus is on: after leaving, a reload, a crash
-  or the plugin being turned off, Obsidian is as it was. It doesn't take the OS full screen.
+  or the plugin being turned off, Obsidian is as it was. With "Enter fullscreen" on (off by default; desktop only)
+  it takes the system's fullscreen through the standard `requestFullscreen`, and gives it back on leaving, only if
+  it was focus mode that took it.
 - **In and out:** "Toggle focus mode" (no hotkey), a button in the header of a binder's notes (and only those), a
   button at the end of the manuscript's toolbar. Escape leaves, through Obsidian's stack of key scopes, so a dialog,
   a menu, the palette or suggestions take it first; it's also left to a field, a name being typed, text being
@@ -497,7 +499,8 @@ already has milestones 0.1 to 0.7). Every commit bumps the version (see AGENTS.m
 - **Focus mode** (2026-10-01, the maintainer): the text and nothing else by default, with typewriter scrolling the
   only thing on; typewriter scrolling is for the last line only; the scenes before and after, the place and synopsis,
   the word counts, the goal and dimming are each an option; a session is today's words in this binder on this
-  device; the numbers hide while typing and return on a pause; focus mode doesn't take the OS full screen.
+  device; the numbers hide while typing and return on a pause; focus mode doesn't take the OS full screen. Changed the same day: dimming is on by default, and "Enter
+  fullscreen" is an option, off by default.
 
 ## After 1.0 (from Scrivener)
 

@@ -1,9 +1,9 @@
 import { Compartment, StateEffect } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
-import { Component, MarkdownRenderer, MarkdownView, Menu, Notice, Scope, TFile, debounce, setIcon, type Editor, type Events, type WorkspaceLeaf } from 'obsidian';
+import { Component, MarkdownRenderer, MarkdownView, Menu, Notice, Platform, Scope, TFile, debounce, setIcon, type Editor, type Events, type WorkspaceLeaf } from 'obsidian';
 import type { Binder } from '../binders';
 import type BindersPlugin from '../main';
-import { FOCUS_TEXT, FOCUS_TOGGLES, type FocusToggle } from '../settings-data';
+import { FOCUS_TEXT, focusToggles, type FocusToggle } from '../settings-data';
 import { BinderView } from '../view/BinderView';
 import { GLIDE } from '../view/drag';
 import { readableLineLength, submenu, vimMode } from '../view/internals';
@@ -57,6 +57,8 @@ interface Active {
 	reached: boolean;
 	/** Still fading in: the classes aren't on yet. */
 	entering: boolean;
+	/** The window is in fullscreen because focus mode put it there (so it's ours to give back). */
+	full: boolean;
 }
 
 export class Focus {
@@ -208,9 +210,25 @@ export class Focus {
 	/** Settings changed (in the settings tab, or the focus menu): what's on the page follows at once. */
 	optionsChanged(): void {
 		const on = this.on;
-		if (!on || on.entering) return;
+		if (!on) return;
+		this.screen(on, this.opt.focusFullscreen);
+		if (on.entering) return;
 		this.furnish(on);
 		this.drawNow();
+	}
+
+	/** Fullscreen follows its option: taken on the way in or when it's turned on, given back on the way out or when
+	    it's turned off, and only if it was ours (a window that's in fullscreen already is left as it is). Where it
+	    can't be had (a phone, or the system says no), focus mode is as it is without it. */
+	private screen(on: Active, want: boolean): void {
+		const doc = on.doc, el = doc.documentElement;
+		if (want && !on.full && !doc.fullscreenElement && typeof el.requestFullscreen === 'function') {
+			on.full = true;
+			el.requestFullscreen().catch(() => { on.full = false; });
+		} else if (!want && on.full) {
+			on.full = false;
+			if (doc.fullscreenElement) doc.exitFullscreen().catch(() => { /* gone already */ });
+		}
 	}
 
 	// ---- in and out ----
@@ -253,8 +271,11 @@ export class Focus {
 		setIcon(out, 'minimize-2');
 		// (said to a screen reader as focus begins: what this is, and the way out)
 		const live = createDiv({ cls: 'binders-focus-live', attr: { role: 'status', 'aria-live': 'polite' } });
-		const on: Active = { leaf, doc, leafEl, comp, top, note: null, corner: null, live, cm: null, slot: new Compartment(), near: [], nearKey: '', nearComp: null, pauseTimer: 0, pointer: { x: -1, y: -1, at: 0 }, reached: false, entering: true };
+		const on: Active = { leaf, doc, leafEl, comp, top, note: null, corner: null, live, cm: null, slot: new Compartment(), near: [], nearKey: '', nearComp: null, pauseTimer: 0, pointer: { x: -1, y: -1, at: 0 }, full: false, reached: false, entering: true };
 		this.on = on;
+		this.screen(on, this.opt.focusFullscreen);
+		// (Esc takes the window out of fullscreen before any key reaches the page: that Esc leaves focus mode too)
+		comp.registerDomEvent(doc, 'fullscreenchange', () => { if (on.full && !doc.fullscreenElement) { on.full = false; if (this.on === on) this.leave(); } });
 		out.addEventListener('click', () => this.leave());
 		out.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.leave(); } });
 		// (its options: a right click, a long press, the menu key)
@@ -328,6 +349,7 @@ export class Focus {
 		const on = this.on;
 		if (!on) return;
 		this.on = null;
+		this.screen(on, false);
 		window.clearTimeout(on.pauseTimer);
 		const body = on.doc.body, hold = on.entering ? () => { /* nothing has moved yet */ } : this.holder(on);
 		const undo = () => {
@@ -681,7 +703,7 @@ export class Focus {
 			const total = this.words.sum(store.scenes(binder.folder)), note = store.folderNote(binder.folder), target = note ? readTarget(app.metadataCache.getFileCache(note)?.frontmatter?.[s.targetProp]) : 0;
 			if (total != null) menu.addItem((i) => i.setSection('count').setTitle(`${binder.folder.name}: ${total.toLocaleString()}${target ? ` of ${target.toLocaleString()}` : ''} words`).setIsLabel(true));
 		}
-		for (const k of FOCUS_TOGGLES) menu.addItem((i) => i.setSection('options').setTitle(FOCUS_TEXT[k][0]).setChecked(s[k]).onClick(() => void this.set(k, !s[k])));
+		for (const k of focusToggles(Platform.isMobile)) menu.addItem((i) => i.setSection('options').setTitle(FOCUS_TEXT[k][0]).setChecked(s[k]).onClick(() => void this.set(k, !s[k])));
 		if (s.focusNumbers) {
 			menu.addItem((i) => i.setSection('session').setTitle(s.focusGoal ? 'Change today’s goal...' : 'Set a goal for today...').setIcon('target').onClick(() => void this.askGoal()));
 			menu.addItem((i) => i.setSection('session').setTitle('Start counting from here').setIcon('rotate-ccw').onClick(() => { this.session.reset(binder.folder.path); this.store(); this.drawNow(); }));

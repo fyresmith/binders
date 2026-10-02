@@ -33,7 +33,7 @@ export interface BindersSettings {
 	/** Where each folder was last compiled to (its path → the note's path): offered again the next time. */
 	compiledTo: Record<string, string>;
 	// focus mode >>>
-	/** Focus mode: the line being written at the end of a scene is held at one height. The only one on to begin with. */
+	/** Focus mode: the line being written at the end of a scene is held at one height. On to begin with, as dimming is. */
 	focusTypewriter: boolean;
 	/** Focus mode: where the scene is in the binder, and its synopsis, beside the text. */
 	focusPlace: boolean;
@@ -45,6 +45,8 @@ export interface BindersSettings {
 	focusNeighbours: boolean;
 	/** Focus mode: the words to write in a day, or 0 for no goal. */
 	focusGoal: number;
+	/** Focus mode: the window goes to the system's fullscreen with it, and comes back out with it. */
+	focusFullscreen: boolean;
 	// <<< focus mode
 }
 
@@ -52,19 +54,22 @@ export const DEFAULT_SETTINGS: BindersSettings = {
 	orderExplorer: true, openOnClick: true, hideBinderNotes: true, explorerLabels: true,
 	synopsisProp: 'synopsis', statusProp: 'status', labelProp: 'label', targetProp: 'target',
 	labels: DEFAULT_LABELS, statuses: DEFAULT_STATUSES, outlinerColumns: DEFAULT_COLUMNS, compile: COMPILE_DEFAULTS, compiled: {}, compiledTo: {},
-	focusTypewriter: true, focusPlace: false, focusNumbers: false, focusDim: false, focusNeighbours: false, focusGoal: 0, // focus mode
+	focusTypewriter: true, focusPlace: false, focusNumbers: false, focusDim: true, focusNeighbours: false, focusGoal: 0, focusFullscreen: false, // focus mode
 };
 
 // focus mode >>>
-export type FocusToggle = 'focusTypewriter' | 'focusNeighbours' | 'focusPlace' | 'focusNumbers' | 'focusDim';
+export type FocusToggle = 'focusTypewriter' | 'focusNeighbours' | 'focusPlace' | 'focusNumbers' | 'focusDim' | 'focusFullscreen';
 /** In the order the settings and the focus menu list them. */
-export const FOCUS_TOGGLES: FocusToggle[] = ['focusTypewriter', 'focusNeighbours', 'focusPlace', 'focusNumbers', 'focusDim'];
+export const FOCUS_TOGGLES: FocusToggle[] = ['focusTypewriter', 'focusNeighbours', 'focusPlace', 'focusNumbers', 'focusDim', 'focusFullscreen'];
+/** The ones this device can do: a phone or tablet has no window to put in fullscreen. */
+export const focusToggles = (mobile: boolean): FocusToggle[] => FOCUS_TOGGLES.filter((k) => !mobile || k !== 'focusFullscreen');
 export const FOCUS_TEXT: Record<FocusToggle | 'focusGoal', readonly [string, string]> = {
 	focusTypewriter: ['Typewriter scrolling', 'While you write at the end of a scene, the line you’re on stays at one height and the page moves under it. Anywhere else in the text, the page scrolls as it always does.'],
 	focusNeighbours: ['Show the scenes before and after', 'In a note, the end of the scene before is shown above its text and the start of the scene after below it, as in the manuscript. Click one to go there.'],
 	focusPlace: ['Show where you are', 'The scene’s place in the binder and its synopsis, beside the text. They go while you type.'],
 	focusNumbers: ['Show word counts', 'The scene’s words, with its target, and the words written today in the binder. They go while you type and come back when you pause.'],
 	focusDim: ['Dim other paragraphs', 'While you type, every paragraph but the one you’re in steps back.'],
+	focusFullscreen: ['Enter fullscreen', 'Focus mode takes the whole screen, and gives it back when you leave.'],
 	focusGoal: ['Words to write today', 'A goal for a day’s writing in a binder, shown with the word counts. Leave empty for none.'],
 };
 // <<< focus mode

@@ -1,5 +1,5 @@
 import { Session, atEnd, bodyStart, dayOf, excerpt, parseGoal } from '../src/focus/session';
-import { DEFAULT_SETTINGS, FOCUS_TOGGLES, readSettings } from '../src/settings-data';
+import { DEFAULT_SETTINGS, FOCUS_TOGGLES, focusToggles, readSettings } from '../src/settings-data';
 import { done, eq, ok } from './harness';
 
 // the day, in local time
@@ -131,9 +131,11 @@ eq(parseGoal('2.5k'), null, 'nor shorthand');
 {
 	const d = DEFAULT_SETTINGS;
 	ok(d.focusTypewriter, 'typewriter scrolling is on by default');
-	ok(!d.focusPlace && !d.focusNumbers && !d.focusDim && !d.focusNeighbours, 'everything else in focus mode is off by default');
+	ok(d.focusDim, 'and so is dimming the other paragraphs');
+	ok(!d.focusPlace && !d.focusNumbers && !d.focusNeighbours && !d.focusFullscreen, 'everything else in focus mode is off by default, fullscreen too');
 	eq(d.focusGoal, 0, 'and there’s no goal');
-	eq(FOCUS_TOGGLES.length, 5, 'five things to turn on or off');
+	eq(FOCUS_TOGGLES.length, 6, 'six things to turn on or off');
+	ok(!focusToggles(true).includes('focusFullscreen') && focusToggles(false).includes('focusFullscreen'), 'fullscreen is only offered where there is a window');
 	const s = readSettings({ focusPlace: true, focusNumbers: 'yes', focusTypewriter: false, focusGoal: 750 });
 	ok(s.focusPlace && !s.focusNumbers && !s.focusTypewriter, 'read back as saved; what isn’t true or false is the default');
 	eq(s.focusGoal, 750, 'the goal as saved');
