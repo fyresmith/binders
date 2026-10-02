@@ -333,21 +333,36 @@ export class BinderStore extends Events implements ExplorerSource {
 		this.snapshotsTimer = window.setTimeout(() => { void this.snapshotsSettle(); }, 80);
 	}
 
-	/** Moves the snapshots of everything renamed or moved since the last time. Resolves when they're where they belong. */
-	async snapshotsSettle(): Promise<void> {
+	/** The moves of snapshots under way: one run at a time, each after the one before it. */
+	private snapshotsMoving: Promise<void> = Promise.resolve();
+
+	/** Moves the snapshots of everything renamed or moved since the last time. Resolves when they're where they belong.
+	    The moves are made one at a time, in the order the renames came in: a burst of renames can pass a name from one
+	    note to another (Arrival to Q, The keeper to Arrival, Q to The keeper), and only in that order is each folder
+	    of snapshots where the next move looks for it. Renames that come in while moves are being made wait their turn
+	    in the same line. */
+	snapshotsSettle(): Promise<void> {
 		window.clearTimeout(this.snapshotsTimer);
-		// outermost first: a folder's snapshots go as one, and its notes' are then already where they belong
-		const moved = this.movedItems.sort((a, b) => a.from.length - b.from.length);
-		this.movedItems = [];
-		for (const m of moved) {
-			const there = this.app.vault.getAbstractFileByPath(m.from);
-			// (what's the item's own there: a note's snapshots are files, a folder's notes' are in folders)
-			if (!(there instanceof TFolder) || !there.children.some((c) => (m.what === 'note' ? c instanceof TFile : c instanceof TFolder))) continue;
-			// out of every binder: its snapshots stay with the binder it left, as a deleted note's do
-			if (!m.to) { new Notice(`“${m.name}” has left “${m.binder}”. Its snapshots stay there.`, 8000); continue; }
-			try { await followSnapshots(this.app, m.from, m.to, m.what); }
-			catch (e) { new Notice(`The snapshots of “${m.name}” couldn’t follow it. ${e instanceof Error ? e.message : String(e)}`, 8000); }
-		}
+		type Move = BinderStore['movedItems'][number];
+		// one exception to the order: a folder's own move goes ahead of the moves of what it carried along (the same
+		// rename, reported item by item), so its snapshots go as one and those of the notes in it are then where they belong
+		const carries = (f: Move, m: Move) => f !== m && f.what === 'folder' && f.to != null && m.from.startsWith(f.from + '/') && m.to === f.to + m.from.slice(f.from.length);
+		const run = async (): Promise<void> => {
+			// (the line itself, not a copy: what's added while a move is awaited is taken in its turn)
+			const line = this.movedItems;
+			while (line.length) {
+				const first = line[0], ahead = line.findIndex((f) => carries(f, first));
+				const m = line.splice(Math.max(0, ahead), 1)[0];
+				const there = this.app.vault.getAbstractFileByPath(m.from);
+				// (what's the item's own there: a note's snapshots are files, a folder's notes' are in folders)
+				if (!(there instanceof TFolder) || !there.children.some((c) => (m.what === 'note' ? c instanceof TFile : c instanceof TFolder))) continue;
+				// out of every binder: its snapshots stay with the binder it left, as a deleted note's do
+				if (!m.to) { new Notice(`“${m.name}” has left “${m.binder}”. Its snapshots stay there.`, 8000); continue; }
+				try { await followSnapshots(this.app, m.from, m.to, m.what); }
+				catch (e) { new Notice(`The snapshots of “${m.name}” couldn’t follow it. ${e instanceof Error ? e.message : String(e)}`, 8000); }
+			}
+		};
+		return (this.snapshotsMoving = this.snapshotsMoving.then(run, run));
 	}
 
 	// ---- the public API, continued: reading a binder, and changing it ----

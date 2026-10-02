@@ -373,3 +373,52 @@ test('binders: a folder’s order, kept between changes, is never stale, and is 
 	t.eq(await p.ev(`JSON.stringify(app.metadataCache.getFileCache(${file(`${LF}/Index.md`)}).frontmatter.longform.scenes)`), j(['Return', 'Harbor', ['Ticket office', 'The crossing'], 'Island']), 'the index note on disk has the order shown (a note not yet moved isn’t listed, as in Longform)');
 	same(t, before, await texts(p), { skip: [NOTE, `${LF}/Index.md`], moved: { [`${P1}/The keeper.md`]: `${P1}/The warden.md`, [`${L}/Prologue.md`]: `${P1}/Prologue.md` } });
 }));
+
+// Snapshots follow their note when it's renamed (the store queues each rename and moves the folders a moment later).
+// Renames that come in a burst can pass one name from note to note: the moves must be made in the order the renames
+// came in, one at a time, or a note's snapshots are left under a name it no longer has.
+const SNAPS = 'The Lighthouse/Snapshots';
+const snapshotText = (who) => `---\nsnapshot-of: "Part One/${who}"\ntaken: 2026-09-12T09:15:40\n---\n${who} wrote this, and only ${who}.\r\nA second line, with a Windows line break before it.\n`;
+/** Puts a snapshot of a note in place, as Binders writes them (the folder is the note's path in the binder). */
+const seedSnapshot = (p, rel, who) => p.ev(`(async () => { let at = ''; for (const part of ${j(`${SNAPS}/${rel}`)}.split('/')) { at = at ? at + '/' + part : part; if (!app.vault.getAbstractFileByPath(at)) await app.vault.createFolder(at); } await app.vault.create(${j(`${SNAPS}/${rel}/2026-09-12 09.15.40.snapshot`)}, ${j(snapshotText(who))}); })().then(() => 1)`);
+/** Every snapshot file under the binder's Snapshots folder: its path there and its bytes. */
+const snapshotsOnDisk = (p) => p.ev(`(async () => { const out = {}; const walk = async (dir) => { if (!(await app.vault.adapter.exists(dir))) return; const l = await app.vault.adapter.list(dir); for (const f of l.files) out[f.slice(${SNAPS.length + 1})] = await app.vault.adapter.read(f); for (const d of l.folders) await walk(d); }; await walk(${j(SNAPS)}); return out; })()`);
+const renames = (p, pairs, pauseAfter = -1, pause = 0) => p.ev(`(async () => { const pairs = ${j(pairs)}; for (let i = 0; i < pairs.length; i++) { await app.fileManager.renameFile(app.vault.getAbstractFileByPath(pairs[i][0]), pairs[i][1]); if (i === ${pauseAfter}) await new Promise(r => setTimeout(r, ${pause})); } await ${B}.snapshotsSettle(); })().then(() => 1)`);
+const FILE = '2026-09-12 09.15.40.snapshot', P1 = 'The Lighthouse/Part One';
+
+test('binders: renames in a burst that pass a name from note to note: each note’s snapshots follow it, and none is lost or changed', withTidy(async (p, h, t) => {
+	await seedSnapshot(p, 'Part One/Arrival', 'Arrival'); await seedSnapshot(p, 'Part One/The keeper', 'Keeper'); await seedSnapshot(p, 'Part One/Storm warning', 'Storm');
+	await p.sleep(300);
+	// Arrival and The keeper swap names by way of a short one, and Storm warning takes a new one, with no pause
+	await renames(p, [[`${P1}/Arrival.md`, `${P1}/Q.md`], [`${P1}/The keeper.md`, `${P1}/Arrival.md`], [`${P1}/Storm warning.md`, `${P1}/Gale.md`], [`${P1}/Q.md`, `${P1}/The keeper.md`]]);
+	await p.sleep(400);
+	t.eq(j(await snapshotsOnDisk(p)), j({ [`Part One/Arrival/${FILE}`]: snapshotText('Keeper'), [`Part One/Gale/${FILE}`]: snapshotText('Storm'), [`Part One/The keeper/${FILE}`]: snapshotText('Arrival') }), 'the note now called Arrival has the keeper’s, the one now called The keeper has Arrival’s, Gale has the storm’s: three files, byte for byte, and no folder left under a name no note has');
+	// three notes pass their names round in a ring (four renames)
+	await renames(p, [[`${P1}/Arrival.md`, `${P1}/T.md`], [`${P1}/The keeper.md`, `${P1}/Arrival.md`], [`${P1}/Gale.md`, `${P1}/The keeper.md`], [`${P1}/T.md`, `${P1}/Gale.md`]]);
+	await p.sleep(400);
+	t.eq(j(await snapshotsOnDisk(p)), j({ [`Part One/Arrival/${FILE}`]: snapshotText('Arrival'), [`Part One/Gale/${FILE}`]: snapshotText('Keeper'), [`Part One/The keeper/${FILE}`]: snapshotText('Storm') }), 'a ring of three');
+	t.eq(j(await contents(p)), j(['Prologue', 'Part One/', 'Part One/Arrival', 'Part One/Gale', 'Part One/The keeper', 'Part Two/', 'Part Two/The wreck', 'Part Two/Lights out', 'Epilogue']), 'and the binder note on disk lists each note once, where it was');
+}));
+
+test('binders: renames that come in while snapshots are being moved wait their turn: a swap finished a moment later is still followed', withTidy(async (p, h, t) => {
+	await seedSnapshot(p, 'Part One/Arrival', 'Arrival'); await seedSnapshot(p, 'Part One/The keeper', 'Keeper');
+	await p.sleep(300);
+	// the first two renames, then the moment it takes the store to start moving snapshots (80 ms), then the third
+	await renames(p, [[`${P1}/Arrival.md`, `${P1}/Q.md`], [`${P1}/The keeper.md`, `${P1}/Arrival.md`], [`${P1}/Q.md`, `${P1}/The keeper.md`]], 1, 85);
+	await p.sleep(400);
+	t.eq(j(await snapshotsOnDisk(p)), j({ [`Part One/Arrival/${FILE}`]: snapshotText('Keeper'), [`Part One/The keeper/${FILE}`]: snapshotText('Arrival') }), 'each note has the other’s old name and its own snapshots');
+}));
+
+test('binders: a folder renamed and a note in it renamed in the same burst: the folder’s snapshots go as one, the note’s follow its new name', withTidy(async (p, h, t) => {
+	await seedSnapshot(p, 'Part One/Arrival', 'Arrival'); await seedSnapshot(p, 'Part One/The keeper', 'Keeper');
+	await p.sleep(300);
+	try {
+		await renames(p, [[`${P1}/Arrival.md`, `${P1}/Landing.md`], [P1, 'The Lighthouse/Part 1'], ['The Lighthouse/Part 1/The keeper.md', 'The Lighthouse/Part 1/Arrival.md']]);
+		await p.sleep(500);
+		t.eq(j(await snapshotsOnDisk(p)), j({ [`Part 1/Arrival/${FILE}`]: snapshotText('Keeper'), [`Part 1/Landing/${FILE}`]: snapshotText('Arrival') }), 'under the folder’s new name, each under its note’s new name; nothing left under “Part One”');
+		t.ok(!(await exists(p, `${SNAPS}/Part One`)), 'no empty folder is left behind');
+	} finally {
+		await p.ev(`(async () => { const f = app.vault.getAbstractFileByPath('The Lighthouse/Part 1'); if (f) await app.fileManager.renameFile(f, ${j(P1)}); })().then(() => 1)`);
+		await p.sleep(400);
+	}
+}));

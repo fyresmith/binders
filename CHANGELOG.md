@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.45 (2026-10-02)
+
+### Fixed
+
+- Renaming several notes in quick succession (a swap of two names, or a folder and a note in it) no longer leaves a note's snapshots under a name it no longer has, or mixes two notes' snapshots.
+
 ## 0.12.44 (2026-10-02)
 
 ### Fixed
