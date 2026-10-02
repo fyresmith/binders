@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.87 (2026-10-02)
+
+### Changed
+
+- In the outliner on a phone, a note several folders down keeps a readable width for its name: levels step in by less, and the title column widens with the depth shown.
+
 ## 0.12.86 (2026-10-02)
 
 ### Changed

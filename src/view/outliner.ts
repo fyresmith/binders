@@ -444,6 +444,8 @@ class Outliner implements BinderMode {
 		this.root.toggleClass('is-sorted', !!sort);
 		this.root.toggleClass('mod-synopses', synopses);
 		this.labelCompact = cols.some((c) => this.compact(c));
+		// (how many levels of folders past the first are shown: on a phone the title column is that much wider)
+		this.root.setCssProps({ '--binders-ol-deep': String(Math.max(0, rows.reduce((m, r) => Math.max(m, r.depth), 0) - 1)) });
 		cols.forEach((c, i) => this.table.setCssProps({ [`--binders-ol-c${i}`]: `${this.widthOf(c)}px` }));
 		// as wide as the pane, the title taking what the columns leave; wider only when they leave it too little
 		this.table.setCssProps({ '--binders-ol-columns': `${cols.reduce((a, c) => a + this.widthOf(c), 0)}px` });

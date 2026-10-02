@@ -110,8 +110,10 @@
 }
 
 .is-phone .binders-outliner {
-	/* (what a phone's width leaves beside a color, a status and a word count, so those are in sight without scrolling) */
-	--binders-ol-title-min: clamp(110px, 100vw - 212px, 220px);
+	/* (what a phone's width leaves beside a color, a status and a word count, so those are in sight without scrolling;
+	   and for each level of folders past the first that is shown, the indent it costs: a name five folders down has
+	   the room one at the top has, and only a deep binder's last columns are a swipe away) */
+	--binders-ol-title-min: calc(clamp(110px, 100vw - 212px, 220px) + var(--binders-ol-deep, 0) * var(--binders-ol-indent));
 }
 
 .is-mobile .binders-outliner {
@@ -119,9 +121,11 @@
 	--binders-ol-indent: var(--size-4-4);
 }
 
-/* (on a phone a row, its cells and the headers are a finger tall, as the items of Obsidian's own lists are there) */
+/* (on a phone a row, its cells and the headers are a finger tall, as the items of Obsidian's own lists are there; and a
+   level of folders is a narrower step, where every pixel of a name counts) */
 .is-phone .binders-outliner {
 	--binders-ol-row: 44px;
+	--binders-ol-indent: var(--size-4-3);
 }
 
 .binders-outliner-table {
