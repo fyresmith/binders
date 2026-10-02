@@ -331,7 +331,7 @@ class ByLabel implements BinderMode {
 				const d = createDiv({ cls: 'binders-lane-divider', attr: { role: 'link', tabindex: '0', 'aria-label': `Show ${run.folder.name}` } });
 				d.setCssProps({ '--binders-slot': String(slot), '--binders-span': String(shown[ri].length + 1) });
 				const name = d.createSpan({ cls: 'binders-lane-divider-name' });
-				setIcon(name.createSpan({ cls: 'binders-group-icon' }), 'folder');
+				setIcon(name.createSpan({ cls: 'binders-group-icon' }), 'lucide-folder');
 				name.createSpan({ text: run.folder.name });
 				d.addEventListener('click', (e) => { e.stopPropagation(); this.ctx.navigate(run.folder, Keymap.isModEvent(e)); });
 				d.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.stopPropagation(); this.ctx.navigate(run.folder, Keymap.isModEvent(e)); } });

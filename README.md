@@ -36,11 +36,12 @@ keeps its place when you look at another, and when you open a note and come back
 ### Corkboard
 
 One index card per note, in order, with its title, synopsis, status, label color and word count (and, for a note with
-a target, how far along it is). A folder is one card too, drawn as a stack, with its own synopsis and the
-count of what it holds: double-click it (or tap its name) to go into it, and use the breadcrumb above the board to
-come back out. So the board is always one folder's items, in one order.
+a target, how far along it is). A folder is one card too, with a folder icon, its own synopsis, the names of the
+first things in it (each with its label color) and the count of what it holds: double-click it (or tap its name) to
+go into it, and use the breadcrumb above the board to come back out. A folder with no synopsis gets one from **Edit
+synopsis** in its menu. So the board is always one folder's items, in one order.
 
-- Drag cards to reorder them, onto a stack to move them into that folder, or onto a folder in the breadcrumb to move
+- Drag cards to reorder them, onto a folder's card to move them into that folder, or onto a folder in the breadcrumb to move
   them out to it. The card follows the pointer,
   a line shows where it will go, and the others glide aside when you let go. Shift-click or Ctrl-click (Cmd-click on
   macOS) selects several, and they move together.
@@ -75,7 +76,7 @@ The menu is always the same: **In a grid**, **By label, across** and **By label,
   close up, and the cards pass each other.
 - **Show unused labels** (on as it comes) keeps a line for every label, so there's always one to drop a card on;
   turn it off to see only the labels in use. **Show notes in subfolders** (off as it comes) shows every note under
-  the folder, each subfolder's after its name, instead of one stack per subfolder. The menu stays open while you
+  the folder, each subfolder's after its name, instead of one card per subfolder. The menu stays open while you
   turn these on and off. In the grid they're greyed out: they are about the lines.
 - Click a line's name for its menu: **New note with this label**, **Select its notes**, **New label...** (a name and
   a color, added to the labels in settings) and **Edit labels...**. Double-click a line where there's no card to

@@ -9,15 +9,26 @@ here; that is what keeps the next round short.
 
 - The binder view is modelled on Obsidian's Bases cards view: edge to edge, a 40px bordered toolbar with the view
   switcher on the left, flat cards with a hairline border.
-- Cards are Canvas-style: a label is the card's border plus a faint tint (about 7%) of the same color. A stack's pile
-  takes the label's color too.
+- Cards are Canvas-style: a label is the card's border plus a faint tint (about 7%) of the same color.
 - Selection is a ring in the card's own color, grey when it has no label. Never the accent purple.
 - Drags follow Obsidian's `drag-reorder-ghost` (300ms, `cubic-bezier(0.2, 0, 0, 1)`); tree insertion follows its
   `drop-indicator`.
 - In the file explorer a binder carries Obsidian's own type tag (`nav-file-tag`), not an icon; the folder a view shows
   is the active row.
-- The corkboard shows one folder at a time, with subfolders as stacks you go into, as Scrivener does. Where a writer
-  would expect Scrivener's behavior, match it.
+- The corkboard shows one folder at a time, with a subfolder as one card you go into, as Scrivener does. Where a
+  writer would expect Scrivener's behavior, match it. The card is not Scrivener's stack, though (2026-10-02, below).
+- A folder's card is a card like a note's: the same size and the same edge in every state. What tells it apart is on
+  it: the plain folder glyph (`lucide-folder`; Obsidian's own `folder` is an open folder, fussy at 16px) and the names
+  of the first things it holds, each with its label's dot at the row's end, as the file explorer shows them. The names
+  are a look inside, not controls. Several cards carried at once are still a pile.
+- Something drawn outside a card's box has to be drawn as that card is in every state, or not at all. The pile was two
+  hairline shadows under a card whose own border is two pixels with a label and three when selected: one object at two
+  weights. (It was shadows because a card has `content-visibility: auto`, which clips whatever a child draws outside
+  it; and with shadows only a diagonal offset keeps the card's corner radius.)
+- Headless Obsidian has no pointer that hovers: `(hover: hover)` is false, so no test or screenshot sees a hover
+  rule, or what one overrides. To look, start it with
+  `--blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4`. That is how
+  it was found that a folder a drop would go into showed no ring under a real mouse.
 - Jank shows mid-interaction, not at rest: a drag held, 60ms after a drop, a field as the keyboard opens.
 - Obsidian's own File recovery dialog hangs its closing button 4px above the line its buttons are on, and a
   `clickable-icon` is 26px beside 30px buttons. Borrowing its classes borrows that: in a row of controls, give every
@@ -36,6 +47,17 @@ like). The maintainer's word for these was "AI generated".
 
 **How the maintainer chooses:** new things are off by default unless he says otherwise; the smallest version first;
 a dropdown over a row of switches; no clutter.
+
+## Rounds
+
+**The folder's card (2026-10-02).** The maintainer: "Redesign the subfolder icon so it is better. The card stack looks
+hopelessly inconsistent." What was wrong: the cards under the top one were hairlines whatever the top card's border
+was; the gaps between the three edges were uneven; the keyboard's ring was on the top card only; the glyph was an open
+folder. Two directions were built: A, a true pile (each card under it drawn from the top card's own ring, label line
+and face, at equal steps), and B, no pile (the card names what it holds). He chose B: every card on the board is the
+same size and has the same edge, and the folder's card says something the pile never did. Given up: Scrivener's
+stack, and "Add a synopsis" offering itself on a folder's card with none (its menu's "Edit synopsis" adds one; the
+line would have pushed the names down under the pointer).
 
 ## How a design round runs: narrow, then build
 

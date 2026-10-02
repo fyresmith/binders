@@ -32,7 +32,7 @@ test('the accent color and the theme’s radii and fonts are the view’s own', 
 	}
 });
 
-test('a folder’s stack is drawn from the theme: the cards under it have a card’s face and the theme’s border, at the theme’s radius', async (p, h, t) => {
+test('a folder’s card is drawn from the theme: a card’s face and edge, at the theme’s radius', async (p, h, t) => {
 	await p.ev(`(() => { const s = document.head.createEl('style', { attr: { id: 'binders-theme-probe' } }); s.textContent = 'body { --radius-m: 13px; --background-modifier-border-hover: rgb(200, 30, 40); --background-primary: rgb(250, 240, 230); --text-muted: rgb(10, 120, 60); }'; return 1; })()`);
 	try {
 		await openView(p);
@@ -41,10 +41,9 @@ test('a folder’s stack is drawn from the theme: the cards under it have a card
 		const box = await p.at('.workspace-leaf.mod-active .binders-corkboard');
 		await p.click(box.l + box.w - 40, box.t + box.h - 40);
 		await p.sleep(300);
-		const colors = (s) => s.match(/(?:rgba?|oklch|oklab|color)\([^)]*\)/g) ?? [];
-		const pile = colors(await p.ev(style(stack, 'boxShadow'))).slice(-4);
-		t.eq(j(pile), j(['rgb(250, 240, 230)', 'rgb(200, 30, 40)', 'rgb(250, 240, 230)', 'rgb(200, 30, 40)']), 'two cards under it: the theme’s background for their faces, its border color for their edges');
-		t.eq(await p.ev(style(stack, 'backgroundColor')), 'rgb(250, 240, 230)', 'the card on top has the same face');
+		// a folder's card is a card: a note's edge, and no cards drawn under it
+		t.eq(await p.ev(style(stack, 'boxShadow')), await p.ev(style('.binders-card[data-path="The Lighthouse/Epilogue.md"]', 'boxShadow')), 'a folder’s card has the edge of a note’s card, from the theme');
+		t.eq(await p.ev(style(stack, 'backgroundColor')), 'rgb(250, 240, 230)', 'its face is the theme’s background');
 		t.eq(await p.ev(style(stack, 'borderTopLeftRadius')), '13px', 'a stack follows --radius-m');
 		// selected: a ring in the theme's quiet text color, as any card without a label
 		const c = await p.at(`.workspace-leaf.mod-active ${stack}`);

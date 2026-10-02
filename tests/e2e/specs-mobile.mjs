@@ -60,9 +60,9 @@ for (const [device, width, height] of [['phone', 390, 844], ['tablet', 820, 1180
 			await openView(p);
 			t.eq(j(await cards(p)), j([L + 'Prologue.md', L + 'Part One', L + 'Part Two', L + 'Epilogue.md']), 'the binder’s board: its notes, and a stack for each folder');
 			const fits = () => p.ev(`(() => { const b = document.querySelector('.workspace-leaf.mod-active .binders-toolbar'), v = b.closest('.binders-view'), r = v.getBoundingClientRect(); return { scroll: b.scrollWidth - b.clientWidth, right: Math.round(b.getBoundingClientRect().right - r.right), wide: v.scrollWidth - v.clientWidth }; })()`);
-			// every card, the stacks with their piles, is inside the board
-			const out = await p.ev(`(() => { const v = document.querySelector('.workspace-leaf.mod-active .binders-corkboard').getBoundingClientRect(); return [...document.querySelectorAll('.workspace-leaf.mod-active .binders-card')].filter(c => { const r = c.getBoundingClientRect(), pile = c.classList.contains('is-stack') ? 8 : 0; return r.left < v.left || r.right + pile > v.right + 0.5; }).length; })()`);
-			t.eq(out, 0, 'no card, nor a stack’s pile, sticks out of the board');
+			// every card is inside the board (a folder's is a card like the others: nothing is drawn under it)
+			const out = await p.ev(`(() => { const v = document.querySelector('.workspace-leaf.mod-active .binders-corkboard').getBoundingClientRect(); return [...document.querySelectorAll('.workspace-leaf.mod-active .binders-card')].filter(c => { const r = c.getBoundingClientRect(); return r.left < v.left || r.right > v.right + 0.5; }).length; })()`);
+			t.eq(out, 0, 'no card sticks out of the board');
 			// in by the stack's name
 			const name = await p.at(`${card(L + 'Part One')} .binders-card-title`);
 			await tap(p, name.x, name.y);

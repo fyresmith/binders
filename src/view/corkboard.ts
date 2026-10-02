@@ -503,7 +503,7 @@ class Corkboard implements BinderMode {
 		const note = this.store.folderNote(folder), p = note ? this.ctx.props(note) : null;
 		const title = row.createDiv({ cls: 'binders-group-title', attr: { role: 'link', tabindex: '0', 'aria-label': `Show ${folder.name}` } });
 		title.dataset.path = folder.path;
-		setIcon(title.createSpan({ cls: 'binders-group-icon' }), 'folder');
+		setIcon(title.createSpan({ cls: 'binders-group-icon' }), 'lucide-folder');
 		// renamed from the heading's menu, in place, as a card's title is
 		this.headings.set(folder.path, editable(title, {
 			cls: 'binders-group-name', value: folder.name, placeholder: 'Name', label: 'Rename', singleLine: true, clickToEdit: false, readOnly: this.ctx.readOnly,

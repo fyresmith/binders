@@ -1,12 +1,12 @@
 import { TFile, TFolder, setIcon, type TAbstractFile } from 'obsidian';
 import { noteOf } from './actions';
 import { editable, type Editable } from './edit';
-import { labelName, paintLabel } from './labels';
+import { labelDot, labelName, paintLabel } from './labels';
 import type { ModeContext } from './mode';
 import { progress } from './outliner-data';
 import { wordsLabel } from './words';
 
-/* An index card: a note's title, synopsis, status and word count (a folder's is a stack, with what's in it counted).
+/* An index card: a note's title, synopsis, status and word count (a folder's names the first things in it, and counts them all).
    The corkboard draws its cards with this, in its grid and arranged by label, so a card is the same card on either; the board
    says how its own parts work (what a rename does, when a click may edit) through `CardHost`. */
 
@@ -52,6 +52,30 @@ export function synopsisField(host: CardHost, parent: HTMLElement, item: TAbstra
 	});
 }
 
+/** How many of a folder's items its card names (a small card has room for fewer: the stylesheet cuts the list). */
+const HELD = 5;
+
+/** The first of what a folder holds, in the binder's order (under a filter, the notes that pass and every subfolder). */
+export function held(ctx: ModeContext, folder: TFolder): TAbstractFile[] {
+	const all = (ctx.store.orderedChildren(folder) ?? []).filter((c): c is TAbstractFile => !!c);
+	return (ctx.filtering() ? all.filter((c) => !(c instanceof TFile) || ctx.visible(c)) : all).slice(0, HELD);
+}
+
+/** What a folder holds, on its card: its first items by name, each with its label's dot, as they are in the file
+    explorer. (Not said aloud: the card's description already says how many there are.) */
+function heldList(ctx: ModeContext, card: HTMLElement, folder: TFolder): void {
+	const items = held(ctx, folder);
+	if (!items.length) return;
+	const list = card.createDiv({ cls: 'binders-card-held', attr: { 'aria-hidden': 'true' } });
+	for (const c of items) {
+		const row = list.createDiv({ cls: 'binders-card-held-item' });
+		if (c instanceof TFolder) setIcon(row.createSpan({ cls: 'binders-card-held-icon' }), 'lucide-folder');
+		row.createSpan({ cls: 'binders-card-held-name', text: c instanceof TFile ? c.basename : c.name });
+		const note = noteOf(ctx, c), label = note ? ctx.props(note).label : '';
+		if (label) labelDot(row, label, ctx.plugin.settings.labels);
+	}
+}
+
 /** Draws an item's card (not yet in the page). */
 export function buildCard(host: CardHost, f: TAbstractFile): { el: HTMLElement; editors: CardEditors } {
 	const ctx = host.ctx, presets = ctx.plugin.settings.labels;
@@ -62,7 +86,7 @@ export function buildCard(host: CardHost, f: TAbstractFile): { el: HTMLElement; 
 	const card = createDiv({ cls: 'binders-card' + (folder ? ' is-stack' : ''), attr: { role: 'option', tabindex: '-1', 'data-path': f.path, 'aria-selected': 'false' } });
 	paintLabel(card, p.label, presets);
 	const head = card.createDiv({ cls: 'binders-card-head' });
-	if (folder) setIcon(head.createSpan({ cls: 'binders-card-icon' }), 'folder');
+	if (folder) setIcon(head.createSpan({ cls: 'binders-card-icon' }), 'lucide-folder');
 	else head.createSpan({ cls: 'binders-card-number', attr: { 'aria-hidden': 'true' } }); // (filled in by the board)
 	const title = editable(head, {
 		cls: 'binders-card-title', value: name, placeholder: 'Title', label: 'Rename', singleLine: true, clickToEdit: false, readOnly: ctx.readOnly,
@@ -76,6 +100,7 @@ export function buildCard(host: CardHost, f: TAbstractFile): { el: HTMLElement; 
 	const about = [p.status && `Status: ${p.status}`, p.label && `Label: ${labelName(p.label, presets)}`, holds, words != null && wordsLabel(words), p.target > 0 && `Target: ${wordsLabel(p.target)}`].filter(Boolean).join(', ');
 	if (about) card.setAttr('aria-description', about);
 	const editors = { title, synopsis: synopsisField(host, card, f, 'binders-card-synopsis', card) };
+	if (f instanceof TFolder) heldList(ctx, card, f);
 	const foot = card.createDiv({ cls: 'binders-card-footer' });
 	if (p.status) foot.createSpan({ cls: 'binders-chip', text: p.status });
 	foot.createDiv({ cls: 'binders-card-spacer' });
@@ -98,7 +123,9 @@ export function cardKey(ctx: ModeContext, f: TAbstractFile): unknown[] {
 	if (f instanceof TFolder) {
 		const note = ctx.store.folderNote(f), p = note ? ctx.props(note) : null, scenes = ctx.store.scenes(f);
 		// (with what its count says: under a filter that's the notes that pass, which the filter changes)
-		return [f.path, 'folder', p?.synopsis, p?.status, p?.label, p?.target, scenes.length, sumWords(ctx, scenes), countLabel(ctx, scenes, f)];
+		// (and the items it names, with their labels)
+		const names = held(ctx, f).map((c) => { const n = noteOf(ctx, c); return c.name + '\n' + (n ? ctx.props(n).label : ''); }).join('\n');
+		return [f.path, 'folder', p?.synopsis, p?.status, p?.label, p?.target, scenes.length, sumWords(ctx, scenes), countLabel(ctx, scenes, f), names];
 	}
 	if (!(f instanceof TFile)) return [f.path];
 	const p = ctx.props(f);

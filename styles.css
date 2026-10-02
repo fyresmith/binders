@@ -1732,7 +1732,7 @@
    two pixels of it, and (tinted, an option) the card's face takes a little of it too.
 
    The card's edge is put together from parts, so each state changes only its own: the outline (a hairline; the
-   selection's ring), the label's line inside it, and for a stack the cards under it. */
+   selection's ring), the label's line inside it, and for several cards carried at once the cards under the top one. */
 .binders-card {
 	--binders-edge: var(--background-modifier-border);
 	--binders-outline: var(--bases-cards-shadow, 0 0 0 1px var(--binders-edge));
@@ -1791,11 +1791,12 @@
 		--binders-edge: var(--binders-label);
 		--binders-outline: 0 0 0 1px var(--binders-edge);
 	}
-	.binders-board.is-dragging .binders-card[data-path]:not(.is-selected):hover {
+	/* (while a card is carried, the one under it isn't pointed at; a folder a drop would go into has its own ring) */
+	.binders-board.is-dragging .binders-card[data-path]:not(.is-selected):not(.is-being-dragged-over):hover {
 		--binders-edge: var(--background-modifier-border);
 		--binders-outline: var(--bases-cards-shadow, 0 0 0 1px var(--binders-edge));
 	}
-	.binders-board.is-dragging .binders-card.has-label[data-path]:not(.is-selected):hover {
+	.binders-board.is-dragging .binders-card.has-label[data-path]:not(.is-selected):not(.is-being-dragged-over):hover {
 		--binders-edge: color-mix(in oklch, var(--binders-label) 70%, transparent);
 		--binders-outline: 0 0 0 1px var(--binders-edge);
 	}
@@ -1899,6 +1900,10 @@
 	.binders-card:not(.is-selected):not(:focus-within):hover .binders-card-synopsis.is-empty:not(.is-editing) {
 		visibility: visible;
 	}
+	/* (not while a card is carried over it) */
+	.binders-board.is-dragging .binders-card:not(.is-selected):not(:focus-within):hover .binders-card-synopsis.is-empty:not(.is-editing) {
+		visibility: hidden;
+	}
 }
 
 .binders-card-footer {
@@ -1929,44 +1934,125 @@
 	font-variant-numeric: tabular-nums;
 }
 
-/* A subfolder shown as one card: a pile, squared up not quite true, so the edges of two cards under it show along its
-   right and its foot. Several cards carried at once are the same pile (below). */
-.binders-card.is-stack,
+/* A subfolder's card: a card like a note's, of the same size and with the same edge in every state. What tells it
+   apart is what is on it: the folder's glyph before its name and, under it, the names of the first things it holds,
+   each with its label's color at the end of its row, as they stand in the file explorer. They are a look inside, not
+   controls. Its count is at its foot, where a note's is. */
+.binders-card-held {
+	--binders-card-held-row: calc(var(--font-ui-smaller) * var(--line-height-normal));
+	display: flex;
+	/* (whole rows only: a name there isn't room for goes to a second column, which is cut off) */
+	flex-flow: column wrap;
+	flex: 0 1 auto;
+	min-height: 0;
+	/* (as many as fill a card of the least height with no synopsis: three, two on a small card, five on a large) */
+	max-height: calc(var(--binders-card-held, 3) * var(--binders-card-held-row));
+	overflow: hidden;
+	font-size: var(--font-ui-smaller);
+	line-height: var(--line-height-normal);
+	color: var(--text-muted);
+}
+
+/* (a column keeps its first item however little room there is: so the first is nothing, and the first name is cut
+   whole like the rest) */
+.binders-card-held::before {
+	content: "";
+	flex: none;
+	width: 100%;
+	height: 0;
+}
+
+.binders-board.mod-cards-small { --binders-card-held: 2; }
+.binders-board.mod-cards-large { --binders-card-held: 5; }
+
+.binders-card-held-item {
+	display: flex;
+	align-items: center;
+	gap: var(--size-2-3);
+	flex: none;
+	width: 100%;
+	height: var(--binders-card-held-row);
+	min-width: 0;
+}
+
+/* (a subfolder in it has the glyph too, small) */
+.binders-card-held-icon {
+	display: flex;
+	flex: none;
+	color: var(--icon-color);
+	--icon-size: var(--icon-xs);
+	--icon-stroke: var(--icon-xs-stroke-width);
+}
+
+/* (a long name is cut, as the card's own is) */
+.binders-card-held-name {
+	flex: 0 1 auto;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.binders-card-held-item > .binders-label-dot {
+	flex: none;
+	margin-inline-start: auto;
+}
+
+/* (on a tint, the quiet ink is too quiet: as for the count) */
+.binders-board.mod-label-tint .binders-card.has-label .binders-card-held {
+	color: var(--text-normal);
+}
+
+/* A folder with no synopsis gives the room to what it holds ("Edit synopsis", in its menu, adds one: the line
+   doesn't offer itself on the card, where it would push the names down under the pointer). */
+.binders-card.is-stack .binders-card-synopsis.is-empty:not(.is-editing) {
+	display: none;
+}
+
+/* With one, it comes first, in two lines (three on a large card), and the names after it. */
+.binders-card.is-stack .binders-card-synopsis:not(.is-editing) {
+	flex: 0 0 auto;
+	-webkit-line-clamp: 2;
+}
+
+.binders-board.mod-cards-large .binders-card.is-stack .binders-card-synopsis:not(.is-editing) {
+	-webkit-line-clamp: 3;
+}
+
+/* (a small card has room for one or the other: the synopsis, as on a note's card) */
+.binders-board.mod-cards-small .binders-card.is-stack .binders-card-synopsis:not(.is-editing) {
+	flex: 1 1 auto;
+	-webkit-line-clamp: var(--binders-card-lines, 4);
+}
+
+.binders-board.mod-cards-small .binders-card.is-stack:has(> .binders-card-synopsis:not(.is-empty)) > .binders-card-held {
+	display: none;
+}
+
+/* Several cards carried at once are a pile, squared up not quite true, so the edges of two cards under the top one
+   show along its right and its foot. Each is the top card drawn again a step down and across: its face, a label's line
+   (a pixel inside the card's box) and its ring (two pixels outside it: the card in hand has the selection's), in
+   the same color. The step is the same for both, so the gaps between the three edges are equal. */
 .binders-drag-ghost.is-multiple > .binders-card {
-	--binders-pile-edge: var(--background-modifier-border-hover);
+	--binders-pile-step: 6px;
+	--binders-pile-x: var(--binders-pile-step);
+	--binders-pile-in: 0px;
 	--binders-pile-face: var(--bases-cards-background, var(--background-primary));
-	--binders-pile: 4px 4px 0 -1px var(--binders-pile-face), 4px 4px 0 0 var(--binders-pile-edge), 8px 8px 0 -1px var(--binders-pile-face), 8px 8px 0 0 var(--binders-pile-edge);
+	--binders-pile:
+		var(--binders-pile-x) var(--binders-pile-step) 0 var(--binders-pile-in) var(--binders-pile-face),
+		var(--binders-pile-x) var(--binders-pile-step) 0 2px var(--binders-edge),
+		calc(2 * var(--binders-pile-x)) calc(2 * var(--binders-pile-step)) 0 var(--binders-pile-in) var(--binders-pile-face),
+		calc(2 * var(--binders-pile-x)) calc(2 * var(--binders-pile-step)) 0 2px var(--binders-edge);
 	overflow: visible;
 }
 
-.mod-rtl .binders-card.is-stack,
 .mod-rtl .binders-drag-ghost.is-multiple > .binders-card {
-	--binders-pile: -4px 4px 0 -1px var(--binders-pile-face), -4px 4px 0 0 var(--binders-pile-edge), -8px 8px 0 -1px var(--binders-pile-face), -8px 8px 0 0 var(--binders-pile-edge);
+	--binders-pile-x: calc(-1 * var(--binders-pile-step));
 }
 
-/* A labeled folder is its label's color all through: the cards under it have the border, and the tint, of the one on
-   top. */
-.binders-card.is-stack.has-label {
-	--binders-pile-edge: color-mix(in oklch, var(--binders-label) 70%, var(--background-primary));
-}
-
-.binders-board.mod-label-tint .binders-card.is-stack.has-label {
-	--binders-pile-face: color-mix(in oklch, var(--binders-label) 7%, var(--bases-cards-background, var(--background-primary)));
-}
-
-.binders-board.mod-label-tint .binders-card.is-stack.has-label.is-selected {
+.binders-drag-ghost.is-multiple > .binders-card.has-label {
+	--binders-pile-in: -1px;
 	--binders-pile-face: color-mix(in oklch, var(--binders-label) 14%, var(--bases-cards-background, var(--background-primary)));
-}
-
-.binders-card.is-stack.has-label.is-selected {
-	--binders-pile-edge: var(--binders-label);
-}
-
-/* (the pile takes room in the card's place in the grid: the card is that much smaller, and no taller than the others) */
-.binders-card.is-stack[data-path] {
-	margin-inline-end: 8px;
-	margin-bottom: 8px;
-	min-height: calc(var(--binders-card-height, 132px) - 8px);
 }
 
 /* "New note": the next card's place at the end of the board, empty, with a plus and the words in its middle. Pointed
@@ -2062,8 +2148,11 @@
 	visibility: hidden;
 }
 
-/* a stack a drop would go into, tinted as a folder in the file explorer is */
-.binders-card.is-stack.is-being-dragged-over {
+/* a folder a drop would go into, tinted as a folder in the file explorer is (in place of its label's tint, if it has
+   one, and whatever the pointer over it would do to its edge: so the second selector, which outweighs those rules) */
+.binders-card.is-stack.is-being-dragged-over,
+.binders-board .binders-card.is-stack.is-being-dragged-over[data-path]:not(.is-selected) {
+	--binders-edge: var(--interactive-accent);
 	--binders-outline: 0 0 0 2px var(--interactive-accent);
 	background-color: color-mix(in oklch, var(--interactive-accent) 10%, var(--background-primary));
 }
@@ -2168,7 +2257,7 @@
 	opacity: 0.9;
 }
 
-/* several cards at once: a pile, as a stack is, and a count says how many */
+/* several cards at once: a pile (above), and a count says how many */
 
 .binders-drag-count {
 	position: absolute;
@@ -2210,8 +2299,7 @@
 	.binders-cards {
 		grid-template-columns: minmax(0, 1fr);
 	}
-	.binders-card,
-	.binders-card.is-stack[data-path] {
+	.binders-card {
 		min-height: 0;
 	}
 }
@@ -2424,12 +2512,6 @@
 	min-height: 0;
 }
 
-.binders-lanes.mod-across > .binders-card.is-stack[data-path] {
-	height: calc(var(--binders-card-height, 132px) - 8px);
-	min-height: 0;
-	margin-bottom: 0;
-}
-
 .binders-lanes.mod-across > .binders-card:not(:has(.is-editing)) > .binders-card-synopsis,
 .binders-drag-ghost.mod-lanes > .binders-card > .binders-card-synopsis {
 	flex: 0 1 auto;
@@ -2512,11 +2594,6 @@
 	grid-row: calc(var(--binders-slot) + 1);
 	justify-self: center;
 	width: var(--binders-card-width, 210px);
-}
-
-.binders-lanes.mod-down > .binders-card.is-stack[data-path] {
-	width: calc(var(--binders-card-width, 210px) - 8px);
-	margin-inline-end: 0;
 }
 
 /* (to the pane's foot, through the board's own margin) */

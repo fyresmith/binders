@@ -136,20 +136,24 @@ New (note, folder). The view runs edge to edge, as a base, a canvas or a note do
 ### Corkboard
 
 - Cards in a responsive grid (or one column on narrow panes), drawn as a base's cards are (flat, a hairline border).
-  The board shows one folder: each of its items is a card, in the binder's order. A subfolder is a single card drawn
-  as a stack, as on Scrivener's corkboard, with its own synopsis from its folder note; it's gone into to see what it
-  holds, and the breadcrumb leads back out. (Decided 2026-10-01, after a study of three layouts: before that,
+  The board shows one folder: each of its items is a card, in the binder's order. A subfolder is a single card, as on
+  Scrivener's corkboard, of the same size and edge as a note's: a folder glyph before its name, its own synopsis from
+  its folder note (two lines; three on a large card), then the names of the first things it holds (three; two on a
+  small card, five on a large), each with its label's dot, and its count at the foot. A small card with a synopsis
+  shows the synopsis alone. It's gone into to see what it holds, and the breadcrumb leads back out. (The names in place
+  of a drawn stack of cards: decided 2026-10-02, see `docs/design.md`.) (Decided 2026-10-01, after a study of three layouts: before that,
   subfolders showed as sections under headings, which left loose notes in rows of their own between them.) A
   Longform project, which has no folders, still shows the scenes indented under a scene as a group below it. Card
   size (small, medium, large) is a view option.
 - The synopsis of the binder or folder being viewed shows under the header, editable in place, as does a subfolder's
-  synopsis on its stacked card. Editing writes to that folder's note (creating it if needed).
+  synopsis on its card (one with none doesn't offer the line: "Edit synopsis" in its menu adds it). Editing writes to
+  that folder's note (creating it if needed).
 - One "New note" tile ends the board: the next card's place, with a plus and the words in its middle; it becomes a
   card while the title is typed.
 - Card: title, synopsis (editable in place), status chip, label color (a stripe along the top, or, as a view option,
   the whole card tinted), word count. A note with a target shows "words / target" and a progress line along the
   card's foot. Double-click opens the note.
-- Drag to reorder; onto a stack to move into that folder; onto a folder in the breadcrumb to move out to it. Multi-select with Shift/Ctrl. A drag
+- Drag to reorder; onto a folder's card to move into that folder; onto a folder in the breadcrumb to move out to it. Multi-select with Shift/Ctrl. A drag
   looks like Obsidian's own reordering: the card follows the pointer (`drag-reorder-ghost`), a tinted slot holds its
   place, an insertion line shows where it goes, and the group it would move into is tinted as a folder in the explorer
   is. Nothing on the board moves until the drop (what's under the pointer stays there); then every card glides to its
@@ -183,7 +187,7 @@ Approved by the maintainer on 2026-10-01, after a design study and a prototype (
   label's color, behind the cards); a card is the grid's card, unchanged.
 - **The places:** the binder's order, one place per card (so the order still reads), each card on its label's
   line. Since no two cards share a place, the lines may stand closer than a card is tall: they spread to fill the
-  pane and close up to a little over half a card when there are many. A subfolder is one stack, on its own label's
+  pane and close up to a little over half a card when there are many. A subfolder is one card, on its own label's
   line; with "Show notes in subfolders" every note under the folder shows, each folder's after its name.
 - **Dragging:** across the lines changes the label (only that property is written, through `processFrontMatter`; a
   folder's goes in its folder note, made if need be); along them changes the place in the binder; both at once does
@@ -202,7 +206,7 @@ Approved by the maintainer on 2026-10-01, after a design study and a prototype (
   (`corkboard.ts`, the grid; `lanes.ts`, by label); `lanes-data.ts` is the pure model (the lines, the places, what a
   drop means), unit-tested in `tests/lanes.test.ts`; `card.ts` draws the card both boards use. e2e:
   `tests/e2e/specs-lanes.mjs`.
-- **Not done:** dropping a card onto a stack or onto a folder in the breadcrumb (as the grid allows) while arranged
+- **Not done:** dropping a card onto a folder's card or onto a folder in the breadcrumb (as the grid allows) while arranged
   by label; "Arrange by status".
 
 ### Outliner

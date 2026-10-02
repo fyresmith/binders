@@ -249,10 +249,12 @@ test('a stack’s synopsis is the folder’s: edited on the card, it goes to the
 	// (a stack is gone into by a double-click, so its synopsis takes a click once it has been selected a moment)
 	await p.sleep(800);
 	const syn = `${card(L + 'Part One')} .binders-card-synopsis`;
-	const s = await p.at(syn);
-	t.ok(s, 'a selected stack shows where its synopsis goes');
-	await p.click(s.x, s.y);
-	t.ok(await p.ev(`document.activeElement.matches('${syn} textarea')`), 'a click on the synopsis of a selected stack edits it');
+	// (with none yet, the card gives the room to the names of what the folder holds: its menu adds one)
+	t.ok(!(await p.at(syn)), 'a selected folder with no synopsis doesn’t offer one on its card');
+	await p.right(c.x, c.t + 14);
+	await clickMenu(p, 'Edit synopsis');
+	await until(p, `document.activeElement?.matches('${syn} textarea')`);
+	t.ok(await p.ev(`document.activeElement.matches('${syn} textarea')`), '“Edit synopsis”, in its menu, edits it on the card');
 	t.eq(await folderShown(p), 'The Lighthouse', 'and doesn’t go into the folder');
 	await p.type('Mara arrives.');
 	await p.key('Enter', 'ctrl');
@@ -261,9 +263,69 @@ test('a stack’s synopsis is the folder’s: edited on the card, it goes to the
 	t.eq((await read(p, L + 'Part One/Part One.md')).trim(), '---\nsynopsis: Mara arrives.\n---', 'the folder note holds it');
 	await until(p, `document.querySelector('${syn}')?.textContent === 'Mara arrives.'`);
 	t.eq(await p.ev(`document.querySelector('${syn}').textContent`), 'Mara arrives.', 'the stack shows it');
+	// once it has one, a click on it (the card selected a moment) edits it
+	const c2 = await at(p, 'Part One');
+	await p.click(c2.x, c2.t + 14);
+	await p.sleep(800);
+	const s = await p.at(syn);
+	t.ok(s, 'a folder’s synopsis shows on its card');
+	await p.click(s.x, s.y);
+	t.ok(await p.ev(`document.activeElement.matches('${syn} textarea')`), 'a click on the synopsis of a selected stack edits it');
+	t.eq(await folderShown(p), 'The Lighthouse', 'and doesn’t go into the folder');
+	await p.key('Escape');
+	await p.sleep(200);
 	t.eq(j(await contents(p)), j(LIST), 'and the folder note is not in the list');
 	t.eq(j(await cards(p)), j(BOARD), 'nor a card');
 	same(t, before, await texts(p));
+}));
+
+test('a folder’s card names the first things it holds, each with its label’s dot; a long name is cut; the names are not controls', withTidy(async (p, h, t) => {
+	const LONG = 'The night the keeper finally told Mara what had happened to the first light and why';
+	await p.ev(`(async () => {
+		await app.fileManager.processFrontMatter(app.vault.getAbstractFileByPath(${j(L + 'Part One/Arrival.md')}), (fm) => { fm.label = 'blue'; });
+		await app.vault.createFolder(${j(L + 'Part Two/Letters')});
+		await app.vault.create(${j(L + 'Part Two/' + LONG + '.md')}, 'Long.');
+		await app.vault.createFolder(${j(L + 'Empty')});
+		await ${B}.settled;
+	})().then(() => 1)`);
+	await openView(p);
+	const held = (path) => p.ev(`[...document.querySelectorAll('${card(L + path)} .binders-card-held-item')].map(r => ({ name: r.querySelector('.binders-card-held-name').textContent, dot: r.querySelector('.binders-label-dot')?.className.match(/mod-(\\w+)/)?.[1] ?? null, folder: !!r.querySelector('.binders-card-held-icon svg'), shown: r.getBoundingClientRect().left < r.closest('.binders-card').getBoundingClientRect().right && r.getBoundingClientRect().width > 0 }))`);
+	await until(p, `document.querySelectorAll('${card(L + 'Part One')} .binders-card-held-item').length === 3`);
+	const one = await held('Part One');
+	t.eq(j(one.map((r) => r.name)), j(['Arrival', 'The keeper', 'Storm warning']), 'the folder’s first things by name, in the binder’s order');
+	t.eq(j(one.map((r) => r.dot)), j(['blue', null, null]), 'a labeled note has its label’s dot, the others none');
+	t.ok(one.every((r) => r.shown && !r.folder), 'three show on a card of the usual size');
+	const two = await held('Part Two');
+	t.ok(two.some((r) => r.name === 'Letters' && r.folder), `a subfolder in it has the folder’s glyph (${j(two)})`);
+	t.eq(await p.ev(`document.querySelectorAll('${card(L + 'Empty')} .binders-card-held-item').length`), 0, 'an empty folder’s card names nothing');
+	// the same size as a note's card, whatever it names
+	const size = (path) => p.ev(`(() => { const r = document.querySelector('${card(L + path)}').getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height)]; })()`);
+	t.eq(j(await size('Part Two')), j(await size('Epilogue.md')), 'a folder’s card is the size of a note’s, a long name in it or not');
+	t.eq(j(await size('Part One')), j(await size('Epilogue.md')), '(and the other)');
+	const cut = await p.ev(`(() => { const n = [...document.querySelectorAll('${card(L + 'Part Two')} .binders-card-held-name')].find(e => e.textContent === ${j(LONG)}); return !!n && n.scrollWidth > n.clientWidth && n.getBoundingClientRect().height < 24; })()`);
+	t.ok(cut, 'a long name is cut on one line');
+	// a look inside, not controls: nothing in the list takes the focus or is said twice
+	const list = await p.ev(`(() => { const l = document.querySelector('${card(L + 'Part One')} .binders-card-held'); return { hidden: l.getAttribute('aria-hidden'), focusable: l.querySelectorAll('[tabindex], a, button, input').length, name: l.closest('.binders-card').getAttribute('aria-label'), about: l.closest('.binders-card').getAttribute('aria-description') }; })()`);
+	t.eq(j(list), j({ hidden: 'true', focusable: 0, name: 'Part One', about: '3 notes · 51 words' }), 'the names are hidden from a screen reader, which hears the card’s name and count as before, and nothing in them takes the focus');
+	// small cards: two names
+	await p.ev(`(async () => { const v = ${VIEW}; await v.leaf.setViewState({ type: 'binders-view', active: true, state: { ...v.getState(), options: { ...v.getState().options, cardSize: 'small' } } }); })().then(() => 1)`);
+	await p.sleep(500);
+	const seen = (path) => p.ev(`(() => { const l = document.querySelector('${card(L + path)} .binders-card-held'); if (!l) return -1; const b = l.getBoundingClientRect(); return [...l.querySelectorAll('.binders-card-held-item')].filter(r => { const x = r.getBoundingClientRect(); return x.width > 0 && x.left < b.right - 1 && x.bottom <= b.bottom + 1; }).length; })()`);
+	t.eq(await seen('Part One'), 2, 'a small card shows two');
+}));
+
+test('a folder’s card keeps up with what it holds: a note in it renamed, and one moved to its front, are named as they now are', withTidy(async (p, h, t) => {
+	await openView(p);
+	const names = `[...document.querySelectorAll('${card(L + 'Part One')} .binders-card-held-name')].map(e => e.textContent)`;
+	await until(p, `${names}.length === 3`);
+	t.eq(j(await p.ev(names)), j(['Arrival', 'The keeper', 'Storm warning']), 'as the folder stands');
+	await p.ev(`app.fileManager.renameFile(${file(L + 'Part One/Arrival.md')}, ${j(L + 'Part One/Landing.md')}).then(() => 1)`);
+	await until(p, `${names}[0] === 'Landing'`);
+	t.eq(j(await p.ev(names)), j(['Landing', 'The keeper', 'Storm warning']), 'a note renamed is named anew on the folder’s card');
+	// moved to the front of its folder (the binder's list, as a drop writes it)
+	await p.ev(`app.fileManager.processFrontMatter(${file(NOTE)}, (fm) => { fm.contents = ['Prologue', 'Part One/', 'Part One/Storm warning', 'Part One/Landing', 'Part One/The keeper', 'Part Two/', 'Part Two/The wreck', 'Part Two/Lights out', 'Epilogue']; }).then(() => 1)`);
+	await until(p, `${names}[0] === 'Storm warning'`);
+	t.eq(j(await p.ev(names)), j(['Storm warning', 'Landing', 'The keeper']), 'and the names follow the folder’s order');
 }));
 
 test('the “New note” tile: type a title, Enter makes the note at the end of the folder shown and offers another', withTidy(async (p, h, t) => {
@@ -824,6 +886,9 @@ test('several cards dragged at once say how many, and the stack they would go in
 	await p.click(e.x, e.t + 12, { modifiers: 2 });
 	await hold(p, { x: e.x, y: e.t + 12 }, { x: two.x, y: two.y });
 	t.eq(await p.ev(`document.querySelector('.binders-drag-ghost.is-multiple .binders-drag-count')?.textContent`), '2', 'the count');
+	// (a pile: the top card drawn twice more, a step down and across each time, with the ring the top one has)
+	const pile = await p.ev(`getComputedStyle(document.querySelector('.binders-drag-ghost.is-multiple > .binders-card')).boxShadow`);
+	t.ok(/ 6px 6px 0px 2px/.test(pile) && / 12px 12px 0px 2px/.test(pile) && /^\S.* 0px 0px 0px 2px/.test(pile), `the cards in hand are a pile: two under the top one, equal steps apart, each with its two-pixel ring (${pile})`);
 	t.eq(await p.ev(`document.querySelectorAll('.workspace-leaf.mod-active .binders-card.is-dragging').length`), 2, 'both places are held');
 	t.eq(j(await p.ev(`[...document.querySelectorAll('.workspace-leaf.mod-active .binders-card.is-being-dragged-over')].map(c => c.dataset.path)`)), j([L + 'Part Two']), 'Part Two’s stack is tinted');
 	t.eq(await rectOf(p, '.binders-drop-indicator.is-active'), null, 'and there is no line: they go into it, not beside it');
@@ -1184,7 +1249,7 @@ test('“Number the cards” shows each note’s place in the order, follows a m
 	t.eq(j(await nums()), j(['1 Arrival', '2 The keeper', '3 Storm warning']), 'gone into, a folder’s notes are numbered from one, and the choice comes along');
 }));
 
-test('a labeled folder’s stack is its label’s color through the whole pile; a selected card’s ring is its own color', withTidy(async (p, h, t) => {
+test('a labeled folder’s card has a labeled card’s edge and tint, and no pile; a selected card’s ring is its own color', withTidy(async (p, h, t) => {
 	const before = await texts(p);
 	await openView(p);
 	// from the stack's own menu: the label goes to the folder's note
@@ -1201,19 +1266,20 @@ test('a labeled folder’s stack is its label’s color through the whole pile; 
 	const box = await rectOf(p, '.workspace-leaf.mod-active .binders-corkboard');
 	await p.click(box.r - 40, box.b - 40);
 	await p.sleep(400);
-	/** The colors of a card's box-shadow, in order: its outline, its label line, then the pile (face, edge, face, edge). */
-	const shadow = (path) => p.ev(`(getComputedStyle(document.querySelector('${card(L + path)}')).boxShadow.match(/(?:rgba?|oklch|oklab|color|lab|lch|hsla?)\\([^)]*\\)/g) ?? [])`);
+	/** A card's box-shadow: its outline, then its label line (then, for several cards carried, the pile). */
+	const shadowOf = (path) => p.ev(`getComputedStyle(document.querySelector('${card(L + path)}')).boxShadow`);
 	const mix = (css) => p.ev(`(() => { const e = document.querySelector('.workspace-leaf.mod-active .binders-board').createDiv(); e.style.color = ${j(css)}; const c = getComputedStyle(e).color; e.remove(); return c; })()`);
-	const blue = await shadow('Part One'), plain = await shadow('Part Two');
-	t.ok(blue.length >= 6 && plain.length >= 6, `a stack’s edge has its outline, then two cards under it (${j(blue)})`);
-	const pile = (s) => s.slice(-4);
-	const edge = await mix('color-mix(in oklch, var(--color-blue) 70%, var(--background-primary))');
+	const edge = await mix('color-mix(in oklch, var(--color-blue) 70%, transparent)');
 	const face = await mix('color-mix(in oklch, var(--color-blue) 7%, var(--bases-cards-background, var(--background-primary)))');
-	t.eq(j([pile(blue)[1], pile(blue)[3]]), j([edge, edge]), 'both cards under a labeled stack have their border in its color');
-	t.eq(j([pile(blue)[0], pile(blue)[2]]), j([face, face]), 'and, tinted, their face too');
-	t.ok(pile(plain).every((c) => !pile(blue).includes(c)), `a stack with no label has none of it (${j(pile(plain))})`);
+	const blue = await shadowOf('Part One'), plain = await shadowOf('Part Two');
+	t.ok(blue.startsWith(edge + ' 0px 0px 0px 1px, ' + edge + ' 0px 0px 0px 1px inset'), `a labeled folder’s card has a labeled card’s edge, a pixel outside and a pixel inside: ${blue}`);
+	// a folder's card is a card: nothing is drawn under it, with a label or without
+	const offsets = (sh) => (sh.match(/-?\d+(?:\.\d+)?px -?\d+(?:\.\d+)?px -?\d+(?:\.\d+)?px -?\d+(?:\.\d+)?px/g) ?? []).filter((o) => !/^0px 0px 0px /.test(o));
+	t.eq(j([offsets(blue), offsets(plain)]), j([[], []]), 'no cards are drawn under a folder’s card');
+	t.eq(plain, await shadowOf('Epilogue.md'), 'a folder’s card with no label has the edge of a note’s');
+	t.ok(!plain.includes(edge), 'and none of the label’s color');
 	const bg = (path) => p.ev(`getComputedStyle(document.querySelector('${card(L + path)}')).backgroundColor`);
-	t.eq(await bg('Part One'), face, 'the top card of the pile is tinted the same');
+	t.eq(await bg('Part One'), face, 'tinted, its face takes a little of the label’s color');
 	t.ok((await bg('Part Two')) !== face, 'the stack with no label is not');
 	// selected: a ring two pixels wide in the label's color; without a label, in the color of quiet text
 	const one = await at(p, 'Part One');
@@ -1222,7 +1288,6 @@ test('a labeled folder’s stack is its label’s color through the whole pile; 
 	const ring = await p.ev(`getComputedStyle(document.querySelector('${card(L + 'Part One')}')).boxShadow`);
 	const full = await mix('var(--color-blue)');
 	t.ok(ring.startsWith(full + ' 0px 0px 0px 2px'), `a selected labeled stack’s ring is its label’s color, two pixels wide: ${ring}`);
-	t.eq(j([pile(await shadow('Part One'))[1], pile(await shadow('Part One'))[3]]), j([full, full]), 'and so is the border of the cards under it');
 	const two = await at(p, 'Part Two');
 	await p.click(two.x, two.t + 14);
 	await p.sleep(400);
@@ -1235,9 +1300,8 @@ test('a labeled folder’s stack is its label’s color through the whole pile; 
 	await clickMenu(p, 'Tint cards with their label color');
 	await p.click(box.r - 40, box.b - 40);
 	await p.sleep(400);
-	const off = pile(await shadow('Part One')), plainFace = pile(await shadow('Part Two'))[0];
-	t.eq(j([off[1], off[3]]), j([edge, edge]), 'with the tint off the pile keeps its colored borders');
-	t.eq(j([off[0], off[2]]), j([plainFace, plainFace]), 'and its faces are any card’s');
+	t.ok((await shadowOf('Part One')).startsWith(edge + ' 0px 0px 0px 1px, ' + edge + ' 0px 0px 0px 1px inset'), 'with the tint off the card keeps its colored border');
+	t.eq(await bg('Part One'), await bg('Part Two'), 'and its face is any card’s');
 }));
 
 test('“Move to” in a card’s menu lists the binder’s folders as they nest, and moves the note to the end of the one picked; undone by “Undo last move”', withTidy(async (p, h, t) => {

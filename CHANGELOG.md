@@ -3,6 +3,18 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.17 (2026-10-02)
+
+### Changed
+
+- On the corkboard a folder's card is now a card like any other, with a folder icon and the names of the first things in it, each with its label color, in place of the drawn stack of cards.
+- A folder with no synopsis gets one from Edit synopsis in its menu.
+
+### Fixed
+
+- Several cards dragged at once are drawn as one even pile.
+- With a mouse, a folder card you are about to drop a card into now shows its ring and tint.
+
 ## 0.12.16 (2026-10-02)
 
 ### Changed
