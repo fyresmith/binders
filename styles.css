@@ -646,7 +646,6 @@
 	height: 100%;
 	overflow-y: auto;
 	padding: var(--file-margins);
-	padding-bottom: 50vh; /* room to type at the end, like "scroll past end" */
 	background-color: var(--background-primary);
 	overflow-anchor: none; /* the manuscript anchors scrolling itself, the same on every platform */
 	--metadata-display-editing: none;
@@ -658,6 +657,13 @@
 .binders-manuscript-page {
 	max-width: var(--file-line-width);
 	margin-inline: auto;
+}
+
+/* Scroll-past-end space belongs inside the page; padding could force a short phone pane to overflow. */
+.binders-manuscript-page::after {
+	content: "";
+	display: block;
+	height: 50vh;
 }
 
 /* "Readable line length" off: the page is as wide as the pane, as a note is. */
@@ -3105,8 +3111,8 @@ body.binders-focus-typing .binders-focus-leaf {
 	padding-bottom: 12vh;
 }
 
-.binders-focus-leaf.is-typewriter .binders-manuscript {
-	padding-bottom: 62vh;
+.binders-focus-leaf.is-typewriter .binders-manuscript-page::after {
+	height: 62vh;
 }
 
 /* The scene before and the scene after a note ("Show the scenes before and after"), set as the manuscript sets its
