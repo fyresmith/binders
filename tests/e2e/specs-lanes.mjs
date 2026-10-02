@@ -914,7 +914,16 @@ test('a line’s head: its name and its count in one shape of the line’s color
 	t.eq(new Set(d.lanes.map((l) => Math.round(l.capH))).size, 1, 'every head is the same height');
 	// what a head does is what it did: a button with a menu, named for its line, reached and pressed with the keyboard
 	const a = await p.ev(`(() => { const e = document.querySelector('${head(lane('Blue'))}'); return { role: e.getAttribute('role'), tab: e.tabIndex, popup: e.getAttribute('aria-haspopup'), name: e.getAttribute('aria-label') }; })()`);
-	t.eq(j([a.role, a.tab, a.popup]), j(['button', 0, 'menu']), 'a button with a menu, in the tab order');
+	t.eq(j([a.role, a.popup]), j(['button', 'menu']), 'a button with a menu');
+	// (the heads are one Tab stop, the first until the arrows have gone to another, as a table's column headers are)
+	const stops = () => p.ev(`[...document.querySelectorAll('${LEAF} .binders-lane-head')].filter(e => e.tabIndex === 0).map(e => e.dataset.lane).join()`);
+	t.eq(await stops(), '0', 'the heads are one stop in the tab order: the first');
+	await p.ev(`document.querySelector('${head(0)}').focus()`);
+	await p.key('ArrowDown');
+	await p.key('ArrowDown');
+	t.eq(j([await p.ev(`document.activeElement.dataset.lane`), await stops()]), j(['2', '2']), 'the arrow keys go from head to head, and the stop goes with them');
+	await p.key('ArrowUp');
+	t.eq(await p.ev(`document.activeElement.dataset.lane`), '1', 'and back');
 	t.ok(/^Blue: 2 notes, .* words\. Menu$/.test(a.name), `named for its line (${a.name})`);
 	await p.ev(`document.querySelector('${head(lane('Blue'))}').focus()`);
 	await p.key('Enter');

@@ -189,6 +189,9 @@ class ByLabel implements BinderMode {
 		if (this.signature() !== this.sig) this.draw(); else this.space();
 	});
 
+	/** Which line's head is the heads' one Tab stop (the arrow keys go between them). */
+	private headStop = 0;
+
 	focus(): void {
 		const c = this.cardEl(this.focused) ?? this.cards()[0];
 		if (!c) { this.focusOnDraw = true; return; }
@@ -375,7 +378,7 @@ class ByLabel implements BinderMode {
 			track.dataset.lane = String(li);
 			track.setCssProps({ '--binders-lane': String(li + 1) });
 			chrome.push(track);
-			const head = heads.createDiv({ cls: 'binders-lane-head' + (u ? '' : ' is-empty'), attr: { role: 'button', tabindex: '0', 'aria-haspopup': 'menu', 'aria-label': `${about}. Menu` } });
+			const head = heads.createDiv({ cls: 'binders-lane-head' + (u ? '' : ' is-empty'), attr: { role: 'button', tabindex: li === Math.min(this.headStop, lanes.length - 1) ? '0' : '-1', 'aria-haspopup': 'menu', 'aria-label': `${about}. Menu` } });
 			paintLabel(head, label, presets);
 			head.dataset.lane = String(li);
 			head.setCssProps({ '--binders-lane': String(li + 1) });
@@ -386,7 +389,19 @@ class ByLabel implements BinderMode {
 			const menuAt = (x: number, y: number) => this.laneMenu(label).showAtPosition({ x, y }, head.doc);
 			head.addEventListener('click', (e) => { e.stopPropagation(); const r = cap.getBoundingClientRect(); menuAt(r.left, r.bottom + 4); });
 			head.addEventListener('contextmenu', (e) => { e.preventDefault(); e.stopPropagation(); menuAt(e.clientX, e.clientY); });
-			head.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); head.click(); } });
+			head.addEventListener('keydown', (e) => {
+				if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); head.click(); return; }
+				// the heads are one Tab stop, as a table's column headers are: the arrows go from one to the next
+				const back = e.key === 'ArrowUp' || e.key === (this.rtl ? 'ArrowRight' : 'ArrowLeft'), on = e.key === 'ArrowDown' || e.key === (this.rtl ? 'ArrowLeft' : 'ArrowRight');
+				if ((!back && !on) || e.altKey || Keymap.isModEvent(e)) return;
+				e.preventDefault(); e.stopPropagation();
+				const to = heads.querySelector<HTMLElement>(`.binders-lane-head[data-lane="${li + (back ? -1 : 1)}"]`);
+				if (!to) return;
+				head.setAttr('tabindex', '-1');
+				to.setAttr('tabindex', '0');
+				this.headStop = li + (back ? -1 : 1);
+				to.focus();
+			});
 		});
 		// (runs of the same track written once: a thousand cards are one `repeat`)
 		const packed: string[] = [];

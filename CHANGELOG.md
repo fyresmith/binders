@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.104 (2026-10-02)
+
+### Changed
+
+- On the corkboard by label, Tab reaches the lines' heads once; the arrow keys go from one head to the next.
+
 ## 0.12.103 (2026-10-02)
 
 ### Fixed
