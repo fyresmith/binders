@@ -12,6 +12,18 @@ is in that scene's own properties. Turn Binders off and your notes are still ord
 
 ![Corkboard](docs/images/corkboard.png)
 
+What it does, in short:
+
+- **Order.** Notes and folders keep the order you give them, in the file explorer and everywhere else.
+- **Three views of one binder.** A corkboard of index cards (which can also be laid out by label, a line for each
+  storyline or point of view), an outliner with columns you pick, and the whole manuscript as one page you can edit.
+- **Scrivener-style tools.** Labels, statuses and word count targets; split, merge, duplicate and group scenes;
+  compile to one note; snapshots of a scene so you can rewrite without losing the old text; undo of moves.
+- **Focus mode.** The text and nothing else, with typewriter scrolling.
+- **Longform.** Longform projects open as binders, and convert to them.
+- **Phones and tablets.** The same views, by touch (so far tested only in Obsidian's mobile emulation: see
+  [Known limitations](#known-limitations)).
+
 ## Getting started
 
 1. Right-click a folder in the file explorer and choose **Make this folder a binder**. Its notes and subfolders keep the
@@ -28,7 +40,10 @@ folders too), or **New scene here** in the folder's right-click menu or the comm
 ## The binder view
 
 One view, three ways of seeing the notes in a binder or in one of its folders. Switch with the button at the top left,
-or with the commands **Show corkboard**, **Show outliner** and **Show manuscript**. Inside a folder, the breadcrumb
+or with the commands **Show corkboard**, **Show outliner** and **Show manuscript**. The view's **More options** menu
+(the three dots in its header) has the same, the arrangement of the corkboard, **Undo** and **Redo** of the last move,
+**Compile...**, and **Open binder note** (or **Open folder note**, inside a folder), which is how you reach the note that
+holds a binder's data when it is hidden in the file explorer. Inside a folder, the breadcrumb
 beside it goes back up to the binder. The word count shows the target of the binder or folder, if it has one, with a
 bar for how far along it is. Click the text under the toolbar to write a synopsis of the binder or folder. Each mode
 keeps its place when you look at another, and when you open a note and come back.
@@ -104,7 +119,7 @@ the synopsis under it (**Show synopses** turns that off); the other columns are 
 - **Editing:** F2 renames a row. On a selected row, click a label or status for its menu, or the synopsis, a target
   or a property to type in it; with several rows selected, the change is made to all of them. Ticks (compile, and
   yes/no properties) change with a click.
-- **Folders** fold with the arrow beside them. A folder's row adds up the words of the notes in it, and their targets
+- **Folders** fold with the arrow beside them (**Expand all** and **Collapse all** are in the view's **More options**). A folder's row adds up the words of the notes in it, and their targets
   if it has none of its own; the last row does the same for everything shown.
 - **Rows** are selected, dragged and right-clicked as cards are: drag between two rows, onto a folder, or below
   everything. Rows can't be dragged while the outliner is sorted.
@@ -126,7 +141,7 @@ edit them.
 - Arrow keys move on into the next note and back. Page Up and Page Down move a screen at a time, and Ctrl+Home and
   Ctrl+End (Cmd on macOS) go to the start and end of the whole manuscript.
 - Click a note's title to rename it; Ctrl-click (Cmd-click on macOS) opens the note. Right-click it for the menu
-  its card has: status, label, a new note after it, move up or down, delete. A folder's heading opens that folder.
+  its card has: status, label, a new note after it, move up or down, delete, snapshots. A folder's heading opens that folder.
 
 Long binders stay quick: only the sections near the screen are live editors, and the rest show as rendered text until
 you scroll to them.
@@ -166,8 +181,9 @@ you scroll to them.
 ## Snapshots
 
 A snapshot is a note's text as it was, set aside so you can rewrite without losing anything. Only notes in a binder
-have them. The three things below are in a note's own menu and in the file explorer's; on a card, an outliner row or
-a manuscript title they're under **Snapshots**; and each is a command.
+have them. The three things below are in a note's own menu and in the file explorer's, behind a **Snapshots** button (a clock) in the
+header of any note of a binder, and under **Snapshots** in the menu of a card, an outliner row or a manuscript title;
+each is a command too.
 
 - **Take a snapshot** (a note's menu, or the command) keeps the text as it is on screen now. It asks nothing; if
   nothing has changed since the last snapshot, it says so and takes none. Select several notes to take one of each,
@@ -176,7 +192,7 @@ a manuscript title they're under **Snapshots**; and each is a command.
 - **Rewrite...** takes a snapshot (give it a name if you like), then lets you start again: from the same text, or
   from a blank page. After a blank page the old text opens beside the note (on a phone it's under Snapshots).
   Undo in the note brings the text back.
-- **Snapshots...** lists a note's snapshots, newest first, under the note as it is now. Read one, turn on **Show
+- **Snapshots...** (the command is **Show snapshots**) lists a note's snapshots, newest first, under the note as it is now. Read one, turn on **Show
   changes** to see what was taken out and put in since (the note's own paragraphs, with the words taken out struck
   through and the words put in marked where they fall), or **Bring back** its text. Bringing one back never loses the
   text it replaces: that's taken as a snapshot first. The menu beside it copies a snapshot's text (or select part of
@@ -193,8 +209,8 @@ note is deleted its snapshots stay; the binder view's menu lists **Snapshots of 
 Three things to know:
 
 - **Obsidian Sync skips snapshots unless you turn on "Sync all other types"** in Obsidian's Sync settings, on each
-  device. Until you do, snapshots stay on the device that took them. iCloud, Syncthing, Dropbox and git carry them
-  without any setting.
+  device. Until you do, snapshots stay on the device that took them. Tools that copy every file in the vault (iCloud,
+  Syncthing, Dropbox, git) carry them without any setting.
 - Obsidian's own folder lists ("Move file to...") do show the `Snapshots` folders, and with "Detect all file
   extensions" turned on, a search by file name finds them.
 - Without Binders, they're still there: open a `.snapshot` file in any text editor.
@@ -203,7 +219,7 @@ Three things to know:
 
 For writing a note of a binder with nothing else on the screen: the text, in your vault's own type and line length, and
 one button to leave. **Toggle focus mode** in the command palette (give it a hotkey of your own), the button in the
-header of any note of a binder, or the button at the end of the manuscript's toolbar goes in; **Esc**, the button that
+header of any note of a binder (**Focus mode**), or the button at the end of the manuscript's toolbar goes in; **Esc**, the button that
 comes back when the pointer moves (top right), or the command goes out. It works for a note in its own tab, editing or
 reading, and for the manuscript. A note that isn't in a binder is left exactly as Obsidian has it.
 
@@ -263,7 +279,9 @@ own.
   such as onto a folder that already has a note of that name, says why.
 - Labeled notes and folders show a dot in their label's color. A setting turns the dots off.
 - A note's right-click menu has **Show in binder** and **New scene after this**; several notes selected have **New
-  folder from selection** and **Merge notes**.
+  folder from selection** and **Merge 3 notes** (or however many). A binder folder's menu has **Open binder**, **New
+  scene here** and **Compile...**; any folder that isn't in a binder has **Make this folder a binder** and **New
+  binder**.
 - **Move up** and **Move down** in a note's right-click menu (and as commands) move it one place in its folder.
 - **Open binder** opens the binder view from any note in it, with that note's card selected.
 
@@ -309,6 +327,25 @@ Binders changes only `contents` and its own properties in the binder note, and o
 in your notes. Renaming, moving or deleting notes anywhere in Obsidian keeps the order up to date. Notes the order
 doesn't mention yet show after the others, by name. The full format is in [docs/file-format.md](docs/file-format.md).
 
+### What Binders writes, and what it never touches
+
+- **In a binder note:** `binder`, `contents`, and `synopsis`, `status`, `label` and `target` for the binder itself.
+  Binders makes the note when you make a binder.
+- **In a folder note:** the same four, made the first time you give a folder one of them.
+- **In your notes:** only the properties you change through its views (`synopsis`, `status`, `label`, `target`,
+  `compile`, and any property you edit in an outliner cell), through Obsidian's own property writer, so the rest of
+  the note stays as it is.
+- **Note text** is never rewritten behind your back. It changes only where you type (in a note, or in the manuscript,
+  which is Obsidian's own editor), or when you ask: **Split**, **Merge**, **Bring back** a snapshot, **Rewrite**, and
+  the links repointed after a merge or split when Obsidian is set to update links. Each is ordered so the text exists
+  in two places before it leaves the first.
+- **New files:** notes you make or duplicate, folder notes, compiled notes (beside the binder, never in it), and
+  snapshots (in the binder's `Snapshots` folder).
+- **Files moved or renamed:** only when you move or rename them (dragging in a view or in the file explorer, renaming
+  in a view, grouping), and a folder note, which follows its folder when you rename it.
+- **A binder from a newer version of Binders** is left exactly as it is, and says why when you try to change it.
+- **Nothing is sent anywhere.**
+
 ## Longform
 
 Binders shows [Longform](https://github.com/kevboh/longform) projects (multi-scene ones) as binders, in Longform's own
@@ -316,30 +353,60 @@ format: the corkboard, outliner and manuscript all work on them, and reordering 
 Longform does. Scenes indented under a scene show as a group. **Convert to binder**, in the index note's right-click
 menu or the command palette, turns a project into a binder, and can move groups into folders.
 
+## Commands
+
+Open the command palette and type the name. None has a default hotkey: give the ones you use one of your own in
+Obsidian's Hotkeys settings. Most only appear where they apply (a binder view in front, a note of a binder open).
+
+| Command | What it does |
+|---|---|
+| **Open binder** | Opens the binder view on the folder of the open note, with the note's card selected. |
+| **Show corkboard**, **Show outliner**, **Show manuscript** | Switch the binder view in front to that mode. |
+| **Arrange corkboard by label** | In the corkboard, goes from the grid to the lines by label (as they last ran) and back. |
+| **Make this folder a binder** | Turns the open note's folder into a binder. |
+| **New binder** | Makes a new folder that is a binder, beside the open note if that's outside a binder, else at the top of the vault. |
+| **New scene here** | Makes a note after the open one (or, in a binder view, where the view would put one). |
+| **Convert to binder** | For a Longform project: turns it into a binder. |
+| **Split scene at cursor**, **Split scene with selection as title** | Move the text from the cursor on into a new note after this one (in a note, or in the manuscript). |
+| **Set word count target** | Sets the target of the folder the binder view shows (the binder's own, on the binder). |
+| **Compile binder** | Writes the binder, or the folder shown, as one Markdown note, or copies it. |
+| **Undo last move**, **Redo last move** | Take back, or make again, the last move made by hand in the binder. |
+| **Move up**, **Move down** | Move the open note one place in its folder. |
+| **Take a snapshot**, **Rewrite**, **Show snapshots** | Snapshots of the open note (or, in the manuscript, the section the cursor is in). |
+| **Take a snapshot of every note in the binder** | One snapshot of each note, at one moment, under one name if you give it one. |
+| **Show snapshots of notes that are gone** | Lists the snapshots left by deleted, merged-away or moved-out notes. |
+| **Toggle focus mode** | Goes into focus mode, or out of it. |
+| **Go to previous scene**, **Go to next scene** | Move through the binder in its order, in focus mode or out of it. |
+
 ## Settings
+
+Settings, Community plugins, Binders.
 
 | Setting | What it does |
 |---|---|
 | Order binders in the file explorer | Show binders in their own order, and drag there to reorder. Turn this off if another plugin replaces the file explorer. |
 | Open binders from the file explorer | Clicking a binder, or a folder inside one, opens its binder view. |
-| Hide binder and folder notes | Don't list a binder's note, or a folder's note, in the file explorer. |
+| Hide binder and folder notes | Don't list a binder's note, or a folder's note, in the file explorer. Only applies while binder order is on. |
 | Show label colors in the file explorer | A dot in its label's color beside each labeled note and folder in a binder. |
-| Labels | The labels a note can have: a name and a color each. Add, rename, recolor, reorder and delete them. |
+| Labels | The labels a note can have: a name and a color each. Add, rename, recolor, reorder and delete them; a reset puts back the defaults. |
 | Statuses | The statuses a note can have, in the order a draft goes through them. |
-| Focus mode: Typewriter scrolling | While you write at the end of a scene, the line you're on stays at one height. On to begin with. |
-| Focus mode: Show the scenes before and after | In a note, the end of the scene before and the start of the scene after, above and below its text. |
-| Focus mode: Show where you are | The scene's place in the binder and its synopsis, beside the text. |
-| Focus mode: Show word counts | The scene's words and the words written today, hidden while you type. |
-| Focus mode: Dim other paragraphs | While you type, every paragraph but the one you're in steps back. |
-| Focus mode: Words to write today | A goal for a day's writing in a binder, shown with the word counts. |
-| Property names | The properties for the synopsis, status, label and target, if your notes already use other names. |
+| Typewriter scrolling | (Focus mode.) While you write at the end of a scene, the line you're on stays at one height. On to begin with. |
+| Show the scenes before and after | (Focus mode.) In a note, the end of the scene before and the start of the scene after, above and below its text. |
+| Show where you are | (Focus mode.) The scene's place in the binder and its synopsis, beside the text. |
+| Show word counts | (Focus mode.) The scene's words and the words written today, hidden while you type. |
+| Dim other paragraphs | (Focus mode.) While you type, every paragraph but the one you're in steps back. On to begin with. |
+| Enter fullscreen | (Focus mode; desktop only.) Focus mode takes the whole screen and gives it back when you leave. |
+| Words to write today | (Focus mode.) A goal for a day's writing in a binder, shown with the word counts. Empty for none. |
+| Synopsis, Status, Label, Target | (Property names.) The properties that hold each, if your notes already use other names. |
 
 A note has a label when its property says that name, so renaming a label or status in settings asks whether to rename
-it in the notes that have it too.
+it in the notes that have it too. A few things are remembered outside the settings page: how each binder view was left
+(its mode, filter, card size, outliner columns), and how **Compile** was last set up.
 
 ## On phones and tablets
 
-Binders works on iOS and Android. Tap a card to select it, then tap its synopsis to edit it or its title to open the
+Binders is built to work on iOS and Android, but so far it has only been tested in Obsidian's phone and tablet
+emulation on a desktop, not on a real device. Tap a card to select it, then tap its synopsis to edit it or its title to open the
 note; press and hold for its menu, and hold and drag to move it. Rows in the outliner work the same way (a row
 without a synopsis gets one from **Edit synopsis** in its menu). On a phone menus open as Obsidian's own sheets, on a
 tablet beside the finger; the manuscript uses Obsidian's editor and its toolbar.
@@ -375,7 +442,39 @@ What a mouse and a keyboard do differently there:
   to read only, and Binders says so.
 - Focus mode hides parts of Obsidian's window by their names in its style sheet. If an update renames one, that part
   stays in sight while you write; nothing else changes.
-- Requires Obsidian 1.8.7 or later.
+- Requires Obsidian 1.8.7 or later. Works on desktop, phone and tablet.
+- Snapshots are `.snapshot` files. Obsidian Sync only carries them with "Sync all other types" on (see Snapshots).
+- Binders' settings page uses the newer layout on Obsidian 1.13 and later, and the classic one before.
+- Nested binders aren't supported: a binder note inside a binder is treated as an ordinary note. Longform projects that
+  hold a single note (`format: single`) aren't binders.
+
+## Known limitations
+
+Binders is not at 1.0 yet. What isn't finished, honestly:
+
+- **Phones and tablets are emulated only.** The behavior has been checked at phone and tablet sizes, upright and on
+  their sides, with touch, in Obsidian's emulation on a desktop. It has not been tried on a real iPhone, iPad or
+  Android device, so its keyboard handling, suspending and resuming, and Android's back button are unchecked.
+- **On a phone** the manuscript has less room for text with the keyboard up than a note does (the header and Binders'
+  toolbar stay above the page). On the smallest phones the outliner's title column is narrow beside the Label column,
+  a card's title is a small thing to tap, and the line that shows where a carried card will land can be hidden under
+  the card. A tap in another section of the manuscript doesn't always move the caret when it was at the start of a
+  wrapped line, and Obsidian's editor may log "Measure loop restarted" warnings as a phone is turned.
+- **In the manuscript** a section that isn't being edited is drawn as rendered text, and a few kinds of content (long
+  code blocks, tables wider than the page, images, embedded notes, math) are a few pixels taller or shorter than
+  in the editor, so the page can move slightly when you reach it.
+- **After Split scene at cursor,** pressing Undo in the note you split puts the second half back there, and nothing
+  says so; the new note still has it. Nothing is lost, but the text is then in both. Delete one.
+- **In the file explorer,** Obsidian's own **Make a copy** of a folder in a binder puts the copy last and its notes not in
+  the original's order, **New folder with selection** doesn't keep the notes' places, and a selection has both Obsidian's and Binders' "new folder" items.
+  Dragging twenty notes at once over a folder of thousands is slow. If another plugin that changed the explorer is
+  turned off, binder order comes back at the explorer's next change.
+- **Undo** covers moves, not renames, deletes, splits, merges, duplicates, grouping or ungrouping, and remembers the
+  last fifty changes while Obsidian is open.
+- **Not built yet**, before 1.0: export (EPUB, DOCX, PDF and a Scrivener project), import from a Scrivener project, and
+  find and replace across the manuscript. See the [roadmap](ROADMAP.md).
+
+If you find something else, it's a bug: open an issue.
 
 ## Privacy
 
@@ -386,11 +485,13 @@ Binders makes no network requests and collects nothing. Everything it does happe
 | | |
 |---|---|
 | [File format](docs/file-format.md) | Binder notes, folder notes, scene properties, Longform projects |
-| [Roadmap](ROADMAP.md) | What's left before 1.0: mobile QA, export, find and replace, focus mode |
-| [Plan](docs/plan.md) | The design, and what's done |
+| [Roadmap](ROADMAP.md) | What's left before 1.0: mobile QA on real devices, export, import from Scrivener, find and replace |
+| [Plan](docs/plan.md) | The design of every feature, and what's done |
+| [Architecture](docs/architecture.md) | A map of the code: modules, layers, how a change travels, what keeps writing safe |
 | [Obsidian internals](docs/internals.md) | The undocumented parts of Obsidian Binders uses, and their fallbacks |
+| [Design](docs/design.md) | What "native" means here, and how design rounds are run |
 | [Development](docs/development.md) | Building, testing, releasing |
-| [AGENTS.md](AGENTS.md) | How to contribute |
+| [AGENTS.md](AGENTS.md) | How to contribute: the rules, versioning, tests |
 
 ## License
 

@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.20 (2026-10-02)
+
+### Changed
+
+- The README describes every feature, command and setting as they are now, says what Binders writes to your files and what it never touches, and lists what isn't finished.
+
 ## 0.12.19 (2026-10-02)
 
 ### Fixed
