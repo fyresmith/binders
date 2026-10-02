@@ -282,11 +282,17 @@ export default class BindersPlugin extends Plugin {
 			if (source === 'file-explorer-context-menu') dropNewFolderItem(menu);
 			menu.addItem((i) => i.setSection('action').setTitle('New folder from selection').setIcon('folder-plus').onClick(async () => {
 				const made = await this.tell(b.group(items));
-				if (made) window.setTimeout(() => renameInExplorer(this.app, made), 100); // (once the explorer has its row)
+				if (made) this.later(() => renameInExplorer(this.app, made), 100); // (once the explorer has its row)
 			}));
 		}
 		const notes = items.filter((f): f is TFile => f instanceof TFile && f.extension === 'md');
 		if (notes.length === items.length) menu.addItem((i) => i.setSection('action').setTitle(`Merge ${notes.length} notes`).setIcon('merge').onClick(() => void this.tell(mergeScenes(this, notes))));
+	}
+
+	/** A timer that is cleared if the plugin is turned off first, so its callback never runs on a dead plugin. */
+	private later(fn: () => void, ms: number) {
+		const id = window.setTimeout(fn, ms);
+		this.register(() => window.clearTimeout(id));
 	}
 
 	private canStep(item: TAbstractFile, delta: number): boolean {
@@ -312,7 +318,7 @@ export default class BindersPlugin extends Plugin {
 		for (let n = 1; vault.getAbstractFileByPath(at(name)); n++) name = `Untitled binder ${n}`;
 		const folder = await this.tell(vault.createFolder(at(name)));
 		if (!folder || !(await this.tell(this.binders.makeBinder(folder)))) return;
-		window.setTimeout(() => {
+		this.later(() => {
 			// (once the explorer has its row) its name ready to type there; with the explorer out of sight (the command,
 			// with a phone's drawer shut), the new binder opens instead, so there's something to see
 			if (!renameInExplorer(this.app, folder)) void this.openBinder(folder);
@@ -333,7 +339,7 @@ export default class BindersPlugin extends Plugin {
 			if (view.mode === 'corkboard' && view.folder !== file.parent && file.parent) {
 				await view.setState({ ...view.getState(), folder: file.parent.path }, { history: false });
 			}
-			window.setTimeout(() => view.revealItem(file, true), Platform.isPhone ? 350 : 0);
+			this.later(() => view.revealItem(file, true), Platform.isPhone ? 350 : 0);
 			return;
 		}
 		// its name ready to type over, as a new note made in the file explorer is
