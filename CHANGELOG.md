@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.135 (2026-10-02)
+
+### Fixed
+
+- A change made earlier today (0.12.98) had Obsidian's editor log a warning while typing at the foot of the window in the manuscript. It is taken back; fast swipes on a phone are as they were before it.
+
 ## 0.12.134 (2026-10-02)
 
 ### Fixed
