@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.78 (2026-10-02)
+
+### Fixed
+
+- Nothing a writer will notice: a test that looked in the vault's trash could read a note an earlier test had put there. The trash is now emptied between tests.
+
 ## 0.12.77 (2026-10-02)
 
 ### Fixed

@@ -81,6 +81,9 @@ function helpers(p) {
 				// the layout saved in mobile mode, so a test that switches to mobile starts from the same one every time
 				const mobile = app.vault.configDir + '/workspace-mobile.json'; if (await app.vault.adapter.exists(mobile)) await app.vault.adapter.remove(mobile);
 				const leaves = []; app.workspace.iterateRootLeaves(l => { leaves.push(l); }); leaves.forEach(l => l.detach()); // not while iterating
+				// what earlier tests put in the vault's trash: a note trashed again under the same name gets a number
+				// ("The keeper 2.md"), and a test reading ".trash/The keeper.md" would read the older one
+				try { if (await app.vault.adapter.exists('.trash')) await app.vault.adapter.rmdir('.trash', true); } catch { /* no trash in the vault: nothing to clear */ }
 				// folders a test made and left (the notes in them are put right below; an extra folder would show in the
 				// next test's binder)
 				const own = new Set(['The Lighthouse', 'The Lighthouse/Part One', 'The Lighthouse/Part Two', 'Longform demo']);
