@@ -3,7 +3,7 @@ import type { Binder } from './binders';
 import type BindersPlugin from './main';
 import { saveOpen } from './scenes';
 import { SNAPSHOTS, SNAPSHOT_EXT, readSnapshot, readSnapshotName, snapshotFile, snapshotName } from './snapshot-text';
-import { liveEditors } from './view/editable-embed';
+import { liveEditors, saveTab } from './view/editable-embed';
 
 /* Snapshots of a scene. A snapshot is the note's text as it was, kept as a plain-text file of its own in the binder's
    "Snapshots" folder, under the note's own path: the snapshots of "Part One/Arrival" are the files in
@@ -130,7 +130,7 @@ async function replaceText(plugin: BindersPlugin, scene: TFile, expect: string, 
 		const v = leaf.view;
 		if (!(v instanceof MarkdownView) || v.file !== scene || v.getMode() !== 'source') continue;
 		inEditor(v.editor);
-		await v.save();
+		await saveTab(v);
 		return;
 	}
 	// its section of a manuscript

@@ -360,3 +360,162 @@ test('undo and redo of a move: a drop into another folder goes back, file and or
 	t.ok(await exists(p, L + 'Part Two/Epilogue.md'), 'and leaves the note where it is');
 	t.eq(await read(p, L + 'Epilogue.md'), 'Another.', 'the note in its old place untouched');
 }));
+
+// ---- a slow disk: words typed while the note's earlier typing is still being written ----
+// Obsidian's editors, asked to save while a write is on its way, only note it and say they're saved. Everything that
+// reads, copies, moves or removes a note must still wait until its last words are on disk.
+
+const K = L + 'Part One/The keeper.md';
+const MS = `${VIEW}.current`;
+const section = (path) => `${MS}.scenes.find(s => s.file.path === ${j(path)})`;
+const typedInto = (text) => text.replace('doorway.', 'doorway. First words. Later words.');
+/** (in the page, with `ed` an editor) the cursor at the end of the note's last line of text */
+const END = `let n = ed.lastLine(); while (n > 0 && !ed.getLine(n)) n--; ed.setCursor({ line: n, ch: ed.getLine(n).length })`;
+/** Holds the next write of a note until `release` (in the page: `window.__slow.release()`). */
+const slowDisk = (p, path) => p.ev(`(() => {
+	const a = app.vault.adapter, write = a.write, s = window.__slow = { started: false, release: () => {}, restore: () => { a.write = write; } };
+	a.write = async function (...args) { if (args[0] === ${j(path)} && !s.started) { s.started = true; await new Promise(r => { s.release = r; }); } return write.apply(this, args); };
+	return 1; })()`);
+const fastDisk = (p) => p.ev(`(() => { window.__slow?.release(); window.__slow?.restore(); delete window.__slow; return 1; })()`);
+/** Lets the held write go in `ms`, from inside the page, so it lands while what's started next is waiting on it. */
+const releaseIn = (ms) => `setTimeout(() => window.__slow.release(), ${ms})`;
+/** The manuscript with the cursor at the end of The keeper, " First words." typed and on their way to a disk that is
+    holding them, then " Later words." typed: not saved, and not to be lost. */
+async function midWrite(p) {
+	await openView(p);
+	await p.ev(`(() => { ${VIEW}.setMode('manuscript'); return 1; })()`);
+	await until(p, `!!${section(K)}?.live`, 5000);
+	await p.ev(`(async () => { const m = ${MS}, s = ${section(K)}; s.el.scrollIntoView({ block: 'center' }); await m.mount(s); const ed = s.live.editor; ed.focus(); ${END}; return 1; })()`);
+	await p.sleep(150);
+	await p.type(' First words.');
+	await slowDisk(p, K);
+	await p.ev(`(() => { void ${section(K)}.live.flush(); return 1; })()`);
+	await until(p, `window.__slow.started`);
+	await p.type(' Later words.');
+}
+/** Obsidian's own indexer reads a note a moment after each write, and logs it if the note has gone by then (written,
+    then trashed at once): that isn't Binders', and is the one error these tests let pass. */
+const INDEXER = /^console\.error: Error: ENOENT: no such file or directory, open '[^']*The keeper\.md'/;
+const slow = (name, fn) => test(name, withTidy(async (p, h, t) => {
+	try { await fn(p, h, t); } finally { await fastDisk(p); }
+	await p.sleep(100);
+	for (let i = p.errors.length - 1; i >= 0; i--) if (INDEXER.test(p.errors[i])) p.errors.splice(i, 1);
+}));
+const localTrash = async (p, fn) => {
+	const was = await p.ev(`app.vault.getConfig('trashOption') ?? null`);
+	await p.ev(`(() => { app.vault.setConfig('trashOption', 'local'); return 1; })()`);
+	try { await fn(); } finally { await p.ev(`(async () => { app.vault.setConfig('trashOption', ${j(was ?? 'system')}); if (await app.vault.adapter.exists('.trash')) await app.vault.adapter.rmdir('.trash', true); })().then(() => 1)`); }
+};
+const pressInDialog = (p, text, then = '') => p.ev(`(() => { const b = [...document.querySelectorAll('.modal button')].filter(b => b.textContent === ${j(text)}).pop(); if (!b) return false; b.click(); ${then}; return true; })()`);
+const titleMenu = async (p, path) => { const r = await p.ev(`(() => { const r = ${section(path)}.titleEl.getBoundingClientRect(); return { x: r.left + 12, y: r.top + r.height / 2 }; })()`); await p.right(r.x, r.y); };
+
+slow('a slow disk: “Delete” from a section’s title menu while its earlier typing is still being written: the note in the trash has every word, and nothing is written back', async (p, h, t) => {
+	const before = await read(p, K);
+	await localTrash(p, async () => {
+		await midWrite(p);
+		await titleMenu(p, K);
+		await clickMenu(p, 'Delete');
+		await until(p, `!!document.querySelector('.modal .modal-button-container')`);
+		t.ok(await pressInDialog(p, 'Delete', releaseIn(300)), 'asked first');
+		await until(p, `${file(K)} === null`, 5000);
+		t.eq(await read(p, '.trash/The keeper.md'), typedInto(before), 'the note in the trash has everything that was typed');
+		await p.sleep(2600); // (past Obsidian's own save, two seconds after typing)
+		t.ok(!(await exists(p, K)), 'the note is gone, and no late save writes it back');
+		t.eq(await read(p, '.trash/The keeper.md'), typedInto(before), 'and the note in the trash is still whole');
+	});
+});
+
+slow('a slow disk: “Split scene at cursor” while earlier typing is still being written: both halves on disk when the split is done, every word once', async (p, h, t) => {
+	const before = await read(p, K);
+	await midWrite(p);
+	await p.ev(`(() => { const ed = ${section(K)}.live.editor, at = ed.getValue().indexOf(' Later words.'); ed.setCursor(ed.offsetToPos(at)); ${releaseIn(300)}; app.commands.executeCommandById('binders:split-scene'); return 1; })()`);
+	await until(p, `app.vault.adapter.exists(${j(L + 'Part One/The keeper 2.md')})`, 6000);
+	await p.sleep(700); // (well inside the two seconds an unwritten half would wait for Obsidian's own save)
+	const first = await read(p, K), second = await read(p, L + 'Part One/The keeper 2.md');
+	t.eq(first, before.replace('doorway.', 'doorway. First words.'), 'the first half is on disk, with the words typed before the split and without the second half');
+	t.eq(split(second).body, 'Later words.\n', 'the second half, typed while the first words were being written, is in the new note');
+	t.eq(await notices(p), '', 'nothing was said to have gone wrong');
+});
+
+slow('a slow disk: “Duplicate” from a section’s title menu while earlier typing is still being written: the copy has every word', async (p, h, t) => {
+	const before = await read(p, K);
+	await midWrite(p);
+	await titleMenu(p, K);
+	await p.ev(`(() => { ${releaseIn(300)}; return 1; })()`);
+	await clickMenu(p, 'Duplicate');
+	await until(p, `app.vault.adapter.exists(${j(L + 'Part One/The keeper 2.md')})`, 6000);
+	await p.sleep(300);
+	t.eq(await read(p, L + 'Part One/The keeper 2.md'), typedInto(before), 'the copy is the note as typed');
+	t.eq(await read(p, K), typedInto(before), 'and so is the note');
+});
+
+slow('a slow disk: a snapshot taken while earlier typing is still being written holds every word', async (p, h, t) => {
+	const before = await read(p, K);
+	await midWrite(p);
+	await p.ev(`(() => { ${releaseIn(300)}; app.commands.executeCommandById('binders:take-snapshot'); return 1; })()`);
+	const dir = L + 'Snapshots/Part One/The keeper';
+	await until(p, `app.vault.adapter.exists(${j(dir)}).then(async (y) => y && (await app.vault.adapter.list(${j(dir)})).files.length > 0)`, 6000);
+	await p.sleep(300);
+	const snap = await p.ev(`app.vault.adapter.list(${j(dir)}).then(l => app.vault.adapter.read(l.files[0]))`);
+	t.ok(snap.endsWith(split(typedInto(before)).body), 'the snapshot has the text as typed: ' + j(snap.slice(-80)));
+});
+
+slow('a slow disk: a compile while earlier typing is still being written has every word', async (p, h, t) => {
+	await midWrite(p);
+	await p.ev(`(() => { app.commands.executeCommandById('binders:compile'); return 1; })()`);
+	await until(p, `!!document.querySelector('.modal .binders-compile-path')`);
+	t.ok(await pressInDialog(p, 'Compile', releaseIn(300)), 'Compile');
+	await until(p, `app.vault.adapter.exists('The Lighthouse (compiled).md')`, 6000);
+	await p.sleep(300);
+	t.ok((await read(p, 'The Lighthouse (compiled).md')).includes('doorway. First words. Later words.'), 'the compiled note has the keeper’s text as typed');
+	await p.ev(`app.vault.delete(${file('The Lighthouse (compiled).md')}).then(() => 1)`);
+});
+
+slow('a slow disk: merging a note whose manuscript section (in another tab) is still writing its earlier typing: the merged note has every word before the other goes to the trash', async (p, h, t) => {
+	const before = await texts(p);
+	await localTrash(p, async () => {
+		await midWrite(p);
+		await openView(p, L + 'Part One', 'tab');
+		await p.ev(`(() => { ${VIEW}.setMode('corkboard'); return 1; })()`);
+		await until(p, `!!document.querySelector(${j(card(K))})`);
+		await p.sleep(300);
+		const a = await at(p, 'Part One/Arrival.md'), k = await at(p, 'Part One/The keeper.md');
+		await p.click(a.x, a.t + 12);
+		await p.click(k.x, k.t + 12, { modifiers: 2 });
+		await p.right(k.x, k.y);
+		await clickMenu(p, 'Merge 2 notes');
+		await until(p, `!!document.querySelector('.modal')`);
+		t.ok(await pressInDialog(p, 'Merge', releaseIn(300)), 'Merge');
+		await until(p, `!app.vault.getAbstractFileByPath(${j(K)})`, 6000);
+		const merged = await read(p, L + 'Part One/Arrival.md');
+		t.eq(split(merged).body, split(before[L + 'Part One/Arrival.md']).body.replace(/\s+$/, '') + '\n\n' + split(typedInto(before[K])).body, 'the merged note has the keeper’s text as typed, the last words too');
+		t.eq(await read(p, '.trash/The keeper.md'), typedInto(before[K]), 'and so has the note in the trash');
+	});
+});
+
+slow('a slow disk: “Delete” on the corkboard while the note’s own tab is still writing its earlier typing: the note in the trash has every word', async (p, h, t) => {
+	const before = await read(p, K);
+	await localTrash(p, async () => {
+		await p.ev(`app.workspace.getLeaf(false).openFile(${file(K)}).then(() => 1)`);
+		await p.sleep(500);
+		await p.ev(`(() => { const ed = app.workspace.activeEditor.editor; ed.focus(); ${END}; return 1; })()`);
+		await p.type(' First words.');
+		await slowDisk(p, K);
+		await p.ev(`(() => { void app.workspace.activeEditor.save(); return 1; })()`);
+		await until(p, `window.__slow.started`);
+		await p.type(' Later words.');
+		await openView(p, L + 'Part One', 'tab');
+		await p.ev(`(() => { ${VIEW}.setMode('corkboard'); return 1; })()`);
+		await until(p, `!!document.querySelector(${j(card(K))})`);
+		await p.sleep(300);
+		const k = await at(p, 'Part One/The keeper.md');
+		await p.right(k.x, k.y);
+		await clickMenu(p, 'Delete');
+		await until(p, `!!document.querySelector('.modal .modal-button-container')`);
+		t.ok(await pressInDialog(p, 'Delete', releaseIn(300)), 'asked first');
+		await until(p, `${file(K)} === null`, 5000);
+		t.eq(await read(p, '.trash/The keeper.md'), typedInto(before), 'the note in the trash has everything that was typed in its tab');
+		await p.sleep(2600);
+		t.ok(!(await exists(p, K)), 'and no late save writes it back');
+	});
+});

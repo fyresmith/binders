@@ -1,4 +1,4 @@
-import type { App, Component, Editor, TFile } from 'obsidian';
+import type { App, Component, Editor, MarkdownView, TFile } from 'obsidian';
 import { historyField } from '@codemirror/commands';
 import { EditorState, StateEffect, Transaction, type Extension } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
@@ -115,6 +115,26 @@ const kept = new Map<TFile, { text: string; history: string }>();
     the others' pending typing to be written, or it would load the old text and typing in it would lose theirs. */
 const openEditors = new Map<TFile, Set<() => Promise<void>>>();
 
+/** The last writes of editors that have just gone (a section scrolled away, a view closed), by note: until one is
+    done, the note on disk is behind what was typed. */
+const closing = new Map<TFile, Set<Promise<void>>>();
+
+/** Writes down what's typed into these notes in any manuscript and isn't saved yet, and resolves once it's on disk:
+    every live editor is flushed, and the last write of an editor that has just gone is waited for. Rejects if a write
+    failed. Whatever reads, copies, moves or removes a note goes through this first (`saveOpen` in scenes.ts). */
+export async function saveEditors(files: TFile[]): Promise<void> {
+	await Promise.all(files.flatMap((f) => [...[...(openEditors.get(f) ?? [])].map((flush) => flush()), ...(closing.get(f) ?? [])]));
+}
+
+/** Saves a note's own tab and resolves once its text is on disk. A tab asked to save while an earlier write is on its
+    way only notes it (its undocumented `saving`), returns, and writes again when that one lands, with nothing to
+    wait on: so this waits until the tab is no longer writing. Without `saving` it is `view.save()` and no more. */
+export async function saveTab(view: MarkdownView): Promise<void> {
+	await view.save();
+	const v = view as unknown as { saving?: unknown };
+	for (let i = 0; v.saving === true && i < 1000; i++) await sleep(10);
+}
+
 /** The live editors a note is open in, in every manuscript (snapshots: a note's text is replaced through the editor it's
     being typed in, so Undo there takes it back). */
 const live = new Map<TFile, Set<LiveEditor>>();
@@ -185,9 +205,11 @@ export async function mountEditor(app: App, container: HTMLElement, file: TFile,
 		// an actual outside revert to that text must still load normally.
 		if (!this.dirty && shown.includes(data)) {
 			const saved = this.lastSavedData;
-			void writing.then(() => app.vault.read(f)).then((latest) => {
-				if (!gone && mine === changes && saved === this.lastSavedData && latest === data) changed.call(this, data, cache);
-			}).catch((e) => console.error('Binders: checking an outside edit failed', e));
+			// (a note deleted meanwhile, or an editor that's gone, has nothing to check)
+			const here = () => !gone && app.vault.getAbstractFileByPath(f.path) === f;
+			void writing.catch(() => { /* said where it failed */ }).then(() => (here() ? app.vault.read(f) : null)).then((latest) => {
+				if (latest !== null && here() && mine === changes && saved === this.lastSavedData && latest === data) changed.call(this, data, cache);
+			}).catch((e) => { if (here()) console.error('Binders: checking an outside edit failed', e); });
 			return;
 		}
 		changed.call(this, data, cache);
@@ -198,7 +220,12 @@ export async function mountEditor(app: App, container: HTMLElement, file: TFile,
 		// the write is on its way isn't merged with it as if it were an outside change, and doubled)
 		if (now && this.dirty && this.lastSavedData !== null && this.lastSavedData !== text) markSaved(app, file, text);
 		const p = proto.save.call(this, text, now) as Promise<void>;
-		if (now) writing = Promise.all([writing, p]).then((): void => {});
+		// (one after the other; a write that failed doesn't make every later one look failed)
+		if (now) {
+			const earlier = writing;
+			writing = (async (): Promise<void> => { await earlier.catch(() => { /* whoever waited on it was told */ }); await p; })();
+			writing.catch(() => { /* Obsidian says so, and whoever waits on a flush is told */ });
+		}
 		else { opts.onChange?.(text); show(text); }
 		return p;
 	};
@@ -209,18 +236,30 @@ export async function mountEditor(app: App, container: HTMLElement, file: TFile,
 	let writing: Promise<void> = Promise.resolve();
 	// true while text from elsewhere is put into an editor that doesn't have the cursor (see `set`, below)
 	let apart = false;
-	const flush = (): Promise<void> => {
-		embed.requestSave.cancel();
-		const text = embed.editMode?.get() ?? embed.text;
-		// An editor update may not have reached the embed yet when a command asks to save.
-		// (An editor's text has no Windows line endings, whatever the note has: that alone is nothing to save, or a note
-		// only shown would be written again without them.)
-		if (text !== embed.text && text !== embed.text.replace(/\r\n?/g, '\n')) void embed.save(text);
-		// (that asked for a save later, which would write this text again after the editor is gone, over anything typed
-		// in a tab of the note since)
-		embed.requestSave.cancel();
-		if (embed.dirty) void embed.save(text, true);
-		return writing;
+	const flush = async (): Promise<void> => {
+		// (no more turns than a writer could keep it busy for by typing through every write)
+		for (let turn = 0; turn < 12; turn++) {
+			embed.requestSave.cancel();
+			const text = embed.editMode?.get() ?? embed.text;
+			// An editor update may not have reached the embed yet when a command asks to save.
+			// (An editor's text has no Windows line endings, whatever the note has: that alone is nothing to save, or a note
+			// only shown would be written again without them.)
+			if (text !== embed.text && text !== embed.text.replace(/\r\n?/g, '\n')) void embed.save(text);
+			// (that asked for a save later, which would write this text again after the editor is gone, over anything typed
+			// in a tab of the note since)
+			embed.requestSave.cancel();
+			if (embed.dirty) void embed.save(embed.text, true);
+			const asked = writing;
+			await asked;
+			// A write asked for while an earlier one is on its way isn't made: Obsidian only notes it, says the text is
+			// saved, and when the earlier write lands asks for a save two seconds on. Whoever waited here (a delete, a
+			// split, a new editor of the note) would go on with the older text on disk, and a note deleted then would be
+			// in the trash without its last words. So: again, until what the editor has is what was written.
+			if (asked === writing && !embed.dirty) break;
+		}
+		// (Obsidian's "save again", once noted, asks for one more save after every write: there's nothing left to
+		// write, and an editor that's gone mustn't write later)
+		if (gone) embed.requestSave.cancel();
 	};
 	const cmOf = (): EditorView | null => embed.editMode?.cm ?? (embed.editor as unknown as { cm?: EditorView })?.cm ?? null;
 	// 6. Whoever tears the embed down (us, the view closing, the plugin unloading), typing is written first; the
@@ -243,7 +282,12 @@ export async function mountEditor(app: App, container: HTMLElement, file: TFile,
 			if (!openEditors.get(file)?.size) openEditors.delete(file);
 			if (made) { live.get(file)?.delete(made); if (!live.get(file)?.size) live.delete(file); }
 			try {
-				saved = flush().catch((e) => console.error('Binders: saving failed', e));
+				const last = flush();
+				saved = last.catch((e) => console.error('Binders: saving failed', e));
+				// until it's written, whoever reads or removes the note waits for it (`saveEditors`)
+				if (!closing.has(file)) closing.set(file, new Set());
+				closing.get(file)?.add(last);
+				void saved.then(() => { closing.get(file)?.delete(last); if (!closing.get(file)?.size) closing.delete(file); });
 				keepHistory(this.editMode);
 			} catch (e) { console.error('Binders: saving failed', e); }
 		}
@@ -252,7 +296,7 @@ export async function mountEditor(app: App, container: HTMLElement, file: TFile,
 
 	parent.addChild(embed);
 	try {
-		await Promise.all([...(openEditors.get(file) ?? [])].map((f) => f()));
+		await saveEditors([file]);
 		if (gone) throw new Error('Closed while opening.');
 		// 3. save() does nothing until loadFile() resolves, so the editor is only shown after it.
 		await embed.loadFile();

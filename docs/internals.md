@@ -28,6 +28,7 @@ a fallback, and has an e2e test. Where one of those is still missing, the table 
 | The embed's `showPreview()` and `toggleMode()`, replaced on each embed with functions that do nothing | `src/view/editable-embed.ts` | Escape and "Toggle reading view" would swap a section's editor for a reading view and destroy the editor: a section stays an editor | Not checked (assigning them is harmless if Obsidian stops calling them). If Obsidian leaves the editor some other way, the manuscript mounts a new one when the section is next focused | `specs-qa2-manuscript.mjs` (Escape, "Toggle reading view") |
 | The embed's `editMode`: `get()`, `sourceMode`, `toggleSource()`, `saveHistory()`, `cm` (the CodeMirror `EditorView`; else the `Editor`'s own `cm`) | `src/view/editable-embed.ts` | Reading typing, keeping live preview, undo across remounts, moving the caret between sections, the page following the caret | Without `cm`, arrow keys stop at a section's edge (no crossing) and the section is focused through `editor.focus()` | `specs-manuscript.mjs`, `specs-qa2-manuscript.mjs` |
 | Obsidian's cache of undo histories, by path: filled by `editMode.saveHistory()`, read by `editMode.set(text, true)`, which gives a new editor the cached history when the text is the same length. And `editMode.path` (a getter on its prototype), shadowed on one editor for one `set(text, true)` call | `src/view/editable-embed.ts` (`kept`, `stepsOf`) | A section mounted again keeps its undo history only if it was recorded on exactly the text now loaded; otherwise it starts with none | The history is read with CodeMirror's public `state.toJSON({ history: historyField })`. If it can't be read, nothing is saved to the cache and every mount drops what it was given (no undo across remounts). If a history that doesn't belong can't be dropped, the mount throws and the section stays read only | `specs-manuscript.mjs` (a note changed outside while its section had no editor) |
+| A note's tab (`MarkdownView`): `saving`, true while it writes | `src/view/editable-embed.ts` (`saveTab`) | Waiting until a tab's text is on disk before its note is read, copied, merged or deleted: `view.save()` asked during a write returns at once and writes again afterwards, unawaited | Without `saving` (not a boolean `true`), `view.save()` alone, as before | `specs-scenes.mjs` (a slow disk: “Delete” on the corkboard while the note's own tab is still writing) |
 | `workspace.unsetActiveEditor(editor)` | `src/view/editable-embed.ts` | Mounting a section doesn't make it the active editor | Required by `embedSupported()` | `specs-manuscript.mjs` |
 | `workspace.onQuickPreview(file, text)` | `src/view/editable-embed.ts` | After merging an outside edit into unsaved typing, other views of the note get the merged text | Skipped if missing (other views then show the outside version until the save lands, as in Obsidian) | `specs-manuscript.mjs` (same note in a tab) |
 | A Markdown tab's `lastSavedData` (the text it merges outside changes against), and its `getViewData()` | `src/view/editable-embed.ts` (`markSaved`) | Before a section writes, a tab of the same note that shows exactly that text is told it is what the file holds, so typing in the tab while the write is on its way isn't merged with it as if it were an outside change (doubled text) | Skipped for a view without them: it merges as Obsidian always did | `specs-manuscript.mjs` (same note in a tab); none tests its absence |
@@ -203,8 +204,18 @@ touches it; `mountEditor()` builds one embed and patches that instance only:
 - **`onFileChanged`** also handles a second view of the same note saving our typing with its own on top: if the
   file already holds our change (`contains(lastSavedData, data, theirs)`), it's loaded as it is, not merged, which
   would double the text.
+- **A save asked for during a write.** The embed's `save(text, true)`, called while an earlier write is on its way,
+  writes nothing: it notes `saveAgain`, clears `dirty`, and returns; when the earlier write lands it calls
+  `save(text)`, which only asks for a save two seconds on (and `saveAgain` is never cleared, so every later write
+  asks for one more). A caller that waited for the save would go on with the older text on disk: a note deleted
+  then is in the trash without its last words, and a merge, a copy, a snapshot or a compile lacks them. So
+  `flush()` loops: it asks, waits for the write in flight, and asks again until nothing is `dirty` and no write was
+  started meanwhile (only `dirty` is read; `saving` and `saveAgain` aren't). An editor that's gone cancels the save
+  Obsidian asked for, so nothing is written later over what a tab of the note has typed since.
 - A new editor on a note waits for the pending writes of every other live editor on that note (`openEditors`:
-  another manuscript in a split or tab), or it would load the old text.
+  another manuscript in a split or tab) and for the last write of one that has just gone (`closing`), or it would
+  load the old text. `saveEditors(files)` is the same wait for whoever reads, copies, moves or removes a note
+  (`saveOpen` in `src/scenes.ts`: split, merge, duplicate, delete, compile, snapshots, a synopsis from text).
 - When the page is scrolled more than a screen and a half past the section with the caret, the manuscript blurs
   that editor (one kept that far out of sight can't draw its caret) and remembers the place. The next key typed, or
   scrolling back to the section, puts the caret back; keys typed while its editor is mounted again go in at the

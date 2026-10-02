@@ -107,6 +107,53 @@ test('saving notes waits for a write already in flight; text and undo survive th
 	t.eq(disk(p, f), before, 'undo brings the original text back after the delayed save');
 });
 
+test('typing while an earlier write is still on its way: saving waits until those words are on disk too, and nothing is written after the section has gone', async (p, h, t) => {
+	// (Obsidian's embed, asked to save while it is writing, only notes “save again”, says it's saved, and asks for a
+	// save two seconds after the write lands: whoever waited on the save, a delete or a split, went on without the
+	// last words on disk)
+	const f = ORDER[2];
+	await mount(p);
+	const before = disk(p, f);
+	await focusEnd(p, f);
+	await p.type(' First words.');
+	await p.ev(`(() => {
+		const m = ${M}, s = m.scenes[${idx(f)}], adapter = app.vault.adapter, write = adapter.write;
+		window.__saveDone = false; window.__writes = 0;
+		adapter.write = async function (...args) {
+			if (args[0] === ${J(f)}) { window.__writes++; if (!window.__held) { window.__held = true; await new Promise(r => { window.__releaseWrite = r; }); } }
+			return write.apply(this, args);
+		};
+		window.__restoreWrite = () => { adapter.write = write; };
+		window.__firstWrite = s.live.flush();
+		return 1;
+	})()`);
+	try {
+		for (let i = 0; i < 40 && !(await p.ev('!!window.__releaseWrite')); i++) await p.sleep(25);
+		await p.type(' Later words.');
+		await p.ev(`${M}.save([app.vault.getAbstractFileByPath(${J(f)})]).then(() => { window.__saveDone = true; }); 1`);
+		await p.sleep(100);
+		t.eq(await p.ev('window.__saveDone'), false, 'save does not finish before the pending disk write');
+		await p.ev(`(() => { window.__releaseWrite(); return 1; })()`);
+		for (let i = 0; i < 60 && !(await p.ev('window.__saveDone')); i++) await p.sleep(25);
+		t.ok(await p.ev('window.__saveDone'), 'the save finishes');
+		t.eq(disk(p, f), before.trimEnd() + ' First words. Later words.\n', 'when the save is done, everything typed is on disk: the words typed during the earlier write too');
+		// the same as a section goes (scrolled away, the view closed): its last words are written, and remounting waits
+		await p.ev(`(() => { delete window.__held; delete window.__releaseWrite; return 1; })()`);
+		await p.type(' Third.');
+		await p.ev(`(() => { void ${M}.scenes[${idx(f)}].live.flush(); return 1; })()`);
+		for (let i = 0; i < 40 && !(await p.ev('!!window.__releaseWrite')); i++) await p.sleep(25);
+		await p.type(' Fourth.');
+		await p.ev(`(() => { const m = ${M}, s = m.scenes[${idx(f)}]; document.activeElement.blur(); m.unmount(s); window.__gone = false; void s.saved.then(() => { window.__gone = true; }); setTimeout(() => window.__releaseWrite(), 150); return 1; })()`);
+		for (let i = 0; i < 80 && !(await p.ev('window.__gone')); i++) await p.sleep(25);
+		t.eq(disk(p, f), before.trimEnd() + ' First words. Later words. Third. Fourth.\n', 'a section that goes during a write has written its last words by the time it says it’s saved');
+		const writes = await p.ev('window.__writes');
+		await p.sleep(2600);
+		t.eq(await p.ev('window.__writes'), writes, 'and writes nothing later (a late save would go over what was typed in a tab of the note since)');
+	} finally {
+		await p.ev(`(() => { window.__releaseWrite?.(); window.__restoreWrite(); for (const k of ['__held', '__releaseWrite', '__restoreWrite', '__firstWrite', '__saveDone', '__writes', '__gone']) delete window[k]; return 1; })()`);
+	}
+});
+
 // ---- layout ----
 
 test('shows every note in binder order, subfolders as headings, each a live editor on its own file', async (p, h, t) => {

@@ -2,6 +2,7 @@ import { ButtonComponent, MarkdownView, Modal, Notice, Platform, Setting, TFile,
 import type BindersPlugin from './main';
 import { COMPILE_DEFAULTS, compile, joinBodies, linkTargets, nextName, pointsAt, repointLinks, synopsisFrom, tidyHead, tidyTail, titleFrom, type CompileItem, type CompileOptions } from './scene-text';
 import { COMPILED_KEPT } from './settings-data';
+import { saveEditors, saveTab } from './view/editable-embed';
 import { trashPhrase, updatesLinks } from './view/internals';
 import { buttonRow, cancelButton, confirm } from './view/modals';
 
@@ -31,15 +32,20 @@ function cut(text: string): { front: string; body: string } {
 }
 
 /** Saves notes that are open with unsaved typing, so reading them from the vault gets what's on screen: in a binder
-    view's manuscript (whose editors save a moment after typing stops) and in their own tabs. */
+    view's manuscript (whose editors save a moment after typing stops) and in their own tabs. When it resolves, what
+    was typed is on disk: everything that reads, copies, moves or removes a note waits on this first, or a note would
+    go to the trash (or into a merge, a copy, a snapshot) without its last words. */
 export async function saveOpen(app: App, files: TFile[]): Promise<void> {
 	for (const leaf of app.workspace.getLeavesOfType('binders-view')) {
 		const v = leaf.view as { saveNotes?: (files: TFile[]) => Promise<void> };
 		if (typeof v.saveNotes === 'function') await v.saveNotes(files);
 	}
+	// every manuscript's editors of these notes, wherever they are, and the last write of one that has just gone (a
+	// section scrolled away, a view closed a moment ago)
+	await saveEditors(files);
 	for (const leaf of app.workspace.getLeavesOfType('markdown')) {
 		const v = leaf.view;
-		if (v instanceof MarkdownView && v.file && files.includes(v.file)) await v.save();
+		if (v instanceof MarkdownView && v.file && files.includes(v.file)) await saveTab(v);
 	}
 }
 

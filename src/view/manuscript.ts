@@ -315,7 +315,8 @@ class Manuscript implements BinderMode {
 	}
 
 	async save(files?: TFile[]): Promise<void> {
-		await Promise.all(this.scenes.filter((s) => s.live && (!files || files.includes(s.file))).map((s) => s.live?.flush()));
+		// (a section whose editor has just gone, scrolled away, is still writing its last words: that's waited for too)
+		await Promise.all(this.scenes.filter((s) => !files || files.includes(s.file)).map((s) => s.live ? s.live.flush() : s.saved));
 	}
 
 	current(): TAbstractFile | null {
