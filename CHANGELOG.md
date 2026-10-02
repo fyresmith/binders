@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.40 (2026-10-02)
+
+### Changed
+
+- Word counts on cards, what a folder's card holds and the outliner's last row are in the theme's muted text instead of its faintest.
+
 ## 0.12.39 (2026-10-02)
 
 ### Fixed

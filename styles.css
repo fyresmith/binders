@@ -556,9 +556,10 @@
 	--binders-outline: var(--bases-cards-shadow, 0 0 0 1px var(--binders-edge));
 }
 
-/* The last row: what the columns add up to */
+/* The last row: what the columns add up to. (Muted, as a base's summaries are: these are values to be read. The
+   faintest text is Obsidian's for hints and placeholders, and is under 3:1 on the page.) */
 .binders-outliner-foot .binders-outliner-cell {
-	color: var(--text-faint);
+	color: var(--text-muted);
 	font-size: var(--font-ui-smaller);
 }
 
@@ -1684,7 +1685,7 @@
 	text-overflow: ellipsis;
 	white-space: nowrap;
 	font-size: var(--font-ui-smaller);
-	color: var(--text-faint);
+	color: var(--text-muted);
 	font-variant-numeric: tabular-nums;
 }
 
@@ -1933,12 +1934,13 @@
 	max-width: 70%;
 }
 
+/* (what a card counts is something to read: in muted text, as a property's name is on a base's card) */
 .binders-card-words {
 	min-width: 0;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	font-size: var(--font-ui-smaller);
-	color: var(--text-faint);
+	color: var(--text-muted);
 	white-space: nowrap;
 	font-variant-numeric: tabular-nums;
 }
@@ -2185,11 +2187,6 @@
    a colored card's does on a canvas. */
 .binders-board.mod-label-tint .binders-card.has-label {
 	background-color: color-mix(in oklch, var(--binders-label) 7%, var(--bases-cards-background, var(--background-primary)));
-}
-
-/* (on a tint, the faintest ink is too faint to read) */
-.binders-board.mod-label-tint .binders-card.has-label .binders-card-words {
-	color: var(--text-muted);
 }
 
 /* A note with a target of its own: how far along it is, as the toolbar says it for the binder: a small bar, then the

@@ -88,3 +88,19 @@ test('pointing at the outliner shows no tooltip', async (p, h, t) => {
 	}
 	await p.move(10, 10, 2);
 });
+
+test('what Binders counts (a card’s words, a folder card’s notes, the outliner’s last row) is in the theme’s muted text, which can be read on the page; the faintest text is left to hints', async (p, h, t) => {
+	await openView(p);
+	const of = (v) => p.ev(`(() => { const e = document.body.createDiv(); e.style.color = 'var(${v})'; const c = getComputedStyle(e).color; e.remove(); return c; })()`);
+	const muted = await of('--text-muted'), faint = await of('--text-faint');
+	t.ok(muted !== faint, 'the theme has both');
+	t.eq(await p.ev(style('.binders-card:not(.is-stack) .binders-card-words', 'color')), muted, 'a note’s card: its words');
+	t.eq(await p.ev(style('.binders-card.is-stack .binders-card-words', 'color')), muted, 'a folder’s card: what it holds');
+	t.eq(await p.ev(style('.binders-card-new', 'color')), faint, 'the “New note” tile, an empty place, stays faint until it’s pointed at');
+	await p.ev(`(() => { ${VIEW}.setMode('outliner'); return 1; })()`);
+	await until(p, `!!document.querySelector('.workspace-leaf.mod-active .binders-outliner-foot .binders-outliner-cell')`);
+	t.eq(await p.ev(style('.binders-outliner-foot .binders-outliner-cell.mod-title', 'color')), muted, 'the outliner’s last row');
+	// (how well it reads: the ink over the page, as WCAG counts it; 4.5 is what it asks of text)
+	const ratio = await p.ev(`(() => { const lum = (c) => { const [r, g, b] = c.match(/[\\d.]+/g).slice(0, 3).map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; }; const a = lum(${j(muted)}), e = document.body.createDiv(); e.style.color = 'var(--background-primary)'; const b = lum(getComputedStyle(e).color); e.remove(); return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05); })()`);
+	t.ok(ratio >= 4.5, `muted text on the page is ${ratio.toFixed(1)}:1`);
+});
