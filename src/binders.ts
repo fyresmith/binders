@@ -208,7 +208,7 @@ export class BinderStore extends Events implements ExplorerSource {
 	private states = new Map<TFile, State>();
 	private warned = new Set<string>();
 	/** Subfolders renamed, with their old names, so their folder notes can follow once the renames settle. */
-	private renamedFolders: { folder: TFolder; oldName: string }[] = [];
+	private renamedFolders: { folder: TFolder; oldName: string; tries?: number }[] = [];
 	private followTimer = 0;
 	private emits = new Set<string>();
 	private emitTimer = 0;
@@ -1225,22 +1225,49 @@ export class BinderStore extends Events implements ExplorerSource {
 	/** A renamed subfolder keeps its folder note: "Part One/Part One" follows the folder to "Part 1/Part 1". Run after the
 	    rename's events settle, never during it (the vault is then half updated). If the folder already has a note with
 	    the new name, both are left alone: that note is the folder note now, and no file is overwritten. */
-	private async followFolderNotes(): Promise<void> {
-		const pending = this.renamedFolders;
-		this.renamedFolders = [];
-		const { vault, fileManager } = this.app;
-		for (const { folder, oldName } of pending) {
-			const note = vault.getAbstractFileByPath(normalizePath(`${folder.path}/${oldName}.md`));
-			const to = normalizePath(`${folder.path}/${folder.name}.md`);
-			if (!(note instanceof TFile) || note.path === to) continue;
-			// a case-only rename is the same file on some disks, so only the vault's own map can tell
-			const clash = vault.getAbstractFileByPath(to) || (note.path.toLowerCase() !== to.toLowerCase() && await vault.adapter.exists(to));
-			if (clash) continue;
-			this.own.add(to);
-			try { await fileManager.renameFile(note, to); }
-			catch (e) { new Notice(`The folder note “${note.basename}” couldn’t be renamed to match its folder. ${e instanceof Error ? e.message : String(e)}`); }
-		}
+	private followFolderNotes(): Promise<void> {
+		const run = async (): Promise<void> => {
+			const pending = this.renamedFolders;
+			this.renamedFolders = [];
+			const { vault, fileManager } = this.app;
+			// a folder renamed again before its note had followed: the note still has one of the names the folder had
+			const names = new Map<TFolder, { olds: string[]; tries: number }>();
+			for (const { folder, oldName, tries } of pending) {
+				const n = names.get(folder) ?? { olds: [], tries: 0 };
+				n.olds.unshift(oldName); n.tries = Math.max(n.tries, tries ?? 0);
+				names.set(folder, n);
+			}
+			for (const [folder, { olds, tries }] of names) {
+				if (vault.getAbstractFileByPath(folder.path) !== folder) continue;
+				const to = normalizePath(`${folder.path}/${folder.name}.md`);
+				const note = olds.map((o) => vault.getAbstractFileByPath(normalizePath(`${folder.path}/${o}.md`))).find((f): f is TFile => f instanceof TFile && f.path !== to);
+				if (!note) continue;
+				// a case-only rename is the same file on some disks, so only the vault's own map can tell
+				const clash = vault.getAbstractFileByPath(to) || (note.path.toLowerCase() !== to.toLowerCase() && await vault.adapter.exists(to));
+				if (clash) continue;
+				this.own.add(to);
+				let said = '';
+				// (never waited for longer than a few seconds: the runs are in a line, and one that hung would hold up the rest)
+				try { await Promise.race([fileManager.renameFile(note, to), new Promise((r) => window.setTimeout(r, 3000))]); }
+				catch (e) { said = e instanceof Error ? e.message : String(e); }
+				// Renamed again under the note while this was on its way, a folder can leave it where it was: Obsidian
+				// refuses one of the two renames, not always this one. Tried again from where things stand, a few times at most.
+				if (vault.getAbstractFileByPath(note.path) !== note || vault.getAbstractFileByPath(folder.path) !== folder || note.parent !== folder || note.basename === folder.name) continue;
+				this.own.delete(to);
+				if (tries < 3) {
+					this.renamedFolders.push({ folder, oldName: note.basename, tries: tries + 1 });
+					window.clearTimeout(this.followTimer);
+					this.followTimer = window.setTimeout(() => { void this.followFolderNotes(); }, 50);
+				} else if (said) new Notice(`The folder note “${note.basename}” couldn’t be renamed to match its folder. ${said}`);
+			}
+		};
+		// one run at a time: a second, started while a note of the first is still being renamed, would look for that
+		// note under a name it doesn't have yet, find nothing, and leave it named after a folder name that's gone
+		return (this.followingNotes = this.followingNotes.then(run, run));
 	}
+
+	/** The renaming of folder notes under way (see `followFolderNotes`). */
+	private followingNotes: Promise<void> = Promise.resolve();
 
 	/** An item's path in a binder as the list writes it (see `relPath`), with one case of its own: a note that shares
 	    its folder with a file of the note's own name less ".md" ("paper.pdf.md" beside "paper.pdf": notes on a PDF)

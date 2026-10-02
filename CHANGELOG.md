@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.116 (2026-10-02)
+
+### Fixed
+
+- Renaming a folder again within a moment of renaming it no longer leaves its folder note under the old name, where it showed as a scene.
+
 ## 0.12.115 (2026-10-02)
 
 ### Fixed

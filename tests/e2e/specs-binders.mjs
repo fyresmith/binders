@@ -688,3 +688,30 @@ test('binders: a file and the note named after it (paper.pdf, paper.pdf.md) are 
 		same(t, before, await texts(p), { skip: [NOTE] });
 	} finally { await p.ev(`(async () => { for (const x of ${j([pdf, `${P1}/article.pdf`])}) { const f = app.vault.getAbstractFileByPath(x); if (f) await app.vault.delete(f); } })().then(() => 1)`); }
 }));
+
+// A folder's note takes its folder's new name a moment after the folder is renamed. A folder renamed again in that
+// moment, while its note is still on its way to the first name, mustn't leave the note behind under a name the
+// folder no longer has.
+test('binders: a folder renamed again while its note is still following the first rename: the note ends up named like the folder, with its text', withTidy(async (p, h, t) => {
+	const L = 'The Lighthouse';
+	await addFolderNote(p);
+	const text = await read(p, FOLDER_NOTE);
+	let at = 'Part One';
+	const strays = [];
+	// (the note follows 50 ms after a rename: the second rename is made just before, at and after that moment)
+	for (const [i, gap] of [30, 45, 50, 52, 55, 58, 62, 70, 85, 110].entries()) {
+		const b = `Chapter ${i}a`, c = `Chapter ${i}b`;
+		await p.ev(`(async () => { await app.fileManager.renameFile(${file(`${L}/${at}`)}, ${j(`${L}/${b}`)}); await new Promise(r => setTimeout(r, ${gap})); await app.fileManager.renameFile(app.vault.getAbstractFileByPath(${j(`${L}/${b}`)}), ${j(`${L}/${c}`)}).catch(() => 0); })().then(() => 1)`);
+		await p.sleep(700);
+		// (Obsidian itself may refuse the second rename when it runs into the note's own: the folder then keeps the first name)
+		at = (await exists(p, `${L}/${c}`)) ? c : b;
+		const names = await p.ev(`app.vault.adapter.list(${j(`${L}/${at}`)}).then(l => l.files.map(x => x.split('/').pop()).sort())`);
+		if (!names.includes(`${at}.md`)) strays.push(`${gap} ms: ${j(names)}`);
+	}
+	t.eq(j(strays), '[]', 'after each pair of renames the folder’s note has the folder’s name');
+	t.eq(await read(p, `${L}/${at}/${at}.md`), text, 'and its text, byte for byte');
+	t.eq(j(await children(p, `${L}/${at}`)), j(['Arrival.md', 'The keeper.md', 'Storm warning.md']), 'it is still the folder’s note, not an item');
+	await flush(p); await p.sleep(200);
+	t.eq(j((await contents(p)).slice(1, 5)), j([`${at}/`, `${at}/Arrival`, `${at}/The keeper`, `${at}/Storm warning`]), 'and the list on disk follows the folder');
+	p.errors.splice(0, p.errors.length, ...p.errors.filter((e) => !/ENOENT/.test(e)));
+}));
