@@ -169,10 +169,14 @@ export function labelItems(ctx: ModeContext, m: Menu, items: TAbstractFile[]): v
 
 /** Asks for a word count target for the items; nothing typed takes it away. */
 export async function askTarget(ctx: ModeContext, items: TAbstractFile[]): Promise<void> {
-	const one = items.length === 1 ? noteOf(ctx, items[0]) : null, now = one ? ctx.props(one).target : 0;
+	// (the target they share is in the field; targets that differ leave it empty)
+	const targets = items.map((f) => { const n = noteOf(ctx, f); return n ? ctx.props(n).target : 0; });
+	const mixed = targets.some((t) => t !== targets[0]), now = mixed ? 0 : targets[0] ?? 0;
 	// (something that isn't a number keeps the dialog open, with what was typed, to put right)
 	const typed = await ask(ctx.app, { title: 'Word count target', placeholder: 'Words, such as 1,500', cta: 'Set target', value: now ? String(now) : '', allowEmpty: true, numeric: true, check: whyNotTarget });
 	if (typed == null) return;
+	// (Enter on the field left empty because the targets differ says nothing: they stay; 0 takes them away)
+	if (mixed && !typed.trim()) return;
 	const n = parseTarget(typed);
 	if (n != null) await setAll(ctx, items, { target: n });
 }

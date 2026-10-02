@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.118 (2026-10-02)
+
+### Fixed
+
+- “Set target...” on several notes whose targets differ no longer takes them all away when Enter is pressed on the empty field; type 0 to remove them.
+
 ## 0.12.117 (2026-10-02)
 
 ### Changed
