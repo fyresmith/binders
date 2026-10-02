@@ -66,7 +66,10 @@ export async function removeItems(ctx: ModeContext, items: TAbstractFile[]): Pro
 	});
 	if (!ok) return false;
 	// (what's typed and not saved yet goes with the note: a deleted note is whole in the trash)
-	try { await saveOpen(ctx.app, items.flatMap((f) => (f instanceof TFolder ? ctx.store.scenes(f) : isNote(f) ? [f] : []))); } catch { /* deleted as it is on disk */ }
+	try { await saveOpen(ctx.app, items.flatMap((f) => (f instanceof TFolder ? ctx.store.scenes(f) : isNote(f) ? [f] : []))); } catch (e) {
+		new Notice(`Nothing was deleted because saving failed. ${e instanceof Error ? e.message : String(e)}`);
+		return false;
+	}
 	for (const f of items) {
 		try { await ctx.app.fileManager.trashFile(f); } catch (e) { new Notice(e instanceof Error ? e.message : String(e)); break; }
 	}

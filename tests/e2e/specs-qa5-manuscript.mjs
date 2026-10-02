@@ -1762,3 +1762,28 @@ test('phone: typing, then at once “Delete” from that section’s title menu:
 		await p.ev(`(async () => { app.vault.setConfig('trashOption', ${j(was ?? 'system')}); if (await app.vault.adapter.exists('.trash')) await app.vault.adapter.rmdir('.trash', true); })().then(() => 1)`);
 	}
 }));
+
+test('phone: a failed save refuses deletion; pending writing, an outside edit and undo are kept', on(PHONE, async (p, h, t, before) => {
+	await openMs(p);
+	await typeInKeeper(p, ' kept words');
+	await p.ev(`(() => { const v = ${VIEW}; window.failedDeleteView = v; window.savedDeleteFlush = v.saveNotes; v.saveNotes = async () => { throw new Error('Test save failure'); }; return 1; })()`);
+	try {
+		await titleMenu(p, KEEPER);
+		t.ok(await menuTap(p, 'Delete'), 'Delete');
+		await until(p, `!!document.querySelector('.modal .modal-button-container')`);
+		await dialogTap(p, 'Delete');
+		await p.sleep(400);
+		t.ok(await p.ev(`!!app.vault.getAbstractFileByPath(${j(KEEPER)})`), 'the note stays when saving fails');
+		t.ok((await notices(p)).some(n => /Nothing was deleted because saving failed/.test(n)), 'the writer is told that deletion was refused');
+	} finally {
+		await p.ev(`(() => { window.failedDeleteView.saveNotes = window.savedDeleteFlush; delete window.failedDeleteView; delete window.savedDeleteFlush; return 1; })()`);
+	}
+	await saveAll(p);
+	const kept = KEPT(before, ' kept words');
+	t.eq(disk(p, KEEPER), kept, 'all pending writing remains in the original note');
+	await p.ev(`app.vault.process(app.vault.getAbstractFileByPath(${j(KEEPER)}), text => text + 'Outside words.\\n').then(() => 1)`);
+	await p.sleep(700);
+	await typeInKeeper(p, ' undo me');
+	await p.sleep(600); await p.key('z', 'ctrl'); await saveAll(p);
+	t.eq(disk(p, KEEPER), kept + 'Outside words.\n', 'undo keeps the original writing and the external edit');
+}));

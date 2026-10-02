@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.11.1 (2026-10-02)
+
+### Fixed
+
+- Deleting a note stops if its latest writing cannot be saved.
+
 ## 0.11.0 (2026-10-02)
 
 ### Added
