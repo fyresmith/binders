@@ -52,9 +52,10 @@ keeps its place when you look at another, and when you open a note and come back
 
 One index card per note, in order, with its title, synopsis, status, label color and word count (and, for a note with
 a target, how far along it is). A folder is one card too, with a folder icon, its own synopsis, the names of the
-first things in it (each with its label color) and the count of what it holds: double-click it (or tap its name) to
+first five things in it (notes and folders only, each with its label color: a picture or a PDF kept beside them isn't
+named) and the count of what it holds: double-click it (or tap its name) to
 go into it, and use the breadcrumb above the board to come back out. A folder with no synopsis gets one from **Edit
-synopsis** in its menu. So the board is always one folder's items, in one order.
+synopsis** in its menu (on a phone, a selected folder card offers **Add a synopsis** itself). So the board is always one folder's items, in one order.
 
 - Drag cards to reorder them, onto a folder's card to move them into that folder, or onto a folder in the breadcrumb to move
   them out to it. The card follows the pointer,
@@ -71,8 +72,8 @@ synopsis** in its menu. So the board is always one folder's items, in one order.
   to link it, onto a canvas, a tab or the bookmarks. (Not on a phone.)
 - Double-click a card, or press Enter, to open the note. Ctrl-double-click (Cmd on macOS) or a middle
   click opens it in a new tab.
-- With the keyboard: arrow keys move between cards, Alt+arrows move a card, F2 renames, Delete asks before deleting,
-  Shift+F10 opens the card's menu. Ctrl+arrows (Cmd on macOS) move the focus without changing the selection, and
+- With the keyboard: arrow keys move between cards, Home and End go to the first and last, Alt+arrows move a card, F2
+  renames, Delete asks before deleting, Shift+F10 opens the card's menu, Esc goes back to one selected card. Ctrl+arrows (Cmd on macOS) move the focus without changing the selection, and
   Space adds the focused card to it or takes it out.
 
 #### Arrange by label
@@ -127,7 +128,7 @@ the synopsis under it (**Show synopses** turns that off); the other columns are 
   if it has none of its own; the last row does the same for everything shown.
 - **Rows** are selected, dragged and right-clicked as cards are: drag between two rows, onto a folder, or below
   everything. Rows can't be dragged while the outliner is sorted.
-- With the keyboard: Up and Down move between rows, Left and Right fold and unfold, Space folds, Enter opens,
+- With the keyboard: Up and Down move between rows (Home, End, Page Up and Page Down go further), Left and Right fold and unfold, Space folds, Enter opens,
   Ctrl+A (Cmd+A on macOS) selects all, Delete asks before deleting, and typing a name's first letters goes to its
   row. Right goes on into a row's cells, where the arrows move from cell to cell and Enter opens the cell's menu or
   field. Alt+Up and Alt+Down move the selected rows; Alt+Left takes them out of their folder, Alt+Right puts them in
@@ -144,7 +145,7 @@ edit them.
 
 - Arrow keys move on into the next note and back. Page Up and Page Down move a screen at a time, and Ctrl+Home and
   Ctrl+End (Cmd on macOS) go to the start and end of the whole manuscript.
-- Click a note's title to rename it; Ctrl-click (Cmd-click on macOS) opens the note. Right-click it for the menu
+- Click a note's title (or press F2 in it) to rename it; Ctrl-click (Cmd-click on macOS) opens the note. Right-click it for the menu
   its card has: status, label, a new note after it, move up or down, delete, snapshots. A folder's heading opens that folder.
 
 Long binders stay quick: only the sections near the screen are live editors, and the rest show as rendered text until
@@ -264,7 +265,8 @@ device counts its own. **Start counting from here**, in the menu, starts the day
 
 ## Undoing a move
 
-**Undo last move** and **Redo last move** take back, or make again, a drag, a **Move up** or **Move down**, a sort
+**Undo last move** and **Redo last move** work on one binder at a time: the one in front (or the one the open note is
+in), and with neither, the binder changed last. A move made in another binder is not the one taken back. They take back, or make again, a drag, a **Move up** or **Move down**, a sort
 kept as the binder's order, a folder made around notes (or taken away from them), or a card dragged to another
 label's line on the corkboard: each note goes back beside the neighbours it had, to the folder it was in, and to the
 label it had. Whatever you renamed or added since stays as it is. In the binder
@@ -378,7 +380,7 @@ Obsidian's Hotkeys settings. Most only appear where they apply (a binder view in
 | **Split scene at cursor**, **Split scene with selection as title** | Move the text from the cursor on into a new note after this one (in a note, or in the manuscript). |
 | **Set word count target** | Sets the target of the folder the binder view shows (the binder's own, on the binder). |
 | **Compile binder** | Writes the binder, or the folder shown, as one Markdown note, or copies it. |
-| **Undo last move**, **Redo last move** | Take back, or make again, the last move made by hand in the binder. |
+| **Undo last move**, **Redo last move** | Take back, or make again, the last move made by hand in the binder in front (or the open note's). |
 | **Move up**, **Move down** | Move the open note one place in its folder. |
 | **Take a snapshot**, **Rewrite**, **Show snapshots** | Snapshots of the open note (or, in the manuscript, the section the cursor is in). |
 | **Take a snapshot of every note in the binder** | One snapshot of each note, at one moment, under one name if you give it one. |
@@ -415,8 +417,8 @@ it in the notes that have it too. A few things are remembered outside the settin
 
 Binders is built to work on iOS and Android, but so far it has only been tested in Obsidian's phone and tablet
 emulation on a desktop, not on a real device. Tap a card to select it, then tap its synopsis to edit it or its title to open the
-note; press and hold for its menu, and hold and drag to move it. Rows in the outliner work the same way (a row
-without a synopsis gets one from **Edit synopsis** in its menu). On a phone menus open as Obsidian's own sheets, on a
+note; press and hold for its menu, and hold and drag to move it. Rows in the outliner work the same way (a selected row
+or folder card with no synopsis offers **Add a synopsis**; on a note's card, and in a menu, it is **Edit synopsis**). On a phone menus open as Obsidian's own sheets, on a
 tablet beside the finger; the manuscript uses Obsidian's editor and its toolbar.
 
 What a mouse and a keyboard do differently there:
@@ -430,9 +432,12 @@ What a mouse and a keyboard do differently there:
   in the toolbar, and its menu a sheet.
 - **The outliner's headers:** a tap opens a column's menu (sort, **Move left**, **Move right**, hide); on a phone the
   label column shows the color alone.
-- **Targets:** on the narrowest phones the word count leaves the toolbar; **Set word count target** in the command
-  palette sets a target there.
+- **Targets:** in a pane narrower than 360 px the word count in the toolbar is its number alone (tap it to set the
+  target); in an even narrower one it goes, and **Set word count target** in the command palette sets a target there.
 - **The file explorer:** on a phone a tap on a binder opens it, and a tap on a folder inside it folds or unfolds it.
+- **Typing:** with the keyboard up and little room left (a phone on its side), the toolbar steps aside while you type
+  and the manuscript runs under Obsidian's header, as a note does, so more lines are left to write in. Buttons, cards
+  and rows are 44 px tall or more, and folders deep in a binder indent by a narrower step, so their names stay readable.
 - **Focus mode:** on a phone Obsidian's bar of buttons and the note's header go; the way out is at the top, under the
   clock, with the place and the word counts beside it if they're on. It goes while you type and comes back when you
   touch the page. The keyboard's own toolbar stays. Press and hold the leave button for the menu.
@@ -474,16 +479,17 @@ Binders is not at 1.0 yet. What isn't finished, honestly:
   says so; the new note still has it. Nothing is lost, but the text is then in both. Delete one. The same happens,
   with a notice, if the note changes in the moment it is being split.
 - **Setting a property** (a status, a label, a target, a synopsis) goes through Obsidian, which writes the note's whole
-  properties block again in its own form: comments in the block are dropped, and `0123` becomes `123`. Obsidian's own
-  Properties view does the same. The note's text is never touched.
+  properties block again in its own form: comments in the block are dropped, and `0123` becomes `123`. The same happens
+  to a binder note, or a Longform project's index note, when its order is written. Obsidian's own Properties view does
+  the same. The note's text is never touched.
 - **Windows line breaks.** Binders leaves a note's line breaks alone unless you type in it. Obsidian itself rewrites
   a note that has Windows line breaks with its own when the note's tab is closed or given to another note.
 - **In the file explorer,** a selection that spans two folders of a binder, or a Longform project, still has Obsidian's
-  own **New folder with selection**, which puts the folder last. Obsidian's **Make a copy** of a folder copies the
-  folder's own note under its old name, so it shows in the copy as a scene. **Ungroup** leaves the emptied folder.
+  own **New folder with selection**, which puts the folder last. Obsidian's **Make a copy** of a folder is placed right after the original, in the original's order, but it
+  copies the folder's own note under its old name, so it may show in the copy as a scene. **Ungroup** leaves the emptied folder behind, empty, for you to delete.
 - **Undo** covers moves (and a folder made around notes), not renames, deletes, splits, merges or duplicates, and
-  remembers the last fifty changes while Obsidian is open. Undoing a kept sort of thousands of notes is slow.
-- **For screen readers,** the "New note" tile sits inside the list of cards, and "Undo last move" isn't announced.
+  remembers the last fifty changes (of all binders together) while Obsidian is open. Undoing a kept sort of thousands of notes is slow.
+- **For screen readers,** the "New note" tile sits inside the list of cards, so a reader may skip its button, and "Undo last move" isn't announced.
 - **Not built yet**, before 1.0: export (EPUB, DOCX, PDF and a Scrivener project), import from a Scrivener project, and
   find and replace across the manuscript. See the [roadmap](ROADMAP.md).
 

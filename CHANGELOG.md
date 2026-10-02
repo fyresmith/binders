@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.132 (2026-10-02)
+
+### Changed
+
+- The README describes the folder card, the keys, undo for the binder in front and how the views behave on a phone as they are now.
+
 ## 0.12.131 (2026-10-02)
 
 ### Added
