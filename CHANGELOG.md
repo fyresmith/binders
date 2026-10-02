@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.10.14 (2026-10-02)
+
+### Fixed
+
+- The manuscript scrolls its cursor into view when the phone keyboard opens, before another key is typed.
+
 ## 0.10.13 (2026-10-02)
 
 ### Fixed

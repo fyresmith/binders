@@ -184,13 +184,20 @@ class Manuscript implements BinderMode {
 		c.registerDomEvent(this.root, 'focusout', (e) => this.keepCaret(e.target));
 		// (a moment after the focus has gone, and before CodeMirror looks at it: not in the middle of the browser's own
 		// change of focus, where the editor would measure itself over and over)
-c.registerDomEvent(this.root, 'focusout', (e) => { const cm = this.sceneOf(e.target)?.live?.cm; if (cm) window.setTimeout(() => { if (!cm.hasFocus) this.letGo(cm); }, 0); });
+		c.registerDomEvent(this.root, 'focusout', (e) => { const cm = this.sceneOf(e.target)?.live?.cm; if (cm) window.setTimeout(() => { if (!cm.hasFocus) this.letGo(cm); }, 0); });
 		// the keyboard coming up over the page: the cursor is brought back above it
 		const vv = this.root.win.visualViewport;
 		if (vv) {
-			const seen = () => { const at = this.sceneOf(this.root.ownerDocument.activeElement), cm = at?.live?.cm; if (at && cm?.hasFocus) this.follow(at, cm); };
-// BISECT vv off
-			c.register(() => vv.removeEventListener('resize', seen));
+			let frame = 0;
+			const seen = () => {
+				this.root.win.cancelAnimationFrame(frame);
+				frame = this.root.win.requestAnimationFrame(() => {
+					const at = this.sceneOf(this.root.ownerDocument.activeElement), cm = at?.live?.cm;
+					if (at && cm?.hasFocus) this.follow(at, cm);
+				});
+			};
+			vv.addEventListener('resize', seen);
+			c.register(() => { vv.removeEventListener('resize', seen); this.root.win.cancelAnimationFrame(frame); });
 		}
 		for (const type of ['wheel', 'touchmove', 'pointerdown', 'keydown'] as const) c.registerDomEvent(this.root, type, () => { this.pin = null; }, { passive: true });
 		// a section is written down as soon as the cursor leaves it, not a moment later: whatever opens its note next (a
