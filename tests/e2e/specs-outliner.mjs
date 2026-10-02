@@ -314,6 +314,45 @@ test('columns: shown and hidden from “+”, moved and hidden from their header
 	t.eq(j(await headers(p)), j(['title', 'status', 'words', 'target', 'prop:plotlines']), 'another binder’s outliner opens with them');
 }));
 
+test('columns: the keyboard stays in the header through a redraw: on a column sorted from its menu or by a click, on its neighbor when it’s hidden, on “+” when that shows a column', async (p, h, t) => {
+	await open(p);
+	const TH = `${O} .binders-outliner-th`;
+	const on = () => p.ev(`(() => { const a = document.activeElement; return a?.classList.contains('binders-outliner-th') ? (a.classList.contains('mod-add') ? '+' : a.dataset.col) : (a?.className || a?.tagName) ?? null; })()`);
+	const pick = async (title) => {
+		const items = await menuItems(p), i = items.indexOf(title);
+		if (i < 0) throw new Error(`no “${title}” in ${items.join(', ')}`);
+		for (let k = 0; k <= i; k++) await p.key('ArrowDown');
+		await p.key('Enter');
+		await p.sleep(350);
+	};
+	const menuOf = async (sel) => { await p.ev(`(() => { document.querySelector(${j(sel)}).focus(); return 1; })()`); await p.key('Enter'); await p.sleep(200); };
+	await menuOf(`${TH}[data-col="status"]`);
+	await pick('Sort ascending');
+	t.eq(await on(), 'status', 'sorted from its menu: the keyboard is on that header');
+	t.eq(await p.ev(`document.activeElement.getAttribute('aria-sort') + ' ' + document.activeElement.getAttribute('tabindex')`), 'ascending 0', 'the one drawn again, which says it’s sorted and is the header’s tab stop');
+	await p.key('ArrowLeft');
+	t.eq(await on(), 'label', 'and the arrow keys carry on from it');
+	await menuOf(`${TH}[data-col="status"]`);
+	await pick('Hide column');
+	t.eq(j(await headers(p)), j(['title', 'label', 'words']), 'Status is hidden');
+	t.eq(await on(), 'words', 'the keyboard is on the header now in its place');
+	await menuOf(`${TH}.mod-add`);
+	await pick('Target');
+	t.eq(j(await headers(p)), j(['title', 'label', 'words', 'target']), '“+” shows Target');
+	t.eq(await on(), '+', 'the keyboard is still on “+”');
+	const label = await p.at(`${TH}[data-col="label"]`);
+	await p.click(label.x, label.y);
+	await p.sleep(300);
+	t.eq(await p.ev(`document.querySelector(${j(`${TH}[data-col="label"]`)}).getAttribute('aria-sort')`), 'ascending', 'a click on a header sorts by it');
+	t.eq(await on(), 'label', 'and leaves the keyboard on it');
+	// rows still take the keyboard back when it was among them
+	const a = await nameAt(p, 'Epilogue.md');
+	await p.click(a.x, a.y);
+	await p.ev(`(() => { ${VIEW}.current.setSort?.(null); return 1; })()`).catch(() => {});
+	await p.sleep(200);
+	t.ok(await p.ev(`!!document.activeElement.closest('${R}')`), 'a row with the keyboard keeps it');
+});
+
 test('columns: dragging a header moves it; dragging its edge resizes it', async (p, h, t) => {
 	await open(p);
 	const th = (id) => p.at(`${O} .binders-outliner-th[data-col="${id}"]`);

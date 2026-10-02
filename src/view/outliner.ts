@@ -482,7 +482,8 @@ class Outliner implements BinderMode {
 		this.quick = false;
 		if (this.refocus) { this.focused = this.refocus; this.refocus = null; this.paintSelection(); this.rowEl(this.focused)?.focus({ preventScroll: true }); }
 		else if (keep?.path && drawn.has(keep.path)) this.focusCell(keep.path, keep.col);
-		else if (hadFocus) (this.rowEl(this.focused) ?? this.root).focus({ preventScroll: true });
+		// (not from the column headers: the keyboard on one of them stays there, see OutlinerColumns.draw)
+		else if (hadFocus && !this.head.contains(this.root.doc.activeElement)) (this.rowEl(this.focused) ?? this.root).focus({ preventScroll: true });
 		if (this.renameNext) {
 			const row = drawn.get(this.renameNext);
 			this.renameNext = null;

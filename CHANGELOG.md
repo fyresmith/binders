@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.29 (2026-10-02)
+
+### Fixed
+
+- Sorting, hiding or showing an outliner column from the keyboard leaves the keyboard on that header instead of throwing it out to the rows.
+
 ## 0.12.28 (2026-10-02)
 
 ### Fixed

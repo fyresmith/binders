@@ -51,6 +51,10 @@ export class OutlinerColumns {
 
 	/** Draws the header again: a cell for the title and one for each column, then “+”. */
 	draw(cols: ColumnSpec[], sort: Sort): void {
+		// the header the keyboard is on keeps it: every header is made again, and a sort, a column shown or hidden
+		// (its own menu, the “+”, a click) would otherwise leave the keyboard nowhere
+		const active = this.h.head.doc.activeElement, was = active?.instanceOf(HTMLElement) && this.h.head.contains(active) ? active.closest<HTMLElement>('.binders-outliner-th') : null;
+		const wasAt = was ? Array.from(this.h.head.children).indexOf(was) : -1, wasCol = was?.dataset.col;
 		this.h.head.empty();
 		const th = (id: string, i: number): HTMLElement => {
 			const el = this.h.head.createDiv({ cls: 'binders-outliner-th', attr: { role: 'columnheader', 'data-col': id, tabindex: id === TITLE ? '0' : '-1', 'aria-haspopup': 'menu', 'aria-label': columnName(id) } });
@@ -82,6 +86,12 @@ export class OutlinerColumns {
 		const show = (e?: MouseEvent) => { const m = new Menu(); this.items(m); showUnder(m, add, e); };
 		add.addEventListener('click', () => show());
 		add.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); show(); } });
+		if (!was) return;
+		// (a column that has gone hands over to the header now in its place, the last of them, the “+”)
+		const ths = Array.from(this.h.head.children).filter((x): x is HTMLElement => x.instanceOf(HTMLElement));
+		const to = was.hasClass('mod-add') ? add : ths.find((x) => x.dataset.col === wasCol) ?? ths[Math.min(wasAt, ths.length - 1)] ?? add;
+		if (to !== add) for (const x of ths) if (x.dataset.col) x.setAttr('tabindex', x === to ? '0' : '-1');
+		to.focus({ preventScroll: true });
 	}
 
 	private onHeadKey(e: KeyboardEvent, id: string, el: HTMLElement): void {
