@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.94 (2026-10-02)
+
+### Fixed
+
+- On a phone, switching to the manuscript could leave the note you were on under the navigation bar, or open at the top of the book.
+
 ## 0.12.93 (2026-10-02)
 
 ### Added

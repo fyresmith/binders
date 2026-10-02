@@ -283,18 +283,23 @@ class Manuscript implements BinderMode {
 			// the section that was at the top is there again (sections above it are still guesses at their height: as
 			// they're drawn, the anchoring above holds this one still)
 			this.root.scrollTop += e.el.getBoundingClientRect().top - this.root.getBoundingClientRect().top + (typeof p.offset === 'number' ? p.offset : 0);
-			this.lastTop = this.root.scrollTop;
-			// (every section's height as it is now is what later changes are measured from: one that's drawn before
-			// its first measurement comes in would otherwise move the page by the difference)
-			for (const x of this.entries) this.heights.set(x.el, x.el.getBoundingClientRect().height);
-			// and it's this section that stays put while the page around it is drawn, until the reader moves the page
-			this.pin = e.el;
-			window.clearTimeout(this.pinTimer);
-			this.pinTimer = window.setTimeout(() => { this.pin = null; }, 4000);
+			this.hold(e.el);
 		}
 		const c = p.caret, f = c && typeof c.path === 'string' ? this.app.vault.getAbstractFileByPath(c.path) : null;
 		// (a place kept by an earlier version counted from the top of the file: its cursor isn't used)
 		this.caret = f instanceof TFile && c && c.rel === true && typeof c.pos === 'number' ? { file: f, pos: c.pos, anchor: typeof c.anchor === 'number' ? c.anchor : c.pos } : null;
+	}
+
+	/** A section the page was just put at stays where it is while the sections above it are drawn (they're guesses at
+	    their height until then, and each one drawn would push it down the page), until the reader moves the page. */
+	private hold(el: HTMLElement): void {
+		this.lastTop = this.root.scrollTop;
+		// (every section's height as it is now is what later changes are measured from: one that's drawn before
+		// its first measurement comes in would otherwise move the page by the difference)
+		for (const x of this.entries) this.heights.set(x.el, x.el.getBoundingClientRect().height);
+		this.pin = el;
+		window.clearTimeout(this.pinTimer);
+		this.pinTimer = window.setTimeout(() => { this.pin = null; }, 4000);
 	}
 
 	/** The folder's synopsis is the page's first lines. */
@@ -304,9 +309,12 @@ class Manuscript implements BinderMode {
 		const e = this.byKey.get(item) ?? (this.sync(), this.byKey.get(item));
 		if (!e) return;
 		e.el.scrollIntoView({ block: 'nearest' });
-		// (its title clear of the bar of buttons a phone lays over the foot of the page)
-		const head = e.kind === 'scene' ? e.titleEl : e.el, r = head.getBoundingClientRect(), bottom = visibleBottom(this.root) - 8;
-		if (r.bottom > bottom) this.root.scrollTop += Math.min(r.bottom - bottom + this.root.clientHeight / 3, r.top - this.root.getBoundingClientRect().top - 8);
+		// (its title clear of the bar of buttons a phone lays over the foot of the page, and not on the page's last
+		// lines either: what's gone to is there to be read, so it starts no lower than two thirds down)
+		const head = e.kind === 'scene' ? e.titleEl : e.el, r = head.getBoundingClientRect(), top = this.root.getBoundingClientRect().top + this.covered(), bottom = visibleBottom(this.root) - 8;
+		const low = bottom - (bottom - top) / 3;
+		if (r.bottom > low) this.root.scrollTop += Math.min(r.bottom - low, r.top - top - 8);
+		this.hold(e.el);
 		// (a folder just made has its name ready to type over, as on the corkboard)
 		if (e.kind === 'heading') { if (fresh && !this.ctx.readOnly) this.renameHeading(e); return; }
 		if (e.kind !== 'scene') return;
