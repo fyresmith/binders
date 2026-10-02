@@ -847,7 +847,7 @@ test('phone: the filter is picked by touch in a sheet that stays for the next pi
 		t.eq(j((await viewState(p)).filter.status), j(['Draft', 'Idea']), 'and another');
 		await gone(p);
 		await shot(p, 'filter-on');
-		t.eq(await p.ev(`document.querySelector('${LEAF} .binders-filter-button').getAttribute('aria-label') + '|' + document.querySelector('${LEAF} .binders-filter-button').classList.contains('is-active')`), 'Filter|true', 'the button shows the filter is on');
+		t.eq(await p.ev(`document.querySelector('${LEAF} .binders-filter-button').getAttribute('aria-label') + '|' + document.querySelector('${LEAF} .binders-filter-button').classList.contains('is-active')`), 'Filter: 2 on|true', 'the button shows the filter is on, and how many picks it has (since 0.12.93)');
 		t.eq(j(await p.ev(`[...document.querySelectorAll('${LEAF} .binders-card[data-path]')].map(c => c.dataset.path.split('/').pop())`)), j(['Prologue.md', 'Part One', 'Part Two', 'Epilogue.md']), 'of the binder’s own notes, only the ones that pass show (both do), beside the folders’ stacks');
 		await open(p, L + 'Part One');
 		t.eq(j(await p.ev(`[...document.querySelectorAll('${LEAF} .binders-card[data-path]')].map(c => c.dataset.path.split('/').pop())`)), j(['The keeper.md', 'Storm warning.md']), 'and inside a folder only its notes that pass (Arrival, revised, doesn’t)');
@@ -858,6 +858,7 @@ test('phone: the filter is picked by touch in a sheet that stays for the next pi
 		await p.sleep(500);
 		t.eq(j((await viewState(p)).filter), j({ status: [], label: [] }), '“Clear filter” takes it off');
 		t.eq(await p.ev(`document.querySelectorAll('.menu').length`), 0, 'and closes the sheet');
+		t.eq(await p.ev(`document.querySelector('${LEAF} .binders-filter-button').getAttribute('aria-label') + '|' + document.querySelector('${LEAF} .binders-filter-button').classList.contains('is-active')`), 'Filter|false', 'with no filter the button says just “Filter”');
 	});
 });
 

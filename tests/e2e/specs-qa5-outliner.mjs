@@ -1265,7 +1265,9 @@ test('phone: an empty binder says so and takes a first note; a binder in a newer
 		f.lfDrag = await dragState(p);
 		await shot(p, 'state-longform-drag');
 		c.eq(f.lfDrag.hint, 'Move after “The crossing”', 'a scene dragged to the end of the group');
-		c.eq(f.lfDrag.line?.[0], 46, 'its line indented as the group is');
+		// (where the group's names start: measured, as in the folder drag above; the indent has changed before)
+		const lfNames = (await rect(p, LF('The crossing.md') + ' .binders-outliner-main'))[0];
+		c.eq(f.lfDrag.line?.[0], lfNames, `its line indented as the group is, at its names (${lfNames} px): ${j(f.lfDrag.line)}`);
 		await touch(p, 'touchEnd');
 		await p.sleep(1000);
 		await flush(p);
@@ -1852,12 +1854,13 @@ ux('phone: a name’s and a target’s field ask the keyboard for a “done” k
 // =====================================================================================================================
 const bug6 = (name, fn) => specs.push({ name: 'BUG: qa6: outliner: ' + name, fn });
 
-bug6('phone: a synopsis that can’t be saved (its note’s properties are broken) stays in its field however often another row is tapped (it’s given up, with the paragraph typed, at the second tap: “left a second time with text that can’t be saved” was meant for a target that isn’t a number; when the save is refused at once, the first tap already counts twice)', async (p, h, t) => {
+bug6('phone: a synopsis for a note whose properties are broken is saved all the same (above the note’s text, since 0.12.57), the note’s text below is byte for byte what it was, and the field closes', async (p, h, t) => {
 	const f = {};
 	const P = 'Part One/Arrival.md', typed = 'A whole new paragraph that took a while to write.';
+	// (properties that can't be read, an unclosed quote; and the text under them)
+	const broken = '---\nstatus: "Revised\nsynopsis: Mara arrives.\n---\nMara arrives on the island with the supply boat.\n';
 	await onDevice(p, PHONE, async () => {
-		// (properties that can't be read, an unclosed quote: Obsidian refuses to write them)
-		await p.ev(`app.vault.adapter.write(${j(L + P)}, ${j('---\nstatus: "Revised\nsynopsis: Mara arrives.\n---\nMara arrives on the island with the supply boat.\n')}).then(() => 1)`);
+		await p.ev(`app.vault.adapter.write(${j(L + P)}, ${j(broken)}).then(() => 1)`);
 		await p.sleep(1500);
 		await open(p);
 		await rowMenu(p, P);
@@ -1865,25 +1868,22 @@ bug6('phone: a synopsis that can’t be saved (its note’s properties are broke
 		await p.sleep(900);
 		f.tag = (await active(p)).tag;
 		await p.type(typed);
-		const fields = () => p.ev(`[...document.querySelectorAll('${LEAF} .binders-edit-field')].map(f => f.value)`);
-		f.taps = [];
-		for (let i = 0; i < 2; i++) {
-			const o = await p.at(row('Part One/The keeper.md') + ' .binders-outliner-name');
-			await tap(p, o.l + 100, o.y + 30);
-			await p.sleep(900);
-			f.taps.push(await fields());
-			if (!i) f.notices = await notices(p);
-			await gone(p);
-		}
-		await shot(p, 'qa6-synopsis-given-up');
+		const o = await p.at(row('Part One/The keeper.md') + ' .binders-outliner-name');
+		await tap(p, o.l + 100, o.y + 30);
+		await p.sleep(1200);
+		f.fields = await p.ev(`[...document.querySelectorAll('${LEAF} .binders-edit-field')].map(f => f.value)`);
+		f.notices = await notices(p);
+		await gone(p);
+		await shot(p, 'qa6-synopsis-saved');
 		f.disk = await read(p, L + P);
 		await p.key('Escape');
 		await p.sleep(300);
 	});
 	t.eq(f.tag, 'TEXTAREA', 'the synopsis is being edited');
-	t.ok(f.notices.length > 0, 'why it wasn’t saved is said: ' + j(f.notices));
-	t.ok(f.taps[0].includes(typed), 'after a tap on another row, what was typed is still in its field: ' + j(f.taps[0]));
-	t.ok(f.taps[1].includes(typed) || f.disk.includes(typed), 'and after a second: nothing written is thrown away (fields open: ' + j(f.taps[1]) + ')');
+	t.ok(f.disk.includes(typed), 'what was typed is in the note: ' + j(f.disk));
+	t.ok(f.disk.endsWith(broken), 'and the note’s own text below is byte for byte what it was: ' + j(f.disk));
+	t.eq(j(f.fields), j([]), 'the field closed: ' + j(f.fields));
+	t.eq(f.notices.length, 0, 'and nothing is said about it: ' + j(f.notices));
 });
 
 bug6('phone: a target or a name that can’t be saved is still in its field after ONE tap on another row, to be put right; the second tap gives it up (one tap on a row, a cell or the totals gives it up at once: only a tap on something that takes no focus, the header or the toolbar, leaves it for a second)', async (p, h, t) => {

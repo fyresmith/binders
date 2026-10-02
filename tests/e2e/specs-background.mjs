@@ -1,7 +1,7 @@
 // The app going to the background (another app in front, the screen off): on a phone it may never come back, and nothing
 // says so first, so whatever is being typed is written at that moment. And a save that's slow doesn't lose what's typed
 // while it runs.
-import { NOTE, VIEW, card, contents, exists, j, openView, read, same, texts, until, withTidy } from './view-helpers.mjs';
+import { NOTE, VIEW, card, clickMenu, contents, exists, j, openView, read, same, texts, until, withTidy } from './view-helpers.mjs';
 
 export const specs = [];
 const test = (name, fn) => specs.push({ name: 'background: ' + name, fn });
@@ -33,10 +33,10 @@ test('a folder’s synopsis being typed on its stack is saved to its folder note
 	const before = await texts(p);
 	await openView(p);
 	const c = await p.at(card(L + 'Part One'));
-	await p.click(c.x, c.t + 14);
-	await p.sleep(800); // (a stack's synopsis takes a click once the stack has been selected a moment)
-	const s = await p.at(`${card(L + 'Part One')} .binders-card-synopsis`);
-	await p.click(s.x, s.y); await p.sleep(200);
+	t.eq(await p.at(`${card(L + 'Part One')} .binders-card-synopsis`), null, 'a folder’s card with no synopsis has no line for one');
+	await p.right(c.x, c.t + 14);
+	await clickMenu(p, 'Edit synopsis'); // (the first synopsis a folder gets comes from its menu)
+	await until(p, `document.activeElement?.matches('${card(L + 'Part One')} textarea')`, 3000);
 	t.ok(await p.ev(`document.activeElement.matches('${card(L + 'Part One')} textarea')`), 'the stack’s synopsis is being edited');
 	t.ok(!(await exists(p, L + 'Part One/Part One.md')), 'the folder has no note of its own yet');
 	await p.type('Mara comes ashore.');

@@ -716,7 +716,7 @@ test('phone: “Show in binder” in a scene’s “More options” opens the bi
 // The toolbar and the header
 // =====================================================================================================================
 
-test('phone toolbar: at 320, 360, 390 and 430 px and on its side (568, 844, 932 px), on a binder with a target and in a folder, with and without a filter: nothing overlaps or sticks out, buttons keep their size, the count shows from 360 px at the root and 440 in a folder, the bar from 440, the buttons’ words from 540; the header’s title is centred', async (p, h, t) => {
+test('phone toolbar: at 320, 360, 390 and 430 px and on its side (568, 844, 932 px), on a binder with a target and in a folder, with and without a filter: nothing overlaps or sticks out, buttons keep their size, the count shows at the root (as its number alone below 360 px) and from 440 px in a folder, the bar from 440, the buttons’ words from 540; the header’s title is centred', async (p, h, t) => {
 	await onDevice(p, PHONE, async () => {
 		await p.ev(`app.fileManager.processFrontMatter(app.vault.getAbstractFileByPath(${j(L + 'The Lighthouse.md')}), fm => { fm.target = 50000; }).then(() => 1)`);
 		await open(p);
@@ -734,10 +734,18 @@ test('phone toolbar: at 320, 360, 390 and 430 px and on its side (568, 844, 932 
 					t.ok(bar.out <= 0 && bar.overlap.length === 0, `${what}: nothing sticks out or overlaps: ${j(bar.kids.map((k) => [k.cls, k.l, k.r]))}`);
 					t.ok(bar.kids.every((k) => k.l >= 0 && k.r <= w), `${what}: everything is on the screen`);
 					t.ok(['mode-button', 'filter-button', 'new-button'].every((c) => has(c) && has(c).h >= 32 && has(c).w >= 32), `${what}: the three buttons are there, 32 px or more each way`);
-					t.eq(!!has('word-count'), w >= (folder === 'The Lighthouse' ? 360 : 440), `${what}: the word count leaves room for the folder breadcrumb and Arrange button`);
-					if (has('word-count')) t.ok(has('word-count').cut <= 0 && (filter ? / of /.test(has('word-count').text) : folder === 'The Lighthouse' ? /106 \/ 50,000 words/.test(has('word-count').text) : /51 words/.test(has('word-count').text)), `${what}: whole, and right: ${has('word-count').text}`);
+					// (since 0.12.101 the count on the binder's own board is never hidden: below 360 px it's its number alone; in a
+					// folder, where the way up needs the room, it still goes below 440)
+					const showing = folder === 'The Lighthouse' || w >= 440, wc = has('word-count');
+					t.eq(!!wc, showing, `${what}: the word count ${showing ? 'is there' : 'gives way to the folder breadcrumb and Arrange button'}`);
+					if (wc) {
+						const words = await p.ev(`getComputedStyle(document.querySelector('${LEAF} .binders-word-count-unit') ?? document.body).display !== 'none'`), shown = await p.ev(`document.querySelector('${LEAF} .binders-word-count').innerText.trim()`);
+						t.eq(words, w >= 360, `${what}: the word “words” ${w >= 360 ? 'is' : 'is not'} shown`);
+						t.ok(wc.cut <= 0 && wc.r <= w && wc.l >= 0, `${what}: the count is whole and on the screen: ${shown}`);
+						t.ok(w >= 360 ? (filter ? / of /.test(shown) : folder === 'The Lighthouse' ? /106 \/ 50,000 words/.test(shown) : /51 words/.test(shown)) : (filter ? /^\d+ of \d+$/.test(shown) : /^106 \/ 50,000$/.test(shown)), `${what}: and right: ${shown}`);
+					}
 					t.eq(!!has('progress'), w >= 440 && folder === 'The Lighthouse', `${what}: the progress bar shows from 440 px, where there’s a target`);
-					t.eq(has('filter-button').w > 40, w >= 540, `${what}: “Filter” is spelled out from 540 px`);
+					t.eq(await p.ev(`getComputedStyle(document.querySelector('${LEAF} .binders-filter-button .text-button-label')).display !== 'none'`), w >= 540, `${what}: “Filter” is spelled out from 540 px (the button itself is a finger tall by padding at any width: ${has('filter-button').w} px)`);
 					if (filter) t.ok(await p.ev(`document.querySelector('${LEAF} .binders-filter-button').classList.contains('is-active')`), `${what}: the filter button shows it’s on`);
 				}
 				await p.ev(`(() => { ${VIEW}.setFilter({ status: [], label: [] }); return 1; })()`);

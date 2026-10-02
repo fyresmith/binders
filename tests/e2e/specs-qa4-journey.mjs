@@ -1710,7 +1710,8 @@ bug('the outliner: a click on a column’s header sorts by it and leaves the sel
 	await p.click(th.x, th.y);
 	await p.sleep(300);
 	t.eq(j(await selRows(p)), j([K]), 'the row is still selected');
-	t.eq(await p.ev(`document.activeElement?.dataset?.path ?? null`), K, 'and still has the focus');
+	t.eq(await p.ev(`document.activeElement?.dataset?.col ?? null`), 'words', 'and the focus is on the header that was clicked (since 0.12.29), so the keyboard works the column');
+	t.ok(await p.ev(`document.querySelector('${AL} .binders-outliner-th[data-col="words"] .binders-outliner-th-sort') !== null`), 'the column is sorted by');
 });
 
 bug('the corkboard keeps its selection, and the keyboard, when the selected cards change folder by an undo (the outliner follows renames; src/view/corkboard.ts doesn’t)', async (p, h, t) => {
