@@ -9,7 +9,6 @@ import { Menu, type App, type ItemView, type MenuItem, type TFile, type Workspac
 interface WithSubmenu { setSubmenu(): Menu }
 const hasSubmenu = (i: MenuItem): i is MenuItem & WithSubmenu => typeof (i as Partial<WithSubmenu>).setSubmenu === 'function';
 
-/** Makes `item` open a submenu built by `build`. */
 /** Lets an item of a menu be picked without the menu closing (a list to tick several things in): `pick` does it and
     says whether the item is ticked now. Not in the API: the item's `dom`, whose click Obsidian closes the menu on.
     False if this Obsidian has no such thing; the caller then opens the menu again after each pick. */
@@ -27,6 +26,8 @@ export function fitItemMenu(menu: Menu): void {
 	dom.addClass('binders-item-menu');
 }
 
+/** Makes `item` open a submenu built by `build`; without Obsidian's submenu, a menu of its own in its place. Picking
+    in it closes `root` too, the menu it came from. */
 export function submenu(item: MenuItem, build: (menu: Menu) => void, root?: Menu): void {
 	if (hasSubmenu(item)) {
 		try {
@@ -134,8 +135,8 @@ export function readableLineLength(app: App): boolean {
 
 /* The Snapshots dialog looks like Obsidian's own File recovery and Sync history dialogs because it wears their classes:
    `mod-sidebar-layout` and `mod-sync-history` on the dialog, `modal-sidebar`, `modal-sidebar-list-item`,
-   `sync-history-content-container`, `modal-setting-titlebar`, `sync-history-preview`, and for what changed,
-   `diff-view`, `diff-line mod-left / mod-right` and `diff-changed`. None of them is in the API. They're known by what
+   `sync-history-content-container`, `modal-setting-titlebar`, `sync-history-preview`, and for a line taken out,
+   `diff-line mod-left`. None of them is in the API. They're known by what
    they do: with them the dialog's content is a row, and a line that was taken out is tinted. If either isn't so (a
    later Obsidian renamed them), this says no, and the dialog takes Binders' own rules for the same layout and colors
    (`.binders-snapshots.is-plain` in styles.css). */

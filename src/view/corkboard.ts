@@ -1,18 +1,20 @@
 import { Keymap, Menu, Notice, TFile, TFolder, setIcon, type PaneType, type TAbstractFile } from 'obsidian';
-import { buildCard, cardKey, countLabel, crumbAt, heir, numberCards, overPane, owedFocus, sumWords, synopsisField, typingNow, type CardHost } from './card';
-import { editable, type Editable } from './edit';
+import { buildCard, cardKey, countLabel, crumbAt, heir, numberCards, overPane, owedFocus, typingNow, type CardHost } from './card';
+import type { Editable } from './edit';
 import { emptyState, badName, isNote, itemMenu, nameOf, noteOf, plain, removeItems, renameItem } from './actions';
-import { held, settle, visibleBottom } from './drag';
+import { LONG_PRESS, held, settle, visibleBottom } from './drag';
 import { FileDrag } from './file-drag';
-import { movedText } from './lanes-data';
+import { CARD_SIZES, movedText, type CardSize } from './lanes-data';
 import { submenu } from './internals';
-import { display, labelDot, labelName } from './labels';
+import { display } from './labels';
 import type { BinderMode, ModeContext, ModeFactory } from './mode';
 
-/* The corkboard: one index card per note, in binder order. Subfolders show as groups with a heading (or, as an option,
-   as one stacked card each); in a Longform project, which has no subfolders, scenes indented under a scene do. Cards are edited in place (synopsis, title), reordered by dragging (mouse, pen or touch:
-   touch starts a drag with a long press, so a swipe still scrolls) or with the keyboard, and moved between folders by
-   dropping them in another group. Redraws wait while something is being typed or dragged, so neither is interrupted.
+/* The corkboard: one index card per note, in binder order, in a grid. A subfolder is one card of the same size as a
+   note's (it names what it holds); double-click it to go into it. A Longform project has no subfolders: scenes
+   indented under a scene show as a group below it, with a heading. Cards are edited in place (synopsis, title),
+   reordered by dragging (mouse, pen, or touch with a long press, so a swipe still scrolls) or with the keyboard, and
+   moved between folders by dropping them on a folder's card or on the breadcrumb. Redraws wait while something is
+   being typed or dragged.
 
    A drag looks like Obsidian's own reordering (a list's properties, a base's columns): the card itself follows the
    pointer, its place is held by a tinted slot, and a line shows where it will go. Nothing on the board moves until the
@@ -20,7 +22,7 @@ import type { BinderMode, ModeContext, ModeFactory } from './mode';
 
 interface Group {
 	folder: TFolder;
-	/** A subfolder of the one shown (with a heading), or a run of the shown folder's own notes. */
+	/** Another folder than the one shown (the group a drop on a folder's card goes to); the groups drawn never are. */
 	sub: boolean;
 	items: TAbstractFile[];
 	/** The folder's item just after this group, where its end is (null: the folder's end). */
@@ -59,9 +61,7 @@ interface DrawnCard { el: HTMLElement; key: string; file: TAbstractFile; editors
 /** What a card, a "New note" card or a group's heading is, the same from one redraw to the next. */
 const placeKey = (el: HTMLElement): string | null =>
 	el.dataset.path != null ? 'card\n' + el.dataset.path : el.dataset.new != null ? 'new\n' + el.dataset.new : el.dataset.heading != null ? 'heading\n' + el.dataset.heading : null;
-const LONG_PRESS = 450;
-const CARD_SIZES = ['small', 'medium', 'large'] as const;
-type CardSize = typeof CARD_SIZES[number];
+/** The mode factory plugin.modeFactories uses for the corkboard in a grid. */
 export const corkboard: ModeFactory = (container, ctx) => new Corkboard(container, ctx);
 
 class Corkboard implements BinderMode {
@@ -99,10 +99,8 @@ class Corkboard implements BinderMode {
 	constructor(private container: HTMLElement, private ctx: ModeContext) {}
 
 	private get store() { return this.ctx.store; }
-	/** A folder on the board is one card, a stack, that's gone into to see what it holds: every item of the folder shown
-	    is a card in one grid, in the binder's order (as on Scrivener's corkboard). A Longform project has no folders:
-	    its indented scenes show in groups under the scene they belong to. */
-	private get stacks(): boolean { return !this.longform; }
+	/** A Longform project has no folders: its indented scenes show in groups under the scene they belong to. (In a
+	    binder every item of the folder shown is a card in one grid, in the binder's order, a folder as one card.) */
 	private get longform(): boolean { return this.ctx.binder.kind === 'longform'; }
 	private get presets() { return this.ctx.plugin.settings.labels; }
 
@@ -215,8 +213,6 @@ class Corkboard implements BinderMode {
 		c.focus({ preventScroll: true });
 	}
 	private focusOnDraw = false;
-	/** A folder just named from its heading: the keyboard stays on that heading through the redraws that follow. */
-	private named: TFolder | null = null;
 
 	/** Where the board is: the first card in sight and how far it's scrolled past the top (cards out of sight are
 	    stand-ins of a guessed height, so a scroll position alone wouldn't find the same place again). */
@@ -245,7 +241,7 @@ class Corkboard implements BinderMode {
 	adopt(header: HTMLElement): void { this.container.prepend(header); }
 
 	reveal(item: TAbstractFile, fresh = false): void {
-		// A scene below this board is represented by the stack containing it.
+		// A scene below this board is represented by the card of the folder that holds it.
 		while (!this.cardEl(item.path) && item.parent && item.parent !== this.ctx.folder) item = item.parent;
 		const el = this.cardEl(item.path);
 		if (!el) return;
@@ -378,18 +374,8 @@ class Corkboard implements BinderMode {
 			if (!out.length || out[out.length - 1].depth) out.push({ folder: top, sub: false, items: [], end: null, depth: 0, head: null });
 			return out;
 		}
-		const list = this.children(top);
-		if (this.stacks) return [{ folder: top, sub: false, items: list, end: null }];
-		const out: Group[] = [];
-		let run: TAbstractFile[] = [];
-		const flush = (end: TAbstractFile | null) => { if (run.length) out.push({ folder: top, sub: false, items: run, end }); run = []; };
-		for (const f of list) {
-			if (f instanceof TFolder) { flush(f); out.push({ folder: f, sub: true, items: this.children(f), end: null }); }
-			else run.push(f);
-		}
-		// a last group for new notes at the end of this folder, after its subfolders
-		if (run.length || !out.length || out[out.length - 1].sub) out.push({ folder: top, sub: false, items: run, end: null });
-		return out;
+		// one group: the folder's notes and folders, each a card
+		return [{ folder: top, sub: false, items: this.children(top), end: null }];
 	}
 
 	private shown(g: Group): TAbstractFile[] { return g.items.filter((f) => this.isShown(f)); }
@@ -404,10 +390,7 @@ class Corkboard implements BinderMode {
 	private signature(): string {
 		const card = (f: TAbstractFile) => cardKey(this.ctx, f);
 		const groups = this.model();
-		return JSON.stringify([this.ctx.readOnly, this.stacks, this.presets, this.labelStyle, groups.map((g) => {
-			const note = g.sub ? this.store.folderNote(g.folder) : null, p = note ? this.ctx.props(note) : null;
-			return [g.folder.path, g.sub, g.end?.path, g.depth, g.head?.path, p?.synopsis, p?.status, p?.label, p?.target, g.sub ? sumWords(this.ctx, this.store.scenes(g.folder)) : 0, this.shown(g).map(card)];
-		})]);
+		return JSON.stringify([this.ctx.readOnly, this.presets, this.labelStyle, groups.map((g) => [g.folder.path, g.end?.path, g.depth, g.head?.path, this.shown(g).map(card)])]);
 	}
 
 	// ---- drawing ----
@@ -423,8 +406,6 @@ class Corkboard implements BinderMode {
 		this.groups = this.model();
 		this.sig = this.signature();
 		this.editors.clear();
-		this.headings.clear();
-		this.headSynopses.clear();
 		this.board.toggleClass('is-read-only', this.ctx.readOnly);
 		this.applyCardSize();
 		// Everything that didn't change stays in place in the page (a big binder then redraws quickly); the rest is drawn
@@ -463,10 +444,8 @@ class Corkboard implements BinderMode {
 		scroller.scrollTop = top;
 		if (before) { settle(this.fresh); this.glide(before, scroller); }
 		this.fresh = [];
-		const doc = this.board.doc, free = hadFocus || doc.activeElement === doc.body;
-		const heading = this.named ? Array.from(this.board.querySelectorAll<HTMLElement>('.binders-group-title')).find((h) => h.dataset.path === this.named?.path) : null;
+		const doc = this.board.doc;
 		if (this.refocus) { this.focused = this.refocus; this.cardEl(this.refocus)?.focus({ preventScroll: true }); this.refocus = null; }
-		else if (heading && free) heading.focus({ preventScroll: true });
 		else if (this.focusOnDraw && this.cards().length) { if (!typingNow(this.board.doc)) this.focus(); }
 		else if (hadFocus) this.focus();
 		if (this.cards().length) this.focusOnDraw = false;
@@ -532,21 +511,20 @@ class Corkboard implements BinderMode {
 	private sections = new Map<string, HTMLElement>();
 
 	private drawGroup(g: Group, gi: number, old: Map<string, HTMLElement>): HTMLElement {
-		const key = JSON.stringify([g.folder.path, g.sub, g.end?.path, g.depth, g.head?.path]);
+		const key = JSON.stringify([g.folder.path, g.end?.path, g.depth, g.head?.path]);
 		let sec = old.get(key), list: HTMLElement;
 		old.delete(key);
 		if (sec) {
 			sec.querySelector(':scope > .binders-group-heading')?.remove();
 			list = sec.querySelector<HTMLElement>(':scope > .binders-cards');
 		} else {
-			sec = createDiv({ cls: 'binders-group' + (g.sub ? ' is-folder' : '') + (g.depth ? ' is-indented' : '') });
+			sec = createDiv({ cls: 'binders-group' + (g.depth ? ' is-indented' : '') });
 			if (g.depth) sec.setCssProps({ '--binders-group-depth': String(g.depth) });
 			list = sec.createDiv({ cls: 'binders-cards', attr: { role: 'listbox', 'aria-multiselectable': 'true', 'aria-label': g.folder.name } });
 		}
 		this.sections.set(key, sec);
 		sec.dataset.group = String(gi);
-		if (g.sub) this.drawHeading(sec, g.folder);
-		else if (g.head) this.drawSceneHeading(sec, g.head, g.items);
+		if (g.head) this.drawSceneHeading(sec, g.head, g.items);
 		const heading = sec.querySelector<HTMLElement>(':scope > .binders-group-heading');
 		if (heading) { heading.dataset.heading = key; sec.insertBefore(heading, list); }
 		// the cards, in order, moving as few as possible
@@ -557,34 +535,6 @@ class Corkboard implements BinderMode {
 		while (at) { const next = at.nextSibling; at.remove(); at = next; }
 		return sec;
 	}
-
-	private drawHeading(parent: HTMLElement, folder: TFolder): void {
-		const h = parent.createDiv({ cls: 'binders-group-heading' });
-		const row = h.createDiv({ cls: 'binders-group-title-row' });
-		const note = this.store.folderNote(folder), p = note ? this.ctx.props(note) : null;
-		const title = row.createDiv({ cls: 'binders-group-title', attr: { role: 'link', tabindex: '0', 'aria-label': `Show ${folder.name}` } });
-		title.dataset.path = folder.path;
-		setIcon(title.createSpan({ cls: 'binders-group-icon' }), 'lucide-folder');
-		// renamed from the heading's menu, in place, as a card's title is
-		this.headings.set(folder.path, editable(title, {
-			cls: 'binders-group-name', value: folder.name, placeholder: 'Name', label: 'Rename', singleLine: true, clickToEdit: false, readOnly: this.ctx.readOnly,
-			save: (t) => this.rename(folder, t), onEditing: (on) => this.onEditing(on),
-		}));
-		title.addEventListener('click', (e) => { if (!title.querySelector('.is-editing')) this.ctx.navigate(folder, Keymap.isModEvent(e)); });
-		title.addEventListener('auxclick', (e) => { if (e.button === 1) { e.stopPropagation(); this.ctx.navigate(folder, 'tab'); } });
-		title.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.stopPropagation(); this.ctx.navigate(folder, Keymap.isModEvent(e)); } });
-		// the name, a rule, then what's known about the folder
-		row.createSpan({ cls: 'binders-group-rule', attr: { 'aria-hidden': 'true' } });
-		if (p?.label) labelDot(row, p.label, this.presets).setAttr('aria-label', `Label: ${labelName(p.label, this.presets)}`);
-		if (p?.status) row.createSpan({ cls: 'binders-chip', text: p.status });
-		row.createSpan({ cls: 'binders-group-count', text: this.countLabel(this.store.scenes(folder), folder) });
-		row.addEventListener('contextmenu', (e) => {
-			e.preventDefault(); e.stopPropagation();
-			if (!(e.target as HTMLElement).closest('.is-editing')) this.folderMenu(folder).showAtMouseEvent(e);
-		});
-		this.headSynopses.set(folder.path, this.synopsis(h, folder, 'binders-group-synopsis', undefined, true));
-	}
-	private headSynopses = new Map<string, Editable>();
 
 	/** Longform: the heading of scenes indented under a scene. Clicking it selects that scene's card. */
 	private drawSceneHeading(parent: HTMLElement, head: TFile, items: TAbstractFile[]): void {
@@ -602,11 +552,6 @@ class Corkboard implements BinderMode {
 	/** "3 notes · 51 words" for a heading; with a filter on, how many of them show ("2 of 3 notes"), and their words. */
 	private countLabel(scenes: TFile[], folder?: TFolder): string { return countLabel(this.ctx, scenes, folder); }
 
-	/** A folder's synopsis, kept in its folder note (made the first time one is written). */
-	private synopsis(parent: HTMLElement, item: TAbstractFile, cls: string, card?: HTMLElement, focusable = false): Editable {
-		return synopsisField(this.host, parent, item, cls, card, focusable);
-	}
-
 	/** What a card (card.ts, shared with the board arranged by label) asks of this board. */
 	private host: CardHost = {
 		ctx: this.ctx,
@@ -614,7 +559,7 @@ class Corkboard implements BinderMode {
 		onEditing: (on, card) => this.onEditing(on, card),
 		// a click (or a tap) on a card selects it; on a card that's already selected, it edits its synopsis. The
 		// middle of a card is where it's clicked to select it or picked up to move it, so that mustn't open a field.
-		// (a stack is gone into by a double-click anywhere on it: the second click of one, on its synopsis, isn't a
+		// (a folder's card is gone into by a double-click anywhere on it: the second click of one, on its synopsis, isn't a
 		// request to edit, so there it takes a click on a card that was already selected a moment ago)
 		editOnClick: (card) => this.sel.has(card.dataset.path) && (!card.hasClass('is-stack') || performance.now() - this.selectedAt > 500),
 	};
@@ -798,7 +743,7 @@ class Corkboard implements BinderMode {
 
 	private onDblClick(e: MouseEvent): void {
 		const card = (e.target as HTMLElement).closest<HTMLElement>('.binders-card[data-path]');
-		// (on a note's synopsis a double-click edits it; a folder's stack is gone into wherever it's double-clicked)
+		// (on a note's synopsis a double-click edits it; a folder's card is gone into wherever it's double-clicked)
 		if (!card || (e.target as HTMLElement).closest(card.hasClass('is-stack') ? '.is-editing' : '.is-editing, .binders-card-synopsis.is-editable')) return;
 		this.open(card, Keymap.isModEvent(e));
 	}
@@ -1023,7 +968,7 @@ class Corkboard implements BinderMode {
 		const d = this.drag, line = d.indicator;
 		const none = (): null => { line.removeClass('is-active'); this.markTarget(null); return null; };
 		if (!this.over(x, y)) { for (const c of this.board.querySelectorAll('.is-being-dragged-over')) c.removeClass('is-being-dragged-over'); return none(); }
-		// over the middle of a stack: into that folder, at its end (its edges still place the items beside it)
+		// over the middle of a folder's card: into that folder, at its end (its edges still place the items beside it)
 		const into = this.stackAt(x, y);
 		for (const c of this.board.querySelectorAll('.is-being-dragged-over')) if (c !== into?.el) c.removeClass('is-being-dragged-over');
 		if (into) {
@@ -1095,9 +1040,9 @@ class Corkboard implements BinderMode {
 		return { group: g, anchor };
 	}
 
-	/** The stack whose middle is at (x, y), if the dragged items can go into its folder. */
+	/** The folder's card whose middle is at (x, y), if the dragged items can go into its folder. */
 	private stackAt(x: number, y: number): { el: HTMLElement; folder: TFolder } | null {
-		if (!this.stacks || this.longform) return null;
+		if (this.longform) return null;
 		// (the card following the pointer and the line take no pointer events, so this is what's under them)
 		const el = this.board.doc.elementFromPoint(x, y)?.closest<HTMLElement>('.binders-card.is-stack[data-path]');
 		const folder = el && this.item(el.dataset.path);
@@ -1285,8 +1230,6 @@ class Corkboard implements BinderMode {
 
 	/** Each card's title and synopsis fields, for Rename, Edit synopsis and F2. */
 	private editors = new Map<string, { title: Editable; synopsis: Editable }>();
-	/** Each group heading's folder name, for Rename in the heading's menu. */
-	private headings = new Map<string, Editable>();
 	private editTitle(card: HTMLElement): void { this.editors.get(card.dataset.path)?.title.edit(); }
 	private editSynopsis(card: HTMLElement): void { this.editors.get(card.dataset.path)?.synopsis.edit(); }
 
@@ -1294,13 +1237,6 @@ class Corkboard implements BinderMode {
 		const was = f.path, selected = this.sel.has(was);
 		await renameItem(this.ctx, f, name);
 		if (was === f.path) return;
-		if (f instanceof TFolder) {
-			// the heading is drawn again under its new name: the keyboard stays on it, unless it has gone elsewhere
-			this.named = f;
-			window.setTimeout(() => { if (this.named === f) this.named = null; }, 1000);
-			const doc = this.board.doc;
-			if (doc.activeElement === doc.body) Array.from(this.board.querySelectorAll<HTMLElement>('.binders-group-title')).find((h) => h.dataset.path === f.path)?.focus({ preventScroll: true });
-		}
 		if (selected) { this.sel.delete(was); this.sel.add(f.path); }
 		if (this.focused === was) this.focused = f.path;
 	}
@@ -1308,7 +1244,6 @@ class Corkboard implements BinderMode {
 	private async remove(items: TAbstractFile[]): Promise<void> {
 		if (!items.length) return;
 		// the focus goes to the card after the deleted ones (or before them), so the keyboard carries on from there
-		// (a folder deleted from its heading takes the cards in it along)
 		const order = this.cards().map((c) => c.dataset.path), gone = (p: string) => items.some((f) => p === f.path || p.startsWith(f.path + '/'));
 		const last = order.reduce((at, p, i) => (gone(p) ? i : at), -1);
 		const next = order.slice(last + 1).find((p) => !gone(p)) ?? order.slice(0, Math.max(0, last)).reverse().find((p) => !gone(p)) ?? null;
@@ -1343,20 +1278,9 @@ class Corkboard implements BinderMode {
 		this.focused = this.anchor = f.path;
 		if (this.busy()) { this.dirty = true; return; }
 		this.draw();
-		const name = this.editors.get(f.path)?.title ?? this.headings.get(f.path);
+		const name = this.editors.get(f.path)?.title;
 		(this.cardEl(f.path) ?? name?.el)?.scrollIntoView({ block: 'nearest' });
 		if (rename) name?.edit(); else this.cardEl(f.path)?.focus({ preventScroll: true });
-	}
-
-	/** The menu of a subfolder's heading: as its card's, but it's renamed in the heading and can't be deleted from it. */
-	private folderMenu(folder: TFolder): Menu {
-		return itemMenu(this.ctx, [folder], {
-			rename: this.headings.has(folder.path) ? () => this.headings.get(folder.path)?.edit() : null,
-			synopsis: this.headSynopses.has(folder.path) ? () => this.headSynopses.get(folder.path)?.edit() : null,
-			...this.orderHooks(folder),
-			remove: () => void this.remove([folder]),
-			made: (f, rename) => this.onMade(f, rename),
-		});
 	}
 
 	/** "Move up" and "Move down": among the cards shown, as Alt+Up and Alt+Down. */

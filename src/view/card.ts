@@ -20,6 +20,7 @@ export interface CardHost {
 	editOnClick(card: HTMLElement): boolean;
 }
 
+/** The title and synopsis editors of a drawn card, kept so a redraw can update them in place. */
 export interface CardEditors { title: Editable; synopsis: Editable }
 
 /** The words in these notes, or null while any of them is still being counted. */
@@ -99,7 +100,7 @@ export function buildCard(host: CardHost, f: TAbstractFile): { el: HTMLElement; 
 	card.setAttr('aria-label', name);
 	// what a screen reader says after the name: what the card shows besides it
 	const words = folder ? null : f instanceof TFile ? ctx.words(f) : null;
-	// (a folder's stack says what it holds, as printed on it)
+	// (a folder's card says what it holds, as printed on it)
 	const holds = f instanceof TFolder ? countLabel(ctx, ctx.store.scenes(f), f) : null;
 	const about = [p.status && `Status: ${p.status}`, p.label && `Label: ${labelName(p.label, presets)}`, holds, words != null && wordsLabel(words), p.target > 0 && `Target: ${wordsLabel(p.target)}`].filter(Boolean).join(', ');
 	if (about) card.setAttr('aria-description', about);

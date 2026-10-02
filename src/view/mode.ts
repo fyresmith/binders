@@ -1,5 +1,5 @@
 import type { App, Component, Menu, PaneType, TAbstractFile, TFile, TFolder } from 'obsidian';
-import type { EditorView } from '@codemirror/view'; // focus mode
+import type { EditorView } from '@codemirror/view';
 import type { Binder, BinderStore } from '../binders';
 import type BindersPlugin from '../main';
 
@@ -15,6 +15,7 @@ export interface SceneProps {
 	target: number;
 }
 
+/** What a mode may ask of the view. */
 export interface ModeContext {
 	app: App;
 	plugin: BindersPlugin;
@@ -33,7 +34,7 @@ export interface ModeContext {
 	setProps(file: TFile, patch: Partial<SceneProps>): Promise<void>;
 	/** Opens a note in a tab, as clicking a link would (`newLeaf` for a new tab). */
 	openFile(file: TFile, newLeaf?: boolean | PaneType): Promise<void>;
-	/** Shows another folder in this view (breadcrumbs, a subfolder's stack); `newLeaf` opens it in a new tab instead. */
+	/** Shows another folder in this view (breadcrumbs, a folder's card); `newLeaf` opens it in a new tab instead. */
 	navigate(folder: TFolder, newLeaf?: boolean | PaneType): void;
 	/** A note's word count (without its properties); null until it has been read. The view refreshes the mode once it is. */
 	words(file: TFile): number | null;
@@ -51,6 +52,7 @@ export interface ModeContext {
 	onTextChange?(file: TFile, text: string): void;
 }
 
+/** What the view asks of a mode. */
 export interface BinderMode {
 	/** Draw everything. Called once after construction. */
 	render(): void;
@@ -73,7 +75,7 @@ export interface BinderMode {
 	/** Optional: makes a new note or folder where this mode would put one (after what's selected, or last), named in
 	    place. */
 	create?(kind: 'note' | 'folder'): void;
-	/** Optional: the mode's own items for the view's "More options" menu (e.g. the corkboard's stacks). */
+	/** Optional: the mode's own items for the view's "More options" menu (e.g. the corkboard's card size and numbers). */
 	menu?(menu: Menu): void;
 	/** Optional: the mode's own items for the toolbar's "Arrange" menu, after the arrangements themselves (the
 	    corkboard by label: which way its lines run, and what's on them). */
@@ -88,17 +90,17 @@ export interface BinderMode {
 	/** Optional: takes the folder's synopsis row into the mode's own page, so it scrolls with the rest instead of
 	    staying above it. */
 	adopt?(header: HTMLElement): void;
-	// focus mode >>>
+	// For focus mode (src/focus):
 	/** Optional: the CodeMirror editor that has the cursor (the manuscript's section being typed in), if any. */
 	editor?(): EditorView | null;
 	/** Optional: puts the cursor in the item before (-1) or after (1) the one it's in; `checking` only says whether
 	    there is one to go to. */
 	stepScene?(delta: number, checking: boolean): boolean;
-	// <<< focus mode
 	/** Optional: the mode shows only what passes `ctx.visible()`, so the view offers its status and label filter. */
 	readonly filters?: boolean;
 	/** Optional: the filter changed (before the refresh that follows), e.g. to stop showing notes just made that it hides. */
 	filterChanged?(): void;
 }
 
+/** Builds a mode in a container. */
 export type ModeFactory = (container: HTMLElement, ctx: ModeContext) => BinderMode;

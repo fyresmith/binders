@@ -53,6 +53,7 @@ const CARD = '.binders-card[data-path]';
 let uid = 0;
 
 /** The corkboard's cards by label: what the view shows as its corkboard while "Arrange" says by label. */
+/** The mode factory plugin.modeFactories uses for the corkboard arranged by label. */
 export const byLabel: ModeFactory = (container, ctx) => new ByLabel(container, ctx);
 
 class ByLabel implements BinderMode {
@@ -96,7 +97,7 @@ class ByLabel implements BinderMode {
 	private get longform(): boolean { return this.ctx.binder.kind === 'longform'; }
 	private get narrow(): boolean { const w = this.container.clientWidth; return w > 0 && w < NARROW; }
 	private get lines(): Lines { return readLines(this.ctx.option<unknown>('lines', 'across')); }
-	/** The notes inside subfolders show too, each folder's under its name (else a folder is one card, a stack). */
+	/** The notes inside subfolders show too, each folder's under its name (else a folder is one card). */
 	private get flat(): boolean { return !this.longform && this.ctx.option<unknown>('linesFlat', false) === true; }
 	/** The labels no card has are lines too, to drop a card on. */
 	private get unused(): boolean { return this.ctx.option<unknown>('linesUnused', true) !== false; }
@@ -486,8 +487,8 @@ class ByLabel implements BinderMode {
 		ctx: this.ctx,
 		rename: (f, name) => this.rename(f, name),
 		onEditing: (on, card) => this.onEditing(on, card),
-		// (as on the corkboard: a click on a selected card's synopsis edits it; a stack's only once it has been
-		// selected a moment, since a double-click anywhere on a stack goes into it)
+		// (as on the corkboard: a click on a selected card's synopsis edits it; a folder card's only once it has
+		// been selected a moment, since a double-click anywhere on a folder's card goes into it)
 		editOnClick: (card) => this.sel.has(card.dataset.path) && (!card.hasClass('is-stack') || performance.now() - this.selectedAt > 500),
 	};
 
@@ -616,7 +617,7 @@ class ByLabel implements BinderMode {
 	private onDblClick(e: MouseEvent): void {
 		const t = e.target as HTMLElement, card = t.closest<HTMLElement>(CARD);
 		if (card) {
-			// (on a note's synopsis a double-click edits it; a folder's stack is gone into wherever it's double-clicked)
+			// (on a note's synopsis a double-click edits it; a folder's card is gone into wherever it's double-clicked)
 			if (!t.closest(card.hasClass('is-stack') ? '.is-editing' : '.is-editing, .binders-card-synopsis.is-editable')) this.open(card, Keymap.isModEvent(e));
 			return;
 		}

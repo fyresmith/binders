@@ -42,6 +42,7 @@ const manager = (app: App): Ready | null => {
 	return m as Ready;
 };
 
+/** What is dragged, and the card or row it was taken from. */
 export interface FileDragOptions {
 	/** The card or row taken hold of: the file drag starts from it, and the view it's in is where the drag is the view's own. */
 	source: HTMLElement;
@@ -56,6 +57,7 @@ export interface FileDragOptions {
 	notes?: (folder: TFolder) => TFile[];
 }
 
+/** A card or row dragged out of the view, handed to Obsidian as a file drag (see the header). */
 export class FileDrag {
 	/** A file drag for these items, to be told where the pointer is; null where Obsidian can't be handed one (then the
 	    view's drag is all there is). */

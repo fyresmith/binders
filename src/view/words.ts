@@ -19,6 +19,8 @@ export function wordsLabel(n: number): string {
 	return `${n.toLocaleString()} ${n === 1 ? 'word' : 'words'}`;
 }
 
+/** Word counts per note, cached by modification time and read in the background; `changed` runs when new counts
+    arrive. */
 export class WordCounter {
 	/** By note, not by path: a note keeps its count when it's renamed or moved (Obsidian keeps the same file object). */
 	private cache = new WeakMap<TFile, { mtime: number; n: number }>();

@@ -194,7 +194,7 @@ test('the breadcrumb goes up, and Back comes down again', async (p, h, t) => {
 	t.eq(j(await cards(p)), j(PART_ONE_CARDS), 'and Forward goes down into the folder');
 });
 
-test('the mode menu and commands switch modes; missing modes say they’re coming', async (p, h, t) => {
+test('the mode menu and commands switch modes', async (p, h, t) => {
 	await h.open('The Lighthouse/Prologue.md');
 	t.ok(!(await p.ev(`app.commands.findCommand('binders:show-outliner').checkCallback(true)`)), 'mode commands need a binder view');
 	await openView(p);
@@ -205,7 +205,6 @@ test('the mode menu and commands switch modes; missing modes say they’re comin
 	await clickMenu(p, 'Manuscript');
 	t.eq((await viewState(p)).mode, 'manuscript', 'switched');
 	t.eq(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-mode-button .text-button-label').textContent`), 'Manuscript', 'the button says so');
-	if (!(await p.ev(`!!${PL}.modeFactories.manuscript`))) t.ok(/coming soon/.test(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-mode').textContent`)), 'a mode that isn’t there yet says so');
 	await h.run('show-corkboard');
 	await p.sleep(200);
 	t.eq((await viewState(p)).mode, 'corkboard', 'the command switches back');
@@ -274,8 +273,9 @@ test('all three modes mount in the view, each scrolling itself; typing in the ma
 	// and round again, with nothing lost or left behind
 	for (const m of ['manuscript', 'outliner', 'corkboard', 'outliner', 'manuscript', 'corkboard']) { await h.run('show-' + m); await p.sleep(150); }
 	await p.sleep(400);
-	// (the corkboard takes the folder's synopsis line in, above its cards, so the two scroll together)
-	t.eq(await p.ev(`document.querySelectorAll('.workspace-leaf.mod-active .binders-mode > :not(.binders-view-synopsis-row)').length`), 1, 'one mode drawn at a time');
+	// (the corkboard takes the folder's synopsis line in, above its cards, so the two scroll together; and a board has
+	// a line that's said to a screen reader, not shown)
+	t.eq(await p.ev(`document.querySelectorAll('.workspace-leaf.mod-active .binders-mode > :not(.binders-view-synopsis-row, .binders-live)').length`), 1, 'one mode drawn at a time');
 	same(t, { ...before, [ARR]: now }, await texts(p));
 }));
 

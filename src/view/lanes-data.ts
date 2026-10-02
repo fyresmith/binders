@@ -5,13 +5,18 @@
 
 /** How the corkboard's cards are arranged: in a grid, or by label (this board). */
 export type Arrangement = 'grid' | 'label';
+/** An arrangement as saved: anything but 'label' is the grid. */
 export const readArrangement = (v: unknown): Arrangement => (v === 'label' ? 'label' : 'grid');
 
+/** Which way the lines by label run. */
 export type Lines = 'across' | 'down';
+/** The lines' direction as saved: anything but 'down' is across. */
 export const readLines = (v: unknown): Lines => (v === 'down' ? 'down' : 'across');
 
+/** The sizes a card can be, smallest first (the corkboard's "Card size"). */
 export const CARD_SIZES = ['small', 'medium', 'large'] as const;
 export type CardSize = typeof CARD_SIZES[number];
+/** A card size as saved: anything else is `fallback`. */
 export const readSize = (v: unknown, fallback: CardSize): CardSize => ((CARD_SIZES as readonly unknown[]).includes(v) ? v as CardSize : fallback);
 
 const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();

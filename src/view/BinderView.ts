@@ -1,7 +1,7 @@
 import { ItemView, Keymap, Menu, Notice, Platform, Scope, type Events, TFile, TFolder, setIcon, type PaneType, type TAbstractFile, type ViewStateResult, type WorkspaceLeaf } from 'obsidian';
 import type { Binder } from '../binders';
 import { CompileModal } from '../scenes';
-import { folderSnapshotItems } from './snapshots'; // snapshots
+import { folderSnapshotItems } from './snapshots';
 import type BindersPlugin from '../main';
 import { commitAll, commitFocused, editable, type Editable } from './edit';
 import { keepOpen, readableLineLength, refreshHeader, selectMenuItem } from './internals';
@@ -9,17 +9,20 @@ import { canonical, labelDot, labelName, rank, readLabel } from './labels';
 import { readArrangement, readLines, type Arrangement, type Lines } from './lanes-data';
 import { ask } from './modals';
 import { parseTarget, readTarget, whyNotTarget } from './outliner-data';
-import type { BinderMode, ModeContext, ModeFactory, SceneProps } from './mode';
-import type { EditorView } from '@codemirror/view'; // focus mode
+import type { BinderMode, ModeContext, SceneProps } from './mode';
+import type { EditorView } from '@codemirror/view';
 import { WordCounter, wordsLabel } from './words';
 
 /* The binder view: one folder of a binder, shown as a corkboard, an outliner or a manuscript. The view owns the toolbar
    (breadcrumb, word count, filter, mode), the folder's synopsis and the subscriptions; the mode draws the rest (mode.ts).
    Its state (folder, mode, filter, the modes' options) lives in the workspace, so it comes back after a reload. */
 
+/** The view's type, as Obsidian knows it (saved workspaces name it). */
 export const VIEW_TYPE = 'binders-view';
 
+/** The three modes of the view. */
 export type ModeName = 'corkboard' | 'outliner' | 'manuscript';
+/** The modes in the order the switcher and the commands list them. */
 export const MODES: readonly { id: ModeName; name: string; icon: string }[] = [
 	{ id: 'corkboard', name: 'Corkboard', icon: 'layout-grid' },
 	{ id: 'outliner', name: 'Outliner', icon: 'list-tree' },
@@ -64,17 +67,7 @@ function followMoves(path: string): string {
 	return path;
 }
 
-/** A mode that isn't built yet: an empty state, like Obsidian's own. */
-const comingSoon = (name: string): ModeFactory => (el) => ({
-	render() {
-		const box = el.createDiv({ cls: 'binders-empty' });
-		box.createDiv({ cls: 'binders-empty-title', text: `${name} is coming soon` });
-		box.createDiv({ cls: 'binders-empty-text', text: 'Switch to the corkboard to see this folder.' });
-	},
-	refresh() { /* nothing to update */ },
-	unload() { el.empty(); },
-});
-
+/** The binder view (`binders-view`): one folder of a binder in one mode. See the header. */
 export class BinderView extends ItemView {
 	navigation = true;
 	/** The folder shown, and its path (kept when the folder isn't there, e.g. before binders are found at startup). */
@@ -148,14 +141,14 @@ export class BinderView extends ItemView {
 	/** Puts the keyboard in the mode (on what it was on, or at its start). */
 	focusMode(): void { this.current?.focus?.(); }
 
-	// focus mode >>>
+	// ---- for focus mode (src/focus) ----
+
 	/** The note the mode is on (the manuscript's section with the cursor): focus mode says where that is. */
 	currentItem(): TAbstractFile | null { return this.current?.current?.() ?? null; }
 	/** The editor that has the cursor, if the mode has one. */
 	currentEditor(): EditorView | null { return this.current?.editor?.() ?? null; }
 	/** "Go to previous scene" and "Go to next scene" in the manuscript. */
 	stepScene(delta: number, checking: boolean): boolean { return this.current?.stepScene?.(delta, checking) ?? false; }
-	// <<< focus mode
 
 	async setState(state: unknown, result: ViewStateResult): Promise<void> {
 		const s = (state ?? {}) as BinderViewState;
@@ -308,7 +301,7 @@ export class BinderView extends ItemView {
 				if (what) menu.addItem((i) => i.setSection('binders-note').setTitle(`${redo ? 'Redo' : 'Undo'}: ${what.charAt(0).toLowerCase()}${what.slice(1)}`).setIcon(redo ? 'redo-2' : 'undo-2').onClick(() => void this.plugin.undoMove(folder, redo)));
 			}
 			menu.addItem((i) => i.setSection('binders-note').setTitle('Compile...').setIcon('book-check').onClick(() => new CompileModal(this.plugin, folder).open()));
-			folderSnapshotItems(this.plugin, menu, folder, 'binders-note', this.readOnly); // snapshots
+			folderSnapshotItems(this.plugin, menu, folder, 'binders-note', this.readOnly);
 			if (note) menu.addItem((i) => i.setSection('binders-note').setTitle(binder ? 'Open binder note' : 'Open folder note').setIcon('file-text').onClick((e) => void this.app.workspace.getLeaf(Keymap.isModEvent(e)).openFile(note)));
 		}
 		super.onPaneMenu(menu, source);
@@ -317,7 +310,7 @@ export class BinderView extends ItemView {
 	/** Notes what the mode is on as it starts: now, and again a moment later if nothing has been pressed meanwhile
 	    (the manuscript puts its cursor once its editor has loaded, which is after this). */
 	private entered(): void {
-		this.plugin.focus?.check(); // focus mode: it ends if this is no longer the manuscript
+		this.plugin.focus?.check(); // (focus mode ends if this is no longer the manuscript)
 		this.enteredOn = this.current?.current?.() ?? null;
 		const mode = this.current, presses = this.presses;
 		window.setTimeout(() => { if (this.current === mode && this.presses === presses) this.enteredOn = mode?.current?.() ?? null; }, 500);
@@ -506,7 +499,7 @@ export class BinderView extends ItemView {
 		const body = el.createDiv({ cls: `binders-mode binders-mode-${this.mode}` });
 		this.ui = { crumbs, progress, count, filter, arrange, add, modeBtn, notice, synopsis, body };
 		this.drawToolbar();
-		const factory = this.plugin.modeFactories[this.arrangement === 'label' ? BY_LABEL : this.mode] ?? comingSoon(MODES.find((m) => m.id === this.mode)?.name ?? 'This view');
+		const factory = this.plugin.modeFactories[this.arrangement === 'label' ? BY_LABEL : this.mode];
 		this.current = factory(body, this.context());
 		this.current.render();
 		if (this.current.adopt) { synopsis.addClass('is-adopted'); this.current.adopt(synopsis); }
