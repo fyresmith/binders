@@ -1008,6 +1008,12 @@
 	margin: 2px;
 }
 
+/* A phone with the keyboard up and little room left (a small phone, any phone on its side): the page has the
+   toolbar's line while it's being typed in. (BinderView sets `is-short`; the toolbar is back when the keyboard goes.) */
+.binders-view.is-short > .binders-toolbar {
+	display: none;
+}
+
 /* on a phone or a tablet: as big as a base's toolbar there */
 .is-mobile .binders-toolbar {
 	--icon-size: var(--icon-l);

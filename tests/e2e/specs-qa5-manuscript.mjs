@@ -374,7 +374,7 @@ ux('phone: when the keyboard comes up after a tap low on the screen, the caret i
 
 bug('small phone with the keyboard up, or on its side: the view itself doesn’t scroll (the page can’t be shorter than its own padding, 50vh + 8 px, so it sticks out of its pane; the pane scrolls, the toolbar goes with it, and the caret’s line is under the editing toolbar)', on(SMALL, async (p, h, t) => {
 	await openMs(p);
-	const outer = () => p.ev(`(() => { const v = document.querySelector('${LEAF} .view-content'), m = ${MAN}, tb = document.querySelector('${LEAF} .binders-toolbar').getBoundingClientRect(); return { over: v.scrollHeight - v.clientHeight, top: v.scrollTop, page: Math.round(m.getBoundingClientRect().bottom), pane: Math.round(v.getBoundingClientRect().bottom), toolbar: Math.round(tb.top), header: Math.round(document.querySelector('${LEAF} .view-header').getBoundingClientRect().bottom) }; })()`);
+	const outer = () => p.ev(`(() => { const v = document.querySelector('${LEAF} .view-content'), m = ${MAN}, tb = document.querySelector('${LEAF} .binders-toolbar').getBoundingClientRect(); return { over: v.scrollHeight - v.clientHeight, top: v.scrollTop, page: Math.round(m.getBoundingClientRect().bottom), pane: Math.round(v.getBoundingClientRect().bottom), toolbar: tb.height ? Math.round(tb.top) : null, header: Math.round(document.querySelector('${LEAF} .view-header').getBoundingClientRect().bottom) }; })()`);
 	const seenAt = {};
 	seenAt.upright = await outer();
 	t.eq(seenAt.upright.over, 0, 'upright with no keyboard, the view doesn’t scroll');
@@ -393,7 +393,7 @@ bug('small phone with the keyboard up, or on its side: the view itself doesn’t
 	seenAt.side = await outer();
 	await shot(p, 'bug-view-scrolls-landscape');
 	say(seenAt);
-	t.ok(seenAt.keyboard.over <= 0 && seenAt.keyboard.top === 0 && seenAt.keyboard.toolbar >= seenAt.keyboard.header - 1, `320 × 568, keyboard up, after typing: the view can scroll ${seenAt.keyboard.over} px and has scrolled ${seenAt.keyboard.top}; the page ends at ${seenAt.keyboard.page}, its pane at ${seenAt.keyboard.pane}`);
+	t.ok(seenAt.keyboard.over <= 0 && seenAt.keyboard.top === 0 && (seenAt.keyboard.toolbar == null || seenAt.keyboard.toolbar >= seenAt.keyboard.header - 1), `320 × 568, keyboard up, after typing (the toolbar has given its line to the page, or is still under the header): the view can scroll ${seenAt.keyboard.over} px and has scrolled ${seenAt.keyboard.top}; the page ends at ${seenAt.keyboard.page}, its pane at ${seenAt.keyboard.pane}`);
 	t.ok(seenAt.side.over <= 0 && seenAt.side.top === 0, `568 × 320, no keyboard: the view can scroll ${seenAt.side.over} px and has scrolled ${seenAt.side.top}`);
 }));
 

@@ -22,6 +22,31 @@ async function onDevice(p, width, height, fn) {
 	}
 }
 
+// The on-screen keyboard is emulated as a shorter viewport, which is what Obsidian's app is given when it's up.
+for (const [what, width, height, keyboard, short] of [['a small phone', 320, 568, 260, true], ['a phone on its side', 844, 390, 190, true], ['a phone held upright', 390, 844, 336, false]]) {
+	test(`${what} with the keyboard up: ${short ? 'the toolbar gives its line to the page, and is back when the keyboard goes' : 'there’s room, and the toolbar stays'}`, async (p, h, t) => {
+		await onDevice(p, width, height, async () => {
+			const V = '.workspace-leaf.mod-active .binders-view';
+			await openView(p);
+			await p.ev(`(() => { ${VIEW}.setMode('manuscript'); return 1; })()`);
+			await until(p, `!!document.querySelector('${V} .binders-manuscript')`);
+			await p.sleep(500);
+			const look = () => p.ev(`(() => { const v = document.querySelector('${V}'), r = (e) => e.getBoundingClientRect(); const bar = r(v.querySelector('.binders-toolbar')), page = r(v.querySelector('.binders-manuscript')); return { bar: Math.round(bar.height), pageTop: Math.round(page.top - r(v).top), under: Math.round(r(v).bottom - page.bottom), scrolled: v.scrollTop }; })()`);
+			const size = (hh) => p.send('Emulation.setDeviceMetricsOverride', { width, height: hh, deviceScaleFactor: 1, mobile: true });
+			const before = await look();
+			t.ok(before.bar >= 40 && before.pageTop === before.bar, 'the toolbar is above the page: ' + j(before));
+			await size(height - keyboard);
+			await p.sleep(500);
+			const up = await look();
+			if (short) t.eq(j(up), j({ bar: 0, pageTop: 0, under: 0, scrolled: 0 }), 'with the keyboard up the page has the whole view');
+			else t.eq(j(up), j(before), 'with the keyboard up the toolbar is where it was');
+			await size(height);
+			await p.sleep(500);
+			t.eq(j(await look()), j(before), 'with the keyboard gone, the toolbar is back above the page');
+		});
+	});
+}
+
 for (const [device, width, height] of [['phone', 390, 844], ['tablet', 820, 1180]]) {
 	test(`${device}: every mode fits, and the mode menu works by touch`, async (p, h, t) => {
 		await onDevice(p, width, height, async () => {
