@@ -229,7 +229,7 @@ export async function mountEditor(app: App, container: HTMLElement, file: TFile,
 		if (!hasSteps(h)) return;
 		kept.delete(file);
 		kept.set(file, { text: cm.state.doc.toString(), history: JSON.stringify(h) });
-		if (kept.size > 20) kept.delete(kept.keys().next().value as TFile); // as many as Obsidian keeps
+		if (kept.size > 20) for (const oldest of kept.keys()) { kept.delete(oldest); break; } // as many as Obsidian keeps
 	};
 	embed.unload = function (this: MdEmbed) {
 		if (!gone) {

@@ -152,7 +152,7 @@ export class BinderView extends ItemView {
 				result.history = true;
 				// (a phone's bar of buttons looks at the tab's history only when the tab in front changes: it's told,
 				// once the step is in the history, so its Back and Forward are lit when there's somewhere to go)
-				window.setTimeout(() => { if (this.app.workspace.getMostRecentLeaf() === this.leaf && this.app.workspace.activeLeaf === this.leaf) this.app.workspace.trigger('active-leaf-change', this.leaf); }, 60);
+				window.setTimeout(() => { if (this.app.workspace.getMostRecentLeaf() === this.leaf && this.app.workspace.getActiveViewOfType(BinderView) === this) this.app.workspace.trigger('active-leaf-change', this.leaf); }, 60);
 			}
 			this.path = s.folder;
 		}

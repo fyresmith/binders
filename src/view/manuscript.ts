@@ -960,7 +960,7 @@ class Manuscript implements BinderMode {
 			if (target.matches('input[type="checkbox"]')) {
 				evt.preventDefault();
 				if (!this.editable || s.broken) return;
-				const x = evt.clientX, y = evt.clientY, doc = this.root.ownerDocument;
+				const x = evt.clientX, y = evt.clientY;
 				void this.focusScene(s, { x, y }, undefined, false).then(() => window.setTimeout(() => {
 					// (the box nearest where the tap was: the editor's lines aren't to the pixel where the plain text's were)
 					let best: HTMLInputElement | null = null, d = 24;
