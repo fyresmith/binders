@@ -463,22 +463,25 @@ Binders is not at 1.0 yet. What isn't finished, honestly:
 - **Phones and tablets are emulated only.** The behavior has been checked at phone and tablet sizes, upright and on
   their sides, with touch, in Obsidian's emulation on a desktop. It has not been tried on a real iPhone, iPad or
   Android device, so its keyboard handling, suspending and resuming, and Android's back button are unchecked.
-- **On a phone** the manuscript has less room for text with the keyboard up than a note does (the header and Binders'
-  toolbar stay above the page). On the smallest phones the outliner's title column is narrow beside the Label column,
-  a card's title is a small thing to tap, and the line that shows where a carried card will land can be hidden under
-  the card. A tap in another section of the manuscript doesn't always move the caret when it was at the start of a
-  wrapped line, and Obsidian's editor may log "Measure loop restarted" warnings as a phone is turned.
-- **In the manuscript** a section that isn't being edited is drawn as rendered text, and a few kinds of content (long
-  code blocks, tables wider than the page, images, embedded notes, math) are a few pixels taller or shorter than
-  in the editor, so the page can move slightly when you reach it.
+- **On a phone,** a tap in another section of the manuscript doesn't always move the caret when it was at the start of
+  a wrapped line, and Obsidian's editor may log "Measure loop restarted" warnings as a phone is turned or as a narrow
+  pane is scrolled upwards (a warning only: nothing typed goes astray). Swiping fast through a manuscript of a
+  thousand short scenes hitches now and then, as each section turns into its editor.
+- **In the manuscript** a section that isn't being edited is drawn as rendered text, and four kinds of content (a table
+  wider than the page, indented code, and footnotes of both kinds) are taller or shorter there than in the editor, so
+  the page can move when you click into such a section.
 - **After Split scene at cursor,** pressing Undo in the note you split puts the second half back there, and nothing
-  says so; the new note still has it. Nothing is lost, but the text is then in both. Delete one.
-- **In the file explorer,** Obsidian's own **Make a copy** of a folder in a binder puts the copy last and its notes not in
-  the original's order, **New folder with selection** doesn't keep the notes' places, and a selection has both Obsidian's and Binders' "new folder" items.
-  Dragging twenty notes at once over a folder of thousands is slow. If another plugin that changed the explorer is
-  turned off, binder order comes back at the explorer's next change.
-- **Undo** covers moves, not renames, deletes, splits, merges, duplicates, grouping or ungrouping, and remembers the
-  last fifty changes while Obsidian is open.
+  says so; the new note still has it. Nothing is lost, but the text is then in both. Delete one. The same happens,
+  with a notice, if the note changes in the moment it is being split.
+- **Setting a property** (a status, a label, a target, a synopsis) goes through Obsidian, which writes the note's whole
+  properties block again in its own form: comments in the block are dropped, and `0123` becomes `123`. Obsidian's own
+  Properties view does the same. The note's text is never touched.
+- **In the file explorer,** a selection that spans two folders of a binder, or a Longform project, still has Obsidian's
+  own **New folder with selection**, which puts the folder last. Obsidian's **Make a copy** of a folder copies the
+  folder's own note under its old name, so it shows in the copy as a scene. **Ungroup** leaves the emptied folder.
+- **Undo** covers moves (and a folder made around notes), not renames, deletes, splits, merges or duplicates, and
+  remembers the last fifty changes while Obsidian is open. Undoing a kept sort of thousands of notes is slow.
+- **For screen readers,** the "New note" tile sits inside the list of cards, and "Undo last move" isn't announced.
 - **Not built yet**, before 1.0: export (EPUB, DOCX, PDF and a Scrivener project), import from a Scrivener project, and
   find and replace across the manuscript. See the [roadmap](ROADMAP.md).
 
