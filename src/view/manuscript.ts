@@ -967,15 +967,27 @@ class Manuscript implements BinderMode {
 				evt.preventDefault();
 				if (!this.editable || s.broken) return;
 				const x = evt.clientX, y = evt.clientY;
-				void this.focusScene(s, { x, y }, undefined, false).then(() => window.setTimeout(() => {
-					// (the box nearest where the tap was: the editor's lines aren't to the pixel where the plain text's were)
-					let best: HTMLInputElement | null = null, d = 24;
-					for (const b of Array.from(s.bodyEl.querySelectorAll<HTMLInputElement>('input[type="checkbox"]'))) {
-						const r = b.getBoundingClientRect(), dy = Math.abs((r.top + r.bottom) / 2 - y);
-						if (dy < d && Math.abs((r.left + r.right) / 2 - x) < 40) { d = dy; best = b; }
-					}
-					best?.click();
-				}, 60));
+				// Which task it is comes from Obsidian's index of the note: the box tapped is the nth box drawn, so its
+				// task is the nth the index has, and that line is changed in the editor, as a tick there would. (Not by
+				// clicking the editor's own box: with the cursor put on its line the editor shows the brackets as text,
+				// and there's no box to click.)
+				const boxes = Array.from(s.bodyEl.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')), nth = boxes.indexOf(target as HTMLInputElement);
+				const tasks = (this.app.metadataCache.getFileCache(s.file)?.listItems ?? []).filter((i) => i.task !== undefined);
+				const line = nth >= 0 && tasks.length === boxes.length ? tasks[nth].position.start.line : -1;
+				void this.focusScene(s, { x, y }, undefined, false).then(() => {
+					const cm = s.live?.cm, l = cm && line >= 0 && line < cm.state.doc.lines ? cm.state.doc.line(line + 1) : null;
+					const m = l ? /^([\s>]*(?:[-*+]|\d+[.)])\s+\[)(.)\]/.exec(l.text) : null;
+					if (cm && l && m) { cm.dispatch({ changes: { from: l.from + m[1].length, to: l.from + m[1].length + 1, insert: m[2] === ' ' ? 'x' : ' ' }, userEvent: 'input' }); return; }
+					// (the index doesn't fit what's drawn: the box nearest where the tap was, if the editor shows one)
+					window.setTimeout(() => {
+						let best: HTMLInputElement | null = null, d = 24;
+						for (const b of Array.from(s.bodyEl.querySelectorAll<HTMLInputElement>('input[type="checkbox"]'))) {
+							const r = b.getBoundingClientRect(), dy = Math.abs((r.top + r.bottom) / 2 - y);
+							if (dy < d && Math.abs((r.left + r.right) / 2 - x) < 40) { d = dy; best = b; }
+						}
+						best?.click();
+					}, 60);
+				});
 				return;
 			}
 		}

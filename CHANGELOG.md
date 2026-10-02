@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.95 (2026-10-02)
+
+### Fixed
+
+- On a tablet, a task's box tapped in a manuscript section that wasn't an editor yet looked ticked but left the note unchanged.
+
 ## 0.12.94 (2026-10-02)
 
 ### Fixed
