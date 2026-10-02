@@ -76,6 +76,37 @@ const addLineOutside = (p, path, how = 'process') => p.ev(`(async () => {
 /** Waits for a condition on disk (external writes reach Obsidian through its file watcher). */
 async function until(p, fn, ms = 5000) { for (let i = 0; i < ms / 100; i++) { if (fn()) return true; await p.sleep(100); } return fn(); }
 
+test('saving notes waits for a write already in flight; text and undo survive the delayed disk write', async (p, h, t) => {
+	const f = ORDER[2];
+	await mount(p);
+	const before = disk(p, f);
+	await focusEnd(p, f);
+	await p.type(' Words waiting for disk.');
+	await p.ev(`(() => {
+		const m = ${M}, s = m.scenes[${idx(f)}], adapter = app.vault.adapter, write = adapter.write;
+		window.__saveDone = false;
+		adapter.write = async function (...args) {
+			if (args[0] === ${J(f)}) {
+				adapter.write = write;
+				await new Promise(r => { window.__releaseWrite = r; });
+			}
+			return write.apply(this, args);
+		};
+		window.__firstWrite = s.live.flush();
+		return 1;
+	})()`);
+	for (let i = 0; i < 40 && !(await p.ev('!!window.__releaseWrite')); i++) await p.sleep(25);
+	await p.ev(`${M}.save([app.vault.getAbstractFileByPath(${J(f)})]).then(() => { window.__saveDone = true; }); 1`);
+	await p.sleep(100);
+	const early = await p.ev('window.__saveDone');
+	await p.ev(`(async () => { window.__releaseWrite(); await window.__firstWrite; while (!window.__saveDone) await new Promise(r => setTimeout(r, 20)); delete window.__releaseWrite; })().then(() => 1)`);
+	t.eq(early, false, 'save does not finish before the pending disk write');
+	t.eq(disk(p, f), before.trimEnd() + ' Words waiting for disk.\n', 'all the text is written once');
+	await p.key('z', 'ctrl');
+	await flushAll(p);
+	t.eq(disk(p, f), before, 'undo brings the original text back after the delayed save');
+});
+
 // ---- layout ----
 
 test('shows every note in binder order, subfolders as headings, each a live editor on its own file', async (p, h, t) => {

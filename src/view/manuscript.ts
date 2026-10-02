@@ -228,6 +228,11 @@ c.registerDomEvent(this.root, 'focusout', (e) => { const cm = this.sceneOf(e.tar
 		c.registerEvent(vault.on('modify', (f) => this.onModify(f)));
 		// Quitting doesn't unload views or embeds, and Obsidian's own quit handler only saves real views: save ours
 		c.registerEvent(workspace.on('quit', (tasks) => { for (const s of this.scenes) if (s.live?.dirty) tasks.addPromise(s.live.flush()); }));
+		// Phones can be suspended without a quit event; don't leave their last words on a timer.
+		const save = () => { void this.save().catch((e) => console.error('Binders: saving failed', e)); };
+		c.registerDomEvent(this.root.ownerDocument, 'visibilitychange', () => { if (this.root.ownerDocument.hidden) save(); });
+		c.registerDomEvent(this.root.win, 'pagehide', save);
+		c.registerDomEvent(this.root.win, 'blur', save);
 		// Obsidian may put an editor back in source mode when the vault's live preview setting changes
 		const keepLp = () => { for (const s of this.scenes) s.live?.keepLivePreview(); };
 		c.registerEvent((vault as Events).on('config-changed', keepLp));
@@ -314,7 +319,7 @@ c.registerDomEvent(this.root, 'focusout', (e) => { const cm = this.sceneOf(e.tar
 	}
 
 	async save(files?: TFile[]): Promise<void> {
-		await Promise.all(this.scenes.filter((s) => s.live?.dirty && (!files || files.includes(s.file))).map((s) => s.live?.flush()));
+		await Promise.all(this.scenes.filter((s) => s.live && (!files || files.includes(s.file))).map((s) => s.live?.flush()));
 	}
 
 	current(): TAbstractFile | null {

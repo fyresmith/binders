@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.10.2 (2026-10-02)
+
+### Fixed
+
+- Commands wait for manuscript writes already in progress, and pending text is saved when the app goes into the background.
+
 ## 0.10.1 (2026-10-02)
 
 ### Fixed

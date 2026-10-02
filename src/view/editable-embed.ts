@@ -158,7 +158,8 @@ export async function mountEditor(app: App, container: HTMLElement, file: TFile,
 		// the write is on its way isn't merged with it as if it were an outside change, and doubled)
 		if (now && this.dirty && this.lastSavedData !== null && this.lastSavedData !== text) markSaved(app, file, text);
 		const p = proto.save.call(this, text, now) as Promise<void>;
-		if (!now) { opts.onChange?.(text); show(text); }
+		if (now) writing = Promise.all([writing, p]).then((): void => {});
+		else { opts.onChange?.(text); show(text); }
 		return p;
 	};
 	// The last few texts this editor has shown (typed here, or taken live from another editor of the note).
@@ -168,8 +169,10 @@ export async function mountEditor(app: App, container: HTMLElement, file: TFile,
 	let writing: Promise<void> = Promise.resolve();
 	const flush = (): Promise<void> => {
 		embed.requestSave.cancel();
-		if (embed.editMode) embed.text = embed.editMode.get();
-		if (embed.dirty) writing = embed.save(embed.text, true);
+		const text = embed.editMode?.get() ?? embed.text;
+		// An editor update may not have reached the embed yet when a command asks to save.
+		if (text !== embed.text) void embed.save(text);
+		if (embed.dirty) void embed.save(text, true);
 		return writing;
 	};
 	// 6. Whoever tears the embed down (us, the view closing, the plugin unloading), typing is written first; the
