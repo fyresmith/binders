@@ -191,6 +191,7 @@ const NOTE = '---\nsynopsis: Mara arrives.\nstatus: draft\n---\nThe boat left he
 	const to = (from: string, next: string) => (path: string) => (path === from ? next : null);
 	eq(repointLinks('See [[Storm warning]] and [[Storm warning#Part|the storm]], not [[Arrival]].', to('Storm warning', 'Arrival')), 'See [[Arrival]] and [[Arrival#Part|the storm]], not [[Arrival]].', 'wikilinks');
 	eq(repointLinks('![[Storm warning#^blk]]', to('Storm warning', 'Arrival')), '![[Arrival#^blk]]', 'an embed stays an embed');
+	eq(repointLinks('| [[Storm warning\\|the storm]] | [[Storm warning#Part\\|its part]] | ![[Storm warning\\|200]] |', to('Storm warning', 'Arrival')), '| [[Arrival\\|the storm]] | [[Arrival#Part\\|its part]] | ![[Arrival\\|200]] |', 'in a table, where the bar is written with a backslash');
 	eq(repointLinks('[the storm](Storm%20warning.md#Part) and [site](https://example.com/Storm%20warning.md)', to('Storm warning', 'Part One/Arrival')), '[the storm](Part%20One/Arrival.md#Part) and [site](https://example.com/Storm%20warning.md)', 'a Markdown link, encoded; a web address is left alone');
 	eq(repointLinks('[x](<Storm warning.md>)', to('Storm warning', 'Arrival (new)')), '[x](<Arrival (new).md>)', 'an angled Markdown link');
 	eq(repointLinks('`[[Storm warning]]`\n\n```\n[[Storm warning]]\n```\n[[Storm warning]]', to('Storm warning', 'Arrival')), '`[[Storm warning]]`\n\n```\n[[Storm warning]]\n```\n[[Arrival]]', 'links in code are text');

@@ -562,6 +562,15 @@ test('a note open in a tab with words typed and not yet saved: a snapshot taken 
 	t.eq(disk(p, 'Odd/typed.md'), 'One.\n\nTwo.\nThree.', 'and so has the note on disk (in the editor’s line breaks now: it was typed in)');
 }));
 
+test('a link with other words to show, in a table (where Obsidian writes its bar with a backslash), follows a merge to the note that has the text', withTidy(async (p, h, t) => {
+	const GAMMA = 'See [[Beta]] and [[Beta|the second]].\n\n| note | part |\n| --- | --- |\n| [[Beta\\|in a table]] | [[Beta#Part\\|its part]] |\n';
+	await odd(p, [['Alpha', 'Alpha text.\n'], ['Beta', '# Part\n\nBeta text.\n'], ['Gamma', GAMMA]]);
+	await p.sleep(500); // (Obsidian has read the links)
+	await merge(p, ['Odd/Alpha.md', 'Odd/Beta.md']);
+	await until(p, `app.vault.adapter.read('Odd/Gamma.md').then(s => !s.includes('Beta'))`);
+	t.eq(disk(p, 'Odd/Gamma.md'), GAMMA.replace(/Beta/g, 'Alpha'), 'every link to the note that went leads to the merged one, the two in the table too, and nothing else changed');
+}));
+
 test('a note made beside one it’s named after (“Arrival 1”, as “Make a copy” does) goes right after it', withTidy(async (p, h, t) => {
 	await p.ev(`app.vault.copy(${file(L + 'Part One/Arrival.md')}, ${j(L + 'Part One/Arrival 1.md')}).then(() => 1)`);
 	await until(p, `app.vault.adapter.exists(${j(L + 'Part One/Arrival 1.md')})`);

@@ -146,9 +146,11 @@ export function stripComments(text: string): string {
 
 /** Points links somewhere else: for every `[[note#part|shown]]`, `![[note]]` and `[shown](note.md#part)` in a text,
     `to(note, part)` gives the note to link to instead (as link text, without `.md`), or null to leave the link as it
-    is. Only the note changes: the part, the shown text and the kind of link stay. Code is left alone. */
+    is. Only the note changes: the part, the shown text and the kind of link stay. Code is left alone.
+    (In a table Obsidian writes the bar before the shown text with a backslash, `[[note\|shown]]`: the backslash goes
+    with the bar, not with the note's name.) */
 export function repointLinks(text: string, to: (path: string, subpath: string) => string | null): string {
-	const re = new RegExp(CODE + '|(!?\\[\\[)([^\\]|#\\n]*)(#[^\\]|\\n]*)?((?:\\|[^\\]\\n]*)?\\]\\])|(!?\\[[^\\]\\n]*\\]\\()(<[^>\\n]*>|[^)\\s]*)(\\))', 'gm');
+	const re = new RegExp(CODE + '|(!?\\[\\[)([^\\]|#\\n]*?)(#[^\\]|\\n]*?)?((?:\\\\?\\|[^\\]\\n]*)?\\]\\])|(!?\\[[^\\]\\n]*\\]\\()(<[^>\\n]*>|[^)\\s]*)(\\))', 'gm');
 	return text.replace(re, (m: string, _f: string, _t: string, open: string | undefined, path: string, sub: string | undefined, close: string, mdOpen: string | undefined, target: string, mdClose: string) => {
 		if (open !== undefined) {
 			const next = to(path.trim(), sub ?? '');

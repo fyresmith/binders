@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.70 (2026-10-02)
+
+### Fixed
+
+- A link with other words to show, inside a table, now follows the text when notes are merged or split, instead of being left leading nowhere.
+
 ## 0.12.69 (2026-10-02)
 
 ### Fixed
