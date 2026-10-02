@@ -6,13 +6,19 @@
 
 - **What it is:** Binders, an Obsidian plugin (id `binders`) that makes folders behave like a writer's binder:
   - ordered notes and subfolders, shown in that order in Obsidian's own file explorer;
-  - one binder view with three modes: corkboard, plot grid, and the whole manuscript as one editable page.
+  - one binder view with three modes: corkboard, outliner, and the whole manuscript as one editable page.
 - **Where it came from:** planned 2026-09-30 in a session that also built and released the maintainer's first plugin,
   **Evra Timelines** (`~/Projects/evra`). Binders reuses Evra's toolchain and team workflow. Evra is a good reference
   for native-looking UI, e2e tests, the release workflow, and the lessons in AGENTS.md.
-- **Version:** 0.1.0, the scaffold. Only `src/model.ts` (the binder index), the settings tab and the test harness exist.
-  Next milestone: **0.2**, binders in the vault: detection, index cache, rename/move/delete tracking, "Make this folder
-  a binder", "New scene here". See the milestone table in `docs/plan.md`.
+- **Version:** 0.12.x (the number is in `package.json`; every commit bumps it). Unreleased: nothing is tagged yet.
+- **Built:** binders in the vault and in the file explorer (order, drag to reorder, label dots), the three modes, the
+  Longform integration, the scene operations (split, merge, duplicate, group, compile, undo of moves), arrange by
+  label, snapshots and focus mode. The milestone table in `docs/plan.md` has the detail.
+- **Left before 1.0** (`ROADMAP.md`, in its order): mobile QA to the end, on a real iPhone or iPad and a real Android
+  device (phones are only emulated so far); export (EPUB, DOCX, PDF, a Scrivener project); import from Scrivener; find
+  and replace across the manuscript.
+- **Tests:** unit tests and about forty e2e spec files. The full e2e run is not all green: findings that are still
+  open are listed in `docs/integration-qa.md`.
 - **Git:** remote `origin` is `github.com/fyresmith/binders`.
 
 ## Decisions already made (don't reopen without cause)
@@ -25,14 +31,16 @@
 - **Binders has its own format** (`docs/file-format.md`) plus a **Longform integration**: read Longform projects and write
   only `longform.scenes` on reorder. Don't use Longform's format as the native one: it's flat, keyed by file name, and
   its nesting has no fixed meaning.
-- **1.0 ships all three views:** corkboard, plot grid and the editable manuscript.
+- **1.0 ships all three views:** corkboard, outliner and the editable manuscript. The outliner replaced the plot grid
+  on 2026-10-01 (the maintainer's request); see "Decided" in `docs/plan.md`.
 
 ## Answers (2026-09-30)
 
 1. **Folder data:** binders and subfolders each have a hidden note (the binder note; a folder note named like the
    folder) that stores their data. Their synopsis is set in the binder view. See `docs/file-format.md`.
 2. **Hiding:** binder and folder notes are hidden in the explorer by default, with a setting to show them.
-3. **Plot grid cell text:** in scene properties, `plot: {Mara: "…"}` (reserved now, used after 1.0).
+3. **Plot grid cell text:** in scene properties, `plot: {Mara: "…"}`. Superseded 2026-10-01: the plot grid was
+   dropped, and `plot`, `plotlines` and `plotlineColors` are no longer read or written (notes that have them keep them).
 4. **Mobile:** a 1.0 requirement, including the editable manuscript. Test on iOS and Android from 0.3 on.
 5. **GitHub:** `fyresmith/binders` (remote `origin`).
 
