@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.60 (2026-10-02)
+
+### Fixed
+
+- “New status...” with nothing typed now stays open and says a status needs a name, as “New label” does; so does adding an outliner column by a property's name.
+
 ## 0.12.59 (2026-10-02)
 
 ### Fixed

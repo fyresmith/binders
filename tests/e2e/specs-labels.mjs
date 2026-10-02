@@ -286,3 +286,38 @@ test('targets: a note’s word count target shows on its card; “Set target...�
 	same(t, before, await texts(p));
 	t.eq(await read(p, NOTE), before[NOTE], 'the binder note untouched');
 });
+
+test('“New status...” with nothing typed stays and says a status needs a name, as “New label” does; a name typed then sets it, and only that is written', async (p, h, t) => {
+	const before = await texts(p);
+	await openView(p);
+	const was = (await fm(p, L + 'Epilogue.md'))?.status ?? null;
+	const c = await p.at(card(L + 'Epilogue.md'));
+	await p.right(c.x, c.y);
+	await hoverMenu(p, 'Set status');
+	await clickMenu(p, 'New status...');
+	await until(p, `!!document.querySelector('.modal input')`);
+	await p.sleep(150);
+	await p.key('Enter');
+	await p.sleep(300);
+	t.eq(await p.ev(`document.querySelector('.modal .binders-ask-error')?.textContent ?? null`), 'A status needs a name.', 'Enter on an empty field: the dialog stays and says why');
+	await p.ev(`(() => { [...document.querySelectorAll('.modal button')].find(b => b.textContent === 'Set status').click(); return 1; })()`);
+	await p.sleep(200);
+	t.ok(await p.ev(`!!document.querySelector('.modal')`), 'its button on an empty field: the same');
+	t.eq((await fm(p, L + 'Epilogue.md'))?.status ?? null, was, 'and nothing was set');
+	await p.type('Polished');
+	t.eq(await p.ev(`document.querySelector('.modal .binders-ask-error')?.textContent`), '', 'typing takes the words away');
+	await p.key('Enter');
+	await until(p, `app.metadataCache.getFileCache(${file(L + 'Epilogue.md')})?.frontmatter?.status === 'Polished'`);
+	t.ok(await p.ev(`!document.querySelector('.modal')`), 'a name typed: the dialog closes and the status is set');
+	const after = await texts(p);
+	same(t, before, after, { skip: [L + 'Epilogue.md'] });
+	t.eq(split(after[L + 'Epilogue.md']).body, split(before[L + 'Epilogue.md']).body, 'the note’s text is untouched');
+	// Cancel on an empty field still just closes
+	await p.right(c.x, c.y);
+	await hoverMenu(p, 'Set status');
+	await clickMenu(p, 'New status...');
+	await until(p, `!!document.querySelector('.modal input')`);
+	await p.key('Escape');
+	await p.sleep(200);
+	t.ok(await p.ev(`!document.querySelector('.modal')`), 'Escape closes it with nothing said');
+});

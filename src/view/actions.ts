@@ -118,7 +118,7 @@ export function statusItems(ctx: ModeContext, m: Menu, items: TAbstractFile[]): 
 	const now = shared(ctx, items, 'status');
 	for (const s of statusChoices(ctx)) m.addItem((x) => x.setSection('statuses').setTitle(s).setChecked(now != null && same(now, s)).onClick(() => void setAll(ctx, items, { status: s })));
 	m.addItem((x) => x.setSection('new').setTitle('New status...').setIcon('plus').onClick(async () => {
-		const s = await ask(ctx.app, { title: 'New status', placeholder: 'Draft, revised, done…', cta: 'Set status' });
+		const s = await ask(ctx.app, { title: 'New status', placeholder: 'Draft, revised, done…', cta: 'Set status', empty: 'A status needs a name.' });
 		if (s) await setAll(ctx, items, { status: s });
 	}));
 	if (now !== '') m.addItem((x) => x.setSection('new').setTitle('No status').setIcon('x').onClick(() => void setAll(ctx, items, { status: '' })));

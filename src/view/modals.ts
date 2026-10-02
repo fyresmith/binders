@@ -56,8 +56,9 @@ function field(m: Modal, placeholder: string, value: string): { text: TextCompon
 
 /** Asks for a line of text. Resolves with it (trimmed), or null if cancelled or empty (with `allowEmpty`, an emptied
     field is an answer too: ""). `check` says why an answer can't be used (or null if it can): the dialog then stays
-    open with what was typed, and says so. */
-export function ask(app: App, o: { title: string; placeholder: string; cta: string; value?: string; allowEmpty?: boolean; numeric?: boolean; check?(value: string): string | null }): Promise<string | null> {
+    open with what was typed, and says so. `empty` is what it says, staying open, when nothing was typed and that's
+    no answer (as "New label" does); without it, nothing typed closes the dialog as Cancel does. */
+export function ask(app: App, o: { title: string; placeholder: string; cta: string; value?: string; allowEmpty?: boolean; numeric?: boolean; empty?: string; check?(value: string): string | null }): Promise<string | null> {
 	return new Promise((resolve) => {
 		let value = o.value ?? '', ok = false;
 		const m = new Modal(app);
@@ -66,7 +67,7 @@ export function ask(app: App, o: { title: string; placeholder: string; cta: stri
 		// (a number: a phone shows its number keys)
 		if (o.numeric) f.text.inputEl.inputMode = 'numeric';
 		const done = () => {
-			const why = value.trim() || o.allowEmpty ? o.check?.(value.trim()) ?? null : null;
+			const why = value.trim() || o.allowEmpty ? o.check?.(value.trim()) ?? null : o.empty ?? null;
 			if (why) { f.refuse(why); return; }
 			ok = true;
 			m.close();

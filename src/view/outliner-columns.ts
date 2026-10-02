@@ -145,7 +145,7 @@ export class OutlinerColumns {
 		const found = suggestProps(this.h.ctx.store.scenes(this.h.ctx.binder.folder).map((f) => (this.h.ctx.app.metadataCache.getFileCache(f)?.frontmatter ?? {})), [...own, ...shown]);
 		for (const p of [...shown, ...found.slice(0, 12)]) menu.addItem((i) => i.setSection('props').setTitle(p).setIcon('text').setChecked(has(propId(p))).onClick(() => flip(propId(p))));
 		menu.addItem((i) => i.setSection('add').setTitle('Other property...').setIcon('plus').onClick(async () => {
-			const name = await ask(this.h.ctx.app, { title: 'Add a column', placeholder: 'A property’s name, such as POV', cta: 'Add column' });
+			const name = await ask(this.h.ctx.app, { title: 'Add a column', placeholder: 'A property’s name, such as POV', cta: 'Add column', empty: 'A column needs a property’s name.' });
 			if (name && !has(propId(name))) { this.h.setColumns([...this.h.columns(), { id: propId(name) }]); this.showColumn(propId(name)); }
 		}));
 	}
