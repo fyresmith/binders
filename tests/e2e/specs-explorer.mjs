@@ -524,3 +524,62 @@ test('several items selected in the explorer: “New folder from selection” (n
 	t.ok(mixed.length > 0 && !mixed.some((x) => x === 'New folder from selection' || /^Merge \d/.test(x)), 'a selection that isn’t all in one binder has no Binders items: ' + mixed.join(', '));
 	await p.key('Escape');
 });
+
+// Another plugin may patch the explorer's `getSortedFolderItems` too. One that assigns its own function and, turned
+// off, puts back what it found takes with it any patch made after its own: Binders'. (monkey-around, which Binders
+// uses, takes off only its own.)
+const PROTO = `Object.getPrototypeOf(${EXP})`;
+const turnOff = (p) => p.ev(`app.plugins.disablePlugin('binders').then(() => 1)`).then(() => p.sleep(400));
+const turnOn = async (p) => {
+	await p.ev(`app.plugins.enablePlugin('binders').then(() => 1)`);
+	for (let i = 0; i < 40 && (await p.ev(`${pl}?.explorer?.status ?? 'none'`)) !== 'patched'; i++) await p.sleep(100);
+	await p.sleep(300);
+};
+
+test('a patch another plugin takes away with its own is put back: binder order returns when a tab is switched to, and Obsidian’s method is left clean', async (p, h, t) => {
+	await rows(p);
+	try {
+		await turnOff(p);
+		// the other plugin, on before Binders
+		await p.ev(`(() => { const pr = ${PROTO}; window.__found = pr.getSortedFolderItems; pr.getSortedFolderItems = function (f) { return window.__found.call(this, f); }; return 1; })()`);
+		await turnOn(p);
+		same(t, await rows(p), IN_ORDER, 'binder order, on top of the other plugin’s patch');
+		// it's turned off, and puts back what it found
+		await p.ev(`(() => { ${PROTO}.getSortedFolderItems = window.__found; ${EXP}.requestSort(); return 1; })()`); await p.sleep(500);
+		same(t, await rows(p), ALPHABETICAL, 'Binders’ patch went with it: by name (what this test is about)');
+		await h.open('The Lighthouse/Prologue.md'); await p.sleep(600);
+		same(t, await rows(p), IN_ORDER, 'binder order is back once a tab is switched to, with no change to any binder');
+		t.eq(await p.ev(`${pl}.explorer.status`), 'patched', 'and the patch says so');
+		t.eq(await p.ev(`document.querySelectorAll('.binders-folder-tag').length`), 2, 'each binder is tagged once');
+		await turnOff(p);
+		t.ok(/sortOrder/.test(await p.ev(`${PROTO}.getSortedFolderItems.toString()`)), 'with Binders off, Obsidian’s own method is back, unwrapped');
+		same(t, await rows(p), ALPHABETICAL, 'and its own order');
+	} finally { await p.ev(`(async () => { if (app.plugins.plugins.binders) await app.plugins.disablePlugin('binders'); if (window.__found) ${PROTO}.getSortedFolderItems = window.__found; delete window.__found; })().then(() => 1)`); await turnOn(p); }
+	same(t, await rows(p), IN_ORDER, 'binder order after turning it back on');
+});
+
+test('a plugin that patches the explorer over Binders’ patch, and takes its own off again, leaves Binders’ in place: it isn’t made twice', async (p, h, t) => {
+	await rows(p);
+	try {
+		// the other plugin, on after Binders: its patch calls what it found, which is Binders'
+		await p.ev(`(() => { const pr = ${PROTO}; window.__under = pr.getSortedFolderItems; window.__calls = 0; pr.getSortedFolderItems = function (f) { window.__calls++; return window.__under.call(this, f); }; ${EXP}.requestSort(); return 1; })()`); await p.sleep(500);
+		t.ok(await p.ev(`window.__calls`) > 0, 'the other plugin’s patch is the one the explorer calls');
+		await p.ev(`${pl}.binders.moveDown(app.vault.getAbstractFileByPath('The Lighthouse/Prologue.md')).then(() => 1)`); await p.sleep(700);
+		same(t, (await rows(p)).slice(0, 5), ['The Lighthouse/Part One', 'The Lighthouse/Part One/Arrival.md', 'The Lighthouse/Part One/The keeper.md', 'The Lighthouse/Part One/Storm warning.md', 'The Lighthouse/Prologue.md'], 'binder order follows a change, through both patches');
+		await p.ev(`(() => { window.__theirs = ${PROTO}.getSortedFolderItems; return 1; })()`);
+		await h.open('The Lighthouse/Prologue.md'); await p.sleep(500);
+		t.ok(await p.ev(`${PROTO}.getSortedFolderItems === window.__theirs`), 'Binders didn’t patch again over the other plugin’s patch (its own is still under it)');
+		// the other plugin is turned off: Binders' patch is what it found, and what it puts back
+		await p.ev(`(() => { ${PROTO}.getSortedFolderItems = window.__under; ${EXP}.requestSort(); return 1; })()`); await p.sleep(500);
+		await p.ev(`${pl}.binders.moveUp(app.vault.getAbstractFileByPath('The Lighthouse/Prologue.md')).then(() => 1)`); await p.sleep(700);
+		same(t, await rows(p), IN_ORDER, 'binder order still');
+		t.ok(await p.ev(`${PROTO}.getSortedFolderItems === window.__under`), 'and still the one patch');
+		await turnOff(p);
+		t.ok(/sortOrder/.test(await p.ev(`${PROTO}.getSortedFolderItems.toString()`)), 'with Binders off, Obsidian’s own method is back, unwrapped');
+	} finally {
+		// (the other plugin's patch comes off while Binders' is still under it, so Binders' own comes off clean)
+		await p.ev(`(async () => { if (window.__theirs && ${PROTO}.getSortedFolderItems === window.__theirs) ${PROTO}.getSortedFolderItems = window.__under; if (app.plugins.plugins.binders) await app.plugins.disablePlugin('binders'); delete window.__under; delete window.__theirs; delete window.__calls; })().then(() => 1)`);
+		await turnOn(p);
+	}
+	same(t, await rows(p), IN_ORDER, 'binder order after turning it back on');
+});

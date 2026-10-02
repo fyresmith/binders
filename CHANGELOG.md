@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.51 (2026-10-02)
+
+### Fixed
+
+- If another plugin that also changes the file explorer was turned off, binders could fall back to name order until Obsidian was restarted. Binder order now returns by itself.
+
 ## 0.12.50 (2026-10-02)
 
 ### Changed

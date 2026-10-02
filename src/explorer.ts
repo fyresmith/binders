@@ -97,6 +97,9 @@ function explorerViews(app: App): { views: ExplorerView[]; missing: boolean } {
 	return { views, missing };
 }
 
+/** The method Binders patches, as the explorer's class has it now: only to tell whether it's still the same one. */
+const methodOf = (v: ExplorerView): unknown => (Object.getPrototypeOf(v) as Record<string, unknown>).getSortedFolderItems;
+
 /** Has an explorer sort itself again (debounced, where Obsidian offers that). */
 const resort = (v: ExplorerView) => { if (typeof v.requestSort === 'function') v.requestSort(); else v.sort?.(); };
 
@@ -140,6 +143,9 @@ export function installExplorer(plugin: Plugin, source: ExplorerSource, settings
 	const { app } = plugin;
 	let unpatch: (() => void) | null = null, noticed = false, loaded = true;
 	let status: Explorer['status'] = 'waiting';
+	/** The explorer's method as it was when Binders' patch was last known to be part of it, and whether a call made
+	    to find out has reached the patch (see `intact`). */
+	let top: unknown = null, reached = false;
 
 	/** Binder order for one folder's items, with binder and folder notes left out. Never drops anything else. */
 	const arrange = (folder: TFolder, items: ExplorerItem[]): ExplorerItem[] => {
@@ -205,17 +211,37 @@ export function installExplorer(plugin: Plugin, source: ExplorerSource, settings
 		const proto = Object.getPrototypeOf(views[0]) as ExplorerView;
 		unpatch = around(proto, {
 			getSortedFolderItems: (next: (folder: TFolder) => ExplorerItem[]) => function (this: ExplorerView, folder: TFolder) {
+				reached = true;
 				const items = next.call(this, folder) as ExplorerItem[];
 				try { return arrange(folder, items); } catch (e) { console.error('Binders: could not order the file explorer', e); return items; }
 			},
 		});
+		top = methodOf(views[0]);
 		status = 'patched';
+	};
+
+	/** Is Binders' patch still part of the explorer's method? Another plugin that patched the same method before Binders
+	    did, and puts back what it found when it's turned off, takes Binders' patch away with its own. While the method
+	    is the one last seen, nothing has changed. Once it's another (a plugin has patched over Binders', which is fine,
+	    or taken it away), the only way to tell is to call it and see whether the call comes through here. */
+	const intact = (): boolean => {
+		if (!unpatch) return true;
+		const v = explorerViews(app).views[0];
+		if (!v) return true; // no explorer to ask: looked at again when one shows
+		const now = methodOf(v);
+		if (now === top) return true;
+		reached = false;
+		try { v.getSortedFolderItems(app.vault.getRoot()); } catch { /* another plugin's patch threw: not ours to say */ }
+		if (reached) top = now;
+		return reached;
 	};
 
 	const refresh = () => {
 		if (!loaded) return;
 		// (the patch stays on with binder order off: it's also what keeps snapshots out of the list)
 		const on = settings().orderExplorer;
+		// taken away by another plugin: what's left of it is let go (it only passes calls on now), and it's made again
+		if (!intact()) { try { unpatch?.(); } catch { /* nothing of it is left to take off */ } unpatch = null; }
 		if (!unpatch) patch();
 		if (unpatch) status = on ? 'patched' : 'off';
 		const { views } = explorerViews(app);
@@ -442,8 +468,10 @@ export function installExplorer(plugin: Plugin, source: ExplorerSource, settings
 	app.workspace.onLayoutReady(() => {
 		if (!loaded) return;
 		refresh();
-		plugin.registerEvent(app.workspace.on('layout-change', () => { if (status === 'waiting') refresh(); else active(); }));
-		plugin.registerEvent(app.workspace.on('active-leaf-change', () => active()));
+		// (and a patch another plugin took away with its own is put back the next time anything happens: a binder
+		// changes, a tab is switched to, the layout changes)
+		plugin.registerEvent(app.workspace.on('layout-change', () => { if (status === 'waiting' || !intact()) refresh(); else active(); }));
+		plugin.registerEvent(app.workspace.on('active-leaf-change', () => { if (!intact()) refresh(); else active(); }));
 		const ref = source.on('changed', refresh);
 		plugin.register(() => source.offref(ref));
 		// a note's label changed: its dot (and its folder's, if it's the folder's note)
