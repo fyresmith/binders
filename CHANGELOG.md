@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.100 (2026-10-02)
+
+### Fixed
+
+- In the manuscript a screen reader found no headings to move by: a folder's heading was announced only as a link.
+
 ## 0.12.99 (2026-10-02)
 
 ### Changed

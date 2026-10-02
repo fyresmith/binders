@@ -572,6 +572,9 @@ class Manuscript implements BinderMode {
 			h.el.empty();
 			h.textEl = h.el.createEl(`h${Math.min(depth, 6)}` as 'h1', { attr: { tabindex: '0', role: 'link' } });
 			h.el.dataset.depth = String(depth);
+			// (a heading to a screen reader, so the book can be walked heading by heading: the element inside is a
+			// link, which is all its own role says)
+			h.el.setAttrs({ role: 'heading', 'aria-level': String(Math.min(depth, 6)) });
 		}
 		h.textEl.setText(h.key.name);
 	}
