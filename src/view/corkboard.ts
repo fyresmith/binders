@@ -112,6 +112,10 @@ class Corkboard implements BinderMode {
 		// (said to a screen reader, not shown: where a card moved by hand is now)
 		this.live = this.container.createDiv({ cls: 'binders-live', attr: { 'aria-live': 'polite', role: 'status' } });
 		this.fit.observe(this.container);
+		// (a moment after the board stops being scrolled: a board of a thousand cards isn't measured on every frame)
+		const scrolled = () => { window.clearTimeout(this.midTimer); this.midTimer = window.setTimeout(() => this.noteMid(), 150); };
+		this.container.addEventListener('scroll', scrolled, { passive: true });
+		this.cleanup.push(() => { this.container.removeEventListener('scroll', scrolled); window.clearTimeout(this.midTimer); });
 		const moved = this.ctx.app.vault.on('rename', (f, old) => this.onMoved(f.path, old));
 		this.cleanup.push(() => this.ctx.app.vault.offref(moved));
 		this.cleanup.push(owedFocus(this.container, () => this.focusOnDraw, () => { this.focusOnDraw = false; }));
@@ -148,7 +152,44 @@ class Corkboard implements BinderMode {
 	private fit = new ResizeObserver(() => {
 		const a = this.board.doc.activeElement;
 		if ((this.editing > 0 || this.newIn) && a?.instanceOf(HTMLElement) && this.board.contains(a)) { a.scrollIntoView({ block: 'nearest' }); this.inSight(a); }
+		// Made narrower or wider (a window resized, a tablet turned): a row holds another number of cards, and the same
+		// scroll position shows other notes. The card that was in the middle of the pane is put back there.
+		const box = this.container, w = box.clientWidth, was = this.width, mid = this.mid;
+		this.width = w;
+		if (!was || !w || w === was || !mid || this.drag) return;
+		let frames = 20;
+		const stop = () => { frames = 0; };
+		for (const t of ['wheel', 'pointerdown', 'keydown', 'touchstart'] as const) box.addEventListener(t, stop, { once: true, passive: true, capture: true });
+		// (held for a moment: the cards above it take their real heights as they come into sight)
+		const tick = () => {
+			// (and it stays the card that's kept through the next change of width, until the board is scrolled by hand)
+			if (frames-- <= 0 || !box.isConnected) { window.setTimeout(() => { this.settling = false; }, 300); return; }
+			const el = this.cardEl(mid.path), r = box.getBoundingClientRect();
+			if (el) { const d = el.getBoundingClientRect().top - r.top - mid.at * r.height; if (Math.abs(d) > 0.5) box.scrollTop += d; }
+			box.win.requestAnimationFrame(tick);
+		};
+		this.settling = true;
+		tick();
 	});
+	private width = 0;
+	/** The card in the middle of the pane, and how far down the pane its top is (0 to 1): noted as the board is
+	    scrolled, for `fit` above. */
+	private mid: { path: string; at: number } | null = null;
+	private settling = false;
+	private midTimer = 0;
+	private noteMid(): void {
+		const r = this.container.getBoundingClientRect();
+		if (this.settling || !r.height) return;
+		// the card in hand if it's in sight; else the middle card of the row across the pane's middle
+		const inSight = (x: HTMLElement) => { const b = x.getBoundingClientRect(); return b.bottom > r.top && b.top < r.bottom; };
+		const cards = this.cards(), held = this.cardEl(this.focused), i = cards.findIndex((x) => x.getBoundingClientRect().bottom > r.top + r.height / 2);
+		let c = held && inSight(held) ? held : cards[i];
+		if (c && c !== held) {
+			const top = c.getBoundingClientRect().top, row = cards.slice(i, i + 12).filter((x) => Math.abs(x.getBoundingClientRect().top - top) < 2);
+			c = row[Math.floor((row.length - 1) / 2)] ?? c;
+		}
+		this.mid = c?.dataset.path ? { path: c.dataset.path, at: (c.getBoundingClientRect().top - r.top) / r.height } : null;
+	}
 
 	unload(): void {
 		this.fit.disconnect();

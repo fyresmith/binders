@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.103 (2026-10-02)
+
+### Fixed
+
+- Making the window narrower or wider, or turning a tablet, keeps the card you were looking at in sight on the corkboard.
+
 ## 0.12.102 (2026-10-02)
 
 ### Fixed

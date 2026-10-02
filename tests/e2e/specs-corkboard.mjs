@@ -1483,3 +1483,26 @@ for (const how of ['in a grid', 'by label']) {
 		}
 	}));
 }
+
+test('the window made narrower and wider again (fewer cards to a row, then more): the card that was in the middle of the board is still in sight', withTidy(async (p, h, t) => {
+	await p.ev(`(async () => { for (let i = 1; i <= 36; i++) await ${B}.newScene(${file('The Lighthouse')}, Infinity, 'Extra ' + String(i).padStart(2, '0')); await ${B}.flush(); })().then(() => 1)`);
+	await openView(p);
+	await until(p, `document.querySelectorAll('.workspace-leaf.mod-active .binders-card[data-path]').length === 40`);
+	const X = card(L + 'Extra 22.md');
+	const size = async (w) => { await p.send('Emulation.setDeviceMetricsOverride', { width: w, height: p.height, deviceScaleFactor: 1, mobile: false }); await p.sleep(900); };
+	const look = () => p.ev(`(() => { const c = document.querySelector(${j(X)}).getBoundingClientRect(), b = document.querySelector('.workspace-leaf.mod-active .binders-corkboard').getBoundingClientRect(); return { seen: c.bottom > b.top && c.top < b.bottom, perRow: [...document.querySelectorAll('.workspace-leaf.mod-active .binders-card[data-path]')].filter(e => Math.abs(e.getBoundingClientRect().top - c.top) < 2).length }; })()`);
+	try {
+		await p.ev(`(() => { document.querySelector(${j(X)}).scrollIntoView({ block: 'center' }); return 1; })()`);
+		await p.sleep(500);
+		const wide = await look();
+		t.ok(wide.seen && wide.perRow > 1, 'the card is in the middle of a board of several cards to a row: ' + j(wide));
+		await size(Math.round(p.width * 0.55));
+		const narrow = await look();
+		t.ok(narrow.perRow < wide.perRow, `narrower, a row holds fewer cards (${narrow.perRow}, was ${wide.perRow})`);
+		t.ok(narrow.seen, 'and the card is still in sight');
+		await size(p.width);
+		t.ok((await look()).seen, 'wider again, it still is');
+	} finally {
+		await p.send('Emulation.setDeviceMetricsOverride', { width: p.width, height: p.height, deviceScaleFactor: 1, mobile: false });
+	}
+}));
