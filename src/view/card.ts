@@ -104,3 +104,22 @@ export function cardKey(ctx: ModeContext, f: TAbstractFile): unknown[] {
 	const p = ctx.props(f);
 	return [f.path, p.synopsis, p.status, p.label, p.target, ctx.words(f)];
 }
+
+/** With "Number the cards" on, each note's card says its place among the notes that show, in the order they read
+    (`cards`: the board's cards in that order; a folder's card has no number). */
+export function numberCards(board: HTMLElement, cards: HTMLElement[], on: boolean): void {
+	board.toggleClass('mod-numbers', on);
+	let n = 0;
+	for (const c of cards) {
+		const el = c.querySelector<HTMLElement>(':scope > .binders-card-head > .binders-card-number');
+		if (!el) continue;
+		const text = on ? String(++n) : '';
+		if (el.textContent !== text) el.setText(text);
+	}
+}
+
+/** Is the pointer over a board's pane (a little past its sides still counts)? A drop anywhere else moves nothing. */
+export function overPane(pane: HTMLElement, x: number, y: number): boolean {
+	const r = pane.getBoundingClientRect(), slack = 24;
+	return x >= r.left - slack && x <= r.right + slack && y >= r.top && y <= r.bottom;
+}

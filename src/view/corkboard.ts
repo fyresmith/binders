@@ -1,5 +1,5 @@
 import { Keymap, Menu, Notice, TFile, TFolder, setIcon, type PaneType, type TAbstractFile } from 'obsidian';
-import { buildCard, countLabel, synopsisField, type CardHost } from './card';
+import { buildCard, cardKey, countLabel, numberCards, overPane, sumWords, synopsisField, type CardHost } from './card';
 import { editable, type Editable } from './edit';
 import { emptyState, badName, isNote, itemMenu, noteOf, plain, removeItems, renameItem } from './actions';
 import { held, settle, visibleBottom } from './drag';
@@ -287,17 +287,7 @@ class Corkboard implements BinderMode {
 	private get numbers(): boolean { return this.ctx.option<boolean>('numbers', false) === true; }
 
 	/** With "Number the cards" on, each note's card says its place among the notes that show, in the order they read. */
-	private number(): void {
-		const on = this.numbers;
-		this.board.toggleClass('mod-numbers', on);
-		let n = 0;
-		for (const c of this.cards()) {
-			const el = c.querySelector<HTMLElement>(':scope > .binders-card-head > .binders-card-number');
-			if (!el) continue;
-			const text = on ? String(++n) : '';
-			if (el.textContent !== text) el.setText(text);
-		}
-	}
+	private number(): void { numberCards(this.board, this.cards(), this.numbers); }
 
 	/** Starts a new note's title in a group's "New note" card (default: the last one, the end of the folder shown). */
 	private startNew(sec?: HTMLElement | null): void {
@@ -356,30 +346,12 @@ class Corkboard implements BinderMode {
 
 	/** Everything a redraw would show, so a refresh that changes nothing visible draws nothing. */
 	private signature(): string {
-		const card = (f: TAbstractFile) => this.cardKey(f);
+		const card = (f: TAbstractFile) => cardKey(this.ctx, f);
 		const groups = this.model();
 		return JSON.stringify([this.ctx.readOnly, this.stacks, this.presets, this.labelStyle, groups.map((g) => {
 			const note = g.sub ? this.store.folderNote(g.folder) : null, p = note ? this.ctx.props(note) : null;
-			return [g.folder.path, g.sub, g.end?.path, g.depth, g.head?.path, p?.synopsis, p?.status, p?.label, p?.target, g.sub ? this.sum(this.store.scenes(g.folder)) : 0, this.shown(g).map(card)];
+			return [g.folder.path, g.sub, g.end?.path, g.depth, g.head?.path, p?.synopsis, p?.status, p?.label, p?.target, g.sub ? sumWords(this.ctx, this.store.scenes(g.folder)) : 0, this.shown(g).map(card)];
 		})]);
-	}
-
-	/** Everything a card shows: when it's the same, the card drawn last time is used again. */
-	private cardKey(f: TAbstractFile): unknown[] {
-		if (f instanceof TFolder) {
-			const note = this.store.folderNote(f), p = note ? this.ctx.props(note) : null, scenes = this.store.scenes(f);
-			// (with what its count says: under a filter that's the notes that pass, which the filter changes)
-			return [f.path, 'folder', p?.synopsis, p?.status, p?.label, p?.target, scenes.length, this.sum(scenes), this.countLabel(scenes, f)];
-		}
-		if (!(f instanceof TFile)) return [f.path];
-		const p = this.ctx.props(f);
-		return [f.path, p.synopsis, p.status, p.label, p.target, this.ctx.words(f)];
-	}
-
-	private sum(files: TFile[]): number | null {
-		let n = 0;
-		for (const f of files) { const w = this.ctx.words(f); if (w == null) return null; n += w; }
-		return n;
 	}
 
 	// ---- drawing ----
@@ -599,7 +571,7 @@ class Corkboard implements BinderMode {
 	private drawn = new Map<string, DrawnCard>();
 
 	private drawCard(f: TAbstractFile): HTMLElement {
-		const key = JSON.stringify([this.ctx.readOnly, this.presets, this.cardKey(f)]), hit = this.cardCache.get(f.path);
+		const key = JSON.stringify([this.ctx.readOnly, this.presets, cardKey(this.ctx, f)]), hit = this.cardCache.get(f.path);
 		if (hit && hit.key === key && hit.file === f && !this.drawn.has(f.path)) {
 			hit.el.removeClasses(['is-dragging', 'is-lifted', 'is-being-dragged-over', 'is-dropped']);
 			this.editors.set(f.path, hit.editors);
@@ -1135,10 +1107,7 @@ class Corkboard implements BinderMode {
 
 	/** Is the pointer over the board (a little past its sides still counts)? A drop anywhere else moves nothing, so no
 	    line shows there and the board doesn't scroll for it. */
-	private over(x: number, y: number): boolean {
-		const r = this.container.getBoundingClientRect(), slack = 24;
-		return x >= r.left - slack && x <= r.right + slack && y >= r.top && y <= r.bottom;
-	}
+	private over(x: number, y: number): boolean { return overPane(this.container, x, y); }
 
 	// ---- keyboard ----
 

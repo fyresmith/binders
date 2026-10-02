@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.16 (2026-10-02)
+
+### Changed
+
+- Nothing you'll notice: the corkboard and the board by label share the same code for numbering and counting cards.
+
 ## 0.12.15 (2026-10-02)
 
 ### Changed

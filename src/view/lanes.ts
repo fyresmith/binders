@@ -1,6 +1,6 @@
 import { Keymap, Menu, Notice, TFile, TFolder, setIcon, type PaneType, type TAbstractFile } from 'obsidian';
 import { emptyState, isNote, itemMenu, nameOf, noteOf, plain, removeItems, renameItem } from './actions';
-import { buildCard, cardKey, sumWords, type CardEditors, type CardHost } from './card';
+import { buildCard, cardKey, numberCards, overPane, sumWords, type CardEditors, type CardHost } from './card';
 import { Press, glide, held, places, settle, visibleBottom } from './drag';
 import { FileDrag } from './file-drag';
 import { openPluginSettings, submenu } from './internals';
@@ -482,17 +482,7 @@ class ByLabel implements BinderMode {
 	}
 
 	/** With "Number the cards" on, each note's card says its place among the notes that show, in the order they read. */
-	private number(): void {
-		const on = this.numbers;
-		this.board.toggleClass('mod-numbers', on);
-		let n = 0;
-		for (const c of this.cards()) {
-			const el = c.querySelector<HTMLElement>(':scope > .binders-card-head > .binders-card-number');
-			if (!el) continue;
-			const text = on ? String(++n) : '';
-			if (el.textContent !== text) el.setText(text);
-		}
-	}
+	private number(): void { numberCards(this.board, this.cards(), this.numbers); }
 
 	private onEditing(on: boolean, card?: HTMLElement): void {
 		this.editing += on ? 1 : -1;
@@ -697,10 +687,7 @@ class ByLabel implements BinderMode {
 	}
 
 	/** Is the pointer over the board? A drop anywhere else changes nothing. */
-	private over(x: number, y: number): boolean {
-		const r = this.container.getBoundingClientRect(), slack = 24;
-		return x >= r.left - slack && x <= r.right + slack && y >= r.top && y <= r.bottom;
-	}
+	private over(x: number, y: number): boolean { return overPane(this.container, x, y); }
 
 	/** The line at a point: the one whose band it's in, or the nearest. */
 	private laneUnder(x: number, y: number): number {
