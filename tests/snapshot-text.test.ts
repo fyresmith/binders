@@ -134,6 +134,36 @@ const show = (rows: Row[]) => rows.map((r) => (r.kind === 'same' ? '=' : r.kind 
 	eq(all.filter((r) => r.kind === 'old').length + ' ' + all.filter((r) => r.kind === 'new').length, '30 30', 'a scene replaced: every paragraph out, every paragraph in');
 }
 
+// a very long note (a whole manuscript kept as one): what's the same is found whatever its length
+{
+	const line = (i: number) => `Line ${i} of a very long note.`;
+	const a = Array.from({ length: 3000 }, (_, i) => line(i));
+	const kinds = (rows: Row[]) => { const n = { same: 0, old: 0, new: 0 }; for (const r of rows) n[r.kind]++; return `${n.same} ${n.old} ${n.new}`; };
+	const sides = (rows: Row[], kind: 'old' | 'new') => rows.filter((r) => r.kind === kind || r.kind === 'same').map((r) => r.pieces.map((p) => p.text).join(''));
+	// one line reworded
+	const one = a.map((l, i) => (i === 1500 ? l.replace('very', 'really very') : l));
+	const t0 = Date.now(), rows = compare(a.join('\n\n'), one.join('\n\n'));
+	eq(kinds(rows), '2999 1 1', '3,000 paragraphs, one reworded: that one is marked, the rest are the same');
+	eq(show(rows.filter((r) => r.kind !== 'same')), '-Line 1500 of a very long note.\n+Line 1500 of a [really] very long note.', 'word by word');
+	// changes at both ends and in between, lines put in and taken out, and a line that's there many times over
+	const b = a.filter((_, i) => i !== 700 && i !== 2998).map((l, i) => (i === 2 || i === 2200 ? l + ' More.' : l));
+	b.splice(1200, 0, ...Array.from({ length: 12 }, (_, i) => `A new line ${i}.`));
+	const starred = (list: string[]) => list.flatMap((l, i) => (i % 50 === 49 ? [l, '* * *'] : [l]));
+	const x = starred(a), y = starred(b), far = compare(x.join('\n'), y.join('\n'));
+	eq(j(sides(far, 'old')), j(x), 'changes all through a long note: the old side is the old text, whole and in order');
+	eq(j(sides(far, 'new')), j(y), 'and the new side the new');
+	const marked = far.filter((r) => r.kind !== 'same').map((r) => r.pieces.map((p) => p.text).join(''));
+	ok(far.filter((r) => r.kind === 'same').length >= a.length - 4, `and nearly all of it is the same (${kinds(far)})`);
+	ok(marked.filter((l) => l !== '* * *').length === 18 && [line(700), line(2998), line(2), line(2201), 'A new line 0.', 'A new line 11.'].every((l) => marked.includes(l)), `only what changed is marked (and separators that fall elsewhere): two lines out, two reworded, twelve in (${kinds(far)})`);
+	// two long texts with nothing in common: every paragraph out, every paragraph in, and no long wait
+	const other = Array.from({ length: 3000 }, (_, i) => `Another text altogether, ${i}.`);
+	eq(kinds(compare(a.join('\n'), other.join('\n'))), '0 3000 3000', 'nothing in common: all out, all in');
+	// one paragraph of thousands of words with a word changed in the middle
+	const words = Array.from({ length: 4000 }, (_, i) => `w${i}`), changed = words.map((w, i) => (i === 2000 ? 'CHANGED' : w));
+	eq(show(compare(words.join(' '), changed.join(' '))).replace(/w\d+ /g, '').replace(/ w\d+/g, ''), '-[w2000]\n+[CHANGED]', 'a very long paragraph: the word that changed is found');
+	ok(Date.now() - t0 < 5000, `and none of it takes long (${Date.now() - t0} ms)`);
+}
+
 // a reworded paragraph, as one paragraph: what was taken out, then what was put in, where they fall in the sentence
 {
 	const same = (text: string): Piece => ({ text, changed: false }), diff = (text: string): Piece => ({ text, changed: true });

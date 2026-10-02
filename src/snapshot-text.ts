@@ -71,27 +71,69 @@ export interface Piece { text: string; changed: boolean }
     (`new`). A paragraph that was reworded is an `old` row followed by a `new` row, each with its changed words marked. */
 export interface Row { kind: 'same' | 'old' | 'new'; pieces: Piece[] }
 
-/** The longest run of items two lists share, in order, as pairs of indexes. Null if the lists are too long to compare
-    this way (then they're treated as wholly different). */
-function common<T>(a: T[], b: T[]): [number, number][] | null {
-	const n = a.length, m = b.length;
-	if (n * m > 6e6) return null;
-	const w = m + 1, t = new Uint32Array((n + 1) * w);
-	for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) t[i * w + j] = a[i] === b[j] ? t[(i + 1) * w + j + 1] + 1 : Math.max(t[(i + 1) * w + j], t[i * w + j + 1]);
+/** The most cells the table of `table` may have: beyond it, a stretch is cut into smaller ones first (`match`). */
+const TABLE = 6e6;
+
+/** The longest run of items two lists share, in order, as pairs of indexes. */
+function common<T>(a: T[], b: T[]): [number, number][] {
 	const out: [number, number][] = [];
+	match(a, b, 0, a.length, 0, b.length, out);
+	return out;
+}
+
+/** The pairs for `a[i0..i1)` and `b[j0..j1)`, added to `out` in order. What the two share at their start and their
+    end is paired first: an edit in a long text leaves little between, however long the text. A stretch still too long
+    for the table is cut at the items that are in each side exactly once and in the same order (in prose, nearly every
+    paragraph), and each part is matched on its own. One with no such item is left unpaired: wholly different. */
+function match<T>(a: T[], b: T[], i0: number, i1: number, j0: number, j1: number, out: [number, number][]): void {
+	while (i0 < i1 && j0 < j1 && a[i0] === b[j0]) out.push([i0++, j0++]);
+	const tail: [number, number][] = [];
+	while (i0 < i1 && j0 < j1 && a[i1 - 1] === b[j1 - 1]) tail.push([--i1, --j1]);
+	if (i0 < i1 && j0 < j1) {
+		if ((i1 - i0) * (j1 - j0) <= TABLE) table(a, b, i0, i1, j0, j1, out);
+		else {
+			let i = i0, j = j0;
+			for (const [x, y] of anchors(a, b, i0, i1, j0, j1)) { match(a, b, i, x, j, y, out); out.push([x, y]); i = x + 1; j = y + 1; }
+			if (i > i0) match(a, b, i, i1, j, j1, out);
+		}
+	}
+	for (let k = tail.length - 1; k >= 0; k--) out.push(tail[k]);
+}
+
+/** The longest common run of two stretches, by the table of every pair (so only for stretches that fit one). */
+function table<T>(a: T[], b: T[], i0: number, i1: number, j0: number, j1: number, out: [number, number][]): void {
+	const n = i1 - i0, m = j1 - j0, w = m + 1, t = new Uint32Array((n + 1) * w);
+	for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) t[i * w + j] = a[i0 + i] === b[j0 + j] ? t[(i + 1) * w + j + 1] + 1 : Math.max(t[(i + 1) * w + j], t[i * w + j + 1]);
 	for (let i = 0, j = 0; i < n && j < m;) {
-		if (a[i] === b[j]) { out.push([i, j]); i++; j++; }
+		if (a[i0 + i] === b[j0 + j]) { out.push([i0 + i, j0 + j]); i++; j++; }
 		else if (t[(i + 1) * w + j] >= t[i * w + j + 1]) i++;
 		else j++;
 	}
-	return out;
+}
+
+/** The items that are once in each stretch, as pairs: the longest run of them that is in the same order in both. */
+function anchors<T>(a: T[], b: T[], i0: number, i1: number, j0: number, j1: number): [number, number][] {
+	const seen = new Map<T, { i: number; j: number; n: number; m: number }>();
+	for (let i = i0; i < i1; i++) { const s = seen.get(a[i]); if (s) s.n++; else seen.set(a[i], { i, j: -1, n: 1, m: 0 }); }
+	for (let j = j0; j < j1; j++) { const s = seen.get(b[j]); if (s) { s.m++; s.j = j; } }
+	// (in the order of `a`, as a Map keeps them; then the longest run whose places in `b` only rise)
+	const once = [...seen.values()].filter((s) => s.n === 1 && s.m === 1), ends: number[] = [], before = new Array<number>(once.length).fill(-1);
+	once.forEach((s, k) => {
+		let lo = 0, hi = ends.length;
+		while (lo < hi) { const mid = (lo + hi) >> 1; if (once[ends[mid]].j < s.j) lo = mid + 1; else hi = mid; }
+		if (lo > 0) before[k] = ends[lo - 1];
+		ends[lo] = k;
+	});
+	const out: [number, number][] = [];
+	for (let k = ends.length ? ends[ends.length - 1] : -1; k >= 0; k = before[k]) out.push([once[k].i, once[k].j]);
+	return out.reverse();
 }
 
 const words = (s: string): string[] => s.match(/\S+\s*/g) ?? [];
 
 /** How alike two paragraphs are, from 0 to 1: the share of the longer one's words that are in both, in order. */
 function alike(a: string[], b: string[]): { pairs: [number, number][]; share: number } {
-	const pairs = common(a.map((x) => x.trim()), b.map((x) => x.trim())) ?? [];
+	const pairs = common(a.map((x) => x.trim()), b.map((x) => x.trim()));
 	return { pairs, share: pairs.length / Math.max(1, a.length, b.length) };
 }
 
@@ -137,7 +179,7 @@ function changed(gone: string[], come: string[]): Row[] {
 /** Compares two texts as prose: by paragraph (a line with text in it), then by word inside a paragraph that changed. */
 export function compare(before: string, after: string): Row[] {
 	const paras = (s: string) => s.replace(/\r\n?/g, '\n').split('\n').map((l) => l.trimEnd()).filter((l) => l.trim());
-	const a = paras(before), b = paras(after), pairs = common(a, b) ?? [], rows: Row[] = [];
+	const a = paras(before), b = paras(after), pairs = common(a, b), rows: Row[] = [];
 	const between = (i0: number, i1: number, j0: number, j1: number) => { rows.push(...changed(a.slice(i0, i1), b.slice(j0, j1))); };
 	let i = 0, j = 0;
 	for (const [x, y] of pairs) { between(i, x, j, y); rows.push({ kind: 'same', pieces: [{ text: a[x], changed: false }] }); i = x + 1; j = y + 1; }

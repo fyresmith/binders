@@ -1708,3 +1708,25 @@ test('a snapshot named “Final draft (3)” is listed, shown and opened under t
 	t.eq(await p.ev(`app.workspace.getLeavesOfType('binders-snapshot')[0].getDisplayText()`), 'Arrival: Final draft (3)', 'and so does its own pane');
 	t.ok((await p.ev(`app.workspace.getLeavesOfType('binders-snapshot')[0].view.contentEl.innerText`)).includes('Snapshot “Final draft (3)”'), 'in its heading too');
 });
+
+// ---- a very long note ----
+
+test('“Show changes” on a note of 3,000 paragraphs with one line reworded, one cut and one put in: those three are marked, the rest folds away', async (p, h, t) => {
+	const lines = Array.from({ length: 3000 }, (_, i) => `Line number ${i} of the scene.`);
+	const now = lines.map((l, i) => (i === 1500 ? 'Line number 1500 of the changed scene.' : l)).filter((_, i) => i !== 40);
+	now.splice(2900, 0, 'A line that is new.');
+	await seed(p, DIR, '2026-09-12 09.15.40 Long', lines.join('\n\n') + '\n');
+	await write(p, A, now.join('\n\n') + '\n');
+	const before = await texts(p);
+	await dialog(p);
+	await pick(p, 'Long');
+	const t0 = Date.now();
+	await press(p, COMPARE, 'Show changes');
+	await until(p, `!!document.querySelector(${j(DLG + ' .binders-snapshots-changes p')})`, 10000);
+	const marks = await p.ev(`[...document.querySelectorAll(${j(DLG + ' .binders-snapshots-changes del, ' + DLG + ' .binders-snapshots-changes ins')})].map(e => (e.tagName === 'DEL' ? '-' : '+') + e.textContent)`);
+	t.eq(j(marks), j(['-Line number 40 of the scene.', '+changed', '+A line that is new.']), 'only what changed is marked');
+	const drawn = await p.ev(`document.querySelector(${j(DLG + ' .binders-snapshots-changes')}).children.length`);
+	t.ok(drawn < 40, `and the thousands of paragraphs that are the same are folded, not drawn (${drawn} rows)`);
+	t.ok(Date.now() - t0 < 6000, `soon enough (${Date.now() - t0} ms)`);
+	same(t, before, await texts(p));
+});
