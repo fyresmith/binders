@@ -2579,8 +2579,8 @@
 	}
 }
 
-/* (and on the narrowest, with large text, the view's name is cut short rather than push "New" off the edge) */
-@container binders-view (width < 360px) {
+/* (and on a phone with large text, the view's name is cut short rather than push "New" off the edge) */
+@container binders-view (width < 440px) {
 	.binders-mode-button {
 		flex-shrink: 1;
 		min-width: 0;
@@ -2590,4 +2590,247 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 	}
+}
+
+/* ---- Snapshots ---- */
+
+/* The Snapshots dialog is Obsidian's own File recovery dialog in everything but what it lists (its classes lay it out
+   and color it); these are the few things a snapshot of prose asks for beyond a recovered file. */
+
+/* Whose snapshots these are, above the list. */
+.binders-snapshots-of {
+	padding: var(--size-4-3) var(--size-4-4) 0;
+	font-size: var(--font-ui-medium);
+	font-weight: var(--file-header-font-weight);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.is-phone .binders-snapshots-of {
+	display: none;
+}
+
+.binders-snapshots-none {
+	padding: var(--size-4-2);
+	line-height: var(--line-height-tight);
+}
+
+/* A snapshot is read as the note is: in the vault's text font, at its line width. */
+.binders-snapshots .binders-snapshots-text,
+.binders-snapshots .binders-snapshots-diff {
+	padding: var(--size-4-6) var(--size-4-8);
+}
+
+.binders-snapshots .binders-snapshots-text > *,
+.binders-snapshots .binders-snapshots-diff > * {
+	max-width: var(--file-line-width);
+	margin-inline: auto;
+}
+
+/* What changed, as prose: a paragraph to a row, in the text font, with the space between paragraphs a note has. */
+.binders-snapshots .diff-view .diff-line {
+	font-family: var(--font-text);
+	font-size: var(--font-text-size);
+	line-height: var(--line-height-normal);
+	padding: var(--size-2-3) var(--size-4-2);
+	margin-bottom: var(--size-4-2);
+	border-radius: var(--radius-s);
+}
+
+.binders-snapshots .diff-view .diff-line.mod-left + .diff-line.mod-right {
+	margin-top: calc(-1 * var(--size-4-2) + var(--size-2-1));
+}
+
+/* Which color is which, said once above the changes, in the colors themselves. */
+.binders-snapshots-key {
+	margin-bottom: var(--size-4-4);
+}
+
+.binders-snapshots-key .diff-line {
+	display: inline;
+	padding: var(--size-2-1) var(--size-2-3);
+	border-radius: var(--radius-s);
+	color: var(--text-normal);
+}
+
+/* A phone: the name is in the dialog's title, so the row under it is "Show changes" at one end and what's done with
+   the snapshot at the other. */
+.is-phone .binders-snapshots .modal-setting-titlebar-actions {
+	flex: 1 1 auto;
+	justify-content: flex-end;
+}
+
+.is-phone .binders-snapshots .modal-setting-titlebar-toggle {
+	margin-inline: 0 auto;
+	white-space: nowrap;
+}
+
+.is-phone .binders-snapshots .binders-snapshots-text,
+.is-phone .binders-snapshots .binders-snapshots-diff {
+	padding: var(--size-4-4) var(--size-4-5);
+}
+
+/* Where this Obsidian has no File recovery look to borrow (see historyLook in internals.ts), the same layout and
+   colors by Binders' own rules. */
+.binders-snapshots.is-plain {
+	padding: 0;
+	width: var(--modal-width);
+	height: var(--modal-height);
+	max-width: var(--modal-max-width);
+	max-height: var(--modal-max-height);
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+}
+
+.binders-snapshots.is-plain .modal-content {
+	display: flex;
+	flex: 1 1 auto;
+	min-height: 0;
+	margin: 0;
+	padding: 0;
+}
+
+.binders-snapshots.is-plain .binders-snapshots-side {
+	flex: 0 0 250px;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	border-inline-end: var(--border-width) solid var(--background-modifier-border);
+	background-color: var(--background-secondary);
+}
+
+.binders-snapshots.is-plain .binders-snapshots-list {
+	overflow: auto;
+	flex: 1 1 0;
+	padding: var(--size-4-2);
+}
+
+.binders-snapshots.is-plain .binders-snapshots-item {
+	padding: var(--size-4-2);
+	margin-bottom: var(--size-4-1);
+	border-radius: var(--radius-s);
+	font-size: var(--font-ui-small);
+}
+
+.binders-snapshots.is-plain .binders-snapshots-item:hover {
+	background-color: var(--background-modifier-hover);
+}
+
+.binders-snapshots.is-plain .binders-snapshots-item.is-active {
+	background-color: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+.binders-snapshots.is-plain .binders-snapshots-item.is-active .u-muted {
+	color: var(--text-on-accent);
+}
+
+.binders-snapshots.is-plain .binders-snapshots-pane {
+	flex: 1 1 auto;
+	width: 0;
+	display: flex;
+	flex-direction: column;
+	background-color: var(--background-primary);
+}
+
+.binders-snapshots.is-plain .binders-snapshots-pane > div {
+	display: flex;
+	flex-direction: column;
+	flex: 1 1 auto;
+	min-height: 0;
+}
+
+.binders-snapshots.is-plain .binders-snapshots-bar {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	padding: var(--size-4-2) var(--size-4-10) var(--size-4-2) var(--size-4-4);
+	border-bottom: var(--border-width) solid var(--background-modifier-border);
+}
+
+.binders-snapshots.is-plain .binders-snapshots-bar > :first-child {
+	flex: 1 1 auto;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.binders-snapshots.is-plain .binders-snapshots-bar > :last-child,
+.binders-snapshots.is-plain .binders-snapshots-bar label {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+}
+
+.binders-snapshots.is-plain .binders-snapshots-text,
+.binders-snapshots.is-plain .binders-snapshots-diff {
+	flex: 1 0 0;
+	overflow: auto;
+	user-select: text;
+}
+
+.binders-snapshots.is-plain .diff-line {
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+.binders-snapshots.is-plain .diff-line.mod-left {
+	background-color: rgba(var(--color-red-rgb), 0.15);
+}
+
+.binders-snapshots.is-plain .diff-line.mod-left .diff-changed {
+	background-color: rgba(var(--color-red-rgb), 0.3);
+}
+
+.binders-snapshots.is-plain .diff-line.mod-right {
+	background-color: rgba(var(--color-green-rgb), 0.15);
+}
+
+.binders-snapshots.is-plain .diff-line.mod-right .diff-changed {
+	background-color: rgba(var(--color-green-rgb), 0.3);
+}
+
+.binders-snapshots.is-plain .diff-collapsed {
+	text-align: center;
+	color: var(--text-muted);
+	cursor: var(--cursor);
+	font-size: var(--font-ui-small);
+	margin: var(--size-4-2) 0;
+}
+
+.is-phone .binders-snapshots.is-plain {
+	width: 100vw;
+	max-width: 100vw;
+	height: 100%;
+}
+
+.is-phone .binders-snapshots.is-plain .binders-snapshots-side {
+	flex: 1 1 auto;
+	border: none;
+	background-color: transparent;
+}
+
+/* A snapshot in a pane of its own (beside the note it's of): the page a note has in reading view. */
+.workspace-leaf-content[data-type="binders-snapshot"] .view-content.binders-snapshot-view {
+	padding: var(--file-margins);
+	overflow-y: auto;
+	user-select: text;
+}
+
+.binders-snapshot-page {
+	max-width: var(--file-line-width);
+	margin-inline: auto;
+	font-family: var(--font-text);
+	font-size: var(--font-text-size);
+	line-height: var(--line-height-normal);
+}
+
+/* What it is and when it was taken, above the text: it isn't the note, and can't be typed in. */
+.binders-snapshot-of {
+	color: var(--text-muted);
+	font-family: var(--font-interface);
+	font-size: var(--font-ui-small);
+	margin-bottom: var(--size-4-4);
 }

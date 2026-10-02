@@ -91,6 +91,11 @@ function markSaved(app: App, file: TFile, text: string): void {
     the others' pending typing to be written, or it would load the old text and typing in it would lose theirs. */
 const openEditors = new Map<TFile, Set<() => Promise<void>>>();
 
+/** The live editors a note is open in, in every manuscript (snapshots: a note's text is replaced through the editor it's
+    being typed in, so Undo there takes it back). */
+const live = new Map<TFile, Set<LiveEditor>>();
+export const liveEditors = (file: TFile): LiveEditor[] => [...(live.get(file) ?? [])];
+
 export interface LiveEditor {
 	readonly file: TFile;
 	readonly editor: Editor | undefined;
@@ -169,12 +174,13 @@ export async function mountEditor(app: App, container: HTMLElement, file: TFile,
 	};
 	// 6. Whoever tears the embed down (us, the view closing, the plugin unloading), typing is written first; the
 	//    debounced save isn't relied on. Undo history goes to Obsidian's per-file cache so a remount gets it back.
-	let gone = false, saved: Promise<void> = Promise.resolve();
+	let gone = false, saved: Promise<void> = Promise.resolve(), made: LiveEditor | null = null;
 	embed.unload = function (this: MdEmbed) {
 		if (!gone) {
 			gone = true;
 			openEditors.get(file)?.delete(flush);
 			if (!openEditors.get(file)?.size) openEditors.delete(file);
+			if (made) { live.get(file)?.delete(made); if (!live.get(file)?.size) live.delete(file); }
 			try {
 				saved = flush().catch((e) => console.error('Binders: saving failed', e));
 				this.editMode?.saveHistory();
@@ -229,7 +235,7 @@ export async function mountEditor(app: App, container: HTMLElement, file: TFile,
 				return true;
 			})) });
 		}
-		return {
+		made = {
 			file,
 			get editor() { return embed.editor; },
 			get cm() { return embed.editMode?.cm ?? (embed.editor as unknown as { cm?: EditorView })?.cm ?? null; },
@@ -239,6 +245,9 @@ export async function mountEditor(app: App, container: HTMLElement, file: TFile,
 			destroy() { if (!gone) parent.removeChild(embed); container.empty(); return saved; },
 			keepLivePreview,
 		};
+		if (!live.has(file)) live.set(file, new Set());
+		live.get(file)?.add(made);
+		return made;
 	} catch (e) {
 		parent.removeChild(embed);
 		container.empty();

@@ -12,6 +12,8 @@ import { outliner } from './view/outliner';
 import { manuscript } from './view/manuscript'; // manuscript (0.6)
 import { ConvertModal } from './longform-convert'; // longform (0.7)
 import { CompileModal, mergeScenes, splitScene } from './scenes';
+import { isScene, leftovers } from './snapshots'; // snapshots
+import { LeftoversModal, SNAPSHOT_VIEW, SnapshotView, SnapshotsModal, folderSnapshotItems, snapshotItems, startRewrite, take, takeAll } from './view/snapshots'; // snapshots
 
 /* Binders: ordered folders for long-form writing. See docs/plan.md for the design. */
 export default class BindersPlugin extends Plugin {
@@ -38,10 +40,12 @@ export default class BindersPlugin extends Plugin {
 		// <<< explorer (0.3)
 
 		this.registerView(VIEW_TYPE, (leaf) => new BinderView(leaf, this));
+		this.registerView(SNAPSHOT_VIEW, (leaf) => new SnapshotView(leaf, this)); // snapshots
 		// (not in a card's own menu, which has these already)
 		this.registerEvent(this.app.workspace.on('file-menu', (menu, file, source) => { if (source !== ITEM_MENU) this.fileMenu(menu, file, source); }));
 		this.registerEvent(this.app.workspace.on('files-menu', (menu, files, source) => { if (source !== ITEM_MENU) this.filesMenu(menu, files); }));
 		const active = () => this.app.workspace.getActiveFile();
+		this.snapshotCommands(active); // snapshots
 		this.addCommand({ id: 'open-binder', name: 'Open binder', checkCallback: (checking) => {
 			const file = active(), folder = this.folderOf(file);
 			if (!file || !folder || !this.binders.binderOf(file)) return false;
@@ -144,6 +148,23 @@ export default class BindersPlugin extends Plugin {
 		}
 	}
 
+	/** snapshots: the commands, for the note that's open (or, in a manuscript, the section the cursor is in), and for
+	    the binder in view. */
+	private snapshotCommands(active: () => TFile | null): void {
+		const view = () => this.app.workspace.getActiveViewOfType(BinderView);
+		const scene = (change: boolean): TFile | null => {
+			// (in a binder view: the section being typed in; never a note last open elsewhere)
+			const f = view() ? this.app.workspace.activeEditor?.file ?? null : active();
+			return isScene(this, f) && !(change && this.binders.problem(f)) ? f : null;
+		};
+		const folder = (): TFolder | null => { const f = view()?.folder ?? active(); return f ? this.binders.binderOf(f)?.folder ?? null : null; };
+		this.addCommand({ id: 'take-snapshot', name: 'Take a snapshot', icon: 'camera', checkCallback: (checking) => { const f = scene(true); if (!f) return false; if (!checking) void take(this, [f]); return true; } });
+		this.addCommand({ id: 'rewrite', name: 'Rewrite', icon: 'file-pen-line', checkCallback: (checking) => { const f = scene(true); if (!f) return false; if (!checking) startRewrite(this, f); return true; } });
+		this.addCommand({ id: 'show-snapshots', name: 'Show snapshots', icon: 'history', checkCallback: (checking) => { const f = scene(false); if (!f) return false; if (!checking) new SnapshotsModal(this, f).open(); return true; } });
+		this.addCommand({ id: 'take-snapshots', name: 'Take a snapshot of every note in the binder', icon: 'camera', checkCallback: (checking) => { const f = folder(); if (!f || this.binders.problem(f)) return false; if (!checking) void takeAll(this, f); return true; } });
+		this.addCommand({ id: 'show-leftover-snapshots', name: 'Show snapshots of notes that are gone', icon: 'history', checkCallback: (checking) => { const f = folder(), b = f ? this.binders.binderOf(f) : null; if (!b || !leftovers(this, b).length) return false; if (!checking) new LeftoversModal(this, b).open(); return true; } });
+	}
+
 	/** Opens the binder view on a folder: in the tab already showing that binder, if there is one, else in the active
 	    tab (or a new one for `newLeaf`, as Mod-click does), as opening a note would. `reveal` selects that note's card. */
 	async openBinder(folder: TFolder, newLeaf: boolean | PaneType = false, reveal: TAbstractFile | null = null): Promise<void> {
@@ -211,6 +232,9 @@ export default class BindersPlugin extends Plugin {
 			menu.addItem((i) => i.setSection('open').setTitle('Show in binder').setIcon('book').onClick((e) => void this.openBinder(folder, Keymap.isModEvent(e), file)));
 			if (file.extension === 'md' && !b.problem(file)) menu.addItem((i) => i.setSection(make).setTitle('New scene after this').setIcon('file-plus').onClick(() => void this.newScene(folder, (b.orderedChildren(folder) ?? []).indexOf(file) + 1)));
 		}
+		// snapshots: a note's, in its own menu and in the file explorer as on its card; a folder's notes, all at once
+		snapshotItems(this, menu, [file], 'action');
+		if (file instanceof TFolder) folderSnapshotItems(this, menu, file, 'action');
 		const lf = this.longformOf(file); // longform (0.7)
 		if (lf && (file === lf.note || file === lf.folder)) menu.addItem((i) => i.setSection('action-primary').setTitle('Convert to binder').setIcon('library').onClick(() => new ConvertModal(this.app, b, lf).open()));
 		if (this.canStep(file, -1)) menu.addItem((i) => i.setSection('action').setTitle('Move up').setIcon('arrow-up').onClick(() => void this.step(file, -1)));

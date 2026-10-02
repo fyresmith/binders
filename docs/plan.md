@@ -192,7 +192,7 @@ Approved by the maintainer on 2026-10-01, after a design study and a prototype (
   label, and a change of label is said in a polite live region.
 - **Phones and narrow panes** (under 520px): the same lines across, with small cards unless a size was chosen.
 - **Longform projects:** the scenes are one flat run; a new place writes only `longform.scenes`.
-- **Code:** `src/view/lanes.ts` is the corkboard mode the view sees and hands on to the board in use
+- **Code:** `src/view/BinderView.ts` picks the board the corkboard mode shows from `options.arrange`
   (`corkboard.ts`, the grid; `lanes.ts`, by label); `lanes-data.ts` is the pure model (the lines, the places, what a
   drop means), unit-tested in `tests/lanes.test.ts`; `card.ts` draws the card both boards use. e2e:
   `tests/e2e/specs-lanes.mjs`.
@@ -281,6 +281,37 @@ twice before it exists once.
   copies the text. Notes and folders with `compile: false` ("Include in compile" off) are left out. Pandoc or PDF
   from there is other plugins' work.
 
+### Snapshots
+
+In `src/snapshots.ts` (the vault side), `src/snapshot-text.ts` (names, the file's own text, and comparing two texts
+as prose; pure) and `src/view/snapshots.ts` (the dialogs, the menus, and a pane that shows one). The format is in
+`docs/file-format.md`.
+
+- The model is Scrivener's: the note stays the note (its place, its properties, the links to it), and its text as it
+  was is set aside. A snapshot holds the text only.
+- **Take a snapshot** (one note, several, or every note of a folder or the binder under one name), **Rewrite...**
+  (take one, then start from the same text or a blank page; after a blank page the snapshot opens beside the note on
+  desktop) and **Snapshots...** (the list: read, "Show changes" against the note now, copy, "Bring back", name,
+  open to the right, delete). In a card's, a row's or a manuscript title's menu the three are one item, "Snapshots",
+  that opens them (that menu is long, and three more ran it off a tablet's screen); in a note's own menu and the file
+  explorer's they're side by side.
+- Storage: `Snapshots/<the note's path in the binder>/<when> <name>.snapshot`, plain text. Not `.md`, so Obsidian
+  doesn't index them (no search, quick switcher, backlinks, graph, tags), and the explorer patch never lists the
+  folder. The price: Obsidian Sync carries them only with "Sync all other types" on, and Obsidian's own folder
+  pickers still show the folders. A dot-folder would hide them everywhere, but Obsidian Sync never carries one and
+  the vault API can't see it.
+- Never loses writing: a snapshot is read back from the disk before anything else is done; a note's text is replaced
+  only after it is in a snapshot, through the editor it's open in (a tab or a manuscript section: one Undo), or else
+  in one write that refuses if the note no longer says what was kept. A snapshot file is never changed once written.
+- The store (`binders.ts`) leaves the folder out of a binder's items, ignores what happens inside it, and moves a
+  note's or a folder's snapshots when it's renamed or moved (within a binder, to another binder, in a Longform
+  project). Deleted, merged-away and moved-out notes leave theirs behind, listed under "Snapshots of notes that are
+  gone".
+- The dialog wears the classes of Obsidian's File recovery dialog and diff, with Binders' own rules for the same
+  layout where they're missing (`historyLook` in `src/view/internals.ts`).
+- Automatic snapshots are taken only when Binders itself replaces text ("Before bringing back", and before a blank
+  page). There are no timed ones and no pruning.
+
 ### Undo of moves
 
 - `BinderStore.put()` is what a drop does (corkboard, outliner, explorer) and `change()` wraps it, and "Move up" and
@@ -341,6 +372,8 @@ src/
   explorer.ts          the file explorer: order patch, icon, label dots, click to open, drag to reorder (isolated; feature-detected)
   scenes.ts            split, merge, synopsis from text, compile (and its dialog): where the text rules meet the vault
   scene-text.ts        the text rules for those (pure, unit-tested)
+  snapshots.ts         snapshots of a scene: taking, bringing back, naming, following a renamed note (the vault side)
+  snapshot-text.ts     a snapshot's name and file, and comparing two texts as prose (pure, unit-tested)
   longform.ts          Longform projects: reading and writing `longform.scenes` (pure, unit-tested)
   longform-convert.ts  the "Convert to binder" dialog
   view/
@@ -352,7 +385,6 @@ src/
     manuscript.ts
     editable-embed.ts  embedded editors (isolated; feature-detected)
     actions.ts         an item's menu and what it does, shared by the corkboard and the outliner
-    arrange.ts         the corkboard as the view sees it: its cards in a grid (corkboard.ts) or by label (lanes.ts)
     card.ts            an index card, as both boards draw it
     lanes.ts           the corkboard's cards by label: a line per label, the cards along them
     lanes-data.ts      what that board is, as data: the lines, the places, what a drop means
@@ -360,6 +392,7 @@ src/
     edit.ts            text edited in place (titles, synopses, cells)
     labels.ts          labels and statuses: colors, names, reading saved ones (pure, unit-tested)
     modals.ts          confirm, ask for text, pick a color
+    snapshots.ts       "Take a snapshot", "Rewrite", the Snapshots dialog, a snapshot in a pane, gone notes' snapshots
     words.ts           word counts, as Obsidian counts them
     internals.ts       undocumented Obsidian API the views use (submenus, settings tab, header titles, line length)
 ```
@@ -388,7 +421,7 @@ already has milestones 0.1 to 0.7). Every commit bumps the version (see AGENTS.m
 | 0.7 | Longform integration | Done |
 | 0.8 | Polish: keyboard, touch, themes, performance on a 1,000-scene binder, a full mobile pass, README | In progress: explorer Mod-click, cold start, keyboard and screen readers, themes, mobile emulation pass, perf guard (`specs-perf.mjs`), README, and a native-look pass against Obsidian's own Bases and drag styles (toolbar, flat cards, drag and glide, explorer drag-to-reorder) done; real-device iOS and Android checks to do |
 | 0.9 | QA rounds (as with Evra: parallel QA agents, e2e suites, fixes). Added on the maintainer's request (2026-10-01), from Scrivener: the outliner in place of the plot grid, labels and statuses in settings, custom label colors, label tint and explorer label dots, word count targets, split, merge, duplicate, group and ungroup, synopsis from text, compile, undo and redo of moves | In progress: two QA rounds written (`specs-qa-*.mjs`, `specs-qa2-*.mjs`); the added features are built and unreleased |
-| 0.10 | Before release (2026-10-01): mobile QA to the end; export (EPUB, DOCX, PDF, and a Scrivener project); import from Scrivener; find and replace across the manuscript; versions of a scene ("Rewrite"); focus mode. See ROADMAP.md | Mobile QA in progress; the corkboard arranged by label is built |
+| 0.10 | Before release (2026-10-01): mobile QA to the end; export (EPUB, DOCX, PDF, and a Scrivener project); import from Scrivener; find and replace across the manuscript; snapshots of a scene ("Rewrite"); focus mode. See ROADMAP.md | Mobile QA in progress; the corkboard arranged by label is built |
 | 1.0 | Release and directory submission | |
 
 ## Risks
@@ -420,7 +453,6 @@ already has milestones 0.1 to 0.7). Every commit bumps the version (see AGENTS.m
 
 Not built yet:
 
-- Snapshots of a scene before big edits (Obsidian's own File recovery covers much of this).
 - A session word target and a deadline.
 - Writing history and statistics.
 - An inspector sidebar for the open scene (Obsidian's Properties view shows the same properties).

@@ -1,6 +1,7 @@
 import { ItemView, Keymap, Menu, Notice, Platform, Scope, type Events, TFile, TFolder, setIcon, type PaneType, type TAbstractFile, type ViewStateResult, type WorkspaceLeaf } from 'obsidian';
 import type { Binder } from '../binders';
 import { CompileModal } from '../scenes';
+import { folderSnapshotItems } from './snapshots'; // snapshots
 import type BindersPlugin from '../main';
 import { commitAll, commitFocused, editable, type Editable } from './edit';
 import { keepOpen, readableLineLength, refreshHeader, selectMenuItem } from './internals';
@@ -250,6 +251,7 @@ export class BinderView extends ItemView {
 				if (what) menu.addItem((i) => i.setSection('binders-note').setTitle(`${redo ? 'Redo' : 'Undo'}: ${what.charAt(0).toLowerCase()}${what.slice(1)}`).setIcon(redo ? 'redo-2' : 'undo-2').onClick(() => void this.plugin.undoMove(folder, redo)));
 			}
 			menu.addItem((i) => i.setSection('binders-note').setTitle('Compile...').setIcon('book-check').onClick(() => new CompileModal(this.plugin, folder).open()));
+			folderSnapshotItems(this.plugin, menu, folder, 'binders-note', this.readOnly); // snapshots
 			if (note) menu.addItem((i) => i.setSection('binders-note').setTitle(binder ? 'Open binder note' : 'Open folder note').setIcon('file-text').onClick((e) => void this.app.workspace.getLeaf(Keymap.isModEvent(e)).openFile(note)));
 		}
 		super.onPaneMenu(menu, source);

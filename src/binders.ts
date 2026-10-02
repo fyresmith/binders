@@ -3,6 +3,8 @@ import type { ExplorerSource } from './explorer';
 import type BindersPlugin from './main';
 import { applyOps, checkFormat, diskPath, FORMAT_VERSION, isBinderNote, isFolderNote, nameOf, orderChildren, readIndex, relPath, stepIndex, UnsupportedBinder, type ListOp } from './model';
 import { nextName } from './scene-text';
+import { SNAPSHOTS } from './snapshot-text'; // snapshots
+import { followSnapshots } from './snapshots'; // snapshots
 import { labelCss, readLabel } from './view/labels';
 import { applySceneOps, conversionPlan, isIgnored, isLongformIndex, longformRunning, readProject, sameScenes, sceneGroups, shownScenes, writeScenes, type Project, type Scene, type SceneOp } from './longform';
 
@@ -126,6 +128,8 @@ class State implements Binder {
 	/** Cached: the list with `ops` applied, and the items per folder. Cleared on any change. */
 	contents: string[] | null = null;
 	items: Map<string, Item[]> | null = null;
+	/** Cached: the binder's folder of snapshots (null: it has none), as of a count of the vault's changes. snapshots */
+	snaps: { at: number; folder: TFolder | null } | null = null;
 	/** The folder the binder note was in when found. If the note moves to another folder, that's another binder. */
 	home: TFolder | null;
 	/** `dir`: a Longform project's scene folder. */
@@ -190,18 +194,21 @@ export class BinderStore extends Events implements ExplorerSource {
 				if (waiting?.delete(f.path) && !waiting.size) { complete(); return; }
 				this.onMeta(f, isBinderNote(cache.frontmatter), isLongformIndex(cache.frontmatter));
 			}));
-			plugin.registerEvent(vault.on('rename', (f, old) => this.onRename(f, old)));
-			plugin.registerEvent(vault.on('delete', (f) => this.onDelete(f)));
+			plugin.registerEvent(vault.on('rename', (f, old) => { this.vaultChanges++; this.onRename(f, old); }));
+			plugin.registerEvent(vault.on('delete', (f) => { this.vaultChanges++; this.onDelete(f); }));
 			plugin.registerEvent(vault.on('create', (f) => {
+				this.vaultChanges++; // snapshots
 				if (this.orphans && f instanceof TFolder) this.rescan();
 				const s = this.at(f.path);
 				if (!s) return;
+				// (a snapshot, or the folder of them: nothing a view shows; only what's remembered about the folder goes) snapshots
+				if (f.path === `${s.folder.path}/${SNAPSHOTS}` || this.inSnapshots(f.path)) { this.touch(s, false); return; }
 				this.touch(s);
 				this.placeCopy(s, f);
 			}));
 			done();
 		});
-		plugin.register(() => { void this.flush(); window.clearTimeout(this.emitTimer); window.clearTimeout(this.followTimer); });
+		plugin.register(() => { void this.flush(); window.clearTimeout(this.emitTimer); window.clearTimeout(this.followTimer); window.clearTimeout(this.snapshotsTimer); });
 	}
 
 	// ---- the public API (see the top of the file) ----
@@ -218,6 +225,89 @@ export class BinderStore extends Events implements ExplorerSource {
 	isBinderFolder(folder: TAbstractFile): boolean { return folder instanceof TFolder && this.at(folder.path)?.folder === folder; }
 
 	inBinder(item: TAbstractFile): boolean { const s = this.at(item.path); return !!s && item !== s.folder; }
+
+	// ---- snapshots >>> (see snapshots.ts) ----
+
+	/** The binder's folder of snapshots: the folder named "Snapshots" at its top (in a Longform project, in its scene
+	    folder), unless that folder has notes in it (then it's a folder of the writer's own, and an item like any other).
+	    What's in it are earlier texts of the binder's notes, never items of the binder: not in its order, its counts, a
+	    compile or any view, and never shown in the file explorer. */
+	snapshotsFolder(binder: Binder): TFolder | null {
+		const s = this.states.get(binder.note);
+		if (!s) return null;
+		if (s.snaps?.at === this.vaultChanges) return s.snaps.folder;
+		const f = this.app.vault.getAbstractFileByPath(`${s.folder.path}/${SNAPSHOTS}`);
+		const holdsNote = (d: TFolder): boolean => d.children.some((c) => (c instanceof TFolder ? holdsNote(c) : c instanceof TFile && c.extension === 'md'));
+		return (s.snaps = { at: this.vaultChanges, folder: f instanceof TFolder && !holdsNote(f) ? f : null }).folder;
+	}
+
+	isSnapshotsFolder(file: TAbstractFile): boolean {
+		if (!(file instanceof TFolder) || file.name !== SNAPSHOTS || !file.parent) return false;
+		for (const s of this.states.values()) if (s.folder === file.parent) return this.snapshotsFolder(s) === file;
+		return false;
+	}
+
+	/** Is this path a binder's folder of snapshots, or in it? `old`: a path from before a rename or a delete, looked up
+	    by the binder folder's last known path. */
+	inSnapshots(path: string, old = false): boolean {
+		for (const s of this.states.values()) {
+			for (const b of old ? [s.path, ...s.aliases] : [s.folder?.path ?? s.path]) {
+				if ((path === `${b}/${SNAPSHOTS}` || path.startsWith(`${b}/${SNAPSHOTS}/`)) && this.snapshotsFolder(s)) return true;
+			}
+		}
+		return false;
+	}
+
+	/** Where the snapshots of the note or folder at `path` are kept, or null if it isn't an item of a binder. */
+	private snapshotsDirAt(path: string, isFolder: boolean, old: boolean): string | null {
+		if (!isFolder && !/\.md$/i.test(path)) return null;
+		// (a Longform project being made a binder: its scenes go into folders before it is one)
+		const s = this.at(path, old) ?? [...this.states.values()].find((x) => x.frozen && path.startsWith(x.folder.path + '/')) ?? null;
+		if (!s) return null;
+		for (const b of old ? [s.path, ...s.aliases] : [s.folder.path]) {
+			if (!path.startsWith(b + '/')) continue;
+			const rel = path.slice(b.length + 1).replace(/\.md$/i, '');
+			return rel === SNAPSHOTS || rel.startsWith(SNAPSHOTS + '/') ? null : `${s.folder.path}/${SNAPSHOTS}/${rel}`;
+		}
+		return null;
+	}
+
+	/** Counts files made, renamed and deleted: what's remembered about each binder's "Snapshots" folder is as of one. */
+	private vaultChanges = 0;
+
+	/** Notes and folders renamed or moved, whose snapshots are to follow (`to` null: out of every binder). */
+	private movedItems: { from: string; to: string | null; name: string; binder: string; what: 'note' | 'folder' }[] = [];
+	private snapshotsTimer = 0;
+
+	/** A note or folder of a binder was renamed or moved: its snapshots go to the same place under "Snapshots" (in the
+	    binder it's in now), once the renames have settled (a folder's items are reported one by one). */
+	private snapshotsFollow(file: TAbstractFile, oldPath: string): void {
+		const isFolder = file instanceof TFolder;
+		const from = this.snapshotsDirAt(oldPath, isFolder, true), to = this.snapshotsDirAt(file.path, isFolder, false);
+		if (!from || from === to) return;
+		this.movedItems.push({ from, to, name: nameOf(file.path.replace(/\.md$/i, '')), binder: nameOf(from.slice(0, from.indexOf(`/${SNAPSHOTS}/`))), what: isFolder ? 'folder' : 'note' });
+		window.clearTimeout(this.snapshotsTimer);
+		this.snapshotsTimer = window.setTimeout(() => { void this.snapshotsSettle(); }, 80);
+	}
+
+	/** Moves the snapshots of everything renamed or moved since the last time. Resolves when they're where they belong. */
+	async snapshotsSettle(): Promise<void> {
+		window.clearTimeout(this.snapshotsTimer);
+		// outermost first: a folder's snapshots go as one, and its notes' are then already where they belong
+		const moved = this.movedItems.sort((a, b) => a.from.length - b.from.length);
+		this.movedItems = [];
+		for (const m of moved) {
+			const there = this.app.vault.getAbstractFileByPath(m.from);
+			// (what's the item's own there: a note's snapshots are files, a folder's notes' are in folders)
+			if (!(there instanceof TFolder) || !there.children.some((c) => (m.what === 'note' ? c instanceof TFile : c instanceof TFolder))) continue;
+			// out of every binder: its snapshots stay with the binder it left, as a deleted note's do
+			if (!m.to) { new Notice(`“${m.name}” has left “${m.binder}”. Its snapshots stay there.`, 8000); continue; }
+			try { await followSnapshots(this.app, m.from, m.to, m.what); }
+			catch (e) { new Notice(`The snapshots of “${m.name}” couldn’t follow it. ${e instanceof Error ? e.message : String(e)}`, 8000); }
+		}
+	}
+
+	// ---- <<< snapshots ----
 
 	isHiddenNote(file: TAbstractFile): boolean {
 		const s = this.at(file.path);
@@ -594,7 +684,8 @@ export class BinderStore extends Events implements ExplorerSource {
 		if (t.kind === 'longform') throw new Error('A Longform project has no folders. Convert it to a binder to use them.');
 		const base = title.replace(/[\\/:]/g, ' ').trim().replace(/^\.+\s*/, '') || 'Untitled';
 		let name = base;
-		for (let n = 1; this.app.vault.getAbstractFileByPath(normalizePath(`${folder.path}/${name}`)); n++) name = `${base} ${n}`;
+		// (at the top of a binder "Snapshots" is taken: an empty folder of that name would be the binder's snapshots) snapshots
+		for (let n = 1; this.app.vault.getAbstractFileByPath(normalizePath(`${folder.path}/${name}`)) || (folder === t.folder && name === SNAPSHOTS); n++) name = `${base} ${n}`;
 		const made = await this.app.vault.createFolder(normalizePath(`${folder.path}/${name}`));
 		this.queue(t, { op: 'move', item: relPath(t.folder.path, made.path, true), folder: this.folderRel(t, folder), index });
 		return made;
@@ -677,7 +768,7 @@ export class BinderStore extends Events implements ExplorerSource {
 		// a name nothing here has, and none of the notes going in (a note named like its folder would be the folder's own)
 		const base = title.replace(/[\\/:]/g, ' ').trim().replace(/^\.+\s*/, '') || 'Untitled', names = new Set(items.map((f) => (f instanceof TFile ? f.basename : f.name)));
 		let name = base;
-		for (let n = 1; names.has(name) || this.app.vault.getAbstractFileByPath(normalizePath(`${parent.path}/${name}`)); n++) name = `${base} ${n}`;
+		for (let n = 1; names.has(name) || this.app.vault.getAbstractFileByPath(normalizePath(`${parent.path}/${name}`)) || (parent === t.folder && name === SNAPSHOTS); n++) name = `${base} ${n}`; // snapshots
 		const label = items.length === 1 ? `Put “${items[0] instanceof TFile ? items[0].basename : items[0].name}” in a folder` : `Put ${items.length} items in a folder`;
 		return this.change(label, items, async () => {
 			const made = await this.newFolder(parent, Math.max(0, (this.orderedChildren(parent) ?? []).indexOf(items[0])), name);
@@ -714,7 +805,7 @@ export class BinderStore extends Events implements ExplorerSource {
 		const contents: string[] = [];
 		const byName = (a: TAbstractFile, b: TAbstractFile) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
 		const walk = (f: TFolder) => {
-			const kids = f.children.filter((c) => c instanceof TFolder || (c instanceof TFile && c.extension === 'md' && c.basename !== f.name));
+			const kids = f.children.filter((c) => (c instanceof TFolder && !(f === folder && c.name === SNAPSHOTS)) || (c instanceof TFile && c.extension === 'md' && c.basename !== f.name));
 			for (const c of [...kids.filter((c) => c instanceof TFolder).sort(byName), ...kids.filter((c) => c instanceof TFile).sort(byName)]) {
 				contents.push(relPath(folder.path, c.path, c instanceof TFolder));
 				if (c instanceof TFolder) walk(c);
@@ -901,6 +992,13 @@ export class BinderStore extends Events implements ExplorerSource {
 			}
 		}
 		let o = this.at(oldPath, true), n = this.at(file.path);
+		// snapshots >>> an item's snapshots follow it; and a snapshot moved is nothing to a binder's list
+		const so = this.inSnapshots(oldPath, true), sn = this.inSnapshots(file.path);
+		if (!so && !sn) this.snapshotsFollow(file, oldPath);
+		if (o && so) { this.touch(o, false); o = null; }
+		if (n && sn) { this.touch(n, false); n = null; }
+		if ((so || sn) && !o && !n) return;
+		// <<< snapshots
 		// a scene renamed to its folder's name, or moved into a folder of its own name, becomes that folder's note and
 		// stops showing as a scene: said, since nothing else would tell
 		if (file instanceof TFile && file.extension === 'md' && file.parent && o && n && n.kind === 'binder' && file !== n.note && file.basename === file.parent.name && file.parent !== n.folder) {
@@ -940,6 +1038,7 @@ export class BinderStore extends Events implements ExplorerSource {
 	private onDelete(file: TAbstractFile): void {
 		if (file instanceof TFile && this.states.has(file)) { this.rescan(); return; }
 		const o = this.at(file.path, true);
+		if (o && (file.path === `${o.path}/${SNAPSHOTS}` || this.inSnapshots(file.path, true))) { this.touch(o, false); return; } // snapshots
 		if (o?.kind === 'longform') {
 			if (file instanceof TFile && file.extension === 'md') this.lfChange(o, { op: 'remove', item: file.basename }); else this.touch(o);
 			return;
@@ -1149,6 +1248,7 @@ export class BinderStore extends Events implements ExplorerSource {
 			const list: Item[] = [];
 			for (const c of f.children) {
 				if (this.isHiddenNote(c)) continue;
+				if (f === s.folder && c === this.snapshotsFolder(s)) continue; // snapshots: not items of the binder
 				const r = relPath(s.folder.path, c.path, c instanceof TFolder);
 				if (!r || (c instanceof TFile && isFolderNote(r))) continue;
 				list.push({ rel: r, file: c });

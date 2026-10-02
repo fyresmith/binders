@@ -43,8 +43,8 @@ row.
 - The binder note and folder notes are hidden in the file explorer by default.
 - The binder folder's own data lives in the binder note, which is its folder note.
 - Renaming a subfolder in a binder renames its folder note to match (`Part 1/Part 1.md`), so it stays the folder note.
-  Renaming the binder's own folder does the same for the binder note, if it was named like the folder. These are the
-  only files Binders renames on its own. If the folder already has a note with the new name, neither note is renamed
+  Renaming the binder's own folder does the same for the binder note, if it was named like the folder. These, and
+  the folders of snapshots (below), are the only files Binders renames on its own. If the folder already has a note with the new name, neither note is renamed
   (for a subfolder, that note is the folder note from then on; a binder note is one whatever its name).
 - A scene renamed to its folder's name, or moved into a folder of its own name by something other than Binders,
   becomes that folder's note and stops showing as a scene; Binders says so. Binders itself refuses such a rename or
@@ -150,6 +150,69 @@ the commands you run on it:
 - "Duplicate" copies files byte for byte. A copied folder keeps its order, and its folder note is renamed to match.
 - "Compile" writes one new note outside the binder (replacing a note of that name if there is one) and changes none
   of the binder's notes.
+- "Rewrite" with "Start from a blank page" and "Bring back" in the Snapshots dialog replace a note's text, after
+  keeping it as a snapshot (below). The note's properties are left byte for byte.
+
+## Snapshots
+
+A binder can have a folder named `Snapshots` at its top. It holds earlier texts of the binder's notes and is not part
+of the binder: it never appears in `contents`, in a binder view, in a word count, the filter or a compile, and
+Binders never lists it in the file explorer.
+
+```
+The Lighthouse/
+  The Lighthouse.md
+  Part One/
+    Arrival.md
+  Snapshots/
+    Part One/
+      Arrival/
+        2026-09-12 09.15.40 First draft.snapshot
+        2026-10-01 14.32.07.snapshot
+```
+
+- The snapshots of a note are the files in `Snapshots/` under that note's path in the binder, without `.md`: those of
+  `Part One/Arrival.md` are in `Snapshots/Part One/Arrival/`. Nothing in the note or the binder note points at them.
+- A snapshot is a plain-text file ending in `.snapshot`, with Markdown inside. It is named for when it was taken, in
+  local time (`2026-10-01 14.32.07`), followed by its name if it has one (`2026-10-01 14.32.07 First draft`). Naming
+  a snapshot renames its file. A file named some other way still counts, under its whole name.
+- It holds two properties and then the note's text exactly as it was (line breaks and all). The note's own
+  properties (synopsis, status, label, tags) are not copied:
+
+  ```
+  ---
+  snapshot-of: "Part One/Arrival"
+  taken: 2026-10-01T14:32:07
+  ---
+  The supply boat left Mara on the jetty with two cases and a letter she had not opened.
+  ```
+
+  `snapshot-of` is the note's path in the binder when the snapshot was taken (it isn't rewritten when the note is
+  renamed: the folder says whose it is). `taken` is used for a file whose name has no time in it. A `.snapshot`
+  file without these properties is all text.
+- `.snapshot` is not a kind of file Obsidian takes for a note. Obsidian doesn't index it: a snapshot is in no
+  search, quick switcher, link suggestion, backlink, graph or tag list. (With "Detect all file extensions" on in
+  Obsidian's Files and links settings, a search by file name or path, and link suggestions, do list them.) Any
+  text editor opens one.
+- **Obsidian Sync does not carry snapshots unless "Sync all other types" is turned on** (Settings, Sync, Selective
+  sync), on every device. It is off by default. iCloud, Syncthing, Dropbox, git and anything else that copies the
+  vault's folder carry them like any other file.
+- Binders writes a snapshot once and never changes it. Deleting one moves it to the trash (as Obsidian's "Deleted
+  files" setting says).
+- When a note or a folder is renamed or moved inside its binder, or to another binder, the folder of its snapshots is
+  moved to match. Nothing is written over: if snapshots are already there (another device moved some, or a note of
+  that name had its own), each file moves in beside them, a clashing name counted on (`… First draft (2)`).
+- Snapshots stay where they are when their note is deleted, merged into another, or moved out of every binder.
+  "Snapshots of notes that are gone" (the binder view's menu) lists them, to read, give to another note, or delete.
+  A copy ("Duplicate") starts with none; after "Split scene" they stay with the first half.
+- A folder named `Snapshots` that has notes in it is a folder of the writer's own, an item of the binder like any
+  other, and Binders keeps no snapshots in that binder until it's renamed. Binders itself never makes a folder of
+  that name at the top of a binder for anything else.
+- A Longform project's snapshots are in `Snapshots/` inside its scene folder, by scene name
+  (`Snapshots/Harbor/…`). Longform reads only the notes directly in its scene folder, and nothing is written to the
+  index note.
+- In a binder Binders can't change (a newer format), snapshots can be read but not taken, named, deleted or brought
+  back.
 
 ## Longform projects
 

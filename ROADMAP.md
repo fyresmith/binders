@@ -38,12 +38,13 @@ only to notes inside a binder; a note anywhere else in the vault is left exactly
 - [ ] **Find and replace across the manuscript.** One search over every note of the binder, in binder order, with
       replace one or replace all, from the manuscript. Never loses writing: replace all is one step to undo, and says
       how many notes it will change before it does.
-- [ ] **Snapshots of a scene ("Rewrite").** **Take a snapshot** sets a scene's text aside as it is; **Rewrite** takes
+- [x] **Snapshots of a scene ("Rewrite").** **Take a snapshot** sets a scene's text aside as it is; **Rewrite** takes
       one and starts again, from the same text or a blank page; **Snapshots** lists every earlier one to read, compare
       with the note now, and bring back (the text it replaces is kept as a snapshot first). Only the text is kept, not
       the synopsis, status or label. Snapshots live in one folder per binder that never shows in the file explorer
       or in search, never counts as part of the binder, follows a scene when it's renamed or moved, and stays when
-      a scene is deleted. Design approved 2026-10-01; being built.
+      a scene is deleted. Built 2026-10-01: plain `.snapshot` files in the binder's `Snapshots` folder (see
+      `docs/file-format.md`). Obsidian Sync carries them only with "Sync all other types" turned on.
 - [ ] **Focus mode.** The text and nothing else, for a note of a binder (in the manuscript and in a note's own
       tab), in the vault's own type, with one key to leave, and typewriter scrolling for the last line only
       (editing further up scrolls as ever). Everything more is an option, off as it comes: the scenes before and

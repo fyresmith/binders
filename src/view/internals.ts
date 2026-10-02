@@ -124,3 +124,19 @@ export function readableLineLength(app: App): boolean {
 	const get = (app.vault as { getConfig?: (key: string) => unknown }).getConfig;
 	try { return typeof get !== 'function' || get.call(app.vault, 'readableLineLength') !== false; } catch { return true; }
 }
+
+/* The Snapshots dialog looks like Obsidian's own File recovery and Sync history dialogs because it wears their classes:
+   `mod-sidebar-layout` and `mod-sync-history` on the dialog, `modal-sidebar`, `modal-sidebar-list-item`,
+   `sync-history-content-container`, `modal-setting-titlebar`, `sync-history-preview`, and for what changed,
+   `diff-view`, `diff-line mod-left / mod-right` and `diff-changed`. None of them is in the API. They're known by what
+   they do: with them the dialog's content is a row, and a line that was taken out is tinted. If either isn't so (a
+   later Obsidian renamed them), this says no, and the dialog takes Binders' own rules for the same layout and colors
+   (`.binders-snapshots.is-plain` in styles.css). */
+export function historyLook(contentEl: HTMLElement): boolean {
+	try {
+		const probe = contentEl.createDiv({ cls: 'diff-line mod-left' });
+		const tinted = !/^(rgba\(0, 0, 0, 0\)|transparent)$/.test(getComputedStyle(probe).backgroundColor);
+		probe.remove();
+		return tinted && getComputedStyle(contentEl).display === 'flex';
+	} catch { return false; }
+}

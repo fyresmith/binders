@@ -1,0 +1,118 @@
+import { SNAPSHOT_EXT, SNAPSHOTS, badSnapshotName, compare, readSnapshot, readSnapshotName, snapshotFile, snapshotName, stamp, type Row } from '../src/snapshot-text';
+import { done, eq, ok } from './harness';
+
+const j = (x: unknown) => JSON.stringify(x);
+const at = new Date(2026, 9, 1, 14, 32, 7);
+
+// what a snapshot's file is called
+{
+	eq(SNAPSHOTS, 'Snapshots', 'the folder');
+	eq(SNAPSHOT_EXT, 'snapshot', 'the extension: not one Obsidian takes for a note');
+	const free = () => false;
+	eq(snapshotName(at, '', free), '2026-10-01 14.32.07', 'the time it was taken, to the second');
+	eq(snapshotName(at, 'First draft', free), '2026-10-01 14.32.07 First draft', 'then its name');
+	eq(snapshotName(new Date(2026, 0, 5, 9, 5, 3), '', free), '2026-01-05 09.05.03', 'padded, so names sort by time');
+	const taken = new Set(['2026-10-01 14.32.07', '2026-10-01 14.32.07 (2)']);
+	eq(snapshotName(at, '', (n) => taken.has(n)), '2026-10-01 14.32.07 (3)', 'a name that’s taken counts on, never over a file');
+	const names = [snapshotName(new Date(2026, 9, 1, 9, 0, 0), 'b', free), snapshotName(new Date(2026, 8, 30, 23, 59, 59), 'z', free), snapshotName(new Date(2026, 9, 1, 10, 0, 0), 'a', free)];
+	eq(j([...names].sort()), j([names[1], names[0], names[2]]), 'sorted by name is sorted by time');
+}
+
+// and read back
+{
+	const r = readSnapshotName('2026-10-01 14.32.07 First draft');
+	ok(!!r && r.when.getTime() === at.getTime() && r.title === 'First draft', 'time and name');
+	eq(readSnapshotName('2026-10-01 14.32.07')?.title, '', 'no name');
+	eq(readSnapshotName('2026-10-01 14.32.07 (2)')?.title, '', 'a count isn’t a name');
+	eq(readSnapshotName('2026-10-01 14.32.07 Draft (2)')?.title, 'Draft', 'a count after a name isn’t part of it');
+	eq(readSnapshotName('2026-10-01 14.32.07 Before bringing back')?.title, 'Before bringing back', 'the name Binders gives');
+	eq(readSnapshotName('old ending'), null, 'a file named by hand has no time in its name');
+	eq(readSnapshotName('2026-13-45 14.32.07'), null, 'nor one whose date isn’t a date');
+	eq(readSnapshotName('2026-10-01 25.61.07'), null, 'nor a time that isn’t one');
+	eq(readSnapshotName('2026-10-01 1432 First draft'), null, 'nor another spelling');
+	for (const title of ['', 'First draft', 'Draft (final) 2', 'né à Paris']) {
+		const back = readSnapshotName(snapshotName(at, title, () => false));
+		ok(back?.title === title && back.when.getTime() === at.getTime(), `“${title}” reads back as written`);
+	}
+	eq(stamp(at), '2026-10-01T14:32:07', 'the property: local time, as Obsidian writes one');
+}
+
+// names that can't be part of a file's name
+{
+	eq(badSnapshotName('First draft'), null, 'plain words');
+	eq(badSnapshotName('Draft, sent to Sam (2)'), null, 'commas and brackets');
+	ok(!!badSnapshotName('a/b') && !!badSnapshotName('what?') && !!badSnapshotName('a:b') && !!badSnapshotName('a\\b') && !!badSnapshotName('"x"') && !!badSnapshotName('a|b') && !!badSnapshotName('a*') && !!badSnapshotName('<a>'), 'characters a file name can’t have');
+	ok(!!badSnapshotName('x'.repeat(121)), 'too long');
+}
+
+// the file itself: two properties, then the text exactly
+{
+	const body = 'The boat left.\n\nShe watched it go.\n';
+	const text = snapshotFile('Part One/Arrival', at, body);
+	eq(text, '---\nsnapshot-of: "Part One/Arrival"\ntaken: 2026-10-01T14:32:07\n---\n' + body, 'as written');
+	const r = readSnapshot(text);
+	eq(r.body, body, 'the text reads back byte for byte');
+	eq(r.of, 'Part One/Arrival', 'what it’s of');
+	eq(r.taken, at.getTime(), 'when');
+	for (const b of ['', '\n', 'no line break at the end', 'line\r\nbreaks\r\nof Windows\r\n', '---\nlooks: like properties\n---\nbut is the text\n', '---\n', '\n\n  leading space kept', 'ends in spaces   \n\n\n', '%% a comment %%\n# A heading\n[[A link]] #tag\n']) {
+		eq(readSnapshot(snapshotFile('A', at, b)).body, b, `text ${j(b.slice(0, 24))} reads back byte for byte`);
+	}
+	eq(readSnapshot(snapshotFile('A "quoted" name: with a colon', at, 'x')).of, 'A "quoted" name: with a colon', 'a name with quotes and a colon');
+	eq(readSnapshot(snapshotFile('Ünïcödé/名前', at, 'x')).of, 'Ünïcödé/名前', 'any letters');
+	// a file without the properties (made by hand, or by another tool) is all text
+	eq(j(readSnapshot('Just some text.\n')), j({ body: 'Just some text.\n', of: null, taken: null }), 'no properties: all text');
+	eq(readSnapshot('---\nstatus: draft\n---\nText\n').body, '---\nstatus: draft\n---\nText\n', 'other properties aren’t ours: all text');
+	eq(readSnapshot('---\r\nsnapshot-of: A\r\ntaken: 2026-10-01T14:32:07\r\n---\r\nText\r\n').body, 'Text\r\n', 'Windows line breaks in the properties');
+	eq(readSnapshot('---\nsnapshot-of: A\n---\nText').taken, null, 'no time: none');
+	eq(readSnapshot('---\nsnapshot-of: A\ntaken: yesterday\n---\nText').taken, null, 'a time that isn’t one: none');
+}
+
+// comparing two texts as prose
+const show = (rows: Row[]) => rows.map((r) => (r.kind === 'same' ? '=' : r.kind === 'old' ? '-' : '+') + r.pieces.map((p) => (p.changed ? `[${p.text}]` : p.text)).join('')).join('\n');
+{
+	eq(show(compare('One.\n\nTwo.\n', 'One.\n\nTwo.\n')), '=One.\n=Two.', 'the same text: every paragraph the same');
+	eq(show(compare('', '')), '', 'nothing and nothing');
+	eq(show(compare('One.\n', '')), '-One.', 'everything taken out');
+	eq(show(compare('', 'One.\n')), '+One.', 'everything put in');
+	eq(show(compare('One.\n\nTwo.\n', 'One.\n\nNew.\n\nTwo.\n')), '=One.\n+New.\n=Two.', 'a paragraph put in');
+	eq(show(compare('One.\n\nGone.\n\nTwo.\n', 'One.\n\nTwo.\n')), '=One.\n-Gone.\n=Two.', 'a paragraph taken out');
+	eq(show(compare('One.\r\n\r\nTwo.\r\n', 'One.\n\nTwo.\n')), '=One.\n=Two.', 'line breaks of either kind are the same');
+	eq(show(compare('One.\n\n\n\nTwo.', 'One.\nTwo.')), '=One.\n=Two.', 'blank lines aren’t paragraphs');
+	// a paragraph reworded: the words that changed are marked, on both sides, the space after them left out
+	eq(show(compare('The boat left Mara on the jetty. It was raining. She did not wave.', 'The boat left Mara on the jetty. She did not wave.')),
+		'-The boat left Mara on the jetty. [It was raining.] She did not wave.\n+The boat left Mara on the jetty. She did not wave.', 'words taken out');
+	eq(show(compare('The island was smaller than she had imagined.', 'The island was smaller than the chart had promised.')),
+		'-The island was smaller than [she] had [imagined.]\n+The island was smaller than [the chart] had [promised.]', 'words changed');
+	// a paragraph with too little in common isn't one reworded: taken out and put in, whole, nothing marked
+	eq(show(compare('The keeper was waiting at the door of the cottage, an old man in a heavy coat.', 'She found the door open and nobody inside, and a net half mended on the table.')),
+		'-The keeper was waiting at the door of the cottage, an old man in a heavy coat.\n+She found the door open and nobody inside, and a net half mended on the table.', 'a paragraph replaced isn’t marked word by word');
+	// which old paragraph became which new one: the pairing with the most in common, not the first that comes
+	const before = 'She picked up the cases and started up the path, and halfway up she stopped to get her breath.\n\nThe keeper was waiting.';
+	const after = 'She had been told there would be someone to meet her.\n\nShe picked up the cases and started up the path, and halfway she stopped for breath.\n\nThe keeper was waiting.';
+	const rows = compare(before, after);
+	eq(rows.map((r) => r.kind).join(' '), 'new old new same', 'a paragraph put in before one that was reworded');
+	ok(rows[0].pieces.length === 1 && !rows[0].pieces[0].changed, 'the new paragraph is whole');
+	ok(rows[1].pieces.some((p) => p.changed) && rows[2].pieces.some((p) => p.changed), 'the reworded one is marked on both sides');
+	// nothing is lost in the showing: each side's rows, put together, are that side's paragraphs
+	const side = (kind: 'old' | 'new') => rows.filter((r) => r.kind === kind || r.kind === 'same').map((r) => r.pieces.map((p) => p.text).join(''));
+	eq(j(side('old')), j(before.split('\n').filter((l) => l.trim())), 'the old side is the old text');
+	eq(j(side('new')), j(after.split('\n').filter((l) => l.trim())), 'the new side is the new text');
+}
+
+// long texts: still every paragraph, in order, on both sides
+{
+	const para = (i: number) => `Paragraph ${i} of the scene, with enough words in it to be a sentence or two of prose.`;
+	const a = Array.from({ length: 400 }, (_, i) => para(i)), b = a.filter((_, i) => i % 7 !== 3).map((p, i) => (i % 11 === 5 ? p.replace('enough', 'more than enough') : p));
+	b.splice(100, 0, 'A paragraph that is new.');
+	const rows = compare(a.join('\n\n'), b.join('\n\n'));
+	const text = (kind: 'old' | 'new') => rows.filter((r) => r.kind === kind || r.kind === 'same').map((r) => r.pieces.map((p) => p.text).join(''));
+	eq(j(text('old')), j(a), '400 paragraphs: the old side whole');
+	eq(j(text('new')), j(b), 'and the new');
+	ok(rows.filter((r) => r.kind === 'same').length > 250, 'most of it is the same');
+	// a scene replaced by another altogether, too long to compare word by word: both whole
+	const x = Array.from({ length: 30 }, (_, i) => `Old ${i} ${'word '.repeat(40)}`), y = Array.from({ length: 30 }, (_, i) => `New ${i} ${'other '.repeat(40)}`);
+	const all = compare(x.join('\n'), y.join('\n'));
+	eq(all.filter((r) => r.kind === 'old').length + ' ' + all.filter((r) => r.kind === 'new').length, '30 30', 'a scene replaced: every paragraph out, every paragraph in');
+}
+
+done('snapshot text');

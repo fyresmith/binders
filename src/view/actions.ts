@@ -4,6 +4,8 @@ import { openPluginSettings, submenu, trashPhrase } from './internals';
 import { hexColor, labelCss, labelDot, labelName, presetOf } from './labels';
 import { ask, confirm, pickColor } from './modals';
 import type { ModeContext } from './mode';
+import { folderSnapshotItems, snapshotItems } from './snapshots'; // snapshots
+import { SNAPSHOTS } from '../snapshot-text'; // snapshots
 import { parseTarget } from './outliner-data';
 
 /* What can be done to a note or a folder of a binder, the same on a card and in an outliner row: its menu, renaming,
@@ -33,6 +35,7 @@ export async function renameItem(ctx: ModeContext, f: TAbstractFile, name: strin
 	if (bad) throw new Error(bad);
 	// a note named like its folder, or a folder named like a note in it, would make that note the folder note
 	if (isNote(f) && name === f.parent?.name) throw new Error('A note can’t have its folder’s name: it would become the folder’s note.');
+	if (f instanceof TFolder && name === SNAPSHOTS && f.parent === ctx.binder.folder) throw new Error(`“${SNAPSHOTS}” is where the binder keeps its snapshots. Choose another name.`); // snapshots
 	if (f instanceof TFolder && f.children.some((c) => isNote(c) && c.basename === name)) throw new Error(`“${f.name}” already has a note called “${name}”, which would become its folder note.`);
 	const to = normalizePath(`${f.parent?.path ?? ''}/${name}${f instanceof TFile ? '.' + f.extension : ''}`);
 	if (to === f.path) return;
@@ -310,6 +313,9 @@ export function itemMenu(ctx: ModeContext, items: TAbstractFile[], h: Hooks): Me
 		if (one && h.down) menu.addItem((x) => x.setSection('order').setTitle('Move down').setIcon('arrow-down').onClick(() => h.down?.()));
 		moveItems(ctx, menu, items);
 	}
+	// snapshots: a note's earlier texts (taken, started again from, looked through); a folder's notes, all at once
+	snapshotItems(ctx.plugin, menu, items, 'edit', ro, true);
+	if (one instanceof TFolder) folderSnapshotItems(ctx.plugin, menu, one, 'structure', ro);
 	h.more?.(menu);
 	otherItems(ctx, menu, items);
 	// last, after what Obsidian and other plugins add, as in the file explorer's own menu (a menu's sections come in

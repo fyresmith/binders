@@ -1,0 +1,491 @@
+import { ButtonComponent, Component, FuzzySuggestModal, ItemView, MarkdownRenderer, MarkdownView, Menu, Modal, Notice, Platform, Setting, TFile, TFolder, TextComponent, ToggleComponent, htmlToMarkdown, setIcon, type ViewStateResult, type WorkspaceLeaf } from 'obsidian';
+import type { Binder } from '../binders';
+import type BindersPlugin from '../main';
+import { saveOpen } from '../scenes';
+import { SNAPSHOT_EXT, badSnapshotName, compare, readSnapshot, readSnapshotName } from '../snapshot-text';
+import { attach, bringBack, cut, isScene, leftovers, nameSnapshot, rewrite, snapshotsDir, snapshotsIn, takeSnapshot, type Leftover, type Snapshot } from '../snapshots';
+import { liveEditors } from './editable-embed';
+import { historyLook, refreshHeader, submenu, trashPhrase } from './internals';
+import { ask, buttonRow, cancelButton, confirm } from './modals';
+import { countWords, wordsLabel } from './words';
+
+/* Snapshots, to the writer: "Take a snapshot", "Rewrite", the dialog that lists a note's snapshots, and a pane that
+   shows one beside the note. The dialog is laid out as Obsidian's own File recovery and Sync history dialogs are, with
+   their classes (a list at the side, the text beside it, "show changes" drawn as their diff is), so it looks like them
+   in any theme, and on a phone it's a sheet whose list leads to the text, as theirs is. Where this Obsidian has no
+   such classes, Binders' own rules lay it out the same way (see `historyLook` in internals.ts). */
+
+const tell = (e: unknown) => { new Notice(e instanceof Error ? e.message.replace(/^E[A-Z]+: /, '') : typeof e === 'string' ? e : 'That didn’t work.'); };
+/** "Today at 14:32", "Yesterday at 09:15", "Sep 12, 2026, 9:15 AM". */
+export const when = (ms: number): string => window.moment(ms).calendar(null, { sameDay: '[Today at] LT', lastDay: '[Yesterday at] LT', lastWeek: 'dddd [at] LT', sameElse: 'll, LT' });
+/** The same inside a sentence: "today at 14:32". */
+const whenIn = (ms: number): string => when(ms).replace(/^(Today|Yesterday)/, (w) => w.toLowerCase());
+const label = (s: Snapshot): string => (s.title ? `${s.title} · ${when(s.taken)}` : when(s.taken));
+const notes = (n: number) => `${n.toLocaleString()} ${n === 1 ? 'note' : 'notes'}`;
+
+/** "Take a snapshot": no questions. Says what it did. With a name (a whole folder's, taken together), every note with
+    text gets one, changed or not, so the name is there on each. */
+export async function take(plugin: BindersPlugin, scenes: TFile[], title = ''): Promise<void> {
+	let made = 0, same = 0;
+	try {
+		for (const f of scenes) { const r = await takeSnapshot(plugin, f, title); if (r?.made) made++; else if (r) same++; }
+	} catch (e) {
+		// (said with how far it got: the ones taken are there)
+		new Notice(`${made ? `Took a snapshot of ${notes(made)}, then stopped. ` : ''}${e instanceof Error ? e.message : String(e)}`, 8000);
+		return;
+	}
+	const one = scenes.length === 1 ? `“${scenes[0].basename}”` : null;
+	if (made) new Notice(`Took a snapshot of ${one ?? notes(made)}${title ? `, named “${title}”` : ''}.${!one && same ? ` ${same === 1 ? 'One hasn’t' : `${same} haven’t`} changed since ${same === 1 ? 'its' : 'their'} last snapshot.` : ''}`);
+	else if (same) new Notice(one ? `${one} hasn’t changed since its last snapshot.` : 'None of them has changed since its last snapshot.');
+	else new Notice(one ? 'There’s no text to take a snapshot of yet.' : 'None of them has any text yet.');
+}
+
+/** "Take a snapshot of every note": a whole folder (or the binder) at one moment, under one name if it's given one. */
+export async function takeAll(plugin: BindersPlugin, folder: TFolder): Promise<void> {
+	const scenes = plugin.binders.scenes(folder).filter((f) => isScene(plugin, f));
+	if (!scenes.length) { new Notice('There are no notes here to take a snapshot of.'); return; }
+	const name = await ask(plugin.app, { title: `Take a snapshot of ${scenes.length === 1 ? 'the note' : `all ${scenes.length} notes`} in “${folder.name}”`, placeholder: 'A name for them, such as “Draft sent to Sam”', cta: scenes.length === 1 ? 'Take snapshot' : 'Take snapshots', allowEmpty: true, check: (v) => (v ? badSnapshotName(v) : null) });
+	if (name != null) await take(plugin, scenes, name);
+}
+
+/** "Rewrite": a snapshot of the text as it is; the writer starts again from it, or from a blank page. */
+export class RewriteModal extends Modal {
+	private name: TextComponent;
+	private error: HTMLElement;
+	constructor(private plugin: BindersPlugin, private scene: TFile, private then: (blank: boolean, kept: Snapshot) => void) { super(plugin.app); }
+
+	onOpen(): void {
+		this.setTitle(`Rewrite “${this.scene.basename}”`);
+		this.contentEl.createEl('p', { text: 'A snapshot of the text as it is now is taken first, to read, compare and bring back whenever you like. Then start again: from this text, or from a blank page.' });
+		const box = this.contentEl.createDiv({ cls: 'binders-ask' });
+		this.name = new TextComponent(box).setPlaceholder('A name for the snapshot, if you like');
+		this.name.inputEl.setAttr('aria-label', 'Name for the snapshot');
+		this.name.inputEl.setAttr('enterkeyhint', 'done');
+		this.error = this.contentEl.createDiv({ cls: 'binders-ask-error', attr: { 'aria-live': 'polite' } });
+		this.name.inputEl.addEventListener('input', () => this.refuse(null));
+		this.name.inputEl.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); void this.run(false); } });
+		const row = buttonRow(this);
+		new ButtonComponent(row).setButtonText('Start from this text').setCta().onClick(() => void this.run(false));
+		new ButtonComponent(row).setButtonText('Start from a blank page').onClick(() => void this.run(true));
+		cancelButton(row, this);
+	}
+
+	onClose(): void { this.contentEl.empty(); }
+
+	private refuse(why: string | null): void { this.error.setText(why ?? ''); this.name.inputEl.toggleClass('is-invalid', !!why); }
+
+	private async run(blank: boolean): Promise<void> {
+		const title = this.name.getValue().trim(), bad = title ? badSnapshotName(title) : null;
+		if (bad) { this.refuse(bad); this.name.inputEl.focus(); return; }
+		try {
+			const kept = await rewrite(this.plugin, this.scene, blank, title);
+			this.close();
+			if (kept) this.then(blank, kept); else new Notice('There’s no text to take a snapshot of yet: the page is blank already.');
+		} catch (e) { this.refuse(e instanceof Error ? e.message : String(e)); }
+	}
+}
+
+/** What "Rewrite" leads to: the note ready to write in (where it's being written already: its tab, or the manuscript)
+    and, after a blank page, the snapshot just taken beside it (on a phone there's no beside: it's under "Snapshots"). */
+export function startRewrite(plugin: BindersPlugin, scene: TFile): void {
+	new RewriteModal(plugin, scene, (blank, kept) => {
+		void (async () => {
+			const ws = plugin.app.workspace;
+			const tab = ws.getLeavesOfType('markdown').find((l) => l.view instanceof MarkdownView && l.view.file === scene);
+			// in a manuscript, the page it's on is where it's written: no tab is opened over it
+			const inManuscript = !tab && liveEditors(scene).length > 0;
+			const leaf = tab ?? (inManuscript ? ws.getMostRecentLeaf() : ws.getLeaf(false));
+			if (!tab && !inManuscript && leaf) await leaf.openFile(scene, { state: { mode: 'source' } });
+			if (blank && !Platform.isPhone) await openSnapshot(plugin, kept.file, scene, 'split');
+			if (leaf) ws.setActiveLeaf(leaf, { focus: true });
+			if (leaf?.view instanceof MarkdownView && leaf.view.getMode() === 'source') leaf.view.editor.focus();
+			// (in the manuscript, the cursor back in the section it was in)
+			if (inManuscript && !Platform.isMobile) liveEditors(scene)[0]?.editor?.focus();
+			new Notice(blank ? `A blank page for “${scene.basename}”. Its text is kept as a snapshot${kept.title ? `, “${kept.title}”` : ''}.` : `Took a snapshot of “${scene.basename}”${kept.title ? `, named “${kept.title}”` : ''}.`, blank ? 6000 : undefined);
+		})().catch(tell);
+	}).open();
+}
+
+// ---- a snapshot in a pane of its own ----
+
+export const SNAPSHOT_VIEW = 'binders-snapshot';
+
+/** A snapshot shown as a note reads, in a tab or beside the note it's of. It's a file Obsidian doesn't open (it isn't
+    a note), so this view reads it. Nothing can be typed in it. */
+export class SnapshotView extends ItemView {
+	private path = '';
+	private of = '';
+	private shown = new Component();
+	constructor(leaf: WorkspaceLeaf, private plugin: BindersPlugin) { super(leaf); this.navigation = true; }
+	getViewType(): string { return SNAPSHOT_VIEW; }
+	getIcon(): string { return 'history'; }
+	getDisplayText(): string {
+		const name = this.path.slice(this.path.lastIndexOf('/') + 1).replace(/\.[^.]+$/, ''), named = readSnapshotName(name);
+		const what = named ? named.title || when(named.when.getTime()) : name;
+		return this.path ? `${this.of ? this.of.slice(this.of.lastIndexOf('/') + 1).replace(/\.md$/i, '') + ': ' : ''}${what}` : 'Snapshot';
+	}
+	getState(): Record<string, unknown> { return { file: this.path, of: this.of }; }
+	async setState(state: unknown, result: ViewStateResult): Promise<void> {
+		const s = (state ?? {}) as { file?: unknown; of?: unknown };
+		this.path = typeof s.file === 'string' ? s.file : '';
+		this.of = typeof s.of === 'string' ? s.of : '';
+		await this.draw();
+		await super.setState(state, result);
+	}
+	async onOpen(): Promise<void> {
+		this.contentEl.addClass('binders-snapshot-view');
+		this.shown.load();
+		const { vault } = this.app;
+		this.registerEvent(vault.on('rename', (f, old) => { if (old === this.path) { this.path = f.path; void this.draw(); } else if (old === this.of) this.of = f.path; }));
+		this.registerEvent(vault.on('delete', (f) => { if (f.path === this.path) this.leaf.detach(); }));
+		await this.draw();
+	}
+	async onClose(): Promise<void> { this.shown.unload(); await Promise.resolve(); }
+
+	private async draw(): Promise<void> {
+		const el = this.contentEl, file = this.app.vault.getAbstractFileByPath(this.path);
+		el.empty();
+		this.shown.unload();
+		this.shown = new Component();
+		this.shown.load();
+		const page = el.createDiv({ cls: 'binders-snapshot-page markdown-rendered' });
+		refreshHeader(this);
+		if (!(file instanceof TFile) || file.extension !== SNAPSHOT_EXT) { if (this.path) page.createDiv({ cls: 'binders-snapshot-of', text: 'This snapshot isn’t there any more.' }); return; }
+		const named = readSnapshotName(file.basename), read = readSnapshot(await this.app.vault.cachedRead(file));
+		const at = named?.when.getTime() ?? read.taken ?? file.stat.mtime, title = named ? named.title : file.basename;
+		page.createDiv({ cls: 'binders-snapshot-of', text: `Snapshot${title ? ` “${title}”` : ''}, taken ${whenIn(at)} · ${wordsLabel(countWords(read.body))}` });
+		if (read.body.trim()) await MarkdownRenderer.render(this.app, read.body, page, this.of || file.path, this.shown);
+		else page.createDiv({ cls: 'binders-snapshot-of', text: 'A blank page.' });
+		copyAsMarkdown(page);
+		refreshHeader(this);
+	}
+}
+
+/** What's selected in a snapshot is copied as the Markdown it is, to paste back into the note. */
+function copyAsMarkdown(el: HTMLElement): void {
+	el.addEventListener('copy', (e) => {
+		const sel = el.win.getSelection();
+		if (!sel || sel.isCollapsed || !e.clipboardData) return;
+		const box = createDiv();
+		box.appendChild(sel.getRangeAt(0).cloneContents());
+		e.clipboardData.setData('text/plain', htmlToMarkdown(box));
+		e.preventDefault();
+	});
+}
+
+/** Shows a snapshot in a pane: beside what's in front (`split`), or in a tab. One that's open already comes forward. */
+export async function openSnapshot(plugin: BindersPlugin, file: TFile, scene: TFile | null, where: 'split' | 'tab'): Promise<void> {
+	const ws = plugin.app.workspace;
+	const open = ws.getLeavesOfType(SNAPSHOT_VIEW).find((l) => (l.getViewState().state as { file?: unknown } | undefined)?.file === file.path);
+	const leaf = open ?? (where === 'split' ? ws.getLeaf('split', 'vertical') : ws.getLeaf('tab'));
+	await leaf.setViewState({ type: SNAPSHOT_VIEW, state: { file: file.path, of: scene?.path ?? '' }, active: false });
+	if (open) ws.setActiveLeaf(open, { focus: false });
+}
+
+// ---- the dialog ----
+
+/** The snapshots of a scene (or, with `left`, of a note that's gone): a list, newest first, and beside it the one
+    chosen, to read or to compare with the note as it is now. */
+export class SnapshotsModal extends Modal {
+	private listEl: HTMLElement;
+	private side: HTMLElement;
+	private pane: HTMLElement;
+	private titleBar: HTMLElement;
+	private actions: HTMLElement;
+	private textEl: HTMLElement;
+	private diffEl: HTMLElement;
+	private back: HTMLElement | null = null;
+	private list: Snapshot[] = [];
+	/** The snapshot shown (null: the note as it is now; undefined: none, a phone's list). */
+	private shown: Snapshot | null | undefined = undefined;
+	private changes = false;
+	private current = '';
+	private rendered = new Component();
+	private loading = 0;
+	private readonly scene: TFile | null;
+	private readonly dir: string;
+	private readonly name: string;
+	/** Nothing can be changed: the binder is in a newer format. */
+	private readonly readOnly: boolean;
+
+	constructor(private plugin: BindersPlugin, of: TFile | Leftover) {
+		super(plugin.app);
+		this.scene = of instanceof TFile ? of : null;
+		this.dir = of instanceof TFile ? snapshotsDir(plugin, of) ?? '\0' : of.dir.path;
+		this.name = of instanceof TFile ? of.basename : of.path.slice(of.path.lastIndexOf('/') + 1);
+		this.readOnly = !!plugin.binders.problem(this.dir);
+	}
+
+	private heading(): string { return `Snapshots of “${this.name}”`; }
+
+	onOpen(): void {
+		const { contentEl, modalEl } = this;
+		this.setTitle(this.heading());
+		modalEl.addClass('mod-sync-history', 'mod-sidebar-layout', 'binders-snapshots');
+		this.side = contentEl.createDiv({ cls: 'modal-sidebar mod-history binders-snapshots-side' });
+		const inner = this.side.createDiv({ cls: 'modal-sidebar-inner' });
+		// (a phone shows the dialog's own title above the list; elsewhere the list says whose snapshots these are)
+		inner.createDiv({ cls: 'binders-snapshots-of', text: this.name });
+		this.listEl = inner.createDiv({ cls: 'modal-sidebar-list binders-snapshots-list', attr: { role: 'listbox', 'aria-label': this.heading() } });
+		this.pane = contentEl.createDiv({ cls: 'sync-history-content-container binders-snapshots-pane' });
+		const content = this.pane.createDiv({ cls: 'sync-history-content' });
+		const bar = content.createDiv({ cls: 'modal-setting-titlebar binders-snapshots-bar' });
+		this.titleBar = bar.createDiv({ cls: 'modal-setting-title' });
+		this.actions = bar.createDiv({ cls: 'modal-setting-titlebar-actions' });
+		this.textEl = content.createDiv({ cls: 'sync-history-preview markdown-rendered binders-snapshots-text' });
+		this.diffEl = content.createDiv({ cls: 'sync-history-diff binders-snapshots-diff' });
+		copyAsMarkdown(this.textEl);
+		// Obsidian's own look for such a dialog, or (where it has none) ours
+		modalEl.toggleClass('is-plain', !historyLook(contentEl));
+		if (Platform.isPhone) {
+			this.pane.detach();
+			this.back = createDiv({ cls: 'clickable-icon modal-setting-back-button mod-raised', attr: { 'aria-label': 'Back to the list', role: 'button' } });
+			setIcon(this.back, 'arrow-left');
+			this.back.addEventListener('click', () => this.toList());
+		}
+		this.rendered.load();
+		// the list follows the vault while the dialog is open: a snapshot taken, named or deleted, here or elsewhere
+		const { vault } = this.app, mine = (path: string) => path.startsWith(this.dir + '/') || path === this.dir;
+		this.rendered.registerEvent(vault.on('create', (f) => { if (mine(f.path)) void this.load(); }));
+		this.rendered.registerEvent(vault.on('delete', (f) => { if (mine(f.path)) void this.load(); }));
+		this.rendered.registerEvent(vault.on('rename', (f, old) => { if (mine(f.path) || mine(old)) void this.load(); }));
+		void this.load(true);
+	}
+
+	onClose(): void { this.rendered.unload(); this.contentEl.empty(); }
+
+	private toList(): void {
+		this.pane.detach();
+		this.back?.detach();
+		this.setTitle(this.heading());
+		this.contentEl.appendChild(this.side);
+		this.shown = undefined;
+		this.listEl.querySelector('.is-active')?.removeClass('is-active');
+	}
+
+	private async load(first = false): Promise<void> {
+		const turn = ++this.loading;
+		let current = '';
+		try {
+			if (this.scene) { await saveOpen(this.app, [this.scene]); current = cut(await this.app.vault.read(this.scene)).body; }
+		} catch (e) { tell(e); }
+		const list = await snapshotsIn(this.app, this.dir);
+		if (turn !== this.loading) return; // a later look is on its way
+		this.current = current;
+		this.list = list;
+		const was = this.shown, focused = this.listEl.contains(this.listEl.doc.activeElement);
+		this.listEl.empty();
+		const row = (s: Snapshot | null, name: string, detail: string) => {
+			const el = this.listEl.createDiv({ cls: 'modal-sidebar-list-item file-recovery-list-item-header tappable binders-snapshots-item', attr: { tabindex: '0', role: 'option', 'aria-selected': 'false' } });
+			const d = el.createDiv({ cls: 'modal-sidebar-list-item-details', text: name });
+			d.createDiv({ cls: 'u-small u-muted', text: detail });
+			const pick = (): void => { void this.show(s, el); };
+			el.addEventListener('click', pick);
+			el.addEventListener('keydown', (e) => {
+				if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); return; }
+				const to = e.key === 'ArrowDown' ? el.nextElementSibling : e.key === 'ArrowUp' ? el.previousElementSibling : null;
+				if (to?.instanceOf(HTMLElement) && to.hasClass('binders-snapshots-item')) { e.preventDefault(); to.focus(); to.click(); }
+			});
+			if (s) el.addEventListener('contextmenu', (e) => { e.preventDefault(); this.menu(s).showAtMouseEvent(e); });
+			return el;
+		};
+		const rows = new Map<Snapshot | null, HTMLElement>();
+		if (this.scene) rows.set(null, row(null, 'The note now', wordsLabel(countWords(this.current))));
+		for (const s of list) rows.set(s, row(s, s.title || when(s.taken), [s.title ? when(s.taken) : '', wordsLabel(countWords(s.body))].filter((x) => x).join(' · ')));
+		if (!list.length) this.listEl.createDiv({ cls: 'binders-snapshots-none u-small u-muted', text: this.scene ? 'No snapshots yet. “Take a snapshot” keeps the text as it is now; “Rewrite” takes one and starts again.' : 'These snapshots are gone.' });
+		// what was shown stays shown; at first, the newest snapshot (a phone starts at the list)
+		const again = was ? list.find((s) => s.file === was.file) ?? (this.scene ? null : list[0]) : was;
+		const pick = again !== undefined ? again : first && !Platform.isPhone ? list[0] ?? (this.scene ? null : undefined) : undefined;
+		if (pick !== undefined && !(Platform.isPhone && !this.pane.parentElement)) await this.show(pick, rows.get(pick) ?? null);
+		else if (Platform.isPhone && this.pane.parentElement && (!was || !list.some((s) => s.file === was.file))) this.toList();
+		if (first || focused) (this.listEl.querySelector<HTMLElement>('.is-active') ?? this.listEl.querySelector<HTMLElement>('.binders-snapshots-item'))?.focus();
+	}
+
+	/** Shows a snapshot (or the note as it is now) beside the list. */
+	private async show(s: Snapshot | null, row: HTMLElement | null): Promise<void> {
+		this.shown = s;
+		for (const el of Array.from(this.listEl.querySelectorAll('.binders-snapshots-item'))) { el.removeClass('is-active'); el.setAttr('aria-selected', 'false'); }
+		row?.addClass('is-active');
+		row?.setAttr('aria-selected', 'true');
+		if (Platform.isPhone && !this.pane.parentElement) {
+			this.side.detach();
+			this.contentEl.appendChild(this.pane);
+		}
+		const text = s ? s.body : this.current, name = s ? label(s) : 'The note now';
+		this.titleBar.setText(name);
+		// (a phone has the name where the dialog's title is, with the way back to the list beside it, as File recovery has)
+		if (this.back) { this.setTitle(name); this.titleEl.appendChild(this.back); }
+		this.actions.empty();
+		const same = !!s && s.body.replace(/\r\n?/g, '\n') === this.current.replace(/\r\n?/g, '\n'), scene = this.scene;
+		if (s && scene) {
+			const toggleLabel = this.actions.createEl('label', { cls: 'modal-setting-titlebar-toggle', text: 'Show changes' });
+			const toggle = new ToggleComponent(toggleLabel).setValue(this.changes && !same).setDisabled(same).onChange((on) => { this.changes = on; this.draw(s, text); });
+			toggle.toggleEl.addClass('mod-small');
+			if (same) toggle.setTooltip('This snapshot and the note have the same text');
+		}
+		const copy = () => { void navigator.clipboard.writeText(text).then(() => new Notice('Copied the text.'), tell); };
+		// (a phone's row has room for what matters most: Copy is in the menu there)
+		if (!Platform.isPhone || !s) new ButtonComponent(this.actions).setButtonText('Copy').onClick(copy);
+		if (!s && scene && !this.readOnly) new ButtonComponent(this.actions).setButtonText('Take a snapshot').onClick(() => void take(this.plugin, [scene]));
+		if (s) {
+			if (scene && !this.readOnly) new ButtonComponent(this.actions).setButtonText('Bring back').setDisabled(same).setTooltip(same ? 'The note already has this text' : 'Put this text in the note. A snapshot of the text there now is taken first.').onClick(() => void this.restore(s));
+			const more = this.actions.createDiv({ cls: 'clickable-icon', attr: { 'aria-label': 'More', role: 'button', tabindex: '0' } });
+			setIcon(more, 'more-horizontal');
+			const open = (e: MouseEvent | KeyboardEvent) => { const m = this.menu(s, copy); if (e instanceof MouseEvent) m.showAtMouseEvent(e); else { const r = more.getBoundingClientRect(); m.showAtPosition({ x: r.left, y: r.bottom }); } };
+			more.addEventListener('click', open);
+			more.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(e); } });
+		}
+		this.draw(s, text);
+	}
+
+	/** The text, to read; or what has changed since it was taken. */
+	private draw(s: Snapshot | null, text: string): void {
+		const changes = !!s && !!this.scene && this.changes && text !== this.current;
+		this.textEl.toggle(!changes);
+		this.diffEl.toggle(changes);
+		this.textEl.empty();
+		this.diffEl.empty();
+		if (!changes) {
+			if (!text.trim()) this.textEl.createDiv({ cls: 'u-muted', text: 'A blank page.' });
+			else void MarkdownRenderer.render(this.app, text, this.textEl, this.scene?.path ?? '', this.rendered);
+			this.textEl.scrollTop = 0;
+			return;
+		}
+		// since this snapshot: what was taken out, what was put in
+		const key = this.diffEl.createDiv({ cls: 'binders-snapshots-key u-small u-muted' });
+		key.appendText('From this snapshot to the note now: ');
+		key.createSpan({ cls: 'diff-line mod-left', text: 'taken out' });
+		key.appendText(' ');
+		key.createSpan({ cls: 'diff-line mod-right', text: 'put in' });
+		const view = this.diffEl.createDiv({ cls: 'diff-view' });
+		let run: HTMLElement[] = [];
+		const fold = (last: boolean) => {
+			// a long stretch that's the same folds away, a paragraph of it left on either side of a change
+			const head = view.childElementCount ? 1 : 0, tail = last ? 0 : 1;
+			if (run.length > head + tail + 1) {
+				const hidden = run.slice(head, run.length - tail), note = createDiv({ cls: 'diff-collapsed', text: `${hidden.length} paragraphs the same`, attr: { role: 'button', tabindex: '0' } });
+				for (const el of run.slice(0, head)) view.appendChild(el);
+				view.appendChild(note);
+				for (const el of run.slice(run.length - tail)) view.appendChild(el);
+				const unfold = () => { for (const el of hidden) view.insertBefore(el, note); note.detach(); };
+				note.addEventListener('click', unfold);
+				note.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); unfold(); } });
+			} else for (const el of run) view.appendChild(el);
+			run = [];
+		};
+		for (const r of compare(text, this.current)) {
+			const el = createDiv({ cls: 'diff-line' });
+			if (r.kind !== 'same') el.addClass(r.kind === 'old' ? 'mod-left' : 'mod-right');
+			for (const p of r.pieces) el.createSpan({ cls: p.changed ? 'diff-changed' : undefined, text: p.text });
+			if (r.kind === 'same') run.push(el); else { fold(false); view.appendChild(el); }
+		}
+		fold(true);
+		this.diffEl.scrollTop = 0;
+	}
+
+	private menu(s: Snapshot, copy?: () => void): Menu {
+		const m = new Menu();
+		if (copy && Platform.isPhone) m.addItem((i) => i.setTitle('Copy text').setIcon('copy').onClick(copy));
+		if (!this.readOnly) m.addItem((i) => i.setTitle('Name this snapshot...').setIcon('pencil-line').onClick(async () => {
+			const name = await ask(this.app, { title: 'Name this snapshot', placeholder: 'First draft, before the notes…', cta: 'Save', value: s.title, allowEmpty: true, check: (x) => (x ? badSnapshotName(x) : null) });
+			if (name == null) return;
+			try { await nameSnapshot(this.app, s, name); } catch (e) { tell(e); }
+		}));
+		// (a phone has no beside; there the dialog is the reader)
+		if (!Platform.isPhone) m.addItem((i) => i.setTitle('Open to the right').setIcon('separator-vertical').onClick(() => {
+			this.close();
+			void openSnapshot(this.plugin, s.file, this.scene, 'split').catch(tell);
+		}));
+		if (!this.readOnly) {
+			m.addSeparator();
+			m.addItem((i) => i.setTitle('Delete snapshot').setIcon('trash-2').setWarning(true).onClick(async () => {
+				const ok = await confirm(this.app, { title: 'Delete snapshot', text: `Delete the snapshot of “${this.name}” from ${whenIn(s.taken)}${s.title ? `, “${s.title}”` : ''}? It ${trashPhrase(this.app, false)}.`, cta: 'Delete', warning: true });
+				if (!ok) return;
+				try { await this.app.fileManager.trashFile(s.file); } catch (e) { tell(e); }
+			}));
+		}
+		return m;
+	}
+
+	private async restore(s: Snapshot): Promise<void> {
+		if (!this.scene) return;
+		try {
+			const { kept } = await bringBack(this.plugin, this.scene, s);
+			new Notice(`Brought back the snapshot from ${whenIn(s.taken)}.${kept ? ' The text it replaced is kept as a snapshot.' : ''}`, 6000);
+			this.shown = s;
+			await this.load();
+		} catch (e) { tell(e); }
+	}
+}
+
+// ---- snapshots whose note is gone ----
+
+class ScenePicker extends FuzzySuggestModal<TFile> {
+	constructor(private plugin: BindersPlugin, private binder: Binder, private picked: (f: TFile) => void) { super(plugin.app); this.setPlaceholder('Give the snapshots to...'); }
+	getItems(): TFile[] { return this.plugin.binders.scenes(this.binder.folder).filter((f) => isScene(this.plugin, f)); }
+	getItemText(f: TFile): string { return f.path.slice(this.binder.folder.path.length + 1).replace(/\.md$/i, ''); }
+	onChooseItem(f: TFile): void { this.picked(f); }
+}
+
+/** "Snapshots of notes that are gone": notes deleted, merged away, moved out of the binder, or renamed where Binders
+    couldn't see. Their snapshots are kept; here they're read, given to a note that's there, or deleted. */
+export class LeftoversModal extends Modal {
+	private watch = new Component();
+	constructor(private plugin: BindersPlugin, private binder: Binder) { super(plugin.app); }
+
+	onOpen(): void {
+		this.setTitle('Snapshots of notes that are gone');
+		this.modalEl.addClass('binders-leftovers');
+		this.watch.load();
+		const again = () => window.setTimeout(() => this.draw(), 120);
+		this.watch.registerEvent(this.app.vault.on('create', again));
+		this.watch.registerEvent(this.app.vault.on('delete', again));
+		this.watch.registerEvent(this.app.vault.on('rename', again));
+		this.draw();
+	}
+
+	onClose(): void { this.watch.unload(); this.contentEl.empty(); }
+
+	private draw(): void {
+		const { contentEl } = this, list = leftovers(this.plugin, this.binder), ro = !!this.binder.problem;
+		contentEl.empty();
+		contentEl.createEl('p', { cls: 'setting-item-description', text: list.length ? `Notes of “${this.binder.folder.name}” that were deleted, merged into another, or moved out of the binder. Their snapshots are kept until you delete them.` : `Every snapshot in “${this.binder.folder.name}” belongs to a note that’s there.` });
+		for (const left of list) {
+			const row = new Setting(contentEl).setName(left.path).setDesc(`${left.count} ${left.count === 1 ? 'snapshot' : 'snapshots'}`);
+			row.addButton((b) => b.setButtonText('Show').onClick(() => new SnapshotsModal(this.plugin, left).open()));
+			if (!ro) row.addButton((b) => b.setButtonText('Give to a note...').onClick(() => new ScenePicker(this.plugin, this.binder, (scene) => {
+				void attach(this.plugin, left, scene).then(() => new Notice(`“${scene.basename}” now has the ${left.count === 1 ? 'snapshot' : `${left.count} snapshots`} of “${left.path.slice(left.path.lastIndexOf('/') + 1)}”.`), tell);
+			}).open()));
+		}
+	}
+}
+
+// ---- menus ----
+
+/** "Take a snapshot", "Rewrite..." and "Snapshots..." for a menu: one scene, or (taking only) several. In a binder
+    that can't be changed, only the reading. With `folded`, the three are one item, "Snapshots", that opens them (a
+    card's own menu is long as it is: three more would run it off a tablet's screen). */
+export function snapshotItems(plugin: BindersPlugin, menu: Menu, items: unknown[], section = 'snapshots', readOnly = false, folded = false): void {
+	const scenes = items.filter((f): f is TFile => isScene(plugin, f));
+	if (!scenes.length || scenes.length !== items.length) return;
+	const one = scenes.length === 1 ? scenes[0] : null, ro = readOnly || !!plugin.binders.problem(scenes[0]);
+	if (!one) { if (!ro) menu.addItem((i) => i.setSection(section).setTitle(`Take a snapshot of ${scenes.length} notes`).setIcon('camera').onClick(() => void take(plugin, scenes))); return; }
+	const show = () => new SnapshotsModal(plugin, one).open();
+	if (ro) { menu.addItem((i) => i.setSection(section).setTitle('Snapshots...').setIcon('history').onClick(show)); return; }
+	const three = (m: Menu, sec: string | null, last: string) => {
+		m.addItem((i) => { if (sec) i.setSection(sec); i.setTitle('Take a snapshot').setIcon('camera').onClick(() => void take(plugin, [one])); });
+		m.addItem((i) => { if (sec) i.setSection(sec); i.setTitle('Rewrite...').setIcon('file-pen-line').onClick(() => startRewrite(plugin, one)); });
+		m.addItem((i) => { if (sec) i.setSection(sec); i.setTitle(last).setIcon('history').onClick(show); });
+	};
+	if (folded) menu.addItem((i) => { i.setSection(section).setTitle('Snapshots').setIcon('history'); submenu(i, (m) => three(m, null, 'Show snapshots...'), menu); });
+	else three(menu, section, 'Snapshots...');
+}
+
+/** For a folder of a binder (or the binder): "Take a snapshot of every note..."; and for the binder itself, the
+    snapshots of notes that are gone, when there are any. */
+export function folderSnapshotItems(plugin: BindersPlugin, menu: Menu, folder: TFolder, section = 'snapshots', readOnly = false): void {
+	const store = plugin.binders, b = store.binderOf(folder);
+	if (!b || store.inSnapshots(folder.path)) return;
+	if (!readOnly && !b.problem && store.scenes(folder).length) menu.addItem((i) => i.setSection(section).setTitle('Take a snapshot of every note...').setIcon('camera').onClick(() => void takeAll(plugin, folder)));
+	if (folder === b.folder && leftovers(plugin, b).length) menu.addItem((i) => i.setSection(section).setTitle('Snapshots of notes that are gone...').setIcon('history').onClick(() => new LeftoversModal(plugin, b).open()));
+}

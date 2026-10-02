@@ -157,6 +157,39 @@ you scroll to them.
   Turn off **Include in compile** on a note or folder to leave it out. Compiling again offers the same note, and replaces the last compile; a
   note that has been written in since, or wasn't made by Compile, is asked about first.
 
+## Snapshots
+
+A snapshot is a note's text as it was, set aside so you can rewrite without losing anything. Only notes in a binder
+have them. The three things below are in a note's own menu and in the file explorer's; on a card, an outliner row or
+a manuscript title they're under **Snapshots**; and each is a command.
+
+- **Take a snapshot** (a note's menu, or the command) keeps the text as it is on screen now. It asks nothing; if
+  nothing has changed since the last snapshot, it says so and takes none. Select several notes to take one of each,
+  or choose **Take a snapshot of every note...** on a folder or the binder to take them all at one moment under one
+  name, such as "Draft sent to Sam".
+- **Rewrite...** takes a snapshot (give it a name if you like), then lets you start again: from the same text, or
+  from a blank page. After a blank page the old text opens beside the note (on a phone it's under Snapshots).
+  Undo in the note brings the text back.
+- **Snapshots...** lists a note's snapshots, newest first. Read one, turn on **Show changes** to see what was taken
+  out and put in since, paragraph by paragraph and word by word, **Copy** it (or select part of it and copy that),
+  or **Bring back** its text. Bringing one back never loses the text it replaces: that's taken as a snapshot first.
+  The menu beside it names a snapshot, opens it to the right of the note, or deletes it (to the trash).
+
+Snapshots are plain-text files (Markdown inside) in a `Snapshots` folder in the binder, one folder per note:
+`The Lighthouse/Snapshots/Part One/Arrival/2026-10-01 14.32.07 First draft.snapshot`. They follow the note when you
+rename or move it. They're kept out of your way: never in a binder's order, word counts or compile, never listed
+in the file explorer, and (not being notes) not in search, the quick switcher, backlinks, the graph or tags. When a
+note is deleted its snapshots stay; the binder view's menu lists **Snapshots of notes that are gone**.
+
+Three things to know:
+
+- **Obsidian Sync skips snapshots unless you turn on "Sync all other types"** in Obsidian's Sync settings, on each
+  device. Until you do, snapshots stay on the device that took them. iCloud, Syncthing, Dropbox and git carry them
+  without any setting.
+- Obsidian's own folder lists ("Move file to...") do show the `Snapshots` folders, and with "Detect all file
+  extensions" turned on, a search by file name finds them.
+- Without Binders, they're still there: open a `.snapshot` file in any text editor.
+
 ## Undoing a move
 
 **Undo last move** and **Redo last move** take back, or make again, a drag, a **Move up** or **Move down**, a sort
@@ -294,7 +327,7 @@ Binders makes no network requests and collects nothing. Everything it does happe
 | | |
 |---|---|
 | [File format](docs/file-format.md) | Binder notes, folder notes, scene properties, Longform projects |
-| [Roadmap](ROADMAP.md) | What's left before 1.0: mobile QA, export, find and replace, versions of a scene, focus mode |
+| [Roadmap](ROADMAP.md) | What's left before 1.0: mobile QA, export, find and replace, focus mode |
 | [Plan](docs/plan.md) | The design, and what's done |
 | [Obsidian internals](docs/internals.md) | The undocumented parts of Obsidian Binders uses, and their fallbacks |
 | [Development](docs/development.md) | Building, testing, releasing |

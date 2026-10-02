@@ -18,6 +18,8 @@ export interface ExplorerSource {
 	inBinder(item: TAbstractFile): boolean;
 	/** Binder notes and folder notes (`Part One/Part One.md`). Only asked about items of folders in a binder. */
 	isHiddenNote(file: TAbstractFile): boolean;
+	/** A binder's folder of snapshots: never shown. */
+	isSnapshotsFolder(file: TAbstractFile): boolean;
 	/** The color of a note's or folder's label, as CSS, or null if it has none (or isn't in a binder). */
 	labelColor(item: TAbstractFile): string | null;
 	/** Could this item be put at a place in this folder's order (the binder can be changed, the item can go there)? */
@@ -130,7 +132,9 @@ export function installExplorer(plugin: Plugin, source: ExplorerSource, settings
 	/** Binder order for one folder's items, with binder and folder notes left out. Never drops anything else. */
 	const arrange = (folder: TFolder, items: ExplorerItem[]): ExplorerItem[] => {
 		for (const it of items) mark(it);
-		const order = source.orderedChildren(folder);
+		// a binder's snapshots are never listed, whatever the settings say (and whatever kinds of file Obsidian is set to show)
+		if (source.isBinderFolder(folder)) items = items.filter((it) => !source.isSnapshotsFolder(it.file));
+		const order = settings().orderExplorer ? source.orderedChildren(folder) : null;
 		if (!order) return items;
 		const hide = settings().hideBinderNotes;
 		const byPath = new Map(items.map((it) => [it.file.path, it]));
@@ -198,9 +202,10 @@ export function installExplorer(plugin: Plugin, source: ExplorerSource, settings
 
 	const refresh = () => {
 		if (!loaded) return;
+		// (the patch stays on with binder order off: it's also what keeps snapshots out of the list)
 		const on = settings().orderExplorer;
-		if (on && !unpatch) patch();
-		if (!on) { unpatch?.(); unpatch = null; status = 'off'; }
+		if (!unpatch) patch();
+		if (unpatch) status = on ? 'patched' : 'off';
 		const { views } = explorerViews(app);
 		for (const v of views) { for (const k in v.fileItems) { const it = v.fileItems[k]; if (it) mark(it); } resort(v); }
 		active();
