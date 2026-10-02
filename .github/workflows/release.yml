@@ -47,7 +47,8 @@ jobs:
           esac
           # the notes are CHANGELOG.md from this version down to the previous release's
           prev="$(git tag --sort=-v:refname | grep -vx "${GITHUB_REF_NAME}" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | head -1)"
-          awk -v v="## ${GITHUB_REF_NAME}" -v p="## ${prev}" '$0 == v || index($0, v " ") == 1 { f = 1 } p != "## " && ($0 == p || index($0, p " ") == 1) { exit } f' CHANGELOG.md > notes.md
+          # (with no earlier release, this version's entry alone: up to the next "## " heading)
+          awk -v v="## ${GITHUB_REF_NAME}" -v p="## ${prev}" '$0 == v || index($0, v " ") == 1 { f = 1; print; next } f && p == "## " && /^## / { exit } p != "## " && ($0 == p || index($0, p " ") == 1) { exit } f' CHANGELOG.md > notes.md
           [ -s notes.md ] || echo "See CHANGELOG.md for what's new." > notes.md
           gh release create "${GITHUB_REF_NAME}" main.js manifest.json styles.css \
             $flags --title "${GITHUB_REF_NAME}" --notes-file notes.md
