@@ -570,6 +570,9 @@ export class BinderView extends ItemView {
 		const note = this.store.folderNote(folder), goal = note ? this.props(note).target : 0;
 		const whose = folder === binder.folder ? 'the binder’s' : 'this folder’s';
 		ui.count.toggleClass('is-clickable', !this.readOnly);
+		// (a button only where pressing it does something: a read-only binder's count is words to read)
+		if (this.readOnly) { ui.count.removeAttribute('role'); ui.count.removeAttribute('tabindex'); }
+		else ui.count.setAttrs({ role: 'button', tabindex: '0' });
 		if (n != null) {
 			// (the number, then " words" on its own, so that a phone too narrow for both keeps the number)
 			const said = shown != null ? `${shown.toLocaleString()} of ${wordsLabel(n)}` : goal ? `${n.toLocaleString()} / ${wordsLabel(goal)}` : wordsLabel(n), cut = said.lastIndexOf(' ');
