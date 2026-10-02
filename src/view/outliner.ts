@@ -53,7 +53,7 @@ class Outliner implements BinderMode {
 	/** A row to rename once it's drawn (a note or folder just made). */
 	private renameNext: string | null = null;
 	private refocus: string | null = null;
-	private drag: { items: TAbstractFile[]; ghost: HTMLElement; action: HTMLElement; line: HTMLElement; place: Place | null; x: number; y: number; raf: number; off: () => void; file?: FileDrag | null } | null = null;
+	private drag: { items: TAbstractFile[]; ghost: HTMLElement; action: HTMLElement; line: HTMLElement; place: Place | null; crumb?: HTMLElement | null; x: number; y: number; raf: number; off: () => void; file?: FileDrag | null } | null = null;
 	/** The header's columns: their menus, resizing and reordering (outliner-columns.ts). */
 	private cols: OutlinerColumns;
 	/** Where rows just dropped were let go, to glide from (their paths change when they change folders). */
@@ -1112,7 +1112,7 @@ class Outliner implements BinderMode {
 			const d = this.drag;
 			if (!d) return;
 			const r = this.root.getBoundingClientRect(), top = r.top + this.head.offsetHeight, bottom = visibleBottom(this.root);
-			const v = d.file?.out ? 0 : d.y < top + EDGE ? -(top + EDGE - d.y) : d.y > bottom - EDGE ? d.y - (bottom - EDGE) : 0;
+			const v = d.file?.out || d.crumb ? 0 : d.y < top + EDGE ? -(top + EDGE - d.y) : d.y > bottom - EDGE ? d.y - (bottom - EDGE) : 0;
 			// (the line is put right in the same frame: the scroll's own event comes a frame later)
 			if (v) { this.edgeSince ||= performance.now(); const was = this.root.scrollTop; this.root.scrollTop += Math.max(-20, Math.min(20, v / 2)) * held(this.edgeSince); if (this.root.scrollTop !== was) this.dragTo(d.x, d.y); } else this.edgeSince = 0;
 			d.raf = window.requestAnimationFrame(tick);
@@ -1127,6 +1127,7 @@ class Outliner implements BinderMode {
 		// outside the view the rows are files, and Obsidian's to place: no line, no folder marked here
 		if (d.file?.move(x, y)) {
 			d.place = null;
+			this.markCrumb(null);
 			for (const el of this.body.querySelectorAll('.is-being-dragged-over')) el.removeClass('is-being-dragged-over');
 			d.line.removeClass('is-active');
 			return;
@@ -1136,7 +1137,7 @@ class Outliner implements BinderMode {
 			const w = d.ghost.offsetWidth, h = d.ghost.offsetHeight, max = this.root.doc.documentElement.clientWidth - w - 4;
 			d.ghost.setCssStyles({ left: `${Math.max(4, Math.min(max, x - w / 2))}px`, top: `${Math.max(4, y - h - 20)}px` });
 		} else d.ghost.setCssStyles({ left: `${x + 5}px`, top: `${y + 5}px` });
-		const place = d.place = this.placeAt(x, y);
+		const place = d.place = this.crumbPlace(x, y) ?? this.placeAt(x, y);
 		for (const el of this.body.querySelectorAll('.is-being-dragged-over')) if (el !== place?.into) el.removeClass('is-being-dragged-over');
 		place?.into?.addClass('is-being-dragged-over');
 		d.action.setText(place?.hint ?? '');
@@ -1208,9 +1209,30 @@ class Outliner implements BinderMode {
 		return done(over.parent, rest.indexOf(over) + (after ? 1 : 0), rest, { hint: after ? `Move after “${name}”` : `Move before “${name}”`, into: null, depth, line: { left, right: r.right, y: after ? r.bottom : r.top } });
 	}
 
+	/** Marks the folder in the breadcrumb a drop would move the rows to (or none). */
+	private markCrumb(crumb: HTMLElement | null): void {
+		const d = this.drag;
+		if (!d || d.crumb === crumb) return;
+		d.crumb?.removeClass('is-being-dragged-over');
+		crumb?.addClass('is-being-dragged-over');
+		d.crumb = crumb;
+	}
+
+	/** Over a folder in the breadcrumb above the rows: the rows go to that folder, at its end, as cards carried there
+	    from the corkboard do (the way out of the folder shown). Null anywhere else, or where they can't go. */
+	private crumbPlace(x: number, y: number): Place | null {
+		const d = this.drag, view = this.root.closest('.binders-view');
+		const crumb = d && view && !this.longform ? this.root.doc.elementsFromPoint(x, y).map((el) => el.closest<HTMLElement>('.binders-crumb[data-path], .binders-crumb-up[data-path]')).find((el) => !!el && view.contains(el)) ?? null : null;
+		const up = crumb ? this.item(crumb.dataset.path) : null;
+		const out = d && up instanceof TFolder && d.items.every((f) => f.parent !== up && this.store.whyNot(f, up) == null) ? up : null;
+		this.markCrumb(out ? crumb : null);
+		return out ? { folder: out, anchor: null, hint: `Move to the end of “${out.name}”`, into: null, line: null } : null;
+	}
+
 	private endDrag(drop: boolean, x: number, y: number, quiet = false): void {
 		const d = this.drag;
 		if (!d) return;
+		this.markCrumb(null);
 		// (let go outside the view: whatever is there takes the rows as files, or nothing does)
 		if (d.file?.out) { d.place = null; if (drop && !quiet) d.file.drop(x, y); }
 		d.file?.end();
@@ -1242,7 +1264,8 @@ class Outliner implements BinderMode {
 				if (!this.root.isConnected) return;
 				this.draw();
 				// (the keyboard carries on from what was dropped, or from the folded folder that took it)
-				if (!paths.some((p) => this.drawn.has(p))) this.select([place.folder.path]);
+				// (taken out to a folder in the breadcrumb, they've left: the row beside where they were has it already)
+				if (!paths.some((p) => this.drawn.has(p)) && this.drawn.has(place.folder.path)) this.select([place.folder.path]);
 				const a = this.root.doc.activeElement;
 				if (a === this.root.doc.body || this.root.contains(a)) this.rowEl(this.focused)?.focus({ preventScroll: true });
 			})();

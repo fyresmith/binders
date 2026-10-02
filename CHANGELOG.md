@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.59 (2026-10-02)
+
+### Fixed
+
+- In the outliner, a row dragged onto a folder in the breadcrumb moves to the end of that folder, as a card on the corkboard does.
+
 ## 0.12.58 (2026-10-02)
 
 ### Fixed
