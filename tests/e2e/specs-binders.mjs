@@ -615,3 +615,37 @@ test('binders: a move waiting to be written when the binder note’s properties 
 	await p.sleep(700); await flush(p); await p.sleep(300);
 	t.ok(/scenes:\n\s+- Return\n/.test(await read(p, LFI)), 'the scene’s move is in the index note on disk');
 }));
+
+// A folder's items given a new order in one step (what a sort kept as the binder's order uses): one change to the
+// list and one write, however many items.
+test('binders: a folder reordered in one step is one write; the list on disk has every entry once; undo puts each item back; 600 notes take a moment, not a minute', withTidy(async (p, h, t) => {
+	const L = 'The Lighthouse', P1 = `${L}/Part One`, LF = 'Longform demo';
+	const before = await texts(p);
+	await p.ev(`(() => { ${B}.undos = []; ${B}.redos = []; return 1; })()`);
+	await countWrites(p);
+	const order = (folder, names) => p.ev(`(() => { const f = ${file(folder)}, s = ${B}, items = ${j(names)}.map(n => app.vault.getAbstractFileByPath(${j(folder)} + '/' + n)); return s.change('Sort', s.orderedChildren(f), () => s.reorder(f, items)).then(() => 1); })()`);
+	await order(L, ['Epilogue.md', 'Part Two', 'Part One', 'Prologue.md']);
+	t.eq(j(await children(p, L)), j(['Epilogue.md', 'Part Two', 'Part One', 'Prologue.md']), 'shown at once');
+	await order(P1, ['Storm warning.md', 'Arrival.md']);
+	await p.sleep(600); await flush(p); await p.sleep(200);
+	t.eq(j(await contents(p)), j(['Epilogue', 'Part Two/', 'Part Two/The wreck', 'Part Two/Lights out', 'Part One/', 'Part One/Storm warning', 'Part One/Arrival', 'Part One/The keeper', 'Prologue']), 'on disk: both folders in their new order, a folder with what’s in it, a note left out after the ones given');
+	t.eq(await writes(p), 1, 'both written in one write');
+	await p.ev(`${B}.undo(${file(L)}).then(() => 1)`); await p.ev(`${B}.undo(${file(L)}).then(() => 1)`);
+	await flush(p); await p.sleep(200);
+	t.eq(j(await contents(p)), j(LIST), 'two undos: the list on disk is as it was');
+	// a Longform project: its scenes in a new order, indents kept
+	await p.ev(`${B}.reorder(${file(LF)}, ['Return.md', 'Island.md', 'Harbor.md'].map(n => app.vault.getAbstractFileByPath(${j(LF)} + '/' + n))).then(() => 1)`);
+	await flush(p); await p.sleep(300);
+	t.eq(j(await children(p, LF)), j(['Return.md', 'Island.md', 'Harbor.md', 'Ticket office.md', 'The crossing.md']), 'a Longform project’s scenes too');
+	same(t, before, await texts(p), { skip: [NOTE, `${LF}/Index.md`] });
+	// many notes: one step
+	await p.ev(`(async () => { await app.vault.createFolder('Many'); const c = []; for (let i = 0; i < 600; i++) { const n = 'N' + String(i).padStart(3, '0'); await app.vault.adapter.write('Many/' + n + '.md', 'note ' + i); c.push(n); } await app.vault.adapter.write('Many/Many.md', '---\\nbinder: 1\\ncontents:\\n' + c.map(x => '  - ' + x).join('\\n') + '\\n---\\n'); })().then(() => 1)`);
+	t.ok(await until(p, `${B}.isBinderFolder(${file('Many')}) && (${B}.orderedChildren(${file('Many')}) || []).length === 600`, 60000), '600 notes in a binder');
+	await p.sleep(1000);
+	const took = await p.ev(`(async () => { const f = ${file('Many')}, s = ${B}, items = s.orderedChildren(f).reverse(); const t0 = performance.now(); await s.change('Sort', s.orderedChildren(f), () => s.reorder(f, items)); const t1 = performance.now(); await s.flush(); return [Math.round(t1 - t0), Math.round(performance.now() - t1), s.orderedChildren(f)[0].name]; })()`);
+	t.eq(took[2], 'N599.md', 'reversed');
+	t.ok(took[0] < 1500 && took[1] < 1500, `600 notes reordered in ${took[0]} ms, written in ${took[1]} ms`);
+	const many = await contents(p, 'Many/Many.md');
+	t.ok(many.length === 600 && many[0] === 'N599' && many[599] === 'N000' && new Set(many).size === 600, 'on disk: 600 entries, each once, reversed');
+	console.log(`    (600 notes: reorder ${took[0]} ms, write ${took[1]} ms)`);
+}));

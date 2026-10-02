@@ -313,7 +313,8 @@ class Outliner implements BinderMode {
 					// (anything that isn't a note or a folder keeps its place after them)
 					const all = this.store.orderedChildren(folder) ?? [], notes = this.children(folder), want = [...this.sorted(notes), ...all.filter((f) => !(notes as TAbstractFile[]).includes(f))];
 					if (want.every((f, i) => f === all[i])) continue;
-					for (let i = 0; i < want.length; i++) await this.store.move(want[i], folder, i);
+					// (in one step: a move apiece walks the whole list once for each note)
+					await this.store.reorder(folder, want);
 				}
 			});
 		} catch (e) { new Notice(plain(e)); return; }

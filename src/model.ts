@@ -180,18 +180,50 @@ export function removeFrom(contents: string[], item: string): string[] {
     `known` lists every item in the binder, so ones the index doesn't mention yet get their current place written down. */
 export function moveTo(contents: string[], known: string[], item: string, folder: string, index: number): string[] {
 	const moved = (folder + nameOf(item) + (item.endsWith('/') ? '/' : ''));
-	// write every existing item into the list first, in the order they show, so the move has a complete order to work with
-	// (sets, not includes(): a binder of a thousand notes would take a million comparisons per move)
-	const isKnown = new Set(known);
-	let list = contents.filter((p) => isKnown.has(p));
-	const listed = new Set(list);
-	for (const k of known) if (!listed.has(k)) { list = insertInFolder(list, k, Infinity); listed.add(k); }
+	let list = complete(contents, known);
 	const kids = item.endsWith('/') ? list.filter((p) => p !== item && p.startsWith(item)) : [];
 	list = removeFrom(list, item);
 	const renamedKids = kids.map((p) => moved + p.slice(item.length));
 	list = insertInFolder(list, moved, index);
 	const at = list.indexOf(moved) + 1;
 	return [...list.slice(0, at), ...renamedKids, ...list.slice(at)];
+}
+
+/** The list with every existing item written into it, in the order they show, and nothing that doesn't exist: a
+    complete order for a move or a reorder to work with. */
+function complete(contents: string[], known: string[]): string[] {
+	// (sets, not includes(): a binder of a thousand notes would take a million comparisons per move)
+	const isKnown = new Set(known);
+	let list = contents.filter((p) => isKnown.has(p));
+	const listed = new Set(list);
+	for (const k of known) if (!listed.has(k)) { list = insertInFolder(list, k, Infinity); listed.add(k); }
+	return list;
+}
+
+/** Gives the items of one folder a new order in one pass: `items` are its children in the order wanted (any left out
+    keep their order, after them), and each takes everything in it along. Nothing outside the folder moves. What a
+    sort kept as the binder's order does: one change however many items, where a move apiece would walk the list once
+    for each. */
+export function orderIn(contents: string[], known: string[], folder: string, items: string[]): string[] {
+	const list = complete(contents, known);
+	// the child of `folder` an entry is, or is in
+	const childOf = (p: string): string | null => {
+		if (p === folder || !p.startsWith(folder)) return null;
+		const rest = p.slice(folder.length), i = rest.indexOf('/');
+		return folder + (i < 0 ? rest : rest.slice(0, i + 1));
+	};
+	const blocks = new Map<string, string[]>(), rest: string[] = [];
+	let before = -1;
+	for (const p of list) {
+		const c = childOf(p);
+		if (c == null) { rest.push(p); continue; }
+		if (before < 0) before = rest.length;
+		const b = blocks.get(c);
+		if (b) b.push(p); else blocks.set(c, [p]);
+	}
+	if (before < 0) return list;
+	const wanted = new Set(items), order = [...new Set(items.filter((c) => blocks.has(c))), ...[...blocks.keys()].filter((c) => !wanted.has(c))];
+	return [...rest.slice(0, before), ...order.flatMap((c) => blocks.get(c) ?? []), ...rest.slice(before)];
 }
 
 /** Inserts `p` as the `index`th child of its folder (Infinity: last), after that sibling's own contents. */
@@ -243,7 +275,9 @@ export type ListOp =
 	/** `known`: every item in the binder when the move was made, in the order they showed. A move is worked out against
 	    that, not against the binder as it is when the list is written: by then a later change (a rename, a folder gone)
 	    may have taken away the very entries the move counts its place among. */
-	| { op: 'move'; item: string; folder: string; index: number; known?: string[] };
+	| { op: 'move'; item: string; folder: string; index: number; known?: string[] }
+	/** A folder's children in a new order, in one step (see `orderIn`). `known`, as for a move. */
+	| { op: 'order'; folder: string; items: string[]; known?: string[] };
 
 /** Applies a batch of changes. `known` is every item in the binder in the order it shows, for moves. An item appended
     along with its folder (a folder moved into the binder) isn't written separately: it comes in with the folder. */
@@ -263,6 +297,7 @@ export function applyOps(contents: string[], ops: ListOp[], known: string[]): st
 		else if (o.op === 'remove') list = removeFrom(list, o.item);
 		else if (o.op === 'restore') list = restoreIn(list, o.item, o.prev, o.next);
 		else if (o.op === 'copy') list = copyIn(list, o.from, o.to);
+		else if (o.op === 'order') list = orderIn(list, o.known ?? known, o.folder, o.items);
 		else if (o.op === 'append') {
 			if (list.includes(o.item) || withFolder(o.item)) continue;
 			list = insertInFolder(list, o.item, Infinity);
@@ -272,7 +307,7 @@ export function applyOps(contents: string[], ops: ListOp[], known: string[]): st
 		else list = moveTo(list, o.known ?? known, o.item, o.folder, o.index);
 	}
 	// a move writes down the place of everything: also what was made after it, while it waited to be written
-	if (ops.some((o) => o.op === 'move')) {
+	if (ops.some((o) => o.op === 'move' || o.op === 'order')) {
 		const listed = new Set(list);
 		for (const k of known) if (!listed.has(k)) { list = insertInFolder(list, k, Infinity); listed.add(k); }
 	}

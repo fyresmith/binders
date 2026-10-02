@@ -1,4 +1,4 @@
-import { applyOps, checkFormat, cleanPath, copyIn, diskPath, isBinderNote, isFolderNote, moveTo, orderChildren, readIndex, relPath, removeFrom, renameIn, restoreIn, settleNames, stepIndex, UnsupportedBinder } from '../src/model';
+import { applyOps, checkFormat, cleanPath, copyIn, diskPath, orderIn, isBinderNote, isFolderNote, moveTo, orderChildren, readIndex, relPath, removeFrom, renameIn, restoreIn, settleNames, stepIndex, UnsupportedBinder } from '../src/model';
 import { done, eq, ok } from './harness';
 
 const j = (x: unknown) => JSON.stringify(x);
@@ -115,6 +115,29 @@ const j = (x: unknown) => JSON.stringify(x);
 	ok(restoreIn(['A', 'P/', 'P/z', 'P/y', 'P/x', 'B'], 'P/y', 'P/x', 'P/z') !== null && j(restoreIn(['A', 'P/', 'P/z', 'P/y', 'P/x', 'B'], 'P/y', 'P/x', 'P/z')) === j(['A', 'P/', 'P/z', 'P/y', 'P/x', 'B']), 'a list that mentions it already is left exactly as it is');
 	eq(j(applyOps(['A', 'B', 'C'], [{ op: 'remove', item: 'B' }, { op: 'restore', item: 'B', prev: 'A', next: 'C' }], ['A', 'B', 'C'])), j(['A', 'B', 'C']), 'deleted and made again in one batch: as it was');
 	eq(j(applyOps(['C', 'B', 'A'], [{ op: 'remove', item: 'B' }, { op: 'restore', item: 'B', prev: 'A', next: 'C' }], ['A', 'B', 'C'])), j(['C', 'A', 'B']), 'on a list reordered meanwhile: beside the neighbour it had');
+}
+
+// a folder's children given a new order in one step
+{
+	const c = ['A', 'P/', 'P/y', 'P/S/', 'P/S/k', 'P/x', 'B', 'C'], known = [...c];
+	eq(j(orderIn(c, known, '', ['C', 'B', 'P/', 'A'])), j(['C', 'B', 'P/', 'P/y', 'P/S/', 'P/S/k', 'P/x', 'A']), 'the top level reversed: a folder takes everything in it along');
+	eq(j(orderIn(c, known, 'P/', ['P/x', 'P/S/', 'P/y'])), j(['A', 'P/', 'P/x', 'P/S/', 'P/S/k', 'P/y', 'B', 'C']), 'inside a folder: nothing outside it moves');
+	eq(j(orderIn(c, known, '', ['C'])), j(['C', 'A', 'P/', 'P/y', 'P/S/', 'P/S/k', 'P/x', 'B']), 'items left out keep their order, after the ones given');
+	eq(j(orderIn(c, known, '', ['Gone', 'B', 'B'])), j(['B', 'A', 'P/', 'P/y', 'P/S/', 'P/S/k', 'P/x', 'C']), 'a name that isn’t there is skipped, one given twice counts once');
+	eq(j(orderIn(['A'], ['A', 'B', 'C'], '', ['C', 'B', 'A'])), j(['C', 'B', 'A']), 'items the list didn’t mention are written down, in the new order');
+	eq(j(orderIn(['A', 'Missing', 'B'], ['A', 'B'], '', ['B', 'A'])), j(['B', 'A']), 'an entry that names nothing goes, as in a move');
+	eq(j(orderIn(c, known, 'Q/', ['Q/x'])), j(c), 'a folder with nothing in it: the list as it was');
+	const sorted = orderIn(c, known, '', ['C', 'B', 'P/', 'A']);
+	ok(sorted.length === c.length && c.every((x) => sorted.includes(x)) && new Set(sorted).size === sorted.length, 'no entry lost, none twice');
+	eq(j(applyOps(c, [{ op: 'order', folder: '', items: ['C', 'B', 'P/', 'A'], known }, { op: 'rename', from: 'C', to: 'Z' }], known.map((x) => (x === 'C' ? 'Z' : x)))), j(['Z', 'B', 'P/', 'P/y', 'P/S/', 'P/S/k', 'P/x', 'A']), 'in a batch, with a rename after it');
+	// as many moves, one apiece, give the same list
+	let byMoves = c;
+	['C', 'B', 'P/', 'A'].forEach((x, i) => { byMoves = applyOps(byMoves, [{ op: 'move', item: x, folder: '', index: i, known }], known); });
+	eq(j(byMoves), j(sorted), 'the same list a move apiece gives');
+	// big: one pass
+	const big = Array.from({ length: 5000 }, (_, i) => 'N' + i), t0 = Date.now();
+	const rev = orderIn(big, big, '', [...big].reverse());
+	ok(rev[0] === 'N4999' && rev.length === 5000 && Date.now() - t0 < 500, `5,000 items reversed in one pass (${Date.now() - t0} ms)`);
 }
 
 // batches of changes

@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.108 (2026-10-02)
+
+### Fixed
+
+- “Make this the binder order” on a folder of thousands of notes takes a second or two instead of most of a minute.
+
 ## 0.12.107 (2026-10-02)
 
 ### Fixed

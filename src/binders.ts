@@ -50,6 +50,7 @@ import { applySceneOps, conversionPlan, isIgnored, isLongformIndex, longformRunn
      whyNot(item, folder): string | null               why it couldn't, in words, or null if it could
      put(items, folder, anchor, depth?): Promise<void> what a drop does: the items, in order, just before `anchor` (or
                                                        last), as one change that "Undo" takes back
+     reorder(folder, items): Promise<void>             gives a folder's items a new order in one step and one write
      moveUp(item) / moveDown(item): Promise<boolean>   one step within its folder; false if it can't go further
      group(items, title?): Promise<TFolder>            puts items into a new folder, made where the first of them is
      ungroup(folder): Promise<void>                    moves everything in a folder out, to just after it
@@ -554,6 +555,19 @@ export class BinderStore extends Events implements ExplorerSource {
 	depthOf(item: TAbstractFile): number | undefined {
 		const s = this.at(item.path);
 		return s?.kind === 'longform' && item instanceof TFile ? this.shownScenes(s).find((x) => x.title === item.basename)?.indent : undefined;
+	}
+
+	/** Gives a folder's items a new order in one step: `items` are its items in the order wanted (any left out keep
+	    their order, after them). One change to the list and one write however many there are, where a `move` apiece
+	    would walk the whole list once for each: what a sort kept as the binder's order uses. Like `move`, it isn't
+	    remembered for "Undo" by itself: run it inside `change`. */
+	async reorder(folder: TFolder, items: TAbstractFile[]): Promise<void> {
+		const t = this.writable(folder);
+		const mine = items.filter((f) => f.parent === folder && !this.isHiddenNote(f));
+		// (a Longform project's order is by scene, with indents: its scenes go one by one)
+		if (t.kind === 'longform') { for (let i = 0; i < mine.length; i++) await this.move(mine[i], folder, i); return; }
+		const rels = mine.map((f) => relPath(t.folder.path, f.path, f instanceof TFolder)).filter((r): r is string => !!r);
+		this.queue(t, { op: 'order', folder: this.folderRel(t, folder), items: rels });
 	}
 
 	moveUp(item: TAbstractFile): Promise<boolean> { return this.step(item, -1); }
@@ -1236,7 +1250,7 @@ export class BinderStore extends Events implements ExplorerSource {
 	private queue(s: State, op: ListOp): void {
 		if (s.problem) { this.touch(s); return; }
 		// a move remembers what the binder held when it was made (see ListOp)
-		if (op.op === 'move' && !op.known) { s.items = null; s.ordered = null; op.known = this.known(s); }
+		if ((op.op === 'move' || op.op === 'order') && !op.known) { s.items = null; s.ordered = null; op.known = this.known(s); }
 		s.ops.push(op);
 		window.clearTimeout(s.timer);
 		s.timer = window.setTimeout(() => { void this.write(s); }, DEBOUNCE);
