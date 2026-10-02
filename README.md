@@ -77,6 +77,8 @@ synopsis** in its menu. So the board is always one folder's items, in one order.
 
 #### Arrange by label
 
+![The corkboard arranged by label, with notes in subfolders shown and small cards](docs/images/arrange-by-label.png)
+
 **Arrange** in the toolbar shows the same cards by label instead of **In a grid**: one line for each label, and
 the cards along the lines in the binder's order, each in a place of its own, on its label's line. It shows which
 thread (a storyline, a point of view, a character) each scene is on, and how the threads take turns through the
@@ -182,6 +184,8 @@ you scroll to them.
 
 ## Snapshots
 
+![The Snapshots dialog, comparing an earlier snapshot with the note now](docs/images/snapshots.png)
+
 A snapshot is a note's text as it was, set aside so you can rewrite without losing anything. Only notes in a binder
 have them. The three things below are in a note's own menu and in the file explorer's, behind a **Snapshots** button (a clock) in the
 header of any note of a binder, and under **Snapshots** in the menu of a card, an outliner row or a manuscript title;
@@ -218,6 +222,8 @@ Three things to know:
 - Without Binders, they're still there: open a `.snapshot` file in any text editor.
 
 ## Focus mode
+
+![A note in focus mode](docs/images/focus-mode.png)
 
 For writing a note of a binder with nothing else on the screen: the text, in your vault's own type and line length, and
 one button to leave. **Toggle focus mode** in the command palette (give it a hotkey of your own), the button in the
@@ -431,7 +437,7 @@ What a mouse and a keyboard do differently there:
   clock, with the place and the word counts beside it if they're on. It goes while you type and comes back when you
   touch the page. The keyboard's own toolbar stays. Press and hold the leave button for the menu.
 
-![Binders on a phone](docs/images/mobile.png)
+![The corkboard on a phone](docs/images/mobile.png)
 
 ## Compatibility
 
