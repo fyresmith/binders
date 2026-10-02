@@ -175,10 +175,13 @@ a manuscript title they're under **Snapshots**; and each is a command.
 - **Rewrite...** takes a snapshot (give it a name if you like), then lets you start again: from the same text, or
   from a blank page. After a blank page the old text opens beside the note (on a phone it's under Snapshots).
   Undo in the note brings the text back.
-- **Snapshots...** lists a note's snapshots, newest first. Read one, turn on **Show changes** to see what was taken
-  out and put in since, paragraph by paragraph and word by word, **Copy** it (or select part of it and copy that),
-  or **Bring back** its text. Bringing one back never loses the text it replaces: that's taken as a snapshot first.
-  The menu beside it names a snapshot, opens it to the right of the note, or deletes it (to the trash).
+- **Snapshots...** lists a note's snapshots, newest first, under the note as it is now. Read one, turn on **Show
+  changes** to see what was taken out and put in since (the note's own paragraphs, with the words taken out struck
+  through and the words put in marked where they fall), or **Bring back** its text. Bringing one back never loses the
+  text it replaces: that's taken as a snapshot first. The menu beside it copies a snapshot's text (or select part of
+  it and copy that), names it, opens it to the right of the note, or deletes it (to the trash). The camera over the
+  list takes a snapshot of the note as it is now; with none yet, the dialog says what a snapshot is and offers to
+  take the first.
 
 Snapshots are plain-text files (Markdown inside) in a `Snapshots` folder in the binder, one folder per note:
 `The Lighthouse/Snapshots/Part One/Arrival/2026-10-01 14.32.07 First draft.snapshot`. They follow the note when you

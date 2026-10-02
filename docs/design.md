@@ -19,6 +19,16 @@ here; that is what keeps the next round short.
 - The corkboard shows one folder at a time, with subfolders as stacks you go into, as Scrivener does. Where a writer
   would expect Scrivener's behavior, match it.
 - Jank shows mid-interaction, not at rest: a drag held, 60ms after a drop, a field as the keyboard opens.
+- Obsidian's own File recovery dialog hangs its closing button 4px above the line its buttons are on, and a
+  `clickable-icon` is 26px beside 30px buttons. Borrowing its classes borrows that: in a row of controls, give every
+  one of them `--input-height` (on a phone `--touch-size-m`) and put the closing button on the row. A test measures it.
+- A dialog has one filled button, the thing it is for ("Bring back"); what's done less often goes in its menu. A
+  switch that only changes what's shown is a toolbar's quiet button (`text-icon-button`, `is-active` when on), not a
+  form's toggle with a label.
+- What changed in prose is shown as prose: the note's paragraphs in its own font, words taken out struck through and
+  words put in tinted where they fall. Not two colored rows per paragraph: that is how code is compared.
+- A dialog with nothing to list is one of Obsidian's small dialogs (a title, a sentence, its button row), not the big
+  layout with an empty list in it.
 
 **Rejected, don't propose again:** a colored stripe along the top of a card, pill chips, thin accent or progress
 lines, decoration for its own sake, anything on a card that isn't the writer's own (no badges for snapshots and the

@@ -1,8 +1,8 @@
-import { ButtonComponent, Component, FuzzySuggestModal, ItemView, MarkdownRenderer, MarkdownView, Menu, Modal, Notice, Platform, Setting, TFile, TFolder, TextComponent, ToggleComponent, htmlToMarkdown, setIcon, type ViewStateResult, type WorkspaceLeaf } from 'obsidian';
+import { ButtonComponent, Component, FuzzySuggestModal, ItemView, MarkdownRenderer, MarkdownView, Menu, Modal, Notice, Platform, Setting, TFile, TFolder, TextComponent, htmlToMarkdown, setIcon, type ViewStateResult, type WorkspaceLeaf } from 'obsidian';
 import type { Binder } from '../binders';
 import type BindersPlugin from '../main';
 import { saveOpen } from '../scenes';
-import { SNAPSHOT_EXT, badSnapshotName, compare, readSnapshot, readSnapshotName } from '../snapshot-text';
+import { SNAPSHOT_EXT, badSnapshotName, compare, readSnapshot, readSnapshotName, type Piece, type Row } from '../snapshot-text';
 import { attach, bringBack, cut, isScene, leftovers, nameSnapshot, rewrite, snapshotsDir, snapshotsIn, takeSnapshot, type Leftover, type Snapshot } from '../snapshots';
 import { liveEditors } from './editable-embed';
 import { historyLook, refreshHeader, submenu, trashPhrase } from './internals';
@@ -20,7 +20,17 @@ const tell = (e: unknown) => { new Notice(e instanceof Error ? e.message.replace
 export const when = (ms: number): string => window.moment(ms).calendar(null, { sameDay: '[Today at] LT', lastDay: '[Yesterday at] LT', lastWeek: 'dddd [at] LT', sameElse: 'll, LT' });
 /** The same inside a sentence: "today at 14:32". */
 const whenIn = (ms: number): string => when(ms).replace(/^(Today|Yesterday)/, (w) => w.toLowerCase());
-const label = (s: Snapshot): string => (s.title ? `${s.title} · ${when(s.taken)}` : when(s.taken));
+/** In a list, to take in at a glance: the same for the last week ("Today at 14:32", "Sunday at 09:15"), then the day
+    and time without the year ("Sep 12, 9:15 AM"), and in another year the day alone ("Aug 27, 2025"). */
+function whenShort(ms: number): string {
+	const m = window.moment(ms), now = window.moment(), days = now.clone().startOf('day').diff(m.clone().startOf('day'), 'days');
+	if (days < 7) return when(ms);
+	if (m.year() !== now.year()) return m.format('ll');
+	let day: string;
+	try { day = new Intl.DateTimeFormat(window.moment.locale(), { month: 'short', day: 'numeric' }).format(ms); } catch { day = m.format('MMM D'); }
+	return `${day}, ${m.format('LT')}`;
+}
+const copyText = (text: string): void => { void navigator.clipboard.writeText(text).then(() => new Notice('Copied the text.'), tell); };
 const notes = (n: number) => `${n.toLocaleString()} ${n === 1 ? 'note' : 'notes'}`;
 
 /** "Take a snapshot": no questions. Says what it did. With a name (a whole folder's, taken together), every note with
@@ -184,20 +194,68 @@ export async function openSnapshot(plugin: BindersPlugin, file: TFile, scene: TF
 
 // ---- the dialog ----
 
+/** An icon that's a button: pressed by a click, Enter or Space, and named for a screen reader (and in its tooltip). */
+function iconButton(parent: HTMLElement, icon: string, name: string, press: () => void): HTMLElement {
+	const el = parent.createDiv({ cls: 'clickable-icon', attr: { 'aria-label': name, role: 'button', tabindex: '0' } });
+	setIcon(el, icon);
+	el.addEventListener('click', press);
+	el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); press(); } });
+	return el;
+}
+
+/** One stretch of a paragraph compared: words both texts have, words only the snapshot has, words only the note has. */
+interface Stretch { kind: 'same' | 'old' | 'new'; words: string[] }
+/** A reworded paragraph as one paragraph: what was taken out and what was put in, each where it falls in the sentence
+    (`compare` gives it as two rows, each with its own changed words marked). A lone word left standing between two
+    rewordings goes into both, so a rewritten phrase reads as one phrase and not as a scatter of single words. */
+function reworded(old: Piece[], now: Piece[]): Stretch[] {
+	const flat = (ps: Piece[]) => ps.flatMap((p) => (p.text.match(/\S+/g) ?? []).map((w) => ({ w, changed: p.changed })));
+	const a = flat(old), b = flat(now), out: Stretch[] = [];
+	let held: { old: string[]; now: string[] } = { old: [], now: [] }, same: string[] = [];
+	// (out, then in, as a correction is read)
+	const flush = () => {
+		if (held.old.length) out.push({ kind: 'old', words: held.old });
+		if (held.now.length) out.push({ kind: 'new', words: held.now });
+		held = { old: [], now: [] };
+	};
+	for (let i = 0, j = 0; i < a.length || j < b.length;) {
+		const gone: string[] = [], come: string[] = [];
+		while (i < a.length && a[i].changed) gone.push(a[i++].w);
+		while (j < b.length && b[j].changed) come.push(b[j++].w);
+		if (gone.length || come.length) {
+			if (same.length === 1 && held.old.length && held.now.length && gone.length && come.length) { held.old.push(same[0], ...gone); held.now.push(same[0], ...come); }
+			else { flush(); if (same.length) out.push({ kind: 'same', words: same }); held = { old: gone, now: come }; }
+			same = [];
+		}
+		if (i < a.length && j < b.length) { same.push(a[i].w); i++; j++; }
+		// (the words both have are the same words in the same order; if ever they weren't, what's left is shown as changed)
+		else { for (let k = i; k < a.length; k++) a[k].changed = true; for (let k = j; k < b.length; k++) b[k].changed = true; }
+	}
+	flush();
+	if (same.length) out.push({ kind: 'same', words: same });
+	return out;
+}
+
 /** The snapshots of a scene (or, with `left`, of a note that's gone): a list, newest first, and beside it the one
-    chosen, to read or to compare with the note as it is now. */
+    chosen, to read or to compare with the note as it is now. With none yet, it says what a snapshot is and offers to
+    take one. */
 export class SnapshotsModal extends Modal {
-	private listEl: HTMLElement;
 	private side: HTMLElement;
+	private listEl: HTMLElement;
 	private pane: HTMLElement;
-	private titleBar: HTMLElement;
+	private nameEl: HTMLElement;
+	private detailEl: HTMLElement;
 	private actions: HTMLElement;
 	private textEl: HTMLElement;
 	private diffEl: HTMLElement;
+	private emptyEl: HTMLElement;
+	private emptyRow: HTMLElement;
 	private back: HTMLElement | null = null;
 	private list: Snapshot[] = [];
 	/** The snapshot shown (null: the note as it is now; undefined: none, a phone's list). */
 	private shown: Snapshot | null | undefined = undefined;
+	/** Laid out as a list beside a text (true), or as a plain dialog that says there are none (false). */
+	private full: boolean | null = null;
 	private changes = false;
 	private current = '';
 	private rendered = new Component();
@@ -205,40 +263,53 @@ export class SnapshotsModal extends Modal {
 	private readonly scene: TFile | null;
 	private readonly dir: string;
 	private readonly name: string;
-	/** Nothing can be changed: the binder is in a newer format. */
+	/** Nothing can be changed: the binder is in a newer format (`why` says so, in the plugin's own words). */
 	private readonly readOnly: boolean;
+	private readonly why: string;
 
 	constructor(private plugin: BindersPlugin, of: TFile | Leftover) {
 		super(plugin.app);
 		this.scene = of instanceof TFile ? of : null;
 		this.dir = of instanceof TFile ? snapshotsDir(plugin, of) ?? '\0' : of.dir.path;
 		this.name = of instanceof TFile ? of.basename : of.path.slice(of.path.lastIndexOf('/') + 1);
-		this.readOnly = !!plugin.binders.problem(this.dir);
+		const problem = plugin.binders.problem(this.dir);
+		this.readOnly = !!problem;
+		this.why = `This binder can’t be changed. ${problem ?? ''}`;
 	}
 
 	private heading(): string { return `Snapshots of “${this.name}”`; }
+	private takeOne = (): void => { if (this.scene) void take(this.plugin, [this.scene]); };
 
 	onOpen(): void {
-		const { contentEl, modalEl } = this;
+		const { modalEl } = this, scene = this.scene;
 		this.setTitle(this.heading());
-		modalEl.addClass('mod-sync-history', 'mod-sidebar-layout', 'binders-snapshots');
-		this.side = contentEl.createDiv({ cls: 'modal-sidebar mod-history binders-snapshots-side' });
+		modalEl.addClass('binders-snapshots');
+		// the list, under whose snapshots these are and (always in reach) the way to take one now
+		this.side = createDiv({ cls: 'modal-sidebar mod-history binders-snapshots-side' });
 		const inner = this.side.createDiv({ cls: 'modal-sidebar-inner' });
-		// (a phone shows the dialog's own title above the list; elsewhere the list says whose snapshots these are)
-		inner.createDiv({ cls: 'binders-snapshots-of', text: this.name });
+		// (a phone has the dialog's own title above the list: there, only the button, in words)
+		const can = !!scene && !this.readOnly;
+		if (!Platform.isPhone) {
+			const head = inner.createDiv({ cls: 'binders-snapshots-head' });
+			head.createDiv({ cls: 'binders-snapshots-of', text: this.name });
+			if (can) iconButton(head, 'camera', 'Take a snapshot', this.takeOne);
+		} else if (can) new ButtonComponent(inner.createDiv({ cls: 'binders-snapshots-head' })).setButtonText('Take a snapshot').onClick(this.takeOne);
 		this.listEl = inner.createDiv({ cls: 'modal-sidebar-list binders-snapshots-list', attr: { role: 'listbox', 'aria-label': this.heading() } });
-		this.pane = contentEl.createDiv({ cls: 'sync-history-content-container binders-snapshots-pane' });
+		if (this.readOnly) inner.createDiv({ cls: 'binders-snapshots-note', text: this.why });
+		// the one chosen: what it is, what can be done with it, and its text
+		this.pane = createDiv({ cls: 'sync-history-content-container binders-snapshots-pane' });
 		const content = this.pane.createDiv({ cls: 'sync-history-content' });
 		const bar = content.createDiv({ cls: 'modal-setting-titlebar binders-snapshots-bar' });
-		this.titleBar = bar.createDiv({ cls: 'modal-setting-title' });
+		const title = bar.createDiv({ cls: 'modal-setting-title binders-snapshots-title' });
+		this.nameEl = title.createSpan({ cls: 'binders-snapshots-name' });
+		this.detailEl = title.createSpan({ cls: 'binders-snapshots-detail' });
 		this.actions = bar.createDiv({ cls: 'modal-setting-titlebar-actions' });
 		this.textEl = content.createDiv({ cls: 'sync-history-preview markdown-rendered binders-snapshots-text' });
 		this.diffEl = content.createDiv({ cls: 'sync-history-diff binders-snapshots-diff' });
 		copyAsMarkdown(this.textEl);
-		// Obsidian's own look for such a dialog, or (where it has none) ours
-		modalEl.toggleClass('is-plain', !historyLook(contentEl));
+		this.emptyEl = createDiv({ cls: 'binders-snapshots-empty' });
+		this.emptyRow = createDiv({ cls: 'modal-button-container' });
 		if (Platform.isPhone) {
-			this.pane.detach();
 			this.back = createDiv({ cls: 'clickable-icon modal-setting-back-button mod-raised', attr: { 'aria-label': 'Back to the list', role: 'button' } });
 			setIcon(this.back, 'arrow-left');
 			this.back.addEventListener('click', () => this.toList());
@@ -254,13 +325,47 @@ export class SnapshotsModal extends Modal {
 
 	onClose(): void { this.rendered.unload(); this.contentEl.empty(); }
 
+	/** The dialog's two shapes: Obsidian's File recovery layout (or, where it has none, ours) when there's a list to
+	    show, and one of its small dialogs (a sheet on a phone, as `buttonRow` makes them) when there's none. */
+	private layout(full: boolean): void {
+		const { contentEl, modalEl } = this;
+		if (this.full === full) return;
+		this.full = full;
+		for (const el of [this.side, this.pane, this.emptyEl, this.emptyRow]) el.detach();
+		this.back?.detach();
+		this.setTitle(this.heading());
+		modalEl.toggleClass('mod-sync-history', full);
+		modalEl.toggleClass('mod-sidebar-layout', full);
+		modalEl.removeClass('is-plain');
+		this.containerEl.toggleClass('mod-confirmation', !full);
+		if (!full) { contentEl.appendChild(this.emptyEl); modalEl.appendChild(this.emptyRow); return; }
+		contentEl.appendChild(this.side);
+		if (!Platform.isPhone) contentEl.appendChild(this.pane);
+		// Obsidian's own look for such a dialog, or (where it has none) ours
+		modalEl.toggleClass('is-plain', !historyLook(contentEl));
+	}
+
 	private toList(): void {
 		this.pane.detach();
 		this.back?.detach();
 		this.setTitle(this.heading());
 		this.contentEl.appendChild(this.side);
 		this.shown = undefined;
-		this.listEl.querySelector('.is-active')?.removeClass('is-active');
+		const was = this.listEl.querySelector<HTMLElement>('.is-active');
+		was?.removeClass('is-active');
+		was?.setAttr('aria-selected', 'false');
+	}
+
+	/** With no snapshots: what one is, and the way to take the first. */
+	private none(): void {
+		const el = this.emptyEl, row = this.emptyRow, scene = this.scene;
+		el.empty();
+		row.empty();
+		if (!scene) el.createEl('p', { text: 'These snapshots are gone.' });
+		else el.createEl('p', { text: 'A snapshot keeps this note’s text as it is now. Take one before a big change: later you can read it, see what has changed since, and bring it back.' });
+		if (scene && this.readOnly) el.createEl('p', { cls: 'u-muted', text: this.why });
+		if (scene && !this.readOnly) { new ButtonComponent(row).setButtonText('Take a snapshot').setCta().onClick(this.takeOne); cancelButton(row, this); }
+		else cancelButton(row, this).setButtonText('Close');
 	}
 
 	private async load(first = false): Promise<void> {
@@ -273,74 +378,111 @@ export class SnapshotsModal extends Modal {
 		if (turn !== this.loading) return; // a later look is on its way
 		this.current = current;
 		this.list = list;
-		const was = this.shown, focused = this.listEl.contains(this.listEl.doc.activeElement);
+		// (the keyboard's place is kept: in the list, or on a button this is about to draw again)
+		const active = this.modalEl.doc.activeElement, focused = [this.listEl, this.actions, this.emptyRow].some((el) => el.contains(active));
+		const was = list.length ? this.shown : undefined;
+		if (!list.length) { this.shown = undefined; this.none(); }
+		this.layout(list.length > 0);
 		this.listEl.empty();
-		const row = (s: Snapshot | null, name: string, detail: string) => {
-			const el = this.listEl.createDiv({ cls: 'modal-sidebar-list-item file-recovery-list-item-header tappable binders-snapshots-item', attr: { tabindex: '0', role: 'option', 'aria-selected': 'false' } });
-			const d = el.createDiv({ cls: 'modal-sidebar-list-item-details', text: name });
-			d.createDiv({ cls: 'u-small u-muted', text: detail });
+		// (a phone is touched, not tabbed through: nothing is ringed as it opens)
+		const focus = focused || (first && !Platform.isPhone);
+		if (!list.length) { if (focus) this.emptyRow.querySelector('button')?.focus(); return; }
+		const items: HTMLElement[] = [];
+		const row = (s: Snapshot | null, name: string, detail: string, said: string) => {
+			const el = this.listEl.createDiv({ cls: 'modal-sidebar-list-item file-recovery-list-item-header tappable binders-snapshots-item', attr: { tabindex: '-1', role: 'option', 'aria-selected': 'false', 'aria-label': said } });
+			const d = el.createDiv({ cls: 'modal-sidebar-list-item-details' });
+			d.createDiv({ cls: 'binders-snapshots-item-name', text: name });
+			d.createDiv({ cls: 'binders-snapshots-item-detail u-muted', text: detail });
 			const pick = (): void => { void this.show(s, el); };
 			el.addEventListener('click', pick);
 			el.addEventListener('keydown', (e) => {
 				if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); return; }
-				const to = e.key === 'ArrowDown' ? el.nextElementSibling : e.key === 'ArrowUp' ? el.previousElementSibling : null;
-				if (to?.instanceOf(HTMLElement) && to.hasClass('binders-snapshots-item')) { e.preventDefault(); to.focus(); to.click(); }
+				const i = items.indexOf(el), to = e.key === 'ArrowDown' ? items[i + 1] : e.key === 'ArrowUp' ? items[i - 1] : e.key === 'Home' ? items[0] : e.key === 'End' ? items[items.length - 1] : null;
+				if (to === null) return;
+				e.preventDefault();
+				if (to && to !== el) { to.focus(); to.click(); }
 			});
 			if (s) el.addEventListener('contextmenu', (e) => { e.preventDefault(); this.menu(s).showAtMouseEvent(e); });
+			items.push(el);
 			return el;
 		};
 		const rows = new Map<Snapshot | null, HTMLElement>();
-		if (this.scene) rows.set(null, row(null, 'The note now', wordsLabel(countWords(this.current))));
-		for (const s of list) rows.set(s, row(s, s.title || when(s.taken), [s.title ? when(s.taken) : '', wordsLabel(countWords(s.body))].filter((x) => x).join(' · ')));
-		if (!list.length) this.listEl.createDiv({ cls: 'binders-snapshots-none u-small u-muted', text: this.scene ? 'No snapshots yet. “Take a snapshot” keeps the text as it is now; “Rewrite” takes one and starts again.' : 'These snapshots are gone.' });
-		// what was shown stays shown; at first, the newest snapshot (a phone starts at the list)
+		if (this.scene) {
+			const words = wordsLabel(countWords(this.current)), el = row(null, 'The note now', words, `The note now, ${words}`);
+			el.addClass('is-now');
+			rows.set(null, el);
+		}
+		for (const s of list) {
+			const at = whenShort(s.taken), words = wordsLabel(countWords(s.body));
+			rows.set(s, row(s, s.title || at, s.title ? `${at} · ${words}` : words, `Snapshot${s.title ? ` “${s.title}”` : ''}, ${whenIn(s.taken)}, ${words}${this.scene && this.sameAsNote(s) ? ', the same as the note now' : ''}`));
+		}
+		// what was shown stays shown; otherwise the newest snapshot (a phone starts at the list)
 		const again = was ? list.find((s) => s.file === was.file) ?? (this.scene ? null : list[0]) : was;
-		const pick = again !== undefined ? again : first && !Platform.isPhone ? list[0] ?? (this.scene ? null : undefined) : undefined;
+		const pick = again !== undefined ? again : !Platform.isPhone ? list[0] : undefined;
 		if (pick !== undefined && !(Platform.isPhone && !this.pane.parentElement)) await this.show(pick, rows.get(pick) ?? null);
 		else if (Platform.isPhone && this.pane.parentElement && (!was || !list.some((s) => s.file === was.file))) this.toList();
-		if (first || focused) (this.listEl.querySelector<HTMLElement>('.is-active') ?? this.listEl.querySelector<HTMLElement>('.binders-snapshots-item'))?.focus();
+		// one stop for Tab: the row shown, or the first
+		const stop = this.listEl.querySelector<HTMLElement>('.is-active') ?? items[0];
+		stop?.setAttr('tabindex', '0');
+		if (focus) stop?.focus();
 	}
+
+	private sameAsNote(s: Snapshot): boolean { return s.body.replace(/\r\n?/g, '\n') === this.current.replace(/\r\n?/g, '\n'); }
 
 	/** Shows a snapshot (or the note as it is now) beside the list. */
 	private async show(s: Snapshot | null, row: HTMLElement | null): Promise<void> {
 		this.shown = s;
-		for (const el of Array.from(this.listEl.querySelectorAll('.binders-snapshots-item'))) { el.removeClass('is-active'); el.setAttr('aria-selected', 'false'); }
+		for (const el of Array.from(this.listEl.querySelectorAll('.binders-snapshots-item'))) { el.removeClass('is-active'); el.setAttr('aria-selected', 'false'); if (row) el.setAttr('tabindex', '-1'); }
 		row?.addClass('is-active');
 		row?.setAttr('aria-selected', 'true');
+		row?.setAttr('tabindex', '0');
 		if (Platform.isPhone && !this.pane.parentElement) {
 			this.side.detach();
 			this.contentEl.appendChild(this.pane);
 		}
-		const text = s ? s.body : this.current, name = s ? label(s) : 'The note now';
-		this.titleBar.setText(name);
+		const scene = this.scene, text = s ? s.body : this.current, same = !!s && !!scene && this.sameAsNote(s);
+		// which one this is: its name if it has one, else when it was taken
+		const name = s ? s.title || when(s.taken) : 'The note now';
+		this.nameEl.setText(name);
+		this.detailEl.setText([s?.title ? when(s.taken) : '', wordsLabel(countWords(text)), same ? 'Same as the note now' : ''].filter((x) => x).join(' · '));
 		// (a phone has the name where the dialog's title is, with the way back to the list beside it, as File recovery has)
 		if (this.back) { this.setTitle(name); this.titleEl.appendChild(this.back); }
 		this.actions.empty();
-		const same = !!s && s.body.replace(/\r\n?/g, '\n') === this.current.replace(/\r\n?/g, '\n'), scene = this.scene;
+		const bring = !!s && !!scene && !this.readOnly;
 		if (s && scene) {
-			const toggleLabel = this.actions.createEl('label', { cls: 'modal-setting-titlebar-toggle', text: 'Show changes' });
-			const toggle = new ToggleComponent(toggleLabel).setValue(this.changes && !same).setDisabled(same).onChange((on) => { this.changes = on; this.draw(s, text); });
-			toggle.toggleEl.addClass('mod-small');
-			if (same) toggle.setTooltip('This snapshot and the note have the same text');
+			// quiet, as a toolbar's switch is in Obsidian: it changes what's shown, nothing else
+			const el = this.actions.createDiv({ cls: 'text-icon-button binders-snapshots-compare', attr: { role: 'button', tabindex: same ? '-1' : '0', 'aria-pressed': String(this.changes && !same), 'aria-disabled': String(same) } });
+			setIcon(el.createSpan({ cls: 'text-button-icon' }), 'diff');
+			el.createSpan({ cls: 'text-button-label', text: 'Show changes' });
+			el.toggleClass('is-active', this.changes && !same);
+			el.toggleClass('is-disabled', same);
+			if (same) el.setAttr('aria-label', 'This snapshot and the note have the same text');
+			const flip = () => {
+				if (same) return;
+				this.changes = !this.changes;
+				el.toggleClass('is-active', this.changes);
+				el.setAttr('aria-pressed', String(this.changes));
+				this.draw(s, text);
+			};
+			el.addEventListener('click', flip);
+			el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); flip(); } });
 		}
-		const copy = () => { void navigator.clipboard.writeText(text).then(() => new Notice('Copied the text.'), tell); };
-		// (a phone's row has room for what matters most: Copy is in the menu there)
-		if (!Platform.isPhone || !s) new ButtonComponent(this.actions).setButtonText('Copy').onClick(copy);
-		if (!s && scene && !this.readOnly) new ButtonComponent(this.actions).setButtonText('Take a snapshot').onClick(() => void take(this.plugin, [scene]));
+		// (beside "Bring back", copying is in the menu: one thing stands out)
+		if (!bring) new ButtonComponent(this.actions).setButtonText('Copy').onClick(() => copyText(text));
+		if (!s && scene && !this.readOnly) new ButtonComponent(this.actions).setButtonText('Take a snapshot').setCta().onClick(this.takeOne);
+		if (s && bring) new ButtonComponent(this.actions).setButtonText('Bring back').setCta().setDisabled(same).setTooltip(same ? 'The note already has this text' : 'Put this text in the note. A snapshot of the text there now is taken first.').onClick(() => void this.restore(s));
 		if (s) {
-			if (scene && !this.readOnly) new ButtonComponent(this.actions).setButtonText('Bring back').setDisabled(same).setTooltip(same ? 'The note already has this text' : 'Put this text in the note. A snapshot of the text there now is taken first.').onClick(() => void this.restore(s));
-			const more = this.actions.createDiv({ cls: 'clickable-icon', attr: { 'aria-label': 'More', role: 'button', tabindex: '0' } });
-			setIcon(more, 'more-horizontal');
-			const open = (e: MouseEvent | KeyboardEvent) => { const m = this.menu(s, copy); if (e instanceof MouseEvent) m.showAtMouseEvent(e); else { const r = more.getBoundingClientRect(); m.showAtPosition({ x: r.left, y: r.bottom }); } };
-			more.addEventListener('click', open);
-			more.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(e); } });
+			const more = iconButton(this.actions, 'more-horizontal', 'More', () => {
+				const r = more.getBoundingClientRect();
+				this.menu(s).showAtPosition({ x: r.right, y: r.bottom + 4, left: true }, more.doc);
+			});
 		}
 		this.draw(s, text);
 	}
 
 	/** The text, to read; or what has changed since it was taken. */
 	private draw(s: Snapshot | null, text: string): void {
-		const changes = !!s && !!this.scene && this.changes && text !== this.current;
+		const changes = !!s && !!this.scene && this.changes && !this.sameAsNote(s);
 		this.textEl.toggle(!changes);
 		this.diffEl.toggle(changes);
 		this.textEl.empty();
@@ -351,19 +493,30 @@ export class SnapshotsModal extends Modal {
 			this.textEl.scrollTop = 0;
 			return;
 		}
-		// since this snapshot: what was taken out, what was put in
-		const key = this.diffEl.createDiv({ cls: 'binders-snapshots-key u-small u-muted' });
-		key.appendText('From this snapshot to the note now: ');
-		key.createSpan({ cls: 'diff-line mod-left', text: 'taken out' });
+		// since this snapshot: what was taken out, what was put in, said once in the marks themselves
+		const key = this.diffEl.createDiv({ cls: 'binders-snapshots-key' });
+		key.appendText('Since this snapshot: ');
+		key.createEl('del', { text: 'Taken out' });
 		key.appendText(' ');
-		key.createSpan({ cls: 'diff-line mod-right', text: 'put in' });
-		const view = this.diffEl.createDiv({ cls: 'diff-view' });
+		key.createEl('ins', { text: 'Put in' });
+		// the note's own paragraphs with the changes marked in them where they fall: prose, not two columns of lines
+		const view = this.diffEl.createDiv({ cls: 'binders-snapshots-changes' });
+		const para = (parts: Stretch[]): HTMLElement => {
+			const p = createEl('p');
+			parts.forEach((x, i) => {
+				if (i) p.appendText(' ');
+				const t = x.words.join(' ');
+				if (x.kind === 'same') p.appendText(t); else p.createEl(x.kind === 'old' ? 'del' : 'ins', { text: t });
+			});
+			return p;
+		};
+		const whole = (r: Row): string[] => [r.pieces.map((p) => p.text).join('')];
 		let run: HTMLElement[] = [];
 		const fold = (last: boolean) => {
 			// a long stretch that's the same folds away, a paragraph of it left on either side of a change
 			const head = view.childElementCount ? 1 : 0, tail = last ? 0 : 1;
 			if (run.length > head + tail + 1) {
-				const hidden = run.slice(head, run.length - tail), note = createDiv({ cls: 'diff-collapsed', text: `${hidden.length} paragraphs the same`, attr: { role: 'button', tabindex: '0' } });
+				const hidden = run.slice(head, run.length - tail), note = createDiv({ cls: 'diff-collapsed binders-snapshots-folded', text: `${hidden.length} paragraphs the same`, attr: { role: 'button', tabindex: '0' } });
 				for (const el of run.slice(0, head)) view.appendChild(el);
 				view.appendChild(note);
 				for (const el of run.slice(run.length - tail)) view.appendChild(el);
@@ -373,19 +526,23 @@ export class SnapshotsModal extends Modal {
 			} else for (const el of run) view.appendChild(el);
 			run = [];
 		};
-		for (const r of compare(text, this.current)) {
-			const el = createDiv({ cls: 'diff-line' });
-			if (r.kind !== 'same') el.addClass(r.kind === 'old' ? 'mod-left' : 'mod-right');
-			for (const p of r.pieces) el.createSpan({ cls: p.changed ? 'diff-changed' : undefined, text: p.text });
-			if (r.kind === 'same') run.push(el); else { fold(false); view.appendChild(el); }
+		const rows = compare(text, this.current);
+		for (let i = 0; i < rows.length; i++) {
+			const r = rows[i], next = rows[i + 1];
+			if (r.kind === 'same') { run.push(para([{ kind: 'same', words: whole(r) }])); continue; }
+			fold(false);
+			// a paragraph reworded comes as its old self then its new one, each in pieces (the words both have, the words
+			// only it has): here, one paragraph. One taken out followed by another put in are each a single piece.
+			if (r.kind === 'old' && next?.kind === 'new' && (r.pieces.length > 1 || next.pieces.length > 1)) { view.appendChild(para(reworded(r.pieces, next.pieces))); i++; }
+			else view.appendChild(para([{ kind: r.kind, words: whole(r) }]));
 		}
 		fold(true);
 		this.diffEl.scrollTop = 0;
 	}
 
-	private menu(s: Snapshot, copy?: () => void): Menu {
+	private menu(s: Snapshot): Menu {
 		const m = new Menu();
-		if (copy && Platform.isPhone) m.addItem((i) => i.setTitle('Copy text').setIcon('copy').onClick(copy));
+		m.addItem((i) => i.setTitle('Copy text').setIcon('copy').onClick(() => copyText(s.body)));
 		if (!this.readOnly) m.addItem((i) => i.setTitle('Name this snapshot...').setIcon('pencil-line').onClick(async () => {
 			const name = await ask(this.app, { title: 'Name this snapshot', placeholder: 'First draft, before the notes…', cta: 'Save', value: s.title, allowEmpty: true, check: (x) => (x ? badSnapshotName(x) : null) });
 			if (name == null) return;

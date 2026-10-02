@@ -85,7 +85,14 @@ async function dialog(p, path = A) {
 	await sleep(p, 300);
 }
 const rows = (p) => p.ev(`[...document.querySelectorAll(${j(DLG + ' .binders-snapshots-item')})].map(e => e.querySelector('.modal-sidebar-list-item-details').firstChild.textContent + ' / ' + e.querySelector('.u-muted').textContent)`);
-const shownTitle = (p) => p.ev(`document.querySelector(${j(DLG + ' .binders-snapshots-bar .modal-setting-title')})?.textContent ?? ''`);
+/** What the bar over the text says is shown: its name (or when it was taken), then the rest, as "name · rest". */
+const shownTitle = (p) => p.ev(`[...document.querySelectorAll(${j(DLG + ' .binders-snapshots-bar .modal-setting-title > span')})].map(e => e.textContent).filter(x => x).join(' · ')`);
+const shownName = (p) => p.ev(`document.querySelector(${j(DLG + ' .binders-snapshots-bar .binders-snapshots-name')})?.textContent ?? ''`);
+const COMPARE = DLG + ' .binders-snapshots-compare';
+/** The changes shown, a paragraph to a line: [-taken out-] and {+put in+} where they fall. */
+const changes = (p) => p.ev(`[...document.querySelectorAll(${j(DLG + ' .binders-snapshots-changes > p')})].map(e => [...e.childNodes].map(n => n.nodeName === 'DEL' ? '[-' + n.textContent + '-]' : n.nodeName === 'INS' ? '{+' + n.textContent + '+}' : n.textContent).join(''))`);
+/** Everything on the dialog's top line, as boxes: the note's name and its button over the list, the bar's name and controls, the button that closes it. */
+const topLine = (p) => p.ev(`(() => { const d = document.querySelector(${j(DLG)}), box = (e, what) => { const r = e.getBoundingClientRect(); return { what, top: r.top, height: r.height, mid: r.top + r.height / 2, left: r.left, right: r.right }; }; return { controls: [...d.querySelectorAll('.binders-snapshots-head .clickable-icon, .binders-snapshots-head button, .binders-snapshots-bar .modal-setting-titlebar-actions > *')].map(e => box(e, e.textContent || e.getAttribute('aria-label'))), close: [...d.querySelectorAll(':scope > .modal-header-button, :scope > .modal-close-button')].filter(e => e.offsetParent).map(e => box(e, 'close')), words: [...d.querySelectorAll('.binders-snapshots-of, .binders-snapshots-bar .binders-snapshots-title')].filter(e => e.offsetParent).map(e => box(e, e.textContent)) }; })()`);
 const shownText = (p) => p.ev(`(() => { const e = document.querySelector(${j(DLG + ' .binders-snapshots-text')}); return e && e.isShown() ? e.innerText : null; })()`);
 const pick = (p, text) => press(p, DLG + ' .binders-snapshots-item', text);
 const button = (p, text) => press(p, DLG + ' .modal-setting-titlebar-actions button', text);
@@ -323,7 +330,10 @@ test('a binder in a newer format: its snapshots can be read, nothing can be take
 	// (the notice that the binder can't be changed sits over that corner of the dialog)
 	await p.ev(`(() => { const probe = new Notice(''), docs = new Set([document, probe.noticeEl.ownerDocument]); probe.hide(); for (const d of docs) d.querySelectorAll('.notice').forEach(n => n.remove()); return 1; })()`);
 	await more(p);
-	t.eq(j(await menuItems(p)), j(['Open to the right']), 'no naming, no deleting');
+	t.eq(j(await menuItems(p)), j(['Copy text', 'Open to the right']), 'no naming, no deleting');
+	await closeMenus(p);
+	t.ok(!(await p.ev(`!!document.querySelector(${j(DLG + ' .binders-snapshots-head .clickable-icon')})`)), 'nor a button to take one');
+	t.ok(/^This binder can’t be changed\. It was made by a newer version of Binders/.test(await p.ev(`document.querySelector(${j(DLG + ' .binders-snapshots-note')})?.textContent ?? ''`)), 'and the dialog says why');
 });
 
 test('a “Snapshots” folder with notes in it is the writer’s own: shown as a folder, and nothing is kept there', async (p, h, t) => {
@@ -560,9 +570,11 @@ test('naming a snapshot renames its file and nothing else; deleting one asks fir
 	await seed(p, DIR, '2026-09-12 09.15.40', DRAFT);
 	await seed(p, DIR, '2026-09-20 11.05.12 Second', 'Another text.\n');
 	await dialog(p);
-	await pick(p, 'Sep 12, 2026');
+	await pick(p, 'Sep 12');
 	await more(p);
-	t.eq(j(await menuItems(p)), j(['Name this snapshot...', 'Open to the right', 'Delete snapshot']), 'its menu');
+	t.eq(j(await menuItems(p)), j(['Copy text', 'Name this snapshot...', 'Open to the right', 'Delete snapshot']), 'its menu');
+	const menu = await p.ev(`(() => { const m = document.querySelector('.menu').getBoundingClientRect(), b = document.querySelector(${j(DLG + ' .modal-setting-titlebar-actions .clickable-icon')}).getBoundingClientRect(), d = document.querySelector(${j(DLG)}).getBoundingClientRect(); return { under: m.top >= b.bottom - 1, inside: m.right <= d.right + 1 && m.left >= d.left }; })()`);
+	t.ok(menu.under && menu.inside, 'it opens under its button, inside the dialog: ' + j(menu));
 	await clickMenu(p, 'Name this snapshot...');
 	await until(p, `!!document.querySelector('.modal .binders-ask input')`);
 	await typeInto(p, 'a:b');
@@ -917,8 +929,11 @@ test('the dialog: newest first, read, show changes, copy, the keyboard; it wears
 	await dialog(p);
 	t.eq(await p.ev(`document.querySelector(${j(DLG)}).closest('.modal-container').querySelector('.modal-title').textContent`), 'Snapshots of “Arrival”', 'its title');
 	const r = await rows(p);
-	t.eq(j(r.map((x) => x.split(' / ')[0])), j(['The note now', 'Sep 24, 2026, 9:47 PM', 'First draft']), 'the note now, then newest first: a name, or else when');
-	t.ok(/^\d+ words$/.test(r[0].split(' / ')[1]) && /^Sep 12, 2026, 9:15 AM · \d+ words$/.test(r[2].split(' / ')[1]), 'each with its words: ' + r.join(' | '));
+	// (in the list a date of this year goes without the year, and one of another year without the time)
+	const names = r.map((x) => x.split(' / ')[0]);
+	t.ok(names.length === 3 && names[0] === 'The note now' && /^Sep 24(, 9:47 PM|, 2026)$/.test(names[1]) && names[2] === 'First draft', 'the note now, then newest first: a name, or else when: ' + j(names));
+	t.ok(/^\d+ words$/.test(r[0].split(' / ')[1]) && /^\d+ words$/.test(r[1].split(' / ')[1]) && /^Sep 12(, 9:15 AM|, 2026) · \d+ words$/.test(r[2].split(' / ')[1]), 'each with its words: ' + r.join(' | '));
+	t.ok(/^Sep 24, 2026, 9:47 PM · \d+ words$/.test(await shownTitle(p)), 'over the text, when in full and its words: ' + await shownTitle(p));
 	t.ok((await shownTitle(p)).startsWith('Sep 24, 2026'), 'the newest is shown first');
 	t.ok(await p.ev(`document.querySelector(${j(DLG)}).classList.contains('mod-sidebar-layout') && !document.querySelector(${j(DLG)}).classList.contains('is-plain')`), 'in Obsidian’s File recovery layout');
 	const box = await p.ev(`(() => { const s = document.querySelector(${j(DLG + ' .binders-snapshots-side')}).getBoundingClientRect(), c = document.querySelector(${j(DLG + ' .binders-snapshots-pane')}).getBoundingClientRect(); return { side: Math.round(s.width), left: s.right <= c.left + 1, wide: c.width > 400 }; })()`);
@@ -927,22 +942,25 @@ test('the dialog: newest first, read, show changes, copy, the keyboard; it wears
 	await pick(p, 'First draft');
 	t.ok((await shownText(p)).includes('It was raining.') && !(await shownText(p)).includes('snapshot-of'), 'the text, as a note reads, without its two properties');
 	// what changed
-	await press(p, DLG + ' .modal-setting-titlebar-toggle', 'Show changes');
-	await until(p, `!!document.querySelector(${j(DLG + ' .diff-view .diff-line')})`);
-	const diff = await p.ev(`(() => { const d = document.querySelector(${j(DLG + ' .binders-snapshots-diff')}); const bg = (e) => getComputedStyle(e).backgroundColor; return { rows: [...d.querySelectorAll('.diff-view .diff-line')].map(e => (e.classList.contains('mod-left') ? '-' : e.classList.contains('mod-right') ? '+' : '=') + [...e.children].map(s => s.classList.contains('diff-changed') ? '[' + s.textContent + ']' : s.textContent).join('')), key: d.querySelector('.binders-snapshots-key').textContent, left: bg(d.querySelector('.diff-line.mod-left')), right: bg(d.querySelector('.diff-line.mod-right')), plain: bg(d.querySelector('.diff-view .diff-line:not(.mod-left):not(.mod-right)')), text: document.querySelector(${j(DLG + ' .binders-snapshots-text')}).isShown() }; })()`);
-	t.eq(diff.key, 'From this snapshot to the note now: taken out put in', 'which color is which is said');
-	t.eq(j(diff.rows), j([
-		'-The supply boat left Mara on the jetty with two cases and a letter she had not opened. [It was raining.]',
-		'+The supply boat left Mara on the jetty with two cases and a letter she had not opened.',
-		'+She had been told there would be someone to meet her. There was a quillfish on the bollard, and nobody else.',
-		'-The island was smaller than [she] had [imagined. There was a] cottage beside the lighthouse [with one window] lit.',
-		'+The island was smaller than [the chart] had [promised. One window of the] cottage beside the lighthouse [was] lit.',
-		'="You\'ll be the new assistant," he said.',
-	]), 'paragraph by paragraph, the changed words marked');
-	t.ok(diff.left !== diff.right && diff.left !== diff.plain && diff.right !== diff.plain && !diff.text, 'taken out and put in are tinted apart: ' + j(diff));
-	// copy: the snapshot's text as Markdown
+	t.eq(await p.ev(`document.querySelector(${j(COMPARE)}).getAttribute('aria-pressed')`), 'false', '“Show changes” is a button that says whether it’s on');
+	await press(p, COMPARE, 'Show changes');
+	await until(p, `!!document.querySelector(${j(DLG + ' .binders-snapshots-changes p')})`);
+	const diff = await p.ev(`(() => { const d = document.querySelector(${j(DLG + ' .binders-snapshots-diff')}), view = d.querySelector('.binders-snapshots-changes'); const cs = (e) => getComputedStyle(e); return { key: d.querySelector('.binders-snapshots-key').textContent, out: cs(view.querySelector('del')).backgroundColor, struck: cs(view.querySelector('del')).textDecorationLine, in: cs(view.querySelector('ins')).backgroundColor, lined: cs(view.querySelector('ins')).textDecorationLine, plain: cs(view.querySelector('p')).backgroundColor, mono: /mono/i.test(cs(view).fontFamily), text: document.querySelector(${j(DLG + ' .binders-snapshots-text')}).isShown(), pressed: document.querySelector(${j(COMPARE)}).getAttribute('aria-pressed') }; })()`);
+	t.eq(diff.key, 'Since this snapshot: Taken out Put in', 'which mark is which is said');
+	t.eq(j(await changes(p)), j([
+		'The supply boat left Mara on the jetty with two cases and a letter she had not opened. [-It was raining.-]',
+		'{+She had been told there would be someone to meet her. There was a quillfish on the bollard, and nobody else.+}',
+		'The island was smaller than [-she had imagined. There was a-] {+the chart had promised. One window of the+} cottage beside the lighthouse [-with one window-] {+was+} lit.',
+		'"You\'ll be the new assistant," he said.',
+	]), 'as prose: the note’s paragraphs, with what was taken out and put in marked where it falls');
+	t.ok(diff.out !== diff.in && diff.out !== diff.plain && diff.in !== diff.plain && diff.struck === 'line-through' && diff.lined === 'none' && !diff.text, 'taken out is struck through, put in isn’t, and they’re tinted apart: ' + j(diff));
+	t.ok(!diff.mono && diff.pressed === 'true', 'in the font a note is read in, not a code font; the button says it’s on: ' + j(diff));
+	// copy: the snapshot's text as Markdown (beside “Bring back” it's in the menu)
 	await p.ev(`(() => { window.__copied = null; navigator.clipboard.writeText = async (s) => { window.__copied = s; }; return 1; })()`);
-	await button(p, 'Copy');
+	t.eq(j(await p.ev(`[...document.querySelectorAll(${j(DLG + ' .modal-setting-titlebar-actions button')})].map(b => [b.textContent, b.classList.contains('mod-cta')])`)), j([['Bring back', true]]), 'one button stands out: “Bring back”');
+	await more(p);
+	await clickMenu(p, 'Copy text');
+	await until(p, `window.__copied != null`);
 	t.eq(await p.ev(`window.__copied`), DRAFT, 'Copy gives the snapshot’s text');
 	// the keyboard: arrows move through the list, showing each
 	await p.ev(`(() => { [...document.querySelectorAll(${j(DLG + ' .binders-snapshots-item')})].pop().focus(); return 1; })()`);
@@ -952,8 +970,11 @@ test('the dialog: newest first, read, show changes, copy, the keyboard; it wears
 	t.eq(await p.ev(`document.activeElement.getAttribute('aria-selected')`), 'true', 'and has the focus, marked as chosen');
 	await p.key('ArrowUp');
 	await sleep(p, 300);
-	t.eq(await shownTitle(p), 'The note now', 'up again: the note now');
+	t.eq(await shownName(p), 'The note now', 'up again: the note now');
 	t.eq(j(await p.ev(`[...document.querySelectorAll(${j(DLG + ' .modal-setting-titlebar-actions button')})].map(b => b.textContent)`)), j(['Copy', 'Take a snapshot']), 'which can be copied, or snapshotted');
+	await button(p, 'Copy');
+	await until(p, `window.__copied === ${j(LATER)}`);
+	t.eq(await p.ev(`window.__copied`), LATER, 'Copy there gives the note’s text');
 	await p.key('Escape');
 	await sleep(p, 300);
 	t.eq(await p.ev(`document.querySelectorAll(${j(DLG)}).length`), 0, 'Escape closes it');
@@ -971,6 +992,8 @@ test('without Obsidian’s classes the dialog lays itself out the same way (the 
 	await pick(p, 'First draft');
 	const box = await p.ev(`(() => { const m = document.querySelector(${j(DLG)}), s = m.querySelector('.binders-snapshots-side').getBoundingClientRect(), c = m.querySelector('.binders-snapshots-pane').getBoundingClientRect(), bar = m.querySelector('.binders-snapshots-bar').getBoundingClientRect(), text = m.querySelector('.binders-snapshots-text').getBoundingClientRect(), act = m.querySelector('.binders-snapshots-item.is-active'); return { side: Math.round(s.width), beside: s.right <= c.left + 1 && Math.abs(s.top - c.top) < 2, wide: c.width > 400, barTop: bar.top <= text.top && bar.height < 80, textTall: text.height > 200, active: getComputedStyle(act).backgroundColor !== 'rgba(0, 0, 0, 0)' }; })()`);
 	t.eq(j(box), j({ side: 250, beside: true, wide: true, barTop: true, textTall: true, active: true }), 'the list at the side, the text beside it, the bar above it, the chosen one marked');
+	const line = await topLine(p), all = [...line.controls, ...line.close];
+	t.ok(line.close.length === 1 && all.every((c) => Math.abs(c.height - all[0].height) <= 1 && Math.abs(c.mid - all[0].mid) <= 1), 'and its top line is one line still: ' + j(all.map((c) => [c.what, c.top, c.height])));
 	await p.ev(`(() => { const m = document.querySelector(${j(DLG)}); m.classList.remove('is-plain'); return 1; })()`);
 });
 
@@ -1138,14 +1161,18 @@ test('on a phone: the list is a sheet, a tap shows the snapshot, back returns; s
 		t.ok(sheet.rowTall >= 40, `its rows are tall enough to tap (${sheet.rowTall} px)`);
 		await tapOn(p, DLG + ' .binders-snapshots-item', 'First draft');
 		await until(p, `!!document.querySelector(${j(DLG + ' .binders-snapshots-pane')})`);
-		const read1 = await p.ev(`(() => { const d = document.querySelector(${j(DLG)}); const bar = d.querySelector('.binders-snapshots-bar').getBoundingClientRect(), acts = [...d.querySelectorAll('.modal-setting-titlebar-actions > *')].map(e => e.getBoundingClientRect()); return { title: d.querySelector('.modal-title').textContent, list: !!d.querySelector('.binders-snapshots-side'), back: !!d.querySelector('.modal-setting-back-button'), text: d.querySelector('.binders-snapshots-text').innerText, inside: acts.every(r => r.right <= innerWidth + 0.5 && r.left >= 0), buttons: [...d.querySelectorAll('.modal-setting-titlebar-actions button')].map(b => b.textContent), barTall: Math.round(bar.height) }; })()`);
-		t.ok(read1.title.startsWith('First draft · Sep 12, 2026') && !read1.list && read1.back, 'the snapshot takes the sheet, named in its title, with a way back: ' + j(read1.title));
+		const read1 = await p.ev(`(() => { const d = document.querySelector(${j(DLG)}); const bar = d.querySelector('.binders-snapshots-bar').getBoundingClientRect(), acts = [...d.querySelectorAll('.modal-setting-titlebar-actions > *')].map(e => e.getBoundingClientRect()); return { title: d.querySelector('.modal-title').textContent, list: !!d.querySelector('.binders-snapshots-side'), back: !!d.querySelector('.modal-setting-back-button'), text: d.querySelector('.binders-snapshots-text').innerText, inside: acts.every(r => r.right <= innerWidth + 0.5 && r.left >= 0), buttons: [...d.querySelectorAll('.modal-setting-titlebar-actions button')].map(b => b.textContent), barTall: Math.round(bar.height), detail: [...d.querySelectorAll('.binders-snapshots-bar .modal-setting-title > span')].filter(e => e.offsetParent).map(e => e.textContent).join('|') }; })()`);
+		t.ok(read1.title === 'First draft' && !read1.list && read1.back, 'the snapshot takes the sheet, named in its title, with a way back: ' + j(read1.title));
+		t.ok(/^Sep 12, 2026, 9:15 AM · \d+ words$/.test(read1.detail), 'under it, when it was taken and its words: ' + j(read1.detail));
 		t.ok(read1.text.includes('It was raining.'), 'its text');
 		t.ok(read1.inside, 'everything in its row is on the screen');
 		t.eq(j(read1.buttons), j(['Bring back']), 'the row has “Bring back”; Copy is in the menu');
-		await tapOn(p, DLG + ' .modal-setting-titlebar-toggle', 'Show changes');
-		await until(p, `!!document.querySelector(${j(DLG + ' .diff-view .diff-line.mod-left')})`);
-		t.ok(await p.ev(`(() => { const d = document.querySelector(${j(DLG + ' .binders-snapshots-diff')}); return d.isShown() && [...d.querySelectorAll('.diff-line')].every(e => e.getBoundingClientRect().right <= innerWidth); })()`), 'what changed, within the screen’s width');
+		// its row: one height, one centre, and tall enough for a thumb
+		const line = await topLine(p);
+		t.ok(line.controls.length === 3 && line.controls.every((c) => Math.abs(c.height - line.controls[0].height) <= 1 && Math.abs(c.mid - line.controls[0].mid) <= 1 && c.height >= 44), 'what’s in the row is one height on one centre, tall enough to tap: ' + j(line.controls));
+		await tapOn(p, COMPARE, 'Show changes');
+		await until(p, `!!document.querySelector(${j(DLG + ' .binders-snapshots-changes del')})`);
+		t.ok(await p.ev(`(() => { const d = document.querySelector(${j(DLG + ' .binders-snapshots-diff')}); return d.isShown() && [...d.querySelectorAll('p, del, ins')].every(e => e.getBoundingClientRect().right <= innerWidth); })()`), 'what changed, within the screen’s width');
 		// the menu: no “Open to the right” on a phone
 		const dots = await p.at(DLG + ' .modal-setting-titlebar-actions .clickable-icon');
 		await tap(p, dots.x, dots.y);
@@ -1179,4 +1206,269 @@ test('on a phone: the list is a sheet, a tap shows the snapshot, back returns; s
 		t.eq(await p.ev(`app.workspace.getLeavesOfType('binders-snapshot').length`), 0, 'no pane beside it on a phone');
 		t.ok((await Promise.all((await list(p)).map((f) => textOf(p, `${DIR}/${f}`)))).filter((x) => x === DRAFT).length >= 1, 'and its text is in a snapshot');
 	});
+});
+
+// ---- the dialog's look, the keyboard, and the first snapshot ----
+
+/** One line: every box the same height on the same centre (within a pixel), none over another. */
+const oneLine = (boxes) => {
+	const by = boxes.slice().sort((a, b) => a.left - b.left);
+	return boxes.every((c) => Math.abs(c.height - boxes[0].height) <= 1 && Math.abs(c.mid - boxes[0].mid) <= 1) && by.every((c, i) => i === 0 || c.left >= by[i - 1].right - 0.5);
+};
+const pad = (n) => String(n).padStart(2, '0');
+/** A snapshot's file name and `taken` for a moment so many days ago, at a time of day. */
+const daysAgo = (days, h, m) => { const d = new Date(); d.setDate(d.getDate() - days); d.setHours(h, m, 7, 0); const day = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; return { d, name: `${day} ${pad(h)}.${pad(m)}.07`, taken: `${day}T${pad(h)}:${pad(m)}:07` }; };
+
+test('the dialog’s top line: its controls are one height on one centre, with the button that closes it; a long name gives way to them', async (p, h, t) => {
+	await write(p, A, LATER);
+	await seed(p, DIR, '2026-09-12 09.15.40 First draft', DRAFT);
+	await seed(p, DIR, '2026-09-13 10.00.00', LATER, 'Part One/Arrival', '2026-09-13T10:00:00');
+	const long = 'The draft I sent to the writing group before any of their notes came back to me';
+	await seed(p, DIR, `2026-09-14 08.30.00 ${long}`, DRAFT + '\nMore.\n', 'Part One/Arrival', '2026-09-14T08:30:00');
+	await dialog(p);
+	const inside = async () => p.ev(`(() => { const d = document.querySelector(${j(DLG)}).getBoundingClientRect(); return [...document.querySelectorAll(${j(DLG + ' .binders-snapshots-head > *, ' + DLG + ' .binders-snapshots-bar .modal-setting-titlebar-actions > *')})].every(e => { const r = e.getBoundingClientRect(); return r.left >= d.left && r.right <= d.right; }); })()`);
+	// a snapshot shown: take one, show changes, bring back, more, close
+	await pick(p, 'First draft');
+	let line = await topLine(p);
+	t.eq(j(line.controls.map((c) => c.what)), j(['Take a snapshot', 'Show changes', 'Bring back', 'More']), 'what’s on it');
+	t.eq(line.close.length, 1, 'and the button that closes the dialog');
+	t.ok(oneLine([...line.controls, ...line.close]), 'one height, one centre, none over another: ' + j([...line.controls, ...line.close].map((c) => [c.what, c.top, c.height])));
+	t.ok(line.words.length === 2 && line.words.every((w) => Math.abs(w.mid - line.controls[0].mid) <= 1), 'the note’s name and the snapshot’s are centred on it too: ' + j(line.words.map((w) => [w.what, w.mid])));
+	const edges = await p.ev(`(() => { const d = document.querySelector(${j(DLG)}), name = d.querySelector('.binders-snapshots-of').getBoundingClientRect(), row = d.querySelector('.binders-snapshots-item .binders-snapshots-item-name').getBoundingClientRect(), cam = d.querySelector('.binders-snapshots-head .clickable-icon').getBoundingClientRect(), item = d.querySelector('.binders-snapshots-item').getBoundingClientRect(); return { left: Math.abs(name.left - row.left), right: Math.abs(cam.right - item.right) }; })()`);
+	t.ok(edges.left <= 1 && edges.right <= 1, 'over the list, the name starts where the rows’ text does and the button ends where the rows do: ' + j(edges));
+	t.ok(await inside(), 'all of it inside the dialog');
+	// the note now: take one, copy, take a snapshot, close
+	await pick(p, 'The note now');
+	line = await topLine(p);
+	t.eq(j(line.controls.map((c) => c.what)), j(['Take a snapshot', 'Copy', 'Take a snapshot']), 'for the note now');
+	t.ok(oneLine([...line.controls, ...line.close]), 'the same line: ' + j([...line.controls, ...line.close].map((c) => [c.what, c.top, c.height])));
+	// one whose text the note has: it says so, and neither button does anything
+	await pick(p, 'Sep 13');
+	line = await topLine(p);
+	t.ok(oneLine([...line.controls, ...line.close]), 'and with both off: ' + j(line.controls.map((c) => [c.what, c.top, c.height])));
+	const same = await p.ev(`(() => { const d = document.querySelector(${j(DLG)}), c = d.querySelector('.binders-snapshots-compare'), b = [...d.querySelectorAll('.modal-setting-titlebar-actions button')].find(b => b.textContent === 'Bring back'); return { detail: d.querySelector('.binders-snapshots-detail').textContent, compare: c.getAttribute('aria-disabled'), bring: b.disabled }; })()`);
+	t.ok(/ · Same as the note now$/.test(same.detail) && same.compare === 'true' && same.bring, 'a snapshot the note is the same as says so: ' + j(same));
+	// a long name: cut short, with when it was taken still whole, and the controls where they were
+	const before = line.controls.map((c) => Math.round(c.right));
+	await pick(p, long.slice(0, 20));
+	line = await topLine(p);
+	const name = await p.ev(`(() => { const d = document.querySelector(${j(DLG)}), n = d.querySelector('.binders-snapshots-name'), x = d.querySelector('.binders-snapshots-detail'); return { cut: n.scrollWidth > n.clientWidth, whole: x.scrollWidth <= x.clientWidth, detail: x.textContent, oneRow: n.getBoundingClientRect().height < 30 }; })()`);
+	t.ok(name.cut && name.whole && name.oneRow && /^Sep 14, 2026, 8:30 AM · \d+ words$/.test(name.detail), 'the name is cut short, on one line, before when it was taken is: ' + j(name));
+	t.ok(oneLine([...line.controls, ...line.close]) && j(line.controls.map((c) => Math.round(c.right))) === j(before) && (await inside()), 'and nothing is pushed out of place');
+	const row = await p.ev(`(() => { const e = [...document.querySelectorAll(${j(DLG + ' .binders-snapshots-item')})].find(e => e.textContent.startsWith(${j(long.slice(0, 20))})), s = document.querySelector(${j(DLG + ' .binders-snapshots-side')}); return { inside: e.getBoundingClientRect().right <= s.getBoundingClientRect().right, over: e.scrollWidth > e.clientWidth + 1 }; })()`);
+	t.ok(row.inside && !row.over, 'in the list it wraps inside its row: ' + j(row));
+});
+
+test('in the list, when a snapshot was taken reads at a glance: today, yesterday, a weekday, then a date', async (p, h, t) => {
+	await write(p, A, LATER);
+	const at = [daysAgo(0, 0, 1), daysAgo(1, 12, 0), daysAgo(3, 12, 0), daysAgo(40, 12, 0), daysAgo(800, 12, 0)];
+	for (const [i, x] of at.entries()) await seed(p, DIR, x.name + (i === 1 ? ' Named' : ''), `Text ${i}.\n`, 'Part One/Arrival', x.taken);
+	await dialog(p);
+	const r = await rows(p);
+	t.eq(r.length, 6, 'the note and five snapshots: ' + r.join(' | '));
+	t.ok(/^Today at 12:01 AM \/ \d+ words$/.test(r[1]), 'today: ' + r[1]);
+	t.ok(/^Named \/ Yesterday at 12:00 PM · \d+ words$/.test(r[2]), 'yesterday, under its name: ' + r[2]);
+	t.ok(/^(Sun|Mon|Tues|Wednes|Thurs|Fri|Satur)day at 12:00 PM \/ /.test(r[3]), 'this week: the day: ' + r[3]);
+	const thisYear = at[3].d.getFullYear() === new Date().getFullYear();
+	t.ok((thisYear ? /^[A-Z][a-z]{2} \d{1,2}, 12:00 PM \/ / : /^[A-Z][a-z]{2} \d{1,2}, \d{4} \/ /).test(r[4]), 'earlier: the date, without the year while it’s this year’s: ' + r[4]);
+	t.ok(/^[A-Z][a-z]{2} \d{1,2}, \d{4} \/ /.test(r[5]) && !/:/.test(r[5]), 'another year: the date alone: ' + r[5]);
+	// over the text, and to a screen reader, the whole of it
+	await pick(p, r[5].split(' / ')[0]);
+	t.ok(/^[A-Z][a-z]{2} \d{1,2}, \d{4}, 12:00 PM · \d+ words$/.test(await shownTitle(p)), 'over the text, in full: ' + await shownTitle(p));
+	const said = await p.ev(`[...document.querySelectorAll(${j(DLG + ' .binders-snapshots-item')})].map(e => e.getAttribute('aria-label'))`);
+	t.ok(/^The note now, \d+ words$/.test(said[0]) && /^Snapshot, today at 12:01 AM, \d+ words$/.test(said[1]) && /^Snapshot “Named”, yesterday at 12:00 PM, \d+ words$/.test(said[2]), 'each row says what it is: ' + j(said.slice(0, 3)));
+});
+
+test('the keyboard: it opens on the snapshot shown; arrows, Home and End move through the list; Tab reaches the buttons, Enter presses them, Escape closes', async (p, h, t) => {
+	await write(p, A, LATER);
+	const first = await seed(p, DIR, '2026-09-12 09.15.40 First draft', DRAFT);
+	await seed(p, DIR, '2026-09-20 11.05.12 Second', 'Another text.\n', 'Part One/Arrival', '2026-09-20T11:05:12');
+	const before = await texts(p);
+	await openNote(p, A);
+	await run(p, 'show-snapshots');
+	await until(p, `!!document.querySelector(${j(DLG + ' .binders-snapshots-item.is-active')})`);
+	await sleep(p, 300);
+	const FOCUS = `(() => { const e = document.activeElement; return { row: e.classList.contains('binders-snapshots-item'), text: (e.querySelector('.binders-snapshots-item-name') ?? e).textContent, label: e.getAttribute('aria-label'), chosen: e.getAttribute('aria-selected'), seen: e.matches(':focus-visible') }; })()`;
+	const stops = () => p.ev(`[...document.querySelectorAll(${j(DLG + ' .binders-snapshots-item')})].filter(e => e.tabIndex === 0).map(e => e.querySelector('.binders-snapshots-item-name').textContent)`);
+	let f = await p.ev(FOCUS);
+	t.ok(f.row && f.text === 'Second' && f.chosen === 'true', 'it opens with the focus on the newest snapshot, which is shown: ' + j(f));
+	const box = await p.ev(`(() => { const l = document.querySelector(${j(DLG + ' .binders-snapshots-list')}); return { role: l.getAttribute('role'), name: l.getAttribute('aria-label'), options: [...l.children].map(e => e.getAttribute('role')) }; })()`);
+	t.eq(j(box), j({ role: 'listbox', name: 'Snapshots of “Arrival”', options: ['option', 'option', 'option'] }), 'to a screen reader: a list of options, named');
+	t.eq(j(await stops()), j(['Second']), 'the list is one stop for Tab: the row shown');
+	await p.key('End');
+	await sleep(p, 250);
+	f = await p.ev(FOCUS);
+	t.ok(f.text === 'First draft' && f.chosen === 'true' && f.seen && (await shownName(p)) === 'First draft', 'End: the oldest, shown, its focus in sight: ' + j(f));
+	await p.key('Home');
+	await sleep(p, 250);
+	t.eq(j([(await p.ev(FOCUS)).text, await shownName(p)]), j(['The note now', 'The note now']), 'Home: the note now');
+	await p.key('ArrowUp');
+	await sleep(p, 150);
+	t.eq((await p.ev(FOCUS)).text, 'The note now', 'Arrow up at the top stays there');
+	await p.key('ArrowDown');
+	await p.key('ArrowDown');
+	await sleep(p, 250);
+	t.eq(j([(await p.ev(FOCUS)).text, await shownName(p), j(await stops())]), j(['First draft', 'First draft', j(['First draft'])]), 'Arrow down twice: First draft, and it’s the list’s stop now');
+	// Tab: out of the list to what's done with the snapshot
+	await p.key('Tab');
+	await sleep(p, 150);
+	let on = await p.ev(`(() => { const e = document.activeElement; return { compare: e.classList.contains('binders-snapshots-compare'), seen: e.matches(':focus-visible') && getComputedStyle(e).boxShadow !== 'none' }; })()`);
+	t.ok(on.compare && on.seen, 'Tab: “Show changes”, with a ring: ' + j(on));
+	await p.key('Enter');
+	await until(p, `!!document.querySelector(${j(DLG + ' .binders-snapshots-changes del')})`);
+	t.eq(await p.ev(`document.activeElement.getAttribute('aria-pressed')`), 'true', 'Enter turns it on');
+	await p.key(' ');
+	await sleep(p, 200);
+	t.ok((await p.ev(`document.activeElement.getAttribute('aria-pressed')`)) === 'false' && (await shownText(p)).includes('It was raining.'), 'Space turns it off: the text again');
+	await p.key('Tab');
+	await sleep(p, 150);
+	t.eq(await p.ev(`document.activeElement.textContent`), 'Bring back', 'Tab: “Bring back”');
+	await p.key('Tab');
+	await sleep(p, 150);
+	t.eq(await p.ev(`document.activeElement.getAttribute('aria-label')`), 'More', 'Tab: the menu');
+	await p.key('Enter');
+	await until(p, `!!document.querySelector('.menu')`);
+	t.eq(j(await menuItems(p)), j(['Copy text', 'Name this snapshot...', 'Open to the right', 'Delete snapshot']), 'Enter opens it');
+	await p.key('Escape');
+	await sleep(p, 250);
+	t.ok(!(await p.ev(`!!document.querySelector('.menu')`)) && (await p.ev(`document.querySelectorAll(${j(DLG)}).length`)) === 1, 'Escape closes the menu, not the dialog');
+	// Enter on “Bring back”: the same as a click, and the keyboard keeps its place
+	await p.ev(`(() => { [...document.querySelectorAll(${j(DLG + ' .modal-setting-titlebar-actions button')})].find(b => b.textContent === 'Bring back').focus(); return 1; })()`);
+	await p.key('Enter');
+	await until(p, `app.vault.adapter.read(${j(A)}).then(s => s === ${j(FRONT + DRAFT)})`);
+	t.eq(await read(p, A), FRONT + DRAFT, 'Enter on “Bring back” brings it back, under the note’s own properties');
+	await until(p, `document.querySelectorAll(${j(DLG + ' .binders-snapshots-item')}).length === 4`);
+	await sleep(p, 300);
+	const files = await p.ev(`app.vault.adapter.list(${j(DIR)}).then(l => l.files)`), kept = files.find((x) => / Before bringing back\.snapshot$/.test(x));
+	t.ok(!!kept && (await textOf(p, kept)) === LATER, 'the text it replaced is kept, byte for byte');
+	t.eq(await textOf(p, first), DRAFT, 'the snapshot brought back is as it was');
+	same(t, before, await texts(p), { skip: [A] });
+	f = await p.ev(FOCUS);
+	t.ok(f.row && f.text === 'First draft', 'the focus is on its row again, not lost: ' + j(f));
+	await p.key('Escape');
+	await sleep(p, 300);
+	t.eq(await p.ev(`document.querySelectorAll(${j(DLG)}).length`), 0, 'Escape closes the dialog');
+});
+
+test('with no snapshots yet the dialog says what one is and offers to take the first; taken, it becomes the list; deleted, it’s as it was', async (p, h, t) => {
+	await write(p, A, LATER);
+	const before = await texts(p);
+	await openNote(p, A);
+	await run(p, 'show-snapshots');
+	await until(p, `!!document.querySelector(${j(DLG + ' .binders-snapshots-empty')})`);
+	await sleep(p, 300);
+	const EMPTY = `(() => { const d = document.querySelector(${j(DLG)}), b = [...d.querySelectorAll('.modal-button-container button')]; return { small: d.getBoundingClientRect().width < 700, sidebar: d.classList.contains('mod-sidebar-layout'), title: d.querySelector('.modal-title').textContent, says: d.querySelector('.binders-snapshots-empty')?.textContent ?? '', list: !!d.querySelector('.binders-snapshots-side'), buttons: b.map(x => x.textContent), cta: b[0]?.classList.contains('mod-cta'), focus: document.activeElement === b[0] }; })()`;
+	const empty = await p.ev(EMPTY);
+	t.ok(empty.small && !empty.sidebar && !empty.list && empty.title === 'Snapshots of “Arrival”', 'a small dialog, named, with no empty list in it: ' + j(empty));
+	t.ok(/^A snapshot keeps this note’s text as it is now\./.test(empty.says) && /bring it back/.test(empty.says), 'it says what a snapshot is: ' + empty.says);
+	t.ok(j(empty.buttons) === j(['Take a snapshot', 'Cancel']) && empty.cta && empty.focus, 'and offers to take one, as the thing to do: ' + j(empty));
+	await p.key('Enter');
+	await until(p, `!!document.querySelector(${j(DLG + ' .binders-snapshots-item.is-active')})`);
+	await sleep(p, 300);
+	const files = await list(p);
+	t.ok(files.length === 1 && (await textOf(p, `${DIR}/${files[0]}`)) === LATER, 'Enter takes it: the note’s text, byte for byte');
+	same(t, before, await texts(p));
+	const full = await p.ev(`(() => { const d = document.querySelector(${j(DLG)}); return { sidebar: d.classList.contains('mod-sidebar-layout'), wide: d.getBoundingClientRect().width > 700, empty: !!d.querySelector('.binders-snapshots-empty'), stray: d.querySelectorAll(':scope > .modal-button-container').length, sheet: d.closest('.modal-container').classList.contains('mod-confirmation'), focus: document.activeElement.classList.contains('binders-snapshots-item') }; })()`);
+	t.eq(j(full), j({ sidebar: true, wide: true, empty: false, stray: 0, sheet: false, focus: true }), 'the dialog becomes the list, the focus in it');
+	const r = await rows(p);
+	t.ok(r.length === 2 && r[0].startsWith('The note now / ') && /^Today at /.test(r[1]), 'the note, and the snapshot just taken, which is shown: ' + r.join(' | '));
+	t.ok(/Same as the note now$/.test(await shownTitle(p)) && (await shownText(p)).includes('quillfish'), 'with its text: ' + await shownTitle(p));
+	const line = await topLine(p);
+	t.ok(oneLine([...line.controls, ...line.close]) && line.close.length === 1, 'its top line is in line: ' + j([...line.controls, ...line.close].map((c) => [c.what, c.top, c.height])));
+	// the button over the list takes another once the note has changed
+	await write(p, A, LATER + '\nOne more line.\n');
+	const cam = await p.at(DLG + ' .binders-snapshots-head .clickable-icon');
+	await p.click(cam.x, cam.y);
+	await until(p, `document.querySelectorAll(${j(DLG + ' .binders-snapshots-item')}).length === 3`);
+	t.eq((await list(p)).length, 2, 'the button over the list takes one of the note as it is now');
+	// delete both: the dialog is as it was at first
+	for (let i = 0; i < 2; i++) {
+		await p.ev(`(() => { document.querySelectorAll(${j(DLG + ' .binders-snapshots-item')})[1].click(); return 1; })()`);
+		await sleep(p, 300);
+		await more(p);
+		await clickMenu(p, 'Delete snapshot');
+		await until(p, `[...document.querySelectorAll('.modal .modal-title')].some(e => e.textContent === 'Delete snapshot')`);
+		await press(p, '.modal button', 'Delete');
+		await until(p, `app.vault.adapter.exists(${j(DIR)}).then(ok => ok ? app.vault.adapter.list(${j(DIR)}).then(l => l.files.length === ${1 - i}) : true)`);
+		await sleep(p, 400);
+	}
+	await until(p, `!!document.querySelector(${j(DLG + ' .binders-snapshots-empty')})`);
+	const again = await p.ev(EMPTY);
+	t.ok(again.small && !again.sidebar && !again.list && j(again.buttons) === j(['Take a snapshot', 'Cancel']), 'with the last one deleted, it offers to take one again: ' + j(again));
+	await press(p, DLG + ' .modal-button-container button', 'Cancel');
+	await sleep(p, 300);
+	t.eq(await p.ev(`document.querySelectorAll(${j(DLG)}).length`), 0, 'Cancel closes it');
+	t.eq(await read(p, A), FRONT + LATER + '\nOne more line.\n', 'the note is what it was');
+});
+
+test('on a phone: the list has a button that takes one, nothing is ringed as it opens, and with none yet it’s a sheet that offers the first', async (p, h, t) => {
+	await write(p, A, LATER);
+	await seed(p, DIR, '2026-09-12 09.15.40 First draft', DRAFT);
+	await onPhone(p, async () => {
+		await openNote(p, A);
+		await run(p, 'show-snapshots');
+		await until(p, `!!document.querySelector(${j(DLG + ' .binders-snapshots-item')})`);
+		await p.sleep(500);
+		const top = await p.ev(`(() => { const d = document.querySelector(${j(DLG)}), b = d.querySelector('.binders-snapshots-head button'), r = b.getBoundingClientRect(), row = d.querySelector('.binders-snapshots-item').getBoundingClientRect(); return { text: b.textContent, tall: Math.round(r.height), wide: r.width > 300, inside: r.left >= 0 && r.right <= innerWidth, above: r.bottom <= row.top, name: !!d.querySelector('.binders-snapshots-of')?.offsetParent, ringed: !!d.querySelector('.binders-snapshots-item:focus') }; })()`);
+		t.ok(top.text === 'Take a snapshot' && top.tall >= 44 && top.wide && top.inside && top.above, 'a button over the list, in words, wide and tall enough for a thumb: ' + j(top));
+		t.ok(!top.name && !top.ringed, 'the note’s name is in the title alone, and no row is ringed: ' + j(top));
+		await write(p, A, LATER + '\nOne more line.\n');
+		await tapOn(p, DLG + ' .binders-snapshots-head button', 'Take a snapshot');
+		await until(p, `document.querySelectorAll(${j(DLG + ' .binders-snapshots-item')}).length === 3`);
+		t.eq((await list(p)).length, 2, 'it takes one, and the list shows it');
+		t.ok(!(await p.ev(`!!document.querySelector(${j(DLG + ' .binders-snapshots-pane')})`)), 'still the list');
+		for (let i = 0; i < 3 && (await p.ev(`document.querySelectorAll('.modal-container').length`)); i++) { await p.key('Escape'); await p.sleep(300); }
+		// none yet
+		await p.ev(`app.vault.delete(${file(SN)}, true).then(() => 1)`);
+		await p.sleep(500);
+		await run(p, 'show-snapshots');
+		await until(p, `!!document.querySelector(${j(DLG + ' .binders-snapshots-empty')})`);
+		await p.sleep(400);
+		const sheet = await p.ev(`(() => { const m = document.querySelector(${j(DLG)}), b = [...m.querySelectorAll('.modal-button-container button')].map(e => ({ text: e.textContent, r: e.getBoundingClientRect() })); return { sheet: m.closest('.modal-container').classList.contains('mod-confirmation'), bottom: Math.round(m.getBoundingClientRect().bottom), says: m.querySelector('.binders-snapshots-empty').textContent.slice(0, 16), first: b[0]?.text, last: b.slice().sort((x, y) => x.r.top - y.r.top).pop()?.text, tall: Math.min(...b.map(x => Math.round(x.r.height))), wide: b.every(x => x.r.right <= innerWidth && x.r.left >= 0) }; })()`);
+		t.eq(j(sheet), j({ sheet: true, bottom: 844, says: 'A snapshot keeps', first: 'Take a snapshot', last: 'Cancel', tall: sheet.tall, wide: true }), 'a sheet at the foot of the screen that says what one is, its buttons in a column');
+		t.ok(sheet.tall >= 40, `tall enough to tap (${sheet.tall} px)`);
+		await tapOn(p, DLG + ' .modal-button-container button', 'Take a snapshot');
+		await until(p, `!!document.querySelector(${j(DLG + ' .binders-snapshots-item')})`);
+		await p.sleep(400);
+		const after = await p.ev(`(() => { const d = document.querySelector(${j(DLG)}); return { rows: d.querySelectorAll('.binders-snapshots-item').length, list: !!d.querySelector('.binders-snapshots-side'), pane: !!d.querySelector('.binders-snapshots-pane'), wide: Math.round(d.getBoundingClientRect().width), bottom: Math.round(d.getBoundingClientRect().bottom) }; })()`);
+		t.eq(j(after), j({ rows: 2, list: true, pane: false, wide: 390, bottom: 844 }), 'taken: the sheet is the list, with the note and its snapshot');
+		t.eq(await textOf(p, `${DIR}/${(await list(p))[0]}`), LATER + '\nOne more line.\n', 'holding the note’s text, byte for byte');
+	});
+});
+
+test('what changed reads as prose: words only put in, only taken out, both; a paragraph of each; a long stretch the same folds away', async (p, h, t) => {
+	const para = (n) => `Paragraph ${n}: the wind came round to the north in the night and the lamp room hummed with it.`;
+	const NOW = [1, 2, 3, 4, 5, 6, 7, 8].map(para).join('\n\n') + '\n\nThe island was smaller than the chart had promised. One window of the cottage was lit.\n\nA new last paragraph.\n';
+	// against the note: paragraph 2 lost a sentence, 7 was reworded, the island's had only its first sentence, one paragraph is gone, the last is new
+	const THEN = [1, 2, 3, 4, 5, 6, 7, 8].map((n) => (n === 2 ? para(2) + ' She lay awake.' : n === 7 ? para(7).replace('the north', 'the south-west') : para(n))).join('\n\n') + '\n\nA paragraph that was cut.\n\nThe island was smaller than the chart had promised.\n';
+	await write(p, A, NOW);
+	await seed(p, DIR, '2026-09-12 09.15.40 Then', THEN);
+	const before = await texts(p);
+	await dialog(p);
+	await press(p, COMPARE, 'Show changes');
+	await until(p, `!!document.querySelector(${j(DLG + ' .binders-snapshots-changes p')})`);
+	const shown = async () => p.ev(`[...document.querySelector(${j(DLG + ' .binders-snapshots-changes')}).children].map(e => e.tagName === 'P' ? [...e.childNodes].map(n => n.nodeName === 'DEL' ? '[-' + n.textContent + '-]' : n.nodeName === 'INS' ? '{+' + n.textContent + '+}' : n.textContent).join('') : '(' + e.textContent + ')')`);
+	t.eq(j(await shown()), j([
+		para(1),
+		para(2) + ' [-She lay awake.-]',
+		para(3),
+		'(2 paragraphs the same)',
+		para(6),
+		para(7).replace('the north', 'the [-south-west-] {+north+}'),
+		para(8),
+		'[-A paragraph that was cut.-]',
+		'The island was smaller than the chart had promised. {+One window of the cottage was lit.+}',
+		'{+A new last paragraph.+}',
+	]), 'each change in its paragraph, where it falls; what’s between them folded');
+	// the folded stretch opens, by the keyboard too
+	const fold = await p.ev(`(() => { const e = document.querySelector(${j(DLG + ' .binders-snapshots-folded')}); e.focus(); return { role: e.getAttribute('role'), stop: e.tabIndex }; })()`);
+	t.eq(j(fold), j({ role: 'button', stop: 0 }), 'the fold is a button');
+	await p.key('Enter');
+	await sleep(p, 200);
+	const open = await shown();
+	t.ok(open.length === 11 && open[3] === para(4) && open[4] === para(5) && !open.some((x) => x.startsWith('(')), 'Enter unfolds it: every paragraph, in order: ' + open.length);
+	const look = await p.ev(`(() => { const v = document.querySelector(${j(DLG + ' .binders-snapshots-changes')}), ps = [...v.querySelectorAll('p')], d = document.querySelector(${j(DLG + ' .binders-snapshots-diff')}); return { gaps: ps.slice(1).every((e, i) => e.getBoundingClientRect().top - ps[i].getBoundingClientRect().bottom >= 8), narrow: v.getBoundingClientRect().width <= 720, inside: ps.every(e => e.getBoundingClientRect().right <= d.getBoundingClientRect().right), selectable: getComputedStyle(v).userSelect === 'text' }; })()`);
+	t.eq(j(look), j({ gaps: true, narrow: true, inside: true, selectable: true }), 'set as a note is: paragraphs apart, at a line’s width, to be selected');
+	same(t, before, await texts(p));
+	t.eq(await textOf(p, DIR + '/2026-09-12 09.15.40 Then.snapshot'), THEN, 'the snapshot is untouched');
 });
