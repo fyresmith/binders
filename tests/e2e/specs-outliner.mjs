@@ -346,6 +346,56 @@ test('columns: dragging a header moves it; dragging its edge resizes it', async 
 	t.eq(await p.ev(`document.querySelectorAll('.menu').length`), 0, 'resizing didn’t open the menu');
 });
 
+test('columns: a header drag or a resize under way when the mode is switched leaves nothing behind, and changes nothing', async (p, h, t) => {
+	await open(p);
+	const th = (id) => p.at(`${O} .binders-outliner-th[data-col="${id}"]`);
+	const left = () => p.ev(`JSON.stringify({ lines: document.querySelectorAll('.binders-drop-indicator').length, grabbing: document.body.classList.contains('is-grabbing'), menus: document.querySelectorAll('.menu').length })`).then(JSON.parse);
+	const mode = (m) => p.ev(`(() => { ${VIEW}.setMode('${m}'); return 1; })()`);
+	// Words held over Label, about to go before it: then the corkboard is shown, the button still down
+	const w = await th('words'), lab = await th('label');
+	await p.move(w.x, w.y, 2);
+	await p.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: w.x, y: w.y, button: 'left', clickCount: 1 });
+	await p.move(lab.l + 10, lab.y, 10, { buttons: 1 });
+	await p.sleep(150);
+	const during = await left();
+	t.ok(during.lines === 1 && during.grabbing, `the drag is under way: its line shows and the pointer is grabbing (${j(during)})`);
+	await mode('corkboard');
+	await until(p, `!!document.querySelector('.workspace-leaf.mod-active .binders-board')`);
+	t.eq(j(await left()), j({ lines: 0, grabbing: false, menus: 0 }), 'the outliner gone, nothing of the header drag is left on the page');
+	await p.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: lab.l + 10, y: lab.y, button: 'left', clickCount: 1 });
+	await p.sleep(200);
+	t.eq(j(await left()), j({ lines: 0, grabbing: false, menus: 0 }), 'nor once the button is let go, over the corkboard');
+	await mode('outliner');
+	await until(p, `!!document.querySelector('${R}')`);
+	await p.sleep(250);
+	t.eq(j(await headers(p)), j(['title', 'label', 'status', 'words']), 'the columns are where they were');
+	t.ok(!(await prefs(p)).columns, 'and none was written down for the view');
+	// the edge of Label held 60px out: then the corkboard again
+	const before = (await th('label')).w;
+	const edge = await p.at(`${O} .binders-outliner-th[data-col="label"] .binders-outliner-resizer`);
+	await p.move(edge.x, edge.y, 2);
+	await p.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: edge.x, y: edge.y, button: 'left', clickCount: 1 });
+	await p.move(edge.x + 60, edge.y, 8, { buttons: 1 });
+	t.ok(Math.abs((await th('label')).w - (before + 60)) <= 2, 'the column follows the pointer');
+	t.ok((await left()).grabbing, 'and the pointer is grabbing');
+	await mode('corkboard');
+	await until(p, `!!document.querySelector('.workspace-leaf.mod-active .binders-board')`);
+	t.eq(j(await left()), j({ lines: 0, grabbing: false, menus: 0 }), 'the outliner gone, nothing of the resize is left on the page');
+	await p.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: edge.x + 60, y: edge.y, button: 'left', clickCount: 1 });
+	await p.sleep(200);
+	await mode('outliner');
+	await until(p, `!!document.querySelector('${R}')`);
+	await p.sleep(250);
+	t.ok(Math.abs((await th('label')).w - before) <= 1, `the column is as wide as it was (${(await th('label')).w} vs ${before})`);
+	t.ok(!(await prefs(p)).columns, 'and no width was written down');
+	t.eq(await p.ev(`document.querySelectorAll('${O}.is-resizing').length`), 0, 'the outliner isn’t left resizing');
+	// a header still does what a header does: a click sorts
+	const again = await th('words');
+	await p.click(again.x, again.y);
+	await p.sleep(250);
+	t.eq(await p.ev(`document.querySelector('${O} .binders-outliner-th[data-col="words"]').getAttribute('aria-sort')`), 'ascending', 'a click on a header sorts, as before');
+});
+
 test('sorting by a column: within each folder, binder order untouched; rows can’t be dragged while sorted', withTidy(async (p, h, t) => {
 	await open(p);
 	const sort = async (id, item) => { const th = await p.at(`${O} .binders-outliner-th[data-col="${id}"]`); await p.right(th.x, th.y); await clickMenu(p, item); await p.sleep(250); };

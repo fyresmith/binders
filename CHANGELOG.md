@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.14 (2026-10-02)
+
+### Changed
+
+- Nothing you'll notice: the outliner's column menus, resizing and reordering now live in their own file, with a test that a column drag leaves nothing behind when the mode changes.
+
 ## 0.12.13 (2026-10-02)
 
 ### Changed

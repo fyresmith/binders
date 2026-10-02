@@ -436,6 +436,7 @@ src/
     mode.ts            the contract between the view and its modes
     corkboard.ts
     outliner.ts
+    outliner-columns.ts  the outliner's header: a column's menu, sorting by it, resizing and reordering, which columns show
     outliner-data.ts   the outliner's columns, sorting, targets, typed values (pure, unit-tested)
     manuscript.ts
     editable-embed.ts  embedded editors (isolated; feature-detected)

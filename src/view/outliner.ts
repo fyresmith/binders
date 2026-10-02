@@ -1,14 +1,13 @@
 import { Keymap, Menu, Notice, Platform, TFile, TFolder, setIcon, type EventRef, type TAbstractFile } from 'obsidian';
 import { compiles, emptyState, isNote, plain, itemMenu, labelItems, nameOf, noteOf, removeItems, renameItem, setAll, setCompile, statusItems } from './actions';
-import { COMPILE_PROP } from '../scenes';
 import { GLIDE_QUICK, Press, glide, held, places, settle, visibleBottom } from './drag';
 import { FileDrag } from './file-drag';
 import { editable, type Editable } from './edit';
 import { submenu } from './internals';
 import { labelDot, labelName, rank } from './labels';
-import { ask } from './modals';
 import type { BinderMode, ModeContext, ModeFactory, SceneProps } from './mode';
-import { BUILT_IN, MIN_WIDTH, TITLE, builtIn, clampWidth, columnName, columnWidth, compareValues, move, nextSort, parseTarget, parseTyped, progress, propId, propOf, readColumns, readSort, suggestProps, text, type ColumnSpec, type Sort } from './outliner-data';
+import { OutlinerColumns, showUnder } from './outliner-columns';
+import { TITLE, builtIn, columnName, columnWidth, compareValues, parseTarget, parseTyped, progress, propOf, readColumns, readSort, text, type ColumnSpec, type Sort } from './outliner-data';
 import { wordsLabel } from './words';
 
 /* The outliner: the folder's notes and subfolders as rows of a tree, in binder order, with a column for each thing
@@ -55,7 +54,8 @@ class Outliner implements BinderMode {
 	private renameNext: string | null = null;
 	private refocus: string | null = null;
 	private drag: { items: TAbstractFile[]; ghost: HTMLElement; action: HTMLElement; line: HTMLElement; place: Place | null; x: number; y: number; raf: number; off: () => void; file?: FileDrag | null } | null = null;
-	private stopHeader: (() => void) | null = null;
+	/** The header's columns: their menus, resizing and reordering (outliner-columns.ts). */
+	private cols: OutlinerColumns;
 	/** Where rows just dropped were let go, to glide from (their paths change when they change folders). */
 	private landing = new Map<TAbstractFile, DOMRect>();
 	/** The next redraw is a fold or an unfold: the rows below move as quickly as the file explorer's. */
@@ -111,6 +111,14 @@ class Outliner implements BinderMode {
 		this.head = this.table.createDiv({ cls: 'binders-outliner-head', attr: { role: 'row' } });
 		this.body = this.table.createDiv({ cls: 'binders-outliner-body', attr: { role: 'rowgroup' } });
 		this.foot = this.table.createDiv({ cls: 'binders-outliner-foot', attr: { role: 'row' } });
+		this.cols = new OutlinerColumns({
+			ctx: this.ctx, root: this.root, table: this.table, head: this.head,
+			columns: () => this.columns(), setColumns: (cols) => this.setColumns(cols),
+			sort: () => this.sort, setSort: (sort) => this.setSort(sort),
+			canKeepSort: () => this.canKeepSort, keepSort: () => this.keepSort(),
+			synopses: () => this.synopses, toggleSynopses: () => { this.setPrefs({ synopsis: !this.synopses }); this.draw(); },
+			widthOf: (c) => this.widthOf(c), compact: (c) => this.compact(c),
+		});
 		const on = <K extends keyof HTMLElementEventMap>(t: K, fn: (e: HTMLElementEventMap[K]) => void) => this.root.addEventListener(t, fn);
 		on('click', (e) => this.onClick(e));
 		on('dblclick', (e) => this.onDblClick(e));
@@ -184,7 +192,7 @@ class Outliner implements BinderMode {
 		if (this.moved) this.ctx.app.vault.offref(this.moved);
 		this.said?.hide();
 		this.press.destroy();
-		this.stopHeader?.();
+		this.cols.destroy();
 		this.endDrag(false, 0, 0, true);
 		this.container.empty();
 	}
@@ -241,7 +249,7 @@ class Outliner implements BinderMode {
 
 	menu(menu: Menu): void {
 		menu.addItem((i) => i.setSection('view').setTitle('Show synopses').setIcon('text').setChecked(this.synopses).onClick(() => { this.setPrefs({ synopsis: !this.synopses }); this.draw(); }));
-		menu.addItem((i) => { i.setSection('view').setTitle('Columns').setIcon('columns-3'); submenu(i, (m) => this.columnItems(m), menu); });
+		menu.addItem((i) => { i.setSection('view').setTitle('Columns').setIcon('columns-3'); submenu(i, (m) => this.cols.items(m), menu); });
 		if (this.sort) menu.addItem((i) => i.setSection('view').setTitle('Binder order').setIcon('list-ordered').onClick(() => this.setSort(null)));
 		if (this.canKeepSort) menu.addItem((i) => i.setSection('view').setTitle('Make this the binder order').setIcon('list-checks').onClick(() => void this.keepSort()));
 		if (this.rowsShown.some((r) => r.item instanceof TFolder)) {
@@ -432,7 +440,7 @@ class Outliner implements BinderMode {
 		this.table.setCssProps({ '--binders-ol-columns': `${cols.reduce((a, c) => a + this.widthOf(c), 0)}px` });
 
 		const headKey = JSON.stringify([cols.map((c) => c.id), sort, ro, this.labelCompact]);
-		if (headKey !== this.headKey) { this.headKey = headKey; this.drawHead(cols, sort); }
+		if (headKey !== this.headKey) { this.headKey = headKey; this.cols.draw(cols, sort); }
 
 		// everything a row shows: when it's the same, the row drawn last time is used again
 		const shared = JSON.stringify([this.labelCompact, cols.map((c) => c.id), ro, synopses, this.settings.labels, !!sort]);
@@ -495,40 +503,6 @@ class Outliner implements BinderMode {
 		}
 		const prop = propOf(id);
 		return prop ? this.frontmatter(item)[prop] ?? null : null;
-	}
-
-	private drawHead(cols: ColumnSpec[], sort: Sort): void {
-		this.head.empty();
-		const th = (id: string, i: number): HTMLElement => {
-			const el = this.head.createDiv({ cls: 'binders-outliner-th', attr: { role: 'columnheader', 'data-col': id, tabindex: id === TITLE ? '0' : '-1', 'aria-haspopup': 'menu', 'aria-label': columnName(id) } });
-			if (id === TITLE) el.addClass('mod-title'); else el.setCssStyles({ width: `var(--binders-ol-c${i})` });
-			if (builtIn(id)?.numeric) el.addClass('mod-numeric');
-			if (i >= 0 && cols[i] && this.compact(cols[i])) { el.addClass('mod-compact'); setIcon(el.createSpan({ cls: 'binders-outliner-th-icon' }), 'palette'); }
-			el.createSpan({ cls: 'binders-outliner-th-name', text: columnName(id) });
-			const on = sort?.id === id;
-			el.setAttr('aria-sort', on ? (sort.dir === 1 ? 'ascending' : 'descending') : 'none');
-			if (on) setIcon(el.createSpan({ cls: 'binders-outliner-th-sort', attr: { 'aria-hidden': 'true' } }), sort.dir === 1 ? 'arrow-up' : 'arrow-down');
-			if (id !== TITLE) {
-				const grip = el.createDiv({ cls: 'binders-outliner-resizer', attr: { 'aria-hidden': 'true' } });
-				grip.addEventListener('pointerdown', (e) => this.resize(e, id, i));
-				grip.addEventListener('dblclick', (e) => { e.stopPropagation(); this.setColumns(this.columns().map((c) => (c.id === id ? { id } : c))); });
-				grip.addEventListener('click', (e) => e.stopPropagation());
-				el.addEventListener('pointerdown', (e) => this.dragColumn(e, id, el));
-			}
-			// a click sorts, as in a base: ascending, descending, then binder order again; the menu is a right-click (or
-			// Enter) away. With no right-click to give (a phone), a tap opens the menu.
-			el.addEventListener('click', (e) => { e.stopPropagation(); if (this.headerDragged) return; if (Platform.isMobile) this.columnMenu(id, el); else this.setSort(nextSort(this.sort, id)); });
-			el.addEventListener('contextmenu', (e) => { e.preventDefault(); e.stopPropagation(); this.columnMenu(id, el, e); });
-			el.addEventListener('keydown', (e) => this.onHeadKey(e, id, el));
-			return el;
-		};
-		th(TITLE, -1);
-		cols.forEach((c, i) => th(c.id, i));
-		const add = this.head.createDiv({ cls: 'binders-outliner-th mod-add clickable-icon', attr: { role: 'button', tabindex: '0', 'aria-label': 'Columns', 'aria-haspopup': 'menu' } });
-		setIcon(add, 'plus');
-		const show = (e?: MouseEvent) => { const m = new Menu(); this.columnItems(m); this.showUnder(m, add, e); };
-		add.addEventListener('click', () => show());
-		add.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); show(); } });
 	}
 
 	private drawRow(r: Row, cols: ColumnSpec[], open: boolean, key: string): Drawn {
@@ -859,13 +833,7 @@ class Outliner implements BinderMode {
 		// the focus comes back to the cell when the menu goes, whatever was picked
 		const path = row.dataset.path ?? '', col = cell.dataset.col ?? '', inCell = this.root.doc.activeElement === cell;
 		menu.onHide(() => window.setTimeout(() => { const a = this.root.doc.activeElement; if (this.root.isConnected && (a === this.root.doc.body || a === cell) && path) { if (inCell) this.focusCell(path, col); else this.rowEl(path)?.focus({ preventScroll: true }); } }, 0));
-		this.showUnder(menu, cell);
-	}
-
-	private showUnder(menu: Menu, el: HTMLElement, e?: MouseEvent): void {
-		if (e && e.type === 'contextmenu') { menu.showAtMouseEvent(e); return; }
-		const r = el.getBoundingClientRect();
-		menu.showAtPosition({ x: r.left, y: r.bottom + 2, width: r.width, overlap: true }, el.doc);
+		showUnder(menu, cell);
 	}
 
 	// ---- keyboard ----
@@ -991,20 +959,6 @@ class Outliner implements BinderMode {
 		this.rowMenu(row).showAtPosition({ x: r.left + 24, y: r.bottom }, this.root.doc);
 	}
 
-	private onHeadKey(e: KeyboardEvent, id: string, el: HTMLElement): void {
-		const ths = [...this.head.querySelectorAll<HTMLElement>('.binders-outliner-th[data-col]')], i = ths.indexOf(el);
-		if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); this.columnMenu(id, el); return; }
-		if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-		e.preventDefault(); e.stopPropagation();
-		const d = (e.key === 'ArrowLeft') === (getComputedStyle(this.head).direction !== 'rtl') ? -1 : 1;
-		if (e.altKey) { this.moveColumn(id, d); return; }
-		const to = ths[i + d];
-		if (!to) return;
-		el.setAttr('tabindex', '-1');
-		to.setAttr('tabindex', '0');
-		to.focus();
-	}
-
 	// ---- actions ----
 
 	private async rename(f: TAbstractFile, name: string): Promise<void> {
@@ -1113,131 +1067,6 @@ class Outliner implements BinderMode {
 	// ---- columns ----
 
 	private setSort(sort: Sort): void { this.setPrefs({ sort }); this.draw(); }
-
-	private columnMenu(id: string, el: HTMLElement, e?: MouseEvent): void {
-		const cols = this.columns(), i = cols.findIndex((c) => c.id === id), sort = this.sort, menu = new Menu();
-		const on = (dir: 1 | -1) => sort?.id === id && sort.dir === dir;
-		menu.addItem((it) => it.setSection('sort').setTitle('Sort ascending').setIcon('arrow-up-narrow-wide').setChecked(on(1)).onClick(() => this.setSort(on(1) ? null : { id, dir: 1 })));
-		menu.addItem((it) => it.setSection('sort').setTitle('Sort descending').setIcon('arrow-down-wide-narrow').setChecked(on(-1)).onClick(() => this.setSort(on(-1) ? null : { id, dir: -1 })));
-		if (sort) menu.addItem((it) => it.setSection('sort').setTitle('Binder order').setIcon('list-ordered').onClick(() => this.setSort(null)));
-		if (this.canKeepSort) menu.addItem((it) => it.setSection('sort').setTitle('Make this the binder order').setIcon('list-checks').onClick(() => void this.keepSort()));
-		if (id !== TITLE) {
-			if (i > 0) menu.addItem((it) => it.setSection('column').setTitle('Move left').setIcon('arrow-left').onClick(() => this.moveColumn(id, -1)));
-			if (i < cols.length - 1) menu.addItem((it) => it.setSection('column').setTitle('Move right').setIcon('arrow-right').onClick(() => this.moveColumn(id, 1)));
-			menu.addItem((it) => it.setSection('column').setTitle('Hide column').setIcon('eye-off').onClick(() => this.setColumns(cols.filter((c) => c.id !== id))));
-		} else menu.addItem((it) => it.setSection('column').setTitle('Show synopses').setIcon('text').setChecked(this.synopses).onClick(() => { this.setPrefs({ synopsis: !this.synopses }); this.draw(); }));
-		this.showUnder(menu, el, e);
-	}
-
-	private moveColumn(id: string, d: number): void {
-		const cols = this.columns(), i = cols.findIndex((c) => c.id === id);
-		if (i < 0 || i + d < 0 || i + d >= cols.length) return;
-		this.setColumns(move(cols, i, i + d));
-		this.head.querySelector<HTMLElement>(`.binders-outliner-th[data-col="${CSS.escape(id)}"]`)?.focus();
-	}
-
-	/** A column just added is brought into sight (in a narrow pane it's past the edge). */
-	private showColumn(id: string): void {
-		window.setTimeout(() => Array.from(this.head.querySelectorAll<HTMLElement>('[data-col]')).find((h) => h.dataset.col === id)?.scrollIntoView({ block: 'nearest', inline: 'nearest' }), 50);
-	}
-
-	/** Which columns show: Binders' own, then your notes' properties, each ticked when it's shown. */
-	private columnItems(menu: Menu): void {
-		const cols = this.columns(), has = (id: string) => cols.some((c) => c.id === id);
-		const flip = (id: string) => { this.setColumns(has(id) ? cols.filter((c) => c.id !== id) : [...cols, { id }]); if (!has(id)) this.showColumn(id); };
-		for (const b of BUILT_IN) menu.addItem((i) => i.setSection('built-in').setTitle(b.name).setIcon(b.icon).setChecked(has(b.id)).onClick(() => flip(b.id)));
-		const s = this.settings, own = [s.synopsisProp, s.statusProp, s.labelProp, s.targetProp, COMPILE_PROP, 'binder', 'contents', 'longform', 'aliases', 'cssclasses'];
-		const shown = cols.map((c) => propOf(c.id)).filter((p): p is string => !!p);
-		const found = suggestProps(this.store.scenes(this.ctx.binder.folder).map((f) => this.frontmatter(f)), [...own, ...shown]);
-		for (const p of [...shown, ...found.slice(0, 12)]) menu.addItem((i) => i.setSection('props').setTitle(p).setIcon('text').setChecked(has(propId(p))).onClick(() => flip(propId(p))));
-		menu.addItem((i) => i.setSection('add').setTitle('Other property...').setIcon('plus').onClick(async () => {
-			const name = await ask(this.ctx.app, { title: 'Add a column', placeholder: 'A property’s name, such as POV', cta: 'Add column' });
-			if (name && !has(propId(name))) { this.setColumns([...this.columns(), { id: propId(name) }]); this.showColumn(propId(name)); }
-		}));
-	}
-
-	private headerDragged = false;
-
-	/** Follows a press on a header: `move` once it has moved far enough to be a drag, then `end`. */
-	private track(e: PointerEvent, h: { move(x: number): void; end(drop: boolean): void }): void {
-		if (e.button !== 0) return;
-		const doc = this.root.doc, id = e.pointerId, x0 = e.clientX;
-		let on = false;
-		const move = (ev: PointerEvent) => {
-			if (ev.pointerId !== id) return;
-			if (!on && Math.abs(ev.clientX - x0) < 4) return;
-			if (!on) { on = true; this.headerDragged = true; doc.body.addClass('is-grabbing'); }
-			ev.preventDefault();
-			h.move(ev.clientX);
-		};
-		const stop = (drop: boolean) => {
-			doc.removeEventListener('pointermove', move);
-			doc.removeEventListener('pointerup', up);
-			doc.removeEventListener('pointercancel', cancel);
-			doc.removeEventListener('keydown', key, true);
-			doc.body.removeClass('is-grabbing');
-			this.stopHeader = null;
-			if (on) h.end(drop);
-			// the click that ends a drag isn't a click on the header
-			window.setTimeout(() => { this.headerDragged = false; }, 0);
-		};
-		const up = (ev: PointerEvent) => { if (ev.pointerId === id) stop(true); };
-		const cancel = (ev: PointerEvent) => { if (ev.pointerId === id) stop(false); };
-		const key = (ev: KeyboardEvent) => { if (ev.key === 'Escape' && on) { ev.preventDefault(); ev.stopPropagation(); stop(false); } };
-		doc.addEventListener('pointermove', move);
-		doc.addEventListener('pointerup', up);
-		doc.addEventListener('pointercancel', cancel);
-		doc.addEventListener('keydown', key, true);
-		this.stopHeader = () => stop(false);
-	}
-
-	/** Dragging a header's edge makes its column wider or narrower, as it goes. */
-	private resize(e: PointerEvent, id: string, i: number): void {
-		e.stopPropagation();
-		e.preventDefault();
-		const cols = this.columns(), col = cols.find((c) => c.id === id);
-		if (!col) return;
-		const start = this.widthOf(col), x0 = e.clientX, rtl = getComputedStyle(this.head).direction === 'rtl';
-		let w = start;
-		this.root.addClass('is-resizing');
-		this.track(e, {
-			move: (x) => { w = clampWidth(start + (rtl ? x0 - x : x - x0), MIN_WIDTH); this.table.setCssProps({ [`--binders-ol-c${i}`]: `${w}px` }); },
-			end: (drop) => {
-				this.root.removeClass('is-resizing');
-				if (drop && w !== start) this.setColumns(cols.map((c) => (c.id === id ? { id, width: w } : c)));
-				else this.table.setCssProps({ [`--binders-ol-c${i}`]: `${start}px` });
-			},
-		});
-		// a click on the edge without moving does nothing
-		this.root.doc.addEventListener('pointerup', () => this.root.removeClass('is-resizing'), { once: true });
-	}
-
-	/** Dragging a header moves its column: a line shows where it will go. */
-	private dragColumn(e: PointerEvent, id: string, el: HTMLElement): void {
-		if ((e.target as HTMLElement).closest('.binders-outliner-resizer') || e.pointerType === 'touch') return;
-		let to = -1, line: HTMLElement | null = null;
-		const ths = () => this.columns().map((c) => this.head.querySelector<HTMLElement>(`.binders-outliner-th[data-col="${CSS.escape(c.id)}"]`));
-		this.track(e, {
-			move: (x) => {
-				el.addClass('is-dragging');
-				const cols = this.columns(), from = cols.findIndex((c) => c.id === id), rects = ths().map((t) => t?.getBoundingClientRect());
-				const rtl = getComputedStyle(this.head).direction === 'rtl';
-				to = rects.findIndex((r) => !!r && (rtl ? x > r.left + r.width / 2 : x < r.left + r.width / 2));
-				if (to < 0) to = cols.length;
-				line ??= this.root.doc.body.createDiv({ cls: 'binders-drop-indicator is-vertical' });
-				const at = rects[Math.min(to, cols.length - 1)], view = this.root.getBoundingClientRect();
-				const noop = to === from || to === from + 1;
-				line.toggleClass('is-active', !!at && !noop);
-				if (at) line.setCssStyles({ left: `${(to < cols.length ? (rtl ? at.right : at.left) : (rtl ? at.left : at.right)) - 1}px`, top: `${at.top}px`, height: `${Math.min(view.bottom, this.table.getBoundingClientRect().bottom) - at.top}px` });
-			},
-			end: (drop) => {
-				el.removeClass('is-dragging');
-				line?.remove();
-				const cols = this.columns(), from = cols.findIndex((c) => c.id === id);
-				if (drop && from >= 0 && to >= 0 && to !== from && to !== from + 1) this.setColumns(move(cols, from, to > from ? to - 1 : to));
-			},
-		});
-	}
 
 	// ---- dragging rows ----
 
