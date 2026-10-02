@@ -2967,6 +2967,18 @@
 	text-overflow: ellipsis;
 }
 
+/* (on the narrowest phones the view's name would be a letter and an ellipsis: its icon and chevron alone, as the other
+   buttons are their icons there, its name its tooltip and what a screen reader says; the count keeps its room) */
+@container binders-view (width < 360px) {
+	.is-phone .binders-toolbar .binders-toolbar-button.binders-mode-button {
+		flex-shrink: 0;
+		--no-tooltip: false;
+	}
+	.is-phone .binders-mode-button > .text-button-label {
+		display: none;
+	}
+}
+
 /* (and in a pane too narrow even for that, the icon alone, as the other buttons are below 540px: its name is then its
    tooltip) */
 @container binders-view (width < 230px) {

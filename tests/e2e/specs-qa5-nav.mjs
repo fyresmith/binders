@@ -746,6 +746,10 @@ test('phone toolbar: at 320, 360, 390 and 430 px and on its side (568, 844, 932 
 					}
 					t.eq(!!has('progress'), w >= 440 && folder === 'The Lighthouse', `${what}: the progress bar shows from 440 px, where there’s a target`);
 					t.eq(await p.ev(`getComputedStyle(document.querySelector('${LEAF} .binders-filter-button .text-button-label')).display !== 'none'`), w >= 540, `${what}: “Filter” is spelled out from 540 px (the button itself is a finger tall by padding at any width: ${has('filter-button').w} px)`);
+					// (below 360 px the mode button is its icon and chevron, whole: its name is what a screen reader says and its tooltip)
+					const mode = await p.ev(`(() => { const b = document.querySelector('${LEAF} .binders-mode-button'), l = b.querySelector('.text-button-label'), box = (e) => { const r = e.getBoundingClientRect(); return [r.left, r.right, r.width]; }, br = box(b); return { label: getComputedStyle(l).display !== 'none', name: b.getAttribute('aria-label'), tip: getComputedStyle(b).getPropertyValue('--no-tooltip').trim(), whole: [b.querySelector('.text-button-icon:not(.mod-aux), svg'), b.querySelector('.mod-aux')].every(e => { if (!e) return false; const r = box(e); return r[2] >= 12 && r[0] >= br[0] - 0.5 && r[1] <= br[1] + 0.5; }) }; })()`);
+					t.eq(mode.label, w >= 360, `${what}: the mode’s name is ${w >= 360 ? 'shown' : 'not shown'} on its button`);
+					t.ok(/^View as: \S/.test(mode.name ?? '') && mode.whole && (w >= 360 || mode.tip === 'false'), `${what}: the mode button is named for a screen reader, its icon and chevron are whole${w >= 360 ? '' : ', and its name is its tooltip'}: ${JSON.stringify(mode)}`);
 					if (filter) t.ok(await p.ev(`document.querySelector('${LEAF} .binders-filter-button').classList.contains('is-active')`), `${what}: the filter button shows it’s on`);
 				}
 				await p.ev(`(() => { ${VIEW}.setFilter({ status: [], label: [] }); return 1; })()`);

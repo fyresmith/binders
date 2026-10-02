@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.141 (2026-10-02)
+
+### Changed
+
+- On the narrowest phones the view's button shows its icon and arrow instead of a cut-off name; the word count keeps its room.
+
 ## 0.12.140 (2026-10-02)
 
 ### Fixed
