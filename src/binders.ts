@@ -1,7 +1,7 @@
 import { Events, Notice, TFile, TFolder, normalizePath, stringifyYaml, type App, type EventRef, type TAbstractFile } from 'obsidian';
 import type { ExplorerSource } from './explorer';
 import type BindersPlugin from './main';
-import { applyOps, checkFormat, diskPath, FORMAT_VERSION, isBinderNote, isFolderNote, nameOf, orderChildren, readIndex, relPath, settleNames, stepIndex, UnsupportedBinder, type ListOp } from './model';
+import { applyOps, checkFormat, diskPath, FORMAT_VERSION, isBinderNote, isFolderNote, nameOf, orderChildren, parentOf, readIndex, relPath, settleNames, stepIndex, UnsupportedBinder, type ListOp } from './model';
 import { editProperties } from './properties';
 import { nextName } from './scene-text';
 import { MoveHistory, type PropChange, type Undo } from './undo';
@@ -141,6 +141,9 @@ export interface Conversion {
 
 /** How long changes to a list wait for more before they're written, in ms. */
 const DEBOUNCE = 300;
+/** How long the place of a deleted file is remembered in case the file comes straight back, in ms: some tools rewrite
+    a file by deleting it and creating it again (git pull and checkout, some editors' saves). */
+const RECALL = 2000;
 /** How long after the last file arrived in it a folder still counts as being copied, in ms. */
 const COPYING = 2000;
 /** The longest a view waits for the metadata cache at startup before saying a folder isn't in a binder, in ms. */
@@ -176,6 +179,9 @@ class State implements Binder {
 	    copy"), by their path in the binder: the folder each is a copy of, whether its order is waiting to be written,
 	    and when a file last arrived in it. See `placeCopy`. */
 	copies = new Map<string, { from: string; queued: boolean; at: number }>();
+	/** Files deleted a moment ago, by their entry in the list (a Longform scene's name): the entries that stood before
+	    and after each in its folder (and a scene's indent), so a file created again within `RECALL` goes back there. */
+	gone = new Map<string, { prev: string | null; next: string | null; indent?: number; at: number }>();
 	/** Cached: the binder's folder of snapshots (null: it has none), as of a count of the vault's changes. */
 	snaps: { at: number; folder: TFolder | null } | null = null;
 	/** The folder the binder note was in when found. If the note moves to another folder, that's another binder. */
@@ -254,6 +260,7 @@ export class BinderStore extends Events implements ExplorerSource {
 				// (a snapshot, or the folder of them: nothing a view shows; only what's remembered about the folder goes)
 				if (f.path === `${s.folder.path}/${SNAPSHOTS}` || this.inSnapshots(f.path)) { this.touch(s, false); return; }
 				this.touch(s);
+				if (this.comeBack(s, f)) return;
 				this.placeCopy(s, f);
 			}));
 			done();
@@ -1043,11 +1050,47 @@ export class BinderStore extends Events implements ExplorerSource {
 		const o = this.at(file.path, true);
 		if (o && (file.path === `${o.path}/${SNAPSHOTS}` || this.inSnapshots(file.path, true))) { this.touch(o, false); return; } // a snapshot: not an item
 		if (o?.kind === 'longform') {
-			if (file instanceof TFile && file.extension === 'md') this.lfChange(o, { op: 'remove', item: file.basename }); else this.touch(o);
+			if (file instanceof TFile && file.extension === 'md') {
+				// (where it stood, among the scenes as they showed with it)
+				const shown = shownScenes(o.lfOps.length ? applySceneOps(o.lf.scenes, o.lfOps, [...this.lfFiles(o).keys(), file.basename], o.lf.ignored) : o.lf.scenes, [...this.lfFiles(o).keys(), file.basename], o.lf.ignored);
+				const i = shown.findIndex((x) => x.title === file.basename);
+				if (i >= 0 && o.lf.scenes.some((x) => x.title === file.basename)) o.gone.set(file.basename, { prev: shown[i - 1]?.title ?? null, next: shown[i + 1]?.title ?? null, indent: shown[i].indent, at: Date.now() });
+				this.lfChange(o, { op: 'remove', item: file.basename });
+			} else this.touch(o);
 			return;
 		}
 		const rel = o && this.relAt(o, file.path, file instanceof TFolder);
-		if (o && rel) this.queue(o, { op: 'remove', item: rel });
+		if (!o || !rel) return;
+		if (file instanceof TFile && !o.problem) {
+			// where it stood among its folder's entries, in case it's on its way back (see `comeBack`)
+			const list = this.contents(o), i = list.indexOf(rel), parent = parentOf(rel), sib = (p: string) => parentOf(p) === parent;
+			if (i >= 0) o.gone.set(rel, { prev: list.slice(0, i).reverse().find(sib) ?? null, next: list.slice(i + 1).find(sib) ?? null, at: Date.now() });
+		}
+		// (a folder deleted takes with it what was remembered of the files in it: one made again under its name is new)
+		if (file instanceof TFolder) for (const k of [...o.gone.keys()]) if (k.startsWith(rel)) o.gone.delete(k);
+		this.queue(o, { op: 'remove', item: rel });
+	}
+
+	/** A file made where one was deleted a moment ago is that file written again (git pull and checkout, and some
+	    editors, rewrite a file by deleting it and creating it): it goes back to the place it had in the list, not to the
+	    end of its folder, unless the list as it is when written mentions it already (see `restoreIn`). True if that
+	    was asked for. */
+	private comeBack(s: State, f: TAbstractFile): boolean {
+		const now = Date.now();
+		for (const [k, g] of s.gone) if (now - g.at > RECALL) s.gone.delete(k);
+		if (!(f instanceof TFile) || !f.parent || s.problem || s.frozen) return false;
+		if (s.kind === 'longform') {
+			const g = f.extension === 'md' && f.parent === s.folder ? s.gone.get(f.basename) : undefined;
+			if (!g || longformRunning(this.app)) return false;
+			s.gone.delete(f.basename);
+			this.queueScenes(s, { op: 'restore', item: f.basename, prev: g.prev, next: g.next, indent: g.indent ?? 0 });
+			return true;
+		}
+		const rel = relPath(s.folder.path, f.path, false), g = rel ? s.gone.get(rel) : undefined;
+		if (!rel || !g) return false;
+		s.gone.delete(rel);
+		this.queue(s, { op: 'restore', item: rel, prev: g.prev, next: g.next });
+		return true;
 	}
 
 	// ---- Longform projects ----

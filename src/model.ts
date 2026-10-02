@@ -156,6 +156,21 @@ export function copyIn(contents: string[], from: string, to: string): string[] {
 	return [...rest.slice(0, at), ...block, ...rest.slice(at)];
 }
 
+/** Gives an item that was deleted and made again its place back: after the entry that stood before it in its folder
+    (`prev`; a folder's own entries go with it), or before the one that stood after it (`next`), or first if it was
+    first, or last. Only if the list doesn't mention the item: a list that came in with the item (a sync, a checkout)
+    already says where it goes, and is left as it is. */
+export function restoreIn(contents: string[], item: string, prev: string | null, next: string | null): string[] {
+	if (contents.includes(item)) return contents;
+	let at = -1;
+	if (prev != null && contents.includes(prev)) {
+		at = contents.indexOf(prev) + 1;
+		if (prev.endsWith('/')) while (at < contents.length && contents[at].startsWith(prev)) at++;
+	} else if (next != null && contents.includes(next)) at = contents.indexOf(next);
+	else if (prev == null) { const first = contents.findIndex((p) => parentOf(p) === parentOf(item)); if (first >= 0) at = first; }
+	return at < 0 ? insertInFolder(contents, item, Infinity) : [...contents.slice(0, at), item, ...contents.slice(at)];
+}
+
 /** Drops an item (and, for a folder, everything in it). */
 export function removeFrom(contents: string[], item: string): string[] {
 	return contents.filter((p) => p !== item && !(item.endsWith('/') && p.startsWith(item)));
@@ -221,6 +236,8 @@ export type ListOp =
 	| { op: 'remove'; item: string }
 	/** `inner`: a folder's own entries, in order (one moved from another binder brings its order along). */
 	| { op: 'append'; item: string; inner?: string[] }
+	/** A file deleted and made again a moment later, back where it stood (see `restoreIn`). */
+	| { op: 'restore'; item: string; prev: string | null; next: string | null }
 	/** A folder copied beside itself by something other than Binders (see `copyIn`). */
 	| { op: 'copy'; from: string; to: string }
 	/** `known`: every item in the binder when the move was made, in the order they showed. A move is worked out against
@@ -244,6 +261,7 @@ export function applyOps(contents: string[], ops: ListOp[], known: string[]): st
 			list = parentOf(o.from) !== parentOf(o.to) && !carried(o) ? relocate(list, o.from, o.to) : renameIn(list, o.from, o.to);
 		}
 		else if (o.op === 'remove') list = removeFrom(list, o.item);
+		else if (o.op === 'restore') list = restoreIn(list, o.item, o.prev, o.next);
 		else if (o.op === 'copy') list = copyIn(list, o.from, o.to);
 		else if (o.op === 'append') {
 			if (list.includes(o.item) || withFolder(o.item)) continue;

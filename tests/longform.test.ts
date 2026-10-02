@@ -110,4 +110,14 @@ const flat = (s: Scene[]) => s.map((x) => '  '.repeat(x.indent) + x.title).join(
 	eq(j(q.contents), j(['Group 1/', 'Group 1/A', 'Group 1/B', 'C', 'C 3/', 'C 3/C 2']), 'indented under nothing: Group n; taken names and moved scene names avoided');
 }
 
+// a scene deleted and made again a moment later goes back where it stood, at its indent
+{
+	const base = flatten(['A', ['B', 'C'], 'D']), files = ['A', 'B', 'C', 'D'];
+	const gone = applySceneOps(base, [{ op: 'remove', item: 'C' }], files, []);
+	eq(j(nest(applySceneOps(gone, [{ op: 'restore', item: 'C', prev: 'B', next: 'D', indent: 1 }], files, []))), j(['A', ['B', 'C'], 'D']), 'after the scene before it, indented as it was');
+	eq(j(nest(applySceneOps(base, [{ op: 'remove', item: 'A' }, { op: 'restore', item: 'A', prev: null, next: 'B', indent: 0 }], files, []))), j(['A', ['B', 'C'], 'D']), 'the first scene, in one batch');
+	eq(j(nest(applySceneOps(flatten(['D', 'C', 'A', 'B']), [{ op: 'restore', item: 'C', prev: 'B', next: 'D', indent: 1 }], files, []))), j(['D', 'C', 'A', 'B']), 'a list that mentions it already is left as it is');
+	eq(j(nest(applySceneOps(gone, [{ op: 'restore', item: 'C', prev: 'B', next: 'D', indent: 1 }], ['A', 'B', 'D'], []))), j(['A', ['B'], 'D']), 'and a scene whose note isn’t there after all isn’t listed');
+}
+
 done('longform');

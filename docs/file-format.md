@@ -93,6 +93,7 @@ row.
   that isn't a list, Binders leaves the note as it is and doesn't make the folder a binder.
 - A folder made beside one it's named after ("Part One 1" next to "Part One", as Obsidian's "Make a copy" does) goes
   right after that one, and what's in it takes that folder's order.
+- A file deleted and created again within two seconds (as git and some editors rewrite files) goes back to its place.
 
 ## Scene properties
 

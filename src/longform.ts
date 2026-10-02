@@ -102,7 +102,11 @@ export function shownScenes(scenes: Scene[], files: string[], ignored: string[])
 export type SceneOp =
 	| { op: 'rename'; from: string; to: string }
 	| { op: 'remove'; item: string }
-	| { op: 'move'; item: string; index: number; indent?: number };
+	| { op: 'move'; item: string; index: number; indent?: number }
+	/** A scene deleted and made again a moment later, back where it stood: after `prev`, or before `next`, or first
+	    if it was first, or last, at the indent it had. Only if the list doesn't mention it (a list that came in with
+	    the note already says where it goes). */
+	| { op: 'restore'; item: string; prev: string | null; next: string | null; indent: number };
 
 /** Applies a batch of changes to the listed scenes. Listed scenes whose note is gone are dropped (as Longform drops
     them); unlisted notes are only written into the list when a move needs them to keep their place. */
@@ -116,6 +120,12 @@ export function applySceneOps(scenes: Scene[], ops: SceneOp[], files: string[], 
 			list = list.map((s) => (s.title === o.from ? { ...s, title: o.to, raw: o.to } : s));
 		}
 		else if (o.op === 'remove') list = list.filter((s) => s.title !== o.item);
+		else if (o.op === 'restore') {
+			if (list.some((s) => s.title === o.item)) continue;
+			const i = list.findIndex((s) => s.title === o.prev), k = list.findIndex((s) => s.title === o.next);
+			const at = o.prev != null && i >= 0 ? i + 1 : o.next != null && k >= 0 ? k : o.prev == null ? 0 : list.length;
+			list = [...list.slice(0, at), { title: o.item, indent: Math.max(0, Math.floor(o.indent)), raw: o.item }, ...list.slice(at)];
+		}
 		else {
 			// (the moved scene counts as there even if its note isn't yet; once, or it would be listed twice)
 			const shown = shownScenes(list, [...new Set([...have, o.item])], ignored);

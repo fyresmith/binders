@@ -554,3 +554,41 @@ test('binders: notes and a folder whose names start or end with a space keep the
 	t.eq(j(await children(p, D)), j([' Lead.md', 'Trail .md', 'Middle.md', 'Dir ', 'Last.md']), 'and read back the same: nothing jumps to the end');
 	for (const [f, text] of [[' Lead', 'lead'], ['Trail ', 'trail'], ['Dir /Inside', 'inside']]) t.eq(await read(p, `${D}/${f}.md`), text, `“${f}” has its text`);
 }));
+
+// Some tools rewrite a file by deleting it and creating it again (git pull and checkout, some editors). The place a
+// deleted file had is remembered for a moment, so a note that comes straight back is where it was.
+test('binders: a note deleted and created again at once goes back to its place, with other changes written meanwhile; one that stays deleted leaves the list at once', withTidy(async (p, h, t) => {
+	const P1 = 'The Lighthouse/Part One', keeper = `${P1}/The keeper.md`, LF = 'Longform demo';
+	const before = await texts(p);
+	// through the disk, as another program does it, with a rename made and written in between
+	await p.ev(`(async () => { const ad = app.vault.adapter; await ad.remove(${j(keeper)}); await new Promise(r => setTimeout(r, 150)); await app.fileManager.renameFile(${file(`${P1}/Arrival.md`)}, ${j(`${P1}/Landing.md`)}); await new Promise(r => setTimeout(r, 450)); await ad.write(${j(keeper)}, ${j('Written again.\n')}); })().then(() => 1)`);
+	t.ok(await until(p, `!!${file(keeper)}`, 4000), 'the note is back');
+	await p.sleep(300);
+	t.eq(j(await children(p, P1)), j(['Landing.md', 'The keeper.md', 'Storm warning.md']), 'where it was, between the note before it (renamed meanwhile) and the note after');
+	await flush(p); await p.sleep(200);
+	t.eq(j((await contents(p)).slice(1, 5)), j(['Part One/', 'Part One/Landing', 'Part One/The keeper', 'Part One/Storm warning']), 'and the list on disk says so, each entry once');
+	t.eq(await read(p, keeper), 'Written again.\n', 'with its new text');
+	// the first and the last of a folder, with no pause at all
+	for (const [note, want] of [[`${P1}/Landing.md`, 'first'], [`${P1}/Storm warning.md`, 'last']]) {
+		await p.ev(`(async () => { const ad = app.vault.adapter, text = await ad.read(${j(note)}); await ad.remove(${j(note)}); await ad.write(${j(note)}, text); })().then(() => 1)`);
+		await p.sleep(1500);
+		t.eq(j(await children(p, P1)), j(['Landing.md', 'The keeper.md', 'Storm warning.md']), `the ${want} note of a folder, rewritten the same way, is still ${want}`);
+	}
+	// a Longform scene inside a group, the same
+	await p.ev(`(async () => { const ad = app.vault.adapter, text = await ad.read(${j(`${LF}/Ticket office.md`)}); await ad.remove(${j(`${LF}/Ticket office.md`)}); await new Promise(r => setTimeout(r, 300)); await ad.write(${j(`${LF}/Ticket office.md`)}, text); })().then(() => 1)`);
+	t.ok(await until(p, `!!${file(`${LF}/Ticket office.md`)}`, 4000), 'the scene is back');
+	await p.sleep(700); await flush(p); await p.sleep(300);
+	t.eq(await p.ev(`JSON.stringify(app.metadataCache.getFileCache(${file(`${LF}/Index.md`)}).frontmatter.longform.scenes)`), j(['Harbor', ['Ticket office', 'The crossing'], 'Island', 'Return']), 'a Longform scene deleted and created again keeps its place and its indent');
+	// a note that stays deleted is off the list as before, in the next write
+	await p.ev(`app.vault.delete(${file(`${P1}/Storm warning.md`)}).then(() => 1)`);
+	await p.sleep(600);
+	t.eq(j((await contents(p)).slice(1, 4)), j(['Part One/', 'Part One/Landing', 'Part One/The keeper']), 'deleted for good: off the list');
+	// and a note made under its name long after is a new note: last
+	await p.sleep(2100);
+	await p.ev(`app.vault.create(${j(`${P1}/Landing 2.md`)}, 'x').then(() => app.vault.delete(${file(`${P1}/Landing.md`)})).then(() => 1)`);
+	await p.sleep(2300);
+	await p.ev(`app.vault.create(${j(`${P1}/Landing.md`)}, 'A new note of that name.').then(() => 1)`);
+	await p.sleep(300);
+	t.eq(j(await children(p, P1)), j(['Landing 2.md', 'The keeper.md', 'Landing.md']), 'a note of a deleted note’s name made later is a new note, after the listed ones');
+	same(t, before, await texts(p), { skip: [NOTE, keeper, `${P1}/Storm warning.md`, `${P1}/Arrival.md`, `${LF}/Index.md`] });
+}));

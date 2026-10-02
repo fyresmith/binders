@@ -1,4 +1,4 @@
-import { applyOps, checkFormat, cleanPath, copyIn, diskPath, isBinderNote, isFolderNote, moveTo, orderChildren, readIndex, relPath, removeFrom, renameIn, settleNames, stepIndex, UnsupportedBinder } from '../src/model';
+import { applyOps, checkFormat, cleanPath, copyIn, diskPath, isBinderNote, isFolderNote, moveTo, orderChildren, readIndex, relPath, removeFrom, renameIn, restoreIn, settleNames, stepIndex, UnsupportedBinder } from '../src/model';
 import { done, eq, ok } from './harness';
 
 const j = (x: unknown) => JSON.stringify(x);
@@ -102,6 +102,19 @@ const j = (x: unknown) => JSON.stringify(x);
 	eq(j(applyOps(c, [{ op: 'copy', from: 'P/', to: 'P 1/' }, { op: 'append', item: 'P 1/', inner: ['P 1/x', 'P 1/y'] }], [])), j(copyIn(c, 'P/', 'P 1/')), 'and one the store appends as well is listed once');
 	eq(new Set(applyOps(c, [{ op: 'copy', from: 'P/', to: 'P 1/' }, { op: 'copy', from: 'P/', to: 'P 1/' }], [])).size, 12, 'no entry twice');
 	ok(c.every((x) => copyIn(c, 'P/', 'P 1/').includes(x)), 'no entry of the list is lost');
+}
+
+// a file deleted and made again a moment later goes back where it stood
+{
+	const c = ['A', 'P/', 'P/x', 'P/z', 'B'];
+	eq(j(restoreIn(c, 'P/y', 'P/x', 'P/z')), j(['A', 'P/', 'P/x', 'P/y', 'P/z', 'B']), 'after the entry that stood before it');
+	eq(j(restoreIn(c, 'P/y', 'P/gone', 'P/z')), j(['A', 'P/', 'P/x', 'P/y', 'P/z', 'B']), 'or before the one that stood after it');
+	eq(j(restoreIn(c, 'P/a', null, 'P/gone')), j(['A', 'P/', 'P/a', 'P/x', 'P/z', 'B']), 'first, if it was first');
+	eq(j(restoreIn(c, 'P/q', 'P/gone', null)), j(['A', 'P/', 'P/x', 'P/z', 'P/q', 'B']), 'last in its folder, with neither neighbour left');
+	eq(j(restoreIn(c, 'C', 'P/', 'B')), j(['A', 'P/', 'P/x', 'P/z', 'C', 'B']), 'after a folder means after everything in it');
+	ok(restoreIn(['A', 'P/', 'P/z', 'P/y', 'P/x', 'B'], 'P/y', 'P/x', 'P/z') !== null && j(restoreIn(['A', 'P/', 'P/z', 'P/y', 'P/x', 'B'], 'P/y', 'P/x', 'P/z')) === j(['A', 'P/', 'P/z', 'P/y', 'P/x', 'B']), 'a list that mentions it already is left exactly as it is');
+	eq(j(applyOps(['A', 'B', 'C'], [{ op: 'remove', item: 'B' }, { op: 'restore', item: 'B', prev: 'A', next: 'C' }], ['A', 'B', 'C'])), j(['A', 'B', 'C']), 'deleted and made again in one batch: as it was');
+	eq(j(applyOps(['C', 'B', 'A'], [{ op: 'remove', item: 'B' }, { op: 'restore', item: 'B', prev: 'A', next: 'C' }], ['A', 'B', 'C'])), j(['C', 'A', 'B']), 'on a list reordered meanwhile: beside the neighbour it had');
 }
 
 // batches of changes
