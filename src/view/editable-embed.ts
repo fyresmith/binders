@@ -1,5 +1,6 @@
 import type { App, Component, Editor, TFile } from 'obsidian';
-import { StateEffect } from '@codemirror/state';
+import { historyField } from '@codemirror/commands';
+import { EditorState, StateEffect, Transaction, type Extension } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
 /* Undocumented: the editable Markdown embed that Canvas, hover popovers and `![[note]]` use. This module is the only
@@ -10,6 +11,7 @@ interface EditMode {
 	sourceMode: boolean;
 	cm?: EditorView;
 	get(): string;
+	set(text: string, clear?: boolean): void;
 	toggleSource(): void;
 	saveHistory(): void;
 }
@@ -86,6 +88,28 @@ function markSaved(app: App, file: TFile, text: string): void {
 		} catch { /* a view that isn't as expected merges as it always did */ }
 	}
 }
+
+/* Undo across a remount. `saveHistory()` puts an editor's undo history in Obsidian's own cache, by the note's path, and
+   Obsidian hands it to the next editor of that path whose text is the same *length*. That isn't the same text: after a
+   change of equal length made elsewhere while the note had no editor (a word swapped by sync, a history a tab of the
+   note left there), undo would apply its steps to a text they were never recorded on. So what went into the cache is
+   remembered here, with the text it belongs to, and a new editor keeps a history only if it is that one, on that text. */
+interface Step { changes?: unknown[]; mapped?: unknown }
+interface History { done?: Step[]; undone?: Step[] }
+/** The steps of an editor's undo history that change text, to undo and to redo, as CodeMirror serializes them (public
+    API); null if they can't be read. (Its steps that only move the cursor are left out: a new editor adds its own.) */
+function stepsOf(cm: EditorView | null): [Step[], Step[]] | null {
+	try {
+		const h = (cm?.state.toJSON({ history: historyField }) as { history?: History } | undefined)?.history;
+		const steps = (b: Step[] | undefined) => (Array.isArray(b) ? b : []).filter((e) => !!e?.changes?.length).map((e) => ({ changes: e.changes, mapped: e.mapped }));
+		return h ? [steps(h.done), steps(h.undone)] : null;
+	} catch {
+		return null;
+	}
+}
+/** Is there anything to undo or redo? Obsidian caches a history only then, and keeps what it had otherwise. */
+const hasSteps = (h: [Step[], Step[]]): boolean => h[0].length + h[1].length > 0;
+const kept = new Map<TFile, { text: string; history: string }>();
 
 /** Every live editor, by note, across all manuscripts (a split, another tab of the binder): a new one waits for
     the others' pending typing to be written, or it would load the old text and typing in it would lose theirs. */
@@ -183,6 +207,8 @@ export async function mountEditor(app: App, container: HTMLElement, file: TFile,
 	const show = (text: string) => { if (shown[shown.length - 1] !== text) { shown.push(text); if (shown.length > 32) shown.shift(); } };
 	// the write in flight: a flush while it runs (dirty is already false) must still wait for it
 	let writing: Promise<void> = Promise.resolve();
+	// true while text from elsewhere is put into an editor that doesn't have the cursor (see `set`, below)
+	let apart = false;
 	const flush = (): Promise<void> => {
 		embed.requestSave.cancel();
 		const text = embed.editMode?.get() ?? embed.text;
@@ -191,9 +217,20 @@ export async function mountEditor(app: App, container: HTMLElement, file: TFile,
 		if (embed.dirty) void embed.save(text, true);
 		return writing;
 	};
+	const cmOf = (): EditorView | null => embed.editMode?.cm ?? (embed.editor as unknown as { cm?: EditorView })?.cm ?? null;
 	// 6. Whoever tears the embed down (us, the view closing, the plugin unloading), typing is written first; the
 	//    debounced save isn't relied on. Undo history goes to Obsidian's per-file cache so a remount gets it back.
-	let gone = false, saved: Promise<void> = Promise.resolve(), made: LiveEditor | null = null;
+	//    (Only a history known to belong to this text: `known`, below.)
+	let gone = false, saved: Promise<void> = Promise.resolve(), made: LiveEditor | null = null, known = false;
+	const keepHistory = (edit: EditMode | null) => {
+		const cm = cmOf(), h = known && edit ? stepsOf(cm) : null;
+		if (!h) return;
+		edit.saveHistory();
+		if (!hasSteps(h)) return;
+		kept.delete(file);
+		kept.set(file, { text: cm.state.doc.toString(), history: JSON.stringify(h) });
+		if (kept.size > 20) kept.delete(kept.keys().next().value as TFile); // as many as Obsidian keeps
+	};
 	embed.unload = function (this: MdEmbed) {
 		if (!gone) {
 			gone = true;
@@ -202,7 +239,7 @@ export async function mountEditor(app: App, container: HTMLElement, file: TFile,
 			if (made) { live.get(file)?.delete(made); if (!live.get(file)?.size) live.delete(file); }
 			try {
 				saved = flush().catch((e) => console.error('Binders: saving failed', e));
-				this.editMode?.saveHistory();
+				keepHistory(this.editMode);
 			} catch (e) { console.error('Binders: saving failed', e); }
 		}
 		proto.unload.call(this);
@@ -218,7 +255,15 @@ export async function mountEditor(app: App, container: HTMLElement, file: TFile,
 		openEditors.get(file).add(flush);
 		// 2. A reload calls set(text, true), which rebuilds the editor state: cursor, scroll and undo lost. A plain
 		//    set() applies the change as a minimal diff, as a normal note does.
-		embed.set = function (this: MdEmbed, text: string) { show(text); proto.set.call(this, text, false); };
+		//    Text that arrives this way while the cursor isn't in this editor (another app, sync, another editor of the
+		//    note) is no step of its undo history: undo here takes back what was typed here, never words the writer
+		//    didn't put in and may not have seen arrive. With the cursor here it's a step like any other, as in a tab.
+		embed.set = function (this: MdEmbed, text: string) {
+			show(text);
+			const was = apart;
+			apart = !cmOf()?.hasFocus;
+			try { proto.set.call(this, text, false); } finally { apart = was; }
+		};
 		const doc = container.ownerDocument;
 		const prev = doc.activeElement as HTMLElement | null;
 		// showEditor() focuses without preventScroll, so the browser scrolls the new editor into view
@@ -226,6 +271,20 @@ export async function mountEditor(app: App, container: HTMLElement, file: TFile,
 		for (let el = container.parentElement; el; el = el.parentElement) if (el.scrollTop || el.scrollLeft) scrolled.push([el, el.scrollTop, el.scrollLeft]);
 		embed.showEditor();
 		if (!embed.editMode) throw new Error('The embed has no editor.');
+		// 8. The undo history Obsidian gave this editor (see `kept`) stays only if it was recorded on this very text.
+		//    Otherwise the editor is built again with none: `set(text, true)` looks the history up by the editor's
+		//    path, so for that one call it has no path.
+		const edit = embed.editMode, given = stepsOf(cmOf()), mine = kept.get(file);
+		if (!given || (hasSteps(given) && !(mine && mine.text === edit.get() && mine.history === JSON.stringify(given)))) {
+			try {
+				Object.defineProperty(edit, 'path', { value: '', configurable: true });
+				try { edit.set(edit.get(), true); } finally { delete (edit as { path?: string }).path; }
+			} catch (e) { if (given) throw e; }
+			const now = stepsOf(cmOf());
+			// better a section that can't be typed in than an undo that takes out text it never put in
+			if (now && hasSteps(now)) throw new Error('The undo history of another text could not be dropped.');
+		}
+		known = !!given;
 		// 7. An embed leaves its editor for its reading view on Escape and on "Toggle reading view", and destroys the
 		//    editor as it goes: in the manuscript that would leave a section that can't be typed in. Here a section
 		//    is always its editor.
@@ -247,17 +306,19 @@ export async function mountEditor(app: App, container: HTMLElement, file: TFile,
 		// ("Measure loop restarted"). So the editor never scrolls the page: a handler that returns true has handled the
 		// scroll (public CodeMirror API). Instead, whenever it would have scrolled its cursor into view, it says so, and
 		// the manuscript moves its page.
-		const cm = embed.editMode.cm;
-		if (cm && EditorView.scrollHandler) {
-			cm.dispatch({ effects: StateEffect.appendConfig.of(EditorView.scrollHandler.of((view, range) => {
-				if (view.hasFocus) { try { opts.onCaret?.(view, range.head); } catch (e) { console.error(e); } }
-				return true;
-			})) });
-		}
+		const cm = embed.editMode.cm, added: Extension[] = [];
+		if (cm && EditorView.scrollHandler) added.push(EditorView.scrollHandler.of((view, range) => {
+			if (view.hasFocus) { try { opts.onCaret?.(view, range.head); } catch (e) { console.error(e); } }
+			return true;
+		}));
+		// (2, above) text from elsewhere, taken while the cursor is elsewhere, stays out of the undo history: CodeMirror
+		// then moves the steps it has along with the change, as it does for a collaborator's edits (public API)
+		if (cm) added.push(EditorState.transactionExtender.of(() => apart ? { annotations: Transaction.addToHistory.of(false) } : null));
+		if (cm) cm.dispatch({ effects: StateEffect.appendConfig.of(added) });
 		made = {
 			file,
 			get editor() { return embed.editor; },
-			get cm() { return embed.editMode?.cm ?? (embed.editor as unknown as { cm?: EditorView })?.cm ?? null; },
+			get cm() { return cmOf(); },
 			get text() { return embed.editMode ? embed.editMode.get() : embed.text; },
 			get dirty() { return embed.dirty; },
 			flush,

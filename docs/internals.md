@@ -27,6 +27,7 @@ a fallback, and has an e2e test. Where one of those is still missing, the table 
 | The embed's `editable`, `loadFile()`, `showEditor()`, `save(text, now)`, `set(text, clear)`, `loadFileInternal(data, cache)`, `onFileChanged`, `requestSave.cancel()`, `text`/`data`/`dirty`/`lastSavedData`, `unload()` | `src/view/editable-embed.ts` | Mounting, saving, merging outside edits, flushing on teardown (see below) | Checked in `embedSupported()`; a section whose mount throws stays rendered | `specs-manuscript.mjs`, `specs-qa-manuscript.mjs` |
 | The embed's `showPreview()` and `toggleMode()`, replaced on each embed with functions that do nothing | `src/view/editable-embed.ts` | Escape and "Toggle reading view" would swap a section's editor for a reading view and destroy the editor: a section stays an editor | Not checked (assigning them is harmless if Obsidian stops calling them). If Obsidian leaves the editor some other way, the manuscript mounts a new one when the section is next focused | `specs-qa2-manuscript.mjs` (Escape, "Toggle reading view") |
 | The embed's `editMode`: `get()`, `sourceMode`, `toggleSource()`, `saveHistory()`, `cm` (the CodeMirror `EditorView`; else the `Editor`'s own `cm`) | `src/view/editable-embed.ts` | Reading typing, keeping live preview, undo across remounts, moving the caret between sections, the page following the caret | Without `cm`, arrow keys stop at a section's edge (no crossing) and the section is focused through `editor.focus()` | `specs-manuscript.mjs`, `specs-qa2-manuscript.mjs` |
+| Obsidian's cache of undo histories, by path: filled by `editMode.saveHistory()`, read by `editMode.set(text, true)`, which gives a new editor the cached history when the text is the same length. And `editMode.path` (a getter on its prototype), shadowed on one editor for one `set(text, true)` call | `src/view/editable-embed.ts` (`kept`, `stepsOf`) | A section mounted again keeps its undo history only if it was recorded on exactly the text now loaded; otherwise it starts with none | The history is read with CodeMirror's public `state.toJSON({ history: historyField })`. If it can't be read, nothing is saved to the cache and every mount drops what it was given (no undo across remounts). If a history that doesn't belong can't be dropped, the mount throws and the section stays read only | `specs-manuscript.mjs` (a note changed outside while its section had no editor) |
 | `workspace.unsetActiveEditor(editor)` | `src/view/editable-embed.ts` | Mounting a section doesn't make it the active editor | Required by `embedSupported()` | `specs-manuscript.mjs` |
 | `workspace.onQuickPreview(file, text)` | `src/view/editable-embed.ts` | After merging an outside edit into unsaved typing, other views of the note get the merged text | Skipped if missing (other views then show the outside version until the save lands, as in Obsidian) | `specs-manuscript.mjs` (same note in a tab) |
 | `vault.getConfig('trashOption')` | `src/view/internals.ts` (`trashKind`, `trashPhrase`) | Saying where deleted and merged-away notes go (the system trash, the vault's trash, or nowhere) in the questions asked before deleting | "The system trash" (Obsidian's default) | `specs-qa3-scenes.mjs` |
@@ -164,10 +165,24 @@ touches it; `mountEditor()` builds one embed and patches that instance only:
   do (they lose text in that case).
 - **`set`**, after `loadFile()`: a reload calls `set(text, true)`, which rebuilds the editor (cursor, scroll and undo
   lost); ours applies it as a diff.
+  While the cursor isn't in the editor, that change is kept out of its undo history (CodeMirror's public
+  `Transaction.addToHistory`, added by an `EditorState.transactionExtender`; the history then moves its steps along
+  with the change, as for a collaborator's edit). So undo in a section takes back what was typed there, never text
+  that arrived from another app, sync or another editor of the note while the writer was elsewhere. Obsidian replaces
+  whole lines when it takes in new ones, so typing on a line next to them can lose its undo step; it never removes
+  the outside text. With the cursor in the editor an outside change is an undo step, as in a tab of the note.
 - **`save`**: wrapped to report typing (`onChange`) for the word count; the write itself is untouched.
 - **`unload`**: whoever tears the embed down (the manuscript, the view closing, the plugin unloading), pending typing is
   written first and `editMode.saveHistory()` keeps undo history for a remount. `destroy()` returns that write, and a
   remount of the same note waits for it, so it never loads the old text.
+- **Undo across a remount.** Obsidian gives a new editor the history cached for its path whenever the text has the
+  same *length* as when it was saved. After a change of equal length made while the note had no editor (sync moving a
+  phrase; a history left by a tab of the note), undo would apply its steps to a text they weren't recorded on and
+  take out other words. The wrapper remembers the text and the text-changing steps of each history it saves (up to
+  20, as Obsidian does), and after `showEditor()` compares: unless the editor's history is that one and its text is
+  that text, the editor state is built again with no history (`set(text, true)` with `path` shadowed as `''` for the
+  call, so nothing is looked up). `@codemirror/commands` (for `historyField`) is provided by Obsidian like `state` and
+  `view`; `src/codemirror-commands.d.ts` declares the one export used.
 - `save()` does nothing until `loadFile()` resolves, so the editor is only shown after it.
 - `showEditor()` focuses the new editor and queues "scroll to the top of the note" for CodeMirror's next measure. The
   wrapper puts focus back, unsets the active editor, and restores the scroll position of every scrolled ancestor.

@@ -215,6 +215,108 @@ test('undo reaches typing from before a section was unmounted and mounted again'
 	t.eq(disk(p, f), orig, 'and saves');
 });
 
+/** Takes a section's editor away, as scrolling far from it does, runs `outside` (page code) while it has none, and
+    mounts it again. `broken` keeps the manuscript from mounting it by itself meanwhile. */
+async function remount(p, f, outside = '0') {
+	await p.ev(`(async () => { const m = ${M}, s = m.scenes[${idx(f)}]; document.activeElement.blur(); s.broken = true; m.unmount(s); await s.saved; await (${outside}); await new Promise(r => setTimeout(r, 400)); s.broken = false; await m.mount(s); return 1; })()`);
+}
+const undo = async (p) => { await p.key('z', 'ctrl'); await p.sleep(150); };
+const redo = async (p) => { await p.key('y', 'ctrl'); await p.sleep(150); };
+
+test('undo and redo still reach the typing after a section was unmounted and mounted twice, nothing changed outside', async (p, h, t) => {
+	await mount(p);
+	const f = ORDER[3], orig = await text(p, f);
+	await focusEnd(p, f); await p.type(' mine');
+	await remount(p, f); await remount(p, f);
+	t.eq(await text(p, f), orig.replace(/\n$/, ' mine\n'), 'mounted again with the typing');
+	await focusEnd(p, f); await undo(p);
+	t.eq(await text(p, f), orig, 'undo takes the typing back');
+	await flushAll(p);
+	t.eq(disk(p, f), orig, 'on disk too');
+	await redo(p);
+	t.eq(await text(p, f), orig.replace(/\n$/, ' mine\n'), 'redo returns it');
+	await flushAll(p);
+	t.eq(disk(p, f), orig.replace(/\n$/, ' mine\n'), 'on disk too');
+});
+
+for (const [what, edit] of [
+	// (Obsidian hands a new editor the note's old undo history whenever the text is the same length)
+	['of the same length', `s => s.replace(' mine\\n', '\\n').replace(/\\n---\\n/, '\\n---\\nSoon ')`],
+	['that is longer', `s => s.replace(/\\n---\\n/, '\\n---\\nA new first line from outside.\\n')`],
+	['that is shorter', `s => s.replace(/\\n---\\n[^ ]+ /, '\\n---\\n')`],
+]) test(`a note changed outside while its section had no editor, to a text ${what}: undo there changes nothing`, async (p, h, t) => {
+	await mount(p);
+	const f = ORDER[5], orig = disk(p, f);
+	await focusEnd(p, f); await p.type(' mine');
+	await remount(p, f, `app.vault.process(app.vault.getAbstractFileByPath(${J(f)}), ${edit})`);
+	const outside = disk(p, f);
+	t.ok(outside !== orig && outside !== orig.replace(/\n$/, ' mine\n') && fm(outside) === fm(orig), 'the note was changed outside: ' + J(outside));
+	t.eq(await text(p, f), outside, 'mounted with the outside text');
+	await focusEnd(p, f); await undo(p); await undo(p);
+	t.eq(await text(p, f), outside, 'undo has nothing to take back: every word of the outside text stays');
+	await redo(p);
+	t.eq(await text(p, f), outside, 'and redo nothing to return');
+	await p.sleep(2300); await flushAll(p);
+	t.eq(disk(p, f), outside, 'the file is as the other app left it');
+	// undo works as ever for what's typed from here on
+	await p.type(' again'); await p.sleep(100); await undo(p);
+	t.eq(await text(p, f), outside, 'new typing is undone, and only that');
+	await flushAll(p);
+	t.eq(disk(p, f), outside, 'on disk too');
+});
+
+for (const [what, edit, into, exact] of [
+	// (a property is what Binders' own views, and most other tools, change in a note)
+	['a property', `s => s.replace('status: idea', 'status: draft')`, (s) => s.replace('status: idea', 'status: draft'), true],
+	// Obsidian takes in a new line by replacing the line after it too: the typing there is no longer what was typed
+	['a line right above the typing', `s => s.replace(/\\n---\\n/, '\\n---\\nFrom outside.\\n')`, (s) => s.replace(/\n---\n/, '\n---\nFrom outside.\n'), false],
+]) test(`an outside change (${what}) that reaches a section just mounted again, the cursor not in it: undo takes back the typing at most, never the outside text`, async (p, h, t) => {
+	await mount(p);
+	const f = ORDER[5], orig = disk(p, f);
+	await focusEnd(p, f); await p.type(' mine');
+	// the editor is back, on the text as typed and with its undo history, before the other app's write lands
+	await remount(p, f);
+	t.eq(await activeIn(p, f), false, 'the cursor is not in the section');
+	await p.ev(`app.vault.process(app.vault.getAbstractFileByPath(${J(f)}), ${edit}).then(() => 1)`);
+	await p.sleep(800);
+	const undone = into(orig), both = undone.replace(/\n$/, ' mine\n');
+	t.ok(undone !== orig, 'the note was changed outside');
+	t.eq(await text(p, f), both, 'the outside change shows, with the typing');
+	t.eq(disk(p, f), both, 'on disk too');
+	await focusEnd(p, f); await undo(p);
+	const u = await text(p, f);
+	if (exact) t.eq(u, undone, 'undo removes “ mine” and leaves the outside change');
+	else t.ok(u === undone || u === both, 'undo removes “ mine” or nothing, and leaves the outside line: ' + J(u));
+	await undo(p);
+	t.eq(await text(p, f), u, 'a second undo has nothing more to take');
+	await p.sleep(2300); await flushAll(p);
+	t.eq(disk(p, f), u, 'on disk too');
+	await redo(p);
+	t.eq(await text(p, f), both, 'after redo the typing and the outside change are both there');
+	await flushAll(p);
+	t.eq(disk(p, f), both, 'on disk too');
+});
+
+test('an outside change in the section the cursor is in is an undo step, as in a tab of the note; redo returns it', async (p, h, t) => {
+	await mount(p);
+	const f = ORDER[5], orig = disk(p, f);
+	await focusEnd(p, f); await p.type(' mine'); await flushAll(p);
+	await p.sleep(700);
+	await addLineOutside(p, f);
+	await p.sleep(800);
+	const mine = orig.replace(/\n$/, ' mine\n'), both = mine.replace(/\n---\n/, '\n---\nFrom outside.\n');
+	t.eq(await activeIn(p, f), true, 'the cursor is still in the section');
+	t.eq(await text(p, f), both, 'the outside line shows, with the typing');
+	await undo(p);
+	t.eq(await text(p, f), mine, 'the first undo takes back the outside line');
+	await undo(p);
+	t.eq(await text(p, f), orig, 'the second, the typing');
+	await redo(p); await redo(p);
+	t.eq(await text(p, f), both, 'redo returns both');
+	await flushAll(p);
+	t.eq(disk(p, f), both, 'and the file has both');
+});
+
 test('select all then typing replaces only the body; frontmatter kept', async (p, h, t) => {
 	await mount(p);
 	const f = ORDER[4], before = disk(p, f);
