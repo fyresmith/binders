@@ -72,6 +72,9 @@ row.
 - If a folder has several binder notes, the one named like the folder is the binder note; otherwise the first by name.
 - The vault's top level can't be a binder.
 - Binders writes only `contents` (and its own properties above) in the binder note, and never changes the rest of it.
+- A name keeps its own spaces, at its start and end too (`" Lead"`, `"Trail "`): a file can be named so, and an entry
+  with them taken off would no longer name it. An entry typed by hand with stray spaces round a name (`  Prologue  `)
+  that names nothing as it stands, but names an item once they are off, is taken for that item.
 - A note named after a file beside it (`paper.pdf.md` next to `paper.pdf`) is listed with its `.md`; the bare entry is
   the file's.
 
@@ -204,10 +207,9 @@ The Lighthouse/
   local time (`2026-10-01 14.32.07`), followed by its name if it has one (`2026-10-01 14.32.07 First draft`); if two
   would have the same name, the second is counted on (`… First draft (2)`). Naming a snapshot renames its file. A name
   can't contain `* " \ / < > : | ?` and is at most 120 characters. A file named some other way still counts, under its
-  whole name.
+  whole name. A name that ends in a number in brackets (`Draft (2)`) is the name as typed: the brackets are read as a
+  count only when the snapshot of the same time and the name without them is in the same folder.
 
-A name that ends in a number in brackets is the name as typed; the brackets are read as that count only when the
-snapshot of the same time and name without them is in the same folder.
 - It holds two properties and then the note's text exactly as it was (line breaks and all). The note's own
   properties (synopsis, status, label, tags) are not copied:
 

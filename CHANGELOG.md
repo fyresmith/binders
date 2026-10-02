@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.133 (2026-10-02)
+
+### Changed
+
+- Nothing a writer will notice: each file format rule is stated once in its place, and three more of Obsidian's undocumented parts that the code relies on are listed.
+
 ## 0.12.132 (2026-10-02)
 
 ### Changed
