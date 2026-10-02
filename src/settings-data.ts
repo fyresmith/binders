@@ -5,6 +5,7 @@ import { COMPILE_DEFAULTS, type CompileOptions } from './scene-text';
 /* Binders' settings as data: what they are, their defaults, and reading them back from what was saved. Pure (the
    settings tab is in settings.ts), so it can be unit-tested. */
 
+/** Everything Binders keeps in its `data.json`. */
 export interface BindersSettings {
 	/** Show binders in their own order in Obsidian's file explorer (patches the explorer's sorting). */
 	orderExplorer: boolean;
@@ -32,7 +33,6 @@ export interface BindersSettings {
 	compiled: Record<string, string>;
 	/** Where each folder was last compiled to (its path → the note's path): offered again the next time. */
 	compiledTo: Record<string, string>;
-	// focus mode >>>
 	/** Focus mode: the line being written at the end of a scene is held at one height. On to begin with, as dimming is. */
 	focusTypewriter: boolean;
 	/** Focus mode: where the scene is in the binder, and its synopsis, beside the text. */
@@ -47,22 +47,23 @@ export interface BindersSettings {
 	focusGoal: number;
 	/** Focus mode: the window goes to the system's fullscreen with it, and comes back out with it. */
 	focusFullscreen: boolean;
-	// <<< focus mode
 }
 
+/** What a new vault starts with. */
 export const DEFAULT_SETTINGS: BindersSettings = {
 	orderExplorer: true, openOnClick: true, hideBinderNotes: true, explorerLabels: true,
 	synopsisProp: 'synopsis', statusProp: 'status', labelProp: 'label', targetProp: 'target',
 	labels: DEFAULT_LABELS, statuses: DEFAULT_STATUSES, outlinerColumns: DEFAULT_COLUMNS, compile: COMPILE_DEFAULTS, compiled: {}, compiledTo: {},
-	focusTypewriter: true, focusPlace: false, focusNumbers: false, focusDim: true, focusNeighbours: false, focusGoal: 0, focusFullscreen: false, // focus mode
+	focusTypewriter: true, focusPlace: false, focusNumbers: false, focusDim: true, focusNeighbours: false, focusGoal: 0, focusFullscreen: false,
 };
 
-// focus mode >>>
+/** Focus mode's options that are on or off. */
 export type FocusToggle = 'focusTypewriter' | 'focusNeighbours' | 'focusPlace' | 'focusNumbers' | 'focusDim' | 'focusFullscreen';
 /** In the order the settings and the focus menu list them. */
 export const FOCUS_TOGGLES: FocusToggle[] = ['focusTypewriter', 'focusNeighbours', 'focusPlace', 'focusNumbers', 'focusDim', 'focusFullscreen'];
 /** The ones this device can do: a phone or tablet has no window to put in fullscreen. */
 export const focusToggles = (mobile: boolean): FocusToggle[] => FOCUS_TOGGLES.filter((k) => !mobile || k !== 'focusFullscreen');
+/** The names and descriptions of focus mode's options, shared by the settings tab and focus mode's own menu. */
 export const FOCUS_TEXT: Record<FocusToggle | 'focusGoal', readonly [string, string]> = {
 	focusTypewriter: ['Typewriter scrolling', 'While you write at the end of a scene, the line you’re on stays at one height and the page moves under it. Anywhere else in the text, the page scrolls as it always does.'],
 	focusNeighbours: ['Show the scenes before and after', 'In a note, the end of the scene before is shown above its text and the start of the scene after below it, as in the manuscript. Click one to go there.'],
@@ -72,13 +73,16 @@ export const FOCUS_TEXT: Record<FocusToggle | 'focusGoal', readonly [string, str
 	focusFullscreen: ['Enter fullscreen', 'Focus mode takes the whole screen, and gives it back when you leave.'],
 	focusGoal: ['Words to write today', 'A goal for a day’s writing in a binder, shown with the word counts. Leave empty for none.'],
 };
-// <<< focus mode
 
+/** The file explorer's four switches. */
 export type Toggle = 'orderExplorer' | 'openOnClick' | 'hideBinderNotes' | 'explorerLabels';
+/** The four property names settings can change. */
 export type Prop = 'synopsisProp' | 'statusProp' | 'labelProp' | 'targetProp';
+/** Both in the order the settings tab lists them. */
 export const TOGGLES: Toggle[] = ['orderExplorer', 'openOnClick', 'hideBinderNotes', 'explorerLabels'];
 export const PROPS: Prop[] = ['synopsisProp', 'statusProp', 'labelProp', 'targetProp'];
 
+/** Their names and descriptions in the settings tab. */
 export const TEXT: Record<Toggle | Prop, readonly [string, string]> = {
 	orderExplorer: ['Order binders in the file explorer', 'Show the notes and folders in a binder in its own order instead of by name, and drag them there to reorder. Turn this off if another plugin replaces the file explorer.'],
 	openOnClick: ['Open binders from the file explorer', 'Clicking a binder, or a folder inside one, opens its binder view.'],
@@ -106,8 +110,8 @@ export function readSettings(data: unknown): BindersSettings {
 	s.compile = { ...COMPILE_DEFAULTS };
 	for (const k of ['folderHeadings', 'sceneHeadings', 'title', 'stripComments'] as const) if (typeof c[k] === 'boolean') s.compile[k] = c[k];
 	if (typeof c.separator === 'string') s.compile.separator = c.separator;
-	for (const k of FOCUS_TOGGLES) if (typeof d[k] === 'boolean') s[k] = d[k]; // focus mode
-	if (typeof d.focusGoal === 'number' && Number.isInteger(d.focusGoal) && d.focusGoal > 0) s.focusGoal = d.focusGoal; // focus mode
+	for (const k of FOCUS_TOGGLES) if (typeof d[k] === 'boolean') s[k] = d[k];
+	if (typeof d.focusGoal === 'number' && Number.isInteger(d.focusGoal) && d.focusGoal > 0) s.focusGoal = d.focusGoal;
 	s.compiledTo = {};
 	if (d.compiledTo && typeof d.compiledTo === 'object' && !Array.isArray(d.compiledTo)) for (const [k, v] of Object.entries(d.compiledTo).slice(-COMPILED_KEPT)) if (typeof v === 'string') s.compiledTo[k] = v;
 	s.compiled = {};

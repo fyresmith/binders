@@ -1,4 +1,4 @@
-import { applyOps, checkFormat, cleanPath, diskPath, folderNoteOf, isBinderNote, isFolderNote, moveTo, orderChildren, readIndex, readingOrder, relPath, removeFrom, renameIn, stepIndex, UnsupportedBinder } from '../src/model';
+import { applyOps, checkFormat, cleanPath, diskPath, isBinderNote, isFolderNote, moveTo, orderChildren, readIndex, relPath, removeFrom, renameIn, stepIndex, UnsupportedBinder } from '../src/model';
 import { done, eq, ok } from './harness';
 
 const j = (x: unknown) => JSON.stringify(x);
@@ -50,9 +50,6 @@ const j = (x: unknown) => JSON.stringify(x);
 
 // folder notes and the binder note are never part of the list
 {
-	eq(folderNoteOf('Part One/'), 'Part One/Part One', 'a folder note is named like its folder');
-	eq(folderNoteOf('A/B/'), 'A/B/B', 'nested folders too');
-	eq(folderNoteOf(''), '', 'the top level has none (the binder note is its note)');
 	ok(isFolderNote('Part One/Part One') && isFolderNote('A/B/B'), 'folder notes recognised');
 	ok(!isFolderNote('Part One/Arrival') && !isFolderNote('Novel') && !isFolderNote('A/A/') && !isFolderNote('A/B/A'), 'others are not');
 	ok(!isFolderNote('Part One/Part One.png'), 'only notes (other files keep their extension)');
@@ -71,13 +68,6 @@ const j = (x: unknown) => JSON.stringify(x);
 	eq(diskPath('Part One/Arrival'), 'Part One/Arrival', 'written as is');
 	eq(diskPath('notes.md'), 'notes.md.md', 'a note named notes.md.md is written in full, as reading drops one .md');
 	eq(diskPath('A.md/'), 'A.md/', 'folders as they are');
-}
-
-// reading order, depth first
-{
-	const tree: Record<string, string[]> = { '': ['Epilogue', 'Part One/', 'Prologue'], 'Part One/': ['Part One/B', 'Part One/A'] };
-	eq(j(readingOrder(['Prologue', 'Part One/', 'Part One/A', 'Epilogue'], (f) => tree[f] ?? [])), j(['Prologue', 'Part One/', 'Part One/A', 'Part One/B', 'Epilogue']), 'folders are followed by their contents, unlisted last');
-	eq(j(readingOrder([], () => [])), '[]', 'an empty binder');
 }
 
 // batches of changes

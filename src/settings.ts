@@ -1,18 +1,23 @@
 import { Notice, Platform, PluginSettingTab, Setting, TextComponent, requireApiVersion, type App, type SettingDefinition, type SettingDefinitionItem } from 'obsidian';
 import type BindersPlugin from './main';
 import { DEFAULT_SETTINGS, FOCUS_TEXT, FOCUS_TOGGLES, focusToggles, PROPS, TEXT, TOGGLES, type BindersSettings, type FocusToggle, type Prop, type Toggle } from './settings-data';
-import { parseGoal } from './focus/session'; // focus mode
+import { parseGoal } from './focus/session';
 import { COMPILE_PROP } from './scenes';
 import { DEFAULT_LABELS, DEFAULT_STATUSES, PALETTE, colorCss, display, freeName, hexColor } from './view/labels';
 import { confirm } from './view/modals';
 
+/* The settings tab. Declarative on Obsidian 1.13 and later (`getSettingDefinitions`), drawn by `display()` before it.
+   What the settings are, and how saved ones are read back, is settings-data.ts. Renaming a label or a status asks
+   whether to rename it in the notes that have it: notes are never rewritten unasked. */
+
 export { DEFAULT_SETTINGS, readSettings, type BindersSettings } from './settings-data';
 
+/** The color dropdown's value for a color of the writer's own (a hex color, not one of the theme's). */
 const CUSTOM = 'custom';
 /** Property names Binders keeps for itself: a note's synopsis, status, label or target can't be kept under one. */
 const RESERVED = ['binder', 'contents', 'longform', COMPILE_PROP];
 
-/* Plugin-wide settings. Each binder's own options live in its binder note. */
+/** Binders' tab in Obsidian's settings: the file explorer's switches, labels, statuses, focus mode, property names. */
 export class BindersSettingTab extends PluginSettingTab {
 	constructor(app: App, private plugin: BindersPlugin) { super(app, plugin); }
 
@@ -58,10 +63,11 @@ export class BindersSettingTab extends PluginSettingTab {
 		];
 	}
 
+	/** Obsidian 1.13 calls this when a toggle defined above is switched. */
 	async setControlValue(key: string, value: unknown): Promise<void> {
 		const s = this.s;
 		if ((TOGGLES as string[]).includes(key) && typeof value === 'boolean') s[key as Toggle] = value;
-		if ((FOCUS_TOGGLES as string[]).includes(key) && typeof value === 'boolean') s[key as FocusToggle] = value; // focus mode
+		if ((FOCUS_TOGGLES as string[]).includes(key) && typeof value === 'boolean') s[key as FocusToggle] = value;
 		// (what depends on it is drawn again: hiding notes can't be on without ordering)
 		if (key === 'orderExplorer') await this.changed(); else await this.save();
 	}
@@ -193,7 +199,7 @@ export class BindersSettingTab extends PluginSettingTab {
 	}
 
 	/** A label: its name, one of Obsidian's colors (the theme's own shade of it) or a color of your own. A note has the
-	    label when its label property is this name, so renaming one here doesn't rename it in notes. */
+	    label when its label property is this name, so renaming one here asks whether those notes take the new name. */
 	private labelRow(setting: Setting, i: number): void {
 		const label = this.s.labels[i];
 		if (!label) return;
@@ -244,6 +250,7 @@ export class BindersSettingTab extends PluginSettingTab {
 		});
 	}
 
+	/** A status: its name, renamed as a label is. */
 	private statusRow(setting: Setting, i: number): void {
 		const status = this.s.statuses[i];
 		if (status == null) return;
@@ -266,8 +273,10 @@ export class BindersSettingTab extends PluginSettingTab {
 		});
 	}
 
+	/** Obsidian before 1.13 draws the tab through this. */
 	display(): void { this.draw(); }
 
+	/** The tab drawn by hand, row by row: the same settings as `getSettingDefinitions`, in the same order. */
 	private draw(): void {
 		const { containerEl } = this, s = this.s;
 		containerEl.empty();
@@ -288,7 +297,6 @@ export class BindersSettingTab extends PluginSettingTab {
 		};
 		list('Labels', 'binders-settings-labels', s.labels, (st, i) => this.labelRow(st, i), () => this.addLabel(), 'Add label');
 		list('Statuses', 'binders-settings-statuses', s.statuses, (st, i) => this.statusRow(st, i), () => this.addStatus(), 'Add status');
-		// focus mode
 		new Setting(containerEl).setName('Focus mode').setHeading();
 		for (const k of focusToggles(Platform.isMobile)) new Setting(containerEl).setName(FOCUS_TEXT[k][0]).setDesc(FOCUS_TEXT[k][1])
 			.addToggle((t) => t.setValue(s[k]).onChange(async (v) => { s[k] = v; await this.save(); }));

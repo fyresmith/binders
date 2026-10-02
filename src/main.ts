@@ -6,50 +6,57 @@ import { openForRename } from './view/internals';
 import { corkboard } from './view/corkboard';
 import { byLabel } from './view/lanes';
 import { BindersSettingTab, readSettings, type BindersSettings } from './settings';
-import { installExplorer, renameInExplorer, type Explorer } from './explorer'; // explorer (0.3)
+import { installExplorer, renameInExplorer, type Explorer } from './explorer';
 import type { ModeFactory } from './view/mode';
 import { outliner } from './view/outliner';
-import { manuscript } from './view/manuscript'; // manuscript (0.6)
-import { ConvertModal } from './longform-convert'; // longform (0.7)
+import { manuscript } from './view/manuscript';
+import { ConvertModal } from './longform-convert';
 import { CompileModal, mergeScenes, splitScene } from './scenes';
 import { Focus } from './focus/focus';
-import { isScene, leftovers } from './snapshots'; // snapshots
-import { LeftoversModal, SNAPSHOT_VIEW, SnapshotView, SnapshotsModal, folderSnapshotItems, snapshotItems, startRewrite, take, takeAll } from './view/snapshots'; // snapshots
+import { isScene, leftovers } from './snapshots';
+import { LeftoversModal, SNAPSHOT_VIEW, SnapshotView, SnapshotsModal, folderSnapshotItems, snapshotItems, startRewrite, take, takeAll } from './view/snapshots';
 
-/* Binders: ordered folders for long-form writing. See docs/plan.md for the design. */
+/* The plugin: builds the store, the explorer patch, the binder view and its modes, focus mode and the settings tab;
+   registers the commands and the items Binders adds to Obsidian's file menus; and opens a binder view. It holds no logic
+   a view or the store needs: a command finds what it applies to (`checkCallback`) and calls into them. A change the
+   store can refuse (make a binder, new scene, move, group, merge, undo) runs through `tell()`, so a refusal is a notice,
+   not silence. Focus mode registers its own commands
+   (focus/focus.ts); the snapshot commands are in `snapshotCommands` here. The design is in docs/plan.md, the map of the
+   code in docs/architecture.md. */
+
+/** The plugin. `app.plugins.plugins.binders` is this: the store is `binders`, the explorer patch `explorer`. */
 export default class BindersPlugin extends Plugin {
 	settings: BindersSettings;
-	explorer: Explorer; // explorer (0.3)
+	/** The patch of Obsidian's file explorer (explorer.ts): refreshed when settings change. */
+	explorer: Explorer;
 	/** Every binder in the vault; views, the explorer and tests go through this. */
 	binders: BinderStore;
 	/** Focus mode: its commands, the button on a binder's notes, the day's words (focus/focus.ts). */
 	focus: Focus;
-	/** The binder view's modes by id: the view mounts one into its content (see view/mode.ts); a mode not here shows
-	    "coming soon". */
+	/** The binder view's modes by id: the view mounts one into its content (see view/mode.ts). */
 	readonly modeFactories: Record<string, ModeFactory> = {
 		corkboard,
 		// (the corkboard arranged by label: not a mode of its own, but the board the corkboard shows then)
 		[BY_LABEL]: byLabel,
 		outliner,
-		manuscript, // manuscript (0.6)
+		manuscript,
 	};
 
 	async onload() {
 		await this.loadSettings();
 		this.binders = new BinderStore(this);
 		this.addSettingTab(new BindersSettingTab(this.app, this));
-		// explorer (0.3) >>>
+		// (the last argument: the folder the binder view in front shows, which the explorer marks as it marks the open note)
 		this.explorer = installExplorer(this, this.binders, () => this.settings, (f, newLeaf) => void this.openBinder(f, newLeaf), () => { const v = this.app.workspace.getMostRecentLeaf()?.view; return v instanceof BinderView ? v.folder : null; });
-		// <<< explorer (0.3)
 
 		this.registerView(VIEW_TYPE, (leaf) => new BinderView(leaf, this));
 		this.focus = new Focus(this);
-		this.registerView(SNAPSHOT_VIEW, (leaf) => new SnapshotView(leaf, this)); // snapshots
+		this.registerView(SNAPSHOT_VIEW, (leaf) => new SnapshotView(leaf, this));
 		// (not in a card's own menu, which has these already)
 		this.registerEvent(this.app.workspace.on('file-menu', (menu, file, source) => { if (source !== ITEM_MENU) this.fileMenu(menu, file, source); }));
 		this.registerEvent(this.app.workspace.on('files-menu', (menu, files, source) => { if (source !== ITEM_MENU) this.filesMenu(menu, files); }));
 		const active = () => this.app.workspace.getActiveFile();
-		this.snapshotCommands(active); // snapshots
+		this.snapshotCommands(active);
 		this.addCommand({ id: 'open-binder', name: 'Open binder', checkCallback: (checking) => {
 			const file = active(), folder = this.folderOf(file);
 			if (!file || !folder || !this.binders.binderOf(file)) return false;
@@ -96,7 +103,6 @@ export default class BindersPlugin extends Plugin {
 			}
 			return true;
 		} });
-		// longform (0.7) >>>
 		this.addCommand({ id: 'convert-longform', name: 'Convert to binder', checkCallback: (checking) => {
 			// (the project of the open note, or the one a binder view in front is showing)
 			const b = this.longformOf(active() ?? this.app.workspace.getActiveViewOfType(BinderView)?.folder ?? null);
@@ -104,7 +110,6 @@ export default class BindersPlugin extends Plugin {
 			if (!checking) new ConvertModal(this.app, this.binders, b).open();
 			return true;
 		} });
-		// <<< longform (0.7)
 		// splitting a scene where the cursor is, in a note or in the manuscript (whose sections are editors on their notes)
 		for (const [id, name, titled] of [['split-scene', 'Split scene at cursor', false], ['split-scene-titled', 'Split scene with selection as title', true]] as const) {
 			this.addCommand({ id, name, icon: 'split', editorCheckCallback: (checking, editor, ctx) => {
@@ -152,7 +157,7 @@ export default class BindersPlugin extends Plugin {
 		}
 	}
 
-	/** snapshots: the commands, for the note that's open (or, in a manuscript, the section the cursor is in), and for
+	/** The snapshot commands, for the note that's open (or, in a manuscript, the section the cursor is in), and for
 	    the binder in view. */
 	private snapshotCommands(active: () => TFile | null): void {
 		const view = () => this.app.workspace.getActiveViewOfType(BinderView);
@@ -198,17 +203,21 @@ export default class BindersPlugin extends Plugin {
 	/** How each binder's view was last left (mode, filter, options), by its binder note, for opening it again. */
 	lastView = new Map<string, Record<string, unknown>>();
 
+	/** Reads the saved settings, made whole (settings-data.ts). */
 	async loadSettings() {
 		this.settings = readSettings(await this.loadData());
 	}
 
+	/** Saves the settings and tells everything that shows them: the explorer, the views, focus mode. */
 	async saveSettings() {
 		await this.saveData(this.settings);
-		this.explorer?.refresh(); // explorer (0.3)
+		this.explorer?.refresh(); // order, hidden notes and label dots follow their settings
 		this.binders?.refresh(); // the views: labels and statuses may have changed
 		this.focus?.optionsChanged(); // focus mode: what's on its page follows its options
 	}
 
+	/** What Binders adds to the menu of one note or folder, wherever Obsidian shows it (the file explorer, a tab, a
+	    note's "More options"): each item in the section Obsidian's own items of its kind are in. */
 	private fileMenu(menu: Menu, file: TAbstractFile, source = ''): void {
 		const b = this.binders;
 		// (a note's own "More options" has no section for making things: there, with what else is done to the note)
@@ -240,7 +249,7 @@ export default class BindersPlugin extends Plugin {
 		// snapshots: a note's, in its own menu and in the file explorer as on its card; a folder's notes, all at once
 		snapshotItems(this, menu, [file], 'action');
 		if (file instanceof TFolder) folderSnapshotItems(this, menu, file, 'action');
-		const lf = this.longformOf(file); // longform (0.7)
+		const lf = this.longformOf(file);
 		if (lf && (file === lf.note || file === lf.folder)) menu.addItem((i) => i.setSection('action-primary').setTitle('Convert to binder').setIcon('library').onClick(() => new ConvertModal(this.app, b, lf).open()));
 		if (this.canStep(file, -1)) menu.addItem((i) => i.setSection('action').setTitle('Move up').setIcon('arrow-up').onClick(() => void this.step(file, -1)));
 		if (this.canStep(file, 1)) menu.addItem((i) => i.setSection('action').setTitle('Move down').setIcon('arrow-down').onClick(() => void this.step(file, 1)));
@@ -253,7 +262,7 @@ export default class BindersPlugin extends Plugin {
 		return b && file === b.note ? b.folder : file?.parent ?? null;
 	}
 
-	/** The Longform project a note or folder is in, if any. longform (0.7) */
+	/** The Longform project a note or folder is in, if any. */
 	private longformOf(item: TAbstractFile | null): Binder | null {
 		const b = item && this.binders.binderOf(item);
 		return b && b.kind === 'longform' ? b : null;

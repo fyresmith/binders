@@ -1,5 +1,5 @@
-/* The core file explorer: binder order, hidden binder and folder notes, a binder icon, click to open, and dragging to
-   reorder.
+/* The core file explorer: binder order, hidden binder and folder notes, the “binder” tag on a binder's folder, label
+   dots, the mark on the folder a binder view shows, click to open, and dragging to reorder.
 
    Obsidian has no API for the explorer's order, so this patches one undocumented method, the explorer view's
    `getSortedFolderItems(folder)`, which both the view's `sort()` and every folder item's `sort()` call to get the items
@@ -22,8 +22,6 @@ export interface ExplorerSource {
 	isSnapshotsFolder(file: TAbstractFile): boolean;
 	/** The color of a note's or folder's label, as CSS, or null if it has none (or isn't in a binder). */
 	labelColor(item: TAbstractFile): string | null;
-	/** Could this item be put at a place in this folder's order (the binder can be changed, the item can go there)? */
-	canPlace(item: TAbstractFile, folder: TFolder): boolean;
 	/** Why an item can't be put in this folder's order, in words ("" if that's not for a binder to say: the drop is then
 	    Obsidian's own), or null if it can. */
 	whyNot(item: TAbstractFile, folder: TFolder): string | null;
@@ -38,6 +36,7 @@ export interface ExplorerSource {
 	offref(ref: EventRef): void;
 }
 
+/** The settings the explorer patch follows. */
 export interface ExplorerSettings {
 	orderExplorer: boolean;
 	openOnClick: boolean;
@@ -45,6 +44,7 @@ export interface ExplorerSettings {
 	explorerLabels: boolean;
 }
 
+/** The installed patch: refresh it after settings change, mark the folder a view shows, ask whether it took. */
 export interface Explorer {
 	/** Re-reads the settings, patches or unpatches the explorer to match, and re-sorts it. Call after settings change. */
 	refresh(): void;
@@ -58,7 +58,9 @@ export interface Explorer {
 
 // ---- Internals (undocumented, see docs/internals.md) ----
 
+/** A row of the explorer, as its view keeps it. */
 interface ExplorerItem { file: TAbstractFile; selfEl: HTMLElement; innerEl?: HTMLElement }
+/** The file explorer's view, as far as Binders reaches into it. */
 interface ExplorerView extends View {
 	getSortedFolderItems(folder: TFolder): ExplorerItem[];
 	fileItems: Record<string, ExplorerItem | undefined>;
@@ -67,12 +69,12 @@ interface ExplorerView extends View {
 	startRenameFile?: (file: TAbstractFile) => unknown;
 }
 
+/** Does this view have what the patch needs (the method to patch, and its rows by path)? */
 const isExplorerView = (v: View): v is ExplorerView => {
 	const x = v as Partial<ExplorerView>;
 	return typeof x.getSortedFolderItems === 'function' && !!x.fileItems && typeof x.fileItems === 'object';
 };
 
-/** Loaded file explorer views; `missing` if one is loaded but lacks what we patch. Deferred (not yet loaded) leaves are skipped. */
 /** Starts renaming an item where it is in the file explorer, as "New folder" there does (the explorer's undocumented
     `startRenameFile`). False if no explorer is showing or this Obsidian has no such thing: the name stays as made. */
 export function renameInExplorer(app: App, file: TAbstractFile): boolean {
@@ -83,6 +85,8 @@ export function renameInExplorer(app: App, file: TAbstractFile): boolean {
 	return false;
 }
 
+/** Loaded file explorer views; `missing` if one is loaded but lacks what we patch. Deferred (not yet loaded) leaves
+    are skipped. */
 function explorerViews(app: App): { views: ExplorerView[]; missing: boolean } {
 	const views: ExplorerView[] = [];
 	let missing = false;
@@ -93,6 +97,7 @@ function explorerViews(app: App): { views: ExplorerView[]; missing: boolean } {
 	return { views, missing };
 }
 
+/** Has an explorer sort itself again (debounced, where Obsidian offers that). */
 const resort = (v: ExplorerView) => { if (typeof v.requestSort === 'function') v.requestSort(); else v.sort?.(); };
 
 /* Dragging in the explorer. Obsidian's drag manager knows what's being dragged (`draggable`: a file, a folder or several
@@ -128,7 +133,9 @@ interface Place { items: TAbstractFile[]; folder: TFolder; anchor: TAbstractFile
 
 // ---- The integration ----
 
-
+/** Patches the file explorer and listens for its clicks and drags, for as long as the plugin is loaded. `source` is
+    the binder store; `openBinder` opens a folder's binder view; `shown` is the folder the binder view in front shows
+    (its row is marked). Everything it adds is taken away again when the plugin unloads. */
 export function installExplorer(plugin: Plugin, source: ExplorerSource, settings: () => ExplorerSettings, openBinder: (folder: TFolder, newLeaf: boolean | PaneType) => void, shown: () => TFolder | null = () => null): Explorer {
 	const { app } = plugin;
 	let unpatch: (() => void) | null = null, noticed = false, loaded = true;
@@ -216,9 +223,9 @@ export function installExplorer(plugin: Plugin, source: ExplorerSource, settings
 		active();
 	};
 
-	/** Clicking a binder, or a folder in one, opens it; Mod-click or a middle click opens it in a new tab, as for a note.
-	    Obsidian's own handler still expands or collapses the folder. Shift and Alt clicks select, so they're left alone. */
-	/** The folder in a binder that a click in the file explorer is on, if the click is one that opens its view. */
+	/** The folder in a binder that a click in the file explorer is on, if the click is one that opens its view: a plain
+	    click, or a Mod-click or middle click (a new tab, as for a note). Shift and Alt clicks select, so they're left
+	    alone. */
 	const clicked = (e: MouseEvent): { f: TFolder; title: HTMLElement; newLeaf: boolean | PaneType; middle: boolean } | null => {
 		if (!settings().openOnClick || e.defaultPrevented) return null;
 		const middle = e.type === 'auxclick' && e.button === 1;
@@ -237,6 +244,7 @@ export function installExplorer(plugin: Plugin, source: ExplorerSource, settings
 		if (Platform.isPhone && !source.isBinderFolder(f)) return null;
 		return source.isBinderFolder(f) || source.inBinder(f) ? { f, title, newLeaf, middle } : null;
 	};
+	/** Opens the view of the folder clicked. Heard after Obsidian's own handler, which has folded or unfolded it. */
 	const onClick = (e: MouseEvent) => { const c = clicked(e); if (c) openBinder(c.f, c.newLeaf); };
 	/** A click on a folder's row folds or unfolds it, which is Obsidian's doing. A click that opens the folder's view
 	    shouldn't also hide what's in it: on a folder that's open and whose view isn't the one in front, the click is

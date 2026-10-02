@@ -84,7 +84,7 @@ versions); a view's `setEphemeralState()` and `getEphemeralState()`; `MenuItem.s
   as the same `click`.
 - Leaves that aren't loaded yet (`leaf.isDeferred`, 1.7.2+) are skipped; Binders patches once a loaded explorer
   appears (`layout-change`).
-- The patched method also puts the binder icon and the label dots on the items it returns (`mark`), so rows that
+- The patched method also puts the “binder” tag and the label dots on the items it returns (`mark`), so rows that
   appear later (a folder expanded) get theirs. A label dot is a `div.binders-explorer-label` appended to the item's
   `selfEl`; the metadata cache's `changed` event repaints the dot of that note, and of its folder if it's the
   folder's note. Unloading removes every icon and dot.

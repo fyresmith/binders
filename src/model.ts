@@ -21,6 +21,7 @@ export const FORMAT_VERSION = 1;
 /** A binder note this version must not use: normalising it would drop what it doesn't understand. */
 export class UnsupportedBinder extends Error {}
 
+/** A binder note read: its format version and its order. */
 export interface BinderIndex {
 	version: number;
 	/** Paths relative to the binder folder, in reading order; folders end in "/". */
@@ -68,7 +69,9 @@ export function readIndex(fm: Record<string, unknown>, binderNote = ''): BinderI
 	return { version: FORMAT_VERSION, contents };
 }
 
+/** The folder part of a path in the list, with its trailing "/" ("" at the top). */
 export const parentOf = (p: string): string => { const q = p.replace(/\/$/, ''); const i = q.lastIndexOf('/'); return i < 0 ? '' : q.slice(0, i + 1); };
+/** The last name in a path of the list, without a trailing "/". */
 export const nameOf = (p: string): string => p.replace(/\/$/, '').split('/').pop() || '';
 
 /** Orders the children of one folder in the binder. `folder` is "" for the binder's top level or ends in "/"; `children`
@@ -146,9 +149,6 @@ function insertInFolder(list: string[], p: string, index: number): string[] {
    it holds the folder's own synopsis, status and label. The binder note is the binder folder's folder note. Neither is
    a scene: they never appear in the list, the binder views or the reading order. */
 
-/** The folder note of a folder in the binder ("Part One/" → "Part One/Part One"); "" for the binder's top level. */
-export const folderNoteOf = (folder: string): string => (folder ? folder + nameOf(folder) : '');
-
 /** Is this path (relative to the binder) a subfolder's folder note? */
 export function isFolderNote(p: string): boolean {
 	if (!p || p.endsWith('/')) return false;
@@ -167,16 +167,6 @@ export function relPath(binderFolder: string, path: string, isFolder: boolean): 
 /** An item as the list writes it. Reading drops one ".md", so a note whose own name ends in ".md" ("notes.md.md", which
     `relPath` gives as "notes.md") is written with its full name, to read back as itself. */
 export const diskPath = (p: string): string => (!p.endsWith('/') && /\.md$/i.test(p) ? p + '.md' : p);
-
-/** Every item in the binder in reading order, depth first. `childrenOf` gives the items in a folder ("" for the top). */
-export function readingOrder(contents: string[], childrenOf: (folder: string) => string[]): string[] {
-	const out: string[] = [];
-	const walk = (folder: string) => {
-		for (const c of orderChildren(contents, folder, childrenOf(folder))) { out.push(c); if (c.endsWith('/')) walk(c); }
-	};
-	walk('');
-	return out;
-}
 
 /** A change to the list waiting to be written. Kept as data so a batch applies to whatever the binder note says when
     it is written, not to a copy an external edit may have made stale. */

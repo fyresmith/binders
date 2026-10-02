@@ -23,6 +23,7 @@ import type { App } from 'obsidian';
     named "1984", which YAML reads as a number, is written back as it was). */
 export interface Scene { title: string; indent: number; raw: unknown }
 
+/** A Longform multi-scene project, as its index note says it. */
 export interface Project {
 	/** The scene folder, relative to the index note's folder ("/" or "" for the same folder). */
 	sceneFolder: string;

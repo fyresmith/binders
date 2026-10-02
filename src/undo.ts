@@ -19,6 +19,7 @@ export interface MoveHost {
 	setProp(item: TAbstractFile, key: string, value: unknown): Promise<void>;
 }
 
+/** Are two property values the same, as written (a list by what's in it; none and null alike)? */
 const sameValue = (a: unknown, b: unknown): boolean => a === b || JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 /** Where an item is among its folder's: the folder (and its path then, in case it's deleted and made again), the items
     on either side, and a Longform scene's indent. */
@@ -29,11 +30,14 @@ export interface Undo { failed?: boolean; note: TFile; label: string; items: { f
     for none) and what it has now. A folder's is in its folder note. `still` on the change: nothing moved. */
 export interface PropChange { file: TAbstractFile; key: string; before: unknown; after: unknown }
 
+/** The changes made by hand to binders' orders, in memory (the last 50), and putting them back or making them again
+    through `MoveHost`. Moves nothing unless everything can move. */
 export class MoveHistory {
 	/** Changes made by hand to binders' orders (a drag, Move up, a sort kept, a folder made around notes), newest last:
 	    for each item moved, where it was and where it went. Undoing one puts its items back beside the neighbours they
 	    had, in the binder as it is now: whatever was renamed, added or reordered since stays as it is. */
 	undos: Undo[] = [];
+	/** Changes taken back, newest last, to make again. Emptied by the next change made by hand. */
 	redos: Undo[] = [];
 
 	constructor(private app: App, private host: MoveHost) {}

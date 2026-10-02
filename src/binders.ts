@@ -4,22 +4,24 @@ import type BindersPlugin from './main';
 import { applyOps, checkFormat, diskPath, FORMAT_VERSION, isBinderNote, isFolderNote, nameOf, orderChildren, readIndex, relPath, stepIndex, UnsupportedBinder, type ListOp } from './model';
 import { nextName } from './scene-text';
 import { MoveHistory, type PropChange, type Undo } from './undo';
-import { SNAPSHOTS } from './snapshot-text'; // snapshots
-import { followSnapshots } from './snapshots'; // snapshots
+import { SNAPSHOTS } from './snapshot-text';
+import { followSnapshots } from './snapshots';
 import { labelCss, readLabel } from './view/labels';
 import { applySceneOps, conversionPlan, isIgnored, isLongformIndex, longformRunning, readProject, sameScenes, sceneGroups, shownScenes, writeScenes, type Project, type Scene, type SceneOp } from './longform';
 
 /* The binders in the vault: finds them, keeps each one's order in step with the vault, and writes changes back.
    Views and the explorer use only this; `model.ts` does the list logic, this file does the vault.
 
-   Public API (plugin.binders):
+   Public API (plugin.binders). Each method's own comment says the rest.
 
+   Finding and reading
      ready: Promise<void>                              resolves once binders have been looked for at startup
      settled: Promise<void>                            resolves once they've been looked for with the metadata cache
                                                        complete (on a cold start it fills after `ready`), so a folder not
                                                        found by then isn't in a binder
      on('changed', (binderPath: string) => …)          a binder's items, order or state changed ("" when it's unknown
                                                        which, e.g. a setting changed); unsubscribe with offref()
+     refresh(): void                                   tells subscribers every binder may show differently (a setting)
      all(): Binder[]                                   every binder
      binderOf(item | path): Binder | null              the binder a file or folder is in (a binder folder is in its own)
      isBinderFolder(folder): boolean
@@ -33,29 +35,61 @@ import { applySceneOps, conversionPlan, isIgnored, isLongformIndex, longformRunn
      groups(folder): Group[]                           the notes in a folder in reading order, in runs that belong together:
                                                        a subfolder's notes (binders), or scenes indented under a scene
                                                        (Longform projects, which have no subfolders)
+     inOrder(items): TAbstractFile[]                   items in the order they show, whatever order they were picked in
+     depthOf(item): number | undefined                 a Longform scene's indent
+     labelColor(item): string | null                   the color of a note's or folder's label, as CSS
      folderNote(folder): TFile | null                  a folder's note (the binder note for a binder folder)
      ensureFolderNote(folder): Promise<TFile>          the folder note, created (empty) if it isn't there
+
+   Changing the order
      move(item, folder, index, depth?): Promise<void>  puts an item at `index` among `folder`'s items, moving the file if
                                                        the folder changes. Longform projects: `depth` is the scene's new
-                                                       indent (default: its own)
+                                                       indent (default: its own). Not remembered for "Undo" by itself
+     canPlace(item, folder): boolean                   could `move` put this item in this folder?
+     whyNot(item, folder): string | null               why it couldn't, in words, or null if it could
+     put(items, folder, anchor, depth?): Promise<void> what a drop does: the items, in order, just before `anchor` (or
+                                                       last), as one change that "Undo" takes back
      moveUp(item) / moveDown(item): Promise<boolean>   one step within its folder; false if it can't go further
-     setProps(file, patch): Promise<void>              sets properties (undefined removes one) through processFrontMatter
+     group(items, title?): Promise<TFolder>            puts items into a new folder, made where the first of them is
+     ungroup(folder): Promise<void>                    moves everything in a folder out, to just after it
      label(items, key, value, label, to?): Promise<void>
                                                        gives every item the same value of a property (a folder's goes
                                                        in its folder note, made if need be) and, with `to`, puts them
                                                        there, as one change that "Undo" takes back
-     editProps(file, edit): Promise<void>              changes properties in place, in one write, from what the note says
-                                                       at the time of writing (e.g. renaming a key inside an object)
-     newScene(folder, index?, title?, depth?): Promise<TFile>
-                                                       creates an empty note in the binder at that place (default: last);
+     change(label, items, fn, made?, props?): Promise<T>
+                                                       runs a change made by hand, remembering where each item was, so
+                                                       "Undo" can take it back (what `put`, `group` and the rest use)
+     undoable(item | path, redo?): string | null       what "Undo" (or "Redo") would take back in that binder
+     lastChanged(redo?): TFolder | null                the binder whose order was last changed by hand
+     undo(item | path, redo?): Promise<string | null>  takes the last change back (or makes it again); all or nothing
+
+   Making things
+     newScene(folder, index?, title?, depth?, content?): Promise<TFile>
+                                                       creates a note in the binder at that place (default: last, empty);
                                                        Longform: `depth` is its indent (default: the scene before it's)
+     newFolder(folder, index?, title?): Promise<TFolder>
+                                                       makes a subfolder at that place (default: last)
+     duplicate(item): Promise<TAbstractFile>           a copy of a note or folder right after it, a folder's in its order
      makeBinder(folder): Promise<TFile>                makes a folder a binder; returns the binder note
-     flush(): Promise<void>                            writes pending list changes now (they are otherwise debounced)
      conversion(binder, folders): Conversion           Longform projects: what "Convert to binder" would do
      convertToBinder(binder, opts): Promise<TFile>     Longform projects: makes it a binder; returns the binder note
 
-   Writing: only the binder note's `contents`, through processFrontMatter, debounced and batched per binder. Changes are
-   kept as operations and applied to what the binder note says at the time of writing, so external edits aren't lost.
+   Properties
+     setProps(file, patch): Promise<void>              sets properties (undefined removes one) through processFrontMatter
+     editProps(file, edit): Promise<void>              changes properties in place, in one write, from what the note says
+                                                       at the time of writing (e.g. renaming a key inside an object)
+
+   Snapshots (where they are kept; taking and bringing back is snapshots.ts)
+     snapshotsFolder(binder): TFolder | null           the binder's "Snapshots" folder, unless it holds notes
+     isSnapshotsFolder(file): boolean                  is this that folder (the explorer never lists it)?
+     inSnapshots(path, old?): boolean                  is this path that folder, or in it?
+     snapshotsSettle(): Promise<void>                  moves the snapshots of everything renamed or moved, now
+
+   Writing
+     flush(): Promise<void>                            writes pending list changes now (they are otherwise debounced)
+
+   Only the binder note's `contents` is written, through processFrontMatter, debounced and batched per binder. Changes
+   are kept as operations and applied to what the binder note says at the time of writing, so external edits aren't lost.
    Binders in a format newer than this version are listed but never written.
 
    Longform projects (kind 'longform', see longform.ts) are binders too: the binder folder is the project's scene folder,
@@ -104,10 +138,12 @@ export interface Conversion {
 	problem: string | null;
 }
 
+/** How long changes to a list wait for more before they're written, in ms. */
 const DEBOUNCE = 300;
 /** The longest a view waits for the metadata cache at startup before saying a folder isn't in a binder, in ms. */
 const SETTLE_MAX = 10000;
 
+/** One binder as the store keeps it: its note, the list the note has, and the changes waiting to be written. */
 class State implements Binder {
 	kind: 'binder' | 'longform';
 	/** Longform: the project as the index note has it, changes not yet written, what shows (cached), and whether a
@@ -129,7 +165,7 @@ class State implements Binder {
 	/** Cached: the list with `ops` applied, and the items per folder. Cleared on any change. */
 	contents: string[] | null = null;
 	items: Map<string, Item[]> | null = null;
-	/** Cached: the binder's folder of snapshots (null: it has none), as of a count of the vault's changes. snapshots */
+	/** Cached: the binder's folder of snapshots (null: it has none), as of a count of the vault's changes. */
 	snaps: { at: number; folder: TFolder | null } | null = null;
 	/** The folder the binder note was in when found. If the note moves to another folder, that's another binder. */
 	home: TFolder | null;
@@ -138,9 +174,13 @@ class State implements Binder {
 	get folder(): TFolder { return this.dir ?? this.note.parent; }
 }
 
+/** An item of a binder: its path as the list writes it, and the file or folder. */
 interface Item { rel: string; file: TAbstractFile }
+/** What "Undo" calls a move of these items. */
 const moveLabel = (items: TAbstractFile[]): string => (items.length === 1 ? `Move “${items[0] instanceof TFile ? items[0].basename : items[0].name}”` : `Move ${items.length} items`);
 
+/** Every binder in the vault, kept in step with it: the one place a binder is read, changed or undone
+    (`plugin.binders`). The header above lists what it offers. */
 export class BinderStore extends Events implements ExplorerSource {
 	ready: Promise<void>;
 	settled: Promise<void>;
@@ -196,11 +236,11 @@ export class BinderStore extends Events implements ExplorerSource {
 			plugin.registerEvent(vault.on('rename', (f, old) => { this.vaultChanges++; this.onRename(f, old); }));
 			plugin.registerEvent(vault.on('delete', (f) => { this.vaultChanges++; this.onDelete(f); }));
 			plugin.registerEvent(vault.on('create', (f) => {
-				this.vaultChanges++; // snapshots
+				this.vaultChanges++;
 				if (this.orphans && f instanceof TFolder) this.rescan();
 				const s = this.at(f.path);
 				if (!s) return;
-				// (a snapshot, or the folder of them: nothing a view shows; only what's remembered about the folder goes) snapshots
+				// (a snapshot, or the folder of them: nothing a view shows; only what's remembered about the folder goes)
 				if (f.path === `${s.folder.path}/${SNAPSHOTS}` || this.inSnapshots(f.path)) { this.touch(s, false); return; }
 				this.touch(s);
 				this.placeCopy(s, f);
@@ -225,7 +265,7 @@ export class BinderStore extends Events implements ExplorerSource {
 
 	inBinder(item: TAbstractFile): boolean { const s = this.at(item.path); return !!s && item !== s.folder; }
 
-	// ---- snapshots >>> (see snapshots.ts) ----
+	// ---- a binder's folder of snapshots (the snapshots themselves: snapshots.ts) ----
 
 	/** The binder's folder of snapshots: the folder named "Snapshots" at its top (in a Longform project, in its scene
 	    folder), unless that folder has notes in it (then it's a folder of the writer's own, and an item like any other).
@@ -306,7 +346,7 @@ export class BinderStore extends Events implements ExplorerSource {
 		}
 	}
 
-	// ---- <<< snapshots ----
+	// ---- the public API, continued: reading a binder, and changing it ----
 
 	isHiddenNote(file: TAbstractFile): boolean {
 		const s = this.at(file.path);
@@ -563,7 +603,7 @@ export class BinderStore extends Events implements ExplorerSource {
 		if (t.kind === 'longform') throw new Error('A Longform project has no folders. Convert it to a binder to use them.');
 		const base = title.replace(/[\\/:]/g, ' ').trim().replace(/^\.+\s*/, '') || 'Untitled';
 		let name = base;
-		// (at the top of a binder "Snapshots" is taken: an empty folder of that name would be the binder's snapshots) snapshots
+		// (at the top of a binder "Snapshots" is taken: an empty folder of that name would be the binder's snapshots)
 		for (let n = 1; this.app.vault.getAbstractFileByPath(normalizePath(`${folder.path}/${name}`)) || (folder === t.folder && name === SNAPSHOTS); n++) name = `${base} ${n}`;
 		const made = await this.app.vault.createFolder(normalizePath(`${folder.path}/${name}`));
 		this.queue(t, { op: 'move', item: relPath(t.folder.path, made.path, true), folder: this.folderRel(t, folder), index });
@@ -647,7 +687,7 @@ export class BinderStore extends Events implements ExplorerSource {
 		// a name nothing here has, and none of the notes going in (a note named like its folder would be the folder's own)
 		const base = title.replace(/[\\/:]/g, ' ').trim().replace(/^\.+\s*/, '') || 'Untitled', names = new Set(items.map((f) => (f instanceof TFile ? f.basename : f.name)));
 		let name = base;
-		for (let n = 1; names.has(name) || this.app.vault.getAbstractFileByPath(normalizePath(`${parent.path}/${name}`)) || (parent === t.folder && name === SNAPSHOTS); n++) name = `${base} ${n}`; // snapshots
+		for (let n = 1; names.has(name) || this.app.vault.getAbstractFileByPath(normalizePath(`${parent.path}/${name}`)) || (parent === t.folder && name === SNAPSHOTS); n++) name = `${base} ${n}`; // ("Snapshots" at the top of a binder is taken)
 		const label = items.length === 1 ? `Put “${items[0] instanceof TFile ? items[0].basename : items[0].name}” in a folder` : `Put ${items.length} items in a folder`;
 		return this.change(label, items, async () => {
 			const made = await this.newFolder(parent, Math.max(0, (this.orderedChildren(parent) ?? []).indexOf(items[0])), name);
@@ -773,14 +813,15 @@ export class BinderStore extends Events implements ExplorerSource {
 		return null;
 	}
 
-	/** Finds every binder: a folder with a note whose properties have `binder`. A binder inside another is an ordinary
-	    note. If a folder has several, the one named like the folder wins. */
 	/** Renames the store makes itself (a folder's note taking its folder's new name), by the path they end at. */
 	private own = new Set<string>();
 
 	/** Some Longform project's scene folder wasn't found by the last look: a folder made or renamed may be it. */
 	private orphans = false;
 
+	/** Finds every binder: a folder with a note whose properties have `binder`, and every Longform project not inside
+	    one. A binder inside another is an ordinary note. If a folder has several binder notes, the one named like the
+	    folder wins. */
 	private rescan(): void {
 		const { vault, metadataCache } = this.app;
 		const found = new Map<string, TFile>();
@@ -824,7 +865,6 @@ export class BinderStore extends Events implements ExplorerSource {
 		}
 	}
 
-	/** Reads the binder note's list. A newer format makes the binder read only, with a notice the first time. */
 	/** A Longform project's scene folder, if it's one Binders can use (not the vault itself). */
 	private sceneFolder(note: TFile, p: Project | null): TFolder | null {
 		if (!p || !note.parent) return null;
@@ -832,6 +872,7 @@ export class BinderStore extends Events implements ExplorerSource {
 		return dir instanceof TFolder && !dir.isRoot() ? dir : null;
 	}
 
+	/** Reads the binder note's list. A newer format makes the binder read only, with a notice the first time. */
 	private read(s: State): void {
 		if (s.kind === 'longform') { s.lf = readProject(this.app.metadataCache.getFileCache(s.note)?.frontmatter) ?? s.lf; return; }
 		try {
@@ -874,13 +915,12 @@ export class BinderStore extends Events implements ExplorerSource {
 			}
 		}
 		let o = this.at(oldPath, true), n = this.at(file.path);
-		// snapshots >>> an item's snapshots follow it; and a snapshot moved is nothing to a binder's list
+		// an item's snapshots follow it; and a snapshot moved is nothing to a binder's list
 		const so = this.inSnapshots(oldPath, true), sn = this.inSnapshots(file.path);
 		if (!so && !sn) this.snapshotsFollow(file, oldPath);
 		if (o && so) { this.touch(o, false); o = null; }
 		if (n && sn) { this.touch(n, false); n = null; }
 		if ((so || sn) && !o && !n) return;
-		// <<< snapshots
 		// a scene renamed to its folder's name, or moved into a folder of its own name, becomes that folder's note and
 		// stops showing as a scene: said, since nothing else would tell
 		if (file instanceof TFile && file.extension === 'md' && file.parent && o && n && n.kind === 'binder' && file !== n.note && file.basename === file.parent.name && file.parent !== n.folder) {
@@ -921,7 +961,7 @@ export class BinderStore extends Events implements ExplorerSource {
 	private onDelete(file: TAbstractFile): void {
 		if (file instanceof TFile && this.states.has(file)) { this.rescan(); return; }
 		const o = this.at(file.path, true);
-		if (o && (file.path === `${o.path}/${SNAPSHOTS}` || this.inSnapshots(file.path, true))) { this.touch(o, false); return; } // snapshots
+		if (o && (file.path === `${o.path}/${SNAPSHOTS}` || this.inSnapshots(file.path, true))) { this.touch(o, false); return; } // a snapshot: not an item
 		if (o?.kind === 'longform') {
 			if (file instanceof TFile && file.extension === 'md') this.lfChange(o, { op: 'remove', item: file.basename }); else this.touch(o);
 			return;
@@ -1131,7 +1171,7 @@ export class BinderStore extends Events implements ExplorerSource {
 			const list: Item[] = [];
 			for (const c of f.children) {
 				if (this.isHiddenNote(c)) continue;
-				if (f === s.folder && c === this.snapshotsFolder(s)) continue; // snapshots: not items of the binder
+				if (f === s.folder && c === this.snapshotsFolder(s)) continue; // snapshots aren't items of the binder
 				const r = relPath(s.folder.path, c.path, c instanceof TFolder);
 				if (!r || (c instanceof TFile && isFolderNote(r))) continue;
 				list.push({ rel: r, file: c });
@@ -1185,4 +1225,5 @@ export class BinderStore extends Events implements ExplorerSource {
 	}
 }
 
+/** Thrown inside a write to leave the note as it is: it's no longer a binder note, or there's nothing to write. */
 class NotABinder extends Error {}
