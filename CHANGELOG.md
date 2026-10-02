@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.67 (2026-10-02)
+
+### Fixed
+
+- “Undo last move” run from a binder's view no longer takes back a move made in another binder that isn't on screen.
+
 ## 0.12.66 (2026-10-02)
 
 ### Changed

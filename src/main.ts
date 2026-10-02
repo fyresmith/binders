@@ -137,11 +137,12 @@ export default class BindersPlugin extends Plugin {
 		// a move made by hand (a drag, Move up) taken back, or made again: for the binder in view, or the open note's
 		for (const [id, name, redo] of [['undo-move', 'Undo last move', false], ['redo-move', 'Redo last move', true]] as const) {
 			this.addCommand({ id, name, icon: redo ? 'redo-2' : 'undo-2', checkCallback: (checking) => {
-				// the binder in view, or the open note's; with neither (the file explorer has the focus, say), the binder
-				// that was changed last
+				// the binder in view, or the open note's, and that binder only: with nothing to undo there, a move made in
+				// another binder, out of sight, isn't the one taken back. With neither (the file explorer has the focus,
+				// say, or a note outside every binder), the binder that was changed last
 				// (the pane in use, not the note that was last open somewhere: with the file explorer in use, that's stale)
 				const here = this.app.workspace.getActiveViewOfType(BinderView)?.folder ?? this.app.workspace.getActiveViewOfType(MarkdownView)?.file ?? null;
-				const at = here && this.binders.undoable(here, redo) ? here : this.binders.lastChanged(redo);
+				const at = here && this.binders.binderOf(here) ? here : this.binders.lastChanged(redo);
 				if (!at || !this.binders.undoable(at, redo)) return false;
 				if (!checking) void this.undoMove(at, redo);
 				return true;

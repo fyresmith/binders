@@ -482,3 +482,43 @@ test('binders: Binders’ own “Duplicate” of a folder is as it was: the copy
 	t.eq(j(await children(p, `${L}/Part One 2`)), j(['Storm warning.md', 'Arrival.md', 'The keeper.md']), 'and isn’t an item');
 	same(t, before, await texts(p), { skip: [NOTE] });
 }));
+
+// "Undo last move" from the command palette is for the binder in front. Only with nothing of a binder in front (the
+// file explorer in use, a note outside every binder) is it for the binder that was changed last.
+test('binders: “Undo last move” with one binder’s view or note in front never undoes a move made in another binder', withTidy(async (p, h, t) => {
+	const L = 'The Lighthouse', cmd = (id) => `app.commands.commands['binders:${id}']`;
+	const offered = (id) => p.ev(`!!${cmd(id)}.checkCallback(true)`);
+	await p.ev(`(async () => { await app.vault.createFolder('Other'); await app.vault.create('Other/One.md', '1'); await app.vault.create('Other/Two.md', '2'); await ${B}.makeBinder(${file('Other')}); await app.vault.create('Loose.md', 'x'); })().then(() => 1)`);
+	await until(p, `${B}.isBinderFolder(${file('Other')})`);
+	await p.ev(`(() => { ${B}.undos = []; ${B}.redos = []; return 1; })()`);
+	try {
+		await p.ev(`${B}.moveUp(${file(`${L}/Epilogue.md`)}).then(() => 1)`);
+		await flush(p);
+		const moved = await contents(p);
+		t.ok(moved.indexOf('Epilogue') === moved.indexOf('Part Two/') - 1, 'Epilogue moved up in The Lighthouse, to before Part Two');
+		// the other binder's view in front
+		await p.ev(`app.plugins.plugins.binders.openBinder(${file('Other')}).then(() => 1)`); await p.sleep(600);
+		t.ok(!(await offered('undo-move')), 'in the other binder’s view, with nothing to undo there: not offered');
+		// a note of the other binder in front
+		await h.open('Other/One.md'); await p.sleep(300);
+		t.ok(!(await offered('undo-move')), 'nor with a note of the other binder open');
+		t.eq(j(await contents(p)), j(moved), 'The Lighthouse’s list on disk is as the move left it');
+		// a move there is the one its own view undoes, and The Lighthouse's stays
+		await p.ev(`${B}.moveDown(${file('Other/One.md')}).then(() => 1)`);
+		t.ok(await offered('undo-move'), 'a move in the other binder: offered there');
+		await p.ev(`(() => { ${cmd('undo-move')}.checkCallback(false); return 1; })()`); await p.sleep(500); await flush(p);
+		t.eq(j(await children(p, 'Other')), j(['One.md', 'Two.md']), 'and it’s that move that is undone');
+		t.eq(j(await contents(p)), j(moved), 'The Lighthouse’s list is still as its move left it');
+		t.ok(await offered('redo-move'), 'redo is offered there');
+		// a note outside every binder in front: the binder changed last (redo made the other binder's the newest undo; here The Lighthouse's is what's left)
+		await h.open('Loose.md'); await p.sleep(300);
+		t.ok(await offered('undo-move'), 'with a note outside every binder in front: offered, for the binder changed last');
+		await p.ev(`(() => { ${cmd('undo-move')}.checkCallback(false); return 1; })()`); await p.sleep(500); await flush(p);
+		t.eq((await contents(p)).pop(), 'Epilogue', 'The Lighthouse’s move is undone, on disk');
+		// back in The Lighthouse: its own redo
+		await h.open(`${L}/Prologue.md`); await p.sleep(300);
+		t.ok(await offered('redo-move'), 'in The Lighthouse again: its redo is offered');
+	} finally {
+		await p.ev(`(async () => { ${B}.undos = []; ${B}.redos = []; app.workspace.getLeavesOfType('binders-view').forEach(l => l.detach()); const f = ${file('Loose.md')}; if (f) await app.vault.delete(f); })().then(() => 1)`);
+	}
+}));
