@@ -307,7 +307,7 @@ as prose; pure) and `src/view/snapshots.ts` (the dialogs, the menus, and a pane 
   was is set aside. A snapshot holds the text only.
 - **Take a snapshot** (one note, several, or every note of a folder or the binder under one name), **Rewrite...**
   (take one, then start from the same text or a blank page; after a blank page the snapshot opens beside the note on
-  desktop) and **Snapshots...** (the list: read, "Show changes" against the note now, "Bring back", take one now; in its menu copy, name,
+  desktop) and **Show snapshots...** (the list: read, "Show changes" against the note now, "Bring back", take one now; in its menu copy, name,
   open to the right, delete; with none yet, what a snapshot is and a button that takes the first). In a card's, a row's or a manuscript title's menu the three are one item, "Snapshots",
   that opens them (that menu is long, and three more ran it off a tablet's screen); in a note's own menu and the file
   explorer's they're side by side.

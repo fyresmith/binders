@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.74 (2026-10-02)
+
+### Changed
+
+- The menu item that lists a note's snapshots is “Show snapshots...” everywhere (it was “Snapshots...” in some menus).
+
 ## 0.12.73 (2026-10-02)
 
 ### Fixed

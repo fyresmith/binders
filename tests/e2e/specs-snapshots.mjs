@@ -127,7 +127,7 @@ test('a note of a binder has a Snapshots button in its header, right of focus mo
 	t.ok(b.icon, 'with the snapshots icon');
 	await p.click(b.x, b.y);
 	await until(p, `!!document.querySelector('.menu')`);
-	t.eq(j(await menuItems(p)), j(['Take a snapshot', 'Rewrite...', 'Snapshots...']), 'its menu');
+	t.eq(j(await menuItems(p)), j(['Take a snapshot', 'Rewrite...', 'Show snapshots...']), 'its menu');
 	await clickMenu(p, 'Take a snapshot');
 	await until(p, `app.vault.adapter.exists(${j(DIR)})`);
 	await sleep(p, 300);
@@ -1299,7 +1299,7 @@ test('the menus: a note’s own menu and the file explorer’s have the three; a
 	};
 	for (const where of ['note', 'explorer']) {
 		const items = await menuFor(A, where);
-		t.ok(['Take a snapshot', 'Rewrite...', 'Snapshots...'].every((x) => items.includes(x)), `${where}: ${items.join(', ')}`);
+		t.ok(['Take a snapshot', 'Rewrite...', 'Show snapshots...'].every((x) => items.includes(x)), `${where}: ${items.join(', ')}`);
 	}
 	const folder = await menuFor(L + 'Part One', 'explorer');
 	t.ok(folder.includes('Take a snapshot of every note...') && !folder.includes('Rewrite...'), 'a folder of a binder: ' + folder.join(', '));

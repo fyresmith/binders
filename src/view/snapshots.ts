@@ -613,7 +613,7 @@ export function headerSnapshots(plugin: BindersPlugin, view: MarkdownView, besid
 /** Takes the header button off again (the plugin is being turned off). */
 export function clearHeaderSnapshots(view: MarkdownView): void { headers.get(view)?.remove(); headers.delete(view); }
 
-/** "Take a snapshot", "Rewrite..." and "Snapshots..." for a menu: one scene, or (taking only) several. In a binder
+/** "Take a snapshot", "Rewrite..." and "Show snapshots..." for a menu: one scene, or (taking only) several. In a binder
     that can't be changed, only the reading. With `folded`, the three are one item, "Snapshots", that opens them (a
     card's own menu is long as it is: three more would run it off a tablet's screen). */
 export function snapshotItems(plugin: BindersPlugin, menu: Menu, items: unknown[], section = 'snapshots', readOnly = false, folded = false): void {
@@ -622,14 +622,14 @@ export function snapshotItems(plugin: BindersPlugin, menu: Menu, items: unknown[
 	const one = scenes.length === 1 ? scenes[0] : null, ro = readOnly || !!plugin.binders.problem(scenes[0]);
 	if (!one) { if (!ro) menu.addItem((i) => i.setSection(section).setTitle(`Take a snapshot of ${scenes.length} notes`).setIcon('camera').onClick(() => void take(plugin, scenes))); return; }
 	const show = () => new SnapshotsModal(plugin, one).open();
-	if (ro) { menu.addItem((i) => i.setSection(section).setTitle('Snapshots...').setIcon('history').onClick(show)); return; }
-	const three = (m: Menu, sec: string | null, last: string) => {
+	if (ro) { menu.addItem((i) => i.setSection(section).setTitle('Show snapshots...').setIcon('history').onClick(show)); return; }
+	const three = (m: Menu, sec: string | null) => {
 		m.addItem((i) => { if (sec) i.setSection(sec); i.setTitle('Take a snapshot').setIcon('camera').onClick(() => void take(plugin, [one])); });
 		m.addItem((i) => { if (sec) i.setSection(sec); i.setTitle('Rewrite...').setIcon('file-pen-line').onClick(() => startRewrite(plugin, one)); });
-		m.addItem((i) => { if (sec) i.setSection(sec); i.setTitle(last).setIcon('history').onClick(show); });
+		m.addItem((i) => { if (sec) i.setSection(sec); i.setTitle('Show snapshots...').setIcon('history').onClick(show); });
 	};
-	if (folded) menu.addItem((i) => { i.setSection(section).setTitle('Snapshots').setIcon('history'); submenu(i, (m) => three(m, null, 'Show snapshots...'), menu); });
-	else three(menu, section, 'Snapshots...');
+	if (folded) menu.addItem((i) => { i.setSection(section).setTitle('Snapshots').setIcon('history'); submenu(i, (m) => three(m, null), menu); });
+	else three(menu, section);
 }
 
 /** For a folder of a binder (or the binder): "Take a snapshot of every note..."; and for the binder itself, the
