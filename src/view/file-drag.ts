@@ -271,7 +271,7 @@ export class FileDrag {
 	    a real drag. */
 	private scroll(): void {
 		let el: Element | null = this.over;
-		while (el && !(el.scrollHeight > el.clientHeight + 1 && /auto|scroll/.test(getComputedStyle(el).overflowY))) el = el.parentElement;
+		while (el && !(el.scrollHeight > el.clientHeight + 1 && /auto|scroll/.test(el.win.getComputedStyle(el).overflowY))) el = el.parentElement;
 		const r = el?.getBoundingClientRect(), now = performance.now();
 		const by = el && r ? edgeScroll(this.y, r.top, r.bottom, this.edgeSince ? now - this.edgeSince : 0) : 0;
 		if (!el || !by) { this.edgeSince = 0; return; }

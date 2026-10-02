@@ -352,7 +352,7 @@ export function installExplorer(plugin: Plugin, source: ExplorerSource, settings
 		if (!items.length) return null;
 		if (!(source.orderedChildren(folder) ?? []).includes(over)) return null; // a binder or folder note, or something a Longform project ignores
 		const r = title.getBoundingClientRect(), y = (e.clientY - r.top) / r.height, edge = over instanceof TFolder ? 0.25 : 0.5;
-		const after = own || y >= 1 - edge, rtl = getComputedStyle(title).direction === 'rtl';
+		const after = own || y >= 1 - edge, rtl = title.win.getComputedStyle(title).direction === 'rtl';
 		const name = (f: TAbstractFile) => (f instanceof TFolder ? f.name : f.name.replace(/\.[^.]+$/, ''));
 		// A folder dragged out of a binder view can't go into itself, or into a folder inside it: said, not left to
 		// Obsidian (which says nothing). A folder dragged in the explorer itself stays Obsidian's own there, as ever: that

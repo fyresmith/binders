@@ -143,8 +143,8 @@ export function readableLineLength(app: App): boolean {
 export function historyLook(contentEl: HTMLElement): boolean {
 	try {
 		const probe = contentEl.createDiv({ cls: 'diff-line mod-left' });
-		const tinted = !/^(rgba\(0, 0, 0, 0\)|transparent)$/.test(getComputedStyle(probe).backgroundColor);
+		const tinted = !/^(rgba\(0, 0, 0, 0\)|transparent)$/.test(probe.win.getComputedStyle(probe).backgroundColor);
 		probe.remove();
-		return tinted && getComputedStyle(contentEl).display === 'flex';
+		return tinted && contentEl.win.getComputedStyle(contentEl).display === 'flex';
 	} catch { return false; }
 }

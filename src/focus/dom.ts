@@ -44,7 +44,7 @@ export function noteColumn(view: MarkdownView): Column | null {
 export function tailRoom(view: MarkdownView): string {
 	if (view.getMode() === 'preview') return '0px';
 	const text = view.containerEl.querySelector<HTMLElement>('.markdown-source-view .cm-content');
-	const pad = text ? getComputedStyle(text).paddingBottom : '';
+	const pad = text ? text.win.getComputedStyle(text).paddingBottom : '';
 	return /^\d+(\.\d+)?px$/.test(pad) ? pad : '0px';
 }
 

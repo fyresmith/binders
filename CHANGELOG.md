@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.143 (2026-10-02)
+
+### Changed
+
+- Nothing a writer will notice: styles are now read from the window the element is in, which matters in popout windows.
+
 ## 0.12.142 (2026-10-02)
 
 ### Changed

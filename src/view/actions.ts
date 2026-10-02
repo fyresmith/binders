@@ -136,7 +136,7 @@ function shownColor(css: string | null): string | null {
 	const probe = activeDocument.body.createDiv();
 	probe.setCssProps({ '--binders-label': css });
 	probe.addClass('binders-label-dot', 'binders-settings-probe');
-	const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(getComputedStyle(probe).backgroundColor);
+	const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(probe.win.getComputedStyle(probe).backgroundColor);
 	probe.remove();
 	return m ? '#' + m.slice(1, 4).map((n) => Number(n).toString(16).padStart(2, '0')).join('') : null;
 }

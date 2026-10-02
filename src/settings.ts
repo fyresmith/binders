@@ -318,7 +318,7 @@ function move<T>(list: T[], from: number, to: number): void {
 
 /** The color a dot shows in right now, as "#rrggbb": what one of the theme's colors is, for the color picker. */
 function shown(dot: HTMLElement): string {
-	const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(getComputedStyle(dot).backgroundColor);
+	const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(dot.win.getComputedStyle(dot).backgroundColor);
 	return m ? '#' + m.slice(1, 4).map((n) => Number(n).toString(16).padStart(2, '0')).join('') : '#808080';
 }
 
