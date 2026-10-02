@@ -8,7 +8,7 @@ only to notes inside a binder; a note anywhere else in the vault is left exactly
 - [ ] **Mobile QA, to the end.** Every mode, the file explorer, the dialogs and the settings, on phone and tablet
       sizes, by touch: every bug found is fixed with a test, and the result is tried on a real iPhone or iPad and a
       real Android device (so far phones are only emulated). Findings live in `tests/e2e/specs-qa4-mobile.mjs` and
-      `tests/e2e/specs-qa5-*.mjs`.
+      `tests/e2e/specs-qa5-*.mjs`. Integration results and remaining findings: [integration QA](docs/integration-qa.md).
 
 ## Next, in this order
 
