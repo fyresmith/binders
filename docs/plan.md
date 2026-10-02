@@ -1,11 +1,13 @@
 # Binders: plan
 
-Status: feature-complete for 1.0, in QA. The explorer, binder store, corkboard, outliner, editable manuscript,
-Longform integration, labels and statuses, word count targets, scene operations (split, merge, duplicate, group,
-compile) and undo of moves all work, on desktop and in mobile emulation. The last version committed is 0.6.31. The
-outliner (in place of the plot grid), labels and statuses in settings, note and folder targets, the scene operations
-and undo of moves are in the working tree, unreleased, and ship as the next minor. Next: finish the QA rounds,
-real-device checks, then release (1.0).
+Status: feature-complete except what is in [ROADMAP.md](../ROADMAP.md), and in QA. The explorer, binder store, corkboard
+(in a grid, or arranged by label), outliner, editable manuscript, Longform integration, labels and statuses, word count
+targets, scene operations (split, merge, duplicate, group, compile), snapshots, focus mode, dragging a card out of the
+view, and undo of moves all work, on desktop and in mobile emulation. Nothing is tagged yet: the version in
+`package.json` is the latest committed. Six QA rounds have been run (`tests/e2e/specs-qa*.mjs`); the findings still
+open are in `tests/e2e/open-findings.json` and [integration-qa.md](integration-qa.md). Left before 1.0: mobile QA on real
+devices (so far phones and tablets are only emulated), export, import from Scrivener, and find and replace across the
+manuscript. Then release (1.0).
 
 ## What it is
 
@@ -61,8 +63,8 @@ See [file-format.md](file-format.md) for the full specification.
 - **Labels and statuses** are lists in the plugin's settings, not in any note: a label is a name and a color (one of
   the theme's palette colors, or a hex color); a status is a name. A note's `label` can be a label's name, a palette
   color's name, or a hex color of its own.
-- **View preferences** (mode, filter, card size, label tint, stacks, the outliner's columns, sort and folded folders)
-  are kept with the view in the workspace, not in the binder note. The outliner's columns as last arranged are also
+- **View preferences** (mode, filter, card size, numbers on the cards, label tint, the corkboard's arrangement, the
+  outliner's columns, sort and folded folders) are kept with the view in the workspace, not in the binder note. The outliner's columns as last arranged are also
   kept in settings, as what a newly opened outliner starts with.
 - `plotlines`, `plotlineColors` and `plot`, which the plot grid used, are no longer read or written. Notes that have
   them keep them, as ordinary properties.
@@ -108,12 +110,15 @@ See [file-format.md](file-format.md) for the full specification.
     folder, or a note that would become the folder's note.
   - It works in an explorer popped out into its own window.
 - **Labels**: a dot in its label's color after each labeled note and folder in a binder (a setting, on by default).
-- **Commands**: "Open binder", "Show corkboard", "Show outliner", "Show manuscript", "Arrange corkboard by label",
-  "Make this folder a binder",
-  "New scene here", "Convert to binder" (Longform), "Split scene at cursor", "Split scene with selection as title",
-  "Compile binder", "Undo last move", "Redo last move", "Move up", "Move down". None has a default hotkey.
-- **File menu** (a note's or folder's right-click menu): "Open binder", "Make this folder a binder", "New scene here", "Compile...",
-  "Convert to binder", "Move up", "Move down", each only where it applies.
+- **Commands** (all in `src/main.ts` except focus mode's, in `src/focus/focus.ts`): "Open binder", "Show corkboard", "Show
+  outliner", "Show manuscript", "Arrange corkboard by label", "Make this folder a binder", "New binder", "New scene
+  here", "Convert to binder" (Longform), "Split scene at cursor", "Split scene with selection as title", "Set word
+  count target", "Compile binder", "Undo last move", "Redo last move", "Move up", "Move down", "Take a snapshot",
+  "Rewrite", "Show snapshots", "Take a snapshot of every note in the binder", "Show snapshots of notes that are
+  gone", "Toggle focus mode", "Go to previous scene", "Go to next scene". None has a default hotkey.
+- **File menu** (a note's or folder's right-click menu): "Open binder", "Show in binder", "Make this folder a binder", "New
+  binder", "New scene here", "New scene after this", "Compile...", "Convert to binder", the snapshot items, "Move up",
+  "Move down", each only where it applies. Several items selected: "New folder from selection", "Merge N notes".
 - Not compatible with plugins that replace the explorer (Notebook Navigator and the like): documented, and the setting
   turns the patch off.
 
@@ -129,7 +134,7 @@ New (note, folder). The view runs edge to edge, as a base, a canvas or a note do
 - Each mode keeps its place (scroll, selection, caret) per folder when another mode is shown, and in the tab's
   history, so Back returns to it.
 - The corkboard and the outliner share one item menu and its actions (`src/view/actions.ts`): open, rename, edit
-  synopsis, "Set synopsis from text", "Set status", "Set label", "Set target...", "Duplicate", "Merge N notes",
+  synopsis, "Set synopsis from text", "Set status", "Set label", "Set target...", "Move to" (every folder of the binder), "Duplicate", "Merge N notes",
   "New folder from selection" / "Put in a new folder", "Ungroup", "Include in compile", "Move up", "Move down",
   what Obsidian and other plugins add (`file-menu`, source `binders-card`), and "Delete".
 
@@ -150,8 +155,9 @@ New (note, folder). The view runs edge to edge, as a base, a canvas or a note do
   that folder's note (creating it if needed).
 - One "New note" tile ends the board: the next card's place, with a plus and the words in its middle; it becomes a
   card while the title is typed.
-- Card: title, synopsis (editable in place), status chip, label color (a stripe along the top, or, as a view option,
-  the whole card tinted), word count. A note with a target shows "words / target" and a progress line along the
+- Card: title, synopsis (editable in place), status chip, label color (the card's border, and by default its face
+  faintly tinted, as a colored card on a canvas; the view option "Tint cards with their label color" turns the tint
+  off), word count. A note with a target shows "words / target" and a progress line along the
   card's foot. Double-click opens the note.
 - Drag to reorder; onto a folder's card to move into that folder; onto a folder in the breadcrumb to move out to it. Multi-select with Shift/Ctrl. A drag
   looks like Obsidian's own reordering: the card follows the pointer (`drag-reorder-ghost`), a tinted slot holds its
@@ -264,7 +270,7 @@ Approved by the maintainer on 2026-10-01, after a design study and a prototype (
 - **Settings** hold two lists. Labels: a name and a color each, the color one of the theme's palette (`red`,
   `orange`, `yellow`, `green`, `cyan`, `blue`, `purple`, `pink`: the theme's own shade) or a custom hex color.
   Statuses: names, in the order a draft goes through them. Both can be renamed, reordered, added to, deleted, and
-  put back to the defaults. Renaming one doesn't rewrite notes.
+  put back to the defaults. Renaming one asks whether to rename it in the notes that have it too (and leaves them as they are if the answer is no).
 - "Set label" lists the labels in settings, then others the binder's notes use, "Custom color..." (a hex color for
   that note alone), "No label" and "Edit labels..." (opens the settings). "Set status" lists the statuses, others in
   use, "New status..." and "No status".
@@ -334,6 +340,15 @@ as prose; pure) and `src/view/snapshots.ts` (the dialogs, the menus, and a pane 
   along with the places; redo gives it again. A folder note made to hold a folder's label stays when it's undone,
   without the property.
 - Not undone this way: renames, deletes, splits, merges, duplicates, grouping and ungrouping.
+
+### Dragging a card out of the view
+
+A card or an outliner row dragged out of the binder view is handed to Obsidian as a file drag, as a row of the file
+explorer is, so everything that takes a note takes it: the file explorer (moved), a note (a link), a canvas (a card of
+it; a folder as the notes in it), a tab (the note opened) and the bookmarks. Inside the view the drag is the view's own.
+`src/view/file-drag.ts` (geometry in `file-drag-data.ts`), listed in `docs/internals.md`. Not on a phone, and not in a
+window of its own: there the drag stays inside the view. A move to a folder in a binder through the file explorer is
+one change that "Undo last move" takes back; a move out of the binder isn't recorded.
 
 ### Focus mode
 
@@ -422,11 +437,11 @@ undocumented parts, one by one, are in [internals.md](internals.md).
 
 ## Milestones
 
-**What's left before 1.0 is in [ROADMAP.md](../ROADMAP.md)**: mobile QA to the end, then export, find and replace
-across the manuscript, versions of a scene, and a focus mode (all four only for notes in a binder).
+**What's left before 1.0 is in [ROADMAP.md](../ROADMAP.md)**: mobile QA to the end (on real devices), export, import
+from Scrivener, and find and replace across the manuscript.
 
-The numbers are the plan's milestones, not the versions in the CHANGELOG (the last committed is 0.6.31, which
-already has milestones 0.1 to 0.7). Every commit bumps the version (see AGENTS.md).
+The numbers are the plan's milestones, not the versions in the CHANGELOG (those are 0.12.x now, and every commit bumps
+them: see AGENTS.md). Nothing is tagged yet.
 
 | Version | Scope | Status |
 |---|---|---|
@@ -437,9 +452,10 @@ already has milestones 0.1 to 0.7). Every commit bumps the version (see AGENTS.m
 | 0.5 | Plot grid | Done, then replaced by the outliner in 0.9 |
 | 0.6 | Manuscript: read-only first, then editable embedded editors, virtualization | Done |
 | 0.7 | Longform integration | Done |
-| 0.8 | Polish: keyboard, touch, themes, performance on a 1,000-scene binder, a full mobile pass, README | In progress: explorer Mod-click, cold start, keyboard and screen readers, themes, mobile emulation pass, perf guard (`specs-perf.mjs`), README, and a native-look pass against Obsidian's own Bases and drag styles (toolbar, flat cards, drag and glide, explorer drag-to-reorder) done; real-device iOS and Android checks to do |
-| 0.9 | QA rounds (as with Evra: parallel QA agents, e2e suites, fixes). Added on the maintainer's request (2026-10-01), from Scrivener: the outliner in place of the plot grid, labels and statuses in settings, custom label colors, label tint and explorer label dots, word count targets, split, merge, duplicate, group and ungroup, synopsis from text, compile, undo and redo of moves | In progress: two QA rounds written (`specs-qa-*.mjs`, `specs-qa2-*.mjs`); the added features are built and unreleased |
-| 0.10 | Before release (2026-10-01): mobile QA to the end; export (EPUB, DOCX, PDF, and a Scrivener project); import from Scrivener; find and replace across the manuscript; snapshots of a scene ("Rewrite"); focus mode. See ROADMAP.md | Mobile QA in progress; arrange by label, snapshots and focus mode built |
+| 0.8 | Polish: keyboard, touch, themes, performance on a 1,000-scene binder, a full mobile pass, README | Done in emulation (keyboard and screen readers, themes, mobile emulation, `specs-perf.mjs`, a native-look pass against Obsidian's Bases and drag styles, explorer drag-to-reorder); real iOS and Android devices still to try |
+| 0.9 | QA rounds (as with Evra: parallel QA agents, e2e suites, fixes), and, on the maintainer's request (2026-10-01), from Scrivener: the outliner in place of the plot grid, labels and statuses in settings, custom label colors, label tint and explorer label dots, word count targets, split, merge, duplicate, group and ungroup, synopsis from text, compile, undo and redo of moves | Built. Six QA rounds so far (`specs-qa-*.mjs` to `specs-qa5-*.mjs` and the integration round in [integration-qa.md](integration-qa.md)); the sixth is the 2026-10-02 hardening push |
+| 0.10 | Before release (2026-10-01): mobile QA to the end; export (EPUB, DOCX, PDF, and a Scrivener project); import from Scrivener; find and replace across the manuscript; snapshots of a scene ("Rewrite"); focus mode. See ROADMAP.md | Arrange by label, snapshots, focus mode and dragging a card out of the view are built; mobile QA is in progress (emulated only); export, import and find and replace are not started |
+| 0.12.x | The 2026-10-02 hardening push: a sixth QA round, fixes, and refactors so the code is in files of one idea each (the undo history, the outliner's columns, the shared card helpers; folder cards that name what they hold), the documentation checked against the code | In progress |
 | 1.0 | Release and directory submission | |
 
 ## Risks
@@ -465,7 +481,13 @@ already has milestones 0.1 to 0.7). Every commit bumps the version (see AGENTS.m
   manuscript. The plot grid and its properties are dropped; a writer who wants plotlines can keep them as an ordinary
   property and show it as an outliner column.
 - **Labels and statuses are settings**, shared by every binder in the vault, not per binder.
-- **Mobile**: a 1.0 requirement, including the editable manuscript.
+- **Mobile**: a 1.0 requirement, including the editable manuscript. Tested so far only in Obsidian's emulation of
+  phones and tablets; a real iPhone, iPad and Android device are still to try.
+- **Corkboard folders** (2026-10-02, the maintainer): a folder is one card of the same size and edge as a note's, with
+  a folder glyph and the names of the first things it holds, not a drawn stack of cards.
+- **Arrange by label** (2026-10-01, approved after a prototype): an arrangement of the corkboard, not a mode.
+- **Snapshots** (2026-10-01): plain `.snapshot` files in a `Snapshots` folder in the binder, never `.md`; the cost is
+  that Obsidian Sync needs "Sync all other types" on to carry them.
 - **Focus mode** (2026-10-01, the maintainer): the text and nothing else by default, with typewriter scrolling the
   only thing on; typewriter scrolling is for the last line only; the scenes before and after, the place and synopsis,
   the word counts, the goal and dimming are each an option; a session is today's words in this binder on this
@@ -476,16 +498,19 @@ already has milestones 0.1 to 0.7). Every commit bumps the version (see AGENTS.m
 
 Not built yet:
 
-- A session word target and a deadline.
+- A session word target and a deadline (focus mode has a goal for one day, in one binder, on one device).
 - Writing history and statistics.
 - An inspector sidebar for the open scene (Obsidian's Properties view shows the same properties).
-- Label lanes on the corkboard.
 - Status stamps on cards.
+- Arranging the corkboard by status (arrange by label is built).
+- Dropping a card onto a folder's card, or a folder in the breadcrumb, while the corkboard is arranged by label.
 - Options for the outliner's totals row.
 - Templates for new scenes.
-- Dragging between the file explorer and the corkboard.
+- Dragging a note from the file explorer onto the corkboard (the other way, a card out to the explorer, is built).
+- Automatic snapshots on a timer, and pruning old ones.
 
 Built since this list was first written: card numbers ("Number the cards"), keeping a sort as the binder's order,
-undo and redo of moves, link updates after a merge or a split.
+undo and redo of moves, link updates after a merge or a split, label lanes on the corkboard ("Arrange"), dragging a
+card out of the view.
 
 Also later: nested binders, and export beyond one Markdown note (Pandoc, PDF) through other plugins.

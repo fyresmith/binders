@@ -61,12 +61,14 @@ synopsis** in its menu. So the board is always one folder's items, in one order.
   a line shows where it will go, and the others glide aside when you let go. Shift-click or Ctrl-click (Cmd-click on
   macOS) selects several, and they move together.
 - Click a card to select it; click a selected card's synopsis to edit it. Right-click a card to rename it, set its status, label or target, duplicate
-  it, move it or delete it; the menu also has what Obsidian and your other plugins offer for that note (bookmark it,
+  it, move it (**Move up**, **Move down**, or **Move to** any folder of the binder) or delete it; the menu also has what Obsidian and your other plugins offer for that note (bookmark it,
   reveal it in the file explorer, and so on).
 - Right-click the board itself for a new note or folder, the card size (small, medium or large),
   **Number the cards** (each note's place in the order), and **Tint cards with their label color** (on as it comes: a
   labeled card has its border and, faintly, its face in that color, as a colored card on a canvas; turn it off for the
   border alone).
+- Drag a card out of the view to use it as a note anywhere Obsidian takes one: onto the file explorer to move it, into an open note
+  to link it, onto a canvas, a tab or the bookmarks. (Not on a phone.)
 - Double-click a card, or press Enter, to open the note. Ctrl-double-click (Cmd on macOS) or a middle
   click opens it in a new tab.
 - With the keyboard: arrow keys move between cards, Alt+arrows move a card, F2 renames, Delete asks before deleting,

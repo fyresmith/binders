@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.23 (2026-10-02)
+
+### Changed
+
+- Nothing a writer will notice: the plan says what is built and what was decided, and the README mentions Move to and dragging a card out of the view.
+
 ## 0.12.22 (2026-10-02)
 
 ### Changed
