@@ -3,6 +3,16 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.11.0 (2026-10-02)
+
+### Added
+
+- Drag a card or an outliner row out of the binder view: onto the file explorer to move it, a note to link it, a canvas, a tab or the bookmarks.
+
+### Changed
+
+- Folders in a binder spring open in the file explorer when something is dragged over them.
+
 ## 0.10.16 (2026-10-02)
 
 ### Changed

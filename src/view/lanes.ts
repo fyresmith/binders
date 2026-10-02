@@ -2,6 +2,7 @@ import { Keymap, Menu, Notice, TFile, TFolder, setIcon, type PaneType, type TAbs
 import { emptyState, isNote, itemMenu, nameOf, noteOf, plain, removeItems, renameItem } from './actions';
 import { buildCard, cardKey, sumWords, type CardEditors, type CardHost } from './card';
 import { Press, glide, held, places, settle, visibleBottom } from './drag';
+import { FileDrag } from './file-drag';
 import { openPluginSettings, submenu } from './internals';
 import { display, labelDot, labelName, paintLabel, presetOf } from './labels';
 import { CARD_SIZES, announceText, beside, changeText, flatRuns, insertAt, laneAt, laneList, laneOf, lanePitch, readLines, readSize, resolveDrop, type CardSize, type Lines, type Run, type Stop } from './lanes-data';
@@ -39,6 +40,8 @@ interface Drag {
 	raf: number;
 	edge: number;
 	off: () => void;
+	/** Outside the view the card is a file, and the drag Obsidian's (file-drag.ts). Null where it can't be handed one. */
+	file?: FileDrag | null;
 }
 
 /** Narrower than this (a phone, a side pane) the cards are small unless a size was chosen. */
@@ -144,7 +147,13 @@ class ByLabel implements BinderMode {
 			canDrag: () => !this.ctx.readOnly,
 			start: (card, x, y) => this.startDrag(card, x, y),
 			move: (x, y) => this.dragTo(x, y),
-			end: (drop, x, y) => { if (drop && this.over(x, y)) this.dragTo(x, y); this.endDrag(drop && this.over(x, y)); },
+			end: (drop, x, y) => {
+				// (let go outside the view: whatever is there takes the card as a file, or nothing does)
+				const file = this.drag?.file;
+				if (file?.out) { this.endDrag(false, false, drop && file.drop(x, y)); return; }
+				if (drop && this.over(x, y)) this.dragTo(x, y);
+				this.endDrag(drop && this.over(x, y));
+			},
 			hold: (card, x, y) => {
 				if (!this.sel.has(card.dataset.path)) this.select([card.dataset.path]);
 				this.cardMenu(card).showAtPosition({ x, y }, this.board.doc);
@@ -655,9 +664,10 @@ class ByLabel implements BinderMode {
 		const box = this.container, onScroll = () => { if (this.drag) this.drag.drop = this.dropAt(this.drag.x, this.drag.y); };
 		box.addEventListener('scroll', onScroll, { passive: true });
 		this.drag = { items, ghost, line, drop: null, held: card.dataset.path ?? '', own: card.dataset.label ?? '', shown: null, x, y, ox: x - r.left, oy: y - r.top, raf: 0, edge: 0, off: () => box.removeEventListener('scroll', onScroll) };
+		this.drag.file = FileDrag.begin(this.ctx.app, { source: card, items, carried: ghost, morph: true, notes: (f) => this.store.scenes(f) });
 		const tick = () => {
 			if (!this.drag) return;
-			this.autoscroll();
+			if (!this.drag.file?.out) this.autoscroll();
 			this.drag.raf = window.requestAnimationFrame(tick);
 		};
 		this.drag.raf = window.requestAnimationFrame(tick);
@@ -668,7 +678,8 @@ class ByLabel implements BinderMode {
 		if (!d) return;
 		d.x = x; d.y = y;
 		d.ghost.setCssStyles({ transform: `translate(${x - d.ox}px, ${y - d.oy}px)` });
-		d.drop = this.dropAt(x, y);
+		// outside the view the card is a file, and Obsidian's to place: the board shows nowhere of its own to drop it
+		d.drop = d.file?.move(x, y) ? this.dropAt(-1, -1) : this.dropAt(x, y);
 	}
 
 	/** Dragging near an edge of the pane scrolls it: gently at first, faster the nearer the edge and the longer held. */
@@ -761,10 +772,12 @@ class ByLabel implements BinderMode {
 	}
 
 	/** Ends a drag. A drop gives the cards the line's label and their new places, as one change; otherwise (cancelled,
-	    let go outside the board or back where they were) nothing changes. `quiet`: the board is going away. */
-	private endDrag(drop: boolean, quiet = false): void {
+	    let go outside the board or back where they were) nothing changes. `quiet`: the board is going away. `taken`: let
+	    go outside the view, where something took the card as a file. */
+	private endDrag(drop: boolean, quiet = false, taken = false): void {
 		const d = this.drag;
 		if (!d) return;
+		d.file?.end();
 		window.cancelAnimationFrame(d.raf);
 		d.off();
 		d.line.remove();
@@ -792,6 +805,9 @@ class ByLabel implements BinderMode {
 			}, 0);
 			return;
 		}
+		// (taken as a file: nothing comes back to the board from there, and the card stays dim in its slot for the
+		// moment a move takes to show)
+		if (taken && !quiet) { d.ghost.remove(); window.setTimeout(() => { if (this.board.isConnected && !this.busy()) this.draw(); }, 200); return; }
 		land(false);
 		if (!quiet) this.draw();
 	}

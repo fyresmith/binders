@@ -3,6 +3,7 @@ import { buildCard, countLabel, synopsisField, type CardHost } from './card';
 import { editable, type Editable } from './edit';
 import { emptyState, badName, isNote, itemMenu, noteOf, plain, removeItems, renameItem } from './actions';
 import { held, settle, visibleBottom } from './drag';
+import { FileDrag } from './file-drag';
 import { submenu } from './internals';
 import { display, labelDot, labelName } from './labels';
 import type { BinderMode, ModeContext, ModeFactory } from './mode';
@@ -42,6 +43,8 @@ interface Drag {
 	ox: number; oy: number;
 	raf: number;
 	off: () => void;
+	/** Outside the view the card is a file, and the drag Obsidian's (file-drag.ts). Null where it can't be handed one. */
+	file?: FileDrag | null;
 }
 
 /** How cards glide to their new places: Obsidian's own timing for a reordered item. */
@@ -864,6 +867,9 @@ class Corkboard implements BinderMode {
 			// let go outside the board: nothing moves, as when a drag in the file explorer ends outside it
 			// (or on a folder in the breadcrumb above the board: there they go to that folder)
 			this.dragTo(e.clientX, e.clientY);
+			// (let go outside the view: whatever is there takes the card as a file, or nothing does)
+			const file = this.drag.file;
+			if (file?.out) { this.endDrag(false, false, !cancelled && file.drop(e.clientX, e.clientY)); return; }
 			const inside = this.over(e.clientX, e.clientY) || !!this.drag.crumb;
 			this.endDrag(!cancelled && inside);
 			return;
@@ -909,11 +915,12 @@ class Corkboard implements BinderMode {
 		doc.addEventListener('keydown', onKey, true);
 		scroller.addEventListener('scroll', onScroll, { passive: true });
 		this.drag = { items, ghost, indicator, drop: null, x, y, ox: x - r.left, oy: y - r.top, raf: 0, off: () => { doc.removeEventListener('keydown', onKey, true); scroller.removeEventListener('scroll', onScroll); } };
+		this.drag.file = FileDrag.begin(this.ctx.app, { source: card, items, carried: ghost, morph: true, notes: (f) => this.store.scenes(f) });
 		this.press.card.removeClass('is-lifted');
 		this.dragTo(x, y);
 		const tick = () => {
 			if (!this.drag) return;
-			this.autoscroll();
+			if (!this.drag.file?.out) this.autoscroll();
 			this.drag.raf = window.requestAnimationFrame(tick);
 		};
 		this.drag.raf = window.requestAnimationFrame(tick);
@@ -924,6 +931,14 @@ class Corkboard implements BinderMode {
 		if (!d) return;
 		d.x = x; d.y = y;
 		d.ghost.setCssStyles({ transform: `translate(${x - d.ox}px, ${y - d.oy}px)` });
+		// outside the view the card is a file, and Obsidian's to place: the board shows nowhere of its own to drop it
+		if (d.file?.move(x, y)) {
+			d.crumb?.removeClass('is-being-dragged-over');
+			d.crumb = null;
+			d.ghost.removeClass('is-over-crumb');
+			d.drop = this.dropAt(-1, -1);
+			return;
+		}
 		// Over a folder in the breadcrumb: the cards go to that folder, at its end (the way out of the folder shown, a
 		// level up or more, since the board shows one folder at a time).
 		const crumb = this.board.doc.elementsFromPoint(x, y).map((el) => el.closest<HTMLElement>('.binders-crumb[data-path], .binders-crumb-up[data-path]')).find((el) => !!el && !!this.container.parentElement?.contains(el)) ?? null;
@@ -1055,10 +1070,12 @@ class Corkboard implements BinderMode {
 	}
 
 	/** Ends a drag. A drop moves the items; otherwise (cancelled, let go outside the board or back where they were) the
-	    card glides back to its place. `quiet`: the board is going away, so nothing is drawn. */
-	private endDrag(drop: boolean, quiet = false): void {
+	    card glides back to its place. `quiet`: the board is going away, so nothing is drawn. `taken`: let go outside
+	    the view, where something took the card as a file. */
+	private endDrag(drop: boolean, quiet = false, taken = false): void {
 		const d = this.drag;
 		if (!d) return;
+		d.file?.end();
 		window.cancelAnimationFrame(d.raf);
 		for (const c of this.board.querySelectorAll('.is-being-dragged-over')) c.removeClass('is-being-dragged-over');
 		d.crumb?.removeClass('is-being-dragged-over');
@@ -1083,6 +1100,9 @@ class Corkboard implements BinderMode {
 			window.setTimeout(() => { void this.moveItems(d.items, group.folder, anchor, group.depth).finally(() => { this.moving = false; land(); if (this.board.isConnected) this.draw(); }); }, 0);
 			return;
 		}
+		// taken as a file by something outside the view (a note's text, the file explorer): nothing comes back to the
+		// board from there, and the card stays dim in its slot for the moment a move takes to show
+		if (taken && !quiet) { d.ghost.remove(); window.setTimeout(() => { if (this.board.isConnected && !this.busy()) this.draw(); }, 200); return; }
 		land();
 		if (!quiet) this.draw();
 	}

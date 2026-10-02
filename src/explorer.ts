@@ -100,7 +100,7 @@ const resort = (v: ExplorerView) => { if (typeof v.requestSort === 'function') v
    handlers on the explorer's rows leave an event alone once `preventDefault()` has been called on it, so a listener
    ahead of them (in the capture phase) can take a drop for itself. Without `draggable` nothing is taken, and dragging
    works as it does without Binders: it moves things into folders. */
-interface Draggable { type?: unknown; file?: unknown; files?: unknown }
+interface Draggable { source?: unknown; type?: unknown; file?: unknown; files?: unknown }
 interface DragManager { draggable?: Draggable | null; setAction?: (text: string) => void; updateHover?: (el: HTMLElement | null, cls: string) => void }
 
 const dragManager = (app: App): DragManager | null => {
@@ -117,7 +117,12 @@ function dragged(app: App): TAbstractFile[] {
 	return [];
 }
 
+/** Is what's dragged a card or a row out of a binder view (src/view/file-drag.ts says so as it hands the drag over)? */
+const fromBinderView = (app: App): boolean => dragManager(app)?.draggable?.source === 'binders';
+
 const EXPLORER = '.workspace-leaf-content[data-type="file-explorer"]';
+/** How long a drag stays over a folded folder before it springs open (Obsidian's own wait is much the same). */
+const SPRING = 750;
 /** A drop between two rows: the folder it goes into, the item it goes before (null: last), and where the line shows. */
 interface Place { items: TAbstractFile[]; folder: TFolder; anchor: TAbstractFile | null; depth?: number; hint: string; line: { left: number; right: number; y: number }; refused?: boolean; onto?: HTMLElement }
 
@@ -293,6 +298,11 @@ export function installExplorer(plugin: Plugin, source: ExplorerSource, settings
 		const r = title.getBoundingClientRect(), y = (e.clientY - r.top) / r.height, edge = over instanceof TFolder ? 0.25 : 0.5;
 		const after = own || y >= 1 - edge, rtl = getComputedStyle(title).direction === 'rtl';
 		const name = (f: TAbstractFile) => (f instanceof TFolder ? f.name : f.name.replace(/\.[^.]+$/, ''));
+		// A folder dragged out of a binder view can't go into itself, or into a folder inside it: said, not left to
+		// Obsidian (which says nothing). A folder dragged in the explorer itself stays Obsidian's own there, as ever: that
+		// drag starts on the folder's own row, and letting go there at once is no attempt to move anything.
+		const self = fromBinderView(app) ? items.find((f) => f instanceof TFolder && !!over && (over === f || over.path.startsWith(f.path + '/'))) : null;
+		if (self) return { items, folder, anchor: null, hint: `“${name(self)}” can’t be moved into ${over === self || folder === self ? 'itself' : 'a folder inside it'}`, line: { left: 0, right: 0, y: 0 }, refused: true };
 		if (!after && y >= edge) {
 			// the middle of a folder's row: into it, at its end, as Obsidian would; taken here so it's a move that
 			// "Undo last move" takes back
@@ -349,10 +359,31 @@ export function installExplorer(plugin: Plugin, source: ExplorerSource, settings
 	    drop event to say it in). */
 	let refusal: string | null = null;
 
+	/** A folded folder a drag stays over for a moment springs open, as Obsidian has it (its own timer is in the drop
+	    handler this one is ahead of, so it never starts for a row taken here). */
+	let spring: { el: HTMLElement; timer: number } | null = null;
+	const springOpen = (title: HTMLElement | null) => {
+		if (spring?.el === title) return;
+		if (spring) window.clearTimeout(spring.timer);
+		spring = null;
+		if (!title || !title.parentElement?.hasClass('is-collapsed')) return;
+		const timer = window.setTimeout(() => {
+			spring = null;
+			for (const v of explorerViews(app).views) {
+				const it = v.fileItems[title.dataset.path ?? ''] as (ExplorerItem & { collapsed?: boolean; setCollapsed?: (c: boolean, animate: boolean) => unknown; toggleCollapsed?: (animate: boolean) => unknown }) | undefined;
+				if (it?.selfEl !== title || it.collapsed !== true) continue;
+				try { if (typeof it.setCollapsed === 'function') void it.setCollapsed(false, true); else void it.toggleCollapsed?.(true); } catch { /* it stays folded */ }
+			}
+		}, SPRING);
+		spring = { el: title, timer };
+	};
+
 	const onDragOver = (e: DragEvent) => {
-		const place = loaded ? placeAt(e) : null;
+		const place = loaded ? placeAt(e) : null, was = refusal;
 		refusal = place?.refused ? place.hint : null;
-		if (!place) { hideLine(); return; }
+		springOpen(place?.onto ?? null);
+		// (off a place that was refused: the ghost stops saying why, unless what's here has something to say)
+		if (!place) { hideLine(); if (was) try { dragManager(app)?.setAction?.(''); } catch { /* the hint is only a hint */ } return; }
 		// ours: Obsidian's own handlers on the row skip an event that's been taken
 		e.preventDefault();
 		if (e.dataTransfer) e.dataTransfer.dropEffect = place.refused ? 'none' : 'move';
@@ -371,6 +402,7 @@ export function installExplorer(plugin: Plugin, source: ExplorerSource, settings
 	const onDrop = (e: DragEvent) => {
 		const place = loaded ? placeAt(e) : null;
 		hideLine();
+		springOpen(null);
 		refusal = null;
 		if (!place) return;
 		e.preventDefault();
@@ -391,8 +423,12 @@ export function installExplorer(plugin: Plugin, source: ExplorerSource, settings
 		plugin.registerDomEvent(doc, 'dragover', onDragOver, true);
 		plugin.registerDomEvent(doc, 'dragenter', onDragOver, true);
 		plugin.registerDomEvent(doc, 'drop', onDrop, true);
-		plugin.registerDomEvent(doc, 'dragend', () => { hideLine(); if (refusal) new Notice(refusal + '.'); refusal = null; }, true);
-		plugin.registerDomEvent(doc, 'dragleave', (e) => { if (!e.relatedTarget) hideLine(); }, true);
+		plugin.registerDomEvent(doc, 'dragend', () => { hideLine(); springOpen(null); if (refusal) new Notice(refusal + '.'); refusal = null; }, true);
+		// (A drag that leaves the window, or goes back to the binder view it came from, wasn't let go where it was
+		// refused: it says so with no place on the screen at all, which is what Obsidian's drag manager goes by too.
+		// A refused drop also ends with a `dragleave` to nowhere, but that one has the pointer's place: the reason stays
+		// for the `dragend` that follows to say.)
+		plugin.registerDomEvent(doc, 'dragleave', (e) => { if (!e.relatedTarget) { hideLine(); springOpen(null); if (e.screenX === 0 && e.screenY === 0) refusal = null; } }, true);
 	};
 
 	app.workspace.onLayoutReady(() => {
@@ -418,6 +454,7 @@ export function installExplorer(plugin: Plugin, source: ExplorerSource, settings
 	plugin.register(() => {
 		loaded = false;
 		hideLine();
+		springOpen(null);
 		active();
 		unpatch?.(); unpatch = null;
 		for (const v of explorerViews(app).views) { for (const k in v.fileItems) v.fileItems[k]?.selfEl?.querySelectorAll(':scope > .binders-folder-tag, :scope > .binders-explorer-label').forEach((el) => el.remove()); resort(v); }

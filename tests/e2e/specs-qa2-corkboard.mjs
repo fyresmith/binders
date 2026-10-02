@@ -72,11 +72,23 @@ test('BUG: an insertion line shows only where letting go moves the card (not jus
 		return { where, line: !!mark, moved };
 	};
 	const out = [];
-	// a short board (nothing to scroll): a few pixels left of the pane, the card itself still mostly over the board
+	// a short board (nothing to scroll): a few pixels left of the pane, the card itself still mostly over the board.
+	// That's the sidebar: since a card dragged out of the view is a file (specs-card-file-drag.mjs), the drag there is
+	// Obsidian's, with no line on the board, and what a drop does is the file explorer's to say. Brought back to its
+	// own place and let go, nothing has moved.
 	await openView(p, L + 'Part One');
 	let s = await at(p, 'Part One/Storm warning.md'), k = await at(p, 'Part One/The keeper.md');
 	const pane = await rectOf(p, `${LEAF} .binders-corkboard`);
-	out.push(await tryAt('5px left of the pane', { x: s.x, y: s.t + 12 }, pane.l - 5, k.y));
+	const was = j(await contents(p));
+	await hold(p, { x: s.x, y: s.t + 12 }, { x: pane.l - 5, y: k.y });
+	t.eq(await line(p), null, '5px left of the pane: no line on the board');
+	t.ok(await p.ev(`!!app.dragManager.draggable && document.querySelector('.binders-drag-ghost').classList.contains('is-handed-over')`), '5px left of the pane: the card is a file, and the drag Obsidian’s');
+	await p.move(s.x, s.t + 12, 8, { buttons: 1 });
+	await letGo(p, s.x, s.t + 12);
+	await p.sleep(500);
+	await flush(p);
+	t.eq(j(await contents(p)), was, 'brought back and let go where it was: nothing moved');
+	t.eq(await leftovers(p), 0, '5px left of the pane, and back: nothing of the drag is left');
 	// a board long enough to scroll: over the toolbar
 	await bigFolder(p, 'Big', 30);
 	await openView(p, L + 'Big');

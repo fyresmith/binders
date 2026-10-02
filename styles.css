@@ -3237,3 +3237,66 @@ body.binders-focus-post :is(.workspace-ribbon, .workspace-split.mod-left-split, 
 		animation: none;
 	}
 }
+
+/* A card dragged out of the binder view is a file (src/view/file-drag.ts): the card in hand shrinks into where it's
+   held, and Obsidian's own drag ghost (the note's name, and what a drop there would do) grows out of the same spot.
+   Back over the view, the other way round. In the timing Obsidian gives its own dragged items (most of the way in a
+   third of the time, then settling). An outliner's row already looks like that ghost: the one just takes the other's
+   place. */
+.binders-drag-ghost,
+.drag-ghost.binders-file-ghost {
+	--binders-handover: var(--anim-duration-moderate, 300ms) cubic-bezier(0.2, 0, 0, 1);
+}
+
+.binders-drag-ghost > .binders-card,
+.binders-drag-ghost > .binders-drag-count {
+	transform-origin: var(--binders-hold-x, 50%) var(--binders-hold-y, 50%);
+}
+
+.binders-drag-ghost.is-handed-over > .binders-card,
+.binders-drag-ghost.is-handed-over > .binders-drag-count {
+	transform: scale(0.2);
+	opacity: 0;
+}
+
+.binders-outliner-ghost.is-handed-over {
+	display: none;
+}
+
+/* (Obsidian puts its ghost 5px down and right of the pointer; above a finger, centred) */
+.drag-ghost.binders-file-ghost.mod-morph {
+	transform-origin: -5px -5px;
+}
+
+.is-mobile .drag-ghost.binders-file-ghost.mod-morph {
+	transform-origin: 50% calc(100% + 20px);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	.binders-drag-ghost > .binders-card,
+	.binders-drag-ghost > .binders-drag-count {
+		transition: transform var(--binders-handover), opacity var(--binders-handover);
+	}
+
+	.drag-ghost.binders-file-ghost.mod-morph {
+		animation: binders-file-ghost-in var(--binders-handover) backwards;
+	}
+
+	.drag-ghost.binders-file-ghost.mod-morph.is-leaving {
+		animation: binders-file-ghost-out var(--binders-handover) forwards;
+	}
+}
+
+@keyframes binders-file-ghost-in {
+	from {
+		transform: scale(0.4);
+		opacity: 0;
+	}
+}
+
+@keyframes binders-file-ghost-out {
+	to {
+		transform: scale(0.4);
+		opacity: 0;
+	}
+}

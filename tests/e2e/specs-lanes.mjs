@@ -297,11 +297,12 @@ test('Escape, and a drop outside the board, change nothing', async (p, h, t) => 
 	await release(p, at);
 	await p.sleep(400);
 	t.eq(await label(p, PART_ONE[0]), null, 'no label was given');
-	// let go over the toolbar
+	// let go over the toolbar (not above it: past the view's own header the tab strip takes a card as a note to open, see
+	// specs-card-file-drag.mjs)
 	const bar = await p.at(`${LEAF} .binders-toolbar-spacer`);
 	at = await dragCard(p, PART_ONE[0], { x: bar.x }, { drop: false });
-	await p.move(bar.x, bar.y - 60, 6, { buttons: 1 });
-	await release(p, { x: bar.x, y: bar.y - 60 });
+	await p.move(bar.x, bar.y, 6, { buttons: 1 });
+	await release(p, { x: bar.x, y: bar.y });
 	await p.sleep(500);
 	t.ok(!(await p.ev(`!!document.querySelector('.binders-drag-ghost, .binders-drop-indicator')`)), 'nothing is left in hand');
 	await flush(p);

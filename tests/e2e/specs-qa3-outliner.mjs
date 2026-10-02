@@ -168,7 +168,7 @@ test('drag: a row dropped in its own folder glides to its place; the page doesnâ
 	t.eq(p.errors.length, 0, 'no errors: ' + p.errors.join(' ; '));
 });
 
-test('drag: Escape with the pointer outside the window cancels; a release over the sidebar moves nothing and opens nothing', async (p, h, t) => {
+test('drag: Escape with the pointer outside the window cancels; over the sidebar the row is a file and the outliner shows nowhere to go, and Escape there cancels too', async (p, h, t) => {
 	await open(p);
 	const k = await nameAt(p, 'Part One/The keeper.md');
 	await p.move(k.x, k.y, 2);
@@ -185,9 +185,13 @@ test('drag: Escape with the pointer outside the window cancels; a release over t
 	await press(p, k.x, k.y);
 	await p.move(150, 300, 8, { buttons: 1 });
 	await p.sleep(100);
+	// (since rows dragged out of the view are files, a release here is the file explorer's to act on, see
+	// specs-card-file-drag.mjs; the outliner itself shows nowhere to go, and Escape ends it with nothing moved)
 	const seen = await dragState(p);
-	t.eq(seen.hint, '', 'over the sidebar: nowhere to go');
+	t.eq(seen.hint, '', 'over the sidebar: nowhere to go in the outliner');
 	t.eq(seen.line, null, 'no line');
+	t.ok(await p.ev(`app.dragManager.draggable?.file?.path === ${j(L + 'Part One/The keeper.md')}`), 'the row is a file there, and the drag Obsidianâ€™s');
+	await p.key('Escape');
 	await release(p, 150, 300);
 	await p.sleep(400);
 	await flush(p);

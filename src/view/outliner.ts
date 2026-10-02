@@ -2,6 +2,7 @@ import { Keymap, Menu, Notice, Platform, TFile, TFolder, setIcon, type EventRef,
 import { compiles, emptyState, isNote, plain, itemMenu, labelItems, nameOf, noteOf, removeItems, renameItem, setAll, setCompile, statusItems } from './actions';
 import { COMPILE_PROP } from '../scenes';
 import { GLIDE_QUICK, Press, glide, held, places, settle, visibleBottom } from './drag';
+import { FileDrag } from './file-drag';
 import { editable, type Editable } from './edit';
 import { submenu } from './internals';
 import { labelDot, labelName, rank } from './labels';
@@ -53,7 +54,7 @@ class Outliner implements BinderMode {
 	/** A row to rename once it's drawn (a note or folder just made). */
 	private renameNext: string | null = null;
 	private refocus: string | null = null;
-	private drag: { items: TAbstractFile[]; ghost: HTMLElement; action: HTMLElement; line: HTMLElement; place: Place | null; x: number; y: number; raf: number; off: () => void } | null = null;
+	private drag: { items: TAbstractFile[]; ghost: HTMLElement; action: HTMLElement; line: HTMLElement; place: Place | null; x: number; y: number; raf: number; off: () => void; file?: FileDrag | null } | null = null;
 	private stopHeader: (() => void) | null = null;
 	/** Where rows just dropped were let go, to glide from (their paths change when they change folders). */
 	private landing = new Map<TAbstractFile, DOMRect>();
@@ -1258,12 +1259,14 @@ class Outliner implements BinderMode {
 		doc.body.addClass('is-grabbing');
 		const onScroll = () => { if (this.drag) this.dragTo(this.drag.x, this.drag.y); };
 		this.root.addEventListener('scroll', onScroll, { passive: true });
-		this.drag = { items, ghost, action, line, place: null, x, y, raf: 0, off: () => this.root.removeEventListener('scroll', onScroll) };
+		// (outside the view the rows are files, and the drag Obsidian's, with its own ghost, which ours is the look of: file-drag.ts)
+		const file = FileDrag.begin(this.ctx.app, { source: row, items, carried: ghost, notes: (f) => this.ctx.store.scenes(f) });
+		this.drag = { items, ghost, action, line, place: null, x, y, raf: 0, off: () => this.root.removeEventListener('scroll', onScroll), file };
 		const tick = () => {
 			const d = this.drag;
 			if (!d) return;
 			const r = this.root.getBoundingClientRect(), top = r.top + this.head.offsetHeight, bottom = visibleBottom(this.root);
-			const v = d.y < top + EDGE ? -(top + EDGE - d.y) : d.y > bottom - EDGE ? d.y - (bottom - EDGE) : 0;
+			const v = d.file?.out ? 0 : d.y < top + EDGE ? -(top + EDGE - d.y) : d.y > bottom - EDGE ? d.y - (bottom - EDGE) : 0;
 			// (the line is put right in the same frame: the scroll's own event comes a frame later)
 			if (v) { this.edgeSince ||= performance.now(); const was = this.root.scrollTop; this.root.scrollTop += Math.max(-20, Math.min(20, v / 2)) * held(this.edgeSince); if (this.root.scrollTop !== was) this.dragTo(d.x, d.y); } else this.edgeSince = 0;
 			d.raf = window.requestAnimationFrame(tick);
@@ -1275,6 +1278,13 @@ class Outliner implements BinderMode {
 		const d = this.drag;
 		if (!d) return;
 		d.x = x; d.y = y;
+		// outside the view the rows are files, and Obsidian's to place: no line, no folder marked here
+		if (d.file?.move(x, y)) {
+			d.place = null;
+			for (const el of this.body.querySelectorAll('.is-being-dragged-over')) el.removeClass('is-being-dragged-over');
+			d.line.removeClass('is-active');
+			return;
+		}
 		// (by a finger: above it and centred, as Obsidian puts what it drags on a phone, and never off the screen's side)
 		if (Platform.isMobile) {
 			const w = d.ghost.offsetWidth, h = d.ghost.offsetHeight, max = this.root.doc.documentElement.clientWidth - w - 4;
@@ -1352,9 +1362,12 @@ class Outliner implements BinderMode {
 		return done(over.parent, rest.indexOf(over) + (after ? 1 : 0), rest, { hint: after ? `Move after “${name}”` : `Move before “${name}”`, into: null, depth, line: { left, right: r.right, y: after ? r.bottom : r.top } });
 	}
 
-	private endDrag(drop: boolean, _x: number, _y: number, quiet = false): void {
+	private endDrag(drop: boolean, x: number, y: number, quiet = false): void {
 		const d = this.drag;
 		if (!d) return;
+		// (let go outside the view: whatever is there takes the rows as files, or nothing does)
+		if (d.file?.out) { d.place = null; if (drop && !quiet) d.file.drop(x, y); }
+		d.file?.end();
 		window.cancelAnimationFrame(d.raf);
 		d.off();
 		d.ghost.remove();

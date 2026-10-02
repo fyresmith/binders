@@ -13,6 +13,10 @@ a fallback, and has an e2e test. Where one of those is still missing, the table 
 | Explorer DOM: `.workspace-leaf-content[data-type="file-explorer"] .nav-folder-title[data-path]`, `.collapse-icon` | `src/explorer.ts` | Click (or tap) to open a binder; Mod-click or middle-click for a new tab | Clicking only expands the folder, as usual | `specs-explorer.mjs` |
 | Explorer DOM while dragging: `.nav-file-title` and `.nav-folder-title` with `data-path`, `.tree-item-self[data-path]`, `.tree-item-inner`, `.tree-item-children`, `is-collapsed` on a folder's item, `.nav-files-container` | `src/explorer.ts` (`placeAt`, `onDragOver`) | Which row the pointer is over, whether a folder is open, where names start (the line's indent, and "further left is after the folder"), and the list's edges | No title under the pointer: the drag is Obsidian's own. Without `.tree-item-inner` the row's own edge is used; without `.nav-files-container` the line isn't clipped | `specs-explorer.mjs`, `specs-qa2-explorer.mjs` |
 | `app.dragManager`: `draggable` (`{ type: 'file' \| 'folder', file }` or `{ type: 'files', files }`), `setAction(text)`, `updateHover(el, cls)` | `src/explorer.ts` | Dragging in the explorer to reorder a binder: what's being dragged, the hint under the pointer (or why a drop is refused), clearing Obsidian's folder tint | Without `dragManager` or `draggable` nothing is taken: dragging in the explorer is Obsidian's own (it moves things into folders). `setAction` and `updateHover` are optional: without them there's no hint | `specs-explorer.mjs`, `specs-qa2-explorer.mjs` |
+| `app.dragManager`: `dragFile(event, file, source)`, `dragFolder(…)`, `dragFiles(…)`, `onDragStart(event, draggable)`, `onDragEnd()`, `ghostEl`, `dragStart.moved`, and a `draggable` set by hand (`{ source, type: 'files', icon, title, files }`) | `src/view/file-drag.ts` | A card or an outliner row dragged out of the binder view is handed to Obsidian as a file drag, as a row of the file explorer hands it one; over a canvas a folder is offered as the notes in it | `FileDrag.begin()` returns null without any of the five methods (or on a phone, or in a window of its own): a drag never leaves the view, and a drop outside it moves nothing, as before | `specs-card-file-drag.mjs` (each target; the fallback test hides `dragFile`) |
+| Drag events made by hand (`new DragEvent('dragstart' \| 'dragenter' \| 'dragover' \| 'dragleave' \| 'drop' \| 'dragend', { dataTransfer: new DataTransfer() })`, with `dropEffect` and `effectAllowed` defined on the `DataTransfer`, which ignores them otherwise), sent to `document.elementFromPoint()` | `src/view/file-drag.ts` | What is under the pointer hears of the drag as it would of a real one: Obsidian's drop handlers (`dragManager.handleDrop`), the editor's, the canvas's and the explorer's own | Without `DataTransfer` or `DragEvent` constructors, `FileDrag.begin()` returns null. A drop no one takes (`defaultPrevented` false) leaves the card where it was | `specs-card-file-drag.mjs` |
+| DOM: `.workspace-leaf` (the view's pane), `.workspace-tabs > .workspace-tab-header-container .workspace-tab-header.is-active` (its own tab), `.canvas-wrapper`, `.workspace-leaf-content[data-type="bookmarks"] .tree-item`; the class `drag-ghost` of Obsidian's ghost (ours are added: `binders-file-ghost`, `mod-morph`, `is-leaving`) | `src/view/file-drag.ts`, `styles.css` | Where the drag is the view's own (its pane, header and tab); a canvas; an empty list of bookmarks, which is sent nothing (its handler throws: it reads the last item of the list); the ghost a card shrinks into | Without `.workspace-leaf` the view's content is the pane; without the others, nothing is special-cased and the ghost only appears and disappears | `specs-card-file-drag.mjs` |
+| A folder item's `collapsed` and `setCollapsed(collapsed, animate)` (else `toggleCollapsed`) | `src/explorer.ts` (`springOpen`) | A folded folder in a binder springs open under a drag held over its middle (Obsidian's own timer never starts for a row whose event Binders took) | It stays folded | `specs-card-file-drag.mjs` |
 | Explorer rows' own drop handlers skip a `dragover`/`drop` event that already has `preventDefault()` called | `src/explorer.ts` | Taking a drop between two rows before the explorer does | The explorer would also move the item into the folder: caught by the tests | `specs-explorer.mjs` |
 | CSS classes `drag-reorder-ghost`, `mod-dragged-item` (a dragged card); `drag-ghost`, `drag-ghost-self`, `drag-ghost-action` (dragged outliner rows, with the hint); `drop-indicator` (the explorer's and the outliner's insertion line); `is-grabbing` on the body; `collapse-icon`, `is-collapsed` and the `right-triangle` icon (the outliner's fold arrows) | `src/view/corkboard.ts`, `src/view/lanes.ts`, `src/view/outliner.ts`, `src/explorer.ts`, `styles.css` | A drag, an insertion line, the grabbing cursor and a fold arrow look as Obsidian's own do, in every theme | Binders' own classes are on the same elements (`binders-drag-ghost`, `binders-outliner-ghost`, `binders-drop-line`, `binders-explorer-drop`, `binders-outliner-chevron`), so they're still placed and shown, less finished | `specs-corkboard.mjs`, `specs-outliner.mjs` |
 | A menu item's `setSubmenu()` (returns the submenu, a `Menu`) | `src/view/internals.ts` (`submenu`) | "Set status" and "Set label" in an item's menu, "Card size" on the corkboard, "Columns" in the outliner's options | The item opens the submenu as a menu of its own | `specs-corkboard.mjs` |
@@ -105,6 +109,8 @@ versions); a view's `setEphemeralState()` and `getEphemeralState()`; `MenuItem.s
   no line shows, the hint says why ("“Part One” already has “Arrival”", a note that would become the folder's note,
   two dragged items of one name), and a drop there shows the reason as a notice. Where it isn't a binder's to say
   (a newer-format binder, a binder or folder note, a folder into itself), the drag is Obsidian's own.
+  One exception: a folder dragged out of a binder view (`draggable.source === 'binders'`) onto its own row, or a row
+  inside it, is refused with the reason, since Obsidian says nothing there.
 - A drop goes through `store.put()`, one change that "Undo last move" takes back.
 - Escape cancels a drag in Chromium itself, which then sends `dragend` and no `drop`; nothing can test that in the
   harness, where drags are made of mouse events.
@@ -116,6 +122,36 @@ versions); a view's `setEphemeralState()` and `getEphemeralState()`; `MenuItem.s
   after a 450ms press). They borrow the look of a note dragged in the file explorer: a `div.drag-ghost` with a
   `drag-ghost-self` (icon and name, or "3 items") and a `drag-ghost-action` (where it would go), a `drop-indicator`
   line, and `is-being-dragged-over` on a folder's row. Rows glide to their places with the same timing.
+
+### A card dragged out of the view (checked on Obsidian 1.13.7, desktop and `app.emulateMobile(true)` as a tablet)
+
+`src/view/file-drag.ts` is the only module that touches this; the corkboard, the board by label and the outliner call
+`FileDrag.begin()`, `move()`, `drop()` and `end()` from their own pointer drags.
+
+- Inside the view's pane (its header and its own tab included) nothing happens: the drag is the view's.
+- Outside it, a `dragstart` is sent from the card, and in it the drag manager is told what's dragged exactly as
+  `dragManager.handleDrag` does for a row of the file explorer: `dragFile` / `dragFolder` / `dragFiles`, then
+  `onDragStart`, which makes Obsidian's ghost and sets `draggable`. By touch `onDragStart` also notes a drag that
+  hasn't moved yet (`dragStart`), to open a menu if it ends so: ours has moved, and says so.
+- Then, on every pointer move (and every 50ms while it's still, as a real drag does), the element under the pointer
+  gets `dragenter` / `dragleave` when it changes and `dragover`. Obsidian's `window` listeners place the ghost and
+  word its action; a handler that takes the event (`preventDefault()`) and the `dropEffect` it sets say whether a
+  drop would do anything. Text being edited takes a drop without saying so, as in the browser.
+- Let go: a `drop` on that element if something would take it, then `dragend`; `onDragEnd()` is called too if
+  anything is still set. Back over the view, off the window, Escape or the view closing: a `dragleave` with no
+  related target and no screen position (what a real drag leaving the window sends: Obsidian detaches its ghost and
+  the explorer forgets a refusal), then the same ending. Nothing is left in `draggable` or `ghostEl`.
+- Near the top or bottom of a list that scrolls, the list scrolls, as Chromium scrolls it under a real drag.
+- A canvas reads a dragged folder as every file in it, its hidden folder note too: over `.canvas-wrapper` the
+  `draggable` is swapped for a `files` one of the folder's scenes (`store.scenes`), and swapped back on leaving.
+- The look: the card in hand gets `is-handed-over` (it shrinks to where it's held and fades), Obsidian's ghost gets
+  `binders-file-ghost mod-morph` (it grows from the same spot); on the way back a copy of the ghost (`is-leaving`)
+  fades where it was. 300ms, `cubic-bezier(0.2, 0, 0, 1)`; nothing shrinks or grows under "reduce motion". An
+  outliner's row ghost is already Obsidian's look, at the same offset from the pointer: it's hidden and Obsidian's
+  shows, with nothing to see change.
+- Not done: a window of its own (the drag manager's listeners are in the main window; there the drag stays a card
+  drag), a phone (nothing is beside the view to drop on), and a move out of the binder isn't recorded for "Undo last
+  move" unless the file explorer placed it in a binder.
 
 ## The editable embed (checked on Obsidian 1.13.7, desktop and `app.emulateMobile(true)`)
 
