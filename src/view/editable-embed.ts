@@ -146,6 +146,7 @@ export async function saveTab(view: MarkdownView): Promise<void> {
 const live = new Map<TFile, Set<LiveEditor>>();
 export const liveEditors = (file: TFile): LiveEditor[] => [...(live.get(file) ?? [])];
 
+/** One live editor on one note, from `mountEditor`. */
 export interface LiveEditor {
 	readonly file: TFile;
 	readonly editor: Editor | undefined;
@@ -164,11 +165,10 @@ export interface LiveEditor {
 	keepLivePreview(): void;
 }
 
+/** What the manuscript hears from an editor: its typing, and its cursor wanting to be in sight. */
 export interface MountOptions {
 	/** Called on every change the editor makes to the text (typing, undo, paste), before it's saved. */
 	onChange?(text: string): void;
-	/** Called when the editor, with the focus, wants its cursor in sight (a key moved it, text was typed): the
-	    manuscript scrolls its page, since the editor has no scrolling of its own here. */
 	/** The editor would scroll this position (its cursor) into view: called while it measures itself, so only the page
 	    may be read and scrolled here, not the editor asked (`coordsAtPos` would make it measure again). */
 	onCaret?(cm: EditorView, pos: number): void;

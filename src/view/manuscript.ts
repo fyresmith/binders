@@ -1,5 +1,6 @@
 import { Component, Keymap, MarkdownRenderer, Menu, Notice, Platform, TFile, TFolder, normalizePath, setIcon, type Events, type TAbstractFile } from 'obsidian';
 import type { EditorView } from '@codemirror/view';
+import { caretRect } from '../focus/dom';
 import { bodyStart, forRender, moved } from '../scene-text';
 import { badName, emptyState, itemMenu, plain, removeItems, renameItem } from './actions';
 import { vimMode } from './internals';
@@ -20,22 +21,6 @@ const SETTLE = 120;
 
 /** A key as it was pressed, to be given to an editor a moment later. */
 interface StrayKey { key: string; code: string; ctrlKey: boolean; metaKey: boolean; altKey: boolean; shiftKey: boolean }
-
-/** Where a position in an editor is on screen, from the page as drawn: for when the editor itself can't be asked (it's
-    measuring). Null if that part isn't drawn. */
-function caretRect(cm: EditorView, pos: number): { top: number; bottom: number } | null {
-	try {
-		const { node, offset } = cm.domAtPos(pos), range = node.ownerDocument.createRange();
-		range.setStart(node, offset);
-		range.collapse(true);
-		const r = range.getClientRects()[0];
-		if (r && r.height) return r;
-		// an empty line, or between two things in one: the thing before or after, or the line
-		const el = node.instanceOf(HTMLElement) ? (node.childNodes[offset] ?? node.childNodes[offset - 1] ?? node) : node.parentElement;
-		const b = el?.instanceOf(HTMLElement) ? el.getBoundingClientRect() : null;
-		return b && b.height ? b : null;
-	} catch { return null; }
-}
 
 interface Heading {
 	kind: 'heading';
@@ -331,7 +316,7 @@ class Manuscript implements BinderMode {
 		return (this.sceneOf(this.root.ownerDocument.activeElement) ?? null)?.file ?? this.caret?.file ?? null;
 	}
 
-	// focus mode >>>
+	/** The editor with the cursor in it, for focus mode (typewriter scrolling, the last line). */
 	editor(): EditorView | null { return this.sceneOf(this.root.ownerDocument.activeElement)?.live?.cm ?? null; }
 
 	/** The cursor goes to the section before or after the one it's in (or was last in): at that one's start, going
@@ -343,7 +328,6 @@ class Manuscript implements BinderMode {
 		if (!checking) void this.focusScene(to, delta > 0 ? 'start' : 'end');
 		return true;
 	}
-	// <<< focus mode
 
 	newMenu(menu: Menu): void {
 		menu.addItem((i) => i.setSection('new').setTitle('New note').setIcon('file-plus').onClick(() => this.create('note')));
@@ -867,11 +851,10 @@ class Manuscript implements BinderMode {
 		const view = { top: r.top + this.covered(), bottom: r.bottom };
 		const line = c ? c.bottom - c.top : 24, pad = Math.min((view.bottom - view.top) / 4, line * 2);
 		const top = c?.top ?? (fallback === 'end' ? body.bottom - line : body.top), bottom = c?.bottom ?? top + line;
-		// focus mode >>> typewriter scrolling: with the cursor on the last line of its section, that line is held at one
+		// focus mode's typewriter scrolling: with the cursor on the last line of its section, that line is held at one
 		// height and the page moves under it (here, where the manuscript moves its page anyway); anywhere else, as below
 		const cm = s.live?.cm, held = cm ? this.ctx.plugin.focus?.line(this.root, cm) : null;
 		if (held != null) { this.ctx.plugin.focus.glide(this.root, top - held); return; }
-		// <<< focus mode
 		if (top < view.top + pad) this.root.scrollTop -= view.top + pad - top;
 		else if (bottom > view.bottom - pad) this.root.scrollTop += bottom - (view.bottom - pad);
 	}
@@ -1146,4 +1129,5 @@ function sameLine(cm: EditorView, a: number, b: number): boolean {
 	return Math.min(ca.bottom, cb.bottom) - Math.max(ca.top, cb.top) > 2;
 }
 
+/** The mode factory `plugin.modeFactories` uses. */
 export const manuscript: ModeFactory = (container, ctx) => new Manuscript(container, ctx);

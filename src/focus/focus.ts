@@ -68,6 +68,7 @@ interface Active {
 	full: boolean;
 }
 
+/** Focus mode: its commands, the header buttons, and a state added to the view in front. See the header comment. */
 export class Focus {
 	on: Active | null = null;
 	session: Session;

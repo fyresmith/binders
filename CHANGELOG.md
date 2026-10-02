@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.99 (2026-10-02)
+
+### Changed
+
+- Nothing a writer will notice: comments corrected, and one helper where there were two.
+
 ## 0.12.98 (2026-10-02)
 
 ### Changed

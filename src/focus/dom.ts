@@ -57,6 +57,7 @@ export function caretRect(cm: EditorView, pos: number): { top: number; bottom: n
 		range.collapse(true);
 		const r = range.getClientRects()[0];
 		if (r && r.height) return r;
+		// an empty line, or between two things in one: the thing before or after, or the line
 		const el = node.instanceOf(HTMLElement) ? (node.childNodes[offset] ?? node.childNodes[offset - 1] ?? node) : node.parentElement;
 		const b = el?.instanceOf(HTMLElement) ? el.getBoundingClientRect() : null;
 		return b && b.height ? b : null;

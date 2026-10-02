@@ -18,6 +18,8 @@ export function dayOf(d: Date): string {
 
 const inFolder = (path: string, folder: string): boolean => folder === '' || folder === '/' || path.startsWith(folder + '/');
 
+/** The day's words on this device: what each note held when first seen today, and what it holds now. Pure; kept by
+    Focus in the vault's local storage. */
 export class Session {
 	private data: SessionData;
 
