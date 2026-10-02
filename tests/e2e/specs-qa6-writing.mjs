@@ -661,6 +661,36 @@ for (const where of ['tab', 'manuscript']) {
 	});
 }
 
+// (the same for what else is written as a page goes: the binder's order, waiting its moment to be written, and a
+// synopsis still in its field. A write begun as the page ends is cut off after the file is emptied.)
+ok('a change of order waiting to be written, then the app reloaded: the binder note is whole afterwards, as it was or with the move', async (p, h, t) => {
+	const before = snap(p);
+	await openView(p);
+	const waiting = await p.ev(`(async () => { const b = app.plugins.plugins.binders.binders; void b.moveDown(app.vault.getAbstractFileByPath(${j(PROLOGUE)})); await new Promise(r => setTimeout(r, 30)); return b.waiting(); })()`);
+	await reload(p);
+	const d = disk(p, NOTE);
+	console.log(`    order: ${waiting ? 'a write was waiting' : 'nothing was waiting'}; after the reload the binder note is ${d === before[NOTE] ? 'as it was' : 'changed'} (${d.length} of ${before[NOTE].length} characters)`);
+	t.ok(waiting, 'a change of order was waiting to be written when the page went');
+	const lines = (x) => x.split('\n').sort().join('\n');
+	t.ok(d === before[NOTE] || lines(d) === lines(before[NOTE]), 'the binder note is whole: as it was, or the same lines in the new order: ' + j(d));
+	sameBut(t, before, snap(p), { [NOTE]: d });
+});
+ok('a card’s synopsis being typed, then the app reloaded: the note is whole afterwards, as it was or with the synopsis', async (p, h, t) => {
+	const before = snap(p);
+	await openView(p);
+	await p.ev(`(() => { ${VIEW}.setMode('corkboard'); return 1; })()`);
+	await p.sleep(500);
+	const s = await p.at(`.workspace-leaf.mod-active .binders-card[data-path="${EPILOGUE}"] .binders-card-synopsis`);
+	await p.click(s.x, s.y);
+	await p.key('End', 'ctrl');
+	await p.type(' Typed late.');
+	await reload(p);
+	const d = disk(p, EPILOGUE);
+	console.log(`    synopsis: after the reload the note is ${d === before[EPILOGUE] ? 'as it was' : 'changed'} (${d.length} of ${before[EPILOGUE].length} characters)`);
+	t.ok(d === before[EPILOGUE] || (count(d, 'Typed late.') === 1 && body(d) === body(before[EPILOGUE]) && d.length > before[EPILOGUE].length), 'the note is whole: as it was, or with the words in its synopsis: ' + j(d));
+	sameBut(t, before, snap(p), { [EPILOGUE]: d });
+});
+
 // ---- 14. the same on a phone (390 x 844, touch; keys come in as an on-screen keyboard sends them) ----
 for (const [name, tear] of Object.entries({ 'another mode': TEARDOWNS['another mode'], 'the view closed': TEARDOWNS['the view closed'], 'the quit event': TEARDOWNS['the quit event'], 'the app in the background': (p) => p.ev(`(() => { Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' }); Object.defineProperty(document, 'hidden', { configurable: true, get: () => true }); document.dispatchEvent(new Event('visibilitychange')); window.dispatchEvent(new Event('pagehide')); return 1; })()`) })) {
 	ok(`phone: a word still being composed, then ${name} at once: nothing typed is lost or doubled`, on(PHONE, async (p, h, t, before) => {

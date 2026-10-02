@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.138 (2026-10-02)
+
+### Changed
+
+- Nothing a writer will notice: two tests check that the binder note and a note whose synopsis is being typed are whole after the app is reloaded.
+
 ## 0.12.137 (2026-10-02)
 
 ### Changed
