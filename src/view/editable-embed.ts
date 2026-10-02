@@ -312,6 +312,12 @@ export async function mountEditor(app: App, container: HTMLElement, file: TFile,
 			const was = apart;
 			apart = !cmOf()?.hasFocus;
 			try { proto.set.call(this, text, false); } finally { apart = was; }
+			// What the editor holds now is this text. Obsidian leaves `data` (what it takes for "ours") at the text
+			// from before when a change is loaded, merged in, or taken live from a tab of the note. The next outside
+			// change was then merged against that: the one just taken in read as one the writer had taken out, and
+			// was dropped (a status set, then a label: the status gone; a sync's two writes: the first gone). And a
+			// change back to the older text (an undo in the note's tab) looked like no change, and never showed.
+			this.data = this.text;
 		};
 		const doc = container.ownerDocument;
 		const prev = doc.activeElement as HTMLElement | null;

@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.52 (2026-10-02)
+
+### Fixed
+
+- A note changed twice from outside while it had unsaved typing in the manuscript (a status then a label, or two writes from a sync) lost the first change. And a section stopped following its note after an Undo in the note's own tab.
+
 ## 0.12.51 (2026-10-02)
 
 ### Fixed

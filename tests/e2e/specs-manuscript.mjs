@@ -412,6 +412,49 @@ test('an outside edit during typing, with the same note also open in a tab: both
 	await clearNotices(p);
 });
 
+test('two outside changes in a row during unsaved typing (a sync’s two writes; a status, then a label): the second doesn’t undo the first, and the typing stays', async (p, h, t) => {
+	// (after an outside change is merged in, what the section holds is the merged text: the next change must be
+	// merged against that, not against the text from before the first, which would read as "the writer took it out")
+	await mount(p);
+	const f = ORDER[1], before = disk(p, f);
+	const append = (line) => p.ev(`(async () => { const path = ${J(f)}; await app.vault.adapter.write(path, (await app.vault.adapter.read(path)) + ${J(line)}); return 1; })()`);
+	await focusEnd(p, f); await p.type(' typed');
+	await append('External line 1.\n');
+	await p.sleep(700);
+	await append('External line 2.\n');
+	await p.sleep(700);
+	const shown = await text(p, f);
+	t.ok(shown.includes('External line 1.\nExternal line 2.\n') && shown.includes(' typed'), 'the section has both outside lines and the typing: ' + J(shown.slice(-90)));
+	await p.sleep(2600);
+	t.eq(disk(p, f), before.replace(/\n$/, ' typed\n') + 'External line 1.\nExternal line 2.\n', 'and so has the file, each once');
+	// Binders' own property writes, one after the other, with a letter typed and not yet saved
+	await p.type('!');
+	await p.ev(`(async () => { const f = app.vault.getAbstractFileByPath(${J(f)}); await app.fileManager.processFrontMatter(f, fm => { fm.status = 'done'; }); await new Promise(r => setTimeout(r, 500)); await app.fileManager.processFrontMatter(f, fm => { fm.label = 'red'; }); return 1; })()`);
+	await p.sleep(3500);
+	const d = disk(p, f);
+	t.ok(/^status: done$/m.test(d) && /^label: red$/m.test(d), 'a status set, then a label set: both are in the file: ' + J(fm(d)));
+	t.ok(d.includes(' typed') && d.includes('!') && d.includes('External line 1.\nExternal line 2.\n'), 'with everything typed and both outside lines');
+	t.eq(await text(p, f), d, 'the section agrees with the file');
+	await clearNotices(p);
+});
+
+test('an outside change, then an outside change back to the text from before it, with nothing typed: the section shows the file again', async (p, h, t) => {
+	// (the section must know what it holds after loading a change: taking the text from before for its own, it would
+	// see "nothing new" in the change back, keep showing the first change, and write it over the file at the next key)
+	await mount(p);
+	const f = ORDER[1], before = disk(p, f);
+	const write = (s) => p.ev(`app.vault.adapter.write(${J(f)}, ${J(s)}).then(() => 1)`);
+	await write(before + 'Added outside.\n');
+	t.ok(await until(p, () => false, 800) || (await text(p, f)).includes('Added outside.'), 'the outside change shows');
+	await write(before);
+	await p.sleep(900);
+	t.eq(await text(p, f), before, 'changed back outside, the section shows the note as it is on disk');
+	await focusEnd(p, f); await p.type(' after');
+	await flushAll(p);
+	t.eq(disk(p, f), before.replace(/\n$/, ' after\n'), 'and typing goes on from there: the line taken out outside doesn’t come back');
+	await clearNotices(p);
+});
+
 test('a property change (processFrontMatter, as the corkboard does) during unsaved typing: both kept', async (p, h, t) => {
 	await mount(p);
 	const f = ORDER[0];
