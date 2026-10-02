@@ -1135,7 +1135,10 @@ class Outliner implements BinderMode {
 	private startDrag(path: string, x: number, y: number): void {
 		const row = this.rowEl(path);
 		if (!row) return;
-		if (!this.sel.has(path)) this.select([path]);
+		// (by a finger the held row isn't selected until it's dropped: on a phone a selected row with no synopsis is a
+		// line taller, offering one, and changing the selection now would move the rows under the finger as the drag
+		// starts. The row in hand is dimmed either way, and `targets` takes a row that isn't selected by itself.)
+		if (!this.sel.has(path) && this.press.pointer !== 'touch') this.select([path]);
 		const items = this.targets(row), doc = this.root.doc;
 		if (!items.length) return;
 		// as a note dragged in the file explorer looks: Obsidian's own drag ghost, with where it would go under its name

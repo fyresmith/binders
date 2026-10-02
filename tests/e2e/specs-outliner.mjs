@@ -1056,3 +1056,33 @@ test('a phone: rows, cells and headers are 44 px tall; a selected row with no sy
 	t.eq(split(after[L + E]).body, split(start).body, 'the note’s text is untouched');
 	same(t, before, after, { skip: [L + E] });
 });
+
+test('a phone: a held row lifted beside a selected row that offers a synopsis moves no row under the finger, and is dropped where the finger is', async (p, h, t) => {
+	const before = await texts(p);
+	const E = 'Epilogue.md', last = 'Part Two/Lights out.md';
+	await onPhone(p, async () => {
+		await open(p);
+		await p.ev(`document.querySelector(${j(rowSel(last))}).scrollIntoView({ block: 'center' })`);
+		await p.sleep(300);
+		// Part Two has no synopsis: selected, its row is a line taller, offering one
+		const two = await box(p, cellSel('Part Two', 'words'));
+		await tap(p, two.l + two.w / 2, two.t + 10);
+		const tops = () => p.ev(`[...document.querySelectorAll('${R}')].map(r => Math.round(r.getBoundingClientRect().top))`);
+		const was = await tops(), a = await box(p, rowSel(E) + ' .binders-outliner-main'), b = await box(p, rowSel(last));
+		t.ok((await box(p, rowSel('Part Two') + ' .binders-outliner-synopsis')).h >= 16, 'the selected folder’s row offers a synopsis');
+		// Epilogue, the row under Part Two's last, is held, then moved to that row's lower edge
+		const x = a.l + a.w / 2, y0 = a.t + a.h / 2, y1 = b.b - 3;
+		await touch(p, 'touchStart', x, y0);
+		await p.sleep(620);
+		for (let i = 1; i <= 10; i++) { await touch(p, 'touchMove', x, y0 + (y1 - y0) * i / 10); await p.sleep(20); }
+		await p.sleep(250);
+		t.eq(j(await tops()), j(was), 'no row has moved since the finger went down');
+		t.eq(await p.ev(`document.querySelector('.drag-ghost-action')?.textContent ?? null`), 'Move after “Lights out”', 'the drag says where the row would go');
+		await touch(p, 'touchEnd');
+		await until(p, `app.vault.adapter.exists(${j(L + 'Part Two/Epilogue.md')})`, 4000);
+		await p.sleep(600);
+		t.eq(j(await selected(p)), j(['Part Two/Epilogue.md']), 'dropped, it is the selected row');
+		t.eq(j((await written(p, 'Part Two/Epilogue')).slice(-3)), j(['Part Two/The wreck', 'Part Two/Lights out', 'Part Two/Epilogue']), 'and last in Part Two');
+	});
+	same(t, before, await texts(p), { skip: [NOTE], moved: { [L + E]: L + 'Part Two/Epilogue.md' } });
+});

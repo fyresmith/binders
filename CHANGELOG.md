@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.113 (2026-10-02)
+
+### Fixed
+
+- On a phone, picking up a row in the outliner no longer shifts the rows under your finger, so it drops where you put it.
+
 ## 0.12.112 (2026-10-02)
 
 ### Fixed
