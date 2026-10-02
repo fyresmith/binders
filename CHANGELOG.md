@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.125 (2026-10-02)
+
+### Fixed
+
+- Reloading Obsidian in the moment a reorder or a synopsis was waiting to be saved could have left the binder note, or that note, empty. On a computer nothing is now started as the page goes; quitting still saves first.
+
 ## 0.12.124 (2026-10-02)
 
 ### Changed

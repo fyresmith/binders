@@ -1,4 +1,4 @@
-import { Events, Notice, TFile, TFolder, normalizePath, stringifyYaml, type App, type EventRef, type TAbstractFile } from 'obsidian';
+import { Events, FileSystemAdapter, Notice, TFile, TFolder, normalizePath, stringifyYaml, type App, type EventRef, type TAbstractFile } from 'obsidian';
 import type { ExplorerSource } from './explorer';
 import type BindersPlugin from './main';
 import { applyOps, checkFormat, diskList, FORMAT_VERSION, isBinderNote, isFolderNote, nameOf, orderChildren, parentOf, readIndex, relPath, settleNames, stepIndex, UnsupportedBinder, type ListOp } from './model';
@@ -272,11 +272,19 @@ export class BinderStore extends Events implements ExplorerSource {
 		});
 		// Changes to a list wait a moment to be written together, and nothing may still be waiting at the end. Obsidian
 		// doesn't unload plugins when it quits: it asks for the work to finish first. A phone that puts the app away, or
-		// a window closed, gives no such chance, so a page that's hidden writes at once.
+		// a window closed, gives no such chance, so a page that's hidden writes at once. Not on a computer, though: a
+		// write there empties the file and then fills it, and one started as the page goes (the app reloaded) is cut
+		// off between the two, which would leave the binder note empty. There the wait is short and quitting is asked
+		// for, so nothing is started as the page leaves (see `cutOff` in view/editable-embed.ts).
 		plugin.registerEvent(this.app.workspace.on('quit', (tasks) => { if (this.waiting()) tasks.addPromise(this.flush()); }));
 		const now = () => { if (this.waiting()) void this.flush(); };
-		plugin.registerDomEvent(document, 'visibilitychange', () => { if (document.hidden) now(); });
-		plugin.registerDomEvent(window, 'pagehide', now);
+		// (the page itself going, on a computer: a real `pagehide`, and the page hidden that follows it)
+		let leaving = false;
+		plugin.registerDomEvent(document, 'visibilitychange', () => { if (document.hidden && !leaving) now(); });
+		plugin.registerDomEvent(window, 'pagehide', (e) => {
+			if (e.isTrusted && this.app.vault.adapter instanceof FileSystemAdapter) { leaving = true; window.setTimeout(() => { leaving = false; }, 0); return; }
+			now();
+		});
 		plugin.register(() => { void this.flush(); window.clearTimeout(this.emitTimer); window.clearTimeout(this.followTimer); window.clearTimeout(this.snapshotsTimer); });
 	}
 

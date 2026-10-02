@@ -1,4 +1,4 @@
-import { ItemView, Keymap, Menu, Notice, Platform, Scope, type Events, TFile, TFolder, setIcon, type PaneType, type TAbstractFile, type ViewStateResult, type WorkspaceLeaf } from 'obsidian';
+import { FileSystemAdapter, ItemView, Keymap, Menu, Notice, Platform, Scope, type Events, TFile, TFolder, setIcon, type PaneType, type TAbstractFile, type ViewStateResult, type WorkspaceLeaf } from 'obsidian';
 import type { Binder } from '../binders';
 import { CompileModal } from '../scenes';
 import { folderSnapshotItems } from './snapshots';
@@ -252,9 +252,17 @@ export class BinderView extends ItemView {
 			// (a moment later: the focus is nowhere between leaving one field and reaching the next)
 			this.registerDomEvent(el, 'focusout', () => window.setTimeout(fit, 0));
 		}
-		const away = () => { void commitAll(this.contentEl, true); void this.current?.save?.(); };
+		// (On a computer nothing in a field is written as the page goes: a write started then is cut off between the
+		// file being emptied and filled, and the note would be left empty. Quitting, below, is asked for and waited on;
+		// the manuscript's own save knows the same, in view/editable-embed.ts.)
+		// (the page itself going: a real `pagehide`, and the page hidden that follows it)
+		let leaving = false;
+		const away = () => { if (!leaving) void commitAll(this.contentEl, true); void this.current?.save?.(); };
 		this.registerDomEvent(this.contentEl.doc, 'visibilitychange', () => { if (this.contentEl.doc.visibilityState === 'hidden') away(); });
-		this.registerDomEvent(this.contentEl.win, 'pagehide', away);
+		this.registerDomEvent(this.contentEl.win, 'pagehide', (e) => {
+			if (e.isTrusted && this.app.vault.adapter instanceof FileSystemAdapter) { leaving = true; window.setTimeout(() => { leaving = false; }, 0); }
+			away();
+		});
 		// Quitting closes the window as soon as what was asked to wait is done, and `pagehide` is too late for a write:
 		// a synopsis or a name still in its field is written first. (The manuscript does the same for its sections.)
 		this.registerEvent(this.app.workspace.on('quit', (tasks) => { tasks.addPromise(commitAll(this.contentEl, true).then((): void => {})); }));
