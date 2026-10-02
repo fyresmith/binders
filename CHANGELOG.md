@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.10.4 (2026-10-02)
+
+### Fixed
+
+- The corkboard keeps keyboard focus when selected cards leave the board after a move.
+
 ## 0.10.3 (2026-10-02)
 
 ### Fixed

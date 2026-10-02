@@ -434,7 +434,7 @@ class Corkboard implements BinderMode {
 		if (this.refocus) { this.focused = this.refocus; this.cardEl(this.refocus)?.focus({ preventScroll: true }); this.refocus = null; }
 		else if (heading && free) heading.focus({ preventScroll: true });
 		else if (this.focusOnDraw && this.cards().length) this.focus();
-		else if (hadFocus) this.cardEl(this.focused)?.focus({ preventScroll: true });
+		else if (hadFocus) this.focus();
 		if (this.cards().length) this.focusOnDraw = false;
 		// (a title being typed for a new note stays in sight, whatever was drawn above it meanwhile)
 		const typing = this.board.querySelector<HTMLElement>('.binders-card-new.is-editing');
