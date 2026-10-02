@@ -91,6 +91,9 @@ class Manuscript implements BinderMode {
 	/** The section a restored place is measured from (see restore). */
 	private pin: HTMLElement | null = null;
 	private pinTimer = 0;
+	/** Where the page was last put while a section is held (by the hold itself, or by the anchoring): a scroll to
+	    anywhere else is the reader's, or the cursor's, and lets the section go. */
+	private pinTop = 0;
 
 	constructor(container: HTMLElement, private ctx: ModeContext) {
 		this.app = ctx.app;
@@ -142,14 +145,18 @@ class Manuscript implements BinderMode {
 			// scrollTop is whole pixels: carry the rest, or fractions add up to a drift
 			this.drift += d;
 			const step = Math.round(this.drift);
-			if (step) { this.root.scrollTop += step; this.drift -= step; }
+			if (step) { this.root.scrollTop += step; this.drift -= step; this.pinTop = this.root.scrollTop; }
 		});
 		this.comp.register(() => this.teardown());
 
 		const c = this.comp, { vault, workspace } = this.app;
 		c.registerDomEvent(this.root, 'keydown', (e) => this.onKey(e), { capture: true });
 		this.ro.observe(this.root);
-		c.registerDomEvent(this.root, 'scroll', () => { this.scrolledAt = performance.now(); if (this.root.offsetParent) this.lastTop = this.root.scrollTop; this.leaveBehind(); }, { passive: true });
+		c.registerDomEvent(this.root, 'scroll', () => {
+			// (the page moved by anything but the hold: the scrollbar, a jump to another section, the cursor brought
+			// into sight. Held on, the section would drag the page back as the ones above it are drawn.)
+			if (this.pin && Math.abs(this.root.scrollTop - this.pinTop) > 1) this.pin = null;
+			this.scrolledAt = performance.now(); if (this.root.offsetParent) this.lastTop = this.root.scrollTop; this.leaveBehind(); }, { passive: true });
 		c.registerDomEvent(this.root, 'click', (e) => this.onClick(e));
 		c.registerDomEvent(this.root, 'auxclick', (e) => { const s = this.sceneOf(e.target); if (e.button === 1 && s?.titleEl.contains(e.target as Node) && !s.renaming) { e.preventDefault(); void this.ctx.openFile(s.file, 'tab'); } });
 		c.registerDomEvent(this.list, 'contextmenu', (e) => this.onMenu(e));
@@ -278,7 +285,7 @@ class Manuscript implements BinderMode {
 	/** A section the page was just put at stays where it is while the sections above it are drawn (they're guesses at
 	    their height until then, and each one drawn would push it down the page), until the reader moves the page. */
 	private hold(el: HTMLElement): void {
-		this.lastTop = this.root.scrollTop;
+		this.lastTop = this.pinTop = this.root.scrollTop;
 		// (every section's height as it is now is what later changes are measured from: one that's drawn before
 		// its first measurement comes in would otherwise move the page by the difference)
 		for (const x of this.entries) this.heights.set(x.el, x.el.getBoundingClientRect().height);

@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.109 (2026-10-02)
+
+### Fixed
+
+- Just after switching to the manuscript, scrolling to another section could be pulled back, so a click landed in the wrong note.
+
 ## 0.12.108 (2026-10-02)
 
 ### Fixed
