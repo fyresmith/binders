@@ -89,6 +89,36 @@ test('“Split scene with selection as title” names the new note from the sele
 	t.ok(!(await p.ev(`app.commands.findCommand('binders:split-scene').editorCheckCallback(true, app.workspace.activeEditor.editor, app.workspace.activeEditor)`)), 'not offered outside a binder');
 }));
 
+test('split refuses to remove text changed while the new note is being saved; external edits and undo keep every word', withTidy(async (p, h, t) => {
+	const path = L + 'Part One/The keeper.md';
+	await p.ev(`app.vault.modify(${file(path)}, ${j(TWO)}).then(() => 1)`);
+	await p.sleep(400);
+	await openAt(p, path, { before: '"You can\'t come up,"' });
+	// A slow create gives a sync edit time to reach the source editor after the split read it.
+	await p.ev(`(() => {
+		const create = app.vault.create;
+		app.vault.create = async function (...args) {
+			if (args[0] === ${j(L + 'Part One/The keeper 2.md')}) {
+				app.vault.create = create;
+				const f = ${file(path)};
+				await app.vault.process(f, text => text.replace('He met', 'Words from another device.\\nHe met'));
+				await new Promise(r => setTimeout(r, 700));
+			}
+			return create.apply(this, args);
+		};
+		app.commands.executeCommandById('binders:split-scene');
+		return 1;
+	})()`);
+	await until(p, `app.vault.adapter.exists(${j(L + 'Part One/The keeper 2.md')})`);
+	await p.sleep(800);
+	t.eq(await read(p, path), TWO.replace('He met', 'Words from another device.\nHe met'), 'the source keeps the original text and the external edit');
+	t.ok(/changed while it was being split/.test(await notices(p)), 'the incomplete split says both notes were kept');
+	await p.type('Undo this');
+	await p.key('z', 'ctrl');
+	await p.sleep(2300);
+	t.eq(await read(p, path), TWO.replace('He met', 'Words from another device.\nHe met'), 'undo preserves the external edit and the original text');
+}));
+
 test('merging notes: their text joined in order into the first, their synopses too, the others in the trash; nothing lost', withTidy(async (p, h, t) => {
 	const before = await texts(p);
 	await openView(p, L + 'Part One');

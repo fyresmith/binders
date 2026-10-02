@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.10.1 (2026-10-02)
+
+### Fixed
+
+- A split refuses to remove text if the note changes while the new note is being saved.
+
 ## 0.10.0 (2026-10-02)
 
 ### Added

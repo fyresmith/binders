@@ -114,6 +114,7 @@ export async function splitScene(plugin: BindersPlugin, editor: Editor, file: TF
 	try {
 		const index = (store.orderedChildren(folder) ?? []).indexOf(file) + 1;
 		const made = await store.newScene(folder, index > 0 ? index : Infinity, title, undefined, content);
+		if (editor.getValue() !== text) throw new Error('This note changed while it was being split. Both notes were kept; nothing was removed.');
 		// only now, with the second half in a note of its own, does the first let go of it
 		const head = tidyHead(s.head);
 		let k = 0;
