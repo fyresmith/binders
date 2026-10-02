@@ -5,7 +5,8 @@
 //   npm run e2e -- --repeat 3       run everything several times
 //   npm run e2e -- --specs a.mjs,b.mjs    only these spec files (default: every tests/e2e/specs*.mjs)
 //   npm run e2e -- --shots dir      where failure screenshots go (default test-dist/e2e-failures)
-import { mkdirSync, readFileSync, readdirSync, statSync } from 'fs';
+// Tests listed in open-findings.json are known to fail (see there): they're reported, and don't fail the run.
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync } from 'fs';
 import { join, relative } from 'path';
 import { pathToFileURL } from 'url';
 import { launch, VAULT } from './driver.mjs';
@@ -25,6 +26,11 @@ walk(VAULT);
 const specFiles = arg('specs', '') ? arg('specs').split(',') : readdirSync('tests/e2e').filter((f) => /^specs.*\.mjs$/.test(f)).map((f) => 'tests/e2e/' + f);
 const specs = [];
 for (const f of specFiles) specs.push(...(await import(pathToFileURL(f).href)).specs);
+
+// Findings still open, by the test's name: scenarios kept failing on purpose until what they show is fixed or decided.
+// One of them failing doesn't fail the run; one of them passing is said at the end, so the list stays true.
+const OPEN = 'tests/e2e/open-findings.json';
+const open = new Set(existsSync(OPEN) ? JSON.parse(readFileSync(OPEN, 'utf8')).map((f) => f.name) : []);
 
 class Fail extends Error {}
 const results = [];
@@ -51,14 +57,16 @@ for (let round = 1; round <= repeat; round++) {
 				err = e instanceof Fail ? e.message : 'crashed: ' + (e.stack || e).toString().split('\n').slice(0, 3).join(' | ');
 				await p.shot(join(shots, name.replace(/[^\w]+/g, '_') + '.png')).catch(() => {});
 			}
-			results.push({ name, ok: !err, err, ms: Date.now() - t0 });
-			console.log(`${err ? '✗' : '✓'} ${name} ${err ? '\n    ' + err : ''} (${Date.now() - t0}ms)`);
+			const known = open.has(s.name);
+			results.push({ name, ok: !err, err, known, ms: Date.now() - t0 });
+			console.log(`${err ? (known ? '○' : '✗') : '✓'} ${name} ${err ? '\n    ' + err : ''} (${Date.now() - t0}ms)`);
 		}
 		await p.close();
 	}
 }
-const failed = results.filter((r) => !r.ok);
-console.log(`\n${results.length - failed.length} passed, ${failed.length} failed`);
+const failed = results.filter((r) => !r.ok && !r.known), still = results.filter((r) => !r.ok && r.known), fixed = results.filter((r) => r.ok && r.known);
+console.log(`\n${results.length - failed.length - still.length} passed, ${failed.length} failed${still.length ? `, ${still.length} open findings (${OPEN})` : ''}`);
+if (fixed.length) console.log(`\nListed as open, and passing: take them off the list if that's for good\n${fixed.map((r) => '  ' + r.name).join('\n')}`);
 process.exit(failed.length ? 1 : 0);
 
 function helpers(p) {

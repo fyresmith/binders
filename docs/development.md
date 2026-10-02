@@ -71,6 +71,12 @@ Without `--specs`, every `tests/e2e/specs*.mjs` runs:
 | `specs-perf.mjs` | A generated 1,000-scene binder, with generous limits |
 | `specs-qa-*.mjs`, `specs-qa2-*.mjs` | QA rounds (store, explorer, corkboard, manuscript). Tests named "BUG: …" or "UX: …" were written to fail until what they show is fixed, and stay as regressions after |
 
+**Findings still open.** A scenario that fails on purpose, until what it shows is fixed or decided, is listed by its
+test's name in `tests/e2e/open-findings.json`, with why. The runner marks such a failure `○` and doesn't count it, so
+a run with no `✗` is green; when a listed test passes, the run says so at its end, and the entry comes off the list.
+Only the coordinator adds to the list: a new failure is a bug until the maintainer says otherwise, and a test that
+fails only sometimes doesn't belong on it.
+
 `view-helpers.mjs` has helpers the view specs share. `node tests/e2e/screenshots.mjs [outdir]` remakes the README's
 screenshots (`docs/images`) from the same throwaway copy of the test vault.
 
