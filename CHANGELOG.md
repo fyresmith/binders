@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.79 (2026-10-02)
+
+### Fixed
+
+- On a phone or tablet, tapping the outliner's first row right after opening it no longer counts as keyboard focus.
+
 ## 0.12.78 (2026-10-02)
 
 ### Fixed

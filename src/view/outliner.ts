@@ -126,6 +126,13 @@ class Outliner implements BinderMode {
 		on('auxclick', (e) => { const row = this.rowOf(e); if (e.button === 1 && row && !(e.target as HTMLElement).closest('input, textarea')) { e.preventDefault(); this.open(row, 'tab'); } });
 		on('contextmenu', (e) => this.onContextMenu(e));
 		on('keydown', (e) => this.onKey(e));
+		// A finger put down while a row has the keyboard's focus (the one the focus was put on when the outliner opened,
+		// say): the outliner itself takes it, so the row that's tapped gets it from the tap, and isn't shown as the
+		// keyboard's place.
+		this.root.addEventListener('touchstart', () => {
+			const a = this.root.doc.activeElement;
+			if (a?.instanceOf(HTMLElement) && this.body.contains(a) && !a.matches('input, textarea') && a.matches(':focus-visible')) this.root.focus({ preventScroll: true });
+		}, { passive: true });
 		// the row the keyboard is on, however it got there (a click, Tab, another plugin's command): it's the one that
 		// keeps the focus when the rows are drawn again
 		on('focusin', (e) => {
