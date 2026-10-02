@@ -533,7 +533,7 @@ class Manuscript implements BinderMode {
 			menu.addItem((i) => i.setSection('open').setTitle('Open').setIcon('layout-grid').onClick(() => this.ctx.navigate(folder)));
 			menu.addItem((i) => i.setSection('open').setTitle('Open in new tab').setIcon('file-plus').onClick(() => this.ctx.navigate(folder, 'tab')));
 			if (note) menu.addItem((i) => i.setSection('open').setTitle('Open folder note').setIcon('file-text').onClick(() => void this.ctx.openFile(note, false)));
-			if (!this.ctx.readOnly && this.ctx.binder.kind !== 'longform') menu.addItem((i) => i.setSection('action').setTitle('Rename').setIcon('pencil').onClick(() => this.renameHeading(h)));
+			if (!this.ctx.readOnly && this.ctx.binder.kind !== 'longform') menu.addItem((i) => i.setSection('edit').setTitle('Rename').setIcon('pencil-line').onClick(() => this.renameHeading(h)));
 			menu.showAtMouseEvent(e);
 		});
 		return h;

@@ -3,6 +3,13 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.97 (2026-10-02)
+
+### Fixed
+
+- On a phone, the first time in focus mode a notice said to press Esc and covered the button that leaves.
+- Rename on a folder's heading in the manuscript has the icon and place it has everywhere else.
+
 ## 0.12.96 (2026-10-02)
 
 ### Fixed

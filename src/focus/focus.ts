@@ -321,7 +321,7 @@ export class Focus {
 			if (!calm && was && now && Math.abs(was.width - now.width) < 1 && (Math.abs(was.left - now.left) > 1 || Math.abs(was.top - now.top) > 1)) p.content.animate([{ transform: `translate(${was.left - now.left}px, ${was.top - now.top}px)` }, { transform: 'none' }], GLIDE);
 			this.drawNow();
 			this.align();
-			window.setTimeout(() => { if (this.on === on) live.setText(vim ? 'Focus mode. The button to leave it is at the top of the page.' : 'Focus mode. Press Escape to leave.'); }, 100);
+			window.setTimeout(() => { if (this.on === on) live.setText(vim || Platform.isMobile ? 'Focus mode. The button to leave it is at the top of the page.' : 'Focus mode. Press Escape to leave.'); }, 100);
 		};
 		if (calm) go(); else { doc.body.addClass('binders-focus-pre'); window.setTimeout(go, FADE); }
 
@@ -360,8 +360,9 @@ export class Focus {
 		comp.registerDomEvent(doc, 'pointerdown', () => { on.pointer.at = performance.now(); back(); }, { capture: true });
 		comp.registerDomEvent(doc, 'wheel', back, { passive: true, capture: true });
 		comp.registerDomEvent(doc, 'touchmove', back, { passive: true, capture: true });
-		// (said once, ever: how to get out)
-		if (!app.loadLocalStorage(HINTED)) { app.saveLocalStorage(HINTED, true); new Notice(vim ? 'Focus mode. Move the pointer for the way out.' : 'Focus mode. Press Esc to leave.', 5000); }
+		// (said once, ever: how to get out. Not on a phone or a tablet: there's no Esc to press, the button is in sight,
+		// and a notice would lie over it)
+		if (!Platform.isMobile && !app.loadLocalStorage(HINTED)) { app.saveLocalStorage(HINTED, true); new Notice(vim ? 'Focus mode. Move the pointer for the way out.' : 'Focus mode. Press Esc to leave.', 5000); }
 	}
 
 	/** `quick`: at once, with no glide (focus is ending because its tab has gone, or shows something else). */
