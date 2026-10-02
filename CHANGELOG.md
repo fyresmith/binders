@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.146 (2026-10-02)
+
+### Changed
+
+- Tests now check what the README tells a writer: the keyboard lists for all three views, what Binders writes and never touches, undo, compile, and troubleshooting. One sentence about copied folders says what happens, not what may.
+
 ## 0.12.145 (2026-10-02)
 
 ### Fixed

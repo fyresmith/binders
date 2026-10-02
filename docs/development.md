@@ -133,6 +133,7 @@ Without `--specs`, every `tests/e2e/specs*.mjs` runs:
 |---|---|
 | `specs.mjs` | Smoke tests: the plugin loads, the settings tab |
 | `specs-driver.mjs`, `specs-hover.mjs` | The driver itself: sessions keep to their own throwaway vaults; the pointer (a mouse that hovers, a finger under touch emulation), `p.hover` and `p.tooltip` |
+| `specs-readme.mjs` | What the README tells a writer, sentence by sentence: the keyboard lists of the three views, what Binders writes and never touches, undo, compile, known limitations and troubleshooting |
 | `specs-binders.mjs` | The binder store: detection, keeping the list in step, batching, newer formats, commands |
 | `specs-explorer.mjs` | The file explorer: order, hidden notes, icon, click to open, dragging to reorder |
 | `specs-view.mjs` | The view shell: state, breadcrumb, modes, word count and target, filter, synopsis |
