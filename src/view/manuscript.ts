@@ -654,7 +654,10 @@ class Manuscript implements BinderMode {
 		const still = performance.now() - this.scrolledAt;
 		if (still < SETTLE) { window.clearTimeout(this.settleTimer); this.settleTimer = window.setTimeout(() => this.schedule(), SETTLE - still); return; }
 		const want = new Set(near.filter((s) => !s.broken).slice(0, this.liveMax));
-		for (const s of this.scenes) if (s.live && !want.has(s) && !this.busy(s)) this.unmount(s);
+		// One a frame, an editor taken down or one put up: each costs most of a frame (taking one down draws its plain
+		// text again), and after a fast swipe a whole screenful is due at once.
+		const gone = this.scenes.filter((s) => s.live && !want.has(s) && !this.busy(s));
+		if (gone.length) { this.unmount(gone[0]); if (gone.length > 1 || [...want].some((s) => !s.live)) this.schedule(); return; }
 		if (this.scenes.some((s) => s.mounting !== null)) return;
 		const next = [...want].find((s) => !s.live);
 		if (next) void this.mount(next).then(() => this.schedule());

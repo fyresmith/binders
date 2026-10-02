@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.98 (2026-10-02)
+
+### Changed
+
+- Swiping fast through a long manuscript on a phone hitches a little less: editors that scroll out of sight are taken down one a frame.
+
 ## 0.12.97 (2026-10-02)
 
 ### Fixed
