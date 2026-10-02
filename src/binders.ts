@@ -1,7 +1,7 @@
 import { Events, FileSystemAdapter, Notice, TFile, TFolder, normalizePath, stringifyYaml, type App, type EventRef, type TAbstractFile } from 'obsidian';
 import type { ExplorerSource } from './explorer';
 import type BindersPlugin from './main';
-import { applyOps, checkFormat, diskList, FORMAT_VERSION, isBinderNote, isFolderNote, nameOf, orderChildren, parentOf, readIndex, relPath, settleNames, stepIndex, UnsupportedBinder, type ListOp } from './model';
+import { applyOps, checkFormat, diskList, FORMAT_VERSION, isBinderNote, isFolderNote, nameOf, orderChildren, parentOf, readIndex, relPath, removeFrom, settleNames, stepIndex, UnsupportedBinder, type ListOp } from './model';
 import { editProperties } from './properties';
 import { nextName } from './scene-text';
 import { MoveHistory, type PropChange, type Undo } from './undo';
@@ -1118,7 +1118,11 @@ export class BinderStore extends Events implements ExplorerSource {
 		}
 		// (a folder deleted takes with it what was remembered of the files in it: one made again under its name is new)
 		if (file instanceof TFolder) for (const k of [...o.gone.keys()]) if (k.startsWith(rel)) o.gone.delete(k);
+		// What shows is the list as it showed, less this item. Kept, since working it out again from every pending change
+		// for each file of a deleted folder (they are reported one by one) took seconds for a binder of 2,000 notes.
+		const shown = o.problem ? null : removeFrom(this.contents(o), rel);
 		this.queue(o, { op: 'remove', item: rel });
+		if (shown) o.contents = shown;
 	}
 
 	/** A file made where one was deleted a moment ago is that file written again (git pull and checkout, and some

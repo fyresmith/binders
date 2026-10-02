@@ -715,3 +715,38 @@ test('binders: a folder renamed again while its note is still following the firs
 	t.eq(j((await contents(p)).slice(1, 5)), j([`${at}/`, `${at}/Arrival`, `${at}/The keeper`, `${at}/Storm warning`]), 'and the list on disk follows the folder');
 	p.errors.splice(0, p.errors.length, ...p.errors.filter((e) => !/ENOENT/.test(e)));
 }));
+
+// Each file of a deleted folder is reported on its own. The store worked the whole list out again for each one, from
+// every change still waiting: 2,000 notes took over six seconds in the store alone, with Obsidian frozen meanwhile.
+test('binders: a binder of 2,000 notes in 80 folders deleted whole: the store spends a moment on it, not seconds; a folder of it deleted leaves the list exact', withTidy(async (p, h, t) => {
+	await p.ev(`(async () => {
+		const a = app.vault.adapter, list = []; await a.mkdir('Parts');
+		for (let f = 0; f < 80; f++) {
+			const d = 'Part ' + String(f).padStart(2, '0'); await a.mkdir('Parts/' + d); list.push(d + '/');
+			await Promise.all(Array.from({ length: 25 }, (_, i) => { const n = d + '/Scene ' + String(f * 25 + i).padStart(4, '0'); list.push(n); return a.write('Parts/' + n + '.md', 'x\\n'); }));
+		}
+		await a.write('Parts/Parts.md', '---\\nbinder: 1\\ncontents:\\n' + list.map(x => '  - ' + x).join('\\n') + '\\n---\\n');
+	})().then(() => 1)`);
+	t.ok(await until(p, `!!${file('Parts')} && ${B}.isBinderFolder(${file('Parts')}) && (${B}.scenes(${file('Parts')}) || []).length === 2000`, 60000), '2,000 notes in a binder');
+	await p.sleep(1000);
+	// one folder of it: the list shows and is written without it, the rest in order
+	await p.ev(`app.vault.delete(${file('Parts/Part 03')}, true).then(() => 1)`);
+	t.eq(j(await children(p, 'Parts').then((c) => c.slice(2, 5))), j(['Part 02', 'Part 04', 'Part 05']), 'a folder deleted is gone from what shows at once');
+	await flush(p); await p.sleep(300);
+	const list = await contents(p, 'Parts/Parts.md');
+	t.eq(list.length, 79 * 26, 'on disk: the folder and its 25 notes are gone from the list');
+	t.ok(!list.some((x) => x.startsWith('Part 03/')) && list[78] === 'Part 04/' && list[79] === 'Part 04/Scene 0100' && new Set(list).size === list.length, 'and the rest is as it was, each entry once');
+	// the whole binder
+	const took = await p.ev(`(async () => {
+		const b = ${B}, od = b.onDelete; let store = 0, n = 0;
+		b.onDelete = function (f) { const t0 = performance.now(); od.call(this, f); store += performance.now() - t0; n++; };
+		const t0 = performance.now();
+		try { await app.vault.delete(${file('Parts')}, true); } finally { b.onDelete = od; }
+		return { all: Math.round(performance.now() - t0), store: Math.round(store), n };
+	})()`);
+	console.log(`    (a binder of 1,975 notes deleted: ${took.all} ms, ${took.store} ms of it in the store, ${took.n} files and folders)`);
+	t.ok(took.n > 2000, `every file is reported: ${took.n}`);
+	t.ok(took.store < 500, `the store took ${took.store} ms for ${took.n} files (limit 500)`);
+	await p.sleep(500);
+	t.eq(await p.ev(`${B}.all().some(b => b.folder.path === 'Parts')`), false, 'the binder is gone from the store');
+}));
