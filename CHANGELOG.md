@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.80 (2026-10-02)
+
+### Changed
+
+- By touch in the outliner, the room above and below a name opens its note, a target's or property's whole cell edits it, and the room around a selected row's synopsis edits the synopsis.
+
 ## 0.12.79 (2026-10-02)
 
 ### Fixed

@@ -1,7 +1,7 @@
 // The outliner (src/view/outliner.ts): the tree of rows, folding, selection and the keyboard, editing in place (title,
 // synopsis, target, properties), the label and status cells, columns (show, hide, move, resize, sort), dragging rows,
 // new notes and folders, the filter, read-only binders. Every test that changes files checks no text was lost.
-import { B, NOTE, PL, VIEW, clickMenu, closeMenus, contents, exists, file, flush, hoverMenu, j, menuItems, openView, read, same, split, texts, until, viewState, withTidy, writeRaw } from './view-helpers.mjs';
+import { B, NOTE, PL, VIEW, clickMenu, closeMenus, contents, exists, file, flush, hoverMenu, j, menuItems, openView, read, reload, same, split, texts, tidy, until, viewState, withTidy, writeRaw } from './view-helpers.mjs';
 
 export const specs = [];
 const test = (name, fn) => specs.push({ name: 'outliner: ' + name, fn });
@@ -889,3 +889,68 @@ test('a row carried to a folder in the breadcrumb goes out to it, at its end, as
 	t.eq(await p.ev(`document.querySelectorAll('.binders-outliner-ghost, .binders-drop-line, .is-dragging, .is-being-dragged-over').length`), 0, 'nothing of the drag is left');
 	same(t, before, await texts(p), { skip: [NOTE], moved: { [L + 'Part One/Arrival.md']: L + 'Arrival.md' } });
 }));
+
+// ---- a phone, by touch (Obsidian's mobile mode at 390 × 844; see specs-mobile.mjs) ----
+const touch = (p, type, x, y) => p.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' || type === 'touchCancel' ? [] : [{ x, y }] });
+const tap = async (p, x, y) => { await touch(p, 'touchStart', x, y); await p.sleep(40); await touch(p, 'touchEnd'); await p.sleep(450); };
+const metrics = (p, width, height, mobile = true) => p.send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile });
+/** Runs fn on a phone, then puts the desktop back whatever happened. */
+async function onPhone(p, fn) {
+	await metrics(p, 390, 844);
+	await reload(p, true);
+	await p.focusMain();
+	await p.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 1 });
+	try { await fn(); } finally {
+		await touch(p, 'touchCancel').catch(() => {});
+		await p.ev(`document.activeElement?.blur?.()`);
+		await p.send('Emulation.setTouchEmulationEnabled', { enabled: false });
+		await metrics(p, p.width, p.height, false);
+		await reload(p, false);
+		await p.focusMain();
+		await tidy(p);
+	}
+}
+const box = (p, sel) => p.ev(`(() => { const e = document.querySelector(${j(sel)}); if (!e) return null; const b = e.getBoundingClientRect(); return { l: b.left, t: b.top, w: b.width, h: b.height, r: b.right, b: b.bottom }; })()`);
+const focusOn = (p) => p.ev(`(() => { const a = document.activeElement; return a.tagName + '|' + (a.closest('.binders-outliner-cell')?.dataset.col ?? '') + '|' + (a.closest('.binders-outliner-synopsis') ? 'synopsis' : '') ; })()`);
+
+test('a phone: what a tap is for is a finger tall: the room above and below a name opens its note, a field’s whole cell is the field, and the room around a selected row’s synopsis is its synopsis', async (p, h, t) => {
+	const before = await texts(p);
+	await onPhone(p, async () => {
+		await open(p, 'The Lighthouse', { columns: [{ id: 'label' }, { id: 'status' }, { id: 'target' }] });
+		// a field's cell: the first tap selects the row, the second, in the cell's corner and off the field, edits it
+		const E = 'Epilogue.md';
+		await p.ev(`document.querySelector(${j(rowSel(E))}).scrollIntoView({ block: 'center' })`);
+		await p.sleep(300);
+		let c = await box(p, cellSel(E, 'target')), f = await box(p, cellSel(E, 'target') + ' .binders-outliner-field');
+		t.ok(f.h < 30, `the target’s field is a line of text (${Math.round(f.h)} px tall in a cell ${Math.round(c.h)} px tall)`);
+		await tap(p, c.l + c.w / 2, c.t + 4);
+		t.eq(j(await selected(p)), j([E]), 'a tap on a cell selects its row');
+		t.eq((await focusOn(p)).split('|')[0], 'DIV', 'and edits nothing yet');
+		await tap(p, c.l + c.w / 2, c.t + 4);
+		t.eq(await focusOn(p), 'INPUT|target|', 'a second tap, in the cell above its field, edits the field');
+		await p.ev(`document.activeElement.blur()`);
+		await p.sleep(400);
+		// the room under a selected row's synopsis, still in its title cell: the synopsis
+		const s = await box(p, rowSel(E) + ' .binders-outliner-synopsis'), title = await box(p, cellSel(E, 'title'));
+		t.ok(title.b - s.b >= 4, `there is room under the synopsis (${Math.round(title.b - s.b)} px)`);
+		await tap(p, s.l + 30, (s.b + title.b) / 2);
+		t.eq(await focusOn(p), 'TEXTAREA|title|synopsis', 'a tap just under a selected row’s synopsis edits it');
+		await p.ev(`document.activeElement.blur()`);
+		await p.sleep(400);
+		// the room above a name: the name, which opens the note
+		const P = 'Prologue.md';
+		await p.ev(`document.querySelector(${j(rowSel(P))}).scrollIntoView({ block: 'center' })`);
+		await p.sleep(300);
+		const n = await box(p, rowSel(P) + ' .binders-outliner-name'), r = await box(p, rowSel(P));
+		t.ok(n.t - r.t >= 6, `there is room above the name (${Math.round(n.t - r.t)} px)`);
+		// (left of the name, where a folder has its arrow: that only selects)
+		await tap(p, n.l - 12, r.t + 4);
+		await p.sleep(300);
+		t.eq(await p.ev(`app.workspace.getMostRecentLeaf()?.view?.getViewType()`), 'binders-view', 'a tap left of the name opens nothing');
+		t.eq(j(await selected(p)), j([P]), 'it selects the row');
+		await tap(p, n.l + 20, r.t + 3);
+		await until(p, `app.workspace.getMostRecentLeaf()?.view?.file?.path === ${j(L + P)}`);
+		t.ok(true, 'a tap in the room above the name opens the note, as a tap on the name does');
+	});
+	same(t, before, await texts(p));
+});

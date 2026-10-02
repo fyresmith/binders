@@ -756,18 +756,38 @@ class Outliner implements BinderMode {
 		const item = this.item(row.dataset.path);
 		if (t.closest('.binders-outliner-chevron') && item instanceof TFolder) { this.toggle(item); return; }
 		// a tap on a note's name opens it, as a tap on a note in the file explorer does
-		if (this.press.pointer === 'touch' && !this.picking && t.closest('.binders-outliner-name') && !t.closest('.is-editing')) { this.select([row.dataset.path]); this.open(row, false); return; }
+		const touch = this.press.pointer === 'touch', near = touch && !t.closest('.is-editing') ? this.nearest(e, row) : null;
+		if (near === 'name' && !this.picking) { this.select([row.dataset.path]); this.open(row, false); return; }
 		const editing = !!t.closest('.is-editing');
 		const plain = !e.shiftKey && !Keymap.isModEvent(e);
 		// a cell with a menu or a field acts on a row that's already selected (the click that selects a row only
 		// selects it, as in a base's table), and then for every row selected with it
 		const was = this.sel.has(row.dataset.path);
 		const menuCell = plain ? t.closest<HTMLElement>('.binders-outliner-cell.is-menu') : null;
-		const field = plain && was ? t.closest<HTMLElement>('.binders-outliner-field') : null;
-		if (!(was && (menuCell || field))) this.clickSelect(row, e);
 		const cell = t.closest<HTMLElement>('.binders-outliner-cell:not(.mod-title):not(.mod-filler)');
+		// (under a finger a field's whole cell is the field, as a tick's is the tick: the field itself is one line of text)
+		const own = touch && cell && !editing && !this.ro ? this.drawn.get(row.dataset.path ?? '')?.fields.get(cell.dataset.col ?? '') ?? null : null;
+		const field = plain && was ? t.closest<HTMLElement>('.binders-outliner-field') ?? (own ? cell : null) : null;
+		if (!(was && (menuCell || field))) this.clickSelect(row, e);
 		if (!editing && !t.closest('input')) (cell && was ? cell : row).focus({ preventScroll: true });
 		if (menuCell && was) this.cellMenu(menuCell, row);
+		else if (own && field === cell && !this.picking) own.edit();
+		// (and the room around a selected row's synopsis is its synopsis: see `nearest`)
+		else if (near === 'synopsis' && plain && was && !this.picking && !this.ro) this.drawn.get(row.dataset.path ?? '')?.synopsis?.edit();
+	}
+
+	/** By touch, what a tap in a row's title cell is for when it lands beside the words rather than on them: a name is
+	    one line of text and a synopsis may be, and a finger needs more. The name takes the row's first line whole (from
+	    the row's top edge down to its synopsis, or to the row's foot when none shows); the synopsis takes what's under
+	    that. Only as wide as the name: the indent to its left still only selects the row. */
+	private nearest(e: MouseEvent, row: HTMLElement): 'name' | 'synopsis' | null {
+		const t = e.target as HTMLElement;
+		if (t.closest('.binders-outliner-name')) return 'name';
+		// (a tap on the synopsis itself is its own: the field opens with the caret where the tap was)
+		if (!t.closest('.mod-title') || t.closest('.binders-outliner-chevron, .binders-outliner-synopsis')) return null;
+		const name = row.querySelector('.binders-outliner-name')?.getBoundingClientRect(), syn = row.querySelector('.binders-outliner-synopsis')?.getBoundingClientRect();
+		if (!name || e.clientX < name.left || e.clientX > name.right) return null;
+		return syn?.height && e.clientY >= syn.top ? 'synopsis' : 'name';
 	}
 
 	private onDblClick(e: MouseEvent): void {
