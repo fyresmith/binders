@@ -1053,3 +1053,25 @@ test('a board of 1,000 cards by label opens and redraws quickly (and 300)', with
 	console.log('    lanes perf (ms): ' + j(out));
 	for (const [k, ms] of Object.entries(out)) t.ok(ms < (/open|down|across/.test(k) ? 4000 : 1500), `${k}: ${ms}ms`);
 }));
+
+test('with a filter on, a line’s count adds up the notes its folder cards say they show, not every note in those folders', async (p, h, t) => {
+	await setLabel(p, P1 + 'Arrival.md', 'Red');
+	await openBy(p, 'The Lighthouse');
+	const look = () => p.ev(`({
+		cards: [...document.querySelectorAll('${LEAF} .binders-lanes .binders-card.is-stack')].map(c => c.dataset.path.split('/').pop() + ': ' + c.querySelector('.binders-card-words').textContent),
+		said: document.querySelector(${j(head(0))})?.getAttribute('aria-label') ?? null,
+		count: document.querySelector(${j(head(0) + ' .binders-lane-count')})?.textContent ?? null })`);
+	const filter = async (label) => {
+		await p.ev(`(async () => { const v = ${VIEW}; await v.leaf.setViewState({ type: 'binders-view', active: true, state: { ...v.getState(), filter: { status: [], label: ${j(label)} } } }); })().then(() => 1)`);
+		await p.sleep(500);
+	};
+	const before = await look();
+	t.eq(j(before.cards), j(['Part One: 3 notes · 51 words', 'Part Two: 2 notes · 28 words']), 'with no filter, the folders’ cards count all their notes');
+	await filter(['Red']);
+	const on = await look();
+	t.eq(j(on.cards), j(['Part One: 1 of 3 notes · 18 words', 'Part Two: 0 of 2 notes · 0 words']), 'filtered to Red, they count the notes that pass');
+	t.eq(on.count, '1', 'and the line they’re on counts the same notes');
+	t.ok(/^No label: 1 note, 18 words/.test(on.said ?? ''), 'which is what a screen reader hears: ' + on.said);
+	await filter([]);
+	t.eq(j(await look()), j(before), 'the filter cleared, the line counts as it did');
+});

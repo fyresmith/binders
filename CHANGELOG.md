@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.42 (2026-10-02)
+
+### Fixed
+
+- On the corkboard by label with a filter on, a line's count now adds up the notes its folder cards show, not every note in those folders.
+
 ## 0.12.41 (2026-10-02)
 
 ### Fixed

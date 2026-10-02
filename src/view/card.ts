@@ -29,9 +29,12 @@ export function sumWords(ctx: ModeContext, files: TFile[]): number | null {
 	return n;
 }
 
+/** The notes among these that show: all of them, or with a filter on, the ones that pass it. */
+export const passing = (ctx: ModeContext, scenes: TFile[]): TFile[] => (ctx.filtering() ? scenes.filter((f) => ctx.visible(f)) : scenes);
+
 /** "3 notes · 51 words" for a folder; with a filter on, how many of them show ("2 of 3 notes"), and their words. */
 export function countLabel(ctx: ModeContext, scenes: TFile[], folder?: TFolder): string {
-	const shown = ctx.filtering() ? scenes.filter((f) => ctx.visible(f)) : scenes, n = sumWords(ctx, shown);
+	const shown = passing(ctx, scenes), n = sumWords(ctx, shown);
 	const count = shown.length === scenes.length ? `${scenes.length} ${scenes.length === 1 ? 'note' : 'notes'}` : `${shown.length} of ${scenes.length} notes`;
 	// a folder with a target of its own says how far along it is, as a card with one does
 	const note = folder && shown.length === scenes.length ? ctx.store.folderNote(folder) : null, target = note ? ctx.props(note).target : 0;

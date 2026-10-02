@@ -1,6 +1,6 @@
 import { Keymap, Menu, Notice, TFile, TFolder, setIcon, type PaneType, type TAbstractFile } from 'obsidian';
 import { emptyState, isNote, itemMenu, nameOf, noteOf, plain, removeItems, renameItem } from './actions';
-import { buildCard, cardKey, numberCards, overPane, sumWords, type CardEditors, type CardHost } from './card';
+import { buildCard, cardKey, numberCards, overPane, passing, sumWords, type CardEditors, type CardHost } from './card';
 import { Press, glide, held, places, settle, visibleBottom } from './drag';
 import { FileDrag } from './file-drag';
 import { openPluginSettings, submenu } from './internals';
@@ -312,8 +312,10 @@ class ByLabel implements BinderMode {
 		const used = new Map<string, { count: number; words: number | null; cards: string[] }>();
 		for (const f of all) {
 			const l = this.labelOf(f), u = used.get(l) ?? { count: 0, words: 0, cards: [] };
-			const w = f instanceof TFolder ? sumWords(this.ctx, this.store.scenes(f)) : f instanceof TFile ? this.ctx.words(f) : 0;
-			u.count += f instanceof TFolder ? this.store.scenes(f).length : 1;
+			// (a folder's card counts as the notes it says it holds: under a filter, the ones that pass)
+			const held = f instanceof TFolder ? passing(this.ctx, this.store.scenes(f)) : null;
+			const w = held ? sumWords(this.ctx, held) : f instanceof TFile ? this.ctx.words(f) : 0;
+			u.count += held ? held.length : 1;
 			u.words = u.words == null || w == null ? null : u.words + w;
 			used.set(l, u);
 		}
