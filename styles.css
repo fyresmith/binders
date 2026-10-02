@@ -1128,6 +1128,23 @@
 	scroll-padding-top: var(--view-top-spacing);
 }
 
+/* (the smallest phone on its side with the keyboard up leaves the page under a hundred pixels: the header and the
+   editing toolbar meet, and the header's title would be printed across the line being typed. A note there slides its
+   header off the top of the screen and has the whole height; so does the manuscript, and nothing covers its top. The
+   header is back with the toolbar when the typing stops.) */
+@media (max-height: 180px) {
+	.is-phone .mod-root .workspace-leaf-content:has(> .view-content.binders-view.is-short .binders-manuscript) > .view-header {
+		transform: translateY(calc(-100% - var(--safe-area-inset-top, 0px)));
+	}
+	.is-phone .mod-root .workspace-leaf-content .view-content.binders-view.is-short:has(.binders-manuscript) {
+		mask-image: none;
+	}
+	.is-phone .binders-view.is-short .binders-manuscript {
+		padding-top: 0;
+		scroll-padding-top: 0;
+	}
+}
+
 /* on a phone or a tablet: as big as a base's toolbar there */
 .is-mobile .binders-toolbar {
 	--icon-size: var(--icon-l);

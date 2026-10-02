@@ -1112,7 +1112,7 @@ test('a card carried to a folder in the breadcrumb goes out to it, at its end, a
 	t.eq(split(await read(p, P1 + 'Arrival.md')).body, split(before[P1 + 'Arrival.md']).body, 'its text whole');
 });
 
-// 0.12.132. A folder's card on the board by label showed its synopsis squeezed by the names under it: a line with no
+// 0.12.140. A folder's card on the board by label showed its synopsis squeezed by the names under it: a line with no
 // ellipsis (and on a phone the top of the next line).
 test('by label, a folder card’s synopsis is whole lines ending in an ellipsis, at every card size and on a phone: never a slice of a line', async (p, h, t) => {
 	const before = await texts(p);

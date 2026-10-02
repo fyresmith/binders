@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.145 (2026-10-02)
+
+### Fixed
+
+- On a very small phone held sideways with the keyboard up, the header no longer prints its title across the line you are typing in the manuscript: it slides away, as it does in a note, and comes back when you stop.
+
 ## 0.12.144 (2026-10-02)
 
 ### Changed

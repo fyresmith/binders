@@ -186,3 +186,35 @@ test('phone: what a tap is meant to hit is a finger across (44 px): the toolbar�
 		await finger('a folder’s heading in the manuscript', '.binders-manuscript-heading > :is(h1, h2, h3, h4, h5, h6)');
 	});
 }));
+
+// At 568 × 320 with the keyboard up the page is under a hundred pixels: Obsidian's header and its editing
+// toolbar meet, and the header's title was printed across the line being typed. A note there slides its header off the
+// top of the screen; so does the manuscript. At 844 × 390 there is room between the two, and the header stays.
+test('a small phone on its side, typing in the manuscript with the keyboard up: the header slides off the top as a note’s does, the line being typed is clear of it and above the editing toolbar, and it is back when the typing stops; on a bigger phone on its side it stays', async (p, h, t) => {
+	const V = '.workspace-leaf.mod-active .binders-view';
+	const look = () => p.ev(`(() => { const leaf = document.querySelector('.workspace-leaf.mod-active'), R = (e) => { const r = e.getBoundingClientRect(); return [Math.round(r.top), Math.round(r.bottom)]; }, s = getSelection(), c = s.rangeCount ? s.getRangeAt(0).getClientRects()[0] ?? s.getRangeAt(0).getBoundingClientRect() : null, bar = document.querySelector('.mobile-toolbar'); return { header: R(leaf.querySelector('.view-header')), caret: c && [Math.round(c.top), Math.round(c.bottom)], foot: Math.min(R(leaf.querySelector('.binders-view'))[1], bar ? R(bar)[0] : Infinity), covered: parseFloat(getComputedStyle(leaf.querySelector('.binders-manuscript')).scrollPaddingTop) || 0, short: leaf.querySelector('.binders-view').classList.contains('is-short') }; })()`);
+	for (const [what, width, height, keyboard, away] of [['568 × 320', 568, 320, 180, true], ['844 × 390', 844, 390, 190, false]]) {
+		await onDevice(p, width, height, async () => {
+			await openView(p);
+			await p.ev(`(() => { ${VIEW}.setMode('manuscript'); return 1; })()`);
+			await until(p, `!!document.querySelector('${V} .binders-manuscript .cm-content')`, 5000);
+			const before = await look();
+			t.ok(before.header[1] > 0 && !before.short, `${what}: with nothing being typed the header is there (${j(before)})`);
+			await p.ev(`(() => { document.querySelector('${V} .binders-manuscript .cm-content').focus(); return 1; })()`);
+			await p.sleep(300);
+			await p.send('Emulation.setDeviceMetricsOverride', { width, height: height - keyboard, deviceScaleFactor: 1, mobile: true });
+			await p.sleep(500);
+			await p.type('Typed. ');
+			await p.sleep(600);
+			const g = await look();
+			t.ok(g.short && !!g.caret && g.caret[1] <= g.foot + 1, `${what}: the line being typed is above the editing toolbar (${j(g)})`);
+			if (away) t.ok(g.header[1] <= 1 && g.covered === 0 && g.caret[0] >= 0, `${what}: the header is off the top of the screen, and the line is in sight`);
+			else t.ok(g.header[1] > 0 && g.covered > 0 && g.caret[0] >= g.header[1] - 1, `${what}: the header stays, and the line is below it`);
+			await p.ev(`document.activeElement?.blur?.()`);
+			await p.send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: true });
+			await p.sleep(700);
+			const after = await look();
+			t.ok(after.header[1] > 0 && !after.short, `${what}: when the typing stops the header is back (${j(after)})`);
+		});
+	}
+});

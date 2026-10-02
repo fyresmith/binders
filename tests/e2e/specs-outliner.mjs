@@ -1087,7 +1087,7 @@ test('a phone: a held row lifted beside a selected row that offers a synopsis mo
 	same(t, before, await texts(p), { skip: [NOTE], moved: { [L + E]: L + 'Part Two/Epilogue.md' } });
 });
 
-// 0.12.132. Since 0.12.87 the title grows with the depth shown on a phone; the columns it pushes past the edge were cut
+// 0.12.139. Since 0.12.87 the title grows with the depth shown on a phone; the columns it pushes past the edge were cut
 // through their text at rest ("Wor", half a number). The last column is now whole in sight or whole out of it.
 test('a phone: a flat binder’s columns are all in sight; with folders in folders the title takes the room and the last column is whole out of sight, a swipe away, never cut through', async (p, h, t) => {
 	const before = await texts(p);
