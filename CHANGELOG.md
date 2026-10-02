@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.69 (2026-10-02)
+
+### Fixed
+
+- In settings, the color picker in each label's row now has a name for screen readers.
+
 ## 0.12.68 (2026-10-02)
 
 ### Fixed

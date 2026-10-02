@@ -208,6 +208,8 @@ export class BindersSettingTab extends PluginSettingTab {
 		// (one per row: Obsidian draws a row again in the same element)
 		const dot = setting.settingEl.querySelector<HTMLElement>(':scope > .binders-settings-probe') ?? setting.settingEl.createSpan({ cls: 'binders-label-dot binders-settings-probe' });
 		const paint = () => dot.setCssProps({ '--binders-label': colorCss(label.color) ?? '' });
+		// (the color well says whose color it is: the row's own name is a text field, so nothing else names it)
+		const nameWell = () => setting.controlEl.querySelector('input[type="color"]')?.setAttr('aria-label', `Custom color for ${label.name}`);
 		setting.nameEl.empty();
 		paint();
 		// the name where a setting's name is, so the names line up whatever the colors are called
@@ -219,6 +221,7 @@ export class BindersSettingTab extends PluginSettingTab {
 				if (this.s.labels.some((l) => l !== label && l.name.toLowerCase() === name.toLowerCase())) return `There’s a label called “${name}” already.`;
 				const old = label.name;
 				label.name = name;
+				nameWell();
 				void this.save().then(() => this.renamed('label', old, name));
 				return null;
 			});
@@ -247,6 +250,7 @@ export class BindersSettingTab extends PluginSettingTab {
 					void this.save();
 				});
 			});
+			nameWell();
 		});
 	}
 
