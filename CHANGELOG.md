@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.139 (2026-10-02)
+
+### Fixed
+
+- On a phone, an outliner with folders inside folders no longer cuts its last column through the middle: the column is whole, a swipe to the side away.
+
 ## 0.12.138 (2026-10-02)
 
 ### Changed

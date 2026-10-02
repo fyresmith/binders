@@ -452,6 +452,8 @@ class Outliner implements BinderMode {
 		cols.forEach((c, i) => this.table.setCssProps({ [`--binders-ol-c${i}`]: `${this.widthOf(c)}px` }));
 		// as wide as the pane, the title taking what the columns leave; wider only when they leave it too little
 		this.table.setCssProps({ '--binders-ol-columns': `${cols.reduce((a, c) => a + this.widthOf(c), 0)}px` });
+		// (the last one's width: on a phone it is whole in sight or whole out of it, never cut through; see styles.css)
+		this.table.setCssProps({ '--binders-ol-last': `${cols.length ? this.widthOf(cols[cols.length - 1]) : 0}px` });
 
 		const headKey = JSON.stringify([cols.map((c) => c.id), sort, ro, this.labelCompact]);
 		if (headKey !== this.headKey) { this.headKey = headKey; this.cols.draw(cols, sort); }

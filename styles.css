@@ -137,6 +137,17 @@
 	width: 0;
 }
 
+/* On a phone, when the title and the columns are together wider than the screen (a binder with folders in folders: the
+   title grows with them), the last column isn't left cut through its text at the edge: the title takes its room too,
+   and the column is whole, a swipe to the side away. (Many times the overflow, held between nothing and the column's
+   width: a switch.) */
+.is-phone .binders-outliner-table {
+	min-width: max(
+		calc(100% + clamp(0px, (var(--binders-ol-title-min) + var(--binders-ol-columns, 0px) - 100%) * 1000, var(--binders-ol-last, 0px) + var(--size-4-8))),
+		calc(var(--binders-ol-title-min) + var(--binders-ol-columns, 0px) + var(--size-4-8))
+	);
+}
+
 .binders-outliner-table.is-empty .binders-outliner-foot {
 	display: none;
 }

@@ -1086,3 +1086,29 @@ test('a phone: a held row lifted beside a selected row that offers a synopsis mo
 	});
 	same(t, before, await texts(p), { skip: [NOTE], moved: { [L + E]: L + 'Part Two/Epilogue.md' } });
 });
+
+// 0.12.132. Since 0.12.87 the title grows with the depth shown on a phone; the columns it pushes past the edge were cut
+// through their text at rest ("Wor", half a number). The last column is now whole in sight or whole out of it.
+test('a phone: a flat binder’s columns are all in sight; with folders in folders the title takes the room and the last column is whole out of sight, a swipe away, never cut through', async (p, h, t) => {
+	const before = await texts(p);
+	await onPhone(p, async () => {
+		const edges = () => p.ev(`(() => { const o = document.querySelector('${O}'), right = o.getBoundingClientRect().left + o.clientLeft + o.clientWidth; return { right, deep: Number(o.style.getPropertyValue('--binders-ol-deep')), scrolls: o.scrollWidth - o.clientWidth, cols: [...document.querySelectorAll('${O} .binders-outliner-th[data-col]')].map(e => { const r = e.getBoundingClientRect(); return [e.dataset.col, Math.round(r.left * 10) / 10, Math.round(r.right * 10) / 10]; }) }; })()`);
+		const cut = (e) => e.cols.filter((c) => c[1] < e.right - 0.5 && c[2] > e.right + 0.5);
+		await open(p);
+		const flat = await edges();
+		t.ok(flat.deep === 0 && flat.cols.length >= 3 && flat.cols.every((c) => c[2] <= flat.right + 0.5), `a flat binder: every column is in sight (${j(flat)})`);
+		await p.ev(`(async () => { await app.vault.createFolder(${j(L + 'Part One/Research')}); await app.vault.createFolder(${j(L + 'Part One/Research/Lamps')}); await app.vault.create(${j(L + 'Part One/Research/Lamps/Oil.md')}, 'Oil.\\n'); await new Promise(r => setTimeout(r, 600)); await ${B}.flush(); })().then(() => 1)`);
+		await open(p);
+		await until(p, `!!document.querySelector(${j(rowSel('Part One/Research/Lamps/Oil.md'))})`);
+		await p.sleep(300);
+		const deep = await edges(), last = deep.cols[deep.cols.length - 1];
+		t.ok(deep.deep >= 2, `folders in folders are shown (${deep.deep} levels past the first)`);
+		t.eq(j(cut(deep)), '[]', `no column is cut through at the edge (${j(deep)})`);
+		t.ok(last[1] >= deep.right - 0.5 && deep.cols[deep.cols.length - 2][2] <= deep.right + 0.5, 'the last column is whole out of sight, the one before it whole in sight');
+		await p.ev(`(() => { const o = document.querySelector('${O}'); o.scrollLeft = o.scrollWidth; return 1; })()`);
+		await p.sleep(200);
+		const swiped = await edges(), end = swiped.cols[swiped.cols.length - 1];
+		t.ok(end[1] >= 0 && end[2] <= swiped.right + 0.5, `and a swipe to the side shows it whole (${j(end)})`);
+	});
+	same(t, before, await texts(p), { skip: [NOTE] });
+});
