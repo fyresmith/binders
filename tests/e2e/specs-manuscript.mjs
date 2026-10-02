@@ -455,6 +455,52 @@ test('an outside change, then an outside change back to the text from before it,
 	await clearNotices(p);
 });
 
+test('a late word from Obsidian’s indexer, carrying the text a section was opened with, doesn’t take out what was typed and saved since', async (p, h, t) => {
+	// (the indexer reads a note, works on it, then tells what it read: on a busy machine that is after the first
+	// words typed here were saved. The note on disk isn't that text any more, so there's nothing to load.)
+	await mount(p);
+	const f = ORDER[2], before = disk(p, f);
+	await focusEnd(p, f); await p.type(' Typed words.');
+	await flushAll(p);
+	await p.ev(`(async () => { const f = app.vault.getAbstractFileByPath(${J(f)}); for (let i = 0; i < 60 && !app.metadataCache.getFileCache(f); i++) await new Promise(r => setTimeout(r, 50)); app.metadataCache.trigger('changed', f, ${J(before)}, app.metadataCache.getFileCache(f)); return 1; })()`);
+	await p.sleep(400);
+	t.eq(await text(p, f), before.replace(/\n$/, ' Typed words.\n'), 'the section still has what was typed');
+	await p.type(' More.');
+	await flushAll(p);
+	t.eq(disk(p, f), before.replace(/\n$/, ' Typed words. More.\n'), 'and typing on saves all of it');
+	// the note really put back as it was, outside: that is loaded
+	await p.ev(`app.vault.adapter.write(${J(f)}, ${J(before)}).then(() => 1)`);
+	await p.sleep(900);
+	t.eq(await text(p, f), before, 'a real change back to the text as opened still shows');
+	await clearNotices(p);
+});
+
+test('the same note in a tab: after Undo there, the section shows the note as it is again, and goes on following what’s typed in the tab', async (p, h, t) => {
+	// (a section takes a tab's typing live; taking the text from before for its own, it saw "nothing new" in the
+	// undo, kept the undone words on the page, and stopped following the tab)
+	await mount(p);
+	const f = ORDER[1], before = disk(p, f);
+	await p.ev(`(async () => { const l = window.__tab = app.workspace.getLeaf('split'); await l.openFile(app.vault.getAbstractFileByPath(${J(f)})); return 1; })()`);
+	await p.sleep(400);
+	const inTab = (code) => p.ev(`(() => { app.workspace.setActiveLeaf(__tab, { focus: true }); const e = __tab.view.editor; ${code}; return 1; })()`);
+	await inTab(`let n = e.lastLine(); while (n > 0 && !e.getLine(n)) n--; e.setCursor({ line: n, ch: e.getLine(n).length }); e.replaceSelection(' Typed in the tab.')`);
+	await p.sleep(300);
+	t.ok((await text(p, f)).includes(' Typed in the tab.'), 'typing in the tab shows in the section at once');
+	await p.sleep(2600);
+	await inTab(`e.undo()`);
+	await p.sleep(300);
+	t.eq(await text(p, f), before, 'Undo in the tab shows in the section at once');
+	await p.sleep(2600);
+	t.eq(disk(p, f), before, 'the file is the note as it was');
+	t.eq(await text(p, f), before, 'and so is the section, once the tab has saved');
+	await inTab(`e.replaceSelection(' Again.')`);
+	await p.sleep(3000);
+	t.eq(disk(p, f), before.replace(/\n$/, ' Again.\n'), 'what’s typed in the tab after that is in the file');
+	t.eq(await text(p, f), disk(p, f), 'and in the section');
+	t.eq(await p.ev(`__tab.view.editor.getValue()`), disk(p, f), 'the tab agrees with the file');
+	await clearNotices(p);
+});
+
 test('a property change (processFrontMatter, as the corkboard does) during unsaved typing: both kept', async (p, h, t) => {
 	await mount(p);
 	const f = ORDER[0];

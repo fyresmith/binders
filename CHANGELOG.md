@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.53 (2026-10-02)
+
+### Fixed
+
+- On a busy device, words typed and saved in a manuscript section could be taken off the page again when Obsidian finished indexing the note as it was before.
+
 ## 0.12.52 (2026-10-02)
 
 ### Fixed

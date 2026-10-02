@@ -302,6 +302,10 @@ export async function mountEditor(app: App, container: HTMLElement, file: TFile,
 		await embed.loadFile();
 		if (!openEditors.has(file)) openEditors.set(file, new Set());
 		openEditors.get(file).add(flush);
+		// The text as loaded is one this editor has shown. Obsidian's indexer reads a note, works on it, and only
+		// then tells what it read: on a busy machine (a phone just started, a big vault) that can be after the first
+		// words typed here were saved, and taken at its word it would put the note back as it was when opened.
+		show(embed.text);
 		// 2. A reload calls set(text, true), which rebuilds the editor state: cursor, scroll and undo lost. A plain
 		//    set() applies the change as a minimal diff, as a normal note does.
 		//    Text that arrives this way while the cursor isn't in this editor (another app, sync, another editor of the
