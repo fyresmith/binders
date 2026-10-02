@@ -1827,17 +1827,34 @@ bug('a binder opened from the file explorer has the keyboard: an arrow key goes 
 	t.eq((await selCards(p)).length, 1, 'and the arrow selected a card');
 });
 
-bug('going into a folder (a double-click on its row) leaves the keyboard in the view: Down selects its first row', async (p, h, t) => {
+// (since 0.12.56 going in puts the keyboard on the folder's first row, as the corkboard puts it on the first card: it has
+// the focus and nothing is selected, so an arrow goes on from it and selects the one after)
+bug('going into a folder (a double-click on its row) leaves the keyboard in the view, on its first row with nothing selected: Down selects the row after it, as an arrow does on the corkboard', async (p, h, t) => {
 	await openView(p);
 	await mode(p, h, 'outliner');
 	const f = await oname(p, L + 'Part Two');
 	await p.dbl(f.x, f.y);
 	await until(p, `${VIEW}?.folder?.path === 'The Lighthouse/Part Two'`);
 	await p.sleep(500);
+	const at = () => p.ev(`document.activeElement?.dataset?.path ?? null`);
+	t.eq(await at(), L + 'Part Two/The wreck.md', 'the focus is on the folder’s first row: ' + await focus(p));
+	t.eq(j(await selRows(p)), '[]', 'and nothing is selected');
 	await p.key('ArrowDown');
 	await p.sleep(150);
 	t.ok(await inView(p), 'the focus is in the view: ' + await focus(p));
-	t.eq(j(await selRows(p)), j([L + 'Part Two/The wreck.md']), 'and Down selected the first row');
+	t.eq(j(await selRows(p)), j([L + 'Part Two/Lights out.md']), 'and Down selected the row after it');
+	t.eq(await at(), L + 'Part Two/Lights out.md', 'with the focus on it');
+	// the corkboard: the same
+	await openView(p);
+	await mode(p, h, 'corkboard');
+	await into(p, L + 'Part Two');
+	await until(p, `${VIEW}?.folder?.path === 'The Lighthouse/Part Two'`);
+	await p.sleep(500);
+	t.eq(await at(), L + 'Part Two/The wreck.md', 'the corkboard: the focus is on the folder’s first card: ' + await focus(p));
+	t.eq(j(await selCards(p)), '[]', 'and nothing is selected');
+	await p.key('ArrowRight');
+	await p.sleep(150);
+	t.eq(j(await selCards(p)), j([L + 'Part Two/Lights out.md']), 'and an arrow selected the card after it');
 });
 
 bug('Back from a note to the binder view gives the keyboard back to it, as Back to a note gives it back to the note', async (p, h, t) => {

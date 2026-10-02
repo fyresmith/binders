@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.128 (2026-10-02)
+
+### Changed
+
+- Nothing a writer will notice: four older tests measure the phone's indent, row height and short view as they are now, and say what going into a folder does to the keyboard.
+
 ## 0.12.127 (2026-10-02)
 
 ### Fixed

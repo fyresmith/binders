@@ -1323,7 +1323,7 @@ test('phone, five folders deep with long and right-to-left names: names end in a
 			c.ok(a.rows.every((r) => r.name.rect[0] + r.name.rect[2] <= a.title[0] + a.title[2] && r.rect[3] <= 100), `${name}: nothing runs out of the title column, and no row is taller than 100 px: ${j(a.rows.map((r) => r.rect[3]))}`);
 			const deep = a.rows.find((r) => /A scene five/.test(r.name.text));
 			c.eq(deep.level, 5, `${name}: the deepest note is at level 5`);
-			c.eq(await p.ev(`(() => { const e = document.querySelector(${j(D(BOOK + '/Chapter one/Section A/Beat i/A scene five folders down with a name that goes on and on.md') + ' .mod-title')}); const s = getComputedStyle(e, '::before'); return Math.round(parseFloat(s.width) / 16); })()`), 4, `${name}: with a guide for each of the four folders it’s in`);
+			c.eq(await p.ev(`(() => { const e = document.querySelector(${j(D(BOOK + '/Chapter one/Section A/Beat i/A scene five folders down with a name that goes on and on.md') + ' .mod-title')}); const s = getComputedStyle(e, '::before'), step = parseFloat(getComputedStyle(e).getPropertyValue('--binders-ol-indent')); return Math.round(parseFloat(s.width) / step); })()`), 4, `${name}: with a guide for each of the four folders it’s in`);
 			const ar = a.rows.find((r) => /فصل/.test(r.name.text)), sib = a.rows.find((r) => r.name.text === 'Section A');
 			c.eq(ar.name.rect[0], sib.name.rect[0], `${name}: a right-to-left name starts where its siblings’ do`);
 			await scrollTo(p, 99999, 0);
@@ -1607,7 +1607,8 @@ bug('phone: “Edit synopsis” on a row whose synopsis isn’t showing brings i
 		f.head = await rect(p, `${LEAF} .binders-outliner-head`);
 		await shot(p, 'bug-edit-synopsis-out-of-sight');
 	});
-	t.ok(f.rows.every((x) => x === 40), 'synopses are hidden');
+	// (a row with its name alone is a finger tall on a phone: 44 px since 0.12.65)
+	t.ok(f.rows.every((x) => x === 44), 'synopses are hidden: ' + j(f.rows));
 	t.eq(j([f.field.tag, f.field.row]), j(['TEXTAREA', L + 'Epilogue.md']), '“Edit synopsis” shows them again and opens the row’s field');
 	t.ok(f.field.rect[1] >= f.head[1] + f.head[3] && f.field.rect[1] + f.field.rect[3] <= f.nav, `the field (${f.field.rect[1]}–${f.field.rect[1] + f.field.rect[3]} px) is on the screen, between the header and the navigation bar (${f.head[1] + f.head[3]}–${f.nav} px)`);
 });

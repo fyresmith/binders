@@ -798,7 +798,7 @@ test('keyboard up: for a card’s synopsis and title, a stack’s name, the “N
 				await p.sleep(400);
 				const a2 = await active(p), nav = await navbarTop(p);
 				await shot(p, `kb-${name}-${what}`);
-				out[`${name} ${what}`] = { tag: a2.tag, before: [a0.top, a0.bottom], up: [a1.top, a1.bottom], typed: [a2.top, a2.bottom], keyboardTop: size[1] - kb, nav };
+				out[`${name} ${what}`] = { tag: a2.tag, before: [a0.top, a0.bottom], up: [a1.top, a1.bottom], typed: [a2.top, a2.bottom], keyboardTop: size[1] - kb, nav, floor: await p.ev(`(() => { const v = document.querySelector('${LEAF} .binders-view'), b = v.querySelector('.binders-toolbar').getBoundingClientRect(); return Math.round(b.height ? b.bottom : v.getBoundingClientRect().top); })()`) };
 				await p.key('Escape');
 				await p.sleep(300);
 				await keyboard(p, size, false);
@@ -814,8 +814,11 @@ test('keyboard up: for a card’s synopsis and title, a stack’s name, the “N
 	for (const [k, v] of Object.entries(out)) {
 		say(k, j(v));
 		t.ok(/INPUT|TEXTAREA/.test(v.tag), `${k}: the field opens`);
-		// (on its side with the keyboard up, Obsidian's header and the toolbar leave 27 px of board: there the line only has to be above the keyboard)
-		t.ok((v.typed[0] >= 150 || v.keyboardTop < 200) && v.typed[0] < v.keyboardTop - 12, `${k}: once a letter is typed its line is in sight above the keyboard: ${j(v)}`);
+		// (in sight: below the toolbar, or below Obsidian's header where a short screen with the keyboard up hides the toolbar
+		// while it's typed in (0.12.34). On its side with the keyboard up there's a line or two of board: there the line only
+		// has to be above the keyboard)
+		t.ok((v.typed[0] >= v.floor - 1 || v.keyboardTop < 200) && v.typed[0] < v.keyboardTop - 12, `${k}: once a letter is typed its line is in sight above the keyboard: ${j(v)}`);
+
 	}
 });
 
