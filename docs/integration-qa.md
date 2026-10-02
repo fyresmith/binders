@@ -69,3 +69,36 @@ over several Obsidians at once, against a clean copy of the committed test vault
   is on the path where nothing typed may be lost, and it isn't on the list.
 - Fixed on the way (0.12.9): after a manuscript showing a note with Windows line endings was closed, a late save could
   take out words typed in the note's own tab; and such a note was written again, without them, just for being shown.
+
+## The sixth QA round and the hardening push, 2 October 2026
+
+Eight QA agents (writing, scale, store, boards, menus, phone, tablet, features) confirmed 79 findings on 0.12.17; their
+scenarios are `tests/e2e/specs-qa6-*.mjs`. Developers fixed them through the day, and about 125 patches went out
+(0.12.18 to 0.12.141). What matters most:
+
+- **Text that could be lost, all fixed with a test that failed first.** Words typed while a save was in flight, left
+  out of a delete, merge, duplicate, split, snapshot or compile (0.12.39). The first paragraph of a note that opens
+  with a rule, dropped by merge, compile, snapshots (0.12.43) and by any property write (0.12.57). A second outside
+  change undoing the first while typing was unsaved (0.12.52). A note left empty when the app was reloaded within two
+  seconds of typing, because a write started as the page goes is cut off between emptying and filling the file
+  (0.12.123). Words deleted coming back when the note was rewritten outside before the save (0.12.134). A reorder or a
+  field still being typed, not written at quit (0.12.68, 0.12.85).
+- **Both intermittents of the earlier rounds are explained, and neither lost text.** "Typing, then at once Delete" read
+  a stale file in the vault's trash left by an earlier test (the runner empties the trash between tests since
+  0.12.78). A split right after typing keeps the second half in both notes, on purpose, when the note changes while it
+  is being split.
+- **What a hundred patches on targeted tests cost.** A clean run of the whole suite on 0.12.116 left 45 tests failing
+  alone. Thirteen were product bugs (four of them regressions from the day's own fixes, each found with `git bisect
+  run`), twenty-five were tests that still described behavior changed on purpose or specs left half-edited, six were
+  listed as open, one was load. A re-check of all 45 in both themes on 0.12.133 left none failing alone. The rule
+  since: a fix runs its area's specs in both themes before it ships, and the whole suite runs after each batch
+  (`docs/development.md`, "Before a fix ships").
+- **Still open**, each listed in `tests/e2e/open-findings.json` with why, and in the README's known limitations: the
+  split's undo; four kinds of content whose rendered and live heights differ; "Measure loop restarted" warnings from
+  the editor in three places; a tap in another section with the caret at a wrapped line's start; the "New note" tile
+  inside the list of cards; "Ungroup" leaving the emptied folder; comments in a properties block dropped by Obsidian's
+  own writer; fast swipes through a thousand scenes on a phone.
+- **Not verified:** a full run of the suite in both themes on the last version of the day was started as the session
+  ended; anything on a real phone or tablet (none is to hand: the emulated tests are the standard); the lowest
+  supported Obsidian (1.8.7) has never been run. A release audit and a gallery of fifty screenshots are in
+  `.claude/handoff/release-check/` (not in git).

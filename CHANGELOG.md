@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.142 (2026-10-02)
+
+### Changed
+
+- Nothing a writer will notice: the record of test rounds says what the sixth round found, what was fixed and what is still open.
+
 ## 0.12.141 (2026-10-02)
 
 ### Changed
