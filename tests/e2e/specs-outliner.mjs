@@ -1021,3 +1021,38 @@ test('columns: “Other property...” with the name of a property Binders has a
 	await other('POV');
 	t.eq(j(await headers(p)), j(['title', 'label', 'words', 'status', 'prop:POV']), 'any other property gets a column of its own');
 });
+
+test('a phone: rows, cells and headers are 44 px tall; a selected row with no synopsis offers “Add a synopsis”, and a tap there writes one', async (p, h, t) => {
+	const before = await texts(p);
+	const E = 'Epilogue.md';
+	await p.ev(`app.fileManager.processFrontMatter(${file(L + E)}, fm => { delete fm.synopsis; }).then(() => 1)`);
+	await p.sleep(300);
+	const start = await read(p, L + E);
+	await onPhone(p, async () => {
+		await open(p);
+		const one = await box(p, rowSel('Part One')), th = await box(p, `${O} .binders-outliner-th[data-col="status"]`), fold = await box(p, rowSel('Part One') + ' .binders-outliner-chevron');
+		t.ok(one.h >= 44 && th.h >= 44, `a one-line row and a header are a finger tall (${Math.round(one.h)} and ${Math.round(th.h)} px)`);
+		t.ok(fold.w >= 44 && fold.h >= 44, `and a folder’s arrow is (${Math.round(fold.w)} × ${Math.round(fold.h)} px)`);
+		await p.ev(`document.querySelector(${j(rowSel(E))}).scrollIntoView({ block: 'center' })`);
+		await p.sleep(300);
+		const syn = rowSel(E) + ' .binders-outliner-synopsis';
+		t.eq((await box(p, syn)).h, 0, 'a row with no synopsis shows none until it is selected');
+		const c = await box(p, cellSel(E, 'words'));
+		await tap(p, c.l + c.w / 2, c.t + c.h / 2);
+		const s = await box(p, syn);
+		t.ok(s.h >= 16, `selected, it shows where to tap for one (${Math.round(s.h)} px tall)`);
+		t.eq(await p.ev(`document.querySelector(${j(syn)}).textContent`), 'Add a synopsis', 'in the words a card uses');
+		await tap(p, s.l + 30, s.t + s.h / 2);
+		t.eq(await focusOn(p), 'TEXTAREA|title|synopsis', 'a tap there opens its field');
+		await p.type('The light is lit again.');
+		await p.ev(`document.activeElement.blur()`);
+		await until(p, `app.metadataCache.getFileCache(${file(L + E)})?.frontmatter?.synopsis === 'The light is lit again.'`);
+		// another row selected: this one, with its synopsis now, keeps it; a row without one shows none
+		const k = await box(p, cellSel('Part Two', 'words'));
+		await tap(p, k.l + k.w / 2, k.t + k.h / 2);
+		t.ok((await box(p, rowSel('Part Two') + ' .binders-outliner-synopsis')).h >= 16, 'a selected folder’s row offers one too');
+	});
+	const after = await texts(p);
+	t.eq(split(after[L + E]).body, split(start).body, 'the note’s text is untouched');
+	same(t, before, after, { skip: [L + E] });
+});

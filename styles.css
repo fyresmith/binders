@@ -119,6 +119,11 @@
 	--binders-ol-indent: var(--size-4-4);
 }
 
+/* (on a phone a row, its cells and the headers are a finger tall, as the items of Obsidian's own lists are there) */
+.is-phone .binders-outliner {
+	--binders-ol-row: 44px;
+}
+
 .binders-outliner-table {
 	display: flex;
 	flex-direction: column;
@@ -361,6 +366,12 @@
 	z-index: 1;
 }
 
+.is-phone .binders-outliner-chevron.collapse-icon {
+	width: 44px;
+	height: 44px;
+	margin: calc((1lh - 44px) / 2) calc((var(--icon-s) - 44px) / 2);
+}
+
 @media (prefers-reduced-motion: no-preference) {
 	.binders-outliner-chevron svg {
 		transition: transform 100ms ease-in-out;
@@ -457,6 +468,12 @@
    rows under the pointer): "Edit synopsis" in its menu gives it one */
 .binders-outliner-synopsis.is-empty:not(.is-editing) {
 	display: none;
+}
+
+/* (on a phone a selected row offers one, as a selected card does: no pointer rests on the rows there for them to move
+   under, and the menu that has "Edit synopsis" is a long press away) */
+.is-phone .binders-outliner:not(.is-read-only) .binders-outliner-row.is-selected .binders-outliner-synopsis.is-empty:not(.is-editing) {
+	display: -webkit-box;
 }
 
 .binders-outliner-value {

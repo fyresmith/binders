@@ -1096,7 +1096,7 @@ test('phone headers: a tap opens the column’s menu as a sheet; sorting shows i
 		await p.sleep(600);
 		f.noSynopses = (await layout(p)).rows.map((r) => r.rect[3]);
 		await shot(p, 'head-no-synopses');
-		c.ok(f.noSynopses.every((q) => q === 40), 'without synopses every row is 40 px: ' + j(f.noSynopses));
+		c.ok(f.noSynopses.every((q) => q === 44), 'without synopses every row is 44 px, a finger tall: ' + j(f.noSynopses));
 	});
 	const after = await texts(p);
 	for (const [path, text] of Object.entries(before)) c.eq(after[path], text, `“${path}” is unchanged`);
