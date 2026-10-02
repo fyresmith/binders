@@ -65,6 +65,7 @@ Each entry says what the module owns and what it must never do.
 | `src/model.ts` | The binder note as data: `readIndex` (parse `contents`), `orderChildren`, and the operations on the list: `renameIn`, `relocate`, `removeFrom`, `moveTo`, `applyOps` (a batch of `ListOp`s). `FORMAT_VERSION` and `checkFormat`, which refuses a newer binder. Pure. | Import Obsidian, or normalise a newer format. |
 | `src/binders.ts` | `BinderStore`, as `plugin.binders`. Finds binders (a note with `binder` in its properties; a Longform index note), keeps one `State` per binder (the list as the note has it, plus changes not yet written), follows the vault's `rename`, `delete` and `create` events and the metadata cache's `changed`, answers "what is in this folder, in what order", and does every change: `put`/`move`, `moveUp`/`moveDown`, `newScene`, `newFolder`, `duplicate`, `group`/`ungroup`, `makeBinder`, `convertToBinder`, `setProps`/`editProps`, `label`. Emits `changed` (batched) to anyone showing a binder. The file explains its API at the top. | Write anything but the binder note's `contents` (or a Longform index note's `longform.scenes`) and the properties a view's edit asks for; write a binder whose format is newer (`problem`); apply a change to a stale copy of the note (see [Invariants](#invariants-that-keep-writing-safe)). |
 | `src/undo.ts` | `MoveHistory`: for each change made by hand (a drop, Move up, a sort kept, a label given by a drop) where each item was before and after, kept in memory (50 changes), and taking it back or doing it again by asking the store to move the files and write the order. Reached through `MoveHost`, a small interface the store implements. | Touch the vault itself, or undo part of a change: it moves nothing unless everything can move. |
+| `src/properties.ts` | `editProperties`: the one way a property is written to a scene. Goes through Obsidian's own writer, except for the two kinds of note that writer would damage: a note that opens with a `---` block that is text (the properties are added as a new block above it) and a note that starts with a byte-order mark (its block is rewritten in place). | Call `processFrontMatter` on a scene anywhere else. |
 | `src/longform.ts` | Longform projects as data: reading `longform` properties, flattening and nesting `scenes`, the shown order, groups, the plan for "Convert to binder". Pure, except `longformRunning` (see internals). | Write anything but `longform.scenes`; keep any other key of `longform` out of what it hands back to be written. |
 | `src/longform-convert.ts` | The "Convert to binder" dialog. | Convert without saying first what will happen. |
 
@@ -231,8 +232,11 @@ These are the rules the code is held to. A change that breaks one needs a new te
 | Dragging between views | `file-drag` | `specs-card-file-drag` |
 | Phones and tablets | | `specs-mobile`, `specs-qa4-mobile`, `specs-qa5-tablet`, `specs-qa5-nav`, `specs-qa4-journey` |
 | Speed on a large binder | | `specs-perf` |
+| The sixth QA round, by area (2026-10-02) | | `specs-qa6-writing` (nothing typed is lost), `specs-qa6-scale` (thousands of notes), `specs-qa6-store`, `specs-qa6-boards`, `specs-qa6-menus` (every menu item, command and setting), `specs-qa6-phone`, `specs-qa6-tablet` (also keyboard, screen readers, themes), `specs-qa6-features` (snapshots, focus mode, scene work) |
+| The test tools themselves | `demo-vault` | `specs-driver`, `specs-hover` |
 
-`tests/e2e/driver.mjs` and `view-helpers.mjs` are the harness; `tests/harness.ts` and `tests/obsidian-stub.ts` are the
+`tests/e2e/driver.mjs` and `view-helpers.mjs` are the harness (`run.mjs` runs spec files in one Obsidian, `run-all.mjs`
+splits the whole suite over several); `tests/harness.ts` and `tests/obsidian-stub.ts` are the
 unit tests'. Which spec file covers what, how to run them, and the list of failures still open
 (`tests/e2e/open-findings.json`) are in [development.md](development.md). Anything that touches how notes are read,
 written, renamed or edited has an e2e test that checks the file on disk, not only what the screen shows.

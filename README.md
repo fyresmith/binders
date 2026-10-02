@@ -476,6 +476,8 @@ Binders is not at 1.0 yet. What isn't finished, honestly:
 - **Setting a property** (a status, a label, a target, a synopsis) goes through Obsidian, which writes the note's whole
   properties block again in its own form: comments in the block are dropped, and `0123` becomes `123`. Obsidian's own
   Properties view does the same. The note's text is never touched.
+- **Windows line breaks.** Binders leaves a note's line breaks alone unless you type in it. Obsidian itself rewrites
+  a note that has Windows line breaks with its own when the note's tab is closed or given to another note.
 - **In the file explorer,** a selection that spans two folders of a binder, or a Longform project, still has Obsidian's
   own **New folder with selection**, which puts the folder last. Obsidian's **Make a copy** of a folder copies the
   folder's own note under its old name, so it shows in the copy as a scene. **Ungroup** leaves the emptied folder.

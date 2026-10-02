@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.131 (2026-10-02)
+
+### Added
+
+- Nothing a writer will notice: the tests of the sixth QA round (writing, scale, store, boards, menus, phone, tablet, features) are part of the suite, and the findings that are still open are listed with why.
+
 ## 0.12.130 (2026-10-02)
 
 ### Fixed
