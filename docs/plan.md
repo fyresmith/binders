@@ -166,11 +166,17 @@ New (note, folder). The view runs edge to edge, as a base, a canvas or a note do
 Approved by the maintainer on 2026-10-01, after a design study and a prototype (Scrivener's "Arrange by Label").
 
 - **Where it lives:** an arrangement of the corkboard, not a mode. "Arrange" in the toolbar (where a base has
-  "Sort") is a menu: "In a grid" / "By label"; then, by label, "Lines across" / "Lines down", "Show notes in
-  subfolders" (off by default) and "Show unused labels" (on by default). The button reads "By label" when on. The
-  same items are in the corkboard's part of "More options", and "Arrange corkboard by label" is a command. The state
-  is in the corkboard's view options: `arrange` (`grid` or `label`), `lines` (`across` or `down`), `linesFlat`,
-  `linesUnused`; card size, numbers and tint are the grid's own options.
+  "Sort") is one menu, the same items in the same order whatever is chosen: "In a grid" / "By label, across" / "By
+  label, down" (one ticked, each one click from the others); then two switches, "Show notes in subfolders" (off by
+  default; not in a Longform project) and "Show unused labels" (on by default). By label the switches flip with the
+  menu staying open; in the grid they are disabled and still say how they stand. The button always reads "Arrange";
+  its icon is the arrangement's, its accessible name says it ("Arrange: by label, across"), and it is tinted by
+  label. The same items, from one function (`arrangeItems` in `BinderView.ts`), are in the corkboard's part of "More
+  options" and in the menu of the board by label. "Arrange corkboard by label" is a command: grid to by label and
+  back, the lines as they last ran. The state is in the corkboard's view options: `arrange` (`grid` or `label`),
+  `lines` (`across` or `down`), `linesFlat`, `linesUnused`; card size, numbers and tint are the grid's own options.
+  (Until 0.12.4 the menu grew "Lines across" / "Lines down" and the switches only once "By label" was chosen, and
+  the button then read "By label": the maintainer found that odd, 2026-10-01.)
 - **The lines:** "No label" first, then the labels in settings in their order, then any other labels the cards
   have (a name that isn't in settings, a color of a note's own), as they first come. Each has its name at its
   start: its color, its name, how many notes are on it. A line is drawn as an edge on a canvas is (two pixels, its

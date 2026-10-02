@@ -750,7 +750,7 @@ test('phone header: “More options” in each mode is a sheet of finger-tall ro
 		const more = await p.at(MORE);
 		t.ok(more.w >= 40 && more.h >= 40, `the button is ${Math.round(more.w)} × ${Math.round(more.h)} px`);
 		const want = {
-			corkboard: ['Close', 'Pin', 'Card size', 'Tint cards with their label color', 'Number the cards', 'Corkboard', 'Outliner', 'Manuscript', 'In a grid', 'By label', 'Compile...', 'Take a snapshot of every note...', 'Open binder note'],
+			corkboard: ['Close', 'Pin', 'Card size', 'Tint cards with their label color', 'Number the cards', 'Corkboard', 'Outliner', 'Manuscript', 'In a grid', 'By label, across', 'By label, down', 'Show notes in subfolders', 'Show unused labels', 'Compile...', 'Take a snapshot of every note...', 'Open binder note'],
 			outliner: ['Close', 'Pin', 'Show synopses', 'Columns', 'Expand all', 'Collapse all', 'Corkboard', 'Outliner', 'Manuscript', 'Compile...', 'Take a snapshot of every note...', 'Open binder note'],
 			manuscript: ['Close', 'Pin', 'Corkboard', 'Outliner', 'Manuscript', 'Compile...', 'Take a snapshot of every note...', 'Open binder note'],
 		};

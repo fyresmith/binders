@@ -6,7 +6,7 @@ import type BindersPlugin from '../main';
 import { commitAll, commitFocused, editable, type Editable } from './edit';
 import { keepOpen, readableLineLength, refreshHeader, selectMenuItem } from './internals';
 import { canonical, labelDot, labelName, rank, readLabel } from './labels';
-import { readArrangement, type Arrangement } from './lanes-data';
+import { readArrangement, readLines, type Arrangement, type Lines } from './lanes-data';
 import { ask } from './modals';
 import { parseTarget, readTarget } from './outliner-data';
 import type { BinderMode, ModeContext, ModeFactory, SceneProps } from './mode';
@@ -26,8 +26,20 @@ export const MODES: readonly { id: ModeName; name: string; icon: string }[] = [
 	{ id: 'manuscript', name: 'Manuscript', icon: 'scroll-text' },
 ];
 /** The corkboard arranged by label isn't a mode of its own: it's the board the corkboard shows while "Arrange" says
-    "By label" (`arrange` in the view's options). This is its place among the plugin's mode factories. */
+    by label (`arrange` in the view's options). This is its place among the plugin's mode factories. */
 export const BY_LABEL = 'corkboard-by-label';
+/** The "Arrange" menu's three choices, one of them ticked: which way the lines run is part of the arrangement. The
+    button wears the icon of the one chosen. (`arrange` and `lines` are still two options, as saved workspaces have them.) */
+const ARRANGEMENTS: readonly { arrange: Arrangement; lines?: Lines; title: string; icon: string }[] = [
+	{ arrange: 'grid', title: 'In a grid', icon: 'layout-grid' },
+	{ arrange: 'label', lines: 'across', title: 'By label, across', icon: 'rows-3' },
+	{ arrange: 'label', lines: 'down', title: 'By label, down', icon: 'columns-3' },
+];
+/** And its two switches, for the lines by label: the option each is kept in, and how it stands until it's flipped. */
+const LINE_SWITCHES: readonly { key: string; title: string; icon: string; on: boolean }[] = [
+	{ key: 'linesFlat', title: 'Show notes in subfolders', icon: 'folder-open', on: false },
+	{ key: 'linesUnused', title: 'Show unused labels', icon: 'tags', on: true },
+];
 const isMode = (m: unknown): m is ModeName => MODES.some((x) => x.id === m);
 /** A mode as saved: the plot grid of earlier versions is the outliner now. */
 const readMode = (m: unknown): ModeName | null => (m === 'plotgrid' ? 'outliner' : isMode(m) ? m : null);
@@ -303,15 +315,20 @@ export class BinderView extends ItemView {
 	/** How the corkboard's cards are arranged: in a grid, or by label (each label a line, the cards along them). */
 	get arrangement(): Arrangement { return this.mode === 'corkboard' ? readArrangement(this.options.arrange) : 'grid'; }
 
-	/** Arranges the corkboard's cards the other way ("Arrange" in the toolbar, the command): the board is made again,
-	    on the card the first was on. */
-	arrange(to: Arrangement): void {
-		if (this.mode !== 'corkboard' || to === this.arrangement) return;
+	/** Arranges the corkboard's cards another way ("Arrange" in the toolbar, the command), with the lines across or
+	    down if that's said too (else as they last were): one change of the view's options. Another board is made on
+	    the card the first was on; the same board with its lines turned draws itself again. */
+	arrange(to: Arrangement, lines?: Lines): void {
+		if (this.mode !== 'corkboard') return;
+		const swap = to !== this.arrangement, turn = lines !== undefined && lines !== readLines(this.options.lines);
+		if (!swap && !turn) return;
+		const options = { ...this.options, arrange: to, ...(lines ? { lines } : {}) };
+		if (!swap) { this.setOptions(options); return; }
 		this.keepPlace();
 		// (the card the writer went to is the one the other board opens on, as when the mode is switched)
 		const now = this.current?.current?.() ?? null, on = now && now !== this.enteredOn ? now : null;
 		const focused = this.contentEl.contains(this.contentEl.doc.activeElement);
-		this.options = { ...this.options, arrange: to };
+		this.options = options;
 		this.remember();
 		this.rebuild();
 		if (on && this.app.vault.getAbstractFileByPath(on.path) === on) this.current?.reveal?.(on);
@@ -320,13 +337,39 @@ export class BinderView extends ItemView {
 		this.entered();
 	}
 
-	/** "In a grid" and "By label", then what the board by label says of its lines: the "Arrange" menu, and the
-	    corkboard's part of "More options". */
-	private arrangeItems(menu: Menu): void {
-		const by = this.arrangement;
-		menu.addItem((i) => i.setSection('binders-arrange').setTitle('In a grid').setIcon('layout-grid').setChecked(by === 'grid').onClick(() => this.arrange('grid')));
-		menu.addItem((i) => i.setSection('binders-arrange').setTitle('By label').setIcon('chart-gantt').setChecked(by === 'label').onClick(() => this.arrange('label')));
-		this.current?.arrangeItems?.(menu);
+	/** The board stays and shows itself by other options (its lines turned, what's on them). */
+	private setOptions(options: Record<string, unknown>): void {
+		this.options = options;
+		this.remember();
+		this.app.workspace.requestSaveLayout();
+		this.drawToolbar();
+		this.current?.refresh();
+	}
+
+	/** The corkboard's arrangement as the "Arrange" menu lists it and its button shows it: which of the three. */
+	private arranged(): typeof ARRANGEMENTS[number] {
+		const by = this.arrangement, lines = readLines(this.options.lines);
+		return ARRANGEMENTS.find((a) => a.arrange === by && (by === 'grid' || a.lines === lines)) ?? ARRANGEMENTS[0];
+	}
+
+	/** The "Arrange" menu: the three arrangements, one ticked, then what the lines by label show. Always the same
+	    items, whatever is chosen (in the grid the lines' two switches can't be flipped, and still say how they stand),
+	    and the same wherever they're listed: the toolbar's button, the corkboard's part of "More options", the menu of
+	    the board by label. */
+	arrangeItems(menu: Menu): void {
+		const now = this.arranged(), grid = now.arrange === 'grid';
+		for (const a of ARRANGEMENTS) menu.addItem((i) => i.setSection('binders-arrange').setTitle(a.title).setIcon(a.icon).setChecked(a === now).onClick(() => this.arrange(a.arrange, a.lines)));
+		for (const s of LINE_SWITCHES) {
+			// (a Longform project has no folders inside it, so no notes in them to show)
+			if (s.key === 'linesFlat' && this.binder?.kind === 'longform') continue;
+			const on = () => (s.key in this.options ? this.options[s.key] === true : s.on);
+			const flip = (): boolean => { const to = !on(); this.setOptions({ ...this.options, [s.key]: to }); return to; };
+			menu.addItem((i) => {
+				i.setSection('binders-arrange-show').setTitle(s.title).setIcon(s.icon).setChecked(on()).setDisabled(grid).onClick(() => { flip(); });
+				// the menu stays while they're flipped, each tick following (where this Obsidian can't, it closes, as any menu does)
+				if (!grid) keepOpen(i, flip);
+			});
+		}
 	}
 
 	private keepPlace(): void { if (this.current?.place && this.folder) this.places.set(this.placeKey(), this.current.place()); }
@@ -505,13 +548,12 @@ export class BinderView extends ItemView {
 		const on = this.filter.status.length + this.filter.label.length;
 		ui.filter.toggleClass('is-active', on > 0);
 		ui.filter.querySelector('.text-button-label')?.setText(on ? `Filter (${on})` : 'Filter');
-		// "Arrange", on the corkboard; it says how, when the cards aren't in their grid
-		const by = this.arrangement === 'label';
+		// "Arrange", on the corkboard: always called that; its icon says how (and its name, to a screen reader)
+		const how = this.arranged();
 		ui.arrange.toggleClass('is-hidden', this.mode !== 'corkboard');
-		ui.arrange.toggleClass('is-active', by);
-		ui.arrange.querySelector('.text-button-label')?.setText(by ? 'By label' : 'Arrange');
-		ui.arrange.setAttr('aria-label', by ? 'Arrange: by label' : 'Arrange');
-		setIcon(ui.arrange.querySelector<HTMLElement>('.text-button-icon'), by ? 'chart-gantt' : 'layout-grid');
+		ui.arrange.toggleClass('is-active', how.arrange === 'label');
+		ui.arrange.setAttr('aria-label', `Arrange: ${how.title.charAt(0).toLowerCase()}${how.title.slice(1)}`);
+		setIcon(ui.arrange.querySelector<HTMLElement>('.text-button-icon'), how.icon);
 		const mode = MODES.find((m) => m.id === this.mode);
 		setIcon(ui.modeBtn.querySelector<HTMLElement>('.text-button-icon'), mode.icon);
 		ui.modeBtn.querySelector('.text-button-label')?.setText(mode.name);

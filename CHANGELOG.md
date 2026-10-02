@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.7 (2026-10-02)
+
+### Changed
+
+- The corkboard's Arrange menu always lists the same choices: in a grid, by label across or by label down, each one click away. The button's icon shows which is on.
+
 ## 0.12.6 (2026-10-02)
 
 ### Changed

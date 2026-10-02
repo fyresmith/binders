@@ -52,19 +52,23 @@ function intact(t, before, after, changed = [], moved = {}) {
 	for (const path of changed) t.eq(split(after[moved[path] ?? path]).body, split(before[path]).body, `the text of “${path}” is untouched`);
 }
 
-test('“Arrange” in the toolbar: in a grid or by label, with the lines’ options; it stays through a reload', async (p, h, t) => {
+const BTN = `${LEAF} .binders-arrange-button`;
+const CHOICES = ['In a grid', 'By label, across', 'By label, down'], SWITCHES = ['Show notes in subfolders', 'Show unused labels'];
+/** The "Arrange" menu's items: these, in this order, whatever is chosen. */
+const ARRANGE = [...CHOICES, ...SWITCHES];
+const openArrange = async (p) => { const b = await p.at(BTN); await p.click(b.x, b.y); await p.sleep(250); };
+
+test('“Arrange” in the toolbar: in a grid, or by label with the lines across or down; it stays through a reload', async (p, h, t) => {
 	await openView(p);
-	const btn = `${LEAF} .binders-arrange-button`;
+	const btn = BTN;
 	t.eq(await p.ev(`document.querySelector('${btn} .text-button-label')?.textContent`), 'Arrange', 'the corkboard’s toolbar has “Arrange”');
-	let b = await p.at(btn);
-	await p.click(b.x, b.y);
-	await p.sleep(250);
-	t.eq(j(await menuItems(p)), j(['In a grid', 'By label']), 'in a grid, or by label');
-	await clickMenu(p, 'By label');
+	await openArrange(p);
+	t.eq(j(await menuItems(p)), j(ARRANGE), 'in a grid, or by label across or down; then what the lines show');
+	await clickMenu(p, 'By label, across');
 	await until(p, `!!document.querySelector('${LEAF} .binders-lanes > .binders-lane')`);
 	await p.sleep(300);
-	t.eq(await p.ev(`document.querySelector('${btn} .text-button-label')?.textContent`), 'By label', 'the button says so');
-	t.ok(await p.ev(`document.querySelector('${btn}').classList.contains('is-active')`), 'as a filter that’s on does');
+	t.eq(await p.ev(`document.querySelector('${btn} .text-button-label')?.textContent`), 'Arrange', 'the button is still called “Arrange”');
+	t.ok(await p.ev(`document.querySelector('${btn}').classList.contains('is-active')`), 'tinted, as a filter that’s on is');
 	t.eq((await viewState(p)).options.arrange, 'label', 'it’s one of the view’s options');
 	t.eq((await viewState(p)).mode, 'corkboard', 'still the corkboard');
 	t.eq(j(await cards(p)), j(BOARD), 'the same cards, in binder order');
@@ -73,12 +77,10 @@ test('“Arrange” in the toolbar: in a grid or by label, with the lines’ opt
 	// one place each, along the lines
 	const xs = await p.ev(`[...document.querySelectorAll('${LEAF} .binders-card[data-path]')].map(c => Math.round(c.getBoundingClientRect().left))`);
 	t.ok(xs.every((x, i) => !i || x > xs[i - 1]), `each card a place further along (${j(xs)})`);
-	b = await p.at(btn);
-	await p.click(b.x, b.y);
-	await p.sleep(250);
-	t.eq(j(await menuItems(p)), j(['In a grid', 'By label', 'Lines across', 'Lines down', 'Show notes in subfolders', 'Show unused labels']), 'by label, the menu has the lines’ options too');
-	t.eq(j(await p.ev(`[...document.querySelectorAll('.menu .menu-item')].filter(e => e.querySelector('.menu-item-icon.mod-checked, .mod-checked') || e.classList.contains('mod-checked')).map(e => e.querySelector('.menu-item-title').textContent)`)), j(['By label', 'Lines across', 'Show unused labels']), 'ticked: by label, lines across, unused labels shown (subfolders’ notes not)');
-	await clickMenu(p, 'Lines down');
+	await openArrange(p);
+	t.eq(j(await menuItems(p)), j(ARRANGE), 'by label, the menu has the same items');
+	t.eq(j(await p.ev(`[...document.querySelectorAll('.menu .menu-item')].filter(e => e.querySelector('.menu-item-icon.mod-checked, .mod-checked') || e.classList.contains('mod-checked')).map(e => e.querySelector('.menu-item-title').textContent)`)), j(['By label, across', 'Show unused labels']), 'ticked: by label across, unused labels shown (subfolders’ notes not)');
+	await clickMenu(p, 'By label, down');
 	await p.sleep(300);
 	t.ok(await p.ev(`document.querySelector('${LEAF} .binders-lanes').classList.contains('mod-down')`), 'the lines run down');
 	const ys = await p.ev(`[...document.querySelectorAll('${LEAF} .binders-card[data-path]')].map(c => Math.round(c.getBoundingClientRect().top))`);
@@ -97,7 +99,7 @@ test('“Arrange” in the toolbar: in a grid or by label, with the lines’ opt
 	await until(p, `!!document.querySelector('${LEAF} .binders-lanes > .binders-lane')`);
 	t.ok(await p.ev(`document.querySelector('${LEAF} .binders-lanes').classList.contains('mod-down') && !document.querySelector('${btn}').classList.contains('is-hidden')`), 'back on the corkboard, it’s as it was left');
 	// the same items in More options
-	t.ok(await p.ev(`(() => { const items = []; const menu = { addItem(cb) { const it = { setSection() { return it; }, setTitle(x) { items.push(typeof x === 'string' ? x : x.textContent); return it; }, setIcon() { return it; }, setChecked() { return it; }, onClick() { return it; }, setIsLabel() { return it; }, setSubmenu() { return menu; }, setWarning() { return it; }, setDisabled() { return it; } }; cb(it); return menu; }, addSeparator() { return menu; } }; ${VIEW}.onPaneMenu(menu, 'more-options'); return ['In a grid', 'By label', 'Lines across', 'Lines down', 'Show notes in subfolders', 'Show unused labels'].every(x => items.includes(x)); })()`), '“More options” has them too');
+	t.ok(await p.ev(`(() => { const items = []; const menu = { addItem(cb) { const it = { setSection() { return it; }, setTitle(x) { items.push(typeof x === 'string' ? x : x.textContent); return it; }, setIcon() { return it; }, setChecked() { return it; }, onClick() { return it; }, setIsLabel() { return it; }, setSubmenu() { return menu; }, setWarning() { return it; }, setDisabled() { return it; } }; cb(it); return menu; }, addSeparator() { return menu; } }; ${VIEW}.onPaneMenu(menu, 'more-options'); return ${j(ARRANGE)}.every(x => items.includes(x)); })()`), '“More options” has them too');
 	await flush(p);
 	await p.ev(`app.workspace.requestSaveLayout.run?.() ?? app.workspace.saveLayout?.()`).catch(() => {});
 	await p.sleep(600);
@@ -116,6 +118,160 @@ test('“Arrange” in the toolbar: in a grid or by label, with the lines’ opt
 	await h.run('arrange-by-label');
 	await until(p, `!!document.querySelector('.binders-lanes > .binders-lane')`);
 	t.eq((await viewState(p)).options.arrange, 'label', 'and by label again');
+});
+
+// ---- the "Arrange" menu: one list, whatever is chosen ----
+/** The open menu: its items' titles, which are ticked, which can't be chosen, and each one's icon. */
+const menuNow = (p) => p.ev(`(() => { const items = [...document.querySelectorAll('.menu .menu-item')].filter(e => e.querySelector('.menu-item-title')); const title = (e) => e.querySelector('.menu-item-title').textContent; return { titles: items.map(title), ticked: items.filter(e => e.querySelector('.mod-checked') || e.classList.contains('mod-checked')).map(title), disabled: items.filter(e => e.classList.contains('is-disabled')).map(title), icons: items.map(e => [...(e.querySelector('.menu-item-icon:not(.mod-checked) svg')?.classList ?? [])].find(c => c.startsWith('lucide-')) ?? null), menus: document.querySelectorAll('.menu').length }; })()`);
+/** The button, and the board under it. */
+const arranged = (p) => p.ev(`(() => { const b = document.querySelector('${BTN}'), lanes = document.querySelector('${LEAF} .binders-lanes'); return { text: b.querySelector('.text-button-label').textContent, name: b.getAttribute('aria-label'), icon: [...b.querySelector('.text-button-icon svg').classList].find(c => c.startsWith('lucide-')), tinted: b.classList.contains('is-active'), board: !lanes ? 'grid' : lanes.classList.contains('mod-down') ? 'down' : 'across' }; })()`);
+const BUTTON = {
+	'In a grid': { text: 'Arrange', name: 'Arrange: in a grid', icon: 'lucide-layout-grid', tinted: false, board: 'grid' },
+	'By label, across': { text: 'Arrange', name: 'Arrange: by label, across', icon: 'lucide-rows-3', tinted: true, board: 'across' },
+	'By label, down': { text: 'Arrange', name: 'Arrange: by label, down', icon: 'lucide-columns-3', tinted: true, board: 'down' },
+};
+const boardIs = (p, board) => until(p, board === 'grid' ? `!document.querySelector('${LEAF} .binders-lanes') && !!document.querySelector('${LEAF} .binders-card[data-path]')` : `!!document.querySelector('${LEAF} .binders-lanes.mod-${board} > .binders-lane')`);
+const laneNames = (p) => p.ev(`[...document.querySelectorAll('${LEAF} .binders-lane-name')].map(e => e.textContent)`);
+const sameMenu = (p) => p.ev(`document.querySelectorAll('.menu').length === 1 && document.querySelector('.menu').dataset.same === 'yes'`);
+
+test('the “Arrange” menu is one list: the same items in the grid, by label across and by label down, and each is one click from the others', async (p, h, t) => {
+	await openView(p);
+	// every way from one to another: grid, across, down, grid, down, across, grid
+	let at = 'In a grid';
+	for (const to of ['By label, across', 'By label, down', 'In a grid', 'By label, down', 'By label, across', 'In a grid']) {
+		t.eq(j(await arranged(p)), j(BUTTON[at]), `${at}: the button is “Arrange”, with that arrangement’s icon and name`);
+		await openArrange(p);
+		const m = await menuNow(p);
+		t.eq(j(m.titles), j(ARRANGE), `${at}: the menu’s items`);
+		t.eq(j(m.icons), j(['lucide-layout-grid', 'lucide-rows-3', 'lucide-columns-3', 'lucide-folder-open', 'lucide-tags']), `${at}: and their icons`);
+		t.eq(j(m.ticked), j([at, 'Show unused labels']), `${at}: one arrangement ticked (and unused labels, which show until turned off)`);
+		t.eq(j(m.disabled), j(at === 'In a grid' ? SWITCHES : []), `${at}: the lines’ switches ${at === 'In a grid' ? 'can’t be flipped in the grid' : 'can be flipped'}`);
+		await clickMenu(p, to);
+		t.ok(await boardIs(p, BUTTON[to].board), `${at} to ${to}: one click`);
+		await p.sleep(300);
+		t.eq(await p.ev(`document.querySelectorAll('.menu').length`), 0, 'and the menu is gone');
+		const s = await viewState(p), grid = to === 'In a grid';
+		t.eq(j([s.mode, s.options.arrange, grid ? null : s.options.lines]), j(['corkboard', grid ? 'grid' : 'label', grid ? null : to.endsWith('down') ? 'down' : 'across']), `${to}: kept as the same two options, “arrange” and “lines”`);
+		t.eq(j(await cards(p)), j(BOARD), 'the same cards, in binder order');
+		at = to;
+	}
+	t.eq(j(await arranged(p)), j(BUTTON['In a grid']), 'back in the grid');
+	t.eq((await viewState(p)).options.lines, 'across', 'the grid remembers which way the lines last ran');
+});
+
+test('the “Arrange” menu’s switches: flipped by label the menu stays open, its tick and the board following; in the grid they say how they stand and can’t be flipped', async (p, h, t) => {
+	await openBy(p, L.slice(0, -1));
+	const before = await texts(p);
+	t.eq(j(await laneNames(p)), j(['No label', ...LABELS]), 'unused labels show');
+	await openArrange(p);
+	await p.ev(`(() => { document.querySelector('.menu').dataset.same = 'yes'; return 1; })()`);
+	await clickMenu(p, 'Show unused labels');
+	await until(p, `document.querySelectorAll('${LEAF} .binders-lane-name').length < 9`);
+	let m = await menuNow(p);
+	t.ok(await sameMenu(p), 'turned off: the menu is still open, the same one');
+	t.eq(j([m.titles, m.ticked]), j([ARRANGE, ['By label, across']]), 'with its tick gone, and nothing else changed');
+	const used = await laneNames(p);
+	t.ok(used.length < 9 && used[0] === 'No label', `the board shows only the lines in use (${j(used)})`);
+	t.eq((await viewState(p)).options.linesUnused, false, 'kept as “linesUnused”');
+	await clickMenu(p, 'Show notes in subfolders');
+	await until(p, `!!document.querySelector('${LEAF} .binders-lane-divider')`);
+	m = await menuNow(p);
+	t.ok(await sameMenu(p), 'the next one flipped: still open');
+	t.eq(j(m.ticked), j(['By label, across', 'Show notes in subfolders']), 'and ticked');
+	t.ok((await cards(p)).includes(PART_ONE[0]), 'the board shows the notes in subfolders');
+	t.eq((await viewState(p)).options.linesFlat, true, 'kept as “linesFlat”');
+	await clickMenu(p, 'Show notes in subfolders');
+	await until(p, `!document.querySelector('${LEAF} .binders-lane-divider')`);
+	t.eq(j([(await menuNow(p)).ticked, await cards(p), (await viewState(p)).options.linesFlat]), j([['By label, across'], BOARD, false]), 'and off again: the tick, the board and the option');
+	// still one click to an arrangement, from the menu that stayed open
+	await clickMenu(p, 'In a grid');
+	t.ok(await boardIs(p, 'grid'), 'an arrangement chosen in the menu that stayed open');
+	await p.sleep(300);
+	await openArrange(p);
+	m = await menuNow(p);
+	t.eq(j([m.titles, m.ticked, m.disabled]), j([ARRANGE, ['In a grid'], SWITCHES]), 'in the grid: the same items, the switches as they were left (unused labels off), and not to be flipped');
+	const s = j((await viewState(p)).options);
+	await clickMenu(p, 'Show unused labels');
+	await p.sleep(300);
+	t.eq(j((await viewState(p)).options), s, 'a click on one in the grid changes nothing');
+	await closeMenus(p);
+	// by the keyboard: Enter flips it once (and the menu closes, as a menu does)
+	await p.ev(`${VIEW}.arrange('label')`);
+	await boardIs(p, 'across');
+	await p.sleep(300);
+	await openArrange(p);
+	for (let i = 0; i < 5; i++) { await p.key('ArrowDown'); await p.sleep(40); }
+	t.eq(await p.ev(`document.querySelector('.menu .menu-item.selected .menu-item-title')?.textContent`), 'Show unused labels', 'the arrows reach the switches');
+	await p.key('Enter');
+	await until(p, `document.querySelectorAll('${LEAF} .binders-lane-name').length === 9`);
+	t.eq(j([(await viewState(p)).options.linesUnused, await laneNames(p)]), j([true, ['No label', ...LABELS]]), 'Enter turns unused labels on again, once');
+	await closeMenus(p);
+	await flush(p);
+	same(t, before, await texts(p));
+});
+
+test('the “Arrange” menu is the same list in “More options” and in the board’s own menu; a Longform project has no notes in subfolders to show', async (p, h, t) => {
+	await openView(p);
+	// (what the view adds to the pane's menu, read off a stand-in for it)
+	const more = () => p.ev(`(() => { const items = []; const menu = { addItem(cb) { const it = { setSection() { return it; }, setTitle(x) { items.push(typeof x === 'string' ? x : x.textContent); return it; }, setIcon() { return it; }, setChecked() { return it; }, onClick() { return it; }, setIsLabel() { return it; }, setSubmenu() { return menu; }, setWarning() { return it; }, setDisabled() { return it; } }; cb(it); return menu; }, addSeparator() { return menu; } }; ${VIEW}.onPaneMenu(menu, 'more-options'); return items; })()`);
+	// (anything about arranging, so an item of the old menu left behind would show)
+	const part = (items) => items.filter((x) => ARRANGE.includes(x) || /^(by label|lines |in a )/i.test(x));
+	t.eq(j(part(await more())), j(ARRANGE), 'in the grid, “More options” has the menu’s items, in its order');
+	await p.ev(`${VIEW}.arrange('label', 'down')`);
+	await boardIs(p, 'down');
+	await p.sleep(300);
+	t.eq(j(part(await more())), j(ARRANGE), 'and by label, the same');
+	// the board's own menu (a right-click where there's no card)
+	await p.ev(`(() => { const g = document.querySelector('${LEAF} .binders-lanes'), r = g.getBoundingClientRect(); g.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: r.left + 200, clientY: r.top + 8 })); return 1; })()`);
+	await p.sleep(250);
+	const m = await menuNow(p);
+	t.eq(j(part(m.titles)), j(ARRANGE), 'the board’s own menu has them too');
+	t.eq(j(m.ticked.filter((x) => ARRANGE.includes(x))), j(['By label, down', 'Show unused labels']), 'ticked the same');
+	await clickMenu(p, 'By label, across');
+	t.ok(await boardIs(p, 'across'), 'and they do the same');
+	await closeMenus(p);
+	// a Longform project: flat, so the switch for subfolders' notes isn't there, in the grid or by label
+	await openView(p, 'Longform demo');
+	// (a view opened from another carries its arrangement along)
+	await p.ev(`${VIEW}.arrange('grid')`);
+	await boardIs(p, 'grid');
+	await p.sleep(300);
+	const flat =ARRANGE.filter((x) => x !== 'Show notes in subfolders');
+	await openArrange(p);
+	let lf = await menuNow(p);
+	t.eq(j([lf.titles, lf.disabled]), j([flat, ['Show unused labels']]), 'a Longform project in the grid: no “Show notes in subfolders”');
+	await clickMenu(p, 'By label, down');
+	t.ok(await boardIs(p, 'down'), 'by label, down, in one click');
+	await p.sleep(300);
+	await openArrange(p);
+	lf = await menuNow(p);
+	t.eq(j([lf.titles, lf.disabled]), j([flat, []]), 'and by label: the same items');
+	await closeMenus(p);
+});
+
+test('a view saved before the menu changed opens as it was: “arrange: label” with “lines: down”, and with no “lines” at all', async (p, h, t) => {
+	await openView(p);
+	const open = async (options) => { await p.ev(`(async () => { const v = ${VIEW}; await v.leaf.setViewState({ type: 'binders-view', active: true, state: { folder: 'The Lighthouse', mode: 'corkboard', filter: { status: [], label: [] }, options: ${j(options)} } }); })().then(() => 1)`); await p.sleep(400); };
+	await open({ arrange: 'label', lines: 'down', linesFlat: true, linesUnused: false });
+	t.ok(await boardIs(p, 'down'), 'by label, lines down');
+	t.eq(j(await arranged(p)), j(BUTTON['By label, down']), 'the button says so');
+	t.ok((await cards(p)).includes(PART_ONE[0]) && (await laneNames(p)).length < 9, 'with the notes in subfolders, and no unused labels, as saved');
+	await openArrange(p);
+	t.eq(j((await menuNow(p)).ticked), j(['By label, down', 'Show notes in subfolders']), 'and the menu ticks them');
+	await closeMenus(p);
+	t.eq(j((await viewState(p)).options), j({ arrange: 'label', lines: 'down', linesFlat: true, linesUnused: false }), 'the options are untouched');
+	await open({ arrange: 'label' });
+	t.ok(await boardIs(p, 'across'), 'by label with no direction saved: lines across');
+	t.eq(j(await arranged(p)), j(BUTTON['By label, across']), 'and the button says so');
+	await open({ lines: 'down' });
+	t.ok(await boardIs(p, 'grid'), 'no arrangement saved: the grid');
+	t.eq(j(await arranged(p)), j(BUTTON['In a grid']), 'whatever the lines were');
+	// the command keeps the direction last chosen
+	await h.run('arrange-by-label');
+	t.ok(await boardIs(p, 'down'), 'the command “Arrange corkboard by label” arranges by label, the lines as they last ran');
+	t.eq(j(await arranged(p)), j(BUTTON['By label, down']), 'the button follows');
+	await h.run('arrange-by-label');
+	t.ok(await boardIs(p, 'grid'), 'and back in the grid');
 });
 
 test('lines down: the lines are columns; across them is the label, down them the order; the arrows turn with them', async (p, h, t) => {
@@ -827,7 +983,15 @@ test('on a phone: lines across with small cards; a long press and a drag gives a
 		t.ok(!!b && b.w >= 32 && b.x + b.w / 2 <= 390, `“Arrange” fits the toolbar (${j(b)})`);
 		await tap(p, b.x, b.y);
 		await p.sleep(400);
-		t.eq(j(await menuItems(p)), j(['In a grid', 'By label', 'Lines across', 'Lines down', 'Show notes in subfolders', 'Show unused labels']), 'its menu, as a sheet');
+		t.eq(j(await menuItems(p)), j(ARRANGE), 'its menu, as a sheet');
+		t.eq(j(await arranged(p)), j(BUTTON['By label, across']), 'the button is its arrangement’s icon');
+		// a switch flipped on the sheet: the sheet stays, the board behind it follows
+		await clickMenu(p, 'Show unused labels');
+		await until(p, `document.querySelectorAll('${LEAF} .binders-lane-name').length < 9`);
+		t.eq(j([(await menuNow(p)).ticked, (await laneNames(p)).length < 9]), j([['By label, across'], true]), 'unused labels turned off on the sheet: it stays, its tick gone, and the lines are fewer');
+		await clickMenu(p, 'Show unused labels');
+		await until(p, `document.querySelectorAll('${LEAF} .binders-lane-name').length === 9`);
+		t.eq(j((await menuNow(p)).ticked), j(['By label, across', 'Show unused labels']), 'and on again');
 		await closeMenus(p);
 		await p.ev(`(() => { document.querySelectorAll('.menu, .menu-backdrop').forEach(m => m.remove()); return 1; })()`);
 		await p.sleep(300);

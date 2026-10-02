@@ -7,13 +7,14 @@ import { openPluginSettings, submenu } from './internals';
 import { display, labelDot, labelName, paintLabel, presetOf } from './labels';
 import { CARD_SIZES, announceText, beside, changeText, flatRuns, insertAt, laneAt, laneList, laneOf, lanePitch, readLines, readSize, resolveDrop, type CardSize, type Lines, type Run, type Stop } from './lanes-data';
 import { newLabel } from './modals';
+import type { BinderView } from './BinderView';
 import type { BinderMode, ModeContext, ModeFactory } from './mode';
 import { wordsLabel } from './words';
 
 /* The corkboard arranged by label: the folder's cards along one line per label, in the binder's order, each card in a
    place of its own on its label's line (Scrivener's "Arrange by label"). It answers which storyline, point of view or
    character each scene is on, and how the threads interleave through the book. The view shows this board as its
-   corkboard, in place of the grid (corkboard.ts), while "Arrange" in the toolbar says "By label". The lines run across the board (or down it, an option); a card
+   corkboard, in place of the grid (corkboard.ts), while "Arrange" in the toolbar says by label. The lines run across the board (or down it, an option); a card
    dragged to another line takes that line's label, dragged along the lines it changes place in the binder, and both
    at once does both, as one change that "Undo" takes back.
 
@@ -49,7 +50,7 @@ const NARROW = 520;
 const CARD = '.binders-card[data-path]';
 let uid = 0;
 
-/** The corkboard's cards by label: what the view shows as its corkboard while "Arrange" says "By label". */
+/** The corkboard's cards by label: what the view shows as its corkboard while "Arrange" says by label. */
 export const byLabel: ModeFactory = (container, ctx) => new ByLabel(container, ctx);
 
 class ByLabel implements BinderMode {
@@ -231,12 +232,10 @@ class ByLabel implements BinderMode {
 		void this.newNote(folder, at && sibs.includes(at) ? sibs.indexOf(at) + 1 : Infinity, '', at ? this.store.depthOf(at) : undefined);
 	}
 
-	/** Which way the lines run, and what's on them: the board's own part of the corkboard's "Arrange" menu. */
-	arrangeItems(menu: Menu): void {
-		menu.addItem((i) => i.setSection('lines').setTitle('Lines across').setIcon('rows-3').setChecked(this.across).onClick(() => this.set('lines', 'across')));
-		menu.addItem((i) => i.setSection('lines').setTitle('Lines down').setIcon('columns-3').setChecked(!this.across).onClick(() => this.set('lines', 'down')));
-		if (!this.longform) menu.addItem((i) => i.setSection('lines-show').setTitle('Show notes in subfolders').setIcon('folder-open').setChecked(this.flat).onClick(() => this.set('linesFlat', !this.flat)));
-		menu.addItem((i) => i.setSection('lines-show').setTitle('Show unused labels').setIcon('tags').setChecked(this.unused).onClick(() => this.set('linesUnused', !this.unused)));
+	/** The view's "Arrange" menu, in the board's own menu too: the one list (the view's), so the two can't differ. */
+	private arrangement(menu: Menu): void {
+		const view = this.ctx.owner as Partial<Pick<BinderView, 'arrangeItems'>>;
+		if (typeof view.arrangeItems === 'function') view.arrangeItems(menu);
 	}
 
 	private set(key: string, value: unknown): void { this.ctx.setOption(key, value); if (this.busy()) this.dirty = true; else this.draw(); }
@@ -623,7 +622,7 @@ class ByLabel implements BinderMode {
 			e.preventDefault();
 			const menu = new Menu();
 			if (!this.ctx.readOnly) this.newMenu(menu);
-			this.arrangeItems(menu);
+			this.arrangement(menu);
 			this.menu(menu);
 			menu.showAtMouseEvent(e);
 			return;

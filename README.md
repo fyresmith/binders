@@ -59,20 +59,24 @@ come back out. So the board is always one folder's items, in one order.
 
 #### Arrange by label
 
-**Arrange** in the toolbar shows the same cards **By label** instead of **In a grid**: one line for each label, and
+**Arrange** in the toolbar shows the same cards by label instead of **In a grid**: one line for each label, and
 the cards along the lines in the binder's order, each in a place of its own, on its label's line. It shows which
 thread (a storyline, a point of view, a character) each scene is on, and how the threads take turns through the
 book. Cards with no label are on the first line; then come the labels from settings, in their order.
+
+The menu is always the same: **In a grid**, **By label, across** and **By label, down**, one of them ticked, then
+**Show notes in subfolders** and **Show unused labels**. The button's icon shows which arrangement is on.
 
 - **Drag a card to another line** to give it that line's label: the card takes the line's color as you hold it
   there, and the label's name shows beside it. **Drag it along the lines** to change its place in the binder. Do
   both at once and it does both. Several selected cards go together. **Undo last move** takes the label and the
   place back as one change.
-- **Lines across** (as it comes) or **Lines down**, in the **Arrange** menu. The lines stand as far apart as the
-  pane has room for; when there are many they close up, and the cards pass each other.
+- The lines run **across** or **down**. They stand as far apart as the pane has room for; when there are many they
+  close up, and the cards pass each other.
 - **Show unused labels** (on as it comes) keeps a line for every label, so there's always one to drop a card on;
   turn it off to see only the labels in use. **Show notes in subfolders** (off as it comes) shows every note under
-  the folder, each subfolder's after its name, instead of one stack per subfolder.
+  the folder, each subfolder's after its name, instead of one stack per subfolder. The menu stays open while you
+  turn these on and off. In the grid they're greyed out: they are about the lines.
 - Click a line's name for its menu: **New note with this label**, **Select its notes**, **New label...** (a name and
   a color, added to the labels in settings) and **Edit labels...**. Double-click a line where there's no card to
   make a note there, with that line's label.
@@ -80,7 +84,8 @@ book. Cards with no label are on the first line; then come the labels from setti
   nearest card on the next line. Alt with an arrow along the lines moves the card; Alt with an arrow across them
   gives it the next line's label. Enter, F2, Delete and Shift+F10 are as in the grid.
 - The filter, the card size, the numbers and the tint are the corkboard's own, and apply here too. The command
-  **Arrange corkboard by label** goes from the grid to the lines and back. It works in a Longform project as well.
+  **Arrange corkboard by label** goes from the grid to the lines (the way they last ran) and back. It works in a
+  Longform project as well.
 
 ### Outliner
 
