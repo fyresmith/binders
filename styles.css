@@ -259,6 +259,8 @@
 	border-radius: 0;
 	color: var(--text-faint);
 	--icon-size: var(--icon-s);
+	/* an icon with no text says what it is when pointed at; the table's "names, not tooltips" would reach it */
+	--no-tooltip: false;
 }
 
 /* a column's edge: drag it to resize the column, as in a base's table */
