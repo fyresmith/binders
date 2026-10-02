@@ -25,14 +25,20 @@ function connect(url, onEvent) {
 // BINDERS_TEST_VAULT: another vault to copy (say, a clean checkout of test-vault while the working one is in use)
 export const VAULT = process.env.BINDERS_TEST_VAULT || 'test-vault';
 
-export async function launch({ vault = VAULT, theme = 'light', width = 1440, height = 900 } = {}) {
+// Headless, Chromium finds no mouse on the machine, so the page is told it has no pointer at all: `(hover: hover)` and
+// `(pointer: fine)` never match, and every rule and line of code behind them goes untested. These settings give the page
+// a desktop's pointer: a mouse that hovers. BINDERS_HOVER=1 (or launch({ hover: true })) turns it on.
+const HOVER = process.env.BINDERS_HOVER === '1';
+const POINTER = '--blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4';
+
+export async function launch({ vault = VAULT, theme = 'light', width = 1440, height = 900, hover = HOVER } = {}) {
 	if (!existsSync(ELECTRON) || !existsSync(ASAR)) throw new Error(`Obsidian not found. Set OBSIDIAN_ELECTRON and OBSIDIAN_ASAR (looked for ${ELECTRON} and ${ASAR}).`);
 	const work = mkdtempSync(join(tmpdir(), 'binders-e2e-'));
 	const vaultDir = join(work, 'vault');
 	cpSync(vault, vaultDir, { recursive: true });
 	rmSync(join(vaultDir, '.obsidian/workspace.json'), { force: true });
 	// Let Chromium reserve the port. Guessing one can attach a test to another running vault.
-	const proc = spawn(ELECTRON, ['--ozone-platform=headless', '--disable-gpu', `--user-data-dir=${join(work, 'profile')}`, '--remote-debugging-port=0', ASAR], { stdio: ['ignore', 'ignore', 'pipe'] });
+	const proc = spawn(ELECTRON, ['--ozone-platform=headless', '--disable-gpu', ...(hover ? [POINTER] : []), `--user-data-dir=${join(work, 'profile')}`, '--remote-debugging-port=0', ASAR], { stdio: ['ignore', 'ignore', 'pipe'] });
 	const port = await new Promise((resolve, reject) => {
 		const timeout = setTimeout(() => { proc.kill(); reject(new Error('Obsidian did not expose its debugging port')); }, 20000);
 		proc.stderr.on('data', (data) => {
@@ -54,10 +60,25 @@ export async function launch({ vault = VAULT, theme = 'light', width = 1440, hei
 		for (let i = 0; i < 60; i++) { await sleep(300); list = await targets(); page = list.find((t) => t.type === 'page' && !t.url.includes('starter')); if (page) break; }
 		st.ws.close();
 	}
-	const { ws, send } = await connect(page.webSocketDebuggerUrl, (d) => {
+	const { ws, send: raw } = await connect(page.webSocketDebuggerUrl, (d) => {
 		if (d.method === 'Runtime.exceptionThrown') errors.push('exception: ' + (d.params.exceptionDetails.exception?.description || d.params.exceptionDetails.text));
 		if (d.method === 'Runtime.consoleAPICalled' && (d.params.type === 'error' || d.params.type === 'warning' || d.params.type === 'assert')) errors.push(`console.${d.params.type}: ` + d.params.args.map((a) => a.value ?? a.description).join(' '));
 	});
+	// Touch emulation swaps the mouse for a finger (no hover, a coarse pointer), which is what a phone test wants. Turning
+	// it off doesn't bring the mouse back: Chromium falls back to what it found on the machine, which is nothing. Sending
+	// the page its preferences again applies the command line's settings once more ('animate' is the default, so nothing
+	// else changes). Without Electron's remote module the pointer stays gone until the next reload.
+	const POINTS = `matchMedia('(hover: hover)').matches ? 'mouse' : matchMedia('(pointer: coarse)').matches ? 'touch' : 'none'`;
+	const mouseBack = async () => {
+		const say = (expression) => raw('Runtime.evaluate', { expression, returnByValue: true }).then((r) => r.result?.result?.value);
+		await say(`(() => { try { require('electron').remote.getCurrentWebContents().setImageAnimationPolicy('animate'); } catch { /* no remote */ } return 1; })()`);
+		for (let i = 0; i < 40 && (await say(POINTS)) !== 'mouse'; i++) await sleep(25);
+	};
+	const send = async (method, params = {}) => {
+		const r = await raw(method, params);
+		if (hover && method === 'Emulation.setTouchEmulationEnabled' && !params.enabled) await mouseBack();
+		return r;
+	};
 	await send('Runtime.enable');
 	await send('Page.enable');
 	await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false });
@@ -89,6 +110,26 @@ export async function launch({ vault = VAULT, theme = 'light', width = 1440, hei
 	const mouse = (type, x, y, extra = {}) => send('Input.dispatchMouseEvent', { type, x, y, button: 'left', clickCount: 1, ...extra });
 	const o = {
 		ev, send, sleep, errors, width, height, vaultDir, focusMain,
+		/** The pointer the page believes it has: 'mouse' (it hovers), 'touch' (touch emulation is on) or 'none'. */
+		pointer: () => ev(POINTS),
+		/** The text of the tooltip showing now, or null. */
+		tooltip: () => ev(`(() => { const t = [...document.querySelectorAll('.tooltip')].pop(); return t ? t.textContent : null; })()`),
+		/** Rests the pointer on an element (a selector and which match, or a point) and waits for the tooltip that brings
+		    up: its text, or null if none came in `ms`. With no tooltip to wait for, pass `ms: 0`. */
+		async hover(target, { i = 0, ms = 1500 } = {}) {
+			const at = typeof target === 'string' ? await o.at(target, i) : target;
+			if (!at) throw new Error(`nothing to hover: ${target}`);
+			// a tooltip comes when the pointer enters, so come from outside, and wait for one that wasn't there before
+			if (at.w && Math.abs(mx - at.x) <= at.w / 2 && Math.abs(my - at.y) <= at.h / 2) await o.move(at.l - 3, at.t - 3, 2);
+			await ev(`(() => { window.__bindersTip = [...document.querySelectorAll('.tooltip')].pop() ?? null; return 1; })()`);
+			await o.move(at.x, at.y, 6);
+			for (let n = 0; n < ms / 50; n++) {
+				const tip = await ev(`(() => { const t = [...document.querySelectorAll('.tooltip')].pop(); return t && t !== window.__bindersTip ? t.textContent : null; })()`);
+				if (tip != null) return tip;
+				await sleep(50);
+			}
+			return null;
+		},
 		async move(x, y, steps = 6, extra = {}) { for (let i = 1; i <= steps; i++) await mouse('mouseMoved', mx + (x - mx) * i / steps, my + (y - my) * i / steps, { button: extra.buttons ? 'left' : 'none', ...extra }); mx = x; my = y; },
 		async click(x, y, extra = {}) { await o.focusMain(); await o.move(x, y, 2); await mouse('mousePressed', x, y, extra); await mouse('mouseReleased', x, y, extra); await sleep(60); },
 		/** A real double-click: the second press has clickCount 2, so the page gets a `dblclick`. */

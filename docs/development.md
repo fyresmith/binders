@@ -55,6 +55,7 @@ Without `--specs`, every `tests/e2e/specs*.mjs` runs:
 | File | Area |
 |---|---|
 | `specs.mjs` | Smoke tests: the plugin loads, the settings tab |
+| `specs-driver.mjs`, `specs-hover.mjs` | The driver itself: sessions keep to their own throwaway vaults; the pointer (a mouse that hovers, a finger under touch emulation), `p.hover` and `p.tooltip` |
 | `specs-binders.mjs` | The binder store: detection, keeping the list in step, batching, newer formats, commands |
 | `specs-explorer.mjs` | The file explorer: order, hidden notes, icon, click to open, dragging to reorder |
 | `specs-view.mjs` | The view shell: state, breadcrumb, modes, word count and target, filter, synopsis |
@@ -76,6 +77,28 @@ test's name in `tests/e2e/open-findings.json`, with why. The runner marks such a
 a run with no `✗` is green; when a listed test passes, the run says so at its end, and the entry comes off the list.
 Only the coordinator adds to the list: a new failure is a bug until the maintainer says otherwise, and a test that
 fails only sometimes doesn't belong on it.
+
+**The pointer: a mouse that hovers, or a finger.** Headless, Chromium finds no mouse on the machine and tells the page
+it has no pointer at all: `(hover: hover)` and `(pointer: fine)` don't match, so every rule inside
+`@media (hover: hover)` (all of Binders' hover styles) and any code that asks `matchMedia` goes untested. (`:hover`
+itself and Obsidian's tooltips follow the mouse events the driver sends, so they work either way.)
+
+- `BINDERS_HOVER=1 npm run e2e`, or `launch({ hover: true })`, starts Obsidian with a desktop's pointer: it hovers and
+  it's fine. This is how a desktop test should run. It is an option for now, not the default: see `specs-hover.mjs`
+  for what it promises.
+- A phone or tablet test turns on touch emulation (`Emulation.setTouchEmulationEnabled`, as the mobile specs' helpers
+  do) and gets a finger: `(hover: none)`, `(pointer: coarse)`. `app.emulateMobile(true)` alone changes Obsidian, not the
+  pointer, so a mobile test without touch emulation is a tablet with a mouse.
+- Turning touch emulation off gives the mouse back. Chromium doesn't do that by itself (it falls back to "no
+  pointer"), so the driver's `p.send` asks Electron to send the page its preferences again
+  (`webContents.setImageAnimationPolicy('animate')`, the default value, through Obsidian's `electron.remote`), which
+  applies the command line's pointer once more. Send the call through `p.send`, not a socket of your own.
+- `Emulation.setEmulatedMedia` can't set `hover` or `pointer` (Chromium accepts the features and ignores them), so
+  there is no switching per test other than touch emulation.
+- `await p.hover(selector)` (or `p.hover({ x, y })`) rests the pointer on an element and resolves to the text of the
+  tooltip that brings up, or `null` if none comes (`{ ms }` sets how long to wait; `{ i }` picks the nth match).
+  `await p.tooltip()` reads the tooltip showing now, and `await p.pointer()` says what the page has: `'mouse'`,
+  `'touch'` or `'none'`.
 
 `view-helpers.mjs` has helpers the view specs share. `node tests/e2e/screenshots.mjs [outdir]` remakes the README's
 screenshots (`docs/images`) from the same throwaway copy of the test vault.

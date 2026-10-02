@@ -5,6 +5,7 @@
 //   npm run e2e -- --repeat 3       run everything several times
 //   npm run e2e -- --specs a.mjs,b.mjs    only these spec files (default: every tests/e2e/specs*.mjs)
 //   npm run e2e -- --shots dir      where failure screenshots go (default test-dist/e2e-failures)
+//   npm run e2e -- --hover          a mouse that hovers (see docs/development.md); also BINDERS_HOVER=1
 // Tests listed in open-findings.json are known to fail (see there): they're reported, and don't fail the run.
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync } from 'fs';
 import { join, relative } from 'path';
@@ -36,7 +37,7 @@ class Fail extends Error {}
 const results = [];
 for (let round = 1; round <= repeat; round++) {
 	for (const theme of themes) {
-		const p = await launch({ theme });
+		const p = await launch({ theme, ...(process.argv.includes('--hover') ? { hover: true } : {}) });
 		const h = helpers(p);
 		for (const s of specs) {
 			if (grep && !grep.test(s.name)) continue;
