@@ -979,6 +979,9 @@ export class BinderStore extends Events implements ExplorerSource {
 
 	private onRename(file: TAbstractFile, oldPath: string): void {
 		const isFolder = file instanceof TFolder;
+		// Rescanning drops a binder moved inside another; remember its order first.
+		const carried = isFolder ? [...this.states.values()].find((s) => s.kind === 'binder' && s.folder === file) : null;
+		const carriedOrder = carried ? [...this.contents(carried)] : null;
 		// the binder note moved, a folder holding a binder, or a note that could make a folder a binder (a binder note or
 		// Longform index moved into a plain folder, or out of a binder): which folders are binders may have changed
 		if ((file instanceof TFile && this.states.has(file)) || (isFolder && ([...this.states.values()].some((s) => s.path === oldPath || s.path.startsWith(oldPath + '/')) || this.orphans)) || this.holdsBinderNote(file)) this.rescan();
@@ -1023,7 +1026,8 @@ export class BinderStore extends Events implements ExplorerSource {
 			return;
 		}
 		// a folder from another binder brings its order along
-		const inner = isFolder && o && or && nr ? this.contents(o).filter((p) => p !== or && p.startsWith(or)).map((p) => nr + p.slice(or.length)) : [];
+		const inner = carriedOrder && carried && !this.states.has(carried.note) && nr ? carriedOrder.map((p) => nr + p)
+			: isFolder && o && or && nr ? this.contents(o).filter((p) => p !== or && p.startsWith(or)).map((p) => nr + p.slice(or.length)) : [];
 		if (o && or) this.queue(o, { op: 'remove', item: or });
 		if (n && nr) { if (this.isHiddenNote(file)) this.touch(n); else this.queue(n, inner.length ? { op: 'append', item: nr, inner } : { op: 'append', item: nr }); }
 	}
