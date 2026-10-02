@@ -10,6 +10,23 @@ export function parts(text: string): { front: string; body: string } {
 	return m ? { front: m[0], body: text.slice(m[0].length) } : { front: '', body: text };
 }
 
+const FRONTMATTER = /^---\r?\n(?:[\s\S]*?\r?\n)?---[ \t]*(?:\r?\n|$)/;
+/** Where a note's text starts, after its properties: what the manuscript and focus mode count a cursor's place from.
+    (Not `parts(text).front.length` in one case: an empty block, `---` straight after `---`, with a rule further down
+    the text. This reads on to that rule; `parts` stops at the empty block.) */
+export const bodyStart = (text: string): number => FRONTMATTER.exec(text)?.[0].length ?? 0;
+
+/** Where position `p` of `was` is in `now`, the same text with one stretch of it changed: before the change it
+    stays, after it it moves along, inside it it goes to the change's end. */
+export function moved(was: string, now: string, p: number): number {
+	if (was === now) return p;
+	let a = 0;
+	while (a < was.length && a < now.length && was[a] === now[a]) a++;
+	let e = 0;
+	while (e < was.length - a && e < now.length - a && was[was.length - 1 - e] === now[now.length - 1 - e]) e++;
+	return p <= a ? p : p >= was.length - e ? p + now.length - was.length : now.length - e;
+}
+
 /** Splits a note at `offset` (a position in the whole text): what stays, and what goes to the new note. Null if the
     position is inside the properties. Nothing is dropped: `head + tail` is the note's text. */
 export function splitAt(text: string, offset: number): { head: string; tail: string } | null {

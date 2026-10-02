@@ -5,6 +5,8 @@
    (`base`) and its count now. The words written today are the sum of the differences over the binder's notes, so
    words deleted count against words written, and a note split in two, merged or renamed counts once. */
 
+import { bodyStart } from '../scene-text';
+
 /** As kept in the vault's local storage: the day (YYYY-MM-DD, local time) and each note's [base, now] by path. */
 export interface SessionData { day: string; notes: Record<string, [number, number]> }
 
@@ -78,9 +80,8 @@ export class Session {
 	toJSON(): SessionData { return { day: this.data.day, notes: { ...this.data.notes } }; }
 }
 
-const FRONTMATTER = /^---\r?\n(?:[\s\S]*?\r?\n)?---[ \t]*(?:\r?\n|$)/;
-/** Where a note's text starts, after its properties. */
-export const bodyStart = (text: string): number => FRONTMATTER.exec(text)?.[0].length ?? 0;
+/** Where a note's text starts, after its properties (scene-text.ts has it, for the manuscript too). */
+export { bodyStart };
 
 /** Is position `pos` on the last line of the text: is everything after the line it's on blank? (In a note a
     paragraph is one line, however it wraps, so this is "writing on at the end": in the last paragraph, or on an empty

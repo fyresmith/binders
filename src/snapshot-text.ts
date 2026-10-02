@@ -139,3 +139,36 @@ export function compare(before: string, after: string): Row[] {
 	between(i, a.length, j, b.length);
 	return rows;
 }
+
+/** One stretch of a paragraph compared: words both texts have, words only the snapshot has, words only the note has. */
+export interface Stretch { kind: 'same' | 'old' | 'new'; words: string[] }
+/** A reworded paragraph as one paragraph: what was taken out and what was put in, each where it falls in the sentence
+    (`compare` gives it as two rows, each with its own changed words marked). A lone word left standing between two
+    rewordings goes into both, so a rewritten phrase reads as one phrase and not as a scatter of single words. */
+export function reworded(old: Piece[], now: Piece[]): Stretch[] {
+	const flat = (ps: Piece[]) => ps.flatMap((p) => (p.text.match(/\S+/g) ?? []).map((w) => ({ w, changed: p.changed })));
+	const a = flat(old), b = flat(now), out: Stretch[] = [];
+	let held: { old: string[]; now: string[] } = { old: [], now: [] }, same: string[] = [];
+	// (out, then in, as a correction is read)
+	const flush = () => {
+		if (held.old.length) out.push({ kind: 'old', words: held.old });
+		if (held.now.length) out.push({ kind: 'new', words: held.now });
+		held = { old: [], now: [] };
+	};
+	for (let i = 0, j = 0; i < a.length || j < b.length;) {
+		const gone: string[] = [], come: string[] = [];
+		while (i < a.length && a[i].changed) gone.push(a[i++].w);
+		while (j < b.length && b[j].changed) come.push(b[j++].w);
+		if (gone.length || come.length) {
+			if (same.length === 1 && held.old.length && held.now.length && gone.length && come.length) { held.old.push(same[0], ...gone); held.now.push(same[0], ...come); }
+			else { flush(); if (same.length) out.push({ kind: 'same', words: same }); held = { old: gone, now: come }; }
+			same = [];
+		}
+		if (i < a.length && j < b.length) { same.push(a[i].w); i++; j++; }
+		// (the words both have are the same words in the same order; if ever they weren't, what's left is shown as changed)
+		else { for (let k = i; k < a.length; k++) a[k].changed = true; for (let k = j; k < b.length; k++) b[k].changed = true; }
+	}
+	flush();
+	if (same.length) out.push({ kind: 'same', words: same });
+	return out;
+}

@@ -2,7 +2,7 @@ import { ButtonComponent, Component, FuzzySuggestModal, ItemView, MarkdownRender
 import type { Binder } from '../binders';
 import type BindersPlugin from '../main';
 import { saveOpen } from '../scenes';
-import { SNAPSHOT_EXT, badSnapshotName, compare, readSnapshot, readSnapshotName, type Piece, type Row } from '../snapshot-text';
+import { SNAPSHOT_EXT, badSnapshotName, compare, readSnapshot, readSnapshotName, reworded, type Row, type Stretch } from '../snapshot-text';
 import { attach, bringBack, cut, isScene, leftovers, nameSnapshot, rewrite, snapshotsDir, snapshotsIn, takeSnapshot, type Leftover, type Snapshot } from '../snapshots';
 import { liveEditors } from './editable-embed';
 import { historyLook, refreshHeader, submenu, trashPhrase } from './internals';
@@ -201,39 +201,6 @@ function iconButton(parent: HTMLElement, icon: string, name: string, press: () =
 	el.addEventListener('click', press);
 	el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); press(); } });
 	return el;
-}
-
-/** One stretch of a paragraph compared: words both texts have, words only the snapshot has, words only the note has. */
-interface Stretch { kind: 'same' | 'old' | 'new'; words: string[] }
-/** A reworded paragraph as one paragraph: what was taken out and what was put in, each where it falls in the sentence
-    (`compare` gives it as two rows, each with its own changed words marked). A lone word left standing between two
-    rewordings goes into both, so a rewritten phrase reads as one phrase and not as a scatter of single words. */
-function reworded(old: Piece[], now: Piece[]): Stretch[] {
-	const flat = (ps: Piece[]) => ps.flatMap((p) => (p.text.match(/\S+/g) ?? []).map((w) => ({ w, changed: p.changed })));
-	const a = flat(old), b = flat(now), out: Stretch[] = [];
-	let held: { old: string[]; now: string[] } = { old: [], now: [] }, same: string[] = [];
-	// (out, then in, as a correction is read)
-	const flush = () => {
-		if (held.old.length) out.push({ kind: 'old', words: held.old });
-		if (held.now.length) out.push({ kind: 'new', words: held.now });
-		held = { old: [], now: [] };
-	};
-	for (let i = 0, j = 0; i < a.length || j < b.length;) {
-		const gone: string[] = [], come: string[] = [];
-		while (i < a.length && a[i].changed) gone.push(a[i++].w);
-		while (j < b.length && b[j].changed) come.push(b[j++].w);
-		if (gone.length || come.length) {
-			if (same.length === 1 && held.old.length && held.now.length && gone.length && come.length) { held.old.push(same[0], ...gone); held.now.push(same[0], ...come); }
-			else { flush(); if (same.length) out.push({ kind: 'same', words: same }); held = { old: gone, now: come }; }
-			same = [];
-		}
-		if (i < a.length && j < b.length) { same.push(a[i].w); i++; j++; }
-		// (the words both have are the same words in the same order; if ever they weren't, what's left is shown as changed)
-		else { for (let k = i; k < a.length; k++) a[k].changed = true; for (let k = j; k < b.length; k++) b[k].changed = true; }
-	}
-	flush();
-	if (same.length) out.push({ kind: 'same', words: same });
-	return out;
 }
 
 /** The snapshots of a scene (or, with `left`, of a note that's gone): a list, newest first, and beside it the one

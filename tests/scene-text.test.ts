@@ -1,4 +1,4 @@
-import { COMPILE_DEFAULTS, compile, joinBodies, linkTargets, nextName, parts, pointsAt, repointLinks, splitAt, stripComments, synopsisFrom, tidyHead, tidyTail, titleFrom, uniqueFootnotes, type CompileItem } from '../src/scene-text';
+import { COMPILE_DEFAULTS, bodyStart, compile, joinBodies, linkTargets, moved, nextName, parts, pointsAt, repointLinks, splitAt, stripComments, synopsisFrom, tidyHead, tidyTail, titleFrom, uniqueFootnotes, type CompileItem } from '../src/scene-text';
 import { done, eq, ok } from './harness';
 
 const NOTE = '---\nsynopsis: Mara arrives.\nstatus: draft\n---\nThe boat left her on the jetty.\n\nShe had two cases.\n';
@@ -160,6 +160,47 @@ const NOTE = '---\nsynopsis: Mara arrives.\nstatus: draft\n---\nThe boat left he
 	eq(compile('T', [], COMPILE_DEFAULTS), '# T\n', 'an empty binder is its title');
 	eq(compile('T', [], { ...COMPILE_DEFAULTS, title: false }), '', 'or nothing');
 	eq(compile('T', [{ kind: 'scene', name: 'A', depth: 0, text: '---\n\nA rule opens this text.\n\n```\n%% code %%\n```\n%%gone%%' }], { ...COMPILE_DEFAULTS, title: false }), '---\n\nA rule opens this text.\n\n```\n%% code %%\n```\n', 'a text is compiled as given: a rule at its top stays, code keeps its marks');
+}
+
+// where the text starts (what the manuscript and focus mode count a cursor's place from)
+{
+	eq(bodyStart(NOTE), parts(NOTE).front.length, 'after the properties');
+	eq(bodyStart('No properties here.'), 0, 'a note without properties');
+	eq(bodyStart('---\nnot closed\ntext'), 0, 'an unclosed block is text');
+	eq(bodyStart('---\r\na: 1\r\n---\r\nText'), 16, 'Windows line endings');
+	eq(bodyStart('---\na: 1\n---'), 12, 'properties only');
+	eq(bodyStart('---\n---\nText'), 8, 'an empty block');
+}
+
+// a cursor's place in a text that changed while its editor was away: nothing typed after lands in the wrong place
+{
+	const was = 'The boat left.';
+	eq(moved(was, was, 9), 9, 'the same text: the same place');
+	// a stretch put in before it, after it, and right at it
+	const more = 'The old boat left.';
+	eq(moved(was, more, 9), 13, 'text put in before it: it moves along');
+	eq(more.slice(13), was.slice(9), 'and what follows it is what followed it');
+	eq(moved(was, more, 2), 2, 'text put in after it: it stays');
+	eq(moved(was, more, 4), 4, 'right where text was put in: before what was put in');
+	eq(moved(was, 'The boat left. She waved.', 14), 14, 'text added at the end, the cursor at the end: it stays where it was');
+	eq(moved(was, 'Then: The boat left.', 0), 0, 'text added at the start, the cursor at the start: it stays');
+	eq(moved(was, 'Then: The boat left.', 4), 10, 'text added at the start: it moves along');
+	// a stretch taken out
+	eq(moved(more, was, 12), 8, 'text taken out before it: it moves back');
+	eq(moved(more, was, 6), 4, 'the text it was in taken out: where that text was');
+	eq(moved(more, was, 3), 3, 'text taken out after it: it stays');
+	// a stretch changed for another
+	eq(moved('one two three', 'one 2 three', 5), 5, 'in a word that was changed: after what it was changed to');
+	eq(moved('one two three', 'one 2 three', 10), 8, 'after the change: it moves along');
+	eq('one 2 three'.slice(8), 'one two three'.slice(10), 'to before the same letters');
+	eq(moved('one two three', 'one twenty-two three', 13), 20, 'at the end: still at the end');
+	// everything gone, everything new
+	eq(moved('abc', '', 2), 0, 'the text emptied: the start');
+	eq(moved('', 'abc', 0), 0, 'an empty text filled: the start');
+	// never outside the text, wherever it was
+	for (const [a, b] of [['abc', 'abXc'], ['abXc', 'abc'], ['aaaa', 'aa'], ['aa', 'aaaa'], ['abc', 'xyz'], ['', 'x'], ['x', '']]) {
+		for (let p = 0; p <= a.length; p++) { const q = moved(a, b, p); ok(q >= 0 && q <= b.length, `${JSON.stringify(a)} to ${JSON.stringify(b)}, from ${p}: inside the text (${q})`); }
+	}
 }
 
 done('scene text');

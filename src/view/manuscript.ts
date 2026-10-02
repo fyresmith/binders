@@ -1,5 +1,6 @@
 import { Component, Keymap, MarkdownRenderer, Menu, Notice, Platform, TFile, TFolder, normalizePath, setIcon, type Events, type TAbstractFile } from 'obsidian';
 import type { EditorView } from '@codemirror/view';
+import { bodyStart, moved } from '../scene-text';
 import { badName, emptyState, itemMenu, plain, removeItems, renameItem } from './actions';
 import { vimMode } from './internals';
 import { visibleBottom } from './drag';
@@ -16,19 +17,6 @@ import { embedSupported, mountEditor, type LiveEditor } from './editable-embed';
 
 /** How long scrolling must pause before editors are mounted or unmounted, in ms. */
 const SETTLE = 120;
-const FRONTMATTER = /^---\r?\n(?:[\s\S]*?\r?\n)?---[ \t]*(?:\r?\n|$)/;
-/** Where the body starts, after the frontmatter (which the manuscript hides). */
-const bodyStart = (text: string): number => FRONTMATTER.exec(text)?.[0].length ?? 0;
-/** Where position `p` of `was` is in `now`, the same text with one stretch of it changed: before the change it
-    stays, after it it moves along, inside it it goes to the change's end. */
-export function moved(was: string, now: string, p: number): number {
-	if (was === now) return p;
-	let a = 0;
-	while (a < was.length && a < now.length && was[a] === now[a]) a++;
-	let e = 0;
-	while (e < was.length - a && e < now.length - a && was[was.length - 1 - e] === now[now.length - 1 - e]) e++;
-	return p <= a ? p : p >= was.length - e ? p + now.length - was.length : now.length - e;
-}
 
 /** A key as it was pressed, to be given to an editor a moment later. */
 interface StrayKey { key: string; code: string; ctrlKey: boolean; metaKey: boolean; altKey: boolean; shiftKey: boolean }

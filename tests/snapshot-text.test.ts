@@ -1,4 +1,4 @@
-import { SNAPSHOT_EXT, SNAPSHOTS, badSnapshotName, compare, readSnapshot, readSnapshotName, snapshotFile, snapshotName, stamp, type Row } from '../src/snapshot-text';
+import { SNAPSHOT_EXT, SNAPSHOTS, badSnapshotName, compare, readSnapshot, readSnapshotName, reworded, snapshotFile, snapshotName, stamp, type Piece, type Row } from '../src/snapshot-text';
 import { done, eq, ok } from './harness';
 
 const j = (x: unknown) => JSON.stringify(x);
@@ -113,6 +113,33 @@ const show = (rows: Row[]) => rows.map((r) => (r.kind === 'same' ? '=' : r.kind 
 	const x = Array.from({ length: 30 }, (_, i) => `Old ${i} ${'word '.repeat(40)}`), y = Array.from({ length: 30 }, (_, i) => `New ${i} ${'other '.repeat(40)}`);
 	const all = compare(x.join('\n'), y.join('\n'));
 	eq(all.filter((r) => r.kind === 'old').length + ' ' + all.filter((r) => r.kind === 'new').length, '30 30', 'a scene replaced: every paragraph out, every paragraph in');
+}
+
+// a reworded paragraph, as one paragraph: what was taken out, then what was put in, where they fall in the sentence
+{
+	const same = (text: string): Piece => ({ text, changed: false }), diff = (text: string): Piece => ({ text, changed: true });
+	const said = (old: Piece[], now: Piece[]) => reworded(old, now).map((x) => (x.kind === 'same' ? x.words.join(' ') : `${x.kind === 'old' ? '-' : '+'}[${x.words.join(' ')}]`)).join(' ');
+	eq(said([same('The '), diff('grey'), same(' sea was calm.')], [same('The '), diff('green'), same(' sea was calm.')]), 'The -[grey] +[green] sea was calm.', 'a word changed: out, then in, where it stood');
+	eq(said([same('One '), diff('two '), same('three')], [same('One three')]), 'One -[two] three', 'a word taken out');
+	eq(said([same('One three')], [same('One '), diff('two '), same('three')]), 'One +[two] three', 'a word put in');
+	eq(said([diff('Before. '), same('The end.')], [same('The end.')]), '-[Before.] The end.', 'at the start');
+	eq(said([same('The end.')], [same('The end.'), diff(' And after.')]), 'The end. +[And after.]', 'at the end');
+	// a lone word left standing between two rewordings goes into both: one phrase, not a scatter of single words
+	eq(said([same('She '), diff('walked slowly'), same(' to '), diff('the shore.')], [same('She '), diff('ran'), same(' to '), diff('a boat.')]), 'She -[walked slowly to the shore.] +[ran to a boat.]', 'one word between two rewordings: one phrase');
+	eq(said([same('A '), diff('b'), same(' c d '), diff('e')], [same('A '), diff('x'), same(' c d '), diff('y')]), 'A -[b] +[x] c d -[e] +[y]', 'two words between them: two changes');
+	eq(said([same('A '), diff('b'), same(' c '), same('d')], [same('A '), same('c '), diff('x '), same('d')]), 'A -[b] c +[x] d', 'a word between a taking out and a putting in stays between them');
+	// every word of both texts is there, in order, whatever the pieces
+	const words = (ps: Piece[]) => ps.flatMap((p) => p.text.match(/\S+/g) ?? []);
+	for (const [a, b] of [['The grey sea was calm.', 'The green sea was calm.'], ['She walked slowly to the shore and sat.', 'She ran to a boat and sat down.'], ['One two three four five six.', 'One three five seven.']] as const) {
+		const rows = compare(a, b);
+		eq(rows.map((r) => r.kind).join(' '), 'old new', `“${a}” reworded: its old self, then its new`);
+		const out = reworded(rows[0].pieces, rows[1].pieces);
+		eq(j(out.filter((x) => x.kind !== 'new').flatMap((x) => x.words)), j(words(rows[0].pieces)), 'the old words, all of them, in order');
+		eq(j(out.filter((x) => x.kind !== 'old').flatMap((x) => x.words)), j(words(rows[1].pieces)), 'and the new');
+		eq(j(words(rows[0].pieces)), j(a.split(' ')), '(which are the snapshot’s words');
+		eq(j(words(rows[1].pieces)), j(b.split(' ')), 'and the note’s)');
+	}
+	eq(said(compare('The grey sea was calm.', 'The green sea was calm.')[0].pieces, compare('The grey sea was calm.', 'The green sea was calm.')[1].pieces), 'The -[grey] +[green] sea was calm.', 'as “Show changes” has it, from the two texts');
 }
 
 done('snapshot text');
