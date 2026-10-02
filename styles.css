@@ -2877,16 +2877,29 @@
 	}
 }
 
-/* (and on a phone with large text, the view's name is cut short rather than push "New" off the edge) */
-@container binders-view (width < 440px) {
-	.binders-mode-button {
-		flex-shrink: 1;
+/* When the toolbar runs out of room (a narrow pane, a phone with large text, several views side by side), the view's
+   name is cut short rather than push "New" off the edge: at any width, since how much room the names take depends on
+   the text's size as well. Never further than its icon and its chevron, whole. */
+.binders-toolbar .binders-toolbar-button.binders-mode-button {
+	flex-shrink: 1;
+	min-width: calc(var(--icon-size) + var(--icon-xs) + 4 * var(--size-2-2) + var(--size-2-1) + 2 * var(--binders-slop, 0px));
+}
+
+.binders-mode-button > .text-button-label {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* (and in a pane too narrow even for that, the icon alone, as the other buttons are below 540px: its name is then its
+   tooltip) */
+@container binders-view (width < 230px) {
+	.binders-toolbar .binders-toolbar-button.binders-mode-button {
 		min-width: 0;
+		--no-tooltip: false;
 	}
-	.binders-mode-button > .text-button-label {
-		min-width: 0;
-		overflow: hidden;
-		text-overflow: ellipsis;
+	.binders-mode-button > :is(.text-button-label, .mod-aux) {
+		display: none;
 	}
 }
 

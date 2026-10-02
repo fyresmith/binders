@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.92 (2026-10-02)
+
+### Fixed
+
+- With very large text or in a very narrow pane, the view's name in the toolbar now gives way so that “New” is not pushed off the edge.
+
 ## 0.12.91 (2026-10-02)
 
 ### Changed
