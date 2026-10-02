@@ -335,3 +335,41 @@ test('binders: "changed" fires for real changes only, not for typing in the bind
 		t.eq(await p.ev(`window.__changed.length`), 1, 'writing the list it already shows: nothing more');
 	} finally { await p.ev(`(() => { ${B}.offref(window.__cref); return 1; })()`); }
 }));
+
+// The store keeps each folder's order once it has worked it out (a drag over the file explorer asks for it many times
+// per pointer move). What's kept must never outlive a change: asked again at once after each kind, it's the new order.
+test('binders: a folder’s order, kept between changes, is never stale, and is what the binder note says on disk', withTidy(async (p, h, t) => {
+	const before = await texts(p), L = 'The Lighthouse', P1 = `${L}/Part One`, LF = 'Longform demo';
+	const now = (folder = P1, hidden = false) => children(p, folder, hidden);
+	t.eq(j(await now()), j(['Arrival.md', 'The keeper.md', 'Storm warning.md']), 'to begin with');
+	// what's handed out is the asker's own: changing it changes nothing for the next
+	await p.ev(`(() => { const a = ${B}.orderedChildren(${file(P1)}); a.reverse(); a.length = 1; return 1; })()`);
+	t.eq(j(await now()), j(['Arrival.md', 'The keeper.md', 'Storm warning.md']), 'a list handed out and changed by whoever asked isn’t the list that’s kept');
+	// each change is asked about in the same task it's made in: no write, no cache event has happened yet
+	const after = (change, folder = P1, hidden = false) => p.ev(`(async () => { ${B}.orderedChildren(${file(folder)}, { hidden: ${hidden} }); await (${change}); return (${B}.orderedChildren(${file(folder)}, { hidden: ${hidden} }) || []).map(f => f.name); })()`);
+	t.eq(j(await after(`${B}.move(${file(`${P1}/Storm warning.md`)}, ${file(P1)}, 0)`)), j(['Storm warning.md', 'Arrival.md', 'The keeper.md']), 'a move');
+	t.eq(j(await after(`app.vault.create(${j(`${P1}/Landfall.md`)}, 'New.')`)), j(['Storm warning.md', 'Arrival.md', 'The keeper.md', 'Landfall.md']), 'a note made');
+	t.eq(j(await after(`app.fileManager.renameFile(${file(`${P1}/The keeper.md`)}, ${j(`${P1}/The warden.md`)})`)), j(['Storm warning.md', 'Arrival.md', 'The warden.md', 'Landfall.md']), 'a rename');
+	t.eq(j(await after(`app.vault.create(${j(FOLDER_NOTE)}, 'About Part One.')`, P1, true)), j(['Part One.md', 'Storm warning.md', 'Arrival.md', 'The warden.md', 'Landfall.md']), 'a folder note made: first among the hidden');
+	t.eq(j(await now()), j(['Storm warning.md', 'Arrival.md', 'The warden.md', 'Landfall.md']), 'and not an item');
+	t.eq(j(await after(`app.vault.delete(${file(`${P1}/Landfall.md`)})`)), j(['Storm warning.md', 'Arrival.md', 'The warden.md']), 'a delete');
+	t.eq(j(await after(`app.fileManager.renameFile(${file(`${L}/Prologue.md`)}, ${j(`${P1}/Prologue.md`)})`)), j(['Storm warning.md', 'Arrival.md', 'The warden.md', 'Prologue.md']), 'a note moved in from another folder');
+	t.eq(j(await now(L)), j(['Part One', 'Part Two', 'Epilogue.md']), 'and gone from the folder it left');
+	t.eq(j(await after(`${B}.moveUp(${file(`${L}/Part Two`)})`, L)), j(['Part Two', 'Part One', 'Epilogue.md']), 'a folder moved up');
+	t.eq(j(await after(`${B}.undo(${file(L)})`, L)), j(['Part One', 'Part Two', 'Epilogue.md']), 'and that undone');
+	await flush(p); await p.sleep(200);
+	t.eq(j(await contents(p)), j(['Part One/', 'Part One/Storm warning', 'Part One/Arrival', 'Part One/The warden', 'Part One/Prologue', 'Part Two/', 'Part Two/The wreck', 'Part Two/Lights out', 'Epilogue']), 'the binder note on disk has every entry, in the order shown');
+	// an edit of the binder note from outside, with the order just asked for
+	const text = await read(p, NOTE);
+	await now();
+	await p.ev(`app.vault.adapter.write(${j(NOTE)}, ${j(text.replace('  - Part One/Storm warning\n', '').replace('  - Part One/Prologue\n', '  - Part One/Prologue\n  - Part One/Storm warning\n'))}).then(() => 1)`);
+	t.eq(j(await until(p, `(() => { const c = (${B}.orderedChildren(${file(P1)}) || []).map(f => f.name); return c[3] === 'Storm warning.md' && c; })()`)), j(['Arrival.md', 'The warden.md', 'Prologue.md', 'Storm warning.md']), 'an edit made outside is followed');
+	// a Longform project's order is kept the same way
+	t.eq(j(await now(LF)), j(['Harbor.md', 'Ticket office.md', 'The crossing.md', 'Island.md', 'Return.md']), 'a Longform project, to begin with');
+	t.eq(j(await after(`${B}.move(${file(`${LF}/Return.md`)}, ${file(LF)}, 0)`, LF)), j(['Return.md', 'Harbor.md', 'Ticket office.md', 'The crossing.md', 'Island.md']), 'a scene moved');
+	t.eq(j(await after(`app.vault.create(${j(`${LF}/Quay.md`)}, 'New.')`, LF)), j(['Return.md', 'Harbor.md', 'Ticket office.md', 'The crossing.md', 'Island.md', 'Quay.md']), 'a scene made');
+	t.eq(j(await now(LF, true)), j(['Index.md', 'Return.md', 'Harbor.md', 'Ticket office.md', 'The crossing.md', 'Island.md', 'Quay.md']), 'with its index note');
+	await flush(p); await p.sleep(200);
+	t.eq(await p.ev(`JSON.stringify(app.metadataCache.getFileCache(${file(`${LF}/Index.md`)}).frontmatter.longform.scenes)`), j(['Return', 'Harbor', ['Ticket office', 'The crossing'], 'Island']), 'the index note on disk has the order shown (a note not yet moved isn’t listed, as in Longform)');
+	same(t, before, await texts(p), { skip: [NOTE, `${LF}/Index.md`], moved: { [`${P1}/The keeper.md`]: `${P1}/The warden.md`, [`${L}/Prologue.md`]: `${P1}/Prologue.md` } });
+}));

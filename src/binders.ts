@@ -165,6 +165,10 @@ class State implements Binder {
 	/** Cached: the list with `ops` applied, and the items per folder. Cleared on any change. */
 	contents: string[] | null = null;
 	items: Map<string, Item[]> | null = null;
+	/** Cached: each folder's items in order, as last asked for (by its path; "+" before it with binder and folder notes
+	    included), as of a count of the vault's changes. Cleared on any change, like the two above. A drag over the file
+	    explorer asks for the same folder's order many times per pointer move. */
+	ordered: { at: number; lists: Map<string, TAbstractFile[]> } | null = null;
 	/** Cached: the binder's folder of snapshots (null: it has none), as of a count of the vault's changes. */
 	snaps: { at: number; folder: TFolder | null } | null = null;
 	/** The folder the binder note was in when found. If the note moves to another folder, that's another binder. */
@@ -366,18 +370,34 @@ export class BinderStore extends Events implements ExplorerSource {
 	problem(item: TAbstractFile | string): string | null { return this.binderOf(item)?.problem ?? null; }
 
 	orderedChildren(folder: TFolder, opts: { hidden?: boolean } = {}): TAbstractFile[] | null {
+		// (a copy: the list itself is kept for the next time it's asked for)
+		const list = this.ordered(folder, !!opts.hidden);
+		return list && [...list];
+	}
+
+	/** A folder's items in binder order, worked out once per change to the binder: the list that's kept, not to be
+	    changed by whoever asks. */
+	private ordered(folder: TFolder, hidden: boolean): TAbstractFile[] | null {
 		const s = this.at(folder.path);
 		if (!s) return null;
+		if (s.kind === 'longform' && folder !== s.folder) return null;
+		if (s.ordered?.at !== this.vaultChanges) s.ordered = { at: this.vaultChanges, lists: new Map() };
+		const key = (hidden ? '+' : '') + folder.path, kept = s.ordered.lists.get(key);
+		if (kept) return kept;
+		let list: TAbstractFile[];
 		if (s.kind === 'longform') {
-			if (folder !== s.folder) return null;
 			const files = this.lfFiles(s), ordered = this.shownScenes(s).map((x) => files.get(x.title)).filter((f): f is TFile => !!f);
-			return opts.hidden && s.note.parent === folder ? [s.note, ...ordered] : ordered;
+			list = hidden && s.note.parent === folder ? [s.note, ...ordered] : ordered;
+		} else {
+			const rel = this.folderRel(s, folder);
+			const kids = this.items(s).get(rel) ?? [];
+			const byRel = new Map(kids.map((k) => [k.rel, k.file]));
+			const ordered = orderChildren(s.problem ? [] : this.contents(s), rel, kids.map((k) => k.rel)).map((r) => byRel.get(r));
+			list = hidden ? [...folder.children.filter((c) => this.isHiddenNote(c)), ...ordered] : ordered;
 		}
-		const rel = this.folderRel(s, folder);
-		const kids = this.items(s).get(rel) ?? [];
-		const byRel = new Map(kids.map((k) => [k.rel, k.file]));
-		const ordered = orderChildren(s.problem ? [] : this.contents(s), rel, kids.map((k) => k.rel)).map((r) => byRel.get(r));
-		return opts.hidden ? [...folder.children.filter((c) => this.isHiddenNote(c)), ...ordered] : ordered;
+		// (asked for again while the binder is being found or changed, `touch` has cleared this: what's kept is as of now)
+		s.ordered.lists.set(key, list);
+		return list;
 	}
 
 	scenes(folder: TFolder): TFile[] {
@@ -479,7 +499,7 @@ export class BinderStore extends Events implements ExplorerSource {
 			const out: number[] = [];
 			for (let c: TAbstractFile = f; c !== s.folder; c = c.parent) {
 				if (!c.parent) return null;
-				out.unshift((this.orderedChildren(c.parent, { hidden: true }) ?? []).indexOf(c));
+				out.unshift((this.ordered(c.parent, true) ?? []).indexOf(c));
 			}
 			return out;
 		};
@@ -1087,7 +1107,7 @@ export class BinderStore extends Events implements ExplorerSource {
 	private queue(s: State, op: ListOp): void {
 		if (s.problem) { this.touch(s); return; }
 		// a move remembers what the binder held when it was made (see ListOp)
-		if (op.op === 'move' && !op.known) { s.items = null; op.known = this.known(s); }
+		if (op.op === 'move' && !op.known) { s.items = null; s.ordered = null; op.known = this.known(s); }
 		s.ops.push(op);
 		window.clearTimeout(s.timer);
 		s.timer = window.setTimeout(() => { void this.write(s); }, DEBOUNCE);
@@ -1200,7 +1220,7 @@ export class BinderStore extends Events implements ExplorerSource {
 
 	/** Something about this binder changed: drop cached order and (unless told not to) tell subscribers. */
 	private touch(s: State, emit = true): void {
-		s.contents = null; s.items = null; s.shown = null;
+		s.contents = null; s.items = null; s.shown = null; s.ordered = null;
 		if (emit) this.emit(s.path);
 	}
 

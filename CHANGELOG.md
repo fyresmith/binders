@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.44 (2026-10-02)
+
+### Fixed
+
+- Dragging a selection of notes over a very large folder in the file explorer no longer stutters.
+
 ## 0.12.43 (2026-10-02)
 
 ### Fixed
