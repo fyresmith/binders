@@ -82,8 +82,10 @@ export async function removeItems(ctx: ModeContext, items: TAbstractFile[]): Pro
 /** Gives every item the same status, label or target (a folder's go in its folder note, made if need be). */
 export async function setAll(ctx: ModeContext, items: TAbstractFile[], patch: { status?: string; label?: string; target?: number }): Promise<void> {
 	try {
+		// (a folder with no folder note has nothing to take away: one isn't made to hold nothing)
+		const clears = Object.values(patch).every((v) => !v);
 		for (const f of items) {
-			const note = f instanceof TFolder ? await ctx.store.ensureFolderNote(f) : noteOf(ctx, f);
+			const note = f instanceof TFolder ? (clears ? ctx.store.folderNote(f) : await ctx.store.ensureFolderNote(f)) : noteOf(ctx, f);
 			if (note) await ctx.setProps(note, patch);
 		}
 	} catch (e) { new Notice(e instanceof Error ? e.message : String(e)); }

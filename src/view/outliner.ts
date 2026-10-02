@@ -545,7 +545,8 @@ class Outliner implements BinderMode {
 				// a click selects a row; a click on a selected row's synopsis edits it
 				shouldEdit: () => this.sel.has(path),
 				save: async (t) => {
-					const note = item instanceof TFolder ? await this.store.ensureFolderNote(item) : noteOf(this.ctx, item);
+					// (a folder with no folder note and nothing typed has nothing to keep: no note is made for it)
+					const note = item instanceof TFolder ? (t ? await this.store.ensureFolderNote(item) : this.store.folderNote(item)) : noteOf(this.ctx, item);
 					if (note) await this.ctx.setProps(note, { synopsis: t });
 				},
 				onEditing: (on) => this.onEditing(on, el),

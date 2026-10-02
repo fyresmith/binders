@@ -321,3 +321,40 @@ test('“New status...” with nothing typed stays and says a status needs a nam
 	await p.sleep(200);
 	t.ok(await p.ev(`!document.querySelector('.modal')`), 'Escape closes it with nothing said');
 });
+
+test('“No label”, “No status” or an emptied target on a selection with a folder in it makes the folder no folder note: there is nothing to take away', async (p, h, t) => {
+	const before = await texts(p);
+	await openView(p);
+	const note = L + 'Part One/Part One.md';
+	t.ok(!(await p.ev(`!!${file(note)}`)), 'Part One has no folder note to begin with');
+	const pick = async (...titles) => {
+		const a = await p.at(card(L + 'Epilogue.md')), b = await p.at(card(L + 'Part One'));
+		await p.click(a.x, a.t + 14);
+		await p.click(b.x, b.t + 14, { modifiers: 2 });
+		await p.right(b.x, b.t + 14);
+		for (const x of titles.slice(0, -1)) await hoverMenu(p, x);
+		await clickMenu(p, titles[titles.length - 1]);
+		await p.sleep(500);
+	};
+	await pick('Set label', 'Red');
+	await until(p, `app.metadataCache.getFileCache(${file(L + 'Epilogue.md')})?.frontmatter?.label === 'Red'`);
+	t.ok(await p.ev(`!!${file(note)}`), 'a label given to the folder is kept in a folder note, made for it');
+	// (the folder note goes again, so the folder is one that never had a label)
+	await p.ev(`app.vault.delete(${file(note)}).then(() => 1)`);
+	await p.sleep(500);
+	await pick('Set label', 'No label');
+	await until(p, `app.metadataCache.getFileCache(${file(L + 'Epilogue.md')})?.frontmatter?.label === undefined`);
+	t.ok(!(await p.ev(`!!${file(note)}`)), '“No label”: the note’s label goes, and the folder gets no folder note');
+	await pick('Set status', 'No status');
+	await until(p, `app.metadataCache.getFileCache(${file(L + 'Epilogue.md')})?.frontmatter?.status === undefined`);
+	t.ok(!(await p.ev(`!!${file(note)}`)), '“No status”: the same');
+	await pick('Set target...');
+	await until(p, `!!document.querySelector('.modal input')`);
+	await p.sleep(150);
+	await p.key('Enter');
+	await p.sleep(500);
+	t.ok(!(await p.ev(`!!${file(note)}`)), 'a target left empty: the same');
+	const after = await texts(p);
+	same(t, before, after, { skip: [L + 'Epilogue.md'] });
+	t.eq(split(after[L + 'Epilogue.md']).body, split(before[L + 'Epilogue.md']).body, 'the note’s text is untouched');
+});
