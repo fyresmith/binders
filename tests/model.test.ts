@@ -1,4 +1,4 @@
-import { applyOps, checkFormat, cleanPath, copyIn, diskPath, isBinderNote, isFolderNote, moveTo, orderChildren, readIndex, relPath, removeFrom, renameIn, stepIndex, UnsupportedBinder } from '../src/model';
+import { applyOps, checkFormat, cleanPath, copyIn, diskPath, isBinderNote, isFolderNote, moveTo, orderChildren, readIndex, relPath, removeFrom, renameIn, settleNames, stepIndex, UnsupportedBinder } from '../src/model';
 import { done, eq, ok } from './harness';
 
 const j = (x: unknown) => JSON.stringify(x);
@@ -19,7 +19,19 @@ const j = (x: unknown) => JSON.stringify(x);
 {
 	eq(cleanPath('./Part One//Arrival.md'), 'Part One/Arrival', 'paths tidied, .md dropped');
 	eq(cleanPath('Part One\\'), 'Part One/', 'backslashes become slashes; a trailing slash marks a folder');
-	const idx = readIndex({ binder: 1, contents: ['Prologue', 'Prologue', 7, '../escape', 'Part One/', ' Part One/Arrival.md '] });
+	eq(cleanPath(' Lead'), ' Lead', 'a name that starts with a space keeps it');
+	eq(cleanPath('Trail '), 'Trail ', 'and one that ends with one');
+	eq(cleanPath('Dir /Trail .md'), 'Dir /Trail ', 'in a folder named so too; the .md still goes');
+	eq(cleanPath('Dir / '), 'Dir /', 'a part that is only spaces is no name: this is the folder');
+	eq(j(readIndex({ binder: 1, contents: [' Lead', 'Mid', 'Trail ', 'Trail'] }).contents), j([' Lead', 'Mid', 'Trail ', 'Trail']), 'read as they are: “Trail ” and “Trail” are two notes');
+	eq(j(orderChildren([' Lead', 'Mid', 'Trail '], '', ['Mid', 'Trail ', ' Lead'])), j([' Lead', 'Mid', 'Trail ']), 'and ordered by the list');
+	// stray spaces typed round a name are still read, where what's meant is plain
+	const there = new Set(['Prologue', 'Part One/', 'Part One/Arrival', ' Lead', 'Trail ', 'Trail']);
+	eq(j(settleNames(['  Prologue  ', ' Part One / Arrival ', ' Lead', 'Trail ', 'Trail', ' Gone '], (x) => there.has(x))), j(['Prologue', 'Part One/Arrival', ' Lead', 'Trail ', 'Trail', ' Gone ']), 'an entry that names nothing as typed is read without its stray spaces; one that names a file is left');
+	eq(j(settleNames(['Prologue', ' Prologue '], (x) => there.has(x))), j(['Prologue']), 'and counts once');
+	const plain = ['Prologue', 'Part One/'];
+	ok(settleNames(plain, (x) => there.has(x)) === plain, 'a list with nothing to settle is handed back as it is');
+	const idx = readIndex({ binder: 1, contents: ['Prologue', 'Prologue', 7, '../escape', 'Part One/', 'Part One/Arrival.md'] });
 	eq(j(idx.contents), j(['Prologue', '7', 'Part One/', 'Part One/Arrival']), 'duplicates and paths leaving the binder dropped; numbers read as names');
 	eq(j(readIndex({ binder: 1, contents: [true, null, { a: 1 }, ['x'], NaN, 'ok'] }).contents), j(['ok']), 'other non-strings dropped');
 	eq(j(readIndex({ binder: 1 }).contents), '[]', 'no contents: empty list');

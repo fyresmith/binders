@@ -1,7 +1,7 @@
 import { Events, Notice, TFile, TFolder, normalizePath, stringifyYaml, type App, type EventRef, type TAbstractFile } from 'obsidian';
 import type { ExplorerSource } from './explorer';
 import type BindersPlugin from './main';
-import { applyOps, checkFormat, diskPath, FORMAT_VERSION, isBinderNote, isFolderNote, nameOf, orderChildren, readIndex, relPath, stepIndex, UnsupportedBinder, type ListOp } from './model';
+import { applyOps, checkFormat, diskPath, FORMAT_VERSION, isBinderNote, isFolderNote, nameOf, orderChildren, readIndex, relPath, settleNames, stepIndex, UnsupportedBinder, type ListOp } from './model';
 import { editProperties } from './properties';
 import { nextName } from './scene-text';
 import { MoveHistory, type PropChange, type Undo } from './undo';
@@ -1194,6 +1194,7 @@ export class BinderStore extends Events implements ExplorerSource {
 		const under = (p: string, x: string) => p === x || (x.endsWith('/') && p.startsWith(x));
 		const accounted = (p: string) => ops.some((o) => (o.op === 'remove' && under(p, o.item)) || (o.op === 'rename' && under(p, o.from)));
 		const next = (list: string[]) => {
+			list = settleNames(list, (p) => exists.has(p));
 			const out = applyOps(list, ops, known).filter((p) => exists.has(p));
 			const lost = list.filter((p) => !exists.has(p) && !accounted(p));
 			return lost.length && lost.length * 2 > list.length ? [...out, ...lost.filter((p) => !out.includes(p))] : out;
@@ -1242,7 +1243,15 @@ export class BinderStore extends Events implements ExplorerSource {
 	/** The list with pending changes applied: what views show before it's written. */
 	private contents(s: State): string[] {
 		if (s.kind === 'longform') return s.contents ??= this.shownScenes(s).map((x) => `${x.indent} ${x.title}`);
-		return s.contents ??= s.ops.length ? applyOps(s.base, s.ops, this.known(s)) : s.base;
+		return s.contents ??= s.ops.length ? applyOps(this.listed(s), s.ops, this.known(s)) : this.listed(s);
+	}
+
+	/** The list as the binder note has it, with entries typed with stray spaces round a name read as the items they
+	    mean (see `settleNames`). */
+	private listed(s: State): string[] {
+		if (!s.base.some((p) => p.split('/').some((n) => n !== n.trim()))) return s.base;
+		const have = new Set([...this.items(s).values()].flat().map((i) => i.rel));
+		return settleNames(s.base, (p) => have.has(p));
 	}
 
 	/** Every item in the binder a list entry can name, per folder ("" for the top), without binder and folder notes. */
@@ -1268,10 +1277,10 @@ export class BinderStore extends Events implements ExplorerSource {
 	/** The binder's items in the order they show, for moves. The same items `orderedChildren` shows (other files too), so
 	    an index among a folder's shown items means the same place here. */
 	private known(s: State): string[] {
-		const items = this.items(s), out: string[] = [];
+		const items = this.items(s), out: string[] = [], base = this.listed(s);
 		const walk = (folder: string) => {
 			const kids = items.get(folder) ?? [];
-			for (const r of orderChildren(s.base, folder, kids.map((k) => k.rel))) {
+			for (const r of orderChildren(base, folder, kids.map((k) => k.rel))) {
 				out.push(r);
 				if (r.endsWith('/')) walk(r);
 			}

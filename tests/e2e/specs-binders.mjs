@@ -542,3 +542,15 @@ test('binders: a move still waiting to be written is written when Obsidian quits
 	t.eq(await quit(), 1, 'a Longform scene moved: the quit waits');
 	t.ok(/scenes:\n\s+- Return\n/.test(await read(p, LFI)), 'and the index note on disk has it first');
 }));
+
+test('binders: notes and a folder whose names start or end with a space keep the place the list gives them, through a move and its write', withTidy(async (p, h, t) => {
+	const D = 'Spaces';
+	await p.ev(`(async () => { const a = app.vault.adapter; await a.mkdir(${j(D)}); await a.mkdir(${j(`${D}/Dir `)}); await a.write(${j(`${D}/ Lead.md`)}, 'lead'); await a.write(${j(`${D}/Middle.md`)}, 'middle'); await a.write(${j(`${D}/Trail .md`)}, 'trail'); await a.write(${j(`${D}/Dir /Inside.md`)}, 'inside'); await a.write(${j(`${D}/Last.md`)}, 'last'); await a.write(${j(`${D}/${D}.md`)}, ${j('---\nbinder: 1\ncontents:\n  - "Trail "\n  - " Lead"\n  - Middle\n  - "Dir /"\n  - "Dir /Inside"\n  - Last\n---\n')}); })().then(() => 1)`);
+	t.ok(await until(p, `${B}.isBinderFolder(${file(D)}) && (${B}.orderedChildren(${file(D)}) || []).length === 5`, 5000), 'the binder is found');
+	t.eq(j(await children(p, D)), j(['Trail .md', ' Lead.md', 'Middle.md', 'Dir ', 'Last.md']), 'in the order the list gives, spaces and all');
+	await p.ev(`${B}.moveDown(${file(`${D}/Trail .md`)}).then(() => 1)`);
+	await flush(p); await p.sleep(400);
+	t.eq(j(await contents(p, `${D}/${D}.md`)), j([' Lead', 'Trail ', 'Middle', 'Dir /', 'Dir /Inside', 'Last']), 'a move: written with the names as the files have them');
+	t.eq(j(await children(p, D)), j([' Lead.md', 'Trail .md', 'Middle.md', 'Dir ', 'Last.md']), 'and read back the same: nothing jumps to the end');
+	for (const [f, text] of [[' Lead', 'lead'], ['Trail ', 'trail'], ['Dir /Inside', 'inside']]) t.eq(await read(p, `${D}/${f}.md`), text, `“${f}” has its text`);
+}));

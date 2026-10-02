@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.105 (2026-10-02)
+
+### Fixed
+
+- A note or folder whose name starts or ends with a space no longer drops to the end of its folder.
+
 ## 0.12.104 (2026-10-02)
 
 ### Changed

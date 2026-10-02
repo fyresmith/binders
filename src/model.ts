@@ -43,10 +43,12 @@ export function checkFormat(fm: Record<string, unknown>): void {
 	throw new UnsupportedBinder(`Its binder version, ${JSON.stringify(v)}, isn’t one Binders knows.`);
 }
 
-/** Tidies a path from the list: forward slashes, no leading "./" or "/", no doubled slashes, no ".md". */
+/** Tidies a path from the list: forward slashes, no leading "./" or "/", no doubled slashes, no ".md". A name keeps
+    its own spaces, at its start and end too (" Lead", "Trail "): a file can be named so, and an entry that had them
+    taken off would no longer name it. */
 export function cleanPath(p: string): string {
 	const q = p.replace(/\\/g, '/'), folder = /\/\s*$/.test(q);
-	const parts = q.split('/').map((s) => s.trim()).filter((s) => s && s !== '.');
+	const parts = q.split('/').filter((s) => s.trim() && s.trim() !== '.');
 	if (!parts.length) return '';
 	const last = parts.length - 1;
 	if (!folder) parts[last] = parts[last].replace(/\.md$/i, '');
@@ -67,6 +69,19 @@ export function readIndex(fm: Record<string, unknown>, binderNote = ''): BinderI
 		seen.add(p); contents.push(p);
 	}
 	return { version: FORMAT_VERSION, contents };
+}
+
+/** Entries typed by hand with stray spaces round a name ("  Prologue  ") are still read: an entry that names nothing as
+    it stands, and names an item once the spaces round each of its names are off, is taken for that item. One that
+    names an item as it stands is left alone (a file can be called " Lead" or "Trail "). `exists` says whether a path
+    names an item of the binder. */
+export function settleNames(contents: string[], exists: (p: string) => boolean): string[] {
+	let out: string[] | null = null;
+	contents.forEach((p, i) => {
+		const t = p.split('/').map((s) => s.trim()).join('/');
+		if (t !== p && !exists(p) && exists(t)) (out ??= [...contents])[i] = t;
+	});
+	return out ? [...new Set(out)] : contents;
 }
 
 /** The folder part of a path in the list, with its trailing "/" ("" at the top). */
