@@ -22,6 +22,30 @@ function connect(url, onEvent) {
 	return new Promise((r, j) => { ws.addEventListener('open', () => r({ ws, send })); ws.addEventListener('error', j); });
 }
 
+// Every Obsidian started here and its throwaway folder, so none is left running (or on disk) when the tests are stopped
+// part-way: Ctrl-C, a kill, or a crash of the runner. Each runs in a process group of its own, ended as one.
+const live = new Map();
+const end = (proc, work) => {
+	live.delete(proc);
+	try { process.kill(-proc.pid, 'SIGTERM'); } catch { try { proc.kill(); } catch { /* gone */ } }
+	return () => rmSync(work, { recursive: true, force: true });
+};
+let guarded = false;
+/** Set on the first launch, not on import: a script that only reads the spec files keeps its own handling of Ctrl-C. */
+function guard() {
+	if (guarded) return;
+	guarded = true;
+	process.on('exit', () => {
+		const left = [...live].map(([proc, work]) => ({ pid: proc.pid, clear: end(proc, work) }));
+		// Obsidian writes to its profile as it closes: wait (there's no await here) until each group is gone, three seconds at most
+		const gone = (pid) => { try { process.kill(-pid, 0); return false; } catch { return true; } };
+		const nap = new Int32Array(new SharedArrayBuffer(4));
+		for (let i = 0; i < 60 && !left.every((l) => gone(l.pid)); i++) Atomics.wait(nap, 0, 0, 50);
+		for (const l of left) { try { l.clear(); } catch { /* still closing: the folder stays in the temp directory */ } }
+	});
+	for (const [signal, code] of [['SIGINT', 130], ['SIGTERM', 143], ['SIGHUP', 129]]) process.on(signal, () => process.exit(code));
+}
+
 // BINDERS_TEST_VAULT: another vault to copy (say, a clean checkout of test-vault while the working one is in use)
 export const VAULT = process.env.BINDERS_TEST_VAULT || 'test-vault';
 
@@ -38,9 +62,11 @@ export async function launch({ vault = VAULT, theme = 'light', width = 1440, hei
 	cpSync(vault, vaultDir, { recursive: true });
 	rmSync(join(vaultDir, '.obsidian/workspace.json'), { force: true });
 	// Let Chromium reserve the port. Guessing one can attach a test to another running vault.
-	const proc = spawn(ELECTRON, ['--ozone-platform=headless', '--disable-gpu', ...(hover ? [POINTER] : []), `--user-data-dir=${join(work, 'profile')}`, '--remote-debugging-port=0', ASAR], { stdio: ['ignore', 'ignore', 'pipe'] });
+	const proc = spawn(ELECTRON, ['--ozone-platform=headless', '--disable-gpu', ...(hover ? [POINTER] : []), `--user-data-dir=${join(work, 'profile')}`, '--remote-debugging-port=0', ASAR], { stdio: ['ignore', 'ignore', 'pipe'], detached: true });
+	guard();
+	live.set(proc, work);
 	const port = await new Promise((resolve, reject) => {
-		const timeout = setTimeout(() => { proc.kill(); reject(new Error('Obsidian did not expose its debugging port')); }, 20000);
+		const timeout = setTimeout(() => { end(proc, work)(); reject(new Error('Obsidian did not expose its debugging port')); }, 20000);
 		proc.stderr.on('data', (data) => {
 			const match = data.toString().match(/DevTools listening on ws:\/\/[^:]+:(\d+)\//);
 			if (match) { clearTimeout(timeout); resolve(Number(match[1])); }
@@ -89,7 +115,7 @@ export async function launch({ vault = VAULT, theme = 'light', width = 1440, hei
 		return r.result.result?.value;
 	};
 	for (let i = 0; i < 80 && !(await ev('!!(window.app && app.workspace && app.workspace.layoutReady)').catch(() => false)); i++) await sleep(250);
-	if (await ev('app.vault.adapter.basePath') !== vaultDir) { ws.close(); proc.kill(); throw new Error('Refusing to test a vault outside this session’s throwaway copy'); }
+	if (await ev('app.vault.adapter.basePath') !== vaultDir) { ws.close(); end(proc, work)(); throw new Error('Refusing to test a vault outside this session’s throwaway copy'); }
 	await ev(`(async () => { app.plugins.setEnable(true); await app.plugins.loadManifests(); await app.plugins.enablePluginAndSave('binders'); app.changeTheme(${JSON.stringify(theme === 'dark' ? 'obsidian' : 'moonstone')}); })().then(() => 1)`);
 	// a fresh vault with plugins asks whether to trust its author: say yes, then close anything left open
 	for (let i = 0; i < 20; i++) {
@@ -151,7 +177,7 @@ export async function launch({ vault = VAULT, theme = 'light', width = 1440, hei
 		async shot(path) { const r = await send('Page.captureScreenshot', { format: 'png' }); writeFileSync(path, Buffer.from(r.result.data, 'base64')); },
 		/** Centre of the first element matching a selector, or null. */
 		async at(sel, i = 0) { return ev(`(() => { const e = document.querySelectorAll(${JSON.stringify(sel)})[${i}]; if (!e) return null; const r = e.getBoundingClientRect(); if (!r.width && !r.height) return null; return {x: r.x + r.width / 2, y: r.y + r.height / 2, l: r.left, t: r.top, w: r.width, h: r.height}; })()`); },
-		async close() { try { ws.close(); } catch { /* gone */ } proc.kill(); await sleep(300); rmSync(work, { recursive: true, force: true }); },
+		async close() { try { ws.close(); } catch { /* gone */ } const clear = end(proc, work); await sleep(300); clear(); },
 	};
 	return o;
 }
