@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.48 (2026-10-02)
+
+### Fixed
+
+- A card or row being dragged when the window lost the focus no longer stays in hand and drops at the next click.
+
 ## 0.12.47 (2026-10-02)
 
 ### Fixed

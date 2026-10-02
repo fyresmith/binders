@@ -811,6 +811,15 @@ class Corkboard implements BinderMode {
 	private onPointerMove(e: PointerEvent): void {
 		const p = this.press;
 		if (!p || e.pointerId !== p.id) return;
+		// The button was let go where the page couldn't see it (another window came in front, so no `pointerup`
+		// came): the press is over, and a card in hand goes back where it was. It doesn't stay in hand for the next
+		// click to drop.
+		if (!p.touch && e.buttons === 0) {
+			const carried = !!this.drag;
+			this.endPress();
+			if (carried) this.endDrag(false);
+			return;
+		}
 		if (this.drag) { this.dragTo(e.clientX, e.clientY); return; }
 		const d = Math.hypot(e.clientX - p.x, e.clientY - p.y);
 		if (p.touch && !p.armed) { if (d > 10) this.endPress(); return; } // a swipe: let it scroll
