@@ -492,22 +492,34 @@ test('1b. chapters: scenes grouped into three folders by “New folder from sele
 	await until(p, `app.vault.adapter.read('Novel/Chapter 1/Chapter 1.md').then(s => s.includes('synopsis'))`);
 	t.eq(await read(p, 'Novel/Chapter 1/Chapter 1.md'), '---\ntarget: 6000\nsynopsis: The first chapter.\n---\n', 'the synopsis joins it');
 	t.eq(await p.ev(`document.activeElement?.dataset?.path`), 'Novel/Chapter 1', 'and the row has the focus again');
-	// the other two on the corkboard: the stack's synopsis (a click on it once the stack is selected), and "Set
-	// target..." in its menu
+	// the other two on the corkboard: the folder card's synopsis (the first from "Edit synopsis" in its menu, since a
+	// folder's card with none has no line for one; then a click on it once the card is selected), and "Set target..."
+	// in its menu
 	await mode(p, h, 'corkboard');
 	t.eq(j(await cardsIn(p)), j(['Novel/Chapter 1', 'Novel/Chapter 2', 'Novel/Chapter 3', 'Novel/Nineteen.md', 'Novel/Twenty.md']), 'the board: three stacks and the two loose scenes');
 	for (const name of ['Chapter 2', 'Chapter 3']) {
+		const field = stackSel('Novel/' + name) + ' .binders-card-synopsis textarea';
 		const st = await p.at(stackSel('Novel/' + name));
-		await p.click(st.x, st.t + 12);
-		await p.sleep(700);
-		const sy = await p.at(stackSel('Novel/' + name) + ' .binders-card-synopsis');
-		await p.click(sy.x, sy.y);
-		await until(p, `document.activeElement?.matches(${j(stackSel('Novel/' + name) + ' .binders-card-synopsis textarea')})`);
-		t.ok(await p.ev(`document.activeElement?.matches(${j(stackSel('Novel/' + name) + ' .binders-card-synopsis textarea')})`), `a click on the selected stack’s synopsis edits it: ${await focus(p)}`);
+		t.eq(await p.at(stackSel('Novel/' + name) + ' .binders-card-synopsis'), null, 'a folder’s card with no synopsis shows no line for one');
+		await p.right(st.x, st.t + 12);
+		await clickMenu(p, 'Edit synopsis');
+		await until(p, `document.activeElement?.matches(${j(field)})`);
+		t.ok(await p.ev(`document.activeElement?.matches(${j(field)})`), `“Edit synopsis” in the folder card’s menu opens its synopsis: ${await focus(p)}`);
 		t.eq(await p.ev(`${VIEW}.folder.path`), 'Novel', 'and doesn’t go into the folder');
 		await p.type(`${name}, in a line.`);
 		await p.key('Enter', 'ctrl');
 		await until(p, `app.vault.adapter.exists('Novel/${name}/${name}.md')`);
+		// once it has one: the card selected a moment, then a click on the synopsis edits it in place
+		await until(p, `document.querySelector(${j(stackSel('Novel/' + name) + ' .binders-card-synopsis')})?.textContent === ${j(`${name}, in a line.`)}`);
+		const again = await p.at(stackSel('Novel/' + name));
+		await p.click(again.x, again.t + 12);
+		await p.sleep(700);
+		const sy = await p.at(stackSel('Novel/' + name) + ' .binders-card-synopsis');
+		await p.click(sy.x, sy.y);
+		await until(p, `document.activeElement?.matches(${j(field)})`);
+		t.ok(await p.ev(`document.activeElement?.matches(${j(field)})`), `a click on the selected folder card’s synopsis edits it: ${await focus(p)}`);
+		t.eq(await p.ev(`${VIEW}.folder.path`), 'Novel', 'and doesn’t go into the folder either');
+		await p.key('Escape');
 		const hd = await p.at(stackSel('Novel/' + name));
 		await p.right(hd.x, hd.t + 12);
 		await clickMenu(p, 'Set target...');

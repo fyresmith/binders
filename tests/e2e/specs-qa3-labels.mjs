@@ -960,14 +960,15 @@ ux('filter: one entry for one color, however its hex is written', async (p, h, t
 	t.eq(items.filter((x) => x === 'Custom color').length, 1, 'the same color is one “Custom color”, not two alike');
 });
 
-ux('tint: the word count on a tinted card reads no worse than on a plain one', async (p, h, t) => {
+ux('tint: the word count on a tinted card reads as well as text must (4.5:1), as on a plain one', async (p, h, t) => {
 	await setFm(p, L + 'Prologue.md', { label: 'blue' });
 	await openView(p);
 	const plain = (await p.ev(`(${CONTRAST})(${j(card(L + 'Epilogue.md'))})`)).words;
 	// (cards are tinted as the board comes)
 	t.ok(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-board').classList.contains('mod-label-tint') && document.querySelector(${j(card(L + 'Prologue.md'))}).classList.contains('mod-label-blue')`), 'Prologue’s card is tinted blue');
 	const tinted = (await p.ev(`(${CONTRAST})(${j(card(L + 'Prologue.md'))})`)).words;
-	t.ok(tinted >= plain - 0.05, `contrast ${tinted} on the tint, ${plain} on a plain card`);
+	// (both in muted text since 0.12.40: over a tint that's a little less contrast than over the page, and still plenty)
+	t.ok(tinted >= 4.5 && plain >= 4.5, `contrast ${tinted} on the tint, ${plain} on a plain card`);
 });
 
 ux('phone: in the settings, a label’s color list shows the color’s name', async (p, h, t) => {

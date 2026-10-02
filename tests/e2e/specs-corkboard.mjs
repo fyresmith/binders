@@ -1286,8 +1286,10 @@ test('a labeled folder’s card has a labeled card’s edge and tint, and no pil
 	await p.click(one.x, one.t + 14);
 	await p.sleep(400);
 	const ring = await p.ev(`getComputedStyle(document.querySelector('${card(L + 'Part One')}')).boxShadow`);
-	const full = await mix('var(--color-blue)');
-	t.ok(ring.startsWith(full + ' 0px 0px 0px 2px'), `a selected labeled stack’s ring is its label’s color, two pixels wide: ${ring}`);
+	// (on a light page the ring is the label's color taken a third of the way to the text's, so a pale label's shows)
+	const light = await p.ev(`document.body.classList.contains('theme-light')`);
+	const full = await mix(light ? 'color-mix(in oklch, var(--color-blue) 65%, var(--text-normal))' : 'var(--color-blue)');
+	t.ok(ring.startsWith(full + ' 0px 0px 0px 2px'), `a selected labeled stack’s ring is its label’s color, two pixels wide: ${ring} (the color: ${full})`);
 	const two = await at(p, 'Part Two');
 	await p.click(two.x, two.t + 14);
 	await p.sleep(400);
