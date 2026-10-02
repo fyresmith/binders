@@ -649,3 +649,42 @@ test('binders: a folder reordered in one step is one write; the list on disk has
 	t.ok(many.length === 600 && many[0] === 'N599' && many[599] === 'N000' && new Set(many).size === 600, 'on disk: 600 entries, each once, reversed');
 	console.log(`    (600 notes: reorder ${took[0]} ms, write ${took[1]} ms)`);
 }));
+
+// Notes on a PDF are often kept beside it under its whole name: "paper.pdf" and "paper.pdf.md". A note's entry in the
+// list has no ".md", so the two were one entry: the note showed twice and the PDF had no place of its own.
+test('binders: a file and the note named after it (paper.pdf, paper.pdf.md) are two items, each once, each with its place, through a move, a write, the file leaving and coming back', withTidy(async (p, h, t) => {
+	const L = 'The Lighthouse', P1 = `${L}/Part One`, pdf = `${P1}/paper.pdf`, note = `${P1}/paper.pdf.md`;
+	const before = await texts(p);
+	try {
+		// the note first, alone: it's listed under its bare name, as ever
+		await p.ev(`app.vault.create(${j(note)}, 'Notes on the paper.').then(() => 1)`); await p.sleep(200);
+		await p.ev(`${B}.move(${file(note)}, ${file(P1)}, 1).then(() => 1)`); await flush(p); await p.sleep(200);
+		t.eq(j((await contents(p)).slice(1, 6)), j(['Part One/', 'Part One/Arrival', 'Part One/paper.pdf', 'Part One/The keeper', 'Part One/Storm warning']), 'the note alone: one entry, without its .md');
+		// the file arrives beside it
+		await p.ev(`app.vault.createBinary(${j(pdf)}, new Uint8Array([37, 80, 68, 70]).buffer).then(() => 1)`); await p.sleep(300);
+		t.eq(j(await children(p, P1)), j(['Arrival.md', 'paper.pdf.md', 'paper.pdf', 'The keeper.md', 'Storm warning.md']), 'the file arrives: the note keeps its place, the file is a new item, right after it; each shows once');
+		t.eq(j(await p.ev(`${B}.scenes(${file(P1)}).map(f => f.name)`)), j(['Arrival.md', 'paper.pdf.md', 'The keeper.md', 'Storm warning.md']), 'the note is one scene (a manuscript or a compile has its text once)');
+		// each is moved on its own
+		await p.ev(`${B}.move(${file(pdf)}, ${file(P1)}, 0).then(() => 1)`);
+		await p.ev(`${B}.moveDown(${file(note)}).then(() => 1)`);
+		await flush(p); await p.sleep(300);
+		t.eq(j(await children(p, P1)), j(['paper.pdf', 'Arrival.md', 'The keeper.md', 'paper.pdf.md', 'Storm warning.md']), 'the file first, the note a step down');
+		const on = await contents(p);
+		t.eq(j(on.slice(1, 7)), j(['Part One/', 'Part One/paper.pdf', 'Part One/Arrival', 'Part One/The keeper', 'Part One/paper.pdf.md', 'Part One/Storm warning']), 'on disk: two entries, each the name of its file');
+		t.eq(new Set(on).size, on.length, 'no entry twice');
+		// read again from disk as a fresh start would
+		await p.ev(`(() => { const s = ${B}; s.rescan(); return 1; })()`); await p.sleep(200);
+		t.eq(j(await children(p, P1)), j(['paper.pdf', 'Arrival.md', 'The keeper.md', 'paper.pdf.md', 'Storm warning.md']), 'read back: the same order');
+		// the file is renamed away: the note's entry is its bare name again, in place
+		await p.ev(`app.fileManager.renameFile(${file(pdf)}, ${j(`${P1}/article.pdf`)}).then(() => 1)`); await flush(p); await p.sleep(300);
+		t.eq(j((await contents(p)).slice(1, 7)), j(['Part One/', 'Part One/article.pdf', 'Part One/Arrival', 'Part One/The keeper', 'Part One/paper.pdf', 'Part One/Storm warning']), 'the file renamed away: both keep their places; the note is “paper.pdf” in the list again');
+		// and renamed back
+		await p.ev(`app.fileManager.renameFile(${file(`${P1}/article.pdf`)}, ${j(pdf)}).then(() => 1)`); await flush(p); await p.sleep(300);
+		t.eq(j(await children(p, P1)), j(['paper.pdf', 'Arrival.md', 'The keeper.md', 'paper.pdf.md', 'Storm warning.md']), 'renamed back: still each in its place');
+		// the file is deleted: the note stays where it is
+		await p.ev(`app.vault.delete(${file(pdf)}).then(() => 1)`); await flush(p); await p.sleep(300);
+		t.eq(j((await contents(p)).slice(1, 6)), j(['Part One/', 'Part One/Arrival', 'Part One/The keeper', 'Part One/paper.pdf', 'Part One/Storm warning']), 'the file deleted: its entry goes, the note’s stays in place');
+		t.eq(await read(p, note), 'Notes on the paper.', 'and the note has its text');
+		same(t, before, await texts(p), { skip: [NOTE] });
+	} finally { await p.ev(`(async () => { for (const x of ${j([pdf, `${P1}/article.pdf`])}) { const f = app.vault.getAbstractFileByPath(x); if (f) await app.vault.delete(f); } })().then(() => 1)`); }
+}));

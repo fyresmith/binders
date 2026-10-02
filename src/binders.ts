@@ -1,7 +1,7 @@
 import { Events, Notice, TFile, TFolder, normalizePath, stringifyYaml, type App, type EventRef, type TAbstractFile } from 'obsidian';
 import type { ExplorerSource } from './explorer';
 import type BindersPlugin from './main';
-import { applyOps, checkFormat, diskPath, FORMAT_VERSION, isBinderNote, isFolderNote, nameOf, orderChildren, parentOf, readIndex, relPath, settleNames, stepIndex, UnsupportedBinder, type ListOp } from './model';
+import { applyOps, checkFormat, diskList, FORMAT_VERSION, isBinderNote, isFolderNote, nameOf, orderChildren, parentOf, readIndex, relPath, settleNames, stepIndex, UnsupportedBinder, type ListOp } from './model';
 import { editProperties } from './properties';
 import { nextName } from './scene-text';
 import { MoveHistory, type PropChange, type Undo } from './undo';
@@ -254,8 +254,8 @@ export class BinderStore extends Events implements ExplorerSource {
 				if (waiting?.delete(f.path) && !waiting.size) { complete(); return; }
 				this.onMeta(f, isBinderNote(cache.frontmatter), isLongformIndex(cache.frontmatter));
 			}));
-			plugin.registerEvent(vault.on('rename', (f, old) => { this.vaultChanges++; if (f instanceof TFile) this.left.delete(f); this.onRename(f, old); }));
-			plugin.registerEvent(vault.on('delete', (f) => { this.vaultChanges++; if (f instanceof TFile) this.left.delete(f); this.onDelete(f); }));
+			plugin.registerEvent(vault.on('rename', (f, old) => { this.vaultChanges++; if (f instanceof TFile) this.left.delete(f); this.onRename(f, old); if (f instanceof TFile) this.twinLeaves(old); }));
+			plugin.registerEvent(vault.on('delete', (f) => { this.vaultChanges++; if (f instanceof TFile) this.left.delete(f); this.onDelete(f); if (f instanceof TFile) this.twinLeaves(f.path); }));
 			plugin.registerEvent(vault.on('create', (f) => {
 				this.vaultChanges++;
 				if (this.orphans && f instanceof TFolder) this.rescan();
@@ -264,6 +264,7 @@ export class BinderStore extends Events implements ExplorerSource {
 				// (a snapshot, or the folder of them: nothing a view shows; only what's remembered about the folder goes)
 				if (f.path === `${s.folder.path}/${SNAPSHOTS}` || this.inSnapshots(f.path)) { this.touch(s, false); return; }
 				this.touch(s);
+				if (f instanceof TFile) this.twinArrives(s, f.path);
 				if (this.comeBack(s, f)) return;
 				this.placeCopy(s, f);
 			}));
@@ -498,7 +499,7 @@ export class BinderStore extends Events implements ExplorerSource {
 			if (this.app.vault.getAbstractFileByPath(to)) throw new Error(`“${folder.name}” already has an item called “${item.name}”.`);
 			await this.app.fileManager.renameFile(item, to);
 		}
-		const rel = relPath(t.folder.path, item.path, item instanceof TFolder);
+		const rel = this.relOf(t.folder.path, item.path, item instanceof TFolder);
 		if (rel) this.queue(t, { op: 'move', item: rel, folder: this.folderRel(t, folder), index });
 	}
 
@@ -566,7 +567,7 @@ export class BinderStore extends Events implements ExplorerSource {
 		const mine = items.filter((f) => f.parent === folder && !this.isHiddenNote(f));
 		// (a Longform project's order is by scene, with indents: its scenes go one by one)
 		if (t.kind === 'longform') { for (let i = 0; i < mine.length; i++) await this.move(mine[i], folder, i); return; }
-		const rels = mine.map((f) => relPath(t.folder.path, f.path, f instanceof TFolder)).filter((r): r is string => !!r);
+		const rels = mine.map((f) => this.relOf(t.folder.path, f.path, f instanceof TFolder)).filter((r): r is string => !!r);
 		this.queue(t, { op: 'order', folder: this.folderRel(t, folder), items: rels });
 	}
 
@@ -666,7 +667,7 @@ export class BinderStore extends Events implements ExplorerSource {
 		for (let n = 1; name === folder.name || this.app.vault.getAbstractFileByPath(normalizePath(`${folder.path}/${name}.md`)); n++) name = `${base} ${n}`;
 		const file = await this.app.vault.create(normalizePath(`${folder.path}/${name}.md`), content);
 		if (t.kind === 'longform') { this.queueScenes(t, { op: 'move', item: file.basename, index, indent: depth }); return file; }
-		this.queue(t, { op: 'move', item: relPath(t.folder.path, file.path, false), folder: this.folderRel(t, folder), index });
+		this.queue(t, { op: 'move', item: this.relOf(t.folder.path, file.path, false), folder: this.folderRel(t, folder), index });
 		return file;
 	}
 
@@ -679,7 +680,7 @@ export class BinderStore extends Events implements ExplorerSource {
 		// (at the top of a binder "Snapshots" is taken: an empty folder of that name would be the binder's snapshots)
 		for (let n = 1; this.app.vault.getAbstractFileByPath(normalizePath(`${folder.path}/${name}`)) || (folder === t.folder && name === SNAPSHOTS); n++) name = `${base} ${n}`;
 		const made = await this.app.vault.createFolder(normalizePath(`${folder.path}/${name}`));
-		this.queue(t, { op: 'move', item: relPath(t.folder.path, made.path, true), folder: this.folderRel(t, folder), index });
+		this.queue(t, { op: 'move', item: this.relOf(t.folder.path, made.path, true), folder: this.folderRel(t, folder), index });
 		return made;
 	}
 
@@ -699,12 +700,12 @@ export class BinderStore extends Events implements ExplorerSource {
 		if (item instanceof TFile) {
 			const made = await this.copyFile(item, to);
 			if (t.kind === 'longform') { this.queueScenes(t, { op: 'move', item: made.basename, index, indent: this.shownScenes(t).find((x) => x.title === item.basename)?.indent }); return made; }
-			const rel = relPath(t.folder.path, made.path, false);
+			const rel = this.relOf(t.folder.path, made.path, false);
 			if (rel) this.queue(t, { op: 'move', item: rel, folder: this.folderRel(t, folder), index });
 			return made;
 		}
 		if (!(item instanceof TFolder) || t.kind === 'longform') throw new Error('That can’t be copied.');
-		const was = relPath(t.folder.path, item.path, true), inner = was ? this.contents(t).filter((p) => p !== was && p.startsWith(was)) : [];
+		const was = this.relOf(t.folder.path, item.path, true), inner = was ? this.contents(t).filter((p) => p !== was && p.startsWith(was)) : [];
 		const copy = async (from: TFolder, dest: string): Promise<void> => {
 			await vault.createFolder(dest);
 			for (const c of [...from.children]) {
@@ -721,7 +722,7 @@ export class BinderStore extends Events implements ExplorerSource {
 		}
 		const made = vault.getAbstractFileByPath(to);
 		if (!(made instanceof TFolder)) throw new Error('The copy couldn’t be made.');
-		const rel = relPath(t.folder.path, made.path, true);
+		const rel = this.relOf(t.folder.path, made.path, true);
 		if (rel && was) {
 			// the copy keeps the order of what's in it
 			this.queue(t, { op: 'append', item: rel, inner: inner.map((p) => rel + p.slice(was.length)) });
@@ -737,7 +738,7 @@ export class BinderStore extends Events implements ExplorerSource {
 	    have stopped arriving. */
 	private placeCopy(s: State, f: TAbstractFile): void {
 		if (s.kind !== 'binder' || s.problem || !f.parent) return;
-		const mine = relPath(s.folder.path, f.path, f instanceof TFolder);
+		const mine = this.relOf(s.folder.path, f.path, f instanceof TFolder);
 		if (!mine) return;
 		// a file arriving in a folder that's being copied: its place is in the order the copy was given
 		const now = Date.now();
@@ -751,7 +752,7 @@ export class BinderStore extends Events implements ExplorerSource {
 		}
 		if (f instanceof TFolder) {
 			const m = /^(.+) (\d+)$/.exec(f.name), original = m ? this.app.vault.getAbstractFileByPath(normalizePath(`${f.parent.path}/${m[1]}`)) : null;
-			const from = original instanceof TFolder ? relPath(s.folder.path, original.path, true) : null;
+			const from = original instanceof TFolder ? this.relOf(s.folder.path, original.path, true) : null;
 			if (!from || !this.contents(s).includes(from)) return;
 			// after this task: whoever made it may be about to place it itself (New folder, Duplicate)
 			window.setTimeout(() => {
@@ -763,7 +764,7 @@ export class BinderStore extends Events implements ExplorerSource {
 		}
 		if (!(f instanceof TFile) || f.extension !== 'md' || this.isHiddenNote(f)) return;
 		const m = /^(.+) (\d+)$/.exec(f.basename), original = m ? this.app.vault.getAbstractFileByPath(normalizePath(`${f.parent.path}/${m[1]}.md`)) : null;
-		const rel = original ? relPath(s.folder.path, original.path, false) : null;
+		const rel = original ? this.relOf(s.folder.path, original.path, false) : null;
 		if (!original || !rel || !this.contents(s).includes(rel) || s.ops.some((o) => o.op === 'move' && o.item === mine)) return;
 		// after this task: whoever made it may be about to place it itself (New scene, Duplicate)
 		window.setTimeout(() => {
@@ -827,7 +828,7 @@ export class BinderStore extends Events implements ExplorerSource {
 		const walk = (f: TFolder) => {
 			const kids = f.children.filter((c) => (c instanceof TFolder && !(f === folder && c.name === SNAPSHOTS)) || (c instanceof TFile && c.extension === 'md' && c.basename !== f.name));
 			for (const c of [...kids.filter((c) => c instanceof TFolder).sort(byName), ...kids.filter((c) => c instanceof TFile).sort(byName)]) {
-				contents.push(relPath(folder.path, c.path, c instanceof TFolder));
+				contents.push(this.relOf(folder.path, c.path, c instanceof TFolder));
 				if (c instanceof TFolder) walk(c);
 			}
 		};
@@ -841,11 +842,11 @@ export class BinderStore extends Events implements ExplorerSource {
 			await editProperties(this.app, existing, (fm) => {
 				if (theirs(fm)) throw refuse(); // checked again on what the note says now
 				fm.binder = FORMAT_VERSION;
-				if (fm.contents == null) fm.contents = contents.map(diskPath);
+				if (fm.contents == null) fm.contents = diskList(contents);
 			});
 			return existing;
 		}
-		return this.app.vault.create(this.folderNotePath(folder), `---\n${stringifyYaml({ binder: FORMAT_VERSION, contents: contents.map(diskPath) })}---\n`);
+		return this.app.vault.create(this.folderNotePath(folder), `---\n${stringifyYaml({ binder: FORMAT_VERSION, contents: diskList(contents) })}---\n`);
 	}
 
 	/** Is any binder's list waiting to be written? */
@@ -882,7 +883,7 @@ export class BinderStore extends Events implements ExplorerSource {
 		try {
 			for (const f of plan.folders) { const p = normalizePath(`${s.folder.path}/${f}`); if (!vault.getAbstractFileByPath(p)) await vault.createFolder(p); }
 			for (const m of plan.moves) await fileManager.renameFile(m.file, m.to);
-			const binderProps = (fm: Record<string, unknown>) => { fm.binder = FORMAT_VERSION; fm.contents = plan.contents.map(diskPath); };
+			const binderProps = (fm: Record<string, unknown>) => { fm.binder = FORMAT_VERSION; fm.contents = diskList(plan.contents); };
 			const dropLongform = (fm: Record<string, unknown>) => { if (opts.removeLongform) delete fm.longform; };
 			if (!plan.creates) {
 				await editProperties(this.app, s.note, (fm) => { binderProps(fm); dropLongform(fm); });
@@ -1061,7 +1062,8 @@ export class BinderStore extends Events implements ExplorerSource {
 			if (o?.kind === 'longform') o = null;
 			if (n?.kind === 'longform') n = null;
 		}
-		const or = o && this.relAt(o, oldPath, isFolder), nr = n && relPath(n.folder.path, file.path, isFolder);
+		if (n && file instanceof TFile) this.twinArrives(n, file.path);
+		const or = o && this.relAt(o, oldPath, isFolder), nr = n && this.relOf(n.folder.path, file.path, isFolder);
 		if (o && o === n) {
 			if (or && nr && or !== nr) {
 				this.queue(o, { op: 'rename', from: or, to: nr });
@@ -1126,7 +1128,7 @@ export class BinderStore extends Events implements ExplorerSource {
 			this.queueScenes(s, { op: 'restore', item: f.basename, prev: g.prev, next: g.next, indent: g.indent ?? 0 });
 			return true;
 		}
-		const rel = relPath(s.folder.path, f.path, false), g = rel ? s.gone.get(rel) : undefined;
+		const rel = this.relOf(s.folder.path, f.path, false), g = rel ? s.gone.get(rel) : undefined;
 		if (!rel || !g) return false;
 		s.gone.delete(rel);
 		this.queue(s, { op: 'restore', item: rel, prev: g.prev, next: g.next });
@@ -1240,8 +1242,39 @@ export class BinderStore extends Events implements ExplorerSource {
 		}
 	}
 
+	/** An item's path in a binder as the list writes it (see `relPath`), with one case of its own: a note that shares
+	    its folder with a file of the note's own name less ".md" ("paper.pdf.md" beside "paper.pdf": notes on a PDF)
+	    keeps its ".md" here. The bare name is the other file's, and the two would otherwise be one entry: the note shown
+	    twice and the file out of its place. */
+	private relOf(base: string, path: string, isFolder: boolean): string | null {
+		const r = relPath(base, path, isFolder);
+		if (!r || isFolder || !/\.md$/i.test(path)) return r;
+		return this.app.vault.getAbstractFileByPath(path.slice(0, -3)) instanceof TFile ? r + '.md' : r;
+	}
+
+	/** A file that isn't a note is now at `path` (made, or renamed to it), beside a note named after it ("paper.pdf"
+	    arriving next to "paper.pdf.md"): the bare entry was the note's until now, and stays the note's under its full
+	    name. Queued ahead of whatever is queued for the file itself. */
+	private twinArrives(s: State, path: string): void {
+		if (s.kind !== 'binder' || s.problem || /\.md$/i.test(path) || !(this.app.vault.getAbstractFileByPath(path + '.md') instanceof TFile)) return;
+		const bare = relPath(s.folder.path, path, false), list = this.contents(s);
+		if (!bare || !list.includes(bare) || list.includes(bare + '.md')) return;
+		this.queue(s, { op: 'rename', from: bare, to: bare + '.md' });
+		// (and the file is listed, right after its note: an entry for the note alone would be read as the file's)
+		this.queue(s, { op: 'restore', item: bare, prev: bare + '.md', next: null });
+	}
+
+	/** The file a note was named after is no longer at `oldPath` (deleted, or renamed away): the note's entry goes back
+	    to its bare name. Queued after whatever is queued for the file itself. */
+	private twinLeaves(oldPath: string): void {
+		if (/\.md$/i.test(oldPath) || this.app.vault.getAbstractFileByPath(oldPath) || !(this.app.vault.getAbstractFileByPath(oldPath + '.md') instanceof TFile)) return;
+		const s = this.at(oldPath + '.md');
+		const bare = s?.kind === 'binder' && !s.problem ? relPath(s.folder.path, oldPath, false) : null;
+		if (s && bare && this.contents(s).includes(bare + '.md')) this.queue(s, { op: 'rename', from: bare + '.md', to: bare });
+	}
+
 	private relAt(s: State, path: string, isFolder: boolean): string | null {
-		for (const b of [s.path, ...s.aliases]) { const r = relPath(b, path, isFolder); if (r) return r; }
+		for (const b of [s.path, ...s.aliases]) { const r = this.relOf(b, path, isFolder); if (r) return r; }
 		return null;
 	}
 
@@ -1290,7 +1323,7 @@ export class BinderStore extends Events implements ExplorerSource {
 				if (!isBinderNote(fm)) throw new NotABinder();
 				checkFormat(fm); // refuses a newer format before anything is written
 				const list = next(readIndex(fm, s.note.basename).contents);
-				fm.contents = list.map(diskPath);
+				fm.contents = diskList(list);
 				s.base = list; // don't wait for the cache, so the order doesn't flicker back
 			});
 		} catch (e) {
@@ -1320,7 +1353,7 @@ export class BinderStore extends Events implements ExplorerSource {
 		return s;
 	}
 
-	private folderRel(s: State, folder: TFolder): string { return folder === s.folder ? '' : relPath(s.folder.path, folder.path, true) ?? ''; }
+	private folderRel(s: State, folder: TFolder): string { return folder === s.folder ? '' : this.relOf(s.folder.path, folder.path, true) ?? ''; }
 	private folderNotePath(folder: TFolder): string { return normalizePath(`${folder.path}/${folder.name}.md`); }
 
 	/** The list with pending changes applied: what views show before it's written. */
@@ -1346,7 +1379,7 @@ export class BinderStore extends Events implements ExplorerSource {
 			for (const c of f.children) {
 				if (this.isHiddenNote(c)) continue;
 				if (f === s.folder && c === this.snapshotsFolder(s)) continue; // snapshots aren't items of the binder
-				const r = relPath(s.folder.path, c.path, c instanceof TFolder);
+				const r = this.relOf(s.folder.path, c.path, c instanceof TFolder);
 				if (!r || (c instanceof TFile && isFolderNote(r))) continue;
 				list.push({ rel: r, file: c });
 				if (c instanceof TFolder) walk(c, r);

@@ -72,6 +72,9 @@ row.
 - If a folder has several binder notes, the one named like the folder is the binder note; otherwise the first by name.
 - The vault's top level can't be a binder.
 - Binders writes only `contents` (and its own properties above) in the binder note, and never changes the rest of it.
+- A note named after a file beside it (`paper.pdf.md` next to `paper.pdf`) is listed with its `.md`; the bare entry is
+  the file's.
+
 ## Keeping the list up to date
 
 - Renaming an item inside a binder, from anywhere in Obsidian, keeps its place (a folder's items move with it). Moving

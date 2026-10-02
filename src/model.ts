@@ -46,12 +46,12 @@ export function checkFormat(fm: Record<string, unknown>): void {
 /** Tidies a path from the list: forward slashes, no leading "./" or "/", no doubled slashes, no ".md". A name keeps
     its own spaces, at its start and end too (" Lead", "Trail "): a file can be named so, and an entry that had them
     taken off would no longer name it. */
-export function cleanPath(p: string): string {
+export function cleanPath(p: string, keepMd = false): string {
 	const q = p.replace(/\\/g, '/'), folder = /\/\s*$/.test(q);
 	const parts = q.split('/').filter((s) => s.trim() && s.trim() !== '.');
 	if (!parts.length) return '';
 	const last = parts.length - 1;
-	if (!folder) parts[last] = parts[last].replace(/\.md$/i, '');
+	if (!folder && !keepMd) parts[last] = parts[last].replace(/\.md$/i, '');
 	return parts.join('/') + (folder ? '/' : '');
 }
 
@@ -61,10 +61,14 @@ export function readIndex(fm: Record<string, unknown>, binderNote = ''): BinderI
 	checkFormat(fm);
 	const raw = Array.isArray(fm.contents) ? fm.contents : [];
 	const seen = new Set<string>(), contents: string[] = [];
-	for (const x of raw) {
-		// a name typed by hand that YAML reads as a number (a note called "1984") is still that name
-		if (typeof x !== 'string' && !(typeof x === 'number' && Number.isFinite(x))) continue;
-		const p = cleanPath(String(x));
+	// (a name typed by hand that YAML reads as a number, a note called "1984", is still that name)
+	const named = raw.filter((x): x is string | number => typeof x === 'string' || (typeof x === 'number' && Number.isFinite(x))).map(String);
+	// A file and the note named after it ("paper.pdf" and "paper.pdf.md", notes on a PDF) are two entries: the bare
+	// one is the file's, and the note's keeps its ".md", which is otherwise dropped (see `diskList`).
+	const whole = new Set(named.map((x) => cleanPath(x, true)));
+	for (const x of named) {
+		const full = cleanPath(x, true), twin = /\.md$/i.test(full) && whole.has(full.slice(0, -3));
+		const p = twin ? full : cleanPath(x);
 		if (!p || seen.has(p) || p.split('/').includes('..') || p === binderNote || isFolderNote(p)) continue;
 		seen.add(p); contents.push(p);
 	}
@@ -260,6 +264,14 @@ export function relPath(binderFolder: string, path: string, isFolder: boolean): 
 /** An item as the list writes it. Reading drops one ".md", so a note whose own name ends in ".md" ("notes.md.md", which
     `relPath` gives as "notes.md") is written with its full name, to read back as itself. */
 export const diskPath = (p: string): string => (!p.endsWith('/') && /\.md$/i.test(p) ? p + '.md' : p);
+
+/** The list as the binder note holds it. Each entry as `diskPath` writes it, but for the note named after a file that
+    is listed too ("paper.pdf.md" beside "paper.pdf"): it is written under its own file name, as it is kept here, and
+    `readIndex` reads it back so because the bare entry is beside it. */
+export function diskList(contents: string[]): string[] {
+	const all = new Set(contents);
+	return contents.map((p) => (/\.md$/i.test(p) && all.has(p.slice(0, -3)) ? p : diskPath(p)));
+}
 
 /** A change to the list waiting to be written. Kept as data so a batch applies to whatever the binder note says when
     it is written, not to a copy an external edit may have made stale. */

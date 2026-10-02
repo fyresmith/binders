@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.115 (2026-10-02)
+
+### Fixed
+
+- A file and a note named after it (paper.pdf and paper.pdf.md) in a binder no longer show as the same note twice; each has its own place, and the note is in the manuscript and a compile once.
+
 ## 0.12.114 (2026-10-02)
 
 ### Changed

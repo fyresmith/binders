@@ -1,4 +1,4 @@
-import { applyOps, checkFormat, cleanPath, copyIn, diskPath, orderIn, isBinderNote, isFolderNote, moveTo, orderChildren, readIndex, relPath, removeFrom, renameIn, restoreIn, settleNames, stepIndex, UnsupportedBinder } from '../src/model';
+import { applyOps, checkFormat, cleanPath, copyIn, diskList, diskPath, orderIn, isBinderNote, isFolderNote, moveTo, orderChildren, readIndex, relPath, removeFrom, renameIn, restoreIn, settleNames, stepIndex, UnsupportedBinder } from '../src/model';
 import { done, eq, ok } from './harness';
 
 const j = (x: unknown) => JSON.stringify(x);
@@ -138,6 +138,17 @@ const j = (x: unknown) => JSON.stringify(x);
 	const big = Array.from({ length: 5000 }, (_, i) => 'N' + i), t0 = Date.now();
 	const rev = orderIn(big, big, '', [...big].reverse());
 	ok(rev[0] === 'N4999' && rev.length === 5000 && Date.now() - t0 < 500, `5,000 items reversed in one pass (${Date.now() - t0} ms)`);
+}
+
+// a file and the note named after it are two entries
+{
+	const keys = ['P/', 'P/paper.pdf', 'P/Arrival', 'P/paper.pdf.md', 'notes.md', 'v1.2'];
+	eq(j(diskList(keys)), j(['P/', 'P/paper.pdf', 'P/Arrival', 'P/paper.pdf.md', 'notes.md.md', 'v1.2']), 'written: the note under its own file name beside the file’s entry; any other name that ends in .md with one more, as ever');
+	eq(j(readIndex({ binder: 1, contents: diskList(keys) }).contents), j(keys), 'and read back as the same entries');
+	eq(j(readIndex({ binder: 1, contents: ['P/paper.pdf.md'] }).contents), j(['P/paper.pdf']), 'an entry with .md and no bare one beside it is read without it, as ever');
+	eq(j(readIndex({ binder: 1, contents: diskList(['P/paper.pdf.md']) }).contents), j(['P/paper.pdf.md']), 'the note listed alone keeps its entry too (written with one more .md)');
+	eq(j(readIndex({ binder: 1, contents: ['Arrival', 'Arrival.md', 'Other.md'] }).contents), j(['Arrival', 'Arrival.md', 'Other']), 'typed by hand both ways: two entries (the second names nothing unless there is such a pair)');
+	for (const list of [keys, ['a.md', 'a'], ['a', 'a.md', 'a.md.md'], ['x.md/', 'x.md/y.md']]) eq(j(readIndex({ binder: 1, contents: diskList(list) }).contents), j(list), `round trip: ${j(list)}`);
 }
 
 // batches of changes
