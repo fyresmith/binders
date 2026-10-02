@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.38 (2026-10-02)
+
+### Fixed
+
+- Pointing at the Focus mode button in the manuscript's toolbar now shows its name in a wide pane too.
+
 ## 0.12.37 (2026-10-02)
 
 ### Fixed

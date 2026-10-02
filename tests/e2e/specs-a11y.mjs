@@ -155,3 +155,61 @@ test('Escape leaves every inline editor, and the focus goes back to what holds i
 	t.ok(await p.ev(`app.vault.adapter.exists('The Lighthouse/Prologue.md')`), 'nothing renamed');
 	t.ok(await p.ev(`app.vault.adapter.exists('The Lighthouse/Part One/Arrival.md')`), 'no folder either');
 });
+
+test('the folder’s synopsis under the toolbar keeps the keyboard after Escape, Tab or Mod+Enter leave its field (the view draws it again a moment later)', async (p, h, t) => {
+	const S = '.workspace-leaf.mod-active .binders-view-synopsis';
+	await openView(p);
+	const before = await p.ev(`app.vault.adapter.read('The Lighthouse/The Lighthouse.md')`);
+	for (const [what, typed, key, mod] of [['Escape', 'x', 'Escape'], ['Tab, nothing typed', '', 'Tab'], ['Tab', 'One.', 'Tab'], ['Mod+Enter', ' Two.', 'Enter', 'ctrl']]) {
+		await p.ev(`(() => { document.querySelector(${j(S)}).focus(); return 1; })()`);
+		await p.key('Enter');
+		t.eq(await p.ev(`document.activeElement.tagName`), 'TEXTAREA', `${what}: Enter opens the field`);
+		if (typed) await p.type(typed);
+		await (mod ? p.key(key, mod) : p.key(key));
+		// (long enough for the redraw that follows a field closing, and a note changing)
+		await p.sleep(800);
+		t.ok(await p.ev(`document.activeElement === document.querySelector(${j(S)})`), `${what}: the keyboard is on the synopsis, as drawn again (it’s on ${await p.ev(`document.activeElement.className || document.activeElement.tagName`)})`);
+	}
+	const after = await p.ev(`app.vault.adapter.read('The Lighthouse/The Lighthouse.md')`);
+	t.ok(/^synopsis: One\. Two\.$/m.test(after), 'what Tab and Mod+Enter saved is in the binder note, and what Escape left isn’t');
+	t.eq(after.split('---\n').pop(), before.split('---\n').pop(), 'whose text is as it was');
+});
+
+test('outliner: Escape in a status or label cell’s menu closes the menu and leaves the keyboard on the cell; Escape again goes back to the row', async (p, h, t) => {
+	const ROW = '.workspace-leaf.mod-active .binders-outliner-row[data-path$="Arrival.md"]';
+	const on = () => p.ev(`(() => { const a = document.activeElement; return a.classList.contains('binders-outliner-cell') ? 'cell ' + a.dataset.col : a.classList.contains('binders-outliner-row') ? 'row' : a.className || a.tagName; })()`);
+	await openView(p);
+	await p.ev(`(() => { ${VIEW}.setMode('outliner'); return 1; })()`);
+	await until(p, `!!document.querySelector(${j(ROW)})`);
+	await p.sleep(300);
+	for (const [col, presses] of [['label', 1], ['status', 2]]) {
+		await p.ev(`(() => { document.querySelector(${j(ROW)}).focus(); return 1; })()`);
+		for (let i = 0; i < presses; i++) await p.key('ArrowRight');
+		t.eq(await on(), 'cell ' + col, `ArrowRight goes to the ${col} cell`);
+		await p.key('Enter');
+		await p.sleep(300);
+		t.ok(await p.ev(`document.querySelectorAll('.menu').length`), 'Enter opens its menu');
+		await p.key('Escape');
+		await p.sleep(400);
+		t.eq(await p.ev(`document.querySelectorAll('.menu').length`), 0, 'Escape closes it');
+		t.eq(await on(), 'cell ' + col, 'and the keyboard is still on the cell');
+		await p.key('ArrowRight');
+		await p.key('ArrowLeft');
+		t.eq(await on(), 'cell ' + col, 'whose arrow keys work again');
+		await p.key('Escape');
+		t.eq(await on(), 'row', 'Escape again goes back to the row');
+	}
+});
+
+test('the manuscript’s “Focus mode” button, an icon alone at any width, says what it is when pointed at', async (p, h, t) => {
+	await openView(p);
+	await p.ev(`(() => { ${VIEW}.setMode('manuscript'); return 1; })()`);
+	await until(p, `!!document.querySelector('.workspace-leaf.mod-active .binders-focus-button:not(.is-hidden)')`);
+	await p.sleep(400);
+	const b = await p.at('.workspace-leaf.mod-active .binders-focus-button');
+	t.ok(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-view').getBoundingClientRect().width >= 540`), 'in a pane wide enough that the other buttons show their names');
+	await p.move(b.x - 60, b.y + 80, 2);
+	await p.move(b.x, b.y, 6);
+	await until(p, `!!document.querySelector('.tooltip')`, 2500);
+	t.eq(await p.ev(`document.querySelector('.tooltip')?.textContent ?? null`), 'Focus mode', 'a tooltip names it');
+});

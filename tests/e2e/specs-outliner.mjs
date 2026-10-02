@@ -326,6 +326,8 @@ test('columns: the keyboard stays in the header through a redraw: on a column so
 		await p.sleep(350);
 	};
 	const menuOf = async (sel) => { await p.ev(`(() => { document.querySelector(${j(sel)}).focus(); return 1; })()`); await p.key('Enter'); await p.sleep(200); };
+	// (the pointer away from where the menus open: an item under it would be where the arrow keys start from)
+	await p.move(2, 2, 1);
 	await menuOf(`${TH}[data-col="status"]`);
 	await pick('Sort ascending');
 	t.eq(await on(), 'status', 'sorted from its menu: the keyboard is on that header');

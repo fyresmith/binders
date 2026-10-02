@@ -3259,6 +3259,12 @@ body.binders-focus .binders-focus-leaf .embedded-backlinks {
 	display: none;
 }
 
+/* (an icon with no name beside it at any width says what it is when pointed at: the toolbar's buttons otherwise do
+   only once their names are hidden, in a narrow pane) */
+.binders-toolbar-button.binders-focus-button {
+	--no-tooltip: false;
+}
+
 /* said to a screen reader, not shown */
 .binders-focus-live {
 	position: absolute;
