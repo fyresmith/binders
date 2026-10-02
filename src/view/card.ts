@@ -158,6 +158,14 @@ export function owedFocus(pane: HTMLElement, on: () => boolean, drop: () => void
 	return () => doc.removeEventListener('focusin', left, true);
 }
 
+/** The card the keyboard goes to when the one it's on leaves the board (moved to another folder, deleted): the next
+    card in the board's order that stays, else the nearest before it; null if none stays. */
+export function heir(order: readonly string[], path: string, going: (p: string) => boolean): string | null {
+	const i = order.indexOf(path);
+	if (i < 0) return null;
+	return order.slice(i + 1).find((p) => !going(p)) ?? order.slice(0, i).reverse().find((p) => !going(p)) ?? null;
+}
+
 /** Is something being typed in (a note's editor beside the board, a field)? The keyboard is never taken from it. */
 export function typingNow(doc: Document): boolean {
 	const a = doc.activeElement;

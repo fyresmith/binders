@@ -1,5 +1,5 @@
 import { Keymap, Menu, Notice, TFile, TFolder, setIcon, type PaneType, type TAbstractFile } from 'obsidian';
-import { buildCard, cardKey, countLabel, numberCards, overPane, owedFocus, sumWords, synopsisField, typingNow, type CardHost } from './card';
+import { buildCard, cardKey, countLabel, heir, numberCards, overPane, owedFocus, sumWords, synopsisField, typingNow, type CardHost } from './card';
 import { editable, type Editable } from './edit';
 import { emptyState, badName, isNote, itemMenu, noteOf, plain, removeItems, renameItem } from './actions';
 import { held, settle, visibleBottom } from './drag';
@@ -240,8 +240,14 @@ class Corkboard implements BinderMode {
 	}
 
 	/** Something was renamed or moved (here or anywhere): what's selected and focused follows it by its new path. */
+	/** The card that takes the keyboard if the one it's on has left the board by the next redraw (see onMoved). */
+	private next: string | null = null;
+
 	private onMoved(now: string, old: string): void {
 		const re = (p: string) => (p === old ? now : p.startsWith(old + '/') ? now + p.slice(old.length) : p);
+		// (if this takes the card the keyboard is on off the board, its neighbor is next: noted now, while the cards
+		// still say where it was)
+		if (this.focused && re(this.focused) !== this.focused) this.next = heir(this.cards().map((c) => c.dataset.path ?? ''), this.focused, (p) => re(p) !== p);
 		this.sel = new Set([...this.sel].map(re));
 		if (this.focused) this.focused = re(this.focused);
 		if (this.anchor) this.anchor = re(this.anchor);
@@ -393,7 +399,12 @@ class Corkboard implements BinderMode {
 		// keep only what still exists selected
 		const paths = new Set(this.cards().map((c) => c.dataset.path));
 		for (const p of [...this.sel]) if (!paths.has(p)) this.sel.delete(p);
-		if (this.focused && !paths.has(this.focused)) this.focused = null;
+		// (the card the keyboard was on has gone to another folder: the keyboard goes to the card beside where it was)
+		if (this.focused && !paths.has(this.focused)) {
+			this.focused = this.next && paths.has(this.next) ? this.next : null;
+			if (this.focused) { this.sel = new Set([this.focused]); this.anchor = this.focused; }
+		}
+		this.next = null;
 		this.paintSelection();
 		// nothing to show: the same words every mode has for that, above the "New note" tile
 		const none = !this.board.querySelector('.binders-card[data-path]');

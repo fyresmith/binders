@@ -1423,3 +1423,29 @@ test('deleting a folder’s last card from the keyboard leaves the keyboard on t
 		await p.ev(`(async () => { app.vault.setConfig('trashOption', 'system'); if (await app.vault.adapter.exists('.trash')) await app.vault.adapter.rmdir('.trash', true); })().then(() => 1)`);
 	}
 }));
+
+for (const how of ['in a grid', 'by label']) {
+	test(`“Move to” another folder from a card’s menu leaves the keyboard on the card beside where it was (${how}): the one after it, or with none after, the one before`, async (p, h, t) => {
+		const P1 = L + 'Part One/';
+		await openView(p, L + 'Part One');
+		if (how === 'by label') { await p.ev(`(() => { ${VIEW}.arrange('label', 'across'); return 1; })()`); await until(p, `!!document.querySelector('.workspace-leaf.mod-active .binders-lanes .binders-card[data-path]')`); await p.sleep(400); }
+		const on = () => p.ev(`(() => { const a = document.activeElement; return a?.dataset?.path?.split('/').pop() ?? a?.tagName + '.' + a?.className; })()`);
+		const moveOut = async (name) => {
+			const c = await p.at(card(P1 + name));
+			await p.click(c.x, c.t + c.h - 12);
+			await p.key('ContextMenu');
+			await p.sleep(250);
+			await hoverMenu(p, 'Move to');
+			await clickMenu(p, 'Part Two');
+			await until(p, `app.vault.adapter.exists(${j(L + 'Part Two/' + name)})`);
+			await p.sleep(700);
+		};
+		await moveOut('The keeper.md');
+		t.eq(await on(), 'Storm warning.md', 'the middle card moved out: the keyboard is on the card after it');
+		t.eq(j(await selected(p)), j([P1 + 'Storm warning.md']), 'which is selected');
+		await moveOut('Storm warning.md');
+		t.eq(await on(), 'Arrival.md', 'the last card moved out: the keyboard is on the card before it');
+		await p.key('ArrowRight');
+		t.eq(await on(), 'Arrival.md', 'and the arrow keys carry on from there');
+	});
+}
