@@ -1,6 +1,13 @@
 # Development
 
+How the code is laid out is in [architecture.md](architecture.md); the rules everyone works to are in
+[AGENTS.md](../AGENTS.md).
+
 ## Setup
+
+You need Node 20 or newer (CI uses 20) and npm. Building, linting and the unit tests run anywhere Node does. The
+end-to-end tests need an installed Obsidian as well, and look for it where Linux packages put it; see
+[End-to-end tests](#end-to-end-tests) for other systems.
 
 ```bash
 npm install
@@ -25,6 +32,10 @@ by copying `main.js`, `manifest.json` and `styles.css` into `test-vault` and, if
 turning the plugin on there (`installAll` in `scripts/install-to-vault.mjs`, called from `esbuild.config.mjs`). Neither
 vault can run an older build than the one just made (`npm run ship` copies the bumped `manifest.json` the same way). For any other vault, by hand:
 `npm run install-vault -- /path/to/a/throwaway/vault`. Never a real vault.
+
+**Opening either vault by hand.** Obsidian starts a vault it hasn't seen in Restricted mode, with community plugins
+off: answer "Trust author and enable plugins" when it asks (or turn Restricted mode off under Settings → Community
+plugins), or Binders won't load. The tests answer for themselves.
 
 ### The demo vault
 
@@ -74,11 +85,17 @@ that says what each folder is for:
 | `npm run check` | Build, lint (the same rules as Obsidian's review bot) and unit tests |
 | `npm test` | Unit tests only: bundles each `tests/*.test.ts` for Node and runs it |
 | `npm run e2e` | End-to-end tests in real, headless Obsidian |
+| `npm run e2e:all` | The same, shared out over several Obsidians at once (`--jobs`) |
 
 ### Unit tests
 
 Pure code only (no Obsidian): each file is bundled with a stand-in for the `obsidian` module (`tests/obsidian-stub.ts`)
 and run in Node. `tests/harness.ts` has the `test` and assertion helpers.
+
+```bash
+npm test                 # every tests/*.test.ts
+npm test -- lanes        # only the files whose name has "lanes" in it (several words: any of them)
+```
 
 | File | Covers |
 |---|---|
@@ -88,6 +105,8 @@ and run in Node. `tests/harness.ts` has the `test` and assertion helpers.
 | `tests/outliner.test.ts` | The outliner's columns, sorting, targets and typed values (`src/view/outliner-data.ts`) |
 | `tests/lanes.test.ts` | The corkboard by label (`src/view/lanes-data.ts`): the lines, where a card is on them, where a drop lands, what is announced |
 | `tests/file-drag.test.ts` | A card dragged out as a file (`src/view/file-drag-data.ts`): inside the view or out of it, the drop effect, scrolling at the edge, the ghost's title |
+| `tests/run-all.test.ts` | The parallel e2e runner's pure parts (`tests/e2e/run-all-lib.mjs`): sharing spec files out over jobs, reading a job's output; and the driver's `reap`, with stand-in processes |
+| `tests/demo-vault.test.ts` | The demo vault's generator (`scripts/demo-vault/build.mjs`), read back with the plugin's own readers: every binder, the labels, the snapshots, what a re-run may write |
 | `tests/scene-text.test.ts` | Splitting, merging, a synopsis from text, names, compiling (`src/scene-text.ts`) |
 | `tests/focus-session.test.ts` | Focus mode's pure parts (`src/focus/session.ts`): the day's words, the last line, the scenes before and after, a goal as typed; and its settings' defaults |
 | `tests/snapshot-text.test.ts` | Snapshots (`src/snapshot-text.ts`): a snapshot's name and file read back byte for byte, comparing two texts as prose |
@@ -105,6 +124,7 @@ npm run e2e -- --grep explorer       # tests whose name matches
 npm run e2e -- --repeat 3            # flakiness check
 npm run e2e -- --specs tests/e2e/specs-corkboard.mjs,tests/e2e/specs-outliner.mjs
 npm run e2e -- --shots /tmp/shots    # where failure screenshots go
+npm run e2e -- --hover               # with a mouse that hovers (below)
 ```
 
 Without `--specs`, every `tests/e2e/specs*.mjs` runs:
@@ -132,6 +152,42 @@ Without `--specs`, every `tests/e2e/specs*.mjs` runs:
 | `specs-mobile.mjs` | A phone and a tablet through `app.emulateMobile`, with touch |
 | `specs-perf.mjs` | A generated 1,000-scene binder, with generous limits |
 | `specs-qa-*.mjs` to `specs-qa6-*.mjs` | QA rounds, each file an area. Tests named "BUG: …" or "UX: …" were written to fail until what they show is fixed, and stay as regressions after. Rounds 1 and 2: the store, the explorer, the corkboard, the manuscript. Round 3: labels, the outliner, the scene tools, and `qa3-look`, which records screenshots and measurements and asserts nothing. Round 4: the explorer, the manuscript, a writer's whole day (`qa4-journey`), a phone and a tablet. Round 5: a phone and a tablet by touch, mode by mode (`cork`, `outliner`, `manuscript`, `nav`, `tablet`). Round 6: `writing`, `scale`, `store`, `boards`, `menus`, `phone`, `tablet` |
+
+**The whole suite, in several Obsidians at once.** In one Obsidian the suite takes hours.
+`tests/e2e/run-all.mjs` shares the spec files out over several, each job a `run.mjs` of its own:
+
+```bash
+npm run e2e:all -- --jobs 6 --theme both      # six Obsidians, light then dark in each
+npm run e2e:all -- --jobs 6 --retry-alone     # then each failure again by itself
+npm run e2e:all -- --jobs 3 --hover --out /tmp/e2e   # a hovering mouse; logs somewhere else
+```
+
+- **Sharing out.** Every spec file is imported and its tests counted (with `--grep`, those that match), and the files
+  go heaviest first into the lightest job. After a whole run has finished, what each file took is kept in
+  `timings.json` beside the logs, and the next run weighs files by that instead: a file of forty slow phone tests is
+  not a file of forty quick ones.
+- **Logs.** `--out` (default `test-dist/e2e-all`) gets `job-1.log`, `job-2.log`… (each job's `run.mjs` output, as it
+  comes), `shots/` (failure screenshots), `summary.txt` and `results.json` (every result: name, theme, mark, message,
+  time, job, file). Failures are printed as they happen, and a count every two minutes.
+- **The summary** at the end is one for all jobs: passed, failed, open findings; each failure with its file, job and
+  message; tests that didn't run because a job stopped early; and "Listed as open, and passing".
+- **Exit code.** 1 for a failure that isn't in `open-findings.json`, or a job that stopped early; 0 otherwise (130
+  after Ctrl-C).
+- **`--retry-alone`.** Tests that time frames or race typing can fail from load alone. With this, once every job is
+  done, each failure runs again by itself with nothing else running, and the summary sorts them into "Fails alone too"
+  and "Passed alone (load)". Then only the first kind fails the run.
+- **Ctrl-C** stops every job; each closes its Obsidian and removes its throwaway folder (the driver does that for
+  any runner that is interrupted or killed, `run.mjs` alone too), and the summary of what had run is printed.
+- **`--reap`**, for what Ctrl-C can't cover: a runner killed outright (`kill -9`, the machine out of memory) or
+  started detached and forgotten leaves its Obsidians running. Every Obsidian the driver starts, its throwaway folder
+  and the runner that started it are written down, a line each, in `started.jsonl` in the run's screenshots folder.
+  `npm run e2e:all -- --reap` (with the same `--out`) ends exactly those, removes their folders and the list, and
+  stops; `--reap --shots dir` does it for a run made with `npm run e2e` alone (its default folder is
+  `test-dist/e2e-failures`). Each process is checked against its command line first, so a process id that has since
+  gone to something else is left alone, and nothing is ever killed by name. It ends a run that is still going, too.
+- `--jobs` is how many Obsidians the machine can take without the tests slowing each other into failures: about one
+  per two cores, fewer if anything else is running. `--theme`, `--grep`, `--repeat` and `--specs` mean what they do for
+  `npm run e2e`; `BINDERS_TEST_VAULT` is passed on.
 
 **Findings still open.** A scenario that fails on purpose, until what it shows is fixed or decided, is listed by its
 test's name in `tests/e2e/open-findings.json`, with why. The runner marks such a failure `○` and doesn't count it, so
@@ -162,10 +218,15 @@ itself and Obsidian's tooltips follow the mouse events the driver sends, so they
   `'touch'` or `'none'`.
 
 `view-helpers.mjs` has helpers the view specs share. `node tests/e2e/screenshots.mjs [outdir]` remakes the README's
-screenshots (`docs/images`) from the same throwaway copy of the test vault.
+pictures (`docs/images`: `corkboard`, `explorer`, `arrange-by-label`, `outliner`, `manuscript`, `snapshots`,
+`focus-mode`, `mobile`) from a throwaway copy of the test vault, which it first fills out a little (storylines as
+labels, a third part, a longer scene). Look at each picture after remaking them, and at the README beside them.
 
-It expects Obsidian at `/usr/lib/electron43/electron` with `/usr/lib/obsidian/app.asar`; set `OBSIDIAN_ELECTRON` and
-`OBSIDIAN_ASAR` otherwise. Failure screenshots go to `test-dist/e2e-failures`.
+**Where Obsidian is.** The driver runs Obsidian's `app.asar` with the Electron it ships with, and looks for them where
+the Arch Linux package puts them: `/usr/lib/electron43/electron` and `/usr/lib/obsidian/app.asar`. Anywhere else
+(another distribution, macOS, Windows), set `OBSIDIAN_ELECTRON` to the Electron binary and `OBSIDIAN_ASAR` to the
+`app.asar` of your installation; only Linux has been tried. Without an Obsidian, `npm run check` and the unit tests
+are what you can run. Failure screenshots go to `test-dist/e2e-failures`.
 
 The tests copy `test-vault` as it is on disk, so anything left there by hand comes along (and can fail tests that
 count notes): it is the tests' fixture, not a vault to try things in (that is `demo-vault`). To run against the
@@ -180,6 +241,8 @@ BINDERS_TEST_VAULT=/tmp/binders-clean/test-vault npm run e2e
 ### Checking the look against Obsidian itself
 
 "Native" is checked, not guessed: Obsidian's own stylesheet and code are in `obsidian.asar`, next to `app.asar`.
+
+(`npx` downloads `@electron/asar` from npm the first time: it isn't one of the project's dependencies.)
 
 ```bash
 npx @electron/asar extract-file /usr/lib/obsidian/obsidian.asar app.css   # every rule and variable Obsidian ships
@@ -199,6 +262,19 @@ Before each test the runner closes every tab, restores the test notes, deletes w
 to its default, removes the saved mobile layout, clears notices and focuses the main window, so tests don't depend on
 their order.
 
+## What's in `scripts/`
+
+| Script | Run as | What it does |
+|---|---|---|
+| `ship.mjs` | `npm run ship -- patch "Title" --fixed "…"` | Bumps the version, writes the CHANGELOG entry and commits what is staged. Every commit goes through it (see [AGENTS.md](../AGENTS.md)) |
+| `memo.mjs` | `npm run memo` | Progress memos for a team of agents: write one, list them all, read one (AGENTS.md, "Progress memos") |
+| `install-to-vault.mjs` | by every build; `npm run install-vault -- <vault>` | Copies the build into a vault and turns the plugin on there |
+| `make-demo-vault.mjs`, `demo-vault/build.mjs` | `npm run demo-vault` | Makes or updates `demo-vault/` (above) |
+| `run-tests.mjs` | `npm test [-- name]` | Bundles and runs the unit tests |
+
+`esbuild.config.mjs` (the build) and `version-bump.mjs` (called by `npm version`, so by `ship`) are at the top of the
+project. The e2e tools are in `tests/e2e/`: `driver.mjs`, `run.mjs`, `run-all.mjs`, `screenshots.mjs`.
+
 ## What CI checks, and what it doesn't
 
 `.github/workflows/ci.yml` runs on every push to `main` and every pull request: `npm run lint`, `npm test` (the unit
@@ -217,7 +293,8 @@ Every commit goes through `npm run ship`, which bumps the version and writes the
 
 ## Releasing
 
-1. Make sure `main` is green (`npm run check`, e2e) and pushed.
+1. Make sure `main` is green (`npm run check`, e2e) and pushed. There is no version to bump by hand: the last
+   `npm run ship` already set it in `manifest.json`, `package.json` and `versions.json`, and that commit is what you tag.
 2. Tag the version: `git tag x.y.z && git push origin x.y.z` (no `v`; it must match `manifest.json`).
 3. The **Release** workflow checks and builds the plugin, attests `main.js`, `manifest.json` and `styles.css`, and
    publishes a release whose notes are the CHANGELOG since the previous tag. `0.x` tags become draft pre-releases;

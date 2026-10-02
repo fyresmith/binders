@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.46 (2026-10-02)
+
+### Added
+
+- Nothing a writer will notice: the tests can run in several Obsidians at once, and the development guide covers the demo vault, the runner and how to run one unit test.
+
 ## 0.12.45 (2026-10-02)
 
 ### Fixed

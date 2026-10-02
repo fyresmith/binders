@@ -1,9 +1,9 @@
 // Drives a real, headless Obsidian over the Chrome DevTools protocol.
 // Obsidian runs with its own throwaway profile and a throwaway copy of test-vault, so nothing real is touched.
-import { spawn } from 'child_process';
-import { cpSync, mkdtempSync, rmSync, writeFileSync, existsSync } from 'fs';
+import { execFileSync, spawn } from 'child_process';
+import { appendFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
-import { join } from 'path';
+import { basename, dirname, join } from 'path';
 
 const ELECTRON = process.env.OBSIDIAN_ELECTRON || '/usr/lib/electron43/electron';
 const ASAR = process.env.OBSIDIAN_ASAR || '/usr/lib/obsidian/app.asar';
@@ -46,6 +46,42 @@ function guard() {
 	for (const [signal, code] of [['SIGINT', 130], ['SIGTERM', 143], ['SIGHUP', 129]]) process.on(signal, () => process.exit(code));
 }
 
+// What that can't cover: a runner killed outright (SIGKILL, or the machine out of memory) ends without a word, and its
+// Obsidian carries on. So everything started is also written down, a line each, in `started.jsonl` in the run's
+// screenshots folder (--shots; run-all.mjs names the file itself, in BINDERS_E2E_STARTED), and `reap` ends exactly
+// those: `node tests/e2e/run-all.mjs --reap`. Nothing is ever killed by its name.
+const shots = process.argv.indexOf('--shots');
+export const STARTED = process.env.BINDERS_E2E_STARTED || join(shots > 0 && process.argv[shots + 1] ? process.argv[shots + 1] : 'test-dist/e2e-failures', 'started.jsonl');
+/** Writes down a runner (this process) and, with `pid`, an Obsidian it started and that Obsidian's folder. */
+export function record(row = {}, file = STARTED) {
+	try { mkdirSync(dirname(file), { recursive: true }); appendFileSync(file, JSON.stringify({ runner: process.pid, script: process.argv[1] ?? '', ...row }) + '\n'); } catch { /* a record is a help, not a need */ }
+}
+/** Ends every runner and Obsidian written down in `file` that is still what it was (a process id can be given to
+    something else later: each is checked against its command line first), removes their throwaway folders, and the
+    file. Returns how many of each. */
+export async function reap(file = STARTED) {
+	const done = { runners: 0, obsidians: 0, folders: 0 };
+	if (!existsSync(file)) return done;
+	const rows = readFileSync(file, 'utf8').split('\n').map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+	const args = (pid) => { try { return execFileSync('ps', ['-p', String(pid), '-o', 'args='], { encoding: 'utf8' }).trim(); } catch { return ''; } };
+	const kill = (pid, signal) => { try { process.kill(pid, signal); return true; } catch { return false; } };
+	const wait = async (left, ms) => { for (let t = 0; t < ms && left(); t += 100) await sleep(100); };
+	// the runners first (they'd start another Obsidian for their next theme), asked nicely so each closes its own
+	const runners = new Map(rows.filter((r) => r.runner && r.runner !== process.pid && r.script).map((r) => [r.runner, r.script]));
+	for (const [pid, script] of runners) if (args(pid).includes(script) && kill(pid, 'SIGTERM')) done.runners++;
+	await wait(() => [...runners].some(([pid, script]) => args(pid).includes(script)), 3500);
+	for (const [pid, script] of runners) if (args(pid).includes(script)) kill(pid, 'SIGKILL');
+	const mine = rows.filter((r) => r.pid && r.work && args(r.pid).includes(`--user-data-dir=${r.work}`));
+	for (const r of mine) if (kill(-r.pid, 'SIGTERM') || kill(r.pid, 'SIGTERM')) done.obsidians++;
+	const there = (r) => args(r.pid).includes(`--user-data-dir=${r.work}`);
+	await wait(() => mine.some(there), 2500);
+	for (const r of mine) if (there(r)) { kill(-r.pid, 'SIGKILL'); kill(r.pid, 'SIGKILL'); }
+	await wait(() => mine.some(there), 1000);
+	for (const work of new Set(rows.map((r) => r.work).filter((w) => w && basename(w).startsWith('binders-e2e-') && existsSync(w)))) { try { rmSync(work, { recursive: true, force: true }); done.folders++; } catch { /* in use by something else */ } }
+	rmSync(file, { force: true });
+	return done;
+}
+
 // BINDERS_TEST_VAULT: another vault to copy (say, a clean checkout of test-vault while the working one is in use)
 export const VAULT = process.env.BINDERS_TEST_VAULT || 'test-vault';
 
@@ -65,6 +101,7 @@ export async function launch({ vault = VAULT, theme = 'light', width = 1440, hei
 	const proc = spawn(ELECTRON, ['--ozone-platform=headless', '--disable-gpu', ...(hover ? [POINTER] : []), `--user-data-dir=${join(work, 'profile')}`, '--remote-debugging-port=0', ASAR], { stdio: ['ignore', 'ignore', 'pipe'], detached: true });
 	guard();
 	live.set(proc, work);
+	record({ pid: proc.pid, work });
 	const port = await new Promise((resolve, reject) => {
 		const timeout = setTimeout(() => { end(proc, work)(); reject(new Error('Obsidian did not expose its debugging port')); }, 20000);
 		proc.stderr.on('data', (data) => {

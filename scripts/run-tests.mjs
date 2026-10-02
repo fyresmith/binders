@@ -3,7 +3,11 @@ import esbuild from 'esbuild';
 import { readdirSync } from 'fs';
 import { spawnSync } from 'child_process';
 
-const files = readdirSync('tests').filter((f) => f.endsWith('.test.ts'));
+//   npm test                all of them
+//   npm test -- lanes view  only the files whose name has one of these words in it
+const only = process.argv.slice(2);
+const files = readdirSync('tests').filter((f) => f.endsWith('.test.ts') && (!only.length || only.some((w) => f.includes(w))));
+if (!files.length) { console.error(`No test file matches ${only.join(', ')}.`); process.exit(1); }
 let failed = 0;
 for (const f of files) {
 	const out = `test-dist/${f.replace(/\.ts$/, '.cjs')}`;
