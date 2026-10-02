@@ -4,6 +4,10 @@
 // somewhere sensible. What only shows up when features are used together is at the end: `BUG:` tests fail now and pass
 // when fixed; `UX:` tests say what a writer (or a Scrivener user) would expect instead.
 //   QA4_SHOTS=<dir> saves screenshots along the way.
+//
+// Since 2026-10-01 the corkboard shows one folder at a time: a subfolder is one card, a stack, gone into with a
+// double-click and left by the breadcrumb. What these journeys did among a folder's cards is done on that folder's
+// board (`into`, `upTo`), and what was a heading's (its synopsis, its menu, its count) is the stack's.
 import { B, PL, VIEW, answer, card, clickMenu, closeMenus, contents, exists, flush, hoverMenu, j, menuItems, openView, read, reload, same, split, texts, until, withTidy as tidyAfter } from './view-helpers.mjs';
 
 export const specs = [];
@@ -52,6 +56,26 @@ const press = (p, text) => p.ev(`(() => { const m = [...document.querySelectorAl
 const fm = (p, path) => p.ev(`JSON.stringify(app.metadataCache.getFileCache(app.vault.getAbstractFileByPath(${j(path)}))?.frontmatter ?? null)`).then(JSON.parse);
 /** The binder note's list as written on disk, once anything pending is written. */
 const list = async (p, note = NOTE) => { await flush(p); await p.sleep(150); return contents(p, note); };
+/** A folder's stack on the board of the folder it's in. */
+const stackSel = (folder) => `${AL} .binders-card.is-stack[data-path="${folder}"]`;
+/** Into a folder from the board it's a stack on, as a writer goes: a double-click on the stack. */
+async function into(p, folder) {
+	const s = await p.at(stackSel(folder));
+	if (!s) throw new Error('no stack for ' + folder);
+	await p.dbl(s.x, s.t + 12);
+	await until(p, `${VIEW}?.folder?.path === ${j(folder)} && !document.querySelector(${j(stackSel(folder))})`);
+	await p.sleep(400);
+}
+/** And back out, by the breadcrumb, to a folder above (the binder itself if none is named). */
+async function upTo(p, folder = null) {
+	const sel = `${AL} .binders-crumb[role="link"]` + (folder ? `[data-path="${folder}"]` : '');
+	const c = await p.at(sel);
+	if (!c) throw new Error('no breadcrumb to go up by');
+	const to = await p.ev(`document.querySelector(${j(sel)}).dataset.path`);
+	await p.click(c.x, c.y);
+	await until(p, `${VIEW}?.folder?.path === ${j(to)}`);
+	await p.sleep(400);
+}
 const tabs = (p) => p.ev(`(() => { let n = 0; app.workspace.iterateRootLeaves(() => { n++; }); return n; })()`);
 const mode = async (p, h, m) => { await h.run('show-' + m); await p.sleep(400); };
 /** A press, a move with the button held, and a release, as a hand does it. */
@@ -100,9 +124,17 @@ async function intoView(p) {
     (Leaves the view in the manuscript.) */
 async function agree(p, h, t, folder, when) {
 	const strip = (x) => x.slice(folder.length + 1).replace(/\.md$/, '');
-	const disk = (await list(p, `${folder}/${folder.split('/').pop()}.md`)).filter((x) => !x.endsWith('/'));
+	const all = await list(p, `${folder}/${folder.split('/').pop()}.md`), disk = all.filter((x) => !x.endsWith('/'));
 	await mode(p, h, 'corkboard');
-	t.eq(j((await cardsIn(p)).map(strip)), j(disk), `${when}: the corkboard shows the binder note’s order`);
+	// (the board shows the binder's own items: its loose notes, and each folder as one stack that counts its notes)
+	const own = all.filter((x) => (x.endsWith('/') ? x.split('/').length === 2 : !x.includes('/')));
+	const shown = await p.ev(`[...document.querySelectorAll('${AL} .binders-card[data-path]')].map(c => [c.dataset.path, c.classList.contains('is-stack'), c.querySelector('.binders-card-words')?.textContent ?? ''])`);
+	t.eq(j(shown.map(([path, stack]) => strip(path) + (stack ? '/' : ''))), j(own), `${when}: the corkboard shows the binder’s own items in the binder note’s order, each folder as one stack`);
+	for (const [path, stack, text] of shown) {
+		if (!stack) continue;
+		const n = disk.filter((x) => x.startsWith(strip(path) + '/')).length;
+		t.ok(text.startsWith(`${n} ${n === 1 ? 'note' : 'notes'}`), `${when}: the stack of “${strip(path)}” counts the ${n} notes the binder note lists in it: ${text}`);
+	}
 	await mode(p, h, 'outliner');
 	t.eq(j((await rowsIn(p)).filter((x) => /\.md$/.test(x)).map(strip)), j(disk), `${when}: so does the outliner`);
 	await mode(p, h, 'manuscript');
@@ -139,7 +171,7 @@ const SAVED = 2700;
 /** Words in each note's text on disk, counted here (letters, digits, hyphens and apostrophes make a word). */
 const diskWords = (p, under) => p.ev(`(async () => { const o = {}; for (const f of app.vault.getMarkdownFiles().filter(f => f.path.startsWith(${j(under + '/')}))) { const t = (await app.vault.adapter.read(f.path)).replace(/^---\\n[\\s\\S]*?\\n---(?:\\n|$)/, ''); o[f.path] = (t.match(/(?:[0-9]+(?:[,.][0-9]+)*|[\\-'’\\p{L}\\p{M}])+/gu) ?? []).length; } return o; })()`);
 const words = (n) => `${n.toLocaleString('en-US')} ${n === 1 ? 'word' : 'words'}`;
-/** Every count in the view (toolbar, cards, folder headings, outliner rows and the last row) against the notes on disk.
+/** Every count in the view (toolbar, cards, folders' stacks, outliner rows and the last row) against the notes on disk.
     `pass`: with a filter on, the notes that pass it; `bar` false leaves the toolbar out. (Leaves the view in the
     outliner.) */
 async function countsAgree(p, h, t, folder, when, pass = null, bar = true) {
@@ -155,12 +187,23 @@ async function countsAgree(p, h, t, folder, when, pass = null, bar = true) {
 		t.eq(await toolbarCount(p), want, `${when}: the toolbar counts what’s on disk`);
 	}
 	await until(p, `[...document.querySelectorAll('${AL} .binders-card[data-path]')].every(c => c.querySelector('.binders-card-words'))`, 4000);
-	const onCards = await p.ev(`Object.fromEntries([...document.querySelectorAll('${AL} .binders-card[data-path]')].map(c => [c.dataset.path, c.querySelector('.binders-card-words')?.textContent ?? null]))`);
-	t.eq(j(onCards), j(Object.fromEntries(shown.map((s) => [s, words(disk[s])]))), `${when}: each card counts its note`);
-	const heads = await p.ev(`[...document.querySelectorAll('${AL} .binders-group.is-folder')].map(g => [g.querySelector('.binders-group-title').textContent, g.querySelector('.binders-group-count').textContent])`);
-	for (const [name, text] of heads) {
-		const all = scenes.filter((s) => s.startsWith(`${folder}/${name}/`)), on = all.filter((s) => shown.includes(s));
-		t.eq(text, `${on.length === all.length ? `${all.length} ${all.length === 1 ? 'note' : 'notes'}` : `${on.length} of ${all.length} notes`} · ${words(sum(on))}`, `${when}: the heading of “${name}” adds up its notes`);
+	// the board of the folder shown: its own notes' cards, and a stack for each folder in it; then each folder's board
+	const board = async (dir) => {
+		const cards = await p.ev(`[...document.querySelectorAll('${AL} .binders-card[data-path]')].map(c => [c.dataset.path, c.classList.contains('is-stack'), c.querySelector('.binders-card-words')?.textContent ?? null])`);
+		const own = shown.filter((s) => s.startsWith(dir + '/') && !s.slice(dir.length + 1).includes('/'));
+		t.eq(j(cards.filter(([, stack]) => !stack).map(([path, , text]) => [path, text])), j(own.map((s) => [s, words(disk[s])])), `${when}: each card ${dir === folder ? '' : `in “${dir.split('/').pop()}” `}counts its note`);
+		const stacks = cards.filter(([, stack]) => stack);
+		for (const [path, , text] of stacks) {
+			const all = scenes.filter((s) => s.startsWith(path + '/')), on = all.filter((s) => shown.includes(s));
+			t.eq(text, `${on.length === all.length ? `${all.length} ${all.length === 1 ? 'note' : 'notes'}` : `${on.length} of ${all.length} notes`} · ${words(sum(on))}`, `${when}: the stack of “${path.split('/').pop()}” adds up its notes`);
+		}
+		return stacks.map(([path]) => path);
+	};
+	for (const sub of await board(folder)) {
+		await into(p, sub);
+		await until(p, `[...document.querySelectorAll('${AL} .binders-card[data-path]')].every(c => c.querySelector('.binders-card-words'))`, 4000);
+		await board(sub);
+		await upTo(p, folder);
 	}
 	await mode(p, h, 'outliner');
 	const rows = await p.ev(`[...document.querySelectorAll('${AL} .binders-outliner-row')].map(r => [r.dataset.path, r.querySelector('[data-col="words"]')?.textContent ?? null])`);
@@ -239,19 +282,31 @@ test('1a. a new novel from nothing: a folder made a binder, twenty scenes from t
 	await p.right(r.x, r.y);
 	const binderMenu = await menuItems(p);
 	t.ok(['Open binder', 'New scene here', 'Compile...'].every((x) => binderMenu.includes(x)), 'a binder’s menu has Binders’ own items: ' + binderMenu.join(', '));
+	// (a note made from the explorer shows on the board in front, to be named there. On a desktop its name isn't put
+	// ready to type: the BUG: qa7 test below. Here it's then opened as a writer would, with F2 on the new card.)
+	const naming = async () => {
+		if (await until(p, `document.activeElement?.matches('.inline-title, .binders-edit-field')`, 1500)) return;
+		await p.ev(`document.querySelector(${j(card(N + 'Untitled.md'))})?.scrollIntoView({ block: 'center' })`);
+		await p.sleep(200);
+		const c = await p.at(card(N + 'Untitled.md'));
+		await p.click(c.x, c.t + 12);
+		await p.key('F2');
+		await until(p, `document.activeElement?.matches('.binders-edit-field')`);
+	};
 	await clickMenu(p, 'New scene here');
 	await until(p, `app.vault.adapter.exists('Novel/Untitled.md')`);
-	await until(p, `document.activeElement?.matches('.inline-title, .binders-edit-field')`);
+	await naming();
 	await p.type('Fifteen');
 	await p.key('Enter');
 	await until(p, `app.vault.adapter.exists('Novel/Fifteen.md')`);
 	for (let i = 15; i < 20; i++) {
 		await explorerRows(p, 'Novel');
 		const at = await exRow(p, `Novel/${NAMES[i - 1]}.md`);
+		if (!at) throw new h.Fail(`no row for “${NAMES[i - 1]}” in the file explorer: ` + j(await explorerRows(p, 'Novel')) + ' / on disk: ' + j(await p.ev(`app.vault.getMarkdownFiles().filter(f => f.path.startsWith('Novel/')).map(f => f.basename)`)) + ' / focus: ' + await focus(p));
 		await p.right(at.x, at.y);
 		await clickMenu(p, 'New scene after this');
 		await until(p, `app.vault.adapter.exists('Novel/Untitled.md')`);
-		await until(p, `document.activeElement?.matches('.inline-title, .binders-edit-field')`);
+		await naming();
 		await p.sleep(150);
 		await p.type(NAMES[i]);
 		await p.key('Enter');
@@ -259,16 +314,23 @@ test('1a. a new novel from nothing: a folder made a binder, twenty scenes from t
 	}
 	t.eq(j(await list(p, NNOTE)), j(NAMES), 'twenty scenes, each where it was made');
 	for (const n of NAMES) t.eq(await read(p, `${N}${n}.md`), '', `“${n}” is an empty note`);
-	// back to the binder (the new notes opened in its tab, as a new note does): every mode and the explorer agree
+	// back to the binder: every mode and the explorer agree
 	await explorerRows(p, 'Novel');
 	r = await exRow(p, 'Novel');
 	await p.click(r.x, r.y);
-	await until(p, `!!document.querySelector('${AL} .binders-view .binders-toolbar')`);
+	await until(p, `!!document.querySelector('.mod-root .binders-view .binders-toolbar')`);
+	// (the binder's view was in front all along: the new notes showed on its board, and the explorer still has the keyboard)
+	await intoView(p);
 	await agree(p, h, t, 'Novel', 'twenty scenes');
 	await mode(p, h, 'corkboard');
 	await shot(p, '1a-twenty');
 
 	// statuses and labels for many at once: a range on the corkboard
+	// (the board comes back where the last new card left it, at its end, and holds there a moment: then back to its top)
+	await p.sleep(800);
+	await p.ev(`(() => { document.querySelector('${AL} .binders-corkboard').scrollTop = 0; return 1; })()`);
+	await p.sleep(300);
+	t.eq(await p.ev(`Math.round(document.querySelector('${AL} .binders-corkboard').scrollTop)`), 0, 'the board is at its top');
 	const one = await p.at(card(N + 'One.md')), ten = await p.at(card(N + 'Ten.md'));
 	await p.click(one.x, one.t + 12);
 	await p.click(ten.x, ten.t + 12, { modifiers: 8 });
@@ -368,12 +430,15 @@ test('1b. chapters: scenes grouped into three folders by “New folder from sele
 	await p.click(e.x, e.t + 12, { modifiers: 8 });
 	await p.right(e.x, e.y);
 	await clickMenu(p, 'New folder from selection');
-	await until(p, `document.activeElement?.matches('${AL} .binders-group-name input')`);
-	t.ok(true, 'the new folder’s name is ready to type, in its heading');
+	await until(p, `document.activeElement?.matches('${AL} .binders-card.is-stack .binders-card-title input')`);
+	t.ok(await p.ev(`document.activeElement?.matches('${AL} .binders-card.is-stack .binders-card-title input')`), 'the new folder’s name is ready to type, on its stack: ' + await focus(p));
 	await p.type('Chapter 1');
 	await p.key('Enter');
 	await until(p, `app.vault.adapter.exists('Novel/Chapter 1/Six.md')`);
 	t.eq(j((await list(p, NNOTE)).slice(0, 8)), j([...CHAPTERS.slice(0, 7), 'Seven']), 'a folder where One was, holding the six in order');
+	await until(p, `document.querySelectorAll('${AL} .binders-card[data-path]').length === 15`);
+	t.eq(j((await cardsIn(p)).slice(0, 2)), j(['Novel/Chapter 1', 'Novel/Seven.md']), 'on the board the six are one stack now, where One was');
+	t.eq(await p.ev(`document.querySelector(${j(stackSel('Novel/Chapter 1'))} + ' .binders-card-words')?.textContent`), '6 notes · 0 words', 'which counts them');
 	// Seven to Twelve: Ctrl-clicks, and the menu from the keyboard
 	await p.sleep(400);
 	for (const n of NAMES.slice(6, 12)) { const x = await p.at(c(n)); await p.click(x.x, x.t + 12, n === 'Seven' ? {} : { modifiers: 2 }); }
@@ -381,7 +446,7 @@ test('1b. chapters: scenes grouped into three folders by “New folder from sele
 	await p.key('F10', 'shift');
 	await p.sleep(200);
 	await clickMenu(p, 'New folder from selection');
-	await until(p, `document.activeElement?.matches('${AL} .binders-group-name input')`);
+	await until(p, `document.activeElement?.matches('${AL} .binders-card.is-stack .binders-card-title input')`);
 	await p.type('Chapter 2');
 	await p.key('Enter');
 	await until(p, `app.vault.adapter.exists('Novel/Chapter 2/Twelve.md')`);
@@ -427,18 +492,24 @@ test('1b. chapters: scenes grouped into three folders by “New folder from sele
 	await until(p, `app.vault.adapter.read('Novel/Chapter 1/Chapter 1.md').then(s => s.includes('synopsis'))`);
 	t.eq(await read(p, 'Novel/Chapter 1/Chapter 1.md'), '---\ntarget: 6000\nsynopsis: The first chapter.\n---\n', 'the synopsis joins it');
 	t.eq(await p.ev(`document.activeElement?.dataset?.path`), 'Novel/Chapter 1', 'and the row has the focus again');
-	// the other two on the corkboard: the heading's synopsis, and "Set target..." in its menu
+	// the other two on the corkboard: the stack's synopsis (a click on it once the stack is selected), and "Set
+	// target..." in its menu
 	await mode(p, h, 'corkboard');
-	for (const [i, name] of [[1, 'Chapter 2'], [2, 'Chapter 3']]) {
-		const sy = await p.at(`${AL} .binders-group.is-folder .binders-group-synopsis`, i);
-		await p.move(sy.x, sy.y);
+	t.eq(j(await cardsIn(p)), j(['Novel/Chapter 1', 'Novel/Chapter 2', 'Novel/Chapter 3', 'Novel/Nineteen.md', 'Novel/Twenty.md']), 'the board: three stacks and the two loose scenes');
+	for (const name of ['Chapter 2', 'Chapter 3']) {
+		const st = await p.at(stackSel('Novel/' + name));
+		await p.click(st.x, st.t + 12);
+		await p.sleep(700);
+		const sy = await p.at(stackSel('Novel/' + name) + ' .binders-card-synopsis');
 		await p.click(sy.x, sy.y);
-		await until(p, `document.activeElement?.matches('${AL} .binders-group-synopsis textarea')`);
+		await until(p, `document.activeElement?.matches(${j(stackSel('Novel/' + name) + ' .binders-card-synopsis textarea')})`);
+		t.ok(await p.ev(`document.activeElement?.matches(${j(stackSel('Novel/' + name) + ' .binders-card-synopsis textarea')})`), `a click on the selected stack’s synopsis edits it: ${await focus(p)}`);
+		t.eq(await p.ev(`${VIEW}.folder.path`), 'Novel', 'and doesn’t go into the folder');
 		await p.type(`${name}, in a line.`);
 		await p.key('Enter', 'ctrl');
 		await until(p, `app.vault.adapter.exists('Novel/${name}/${name}.md')`);
-		const hd = await p.at(`${AL} .binders-group.is-folder .binders-group-title`, i);
-		await p.right(hd.x + 300, hd.y);
+		const hd = await p.at(stackSel('Novel/' + name));
+		await p.right(hd.x, hd.t + 12);
 		await clickMenu(p, 'Set target...');
 		await until(p, `!!document.querySelector('.modal .binders-ask input')`);
 		await p.type('5,000');
@@ -446,8 +517,16 @@ test('1b. chapters: scenes grouped into three folders by “New folder from sele
 		await until(p, `app.metadataCache.getFileCache(app.vault.getAbstractFileByPath('Novel/${name}/${name}.md'))?.frontmatter?.target === 5000`);
 		t.eq(await read(p, `Novel/${name}/${name}.md`), `---\nsynopsis: ${name}, in a line.\ntarget: 5000\n---\n`, `“${name}” has its synopsis and target in its folder note`);
 	}
-	await until(p, `document.querySelectorAll('${AL} .binders-group.is-folder .binders-group-count')[2]?.textContent.includes('5,000')`);
-	t.eq(j(await p.ev(`[...document.querySelectorAll('${AL} .binders-group.is-folder .binders-group-count')].map(e => e.textContent)`)), j(['6 notes · 0 / 6,000 words', '6 notes · 0 / 5,000 words', '6 notes · 0 / 5,000 words']), 'each heading says how far along its chapter is');
+	await until(p, `document.querySelectorAll('${AL} .binders-card.is-stack .binders-card-words')[2]?.textContent.includes('5,000')`);
+	t.eq(j(await p.ev(`[...document.querySelectorAll('${AL} .binders-card.is-stack .binders-card-words')].map(e => e.textContent)`)), j(['6 notes · 0 / 6,000 words', '6 notes · 0 / 5,000 words', '6 notes · 0 / 5,000 words']), 'each stack says how far along its chapter is');
+	t.eq(j(await p.ev(`[...document.querySelectorAll('${AL} .binders-card.is-stack .binders-card-synopsis')].map(e => e.textContent)`)), j(['The first chapter.', 'Chapter 2, in a line.', 'Chapter 3, in a line.']), 'and shows its synopsis');
+	// into a chapter and back: its six scenes are its board, the breadcrumb is the way out
+	await into(p, 'Novel/Chapter 2');
+	t.eq(j((await cardsIn(p)).map((x) => x.split('/').pop().replace('.md', ''))), j(NAMES.slice(6, 12)), 'a double-click on a stack goes into the folder: its six scenes, and no card for its folder note');
+	t.eq(await p.ev(`document.querySelector('${AL} .binders-view-synopsis')?.textContent`), 'Chapter 2, in a line.', 'with its synopsis under the toolbar');
+	t.ok(await inView(p), 'and the keyboard: ' + await focus(p));
+	await upTo(p);
+	t.eq((await cardsIn(p)).length, 5, 'the breadcrumb leads back out');
 	// the binder's own target: a click on the toolbar's word count
 	const wc = await toolbar(p, 'binders-word-count');
 	await p.click(wc.x, wc.y);
@@ -464,35 +543,55 @@ test('1b. chapters: scenes grouped into three folders by “New folder from sele
 	await agree(p, h, t, 'Novel', 'three chapters');
 });
 
-test('1c. reordering: several cards dragged across folders, rows dragged and moved with Alt+arrows, notes dragged in the file explorer (one, then two at once), each taken back with Ctrl+Z or the command and made again; a sort kept as the binder’s order, and undone', async (p, h, t) => {
+test('1c. reordering: several cards dragged onto a folder’s stack and along a folder’s own board, rows dragged and moved with Alt+arrows, notes dragged in the file explorer (one, then two at once), each taken back with Ctrl+Z or the command and made again; a sort kept as the binder’s order, and undone', async (p, h, t) => {
 	await chapters(p);
 	const before = await byName(p, 'Novel');
 	const unchanged = async (when) => { const now = await byName(p, 'Novel'); for (const n of NAMES) t.eq(now[n], before[n], `${when}: “${n}” has the text it had`); };
 	await openView(p, 'Novel');
 	const c = (n) => card(`${N}${n}.md`);
 	const moved = (l) => l.map((x, i) => (x === CHAPTERS[i] ? null : `${i}:${x}`)).filter(Boolean).join(' ');
-	// corkboard: Two and Three, from chapter 1 to chapter 2, before Eight
+	// corkboard: the two loose scenes, Nineteen and Twenty, onto chapter 2's stack
+	const nineteen = await p.at(c('Nineteen')), twentyCard = await p.at(c('Twenty'));
+	await p.click(nineteen.x, nineteen.t + 12);
+	await p.click(twentyCard.x, twentyCard.t + 12, { modifiers: 2 });
+	const ch2 = await p.at(stackSel('Novel/Chapter 2'));
+	await drag(p, { x: nineteen.x, y: nineteen.t + 12 }, { x: ch2.x, y: ch2.y });
+	await until(p, `app.vault.adapter.exists('Novel/Chapter 2/Twenty.md')`);
+	await p.sleep(500);
+	const CORK = [...CHAPTERS.slice(0, 14), 'Chapter 2/Nineteen', 'Chapter 2/Twenty', ...CHAPTERS.slice(14, 21)];
+	t.eq(j(await list(p, NNOTE)), j(CORK), 'both are in chapter 2, last, in their order');
+	t.eq(j(await cardsIn(p)), j(['Novel/Chapter 1', 'Novel/Chapter 2', 'Novel/Chapter 3']), 'and off the binder’s board');
+	t.eq(await p.ev(`document.querySelector(${j(stackSel('Novel/Chapter 2'))} + ' .binders-card-words')?.textContent.split(' · ')[0]`), '8 notes', 'the stack counts them');
+	// (the keyboard is lost with the cards that left the board: the BUG: qa7 test below. A writer would click the board.)
+	const again = await p.at(stackSel('Novel/Chapter 3'));
+	await p.click(again.x, again.t + 12);
+	await p.key('z', 'ctrl');
+	await until(p, `app.vault.adapter.exists('Novel/Twenty.md')`);
+	t.eq(j(await list(p, NNOTE)), j(CHAPTERS), 'Ctrl+Z puts both back, files and order');
+	t.eq(j((await cardsIn(p)).slice(3)), j(['Novel/Nineteen.md', 'Novel/Twenty.md']), 'and their cards are on the board again');
+	t.ok(/Undid: move 2 items/.test(await notices(p)), 'and says what it undid');
+	await p.key('z', 'ctrl', 'shift');
+	await until(p, `app.vault.adapter.exists('Novel/Chapter 2/Twenty.md')`);
+	t.eq(j(await list(p, NNOTE)), j(CORK), 'Ctrl+Shift+Z makes the move again');
+	await p.key('z', 'ctrl');
+	await until(p, `app.vault.adapter.exists('Novel/Twenty.md')`);
+	t.eq(j(await list(p, NNOTE)), j(CHAPTERS), 'and Ctrl+Z takes it back again');
+	// inside a chapter: Two and Three dragged to its end
+	await into(p, 'Novel/Chapter 1');
 	const two = await p.at(c('Chapter 1/Two')), three = await p.at(c('Chapter 1/Three'));
 	await p.click(two.x, two.t + 12);
 	await p.click(three.x, three.t + 12, { modifiers: 2 });
-	const eight = await p.at(c('Chapter 2/Eight'));
-	await drag(p, { x: two.x, y: two.t + 12 }, { x: eight.l + 8, y: eight.y });
-	await until(p, `app.vault.adapter.exists('Novel/Chapter 2/Three.md')`);
+	const six = await p.at(c('Chapter 1/Six'));
+	await drag(p, { x: two.x, y: two.t + 12 }, { x: six.l + six.w - 8, y: six.y });
 	await p.sleep(500);
-	const CORK = ['Chapter 1/', 'Chapter 1/One', 'Chapter 1/Four', 'Chapter 1/Five', 'Chapter 1/Six', 'Chapter 2/', 'Chapter 2/Seven', 'Chapter 2/Two', 'Chapter 2/Three', ...CHAPTERS.slice(9)];
-	t.eq(j(await list(p, NNOTE)), j(CORK), 'both are in chapter 2, before Eight, in their order');
-	t.eq(j(await selCards(p)), j(['Novel/Chapter 2/Two.md', 'Novel/Chapter 2/Three.md']), 'still selected');
+	const INSIDE = ['Chapter 1/', 'Chapter 1/One', 'Chapter 1/Four', 'Chapter 1/Five', 'Chapter 1/Six', 'Chapter 1/Two', 'Chapter 1/Three', ...CHAPTERS.slice(7)];
+	t.eq(j(await list(p, NNOTE)), j(INSIDE), 'inside chapter 1, two cards dragged past Six end the chapter, in their order');
+	t.eq(j(await selCards(p)), j(['Novel/Chapter 1/Two.md', 'Novel/Chapter 1/Three.md']), 'still selected');
 	t.ok(await inView(p), 'with the focus on one of them: ' + await focus(p));
 	await p.key('z', 'ctrl');
-	await until(p, `app.vault.adapter.exists('Novel/Chapter 1/Three.md')`);
-	t.eq(j(await list(p, NNOTE)), j(CHAPTERS), 'Ctrl+Z puts both back, files and order');
-	t.ok(/Undid: move 2 items/.test(await notices(p)), 'and says what it undid');
-	await p.key('z', 'ctrl', 'shift');
-	await until(p, `app.vault.adapter.exists('Novel/Chapter 2/Three.md')`);
-	t.eq(j(await list(p, NNOTE)), j(CORK), 'Ctrl+Shift+Z makes the move again');
-	await p.key('z', 'ctrl');
-	await until(p, `app.vault.adapter.exists('Novel/Chapter 1/Three.md')`);
-	t.eq(j(await list(p, NNOTE)), j(CHAPTERS), 'and Ctrl+Z takes it back again');
+	await until(p, `${B}.undoable('Novel') == null`);
+	t.eq(j(await list(p, NNOTE)), j(CHAPTERS), 'and Ctrl+Z puts them back');
+	await upTo(p);
 	await unchanged('after the corkboard');
 	await clearNotices(p);
 
@@ -681,6 +780,7 @@ test('2a. a day of writing: typing in the manuscript with Enter, Backspace and u
 	await p.type(' It took an hour to sink.');
 	await mode(p, h, 'corkboard');
 	t.ok(await inView(p), 'the corkboard has the keyboard: ' + await focus(p));
+	await into(p, L + 'Part Two');
 	const a = await p.at(card(L + 'Part Two/The wreck.md')), b = await p.at(card(L + 'Part Two/Lights out.md'));
 	await p.click(a.x, a.t + 12);
 	await p.click(b.x, b.t + 12, { modifiers: 2 });
@@ -698,6 +798,8 @@ test('2a. a day of writing: typing in the manuscript with Enter, Backspace and u
 	t.eq(j(await selCards(p)), j([L + 'Part Two/The wreck.md']), 'the merged note is selected');
 	t.eq(await p.ev(`document.activeElement?.dataset?.path`), L + 'Part Two/The wreck.md', 'and has the focus');
 	await shot(p, '2a-merged');
+	await upTo(p);
+	t.eq(await p.ev(`document.querySelector(${j(stackSel(L + 'Part Two'))} + ' .binders-card-words')?.textContent.split(' · ')[0]`), '1 note', 'back on the binder’s board, the folder’s stack counts the one note left');
 	await countsAgree(p, h, t, 'The Lighthouse', 'after a day’s writing');
 	await agree(p, h, t, 'The Lighthouse', 'after a day’s writing');
 	t.eq(j(p.errors), '[]', 'nothing was logged as an error');
@@ -706,6 +808,7 @@ test('2a. a day of writing: typing in the manuscript with Enter, Backspace and u
 test('2b. more of the day: a scene duplicated, deleted (asked first) and put back from the trash by hand; “Set synopsis from text” on everything, which fills only the notes without one; a filter by Draft, with counts that say “of”, and writing in the manuscript under it', async (p, h, t) => {
 	const before = await texts(p);
 	await openView(p);
+	await into(p, L + 'Part One');
 	const k = await p.at(card(L + 'Part One/The keeper.md'));
 	await p.right(k.x, k.y);
 	await clickMenu(p, 'Duplicate');
@@ -730,17 +833,30 @@ test('2b. more of the day: a scene duplicated, deleted (asked first) and put bac
 	await p.sleep(800);
 	t.eq(j(await list(p)), j(WITH), 'moved back from the trash by hand, it’s after the note it’s named for again');
 	t.eq(await read(p, L + 'Part One/The keeper 2.md'), before[L + 'Part One/The keeper.md'], 'with all its text');
-	t.eq(j((await cardsIn(p)).map((x) => x.slice(L.length))), j(['Prologue.md', 'Part One/Arrival.md', 'Part One/The keeper.md', 'Part One/The keeper 2.md', 'Part One/Storm warning.md', 'Part Two/The wreck.md', 'Part Two/Lights out.md', 'Epilogue.md']), 'and its card is back');
+	t.eq(j((await cardsIn(p)).map((x) => x.slice(L.length))), j(['Part One/Arrival.md', 'Part One/The keeper.md', 'Part One/The keeper 2.md', 'Part One/Storm warning.md']), 'and its card is back');
+	await upTo(p);
+	t.eq(j((await cardsIn(p)).map((x) => x.slice(L.length))), j(['Prologue.md', 'Part One', 'Part Two', 'Epilogue.md']), 'the binder’s own board: its two loose notes and a stack for each folder');
+	t.eq(await p.ev(`document.querySelector(${j(stackSel(L + 'Part One'))} + ' .binders-card-words')?.textContent.split(' · ')[0]`), '4 notes', 'Part One’s counting four');
 
 	// "Set synopsis from text" on everything: only the three without a synopsis get one
 	await p.ev(`(async () => { for (const n of ['Prologue.md', 'Epilogue.md', 'Part Two/The wreck.md']) await app.fileManager.processFrontMatter(app.vault.getAbstractFileByPath(${j(L)} + n), fm => { delete fm.synopsis; }); })().then(() => 1)`);
 	await p.sleep(500);
 	const mid = await texts(p);
 	await intoView(p);
+	// (a board at a time: the binder's own two notes, then Part Two's)
 	const pr = await p.at(card(L + 'Prologue.md'));
 	await p.click(pr.x, pr.t + 12);
+	await p.click((await p.at(card(L + 'Epilogue.md'))).x, (await p.at(card(L + 'Epilogue.md'))).t + 12, { modifiers: 2 });
+	t.eq((await selCards(p)).length, 2, 'Ctrl-click selects the binder’s two loose notes');
+	await p.key('F10', 'shift');
+	await p.sleep(200);
+	await clickMenu(p, 'Set synopsis from text');
+	await until(p, `['Prologue.md', 'Epilogue.md'].every(n => app.metadataCache.getFileCache(app.vault.getAbstractFileByPath(${j(L)} + n))?.frontmatter?.synopsis)`);
+	await into(p, L + 'Part Two');
+	const wr = await p.at(card(L + 'Part Two/The wreck.md'));
+	await p.click(wr.x, wr.t + 12);
 	await p.key('a', 'ctrl');
-	t.eq((await selCards(p)).length, 8, 'Ctrl+A selects every card');
+	t.eq((await selCards(p)).length, 2, 'Ctrl+A selects every card of the folder shown');
 	await p.key('F10', 'shift');
 	await p.sleep(200);
 	await clickMenu(p, 'Set synopsis from text');
@@ -751,8 +867,9 @@ test('2b. more of the day: a scene duplicated, deleted (asked first) and put bac
 		t.eq(split(await read(p, L + n)).body, split(before[L + n]).body, 'and its text is untouched');
 	}
 	same(t, mid, await texts(p), { skip: ['Prologue.md', 'Epilogue.md', 'Part Two/The wreck.md'].map((n) => L + n) });
-	t.eq((await selCards(p)).length, 8, 'the cards stay selected');
+	t.eq((await selCards(p)).length, 2, 'the cards stay selected');
 	t.ok(await inView(p), 'the keyboard is on the board: ' + await focus(p));
+	await upTo(p);
 
 	// a filter: only the drafts, in every mode, with every count saying so
 	const DRAFTS = ['Prologue.md', 'Part One/The keeper.md', 'Part One/The keeper 2.md', 'Part Two/The wreck.md'].map((n) => L + n);
@@ -763,7 +880,10 @@ test('2b. more of the day: a scene duplicated, deleted (asked first) and put bac
 	await p.sleep(300);
 	t.ok((await menuItems(p)).includes('Clear filter'), 'the menu stays open for another pick, and can clear the filter');
 	await closeMenus(p);
-	t.eq(j(await cardsIn(p)), j(DRAFTS), 'only the drafts show');
+	t.eq(j(await cardsIn(p)), j([L + 'Prologue.md', L + 'Part One', L + 'Part Two']), 'of the binder’s own notes only the draft shows, beside the folders’ stacks');
+	await into(p, L + 'Part One');
+	t.eq(j(await cardsIn(p)), j(DRAFTS.slice(1, 3)), 'inside a folder, only its drafts show');
+	await upTo(p);
 	t.eq(await p.ev(`document.querySelector('${AL} .binders-filter-button .text-button-label').textContent`), 'Filter (1)', 'the button says a filter is on');
 	await shot(p, '2b-filter');
 	// write under the filter, in the manuscript
@@ -789,31 +909,38 @@ test('2b. more of the day: a scene duplicated, deleted (asked first) and put bac
 
 test('2c. places: each mode comes back where it was left (the selected card and the board’s scroll, the outliner’s selection, the manuscript’s cursor, which carries on typing), and Back from a note or a folder returns to the same place', async (p, h, t) => {
 	await chapters(p, 12);
+	// (thirty more loose scenes, so the binder's own board, three stacks and these, is long enough to scroll)
+	await p.ev(`(async () => { for (let i = 1; i <= 30; i++) await ${B}.newScene(app.vault.getAbstractFileByPath('Novel'), Infinity, 'Loose ' + i); await ${B}.flush(); ${B}.undos = []; ${B}.redos = []; })().then(() => 1)`);
+	await p.sleep(400);
 	await openView(p, 'Novel');
 	const top = () => p.ev(`Math.round(document.querySelector('${AL} .binders-corkboard').scrollTop)`);
-	const fourteen = card(N + 'Chapter 3/Fourteen.md');
-	await p.ev(`document.querySelector(${j(fourteen)}).scrollIntoView({ block: 'center' })`);
+	const far = card(N + 'Loose 28.md');
+	await p.ev(`document.querySelector(${j(far)}).scrollIntoView({ block: 'center' })`);
 	await p.sleep(300);
-	const c = await p.at(fourteen);
+	const c = await p.at(far);
 	await p.click(c.x, c.t + 12);
 	const corkTop = await top();
-	t.ok(corkTop > 100, 'the board is scrolled down to Fourteen');
+	t.ok(corkTop > 100, 'the board is scrolled down to Loose 28');
 	await mode(p, h, 'manuscript');
 	await clickEnd(p, 'Nine');
 	await p.type(' TYPED-IN-NINE.');
-	await mode(p, h, 'outliner');
-	const el = await oname(p, N + 'Chapter 2/Eleven.md');
-	await p.click(el.x, el.y);
+	// a look at the corkboard, and back: the cursor where it was. (A scene inside a chapter has no card on the binder's
+	// own board, so the board just keeps the keyboard: the UX: qa7 test. With a row or a card selected on the way, the
+	// manuscript goes to that note instead, one selection across the modes: the UX tests and the BUG: qa7 test below.)
 	await mode(p, h, 'corkboard');
-	// (the row the writer went to in the outliner is the card the corkboard opens on: one selection across the modes)
-	t.eq(j(await selCards(p)), j([N + 'Chapter 2/Eleven.md']), 'back on the corkboard: the card of the row just selected in the outliner');
-	t.eq(await p.ev(`document.activeElement?.dataset?.path`), N + 'Chapter 2/Eleven.md', 'with the focus');
+	t.ok(await inView(p), 'back on the corkboard: it has the keyboard: ' + await focus(p));
+	t.ok(Math.abs(await top() - corkTop) < 40, `and is scrolled where it was (${corkTop}, now ${await top()})`);
 	await mode(p, h, 'manuscript');
 	await p.sleep(500);
 	t.eq(await caretScene(p), 'Nine', 'back in the manuscript: the cursor in the section it was in');
 	await p.type(' AND-MORE.');
 	await p.sleep(SAVED);
 	t.ok((await read(p, N + 'Chapter 2/Nine.md')).endsWith('nobody came. TYPED-IN-NINE. AND-MORE.\n'), 'and typing carries on where it left off: ' + (await read(p, N + 'Chapter 2/Nine.md')).slice(-60));
+	// a row selected in the outliner, a look at the corkboard, and back
+	await mode(p, h, 'outliner');
+	const el = await oname(p, N + 'Chapter 2/Eleven.md');
+	await p.click(el.x, el.y);
+	await mode(p, h, 'corkboard');
 	await mode(p, h, 'outliner');
 	t.eq(j(await selRows(p)), j([N + 'Chapter 2/Eleven.md']), 'back in the outliner: the row that was selected');
 	t.eq(await p.ev(`document.activeElement?.dataset?.path`), N + 'Chapter 2/Eleven.md', 'with the focus');
@@ -873,11 +1000,13 @@ test('3. finishing: every scene marked Done at once; two left out of the compile
 	await p.click(box.x, box.y);
 	await until(p, `app.metadataCache.getFileCache(app.vault.getAbstractFileByPath(${j(L + 'Part One/Storm warning.md')}))?.frontmatter?.compile === false`);
 	await mode(p, h, 'corkboard');
+	await into(p, L + 'Part One');
 	const k = await p.at(card(L + 'Part One/The keeper.md'));
 	await p.right(k.x, k.y);
 	t.ok(await p.ev(`!![...document.querySelectorAll('.menu .menu-item')].find(e => e.querySelector('.menu-item-title')?.textContent === 'Include in compile')?.querySelector('.mod-checked, .mod-selected, .menu-item-icon.mod-selected')`), '“Include in compile” is ticked on a note that’s in');
 	await clickMenu(p, 'Include in compile');
 	await until(p, `app.metadataCache.getFileCache(app.vault.getAbstractFileByPath(${j(L + 'Part One/The keeper.md')}))?.frontmatter?.compile === false`);
+	await upTo(p);
 	for (const n of ['Part One/The keeper.md', 'Part One/Storm warning.md']) t.eq(await read(p, L + n), done[L + n].replace(/\n---\n/, '\ncompile: false\n---\n'), `“${n}”: one more property, nothing else changed`);
 
 	// the dialog, worked by hand
@@ -973,8 +1102,10 @@ test('4a. living with Obsidian: three binder views side by side (corkboard, outl
 	const strip = (x) => x.split('/').pop().replace('.md', '');
 	const all = async (when) => {
 		await p.sleep(700);
-		const want = (await list(p)).filter((x) => !x.endsWith('/')).map(strip);
-		t.eq(j(await inLeaf(p, 0, `(el) => [...el.querySelectorAll('.binders-card[data-path]')].map(c => c.dataset.path.split('/').pop().replace('.md', ''))`)), j(want), `${when}: the corkboard`);
+		const full = await list(p), want = full.filter((x) => !x.endsWith('/')).map(strip);
+		// (the corkboard: the binder's own notes, and a stack for each folder that counts the notes in it)
+		const own = full.filter((x) => (x.endsWith('/') ? x.split('/').length === 2 : !x.includes('/'))).map((x) => (x.endsWith('/') ? `${x.slice(0, -1)} (${full.filter((y) => y.startsWith(x) && !y.endsWith('/')).length})` : x));
+		t.eq(j(await inLeaf(p, 0, `(el) => [...el.querySelectorAll('.binders-card[data-path]')].map(c => c.dataset.path.split('/').pop().replace('.md', '') + (c.classList.contains('is-stack') ? ' (' + parseInt(c.querySelector('.binders-card-words')?.textContent ?? '') + ')' : ''))`)), j(own), `${when}: the corkboard`);
 		t.eq(j((await inLeaf(p, 1, `(el) => [...el.querySelectorAll('.binders-outliner-row')].map(c => c.dataset.path)`)).filter((x) => /\.md$/.test(x)).map(strip)), j(want), `${when}: the outliner`);
 		t.eq(j(await inLeaf(p, 2, `(el) => [...el.querySelectorAll('.binders-manuscript-scene .binders-manuscript-title')].map(c => c.textContent)`)), j(want), `${when}: the manuscript`);
 		t.eq(j((await explorerRows(p, 'The Lighthouse')).filter((x) => /\.md$/.test(x)).map(strip)), j(want), `${when}: the file explorer`);
@@ -1017,7 +1148,7 @@ test('4a. living with Obsidian: three binder views side by side (corkboard, outl
 	await p.ev(`app.vault.process(app.vault.getAbstractFileByPath(${j(NOTE)}), s => s.replace('  - Prologue\\n', '').replace('  - Epilogue\\n', '  - Epilogue\\n  - Prologue\\n  - Ghost\\n')).then(() => 1)`);
 	await p.sleep(900);
 	const shown = ['The keeper', 'Storm warning', 'Arrival', 'The wreck', 'Lights out', 'Epilogue', 'Prologue'];
-	t.eq(j(await inLeaf(p, 0, `(el) => [...el.querySelectorAll('.binders-card[data-path]')].map(c => c.dataset.path.split('/').pop().replace('.md', ''))`)), j(shown), 'the list edited by hand: the corkboard follows (a line for a note that isn’t there shows nothing)');
+	t.eq(j(await inLeaf(p, 0, `(el) => [...el.querySelectorAll('.binders-card[data-path]')].map(c => c.dataset.path.split('/').pop().replace('.md', ''))`)), j(['Part One', 'Part Two', 'Epilogue', 'Prologue']), 'the list edited by hand: the corkboard follows (a line for a note that isn’t there shows nothing)');
 	t.eq(j(await inLeaf(p, 2, `(el) => [...el.querySelectorAll('.binders-manuscript-scene .binders-manuscript-title')].map(c => c.textContent)`)), j(shown), 'and the manuscript');
 	t.eq(j((await explorerRows(p, 'The Lighthouse')).filter((x) => /\.md$/.test(x)).map(strip)), j(shown), 'and the explorer');
 	const now = await texts(p);
@@ -1026,7 +1157,7 @@ test('4a. living with Obsidian: three binder views side by side (corkboard, outl
 	t.eq(j(p.errors), '[]', 'nothing was logged as an error');
 });
 
-test('4b. the same scene in a tab beside the manuscript, typed in turn in both at a writer’s pace: every word is kept, once; a corkboard beside the manuscript counts the words as they’re saved, and a card dragged there moves its section in the manuscript', async (p, h, t) => {
+test('4b. the same scene in a tab beside the manuscript, typed in turn in both at a writer’s pace: every word is kept, once; a corkboard beside the manuscript counts the words as they’re saved, and a folder’s stack dragged there moves its sections in the manuscript', async (p, h, t) => {
 	const before = await texts(p), A = L + 'Part One/Arrival.md', bodyA = split(before[A]).body.trimEnd();
 	await openView(p);
 	await mode(p, h, 'manuscript');
@@ -1065,11 +1196,12 @@ test('4b. the same scene in a tab beside the manuscript, typed in turn in both a
 	t.eq(j(await p.ev(`app.workspace.getLeavesOfType('binders-view').map(l => l.view.contentEl.querySelector('.binders-word-count')?.textContent)`)), j(new Array(2).fill(words(total))), 'and both toolbars say what’s on disk');
 	// a card dragged in the corkboard, while the cursor is in the manuscript's text
 	const cs = (path) => `.binders-card[data-path="${path}"]`;
-	const a = await p.at(cs(L + 'Part One/Storm warning.md')), b = await p.at(cs(L + 'Part One/Arrival.md'));
+	// (the binder's own board: Part Two's stack, to before Part One's)
+	const a = await p.at(cs(L + 'Part Two')), b = await p.at(cs(L + 'Part One'));
 	await drag(p, { x: a.x, y: a.t + 12 }, { x: b.l + 8, y: b.y });
 	await p.sleep(500);
-	t.eq(j((await list(p)).slice(1, 5)), j(['Part One/', 'Part One/Storm warning', 'Part One/Arrival', 'Part One/The keeper']), 'Storm warning dragged to the front of its chapter, on the corkboard');
-	t.eq(j(await p.ev(`[...document.querySelectorAll('.binders-manuscript-scene .binders-manuscript-title')].map(e => e.textContent)`)), j(['Prologue', 'Storm warning', 'Arrival', 'The keeper', 'The wreck', 'Lights out', 'Epilogue']), 'the manuscript beside it follows');
+	t.eq(j((await list(p)).filter((x) => !x.includes('/') || x.endsWith('/'))), j(['Prologue', 'Part Two/', 'Part One/', 'Epilogue']), 'Part Two’s stack dragged before Part One’s, on the corkboard');
+	t.eq(j(await p.ev(`[...document.querySelectorAll('.binders-manuscript-scene .binders-manuscript-title')].map(e => e.textContent)`)), j(['Prologue', 'The wreck', 'Lights out', 'Arrival', 'The keeper', 'Storm warning', 'Epilogue']), 'the manuscript beside it follows: the folder’s sections move with it');
 	t.eq(split(await read(p, E)).body, split(before[E]).body.trimEnd() + ' Four more words here.\n', 'and the scene being written has all its words');
 	same(t, before, await texts(p), { skip: [A, E, NOTE] });
 	t.eq(j(p.errors), '[]', 'nothing was logged as an error');
@@ -1165,34 +1297,36 @@ test('5a. a Longform project in each mode: cards grouped under the scene they’
 	await p.click(nb.x, nb.y);
 	t.eq(j(await menuItems(p)), j(['New note']), 'New makes notes only: a Longform project has no folders');
 	await clickMenu(p, 'New note');
+	// (the card just dragged is selected: the new scene goes after it, its name ready to type)
+	await until(p, `document.activeElement?.matches('${AL} .binders-card-title input')`);
 	await p.type('Customs');
 	await p.key('Enter');
 	await until(p, `app.vault.adapter.exists(${j(D + '/Customs.md')})`);
 	await p.sleep(300);
 	await p.key('Escape');
-	const NOW = ['- Harbor', '- - Ticket office', '  - The crossing', '- Return', '- Island', '- Customs'];
-	t.eq(j(await lfScenes(p)), j(NOW), 'a new scene is listed last');
+	const NOW = ['- Harbor', '- - Ticket office', '  - The crossing', '- Return', '- Customs', '- Island'];
+	t.eq(j(await lfScenes(p)), j(NOW), 'a new scene is listed after the selected card');
 	// the outliner: indents, with the keyboard
 	await mode(p, h, 'outliner');
-	t.eq(j(await levels(p)), j(['1 Harbor', '2 Ticket office', '2 The crossing', '1 Return', '1 Island', '1 Customs']), 'the outliner indents as Longform does');
+	t.eq(j(await levels(p)), j(['1 Harbor', '2 Ticket office', '2 The crossing', '1 Return', '1 Customs', '1 Island']), 'the outliner indents as Longform does');
 	const r = await oname(p, D + '/Return.md');
 	await p.click(r.x, r.y);
 	await p.key('ArrowRight', 'alt');
 	await p.sleep(500);
-	t.eq(j(await lfScenes(p)), j(['- Harbor', '- - Ticket office', '  - The crossing', '  - Return', '- Island', '- Customs']), 'Alt+Right indents the scene: it joins the group above');
+	t.eq(j(await lfScenes(p)), j(['- Harbor', '- - Ticket office', '  - The crossing', '  - Return', '- Customs', '- Island']), 'Alt+Right indents the scene: it joins the group above');
 	t.eq(await p.ev(`document.activeElement?.dataset?.path`), D + '/Return.md', 'and keeps the focus');
 	await p.key('ArrowLeft', 'alt');
 	await p.sleep(500);
 	t.eq(j(await lfScenes(p)), j(NOW), 'Alt+Left takes it out again');
 	await p.key('z', 'ctrl');
 	await p.sleep(600);
-	t.eq(j(await lfScenes(p)), j(['- Harbor', '- - Ticket office', '  - The crossing', '  - Return', '- Island', '- Customs']), 'Ctrl+Z puts the indent back');
+	t.eq(j(await lfScenes(p)), j(['- Harbor', '- - Ticket office', '  - The crossing', '  - Return', '- Customs', '- Island']), 'Ctrl+Z puts the indent back');
 	await p.key('z', 'ctrl');
 	await p.sleep(600);
 	t.eq(j(await lfScenes(p)), j(NOW), 'and again takes it away');
 	// the manuscript: a split; then a merge of the two halves on the corkboard
 	await mode(p, h, 'manuscript');
-	t.eq(j(await sectionsIn(p)), j(['Harbor', 'Ticket office', 'The crossing', 'Return', 'Island', 'Customs']), 'the manuscript: every scene in order');
+	t.eq(j(await sectionsIn(p)), j(['Harbor', 'Ticket office', 'The crossing', 'Return', 'Customs', 'Island']), 'the manuscript: every scene in order');
 	await clickEnd(p, 'Island');
 	await p.key('Enter'); await p.key('Enter');
 	await p.type('The far side of the island had no path.');
@@ -1200,7 +1334,7 @@ test('5a. a Longform project in each mode: cards grouped under the scene they’
 	await h.run('split-scene');
 	await until(p, `app.vault.adapter.exists(${j(D + '/Island 2.md')})`);
 	await p.sleep(600);
-	t.eq(j(await lfScenes(p)), j(['- Harbor', '- - Ticket office', '  - The crossing', '- Return', '- Island', '- Island 2', '- Customs']), 'a split lists the new scene right after, at the same indent');
+	t.eq(j(await lfScenes(p)), j(['- Harbor', '- - Ticket office', '  - The crossing', '- Return', '- Customs', '- Island', '- Island 2']), 'a split lists the new scene right after, at the same indent');
 	await mode(p, h, 'corkboard');
 	const i1 = await p.at(card(D + '/Island.md')), i2 = await p.at(card(D + '/Island 2.md'));
 	await p.click(i1.x, i1.t + 12);
@@ -1225,7 +1359,7 @@ test('5a. a Longform project in each mode: cards grouped under the scene they’
 	const now = await texts(p);
 	t.eq(rest(now[INDEX]), rest(before[INDEX]), 'the index note: only longform.scenes changed');
 	same(t, before, now, { skip: [INDEX, D + '/Island.md'] });
-	t.eq(j((await explorerRows(p, D)).map((x) => x.split('/').pop())), j(['Harbor.md', 'Ticket office.md', 'The crossing.md', 'Return.md', 'Island.md', 'Customs.md', 'Notes on ferries.md']), 'the explorer shows the project in its order, the note Longform ignores last');
+	t.eq(j((await explorerRows(p, D)).map((x) => x.split('/').pop())), j(['Harbor.md', 'Ticket office.md', 'The crossing.md', 'Return.md', 'Customs.md', 'Island.md', 'Notes on ferries.md']), 'the explorer shows the project in its order, the note Longform ignores last');
 	t.eq(j(p.errors), '[]', 'nothing was logged as an error');
 });
 
@@ -1286,7 +1420,7 @@ for (const [folders, remove] of [[false, false], [true, true]]) {
 // 6. A big book
 // ================================================================================================================
 
-test('6. a big book, 300 scenes in 30 folders: every mode opens quickly, a drag within a chapter and one to a chapter far below (the board scrolling under the pointer) are written at once and undone, a row dragged, the whole book sorted, kept and undone, and typing at the very end of the manuscript saved', async (p, h, t) => {
+test('6. a big book, 300 scenes in 30 folders: every mode opens quickly, a drag within a chapter and one of a whole chapter to far below (the board scrolling under the pointer) are written at once and undone, a row dragged, the whole book sorted, kept and undone, and typing at the very end of the manuscript saved', async (p, h, t) => {
 	await p.ev(`(async () => {
 		const words = 'the keeper climbed the stair again while the sea kept on at the rocks below and nobody came '.repeat(14);
 		const statuses = ['Idea', 'Draft', 'Revised', 'Done'], labels = ['Red', 'Blue', 'Green', ''];
@@ -1318,12 +1452,15 @@ test('6. a big book, 300 scenes in 30 folders: every mode opens quickly, a drag 
 		t.ok(ms < LIMIT.open, `the ${m} opens in ${ms}ms (limit ${LIMIT.open})`);
 		await p.sleep(700);
 	}
-	t.eq((await cardsIn(p)).length, 300, 'three hundred cards');
+	t.eq((await cardsIn(p)).length, 30, 'thirty stacks, one for each chapter');
 	await until(p, `document.querySelector('${AL} .binders-word-count')?.textContent === '75,600 words'`, 15000);
 	t.eq(await toolbarCount(p), '75,600 words', 'and their words, all counted');
+	t.eq(j(await p.ev(`[...new Set([...document.querySelectorAll('${AL} .binders-card.is-stack .binders-card-words')].map(e => e.textContent))]`)), j(['10 notes · 2,520 words']), 'each stack counting its ten scenes');
 	// a drag within the first chapter: written, and the board doesn't jump
 	const c = (a, n) => card(`Saga/${ch(a)}/${sc(n)}.md`);
 	const top = () => p.ev(`Math.round(document.querySelector('${AL} .binders-corkboard').scrollTop)`);
+	await into(p, 'Saga/' + ch(1));
+	t.eq((await cardsIn(p)).length, 10, 'inside a chapter: its ten cards');
 	let a = await p.at(c(1, 1)), b = await p.at(c(1, 4)), t0 = Date.now();
 	await p.drag(a.x, a.t + 12, b.x + b.w / 2 - 6, b.y, 16);
 	t.ok(await until(p, `${B}.orderedChildren(app.vault.getAbstractFileByPath('Saga/Chapter 01'))[3]?.basename === 'Scene 001'`, LIMIT.drag), 'a card dragged past three others lands after them');
@@ -1331,34 +1468,43 @@ test('6. a big book, 300 scenes in 30 folders: every mode opens quickly, a drag 
 	t.eq(await first(), '1/ 2 3 4 1 5 6 7 8 9 10', 'the list on disk has it');
 	t.eq(await top(), 0, 'and the board hasn’t moved');
 	await p.sleep(500);
-	// a drag to a chapter far below: held at the bottom edge, the board scrolls; dropped, it's in that chapter
-	a = await p.at(c(1, 2));
+	// back on the binder's board: the first chapter's stack dragged far below: held at the bottom edge, the board
+	// scrolls; dropped at the edge of a stack down there, the whole chapter is there
+	await upTo(p);
+	const far = await p.ev(`(() => { const s = document.querySelector('${AL} .binders-corkboard'); return s.scrollHeight - s.clientHeight; })()`);
+	t.ok(far > 150, `thirty stacks are more than a screen (${far}px to scroll)`);
+	a = await p.at(stackSel('Saga/' + ch(1)));
 	const view = await p.at(`${AL} .binders-corkboard`);
 	await p.move(a.x, a.t + 12, 2);
 	await p.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: a.x, y: a.t + 12, button: 'left', clickCount: 1 });
 	await p.move(a.x, view.t + view.h - 10, 10, { buttons: 1 });
 	await p.sleep(2500);
 	const scrolled = await top();
-	t.ok(scrolled > 800, `held at the bottom edge, the board scrolls on (${scrolled}px in 2.5s)`);
-	await p.move(a.x, view.t + view.h - 120, 4, { buttons: 1 });
+	t.ok(scrolled > Math.min(800, far - 5), `held at the bottom edge, the board scrolls on (${scrolled}px of ${far} in 2.5s)`);
+	// (the left edge of a stack in the lowest row that's clear of the board's edges: beside it, not into it)
+	const edge = await p.ev(`(() => { const v = document.querySelector('${AL} .binders-corkboard').getBoundingClientRect(); const rs = [...document.querySelectorAll('${AL} .binders-card.is-stack[data-path]:not(.is-dragging)')].map(c => c.getBoundingClientRect()).filter(r => r.top > v.top + 70 && r.bottom < v.bottom - 70); if (!rs.length) return null; const low = Math.max(...rs.map(r => r.top)); const r = rs.filter(r => Math.abs(r.top - low) < 2).sort((a, b) => Math.abs(a.left - ${a.x}) - Math.abs(b.left - ${a.x}))[0]; return { x: r.left + 6, y: r.top + r.height / 2 }; })()`);
+	t.ok(edge != null, 'a row of stacks is in sight down there');
+	await p.move(edge.x, edge.y, 4, { buttons: 1 });
 	await p.sleep(300);
-	await p.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: a.x, y: view.t + view.h - 120, button: 'left', clickCount: 1 });
-	await until(p, `app.vault.getMarkdownFiles().find(f => f.basename === 'Scene 002').parent.name !== 'Chapter 01'`, LIMIT.drag);
+	t.ok(await p.ev(`!!document.querySelector('.binders-drop-indicator.is-active')`), 'a line shows where the chapter will go');
+	await p.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: edge.x, y: edge.y, button: 'left', clickCount: 1 });
+	await until(p, `${B}.scenes(app.vault.getAbstractFileByPath('Saga'))[0]?.basename !== 'Scene 002'`, LIMIT.drag);
 	await p.sleep(800);
-	const landed = await p.ev(`app.vault.getMarkdownFiles().find(f => f.basename === 'Scene 002').path`);
-	t.ok(/^Saga\/Chapter 0[3-9]\//.test(landed), 'dropped there, the scene is in a chapter far below: ' + landed);
+	const landed = await p.ev(`${B}.orderedChildren(app.vault.getAbstractFileByPath('Saga')).map(f => f.name).indexOf('Chapter 01')`);
+	t.ok(landed >= 20, `dropped there, the chapter is far down the binder (place ${landed + 1} of 30)`);
+	t.eq(await p.ev(`app.vault.getMarkdownFiles().filter(f => f.path.startsWith('Saga/Chapter 01/')).length`), 10, 'with its ten scenes');
 	t.ok(Math.abs(await top() - scrolled) < 40, 'the board stays where it was scrolled to');
-	t.eq(j(await selCards(p)), j([landed]), 'the card is selected where it landed');
+	t.eq(j(await selCards(p)), j(['Saga/Chapter 01']), 'the stack is selected where it landed');
 	t.ok(await inView(p), 'with the keyboard on the board: ' + await focus(p));
 	await p.key('z', 'ctrl');
-	await until(p, `!!app.vault.getAbstractFileByPath('Saga/Chapter 01/Scene 002.md')`, LIMIT.drag);
-	t.eq(await first(), '1/ 2 3 4 1 5 6 7 8 9 10', 'Ctrl+Z brings it back to where it was in chapter 1');
+	await until(p, `${B}.orderedChildren(app.vault.getAbstractFileByPath('Saga'))[0]?.name === 'Chapter 01'`, LIMIT.drag);
+	t.eq(await first(), '1/ 2 3 4 1 5 6 7 8 9 10', 'Ctrl+Z brings it back to the front of the book');
 	// the outliner: a row into the next chapter; then the whole book sorted, kept, and undone
 	await mode(p, h, 'outliner');
 	await p.sleep(600);
-	const r = await oname(p, `Saga/${ch(1)}/${sc(3)}.md`), into = await p.at(orow(`Saga/${ch(2)}`));
+	const r = await oname(p, `Saga/${ch(1)}/${sc(3)}.md`), next = await p.at(orow(`Saga/${ch(2)}`));
 	t0 = Date.now();
-	await p.drag(r.x, r.y, r.x, into.y, 14);
+	await p.drag(r.x, r.y, r.x, next.y, 14);
 	t.ok(await until(p, `!!app.vault.getAbstractFileByPath('Saga/Chapter 02/Scene 003.md')`, LIMIT.drag), 'a row dropped on the next chapter moves into it');
 	t.ok(Date.now() - t0 < LIMIT.drag, `in ${Date.now() - t0}ms (limit ${LIMIT.drag})`);
 	await p.sleep(600);
@@ -1502,12 +1648,14 @@ bug('“Convert to binder” with “Move groups into folders”, while the proj
 	await until(p, `${B}.binderOf(${j(D + '/Island.md')})?.kind === 'binder'`);
 	await p.sleep(1200);
 	t.eq(j(await list(p, INDEX)), j(['Harbor', 'Harbor/', 'Harbor/Ticket office', 'Harbor/The crossing', 'Island', 'Return']), 'the binder has a Harbor folder');
-	t.eq(await p.ev(`document.querySelectorAll('${AL} .binders-group.is-folder').length`), 1, 'which the corkboard shows under a folder’s heading');
+	t.eq(j((await cardsIn(p)).map((x) => x.slice(D.length + 1))), j(['Harbor.md', 'Harbor', 'Island.md', 'Return.md', 'Notes on ferries.md']), 'which the corkboard shows as a folder’s stack, after the scene it’s named for');
+	t.eq(await p.ev(`document.querySelectorAll('${AL} .binders-card.is-stack').length + ' ' + document.querySelectorAll('${AL} .binders-group-heading').length`), '1 0', 'a stack, and no Longform group under a heading');
 	const nb = await toolbar(p, 'binders-new-button');
 	await p.click(nb.x, nb.y);
 	const items = await menuItems(p);
 	await closeMenus(p);
 	t.ok(items.includes('New folder'), 'New offers a folder now: ' + items.join(', '));
+	await into(p, D + '/Harbor');
 	const a = await p.at(card(D + '/Harbor/The crossing.md')), b = await p.at(card(D + '/Harbor/Ticket office.md'));
 	await drag(p, { x: a.x, y: a.t + 12 }, { x: b.l + 8, y: b.y });
 	await p.sleep(800);
@@ -1556,20 +1704,74 @@ bug('the outliner: a click on a column’s header sorts by it and leaves the sel
 bug('the corkboard keeps its selection, and the keyboard, when the selected cards change folder by an undo (the outliner follows renames; src/view/corkboard.ts doesn’t)', async (p, h, t) => {
 	await openView(p);
 	await p.ev(`(() => { ${B}.undos = []; ${B}.redos = []; return 1; })()`);
-	const a = await p.at(card(A)), w = await p.at(card(L + 'Part Two/The wreck.md'));
-	await drag(p, { x: a.x, y: a.t + 12 }, { x: w.l + 8, y: w.y });
-	await until(p, `app.vault.adapter.exists(${j(L + 'Part Two/Arrival.md')})`);
+	// (a board shows one folder: a card that changes folder leaves it. Prologue is dropped on Part Two's stack; inside
+	// Part Two it's selected, and the move is taken back: it leaves that board, and the keyboard stays on it)
+	const P = L + 'Prologue.md', P2 = L + 'Part Two/Prologue.md';
+	const a = await p.at(card(P)), w = await p.at(stackSel(L + 'Part Two'));
+	await drag(p, { x: a.x, y: a.t + 12 }, { x: w.x, y: w.y });
+	await until(p, `app.vault.adapter.exists(${j(P2)})`);
 	await p.sleep(500);
-	t.eq(j(await selCards(p)), j([L + 'Part Two/Arrival.md']), 'dropped in Part Two, the card is selected');
+	t.eq(j(await cardsIn(p)), j([L + 'Part One', L + 'Part Two', L + 'Epilogue.md']), 'dropped on Part Two’s stack, the card is in that folder');
+	await into(p, L + 'Part Two');
+	const c = await p.at(card(P2));
+	await p.click(c.x, c.t + 12);
+	t.eq(j(await selCards(p)), j([P2]), 'inside the folder, the card is selected');
 	await p.key('z', 'ctrl');
-	await until(p, `app.vault.adapter.exists(${j(A)})`);
+	await until(p, `app.vault.adapter.exists(${j(P)})`);
 	await p.sleep(600);
-	t.eq(j(await selCards(p)), j([A]), 'undone, it’s still the selected card');
+	t.eq(j(await cardsIn(p)), j([L + 'Part Two/The wreck.md', L + 'Part Two/Lights out.md']), 'undone, it’s gone from this board');
 	t.ok(await inView(p), 'and the board still has the keyboard: ' + await focus(p));
+	await p.key('ArrowRight');
+	await p.sleep(150);
+	t.eq((await selCards(p)).length, 1, 'an arrow key selects a card');
+	await upTo(p);
+	t.eq(j(await cardsIn(p)), j([P, L + 'Part One', L + 'Part Two', L + 'Epilogue.md']), 'and on the binder’s board it’s back where it was');
+});
+
+// Round 7 (the board of one folder at a time): cards dropped on a folder's stack leave the board.
+bug('qa7: the corkboard keeps the keyboard when the cards being moved leave the board (dropped on a folder’s stack): an arrow key right after goes to a card (the focus goes to the page with the cards that left, so the board’s keys do nothing until it’s clicked)', async (p, h, t) => {
+	await openView(p);
+	await p.ev(`(() => { ${B}.undos = []; ${B}.redos = []; return 1; })()`);
+	const P = L + 'Prologue.md';
+	const a = await p.at(card(P)), w = await p.at(stackSel(L + 'Part Two'));
+	await drag(p, { x: a.x, y: a.t + 12 }, { x: w.x, y: w.y });
+	await until(p, `app.vault.adapter.exists(${j(L + 'Part Two/Prologue.md')})`);
+	await p.sleep(600);
+	t.eq(j(await list(p)), j([...LIST.slice(1, 8), 'Part Two/Prologue', 'Epilogue']), 'dropped on Part Two’s stack, the note is the folder’s last');
+	t.ok(await inView(p), 'after the drop the keyboard is still in the view (on the stack the cards went into, say): ' + await focus(p));
+	await p.key('ArrowRight');
+	await p.sleep(200);
+	t.eq((await selCards(p)).length, 1, 'and an arrow key selects a card');
+	// (Ctrl+Z is the view's own, whatever has the focus in it)
+	await p.key('z', 'ctrl');
+	await until(p, `app.vault.adapter.exists(${j(P)})`);
+	t.eq(j(await list(p)), j(LIST), 'Ctrl+Z takes the move back: the order as it was');
+});
+
+bug('qa7: “New scene here” in the file explorer’s menu, with the binder’s corkboard in front: the new card’s name is ready to type (the card shows, but the keyboard stays where it was: what’s typed for the name goes to the board’s own keys, and Enter opens the card that had the focus)', async (p, h, t) => {
+	const before = await texts(p);
+	await openView(p);
+	const c = await p.at(card(L + 'Prologue.md'));
+	await p.click(c.x, c.t + 12);
+	await explorerRows(p, 'The Lighthouse');
+	const r = await exRow(p, 'The Lighthouse');
+	await p.right(r.x, r.y);
+	await clickMenu(p, 'New scene here');
+	await until(p, `app.vault.adapter.exists(${j(L + 'Untitled.md')})`);
+	await until(p, `document.activeElement?.matches('.inline-title, .binders-edit-field')`, 2500);
+	const was = await focus(p);
+	t.ok((await cardsIn(p)).includes(L + 'Untitled.md'), 'the new note has a card on the board');
+	await p.type('Afterword');
+	await p.key('Enter');
+	await p.sleep(1200);
+	const named = await exists(p, L + 'Afterword.md'), opened = await p.ev(`app.workspace.getActiveFile()?.path ?? null`);
+	t.ok(named, `its name is ready to type over, and Enter names it (the keyboard was on: ${was}; the note is still “Untitled”, and ${opened ? `“${opened}” was opened instead` : 'nothing else happened'})`);
+	t.eq(j((await list(p)).slice(-2)), j(['Epilogue', 'Afterword']), 'last in the binder');
+	same(t, before, await texts(p), { skip: [NOTE] });
 });
 
 bug('the corkboard keeps its selection when the selected note is renamed somewhere else (the file explorer, the note’s own title)', async (p, h, t) => {
-	await openView(p);
+	await openView(p, L + 'Part One');
 	const a = await p.at(card(A));
 	await p.click(a.x, a.t + 12);
 	await p.ev(`app.fileManager.renameFile(app.vault.getAbstractFileByPath(${j(A)}), ${j(L + 'Part One/Landing.md')}).then(() => 1)`);
@@ -1580,7 +1782,7 @@ bug('the corkboard keeps its selection when the selected note is renamed somewhe
 
 // ---- the keyboard, lost to nowhere ----
 
-bug('the corkboard: once a folder made by “New folder from selection” is named, the keyboard is still on the board (the heading is drawn again under its new name, and nothing takes the focus)', async (p, h, t) => {
+bug('the corkboard: once a folder made by “New folder from selection” is named, the keyboard is still on the board (the folder is drawn again under its new name, and nothing takes the focus)', async (p, h, t) => {
 	await novel(p, NAMES.slice(0, 4));
 	await openView(p, 'Novel');
 	const a = await p.at(card(N + 'One.md')), k = await p.at(card(N + 'Two.md'));
@@ -1588,12 +1790,16 @@ bug('the corkboard: once a folder made by “New folder from selection” is nam
 	await p.click(k.x, k.t + 12, { modifiers: 2 });
 	await p.right(k.x, k.y);
 	await clickMenu(p, 'New folder from selection');
-	await until(p, `document.activeElement?.matches('${AL} .binders-group-name input')`);
+	await until(p, `document.activeElement?.matches('${AL} .binders-card.is-stack .binders-card-title input')`);
 	await p.type('Chapter 1');
 	await p.key('Enter');
 	await until(p, `app.vault.adapter.exists('Novel/Chapter 1/Two.md')`);
 	await p.sleep(500);
-	t.ok(await inView(p), 'the focus is in the view (on the folder’s heading, or a card in it), not on the page: ' + await focus(p));
+	t.ok(await inView(p), 'the focus is in the view (on the folder’s stack), not on the page: ' + await focus(p));
+	t.eq(await p.ev(`document.activeElement?.dataset?.path ?? null`), 'Novel/Chapter 1', 'on the new folder’s stack');
+	await p.key('Enter');
+	await until(p, `${VIEW}?.folder?.path === 'Novel/Chapter 1'`);
+	t.eq(j(await cardsIn(p)), j(['Novel/Chapter 1/One.md', 'Novel/Chapter 1/Two.md']), 'and Enter goes into it: the two scenes');
 });
 
 bug('a binder opened from the file explorer has the keyboard: an arrow key goes to a card (src/main.ts openBinder focuses the pane, and nothing in it)', async (p, h, t) => {
@@ -1629,7 +1835,7 @@ bug('Back from a note to the binder view gives the keyboard back to it, as Back 
 	await backButton(p);
 	t.ok(await p.ev(`!!document.activeElement?.closest('.cm-content')`), 'Obsidian: Back to a note puts the cursor in it');
 	await p.ev(`app.workspace.getMostRecentLeaf().detach()`);
-	await openView(p);
+	await openView(p, L + 'Part One');
 	const c = await p.at(card(K));
 	await p.click(c.x, c.t + 12);
 	await p.key('Enter');
@@ -1657,10 +1863,35 @@ bug('after a section is deleted in the manuscript, the cursor is in a neighbouri
 	t.eq(await caretScene(p), 'Lights out', 'in the section that followed');
 });
 
+bug('qa7: a note selected in the outliner (or on the corkboard) is the section the manuscript opens on, with the cursor in it (when the section has to be scrolled into view, the cursor is put in the section before it: the section is brought to the window’s foot, and the keyboard goes to the one above)', async (p, h, t) => {
+	await chapters(p, 12);
+	await openView(p, 'Novel');
+	const got = [];
+	const from = async (row) => {
+		await mode(p, h, 'outliner');
+		const r = await oname(p, N + row + '.md');
+		await p.click(r.x, r.y);
+		await mode(p, h, 'manuscript');
+		await p.sleep(800);
+		got.push(`${row.split('/').pop()} → ${await caretScene(p)}`);
+	};
+	for (const row of ['Chapter 2/Eleven', 'Twenty', 'Chapter 1/Three', 'Chapter 3/Sixteen']) await from(row);
+	// and from a card
+	await mode(p, h, 'corkboard');
+	const c = await p.at(card(N + 'Nineteen.md'));
+	await p.click(c.x, c.t + 12);
+	await mode(p, h, 'manuscript');
+	await p.sleep(800);
+	got.push(`Nineteen → ${await caretScene(p)}`);
+	// (the manuscript logs “Measure loop restarted” on the way: the BUG test of specs-qa4-manuscript.mjs; not this one's)
+	p.errors.length = 0;
+	t.eq(got.join(', '), 'Eleven → Eleven, Twenty → Twenty, Three → Three, Sixteen → Sixteen, Nineteen → Nineteen', 'the note selected → the section the cursor is in once the manuscript shows');
+});
+
 // ---- friction: what a writer would expect ----
 
 ux('“New scene here” with a card selected on the corkboard makes the note after that card, as it does after the selected row in the outliner and after the cursor’s section in the manuscript (Scrivener: a new document goes after the selected one)', async (p, h, t) => {
-	await openView(p);
+	await openView(p, L + 'Part One');
 	const c = await p.at(card(A));
 	await p.click(c.x, c.t + 12);
 	await h.run('new-scene');
@@ -1674,7 +1905,7 @@ ux('“New scene here” with a card selected on the corkboard makes the note af
 });
 
 ux('what’s selected on the corkboard is selected in the outliner, and the other way (Scrivener keeps one selection for the corkboard and the outliner; here each mode has its own, and the first card or row has the focus after a switch)', async (p, h, t) => {
-	await openView(p);
+	await openView(p, L + 'Part Two');
 	const c = await p.at(card(L + 'Part Two/Lights out.md'));
 	await p.click(c.x, c.t + 12);
 	await mode(p, h, 'outliner');
@@ -1682,11 +1913,25 @@ ux('what’s selected on the corkboard is selected in the outliner, and the othe
 });
 
 ux('the scene being written in the manuscript is the selected card on the corkboard (so its status or synopsis is a click away: the manuscript itself shows neither)', async (p, h, t) => {
-	await openView(p);
+	await openView(p, L + 'Part Two');
 	await mode(p, h, 'manuscript');
 	await clickEnd(p, 'Lights out');
 	await mode(p, h, 'corkboard');
 	t.eq(j(await selCards(p)), j([L + 'Part Two/Lights out.md']), 'the corkboard opens on the scene the cursor was in');
+});
+
+// (round 7: the board shows one folder at a time, so a scene inside a folder has no card on the binder's own board)
+ux('qa7: on the binder’s own board, the scene being written in the manuscript (or the row selected in the outliner) inside a folder is shown by its folder’s stack being selected (now: nothing is selected, and the keyboard starts on the first card)', async (p, h, t) => {
+	await openView(p);
+	await mode(p, h, 'manuscript');
+	await clickEnd(p, 'Lights out');
+	await mode(p, h, 'corkboard');
+	t.eq(j(await selCards(p)), j([L + 'Part Two']), 'from the manuscript: the stack of the folder the cursor’s scene is in');
+	await mode(p, h, 'outliner');
+	const r = await oname(p, K);
+	await p.click(r.x, r.y);
+	await mode(p, h, 'corkboard');
+	t.eq(j(await selCards(p)), j([L + 'Part One']), 'from the outliner: the stack of the folder the selected row is in');
 });
 
 // (Not taken as asked: a row that grew a line when it was clicked would move the rows under the pointer, and a drag
@@ -1721,13 +1966,19 @@ ux('the binder view itself offers Compile (its “More options” menu; now only
 	t.ok(items.some((x) => /^Compile/.test(x)), '“More options” has a Compile item: ' + items.join(', '));
 });
 
-ux('a folder’s menu in the binder view (its heading, its row) has “Compile...”, as its menu in the file explorer has', async (p, h, t) => {
+ux('a folder’s menu in the binder view (its stack, its row) has “Compile...”, as its menu in the file explorer has', async (p, h, t) => {
 	await openView(p);
-	const hd = await p.at(`${AL} .binders-group-title`);
-	await p.right(hd.x + 300, hd.y);
+	const hd = await p.at(stackSel(L + 'Part One'));
+	await p.right(hd.x, hd.t + 12);
 	const items = await menuItems(p);
 	await closeMenus(p);
-	t.ok(items.includes('Compile...'), 'the heading’s menu: ' + items.join(', '));
+	t.ok(items.includes('Compile...'), 'the stack’s menu: ' + items.join(', '));
+	await mode(p, h, 'outliner');
+	const row = await oname(p, L + 'Part One');
+	await p.right(row.x, row.y);
+	const inRow = await menuItems(p);
+	await closeMenus(p);
+	t.ok(inRow.includes('Compile...'), 'its row’s menu: ' + inRow.join(', '));
 });
 
 ux('“Convert to binder” is in the command palette while the Longform project’s binder view is in front (now only with a note of the project open)', async (p, h, t) => {

@@ -86,6 +86,8 @@ async function open(p, folder = 'The Lighthouse') {
 	await until(p, `/\\d/.test(document.querySelector('${LEAF} .binders-word-count')?.textContent ?? '')`, 5000);
 	await p.sleep(500);
 }
+/** More loose notes at the binder's end: its own board (two notes and a stack for each folder) then scrolls on a phone. */
+const longer = async (p, n = 6) => { await p.ev(`(async () => { for (let i = 1; i <= ${n}; i++) await ${B}.newScene(app.vault.getAbstractFileByPath('The Lighthouse'), Infinity, 'Extra ' + i); await ${B}.flush(); ${B}.undos = []; ${B}.redos = []; })().then(() => 1)`); await p.sleep(400); };
 const setMode = async (p, m) => { await p.ev(`(() => { ${VIEW}.setMode(${j(m)}); return 1; })()`); await p.sleep(m === 'manuscript' ? 1500 : 500); };
 const selected = (p) => p.ev(`[...document.querySelectorAll('${LEAF} .binders-card.is-selected, ${LEAF} .binders-outliner-row.is-selected')].map(c => c.dataset.path)`);
 const prop = async (p, path, key) => (await read(p, path)).split('\n').find((l) => l.startsWith(key + ':'))?.slice(key.length + 1).trim() ?? null;
@@ -242,6 +244,25 @@ bug('phone: in a subfolder the breadcrumb shows the folder above and the one sho
 	});
 });
 
+// Round 7: the board shows one folder at a time, so the way up is how a writer leaves a folder.
+specs.push({ name: 'BUG: qa7: mobile: phone: in a folder that has a word count target, the way up still names the folder above (the count, “51 / 9,000 words”, takes its room: beside the arrow the name is cut to 9 px, and a tap where it should be does nothing)', fn: async (p, h, t) => {
+	await p.ev(`(async () => { const f = await ${B}.ensureFolderNote(app.vault.getAbstractFileByPath(${j(L + 'Part One')})); await app.fileManager.processFrontMatter(f, fm => { fm.target = 9000; }); })().then(() => 1)`);
+	await onDevice(p, PHONE, async () => {
+		await open(p, L + 'Part One');
+		await p.sleep(300);
+		await shot(p, 'bug7-way-up-with-target');
+		const seen = await p.ev(`(() => { const box = document.querySelector('${LEAF} .binders-breadcrumbs').getBoundingClientRect(); const vis = (e) => { const r = e.getBoundingClientRect(); return Math.round(Math.max(0, Math.min(r.right, box.right) - Math.max(r.left, box.left))); }; const up = document.querySelector('${LEAF} .binders-crumb-up'), name = document.querySelector('${LEAF} .binders-crumb[role="link"]'); return { count: document.querySelector('${LEAF} .binders-word-count').textContent, arrow: vis(up), name: vis(name), needs: Math.round(Math.min(name.scrollWidth, 45)), text: name.textContent }; })()`);
+		t.ok(/\/ 9,000 words/.test(seen.count), 'the count shows the folder’s target: ' + seen.count);
+		t.ok(seen.arrow >= 16, 'the arrow shows: ' + j(seen));
+		// the arrow itself goes up
+		const up = await p.at(`${LEAF} .binders-crumb-up`);
+		await tap(p, up.x, up.y);
+		await until(p, `${VIEW}.folder?.path === 'The Lighthouse'`);
+		t.eq((await viewState(p)).folder, 'The Lighthouse', 'a tap on the arrow goes up');
+		t.ok(seen.name >= seen.needs, `beside the arrow, “${seen.text}” can be read (three letters and an ellipsis at least: ${seen.needs} px): ${seen.name} px of it show`);
+	});
+} });
+
 // =====================================================================================================================
 // The corkboard
 // =====================================================================================================================
@@ -249,6 +270,7 @@ bug('phone: in a subfolder the breadcrumb shows the folder above and the one sho
 test('phone corkboard: a tap selects, a tap on a selected card’s synopsis edits it, a swipe scrolls without dragging or losing what’s typed, a tap on the title opens the note', async (p, h, t) => {
 	const before = await texts(p);
 	await onDevice(p, PHONE, async () => {
+		await longer(p);
 		await open(p);
 		const P = card(L + 'Prologue.md');
 		const c = await p.at(P), syn = await p.at(P + ' .binders-card-synopsis');
@@ -271,29 +293,40 @@ test('phone corkboard: a tap selects, a tap on a selected card’s synopsis edit
 		// a tap somewhere else saves it
 		await p.ev(`(() => { ${CORK}.scrollTop = 0; return 1; })()`);
 		await p.sleep(300);
-		const k = await p.at(card(L + 'Part One/The keeper.md'));
+		const k = await p.at(card(L + 'Epilogue.md'));
 		await tap(p, k.x, k.t + k.h - 16);
 		await until(p, `!document.querySelector('${LEAF} .binders-edit-field')`);
 		await flush(p);
 		t.eq(await prop(p, L + 'Prologue.md', 'synopsis'), 'The light has not gone out in forty years. Typed.', 'saved when another card is tapped');
-		t.eq(j(await selected(p)), j([L + 'Part One/The keeper.md']), 'which is selected');
+		t.eq(j(await selected(p)), j([L + 'Epilogue.md']), 'which is selected');
 		// a tap on a title opens the note; Back returns to the board, where it was
-		const title = await p.at(card(L + 'Part One/The keeper.md') + ' .binders-card-title');
+		const title = await p.at(card(L + 'Epilogue.md') + ' .binders-card-title');
 		await tap(p, title.l + 20, title.y);
-		await until(p, `app.workspace.getActiveFile()?.path === ${j(L + 'Part One/The keeper.md')}`);
-		t.eq(await p.ev(`app.workspace.getActiveFile()?.path ?? null`), L + 'Part One/The keeper.md', 'a tap on a title opens the note');
+		await until(p, `app.workspace.getActiveFile()?.path === ${j(L + 'Epilogue.md')}`);
+		t.eq(await p.ev(`app.workspace.getActiveFile()?.path ?? null`), L + 'Epilogue.md', 'a tap on a title opens the note');
 		await p.ev(`app.commands.executeCommandById('app:go-back')`);
 		await until(p, `!!document.querySelector('${LEAF} .binders-card[data-path]')`);
 		t.eq((await viewState(p)).folder, 'The Lighthouse', 'Back returns to the board');
-		t.eq(j(await p.ev(`[...document.querySelectorAll('${LEAF} .binders-card.is-selected')].map(c => c.dataset.path)`)), j([L + 'Part One/The keeper.md']), 'with the card still selected');
+		t.eq(j(await p.ev(`[...document.querySelectorAll('${LEAF} .binders-card.is-selected')].map(c => c.dataset.path)`)), j([L + 'Epilogue.md']), 'with the card still selected');
+		// a stack: a tap on its foot selects it, a tap on its name goes into the folder, whose notes are its board
+		const st = await p.at(card(L + 'Part One'));
+		await tap(p, st.x, st.t + st.h - 16);
+		t.eq(j([await selected(p), (await viewState(p)).folder]), j([[L + 'Part One'], 'The Lighthouse']), 'a tap on a folder’s stack selects it');
+		const name = await p.at(card(L + 'Part One') + ' .binders-card-title');
+		await tap(p, name.l + 20, name.y);
+		await until(p, `${VIEW}.folder?.path === ${j(L + 'Part One')} && !!document.querySelector(${j(card(L + 'Part One/The keeper.md'))})`);
+		t.eq(j(await p.ev(`[...document.querySelectorAll('${LEAF} .binders-card[data-path]')].map(c => c.dataset.path.split('/').pop())`)), j(['Arrival.md', 'The keeper.md', 'Storm warning.md']), 'a tap on its name goes into the folder: its three notes');
 	});
 	const after = await texts(p);
-	for (const [path, text] of Object.entries(before)) if (path !== L + 'Prologue.md') t.eq(after[path], text, `“${path}” is unchanged`);
+	// (the binder note lists the six notes added to make the board scroll: its own text is what it was)
+	for (const [path, text] of Object.entries(before)) if (path !== L + 'Prologue.md' && path !== L + 'The Lighthouse.md') t.eq(after[path], text, `“${path}” is unchanged`);
+	t.eq(after[L + 'The Lighthouse.md'].split('---\n').pop(), before[L + 'The Lighthouse.md'].split('---\n').pop(), 'the binder note’s text is unchanged');
+	t.eq(after[L + 'Prologue.md'].split('---\n').pop(), before[L + 'Prologue.md'].split('---\n').pop(), 'and so is Prologue’s');
 });
 
 test('phone corkboard: a long press opens the card’s menu as a sheet; a status picked closes it; “Custom color...”, “Set target...” and “Delete” open their dialogs with nothing left over them', async (p, h, t) => {
 	await onDevice(p, PHONE, async () => {
-		await open(p);
+		await open(p, L + 'Part One');
 		const c = await p.at(card(L + 'Part One/Arrival.md'));
 		await touch(p, 'touchStart', c.x, c.t + c.h - 16);
 		await p.sleep(650);
@@ -363,9 +396,10 @@ test('phone corkboard: a long press opens the card’s menu as a sheet; a status
 	});
 });
 
-test('phone corkboard: a long press and a move drags (within a folder, and out of one); near the top edge the board scrolls; a drag cut short leaves nothing behind', async (p, h, t) => {
+test('phone corkboard: a long press and a move drags (within a folder, and into one by its stack); near the top edge the board scrolls; a drag cut short leaves nothing behind', async (p, h, t) => {
 	await onDevice(p, PHONE, async () => {
-		await open(p);
+		await longer(p);
+		await open(p, L + 'Part One');
 		// Arrival to after The keeper
 		const a = await p.at(card(L + 'Part One/Arrival.md')), k = await p.at(card(L + 'Part One/The keeper.md'));
 		await pressAndMove(p, a.x, a.t + a.h - 16, a.x, k.t + k.h - 6);
@@ -379,20 +413,22 @@ test('phone corkboard: a long press and a move drags (within a folder, and out o
 		await flush(p);
 		t.eq(j((await contents(p)).slice(1, 5)), j(['Part One/', 'Part One/The keeper', 'Part One/Arrival', 'Part One/Storm warning']), 'dropped after The keeper');
 		t.eq(await p.ev(`document.querySelectorAll('.menu').length`), 0, 'no menu after a drag');
-		// Arrival out of Part One, to before Prologue
-		const a2 = await p.at(card(L + 'Part One/Arrival.md')), pr = await p.at(card(L + 'Prologue.md'));
-		await pressAndMove(p, a2.x, a2.t + a2.h - 16, a2.x, pr.t + 8);
+		// on the binder's own board: Prologue onto Part Two's stack
+		await open(p);
+		const pr = await p.at(card(L + 'Prologue.md')), s2 = await p.at(card(L + 'Part Two'));
+		await pressAndMove(p, pr.x, pr.t + pr.h - 16, s2.x, s2.y);
+		t.eq(await p.ev(`document.querySelector('${LEAF} .is-being-dragged-over')?.dataset.path ?? null`), L + 'Part Two', 'over a folder’s stack, the stack is marked');
 		await touch(p, 'touchEnd');
-		await until(p, `!!app.vault.getAbstractFileByPath(${j(L + 'Arrival.md')})`);
+		await until(p, `!!app.vault.getAbstractFileByPath(${j(L + 'Part Two/Prologue.md')})`);
 		await p.sleep(500);
 		await flush(p);
-		t.eq(j((await contents(p)).slice(0, 3)), j(['Arrival', 'Prologue', 'Part One/']), 'dropped before Prologue, out of its folder');
+		t.eq(j((await contents(p)).slice(4, 8)), j(['Part Two/', 'Part Two/The wreck', 'Part Two/Lights out', 'Part Two/Prologue']), 'dropped on the stack, it goes into the folder, last');
 		// from the end of the board, held near its top edge: the board scrolls up; then the system cuts the touch short
 		await p.ev(`(() => { ${CORK}.scrollTop = ${CORK}.scrollHeight; return 1; })()`);
 		await p.sleep(300);
 		const order = await contents(p);
 		const top = (await rect(p, `${LEAF} .binders-corkboard`))[1], from = await p.ev(`${CORK}.scrollTop`);
-		const e = await p.at(card(L + 'Epilogue.md'));
+		const e = await p.at(card(L + 'Extra 6.md'));
 		await pressAndMove(p, e.x, e.t + e.h - 16, e.x, top + 20);
 		await p.sleep(1000);
 		const to = await p.ev(`${CORK}.scrollTop`);
@@ -407,6 +443,7 @@ test('phone corkboard: a long press and a move drags (within a folder, and out o
 
 ux('phone corkboard: a card dragged down to the navigation bar scrolls the board (the bar floats 760–812 px down an 844 px screen; the board only scrolls from 796 px, under the bar and in the home indicator’s strip)', async (p, h, t) => {
 	await onDevice(p, PHONE, async () => {
+		await longer(p);
 		await open(p);
 		const nav = await navbarTop(p), pr = await p.at(card(L + 'Prologue.md'));
 		t.ok(nav != null, 'the navigation bar shows');
@@ -425,7 +462,7 @@ ux('phone corkboard: a held card shows it’s held in the dark theme too (there 
 	await onDevice(p, PHONE, async () => {
 		await p.ev(`(() => { app.changeTheme('obsidian'); return 1; })()`);
 		await p.sleep(300);
-		await open(p);
+		await open(p, L + 'Part One');
 		const sel = card(L + 'Part One/Arrival.md');
 		const look = () => p.ev(`(() => { const s = getComputedStyle(document.querySelector(${j(sel)})); return { background: s.backgroundColor, transform: s.transform, opacity: s.opacity, outline: s.outlineStyle + ' ' + s.outlineWidth, ring: s.boxShadow.split(' 0px 0px 0px ')[0] }; })()`);
 		await p.sleep(800); // (the cards have landed)
@@ -463,12 +500,15 @@ bug('phone corkboard: after Enter in the “New note” tile, the next title fie
 	});
 });
 
-test('phone corkboard: the “New note” tile is a finger tall and names a note; the options sheet numbers and tints the cards and shows folders as stacks, which a tap opens', async (p, h, t) => {
+test('phone corkboard: the “New note” tile is a finger tall and names a note; the options sheet numbers and tints the cards; a folder is a stack, which a tap on its name opens', async (p, h, t) => {
 	await onDevice(p, PHONE, async () => {
 		await p.ev(`app.fileManager.processFrontMatter(app.vault.getAbstractFileByPath(${j(L + 'Prologue.md')}), fm => { fm.label = 'Red'; }).then(() => 1)`);
 		await open(p);
+		await p.ev(`(() => { document.querySelector('${LEAF} .binders-card-new').scrollIntoView({ block: 'center' }); return 1; })()`);
+		await p.sleep(300);
 		const tiles = await p.ev(`[...document.querySelectorAll('${LEAF} .binders-card-new')].map(${R})`);
-		t.ok(tiles.every((r) => r[3] >= 40), 'every “New note” tile is 40 px tall or more: ' + j(tiles.map((r) => r[3])));
+		t.eq(tiles.length, 1, 'one “New note” tile ends the board');
+		t.ok(tiles.every((r) => r[3] >= 40), 'the “New note” tile is 40 px tall or more: ' + j(tiles.map((r) => r[3])));
 		await tap(p, tiles[0][0] + tiles[0][2] / 2, tiles[0][1] + tiles[0][3] / 2);
 		t.eq(await p.ev(`document.activeElement.getAttribute('enterkeyhint')`), 'done', 'its field asks the keyboard for a Done key');
 		await p.type('After the prologue');
@@ -477,7 +517,7 @@ test('phone corkboard: the “New note” tile is a finger tall and names a note
 		await p.key('Escape');
 		await p.sleep(300);
 		await flush(p);
-		t.eq(j((await contents(p)).slice(0, 3)), j(['Prologue', 'After the prologue', 'Part One/']), 'the note is made where its tile was');
+		t.eq(j((await contents(p)).slice(-2)), j(['Epilogue', 'After the prologue']), 'the note is made where its tile was: at the binder’s end');
 		// the options, from the header's ⋮
 		const more = await p.at(`${LEAF} .view-actions .clickable-icon[aria-label="More options"]`);
 		const pick = async (title) => { await tap(p, more.x, more.y); await p.sleep(300); if (!(await menuTap(p, title))) throw new Error('no ' + title); await p.sleep(500); await gone(p); };
@@ -485,18 +525,19 @@ test('phone corkboard: the “New note” tile is a finger tall and names a note
 		await p.sleep(300);
 		await shot(p, 'cork-options-sheet');
 		t.ok(isSheet(await sheet(p)), 'the options are a sheet');
-		for (const x of ['Card size', 'Tint cards with their label color', 'Number the cards', 'Show subfolders as stacks', 'Outliner', 'Open binder note']) t.ok((await menuItems(p)).includes(x), `“${x}” is in it`);
+		for (const x of ['Card size', 'Tint cards with their label color', 'Number the cards', 'Outliner', 'Open binder note']) t.ok((await menuItems(p)).includes(x), `“${x}” is in it`);
+		t.ok(!(await menuItems(p)).includes('Show subfolders as stacks'), 'and no “Show subfolders as stacks”: a folder is always one');
 		await gone(p);
 		await pick('Number the cards');
 		await pick('Tint cards with their label color');
-		await pick('Show subfolders as stacks');
 		await p.ev(`(() => { ${CORK}.scrollTop = 0; return 1; })()`);
 		await p.sleep(300);
 		await shot(p, 'cork-numbered-tinted-stacked');
 		const o = (await viewState(p)).options;
-		t.ok(o.numbers === true && o.labelStyle === 'tint' && o.stacks === true, 'each option is on: ' + j(o));
+		// (cards are tinted as they come: the item turns that off)
+		t.ok(o.numbers === true && o.labelStyle === 'stripe', 'each option is changed: ' + j(o));
 		t.eq(await p.ev(`document.querySelector(${j(card(L + 'Prologue.md'))} + ' .binders-card-number')?.textContent ?? null`), '1', 'the cards are numbered');
-		t.ok(await p.ev(`document.querySelector('${LEAF} .binders-board').classList.contains('mod-label-tint')`), 'and tinted');
+		t.ok(!(await p.ev(`document.querySelector('${LEAF} .binders-board').classList.contains('mod-label-tint')`)), 'and no longer tinted');
 		const stack = await p.at(card(L + 'Part One') + ' .binders-card-title');
 		t.ok(stack, 'Part One is a stack');
 		await tap(p, stack.l + 20, stack.y);
@@ -542,7 +583,8 @@ test('phone outliner: a column’s header opens its menu, “+” adds a column,
 		// across: a swipe scrolls to the other columns, and moves nothing
 		const a = await p.at(row('Part One/Arrival.md'));
 		await swipe(p, 350, a.y, 60, a.y);
-		t.ok(await p.ev(`${OUT}.scrollLeft`) > 80, 'a swipe across scrolls to the other columns');
+		// (how far there is to go: with the label a color alone and the title narrower, the columns nearly fit)
+		t.ok(await p.ev(`${OUT}.scrollWidth - ${OUT}.clientWidth <= 1 || ${OUT}.scrollLeft > Math.min(40, (${OUT}.scrollWidth - ${OUT}.clientWidth) / 2)`), 'a swipe across scrolls to the other columns');
 		t.eq((await selected(p)).length, 0, 'and selects nothing');
 		await shot(p, 'outliner-phone-scrolled-across');
 		// "+": the columns, as a sheet; Target is added
@@ -605,20 +647,24 @@ test('phone outliner: a column’s header opens its menu, “+” adds a column,
 	});
 });
 
-test('small phone outliner (320 px): the title scrolls away with the columns, every column can be reached, and a long press drags a row', async (p, h, t) => {
+test('small phone outliner (320 px): the title isn’t pinned and scrolls with the columns, every column can be reached, and a long press drags a row', async (p, h, t) => {
 	await onDevice(p, SMALL, async () => {
 		await open(p);
 		await setMode(p, 'outliner');
 		await shot(p, 'outliner-320');
 		t.eq(await p.ev(`getComputedStyle(document.querySelector('${row('Prologue.md')} .mod-title')).position`), 'relative', 'under 420 px the title column isn’t pinned');
 		const words = () => p.at(cell('Prologue.md', 'words'));
-		t.ok((await words()).l >= 320, 'the word counts start off the screen');
+		// (on a phone the label column is its color alone, and the others narrower: a title, a label, a status and the
+		// words fit 320 px; "+" after them is what's cut by the edge)
+		const fit = await words(), add = await p.at(`${LEAF} .binders-outliner-th.mod-add`);
+		t.ok(fit.l >= 0 && fit.l + fit.w <= 320, 'the word counts are on the screen from the start: ' + j([Math.round(fit.l), Math.round(fit.w)]));
+		t.ok(add.l + add.w > 320, '“+” runs off it: ' + j([Math.round(add.l), Math.round(add.w)]));
 		const a = await p.at(row('Prologue.md'));
 		// (a swipe across scrolls the columns while they can scroll; only at their end does it reach Obsidian, which
 		// opens its sidebar, as anywhere else)
 		await swipe(p, 300, a.y, 20, a.y);
 		const end = await p.ev(`[${OUT}.scrollLeft, ${OUT}.scrollWidth - ${OUT}.clientWidth, !app.workspace.rightSplit.collapsed]`);
-		t.ok(end[0] >= end[1] - 1 && end[0] > 150, 'a swipe across scrolls to the last column: ' + j(end));
+		t.ok(end[0] >= end[1] - 1 && end[0] > 10, 'a swipe across scrolls to the last column: ' + j(end));
 		t.ok(!end[2], 'and doesn’t pull Obsidian’s sidebar in with it');
 		const w = await words();
 		await shot(p, 'outliner-320-scrolled-across');
@@ -802,7 +848,10 @@ test('phone: the filter is picked by touch in a sheet that stays for the next pi
 		await gone(p);
 		await shot(p, 'filter-on');
 		t.eq(await p.ev(`document.querySelector('${LEAF} .binders-filter-button').getAttribute('aria-label') + '|' + document.querySelector('${LEAF} .binders-filter-button').classList.contains('is-active')`), 'Filter|true', 'the button shows the filter is on');
-		t.eq(await p.ev(`document.querySelectorAll('${LEAF} .binders-card[data-path]').length`), 6, 'only the notes that pass show');
+		t.eq(j(await p.ev(`[...document.querySelectorAll('${LEAF} .binders-card[data-path]')].map(c => c.dataset.path.split('/').pop())`)), j(['Prologue.md', 'Part One', 'Part Two', 'Epilogue.md']), 'of the binder’s own notes, only the ones that pass show (both do), beside the folders’ stacks');
+		await open(p, L + 'Part One');
+		t.eq(j(await p.ev(`[...document.querySelectorAll('${LEAF} .binders-card[data-path]')].map(c => c.dataset.path.split('/').pop())`)), j(['The keeper.md', 'Storm warning.md']), 'and inside a folder only its notes that pass (Arrival, revised, doesn’t)');
+		await open(p);
 		t.ok((await toolbar(p)).out <= 0 && (await toolbar(p)).overlap.length === 0, 'the toolbar still fits, with the longer count');
 		await tap(p, f.x, f.y);
 		await menuTap(p, 'Clear filter');
@@ -1008,7 +1057,7 @@ test('small phone (320 px): in the settings, a label’s name, color, well, dele
 		const see = async (sel, name) => { await p.ev(`(() => { ${TAB}.querySelector(${j(sel)}).scrollIntoView({ block: 'start' }); return 1; })()`); await p.sleep(300); await shot(p, name); };
 		await see('.binders-settings-labels', 'settings-320-labels');
 		t.ok(await p.ev(`${TAB}.scrollWidth <= ${TAB}.clientWidth + 1`), 'nothing is wider than the screen');
-		const rows = await p.ev(`(() => { const R = ${R}; const of = (row) => ({ row: R(row), name: R(row.querySelector('.setting-item-name input')), select: R(row.querySelector('select')), well: R(row.querySelector('input[type="color"]')), icons: [...row.querySelectorAll('.setting-item-control .clickable-icon, .setting-item-control .extra-setting-button')].map(e => [e.getAttribute('aria-label'), ...R(e)]) }); return { labels: [...${TAB}.querySelectorAll('.binders-settings-label')].map(of), statuses: [...${TAB}.querySelectorAll('.binders-settings-status')].map(of), props: [...${TAB}.querySelectorAll('.setting-item:not(.binders-settings-label):not(.binders-settings-status) input[type="text"]')].map(R), text: ${TAB}.innerText }; })()`);
+		const rows = await p.ev(`(() => { const R = ${R}; const of = (row) => ({ row: R(row), name: R(row.querySelector('.setting-item-name input')), select: R(row.querySelector('select')), well: R(row.querySelector('input[type="color"]')), icons: [...row.querySelectorAll('.setting-item-control .clickable-icon, .setting-item-control .extra-setting-button')].map(e => [e.getAttribute('aria-label'), ...R(e)]) }); return { labels: [...${TAB}.querySelectorAll('.binders-settings-label')].map(of), statuses: [...${TAB}.querySelectorAll('.binders-settings-status')].map(of), props: [...${TAB}.querySelectorAll('.setting-item:not(.binders-settings-label):not(.binders-settings-status):not(.binders-settings-goal) input[type="text"]')].map(R), text: ${TAB}.innerText }; })()`);
 		t.eq(rows.labels.length, 8, 'eight labels');
 		for (const r of rows.labels) {
 			const parts = [r.name, r.select, r.well, ...r.icons.map((i) => i.slice(1))];
@@ -1144,8 +1193,8 @@ bug('phone file explorer: “New scene after this”, with the binder open behin
 		await until(p, `app.workspace.getActiveFile()?.path === ${j(L + 'Part One/Untitled.md')}`);
 		await p.sleep(600);
 		t.eq(j({ drawer: await drawerOpen(p), naming: await p.ev(`document.activeElement.classList.contains('inline-title') && getSelection().toString() === 'Untitled'`) }), j(native), 'Binders’ “New scene after this”, with a note open: the same');
-		// with the binder open in the tab
-		await open(p);
+		// with the board of the note's folder open in the tab (the binder's own board has no card for it: see the BUG below)
+		await open(p, L + 'Part One');
 		await showExplorer(p);
 		await explorerMenu(p, L + 'Part One/Arrival.md');
 		await menuTap(p, 'New scene after this');
@@ -1156,6 +1205,23 @@ bug('phone file explorer: “New scene after this”, with the binder open behin
 		t.eq(j(ours), j(native), 'with the binder open behind the drawer: the drawer closes and the new note’s name is ready to type over');
 	});
 });
+
+// Round 7: the corkboard shows one folder at a time, so a note made inside a subfolder has no card on the binder's own board.
+specs.push({ name: 'BUG: qa7: mobile: phone file explorer: “New scene after this” on a note inside a folder, with the binder’s own corkboard open behind the drawer, leaves the new note’s name ready to type (the drawer closes on a board that has no card for it: the note is “Untitled”, nothing is being named, and nothing shows where it went)', fn: async (p, h, t) => {
+	await onDevice(p, PHONE, async () => {
+		await open(p);
+		await showExplorer(p);
+		await explorerMenu(p, L + 'Part One/Arrival.md');
+		await menuTap(p, 'New scene after this');
+		await until(p, `!!app.vault.getAbstractFileByPath(${j(L + 'Part One/Untitled.md')})`);
+		await p.sleep(1500);
+		await shot(p, 'bug7-explorer-new-scene');
+		await flush(p);
+		t.eq(j((await contents(p)).slice(1, 4)), j(['Part One/', 'Part One/Arrival', 'Part One/Untitled']), 'the note is made after Arrival');
+		const ours = { drawer: await drawerOpen(p), naming: await p.ev(`(() => { const a = document.activeElement; return (a.matches('input, textarea') || a.isContentEditable) && /Untitled/.test(a.value ?? a.textContent ?? ''); })()`), folder: (await viewState(p))?.folder ?? null, file: await p.ev(`app.workspace.getActiveFile()?.path ?? null`), card: await p.ev(`!!document.querySelector(${j(card(L + 'Part One/Untitled.md'))})`) };
+		t.ok(!ours.drawer && ours.naming, 'the drawer closes and the new note’s name is ready to type over (on its folder’s board, or in the note itself): ' + j(ours));
+	});
+} });
 
 ux('phone file explorer: a tap on a folder inside a binder unfolds it and leaves the drawer open, so its notes can be reached (it opens the folder’s board and closes the drawer; only the 16 × 21 px chevron unfolds)', async (p, h, t) => {
 	await onDevice(p, PHONE, async () => {
@@ -1217,7 +1283,7 @@ test('tablet: menus are Obsidian’s popovers, a binder beside a note in a split
 		await open(p);
 		await shot(p, 'tablet-corkboard');
 		t.eq(await navbarTop(p), null, 'no floating navigation bar on a tablet');
-		const cols = () => p.ev(`getComputedStyle(document.querySelector('${LEAF} .binders-group.is-folder .binders-cards, ${LEAF} .binders-cards')).gridTemplateColumns.trim().split(/\\s+/).length`);
+		const cols = () => p.ev(`getComputedStyle(document.querySelector('${LEAF} .binders-cards')).gridTemplateColumns.trim().split(/\\s+/).length`);
 		const upright = await cols();
 		t.ok(upright >= 2, 'the cards are in columns: ' + upright);
 		const b = await p.at(`${LEAF} .binders-mode-button`);
@@ -1264,7 +1330,7 @@ test('tablet: menus are Obsidian’s popovers, a binder beside a note in a split
 test('phone, reduced motion: a dropped card doesn’t glide, and nothing else animates', async (p, h, t) => {
 	await onDevice(p, PHONE, async () => {
 		await p.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
-		await open(p);
+		await open(p, L + 'Part One');
 		t.ok(await p.ev(`matchMedia('(prefers-reduced-motion: reduce)').matches`), 'reduced motion is on');
 		const a = await p.at(card(L + 'Part One/Arrival.md')), k = await p.at(card(L + 'Part One/The keeper.md'));
 		await pressAndMove(p, a.x, a.t + a.h - 16, a.x, k.t + k.h - 6);
@@ -1314,7 +1380,11 @@ test('phone, CPU four times slower, a binder of 300 notes: every mode opens in u
 		await p.send('Emulation.setCPUThrottlingRate', { rate: 4 });
 		const saga = `app.vault.getAbstractFileByPath(${j(SAGA)})`;
 		out.corkboardOpens = await timed(`${PL}.openBinder(${saga})`);
-		await until(p, `document.querySelectorAll('${LEAF} .binders-card[data-path]').length === ${PARTS * PER}`, 20000);
+		await until(p, `document.querySelectorAll('${LEAF} .binders-card.is-stack[data-path]').length === ${PARTS}`, 20000);
+		t.eq(await p.ev(`document.querySelectorAll('${LEAF} .binders-card[data-path]').length`), PARTS, 'the binder’s board: a stack for each part');
+		// (a board shows one folder: the first part's fifty cards are what scrolls and drags)
+		out.partOpens = await timed(`${PL}.openBinder(app.vault.getAbstractFileByPath(${j(SAGA + '/Part 01')}))`);
+		await until(p, `document.querySelectorAll('${LEAF} .binders-card[data-path]').length === ${PER}`, 20000);
 		await p.sleep(1200);
 		await frames(2600);
 		await swipes();
@@ -1331,6 +1401,8 @@ test('phone, CPU four times slower, a binder of 300 notes: every mode opens in u
 		t.eq(await p.ev(`document.querySelectorAll('.binders-drag-ghost').length`), 1, 'a card is dragged');
 		await touch(p, 'touchCancel');
 		await p.sleep(500);
+		await p.ev(`${PL}.openBinder(${saga}).then(() => 1)`);
+		await until(p, `document.querySelectorAll('${LEAF} .binders-card.is-stack[data-path]').length === ${PARTS}`, 20000);
 		out.outlinerOpens = await timed(`(async () => { ${VIEW}.setMode('outliner'); })()`);
 		await until(p, `document.querySelectorAll('${LEAF} .binders-outliner-row').length > 100`, 20000);
 		await p.sleep(1000);
@@ -1362,7 +1434,7 @@ test('phone, CPU four times slower, a binder of 300 notes: every mode opens in u
 		await shot(p, 'speed-manuscript');
 	});
 	console.log('    qa4 mobile speed (ms, CPU ×4): ' + j(out));
-	for (const k of ['corkboardOpens', 'outlinerOpens', 'manuscriptOpens']) t.ok(out[k] < 2000, `${k}: ${out[k]} ms`);
+	for (const k of ['corkboardOpens', 'partOpens', 'outlinerOpens', 'manuscriptOpens']) t.ok(out[k] < 2000, `${k}: ${out[k]} ms`);
 	for (const k of ['corkboardScroll', 'outlinerScroll', 'manuscriptScroll', 'drag']) t.ok(out[k].median <= 20 && out[k].p95 <= 50, `${k}: ${j(out[k])}`);
 	t.ok(out.keys.text.n === 12 && out.keys.text.median <= 50 && out.keys.frame.median <= 200, 'typing: ' + j(out.keys));
 });

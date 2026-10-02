@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.10.16 (2026-10-02)
+
+### Changed
+
+- Expanded automated checks cover phone and tablet navigation, editing, ordering, dialogs and the integrated features.
+
 ## 0.10.15 (2026-10-02)
 
 ### Fixed

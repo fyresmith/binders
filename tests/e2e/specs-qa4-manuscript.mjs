@@ -867,7 +867,8 @@ test('merging two notes (from a corkboard beside the manuscript) with unsaved ma
 	const was = await localTrash(p);
 	try {
 		await openMs(p);
-		await openView(p, B, 'split'); // a corkboard (a binder opens as its view was last left, so it's asked for)
+		// a corkboard, of the folder both notes are in (a board shows one folder; a binder opens as its view was last left, so it's asked for)
+		await openView(p, `${B}/Part One`, 'split');
 		await p.ev(`(() => { app.workspace.getMostRecentLeaf().view.setMode?.('corkboard'); return 1; })()`); await p.sleep(400);
 		await p.ev(`(() => { app.workspace.setActiveLeaf(app.workspace.getLeavesOfType('binders-view')[0], { focus: true }); return 1; })()`); await p.sleep(300);
 		const before = snap(p);
