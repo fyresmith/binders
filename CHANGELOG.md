@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.54 (2026-10-02)
+
+### Fixed
+
+- In the outliner, moving a row to another folder from its menu leaves the keyboard on that row, or on the row beside where it was if it left the folder shown.
+
 ## 0.12.53 (2026-10-02)
 
 ### Fixed

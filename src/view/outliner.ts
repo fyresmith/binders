@@ -430,6 +430,7 @@ class Outliner implements BinderMode {
 		this.drawnOnce = true;
 		this.dirty = false;
 		this.moves = [];
+		const shownBefore = this.rowsShown;
 		this.rowsShown = rows;
 		this.root.toggleClass('is-read-only', ro);
 		this.root.toggleClass('is-sorted', !!sort);
@@ -470,8 +471,18 @@ class Outliner implements BinderMode {
 		// only what still shows stays selected; what a folded folder now hides hands over to that folder, so the
 		// keyboard is never left with nothing
 		const above = (p: string): string | null => { for (let q = p; q.includes('/');) { q = q.slice(0, q.lastIndexOf('/')); if (drawn.has(q)) return q; } return null; };
+		// and a row that has left altogether (moved to another folder by its menu, deleted or moved from another pane)
+		// hands over to the row that was after it, or before it: the keyboard carries on from where it was
+		const beside = (p: string): string | null => {
+			const was = shownBefore.map((r) => r.item.path), i = was.indexOf(p);
+			return i < 0 ? null : was.slice(i + 1).find((q) => drawn.has(q)) ?? was.slice(0, i).reverse().find((q) => drawn.has(q)) ?? null;
+		};
+		const gone = this.focused && !drawn.has(this.focused) ? this.focused : null, picked = !!gone && this.sel.has(gone);
 		for (const p of [...this.sel]) if (!drawn.has(p)) { this.sel.delete(p); const up = above(p); if (up) this.sel.add(up); }
-		if (this.focused && !drawn.has(this.focused)) this.focused = above(this.focused);
+		if (gone) {
+			this.focused = above(gone) ?? beside(gone);
+			if (picked && this.focused && !this.sel.size) this.sel.add(this.focused);
+		}
 		if (this.anchor && !drawn.has(this.anchor)) this.anchor = this.focused;
 		this.paintSelection();
 		if (before) settle(fresh);

@@ -767,3 +767,48 @@ test('the keyboard reaches a row’s cells: Right into them, Enter acts (a menu,
 	same(t, before, await texts(p), { skip: [NOTE, L + 'Part One/Arrival.md'] });
 	t.eq(split(await read(p, L + 'Part One/Arrival.md')).body, split(before[L + 'Part One/Arrival.md']).body, 'Arrival’s text is untouched');
 }));
+
+/** Where the keyboard is: the row's path (within the binder), or what else has the focus. */
+const keyboardOn = (p) => p.ev(`(() => { const a = document.activeElement; return a?.matches?.('${R}') ? a.dataset.path.slice(${L.length}) : a === document.body ? 'the page' : (a?.tagName + '.' + String(a?.className).split(' ')[0]); })()`);
+
+test('“Move to” in a row’s menu leaves the keyboard on the row that moved, or beside where it was when it left the folder shown; a row taken away from another pane does too', withTidy(async (p, h, t) => {
+	const before = await texts(p);
+	const moveTo = async (path, folder) => {
+		const a = await nameAt(p, path);
+		await p.click(a.x, a.y);
+		await p.key('ContextMenu');
+		await p.sleep(250);
+		await hoverMenu(p, 'Move to');
+		await clickMenu(p, folder);
+	};
+	// the folder shown is Part One: its last note leaves for Part Two, and the keyboard is on the row before it
+	await open(p, 'The Lighthouse/Part One');
+	await moveTo('Part One/Storm warning.md', 'Part Two');
+	await until(p, `app.vault.adapter.exists(${j(L + 'Part Two/Storm warning.md')})`);
+	await p.sleep(700);
+	t.eq(await keyboardOn(p), 'Part One/The keeper.md', 'the last row left the folder: the keyboard is on the row before it');
+	t.eq(j(await selected(p)), j(['Part One/The keeper.md']), 'which is selected');
+	// the first note leaves: the row after it
+	await moveTo('Part One/Arrival.md', 'Part Two');
+	await until(p, `app.vault.adapter.exists(${j(L + 'Part Two/Arrival.md')})`);
+	await p.sleep(700);
+	t.eq(await keyboardOn(p), 'Part One/The keeper.md', 'the first row left: the keyboard is on the row after it');
+	await p.key('ArrowUp'); await p.key('ArrowDown');
+	t.eq(await keyboardOn(p), 'Part One/The keeper.md', 'and the arrow keys carry on from there');
+	// the whole binder shown: the row is still there, in its new folder, with the keyboard on it
+	await open(p);
+	await moveTo('Prologue.md', 'Part One');
+	await until(p, `app.vault.adapter.exists(${j(L + 'Part One/Prologue.md')})`);
+	await p.sleep(700);
+	t.eq(await keyboardOn(p), 'Part One/Prologue.md', 'still in view: the keyboard is on the row that moved');
+	t.eq(j(await selected(p)), j(['Part One/Prologue.md']), 'which stays selected');
+	// a row with the keyboard on it is moved away by something else (another pane, a sync): the row after it
+	const w = await nameAt(p, 'Part Two/The wreck.md');
+	await p.click(w.x, w.y);
+	await p.ev(`app.fileManager.renameFile(${file(L + 'Part Two/The wreck.md')}, 'The wreck.md').then(() => 1)`);
+	await p.sleep(900);
+	t.eq(await keyboardOn(p), 'Part Two/Lights out.md', 'moved out of the binder from elsewhere: the keyboard is on the next row');
+	await p.ev(`app.fileManager.renameFile(${file('The wreck.md')}, ${j(L + 'Part Two/The wreck.md')}).then(() => 1)`);
+	await flush(p);
+	same(t, before, await texts(p), { skip: [NOTE], moved: { [L + 'Part One/Storm warning.md']: L + 'Part Two/Storm warning.md', [L + 'Part One/Arrival.md']: L + 'Part Two/Arrival.md', [L + 'Prologue.md']: L + 'Part One/Prologue.md' } });
+}));
