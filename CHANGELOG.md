@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.64 (2026-10-02)
+
+### Fixed
+
+- Obsidian's “Make a copy” of a folder in a binder now puts the copy right after the original, with its notes in the same order, instead of at the end of the binder in name order.
+
 ## 0.12.63 (2026-10-02)
 
 ### Fixed

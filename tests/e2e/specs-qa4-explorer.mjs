@@ -1094,13 +1094,22 @@ test('UX: a selection in a binder has one “new folder” item, not Obsidian’
 	t.eq(folders.length, 1, 'one item makes a folder from the selection: ' + j(folders));
 });
 
-test('UX: Obsidian’s “New folder with selection” in a binder puts the folder where the notes were, in their order', async (p, h, t) => {
+// (Until 0.12.58 this picked Obsidian's own "New folder with selection (2 items)", which put the folder last with the
+// notes in the order clicked. That item is no longer in the menu where Binders offers its own.)
+test('UX: the one “new folder” item of a selection in a binder puts the folder where the notes were, in binder order; a selection across two folders still has Obsidian’s own', async (p, h, t) => {
 	await rows(p);
 	await select(p, [`${L}/Part One/Storm warning.md`, `${L}/Part One/Arrival.md`]);
 	const a = await row(p, `${L}/Part One/Arrival.md`); await p.right(a.x, a.y); await p.sleep(250);
-	await pick(p, 'New folder with selection (2 items)'); await p.sleep(900);
+	await pick(p, 'New folder from selection'); await p.sleep(900);
 	await p.type('Island'); await p.key('Enter'); await p.sleep(900);
 	t.eq(short(await order(p)).slice(1, 6).join(' | '), 'Part One | Part One/Island | Part One/Island/Arrival.md | Part One/Island/Storm warning.md | Part One/The keeper.md', 'the folder is where Arrival was, holding Arrival then Storm warning');
+	same(t, (await listOnDisk(p)).slice(1, 6), ['Part One/', 'Part One/Island/', 'Part One/Island/Arrival', 'Part One/Island/Storm warning', 'Part One/The keeper'], 'and the binder note on disk says so');
+	// notes of two folders: Binders offers no folder for them, so Obsidian's own item is the one there
+	await clearSelection(p);
+	await select(p, [`${L}/Prologue.md`, `${L}/Part One/The keeper.md`]);
+	const k = await row(p, `${L}/Part One/The keeper.md`); await p.right(k.x, k.y); await p.sleep(250);
+	const m = await menuOf(p); await closeMenu(p);
+	same(t, m.filter((x) => /^New folder (with|from) selection/.test(x)), ['New folder with selection (2 items)'], 'across two folders: one item, Obsidian’s own');
 });
 
 test('UX: Obsidian’s “Make a copy” of a folder in a binder puts the copy after it, with its scenes in the same order', async (p, h, t) => {

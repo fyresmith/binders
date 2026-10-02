@@ -110,6 +110,37 @@ export function relocate(contents: string[], from: string, to: string): string[]
 	return [...list.slice(0, at), ...kids, ...list.slice(at)];
 }
 
+/** Follows a copy of a folder made beside it (`from` and `to` both end in "/"): the copy goes right after the folder it's
+    a copy of, and what's in it takes that folder's order. An entry is written for everything the original lists,
+    whether or not its copy is there yet: files are copied one by one, and an entry for a file that never arrives is
+    dropped when the list is written, like any other that names nothing.
+    What the list already says about the copy is kept: a copy that's listed stays where it is, and its entries stay in
+    the order they have (another device may have made the copy, reordered it and sent the list along). Only entries it
+    lacks are added, each after the entry that comes before it in the original. Nothing else in the list moves, and
+    an original that isn't listed has no order to give. */
+export function copyIn(contents: string[], from: string, to: string): string[] {
+	if (!from.endsWith('/') || !to.endsWith('/') || from === to || !contents.includes(from)) return contents;
+	const mirrored = contents.filter((p) => p !== from && p.startsWith(from)).map((p) => to + p.slice(from.length));
+	const inCopy = (p: string) => p === to || p.startsWith(to);
+	const mine = contents.filter((p) => p !== to && p.startsWith(to)), have = new Set(mine), was = contents.indexOf(to);
+	// each entry the copy lacks, by the entry it follows: the nearest before it in the original that the copy has ("": none)
+	const added = new Map<string, string[]>();
+	let anchor = '', lacks = false;
+	for (const m of mirrored) {
+		if (have.has(m)) { anchor = m; continue; }
+		lacks = true;
+		const run = added.get(anchor);
+		if (run) run.push(m); else added.set(anchor, [m]);
+	}
+	if (was >= 0 && !lacks) return contents;
+	const block = [to, ...(added.get('') ?? []), ...mine.flatMap((p) => [p, ...(added.get(p) ?? [])])];
+	const rest = contents.filter((p) => !inCopy(p));
+	// where the copy is listed already, or after the original and everything in it
+	let at = contents.slice(0, Math.max(0, was)).filter((p) => !inCopy(p)).length;
+	if (was < 0) rest.forEach((p, i) => { if (p === from || p.startsWith(from)) at = i + 1; });
+	return [...rest.slice(0, at), ...block, ...rest.slice(at)];
+}
+
 /** Drops an item (and, for a folder, everything in it). */
 export function removeFrom(contents: string[], item: string): string[] {
 	return contents.filter((p) => p !== item && !(item.endsWith('/') && p.startsWith(item)));
@@ -175,6 +206,8 @@ export type ListOp =
 	| { op: 'remove'; item: string }
 	/** `inner`: a folder's own entries, in order (one moved from another binder brings its order along). */
 	| { op: 'append'; item: string; inner?: string[] }
+	/** A folder copied beside itself by something other than Binders (see `copyIn`). */
+	| { op: 'copy'; from: string; to: string }
 	/** `known`: every item in the binder when the move was made, in the order they showed. A move is worked out against
 	    that, not against the binder as it is when the list is written: by then a later change (a rename, a folder gone)
 	    may have taken away the very entries the move counts its place among. */
@@ -196,6 +229,7 @@ export function applyOps(contents: string[], ops: ListOp[], known: string[]): st
 			list = parentOf(o.from) !== parentOf(o.to) && !carried(o) ? relocate(list, o.from, o.to) : renameIn(list, o.from, o.to);
 		}
 		else if (o.op === 'remove') list = removeFrom(list, o.item);
+		else if (o.op === 'copy') list = copyIn(list, o.from, o.to);
 		else if (o.op === 'append') {
 			if (list.includes(o.item) || withFolder(o.item)) continue;
 			list = insertInFolder(list, o.item, Infinity);

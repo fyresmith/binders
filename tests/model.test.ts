@@ -1,4 +1,4 @@
-import { applyOps, checkFormat, cleanPath, diskPath, isBinderNote, isFolderNote, moveTo, orderChildren, readIndex, relPath, removeFrom, renameIn, stepIndex, UnsupportedBinder } from '../src/model';
+import { applyOps, checkFormat, cleanPath, copyIn, diskPath, isBinderNote, isFolderNote, moveTo, orderChildren, readIndex, relPath, removeFrom, renameIn, stepIndex, UnsupportedBinder } from '../src/model';
 import { done, eq, ok } from './harness';
 
 const j = (x: unknown) => JSON.stringify(x);
@@ -68,6 +68,28 @@ const j = (x: unknown) => JSON.stringify(x);
 	eq(diskPath('Part One/Arrival'), 'Part One/Arrival', 'written as is');
 	eq(diskPath('notes.md'), 'notes.md.md', 'a note named notes.md.md is written in full, as reading drops one .md');
 	eq(diskPath('A.md/'), 'A.md/', 'folders as they are');
+}
+
+// a folder copied beside itself by something other than Binders (Obsidian's "Make a copy")
+{
+	const c = ['A', 'P/', 'P/y', 'P/S/', 'P/S/k', 'P/x', 'B'];
+	eq(j(copyIn(c, 'P/', 'P 1/')), j(['A', 'P/', 'P/y', 'P/S/', 'P/S/k', 'P/x', 'P 1/', 'P 1/y', 'P 1/S/', 'P 1/S/k', 'P 1/x', 'B']), 'the copy goes right after its original, in its order, folders inside too');
+	eq(j(copyIn(copyIn(c, 'P/', 'P 1/'), 'P/', 'P 1/')), j(copyIn(c, 'P/', 'P 1/')), 'followed twice, nothing more happens');
+	eq(j(copyIn(['A', 'B'], 'P/', 'P 1/')), j(['A', 'B']), 'an original the list doesn’t mention has no order to give');
+	eq(j(copyIn(['P/', 'P/x'], 'P/', 'P/')), j(['P/', 'P/x']), 'a folder isn’t a copy of itself');
+	eq(j(copyIn(['P/', 'P/x'], 'P/x', 'P/x 1')), j(['P/', 'P/x']), 'only folders');
+	eq(j(copyIn(['P/', 'P/x', 'P 10/', 'P 10/x'], 'P/', 'P 1/')), j(['P/', 'P/x', 'P 1/', 'P 1/x', 'P 10/', 'P 10/x']), 'a folder whose name starts the same is another folder');
+	// what the list already says about the copy is kept: only what it lacks is added
+	const listed = ['P 1/', 'P 1/x', 'P 1/y', 'A', 'P/', 'P/y', 'P/S/', 'P/S/k', 'P/x', 'B'];
+	eq(j(copyIn(listed, 'P/', 'P 1/')), j(['P 1/', 'P 1/x', 'P 1/y', 'P 1/S/', 'P 1/S/k', 'A', 'P/', 'P/y', 'P/S/', 'P/S/k', 'P/x', 'B']), 'a copy already listed stays where it is, its entries in the order they have; one it lacks goes after the entry before it in the original');
+	eq(j(copyIn(['P/', 'P/a', 'P/b', 'P/c', 'P 1/', 'P 1/c', 'P 1/own'], 'P/', 'P 1/')), j(['P/', 'P/a', 'P/b', 'P/c', 'P 1/', 'P 1/a', 'P 1/b', 'P 1/c', 'P 1/own']), 'entries before the first it has go first; what only the copy has stays');
+	const full = ['P/', 'P/a', 'P/b', 'P 1/', 'P 1/b', 'P 1/a'];
+	ok(copyIn(full, 'P/', 'P 1/') === full, 'a copy that lists everything, in another order, is left exactly as it is');
+	// through a batch, with the moves and renames around it
+	eq(j(applyOps(c, [{ op: 'copy', from: 'P/', to: 'P 1/' }, { op: 'rename', from: 'P 1/', to: 'Q/' }], [])), j(['A', 'P/', 'P/y', 'P/S/', 'P/S/k', 'P/x', 'Q/', 'Q/y', 'Q/S/', 'Q/S/k', 'Q/x', 'B']), 'a copy renamed before the list is written keeps its place and its order');
+	eq(j(applyOps(c, [{ op: 'copy', from: 'P/', to: 'P 1/' }, { op: 'append', item: 'P 1/', inner: ['P 1/x', 'P 1/y'] }], [])), j(copyIn(c, 'P/', 'P 1/')), 'and one the store appends as well is listed once');
+	eq(new Set(applyOps(c, [{ op: 'copy', from: 'P/', to: 'P 1/' }, { op: 'copy', from: 'P/', to: 'P 1/' }], [])).size, 12, 'no entry twice');
+	ok(c.every((x) => copyIn(c, 'P/', 'P 1/').includes(x)), 'no entry of the list is lost');
 }
 
 // batches of changes

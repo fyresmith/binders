@@ -141,6 +141,8 @@ export interface Conversion {
 
 /** How long changes to a list wait for more before they're written, in ms. */
 const DEBOUNCE = 300;
+/** How long after the last file arrived in it a folder still counts as being copied, in ms. */
+const COPYING = 2000;
 /** The longest a view waits for the metadata cache at startup before saying a folder isn't in a binder, in ms. */
 const SETTLE_MAX = 10000;
 
@@ -170,6 +172,10 @@ class State implements Binder {
 	    included), as of a count of the vault's changes. Cleared on any change, like the two above. A drag over the file
 	    explorer asks for the same folder's order many times per pointer move. */
 	ordered: { at: number; lists: Map<string, TAbstractFile[]> } | null = null;
+	/** Folders being copied beside the folder they're a copy of, by something other than Binders (Obsidian's "Make a
+	    copy"), by their path in the binder: the folder each is a copy of, whether its order is waiting to be written,
+	    and when a file last arrived in it. See `placeCopy`. */
+	copies = new Map<string, { from: string; queued: boolean; at: number }>();
 	/** Cached: the binder's folder of snapshots (null: it has none), as of a count of the vault's changes. */
 	snaps: { at: number; folder: TFolder | null } | null = null;
 	/** The folder the binder note was in when found. If the note moves to another folder, that's another binder. */
@@ -694,12 +700,40 @@ export class BinderStore extends Events implements ExplorerSource {
 	}
 
 	/** A note made next to one it's named after ("Arrival 1" beside "Arrival": Obsidian's "Make a copy", or a split by
-	    hand) goes right after that one, not to the end of the folder. Only when the original has a place in the list. */
+	    hand) goes right after that one, not to the end of the folder. Only when the original has a place in the list.
+	    A folder made that way ("Part One 1" beside "Part One") goes right after its original too, and what arrives in
+	    it takes the original's order: Obsidian copies a folder file by file, so the list isn't written until they
+	    have stopped arriving. */
 	private placeCopy(s: State, f: TAbstractFile): void {
-		if (s.kind !== 'binder' || s.problem || !(f instanceof TFile) || f.extension !== 'md' || !f.parent || this.isHiddenNote(f)) return;
+		if (s.kind !== 'binder' || s.problem || !f.parent) return;
+		const mine = relPath(s.folder.path, f.path, f instanceof TFolder);
+		if (!mine) return;
+		// a file arriving in a folder that's being copied: its place is in the order the copy was given
+		const now = Date.now();
+		for (const [to, c] of s.copies) {
+			if (now - c.at > COPYING) { s.copies.delete(to); continue; }
+			if (mine === to || !mine.startsWith(to)) continue;
+			c.at = now;
+			if (!c.queued) { c.queued = true; this.queue(s, { op: 'copy', from: c.from, to }); }
+			else if (s.ops.length) { window.clearTimeout(s.timer); s.timer = window.setTimeout(() => { void this.write(s); }, DEBOUNCE); }
+			return;
+		}
+		if (f instanceof TFolder) {
+			const m = /^(.+) (\d+)$/.exec(f.name), original = m ? this.app.vault.getAbstractFileByPath(normalizePath(`${f.parent.path}/${m[1]}`)) : null;
+			const from = original instanceof TFolder ? relPath(s.folder.path, original.path, true) : null;
+			if (!from || !this.contents(s).includes(from)) return;
+			// after this task: whoever made it may be about to place it itself (New folder, Duplicate)
+			window.setTimeout(() => {
+				if (s.ops.some((o) => (o.op === 'move' || o.op === 'append') && o.item === mine) || s.base.includes(mine) || this.app.vault.getAbstractFileByPath(f.path) !== f) return;
+				s.copies.set(mine, { from, queued: true, at: Date.now() });
+				this.queue(s, { op: 'copy', from, to: mine });
+			}, 0);
+			return;
+		}
+		if (!(f instanceof TFile) || f.extension !== 'md' || this.isHiddenNote(f)) return;
 		const m = /^(.+) (\d+)$/.exec(f.basename), original = m ? this.app.vault.getAbstractFileByPath(normalizePath(`${f.parent.path}/${m[1]}.md`)) : null;
-		const rel = original ? relPath(s.folder.path, original.path, false) : null, mine = relPath(s.folder.path, f.path, false);
-		if (!original || !rel || !mine || !this.contents(s).includes(rel) || s.ops.some((o) => o.op === 'move' && o.item === mine)) return;
+		const rel = original ? relPath(s.folder.path, original.path, false) : null;
+		if (!original || !rel || !this.contents(s).includes(rel) || s.ops.some((o) => o.op === 'move' && o.item === mine)) return;
 		// after this task: whoever made it may be about to place it itself (New scene, Duplicate)
 		window.setTimeout(() => {
 			if (s.ops.some((o) => o.op === 'move' && o.item === mine) || s.base.includes(mine) || this.app.vault.getAbstractFileByPath(f.path) !== f || !f.parent) return;
@@ -1138,6 +1172,8 @@ export class BinderStore extends Events implements ExplorerSource {
 		const ops = s.ops;
 		s.ops = [];
 		s.aliases.clear();
+		// (a folder still being copied when this is written gets its order again with the next file that arrives)
+		for (const c of s.copies.values()) c.queued = false;
 		if (!ops.length || s.problem || this.states.get(s.note) !== s || this.app.vault.getAbstractFileByPath(s.note.path) !== s.note) return;
 		const items = [...this.items(s).values()].flat();
 		const exists = new Set(items.map((i) => i.rel));

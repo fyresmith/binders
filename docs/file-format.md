@@ -91,6 +91,8 @@ row.
   showed (folders first, then notes, by name; only notes and folders are listed, and a `Snapshots` folder is left out). If `Folder/Folder.md` already exists, it adds `binder: 1` (and
   `contents`, if it has none) to its properties and leaves its text alone. If that note already has a `contents` property
   that isn't a list, Binders leaves the note as it is and doesn't make the folder a binder.
+- A folder made beside one it's named after ("Part One 1" next to "Part One", as Obsidian's "Make a copy" does) goes
+  right after that one, and what's in it takes that folder's order.
 
 ## Scene properties
 

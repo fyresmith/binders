@@ -422,3 +422,63 @@ test('binders: a folder renamed and a note in it renamed in the same burst: the 
 		await p.sleep(400);
 	}
 }));
+
+// Obsidian's "Make a copy" of a folder (`vault.copy`) makes "Part One 1" beside "Part One" and its files one by one.
+test('binders: a folder copied by Obsidian goes right after its original, with what’s in it in the original’s order; the list on disk has every entry once', withTidy(async (p, h, t) => {
+	const L = 'The Lighthouse', P1 = `${L}/Part One`;
+	try { await copied(p, t, L, P1); } finally { await p.ev(`(async () => { const f = ${file(`${P1}/map.png`)}; if (f) await app.vault.delete(f); })().then(() => 1)`); }
+}));
+async function copied(p, t, L, P1) {
+	// a folder inside, a file that isn't a note, a note the list doesn't mention, and the folder's own order not by name
+	await p.ev(`(async () => { await app.vault.createFolder(${j(`${P1}/Letters`)}); await app.vault.create(${j(`${P1}/Letters/Second.md`)}, 'Second letter.'); await app.vault.create(${j(`${P1}/Letters/First.md`)}, 'First letter.'); await app.vault.createBinary(${j(`${P1}/map.png`)}, new Uint8Array([137, 80, 78, 71]).buffer); })().then(() => 1)`);
+	await p.sleep(300);
+	await p.ev(`(async () => { const s = ${B}; await s.move(${file(`${P1}/Letters`)}, ${file(P1)}, 1); await s.move(${file(`${P1}/Letters/Second.md`)}, ${file(`${P1}/Letters`)}, 0); await s.move(${file(`${P1}/map.png`)}, ${file(P1)}, 0); await s.flush(); await app.vault.create(${j(`${P1}/Unlisted.md`)}, 'Not in the list yet.'); })().then(() => 1)`);
+	await p.sleep(300);
+	const listed = await contents(p);
+	t.eq(j(listed.slice(1, 9)), j(['Part One/', 'Part One/map.png', 'Part One/Arrival', 'Part One/Letters/', 'Part One/Letters/Second', 'Part One/Letters/First', 'Part One/The keeper', 'Part One/Storm warning']), 'to begin with');
+	const before = await texts(p);
+	await countWrites(p);
+	await p.ev(`app.vault.copy(${file(P1)}, ${j(`${L}/Part One 1`)}).then(() => 1)`);
+	t.ok(await until(p, `!!${file(`${L}/Part One 1/Letters/First.md`)} && !!${file(`${L}/Part One 1/Unlisted.md`)}`, 5000), 'the copy is made');
+	t.eq(j(await p.ev(`(() => { const out = []; const walk = (f) => { for (const c of ${B}.orderedChildren(f) ?? []) { out.push(c.path.slice(${L.length + 1})); if (c.children) walk(c); } }; walk(${file(L)}); return out; })()`)), j([
+		'Prologue.md',
+		'Part One', 'Part One/map.png', 'Part One/Arrival.md', 'Part One/Letters', 'Part One/Letters/Second.md', 'Part One/Letters/First.md', 'Part One/The keeper.md', 'Part One/Storm warning.md', 'Part One/Unlisted.md',
+		'Part One 1', 'Part One 1/map.png', 'Part One 1/Arrival.md', 'Part One 1/Letters', 'Part One 1/Letters/Second.md', 'Part One 1/Letters/First.md', 'Part One 1/The keeper.md', 'Part One 1/Storm warning.md', 'Part One 1/Unlisted.md',
+		'Part Two', 'Part Two/The wreck.md', 'Part Two/Lights out.md', 'Epilogue.md',
+	]), 'the copy shows right after Part One, in Part One’s order (a note the list didn’t mention last, as in the original)');
+	await p.sleep(700); await flush(p); await p.sleep(200);
+	const now = await contents(p);
+	t.eq(j(now), j(['Prologue', 'Part One/', 'Part One/map.png', 'Part One/Arrival', 'Part One/Letters/', 'Part One/Letters/Second', 'Part One/Letters/First', 'Part One/The keeper', 'Part One/Storm warning',
+		'Part One 1/', 'Part One 1/map.png', 'Part One 1/Arrival', 'Part One 1/Letters/', 'Part One 1/Letters/Second', 'Part One 1/Letters/First', 'Part One 1/The keeper', 'Part One 1/Storm warning',
+		'Part Two/', 'Part Two/The wreck', 'Part Two/Lights out', 'Epilogue']), 'the binder note on disk: every entry it had, in place, and the copy’s after Part One’s');
+	t.eq(new Set(now).size, now.length, 'no entry twice');
+	t.eq(await writes(p), 1, 'written once, after the last file arrived');
+	await bodyKept(p, t, before);
+	const after = await texts(p);
+	same(t, before, after, { skip: [NOTE] });
+	for (const n of ['Arrival', 'The keeper', 'Storm warning', 'Letters/First', 'Letters/Second', 'Unlisted']) t.eq(after[`${L}/Part One 1/${n}.md`], before[`${P1}/${n}.md`], `the copy of “${n}” has its text`);
+	// the copy renamed (Obsidian leaves its name ready to type) keeps its place and order; a note made in it later goes last
+	await p.ev(`app.fileManager.renameFile(${file(`${L}/Part One 1`)}, ${j(`${L}/Part One, again`)}).then(() => 1)`);
+	await p.sleep(2200); // (past the moment the store still takes the folder for one being copied)
+	await p.ev(`app.vault.create(${j(`${L}/Part One, again/Later.md`)}, 'Later.').then(() => 1)`);
+	await p.sleep(300);
+	t.eq(j(await children(p, `${L}/Part One, again`)), j(['map.png', 'Arrival.md', 'Letters', 'The keeper.md', 'Storm warning.md', 'Later.md', 'Unlisted.md']), 'renamed: the same order, and a new note after the listed ones');
+	await flush(p); await p.sleep(200);
+	t.eq(j((await contents(p)).slice(9, 17)), j(['Part One, again/', 'Part One, again/map.png', 'Part One, again/Arrival', 'Part One, again/Letters/', 'Part One, again/Letters/Second', 'Part One, again/Letters/First', 'Part One, again/The keeper', 'Part One, again/Storm warning']), 'and on disk');
+}
+
+test('binders: Binders’ own “Duplicate” of a folder is as it was: the copy after its original, in its order, its folder note renamed, one write', withTidy(async (p, h, t) => {
+	const L = 'The Lighthouse', P1 = `${L}/Part One`;
+	await addFolderNote(p);
+	await p.ev(`(async () => { await ${B}.move(${file(`${P1}/Storm warning.md`)}, ${file(P1)}, 0); await ${B}.flush(); })().then(() => 1)`);
+	await p.sleep(200);
+	const before = await texts(p);
+	await countWrites(p);
+	t.eq(await p.ev(`${B}.duplicate(${file(P1)}).then(f => f.path)`), `${L}/Part One 2`, 'the copy, named by counting on');
+	await p.sleep(700); await flush(p); await p.sleep(200);
+	t.eq(j(await contents(p)), j(['Prologue', 'Part One/', 'Part One/Storm warning', 'Part One/Arrival', 'Part One/The keeper', 'Part One 2/', 'Part One 2/Storm warning', 'Part One 2/Arrival', 'Part One 2/The keeper', 'Part Two/', 'Part Two/The wreck', 'Part Two/Lights out', 'Epilogue']), 'on disk: after Part One, in its order');
+	t.eq(await writes(p), 1, 'one write');
+	t.eq(await read(p, `${L}/Part One 2/Part One 2.md`), before[FOLDER_NOTE], 'the folder note went along under the copy’s name, byte for byte');
+	t.eq(j(await children(p, `${L}/Part One 2`)), j(['Storm warning.md', 'Arrival.md', 'The keeper.md']), 'and isn’t an item');
+	same(t, before, await texts(p), { skip: [NOTE] });
+}));
