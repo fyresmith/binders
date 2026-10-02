@@ -851,8 +851,9 @@ class Manuscript implements BinderMode {
 	    editor that's on screen; one that's wholly off it isn't measured, and its cursor would stay out of sight. */
 	private showCaret(s: Scene, c: { top: number; bottom: number } | null, fallback: 'start' | 'end'): void {
 		const r = this.root.getBoundingClientRect(), body = s.bodyEl.getBoundingClientRect();
-		// (what can be seen of the page: on a phone the keyboard may lie over its foot without making it any shorter)
-		const view = { top: r.top, bottom: r.bottom };
+		// (what can be seen of the page: on a phone the keyboard may lie over its foot without making it any shorter,
+		// and while the view is short the page runs up under Obsidian's header, as a note's does)
+		const view = { top: r.top + this.covered(), bottom: r.bottom };
 		const line = c ? c.bottom - c.top : 24, pad = Math.min((view.bottom - view.top) / 4, line * 2);
 		const top = c?.top ?? (fallback === 'end' ? body.bottom - line : body.top), bottom = c?.bottom ?? top + line;
 		// focus mode >>> typewriter scrolling: with the cursor on the last line of its section, that line is held at one
@@ -862,6 +863,13 @@ class Manuscript implements BinderMode {
 		// <<< focus mode
 		if (top < view.top + pad) this.root.scrollTop -= view.top + pad - top;
 		else if (bottom > view.bottom - pad) this.root.scrollTop += bottom - (view.bottom - pad);
+	}
+
+	/** How much of the page's top is under something drawn over it (Obsidian's floating header on a phone, while the
+	    view is short): the style sheet says so with the page's `scroll-padding-top`, the property browsers have for
+	    it. The cursor is kept below that. */
+	private covered(): number {
+		return parseFloat(getComputedStyle(this.root).scrollPaddingTop) || 0;
 	}
 
 	/** The section at a height on screen: the one there, or the nearest one. */

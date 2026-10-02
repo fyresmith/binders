@@ -832,6 +832,28 @@ test('a note that opens with a rule and has another further down: its section sh
 	t.eq(disk(p, f), RULED, 'the note is as it was');
 });
 
+test('with the top of the page under something (its scroll-padding-top, as under Obsidian’s header on a short phone), the cursor is kept below it', async (p, h, t) => {
+	await mount(p);
+	await p.ev(`(() => { ${M}.root.style.height = '260px'; ${M}.root.style.paddingTop = '90px'; ${M}.root.style.scrollPaddingTop = '90px'; return 1; })()`);
+	await p.sleep(200);
+	const at = () => p.ev(`(() => { const m = ${M}, s = m.scenes.find(s => s.el.contains(document.activeElement)), cm = s.live.cm, c = cm.coordsAtPos(cm.state.selection.main.head), r = m.root.getBoundingClientRect(); return { path: s.file.path, top: Math.round(c.top - r.top), bottom: Math.round(r.bottom - c.bottom) }; })()`);
+	await focusEnd(p, ORDER[3]);
+	await p.key('End', 'ctrl');
+	await p.sleep(500);
+	t.eq((await at()).path, ORDER[6], 'Mod+End: the cursor is in the last section');
+	await p.key('Home', 'ctrl');
+	await p.sleep(500);
+	let c = await at();
+	t.eq(c.path, ORDER[0], 'Mod+Home: the cursor is in the first section');
+	t.ok(c.top >= 90 && c.bottom >= 0, 'and shows below the covered part of the page: ' + J(c));
+	await p.key('End', 'ctrl');
+	await p.sleep(500);
+	for (let i = 0; i < 4; i++) { await p.key('ArrowUp'); await p.sleep(150); }
+	c = await at();
+	t.ok(c.top >= 90 && c.bottom >= 0, 'arrowing up through the sections, it stays below it: ' + J(c));
+	await p.ev(`(() => { ${M}.root.style.height = ''; ${M}.root.style.paddingTop = ''; ${M}.root.style.scrollPaddingTop = ''; return 1; })()`);
+});
+
 test('a read-only binder shows the manuscript read only', async (p, h, t) => {
 	await mount(p, B, { readOnly: true });
 	t.eq(await p.ev(`${M}.root.querySelectorAll('[contenteditable=true]').length`), 0, 'nothing editable');

@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.62 (2026-10-02)
+
+### Changed
+
+- Nothing a writer will notice yet: the manuscript keeps the cursor clear of anything that covers the top of its page.
+
 ## 0.12.61 (2026-10-02)
 
 ### Fixed
