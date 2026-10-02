@@ -522,3 +522,23 @@ test('binders: “Undo last move” with one binder’s view or note in front ne
 		await p.ev(`(async () => { ${B}.undos = []; ${B}.redos = []; app.workspace.getLeavesOfType('binders-view').forEach(l => l.detach()); const f = ${file('Loose.md')}; if (f) await app.vault.delete(f); })().then(() => 1)`);
 	}
 }));
+
+// A change to a list waits 300 ms to be written with any others. Obsidian quitting, or a phone putting the app away,
+// mustn't find it still waiting.
+test('binders: a move still waiting to be written is written when Obsidian quits, and when the page is hidden or put away; with nothing waiting, nothing is asked for', withTidy(async (p, h, t) => {
+	const LFI = 'Longform demo/Index.md';
+	const quit = () => p.ev(`(async () => { const ps = []; app.workspace.trigger('quit', { addPromise: (x) => ps.push(x) }); await Promise.all(ps); return ps.length; })()`);
+	await flush(p);
+	t.eq(await quit(), 0, 'nothing waiting: the quit isn’t held up');
+	await p.ev(`${B}.moveDown(${file('The Lighthouse/Prologue.md')}).then(() => 1)`);
+	t.eq(await quit(), 1, 'a move waiting: the quit waits for its write');
+	t.eq(j((await contents(p)).slice(0, 5)), j(['Part One/', 'Part One/Arrival', 'Part One/The keeper', 'Part One/Storm warning', 'Prologue']), 'and the binder note on disk has the move, read back at once');
+	await p.ev(`${B}.moveUp(${file('The Lighthouse/Prologue.md')}).then(() => 1)`);
+	await p.ev(`(() => { window.dispatchEvent(new Event('pagehide')); return 1; })()`);
+	await p.sleep(120);
+	t.eq((await contents(p))[0], 'Prologue', 'the page put away: written within 120 ms');
+	// a Longform project's order waits the same way
+	await p.ev(`${B}.move(${file('Longform demo/Return.md')}, ${file('Longform demo')}, 0).then(() => 1)`);
+	t.eq(await quit(), 1, 'a Longform scene moved: the quit waits');
+	t.ok(/scenes:\n\s+- Return\n/.test(await read(p, LFI)), 'and the index note on disk has it first');
+}));

@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.68 (2026-10-02)
+
+### Fixed
+
+- A note moved in the last moment before Obsidian quits, or before a phone puts the app away, is now written to the binder.
+
 ## 0.12.67 (2026-10-02)
 
 ### Fixed

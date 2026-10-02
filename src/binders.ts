@@ -258,6 +258,13 @@ export class BinderStore extends Events implements ExplorerSource {
 			}));
 			done();
 		});
+		// Changes to a list wait a moment to be written together, and nothing may still be waiting at the end. Obsidian
+		// doesn't unload plugins when it quits: it asks for the work to finish first. A phone that puts the app away, or
+		// a window closed, gives no such chance, so a page that's hidden writes at once.
+		plugin.registerEvent(this.app.workspace.on('quit', (tasks) => { if (this.waiting()) tasks.addPromise(this.flush()); }));
+		const now = () => { if (this.waiting()) void this.flush(); };
+		plugin.registerDomEvent(document, 'visibilitychange', () => { if (document.hidden) now(); });
+		plugin.registerDomEvent(window, 'pagehide', now);
 		plugin.register(() => { void this.flush(); window.clearTimeout(this.emitTimer); window.clearTimeout(this.followTimer); window.clearTimeout(this.snapshotsTimer); });
 	}
 
@@ -816,6 +823,9 @@ export class BinderStore extends Events implements ExplorerSource {
 		}
 		return this.app.vault.create(this.folderNotePath(folder), `---\n${stringifyYaml({ binder: FORMAT_VERSION, contents: contents.map(diskPath) })}---\n`);
 	}
+
+	/** Is any binder's list waiting to be written? */
+	private waiting(): boolean { return [...this.states.values()].some((s) => s.ops.length > 0 || s.lfOps.length > 0); }
 
 	async flush(): Promise<void> { await Promise.all([...this.states.values()].map((s) => this.write(s))); }
 
