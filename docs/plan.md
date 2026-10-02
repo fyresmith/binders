@@ -339,7 +339,11 @@ as prose; pure) and `src/view/snapshots.ts` (the dialogs, the menus, and a pane 
   line): what each had before, as written, and what it was given. Undo puts the property back (or takes it away)
   along with the places; redo gives it again. A folder note made to hold a folder's label stays when it's undone,
   without the property.
-- Not undone this way: renames, deletes, splits, merges, duplicates, grouping and ungrouping.
+- Undo is per binder: the commands take back the last change in the binder in front (or the open note's), and with
+  neither, the binder changed last; a change in another binder is not the one undone. The 50 changes are kept
+  together, for all binders.
+- A folder made around notes ("New folder from selection") is undone with the move, and a sort kept as the binder's
+  order too. Not undone this way: renames, deletes, splits, merges and duplicates.
 
 ### Dragging a card out of the view
 
@@ -455,7 +459,7 @@ them: see AGENTS.md). Nothing is tagged yet.
 | 0.8 | Polish: keyboard, touch, themes, performance on a 1,000-scene binder, a full mobile pass, README | Done in emulation (keyboard and screen readers, themes, mobile emulation, `specs-perf.mjs`, a native-look pass against Obsidian's Bases and drag styles, explorer drag-to-reorder); real iOS and Android devices still to try |
 | 0.9 | QA rounds (as with Evra: parallel QA agents, e2e suites, fixes), and, on the maintainer's request (2026-10-01), from Scrivener: the outliner in place of the plot grid, labels and statuses in settings, custom label colors, label tint and explorer label dots, word count targets, split, merge, duplicate, group and ungroup, synopsis from text, compile, undo and redo of moves | Built. Six QA rounds so far (`specs-qa-*.mjs` to `specs-qa5-*.mjs` and the integration round in [integration-qa.md](integration-qa.md)); the sixth is the 2026-10-02 hardening push |
 | 0.10 | Before release (2026-10-01): mobile QA to the end; export (EPUB, DOCX, PDF, and a Scrivener project); import from Scrivener; find and replace across the manuscript; snapshots of a scene ("Rewrite"); focus mode. See ROADMAP.md | Arrange by label, snapshots, focus mode and dragging a card out of the view are built; mobile QA is in progress (emulated only); export, import and find and replace are not started |
-| 0.12.x | The 2026-10-02 hardening push: a sixth QA round, fixes, and refactors so the code is in files of one idea each (the undo history, the outliner's columns, the shared card helpers; folder cards that name what they hold), the documentation checked against the code | In progress |
+| 0.12.x | The 2026-10-02 hardening push: a sixth QA round, fixes, and refactors so the code is in files of one idea each (the undo history, the outliner's columns, the shared card helpers; folder cards that name what they hold), the documentation checked against the code | Release-ready work in progress: six QA rounds done, the findings still open listed in `tests/e2e/open-findings.json`. Not released: see "Decided" |
 | 1.0 | Release and directory submission | |
 
 ## Risks
@@ -493,6 +497,16 @@ them: see AGENTS.md). Nothing is tagged yet.
   the word counts, the goal and dimming are each an option; a session is today's words in this binder on this
   device; the numbers hide while typing and return on a pause; focus mode doesn't take the OS full screen. Changed the same day: dimming is on by default, and "Enter
   fullscreen" is an option, off by default.
+
+- **No release before export is built** (2026-10-02, the maintainer). Nothing is tagged, and the directory submission
+  waits. Until then the project is brought to a release-ready state: the code, the tests and the documentation, each
+  checked against the others.
+- **Mobile: "emulator is king"** (2026-10-02, the maintainer). He has no phone or tablet to try it on yet, so
+  Obsidian's emulation of both, run in the e2e suite, is the standard for what works on mobile. A real iPhone, iPad and
+  Android device are still to try when there is one, and the README says so.
+- **How fixes ship** (2026-10-02): a fix runs its area's specs in both themes before it ships, the whole suite runs
+  after each batch, and a failure on `main` is found by bisecting before anyone guesses. See
+  [development.md](development.md).
 
 ## After 1.0 (from Scrivener)
 

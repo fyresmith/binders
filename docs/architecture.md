@@ -63,7 +63,7 @@ Each entry says what the module owns and what it must never do.
 | File | What it is | Must never |
 |---|---|---|
 | `src/model.ts` | The binder note as data: `readIndex` (parse `contents`), `orderChildren`, and the operations on the list: `renameIn`, `relocate`, `removeFrom`, `moveTo`, `applyOps` (a batch of `ListOp`s). `FORMAT_VERSION` and `checkFormat`, which refuses a newer binder. Pure. | Import Obsidian, or normalise a newer format. |
-| `src/binders.ts` | `BinderStore`, as `plugin.binders`. Finds binders (a note with `binder` in its properties; a Longform index note), keeps one `State` per binder (the list as the note has it, plus changes not yet written), follows the vault's `rename`, `delete` and `create` events and the metadata cache's `changed`, answers "what is in this folder, in what order", and does every change: `put`/`move`, `moveUp`/`moveDown`, `newScene`, `newFolder`, `duplicate`, `group`/`ungroup`, `makeBinder`, `convertToBinder`, `setProps`/`editProps`, `label`. Emits `changed` (batched) to anyone showing a binder. The file explains its API at the top. | Write anything but the binder note's `contents` (or a Longform index note's `longform.scenes`) and the properties a view's edit asks for; write a binder whose format is newer (`problem`); apply a change to a stale copy of the note (see [Invariants](#invariants-that-keep-writing-safe)). |
+| `src/binders.ts` | `BinderStore`, as `plugin.binders`. Finds binders (a note with `binder` in its properties; a Longform index note), keeps one `State` per binder (the list as the note has it, plus changes not yet written), follows the vault's `rename`, `delete` and `create` events and the metadata cache's `changed`, answers "what is in this folder, in what order", and does every change: `put`/`move`, `reorder` (a folder's items given a new order in one step and one write), `moveUp`/`moveDown`, `newScene`, `newFolder`, `duplicate`, `group`/`ungroup`, `makeBinder`, `convertToBinder`, `setProps`/`editProps`, `label`. Emits `changed` (batched) to anyone showing a binder. The file explains its API at the top. | Write anything but the binder note's `contents` (or a Longform index note's `longform.scenes`) and the properties a view's edit asks for; write a binder whose format is newer (`problem`); apply a change to a stale copy of the note (see [Invariants](#invariants-that-keep-writing-safe)). |
 | `src/undo.ts` | `MoveHistory`: for each change made by hand (a drop, Move up, a sort kept, a label given by a drop) where each item was before and after, kept in memory (50 changes), and taking it back or doing it again by asking the store to move the files and write the order. Reached through `MoveHost`, a small interface the store implements. | Touch the vault itself, or undo part of a change: it moves nothing unless everything can move. |
 | `src/properties.ts` | `editProperties`: the one way a property is written to a scene. Goes through Obsidian's own writer, except for the two kinds of note that writer would damage: a note that opens with a `---` block that is text (the properties are added as a new block above it) and a note that starts with a byte-order mark (its block is rewritten in place). | Call `processFrontMatter` on a scene anywhere else. |
 | `src/longform.ts` | Longform projects as data: reading `longform` properties, flattening and nesting `scenes`, the shown order, groups, the plan for "Convert to binder". Pure, except `longformRunning` (see internals). | Write anything but `longform.scenes`; keep any other key of `longform` out of what it hands back to be written. |
@@ -92,7 +92,7 @@ Each entry says what the module owns and what it must never do.
 | `src/view/mode.ts` | The contract between the view and its modes: `ModeContext` (what a mode may ask of the view) and `BinderMode` (what a view may ask of a mode). | Import any mode. |
 | `src/view/corkboard.ts` | The corkboard grid. Cards in binder order, a folder as one card, drag and keyboard reorder, editing in place. | Redraw while something is being typed or dragged. |
 | `src/view/lanes.ts`, `lanes-data.ts` | The corkboard arranged by label: one line per label, the cards along them. `lanes-data.ts` is the pure model (the lines, the places, what a drop means); `lanes.ts` draws it. Not a mode of its own: `BinderView` picks it from the corkboard's `arrange` option. | |
-| `src/view/card.ts` | The index card both boards draw. | |
+| `src/view/card.ts` | The index card both boards draw, and what they share: `held` (the first five notes and folders a folder's card names, under the filter's view of them), `passing` (the notes a filter lets through), `crumbAt` (the breadcrumb's crumb under a pointer, as a drop target). | |
 | `src/view/outliner.ts`, `outliner-columns.ts`, `outliner-data.ts` | The outliner: rows of a tree table, editing in place, sorting, folding, dragging. `outliner-columns.ts` is its header (a column's menu, sorting, resizing, reordering, which columns show) and asks the outliner only through `ColumnsHost`. `outliner-data.ts` is the pure part: which columns exist, how values sort, read and are typed. | |
 | `src/view/manuscript.ts` | The manuscript: every note as a section of one scrolling page, live editors only near the viewport, caret and keyboard handling across sections, saving on every route out (switching mode, closing, quitting). | Mount an editor except through `editable-embed.ts`; leave unsaved typing behind. |
 | `src/view/editable-embed.ts` | One live editor on one note, built from Obsidian's own editable embed. Merges outside edits into unsaved typing, keeps undo history across remounts, writes pending typing before it lets go. | Be used by anything but the manuscript and snapshots (`liveEditors`); trust Obsidian's embed without `embedSupported()`. |
@@ -145,12 +145,19 @@ label dragged across the lines of the board by label take the same road (`put`, 
 1. A section near the viewport has a live editor, made by `mountEditor` from Obsidian's own editable embed
    (`editable-embed.ts`). The keystroke is Obsidian's: CodeMirror, undo, formatting and links behave as in a note.
 2. The embed's `save(text)` runs on each update; Obsidian's debounced write puts the note on disk. Binders' wrapper
-   reports the typing (for the word count) and changes nothing about the write.
+   reports the typing (for the word count) and keeps track of the write in flight, so that `flush()` can wait for it.
 3. When the note changes from outside this editor (another app, sync, a tab of the same note) the embed's
    `onFileChanged` is replaced by ours: it always goes through Obsidian's three-way merge when the editor has unsaved
    typing, and passes the merged text to other views of the note.
-4. On every route out (a mode switch, closing the view, the plugin unloading, quitting, the page hiding) pending typing
-   is written first, and a new editor for the same note waits for that write.
+4. On every route out (a mode switch, closing the view, the plugin unloading, quitting) pending typing is written
+   first, and a new editor for the same note waits for that write. `flush()` loops until nothing is unsaved: words
+   typed during a write in flight are written by the next one, not left behind. Whatever reads, copies, merges or
+   deletes a note calls `saveOpen` (`scenes.ts`) first, which asks every manuscript's editors to `saveEditors`
+   (their flushes, and the last write of an editor that has just gone) and every tab of the note to `saveTab` (it
+   waits for the tab's own write in flight, and writes nothing if the tab holds nothing the file doesn't). As the page
+   itself leaves (a reload, a closed window) on a computer, nothing is started: a write there is in two steps, and
+   one cut off between them would leave the note empty, so the note stays as last saved, as in a tab of its own.
+   Quitting asks for the writes first and waits for them.
 5. Sections far from the viewport are rendered text, not editors. They are re-rendered when the file changes
    (`manuscript.ts`, `onModify`).
 
@@ -211,7 +218,16 @@ These are the rules the code is held to. A change that breaks one needs a new te
    explorer, read-only manuscript, no typewriter line) and says so once.
 8. **Leave nothing behind.** Focus mode changes no state of Obsidian's; unloading removes the explorer patch, the icons
    and dots, and the classes.
-9. **Never block a view on the disk.** Word counts read in the background, redraws are batched, and only the rows or
+9. **A save waits for the words typed during a write in flight.** A flush is done only when nothing is unsaved and
+   no write is on its way; one that returned earlier would let a read, a merge or a delete go ahead on old text.
+10. **A merge is against what the editor holds.** An outside change is merged (three ways) with the text in the editor
+    and what was last saved, not with a copy kept earlier, so typing and the outside edit both survive.
+11. **A block that isn't properties is text, everywhere.** One rule (`scene-text.ts`) says where a note's properties end;
+    merge, split, compile, snapshots, the manuscript and focus mode all use it.
+12. **Nothing is started as the page goes.** See the keystroke journey, step 4.
+13. **A property write never drops text.** `editProperties` is the one way a property is written to a scene; for the
+    two kinds of note Obsidian's writer would damage, it writes the block itself.
+14. **Never block a view on the disk.** Word counts read in the background, redraws are batched, and only the rows or
    cards that changed are drawn.
 
 ## How the tests map onto it

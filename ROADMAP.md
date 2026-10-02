@@ -3,11 +3,15 @@
 Decided with the maintainer on 2026-10-01. Everything here ships before the first release. The four features apply
 only to notes inside a binder; a note anywhere else in the vault is left exactly as Obsidian has it.
 
+Added 2026-10-02: nothing is released before export is built. Until then the project is brought to a release-ready
+state (code, tests and documentation).
+
 ## Now
 
 - [ ] **Mobile QA, to the end.** Every mode, the file explorer, the dialogs and the settings, on phone and tablet
       sizes, by touch: every bug found is fixed with a test, and the result is tried on a real iPhone or iPad and a
-      real Android device (so far phones are only emulated). Findings live in `tests/e2e/specs-qa4-mobile.mjs` and
+      real Android device (so far phones are only emulated; "emulator is king": until the maintainer has a real
+      device, the emulated phone and tablet tests are the standard). Findings live in `tests/e2e/specs-qa4-mobile.mjs` and
       `tests/e2e/specs-qa5-*.mjs`. Integration results and remaining findings: [integration QA](docs/integration-qa.md).
 
 ## Next, in this order

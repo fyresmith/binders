@@ -151,7 +151,7 @@ Without `--specs`, every `tests/e2e/specs*.mjs` runs:
 | `specs-themes.mjs` | Theme variables and appearance settings (run with `--theme both`) |
 | `specs-mobile.mjs` | A phone and a tablet through `app.emulateMobile`, with touch |
 | `specs-perf.mjs` | A generated 1,000-scene binder, with generous limits |
-| `specs-qa-*.mjs` to `specs-qa6-*.mjs` | QA rounds, each file an area. Tests named "BUG: …" or "UX: …" were written to fail until what they show is fixed, and stay as regressions after. Rounds 1 and 2: the store, the explorer, the corkboard, the manuscript. Round 3: labels, the outliner, the scene tools, and `qa3-look`, which records screenshots and measurements and asserts nothing. Round 4: the explorer, the manuscript, a writer's whole day (`qa4-journey`), a phone and a tablet. Round 5: a phone and a tablet by touch, mode by mode (`cork`, `outliner`, `manuscript`, `nav`, `tablet`). Round 6: `writing`, `scale`, `store`, `boards`, `menus`, `phone`, `tablet` |
+| `specs-qa-*.mjs` to `specs-qa6-*.mjs` | QA rounds, each file an area. Tests named "BUG: …" or "UX: …" were written to fail until what they show is fixed, and stay as regressions after. Rounds 1 and 2: the store, the explorer, the corkboard, the manuscript. Round 3: labels, the outliner, the scene tools, and `qa3-look`, which records screenshots and measurements and asserts nothing. Round 4: the explorer, the manuscript, a writer's whole day (`qa4-journey`), a phone and a tablet. Round 5: a phone and a tablet by touch, mode by mode (`cork`, `outliner`, `manuscript`, `nav`, `tablet`). Round 6: `writing`, `scale`, `store`, `boards`, `menus`, `phone`, `tablet`, `features` (eight files, `specs-qa6-*.mjs`) |
 
 **The whole suite, in several Obsidians at once.** In one Obsidian the suite takes hours.
 `tests/e2e/run-all.mjs` shares the spec files out over several, each job a `run.mjs` of its own:
@@ -290,6 +290,38 @@ run on a developer's machine. Before a release, run it there (`npm run e2e:all -
 ## Versions and commits
 
 Every commit goes through `npm run ship`, which bumps the version and writes the CHANGELOG. See [AGENTS.md](../AGENTS.md).
+
+### Before a fix ships
+
+Learned on 2026-10-02, when about a hundred patches shipped having run only the test written for each, and several
+broke older tests nobody had run:
+
+- **A fix runs its area's specs in both themes before it ships** (`npm run e2e -- --theme both --specs …`), not only
+  the test it added.
+- **The whole suite runs after each batch** of fixes: `npm run e2e:all -- --jobs 6 --theme both --retry-alone`.
+- **A failure on `main` is found with `git bisect run`, before anyone guesses** which change caused it.
+
+A script for `git bisect run` builds the commit, runs the one failing test and turns its summary into an exit status
+(0 good, 1 bad, 125 to skip a commit that doesn't build). The runner's own exit code is 1 on a failure, but 0 when
+`--grep` matches nothing, so the script looks for "1 passed, 0 failed" instead:
+
+```bash
+#!/bin/bash
+# bisect.sh: does the test pass at this commit?
+npm run build >/dev/null 2>&1 || exit 125          # a commit that doesn't build can't be judged
+npm run install-vault >/dev/null 2>&1 || exit 125  # (the build installs too; this makes sure test-vault has it)
+npm run e2e -- --grep "a status set in a note with a comment" 2>&1 | tee /tmp/bisect.log | tail -3
+grep -q "1 passed, 0 failed" /tmp/bisect.log
+```
+
+```bash
+git bisect start <bad commit> <good commit>
+git bisect run bash /path/to/bisect.sh
+git bisect reset
+```
+
+Keep the script outside the repository (a bisect checks out old commits), and the test's name specific enough that
+exactly one test matches.
 
 ## Releasing
 
