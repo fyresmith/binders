@@ -6,6 +6,7 @@ test-dist/
 test-vault/.obsidian/plugins/binders/
 test-vault/.obsidian/workspace*.json
 test-vault/.obsidian/community-plugins.json
+/demo-vault/
 .DS_Store
 .claude/worktrees/
 .claude/memos/

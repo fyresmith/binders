@@ -5,6 +5,7 @@
 // features, settings that no longer work). See AGENTS.md.
 import { execFileSync } from 'child_process';
 import { readFileSync, writeFileSync } from 'fs';
+import { installAll } from './install-to-vault.mjs';
 
 const [bump, title, ...rest] = process.argv.slice(2);
 if (!['patch', 'minor', 'major'].includes(bump) || !title) {
@@ -26,6 +27,7 @@ if (!git('diff', '--cached', '--name-only')) { console.error('Nothing is staged.
 
 execFileSync('npm', ['version', bump, '--no-git-tag-version'], { stdio: 'ignore' });
 const version = JSON.parse(readFileSync('package.json', 'utf8')).version;
+installAll(); // the vaults say the new version too (the manifest is copied as it is)
 const date = new Date().toISOString().slice(0, 10);
 const entry = `## ${version} (${date})\n\n` + Object.entries(SECTIONS).filter(([k]) => notes[k]).map(([k, h]) => `### ${h}\n\n${notes[k].map((n) => `- ${n}`).join('\n')}\n`).join('\n') + '\n';
 const log = readFileSync('CHANGELOG.md', 'utf8'), at = log.indexOf('\n## ');

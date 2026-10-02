@@ -1,6 +1,8 @@
 import esbuild from "esbuild";
 import process from "process";
+import { watchFile } from "node:fs";
 import { builtinModules } from "node:module";
+import { installAll } from "./scripts/install-to-vault.mjs";
 
 const banner = `/*
 Binders: ordered folders, corkboards and manuscripts for Obsidian.
@@ -8,6 +10,19 @@ This is a generated file. The source lives at https://github.com/fyresmith/binde
 */
 `;
 const prod = process.argv[2] === "production";
+
+// Every build that succeeds is installed into test-vault and, if it has been made, demo-vault: the one way a vault
+// gets the plugin (scripts/install-to-vault.mjs), so neither ever runs an older build than the one just made.
+const install = {
+  name: "install-to-vaults",
+  setup(build) {
+    build.onEnd((result) => {
+      if (result.errors.length) return;
+      const into = installAll();
+      if (into.length) console.log(`Installed into ${into.join(" and ")}.`);
+    });
+  },
+};
 
 const context = await esbuild.context({
   banner: { js: banner },
@@ -21,7 +36,18 @@ const context = await esbuild.context({
   treeShaking: true,
   outfile: "main.js",
   minify: prod,
+  plugins: [install],
 });
 
 if (prod) { await context.rebuild(); process.exit(0); }
-else { await context.watch(); }
+else {
+  await context.watch();
+  // esbuild watches only what main.js is built from. The stylesheet and the manifest are copied as they are, so
+  // they're watched here (by polling, which survives an editor that saves by replacing the file).
+  for (const f of ["styles.css", "manifest.json"]) {
+    watchFile(f, { interval: 300 }, () => {
+      const into = installAll();
+      if (into.length) console.log(`${f} changed: installed into ${into.join(" and ")}.`);
+    });
+  }
+}

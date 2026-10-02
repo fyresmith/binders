@@ -3,6 +3,16 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.31 (2026-10-02)
+
+### Added
+
+- A demo vault for developers: npm run demo-vault makes binders of every size and oddity to try by hand, and every build installs itself into it.
+
+### Changed
+
+- Building the plugin now installs it into the test vault by itself.
+
 ## 0.12.30 (2026-10-02)
 
 ### Changed
