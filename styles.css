@@ -1009,7 +1009,8 @@
 }
 
 /* A phone with the keyboard up and little room left (a small phone, any phone on its side): the page has the
-   toolbar's line while it's being typed in. (BinderView sets `is-short`; the toolbar is back when the keyboard goes.) */
+   toolbar's line while it's being typed in. (BinderView sets `is-short`, only while a field or an editor in the view
+   has the focus: the toolbar is back when the typing stops.) */
 .binders-view.is-short > .binders-toolbar {
 	display: none;
 }

@@ -40,7 +40,8 @@ const LINE_SWITCHES: readonly { key: string; title: string; icon: string; on: bo
 	{ key: 'linesFlat', title: 'Show notes in subfolders', icon: 'folder-open', on: false },
 	{ key: 'linesUnused', title: 'Show unused labels', icon: 'tags', on: true },
 ];
-/** A view on a phone shorter than this (px) has no room for the toolbar and a few lines of the page: the page gets it. */
+/** A view on a phone shorter than this (px) has no room for the toolbar and a few lines of the page: while it's being
+    typed in, the page gets it. */
 const SHORT = 240;
 const isMode = (m: unknown): m is ModeName => MODES.some((x) => x.id === m);
 /** A mode as saved: the plot grid of earlier versions is the outliner now. */
@@ -231,11 +232,19 @@ export class BinderView extends ItemView {
 		this.registerDomEvent(this.contentEl, 'keydown', (e) => { if (e.key === 'Tab' || e.key.startsWith('Arrow')) this.contentEl.removeClass('is-touch'); });
 		for (const type of ['pointerdown', 'keydown'] as const) this.registerDomEvent(this.contentEl, type, () => { this.presses++; }, { capture: true, passive: true });
 		// A phone with its keyboard up may leave the view a few lines (a small phone; any phone on its side): the
-		// toolbar then gives its line to the page, and is back when the keyboard goes.
+		// toolbar then gives its line to the page. Only while something in the view is being typed in: with nothing
+		// being edited the toolbar is always there, however short the view (a small phone on its side is that short
+		// with no keyboard up, and the toolbar is its way to the other modes, up a folder and to a new note).
 		if (Platform.isPhone) {
-			const fit = new ResizeObserver(() => this.contentEl.toggleClass('is-short', this.contentEl.clientHeight < SHORT));
-			fit.observe(this.contentEl);
-			this.register(() => fit.disconnect());
+			const el = this.contentEl;
+			const typing = () => { const a = el.doc.activeElement; return !!a?.instanceOf(HTMLElement) && el.contains(a) && (a.isContentEditable || a.matches('input, textarea')); };
+			const fit = () => el.toggleClass('is-short', el.clientHeight < SHORT && typing());
+			const sized = new ResizeObserver(fit);
+			sized.observe(el);
+			this.register(() => sized.disconnect());
+			this.registerDomEvent(el, 'focusin', fit);
+			// (a moment later: the focus is nowhere between leaving one field and reaching the next)
+			this.registerDomEvent(el, 'focusout', () => window.setTimeout(fit, 0));
 		}
 		const away = () => { void commitAll(this.contentEl, true); void this.current?.save?.(); };
 		this.registerDomEvent(this.contentEl.doc, 'visibilitychange', () => { if (this.contentEl.doc.visibilityState === 'hidden') away(); });

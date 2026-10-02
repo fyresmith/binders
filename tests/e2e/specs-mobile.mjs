@@ -23,26 +23,48 @@ async function onDevice(p, width, height, fn) {
 }
 
 // The on-screen keyboard is emulated as a shorter viewport, which is what Obsidian's app is given when it's up.
-for (const [what, width, height, keyboard, short] of [['a small phone', 320, 568, 260, true], ['a phone on its side', 844, 390, 190, true], ['a phone held upright', 390, 844, 336, false]]) {
-	test(`${what} with the keyboard up: ${short ? 'the toolbar gives its line to the page, and is back when the keyboard goes' : 'there’s room, and the toolbar stays'}`, async (p, h, t) => {
+// `short`: is the view too short for the toolbar and a few lines with the keyboard up; `always`: and without it.
+for (const [what, width, height, keyboard, short, always] of [['a small phone', 320, 568, 260, true, false], ['a phone on its side', 844, 390, 190, true, false], ['a small phone on its side', 568, 320, 180, true, true], ['a phone held upright', 390, 844, 336, false, false]]) {
+	test(`${what}: ${short ? 'while something is typed in with the keyboard up, the toolbar gives its line to the page; it’s there whenever nothing is being edited' : 'with the keyboard up there’s room, and the toolbar stays'}`, async (p, h, t) => {
 		await onDevice(p, width, height, async () => {
 			const V = '.workspace-leaf.mod-active .binders-view';
 			await openView(p);
-			await p.ev(`(() => { ${VIEW}.setMode('manuscript'); return 1; })()`);
-			await until(p, `!!document.querySelector('${V} .binders-manuscript')`);
-			await p.sleep(500);
-			const look = () => p.ev(`(() => { const v = document.querySelector('${V}'), r = (e) => e.getBoundingClientRect(); const bar = r(v.querySelector('.binders-toolbar')), page = r(v.querySelector('.binders-manuscript')); return { bar: Math.round(bar.height), pageTop: Math.round(page.top - r(v).top), under: Math.round(r(v).bottom - page.bottom), scrolled: v.scrollTop }; })()`);
-			const size = (hh) => p.send('Emulation.setDeviceMetricsOverride', { width, height: hh, deviceScaleFactor: 1, mobile: true });
-			const before = await look();
-			t.ok(before.bar >= 40 && before.pageTop === before.bar, 'the toolbar is above the page: ' + j(before));
+			const look = () => p.ev(`(() => { const v = document.querySelector('${V}'), r = (e) => e.getBoundingClientRect(); const bar = r(v.querySelector('.binders-toolbar')), page = r(v.querySelector('.binders-mode')); return { bar: Math.round(bar.height), pageTop: Math.round(page.top - r(v).top), under: Math.round(r(v).bottom - page.bottom), scrolled: v.scrollTop }; })()`);
+			const size = async (hh) => { await p.send('Emulation.setDeviceMetricsOverride', { width, height: hh, deviceScaleFactor: 1, mobile: true }); await p.sleep(500); };
+			const GONE = j({ bar: 0, pageTop: 0, under: 0, scrolled: 0 });
+			for (const mode of ['corkboard', 'outliner', 'manuscript']) {
+				await p.ev(`(() => { ${VIEW}.setMode(${j(mode)}); return 1; })()`);
+				await until(p, `!!document.querySelector('${V} .binders-mode-${mode} .binders-view-synopsis')`);
+				await p.sleep(500);
+				const before = await look();
+				t.ok(before.bar >= 40 && before.pageTop === before.bar, `${mode}: with nothing being edited the toolbar is above the page: ${j(before)}`);
+				// the keyboard up with nothing in the view being typed in (a search in the sidebar, say): it stays
+				await size(height - keyboard);
+				t.ok((await look()).bar >= 40, `${mode}: and it stays when the screen is shortened with no field of the view open`);
+				await size(height);
+				// a field of the view opened (the folder's synopsis, on the page in every mode), then the keyboard
+				await p.ev(`(() => { document.querySelector('${V} .binders-view-synopsis').focus(); return 1; })()`);
+				await p.key('Enter');
+				await p.sleep(300);
+				t.eq(await p.ev(`document.activeElement.tagName`), 'TEXTAREA', `${mode}: the synopsis is being typed in`);
+				t.eq(j(await look()), always ? GONE : j(before), `${mode}: with its field open and no keyboard yet, the toolbar ${always ? 'has made room: the view is that short' : 'is where it was'}`);
+				await size(height - keyboard);
+				if (short) t.eq(j(await look()), GONE, `${mode}: with the keyboard up the page has the whole view`);
+				else t.eq(j(await look()), j(before), `${mode}: with the keyboard up the toolbar is where it was`);
+				await p.key('Escape');
+				await p.sleep(300);
+				t.ok((await look()).bar >= 40, `${mode}: the field closed, the toolbar is back, keyboard or no`);
+				await size(height);
+				t.eq(j(await look()), j(before), `${mode}: and all is as it was once the keyboard has gone`);
+			}
+			// the manuscript's own text: an editor with the cursor in it counts as typing
+			await until(p, `!!document.querySelector('${V} .binders-manuscript .cm-content')`, 5000);
+			await p.ev(`(() => { document.querySelector('${V} .binders-manuscript .cm-content').focus(); return 1; })()`);
 			await size(height - keyboard);
-			await p.sleep(500);
-			const up = await look();
-			if (short) t.eq(j(up), j({ bar: 0, pageTop: 0, under: 0, scrolled: 0 }), 'with the keyboard up the page has the whole view');
-			else t.eq(j(up), j(before), 'with the keyboard up the toolbar is where it was');
+			t.eq((await look()).bar > 0, !short, `manuscript: with the cursor in its text and the keyboard up, the toolbar ${short ? 'gives its line to the page' : 'stays'}`);
+			await p.ev(`(() => { document.activeElement.blur(); return 1; })()`);
 			await size(height);
-			await p.sleep(500);
-			t.eq(j(await look()), j(before), 'with the keyboard gone, the toolbar is back above the page');
+			t.ok((await look()).bar >= 40, 'manuscript: and is back when the text is left');
 		});
 	});
 }

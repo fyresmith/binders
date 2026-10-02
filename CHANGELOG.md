@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.35 (2026-10-02)
+
+### Fixed
+
+- On a small phone on its side the toolbar had gone even with no keyboard up. It now steps aside only while you are typing, and is back as soon as you stop.
+
 ## 0.12.34 (2026-10-02)
 
 ### Changed
