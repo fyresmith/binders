@@ -307,11 +307,7 @@ class Corkboard implements BinderMode {
 	private async newFolder(): Promise<void> {
 		try {
 			const folder = await this.store.newFolder(this.ctx.folder);
-			this.draw();
-			const name = this.stacks ? this.editors.get(folder.path)?.title : this.headings.get(folder.path);
-			name?.el.scrollIntoView({ block: 'nearest' });
-			if (name) this.inSight(name.el);
-			name?.edit();
+			this.onMade(folder, true);
 		} catch (e) { new Notice(plain(e)); }
 	}
 
