@@ -141,6 +141,9 @@ export interface Conversion {
 
 /** How long changes to a list wait for more before they're written, in ms. */
 const DEBOUNCE = 300;
+/** How long changes waiting to be written are kept for a binder whose note stopped being a binder note, in ms: its
+    properties can be unreadable for a moment (a sync client writing in two steps, the writer typing in them). */
+const MEND = 30000;
 /** How long the place of a deleted file is remembered in case the file comes straight back, in ms: some tools rewrite
     a file by deleting it and creating it again (git pull and checkout, some editors' saves). */
 const RECALL = 2000;
@@ -250,8 +253,8 @@ export class BinderStore extends Events implements ExplorerSource {
 				if (waiting?.delete(f.path) && !waiting.size) { complete(); return; }
 				this.onMeta(f, isBinderNote(cache.frontmatter), isLongformIndex(cache.frontmatter));
 			}));
-			plugin.registerEvent(vault.on('rename', (f, old) => { this.vaultChanges++; this.onRename(f, old); }));
-			plugin.registerEvent(vault.on('delete', (f) => { this.vaultChanges++; this.onDelete(f); }));
+			plugin.registerEvent(vault.on('rename', (f, old) => { this.vaultChanges++; if (f instanceof TFile) this.left.delete(f); this.onRename(f, old); }));
+			plugin.registerEvent(vault.on('delete', (f) => { this.vaultChanges++; if (f instanceof TFile) this.left.delete(f); this.onDelete(f); }));
 			plugin.registerEvent(vault.on('create', (f) => {
 				this.vaultChanges++;
 				if (this.orphans && f instanceof TFolder) this.rescan();
@@ -909,6 +912,14 @@ export class BinderStore extends Events implements ExplorerSource {
 	/** Finds every binder: a folder with a note whose properties have `binder`, and every Longform project not inside
 	    one. A binder inside another is an ordinary note. If a folder has several binder notes, the one named like the
 	    folder wins. */
+	/** Changes that were waiting to be written when a binder's note stopped being a binder note where it stood (its
+	    properties became unreadable, or lost `binder`), by the note: handed to the binder again if the note is one
+	    again soon, for the same folder. Only then: a note that was deleted, moved or renamed is another matter, and
+	    what was waiting for it is let go (a note made again under its name starts with nothing waiting). */
+	private left = new Map<TFile, { ops: ListOp[]; lfOps: SceneOp[]; kind: State['kind']; folder: string; at: number }>();
+	/** The note whose own change is being looked at (see `onMeta`), while binders are looked for again. */
+	private mending: TFile | null = null;
+
 	private rescan(): void {
 		const { vault, metadataCache } = this.app;
 		const found = new Map<string, TFile>();
@@ -941,12 +952,24 @@ export class BinderStore extends Events implements ExplorerSource {
 			// a binder note moved to another folder makes that folder the binder: its list is re-read, never re-pointed
 			if (want.has(note) && want.get(note) === s.dir && (s.kind === 'longform' || note.parent === s.home)) continue;
 			window.clearTimeout(s.timer);
+			// (its properties may only be unreadable for a moment: what was waiting to be written isn't forgotten)
+			if (note === this.mending && (s.ops.length || s.lfOps.length)) this.left.set(note, { ops: s.ops, lfOps: s.lfOps, kind: s.kind, folder: s.path, at: Date.now() });
 			this.states.delete(note);
 			this.emit(s.path);
 		}
 		for (const [note, dir] of want) {
 			let s = this.states.get(note);
-			if (!s) { s = new State(note, dir); this.states.set(note, s); this.read(s); this.touch(s); }
+			if (!s) {
+				const made = s = new State(note, dir);
+				this.states.set(note, made); this.read(made);
+				const was = this.left.get(note);
+				this.left.delete(note);
+				if (was && !made.problem && was.kind === made.kind && was.folder === made.path && Date.now() - was.at < MEND) {
+					made.ops = was.ops; made.lfOps = was.lfOps;
+					made.timer = window.setTimeout(() => { void this.write(made); }, DEBOUNCE);
+				}
+				this.touch(made);
+			}
 			else if (s.path !== s.folder.path) { s.aliases.add(s.path); this.emit(s.path); s.path = s.folder.path; this.touch(s); }
 			else this.touch(s, false);
 		}
@@ -981,7 +1004,10 @@ export class BinderStore extends Events implements ExplorerSource {
 		// still the same kind of binder, with (for Longform) the same scene folder: just re-read the order
 		const same = s && (s.kind === 'binder' ? binderNote : longform && !binderNote && this.sceneFolder(file, readProject(this.app.metadataCache.getFileCache(file)?.frontmatter)) === s.dir);
 		if (s && same) this.ifChanged(s, () => this.read(s));
-		else if (s || binderNote || longform) this.rescan();
+		else if (s || binderNote || longform) {
+			this.mending = file;
+			try { this.rescan(); } finally { this.mending = null; }
+		}
 	}
 
 	private onRename(file: TAbstractFile, oldPath: string): void {

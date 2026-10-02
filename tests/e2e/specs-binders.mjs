@@ -592,3 +592,26 @@ test('binders: a note deleted and created again at once goes back to its place, 
 	t.eq(j(await children(p, P1)), j(['Landing 2.md', 'The keeper.md', 'Landing.md']), 'a note of a deleted note’s name made later is a new note, after the listed ones');
 	same(t, before, await texts(p), { skip: [NOTE, keeper, `${P1}/Storm warning.md`, `${P1}/Arrival.md`, `${LF}/Index.md`] });
 }));
+
+// A binder note whose properties can't be read for a moment (a sync client writing in two steps, the writer typing
+// in them) is no binder note meanwhile. A change that was waiting to be written is kept for when it is one again.
+test('binders: a move waiting to be written when the binder note’s properties break for a moment reaches the list once they’re mended, on top of what the note says then', withTidy(async (p, h, t) => {
+	const good = await read(p, NOTE), LFI = 'Longform demo/Index.md', lf = await read(p, LFI);
+	await p.ev(`${B}.moveDown(${file('The Lighthouse/Prologue.md')}).then(() => 1)`);
+	await p.ev(`app.vault.adapter.write(${j(NOTE)}, ${j(good.replace('binder: 1', 'binder: 1\nbroken: [unclosed'))}).then(() => 1)`);
+	t.ok(await until(p, `!${B}.isBinderFolder(${file('The Lighthouse')})`, 4000), 'broken: no binder for now');
+	// mended, with an edit made outside meanwhile (Part Two's two notes the other way round)
+	await p.ev(`app.vault.adapter.write(${j(NOTE)}, ${j(good.replace('  - Part Two/The wreck\n  - Part Two/Lights out\n', '  - Part Two/Lights out\n  - Part Two/The wreck\n'))}).then(() => 1)`);
+	t.ok(await until(p, `${B}.isBinderFolder(${file('The Lighthouse')})`, 4000), 'mended: a binder again');
+	await p.sleep(700); await flush(p); await p.sleep(200);
+	t.eq(j(await contents(p)), j(['Part One/', 'Part One/Arrival', 'Part One/The keeper', 'Part One/Storm warning', 'Prologue', 'Part Two/', 'Part Two/Lights out', 'Part Two/The wreck', 'Epilogue']), 'on disk: the outside edit, and the move on top of it; every entry once');
+	await bodyKept(p, t, { [NOTE]: good });
+	// a Longform project's index note, the same
+	await p.ev(`${B}.move(${file('Longform demo/Return.md')}, ${file('Longform demo')}, 0).then(() => 1)`);
+	await p.ev(`app.vault.adapter.write(${j(LFI)}, ${j(lf.replace('longform:', 'broken: [unclosed\nlongform:'))}).then(() => 1)`);
+	t.ok(await until(p, `!${B}.binderOf(${file('Longform demo')})`, 4000), 'the project’s index note broken: no binder for now');
+	await p.ev(`app.vault.adapter.write(${j(LFI)}, ${j(lf)}).then(() => 1)`);
+	t.ok(await until(p, `!!${B}.binderOf(${file('Longform demo')})`, 4000), 'mended');
+	await p.sleep(700); await flush(p); await p.sleep(300);
+	t.ok(/scenes:\n\s+- Return\n/.test(await read(p, LFI)), 'the scene’s move is in the index note on disk');
+}));
