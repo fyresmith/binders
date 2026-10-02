@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.30 (2026-10-02)
+
+### Changed
+
+- Nothing a writer will notice: three tests of the corkboard on a phone now describe the folder card as it has been since 0.12.17.
+
 ## 0.12.29 (2026-10-02)
 
 ### Fixed

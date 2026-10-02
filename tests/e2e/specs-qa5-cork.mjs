@@ -1244,7 +1244,7 @@ ux('what a tap opens is a finger tall: a card’s title (the only part of a card
 	});
 });
 
-test('swipes that start on a title, a stack’s name or its synopsis, the “New note” tile or the binder’s synopsis scroll the board and open nothing; a double tap on a card’s foot opens its note', async (p, h, t) => {
+test('swipes that start on a title, a folder card’s name or the names on it, a synopsis, the “New note” tile or the binder’s synopsis scroll the board and open nothing; a double tap on a card’s foot opens its note', async (p, h, t) => {
 	await onDevice(p, PHONE, async () => {
 		// enough notes that the board scrolls a long way
 		await p.ev(`(async () => { for (let i = 1; i <= 6; i++) await ${B}.newScene(app.vault.getAbstractFileByPath('The Lighthouse'), Infinity, 'Extra ' + i); await ${B}.flush(); })().then(() => 1)`);
@@ -1263,18 +1263,24 @@ test('swipes that start on a title, a stack’s name or its synopsis, the “New
 			t.ok(s.scroll > 30 && s.file == null && s.folder === 'The Lighthouse' && s.field === 0 && s.menus === 0, `a swipe from ${what} scrolls and opens nothing: ${j(s)}`);
 		};
 		await from(card(L + 'Part Two') + ' .binders-card-title', 'a stack’s name');
-		await from(card(L + 'Part Two') + ' .binders-card-synopsis', 'a stack’s synopsis');
+		// (a folder's card with no synopsis has no line for one since 0.12.17: it names what the folder holds there)
+		await from(card(L + 'Part Two') + ' .binders-card-held', 'the names on a folder’s card');
 		await from(card(L + 'Epilogue.md') + ' .binders-card-title', 'a card’s title');
 		await from(`${LEAF} .binders-card-new`, 'the “New note” tile', true);
 		await from(`${LEAF} .binders-view-synopsis`, 'the binder’s synopsis');
-		// a selected card's synopsis: a swipe from it doesn't edit it; nor a selected stack's
-		for (const [path, what] of [['Epilogue.md', 'a selected card’s synopsis'], ['Part Two', 'a selected stack’s synopsis']]) {
+		// a selected card's synopsis: a swipe from it doesn't edit it; nor one from the names on a selected folder's card
+		for (const [path, part, what] of [['Epilogue.md', '.binders-card-synopsis', 'a selected card’s synopsis'], ['Part Two', '.binders-card-held', 'the names on a selected folder’s card']]) {
 			await scrollTo(p, 0);
 			const f = await foot(p, path);
 			await tap(p, f.x, f.y);
 			await p.sleep(600);
-			await from(card(L + path) + ' .binders-card-synopsis', what);
+			await from(card(L + path) + ' ' + part, what);
 		}
+		// nor one from a folder's synopsis, once it has one (selected, as a tap on it would then edit it)
+		await p.ev(`(async () => { const f = await ${B}.ensureFolderNote(app.vault.getAbstractFileByPath(${j(L + 'Part Two')})); await app.fileManager.processFrontMatter(f, fm => { fm.synopsis = 'The wreck, and the light going out.'; }); })().then(() => 1)`);
+		await until(p, `document.querySelector(${j(card(L + 'Part Two') + ' .binders-card-synopsis')})?.textContent === 'The wreck, and the light going out.'`);
+		await scrollTo(p, 0);
+		await from(card(L + 'Part Two') + ' .binders-card-synopsis', 'a selected folder card’s synopsis');
 		// a double tap
 		await scrollTo(p, 0);
 		const k = await foot(p, 'Epilogue.md');
@@ -2049,7 +2055,7 @@ test('a sheet closed by a tap on the dimmed board behind it does nothing to the 
 	});
 });
 
-test('the binder’s own synopsis and a folder’s (on its stack) are typed in place by touch: kept in the binder note and in a folder note made for it (which doesn’t show as a card)', async (p, h, t) => {
+test('the binder’s own synopsis is typed in place by touch, and a folder’s on its card (the first time from “Edit synopsis” in its menu, then by a tap on it): kept in the binder note and in a folder note made for it (which doesn’t show as a card)', async (p, h, t) => {
 	const before = await texts(p);
 	await onDevice(p, PHONE, async () => {
 		await open(p);
@@ -2063,13 +2069,13 @@ test('the binder’s own synopsis and a folder’s (on its stack) are typed in p
 		await flush(p);
 		t.eq(await prop(p, L + 'The Lighthouse.md', 'synopsis'), 'A keeper, a storm, a light that goes out.', 'kept in the binder note');
 		t.eq(j(await contents(p)), j(['Prologue', 'Part One/', 'Part One/Arrival', 'Part One/The keeper', 'Part One/Storm warning', 'Part Two/', 'Part Two/The wreck', 'Part Two/Lights out', 'Epilogue']), 'whose contents are as they were');
-		// a folder's, on its stack: selected first, then (a moment later, as a tap on a selected card's synopsis) its field
-		const sf = await foot(p, 'Part One');
-		await tap(p, sf.x, sf.y);
-		await p.sleep(700);
-		const g = await p.at(STACK(L + 'Part One') + ' .binders-card-synopsis');
-		await tap(p, g.x, g.y);
-		t.eq((await active(p)).tag, 'TEXTAREA', 'a tap on a selected stack’s synopsis opens the folder’s synopsis');
+		// a folder's, on its card. With none yet the card has no line for one (it names what the folder holds, since
+		// 0.12.17): the card's menu adds it
+		t.eq(await p.at(STACK(L + 'Part One') + ' .binders-card-synopsis'), null, 'a folder’s card with no synopsis shows no line for one');
+		await cardMenu(p, 'Part One');
+		if (!(await menuTap(p, 'Edit synopsis'))) throw new Error('no “Edit synopsis” in a folder card’s menu: ' + j(await menuItems(p)));
+		await p.sleep(500);
+		t.eq(j([(await active(p)).tag, await p.ev(`document.activeElement.getAttribute('aria-label')`)]), j(['TEXTAREA', 'Synopsis of Part One']), '“Edit synopsis” in its menu opens the folder’s synopsis');
 		t.eq((await viewState(p)).folder, 'The Lighthouse', 'and not the folder');
 		await p.type('Mara comes.');
 		await tap(p, f.x, f.y);
@@ -2077,12 +2083,27 @@ test('the binder’s own synopsis and a folder’s (on its stack) are typed in p
 		await p.sleep(600);
 		await flush(p);
 		t.eq(await prop(p, L + 'Part One/Part One.md', 'synopsis'), 'Mara comes.', 'kept in a folder note made for it');
-		t.eq((await stack(p, L + 'Part One')).synopsis, 'Mara comes.', 'the stack shows it');
+		t.eq((await stack(p, L + 'Part One')).synopsis, 'Mara comes.', 'the card shows it');
 		t.eq((await stack(p, L + 'Part One')).count, '3 notes · 51 words', 'and still counts three notes');
+		// once it has one: the card selected first, then (a moment later, as on a note's card) a tap on the synopsis
+		const sf = await foot(p, 'Part One');
+		await tap(p, sf.x, sf.y);
+		await p.sleep(700);
+		const g = await p.at(STACK(L + 'Part One') + ' .binders-card-synopsis');
+		await tap(p, g.x, g.y);
+		t.eq((await active(p)).tag, 'TEXTAREA', 'a tap on a selected folder card’s synopsis edits it in place');
+		t.eq((await viewState(p)).folder, 'The Lighthouse', 'and doesn’t go into the folder');
+		await p.ev(`(() => { document.activeElement.select(); return 1; })()`);
+		await p.type('Mara comes ashore.');
+		await tap(p, f.x, f.y);
+		await until(p, `!document.querySelector('${LEAF} .binders-edit-field')`);
+		await flush(p);
+		await until(p, `app.vault.adapter.read(${j(L + 'Part One/Part One.md')}).then(s => s.includes('Mara comes ashore.'))`);
+		t.eq(await prop(p, L + 'Part One/Part One.md', 'synopsis'), 'Mara comes ashore.', 'and what’s typed over it is kept');
 		await shot(p, 'synopses-typed');
 		await open(p, L + 'Part One');
 		t.eq(j(await p.ev(`[...document.querySelectorAll('${LEAF} .binders-card[data-path]')].map(c => c.dataset.path.split('/').pop())`)), j(['Arrival.md', 'The keeper.md', 'Storm warning.md']), 'the folder note isn’t a card on the folder’s board');
-		t.eq(await p.ev(`document.querySelector('${LEAF} .binders-view-synopsis')?.textContent ?? null`), 'Mara comes.', 'whose own synopsis, under the toolbar, is the same one');
+		t.eq(await p.ev(`document.querySelector('${LEAF} .binders-view-synopsis')?.textContent ?? null`), 'Mara comes ashore.', 'whose own synopsis, under the toolbar, is the same one');
 	});
 	const after = await texts(p);
 	for (const [path, text] of Object.entries(before)) if (path !== L + 'The Lighthouse.md') t.eq(after[path], text, `“${path}” is unchanged`);
@@ -2196,10 +2217,13 @@ bug('with a note being named in one “New note” tile, a tap on another group�
 	});
 });
 
-bug('with a note being named in the “New note” tile, a tap on a selected stack’s “Add a synopsis” opens that field and leaves it open (it opens and is thrown away 5 ms later, when the board is drawn again for the note just made)', async (p, h, t) => {
+bug('with a note being named in the “New note” tile, a tap on a selected folder card’s synopsis opens that field and leaves it open (it opened and was thrown away 5 ms later, when the board is drawn again for the note just made)', async (p, h, t) => {
 	await onDevice(p, PHONE, async () => {
+		// (a folder's card has a synopsis to tap only once the folder has one: since 0.12.17 the first is added from its menu)
+		await p.ev(`(async () => { const f = await ${B}.ensureFolderNote(app.vault.getAbstractFileByPath(${j(L + 'Part Two')})); await app.fileManager.processFrontMatter(f, fm => { fm.synopsis = 'The wreck.'; }); })().then(() => 1)`);
 		await open(p);
-		// the stack selected first (a tap on a selected card's synopsis is what edits it)
+		await until(p, `document.querySelector(${j(STACK(L + 'Part Two') + ' .binders-card-synopsis')})?.textContent === 'The wreck.'`);
+		// the card selected first (a tap on a selected card's synopsis is what edits it)
 		const sf = await foot(p, 'Part Two');
 		await tap(p, sf.x, sf.y);
 		await p.sleep(700);
@@ -2207,7 +2231,7 @@ bug('with a note being named in the “New note” tile, a tap on a selected sta
 		await tap(p, tile.x, Math.min(tile.y, nav - 16));
 		t.eq((await active(p)).tag, 'INPUT', 'the tile opens');
 		await p.type('One');
-		t.eq(j(await selected(p)), j([L + 'Part Two']), 'the stack is still selected');
+		t.eq(j(await selected(p)), j([L + 'Part Two']), 'the folder’s card is still selected');
 		const g = await p.at(STACK(L + 'Part Two') + ' .binders-card-synopsis');
 		await tap(p, g.x, g.y);
 		await until(p, `!!app.vault.getAbstractFileByPath(${j(L + 'One.md')})`);
@@ -2215,11 +2239,13 @@ bug('with a note being named in the “New note” tile, a tap on a selected sta
 		t.ok(await p.ev(`!!app.vault.getAbstractFileByPath(${j(L + 'One.md')})`), 'the note is made');
 		const a = await p.ev(`({ tag: document.activeElement.tagName, label: document.activeElement.getAttribute('aria-label') })`);
 		t.eq(j([a.tag, a.label]), j(['TEXTAREA', 'Synopsis of Part Two']), 'and the folder’s synopsis is a field with the focus: ' + j(a));
+		await p.ev(`(() => { document.activeElement.select(); return 1; })()`);
 		await p.type('The wreck and after.');
 		const pr = await foot(p, 'Prologue.md');
 		await tap(p, pr.x, pr.y);
-		await until(p, `!!app.vault.getAbstractFileByPath(${j(L + 'Part Two/Part Two.md')})`);
+		await until(p, `!document.querySelector('${LEAF} .binders-edit-field')`);
 		await flush(p);
+		await until(p, `app.vault.adapter.read(${j(L + 'Part Two/Part Two.md')}).then(s => s.includes('The wreck and after.'))`);
 		t.eq(await prop(p, L + 'Part Two/Part Two.md', 'synopsis'), 'The wreck and after.', 'what’s typed there is kept in the folder’s note');
 	});
 });
