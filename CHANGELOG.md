@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.90 (2026-10-02)
+
+### Changed
+
+- Deleting many selected cards redraws the corkboard once, when they have all gone.
+
 ## 0.12.89 (2026-10-02)
 
 ### Added

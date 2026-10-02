@@ -1449,3 +1449,37 @@ for (const how of ['in a grid', 'by label']) {
 		t.eq(await on(), 'Arrival.md', 'and the arrow keys carry on from there');
 	});
 }
+
+for (const how of ['in a grid', 'by label']) {
+	test(`many cards deleted at once (${how}): the board is drawn when they have all gone, not again for each on its way out; the keyboard is on the card after them`, withTidy(async (p, h, t) => {
+		await p.ev(`(() => { app.vault.setConfig('trashOption', 'local'); return 1; })()`);
+		try {
+			await p.ev(`(async () => { for (let i = 1; i <= 24; i++) await ${B}.newScene(${file(L + 'Part Two')}, Infinity, 'Extra ' + String(i).padStart(2, '0')); await ${B}.flush(); })().then(() => 1)`);
+			await openView(p, L + 'Part Two');
+			if (how === 'by label') { await p.ev(`(() => { ${VIEW}.arrange('label', 'across'); return 1; })()`); await until(p, `!!document.querySelector('.workspace-leaf.mod-active .binders-lanes .binders-card[data-path]')`); }
+			await until(p, `document.querySelectorAll('.workspace-leaf.mod-active .binders-card[data-path]').length === 26`);
+			await p.sleep(400);
+			// the first twenty of the new notes: click the first, Shift-click the last
+			const a = await p.at(card(L + 'Part Two/Extra 01.md'));
+			await p.click(a.x, a.t + a.h - 12);
+			await p.ev(`(() => { document.querySelector(${j(card(L + 'Part Two/Extra 20.md'))}).scrollIntoView({ block: 'center', inline: 'center' }); return 1; })()`);
+			await p.sleep(300);
+			const b = await p.at(card(L + 'Part Two/Extra 20.md'));
+			await p.click(b.x, b.t + b.h - 12, { modifiers: 8 });
+			t.eq((await selected(p)).length, 20, 'twenty cards are selected');
+			// (how often the board draws itself from here on)
+			await p.ev(`(() => { const m = ${VIEW}.current, draw = m.draw.bind(m); window.__draws = 0; m.draw = () => { window.__draws++; draw(); }; return 1; })()`);
+			await p.key('Delete');
+			await until(p, `!!document.querySelector('.modal-container')`);
+			await p.key('Enter');
+			await until(p, `!app.vault.getAbstractFileByPath(${j(L + 'Part Two/Extra 20.md')}) && document.querySelectorAll('.workspace-leaf.mod-active .binders-card[data-path]').length === 6`, 15000);
+			await p.sleep(500);
+			const draws = await p.ev(`window.__draws`);
+			t.ok(draws >= 1 && draws <= 3, `the board drew itself ${draws} times for twenty notes deleted`);
+			t.eq(j((await cards(p)).map((x) => x.split('/').pop())), j(['The wreck.md', 'Lights out.md', 'Extra 21.md', 'Extra 22.md', 'Extra 23.md', 'Extra 24.md']), 'the cards left are the notes left');
+			t.eq(await p.ev(`document.activeElement?.dataset?.path?.split('/').pop() ?? document.activeElement?.tagName`), 'Extra 21.md', 'and the keyboard is on the card after the ones deleted');
+		} finally {
+			await p.ev(`(async () => { delete window.__draws; app.vault.setConfig('trashOption', 'system'); if (await app.vault.adapter.exists('.trash')) await app.vault.adapter.rmdir('.trash', true); })().then(() => 1)`);
+		}
+	}));
+}

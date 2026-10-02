@@ -969,8 +969,12 @@ class ByLabel implements BinderMode {
 		const order = this.cards().map((c) => c.dataset.path), gone = (p: string) => items.some((f) => p === f.path || p.startsWith(f.path + '/'));
 		const last = order.reduce((at, p, i) => (gone(p) ? i : at), -1);
 		const next = order.slice(last + 1).find((p) => !gone(p)) ?? order.slice(0, Math.max(0, last)).reverse().find((p) => !gone(p)) ?? null;
-		if (!(await removeItems(this.ctx, items))) { this.focus(); return; }
-		if (!next) return;
+		// (the board is drawn once, when everything has gone: not again for every note of five hundred on its way out)
+		this.moving = true;
+		let ok = false;
+		try { ok = await removeItems(this.ctx, items); } finally { this.moving = false; }
+		if (!ok) { if (this.dirty && !this.busy()) this.draw(); this.focus(); return; }
+		if (!next) { if (!this.busy()) this.draw(); return; }
 		this.select([next]);
 		this.refocus = next;
 		if (!this.busy()) this.draw();
