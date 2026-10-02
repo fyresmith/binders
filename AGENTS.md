@@ -2,8 +2,10 @@
 
 Read this before changing anything. It is the contract every contributor, human or agent, works to.
 
-- Design: [docs/plan.md](docs/plan.md). Look and design rounds: [docs/design.md](docs/design.md). File format: [docs/file-format.md](docs/file-format.md). Obsidian internals we
-  rely on: [docs/internals.md](docs/internals.md). Build and tests: [docs/development.md](docs/development.md).
+- Design: [docs/plan.md](docs/plan.md). How the code is laid out: [docs/architecture.md](docs/architecture.md). Look
+  and design rounds: [docs/design.md](docs/design.md). File format: [docs/file-format.md](docs/file-format.md).
+  Obsidian internals we rely on: [docs/internals.md](docs/internals.md). Build and tests:
+  [docs/development.md](docs/development.md).
 
 ## Golden rules
 
@@ -16,9 +18,10 @@ Read this before changing anything. It is the contract every contributor, human 
 4. **Native look.** Use Obsidian's CSS variables, `setIcon`, `Menu`, `Modal`, `Setting`, sentence case. No `!important`,
    no `all:`, no scrollbar styling, no inline `innerHTML`; use `createEl` or `sanitizeHTMLToDom`. The Obsidian review
    bot flags these.
-5. **Internals are quarantined.** Any undocumented Obsidian API goes in one wrapper in `src/explorer.ts` or
-   `src/view/manuscript.ts` (or a new module named for it), is feature-detected, has a fallback, is listed in
-   `docs/internals.md`, and has an e2e test.
+5. **Internals are quarantined.** Any undocumented Obsidian API goes in one of the modules that hold them now
+   (`src/explorer.ts`, `src/view/editable-embed.ts`, `src/view/file-drag.ts`, `src/view/internals.ts`,
+   `src/focus/dom.ts`; see "Where the undocumented parts of Obsidian are used" in `docs/architecture.md`) or a new
+   module named for it, is feature-detected, has a fallback, is listed in `docs/internals.md`, and has an e2e test.
 6. **Refuse newer formats.** Never normalise and rewrite a binder note whose `binder` version is newer than
    `FORMAT_VERSION`.
 

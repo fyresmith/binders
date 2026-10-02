@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.24 (2026-10-02)
+
+### Changed
+
+- Nothing a writer will notice: editors now indent code with tabs as the code is, the working rules name the modules that hold Obsidian's undocumented parts, and an old design note says what became of it.
+
 ## 0.12.23 (2026-10-02)
 
 ### Changed

@@ -1,5 +1,11 @@
 # Spike: the editable manuscript (for 0.6)
 
+**A record of the spike, written before the manuscript was built (2026-09-30).** What it decided is built: the wrapper
+is `src/view/editable-embed.ts` and the manuscript is `src/view/manuscript.ts`. `tests/e2e/specs-spike-embed.mjs` was
+removed once its scenarios moved into `tests/e2e/specs-manuscript.mjs` (and the QA specs). Where this file and
+[internals.md](internals.md) differ, internals.md is current; the "0.6" and "0.3" below are plan milestones
+(see [plan.md](plan.md)).
+
 Question: can the manuscript stack many notes on one page, each a real, live Markdown editor that edits its own file,
 on desktop and mobile, without ever losing text? And what is the smallest, safest route through Obsidian's internals?
 
