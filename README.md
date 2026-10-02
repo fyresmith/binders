@@ -478,6 +478,31 @@ Binders is not at 1.0 yet. What isn't finished, honestly:
 
 If you find something else, it's a bug: open an issue.
 
+## Troubleshooting
+
+- **The file explorer shows my binder in name order.** Check that **Order binders in the file explorer** is on in
+  Binders' settings. If another plugin replaces the file explorer (Notebook Navigator and the like), binder order can't
+  show there: the binder view still works, and the setting is best turned off. If Binders says "couldn't change the order
+  of the file explorer in this version of Obsidian", an Obsidian update has changed something Binders relies on; the
+  binder view and the rest still work, and an update to Binders is the fix.
+- **I can't find the binder's note, or a folder's note.** They're hidden in the file explorer while **Hide binder and
+  folder notes** is on. Open them from the binder view's **More options**, **Open binder note** (or **Open folder
+  note**), or turn the setting off.
+- **A binder says it is read only, or "can't change" it.** Its note was made by a newer version of Binders (it says
+  which format), or its `binder` property holds something Binders doesn't understand. Binders leaves such a binder
+  exactly as it is. Update Binders, or fix the property by hand.
+- **A note isn't where I put it.** Notes the binder's list doesn't mention show after the listed ones, by name; a new
+  note is written into the list when something in its folder is moved. In a Longform project, order is the project's own
+  `longform.scenes`.
+- **The manuscript is read only.** Binders says "The manuscript can't edit notes in this version of Obsidian". Click a
+  section to open its note and edit it there; the rest of Binders is unaffected.
+- **My snapshots aren't on my other device.** Obsidian Sync carries `.snapshot` files only with **Sync all other types**
+  turned on in Obsidian's Sync settings, on each device. See Snapshots.
+- **A Longform project shows Longform's order, not mine.** That is by design: a project keeps its order in
+  `longform.scenes`, and Binders writes only that. **Convert to binder** makes it a binder with its own format.
+- **Where did the words written today go?** They are kept on the device you write on, not in your notes or settings,
+  so each device counts its own. **Start counting from here** in focus mode's menu starts the day again.
+
 ## Privacy
 
 Binders makes no network requests and collects nothing. Everything it does happens in your vault's files.
