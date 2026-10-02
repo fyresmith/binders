@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.76 (2026-10-02)
+
+### Changed
+
+- On a phone with the keyboard up and little room, the manuscript now runs under Obsidian's header as a note does, so a phone on its side has three lines or more to write in.
+
 ## 0.12.75 (2026-10-02)
 
 ### Changed

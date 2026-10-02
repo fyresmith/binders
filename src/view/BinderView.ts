@@ -238,7 +238,20 @@ export class BinderView extends ItemView {
 		if (Platform.isPhone) {
 			const el = this.contentEl;
 			const typing = () => { const a = el.doc.activeElement; return !!a?.instanceOf(HTMLElement) && el.contains(a) && (a.isContentEditable || a.matches('input, textarea')); };
-			const fit = () => el.toggleClass('is-short', el.clientHeight < SHORT && typing());
+			// The room is measured as it is with the header's space above the view, whether or not being short has
+			// taken that space away (the manuscript then runs under Obsidian's header, as a note does): else being
+			// short would make the view tall enough not to be, and back.
+			let lead = 0;
+			const fit = () => {
+				const top = parseFloat(getComputedStyle(el).marginTop) || 0;
+				if (!el.hasClass('is-short') || top > 0) lead = top;
+				const was = el.hasClass('is-short'), short = el.clientHeight - (top > 0 ? 0 : lead) < SHORT && typing();
+				el.toggleClass('is-short', short);
+				// (the page has just moved under what's being typed: a name or a synopsis in its field is brought back
+				// into sight, clear of the header; an editor's cursor is the manuscript's own to follow)
+				const a = el.doc.activeElement;
+				if (short && !was && a?.instanceOf(HTMLElement) && el.contains(a) && !a.closest('.cm-editor')) el.win.requestAnimationFrame(() => { if (a.isConnected) a.scrollIntoView({ block: 'nearest' }); });
+			};
 			const sized = new ResizeObserver(fit);
 			sized.observe(el);
 			this.register(() => sized.disconnect());

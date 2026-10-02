@@ -1033,6 +1033,20 @@
 	display: none;
 }
 
+/* And the manuscript, while the view is short, runs under Obsidian's floating header as a note does: Obsidian keeps
+   every view but a note below its header (a margin of `--view-top-spacing`), which on a phone on its side leaves the
+   page a line. The page starts at the top of the screen instead, fading out under the header as a note's text does;
+   its own text starts below the header, and the cursor is kept below it (manuscript.ts reads `scroll-padding-top`). */
+.is-phone .mod-root .workspace-leaf-content .view-content.binders-view.is-short:has(.binders-manuscript) {
+	margin-top: 0;
+	mask-image: var(--view-top-fade-mask);
+}
+
+.is-phone .binders-view.is-short .binders-manuscript {
+	padding-top: var(--view-top-spacing);
+	scroll-padding-top: var(--view-top-spacing);
+}
+
 /* on a phone or a tablet: as big as a base's toolbar there */
 .is-mobile .binders-toolbar {
 	--icon-size: var(--icon-l);
