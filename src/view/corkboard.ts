@@ -1,5 +1,5 @@
 import { Keymap, Menu, Notice, TFile, TFolder, setIcon, type PaneType, type TAbstractFile } from 'obsidian';
-import { buildCard, cardKey, countLabel, heir, numberCards, overPane, owedFocus, sumWords, synopsisField, typingNow, type CardHost } from './card';
+import { buildCard, cardKey, countLabel, crumbAt, heir, numberCards, overPane, owedFocus, sumWords, synopsisField, typingNow, type CardHost } from './card';
 import { editable, type Editable } from './edit';
 import { emptyState, badName, isNote, itemMenu, noteOf, plain, removeItems, renameItem } from './actions';
 import { held, settle, visibleBottom } from './drag';
@@ -939,16 +939,14 @@ class Corkboard implements BinderMode {
 		}
 		// Over a folder in the breadcrumb: the cards go to that folder, at its end (the way out of the folder shown, a
 		// level up or more, since the board shows one folder at a time).
-		const crumb = this.board.doc.elementsFromPoint(x, y).map((el) => el.closest<HTMLElement>('.binders-crumb[data-path], .binders-crumb-up[data-path]')).find((el) => !!el && !!this.container.parentElement?.contains(el)) ?? null;
-		const up = crumb ? this.ctx.app.vault.getAbstractFileByPath(crumb.dataset.path ?? '') : null;
-		const out = !this.ctx.readOnly && !this.longform && up instanceof TFolder && d.items.every((f) => f.parent !== up && this.store.whyNot(f, up) == null) ? up : null;
-		if (d.crumb && d.crumb !== (out ? crumb : null)) d.crumb.removeClass('is-being-dragged-over');
-		d.crumb = out ? crumb : null;
+		const out = crumbAt(this.ctx, this.container, d.items, x, y);
+		if (d.crumb && d.crumb !== (out?.el ?? null)) d.crumb.removeClass('is-being-dragged-over');
+		d.crumb = out?.el ?? null;
 		d.ghost.toggleClass('is-over-crumb', !!out);
-		if (out && crumb) {
-			crumb.addClass('is-being-dragged-over');
+		if (out) {
+			out.el.addClass('is-being-dragged-over');
 			this.dropAt(-1, -1); // (no line on the board meanwhile)
-			d.drop = { group: { folder: out, sub: false, items: [], end: null }, anchor: null };
+			d.drop = { group: { folder: out.folder, sub: false, items: [], end: null }, anchor: null };
 			return;
 		}
 		d.drop = this.dropAt(x, y);

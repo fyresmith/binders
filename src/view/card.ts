@@ -158,6 +158,16 @@ export function owedFocus(pane: HTMLElement, on: () => boolean, drop: () => void
 	return () => doc.removeEventListener('focusin', left, true);
 }
 
+/** The folder in the breadcrumb above a board that cards carried to (x, y) would go out to, at its end: the way out of
+    the folder shown, a level up or more. Null if nothing there would take them (the folder they're in already, one
+    that can't have them, a read-only binder, a Longform project, which has no folders). */
+export function crumbAt(ctx: ModeContext, pane: HTMLElement, items: TAbstractFile[], x: number, y: number): { el: HTMLElement; folder: TFolder } | null {
+	if (ctx.readOnly || ctx.binder.kind === 'longform') return null;
+	const el = pane.doc.elementsFromPoint(x, y).map((e) => e.closest<HTMLElement>('.binders-crumb[data-path], .binders-crumb-up[data-path]')).find((e) => !!e && !!pane.parentElement?.contains(e)) ?? null;
+	const up = el ? ctx.app.vault.getAbstractFileByPath(el.dataset.path ?? '') : null;
+	return el && up instanceof TFolder && items.every((f) => f.parent !== up && ctx.store.whyNot(f, up) == null) ? { el, folder: up } : null;
+}
+
 /** The card the keyboard goes to when the one it's on leaves the board (moved to another folder, deleted): the next
     card in the board's order that stays, else the nearest before it; null if none stays. */
 export function heir(order: readonly string[], path: string, going: (p: string) => boolean): string | null {

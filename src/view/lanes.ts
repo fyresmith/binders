@@ -1,6 +1,6 @@
 import { Keymap, Menu, Notice, TFile, TFolder, setIcon, type PaneType, type TAbstractFile } from 'obsidian';
 import { emptyState, isNote, itemMenu, nameOf, noteOf, plain, removeItems, renameItem } from './actions';
-import { buildCard, cardKey, heir, numberCards, overPane, owedFocus, passing, sumWords, typingNow, type CardEditors, type CardHost } from './card';
+import { buildCard, cardKey, crumbAt, heir, numberCards, overPane, owedFocus, passing, sumWords, typingNow, type CardEditors, type CardHost } from './card';
 import { Press, glide, held, places, settle, visibleBottom } from './drag';
 import { FileDrag } from './file-drag';
 import { openPluginSettings, submenu } from './internals';
@@ -31,6 +31,8 @@ interface Drag {
 	ghost: HTMLElement;
 	line: HTMLElement;
 	drop: Drop | null;
+	/** The folder in the breadcrumb a drop would move the cards out to, and its place there. */
+	out?: { el: HTMLElement; folder: TFolder } | null;
 	/** The card taken hold of, and its label (the card in hand shows the one it would take instead). */
 	held: string;
 	own: string;
@@ -154,8 +156,8 @@ class ByLabel implements BinderMode {
 				// (let go outside the view: whatever is there takes the card as a file, or nothing does)
 				const file = this.drag?.file;
 				if (file?.out) { this.endDrag(false, false, drop && file.drop(x, y)); return; }
-				if (drop && this.over(x, y)) this.dragTo(x, y);
-				this.endDrag(drop && this.over(x, y));
+				if (drop) this.dragTo(x, y);
+				this.endDrag(drop && (this.over(x, y) || !!this.drag?.out));
 			},
 			hold: (card, x, y) => {
 				if (!this.sel.has(card.dataset.path)) this.select([card.dataset.path]);
@@ -684,7 +686,15 @@ class ByLabel implements BinderMode {
 		d.x = x; d.y = y;
 		d.ghost.setCssStyles({ transform: `translate(${x - d.ox}px, ${y - d.oy}px)` });
 		// outside the view the card is a file, and Obsidian's to place: the board shows nowhere of its own to drop it
-		d.drop = d.file?.move(x, y) ? this.dropAt(-1, -1) : this.dropAt(x, y);
+		const file = !!d.file?.move(x, y);
+		// Over a folder in the breadcrumb: the cards go out to that folder, at its end, as on the grid (and keep
+		// their labels: no line is under them there).
+		const out = file ? null : crumbAt(this.ctx, this.container, d.items, x, y);
+		if (d.out && d.out.el !== out?.el) d.out.el.removeClass('is-being-dragged-over');
+		out?.el.addClass('is-being-dragged-over');
+		d.out = out;
+		d.ghost.toggleClass('is-over-crumb', !!out);
+		d.drop = file || out ? this.dropAt(-1, -1) : this.dropAt(x, y);
 	}
 
 	/** Dragging near an edge of the pane scrolls it: gently at first, faster the nearer the edge and the longer held. */
@@ -783,6 +793,7 @@ class ByLabel implements BinderMode {
 		window.cancelAnimationFrame(d.raf);
 		d.off();
 		d.line.remove();
+		d.out?.el.removeClass('is-being-dragged-over');
 		for (const el of this.grid.querySelectorAll('.is-drop-target')) el.removeClass('is-drop-target');
 		this.board.removeClass('is-dragging');
 		this.board.doc.body.removeClass('is-grabbing');
@@ -793,6 +804,14 @@ class ByLabel implements BinderMode {
 			d.ghost.remove();
 			if (from && dropped && !quiet) for (const f of d.items) this.landing.set(f.path, from);
 		};
+		// (out to a folder in the breadcrumb: they've left the board, and nothing lands on it)
+		if (drop && d.out && !quiet) {
+			const folder = d.out.folder;
+			this.moving = true;
+			d.ghost.remove();
+			window.setTimeout(() => { void this.change(d.items, undefined, { folder, anchor: null }).finally(() => { this.moving = false; if (this.board.isConnected) this.draw(); }); }, 0);
+			return;
+		}
 		if (drop && d.drop && !quiet) {
 			const to = d.drop;
 			this.moving = true;

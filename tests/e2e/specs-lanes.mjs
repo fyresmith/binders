@@ -1075,3 +1075,30 @@ test('with a filter on, a line’s count adds up the notes its folder cards say 
 	await filter([]);
 	t.eq(j(await look()), j(before), 'the filter cleared, the line counts as it did');
 });
+
+test('a card carried to a folder in the breadcrumb goes out to it, at its end, as on the grid: the folder shows it will take it; the card keeps its label; undone as one move', async (p, h, t) => {
+	const before = await texts(p);
+	await setLabel(p, P1 + 'Arrival.md', 'Red');
+	await openBy(p);
+	const crumb = `${LEAF} .binders-crumb[data-path="The Lighthouse"]`;
+	const a = await p.at(card(P1 + 'Arrival.md')), up = await p.at(crumb);
+	await p.move(a.x, a.y, 2);
+	await p.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: a.x, y: a.y, button: 'left', clickCount: 1 });
+	await p.move(up.x, up.y, 14, { buttons: 1 });
+	await p.sleep(200);
+	const mid = await p.ev(`({ crumb: document.querySelector(${j(crumb)}).classList.contains('is-being-dragged-over'), line: !!document.querySelector('.binders-drop-indicator.is-active'), lanes: document.querySelectorAll('${LEAF} .is-drop-target').length })`);
+	t.eq(j(mid), j({ crumb: true, line: false, lanes: 0 }), 'over the folder above: it shows it will take the card, and the board shows no line');
+	await p.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: up.x, y: up.y, button: 'left', clickCount: 1 });
+	await until(p, `app.vault.adapter.exists(${j(L + 'Arrival.md')})`, 4000);
+	await flush(p);
+	await p.sleep(500);
+	t.eq(j((await contents(p)).slice(-2)), j(['Epilogue', 'Arrival']), 'the note is at the end of the binder’s own folder');
+	t.eq(await label(p, L + 'Arrival.md'), 'Red', 'with the label it had');
+	t.eq(j(await cards(p)), j([P1 + 'The keeper.md', P1 + 'Storm warning.md']), 'and it has left this board');
+	t.eq(await p.ev(`document.querySelectorAll('.binders-drag-ghost, .binders-drop-indicator, .is-being-dragged-over, .binders-card.is-dragging').length`), 0, 'nothing of the drag is left');
+	t.ok(await undo(p), 'the move can be undone');
+	await until(p, `app.vault.adapter.exists(${j(P1 + 'Arrival.md')})`, 4000);
+	await flush(p);
+	same(t, before, await texts(p), { skip: [P1 + 'Arrival.md'] });
+	t.eq(split(await read(p, P1 + 'Arrival.md')).body, split(before[P1 + 'Arrival.md']).body, 'its text whole');
+});
