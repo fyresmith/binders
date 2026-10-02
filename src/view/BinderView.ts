@@ -719,7 +719,7 @@ export class BinderView extends ItemView {
 
 	/** For "Open binder" on a note: the card to select once the view is drawn. `fresh`: a note just made, to be named. */
 	revealItem(item: TAbstractFile, fresh = false): void {
-		if (fresh && item instanceof TFile) { this.madeHere.add(item); this.schedule(); }
+		if (fresh && item instanceof TFile) { this.madeHere.add(item); this.current?.refresh(); this.schedule(); }
 		this.reveal = item.path; this.fresh = fresh; this.applyReveal();
 	}
 	private fresh = false;

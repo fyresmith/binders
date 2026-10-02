@@ -316,6 +316,9 @@ export default class BindersPlugin extends Plugin {
 			if (Platform.isPhone) this.app.workspace.leftSplit?.collapse();
 			this.app.workspace.setActiveLeaf(view.leaf, { focus: true });
 			// (once the drawer has gone: as it goes it takes the focus from whatever has it)
+			if (view.mode === 'corkboard' && view.folder !== file.parent && file.parent) {
+				await view.setState({ ...view.getState(), folder: file.parent.path }, { history: false });
+			}
 			window.setTimeout(() => view.revealItem(file, true), Platform.isPhone ? 350 : 0);
 			return;
 		}
