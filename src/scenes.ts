@@ -1,6 +1,6 @@
-import { ButtonComponent, MarkdownView, Modal, Notice, Platform, Setting, TFile, TFolder, getFrontMatterInfo, normalizePath, parseYaml, stringifyYaml, type App, type Editor, type TAbstractFile } from 'obsidian';
+import { ButtonComponent, MarkdownView, Modal, Notice, Platform, Setting, TFile, TFolder, normalizePath, parseYaml, stringifyYaml, type App, type Editor, type TAbstractFile } from 'obsidian';
 import type BindersPlugin from './main';
-import { COMPILE_DEFAULTS, compile, joinBodies, linkTargets, nextName, pointsAt, repointLinks, synopsisFrom, tidyHead, tidyTail, titleFrom, type CompileItem, type CompileOptions } from './scene-text';
+import { COMPILE_DEFAULTS, compile, frontFor, joinBodies, linkTargets, nextName, parts, pointsAt, repointLinks, synopsisFrom, tidyHead, tidyTail, titleFrom, useYaml, type CompileItem, type CompileOptions } from './scene-text';
 import { COMPILED_KEPT } from './settings-data';
 import { saveEditors, saveTab } from './view/editable-embed';
 import { trashPhrase, updatesLinks } from './view/internals';
@@ -24,12 +24,9 @@ const say = (e: unknown) => {
 	new Notice(fs ? `${fs[2].charAt(0).toUpperCase()}${fs[2].slice(1)}${fs[3] ? ` (“${fs[3]}”)` : ''}.` : m || 'That didn’t work.');
 };
 
-/** A note's text as its properties (the block as written, or "") and what follows. Where the properties end is
-    Obsidian's to say, so this agrees with what its cache and its editor take for properties. */
-function cut(text: string): { front: string; body: string } {
-	const info = getFrontMatterInfo(text), at = info.exists ? info.contentStart : 0;
-	return { front: text.slice(0, at), body: text.slice(at) };
-}
+// Where a note's properties end is one rule, in scene-text.ts, and it reads a block as Obsidian does: with Obsidian's
+// own parser, handed over here (that file imports nothing of Obsidian's).
+useYaml(parseYaml);
 
 /** Saves notes that are open with unsaved typing, so reading them from the vault gets what's on screen: in a binder
     view's manuscript (whose editors save a moment after typing stops) and in their own tabs. When it resolves, what
@@ -99,7 +96,7 @@ export async function splitScene(plugin: BindersPlugin, editor: Editor, file: TF
 		for (let i = 0; i < 15 && !(same = lf(await app.vault.read(file)) === lf(editor.getValue())); i++) await sleep(100);
 		if (!same) { new Notice('This note is being changed somewhere else. Try again in a moment.'); return null; }
 	} catch (e) { say(e); return null; }
-	const text = editor.getValue(), offset = editor.posToOffset(editor.getCursor('from')), front = cut(text).front;
+	const text = editor.getValue(), offset = editor.posToOffset(editor.getCursor('from')), { front, yaml } = parts(text);
 	if (offset < front.length) { new Notice('Click in the note’s text, where the new note should begin.'); return null; }
 	const s = { head: text.slice(0, offset), tail: text.slice(offset) };
 	const tail = tidyTail(s.tail, offset > 0 && !/[\r\n]/.test(text[offset - 1]));
@@ -111,7 +108,7 @@ export async function splitScene(plugin: BindersPlugin, editor: Editor, file: TF
 	if (taken(title)) title = nextName(title, taken);
 	// its properties, as they're written in the editor now (the synopsis stays behind)
 	let props: Record<string, unknown> = {};
-	try { const y: unknown = front ? parseYaml(getFrontMatterInfo(text).frontmatter) : null; if (y && typeof y === 'object' && !Array.isArray(y)) props = { ...y }; } catch { /* properties that can't be read aren't copied */ }
+	try { const y: unknown = front ? parseYaml(yaml) : null; if (y && typeof y === 'object' && !Array.isArray(y)) props = { ...y }; } catch { /* properties that can't be read aren't copied */ }
 	// the synopsis describes the whole and stays with the first half; other names for this note aren't the new one's
 	delete props[settings.synopsisProp];
 	delete props.aliases;
@@ -153,17 +150,17 @@ export async function mergeScenes(plugin: BindersPlugin, files: TFile[]): Promis
 	try {
 		await saveOpen(app, files);
 		const texts = await Promise.all(rest.map((f) => app.vault.read(f)));
-		const bodies = texts.map((t) => cut(t).body);
+		const bodies = texts.map((t) => parts(t).body);
 		await app.vault.process(first, (cur) => {
 			// (properties with no line break after them get one, or the text would run into their closing line)
-			const p = cut(cur), front = p.front && !/\n$/.test(p.front) ? p.front + '\n' : p.front;
-			return front + joinBodies([p.body, ...bodies]);
+			const p = parts(cur);
+			return frontFor(p.front) + joinBodies([p.body, ...bodies]);
 		});
 		const synopsis = (f: TFile) => { const v: unknown = app.metadataCache.getFileCache(f)?.frontmatter?.[settings.synopsisProp]; return typeof v === 'string' ? v.trim() : ''; };
 		const joined = files.map(synopsis).filter((x) => x).join('\n\n');
 		if (joined && joined !== synopsis(first)) await store.setProps(first, { [settings.synopsisProp]: joined });
 		// read it back: every note's text must be in the merged one before any note is let go
-		const now = cut(await app.vault.read(first)).body, flat = (x: string) => x.replace(/\s+/g, ' ').trim();
+		const now = parts(await app.vault.read(first)).body, flat = (x: string) => x.replace(/\s+/g, ' ').trim();
 		if (!bodies.every((b) => flat(now).includes(flat(b)))) throw new Error('The merged note doesn’t have all the text, so nothing was deleted.');
 		// links to the notes that go now lead to the one that has their text (while they're still there to be found)
 		for (const f of rest) await repoint(app, f, first).catch(say);
@@ -208,11 +205,11 @@ export async function compileText(plugin: BindersPlugin, folder: TFolder, option
 		for (const c of store.orderedChildren(f) ?? []) {
 			if (!compiles(plugin, c)) continue;
 			if (c instanceof TFolder) { items.push({ kind: 'folder', name: c.name, depth }); await walk(c, depth + 1); }
-			else if (isNote(c)) { items.push({ kind: 'scene', name: c.basename, depth, text: cut(await app.vault.cachedRead(c)).body }); scenes++; }
+			else if (isNote(c)) { items.push({ kind: 'scene', name: c.basename, depth, text: parts(await app.vault.cachedRead(c)).body }); scenes++; }
 		}
 	};
 	await saveOpen(app, store.scenes(folder));
-	if (store.binderOf(folder)?.kind === 'longform') for (const f of store.scenes(folder)) { if (compiles(plugin, f)) { items.push({ kind: 'scene', name: f.basename, depth: 0, text: cut(await app.vault.cachedRead(f)).body }); scenes++; } }
+	if (store.binderOf(folder)?.kind === 'longform') for (const f of store.scenes(folder)) { if (compiles(plugin, f)) { items.push({ kind: 'scene', name: f.basename, depth: 0, text: parts(await app.vault.cachedRead(f)).body }); scenes++; } }
 	else await walk(folder, 0);
 	return { text: compile(folder.name, items, options), scenes };
 }

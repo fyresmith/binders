@@ -2,19 +2,109 @@
    joining notes, a synopsis from a note's opening, names for new notes, and compiling a binder into one text. Pure, so
    every rule here is unit-tested: these are the places writing could be lost. */
 
-/** A note as its properties block (with its `---` lines and the line break after, or "") and the text after it. */
-export function parts(text: string): { front: string; body: string } {
-	// (an empty block, `---` straight after `---`, is one too: without it the "properties" would run on to the next
-	// rule in the text, and that text would be taken for properties)
-	const m = /^---\r?\n(?:[\s\S]*?\r?\n)??---[ \t]*(?:\r?\n|$)/.exec(text);
-	return m ? { front: m[0], body: text.slice(m[0].length) } : { front: '', body: text };
+/* Where a note's properties end and its text begins. This is the one place that says so: splitting, merging,
+   compiling, a synopsis from the text, snapshots, and the manuscript's and focus mode's cursor all ask here, because a
+   wrong answer loses writing (text taken for properties is left out of a merge, a compile and a snapshot).
+
+   The rule is Obsidian's own, measured (the table in tests/e2e/specs-snapshots.mjs, “what Obsidian takes for
+   properties”, holds this file to it):
+     - a block opens with `---` alone on the note's first line, and closes at the next line that starts with `---`,
+       whatever follows on that line. These are the edges Obsidian's metadata cache uses. (`getFrontMatterInfo` is
+       stricter about the closing line and says nothing of what's inside, which is how text was lost.)
+     - it is properties if what's between reads as properties: YAML that is a mapping. The cache has properties for a
+       note exactly then.
+     - it is properties, too, if it holds nothing: no lines, blank lines, comments. The cache has no properties for
+       such a note, but Obsidian's editor and its reading view hide the block just as they hide properties, so the
+       writer never sees it as text: the text starts after it (a cursor put before it would be in a hidden block), and
+       it stays out of a compile (where a `# comment` would be a heading).
+     - anything else between two rules (a paragraph, a list, YAML that can't be read) is the writer's text, as
+       Obsidian's editor shows it, and then the whole note is text: its opening rule, that paragraph, the rule after.
+
+   The answer is worked out from the text in hand, with Obsidian's own YAML parser, and not asked of the cache: the
+   cache is brought up to date a moment after a note is written, so it can describe an older text than the one just
+   read, and a newer text cut at an older text's offsets is cut in the wrong place. */
+
+const BREAK = '(?:\\r\\n|\\n|\\r)';
+const OPEN = new RegExp(`^\\uFEFF?---${BREAK}`), CLOSE = new RegExp(`(?:^|${BREAK})---`), REST = new RegExp(`^[ \\t]*(?:${BREAK}|$)`);
+const NOTHING = new RegExp(`^(?:[ \\t]*(?:#[^\\r\\n]*)?(?:${BREAK}|$))*$`);
+
+/** Reads YAML, as Obsidian does: `scenes.ts` hands over Obsidian's own `parseYaml` when the plugin loads (this file
+    imports nothing of Obsidian's). Without it (unit tests, in Node) `looksLikeMapping` stands in. */
+let yamlReader: ((yaml: string) => unknown) | null = null;
+/** What was asked before, by the block's text: the manuscript asks on every key, of the same few blocks. */
+const asked = new Map<string, boolean>();
+export function useYaml(read: ((yaml: string) => unknown) | null): void { yamlReader = read; asked.clear(); }
+
+/** A stand-in for a YAML parser, erring towards "this is text": properties are lines of `key: value` at the margin,
+    with lists and indented lines under a key, comments and blank lines. */
+function looksLikeMapping(yaml: string): boolean {
+	let keys = 0, bare = false; // bare: the last key had nothing after its colon, so a list may follow at the margin
+	for (const line of yaml.split(/\r\n|\n|\r/)) {
+		if (!line.trim() || /^\s*#/.test(line)) continue;
+		if (/^\t/.test(line)) return false;
+		if (line.startsWith(' ')) { if (!keys) return false; continue; }
+		if (/^-(\s|$)/.test(line)) { if (!bare) return false; continue; }
+		const m = /^(?:"[^"]*"|'[^']*'|[^\s\-?:,[\]{}#&*!|>'"%@`][^:]*(?::\S[^:]*)*):(?:[ \t]+(.*))?$/.exec(line);
+		if (!m) return false;
+		keys++;
+		bare = !m[1]?.trim();
+	}
+	return keys > 0;
 }
 
-const FRONTMATTER = /^---\r?\n(?:[\s\S]*?\r?\n)?---[ \t]*(?:\r?\n|$)/;
-/** Where a note's text starts, after its properties: what the manuscript and focus mode count a cursor's place from.
-    (Not `parts(text).front.length` in one case: an empty block, `---` straight after `---`, with a rule further down
-    the text. This reads on to that rule; `parts` stops at the empty block.) */
-export const bodyStart = (text: string): number => FRONTMATTER.exec(text)?.[0].length ?? 0;
+function isProperties(yaml: string): boolean {
+	if (NOTHING.test(yaml)) return true;
+	if (!yamlReader) return looksLikeMapping(yaml);
+	let is = asked.get(yaml);
+	if (is === undefined) {
+		try { const v = yamlReader(yaml); is = !!v && typeof v === 'object' && !Array.isArray(v); } catch { is = false; }
+		if (asked.size > 500) asked.clear();
+		asked.set(yaml, is);
+	}
+	return is;
+}
+
+/** A note as what comes before its text (`front`: its properties block, with its `---` lines and the line break
+    after; "" if it has none), its text (`body`), and what the block says between its rules (`yaml`). `front + body` is
+    always the note: nothing is dropped here, and a block that isn't properties is part of the text.
+    (A byte-order mark is no text: it goes in `front`, with or without properties. Obsidian's `vault.read` drops the
+    mark and its `vault.process` hands it over, so the same note comes with and without it.) */
+export function parts(text: string): { front: string; body: string; yaml: string } {
+	const b = block(text), yaml = b ? text.slice(b.from, b.to) : '';
+	if (!b || !isProperties(yaml)) { const mark = text.startsWith('\uFEFF') ? 1 : 0; return { front: text.slice(0, mark), body: text.slice(mark), yaml: '' }; }
+	// (spaces after the closing rule, and its line break, go with it; anything else on that line is text)
+	const end = b.end + (REST.exec(text.slice(b.end))?.[0].length ?? 0);
+	return { front: text.slice(0, end), body: text.slice(end), yaml };
+}
+
+/** A note's `front` ready for text to follow: properties whose closing rule ends the file get a line break, or the
+    text would run into that rule. */
+export const frontFor = (front: string): string => (/---[ \t]*$/.test(front) ? front + '\n' : front);
+
+/** The block a note opens with, whatever is in it: where what's between its rules starts and ends, and where the
+    closing rule ends. Null if the note doesn't open with one. */
+function block(text: string): { from: number; to: number; end: number } | null {
+	const open = OPEN.exec(text);
+	if (!open) return null;
+	const from = open[0].length, close = CLOSE.exec(text.slice(from));
+	return close ? { from, to: from + close.index, end: from + close.index + close[0].length } : null;
+}
+
+/** Does a note open with a block that isn't properties: a rule, some text, and a rule? Obsidian's own
+    `processFrontMatter` takes any such block for properties and writes over it, so a property must never be written
+    to such a note that way: the text between the rules would be gone. */
+export function blockIsText(text: string): boolean {
+	const b = block(text);
+	return !!b && !isProperties(text.slice(b.from, b.to));
+}
+
+/** A note's text as Obsidian's renderer must be given it: a text that opens with a rule gets a blank line above it.
+    The renderer knows nothing of the properties that were cut off, and would take everything from that rule to the
+    next for properties and hide it. */
+export const forRender = (body: string): string => (/^\uFEFF?---/.test(body) ? '\n' + body : body);
+
+/** Where a note's text starts, after its properties: what the manuscript and focus mode count a cursor's place from. */
+export const bodyStart = (text: string): number => parts(text).front.length;
 
 /** Where position `p` of `was` is in `now`, the same text with one stretch of it changed: before the change it
     stays, after it it moves along, inside it it goes to the change's end. */

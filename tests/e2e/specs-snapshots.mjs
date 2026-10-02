@@ -3,6 +3,8 @@
 // too: every test that replaces a note's text checks, byte for byte, that the text it replaced is in a snapshot, that
 // the note's properties are what they were, and that no other note changed.
 import { B, NOTE, PL, VIEW, card, clickMenu, closeMenus, hoverMenu, contents, exists, file, flush, j, menuItems, openView, read, reload, same, texts, until, withTidy, writeRaw } from './view-helpers.mjs';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 
 export const specs = [];
 const test = (name, fn) => specs.push({ name: 'snapshots: ' + name, fn: withTidy(async (p, h, t) => { try { await fn(p, h, t); } finally { await closeAll(p); } }) });
@@ -315,7 +317,209 @@ test('an empty note: nothing to take; text with Windows line breaks or a first l
 	t.eq(await textOf(p, `${SN}/Part One/Storm warning/${(await list(p, SN + '/Part One/Storm warning'))[0]}`), dashes, 'a text that begins with dashes reads back whole');
 });
 
-test('a binder in a newer format: its snapshots can be read, nothing can be taken or changed', async (p, h, t) => {
+// ---- where properties end and text begins (scene-text.ts, `parts`): a snapshot holds all of a note but its properties ----
+const BOM = '\uFEFF', crlf = (s) => s.replace(/\n/g, '\r\n'), noBom = (s) => (s.startsWith(BOM) ? s.slice(1) : s);
+/** The bytes on disk, read by Node (Obsidian's own reading drops a byte-order mark). */
+const disk = (p, path) => readFileSync(join(p.vaultDir, path), 'utf8');
+/** A binder of its own, “Odd”, holding these notes as another program wrote them. */
+async function odd(p, notes) {
+	await p.ev(`(async () => { await app.vault.createFolder('Odd'); for (const [n, s] of ${j(notes.map(([n, s]) => [n, s]))}) await app.vault.adapter.write('Odd/' + n + '.md', s); await new Promise(r => setTimeout(r, 800)); await ${B}.makeBinder(app.vault.getAbstractFileByPath('Odd')); await ${B}.flush(); })().then(() => 1)`);
+	await until(p, `${B}.scenes(app.vault.getAbstractFileByPath('Odd')).length === ${notes.length}`);
+	await sleep(p, 300);
+}
+/** The text of the one snapshot of a note of “Odd”, or null if it has none. */
+const kept = async (p, name) => { const dir = `Odd/Snapshots/${name}`, files = await list(p, dir); return files.length ? textOf(p, `${dir}/${files[0]}`) : null; };
+
+// Every way a note can open with dashes that was measured against Obsidian: [the note, where Binders must find its
+// text starts]. Where that is left out, only what Obsidian's own cache says is checked.
+const OPENINGS = {
+	'rule, text, rule': ['---\n\nLost paragraph.\n\n---\n\nKept.\n', 0],
+	'the same, CRLF': ['---\r\n\r\nLost paragraph.\r\n\r\n---\r\n\r\nKept.\r\n', 0],
+	'the same, BOM': [BOM + '---\n\nLost paragraph.\n\n---\n\nKept.\n', 0],
+	'prose': ['---\nA line of prose.\n---\nKept.\n', 0],
+	'prose with a colon': ['---\nShe said: go.\n\n---\n\nKept.\n', 23],
+	'two lines, the second no key': ['---\nNote: this\nis text\n---\nBody.\n', 0],
+	'a string': ['---\njust a string\n---\nBody.\n', 0],
+	'a number': ['---\n42\n---\nBody.\n', 0],
+	'a list': ['---\n- a\n- b\n---\nBody.\n', 0],
+	'a tilde': ['---\n~\n---\nBody.\n', 0],
+	'bad YAML': ['---\nfoo: [unclosed\n---\nBody.\n', 0],
+	'worse YAML': ['---\nfoo: bar\n  baz\n: : :\n---\nBody.\n', 0],
+	'a tab for an indent': ['---\nfoo:\n\tbar: 1\n---\nBody.\n', 0],
+	'a key twice': ['---\na: 1\na: 2\n---\nBody.\n', 0],
+	'a quote left open over the closing rule': ['---\nfoo: "a\n---\nb"\n---\nBody.\n', 0],
+	'a comment about the text': ['---\n%% a note to self %%\n---\nBody.\n', 0],
+	'properties': ['---\nstatus: draft\n---\nBody.\n', 22],
+	'properties, CRLF': ['---\r\nstatus: draft\r\n---\r\nBody.\r\n\r\nMore.\r\n', 25],
+	'properties, BOM': [BOM + '---\nstatus: draft\n---\nBody.\n', 22],
+	'properties, BOM and CRLF': [BOM + '---\r\nfoo: bar\r\n---\r\nBody.\r\n', 20],
+	'properties, mixed line breaks': ['---\nfoo: bar\r\n---\r\nBody.\r\n', 19],
+	'properties, lone CR': ['---\rfoo: bar\r---\rBody.\r', 17],
+	'properties then a blank line': ['---\nfoo: bar\n---\n\nBody.\n', 17],
+	'a list under a key, at the margin': ['---\ntags:\n- a\n- b\n---\nBody.\n', 22],
+	'a key with nothing': ['---\nfoo:\n---\nBody.\n', 13],
+	'a key with a tilde': ['---\nfoo: ~\n---\nBody.\n', 15],
+	'a number for a key': ['---\n1: a\n---\nBody.\n', 13],
+	'braces': ['---\n{a: 1}\n---\nBody.\n', 15],
+	'empty braces': ['---\n{}\n---\nBody.\n', 11],
+	'a blank line first': ['---\n\nfoo: bar\n---\nBody.\n', 18],
+	'a blank line last': ['---\nfoo: bar\n\n---\nBody.\n', 18],
+	'a line of spaces': ['---\n   \nfoo: bar\n---\nBody.\n', 21],
+	'a comment and a key': ['---\n# c\nfoo: bar\n---\nBody.\n', 21],
+	'spaces after a value': ['---\nfoo: bar   \n---\nBody.\n', 20],
+	'text of several lines': ['---\ntext: |\n  a\n---\nb\n---\nBody.\n', 20],
+	'two blocks': ['---\na: 1\n---\nb: 2\n---\nBody.\n', 13],
+	'dots, then the rule': ['---\nfoo: bar\n...\n---\nBody.\n', 21],
+	'a space after the closing rule': ['---\nfoo: bar\n--- \nBody.\n', 18],
+	'spaces after it, CRLF': ['---\r\nfoo: bar\r\n---  \r\nBody.\r\n', 22],
+	'a tab after it': ['---\nstatus: draft\n---\t\nBody.\n', 23],
+	'five dashes close it': ['---\nstatus: draft\n-----\nBody.\n', 21],
+	'six dashes close it': ['---\nfoo: bar\n------\nBody.\n', 16],
+	'words after the closing rule': ['---\nfoo: bar\n--- text\nBody.\n', 16],
+	'words right after it': ['---\nstatus: draft\n---text\nBody.\n', 21],
+	'the closing rule, then text, no line break': ['---\nfoo: bar\n---Body', 16],
+	'a lone CR after it': ['---\nfoo: bar\n---\rBody.\n', 17],
+	'nothing between the rules': ['---\n---\nBody.\n', 8],
+	'nothing, then a rule further down': ['---\n---\nFirst.\n\n---\n\nSecond.\n', 8],
+	'nothing, CRLF': ['---\r\n---\r\nBody.\r\n', 10],
+	'three rules': ['---\n---\n---\nBody.\n', 8],
+	'a blank line between the rules': ['---\n\n---\nBody.\n', 9],
+	'a tab between the rules': ['---\n\t\n---\nBody.\n', 10],
+	'only a comment between them': ['---\n# just a comment\n---\nBody.\n', 25],
+	'spaces after the opening rule': ['---   \nstatus: draft\n---\nBody.\n', 0],
+	'one space after it': ['--- \nfoo: bar\n---\nBody.\n', 0],
+	'a tab after the opening rule': ['---\t\nfoo: bar\n---\nBody.\n', 0],
+	'dots to close': ['---\nstatus: draft\n...\nBody.\n', 0],
+	'never closed': ['---\nstatus: draft\nBody.\n', 0],
+	'a blank line above': ['\n---\nstatus: draft\n---\nBody.\n', 0],
+	'four dashes': ['----\nstatus: draft\n----\nBody.\n', 0],
+	'the closing rule indented': ['---\nfoo: bar\n ---\nBody.\n', 0],
+	'the closing rule at a line’s end': ['---\nfoo: bar---\nBody.\n', 0],
+	'text above': ['x\n---\nfoo: bar\n---\nBody.\n', 0],
+};
+
+test('what Obsidian takes for properties is what a snapshot leaves out: every way a note can open with dashes, each held to Obsidian’s own cache', async (p, h, t) => {
+	const names = Object.keys(OPENINGS), notes = names.map((k, i) => [`${String(i).padStart(2, '0')} ${k}`, OPENINGS[k][0]]);
+	await odd(p, notes);
+	for (const [n, text] of notes) t.eq(disk(p, `Odd/${n}.md`), text, `“${n}” is on disk as given`);
+	// what Obsidian says of each: where its properties end (if its cache has any), and where the block it opens with does
+	const says = JSON.parse(await p.ev(`(async () => JSON.stringify(await Promise.all(${j(notes.map((n) => n[0]))}.map(async n => { const f = app.vault.getAbstractFileByPath('Odd/' + n + '.md'), c = app.metadataCache.getFileCache(f); return { text: await app.vault.read(f), props: c?.frontmatterPosition?.end.offset ?? null, block: c?.sections?.[0]?.type === 'yaml' ? c.sections[0].position.end.offset : null }; }))))()`));
+	await openView(p, 'Odd');
+	await run(p, 'take-snapshots');
+	await until(p, `!!document.querySelector('.modal .binders-ask input')`);
+	await press(p, '.modal button', 'Take snapshots');
+	await until(p, `app.vault.adapter.exists(${j(`Odd/Snapshots/${notes[notes.length - 1][0]}`)})`, 15000);
+	await sleep(p, 500);
+	const nothing = /^(?:[ \t]*(?:#.*)?(?:\r\n|\n|\r|$))*$/, rest = /^[ \t]*(?:\r\n|\n|\r|$)/;
+	let props = 0, hidden = 0, whole = 0;
+	for (const [i, [n, text]] of notes.entries()) {
+		const s = says[i], [, want] = OPENINGS[names[i]];
+		t.eq(s.text, noBom(text), `“${n}”: Obsidian reads it as written (but a byte-order mark)`);
+		// properties, by Obsidian: the cache has them; or the block it opens with holds nothing (the editor hides it)
+		let at = s.props;
+		if (at == null && s.block != null && nothing.test(s.text.slice(/^---(?:\r\n|\n|\r)/.exec(s.text)[0].length, s.block - 3))) at = s.block;
+		if (at != null) at += rest.exec(s.text.slice(at))?.[0].length ?? 0;
+		if (s.props != null) props++; else if (at != null) hidden++; else whole++;
+		t.eq(at ?? 0, want, `“${n}”: where Obsidian has its text start is where this table says`);
+		const body = s.text.slice(at ?? 0);
+		t.eq(await kept(p, n), body.trim() ? body : null, `“${n}”: the snapshot holds the note from there on, byte for byte (${j(text.slice(0, 30))})`);
+		t.eq(disk(p, `Odd/${n}.md`), text, `“${n}” is byte for byte what it was`);
+	}
+	t.ok(props >= 25 && hidden >= 6 && whole >= 25, `the table has all three: properties (${props}), a block of nothing (${hidden}), all text (${whole})`);
+	// (asked about a block whose line starts with a percent sign, Obsidian's YAML parser says so in the console)
+	for (let i = p.errors.length - 1; i >= 0; i--) if (/YAMLWarning: Unknown directive/.test(p.errors[i])) p.errors.splice(i, 1);
+});
+
+const RULED = '---\n\nLost paragraph.\n\n---\n\nKept.\n', REAL = '---\nstatus: draft\npov: Mara\n---\n';
+// [the note's name, its bytes on disk, the properties block Binders must find in it ("" for none)]
+for (const [name, text, front] of [
+	['rule', RULED, ''],
+	['rule CRLF', crlf(RULED), ''],
+	['rule BOM', BOM + RULED, ''],
+	['bad YAML', '---\nfoo: [unclosed\n---\nAfter the bad block.\n', ''],
+	['props CRLF', crlf(REAL + 'Windows one.\n\nWindows two.\n'), crlf(REAL)],
+	['props BOM', BOM + REAL + 'Marked one.\n', REAL],
+	['comments', '---\n# a note to self\n---\nAfter the comments.\n', '---\n# a note to self\n---\n'],
+]) {
+	test(`a closed note (${name}): its snapshot holds all its text, a blank page clears all of it and nothing else, bringing it back restores it byte for byte`, async (p, h, t) => {
+		const path = `Odd/${name}.md`, body = noBom(text).slice(front.length);
+		await odd(p, [[name, text], ['other', 'Another note.\n']]);
+		await cardMenu(p, path, 'Odd');
+		await snapMenu(p, 'Rewrite...');
+		await until(p, `!!document.querySelector('.modal .binders-ask input')`);
+		await press(p, '.modal button', 'Start from a blank page');
+		const mark = text.startsWith(BOM) ? BOM : '';
+		await until(p, `app.vault.adapter.read(${j(path)}).then(s => s === ${j(mark + front)})`, 5000);
+		t.eq(disk(p, path), mark + front, front ? 'the note: its properties byte for byte, and no text' : 'the note is empty: none of its text was taken for properties and left behind');
+		await sleep(p, 500);
+		t.eq(await kept(p, name), body, 'the snapshot holds the whole text');
+		// back again, with the note closed: one checked write
+		await closeAll(p);
+		await p.ev(`(() => { app.workspace.getLeavesOfType('markdown').forEach(l => l.detach()); return 1; })()`);
+		await sleep(p, 300);
+		await cardMenu(p, path, 'Odd');
+		await snapMenu(p, 'Show snapshots...');
+		await until(p, `document.querySelectorAll(${j(DLG + ' .binders-snapshots-item')}).length === 2`);
+		await p.ev(`(() => { document.querySelectorAll(${j(DLG + ' .binders-snapshots-item')})[1].click(); return 1; })()`);
+		await sleep(p, 300);
+		await button(p, 'Bring back');
+		await until(p, `app.vault.adapter.read(${j(path)}).then(s => s.length > ${front.length})`, 5000);
+		await sleep(p, 300);
+		// (the blank page was opened in a tab to write in, and Obsidian's own tab, as it closes, writes a note that is
+		// only properties with its own line breaks and no byte-order mark: so those two aside, in the properties)
+		const now = disk(p, path), lf = (x) => noBom(x).replace(/\r\n/g, '\n');
+		t.eq(now.slice(-body.length), body, 'brought back: the text is byte for byte what it was');
+		t.eq(lf(now.slice(0, -body.length)), lf(front), 'under the same properties');
+		t.eq(disk(p, 'Odd/other.md'), 'Another note.\n', 'and the note beside it was never touched');
+	});
+}
+
+test('a note that opens with a rule, open in a tab: the snapshot, “The note now” and a blank page all take its first paragraph for text; Undo brings it back', async (p, h, t) => {
+	const path = 'Odd/rule.md';
+	await odd(p, [['rule', RULED]]);
+	await openNote(p, path);
+	await run(p, 'take-snapshot');
+	await until(p, `app.vault.adapter.exists('Odd/Snapshots/rule')`);
+	await sleep(p, 300);
+	t.eq(await kept(p, 'rule'), RULED, 'the snapshot holds the whole note');
+	t.eq(disk(p, path), RULED, 'and the note is as it was');
+	await run(p, 'show-snapshots');
+	await until(p, `!!document.querySelector(${j(DLG + ' .binders-snapshots-item')})`);
+	await sleep(p, 300);
+	await pick(p, 'The note now');
+	t.ok((await shownText(p))?.includes('Lost paragraph.'), '“The note now” shows the first paragraph: ' + j(await shownText(p)));
+	await closeAll(p);
+	await run(p, 'rewrite');
+	await until(p, `!!document.querySelector('.modal .binders-ask input')`);
+	await press(p, '.modal button', 'Start from a blank page');
+	await until(p, `app.vault.adapter.read(${j(path)}).then(s => s === '')`, 5000);
+	t.eq(disk(p, path), '', 'a blank page: the whole note is cleared, through its editor');
+	await p.ev(`(() => { const ed = ${editor(path)}; ed.undo(); return 1; })()`);
+	await until(p, `app.vault.adapter.read(${j(path)}).then(s => s.length > 0)`, 5000);
+	t.eq(disk(p, path), RULED, 'Undo: the note is whole again');
+});
+
+test('a note that opens with a rule, in the manuscript: a blank page clears its first paragraph too, and Undo there brings it back', async (p, h, t) => {
+	const path = 'Odd/rule.md';
+	await odd(p, [['rule', RULED]]);
+	await openView(p, 'Odd');
+	await p.ev(`(() => { ${VIEW}.setMode('manuscript'); return 1; })()`);
+	await until(p, `document.querySelectorAll('.workspace-leaf.mod-active .binders-manuscript-scene .cm-content[contenteditable=true]').length >= 1`, 8000);
+	const at = await p.ev(`(() => { const r = [...document.querySelectorAll('.workspace-leaf.mod-active .binders-manuscript-scene .cm-content .cm-line')].find(l => l.innerText.includes('Kept')).getBoundingClientRect(); return { x: r.x + 20, y: r.y + r.height / 2 }; })()`);
+	await p.click(at.x, at.y);
+	await run(p, 'rewrite');
+	await until(p, `!!document.querySelector('.modal .binders-ask input')`);
+	await press(p, '.modal button', 'Start from a blank page');
+	await until(p, `app.vault.adapter.read(${j(path)}).then(s => s === '')`, 5000);
+	await sleep(p, 400);
+	t.eq(disk(p, path), '', 'the note on disk is empty');
+	t.eq(await kept(p, 'rule'), RULED, 'all of it is in the snapshot');
+	await p.key('z', 'ctrl');
+	await until(p, `app.vault.adapter.read(${j(path)}).then(s => s.length > 0)`, 5000);
+	t.eq(disk(p, path), RULED, 'Undo: whole again');
+});
+
+test('a binder in a newer format: its snapshots can be read, nothing can be taken or changed',async (p, h, t) => {
 	await seed(p, DIR, '2026-09-12 09.15.40 First draft', DRAFT);
 	await writeRaw(p, NOTE, (await read(p, NOTE)).replace('binder: 1', 'binder: 2'));
 	await until(p, `!!${B}.problem(${file(A)})`);

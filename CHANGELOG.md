@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.43 (2026-10-02)
+
+### Fixed
+
+- A note that opens with a rule and has another further down no longer loses the paragraph between them when it is merged, compiled or kept as a snapshot. Only a block that really is properties is treated as properties, the same way everywhere: merge, split, compile, synopsis from text, snapshots, the manuscript and focus mode.
+
 ## 0.12.42 (2026-10-02)
 
 ### Fixed

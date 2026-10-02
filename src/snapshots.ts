@@ -1,6 +1,7 @@
-import { MarkdownView, TFile, TFolder, getFrontMatterInfo, normalizePath, type App, type Editor } from 'obsidian';
+import { MarkdownView, TFile, TFolder, normalizePath, type App, type Editor } from 'obsidian';
 import type { Binder } from './binders';
 import type BindersPlugin from './main';
+import { frontFor, parts } from './scene-text';
 import { saveOpen } from './scenes';
 import { SNAPSHOTS, SNAPSHOT_EXT, readSnapshot, readSnapshotName, snapshotFile, snapshotName } from './snapshot-text';
 import { liveEditors, saveTab } from './view/editable-embed';
@@ -34,12 +35,6 @@ export interface Snapshot {
 
 const lf = (s: string) => s.replace(/\r\n?/g, '\n');
 const isSnapshot = (f: unknown): f is TFile => f instanceof TFile && f.extension === SNAPSHOT_EXT;
-
-/** A note's text as its properties (as written) and what follows. */
-export function cut(text: string): { front: string; body: string } {
-	const info = getFrontMatterInfo(text), at = info.exists ? info.contentStart : 0;
-	return { front: text.slice(0, at), body: text.slice(at) };
-}
 
 /** Is this a scene of a binder: a note in its order (not its binder or folder note, nor one a Longform project
     leaves out)? Only scenes have snapshots. */
@@ -104,7 +99,7 @@ function writable(plugin: BindersPlugin, scene: TFile): Binder {
 export async function takeSnapshot(plugin: BindersPlugin, scene: TFile, title = '', always = false): Promise<{ snapshot: Snapshot; made: boolean } | null> {
 	const { app } = plugin, b = writable(plugin, scene), dir = snapshotsPath(b, scene.path);
 	await saveOpen(app, [scene]);
-	const body = cut(await app.vault.read(scene)).body;
+	const body = parts(await app.vault.read(scene)).body;
 	if (!body.trim()) return null;
 	const last = (await snapshotsIn(app, dir))[0];
 	if (last && !title && !always && lf(last.body) === lf(body)) return { snapshot: last, made: false };
@@ -121,7 +116,7 @@ export async function takeSnapshot(plugin: BindersPlugin, scene: TFile, title = 
 async function replaceText(plugin: BindersPlugin, scene: TFile, expect: string, next: string): Promise<void> {
 	const { app } = plugin, moved = () => new Error('The note was changed meanwhile, so it was left as it is.');
 	const inEditor = (ed: Editor): void => {
-		const text = ed.getValue(), p = cut(text);
+		const text = ed.getValue(), p = parts(text);
 		if (lf(p.body) !== lf(expect)) throw moved();
 		ed.replaceRange(next, ed.offsetToPos(p.front.length), ed.offsetToPos(text.length));
 	};
@@ -142,11 +137,10 @@ async function replaceText(plugin: BindersPlugin, scene: TFile, expect: string, 
 	}
 	let ok = false;
 	await app.vault.process(scene, (cur) => {
-		const p = cut(cur);
+		const p = parts(cur);
 		if (lf(p.body) !== lf(expect)) return cur;
 		ok = true;
-		// (properties with no line break after them get one, or the text would run into their closing line)
-		return (p.front && next && !/\n$/.test(p.front) ? p.front + '\n' : p.front) + next;
+		return (next ? frontFor(p.front) : p.front) + next;
 	});
 	if (!ok) throw moved();
 }
@@ -167,7 +161,7 @@ export async function bringBack(plugin: BindersPlugin, scene: TFile, s: Snapshot
 	// (from the disk, not from a list drawn a while ago)
 	const text = readSnapshot(await app.vault.adapter.read(s.file.path)).body;
 	await saveOpen(app, [scene]);
-	const now = cut(await app.vault.read(scene)).body;
+	const now = parts(await app.vault.read(scene)).body;
 	if (lf(now) === lf(text)) throw new Error('The note already has this text.');
 	const have = now.trim() ? (await snapshotsIn(app, snapshotsPath(b, scene.path))).find((o) => lf(o.body) === lf(now)) ?? null : null;
 	const kept = have || !now.trim() ? null : (await takeSnapshot(plugin, scene, 'Before bringing back'))?.snapshot ?? null;

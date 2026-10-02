@@ -1,4 +1,4 @@
-import { COMPILE_DEFAULTS, bodyStart, compile, joinBodies, linkTargets, moved, nextName, parts, pointsAt, repointLinks, splitAt, stripComments, synopsisFrom, tidyHead, tidyTail, titleFrom, uniqueFootnotes, type CompileItem } from '../src/scene-text';
+import { COMPILE_DEFAULTS, blockIsText, bodyStart, compile, forRender, frontFor, joinBodies, linkTargets, moved, nextName, parts, pointsAt, repointLinks, splitAt, stripComments, synopsisFrom, tidyHead, tidyTail, titleFrom, uniqueFootnotes, useYaml, type CompileItem } from '../src/scene-text';
 import { done, eq, ok } from './harness';
 
 const NOTE = '---\nsynopsis: Mara arrives.\nstatus: draft\n---\nThe boat left her on the jetty.\n\nShe had two cases.\n';
@@ -77,6 +77,77 @@ const NOTE = '---\nsynopsis: Mara arrives.\nstatus: draft\n---\nThe boat left he
 	eq(parts('---\r\n---\r\nA\r\n').body, 'A\r\n', 'with Windows line endings too');
 	eq(parts('---\na: 1\n--- \nB').body, 'B', 'a fence with a space after it still closes');
 	eq(parts('---\n\nNot properties: a rule, then text.\n').front, '', 'a rule at the top with no second one isn’t properties');
+}
+
+// what is a properties block: only one that reads as properties (or holds nothing). Anything else between two rules is
+// the writer's text, and the whole note is text
+{
+	const whole = (t: string, why: string) => { eq(parts(t).front, '', `${why}: no properties`); eq(parts(t).body, t, `${why}: the whole note is its text`); eq(bodyStart(t), 0, `${why}: the text starts at the top`); };
+	const RULE = '---\n\nLost paragraph.\n\n---\n\nKept.\n';
+	whole(RULE, 'a rule, a paragraph, a rule');
+	whole(RULE.replace(/\n/g, '\r\n'), 'the same with Windows line endings');
+	// (a byte-order mark is no text: it stays in front, so that whoever writes the text back keeps it)
+	const MARK = String.fromCharCode(0xFEFF);
+	eq(parts(MARK + RULE).front, MARK, 'the same after a byte-order mark: no properties, the mark in front');
+	eq(parts(MARK + RULE).body, RULE, 'and the whole note is its text');
+	eq(parts(MARK + 'Text.\n').body, 'Text.\n', 'a note with a mark and no dashes at all');
+	eq(frontFor(MARK), MARK, 'text follows a mark with nothing between');
+	eq(frontFor('---\na: 1\n---'), '---\na: 1\n---\n', 'properties that end the file get a line break before text follows');
+	eq(frontFor('---\na: 1\n---\n') + frontFor(''), '---\na: 1\n---\n', 'and any other front is as it is');
+	whole('---\njust a line of prose\n---\nText.\n', 'a line of prose between two rules');
+	whole('---\nNote: this\nis text\n---\nText.\n', 'two lines, the second with no key');
+	whole('---\n- a\n- b\n---\nText.\n', 'a list between two rules');
+	whole('---   \na: 1\n---\nText.\n', 'spaces after the opening rule');
+	whole('----\na: 1\n----\nText.\n', 'four dashes');
+	whole('\n---\na: 1\n---\nText.\n', 'a blank line above the block');
+	whole('---\na: 1\n ---\nText.\n', 'a closing rule that is indented');
+	whole('---\na: 1\n...\nText.\n', 'dots don’t close a block');
+	whole('---\n', 'a rule alone');
+	// with Obsidian's own reader of YAML (scenes.ts hands it over when the plugin loads), its answer is the answer
+	const reads = (t: string, value: unknown) => { useYaml(() => { if (value instanceof Error) throw value; return value; }); const p = parts(t); useYaml(null); return p; };
+	eq(reads('---\nfoo: [unclosed\n---\nText.\n', new Error('bad')).front, '', 'properties that can’t be read are text');
+	eq(reads('---\nfoo: [unclosed\n---\nText.\n', new Error('bad')).body, '---\nfoo: [unclosed\n---\nText.\n', 'all of it');
+	eq(reads('---\nLost paragraph.\n---\nText.\n', 'Lost paragraph.').front, '', 'a block that reads as a line of text is text');
+	eq(reads('---\n- a\n---\nText.\n', ['a']).front, '', 'so is one that reads as a list');
+	eq(reads('---\n{a: 1}\n---\nText.\n', { a: 1 }).body, 'Text.\n', 'and one that reads as properties is properties, however it is written');
+	eq(reads('---\n# only a comment\n---\nText.\n', null).body, 'Text.\n', 'a block with nothing in it is asked of no one');
+
+	// properties: one answer from parts and bodyStart, and nothing between front and body
+	const props = (t: string, front: string, why: string) => { const p = parts(t); eq(p.front, front, why); eq(p.front + p.body, t, `${why}: nothing lost between them`); eq(bodyStart(t), front.length, `${why}: the text starts after them`); };
+	props('---\nstatus: draft\n---\nText.\n', '---\nstatus: draft\n---\n', 'properties');
+	props('---\r\nstatus: draft\r\n---\r\nText.\r\n', '---\r\nstatus: draft\r\n---\r\n', 'properties with Windows line endings');
+	props('\uFEFF---\nstatus: draft\n---\nText.\n', '\uFEFF---\nstatus: draft\n---\n', 'properties after a byte-order mark');
+	props('---\ntags:\n- a\n- b\nsynopsis: |\n  Two\n  lines\n---\nText.\n', '---\ntags:\n- a\n- b\nsynopsis: |\n  Two\n  lines\n---\n', 'a list and a text of several lines');
+	props('---\n# a comment\n\nstatus: draft\n---\nText.\n', '---\n# a comment\n\nstatus: draft\n---\n', 'a comment and a blank line among them');
+	props('---\nstatus: draft\n---', '---\nstatus: draft\n---', 'properties and nothing else');
+	props('---\nstatus: draft\n---\n\nText.\n', '---\nstatus: draft\n---\n', 'the blank line after them is the text’s');
+	props('---\na: 1\n---\nb: 2\n---\nText.\n', '---\na: 1\n---\n', 'they end at the first closing rule');
+	// (Obsidian closes a block at the first line that starts with three dashes, whatever follows on that line)
+	props('---\na: 1\n---  \nText.\n', '---\na: 1\n---  \n', 'spaces after the closing rule go with it');
+	props('---\na: 1\n-----\nText.\n', '---\na: 1\n---', 'more after the closing rule on its line is text');
+	// a block that holds nothing (Obsidian hides it, as it does properties): nothing of the writer's is in it
+	props('---\n---\nFirst.\n\n---\n\nSecond.\n', '---\n---\n', 'an empty block, with a rule further down');
+	props('---\n\n---\nText.\n', '---\n\n---\n', 'a block of blank lines');
+	props('---\n# only a comment\n---\nText.\n', '---\n# only a comment\n---\n', 'a block of comments');
+	eq(parts('---\nstatus: draft\n---\nText.\n').yaml, 'status: draft', 'what the block says, without its rules');
+	eq(parts(RULE).yaml, '', 'and nothing for a note without properties');
+
+	// a block that is text is said to be, so that nothing writes properties over it
+	ok(blockIsText(RULE), 'a rule, a paragraph, a rule: a block that is text');
+	ok(blockIsText('---\n- a\n---\nText.\n'), 'a list between two rules: text');
+	ok(!blockIsText('---\nstatus: draft\n---\nText.\n'), 'properties aren’t');
+	ok(!blockIsText('---\n---\nText.\n') && !blockIsText('---\n# c\n---\n'), 'nor is a block with nothing in it');
+	ok(!blockIsText('---\n\nA rule at the top, and no other.\n') && !blockIsText('Text.\n') && !blockIsText(''), 'nor a note that opens with no block at all');
+
+	// shown by Obsidian's renderer, a text that opens with a rule must not be taken for properties again
+	eq(forRender(RULE), '\n' + RULE, 'a text that opens with a rule is rendered from a blank line');
+	eq(forRender('---\nstatus: draft\n---\nText.\n'), '\n---\nstatus: draft\n---\nText.\n', 'so nothing in it reads as properties, whatever is between its rules');
+	eq(forRender('Text.\n\n---\n'), 'Text.\n\n---\n', 'any other text is rendered as it is');
+
+	// every caller in this file follows: a split, a synopsis
+	eq(splitAt(RULE, 5)?.tail, 'Lost paragraph.\n\n---\n\nKept.\n', 'a note that opens with a rule can be split in its first paragraph');
+	eq(synopsisFrom(RULE), 'Lost paragraph.', 'and its synopsis is its first paragraph');
+	eq(synopsisFrom('---\nsynopsis: x\n---\n---\n\nOpening.\n'), 'Opening.', 'after real properties, a rule is skipped as a rule');
 }
 
 // comments are taken out; code is never touched

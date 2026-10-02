@@ -1,9 +1,10 @@
 import { ButtonComponent, Component, FuzzySuggestModal, ItemView, MarkdownRenderer, MarkdownView, Menu, Modal, Notice, Platform, Setting, TFile, TFolder, TextComponent, htmlToMarkdown, setIcon, type ViewStateResult, type WorkspaceLeaf } from 'obsidian';
 import type { Binder } from '../binders';
 import type BindersPlugin from '../main';
+import { forRender, parts } from '../scene-text';
 import { saveOpen } from '../scenes';
 import { SNAPSHOT_EXT, badSnapshotName, compare, readSnapshot, readSnapshotName, reworded, type Row, type Stretch } from '../snapshot-text';
-import { attach, bringBack, cut, isScene, leftovers, nameSnapshot, rewrite, snapshotsDir, snapshotsIn, takeSnapshot, type Leftover, type Snapshot } from '../snapshots';
+import { attach, bringBack, isScene, leftovers, nameSnapshot, rewrite, snapshotsDir, snapshotsIn, takeSnapshot, type Leftover, type Snapshot } from '../snapshots';
 import { liveEditors } from './editable-embed';
 import { historyLook, refreshHeader, submenu, trashPhrase } from './internals';
 import { ask, buttonRow, cancelButton, confirm } from './modals';
@@ -164,7 +165,7 @@ export class SnapshotView extends ItemView {
 		const named = readSnapshotName(file.basename), read = readSnapshot(await this.app.vault.cachedRead(file));
 		const at = named?.when.getTime() ?? read.taken ?? file.stat.mtime, title = named ? named.title : file.basename;
 		page.createDiv({ cls: 'binders-snapshot-of', text: `Snapshot${title ? ` “${title}”` : ''}, taken ${whenIn(at)} · ${wordsLabel(countWords(read.body))}` });
-		if (read.body.trim()) await MarkdownRenderer.render(this.app, read.body, page, this.of || file.path, this.shown);
+		if (read.body.trim()) await MarkdownRenderer.render(this.app, forRender(read.body), page, this.of || file.path, this.shown);
 		else page.createDiv({ cls: 'binders-snapshot-of', text: 'A blank page.' });
 		copyAsMarkdown(page);
 		refreshHeader(this);
@@ -339,7 +340,7 @@ export class SnapshotsModal extends Modal {
 		const turn = ++this.loading;
 		let current = '';
 		try {
-			if (this.scene) { await saveOpen(this.app, [this.scene]); current = cut(await this.app.vault.read(this.scene)).body; }
+			if (this.scene) { await saveOpen(this.app, [this.scene]); current = parts(await this.app.vault.read(this.scene)).body; }
 		} catch (e) { tell(e); }
 		const list = await snapshotsIn(this.app, this.dir);
 		if (turn !== this.loading) return; // a later look is on its way
@@ -456,7 +457,7 @@ export class SnapshotsModal extends Modal {
 		this.diffEl.empty();
 		if (!changes) {
 			if (!text.trim()) this.textEl.createDiv({ cls: 'u-muted', text: 'A blank page.' });
-			else void MarkdownRenderer.render(this.app, text, this.textEl, this.scene?.path ?? '', this.rendered);
+			else void MarkdownRenderer.render(this.app, forRender(text), this.textEl, this.scene?.path ?? '', this.rendered);
 			this.textEl.scrollTop = 0;
 			return;
 		}

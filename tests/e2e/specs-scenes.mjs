@@ -3,6 +3,8 @@
 // compile, and compiling a binder into one note. These move text between notes, so every test checks, byte for byte,
 // that none is lost and none changes that shouldn't.
 import { B, NOTE, PL, VIEW, card, cards, clickMenu, closeMenus, contents, exists, file, flush, hoverMenu, j, menuItems, openView, read, same, split, texts, until, withTidy } from './view-helpers.mjs';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 
 export const specs = [];
 const test = (name, fn) => specs.push({ name: 'scenes: ' + name, fn });
@@ -289,6 +291,143 @@ test('compile: the binder as one note beside it, in order, folders as headings; 
 	await p.key('Escape');
 	await until(p, `!document.querySelector('.modal')`);
 	await p.ev(`app.vault.delete(app.vault.getAbstractFileByPath('The Lighthouse (compiled).md')).then(() => 1)`);
+}));
+
+// ---- where properties end and text begins (scene-text.ts, `parts`): only a block that reads as properties is left out ----
+// A note can open with a rule, and have another further down: what's between is the writer's text, not properties.
+// Each kind of note here is [its name, its bytes on disk, the properties block Binders must find in it ("" for none)].
+const BOM = '\uFEFF', crlf = (s) => s.replace(/\n/g, '\r\n');
+const RULED = '---\n\nLost paragraph.\n\n---\n\nKept.\n', PROPS = '---\nstatus: draft\npov: Mara\n---\n';
+const KINDS = [
+	['a rule', RULED, ''],
+	['b rule CRLF', crlf(RULED), ''],
+	['c rule BOM', BOM + RULED, ''],
+	['d prose', '---\nA line of prose between two rules.\n---\nAfter the prose.\n', ''],
+	['e bad YAML', '---\nfoo: [unclosed\n---\nAfter the bad block.\n', ''],
+	['f list', '---\n- one\n- two\n---\nAfter the list.\n', ''],
+	['g props', PROPS + 'Real one.\n\nReal two.\n', PROPS],
+	['h props CRLF', crlf(PROPS + 'Windows one.\n\nWindows two.\n'), crlf(PROPS)],
+	['i props BOM', BOM + PROPS + 'Marked one.\n', PROPS],
+	['j props then rule', PROPS + '---\n\nUnder a rule.\n\n---\n\nAnd another.\n', PROPS],
+	['k comments', '---\n# a note to self\n---\nAfter the comments.\n', '---\n# a note to self\n---\n'],
+	['l empty then rule', '---\n---\nFirst.\n\n---\n\nSecond.\n', '---\n---\n'],
+];
+const noBom = (s) => (s.startsWith(BOM) ? s.slice(1) : s);
+/** A note's text as Binders must take it: all of the note but its properties block (a byte-order mark is no text). */
+const textOfKind = ([, text, front]) => noBom(text).slice(front.length);
+/** The bytes on disk, read by Node (Obsidian's own reading drops a byte-order mark). */
+const disk = (p, path) => readFileSync(join(p.vaultDir, path), 'utf8');
+/** A binder of its own, “Odd”, holding these notes as another program wrote them. */
+async function odd(p, notes) {
+	await p.ev(`(async () => { await app.vault.createFolder('Odd'); for (const [n, s] of ${j(notes.map(([n, s]) => [n, s]))}) await app.vault.adapter.write('Odd/' + n + '.md', s); await new Promise(r => setTimeout(r, 800)); await ${B}.makeBinder(app.vault.getAbstractFileByPath('Odd')); await ${B}.flush(); })().then(() => 1)`);
+	await until(p, `${B}.scenes(app.vault.getAbstractFileByPath('Odd')).length === ${notes.length}`);
+	await p.sleep(300);
+}
+/** Runs what Binders adds to the file explorer's menu for these notes, by its title. */
+const explorerMenu = (p, paths, title) => p.ev(`(() => {
+	const items = [], menu = new Proxy({}, { get: (o, k) => k === 'addItem' ? (cb) => { const s = {}, it = new Proxy({}, { get: (x, m) => m === 's' ? s : (v) => { if (m === 'setTitle') s.t = v; if (m === 'onClick') s.f = v; return it; } }); cb(it); items.push(s); return menu; } : () => menu });
+	const fs = ${j(paths)}.map(x => app.vault.getAbstractFileByPath(x));
+	if (fs.length > 1) app.workspace.trigger('files-menu', menu, fs, 'file-explorer-context-menu'); else app.workspace.trigger('file-menu', menu, fs[0], 'file-explorer-context-menu');
+	const it = items.find(i => i.t === ${j(title)});
+	if (!it) throw new Error('no “' + ${j(title)} + '” among: ' + items.map(i => i.t).join(', '));
+	it.f({});
+	return 1;
+})()`);
+async function merge(p, paths) {
+	await explorerMenu(p, paths, `Merge ${paths.length} notes`);
+	await until(p, `!!document.querySelector('.modal .mod-cta')`);
+	await p.ev(`(() => { [...document.querySelectorAll('.modal button')].find(b => b.textContent === 'Merge').click(); return 1; })()`);
+	await until(p, `${j(paths.slice(1))}.every(x => !app.vault.getAbstractFileByPath(x))`, 8000);
+	await p.sleep(300);
+}
+/** Texts joined as a merge joins them: a blank line between, one line break at the end. */
+const joined = (bodies) => bodies.map((b) => b.replace(/^\s*\n/, '').replace(/\s+$/, '')).filter((b) => b.trim()).join('\n\n') + '\n';
+
+test('merging notes that open with a rule, bad properties, a list, real properties, Windows line breaks, a byte-order mark: every word of text is in the merged note, and only properties are left out', withTidy(async (p, h, t) => {
+	await odd(p, [['0 Alpha', 'Alpha.\n'], ...KINDS]);
+	const paths = ['0 Alpha', ...KINDS.map((k) => k[0])].map((n) => `Odd/${n}.md`);
+	await merge(p, paths);
+	t.eq(disk(p, paths[0]), joined(['Alpha.\n', ...KINDS.map(textOfKind)]), 'the merged note, byte for byte: each note’s text in order');
+	t.ok(disk(p, paths[0]).includes('Lost paragraph.') && disk(p, paths[0]).includes('foo: [unclosed') && disk(p, paths[0]).includes('- one'), 'a paragraph, a broken block and a list between two rules are text, and are there');
+	t.ok(!/status: draft|a note to self/.test(disk(p, paths[0])), 'properties (and a block of nothing but comments, which Obsidian hides as it does properties) are not');
+}));
+
+test('merging into a note that opens with a rule, has bad properties, real ones, Windows line breaks or a byte-order mark: its own bytes stay, the other’s text follows', withTidy(async (p, h, t) => {
+	await odd(p, [...KINDS, ...KINDS.map((k) => [`z to ${k[0]}`, `Joined to ${k[0]}.\n`])]);
+	for (const k of KINDS) {
+		const [name, text, front] = k, path = `Odd/${name}.md`, mark = text.startsWith(BOM) ? BOM : '';
+		await merge(p, [path, `Odd/z to ${name}.md`]);
+		t.eq(disk(p, path), mark + front + joined([textOfKind(k), `Joined to ${name}.\n`]), `“${name}”: what comes before its text byte for byte, its text whole, then the other’s (${j(text.slice(0, 24))})`);
+	}
+}));
+
+test('compiling a binder of such notes: every word of text, no properties, and no note changed by a byte', withTidy(async (p, h, t) => {
+	await odd(p, KINDS);
+	const before = Object.fromEntries(KINDS.map(([n]) => [n, disk(p, `Odd/${n}.md`)]));
+	for (const [n, text] of KINDS) t.eq(before[n], text, `“${n}” is on disk as given`);
+	await openView(p, 'Odd');
+	await run(p, 'compile');
+	await until(p, `!!document.querySelector('.modal .binders-compile-path')`);
+	await p.ev(`(() => { [...document.querySelectorAll('.modal button')].find(b => b.textContent === 'Compile').click(); return 1; })()`);
+	await until(p, `app.vault.adapter.exists('Odd (compiled).md')`);
+	await p.sleep(400);
+	const want = ['# Odd', ...KINDS.map((k) => textOfKind(k).replace(/^\s*\n/, '').replace(/\s+$/, '')).flatMap((b, i) => (i ? ['* * *', b] : [b]))].join('\n\n') + '\n';
+	t.eq(disk(p, 'Odd (compiled).md'), want, 'the compiled note, byte for byte');
+	for (const [n, text] of KINDS) t.eq(disk(p, `Odd/${n}.md`), text, `“${n}” is byte for byte what it was (its line breaks and its byte-order mark too)`);
+	await p.ev(`app.vault.delete(app.vault.getAbstractFileByPath('Odd (compiled).md')).then(() => 1)`);
+}));
+
+test('splitting a note that opens with a rule, in its first paragraph; one with bad properties, in them; one with real properties and Windows line breaks', withTidy(async (p, h, t) => {
+	await odd(p, [KINDS[0], KINDS[4], KINDS[7]]);
+	// in the first paragraph, which is text
+	await openAt(p, 'Odd/a rule.md', { before: 'paragraph.' });
+	t.ok(await p.ev(`app.commands.findCommand('binders:split-scene').editorCheckCallback(true, app.workspace.activeEditor.editor, app.workspace.activeEditor)`), 'the command is offered');
+	await run(p, 'split-scene');
+	await until(p, `app.vault.adapter.exists('Odd/a rule 2.md')`);
+	await until(p, `app.vault.adapter.read('Odd/a rule.md').then(s => !s.includes('Kept'))`, 5000);
+	t.eq(disk(p, 'Odd/a rule.md'), '---\n\nLost\n', 'the first half: the rule and the words before the cursor');
+	t.eq(disk(p, 'Odd/a rule 2.md'), 'paragraph.\n\n---\n\nKept.\n', 'the second half: the rest, with no properties made up for it');
+	t.ok(!/Click in the note’s text/.test(await notices(p)), 'and it wasn’t refused as a place in the properties');
+	// in a block that can't be read as properties: it is text, so it splits there
+	await openAt(p, 'Odd/e bad YAML.md', { before: '[unclosed' });
+	await run(p, 'split-scene');
+	await until(p, `app.vault.adapter.exists('Odd/e bad YAML 2.md')`);
+	await until(p, `app.vault.adapter.read('Odd/e bad YAML.md').then(s => !s.includes('unclosed'))`, 5000);
+	t.eq(disk(p, 'Odd/e bad YAML.md') + disk(p, 'Odd/e bad YAML 2.md'), '---\nfoo:\n[unclosed\n---\nAfter the bad block.\n', 'both halves together are the note, a line break where it was cut');
+	// real properties, in a file with Windows line breaks: the new note gets them, and the text divides
+	await openAt(p, 'Odd/h props CRLF.md', { before: 'Windows two.' });
+	await run(p, 'split-scene');
+	await until(p, `app.vault.adapter.exists('Odd/h props CRLF 2.md')`);
+	await until(p, `app.vault.adapter.read('Odd/h props CRLF.md').then(s => !s.includes('two'))`, 5000);
+	t.eq(disk(p, 'Odd/h props CRLF.md').replace(/\r\n/g, '\n'), PROPS + 'Windows one.\n', 'the first half keeps its properties and the text before the cursor');
+	t.eq(disk(p, 'Odd/h props CRLF 2.md'), PROPS + 'Windows two.\n', 'the second half has the same properties and the rest');
+}));
+
+test('what the writer sees is what Binders takes for text: Obsidian’s editor shows a block that isn’t properties, and hides one that holds nothing', withTidy(async (p, h, t) => {
+	await odd(p, KINDS);
+	for (const k of KINDS) {
+		const [name, , front] = k, path = `Odd/${name}.md`;
+		await p.ev(`app.workspace.getLeaf(false).openFile(${file(path)}, { state: { mode: 'source', source: false } }).then(() => 1)`);
+		await p.sleep(500);
+		// (line by line, but the rules: in the text Obsidian draws a rule as a line across the page, with no dashes to read)
+		const lines = (s) => s.split(/\r?\n/).map((l) => l.trim()).filter((l) => l && !/^-{3,}$/.test(l)).join('\n');
+		const shown = lines(await p.ev(`[...app.workspace.getLeavesOfType('markdown')[0].view.contentEl.querySelectorAll('.markdown-source-view .cm-content > .cm-line')].map(l => l.innerText).join('\\n')`));
+		const mine = lines(textOfKind(k));
+		t.eq(shown, mine, `“${name}”: the lines Obsidian’s editor shows as text are the text Binders takes (${front ? 'after its properties' : 'the whole note'})`);
+	}
+}));
+
+test('in the manuscript the start of a section is the start of its text: before a first paragraph between two rules, after real properties', withTidy(async (p, h, t) => {
+	await odd(p, KINDS);
+	await openView(p, 'Odd');
+	await p.ev(`(() => { ${VIEW}.setMode('manuscript'); return 1; })()`);
+	await until(p, `document.querySelectorAll('.workspace-leaf.mod-active .binders-manuscript-scene').length === ${KINDS.length}`, 8000);
+	for (const [name, text, front] of KINDS) {
+		const at = await p.ev(`(async () => { const m = ${VIEW}.current, s = m.scenes.find(s => s.file.path === ${j(`Odd/${name}.md`)}); s.el.scrollIntoView({ block: 'center' }); await new Promise(r => setTimeout(r, 150)); await m.focusScene(s, 'start'); await new Promise(r => setTimeout(r, 150)); return s.live ? s.live.cm.state.selection.main.head : null; })()`);
+		t.eq(at, front.replace(/\r\n/g, '\n').length, `“${name}”: the cursor is where its text starts`);
+	}
+	await p.sleep(2500); // (nothing was typed: nothing may be written)
+	for (const [n, text] of KINDS) t.eq(disk(p, `Odd/${n}.md`), text, `“${n}” is byte for byte what it was`);
 }));
 
 test('a note made beside one it’s named after (“Arrival 1”, as “Make a copy” does) goes right after it', withTidy(async (p, h, t) => {
