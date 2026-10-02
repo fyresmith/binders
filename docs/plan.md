@@ -416,51 +416,9 @@ Supported (0.7): Longform's multi-scene projects. Single-note projects (`format:
 
 ## Architecture
 
-```
-src/
-  main.ts              plugin lifecycle, commands, file-menu items
-  settings.ts          the settings tab (declarative, with a fallback for Obsidian before 1.13)
-  settings-data.ts     what the settings are, their defaults, reading saved ones (pure, unit-tested)
-  model.ts             the binder index: parse, order, rename, move (pure, unit-tested)
-  binders.ts           finds binders in the vault, keeps an index per binder, writes changes (debounced)
-  undo.ts              undo of moves: what a change by hand moved, and putting it back (through the store)
-  explorer.ts          the file explorer: order patch, icon, label dots, click to open, drag to reorder (isolated; feature-detected)
-  scenes.ts            split, merge, synopsis from text, compile (and its dialog): where the text rules meet the vault
-  scene-text.ts        the text rules for those (pure, unit-tested)
-  snapshots.ts         snapshots of a scene: taking, bringing back, naming, following a renamed note (the vault side)
-  snapshot-text.ts     a snapshot's name and file, and comparing two texts as prose (pure, unit-tested)
-  longform.ts          Longform projects: reading and writing `longform.scenes` (pure, unit-tested)
-  longform-convert.ts  the "Convert to binder" dialog
-  focus/
-    focus.ts           focus mode: in and out, what's on its page, typewriter scrolling, the day's words, its menu
-    session.ts         the day's words, "the last line", what's shown of the scenes before and after (pure, unit-tested)
-    dom.ts             Obsidian's own DOM and editor as far as focus mode reaches into them (isolated; feature-detected)
-  view/
-    BinderView.ts      the view shell: toolbar, switcher, filter, state, places
-    mode.ts            the contract between the view and its modes
-    corkboard.ts
-    outliner.ts
-    outliner-columns.ts  the outliner's header: a column's menu, sorting by it, resizing and reordering, which columns show
-    outliner-data.ts   the outliner's columns, sorting, targets, typed values (pure, unit-tested)
-    manuscript.ts
-    editable-embed.ts  embedded editors (isolated; feature-detected)
-    actions.ts         an item's menu and what it does, shared by the corkboard and the outliner
-    card.ts            an index card, as both boards draw it
-    lanes.ts           the corkboard's cards by label: a line per label, the cards along them
-    lanes-data.ts      what that board is, as data: the lines, the places, what a drop means
-    drag.ts            a press that may become a drag (mouse, pen, long press), and gliding after a redraw
-    edit.ts            text edited in place (titles, synopses, cells)
-    labels.ts          labels and statuses: colors, names, reading saved ones (pure, unit-tested)
-    modals.ts          confirm, ask for text, pick a color
-    snapshots.ts       "Take a snapshot", "Rewrite", the Snapshots dialog, a snapshot in a pane, gone notes' snapshots
-    words.ts           word counts, as Obsidian counts them
-    internals.ts       undocumented Obsidian API the views use (submenus, settings tab, header titles, line length)
-```
-
-- `model.ts` has no Obsidian imports; everything that touches the vault goes through `binders.ts`.
-- Each Obsidian internal used is wrapped in one function with a type guard, listed in `docs/internals.md`, and has an e2e
-  test that fails loudly if an Obsidian update changes it. The exceptions, and the tests still missing, are marked
-  in that list.
+The map of the code (each module, the layers, how a change travels from a gesture to a file, where the undocumented
+parts of Obsidian are used, and the rules that keep writing safe) is in [architecture.md](architecture.md). The
+undocumented parts, one by one, are in [internals.md](internals.md).
 
 ## Milestones
 
