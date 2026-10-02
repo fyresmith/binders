@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.101 (2026-10-02)
+
+### Fixed
+
+- On the narrowest phones the word count is no longer hidden: it shows as its number, and a tap on it still sets the target.
+
 ## 0.12.100 (2026-10-02)
 
 ### Fixed

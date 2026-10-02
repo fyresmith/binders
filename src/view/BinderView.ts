@@ -578,7 +578,11 @@ export class BinderView extends ItemView {
 		const whose = folder === binder.folder ? 'the binder’s' : 'this folder’s';
 		ui.count.toggleClass('is-clickable', !this.readOnly);
 		if (n != null) {
-			ui.count.setText(shown != null ? `${shown.toLocaleString()} of ${wordsLabel(n)}` : goal ? `${n.toLocaleString()} / ${wordsLabel(goal)}` : wordsLabel(n));
+			// (the number, then " words" on its own, so that a phone too narrow for both keeps the number)
+			const said = shown != null ? `${shown.toLocaleString()} of ${wordsLabel(n)}` : goal ? `${n.toLocaleString()} / ${wordsLabel(goal)}` : wordsLabel(n), cut = said.lastIndexOf(' ');
+			ui.count.empty();
+			ui.count.appendText(said.slice(0, cut));
+			ui.count.createSpan({ cls: 'binders-word-count-unit', text: said.slice(cut) });
 			const what = shown != null ? 'Words in the notes that pass the filter' : goal ? `${Math.floor((n / goal) * 100)}% of ${whose} target` : 'Words in this folder';
 			ui.count.setAttr('aria-label', this.readOnly ? what : `${what}. ${goal ? 'Change' : 'Set'} ${whose} target`);
 			ui.count.toggleClass('is-complete', !!goal && n >= goal);

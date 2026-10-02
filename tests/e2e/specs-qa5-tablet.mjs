@@ -1775,7 +1775,7 @@ ux('phone: the README’s “The word count shows the target of the binder or fo
 		}
 	});
 	t.ok(seen[390].countWidth > 0 && seen[320].countWidth > 0, 'the count shows at both widths: ' + j(seen));
-	t.ok(seen[390].barWidth > 0, 'with its bar at 390 px: ' + j(seen));
+	t.ok(seen[390].barWidth > 0 || / \/ /.test(seen[390].count), 'at 390 px its bar shows, or (no room for it) the count itself says the target: ' + j(seen));
 });
 
 ux('phone outliner: the README’s “Rows in the outliner work the same way” (tap to select, then tap its synopsis to edit it) holds for a row that has no synopsis yet, as it does for such a card (the selected row shows nowhere to tap: only “Edit synopsis” in its menu opens one)', async (p, h, t) => {

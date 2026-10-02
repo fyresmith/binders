@@ -1196,7 +1196,7 @@
 }
 
 .binders-word-count {
-	/* it keeps its width (a long breadcrumb gives way instead), and in a very narrow pane it goes */
+	/* it keeps its width (a long breadcrumb gives way instead); in a very narrow pane it keeps only its number */
 	flex: none;
 	min-width: 0;
 	overflow: hidden;
@@ -1223,6 +1223,9 @@
 .is-mobile .binders-word-count.is-clickable {
 	line-height: 28px;
 	padding-block: 8px;
+	/* (a short number alone is still a finger across) */
+	min-width: 44px;
+	text-align: center;
 }
 
 /* (and the way up: the folder's name as tall as a finger, the arrow before it as tall as the name) */
@@ -1427,8 +1430,10 @@
 	}
 }
 
+/* (on the narrowest phones the count keeps its number, which is also what's tapped to set the target, and drops the
+   word "words") */
 @container binders-view (width < 360px) {
-	.binders-word-count {
+	.binders-word-count-unit {
 		display: none;
 	}
 }
@@ -2869,8 +2874,8 @@
 }
 
 /* A phone, inside a folder, on the corkboard: the way up, the count, "Arrange", "Filter" and "New" don't all fit. The
-   way up keeps its name (it's how you leave the folder), and the count gives way, as it does on the narrowest phones
-   in every mode. */
+   way up keeps its name (it's how you leave the folder), and the count gives way (on the binder's own board,
+   where there's no way up to make room for, it stays). */
 @container binders-view (width < 440px) {
 	.binders-toolbar:has(> .binders-arrange-button:not(.is-hidden)):has(> .binders-breadcrumbs:not(.is-root)) > .binders-word-count {
 		display: none;
