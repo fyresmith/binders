@@ -114,6 +114,7 @@ class Manuscript implements BinderMode {
 	    properties above can grow or shrink while it's away). */
 	private caret: { file: TFile; pos: number; anchor: number; body?: string } | null = null;
 	private asked = 0;
+	private requested: Scene | null = null;
 	/** The section a restored place is measured from (see restore). */
 	private pin: HTMLElement | null = null;
 	private pinTimer = 0;
@@ -258,7 +259,7 @@ c.registerDomEvent(this.root, 'focusout', (e) => { const cm = this.sceneOf(e.tar
 	/** The caret goes back where it last was here, or to the start of the first section in sight. (Not on a phone or
 	    tablet: there a caret brings up the keyboard.) */
 	focus(): void {
-		if (!this.editable || Platform.isMobile) return;
+		if (!this.editable || Platform.isMobile || this.requested) return;
 		// never by scrolling: the page is where the reader left it, and the caret goes to what's in sight
 		const view = this.root.getBoundingClientRect(), seen = (x: Scene) => { const r = x.bodyEl.getBoundingClientRect(); return r.bottom > view.top + 8 && r.top < view.bottom - 8; };
 		const was = this.caret && this.byKey.get(this.caret.file);
@@ -760,10 +761,13 @@ c.registerDomEvent(this.root, 'focusout', (e) => { const cm = this.sceneOf(e.tar
 		// a section whose editor has gone (an Obsidian update changing how embeds behave) gets a new one
 		if (s.live && !s.live.cm && !s.live.editor) this.unmount(s);
 		const loaded = !!s.live?.cm, mine = ++this.asked;
+		this.requested = s;
 		await this.mount(s);
 		const live = s.live, cm = live?.cm;
 		// (asked for somewhere else meanwhile, or a title is being typed: the later one has the keyboard)
-		if (!live || mine !== this.asked) return;
+		if (mine !== this.asked) return;
+		this.requested = null;
+		if (!live) return;
 		if (!cm) { live.editor?.focus(); return; }
 		const doc = cm.state.doc, start = bodyStart(doc.toString());
 		const clamp = (p: number) => Math.max(start, Math.min(doc.length, p));
