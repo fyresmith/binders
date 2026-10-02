@@ -432,6 +432,26 @@ test('Escape is left to a menu, the command palette, a dialog, the search field 
 	t.ok(!(await inFocus(p)), 'Escape in the text leaves');
 });
 
+test('Escape is left to a note preview over a link (.popover.hover-popover): focus stays; with it gone, Escape leaves', async (p, h, t) => {
+	await openNote(p, KEEPER);
+	await caretEnd(p);
+	await enter(p, h);
+	// a real preview, made the way Obsidian's page preview makes one; where none comes, a stand-in with its class
+	const real = await p.ev(`(async () => {
+		app.workspace.trigger('hover-link', { event: new MouseEvent('mouseover', { ctrlKey: true, metaKey: true, bubbles: true }), source: 'editor', hoverParent: { hoverPopover: null }, targetEl: document.querySelector('.cm-content'), linktext: ${j(ARRIVAL.replace(/\.md$/, ''))}, sourcePath: ${j(KEEPER)} });
+		await new Promise(r => setTimeout(r, 1200));
+		return !!document.querySelector('.popover.hover-popover');
+	})()`);
+	if (!real) await p.ev(`(() => { document.body.createDiv({ cls: 'popover hover-popover' }); return 1; })()`);
+	t.ok(await p.ev(`!!document.querySelector('.popover.hover-popover')`), 'a preview is showing' + (real ? '' : ' (a stand-in: Obsidian made none here)'));
+	await p.key('Escape'); await p.sleep(400);
+	t.ok(await inFocus(p), 'Escape with a preview open doesn’t leave focus mode');
+	await p.ev(`(() => { document.querySelectorAll('.popover.hover-popover').forEach(e => e.remove()); return 1; })()`);
+	await p.key('Escape');
+	await until(p, `!document.body.classList.contains('binders-focus') && !${F}.busy`);
+	t.ok(!(await inFocus(p)), 'with it gone, Escape leaves');
+});
+
 // ---- Obsidian as it was ----
 
 test('Obsidian is exactly as it was after leaving, after a reload while in focus, and after the plugin is turned off while in focus', async (p, h, t) => {
