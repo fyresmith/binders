@@ -76,6 +76,9 @@ export function contains(base: string, ours: string, theirs: string): boolean {
 	let e = 0;
 	while (e < base.length - p && e < ours.length - p && base[base.length - 1 - e] === ours[ours.length - 1 - e]) e++;
 	const head = ours.slice(0, ours.length - e), tail = base.slice(base.length - e);
+	// Words only taken out (deleted, or undone) leave nothing of ours to look for: the file as it was before, written
+	// again as it is, would pass for one that has our change, and the words would come back. That's for a merge.
+	if (head.length === p && base.length - e > p) return false;
 	return theirs.length >= head.length + tail.length && theirs.startsWith(head) && theirs.endsWith(tail);
 }
 

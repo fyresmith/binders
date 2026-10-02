@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.134 (2026-10-02)
+
+### Fixed
+
+- Words deleted or undone in the manuscript could come back if the note was written again by something else (a sync, another plugin) before the manuscript had saved.
+
 ## 0.12.133 (2026-10-02)
 
 ### Changed
