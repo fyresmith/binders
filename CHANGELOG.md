@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.61 (2026-10-02)
+
+### Fixed
+
+- In the manuscript, a section not yet turned into its editor hid the first paragraph of a note that opens with a rule.
+
 ## 0.12.60 (2026-10-02)
 
 ### Fixed

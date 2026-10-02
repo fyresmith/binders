@@ -1,6 +1,6 @@
 import { Component, Keymap, MarkdownRenderer, Menu, Notice, Platform, TFile, TFolder, normalizePath, setIcon, type Events, type TAbstractFile } from 'obsidian';
 import type { EditorView } from '@codemirror/view';
-import { bodyStart, moved } from '../scene-text';
+import { bodyStart, forRender, moved } from '../scene-text';
 import { badName, emptyState, itemMenu, plain, removeItems, renameItem } from './actions';
 import { vimMode } from './internals';
 import { visibleBottom } from './drag';
@@ -710,7 +710,8 @@ class Manuscript implements BinderMode {
 			this.comp.addChild(comp);
 			const el = createDiv({ cls: 'binders-manuscript-rendered markdown-rendered' });
 			el.toggleClass('has-last-line', /\n$/.test(body));
-			await MarkdownRenderer.render(this.app, body, el, s.file.path, comp);
+			// (a text that opens with a rule: the renderer would take all down to the next rule for properties, and hide it)
+			await MarkdownRenderer.render(this.app, forRender(body), el, s.file.path, comp);
 			if (stale()) { this.comp.removeChild(comp); return; }
 			this.space(el, s.file, raw);
 			if (s.renderComp) this.comp.removeChild(s.renderComp);

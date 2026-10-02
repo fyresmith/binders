@@ -820,6 +820,18 @@ test('a section’s menu: “New note after this” adds a section with its titl
 	t.ok(disk(p, ORDER[0]).trimEnd().endsWith('Kept.'), 'typing in another section was kept through it all: ' + J(disk(p, ORDER[0]).slice(-30)));
 	for (const k of ORDER.slice(1)) t.eq(disk(p, k), before[k], `${k} untouched`);
 });
+test('a note that opens with a rule and has another further down: its section shows all of it as plain text too, the first paragraph included', async (p, h, t) => {
+	const f = ORDER[1], RULED = '---\n\nFirst paragraph.\n\n---\n\nSecond paragraph.\n';
+	await p.ev(`app.vault.modify(app.vault.getAbstractFileByPath(${J(f)}), ${J(RULED)}).then(() => 1)`);
+	await p.sleep(500);
+	await mount(p, B, { readOnly: true }); // (every section rendered, as one is before its editor comes)
+	const got = await p.ev(`(() => { const el = ${M}.scenes[${idx(f)}].bodyEl.querySelector('.binders-manuscript-rendered'); return { text: el.innerText.replace(/\\s+/g, ' ').trim(), rules: el.querySelectorAll('hr').length, props: el.querySelectorAll('.frontmatter, .metadata-container, pre').length }; })()`);
+	t.eq(got.text, 'First paragraph. Second paragraph.', 'both paragraphs show');
+	t.eq(got.rules, 2, 'and both rules, as rules');
+	t.eq(got.props, 0, 'nothing is drawn as properties');
+	t.eq(disk(p, f), RULED, 'the note is as it was');
+});
+
 test('a read-only binder shows the manuscript read only', async (p, h, t) => {
 	await mount(p, B, { readOnly: true });
 	t.eq(await p.ev(`${M}.root.querySelectorAll('[contenteditable=true]').length`), 0, 'nothing editable');
