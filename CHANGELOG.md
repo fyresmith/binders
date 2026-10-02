@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.10 (2026-10-02)
+
+### Changed
+
+- Nothing a writer will notice: a test now expects the binder's note to take its folder's new name, as it has since 0.10.
+
 ## 0.12.9 (2026-10-02)
 
 ### Fixed

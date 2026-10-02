@@ -304,16 +304,18 @@ test('binders: folder notes are made on demand and edited through properties onl
 
 test('binders: renaming the binder folder keeps the binder and its order, with no write', withTidy(async (p, h, t) => {
 	const before = await texts(p);
-	await countWrites(p, 'The Beacon/The Lighthouse.md');
+	// (the binder note follows its folder's name: a rename, not a write)
+	await countWrites(p, 'The Beacon/The Beacon.md');
 	try {
 		await p.ev(`app.fileManager.renameFile(${file('The Lighthouse')}, 'The Beacon').then(() => 1)`);
-		t.ok(await until(p, `${B}.isBinderFolder(${file('The Beacon')})`), 'still a binder');
+		t.ok(await until(p, `!!${file('The Beacon/The Beacon.md')} && ${B}.isBinderFolder(${file('The Beacon')})`), 'still a binder, its note named like it');
 		t.eq(j(await children(p, 'The Beacon')), j(['Prologue.md', 'Part One', 'Part Two', 'Epilogue.md']), 'same order');
 		await p.sleep(600); await flush(p);
 		t.eq(await writes(p), 0, 'no write');
-		t.eq(await read(p, 'The Beacon/The Lighthouse.md'), before[NOTE], 'the binder note is unchanged');
+		t.eq(await read(p, 'The Beacon/The Beacon.md'), before[NOTE], 'the binder note is unchanged');
 	} finally {
 		await p.ev(`${file('The Beacon')} ? app.fileManager.renameFile(${file('The Beacon')}, 'The Lighthouse').then(() => 1) : 1`);
+		await until(p, `!!${file(NOTE)}`);
 		await p.sleep(300);
 	}
 	same(t, before, await texts(p));
