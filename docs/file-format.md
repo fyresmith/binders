@@ -23,7 +23,7 @@ Anything you like: notes on the book, links, a to-do list.
 
 | Property | Type | Meaning |
 |---|---|---|
-| `binder` | number | Format version. Binders refuses (and never rewrites) a binder note with a version newer than it knows. |
+| `binder` | number | Format version, `1`. Binders refuses (and never rewrites) a binder note whose version is newer than it knows, and one whose value it doesn't understand (text, `0`, a fraction): such a binder is listed, read only, and says why. A bare `binder:` or `binder: true` means 1. |
 | `contents` | list of text | The binder's order. Paths use `/`, are relative to the binder folder, have no `.md`, and folders end in `/`. |
 | `target` | number | Optional word count goal for the binder, shown in the view's toolbar. |
 | `synopsis`, `status`, `label` | | The binder's own card data, as for scenes (below). |
@@ -53,7 +53,8 @@ row.
 
 ## Rules
 
-- Items in the folder that `contents` doesn't mention appear after the listed items of their own folder, in name order.
+- Items in the folder that `contents` doesn't mention appear after the listed items of their own folder: folders first,
+  then notes, each by name (numbers in names in order, upper and lower case alike), as the file explorer lists them.
 - Items in `contents` that don't exist are ignored, and dropped the next time Binders writes the list. If more than
   half of the entries are missing (and weren't renamed or deleted in Binders' sight), they're kept, after the others: the
   list most likely describes another folder (a binder note moved here by mistake), and moving the note back finds its
@@ -87,7 +88,7 @@ row.
   were in. It refuses if a place has been taken or a folder is gone. Undo history is kept in memory (the last 50
   moves), not in any file.
 - "Make this folder a binder" creates `Folder/Folder.md` with `binder: 1` and `contents` in the order the file explorer
-  showed (folders first, then notes, by name). If `Folder/Folder.md` already exists, it adds `binder: 1` (and
+  showed (folders first, then notes, by name; only notes and folders are listed, and a `Snapshots` folder is left out). If `Folder/Folder.md` already exists, it adds `binder: 1` (and
   `contents`, if it has none) to its properties and leaves its text alone. If that note already has a `contents` property
   that isn't a list, Binders leaves the note as it is and doesn't make the folder a binder.
 
@@ -101,7 +102,7 @@ can be changed in settings; `compile` is fixed.
 | `synopsis` | text | The corkboard card's text, and the text under the title in the outliner |
 | `status` | text | A chip on the card, a column in the outliner, and a filter. Settings list the statuses offered (Idea, Draft, Revised, Done to start with); any other text works too |
 | `label` | text | The note's color: the border and tint of its card, a dot in the outliner and in the file explorer, and a filter. See below |
-| `target` | number | A word count target for the note: progress on its card, and the outliner's Target and Progress columns. A whole number above zero; text such as `"1,500"` is read as 1500; anything else is no target |
+| `target` | number | A word count target for the note: progress on its card, and the outliner's Target and Progress columns. A whole number above zero and up to a billion; text such as `"1,500"`, `"1 500"` or `"1.500"` is read as 1500; anything else (`1.5`, `lots`, `0`) is no target |
 | `compile` | checkbox | `false` leaves the note out of "Compile". Missing, or anything else, means included; turning it back on removes the property |
 
 ```yaml
@@ -122,12 +123,15 @@ A `label` is one of:
 - one of the theme's color names (`red`, `orange`, `yellow`, `green`, `cyan`, `blue`, `purple`, `pink`), which shows
   in the theme's own shade even if no label in settings has that name;
 - a hex color, `"#7c3aed"` or `"#73e"` (quoted, since YAML reads `#` as a comment), for a color on that note alone.
-  "Custom color..." writes this.
+  "Custom color..." writes this. Any case; a transparency part is ignored.
+
+If `label` is a list, its first entry is the label.
 
 Any other text still counts as a label (it filters and sorts) and shows in a neutral color.
 
 The labels and statuses themselves live in Binders' settings (`.obsidian/plugins/binders/data.json`), not in any
-note. Renaming one there doesn't rewrite the notes that use it. Statuses and labels match whatever their case:
+note. Renaming one there asks whether to rename it in the notes that have it too (and leaves them as they are if you say
+no). Statuses and labels match whatever their case:
 `status: draft` is Draft.
 
 ### Properties Binders no longer uses
@@ -174,8 +178,10 @@ The Lighthouse/
 - The snapshots of a note are the files in `Snapshots/` under that note's path in the binder, without `.md`: those of
   `Part One/Arrival.md` are in `Snapshots/Part One/Arrival/`. Nothing in the note or the binder note points at them.
 - A snapshot is a plain-text file ending in `.snapshot`, with Markdown inside. It is named for when it was taken, in
-  local time (`2026-10-01 14.32.07`), followed by its name if it has one (`2026-10-01 14.32.07 First draft`). Naming
-  a snapshot renames its file. A file named some other way still counts, under its whole name.
+  local time (`2026-10-01 14.32.07`), followed by its name if it has one (`2026-10-01 14.32.07 First draft`); if two
+  would have the same name, the second is counted on (`… First draft (2)`). Naming a snapshot renames its file. A name
+  can't contain `* " \ / < > : | ?` and is at most 120 characters. A file named some other way still counts, under its
+  whole name.
 - It holds two properties and then the note's text exactly as it was (line breaks and all). The note's own
   properties (synopsis, status, label, tags) are not copied:
 
@@ -234,7 +240,9 @@ longform:
 ---
 ```
 
-- Scenes are the notes directly in the scene folder. Notes `scenes` doesn't list show after the listed ones, by name.
+- Scenes are the notes directly in the scene folder, except the index note. Notes `scenes` doesn't list show after the
+  listed ones, by name, unless `ignoredFiles` matches them. A listed name with no note is skipped, and a name listed
+  twice counts once. `sceneFolder` is `/` (the index note's own folder) if it isn't given.
 - A reorder rewrites `scenes` in the same nested shape Longform writes; nothing else in the note changes.
 - The index note's own `synopsis`, `status`, `label` and `target`, outside `longform`, are the project's, as a
   binder note's are the binder's. Scenes use the scene properties above.
@@ -246,6 +254,7 @@ longform:
 
 ## Compatibility
 
-- Later versions of format 1 only add optional properties.
+- Later versions of format 1 only add optional properties. Binders writes only the ones it knows, and leaves any other
+  property of a binder note as it found it.
 - A change older versions couldn't read raises `binder` to 2, and older versions refuse such binders instead of
   rewriting them.
