@@ -3,6 +3,17 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.83 (2026-10-02)
+
+### Changed
+
+- Deleting several items with folders among them now says how many notes are in those folders.
+
+### Fixed
+
+- In a right-to-left interface, the arrow keys on an outliner row fold, unfold and go into its cells the mirrored way.
+- Typing the name of the status, label, target or compile property under “Other property...” shows that column instead of adding a second one.
+
 ## 0.12.82 (2026-10-02)
 
 ### Fixed

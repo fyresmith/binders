@@ -939,7 +939,9 @@ class Outliner implements BinderMode {
 			if (to && to !== row) { this.select([to.dataset.path ?? '']); to.focus({ preventScroll: true }); to.scrollIntoView({ block: 'nearest' }); }
 			return;
 		}
-		switch (e.key) {
+		// (in a right-to-left interface the tree is mirrored, and its arrows with it: Left goes in, Right comes out)
+		const rtl = getComputedStyle(this.root).direction === 'rtl';
+		switch (rtl && e.key === 'ArrowRight' ? 'ArrowLeft' : rtl && e.key === 'ArrowLeft' ? 'ArrowRight' : e.key) {
 			case 'ArrowUp': go(rows[i - 1]); break;
 			case 'ArrowDown': go(rows[i + 1]); break;
 			case 'PageUp': go(rows[Math.max(0, i - page)]); break;

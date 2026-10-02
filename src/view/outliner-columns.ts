@@ -148,7 +148,14 @@ export class OutlinerColumns {
 		for (const p of [...shown, ...found.slice(0, 12)]) menu.addItem((i) => i.setSection('props').setTitle(p).setIcon('text').setChecked(has(propId(p))).onClick(() => flip(propId(p))));
 		menu.addItem((i) => i.setSection('add').setTitle('Other property...').setIcon('plus').onClick(async () => {
 			const name = await ask(this.h.ctx.app, { title: 'Add a column', placeholder: 'A property’s name, such as POV', cta: 'Add column', empty: 'A column needs a property’s name.' });
-			if (name && !has(propId(name))) { this.h.setColumns([...this.h.columns(), { id: propId(name) }]); this.showColumn(propId(name)); }
+			if (!name) return;
+			// (a property Binders has a column of its own for is that column, not a second one beside it; the synopsis
+			// shows under the title)
+			const mine: [string, string][] = [[s.statusProp, 'status'], [s.labelProp, 'label'], [s.targetProp, 'target'], [COMPILE_PROP, 'compile']];
+			const id = mine.find(([p]) => p.toLowerCase() === name.toLowerCase())?.[1] ?? propId(name);
+			if (name.toLowerCase() === s.synopsisProp.toLowerCase()) { if (!this.h.synopses()) this.h.toggleSynopses(); return; }
+			if (!has(id)) this.h.setColumns([...this.h.columns(), { id }]);
+			this.showColumn(id);
 		}));
 	}
 

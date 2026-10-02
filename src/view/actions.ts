@@ -60,11 +60,13 @@ export function plain(e: unknown): string {
 export async function removeItems(ctx: ModeContext, items: TAbstractFile[]): Promise<boolean> {
 	if (!items.length) return false;
 	const one = items.length === 1 ? items[0] : null;
-	const notes = one instanceof TFolder ? ctx.store.scenes(one).length : 0;
+	// (what goes with the folders among them is said too: it's the one question before a part of the book goes)
+	const folders = items.filter((f) => f instanceof TFolder), notes = folders.reduce((n, f) => n + ctx.store.scenes(f).length, 0);
+	const inside = notes ? ` and the ${notes === 1 ? 'note' : `${notes} notes`} in ${folders.length === items.length ? 'them' : folders.length === 1 ? 'the folder among them' : 'the folders among them'}` : '';
 	const ok = await confirm(ctx.app, {
 		title: one ? (one instanceof TFolder ? 'Delete folder' : 'Delete note') : `Delete ${items.length} items`,
 		// (and where it goes, as Obsidian's own question says: that's set in Files and links)
-		text: `${one ? (one instanceof TFolder ? `Delete “${nameOf(one)}” and the ${notes} ${notes === 1 ? 'note' : 'notes'} in it?` : `Delete “${nameOf(one)}”?`) : `Delete these ${items.length} items?`} ${one ? 'It' : 'They'} ${trashPhrase(ctx.app, !one)}.`,
+		text: `${one ? (one instanceof TFolder ? `Delete “${nameOf(one)}” and the ${notes} ${notes === 1 ? 'note' : 'notes'} in it?` : `Delete “${nameOf(one)}”?`) : `Delete these ${items.length} ${folders.length === items.length ? 'folders' : 'items'}${inside}?`} ${one ? 'It' : 'They'} ${trashPhrase(ctx.app, !one)}.`,
 		cta: 'Delete', warning: true,
 	});
 	if (!ok) return false;

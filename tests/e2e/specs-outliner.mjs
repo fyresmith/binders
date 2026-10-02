@@ -954,3 +954,70 @@ test('a phone: what a tap is for is a finger tall: the room above and below a na
 	});
 	same(t, before, await texts(p));
 });
+
+test('Delete with folders among several rows says how many notes go with them; nothing goes until it is confirmed', async (p, h, t) => {
+	await open(p);
+	const ask = async (paths) => {
+		let first = true;
+		for (const path of paths) { const a = await p.at(cellSel(path, 'words')); await p.click(a.x, a.y, first ? {} : { modifiers: 2 }); first = false; }
+		await p.key('Delete');
+		await until(p, `!!document.querySelector('.modal')`);
+		const said = await p.ev(`document.querySelector('.modal p')?.textContent ?? ''`);
+		await p.key('Escape');
+		await p.sleep(300);
+		return said;
+	};
+	t.ok(/^Delete these 2 folders and the 5 notes in them\? /.test(await ask(['Part One', 'Part Two'])), 'two folders: the notes in them are counted');
+	t.ok(/^Delete these 2 items and the 3 notes in the folder among them\? /.test(await ask(['Prologue.md', 'Part One'])), 'a note and a folder: the folder’s notes are counted');
+	t.ok(/^Delete these 2 items\? /.test(await ask(['Prologue.md', 'Epilogue.md'])), 'two notes: as before');
+	t.ok((await exists(p, L + 'Part One/Arrival.md')) && (await exists(p, L + 'Prologue.md')), 'and nothing was deleted');
+});
+
+test('right to left: on a row, the arrow that points out of the tree folds a folder, and the one that points in unfolds it or goes into the row’s cells', async (p, h, t) => {
+	await open(p);
+	const rtl = (on) => p.ev(`(() => { document.body.classList.toggle('mod-rtl', ${on}); document.documentElement.dir = ${on} ? 'rtl' : ''; document.body.dir = ${on} ? 'rtl' : ''; return 1; })()`);
+	const open1 = () => p.ev(`document.querySelector(${j(rowSel('Part One'))}).getAttribute('aria-expanded')`);
+	try {
+		await rtl(true);
+		await p.sleep(600);
+		await p.ev(`document.querySelector(${j(rowSel('Part One'))}).focus()`);
+		await p.key('ArrowRight'); await p.sleep(300);
+		t.eq(await open1(), 'false', 'Right (out of the tree, here) folds an open folder');
+		await p.key('ArrowLeft'); await p.sleep(300);
+		t.eq(await open1(), 'true', 'Left unfolds it');
+		await p.key('ArrowLeft'); await p.sleep(200);
+		t.eq(await p.ev(`document.activeElement?.dataset?.col ?? null`), 'label', 'Left again goes into the row’s cells, which are to its left');
+		await p.key('ArrowRight'); await p.sleep(200);
+		t.ok(await p.ev(`document.activeElement === document.querySelector(${j(rowSel('Part One'))})`), 'and Right from the first cell comes back to the row');
+		await p.ev(`document.querySelector(${j(rowSel('Part One/Arrival.md'))}).focus()`);
+		await p.key('ArrowRight'); await p.sleep(200);
+		t.ok(await p.ev(`document.activeElement === document.querySelector(${j(rowSel('Part One'))})`), 'Right on a note goes out to its folder');
+	} finally { await rtl(false); }
+	// (and left to right is as it was)
+	await p.sleep(400);
+	await p.ev(`document.querySelector(${j(rowSel('Part One'))}).focus()`);
+	await p.key('ArrowLeft'); await p.sleep(300);
+	t.eq(await open1(), 'false', 'left to right, Left folds');
+});
+
+test('columns: “Other property...” with the name of a property Binders has a column for shows that column, not a second one', async (p, h, t) => {
+	await open(p, 'The Lighthouse', { columns: [{ id: 'label' }, { id: 'words' }] });
+	const other = async (name) => {
+		const add = await p.at(`${O} .binders-outliner-th.mod-add`);
+		await p.click(add.x, add.y);
+		await clickMenu(p, 'Other property...');
+		await until(p, `!!document.querySelector('.modal input')`);
+		await p.sleep(150);
+		await p.type(name);
+		await p.key('Enter');
+		await p.sleep(400);
+	};
+	await other('Status');
+	t.eq(j(await headers(p)), j(['title', 'label', 'words', 'status']), 'the status property’s name adds the Status column itself');
+	await other('status');
+	t.eq(j(await headers(p)), j(['title', 'label', 'words', 'status']), 'asked for again, nothing is added');
+	await other('label');
+	t.eq(j(await headers(p)), j(['title', 'label', 'words', 'status']), 'a column that shows already is not added twice');
+	await other('POV');
+	t.eq(j(await headers(p)), j(['title', 'label', 'words', 'status', 'prop:POV']), 'any other property gets a column of its own');
+});
