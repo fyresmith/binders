@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.149 (2026-10-02)
+
+### Changed
+
+- Nothing a writer will notice: a test of the phone's outliner swipes to a column that is now out of sight before tapping it.
+
 ## 0.12.148 (2026-10-02)
 
 ### Changed

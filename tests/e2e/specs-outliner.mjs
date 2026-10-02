@@ -921,6 +921,9 @@ test('a phone: what a tap is for is a finger tall: the room above and below a na
 		const E = 'Epilogue.md';
 		await p.ev(`document.querySelector(${j(rowSel(E))}).scrollIntoView({ block: 'center' })`);
 		await p.sleep(300);
+		// (since 0.12.139 the last column, when the columns don't all fit, is whole out of sight: a swipe to the side)
+		await p.ev(`(() => { const o = document.querySelector('${O}'); o.scrollLeft = o.scrollWidth; return 1; })()`);
+		await p.sleep(300);
 		let c = await box(p, cellSel(E, 'target')), f = await box(p, cellSel(E, 'target') + ' .binders-outliner-field');
 		t.ok(f.h < 30, `the target’s field is a line of text (${Math.round(f.h)} px tall in a cell ${Math.round(c.h)} px tall)`);
 		await tap(p, c.l + c.w / 2, c.t + 4);
@@ -930,6 +933,8 @@ test('a phone: what a tap is for is a finger tall: the room above and below a na
 		t.eq(await focusOn(p), 'INPUT|target|', 'a second tap, in the cell above its field, edits the field');
 		await p.ev(`document.activeElement.blur()`);
 		await p.sleep(400);
+		await p.ev(`(() => { document.querySelector('${O}').scrollLeft = 0; return 1; })()`);
+		await p.sleep(300);
 		// the room under a selected row's synopsis, still in its title cell: the synopsis
 		const s = await box(p, rowSel(E) + ' .binders-outliner-synopsis'), title = await box(p, cellSel(E, 'title'));
 		t.ok(title.b - s.b >= 4, `there is room under the synopsis (${Math.round(title.b - s.b)} px)`);
