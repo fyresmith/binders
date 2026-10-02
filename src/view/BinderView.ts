@@ -604,6 +604,8 @@ export class BinderView extends ItemView {
 		if (!ui || !folder || this.synopsis?.editing) return;
 		const note = this.store.folderNote(folder);
 		const value = note ? this.props(note).synopsis : '';
+		// (it's made again: the keyboard, if it was on it, is put on the new one, not left on the page)
+		const focused = ui.synopsis.contains(ui.synopsis.doc.activeElement);
 		ui.synopsis.empty();
 		ui.synopsis.toggleClass('is-hidden', this.readOnly && !value);
 		this.synopsis = editable(ui.synopsis, {
@@ -611,6 +613,7 @@ export class BinderView extends ItemView {
 			save: async (t) => { const f = await this.store.ensureFolderNote(folder); await this.setProps(f, { synopsis: t }); },
 			onEditing: (on) => { if (!on) this.schedule(); },
 		});
+		if (focused) this.synopsis.el.focus({ preventScroll: true });
 	}
 
 	private applyReveal(): void {

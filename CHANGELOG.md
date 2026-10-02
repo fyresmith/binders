@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.36 (2026-10-02)
+
+### Fixed
+
+- After Escape, Tab or Ctrl+Enter in the synopsis under the toolbar, the keyboard stays on the synopsis instead of dropping to the top of the window.
+
 ## 0.12.35 (2026-10-02)
 
 ### Fixed
