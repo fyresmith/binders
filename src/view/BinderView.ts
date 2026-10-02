@@ -262,6 +262,9 @@ export class BinderView extends ItemView {
 		const away = () => { void commitAll(this.contentEl, true); void this.current?.save?.(); };
 		this.registerDomEvent(this.contentEl.doc, 'visibilitychange', () => { if (this.contentEl.doc.visibilityState === 'hidden') away(); });
 		this.registerDomEvent(this.contentEl.win, 'pagehide', away);
+		// Quitting closes the window as soon as what was asked to wait is done, and `pagehide` is too late for a write:
+		// a synopsis or a name still in its field is written first. (The manuscript does the same for its sections.)
+		this.registerEvent(this.app.workspace.on('quit', (tasks) => { tasks.addPromise(commitAll(this.contentEl, true).then((): void => {})); }));
 		const { vault, metadataCache } = this.app;
 		const ref = this.store.on('changed', (p: string) => {
 			const f = this.folder?.path ?? this.path;

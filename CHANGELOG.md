@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.85 (2026-10-02)
+
+### Fixed
+
+- A synopsis or a title still being typed on a card, a row or under the toolbar is now saved when Obsidian quits.
+
 ## 0.12.84 (2026-10-02)
 
 ### Fixed

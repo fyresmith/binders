@@ -511,3 +511,39 @@ test('the manuscript shows the notes that pass the filter, under the folders tha
 	t.eq((await titles()).length, 9, 'cleared: everything is back');
 	same(t, before, await texts(p));
 }));
+
+test('what is still in a field when Obsidian quits is written first: a card’s synopsis, the folder’s synopsis, a card’s new name', withTidy(async (p, h, t) => {
+	const L = 'The Lighthouse/', before = await texts(p);
+	// (what Obsidian does as it quits: it waits for the promises it's handed, then closes the window)
+	const quit = () => p.ev(`(async () => { const ps = []; app.workspace.trigger('quit', { addPromise: (x) => ps.push(x), add: (fn) => ps.push(Promise.resolve().then(fn)) }); await Promise.all(ps); return ps.length; })()`);
+	const fmOf = async (path) => split(await read(p, path)).yaml;
+	await openView(p);
+	// a card's synopsis: the card selected, then its synopsis clicked
+	const c = await p.at(card(L + 'Epilogue.md'));
+	await p.click(c.x, c.t + c.h - 12);
+	const s = await p.at(card(L + 'Epilogue.md') + ' .binders-card-synopsis');
+	await p.click(s.x, s.y);
+	t.eq(await p.ev(`document.activeElement.tagName`), 'TEXTAREA', 'a card’s synopsis is being typed in');
+	await p.type(' Typed late.');
+	t.ok((await quit()) > 0, 'the quit is asked to wait');
+	t.ok(/^synopsis: .*Typed late\.$/m.test(await fmOf(L + 'Epilogue.md')), 'and the synopsis is in the note by the time it’s done: ' + (await fmOf(L + 'Epilogue.md')));
+	t.eq(split(await read(p, L + 'Epilogue.md')).body, split(before[L + 'Epilogue.md']).body, 'whose text is as it was');
+	await p.key('Escape');
+	// the folder's own synopsis, under the toolbar
+	await p.ev(`(() => { document.querySelector('.workspace-leaf.mod-active .binders-view-synopsis').focus(); return 1; })()`);
+	await p.key('Enter');
+	await p.type('A light that goes out.');
+	await quit();
+	t.ok(/^synopsis: A light that goes out\.$/m.test(await fmOf(NOTE)), 'the folder’s synopsis too');
+	await p.key('Escape');
+	// a name
+	await p.ev(`(() => { document.querySelector(${j(card(L + 'Prologue.md'))}).focus(); return 1; })()`);
+	await p.key('F2');
+	await p.type('Before the light');
+	await quit();
+	t.ok(await exists(p, L + 'Before the light.md'), 'and a name typed over a card’s title: the note is renamed');
+	t.eq(split(await read(p, L + 'Before the light.md')).body, split(before[L + 'Prologue.md']).body, 'with its text whole');
+	await p.key('Escape');
+	await p.ev(`app.fileManager.renameFile(${file(L + 'Before the light.md')}, ${j(L + 'Prologue.md')}).then(() => 1)`);
+	await p.sleep(400);
+}));
