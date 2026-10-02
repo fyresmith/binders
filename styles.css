@@ -1329,6 +1329,13 @@
 	}
 }
 
+/* Arrange adds a fourth button on the board; keep its icon until its name also fits. */
+@container binders-view (width < 680px) {
+	.binders-arrange-button .text-button-label {
+		display: none;
+	}
+}
+
 @container binders-view (width < 360px) {
 	.binders-word-count {
 		display: none;

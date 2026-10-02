@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.10.13 (2026-10-02)
+
+### Fixed
+
+- The Arrange button stays an icon in narrow panes so the corkboard toolbar fits on phones turned sideways.
+
 ## 0.10.12 (2026-10-02)
 
 ### Fixed
