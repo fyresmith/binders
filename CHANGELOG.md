@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.130 (2026-10-02)
+
+### Fixed
+
+- Deleting a binder just after changing it no longer leaves an error in the console.
+
 ## 0.12.129 (2026-10-02)
 
 ### Fixed

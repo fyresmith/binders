@@ -716,6 +716,32 @@ test('binders: a folder renamed again while its note is still following the firs
 	p.errors.splice(0, p.errors.length, ...p.errors.filter((e) => !/ENOENT/.test(e)));
 }));
 
+// Obsidian deletes a folder from the disk first, then reports its files one by one, the binder note last but one. A
+// change to the list that was waiting to be written (here: a note deleted a moment before) then finds the note still in
+// the vault and gone from the disk. There is nothing left to write to: the write must end quietly, not throw.
+test('binders: a binder’s folder gone from the disk while a change to its list waits to be written: the write ends quietly', withTidy(async (p, h, t) => {
+	await p.ev(`(async () => { const a = app.vault.adapter; await a.mkdir('Gone'); for (const n of ['One', 'Two', 'Three']) await a.write('Gone/' + n + '.md', n + '\\n'); await a.write('Gone/Gone.md', '---\\nbinder: 1\\ncontents:\\n  - One\\n  - Two\\n  - Three\\n---\\n'); })().then(() => 1)`);
+	t.ok(await until(p, `${B}.isBinderFolder(${file('Gone')}) && (${B}.orderedChildren(${file('Gone')}) || []).length === 3`, 10000), 'a binder of three notes');
+	await p.sleep(300);
+	const said = await p.ev(`(async () => {
+		await app.vault.delete(${file('Gone/Two.md')});
+		// (the disk emptied under the vault, as Obsidian's own delete of a folder leaves it until its events are out)
+		window.require('fs').rmSync(app.vault.adapter.getFullPath('Gone'), { recursive: true });
+		const stillListed = !!${file('Gone/Gone.md')};
+		const threw = await ${B}.flush().then(() => null, (e) => String(e));
+		return { stillListed, threw };
+	})()`);
+	// (first, so that nothing below leaves the vault listing a folder the disk doesn't have)
+	t.ok(await until(p, `!${file('Gone')}`, 10000), 'Obsidian notices the folder is gone');
+	await p.sleep(300);
+	t.ok(said.stillListed, 'the vault still lists the binder note when the write runs');
+	t.eq(said.threw, null, 'the write of the pending change throws nothing');
+	t.eq(j(p.errors.filter((e) => /^exception/.test(e))), '[]', 'and nothing is thrown later');
+	t.eq(await p.ev(`${B}.all().some(b => b.folder.path === 'Gone')`), false, 'the binder is gone from the store');
+	// (Obsidian's own log of a file it lists and can't read is not what this is about)
+	p.errors.splice(0, p.errors.length, ...p.errors.filter((e) => !/ENOENT/.test(e)));
+}));
+
 // Each file of a deleted folder is reported on its own. The store worked the whole list out again for each one, from
 // every change still waiting: 2,000 notes took over six seconds in the store alone, with Obsidian frozen meanwhile.
 test('binders: a binder of 2,000 notes in 80 folders deleted whole: the store spends a moment on it, not seconds; a folder of it deleted leaves the list exact', withTidy(async (p, h, t) => {

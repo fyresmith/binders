@@ -1228,10 +1228,17 @@ export class BinderStore extends Events implements ExplorerSource {
 				s.lf = { ...p, scenes: list }; // don't wait for the cache, so the order doesn't flicker back
 			});
 		} catch (e) {
-			if (!(e instanceof NotABinder)) throw e;
+			if (!(e instanceof NotABinder) && !(await this.noteGone(s))) throw e;
 		}
 		this.touch(s, false);
 		if (JSON.stringify(this.contents(s)) !== JSON.stringify(shown)) this.emit(s.path);
+	}
+
+	/** After a write failed: is the note gone from the disk? Obsidian deletes a folder from the disk first and reports
+	    its files after, the binder note among the last, so a change that was waiting can be written in between, to a note
+	    the vault still lists. There's nothing to write to then, and nothing to say: the binder goes with its note. */
+	private async noteGone(s: State): Promise<boolean> {
+		try { return !(await this.app.vault.adapter.exists(s.note.path)); } catch { return false; }
 	}
 
 	/** A renamed subfolder keeps its folder note: "Part One/Part One" follows the folder to "Part 1/Part 1". Run after the
@@ -1367,7 +1374,7 @@ export class BinderStore extends Events implements ExplorerSource {
 			});
 		} catch (e) {
 			if (e instanceof UnsupportedBinder) this.read(s);
-			else if (!(e instanceof NotABinder)) throw e;
+			else if (!(e instanceof NotABinder) && !(await this.noteGone(s))) throw e;
 		}
 		// what shows was already the list with its pending changes; only an edit made meanwhile would change it
 		this.touch(s, false);
