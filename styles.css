@@ -909,6 +909,49 @@
 	font-size: 1em;
 }
 
+/* (each line of code exactly a line tall: with the page's text font on the block, a line stood a pixel taller than
+   the code on it, sixty pixels in sixty lines) */
+.binders-manuscript .binders-manuscript-rendered > pre {
+	font-family: var(--font-monospace);
+}
+
+/* An image is as tall as itself, as the editor draws it: standing on a line of text's baseline it made the line
+   taller by the room under the baseline. (This and the two rules for tasks and quotes below leave an embedded note's
+   own text alone: the editor shows that as reading view does.) */
+.binders-manuscript-rendered .internal-embed.image-embed:not(.markdown-embed *) {
+	display: inline-flex;
+	vertical-align: top;
+}
+
+.binders-manuscript-rendered .internal-embed.image-embed:not(.markdown-embed *) > img {
+	display: block;
+}
+
+/* Inside an embedded note the editor spaces paragraphs as reading view does (as inside a callout, below). */
+.binders-manuscript-rendered .markdown-embed {
+	--p-spacing: 1rem;
+}
+
+/* A block of math keeps its own room above and below inside itself, as the editor's does (there it's a block of its
+   own; here its margins would run into the paragraphs' around it and be lost). */
+.binders-manuscript-rendered > .math-block {
+	display: flow-root;
+}
+
+/* A task's box sits in the middle of its line, as in the editor: on the baseline, a phone's bigger box made each line
+   a pixel and a half taller. */
+.binders-manuscript-rendered .task-list-item-checkbox:not(.markdown-embed *) {
+	position: relative;
+	top: -0.1em;
+	vertical-align: middle;
+}
+
+/* A quote's text starts where the editor starts it (the width of its "> "), not at reading view's wider indent: on a
+   narrow phone the same words then wrap onto the same lines. */
+.binders-manuscript-rendered blockquote:not(.markdown-embed *) {
+	padding-inline-start: calc(0.75em - var(--blockquote-border-thickness));
+}
+
 /* A rule takes a line, with a blank line on either side. */
 .binders-manuscript-rendered > hr {
 	margin-block: calc(var(--binders-line) * 1.5 - var(--hr-thickness) / 2);
@@ -949,6 +992,11 @@
 
 .binders-manuscript .binders-manuscript-rendered.is-spaced.is-spaced > hr {
 	margin-block: calc(var(--binders-gap, 1) * var(--binders-line) + (var(--binders-line) - var(--hr-thickness)) / 2) calc((var(--binders-line) - var(--hr-thickness)) / 2);
+}
+
+/* (a table that opens the note: the editor keeps a line of the table's own source above it) */
+.binders-manuscript .binders-manuscript-rendered.is-spaced.is-spaced > table:first-child {
+	margin-top: calc(var(--binders-gap, 0) * var(--binders-line) + var(--size-4-4) + var(--line-height-normal) * var(--code-size));
 }
 
 /* (margins between blocks collapse into the larger: what follows a table or a rule carries that one's room too) */

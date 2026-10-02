@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.112 (2026-10-02)
+
+### Fixed
+
+- Sections with images, embedded notes, math, long code blocks, a table at the top, task lists or quotes no longer shift the page when you click into them.
+
 ## 0.12.111 (2026-10-02)
 
 ### Changed
