@@ -1,5 +1,5 @@
 import { TFile, TFolder, setIcon, type TAbstractFile } from 'obsidian';
-import { noteOf } from './actions';
+import { isNote, noteOf } from './actions';
 import { editable, type Editable } from './edit';
 import { labelDot, labelName, paintLabel } from './labels';
 import type { ModeContext } from './mode';
@@ -58,9 +58,10 @@ export function synopsisField(host: CardHost, parent: HTMLElement, item: TAbstra
 /** How many of a folder's items its card names (a small card has room for fewer: the stylesheet cuts the list). */
 const HELD = 5;
 
-/** The first of what a folder holds, in the binder's order (under a filter, the notes that pass and every subfolder). */
+/** The first of what a folder holds, in the binder's order (under a filter, the notes that pass and every subfolder).
+    Its notes and folders only, as the board shows them: a picture, a PDF or a canvas kept beside them isn't a card. */
 export function held(ctx: ModeContext, folder: TFolder): TAbstractFile[] {
-	const all = (ctx.store.orderedChildren(folder) ?? []).filter((c): c is TAbstractFile => !!c);
+	const all = (ctx.store.orderedChildren(folder) ?? []).filter((c): c is TAbstractFile => c instanceof TFolder || isNote(c));
 	return (ctx.filtering() ? all.filter((c) => !(c instanceof TFile) || ctx.visible(c)) : all).slice(0, HELD);
 }
 

@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.47 (2026-10-02)
+
+### Fixed
+
+- A folder's card no longer names a picture, a PDF or a canvas kept in the folder as if it were a note.
+
 ## 0.12.46 (2026-10-02)
 
 ### Added
