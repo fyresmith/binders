@@ -128,11 +128,17 @@ export async function saveEditors(files: TFile[]): Promise<void> {
 
 /** Saves a note's own tab and resolves once its text is on disk. A tab asked to save while an earlier write is on its
     way only notes it (its undocumented `saving`), returns, and writes again when that one lands, with nothing to
-    wait on: so this waits until the tab is no longer writing. Without `saving` it is `view.save()` and no more. */
+    wait on: so this waits until the tab is no longer writing. Without `saving` it is `view.save()` and no more.
+    A tab with nothing typed in it is not saved at all: `save()` writes the editor's text, which has the editor's line
+    breaks, so a note with Windows line breaks that was merely open would be rewritten. */
 export async function saveTab(view: MarkdownView): Promise<void> {
-	await view.save();
 	const v = view as unknown as { saving?: unknown };
-	for (let i = 0; v.saving === true && i < 1000; i++) await sleep(10);
+	const landed = async () => { for (let i = 0; v.saving === true && i < 1000; i++) await sleep(10); };
+	await landed(); // a write already on its way lands first
+	const lf = (s: string) => s.replace(/\r\n?/g, '\n');
+	if (view.file && lf(view.getViewData()) === lf(await view.app.vault.read(view.file))) return;
+	await view.save();
+	await landed();
 }
 
 /** The live editors a note is open in, in every manuscript (snapshots: a note's text is replaced through the editor it's

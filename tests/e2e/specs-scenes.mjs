@@ -514,6 +514,54 @@ test('“Make this folder a binder” where the folder’s own note opens with a
 	t.ok(await p.ev(`!!${B}.binderOf('Odd/Scene.md')`), 'and the folder is a binder');
 }));
 
+// ---- a note that is merely open ----
+// Whatever reads a note saves what's typed in it first (`saveOpen`). A tab nobody typed in has nothing to save, and
+// must not be saved: the editor's text has the editor's line breaks, and no byte-order mark.
+test('a note that is only open in a tab, nothing typed: a snapshot, the Snapshots dialog and a compile leave it byte for byte (Windows line breaks, a byte-order mark)', withTidy(async (p, h, t) => {
+	const NOTES = [['crlf', crlf('One.\n\nTwo.\n')], ['crlf props', crlf(PROPS + 'Body.\n\nMore.\n')], ['marked', BOM + 'Marked.\n\nMore.\n'], ['reading', crlf('Read.\n\nOnly.\n')]];
+	await odd(p, NOTES);
+	const unchanged = (when) => { for (const [n, text] of NOTES) t.eq(disk(p, `Odd/${n}.md`), text, `${when}: “${n}” is byte for byte what it was`); };
+	for (const [n] of NOTES) {
+		await p.ev(`app.workspace.getLeaf('tab').openFile(${file(`Odd/${n}.md`)}, { state: { mode: ${j(n === 'reading' ? 'preview' : 'source')} } }).then(() => 1)`);
+		await p.sleep(500);
+		unchanged(`“${n}” opened`);
+		await run(p, 'take-snapshot');
+		await until(p, `app.vault.adapter.exists(${j(`Odd/Snapshots/${n}`)})`);
+		await p.sleep(300);
+		unchanged(`a snapshot of “${n}” taken`);
+		await run(p, 'show-snapshots');
+		await until(p, `!!document.querySelector('.modal.binders-snapshots .binders-snapshots-item')`);
+		await p.sleep(300);
+		await p.key('Escape');
+		await until(p, `!document.querySelector('.modal')`);
+		unchanged(`the snapshots of “${n}” shown`);
+	}
+	// all four still open, each in its tab: the binder compiled
+	await openView(p, 'Odd', true);
+	await run(p, 'compile');
+	await until(p, `!!document.querySelector('.modal .binders-compile-path')`);
+	await p.ev(`(() => { [...document.querySelectorAll('.modal button')].find(b => b.textContent === 'Compile').click(); return 1; })()`);
+	await until(p, `app.vault.adapter.exists('Odd (compiled).md')`);
+	await p.sleep(2500); // (longer than an editor waits to save)
+	unchanged('the binder compiled');
+	t.ok(disk(p, 'Odd (compiled).md').includes('Two.') && disk(p, 'Odd (compiled).md').includes('Marked.'), 'and the compile has their text');
+	await p.ev(`app.vault.delete(app.vault.getAbstractFileByPath('Odd (compiled).md')).then(() => 1)`);
+}));
+
+test('a note open in a tab with words typed and not yet saved: a snapshot taken at once holds them, and the note on disk has them', withTidy(async (p, h, t) => {
+	await odd(p, [['typed', crlf('One.\n\nTwo.\n')]]);
+	await p.ev(`app.workspace.getLeaf(false).openFile(${file('Odd/typed.md')}, { state: { mode: 'source' } }).then(() => 1)`);
+	await p.sleep(500);
+	await p.ev(`(() => { const ed = app.workspace.activeEditor.editor; ed.focus(); ed.setCursor(ed.offsetToPos(ed.getValue().length)); return 1; })()`);
+	await p.type('Three.');
+	await run(p, 'take-snapshot'); // (at once: well inside the two seconds an editor waits to save)
+	await until(p, `app.vault.adapter.exists('Odd/Snapshots/typed')`);
+	await p.sleep(300);
+	const kept = await p.ev(`app.vault.adapter.list('Odd/Snapshots/typed').then(l => app.vault.adapter.read(l.files[0]))`);
+	t.ok(kept.endsWith('One.\n\nTwo.\nThree.'), 'the snapshot has the words just typed: ' + j(kept.slice(-30)));
+	t.eq(disk(p, 'Odd/typed.md'), 'One.\n\nTwo.\nThree.', 'and so has the note on disk (in the editor’s line breaks now: it was typed in)');
+}));
+
 test('a note made beside one it’s named after (“Arrival 1”, as “Make a copy” does) goes right after it', withTidy(async (p, h, t) => {
 	await p.ev(`app.vault.copy(${file(L + 'Part One/Arrival.md')}, ${j(L + 'Part One/Arrival 1.md')}).then(() => 1)`);
 	await until(p, `app.vault.adapter.exists(${j(L + 'Part One/Arrival 1.md')})`);

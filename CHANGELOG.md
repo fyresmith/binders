@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.63 (2026-10-02)
+
+### Fixed
+
+- Taking a snapshot, compiling, merging or splitting no longer rewrites a note that is merely open in a tab: a file with Windows line breaks keeps them unless you type in it.
+
 ## 0.12.62 (2026-10-02)
 
 ### Changed
