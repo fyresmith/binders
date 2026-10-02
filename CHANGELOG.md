@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.88 (2026-10-02)
+
+### Changed
+
+- Nothing a writer will notice: a helper that was written twice is written once, and two unused values are gone.
+
 ## 0.12.87 (2026-10-02)
 
 ### Changed

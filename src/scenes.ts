@@ -15,7 +15,8 @@ import { buttonRow, cancelButton, confirm } from './view/modals';
 /** The property that leaves a note (or, in a folder note, a whole folder) out of a compile when it's `false`. */
 export const COMPILE_PROP = 'compile';
 
-const isNote = (f: TAbstractFile | null): f is TFile => f instanceof TFile && f.extension === 'md';
+/** A Markdown note (not a folder, and not another kind of file). */
+export const isNote = (f: TAbstractFile | null): f is TFile => f instanceof TFile && f.extension === 'md';
 /** What went wrong, in words a writer can use: a file system's own message keeps its reason and loses its code and
     the path on disk. */
 const say = (e: unknown) => {

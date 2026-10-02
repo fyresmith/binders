@@ -1,5 +1,5 @@
 import { Menu, Notice, Platform, TFile, TFolder, normalizePath, type TAbstractFile } from 'obsidian';
-import { COMPILE_PROP, CompileModal, compiles, mergeScenes, saveOpen, synopsisFromText } from '../scenes';
+import { COMPILE_PROP, CompileModal, compiles, isNote, mergeScenes, saveOpen, synopsisFromText } from '../scenes';
 import { fitItemMenu, openPluginSettings, submenu, trashPhrase } from './internals';
 import { hexColor, labelCss, labelDot, labelName, presetOf } from './labels';
 import { ask, confirm, pickColor } from './modals';
@@ -21,8 +21,7 @@ export const ITEM_MENU = 'binders-card';
 export const badName = (name: string): string | null =>
 	/[*"\\/<>:|?]/.test(name) ? 'A name can’t contain any of * " \\ / < > : | ?' : name.startsWith('.') ? 'A name can’t start with a dot.' : name.length > 200 ? 'That name is too long.' : null;
 
-/** A Markdown note (not a folder, and not another kind of file). */
-export const isNote = (f: TAbstractFile): f is TFile => f instanceof TFile && f.extension === 'md';
+export { isNote };
 /** An item's name as it shows: a note's without ".md", a folder's as it is. (Not `nameOf` in model.ts, which reads the
     last part of a path in a binder's list.) */
 export const nameOf = (f: TAbstractFile): string => (f instanceof TFile ? f.basename : f.name);

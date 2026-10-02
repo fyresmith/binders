@@ -27,7 +27,7 @@ export const TITLE = 'title';
 export const DEFAULT_COLUMNS: ColumnSpec[] = [{ id: 'label' }, { id: 'status' }, { id: 'words' }];
 /** Widths in px: the least and most a column can be dragged to, and a property column's until it's resized. (The
     title's two aren't read any more: the style sheet sets its width.) */
-export const MIN_WIDTH = 48, MAX_WIDTH = 640, PROP_WIDTH = 140, TITLE_WIDTH = 280, TITLE_MIN = 160;
+export const MIN_WIDTH = 48, MAX_WIDTH = 640, PROP_WIDTH = 140;
 
 const PROP = 'prop:';
 /** The id of the column that shows a note property. */
