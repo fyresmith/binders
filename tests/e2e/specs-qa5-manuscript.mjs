@@ -498,7 +498,11 @@ test('phone: typing, then the drawer and another note tapped there; typing, then
 	t.eq(disk(p, KEEPER), KEPT(before), 'a note opened from the drawer over the manuscript: what was typed is on disk');
 	// the tab closed
 	await openMs(p);
+	// (its line in the middle of the page: where the page opens, it is under Obsidian's bar of buttons at the foot of a
+	// phone, and the tap would open the list of tabs instead)
+	await scrollTo(p, STORM);
 	await tapText(p, STORM, 'war.', 4);
+	t.eq((await caret(p))?.path, STORM, 'the tab closed: the caret is in the note tapped');
 	await p.type(' AB');
 	await p.ev(`(() => { app.workspace.getMostRecentLeaf().detach(); return 1; })()`);
 	await p.sleep(600);
