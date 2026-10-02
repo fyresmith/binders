@@ -263,7 +263,9 @@ export function titleFrom(selection: string, max = 80): string {
     "Scene 2", "Scene 5" gives "Scene 6", and on until one is free. */
 export function nextName(name: string, taken: (name: string) => boolean): string {
 	const m = /^(.*?)(?:\s+(\d+))?$/.exec(name.trim()), base = m?.[1] || name.trim();
-	for (let n = m?.[2] ? Number(m[2]) + 1 : 2; ; n++) { const next = `${base} ${n}`; if (!taken(next)) return next; }
+	// (a number written with zeros in front keeps its width: "Scene 01" gives "Scene 02")
+	const width = m?.[2]?.length ?? 0;
+	for (let n = m?.[2] ? Number(m[2]) + 1 : 2; ; n++) { const next = `${base} ${String(n).padStart(width, '0')}`; if (!taken(next)) return next; }
 }
 
 // ---- compiling ----

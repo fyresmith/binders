@@ -571,6 +571,17 @@ test('a link with other words to show, in a table (where Obsidian writes its bar
 	t.eq(disk(p, 'Odd/Gamma.md'), GAMMA.replace(/Beta/g, 'Alpha'), 'every link to the note that went leads to the merged one, the two in the table too, and nothing else changed');
 }));
 
+test('“Scene 01” split or duplicated makes “Scene 02”: a number keeps its zeros', withTidy(async (p, h, t) => {
+	await odd(p, [['Scene 01', 'First half.\n\nSecond half.\n'], ['Scene 09', 'Nine.\n']]);
+	await openAt(p, 'Odd/Scene 01.md', { before: 'Second half.' });
+	await run(p, 'split-scene');
+	await until(p, `app.vault.adapter.exists('Odd/Scene 02.md')`);
+	t.eq(disk(p, 'Odd/Scene 02.md'), 'Second half.\n', 'the second half is “Scene 02”');
+	await p.ev(`${B}.duplicate(${file('Odd/Scene 09.md')}).then(() => 1)`);
+	t.ok(await exists(p, 'Odd/Scene 10.md'), 'and a copy of “Scene 09” is “Scene 10”');
+	t.ok(!(await exists(p, 'Odd/Scene 2.md')) && !(await exists(p, 'Odd/Scene 9 2.md')), 'with no “Scene 2” made');
+}));
+
 test('a note made beside one it’s named after (“Arrival 1”, as “Make a copy” does) goes right after it', withTidy(async (p, h, t) => {
 	await p.ev(`app.vault.copy(${file(L + 'Part One/Arrival.md')}, ${j(L + 'Part One/Arrival 1.md')}).then(() => 1)`);
 	await until(p, `app.vault.adapter.exists(${j(L + 'Part One/Arrival 1.md')})`);

@@ -67,6 +67,10 @@ const NOTE = '---\nsynopsis: Mara arrives.\nstatus: draft\n---\nThe boat left he
 	eq(nextName('Scene 5', taken([])), 'Scene 6', 'counting on from its number');
 	eq(nextName('Scene', taken(['Scene 2', 'Scene 3'])), 'Scene 4', 'the first that’s free');
 	eq(nextName('1984', taken([])), '1984 2', 'a name that is only a number keeps it');
+	eq(nextName('Scene 01', taken([])), 'Scene 02', 'a number with a zero in front keeps its width');
+	eq(nextName('Scene 09', taken(['Scene 10'])), 'Scene 11', 'and counts on past the taken ones');
+	eq(nextName('Chapter 099', taken([])), 'Chapter 100', 'as wide as it was');
+	eq(nextName('Scene 99', taken([])), 'Scene 100', 'a number with no zeros grows as numbers do');
 }
 
 // where properties end: an empty block is one, and the text after it isn't taken for properties up to its first rule
