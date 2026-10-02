@@ -192,6 +192,8 @@ class Corkboard implements BinderMode {
 	adopt(header: HTMLElement): void { this.container.prepend(header); }
 
 	reveal(item: TAbstractFile, fresh = false): void {
+		// A scene below this board is represented by the stack containing it.
+		while (!this.cardEl(item.path) && item.parent && item.parent !== this.ctx.folder) item = item.parent;
 		const el = this.cardEl(item.path);
 		if (!el) return;
 		this.select([item.path], item.path);
