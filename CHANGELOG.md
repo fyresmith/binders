@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.10.11 (2026-10-02)
+
+### Fixed
+
+- Automated checks connect only to their own throwaway vault, even when several checks run together.
+
 ## 0.10.10 (2026-10-02)
 
 ### Fixed

@@ -31,8 +31,17 @@ export async function launch({ vault = VAULT, theme = 'light', width = 1440, hei
 	const vaultDir = join(work, 'vault');
 	cpSync(vault, vaultDir, { recursive: true });
 	rmSync(join(vaultDir, '.obsidian/workspace.json'), { force: true });
-	const port = 9700 + Math.floor(Math.random() * 1000);
-	const proc = spawn(ELECTRON, ['--ozone-platform=headless', '--disable-gpu', `--user-data-dir=${join(work, 'profile')}`, `--remote-debugging-port=${port}`, ASAR], { stdio: 'ignore' });
+	// Let Chromium reserve the port. Guessing one can attach a test to another running vault.
+	const proc = spawn(ELECTRON, ['--ozone-platform=headless', '--disable-gpu', `--user-data-dir=${join(work, 'profile')}`, '--remote-debugging-port=0', ASAR], { stdio: ['ignore', 'ignore', 'pipe'] });
+	const port = await new Promise((resolve, reject) => {
+		const timeout = setTimeout(() => { proc.kill(); reject(new Error('Obsidian did not expose its debugging port')); }, 20000);
+		proc.stderr.on('data', (data) => {
+			const match = data.toString().match(/DevTools listening on ws:\/\/[^:]+:(\d+)\//);
+			if (match) { clearTimeout(timeout); resolve(Number(match[1])); }
+		});
+		proc.once('error', (e) => { clearTimeout(timeout); reject(e); });
+		proc.once('exit', () => { clearTimeout(timeout); reject(new Error('Obsidian exited before exposing its debugging port')); });
+	});
 	const errors = [];
 	const targets = async () => {
 		for (let i = 0; i < 80; i++) { try { const l = await (await fetch(`http://127.0.0.1:${port}/json`)).json(); if (l.length) return l; } catch { /* starting */ } await sleep(250); }
@@ -59,6 +68,7 @@ export async function launch({ vault = VAULT, theme = 'light', width = 1440, hei
 		return r.result.result?.value;
 	};
 	for (let i = 0; i < 80 && !(await ev('!!(window.app && app.workspace && app.workspace.layoutReady)').catch(() => false)); i++) await sleep(250);
+	if (await ev('app.vault.adapter.basePath') !== vaultDir) { ws.close(); proc.kill(); throw new Error('Refusing to test a vault outside this session’s throwaway copy'); }
 	await ev(`(async () => { app.plugins.setEnable(true); await app.plugins.loadManifests(); await app.plugins.enablePluginAndSave('binders'); app.changeTheme(${JSON.stringify(theme === 'dark' ? 'obsidian' : 'moonstone')}); })().then(() => 1)`);
 	// a fresh vault with plugins asks whether to trust its author: say yes, then close anything left open
 	for (let i = 0; i < 20; i++) {
