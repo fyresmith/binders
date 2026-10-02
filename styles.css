@@ -2948,11 +2948,29 @@
 /* (and in a pane too narrow even for that, the icon alone, as the other buttons are below 540px: its name is then its
    tooltip) */
 @container binders-view (width < 230px) {
+	/* (its icon whole, with its padding: on a phone or a tablet that is the 44px a finger needs, as the other buttons
+	   keep) */
 	.binders-toolbar .binders-toolbar-button.binders-mode-button {
-		min-width: 0;
+		min-width: calc(var(--icon-size) + 2 * var(--size-2-2) + 2 * var(--binders-slop, 0px));
 		--no-tooltip: false;
 	}
 	.binders-mode-button > :is(.text-button-label, .mod-aux) {
+		display: none;
+	}
+	/* (four buttons a finger wide are all such a pane holds: the count gives way, as it does in a folder on a phone) */
+	.is-mobile .binders-toolbar > .binders-word-count {
+		display: none;
+	}
+}
+
+/* (a sliver of a pane, as a small window zoomed to 300% leaves: the buttons alone, side by side, with no room spent
+   between them) */
+@container binders-view (width < 180px) {
+	.binders-toolbar {
+		gap: 0;
+		padding-inline: var(--size-2-1);
+	}
+	.binders-toolbar > .binders-word-count {
 		display: none;
 	}
 }

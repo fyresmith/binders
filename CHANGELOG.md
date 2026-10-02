@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.127 (2026-10-02)
+
+### Fixed
+
+- In a very narrow pane (four binders side by side on a tablet, a small window zoomed to 300%) the toolbar's buttons stay whole and nothing runs off the side; the word count gives way.
+
 ## 0.12.126 (2026-10-02)
 
 ### Fixed
