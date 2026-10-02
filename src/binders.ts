@@ -747,7 +747,7 @@ export class BinderStore extends Events implements ExplorerSource {
 		if (!original || !rel || !mine || !this.contents(s).includes(rel) || s.ops.some((o) => o.op === 'move' && o.item === mine)) return;
 		// after this task: whoever made it may be about to place it itself (New scene, Duplicate)
 		window.setTimeout(() => {
-			if (s.ops.some((o) => o.op === 'move' && o.item === mine) || this.contents(s).includes(mine) || this.app.vault.getAbstractFileByPath(f.path) !== f || !f.parent) return;
+			if (s.ops.some((o) => o.op === 'move' && o.item === mine) || s.base.includes(mine) || this.app.vault.getAbstractFileByPath(f.path) !== f || !f.parent) return;
 			const sibs = this.orderedChildren(f.parent) ?? [], at = sibs.filter((x) => x !== f).indexOf(original);
 			if (at >= 0) this.queue(s, { op: 'move', item: mine, folder: this.folderRel(s, f.parent), index: at + 1 });
 		}, 0);
