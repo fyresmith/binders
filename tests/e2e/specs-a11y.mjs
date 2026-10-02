@@ -213,3 +213,38 @@ test('the manuscript’s “Focus mode” button, an icon alone at any width, sa
 	await until(p, `!!document.querySelector('.tooltip')`, 2500);
 	t.eq(await p.ev(`document.querySelector('.tooltip')?.textContent ?? null`), 'Focus mode', 'a tooltip names it');
 });
+
+test('forced colors (Windows high contrast): what is selected and what has the keyboard are outlined, since the mode takes every box-shadow ring away', async (p, h, t) => {
+	const A = '.workspace-leaf.mod-active';
+	await openView(p);
+	const outline = (sel) => p.ev(`(() => { const e = ${sel ? `document.querySelector(${j(sel)})` : 'document.activeElement'}, cs = getComputedStyle(e); return cs.outlineStyle !== 'none' && parseFloat(cs.outlineWidth) >= 2; })()`);
+	await p.ev(`(() => { document.querySelector('${A} .binders-card[data-path]').focus(); return 1; })()`);
+	await p.key('ArrowRight');
+	await p.sleep(300);
+	t.ok(!(await outline()), 'as things are, a selected card’s ring is a shadow, with no outline');
+	await p.send('Emulation.setEmulatedMedia', { features: [{ name: 'forced-colors', value: 'active' }] });
+	try {
+		await p.sleep(300);
+		t.ok(await p.ev(`matchMedia('(forced-colors: active)').matches`), 'forced colors are on');
+		t.ok(await outline(), 'the selected card with the keyboard is outlined');
+		await p.key('ArrowRight');
+		await p.key('ArrowLeft', 'ctrl');
+		t.ok(await outline(`${A} .binders-card.is-selected`), 'a selected card is outlined, with the keyboard or without');
+		for (const [what, sel] of [['a toolbar button', '.binders-filter-button'], ['the word count', '.binders-word-count'], ['the folder’s synopsis', '.binders-view-synopsis'], ['the “New note” tile', '.binders-card-new']]) {
+			await p.ev(`(() => { document.querySelector(${j(`${A} ${sel}`)}).focus(); return 1; })()`);
+			t.ok(await outline(), `${what} with the keyboard is outlined`);
+		}
+		await p.ev(`(() => { ${VIEW}.setMode('outliner'); return 1; })()`);
+		await until(p, `!!document.querySelector('${A} .binders-outliner-row')`);
+		await p.ev(`(() => { document.querySelector('${A} .binders-outliner-row').focus(); return 1; })()`);
+		await p.key('ArrowDown');
+		await p.sleep(200);
+		t.ok(await outline(), 'a row with the keyboard is outlined');
+		await p.key('ArrowRight');
+		t.ok(await outline(), 'and a cell');
+		await p.ev(`(() => { document.querySelector('${A} .binders-outliner-th[data-col="title"]').focus(); return 1; })()`);
+		t.ok(await outline(), 'and a column’s header');
+	} finally {
+		await p.send('Emulation.setEmulatedMedia', { features: [] });
+	}
+});

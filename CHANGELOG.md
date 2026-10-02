@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.41 (2026-10-02)
+
+### Fixed
+
+- In Windows high contrast mode, the selected card or row and whatever has the keyboard are now outlined.
+
 ## 0.12.40 (2026-10-02)
 
 ### Changed

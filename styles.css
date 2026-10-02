@@ -3671,3 +3671,30 @@ body.binders-focus-post :is(.workspace-ribbon, .workspace-split.mod-left-split, 
 		opacity: 0;
 	}
 }
+
+/* Forced colors (Windows high contrast). Every ring in the view is a box-shadow, which that mode takes away: what has
+   the keyboard and what is selected are outlined instead, in the system's own colors. Drawn inside the box, since rows
+   and headers sit edge to edge. (Last in the sheet, and under the view, so it comes after the rules that take an
+   outline off.) */
+@media (forced-colors: active) {
+	.binders-view .binders-card.is-selected,
+	.binders-view .binders-outliner-row.is-selected {
+		outline: 2px solid Highlight;
+		outline-offset: -2px;
+	}
+
+	.binders-view .binders-card:focus-visible,
+	.binders-view .binders-outliner-row:focus-visible,
+	.binders-view .binders-outliner-cell:focus-visible,
+	.binders-view .binders-outliner-th:focus-visible,
+	.binders-view .binders-toolbar-button:focus-visible,
+	.binders-view .binders-word-count:focus-visible,
+	.binders-view .binders-crumb:focus-visible,
+	.binders-view .binders-editable[tabindex]:focus-visible,
+	.binders-view .binders-group-title:focus-visible,
+	.binders-view .binders-lane-head:focus-visible,
+	.binders-view .binders-lane-divider:focus-visible {
+		outline: 2px solid CanvasText;
+		outline-offset: -2px;
+	}
+}
