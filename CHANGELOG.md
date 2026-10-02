@@ -3,6 +3,13 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.96 (2026-10-02)
+
+### Fixed
+
+- Words that arrived in a note from another device or program were counted as written today at the next key.
+- Merging two notes written in today took their words off the day's count.
+
 ## 0.12.95 (2026-10-02)
 
 ### Fixed

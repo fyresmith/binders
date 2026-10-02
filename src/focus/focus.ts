@@ -33,6 +33,12 @@ const PAUSE = 2500;
 const FADE = 140;
 /** Kept in the vault's local storage, on this device: the day's words, and that the way out has been said once. */
 const SESSION = 'binders-session', HINTED = 'binders-focus-hinted';
+/** A short fingerprint of a text, whatever its line breaks (an editor has one kind, a file may have the other). */
+function fingerprint(text: string): number {
+	let h = 5381;
+	for (let i = 0; i < text.length; i++) { const c = text.charCodeAt(i); if (c !== 13) h = ((h << 5) + h + c) | 0; }
+	return h;
+}
 /** Further than this from a note's end, the cursor isn't on its last line (and the text needn't be read to know). */
 const FAR = 4000;
 
@@ -102,11 +108,22 @@ export class Focus {
 			// (a note of a binder not seen yet today is read now, at its first key, before the typing can be saved: what
 			// the vault has is what it's counted from)
 			if (!this.session.has(info.file.path) && this.isScene(info.file)) this.seen(info.file);
+			if (this.session.has(info.file.path) || this.isScene(info.file)) this.hold(info.file.path, editor.getValue());
 			this.pending.set(info.file, editor);
 			if (!this.pendingTimer) this.pendingTimer = window.setTimeout(() => this.count(), 300);
 		}));
-		plugin.registerEvent(app.vault.on('rename', (file, old) => { this.session.rename(old, file.path); this.keep(); }));
-		plugin.registerEvent(app.vault.on('delete', (file) => { this.session.remove(file.path); this.keep(); if (this.on) this.draw(); }));
+		// a note changed on disk: by a save of what was typed here, or from elsewhere (another device, another program)
+		plugin.registerEvent(app.vault.on('modify', (file) => { if (file instanceof TFile && this.session.has(file.path)) void this.arrived(file); }));
+		plugin.registerEvent(app.vault.on('rename', (file, old) => { this.session.rename(old, file.path); this.keep(); for (const m of [this.onDisk, this.held] as Map<string, unknown>[]) { if (m.has(old)) { m.set(file.path, m.get(old)); m.delete(old); } } }));
+		plugin.registerEvent(app.vault.on('delete', (file) => {
+			// A note deleted just after as many words as it had arrived in another: it was merged into that one, and
+			// what was written in it today is still written.
+			const had = this.session.now(file.path), into = had > 0 ? this.gained.find((g) => performance.now() - g.at < 5000 && g.left >= had) : undefined;
+			if (into) { into.left -= had; this.session.merged(file.path, into.path); } else this.session.remove(file.path);
+			this.onDisk.delete(file.path); this.held.delete(file.path);
+			this.keep();
+			if (this.on) this.draw();
+		}));
 		// in the editor's own menu while in focus: the way to its options when nothing else of it is on the page
 		plugin.registerEvent(ws.on('editor-menu', (menu, _editor, info) => {
 			const on = this.on, el = info instanceof MarkdownView ? info.containerEl : (info as { containerEl?: HTMLElement }).containerEl;
@@ -620,8 +637,41 @@ export class Focus {
 		if (this.session.has(file.path)) return;
 		void this.plugin.app.vault.cachedRead(file).then((text) => {
 			this.session.roll(dayOf(new Date()), !!this.on);
-			if (!this.session.has(file.path)) { this.session.see(file.path, countWords(text)); this.keep(); }
+			if (!this.session.has(file.path)) { this.session.see(file.path, countWords(text)); this.onDisk.set(file.path, countWords(text)); this.keep(); }
 		}, () => { /* gone */ });
+	}
+
+	/** How many words each note counted today has on disk, and the last texts its editors here have held (as short
+	    fingerprints): what tells a save of what was typed here from words that arrived from elsewhere. */
+	private onDisk = new Map<string, number>();
+	private held = new Map<string, number[]>();
+	/** Notes that have just gained words from elsewhere, and how many: a note deleted right after, with that many
+	    words, was merged into one of them. */
+	private gained: { path: string; left: number; at: number }[] = [];
+
+	private hold(path: string, text: string): void {
+		const list = this.held.get(path) ?? [], h = fingerprint(text);
+		if (list[list.length - 1] === h) return;
+		list.push(h);
+		if (list.length > 64) list.shift();
+		this.held.set(path, list);
+	}
+
+	/** A counted note was written. If it's a text an editor here holds or held, it's a save of what was typed here,
+	    and already counted. Otherwise the change came from elsewhere (sync, another program): those words weren't
+	    written here today, so the day is counted from that many more. */
+	private async arrived(file: TFile): Promise<void> {
+		let text: string;
+		try { text = await this.plugin.app.vault.cachedRead(file); } catch { return; }
+		// (what's typed and not counted yet is counted first)
+		if (this.pendingTimer) { window.clearTimeout(this.pendingTimer); this.count(); }
+		const n = countWords(text), was = this.onDisk.get(file.path);
+		this.onDisk.set(file.path, n);
+		if (was === undefined || n === was || this.held.get(file.path)?.includes(fingerprint(text))) return;
+		this.session.shift(file.path, n - was, was);
+		if (n > was) { this.gained = this.gained.filter((g) => performance.now() - g.at < 5000); this.gained.push({ path: file.path, left: n - was, at: performance.now() }); }
+		this.keep();
+		if (this.on) this.draw();
 	}
 
 	/** What was typed since the last count, in notes of binders. */
@@ -641,6 +691,7 @@ export class Focus {
 		if (s.has(file.path)) { s.see(file.path, n); this.keep(); if (this.on) this.draw(); return; }
 		void this.plugin.app.vault.cachedRead(file).then((was) => countWords(was), () => n).then((base) => {
 			s.see(file.path, n, base);
+			if (!this.onDisk.has(file.path)) this.onDisk.set(file.path, base);
 			this.keep();
 			if (this.on) this.draw();
 		});

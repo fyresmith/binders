@@ -50,6 +50,16 @@ export class Session {
 		if (n) n[1] = now; else this.data.notes[path] = [base ?? now, now];
 	}
 
+	/** A note gained (or lost) `delta` words that weren't typed here: they arrived from another device or program.
+	    The day is counted from that many more; and so is what the note has now, if nothing typed here was waiting to
+	    be saved (`onDisk`: what the note had on disk before). */
+	shift(path: string, delta: number, onDisk: number): void {
+		const n = this.data.notes[path];
+		if (!n) return;
+		if (n[1] === onDisk) n[1] += delta;
+		n[0] += delta;
+	}
+
 	/** Net words written today in the notes under a folder (never less than none). */
 	words(folder: string): number {
 		let n = 0;
@@ -70,6 +80,19 @@ export class Session {
 			delete this.data.notes[path];
 			this.data.notes[to + path.slice(from.length)] = v;
 		}
+	}
+
+	/** How many words a note is counted as having now (0 if it isn't counted today). */
+	now(path: string): number { return this.data.notes[path]?.[1] ?? 0; }
+
+	/** A note's text went into another (a merge), and the note is gone: what was written in it today is counted in
+	    the note that has its text now, and it's forgotten. (`shift` already took the words that arrived there for
+	    words from elsewhere; this gives back the ones written today.) */
+	merged(from: string, to: string): void {
+		const a = this.data.notes[from], b = this.data.notes[to];
+		if (!a) return;
+		if (b) b[0] += a[0] - a[1];
+		delete this.data.notes[from];
 	}
 
 	/** A note deleted: the words it had are no longer written (a folder: every note under it). */

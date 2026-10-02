@@ -6,6 +6,44 @@ import { done, eq, ok } from './harness';
 eq(dayOf(new Date(2026, 9, 1, 23, 59)), '2026-10-01', 'a day is written YYYY-MM-DD');
 eq(dayOf(new Date(2026, 0, 5, 0, 0)), '2026-01-05', 'with leading zeros');
 
+// words that arrive from another device aren't written here today
+{
+	const s = new Session(null, '2026-10-01');
+	s.see('Novel/One.md', 101, 100);
+	eq(s.words('Novel'), 1, 'one word typed, and saved');
+	s.shift('Novel/One.md', 100, 101);
+	eq(s.words('Novel'), 1, 'a hundred words arrive from elsewhere: still one written here');
+	s.see('Novel/One.md', 202);
+	eq(s.words('Novel'), 2, 'the next word typed is the second');
+	// with typing not saved yet: the note on disk had 202, the editor has 205
+	s.see('Novel/One.md', 205);
+	s.shift('Novel/One.md', 10, 202);
+	eq(s.words('Novel'), 0, 'for the moment before the editor takes the words in, nothing is counted twice');
+	s.see('Novel/One.md', 215);
+	eq(s.words('Novel'), 5, 'once it has, the three typed and not yet saved are counted, the ten that arrived are not');
+	s.shift('Novel/One.md', -20, 215);
+	eq(s.words('Novel'), 5, 'words taken out elsewhere aren’t taken off what was written here');
+	s.shift('Novel/Unseen.md', 50, 0);
+	eq(s.words('Novel'), 5, 'a note not counted today has nothing to move');
+}
+
+// a merge: the words written today in the note that goes are still written, in the note that has its text
+{
+	const s = new Session(null, '2026-10-01');
+	s.see('Novel/A.md', 120, 100);
+	s.see('Novel/K.md', 80, 50);
+	eq(s.words('Novel'), 50, 'twenty words in one note, thirty in another');
+	s.shift('Novel/A.md', 80, 120); // K's text arrives in A
+	eq(s.now('Novel/A.md'), 200, 'the merged note has both texts');
+	s.merged('Novel/K.md', 'Novel/A.md');
+	eq(s.words('Novel'), 50, 'merged, the day has the same fifty');
+	ok(!s.has('Novel/K.md'), 'the note that went is forgotten');
+	s.see('Novel/A.md', 201);
+	eq(s.words('Novel'), 51, 'and typing goes on counting');
+	s.merged('Novel/Gone.md', 'Novel/A.md');
+	eq(s.words('Novel'), 51, 'a note that wasn’t counted has nothing to give');
+}
+
 // a session: each note counted from what it had when first seen today
 {
 	const s = new Session(null, '2026-10-01');
