@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.49 (2026-10-02)
+
+### Fixed
+
+- An empty binder's corkboard no longer takes the keyboard from a note being typed in beside it when its first note arrives, and deleting the last card of a folder from the keyboard no longer drops the focus to the page.
+
 ## 0.12.48 (2026-10-02)
 
 ### Fixed

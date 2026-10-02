@@ -1,5 +1,5 @@
 import { Keymap, Menu, Notice, TFile, TFolder, setIcon, type PaneType, type TAbstractFile } from 'obsidian';
-import { buildCard, cardKey, countLabel, numberCards, overPane, sumWords, synopsisField, type CardHost } from './card';
+import { buildCard, cardKey, countLabel, numberCards, overPane, owedFocus, sumWords, synopsisField, typingNow, type CardHost } from './card';
 import { editable, type Editable } from './edit';
 import { emptyState, badName, isNote, itemMenu, noteOf, plain, removeItems, renameItem } from './actions';
 import { held, settle, visibleBottom } from './drag';
@@ -111,6 +111,7 @@ class Corkboard implements BinderMode {
 		this.fit.observe(this.container);
 		const moved = this.ctx.app.vault.on('rename', (f, old) => this.onMoved(f.path, old));
 		this.cleanup.push(() => this.ctx.app.vault.offref(moved));
+		this.cleanup.push(owedFocus(this.container, () => this.focusOnDraw, () => { this.focusOnDraw = false; }));
 		const b = this.board, on = <K extends keyof HTMLElementEventMap>(t: K, fn: (e: HTMLElementEventMap[K]) => void, opts?: AddEventListenerOptions) => {
 			b.addEventListener(t, fn, opts);
 			this.cleanup.push(() => b.removeEventListener(t, fn, opts));
@@ -157,10 +158,15 @@ class Corkboard implements BinderMode {
 	}
 
 	/** The keyboard on the card it was on, or the first. (Remembered, so it's still there after the next redraw; and
-	    asked for before the cards are drawn, it's given once they are.) */
+	    asked for before there's a card, it's given once there is one, unless the keyboard has gone elsewhere since.) */
 	focus(): void {
 		const c = this.cardEl(this.focused) ?? this.cards()[0];
-		if (!c) { this.focusOnDraw = true; return; }
+		if (!c) {
+			// (no card to be on: the "New note" tile meanwhile, so the keyboard is never left on the page)
+			this.focusOnDraw = true;
+			this.board.querySelector<HTMLElement>('.binders-card-new')?.focus({ preventScroll: true });
+			return;
+		}
 		this.focused ??= c.dataset.path ?? null;
 		c.focus({ preventScroll: true });
 	}
@@ -406,7 +412,7 @@ class Corkboard implements BinderMode {
 		const heading = this.named ? Array.from(this.board.querySelectorAll<HTMLElement>('.binders-group-title')).find((h) => h.dataset.path === this.named?.path) : null;
 		if (this.refocus) { this.focused = this.refocus; this.cardEl(this.refocus)?.focus({ preventScroll: true }); this.refocus = null; }
 		else if (heading && free) heading.focus({ preventScroll: true });
-		else if (this.focusOnDraw && this.cards().length) this.focus();
+		else if (this.focusOnDraw && this.cards().length) { if (!typingNow(this.board.doc)) this.focus(); }
 		else if (hadFocus) this.focus();
 		if (this.cards().length) this.focusOnDraw = false;
 		// (a title being typed for a new note stays in sight, whatever was drawn above it meanwhile)

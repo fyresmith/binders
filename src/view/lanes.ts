@@ -1,6 +1,6 @@
 import { Keymap, Menu, Notice, TFile, TFolder, setIcon, type PaneType, type TAbstractFile } from 'obsidian';
 import { emptyState, isNote, itemMenu, nameOf, noteOf, plain, removeItems, renameItem } from './actions';
-import { buildCard, cardKey, numberCards, overPane, passing, sumWords, type CardEditors, type CardHost } from './card';
+import { buildCard, cardKey, numberCards, overPane, owedFocus, passing, sumWords, typingNow, type CardEditors, type CardHost } from './card';
 import { Press, glide, held, places, settle, visibleBottom } from './drag';
 import { FileDrag } from './file-drag';
 import { openPluginSettings, submenu } from './internals';
@@ -137,6 +137,8 @@ class ByLabel implements BinderMode {
 		}, { passive: false });
 		const moved = this.ctx.app.vault.on('rename', (f, old) => this.onMoved(f.path, old));
 		this.cleanup.push(() => this.ctx.app.vault.offref(moved));
+		// (the keyboard asked for before there was a card isn't given once it has gone elsewhere, as on the grid)
+		this.cleanup.push(owedFocus(this.container, () => this.focusOnDraw, () => { this.focusOnDraw = false; }));
 		this.press = new Press<HTMLElement>({
 			el: this.board,
 			pick: (e) => {
@@ -434,7 +436,7 @@ class ByLabel implements BinderMode {
 		this.fresh = [];
 		const free = hadFocus || doc.activeElement === doc.body;
 		if (this.refocus) { this.focused = this.refocus; this.cardEl(this.refocus)?.focus({ preventScroll: true }); this.refocus = null; }
-		else if (this.focusOnDraw && cards.length) this.focus();
+		else if (this.focusOnDraw && cards.length) { if (!typingNow(this.board.doc)) this.focus(); }
 		else if (hadFocus && free) this.cardEl(this.focused)?.focus({ preventScroll: true });
 		if (cards.length) this.focusOnDraw = false;
 	}

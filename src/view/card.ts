@@ -149,6 +149,21 @@ export function numberCards(board: HTMLElement, cards: HTMLElement[], on: boolea
 	}
 }
 
+/** A board asked for the keyboard before it had a card to put it on gives it to its first card when one comes. Not if
+    the keyboard has gone somewhere else since (a note being typed in beside the board): `on()` says whether the board
+    is still owed it; the returned function stops watching. */
+export function owedFocus(pane: HTMLElement, on: () => boolean, drop: () => void): () => void {
+	const doc = pane.doc, left = (e: FocusEvent) => { if (on() && !pane.contains(e.target as Node | null)) drop(); };
+	doc.addEventListener('focusin', left, true);
+	return () => doc.removeEventListener('focusin', left, true);
+}
+
+/** Is something being typed in (a note's editor beside the board, a field)? The keyboard is never taken from it. */
+export function typingNow(doc: Document): boolean {
+	const a = doc.activeElement;
+	return !!a?.instanceOf(HTMLElement) && (a.isContentEditable || a.matches('input, textarea'));
+}
+
 /** Is the pointer over a board's pane (a little past its sides still counts)? A drop anywhere else moves nothing. */
 export function overPane(pane: HTMLElement, x: number, y: number): boolean {
 	const r = pane.getBoundingClientRect(), slack = 24;

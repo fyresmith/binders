@@ -1340,3 +1340,86 @@ test('“Move to” in a card’s menu lists the binder’s folders as they nest
 	await p.key('Escape'); await p.key('Escape');
 }));
 
+
+test('a card in hand when its button is let go unseen (another window in front, so no `pointerup` comes) goes back at the next move with no button down; the click after it drops nothing', async (p, h, t) => {
+	const before = await texts(p);
+	await openView(p);
+	const a = await at(p, 'Epilogue.md'), b = await at(p, 'Prologue.md');
+	await p.move(a.x, a.t + 14, 2);
+	await p.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: a.x, y: a.t + 14, button: 'left', clickCount: 1 });
+	await p.move(b.x + 20, b.y, 12, { buttons: 1 });
+	await p.sleep(200);
+	const held = () => p.ev(`!!document.querySelector('.binders-drag-ghost') || document.body.classList.contains('is-grabbing') || !!document.querySelector('.workspace-leaf.mod-active .binders-card.is-dragging')`);
+	t.ok(await held(), 'the card is in hand');
+	// (all the page is told: a pointer that moves with no button down)
+	await p.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: b.x + 40, y: b.y + 10, button: 'none', buttons: 0 });
+	await p.sleep(400);
+	t.ok(!(await held()), 'at that move the card is no longer in hand: no ghost, no slot kept for it, no grabbing pointer');
+	t.eq(await p.ev(`document.querySelectorAll('.binders-drop-indicator').length`), 0, 'and no line is left');
+	await p.click(b.x + 60, b.y + 20);
+	await p.sleep(600);
+	await flush(p);
+	t.eq(j(await selected(p)), j([L + 'Prologue.md']), 'the click that follows is a click: it selects the card under it');
+	same(t, before, await texts(p));
+	// and a card can be taken up again
+	const e = await at(p, 'Epilogue.md');
+	await drag(p, { x: e.x, y: e.t + 14 }, { x: b.l + 10, y: b.y });
+	t.eq(j((await written(p, '- Epilogue\n  - Prologue')).slice(0, 2)), j(['Epilogue', 'Prologue']), 'a drag made afterwards drops as usual');
+});
+
+test('an empty binder’s board doesn’t take the keyboard from a note being typed in beside it when its first note arrives; with no card, the keyboard is on the “New note” tile', withTidy(async (p, h, t) => {
+	await p.ev(`(async () => { await app.vault.createFolder('Empty'); await ${B}.makeBinder(app.vault.getAbstractFileByPath('Empty')); })().then(() => 1)`);
+	await until(p, `!!${B}.binderOf(app.vault.getAbstractFileByPath('Empty'))`);
+	await openView(p, 'Empty');
+	await p.sleep(300);
+	await p.ev(`(() => { ${VIEW}.focusMode(); return 1; })()`);
+	t.ok(await p.ev(`document.activeElement.classList.contains('binders-card-new')`), 'with no card to be on, the keyboard is on the “New note” tile');
+	await p.ev(`(async () => { const leaf = app.workspace.getLeaf('split', 'vertical'); await leaf.openFile(${file(L + 'Prologue.md')}); app.workspace.setActiveLeaf(leaf, { focus: true }); })().then(() => 1)`);
+	await until(p, `!!document.activeElement?.closest('.cm-editor')`);
+	await p.sleep(300);
+	await p.type('Typing here. ');
+	await p.ev(`app.vault.create('Empty/First.md', 'one two').then(() => 1)`);
+	await until(p, `!!document.querySelector('.binders-view .binders-card[data-path="Empty/First.md"]')`, 4000);
+	await p.sleep(700);
+	t.ok(await p.ev(`!!document.activeElement?.closest('.cm-editor')`), 'the cursor is still in the note when the binder’s first card is drawn (it’s on ' + (await p.ev(`document.activeElement?.className`)) + ')');
+	await p.type('More. ');
+	t.ok(await p.ev(`app.workspace.getLeavesOfType('markdown').some(l => l.view.editor?.getValue().includes('Typing here. More. '))`), 'and what’s typed goes into it');
+}));
+
+test('a folder’s card names its notes and folders only: a picture or a canvas kept beside them isn’t named, and doesn’t take a note’s place among the five', withTidy(async (p, h, t) => {
+	const P1 = L + 'Part One';
+	await p.ev(`(async () => { await app.vault.createBinary(${j(P1 + '/Cover.png')}, new Uint8Array([137, 80, 78, 71]).buffer); await app.vault.create(${j(P1 + '/Map.canvas')}, '{}'); await ${B}.flush(); })().then(() => 1)`);
+	await p.sleep(600);
+	await openView(p);
+	const names = () => p.ev(`[...document.querySelectorAll(${j(card(P1) + ' .binders-card-held-name')})].map(e => e.textContent)`);
+	t.eq(j(await names()), j(['Arrival', 'The keeper', 'Storm warning']), 'its three notes, as its count says');
+	t.eq(await p.ev(`document.querySelector(${j(card(P1) + ' .binders-card-words')}).textContent`), '3 notes · 51 words', 'which counts three');
+	await p.ev(`(async () => { for (const n of ['Fourth', 'Fifth', 'Sixth']) await ${B}.newScene(${file(P1)}, Infinity, n); await ${B}.flush(); })().then(() => 1)`);
+	await until(p, `document.querySelectorAll(${j(card(P1) + ' .binders-card-held-name')}).length === 5`);
+	t.eq(j(await names()), j(['Arrival', 'The keeper', 'Storm warning', 'Fourth', 'Fifth']), 'with more notes: its first five notes');
+	await p.ev(`(async () => { for (const n of ['Cover.png', 'Map.canvas']) await app.vault.delete(${file(P1)}.children.find(c => c.name === n)); })().then(() => 1)`);
+}));
+
+test('deleting a folder’s last card from the keyboard leaves the keyboard on the “New note” tile, not on the page', withTidy(async (p, h, t) => {
+	await p.ev(`(() => { app.vault.setConfig('trashOption', 'local'); return 1; })()`);
+	try {
+		await openView(p, L + 'Part Two');
+		const on = () => p.ev(`(() => { const a = document.activeElement; return a.classList.contains('binders-card-new') ? 'tile' : a.dataset?.path?.split('/').pop() ?? a.tagName; })()`);
+		const seen = [];
+		for (let i = 0; i < 2; i++) {
+			await p.ev(`(() => { document.querySelector('.workspace-leaf.mod-active .binders-card[data-path]').focus(); return 1; })()`);
+			await p.key('Delete');
+			await until(p, `!!document.querySelector('.modal-container')`);
+			await p.key('Enter');
+			await until(p, `document.querySelectorAll('.workspace-leaf.mod-active .binders-card[data-path]').length === ${1 - i}`, 4000);
+			await p.sleep(700);
+			seen.push(await on());
+		}
+		t.eq(j(seen), j(['Lights out.md', 'tile']), 'after the first delete the keyboard is on the card left; after the last, on the tile');
+		await p.key('Enter');
+		t.eq(await p.ev(`document.activeElement.tagName`), 'INPUT', 'where Enter starts a new note');
+		await p.key('Escape');
+	} finally {
+		await p.ev(`(async () => { app.vault.setConfig('trashOption', 'system'); if (await app.vault.adapter.exists('.trash')) await app.vault.adapter.rmdir('.trash', true); })().then(() => 1)`);
+	}
+}));
