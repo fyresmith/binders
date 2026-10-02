@@ -248,3 +248,31 @@ test('forced colors (Windows high contrast): what is selected and what has the k
 		await p.send('Emulation.setEmulatedMedia', { features: [] });
 	}
 });
+
+test('a screen reader is told where a card or a row moved by Alt+arrow is now, and that a filter is on', async (p, h, t) => {
+	const A = '.workspace-leaf.mod-active';
+	const said = () => p.ev(`[...document.querySelectorAll('${A} [aria-live="polite"][role="status"]')].map(e => e.textContent).filter(Boolean).join(' | ')`);
+	await openView(p);
+	await p.ev(`(() => { document.querySelector('${A} .binders-card[data-path$="Prologue.md"]').focus(); return 1; })()`);
+	await p.key('ArrowRight', 'alt');
+	await p.sleep(500);
+	t.eq(await said(), 'Prologue moved to 2 of 4', 'a card moved on the corkboard');
+	await p.key('ArrowLeft', 'alt');
+	await p.sleep(500);
+	t.eq(await said(), 'Prologue moved to 1 of 4', 'and moved back');
+	await p.ev(`(() => { ${VIEW}.setMode('outliner'); return 1; })()`);
+	await until(p, `!!document.querySelector('${A} .binders-outliner-row[data-path$="Arrival.md"]')`);
+	await p.ev(`(() => { document.querySelector('${A} .binders-outliner-row[data-path$="Arrival.md"]').focus(); return 1; })()`);
+	await p.key('ArrowDown', 'alt');
+	await p.sleep(500);
+	t.eq(await said(), 'Arrival moved to 2 of 3 in Part One', 'a row moved in the outliner, in a folder that isn’t the one shown');
+	await p.key('ArrowUp', 'alt');
+	await p.sleep(500);
+	// the Filter button's name
+	const name = () => p.ev(`document.querySelector('${A} .binders-filter-button').getAttribute('aria-label')`);
+	t.eq(await name(), 'Filter', 'with no filter, the button is “Filter”');
+	await p.ev(`(async () => { const v = ${VIEW}; await v.leaf.setViewState({ type: 'binders-view', active: true, state: { ...v.getState(), filter: { status: ['Draft'], label: [] } } }); })().then(() => 1)`);
+	await p.sleep(400);
+	t.eq(await name(), 'Filter: 1 on', 'with one on, it says so');
+	await p.ev(`(async () => { const v = ${VIEW}; await v.leaf.setViewState({ type: 'binders-view', active: true, state: { ...v.getState(), filter: { status: [], label: [] } } }); })().then(() => 1)`);
+});

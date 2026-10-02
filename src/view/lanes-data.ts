@@ -140,3 +140,10 @@ export function announceText(names: readonly string[], label: string): string {
 	const what = names.length === 1 ? names[0] : `${names.length} items`;
 	return label ? `${what}: label ${label}` : `${what}: no label`;
 }
+
+/** What a screen reader is told when items are moved by hand: where the first of them is now among the `of` items of
+    its folder that show (`place` counts from 1), and in which folder if not the one shown ("" for that one). */
+export function movedText(names: readonly string[], place: number, of: number, folder = ''): string {
+	const what = names.length === 1 ? names[0] : `${names.length} items`;
+	return `${what} moved to ${place} of ${of}${folder ? ` in ${folder}` : ''}`;
+}

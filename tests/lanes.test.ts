@@ -1,4 +1,4 @@
-import { announceText, beside, changeText, flatRuns, insertAt, laneAt, laneList, laneOf, lanePitch, readArrangement, readLines, readSize, resolveDrop, type Stop } from '../src/view/lanes-data';
+import { announceText, beside, changeText, flatRuns, insertAt, laneAt, laneList, laneOf, lanePitch, movedText, readArrangement, readLines, readSize, resolveDrop, type Stop } from '../src/view/lanes-data';
 import { done, eq, ok } from './harness';
 
 const j = (x: unknown) => JSON.stringify(x);
@@ -126,6 +126,8 @@ const j = (x: unknown) => JSON.stringify(x);
 	eq(changeText(['a'], null, true), 'Move “a”', 'a move alone');
 	eq(announceText(['Low tide'], 'Tomas'), 'Low tide: label Tomas', 'said aloud');
 	eq(announceText(['a', 'b'], ''), '2 items: no label', 'several, none');
+	eq(movedText(['Prologue'], 2, 4), 'Prologue moved to 2 of 4', 'a move said aloud');
+	eq(movedText(['a', 'b', 'c'], 1, 9, 'Part Two'), '3 items moved to 1 of 9 in Part Two', 'several, into another folder');
 }
 
 done('lanes');

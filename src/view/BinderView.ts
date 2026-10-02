@@ -8,7 +8,7 @@ import { keepOpen, readableLineLength, refreshHeader, selectMenuItem } from './i
 import { canonical, labelDot, labelName, rank, readLabel } from './labels';
 import { readArrangement, readLines, type Arrangement, type Lines } from './lanes-data';
 import { ask } from './modals';
-import { parseTarget, readTarget } from './outliner-data';
+import { parseTarget, readTarget, whyNotTarget } from './outliner-data';
 import type { BinderMode, ModeContext, ModeFactory, SceneProps } from './mode';
 import type { EditorView } from '@codemirror/view'; // focus mode
 import { WordCounter, wordsLabel } from './words';
@@ -594,6 +594,8 @@ export class BinderView extends ItemView {
 		const on = this.filter.status.length + this.filter.label.length;
 		ui.filter.toggleClass('is-active', on > 0);
 		ui.filter.querySelector('.text-button-label')?.setText(on ? `Filter (${on})` : 'Filter');
+		// (said to a screen reader too, and shown as the tooltip where the button is an icon alone)
+		ui.filter.setAttr('aria-label', on ? `Filter: ${on} on` : 'Filter');
 		// "Arrange", on the corkboard: always called that; its icon says how (and its name, to a screen reader)
 		const how = this.arranged();
 		ui.arrange.toggleClass('is-hidden', this.mode !== 'corkboard');
@@ -795,7 +797,7 @@ export class BinderView extends ItemView {
 		if (Platform.isMobile) this.ui?.count.blur();
 		const typed = await ask(this.app, {
 			title: folder === binder.folder ? 'Word count target for the binder' : `Word count target for “${folder.name}”`, placeholder: 'Words, such as 80,000', cta: 'Set target',
-			value: now ? String(now) : '', allowEmpty: true, numeric: true, check: (v: string) => (parseTarget(v) == null ? 'A target is a whole number of words.' : null),
+			value: now ? String(now) : '', allowEmpty: true, numeric: true, check: whyNotTarget,
 		});
 		const n = typed == null ? null : parseTarget(typed);
 		if (n == null || n === now) return;

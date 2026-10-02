@@ -1,5 +1,6 @@
 import { Keymap, Menu, Notice, Platform, TFile, TFolder, setIcon, type EventRef, type TAbstractFile } from 'obsidian';
 import { compiles, emptyState, isNote, plain, itemMenu, labelItems, nameOf, noteOf, removeItems, renameItem, setAll, setCompile, statusItems } from './actions';
+import { movedText } from './lanes-data';
 import { GLIDE_QUICK, Press, glide, held, places, settle, visibleBottom } from './drag';
 import { FileDrag } from './file-drag';
 import { editable, type Editable } from './edit';
@@ -7,7 +8,7 @@ import { submenu } from './internals';
 import { labelDot, labelName, rank } from './labels';
 import type { BinderMode, ModeContext, ModeFactory, SceneProps } from './mode';
 import { OutlinerColumns, showUnder } from './outliner-columns';
-import { TITLE, builtIn, columnName, columnWidth, compareValues, parseTarget, parseTyped, progress, propOf, readColumns, readSort, text, type ColumnSpec, type Sort } from './outliner-data';
+import { TITLE, builtIn, columnName, columnWidth, compareValues, parseTarget, parseTyped, progress, propOf, readColumns, readSort, text, whyNotTarget, type ColumnSpec, type Sort } from './outliner-data';
 import { wordsLabel } from './words';
 
 /* The outliner: the folder's notes and subfolders as rows of a tree, in binder order, with a column for each thing
@@ -105,6 +106,7 @@ class Outliner implements BinderMode {
 	render(): void {
 		// (focusable, so a click on the space below the rows leaves the keyboard in the outliner)
 		this.root = this.container.createDiv({ cls: 'binders-outliner', attr: { tabindex: '-1' } });
+		this.live = this.container.createDiv({ cls: 'binders-live', attr: { 'aria-live': 'polite', role: 'status' } });
 		this.fit.observe(this.root);
 		this.moved = this.ctx.app.vault.on('rename', (f, old) => this.onMoved(f.path, old));
 		this.table = this.root.createDiv({ cls: 'binders-outliner-table', attr: { role: 'treegrid', 'aria-label': 'Outliner', 'aria-multiselectable': 'true' } });
@@ -597,7 +599,7 @@ class Outliner implements BinderMode {
 					singleLine: true, allowEmpty: true, numeric: true, readOnly: ro, shouldEdit: () => this.sel.has(item.path),
 					save: async (typed) => {
 						const n = parseTarget(typed);
-						if (n == null) throw new Error('A target is a whole number of words.');
+						if (n == null) throw new Error(whyNotTarget(typed) ?? 'A target is a whole number of words.');
 						// for every selected row, as a label or a status picked in one is
 						await setAll(this.ctx, this.withSelection(item), { target: n });
 					},
@@ -1049,7 +1051,13 @@ class Outliner implements BinderMode {
 		this.draw();
 		this.rowEl(item.path)?.focus({ preventScroll: true });
 		this.rowEl(item.path)?.scrollIntoView({ block: 'nearest' });
+		// (said to a screen reader: where they are now among the rows that show in their folder)
+		const first = items[0], folder = first?.parent;
+		if (!first || !folder) return;
+		const shown: TAbstractFile[] = this.children(folder).filter((f) => this.isShown(f));
+		this.live.setText(movedText(items.map(nameOf), shown.indexOf(first) + 1, shown.length, folder === this.ctx.folder ? '' : folder.name));
 	}
+	private live: HTMLElement;
 
 	/** Alt+Up, Alt+Down, "Move up", "Move down": one place among the rows that show in its folder, taking the rows
 	    selected with it along as one. */

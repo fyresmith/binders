@@ -6,7 +6,7 @@ import { ask, confirm, pickColor } from './modals';
 import type { ModeContext } from './mode';
 import { folderSnapshotItems, snapshotItems } from './snapshots'; // snapshots
 import { SNAPSHOTS } from '../snapshot-text'; // snapshots
-import { parseTarget } from './outliner-data';
+import { parseTarget, whyNotTarget } from './outliner-data';
 
 /* What can be done to a note or a folder of a binder, the same on a card and in an outliner row: its menu, renaming,
    deleting, and setting its status, label and target. The views say how their own parts work (which field renames,
@@ -171,7 +171,7 @@ export function labelItems(ctx: ModeContext, m: Menu, items: TAbstractFile[]): v
 export async function askTarget(ctx: ModeContext, items: TAbstractFile[]): Promise<void> {
 	const one = items.length === 1 ? noteOf(ctx, items[0]) : null, now = one ? ctx.props(one).target : 0;
 	// (something that isn't a number keeps the dialog open, with what was typed, to put right)
-	const typed = await ask(ctx.app, { title: 'Word count target', placeholder: 'Words, such as 1,500', cta: 'Set target', value: now ? String(now) : '', allowEmpty: true, numeric: true, check: (v) => (parseTarget(v) == null ? 'A target is a whole number of words.' : null) });
+	const typed = await ask(ctx.app, { title: 'Word count target', placeholder: 'Words, such as 1,500', cta: 'Set target', value: now ? String(now) : '', allowEmpty: true, numeric: true, check: whyNotTarget });
 	if (typed == null) return;
 	const n = parseTarget(typed);
 	if (n != null) await setAll(ctx, items, { target: n });

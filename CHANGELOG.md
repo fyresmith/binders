@@ -3,6 +3,18 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.93 (2026-10-02)
+
+### Added
+
+- A screen reader is told where a card or row is after it is moved.
+
+### Fixed
+
+- The Filter button says when a filter is on.
+- In a right-to-left interface the corkboard's arrow keys go the way they point.
+- A word count target that is too big is refused with words that say why.
+
 ## 0.12.92 (2026-10-02)
 
 ### Fixed

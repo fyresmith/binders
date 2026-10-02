@@ -1,9 +1,10 @@
 import { Keymap, Menu, Notice, TFile, TFolder, setIcon, type PaneType, type TAbstractFile } from 'obsidian';
 import { buildCard, cardKey, countLabel, crumbAt, heir, numberCards, overPane, owedFocus, sumWords, synopsisField, typingNow, type CardHost } from './card';
 import { editable, type Editable } from './edit';
-import { emptyState, badName, isNote, itemMenu, noteOf, plain, removeItems, renameItem } from './actions';
+import { emptyState, badName, isNote, itemMenu, nameOf, noteOf, plain, removeItems, renameItem } from './actions';
 import { held, settle, visibleBottom } from './drag';
 import { FileDrag } from './file-drag';
+import { movedText } from './lanes-data';
 import { submenu } from './internals';
 import { display, labelDot, labelName } from './labels';
 import type { BinderMode, ModeContext, ModeFactory } from './mode';
@@ -108,6 +109,8 @@ class Corkboard implements BinderMode {
 	render(): void {
 		this.container.addClass('binders-corkboard');
 		this.board = this.container.createDiv({ cls: 'binders-board' });
+		// (said to a screen reader, not shown: where a card moved by hand is now)
+		this.live = this.container.createDiv({ cls: 'binders-live', attr: { 'aria-live': 'polite', role: 'status' } });
 		this.fit.observe(this.container);
 		const moved = this.ctx.app.vault.on('rename', (f, old) => this.onMoved(f.path, old));
 		this.cleanup.push(() => this.ctx.app.vault.offref(moved));
@@ -1122,8 +1125,17 @@ class Corkboard implements BinderMode {
 	/** Moves items, in order, just before `anchor` in `folder` (or to its end), moving files between folders. In a
 	    Longform project, `depth` is the group's indent, which the items take. */
 	private async moveItems(items: TAbstractFile[], folder: TFolder, anchor: TAbstractFile | null, depth?: number): Promise<void> {
-		try { await this.store.put(items, folder, anchor, depth); } catch (e) { new Notice(plain(e)); }
+		try { await this.store.put(items, folder, anchor, depth); this.say(items); } catch (e) { new Notice(plain(e)); }
 		this.select(items.map((f) => f.path), items[0]?.path ?? null);
+	}
+
+	private live: HTMLElement;
+	/** Tells a screen reader where items just moved are: their place among what shows in their folder. */
+	private say(items: TAbstractFile[]): void {
+		const first = items[0], folder = first?.parent;
+		if (!first || !folder) return;
+		const shown = this.children(folder).filter((x) => this.isShown(x));
+		this.live.setText(movedText(items.map(nameOf), shown.indexOf(first) + 1, shown.length, folder === this.ctx.folder ? '' : folder.name));
 	}
 
 	/** The board's own scroller, whether or not it has anything to scroll just now. */
@@ -1154,9 +1166,11 @@ class Corkboard implements BinderMode {
 			to.scrollIntoView({ block: 'nearest' });
 		};
 		const arrows = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'];
+		// (in a right-to-left interface the first card is on the right: the arrow that points at a card goes to it)
+		const before = getComputedStyle(this.board).direction === 'rtl' ? 'ArrowRight' : 'ArrowLeft';
 		if (e.altKey && arrows.includes(e.key) && !Keymap.isModEvent(e)) {
 			e.preventDefault();
-			if (!this.ctx.readOnly) void this.step(card, e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 1);
+			if (!this.ctx.readOnly) void this.step(card, e.key === before || e.key === 'ArrowUp' ? -1 : 1);
 			return;
 		}
 		if (Keymap.isModEvent(e) && e.key.toLowerCase() === 'a' && !e.shiftKey && !e.altKey) { e.preventDefault(); this.select(cards.map((c) => c.dataset.path), card.dataset.path, cards[0]?.dataset.path); return; }
@@ -1169,8 +1183,7 @@ class Corkboard implements BinderMode {
 		}
 		if (e.altKey || (mod && ![...arrows, 'Home', 'End', 'Enter'].includes(e.key))) return;
 		switch (e.key) {
-			case 'ArrowLeft': go(cards[i - 1]); break;
-			case 'ArrowRight': go(cards[i + 1]); break;
+			case 'ArrowLeft': case 'ArrowRight': go(cards[i + (e.key === before ? -1 : 1)]); break;
 			case 'ArrowUp': case 'ArrowDown': go(this.vertical(cards, card, e.key === 'ArrowUp' ? -1 : 1)); break;
 			case 'Home': go(cards[0]); break;
 			case 'End': go(cards[cards.length - 1]); break;
@@ -1206,7 +1219,9 @@ class Corkboard implements BinderMode {
 	private async step(card: HTMLElement, delta: number): Promise<void> {
 		const items = this.targets(card);
 		const list = delta < 0 ? items : [...items].reverse();
-		for (const f of list) if (!(await this.stepPast(f, delta))) break;
+		let moved = false;
+		for (const f of list) { if (!(await this.stepPast(f, delta))) break; moved = true; }
+		if (moved) this.say(items);
 		this.select(items.map((f) => f.path), card.dataset.path);
 		this.draw();
 		this.cardEl(card.dataset.path)?.focus();

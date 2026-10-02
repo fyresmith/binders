@@ -1,4 +1,4 @@
-import { DEFAULT_COLUMNS, clampWidth, columnName, columnWidth, compareValues, isColumn, move, nextSort, parseTarget, parseTyped, progress, propId, propOf, readColumns, readSort, readTarget, suggestProps, text } from '../src/view/outliner-data';
+import { DEFAULT_COLUMNS, clampWidth, columnName, columnWidth, compareValues, isColumn, move, nextSort, parseTarget, parseTyped, whyNotTarget, progress, propId, propOf, readColumns, readSort, readTarget, suggestProps, text } from '../src/view/outliner-data';
 import { done, eq, ok } from './harness';
 
 const j = (x: unknown) => JSON.stringify(x);
@@ -54,6 +54,11 @@ const j = (x: unknown) => JSON.stringify(x);
 	eq(parseTarget('2 000'), 2000, 'spaces as thousands');
 	eq(parseTarget(''), 0, 'nothing typed: no target');
 	eq(parseTarget('lots'), null, 'not a number');
+	eq(whyNotTarget('1,500'), null, 'a target that can be used has no complaint');
+	eq(whyNotTarget('lots'), 'A target is a whole number of words.', 'not a number: says what a target is');
+	eq(whyNotTarget('1.5'), 'A target is a whole number of words.', 'nor a fraction');
+	eq(whyNotTarget('99999999999'), 'A target can be up to 1,000,000,000 words.', 'too big: says how big it can be');
+	eq(whyNotTarget('99,999,999,999'), 'A target can be up to 1,000,000,000 words.', 'however it is grouped');
 	eq(parseTarget('-3'), null, 'not a negative one');
 	eq(parseTarget('1.500'), 1500, 'a dot groups thousands in much of the world: 1.500 is fifteen hundred, not two');
 	eq(parseTarget('12.345.678'), 12345678, 'several groups');

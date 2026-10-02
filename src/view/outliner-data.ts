@@ -117,6 +117,14 @@ export function parseTarget(typed: string): number | null {
 	return n <= MAX_TARGET ? n : null;
 }
 
+/** Why what's typed can't be a target, in words for the writer (null if it can): not a whole number of words, or one
+    too big to be meant. */
+export function whyNotTarget(typed: string): string | null {
+	if (parseTarget(typed) != null) return null;
+	const digits = typed.trim().replace(/[\s\u00a0\u202f'’.,]/g, '');
+	return /^\d+$/.test(digits) && Number(digits) > MAX_TARGET ? `A target can be up to ${MAX_TARGET.toLocaleString('en-US')} words.` : 'A target is a whole number of words.';
+}
+
 /** Clicking a column's header again and again: ascending, descending, then back to binder order, as in a base. */
 export function nextSort(sort: Sort, id: string): Sort {
 	if (!sort || sort.id !== id) return { id, dir: 1 };
