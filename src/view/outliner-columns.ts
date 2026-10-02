@@ -35,7 +35,9 @@ export interface ColumnsHost {
 export function showUnder(menu: Menu, el: HTMLElement, e?: MouseEvent): void {
 	if (e && e.type === 'contextmenu') { menu.showAtMouseEvent(e); return; }
 	const r = el.getBoundingClientRect();
-	menu.showAtPosition({ x: r.left, y: r.bottom + 2, width: r.width, overlap: true }, el.doc);
+	// (a cell that runs off the bottom of the window: Obsidian puts a menu with no room below above the point it's
+	// given, so the point stays in the window, and the menu with it)
+	menu.showAtPosition({ x: r.left, y: Math.min(r.bottom + 2, el.doc.body.clientHeight - 4), width: r.width, overlap: true }, el.doc);
 }
 
 /** The outliner's header: each column's menu, sorting, resizing and reordering, and which columns show. It asks the

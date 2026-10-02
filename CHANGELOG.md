@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.126 (2026-10-02)
+
+### Fixed
+
+- In the outliner, the status or label menu of a row at the very bottom of the screen no longer runs off the screen.
+
 ## 0.12.125 (2026-10-02)
 
 ### Fixed
