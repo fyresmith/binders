@@ -2219,22 +2219,25 @@
 /* ---- Corkboard, by label ("Arrange": by label) ----
    Each label is a line, drawn as an edge on a canvas is (in its color, two pixels, behind the cards); the cards stand
    along the lines in the binder's order, each in a place of its own, on its label's line: a card with its border in
-   its label's color, on a line of that color, is a card on a canvas with its edge. A line's name is at its start, as
-   a folder's name is before its rule. One grid: a lane is a row (lines across) or a column (lines down), a card's
-   place the next column (or row). The lines may be closer together than a card is tall (or wide): cards on
-   neighbouring lines never share a place, so they pass each other. */
+   its label's color, on a line of that color, is a card on a canvas with its edge. A line starts at its head (its
+   name and how many notes are on it, in a small card of the line's color) and runs to the pane's far edge, however
+   wide the pane or long the board. One grid: a lane is a row (lines across) or a column (lines down), a card's
+   place the next column (or row), and a last track takes whatever room is left, so the lines reach the edge. The
+   lines may be closer together than a card is tall (or wide): cards on neighbouring lines never share a place, so
+   they pass each other. */
 .binders-corkboard.mod-lanes {
 	overflow: auto;
 }
 
 .binders-corkboard.mod-lanes > .binders-board {
+	--binders-lanes-foot: var(--size-4-3);
 	width: max-content;
 	min-width: 100%;
-	padding-bottom: var(--size-4-3);
+	padding-bottom: var(--binders-lanes-foot);
 }
 
 .is-phone .binders-corkboard.mod-lanes > .binders-board {
-	padding-bottom: calc(var(--size-4-3) + var(--view-bottom-spacing, 0px));
+	--binders-lanes-foot: calc(var(--size-4-3) + var(--view-bottom-spacing, 0px));
 }
 
 .binders-lanes-board.is-empty {
@@ -2298,28 +2301,60 @@
 	pointer-events: none;
 }
 
-/* A line's name: its color, its name, how many notes are on it. */
+/* A line's head: its name and how many notes are on it, in a small card of the line's color (the color as its
+   border, as wide as the line, and a faint tint, as a labeled card has), which the line leaves from the middle of.
+   The cap's face is opaque: the cards scroll under it. The head itself is as long as the column of heads, and draws
+   the line from its cap to the column's end, over what the heads stand on. */
 .binders-lane-heads {
 	display: contents;
 }
 
 .binders-lane-head {
+	--binders-line: var(--background-modifier-border-hover);
+	--binders-head-tint: color-mix(in oklch, var(--text-muted) 8%, var(--background-primary));
 	z-index: 3;
 	display: flex;
 	align-items: center;
-	gap: var(--size-2-3);
 	min-width: 0;
-	border-radius: var(--radius-s);
-	background-color: var(--background-primary);
-	color: var(--text-muted);
+	color: var(--text-normal);
 	font-size: var(--font-ui-small);
+	line-height: var(--line-height-tight);
 	white-space: nowrap;
-	cursor: var(--cursor);
+	pointer-events: none;
 	--no-tooltip: true;
 }
 
+.binders-lane-head.has-label {
+	--binders-line: color-mix(in oklch, var(--binders-label) 70%, transparent);
+	--binders-head-tint: color-mix(in oklch, var(--binders-label) 18%, var(--background-primary));
+}
+
+.binders-lane-head::after {
+	content: "";
+	flex: 1 0 0;
+	background-color: var(--binders-line);
+}
+
+.binders-lane-cap {
+	box-sizing: border-box;
+	display: flex;
+	align-items: baseline;
+	gap: var(--size-4-2);
+	min-width: 0;
+	padding: var(--size-2-1) var(--size-4-2);
+	border: 2px solid var(--binders-line);
+	border-radius: var(--radius-m);
+	background-color: var(--binders-head-tint);
+	background-clip: padding-box;
+	cursor: var(--cursor);
+	pointer-events: auto;
+	transition: background-color var(--anim-duration-fast, 140ms) ease-in-out, border-color var(--anim-duration-fast, 140ms) ease-in-out;
+}
+
+/* (a line with nothing on it: its head is an outline, its name quieter) */
 .binders-lane-head.is-empty {
-	color: var(--text-faint);
+	--binders-head-tint: var(--background-primary);
+	color: var(--text-muted);
 }
 
 .binders-lane-name {
@@ -2329,31 +2364,47 @@
 }
 
 .binders-lane-count {
-	color: var(--text-faint);
+	color: var(--text-muted);
 	font-size: var(--font-ui-smaller);
 	font-variant-numeric: tabular-nums;
 }
 
+/* (the line the cards in hand would go onto: its head in its full color too) */
 .binders-lane-head.is-drop-target {
+	--binders-line: var(--text-muted);
+	--binders-head-tint: color-mix(in oklch, var(--text-muted) 16%, var(--background-primary));
 	color: var(--text-normal);
-	font-weight: var(--font-semibold);
+}
+
+.binders-lane-head.has-label.is-drop-target {
+	--binders-line: var(--binders-label);
+	--binders-head-tint: color-mix(in oklch, var(--binders-label) 32%, var(--background-primary));
 }
 
 .binders-lane-head:focus-visible {
 	outline: none;
-	box-shadow: inset 0 0 0 2px var(--background-modifier-border-focus);
+}
+
+.binders-lane-head:focus-visible > .binders-lane-cap {
+	box-shadow: 0 0 0 2px var(--background-modifier-border-focus);
 }
 
 @media (hover: hover) {
-	.binders-lane-head:hover {
+	.binders-lane-head:not(.is-drop-target):hover {
+		--binders-head-tint: color-mix(in oklch, var(--text-muted) 14%, var(--background-primary));
 		color: var(--text-normal);
+	}
+
+	.binders-lane-head.has-label:not(.is-drop-target):hover {
+		--binders-head-tint: color-mix(in oklch, var(--binders-label) 26%, var(--background-primary));
 	}
 }
 
-/* Lines across: a row each; their names in a column that stays while the lines scroll by. (Rows: the folders' names,
-   room for the first line's cards, the lines, room for the last line's.) */
+/* Lines across: a row each; their heads in a column that stays while the lines scroll by. (Columns: the heads, the
+   cards' places, what's left of the pane. Rows: the folders' names, room for the first line's cards, the lines, room
+   for the last line's.) */
 .binders-lanes.mod-across {
-	grid-template-columns: max-content var(--binders-slot-tracks);
+	grid-template-columns: max-content var(--binders-slot-tracks) minmax(0, 1fr);
 	grid-template-rows: auto var(--binders-lane-pad) repeat(var(--binders-lanes), var(--binders-lane-pitch)) var(--binders-lane-pad);
 	row-gap: 0;
 	--binders-card-lines: 3;
@@ -2389,9 +2440,11 @@
 	z-index: 2;
 }
 
+/* (to the pane's edge, through the board's own margin) */
 .binders-lanes.mod-across > .binders-lane {
 	grid-row: calc(var(--binders-lane) + 2);
 	grid-column: 1 / -1;
+	margin-inline-end: calc(-1 * var(--size-4-3));
 }
 
 .binders-lanes.mod-across > .binders-lane::before {
@@ -2414,24 +2467,32 @@
 	grid-column: 1;
 	position: sticky;
 	inset-inline-start: var(--size-4-3);
-	align-self: center;
-	max-width: 11em;
-	padding-block: var(--size-2-2);
-	padding-inline-end: var(--size-4-2);
 }
 
-/* a narrow pane or a phone: the names take less of it */
+/* (the head is as tall as its row, so its piece of the line is exactly where the rest of the line is) */
+.binders-lanes.mod-across .binders-lane-head::after {
+	height: 2px;
+}
+
+.binders-lanes.mod-across .binders-lane-cap {
+	max-width: 14em;
+}
+
+/* a narrow pane or a phone: the heads take less of it */
 @container binders-view (width < 520px) {
-	.binders-lanes.mod-across .binders-lane-head {
-		max-width: 6.5em;
-		inset-inline-start: var(--size-4-2);
+	.binders-lanes.mod-across .binders-lane-cap {
+		max-width: 7.5em;
+		gap: var(--size-2-3);
+		padding-inline: var(--size-2-3);
 	}
 }
 
-/* Lines down: a column each, their names along the top. */
+/* Lines down: a column each, their heads along the top. (Rows: the heads, the cards' places, what's left of the
+   pane.) */
 .binders-lanes.mod-down {
+	flex: 1 0 auto;
 	grid-template-columns: var(--binders-lane-pad) repeat(var(--binders-lanes), var(--binders-lane-pitch)) var(--binders-lane-pad);
-	grid-template-rows: auto repeat(var(--binders-slots), auto);
+	grid-template-rows: auto repeat(var(--binders-slots), auto) minmax(0, 1fr);
 	column-gap: 0;
 }
 
@@ -2447,9 +2508,11 @@
 	margin-inline-end: 0;
 }
 
+/* (to the pane's foot, through the board's own margin) */
 .binders-lanes.mod-down > .binders-lane {
 	grid-column: calc(var(--binders-lane) + 1);
 	grid-row: 1 / -1;
+	margin-bottom: calc(-1 * var(--binders-lanes-foot));
 }
 
 .binders-lanes.mod-down > .binders-lane::before {
@@ -2467,14 +2530,21 @@
 	margin-inline: calc(-1 * var(--size-4-3));
 }
 
+/* (it stays a margin below the pane's top, as it is before the board scrolls; what it stands on ends where it does) */
 .binders-lanes.mod-down .binders-lane-head {
 	grid-column: calc(var(--binders-lane) + 1);
 	grid-row: 1;
 	position: sticky;
-	top: 0;
-	justify-self: center;
-	max-width: 100%;
-	padding: 0 var(--size-2-3) var(--size-2-3);
+	top: var(--size-4-3);
+	justify-content: center;
+}
+
+.binders-lanes.mod-down .binders-lane-head::after {
+	content: none;
+}
+
+.binders-lanes.mod-down .binders-lane-cap {
+	max-width: calc(100% - var(--size-4-2));
 }
 
 /* A folder's name where its notes begin (with the notes in subfolders shown). */

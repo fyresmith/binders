@@ -25,6 +25,8 @@ async function openBy(p, folder = L + 'Part One', options = {}) {
 }
 const laneEl = (i) => `${LEAF} .binders-lanes > .binders-lane[data-lane="${i}"]`;
 const head = (i) => `${LEAF} .binders-lane-head[data-lane="${i}"]`;
+// (what's seen and pressed of a head: the head itself is as long as the column of heads, and carries the line on)
+const cap = (i) => `${head(i)} > .binders-lane-cap`;
 const laneOfCard = (p, path) => p.ev(`Number(document.querySelector(${j(card(path))})?.dataset.lane ?? -1)`);
 const label = (p, path) => p.ev(`app.metadataCache.getFileCache(${file(path)})?.frontmatter?.label ?? null`);
 const labelIs = (p, path, value) => until(p, `(app.metadataCache.getFileCache(${file(path)})?.frontmatter?.label ?? null) === ${j(value)}`, 4000);
@@ -327,7 +329,7 @@ test('a read-only binder (a newer format) can’t be changed: no drag, no keys, 
 	const empty = await p.at(laneEl(lane('Pink')));
 	await p.dbl(empty.x + 300, empty.y);
 	await p.sleep(400);
-	const hd = await p.at(head(1));
+	const hd = await p.at(cap(1));
 	await p.click(hd.x, hd.y);
 	await p.sleep(250);
 	t.ok(!(await menuItems(p)).some((x) => /New note/.test(x)), 'a line’s menu offers no new note');
@@ -439,13 +441,13 @@ test('a line’s menu: a new note with its label, its notes selected, a new labe
 	await setLabel(p, PART_ONE[2], 'Blue');
 	await openBy(p);
 	const before = await texts(p);
-	let hd = await p.at(head(lane('Blue')));
+	let hd = await p.at(cap(lane('Blue')));
 	await p.click(hd.x, hd.y);
 	await p.sleep(250);
 	t.eq(j(await menuItems(p)), j(['New note with this label', 'Select its notes', 'New label...', 'Edit labels...']), 'what a line’s menu offers');
 	await clickMenu(p, 'Select its notes');
 	t.eq(j(await p.ev(`[...document.querySelectorAll('${LEAF} .binders-card.is-selected')].map(c => c.dataset.path)`)), j([PART_ONE[0], PART_ONE[2]]), 'the notes on the line are selected');
-	hd = await p.at(head(lane('Blue')));
+	hd = await p.at(cap(lane('Blue')));
 	await p.click(hd.x, hd.y);
 	await p.sleep(250);
 	await clickMenu(p, 'New note with this label');
@@ -459,7 +461,7 @@ test('a line’s menu: a new note with its label, its notes selected, a new labe
 	t.eq(await laneOfCard(p, P1 + 'Wake.md'), lane('Blue'), 'named, on the blue line');
 	t.eq(j(await order(p)), j(['Arrival.md', 'The keeper.md', 'Storm warning.md', 'Wake.md']), 'at the end of the folder');
 	// a new label
-	hd = await p.at(head(0));
+	hd = await p.at(cap(0));
 	await p.click(hd.x, hd.y);
 	await p.sleep(250);
 	t.eq(j(await menuItems(p)), j(['New note', 'Select its note', 'New label...', 'Edit labels...']), 'the first line’s menu: a note with no label');
@@ -602,8 +604,158 @@ test('reduced motion: a dropped card is on its line at once, nothing glides', as
 	} finally { await p.send('Emulation.setEmulatedMedia', { features: [] }); }
 });
 
+// ---- the lines' length, and their heads ----
+/** Each line as drawn, against the board: where it ends (to the pane's far edge, or the board's when that's further),
+    and how its head joins it. */
+const drawn = (p) => p.ev(`(() => {
+	const R = (e) => e.getBoundingClientRect(), box = document.querySelector('${LEAF} .binders-corkboard'), grid = box.querySelector('.binders-lanes'), b = R(box), across = grid.classList.contains('mod-across');
+	const gutter = R(grid.querySelector(':scope > .binders-lane-gutter')), cards = [...grid.querySelectorAll(':scope > .binders-card[data-path]')].map(R);
+	const lanes = [...grid.querySelectorAll(':scope > .binders-lane')].map((l) => {
+		const r = R(l), line = getComputedStyle(l, '::before'), hd = grid.querySelector('.binders-lane-head[data-lane="' + l.dataset.lane + '"]'), h = R(hd), cap = hd.querySelector(':scope > .binders-lane-cap'), c = R(cap), piece = getComputedStyle(hd, '::after');
+		return {
+			end: across ? r.right : r.bottom,
+			// (the drawn line is the whole of its lane's length, two pixels wide)
+			whole: Math.abs(parseFloat(across ? line.width : line.height) - (across ? r.width : r.height)) <= 1, wide: parseFloat(across ? line.height : line.width),
+			text: cap.textContent, name: cap.querySelector('.binders-lane-name')?.textContent ?? null, count: cap.querySelector('.binders-lane-count')?.textContent ?? null,
+			capH: c.height, capStart: across ? c.left : c.top, capEnd: across ? c.right : c.bottom, headEnd: across ? h.right : h.bottom,
+			// across the line: the cap's middle against the line's
+			off: across ? Math.abs((c.top + c.height / 2) - (r.top + r.height / 2)) : Math.abs((c.left + c.width / 2) - (r.left + r.width / 2)),
+			// lines across: the head's own piece of the line, from its cap to the end of the column the heads stand on
+			piece: across ? { length: parseFloat(piece.width), wide: parseFloat(piece.height), same: piece.backgroundColor === line.backgroundColor, off: Math.abs((h.top + h.height / 2) - (r.top + r.height / 2)) } : null,
+			edge: getComputedStyle(cap).borderTopColor, color: line.backgroundColor, face: getComputedStyle(cap).backgroundColor,
+		};
+	});
+	return {
+		across, lanes, gutterEnd: across ? gutter.right : gutter.bottom,
+		paneEnd: across ? b.left + box.clientWidth : b.top + box.clientHeight,
+		boardEnd: across ? b.left - box.scrollLeft + box.scrollWidth : b.top - box.scrollTop + box.scrollHeight,
+		overflows: across ? box.scrollWidth > box.clientWidth + 1 : box.scrollHeight > box.clientHeight + 1,
+		lastCard: Math.max(...cards.map((c) => (across ? c.right : c.bottom))),
+		toolbar: R(document.querySelector('${LEAF} .binders-toolbar')).left,
+	};
+})()`);
+/** Every line runs to the far edge, and every head is joined to its line. */
+function runsToTheEdge(t, d, where) {
+	t.ok(d.lanes.length > 1, `${where}: the lines are there (${d.lanes.length})`);
+	const short = d.lanes.map((l, i) => [i, Math.round(d.boardEnd - l.end)]).filter(([, gap]) => Math.abs(gap) > 1);
+	t.eq(j(short), '[]', `${where}: every line ends at the board’s far edge (${Math.round(d.boardEnd)}), the empty ones too`);
+	t.ok(d.boardEnd >= d.paneEnd - 1, `${where}: which is the pane’s edge, or past it (${Math.round(d.boardEnd)} ≥ ${Math.round(d.paneEnd)})`);
+	if (!d.overflows) t.ok(Math.abs(d.boardEnd - d.paneEnd) <= 1, `${where}: with room to spare, the lines end exactly at the pane’s edge`);
+	t.ok(d.lanes.every((l) => l.whole && l.wide === 2), `${where}: each is drawn its whole length, two pixels wide`);
+	// the head: on the line, and no gap between it and the line
+	t.ok(d.lanes.every((l) => l.off <= 1), `${where}: each head’s middle is on its line (${j(d.lanes.map((l) => l.off))})`);
+	if (d.across) {
+		t.ok(d.lanes.every((l) => Math.abs(l.headEnd - d.gutterEnd) <= 1), `${where}: each head reaches the end of the column the heads stand on`);
+		t.ok(d.lanes.every((l) => Math.abs(l.piece.length - (l.headEnd - l.capEnd)) <= 1 && l.piece.wide === 2 && l.piece.same && l.piece.off <= 0.5), `${where}: and draws the line from its cap to there, in the line’s color, at the line’s height (${j(d.lanes.map((l) => l.piece))})`);
+	} else t.ok(d.lanes.every((l) => Math.abs(l.capEnd - d.gutterEnd) <= 1), `${where}: each head ends where the line comes into sight (${j(d.lanes.map((l) => Math.round(l.capEnd)))} / ${Math.round(d.gutterEnd)})`);
+}
+const resize = async (p, width, height) => { await metrics(p, width, height, false); await p.sleep(450); };
+const options = async (p, o) => { await p.ev(`(async () => { const v = ${VIEW}; await v.leaf.setViewState({ type: 'binders-view', active: true, state: { ...v.getState(), options: ${j({ arrange: 'label', ...o })} } }); })().then(() => 1)`); await p.sleep(500); };
+
+test('lines across run the full length of the pane: at any width, after a resize, and to the end of a board that scrolls sideways', async (p, h, t) => {
+	await setLabel(p, PART_ONE[0], 'Blue');
+	await openBy(p);
+	try {
+		// (the pane is resized under the open board each time)
+		for (const width of [1440, 1200, 1800]) {
+			await resize(p, width, 900);
+			const d = await drawn(p);
+			t.ok(!d.overflows, `${width}px: three cards fit`);
+			runsToTheEdge(t, d, `${width}px wide`);
+		}
+		// too narrow for the cards: the board scrolls sideways, and the lines go on to its end
+		await resize(p, 620, 900);
+		let d = await drawn(p);
+		t.ok(d.overflows && d.boardEnd > d.paneEnd + 100, `620px: the board is longer than the pane (${Math.round(d.boardEnd)} / ${Math.round(d.paneEnd)})`);
+		t.ok(d.boardEnd >= d.lastCard && d.boardEnd - d.lastCard < 40, `and ends a margin after its last card, no further (${Math.round(d.boardEnd - d.lastCard)})`);
+		runsToTheEdge(t, d, 'scrolling sideways, at the start');
+		await p.ev(`(() => { const b = document.querySelector('${LEAF} .binders-corkboard'); b.scrollLeft = b.scrollWidth; return 1; })()`);
+		await p.sleep(250);
+		d = await drawn(p);
+		runsToTheEdge(t, d, 'scrolled to the end');
+		t.ok(Math.abs(d.boardEnd - d.paneEnd) <= 1 && d.lanes.every((l) => Math.abs(l.end - d.paneEnd) <= 1), 'there the lines end at the pane’s edge');
+		t.ok(d.lanes.every((l) => l.capStart >= d.toolbar && l.capStart - d.toolbar < 16), `the heads have stayed at the pane’s near edge (${j(d.lanes.map((l) => Math.round(l.capStart)))})`);
+		// with unused labels hidden, and wide again
+		await options(p, { linesUnused: false });
+		await resize(p, 1440, 900);
+		d = await drawn(p);
+		t.eq(d.lanes.length, 2, 'with unused labels hidden: two lines');
+		runsToTheEdge(t, d, 'unused labels hidden');
+	} finally { await resize(p, p.width, p.height); }
+});
+
+test('lines down run the full height of the pane: at any height, after a resize, and to the foot of a board that scrolls', async (p, h, t) => {
+	await setLabel(p, PART_ONE[0], 'Blue');
+	await openBy(p, L + 'Part One', { lines: 'down' });
+	try {
+		for (const height of [900, 1300, 1100]) {
+			await resize(p, 1440, height);
+			const d = await drawn(p);
+			t.ok(!d.across && !d.overflows, `${height}px: lines down, three cards fit`);
+			runsToTheEdge(t, d, `${height}px tall`);
+		}
+		await resize(p, 1440, 420);
+		let d = await drawn(p);
+		t.ok(d.overflows && d.boardEnd > d.paneEnd + 100, `420px: the board is taller than the pane (${Math.round(d.boardEnd)} / ${Math.round(d.paneEnd)})`);
+		runsToTheEdge(t, d, 'scrolling down, at the top');
+		await p.ev(`(() => { const b = document.querySelector('${LEAF} .binders-corkboard'); b.scrollTop = b.scrollHeight; return 1; })()`);
+		await p.sleep(250);
+		d = await drawn(p);
+		runsToTheEdge(t, d, 'scrolled to the foot');
+		t.ok(d.lanes.every((l) => Math.abs(l.end - d.paneEnd) <= 1), 'there the lines end at the pane’s foot');
+	} finally { await resize(p, p.width, p.height); }
+});
+
+const LONG = 'Subplot: the harbor fire that nobody saw coming';
+test('a line’s head: its name and its count in one shape of the line’s color, joined to the line; its menu, the keyboard and its name as before', withTidy(async (p, h, t) => {
+	await p.ev(`(async () => { Object.assign(${PL}.settings, { labels: [...${PL}.settings.labels, { name: ${j(LONG)}, color: '#2a9d8f' }] }); await ${PL}.saveSettings(); })().then(() => 1)`);
+	await setLabel(p, PART_ONE[0], 'Blue');
+	await setLabel(p, PART_ONE[1], 'Blue');
+	await setLabel(p, PART_ONE[2], LONG);
+	await openBy(p);
+	const last = LABELS.length + 1;
+	const d = await drawn(p), blue = d.lanes[lane('Blue')], red = d.lanes[lane('Red')], none = d.lanes[0], long = d.lanes[last];
+	runsToTheEdge(t, d, 'the heads');
+	t.eq(j([blue.name, blue.count, blue.text]), j(['Blue', '2', 'Blue2']), 'a head holds the label’s name and how many notes are on its line, and nothing else');
+	t.eq(j([red.name, red.count]), j(['Red', null]), 'a line with no notes says no number');
+	t.eq(j([none.name, none.count]), j(['No label', null]), '“No label” has a head as the others do');
+	// one object: the head's border is the line's color (the label's), and its face a tint of it
+	const tone = await p.ev(`(() => { const probe = document.body.createDiv(); const as = (c) => { probe.style.color = c; return getComputedStyle(probe).color; }; const out = { line: as('color-mix(in oklch, var(--color-blue) 70%, transparent)'), plain: as('var(--background-modifier-border-hover)'), ground: as('var(--background-primary)') }; probe.remove(); return out; })()`);
+	t.eq(blue.color, tone.line, 'the line is the label’s color');
+	t.eq(blue.edge, blue.color, 'and its head’s border is the same color');
+	t.ok(blue.face !== tone.ground && red.face === tone.ground, `a head with notes has a tint of it; an empty one is an outline (${blue.face} / ${red.face})`);
+	t.eq(j([none.color, none.edge]), j([tone.plain, tone.plain]), '“No label”: line and head in the neutral grey');
+	t.ok(long.edge !== blue.edge && long.edge === long.color, 'a label with a color of its own: its head and line in that color');
+	// a long name is cut, not the count; the heads start where the toolbar does
+	const cut = await p.ev(`(() => { const n = document.querySelector('${cap(last)} > .binders-lane-name'), c = document.querySelector('${cap(last)} > .binders-lane-count').getBoundingClientRect(), k = document.querySelector('${cap(last)}').getBoundingClientRect(); return { cut: n.scrollWidth > n.clientWidth, count: c.width > 0 && c.right <= k.right, w: Math.round(k.width) }; })()`);
+	t.ok(cut.cut && cut.count && cut.w < 260, `a long name is cut short with its count still in sight (${j(cut)})`);
+	t.ok(d.lanes.every((l) => l.capStart >= d.toolbar && l.capStart - d.toolbar < 16), `the heads start at the toolbar’s edge (${Math.round(none.capStart)} / ${Math.round(d.toolbar)})`);
+	t.eq(new Set(d.lanes.map((l) => Math.round(l.capH))).size, 1, 'every head is the same height');
+	// what a head does is what it did: a button with a menu, named for its line, reached and pressed with the keyboard
+	const a = await p.ev(`(() => { const e = document.querySelector('${head(lane('Blue'))}'); return { role: e.getAttribute('role'), tab: e.tabIndex, popup: e.getAttribute('aria-haspopup'), name: e.getAttribute('aria-label') }; })()`);
+	t.eq(j([a.role, a.tab, a.popup]), j(['button', 0, 'menu']), 'a button with a menu, in the tab order');
+	t.ok(/^Blue: 2 notes, .* words\. Menu$/.test(a.name), `named for its line (${a.name})`);
+	await p.ev(`document.querySelector('${head(lane('Blue'))}').focus()`);
+	await p.key('Enter');
+	await p.sleep(300);
+	t.ok((await menuItems(p)).length > 1, 'Enter opens its menu');
+	const m = await p.ev(`(() => { const m = document.querySelector('.menu').getBoundingClientRect(), c = document.querySelector('${cap(lane('Blue'))}').getBoundingClientRect(); return { dx: Math.round(m.left - c.left), dy: Math.round(m.top - c.bottom) }; })()`);
+	t.ok(Math.abs(m.dx) <= 2 && m.dy >= 0 && m.dy <= 8, `under the head (${j(m)})`);
+	await closeMenus(p);
+	const c = await p.at(cap(0));
+	await p.click(c.x, c.y);
+	await p.sleep(300);
+	t.ok((await menuItems(p)).length > 1, 'a click on a head opens its menu');
+	await closeMenus(p);
+	// lines down: the same head, at the top of its line
+	await options(p, { lines: 'down' });
+	const dn = await drawn(p);
+	runsToTheEdge(t, dn, 'lines down');
+	t.eq(j([dn.lanes[lane('Blue')].text, dn.lanes[lane('Blue')].edge]), j(['Blue2', blue.edge]), 'lines down: the same head');
+}));
+
 // ---- a phone ----
-const touch = (p, type, x, y) => p.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' || type === 'touchCancel' ? [] : [{ x, y }] });
+const touch =(p, type, x, y) => p.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' || type === 'touchCancel' ? [] : [{ x, y }] });
 const tap = async (p, x, y) => { await touch(p, 'touchStart', x, y); await p.sleep(40); await touch(p, 'touchEnd'); await p.sleep(450); };
 const metrics = (p, width, height, mobile = true) => p.send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile });
 const NOISE = /ERR_|net::|DevTools|favicon|Failed to load resource|Electron Security Warning/;

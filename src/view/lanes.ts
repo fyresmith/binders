@@ -355,7 +355,7 @@ class ByLabel implements BinderMode {
 		});
 		this.cache = drawn;
 
-		// the lines, each with its name: its color, its name, how many notes are on it
+		// the lines, each with its head: its name and how many notes are on it, in its color
 		const chrome: HTMLElement[] = [createDiv({ cls: 'binders-lane-gutter', attr: { 'aria-hidden': 'true' } })];
 		const heads = createDiv({ cls: 'binders-lane-heads' });
 		chrome.push(heads);
@@ -374,11 +374,12 @@ class ByLabel implements BinderMode {
 			paintLabel(head, label, presets);
 			head.dataset.lane = String(li);
 			head.setCssProps({ '--binders-lane': String(li + 1) });
-			labelDot(head, label, presets);
-			head.createSpan({ cls: 'binders-lane-name', text: name });
-			if (u) head.createSpan({ cls: 'binders-lane-count', text: String(u.count) });
+			// (the cap is what's seen and pressed; the head around it is as long as the column, and carries the line on)
+			const cap = head.createSpan({ cls: 'binders-lane-cap' });
+			cap.createSpan({ cls: 'binders-lane-name', text: name });
+			if (u) cap.createSpan({ cls: 'binders-lane-count', text: String(u.count) });
 			const menuAt = (x: number, y: number) => this.laneMenu(label).showAtPosition({ x, y }, head.doc);
-			head.addEventListener('click', (e) => { e.stopPropagation(); const r = head.getBoundingClientRect(); menuAt(r.left, r.bottom + 4); });
+			head.addEventListener('click', (e) => { e.stopPropagation(); const r = cap.getBoundingClientRect(); menuAt(r.left, r.bottom + 4); });
 			head.addEventListener('contextmenu', (e) => { e.preventDefault(); e.stopPropagation(); menuAt(e.clientX, e.clientY); });
 			head.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); head.click(); } });
 		});

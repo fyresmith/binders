@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.2 (2026-10-02)
+
+### Changed
+
+- On the corkboard by label, each line now starts at a head in its color, holding the label's name and count, and runs to the far edge of the pane at any size.
+
 ## 0.12.1 (2026-10-02)
 
 ### Added
