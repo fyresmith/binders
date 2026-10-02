@@ -212,7 +212,7 @@ Approved by the maintainer on 2026-10-01, after a design study and a prototype (
   (`corkboard.ts`, the grid; `lanes.ts`, by label); `lanes-data.ts` is the pure model (the lines, the places, what a
   drop means), unit-tested in `tests/lanes.test.ts`; `card.ts` draws the card both boards use. e2e:
   `tests/e2e/specs-lanes.mjs`.
-- **Not done:** dropping a card onto a folder's card or onto a folder in the breadcrumb (as the grid allows) while arranged
+- **Not done:** dropping a card onto a folder's card (as the grid allows) while arranged
   by label; "Arrange by status".
 
 ### Outliner
@@ -503,7 +503,8 @@ Not built yet:
 - An inspector sidebar for the open scene (Obsidian's Properties view shows the same properties).
 - Status stamps on cards.
 - Arranging the corkboard by status (arrange by label is built).
-- Dropping a card onto a folder's card, or a folder in the breadcrumb, while the corkboard is arranged by label.
+- Dropping a card onto a folder's card while the corkboard is arranged by label (onto a folder in the breadcrumb works,
+  as it does on the grid and in the outliner).
 - Options for the outliner's totals row.
 - Templates for new scenes.
 - Dragging a note from the file explorer onto the corkboard (the other way, a card out to the explorer, is built).

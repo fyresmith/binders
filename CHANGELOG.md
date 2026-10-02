@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.91 (2026-10-02)
+
+### Changed
+
+- Nothing a writer will notice: the plan no longer lists dropping a card on a folder in the breadcrumb as missing when arranged by label.
+
 ## 0.12.90 (2026-10-02)
 
 ### Changed
