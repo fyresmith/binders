@@ -827,3 +827,39 @@ test('switching to the outliner from the keyboard puts the focus on a row, which
 	t.eq(await keyboardOn(p), 'Part One', 'the arrow keys go on from it');
 });
 
+
+test('a row or a column in hand when its button was let go unseen (another window came in front, so no pointerup came) goes back at the next move; the click after it is only a click', withTidy(async (p, h, t) => {
+	const before = await texts(p);
+	await open(p);
+	const press = (x, y) => p.send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
+	const loose = async (x, y) => { await p.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y, button: 'none', buttons: 0 }); await p.sleep(250); };
+	const left = () => p.ev(`document.querySelectorAll('.binders-outliner-ghost, .binders-drop-line, .binders-drop-indicator, .is-dragging').length + (document.body.classList.contains('is-grabbing') ? 1 : 0)`);
+	// a row
+	const a = await nameAt(p, 'Epilogue.md'), b = await nameAt(p, 'Prologue.md');
+	await p.move(a.x, a.y, 2);
+	await press(a.x, a.y);
+	await p.move(b.x + 20, b.y, 12, { buttons: 1 });
+	await p.sleep(200);
+	t.ok((await left()) > 0, 'the row is in hand');
+	await loose(b.x + 40, b.y + 2);
+	t.eq(await left(), 0, 'a move with no button down ends the drag, and nothing of it is left');
+	await p.click(b.x + 40, b.y + 2);
+	await p.sleep(600);
+	await flush(p);
+	t.eq(await read(p, NOTE), before[NOTE], 'the click that follows drops nothing');
+	t.eq(j(await selected(p)), j(['Prologue.md']), 'it selects the row it is on, as a click does');
+	// a column's header
+	const cols = await headers(p);
+	const s = await p.at(`${O} .binders-outliner-th[data-col="status"]`), l = await p.at(`${O} .binders-outliner-th[data-col="label"]`);
+	await p.move(s.x, s.y, 2);
+	await press(s.x, s.y);
+	await p.move(l.x - 20, l.y, 8, { buttons: 1 });
+	await p.sleep(200);
+	t.ok((await left()) > 0, 'the column is in hand');
+	await loose(l.x - 30, l.y);
+	t.eq(await left(), 0, 'a move with no button down ends that drag too');
+	await p.click(l.x - 30, l.y + 200);
+	await p.sleep(300);
+	t.eq(j(await headers(p)), j(cols), 'and the columns are in the order they were');
+	same(t, before, await texts(p));
+}));

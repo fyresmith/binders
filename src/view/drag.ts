@@ -102,6 +102,16 @@ export class Press<T> {
 	private onMove(e: PointerEvent): void {
 		const p = this.press;
 		if (!p || e.pointerId !== p.id) return;
+		// The button was let go where the page couldn't see it (another window came in front, so no `pointerup` came):
+		// the press is over, and what's in hand goes back where it was. It doesn't stay in hand for the next click to
+		// drop, and that click is a click (so not `cancel()`, which waits for the button still down to lift).
+		if (!p.touch && e.buttons === 0) {
+			const was = this.dragging;
+			this.endPress();
+			this.dragging = false;
+			if (was) this.host.end(false, e.clientX, e.clientY);
+			return;
+		}
 		if (this.dragging) { this.host.move(e.clientX, e.clientY); return; }
 		const d = Math.hypot(e.clientX - p.x, e.clientY - p.y);
 		if (p.touch && !p.armed) { if (d > 10) this.endPress(); return; } // a swipe: let it scroll

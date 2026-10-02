@@ -157,6 +157,9 @@ export class OutlinerColumns {
 		let on = false;
 		const move = (ev: PointerEvent) => {
 			if (ev.pointerId !== id) return;
+			// (the button was let go where the page couldn't see it, another window in front: the drag is over, and
+			// nothing is dropped; see `Press`)
+			if (ev.pointerType !== 'touch' && ev.buttons === 0) { stop(false); return; }
 			if (!on && Math.abs(ev.clientX - x0) < 4) return;
 			if (!on) { on = true; this.headerDragged = true; doc.body.addClass('is-grabbing'); }
 			ev.preventDefault();

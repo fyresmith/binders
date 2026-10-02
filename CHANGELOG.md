@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.56 (2026-10-02)
+
+### Fixed
+
+- A row in the outliner, a card on the board by label, or a column being moved or resized no longer stays in hand when the mouse button was let go while another window was in front.
+
 ## 0.12.55 (2026-10-02)
 
 ### Fixed
