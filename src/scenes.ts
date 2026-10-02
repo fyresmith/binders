@@ -1,6 +1,6 @@
 import { ButtonComponent, MarkdownView, Modal, Notice, Platform, Setting, TFile, TFolder, normalizePath, parseYaml, stringifyYaml, type App, type Editor, type TAbstractFile } from 'obsidian';
 import type BindersPlugin from './main';
-import { COMPILE_DEFAULTS, compile, frontFor, joinBodies, linkTargets, nextName, parts, pointsAt, repointLinks, synopsisFrom, tidyHead, tidyTail, titleFrom, useYaml, type CompileItem, type CompileOptions } from './scene-text';
+import { COMPILE_DEFAULTS, compile, frontFor, joinBodies, lf, linkTargets, nextName, parts, pointsAt, repointLinks, synopsisFrom, tidyHead, tidyTail, titleFrom, useYaml, type CompileItem, type CompileOptions } from './scene-text';
 import { COMPILED_KEPT } from './settings-data';
 import { saveEditors, saveTab } from './view/editable-embed';
 import { trashPhrase, updatesLinks } from './view/internals';
@@ -92,7 +92,6 @@ export async function splitScene(plugin: BindersPlugin, editor: Editor, file: TF
 	try {
 		await saveOpen(app, [file]);
 		let same = false;
-		const lf = (x: string) => x.replace(/\r\n?/g, '\n'); // (an editor has one kind of line break, whatever the file has)
 		for (let i = 0; i < 15 && !(same = lf(await app.vault.read(file)) === lf(editor.getValue())); i++) await sleep(100);
 		if (!same) { new Notice('This note is being changed somewhere else. Try again in a moment.'); return null; }
 	} catch (e) { say(e); return null; }

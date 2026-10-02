@@ -1,7 +1,7 @@
 import { MarkdownView, TFile, TFolder, normalizePath, type App, type Editor } from 'obsidian';
 import type { Binder } from './binders';
 import type BindersPlugin from './main';
-import { frontFor, parts } from './scene-text';
+import { frontFor, lf, parts } from './scene-text';
 import { saveOpen } from './scenes';
 import { SNAPSHOTS, SNAPSHOT_EXT, readSnapshot, readSnapshotName, snapshotFile, snapshotName } from './snapshot-text';
 import { liveEditors, saveTab } from './view/editable-embed';
@@ -33,7 +33,6 @@ export interface Snapshot {
 	body: string;
 }
 
-const lf = (s: string) => s.replace(/\r\n?/g, '\n');
 const isSnapshot = (f: unknown): f is TFile => f instanceof TFile && f.extension === SNAPSHOT_EXT;
 
 /** Is this a scene of a binder: a note in its order (not its binder or folder note, nor one a Longform project
@@ -212,6 +211,7 @@ export async function followSnapshots(app: App, from: string, to: string, what: 
 /** Snapshots whose note is gone (deleted, merged into another, moved out of the binder, or renamed where Binders
     couldn't see): each folder of them, by the path the note had. They're kept until the writer deletes them. */
 export interface Leftover { dir: TFolder; path: string; count: number }
+/** The snapshot folders in a binder whose note is gone, by the path the note had. */
 export function leftovers(plugin: BindersPlugin, binder: Binder): Leftover[] {
 	const root = plugin.binders.snapshotsFolder(binder), out: Leftover[] = [];
 	if (!root) return out;

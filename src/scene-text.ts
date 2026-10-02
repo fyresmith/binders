@@ -106,6 +106,10 @@ export const forRender = (body: string): string => (/^\uFEFF?---/.test(body) ? '
 /** Where a note's text starts, after its properties: what the manuscript and focus mode count a cursor's place from. */
 export const bodyStart = (text: string): number => parts(text).front.length;
 
+/** A text with one kind of line break: an editor has only `\n`, whatever the file has, so two texts are compared
+    through this. */
+export const lf = (text: string): string => text.replace(/\r\n?/g, '\n');
+
 /** Where position `p` of `was` is in `now`, the same text with one stretch of it changed: before the change it
     stays, after it it moves along, inside it it goes to the change's end. */
 export function moved(was: string, now: string, p: number): number {
@@ -283,6 +287,8 @@ export interface CompileOptions {
 	stripComments: boolean;
 }
 
+/** How a compile starts: the break between notes, headings for folders, no headings for scenes, a title, comments
+    left out. */
 export const COMPILE_DEFAULTS: CompileOptions = { separator: '* * *', folderHeadings: true, sceneHeadings: false, title: true, stripComments: true };
 
 /** One thing to compile, in reading order: a folder's name (at its depth), or a scene's name and its text (without

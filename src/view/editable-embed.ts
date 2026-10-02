@@ -2,6 +2,7 @@ import type { App, Component, Editor, MarkdownView, TFile } from 'obsidian';
 import { historyField } from '@codemirror/commands';
 import { EditorState, StateEffect, Transaction, type Extension } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
+import { lf } from '../scene-text';
 
 /* Undocumented: the editable Markdown embed that Canvas, hover popovers and `![[note]]` use. This module is the only
    place Binders touches it; every internal it relies on is checked in `embedSupported()` and listed in
@@ -135,7 +136,6 @@ export async function saveTab(view: MarkdownView): Promise<void> {
 	const v = view as unknown as { saving?: unknown };
 	const landed = async () => { for (let i = 0; v.saving === true && i < 1000; i++) await sleep(10); };
 	await landed(); // a write already on its way lands first
-	const lf = (s: string) => s.replace(/\r\n?/g, '\n');
 	if (view.file && lf(view.getViewData()) === lf(await view.app.vault.read(view.file))) return;
 	await view.save();
 	await landed();
