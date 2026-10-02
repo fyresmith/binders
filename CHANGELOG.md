@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.50 (2026-10-02)
+
+### Changed
+
+- Nothing a writer will notice: the file format document says what Binders takes for a note's properties, and what setting a property does to them.
+
 ## 0.12.49 (2026-10-02)
 
 ### Fixed

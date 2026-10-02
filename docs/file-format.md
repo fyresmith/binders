@@ -157,6 +157,19 @@ the commands you run on it:
 - "Rewrite" with "Start from a blank page" and "Bring back" in the Snapshots dialog replace a note's text, after
   keeping it as a snapshot (below). The note's properties are left byte for byte.
 
+### What counts as a note's properties
+
+A block that opens with `---` on the note's first line and closes at the next line starting with `---`, if what is
+between reads as properties (YAML that is a mapping) or is empty (blank lines and `#` comments only). Anything else
+between two such lines (a paragraph, a list, YAML that can't be read) is the note's text, and so is everything after
+it: a note that opens with a rule, a paragraph and another rule has no properties. This is what Obsidian's own cache
+and editor do, and Binders uses the one rule everywhere: merge, split, compile, synopsis from text, snapshots, the
+manuscript and focus mode. A byte-order mark at the start of a file is kept.
+
+Setting a property goes through Obsidian, which writes the whole properties block again in its own form: comments in
+the block are dropped, and values are written as YAML reads them (`0123` becomes `123`, `1.0` becomes `1`). Obsidian's
+own Properties view does the same. The note's text is never touched.
+
 ## Snapshots
 
 A binder can have a folder named `Snapshots` at its top. It holds earlier texts of the binder's notes and is not part
