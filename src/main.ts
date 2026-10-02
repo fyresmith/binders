@@ -6,7 +6,7 @@ import { openForRename } from './view/internals';
 import { corkboard } from './view/corkboard';
 import { byLabel } from './view/lanes';
 import { BindersSettingTab, readSettings, type BindersSettings } from './settings';
-import { installExplorer, renameInExplorer, type Explorer } from './explorer';
+import { dropNewFolderItem, installExplorer, renameInExplorer, type Explorer } from './explorer';
 import type { ModeFactory } from './view/mode';
 import { outliner } from './view/outliner';
 import { manuscript } from './view/manuscript';
@@ -54,7 +54,7 @@ export default class BindersPlugin extends Plugin {
 		this.registerView(SNAPSHOT_VIEW, (leaf) => new SnapshotView(leaf, this));
 		// (not in a card's own menu, which has these already)
 		this.registerEvent(this.app.workspace.on('file-menu', (menu, file, source) => { if (source !== ITEM_MENU) this.fileMenu(menu, file, source); }));
-		this.registerEvent(this.app.workspace.on('files-menu', (menu, files, source) => { if (source !== ITEM_MENU) this.filesMenu(menu, files); }));
+		this.registerEvent(this.app.workspace.on('files-menu', (menu, files, source) => { if (source !== ITEM_MENU) this.filesMenu(menu, files, source); }));
 		const active = () => this.app.workspace.getActiveFile();
 		this.snapshotCommands(active);
 		this.addCommand({ id: 'open-binder', name: 'Open binder', checkCallback: (checking) => {
@@ -269,12 +269,16 @@ export default class BindersPlugin extends Plugin {
 	}
 
 	/** Several items selected in the file explorer, all in one binder: put them in a folder, or join the notes. */
-	private filesMenu(menu: Menu, files: TAbstractFile[]): void {
+	private filesMenu(menu: Menu, files: TAbstractFile[], source = ''): void {
 		const b = this.binders, binder = files[0] ? b.binderOf(files[0]) : null;
 		if (!binder || files.length < 2 || b.problem(files[0]) || !files.every((f) => b.binderOf(f) === binder && f !== binder.folder && !b.isHiddenNote(f))) return;
 		// in the order they show, whatever order they were clicked in
 		const items = b.inOrder(files);
 		if (binder.kind === 'binder' && items.every((f) => f.parent === items[0].parent)) {
+			// One item makes a folder of a selection, not two. In the file explorer Obsidian has its own, which in a
+			// binder would put the folder last, with the notes in the order they were clicked, and couldn't be undone:
+			// this one is there in its place. (If Obsidian's can't be found, both show, as they did.)
+			if (source === 'file-explorer-context-menu') dropNewFolderItem(menu);
 			menu.addItem((i) => i.setSection('action').setTitle('New folder from selection').setIcon('folder-plus').onClick(async () => {
 				const made = await this.tell(b.group(items));
 				if (made) window.setTimeout(() => renameInExplorer(this.app, made), 100); // (once the explorer has its row)

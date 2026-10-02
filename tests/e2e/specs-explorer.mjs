@@ -501,6 +501,9 @@ test('several items selected in the explorer: “New folder from selection” (n
 	await p.right(a.x, a.y);
 	const items = await menuTitles(p);
 	t.ok(items.includes('New folder from selection') && items.includes('Merge 2 notes'), 'the selection’s menu has Binders’ items: ' + items.join(', '));
+	// Obsidian's own "New folder with selection (2 items)" would put the folder last, the notes in the order clicked
+	t.eq(JSON.stringify(items.filter((x) => /^New folder (with|from) selection/.test(x))), JSON.stringify(['New folder from selection']), 'one item makes a folder of the selection, Binders’: Obsidian’s own isn’t beside it');
+	t.ok(items.includes('Delete'), 'Obsidian’s other item for a selection is still there: ' + items.join(', '));
 	await pick(p, 'New folder from selection');
 	for (let i = 0; i < 30 && !(await p.ev(`!!app.vault.getAbstractFileByPath('The Lighthouse/Part One/Untitled/Arrival.md')`)); i++) await p.sleep(100);
 	same(t, (await listOf(p, 'Part One/Untitled/Storm warning')).slice(1, 6), ['Part One/', 'Part One/Untitled/', 'Part One/Untitled/Arrival', 'Part One/Untitled/Storm warning', 'Part One/The keeper'], 'a folder where the first was, holding both in binder order');
@@ -517,12 +520,45 @@ test('several items selected in the explorer: “New folder from selection” (n
 	await p.ev(`app.vault.create('Loose note.md', 'x').then(() => 1)`);
 	await p.sleep(300);
 	const k = await rowAt(p, 'The Lighthouse/Part One/The keeper.md'), loose = await rowAt(p, 'Loose note.md');
-	await p.click(k.x, k.y);
+	await p.ev(`(() => { ${EXP}.tree?.clearSelectedDoms?.(); return 1; })()`);
+	await p.click(k.x, k.y, { modifiers: 1 });
 	await p.click(loose.x, loose.y, { modifiers: 1 });
 	await p.right(loose.x, loose.y);
 	const mixed = await menuTitles(p);
 	t.ok(mixed.length > 0 && !mixed.some((x) => x === 'New folder from selection' || /^Merge \d/.test(x)), 'a selection that isn’t all in one binder has no Binders items: ' + mixed.join(', '));
+	t.eq(mixed.filter((x) => /^New folder with selection/.test(x)).length, 1, 'and Obsidian’s own “New folder with selection” is left where Binders offers none: ' + mixed.join(', '));
 	await p.key('Escape');
+	// notes of two folders of one binder: Binders offers no folder for them, so Obsidian's own stays
+	const pro = await rowAt(p, 'The Lighthouse/Prologue.md'), kp = await rowAt(p, 'The Lighthouse/Part One/The keeper.md');
+	await p.ev(`(() => { ${EXP}.tree?.clearSelectedDoms?.(); return 1; })()`);
+	await p.click(pro.x, pro.y, { modifiers: 1 });
+	await p.click(kp.x, kp.y, { modifiers: 1 });
+	await p.right(kp.x, kp.y);
+	const two = await menuTitles(p);
+	t.eq(JSON.stringify(two.filter((x) => /^New folder (with|from) selection/.test(x))), JSON.stringify(['New folder with selection (2 items)']), 'notes of two folders: still one item, Obsidian’s: ' + two.join(', '));
+	await p.key('Escape');
+});
+
+test('a selection’s menu that isn’t built as Obsidian builds it now (its own “new folder” item not found): Binders’ items are added, nothing is taken out', async (p, h, t) => {
+	await rows(p);
+	// a menu of Obsidian's own kind, got from one it sends out
+	await p.ev(`(() => { window.__menuRef = app.workspace.on('file-menu', (menu) => { window.__Menu = menu.constructor; }); return 1; })()`);
+	try {
+		const a = await rowAt(p, 'The Lighthouse/Part One/Arrival.md');
+		await p.right(a.x, a.y); await p.sleep(250);
+		await p.key('Escape'); await p.sleep(150);
+		t.ok(await p.ev(`typeof window.__Menu === 'function'`), 'a menu was sent');
+		const titles = (extra) => p.ev(`(() => { const m = new window.__Menu(); ${extra} app.workspace.trigger('files-menu', m, ['The Lighthouse/Part One/Arrival.md', 'The Lighthouse/Part One/Storm warning.md'].map(x => app.vault.getAbstractFileByPath(x)), 'file-explorer-context-menu', null); return m.items.map(i => i.titleEl?.textContent ?? '---'); })()`);
+		// (Obsidian's own plugins add theirs to any selection's menu too: "Move 2 items to...", "Bookmark...")
+		const ours = (m) => m.filter((x) => ['Theirs', 'Also theirs', 'New folder with selection (2 items)', 'Delete', 'New folder from selection', 'Merge 2 notes'].includes(x));
+		const plain = await titles('');
+		same(t, ours(plain), ['New folder from selection', 'Merge 2 notes'], 'a menu without Obsidian’s item: Binders’ two are added: ' + plain.join(', '));
+		// an item that looks half like Obsidian's (the section, another icon) and one that has the icon in another section
+		const others = await titles(`m.addItem(i => i.setSection('action-primary').setTitle('Theirs').setIcon('lucide-file')); m.addItem(i => i.setSection('action').setTitle('Also theirs').setIcon('lucide-folder-plus'));`);
+		same(t, ours(others), ['Theirs', 'Also theirs', 'New folder from selection', 'Merge 2 notes'], 'another plugin’s items are left alone');
+		t.eq(others.length, plain.length + 2, 'and nothing else is taken out');
+		same(t, ours(await titles(`m.addItem(i => i.setSection('action-primary').setTitle('New folder with selection (2 items)').setIcon('lucide-folder-plus')); m.addItem(i => i.setSection('danger').setTitle('Delete').setIcon('lucide-trash-2'));`)), ['Delete', 'New folder from selection', 'Merge 2 notes'], 'Obsidian’s own, as it adds it today, is the one taken out');
+	} finally { await p.ev(`(() => { app.workspace.offref(window.__menuRef); delete window.__Menu; delete window.__menuRef; return 1; })()`); }
 });
 
 // Another plugin may patch the explorer's `getSortedFolderItems` too. One that assigns its own function and, turned

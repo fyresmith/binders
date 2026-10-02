@@ -6,7 +6,7 @@
    to show in a folder. Everything undocumented is in the "Internals" block below and listed in docs/internals.md. If the
    method is missing, Binders says so once and the explorer keeps Obsidian's own order. */
 import { around } from 'monkey-around';
-import { Keymap, Notice, Platform, TAbstractFile, TFolder, type App, type EventRef, type PaneType, type Plugin, type View } from 'obsidian';
+import { Keymap, Notice, Platform, TAbstractFile, TFolder, type App, type EventRef, type Menu, type PaneType, type Plugin, type View } from 'obsidian';
 
 /** What the explorer needs to know about binders. The binder store implements it. */
 export interface ExplorerSource {
@@ -95,6 +95,28 @@ function explorerViews(app: App): { views: ExplorerView[]; missing: boolean } {
 		if (isExplorerView(leaf.view)) views.push(leaf.view); else missing = true;
 	}
 	return { views, missing };
+}
+
+/* The menu of several items selected in the file explorer. Obsidian puts its own "New folder with selection" in it
+   before it sends `files-menu`: one of the menu's `items`, in the section "action-primary", with the folder-plus icon
+   (the title is in the app's language, so it isn't what the item is known by). The menu is drawn from `items` when
+   it's shown, so an item taken out of the list before then never appears. */
+interface MenuItemLike { section?: unknown; dom?: { querySelector?: unknown } | null }
+
+/** Takes Obsidian's own "New folder with selection" out of the menu of a selection in the file explorer, where
+    Binders offers "New folder from selection" in its place: in a binder the folder belongs where the notes were, in
+    their order, as a change "Undo last move" takes back, which Obsidian's own can't know. False, with the menu as it
+    was, if the item isn't found: this Obsidian builds the menu some other way, and both items show. */
+export function dropNewFolderItem(menu: Menu): boolean {
+	try {
+		const items = (menu as unknown as { items?: unknown }).items;
+		if (!Array.isArray(items)) return false;
+		const theirs = (it: MenuItemLike | null): boolean => !!it && it.section === 'action-primary' && typeof it.dom?.querySelector === 'function' && !!(it.dom as HTMLElement).querySelector('.lucide-folder-plus');
+		const at = (items as (MenuItemLike | null)[]).findIndex(theirs);
+		if (at < 0) return false;
+		items.splice(at, 1);
+		return true;
+	} catch { return false; }
 }
 
 /** The method Binders patches, as the explorer's class has it now: only to tell whether it's still the same one. */

@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.58 (2026-10-02)
+
+### Fixed
+
+- With several notes of a binder selected in the file explorer, the menu no longer offers two ways to make a folder of them. Binders' own, which keeps their place and order and can be undone, is the one shown.
+
 ## 0.12.57 (2026-10-02)
 
 ### Fixed
