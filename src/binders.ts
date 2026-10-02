@@ -2,6 +2,7 @@ import { Events, Notice, TFile, TFolder, normalizePath, stringifyYaml, type App,
 import type { ExplorerSource } from './explorer';
 import type BindersPlugin from './main';
 import { applyOps, checkFormat, diskPath, FORMAT_VERSION, isBinderNote, isFolderNote, nameOf, orderChildren, readIndex, relPath, stepIndex, UnsupportedBinder, type ListOp } from './model';
+import { editProperties } from './properties';
 import { nextName } from './scene-text';
 import { MoveHistory, type PropChange, type Undo } from './undo';
 import { SNAPSHOTS } from './snapshot-text';
@@ -75,7 +76,7 @@ import { applySceneOps, conversionPlan, isIgnored, isLongformIndex, longformRunn
      convertToBinder(binder, opts): Promise<TFile>     Longform projects: makes it a binder; returns the binder note
 
    Properties
-     setProps(file, patch): Promise<void>              sets properties (undefined removes one) through processFrontMatter
+     setProps(file, patch): Promise<void>              sets properties (undefined removes one) through editProperties
      editProps(file, edit): Promise<void>              changes properties in place, in one write, from what the note says
                                                        at the time of writing (e.g. renaming a key inside an object)
 
@@ -552,7 +553,7 @@ export class BinderStore extends Events implements ExplorerSource {
 	/** Gives every item the same value of a property (`undefined` takes it away): a note's own, a folder's in its folder
 	    note (made if need be). With `to`, the items are put there too, as `put` does. One change that "Undo" takes back
 	    whole, the property and the places; `label` says what it was. Only that property is written, through
-	    processFrontMatter: a note's text is never touched. */
+	    editProperties: a note's text is never touched. */
 	label(items: TAbstractFile[], key: string, value: unknown, label: string, to?: { folder: TFolder; anchor: TAbstractFile | null; depth?: number }): Promise<void> {
 		const first = items[0]?.parent;
 		if (first) this.writable(first);
@@ -615,7 +616,7 @@ export class BinderStore extends Events implements ExplorerSource {
 	async editProps(file: TFile, edit: (fm: Record<string, unknown>) => void): Promise<void> {
 		const s = this.at(file.path);
 		if (s && s.note === file && s.problem) throw new UnsupportedBinder(s.problem);
-		await this.app.fileManager.processFrontMatter(file, edit);
+		await editProperties(this.app, file, edit);
 	}
 
 	async newScene(folder: TFolder, index = Infinity, title = 'Untitled', depth?: number, content = ''): Promise<TFile> {
@@ -772,7 +773,7 @@ export class BinderStore extends Events implements ExplorerSource {
 			const theirs = (fm: Record<string, unknown>) => fm.contents != null && !Array.isArray(fm.contents);
 			const refuse = () => new Error(`“${existing.basename}” already has a “contents” property that isn’t a list. Rename or remove it to make “${folder.name}” a binder.`);
 			if (theirs(this.app.metadataCache.getFileCache(existing)?.frontmatter ?? {})) throw refuse();
-			await this.app.fileManager.processFrontMatter(existing, (fm: Record<string, unknown>) => {
+			await editProperties(this.app, existing, (fm) => {
 				if (theirs(fm)) throw refuse(); // checked again on what the note says now
 				fm.binder = FORMAT_VERSION;
 				if (fm.contents == null) fm.contents = contents.map(diskPath);
@@ -816,13 +817,13 @@ export class BinderStore extends Events implements ExplorerSource {
 			const binderProps = (fm: Record<string, unknown>) => { fm.binder = FORMAT_VERSION; fm.contents = plan.contents.map(diskPath); };
 			const dropLongform = (fm: Record<string, unknown>) => { if (opts.removeLongform) delete fm.longform; };
 			if (!plan.creates) {
-				await fileManager.processFrontMatter(s.note, (fm: Record<string, unknown>) => { binderProps(fm); dropLongform(fm); });
+				await editProperties(this.app, s.note, (fm) => { binderProps(fm); dropLongform(fm); });
 				return s.note;
 			}
 			const props: Record<string, unknown> = {};
 			binderProps(props);
 			const note = await vault.create(plan.note, `---\n${stringifyYaml(props)}---\n`);
-			if (opts.removeLongform) await fileManager.processFrontMatter(s.note, dropLongform);
+			if (opts.removeLongform) await editProperties(this.app, s.note, dropLongform);
 			return note;
 		} catch (e) {
 			s.frozen = false;

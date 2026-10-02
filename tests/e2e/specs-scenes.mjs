@@ -430,6 +430,90 @@ test('in the manuscript the start of a section is the start of its text: before 
 	for (const [n, text] of KINDS) t.eq(disk(p, `Odd/${n}.md`), text, `“${n}” is byte for byte what it was`);
 }));
 
+// ---- a property written to a note that opens with a block of text (properties.ts) ----
+// Obsidian's own `processFrontMatter` takes such a block for properties: it writes the property over the paragraph
+// between the rules, or (a list) writes nothing and says nothing, or (YAML it can't read) throws. Binders writes the
+// property in a block of its own above the note's text, and every byte of the note stays.
+const TEXT_BLOCKS = KINDS.filter(([, , front]) => !front);
+/** What a note must be once properties are written above it: the mark, the new block in the note's own line breaks, the note. */
+const above = (text, yaml) => { const br = text.includes('\r\n') ? '\r\n' : '\n'; return `${text.startsWith(BOM) ? BOM : ''}---${br}${yaml.replace(/\n/g, br)}---${br}${noBom(text)}`; };
+
+test('a status, a label, a target and “Include in compile” set on a note that opens with a block of text: written above it, not a byte of the note dropped', withTidy(async (p, h, t) => {
+	const WRITES = [
+		['status', `${VIEW}.setProps(f, { status: 'Done' })`, 'status: Done\n'],
+		['label', `${B}.label([f], ${PL}.settings.labelProp, 'Red', 'Label “x”')`, 'label: Red\n'],
+		['target', `${VIEW}.setProps(f, { target: 500 })`, 'target: 500\n'],
+		['compile', `${B}.setProps(f, { compile: false })`, 'compile: false\n'],
+	];
+	await odd(p, [...TEXT_BLOCKS.flatMap(([name, text]) => WRITES.map(([w]) => [`${name} ${w}`, text])), ['z none', RULED]]);
+	await openView(p, 'Odd');
+	t.eq(TEXT_BLOCKS.length, 6, 'a rule and a paragraph (three ways), prose, bad YAML, a list');
+	for (const [name, text] of TEXT_BLOCKS) {
+		for (const [w, call, yaml] of WRITES) {
+			const path = `Odd/${name} ${w}.md`;
+			t.eq(await fm(p, path), null, `“${name}”: Obsidian finds no properties in it`);
+			const err = await p.ev(`(async () => { const f = ${file(path)}; try { await ${call}; return null; } catch (e) { return String(e); } })()`);
+			t.eq(err, null, `“${name}”, ${w}: written without complaint`);
+			t.eq(disk(p, path), above(text, yaml), `“${name}”, ${w}: the property in a block of its own, then the note byte for byte`);
+		}
+	}
+	// and Obsidian reads them as properties now; a second one joins the first, the text still whole
+	await p.sleep(600);
+	for (const [name, text] of TEXT_BLOCKS) {
+		const path = `Odd/${name} status.md`;
+		t.eq((await fm(p, path))?.status, 'Done', `“${name}”: the status is a property Obsidian reads`);
+		await p.ev(`${B}.setProps(${file(path)}, { label: 'Blue' }).then(() => 1)`);
+		const f = await until(p, `(() => { const c = app.metadataCache.getFileCache(${file(path)})?.frontmatter; return c?.label === 'Blue' ? JSON.stringify(c) : null; })()`), now = disk(p, path);
+		t.eq(f, j({ status: 'Done', label: 'Blue' }), `“${name}”: a second property joins the first`);
+		t.ok(now.endsWith(noBom(text)), `“${name}”: and the note’s text is still whole under them: ${j(now.slice(0, 60))}`);
+	}
+	// a note with a byte-order mark and real properties: changed where they are, the mark still first (Obsidian's own
+	// road finds no properties after a mark, and would write a second block above it)
+	const marked = KINDS.find(([n]) => n === 'i props BOM');
+	await p.ev(`(async () => { await app.vault.adapter.write('Odd/zz marked.md', ${j(marked[1])}); await new Promise(r => setTimeout(r, 700)); await ${B}.setProps(${file('Odd/zz marked.md')}, { label: 'Blue' }); })().then(() => 1)`);
+	t.eq(disk(p, 'Odd/zz marked.md'), BOM + PROPS.replace(/---\n$/, 'label: Blue\n---\n') + textOfKind(marked), 'a note with a byte-order mark: the property joins the ones it has, the mark and the text as they were');
+	// a property taken away from a note that has none: nothing to write, nothing written
+	await p.ev(`${B}.setProps(${file('Odd/z none.md')}, { compile: undefined }).then(() => 1)`);
+	await p.sleep(300);
+	t.eq(disk(p, 'Odd/z none.md'), RULED, 'a property taken away from a note that has none: the note is as it was');
+}));
+
+test('from the corkboard, on notes that open with a rule: “Include in compile”, a synopsis typed on the card, “Set synopsis from text”, and a merge’s joined synopsis keep the first paragraph', withTidy(async (p, h, t) => {
+	const SYN = '---\nsynopsis: The second.\n---\nSecond text.\n';
+	await odd(p, [['a rule', RULED], ['b rule CRLF', crlf(RULED)], ['c rule', RULED], ['d rule', RULED], ['e other', SYN]]);
+	await openView(p, 'Odd');
+	const menu = async (name, item) => { const c = await p.at(card(`Odd/${name}.md`)); await p.right(c.x, c.t + 12); await clickMenu(p, item); };
+	// left out of the compile, from the card's menu
+	await menu('a rule', 'Include in compile');
+	await until(p, `app.vault.adapter.read('Odd/a rule.md').then(s => s.includes('compile'))`);
+	t.eq(disk(p, 'Odd/a rule.md'), above(RULED, 'compile: false\n'), '“Include in compile”: the property above, the note whole');
+	// a synopsis typed on the card, in a file with Windows line breaks
+	const syn = await p.at(`${card('Odd/b rule CRLF.md')} .binders-card-synopsis`);
+	// (a card is picked by the first click, and its synopsis edited by the next)
+	for (let i = 0; i < 3 && !(await p.ev(`!!document.activeElement?.matches('.binders-card-synopsis textarea')`)); i++) { await p.click(syn.x, syn.y); await p.sleep(250); }
+	await p.type('Typed on the card.');
+	await p.key('Enter', 'ctrl');
+	await until(p, `app.vault.adapter.read('Odd/b rule CRLF.md').then(s => s.includes('Typed'))`);
+	t.eq(disk(p, 'Odd/b rule CRLF.md'), above(crlf(RULED), 'synopsis: Typed on the card.\n'), 'a synopsis typed on the card: above, in the note’s own line breaks, the note whole');
+	// a synopsis from the text: its first paragraph, the one between the rules
+	await p.sleep(400);
+	await menu('c rule', 'Set synopsis from text');
+	await until(p, `app.vault.adapter.read('Odd/c rule.md').then(s => s.includes('synopsis'))`);
+	t.eq(disk(p, 'Odd/c rule.md'), above(RULED, 'synopsis: Lost paragraph.\n'), '“Set synopsis from text”: the first paragraph is the synopsis, and is still in the note');
+	// a merge: the other note's synopsis becomes the merged note's
+	await closeMenus(p);
+	await merge(p, ['Odd/d rule.md', 'Odd/e other.md']);
+	await until(p, `app.vault.adapter.read('Odd/d rule.md').then(s => s.includes('synopsis'))`);
+	t.eq(disk(p, 'Odd/d rule.md'), above(joined([RULED, 'Second text.\n']), 'synopsis: The second.\n'), 'a merge: both texts whole, the joined synopsis above them');
+}));
+
+test('“Make this folder a binder” where the folder’s own note opens with a block of text: the binder’s properties go above it', withTidy(async (p, h, t) => {
+	await p.ev(`(async () => { await app.vault.createFolder('Odd'); await app.vault.adapter.write('Odd/Odd.md', ${j(RULED)}); await app.vault.adapter.write('Odd/Scene.md', 'A scene.\\n'); await new Promise(r => setTimeout(r, 800)); await ${B}.makeBinder(app.vault.getAbstractFileByPath('Odd')); await ${B}.flush(); })().then(() => 1)`);
+	await p.sleep(400);
+	t.eq(disk(p, 'Odd/Odd.md'), `---\nbinder: 1\ncontents:\n  - Scene\n---\n${RULED}`, 'the folder’s note is the binder note now, and its text is whole');
+	t.ok(await p.ev(`!!${B}.binderOf('Odd/Scene.md')`), 'and the folder is a binder');
+}));
+
 test('a note made beside one it’s named after (“Arrival 1”, as “Make a copy” does) goes right after it', withTidy(async (p, h, t) => {
 	await p.ev(`app.vault.copy(${file(L + 'Part One/Arrival.md')}, ${j(L + 'Part One/Arrival 1.md')}).then(() => 1)`);
 	await until(p, `app.vault.adapter.exists(${j(L + 'Part One/Arrival 1.md')})`);

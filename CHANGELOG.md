@@ -3,6 +3,13 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.57 (2026-10-02)
+
+### Fixed
+
+- Setting a status, label, target or synopsis on a note that opens with a rule (and has another further down) no longer deletes the paragraph between them: the properties are added above the note's text.
+- A note saved with a byte-order mark keeps its properties when one is changed.
+
 ## 0.12.56 (2026-10-02)
 
 ### Fixed

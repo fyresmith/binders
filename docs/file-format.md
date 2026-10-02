@@ -170,6 +170,10 @@ Setting a property goes through Obsidian, which writes the whole properties bloc
 the block are dropped, and values are written as YAML reads them (`0123` becomes `123`, `1.0` becomes `1`). Obsidian's
 own Properties view does the same. The note's text is never touched.
 
+Two kinds of note are written by Binders itself, because Obsidian's writer would damage them: a note that opens with a
+`---` block that isn't properties gets its properties as a new block above that text, and a note that starts with a
+byte-order mark has its block rewritten in place after the mark.
+
 ## Snapshots
 
 A binder can have a folder named `Snapshots` at its top. It holds earlier texts of the binder's notes and is not part
