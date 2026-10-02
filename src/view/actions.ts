@@ -1,6 +1,6 @@
 import { Menu, Notice, Platform, TFile, TFolder, normalizePath, type TAbstractFile } from 'obsidian';
 import { COMPILE_PROP, CompileModal, compiles, mergeScenes, saveOpen, synopsisFromText } from '../scenes';
-import { openPluginSettings, submenu, trashPhrase } from './internals';
+import { fitItemMenu, openPluginSettings, submenu, trashPhrase } from './internals';
 import { hexColor, labelCss, labelDot, labelName, presetOf } from './labels';
 import { ask, confirm, pickColor } from './modals';
 import type { ModeContext } from './mode';
@@ -321,5 +321,6 @@ export function itemMenu(ctx: ModeContext, items: TAbstractFile[], h: Hooks): Me
 	// last, after what Obsidian and other plugins add, as in the file explorer's own menu (a menu's sections come in
 	// the order they're first used)
 	if (!ro && h.remove) menu.addItem((i) => i.setSection('danger').setTitle(one ? 'Delete' : `Delete ${items.length} items`).setIcon('trash-2').setWarning(true).onClick(() => h.remove?.(items)));
+	if (!Platform.isPhone) fitItemMenu(menu);
 	return menu;
 }

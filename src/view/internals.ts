@@ -20,6 +20,13 @@ export function keepOpen(item: MenuItem, pick: () => boolean): boolean {
 	return true;
 }
 
+/** Long tablet popovers need room to scroll. Without the menu's undocumented DOM, keep its native sizing. */
+export function fitItemMenu(menu: Menu): void {
+	const dom = (menu as unknown as { dom?: HTMLElement }).dom;
+	if (!dom || typeof dom.addClass !== 'function') return;
+	dom.addClass('binders-item-menu');
+}
+
 export function submenu(item: MenuItem, build: (menu: Menu) => void, root?: Menu): void {
 	if (hasSubmenu(item)) {
 		try {

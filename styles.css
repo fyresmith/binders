@@ -1486,6 +1486,11 @@
 	vertical-align: middle;
 }
 
+.menu.binders-item-menu {
+	max-height: calc(100vh - 64px);
+	overflow-y: auto;
+}
+
 .menu-item-title .binders-label-dot {
 	margin-inline-end: var(--size-4-2);
 }
