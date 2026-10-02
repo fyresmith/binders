@@ -328,8 +328,10 @@ export class BinderView extends ItemView {
 		const options = { ...this.options, arrange: to, ...(lines ? { lines } : {}) };
 		if (!swap) { this.setOptions(options); return; }
 		this.keepPlace();
-		// (the card the writer went to is the one the other board opens on, as when the mode is switched)
-		const now = this.current?.current?.() ?? null, on = now && now !== this.enteredOn ? now : null;
+		// (the card the writer went to is the one the other board opens on, as when the mode is switched: one a
+		// switch of mode carried here is still it, until they go to something else)
+		const now = this.current?.current?.() ?? null, on = now && now !== this.enteredOn ? now : this.carried;
+		this.carried = on;
 		const focused = this.contentEl.contains(this.contentEl.doc.activeElement);
 		this.options = options;
 		this.remember();

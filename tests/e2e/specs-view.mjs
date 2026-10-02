@@ -1,7 +1,7 @@
 // The binder view (src/view/BinderView.ts): opening it, its state, the breadcrumb, modes, word count, filter, the
 // folder's synopsis, read-only newer-format binders, and following renames. Every test that changes files checks no
 // text was lost.
-import { B, NOTE, PL, VIEW, card, cards, clickMenu, closeMenus, contents, exists, file, j, menuItems, openView, read, reload, same, split, texts, until, viewState, withTidy, writeRaw } from './view-helpers.mjs';
+import { B, NOTE, PL, VIEW, card, cards, clickMenu, closeMenus, contents, exists, file, j, menuItems, openView, read, reload, same, selected, split, texts, until, viewState, withTidy, writeRaw } from './view-helpers.mjs';
 
 export const specs = [];
 const test = (name, fn) => specs.push({ name: 'view: ' + name, fn });
@@ -216,6 +216,28 @@ test('the mode menu and commands switch modes; missing modes say they’re comin
 	const items = await menuItems(p);
 	t.ok(['Corkboard', 'Outliner', 'Manuscript', 'Card size', 'Tint cards with their label color', 'Number the cards'].every((x) => items.includes(x)), 'More options lists the modes and the corkboard’s options: ' + items.join(', '));
 	await closeMenus(p);
+});
+
+test('“Arrange” opens the other board on the card a switch of mode carried in, as another switch of mode would', async (p, h, t) => {
+	const K = 'The Lighthouse/Part One/The keeper.md';
+	await openView(p, 'The Lighthouse/Part One');
+	const c = await p.at(card(K));
+	await p.click(c.x, c.t + c.h - 12);
+	await p.ev(`(() => { ${VIEW}.setMode('outliner'); return 1; })()`);
+	await p.sleep(700);
+	t.eq(j(await p.ev(`[...document.querySelectorAll('.workspace-leaf.mod-active .binders-outliner-row.is-selected')].map(r => r.dataset.path)`)), j([K]), 'the outliner opens on the card’s row');
+	// (long enough that the corkboard counts the card as where it started, not somewhere the writer went)
+	await p.ev(`(() => { ${VIEW}.setMode('corkboard'); return 1; })()`);
+	await p.sleep(1000);
+	t.eq(j(await selected(p)), j([K]), 'the corkboard comes back on it');
+	await p.ev(`(() => { ${VIEW}.arrange('label', 'across'); return 1; })()`);
+	await until(p, `!!document.querySelector('.workspace-leaf.mod-active .binders-lanes')`);
+	await p.sleep(600);
+	t.eq(j(await selected(p)), j([K]), 'arranged by label: still on it');
+	t.eq(await p.ev(`document.activeElement?.dataset?.path ?? null`), K, 'with the keyboard on it');
+	await p.ev(`(() => { ${VIEW}.arrange('grid'); return 1; })()`);
+	await p.sleep(700);
+	t.eq(j(await selected(p)), j([K]), 'and back in a grid');
 });
 
 test('all three modes mount in the view, each scrolling itself; typing in the manuscript is saved on switching', withTidy(async (p, h, t) => {

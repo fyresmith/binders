@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.28 (2026-10-02)
+
+### Fixed
+
+- Arranging the corkboard by label after a look at another mode keeps the card you had selected.
+
 ## 0.12.27 (2026-10-02)
 
 ### Fixed
