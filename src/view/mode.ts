@@ -1,4 +1,5 @@
 import type { App, Component, Menu, PaneType, TAbstractFile, TFile, TFolder } from 'obsidian';
+import type { EditorView } from '@codemirror/view'; // focus mode
 import type { Binder, BinderStore } from '../binders';
 import type BindersPlugin from '../main';
 
@@ -87,6 +88,13 @@ export interface BinderMode {
 	/** Optional: takes the folder's synopsis row into the mode's own page, so it scrolls with the rest instead of
 	    staying above it. */
 	adopt?(header: HTMLElement): void;
+	// focus mode >>>
+	/** Optional: the CodeMirror editor that has the cursor (the manuscript's section being typed in), if any. */
+	editor?(): EditorView | null;
+	/** Optional: puts the cursor in the item before (-1) or after (1) the one it's in; `checking` only says whether
+	    there is one to go to. */
+	stepScene?(delta: number, checking: boolean): boolean;
+	// <<< focus mode
 	/** Optional: the mode shows only what passes `ctx.visible()`, so the view offers its status and label filter. */
 	readonly filters?: boolean;
 	/** Optional: the filter changed (before the refresh that follows), e.g. to stop showing notes just made that it hides. */

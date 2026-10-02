@@ -45,11 +45,12 @@ only to notes inside a binder; a note anywhere else in the vault is left exactly
       or in search, never counts as part of the binder, follows a scene when it's renamed or moved, and stays when
       a scene is deleted. Built 2026-10-01: plain `.snapshot` files in the binder's `Snapshots` folder (see
       `docs/file-format.md`). Obsidian Sync carries them only with "Sync all other types" turned on.
-- [ ] **Focus mode.** The text and nothing else, for a note of a binder (in the manuscript and in a note's own
-      tab), in the vault's own type, with one key to leave, and typewriter scrolling for the last line only
-      (editing further up scrolls as ever). Everything more is an option, off as it comes: the scenes before and
-      after shown in the page, the scene's place and synopsis in the margin, the word counts (hidden while typing),
-      a goal for today, and dimming the other paragraphs. Design approved 2026-10-01; being built.
+- [x] **Focus mode.** The text and nothing else, for a note of a binder (in the manuscript and in a note's own
+      tab), in the vault's own type, with one key to leave. Typewriter scrolling is on as it comes (for the last
+      line only: editing further up scrolls as ever). Everything more is an option, off as it comes: the scenes
+      before and after shown in the page, the scene's place and synopsis in the margin, the word counts (hidden
+      while typing), a goal for today, and dimming the other paragraphs. Built 2026-10-01 (`src/focus/`,
+      `tests/e2e/specs-focus.mjs`); still to do on real devices: iOS and Android, and Android's back button.
 
 ## Then
 

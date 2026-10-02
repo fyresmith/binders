@@ -1,6 +1,7 @@
 import { Notice, PluginSettingTab, Setting, TextComponent, requireApiVersion, type App, type SettingDefinition, type SettingDefinitionItem } from 'obsidian';
 import type BindersPlugin from './main';
-import { DEFAULT_SETTINGS, PROPS, TEXT, TOGGLES, type BindersSettings, type Prop, type Toggle } from './settings-data';
+import { DEFAULT_SETTINGS, FOCUS_TEXT, FOCUS_TOGGLES, PROPS, TEXT, TOGGLES, type BindersSettings, type FocusToggle, type Prop, type Toggle } from './settings-data';
+import { parseGoal } from './focus/session'; // focus mode
 import { COMPILE_PROP } from './scenes';
 import { DEFAULT_LABELS, DEFAULT_STATUSES, PALETTE, colorCss, display, freeName, hexColor } from './view/labels';
 import { confirm } from './view/modals';
@@ -51,6 +52,8 @@ export class BindersSettingTab extends PluginSettingTab {
 				addItem: { name: 'Add status', action: () => this.addStatus() },
 				extraButtons: [(b) => b.setIcon('rotate-ccw').setTooltip('Restore the default statuses').onClick(() => void this.restore('statuses'))],
 			},
+			// focus mode: what shows besides the text, each to turn on (typewriter scrolling is on to begin with)
+			{ type: 'group', heading: 'Focus mode', items: [...FOCUS_TOGGLES.map((k): SettingDefinition => ({ name: FOCUS_TEXT[k][0], desc: FOCUS_TEXT[k][1], control: { type: 'toggle', key: k } })), { name: FOCUS_TEXT.focusGoal[0], desc: FOCUS_TEXT.focusGoal[1], render: (setting) => { this.goalRow(setting); } }] },
 			{ type: 'group', heading: 'Property names', items: PROPS.map((k): SettingDefinition => ({ name: TEXT[k][0], desc: TEXT[k][1], render: (setting) => { this.propRow(setting, k); } })) },
 		];
 	}
@@ -58,6 +61,7 @@ export class BindersSettingTab extends PluginSettingTab {
 	async setControlValue(key: string, value: unknown): Promise<void> {
 		const s = this.s;
 		if ((TOGGLES as string[]).includes(key) && typeof value === 'boolean') s[key as Toggle] = value;
+		if ((FOCUS_TOGGLES as string[]).includes(key) && typeof value === 'boolean') s[key as FocusToggle] = value; // focus mode
 		// (what depends on it is drawn again: hiding notes can't be on without ordering)
 		if (key === 'orderExplorer') await this.changed(); else await this.save();
 	}
@@ -129,6 +133,24 @@ export class BindersSettingTab extends PluginSettingTab {
 			leaving = win.setTimeout(() => { leaving = 0; stop(); if (input.isConnected) commit(); }, 0);
 		});
 		input.addEventListener('keydown', (e) => { if (e.key === 'Enter') input.blur(); });
+	}
+
+	/** Focus mode's goal for a day's words: a whole number, taken when the field is left; empty for none. */
+	private goalRow(setting: Setting): void {
+		setting.settingEl.addClass('binders-settings-goal');
+		setting.addText((t) => {
+			const shown = () => (this.s.focusGoal ? String(this.s.focusGoal) : '');
+			t.setPlaceholder('None').setValue(shown());
+			t.inputEl.inputMode = 'numeric';
+			this.field(t.inputEl, () => t.getValue() !== shown(), () => { t.setValue(shown()); }, () => {
+				const n = parseGoal(t.getValue());
+				if (n == null) { new Notice('A goal is a whole number of words.'); t.setValue(shown()); return; }
+				if (n === this.s.focusGoal) { t.setValue(shown()); return; }
+				this.s.focusGoal = n;
+				t.setValue(shown());
+				void this.save();
+			});
+		});
 	}
 
 	/** The property a note's synopsis, status, label or target is kept in: a name of its own, taken when the field is left. */
@@ -266,6 +288,11 @@ export class BindersSettingTab extends PluginSettingTab {
 		};
 		list('Labels', 'binders-settings-labels', s.labels, (st, i) => this.labelRow(st, i), () => this.addLabel(), 'Add label');
 		list('Statuses', 'binders-settings-statuses', s.statuses, (st, i) => this.statusRow(st, i), () => this.addStatus(), 'Add status');
+		// focus mode
+		new Setting(containerEl).setName('Focus mode').setHeading();
+		for (const k of FOCUS_TOGGLES) new Setting(containerEl).setName(FOCUS_TEXT[k][0]).setDesc(FOCUS_TEXT[k][1])
+			.addToggle((t) => t.setValue(s[k]).onChange(async (v) => { s[k] = v; await this.save(); }));
+		this.goalRow(new Setting(containerEl).setName(FOCUS_TEXT.focusGoal[0]).setDesc(FOCUS_TEXT.focusGoal[1]));
 		new Setting(containerEl).setName('Property names').setHeading();
 		for (const k of PROPS) this.propRow(new Setting(containerEl).setName(TEXT[k][0]).setDesc(TEXT[k][1]), k);
 	}

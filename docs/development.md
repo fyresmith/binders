@@ -32,6 +32,7 @@ and run in Node. `tests/harness.ts` has the `test` and assertion helpers.
 | `tests/view.test.ts` | Word counts (`src/view/words.ts`), labels and statuses (`src/view/labels.ts`), settings as saved (`src/settings-data.ts`) |
 | `tests/outliner.test.ts` | The outliner's columns, sorting, targets and typed values (`src/view/outliner-data.ts`) |
 | `tests/scene-text.test.ts` | Splitting, merging, a synopsis from text, names, compiling (`src/scene-text.ts`) |
+| `tests/focus-session.test.ts` | Focus mode's pure parts (`src/focus/session.ts`): the day's words, the last line, the scenes before and after, a goal as typed; and its settings' defaults |
 | `tests/snapshot-text.test.ts` | Snapshots (`src/snapshot-text.ts`): a snapshot's name and file read back byte for byte, comparing two texts as prose |
 
 ### End-to-end tests
@@ -61,6 +62,7 @@ Without `--specs`, every `tests/e2e/specs*.mjs` runs:
 | `specs-outliner.mjs` | The outliner: rows, folding, keyboard, editing in place, columns, sorting, dragging |
 | `specs-manuscript.mjs` | The manuscript and the editable embed: every test that types checks the disk |
 | `specs-scenes.mjs` | Split, merge, synopsis from text, duplicate, group and ungroup, compile, undo and redo of a move |
+| `specs-focus.mjs` | Focus mode: the defaults and each option, typewriter scrolling, Escape, Obsidian as it was after leaving, a reload and the plugin turned off, nothing typed lost, the day's words, settings, motion, screen readers, fallbacks, a phone and a tablet |
 | `specs-snapshots.mjs` | Snapshots: taking (open, closed, the manuscript, several, a folder under one name), Rewrite, bring back (with an edit made meanwhile), naming, deleting, following renames and moves, Longform, never in the explorer, search or the binder, the dialog (both looks, a phone), sync-style writes |
 | `specs-longform.mjs` | Longform projects and "Convert to binder" |
 | `specs-a11y.mjs` | Keyboard and screen readers across the view |

@@ -190,6 +190,43 @@ Three things to know:
   extensions" turned on, a search by file name finds them.
 - Without Binders, they're still there: open a `.snapshot` file in any text editor.
 
+## Focus mode
+
+For writing a note of a binder with nothing else on the screen: the text, in your vault's own type and line length, and
+one button to leave. **Toggle focus mode** in the command palette (give it a hotkey of your own), the button in the
+header of any note of a binder, or the button at the end of the manuscript's toolbar goes in; **Esc**, the button that
+comes back when the pointer moves (top right), or the command goes out. It works for a note in its own tab, editing or
+reading, and for the manuscript. A note that isn't in a binder is left exactly as Obsidian has it.
+
+Nothing of Obsidian's is closed or rearranged to do this: the sidebars, tabs, other panes and the status bar are out
+of sight while you write, and exactly where they were when you leave. Dialogs, menus and the command palette open
+over the page as usual, and take Esc first. With Vim key bindings on, Esc is Vim's; use the button or the command.
+
+**Typewriter scrolling** is on to begin with: while you write at the end of a scene, the line you're on stays at one
+height, a little above the middle, and the page moves under it. Go back up to change something and the page scrolls as
+it always does; the page never moves because you clicked.
+
+Everything else is off until you turn it on, in Binders' settings or in focus mode's own menu (right-click the leave
+button or the text, or click the word counts):
+
+- **Show the scenes before and after:** in a note, the end of the scene before is shown above its text and the start
+  of the scene after below it, as in the manuscript. Click one to go there.
+- **Show where you are:** the scene's place in the binder ("Part One › Arrival") and its synopsis, as a note in the
+  margin, or a strip along the top where there's no margin.
+- **Show word counts:** the scene's words, with its target, and the words written today in the binder, where the
+  status bar was. They go while you type and come back when you pause.
+- **Words to write today:** a goal for the day. When it's reached the count turns the color of a target met, and
+  nothing else happens.
+- **Dim other paragraphs:** while you type, every paragraph but the one you're in steps back; moving the pointer
+  brings them forward again.
+
+**Go to previous scene** and **Go to next scene** (commands, for a note of a binder or in the manuscript) move through
+the binder in its order without leaving focus.
+
+The words written today are the day's net change in the binder's notes, counted whether you're in focus or not. They
+are kept on the device you write on, not in your notes and not in the plugin's settings, so they don't sync: each
+device counts its own. **Start counting from here**, in the menu, starts the day again.
+
 ## Undoing a move
 
 **Undo last move** and **Redo last move** take back, or make again, a drag, a **Move up** or **Move down**, a sort
@@ -278,6 +315,12 @@ menu or the command palette, turns a project into a binder, and can move groups 
 | Show label colors in the file explorer | A dot in its label's color beside each labeled note and folder in a binder. |
 | Labels | The labels a note can have: a name and a color each. Add, rename, recolor, reorder and delete them. |
 | Statuses | The statuses a note can have, in the order a draft goes through them. |
+| Focus mode: Typewriter scrolling | While you write at the end of a scene, the line you're on stays at one height. On to begin with. |
+| Focus mode: Show the scenes before and after | In a note, the end of the scene before and the start of the scene after, above and below its text. |
+| Focus mode: Show where you are | The scene's place in the binder and its synopsis, beside the text. |
+| Focus mode: Show word counts | The scene's words and the words written today, hidden while you type. |
+| Focus mode: Dim other paragraphs | While you type, every paragraph but the one you're in steps back. |
+| Focus mode: Words to write today | A goal for a day's writing in a binder, shown with the word counts. |
 | Property names | The properties for the synopsis, status, label and target, if your notes already use other names. |
 
 A note has a label when its property says that name, so renaming a label or status in settings asks whether to rename
@@ -304,6 +347,9 @@ What a mouse and a keyboard do differently there:
 - **Targets:** on the narrowest phones the word count leaves the toolbar; **Set word count target** in the command
   palette sets a target there.
 - **The file explorer:** on a phone a tap on a binder opens it, and a tap on a folder inside it folds or unfolds it.
+- **Focus mode:** on a phone Obsidian's bar of buttons and the note's header go; the way out is at the top, under the
+  clock, with the place and the word counts beside it if they're on. It goes while you type and comes back when you
+  touch the page. The keyboard's own toolbar stays. Press and hold the leave button for the menu.
 
 ![Binders on a phone](docs/images/mobile.png)
 
@@ -316,7 +362,10 @@ What a mouse and a keyboard do differently there:
   the editor that embeds notes, as Canvas does). Each is checked when Binders starts: if an Obsidian update changes
   one, the explorer falls back to name order (and dragging there to what it does without Binders), or the manuscript
   to read only, and Binders says so.
-- Requires Obsidian 1.6.6 or later.
+- Focus mode hides parts of Obsidian's window by their names in its style sheet. If an update renames one, that part
+  stays in sight while you write; nothing else changes. It doesn't take the window full screen: use your system's
+  own full screen with it if you want that.
+- Requires Obsidian 1.8.7 or later.
 
 ## Privacy
 

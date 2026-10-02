@@ -3,6 +3,16 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.10.0 (2026-10-02)
+
+### Added
+
+- Focus on a binder note or manuscript with optional scene context, word counts, daily goals and paragraph dimming.
+
+### Changed
+
+- Requires Obsidian 1.8.7 or later.
+
 ## 0.9.8 (2026-10-02)
 
 ### Added

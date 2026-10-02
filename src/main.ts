@@ -12,6 +12,7 @@ import { outliner } from './view/outliner';
 import { manuscript } from './view/manuscript'; // manuscript (0.6)
 import { ConvertModal } from './longform-convert'; // longform (0.7)
 import { CompileModal, mergeScenes, splitScene } from './scenes';
+import { Focus } from './focus/focus';
 import { isScene, leftovers } from './snapshots'; // snapshots
 import { LeftoversModal, SNAPSHOT_VIEW, SnapshotView, SnapshotsModal, folderSnapshotItems, snapshotItems, startRewrite, take, takeAll } from './view/snapshots'; // snapshots
 
@@ -21,6 +22,8 @@ export default class BindersPlugin extends Plugin {
 	explorer: Explorer; // explorer (0.3)
 	/** Every binder in the vault; views, the explorer and tests go through this. */
 	binders: BinderStore;
+	/** Focus mode: its commands, the button on a binder's notes, the day's words (focus/focus.ts). */
+	focus: Focus;
 	/** The binder view's modes by id: the view mounts one into its content (see view/mode.ts); a mode not here shows
 	    "coming soon". */
 	readonly modeFactories: Record<string, ModeFactory> = {
@@ -40,6 +43,7 @@ export default class BindersPlugin extends Plugin {
 		// <<< explorer (0.3)
 
 		this.registerView(VIEW_TYPE, (leaf) => new BinderView(leaf, this));
+		this.focus = new Focus(this);
 		this.registerView(SNAPSHOT_VIEW, (leaf) => new SnapshotView(leaf, this)); // snapshots
 		// (not in a card's own menu, which has these already)
 		this.registerEvent(this.app.workspace.on('file-menu', (menu, file, source) => { if (source !== ITEM_MENU) this.fileMenu(menu, file, source); }));
@@ -202,6 +206,7 @@ export default class BindersPlugin extends Plugin {
 		await this.saveData(this.settings);
 		this.explorer?.refresh(); // explorer (0.3)
 		this.binders?.refresh(); // the views: labels and statuses may have changed
+		this.focus?.optionsChanged(); // focus mode: what's on its page follows its options
 	}
 
 	private fileMenu(menu: Menu, file: TAbstractFile, source = ''): void {

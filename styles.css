@@ -2834,3 +2834,388 @@
 	font-size: var(--font-ui-small);
 	margin-bottom: var(--size-4-4);
 }
+
+/* ==== Focus mode ====
+   A state of the view that's open (src/focus/focus.ts). <body> has `binders-focus` while it's on, and the tab being
+   written in has `binders-focus-leaf`. Everything Obsidian draws around that tab is hidden, not closed: take the
+   classes away (a reload does) and it is all exactly where it was. These are Obsidian's own class names, listed in
+   docs/internals.md: one that's renamed leaves that part in sight, and a test says so. */
+body.binders-focus .workspace-ribbon,
+body.binders-focus .workspace-split.mod-left-split,
+body.binders-focus .workspace-split.mod-right-split,
+body.binders-focus .status-bar,
+body.binders-focus .mobile-navbar,
+body.binders-focus .workspace-tab-header-container,
+body.binders-focus .titlebar-button-container,
+body.binders-focus .mod-root :is(.workspace-tabs, .workspace-split):not(:has(.binders-focus-leaf)),
+body.binders-focus .mod-root .workspace-tabs .workspace-leaf:not(.binders-focus-leaf),
+body.binders-focus .binders-focus-leaf .view-header,
+body.binders-focus .binders-focus-leaf .binders-toolbar,
+body.binders-focus .binders-focus-leaf .binders-view-synopsis-row,
+body.binders-focus .binders-focus-leaf .inline-title,
+body.binders-focus .binders-focus-leaf .embedded-backlinks {
+	display: none;
+}
+
+/* a note's properties go the way the manuscript hides them: with Obsidian's own variables */
+.binders-focus-leaf {
+	--metadata-display-editing: none;
+	--metadata-display-reading: none;
+	--view-top-spacing-markdown: 0;
+}
+
+.binders-focus-leaf .workspace-leaf-content {
+	position: relative;
+}
+
+/* the manuscript toolbar's way in: an icon, at the end */
+.binders-focus-button .text-button-label {
+	display: none;
+}
+
+/* said to a screen reader, not shown */
+.binders-focus-live {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+}
+
+/* The way out, which comes back when the pointer moves: always there. With "Show where you are" on, the scene's place
+   and synopsis are beside it. */
+.binders-focus-top {
+	position: absolute;
+	inset: 0 0 auto 0;
+	z-index: var(--layer-cover);
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: var(--size-4-3);
+	min-height: var(--header-height);
+	padding-inline: var(--size-4-4) var(--size-4-2);
+	pointer-events: none;
+	transition: opacity var(--anim-duration-fast) ease-in-out;
+}
+
+.binders-focus-top > * {
+	pointer-events: auto;
+}
+
+/* (over the text in a narrow window: on the page's own color, so the text doesn't show through it) */
+.binders-focus-way {
+	flex: none;
+	border-radius: var(--clickable-icon-radius);
+	background-color: var(--background-primary);
+}
+
+.binders-focus-note {
+	flex: 1 1 0;
+	min-width: 0;
+	display: flex;
+	align-items: baseline;
+	gap: var(--size-4-3);
+}
+
+.binders-focus-place {
+	flex: 0 1 auto;
+	min-width: 0;
+	overflow: hidden;
+	display: flex;
+	align-items: center;
+	gap: var(--size-2-1);
+	font-size: var(--font-ui-smaller);
+	color: var(--text-faint);
+	white-space: nowrap;
+	--icon-size: var(--icon-xs);
+}
+
+.binders-focus-place > span:not(.binders-focus-sep) {
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.binders-focus-place .binders-focus-here {
+	color: var(--text-muted);
+}
+
+.binders-focus-sep {
+	display: flex;
+	flex: none;
+}
+
+.binders-focus-synopsis {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: var(--font-ui-smaller);
+	color: var(--text-faint);
+}
+
+/* Without room beside the text (a narrow window, "Readable line length" off, a tablet, a phone), what's said is a
+   strip along the top, on the page's color. */
+.has-place:not(.has-margins) > .workspace-leaf-content > .binders-focus-top,
+.is-phone .has-numbers > .workspace-leaf-content > .binders-focus-top {
+	background-color: var(--background-primary);
+	pointer-events: auto;
+}
+
+/* With room beside the text, they aren't over the page at all: a note in the margin, at the height the text starts. */
+.has-margins > .workspace-leaf-content > .binders-focus-top {
+	align-items: flex-start;
+	padding-block: var(--size-4-2);
+}
+
+.has-margins .binders-focus-note {
+	position: absolute;
+	top: var(--size-4-8);
+	inset-inline-start: calc(var(--binders-focus-margin) - min(15rem, var(--binders-focus-margin) - var(--size-4-12)) - var(--size-4-8));
+	width: min(15rem, var(--binders-focus-margin) - var(--size-4-16));
+	flex-direction: column;
+	align-items: stretch;
+	gap: var(--size-4-2);
+}
+
+.has-margins .binders-focus-place {
+	flex-wrap: wrap;
+	white-space: normal;
+	overflow: visible;
+}
+
+.has-margins .binders-focus-synopsis {
+	white-space: normal;
+	font-family: var(--font-text);
+	font-size: var(--font-smaller);
+	line-height: var(--line-height-tight);
+	color: var(--text-muted);
+}
+
+/* The numbers ("Show word counts"), where the status bar's were, in the status bar's type. */
+.binders-focus-corner {
+	position: absolute;
+	inset-block-end: var(--size-4-2);
+	inset-inline-end: var(--size-4-4);
+	z-index: var(--layer-cover);
+	display: flex;
+	gap: var(--size-4-3);
+	padding: var(--size-2-1) var(--size-2-3);
+	border-radius: var(--radius-s);
+	font-size: var(--status-bar-font-size, var(--font-ui-smaller));
+	color: var(--status-bar-text-color, var(--text-muted));
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+	cursor: var(--cursor);
+	transition: opacity var(--anim-duration-fast) ease-in-out;
+}
+
+.binders-focus-count.is-complete {
+	color: var(--text-success);
+}
+
+.binders-focus-corner:focus-visible {
+	outline: none;
+	box-shadow: 0 0 0 2px var(--background-modifier-border-focus);
+}
+
+@media (hover: hover) {
+	.binders-focus-corner:hover {
+		background-color: var(--background-modifier-hover);
+		color: var(--text-normal);
+	}
+}
+
+/* Without room beside the text they're over the foot of the page, where Obsidian's status bar is: drawn as the status
+   bar is, so the text behind doesn't show through. */
+.binders-focus-leaf:not(.has-margins) .binders-focus-corner {
+	inset-block-end: 0;
+	inset-inline-end: 0;
+	padding: var(--size-4-1) var(--size-4-3);
+	background-color: var(--status-bar-background, var(--background-secondary));
+	border: solid var(--status-bar-border-color, var(--background-modifier-border));
+	border-width: var(--status-bar-border-width, 1px 0 0 1px);
+	border-radius: var(--status-bar-radius, var(--radius-m) 0 0 0);
+}
+
+/* On a phone they're in the strip along the top, with the way out, and come and go with it. (A phone's page runs up
+   under its clock and battery: the strip starts below them, as Obsidian's own header does.) */
+.is-phone .binders-focus-top {
+	padding-top: var(--safe-area-inset-top, 0px);
+	min-height: calc(var(--header-height) + var(--safe-area-inset-top, 0px));
+}
+
+.is-phone .binders-focus-leaf:not(.has-margins) .binders-focus-corner {
+	inset-block: var(--safe-area-inset-top, 0px) auto;
+	inset-inline-end: calc(var(--size-4-2) + var(--size-4-9));
+	min-height: var(--header-height);
+	align-items: center;
+	padding: 0;
+	background-color: transparent;
+	border: none;
+}
+
+.is-phone .binders-focus-synopsis {
+	display: none;
+}
+
+/* Writing: they go, slowly; the pointer hides with them. They're back at once when the pointer moves, the wheel
+   turns or a finger touches the page. The numbers alone come back when the typing pauses. Something reached with Tab
+   stays in sight. */
+body.binders-focus-typing .binders-focus-top:not(:focus-within) {
+	opacity: 0;
+	transition: opacity var(--anim-duration-slow) ease-in-out;
+}
+
+body.binders-focus-typing .binders-focus-top:not(:focus-within),
+body.binders-focus-typing .binders-focus-top:not(:focus-within) > * {
+	pointer-events: none;
+}
+
+body.binders-focus-typing:not(.binders-focus-paused) .binders-focus-corner:not(:focus-visible, .is-reached),
+body.is-phone.binders-focus-typing .binders-focus-corner:not(:focus-visible, .is-reached) {
+	opacity: 0;
+	transition: opacity var(--anim-duration-slow) ease-in-out;
+}
+
+body.binders-focus-typing.binders-focus-paused .binders-focus-corner {
+	transition: opacity var(--anim-duration-slow) ease-in-out;
+}
+
+body.binders-focus-typing .binders-focus-leaf {
+	cursor: none;
+}
+
+/* Typewriter scrolling: room under the last line of the text for it to be the line being written (the editor keeps
+   half its height free there; the line is a little above the middle). */
+/* (a note's own editor: not the editors of the manuscript's sections, which the manuscript's page has room under) */
+.binders-focus-leaf.is-typewriter .workspace-leaf-content[data-type="markdown"] .cm-sizer {
+	padding-bottom: 12vh;
+}
+
+.binders-focus-leaf.is-typewriter .binders-manuscript {
+	padding-bottom: 62vh;
+}
+
+/* The scene before and the scene after a note ("Show the scenes before and after"), set as the manuscript sets its
+   sections. */
+.binders-focus-near {
+	font-family: var(--font-text);
+}
+
+.binders-focus-near:is(.is-before, .is-after) {
+	cursor: var(--cursor-link);
+}
+
+.binders-focus-near-text {
+	color: var(--text-muted);
+	--p-spacing: calc(var(--line-height-normal) * 1em);
+	min-height: calc(var(--line-height-normal) * 1em);
+}
+
+.binders-focus-near-text > :first-child {
+	margin-top: 0;
+}
+
+.binders-focus-near-text > :last-child {
+	margin-bottom: 0;
+}
+
+.binders-focus-near.is-before .binders-manuscript-break {
+	margin-top: 0;
+}
+
+.binders-focus-near.is-here .binders-manuscript-title {
+	color: var(--text-muted);
+	cursor: default;
+}
+
+.binders-focus-near .binders-manuscript-title {
+	cursor: inherit;
+}
+
+.binders-focus-near:focus-visible {
+	outline: none;
+	box-shadow: 0 0 0 2px var(--background-modifier-border-focus);
+	border-radius: var(--radius-s);
+}
+
+@media (hover: hover) {
+	.binders-focus-near:is(.is-before, .is-after):hover .binders-focus-near-text {
+		color: var(--text-normal);
+	}
+
+	.binders-focus-near:is(.is-before, .is-after):hover .binders-manuscript-title {
+		color: var(--text-muted);
+	}
+}
+
+/* (the scene after stands under the text as it does in the manuscript: drawn up over the room the editor keeps free
+   under its last line, with as much room of its own below) */
+.binders-focus-leaf .binders-focus-near.is-after {
+	position: relative;
+	margin-top: calc(-1 * var(--binders-focus-tail, 0px));
+	padding-bottom: 60vh;
+}
+
+/* "Dim other paragraphs": while typing, every paragraph but the one being written steps back (never below 4.5:1
+   against the page in Obsidian's own themes). The pointer moving, to select or to read back, brings them all forward
+   again. */
+.binders-focus-leaf .cm-line,
+.binders-focus-leaf .binders-manuscript-body,
+.binders-focus-leaf .binders-manuscript-heading,
+.binders-focus-leaf .binders-focus-near-text {
+	transition: opacity var(--anim-duration-moderate) ease-in-out;
+}
+
+body.binders-focus-dim.binders-focus-typing .binders-focus-leaf .cm-editor.cm-focused .cm-line:not(.cm-active),
+body.binders-focus-dim.binders-focus-typing .binders-focus-leaf .binders-manuscript-scene:not(:focus-within) .binders-manuscript-body,
+body.binders-focus-dim.binders-focus-typing .binders-focus-leaf .binders-manuscript-heading,
+body.binders-focus-dim.binders-focus-typing .binders-focus-leaf .binders-focus-near-text {
+	opacity: 0.62;
+}
+
+/* (the scenes before and after step back as far as the other paragraphs, no further) */
+body.binders-focus-dim.binders-focus-typing .binders-focus-leaf .binders-focus-near-text {
+	color: var(--text-normal);
+}
+
+/* The way in and out. First what's around the page fades where it stands (`binders-focus-pre`: there, unseen), and only
+   then is it taken away; on the way out it's put back unseen, and fades in (`binders-focus-post` is the fade). */
+body.binders-focus-pre :is(.workspace-ribbon, .workspace-split.mod-left-split, .workspace-split.mod-right-split, .status-bar, .mobile-navbar, .workspace-tab-header-container, .titlebar-button-container, .view-header, .binders-toolbar, .workspace-leaf-resize-handle) {
+	opacity: 0;
+	transition: opacity var(--anim-duration-fast) ease-in-out;
+}
+
+body.binders-focus-post :is(.workspace-ribbon, .workspace-split.mod-left-split, .workspace-split.mod-right-split, .status-bar, .mobile-navbar, .workspace-tab-header-container, .titlebar-button-container, .view-header, .binders-toolbar, .workspace-leaf-resize-handle) {
+	transition: opacity var(--anim-duration-fast) ease-in-out;
+}
+
+/* what focus mode shows of its own arrives after the text has settled, and goes before it leaves */
+@keyframes binders-focus-in {
+	from { opacity: 0; }
+}
+
+.binders-focus-top,
+.binders-focus-corner,
+.binders-focus-near {
+	animation: binders-focus-in var(--anim-duration-moderate) ease-in-out;
+}
+
+.binders-focus-top.is-leaving,
+.binders-focus-corner.is-leaving {
+	opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.binders-focus-top,
+	.binders-focus-corner,
+	.binders-focus-near,
+	.binders-focus-leaf .cm-line,
+	.binders-focus-leaf .binders-manuscript-body,
+	.binders-focus-leaf .binders-manuscript-heading,
+	.binders-focus-leaf .binders-focus-near-text {
+		transition: none;
+		animation: none;
+	}
+}

@@ -34,7 +34,18 @@ a fallback, and has an e2e test. Where one of those is still missing, the table 
 | CSS classes of Obsidian's File recovery and Sync history dialogs: `mod-sidebar-layout`, `mod-sync-history`, `modal-sidebar mod-history`, `modal-sidebar-inner`, `modal-sidebar-list`, `modal-sidebar-list-item`, `file-recovery-list-item-header`, `sync-history-content-container`, `sync-history-content`, `modal-setting-titlebar`, `modal-setting-title`, `modal-setting-titlebar-actions`, `modal-setting-titlebar-toggle`, `modal-setting-back-button`, `sync-history-preview`, `sync-history-diff`; and of its diff: `diff-view`, `diff-line` with `mod-left` / `mod-right`, `diff-changed`, `diff-collapsed` | `src/view/snapshots.ts`, checked by `historyLook()` in `src/view/internals.ts` | The Snapshots dialog looks like Obsidian's own history dialogs in every theme (a list at the side, the text beside it, what changed tinted as its diff is), and is the same sheet on a phone | `historyLook()` looks at what the classes do (the dialog's content is a row; a taken-out line is tinted). If not, the dialog gets `is-plain` and Binders' own rules for the same layout and colors (`.binders-snapshots.is-plain` in `styles.css`, on its own class names). A phone then gets the list and the text without the sheet's transitions | `specs-snapshots.mjs` (the look is detected; with the classes taken off, the fallback lays it out the same) |
 | The file explorer's `getSortedFolderItems` patch (above), also with binder order turned off | `src/explorer.ts` (`arrange`) | A binder's `Snapshots` folder is never listed in the explorer, whatever the settings, and with "Detect all file extensions" on | Without the method, the folder shows as an ordinary folder; its `.snapshot` files still don't (Obsidian lists only kinds of file it opens, unless "Detect all file extensions" is on) | `specs-snapshots.mjs` (both) |
 | `app.internalPlugins` (`switcher`'s `QuickSwitcherModal`, `global-search`'s `openGlobalSearch` and its view's `dom.resultDomLookup`), `metadataCache.getLinkSuggestions()` | only `tests/e2e/specs-snapshots.mjs` | Checking through Obsidian's own data that snapshots are in no search, quick switcher or link suggestion | Not used by the plugin | `specs-snapshots.mjs` |
+| Class names of Obsidian's window, hidden by `body.binders-focus` in one block of `styles.css`: `.workspace-ribbon`, `.workspace-split.mod-left-split`, `.workspace-split.mod-right-split`, `.status-bar`, `.mobile-navbar`, `.workspace-tab-header-container`, `.titlebar-button-container`, `.mod-root .workspace-tabs` and `.workspace-split` (other panes), `.workspace-leaf`, `.view-header`, `.inline-title`, `.embedded-backlinks`, `.workspace-leaf-resize-handle`; and the variables `--metadata-display-editing`, `--metadata-display-reading`, `--view-top-spacing-markdown`, `--safe-area-inset-top`, `--status-bar-*` | `styles.css` ("Focus mode") | Focus mode: everything around the page out of sight, a note's properties hidden, the numbers drawn as the status bar is | A class Obsidian renames stays in sight while writing; nothing else changes (nothing is collapsed or closed, so there's nothing to put back) | `specs-focus.mjs` (each is 0×0 in focus and back afterwards; "Obsidian still has every element focus mode hides or reads") |
+| A note's page: `.markdown-source-view .cm-scroller > .cm-sizer > .cm-contentContainer`; reading, `.markdown-reading-view .markdown-preview-view > .markdown-preview-sizer` with its `.mod-header` and `.mod-footer` | `src/focus/dom.ts` (`noteColumn`) | Focus mode: where the text stands (held still on the way in and out, and the glide), and the scenes before and after drawn above and below it | Null: nothing is drawn before and after (the commands still go there), and the way in and out is one step without the glide | `specs-focus.mjs` (fallbacks) |
+| The editor's own bottom padding on `.cm-content` (half its height, an inline style) | `src/focus/dom.ts` (`tailRoom`) | Focus mode: the scene after is drawn up over it, to stand a break below the last line | `0px`: the scene after is half a screen below the text | `specs-focus.mjs` (the scene after stands under the last line) |
+| The `Editor`'s `cm` (already above), with `EditorView.scrollHandler` in a `Compartment` added by `StateEffect.appendConfig` (public CodeMirror API), added again when Obsidian gives the tab's editor a new state for another note | `src/focus/dom.ts` (`editorView`), `src/focus/focus.ts` (`typewriter`) | Focus mode: typewriter scrolling in a note's tab | No typewriter line there: the editor scrolls as it always does | `specs-focus.mjs` (fallbacks; typewriter scrolling) |
+| `cm-active` on the line with the cursor, `cm-focused` on the editor with the keyboard | `styles.css` ("Dim other paragraphs") | Focus mode: which paragraph is being written | Nothing is dimmed | `specs-focus.mjs` (each option shows its piece) |
+| `vault.getConfig('vimMode')` (already above) | `src/view/internals.ts` (`vimMode`) | Focus mode leaves Escape to Vim | Escape leaves focus | `specs-focus.mjs` (Escape) |
 | `app.plugins.plugins.longform` (loaded plugins by id) | `src/longform.ts` (`longformRunning`) | Leaving rename and delete tracking in Longform projects to Longform while it runs, so the index note isn't written twice | Treated as not running: Binders writes renames and deletes itself (the same change Longform would make) | `specs-longform.mjs` (a stand-in plugin) |
+
+Focus mode's public API that looks like internals, and isn't: `app.keymap.pushScope()` and `popScope()`, `Scope`,
+a view's `scope`, `view.addAction()`, `view.contentEl`, `MarkdownView.getMode()`, the workspace's `editor-menu` and
+`editor-change` events, `app.loadLocalStorage()` and `saveLocalStorage()` (Obsidian 1.8.7), and the Web Animations
+API.
 
 Public API that looks like an internal, and isn't: CodeMirror's `EditorView.scrollHandler` and
 `StateEffect.appendConfig` (`src/view/editable-embed.ts`); `leaf.isDeferred` (Obsidian 1.7.2); the workspace's `quit`
@@ -151,6 +162,35 @@ touches it; `mountEditor()` builds one embed and patches that instance only:
   the mobile toolbar). On desktop, undo is CodeMirror's own Ctrl+Z; `editor:undo`/`editor:redo` are mobile commands.
 - Obsidian keeps undo history for the 20 most recent files; a section scrolled far away and unmounted beyond that loses
   its undo history, as closing a tab does.
+
+## Focus mode (checked on Obsidian 1.13.7, desktop and `app.emulateMobile(true)`)
+
+- Nothing of Obsidian's state is changed: the classes `binders-focus` on `<body>` and `binders-focus-leaf` on the
+  tab's `.workspace-leaf` hide what's around the page. `workspace.getLayout()` is the same before, during and after.
+  `leftSplit.collapse()` isn't used: it's saved with the layout, and would stay collapsed after a crash.
+- Other panes are hidden with `:has()`: `.mod-root :is(.workspace-tabs, .workspace-split):not(:has(.binders-focus-leaf))`.
+- Escape: Obsidian's key handler is on the window, in the capture phase, before anything in the page hears a key,
+  and gives it to the scope on top of its stack. A menu, a dialog, the palette and a list of suggestions each push
+  a scope of their own, so one opened in focus takes Escape first; a listener of our own on the document would hear
+  the key only after Obsidian had closed them, and would leave as well. A scope's handler that returns `false`
+  takes the key; anything else leaves it to the page. The scope's parent is the view's own scope (the binder view's
+  F2 and Mod+Z still work).
+- `workspace.getMostRecentLeaf()` doesn't report a tab that isn't shown (the other tabs are hidden in focus): the
+  tab taken up is read from the `active-leaf-change` event.
+- A tab's editor is the same `EditorView` for every note opened in it, but Obsidian gives it a new state per note,
+  which drops anything added with `appendConfig`: the typewriter handler is added again on `file-open`
+  (`slot.get(state) === undefined`).
+- The handler runs while CodeMirror measures, so the cursor's place is read from the DOM (`caretRect`), as in the
+  manuscript. It returns `true` (handled) only when the cursor is on the last line of the text; otherwise `false`,
+  and CodeMirror scrolls as it always does. The page is then moved over a few frames, outside the measure.
+- In the manuscript the same question is asked in `showCaret()` (`src/view/manuscript.ts`), where the manuscript
+  moves its page anyway: no second scroll handler, nothing to fight CodeMirror ("Measure loop restarted").
+- On a phone Obsidian removes its bar of buttons (`.mobile-navbar`) from the page while an editor has the keyboard,
+  and lets the page run up under the clock (`--safe-area-inset-top`): the strip with the way out starts below it.
+- Embedded editors (the manuscript's sections) send the workspace's `editor-change` with their note, as a tab's
+  editor does: the day's words are counted from that one event.
+- A hard reload within two seconds of typing loses that typing in Obsidian itself (it saves a note two seconds
+  after the last key), in focus or not: nothing focus mode does changes when a note is saved.
 
 ## The binder view (checked on Obsidian 1.13.7)
 

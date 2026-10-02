@@ -10,6 +10,7 @@ import { readArrangement, type Arrangement } from './lanes-data';
 import { ask } from './modals';
 import { parseTarget, readTarget } from './outliner-data';
 import type { BinderMode, ModeContext, ModeFactory, SceneProps } from './mode';
+import type { EditorView } from '@codemirror/view'; // focus mode
 import { WordCounter, wordsLabel } from './words';
 
 /* The binder view: one folder of a binder, shown as a corkboard, an outliner or a manuscript. The view owns the toolbar
@@ -131,6 +132,15 @@ export class BinderView extends ItemView {
 
 	/** Puts the keyboard in the mode (on what it was on, or at its start). */
 	focusMode(): void { this.current?.focus?.(); }
+
+	// focus mode >>>
+	/** The note the mode is on (the manuscript's section with the cursor): focus mode says where that is. */
+	currentItem(): TAbstractFile | null { return this.current?.current?.() ?? null; }
+	/** The editor that has the cursor, if the mode has one. */
+	currentEditor(): EditorView | null { return this.current?.editor?.() ?? null; }
+	/** "Go to previous scene" and "Go to next scene" in the manuscript. */
+	stepScene(delta: number, checking: boolean): boolean { return this.current?.stepScene?.(delta, checking) ?? false; }
+	// <<< focus mode
 
 	async setState(state: unknown, result: ViewStateResult): Promise<void> {
 		const s = (state ?? {}) as BinderViewState;
@@ -260,6 +270,7 @@ export class BinderView extends ItemView {
 	/** Notes what the mode is on as it starts: now, and again a moment later if nothing has been pressed meanwhile
 	    (the manuscript puts its cursor once its editor has loaded, which is after this). */
 	private entered(): void {
+		this.plugin.focus?.check(); // focus mode: it ends if this is no longer the manuscript
 		this.enteredOn = this.current?.current?.() ?? null;
 		const mode = this.current, presses = this.presses;
 		window.setTimeout(() => { if (this.current === mode && this.presses === presses) this.enteredOn = mode?.current?.() ?? null; }, 500);
@@ -399,6 +410,7 @@ export class BinderView extends ItemView {
 		const arrange = this.button(bar, 'layout-grid', 'Arrange', 'binders-arrange-button', (e) => { const menu = new Menu(); this.arrangeItems(menu); this.showBelow(menu, e); });
 		const filter = this.button(bar, 'list-filter', 'Filter', 'binders-filter-button', (e) => this.filterMenu(e));
 		const add = this.button(bar, 'plus', 'New', 'binders-new-button', (e) => this.newMenu(e));
+		this.button(bar, 'maximize-2', 'Focus mode', 'binders-focus-button', () => this.plugin.focus.toggle()).toggleClass('is-hidden', this.mode !== 'manuscript');
 		for (const b of [filter, arrange, modeBtn, add]) b.setAttr('aria-haspopup', 'menu');
 		const notice = el.createDiv({ cls: 'binders-notice' });
 		const synopsis = el.createDiv({ cls: 'binders-view-synopsis-row' });

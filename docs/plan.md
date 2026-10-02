@@ -325,6 +325,48 @@ as prose; pure) and `src/view/snapshots.ts` (the dialogs, the menus, and a pane 
   without the property.
 - Not undone this way: renames, deletes, splits, merges, duplicates, grouping and ungrouping.
 
+### Focus mode
+
+A state of the view that's open, for a note of a binder in a tab (editing or reading) or the manuscript; never a view
+of its own, so the editor being typed in is never remounted. `src/focus/focus.ts`.
+
+- **What it does to Obsidian:** a class on the window's `<body>` and one on the tab; the style sheet hides the ribbon,
+  sidebars, tab bar, status bar, view header, other panes, the binder toolbar and, on a phone, the bar of buttons.
+  Nothing is collapsed, closed or saved, and nothing is kept that says focus is on: after leaving, a reload, a crash
+  or the plugin being turned off, Obsidian is as it was. It doesn't take the OS full screen.
+- **In and out:** "Toggle focus mode" (no hotkey), a button in the header of a binder's notes (and only those), a
+  button at the end of the manuscript's toolbar. Escape leaves, through Obsidian's stack of key scopes, so a dialog,
+  a menu, the palette or suggestions take it first; it's also left to a field, a name being typed, text being
+  composed, several cursors, and to Vim when its keys are on. The leave button (top right) comes back when the
+  pointer moves, and is said once in a notice the first time. Focus ends when another tab is taken up, or its tab
+  shows something that isn't a note of a binder or the manuscript; another scene of the binder in the tab keeps it.
+- **The page:** the vault's own type and "Readable line length"; a note's properties, inline title and backlinks
+  are hidden. With the defaults there is the text and the leave button, nothing else.
+- **Typewriter scrolling** (on by default): only for the last line. While the cursor is on the last line of the
+  text (everything after its line is blank: the last paragraph, or an empty line after it), that line is held at
+  42% of what can be seen of the page, and the page moves under it. In the manuscript "the text" is the section the
+  cursor is in. Anywhere else, and after a click, the page scrolls as the editor (or the manuscript) always does.
+- **Options, all off by default:** "Show the scenes before and after" (a note in a tab: the end of the scene before
+  above its text and the start of the scene after below, set as the manuscript sets its sections; a click goes
+  there); "Show where you are" (the folders down to the scene, and its synopsis: a note in the margin, or a strip
+  along the top where there's no margin); "Show word counts" (the scene's, with its target, and the day's, with the
+  goal; hidden while typing, back after a pause of 2.5 s); "Words to write today"; "Dim other paragraphs" (while
+  typing; 0.62 opacity, 4.5:1 or better in Obsidian's own themes). In settings under "Focus mode" and in focus
+  mode's menu (a right click or long press on the leave button, "Focus mode" in the editor's menu, a click on the
+  numbers).
+- **"Go to previous scene" and "Go to next scene":** commands, in or out of focus. A note in a tab gives way to that
+  note in the same tab (Obsidian saves the one left); in the manuscript the cursor goes to that section.
+- **The day's words:** a session is a day's writing in a binder on one device: each note's word count when it was
+  first seen that day and its count now (`src/focus/session.ts`, pure). Counted in any note of a binder as it's
+  typed, in focus or not; kept in the vault's local storage (`app.saveLocalStorage`), never in a note or in
+  `data.json`. Renames follow; a note split or merged counts once. A session that runs past midnight carries on
+  until focus is left.
+- **Motion:** in: what's around the page fades out where it stands (140 ms), then it's gone and the text, which
+  hasn't moved, glides to the middle (300 ms, the corkboard's timing). Out: the same backwards. With reduced motion,
+  one step.
+- **Phone and tablet:** the bar of buttons and the header go; the way out is under the clock; typing hides it and a
+  touch brings it back; the line being written is held in what the keyboard leaves in sight.
+
 ## Longform integration
 
 Supported (0.7): Longform's multi-scene projects. Single-note projects (`format: single`) aren't binders.
@@ -376,6 +418,10 @@ src/
   snapshot-text.ts     a snapshot's name and file, and comparing two texts as prose (pure, unit-tested)
   longform.ts          Longform projects: reading and writing `longform.scenes` (pure, unit-tested)
   longform-convert.ts  the "Convert to binder" dialog
+  focus/
+    focus.ts           focus mode: in and out, what's on its page, typewriter scrolling, the day's words, its menu
+    session.ts         the day's words, "the last line", what's shown of the scenes before and after (pure, unit-tested)
+    dom.ts             Obsidian's own DOM and editor as far as focus mode reaches into them (isolated; feature-detected)
   view/
     BinderView.ts      the view shell: toolbar, switcher, filter, state, places
     mode.ts            the contract between the view and its modes
@@ -421,7 +467,7 @@ already has milestones 0.1 to 0.7). Every commit bumps the version (see AGENTS.m
 | 0.7 | Longform integration | Done |
 | 0.8 | Polish: keyboard, touch, themes, performance on a 1,000-scene binder, a full mobile pass, README | In progress: explorer Mod-click, cold start, keyboard and screen readers, themes, mobile emulation pass, perf guard (`specs-perf.mjs`), README, and a native-look pass against Obsidian's own Bases and drag styles (toolbar, flat cards, drag and glide, explorer drag-to-reorder) done; real-device iOS and Android checks to do |
 | 0.9 | QA rounds (as with Evra: parallel QA agents, e2e suites, fixes). Added on the maintainer's request (2026-10-01), from Scrivener: the outliner in place of the plot grid, labels and statuses in settings, custom label colors, label tint and explorer label dots, word count targets, split, merge, duplicate, group and ungroup, synopsis from text, compile, undo and redo of moves | In progress: two QA rounds written (`specs-qa-*.mjs`, `specs-qa2-*.mjs`); the added features are built and unreleased |
-| 0.10 | Before release (2026-10-01): mobile QA to the end; export (EPUB, DOCX, PDF, and a Scrivener project); import from Scrivener; find and replace across the manuscript; snapshots of a scene ("Rewrite"); focus mode. See ROADMAP.md | Mobile QA in progress; the corkboard arranged by label is built |
+| 0.10 | Before release (2026-10-01): mobile QA to the end; export (EPUB, DOCX, PDF, and a Scrivener project); import from Scrivener; find and replace across the manuscript; snapshots of a scene ("Rewrite"); focus mode. See ROADMAP.md | Mobile QA in progress; arrange by label, snapshots and focus mode built |
 | 1.0 | Release and directory submission | |
 
 ## Risks
@@ -448,6 +494,10 @@ already has milestones 0.1 to 0.7). Every commit bumps the version (see AGENTS.m
   property and show it as an outliner column.
 - **Labels and statuses are settings**, shared by every binder in the vault, not per binder.
 - **Mobile**: a 1.0 requirement, including the editable manuscript.
+- **Focus mode** (2026-10-01, the maintainer): the text and nothing else by default, with typewriter scrolling the
+  only thing on; typewriter scrolling is for the last line only; the scenes before and after, the place and synopsis,
+  the word counts, the goal and dimming are each an option; a session is today's words in this binder on this
+  device; the numbers hide while typing and return on a pause; focus mode doesn't take the OS full screen.
 
 ## After 1.0 (from Scrivener)
 

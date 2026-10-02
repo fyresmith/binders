@@ -321,6 +321,20 @@ c.registerDomEvent(this.root, 'focusout', (e) => { const cm = this.sceneOf(e.tar
 		return (this.sceneOf(this.root.ownerDocument.activeElement) ?? null)?.file ?? this.caret?.file ?? null;
 	}
 
+	// focus mode >>>
+	editor(): EditorView | null { return this.sceneOf(this.root.ownerDocument.activeElement)?.live?.cm ?? null; }
+
+	/** The cursor goes to the section before or after the one it's in (or was last in): at that one's start, going
+	    on; at its end, going back. */
+	stepScene(delta: number, checking: boolean): boolean {
+		const at = this.sceneOf(this.root.ownerDocument.activeElement) ?? (this.caret ? this.byKey.get(this.caret.file) : null);
+		const i = at?.kind === 'scene' ? this.scenes.indexOf(at) : -1, to = i < 0 ? null : this.scenes[i + delta];
+		if (!this.editable || !to || to.broken) return false;
+		if (!checking) void this.focusScene(to, delta > 0 ? 'start' : 'end');
+		return true;
+	}
+	// <<< focus mode
+
 	newMenu(menu: Menu): void {
 		menu.addItem((i) => i.setSection('new').setTitle('New note').setIcon('file-plus').onClick(() => this.create('note')));
 	}
@@ -835,6 +849,11 @@ c.registerDomEvent(this.root, 'focusout', (e) => { const cm = this.sceneOf(e.tar
 		const view = { top: r.top, bottom: r.bottom };
 		const line = c ? c.bottom - c.top : 24, pad = Math.min((view.bottom - view.top) / 4, line * 2);
 		const top = c?.top ?? (fallback === 'end' ? body.bottom - line : body.top), bottom = c?.bottom ?? top + line;
+		// focus mode >>> typewriter scrolling: with the cursor on the last line of its section, that line is held at one
+		// height and the page moves under it (here, where the manuscript moves its page anyway); anywhere else, as below
+		const cm = s.live?.cm, held = cm ? this.ctx.plugin.focus?.line(this.root, cm) : null;
+		if (held != null) { this.ctx.plugin.focus.glide(this.root, top - held); return; }
+		// <<< focus mode
 		if (top < view.top + pad) this.root.scrollTop -= view.top + pad - top;
 		else if (bottom > view.bottom - pad) this.root.scrollTop += bottom - (view.bottom - pad);
 	}
