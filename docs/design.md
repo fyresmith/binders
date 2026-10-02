@@ -59,6 +59,21 @@ same size and has the same edge, and the folder's card says something the pile n
 stack, and "Add a synopsis" offering itself on a folder's card with none (its menu's "Edit synopsis" adds one; the
 line would have pushed the names down under the pointer).
 
+**Phones, counts and rings (2026-10-02, decided by the maintainer from QA's findings).** No real device is to hand, so
+"emulator is king": what the emulated phone and tablet tests measure is the standard.
+- On a phone only, a selected folder card (and an outliner row) with no synopsis offers "Add a synopsis", as a note's
+  card does. Desktop stays as the folder's card round left it.
+- Tap targets on phones and tablets are 44 px, by padding taken back from margins: nothing moves, and nothing changes
+  what a tap does. (A card's title row is therefore the card's top 44 px.)
+- A phone on its side with the keyboard up: Binders' toolbar steps aside while something is being typed in a short
+  view, and the manuscript runs under Obsidian's header as a note does, the cursor kept clear of it.
+- Counts (a card's words, a folder card's "3 notes · 51 words", the outliner's totals) are in the theme's muted text,
+  as Obsidian's Bases cards are, not its faintest. The "New note" tile stays faint, like a placeholder.
+- In a light theme a selected card's ring is its label's color mixed 35% toward the text color, so pale labels show.
+- Still his to decide: whether "Ungroup" takes the emptied folder away; whether a folder copied by Obsidian has its
+  folder note renamed; the mode button as "Co…" or as its icon alone at 320 px; whether a manuscript section on a
+  phone becomes its editor only when tapped; whether a split lets the second half go when the text hasn't changed.
+
 ## How a design round runs: narrow, then build
 
 The quality comes from three things: this page, the designer looking at the real plugin and correcting what it sees,

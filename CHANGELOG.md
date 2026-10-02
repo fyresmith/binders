@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.121 (2026-10-02)
+
+### Changed
+
+- Nothing a writer will notice: the design notes record the decisions made about phones, counts and rings, and the notes for contributors say where the project stands.
+
 ## 0.12.120 (2026-10-02)
 
 ### Changed

@@ -10,15 +10,22 @@
 - **Where it came from:** planned 2026-09-30 in a session that also built and released the maintainer's first plugin,
   **Evra Timelines** (`~/Projects/evra`). Binders reuses Evra's toolchain and team workflow. Evra is a good reference
   for native-looking UI, e2e tests, the release workflow, and the lessons in AGENTS.md.
-- **Version:** 0.12.x (the number is in `package.json`; every commit bumps it). Unreleased: nothing is tagged yet.
+- **Version:** 0.12.x (the number is in `package.json`; every commit bumps it). Unreleased: nothing is tagged yet,
+  and no release is planned before export is built. The aim until then is a release-ready state.
 - **Built:** binders in the vault and in the file explorer (order, drag to reorder, label dots), the three modes, the
   Longform integration, the scene operations (split, merge, duplicate, group, compile, undo of moves), arrange by
-  label, snapshots and focus mode. The milestone table in `docs/plan.md` has the detail.
-- **Left before 1.0** (`ROADMAP.md`, in its order): mobile QA to the end, on a real iPhone or iPad and a real Android
-  device (phones are only emulated so far); export (EPUB, DOCX, PDF, a Scrivener project); import from Scrivener; find
-  and replace across the manuscript.
-- **Tests:** unit tests and about forty e2e spec files. The full e2e run is not all green: findings that are still
-  open are listed in `docs/integration-qa.md`.
+  label, snapshots and focus mode. `docs/architecture.md` is the map of the code; the milestone table in
+  `docs/plan.md` has the history.
+- **Left before 1.0** (`ROADMAP.md`, in its order): export (EPUB, DOCX, PDF, a Scrivener project); import from
+  Scrivener; find and replace across the manuscript; mobile on a real device (the maintainer has none yet, so the
+  emulated phone and tablet tests are the standard: "emulator is king").
+- **Tests:** unit tests and about fifty e2e spec files, six QA rounds among them. `npm run e2e:all -- --jobs 6 --theme
+  both --retry-alone` runs the suite in several Obsidians at once (about two hours); tests known to fail on purpose are
+  listed in `tests/e2e/open-findings.json` and don't count. `npm run demo-vault` makes a vault of extreme binders to
+  try by hand; `test-vault` is the tests' fixture and is not for hand use.
+- **How fixes ship** (learned 2026-10-02, when about a hundred patches shipped on targeted tests alone and several
+  broke older tests): a fix runs its area's specs in both themes before it ships, and the whole suite runs after each
+  batch. A failure on `main` is found with `git bisect run` before anyone guesses.
 - **Git:** remote `origin` is `github.com/fyresmith/binders`.
 
 ## Decisions already made (don't reopen without cause)
