@@ -227,6 +227,19 @@ test('CRLF line endings: typing changes only what was typed (compared with a nor
 	t.ok(ms.includes('Line two typed'), 'typing saved');
 }));
 
+test('CRLF line endings: a note shown in the manuscript and not typed in is left as it is, byte for byte', oddWith({
+	'1 Crlf': '---\r\nstatus: draft\r\n---\r\nLine one\r\nLine two\r\n',
+	'2 Crlf too': 'Line one\r\nLine two\r\n',
+}, async (p, h, t) => {
+	const before = [disk(p, 'Odd/1 Crlf.md'), disk(p, 'Odd/2 Crlf too.md')];
+	await focusEnd(p, 'Odd/1 Crlf.md'); // (the caret in it, and nothing typed)
+	await p.sleep(2600);
+	await closeView(p);
+	await p.sleep(2600);
+	t.eq(disk(p, 'Odd/1 Crlf.md'), before[0], 'the note that had the caret');
+	t.eq(disk(p, 'Odd/2 Crlf too.md'), before[1], 'the note beside it');
+}));
+
 test('a note starting with a byte-order mark: properties stay hidden and intact', oddWith({
 	'1 Bom': '﻿---\nstatus: draft\n---\nBody text.\n',
 }, async (p, h, t) => {

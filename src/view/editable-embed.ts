@@ -213,7 +213,12 @@ export async function mountEditor(app: App, container: HTMLElement, file: TFile,
 		embed.requestSave.cancel();
 		const text = embed.editMode?.get() ?? embed.text;
 		// An editor update may not have reached the embed yet when a command asks to save.
-		if (text !== embed.text) void embed.save(text);
+		// (An editor's text has no Windows line endings, whatever the note has: that alone is nothing to save, or a note
+		// only shown would be written again without them.)
+		if (text !== embed.text && text !== embed.text.replace(/\r\n?/g, '\n')) void embed.save(text);
+		// (that asked for a save later, which would write this text again after the editor is gone, over anything typed
+		// in a tab of the note since)
+		embed.requestSave.cancel();
 		if (embed.dirty) void embed.save(text, true);
 		return writing;
 	};

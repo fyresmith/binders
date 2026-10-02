@@ -3,6 +3,13 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.9 (2026-10-02)
+
+### Fixed
+
+- After a manuscript showing a note with Windows line endings was closed, words typed in that note's own tab in the next two seconds could be taken out again. They stay now.
+- A note with Windows line endings that is only shown in the manuscript, and not typed in, is no longer written again with other line endings.
+
 ## 0.12.8 (2026-10-02)
 
 ### Changed
