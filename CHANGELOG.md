@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.114 (2026-10-02)
+
+### Changed
+
+- Nothing a writer will notice: two tests of the phone's outliner and corkboard measure the place they check instead of assuming it.
+
 ## 0.12.113 (2026-10-02)
 
 ### Fixed

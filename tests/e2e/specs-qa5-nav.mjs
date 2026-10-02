@@ -551,6 +551,11 @@ test('phone navigation: a tap on a folder’s stack (its name) goes into it, the
 		const far = await p.ev(`[...document.querySelectorAll('${LEAF} .binders-card[data-path$=".md"]')].filter(c => { const r = c.getBoundingClientRect(); return r.top > 230 && r.bottom < 700; }).map(c => c.dataset.path)[0]`);
 		const c = await p.at(card(far));
 		await tap(p, c.x, c.t + c.h - 16);
+		// (where the board is as the note is opened. Not 300 any more: the folder's card that was selected, above what's
+		// in sight, offered a synopsis and is 8 px shorter now that another card is selected; the browser keeps what's
+		// in sight where it was by scrolling that much less.)
+		const place = () => p.ev(`(() => { const b = ${CORK}, top = b.getBoundingClientRect().top, first = [...b.querySelectorAll('.binders-card[data-path]')].find(c => c.getBoundingClientRect().bottom > top + 1); return { scroll: b.scrollTop, first: first?.dataset.path ?? null, at: first ? first.getBoundingClientRect().top - top : 0 }; })()`);
+		const left = await place();
 		const title = await p.at(card(far) + ' .binders-card-title');
 		await tap(p, title.l + 20, title.y);
 		await until(p, `app.workspace.getActiveFile()?.path === ${j(far)}`);
@@ -561,7 +566,8 @@ test('phone navigation: a tap on a folder’s stack (its name) goes into it, the
 		await until(p, `app.workspace.getMostRecentLeaf()?.view.getViewType() === 'binders-view'`);
 		await p.sleep(900);
 		t.eq((await viewState(p)).folder, 'The Lighthouse', 'a tap on it returns to the binder');
-		t.ok(Math.abs((await p.ev(`${CORK}.scrollTop`)) - 300) <= 2, 'scrolled where it was');
+		const now = await place();
+		t.ok(Math.abs(now.scroll - left.scroll) <= 2 && now.first === left.first && Math.abs(now.at - left.at) <= 2, `scrolled where it was when the note was opened, the same card at the same place at its top: ${j(left)}, now ${j(now)}`);
 		t.eq(j(await selectedCards(p)), j([far]), 'with the card still selected');
 	});
 });

@@ -898,7 +898,9 @@ test('phone drags: a held row moves within its folder, into a folder, and out of
 		f.reorder = await dragState(p);
 		await shot(p, 'drag-reorder');
 		c.eq(j([f.reorder.ghostText, f.reorder.hint]), j(['Arrival', 'Move after “The keeper”']), 'Obsidian’s drag ghost names the row and says where it would go');
-		c.ok(f.reorder.line && Math.abs(f.reorder.line[1] + 2 - (k[1] + k[3])) <= 2 && f.reorder.line[0] === 46, 'a line shows where, starting at the names of that folder: ' + j(f.reorder.line));
+		// (where that folder's names start: measured, since a phone's indent has changed before and may again)
+		const names = (await rect(p, row('Part One/The keeper.md') + ' .binders-outliner-main'))[0];
+		c.ok(f.reorder.line && Math.abs(f.reorder.line[1] + 2 - (k[1] + k[3])) <= 2 && f.reorder.line[0] === names, `a line shows where, starting at the names of that folder (${names} px): ` + j(f.reorder.line));
 		c.eq(j(f.reorder.dimmed), j([L + 'Part One/Arrival.md']), 'the row itself dims');
 		c.eq(f.reorder.scroll, 0, 'and the rows don’t scroll under the finger');
 		await touch(p, 'touchEnd');
