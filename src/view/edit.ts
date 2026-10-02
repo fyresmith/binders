@@ -4,6 +4,7 @@ import { Keymap, Notice } from 'obsidian';
    (or `edit()`) swaps in a field. A synopsis saves on blur or Mod-Enter (Enter is a new line); a title saves on Enter.
    Escape cancels. What's typed is never dropped: it stays in the field until it's saved, and a failed save keeps it. */
 
+/** What a text edited in place is told: what it shows, how it's typed, and how it's saved. */
 export interface EditableOptions {
 	cls: string;
 	value: string;
@@ -29,11 +30,11 @@ export interface EditableOptions {
 	onEditing?(editing: boolean): void;
 }
 
+/** One text edited in place: its element, starting an edit, and saving it. */
 export interface Editable {
 	el: HTMLElement;
 	/** Starts editing. `at`: where the caret goes in the text (default: its end; a single line is selected whole). */
 	edit(at?: number): void;
-	/** Saves what's typed, if editing. */
 	/** Saves what's typed and ends the edit. With `keep`, saves and leaves the field as it is (the app is going to the
 	    background: what's typed is safe, and still there to carry on with). */
 	commit(keep?: boolean): Promise<void>;
@@ -49,11 +50,13 @@ export function commitFocused(): boolean {
 	void ed.commit();
 	return true;
 }
+/** Saves every edit under way inside `root` (and any whose element has left the page). `keep`: see `Editable.commit`. */
 export const commitAll = (root: HTMLElement, keep = false): Promise<unknown> => Promise.all([...open].filter((e) => root.contains(e.el) || !e.el.isConnected).map((e) => e.commit(keep)));
 
 /** Holders that already keep presses beside their field from ending an edit. */
 const guarded = new WeakSet<HTMLElement>();
 
+/** Puts a text in `parent` that swaps in a field when it's clicked or `edit()` is called. The header says when it saves. */
 export function editable(parent: HTMLElement, o: EditableOptions): Editable {
 	const tag = o.singleLine ? 'input' : 'textarea';
 	// (`dir="auto"`: text in a right-to-left script reads from the right, whatever the interface's direction)

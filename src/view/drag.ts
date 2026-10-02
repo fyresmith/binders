@@ -2,9 +2,11 @@
    drags after a long press (so a swipe still scrolls), and a long press without moving asks for the menu. Escape
    cancels. The view says what is taken hold of and what a drag does (`PressHost`); this only reads the pointer. */
 
+/** How long a finger is held still before it has taken hold (ms). */
 export const LONG_PRESS = 450;
 const DRAG_START = 5;
 
+/** What a view tells `Press`: where to listen, what a press takes hold of, and what a drag does. */
 export interface PressHost<T> {
 	/** Where presses are listened for. */
 	el: HTMLElement;
@@ -23,6 +25,7 @@ export interface PressHost<T> {
 	hold?(data: T, x: number, y: number, el: HTMLElement): void;
 }
 
+/** Reads one pointer into a click, a drag or a long press, and tells its host. */
 export class Press<T> {
 	/** The kind of pointer last pressed: 'mouse', 'pen' or 'touch'. */
 	pointer = 'mouse';
@@ -150,6 +153,7 @@ export class Press<T> {
    Obsidian gives its own reordered items. Only what's in sight moves; a big rearrangement, or "reduce motion", just
    shows. */
 
+/** The timing of a glide: Obsidian's own, for items it reorders. */
 export const GLIDE: KeyframeAnimationOptions = { duration: 300, easing: 'cubic-bezier(0.2, 0, 0, 1)' };
 /** A tree folding or unfolding, as quick as the file explorer's. */
 export const GLIDE_QUICK: KeyframeAnimationOptions = { duration: 140, easing: 'cubic-bezier(0.2, 0, 0, 1)' };
@@ -173,8 +177,6 @@ export function places(root: HTMLElement, selector: string, key: (el: HTMLElemen
 	return out;
 }
 
-/** Moves each element from where it was (`before`, or `from(el)` for one just dropped) to where it is. Returns the
-    animations started, by element. */
 /** The lowest point of a scrolling pane that can be seen: its own bottom edge, or the top of the bar of buttons
     Obsidian lays over the foot of the screen on a phone. Dragging near it scrolls the pane. */
 export function visibleBottom(el: HTMLElement): number {
@@ -186,6 +188,8 @@ export function visibleBottom(el: HTMLElement): number {
     times, so the far end of a long binder isn't a minute away. */
 export const held = (since: number): number => Math.min(8, 2 ** ((performance.now() - since) / 1000));
 
+/** Moves each element from where it was (`before`, or `from(el)` for one just dropped) to where it is. Returns the
+    animations started, by element. Nothing moves under "reduce motion". */
 export function glide(root: HTMLElement, selector: string, key: (el: HTMLElement) => string | null, before: Map<string, DOMRect>, view: DOMRect, from?: (el: HTMLElement) => DOMRect | undefined, how: KeyframeAnimationOptions = GLIDE): Map<HTMLElement, Animation> {
 	const out = new Map<HTMLElement, Animation>();
 	if (root.win.matchMedia('(prefers-reduced-motion: reduce)').matches) return out;

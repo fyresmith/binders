@@ -6,6 +6,7 @@
 
 /** Obsidian's palette: each has a `--color-<name>` variable in every theme. */
 export const PALETTE = ['red', 'orange', 'yellow', 'green', 'cyan', 'blue', 'purple', 'pink'] as const;
+/** One of Obsidian's accent colors, by name. */
 export type PaletteColor = typeof PALETTE[number];
 
 /** A label in settings. `color` is one of PALETTE (the theme's own shade) or a hex color. */

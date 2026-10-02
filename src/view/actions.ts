@@ -21,7 +21,10 @@ export const ITEM_MENU = 'binders-card';
 export const badName = (name: string): string | null =>
 	/[*"\\/<>:|?]/.test(name) ? 'A name can’t contain any of * " \\ / < > : | ?' : name.startsWith('.') ? 'A name can’t start with a dot.' : name.length > 200 ? 'That name is too long.' : null;
 
+/** A Markdown note (not a folder, and not another kind of file). */
 export const isNote = (f: TAbstractFile): f is TFile => f instanceof TFile && f.extension === 'md';
+/** An item's name as it shows: a note's without ".md", a folder's as it is. (Not `nameOf` in model.ts, which reads the
+    last part of a path in a binder's list.) */
 export const nameOf = (f: TAbstractFile): string => (f instanceof TFile ? f.basename : f.name);
 
 /** Where an item's card data lives: the note itself, or a folder's folder note (null until it has one). */
@@ -124,7 +127,6 @@ export function statusItems(ctx: ModeContext, m: Menu, items: TAbstractFile[]): 
 	if (now !== '') m.addItem((x) => x.setSection('new').setTitle('No status').setIcon('x').onClick(() => void setAll(ctx, items, { status: '' })));
 }
 
-/** The labels to set, as a menu's items: the ones in settings, a color of the note's own, and none. */
 /** A CSS color (a theme variable, say) as the "#rrggbb" it is on screen now, or null. */
 function shownColor(css: string | null): string | null {
 	if (!css) return null;
@@ -136,6 +138,8 @@ function shownColor(css: string | null): string | null {
 	return m ? '#' + m.slice(1, 4).map((n) => Number(n).toString(16).padStart(2, '0')).join('') : null;
 }
 
+/** The labels to set, as a menu's items: the ones in settings, others in use, a color of the note's own, none, and
+    "Edit labels...". */
 export function labelItems(ctx: ModeContext, m: Menu, items: TAbstractFile[]): void {
 	const presets = ctx.plugin.settings.labels, now = shared(ctx, items, 'label');
 	for (const l of labelChoices(ctx)) {
@@ -235,6 +239,8 @@ export function otherItems(ctx: ModeContext, menu: Menu, items: TAbstractFile[])
 	} catch (e) { console.error('Binders: a plugin’s menu items failed', e); }
 }
 
+/** How a view's own parts work, which the item menu asks of it: renaming and the synopsis in place, moving up and
+    down among what shows, deleting, and what to do with something the menu made. */
 export interface Hooks {
 	/** Starts renaming the item in place, if this view can (null: no "Rename"). */
 	rename: ((f: TAbstractFile) => void) | null;

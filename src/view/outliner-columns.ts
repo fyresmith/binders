@@ -38,6 +38,8 @@ export function showUnder(menu: Menu, el: HTMLElement, e?: MouseEvent): void {
 	menu.showAtPosition({ x: r.left, y: r.bottom + 2, width: r.width, overlap: true }, el.doc);
 }
 
+/** The outliner's header: each column's menu, sorting, resizing and reordering, and which columns show. It asks the
+    outliner only through `ColumnsHost`. */
 export class OutlinerColumns {
 	/** Ends a press on a header that's still on (a drag, a resize): set while there is one. */
 	private stop: (() => void) | null = null;
