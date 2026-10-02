@@ -1676,3 +1676,35 @@ test('what changed reads as prose: words only put in, only taken out, both; a pa
 	same(t, before, await texts(p));
 	t.eq(await textOf(p, DIR + '/2026-09-12 09.15.40 Then.snapshot'), THEN, 'the snapshot is untouched');
 });
+
+// ---- a name is what the writer typed ----
+
+test('a snapshot named “Final draft (3)” is listed, shown and opened under that name; only a count Binders added itself is left off', async (p, h, t) => {
+	await write(p, A, ONE);
+	// named by the writer, through Rewrite
+	await openNote(p, A);
+	await run(p, 'rewrite');
+	await until(p, `!!document.querySelector('.modal .binders-ask input')`);
+	await p.type('Final draft (3)');
+	await press(p, '.modal button', 'Start from this text');
+	await until(p, `app.vault.adapter.exists(${j(DIR)})`);
+	await sleep(p, 400);
+	const mine = (await list(p))[0];
+	t.ok(/ Final draft \(3\)\.snapshot$/.test(mine), 'the file has the name as typed: ' + mine);
+	// two of one second with one name: the second is counted on by Binders (as when a note's snapshots are moved in
+	// beside others); and a name that is only a year in brackets
+	await seed(p, DIR, '2026-09-12 09.15.40 Draft', DRAFT);
+	await seed(p, DIR, '2026-09-12 09.15.40 Draft (2)', LATER);
+	await seed(p, DIR, '2026-09-11 08.00.00 (1987)', DRAFT);
+	await closeAll(p);
+	await p.ev(`(() => { app.workspace.getLeavesOfType('markdown').forEach(l => l.detach()); return 1; })()`);
+	await dialog(p);
+	t.eq(j((await rows(p)).map((r) => r.split(' / ')[0])), j(['The note now', 'Final draft (3)', 'Draft', 'Draft', '(1987)']), 'the list: each name as the writer gave it, the count Binders added left off');
+	await pick(p, 'Final draft (3)');
+	t.eq(await shownName(p), 'Final draft (3)', 'the bar over its text says the same');
+	await more(p);
+	await clickMenu(p, 'Open to the right');
+	await until(p, `app.workspace.getLeavesOfType('binders-snapshot').length === 1`);
+	t.eq(await p.ev(`app.workspace.getLeavesOfType('binders-snapshot')[0].getDisplayText()`), 'Arrival: Final draft (3)', 'and so does its own pane');
+	t.ok((await p.ev(`app.workspace.getLeavesOfType('binders-snapshot')[0].view.contentEl.innerText`)).includes('Snapshot “Final draft (3)”'), 'in its heading too');
+});

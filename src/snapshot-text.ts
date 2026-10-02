@@ -21,14 +21,19 @@ export function snapshotName(when: Date, title: string, taken: (name: string) =>
 
 /** A snapshot file's name (without its extension) read back: when it was taken (local time) and its name. Null for a
     file that isn't named as Binders names them (one renamed by hand): its `taken` property, or the file's own date,
-    says when then, and its whole name is its name. */
-export function readSnapshotName(name: string): { when: Date; title: string } | null {
+    says when then, and its whole name is its name.
+    `beside` says whether a snapshot of this name is in the same folder. A name that ends in " (3)" is the name as the
+    writer typed it, unless the same name without that is there too: only then is it the count `snapshotName` adds. */
+export function readSnapshotName(name: string, beside?: (name: string) => boolean): { when: Date; title: string } | null {
 	const m = /^(\d{4})-(\d\d)-(\d\d) (\d\d)\.(\d\d)\.(\d\d)(?: (.*))?$/.exec(name);
 	if (!m) return null;
 	const [y, mo, d, h, mi, sec] = m.slice(1, 7).map(Number), when = new Date(y, mo - 1, d, h, mi, sec);
 	// (a date that isn't one, "2026-13-45", rolls over in JavaScript: it must read back as written)
 	if (Number.isNaN(when.getTime()) || when.getMonth() !== mo - 1 || when.getDate() !== d || when.getHours() !== h || when.getMinutes() !== mi) return null;
-	return { when, title: (m[7] ?? '').replace(/(^| )\(\d+\)$/, '').trim() };
+	const title = (m[7] ?? '').trim(), count = /^(?:(.*) )?\((\d+)\)$/.exec(title), stem = count?.[1] ?? '';
+	// (the time is the name's first 19 characters; counts start at 2)
+	const counted = !!count && Number(count[2]) >= 2 && !!beside?.(name.slice(0, 19) + (stem ? ' ' + stem : ''));
+	return { when, title: counted ? stem.trim() : title };
 }
 
 /** "2026-10-01T14:32:07": local time, as Obsidian writes a date and time property. */

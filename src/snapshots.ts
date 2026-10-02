@@ -57,9 +57,10 @@ export async function snapshotsIn(app: App, dir: string): Promise<Snapshot[]> {
 	const folder = app.vault.getAbstractFileByPath(dir);
 	if (!(folder instanceof TFolder)) return [];
 	const out: Snapshot[] = [];
-	for (const file of folder.children.filter(isSnapshot)) {
+	const files = folder.children.filter(isSnapshot), names = new Set(files.map((f) => f.basename));
+	for (const file of files) {
 		try {
-			const named = readSnapshotName(file.basename), read = readSnapshot(await app.vault.cachedRead(file));
+			const named = readSnapshotName(file.basename, (n) => names.has(n)), read = readSnapshot(await app.vault.cachedRead(file));
 			out.push({ file, taken: named?.when.getTime() ?? read.taken ?? file.stat.mtime, title: named ? named.title : file.basename, body: read.body });
 		} catch { /* one that can't be read isn't listed; its file stays */ }
 	}

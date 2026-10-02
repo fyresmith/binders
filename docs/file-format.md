@@ -201,6 +201,9 @@ The Lighthouse/
   would have the same name, the second is counted on (`… First draft (2)`). Naming a snapshot renames its file. A name
   can't contain `* " \ / < > : | ?` and is at most 120 characters. A file named some other way still counts, under its
   whole name.
+
+A name that ends in a number in brackets is the name as typed; the brackets are read as that count only when the
+snapshot of the same time and name without them is in the same folder.
 - It holds two properties and then the note's text exactly as it was (line breaks and all). The note's own
   properties (synopsis, status, label, tags) are not copied:
 

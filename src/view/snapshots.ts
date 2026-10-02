@@ -131,9 +131,14 @@ export class SnapshotView extends ItemView {
 	getViewType(): string { return SNAPSHOT_VIEW; }
 	getIcon(): string { return 'history'; }
 	getDisplayText(): string {
-		const name = this.path.slice(this.path.lastIndexOf('/') + 1).replace(/\.[^.]+$/, ''), named = readSnapshotName(name);
+		const name = this.path.slice(this.path.lastIndexOf('/') + 1).replace(/\.[^.]+$/, ''), named = readSnapshotName(name, this.beside());
 		const what = named ? named.title || when(named.when.getTime()) : name;
 		return this.path ? `${this.of ? this.of.slice(this.of.lastIndexOf('/') + 1).replace(/\.md$/i, '') + ': ' : ''}${what}` : 'Snapshot';
+	}
+	/** Is a snapshot of this name beside the one shown? (A count after a name is told from a number the writer typed.) */
+	private beside(): (name: string) => boolean {
+		const dir = this.path.slice(0, this.path.lastIndexOf('/'));
+		return (name) => !!this.app.vault.getAbstractFileByPath(`${dir}/${name}.${SNAPSHOT_EXT}`);
 	}
 	getState(): Record<string, unknown> { return { file: this.path, of: this.of }; }
 	async setState(state: unknown, result: ViewStateResult): Promise<void> {
@@ -162,7 +167,7 @@ export class SnapshotView extends ItemView {
 		const page = el.createDiv({ cls: 'binders-snapshot-page markdown-rendered' });
 		refreshHeader(this);
 		if (!(file instanceof TFile) || file.extension !== SNAPSHOT_EXT) { if (this.path) page.createDiv({ cls: 'binders-snapshot-of', text: 'This snapshot isn’t there any more.' }); return; }
-		const named = readSnapshotName(file.basename), read = readSnapshot(await this.app.vault.cachedRead(file));
+		const named = readSnapshotName(file.basename, this.beside()), read = readSnapshot(await this.app.vault.cachedRead(file));
 		const at = named?.when.getTime() ?? read.taken ?? file.stat.mtime, title = named ? named.title : file.basename;
 		page.createDiv({ cls: 'binders-snapshot-of', text: `Snapshot${title ? ` “${title}”` : ''}, taken ${whenIn(at)} · ${wordsLabel(countWords(read.body))}` });
 		if (read.body.trim()) await MarkdownRenderer.render(this.app, forRender(read.body), page, this.of || file.path, this.shown);

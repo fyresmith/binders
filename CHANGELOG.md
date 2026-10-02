@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.72 (2026-10-02)
+
+### Fixed
+
+- A snapshot named with a number in brackets at the end, such as “Final draft (3)”, is listed under that whole name.
+
 ## 0.12.71 (2026-10-02)
 
 ### Fixed

@@ -23,8 +23,27 @@ const at = new Date(2026, 9, 1, 14, 32, 7);
 	const r = readSnapshotName('2026-10-01 14.32.07 First draft');
 	ok(!!r && r.when.getTime() === at.getTime() && r.title === 'First draft', 'time and name');
 	eq(readSnapshotName('2026-10-01 14.32.07')?.title, '', 'no name');
-	eq(readSnapshotName('2026-10-01 14.32.07 (2)')?.title, '', 'a count isn’t a name');
-	eq(readSnapshotName('2026-10-01 14.32.07 Draft (2)')?.title, 'Draft', 'a count after a name isn’t part of it');
+	// the count that keeps two snapshots of one second apart isn't part of a name; a number the writer typed in brackets
+	// is. They're told apart by the snapshot beside it: a count is only ever added to a name that's taken
+	const beside = (...names: string[]) => (n: string) => names.includes(n);
+	eq(readSnapshotName('2026-10-01 14.32.07 (2)', beside('2026-10-01 14.32.07'))?.title, '', 'a count isn’t a name');
+	eq(readSnapshotName('2026-10-01 14.32.07 Draft (2)', beside('2026-10-01 14.32.07 Draft'))?.title, 'Draft', 'a count after a name isn’t part of it');
+	eq(readSnapshotName('2026-10-01 14.32.07 Draft (3)', beside('2026-10-01 14.32.07 Draft', '2026-10-01 14.32.07 Draft (2)'))?.title, 'Draft', 'nor is the next count');
+	eq(readSnapshotName('2026-10-01 14.32.07 Final draft (3)', beside('2026-10-01 14.32.07 Final draft (3)'))?.title, 'Final draft (3)', 'a name that ends in a number in brackets is the name as typed');
+	eq(readSnapshotName('2026-10-01 14.32.07 Final draft (3)', beside('2026-10-01 14.32.08 Final draft'))?.title, 'Final draft (3)', 'a snapshot of that name taken at another time doesn’t make it a count');
+	eq(readSnapshotName('2026-10-01 14.32.07 Final draft (3)')?.title, 'Final draft (3)', 'and with nothing known of the snapshots beside it, the name is as written');
+	eq(readSnapshotName('2026-10-01 14.32.07 (1987)', beside())?.title, '(1987)', 'a name that is only a number in brackets');
+	eq(readSnapshotName('2026-10-01 14.32.07 Draft (1)', beside('2026-10-01 14.32.07 Draft'))?.title, 'Draft (1)', 'counts start at two: a one is the writer’s');
+	eq(readSnapshotName('2026-10-01 14.32.07 Draft (2) (2)', beside('2026-10-01 14.32.07 Draft (2)'))?.title, 'Draft (2)', 'a count after a name that ends in brackets');
+	{
+		// what `snapshotName` makes reads back as the name given, whatever the name
+		const there = new Set<string>();
+		for (const title of ['Draft', 'Draft', 'Draft (2)', 'Draft', '', '', 'Final draft (3)']) {
+			const name = snapshotName(at, title, (n) => there.has(n));
+			there.add(name);
+			eq(readSnapshotName(name, (n) => there.has(n))?.title, title, `“${title}”, kept as “${name}”, reads back as given`);
+		}
+	}
 	eq(readSnapshotName('2026-10-01 14.32.07 Before bringing back')?.title, 'Before bringing back', 'the name Binders gives');
 	eq(readSnapshotName('old ending'), null, 'a file named by hand has no time in its name');
 	eq(readSnapshotName('2026-13-45 14.32.07'), null, 'nor one whose date isn’t a date');
