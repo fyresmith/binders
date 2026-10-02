@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.55 (2026-10-02)
+
+### Fixed
+
+- After switching to the outliner from the keyboard, the focus is on a row, where it shows.
+
 ## 0.12.54 (2026-10-02)
 
 ### Fixed

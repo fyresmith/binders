@@ -812,3 +812,18 @@ test('“Move to” in a row’s menu leaves the keyboard on the row that moved,
 	await flush(p);
 	same(t, before, await texts(p), { skip: [NOTE], moved: { [L + 'Part One/Storm warning.md']: L + 'Part Two/Storm warning.md', [L + 'Part One/Arrival.md']: L + 'Part Two/Arrival.md', [L + 'Prologue.md']: L + 'Part One/Prologue.md' } });
 }));
+
+test('switching to the outliner from the keyboard puts the focus on a row, which shows it: the first, with nothing selected', async (p, h, t) => {
+	await openView(p);
+	await p.ev(`(() => { ${VIEW}.setMode('corkboard'); return 1; })()`);
+	await p.sleep(400);
+	await p.key('Tab'); // (the keyboard is in use: a focus ring shows)
+	await h.run('show-outliner');
+	await until(p, `!!document.querySelector('${R}')`);
+	await p.sleep(600);
+	t.eq(await keyboardOn(p), 'Prologue.md', 'with nothing selected, the first row has the focus');
+	t.ok(await p.ev(`(() => { const a = document.activeElement; return a.matches(':focus-visible') && getComputedStyle(a, '::after').boxShadow !== 'none'; })()`), 'and wears the focus ring');
+	await p.key('ArrowDown');
+	t.eq(await keyboardOn(p), 'Part One', 'the arrow keys go on from it');
+});
+

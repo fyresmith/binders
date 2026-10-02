@@ -197,8 +197,9 @@ class Outliner implements BinderMode {
 		this.container.empty();
 	}
 
-	// (with no row in hand, the outliner itself: the first arrow key then goes to its first row, as in the file explorer)
-	focus(): void { (this.rowEl(this.focused) ?? this.root).focus({ preventScroll: true }); }
+	// (with no row in hand, the row Tab would go to: a selected one, else the first, as the corkboard gives its first
+	// card; a row shows the focus, the outliner's own box doesn't. With no rows at all, the outliner itself.)
+	focus(): void { (this.rowEl(this.focused) ?? this.body.querySelector<HTMLElement>(':scope > .binders-outliner-row[tabindex="0"]') ?? this.root).focus({ preventScroll: true }); }
 
 	current(): TAbstractFile | null { return this.item(this.focused ?? [...this.sel][0]); }
 
