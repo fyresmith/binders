@@ -2693,6 +2693,17 @@
 	flex: 0 1 auto;
 }
 
+/* (a folder's card there holds a line of its synopsis and the first of its notes, two lines on a large card: whole
+   lines, the last ending in an ellipsis, never one squeezed to a slice by the names under it) */
+.binders-board .binders-lanes.mod-across > .binders-card.is-stack:not(:has(.is-editing)) > .binders-card-synopsis {
+	flex: none;
+	-webkit-line-clamp: 1;
+}
+
+.binders-board.mod-cards-large .binders-lanes.mod-across > .binders-card.is-stack:not(:has(.is-editing)) > .binders-card-synopsis {
+	-webkit-line-clamp: 2;
+}
+
 /* (a card being written in grows to hold it) */
 .binders-lanes.mod-across > .binders-card:has(.is-editing) {
 	height: auto;

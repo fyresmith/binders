@@ -1111,3 +1111,30 @@ test('a card carried to a folder in the breadcrumb goes out to it, at its end, a
 	same(t, before, await texts(p), { skip: [P1 + 'Arrival.md'] });
 	t.eq(split(await read(p, P1 + 'Arrival.md')).body, split(before[P1 + 'Arrival.md']).body, 'its text whole');
 });
+
+// 0.12.132. A folder's card on the board by label showed its synopsis squeezed by the names under it: a line with no
+// ellipsis (and on a phone the top of the next line).
+test('by label, a folder card’s synopsis is whole lines ending in an ellipsis, at every card size and on a phone: never a slice of a line', async (p, h, t) => {
+	const before = await texts(p);
+	const NOTE1 = P1 + 'Part One.md';
+	await p.ev(`app.vault.create(${j(NOTE1)}, '---\\nsynopsis: Mara comes to the island and learns the rules of the light, one by one, from a man who would rather not say them aloud to anyone at all.\\n---\\n').then(() => 1)`);
+	await p.sleep(600);
+	const syn = () => p.ev(`(() => { const c = document.querySelector(${j(card(L + 'Part One'))}) ?? [...document.querySelectorAll('${LEAF} .binders-lanes > .binders-card.is-stack')][0], s = c.querySelector(':scope > .binders-card-synopsis'), cs = getComputedStyle(s), R = (e) => e.getBoundingClientRect(), next = s.nextElementSibling; const lines = (s.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom)) / parseFloat(cs.lineHeight); const foot = c.querySelector(':scope > .binders-card-footer'); return { lines: Math.round(lines * 100) / 100, clamp: Number(cs.webkitLineClamp), more: s.scrollHeight > s.clientHeight + 1, footIn: R(foot).bottom <= R(c).bottom + 0.5, under: R(s).bottom <= R(foot).top + 0.5 }; })()`);
+	const whole = (g, what) => {
+		t.ok(g.lines > 0.9 && Math.abs(g.lines - Math.round(g.lines)) < 0.06 && Math.round(g.lines) === g.clamp, `${what}: the synopsis is ${g.clamp} whole line${g.clamp > 1 ? 's' : ''} (${g.lines})`);
+		t.ok(g.more && g.footIn && g.under, `${what}: it is cut by its ellipsis (there is more of it), above the card’s foot, which is inside the card (${j(g)})`);
+	};
+	for (const [what, cardSize, clamp] of [['a card', undefined, 1], ['a small card', 'small', 1], ['a large card', 'large', 2]]) {
+		await openBy(p, 'The Lighthouse', cardSize ? { cardSize } : {});
+		const g = await syn();
+		whole(g, what);
+		t.eq(g.clamp, clamp, `${what}: ${clamp} line${clamp > 1 ? 's' : ''}`);
+	}
+	await onDevice(p, [390, 844], async () => {
+		await openBy(p, 'The Lighthouse');
+		whole(await syn(), 'a phone');
+	});
+	await p.ev(`app.vault.delete(${file(NOTE1)}).then(() => 1)`);
+	await p.sleep(400);
+	same(t, before, await texts(p), { skip: [NOTE] });
+});

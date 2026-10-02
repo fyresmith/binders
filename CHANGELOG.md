@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.140 (2026-10-02)
+
+### Fixed
+
+- On the board by label, a folder card's synopsis is no longer sliced mid-line: it ends in an ellipsis.
+
 ## 0.12.139 (2026-10-02)
 
 ### Fixed
