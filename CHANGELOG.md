@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.13 (2026-10-02)
+
+### Changed
+
+- Nothing you'll notice: the code that undoes moves now lives in its own file.
+
 ## 0.12.12 (2026-10-02)
 
 ### Changed

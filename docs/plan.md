@@ -418,7 +418,8 @@ src/
   settings.ts          the settings tab (declarative, with a fallback for Obsidian before 1.13)
   settings-data.ts     what the settings are, their defaults, reading saved ones (pure, unit-tested)
   model.ts             the binder index: parse, order, rename, move (pure, unit-tested)
-  binders.ts           finds binders in the vault, keeps an index per binder, writes changes (debounced); undo of moves
+  binders.ts           finds binders in the vault, keeps an index per binder, writes changes (debounced)
+  undo.ts              undo of moves: what a change by hand moved, and putting it back (through the store)
   explorer.ts          the file explorer: order patch, icon, label dots, click to open, drag to reorder (isolated; feature-detected)
   scenes.ts            split, merge, synopsis from text, compile (and its dialog): where the text rules meet the vault
   scene-text.ts        the text rules for those (pure, unit-tested)
