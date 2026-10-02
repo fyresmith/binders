@@ -1,4 +1,4 @@
-import type { App, Component, Editor, MarkdownView, TFile } from 'obsidian';
+import { FileSystemAdapter, type App, type Component, type Editor, type MarkdownView, type TFile } from 'obsidian';
 import { historyField } from '@codemirror/commands';
 import { EditorState, StateEffect, Transaction, type Extension } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
@@ -119,6 +119,19 @@ const openEditors = new Map<TFile, Set<() => Promise<void>>>();
 /** The last writes of editors that have just gone (a section scrolled away, a view closed), by note: until one is
     done, the note on disk is behind what was typed. */
 const closing = new Map<TFile, Set<Promise<void>>>();
+
+/* The page going away (the app reloaded, its window closed). On a computer a write is in two steps, the file emptied
+   and then filled, and one started now is cut off between them by the page ending: the whole note would be left
+   empty, for the sake of its last two seconds of typing. So once the page is leaving, nothing more is written there:
+   the note stays as it was last saved, as it does in a tab of its own. (Quitting asks for the writes first and waits
+   for them; a phone hands the whole write to the system, which finishes it.) */
+let leaving = false;
+/** Is this the page itself going (not an event made up by a script)? */
+const going = (e: Event | undefined): boolean => !!e && e.type === 'pagehide' && e.isTrusted;
+/** (Whoever saves as the page goes may hear of it before this module does: the event being handled says so too.) */
+const cutOff = (app: App): boolean => (leaving || going(currentEvent())) && app.vault.adapter instanceof FileSystemAdapter;
+/** The event whose listeners are running now in the app's own window, if any. */
+const currentEvent = (): Event | undefined => (window as unknown as { event?: Event }).event;
 
 /** Writes down what's typed into these notes in any manuscript and isn't saved yet, and resolves once it's on disk:
     every live editor is flushed, and the last write of an editor that has just gone is waited for. Rejects if a write
@@ -243,6 +256,7 @@ export async function mountEditor(app: App, container: HTMLElement, file: TFile,
 	// true while text from elsewhere is put into an editor that doesn't have the cursor (see `set`, below)
 	let apart = false;
 	const flush = async (): Promise<void> => {
+		if (cutOff(app)) return;
 		// (no more turns than a writer could keep it busy for by typing through every write)
 		for (let turn = 0; turn < 12; turn++) {
 			embed.requestSave.cancel();
@@ -301,6 +315,10 @@ export async function mountEditor(app: App, container: HTMLElement, file: TFile,
 	};
 
 	parent.addChild(embed);
+	// (for what comes after it as the page goes: the page hidden, and anything else that saves)
+	// (a page that goes never gets to the timer; one that stays after all saves as before, and what was held back
+	// is still waiting to be saved, a moment after the typing as ever)
+	embed.registerDomEvent(window, 'pagehide', (e) => { if (going(e)) { leaving = true; window.setTimeout(() => { leaving = false; }, 0); } });
 	try {
 		await saveEditors([file]);
 		if (gone) throw new Error('Closed while opening.');
