@@ -1674,7 +1674,7 @@ test('dark: the board, a selected card, a tinted label, a card’s sheet and a c
 	}, 'dark');
 });
 
-ux('on a phone the line that shows where a carried card will land can be seen (the card is as wide as the column and drawn over the line at 90% opacity: all of the line is under it)', async (p, h, t) => {
+ux('on a phone the line that shows where a carried card will land can be seen: it’s drawn over the carried card, which is as wide as the column and seen through (it was drawn under the card, all of it)', async (p, h, t) => {
 	await onDevice(p, PHONE, async () => {
 		await open(p, L + 'Part One');
 		const pr = await foot(p, 'Part One/Arrival.md'), k = await p.at(card(L + 'Part One/Storm warning.md'));
@@ -1684,7 +1684,7 @@ ux('on a phone the line that shows where a carried card will land can be seen (t
 		await touch(p, 'touchCancel');
 		await p.sleep(400);
 		t.ok(s, 'a card is carried, with a line');
-		t.ok(s.covered < 50, `${s.covered}% of the line is under the carried card (opacity ${s.opacity}): ${j(s)}`);
+		t.ok(s.covered < 50 || Number(s.lineZ) > Number(s.ghostZ), `the line is clear of the carried card, or drawn over it (${s.covered}% of it is within the card, whose opacity is ${s.opacity}): ${j(s)}`);
 	});
 });
 

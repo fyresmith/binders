@@ -146,3 +146,43 @@ for (const [device, width, height] of [['phone', 390, 844], ['tablet', 820, 1180
 		});
 	}));
 }
+
+test('phone: what a tap is meant to hit is a finger across (44 px): the toolbar’s buttons and count, the way up, a card’s title and a folder card’s name, a section’s title and a folder’s heading in the manuscript; a selected folder card with no synopsis offers the line, and a tap on it writes one', withTidy(async (p, h, t) => {
+	await onDevice(p, 390, 844, async () => {
+		const A = '.workspace-leaf.mod-active', L = 'The Lighthouse/';
+		/** The smallest width and height among what matches, and how many there are. */
+		const least = (sel) => p.ev(`(() => { const rs = [...document.querySelectorAll(${j(`${A} ${sel}`)})].map(e => e.getBoundingClientRect()).filter(r => r.height > 0); return { n: rs.length, w: Math.round(Math.min(...rs.map(r => r.width))), h: Math.round(Math.min(...rs.map(r => r.height))) }; })()`);
+		const finger = async (what, sel, both = true) => { const m = await least(sel); t.ok(m.n > 0 && m.h >= 44 && (!both || m.w >= 44), `${what}: ${j(m)}`); };
+		await openView(p, L + 'Part One');
+		await finger('the toolbar’s buttons', '.binders-toolbar-button:not(.is-hidden)');
+		await finger('the way up', '.binders-crumb[role="link"]');
+		await finger('a card’s title, across the card', '.binders-card[data-path] > .binders-card-head');
+		t.eq(await p.ev(`(() => { const b = document.querySelector('${A} .binders-toolbar'); return b.scrollWidth - b.clientWidth; })()`), 0, 'and the toolbar still fits');
+		await openView(p);
+		await finger('a folder card’s name', '.binders-card.is-stack > .binders-card-head');
+		await finger('the word count', '.binders-word-count');
+		// a folder's card with no synopsis: nothing until it's selected, then the line a note's card has
+		const P1 = `${A} .binders-card[data-path="${L}Part One"]`, line = () => p.at(`${P1} > .binders-card-synopsis`);
+		t.eq(await line(), null, 'a folder’s card with no synopsis shows no line for one');
+		const c = await p.at(P1), below = async () => Math.round((await p.at(`${A} .binders-card[data-path="${L}Part Two"]`)).t);
+		const was = await below();
+		await tap(p, c.x, c.t + c.h - 12);
+		const s = await line();
+		t.ok(s && s.h >= 20, 'selected, it offers “Add a synopsis”: ' + j(s));
+		t.ok(Math.abs((await below()) - was) <= 12, `and the card after it moves by less than a line: the names give the line a row of theirs (${was}, now ${await below()})`);
+		await p.sleep(600);
+		await tap(p, s.x, s.y);
+		t.eq(j(await p.ev(`[document.activeElement.tagName, document.activeElement.getAttribute('aria-label')]`)), j(['TEXTAREA', 'Synopsis of Part One']), 'a tap on it opens the folder’s synopsis');
+		await p.type('Mara comes.');
+		const e = await p.at(`${A} .binders-card[data-path="${L}Epilogue.md"]`);
+		await tap(p, e.x, e.t + e.h - 12);
+		await until(p, `app.vault.adapter.exists(${j(L + 'Part One/Part One.md')})`);
+		await flush(p);
+		t.ok(/^synopsis: Mara comes\.$/m.test(await p.ev(`app.vault.adapter.read(${j(L + 'Part One/Part One.md')})`)), 'which is kept in a folder note made for it');
+		await p.ev(`(() => { ${VIEW}.setMode('manuscript'); return 1; })()`);
+		await until(p, `!!document.querySelector('${A} .binders-manuscript-title')`);
+		await p.sleep(400);
+		await finger('a section’s title in the manuscript', '.binders-manuscript-title');
+		await finger('a folder’s heading in the manuscript', '.binders-manuscript-heading > :is(h1, h2, h3, h4, h5, h6)');
+	});
+}));

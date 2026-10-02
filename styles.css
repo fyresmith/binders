@@ -721,6 +721,23 @@
 	box-shadow: 0 0 0 2px var(--background-modifier-border-focus);
 }
 
+/* (by touch a tap on a title renames it: what's tapped is a finger tall and a little wider than the words, with
+   nothing moved, the padding taken back from the margin) */
+.is-mobile .binders-manuscript-title:not(.is-renaming) {
+	padding: 11px var(--size-4-2);
+	margin: -11px calc(-1 * var(--size-4-2));
+}
+
+/* (and a folder's heading, which a tap goes into: its line with 7px above and below) */
+.is-mobile .binders-manuscript-heading.markdown-rendered > :is(h1, h2, h3, h4, h5, h6):not(.is-renaming) {
+	padding-block: 7px;
+	margin-block: calc(var(--size-4-8) - 7px) calc(var(--size-4-2) - 7px);
+}
+
+.is-mobile .binders-manuscript-list > .binders-manuscript-heading.markdown-rendered:first-child > :is(h1, h2, h3, h4, h5, h6):not(.is-renaming) {
+	margin-top: -7px;
+}
+
 /* a folder's name being typed over, as a section's title is */
 .binders-manuscript-heading > :is(h1, h2, h3, h4, h5, h6).is-renaming {
 	cursor: text;
@@ -1023,9 +1040,20 @@
 	column-gap: var(--size-4-2);
 }
 
+/* What a finger is meant to hit is a finger across (44px, as the buttons of Obsidian's own header above are), without
+   anything moving: each button's box grows by its padding and takes the same back from its margin, so its icon and
+   its name are where they were, and neighbors meet where the gap between them was. */
 .is-mobile .binders-toolbar .binders-toolbar-button {
-	min-width: 32px;
-	min-height: 32px;
+	--binders-slop: 6px;
+	min-width: 44px;
+	min-height: 44px;
+	justify-content: center;
+	padding: calc(var(--size-2-2) + var(--binders-slop));
+	margin: calc(2px - var(--binders-slop));
+}
+
+.is-mobile .binders-toolbar .binders-mode-button {
+	justify-content: flex-start;
 }
 
 /* the view's name reads as the title it is */
@@ -1159,6 +1187,16 @@
 /* (on a phone or tablet it's as tall as the buttons beside it, to be tapped) */
 .is-mobile .binders-word-count.is-clickable {
 	line-height: 28px;
+	padding-block: 8px;
+}
+
+/* (and the way up: the folder's name as tall as a finger, the arrow before it as tall as the name) */
+.is-mobile .binders-crumb[role="link"] {
+	padding-block: calc((44px - 1lh) / 2);
+}
+
+.is-mobile .binders-crumb-up {
+	align-self: stretch;
 }
 
 /* The compile dialog: nothing in it is squeezed to make room (on a phone its sheet scrolls instead). */
@@ -1842,6 +1880,16 @@
 	min-width: 0;
 }
 
+/* By touch a tap on a card's title opens it: what's tapped is the card's top 44px, from edge to edge (the title's line
+   with the card's own padding around it, and a few pixels of the gap under it), not the 21px of the words. Nothing
+   moves: the padding added is taken back from the margin. */
+.is-mobile .binders-card[data-path] > .binders-card-head {
+	position: relative;
+	z-index: 1;
+	margin: calc(-1 * var(--size-4-3)) calc(-1 * var(--size-4-3)) -11px;
+	padding: var(--size-4-3) var(--size-4-3) 11px;
+}
+
 .binders-card-icon {
 	display: flex;
 	flex-shrink: 0;
@@ -2018,6 +2066,18 @@
    doesn't offer itself on the card, where it would push the names down under the pointer). */
 .binders-card.is-stack .binders-card-synopsis.is-empty:not(.is-editing) {
 	display: none;
+}
+
+/* On a phone there's no pointer to push the names under: the folder's card in hand (selected) offers the line, as a
+   note's card does, and a tap on it writes the folder's synopsis. The names give it a row of theirs (and the gap
+   under it), so the card grows by less than a line and the cards after it all but stay where they are. */
+.is-phone .binders-board:not(.is-read-only) .binders-card.is-stack.is-selected > .binders-card-synopsis.is-empty:not(.is-editing) {
+	display: -webkit-box;
+	margin-bottom: calc(-1 * var(--size-2-3));
+}
+
+.is-phone .binders-board:not(.is-read-only) .binders-card.is-stack.is-selected:has(> .binders-card-synopsis.is-empty:not(.is-editing)) > .binders-card-held {
+	max-height: calc((var(--binders-card-held, 3) - 1) * var(--binders-card-held-row));
 }
 
 /* With one, it comes first, in two lines (three on a large card), and the names after it. */
@@ -2244,9 +2304,13 @@
 	opacity: 0.6;
 }
 
-/* (and the line that says where it would go is drawn over it) */
+/* (and the line that says where it would go is drawn over it: a row's in the outliner, a card's on the boards) */
 .is-phone .drop-indicator.binders-drop-line {
 	z-index: calc(var(--layer-cover) + 10);
+}
+
+.is-phone .binders-drop-indicator {
+	z-index: calc(var(--layer-dragged-item, 80) + 1);
 }
 
 /* (a field being typed in is brought into sight with a little room under it) */

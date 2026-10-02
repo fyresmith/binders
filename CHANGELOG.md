@@ -3,6 +3,17 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.65 (2026-10-02)
+
+### Changed
+
+- On phones and tablets the toolbar's buttons, the way up, a card's title and the manuscript's titles are finger-sized to the touch, with nothing moved.
+- On a phone, a selected folder card with no synopsis offers “Add a synopsis”, as a note's card does.
+
+### Fixed
+
+- On a phone the line that shows where a carried card will land is drawn over the card instead of under it.
+
 ## 0.12.64 (2026-10-02)
 
 ### Fixed
