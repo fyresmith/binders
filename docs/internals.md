@@ -237,6 +237,8 @@ touches it; `mountEditor()` builds one embed and patches that instance only:
   tab's `.workspace-leaf` hide what's around the page. `workspace.getLayout()` is the same before, during and after.
   `leftSplit.collapse()` isn't used: it's saved with the layout, and would stay collapsed after a crash.
 - Other panes are hidden with `:has()`: `.mod-root :is(.workspace-tabs, .workspace-split):not(:has(.binders-focus-leaf))`.
+- With stacked tabs on, the other tabs' strips are hidden and the page takes the window's width: `.workspace-tabs.mod-stacked`,
+  `.workspace-tab-container` and `.workspace-tab-header` (styles only; test: `specs-qa6-features.mjs`, "stacked tabs").
 - Escape: Obsidian's key handler is on the window, in the capture phase, before anything in the page hears a key,
   and gives it to the scope on top of its stack. A menu, a dialog, the palette and a list of suggestions each push
   a scope of their own, so one opened in focus takes Escape first; a listener of our own on the document would hear

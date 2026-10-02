@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.102 (2026-10-02)
+
+### Fixed
+
+- With Obsidian's stacked tabs on, focus mode now hides the other tabs' strips and gives the page the window's width.
+
 ## 0.12.101 (2026-10-02)
 
 ### Fixed

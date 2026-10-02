@@ -3352,6 +3352,7 @@ body.binders-focus .workspace-split.mod-right-split,
 body.binders-focus .status-bar,
 body.binders-focus .mobile-navbar,
 body.binders-focus .workspace-tab-header-container,
+body.binders-focus .mod-root .workspace-tabs.mod-stacked .workspace-tab-header,
 body.binders-focus .titlebar-button-container,
 body.binders-focus .mod-root :is(.workspace-tabs, .workspace-split):not(:has(.binders-focus-leaf)),
 body.binders-focus .mod-root .workspace-tabs .workspace-leaf:not(.binders-focus-leaf),
@@ -3361,6 +3362,13 @@ body.binders-focus .binders-focus-leaf .binders-view-synopsis-row,
 body.binders-focus .binders-focus-leaf .inline-title,
 body.binders-focus .binders-focus-leaf .embedded-backlinks {
 	display: none;
+}
+
+/* (with "Stack tabs" on, each tab is a strip beside a pane of a fixed width: the strips go, above, and the tab being
+   written in is as wide as the window, as it is when tabs aren't stacked) */
+body.binders-focus .workspace .mod-root .workspace-tabs.mod-stacked .workspace-tab-container > .binders-focus-leaf {
+	flex: 1 1 auto;
+	width: auto;
 }
 
 /* a note's properties go the way the manuscript hides them: with Obsidian's own variables */
@@ -3694,12 +3702,12 @@ body.binders-focus-dim.binders-focus-typing .binders-focus-leaf .binders-focus-n
 
 /* The way in and out. First what's around the page fades where it stands (`binders-focus-pre`: there, unseen), and only
    then is it taken away; on the way out it's put back unseen, and fades in (`binders-focus-post` is the fade). */
-body.binders-focus-pre :is(.workspace-ribbon, .workspace-split.mod-left-split, .workspace-split.mod-right-split, .status-bar, .mobile-navbar, .workspace-tab-header-container, .titlebar-button-container, .view-header, .binders-toolbar, .workspace-leaf-resize-handle) {
+body.binders-focus-pre :is(.workspace-ribbon, .workspace-split.mod-left-split, .workspace-split.mod-right-split, .status-bar, .mobile-navbar, .workspace-tab-header-container, .workspace-tabs.mod-stacked .workspace-tab-header, .titlebar-button-container, .view-header, .binders-toolbar, .workspace-leaf-resize-handle) {
 	opacity: 0;
 	transition: opacity var(--anim-duration-fast) ease-in-out;
 }
 
-body.binders-focus-post :is(.workspace-ribbon, .workspace-split.mod-left-split, .workspace-split.mod-right-split, .status-bar, .mobile-navbar, .workspace-tab-header-container, .titlebar-button-container, .view-header, .binders-toolbar, .workspace-leaf-resize-handle) {
+body.binders-focus-post :is(.workspace-ribbon, .workspace-split.mod-left-split, .workspace-split.mod-right-split, .status-bar, .mobile-navbar, .workspace-tab-header-container, .workspace-tabs.mod-stacked .workspace-tab-header, .titlebar-button-container, .view-header, .binders-toolbar, .workspace-leaf-resize-handle) {
 	transition: opacity var(--anim-duration-fast) ease-in-out;
 }
 
