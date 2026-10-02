@@ -245,6 +245,9 @@ touches it; `mountEditor()` builds one embed and patches that instance only:
   tab's `.workspace-leaf` hide what's around the page. `workspace.getLayout()` is the same before, during and after.
   `leftSplit.collapse()` isn't used: it's saved with the layout, and would stay collapsed after a crash.
 - Other panes are hidden with `:has()`: `.mod-root :is(.workspace-tabs, .workspace-split):not(:has(.binders-focus-leaf))`.
+- With the keyboard up on a phone whose view is under 180 px tall (a small phone on its side), Obsidian's `.view-header`
+  is slid off the top while the manuscript is being typed in, as a note's header is (styles only; test: `specs-mobile.mjs`,
+  "a small phone on its side, typing in the manuscript with the keyboard up").
 - With stacked tabs on, the other tabs' strips are hidden and the page takes the window's width: `.workspace-tabs.mod-stacked`,
   `.workspace-tab-container` and `.workspace-tab-header` (styles only; test: `specs-qa6-features.mjs`, "stacked tabs").
 - Escape: Obsidian's key handler is on the window, in the capture phase, before anything in the page hears a key,
