@@ -104,3 +104,27 @@ test('what Binders counts (a card’s words, a folder card’s notes, the outlin
 	const ratio = await p.ev(`(() => { const lum = (c) => { const [r, g, b] = c.match(/[\\d.]+/g).slice(0, 3).map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; }; const a = lum(${j(muted)}), e = document.body.createDiv(); e.style.color = 'var(--background-primary)'; const b = lum(getComputedStyle(e).color); e.remove(); return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05); })()`);
 	t.ok(ratio >= 4.5, `muted text on the page is ${ratio.toFixed(1)}:1`);
 });
+
+test('a selected card’s ring is in its label’s color and can be seen on the page: in a light theme the paler labels’ rings are mixed toward the text color, to 3:1 or better', async (p, h, t) => {
+	const LABELS = ['Yellow', 'Cyan', 'Green', 'Orange', 'Red'], files = ['Prologue.md', 'Epilogue.md', 'Part One/Arrival.md', 'Part One/The keeper.md', 'Part One/Storm warning.md'];
+	const dark = await p.ev(`document.body.classList.contains('theme-dark')`);
+	/** A CSS color as [r, g, b], whatever notation it's computed in. */
+	const RGB = `(c) => { const x = document.createElement('canvas').getContext('2d', { willReadFrequently: true }); x.fillStyle = c; x.fillRect(0, 0, 1, 1); return [...x.getImageData(0, 0, 1, 1).data].slice(0, 3); }`;
+	const RATIO = `(a, b) => { const lum = (c) => { const [r, g, b] = c.map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; }; const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); }`;
+	const out = {};
+	for (let i = 0; i < LABELS.length; i++) {
+		const path = 'The Lighthouse/' + files[i];
+		await p.ev(`app.fileManager.processFrontMatter(app.vault.getAbstractFileByPath(${j(path)}), fm => { fm.label = ${j(LABELS[i])}; }).then(() => 1)`);
+		await openView(p, path.includes('Part One') ? 'The Lighthouse/Part One' : 'The Lighthouse');
+		const sel = `.workspace-leaf.mod-active .binders-card[data-path="${path}"]`;
+		await until(p, `document.querySelector(${j(sel)})?.classList.contains('has-label')`);
+		const c = await p.at(sel);
+		await p.click(c.x, c.t + c.h - 12);
+		await p.sleep(350); // the ring fades in
+		out[LABELS[i]] = await p.ev(`(() => { const rgb = ${RGB}, ratio = ${RATIO}; const e = document.querySelector(${j(sel)}), cs = getComputedStyle(e); const ring = cs.boxShadow.split(/ 0px 0px 0px 2px/)[0]; const probe = document.body.createDiv(); probe.style.color = 'var(--color-${LABELS[i].toLowerCase()})'; const label = getComputedStyle(probe).color; probe.style.color = 'var(--background-primary)'; const page = getComputedStyle(probe).color; probe.remove(); return { ring: Math.round(ratio(rgb(ring), rgb(page)) * 100) / 100, label: Math.round(ratio(rgb(label), rgb(page)) * 100) / 100, same: String(rgb(ring)) === String(rgb(label)) }; })()`);
+	}
+	const low = Object.entries(out).filter(([, v]) => v.ring < 3).map(([k, v]) => `${k} ${v.ring}`);
+	t.eq(j(low), '[]', 'every ring reaches 3:1 on the page: ' + j(out));
+	if (dark) t.ok(Object.values(out).every((v) => v.same), 'in a dark theme the ring is the label’s own color: ' + j(out));
+	else t.ok(Object.values(out).every((v) => !v.same && v.ring > v.label), 'in a light theme it’s the label’s color taken toward the text’s: ' + j(out));
+});

@@ -1861,6 +1861,12 @@
 	--binders-ring: var(--binders-label);
 }
 
+/* (on a light page the paler labels, yellow most of all, are under 3:1 as a ring: there it's mixed a third of the way
+   to the text's color, and still reads as the label's) */
+.theme-light .binders-card.has-label {
+	--binders-ring: color-mix(in oklch, var(--binders-label) 65%, var(--text-normal));
+}
+
 .binders-card.is-selected,
 .binders-drag-ghost > .binders-card {
 	--binders-edge: var(--binders-ring);

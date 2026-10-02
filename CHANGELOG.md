@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.66 (2026-10-02)
+
+### Changed
+
+- In a light theme the ring around a selected card with a pale label (yellow, cyan, green, orange) is a little darker, so it can be seen.
+
 ## 0.12.65 (2026-10-02)
 
 ### Changed
