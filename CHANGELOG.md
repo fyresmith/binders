@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.1 (2026-10-02)
+
+### Added
+
+- Notes of a binder have a Snapshots button in their header, to the right of the focus mode button: take a snapshot, rewrite, or see the snapshots.
+
 ## 0.12.0 (2026-10-02)
 
 ### Added

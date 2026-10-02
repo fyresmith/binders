@@ -6,6 +6,7 @@ import type BindersPlugin from '../main';
 import { FOCUS_TEXT, focusToggles, type FocusToggle } from '../settings-data';
 import { BinderView } from '../view/BinderView';
 import { GLIDE } from '../view/drag';
+import { clearHeaderSnapshots, headerSnapshots } from '../view/snapshots';
 import { readableLineLength, submenu, vimMode } from '../view/internals';
 import { ask } from '../view/modals';
 import { readTarget } from '../view/outliner-data';
@@ -177,7 +178,7 @@ export class Focus {
 		}
 	}
 
-	/** The header button on notes of a binder, and only on those; and focus ends when its tab stops showing one. */
+	/** The header buttons on notes of a binder, and only on those; and focus ends when its tab stops showing one. */
 	private sync(): void {
 		for (const leaf of this.plugin.app.workspace.getLeavesOfType('markdown')) {
 			const v = leaf.view;
@@ -185,6 +186,8 @@ export class Focus {
 			const has = this.actions.get(v), want = this.scene(v.file);
 			if (want && !has) this.actions.set(v, v.addAction('maximize-2', 'Focus mode', () => this.enter(leaf)));
 			else if (!want && has) { has.remove(); this.actions.delete(v); }
+			// (the same notes have a button for their snapshots, to the right of this one)
+			headerSnapshots(this.plugin, v, this.actions.get(v) ?? null);
 		}
 		this.check();
 	}
@@ -401,7 +404,7 @@ export class Focus {
 		live?.remove(); // (nothing of this is left behind, not even what says it has gone)
 		window.clearTimeout(this.pendingTimer);
 		window.clearTimeout(this.drawTimer);
-		for (const leaf of this.plugin.app.workspace.getLeavesOfType('markdown')) { const v = leaf.view; if (v instanceof MarkdownView) { this.actions.get(v)?.remove(); this.actions.delete(v); } }
+		for (const leaf of this.plugin.app.workspace.getLeavesOfType('markdown')) { const v = leaf.view; if (v instanceof MarkdownView) { this.actions.get(v)?.remove(); this.actions.delete(v); clearHeaderSnapshots(v); } }
 		this.store();
 	}
 

@@ -462,6 +462,27 @@ export class LeftoversModal extends Modal {
 
 // ---- menus ----
 
+const headers = new WeakMap<MarkdownView, HTMLElement>();
+/** The header button on a binder's notes (and only those): its snapshots, as a menu under it. It stands to the right
+    of focus mode's button (`beside`), whichever of the two was put there first. */
+export function headerSnapshots(plugin: BindersPlugin, view: MarkdownView, beside: HTMLElement | null): void {
+	let el = headers.get(view);
+	const want = isScene(plugin, view.file);
+	if (want && !el) {
+		const button = el = view.addAction('history', 'Snapshots', () => {
+			const f = view.file, r = button.getBoundingClientRect();
+			if (!f) return;
+			const menu = new Menu();
+			snapshotItems(plugin, menu, [f]);
+			menu.showAtPosition({ x: r.left, y: r.bottom + 4, width: r.width, overlap: true, left: false }, button.doc);
+		});
+		headers.set(view, el);
+	} else if (!want && el) { el.remove(); headers.delete(view); el = undefined; }
+	if (el && beside && beside.nextElementSibling !== el) beside.after(el);
+}
+/** Takes the header button off again (the plugin is being turned off). */
+export function clearHeaderSnapshots(view: MarkdownView): void { headers.get(view)?.remove(); headers.delete(view); }
+
 /** "Take a snapshot", "Rewrite..." and "Snapshots..." for a menu: one scene, or (taking only) several. In a binder
     that can't be changed, only the reading. With `folded`, the three are one item, "Snapshots", that opens them (a
     card's own menu is long as it is: three more would run it off a tablet's screen). */

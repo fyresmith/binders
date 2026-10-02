@@ -103,6 +103,38 @@ const explorerRows = async (p, expand) => {
 };
 const setSettings = (p, s) => p.ev(`(async () => { Object.assign(${PL}.settings, ${j(s)}); await ${PL}.saveSettings(); })().then(() => 1)`).then(() => sleep(p, 300));
 
+// ---- the button in a note's header ----
+
+test('a note of a binder has a Snapshots button in its header, right of focus mode’s; its menu takes, rewrites and shows; other notes have none', async (p, h, t) => {
+	await write(p, A, DRAFT);
+	const before = await texts(p);
+	await openNote(p, A);
+	const ACTIONS = `[...document.querySelectorAll('.workspace-leaf.mod-active .view-actions .clickable-icon')].filter(e => e.offsetParent).map(e => e.getAttribute('aria-label'))`;
+	await until(p, `${ACTIONS}.includes('Snapshots')`);
+	const labels = await p.ev(ACTIONS);
+	t.eq(labels.indexOf('Snapshots'), labels.indexOf('Focus mode') + 1, `straight after the focus button: ${j(labels)}`);
+	const b = await p.ev(`(() => { const e = document.querySelector('.workspace-leaf.mod-active .view-actions .clickable-icon[aria-label="Snapshots"]'), f = document.querySelector('.workspace-leaf.mod-active .view-actions .clickable-icon[aria-label="Focus mode"]'), r = e.getBoundingClientRect(), q = f.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, right: r.left >= q.right - 1, icon: !!e.querySelector('svg.lucide-history') }; })()`);
+	t.ok(b.right, 'to the right of it on the screen');
+	t.ok(b.icon, 'with the snapshots icon');
+	await p.click(b.x, b.y);
+	await until(p, `!!document.querySelector('.menu')`);
+	t.eq(j(await menuItems(p)), j(['Take a snapshot', 'Rewrite...', 'Snapshots...']), 'its menu');
+	await clickMenu(p, 'Take a snapshot');
+	await until(p, `app.vault.adapter.exists(${j(DIR)})`);
+	await sleep(p, 300);
+	const files = await list(p);
+	t.eq(files.length, 1, 'takes one');
+	t.eq((await read(p, `${DIR}/${files[0]}`)).endsWith(DRAFT), true, 'with the note’s text');
+	same(t, before, await texts(p));
+	// a note that isn't in a binder: no button; and back on a scene, still one of each
+	await p.ev(`(async () => { await app.vault.create('Loose.md', 'Not in a binder.\\n'); await app.workspace.getLeaf(false).openFile(app.vault.getAbstractFileByPath('Loose.md')); })().then(() => 1)`);
+	await sleep(p, 500);
+	t.eq(j((await p.ev(ACTIONS)).filter((x) => x === 'Snapshots' || x === 'Focus mode')), j([]), 'a note outside a binder has neither button');
+	await openNote(p, A);
+	await until(p, `${ACTIONS}.includes('Snapshots')`);
+	t.eq(j((await p.ev(ACTIONS)).filter((x) => x === 'Snapshots' || x === 'Focus mode')), j(['Focus mode', 'Snapshots']), 'back on the scene: one of each, in that order');
+});
+
 // ---- taking one ----
 
 test('take one with the note open: its text, byte for byte, in a file of its own; nothing else changes', async (p, h, t) => {
