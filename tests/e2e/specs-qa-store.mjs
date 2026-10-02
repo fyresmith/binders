@@ -246,7 +246,7 @@ test('a binder moved into another becomes a folder of it; moved out, it is a bin
 	t.eq(j(await p.ev(`${BINDERS}.map(b => b.folder.path)`)), j(['The Lighthouse']), 'one binder: nested binders are ordinary folders');
 	t.ok(await p.ev(`${B}.isHiddenNote(${file('The Lighthouse/Sequel/Sequel.md')})`), 'its binder note is now a folder note');
 	const c = await contents(p);
-	t.eq(j(c.slice(LIST.length)), j(['Sequel/']), 'appended; its items come in with it, unlisted');
+	t.eq(j(c.slice(LIST.length)), j(['Sequel/', 'Sequel/B', 'Sequel/Act/', 'Sequel/Act/Z', 'Sequel/Act/Y', 'Sequel/A']), 'appended with its scene and folder order preserved');
 	t.eq(await read(p, 'The Lighthouse/Sequel/Sequel.md'), seq, 'the inner binder note is untouched');
 	await rename(p, 'The Lighthouse/Sequel', 'Sequel');
 	await p.sleep(700); await flush(p);
