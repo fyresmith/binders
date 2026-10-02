@@ -277,6 +277,61 @@ test('a property change (processFrontMatter, as the corkboard does) during unsav
 	await clearNotices(p);
 });
 
+test('a delayed notification of an earlier save cannot replay removed text; a real outside revert and undo still work', async (p, h, t) => {
+	await mount(p);
+	const f = ORDER[0];
+	await focusEnd(p, f); await p.type(' First saved draft.'); await flushAll(p);
+	await p.sleep(700);
+	const earlier = await text(p, f);
+	await p.ev(`(() => { const e = ${M}.scenes[${idx(f)}].live.editor, at = e.getValue().indexOf(' First saved draft.'); e.replaceRange('', e.offsetToPos(at), e.offsetToPos(at + ' First saved draft.'.length)); return 1; })()`);
+	await flushAll(p);
+	const current = await text(p, f);
+	await p.ev(`(() => { const file = app.vault.getAbstractFileByPath(${J(f)}); app.metadataCache.trigger('changed', file, ${J(earlier)}, app.metadataCache.getFileCache(file)); return 1; })()`);
+	await p.sleep(700);
+	t.eq(await text(p, f), current, 'the late notification does not restore text removed through the editor');
+	t.eq(disk(p, f), current, 'the current draft stays on disk');
+	await p.ev(`app.vault.modify(app.vault.getAbstractFileByPath(${J(f)}), ${J(earlier)}).then(() => 1)`);
+	await p.sleep(700);
+	t.eq(await text(p, f), earlier, 'a genuine external revert to the earlier draft is accepted');
+	await focusEnd(p, f); await p.type(' After the outside revert.'); await flushAll(p);
+	await p.sleep(600); await p.key('z', 'ctrl'); await flushAll(p);
+	t.eq(disk(p, f), earlier, 'undo removes the new typing and keeps every word of the external revert');
+});
+
+test('a delayed notification during a newer write cannot replay removed text; a real outside revert and undo still work', async (p, h, t) => {
+	await mount(p);
+	const f = ORDER[0];
+	await focusEnd(p, f); await p.type(' First saved draft.'); await flushAll(p);
+	await p.sleep(700);
+	const earlier = await text(p, f);
+	await p.ev(`(() => { const e = ${M}.scenes[${idx(f)}].live.editor, at = e.getValue().indexOf(' First saved draft.'); e.replaceRange('', e.offsetToPos(at), e.offsetToPos(at + ' First saved draft.'.length)); return 1; })()`);
+	await p.ev(`(() => {
+		const adapter = app.vault.adapter, write = adapter.write;
+		adapter.write = async function (...args) {
+			if (args[0] === ${J(f)}) { adapter.write = write; await new Promise(r => { window.__releaseNewerWrite = r; }); }
+			return write.apply(this, args);
+		};
+		window.__newerWrite = ${M}.scenes[${idx(f)}].live.flush();
+		return 1;
+	})()`);
+	for (let i = 0; i < 40 && !(await p.ev('!!window.__releaseNewerWrite')); i++) await p.sleep(25);
+	const current = await text(p, f);
+	await p.ev(`(() => { const file = app.vault.getAbstractFileByPath(${J(f)}); app.metadataCache.trigger('changed', file, ${J(earlier)}, app.metadataCache.getFileCache(file)); return 1; })()`);
+	await p.sleep(100);
+	const during = await text(p, f);
+	await p.ev('(async () => { window.__releaseNewerWrite(); await window.__newerWrite; delete window.__releaseNewerWrite; return 1; })()');
+	await p.sleep(700);
+	t.eq(during, current, 'the older notification cannot replace the editor while the newer write is held');
+	t.eq(await text(p, f), current, 'the late notification does not restore text removed through the editor');
+	t.eq(disk(p, f), current, 'the current draft stays on disk');
+	await p.ev(`app.vault.modify(app.vault.getAbstractFileByPath(${J(f)}), ${J(earlier)}).then(() => 1)`);
+	await p.sleep(700);
+	t.eq(await text(p, f), earlier, 'a genuine external revert to the earlier draft is accepted');
+	await focusEnd(p, f); await p.type(' After the outside revert.'); await flushAll(p);
+	await p.sleep(600); await p.key('z', 'ctrl'); await flushAll(p);
+	t.eq(disk(p, f), earlier, 'undo removes the new typing and keeps every word of the external revert');
+});
+
 test('an outside edit to a section keeps its cursor and undo history', async (p, h, t) => {
 	await mount(p);
 	const f = ORDER[5];

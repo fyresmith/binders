@@ -135,8 +135,9 @@ export async function mountEditor(app: App, container: HTMLElement, file: TFile,
 
 	// 1. Native embeds ignore outside changes while they have unsaved typing, then save over them. loadFileInternal
 	//    already does Obsidian's 3-way merge when dirty, so always go through it. Must be set before load() binds it.
-	embed.onFileChanged = function (this: MdEmbed, f: TFile, data: string, cache: unknown) {
-		if (f !== this.file || data === this.data) return;
+	let changes = 0;
+	const changed = function (this: MdEmbed, data: string, cache: unknown) {
+		if (data === this.data) return;
 		// Another view took our typing live and saved it with its own on top: the file already has ours, and a merge
 		// would see two overlapping insertions and keep both (doubled text). Load it as it is.
 		if (this.dirty && this.lastSavedData !== null && contains(this.lastSavedData, this.data, data)) this.dirty = false;
@@ -151,6 +152,21 @@ export async function mountEditor(app: App, container: HTMLElement, file: TFile,
 		// them the merged text, or typing there would carry on from a copy without ours (Obsidian's own split views
 		// lose text this way).
 		if (merging && this.dirty) (app.workspace as unknown as WorkspaceInternals).onQuickPreview?.(this.file, this.text);
+	};
+	embed.onFileChanged = function (this: MdEmbed, f: TFile, data: string, cache: unknown) {
+		if (f !== this.file) return;
+		const mine = ++changes;
+		if (data === this.data) return;
+		// Parsing an earlier save can finish during a newer write. Wait for it before checking the file;
+		// an actual outside revert to that text must still load normally.
+		if (!this.dirty && shown.includes(data)) {
+			const saved = this.lastSavedData;
+			void writing.then(() => app.vault.read(f)).then((latest) => {
+				if (!gone && mine === changes && saved === this.lastSavedData && latest === data) changed.call(this, data, cache);
+			}).catch((e) => console.error('Binders: checking an outside edit failed', e));
+			return;
+		}
+		changed.call(this, data, cache);
 	};
 	// Every edit goes through save(text) (the editor calls it on each update); save(text, true) is the real write.
 	embed.save = function (this: MdEmbed, text: string, now?: boolean): Promise<void> {

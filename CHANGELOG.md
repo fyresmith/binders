@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.11.2 (2026-10-02)
+
+### Fixed
+
+- Splitting a scene no longer restores text from an earlier save while the new draft is being written.
+
 ## 0.11.1 (2026-10-02)
 
 ### Fixed
