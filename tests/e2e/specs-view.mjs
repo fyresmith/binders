@@ -722,6 +722,8 @@ test('what is still in a field when Obsidian quits is written first: a card’s 
 	const quit = () => p.ev(`(async () => { const ps = []; app.workspace.trigger('quit', { addPromise: (x) => ps.push(x), add: (fn) => ps.push(Promise.resolve().then(fn)) }); await Promise.all(ps); return ps.length; })()`);
 	const fmOf = async (path) => split(await read(p, path)).yaml;
 	await openView(p);
+	// (a view with nothing in a field asks the quit to wait for nothing)
+	t.eq(await quit(), 0, 'nothing being typed: the quit isn’t held up');
 	// a card's synopsis: the card selected, then its synopsis clicked
 	const c = await p.at(card(L + 'Epilogue.md'));
 	await p.click(c.x, c.t + c.h - 12);
@@ -729,7 +731,7 @@ test('what is still in a field when Obsidian quits is written first: a card’s 
 	await p.click(s.x, s.y);
 	t.eq(await p.ev(`document.activeElement.tagName`), 'TEXTAREA', 'a card’s synopsis is being typed in');
 	await p.type(' Typed late.');
-	t.ok((await quit()) > 0, 'the quit is asked to wait');
+	t.eq(await quit(), 1, 'the quit is asked to wait, once');
 	t.ok(/^synopsis: .*Typed late\.$/m.test(await fmOf(L + 'Epilogue.md')), 'and the synopsis is in the note by the time it’s done: ' + (await fmOf(L + 'Epilogue.md')));
 	t.eq(split(await read(p, L + 'Epilogue.md')).body, split(before[L + 'Epilogue.md']).body, 'whose text is as it was');
 	await p.key('Escape');

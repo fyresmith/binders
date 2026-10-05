@@ -3,7 +3,7 @@ import type { Binder } from '../binders';
 import { CompileModal } from '../scenes';
 import { folderSnapshotItems } from './snapshots';
 import type BindersPlugin from '../main';
-import { commitAll, commitFocused, editable, type Editable } from './edit';
+import { commitAll, commitFocused, editable, editingIn, type Editable } from './edit';
 import { keepOpen, readableLineLength, refreshHeader, selectMenuItem } from './internals';
 import { canonical, labelDot, labelName, rank, readLabel } from './labels';
 import { readArrangement, readLines, type Arrangement, type Lines } from './lanes-data';
@@ -272,7 +272,8 @@ export class BinderView extends ItemView {
 		});
 		// Quitting closes the window as soon as what was asked to wait is done, and `pagehide` is too late for a write:
 		// a synopsis or a name still in its field is written first. (The manuscript does the same for its sections.)
-		this.registerEvent(this.app.workspace.on('quit', (tasks) => { tasks.addPromise(commitAll(this.contentEl, true).then((): void => {})); }));
+		// (Only then: with no field open there is nothing to wait for, and the quit isn't held up.)
+		this.registerEvent(this.app.workspace.on('quit', (tasks) => { if (editingIn(this.contentEl)) tasks.addPromise(commitAll(this.contentEl, true).then((): void => {})); }));
 		const { vault, metadataCache } = this.app;
 		const ref = this.store.on('changed', (p: string) => {
 			const f = this.folder?.path ?? this.path;

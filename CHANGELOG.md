@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.15.7 (2026-10-05)
+
+### Fixed
+
+- Quitting Obsidian is no longer held up by an open binder view that has nothing left to save.
+
 ## 0.15.6 (2026-10-05)
 
 ### Fixed

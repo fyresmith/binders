@@ -50,8 +50,12 @@ export function commitFocused(): boolean {
 	void ed.commit();
 	return true;
 }
+/** The edits under way inside `root` (and any whose element has left the page). */
+const openIn = (root: HTMLElement): Editable[] => [...open].filter((e) => root.contains(e.el) || !e.el.isConnected);
+/** Is anything being typed in inside `root` (so there may be something to save)? */
+export const editingIn = (root: HTMLElement): boolean => openIn(root).length > 0;
 /** Saves every edit under way inside `root` (and any whose element has left the page). `keep`: see `Editable.commit`. */
-export const commitAll = (root: HTMLElement, keep = false): Promise<unknown> => Promise.all([...open].filter((e) => root.contains(e.el) || !e.el.isConnected).map((e) => e.commit(keep)));
+export const commitAll = (root: HTMLElement, keep = false): Promise<unknown> => Promise.all(openIn(root).map((e) => e.commit(keep)));
 
 /** Holders that already keep presses beside their field from ending an edit. */
 const guarded = new WeakSet<HTMLElement>();
