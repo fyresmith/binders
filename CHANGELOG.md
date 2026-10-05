@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.22.9 (2026-10-05)
+
+### Changed
+
+- Nothing a writer will notice yet: the part of Export that writes a Word file, with a test that no word is dropped, repeated or reordered.
+
 ## 0.22.8 (2026-10-05)
 
 ### Changed

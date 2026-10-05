@@ -113,8 +113,28 @@ export function buildBook(items: readonly SourceItem[], o: BookOptions, resolve:
 		}
 		book.outline.push({ name: item.name, path: item.path, depth: p.depth, folder: item.kind === 'folder', role, auto: p.auto, number });
 	}
+	renumber(book);
 	if (!o.asTyped) { for (const s of book.sections) typesetBlocks(s.blocks, language); for (const n of book.notes) typesetBlocks(n, language); }
 	return book;
+}
+
+/** The book's footnotes put in the order their marks come in the text (a note embedded early brings its footnotes
+    in late), and those no mark leads to any more dropped. */
+function renumber(book: Book): void {
+	const order: number[] = [], seen = new Set<number>();
+	const visit = (blocks: readonly Block[]) => {
+		for (const runs of inlines(blocks)) for (const r of runs) {
+			if (r.kind !== 'note' || seen.has(r.note) || !book.notes[r.note]) continue;
+			seen.add(r.note);
+			order.push(r.note);
+			visit(book.notes[r.note]);
+		}
+	};
+	for (const s of book.sections) visit(s.blocks);
+	if (order.length === book.notes.length && order.every((n, i) => n === i)) return;
+	const at = new Map(order.map((old, now) => [old, now] as const)), notes = order.map((old) => book.notes[old]);
+	for (const list of [...book.sections.map((s) => s.blocks), ...notes]) for (const runs of inlines(list)) for (let i = 0; i < runs.length; i++) { const r = runs[i]; if (r.kind === 'note') runs[i] = { kind: 'note', note: at.get(r.note) ?? -1 }; }
+	book.notes = notes;
 }
 
 /** Blocks without scene breaks at their ends or two in a row: a break is between two stretches of text. */

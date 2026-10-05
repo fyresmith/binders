@@ -24,7 +24,7 @@ import type { Block, Inline, Text } from './model';
 export interface Parsed { blocks: Block[]; notes: Block[][]; warnings: string[] }
 
 /** What was taken out of the text before Markdown read it. */
-type Held = { kind: 'link'; target: string; shown: string } | { kind: 'embed'; target: string } | { kind: 'note'; text: string } | { kind: 'math'; text: string };
+type Held = { kind: 'link'; target: string; shown: string } | { kind: 'embed'; target: string } | { kind: 'math'; text: string };
 
 const OPEN = '', CLOSE = '', HELD = /(\d+)/;
 const TAG = /(^|\s)#(?=[^\s#]*[^\d\s#])[\p{L}\p{N}_/-]+/u;
@@ -65,18 +65,24 @@ function prepare(body: string, held: Held[], warnings: Set<string>): string {
 		warnings.add('Math is exported as it is typed.');
 		return hold({ kind: 'math', text: display !== undefined ? `$$${display}$$` : `$${math}$` });
 	});
-	// a footnote written where it is marked
-	text = outside(text, '\\^\\[((?:[^\\[\\]\\n]|\\[[^\\[\\]\\n]*\\])+)\\]', ([note]) => hold({ kind: 'note', text: note }));
+	// a footnote written where it is marked becomes one written out under the text, under a label no writer types:
+	// Markdown then reads both kinds the same way (a mark inside one, too)
+	const typed: string[] = [];
+	text = outside(text, '\\^\\[((?:[^\\[\\]\\n]|\\[[^\\[\\]\\n]*\\])+)\\]', ([note]) => `[^${OPEN}${typed.push(note) - 1}]`);
 	// line by line: a block's id is dropped, and so is a line of nothing but tags
 	let fence: string | null = null;
-	return text.split('\n').map((line) => {
+	const lines = text.split('\n').map((line) => {
 		if (fence) { if (new RegExp(`^ {0,3}${fence[0]}{${fence.length},}\\s*$`).test(line)) fence = null; return line; }
 		const f = FENCE.exec(line);
 		if (f) { fence = f[1]; return line; }
 		if (TAGS_ONLY.test(line)) return '';
 		if (TAG.test(line.replace(new RegExp(CODE, 'g'), ''))) warnings.add('A tag in a line of text is exported as it is typed.');
 		return line.replace(BLOCK_ID, '');
-	}).join('\n');
+	});
+	// (a fence left open would take the footnotes below for code)
+	if (fence && typed.length) lines.push(fence);
+	typed.forEach((note, i) => lines.push('', `[^${OPEN}${i}]: ${note}`));
+	return lines.join('\n');
 }
 
 /** A piece of a paragraph as it is read: inline content, or something that ends the paragraph it is in. */
@@ -95,7 +101,8 @@ class Reader {
 		const root = tree(prepare(body, this.held, this.warnings));
 		this.collect(root);
 		const blocks = this.flow(root.children ?? []);
-		if ([...this.defs.keys()].some((id) => !this.noteAt.has(id))) this.warnings.add('A footnote that nothing in the text points at is left out.');
+		// (a footnote typed in place that is never read stood in one that nothing points at: it is that one's to say)
+		if ([...this.defs.keys()].some((id) => !this.noteAt.has(id) && !id.startsWith(OPEN))) this.warnings.add('A footnote that nothing in the text points at is left out.');
 		return blocks;
 	}
 
@@ -155,12 +162,7 @@ class Reader {
 				if (!h) return;
 				if (h.kind === 'link') out.push({ kind: 'text', text: h.shown, ...mark, to: h.target });
 				else if (h.kind === 'embed') out.push({ kind: 'embed', target: h.target });
-				else if (h.kind === 'math') out.push({ kind: 'text', text: h.text, ...mark });
-				else {
-					const at = this.notes.push([]) - 1;
-					this.notes[at] = this.flow(tree(h.text).children ?? []);
-					out.push({ kind: 'note', note: at });
-				}
+				else out.push({ kind: 'text', text: h.text, ...mark });
 				return;
 			}
 			part.split('\n').forEach((line, j) => {
