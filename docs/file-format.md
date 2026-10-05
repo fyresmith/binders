@@ -163,7 +163,10 @@ synopsis, status, label or target removes the property. Note text is changed onl
 the commands you run on it:
 
 - "Split scene" creates the new note with the text after the cursor and a copy of the note's properties, except the
-  synopsis, and only then removes that text from the first note.
+  synopsis, and only then removes that text from the first note. Undo in the first note's editor puts the text back
+  there, and the new note then goes to the trash, but only if it is still byte for byte what the split wrote, under
+  the name and in the folder the split gave it, and only once the first note is on disk with that text; otherwise it
+  stays and a notice says the text is in both. Redo writes the new note again, as the split wrote it.
 - "Merge" appends the other notes' text to the first, a blank line between, joins their synopses the same way, reads
   the result back to check every note's text is in it, and only then moves the others to the trash.
 - "Duplicate" copies files byte for byte. A copied folder keeps its order, and its folder note is renamed to match.

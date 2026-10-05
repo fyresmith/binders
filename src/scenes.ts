@@ -1,4 +1,6 @@
-import { ButtonComponent, MarkdownView, Modal, Notice, Platform, Setting, TFile, TFolder, normalizePath, parseYaml, stringifyYaml, type App, type Editor, type TAbstractFile } from 'obsidian';
+import type { Extension } from '@codemirror/state';
+import { EditorView } from '@codemirror/view';
+import { ButtonComponent, MarkdownView, Modal, Notice, Platform, Setting, TFile, TFolder, editorInfoField, normalizePath, parseYaml, stringifyYaml, type App, type Editor, type TAbstractFile } from 'obsidian';
 import type BindersPlugin from './main';
 import { COMPILE_DEFAULTS, compile, frontFor, joinBodies, lf, linkTargets, nextName, parts, pointsAt, repointLinks, synopsisFrom, tidyHead, tidyTail, titleFrom, useYaml, type CompileItem, type CompileOptions } from './scene-text';
 import { COMPILED_KEPT } from './settings-data';
@@ -54,13 +56,14 @@ function linksTo(app: App, files: TFile[]): number {
 
 /** Points the vault's links to `from` at `to` instead (all of them, or those whose part `only` says yes to), as
     Obsidian does when a note is renamed, and only if it's set to ("Automatically update internal links"). Each note
-    with such a link is rewritten once, its links and nothing else. Returns how many notes were changed. */
-async function repoint(app: App, from: TFile, to: TFile, only?: (subpath: string) => boolean, skip: TFile[] = []): Promise<number> {
-	if (!updatesLinks(app)) return 0;
-	let n = 0;
-	for (const [source, dests] of Object.entries(app.metadataCache.resolvedLinks)) {
-		const file = dests[from.path] ? app.vault.getAbstractFileByPath(source) : null;
-		if (!isNote(file) || file === from || skip.includes(file)) continue;
+    with such a link is rewritten once, its links and nothing else. Returns the notes that were changed. `also`: notes
+    to look through whatever the link index says (it is filled a moment after a note is written). */
+async function repoint(app: App, from: TFile, to: TFile, only?: (subpath: string) => boolean, skip: TFile[] = [], also: TFile[] = []): Promise<TFile[]> {
+	if (!updatesLinks(app)) return [];
+	const out: TFile[] = [];
+	const indexed = Object.entries(app.metadataCache.resolvedLinks).filter(([, dests]) => dests[from.path]).map(([source]) => app.vault.getAbstractFileByPath(source));
+	for (const file of new Set([...indexed, ...also])) {
+		if (!isNote(file) || file === from || skip.includes(file) || app.vault.getAbstractFileByPath(file.path) !== file) continue;
 		let changed = false;
 		await app.vault.process(file, (text) => {
 			const next = repointLinks(text, (path, sub) => {
@@ -70,9 +73,9 @@ async function repoint(app: App, from: TFile, to: TFile, only?: (subpath: string
 			changed = next !== text;
 			return next;
 		});
-		if (changed) n++;
+		if (changed) out.push(file);
 	}
-	return n;
+	return out;
 }
 
 /** A short fingerprint of a text: enough to tell whether a note is still what Compile wrote. */
@@ -128,9 +131,123 @@ export async function splitScene(plugin: BindersPlugin, editor: Editor, file: TF
 		await saveOpen(app, [file]);
 		// links to the headings and blocks that went with the second half follow them there
 		const moved = linkTargets(tail);
-		if (moved.headings.size || moved.blocks.size) await repoint(app, file, made, (sub) => pointsAt(sub, moved), [made]).catch(say);
+		const linked = moved.headings.size || moved.blocks.size ? await repoint(app, file, made, (sub) => pointsAt(sub, moved), [made]).catch((e): TFile[] => { say(e); return []; }) : [];
+		// (an undo in the editor right after this takes the whole split back: see `splitUndo`)
+		splits.push({ first: file, made, path: made.path, title, before: text, head, back: s.tail, content, moved, linked, want: 'two' });
+		if (splits.length > SPLITS_KEPT) splits.shift();
 		return made;
 	} catch (e) { say(e); return null; }
+}
+
+/* Undo right after a split. The split takes the second half out of the first note in one step of its editor's undo
+   history, so the editor's own undo (Ctrl+Z, the command, a phone's button) puts it back there; left at that, the new
+   note would keep it too and the text would be in both. So the splits made are remembered here (in memory, as the
+   editor's history is), and an editor extension watches for an undo or a redo that leaves the first note's text as it
+   was before a split, or as the split left it:
+
+   - undone, the new note goes to the trash, but only if it is still exactly what the split wrote, where the split put
+     it, and only once the first note is on disk with the second half in it again. A new note that was edited, renamed or moved
+     stays, and a notice says the text is in both;
+   - redone, the new note is made again first thing, with what the split wrote, where it was: the editor has let go of
+     the second half already. If it can't be made, the redo is taken back.
+
+   What's wanted (one note or two) is set as the undo or redo happens, and brought about one step at a time, in order:
+   an undo and a redo in quick succession end as the editor has it. Typing changes nothing here: it is no undo. */
+
+/** A split that was made: its two notes, the first note's text before and after, what was written to the new one. */
+interface Split {
+	first: TFile;
+	/** The new note (null while the split is undone), where the split put it, and the name it was given. */
+	made: TFile | null; path: string; title: string;
+	/** The first note's whole text as its editor had it before the split, and after; and the second half as it stood
+	    in the first note. */
+	before: string; head: string; back: string;
+	/** What the split wrote to the new note. */
+	content: string;
+	/** The headings and blocks that went to the new note, and the notes whose links to them were pointed there. */
+	moved: ReturnType<typeof linkTargets>; linked: TFile[];
+	/** What the first note's editor says now: the text in one note (the split undone), or in two. */
+	want: 'one' | 'two';
+	/** The new note was found changed when the split was undone: it's the writer's now, and stays whatever is undone
+	    or redone from here on (said once). The split is still remembered, so that no older one of the same text is
+	    taken for it. */
+	kept?: boolean;
+}
+const SPLITS_KEPT = 20;
+const splits: Split[] = [];
+/** The undoing and redoing of splits under way: one at a time, in the order they were asked for. */
+let settling: Promise<void> = Promise.resolve();
+
+/** The editor extension that makes an undo right after a split undo all of it (see above). For every Markdown editor:
+    a note's tab and a manuscript's sections alike. */
+export function splitUndo(plugin: BindersPlugin): Extension {
+	// (a plugin turned off and on again starts with nothing remembered: its editors' histories aren't its own any more)
+	plugin.register(() => { splits.length = 0; });
+	return EditorView.updateListener.of((u) => {
+		if (!u.docChanged || !splits.length) return;
+		const undo = u.transactions.some((tr) => tr.isUserEvent('undo')), redo = u.transactions.some((tr) => tr.isUserEvent('redo'));
+		if (!undo && !redo) return;
+		const info = u.state.field(editorInfoField, false), file = info?.file;
+		if (!file || !splits.some((s) => s.first === file)) return;
+		const text = u.state.doc.toString();
+		// (the last split of this note first: splits of one note are undone in the order they were made, backwards)
+		for (let i = splits.length - 1; i >= 0; i--) {
+			const s = splits[i];
+			if (s.first !== file || (text !== s.before && text !== s.head)) continue;
+			s.want = text === s.before ? 'one' : 'two';
+			const editor = info?.editor ?? null, run = () => settleSplit(plugin, s, editor);
+			settling = settling.then(run, run);
+			break;
+		}
+	});
+}
+
+/** Brings a split's notes in line with what its first note's editor says: one note (the new one trashed, if it's
+    untouched) or two (the new one made again). */
+async function settleSplit(plugin: BindersPlugin, s: Split, editor: Editor | null): Promise<void> {
+	const { app, binders: store } = plugin, forget = () => { const i = splits.indexOf(s); if (i >= 0) splits.splice(i, 1); };
+	const folder = s.first.parent;
+	if (!folder || app.vault.getAbstractFileByPath(s.first.path) !== s.first) { forget(); return; }
+	if (s.want === 'two') {
+		if (s.made || !splits.includes(s)) return;
+		// the editor has let go of the second half: it's written down again before anything else
+		try {
+			const taken = (n: string) => n === folder.name || !!app.vault.getAbstractFileByPath(normalizePath(`${folder.path}/${n}.md`));
+			const index = (store.orderedChildren(folder) ?? []).indexOf(s.first) + 1;
+			s.made = await store.newScene(folder, index > 0 ? index : Infinity, taken(s.title) ? nextName(s.title, taken) : s.title, undefined, s.content);
+			s.path = s.made.path;
+		} catch (e) {
+			// it can't be: the second half goes back where it was, so it's still in a note
+			say(e);
+			s.want = 'one';
+			try { editor?.undo(); } catch { /* an editor that has gone: its note on disk still has the text */ }
+			return;
+		}
+		const made = s.made;
+		await saveOpen(app, [s.first]).catch(say);
+		if (s.moved.headings.size || s.moved.blocks.size) s.linked = await repoint(app, s.first, made, (sub) => pointsAt(sub, s.moved), [made], s.linked).catch((e) => { say(e); return s.linked; });
+		return;
+	}
+	const made = s.made;
+	if (!made || s.kept) return;
+	// (deleted by hand since: there's nothing to take back, and nothing is in two places)
+	if (app.vault.getAbstractFileByPath(made.path) !== made) { forget(); return; }
+	const stays = (why: string) => { new Notice(`“${made.basename}” ${why}, so it stays. Its text is in “${s.first.basename}” as well now.`, 10000); s.kept = true; };
+	try {
+		// what's typed anywhere in either and not saved yet is on disk before they're compared with what the split wrote
+		await saveOpen(app, [s.first, made]);
+		if (s.want !== 'one' || s.made !== made) return; // (redone meanwhile)
+		if (made.path !== s.path) { stays('was renamed or moved after the split'); return; }
+		if ((await app.vault.read(made)) !== s.content) { stays('was changed after the split'); return; }
+		// the first note must have the second half on disk, as it stood there, before the new one is let go (words typed
+		// elsewhere in it since the undo are no matter)
+		if (!lf(await app.vault.read(s.first)).includes(lf(s.back))) { stays(`couldn’t be taken away, because “${s.first.basename}” changed as the split was undone`); return; }
+		// links that followed a heading or a block to the new note lead back to where it is again
+		await repoint(app, made, s.first, undefined, [], s.linked).catch(say);
+		if (made.path !== s.path || (await app.vault.read(made)) !== s.content) { stays('was changed after the split'); return; }
+		await app.fileManager.trashFile(made);
+		s.made = null;
+	} catch (e) { say(e); }
 }
 
 /** Merges notes into the first of them, in the order given: their text joined with a blank line between, their

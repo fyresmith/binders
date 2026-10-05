@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.14.0 (2026-10-05)
+
+### Changed
+
+- Undo (Ctrl+Z) right after Split scene now takes the whole split back: the text returns to the note and the new note goes to the trash, and redo splits again. A new note you have already edited, renamed or moved stays, and a notice says the text is in both.
+
 ## 0.13.0 (2026-10-05)
 
 ### Changed

@@ -169,6 +169,9 @@ you scroll to them.
 
 - **Split scene at cursor** (a command, in a note or in the manuscript) moves the text from the cursor on into a new
   note right after this one. **Split scene with selection as title** names the new note from the selected words.
+  Undo in the note you split (Ctrl+Z) takes the whole split back: the text returns and the new note goes to the
+  trash; redo splits again. A new note you have already edited, renamed or moved stays, and a notice says the text is
+  then in both.
 - Select several notes and their menu offers to merge them (**Merge 3 notes**): their text and synopses are joined
   into the first, in binder order, and the others go to the trash once the merged note has been checked to hold all
   their text.
@@ -478,9 +481,9 @@ Binders is not at 1.0 yet. What isn't finished, honestly:
 - **In the manuscript** a section that isn't being edited is drawn as rendered text, and four kinds of content (a table
   wider than the page, indented code, and footnotes of both kinds) are taller or shorter there than in the editor, so
   the page can move when you click into such a section.
-- **After Split scene at cursor,** pressing Undo in the note you split puts the second half back there, and nothing
-  says so; the new note still has it. Nothing is lost, but the text is then in both. Delete one. The same happens,
-  with a notice, if the note changes in the moment it is being split.
+- **After Split scene at cursor,** Undo in the note you split takes the split back only while Obsidian stays open
+  and Binders stays on: after a restart, or once the note's own undo history is gone, the split is two notes like any
+  others. If the note changes in the moment it is being split, both notes keep the text and a notice says so.
 - **Setting a property** (a status, a label, a target, a synopsis) goes through Obsidian, which writes the note's whole
   properties block again in its own form: comments in the block are dropped, and `0123` becomes `123`. The same happens
   to a binder note, or a Longform project's index note, when its order is written. Obsidian's own Properties view does
@@ -490,7 +493,7 @@ Binders is not at 1.0 yet. What isn't finished, honestly:
 - **In the file explorer,** a selection that spans two folders of a binder, or a Longform project, still has Obsidian's
   own **New folder with selection**, which puts the folder last. Obsidian's **Make a copy** of a folder is placed right after the original, in the original's order, but it
   copies the folder's own note under its old name, so it shows in the copy as a scene, listed last.
-- **Undo** covers moves (and a folder made around notes), not renames, deletes, splits, merges or duplicates, and
+- **Undo last move** covers moves (and a folder made around notes or ungrouped), not renames, deletes, merges or duplicates (a split is undone in its note, with the editor's own undo), and
   remembers the last fifty changes (of all binders together) while Obsidian is open. Undoing a kept sort of thousands of notes is slow.
 - **For screen readers,** the "New note" tile sits inside the list of cards, so a reader may skip its button, and "Undo last move" isn't announced.
 - **Not built yet**, before 1.0: export (EPUB, DOCX, PDF and a Scrivener project), import from a Scrivener project, and

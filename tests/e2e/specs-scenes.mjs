@@ -812,6 +812,243 @@ slow('a slow disk: “Delete” on the corkboard while the note’s own tab is s
 	});
 });
 
+// ---- Ctrl+Z right after a split undoes the whole split ----
+// The editor's own undo puts the second half back in the first note. The new note, if it is still byte for byte what
+// the split wrote, then goes to the trash (redo makes it again); one that was edited, renamed or moved stays, and a
+// notice says so. In every order of undo, redo and typing, each word is in a note.
+
+const SAVE_WAIT = 2600; // (past Obsidian's own save, two seconds after typing)
+const K2 = L + 'Part One/The keeper 2.md', CUT = '"You can\'t come up,"', TAIL = 'She put down her cases and waited.';
+/** The notices showing, without the empty ones the probe for them leaves. */
+const said = async (p) => (await notices(p)).split('|').filter((x) => x).join('|');
+const diskIs = (p, path, text) => until(p, `app.vault.adapter.read(${j(path)}).then(s => s === ${j(text)}, () => false)`, 5000);
+const focusTab = (p, path) => p.ev(`(() => { const l = app.workspace.getLeavesOfType('markdown').find(l => l.view.file?.path === ${j(path)}); app.workspace.setActiveLeaf(l, { focus: true }); l.view.editor.focus(); return 1; })()`);
+/** The keeper, with TWO for its text, split in its own tab before `CUT`: the two halves as they are on disk. */
+async function splitKeeper(p) {
+	await p.ev(`app.vault.modify(${file(K)}, ${j(TWO)}).then(() => 1)`);
+	await p.sleep(400);
+	await openAt(p, K, { before: CUT });
+	await run(p, 'split-scene');
+	await until(p, `app.vault.adapter.exists(${j(K2)})`);
+	await until(p, `app.vault.adapter.read(${j(K)}).then(s => !s.includes(${j(TAIL)}))`);
+	await p.sleep(400);
+	return { first: await read(p, K), second: await read(p, K2) };
+}
+/** How many notes have these words. */
+const having = (p, words) => p.ev(`(async () => { let n = 0; for (const f of app.vault.getMarkdownFiles()) if ((await app.vault.adapter.read(f.path)).includes(${j(words)})) n++; return n; })()`);
+async function palette(p, name) {
+	await p.key('p', 'ctrl');
+	await until(p, `!!document.querySelector('.prompt input')`);
+	await p.type(name);
+	await p.sleep(300);
+	await p.key('Enter');
+	await p.sleep(400);
+}
+
+test('Ctrl+Z right after “Split scene at cursor” in a note’s tab undoes the whole split: the text is back in the note and the new note is in the trash; redo splits again, byte for byte and in the same place; undone once more, every note is as it was', withTidy(async (p, h, t) => {
+	await localTrash(p, async () => {
+		await forget(p);
+		const { first, second } = await splitKeeper(p);
+		const before = { ...(await texts(p)), [K]: TWO };
+		await flush(p);
+		const list = await contents(p);
+		t.eq(list[list.indexOf('Part One/The keeper') + 1], 'Part One/The keeper 2', '(split: the new note is right after)');
+		t.eq(await p.ev(`${B}.undoable('The Lighthouse')`), null, 'a split is not a move: “Undo last move” has nothing to take back');
+		await p.key('z', 'ctrl');
+		t.ok(await gone(p, K2), 'Ctrl+Z: the new note is gone');
+		t.ok(await diskIs(p, K, TWO), 'and the note has its whole text again: ' + j(await read(p, K)));
+		t.eq(await read(p, '.trash/The keeper 2.md'), second, 'the new note is in the trash, as the split wrote it');
+		t.eq(await listIs(p, LIST), j(LIST), 'the binder’s list is as it was');
+		t.eq(await said(p), '', 'nothing needed saying');
+		t.eq(await having(p, TAIL), 1, 'the second half is in one note');
+		// redo: split again
+		await p.key('z', 'ctrl', 'shift');
+		t.ok(await back(p, K2), 'Ctrl+Shift+Z: the new note is there again');
+		t.ok(await diskIs(p, K2, second), 'byte for byte what the split wrote');
+		t.ok(await diskIs(p, K, first), 'and the first note has let go of the second half again: ' + j(await read(p, K)));
+		t.eq(await listIs(p, list), j(list), 'in the same place in the binder');
+		t.eq(await having(p, TAIL), 1, 'the second half is in one note');
+		// and undone once more
+		await p.key('z', 'ctrl');
+		t.ok(await gone(p, K2), 'Ctrl+Z again: the new note is gone again');
+		t.ok(await diskIs(p, K, TWO), 'and the note is whole');
+		t.eq(await listIs(p, LIST), j(LIST), 'the list is as it was');
+		delete before[K2];
+		same(t, before, await texts(p), { skip: [NOTE] });
+		t.eq(await said(p), '', 'and nothing was said');
+	});
+}));
+
+for (const [what, touch, where, changed] of [
+	['edited', `app.vault.process(${file(K2)}, s => s + 'One more line.\\n')`, K2, true],
+	['renamed', `app.fileManager.renameFile(${file(K2)}, ${j(L + 'Part One/The refusal.md')})`, L + 'Part One/The refusal.md', false],
+	['moved to another folder', `${B}.put([${file(K2)}], ${file(L + 'Part Two')}, null)`, L + 'Part Two/The keeper 2.md', false],
+	['typed in, in a tab of its own, and not saved yet', null, K2, true],
+]) {
+	test(`Ctrl+Z after a split whose new note has been ${what}: the new note stays as it is, the text is back in the first as well, and a notice says so; redo then leaves every word in a note`, withTidy(async (p, h, t) => {
+		const { first, second } = await splitKeeper(p);
+		if (touch) await p.ev(`${touch}.then(() => 1)`);
+		else {
+			await p.ev(`app.workspace.getLeaf('tab').openFile(${file(K2)}).then(() => 1)`);
+			await p.sleep(400);
+			await p.ev(`(() => { const ed = app.workspace.activeEditor.editor; ed.focus(); ${END}; return 1; })()`);
+			await p.type(' Typed since.');
+		}
+		await p.sleep(touch ? 500 : 50);
+		await focusTab(p, K);
+		await p.key('z', 'ctrl');
+		t.ok(await diskIs(p, K, TWO), 'the first note has its whole text again');
+		await p.sleep(800);
+		t.ok(await exists(p, where), 'the new note is still there');
+		const kept = await read(p, where);
+		t.ok(changed ? kept !== second && kept.includes(TAIL) && /One more line\.|Typed since\./.test(kept) : kept === second, 'with everything in it: ' + j(kept));
+		t.ok(/stays/.test(await notices(p)) && /in both|as well/.test(await notices(p)), 'a notice says it stays and that the text is in both: ' + await notices(p));
+		// redo: the first lets go again; no second copy is made
+		await p.key('z', 'ctrl', 'shift');
+		t.ok(await diskIs(p, K, first), 'redo: the first note is the first half again');
+		await p.sleep(600);
+		t.eq(await read(p, where), kept, 'the new note untouched');
+		t.eq(await having(p, TAIL), 1, 'the second half is in one note, once');
+	}));
+}
+
+test('in the manuscript: Ctrl+Z after a split takes the new section away and the text is back in its section; redo, typing between the undos, and typing after an undo lose nothing', withTidy(async (p, h, t) => {
+	const WHOLE = 'First half.\n\nSecond half.\n';
+	await p.ev(`app.vault.modify(${file(K)}, ${j(WHOLE)}).then(() => 1)`);
+	await p.sleep(400);
+	await openView(p);
+	await p.ev(`(() => { ${VIEW}.setMode('manuscript'); return 1; })()`);
+	await until(p, `!!${section(K)}?.live`, 5000);
+	await p.ev(`(async () => { const m = ${MS}, s = ${section(K)}; s.el.scrollIntoView({ block: 'center' }); await m.mount(s); const ed = s.live.editor; ed.focus(); ed.setCursor(ed.offsetToPos(ed.getValue().indexOf('Second half.'))); return 1; })()`);
+	await p.sleep(200);
+	await run(p, 'split-scene');
+	t.ok(await back(p, K2), 'split from the manuscript');
+	t.ok(await diskIs(p, K, 'First half.\n'), '(the first half)');
+	t.ok(await diskIs(p, K2, 'Second half.\n'), '(the second half)');
+	await until(p, `!!${section(K2)}`);
+	await p.sleep(500);
+	const titles = () => p.ev(`[...document.querySelectorAll('.workspace-leaf.mod-active .binders-manuscript-scene .binders-manuscript-title')].map(e => e.textContent)`);
+	await p.key('z', 'ctrl');
+	t.ok(await gone(p, K2), 'Ctrl+Z in the section: the new note is gone');
+	t.ok(await diskIs(p, K, WHOLE), 'the section’s note is whole again: ' + j(await read(p, K)));
+	t.ok(await until(p, `!${section(K2)}`), 'and the new section is gone from the page');
+	t.ok(!(await titles()).includes('The keeper 2'), 'no title of it is left: ' + j(await titles()));
+	// redo
+	await p.sleep(300);
+	await p.key('z', 'ctrl', 'shift');
+	t.ok(await back(p, K2), 'Ctrl+Shift+Z: split again');
+	t.ok(await diskIs(p, K2, 'Second half.\n'), 'the new note has the second half');
+	t.ok(await diskIs(p, K, 'First half.\n'), 'and the first has let go of it: ' + j(await read(p, K)));
+	// typing, then undo of the typing, then undo of the split
+	await p.sleep(500);
+	await p.type('Typed');
+	await p.sleep(700);
+	t.ok(await until(p, `app.vault.adapter.read(${j(K)}).then(s => s.includes('Typed'))`, 5000), '(typed in the first section: ' + j(await read(p, K)) + ')');
+	for (let i = 0; i < 12 && (await exists(p, K2)); i++) { await p.key('z', 'ctrl'); await p.sleep(900); }
+	t.ok(await gone(p, K2), 'undo of the typing, then of the split: the new note is gone');
+	t.ok(await diskIs(p, K, WHOLE), 'and the note is whole, without what was typed: ' + j(await read(p, K)));
+	// typing after the undo: the split can't be made again, and nothing is lost
+	await p.type('After. ');
+	await p.sleep(300);
+	// (the command, not the keys: the test's Ctrl+Shift+Z arrives as a small "z", which CodeMirror takes for Ctrl+Z
+	// once there is nothing to redo)
+	await p.ev(`(() => { app.commands.executeCommandById('editor:redo'); return 1; })()`);
+	await p.sleep(SAVE_WAIT);
+	const now = await read(p, K);
+	t.ok(now.includes('First half.') && now.includes('Second half.') && now.includes('After.'), 'typed after the undo: the note has every word: ' + j(now));
+	t.ok(!(await exists(p, K2)), 'and no note was made');
+	t.eq(await said(p), '', 'nothing was said to have gone wrong');
+}));
+
+test('“Split scene with selection as title” is undone by Ctrl+Z the same way: the note named by the selection goes to the trash, the text is back', withTidy(async (p, h, t) => {
+	await p.ev(`app.vault.modify(${file(K)}, ${j(TWO)}).then(() => 1)`);
+	await p.sleep(400);
+	await openAt(p, K, { select: 'She put down her cases' });
+	await run(p, 'split-scene-titled');
+	const NAMED = L + 'Part One/She put down her cases.md';
+	t.ok(await back(p, NAMED), 'split, named by the selection');
+	await until(p, `app.vault.adapter.read(${j(K)}).then(s => !s.includes(${j(TAIL)}))`);
+	await p.sleep(500);
+	await p.key('z', 'ctrl');
+	t.ok(await gone(p, NAMED), 'Ctrl+Z: the new note is gone');
+	t.ok(await diskIs(p, K, TWO), 'and the note is whole again: ' + j(await read(p, K)));
+	t.eq(await said(p), '', 'nothing needed saying');
+}));
+
+test('a split made from the command palette is undone by Ctrl+Z the same way; links that followed a heading to the new note lead back, and follow it again on redo', withTidy(async (p, h, t) => {
+	const TEXT = 'The beginning.\n\n## The tower\n\nUp he went.\n', EP = L + 'Epilogue.md', NEW = K2;
+	const epilogue = await read(p, EP);
+	await p.ev(`(async () => { await app.vault.modify(${file(K)}, ${j(TEXT)}); await app.vault.modify(${file(EP)}, ${j(epilogue + '\nSee [[The keeper#The tower]].\n')}); })().then(() => 1)`);
+	await until(p, `(app.metadataCache.resolvedLinks[${j(EP)}] ?? {})[${j(K)}] === 1`, 4000);
+	await openAt(p, K, { before: '## The tower' });
+	await palette(p, 'Split scene at cursor');
+	t.ok(await back(p, NEW), 'split from the palette');
+	t.ok(await until(p, `app.vault.adapter.read(${j(EP)}).then(s => s.includes('[[The keeper 2#The tower]]'))`, 4000), 'the link to the heading follows it to the new note: ' + j((await read(p, EP)).slice(-60)));
+	t.ok(await diskIs(p, K, 'The beginning.\n'), '(the first half)');
+	const second = await read(p, NEW);
+	await p.sleep(600);
+	await p.key('z', 'ctrl');
+	t.ok(await gone(p, NEW), 'Ctrl+Z: the new note is gone');
+	t.ok(await diskIs(p, K, TEXT), 'the note is whole again: ' + j(await read(p, K)));
+	t.ok(await until(p, `app.vault.adapter.read(${j(EP)}).then(s => s.includes('[[The keeper#The tower]]'))`, 4000), 'and the link leads to the heading where it is again: ' + j((await read(p, EP)).slice(-60)));
+	await until(p, `(app.metadataCache.resolvedLinks[${j(EP)}] ?? {})[${j(K)}] === 1`, 4000);
+	await p.key('z', 'ctrl', 'shift');
+	t.ok(await back(p, NEW), 'redo: the new note again');
+	t.ok(await diskIs(p, NEW, second), 'as the split wrote it');
+	t.ok(await until(p, `app.vault.adapter.read(${j(EP)}).then(s => s.includes('[[The keeper 2#The tower]]'))`, 4000), 'and the link follows the heading again: ' + j((await read(p, EP)).slice(-60)));
+}));
+
+test('redo of an undone split when a note has taken the new note’s name since: the second half goes into a note under the next name, and the note in the way is untouched', withTidy(async (p, h, t) => {
+	const { first, second } = await splitKeeper(p);
+	await p.key('z', 'ctrl');
+	t.ok(await gone(p, K2), 'undone');
+	t.ok(await diskIs(p, K, TWO), '(whole again)');
+	await p.ev(`app.vault.create(${j(K2)}, 'Mine.').then(() => 1)`);
+	await p.sleep(400);
+	await focusTab(p, K);
+	await p.key('z', 'ctrl', 'shift');
+	t.ok(await diskIs(p, K, first), 'redo: the first half');
+	const K3 = L + 'Part One/The keeper 3.md';
+	t.ok(await back(p, K3), 'the second half is in a note under the next name');
+	t.eq(await read(p, K3), second, 'as the split wrote it');
+	t.eq(await read(p, K2), 'Mine.', 'the note that took the name is untouched');
+	// and that one is what Ctrl+Z takes away now
+	await p.key('z', 'ctrl');
+	t.ok(await gone(p, K3), 'undone again: that note is gone');
+	t.ok(await diskIs(p, K, TWO), 'and the first is whole');
+	t.eq(await read(p, K2), 'Mine.', 'the other still untouched');
+}));
+
+// Undo, redo and typing in the first note, in any order and at any pace (some at once, before the last has been
+// seen to): when it settles the second half is in exactly one note, the first half is where it was, and what the
+// editor shows is what the disk has.
+for (const seed of [1, 2, 3, 4]) {
+	test(`after a split, 16 undos, redos and words typed in the first note in a random order and at a random pace (seed ${seed}): the second half ends in exactly one note, nothing is lost`, withTidy(async (p, h, t) => {
+		let x = seed * 7919;
+		const rnd = (n) => { x = (x * 1103515245 + 12345) & 0x7fffffff; return x % n; };
+		await p.ev(`app.vault.modify(${file(K)}, 'One.\\n\\nTwo.\\n\\nThree.\\n').then(() => 1)`);
+		await p.sleep(400);
+		await openAt(p, K, { before: 'Three.' });
+		await run(p, 'split-scene');
+		t.ok(await back(p, K2), 'split');
+		t.ok(await diskIs(p, K, 'One.\n\nTwo.\n'), '(the first half)');
+		const did = [];
+		for (let i = 0; i < 16; i++) {
+			const what = ['undo', 'undo', 'redo', 'redo', 'type'][rnd(5)];
+			did.push(what);
+			if (what === 'type') { await p.ev(`(() => { const ed = app.workspace.activeEditor.editor; ed.focus(); ed.setCursor({ line: 0, ch: 0 }); return 1; })()`); await p.type(`w${i} `); }
+			else await p.ev(`(() => { app.commands.executeCommandById('editor:${what}'); return 1; })()`);
+			await p.sleep([0, 30, 120, 350, 900][rnd(5)]);
+		}
+		await p.sleep(SAVE_WAIT + 600);
+		const shown = await p.ev(`app.workspace.activeEditor.editor.getValue()`), first = await read(p, K);
+		t.eq(first, shown, 'the first note on disk is what its editor shows (' + did.join(' ') + ')');
+		t.ok(first.includes('One.') && first.includes('Two.'), 'the first half is still in it: ' + j(first));
+		t.eq(await having(p, 'Three.'), 1, `the second half is in exactly one note (${did.join(' ')}); the first: ${j(first)}`);
+		t.eq(await said(p), '', 'and nothing was said');
+	}));
+}
+
 // ---- Ungroup takes the emptied folder away, and "Undo last move" brings it back ----
 // The folder's synopsis, label and target are in its folder note, which goes to the trash with it: undo must bring
 // back the folder, that note byte for byte, and the notes in their order.

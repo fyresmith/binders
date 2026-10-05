@@ -285,7 +285,12 @@ twice before it exists once.
 
 - **Split scene at cursor**, **Split scene with selection as title** (editor commands, in a note or a manuscript
   section): the text from the cursor on becomes a new note right after, with the note's properties except its
-  synopsis. The new note is written before the first lets go of the text.
+  synopsis. The new note is written before the first lets go of the text. The editor's own undo right after (Ctrl+Z,
+  the command, a phone's button) takes the whole split back: an editor extension (`splitUndo` in `src/scenes.ts`)
+  sees the undo that puts the second half back, and trashes the new note if it is still byte for byte what the split
+  wrote and where the split put it, once the first note is on disk with the second half in it; links that followed a
+  heading to the new note are pointed back. A new note that was edited, renamed or moved stays, with a notice. Redo
+  makes the new note again before anything else. Remembered in memory only (the last 20 splits).
 - **Merge N notes**: text and synopses joined into the first, a blank line between; the result is read back and
   checked before the others go to the trash. Asks first.
 - **Duplicate** (a note, or a folder with everything in it, in order), **New folder from selection** / **Put in a

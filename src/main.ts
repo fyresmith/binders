@@ -11,7 +11,7 @@ import type { ModeFactory } from './view/mode';
 import { outliner } from './view/outliner';
 import { manuscript } from './view/manuscript';
 import { ConvertModal } from './longform-convert';
-import { CompileModal, mergeScenes, splitScene } from './scenes';
+import { CompileModal, mergeScenes, splitScene, splitUndo } from './scenes';
 import { Focus } from './focus/focus';
 import { isScene, leftovers } from './snapshots';
 import { LeftoversModal, SNAPSHOT_VIEW, SnapshotView, SnapshotsModal, folderSnapshotItems, snapshotItems, startRewrite, take, takeAll } from './view/snapshots';
@@ -110,6 +110,8 @@ export default class BindersPlugin extends Plugin {
 			if (!checking) new ConvertModal(this.app, this.binders, b).open();
 			return true;
 		} });
+		// (an undo in the editor right after a split takes back all of it, the new note too)
+		this.registerEditorExtension(splitUndo(this));
 		// splitting a scene where the cursor is, in a note or in the manuscript (whose sections are editors on their notes)
 		for (const [id, name, titled] of [['split-scene', 'Split scene at cursor', false], ['split-scene-titled', 'Split scene with selection as title', true]] as const) {
 			this.addCommand({ id, name, icon: 'split', editorCheckCallback: (checking, editor, ctx) => {
