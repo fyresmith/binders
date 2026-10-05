@@ -170,7 +170,7 @@ export class SnapshotView extends ItemView {
 		const named = readSnapshotName(file.basename, this.beside()), read = readSnapshot(await this.app.vault.cachedRead(file));
 		const at = named?.when.getTime() ?? read.taken ?? file.stat.mtime, title = named ? named.title : file.basename;
 		page.createDiv({ cls: 'binders-snapshot-of', text: `Snapshot${title ? ` “${title}”` : ''}, taken ${whenIn(at)} · ${wordsLabel(countWords(read.body))}` });
-		if (read.body.trim()) await MarkdownRenderer.render(this.app, forRender(read.body), page, this.of || file.path, this.shown);
+		if (read.body.trim()) await MarkdownRenderer.render(this.app, forRender(this.plugin.paragraphs.forRender(read.body, this.of || file.path)), page, this.of || file.path, this.shown);
 		else page.createDiv({ cls: 'binders-snapshot-of', text: 'A blank page.' });
 		copyAsMarkdown(page);
 		refreshHeader(this);
@@ -462,7 +462,7 @@ export class SnapshotsModal extends Modal {
 		this.diffEl.empty();
 		if (!changes) {
 			if (!text.trim()) this.textEl.createDiv({ cls: 'u-muted', text: 'A blank page.' });
-			else void MarkdownRenderer.render(this.app, forRender(text), this.textEl, this.scene?.path ?? '', this.rendered);
+			else void MarkdownRenderer.render(this.app, forRender(this.plugin.paragraphs.forRender(text, this.scene?.path ?? '')), this.textEl, this.scene?.path ?? '', this.rendered);
 			this.textEl.scrollTop = 0;
 			return;
 		}

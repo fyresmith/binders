@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.19.1 (2026-10-05)
+
+### Fixed
+
+- The snapshots dialog and focus mode's scenes before and after show paragraphs that start with a tab as paragraphs.
+
 ## 0.19.0 (2026-10-05)
 
 ### Added

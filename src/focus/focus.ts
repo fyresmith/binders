@@ -601,7 +601,7 @@ export class Focus {
 				if (this.on !== on || on.nearComp !== comp) return;
 				// (what's above the text is drawn without moving the text)
 				const still = d < 0 ? this.holder(on) : null;
-				await MarkdownRenderer.render(this.plugin.app, excerpt(raw, d < 0), body, f.path, comp);
+				await MarkdownRenderer.render(this.plugin.app, this.plugin.paragraphs.forRender(excerpt(raw, d < 0), f.path), body, f.path, comp);
 				still?.();
 			}).catch(() => { /* the note has gone: its title alone */ });
 			if (d < 0) head();

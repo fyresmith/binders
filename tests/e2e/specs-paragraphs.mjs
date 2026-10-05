@@ -390,3 +390,41 @@ test('Windows line endings, a byte-order mark and no last line break are kept wh
 	t.eq([...readFileSync(join(p.vaultDir, A))].join(','), bytes(raw('The warden')), 'byte for byte, but for the note the links name: ' + j(await read(p, A)));
 	t.eq(await read(p, PRO), '\tOutside [[The warden]].\n\nWritten a moment ago.\n', 'the note written from outside has all of it, and the new name');
 });
+
+// ---- what Binders renders itself: the manuscript's sections that aren't editors, the snapshots dialog, focus mode ----
+
+const shownAsProse = (p, sel) => p.ev(`(() => { const e = [...document.querySelectorAll(${j(sel)})].find(x => x.textContent.includes('Rendered by Binders')); if (!e) return null; return { tabs: e.querySelectorAll('.binders-tab').length, pres: e.querySelectorAll('pre').length, em: !!e.querySelector('em'), tabWidth: e.querySelector('.binders-tab')?.getBoundingClientRect().width ?? 0, fenced: [...e.querySelectorAll('pre')].map(x => x.querySelector('code')?.textContent.trim()).join('|') }; })()`);
+const RENDERED = '\tRendered by Binders, with *stress*.\n\tAnd a second line.\n\n```\n\tfenced\n```\n';
+const proseThere = (t, got, where) => {
+	t.ok(!!got, `${where}: the text is shown`);
+	t.eq(got.tabs, 2, `${where}: both tab lines have their indent`);
+	t.ok(got.em, `${where}: emphasis is read`);
+	t.eq(got.fenced, 'fenced', `${where}: the only code block is the fenced one`);
+	t.ok(Math.abs(got.tabWidth - 24) < 1.5, `${where}: the indent is the paragraph indent (${got.tabWidth}px)`);
+};
+
+test('the snapshots dialog shows a note’s tab lines as paragraphs', async (p, h, t) => {
+	await body(p, A, RENDERED);
+	await open(p, A);
+	// (with a snapshot to show: a note with none gets a small dialog with no text in it)
+	await p.ev(`(() => { app.commands.executeCommandById('binders:take-snapshot'); return 1; })()`);
+	await sleep(p, 400);
+	await p.ev(`(async () => { await ${PL}.binders.snapshotsSettle(); await ${PL}.binders.flush(); return 1; })()`);
+	await p.ev(`(() => { app.commands.executeCommandById('binders:show-snapshots'); return 1; })()`);
+	await until(p, `[...document.querySelectorAll('.modal.binders-snapshots .binders-snapshots-text')].some(e => e.textContent.includes('Rendered by Binders'))`, 8000);
+	try { proseThere(t, await shownAsProse(p, '.modal.binders-snapshots .binders-snapshots-text'), 'the dialog'); }
+	finally { await p.key('Escape'); await sleep(p, 300); }
+	t.eq(await read(p, A), FRONT + RENDERED, 'the note on disk is as it was');
+});
+
+test('focus mode’s scene before shows its tab lines as paragraphs', async (p, h, t) => {
+	await body(p, A, RENDERED);
+	await set(p, { focusNeighbours: true });
+	await open(p, K);
+	await h.run('focus');
+	try {
+		await until(p, `[...document.querySelectorAll('.binders-focus-near-text')].some(e => e.textContent.includes('Rendered by Binders'))`, 8000);
+		proseThere(t, await shownAsProse(p, '.binders-focus-near-text'), 'the scene before');
+	} finally { await h.run('focus'); await sleep(p, 900); }
+	t.eq(await read(p, A), FRONT + RENDERED, 'the note on disk is as it was');
+});
