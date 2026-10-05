@@ -3,6 +3,14 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.23.0 (2026-10-05)
+
+### Added
+
+- Export: Export binder and Export... open a window that makes a manuscript, a Word file in standard manuscript format with real Word styles, footnotes, a title page and a header. Parts, chapters and scenes are read from the binder's shape.
+- On a computer Export asks where to save, starting in an Exports folder beside the binder, and can remember the place. On a phone or tablet the file goes to the Exports folder and then to the share sheet.
+- Settings: Exports folder, Remembered places, Your name, Contact details.
+
 ## 0.22.9 (2026-10-05)
 
 ### Changed

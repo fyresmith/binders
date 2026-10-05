@@ -113,6 +113,8 @@ function helpers(p) {
 				}
 				const keep = new Set(files.map(f => f[0]));
 				for (const f of app.vault.getFiles()) if (!keep.has(f.path) && f.extension === 'md') await app.vault.delete(f);
+				// (and nothing remembered on this device about where exports are saved)
+				app.saveLocalStorage('binders-export', null);
 				// every setting back to its default: with no saved data, loadSettings() takes the defaults
 				const pl = app.plugins.plugins.binders; if (pl) { await pl.saveData({}); await pl.loadSettings(); await pl.saveSettings(); pl.binders.refresh(); }
 			})().then(() => 1)`);

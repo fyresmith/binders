@@ -33,6 +33,17 @@ export interface BindersSettings {
 	compiled: Record<string, string>;
 	/** Where each folder was last compiled to (its path → the note's path): offered again the next time. */
 	compiledTo: Record<string, string>;
+	/** Export: the folder exported files go to. A name is a folder beside each binder; a path (with a `/`) is one
+	    folder for the whole vault. */
+	exportsFolder: string;
+	/** Export: the author of a book that doesn't say otherwise, and the lines under the name on a manuscript's title
+	    page (an address, an email, a phone number). */
+	authorName: string;
+	contact: string;
+	/** Export: the kind last made, the manuscript style last used, and whether front and back matter went in. */
+	exportKind: 'manuscript' | 'note';
+	exportStyle: string;
+	exportMatter: boolean;
 	/** In a binder’s notes, a line that starts with a tab is shown as a paragraph that starts with one, not as code. */
 	tabParagraphs: boolean;
 	/** In a binder’s notes, a paragraph that follows another is shown with its first line indented. */
@@ -58,6 +69,7 @@ export const DEFAULT_SETTINGS: BindersSettings = {
 	orderExplorer: true, openOnClick: true, hideBinderNotes: true, explorerLabels: true,
 	synopsisProp: 'synopsis', statusProp: 'status', labelProp: 'label', targetProp: 'target',
 	labels: DEFAULT_LABELS, statuses: DEFAULT_STATUSES, outlinerColumns: DEFAULT_COLUMNS, compile: COMPILE_DEFAULTS, compiled: {}, compiledTo: {},
+	exportsFolder: 'Exports', authorName: '', contact: '', exportKind: 'manuscript', exportStyle: '', exportMatter: false,
 	tabParagraphs: true, indentParagraphs: false,
 	focusTypewriter: true, focusPlace: false, focusNumbers: false, focusDim: true, focusNeighbours: false, focusGoal: 0, focusFullscreen: false,
 };
@@ -121,11 +133,15 @@ export function readSettings(data: unknown): BindersSettings {
 	s.outlinerColumns = (readColumns(d.outlinerColumns) ?? DEFAULT_COLUMNS).map((c) => ({ ...c }));
 	const c = (d.compile && typeof d.compile === 'object' ? d.compile : {}) as Record<string, unknown>;
 	s.compile = { ...COMPILE_DEFAULTS };
-	for (const k of ['folderHeadings', 'sceneHeadings', 'title', 'stripComments'] as const) if (typeof c[k] === 'boolean') s.compile[k] = c[k];
+	for (const k of ['folderHeadings', 'sceneHeadings', 'title', 'stripComments', 'stripTabs'] as const) if (typeof c[k] === 'boolean') s.compile[k] = c[k];
 	if (typeof c.separator === 'string') s.compile.separator = c.separator;
 	for (const k of FOCUS_TOGGLES) if (typeof d[k] === 'boolean') s[k] = d[k];
 	for (const k of PARAGRAPH_TOGGLES) if (typeof d[k] === 'boolean') s[k] = d[k];
 	if (typeof d.focusGoal === 'number' && Number.isInteger(d.focusGoal) && d.focusGoal > 0) s.focusGoal = d.focusGoal;
+	if (typeof d.exportsFolder === 'string' && d.exportsFolder.trim()) s.exportsFolder = d.exportsFolder.trim();
+	for (const k of ['authorName', 'contact', 'exportStyle'] as const) if (typeof d[k] === 'string') s[k] = d[k];
+	if (d.exportKind === 'note' || d.exportKind === 'manuscript') s.exportKind = d.exportKind;
+	if (typeof d.exportMatter === 'boolean') s.exportMatter = d.exportMatter;
 	s.compiledTo = {};
 	if (d.compiledTo && typeof d.compiledTo === 'object' && !Array.isArray(d.compiledTo)) for (const [k, v] of Object.entries(d.compiledTo).slice(-COMPILED_KEPT)) if (typeof v === 'string') s.compiledTo[k] = v;
 	s.compiled = {};

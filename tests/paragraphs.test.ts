@@ -1,5 +1,5 @@
 import { TAB_LINE, wrapMode, type ModeState, type Stream } from '../src/paragraphs/mode';
-import { pointedAt, repointTabLinks, tabLines, tabsForRender } from '../src/paragraphs/text';
+import { pointedAt, repointTabLinks, tabLines, tabsForRender, untab } from '../src/paragraphs/text';
 import { DEFAULT_SETTINGS, readSettings } from '../src/settings-data';
 import { done, eq, ok } from './harness';
 
@@ -120,6 +120,12 @@ const same = (a: unknown, b: unknown, msg: string) => eq(JSON.stringify(a), JSON
 	eq(wrapMode({ token: () => null, startState: () => ({}) }), null, 'a mode whose state has other fields: nothing (the lines stay code)');
 	eq(wrapMode({ token: () => null, startState: () => ({ indentation: 0, list: null, quote: 0 }) }), null, 'or the fields with other values');
 	eq(wrapMode({ token: () => null, startState: () => { throw new Error('no'); } }), null, 'or one that throws');
+}
+
+// tabs taken off paragraphs, for a note that goes outside a binder (export's "One note")
+{
+	eq(untab('\tOne.\n\tTwo.\n\n    Three.\nplain\n\n```\n\tcode\n```\n- item\n\tits text\n'), 'One.\nTwo.\n\nThree.\nplain\n\n```\n\tcode\n```\n- item\n\tits text\n', 'a paragraph begun with a tab or spaces loses them; code and a list item’s text keep theirs');
+	eq(untab('No tabs here.\n'), 'No tabs here.\n', 'a text without them is as it was');
 }
 
 done('paragraphs');

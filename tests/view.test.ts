@@ -61,4 +61,13 @@ eq(wordsLabel(12345), `${(12345).toLocaleString()} words`, 'many words');
 	ok(readSettings(null).labels !== DEFAULT_LABELS && readSettings(null).labels[0] !== DEFAULT_LABELS[0], 'settings: the defaults are copied, never shared');
 }
 
+// export's settings
+{
+	const d = readSettings(null);
+	eq([d.exportsFolder, d.authorName, d.contact, d.exportKind, d.exportMatter, d.compile.stripTabs].join('|'), 'Exports|||manuscript|false|true', 'export: the defaults');
+	const s = readSettings({ exportsFolder: '  Books/Out ', authorName: 'A Writer', contact: 'a\nb', exportKind: 'note', exportMatter: true, exportStyle: 'Plain, for a typesetter', compile: { stripTabs: false } });
+	eq([s.exportsFolder, s.authorName, s.contact, s.exportKind, s.exportMatter, s.exportStyle, s.compile.stripTabs].join('|'), 'Books/Out|A Writer|a\nb|note|true|Plain, for a typesetter|false', 'export: read back as saved');
+	eq([readSettings({ exportsFolder: '  ', exportKind: 'pdf', authorName: 3 }).exportsFolder, readSettings({ exportKind: 'pdf' }).exportKind, readSettings({ authorName: 3 }).authorName].join('|'), 'Exports|manuscript|', 'export: what isn’t well formed is the default');
+}
+
 done('view helpers');

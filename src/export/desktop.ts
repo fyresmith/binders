@@ -1,0 +1,89 @@
+import { FileSystemAdapter, Platform, type App } from 'obsidian';
+
+/* Saving an exported file where the writer says, on a computer: the system's save dialog and the disk outside the
+   vault. Neither is Obsidian's API: the dialog is Electron's, reached through the `remote` Obsidian keeps for its own
+   "Export to PDF", and the disk is Node's `fs`. So they are here and nowhere else (golden rule 5), asked for only when
+   used, only on a computer, and looked at before they are trusted: `desktop()` is null when anything is missing, and
+   export then saves into the vault's Exports folder instead, as it does on a phone (docs/internals.md). */
+
+interface Fs {
+	promises: {
+		writeFile(path: string, data: Uint8Array): Promise<void>;
+		rename(from: string, to: string): Promise<void>;
+		mkdir(path: string, o: { recursive: boolean }): Promise<unknown>;
+		rmdir(path: string): Promise<void>;
+		unlink(path: string): Promise<void>;
+		stat(path: string): Promise<{ size: number; mtimeMs: number }>;
+	};
+}
+interface Dialog { showSaveDialog(o: { title?: string; defaultPath?: string; filters?: { name: string; extensions: string[] }[] }): Promise<{ canceled: boolean; filePath?: string }> }
+interface Shell { showItemInFolder(path: string): void; openPath(path: string): Promise<string> }
+interface PathLib { join(...parts: string[]): string; dirname(path: string): string; basename(path: string): string; sep: string }
+
+/** What a saved file was when export left it: enough to tell later whether it is still export's own. */
+export interface Stamp { size: number; mtime: number }
+
+/** The computer's side of saving. */
+export interface Desktop {
+	/** The vault's folder on the disk. */
+	base: string;
+	join(...parts: string[]): string;
+	dirname(path: string): string;
+	basename(path: string): string;
+	/** The system's save dialog, starting at `start` (a folder and a file name). The path chosen, or null. */
+	pick(start: string, kind: string, extension: string): Promise<string | null>;
+	/** Writes the file whole or not at all: beside its place first, then renamed into it. */
+	write(path: string, data: Uint8Array): Promise<Stamp>;
+	stamp(path: string): Promise<Stamp | null>;
+	/** A folder made if it isn't there; true if this made it. */
+	mkdir(path: string): Promise<boolean>;
+	/** A folder removed again, if nothing was put in it. */
+	rmdir(path: string): Promise<void>;
+	reveal(path: string): void;
+	open(path: string): void;
+}
+
+type Requires = (name: string) => unknown;
+
+/** The computer's side of saving, or null: on a phone or tablet, in a vault that isn't on a disk, or where Electron's
+    dialog or Node's `fs` isn't what this expects. */
+export function desktop(app: App): Desktop | null {
+	// (`isMobile` too: Obsidian's own emulation of a phone on a computer is a phone here)
+	if (!Platform.isDesktopApp || Platform.isMobile) return null;
+	try {
+		const adapter = app.vault.adapter, req = (window as unknown as { require?: Requires }).require;
+		if (!(adapter instanceof FileSystemAdapter) || typeof req !== 'function') return null;
+		const fs = req('fs') as Fs | undefined, path = req('path') as PathLib | undefined;
+		const electron = req('electron') as { remote?: { dialog?: Dialog; shell?: Shell }; shell?: Shell } | undefined;
+		const dialog = electron?.remote?.dialog, shell = electron?.shell ?? electron?.remote?.shell;
+		if (typeof dialog?.showSaveDialog !== 'function' || typeof fs?.promises?.writeFile !== 'function' || typeof fs.promises.rename !== 'function' || typeof path?.join !== 'function') return null;
+		const stamp = async (p: string): Promise<Stamp | null> => { try { const s = await fs.promises.stat(p); return { size: s.size, mtime: Math.round(s.mtimeMs) }; } catch { return null; } };
+		return {
+			base: adapter.getBasePath(),
+			join: (...parts) => path.join(...parts),
+			dirname: (p) => path.dirname(p),
+			basename: (p) => path.basename(p),
+			pick: async (start, kind, extension) => {
+				const r = await dialog.showSaveDialog({ title: 'Export', defaultPath: start, filters: [{ name: kind, extensions: [extension] }] });
+				if (r.canceled || !r.filePath) return null;
+				return r.filePath.toLowerCase().endsWith(`.${extension}`) ? r.filePath : `${r.filePath}.${extension}`;
+			},
+			write: async (p, data) => {
+				const tmp = `${p}.binders-part`;
+				try {
+					await fs.promises.writeFile(tmp, data);
+					await fs.promises.rename(tmp, p);
+				} catch (e) {
+					await fs.promises.unlink(tmp).catch(() => { /* it was never made */ });
+					throw e;
+				}
+				return (await stamp(p)) ?? { size: data.length, mtime: 0 };
+			},
+			stamp,
+			mkdir: async (p) => { if (await stamp(p)) return false; await fs.promises.mkdir(p, { recursive: true }); return true; },
+			rmdir: async (p) => { await fs.promises.rmdir(p).catch(() => { /* something is in it: it stays */ }); },
+			reveal: (p) => { shell?.showItemInFolder(p); },
+			open: (p) => { void shell?.openPath(p); },
+		};
+	} catch { return null; }
+}

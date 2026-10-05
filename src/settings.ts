@@ -5,6 +5,7 @@ import { parseGoal } from './focus/session';
 import { COMPILE_PROP } from './scenes';
 import { DEFAULT_LABELS, DEFAULT_STATUSES, PALETTE, colorCss, display, freeName, hexColor } from './view/labels';
 import { confirm } from './view/modals';
+import { forgetPlaces, places } from './export/export';
 
 /* The settings tab, declarative: Obsidian draws it from `getSettingDefinitions`, and can search it.
    What the settings are, and how saved ones are read back, is settings-data.ts. Renaming a label or a status asks
@@ -60,6 +61,12 @@ export class BindersSettingTab extends PluginSettingTab {
 			},
 			// focus mode: what shows besides the text, each to turn on or off (typewriter scrolling and dimming are on to begin with)
 			{ type: 'group', heading: 'Focus mode', items: [...focusToggles(Platform.isMobile).map((k): SettingDefinition => ({ name: FOCUS_TEXT[k][0], desc: FOCUS_TEXT[k][1], control: { type: 'toggle', key: k } })), { name: FOCUS_TEXT.focusGoal[0], desc: FOCUS_TEXT.focusGoal[1], render: (setting) => { this.goalRow(setting); } }] },
+			{ type: 'group', heading: 'Export', items: [
+				{ name: 'Exports folder', desc: 'Where exported files go on a phone or tablet, and where the save dialog starts on a computer. A name is a folder beside each binder; a path, such as Books/Exports, is one folder for the whole vault.', render: (setting) => { this.textRow(setting, 'exportsFolder', 'Exports'); } },
+				{ name: 'Remembered places', desc: '', render: (setting) => { this.placesRow(setting); } },
+				{ name: 'Your name', desc: 'The author of a book that doesn’t say otherwise.', render: (setting) => { this.textRow(setting, 'authorName', ''); } },
+				{ name: 'Contact details', desc: 'For the title page of a manuscript: an address, an email, a phone number, a line each.', render: (setting) => { this.contactRow(setting); } },
+			] },
 			{ type: 'group', heading: 'Property names', items: PROPS.map((k): SettingDefinition => ({ name: TEXT[k][0], desc: TEXT[k][1], render: (setting) => { this.propRow(setting, k); } })) },
 		];
 	}
@@ -159,6 +166,40 @@ export class BindersSettingTab extends PluginSettingTab {
 				void this.save();
 			});
 		});
+	}
+
+	/** One of export's lines of text: taken when the field is left. An empty Exports folder is the default again. */
+	private textRow(setting: Setting, k: 'exportsFolder' | 'authorName', fallback: string): void {
+		setting.settingEl.addClass(`binders-settings-${k === 'exportsFolder' ? 'exports' : 'author'}`);
+		setting.addText((t) => {
+			t.setPlaceholder(fallback).setValue(this.s[k]);
+			this.field(t.inputEl, () => t.getValue() !== this.s[k], () => { t.setValue(this.s[k]); }, () => {
+				const v = t.getValue().trim().replace(/^\/+|\/+$/g, '') || fallback;
+				if (k === 'exportsFolder' && v.split('/').some((n) => !n.trim() || n.startsWith('.') || /[*"\\<>:|?]/.test(n))) { new Notice('That folder can’t be used. A name can’t start with a dot, or have a character a file name can’t have.'); t.setValue(this.s[k]); return; }
+				t.setValue(v);
+				if (v === this.s[k]) return;
+				this.s[k] = v;
+				void this.save();
+			});
+		});
+	}
+
+	/** The lines under the name on a manuscript's title page. */
+	private contactRow(setting: Setting): void {
+		setting.settingEl.addClass('binders-settings-contact');
+		setting.addTextArea((t) => {
+			t.setValue(this.s.contact);
+			t.inputEl.rows = 3;
+			t.inputEl.addEventListener('blur', () => { const v = t.getValue().replace(/\s+$/, ''); if (v !== this.s.contact) { this.s.contact = v; void this.save(); } });
+		});
+	}
+
+	/** The places this device saves exports to without asking, and the way to be asked again. */
+	private placesRow(setting: Setting): void {
+		setting.settingEl.addClass('binders-settings-places');
+		const list = places(this.plugin), name = (p: string) => p.split('/').pop() ?? p;
+		setting.setDesc(list.length ? `${list.length === 1 ? 'One export saves' : `${list.length} exports save`} without asking on this device: ${list.map((p) => `${name(p.folder)} (${p.kind}) to ${p.path}`).join('; ')}.` : 'Every export asks where to save. After one is saved, its window offers to save there next time without asking.');
+		setting.addButton((b) => b.setButtonText('Ask again').setDisabled(!list.length).onClick(() => { forgetPlaces(this.plugin); this.update(); }));
 	}
 
 	/** The property a note's synopsis, status, label or target is kept in: a name of its own, taken when the field is left. */

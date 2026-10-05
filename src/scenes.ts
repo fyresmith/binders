@@ -4,6 +4,7 @@ import { ButtonComponent, MarkdownView, Modal, Notice, Platform, Setting, TFile,
 import type BindersPlugin from './main';
 import { COMPILE_DEFAULTS, compile, frontFor, joinBodies, lf, linkTargets, nextName, parts, pointsAt, repointLinks, synopsisFrom, tidyHead, tidyTail, titleFrom, useYaml, type CompileItem, type CompileOptions } from './scene-text';
 import { COMPILED_KEPT } from './settings-data';
+import { untab } from './paragraphs/text';
 import { saveEditors, saveTab } from './view/editable-embed';
 import { trashPhrase, updatesLinks } from './view/internals';
 import { buttonRow, cancelButton, confirm } from './view/modals';
@@ -16,6 +17,8 @@ import { buttonRow, cancelButton, confirm } from './view/modals';
 
 /** The property that leaves a note (or, in a folder note, a whole folder) out of a compile when it's `false`. */
 export const COMPILE_PROP = 'compile';
+/** The same property under the name export gives it. Both are read, for good. */
+export const EXPORT_PROP = 'export';
 
 /** A Markdown note (not a folder, and not another kind of file). */
 export const isNote = (f: TAbstractFile | null): f is TFile => f instanceof TFile && f.extension === 'md';
@@ -308,7 +311,7 @@ export async function synopsisFromText(plugin: BindersPlugin, files: TFile[]): P
 /** Is a note left out of compiles, by its own `compile: false` or a folder's above it (in the folder's note)? */
 export function compiles(plugin: BindersPlugin, item: TAbstractFile): boolean {
 	const { app, binders: store } = plugin, binder = store.binderOf(item);
-	const off = (f: TFile | null) => !!f && app.metadataCache.getFileCache(f)?.frontmatter?.[COMPILE_PROP] === false;
+	const off = (f: TFile | null) => { const fm = f ? app.metadataCache.getFileCache(f)?.frontmatter : null; return !!fm && (fm[EXPORT_PROP] === false || fm[COMPILE_PROP] === false); };
 	if (item instanceof TFile && off(item)) return false;
 	for (let f = item instanceof TFolder ? item : item.parent; f && binder && f !== binder.folder; f = f.parent) if (off(store.folderNote(f))) return false;
 	return true;
@@ -318,15 +321,16 @@ export function compiles(plugin: BindersPlugin, item: TAbstractFile): boolean {
 export async function compileText(plugin: BindersPlugin, folder: TFolder, options: CompileOptions): Promise<{ text: string; scenes: number }> {
 	const { app, binders: store } = plugin, items: CompileItem[] = [];
 	let scenes = 0;
+	const body = async (f: TFile) => { const b = parts(await app.vault.cachedRead(f)).body; return options.stripTabs ? untab(b) : b; };
 	const walk = async (f: TFolder, depth: number): Promise<void> => {
 		for (const c of store.orderedChildren(f) ?? []) {
 			if (!compiles(plugin, c)) continue;
 			if (c instanceof TFolder) { items.push({ kind: 'folder', name: c.name, depth }); await walk(c, depth + 1); }
-			else if (isNote(c)) { items.push({ kind: 'scene', name: c.basename, depth, text: parts(await app.vault.cachedRead(c)).body }); scenes++; }
+			else if (isNote(c)) { items.push({ kind: 'scene', name: c.basename, depth, text: await body(c) }); scenes++; }
 		}
 	};
 	await saveOpen(app, store.scenes(folder));
-	if (store.binderOf(folder)?.kind === 'longform') for (const f of store.scenes(folder)) { if (compiles(plugin, f)) { items.push({ kind: 'scene', name: f.basename, depth: 0, text: parts(await app.vault.cachedRead(f)).body }); scenes++; } }
+	if (store.binderOf(folder)?.kind === 'longform') for (const f of store.scenes(folder)) { if (compiles(plugin, f)) { items.push({ kind: 'scene', name: f.basename, depth: 0, text: await body(f) }); scenes++; } }
 	else await walk(folder, 0);
 	return { text: compile(folder.name, items, options), scenes };
 }
@@ -379,7 +383,6 @@ export class CompileModal extends Modal {
 	onClose(): void { this.contentEl.empty(); }
 
 	private async run(save: boolean): Promise<void> {
-		const { app } = this.plugin;
 		try {
 			this.plugin.settings.compile = { ...this.o };
 			await this.plugin.saveData(this.plugin.settings);
@@ -390,40 +393,55 @@ export class CompileModal extends Modal {
 				this.close();
 				return;
 			}
-			const typed = this.path.replace(/\.md$/i, '').trim(), names = typed.split('/');
-			if (!typed) throw new Error('Give the compiled note a name.');
-			if (names.some((n) => !n.trim() || n === '.' || n === '..' || n.startsWith('.') || /[*"\\<>:|?]/.test(n))) throw new Error('That name can’t be used: a name can’t start with a dot or have any of * " \\ < > : | ? in it.');
-			const path = normalizePath(typed + '.md');
-			if (this.plugin.binders.binderOf(path)) throw new Error('Save it outside the binder: in it, the compiled note would be one of its scenes.');
-			const at = app.vault.getAbstractFileByPath(path);
-			if (at && !(at instanceof TFile)) throw new Error(`“${path}” is a folder.`);
-			// a note that isn't what Compile last left there has someone's writing in it: asked about, never just replaced
-			const memory = this.plugin.settings.compiled;
-			if (at instanceof TFile) {
-				const there = await app.vault.read(at);
-				if (there !== text && there.trim() && memory[path] !== fingerprint(there)) {
-					const replace = await confirm(app, { title: 'Replace this note', text: `“${at.basename}” ${memory[path] ? 'has been changed since it was compiled' : 'is already there, and wasn’t made by Compile'}. Replace its text with the compiled binder?`, cta: 'Replace' });
-					if (!replace) return;
-				}
-			}
-			const dir = path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '';
-			if (dir && !app.vault.getAbstractFileByPath(dir)) await app.vault.createFolder(dir);
-			const file = at instanceof TFile ? (await app.vault.modify(at, text), at) : await app.vault.create(path, text);
-			delete memory[path];
-			memory[path] = fingerprint(text);
-			const to = this.plugin.settings.compiledTo;
-			delete to[this.folder.path];
-			to[this.folder.path] = path;
-			for (const k of Object.keys(to).slice(0, -COMPILED_KEPT)) delete to[k];
-			for (const k of Object.keys(memory).slice(0, -COMPILED_KEPT)) delete memory[k];
-			await this.plugin.saveData(this.plugin.settings);
-			this.close();
-			// in the tab it's open in already, if there is one
-			const open = app.workspace.getLeavesOfType('markdown').find((l) => l.view instanceof MarkdownView && l.view.file === file);
-			if (open) app.workspace.setActiveLeaf(open, { focus: true });
-			// (on a phone in the tab the binder is in, so Back returns to it: a tab of its own there is out of sight)
-			else await app.workspace.getLeaf(Platform.isPhone ? false : 'tab').openFile(file);
-			new Notice(`Compiled ${scenes.toLocaleString()} ${scenes === 1 ? 'note' : 'notes'} into “${file.basename}”.`);
+			if (await writeOneNote(this.plugin, this.folder, this.path, text, scenes)) this.close();
 		} catch (e) { say(e); }
 	}
+}
+
+/** Where "One note" would put a folder's text: where it went last time, or beside the binder (not in it: there it
+    would be one of its scenes). */
+export function oneNotePath(plugin: BindersPlugin, folder: TFolder): string {
+	const binder = plugin.binders.binderOf(folder)?.folder ?? folder, dir = binder.parent && !binder.parent.isRoot() ? binder.parent.path + '/' : '';
+	return plugin.settings.compiledTo[folder.path] ?? `${dir}${folder.name} (compiled).md`;
+}
+
+/** Writes a folder's text, made into one, as a note at the path typed, and opens it. A note there that isn't what
+    this last left has someone's writing in it: asked about, never just replaced. Null if the writer said no; throws,
+    in words for the writer, if the name can't be used. */
+export async function writeOneNote(plugin: BindersPlugin, folder: TFolder, typedPath: string, text: string, scenes: number): Promise<TFile | null> {
+	const { app } = plugin;
+	const typed = typedPath.replace(/\.md$/i, '').trim(), names = typed.split('/');
+	if (!typed) throw new Error('Give the compiled note a name.');
+	if (names.some((n) => !n.trim() || n === '.' || n === '..' || n.startsWith('.') || /[*"\\<>:|?]/.test(n))) throw new Error('That name can’t be used: a name can’t start with a dot or have any of * " \\ < > : | ? in it.');
+	const path = normalizePath(typed + '.md');
+	if (plugin.binders.binderOf(path)) throw new Error('Save it outside the binder: in it, the compiled note would be one of its scenes.');
+	const at = app.vault.getAbstractFileByPath(path);
+	if (at && !(at instanceof TFile)) throw new Error(`“${path}” is a folder.`);
+	// a note that isn't what Compile last left there has someone's writing in it: asked about, never just replaced
+	const memory = plugin.settings.compiled;
+	if (at instanceof TFile) {
+		const there = await app.vault.read(at);
+		if (there !== text && there.trim() && memory[path] !== fingerprint(there)) {
+			const replace = await confirm(app, { title: 'Replace this note', text: `“${at.basename}” ${memory[path] ? 'has been changed since it was compiled' : 'is already there, and wasn’t made by Compile'}. Replace its text with the compiled binder?`, cta: 'Replace' });
+			if (!replace) return null;
+		}
+	}
+	const dir = path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '';
+	if (dir && !app.vault.getAbstractFileByPath(dir)) await app.vault.createFolder(dir);
+	const file = at instanceof TFile ? (await app.vault.modify(at, text), at) : await app.vault.create(path, text);
+	delete memory[path];
+	memory[path] = fingerprint(text);
+	const to = plugin.settings.compiledTo;
+	delete to[folder.path];
+	to[folder.path] = path;
+	for (const k of Object.keys(to).slice(0, -COMPILED_KEPT)) delete to[k];
+	for (const k of Object.keys(memory).slice(0, -COMPILED_KEPT)) delete memory[k];
+	await plugin.saveData(plugin.settings);
+	// in the tab it's open in already, if there is one
+	const open = app.workspace.getLeavesOfType('markdown').find((l) => l.view instanceof MarkdownView && l.view.file === file);
+	if (open) app.workspace.setActiveLeaf(open, { focus: true });
+	// (on a phone in the tab the binder is in, so Back returns to it: a tab of its own there is out of sight)
+	else await app.workspace.getLeaf(Platform.isPhone ? false : 'tab').openFile(file);
+	new Notice(`Compiled ${scenes.toLocaleString()} ${scenes === 1 ? 'note' : 'notes'} into “${file.basename}”.`);
+	return file;
 }

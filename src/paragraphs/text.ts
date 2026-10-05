@@ -54,6 +54,14 @@ export function tabsForRender(text: string, mark = '<span class="binders-tab"></
 	return text.split('\n').map((l, i) => (at.has(i) ? mark + l.replace(/^[ \t]+/, '') : l)).join('\n');
 }
 
+/** A text without the tab (or the spaces) each paragraph begun with one starts with: what a note outside a binder
+    needs, where Obsidian would show those lines as code. Every other line is as it was. */
+export function untab(text: string): string {
+	const at = new Set(tabLines(text));
+	if (!at.size) return text;
+	return text.split('\n').map((l, i) => (at.has(i) ? l.replace(/^[ \t]+/, '') : l)).join('\n');
+}
+
 /** Did a link, as written in the note at `source`, point at the file that was at `old`? `others` are the paths of
     every other file in the vault now. Yes only when nothing else could have been meant: the link names the path, a
     path from the note's own folder, or the end of the path (its name, or its folder and name) that no other file

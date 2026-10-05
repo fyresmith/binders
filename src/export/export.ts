@@ -1,0 +1,208 @@
+import { TFile, TFolder, normalizePath, type TAbstractFile } from 'obsidian';
+import type BindersPlugin from '../main';
+import { compiles, isNote, saveOpen } from '../scenes';
+import { parts } from '../scene-text';
+import { bookNeeds, buildBook, type Resolver } from './book';
+import type { Desktop, Stamp } from './desktop';
+import { writeDocx } from './docx';
+import { manuscriptStyle } from './docx-parts';
+import { bookWords, type Book, type Picture } from './model';
+import { isPictureName, pictureOf } from './picture';
+import { readStructure, type SourceItem } from './roles';
+
+/* Export where it meets the vault: a binder (or a folder of one) read into the book model, the manuscript made from
+   it, and the file put where it goes. It reads notes and writes the exported file, and nothing else: no note's text
+   or properties are changed here. The pure parts are beside this file; the window is view/export.ts. */
+
+/** The properties of a note or folder that export reads. `export: false` leaves it out (`compile: false`, its name
+    before export, is read as the same for good); `export-as` gives it a role by hand. */
+export const EXPORT_AS = 'export-as';
+
+/** The kinds of export there are so far. */
+export type Kind = 'manuscript' | 'note';
+export const KINDS: { id: Kind; name: string; detail: string }[] = [
+	{ id: 'manuscript', name: 'Manuscript', detail: 'Word, in standard manuscript format' },
+	{ id: 'note', name: 'One note', detail: 'Markdown, in this vault' },
+];
+
+/** A folder of a binder, read for export: the book, and how many words it has. */
+export async function readBook(plugin: BindersPlugin, folder: TFolder, matter: boolean): Promise<{ book: Book; words: number }> {
+	const { app, binders: store, settings } = plugin, binder = store.binderOf(folder);
+	if (!binder) throw new Error(`“${folder.name}” isn’t in a binder.`);
+	const fm = (f: TFile | null): Record<string, unknown> => (f ? app.metadataCache.getFileCache(f)?.frontmatter ?? {} : {});
+	// what is typed and not saved yet is on disk before anything is read
+	await saveOpen(app, store.scenes(folder));
+	const item = async (f: TAbstractFile): Promise<SourceItem | null> => {
+		if (f instanceof TFolder) {
+			const children: SourceItem[] = [];
+			for (const c of store.orderedChildren(f) ?? []) { const it = await item(c); if (it) children.push(it); }
+			return { kind: 'folder', name: f.name, path: f.path, included: compiles(plugin, f), exportAs: fm(store.folderNote(f))[EXPORT_AS], children };
+		}
+		if (!isNote(f)) return null;
+		const included = compiles(plugin, f);
+		return { kind: 'note', name: f.basename, path: f.path, included, exportAs: fm(f)[EXPORT_AS], text: included ? parts(await app.vault.cachedRead(f)).body : '' };
+	};
+	const items: SourceItem[] = [];
+	// (a Longform project is its scenes in order: its groups are no folders)
+	for (const c of binder.kind === 'longform' ? store.scenes(folder) : store.orderedChildren(folder) ?? []) { const it = await item(c); if (it) items.push(it); }
+
+	// what the notes embed and show is found as Obsidian finds it, and read before the book is put together
+	const found = new Map<string, { text: string } | { picture: Picture } | null>();
+	const key = (target: string, from: string) => `${from}\n${target}`;
+	for (const n of bookNeeds(items)) {
+		for (const target of [...n.embeds, ...n.images]) {
+			const name = target.split('|')[0].trim();
+			// (a part of a note, `![[Note#Heading]]`, isn't brought in: only a whole note is)
+			const file = /^[a-z][\w+.-]*:/i.test(name) || name.includes('#') ? null : app.metadataCache.getFirstLinkpathDest(safeDecode(name), n.from);
+			let got: { text: string } | { picture: Picture } | null = null;
+			try {
+				if (file && file.extension === 'md') got = { text: await app.vault.cachedRead(file) };
+				else if (file && isPictureName(file.name)) { const pic = pictureOf(new Uint8Array(await app.vault.readBinary(file))); got = pic ? { picture: pic } : null; }
+			} catch { got = null; }
+			found.set(key(target, n.from), got);
+		}
+	}
+	const resolve: Resolver = {
+		embed: (target, from) => found.get(key(target, from)) ?? null,
+		image: (src, from) => { const f = found.get(key(src, from)); return f && 'picture' in f ? f.picture : null; },
+	};
+	const own = fm(binder.note), text = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : '');
+	// (a folder of the binder exported by itself is named for itself; the binder's own title is the whole book's)
+	const book = buildBook(items, {
+		title: folder === binder.folder ? text(own.title) || folder.name : folder.name,
+		author: text(own.author) || settings.authorName.trim(),
+		language: text(own.language) || 'en',
+		structure: readStructure(own.structure),
+		flat: binder.kind === 'longform',
+		matter,
+	}, resolve);
+	return { book, words: bookWords(book) };
+}
+const safeDecode = (s: string): string => { try { return decodeURIComponent(s); } catch { return s; } };
+
+/** The manuscript of a book as a Word file. */
+export function manuscript(plugin: BindersPlugin, book: Book, words: number, style: string): Uint8Array {
+	return writeDocx(book, manuscriptStyle(style), { contact: plugin.settings.contact.split(/\r?\n/).map((l) => l.trim()).filter((l) => l), words });
+}
+
+/** A file's name from a book's title: without what a file name can't have. */
+export const fileName = (title: string): string => title.replace(/[\\/:*?"<>|#^[\]]/g, ' ').replace(/\s+/g, ' ').trim().replace(/^\.+/, '') || 'Untitled';
+
+// ---- where the file goes ----
+
+/** The Exports folder for a binder, as a path in the vault: a name is a folder beside the binder; a path (with a
+    `/` in it) is one folder for the whole vault. */
+export function exportsFolder(plugin: BindersPlugin, folder: TFolder): string {
+	const said = plugin.settings.exportsFolder.trim().replace(/^\/+|\/+$/g, '') || 'Exports';
+	if (said.includes('/')) return normalizePath(said);
+	const binder = plugin.binders.binderOf(folder)?.folder ?? folder, beside = binder.parent && !binder.parent.isRoot() ? `${binder.parent.path}/` : '';
+	return normalizePath(`${beside}${said}`);
+}
+
+/** What this device remembers about saving: for each binder and kind, the place chosen "without asking"; and for the
+    files export wrote, what each was when it left it. Kept in the device's own storage, not in the vault's settings:
+    a path on this disk means nothing on another. */
+interface Memory { places: Record<string, string>; written: Record<string, Stamp> }
+const MEMORY = 'binders-export', WRITTEN_KEPT = 60;
+const placeKey = (folder: TFolder, kind: Kind) => `${kind}\n${folder.path}`;
+
+export function memory(plugin: BindersPlugin): Memory {
+	const m = plugin.app.loadLocalStorage(MEMORY) as Partial<Memory> | null;
+	const rec = <T>(v: unknown): Record<string, T> => (v && typeof v === 'object' && !Array.isArray(v) ? { ...(v as Record<string, T>) } : {});
+	return { places: rec<string>(m?.places), written: rec<Stamp>(m?.written) };
+}
+function remember(plugin: BindersPlugin, change: (m: Memory) => void): void {
+	const m = memory(plugin);
+	change(m);
+	for (const k of Object.keys(m.written).slice(0, -WRITTEN_KEPT)) delete m.written[k];
+	plugin.app.saveLocalStorage(MEMORY, m);
+}
+
+/** The place remembered for a kind of export of a folder, or null: then export asks. */
+export const placeFor = (plugin: BindersPlugin, folder: TFolder, kind: Kind): string | null => memory(plugin).places[placeKey(folder, kind)] ?? null;
+export function setPlace(plugin: BindersPlugin, folder: TFolder, kind: Kind, path: string | null): void {
+	remember(plugin, (m) => { if (path) m.places[placeKey(folder, kind)] = path; else delete m.places[placeKey(folder, kind)]; });
+}
+/** Every place remembered on this device, as the settings tab lists them: the folder, the kind, the path. */
+export function places(plugin: BindersPlugin): { folder: string; kind: string; path: string }[] {
+	return Object.entries(memory(plugin).places).map(([k, path]) => { const [kind, folder] = k.split('\n'); return { folder, kind, path }; });
+}
+export function forgetPlaces(plugin: BindersPlugin): void { remember(plugin, (m) => { m.places = {}; }); }
+
+/** Where a file was saved. `disk`: a path on the computer, outside Obsidian's sight. `vault`: a path in the vault. */
+export interface Saved { where: 'disk' | 'vault'; path: string; shown: string }
+
+export interface SaveOptions {
+	folder: TFolder;
+	kind: Kind;
+	/** The file's name without its ending, and its ending. */
+	name: string;
+	extension: string;
+	/** What the system's dialog calls this kind of file. */
+	type: string;
+	/** Ask where, even if a place is remembered. */
+	ask?: boolean;
+	/** Asked before a file that export didn't write is replaced. */
+	replace(shown: string): Promise<boolean>;
+}
+
+/** Saves an exported file. On a computer the system's save dialog opens in the Exports folder, unless a place is
+    remembered for this kind of this binder; anywhere else (a phone, a tablet, a computer where the dialog isn't to be
+    had) the file goes into the Exports folder in the vault. Null if the writer backed out. A file that export didn't
+    write is never replaced without asking. */
+export async function save(plugin: BindersPlugin, host: Desktop | null, data: Uint8Array, o: SaveOptions): Promise<Saved | null> {
+	const { app } = plugin, dir = exportsFolder(plugin, o.folder), file = `${o.name}.${o.extension}`;
+	if (host) {
+		const kept = o.ask ? null : placeFor(plugin, o.folder, o.kind);
+		let path = kept;
+		if (!path) {
+			// the dialog starts in the Exports folder: made for it, and taken away again if the file goes elsewhere
+			const start = host.join(host.base, ...dir.split('/')), made = await host.mkdir(start).catch(() => false);
+			try { path = await host.pick(host.join(start, file), o.type, o.extension); }
+			finally { if (made) await host.rmdir(start); }
+			if (!path) return null;
+			if (host.dirname(path) === start) await host.mkdir(start);
+		} else {
+			// straight there: only over a file that is still what export left
+			const there = await host.stamp(path), was = memory(plugin).written[path];
+			if (there && !(was && was.size === there.size && was.mtime === there.mtime) && !(await o.replace(host.basename(path)))) return null;
+			await host.mkdir(host.dirname(path));
+		}
+		const stamp = await host.write(path, data);
+		remember(plugin, (m) => { delete m.written[path]; m.written[path] = stamp; });
+		// (a remembered place follows the file: "Choose where to save" changes it)
+		if (kept !== null || placeFor(plugin, o.folder, o.kind)) setPlace(plugin, o.folder, o.kind, path);
+		return { where: 'disk', path, shown: shownPath(host, path) };
+	}
+	const path = normalizePath(`${dir}/${file}`), at = app.vault.getAbstractFileByPath(path), key = `vault:${path}`;
+	if (at && !(at instanceof TFile)) throw new Error(`“${path}” is a folder.`);
+	if (plugin.binders.binderOf(path)) throw new Error('The Exports folder is inside a binder. Choose another in Binders’ settings.');
+	if (at instanceof TFile) {
+		const was = memory(plugin).written[key];
+		if (!(was && was.size === at.stat.size && was.mtime === at.stat.mtime) && !(await o.replace(path))) return null;
+	}
+	if (!app.vault.getAbstractFileByPath(dir)) await app.vault.createFolder(dir);
+	const buffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer;
+	const made = at instanceof TFile ? (await app.vault.modifyBinary(at, buffer), at) : await app.vault.createBinary(path, buffer);
+	remember(plugin, (m) => { delete m.written[key]; m.written[key] = { size: made.stat.size, mtime: made.stat.mtime }; });
+	return { where: 'vault', path, shown: path };
+}
+
+/** A path on the disk as the window says it: from the vault's folder when it is inside it. */
+export function shownPath(host: Desktop, path: string): string {
+	const inside = path.startsWith(host.base) ? path.slice(host.base.length) : '';
+	return /^[\\/]/.test(inside) ? inside.slice(1).replace(/\\/g, '/') : path;
+}
+
+/** Hands a file to the system's share sheet, where there is one (a phone, a tablet). False where there isn't. */
+export async function share(data: Uint8Array, name: string, mime: string): Promise<boolean> {
+	try {
+		const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean };
+		const files = [new File([data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer], name, { type: mime })];
+		if (typeof nav.share !== 'function' || typeof nav.canShare !== 'function' || !nav.canShare({ files })) return false;
+		await nav.share({ files, title: name });
+		return true;
+	} catch { return false; } // (the writer closed the sheet: the file is in the vault all the same)
+}
+
+export const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';

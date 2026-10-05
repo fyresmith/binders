@@ -13,6 +13,8 @@ import { manuscript } from './view/manuscript';
 import { ConvertModal } from './longform-convert';
 import { CompileModal, mergeScenes, splitScene, splitUndo } from './scenes';
 import { Focus } from './focus/focus';
+import { desktop } from './export/desktop';
+import { ExportModal } from './view/export';
 import { installParagraphs, type Paragraphs } from './paragraphs/paragraphs';
 import { isScene, leftovers } from './snapshots';
 import { LeftoversModal, SNAPSHOT_VIEW, SnapshotView, SnapshotsModal, folderSnapshotItems, snapshotItems, startRewrite, take, takeAll } from './view/snapshots';
@@ -34,6 +36,9 @@ export default class BindersPlugin extends Plugin {
 	binders: BinderStore;
 	/** Focus mode: its commands, the button on a binder's notes, the day's words (focus/focus.ts). */
 	focus: Focus;
+	/** Export's way to the computer's save dialog and disk (export/desktop.ts): null from it means there is none, and
+	    files go into the vault. A field so a test can stand in for the system's dialog, which nothing can drive. */
+	exportHost = { desktop };
 	/** Tab paragraphs and first-line indents in a binder’s notes (paragraphs/paragraphs.ts). */
 	paragraphs: Paragraphs;
 	/** The binder view's modes by id: the view mounts one into its content (see view/mode.ts). */
@@ -131,6 +136,13 @@ export default class BindersPlugin extends Plugin {
 			const view = this.app.workspace.getActiveViewOfType(BinderView);
 			if (!view?.folder || view.readOnly) return false;
 			if (!checking) void view.setTarget();
+			return true;
+		} });
+		this.addCommand({ id: 'export', name: 'Export binder', icon: 'book-up', checkCallback: (checking) => {
+			const view = this.app.workspace.getActiveViewOfType(BinderView), file = active();
+			const folder = view?.folder ?? (file && this.binders.binderOf(file)?.folder) ?? null;
+			if (!folder) return false;
+			if (!checking) new ExportModal(this, folder).open();
 			return true;
 		} });
 		this.addCommand({ id: 'compile', name: 'Compile binder', icon: 'book-check', checkCallback: (checking) => {
@@ -247,6 +259,7 @@ export default class BindersPlugin extends Plugin {
 		if (file instanceof TFolder && b.binderOf(file) && !b.problem(file)) {
 			menu.addItem((i) => i.setSection('action-primary').setTitle('New scene here').setIcon('file-plus').onClick(() => void this.newScene(file)));
 		}
+		if (file instanceof TFolder && b.binderOf(file)) menu.addItem((i) => i.setSection('action').setTitle('Export...').setIcon('book-up').onClick(() => new ExportModal(this, file).open()));
 		if (file instanceof TFolder && b.binderOf(file)) menu.addItem((i) => i.setSection('action').setTitle('Compile...').setIcon('book-check').onClick(() => new CompileModal(this, file).open()));
 		// a note in a binder: its card, and a new note right after it
 		const folder = file.parent;

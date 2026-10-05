@@ -286,11 +286,15 @@ export interface CompileOptions {
 	title: boolean;
 	/** Leave out `%%comments%%` and HTML comments. */
 	stripComments: boolean;
+	/** Take the tab (or the spaces) off the start of each paragraph typed with one: outside a binder, where the one
+	    note goes, Obsidian shows such a line as code. Whoever reads the notes does this (`untab` in
+	    paragraphs/text.ts), before `compile` has them. */
+	stripTabs: boolean;
 }
 
 /** How a compile starts: the break between notes, headings for folders, no headings for scenes, a title, comments
     left out. */
-export const COMPILE_DEFAULTS: CompileOptions = { separator: '* * *', folderHeadings: true, sceneHeadings: false, title: true, stripComments: true };
+export const COMPILE_DEFAULTS: CompileOptions = { separator: '* * *', folderHeadings: true, sceneHeadings: false, title: true, stripComments: true, stripTabs: true };
 
 /** One thing to compile, in reading order: a folder's name (at its depth), or a scene's name and its text (without
     its properties: whoever read the note knows where they end). */

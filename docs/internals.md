@@ -288,6 +288,21 @@ touches it; `mountEditor()` builds one embed and patches that instance only:
 - A hard reload within two seconds of typing loses that typing in Obsidian itself (it saves a note two seconds
   after the last key), in focus or not: nothing focus mode does changes when a note is saved.
 
+## Export: the save dialog and the disk (checked on Obsidian 1.13.7, Electron 43.6, Linux)
+
+Neither is Obsidian's API: they are Electron's and Node's, which Obsidian has on a computer. They are in one module,
+asked for when an export is saved and not before, and only on a computer (`Platform.isDesktopApp`, and not under
+`app.emulateMobile`).
+
+| Internal | Where | What for | Without it | Test |
+|---|---|---|---|---|
+| `window.require('electron').remote.dialog.showSaveDialog` (the system's save dialog, through the `remote` Obsidian keeps for its own "Export to PDF") | `src/export/desktop.ts` (`desktop`, `pick`) | Export asks where to save, starting in the Exports folder | `desktop()` is null: the file is saved into the Exports folder in the vault (`vault.createBinary`), as on a phone, and the window says "Goes to …, in this vault" | `specs-export.mjs` ("the fallback", and "a phone" for `Platform`); the dialog itself can't be driven, so a stand-in answers for it (`plugin.exportHost`) and everything after it is real |
+| `window.require('fs').promises` (`writeFile`, `rename`, `mkdir`, `rmdir`, `unlink`, `stat`) and `window.require('path')` | `src/export/desktop.ts` | Writing the exported file where the writer chose, outside the vault too: beside its place first, then renamed into it, so no half-written file is ever left; the Exports folder made for the dialog and removed again if nothing went into it; telling whether a file is still the one export wrote | As above: null, and the vault | `specs-export.mjs` ("a manuscript goes through the save dialog", "the dialog cancelled, or a place that can’t be written", "Save here next time without asking") |
+| `electron.shell.showItemInFolder`, `openPath` | `src/export/desktop.ts` (`reveal`, `open`) | "Show in folder" and "Open" after a save | The two buttons do nothing (they are only shown after a save to the disk) | By hand: a headless Obsidian has no file manager to show |
+| `FileSystemAdapter.getBasePath()` (public API) | `src/export/desktop.ts` | Where the vault is on the disk: the Exports folder's place, and paths said from the vault's folder | A vault that isn't on a disk: null, and the vault | `specs-export.mjs` ("the fallback": `base`) |
+| `navigator.share` with files (the system's share sheet; a web API, where the device has it) | `src/export/export.ts` (`share`) | On a phone or tablet, handing the file on after it is saved in the vault | Nothing more happens: the file is in the Exports folder, and a notice says so | `specs-export.mjs` ("a phone": no share sheet there). A real phone: by hand |
+| `app.loadLocalStorage`, `saveLocalStorage` (public API) | `src/export/export.ts` (`memory`) | The places remembered on this device, and what each exported file was when export left it | | `specs-export.mjs` ("Save here next time without asking") |
+
 ## Paragraphs begun with a tab (checked on Obsidian 1.13.7, desktop and `app.emulateMobile(true)`)
 
 | Internal | Where | What for | Without it | Test |
