@@ -1060,7 +1060,7 @@
 .binders-editable,
 .binders-group-title,
 .binders-breadcrumbs,
-.binders-cards,
+.binders-card-list,
 .binders-lanes,
 .binders-outliner-table,
 .binders-toolbar-button,
@@ -1880,6 +1880,12 @@
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--binders-card-width, 210px)), 1fr));
 	gap: var(--size-4-3);
+}
+
+/* The list of cards (what a screen reader is told is a list: only the cards, without the "New note" tile after them)
+   has no box of its own: its cards are cells of the grid above, and so is the tile beside it. */
+.binders-card-list {
+	display: contents;
 }
 
 /* A card or row just made is laid out in full while what moved is measured (see settle() in drag.ts). */

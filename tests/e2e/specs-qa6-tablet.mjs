@@ -1113,6 +1113,9 @@ a11y('corkboard: the “New note” tile is not a child of the card list (a list
 	const roles = await p.ev(`(() => { const n = document.querySelector('${LEAF} .binders-card-new'); const box = n.closest('[role="listbox"]'); return box ? [...box.children].map((c) => c.getAttribute('role')) : null; })()`);
 	log('children of the listbox', j(roles));
 	t.ok(!roles || roles.every((r) => r === 'option' || r === 'group'), 'a listbox holds only options: ' + j(roles));
+	// (and the cards are still a list, the tile a button right after it)
+	const list = await p.ev(`(() => { const box = document.querySelector('${LEAF} .binders-card[data-path]').closest('[role="listbox"]'), n = document.querySelector('${LEAF} .binders-card-new'); return box ? { kids: [...box.children].map((c) => c.getAttribute('role')), tile: n.getAttribute('role'), next: box.nextElementSibling === n } : null; })()`);
+	t.eq(j(list), j({ kids: ['option', 'option', 'option', 'option'], tile: 'button', next: true }), 'the cards are a list of options, and the tile is a button right after it');
 });
 
 a11y('moves and undo are said aloud: after Alt+arrow moves a card (or a row), or “Undo last move” takes it back, a polite live region or a notice says what happened and where (nothing does: the card is silently somewhere else in the list)', async (p, h, t) => {

@@ -265,7 +265,7 @@ class Corkboard implements BinderMode {
 		if (onTile) { this.startNew(onTile.closest<HTMLElement>('.binders-group')); return; }
 		if (!at || !folder || !sibs.includes(at) || this.ctx.readOnly) { this.startNew(); return; }
 		// (after the last card of its group is where that group's tile is: the tile takes one name after another)
-		const group = this.cardEl(at.path)?.closest<HTMLElement>('.binders-group'), cards = group ? [...group.querySelectorAll<HTMLElement>(':scope > .binders-cards > .binders-card[data-path]')] : [];
+		const group = this.cardEl(at.path)?.closest<HTMLElement>('.binders-group'), cards = group ? [...group.querySelectorAll<HTMLElement>(':scope > .binders-cards > .binders-card-list > .binders-card[data-path]')] : [];
 		if (group && cards[cards.length - 1]?.dataset.path === at.path) { this.startNew(group); return; }
 		void this.store.newScene(folder, sibs.indexOf(at) + 1, 'Untitled', this.store.depthOf(at)).then((file) => {
 			this.made.add(file);
@@ -512,27 +512,37 @@ class Corkboard implements BinderMode {
 
 	private drawGroup(g: Group, gi: number, old: Map<string, HTMLElement>): HTMLElement {
 		const key = JSON.stringify([g.folder.path, g.end?.path, g.depth, g.head?.path]);
-		let sec = old.get(key), list: HTMLElement;
+		// The grid (`binders-cards`) holds the list of cards and, after it, the "New note" tile. The list is the listbox:
+		// a listbox may hold only options, so the tile, a button, is beside it and not in it. The list has no box of
+		// its own (`display: contents`), so the cards and the tile are cells of the one grid.
+		let sec = old.get(key), grid: HTMLElement, list: HTMLElement;
 		old.delete(key);
 		if (sec) {
 			sec.querySelector(':scope > .binders-group-heading')?.remove();
-			list = sec.querySelector<HTMLElement>(':scope > .binders-cards');
+			grid = sec.querySelector<HTMLElement>(':scope > .binders-cards');
+			list = grid.querySelector<HTMLElement>(':scope > .binders-card-list');
 		} else {
 			sec = createDiv({ cls: 'binders-group' + (g.depth ? ' is-indented' : '') });
 			if (g.depth) sec.setCssProps({ '--binders-group-depth': String(g.depth) });
-			list = sec.createDiv({ cls: 'binders-cards', attr: { role: 'listbox', 'aria-multiselectable': 'true', 'aria-label': g.folder.name } });
+			grid = sec.createDiv({ cls: 'binders-cards' });
+			list = grid.createDiv({ cls: 'binders-card-list' });
 		}
 		this.sections.set(key, sec);
 		sec.dataset.group = String(gi);
 		if (g.head) this.drawSceneHeading(sec, g.head, g.items);
 		const heading = sec.querySelector<HTMLElement>(':scope > .binders-group-heading');
-		if (heading) { heading.dataset.heading = key; sec.insertBefore(heading, list); }
+		if (heading) { heading.dataset.heading = key; sec.insertBefore(heading, grid); }
 		// the cards, in order, moving as few as possible
 		const want = this.shown(g).map((f) => this.drawCard(f));
-		if (!this.ctx.readOnly) want.push(this.drawNewCard(g));
 		let at = list.firstChild;
 		for (const el of want) { if (el === at) at = at.nextSibling; else list.insertBefore(el, at); }
 		while (at) { const next = at.nextSibling; at.remove(); at = next; }
+		// (a list only while it has cards: a screen reader isn't told of a list of nothing)
+		if (want.length) list.setAttrs({ role: 'listbox', 'aria-multiselectable': 'true', 'aria-label': g.folder.name });
+		else for (const a of ['role', 'aria-multiselectable', 'aria-label']) list.removeAttribute(a);
+		// then the tile, made again each time
+		while (list.nextSibling) list.nextSibling.remove();
+		if (!this.ctx.readOnly) grid.appendChild(this.drawNewCard(g));
 		return sec;
 	}
 
@@ -985,7 +995,7 @@ class Corkboard implements BinderMode {
 		// a folder can't go into itself
 		if (d.items.some((f) => f instanceof TFolder && (g.folder === f || g.folder.path.startsWith(f.path + '/')))) return none();
 		const list = sec.querySelector<HTMLElement>(':scope > .binders-cards');
-		const slots = [...list.querySelectorAll<HTMLElement>(':scope > .binders-card[data-path]')];
+		const slots = [...list.querySelectorAll<HTMLElement>(':scope > .binders-card-list > .binders-card[data-path]')];
 		const rects = slots.map((s) => s.getBoundingClientRect());
 		const style = getComputedStyle(list), rtl = style.direction === 'rtl';
 		const oneColumn = style.gridTemplateColumns.trim().split(/\s+/).length < 2;
