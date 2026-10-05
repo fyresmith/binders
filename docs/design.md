@@ -51,6 +51,24 @@ here; that is what keeps the next round short.
   `getSectionInfo` (the source lines) tells them apart, and `MarkdownRenderer.render` doesn't give a post-processor
   that: what Binders renders itself has to be put right in the text it hands over.
 - Scratch files go in the worktree's `test-dist/`, not the session's shared scratchpad: other agents clear it.
+- Learned designing export (2026-10-05; `.claude/handoff/export-design/DESIGN.md` has the research, so it isn't
+  done again):
+  - A big dialog with choices and a preview is Obsidian's two-pane dialog (File recovery, our Snapshots): the list
+    and `Setting` rows in the sidebar, a bar with one filled button over the pane. What an item was taken for is
+    said in the file explorer's own type tag (`nav-file-tag`).
+  - Pages shown in a preview are paper, white in both themes, as Obsidian's PDF viewer has them. In an `<iframe>`,
+    give the inner page the theme's `color-scheme` and no background on `body` (a body's background becomes the
+    whole frame's), or the frame paints an opaque white box; let the dialog scroll, not the frame.
+  - Electron has no hyphenation dictionaries (`hyphens: auto` does nothing), embeds variable fonts as Type 3, and
+    can't give a chapter's first page its own margins without a page break after the heading. A book's pages are
+    laid out by us and only its lines by Chromium; then the preview is the output.
+  - An editor of many options is Bases' "Configure view": a back arrow and a title, the name as a field, then
+    groups of rows, each a label over a full-width dropdown or a slider with its value at the left. Its classes
+    (`bases-toolbar-menu-container-header`, `bases-toolbar-menu-form`, `input-group-*`, `input-row*`) aren't tied to
+    a menu and work in a dialog's sidebar. Changes apply as they are made: no Save, as in Obsidian's settings.
+  - "Remember this" beside a result is Obsidian's "Don't ask again": a `label.mod-checkbox`, not a toggle.
+  - A style whose typeface can be changed can't be named for its typeface.
+  - Headless Obsidian can't open a second `BrowserWindow` (Electron crashes); a hidden `<webview>` prints to PDF.
 
 **Rejected, don't propose again:** a colored stripe along the top of a card, pill chips, thin accent or progress
 lines, decoration for its own sake, anything on a card that isn't the writer's own (no badges for snapshots and the

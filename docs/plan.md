@@ -537,6 +537,20 @@ them: see AGENTS.md). Nothing is tagged yet.
 - **A phone's manuscript section is its editor only when tapped** (2026-10-05, the maintainer): making an editor
   costs a phone a frame or more, and swiping through a long manuscript made one after another for text that was only
   being read. Tablets and desktops keep editors on the sections near the screen.
+- **Export** (2026-10-05, the maintainer, from a design round; the whole design is [export.md](export.md)):
+  - It is called **Export**, not Compile. Today's Compile becomes one of its kinds, "One note"; `export: false` is
+    written and `compile: false` still read.
+  - **Roles and styles.** A note or folder has a role in the book (part, chapter, scene, front or back matter) from
+    one structure rule that Binders guesses first, overruled per item with "Export as" (`export-as`). A style sets
+    every role; nothing is assigned by hand. The book's own details are plain properties of the binder note.
+  - **Two built-in book styles and a style editor in the Export window.** A writer never sees a style's file: styles
+    are edited in the window, beside pages that follow each change, and their files are kept out of sight.
+  - **No PDF on phones or tablets** in 1.0: everything else is exported there, and the window says a PDF is made on
+    a computer.
+  - **Where files go:** an `Exports` folder by default; on a computer always the save dialog, with a checkbox to
+    remember the place afterwards; the folder can be changed in Binders' settings.
+  - **A new line is a new paragraph** in every export.
+  - A hand-made `.scriv` is opened in the maintainer's Scrivener before anything else is built.
 - **Mobile: "emulator is king"** (2026-10-02, the maintainer). He has no phone or tablet to try it on yet, so
   Obsidian's emulation of both, run in the e2e suite, is the standard for what works on mobile. A real iPhone, iPad and
   Android device are still to try when there is one, and the README says so.
@@ -550,9 +564,11 @@ them: see AGENTS.md). Nothing is tagged yet.
   to take the tabs off the start of paragraphs (`tabLines` in `src/paragraphs/text.ts` says which lines), leaving
   plain Markdown paragraphs.
 - **Export** (EPUB, DOCX, PDF) uses the same rule before any converter sees the text: a paragraph begun with a tab is
-  a paragraph, never a code block and never a literal tab.
-- Whether the book's paragraphs are indented is the export's own style (none after a heading or a scene break), with
-  "Indent paragraphs" as its default; a tab in the source doesn't decide it paragraph by paragraph.
+  a paragraph, never a code block and never a literal tab. The tab is dropped and the paragraph gets a real
+  first-line indent from the export's style ([export.md](export.md), "What Markdown becomes").
+- Whether the book's paragraphs are indented is the export style's own choice ("Paragraphs": first line indented, or
+  space between; none after a heading or a scene break). The built-in styles indent. A tab in the source doesn't
+  decide it paragraph by paragraph, and neither does the editor's "Indent paragraphs".
 - **Scrivener import** keeps tabs as typed.
 
 ## After 1.0 (from Scrivener)

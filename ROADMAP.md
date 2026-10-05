@@ -24,8 +24,9 @@ state (code, tests and documentation).
 
 - [ ] **Export.** A binder (or a folder of it) out as a book: EPUB, DOCX and PDF, with front and back matter, a
       title page, chapters from folders, and scene breaks. "Compile" today makes one Markdown note; export builds on
-      it. To settle first: what is built in, and what goes through Pandoc where it is installed. Mobile needs an
-      answer too (EPUB can be built without outside tools).
+      it. **Designed and decided 2026-10-05: [docs/export.md](docs/export.md)** (roles and styles, a style editor
+      with the real pages beside it, five kinds, built with no outside tools, PDF on a computer only, and the
+      order it is built in, steps 0 to 6).
   - **And out as a Scrivener project** (added 2026-10-01): a `.scriv` folder Scrivener 3 opens, for a writer who
     moves on to Scrivener or sends the book to someone who uses it. Not a book but the binder itself: folders and
     notes in binder order as Scrivener's Draft, each note's text as rich text (headings, bold, italics, lists, links
