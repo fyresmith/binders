@@ -505,7 +505,7 @@ What a mouse and a keyboard do differently there:
   to read only, and Binders says so.
 - Focus mode hides parts of Obsidian's window by their names in its style sheet. If an update renames one, that part
   stays in sight while you write; nothing else changes.
-- Requires Obsidian 1.13.0 or later. Works on desktop, phone and tablet.
+- Requires Obsidian 1.13.4 or later. Works on desktop, phone and tablet.
 - Snapshots are `.snapshot` files. Obsidian Sync only carries them with "Sync all other types" on (see Snapshots).
 - Nested binders aren't supported: a binder note inside a binder is treated as an ordinary note. Longform projects that
   hold a single note (`format: single`) aren't binders.

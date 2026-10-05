@@ -236,7 +236,7 @@ the Arch Linux package puts them: `/usr/lib/electron43/electron` and `/usr/lib/o
 are what you can run. Failure screenshots go to `test-dist/e2e-failures`.
 
 **Another Obsidian: the oldest one the manifest allows.** The same two variables point the tests at any build, so
-`minAppVersion` in `manifest.json` (1.13.0) can be run and not only read. Each installer in Obsidian's releases
+`minAppVersion` in `manifest.json` (1.13.4) can be run and not only read. Each installer in Obsidian's releases
 (github.com/obsidianmd/obsidian-releases) carries its own Electron, and an AppImage unpacks without installing:
 
 ```bash
@@ -249,9 +249,10 @@ OBSIDIAN_ELECTRON=~/.cache/binders-e2e/obsidian-1.13.4/obsidian \
   npm run e2e:all -- --jobs 3 --retry-alone --out /tmp/e2e-1.13.4
 ```
 
-- **1.13.4 stands in for 1.13.0.** Obsidian's public releases have no 1.13.0 to 1.13.3 (they went to early-access
-  users only): 1.13.4 is the oldest 1.13 there is an installer for, so it is the floor that can be run. The manifest
-  says 1.13.0 because that is where the API Binders needs begins (the settings tab's definitions).
+- **Why 1.13.4 and not 1.13.0.** The API Binders needs (the settings tab's definitions) begins at 1.13.0, but
+  Obsidian's public releases have no installer for 1.13.0 to 1.13.3 (the releases go from 1.12.7 to 1.13.4), so
+  1.13.4 is the oldest 1.13 that can be run, and the floor is a build that has been (the maintainer's choice,
+  2026-10-05).
 - Unpack it on a disk, not in `/tmp` where that is kept in memory: a build is about 340 MB.
 - Use the installer, not the `obsidian-x.y.z.asar.gz` beside it: that file is only the app's own code, and an old one
   run in a newer Electron is a pairing nobody has. (Obsidian's shell also loads the newest `obsidian-*.asar` it finds
@@ -265,7 +266,7 @@ OBSIDIAN_ELECTRON=~/.cache/binders-e2e/obsidian-1.13.4/obsidian \
   the driver two seconds later, so no launch leaves a process behind.
 - What has been run on 1.13.4 (2026-10-05, light): the smoke tests, the driver's, the explorer's and the settings
   tests of `specs-qa6-menus`, 33 tests, all passing. Not the whole suite.
-- Why the floor is 1.13.0 and not lower: until that day it was 1.8.7, which had never been run. Run, it passed 109 of
+- Why the floor is 1.13 and not lower: until that day it was 1.8.7, which had never been run. Run, it passed 109 of
   118 tests of the explorer, the manuscript, the card file drag and focus mode; its settings tab (drawn by hand
   before 1.13) lacked two things, focus mode on a phone didn't give the header back, and two tablet tests ended
   Obsidian. The maintainer raised the floor instead of carrying a second, untested path.

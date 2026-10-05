@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.21.0 (2026-10-05)
+
+### Changed
+
+- Binders now needs Obsidian 1.13.4 or later: the oldest 1.13 there is an installer for, and the oldest it has been run on.
+
 ## 0.20.2 (2026-10-05)
 
 ### Fixed

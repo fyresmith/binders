@@ -70,7 +70,7 @@ API.
 Public API that looks like an internal, and isn't: CodeMirror's `EditorView.scrollHandler` and
 `StateEffect.appendConfig` (`src/view/editable-embed.ts`); `leaf.isDeferred` (Obsidian 1.7.2); the workspace's `quit`
 event and its `tasks.addPromise()` (`src/view/manuscript.ts`); `getSettingDefinitions()`, `setControlValue()` and
-`update()` on the setting tab (Obsidian 1.13.0, the oldest Binders runs on: `minAppVersion`); a view's `setEphemeralState()` and `getEphemeralState()`; `MenuItem.setIsLabel()`.
+`update()` on the setting tab (since Obsidian 1.13.0; the oldest Binders runs on is 1.13.4: `minAppVersion`); a view's `setEphemeralState()` and `getEphemeralState()`; `MenuItem.setIsLabel()`.
 
 ## The file explorer (checked on Obsidian 1.13.7, desktop and `app.emulateMobile(true)`)
 
