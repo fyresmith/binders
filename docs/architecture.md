@@ -56,7 +56,7 @@ Each entry says what the module owns and what it must never do.
 |---|---|---|
 | `src/main.ts` | `BindersPlugin`: the lifecycle (`onload` builds the store, the explorer patch, the views, focus mode), every command, the file and files menus, `openBinder`, and the small actions the commands run (make a binder, new scene, move up and down, undo). Every action runs through `tell()`, which shows a failure as a notice instead of failing silently. | Hold logic that a view or the store needs: commands call into them. |
 | `src/settings-data.ts` | What the settings are (`BindersSettings`), their defaults, and `readSettings`, which makes whatever was saved whole again (missing keys get defaults; lists that aren't well formed are put right). Pure. | Import Obsidian. |
-| `src/settings.ts` | The settings tab. Declarative on Obsidian 1.13 and later (`getSettingDefinitions`), with a `display()` fallback for older ones. Renaming a label or status asks whether to rename it in the notes that use it. | Rewrite notes without asking. |
+| `src/settings.ts` | The settings tab, declarative: Obsidian draws it from `getSettingDefinitions`. Renaming a label or status asks whether to rename it in the notes that use it. | Rewrite notes without asking. |
 
 ### The binder store
 

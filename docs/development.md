@@ -233,29 +233,39 @@ the Arch Linux package puts them: `/usr/lib/electron43/electron` and `/usr/lib/o
 are what you can run. Failure screenshots go to `test-dist/e2e-failures`.
 
 **Another Obsidian: the oldest one the manifest allows.** The same two variables point the tests at any build, so
-`minAppVersion` in `manifest.json` can be run and not only read. Each installer in Obsidian's releases
+`minAppVersion` in `manifest.json` (1.13.0) can be run and not only read. Each installer in Obsidian's releases
 (github.com/obsidianmd/obsidian-releases) carries its own Electron, and an AppImage unpacks without installing:
 
 ```bash
-cd /tmp && curl -LO https://github.com/obsidianmd/obsidian-releases/releases/download/v1.8.7/Obsidian-1.8.7.AppImage
-chmod +x Obsidian-1.8.7.AppImage && ./Obsidian-1.8.7.AppImage --appimage-extract   # makes squashfs-root/
-OBSIDIAN_ELECTRON=/tmp/squashfs-root/obsidian OBSIDIAN_ASAR=/tmp/squashfs-root/resources/app.asar \
-  npm run e2e:all -- --jobs 3 --retry-alone --out /tmp/e2e-1.8.7
+mkdir -p ~/.cache/binders-e2e && cd ~/.cache/binders-e2e
+curl -LO https://github.com/obsidianmd/obsidian-releases/releases/download/v1.13.4/Obsidian-1.13.4.AppImage
+chmod +x Obsidian-1.13.4.AppImage && ./Obsidian-1.13.4.AppImage --appimage-extract && mv squashfs-root obsidian-1.13.4
+cd -   # back to the project
+OBSIDIAN_ELECTRON=~/.cache/binders-e2e/obsidian-1.13.4/obsidian \
+  OBSIDIAN_ASAR=~/.cache/binders-e2e/obsidian-1.13.4/resources/app.asar \
+  npm run e2e:all -- --jobs 3 --retry-alone --out /tmp/e2e-1.13.4
 ```
 
+- **1.13.4 stands in for 1.13.0.** Obsidian's public releases have no 1.13.0 to 1.13.3 (they went to early-access
+  users only): 1.13.4 is the oldest 1.13 there is an installer for, so it is the floor that can be run. The manifest
+  says 1.13.0 because that is where the API Binders needs begins (the settings tab's definitions).
+- Unpack it on a disk, not in `/tmp` where that is kept in memory: a build is about 340 MB.
 - Use the installer, not the `obsidian-x.y.z.asar.gz` beside it: that file is only the app's own code, and an old one
   run in a newer Electron is a pairing nobody has. (Obsidian's shell also loads the newest `obsidian-*.asar` it finds
   in its profile over the one it shipped with: the driver's profile is new for every launch, so what the installer
   shipped is what runs.)
-- Every launch says what it is, as the page reports it: `Obsidian 1.8.7, Electron 33.3.2` is the first line of a
+- Every launch says what it is, as the page reports it: `Obsidian 1.13.4, Electron 43.1.1` is the first line of a
   `run.mjs` log, and `e2e:all` puts it in its summary. Check that line before believing a run was of the old version.
 - The old build runs with a profile and a vault of its own like any other, and never sees the Obsidian installed on
   the machine.
-- An old Obsidian doesn't close when asked (1.8.7, headless, ends its windows and stays): the driver ends what is
-  left two seconds later, so no launch leaves a process behind.
-- What has been run on 1.8.7 (2026-10-05, light): the smoke tests and the specs of the explorer, the manuscript, the
-  card file drag and focus mode, 118 tests, 109 passing. Not the whole suite. What failed there is in that day's
-  report; two of the nine use `app.keymap.getWindowStack`, which 1.8.7 doesn't have (the tests do, not the plugin).
+- An Obsidian that doesn't close when asked (1.8.7 did this, headless: it ended its windows and stayed) is ended by
+  the driver two seconds later, so no launch leaves a process behind.
+- What has been run on 1.13.4 (2026-10-05, light): the smoke tests, the driver's, the explorer's and the settings
+  tests of `specs-qa6-menus`, 33 tests, all passing. Not the whole suite.
+- Why the floor is 1.13.0 and not lower: until that day it was 1.8.7, which had never been run. Run, it passed 109 of
+  118 tests of the explorer, the manuscript, the card file drag and focus mode; its settings tab (drawn by hand
+  before 1.13) lacked two things, focus mode on a phone didn't give the header back, and two tablet tests ended
+  Obsidian. The maintainer raised the floor instead of carrying a second, untested path.
 - When `minAppVersion` changes, change it in `manifest.json` only: `version-bump.mjs` writes it into `versions.json`
   for the next version `ship` makes, and the versions already there keep the floor they were made with.
 
