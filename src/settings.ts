@@ -1,4 +1,4 @@
-import { Notice, Platform, PluginSettingTab, Setting, TextComponent, requireApiVersion, type App, type SettingDefinition, type SettingDefinitionItem } from 'obsidian';
+import { Notice, Platform, PluginSettingTab, Setting, TextComponent, type App, type SettingDefinition, type SettingDefinitionItem } from 'obsidian';
 import type BindersPlugin from './main';
 import { DEFAULT_SETTINGS, FOCUS_TEXT, FOCUS_TOGGLES, focusToggles, PROPS, TEXT, TOGGLES, type BindersSettings, type FocusToggle, type Prop, type Toggle } from './settings-data';
 import { parseGoal } from './focus/session';
@@ -6,7 +6,7 @@ import { COMPILE_PROP } from './scenes';
 import { DEFAULT_LABELS, DEFAULT_STATUSES, PALETTE, colorCss, display, freeName, hexColor } from './view/labels';
 import { confirm } from './view/modals';
 
-/* The settings tab. Declarative on Obsidian 1.13 and later (`getSettingDefinitions`), drawn by `display()` before it.
+/* The settings tab, declarative: Obsidian draws it from `getSettingDefinitions`, and can search it.
    What the settings are, and how saved ones are read back, is settings-data.ts. Renaming a label or a status asks
    whether to rename it in the notes that have it: notes are never rewritten unasked. */
 
@@ -27,11 +27,11 @@ export class BindersSettingTab extends PluginSettingTab {
 	/** After a label or status is added, removed or moved: the rows are drawn again. */
 	private async changed(): Promise<void> {
 		await this.save();
-		// 1.13 reads the definitions again and draws them; before it, the tab draws itself
-		if (requireApiVersion('1.13.0')) this.update(); else this.draw();
+		// (Obsidian reads the definitions again and draws them)
+		this.update();
 	}
 
-	/** Obsidian 1.13 and later draw the tab from these, and can search them; display() below is for older versions. */
+	/** Obsidian draws the tab from these, and can search them. */
 	getSettingDefinitions(): SettingDefinitionItem[] {
 		// (the settings are read when a button is pressed, not now: Obsidian keeps a list's buttons from the first time
 		// it draws them, which is before the plugin has loaded its settings)
@@ -63,7 +63,7 @@ export class BindersSettingTab extends PluginSettingTab {
 		];
 	}
 
-	/** Obsidian 1.13 calls this when a toggle defined above is switched. */
+	/** Obsidian calls this when a toggle defined above is switched. */
 	async setControlValue(key: string, value: unknown): Promise<void> {
 		const s = this.s;
 		if ((TOGGLES as string[]).includes(key) && typeof value === 'boolean') s[key as Toggle] = value;
@@ -275,38 +275,6 @@ export class BindersSettingTab extends PluginSettingTab {
 				return null;
 			});
 		});
-	}
-
-	/** Obsidian before 1.13 draws the tab through this. */
-	display(): void { this.draw(); }
-
-	/** The tab drawn by hand, row by row: the same settings as `getSettingDefinitions`, in the same order. */
-	private draw(): void {
-		const { containerEl } = this, s = this.s;
-		containerEl.empty();
-		new Setting(containerEl).setName('File explorer').setHeading();
-		for (const k of TOGGLES) new Setting(containerEl).setName(TEXT[k][0]).setDesc(TEXT[k][1])
-			.addToggle((t) => t.setValue(s[k]).onChange(async (v) => { s[k] = v; await this.save(); }));
-		// lists, with the buttons Obsidian 1.13 gives a list by itself
-		const list = <T>(heading: string, cls: string, items: T[], row: (setting: Setting, i: number) => void, add: () => void, addName: string) => {
-			new Setting(containerEl).setName(heading).setHeading().addExtraButton((b) => b.setIcon('plus').setTooltip(addName).onClick(add));
-			const box = containerEl.createDiv({ cls });
-			items.forEach((_x, i) => {
-				const setting = new Setting(box);
-				row(setting, i);
-				if (i > 0) setting.addExtraButton((b) => b.setIcon('arrow-up').setTooltip('Move up').onClick(() => { move(items, i, i - 1); void this.changed(); }));
-				if (i < items.length - 1) setting.addExtraButton((b) => b.setIcon('arrow-down').setTooltip('Move down').onClick(() => { move(items, i, i + 1); void this.changed(); }));
-				setting.addExtraButton((b) => b.setIcon('trash-2').setTooltip('Delete').onClick(() => { items.splice(i, 1); void this.changed(); }));
-			});
-		};
-		list('Labels', 'binders-settings-labels', s.labels, (st, i) => this.labelRow(st, i), () => this.addLabel(), 'Add label');
-		list('Statuses', 'binders-settings-statuses', s.statuses, (st, i) => this.statusRow(st, i), () => this.addStatus(), 'Add status');
-		new Setting(containerEl).setName('Focus mode').setHeading();
-		for (const k of focusToggles(Platform.isMobile)) new Setting(containerEl).setName(FOCUS_TEXT[k][0]).setDesc(FOCUS_TEXT[k][1])
-			.addToggle((t) => t.setValue(s[k]).onChange(async (v) => { s[k] = v; await this.save(); }));
-		this.goalRow(new Setting(containerEl).setName(FOCUS_TEXT.focusGoal[0]).setDesc(FOCUS_TEXT.focusGoal[1]));
-		new Setting(containerEl).setName('Property names').setHeading();
-		for (const k of PROPS) this.propRow(new Setting(containerEl).setName(TEXT[k][0]).setDesc(TEXT[k][1]), k);
 	}
 }
 
