@@ -3983,6 +3983,35 @@ body {
 	width: var(--binders-paragraph-indent);
 }
 
+/* "Indent paragraphs": a paragraph that follows a paragraph is set in by the same measure. In the editor, the
+   lines first-line.ts marks. */
+.markdown-source-view.mod-cm6 .binders-prose-indent .cm-line.binders-indented {
+	text-indent: var(--binders-paragraph-indent);
+}
+
+/* (what is set in the line as a box of its own, an embed or a formula, would be indented again inside itself) */
+.markdown-source-view.mod-cm6 .binders-prose-indent .cm-line.binders-indented > * {
+	text-indent: 0;
+}
+
+/* In reading view, a paragraph that follows a paragraph: block by block as reading view sets them, and side by side where a note is
+   rendered in one piece. */
+.markdown-rendered div.binders-prose-indent:is(.el-p, .binders-tab-paragraphs):not(.binders-embed-block) + div.el-p.binders-prose-indent > p,
+.markdown-rendered .binders-prose-indent > p + p {
+	text-indent: var(--binders-paragraph-indent);
+}
+
+.markdown-rendered div.binders-prose-indent:is(.el-p, .binders-tab-paragraphs):not(.binders-embed-block) + div.el-p.binders-prose-indent > p > *,
+.markdown-rendered .binders-prose-indent > p + p > * {
+	text-indent: 0;
+}
+
+/* (one that begins with a tab of its own has its indent already) */
+.markdown-rendered div.binders-prose-indent:is(.el-p, .binders-tab-paragraphs):not(.binders-embed-block) + div.el-p.binders-prose-indent > p:has(> .binders-tab:first-child),
+.markdown-rendered .binders-prose-indent > p + p:has(> .binders-tab:first-child) {
+	text-indent: 0;
+}
+
 /* (end of paragraphs) */
 
 /* Forced colors (Windows high contrast). Every ring in the view is a box-shadow, which that mode takes away: what has

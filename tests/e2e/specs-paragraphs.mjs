@@ -185,3 +185,75 @@ test('typing, Enter, Tab, undo and an edit from outside leave exactly what was t
 	t.eq(await read(p, A), outside, 'and the note on disk is byte for byte what was written from outside');
 	t.eq(errors(p).length, 0, 'no errors: ' + errors(p).join(' | '));
 });
+
+// ---- B: indent paragraphs ----
+
+const PLAIN = 'First of the scene.\n\nSecond, which follows one.\n\nThird.\n\n## A heading\n\nAfter a heading.\n\nFollows it.\n\n---\n\nAfter a rule.\n\n- an item\n\nAfter a list.\n\n![[The keeper]]\n\nAfter an embed.\n\n\tBegun with a tab.\n\nAfter a tab paragraph.\n';
+const WANT = { 'First of the scene': false, 'Second, which': true, Third: true, 'After a heading': false, 'Follows it': true, 'After a rule': false, 'After a list': false, 'After an embed': false, 'Begun with a tab': false, 'After a tab paragraph': true };
+
+test('“Indent paragraphs” is off to begin with: no line is indented', async (p, h, t) => {
+	await body(p, A, PLAIN);
+	await open(p, A);
+	await sleep(p, 500);
+	t.eq(await p.ev(`document.querySelectorAll(${j(LEAF + ' .cm-line.binders-indented')}).length`), 0, 'in the editor');
+	await open(p, A, 'preview');
+	await until(p, `!!document.querySelector(${j(LEAF + ' .markdown-reading-view p')})`);
+	const r = await reading(p);
+	t.ok(r.ps.filter((x) => !x.tab).every((x) => x.indent === '0px'), 'in reading view: ' + j(r.ps.map((x) => x.indent)));
+});
+
+test('“Indent paragraphs”: in the editor a paragraph that follows a paragraph is set in; the first one, and one after a heading, a rule, a list or an embed, is not; nothing is written', async (p, h, t) => {
+	await body(p, A, PLAIN);
+	await set(p, { indentParagraphs: true });
+	for (const source of [false, true]) {
+		await open(p, A, 'source', source);
+		await until(p, `!!document.querySelector(${j(LEAF + ' .cm-line.binders-indented')})`);
+		for (const [starts, want] of Object.entries(WANT)) {
+			const l = await line(p, starts);
+			t.ok(!!l, `${starts}: the line is there`);
+			t.eq(/binders-indented/.test(l.cls), want, `${source ? 'source mode' : 'live preview'}: “${starts}” ${want ? 'is' : 'is not'} indented`);
+			if (want) t.eq(l.indent, '24px', `“${starts}”: by the paragraph indent`);
+		}
+	}
+	// typed: a new paragraph after one is indented as soon as it is there
+	await p.ev(`(() => { const e = app.workspace.activeEditor.editor; e.focus(); const l = e.lastLine(); e.setCursor(l, e.getLine(l).length); return 1; })()`);
+	await p.key('Enter'); await p.type('Typed now.');
+	await until(p, `[...document.querySelectorAll(${j(LEAF + ' .cm-line.binders-indented')})].some(l => l.textContent === 'Typed now.')`);
+	await until(p, `app.vault.adapter.read(${j(A)}).then(x => x.endsWith('Typed now.'))`, 6000);
+	t.eq(await read(p, A), FRONT + PLAIN + '\nTyped now.', 'the note on disk has what was typed and nothing else');
+	await set(p, { indentParagraphs: false });
+	await until(p, `!document.querySelector(${j(LEAF + ' .cm-line.binders-indented')})`);
+	t.eq(errors(p).length, 0, 'no errors: ' + errors(p).join(' | '));
+});
+
+test('“Indent paragraphs” in reading view: the same paragraphs are set in, and one begun with a tab isn’t set in twice', async (p, h, t) => {
+	await body(p, A, PLAIN);
+	await set(p, { indentParagraphs: true });
+	await open(p, A, 'preview');
+	await until(p, `!!document.querySelector(${j(LEAF + ' .markdown-reading-view p.binders-tab-paragraph')})`);
+	await sleep(p, 400);
+	const r = await reading(p);
+	for (const [starts, want] of Object.entries(WANT)) {
+		const x = r.ps.find((e) => e.text.startsWith(starts));
+		t.ok(!!x, `${starts}: the paragraph is there`);
+		// (the one begun with a tab has its own indent, the same measure)
+		t.eq(x.indent, want || starts === 'Begun with a tab' ? '24px' : '0px', `“${starts}” ${want ? 'is' : 'is not'} indented`);
+	}
+	t.eq(await read(p, A), FRONT + PLAIN, 'the note on disk is as it was');
+});
+
+test('“Indent paragraphs” in the manuscript: each scene starts flush, and a paragraph that follows one is set in', async (p, h, t) => {
+	await body(p, A, 'First of the scene.\n\nSecond.\n');
+	await set(p, { indentParagraphs: true });
+	await openView(p, L + 'Part One');
+	await p.ev(`(() => { ${VIEW}.setMode('manuscript'); return 1; })()`);
+	await until(p, `!!document.querySelector('.binders-manuscript .cm-line.binders-indented')`, 8000);
+	const all = await lines(p, '.binders-manuscript');
+	t.ok(!/binders-indented/.test(all.find((l) => l.text.startsWith('First of the scene')).cls), 'the scene’s first paragraph is flush');
+	t.ok(/binders-indented/.test(all.find((l) => l.text === 'Second.').cls), 'the second is set in');
+	const firsts = await p.ev(`[...document.querySelectorAll('.binders-manuscript .cm-content')].map(c => [...c.querySelectorAll(':scope > .cm-line')].find(l => l.textContent.trim())?.className ?? '')`);
+	t.ok(firsts.length > 0 && firsts.every((c) => !/binders-indented/.test(c)), 'every scene that is an editor starts flush: ' + j(firsts));
+	const shown = await p.ev(`[...document.querySelectorAll('.binders-manuscript-rendered > p:first-child')].map(e => getComputedStyle(e).textIndent)`);
+	t.ok(shown.every((x) => x === '0px'), 'and every scene that is shown as text: ' + j(shown));
+	t.eq(await read(p, A), FRONT + 'First of the scene.\n\nSecond.\n', 'the note on disk is as it was');
+});

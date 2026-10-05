@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.18.0 (2026-10-05)
+
+### Added
+
+- Indent paragraphs: the first line of a paragraph that follows another can be indented in a binder's notes, with nothing added to the note.
+
 ## 0.17.0 (2026-10-05)
 
 ### Added

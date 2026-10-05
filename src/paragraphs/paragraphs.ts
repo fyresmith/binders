@@ -3,6 +3,7 @@ import { Compartment, Prec, type EditorState, type Extension } from '@codemirror
 import { EditorView, ViewPlugin } from '@codemirror/view';
 import { language, syntaxTree, type Language } from '@codemirror/language';
 import type BindersPlugin from '../main';
+import { firstLine } from './first-line';
 import { forget, proseLanguage } from './language';
 import { TABBED, tabsForRender } from './text';
 
@@ -57,6 +58,7 @@ export function installParagraphs(plugin: BindersPlugin): Paragraphs {
 			return [
 				lang ? Prec.highest(language.of(lang)) : [],
 				EditorView.editorAttributes.of({ class: [PROSE, lang ? TABS : '', indent ? INDENT : ''].filter(Boolean).join(' ') }),
+				indent ? firstLine : [],
 			];
 		}];
 	};

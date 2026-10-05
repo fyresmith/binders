@@ -81,7 +81,7 @@ export const FOCUS_TEXT: Record<FocusToggle | 'focusGoal', readonly [string, str
 
 /** How paragraphs are shown in a binder’s notes (paragraphs/paragraphs.ts). */
 export type ParagraphToggle = 'tabParagraphs' | 'indentParagraphs';
-export const PARAGRAPH_TOGGLES: ParagraphToggle[] = ['tabParagraphs'];
+export const PARAGRAPH_TOGGLES: ParagraphToggle[] = ['tabParagraphs', 'indentParagraphs'];
 export const PARAGRAPH_TEXT: Record<ParagraphToggle, readonly [string, string]> = {
 	tabParagraphs: ['Start a paragraph with a tab', 'In a binder’s notes, a line that starts with a tab is shown as an indented paragraph. Obsidian shows such a line as code. The note keeps the tab you typed.'],
 	indentParagraphs: ['Indent paragraphs', 'In a binder’s notes, the first line of a paragraph that follows another is indented, as in a printed book. Nothing is added to the note.'],
