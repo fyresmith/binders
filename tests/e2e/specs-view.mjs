@@ -580,6 +580,119 @@ test('under 360 px the mode button is its icon alone, named in its tooltip and t
 	}
 }));
 
+// A closed view: what was still on its way when it closed draws nothing.
+test('a view closed while binders were still being found stays closed: no board is made in it afterwards', withTidy(async (p, h, t) => {
+	await p.ev(`(() => { window.__settled = ${B}.settled; ${B}.settled = new Promise(r => { window.__settle = r; }); return 1; })()`);
+	try {
+		// a folder that isn't there yet (at a cold start, one the vault hasn't listed yet): the view says it's loading
+		await p.ev(`(async () => { const leaf = app.workspace.getLeaf(true); await leaf.setViewState({ type: 'binders-view', state: { folder: 'The Lighthouse/Part Three' }, active: true }); window.__closing = leaf; window.__closed = leaf.view; return 1; })()`);
+		await p.sleep(600);
+		t.eq(await p.ev(`__closed.contentEl.querySelector('.binders-empty')?.textContent ?? null`), 'Loading…', 'the view is waiting for binders to be found');
+		// closed; then the folder turns up, and binders are found
+		await p.ev(`(() => { __closing.detach(); return 1; })()`);
+		await p.sleep(200);
+		await p.ev(`app.vault.createFolder('The Lighthouse/Part Three').then(() => 1)`);
+		await p.sleep(400);
+		await p.ev(`(() => { window.__settle(); return 1; })()`);
+		await p.sleep(600);
+		const after = await p.ev(`({ mode: __closed.current != null, drawn: !!__closed.contentEl.querySelector('.binders-toolbar, .binders-mode, .binders-board'), text: __closed.contentEl.textContent, attached: __closed.contentEl.isConnected })`);
+		t.eq(j(after), j({ mode: false, drawn: false, text: 'Loading…', attached: false }), 'nothing was made in the closed view');
+		// (and a view that is open does draw once they are found)
+		await openView(p, 'The Lighthouse/Part Three');
+		t.ok(await p.ev(`!!document.querySelector('.workspace-leaf.mod-active .binders-view .binders-card-new')`), 'an open view on that folder shows its board');
+	} finally {
+		await p.ev(`(() => { window.__settle?.(); ${B}.settled = window.__settled; delete window.__closed; delete window.__closing; return 1; })()`);
+	}
+}));
+
+// A view in a window of its own (a popout). The tests' pointer and keys go to the main window, so here the popout's
+// own events are made in it; its size is set through Electron (headless, a new window is a pixel wide).
+const POP = `window.__pop.view.contentEl`;
+async function popoutSize(p, width, height) {
+	await p.ev(`(async () => { const w = ${POP}.win, r = window.require('@electron/remote'); const mine = w.electronWindow ?? r.BrowserWindow.getAllWindows().find(b => { try { return b.id !== r.getCurrentWindow().id && b.webContents.getURL() === w.location.href && b.getContentSize()[0] === w.innerWidth; } catch { return false; } }); mine.setContentSize(${width}, ${height}); for (let i = 0; i < 40 && (w.innerWidth !== ${width} || w.innerHeight !== ${height}); i++) await new Promise(r => setTimeout(r, 50)); return 1; })()`);
+	await p.sleep(400);
+	const got = await p.ev(`[${POP}.win.innerWidth, ${POP}.win.innerHeight]`);
+	if (got[0] !== width || got[1] !== height) throw new Error(`the popout is ${got}, not ${width} × ${height}`);
+}
+const popoutClose = (p) => p.ev(`(async () => { try { window.__pop?.detach(); } catch { /* gone */ } delete window.__pop; await new Promise(r => setTimeout(r, 300)); return 1; })()`);
+const cardSize = (p) => p.ev(`[...${POP}.querySelector('.binders-board').classList].find(c => c.startsWith('mod-cards-'))`);
+const cardsAre = (p, size) => until(p, `${POP}.querySelector('.binders-board').classList.contains('mod-cards-${size}')`, 1500);
+
+test('in a window of its own, the board by label follows the window’s size: narrowed, its cards are small; so does a board moved there from the main window', withTidy(async (p, h, t) => {
+	const state = { folder: 'The Lighthouse/Part One', mode: 'corkboard', options: { arrange: 'label' } };
+	try {
+		// opened there
+		await p.ev(`(async () => { await ${B}.ready; const leaf = app.workspace.openPopoutLeaf(); await leaf.setViewState({ type: 'binders-view', state: ${j(state)}, active: true }); window.__pop = leaf; return 1; })()`);
+		await until(p, `!!${POP}.querySelector('.binders-lanes .binders-card')`);
+		t.ok(await p.ev(`${POP}.win !== window && ${POP}.doc !== document`), 'the view is in a window of its own');
+		await popoutSize(p, 1000, 700);
+		await cardsAre(p, 'medium');
+		t.eq(await cardSize(p), 'mod-cards-medium', 'a wide window: cards of the usual size');
+		await popoutSize(p, 480, 700);
+		await cardsAre(p, 'small');
+		t.eq(await cardSize(p), 'mod-cards-small', 'narrowed: small cards, as in a narrow pane of the main window');
+		await popoutSize(p, 1000, 700);
+		await cardsAre(p, 'medium');
+		t.eq(await cardSize(p), 'mod-cards-medium', 'and widened again: the usual size');
+		await popoutClose(p);
+		// opened in the main window, then moved to one of its own
+		await p.ev(`(async () => { const leaf = app.workspace.getLeaf(true); await leaf.setViewState({ type: 'binders-view', state: ${j(state)}, active: true }); window.__pop = leaf; window.__was = leaf.view; return 1; })()`);
+		await until(p, `!!${POP}.querySelector('.binders-lanes .binders-card')`);
+		t.ok(await p.ev(`${POP}.win === window`), 'a view in the main window');
+		await p.ev(`(() => { app.workspace.moveLeafToPopout(window.__pop); return 1; })()`);
+		await until(p, `${POP}.win !== window && !!${POP}.querySelector('.binders-lanes .binders-card')`);
+		t.ok(await p.ev(`${POP}.win !== window`), 'moved to a window of its own');
+		await popoutSize(p, 1000, 700);
+		await cardsAre(p, 'medium');
+		await popoutSize(p, 480, 700);
+		await cardsAre(p, 'small');
+		t.eq(await cardSize(p), 'mod-cards-small', `narrowed there: small cards (${await p.ev(`window.__pop.view === window.__was ? 'the same view, moved' : 'a view made again there'`)})`);
+	} finally {
+		await popoutClose(p);
+		await p.ev(`(() => { delete window.__was; return 1; })()`);
+		await p.focusMain();
+	}
+}));
+
+test('in a window of its own, a card dragged to the board’s edge scrolls the board though the main window draws no frames (as when it is minimised)', withTidy(async (p, h, t) => {
+	const before = await texts(p), order = await contents(p);
+	try {
+		await p.ev(`(async () => { await ${B}.ready; const leaf = app.workspace.openPopoutLeaf(); await leaf.setViewState({ type: 'binders-view', state: { folder: 'The Lighthouse', mode: 'corkboard' }, active: true }); window.__pop = leaf; return 1; })()`);
+		await until(p, `!!${POP}.querySelector('.binders-card[data-path]')`);
+		// one column of cards in a short window: more board than fits
+		await popoutSize(p, 480, 320);
+		const box = await p.ev(`(() => { const s = ${POP}.querySelector('.binders-corkboard'); s.scrollTop = 0; return { more: s.scrollHeight - s.clientHeight, top: s.scrollTop }; })()`);
+		t.ok(box.more > 100, `the board is taller than the window: ${j(box)}`);
+		// a card picked up and carried to the foot of the board, and held there, with the main window's frames stopped
+		const scrolled = await p.ev(`(async () => {
+			const el = ${POP}, w = el.win, d = el.doc, s = el.querySelector('.binders-corkboard'), card = el.querySelector('.binders-card[data-path]');
+			const r = card.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + 20, foot = s.getBoundingClientRect().bottom - 4;
+			const ev = (type, cx, cy, buttons) => new w.PointerEvent(type, { bubbles: true, cancelable: true, clientX: cx, clientY: cy, screenX: cx, screenY: cy, button: 0, buttons, pointerId: 1, pointerType: 'mouse', isPrimary: true });
+			const raf = window.requestAnimationFrame;
+			window.requestAnimationFrame = () => 0;
+			try {
+				card.dispatchEvent(ev('pointerdown', x, y, 1));
+				d.dispatchEvent(ev('pointermove', x, y + 12, 1));
+				const dragging = !!d.querySelector('.binders-drag-ghost');
+				for (let i = 0; i < 16; i++) { d.dispatchEvent(ev('pointermove', x, foot, 1)); await new Promise(r => setTimeout(r, 50)); }
+				const top = s.scrollTop;
+				d.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+				d.dispatchEvent(ev('pointerup', x, foot, 0));
+				return { dragging, top, ghost: !!d.querySelector('.binders-drag-ghost') };
+			} finally { window.requestAnimationFrame = raf; }
+		})()`);
+		t.ok(scrolled.dragging, 'the card is being dragged');
+		t.ok(scrolled.top > 20, `held at the foot of the board, the board scrolls: ${scrolled.top} px`);
+		t.eq(scrolled.ghost, false, 'Escape puts the card back');
+		await p.sleep(300);
+		t.eq(j(await contents(p)), j(order), 'and nothing moved');
+		same(t, before, await texts(p));
+	} finally {
+		await popoutClose(p);
+		await p.focusMain();
+	}
+}));
+
 test('the manuscript shows the notes that pass the filter, under the folders that have any; a section being typed in stays till it’s saved', withTidy(async (p, h, t) => {
 	const before = await texts(p);
 	await openView(p);

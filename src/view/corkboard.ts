@@ -7,6 +7,7 @@ import { FileDrag } from './file-drag';
 import { CARD_SIZES, movedText, type CardSize } from './lanes-data';
 import { submenu } from './internals';
 import { display } from './labels';
+import { watchSize } from './windows';
 import type { BinderMode, ModeContext, ModeFactory } from './mode';
 
 /* The corkboard: one index card per note, in binder order, in a grid. A subfolder is one card of the same size as a
@@ -109,7 +110,7 @@ class Corkboard implements BinderMode {
 		this.board = this.container.createDiv({ cls: 'binders-board' });
 		// (said to a screen reader, not shown: where a card moved by hand is now)
 		this.live = this.container.createDiv({ cls: 'binders-live', attr: { 'aria-live': 'polite', role: 'status' } });
-		this.fit.observe(this.container);
+		this.cleanup.push(watchSize(this.ctx.app, this.container, this.fit));
 		// (a moment after the board stops being scrolled: a board of a thousand cards isn't measured on every frame)
 		const scrolled = () => { window.clearTimeout(this.midTimer); this.midTimer = window.setTimeout(() => this.noteMid(), 150); };
 		this.container.addEventListener('scroll', scrolled, { passive: true });
@@ -147,7 +148,7 @@ class Corkboard implements BinderMode {
 	}
 
 	/** The board made shorter while something is typed (a phone's keyboard coming up over it): the field stays in sight. */
-	private fit = new ResizeObserver(() => {
+	private fit = (): void => {
 		const a = this.board.doc.activeElement;
 		if ((this.editing > 0 || this.newIn) && a?.instanceOf(HTMLElement) && this.board.contains(a)) { a.scrollIntoView({ block: 'nearest' }); this.inSight(a); }
 		// Made narrower or wider (a window resized, a tablet turned): a row holds another number of cards, and the same
@@ -168,7 +169,7 @@ class Corkboard implements BinderMode {
 		};
 		this.settling = true;
 		tick();
-	});
+	};
 	private width = 0;
 	/** The card in the middle of the pane, and how far down the pane its top is (0 to 1): noted as the board is
 	    scrolled, for `fit` above. */
@@ -190,7 +191,6 @@ class Corkboard implements BinderMode {
 	}
 
 	unload(): void {
-		this.fit.disconnect();
 		this.endDrag(false, true);
 		this.endPress();
 		for (const f of this.cleanup) f();
@@ -915,12 +915,15 @@ class Corkboard implements BinderMode {
 		this.drag.file = FileDrag.begin(this.ctx.app, { source: card, items, carried: ghost, morph: true, notes: (f) => this.store.scenes(f) });
 		this.press.card.removeClass('is-lifted');
 		this.dragTo(x, y);
+		// (the frames of the window the board is in: the main window's stop when it is minimised, though a board in a
+		// window of its own is being dragged on)
+		const win = this.board.win;
 		const tick = () => {
 			if (!this.drag) return;
 			if (!this.drag.file?.out) this.autoscroll();
-			this.drag.raf = window.requestAnimationFrame(tick);
+			this.drag.raf = win.requestAnimationFrame(tick);
 		};
-		this.drag.raf = window.requestAnimationFrame(tick);
+		this.drag.raf = win.requestAnimationFrame(tick);
 	}
 
 	private dragTo(x: number, y: number): void {
@@ -1071,7 +1074,7 @@ class Corkboard implements BinderMode {
 		const d = this.drag;
 		if (!d) return;
 		d.file?.end();
-		window.cancelAnimationFrame(d.raf);
+		this.board.win.cancelAnimationFrame(d.raf);
 		for (const c of this.board.querySelectorAll('.is-being-dragged-over')) c.removeClass('is-being-dragged-over');
 		d.crumb?.removeClass('is-being-dragged-over');
 		this.markTarget(null);

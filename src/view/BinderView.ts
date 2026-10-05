@@ -175,6 +175,7 @@ export class BinderView extends ItemView {
 		// before that shows it's loading, and draws again then (never awaited here: the layout waits for this)
 		void this.store.settled.then(() => {
 			this.found = true;
+			if (this.closed) return;
 			if (!this.folder) this.rebuild(); else this.schedule();
 		});
 	}
@@ -210,7 +211,13 @@ export class BinderView extends ItemView {
 		if (p && p.key === this.placeKey() && this.current?.restore) this.current.restore(p.at);
 	}
 
+	/** The view has been closed (its tab, or the plugin turned off). What was still on its way then (binders being
+	    found at startup, word counts being read, a redraw a moment off) draws nothing: a mode made in a closed view
+	    would never be taken down, and would go on listening to the vault. */
+	private closed = false;
+
 	async onOpen(): Promise<void> {
+		this.closed = false;
 		this.contentEl.addClass('binders-view');
 		// the manuscript's page follows the editor's "Readable line length", as a note does
 		const readable = () => this.contentEl.toggleClass('is-readable-line-width', readableLineLength(this.app));
@@ -288,9 +295,11 @@ export class BinderView extends ItemView {
 
 	async onClose(): Promise<void> {
 		await commitAll(this.contentEl);
+		this.closed = true;
 		this.places.clear();
 		this.leftOn.clear();
 		window.clearTimeout(this.timer);
+		this.timer = 0;
 		this.current?.unload();
 		this.current = null;
 	}
@@ -432,7 +441,7 @@ export class BinderView extends ItemView {
 
 	/** Changes throttled to one redraw per frame or so: typing in a note changes its word count often. */
 	private schedule(): void {
-		if (this.timer) return;
+		if (this.timer || this.closed) return;
 		this.timer = window.setTimeout(() => { this.timer = 0; this.refresh(); }, 80);
 	}
 
@@ -526,6 +535,7 @@ export class BinderView extends ItemView {
 	}
 
 	private refresh(): void {
+		if (this.closed) return;
 		this.resolve();
 		// (made again, where it was: the same folder may have become another kind of binder, or read only)
 		if (this.key() !== this.identity) { this.keepPlace(); this.rebuild(); return; }

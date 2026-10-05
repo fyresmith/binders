@@ -8,6 +8,7 @@ import { submenu } from './internals';
 import { labelDot, labelName, rank } from './labels';
 import type { BinderMode, ModeContext, ModeFactory, SceneProps } from './mode';
 import { OutlinerColumns, showUnder } from './outliner-columns';
+import { watchSize } from './windows';
 import { TITLE, builtIn, columnName, columnWidth, compareValues, parseTarget, parseTyped, progress, propOf, readColumns, readSort, text, whyNotTarget, type ColumnSpec, type Sort } from './outliner-data';
 import { wordsLabel } from './words';
 
@@ -107,7 +108,7 @@ class Outliner implements BinderMode {
 		// (focusable, so a click on the space below the rows leaves the keyboard in the outliner)
 		this.root = this.container.createDiv({ cls: 'binders-outliner', attr: { tabindex: '-1' } });
 		this.live = this.container.createDiv({ cls: 'binders-live', attr: { 'aria-live': 'polite', role: 'status' } });
-		this.fit.observe(this.root);
+		this.unwatch = watchSize(this.ctx.app, this.root, this.fit);
 		this.moved = this.ctx.app.vault.on('rename', (f, old) => this.onMoved(f.path, old));
 		this.table = this.root.createDiv({ cls: 'binders-outliner-table', attr: { role: 'treegrid', 'aria-label': 'Outliner', 'aria-multiselectable': 'true' } });
 		this.head = this.table.createDiv({ cls: 'binders-outliner-head', attr: { role: 'row' } });
@@ -197,7 +198,7 @@ class Outliner implements BinderMode {
 	}
 
 	unload(): void {
-		this.fit.disconnect();
+		this.unwatch?.();
 		if (this.moved) this.ctx.app.vault.offref(this.moved);
 		this.said?.hide();
 		this.press.destroy();
@@ -389,10 +390,11 @@ class Outliner implements BinderMode {
 	}
 
 	/** The pane changing size while something is typed (a phone's keyboard coming up over it): the field stays in sight. */
-	private fit = new ResizeObserver(() => {
+	private fit = (): void => {
 		const a = this.root.doc.activeElement;
 		if (this.editing > 0 && a?.instanceOf(HTMLElement) && this.body.contains(a)) a.scrollIntoView({ block: 'nearest' });
-	});
+	};
+	private unwatch: (() => void) | null = null;
 
 	/** On a phone a label is its color alone, in a column a finger wide (unless the column has been given a width):
 	    the room goes to the title, the status and the word count, which are words. */
@@ -1158,6 +1160,8 @@ class Outliner implements BinderMode {
 		// (outside the view the rows are files, and the drag Obsidian's, with its own ghost, which ours is the look of: file-drag.ts)
 		const file = FileDrag.begin(this.ctx.app, { source: row, items, carried: ghost, notes: (f) => this.ctx.store.scenes(f) });
 		this.drag = { items, ghost, action, line, place: null, x, y, raf: 0, off: () => this.root.removeEventListener('scroll', onScroll), file };
+		// (the frames of the window the outliner is in: see the corkboard's)
+		const win = this.root.win;
 		const tick = () => {
 			const d = this.drag;
 			if (!d) return;
@@ -1165,9 +1169,9 @@ class Outliner implements BinderMode {
 			const v = d.file?.out || d.crumb ? 0 : d.y < top + EDGE ? -(top + EDGE - d.y) : d.y > bottom - EDGE ? d.y - (bottom - EDGE) : 0;
 			// (the line is put right in the same frame: the scroll's own event comes a frame later)
 			if (v) { this.edgeSince ||= performance.now(); const was = this.root.scrollTop; this.root.scrollTop += Math.max(-20, Math.min(20, v / 2)) * held(this.edgeSince); if (this.root.scrollTop !== was) this.dragTo(d.x, d.y); } else this.edgeSince = 0;
-			d.raf = window.requestAnimationFrame(tick);
+			d.raf = win.requestAnimationFrame(tick);
 		};
-		this.drag.raf = window.requestAnimationFrame(tick);
+		this.drag.raf = win.requestAnimationFrame(tick);
 	}
 
 	private dragTo(x: number, y: number): void {
@@ -1286,7 +1290,7 @@ class Outliner implements BinderMode {
 		// (let go outside the view: whatever is there takes the rows as files, or nothing does)
 		if (d.file?.out) { d.place = null; if (drop && !quiet) d.file.drop(x, y); }
 		d.file?.end();
-		window.cancelAnimationFrame(d.raf);
+		this.root.win.cancelAnimationFrame(d.raf);
 		d.off();
 		d.ghost.remove();
 		d.line.remove();

@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.153 (2026-10-05)
+
+### Fixed
+
+- In a window of its own, a board follows the window's size and scrolls when a card is dragged to its edge; a binder view closed while Obsidian was still starting no longer builds itself in the background.
+
 ## 0.12.152 (2026-10-05)
 
 ### Fixed

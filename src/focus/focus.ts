@@ -10,6 +10,7 @@ import { clearHeaderSnapshots, headerSnapshots } from '../view/snapshots';
 import { readableLineLength, submenu, vimMode } from '../view/internals';
 import { ask } from '../view/modals';
 import { readTarget } from '../view/outliner-data';
+import { watchSize } from '../view/windows';
 import { WordCounter, countWords } from '../view/words';
 import { caretRect, editorView, noteColumn, tailRoom } from './dom';
 import { Session, atEnd, bodyStart, dayOf, excerpt, parseGoal } from './session';
@@ -328,9 +329,8 @@ export class Focus {
 
 		// ---- while it's on ----
 		// (and again once the editor has measured itself: the room under its text follows its height)
-		const ro = new ResizeObserver(() => { if (on.entering) return; this.measure(on); window.setTimeout(() => { if (this.on === on) this.measure(on); }, 200); });
-		ro.observe(leafEl);
-		comp.register(() => ro.disconnect());
+		// (watched from the window the tab is in: a note or a manuscript in a window of its own is measured there)
+		comp.register(watchSize(app, leafEl, () => { if (on.entering) return; this.measure(on); window.setTimeout(() => { if (this.on === on) this.measure(on); }, 200); }));
 		comp.registerEvent(app.metadataCache.on('changed', () => this.draw()));
 		// ("Readable line length", the text's size, the theme: whether there's room beside the text may have changed)
 		const again = () => window.setTimeout(() => { if (this.on === on && !on.entering) this.measure(on); }, 150);

@@ -7,6 +7,7 @@ import { openPluginSettings, submenu } from './internals';
 import { display, labelDot, labelName, paintLabel, presetOf } from './labels';
 import { CARD_SIZES, announceText, beside, changeText, flatRuns, insertAt, laneAt, laneList, laneOf, lanePitch, readLines, readSize, resolveDrop, type CardSize, type Lines, type Run, type Stop } from './lanes-data';
 import { newLabel } from './modals';
+import { watchSize } from './windows';
 import type { BinderView } from './BinderView';
 import type { BinderMode, ModeContext, ModeFactory } from './mode';
 import { wordsLabel } from './words';
@@ -165,7 +166,7 @@ class ByLabel implements BinderMode {
 				this.cardMenu(card).showAtPosition({ x, y }, this.board.doc);
 			},
 		});
-		this.fit.observe(box);
+		this.cleanup.push(watchSize(this.ctx.app, box, this.fit));
 		this.draw();
 	}
 
@@ -175,7 +176,6 @@ class ByLabel implements BinderMode {
 	}
 
 	unload(): void {
-		this.fit.disconnect();
 		this.endDrag(false, true);
 		this.press?.destroy();
 		for (const f of this.cleanup) f();
@@ -185,10 +185,10 @@ class ByLabel implements BinderMode {
 	}
 
 	/** The pane changed size: the lines stand as far apart as it has room for (and a narrow one has small cards). */
-	private fit = new ResizeObserver(() => {
+	private fit = (): void => {
 		if (!this.drawnOnce || this.busy()) return;
 		if (this.signature() !== this.sig) this.draw(); else this.space();
-	});
+	};
 
 	/** Which line's head is the heads' one Tab stop (the arrow keys go between them). */
 	private headStop = 0;
@@ -688,12 +688,14 @@ class ByLabel implements BinderMode {
 		box.addEventListener('scroll', onScroll, { passive: true });
 		this.drag = { items, ghost, line, drop: null, held: card.dataset.path ?? '', own: card.dataset.label ?? '', shown: null, x, y, ox: x - r.left, oy: y - r.top, raf: 0, edge: 0, off: () => box.removeEventListener('scroll', onScroll) };
 		this.drag.file = FileDrag.begin(this.ctx.app, { source: card, items, carried: ghost, morph: true, notes: (f) => this.store.scenes(f) });
+		// (the frames of the window the board is in: see the corkboard's)
+		const win = this.board.win;
 		const tick = () => {
 			if (!this.drag) return;
 			if (!this.drag.file?.out) this.autoscroll();
-			this.drag.raf = window.requestAnimationFrame(tick);
+			this.drag.raf = win.requestAnimationFrame(tick);
 		};
-		this.drag.raf = window.requestAnimationFrame(tick);
+		this.drag.raf = win.requestAnimationFrame(tick);
 	}
 
 	private dragTo(x: number, y: number): void {
@@ -806,7 +808,7 @@ class ByLabel implements BinderMode {
 		const d = this.drag;
 		if (!d) return;
 		d.file?.end();
-		window.cancelAnimationFrame(d.raf);
+		this.board.win.cancelAnimationFrame(d.raf);
 		d.off();
 		d.line.remove();
 		d.out?.el.removeClass('is-being-dragged-over');
