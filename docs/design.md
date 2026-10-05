@@ -41,6 +41,17 @@ here; that is what keeps the next round short.
 - A dialog with nothing to list is one of Obsidian's small dialogs (a title, a sentence, its button row), not the big
   layout with an empty list in it.
 
+- A line that starts with a tab is code to Obsidian because its editor's Markdown mode says so, not its stylesheet:
+  the whole line is one token, so no CSS brings back emphasis, links or spell-check. The mode can be wrapped for
+  chosen editors (`src/paragraphs/language.ts`), and then Obsidian's own live preview does the rest.
+- Obsidian hangs the wrapped lines of any line that starts with white space under its indent, by an inline style on
+  the line (which no rule beats without `!important`). It leaves alone a line whose white space is tokenised
+  `hmd-indented-code`: keep that name on the white space and the wrapped lines stay at the margin.
+- In reading view a code block made from tabs and a fenced one with no language are the same elements. Only
+  `getSectionInfo` (the source lines) tells them apart, and `MarkdownRenderer.render` doesn't give a post-processor
+  that: what Binders renders itself has to be put right in the text it hands over.
+- Scratch files go in the worktree's `test-dist/`, not the session's shared scratchpad: other agents clear it.
+
 **Rejected, don't propose again:** a colored stripe along the top of a card, pill chips, thin accent or progress
 lines, decoration for its own sake, anything on a card that isn't the writer's own (no badges for snapshots and the
 like). The maintainer's word for these was "AI generated".
@@ -75,6 +86,15 @@ line would have pushed the names down under the pointer).
   to match, when the note is plainly the copied folder note; undo right after a split takes the whole split back.
 - Still his to decide: the mode button as "Co…" or as its icon alone at 320 px; whether a manuscript section on a
   phone becomes its editor only when tapped; whether a split lets the second half go when the text hasn't changed.
+
+**Paragraphs (2026-10-05).** The maintainer: "the tab does not display a real tab, but makes a quote thingy. For a
+writing app that is a big deal." Two directions were built and he took both: A, a line begun with a tab shown as a
+paragraph with a first-line indent (on by default), and B, a first-line indent for every paragraph that follows
+another with nothing typed (off by default). One measure for both, 1.5em, no setting; binder notes only; four spaces
+count as a tab; B keeps the blank line between paragraphs. Given up: Tab typing something that isn't a tab (an em
+space), which would put odd characters in the writer's file. Found on the way: Obsidian's index has its own parser
+and takes a tab paragraph for code, so a link there, which A shows as a live link, was not kept up on a rename. He
+chose to have Binders keep those links up itself, the one exception to "never rewrites note bodies".
 
 ## How a design round runs: narrow, then build
 

@@ -406,6 +406,23 @@ of its own, so the editor being typed in is never remounted. `src/focus/focus.ts
 - **Phone and tablet:** the bar of buttons and the header go; the way out is under the clock; typing hides it and a
   touch brings it back; the line being written is held in what the keyboard leaves in sight.
 
+### Paragraphs
+
+The maintainer, 2026-10-05: "A big block for Obsidian is that the tab does not display a real tab, but makes a quote
+thingy. For a writing app that is a big deal." A line begun with a tab is Markdown's indented code, and Obsidian has
+no setting for it.
+
+- **A tab starts a paragraph** (on by default, binder notes only; four spaces count as a tab). Shown as a paragraph
+  with a first-line indent wherever a binder's note is shown. Display only: the file keeps the tab.
+- **Indent paragraphs** (off by default): a first-line indent for a paragraph that follows another, nothing typed,
+  nothing in the file. The blank line between paragraphs stays.
+- One measure for both, 1.5em, with no setting (`--binders-paragraph-indent`).
+- **Links in tab paragraphs follow a rename.** Obsidian's index reads those lines as code, so it would leave their
+  links at the old name while Binders shows them as live links. Binders rewrites them itself, narrowly: the
+  maintainer's exception to "never rewrites note bodies" (golden rule 3). Backlinks, the graph and tags on those
+  lines stay untracked, and the README says so.
+- Not built: Compile and the exports knowing about either. What they should do is under "Compile, export and paragraphs" below.
+
 ## Longform integration
 
 Supported (0.7): Longform's multi-scene projects. Single-note projects (`format: single`) aren't binders.
@@ -515,6 +532,17 @@ them: see AGENTS.md). Nothing is tagged yet.
 - **How fixes ship** (2026-10-02): a fix runs its area's specs in both themes before it ships, the whole suite runs
   after each batch, and a failure on `main` is found by bisecting before anyone guesses. See
   [development.md](development.md).
+
+## Compile, export and paragraphs (to build with export)
+
+- **Compile** writes a note outside the binder, where its tab lines would be code again: an option, on by default,
+  to take the tabs off the start of paragraphs (`tabLines` in `src/paragraphs/text.ts` says which lines), leaving
+  plain Markdown paragraphs.
+- **Export** (EPUB, DOCX, PDF) uses the same rule before any converter sees the text: a paragraph begun with a tab is
+  a paragraph, never a code block and never a literal tab.
+- Whether the book's paragraphs are indented is the export's own style (none after a heading or a scene break), with
+  "Indent paragraphs" as its default; a tab in the source doesn't decide it paragraph by paragraph.
+- **Scrivener import** keeps tabs as typed.
 
 ## After 1.0 (from Scrivener)
 

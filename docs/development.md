@@ -109,6 +109,7 @@ npm test -- lanes        # only the files whose name has "lanes" in it (several 
 | `tests/demo-vault.test.ts` | The demo vault's generator (`scripts/demo-vault/build.mjs`), read back with the plugin's own readers: every binder, the labels, the snapshots, what a re-run may write |
 | `tests/scene-text.test.ts` | Splitting, merging, a synopsis from text, names, compiling (`src/scene-text.ts`) |
 | `tests/focus-session.test.ts` | Focus mode's pure parts (`src/focus/session.ts`): the day's words, the last line, the scenes before and after, a goal as typed; and its settings' defaults |
+| `tests/paragraphs.test.ts` | Paragraphs (`src/paragraphs/text.ts`, `mode.ts`): which lines are paragraphs begun with a tab, the text made ready for a renderer, whether a link meant a renamed file, links repointed byte for byte, Obsidian's Markdown mode wrapped (with a stand-in) and refused when it isn't the one known; the two settings |
 | `tests/snapshot-text.test.ts` | Snapshots (`src/snapshot-text.ts`): a snapshot's name and file read back byte for byte, comparing two texts as prose |
 
 ### End-to-end tests
@@ -147,6 +148,7 @@ Without `--specs`, every `tests/e2e/specs*.mjs` runs:
 | `specs-scenes.mjs` | Split, merge, synopsis from text, duplicate, group and ungroup, compile, undo and redo of a move |
 | `specs-focus.mjs` | Focus mode: the defaults and each option, typewriter scrolling, Escape, Obsidian as it was after leaving, a reload and the plugin turned off, nothing typed lost, the day's words, settings, motion, screen readers, fallbacks, a phone and a tablet |
 | `specs-snapshots.mjs` | Snapshots: taking (open, closed, the manuscript, several, a folder under one name), Rewrite, bring back (with an edit made meanwhile), naming, deleting, following renames and moves, Longform, never in the explorer, search or the binder, the dialog (both looks, a phone), sync-style writes |
+| `specs-paragraphs.mjs` | Paragraphs: a line begun with a tab as a paragraph in live preview, source mode, the manuscript, reading view, an embed, the snapshots dialog and focus mode; the fallback; a note outside a binder; the switch; typing, undo and outside edits on disk; "Indent paragraphs"; links in tab paragraphs following a rename (every kind of link, the settings, ambiguity, folders, unsaved typing, line endings) |
 | `specs-longform.mjs` | Longform projects and "Convert to binder" |
 | `specs-a11y.mjs` | Keyboard and screen readers across the view |
 | `specs-themes.mjs` | Theme variables and appearance settings (run with `--theme both`) |

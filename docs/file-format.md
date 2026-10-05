@@ -184,6 +184,25 @@ the commands you run on it:
 - "Rewrite" with "Start from a blank page" and "Bring back" in the Snapshots dialog replace a note's text, after
   keeping it as a snapshot (below). The note's properties are left byte for byte.
 
+One change to a note's text is made without a command, and it is this and nothing wider. When a note or file is
+renamed or moved, "Start a paragraph with a tab" is on and Obsidian's "Automatically update internal links" is on,
+Binders rewrites the links to it that stand in paragraphs begun with a tab, in notes that are in a binder. Obsidian
+updates every other link itself; these it leaves, because its index reads a line begun with a tab as code and has no
+links for it (`src/paragraphs/rename.ts`).
+
+- Only the note a link names changes: the shown text, a heading or block part, the kind of link (`[[…]]`, `![[…]]`,
+  `[…](…)`), the tab, the line endings and a byte-order mark are as they were, and so is every other byte.
+- Only on lines that are paragraphs begun with a tab by the text's shape and code by Obsidian's index: never in a
+  fenced block, between backticks, in the properties, or on a tabbed line that carries on a paragraph (Obsidian
+  updates those).
+- Only a link that can't have meant another file: one that names the path, or an end of it that no other file's
+  path ends with. Otherwise the link is left.
+- It is written with `vault.process` after Obsidian has finished its own update of the note and after anything
+  typed and unsaved has been saved, so nothing written meanwhile is lost.
+
+Showing tab paragraphs and first-line indents writes nothing: a note keeps the tabs that were typed, and an indent
+that wasn't typed is not in the file.
+
 ### What counts as a note's properties
 
 A block that opens with `---` on the note's first line and closes at the next line starting with `---`, if what is

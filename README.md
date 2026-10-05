@@ -151,6 +151,39 @@ edit them.
 Long binders stay quick: only the sections near the screen are live editors, and the rest show as rendered text until
 you scroll to them.
 
+## Paragraphs
+
+Obsidian shows a line that starts with a tab as a block of code: grey, in the code font, with `*stress*` and
+`[[links]]` left as you typed them. That is Markdown's rule, and Obsidian has no setting for it. For a writer who
+starts a paragraph with Tab it is the wrong answer every time.
+
+- **A tab starts a paragraph.** In a binder's notes, a line that starts with a tab (or four spaces) is shown as what
+  you meant: a paragraph of your text with its first line indented. Italics, bold and links work in it, and
+  spell-check is on. This is so in a note's own tab (live preview, source mode and reading view), in the manuscript,
+  in an embed and a hover preview, in the snapshots dialog and in focus mode. On to begin with; **Start a paragraph
+  with a tab** in settings turns it off. The note keeps the tab you typed: nothing is added or taken away.
+- **Indent paragraphs** (off to begin with) sets in the first line of every paragraph that follows another, as a
+  printed book does, without you typing anything, and with nothing added to the note. The first paragraph of a note,
+  and one after a heading, a rule, a list, a quote or an embedded picture, starts at the margin. On a phone, which
+  has no Tab key, this is the way to an indented page.
+- Both are the same width (`--binders-paragraph-indent`, 1.5em, which a theme or a CSS snippet can change), so a
+  tab you typed and an indent you didn't look alike, and a paragraph is never indented twice.
+
+What to know about a paragraph that starts with a tab:
+
+- **It is still code to everything but Binders.** The same note outside a binder, another Markdown app, Obsidian
+  Publish or a converter will show it as a code block. To Markdown that is what the file says.
+- **Links in it follow a rename, but Obsidian doesn't track them.** Obsidian's index takes the line for code, so a
+  link there isn't among a note's backlinks or in the graph, and a `#tag` there isn't in the tag list. When a note
+  or a file is renamed or moved, Binders updates the links to it in such paragraphs (when Obsidian's **Automatically
+  update internal links** is on, and only in a binder's notes), as Obsidian does for every other link. A link that
+  could have meant another file of the same name is left as it is.
+- **A real indented code block** in a binder's note is shown as text. Use a fenced block (three backticks) for code:
+  those are untouched.
+- Under a list item or inside a quote, a tabbed line belongs to the list or the quote, as Markdown has it.
+- With Obsidian's **Strict line breaks** on, a tabbed line straight under another line of the same paragraph runs on
+  with it in reading view, as any line does there.
+
 ## Labels, statuses and targets
 
 - **Labels** are a name and a color (Red, Blue… to start with). Change, reorder, add and remove them in settings; a
@@ -355,6 +388,10 @@ doesn't mention yet show after the others, by name. The full format is in [docs/
   which is Obsidian's own editor), or when you ask: **Split**, **Merge**, **Bring back** a snapshot, **Rewrite**, and
   the links repointed after a merge or split when Obsidian is set to update links. Each is ordered so the text exists
   in two places before it leaves the first.
+- **Links in paragraphs that start with a tab**, when the note or file they lead to is renamed or moved, Obsidian is
+  set to update links and **Start a paragraph with a tab** is on: the name in the link changes, as Obsidian changes
+  it in every other link, and nothing else in the note does. Obsidian doesn't do this itself, because it reads such
+  a line as code. This is the one change to a note's text you didn't ask for one by one.
 - **New files:** notes you make or duplicate, folder notes, compiled notes (beside the binder, never in it), and
   snapshots (in the binder's `Snapshots` folder).
 - **Files moved or renamed:** only when you move or rename them (dragging in a view or in the file explorer, renaming
@@ -404,6 +441,8 @@ Settings, Community plugins, Binders.
 | Open binders from the file explorer | Clicking a binder, or a folder inside one, opens its binder view. |
 | Hide binder and folder notes | Don't list a binder's note, or a folder's note, in the file explorer. Only applies while binder order is on. |
 | Show label colors in the file explorer | A dot in its label's color beside each labeled note and folder in a binder. |
+| Start a paragraph with a tab | In a binder's notes, a line that starts with a tab is shown as an indented paragraph, not as code, and links in it follow a rename. The note keeps the tab. On to begin with. |
+| Indent paragraphs | In a binder's notes, the first line of a paragraph that follows another is indented. Nothing is added to the note. |
 | Labels | The labels a note can have: a name and a color each. Add, rename, recolor, reorder and delete them; a reset puts back the defaults. |
 | Statuses | The statuses a note can have, in the order a draft goes through them. |
 | Typewriter scrolling | (Focus mode.) While you write at the end of a scene, the line you're on stays at one height. On to begin with. |

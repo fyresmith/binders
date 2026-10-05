@@ -272,6 +272,24 @@ touches it; `mountEditor()` builds one embed and patches that instance only:
 - A hard reload within two seconds of typing loses that typing in Obsidian itself (it saves a note two seconds
   after the last key), in focus or not: nothing focus mode does changes when a note is saved.
 
+## Paragraphs begun with a tab (checked on Obsidian 1.13.7, desktop and `app.emulateMobile(true)`)
+
+| Internal | Where | What for | Without it | Test |
+|---|---|---|---|---|
+| The editor's Markdown language is a CodeMirror `StreamLanguage` made from Obsidian's HyperMD mode (`lib/codemirror/markdown.js` in `obsidian.asar`), and that mode's state has `indentation` (a number), `indentationDiff` (`null` from a line's start until its kind is decided), `list` (`false` for none) and `quote` | `src/paragraphs/mode.ts` (`wrapMode`), `src/paragraphs/language.ts` (`proseLanguage`) | "Start a paragraph with a tab": in editors on a binder's notes the language is made again from the mode wrapped, so that after a line's leading white space `indentationDiff` is set to 0 and the line is read as a paragraph, not as indented code (`indentedCode: true` is written into Obsidian's mode, with no setting) | `wrapMode` returns null (the language isn't a stream language, or the mode's starting state hasn't those fields with those values): the editor is left as it is and tab lines are code, as in Obsidian without Binders. Reading view and what Binders renders don't depend on it | `specs-paragraphs.mjs` (the fallback: the mode's state changed under it); `tests/paragraphs.test.ts` (the wrapping, with a stand-in mode) |
+| The token name `hmd-indented-code`: Obsidian's own plugin that hangs a line's wrapped lines under its leading white space (an inline `text-indent` and `padding-inline-start` on the line) leaves alone a line whose white space has that token | `src/paragraphs/mode.ts` (`CODE_INDENT`) | A tab paragraph's wrapped lines come back to the margin, as a first-line indent | The paragraph's wrapped lines stand under the tab (a block set in, not a first-line indent). Looks only | `specs-paragraphs.mjs` (no inline `text-indent` on the line) |
+| Class names in the editor: `cm-indent` (the leading white space, drawn as wide as a list's indent with a guide line in `::before`), and the names of syntax nodes (`HyperMD-…` line classes, `hmd-frontmatter`, `hmd-codeblock`, `list-N`, `quote`, `hr`) | `styles.css` (the paragraphs block), `src/paragraphs/first-line.ts` (`NOT_PROSE`) | The tab drawn as the paragraph indent with no guide line; "Indent paragraphs" knowing a paragraph from a heading, a list, a quote, code or a rule | The tab is as wide as Obsidian draws it, with its guide line; a line of another kind could be indented, or a paragraph not. Looks only | `specs-paragraphs.mjs` (the tab's width, the guide; which lines are indented) |
+| Reading view's blocks: `div.el-p`, `div.el-pre` around each block, and `ctx.getSectionInfo(el)` (public) giving the source lines of a block | `src/paragraphs/paragraphs.ts` (the post-processor), `styles.css` | A code block made from tab lines told from a fenced one (they are the same elements) and swapped for paragraphs; a paragraph that follows a paragraph | No section info (a renderer that doesn't give it): the block is left as code. What Binders renders itself is given the text made ready instead (`forRender`) | `specs-paragraphs.mjs` (reading view, an embed, the three places Binders renders) |
+| `vault.getConfig('alwaysUpdateLinks')` (already above, `src/view/internals.ts`) | `src/paragraphs/rename.ts` | Links in tab paragraphs follow a rename only when Obsidian updates links itself | Not rewritten | `specs-paragraphs.mjs` (left alone with Obsidian's setting off) |
+
+- Obsidian's index (`metadataCache`) has its own Markdown parser, which no plugin reaches: a paragraph begun with a
+  tab is a `code` section there, with no links and no tags, whatever the editor shows. That is why its links are
+  followed by hand on a rename (`src/paragraphs/rename.ts`), and why backlinks, the graph and the tag list don't
+  have them.
+- The language is given per editor, through a `Compartment` in the one extension Obsidian is handed for every
+  editor (`registerEditorExtension`), filled by a view plugin when the editor's note (`editorInfoField`, public) is in
+  a binder: an editor goes from note to note, and embeds and the manuscript's sections are editors too.
+
 ## The binder view (checked on Obsidian 1.13.7)
 
 - Obsidian pads every view's content (`.view-content`) unless a rule for that view type says otherwise, as it has for

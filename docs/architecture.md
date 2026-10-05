@@ -116,6 +116,16 @@ Each entry says what the module owns and what it must never do.
 | `src/focus/dom.ts` | Obsidian's own page and editor as far as focus mode reaches into them (the column a note's text is in, the room under its last line, where the cursor is on screen). | |
 | `styles.css` | One style sheet for the whole plugin. Focus mode's hiding of Obsidian's window is one block in it, by class name. | Use `!important`, `all:`, scrollbar styling. |
 
+### Paragraphs
+
+| Module | Owns | Must never |
+|---|---|---|
+| `src/paragraphs/paragraphs.ts` | `installParagraphs`: the editor extension that gives an editor on a binder's note its reading of tab lines and its first-line indents (and takes them away when the note or the settings change), the post-processor for reading view, `forRender` for what Binders renders itself. | Write to a note. Touch an editor whose note isn't in a binder. |
+| `src/paragraphs/mode.ts`, `src/paragraphs/language.ts` | Obsidian's Markdown mode wrapped so a line begun with a tab is read as a paragraph; the language made from it. The undocumented part. | Throw: anything not as expected is null, and the lines stay code. |
+| `src/paragraphs/first-line.ts` | "Indent paragraphs" in the editor: which lines are paragraphs that follow a paragraph. | Put anything in the text. |
+| `src/paragraphs/text.ts` | Which lines of a text are paragraphs begun with a tab; the text made ready for a renderer; whether a link meant a renamed file; links on those lines repointed. Pure. | Import Obsidian. |
+| `src/paragraphs/rename.ts` | Links in tab paragraphs following a rename: the one place a note's text is rewritten without a command (golden rule 3). | Change anything but a link's note; write before Obsidian has finished with the note, or over unsaved typing; guess when a link is ambiguous. |
+
 ## How a change travels
 
 Three journeys cover almost everything. In each, the file on disk is the source of truth and every view is told, never
@@ -190,6 +200,7 @@ The full table (what each internal is, how it is detected, the fallback, the tes
 | `src/view/editable-embed.ts` | `app.embedRegistry.embedByExtension.md`, the embed's own methods and fields, `workspace.unsetActiveEditor`, `workspace.onQuickPreview`, Obsidian's cache of undo histories, a tab's `lastSavedData`. |
 | `src/view/internals.ts` | `MenuItem.setSubmenu`, a menu's `items`, `select` and `dom`, `app.setting`, `vault.getConfig` (`trashOption`, `alwaysUpdateLinks`, `vimMode`, `readableLineLength`), `leaf.updateHeader`, `titleEl`, the history dialogs' class names. |
 | `src/focus/dom.ts` | The editor's `cm`, the structure of a note's page, the editor's bottom padding. |
+| `src/paragraphs/mode.ts`, `src/paragraphs/language.ts` | The state of Obsidian's Markdown mode (`indentation`, `indentationDiff`, `list`, `quote`) and its token `hmd-indented-code`; that the editor's language is a stream language. |
 | `src/longform.ts` | `app.plugins.plugins` (is Longform running). |
 | `src/view/manuscript.ts`, `src/view/drag.ts`, `src/focus/focus.ts`, `styles.css` | A few class names of Obsidian's own window, each with a fallback. |
 
@@ -239,6 +250,7 @@ These are the rules the code is held to. A change that breaks one needs a new te
 | Longform | `longform` | `specs-longform` |
 | Settings, labels, words | `view` | `specs` (settings tab), `specs-labels`, `specs-qa3-labels` |
 | Scene work | `scene-text` | `specs-scenes`, `specs-qa3-scenes` |
+| Paragraphs | `paragraphs` | `specs-paragraphs` |
 | Snapshots | `snapshot-text` | `specs-snapshots` |
 | Focus mode | `focus-session` | `specs-focus` |
 | Explorer patch | | `specs-explorer`, `specs-qa2-explorer`, `specs-qa4-explorer` |

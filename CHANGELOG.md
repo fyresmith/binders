@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.19.3 (2026-10-05)
+
+### Changed
+
+- The README and the format notes describe paragraphs that start with a tab, first-line indents, and their limits.
+
 ## 0.19.2 (2026-10-05)
 
 ### Fixed
