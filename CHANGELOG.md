@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.15.2 (2026-10-05)
+
+### Changed
+
+- The post-1.0 roadmap prioritizes saved manuscript filters, a scene-linked revision queue, and merge recovery, with scope limits to keep the writing workflow lean.
+
 ## 0.15.1 (2026-10-05)
 
 ### Changed
