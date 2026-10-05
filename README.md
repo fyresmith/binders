@@ -517,9 +517,6 @@ Binders is not at 1.0 yet. What isn't finished, honestly:
 - **Phones and tablets are emulated only.** The behavior has been checked at phone and tablet sizes, upright and on
   their sides, with touch, in Obsidian's emulation on a desktop. It has not been tried on a real iPhone, iPad or
   Android device, so its keyboard handling, suspending and resuming, and Android's back button are unchecked.
-- **On a phone,** a tap in another section of the manuscript doesn't always move the caret when it was at the start of
-  a wrapped line, and Obsidian's editor may log "Measure loop restarted" warnings as a phone is turned or as a narrow
-  pane is scrolled upwards (a warning only: nothing typed goes astray).
 - **In the manuscript** a section that isn't being edited is drawn as rendered text, and four kinds of content (a table
   wider than the page, indented code, and footnotes of both kinds) are taller or shorter there than in the editor, so
   the page can move when you click into such a section.

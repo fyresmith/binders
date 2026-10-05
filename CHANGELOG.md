@@ -3,6 +3,13 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.20.1 (2026-10-05)
+
+### Fixed
+
+- Scrolling up through the manuscript in a narrow pane no longer makes Obsidian's editor log 'Measure loop restarted'.
+- On a phone, a tap in another section moves the caret there even when it was at the start of a wrapped line.
+
 ## 0.20.0 (2026-10-05)
 
 ### Changed

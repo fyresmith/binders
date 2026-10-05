@@ -1,6 +1,6 @@
 import { FileSystemAdapter, type App, type Component, type Editor, type MarkdownView, type TFile } from 'obsidian';
 import { historyField } from '@codemirror/commands';
-import { EditorState, StateEffect, Transaction, type Extension } from '@codemirror/state';
+import { EditorState, StateEffect, Transaction, type Extension, type StateEffectType, type TransactionSpec } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { lf } from '../scene-text';
 
@@ -161,6 +161,31 @@ export async function saveTab(view: MarkdownView): Promise<void> {
     being typed in, so Undo there takes it back). */
 const live = new Map<TFile, Set<LiveEditor>>();
 export const liveEditors = (file: TFile): LiveEditor[] => [...(live.get(file) ?? [])];
+
+/** The kind of effect `EditorView.scrollIntoView` makes, to tell one from any other: CodeMirror has no name for it,
+    so it's read off an effect made for the purpose (its `type`, which CodeMirror doesn't document); null if it can't
+    be, and then no effect is taken for one. */
+const SCROLL = ((): StateEffectType<unknown> | null => {
+	try {
+		const made = EditorView.scrollIntoView(0), type = (made as unknown as { type?: StateEffectType<unknown> }).type;
+		return type && made.is(type) && !StateEffect.appendConfig.of([]).is(type) ? type : null;
+	} catch { return null; }
+})();
+/** Until the function it returns is called, requests to scroll are left out of what this editor is asked to do
+    (`dispatch`): the rest of each transaction goes through as it is. Without an editor, or a CodeMirror that
+    doesn't have the effect, nothing is changed. */
+function unscrolled(cm: EditorView | null): () => void {
+	const type = SCROLL, slot = cm as unknown as { dispatch?: unknown } | null, was = slot?.dispatch, own = !!cm && Object.keys(cm).includes('dispatch');
+	if (!cm || !slot || !type || typeof was !== 'function') return () => { /* nothing was changed */ };
+	const quiet = (spec: unknown): unknown => {
+		if (!spec || typeof spec !== 'object' || spec instanceof Transaction || Array.isArray(spec)) return spec;
+		const fx: unknown = (spec as TransactionSpec).effects;
+		const rest = (Array.isArray(fx) ? fx as StateEffect<unknown>[] : fx ? [fx as StateEffect<unknown>] : []).filter((e) => !e.is(type));
+		return fx ? { ...spec, effects: rest } : spec;
+	};
+	slot.dispatch = (...specs: unknown[]): void => { (was as (...a: unknown[]) => void).apply(cm, specs.map(quiet)); };
+	return () => { if (own) slot.dispatch = was; else delete slot.dispatch; };
+}
 
 /** One live editor on one note, from `mountEditor`. */
 export interface LiveEditor {
@@ -355,17 +380,30 @@ export async function mountEditor(app: App, container: HTMLElement, file: TFile,
 		// showEditor() focuses without preventScroll, so the browser scrolls the new editor into view
 		const scrolled: [HTMLElement, number, number][] = [];
 		for (let el = container.parentElement; el; el = el.parentElement) if (el.scrollTop || el.scrollLeft) scrolled.push([el, el.scrollTop, el.scrollLeft]);
-		embed.showEditor();
+		// 9. Obsidian's editor, each time it's given a whole text (as showEditor() does), asks CodeMirror to bring the
+		//    top of the note into view. CodeMirror keeps that until its next measure, and until then draws the note's
+		//    first lines whatever part of the editor is in the window. For a section that starts above the window
+		//    (the page scrolled up into it) that is a measure of text out of sight, then one of the text in sight,
+		//    each changing heights the other counted on, more turns than CodeMirror allows itself: "Measure loop
+		//    restarted". So the editor is made without that request: it draws what's in the window from the start.
+		//    (The editor is made inside showEditor() and given its text at once: it's caught as it is assigned.)
+		const fresh: { edit: EditMode | null; loud: (() => void) | null } = { edit: embed.editMode, loud: null };
+		Object.defineProperty(embed, 'editMode', { configurable: true, enumerable: true, get: () => fresh.edit, set: (v: EditMode | null) => { fresh.edit = v; if (v?.cm && !fresh.loud) fresh.loud = unscrolled(v.cm); } });
+		try { embed.showEditor(); } finally {
+			Object.defineProperty(embed, 'editMode', { configurable: true, enumerable: true, writable: true, value: fresh.edit });
+			fresh.loud?.();
+		}
 		if (!embed.editMode) throw new Error('The embed has no editor.');
 		// 8. The undo history Obsidian gave this editor (see `kept`) stays only if it was recorded on this very text.
 		//    Otherwise the editor is built again with none: `set(text, true)` looks the history up by the editor's
 		//    path, so for that one call it has no path.
 		const edit = embed.editMode, given = stepsOf(cmOf()), mine = kept.get(file);
 		if (!given || (hasSteps(given) && !(mine && mine.text === edit.get() && mine.history === JSON.stringify(given)))) {
+			const loud = unscrolled(cmOf()); // (9, above: given its text again, it would ask for the top again)
 			try {
 				Object.defineProperty(edit, 'path', { value: '', configurable: true });
 				try { edit.set(edit.get(), true); } finally { delete (edit as { path?: string }).path; }
-			} catch (e) { if (given) throw e; }
+			} catch (e) { if (given) throw e; } finally { loud(); }
 			const now = stepsOf(cmOf());
 			// better a section that can't be typed in than an undo that takes out text it never put in
 			if (now && hasSteps(now)) throw new Error('The undo history of another text could not be dropped.');

@@ -197,12 +197,26 @@ touches it; `mountEditor()` builds one embed and patches that instance only:
   call, so nothing is looked up). `@codemirror/commands` (for `historyField`) is provided by Obsidian like `state` and
   `view`; `src/codemirror-commands.d.ts` declares the one export used.
 - `save()` does nothing until `loadFile()` resolves, so the editor is only shown after it.
-- `showEditor()` focuses the new editor and queues "scroll to the top of the note" for CodeMirror's next measure. The
-  wrapper puts focus back, unsets the active editor, and restores the scroll position of every scrolled ancestor.
+- `showEditor()` focuses the new editor. The wrapper puts focus back, unsets the active editor, and restores the
+  scroll position of every scrolled ancestor.
+- **No "scroll to the top" on a new editor.** Obsidian's editor, each time it's given a whole text (`editMode.set(text,
+  true)`, which `showEditor()` calls), dispatches `EditorView.scrollIntoView(0)`. CodeMirror keeps that target until
+  its next measure and, until then, draws the note's first lines whatever part of the editor is in the window. For
+  a section that starts above the window (the page scrolled up into it, in a pane narrow enough that the section is
+  taller than CodeMirror's margin) the first measure was of text out of sight, then the target was dropped and the
+  text in sight was drawn and measured, seven turns where CodeMirror allows itself five: "Measure loop restarted"
+  (found by logging each turn's viewport, 2026-10-05). So that one effect is left out: while `showEditor()` runs,
+  and while the wrapper itself calls `set(text, true)` to drop a history, the editor's `dispatch` is wrapped and
+  scroll effects are filtered from the specs it's given (`unscrolled`). The editor is made inside `showEditor()`
+  and given its text at once, so it's caught as it's assigned: `embed.editMode` is an accessor for the length of
+  the call, and a plain property again after it. The effect is told from others by its `type` (undocumented in
+  CodeMirror; read off `EditorView.scrollIntoView(0)` and checked with the public `is()`). Fallbacks: without the
+  type, or an editor with no `dispatch` of its own to wrap, nothing is filtered and the scroll handler below
+  swallows the scroll as before (the warning may come back; nothing else changes). Test: `specs-qa4-manuscript.mjs`,
+  "Measure loop restarted while scrolling up in a pane narrower than the page".
 - The editor never scrolls the page. The wrapper adds a CodeMirror `EditorView.scrollHandler` (public CodeMirror
   API, added with `StateEffect.appendConfig`) that always says the scroll is handled. An editor asked to scroll to a
-  caret that's off screen measures itself over and over ("Measure loop restarted"), and the queued scroll above
-  would move the whole manuscript. When the editor has the focus, the handler passes the position on (`onCaret`) and
+  caret that's off screen measures itself over and over ("Measure loop restarted"). When the editor has the focus, the handler passes the position on (`onCaret`) and
   the manuscript scrolls its own page so the caret is in sight. It runs while CodeMirror measures, so the caret's
   place is read from the DOM (`domAtPos` and a range's rectangles), not from `coordsAtPos`. Without
   `EditorView.scrollHandler` (an older CodeMirror) nothing is added and the editor scrolls as it would.
