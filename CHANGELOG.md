@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.20.2 (2026-10-05)
+
+### Fixed
+
+- Nothing a writer will notice: a phone test no longer taps while the page is still coasting from a swipe.
+
 ## 0.20.1 (2026-10-05)
 
 ### Fixed

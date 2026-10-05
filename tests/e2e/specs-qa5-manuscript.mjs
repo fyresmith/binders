@@ -213,9 +213,17 @@ const on = (size, fn) => async (p, h, t) => { const before = snap(p); await onDe
 const say = (...a) => { if (process.env.QA5_VERBOSE) console.log('      ' + a.map((x) => (typeof x === 'string' ? x : j(x))).join(' ')); };
 /** Scrolls a section into the window (by script: where a swipe isn't what's being tested), and waits for the page. */
 const scrollTo = async (p, path, block = 'center') => {
-	await p.ev(`(() => { ${sc(path)}.el.scrollIntoView({ block: ${j(block)} }); return 1; })()`); await p.sleep(300); await settle(p);
-	// (and until the page has stopped moving: sections above are still being drawn, each at its own height, and a tap sent meanwhile lands on other text)
-	await p.ev(`(async () => { const m = ${M}, s = ${sc(path)}; let last = null, same = 0; for (let i = 0; i < 40 && same < 3; i++) { await new Promise(r => setTimeout(r, 80)); const now = m.root.scrollTop + ':' + s.el.getBoundingClientRect().top + ':' + m.scenes.filter(x => m.near.has(x.el) && x.shown === null && !x.live).length; if (now === last) same++; else { same = 0; last = now; } } return 1; })()`);
+	// Until the page is where it was put and has stopped: a swipe's fling that is still running carries the page on
+	// after a scroll made by script (found 2026-10-05: the first test of a fresh Obsidian, where the fling outlasts the
+	// wait after the swipe, ended 148 px past the section, its first line under the toolbar, and the tap missed it),
+	// and sections above are still being drawn, each at its own height.
+	const still = () => p.ev(`(async () => { const m = ${M}, s = ${sc(path)}; let last = null, same = 0; for (let i = 0; i < 40 && same < 3; i++) { await new Promise(r => setTimeout(r, 80)); const now = m.root.scrollTop + ':' + s.el.getBoundingClientRect().top + ':' + m.scenes.filter(x => m.near.has(x.el) && x.shown === null && !x.live).length; if (now === last) same++; else { same = 0; last = now; } } return m.root.scrollTop; })()`);
+	for (let i = 0, was = null; i < 4; i++) {
+		await p.ev(`(() => { ${sc(path)}.el.scrollIntoView({ block: ${j(block)} }); return 1; })()`); await p.sleep(300); await settle(p);
+		const now = await still();
+		if (was !== null && Math.abs(now - was) <= 1) break;
+		was = now;
+	}
 };
 /** Sixteen notes of one line each: more sections in sight than the manuscript keeps editors for. */
 const SHORT = Object.fromEntries(Array.from({ length: 16 }, (_, i) => [`S${String(i + 1).padStart(2, '0')}`, `---\nstatus: ${i % 2 ? 'draft' : 'idea'}\n---\nLine ${i + 1} of the short notes.\n`]));
