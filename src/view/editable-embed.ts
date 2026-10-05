@@ -448,7 +448,7 @@ export async function mountEditor(app: App, container: HTMLElement, file: TFile,
 		// scroll (public CodeMirror API). Instead, whenever it would have scrolled its cursor into view, it says so, and
 		// the manuscript moves its page.
 		const cm = embed.editMode.cm, added: Extension[] = [];
-		if (cm && EditorView.scrollHandler) added.push(EditorView.scrollHandler.of((view, range) => {
+		if (cm) added.push(EditorView.scrollHandler.of((view, range) => {
 			if (view.hasFocus) { try { opts.onCaret?.(view, range.head); } catch (e) { console.error(e); } }
 			return true;
 		}));

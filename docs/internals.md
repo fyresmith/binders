@@ -219,8 +219,8 @@ touches it; `mountEditor()` builds one embed and patches that instance only:
   API, added with `StateEffect.appendConfig`) that always says the scroll is handled. An editor asked to scroll to a
   caret that's off screen measures itself over and over ("Measure loop restarted"). When the editor has the focus, the handler passes the position on (`onCaret`) and
   the manuscript scrolls its own page so the caret is in sight. It runs while CodeMirror measures, so the caret's
-  place is read from the DOM (`domAtPos` and a range's rectangles), not from `coordsAtPos`. Without
-  `EditorView.scrollHandler` (an older CodeMirror) nothing is added and the editor scrolls as it would.
+  place is read from the DOM (`domAtPos` and a range's rectangles), not from `coordsAtPos`. (The CodeMirror in
+  Obsidian 1.13.0, the oldest Binders runs on, has `EditorView.scrollHandler`: it is used without a check.)
 - **`showPreview`** and **`toggleMode`**, after `showEditor()`: an embed leaves its editor for its reading view on
   Escape and on "Toggle reading view", and destroys the editor as it goes. Both are replaced with functions that do
   nothing, on that embed only, so a section is always its editor.
