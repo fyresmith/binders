@@ -9,6 +9,17 @@ const test = (name, fn) => specs.push({ name: 'mobile: ' + name, fn });
 const touch = (p, type, x, y) => p.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y }] });
 const tap = async (p, x, y) => { await touch(p, 'touchStart', x, y); await p.sleep(40); await touch(p, 'touchEnd'); await p.sleep(400); };
 
+/** Taps the first text of the manuscript in sight and waits for the caret: on a phone a section is plain text until
+    it's tapped, on a tablet it may be its editor already. */
+async function tapManuscript(p, V = '.workspace-leaf.mod-active .binders-view') {
+	const text = `${V} .binders-manuscript :is(.binders-manuscript-rendered p, .cm-content .cm-line)`;
+	await until(p, `!!document.querySelector(${j(text)})`, 5000);
+	const at = await p.ev(`(() => { const v = document.querySelector(${j(V + ' .binders-manuscript')}).getBoundingClientRect(); for (const e of document.querySelectorAll(${j(text)})) { const g = document.createRange(); g.selectNodeContents(e); const r = [...g.getClientRects()].find(r => r.height > 8 && r.top >= v.top && r.bottom <= Math.min(v.bottom, innerHeight)); if (r) return { x: r.left + 20, y: (r.top + r.bottom) / 2 }; } return null; })()`);
+	if (!at) throw new Error('no text of the manuscript is in sight');
+	await tap(p, at.x, at.y);
+	if (!(await until(p, `!!document.activeElement?.matches(${j(V + ' .binders-manuscript .cm-content')})`, 5000))) throw new Error('the tap put no caret in the manuscript');
+}
+
 async function onDevice(p, width, height, fn) {
 	await p.send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: true });
 	await reload(p, true);
@@ -58,8 +69,7 @@ for (const [what, width, height, keyboard, short, always] of [['a small phone', 
 				t.eq(j(await look()), j(before), `${mode}: and all is as it was once the keyboard has gone`);
 			}
 			// the manuscript's own text: an editor with the cursor in it counts as typing
-			await until(p, `!!document.querySelector('${V} .binders-manuscript .cm-content')`, 5000);
-			await p.ev(`(() => { document.querySelector('${V} .binders-manuscript .cm-content').focus(); return 1; })()`);
+			await tapManuscript(p, V);
 			await size(height - keyboard);
 			t.eq((await look()).bar > 0, !short, `manuscript: with the cursor in its text and the keyboard up, the toolbar ${short ? 'gives its line to the page' : 'stays'}`);
 			await p.ev(`(() => { document.activeElement.blur(); return 1; })()`);
@@ -90,8 +100,10 @@ for (const [device, width, height] of [['phone', 390, 844], ['tablet', 820, 1180
 			}
 			// the manuscript: a section's editor has no top spacing of its own (on phones, a note's editor makes room for
 			// Obsidian's floating header)
+			await tapManuscript(p);
 			await until(p, `!!document.querySelector('.workspace-leaf.mod-active .binders-manuscript .cm-scroller')`, 5000);
 			t.eq(await p.ev(`getComputedStyle(document.querySelector('.workspace-leaf.mod-active .binders-manuscript .cm-scroller')).paddingTop`), '0px', 'no gap above a section’s text');
+			await p.ev(`(() => { document.activeElement.blur(); return 1; })()`);
 			// the outliner: its last row clears the navigation bar when scrolled to the end
 			await p.ev(`(() => { ${VIEW}.setMode('outliner'); return 1; })()`);
 			await p.sleep(500);
@@ -197,10 +209,10 @@ test('a small phone on its side, typing in the manuscript with the keyboard up: 
 		await onDevice(p, width, height, async () => {
 			await openView(p);
 			await p.ev(`(() => { ${VIEW}.setMode('manuscript'); return 1; })()`);
-			await until(p, `!!document.querySelector('${V} .binders-manuscript .cm-content')`, 5000);
+			await until(p, `!!document.querySelector('${V} .binders-manuscript :is(.binders-manuscript-rendered p, .cm-content)')`, 5000);
 			const before = await look();
 			t.ok(before.header[1] > 0 && !before.short, `${what}: with nothing being typed the header is there (${j(before)})`);
-			await p.ev(`(() => { document.querySelector('${V} .binders-manuscript .cm-content').focus(); return 1; })()`);
+			await tapManuscript(p, V);
 			await p.sleep(300);
 			await p.send('Emulation.setDeviceMetricsOverride', { width, height: height - keyboard, deviceScaleFactor: 1, mobile: true });
 			await p.sleep(500);

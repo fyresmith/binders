@@ -896,6 +896,15 @@
 	margin-bottom: 0;
 }
 
+/* A table wider than the page scrolls inside itself, as the editor's does (the page never goes sideways, and on a
+   phone, where a section is plain text until it's tapped, the columns past the edge can be swiped to). */
+.binders-manuscript-rendered > table {
+	display: block;
+	width: max-content;
+	max-width: 100%;
+	overflow-x: auto;
+}
+
 /* The editor's table has its handles' room around it. */
 .binders-manuscript-rendered > table,
 .binders-manuscript-rendered > table:first-child,

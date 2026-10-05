@@ -262,6 +262,12 @@ Approved by the maintainer on 2026-10-01, after a design study and a prototype (
 - Rendered sections are spaced as the live editor spaces them, so a section doesn't change height when its editor
   mounts.
 - Large binders are virtualized: only sections near the viewport have live editors; the rest show rendered text.
+- On a phone (`Platform.isPhone`) no section gets its editor by coming near: it stays rendered until it's tapped (or
+  the caret is sent into it: a new note, a command, a key of a keyboard that's plugged in). The tap puts the caret on
+  the letter under the finger (found by the words around it, not by the point: an editor doesn't always break its
+  lines where the rendered text does) and holds that line where it was on screen. A section stays an editor while
+  the caret is in it, while it has typing that isn't saved, and, with the keyboard put away, while it's the one the
+  caret was last in and still near the screen; then it's rendered again. Tablets and desktops are as above.
 - Fallback: if the internal embed API isn't available, the manuscript is read-only rendered Markdown, with a notice,
   and clicking a section opens that note.
 
@@ -526,6 +532,9 @@ them: see AGENTS.md). Nothing is tagged yet.
 - **No release before export is built** (2026-10-02, the maintainer). Nothing is tagged, and the directory submission
   waits. Until then the project is brought to a release-ready state: the code, the tests and the documentation, each
   checked against the others.
+- **A phone's manuscript section is its editor only when tapped** (2026-10-05, the maintainer): making an editor
+  costs a phone a frame or more, and swiping through a long manuscript made one after another for text that was only
+  being read. Tablets and desktops keep editors on the sections near the screen.
 - **Mobile: "emulator is king"** (2026-10-02, the maintainer). He has no phone or tablet to try it on yet, so
   Obsidian's emulation of both, run in the e2e suite, is the standard for what works on mobile. A real iPhone, iPad and
   Android device are still to try when there is one, and the README says so.

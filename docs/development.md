@@ -108,6 +108,7 @@ npm test -- lanes        # only the files whose name has "lanes" in it (several 
 | `tests/run-all.test.ts` | The parallel e2e runner's pure parts (`tests/e2e/run-all-lib.mjs`): sharing spec files out over jobs, reading a job's output; and the driver's `reap`, with stand-in processes |
 | `tests/demo-vault.test.ts` | The demo vault's generator (`scripts/demo-vault/build.mjs`), read back with the plugin's own readers: every binder, the labels, the snapshots, what a re-run may write |
 | `tests/scene-text.test.ts` | Splitting, merging, a synopsis from text, names, compiling (`src/scene-text.ts`) |
+| `tests/tap-text.test.ts` | Where a tap on a manuscript section's rendered text is in the note (`src/view/tap-text.ts`): plain prose, repeated words, bold, links, headings, lists, quotes, line breaks |
 | `tests/focus-session.test.ts` | Focus mode's pure parts (`src/focus/session.ts`): the day's words, the last line, the scenes before and after, a goal as typed; and its settings' defaults |
 | `tests/paragraphs.test.ts` | Paragraphs (`src/paragraphs/text.ts`, `mode.ts`): which lines are paragraphs begun with a tab, the text made ready for a renderer, whether a link meant a renamed file, links repointed byte for byte, Obsidian's Markdown mode wrapped (with a stand-in) and refused when it isn't the one known; the two settings |
 | `tests/snapshot-text.test.ts` | Snapshots (`src/snapshot-text.ts`): a snapshot's name and file read back byte for byte, comparing two texts as prose |

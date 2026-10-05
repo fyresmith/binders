@@ -718,14 +718,15 @@ test('phone manuscript: a tap puts the caret in that section, typing lands there
 		const b = await p.at(`${LEAF} .binders-mode-button`);
 		await tap(p, b.x, b.y);
 		await menuTap(p, 'Manuscript');
-		await until(p, `!!document.querySelector('${LEAF} .binders-manuscript .cm-editor')`, 6000);
+		// (on a phone a section is plain text until it's tapped)
+		await until(p, `!!document.querySelector('${LEAF} .binders-manuscript .binders-manuscript-rendered p')`, 6000);
 		await p.sleep(1200);
 		await shot(p, 'manuscript-phone');
 		t.eq(await p.ev(`document.activeElement.tagName`), 'BODY', 'switching to it puts no caret anywhere (so no keyboard comes up)');
-		t.eq(await p.ev(`getComputedStyle(document.querySelector('${LEAF} .binders-manuscript .cm-line')).fontSize`), await p.ev(`getComputedStyle(document.body).getPropertyValue('--font-text-size').trim() || '16px'`), 'its text is the size of a note’s');
+		t.eq(await p.ev(`getComputedStyle(document.querySelector('${LEAF} .binders-manuscript .binders-manuscript-rendered p')).fontSize`), await p.ev(`getComputedStyle(document.body).getPropertyValue('--font-text-size').trim() || '16px'`), 'its text is the size of a note’s');
 		t.ok((await toolbar(p)).out <= 0 && await p.ev(`${MAN}.scrollWidth <= ${MAN}.clientWidth`), 'nothing sticks out sideways');
 		// a tap in The keeper's text
-		const at = await p.ev(`(() => { const r = (${scene('The keeper')}).querySelector('.cm-line').getBoundingClientRect(); return { x: r.left + 120, y: r.top + 12 }; })()`);
+		const at = await p.ev(`(() => { const r = (${scene('The keeper')}).querySelector('.cm-line, .binders-manuscript-rendered p').getBoundingClientRect(); return { x: r.left + 120, y: r.top + 12 }; })()`);
 		await tap(p, at.x, at.y);
 		await p.sleep(400);
 		const where = await p.ev(`({ scene: document.activeElement.closest('.binders-manuscript-scene')?.querySelector('.binders-manuscript-title')?.textContent ?? null, editor: app.workspace.activeEditor?.file?.path ?? null, toolbar: (${R})(document.querySelector('.mobile-toolbar')), caret: Math.round(getSelection().getRangeAt(0).getBoundingClientRect().top) })`);
@@ -797,7 +798,7 @@ test('phone manuscript: a tap on a title renames the note, its menu has the note
 		await flush(p);
 		t.eq((await contents(p))[0], 'Opening', 'in the same place in the binder');
 		// split Arrival where the caret is, from the command palette
-		const line = await p.ev(`(() => { const r = (${scene('Arrival')}).querySelector('.cm-line').getBoundingClientRect(); return { x: r.left + 150, y: r.top + 12 }; })()`);
+		const line = await p.ev(`(() => { const r = (${scene('Arrival')}).querySelector('.cm-line, .binders-manuscript-rendered p').getBoundingClientRect(); return { x: r.left + 150, y: r.top + 12 }; })()`);
 		await tap(p, line.x, line.y);
 		await p.sleep(400);
 		await p.ev(`app.commands.executeCommandById('command-palette:open')`);

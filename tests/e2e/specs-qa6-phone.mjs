@@ -85,7 +85,7 @@ perf('a flat binder of 1,000 short scenes, CPU four times slower: every mode ope
 		await until(p, `document.querySelectorAll('${LEAF} .binders-outliner-row').length > 100`, 30000); await p.sleep(1000);
 		await frames(2600); await swipes(); out.outlinerScroll = await stats();
 		out.manuscriptOpens = await timed(`(async () => { ${VIEW}.setMode('manuscript'); })()`);
-		await until(p, `!!document.querySelector('${LEAF} .binders-manuscript .cm-editor')`, 60000); await p.sleep(1500);
+		await until(p, `!!document.querySelector('${LEAF} .binders-manuscript .binders-manuscript-rendered')`, 60000); await p.sleep(1500);
 		await frames(2800); await swipes(); out.manuscriptScroll = await stats();
 		await p.send('Emulation.setCPUThrottlingRate', { rate: 1 });
 	});

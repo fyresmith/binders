@@ -108,7 +108,7 @@ export const R = `(e) => { if (!e) return null; const b = e.getBoundingClientRec
 export const rect = (p, sel) => p.ev(`(${R})(document.querySelector(${j(sel)}))`);
 export async function settle(p, ms = 5000) {
 	for (let i = 0; i < ms / 50; i++) {
-		const ok = await p.ev(`(() => { const m = ${M}; if (!m || !m.scenes) return false; const near = m.scenes.filter(s => m.near.has(s.el)); return (near.length > 0 || m.scenes.length === 0) && near.slice(0, m.liveMax).every(s => m.editable ? (s.live || s.broken) && !s.mounting : s.shown !== null); })()`).catch(() => false);
+		const ok = await p.ev(`(() => { const m = ${M}; if (!m || !m.scenes) return false; const near = m.scenes.filter(s => m.near.has(s.el)); return (near.length > 0 || m.scenes.length === 0) && near.slice(0, m.liveMax).every(s => m.editable && !m.byTap ? (s.live || s.broken) && !s.mounting : (s.shown !== null || s.live) && !s.mounting); })()`).catch(() => false);
 		if (ok) break;
 		await p.sleep(50);
 	}
@@ -212,7 +212,11 @@ export { test, bug, ux, B, PL, VIEW, flush, j, menuItems, openView, reload, tidy
 const on = (size, fn) => async (p, h, t) => { const before = snap(p); await onDevice(p, size, () => fn(p, h, t, before)); };
 const say = (...a) => { if (process.env.QA5_VERBOSE) console.log('      ' + a.map((x) => (typeof x === 'string' ? x : j(x))).join(' ')); };
 /** Scrolls a section into the window (by script: where a swipe isn't what's being tested), and waits for the page. */
-const scrollTo = async (p, path, block = 'center') => { await p.ev(`(() => { ${sc(path)}.el.scrollIntoView({ block: ${j(block)} }); return 1; })()`); await p.sleep(300); await settle(p); };
+const scrollTo = async (p, path, block = 'center') => {
+	await p.ev(`(() => { ${sc(path)}.el.scrollIntoView({ block: ${j(block)} }); return 1; })()`); await p.sleep(300); await settle(p);
+	// (and until the page has stopped moving: sections above are still being drawn, each at its own height, and a tap sent meanwhile lands on other text)
+	await p.ev(`(async () => { const m = ${M}, s = ${sc(path)}; let last = null, same = 0; for (let i = 0; i < 40 && same < 3; i++) { await new Promise(r => setTimeout(r, 80)); const now = m.root.scrollTop + ':' + s.el.getBoundingClientRect().top + ':' + m.scenes.filter(x => m.near.has(x.el) && x.shown === null && !x.live).length; if (now === last) same++; else { same = 0; last = now; } } return 1; })()`);
+};
 /** Sixteen notes of one line each: more sections in sight than the manuscript keeps editors for. */
 const SHORT = Object.fromEntries(Array.from({ length: 16 }, (_, i) => [`S${String(i + 1).padStart(2, '0')}`, `---\nstatus: ${i % 2 ? 'draft' : 'idea'}\n---\nLine ${i + 1} of the short notes.\n`]));
 /** Notes long enough to scroll far: `n` notes of `paras` paragraphs. */
@@ -279,6 +283,99 @@ test('phone: a tap puts the caret on the letter tapped in the first, a middle an
 		[EPILOGUE]: before[EPILOGUE].replace('postcards', 'postEcards').replace('now.\n', 'now.\nF'),
 	});
 }));
+
+// On a phone a section is its editor only once it's tapped (decided 2026-10-05: making an editor costs a phone a frame
+// or more, and swiping through a long manuscript made one after another for text that was only being read).
+test('phone: a section becomes its editor only when tapped: none by opening or swiping; the tap puts the caret on the letter under the finger without moving the page, and the keyboard’s field has the focus; every key lands in the tapped note; a section left goes back to plain text with what was typed, undo still takes it back, an outside change is kept; a tablet is as before', async (p, h, t) => {
+	const live = () => p.ev(`${M}.scenes.filter(s => s.live || s.mounting).map(s => s.file.basename).join(', ')`);
+	const editors = () => p.ev(`document.querySelectorAll('${LEAF} .binders-manuscript .cm-editor').length`);
+	await onDevice(p, PHONE, async () => {
+		await binder(p, 'Novel', long(14, 6));
+		const before = snap(p);
+		await openMs(p, 'Novel');
+		await p.sleep(1500);
+		t.eq(await p.ev(`${M}.byTap`), true, 'a phone');
+		t.eq(j([await live(), await editors(), await active(p)]), j(['', 0, 'body']), 'opened: every section is plain text, and nothing has the focus');
+		t.ok(await p.ev(`${M}.scenes.filter(s => ${M}.near.has(s.el)).every(s => s.shown !== null)`), 'the sections near the screen are drawn');
+		await p.ev(`(() => { window.__tapf = 0; window.__tapfl = () => window.__tapf++; document.addEventListener('focusin', window.__tapfl, true); return 1; })()`);
+		for (let i = 0; i < 4; i++) { await swipe(p, 200, 640, 200, 180, 6, 300); }
+		await p.sleep(1200);
+		for (let i = 0; i < 3; i++) { await swipe(p, 200, 250, 200, 640, 6, 300); }
+		await p.sleep(2500);
+		t.eq(j([await live(), await editors(), await p.ev(`window.__tapf`)]), j(['', 0, 0]), 'swiped down the page and back, and left alone: still no editor, and nothing took the focus');
+		// the tap
+		await scrollTo(p, N(3), 'start');
+		const top0 = await scrollTop(p), at0 = await textAt(p, N(3), 'Scene 3 paragraph 2.', 0);
+		await tapText(p, N(3), 'Scene 3 paragraph 2.', 8, 1200);
+		let c = await caret(p);
+		t.eq(j([c?.path, c?.before.slice(-8), c?.after.slice(0, 5)]), j([N(3), 'Scene 3 ', 'parag']), 'a tap: the caret is on the letter under the finger');
+		t.ok(await p.ev(`document.activeElement.isContentEditable && document.activeElement.matches('.cm-content')`), 'in a field the keyboard opens for');
+		t.eq(await p.ev(`app.workspace.activeEditor?.file?.path ?? null`), N(3), 'which is Obsidian’s active editor');
+		t.eq(await live(), 'Scene 03', 'only the tapped section is an editor');
+		const at1 = await textAt(p, N(3), 'Scene 3 paragraph 2.', 0);
+		t.ok((await scrollTop(p)) === top0 && Math.abs(at1.y - at0.y) <= 1 && Math.abs(at1.x - at0.x) <= 1, `the page didn’t move under the finger (${j([top0, at0.x, at0.y])} → ${j([await scrollTop(p), at1.x, at1.y])})`);
+		// every key: an on-screen keyboard's text, a composed word, a hardware keyboard's keys
+		await p.type('one ');
+		await compose(p, 'two');
+		await keys(p, ' three\n');
+		t.eq((await caret(p))?.path, N(3), 'typing keeps the caret in the tapped section');
+		// a tap in another section: the caret goes there, at once, and the one left is plain text again once saved
+		await scrollTo(p, N(4), 'start');
+		await tapText(p, N(4), 'Scene 4 paragraph 1.', 6, 1200);
+		c = await caret(p);
+		t.eq(j([c?.path, c?.after.slice(0, 2)]), j([N(4), '4 ']), 'a tap in the next section moves the caret there');
+		await p.type('four ');
+		await until(p, `${M}.scenes.filter(s => s.live).length === 1`, 8000);
+		t.eq(await live(), 'Scene 04', 'the section left is plain text again once what was typed in it is saved');
+		const typed3 = before[N(3)].replace('Scene 3 paragraph 2.', 'Scene 3 one two three\nparagraph 2.');
+		t.eq(disk(p, N(3)), typed3, 'every key typed in the first is in its note, once, in order');
+		t.ok(await p.ev(`${sc(N(3))}.bodyEl.querySelector('.binders-manuscript-rendered')?.textContent.includes('Scene 3 one two three')`), 'and its plain text shows it');
+		// the keyboard put away to read: the section the caret was in stays as it is while it's near
+		await p.ev(`(() => { document.activeElement.blur(); return 1; })()`);
+		await p.sleep(4500);
+		t.eq(j([await live(), await active(p)]), j(['Scene 04', 'body']), 'the keyboard put away: the section the caret was last in is still its editor');
+		await tapText(p, N(4), 'Scene 4 paragraph 2.', 6, 900);
+		await p.type('five ');
+		// back in the first: its editor is a new one, with its undo history
+		await scrollTo(p, N(3), 'start');
+		await tapText(p, N(3), 'paragraph 3.', 0, 1200);
+		t.eq((await caret(p))?.path, N(3), 'a tap back in the first');
+		await p.type('six ');
+		await p.sleep(700);
+		await p.ev(`app.commands.executeCommandById('editor:undo')`); await p.sleep(200);
+		t.eq(await p.ev(`${sc(N(3))}.live.text`), typed3, 'undo takes back what was just typed');
+		// (as many steps as the typing made: a word composed and Enter are steps of their own)
+		for (let i = 0; i < 12 && (await p.ev(`${sc(N(3))}.live.text`)) !== before[N(3)]; i++) { await p.ev(`app.commands.executeCommandById('editor:undo')`); await p.sleep(150); }
+		t.eq(await p.ev(`${sc(N(3))}.live.text`), before[N(3)], 'and then what was typed before the section was left: its undo history came back with its editor');
+		for (let i = 0; i < 12 && (await p.ev(`${sc(N(3))}.live.text`)) !== typed3; i++) { await p.ev(`app.commands.executeCommandById('editor:redo')`); await p.sleep(150); }
+		t.eq(await p.ev(`${sc(N(3))}.live.text`), typed3, 'redo puts it back');
+		// a note changed outside while it's plain text: drawn again; then tapped and typed in, both are kept
+		const synced = before[N(5)].replace('Scene 5 paragraph 1.', 'Scene 5 paragraph 1, synced.');
+		await p.ev(`app.vault.adapter.write(${j(N(5))}, ${j(synced)}).then(() => 1)`);
+		await scrollTo(p, N(5), 'start');
+		await until(p, `!!${sc(N(5))}.bodyEl.querySelector('.binders-manuscript-rendered')?.textContent.includes('synced')`, 6000);
+		await tapText(p, N(5), 'synced', 0, 1200);
+		await p.type('and ');
+		// swiped far away: the caret is let go, and no editor is left
+		for (let i = 0; i < 8; i++) await swipe(p, 200, 640, 200, 180, 6, 120);
+		await until(p, `${M}.scenes.every(s => !s.live && !s.mounting)`, 10000);
+		t.eq(j([await live(), await editors(), await active(p)]), j(['', 0, 'body']), 'swiped far from the caret: no editor is left');
+		await saveAll(p);
+		sameBut(t, before, snap(p), {
+			[N(3)]: typed3,
+			[N(4)]: before[N(4)].replace('Scene 4 paragraph 1.', 'Scene four 4 paragraph 1.').replace('Scene 4 paragraph 2.', 'Scene five 4 paragraph 2.'),
+			[N(5)]: synced.replace('synced', 'and synced'),
+		});
+	});
+	// a tablet has the room and the speed: sections near the screen are editors without a tap, as on a computer
+	await onDevice(p, TABLET, async () => {
+		t.ok(await until(p, `${B}.scenes(app.vault.getAbstractFileByPath('The Lighthouse') ?? app.vault.getRoot())?.length === 7`, 30000), 'the binder is there on the tablet');
+		await openMs(p);
+		t.eq(await p.ev(`${M}.byTap`), false, 'a tablet');
+		t.ok(await until(p, `${M}.scenes.filter(s => s.live).length >= 3`, 6000), 'tablet: the sections near the screen are editors without a tap: ' + await live());
+		t.eq(await active(p), 'body', 'tablet: and none has the focus');
+	});
+});
 
 test('tablet, upright and on its side: a tap in a section that’s in sight but not live yet (more sections in sight than editors) puts the caret where it was tapped, without moving the page', async (p, h, t) => {
 	for (const size of [TABLET, land(TABLET)]) {
@@ -361,7 +458,7 @@ ux('phone: when the keyboard comes up after a tap low on the screen, the caret i
 	t.ok(native.focused && native.caret <= native.toolbar, `in a note, the caret tapped at ${Math.round(low.y)} px is above the editing toolbar once the keyboard is up: ${j(native)}`);
 	// the same in the manuscript
 	await openMs(p, 'Novel');
-	const at = await p.ev(`(() => { const ls = [...document.querySelectorAll('${LEAF} .binders-manuscript .cm-content .cm-line')].map(l => l.getBoundingClientRect()).filter(r => r.height > 20 && r.top > 560 && r.top < 700); const r = ls[0]; return { x: r.left + 60, y: r.top + 12 }; })()`);
+	const at = await p.ev(`(() => { const ls = [...document.querySelectorAll('${LEAF} .binders-manuscript :is(.cm-content .cm-line, .binders-manuscript-rendered > p)')].flatMap(l => { const g = document.createRange(); g.selectNodeContents(l); return [...g.getClientRects()]; }).filter(r => r.height > 15 && r.top > 560 && r.top < 700); const r = ls[0]; return { x: r.left + 60, y: r.top + 12 }; })()`);
 	await tap(p, at.x, at.y, 700);
 	t.ok(await caret(p), 'a tap low on the screen puts the caret there');
 	await keyboard(p, PHONE, true);
@@ -669,7 +766,8 @@ test('phone: a word still being composed by the keyboard (underlined, not commit
 
 test('phone: Backspace at the very start of a section and Delete at its very end touch nothing outside it; “Select all” then a letter replaces the section’s text and leaves its properties; autocorrected and swipe-typed words, a cut and a paste land once', on(PHONE, async (p, h, t, before) => {
 	await openMs(p);
-	const val = (path) => p.ev(`${sc(path)}.live.editor.getValue()`);
+	// (a section that was left is plain text again on a phone: its text is then the note's)
+	const val = (path) => p.ev(`(async () => { const s = ${sc(path)}; if (s.live) return s.live.editor.getValue(); await s.saved; return app.vault.read(s.file); })()`);
 	await tapText(p, KEEPER, 'He met', 0);
 	await p.key('Backspace'); await p.key('Backspace');
 	// (as an on-screen keyboard deletes: no key, the browser's own deletion)
@@ -798,6 +896,7 @@ const wrapOf = (p, path) => p.ev(`(() => { const cm = ${sc(path)}.live.cm, doc =
 
 bug('phone: with the caret at the start of a wrapped line (or past the end of one), a tap in another section moves the caret there (it stays where it was, and what’s typed next goes into the first note; CodeMirror pulls the selection back into an editor that has just lost the focus)', on(PHONE, async (p, h, t, before) => {
 	await openMs(p);
+	await tapText(p, PROLOGUE, 'forty', 0); // (a section is its editor once tapped)
 	const w = await wrapOf(p, PROLOGUE);
 	t.ok(w, 'the first paragraph wraps on a phone');
 	const got = {};
@@ -833,6 +932,7 @@ bug('phone: with the caret at the start of a wrapped line (or past the end of on
 	// (and swiped far away from there, the caret is let go like any other: no keyboard while reading)
 	await binder(p, 'Novel', long(10, 6));
 	await openMs(p, 'Novel');
+	await tapText(p, N(1), 'Scene 1 paragraph 1.', 0);
 	const w2 = await wrapOf(p, N(1));
 	await tap(p, w2.x + 1, w2.y, 700);
 	for (let i = 0; i < 9; i++) await swipe(p, 200, 640, 200, 180, 6, 150);
@@ -1159,6 +1259,7 @@ test('phone: under a filter, typing in a section that passes; “New” under th
 
 bug('phone: with the caret at the start of a wrapped line, the toolbar’s dialog, a title and the synopsis can be typed in (what’s typed for them goes into the note instead)', on(PHONE, async (p, h, t, before) => {
 	await openMs(p);
+	await tapText(p, PROLOGUE, 'forty', 0); // (a section is its editor once tapped)
 	const w = await wrapOf(p, PROLOGUE);
 	await tap(p, w.x + 1, w.y, 700);
 	const cnt = await p.at(`${LEAF} .binders-word-count`);
@@ -1253,7 +1354,7 @@ test('phone, 390 and 320 px: paragraphs, callouts, lists, quotes, rules, links, 
 	await metrics(p, ...PHONE);
 	await p.sleep(400);
 	await scrollTo(p, X('RTL'), 'center');
-	const rtl = await p.ev(`(() => { const l = ${sc(X('RTL'))}.bodyEl.querySelector('.cm-content > .cm-line'); const r = document.createRange(); r.selectNodeContents(l); const b = r.getClientRects()[0], box = l.getBoundingClientRect(); return { dir: getComputedStyle(l).direction, gapRight: Math.round(box.right - b.right), gapLeft: Math.round(b.left - box.left) }; })()`);
+	const rtl = await p.ev(`(async () => { await ${M}.mount(${sc(X('RTL'))}); await new Promise(r => setTimeout(r, 300)); const l = ${sc(X('RTL'))}.bodyEl.querySelector('.cm-content > .cm-line'); const r = document.createRange(); r.selectNodeContents(l); const b = r.getClientRects()[0], box = l.getBoundingClientRect(); return { dir: getComputedStyle(l).direction, gapRight: Math.round(box.right - b.right), gapLeft: Math.round(b.left - box.left) }; })()`);
 	await shot(p, 'reading-rtl');
 	t.ok(rtl.dir === 'rtl' && rtl.gapRight <= 2, 'an Arabic paragraph reads from the right in its editor: ' + j(rtl));
 }));
@@ -1277,7 +1378,7 @@ test('small phone: a table wider than the screen scrolls inside itself by a swip
 	await p.sleep(300);
 	const scrolledTo = await look();
 	say({ at0, swiped, scrolledTo, opened: await p.ev(`!app.workspace.rightSplit.collapsed`) });
-	t.ok(at0.live, 'the table’s section is live');
+	t.ok(!at0.live, 'the table’s section is plain text (a phone: nothing tapped)');
 	t.ok(at0.page[0] <= at0.page[1], `the page is no wider than the screen (it is ${at0.page[0]} px in ${at0.page[1]})`);
 	t.eq(swiped.page[2], 0, 'a swipe along the table doesn’t move the page sideways');
 	t.ok(swiped.tableLeft > 0 || swiped.editorLeft > 0, 'it scrolls the table: ' + j(swiped));
@@ -1442,7 +1543,7 @@ test('phone: a Longform project as a manuscript: its scenes in Longform’s orde
 	});
 }));
 
-test('phone, CPU four times slower, 300 notes: swipes through the manuscript stay at 20 ms a frame, at most six editors (and the one typed in) are alive, memory stays flat over three passes, and typing far down lands once', async (p, h, t) => {
+test('phone, CPU four times slower, 300 notes: swipes through the manuscript stay at 20 ms a frame, no editor is made by swiping, memory stays flat over three passes, and typing far down lands once', async (p, h, t) => {
 	const PARTS = 6, PER = 50, out = {};
 	await p.ev(`(async () => {
 		const words = 'the keeper climbed the stair again while the sea kept on at the rocks below and nobody came '.repeat(12);
@@ -1466,7 +1567,7 @@ test('phone, CPU four times slower, 300 notes: swipes through the manuscript sta
 		await openView(p, 'Saga');
 		const t0 = Date.now();
 		await p.ev(`(() => { ${VIEW}.setMode('manuscript'); return 1; })()`);
-		await until(p, `!!document.querySelector('${LEAF} .binders-manuscript .cm-editor')`, 30000);
+		await until(p, `!!document.querySelector('${LEAF} .binders-manuscript .binders-manuscript-rendered')`, 30000);
 		out.opens = Date.now() - t0;
 		await settle(p);
 		await p.send('Emulation.setCPUThrottlingRate', { rate: 4 });
@@ -1488,8 +1589,8 @@ test('phone, CPU four times slower, 300 notes: swipes through the manuscript sta
 		}
 		await p.send('Emulation.setCPUThrottlingRate', { rate: 1 });
 		// typing, far down
-		const line = await until(p, `[...document.querySelectorAll('${LEAF} .binders-manuscript .cm-content')].map(e => e.getBoundingClientRect()).filter(r => r.top < 500 && r.bottom > 400).map(r => [r.left + 60, Math.max(r.top + 12, 300)])[0]`, 15000);
-		t.ok(line, 'after the swipes, the sections in sight are editors again');
+		const line = await until(p, `[...document.querySelectorAll('${LEAF} .binders-manuscript .binders-manuscript-rendered > p')].map(e => e.getBoundingClientRect()).filter(r => r.top < 500 && r.bottom > 400).map(r => [r.left + 60, Math.max(r.top + 12, 300)])[0]`, 15000);
+		t.ok(line, 'after the swipes, the sections in sight are drawn');
 		await tap(p, line[0], line[1], 900);
 		const c = await caret(p);
 		t.ok(c, 'a tap puts the caret in one');
@@ -1505,7 +1606,7 @@ test('phone, CPU four times slower, 300 notes: swipes through the manuscript sta
 	console.log('    qa5 manuscript, 300 notes (CPU ×4 while swiping): ' + j(out));
 	t.ok(out.opens < 6000, `the manuscript opens in ${out.opens} ms`);
 	for (const k of ['scroll0', 'scroll1', 'scroll2']) t.ok(out[k].median <= 20 && out[k].p95 <= 60, `${k}: ${j(out[k])}`);
-	t.ok(out.alive.every((a) => a.live <= 7 && a.editors <= 7), 'editors alive after each pass: ' + j(out.alive));
+	t.ok(out.alive.every((a) => a.live === 0 && a.editors === 0), 'no editor is made by swiping: ' + j(out.alive));
 	t.ok(out.heap[3] - out.heap[1] <= 25, 'memory after each pass (MB): ' + j(out.heap));
 });
 
@@ -1531,7 +1632,8 @@ test('phone, tablet, upright and on their sides, light or dark: a section’s te
 				const note = await typeset(p, `${LEAF} .cm-content > .cm-line`);
 				await openMs(p);
 				await p.sleep(300);
-				const ours = await typeset(p, `${LEAF} .binders-manuscript .cm-content > .cm-line`);
+				// (on a phone a section is plain text until it's tapped: that is what's read, and what's compared)
+				const ours = await typeset(p, `${LEAF} .binders-manuscript :is(.cm-content > .cm-line, .binders-manuscript-rendered > p)`);
 				got[`${name}${readable ? '' : ' wide'}`] = { note, ours };
 				if (readable) await shot(p, `looks-${name}`);
 				// (the emulated desktop draws a 12 px scrollbar beside the page; a device's lies over it)
@@ -1549,7 +1651,7 @@ test('phone, tablet, upright and on their sides, light or dark: a section’s te
 		await openMs(p);
 		await p.sleep(500);
 		await shot(p, 'looks-large-text-320');
-		const big = await p.ev(`(() => { const m = ${MAN}, b = document.querySelector('${LEAF} .binders-toolbar'); return { text: getComputedStyle(m.querySelector('.cm-line')).fontSize, title: parseFloat(getComputedStyle(m.querySelector('.binders-manuscript-title')).fontSize), heading: parseFloat(getComputedStyle(m.querySelector('.binders-manuscript-heading h1')).fontSize), wide: m.scrollWidth - m.clientWidth, bar: b.scrollWidth - b.clientWidth, out: [...m.querySelectorAll('.binders-manuscript-page *')].filter(e => e.getBoundingClientRect().right > innerWidth + 1).length }; })()`);
+		const big = await p.ev(`(() => { const m = ${MAN}, b = document.querySelector('${LEAF} .binders-toolbar'); return { text: getComputedStyle(m.querySelector('.cm-line, .binders-manuscript-rendered > p')).fontSize, title: parseFloat(getComputedStyle(m.querySelector('.binders-manuscript-title')).fontSize), heading: parseFloat(getComputedStyle(m.querySelector('.binders-manuscript-heading h1')).fontSize), wide: m.scrollWidth - m.clientWidth, bar: b.scrollWidth - b.clientWidth, out: [...m.querySelectorAll('.binders-manuscript-page *')].filter(e => e.getBoundingClientRect().right > innerWidth + 1).length }; })()`);
 		say('22 px:', big);
 		t.eq(big.text, '22px', 'at 22 px the manuscript’s text grows with it');
 		t.ok(big.wide <= 0 && big.bar <= 0 && big.out === 0, 'and nothing sticks out at 320 px: ' + j(big));

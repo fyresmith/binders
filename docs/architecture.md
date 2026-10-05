@@ -27,6 +27,7 @@ neighbours, for example the store and `snapshots.ts`, which follow each other's 
  ───────────────────────────────────────────────────────────────────────────────────
  pure logic, no Obsidian: model.ts  longform.ts  scene-text.ts  snapshot-text.ts  settings-data.ts
    focus/session.ts  view/labels.ts  view/outliner-data.ts  view/lanes-data.ts  view/file-drag-data.ts
+   view/tap-text.ts
 ```
 
 Three rules hold the layers together:
@@ -94,8 +95,9 @@ Each entry says what the module owns and what it must never do.
 | `src/view/lanes.ts`, `lanes-data.ts` | The corkboard arranged by label: one line per label, the cards along them. `lanes-data.ts` is the pure model (the lines, the places, what a drop means); `lanes.ts` draws it. Not a mode of its own: `BinderView` picks it from the corkboard's `arrange` option. | |
 | `src/view/card.ts` | The index card both boards draw, and what they share: `held` (the first five notes and folders a folder's card names, under the filter's view of them), `passing` (the notes a filter lets through), `crumbAt` (the breadcrumb's crumb under a pointer, as a drop target). | |
 | `src/view/outliner.ts`, `outliner-columns.ts`, `outliner-data.ts` | The outliner: rows of a tree table, editing in place, sorting, folding, dragging. `outliner-columns.ts` is its header (a column's menu, sorting, resizing, reordering, which columns show) and asks the outliner only through `ColumnsHost`. `outliner-data.ts` is the pure part: which columns exist, how values sort, read and are typed. | |
-| `src/view/manuscript.ts` | The manuscript: every note as a section of one scrolling page, live editors only near the viewport, caret and keyboard handling across sections, saving on every route out (switching mode, closing, quitting). | Mount an editor except through `editable-embed.ts`; leave unsaved typing behind. |
+| `src/view/manuscript.ts` | The manuscript: every note as a section of one scrolling page, live editors only near the viewport (on a phone, only on the section that was tapped), caret and keyboard handling across sections, saving on every route out (switching mode, closing, quitting). | Mount an editor except through `editable-embed.ts`; leave unsaved typing behind. |
 | `src/view/editable-embed.ts` | One live editor on one note, built from Obsidian's own editable embed. Merges outside edits into unsaved typing, keeps undo history across remounts, writes pending typing before it lets go. | Be used by anything but the manuscript and snapshots (`liveEditors`); trust Obsidian's embed without `embedSupported()`. |
+| `src/view/tap-text.ts` | Where a tap on a section's rendered text is in the note's source: `sourceOffset`, which finds the place by the words drawn around it (the editor and the rendered text don't break lines at the same words). Pure. | Touch the DOM or Obsidian. |
 | `src/view/actions.ts` | What can be done to a note or folder, the same on a card and in a row: the item menu, renaming, deleting, status, label, target, properties. Views say how their own parts work through `Hooks`. | |
 | `src/view/drag.ts` | A press that may become a drag (mouse, pen, or a finger's long press), and the glide after a redraw. Reads the pointer only. | Decide what a drag does. |
 | `src/view/file-drag.ts`, `file-drag-data.ts` | A card or row dragged out of the view becomes a file drag Obsidian understands (a canvas, a tab, bookmarks, the explorer). `file-drag-data.ts` holds the pure geometry. | Do anything while the pointer is inside the view. |

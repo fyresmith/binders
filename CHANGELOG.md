@@ -3,6 +3,18 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.20.0 (2026-10-05)
+
+### Changed
+
+- On a phone, a section of the manuscript is plain text to read and swipe through until you tap it: the caret goes to the letter under your finger and the keyboard opens. Swiping through a long manuscript no longer hitches.
+
+### Fixed
+
+- A tap in a manuscript section that was still plain text could put the caret a word away from where you tapped.
+- Turning a phone with the caret in the manuscript no longer loses the caret.
+- On a phone, a table wider than the page can be swiped sideways before its section is tapped.
+
 ## 0.19.3 (2026-10-05)
 
 ### Changed

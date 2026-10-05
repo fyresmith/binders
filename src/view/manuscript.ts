@@ -7,17 +7,23 @@ import { vimMode } from './internals';
 import { visibleBottom } from './drag';
 import type { BinderMode, ModeContext, ModeFactory } from './mode';
 import { embedSupported, mountEditor, type LiveEditor } from './editable-embed';
+import { sourceOffset } from './tap-text';
 
 /* The manuscript: every note in the folder, in binder order, as one scrolling page, like Scrivener's Scrivenings.
    Subfolders are headings; each note is a section with its title and its body in a live editor on that note.
 
-   Only sections near the viewport get a live editor (at most LIVE_MAX, plus the focused one and any with unsaved
+   Only sections near the viewport get a live editor (at most `liveMax`, plus the focused one and any with unsaved
    typing); the rest show the note rendered read only, at its last known height, so the scrollbar doesn't jump.
+   On a phone (`byTap`) no section gets one by coming near: it stays rendered until it's tapped, and is rendered
+   again once the cursor is in another section, or it has been scrolled well away, and its typing is saved.
    Live editors come from editable-embed.ts (Obsidian internals); if that isn't available, or the binder is read only,
    every section is rendered and clicking one opens its note. */
 
 /** How long scrolling must pause before editors are mounted or unmounted, in ms. */
 const SETTLE = 120;
+
+/** How long after its width changed the page is left to settle before the cursor is brought back into sight, in ms. */
+const TURN = 400;
 
 /** A key as it was pressed, to be given to an editor a moment later. */
 interface StrayKey { key: string; code: string; ctrlKey: boolean; metaKey: boolean; altKey: boolean; shiftKey: boolean }
@@ -55,6 +61,11 @@ interface Scene {
 
 type Entry = Heading | Scene;
 
+/** A place in a section's plain text, kept while its editor is made: the block of the note it's in and the text
+    drawn before and after it there (the editor's caret goes to those words, wherever its lines break), and where its
+    line stood on screen (the page is put so the caret's line is there). */
+interface Spot { body: string; from: number; to: number; before: string; after: string; top: number | null; scrolled: number }
+
 class Manuscript implements BinderMode {
 	/** The page is the notes that pass the view's filter (all of them, without one). */
 	readonly filters = true;
@@ -76,6 +87,12 @@ class Manuscript implements BinderMode {
 	private settleTimer = 0;
 	private editable = false;
 	private liveMax = Platform.isMobile ? 6 : 10;
+	/** On a phone a section becomes its editor only when it's tapped (or the cursor is sent into it: a new note, a
+	    command, a key of a keyboard that's plugged in). Making an editor costs a frame or more of a phone's time, and
+	    swiping through a long manuscript made one after another for text that was only being read. The one section
+	    that stays an editor without the cursor is the one it was last in, while that's near the screen: the keyboard
+	    put away to read a little, a menu, a dialog, and it's as it was. */
+	private byTap = Platform.isPhone;
 	private raf = 0;
 	private dead = false;
 	private typed = new Map<TFile, string>();
@@ -94,6 +111,9 @@ class Manuscript implements BinderMode {
 	/** Where the page was last put while a section is held (by the hold itself, or by the anchoring): a scroll to
 	    anywhere else is the reader's, or the cursor's, and lets the section go. */
 	private pinTop = 0;
+	/** Where in its note's text (from, to; counted from where the text starts) each block of a section's plain text
+	    is from, when that could be told (see space). */
+	private spans = new WeakMap<Element, [number, number]>();
 
 	constructor(container: HTMLElement, private ctx: ModeContext) {
 		this.app = ctx.app;
@@ -368,6 +388,24 @@ class Manuscript implements BinderMode {
 
 	private leaveBehind(): void {
 		const doc = this.root.ownerDocument, active = doc.activeElement;
+		// The page made wider or narrower (a phone turned, a sidebar opened): every section above the cursor is now
+		// another height, and the cursor's own is somewhere else on the page without anyone having scrolled away from
+		// it. It isn't let go: once the page has settled, it's brought back into sight.
+		const width = this.root.clientWidth;
+		if (width !== this.width) {
+			const first = !this.width;
+			this.width = width;
+			if (!first && width) {
+				const win = this.root.win;
+				this.turned = performance.now();
+				win.clearTimeout(this.turnTimer);
+				this.turnTimer = win.setTimeout(() => {
+					const at = this.sceneOf(doc.activeElement), cm = at?.live?.cm;
+					if (!this.dead && at && cm?.hasFocus) this.showCaret(at, cm.coordsAtPos(cm.state.selection.main.head), 'start');
+				}, TURN);
+			}
+		}
+		if (performance.now() - this.turned < TURN) return;
 		if (this.left) {
 			// scrolled back to it, with nothing else in focus since: the cursor shows again
 			const s = this.byKey.get(this.left);
@@ -388,6 +426,11 @@ class Manuscript implements BinderMode {
 		try { active.blur(); } finally { this.leaving = false; }
 		this.left = s.file;
 	}
+
+	/** The page's width when it was last scrolled, and when it last changed (see leaveBehind). */
+	private width = 0;
+	private turned = -Infinity;
+	private turnTimer = 0;
 
 	/** The section whose editor let go of the focus when the page was scrolled far from it. */
 	private left: TFile | null = null;
@@ -647,9 +690,9 @@ class Manuscript implements BinderMode {
 		// editors are mounted and unmounted once scrolling pauses: each costs a frame or two
 		const still = performance.now() - this.scrolledAt;
 		if (still < SETTLE) { window.clearTimeout(this.settleTimer); this.settleTimer = window.setTimeout(() => this.schedule(), SETTLE - still); return; }
-		const want = new Set(near.filter((s) => !s.broken).slice(0, this.liveMax));
+		const want = new Set(this.byTap ? near.filter((s) => s.live && s.file === this.caret?.file) : near.filter((s) => !s.broken).slice(0, this.liveMax));
 		for (const s of this.scenes) if (s.live && !want.has(s) && !this.busy(s)) this.unmount(s);
-		if (this.scenes.some((s) => s.mounting !== null)) return;
+		if (this.byTap || this.scenes.some((s) => s.mounting !== null)) return;
 		const next = [...want].find((s) => !s.live);
 		if (next) void this.mount(next).then(() => this.schedule());
 	}
@@ -759,6 +802,8 @@ class Manuscript implements BinderMode {
 	private async focusScene(s: Scene, where: 'start' | 'end' | 'caret' | number | { x: number; y: number }, x?: number, show = true): Promise<void> {
 		// a section whose editor has gone (an Obsidian update changing how embeds behave) gets a new one
 		if (s.live && !s.live.cm && !s.live.editor) this.unmount(s);
+		// (a point on a section that's still plain text: which letter is there is read now, while it's drawn)
+		const spot = typeof where === 'object' && !s.live ? this.spot(s, where.x, where.y) : null;
 		const loaded = !!s.live?.cm, mine = ++this.asked;
 		this.requested = s;
 		await this.mount(s);
@@ -784,7 +829,7 @@ class Manuscript implements BinderMode {
 			if (show) { this.showCaret(s, cm.coordsAtPos(sel.head), 'start'); this.follow(s, cm, 'start'); }
 			return;
 		}
-		let pos = where === 'start' ? start : where === 'end' ? doc.length : typeof where === 'number' ? clamp(where) : clamp(cm.posAtCoords(where, false));
+		let pos = where === 'start' ? start : where === 'end' ? doc.length : typeof where === 'number' ? clamp(where) : clamp(this.spotted(spot, doc.sliceString(start), start) ?? cm.posAtCoords(where, false));
 		if (x != null && typeof where === 'string') {
 			const c = cm.coordsAtPos(pos);
 			const p = c && cm.posAtCoords({ x, y: (c.top + c.bottom) / 2 }, false);
@@ -795,11 +840,52 @@ class Manuscript implements BinderMode {
 		// either does nothing or keeps measuring)
 		cm.dispatch({ selection: { anchor: pos } });
 		this.caret = { file: s.file, pos: pos - start, anchor: pos - start };
+		// The line tapped stays under the finger: an editor isn't always as tall as the plain text it takes the place
+		// of (a code block, a table, a line that breaks at another word), and what was tapped would be somewhere else.
+		const c = spot?.top != null ? cm.coordsAtPos(pos) : null;
+		if (spot?.top != null && c) {
+			const d = Math.round(c.top - (spot.top - (this.root.scrollTop - spot.scrolled)));
+			if (Math.abs(d) > 1) { this.root.scrollTop += d; this.lastTop = this.pinTop = this.root.scrollTop; }
+		}
 		if (!show) return;
 		const fallback = where === 'end' ? 'end' : 'start';
 		this.showCaret(s, cm.coordsAtPos(pos), fallback);
 		// and once the editor has measured itself, exactly
 		this.follow(s, cm, fallback);
+	}
+
+	/** The letter at a point on a section's plain text: see Spot. Null if it can't be told (no text there, or the
+	    section's blocks couldn't be matched to its note): the caret then goes by the point itself. */
+	private spot(s: Scene, x: number, y: number): Spot | null {
+		const doc = this.root.ownerDocument, el = s.bodyEl.querySelector('.binders-manuscript-rendered');
+		if (!el || s.shown === null) return null;
+		// (the standard call, and the older one WebKit has)
+		const d = doc as unknown as { caretPositionFromPoint?(x: number, y: number): { offsetNode: Node; offset: number } | null; caretRangeFromPoint?(x: number, y: number): Range | null };
+		const at = typeof d.caretPositionFromPoint === 'function' ? d.caretPositionFromPoint(x, y) : null, r = !at && typeof d.caretRangeFromPoint === 'function' ? d.caretRangeFromPoint(x, y) : null;
+		const node = at?.offsetNode ?? r?.startContainer, offset = at?.offset ?? r?.startOffset;
+		if (!node || offset == null || !el.contains(node)) return null;
+		let kid: Node | null = node;
+		while (kid && kid.parentNode !== el) kid = kid.parentNode;
+		const span = kid?.instanceOf(Element) ? this.spans.get(kid) : undefined;
+		if (!kid || !span) return null;
+		try {
+			const range = doc.createRange();
+			range.selectNodeContents(kid);
+			const all = range.toString();
+			range.setEnd(node, offset);
+			const before = range.toString();
+			range.collapse(false);
+			const line = range.getClientRects()[0] ?? null;
+			return { body: s.shown, from: span[0], to: span[1], before, after: all.slice(before.length), top: line && line.height ? line.top : null, scrolled: this.root.scrollTop };
+		} catch { return null; }
+	}
+
+	/** Where a spot is in the editor's text (`body`: the note's text as the editor has it, which starts at `start`):
+	    null if the text isn't the one the spot was read on, or its words aren't found. */
+	private spotted(spot: Spot | null, body: string, start: number): number | null {
+		if (!spot || spot.body !== body) return null;
+		const off = sourceOffset(body.slice(spot.from, spot.to), spot.before, spot.after);
+		return off === null ? null : start + spot.from + off;
 	}
 
 	/** Spaces a rendered section as its editor will: every blank line of the note is a line there, so each block
@@ -813,8 +899,8 @@ class Manuscript implements BinderMode {
 		const kids = (Array.from(el.children) as HTMLElement[]).filter((c) => !c.matches('.footnotes'));
 		const lines = (t: string) => t.split('\n').length - 1;
 		const TAGS: Record<string, string> = { paragraph: 'p', heading: 'h1, h2, h3, h4, h5, h6', list: 'ul, ol', code: 'pre', table: 'table', blockquote: 'blockquote', callout: '.callout', thematicBreak: 'hr', math: '*' };
-		const gaps: number[] = [];
-		let at = bodyStart(raw), first = true, held = 0;
+		const gaps: number[] = [], spans: [number, number][] = [], start = bodyStart(raw);
+		let at = start, first = true, held = 0;
 		for (const sec of secs) {
 			const from = sec.position.start.offset, to = sec.position.end.offset, between = raw.slice(at, from);
 			if (from < at || to > raw.length || between.trim()) return;
@@ -826,12 +912,13 @@ class Manuscript implements BinderMode {
 				const kid = kids[gaps.length], tag = TAGS[sec.type];
 				if (!kid || !tag || !kid.matches(tag)) return;
 				gaps.push(held + blank);
+				spans.push([from - start, to - start]);
 				held = 0;
 			}
 			at = to; first = false;
 		}
 		if (gaps.length !== kids.length || raw.slice(at).trim()) return;
-		kids.forEach((k, i) => k.setCssProps({ '--binders-gap': String(gaps[i]) }));
+		kids.forEach((k, i) => { k.setCssProps({ '--binders-gap': String(gaps[i]) }); this.spans.set(k, spans[i]); });
 		el.setCssProps({ '--binders-tail': String(held + lines(raw.slice(at))) });
 		el.addClass('is-spaced');
 	}
@@ -950,9 +1037,10 @@ class Manuscript implements BinderMode {
 			if (pane || !this.editable) void this.ctx.openFile(s.file, pane); else this.rename(s);
 			return;
 		}
-		// A section that's still plain text (its editor comes when it's near the middle of the page, or tapped): what
-		// can be tapped in it works as it will once it's an editor. A link opens; a task's box turns the section into
-		// its editor and ticks the box there (ticked in the plain text, the note itself would stay as it was).
+		// A section that's still plain text (its editor comes when it's near the middle of the page, or tapped; on a
+		// phone, only when tapped): what can be tapped in it works as it will once it's an editor. A link opens; a
+		// task's box turns the section into its editor and ticks the box there (ticked in the plain text, the note
+		// itself would stay as it was).
 		if (s && !s.live && s.bodyEl.contains(target)) {
 			const link = target.closest<HTMLElement>('a.internal-link');
 			if (link) { evt.preventDefault(); void this.app.workspace.openLinkText(link.getAttr('data-href') ?? link.getAttr('href') ?? '', s.file.path, Keymap.isModEvent(evt)); return; }
@@ -1122,6 +1210,7 @@ class Manuscript implements BinderMode {
 		this.dead = true;
 		window.cancelAnimationFrame(this.raf);
 		window.clearTimeout(this.settleTimer);
+		this.root.win.clearTimeout(this.turnTimer);
 		this.io?.disconnect();
 		this.ro?.disconnect();
 		this.reportTyping();

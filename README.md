@@ -149,7 +149,8 @@ edit them.
   its card has: status, label, a new note after it, move up or down, delete, snapshots. A folder's heading opens that folder.
 
 Long binders stay quick: only the sections near the screen are live editors, and the rest show as rendered text until
-you scroll to them.
+you scroll to them. On a phone a section is rendered text until you tap it: the caret goes to the letter you tapped
+and the keyboard opens.
 
 ## Paragraphs
 
@@ -480,6 +481,10 @@ What a mouse and a keyboard do differently there:
 - **Targets:** in a pane narrower than 360 px the word count in the toolbar is its number alone (tap it to set the
   target); in an even narrower one it goes, and **Set word count target** in the command palette sets a target there.
 - **The file explorer:** on a phone a tap on a binder opens it, and a tap on a folder inside it folds or unfolds it.
+- **The manuscript on a phone:** a section is plain text to read and swipe through until you tap it. The tap puts
+  the caret on the letter under your finger and opens the keyboard, and the section is its editor for as long as you
+  are in it; tap another section and the first goes back to plain text once what you typed is saved. (On a tablet,
+  as on a computer, the sections near the screen are editors already.)
 - **Typing:** with the keyboard up and little room left (a phone on its side), the toolbar steps aside while you type
   and the manuscript runs under Obsidian's header, as a note does, so more lines are left to write in. Buttons, cards
   and rows are 44 px tall or more, and folders deep in a binder indent by a narrower step, so their names stay readable.
@@ -514,8 +519,7 @@ Binders is not at 1.0 yet. What isn't finished, honestly:
   Android device, so its keyboard handling, suspending and resuming, and Android's back button are unchecked.
 - **On a phone,** a tap in another section of the manuscript doesn't always move the caret when it was at the start of
   a wrapped line, and Obsidian's editor may log "Measure loop restarted" warnings as a phone is turned or as a narrow
-  pane is scrolled upwards (a warning only: nothing typed goes astray). Swiping fast through a manuscript of a
-  thousand short scenes hitches now and then, as each section turns into its editor.
+  pane is scrolled upwards (a warning only: nothing typed goes astray).
 - **In the manuscript** a section that isn't being edited is drawn as rendered text, and four kinds of content (a table
   wider than the page, indented code, and footnotes of both kinds) are taller or shorter there than in the editor, so
   the page can move when you click into such a section.
