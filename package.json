@@ -1,6 +1,6 @@
 {
   "name": "binders",
-  "version": "0.22.7",
+  "version": "0.22.8",
   "description": "Ordered folders for long-form writing in Obsidian: a binder in the file explorer, a corkboard, an outliner and an editable manuscript.",
   "main": "main.js",
   "type": "module",
@@ -56,6 +56,14 @@
     "url": "https://github.com/fyresmith/binders/issues"
   },
   "dependencies": {
+    "fflate": "^0.8.3",
+    "mdast-util-from-markdown": "^2.1.0",
+    "mdast-util-gfm-footnote": "^2.1.0",
+    "mdast-util-gfm-strikethrough": "^2.0.1",
+    "mdast-util-gfm-table": "^2.0.0",
+    "micromark-extension-gfm-footnote": "^2.1.0",
+    "micromark-extension-gfm-strikethrough": "^2.1.0",
+    "micromark-extension-gfm-table": "^2.1.2",
     "monkey-around": "^3.0.0"
   }
 }

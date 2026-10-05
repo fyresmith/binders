@@ -138,8 +138,9 @@ export const tidyTail = (tail: string, midLine = true): string => { const t = ta
 
 /** A fenced code block, from its opening fence to its closing one (or the end of the text). */
 const FENCED = /^[ \t]{0,3}(`{3,}|~{3,})[^\n]*\n[\s\S]*?(?:^[ \t]{0,3}\1[`~]*[ \t]*$|(?![\s\S]))/gm;
-/** Code, fenced or between backticks: where the marks of comments and links are just text. */
-const CODE = '^[ \\t]{0,3}(`{3,}|~{3,})[^\\n]*\\n[\\s\\S]*?(?:^[ \\t]{0,3}\\1[`~]*[ \\t]*$|(?![\\s\\S]))|(`+)(?!`)[^\\n]*?[^`\\n]\\2(?!`)';
+/** Code, fenced or between backticks: where the marks of comments and links are just text. (Two groups: the fence,
+    the backticks.) */
+export const CODE ='^[ \\t]{0,3}(`{3,}|~{3,})[^\\n]*\\n[\\s\\S]*?(?:^[ \\t]{0,3}\\1[`~]*[ \\t]*$|(?![\\s\\S]))|(`+)(?!`)[^\\n]*?[^`\\n]\\2(?!`)';
 
 /** Text without its comments (`%%…%%` and HTML ones), which Obsidian doesn't show when reading. Code is left alone:
     in a fenced block or between backticks those marks are the writer's text. */

@@ -1,7 +1,7 @@
 {
 	"id": "binders",
 	"name": "Binders",
-	"version": "0.22.7",
+	"version": "0.22.8",
 	"minAppVersion": "1.13.4",
 	"description": "Ordered folders for long-form writing: a binder in the file explorer, a corkboard, an outliner and an editable manuscript.",
 	"author": "Caleb Smith",
