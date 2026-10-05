@@ -76,6 +76,10 @@ function helpers(p) {
 		    notices and the saved mobile layout, and focus the main window. */
 		async reset() {
 			await p.focusMain();
+			// the window and its sidebars as a fresh Obsidian has them: a test that opened the right sidebar (or failed
+			// before it could give the window its size back) would narrow the pane of every test after it
+			await p.send('Emulation.setDeviceMetricsOverride', { width: p.width, height: p.height, deviceScaleFactor: 1, mobile: false });
+			await p.ev(`(() => { app.workspace.leftSplit.expand(); app.workspace.rightSplit.collapse(); return 1; })()`);
 			await p.ev(`(async () => {
 				document.querySelectorAll('.modal-close-button').forEach(b => b.click());
 				// the layout saved in mobile mode, so a test that switches to mobile starts from the same one every time

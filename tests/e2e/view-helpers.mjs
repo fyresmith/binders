@@ -107,3 +107,14 @@ export async function reload(p, mobile = null) {
 	await p.sleep(800);
 	p.errors.length = 0; // a reload logs Electron's own warnings again
 }
+
+/** Waits until what a selector matches has stopped moving and changing size (a layout settles after a resize, a
+    scroll or a redraw, later the busier the machine is). Returns its last rect, or null if it never settles in `ms`. */
+export async function settled(p, sel, { still = 300, ms = 6000 } = {}) {
+	let last = '', since = Date.now();
+	for (const t0 = Date.now(); Date.now() - t0 < ms; await p.sleep(50)) {
+		const r = await p.ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e) return null; const r = e.getBoundingClientRect(); return [r.left, r.top, r.width, r.height, innerWidth, innerHeight].map(Math.round).join(); })()`).catch(() => null);
+		if (r !== last) { last = r; since = Date.now(); } else if (r && Date.now() - since >= still) return r;
+	}
+	return null;
+}

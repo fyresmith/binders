@@ -638,6 +638,8 @@ test('Rename in a stack’s menu (or F2) renames the folder on its card; its fol
 	await until(p, `app.vault.adapter.exists('The Lighthouse/Book one/Book one.md')`, 4000);
 	t.ok(!(await exists(p, L + 'Part One')), 'the folder is renamed');
 	await until(p, `document.querySelector('${card(L + 'Book one')} .binders-card-title')?.textContent === 'Book one'`);
+	// the folder note is read again under its new name once Obsidian has indexed it: wait for that, as the card does
+	await until(p, `document.querySelector('${card(L + 'Book one')} .binders-card-synopsis')?.textContent === 'Arrivals.'`, 8000);
 	t.eq(await p.ev(`document.querySelector('${card(L + 'Book one')} .binders-card-synopsis')?.textContent`), 'Arrivals.', 'its synopsis comes along');
 	t.eq(await p.ev(`document.querySelector('${card(L + 'Book one')} .binders-card-words')?.textContent`), '3 notes · 51 words', 'and its notes');
 	t.eq(await folderShown(p), 'The Lighthouse', 'the view stays where it was');

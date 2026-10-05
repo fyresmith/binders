@@ -1,7 +1,7 @@
 // The binder view (src/view/BinderView.ts): opening it, its state, the breadcrumb, modes, word count, filter, the
 // folder's synopsis, read-only newer-format binders, and following renames. Every test that changes files checks no
 // text was lost.
-import { B, NOTE, PL, VIEW, card, cards, clickMenu, closeMenus, contents, exists, file, j, menuItems, openView, read, reload, same, selected, split, texts, until, viewState, withTidy, writeRaw } from './view-helpers.mjs';
+import { B, NOTE, PL, VIEW, card, cards, clickMenu, closeMenus, contents, exists, file, j, menuItems, openView, read, reload, same, selected, split, texts, settled, until, viewState, withTidy, writeRaw } from './view-helpers.mjs';
 
 export const specs = [];
 const test = (name, fn) => specs.push({ name: 'view: ' + name, fn });
@@ -481,6 +481,7 @@ test('a narrow pane: folder names win over the counts', withTidy(async (p, h, t)
 	for (const width of [700, 620]) {
 		await p.send('Emulation.setDeviceMetricsOverride', { width, height: 800, deviceScaleFactor: 1, mobile: false });
 		await p.sleep(400);
+		await settled(p, '.workspace-leaf.mod-active .binders-card.is-stack .binders-card-title');
 		const pane = await p.ev(`Math.round(document.querySelector('.workspace-leaf.mod-active .binders-view').getBoundingClientRect().width)`);
 		t.eq(await cut('.binders-crumb.is-current'), false, `the breadcrumb shows the whole name (pane ${pane}px)`);
 		t.eq(await cut('.binders-card.is-stack .binders-card-title'), false, `a folder’s stack shows the whole name (pane ${pane}px)`);
@@ -749,4 +750,31 @@ test('what is still in a field when Obsidian quits is written first: a card’s 
 	await p.key('Escape');
 	await p.ev(`app.fileManager.renameFile(${file(L + 'Before the light.md')}, ${j(L + 'Prologue.md')}).then(() => 1)`);
 	await p.sleep(400);
+}));
+
+// A pane squeezed to a few dozen pixels (a narrow window with both sidebars open) turns what is typed in a synopsis
+// into a jumble: each key lands at the start of the field, so the words come out backwards. Found when an earlier
+// test left the right sidebar open and a narrow-window test failed before it could give the window back.
+test('BUG: typing a synopsis in a pane about 56 px wide (a narrow window, both sidebars open) puts every key where the caret is, in the order typed', withTidy(async (p, h, t) => {
+	const L = 'The Lighthouse/';
+	try {
+		await p.send('Emulation.setDeviceMetricsOverride', { width: 700, height: 800, deviceScaleFactor: 1, mobile: false });
+		await p.ev(`(() => { app.workspace.rightSplit.expand(); return 1; })()`);
+		await p.sleep(500);
+		await openView(p);
+		await settled(p, '.workspace-leaf.mod-active .binders-view');
+		const pane = await p.ev(`Math.round(document.querySelector('.workspace-leaf.mod-active .binders-view').getBoundingClientRect().width)`);
+		t.ok(pane > 20 && pane < 120, 'a pane of a few dozen pixels: ' + pane);
+		const c = await p.at(card(L + 'Epilogue.md'));
+		await p.click(c.x, c.t + c.h - 12);
+		const s = await p.at(card(L + 'Epilogue.md') + ' .binders-card-synopsis');
+		await p.click(s.x, s.y);
+		await p.type(' Typed late.');
+		const value = await p.ev(`document.activeElement.value`);
+		t.ok(/Typed late\./.test(value ?? ''), `the keys come out in the order they were typed (pane ${pane}px): ${j(value)}`);
+		await p.key('Escape');
+	} finally {
+		await p.send('Emulation.setDeviceMetricsOverride', { width: p.width, height: p.height, deviceScaleFactor: 1, mobile: false });
+		await p.ev(`(() => { app.workspace.rightSplit.collapse(); return 1; })()`);
+	}
 }));

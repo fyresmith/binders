@@ -1809,10 +1809,11 @@ test('settings: Labels and Statuses lists: add, rename (offers to rename in note
 	t.eq(await p.ev(`${PL}.settings.statuses.length`), JSON.parse(wasS).length + 1, 'Add status adds one');
 	t.ok(await p.ev(`${TAB}.ownerDocument.activeElement?.tagName === 'INPUT'`), 'and its name is ready to type: ' + (await p.ev(`${TAB}.ownerDocument.activeElement?.tagName`)));
 	await p.ev(`[...${TAB}.querySelectorAll('[aria-label="Restore the default statuses"]')][0]?.click()`);
-	await until(p, `!!document.querySelector('.modal')`);
+	// (the settings are a modal too: wait for the one that asks, not for any)
+	t.ok(await until(p, `[...document.querySelectorAll('.modal .modal-title')].some(e => /Restore the default statuses/.test(e.textContent))`, 10000), 'Restore opens a dialog');
 	const d = await dialog(p);
-	t.eq(d.title, 'Restore the default statuses', 'Restore asks first');
-	t.eq(j(d.buttons.filter((x) => x)), j(['Restore', 'Cancel']), 'Restore, Cancel');
+	t.eq(d?.title, 'Restore the default statuses', 'Restore asks first');
+	t.eq(j(d?.buttons?.filter((x) => x)), j(['Restore', 'Cancel']), 'Restore, Cancel');
 	await answer(p, 'Cancel');
 	await p.sleep(400);
 	t.eq(await p.ev(`${PL}.settings.statuses.length`), JSON.parse(wasS).length + 1, 'Cancel keeps the list');

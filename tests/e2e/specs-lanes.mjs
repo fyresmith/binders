@@ -3,7 +3,7 @@
 // both at once, undone as one change; stacks, the filter, outside edits, the keyboard, a line's menu, Longform
 // projects, the notes in subfolders, right to left, reduced motion, a phone, and a board of a thousand cards.
 // Every test that changes files checks no text was lost.
-import { B, NOTE, PL, VIEW, card, cards, clickMenu, closeMenus, contents, file, flush, j, menuItems, openView, read, reload, same, split, texts, tidy, until, viewState, withTidy, writeRaw } from './view-helpers.mjs';
+import { B, NOTE, PL, VIEW, card, cards, clickMenu, closeMenus, contents, file, flush, j, menuItems, openView, read, reload, same, split, texts, tidy, settled, until, viewState, withTidy, writeRaw } from './view-helpers.mjs';
 
 export const specs = [];
 const test = (name, fn) => specs.push({ name: 'lanes: ' + name, fn });
@@ -22,6 +22,9 @@ async function openBy(p, folder = L + 'Part One', options = {}) {
 	await p.ev(`(async () => { const v = ${VIEW}; await v.leaf.setViewState({ type: 'binders-view', active: true, state: { ...v.getState(), mode: 'corkboard', options: { arrange: 'label', ...${j(options)} } } }); })().then(() => 1)`);
 	await until(p, `!!document.querySelector('${LEAF} .binders-lanes > .binders-lane')`);
 	await p.sleep(350);
+	// (the board scrolls and the lines take their places as the first layout is done; a drag measures them once)
+	await settled(p, `${LEAF} .binders-lanes`);
+	await settled(p, `${LEAF} .binders-lanes > .binders-lane[data-lane="1"]`);
 }
 const laneEl = (i) => `${LEAF} .binders-lanes > .binders-lane[data-lane="${i}"]`;
 const head = (i) => `${LEAF} .binders-lane-head[data-lane="${i}"]`;
@@ -36,6 +39,7 @@ const undo = (p, redo = false) => p.ev(`(() => { const c = app.commands.findComm
 const order = (p, folder = L + 'Part One') => p.ev(`${B}.orderedChildren(${file(folder)}).map(f => f.name)`);
 /** Takes a card by its middle and lets it go with its middle on a line (`to.lane`) and/or at `to.x`. */
 async function dragCard(p, path, to, { drop = true } = {}) {
+	await settled(p, card(path));
 	const from = await p.at(card(path)), ln = to.lane != null ? await p.at(laneEl(to.lane)) : null;
 	const x = to.x ?? from.x, y = ln ? ln.y : from.y;
 	await p.move(from.x, from.y, 2);
@@ -805,7 +809,9 @@ function runsToTheEdge(t, d, where) {
 		t.ok(d.lanes.every((l) => Math.abs(l.piece.length - (l.headEnd - l.capEnd)) <= 1 && l.piece.wide === 2 && l.piece.same && l.piece.off <= 0.5), `${where}: and draws the line from its cap to there, in the line’s color, at the line’s height (${j(d.lanes.map((l) => l.piece))})`);
 	} else t.ok(d.lanes.every((l) => Math.abs(l.capEnd - d.gutterEnd) <= 1), `${where}: each head ends where the line comes into sight (${j(d.lanes.map((l) => Math.round(l.capEnd)))} / ${Math.round(d.gutterEnd)})`);
 }
-const resize = async (p, width, height) => { await metrics(p, width, height, false); await p.sleep(450); };
+// (the pane has its new width, and the lines and cards their places in it, only once the layout has caught up: wait
+// for that, not for a time)
+const resize = async (p, width, height) => { await metrics(p, width, height, false); await p.sleep(450); await until(p, `innerWidth === ${width}`, 6000); await settled(p, `${LEAF} .binders-lanes`); };
 const options = async (p, o) => { await p.ev(`(async () => { const v = ${VIEW}; await v.leaf.setViewState({ type: 'binders-view', active: true, state: { ...v.getState(), options: ${j({ arrange: 'label', ...o })} } }); })().then(() => 1)`); await p.sleep(500); };
 
 test('lines across run the full length of the pane: at any width, after a resize, and to the end of a board that scrolls sideways', async (p, h, t) => {

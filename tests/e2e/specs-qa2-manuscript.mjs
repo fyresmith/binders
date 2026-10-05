@@ -3,7 +3,7 @@
 // Tests named “BUG: …” and “UX: …” fail on purpose until fixed; the rest record behaviour that is solid.
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
-import { VIEW, openView, withTidy } from './view-helpers.mjs';
+import { VIEW, settled, until, openView, withTidy } from './view-helpers.mjs';
 
 export const specs = [];
 const test = (name, fn) => specs.push({ name: 'qa2-manuscript: ' + name, fn: withTidy(fn) });
@@ -414,6 +414,7 @@ test('the section with the caret stays put when the window is resized, the line 
 	try {
 		await p.ev(`app.vault.setConfig('readableLineLength', false)`); await p.sleep(800);
 		t.eq(await place(), before, 'readable line length off');
+		await until(p, `${M}.page.getBoundingClientRect().width > 900`, 8000);
 		t.ok(await p.ev(`${M}.page.getBoundingClientRect().width > 900`), 'the page is as wide as the pane');
 		await p.ev(`app.vault.setConfig('readableLineLength', true)`); await p.sleep(800);
 		t.eq(await place(), before, 'and on again');

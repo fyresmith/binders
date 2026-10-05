@@ -1,7 +1,7 @@
 // QA round 2 on the corkboard (src/view/corkboard.ts, edit.ts, the toolbar in BinderView.ts): the rewritten drag (ghost,
 // slot, insertion line, glide), the toolbar, focus and keyboard, narrow panes, touch, and a big board. Tests named
 // "BUG:" fail on purpose: each is a confirmed bug (see the QA report); the rest passed and pin down what is solid.
-import { B, NOTE, PL, VIEW, card, cards, closeMenus, contents, exists, file, flush, j, openView, selected, texts, same, until, viewState, withTidy } from './view-helpers.mjs';
+import { B, NOTE, PL, VIEW, card, cards, closeMenus, contents, exists, file, flush, j, openView, selected, texts, same, settled, until, viewState, withTidy } from './view-helpers.mjs';
 
 export const specs = [];
 const test = (name, fn) => specs.push({ name: 'qa2 corkboard: ' + name, fn });
@@ -46,6 +46,8 @@ test('BUG: a card dropped on the “New note” tile, when the tile has wrapped 
 	await p.ev(`app.vault.create(${j(L + 'Part One/Fourth.md')}, 'four words are here').then(() => 1)`);
 	await p.sleep(700);
 	await openView(p, L + 'Part One');
+	// (the board lays its cards out once its pane has a width and its notes are counted: measure when it has stopped)
+	await settled(p, `${LEAF} .binders-card-new`);
 	const tile = await p.at(`${LEAF} .binders-card-new`), last = await at(p, 'Part One/Fourth.md'), e = await at(p, 'Part One/Arrival.md');
 	t.ok(tile.t > last.t + last.h - 1, `the tile is on a row of its own (${j(tile)} under ${j(last)})`);
 	await hold(p, { x: e.x, y: e.t + 12 }, { x: tile.x, y: tile.y });
@@ -94,6 +96,7 @@ test('BUG: an insertion line shows only where letting go moves the card (not jus
 	await openView(p, L + 'Big');
 	await until(p, `document.querySelectorAll('${LEAF} .binders-card[data-path]').length === 30`);
 	// (over the toolbar's word count: a folder in its breadcrumb is a place to drop, the rest of it isn't)
+	await settled(p, `${LEAF} .binders-word-count`);
 	const c = await p.at(card(L + 'Big/Scene 005.md')), bar = await p.at(`${LEAF} .binders-word-count`);
 	out.push(await tryAt('over the toolbar of a board that scrolls', { x: c.x, y: c.t + 12 }, bar.x, bar.y));
 	const lied = out.filter((o) => o.line !== o.moved);
@@ -154,7 +157,7 @@ test('BUG: Escape after a note made with Enter leaves the focus on the “New no
 	await p.click(tile.x, tile.y);
 	await until(p, `document.activeElement?.matches('${LEAF} .binders-card-new input')`);
 	await p.key('Escape');
-	await p.sleep(200);
+	await until(p, `document.activeElement?.matches('${LEAF} .binders-card-new')`);
 	t.ok(await p.ev(`document.activeElement?.matches('${LEAF} .binders-card-new')`), 'Escape on a fresh tile: the tile has the focus');
 	await p.click(tile.x, tile.y);
 	await until(p, `document.activeElement?.matches('${LEAF} .binders-card-new input')`);
@@ -188,6 +191,8 @@ test('BUG: the toolbar’s word count isn’t squeezed away by a long breadcrumb
 	await narrow(p, 1000, async () => {
 		await openView(p, deep);
 		await until(p, `/word/.test(document.querySelector('${LEAF} .binders-word-count')?.textContent ?? '')`);
+		await settled(p, `${LEAF} .binders-word-count`);
+		await settled(p, `${LEAF} .binders-crumb.is-current`);
 		const m = await p.ev(`(() => { const w = document.querySelector('${LEAF} .binders-word-count'), c = document.querySelector('${LEAF} .binders-crumb.is-current'); return { text: w.textContent, shown: w.clientWidth, needs: w.scrollWidth, crumb: c.textContent, crumbShown: c.clientWidth, crumbNeeds: c.scrollWidth }; })()`);
 		t.ok(m.crumbShown >= Math.min(m.crumbNeeds, 60), `the folder shown keeps (most of) its name in the breadcrumb: ${j(m)}`);
 		t.ok(m.shown >= m.needs - 1, `“${m.text}” is shown whole, though the pane is 956px wide: ${j(m)}`);
@@ -398,7 +403,11 @@ test('keyboard: Down and Up go between rows by position, Left and Right through 
 	await p.ev(`(async () => { for (const n of ['Fourth', 'Fifth', 'Sixth']) await ${B}.newScene(${file(L + 'Part One')}, Infinity, n); })().then(() => 1)`);
 	await p.sleep(600);
 	await openView(p, L + 'Part One');
-	const rows = await p.ev(`(() => { const out = []; for (const c of document.querySelectorAll('${LEAF} .binders-card[data-path]')) { const top = Math.round(c.getBoundingClientRect().top); (out.find(r => r.top === top) ?? out[out.push({ top, cards: [] }) - 1]).cards.push(c.dataset.path.replace(${j(L)}, '').replace('.md', '')); } return out.map(r => r.cards); })()`);
+	// (the cards find their rows once the pane has its width: wait for two rows, as a settled board has them)
+	const rowsExpr = `(() => { const out = []; for (const c of document.querySelectorAll('${LEAF} .binders-card[data-path]')) { const top = Math.round(c.getBoundingClientRect().top); (out.find(r => r.top === top) ?? out[out.push({ top, cards: [] }) - 1]).cards.push(c.dataset.path.replace(${j(L)}, '').replace('.md', '')); } return out.map(r => r.cards); })()`;
+	await settled(p, `${LEAF} .binders-card[data-path]`);
+	await until(p, `(() => { const r = ${rowsExpr}; return r.length === 2 && r[0].length > r[1].length; })()`, 6000);
+	const rows = await p.ev(rowsExpr);
 	t.ok(rows.length === 2 && rows[0].length > rows[1].length && rows[1].length >= 2, 'two rows, the second shorter: ' + j(rows));
 	const [r1, r2] = rows, all = [...r1, ...r2];
 	const a = await at(p, 'Part One/Arrival.md');

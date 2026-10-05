@@ -308,7 +308,25 @@ async function runPlan(p, plan, where, path) {
 	const E = where === 'ms' ? `${sc(path)}.live.editor` : `app.workspace.getActiveViewOfType(app.workspace.getMostRecentLeaf().view.constructor)?.editor ?? app.workspace.getMostRecentLeaf().view.editor`;
 	const focus = () => p.ev(`(() => { ${where === 'tab' ? `app.workspace.setActiveLeaf(window.__tabLeaf, { focus: true });` : ''} ${E.startsWith('app') ? `const E = window.__tabLeaf.view.editor;` : `const E = ${E};`} E.focus(); return 1; })()`);
 	const ed = where === 'ms' ? E : 'window.__tabLeaf.view.editor';
+	// What an outside write put in the note that its editor hasn't shown yet. A typing step measures where to put the
+	// caret from the text the editor has, so it must start from the text the file had when the step was planned: how
+	// soon an editor takes an outside write up depends on how busy the machine is, not on what the plan is about (the
+	// chaos tests below are the ones that type while a write is on its way). Waits are not failures: if what was
+	// written never shows, the plan goes on, and the end of the test says whether the texts agree.
+	const owed = [];
+	const caughtUp = async () => {
+		const t0 = Date.now();
+		for (let i = 0; i < 80 && owed.length; i++) {
+			const doc = await p.ev(`${ed}.getValue()`);
+			for (let k = owed.length - 1; k >= 0; k--) if (doc.includes(owed[k])) owed.splice(k, 1);
+			if (owed.length) await p.sleep(50);
+		}
+		if (process.env.QA6_TRACE && Date.now() - t0 > 100) console.log(`    ${where}: waited ${Date.now() - t0} ms for ${j(owed)}`);
+		if (owed.length) console.log(`    ${where}: an outside write never showed in the editor: ${j(owed)}`);
+		owed.length = 0;
+	};
 	for (const o of plan) {
+		if (o.op === 'type' || o.op === 'undo' || o.op === 'redo') await caughtUp();
 		await focus();
 		if (o.op === 'type') {
 			await p.ev(`(() => { const E = ${ed}, doc = E.getValue(), start = doc.indexOf('First'), at = start + Math.floor(${o.at} * (doc.length - start)); E.setCursor(E.offsetToPos(at)); return 1; })()`);
@@ -316,6 +334,7 @@ async function runPlan(p, plan, where, path) {
 		} else if (o.op === 'undo') await p.key('z', 'ctrl');
 		else if (o.op === 'redo') await p.key('z', 'ctrl', 'shift');
 		else {
+			const mark = { append: `External line ${o.n}.`, prepend: `Ext${o.n} First`, prop: `status: s${o.n}`, mid: `PARAGRAPH${o.n}`, api: `k${o.n}: v${o.n}` }[o.op];
 			await p.ev(`(async () => { const path = ${j(path)}; const cur = await app.vault.adapter.read(path); let next = cur;
 				if ('${o.op}' === 'append') next = cur + 'External line ${o.n}.\\n';
 				if ('${o.op}' === 'prepend') next = cur.replace('First', 'Ext${o.n} First');
@@ -323,6 +342,8 @@ async function runPlan(p, plan, where, path) {
 				if ('${o.op}' === 'mid') next = cur.replace('paragraph', 'PARAGRAPH${o.n}');
 				if ('${o.op}' === 'api') { await app.fileManager.processFrontMatter(app.vault.getAbstractFileByPath(path), (fm) => { fm['k${o.n}'] = 'v${o.n}'; }); return 1; }
 				await app.vault.adapter.write(path, next); return 1; })()`);
+			// (only what the file really has now: a replace that found nothing to replace wrote nothing new)
+			if (mark && (await raw(p, path)).includes(mark) && !(await p.ev(`${ed}.getValue()`)).includes(mark)) owed.push(mark);
 		}
 		await p.sleep(o.wait);
 	}

@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.154 (2026-10-05)
+
+### Fixed
+
+- Nothing a writer will notice: the tests put the window and the sidebars back before each test, and several measurements now wait for the layout to settle, so the suite no longer fails on a busy machine.
+
 ## 0.12.153 (2026-10-05)
 
 ### Fixed

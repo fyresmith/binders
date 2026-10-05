@@ -467,7 +467,7 @@ test('columns: every one from “+”, ticked in its menu; a property typed by n
 	await p.ev(`(() => { document.querySelector('${O}').scrollLeft = 0; return 1; })()`);
 	const e = await p.at(`${O} .binders-outliner-th[data-col="label"] .binders-outliner-resizer`);
 	await p.dbl(e.x, e.y);
-	await p.sleep(300);
+	await until(p, `Math.round(document.querySelector('${O} .binders-outliner-th[data-col="label"]')?.getBoundingClientRect().width) === 120`, 6000);
 	t.eq(Math.round((await thAt(p, 'label')).w), 120, 'a double click on the edge puts the width back');
 	t.eq(await p.ev(`document.querySelectorAll('.menu').length`), 0, 'and opens no menu');
 	// the rest of the columns, one by one (the "+" moves right as they're added)
@@ -592,6 +592,8 @@ test('a 500 px pane: the columns scroll sideways under the title, which stays; t
 		await p.send('Emulation.setDeviceMetricsOverride', { width: 500, height: 600, deviceScaleFactor: 1, mobile: false });
 		await open(p, 'The Lighthouse', { columns: [{ id: 'label' }, { id: 'status' }, { id: 'words' }, { id: 'target' }, { id: 'progress' }] });
 		const geo = () => p.ev(`(() => { const o = document.querySelector('${O}'), or = o.getBoundingClientRect(); const g = (s) => { const r = o.querySelector(s).getBoundingClientRect(); return [Math.round(r.left - or.left), Math.round(r.top - or.top), Math.round(r.width)]; }; return { pane: Math.round(or.width), wide: o.scrollWidth, left: o.scrollLeft, top: o.scrollTop, headTitle: g('.binders-outliner-th.mod-title'), headStatus: g('.binders-outliner-th[data-col="status"]'), title: g('.binders-outliner-row .mod-title'), status: g('.binders-outliner-row [data-col="status"]'), view: document.querySelector('.workspace-leaf.mod-active .binders-view').scrollWidth - document.querySelector('.workspace-leaf.mod-active .binders-view').clientWidth }; })()`);
+		// (the window is resized and the sidebar folded: the pane has its width once the layout has caught up)
+		await until(p, `(() => { const w = document.querySelector('${O}')?.getBoundingClientRect().width; return w >= 440 && w <= 500; })()`, 8000);
 		let g = await geo();
 		t.ok(g.pane >= 440 && g.pane <= 500, 'a narrow pane: ' + g.pane);
 		t.ok(g.wide > g.pane, 'the columns don’t fit, so the outliner scrolls sideways');
