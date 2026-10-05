@@ -713,7 +713,7 @@ class Manuscript implements BinderMode {
 			const el = createDiv({ cls: 'binders-manuscript-rendered markdown-rendered' });
 			el.toggleClass('has-last-line', /\n$/.test(body));
 			// (a text that opens with a rule: the renderer would take all down to the next rule for properties, and hide it)
-			await MarkdownRenderer.render(this.app, forRender(body), el, s.file.path, comp);
+			await MarkdownRenderer.render(this.app, forRender(this.ctx.plugin.paragraphs.forRender(body, s.file.path)), el, s.file.path, comp);
 			if (stale()) { this.comp.removeChild(comp); return; }
 			this.space(el, s.file, raw);
 			if (s.renderComp) this.comp.removeChild(s.renderComp);

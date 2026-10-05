@@ -403,6 +403,18 @@ const proseThere = (t, got, where) => {
 	t.ok(Math.abs(got.tabWidth - 24) < 1.5, `${where}: the indent is the paragraph indent (${got.tabWidth}px)`);
 };
 
+test('a manuscript section shown as text (a binder that can’t be edited) has its tab lines as paragraphs', async (p, h, t) => {
+	await body(p, A, RENDERED);
+	// (a binder of a newer format is read-only: its sections are rendered, not editors)
+	await p.ev(`app.vault.process(${file(L + 'The Lighthouse.md')}, (x) => x.replace('binder: 1', 'binder: 99')).then(() => 1)`);
+	await sleep(p, 600);
+	await openView(p, L + 'Part One');
+	await p.ev(`(() => { ${VIEW}.setMode('manuscript'); return 1; })()`);
+	await until(p, `[...document.querySelectorAll('.binders-manuscript-rendered')].some(e => e.textContent.includes('Rendered by Binders'))`, 8000);
+	proseThere(t, await shownAsProse(p, '.binders-manuscript-rendered'), 'the manuscript');
+	t.eq(await read(p, A), FRONT + RENDERED, 'the note on disk is as it was');
+});
+
 test('the snapshots dialog shows a note’s tab lines as paragraphs', async (p, h, t) => {
 	await body(p, A, RENDERED);
 	await open(p, A);
