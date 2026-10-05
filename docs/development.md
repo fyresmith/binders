@@ -179,6 +179,9 @@ npm run e2e:all -- --jobs 3 --hover --out /tmp/e2e   # a hovering mouse; logs so
   and "Passed alone (load)". Then only the first kind fails the run.
 - **Ctrl-C** stops every job; each closes its Obsidian and removes its throwaway folder (the driver does that for
   any runner that is interrupted or killed, `run.mjs` alone too), and the summary of what had run is printed.
+- **An Obsidian that ends under a test** (a crash, or the machine out of memory: with many running at once it
+  happens) fails that test with "Obsidian is gone", and `run.mjs` starts another for the tests that are left; the
+  log says "Obsidian ended: starting another". After four in a row it stops, and the job counts as stopped early.
 - **`--reap`**, for what Ctrl-C can't cover: a runner killed outright (`kill -9`, the machine out of memory) or
   started detached and forgotten leaves its Obsidians running. Every Obsidian the driver starts, its throwaway folder
   and the runner that started it are written down, a line each, in `started.jsonl` in the run's screenshots folder.
@@ -228,6 +231,33 @@ the Arch Linux package puts them: `/usr/lib/electron43/electron` and `/usr/lib/o
 (another distribution, macOS, Windows), set `OBSIDIAN_ELECTRON` to the Electron binary and `OBSIDIAN_ASAR` to the
 `app.asar` of your installation; only Linux has been tried. Without an Obsidian, `npm run check` and the unit tests
 are what you can run. Failure screenshots go to `test-dist/e2e-failures`.
+
+**Another Obsidian: the oldest one the manifest allows.** The same two variables point the tests at any build, so
+`minAppVersion` in `manifest.json` can be run and not only read. Each installer in Obsidian's releases
+(github.com/obsidianmd/obsidian-releases) carries its own Electron, and an AppImage unpacks without installing:
+
+```bash
+cd /tmp && curl -LO https://github.com/obsidianmd/obsidian-releases/releases/download/v1.8.7/Obsidian-1.8.7.AppImage
+chmod +x Obsidian-1.8.7.AppImage && ./Obsidian-1.8.7.AppImage --appimage-extract   # makes squashfs-root/
+OBSIDIAN_ELECTRON=/tmp/squashfs-root/obsidian OBSIDIAN_ASAR=/tmp/squashfs-root/resources/app.asar \
+  npm run e2e:all -- --jobs 3 --retry-alone --out /tmp/e2e-1.8.7
+```
+
+- Use the installer, not the `obsidian-x.y.z.asar.gz` beside it: that file is only the app's own code, and an old one
+  run in a newer Electron is a pairing nobody has. (Obsidian's shell also loads the newest `obsidian-*.asar` it finds
+  in its profile over the one it shipped with: the driver's profile is new for every launch, so what the installer
+  shipped is what runs.)
+- Every launch says what it is, as the page reports it: `Obsidian 1.8.7, Electron 33.3.2` is the first line of a
+  `run.mjs` log, and `e2e:all` puts it in its summary. Check that line before believing a run was of the old version.
+- The old build runs with a profile and a vault of its own like any other, and never sees the Obsidian installed on
+  the machine.
+- An old Obsidian doesn't close when asked (1.8.7, headless, ends its windows and stays): the driver ends what is
+  left two seconds later, so no launch leaves a process behind.
+- What has been run on 1.8.7 (2026-10-05, light): the smoke tests and the specs of the explorer, the manuscript, the
+  card file drag and focus mode, 118 tests, 109 passing. Not the whole suite. What failed there is in that day's
+  report; two of the nine use `app.keymap.getWindowStack`, which 1.8.7 doesn't have (the tests do, not the plugin).
+- When `minAppVersion` changes, change it in `manifest.json` only: `version-bump.mjs` writes it into `versions.json`
+  for the next version `ship` makes, and the versions already there keep the floor they were made with.
 
 The tests copy `test-vault` as it is on disk, so anything left there by hand comes along (and can fail tests that
 count notes): it is the tests' fixture, not a vault to try things in (that is `demo-vault`). To run against the

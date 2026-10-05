@@ -75,21 +75,25 @@ void (async () => {
 	const obsidian = spawn(process.execPath, [idle, `--user-data-dir=${join(work, 'profile')}`], { detached: true, stdio: 'ignore' });
 	const bystander = spawn(process.execPath, [idle], { detached: true, stdio: 'ignore' });
 	const run = spawn(process.execPath, [runner], { detached: true, stdio: 'ignore' });
+	// as `npm run e2e` starts one: by a path from the folder it is in, which is not how its row names it
+	const near = spawn(process.execPath, ['run.mjs'], { cwd: dir, detached: true, stdio: 'ignore' });
 	// (a child that has ended stays in the process table, as "Z", until its parent has looked: that is ended too)
 	const alive = (pid: number) => { try { return /^[^Z\s]/.test(execFileSync('ps', ['-p', String(pid), '-o', 'stat='], { encoding: 'utf8' }).trim()); } catch { return false; } };
 	try {
 		const row = (o: unknown) => appendFileSync(file, JSON.stringify(o) + '\n');
 		row({ runner: run.pid, script: runner });
 		row({ runner: run.pid, script: runner, pid: obsidian.pid, work });
+		row({ runner: near.pid, script: runner });
 		row({ runner: 4194000, script: '/nowhere/run.mjs', pid: 4194001, work: old }); // long gone, its folder left behind
 		row({ runner: bystander.pid, script: '/nowhere/run.mjs', pid: bystander.pid, work: other }); // ids that are something else now
 		row({ runner: process.pid, script: process.argv[1], pid: process.pid, work: other }); // the one that's asking
 		appendFileSync(file, 'half a li');
 		await new Promise((r) => setTimeout(r, 300));
-		ok(alive(obsidian.pid) && alive(run.pid) && alive(bystander.pid), 'all three are running');
+		ok(alive(obsidian.pid) && alive(run.pid) && alive(near.pid) && alive(bystander.pid), 'all four are running');
 		const r = await reap(file);
-		eq(j(r), j({ runners: 1, obsidians: 1, folders: 2 }), 'one runner, one Obsidian, and the folders of both rows that had one');
+		eq(j(r), j({ runners: 2, obsidians: 1, folders: 2 }), 'both runners, one Obsidian, and the folders of both rows that had one');
 		ok(!alive(run.pid), 'the runner is ended');
+		ok(!alive(near.pid), 'and the runner started by a path from its own folder');
 		ok(!alive(obsidian.pid), 'its Obsidian is ended');
 		ok(alive(bystander.pid), 'a process whose id is in the list but whose command line isn’t what was started is left alone');
 		ok(!existsSync(work) && !existsSync(old), 'the throwaway folders are removed, the one left by a run long gone too');
@@ -97,7 +101,7 @@ void (async () => {
 		ok(!existsSync(file), 'the list is removed');
 		eq(j(await reap(file)), j({ runners: 0, obsidians: 0, folders: 0 }), 'with no list there is nothing to do');
 	} finally {
-		for (const p of [obsidian, bystander, run]) { try { process.kill(p.pid as number, 'SIGKILL'); } catch { /* ended */ } }
+		for (const p of [obsidian, bystander, run, near]) { try { process.kill(p.pid as number, 'SIGKILL'); } catch { /* ended */ } }
 		rmSync(dir, { recursive: true, force: true }); rmSync(work, { recursive: true, force: true }); rmSync(old, { recursive: true, force: true });
 	}
 	done('run-all');

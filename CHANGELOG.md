@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.15.3 (2026-10-05)
+
+### Changed
+
+- Nothing changes in the plugin: the end-to-end tests can now be run on the oldest Obsidian Binders allows, and a run says which Obsidian it was.
+
 ## 0.15.2 (2026-10-05)
 
 ### Changed

@@ -1,9 +1,9 @@
 // Drives a real, headless Obsidian over the Chrome DevTools protocol.
 // Obsidian runs with its own throwaway profile and a throwaway copy of test-vault, so nothing real is touched.
 import { execFileSync, spawn } from 'child_process';
-import { appendFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import { appendFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readlinkSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
-import { basename, dirname, join } from 'path';
+import { basename, dirname, join, resolve } from 'path';
 
 const ELECTRON = process.env.OBSIDIAN_ELECTRON || '/usr/lib/electron43/electron';
 const ASAR = process.env.OBSIDIAN_ASAR || '/usr/lib/obsidian/app.asar';
@@ -18,16 +18,30 @@ function connect(url, onEvent) {
 		if (d.id && pending.has(d.id)) { pending.get(d.id)(d); pending.delete(d.id); }
 		else if (d.method) onEvent(d);
 	});
-	const send = (method, params = {}) => new Promise((r) => { const i = ++id; pending.set(i, r); ws.send(JSON.stringify({ id: i, method, params })); });
-	return new Promise((r, j) => { ws.addEventListener('open', () => r({ ws, send })); ws.addEventListener('error', j); });
+	// When Obsidian ends under a test (a crash, the machine out of memory), what was asked and what is asked next fail
+	// with a reason. Left waiting, Node would find nothing more to do and end the whole run without a word.
+	const state = { closed: false };
+	const gone = () => new Error('Obsidian is gone: the connection to it closed');
+	ws.addEventListener('close', () => { state.closed = true; for (const [, r] of pending) r({ gone: true }); pending.clear(); });
+	const send = (method, params = {}) => new Promise((r, j) => {
+		if (state.closed) return j(gone());
+		const i = ++id;
+		pending.set(i, (d) => (d.gone ? j(gone()) : r(d)));
+		ws.send(JSON.stringify({ id: i, method, params }));
+	});
+	return new Promise((r, j) => { ws.addEventListener('open', () => r({ ws, send, state })); ws.addEventListener('error', j); });
 }
 
 // Every Obsidian started here and its throwaway folder, so none is left running (or on disk) when the tests are stopped
 // part-way: Ctrl-C, a kill, or a crash of the runner. Each runs in a process group of its own, ended as one.
 const live = new Map();
+// Asked first, so Obsidian closes as it would for a user. An old one (1.8.7 does this, headless) ends its windows and
+// stays: what hasn't gone two seconds later is ended outright, or every launch would leave a process behind.
+const force = (pid) => { try { process.kill(-pid, 'SIGKILL'); } catch { /* gone */ } };
 const end = (proc, work) => {
 	live.delete(proc);
 	try { process.kill(-proc.pid, 'SIGTERM'); } catch { try { proc.kill(); } catch { /* gone */ } }
+	setTimeout(() => force(proc.pid), 2000).unref();
 	return () => rmSync(work, { recursive: true, force: true });
 };
 let guarded = false;
@@ -41,7 +55,7 @@ function guard() {
 		const gone = (pid) => { try { process.kill(-pid, 0); return false; } catch { return true; } };
 		const nap = new Int32Array(new SharedArrayBuffer(4));
 		for (let i = 0; i < 60 && !left.every((l) => gone(l.pid)); i++) Atomics.wait(nap, 0, 0, 50);
-		for (const l of left) { try { l.clear(); } catch { /* still closing: the folder stays in the temp directory */ } }
+		for (const l of left) { force(l.pid); try { l.clear(); } catch { /* still closing: the folder stays in the temp directory */ } }
 	});
 	for (const [signal, code] of [['SIGINT', 130], ['SIGTERM', 143], ['SIGHUP', 129]]) process.on(signal, () => process.exit(code));
 }
@@ -68,9 +82,15 @@ export async function reap(file = STARTED) {
 	const wait = async (left, ms) => { for (let t = 0; t < ms && left(); t += 100) await sleep(100); };
 	// the runners first (they'd start another Obsidian for their next theme), asked nicely so each closes its own
 	const runners = new Map(rows.filter((r) => r.runner && r.runner !== process.pid && r.script).map((r) => [r.runner, r.script]));
-	for (const [pid, script] of runners) if (args(pid).includes(script) && kill(pid, 'SIGTERM')) done.runners++;
-	await wait(() => [...runners].some(([pid, script]) => args(pid).includes(script)), 3500);
-	for (const [pid, script] of runners) if (args(pid).includes(script)) kill(pid, 'SIGKILL');
+	// (a row has the script's whole path; the command line has it as it was typed, `node tests/e2e/run.mjs`: read from
+	// the folder the process is in, where the system says which that is)
+	const runs = (pid, script) => {
+		if (args(pid).includes(script)) return true;
+		try { const cwd = readlinkSync(`/proc/${pid}/cwd`); return readFileSync(`/proc/${pid}/cmdline`, 'utf8').split('\0').some((a) => a && resolve(cwd, a) === script); } catch { return false; }
+	};
+	for (const [pid, script] of runners) if (runs(pid, script) && kill(pid, 'SIGTERM')) done.runners++;
+	await wait(() => [...runners].some(([pid, script]) => runs(pid, script)), 3500);
+	for (const [pid, script] of runners) if (runs(pid, script)) kill(pid, 'SIGKILL');
 	const mine = rows.filter((r) => r.pid && r.work && args(r.pid).includes(`--user-data-dir=${r.work}`));
 	for (const r of mine) if (kill(-r.pid, 'SIGTERM') || kill(r.pid, 'SIGTERM')) done.obsidians++;
 	const there = (r) => args(r.pid).includes(`--user-data-dir=${r.work}`);
@@ -123,7 +143,7 @@ export async function launch({ vault = VAULT, theme = 'light', width = 1440, hei
 		for (let i = 0; i < 60; i++) { await sleep(300); list = await targets(); page = list.find((t) => t.type === 'page' && !t.url.includes('starter')); if (page) break; }
 		st.ws.close();
 	}
-	const { ws, send: raw } = await connect(page.webSocketDebuggerUrl, (d) => {
+	const { ws, send: raw, state: link } = await connect(page.webSocketDebuggerUrl, (d) => {
 		if (d.method === 'Runtime.exceptionThrown') errors.push('exception: ' + (d.params.exceptionDetails.exception?.description || d.params.exceptionDetails.text));
 		if (d.method === 'Runtime.consoleAPICalled' && (d.params.type === 'error' || d.params.type === 'warning' || d.params.type === 'assert')) errors.push(`console.${d.params.type}: ` + d.params.args.map((a) => a.value ?? a.description).join(' '));
 	});
@@ -153,6 +173,9 @@ export async function launch({ vault = VAULT, theme = 'light', width = 1440, hei
 	};
 	for (let i = 0; i < 80 && !(await ev('!!(window.app && app.workspace && app.workspace.layoutReady)').catch(() => false)); i++) await sleep(250);
 	if (await ev('app.vault.adapter.basePath') !== vaultDir) { ws.close(); end(proc, work)(); throw new Error('Refusing to test a vault outside this session’s throwaway copy'); }
+	// which Obsidian this is, from what it tells the page: OBSIDIAN_ASAR can point at any build, and a run should say which
+	const ua = await ev('navigator.userAgent');
+	const running = { obsidian: /obsidian\/([\d.]+)/i.exec(ua)?.[1] ?? '?', electron: /Electron\/([\d.]+)/.exec(ua)?.[1] ?? '?' };
 	await ev(`(async () => { app.plugins.setEnable(true); await app.plugins.loadManifests(); await app.plugins.enablePluginAndSave('binders'); app.changeTheme(${JSON.stringify(theme === 'dark' ? 'obsidian' : 'moonstone')}); })().then(() => 1)`);
 	// a fresh vault with plugins asks whether to trust its author: say yes, then close anything left open
 	for (let i = 0; i < 20; i++) {
@@ -172,7 +195,9 @@ export async function launch({ vault = VAULT, theme = 'light', width = 1440, hei
 	let mx = width / 2, my = height / 2;
 	const mouse = (type, x, y, extra = {}) => send('Input.dispatchMouseEvent', { type, x, y, button: 'left', clickCount: 1, ...extra });
 	const o = {
-		ev, send, sleep, errors, width, height, vaultDir, focusMain,
+		ev, send, sleep, errors, width, height, vaultDir, focusMain, running,
+		/** True once the connection to Obsidian has closed (it crashed, or was ended from outside): launch another. */
+		get gone() { return link.closed; },
 		/** The pointer the page believes it has: 'mouse' (it hovers), 'touch' (touch emulation is on) or 'none'. */
 		pointer: () => ev(POINTS),
 		/** The text of the tooltip showing now, or null. */
@@ -214,7 +239,14 @@ export async function launch({ vault = VAULT, theme = 'light', width = 1440, hei
 		async shot(path) { const r = await send('Page.captureScreenshot', { format: 'png' }); writeFileSync(path, Buffer.from(r.result.data, 'base64')); },
 		/** Centre of the first element matching a selector, or null. */
 		async at(sel, i = 0) { return ev(`(() => { const e = document.querySelectorAll(${JSON.stringify(sel)})[${i}]; if (!e) return null; const r = e.getBoundingClientRect(); if (!r.width && !r.height) return null; return {x: r.x + r.width / 2, y: r.y + r.height / 2, l: r.left, t: r.top, w: r.width, h: r.height}; })()`); },
-		async close() { try { ws.close(); } catch { /* gone */ } const clear = end(proc, work); await sleep(300); clear(); },
+		async close() {
+			try { ws.close(); } catch { /* gone */ }
+			const clear = end(proc, work);
+			for (let i = 0; i < 20 && proc.exitCode === null && proc.signalCode === null; i++) await sleep(100);
+			force(proc.pid); // (and whatever of its group is left)
+			await sleep(200);
+			clear();
+		},
 	};
 	return o;
 }

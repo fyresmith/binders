@@ -35,10 +35,13 @@ const open = new Set(existsSync(OPEN) ? JSON.parse(readFileSync(OPEN, 'utf8')).m
 
 class Fail extends Error {}
 const results = [];
+let lost = 0;
 for (let round = 1; round <= repeat; round++) {
 	for (const theme of themes) {
-		const p = await launch({ theme, ...(process.argv.includes('--hover') ? { hover: true } : {}) });
-		const h = helpers(p);
+		const start = () => launch({ theme, ...(process.argv.includes('--hover') ? { hover: true } : {}) });
+		let p = await start(), h = helpers(p);
+		// (OBSIDIAN_ASAR can point at an older build: every log says which one ran)
+		console.log(`Obsidian ${p.running.obsidian}, Electron ${p.running.electron}${repeat > 1 ? ` [${theme} #${round}]` : themes.length > 1 ? ` [${theme}]` : ''}`);
 		for (const s of specs) {
 			if (grep && !grep.test(s.name)) continue;
 			const name = `${s.name} [${theme}${repeat > 1 ? ' #' + round : ''}]`;
@@ -61,6 +64,14 @@ for (let round = 1; round <= repeat; round++) {
 			const known = open.has(s.name);
 			results.push({ name, ok: !err, err, known, ms: Date.now() - t0 });
 			console.log(`${err ? (known ? '○' : '✗') : '✓'} ${name} ${err ? '\n    ' + err : ''} (${Date.now() - t0}ms)`);
+			// Obsidian ended under that test (a crash, or the machine out of memory): the test has failed, and the rest
+			// run in a new one. Four in a row, and it isn't going to start.
+			if (p.gone) {
+				await p.close().catch(() => {});
+				if (++lost > 3) { console.log('Obsidian ended four times: stopping.'); process.exit(1); }
+				console.log('Obsidian ended: starting another.');
+				p = await start(); h = helpers(p);
+			} else if (!err) lost = 0;
 		}
 		await p.close();
 	}

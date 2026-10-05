@@ -53,6 +53,8 @@ const open = new Set(existsSync(OPEN) ? JSON.parse(readFileSync(OPEN, 'utf8')).m
 
 const t0 = Date.now(), mins = () => Math.max(1, Math.round((Date.now() - t0) / 60000));
 const running = new Set(), results = [], ended = [], alone = [];
+// which Obsidian the jobs ran, as run.mjs says at each launch (OBSIDIAN_ASAR can point at an older build)
+const builds = new Set();
 let stopping = false;
 /** One run.mjs: its output goes to a log and is read for results as it comes. Resolves with how it ended. */
 function run(args, log, onResult) {
@@ -60,7 +62,7 @@ function run(args, log, onResult) {
 		const child = spawn(process.execPath, ['tests/e2e/run.mjs', ...args], { stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, BINDERS_E2E_STARTED: STARTED, ...(flag('hover') ? { BINDERS_HOVER: '1' } : {}) } });
 		const file = createWriteStream(log), read = parser(onResult);
 		running.add(child);
-		child.stdout.on('data', (d) => { file.write(d); read.push(d.toString()); });
+		child.stdout.on('data', (d) => { file.write(d); read.push(d.toString()); const m = /^Obsidian [\d.?]+, Electron [\d.?]+/m.exec(d.toString()); if (m) builds.add(m[0]); });
 		child.stderr.on('data', (d) => file.write(d));
 		child.on('close', (code, signal) => { running.delete(child); read.end(); file.end(); resolve({ code, signal, finished: read.finished() }); });
 	});
@@ -111,7 +113,7 @@ process.exit(report());
 function report() {
 	const passed = results.filter((r) => r.mark === '✓'), failed = results.filter((r) => r.mark === '✗'), still = results.filter((r) => r.mark === '○');
 	const fixed = passed.filter((r) => open.has(r.name)), early = ended.map((r, i) => (r && !r.finished ? i + 1 : 0)).filter(Boolean);
-	const lines = [`\n${passed.length} passed, ${failed.length} failed${still.length ? `, ${plural(still.length, 'open finding')} (${OPEN})` : ''}, in ${mins()} min over ${plural(bins.length, 'job')}`];
+	const lines = [`\n${passed.length} passed, ${failed.length} failed${still.length ? `, ${plural(still.length, 'open finding')} (${OPEN})` : ''}, in ${mins()} min over ${plural(bins.length, 'job')}${builds.size ? ` (${[...builds].join('; ')})` : ''}`];
 	if (results.length < total) lines.push(`${plural(total - results.length, 'test')} didn't run${stopping ? ': stopped' : early.length ? `: job ${early.join(', ')} stopped early (see ${early.length > 1 ? 'their logs' : 'its log'})` : ''}`);
 	const entry = (r, more = '') => `  ${r.title}\n      ${r.file ?? '?'}, job ${r.job}${more}\n      ${r.err}`;
 	if (alone.length) {
