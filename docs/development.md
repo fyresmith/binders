@@ -297,9 +297,11 @@ Every commit goes through `npm run ship`, which bumps the version and writes the
 Learned on 2026-10-02, when about a hundred patches shipped having run only the test written for each, and several
 broke older tests nobody had run:
 
-- **A fix runs its area's specs in both themes before it ships** (`npm run e2e -- --theme both --specs …`), not only
-  the test it added.
-- **The whole suite runs after each batch** of fixes: `npm run e2e:all -- --jobs 6 --theme both --retry-alone`.
+- **A fix runs the spec files that directly cover what it changed** (one or two, in both themes:
+  `npm run e2e -- --theme both --specs …`), not only the test it added, and not every file that might be affected:
+  on 2026-10-05 area runs of twenty-five files per agent took two hours each and ran the machine out of memory.
+- **The whole suite runs once, at the end of a session**, by one dedicated test runner with the machine to itself:
+  `npm run e2e:all -- --jobs 6 --theme both --retry-alone`. Agents building tickets don't run it.
 - **A failure on `main` is found with `git bisect run`, before anyone guesses** which change caused it.
 
 A script for `git bisect run` builds the commit, runs the one failing test and turns its summary into an exit status

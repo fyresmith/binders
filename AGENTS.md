@@ -48,7 +48,8 @@ npm run ship -- patch "Short title in sentence case" --fixed "What changed, for 
   (sections: `--added`, `--changed`, `--fixed`, `--removed`; repeat as needed), and commits what you staged.
 - Add attribution trailers with `--trailer "Co-Authored-By: …"` if your setup asks for them.
 - One logical change per commit. Don't mix a fix with a refactor.
-- Before shipping: `npm run check` (build, lint, unit tests) must pass, plus the e2e specs for the area you touched.
+- Before shipping: `npm run check` (build, lint, unit tests) must pass, plus the new tests and the one or two spec
+  files that directly cover what changed. Wider runs are the test runner's (see "Working as a team of agents").
 - Pushing and tagging: only when the maintainer asks. A tag `x.y.z` (no `v`) triggers the release workflow.
 
 ## CHANGELOG style
@@ -89,8 +90,15 @@ For larger pushes (a milestone, a QA round) the maintainer may run several agent
   `binders-designer`. Launch agents as one of those, with the ticket as the description ("Snapshots: build"), so the
   agent list says who is doing what. QA agents run on a smaller model (set in their role file); developers and
   designers on the coordinator's.
-- **Run the whole suite once, not once per agent.** An agent runs its own new specs and the specs for the area it
-  touched. The full e2e suite in both themes runs once, unattended, after the last merge of a push.
+- **Agents don't run regressions** (the maintainer's rule, 2026-10-05, after area runs of two hours each filled the
+  machine's memory and crashed every Obsidian on it). A developer or designer runs the new tests it wrote and the one
+  or two spec files that directly cover the code it changed (`--grep` to the tests that matter), then turns the work
+  in. No "every spec that might be affected", no whole-suite runs.
+- **One test runner, at the end of the session.** When the last ticket is merged, the coordinator launches one
+  `binders-qa` agent ("Suite: run") whose whole job is the full e2e suite in both themes on `main`
+  (`npm run e2e:all -- --jobs 6 --theme both --retry-alone`), with nothing else using the machine. It reports what
+  failed, sorted into regressions (with the commit, by `git bisect run`), tests that fail only under load, and the
+  open findings. Regressions go back to the agent that owns the area.
 
 ### Progress memos
 

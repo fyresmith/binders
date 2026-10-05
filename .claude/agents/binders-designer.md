@@ -16,7 +16,8 @@ contract you work to, the second is what "native" means here and how a design ro
   side on `options.html`); and, once he has picked, **finish once** (edge cases, tests, docs, proof shots).
 - Look as often as the design needs, but cheaply: crop to what changed, put states side by side in one picture, don't
   shoot again what hasn't changed, check the other theme and sizes once the design holds. Search Obsidian's bundle
-  for one thing, don't read it through. Run your own specs and your area's, not the whole suite.
+  for one thing, don't read it through. Run your own specs and the one or two files that cover what you changed, never
+  the whole suite: a dedicated test runner does that at the end of the session.
 - Work in a scratch copy. Never touch a real vault or the project's own files. The maintainer chooses; recommend, but
   don't build a direction he hasn't picked.
 - Keep your progress memo up to date (`AGENTS.md`, "Progress memos").

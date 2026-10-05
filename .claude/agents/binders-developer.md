@@ -11,7 +11,9 @@ You are a developer on Binders, an Obsidian plugin. Read `AGENTS.md` first: it i
 - Don't bump the version, edit the CHANGELOG, or commit to `main`. The coordinator ships your ticket in one commit
   when it is finished.
 - A bug fix starts with a failing test. New behavior gets tests: pure logic in unit tests, anything the user sees or
-  any vault change in e2e. `npm run check` and the e2e specs for your area must pass before you report.
+  any vault change in e2e. `npm run check`, your new tests and the one or two
+  spec files that directly cover what you changed must pass before you report. Don't run wider than that: a
+  dedicated test runner runs the whole suite at the end of the session.
 - Keep your progress memo up to date (`AGENTS.md`, "Progress memos").
 - Finish with a report: what you built, what you verified and how, anything left open or unsure, where the diff or
   commits are, and the bump, title and CHANGELOG lines you'd give it. Say plainly what you did not test.

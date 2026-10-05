@@ -24,8 +24,10 @@
   listed in `tests/e2e/open-findings.json` and don't count. `npm run demo-vault` makes a vault of extreme binders to
   try by hand; `test-vault` is the tests' fixture and is not for hand use.
 - **How fixes ship** (learned 2026-10-02, when about a hundred patches shipped on targeted tests alone and several
-  broke older tests): a fix runs its area's specs in both themes before it ships, and the whole suite runs after each
-  batch. A failure on `main` is found with `git bisect run` before anyone guesses.
+  broke older tests; narrowed 2026-10-05, when area runs of two hours per agent crashed the machine): an agent runs
+  its new tests and the one or two spec files that cover what it changed, and turns the work in; one dedicated test
+  runner runs the whole suite at the end of the session (AGENTS.md). A failure on `main` is found with
+  `git bisect run` before anyone guesses.
 - **Git:** remote `origin` is `github.com/fyresmith/binders`.
 
 ## Decisions already made (don't reopen without cause)
