@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.22.3 (2026-10-05)
+
+### Fixed
+
+- A manuscript in a window of its own keeps drawing sections and making editors while the main window is minimised, and the page no longer jumps when a section above the one you're reading grows.
+
 ## 0.22.2 (2026-10-05)
 
 ### Changed

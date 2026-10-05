@@ -94,6 +94,7 @@ class Manuscript implements BinderMode {
 	    put away to read a little, a menu, a dialog, and it's as it was. */
 	private byTap = Platform.isPhone;
 	private raf = 0;
+	private rafWin: Window | null = null;
 	private dead = false;
 	private typed = new Map<TFile, string>();
 	private typedTimer = 0;
@@ -129,49 +130,13 @@ class Manuscript implements BinderMode {
 		// (a read-only binder says so above, once)
 		if (!this.editable && !ctx.readOnly) this.notice('The manuscript can’t edit notes in this version of Obsidian, so it’s read only. Click a section to open its note.');
 		ctx.owner.addChild(this.comp);
-		this.io = new IntersectionObserver((changes) => {
-			for (const c of changes) { if (c.isIntersecting) this.near.add(c.target); else this.near.delete(c.target); }
-			this.schedule();
-		}, { root: this.root, rootMargin: '150% 0px' });
-		// Scroll anchoring, done here rather than by the browser (WebKit doesn't do it, and doing both overshoots): when a
-		// section that starts above the viewport changes height (rendered, mounted, measured by its editor, an image
-		// loaded), scroll by the same amount so what's on screen holds still. Not the one being typed in: there, text
-		// below the caret moves, as in any editor.
-		this.ro = new ResizeObserver((items) => {
-			// in a tab that isn't showing, everything measures nothing: not a change to follow (and what was measured
-			// before is what it will be again)
-			if (!this.root.offsetParent) return;
-			if (items.some((it) => it.target === this.root)) {
-				// showing again: back where it was (the browser drops a hidden scroller's position)
-				if (Math.abs(this.root.scrollTop - this.lastTop) > 1) this.root.scrollTop = this.lastTop;
-				items = items.filter((it) => it.target !== this.root);
-				if (!items.length) return;
-			}
-			const top = this.root.getBoundingClientRect().top, active = this.root.ownerDocument.activeElement;
-			// in page order, so each section's top before this batch is its top now less the changes above it
-			const changed = items.map((it) => ({ el: it.target as HTMLElement, r: it.target.getBoundingClientRect() })).sort((a, b) => a.r.top - b.r.top);
-			let d = 0, above = 0;
-			for (const { el, r } of changed) {
-				const old = this.heights.get(el);
-				this.heights.set(el, r.height);
-				if (old === undefined || !el.isConnected) continue;
-				// (back at a remembered place, it's the section that was at the top that holds still, whatever is drawn
-				// above it; otherwise, whatever starts above the window makes room without moving what's in it)
-				const pin = this.pin?.isConnected ? this.pin : null;
-				const over = pin ? el !== pin && !!(pin.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_PRECEDING) : r.top - above < top - 0.5;
-				if (over && !el.contains(active)) d += r.height - old;
-				above += r.height - old;
-			}
-			// scrollTop is whole pixels: carry the rest, or fractions add up to a drift
-			this.drift += d;
-			const step = Math.round(this.drift);
-			if (step) { this.root.scrollTop += step; this.drift -= step; this.pinTop = this.root.scrollTop; }
-		});
+		this.observe();
+		// (a tab moved to a window of its own, or back: the observers are that window's from then on)
+		this.comp.registerEvent(this.app.workspace.on('layout-change', () => this.observe()));
 		this.comp.register(() => this.teardown());
 
 		const c = this.comp, { vault, workspace } = this.app;
 		c.registerDomEvent(this.root, 'keydown', (e) => this.onKey(e), { capture: true });
-		this.ro.observe(this.root);
 		c.registerDomEvent(this.root, 'scroll', () => {
 			// (the page moved by anything but the hold: the scrollbar, a jump to another section, the cursor brought
 			// into sight. Held on, the section would drag the page back as the ones above it are drawn.)
@@ -249,6 +214,61 @@ class Manuscript implements BinderMode {
 		c.registerInterval(window.setInterval(() => this.schedule(), 2000));
 		this.sync();
 	}
+
+	/** Makes the two observers in the window the page is in, and gives them the page and every section. An observer
+	    made in one window is told nothing of elements in another, so they are made again when the page has been moved
+	    (a tab dragged out to a window of its own): the page would otherwise draw no section it's scrolled to, and move
+	    under the reader as sections above the window were drawn. (Not `watchSize` in windows.ts: that tells of one
+	    element's size and no more; here each section's own change is needed.) */
+	private observe(): void {
+		const win = this.root.win as Window & { IntersectionObserver: typeof IntersectionObserver; ResizeObserver: typeof ResizeObserver };
+		if (this.dead || win === this.observed) return;
+		this.observed = win;
+		this.io?.disconnect();
+		this.ro?.disconnect();
+		this.near.clear();
+		this.io = new win.IntersectionObserver((changes) => {
+			for (const c of changes) { if (c.isIntersecting) this.near.add(c.target); else this.near.delete(c.target); }
+			this.schedule();
+		}, { root: this.root, rootMargin: '150% 0px' });
+		// Scroll anchoring, done here rather than by the browser (WebKit doesn't do it, and doing both overshoots): when a
+		// section that starts above the viewport changes height (rendered, mounted, measured by its editor, an image
+		// loaded), scroll by the same amount so what's on screen holds still. Not the one being typed in: there, text
+		// below the caret moves, as in any editor.
+		this.ro = new win.ResizeObserver((items) => {
+			// in a tab that isn't showing, everything measures nothing: not a change to follow (and what was measured
+			// before is what it will be again)
+			if (!this.root.offsetParent) return;
+			if (items.some((it) => it.target === this.root)) {
+				// showing again: back where it was (the browser drops a hidden scroller's position)
+				if (Math.abs(this.root.scrollTop - this.lastTop) > 1) this.root.scrollTop = this.lastTop;
+				items = items.filter((it) => it.target !== this.root);
+				if (!items.length) return;
+			}
+			const top = this.root.getBoundingClientRect().top, active = this.root.ownerDocument.activeElement;
+			// in page order, so each section's top before this batch is its top now less the changes above it
+			const changed = items.map((it) => ({ el: it.target as HTMLElement, r: it.target.getBoundingClientRect() })).sort((a, b) => a.r.top - b.r.top);
+			let d = 0, above = 0;
+			for (const { el, r } of changed) {
+				const old = this.heights.get(el);
+				this.heights.set(el, r.height);
+				if (old === undefined || !el.isConnected) continue;
+				// (back at a remembered place, it's the section that was at the top that holds still, whatever is drawn
+				// above it; otherwise, whatever starts above the window makes room without moving what's in it)
+				const pin = this.pin?.isConnected ? this.pin : null;
+				const over = pin ? el !== pin && !!(pin.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_PRECEDING) : r.top - above < top - 0.5;
+				if (over && !el.contains(active)) d += r.height - old;
+				above += r.height - old;
+			}
+			// scrollTop is whole pixels: carry the rest, or fractions add up to a drift
+			this.drift += d;
+			const step = Math.round(this.drift);
+			if (step) { this.root.scrollTop += step; this.drift -= step; this.pinTop = this.root.scrollTop; }
+		});
+		this.ro.observe(this.root);
+		for (const x of this.scenes) { this.io.observe(x.el); this.ro.observe(x.el); }
+	}
+	private observed: Window | null = null;
 
 	refresh(): void {
 		if (this.dead) return;
@@ -671,8 +691,14 @@ class Manuscript implements BinderMode {
 	// ---- live editors and placeholders ----
 
 	private schedule(): void {
-		if (this.dead || this.raf) return;
-		this.raf = window.requestAnimationFrame(() => { this.raf = 0; this.pump(); });
+		// (a frame of the window the page is in: the main window draws none while it's minimised, and a manuscript in
+		// a window of its own would draw no section and make no editor until it was back. A frame asked of a window the
+		// page has since left may never come: it's given up.)
+		const win = this.root.win;
+		if (this.dead || (this.raf && win === this.rafWin)) return;
+		if (this.raf) this.rafWin?.cancelAnimationFrame(this.raf);
+		this.rafWin = win;
+		this.raf = win.requestAnimationFrame(() => { this.raf = 0; this.pump(); });
 	}
 
 	/** One step towards: rendered placeholders near the viewport, live editors on the closest few. Mounts one editor
@@ -1007,7 +1033,7 @@ class Manuscript implements BinderMode {
 	    view is short): the style sheet says so with the page's `scroll-padding-top`, the property browsers have for
 	    it. The cursor is kept below that. */
 	private covered(): number {
-		return parseFloat(getComputedStyle(this.root).scrollPaddingTop) || 0;
+		return parseFloat(this.root.win.getComputedStyle(this.root).scrollPaddingTop) || 0;
 	}
 
 	/** The section at a height on screen: the one there, or the nearest one. */
@@ -1258,8 +1284,9 @@ class Manuscript implements BinderMode {
 	private teardown(): void {
 		if (this.dead) return;
 		this.dead = true;
-		window.cancelAnimationFrame(this.raf);
+		this.rafWin?.cancelAnimationFrame(this.raf);
 		window.clearTimeout(this.settleTimer);
+		window.clearTimeout(this.pinTimer);
 		this.root.win.clearTimeout(this.turnTimer);
 		this.io?.disconnect();
 		this.ro?.disconnect();

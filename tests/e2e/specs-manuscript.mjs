@@ -1039,6 +1039,69 @@ test('300 scenes: a few live editors, smooth scrolling, typing far down saved, t
 	}
 });
 
+// A manuscript in a window of its own (a popout). What belongs to a window is that window's: the main one's frames stop
+// when it's minimised, and an observer made in it is told nothing of elements in another.
+test('in a window of its own, with the main window drawing no frames (as when it is minimised): sections scrolled to are drawn and become editors, what’s in sight holds still when a section above it grows, typing is saved', async (p, h, t) => {
+	const POP = `window.__pop.view.contentEl`, PM = `window.__pop.view.current`, N = (i) => `Pop/Scene ${String(i).padStart(2, '0')}.md`;
+	await p.ev(`(async () => {
+		await app.vault.createFolder('Pop');
+		const names = [];
+		for (let i = 1; i <= 14; i++) { const n = 'Scene ' + String(i).padStart(2, '0'); names.push(n); await app.vault.create('Pop/' + n + '.md', Array.from({ length: 6 }, (_, k) => 'Scene ' + i + ' paragraph ' + (k + 1) + '. The sea came up the rocks and the light turned over it, and the keeper wrote it down in the long book he kept by the window.').join('\\n\\n') + '\\n'); }
+		await app.vault.create('Pop/Pop.md', '---\\nbinder: 1\\ncontents:\\n' + names.map(c => '  - ' + c).join('\\n') + '\\n---\\n');
+		const pl = app.plugins.plugins.binders;
+		for (let i = 0; i < 100 && pl.binders.scenes(app.vault.getAbstractFileByPath('Pop'))?.length !== 14; i++) await new Promise(r => setTimeout(r, 100));
+		return 1; })()`);
+	const before = Object.fromEntries(Array.from({ length: 14 }, (_, i) => [N(i + 1), disk(p, N(i + 1))]));
+	try {
+		await p.ev(`(async () => { const leaf = app.workspace.openPopoutLeaf(); await leaf.setViewState({ type: 'binders-view', state: { folder: 'Pop', mode: 'manuscript' }, active: true }); window.__pop = leaf; return 1; })()`);
+		for (let i = 0; i < 60 && !(await p.ev(`!!${POP}.querySelector('.binders-manuscript-scene')`).catch(() => false)); i++) await p.sleep(100);
+		t.ok(await p.ev(`${POP}.win !== window && ${POP}.doc !== document`), 'the view is in a window of its own');
+		// (headless, a new window is a pixel wide: its size is set through Electron)
+		await p.ev(`(async () => { const w = ${POP}.win, r = window.require('@electron/remote'); const mine = w.electronWindow ?? r.BrowserWindow.getAllWindows().find(b => { try { return b.id !== r.getCurrentWindow().id && b.webContents.getURL() === w.location.href && b.getContentSize()[0] === w.innerWidth; } catch { return false; } }); mine.setContentSize(900, 700); for (let i = 0; i < 40 && (w.innerWidth !== 900 || w.innerHeight !== 700); i++) await new Promise(r => setTimeout(r, 50)); return 1; })()`);
+		await p.sleep(600);
+		const got = await p.ev(`(async () => {
+			const m = ${PM}, wait = (ms) => new Promise(r => setTimeout(r, ms)), raf = window.requestAnimationFrame, out = {};
+			window.requestAnimationFrame = () => 0;
+			try {
+				const s = m.scenes[8], above = m.scenes[7];
+				s.el.scrollIntoView({ block: 'start' });
+				for (let i = 0; i < 60 && !(s.live && above.live); i++) await wait(100);
+				out.drawn = s.shown !== null || !!s.live; out.live = !!s.live; out.near = m.near.has(s.el);
+			} finally { window.requestAnimationFrame = raf; }
+			// (with the main window's frames back: Obsidian itself tells of a changed note through them)
+			try {
+				const s = m.scenes[8], above = m.scenes[7];
+				// (the section above as plain text: an editor out of sight doesn't draw what it's given until it's looked at)
+				above.broken = true; if (above.live) m.unmount(above);
+				for (let i = 0; i < 60 && !(s.live && above.shown !== null); i++) await wait(100);
+				await wait(400);
+				// the section above the window grows (a sync's write): what's in sight holds still
+				const line = [...s.bodyEl.querySelectorAll('.cm-line, p')].find(e => e.textContent.length > 40);
+				if (!line) return out;
+				const y = line.getBoundingClientRect().top, h = above.el.getBoundingClientRect().height;
+				await app.vault.process(above.file, t => t + '\\n' + Array.from({ length: 8 }, (_, k) => 'Added paragraph ' + k + ', long enough to take a line or two of the page as the others do, and then some more.').join('\\n\\n') + '\\n');
+				for (let i = 0; i < 40 && above.el.getBoundingClientRect().height < h + 100; i++) await wait(100);
+				await wait(600);
+				const now = [...s.bodyEl.querySelectorAll('.cm-line, p')].find(e => e.textContent.slice(0, 30) === line.textContent.slice(0, 30));
+				out.grew = Math.round(above.el.getBoundingClientRect().height - h); out.moved = Math.round(now.getBoundingClientRect().top - y);
+				// typing there
+				if (!s.live) await m.mount(s);
+				const E = s.live.editor; E.focus(); E.setCursor(E.offsetToPos(E.getValue().length - 1)); E.replaceSelection(' POP');
+				await s.live.flush();
+			} catch (e) { out.error = String(e); }
+			return out; })()`);
+		t.eq(got.error, undefined, 'nothing went wrong on the way');
+		t.ok(got.near && got.drawn, 'a section scrolled to is drawn, though the main window draws nothing: ' + J(got));
+		t.ok(got.live, 'and becomes its editor');
+		t.ok(got.grew > 100, `the section above it grew (${got.grew} px)`);
+		t.ok(Math.abs(got.moved) <= 2, `and what was in sight is where it was (moved ${got.moved} px)`);
+		t.eq(disk(p, N(9)), before[N(9)].replace(/\.\n$/, '. POP\n'), 'typing there is saved');
+	} finally {
+		await p.ev(`(async () => { try { window.__pop?.detach(); } catch { /* gone */ } delete window.__pop; await new Promise(r => setTimeout(r, 300)); const f = app.vault.getAbstractFileByPath('Pop'); if (f) await app.vault.delete(f, true); return 1; })()`);
+		await p.focusMain();
+	}
+});
+
 // Mobile emulation reloads the app window. Keep this last; it restores desktop mode at the end.
 test('mobile: live editors, typing, toolbar commands, merge, save on close', async (p, h, t) => {
 	const reload = async (mobile) => {
