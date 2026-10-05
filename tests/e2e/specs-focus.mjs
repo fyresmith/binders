@@ -778,6 +778,62 @@ test('the day’s words: counted in and out of focus, kept on this device and ne
 	t.eq(await p.ev(`${F}.session.words('The Lighthouse')`), 2, 'a note renamed keeps the words written in it today');
 });
 
+// What tells a save of what was typed here from words that arrive from elsewhere: the texts the note's editor has held
+// (`hold` in focus.ts), compared with what lands on disk. Typed straight through Obsidian's own save (two seconds
+// after a key), the text saved is one the editor held in the middle of the typing.
+test('the day’s words: a save in the middle of typing is the writer’s own and changes nothing; words that arrive from another program aren’t written today; the same without the editor’s own document', async (p, h, t) => {
+	const words = () => p.ev(`${F}.session.words('The Lighthouse')`);
+	const kinds = () => p.ev(`JSON.stringify([...new Set((${F}.held.get(${j(KEEPER)}) ?? []).map(x => typeof x))])`);
+	/** Words typed one after another with no pause long enough for the count to wait on, for longer than Obsidian
+	    takes to save: true once the note on disk has some of them and not yet all. */
+	const through = async (list) => {
+		let mid = false;
+		for (const w of list) {
+			await press(p, ' ' + w);
+			await p.sleep(180);
+			const d = disk(p, KEEPER);
+			if (d.includes(list[0]) && !d.includes(list[list.length - 1])) mid = true;
+		}
+		return mid;
+	};
+	await openNote(p, KEEPER);
+	await caretEnd(p);
+	const first = ['alder', 'birch', 'cedar', 'dogwood', 'elm', 'fir', 'gorse', 'hazel', 'ivy', 'juniper', 'larch', 'maple', 'nettle', 'oak'];
+	t.ok(await through(first), 'Obsidian saved the note in the middle of the typing');
+	await p.sleep(2600);
+	t.ok(disk(p, KEEPER).includes('nettle oak'), 'and all of it once the typing stopped');
+	t.eq(await words(), first.length, 'the words typed are the day’s words: neither save was taken for words from elsewhere');
+	t.eq(await kinds(), j(['object']), 'what the editor held is kept as its documents, not read through at every key');
+	// from elsewhere: another program writes the note, with more words (and with the other kind of line ending)
+	for (const [more, crlf] of [[' Pine quince rowan.', false], [' Sorrel thistle.', true]]) {
+		const now = disk(p, KEEPER).replace(/\r/g, ''), next = (now.replace(/\s+$/, '') + more + '\n');
+		await p.ev(`app.vault.adapter.write(${j(KEEPER)}, ${j(crlf ? next.replace(/\n/g, '\r\n') : next)}).then(() => 1)`);
+		await p.sleep(900);
+		t.eq(await words(), first.length, `words written by another program${crlf ? ', with the other line ending,' : ''} aren’t counted as written today`);
+	}
+	t.ok(/Sorrel thistle\.\s*$/.test(await p.ev(`${ED}.getValue()`)), 'the editor shows what arrived');
+	// and typing carries on from there
+	await caretEnd(p);
+	await press(p, ' Upland violet.');
+	await p.sleep(2700);
+	t.ok(disk(p, KEEPER).includes('Sorrel thistle. Upland violet.'), 'what’s typed next is saved after it');
+	t.eq(await words(), first.length + 2, 'and counted');
+	// Without the editor's own document (an Obsidian whose `Editor` had no `cm`): a short fingerprint of each text
+	// instead, and the same answers. (Hidden only from the one look that asks for the document: the editor's own
+	// `getValue()`, which reads the text for the fingerprint, needs it, as Obsidian's editor does all the time.)
+	await p.ev(`(() => { const f = ${F}, e = ${ED}, real = e.cm, hold = f.hold; window.__hide = false; Object.defineProperty(e, 'cm', { get: () => { if (!window.__hide) return real; window.__hide = false; return undefined; }, configurable: true }); f.hold = function (...a) { window.__hide = true; try { return hold.apply(this, a); } finally { window.__hide = false; } }; window.__unhide = () => { delete e.cm; f.hold = hold; delete window.__hide; delete window.__unhide; }; f.held.delete(${j(KEEPER)}); return 1; })()`);
+	try {
+		const second = ['wren', 'yarrow', 'zinnia', 'aster', 'bramble', 'clover', 'dock', 'elder', 'fern', 'gentian', 'heather', 'iris', 'jasmine', 'kelp'];
+		t.ok(await through(second), 'without it: saved in the middle of the typing');
+		await p.sleep(2600);
+		t.ok(disk(p, KEEPER).includes('jasmine kelp'), 'and all of it afterwards');
+		t.eq(await kinds(), j(['number']), 'the texts held are kept as fingerprints');
+		t.eq(await words(), first.length + 2 + second.length, 'and the words typed are the day’s words, as before');
+	} finally {
+		await p.ev(`(() => { window.__unhide?.(); return 1; })()`);
+	}
+});
+
 // ---- fullscreen ----
 
 /* Headless Obsidian has no screen to fill and a script has no user gesture to ask with, so the window's own

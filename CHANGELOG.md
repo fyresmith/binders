@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.22.4 (2026-10-05)
+
+### Fixed
+
+- Typing in a very long note of a binder is lighter: counting the day's words no longer reads the whole note at every key.
+
 ## 0.22.3 (2026-10-05)
 
 ### Fixed

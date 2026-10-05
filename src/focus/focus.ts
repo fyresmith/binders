@@ -1,4 +1,4 @@
-import { Compartment, StateEffect } from '@codemirror/state';
+import { Compartment, StateEffect, type Text } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { Component, MarkdownRenderer, MarkdownView, Menu, Notice, Platform, Scope, TFile, debounce, setIcon, type Editor, type Events, type WorkspaceLeaf } from 'obsidian';
 import type { Binder } from '../binders';
@@ -12,7 +12,7 @@ import { ask } from '../view/modals';
 import { readTarget } from '../view/outliner-data';
 import { watchSize } from '../view/windows';
 import { WordCounter, countWords } from '../view/words';
-import { caretRect, editorView, noteColumn, tailRoom } from './dom';
+import { caretRect, editorDoc, editorView, noteColumn, tailRoom } from './dom';
 import { Session, atEnd, bodyStart, dayOf, excerpt, parseGoal } from './session';
 
 /* Focus mode: a quiet way to write a note of a binder, in a tab or in the manuscript. It is a state of the view that's
@@ -110,7 +110,7 @@ export class Focus {
 			// (a note of a binder not seen yet today is read now, at its first key, before the typing can be saved: what
 			// the vault has is what it's counted from)
 			if (!this.session.has(info.file.path) && this.isScene(info.file)) this.seen(info.file);
-			if (this.session.has(info.file.path) || this.isScene(info.file)) this.hold(info.file.path, editor.getValue());
+			if (this.session.has(info.file.path) || this.isScene(info.file)) this.hold(info.file.path, editor);
 			this.pending.set(info.file, editor);
 			if (!this.pendingTimer) this.pendingTimer = window.setTimeout(() => this.count(), 300);
 		}));
@@ -643,20 +643,37 @@ export class Focus {
 		}, () => { /* gone */ });
 	}
 
-	/** How many words each note counted today has on disk, and the last texts its editors here have held (as short
-	    fingerprints): what tells a save of what was typed here from words that arrived from elsewhere. */
+	/** How many words each note counted today has on disk, and the last texts its editors here have held: what tells
+	    a save of what was typed here from words that arrived from elsewhere. A text held is kept as the editor's own
+	    document (CodeMirror's, which never changes once made: keeping it is keeping a pointer), and read only when a
+	    note lands on disk, and then only if it's as long as what landed. Nothing is read at a key, so a key costs the
+	    same in a note of a hundred thousand words as in an empty one. (Without the editor's document, a short
+	    fingerprint of the text, taken at each key.) */
 	private onDisk = new Map<string, number>();
-	private held = new Map<string, number[]>();
+	private held = new Map<string, (Text | number)[]>();
 	/** Notes that have just gained words from elsewhere, and how many: a note deleted right after, with that many
 	    words, was merged into one of them. */
 	private gained: { path: string; left: number; at: number }[] = [];
 
-	private hold(path: string, text: string): void {
-		const list = this.held.get(path) ?? [], h = fingerprint(text);
+	private hold(path: string, editor: Editor): void {
+		const list = this.held.get(path) ?? [], h = editorDoc(editor) ?? fingerprint(editor.getValue());
 		if (list[list.length - 1] === h) return;
 		list.push(h);
 		if (list.length > 64) list.shift();
 		this.held.set(path, list);
+	}
+
+	/** Is this text (a note as it is on disk) one its editor here holds or held? Whatever its line breaks: an editor
+	    has one kind, a file may have the other. */
+	private wasHeld(path: string, text: string): boolean {
+		const list = this.held.get(path);
+		if (!list?.length) return false;
+		let plain: string | null = null, print: number | null = null;
+		return list.some((h) => {
+			if (typeof h === 'number') return h === (print ??= fingerprint(text));
+			plain ??= text.replace(/\r/g, '');
+			return h.length === plain.length && h.toString() === plain;
+		});
 	}
 
 	/** A counted note was written. If it's a text an editor here holds or held, it's a save of what was typed here,
@@ -669,7 +686,7 @@ export class Focus {
 		if (this.pendingTimer) { window.clearTimeout(this.pendingTimer); this.count(); }
 		const n = countWords(text), was = this.onDisk.get(file.path);
 		this.onDisk.set(file.path, n);
-		if (was === undefined || n === was || this.held.get(file.path)?.includes(fingerprint(text))) return;
+		if (was === undefined || n === was || this.wasHeld(file.path, text)) return;
 		this.session.shift(file.path, n - was, was);
 		if (n > was) { this.gained = this.gained.filter((g) => performance.now() - g.at < 5000); this.gained.push({ path: file.path, left: n - was, at: performance.now() }); }
 		this.keep();

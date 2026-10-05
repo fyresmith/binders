@@ -1,5 +1,6 @@
+import type { Text } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
-import { MarkdownView } from 'obsidian';
+import { MarkdownView, type Editor } from 'obsidian';
 
 /* Obsidian's own DOM and editor, as far as focus mode reaches into them: everything undocumented it relies on is here
    (and the class names of what it hides are in one block of styles.css). Each is looked for, and has a fallback when
@@ -9,6 +10,14 @@ import { MarkdownView } from 'obsidian';
 export function editorView(view: MarkdownView): EditorView | null {
 	const cm = (view.editor as unknown as { cm?: Partial<EditorView> } | undefined)?.cm;
 	return cm && typeof cm.dispatch === 'function' && !!cm.scrollDOM?.instanceOf?.(HTMLElement) && !!cm.state ? cm as EditorView : null;
+}
+
+/** The text an editor holds now, as CodeMirror keeps it (the `Editor`'s own `cm`, its state's `doc`): a value that
+    never changes once made, so keeping it costs nothing, however long the note, and it can be read later if it's
+    wanted. Null without it: then the text itself has to be read (`editor.getValue()`). */
+export function editorDoc(editor: Editor): Text | null {
+	const doc = (editor as unknown as { cm?: { state?: { doc?: Partial<Text> } } }).cm?.state?.doc;
+	return doc && typeof doc.length === 'number' && typeof doc.toString === 'function' && typeof doc.sliceString === 'function' ? doc as Text : null;
 }
 
 /** The column a note's text is set in, as its view shows it now (editing or reading). */
