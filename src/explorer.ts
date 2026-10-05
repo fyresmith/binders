@@ -91,7 +91,7 @@ function explorerViews(app: App): { views: ExplorerView[]; missing: boolean } {
 	const views: ExplorerView[] = [];
 	let missing = false;
 	for (const leaf of app.workspace.getLeavesOfType('file-explorer')) {
-		if ((leaf as { isDeferred?: boolean }).isDeferred) continue; // not loaded yet (Obsidian 1.7.2+)
+		if (leaf.isDeferred) continue; // not loaded yet
 		if (isExplorerView(leaf.view)) views.push(leaf.view); else missing = true;
 	}
 	return { views, missing };
