@@ -755,7 +755,7 @@ test('what is still in a field when Obsidian quits is written first: a card’s 
 // A pane squeezed to a few dozen pixels (a narrow window with both sidebars open) turns what is typed in a synopsis
 // into a jumble: each key lands at the start of the field, so the words come out backwards. Found when an earlier
 // test left the right sidebar open and a narrow-window test failed before it could give the window back.
-test('BUG: typing a synopsis in a pane about 56 px wide (a narrow window, both sidebars open) puts every key where the caret is, in the order typed', withTidy(async (p, h, t) => {
+test('typing a synopsis in a pane about 56 px wide (a narrow window, both sidebars open) puts every key where the caret is, in the order typed', withTidy(async (p, h, t) => {
 	const L = 'The Lighthouse/';
 	try {
 		await p.send('Emulation.setDeviceMetricsOverride', { width: 700, height: 800, deviceScaleFactor: 1, mobile: false });
@@ -772,7 +772,18 @@ test('BUG: typing a synopsis in a pane about 56 px wide (a narrow window, both s
 		await p.type(' Typed late.');
 		const value = await p.ev(`document.activeElement.value`);
 		t.ok(/Typed late\./.test(value ?? ''), `the keys come out in the order they were typed (pane ${pane}px): ${j(value)}`);
+		// (and a card's name, typed the same way)
 		await p.key('Escape');
+		await p.ev(`document.querySelector(${j(card(L + 'Epilogue.md'))}).focus()`);
+		await p.key('F2');
+		await p.sleep(200);
+		t.eq(await p.ev(`document.activeElement.tagName`), 'INPUT', 'F2 on the card: its name is being typed');
+		await p.key('ArrowRight');
+		await p.type(' two');
+		const name = await p.ev(`document.activeElement.value`);
+		await p.key('Escape');
+		t.eq(name, 'Epilogue two', 'a name too, in the order typed');
+		t.ok(await exists(p, L + 'Epilogue.md'), 'Escape: the note keeps its name');
 	} finally {
 		await p.send('Emulation.setDeviceMetricsOverride', { width: p.width, height: p.height, deviceScaleFactor: 1, mobile: false });
 		await p.ev(`(() => { app.workspace.rightSplit.collapse(); return 1; })()`);

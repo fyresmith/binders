@@ -1606,6 +1606,16 @@
 	box-shadow: 0 0 0 2px var(--background-modifier-error);
 }
 
+/* (What's being typed in never has no width at all, in a card a sliver of a pane has squeezed to nothing: in a field
+   with no room to show a letter, Chromium puts the caret back at the start after every key, and what's typed comes
+   out backwards. The text and its field keep a letter's width each, though they then stick out of the card.) */
+.binders-editable.is-editing,
+.binders-editable textarea.binders-edit-field,
+.binders-editable input.binders-edit-field,
+.binders-card-new input.binders-edit-field {
+	min-width: 1em;
+}
+
 /* The field sits exactly where the text was, so nothing jumps when editing starts. (Two classes and the element, to
    outrank Obsidian's own input styles, which would add a border and padding.) */
 .binders-editable textarea.binders-edit-field,

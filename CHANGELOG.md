@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.15.5 (2026-10-05)
+
+### Fixed
+
+- In a pane only a few dozen pixels wide, what you type into a card's synopsis or name now comes out in the order typed, not backwards.
+
 ## 0.15.4 (2026-10-05)
 
 ### Changed
