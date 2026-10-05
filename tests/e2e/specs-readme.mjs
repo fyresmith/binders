@@ -491,7 +491,7 @@ test('Splitting: Split scene at cursor moves the text from the cursor on into a 
 	t.ok(/Second part\./.test(n), 'the new note has the rest: ' + j(n));
 	t.eq((a + n).replace(/\s+/g, ' ').trim(), 'First part. Second part.', 'between them, every word');
 }));
-test('Known limitations: after Split scene at cursor, Undo in the note puts the second half back there and the new note still has it; Ungroup leaves the emptied folder behind', withTidy(async (p, h, t) => {
+test('Splitting: Undo in the note that was split takes the whole split back, the new note too; Ungroup takes the emptied folder away and Undo last move brings it back', withTidy(async (p, h, t) => {
 	const A = P1 + '/Arrival.md';
 	await p.ev(`(async () => { await app.vault.modify(${file(A)}, 'First part.\\n\\nSecond part.\\n'); })().then(() => 1)`);
 	await p.sleep(300);
@@ -501,11 +501,13 @@ test('Known limitations: after Split scene at cursor, Undo in the note puts the 
 	t.ok(!/Second part/.test(await read(p, A)), 'split');
 	await p.ev(`app.workspace.getLeavesOfType('markdown')[0].view.editor.focus()`);
 	await p.key('z', 'ctrl'); await p.sleep(800); await flush(p); await p.sleep(500);
-	t.ok(/Second part\./.test(await read(p, A)), 'Undo put the second half back in the note: ' + j(await read(p, A)));
-	t.ok(/Second part\./.test(await read(p, P1 + '/Arrival 2.md')), 'and the new note still has it');
+	t.ok(await until(p, `app.vault.adapter.read(${j(A)}).then(s => /Second part\\./.test(s))`, 5000), 'Undo put the second half back in the note: ' + j(await read(p, A)));
+	t.ok(await until(p, `app.vault.adapter.exists(${j(P1 + '/Arrival 2.md')}).then(x => !x)`, 5000), 'and the new note is gone (to the trash)');
 	await p.ev(`${B}.ungroup(${file(L + '/Part Two')}).then(() => 1)`);
 	await settle(p);
-	t.ok(await p.ev(`!!${file(L + '/Part Two')} && ${file(L + '/Part Two')}.children.length === 0`), 'Ungroup leaves Part Two behind, empty');
+	t.ok(await p.ev(`!${file(L + '/Part Two')} && !!${file(L + '/The wreck.md')}`), 'Ungroup takes the emptied Part Two away, its notes out');
+	await run(p, 'undo-move'); await settle(p);
+	t.ok(await until(p, `!!${file(L + '/Part Two/The wreck.md')} && !!${file(L + '/Part Two/Lights out.md')}`, 5000), 'and Undo last move brings the folder back with its notes');
 }));
 test('Outliner keyboard: Right goes on into a row’s cells, the arrows move from cell to cell, Enter opens the cell’s menu or field, Esc comes back', withTidy(async (p, h, t) => {
 	await openView(p);

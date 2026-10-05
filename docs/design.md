@@ -70,8 +70,10 @@ line would have pushed the names down under the pointer).
 - Counts (a card's words, a folder card's "3 notes · 51 words", the outliner's totals) are in the theme's muted text,
   as Obsidian's Bases cards are, not its faintest. The "New note" tile stays faint, like a placeholder.
 - In a light theme a selected card's ring is its label's color mixed 35% toward the text color, so pale labels show.
-- Still his to decide: whether "Ungroup" takes the emptied folder away; whether a folder copied by Obsidian has its
-  folder note renamed; the mode button as "Co…" or as its icon alone at 320 px; whether a manuscript section on a
+- Decided 2026-10-05, and built: "Ungroup" takes the emptied folder away, to the trash, and "Undo last move" brings
+  it back (a folder whose note has text of its own stays); a folder copied by Obsidian has its folder note renamed
+  to match, when the note is plainly the copied folder note; undo right after a split takes the whole split back.
+- Still his to decide: the mode button as "Co…" or as its icon alone at 320 px; whether a manuscript section on a
   phone becomes its editor only when tapped; whether a split lets the second half go when the text hasn't changed.
 
 ## How a design round runs: narrow, then build

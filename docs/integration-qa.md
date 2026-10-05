@@ -97,7 +97,9 @@ scenarios are `tests/e2e/specs-qa6-*.mjs`. Developers fixed them through the day
   split's undo; four kinds of content whose rendered and live heights differ; "Measure loop restarted" warnings from
   the editor in three places; a tap in another section with the caret at a wrapped line's start; the "New note" tile
   inside the list of cards; "Ungroup" leaving the emptied folder; comments in a properties block dropped by Obsidian's
-  own writer; fast swipes through a thousand scenes on a phone.
+  own writer; fast swipes through a thousand scenes on a phone. (Decided and fixed 2026-10-05: the split's undo,
+  which now takes the whole split back, and "Ungroup", which now takes the emptied folder to the trash and gives it
+  back on "Undo last move".)
 - **Not verified:** a full run of the suite in both themes on the last version of the day was started as the session
   ended; anything on a real phone or tablet (none is to hand: the emulated tests are the standard); the lowest
   supported Obsidian (1.8.7) has never been run. A release audit and a gallery of fifty screenshots are in

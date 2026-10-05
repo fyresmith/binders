@@ -509,7 +509,7 @@ test('undo: a folder made around notes is taken away again, and made again by re
 	t.ok(await undo(p, 800), 'undo again'); t.eq(await ord(p), o0, 'back');
 	await p.ev(`${B}.ungroup(${file(`${L}/Part Two`)}).then(() => 1)`);
 	const o2 = await ord(p);
-	t.eq(o2, 'Prologue.md | Part One | Part One/Arrival.md | Part One/The keeper.md | Part One/Storm warning.md | Part Two | The wreck.md | Lights out.md | Epilogue.md', 'ungrouped: its notes follow it');
+	t.eq(o2, 'Prologue.md | Part One | Part One/Arrival.md | Part One/The keeper.md | Part One/Storm warning.md | The wreck.md | Lights out.md | Epilogue.md', 'ungrouped: its notes stand where it stood, and the emptied folder is gone');
 	t.ok(await undo(p, 800), 'undo'); t.eq(await ord(p), o0, 'they are back in it');
 	t.ok(await redo(p, 800), 'redo'); t.eq(await ord(p), o2, 'and out again');
 	same(t, await notices(p).then((n) => n.filter((x) => /^(Undid|Redid)/.test(x)).slice(-2)), ['Undid: ungroup “Part Two”', 'Redid: ungroup “Part Two”'], 'each says what it did');

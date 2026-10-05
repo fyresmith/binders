@@ -861,7 +861,7 @@ test('phone, a folder’s menu: Rename takes its notes along, Compile... opens t
 		await menuTap(p, 'Ungroup');
 		await p.sleep(1200);
 		await flush(p);
-		c.eq(j((await contents(p)).slice(5)), j(['Part Two/', 'The wreck', 'Lights out', 'Epilogue']), 'Ungroup moves its notes out, after it, in order');
+		c.eq(j((await contents(p)).slice(5)), j(['The wreck', 'Lights out', 'Epilogue']), 'Ungroup moves its notes out, where it stood, in order, and the emptied folder goes');
 		c.ok(await fileExists(p, L + 'The wreck.md'), 'the notes are moved');
 		await shot(p, 'menu-folder-ungrouped');
 		await p.ev(`app.commands.executeCommandById('binders:undo-move')`);

@@ -165,11 +165,14 @@ export class MoveHistory {
 					if (!home) throw new Error(`“${gone.name}” can’t be brought back: the folder it was in is gone.`);
 					const there = vault.getAbstractFileByPath(normalizePath(`${home.path}/${gone.name}`));
 					if (there && !(there instanceof TFolder)) throw new Error(`“${gone.name}” can’t be brought back: “${home.name}” has a file with that name now.`);
-					// (a folder with its name is there already, made by hand since: that's where its items go back to)
-					if (there instanceof TFolder) { for (const x of u.items) if (x.before.parent === gone.folder) x.before = { ...x.before, parent: there, path: there.path }; gone.folder = there; }
+					// (a folder with its name there already, made by hand since, is where its items go back to: nothing is
+					// remembered of that until everything can go back, so an undo refused here and asked again still has the
+					// folder to bring back, with its note)
 					for (const x of here) {
 						if (x.before.parent !== gone.folder) continue;
 						if (x.file instanceof TFile && x.file.extension === 'md' && x.file.basename === gone.name) throw new Error(`“${name(x.file)}” can’t go back into “${gone.name}”: it would become the folder’s note. Rename it first.`);
+						const taken = there instanceof TFolder && x.file.parent !== there ? vault.getAbstractFileByPath(normalizePath(`${there.path}/${x.file.name}`)) : null;
+						if (taken && taken !== x.file) throw new Error(`“${name(x.file)}” can’t go back: “${gone.name}” has another “${name(x.file)}” now.`);
 					}
 				}
 				// a folder the change made, taken away by undoing it, is made again to redo it
@@ -182,8 +185,8 @@ export class MoveHistory {
 				}
 				// everything can go back, or nothing does
 				for (const x of here) {
-					// (what goes back into a folder that's about to be made again has nothing there in its way)
-					if (gone && place(x).parent === gone.folder && vault.getAbstractFileByPath(gone.folder.path) !== gone.folder) continue;
+					// (what goes back into the folder that's about to be brought back was looked at above)
+					if (gone && place(x).parent === gone.folder) continue;
 					const parent = this.folderOf(place(x));
 					if (!parent) throw new Error(`“${name(x.file)}” can’t go back: its folder is gone.`);
 					if (x.file.parent === parent) continue;

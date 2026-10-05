@@ -1203,3 +1203,30 @@ test('“Undo last move” after Ungroup refuses in words when the folder can’
 	t.eq(await listIs(p, LIST), j(LIST), 'and the order');
 	same(t, before, await texts(p), { skip: [NOTE] });
 }));
+
+test('“Undo last move” after Ungroup, with a folder of that name made by hand since: refused while a note in it is in the way, and asked again it puts the notes back in that folder and gives it the folder note that went to the trash', withTidy(async (p, h, t) => {
+	await forget(p);
+	await p.ev(`app.vault.create(${j(P2NOTE)}, ${j(FOLDER_NOTE)}).then(() => 1)`);
+	await p.sleep(400);
+	const before = await texts(p);
+	await p.ev(`${B}.ungroup(${file(L + 'Part Two')}).then(() => 1)`);
+	t.ok(await gone(p, L + 'Part Two'), 'ungrouped: the folder is gone');
+	// a folder of the same name, made by hand, with a note that is in the way of one coming back
+	await p.ev(`(async () => { await app.vault.createFolder(${j(L + 'Part Two')}); await app.vault.create(${j(P2 + 'The wreck.md')}, 'Another wreck.'); })().then(() => 1)`);
+	await p.sleep(500);
+	await undoMove(p);
+	await p.sleep(600);
+	t.ok(/“The wreck” can’t go back: “Part Two” has another “The wreck” now/.test(await notices(p)), 'undo says what is in the way: ' + await notices(p));
+	t.ok(await exists(p, L + 'Lights out.md') && !(await exists(p, P2NOTE)), 'and moves nothing, and writes nothing');
+	t.eq(await read(p, P2 + 'The wreck.md'), 'Another wreck.', 'the note in the way untouched');
+	await p.ev(`app.vault.delete(${file(P2 + 'The wreck.md')}).then(() => 1)`);
+	await p.sleep(500);
+	await undoMove(p);
+	t.ok(await back(p, P2 + 'Lights out.md'), 'asked again with the way clear: the notes are back in the folder');
+	t.ok(await back(p, P2NOTE), 'and the folder has its folder note again');
+	t.eq(await read(p, P2NOTE), FOLDER_NOTE, 'byte for byte the one that went to the trash');
+	// (the folder made by hand stays where it was made, last: what was added since an undo stays as it is)
+	const HAND = [...LIST.slice(0, 5), 'Epilogue', ...LIST.slice(5, 8)];
+	t.eq(await listIs(p, HAND), j(HAND), 'its notes are in it in their order, the folder where it was made');
+	same(t, before, await texts(p), { skip: [NOTE] });
+}));

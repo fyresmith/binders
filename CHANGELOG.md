@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.15.8 (2026-10-05)
+
+### Fixed
+
+- Undo last move after Ungroup, refused once because a folder of the same name had a note in the way, now brings the folder's synopsis, label and target back when asked again.
+
 ## 0.15.7 (2026-10-05)
 
 ### Fixed
