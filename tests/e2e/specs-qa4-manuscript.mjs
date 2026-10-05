@@ -4,7 +4,7 @@
 // (Earlier rounds: specs-manuscript.mjs, specs-qa-manuscript.mjs, specs-qa2-manuscript.mjs. Nothing here repeats them.)
 import { readFileSync, existsSync, readdirSync, statSync } from 'fs';
 import { join, relative } from 'path';
-import { VIEW, answer, clickMenu, closeMenus, hoverMenu, menuItems, openView, reload, withTidy } from './view-helpers.mjs';
+import { VIEW, answer, clickMenu, closeMenus, hoverMenu, menuItems, openView, reload, until, withTidy } from './view-helpers.mjs';
 
 export const specs = [];
 /** Every test tidies up after itself: menus and dialogs closed, the folders it made deleted. */
@@ -716,6 +716,14 @@ const KINDS = {
 	'math, inline': mid('Inline $e^{i\\pi} + 1 = 0$ math in a line.'),
 	'footnotes': 'A claim.[^1] Another.[^note]\n\nMore text.\n\n[^1]: The first footnote.\n[^note]: The second footnote, with more words.\n',
 	'footnote, inline': mid('A sentence with an inline footnote.^[The inline note.]'),
+	'footnote, then blank lines and text': 'P.[^a]\n\n[^a]: def\n\n\nNext para.\n',
+	'footnote, then blank lines at the end': 'P.[^a]\n\n[^a]: def\n\n\n',
+	'footnote with a line run on': 'P.[^a]\n\n[^a]: def\nlazy line\n\nNext.\n',
+	'footnote first': '[^a]: def first\n\nP.[^a]\n',
+	'footnote last, no final line break': 'P.[^a]\n\n[^a]: def',
+	'footnotes among a list and a heading': 'P.[^a]\n\n[^a]: def\n\n- item\n- two\n\n[^b]: other\n\n\n\n## Head\n',
+	'footnotes of every sort': 'One.[^a]\n\n[^a]: Defined in the middle,\n    with a second line.\n\nTwo.[^b] And an inline one.^[Inline here.]\n\n[^b]: Last.\n\n[^unused]: Never referred to.\n',
+	'footnote long enough to wrap': `Text.[^long]\n\n[^long]: ${para} ${para}\n`,
 	'h1 then text': `# Heading one\nText right after the heading.\n\n${para}\n`,
 	'h2 then text': `## Heading two\nText right after the heading.\n\n${para}\n`,
 	'h3 then text': `### Heading three\nText right after the heading.\n\n${para}\n`,
@@ -789,6 +797,32 @@ async function measureKinds(p, t) {
 	heights = Object.fromEntries(names.map((n, i) => [n, { live: live[i][1], rendered: rendered[i][1], jump: Math.round((rendered[i][1] - live[i][1]) * 10) / 10 }]));
 	return heights;
 }
+
+test('footnotes in a section that is plain text are drawn as its editor draws them: each footnote’s text where the note has it, a mark as “[^a]”, one written in the line in full, no list at the foot; a click on a footnote’s word puts the caret on it, the section is as tall as before, and what’s typed is in the note', async (p, h, t) => {
+	const NOTE = 'One.[^a] Two.^[said aside]\n\nMore text here.\n\n[^a]: The first footnote.\n';
+	// (the caret goes to the first section as the manuscript opens: the footnotes are in the second)
+	await odd(p, { '00 First': 'The first section.\n', '01 Notes': NOTE }, false);
+	await openView(p, 'Odd');
+	// (no section becomes its editor by being near: only by the click below)
+	await p.ev(`(() => { ${VIEW}.setMode('manuscript'); const m = ${M}; m.liveMax = 0; return 1; })()`);
+	const S = `${M}.scenes[1]`;
+	t.ok(await until(p, `${S}?.shown != null && !!${S}.bodyEl.querySelector('.binders-manuscript-rendered.is-spaced')`, 6000), 'the section is drawn, spaced from the note');
+	const drawn = await p.ev(`(() => { const el = ${S}.bodyEl; return { list: el.querySelectorAll('.footnotes').length, notes: [...el.querySelectorAll('.binders-manuscript-footnote')].map(e => e.textContent), marks: [...el.querySelectorAll('sup.footnote-ref')].map(e => e.textContent), order: [...el.querySelector('.binders-manuscript-rendered').children].map(e => e.tagName + (e.className ? '.' + e.className : '')).join(' '), back: el.textContent.includes('↩'), h: el.getBoundingClientRect().height, live: !!${S}.live }; })()`);
+	t.eq(J([drawn.live, drawn.list, drawn.back]), J([false, 0, false]), 'plain text, with no list of footnotes at its foot');
+	t.eq(J(drawn.notes), J(['a The first footnote.']), 'the footnote’s text, under its name');
+	t.eq(drawn.order, 'P P DIV.binders-manuscript-footnote', 'where the note has it');
+	t.eq(J(drawn.marks), J(['[^a]', '^[said aside]']), 'the marks in the text, as the editor writes them');
+	const at = await p.ev(`(() => { const w = document.createTreeWalker(${S}.bodyEl.querySelector('.binders-manuscript-footnote'), NodeFilter.SHOW_TEXT); let n; while ((n = w.nextNode())) { const i = n.data.indexOf('first'); if (i < 0) continue; const r = document.createRange(); r.setStart(n, i); r.setEnd(n, i + 1); const b = r.getClientRects()[0]; return { x: b.left + 1, y: (b.top + b.bottom) / 2 }; } return null; })()`);
+	await p.click(at.x, at.y);
+	t.ok(await until(p, `!!${S}.live?.cm?.hasFocus`, 5000), 'a click on the footnote makes the section its editor');
+	await p.sleep(300);
+	const c = await p.ev(`(() => { const cm = ${S}.live.cm, h = cm.state.selection.main.head; return { after: cm.state.doc.sliceString(h, h + 5), h: ${S}.bodyEl.getBoundingClientRect().height }; })()`);
+	t.eq(c.after, 'first', 'with the caret on the word clicked');
+	t.ok(Math.abs(c.h - drawn.h) <= 1, `and the section is as tall as it was (${drawn.h} px, then ${c.h})`);
+	await p.type('X');
+	await p.ev(`${S}.live.flush().then(() => 1)`);
+	t.eq(disk(p, 'Odd/01 Notes.md'), NOTE.replace('first', 'Xfirst'), 'what’s typed is in the note, and nothing else changed');
+});
 
 test('rendered text is as tall as its editor (nothing moves when a section turns live) for 36 kinds of Markdown: lists, quotes, callouts, tables, rules, long and right-to-left paragraphs…', async (p, h, t) => {
 	const hs = await measureKinds(p, t);

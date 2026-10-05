@@ -1006,6 +1006,43 @@
 	margin-block: calc(var(--binders-gap, 1) * var(--binders-line)) 0;
 }
 
+/* Footnotes as the editor draws them (see space() in manuscript.ts): a mark in the text is small and sits high on its
+   line without making the line taller; a footnote's own text is in small lines where the note has it, its name
+   smaller still, and wraps as an editor's line does (the space at a line's end stays on that line). */
+.binders-manuscript-rendered.is-spaced .footnote-ref:not(.markdown-embed *) {
+	position: relative;
+	top: -0.2em;
+	font-size: var(--font-smallest);
+	vertical-align: text-top;
+	color: var(--text-muted);
+}
+
+.binders-manuscript-rendered.is-spaced .footnote-ref.is-inline:not(.markdown-embed *) {
+	color: inherit;
+}
+
+.binders-manuscript-footnote-bracket {
+	color: var(--text-faint);
+}
+
+.binders-manuscript-footnote {
+	font-size: var(--footnote-size);
+	white-space: break-spaces;
+	overflow-wrap: anywhere;
+}
+
+.binders-manuscript-footnote > .is-text {
+	font-size: var(--font-text-size);
+}
+
+.binders-manuscript-footnote-label {
+	display: inline-block;
+	position: relative;
+	top: -0.3em;
+	font-size: var(--font-smallest);
+	color: var(--text-muted);
+}
+
 /* (the room the editor gives a table's handles, and the line a rule stands in the middle of) */
 .binders-manuscript .binders-manuscript-rendered.is-spaced.is-spaced > table {
 	margin-block: calc(var(--binders-gap, 1) * var(--binders-line) + var(--size-4-4)) var(--size-4-4);

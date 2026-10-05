@@ -150,7 +150,9 @@ edit them.
 
 Long binders stay quick: only the sections near the screen are live editors, and the rest show as rendered text until
 you scroll to them. On a phone a section is rendered text until you tap it: the caret goes to the letter you tapped
-and the keyboard opens.
+and the keyboard opens. Rendered text stands as its editor will, line for line, so the page doesn't move when you
+click into a section; footnotes are shown there as the editor shows them (each one's text where you wrote it, small,
+and `[^1]` in the line), not as a list at the foot.
 
 ## Paragraphs
 
@@ -517,9 +519,6 @@ Binders is not at 1.0 yet. What isn't finished, honestly:
 - **Phones and tablets are emulated only.** The behavior has been checked at phone and tablet sizes, upright and on
   their sides, with touch, in Obsidian's emulation on a desktop. It has not been tried on a real iPhone, iPad or
   Android device, so its keyboard handling, suspending and resuming, and Android's back button are unchecked.
-- **In the manuscript** a section that isn't being edited is drawn as rendered text, and four kinds of content (a table
-  wider than the page, indented code, and footnotes of both kinds) are taller or shorter there than in the editor, so
-  the page can move when you click into such a section.
 - **After Split scene at cursor,** Undo in the note you split takes the split back only while Obsidian stays open
   and Binders stays on: after a restart, or once the note's own undo history is gone, the split is two notes like any
   others. If the note changes in the moment it is being split, both notes keep the text and a notice says so.

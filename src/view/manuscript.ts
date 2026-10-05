@@ -892,34 +892,84 @@ class Manuscript implements BinderMode {
 	    stands as many lines below the one before as the note has between them (and a comment, which the editor shows
 	    and this doesn't, takes its lines). Where the note's blocks are comes from Obsidian's index of it; if that
 	    doesn't fit what was rendered (the index is behind, or a plugin drew a block its own way), the spacing is left
-	    to the style sheet: a blank line between blocks. */
+	    to the style sheet: a blank line between blocks.
+
+	    Footnotes are drawn as the editor draws them, not as reading view does (a numbered list under a rule at the
+	    foot of the note, which the editor doesn't have: the section stood three or four lines taller as plain text).
+	    A footnote's text stands where the note has it, in the editor's small lines; a mark in the text reads `[^1]`,
+	    and a footnote written in the line itself, `^[so]`, is there in full. */
 	private space(el: HTMLElement, file: TFile, raw: string): void {
-		const secs = this.app.metadataCache.getFileCache(file)?.sections?.filter((x) => x.type !== 'yaml');
+		const cache = this.app.metadataCache.getFileCache(file), secs = cache?.sections?.filter((x) => x.type !== 'yaml');
 		if (!secs) return;
 		const kids = (Array.from(el.children) as HTMLElement[]).filter((c) => !c.matches('.footnotes'));
 		const lines = (t: string) => t.split('\n').length - 1;
 		const TAGS: Record<string, string> = { paragraph: 'p', heading: 'h1, h2, h3, h4, h5, h6', list: 'ul, ol', code: 'pre', table: 'table', blockquote: 'blockquote', callout: '.callout', thematicBreak: 'hr', math: '*' };
-		const gaps: number[] = [], spans: [number, number][] = [], start = bodyStart(raw);
-		let at = start, first = true, held = 0;
+		// what the section will be made of, in the note's order: a block that was rendered, or a footnote's text (`note`)
+		interface Step { kid: HTMLElement | null; note: string; gap: number; span: [number, number]; trail: number }
+		const steps: Step[] = [], start = bodyStart(raw);
+		// A line of a footnote is small in the editor: its first, and any that's indented or empty. (One that isn't,
+		// run on from the line before, is a line of text.) The blank lines after a small one are small too.
+		const small = (line: string, i: number) => i === 0 || !line.trim() || /^\s/.test(line);
+		const smallEnd = (x: Step | undefined) => { const l = x && !x.kid ? x.note.split('\n') : null; return !!l && small(l[l.length - 1], l.length - 1); };
+		let at = start, first = true, held = 0, drawn = 0;
 		for (const sec of secs) {
 			const from = sec.position.start.offset, to = sec.position.end.offset, between = raw.slice(at, from);
+			// (the list of footnotes reading view adds is in the index too, with no text of the note's)
+			if (to <= from && !between.trim()) continue;
 			if (from < at || to > raw.length || between.trim()) return;
 			// (after a block, the first line break only ends its last line)
-			const blank = first ? lines(between) : Math.max(0, lines(between) - 1);
-			const src = raw.slice(from, to), hidden = sec.type === 'comment' || sec.type === 'footnoteDefinition' || (sec.type === 'html' && /^<!--[\s\S]*-->$/.test(src.trim()));
+			let blank = first ? lines(between) : Math.max(0, lines(between) - 1);
+			const src = raw.slice(from, to), hidden = sec.type === 'comment' || (sec.type === 'html' && /^<!--[\s\S]*-->$/.test(src.trim()));
 			if (hidden) held += blank + lines(src) + 1;
 			else {
-				const kid = kids[gaps.length], tag = TAGS[sec.type];
-				if (!kid || !tag || !kid.matches(tag)) return;
-				gaps.push(held + blank);
-				spans.push([from - start, to - start]);
+				const last = steps[steps.length - 1];
+				if (!held && smallEnd(last)) { last.trail += blank; blank = 0; }
+				if (sec.type === 'footnoteDefinition') steps.push({ kid: null, note: src, gap: held + blank, span: [from - start, to - start], trail: 0 });
+				else {
+					const kid = kids[drawn++], tag = TAGS[sec.type];
+					if (!kid || !tag || !kid.matches(tag)) return;
+					steps.push({ kid, note: '', gap: held + blank, span: [from - start, to - start], trail: 0 });
+				}
 				held = 0;
 			}
 			at = to; first = false;
 		}
-		if (gaps.length !== kids.length || raw.slice(at).trim()) return;
-		kids.forEach((k, i) => { k.setCssProps({ '--binders-gap': String(gaps[i]) }); this.spans.set(k, spans[i]); });
-		el.setCssProps({ '--binders-tail': String(held + lines(raw.slice(at))) });
+		if (drawn !== kids.length || raw.slice(at).trim()) return;
+		// the note's blank last lines: after a footnote, all but the very last are small
+		let tail = held + lines(raw.slice(at));
+		const end = steps[steps.length - 1];
+		if (!held && tail > 1 && smallEnd(end)) { end.trail += tail - 1; tail = 1; }
+		el.querySelector(':scope > .footnotes')?.remove();
+		for (const x of steps) {
+			if (x.kid) continue;
+			const box = x.kid = createDiv({ cls: 'binders-manuscript-footnote' });
+			x.note.split('\n').forEach((line, i) => {
+				const row = box.createDiv({ cls: small(line, i) ? '' : 'is-text' }), m = i === 0 ? /^\[\^([^\]\n]+)\]:(.*)$/.exec(line) : null;
+				if (m) { row.createSpan({ cls: 'binders-manuscript-footnote-label', text: m[1] }); row.appendText(m[2]); }
+				else if (line) row.setText(line);
+				else row.createEl('br');
+			});
+			for (let i = 0; i < x.trail; i++) box.createDiv().createEl('br');
+		}
+		// (each where the note has it: before the block that comes after it)
+		for (let i = steps.length - 1; i >= 0; i--) { const x = steps[i].kid, next = steps[i + 1]?.kid ?? null; if (x && x.parentElement !== el) el.insertBefore(x, next); }
+		for (const x of steps) if (x.kid) { x.kid.setCssProps({ '--binders-gap': String(x.gap) }); this.spans.set(x.kid, x.span); }
+		// the marks in the text, as the editor writes them
+		const inline = new Map((cache?.footnotes ?? []).map((f) => [f.id, raw.slice(f.position.start.offset, f.position.end.offset)]));
+		for (const mark of Array.from(el.querySelectorAll<HTMLElement>('sup.footnote-ref'))) {
+			if (mark.closest('.markdown-embed')) continue;
+			const id = mark.querySelector<HTMLElement>('[data-footref]')?.dataset.footref;
+			if (id == null) continue;
+			const own = id.startsWith('[inline'), text = own ? inline.get(id) : id;
+			if (text == null) continue;
+			// (the brackets faint, as the editor has them; a footnote written in the line is in the text's own color)
+			mark.empty();
+			mark.toggleClass('is-inline', own);
+			mark.createSpan({ cls: 'binders-manuscript-footnote-bracket', text: own ? '^[' : '[^' });
+			mark.appendText(text);
+			mark.createSpan({ cls: 'binders-manuscript-footnote-bracket', text: ']' });
+		}
+		el.setCssProps({ '--binders-tail': String(tail) });
 		el.addClass('is-spaced');
 	}
 

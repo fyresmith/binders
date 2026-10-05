@@ -260,7 +260,9 @@ Approved by the maintainer on 2026-10-01, after a design study and a prototype (
   middle click opens the note. A folder's heading is a link into that folder.
 - Escape and "Toggle reading view" leave a section an editor.
 - Rendered sections are spaced as the live editor spaces them, so a section doesn't change height when its editor
-  mounts.
+  mounts. Footnotes are drawn there as the editor draws them, not as reading view does: a footnote's text where the
+  note has it, in the editor's small lines; a mark as `[^1]`; one written in the line (`^[so]`) in full; no list at
+  the foot. (70 kinds of content are measured both ways in `specs-qa4-manuscript.mjs`; all are equal.)
 - Large binders are virtualized: only sections near the viewport have live editors; the rest show rendered text.
 - On a phone (`Platform.isPhone`) no section gets its editor by coming near: it stays rendered until it's tapped (or
   the caret is sent into it: a new note, a command, a key of a keyboard that's plugged in). The tap puts the caret on

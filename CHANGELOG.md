@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.22.0 (2026-10-05)
+
+### Changed
+
+- In the manuscript, a section you aren't typing in shows its footnotes as the editor does: each footnote's text where you wrote it, in small lines, and the numbered list at the foot is gone, so the page no longer moves when you click into a section with footnotes.
+
 ## 0.21.0 (2026-10-05)
 
 ### Changed
