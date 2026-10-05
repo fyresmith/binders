@@ -789,6 +789,75 @@ test('fallback: without editable embeds the manuscript is read only, says so, op
 	}
 });
 
+/** Runs `fn` with every embed Obsidian makes passed through `change` (page code: a function of the embed) first, as an
+    Obsidian whose embed isn't quite the one Binders knows would hand it over. */
+async function withEmbed(p, change, fn) {
+	await p.ev(`(() => { const md = window.__md = app.embedRegistry.embedByExtension.md; app.embedRegistry.embedByExtension.md = function (...a) { const e = md.apply(this, a); (${change})(e); return e; }; return 1; })()`);
+	try { await fn(); } finally {
+		await p.ev(`(() => { app.embedRegistry.embedByExtension.md = window.__md; __ms?.leaf?.detach(); return 1; })()`);
+	}
+}
+/** The same, for the editor an embed makes when it's shown (`change`: a function of its `editMode`). */
+const withEditor = (p, change, fn) => withEmbed(p, `(e) => { const show = e.showEditor; e.showEditor = function (...a) { const r = show.apply(this, a); if (this.editMode) (${change})(this.editMode); return r; }; }`, fn);
+
+test('fallback: an embed without its text, the text it would write, whether it’s saved, or the text last saved: the manuscript is read only and says so, and writes nothing', async (p, h, t) => {
+	const before = snapshot(p);
+	for (const k of ['text', 'data', 'dirty', 'lastSavedData']) {
+		await withEmbed(p, `(e) => { delete e[${J(k)}]; }`, async () => {
+			await mount(p);
+			const r = await p.ev(`(() => { const m = ${M}; return { editable: m.editable, ce: m.root.querySelectorAll('[contenteditable=true]').length, rendered: m.scenes.filter(s => s.shown !== null).length, notice: m.root.querySelector('.binders-manuscript-notice')?.textContent ?? '' }; })()`);
+			t.eq(J([r.editable, r.ce, r.rendered]), J([false, 0, ORDER.length]), `without “${k}”: not editable, nothing to type in, every note rendered`);
+			t.ok(/read only/.test(r.notice), `without “${k}”: a notice says why: ${r.notice}`);
+		});
+	}
+	// (and with them all, it is editable: the check is of those four, not of the wrapper)
+	await withEmbed(p, `(e) => e`, async () => { await mount(p); t.eq(await p.ev(`${M}.editable`), true, 'with all four, the manuscript is editable'); });
+	for (const k of Object.keys(before)) t.eq(disk(p, k), before[k], `${k} untouched`);
+});
+
+test('fallback: an editor whose text can’t be read: its section stays plain text and a click opens the note, nothing is written; one that can’t leave source mode or put its undo history by is typed in, saved, taken down and put up again; an embed whose editor can’t be watched as it’s made still gets one', async (p, h, t) => {
+	const before = snapshot(p), f = ORDER[1];
+	// no `get()`: no editor to save from
+	await withEditor(p, `(em) => { em.get = undefined; }`, async () => {
+		await mount(p);
+		const r = await p.ev(`(() => { const m = ${M}, near = m.scenes.filter(s => m.near.has(s.el)); return { editable: m.editable, live: m.scenes.filter(s => s.live).length, broken: near.every(s => s.broken), ce: m.root.querySelectorAll('[contenteditable=true]').length }; })()`);
+		t.eq(J(r), J({ editable: true, live: 0, broken: true, ce: 0 }), 'no section became an editor, and each is marked so');
+		await p.sleep(600);
+		t.ok(await p.ev(`${M}.scenes.filter(s => ${M}.near.has(s.el)).every(s => s.shown !== null && !!s.bodyEl.querySelector('.binders-manuscript-rendered'))`), 'each shows its text');
+		const logged = p.errors.filter((e) => !/ERR_|net::|DevTools|favicon/.test(e));
+		t.ok(logged.length > 0 && logged.every((e) => /couldn.t open/.test(e)), 'the console says which notes couldn’t be opened for editing, and nothing else: ' + J(logged.slice(0, 2)));
+		p.errors.length = 0;
+		const at = await p.ev(`(() => { const r = ${M}.scenes[1].bodyEl.getBoundingClientRect(); return { x: r.x + 20, y: r.y + r.height / 2 }; })()`);
+		await p.click(at.x, at.y);
+		await p.sleep(400);
+		t.ok(await p.ev(`app.workspace.getLeavesOfType('markdown').some(l => l.view.file?.path === ${J(f)})`), 'a click on a section opens its note');
+		await p.ev(`(() => { app.workspace.getLeavesOfType('markdown').forEach(l => l.detach()); return 1; })()`);
+	});
+	for (const k of Object.keys(before)) t.eq(disk(p, k), before[k], `${k} untouched`);
+	// no `toggleSource()`, no `saveHistory()`
+	await withEditor(p, `(em) => { em.toggleSource = undefined; em.saveHistory = undefined; }`, async () => {
+		await mount(p);
+		await focusEnd(p, f); await p.type(' kept');
+		await flushAll(p);
+		t.eq(disk(p, f), before[f].replace(/\n$/, ' kept\n'), 'typed and saved');
+		t.eq(await p.ev(`(() => { try { for (const s of ${M}.scenes) s.live?.keepLivePreview(); return 'fine'; } catch (e) { return String(e); } })()`), 'fine', 'asked to keep to live preview, an editor that can’t switch is left as it is');
+		await remount(p, f);
+		t.eq(await text(p, f), before[f].replace(/\n$/, ' kept\n'), 'taken down and put up again, with its text');
+		await focusEnd(p, f); await p.type('!');
+		await flushAll(p);
+		t.eq(disk(p, f), before[f].replace(/\n$/, ' kept!\n'), 'and typed in again');
+	});
+	// `editMode` can't be redefined on the embed
+	await withEmbed(p, `(e) => { Object.defineProperty(e, 'editMode', { value: undefined, writable: true, enumerable: true, configurable: false }); }`, async () => {
+		await mount(p);
+		t.ok(await p.ev(`${M}.scenes.filter(s => s.live).length > 0`), 'an embed whose editor can’t be watched as it’s made still gets its editor');
+		await focusEnd(p, ORDER[2]); await p.type(' too');
+		await flushAll(p);
+		t.eq(disk(p, ORDER[2]), before[ORDER[2]].replace(/\n$/, ' too\n'), 'typed and saved');
+	});
+	for (const k of Object.keys(before)) if (k !== f && k !== ORDER[2]) t.eq(disk(p, k), before[k], `${k} untouched`);
+});
+
 test('a section’s menu: “New note after this” adds a section with its title ready to type; “Move up” moves the note; typing in other sections is kept', async (p, h, t) => {
 	await mount(p);
 	const f = ORDER[1], next = ORDER[2], before = snapshot(p);

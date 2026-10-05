@@ -61,8 +61,13 @@ export function embedSupported(app: App, probe: TFile): boolean {
 		// constructing an embed has no side effects until it's loaded
 		const e = create({ app, containerEl: createDiv(), state: {} }, probe, '');
 		const rec = e as unknown as Record<string, unknown>;
+		// (and what saving and merging read off it: the text as typed and as it would be written, whether it's saved,
+		// and the text last written, which is null until there is one. Without any of these a save or a merge would
+		// go by `undefined`: better no editor at all.)
 		return !!e && METHODS.every((k) => typeof rec[k] === 'function') && 'editable' in e
-			&& typeof (e.requestSave as unknown as { cancel?: unknown })?.cancel === 'function';
+			&& typeof (e.requestSave as unknown as { cancel?: unknown })?.cancel === 'function'
+			&& typeof rec.text === 'string' && typeof rec.data === 'string' && typeof rec.dirty === 'boolean'
+			&& 'lastSavedData' in e && (rec.lastSavedData === null || typeof rec.lastSavedData === 'string') && rec.file === probe;
 	} catch {
 		return false;
 	}
@@ -288,7 +293,7 @@ export async function mountEditor(app: App, container: HTMLElement, file: TFile,
 		// (no more turns than a writer could keep it busy for by typing through every write)
 		for (let turn = 0; turn < 12; turn++) {
 			embed.requestSave.cancel();
-			const text = embed.editMode?.get() ?? embed.text;
+			const text = typed();
 			// An editor update may not have reached the embed yet when a command asks to save.
 			// (An editor's text has no Windows line endings, whatever the note has: that alone is nothing to save, or a note
 			// only shown would be written again without them.)
@@ -309,6 +314,9 @@ export async function mountEditor(app: App, container: HTMLElement, file: TFile,
 		// write, and an editor that's gone mustn't write later)
 		if (gone) embed.requestSave.cancel();
 	};
+	// The text as the editor has it; without an editor that can say (none yet, or one that isn't as expected), the
+	// text the embed was last told of.
+	const typed = (): string => { const e = embed.editMode; return e && typeof e.get === 'function' ? e.get() : embed.text; };
 	const cmOf = (): EditorView | null => embed.editMode?.cm ?? (embed.editor as unknown as { cm?: EditorView })?.cm ?? null;
 	// 6. Whoever tears the embed down (us, the view closing, the plugin unloading), typing is written first; the
 	//    debounced save isn't relied on. Undo history goes to Obsidian's per-file cache so a remount gets it back.
@@ -316,7 +324,8 @@ export async function mountEditor(app: App, container: HTMLElement, file: TFile,
 	let gone = false, saved: Promise<void> = Promise.resolve(), made: LiveEditor | null = null, known = false;
 	const keepHistory = (edit: EditMode | null) => {
 		const cm = cmOf(), h = known && edit ? stepsOf(cm) : null;
-		if (!h) return;
+		// (an editor that can't put its history by: a section mounted again starts with none, as a tab closed and opened)
+		if (!h || !edit || typeof edit.saveHistory !== 'function') return;
 		edit.saveHistory();
 		if (!hasSteps(h)) return;
 		kept.delete(file);
@@ -387,13 +396,20 @@ export async function mountEditor(app: App, container: HTMLElement, file: TFile,
 		//    each changing heights the other counted on, more turns than CodeMirror allows itself: "Measure loop
 		//    restarted". So the editor is made without that request: it draws what's in the window from the start.
 		//    (The editor is made inside showEditor() and given its text at once: it's caught as it is assigned.)
+		//    (An embed whose `editMode` can't be watched, one day: the editor is made as Obsidian makes it, asks for
+		//    the top, and the scroll handler below swallows that as before.)
 		const fresh: { edit: EditMode | null; loud: (() => void) | null } = { edit: embed.editMode, loud: null };
-		Object.defineProperty(embed, 'editMode', { configurable: true, enumerable: true, get: () => fresh.edit, set: (v: EditMode | null) => { fresh.edit = v; if (v?.cm && !fresh.loud) fresh.loud = unscrolled(v.cm); } });
+		let caught = false;
+		try {
+			Object.defineProperty(embed, 'editMode', { configurable: true, enumerable: true, get: () => fresh.edit, set: (v: EditMode | null) => { fresh.edit = v; if (v?.cm && !fresh.loud) fresh.loud = unscrolled(v.cm); } });
+			caught = true;
+		} catch { /* not a property that can be redefined */ }
 		try { embed.showEditor(); } finally {
-			Object.defineProperty(embed, 'editMode', { configurable: true, enumerable: true, writable: true, value: fresh.edit });
+			if (caught) Object.defineProperty(embed, 'editMode', { configurable: true, enumerable: true, writable: true, value: fresh.edit });
 			fresh.loud?.();
 		}
-		if (!embed.editMode) throw new Error('The embed has no editor.');
+		// (an editor whose text can't be read can't be saved from: the section stays plain text, and a click opens its note)
+		if (!embed.editMode || typeof embed.editMode.get !== 'function') throw new Error('The embed has no editor that can be read.');
 		// 8. The undo history Obsidian gave this editor (see `kept`) stays only if it was recorded on this very text.
 		//    Otherwise the editor is built again with none: `set(text, true)` looks the history up by the editor's
 		//    path, so for that one call it has no path.
@@ -415,7 +431,8 @@ export async function mountEditor(app: App, container: HTMLElement, file: TFile,
 		embed.showPreview = () => { /* stays an editor */ };
 		embed.toggleMode = () => { /* stays an editor */ };
 		// 5. Properties are hidden; with live preview off in the vault the editor would show raw frontmatter.
-		const keepLivePreview = () => { if (embed.editMode?.sourceMode) embed.editMode.toggleSource(); };
+		//    (An editor that can't be switched stays in source mode, properties and all: it can still be typed in.)
+		const keepLivePreview = () => { const e = embed.editMode; if (e?.sourceMode && typeof e.toggleSource === 'function') e.toggleSource(); };
 		keepLivePreview();
 		// 4. showEditor() focuses the new editor (on mobile that raises the keyboard). Mounting must not move focus or
 		//    scroll.
@@ -443,7 +460,7 @@ export async function mountEditor(app: App, container: HTMLElement, file: TFile,
 			file,
 			get editor() { return embed.editor; },
 			get cm() { return cmOf(); },
-			get text() { return embed.editMode ? embed.editMode.get() : embed.text; },
+			get text() { return typed(); },
 			get dirty() { return embed.dirty; },
 			flush,
 			destroy() { if (!gone) parent.removeChild(embed); container.empty(); return saved; },

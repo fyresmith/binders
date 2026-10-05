@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.22.1 (2026-10-05)
+
+### Fixed
+
+- If a future Obsidian changes its embedded editor, the manuscript falls back to read only, or leaves a section as plain text, instead of failing while saving.
+
 ## 0.22.0 (2026-10-05)
 
 ### Changed
