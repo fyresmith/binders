@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.15.6 (2026-10-05)
+
+### Fixed
+
+- Nothing a writer will notice: a settings test no longer fails when it runs after a test that simulates quitting.
+
 ## 0.15.5 (2026-10-05)
 
 ### Fixed

@@ -1669,6 +1669,10 @@ const openSettings = async (p) => {
 	await p.ev(`(() => { app.setting.open(); app.setting.openTabById('binders'); return 1; })()`);
 	await until(p, `app.setting?.activeTab?.id === 'binders' && ${TAB}.querySelectorAll('.setting-item').length > 3`, 4000);
 	await p.sleep(300);
+	// (Obsidian 1.13 shows the settings in a window of their own. A test that simulates a quit closes that window; the
+	// next one made takes `activeWindow` with it, and a dialog opened from the settings then opens there, where these
+	// tests don't look. The main window is the active one again, as it is when the settings' window was there already.)
+	await p.focusMain();
 };
 const closeSettings = (p) => p.ev(`(() => { try { app.setting.close(); } catch {} return 1; })()`).then(() => p.sleep(250));
 const rowOf = (name) => `[...${TAB}.querySelectorAll('.setting-item')].find(s => s.querySelector('.setting-item-name')?.textContent === ${j(name)})`;
