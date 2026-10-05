@@ -25,17 +25,30 @@ Read this before changing anything. It is the contract every contributor, human 
 6. **Refuse newer formats.** Never normalise and rewrite a binder note whose `binder` version is newer than
    `FORMAT_VERSION`.
 
-## Versioning (semver, x.y.z)
+## Versioning (x.y.z)
 
-**Every commit bumps the version.** Pick the size of the change:
+**Every commit bumps the version.** The maintainer's rule (2026-10-05): the number says what kind of change it was.
 
-| Bump | When | Examples |
-|---|---|---|
-| `patch` (0.0.x) | Fixes and small refinements that change no documented behavior | a bug fix, a style tweak, a test, docs |
-| `minor` (0.x.0) | New features or changed behavior, still compatible | a new view, a new setting, a new command |
-| `major` (x.0.0) | Breaking: the file format changes, a feature or setting is removed, or old binders need migrating | format 2 |
+| Part | `ship` word | When | Examples |
+|---|---|---|---|
+| **x** | `major` | A major version, or a new feature: something a writer couldn't do before | export, import from Scrivener, find and replace, a new view |
+| **y** | `minor` | A change in behavior: something that already existed now acts differently | Ungroup trashing the folder it empties, a setting's default changing, a setting or command renamed or removed, a format change |
+| **z** | `patch` | A bug fix, and everything a writer won't notice | a fix, a style tweak, a test, docs, a refactor |
 
-Before 1.0, breaking changes are `minor` and everything else `patch`. 1.0.0 is the first stable release.
+How to choose:
+
+- Ask what a writer would say. "I can do something new" is x. "That works differently now" is y. "That's fixed", or
+  nothing at all, is z.
+- A fix that changes behavior is still z when the old behavior was a bug: wrong by the docs, or by what anyone would
+  expect. It is y when the old behavior was documented or decided and the maintainer has changed his mind.
+- A new option or a small addition inside a feature that exists (a column, a menu item, a setting) is y, not x. x is
+  for a feature that gets its own heading in the README.
+- One commit, one bump, by the largest thing in it. A feature built over several commits takes x on the commit that
+  first makes it usable; the rest are y or z.
+- Bumping a part sets the parts after it to zero (`ship` does this).
+- **Until the first release, x stays 0** and a new feature takes y: 1.0.0 is the first stable release, and the
+  maintainer calls it. From 1.0.0 on, the table applies as written.
+- An agent proposes the bump in its report, with the one-line reason; the coordinator decides it when shipping.
 
 ## Committing: always through `npm run ship`
 
