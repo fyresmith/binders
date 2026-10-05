@@ -63,7 +63,8 @@ npm run ship -- patch "Short title in sentence case" --fixed "What changed, for 
 - One logical change per commit. Don't mix a fix with a refactor.
 - Before shipping: `npm run check` (build, lint, unit tests) must pass, plus the new tests and the one or two spec
   files that directly cover what changed. Wider runs are the test runner's (see "Working as a team of agents").
-- Pushing and tagging: only when the maintainer asks. A tag `x.y.z` (no `v`) triggers the release workflow.
+- Pushing: the coordinator pushes `main` after each shipped commit or small batch. Tagging: only when the
+  maintainer asks. A tag `x.y.z` (no `v`) triggers the release workflow.
 
 ## CHANGELOG style
 

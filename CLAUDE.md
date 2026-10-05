@@ -58,6 +58,7 @@
 - Every commit goes through `npm run ship` and bumps the version: x for a new feature, y for a change in
   behavior, z for a fix (x stays 0 until the first release; see "Versioning" in AGENTS.md).
 - Commit attribution trailers, if your setup provides them, go through `--trailer`.
-- Ask before pushing, tagging, creating remotes, or anything outward-facing.
+- Push `main` to `origin` after each shipped commit or small batch, once `npm run check` passes (the maintainer's
+  rule, 2026-10-05). Ask before tagging, force-pushing, creating remotes, or anything else outward-facing.
 - Never touch the maintainer's real vaults (e.g. anything under `~/Documents/Vaults`). Test only in `test-vault/`.
 - Keep replies short and lead with the result.

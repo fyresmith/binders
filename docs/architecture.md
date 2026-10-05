@@ -104,6 +104,7 @@ Each entry says what the module owns and what it must never do.
 | `src/view/words.ts` | Word counts as Obsidian counts them; `WordCounter` caches per note by modification time and reads in the background. | Block a view on disk reads. |
 | `src/view/modals.ts` | Small dialogs in Obsidian's own style: confirm, ask for text, pick a color, new label. | |
 | `src/view/snapshots.ts` | Snapshots, writer side: "Take a snapshot", "Rewrite", the Snapshots dialog and its diff, a snapshot opened in a pane (`SnapshotView`), the menu items, notes that are gone. | Write snapshot files itself: it asks `src/snapshots.ts`. |
+| `src/view/windows.ts` | What belongs to the window a view is in when that is a window of its own: `watchSize` observes an element's size from its own window and follows it when its tab moves to another. | Use the main `window`'s observers or frames for a view that may be in a popout. |
 | `src/view/internals.ts` | Undocumented Obsidian API the views use: submenus, keeping a menu open, opening settings, header titles, the vault's trash, link and Vim settings, the history dialogs' classes. Each function checks for what it needs and falls back. | Throw if something is missing. |
 
 ### Focus mode

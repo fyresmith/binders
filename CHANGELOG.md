@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.15.4 (2026-10-05)
+
+### Changed
+
+- Nothing a writer will notice: the working rules now say main is pushed as fixes ship, and the map of the code lists the helper for views in their own window.
+
 ## 0.15.3 (2026-10-05)
 
 ### Changed
