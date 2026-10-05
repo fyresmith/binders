@@ -1,6 +1,9 @@
 # Export: the design
 
-Decided with the maintainer on 2026-10-05. Not built yet: this is what is to be built, written as decided. The
+Decided with the maintainer on 2026-10-05. This is what is to be built, written as decided. **Step 1 of "The
+order" is built** (2026-10-05: the book model, the Word manuscript, the window with Manuscript and One note, where
+files go, "Compile" renamed); what it is as built is in the README ("Export"), `docs/file-format.md` ("Export")
+and `docs/architecture.md` ("Export"). The rest is not built yet. The
 research behind it (Scrivener's Compile, the neighbouring tools, the formats, the routes tried), the two directions
 that were turned down, the screens and the sample files are in `.claude/handoff/export-design/` (`DESIGN.md`,
 `screens.html`, `samples/`, `spike/`), which git doesn't carry. The points the designer left open (the

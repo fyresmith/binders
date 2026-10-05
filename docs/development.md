@@ -45,7 +45,7 @@ that says what each folder is for:
 
 | Folder | What it tries |
 |---|---|
-| The Salt Road | A small novel: labels, statuses, synopses, targets on scenes, folders and the book, research left out of a compile, snapshots (one of a note that's gone) |
+| The Salt Road | A small novel: labels, statuses, synopses, targets on scenes, folders and the book, research left out of an export, snapshots (one of a note that's gone) |
 | Empty binder, One note | The smallest binders |
 | Five thousand notes | 5,000 notes in 200 folders |
 | Fifteen folders deep | Nesting |
@@ -107,11 +107,37 @@ npm test -- lanes        # only the files whose name has "lanes" in it (several 
 | `tests/file-drag.test.ts` | A card dragged out as a file (`src/view/file-drag-data.ts`): inside the view or out of it, the drop effect, scrolling at the edge, the ghost's title |
 | `tests/run-all.test.ts` | The parallel e2e runner's pure parts (`tests/e2e/run-all-lib.mjs`): sharing spec files out over jobs, reading a job's output; and the driver's `reap`, with stand-in processes |
 | `tests/demo-vault.test.ts` | The demo vault's generator (`scripts/demo-vault/build.mjs`), read back with the plugin's own readers: every binder, the labels, the snapshots, what a re-run may write |
-| `tests/scene-text.test.ts` | Splitting, merging, a synopsis from text, names, compiling (`src/scene-text.ts`) |
+| `tests/scene-text.test.ts` | Splitting, merging, a synopsis from text, names, a binder's text as one note (`src/scene-text.ts`) |
+| `tests/export-model.test.ts` | Export's book model (`src/export/`): every row of "What Markdown becomes" (`markdown.ts`), quotes and dashes (`typography.ts`), roles from structure, titles and numbers (`roles.ts`), the book put together with its footnotes, embeds and warnings (`book.ts`), a picture's size (`picture.ts`) |
+| `tests/export-docx.test.ts` | The Word writer (`src/export/docx.ts`, `docx-parts.ts`): the shape of a manuscript, the three styles, and the word-for-word test (below) |
 | `tests/tap-text.test.ts` | Where a tap on a manuscript section's rendered text is in the note (`src/view/tap-text.ts`): plain prose, repeated words, bold, links, headings, lists, quotes, line breaks |
 | `tests/focus-session.test.ts` | Focus mode's pure parts (`src/focus/session.ts`): the day's words, the last line, the scenes before and after, a goal as typed; and its settings' defaults |
 | `tests/paragraphs.test.ts` | Paragraphs (`src/paragraphs/text.ts`, `mode.ts`): which lines are paragraphs begun with a tab, the text made ready for a renderer, whether a link meant a renamed file, links repointed byte for byte, Obsidian's Markdown mode wrapped (with a stand-in) and refused when it isn't the one known; the two settings |
 | `tests/snapshot-text.test.ts` | Snapshots (`src/snapshot-text.ts`): a snapshot's name and file read back byte for byte, comparing two texts as prose |
+
+### The word-for-word test
+
+Golden rule 2 has a cousin in export: **an export never drops, repeats or reorders a word.** `tests/export-docx.test.ts`
+holds the Word writer to it. Two readers that share no code are compared: `readDocx` (`tests/export-words.ts`) reads the
+words back out of the file, and `sourceWords` reads the words that went in straight from the notes' Markdown, with a
+few patterns of its own (not the parser export uses). A word is a run of letters and digits, so typeset quotes and
+dashes are no difference. The text and the footnotes are each compared in order. It runs on:
+
+- one note that has every row of the table "What Markdown becomes" in `docs/export.md`;
+- the test vault's binder, read from disk (`tests/export-vault.ts` reads a vault held in memory as binders);
+- every binder of the demo vault, made in memory by its generator (seventeen, about half a million words, among them
+  a note of 100,000 words, 5,000 notes, fifteen folders deep, odd names and odd files);
+- a generated binder of 150,000 words, which must be read and written in under ten seconds;
+- and the test itself is tested: a paragraph taken out, or two sections changing places, must be noticed.
+
+Every file made is also checked as a package (`sound`: each part has a content type, each relationship leads
+somewhere, each style, footnote and list used is defined, the XML is well formed and has no character XML can't hold).
+Where they are installed, two outside readers run on the test vault's manuscript, as dev-time tools only: `xmllint`
+on every part, and LibreOffice (`soffice --headless --convert-to pdf`), which must open the file and make a PDF of it
+(about ten seconds; `BINDERS_NO_SOFFICE=1` skips it). Without them the run says so and goes on. The files are left in
+`test-dist/export-docx/` to look at. Not run here: Microsoft's Open XML validator, and Word itself.
+
+`specs-export.mjs` repeats the word-for-word check end to end, on the file a real Obsidian wrote to the disk.
 
 ### End-to-end tests
 
@@ -135,7 +161,7 @@ Without `--specs`, every `tests/e2e/specs*.mjs` runs:
 |---|---|
 | `specs.mjs` | Smoke tests: the plugin loads, the settings tab |
 | `specs-driver.mjs`, `specs-hover.mjs` | The driver itself: sessions keep to their own throwaway vaults; the pointer (a mouse that hovers, a finger under touch emulation), `p.hover` and `p.tooltip` |
-| `specs-readme.mjs` | What the README tells a writer, sentence by sentence: the keyboard lists of the three views, what Binders writes and never touches, undo, compile, known limitations and troubleshooting |
+| `specs-readme.mjs` | What the README tells a writer, sentence by sentence: the keyboard lists of the three views, what Binders writes and never touches, undo, export, known limitations and troubleshooting |
 | `specs-binders.mjs` | The binder store: detection, keeping the list in step, batching, newer formats, commands |
 | `specs-explorer.mjs` | The file explorer: order, hidden notes, icon, click to open, dragging to reorder |
 | `specs-view.mjs` | The view shell: state, breadcrumb, modes, word count and target, filter, synopsis |
@@ -146,7 +172,8 @@ Without `--specs`, every `tests/e2e/specs*.mjs` runs:
 | `specs-outliner.mjs` | The outliner: rows, folding, keyboard, editing in place, columns, sorting, dragging |
 | `specs-manuscript.mjs` | The manuscript and the editable embed: every test that types checks the disk |
 | `specs-background.mjs` | The app going to the background: what is being typed is written at that moment, and a slow save loses nothing |
-| `specs-scenes.mjs` | Split, merge, synopsis from text, duplicate, group and ungroup, compile, undo and redo of a move |
+| `specs-scenes.mjs` | Split, merge, synopsis from text, duplicate, group and ungroup, export as one note, undo and redo of a move |
+| `specs-export.mjs` | Export: the window (the kinds, the choices, the text on paper, Contents), a manuscript through the save dialog to a Word file read back word for word, remembered places, a dialog cancelled and a place that can't be written, the fallback into the vault, roles and what is left out, warnings, an outside edit, one note, the keyboard and screen readers, 150,000 words in time, a phone and a tablet |
 | `specs-focus.mjs` | Focus mode: the defaults and each option, typewriter scrolling, Escape, Obsidian as it was after leaving, a reload and the plugin turned off, nothing typed lost, the day's words, settings, motion, screen readers, fallbacks, a phone and a tablet |
 | `specs-snapshots.mjs` | Snapshots: taking (open, closed, the manuscript, several, a folder under one name), Rewrite, bring back (with an edit made meanwhile), naming, deleting, following renames and moves, Longform, never in the explorer, search or the binder, the dialog (both looks, a phone), sync-style writes |
 | `specs-paragraphs.mjs` | Paragraphs: a line begun with a tab as a paragraph in live preview, source mode, the manuscript, reading view, an embed, the snapshots dialog and focus mode; the fallback; a note outside a binder; the switch; typing, undo and outside edits on disk; "Indent paragraphs"; links in tab paragraphs following a rename (every kind of link, the settings, ambiguity, folders, unsaved typing, line endings) |

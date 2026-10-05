@@ -77,7 +77,7 @@ scenarios are `tests/e2e/specs-qa6-*.mjs`. Developers fixed them through the day
 (0.12.18 to 0.12.141). What matters most:
 
 - **Text that could be lost, all fixed with a test that failed first.** Words typed while a save was in flight, left
-  out of a delete, merge, duplicate, split, snapshot or compile (0.12.39). The first paragraph of a note that opens
+  out of a delete, merge, duplicate, split, snapshot or compile (0.12.39; compile is export's "One note" now). The first paragraph of a note that opens
   with a rule, dropped by merge, compile, snapshots (0.12.43) and by any property write (0.12.57). A second outside
   change undoing the first while typing was unsaved (0.12.52). A note left empty when the app was reloaded within two
   seconds of typing, because a write started as the page goes is cut off between emptying and filling the file

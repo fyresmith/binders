@@ -20,12 +20,14 @@ neighbours, for example the store and `snapshots.ts`, which follow each other's 
  focus/focus.ts      view/snapshots.ts       view/actions.ts, card.ts, edit.ts, drag.ts, ...
  ───────────────────────────────────────────────────────────────────────────────────
  binders.ts   the store: the only code that changes a binder (and its undo: undo.ts)
- scenes.ts    splitting, merging, compiling          snapshots.ts    taking and bringing back
+ scenes.ts    splitting, merging, one note of many   snapshots.ts    taking and bringing back
+ export/export.ts   a binder read as a book, made into a file, saved        view/export.ts   the Export window
  ───────────────────────────────────────────────────────────────────────────────────
  explorer.ts  patches Obsidian's file explorer (asks the store through `ExplorerSource`)
  view/editable-embed.ts   the live editors of the manuscript
  ───────────────────────────────────────────────────────────────────────────────────
  pure logic, no Obsidian: model.ts  longform.ts  scene-text.ts  snapshot-text.ts  settings-data.ts
+   export/model.ts  markdown.ts  typography.ts  roles.ts  book.ts  picture.ts  docx.ts  docx-parts.ts
    focus/session.ts  view/labels.ts  view/outliner-data.ts  view/lanes-data.ts  view/file-drag-data.ts
    view/tap-text.ts
 ```
@@ -80,10 +82,28 @@ Each entry says what the module owns and what it must never do.
 
 | File | What it is | Must never |
 |---|---|---|
-| `src/scene-text.ts` | The text rules for scene work: where properties end and text begins, `splitAt`, `joinBodies`, `synopsisFrom`, names for new notes, link repointing, comment stripping, and `compile`. Pure; these are the places writing could be lost, so every rule is unit-tested. | Import Obsidian. |
-| `src/scenes.ts` | Split, merge, synopsis from text and compile where the rules meet the vault, plus `CompileModal`. Ordered so text exists twice before it exists once: a split's second half is saved in its own note before the first lets go of it, and merged notes are trashed only after the merged note has been read back. `saveOpen` writes pending typing (a tab, the manuscript) before anything reads a note from disk. | Delete or overwrite a note before its text exists somewhere else. |
+| `src/scene-text.ts` | The text rules for scene work: where properties end and text begins, `splitAt`, `joinBodies`, `synopsisFrom`, names for new notes, link repointing, comment stripping, and `compile` (a binder's text as one note: export's "One note"). Pure; these are the places writing could be lost, so every rule is unit-tested. | Import Obsidian. |
+| `src/scenes.ts` | Split, merge, synopsis from text and one note of many (`oneNoteText`, `writeOneNote`) where the rules meet the vault; `isExported`, which reads `export: false` and `compile: false`. Ordered so text exists twice before it exists once: a split's second half is saved in its own note before the first lets go of it, and merged notes are trashed only after the merged note has been read back. `saveOpen` writes pending typing (a tab, the manuscript) before anything reads a note from disk. | Delete or overwrite a note before its text exists somewhere else. |
 | `src/snapshot-text.ts` | A snapshot's file name and contents (`snapshotName`, `snapshotFile`, `readSnapshot`) and `compare`, which diffs two texts as prose. Pure. | Import Obsidian. |
 | `src/snapshots.ts` | Snapshots, vault side: `takeSnapshot`, `rewrite`, `bringBack`, naming, following a renamed or moved note, and the leftovers of notes that are gone. Reads a snapshot back from disk before doing anything else; replaces a note's text only through the editor it is open in (one Undo) or in one write that refuses if the note changed. | Change a snapshot file once written; replace a note's text before it is in a snapshot. |
+
+### Export
+
+The design is [export.md](export.md). One model, read by every writer; the pure parts are tested in Node, and the
+word-for-word test (development.md) holds each writer to "no word dropped, repeated or reordered".
+
+| File | What it is | Must never |
+|---|---|---|
+| `src/export/model.ts` | The book model: `Book`, its `Section`s (part, chapter, front and back matter), `Block`s and `Inline`s, footnotes, warnings, the outline "Contents" shows; word counts and numbers in words. Pure. | Know how anything looks: a style decides that, in a writer. |
+| `src/export/markdown.ts` | A note's text read for a book (`parseBody`): micromark with footnotes, tables and strikethrough, and Obsidian's own syntax taken out first and put back as the model has it. A new line is a new paragraph; only a fenced block is code; a rule is a scene break. Pure. | Lose a word: what it can't set is kept as typed, and said in a warning. |
+| `src/export/typography.ts` | Quotes curled for the book's language, dashes, ellipses. Pure. | Change anything but those characters; touch code. |
+| `src/export/roles.ts` | The structure rule: `guessStructure` from a binder's shape, `assignRoles` (with `export-as` and what is left out), `titleFrom` a name. Pure. | |
+| `src/export/book.ts` | `buildBook`: the binder's items, read and given roles, joined into sections; embeds and pictures brought in through a `Resolver`; footnotes numbered in the order of their marks; warnings with their note. Pure. | Read a file itself. |
+| `src/export/picture.ts` | A picture's kind and size from its first bytes (PNG, JPEG, GIF). Pure. | |
+| `src/export/docx.ts`, `docx-parts.ts` | The Word writer: a book as a .docx in standard manuscript format, written by hand as text and zipped with fflate. `docx-parts.ts` has the styles (the three manuscript styles), numbering, settings and the package's small files. Pure. | Change the order of elements inside `w:pPr`, `w:rPr`, `w:style` or `w:sectPr` without checking it against the schema: Word refuses a file for that. |
+| `src/export/export.ts` | Export where it meets the vault: `readBook` (what is typed is saved first, the binder is read in its order, what notes embed is found as Obsidian finds it), `manuscript`, and `save`: the system's dialog or the Exports folder, the places remembered on this device, the share sheet. | Write to a note, its text or its properties. Replace a file export didn't write without asking. |
+| `src/export/desktop.ts` | The save dialog and the disk, on a computer: Electron's and Node's, asked for only when used (golden rule 5). `desktop()` is null when anything is missing. Reached through `plugin.exportHost`, so a test can stand in for the dialog. | Be imported for anything but saving an export; throw when something isn't there. |
+| `src/view/export.ts`, `export-preview.ts` | The Export window (`ExportModal`): Obsidian's two-pane dialog with the kinds that exist (Manuscript, One note), their choices, where the file goes, the warnings; the bar, Contents, and the preview (`export-preview.ts` draws a manuscript's text on paper from the book model, and the outline). A phone has the choices first and the preview second. | Write anything itself: it asks `export/export.ts` and `scenes.ts`. |
 
 ### The binder view
 
@@ -200,6 +220,7 @@ The full table (what each internal is, how it is detected, the fallback, the tes
 | `src/explorer.ts` | The file explorer view: `getSortedFolderItems`, `fileItems`, `requestSort`, `startRenameFile`, a folder item's `collapsed`/`toggleCollapsed`/`setCollapsed`, `tree.handleItemSelection`, the explorer's DOM, and `app.dragManager` for dragging. |
 | `src/view/file-drag.ts` | `app.dragManager` in full (`dragFile`, `dragFolder`, `dragFiles`, `onDragStart`, `onDragEnd`, `ghostEl`), drag events made by hand, and a few class names (a canvas, bookmarks, tabs). |
 | `src/view/editable-embed.ts` | `app.embedRegistry.embedByExtension.md`, the embed's own methods and fields, `workspace.unsetActiveEditor`, `workspace.onQuickPreview`, Obsidian's cache of undo histories, a tab's `lastSavedData`. |
+| `src/export/desktop.ts` | Electron's `remote.dialog.showSaveDialog` and `shell`, Node's `fs` and `path`: saving an export where the writer says. |
 | `src/view/internals.ts` | `MenuItem.setSubmenu`, a menu's `items`, `select` and `dom`, `app.setting`, `vault.getConfig` (`trashOption`, `alwaysUpdateLinks`, `vimMode`, `readableLineLength`), `leaf.updateHeader`, `titleEl`, the history dialogs' class names. |
 | `src/focus/dom.ts` | The editor's `cm`, the structure of a note's page, the editor's bottom padding. |
 | `src/paragraphs/mode.ts`, `src/paragraphs/language.ts` | The state of Obsidian's Markdown mode (`indentation`, `indentationDiff`, `list`, `quote`) and its token `hmd-indented-code`; that the editor's language is a stream language. |
@@ -214,7 +235,8 @@ fallback, add a row to `internals.md`, and add an e2e test. That is golden rule 
 These are the rules the code is held to. A change that breaks one needs a new test that shows why it is safe.
 
 1. **Binders writes few things.** A binder note's `contents`, its own properties (and a folder note's), the properties
-   you edit in a view, a Longform index note's `longform.scenes`, snapshot files, the notes that scene work creates, and
+   you edit in a view, a Longform index note's `longform.scenes`, snapshot files, the notes that scene work creates,
+   the file an export makes (and never a note it read), and
    note text only through an editor you are typing in, or a snapshot-guarded replace.
 2. **Apply, don't overwrite.** Changes to a list are kept as operations and applied inside `processFrontMatter` to what
    the note says then, so an outside edit made in the meantime is not lost. A write drops entries that no longer name
@@ -237,7 +259,7 @@ These are the rules the code is held to. A change that breaks one needs a new te
 10. **A merge is against what the editor holds.** An outside change is merged (three ways) with the text in the editor
     and what was last saved, not with a copy kept earlier, so typing and the outside edit both survive.
 11. **A block that isn't properties is text, everywhere.** One rule (`scene-text.ts`) says where a note's properties end;
-    merge, split, compile, snapshots, the manuscript and focus mode all use it.
+    merge, split, export, snapshots, the manuscript and focus mode all use it.
 12. **Nothing is started as the page goes.** See the keystroke journey, step 4.
 13. **A property write never drops text.** `editProperties` is the one way a property is written to a scene; for the
     two kinds of note Obsidian's writer would damage, it writes the block itself.
@@ -252,6 +274,7 @@ These are the rules the code is held to. A change that breaks one needs a new te
 | Longform | `longform` | `specs-longform` |
 | Settings, labels, words | `view` | `specs` (settings tab), `specs-labels`, `specs-qa3-labels` |
 | Scene work | `scene-text` | `specs-scenes`, `specs-qa3-scenes` |
+| Export | `export-model`, `export-docx` (the word-for-word test) | `specs-export` |
 | Paragraphs | `paragraphs` | `specs-paragraphs` |
 | Snapshots | `snapshot-text` | `specs-snapshots` |
 | Focus mode | `focus-session` | `specs-focus` |

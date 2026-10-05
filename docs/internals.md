@@ -232,14 +232,14 @@ touches it; `mountEditor()` builds one embed and patches that instance only:
   writes nothing: it notes `saveAgain`, clears `dirty`, and returns; when the earlier write lands it calls
   `save(text)`, which only asks for a save two seconds on (and `saveAgain` is never cleared, so every later write
   asks for one more). A caller that waited for the save would go on with the older text on disk: a note deleted
-  then is in the trash without its last words, and a merge, a copy, a snapshot or a compile lacks them. So
+  then is in the trash without its last words, and a merge, a copy, a snapshot or an export lacks them. So
   `flush()` loops: it asks, waits for the write in flight, and asks again until nothing is `dirty` and no write was
   started meanwhile (only `dirty` is read; `saving` and `saveAgain` aren't). An editor that's gone cancels the save
   Obsidian asked for, so nothing is written later over what a tab of the note has typed since.
 - A new editor on a note waits for the pending writes of every other live editor on that note (`openEditors`:
   another manuscript in a split or tab) and for the last write of one that has just gone (`closing`), or it would
   load the old text. `saveEditors(files)` is the same wait for whoever reads, copies, moves or removes a note
-  (`saveOpen` in `src/scenes.ts`: split, merge, duplicate, delete, compile, snapshots, a synopsis from text).
+  (`saveOpen` in `src/scenes.ts`: split, merge, duplicate, delete, export, snapshots, a synopsis from text).
 - When the page is scrolled more than a screen and a half past the section with the caret, the manuscript blurs
   that editor (one kept that far out of sight can't draw its caret) and remembers the place. The next key typed, or
   scrolling back to the section, puts the caret back; keys typed while its editor is mounted again go in at the

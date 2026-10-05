@@ -34,7 +34,8 @@ Anything you like: notes on the book, links, a to-do list.
 
 A subfolder in a binder can have a **folder note**: the note directly inside it with the folder's name
 (`Part One/Part One.md`). It holds the folder's own `synopsis`, `status`, `label` and `target`, and its body is free
-for notes. `compile: false` in it leaves the whole folder out of a compile. Binders creates it (empty) when you first
+for notes. `export: false` in it leaves the whole folder out of an export, and `export-as` gives the folder a role (see
+"Export", below). Binders creates it (empty) when you first
 give the folder one of these in a binder view, or type into one of the outliner's property columns on the folder's
 row.
 
@@ -110,7 +111,7 @@ row.
   and the rest; only the name changes, and no note is written to. It does so only when the note is plainly the
   copied folder note: it is directly in the copy and named like the folder beside it that the copy is named after;
   that folder has a folder note, and this one is byte for byte the same; it has at least one folder-note property
-  (`synopsis`, `status`, `label`, `target` under the names in settings, or `compile`); and the copy has no note under
+  (`synopsis`, `status`, `label`, `target` under the names in settings, `export`, or `compile`); and the copy has no note under
   its own name. Anything else is left as it is. Files may arrive one by one (a sync, a file manager): the note is
   looked for as each arrives, for ten minutes after the last one.
 - A file deleted and created again within two seconds (as git and some editors rewrite files) goes back to its place.
@@ -118,7 +119,7 @@ row.
 ## Scene properties
 
 Each note in a binder can have these properties. They are ordinary Obsidian properties. The names of the first four
-can be changed in settings; `compile` is fixed.
+can be changed in settings; `export` and `export-as` are fixed.
 
 | Property | Type | Used for |
 |---|---|---|
@@ -126,7 +127,9 @@ can be changed in settings; `compile` is fixed.
 | `status` | text | A chip on the card, a column in the outliner, and a filter. Settings list the statuses offered (Idea, Draft, Revised, Done to start with); any other text works too |
 | `label` | text | The note's color: the border and tint of its card, a dot in the outliner and in the file explorer, and a filter. See below |
 | `target` | number | A word count target for the note: progress on its card, and the outliner's Target and Progress columns. A whole number above zero and up to a billion; text such as `"1,500"`, `"1 500"` or `"1.500"` is read as 1500; anything else (`1.5`, `lots`, `0`) is no target |
-| `compile` | checkbox | `false` leaves the note out of "Compile". Missing, or anything else, means included; turning it back on removes the property |
+| `export` | checkbox | `false` leaves the note out of every export. Missing, or anything else, means included; turning it back on removes the property |
+| `compile` | checkbox | The name `export` had before export was built. `false` is read as `export: false`, for good. Binders never writes it, and never rewrites a note to change one into the other: a note keeps it until "Include in export" is turned on for it, which removes both |
+| `export-as` | text | The note's role in an exported book, when the structure's own answer isn't wanted: `part`, `chapter`, `scene`, `front matter` or `back matter`. See "Export" |
 
 ```yaml
 ---
@@ -179,8 +182,9 @@ the commands you run on it:
   the result back to check every note's text is in it, and only then moves the others to the trash.
 - "Duplicate" copies files byte for byte. A copied folder keeps its order, and its folder note is renamed to match
   (as is the folder note of a folder copied outside Binders: see "Keeping the list up to date").
-- "Compile" writes one new note outside the binder (replacing a note of that name if there is one) and changes none
-  of the binder's notes.
+- "Export" writes a file (a Word manuscript where you say, or in the `Exports` folder; or one new note outside the
+  binder, replacing a note of that name if there is one) and changes none of the binder's notes: not their text,
+  and not their properties.
 - "Rewrite" with "Start from a blank page" and "Bring back" in the Snapshots dialog replace a note's text, after
   keeping it as a snapshot (below). The note's properties are left byte for byte.
 
@@ -209,7 +213,7 @@ A block that opens with `---` on the note's first line and closes at the next li
 between reads as properties (YAML that is a mapping) or is empty (blank lines and `#` comments only). Anything else
 between two such lines (a paragraph, a list, YAML that can't be read) is the note's text, and so is everything after
 it: a note that opens with a rule, a paragraph and another rule has no properties. This is what Obsidian's own cache
-and editor do, and Binders uses the one rule everywhere: merge, split, compile, synopsis from text, snapshots, the
+and editor do, and Binders uses the one rule everywhere: merge, split, export, synopsis from text, snapshots, the
 manuscript and focus mode. A byte-order mark at the start of a file is kept.
 
 Setting a property goes through Obsidian, which writes the whole properties block again in its own form: comments in
@@ -223,7 +227,7 @@ byte-order mark has its block rewritten in place after the mark.
 ## Snapshots
 
 A binder can have a folder named `Snapshots` at its top. It holds earlier texts of the binder's notes and is not part
-of the binder: it never appears in `contents`, in a binder view, in a word count, the filter or a compile, and
+of the binder: it never appears in `contents`, in a binder view, in a word count, the filter or an export, and
 Binders never lists it in the file explorer.
 
 ```
@@ -284,6 +288,42 @@ The Lighthouse/
   index note.
 - In a binder Binders can't change (a newer format), snapshots can be read but not taken, named, deleted or brought
   back.
+
+## Export
+
+What export reads from notes. All of it is optional, so this is still format 1. Export writes none of these itself
+yet (the windows that set them come with later steps; until then they are typed as properties), and it never writes
+to a note it reads. The design is [export.md](export.md).
+
+**In a note, or in a folder's note for the folder:**
+
+| Property | Type | Meaning |
+|---|---|---|
+| `export` | checkbox | `false`: left out of every export, with everything in it if it is a folder. "Include in export" writes and removes it |
+| `compile` | checkbox | Read as `export`, for good (above). Never written |
+| `export-as` | text | A role given by hand: `part`, `chapter`, `scene`, `front matter`, `back matter` (also read: `front`, `back`, with a hyphen, any case). Anything else is "automatic". On a folder, what is in it follows: notes in a folder that is a chapter are scenes; a folder said to be a scene only holds scenes |
+
+**In the binder note** (the book's own details):
+
+| Property | Type | Meaning |
+|---|---|---|
+| `title` | text | The book's title. The folder's name without it |
+| `author` | text | The author. Without it, "Your name" in Binders' settings |
+| `language` | text | A language tag (`en`, `en-GB`, `de`, `fr`): which quotes are set, and what the exported file says it is written in. English without it |
+| `structure` | text | Which rule gives folders and notes their roles: `chapters and scenes` (folders are chapters, notes are scenes), `parts and chapters` (folders are parts, notes are chapters), `parts, chapters and scenes`, or `every note a chapter`. Without it Binders reads the rule off the binder's shape: no folders, every note a chapter; folders one deep, parts and chapters if every top folder's name starts with "Part", "Book" or "Act", else chapters and scenes; deeper, parts, chapters and scenes. A Longform project is every note a chapter |
+
+Not read yet, and kept for the steps that build them: `subtitle`, `cover`, `copyright`, `book-style`,
+`manuscript-style`, `page-size`.
+
+**What isn't in any note:**
+
+- The folder exported files go to, "Your name" and the contact details for a manuscript's title page are Binders'
+  settings, as is the kind and the manuscript style last used (per vault, not per binder, for now).
+- The places exports are saved "without asking", and what each exported file was when export left it (its size and
+  time, to tell a file that has been changed since), are kept on the device, in Obsidian's own local storage for the
+  vault: a path on one computer's disk means nothing on another.
+- An exported file is not a note and Binders keeps no record of it in the vault. In the vault's `Exports` folder it
+  shows in the file explorer only with Obsidian's "Detect all file extensions" on.
 
 ## Longform projects
 

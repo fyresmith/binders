@@ -18,7 +18,9 @@ What it does, in short:
 - **Three views of one binder.** A corkboard of index cards (which can also be laid out by label, a line for each
   storyline or point of view), an outliner with columns you pick, and the whole manuscript as one page you can edit.
 - **Scrivener-style tools.** Labels, statuses and word count targets; split, merge, duplicate and group scenes;
-  compile to one note; snapshots of a scene so you can rewrite without losing the old text; undo of moves.
+  snapshots of a scene so you can rewrite without losing the old text; undo of moves.
+- **Export.** A submission manuscript as a Word file in standard manuscript format, or the whole binder as one note.
+  (An ebook, a paperback PDF and a Scrivener project are on the way.)
 - **Focus mode.** The text and nothing else, with typewriter scrolling.
 - **Longform.** Longform projects open as binders, and convert to them.
 - **Phones and tablets.** The same views, by touch (so far tested only in Obsidian's mobile emulation: see
@@ -42,7 +44,7 @@ folders too), or **New scene here** in the folder's right-click menu or the comm
 One view, three ways of seeing the notes in a binder or in one of its folders. Switch with the button at the top left,
 or with the commands **Show corkboard**, **Show outliner** and **Show manuscript**. The view's **More options** menu
 (the three dots in its header) has the same, the arrangement of the corkboard, **Undo** and **Redo** of the last move,
-**Compile...**, and **Open binder note** (or **Open folder note**, inside a folder), which is how you reach the note that
+**Export...**, and **Open binder note** (or **Open folder note**, inside a folder), which is how you reach the note that
 holds a binder's data when it is hidden in the file explorer. Inside a folder, the breadcrumb
 beside it goes back up to the binder. The word count shows the target of the binder or folder, if it has one, with a
 bar for how far along it is. Click the text under the toolbar to write a synopsis of the binder or folder. Each mode
@@ -115,14 +117,14 @@ The menu is always the same: **In a grid**, **By label, across** and **By label,
 The same notes as rows of a table, folders with their notes under them, in binder order. The title comes first, with
 the synopsis under it (**Show synopses** turns that off); the other columns are yours to pick.
 
-- **Columns:** label, status, words, target, progress, compile, created and modified, and any property of your notes
+- **Columns:** label, status, words, target, progress, export, created and modified, and any property of your notes
   (a POV, a date). Add and remove them with **+** at the end of the header row. Drag a header to move its column, and
   its edge to resize it.
 - **Sorting:** click a header to sort by it: ascending, then descending, then binder order again. Right-click it
   for the same as a menu. Sorting only changes what you see, within each folder; the binder's order stays as it is,
   unless you choose **Make this the binder order** in that menu.
 - **Editing:** F2 renames a row. On a selected row, click a label or status for its menu, or the synopsis, a target
-  or a property to type in it; with several rows selected, the change is made to all of them. Ticks (compile, and
+  or a property to type in it; with several rows selected, the change is made to all of them. Ticks (export, and
   yes/no properties) change with a click.
 - **Folders** fold with the arrow beside them (**Expand all** and **Collapse all** are in the view's **More options**). A folder's row adds up the words of the notes in it, and their targets
   if it has none of its own; the last row does the same for everything shown.
@@ -201,7 +203,7 @@ What to know about a paragraph that starts with a tab:
 - The **Filter** button shows only the notes with a given status or label, in all three modes.
 - Renaming a label or a status in settings offers to rename it in the notes that have it.
 
-## Splitting, merging and compiling
+## Splitting and merging
 
 - **Split scene at cursor** (a command, in a note or in the manuscript) moves the text from the cursor on into a new
   note right after this one. **Split scene with selection as title** names the new note from the selected words.
@@ -219,11 +221,94 @@ What to know about a paragraph that starts with a tab:
 - **Ungroup** moves what a folder holds out to where the folder stood, and the emptied folder goes to the trash with
   its synopsis, label and target. **Undo last move** brings the folder back with all of them and puts its notes
   back inside, in order. A folder stays if something is still in it: text you wrote in its folder note, say.
-- **Compile binder** (a command, and **Compile...** in a binder folder's right-click menu) writes the whole binder, or
-  the folder shown, as one note beside the binder, or copies it. You choose the title, whether folders and note
-  titles become headings, what goes between notes, and whether comments are left out. Your notes aren't changed.
-  Turn off **Include in compile** on a note or folder to leave it out. Compiling again offers the same note, and replaces the last compile; a
-  note that has been written in since, or wasn't made by Compile, is asked about first.
+
+## Export
+
+What Scrivener calls Compile. **Export binder** (a command) and **Export...** (in the binder view's **More
+options** menu, and in the menu of a binder or of a folder in one) open one window: on the left what to make and its
+few choices, on the right what it will be. It opens on the kind you made last, and nothing has to be decided before
+the first file. Export reads your notes and writes the exported file: your notes aren't changed.
+
+Two kinds are built so far. An ebook, a paperback PDF and a Scrivener project are still to come (see the
+[roadmap](ROADMAP.md)).
+
+### Manuscript
+
+A Word file (.docx) in standard manuscript format, the form agents and editors ask for: 12-point Times New Roman,
+double-spaced, one-inch margins, a half-inch first-line indent, a header with your surname, the title and the page
+number, a title page with your contact details and the word count rounded, each chapter on a new page a third of the
+way down, and `#` between scenes.
+
+- **Real Word styles.** Chapters are Heading 1, scene breaks have a style of their own, footnotes are Word footnotes
+  and links are links, so the file can be restyled in Word, or brought into Vellum or Atticus.
+- **Style:** Standard manuscript; Standard manuscript, Courier (italics underlined); or Plain, for a typesetter
+  (single-spaced, no title page or header, `***` between scenes).
+- **Your name** is asked for once, in the window. It and your contact details are kept in Binders' settings. A binder
+  note can say `title:` and `author:` for one book.
+- **Front and back matter** (a dedication, acknowledgements) are left out of a manuscript unless you turn them on.
+- **The preview** is the manuscript's text as it will read, on paper: the headings, the breaks and the notes, not
+  the pages. Word sets its own lines and turns its own pages.
+
+**How a binder becomes a book.** Every note and folder plays a part: a part, a chapter, a scene, front or back
+matter. Binders works it out from the binder's shape:
+
+- Top folders named "Part", "Book" or "Act": folders are parts, notes are chapters.
+- Other folders, one level deep: folders are chapters, and the notes in them are scenes, joined with a scene break.
+  A note at the top is a chapter by itself.
+- Folders in folders: parts, chapters and scenes.
+- No folders (and a Longform project): every note is a chapter.
+
+**Contents**, in the window, lists every item with the part it was given. A chapter is numbered ("Chapter One")
+unless it is named Prologue, Epilogue, Interlude, Introduction, Foreword, Preface or Afterword. Its title is its
+note's or folder's name without a number it starts with ("03 - Storm warning" is "Storm warning"), and nothing if the
+name is only a number or "Chapter 3"; a level-one heading at the top of the note is the title instead. Notes at the
+start or the end named Dedication, Epigraph, Acknowledgements, About the author, Also by, Copyright or Title page,
+and everything in a folder named "Front matter" or "Back matter", are front and back matter. To overrule any of it,
+give a note (or a folder's note) the property `export-as: chapter` (or `part`, `scene`, `front matter`,
+`back matter`), and a binder note `structure:` (see [docs/file-format.md](docs/file-format.md)). A menu for both is
+on the way.
+
+**What your Markdown becomes.** Properties are never exported. A new line is a new paragraph, and a tab or spaces at
+a paragraph's start are dropped (the manuscript indents every paragraph itself); two spaces or a backslash at a
+line's end break a line. Italic, bold and strikethrough stay. Straight quotes are curled, `--` is a dash and `...`
+an ellipsis. `---`, `***` or `___` alone on a line, and the join of two scenes, are a scene break. A heading inside a
+note is a subheading. A link to a note is its words; a web link is a link. Footnotes (`[^1]` and `^[typed in
+place]`) are footnotes. Comments (`%% %%` and `<!-- -->`), block ids and lines of nothing but tags are left out;
+highlights are their words; a callout is a quotation with its title in bold. Quotations, lists, tables and fenced
+code stay what they are. `![[A note]]` brings in that note's text, one level deep, and a PNG, JPEG or GIF picture is
+set in the page.
+
+**What can't be exported is counted first.** Under the choices the window lists each thing it will leave out or
+change, with the note it is in: a picture that isn't found (or isn't a PNG, JPEG or GIF), an embedded PDF or other
+file, part of a note embedded by its heading, math and a tag in a line of text (both exported as typed), HTML (its
+text is kept), a folder deeper than the structure reaches. Click one to open its note.
+
+**Where the file goes.** On a computer, Export opens your system's save dialog, starting in a folder named `Exports`
+beside the binder. This is the one place Binders writes outside your vault, and only where you say. Once a file is
+saved the window says where, with **Show in folder** and **Open**, and offers **Save here next time without
+asking**: ticked, later manuscripts of that binder go straight there (a file there that export didn't write, or that
+has been changed since, is asked about first). **Choose where to save...** in the window's menu, unticking the box,
+or **Ask again** in Binders' settings brings the dialog back. On a phone or tablet the file goes into the `Exports`
+folder in your vault, and then to the share sheet. Obsidian lists a .docx in its file explorer only with **Detect
+all file extensions** on (Files and links). The Exports folder can be renamed, or made one folder for the whole
+vault, in settings.
+
+Not there yet: the ebook, the PDF and the Scrivener project; the book's own details (subtitle, cover, copyright
+line, language) and a menu for a note's role; editing a style; pictures in other formats. The Word file has been
+opened in LibreOffice; it hasn't yet been checked in Word, Pages or Google Docs.
+
+### One note
+
+The whole binder, or the folder shown, as one Markdown note beside the binder (this was "Compile"). You choose the
+title, whether folders and note titles become headings, what goes between notes, whether comments are left out, and
+whether the tabs that start paragraphs are taken off (outside a binder Obsidian shows such a line as code). **Copy**
+copies the text instead of saving it. Exporting again offers the same note, and replaces the last one; a note that
+has been written in since, or wasn't made by an export, is asked about first.
+
+### Leaving a note out
+
+Turn off **Include in export** on a note or folder (its menu, or the outliner's **Export** column) to leave it out
+of every kind of export.
 
 ## Snapshots
 
@@ -251,7 +336,7 @@ each is a command too.
 
 Snapshots are plain-text files (Markdown inside) in a `Snapshots` folder in the binder, one folder per note:
 `The Lighthouse/Snapshots/Part One/Arrival/2026-10-01 14.32.07 First draft.snapshot`. They follow the note when you
-rename or move it. They're kept out of your way: never in a binder's order, word counts or compile, never listed
+rename or move it. They're kept out of your way: never in a binder's order, word counts or exports, never listed
 in the file explorer, and (not being notes) not in search, the quick switcher, backlinks, the graph or tags. When a
 note is deleted its snapshots stay; the binder view's menu lists **Snapshots of notes that are gone**.
 
@@ -332,7 +417,7 @@ own.
 - Labeled notes and folders show a dot in their label's color. A setting turns the dots off.
 - A note's right-click menu has **Show in binder** and **New scene after this**; several notes selected have **New
   folder from selection** and **Merge 3 notes** (or however many). A binder folder's menu has **Open binder**, **New
-  scene here** and **Compile...**; any folder that isn't in a binder has **Make this folder a binder** and **New
+  scene here** and **Export...**; any folder that isn't in a binder has **Make this folder a binder** and **New
   binder**.
 - **Move up** and **Move down** in a note's right-click menu (and as commands) move it one place in its folder.
 - **Open binder** opens the binder view from any note in it, with that note's card selected.
@@ -370,7 +455,8 @@ The supply boat left Mara on the jetty with two cases and a letter she had not o
 ```
 
 `label` is the name of a label from settings, one of the theme's colors (`blue`), or a color of its own (`#7c3aed`).
-`compile: false` leaves a note out when the binder is compiled.
+`export: false` leaves a note out when the binder is exported (`compile: false`, its name in earlier versions, still
+does).
 
 A subfolder can have a **folder note** named like it (`Part One/Part One.md`) for its own synopsis, status, label and
 target. Binders creates it the first time you give the folder one of these.
@@ -385,7 +471,7 @@ doesn't mention yet show after the others, by name. The full format is in [docs/
   Binders makes the note when you make a binder.
 - **In a folder note:** the same four, made the first time you give a folder one of them.
 - **In your notes:** only the properties you change through its views (`synopsis`, `status`, `label`, `target`,
-  `compile`, and any property you edit in an outliner cell), through Obsidian's own property writer, so the rest of
+  `export`, and any property you edit in an outliner cell), through Obsidian's own property writer, so the rest of
   the note stays as it is.
 - **Note text** is never rewritten behind your back. It changes only where you type (in a note, or in the manuscript,
   which is Obsidian's own editor), or when you ask: **Split**, **Merge**, **Bring back** a snapshot, **Rewrite**, and
@@ -395,8 +481,9 @@ doesn't mention yet show after the others, by name. The full format is in [docs/
   set to update links and **Start a paragraph with a tab** is on: the name in the link changes, as Obsidian changes
   it in every other link, and nothing else in the note does. Obsidian doesn't do this itself, because it reads such
   a line as code. This is the one change to a note's text you didn't ask for one by one.
-- **New files:** notes you make or duplicate, folder notes, compiled notes (beside the binder, never in it), and
-  snapshots (in the binder's `Snapshots` folder).
+- **New files:** notes you make or duplicate, folder notes, the one note an export makes (beside the binder, never
+  in it), snapshots (in the binder's `Snapshots` folder), and exported files: on a computer where the save dialog
+  says, otherwise in the `Exports` folder beside the binder. Export changes none of your notes.
 - **Files moved or renamed:** only when you move or rename them (dragging in a view or in the file explorer, renaming
   in a view, grouping), and a folder note, which follows its folder when you rename it.
 - **A binder from a newer version of Binders** is left exactly as it is, and says why when you try to change it.
@@ -425,7 +512,7 @@ Obsidian's Hotkeys settings. Most only appear where they apply (a binder view in
 | **Convert to binder** | For a Longform project: turns it into a binder. |
 | **Split scene at cursor**, **Split scene with selection as title** | Move the text from the cursor on into a new note after this one (in a note, or in the manuscript). |
 | **Set word count target** | Sets the target of the folder the binder view shows (the binder's own, on the binder). |
-| **Compile binder** | Writes the binder, or the folder shown, as one Markdown note, or copies it. |
+| **Export binder** | Opens the Export window for the binder, or the folder shown: a manuscript as a Word file, or one Markdown note. |
 | **Undo last move**, **Redo last move** | Take back, or make again, the last move made by hand in the binder in front (or the open note's). |
 | **Move up**, **Move down** | Move the open note one place in its folder. |
 | **Take a snapshot**, **Rewrite**, **Show snapshots** | Snapshots of the open note (or, in the manuscript, the section the cursor is in). |
@@ -455,11 +542,14 @@ Settings, Community plugins, Binders.
 | Dim other paragraphs | (Focus mode.) While you type, every paragraph but the one you're in steps back. On to begin with. |
 | Enter fullscreen | (Focus mode; desktop only.) Focus mode takes the whole screen and gives it back when you leave. |
 | Words to write today | (Focus mode.) A goal for a day's writing in a binder, shown with the word counts. Empty for none. |
+| Exports folder | (Export.) Where exported files go on a phone or tablet, and where the save dialog starts on a computer. A name is a folder beside each binder; a path, such as `Books/Exports`, is one folder for the whole vault. |
+| Remembered places | (Export.) The exports this device saves without asking, with **Ask again** to forget them. |
+| Your name, Contact details | (Export.) The author of a book that doesn't say otherwise, and the lines for a manuscript's title page. |
 | Synopsis, Status, Label, Target | (Property names.) The properties that hold each, if your notes already use other names. |
 
 A note has a label when its property says that name, so renaming a label or status in settings asks whether to rename
 it in the notes that have it too. A few things are remembered outside the settings page: how each binder view was left
-(its mode, filter, card size, outliner columns), and how **Compile** was last set up.
+(its mode, filter, card size, outliner columns), how **Export** was last set up, and (on each device by itself) the places exports are saved without asking.
 
 ## On phones and tablets
 

@@ -2,7 +2,7 @@
 
 Status: feature-complete except what is in [ROADMAP.md](../ROADMAP.md), and in QA. The explorer, binder store, corkboard
 (in a grid, or arranged by label), outliner, editable manuscript, Longform integration, labels and statuses, word count
-targets, scene operations (split, merge, duplicate, group, compile), snapshots, focus mode, dragging a card out of the
+targets, scene operations (split, merge, duplicate, group), export (step 1: a manuscript, one note), snapshots, focus mode, dragging a card out of the
 view, and undo of moves all work, on desktop and in mobile emulation. Nothing is tagged yet: the version in
 `package.json` is the latest committed. Six QA rounds have been run (`tests/e2e/specs-qa*.mjs`); the findings still
 open are in `tests/e2e/open-findings.json` and [integration-qa.md](integration-qa.md). Left before 1.0: mobile QA on real
@@ -18,7 +18,7 @@ one) opens the **binder view**, which switches between three ways of seeing the 
 - **Corkboard**: one index card per note (title, synopsis, status, label color), in order, grouped by subfolder. Drag
   cards to reorder or move them between folders.
 - **Outliner**: notes and folders as rows of a tree, with columns the writer picks (label, status, words, target,
-  progress, compile, dates, any note property), sortable, editable in place.
+  progress, export, dates, any note property), sortable, editable in place.
 - **Manuscript**: every note in the binder, in order, as one continuous, editable document, with the subfolders as
   headings and a break between notes. Typing edits the real notes.
 
@@ -53,11 +53,11 @@ See [file-format.md](file-format.md) for the full specification.
 - **`contents`**: the binder's table of contents, a list of paths relative to the binder, folders ending in `/`, in
   reading order. It is one list for the whole binder, so it reads like a table of contents and is easy to fix by hand.
 - **Folder notes**: each subfolder in a binder can have a note named like it (`Part One/Part One.md`) that holds the
-  folder's own data: its synopsis, status, label and target (and `compile: false` to leave the folder out of a
-  compile). Binders creates it the first time you give the folder one of these in a binder view. It never shows as a
+  folder's own data: its synopsis, status, label and target (and `export: false` to leave the folder out of an
+  export). Binders creates it the first time you give the folder one of these in a binder view. It never shows as a
   scene, in `contents`, or in the manuscript.
 - **Per-note properties**: `synopsis` (the card text), `status` (draft, revised…), `label` (a label's name or a
-  color), `target` (a word count), with names configurable, and `compile` (`false` leaves the note out of a compile).
+  color), `target` (a word count), with names configurable, and `export` (`false` leaves the note out of an export; `compile: false`, its name before export, is read as the same).
   They show in Obsidian's Properties panel and work with Bases and Dataview. The binder note and folder notes use the
   same `synopsis`, `status`, `label` and `target`.
 - **Labels and statuses** are lists in the plugin's settings, not in any note: a label is a name and a color (one of
@@ -113,11 +113,11 @@ See [file-format.md](file-format.md) for the full specification.
 - **Commands** (all in `src/main.ts` except focus mode's, in `src/focus/focus.ts`): "Open binder", "Show corkboard", "Show
   outliner", "Show manuscript", "Arrange corkboard by label", "Make this folder a binder", "New binder", "New scene
   here", "Convert to binder" (Longform), "Split scene at cursor", "Split scene with selection as title", "Set word
-  count target", "Compile binder", "Undo last move", "Redo last move", "Move up", "Move down", "Take a snapshot",
+  count target", "Export binder", "Undo last move", "Redo last move", "Move up", "Move down", "Take a snapshot",
   "Rewrite", "Show snapshots", "Take a snapshot of every note in the binder", "Show snapshots of notes that are
   gone", "Toggle focus mode", "Go to previous scene", "Go to next scene". None has a default hotkey.
 - **File menu** (a note's or folder's right-click menu): "Open binder", "Show in binder", "Make this folder a binder", "New
-  binder", "New scene here", "New scene after this", "Compile...", "Convert to binder", the snapshot items, "Move up",
+  binder", "New scene here", "New scene after this", "Export...", "Convert to binder", the snapshot items, "Move up",
   "Move down", each only where it applies. Several items selected: "New folder from selection", "Merge N notes".
 - Not compatible with plugins that replace the explorer (Notebook Navigator and the like): documented, and the setting
   turns the patch off.
@@ -135,7 +135,7 @@ New (note, folder). The view runs edge to edge, as a base, a canvas or a note do
   history, so Back returns to it.
 - The corkboard and the outliner share one item menu and its actions (`src/view/actions.ts`): open, rename, edit
   synopsis, "Set synopsis from text", "Set status", "Set label", "Set target...", "Move to" (every folder of the binder), "Duplicate", "Merge N notes",
-  "New folder from selection" / "Put in a new folder", "Ungroup", "Include in compile", "Move up", "Move down",
+  "New folder from selection" / "Put in a new folder", "Ungroup", "Include in export", "Move up", "Move down",
   what Obsidian and other plugins add (`file-menu`, source `binders-card`), and "Delete".
 
 ### Corkboard
@@ -221,7 +221,7 @@ Approved by the maintainer on 2026-10-01, after a design study and a prototype (
   items indented under it. Longform scenes are indented as Longform has them.
 - **Title column**, always first: the name, with the synopsis under it ("Show synopses" turns that off).
 - **Columns**, picked from "+" at the end of the header row or "Columns" in the view's More options: Label, Status,
-  Words, Target, Progress, Compile, Created, Modified, and any note property (the binder's most used are offered;
+  Words, Target, Progress, Export, Created, Modified, and any note property (the binder's most used are offered;
   "Other property..." takes a name). Kept with the view, and in settings as the start for the next outliner.
 - **A header's menu** (click, or Enter): "Sort ascending", "Sort descending", "Binder order" (when sorted), "Move
   left", "Move right", "Hide column"; on the title, "Show synopses". Dragging a header moves the column; dragging its
@@ -232,7 +232,7 @@ Approved by the maintainer on 2026-10-01, after a design study and a prototype (
   notes' words, and their targets if it has no target of its own. The last row shows the number of notes and the
   totals for words, target and progress.
 - **Editing in place**: F2 (or "Rename") edits the title; on a selected row, a click on the synopsis, a target or a
-  property cell edits it; a label or status cell opens its menu; Compile and yes/no properties are checkboxes. A
+  property cell edits it; a label or status cell opens its menu; Export and yes/no properties are checkboxes. A
   property cell keeps the type it had: a number stays a number, a list is split at commas, empty removes it.
 - **Selection** as on the corkboard: click, Shift-click, Mod-click, Mod+A; actions apply to every selected row.
 - **Keyboard**: Up and Down, Home and End; Left folds or goes to the parent; Right unfolds or goes to the first item;
@@ -307,11 +307,13 @@ twice before it exists once.
   folder that still holds something stays: a file Obsidian doesn't list, or a folder note with text under its
   properties, which is writing and is never trashed unasked; a notice says so), **Set synopsis from text** (the
   note's first paragraph).
-- **Compile**: "Compile binder" (command) and "Compile..." (a binder folder's menu) open a dialog: title as the first
-  heading, folders as headings, note titles as headings, what goes between notes (`* * *`, `#`, `---` or a blank
-  line), leave out comments, and where to save. It writes one Markdown note beside the binder (never in it), or
-  copies the text. Notes and folders with `compile: false` ("Include in compile" off) are left out. Pandoc or PDF
-  from there is other plugins' work.
+- **Export** (step 1 built 2026-10-05; the design is [export.md](export.md)): "Export binder" (command) and
+  "Export..." (the view's menu, a binder folder's menu, a folder card's menu) open the Export window. Its kinds so
+  far: **Manuscript**, a Word file in standard manuscript format, and **One note** (what "Compile" was): title as
+  the first heading, folders as headings, note titles as headings, what goes between notes (`* * *`, `#`, `---` or a
+  blank line), leave out comments, take tabs off paragraphs, and where to save. One note writes one Markdown note
+  beside the binder (never in it), or copies the text. Notes and folders with `export: false` ("Include in export"
+  off; `compile: false` is read as the same) are left out of every kind.
 
 ### Snapshots
 
@@ -429,7 +431,7 @@ no setting for it.
   links at the old name while Binders shows them as live links. Binders rewrites them itself, narrowly: the
   maintainer's exception to "never rewrites note bodies" (golden rule 3). Backlinks, the graph and tags on those
   lines stay untracked, and the README says so.
-- Not built: Compile and the exports knowing about either. What they should do is under "Compile, export and paragraphs" below.
+- Export knows about both (built with export's step 1): see "Export and paragraphs" below.
 
 ## Longform integration
 
@@ -558,12 +560,13 @@ them: see AGENTS.md). Nothing is tagged yet.
   after each batch, and a failure on `main` is found by bisecting before anyone guesses. See
   [development.md](development.md).
 
-## Compile, export and paragraphs (to build with export)
+## Export and paragraphs (built with export's step 1, 2026-10-05)
 
-- **Compile** writes a note outside the binder, where its tab lines would be code again: an option, on by default,
-  to take the tabs off the start of paragraphs (`tabLines` in `src/paragraphs/text.ts` says which lines), leaving
-  plain Markdown paragraphs.
-- **Export** (EPUB, DOCX, PDF) uses the same rule before any converter sees the text: a paragraph begun with a tab is
+- **One note** writes a note outside the binder, where its tab lines would be code again: "Take tabs off
+  paragraphs", on by default, takes the tabs off the start of paragraphs (`untab` in `src/paragraphs/text.ts`, by
+  the lines `tabLines` names), leaving plain Markdown paragraphs.
+- **Export** (the Word manuscript now; the EPUB and the PDF after it) uses the same rule before any writer sees the
+  text: a paragraph begun with a tab is
   a paragraph, never a code block and never a literal tab. The tab is dropped and the paragraph gets a real
   first-line indent from the export's style ([export.md](export.md), "What Markdown becomes").
 - Whether the book's paragraphs are indented is the export style's own choice ("Paragraphs": first line indented, or

@@ -23,10 +23,19 @@ state (code, tests and documentation).
       (2026-10-01); see `docs/plan.md`, "Arranged by label".
 
 - [ ] **Export.** A binder (or a folder of it) out as a book: EPUB, DOCX and PDF, with front and back matter, a
-      title page, chapters from folders, and scene breaks. "Compile" today makes one Markdown note; export builds on
-      it. **Designed and decided 2026-10-05: [docs/export.md](docs/export.md)** (roles and styles, a style editor
-      with the real pages beside it, five kinds, built with no outside tools, PDF on a computer only, and the
-      order it is built in, steps 0 to 6).
+      title page, chapters from folders, and scene breaks. **Designed and decided 2026-10-05:
+      [docs/export.md](docs/export.md)** (roles and styles, a style editor with the real pages beside it, five
+      kinds, built with no outside tools, PDF on a computer only, and the order it is built in, steps 0 to 6).
+  - [x] **Step 1: the book model and the manuscript** (2026-10-05). The Markdown reader and the one book model
+        every writer reads; roles from the structure Binders reads off a binder's shape (`export-as` and
+        `structure` honoured as properties); the Export window with Manuscript and One note; the Word writer in
+        standard manuscript format, held to the word-for-word test; where files go (the save dialog, remembered
+        places, the Exports folder). "Compile" is now Export's "One note", and `export: false` is what is written.
+  - [ ] Step 2: the ebook (the EPUB writer, the first book style, Book details, the made pages).
+  - [ ] Step 3: pages (the paginator, hyphenation, fonts, the PDF module, the exact preview).
+  - [ ] Step 4: the Scrivener project.
+  - [ ] Step 5: overruling and owning ("Export as" and its column, the style editor and style files, Export again).
+  - [ ] Step 6: finish (phones and tablets by touch, both themes, the docs, a QA round).
   - **And out as a Scrivener project** (added 2026-10-01): a `.scriv` folder Scrivener 3 opens, for a writer who
     moves on to Scrivener or sends the book to someone who uses it. Not a book but the binder itself: folders and
     notes in binder order as Scrivener's Draft, each note's text as rich text (headings, bold, italics, lists, links
@@ -74,7 +83,7 @@ not a reason to build something.
 ### 1. Saved manuscript subsets
 
 - [ ] **Saved filters, then collections.** Work on scenes scattered across a book without moving or copying them.
-      First support named filters scoped to a binder or folder: label, status, compile inclusion, and selected
+      First support named filters scoped to a binder or folder: label, status, export inclusion, and selected
       existing properties, including list membership and missing values. Combine conditions with AND; allow several
       accepted values within a condition. Example: scenes whose `characters` contains Alice and whose status is Draft.
       Reuse the current Filter control, three views, and native property names and types; no new view or query language.
@@ -83,7 +92,7 @@ not a reason to build something.
   - Start with saved filters. Add manually picked collections only after use establishes that property filters
     cannot serve a recurring task. Example: five scenes selected for a critique session, with no shared property.
   - Store definitions as readable binder metadata; follow renamed files in manual collections and show missing
-    members rather than silently substituting notes. Explain that saved subsets do not change compile inclusion.
+    members rather than silently substituting notes. Explain that saved subsets do not change export inclusion.
   - Ship when a writer can save, reopen and edit a cross-chapter subset in all three views, with ancestors shown
     only as context and no change to the full manuscript's order. Reordering is disabled in a subset initially;
     adding scenes and changing properties must not hide pending edits or discard the caret.
