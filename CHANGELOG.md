@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.12.151 (2026-10-05)
+
+### Changed
+
+- In a pane or on a phone narrower than 360 px, the corkboard/outliner/manuscript button shows its icon alone, leaving the room to the folder's name and the word count; its name is its tooltip.
+
 ## 0.12.150 (2026-10-05)
 
 ### Changed

@@ -490,6 +490,96 @@ test('a narrow pane: folder names win over the counts', withTidy(async (p, h, t)
 	await p.sleep(300);
 }));
 
+// The mode button under 360 px (decided 2026-10-05): its icon and chevron, its name in its tooltip and to a screen
+// reader, in a narrow pane as on a narrow phone; the way up and the count have the room its name took.
+const TOOLBAR = `(() => {
+	const v = document.querySelector('.workspace-leaf.mod-active .binders-view'), bar = v.querySelector('.binders-toolbar'), b = bar.querySelector('.binders-mode-button');
+	const shown = (e) => !!e && getComputedStyle(e).display !== 'none' && e.getBoundingClientRect().width > 0, box = (e) => { const r = e.getBoundingClientRect(); return { l: r.left, r: r.right, w: r.width }; };
+	const br = box(b), kids = [...bar.children].filter(e => shown(e) && !e.classList.contains('binders-toolbar-spacer')).map(e => ({ cls: [...e.classList].find(c => c.startsWith('binders-')), ...box(e) }));
+	const count = bar.querySelector('.binders-word-count'), up = bar.querySelector('.binders-crumb[role="link"]:nth-last-child(3)');
+	return {
+		pane: Math.round(v.getBoundingClientRect().width), label: shown(b.querySelector('.text-button-label')), name: b.getAttribute('aria-label'), tip: getComputedStyle(b).getPropertyValue('--no-tooltip').trim(),
+		whole: [b.querySelector('.text-button-icon:not(.mod-aux)'), b.querySelector('.mod-aux')].every(e => { const r = box(e); return r.w >= 12 && r.l >= br.l - 0.5 && r.r <= br.r + 0.5; }),
+		button: Math.round(br.w), out: Math.round(Math.max(0, ...kids.map(k => k.r)) - bar.getBoundingClientRect().right), overlap: kids.filter((k, i) => i && k.l < kids[i - 1].r - 0.5).map(k => k.cls),
+		count: shown(count) ? { text: count.innerText.trim(), cut: count.scrollWidth - count.clientWidth } : null,
+		up: shown(up) ? { text: up.textContent, w: Math.round(box(up).w), cut: up.scrollWidth - up.clientWidth } : null,
+	};
+})()`;
+async function modeButtonAt(p, t, where, setWidth) {
+	const ups = {};
+	for (const w of [320, 359, 360]) {
+		await setWidth(w);
+		for (const folder of ['The Lighthouse', 'The Lighthouse/Part One']) {
+			await openView(p, folder);
+			for (const mode of ['corkboard', 'outliner', 'manuscript']) {
+				await p.ev(`(() => { ${VIEW}.setMode(${j(mode)}); return 1; })()`);
+				await until(p, `!!document.querySelector('.workspace-leaf.mod-active .binders-mode-${mode}')`);
+				await p.sleep(250);
+				const bar = await p.ev(TOOLBAR), what = `${where}, ${w} px, ${folder === 'The Lighthouse' ? 'binder' : 'folder'}, ${mode}`, name = mode.charAt(0).toUpperCase() + mode.slice(1);
+				t.eq(bar.pane, w, `${what}: the pane is that wide`);
+				t.eq(bar.label, w >= 360, `${what}: the mode’s name is ${w >= 360 ? 'shown' : 'not shown'} on its button`);
+				t.eq(bar.name, `View as: ${name}`, `${what}: a screen reader is told the mode`);
+				t.ok(bar.whole, `${what}: the button’s icon and chevron are whole: ${j(bar)}`);
+				if (w < 360) t.eq(bar.tip, 'false', `${what}: its name is its tooltip`);
+				t.ok(bar.out <= 0 && !bar.overlap.length, `${what}: nothing sticks out of the toolbar or overlaps: ${j(bar)}`);
+				// (on the corkboard inside a folder the count gives way to the way up below 440 px, as before)
+				const counted = !(mode === 'corkboard' && folder !== 'The Lighthouse');
+				t.eq(!!bar.count, counted, `${what}: the count ${counted ? 'is there' : 'gives way to the way up'}`);
+				if (bar.count) t.ok(bar.count.cut <= 0 && /^\d+( words)?$/.test(bar.count.text) && / words$/.test(bar.count.text) === w >= 360, `${what}: the count is whole: ${j(bar.count)}`);
+				if (w < 360) t.ok(bar.button <= (where === 'a phone' ? 76 : 52), `${what}: the button takes its icon and chevron’s room and no more: ${bar.button} px`);
+				// (without the name the way up is never cut to less than a few letters; and it has the room the name took: more at 359 px,
+				// without the name, than at 360 px with it)
+				if (folder !== 'The Lighthouse') {
+					t.ok(bar.up && bar.up.text === 'The Lighthouse' && (w >= 360 || bar.up.w >= 40), `${what}: the way up is there: ${j(bar.up)}`);
+					ups[`${folder} ${mode} ${w}`] = bar.up.w;
+					if (w === 360) t.ok(ups[`${folder} ${mode} 359`] > bar.up.w || bar.up.cut <= 0, `${what}: the way up had more room at 359 px, without the mode’s name (${ups[`${folder} ${mode} 359`]} px), than it has here with it (${bar.up.w} px)`);
+				}
+			}
+		}
+	}
+}
+
+test('under 360 px the mode button is its icon alone, named in its tooltip and to a screen reader; from 360 px it says its name: a narrow pane', withTidy(async (p, h, t) => {
+	await p.ev(`(() => { app.workspace.leftSplit.collapse(); app.workspace.rightSplit.collapse(); return 1; })()`);
+	await openView(p);
+	try {
+		// (the window as wide as leaves the pane that width: the ribbon is beside it)
+		const pane = async (w) => {
+			for (let i = 0, win = w + 44; i < 3; i++) {
+				await p.send('Emulation.setDeviceMetricsOverride', { width: win, height: 800, deviceScaleFactor: 1, mobile: false });
+				await p.sleep(400);
+				const now = await p.ev(`Math.round(document.querySelector('.workspace-leaf.mod-active .binders-view').getBoundingClientRect().width)`);
+				if (now === w) break;
+				win += w - now;
+			}
+		};
+		await modeButtonAt(p, t, 'a pane', pane);
+		// with a mouse that hovers (--hover), the tooltip itself
+		if (await p.pointer() === 'mouse') {
+			await pane(359);
+			t.eq(await p.hover('.workspace-leaf.mod-active .binders-mode-button'), 'View as: Manuscript', 'at 359 px its name is its tooltip');
+		}
+	} finally {
+		await p.send('Emulation.setDeviceMetricsOverride', { width: p.width, height: p.height, deviceScaleFactor: 1, mobile: false });
+		await p.sleep(300);
+	}
+}));
+
+test('under 360 px the mode button is its icon alone, named in its tooltip and to a screen reader; from 360 px it says its name: a phone', withTidy(async (p, h, t) => {
+	const metrics = (width) => p.send('Emulation.setDeviceMetricsOverride', { width, height: 740, deviceScaleFactor: 1, mobile: true });
+	await metrics(320);
+	await reload(p, true);
+	await p.focusMain();
+	try {
+		t.ok(await p.ev(`document.body.classList.contains('is-phone')`), 'a phone');
+		await modeButtonAt(p, t, 'a phone', async (w) => { await metrics(w); await p.sleep(500); });
+	} finally {
+		await p.send('Emulation.setDeviceMetricsOverride', { width: p.width, height: p.height, deviceScaleFactor: 1, mobile: false });
+		await reload(p, false);
+		await p.focusMain();
+	}
+}));
+
 test('the manuscript shows the notes that pass the filter, under the folders that have any; a section being typed in stays till it’s saved', withTidy(async (p, h, t) => {
 	const before = await texts(p);
 	await openView(p);

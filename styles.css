@@ -2984,14 +2984,15 @@
 	text-overflow: ellipsis;
 }
 
-/* (on the narrowest phones the view's name would be a letter and an ellipsis: its icon and chevron alone, as the other
-   buttons are their icons there, its name its tooltip and what a screen reader says; the count keeps its room) */
+/* (under 360px, a narrow pane or the narrowest phones, the view's name would be a few letters and an ellipsis: its
+   icon and chevron alone, as the other buttons are their icons there, its name its tooltip and what a screen reader
+   says; the way up and the count have the room) */
 @container binders-view (width < 360px) {
-	.is-phone .binders-toolbar .binders-toolbar-button.binders-mode-button {
+	.binders-toolbar .binders-toolbar-button.binders-mode-button {
 		flex-shrink: 0;
 		--no-tooltip: false;
 	}
-	.is-phone .binders-mode-button > .text-button-label {
+	.binders-mode-button > .text-button-label {
 		display: none;
 	}
 }
