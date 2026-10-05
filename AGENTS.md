@@ -14,7 +14,11 @@ Read this before changing anything. It is the contract every contributor, human 
 2. **Never lose writing.** Any change to how notes are read, written, renamed or edited needs an e2e test that proves no
    text is lost, including external edits and undo.
 3. **Plain files.** Binders only writes its own properties in binder and folder notes (and creates folder notes), and the
-   properties the user edits through its views. It never rewrites note bodies except through an editor the user is typing in.
+   properties the user edits through its views. It never rewrites note bodies except through an editor the user is typing
+   in, a command the user runs on the text (split, merge, bring back, rewrite), and one thing more, which is as
+   narrow as it is written here: when a note is renamed, "Start a paragraph with a tab" is on and Obsidian's own
+   "Automatically update internal links" is on, the links to that note on tab-led lines in binder notes are
+   rewritten, the link's target and nothing else (`src/paragraphs/rename.ts`; the maintainer's exception, 2026-10-05).
 4. **Native look.** Use Obsidian's CSS variables, `setIcon`, `Menu`, `Modal`, `Setting`, sentence case. No `!important`,
    no `all:`, no scrollbar styling, no inline `innerHTML`; use `createEl` or `sanitizeHTMLToDom`. The Obsidian review
    bot flags these.

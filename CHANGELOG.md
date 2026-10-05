@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.22.7 (2026-10-05)
+
+### Changed
+
+- Nothing a writer will notice: the working rules now name the commands that rewrite text and the one exception for links in tab paragraphs.
+
 ## 0.22.6 (2026-10-05)
 
 ### Changed
