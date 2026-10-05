@@ -3,8 +3,9 @@
 Decided with the maintainer on 2026-10-05. Not built yet: this is what is to be built, written as decided. The
 research behind it (Scrivener's Compile, the neighbouring tools, the formats, the routes tried), the two directions
 that were turned down, the screens and the sample files are in `.claude/handoff/export-design/` (`DESIGN.md`,
-`screens.html`, `samples/`, `spike/`), which git doesn't carry. A few points are still the maintainer's to confirm;
-they are marked **(to confirm)**.
+`screens.html`, `samples/`, `spike/`), which git doesn't carry. The points the designer left open (the
+save dialog, where a style's file lives, built-in styles edited in place, the names Classic and Modern, custom CSS
+in the file only, margins by name, manuscript styles in the editor) were settled the same day as written here.
 
 **The idea.** Writing stays plain in Obsidian; the look is given when the book is exported. Export is what Scrivener
 calls Compile, with one vocabulary where Scrivener has two, the real pages in the window, and nothing to wire up
@@ -110,8 +111,7 @@ and the paperback together: choose once and they are the same book).
 **Classic** (EB Garamond: a centred small-capital chapter line, first words in small capitals, three asterisks, the
 author and the title along the top, the page number at the foot) and **Modern** (Source Serif: a large plain numeral
 at the left, breaks as space, the title and the page number together at the top outside). Both typefaces are SIL
-Open Font License and travel in the plugin. **(to confirm: the names. They were "Garamond" and one other while a
-style could not change its typeface; now it can.)**
+Open Font License and travel in the plugin.
 
 **The style editor.** A writer never opens a style's file. Beside the Style dropdown is "Edit this style": the
 window's sidebar becomes the editor, laid out as Obsidian's Bases lays out "Configure view" (a back arrow, the
@@ -132,7 +132,7 @@ change. What it offers, and no more:
 - Edited from the Ebook kind, the editor leaves out what an ebook doesn't decide (the typeface, the size, the
   pages), and says why: a reader chooses them.
 - Changes are kept as they are made, as Obsidian's settings are. There is no Save.
-- **A built-in style can be changed and can't be broken (to confirm):** it is edited in place, the editor says
+- **A built-in style can be changed and can't be broken:** it is edited in place, the editor says
   "Built in · 3 changes", and Reset puts it back. "Duplicate" makes a style of the writer's own, based on the one
   it was made from; that one can be renamed and deleted.
 - The editor's menu: Duplicate; Rename (a style of one's own); Reset to the original (a built-in one); Save a copy
@@ -141,7 +141,7 @@ change. What it offers, and no more:
 - Styles belong to the vault: a style changed for one book is changed for every book that uses it.
 - On a phone the editor is a screen of its own, the same rows at full width, with Preview at its foot.
 
-**The style's file (to confirm: the place).** A style of the writer's own, or the changes made to a built-in one,
+**The style's file.** A style of the writer's own, or the changes made to a built-in one,
 is one plain file, `Export styles/<name>.bookstyle`, in a folder at the top of the vault that Binders keeps out of
 the file explorer, as it does a binder's `Snapshots` (its name is a setting). Like a snapshot it is not a note:
 Obsidian doesn't index it, so it is in no search, switcher or graph; and Obsidian Sync carries it only with "Sync
@@ -165,7 +165,7 @@ scene-break: "⁂"
   is listed with the warnings. A style whose `based-on` is missing falls back to Classic.
 - Binders writes these files itself, only from the editor; a newer `export-style` is refused, not rewritten (golden
   rules 3 and 6). `docs/file-format.md` gains this section when styles are built.
-- **Custom CSS is kept, and only in the file (to confirm):** the editor has no field for it. It is for the few who
+- **Custom CSS is kept, and only in the file:** the editor has no field for it. It is for the few who
   will open the file by hand ("Show the style's file"); it reaches the ebook and the PDF, not Word.
 
 **Kept per binder**, in the binder note, all optional (so still format 1): `title`, `subtitle`, `author`,
