@@ -5,6 +5,7 @@ import { language, syntaxTree, type Language } from '@codemirror/language';
 import type BindersPlugin from '../main';
 import { firstLine } from './first-line';
 import { forget, proseLanguage } from './language';
+import { followRenames } from './rename';
 import { TABBED, tabsForRender } from './text';
 
 /* Paragraphs as a book has them, in a binder's notes, wherever Obsidian shows one: a tab of its own, the manuscript
@@ -32,6 +33,8 @@ export interface Paragraphs {
 	/** A note's text made ready for `MarkdownRenderer.render`, which would make code of its tab paragraphs (and gives
 	    a post-processor no way to tell): as it is, unless the note is in a binder and tab paragraphs are on. */
 	forRender(text: string, path: string): string;
+	/** Resolves when links have followed every rename so far. */
+	renamesSettled(): Promise<void>;
 	/** For tests: the language an editor reads its text as, and one forgotten so it is looked at again. */
 	languageOf(view: EditorView): Language | null;
 	forget(lang: Language | null): void;
@@ -109,9 +112,11 @@ export function installParagraphs(plugin: BindersPlugin): Paragraphs {
 		if (s.tabParagraphs) return tabParagraphs(el, ctx, plugin);
 	});
 
+	const renames = followRenames(plugin);
 	return {
 		refresh: () => { for (const v of live) v.sync(); },
 		forRender: (text, path) => (plugin.settings.tabParagraphs && inBinder(path) ? tabsForRender(text) : text),
+		renamesSettled: () => renames.settled(),
 		languageOf: (view) => view.state.facet(language),
 		forget: (lang) => { forget(lang); for (const v of live) v.sync(true); },
 		readTo: (view) => syntaxTree(view.state).length,

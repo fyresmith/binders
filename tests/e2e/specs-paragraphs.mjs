@@ -257,3 +257,136 @@ test('“Indent paragraphs” in the manuscript: each scene starts flush, and a 
 	t.ok(shown.every((x) => x === '0px'), 'and every scene that is shown as text: ' + j(shown));
 	t.eq(await read(p, A), FRONT + 'First of the scene.\n\nSecond.\n', 'the note on disk is as it was');
 });
+
+// ---- links in tab paragraphs follow a rename ----
+
+const settled = async (p) => { await sleep(p, 300); await p.ev(`${PL}.paragraphs.renamesSettled().then(() => 1)`); await sleep(p, 300); await p.ev(`${PL}.paragraphs.renamesSettled().then(() => 1)`); };
+const rename = async (p, from, to) => { await p.ev(`app.fileManager.renameFile(${file(from)}, ${j(to)}).then(() => 1)`); await settled(p); };
+const W = L + 'Part One/The warden.md';
+const LINKS = (k) => `Plain [[${k}]].\n\n\tTab [[${k}]], [[${k}|him]], [[${k}#Past|then]], ![[${k}]] and [md](<${k}.md>).\n\tIn backticks \`[[The keeper]]\`, and [[Storm warning]].\n\n\`\`\`\n\t[[The keeper]]\n\`\`\`\n\nPlain again.\n\tUnder it [[${k}]].\n`;
+
+test('a link in a tab paragraph follows a rename: only the note it names changes, in every kind of link; code and every other byte stay; a tabbed line under a plain one, which Obsidian updates itself, isn’t done twice', async (p, h, t) => {
+	await body(p, A, LINKS('The keeper'));
+	await sleep(p, 800);
+	t.ok(!(await p.ev(`(app.metadataCache.getFileCache(${file(A)}).links || []).some(l => l.position.start.line === 8)`)), 'Obsidian’s index has no link on the tab line: without Binders it would be left');
+	await rename(p, K, W);
+	t.eq(await read(p, A), FRONT + LINKS('The warden'), 'the note, byte for byte');
+	// and back
+	await rename(p, W, K);
+	t.eq(await read(p, A), FRONT + LINKS('The keeper'), 'renamed back: as it began');
+	t.eq(errors(p).length, 0, 'no errors: ' + errors(p).join(' | '));
+});
+
+test('links in tab paragraphs are left alone with the setting off, with Obsidian’s “Automatically update internal links” off, and in a note outside a binder', async (p, h, t) => {
+	const text = '\tTab [[The keeper]].\n';
+	await body(p, A, text);
+	await p.ev(`app.vault.create('Loose.md', ${j(text)}).then(() => 1)`);
+	await sleep(p, 800);
+	await set(p, { tabParagraphs: false });
+	await rename(p, K, W);
+	t.eq(await read(p, A), FRONT + text, 'with “Start a paragraph with a tab” off: as it was');
+	await rename(p, W, K);
+	await set(p, { tabParagraphs: true });
+	await p.ev(`(() => { app.vault.setConfig('alwaysUpdateLinks', false); return 1; })()`);
+	try {
+		await rename(p, K, W);
+		t.eq(await read(p, A), FRONT + text, 'with Obsidian set not to update links: as it was');
+		await rename(p, W, K);
+	} finally { await p.ev(`(() => { app.vault.setConfig('alwaysUpdateLinks', true); return 1; })()`); }
+	await rename(p, K, W);
+	t.eq(await read(p, A), FRONT + '\tTab [[The warden]].\n', 'with both on, the binder’s note follows');
+	t.eq(await read(p, 'Loose.md'), text, 'and the note outside a binder is as it was');
+});
+
+test('a link that could have meant another note of the same name is left as it is', async (p, h, t) => {
+	await p.ev(`(async () => { await app.vault.createFolder('Elsewhere'); await app.vault.create('Elsewhere/The keeper.md', 'Another keeper.\\n'); return 1; })()`);
+	const text = '\tBy name [[The keeper]]; by its folder [[Part One/The keeper]].\n';
+	await body(p, A, text);
+	await sleep(p, 800);
+	await rename(p, K, W);
+	const now = await read(p, A);
+	t.ok(now.includes('By name [[The keeper]];'), 'the bare name, which two notes had, is left: ' + j(now));
+	t.ok(!now.includes('[[Part One/The keeper]]'), 'the link by folder and name, which only one had, follows: ' + j(now));
+	t.eq(now.replace(/by its folder \[\[[^\]]*\]\]/, 'by its folder [[Part One/The keeper]]'), FRONT + text, 'and nothing else in the note changed');
+});
+
+test('a folder renamed, a note moved, and two renames in a row: the links come out right', async (p, h, t) => {
+	const text = (k, s) => `\tTo [[${k}]] and [[${s}]].\n`;
+	await body(p, PRO, text('The keeper', 'Storm warning'));
+	await sleep(p, 800);
+	// two renames, the second before the first has been followed
+	await p.ev(`(async () => { await app.fileManager.renameFile(${file(K)}, ${j(W)}); await app.fileManager.renameFile(${file(W)}, ${j(L + 'Part One/The watchman.md')}); return 1; })()`);
+	await settled(p);
+	t.eq(await read(p, PRO), FRONT + text('The watchman', 'Storm warning'), 'two renames in a row: the link has the last name');
+	// the folder both notes are in, renamed (a rename for each file in it); links by name still lead there
+	await p.ev(`app.fileManager.renameFile(${file(L + 'Part One')}, ${j(L + 'Book One')}).then(() => 1)`);
+	await settled(p);
+	const after = await read(p, PRO);
+	t.ok(after.endsWith(text('The watchman', 'Storm warning')), 'a folder renamed: links by name are as they were, and still lead to the notes: ' + j(after));
+	t.eq(await p.ev(`app.metadataCache.getFirstLinkpathDest('The watchman', ${j(PRO)})?.path`), L + 'Book One/The watchman.md', 'the name leads to the moved note');
+	// a link by path does change with the folder
+	await p.ev(`app.vault.modify(${file(PRO)}, ${j('\tBy path [[The Lighthouse/Book One/The watchman]] and [[Book One/Storm warning|storm]].\n')}).then(() => 1)`);
+	await sleep(p, 800);
+	await p.ev(`app.fileManager.renameFile(${file(L + 'Book One')}, ${j(L + 'Part One')}).then(() => 1)`);
+	await settled(p);
+	const moved = await read(p, PRO);
+	t.eq(await p.ev(`(() => { const out = []; for (const m of ${j(moved)}.matchAll(/\\[\\[([^\\]|]*)/g)) out.push(app.metadataCache.getFirstLinkpathDest(m[1], ${j(PRO)})?.path ?? null); return out.join(', '); })()`), `${L}Part One/The watchman.md, ${L}Part One/Storm warning.md`, 'links by path lead to the notes in the renamed folder: ' + j(moved));
+	t.ok(moved.includes('|storm]]'), 'the shown text is kept');
+	t.eq(errors(p).length, 0, 'no errors: ' + errors(p).join(' | '));
+});
+
+test('a folder of notes renamed at once: every link by path into it follows, from notes inside it and outside, links by name stay, and each note is as it was but for those', async (p, h, t) => {
+	// six notes in a folder, and links to them from a note outside the folder and from one of the six
+	const names = ['One', 'Two', 'Three', 'Four', 'Five', 'Six'];
+	await p.ev(`(async () => { await app.vault.createFolder(${j(L + 'Part Three')}); for (const n of ${j(names)}) await app.vault.create(${j(L + 'Part Three/')} + n + '.md', '\\tScene ' + n + '.\\n'); return 1; })()`);
+	const links = (dir) => names.map((n) => `\tBy path [[The Lighthouse/${dir}/${n}]], by folder [[${dir}/${n}|${n}]], by name [[${n}]].\n`).join('\n') + '\nPlain [[The keeper]] line.\n';
+	// (a link is written again the way the vault writes links, the shortest that leads there, as Obsidian does it)
+	const after = names.map((n) => `\tBy path [[${n}]], by folder [[${n}|${n}]], by name [[${n}]].\n`).join('\n') + '\nPlain [[The keeper]] line.\n';
+	await body(p, A, links('Part Three'));
+	await p.ev(`app.vault.modify(${file(L + 'Part Three/One.md')}, ${j(links('Part Three'))}).then(() => 1)`);
+	await until(p, `(app.metadataCache.getFileCache(${file(L + 'Part Three/One.md')})?.sections || []).some(s => s.type === 'code')`, 6000);
+	await sleep(p, 600);
+	await p.ev(`app.fileManager.renameFile(${file(L + 'Part Three')}, ${j(L + 'Part Four')}).then(() => 1)`);
+	await settled(p);
+	t.eq(await read(p, A), FRONT + after, 'the note outside the folder: every link by path leads into the renamed folder, and nothing else changed');
+	t.eq(await read(p, L + 'Part Four/One.md'), after, 'a note that moved with the folder: its links too');
+	t.eq(await read(p, L + 'Part Four/Two.md'), '\tScene Two.\n', 'a note with no links is as it was');
+	const dead = await p.ev(`(() => { const out = []; for (const m of ${j(after)}.matchAll(/\\[\\[([^\\]|]*)/g)) if (!app.metadataCache.getFirstLinkpathDest(m[1], ${j(A)})) out.push(m[1]); return out; })()`);
+	t.eq(dead.length, 0, 'every link leads to a note: ' + j(dead));
+	t.eq(errors(p).length, 0, 'no errors: ' + errors(p).join(' | '));
+});
+
+test('a note open with unsaved typing keeps the typing, the link follows, and undo still takes the typing back', async (p, h, t) => {
+	const text = '\tTab [[The keeper]].\n';
+	await body(p, A, text);
+	await open(p, A);
+	await sleep(p, 600);
+	await p.ev(`(() => { const e = app.workspace.activeEditor.editor; e.focus(); const l = e.lastLine(); e.setCursor(l, e.getLine(l).length); return 1; })()`);
+	await p.type('Just typed.');
+	// renamed at once, before the editor has saved
+	await rename(p, K, W);
+	const want = FRONT + '\tTab [[The warden]].\nJust typed.';
+	await until(p, `app.vault.adapter.read(${j(A)}).then(x => x === ${j(want)})`, 8000);
+	t.eq(await read(p, A), want, 'on disk: the typing and the new name');
+	await until(p, `app.workspace.activeEditor.editor.getValue() === ${j(want)}`, 6000);
+	t.eq(await p.ev(`app.workspace.activeEditor.editor.getValue()`), want, 'and in the editor');
+	// undo: the typing goes; nothing else is lost
+	for (let i = 0; i < 20 && (await p.ev(`app.workspace.activeEditor.editor.getValue()`)).includes('Just typed.'); i++) { await p.ev(`(() => { app.workspace.activeEditor.editor.undo(); return 1; })()`); await sleep(p, 40); }
+	const undone = await p.ev(`app.workspace.activeEditor.editor.getValue()`);
+	t.ok(!undone.includes('Just typed.'), 'undo takes the typing back: ' + j(undone));
+	t.ok(undone.startsWith(FRONT + '\tTab [['), 'and the rest of the note is there: ' + j(undone));
+	t.eq(errors(p).length, 0, 'no errors: ' + errors(p).join(' | '));
+});
+
+test('Windows line endings, a byte-order mark and no last line break are kept when a link follows a rename; and what was written from outside a moment before is kept', async (p, h, t) => {
+	const raw = (k) => `\uFEFF---\r\nstatus: draft\r\n---\r\n\tTab [[${k}]] and [[${k}|shown]].\r\n\r\n\tLast line [[${k}#Part]]`;
+	await writeRaw(p, A, raw('The keeper'));
+	await until(p, `(app.metadataCache.getFileCache(${file(A)})?.sections || []).some(s => s.type === 'code')`, 6000);
+	// (an outside write, then the rename straight after it)
+	await writeRaw(p, PRO, '\tOutside [[The keeper]].\n\nWritten a moment ago.\n');
+	await until(p, `(app.metadataCache.getFileCache(${file(PRO)})?.sections || []).some(s => s.type === 'code')`, 6000);
+	await rename(p, K, W);
+	const bytes = (s) => [...Buffer.from(s, 'utf8')].join(',');
+	t.eq([...readFileSync(join(p.vaultDir, A))].join(','), bytes(raw('The warden')), 'byte for byte, but for the note the links name: ' + j(await read(p, A)));
+	t.eq(await read(p, PRO), '\tOutside [[The warden]].\n\nWritten a moment ago.\n', 'the note written from outside has all of it, and the new name');
+});

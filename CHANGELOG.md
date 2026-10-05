@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.19.0 (2026-10-05)
+
+### Added
+
+- Links in a paragraph that starts with a tab are updated when the note they lead to is renamed or moved, as Obsidian updates every other link.
+
 ## 0.18.0 (2026-10-05)
 
 ### Added
