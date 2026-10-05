@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.17.0 (2026-10-05)
+
+### Added
+
+- In a binder's notes, a line that starts with a tab is a paragraph with its first line indented, not a block of code: italics, links and spell-check work in it. On to begin with (Settings, Paragraphs). The note keeps the tab you typed.
+
 ## 0.16.3 (2026-10-05)
 
 ### Changed

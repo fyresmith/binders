@@ -33,6 +33,10 @@ export interface BindersSettings {
 	compiled: Record<string, string>;
 	/** Where each folder was last compiled to (its path → the note's path): offered again the next time. */
 	compiledTo: Record<string, string>;
+	/** In a binder’s notes, a line that starts with a tab is shown as a paragraph that starts with one, not as code. */
+	tabParagraphs: boolean;
+	/** In a binder’s notes, a paragraph that follows another is shown with its first line indented. */
+	indentParagraphs: boolean;
 	/** Focus mode: the line being written at the end of a scene is held at one height. On to begin with, as dimming is. */
 	focusTypewriter: boolean;
 	/** Focus mode: where the scene is in the binder, and its synopsis, beside the text. */
@@ -54,6 +58,7 @@ export const DEFAULT_SETTINGS: BindersSettings = {
 	orderExplorer: true, openOnClick: true, hideBinderNotes: true, explorerLabels: true,
 	synopsisProp: 'synopsis', statusProp: 'status', labelProp: 'label', targetProp: 'target',
 	labels: DEFAULT_LABELS, statuses: DEFAULT_STATUSES, outlinerColumns: DEFAULT_COLUMNS, compile: COMPILE_DEFAULTS, compiled: {}, compiledTo: {},
+	tabParagraphs: true, indentParagraphs: false,
 	focusTypewriter: true, focusPlace: false, focusNumbers: false, focusDim: true, focusNeighbours: false, focusGoal: 0, focusFullscreen: false,
 };
 
@@ -74,7 +79,15 @@ export const FOCUS_TEXT: Record<FocusToggle | 'focusGoal', readonly [string, str
 	focusGoal: ['Words to write today', 'A goal for a day’s writing in a binder, shown with the word counts. Leave empty for none.'],
 };
 
-/** The file explorer's four switches. */
+/** How paragraphs are shown in a binder’s notes (paragraphs/paragraphs.ts). */
+export type ParagraphToggle = 'tabParagraphs' | 'indentParagraphs';
+export const PARAGRAPH_TOGGLES: ParagraphToggle[] = ['tabParagraphs'];
+export const PARAGRAPH_TEXT: Record<ParagraphToggle, readonly [string, string]> = {
+	tabParagraphs: ['Start a paragraph with a tab', 'In a binder’s notes, a line that starts with a tab is shown as an indented paragraph. Obsidian shows such a line as code. The note keeps the tab you typed.'],
+	indentParagraphs: ['Indent paragraphs', 'In a binder’s notes, the first line of a paragraph that follows another is indented, as in a printed book. Nothing is added to the note.'],
+};
+
+/** The file explorer’s four switches. */
 export type Toggle = 'orderExplorer' | 'openOnClick' | 'hideBinderNotes' | 'explorerLabels';
 /** The four property names settings can change. */
 export type Prop = 'synopsisProp' | 'statusProp' | 'labelProp' | 'targetProp';
@@ -111,6 +124,7 @@ export function readSettings(data: unknown): BindersSettings {
 	for (const k of ['folderHeadings', 'sceneHeadings', 'title', 'stripComments'] as const) if (typeof c[k] === 'boolean') s.compile[k] = c[k];
 	if (typeof c.separator === 'string') s.compile.separator = c.separator;
 	for (const k of FOCUS_TOGGLES) if (typeof d[k] === 'boolean') s[k] = d[k];
+	for (const k of PARAGRAPH_TOGGLES) if (typeof d[k] === 'boolean') s[k] = d[k];
 	if (typeof d.focusGoal === 'number' && Number.isInteger(d.focusGoal) && d.focusGoal > 0) s.focusGoal = d.focusGoal;
 	s.compiledTo = {};
 	if (d.compiledTo && typeof d.compiledTo === 'object' && !Array.isArray(d.compiledTo)) for (const [k, v] of Object.entries(d.compiledTo).slice(-COMPILED_KEPT)) if (typeof v === 'string') s.compiledTo[k] = v;

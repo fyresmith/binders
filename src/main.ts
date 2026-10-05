@@ -13,6 +13,7 @@ import { manuscript } from './view/manuscript';
 import { ConvertModal } from './longform-convert';
 import { CompileModal, mergeScenes, splitScene, splitUndo } from './scenes';
 import { Focus } from './focus/focus';
+import { installParagraphs, type Paragraphs } from './paragraphs/paragraphs';
 import { isScene, leftovers } from './snapshots';
 import { LeftoversModal, SNAPSHOT_VIEW, SnapshotView, SnapshotsModal, folderSnapshotItems, snapshotItems, startRewrite, take, takeAll } from './view/snapshots';
 
@@ -33,6 +34,8 @@ export default class BindersPlugin extends Plugin {
 	binders: BinderStore;
 	/** Focus mode: its commands, the button on a binder's notes, the day's words (focus/focus.ts). */
 	focus: Focus;
+	/** Tab paragraphs and first-line indents in a binder’s notes (paragraphs/paragraphs.ts). */
+	paragraphs: Paragraphs;
 	/** The binder view's modes by id: the view mounts one into its content (see view/mode.ts). */
 	readonly modeFactories: Record<string, ModeFactory> = {
 		corkboard,
@@ -51,6 +54,7 @@ export default class BindersPlugin extends Plugin {
 
 		this.registerView(VIEW_TYPE, (leaf) => new BinderView(leaf, this));
 		this.focus = new Focus(this);
+		this.paragraphs = installParagraphs(this);
 		this.registerView(SNAPSHOT_VIEW, (leaf) => new SnapshotView(leaf, this));
 		// (not in a card's own menu, which has these already)
 		this.registerEvent(this.app.workspace.on('file-menu', (menu, file, source) => { if (source !== ITEM_MENU) this.fileMenu(menu, file, source); }));
@@ -217,6 +221,7 @@ export default class BindersPlugin extends Plugin {
 		this.explorer?.refresh(); // order, hidden notes and label dots follow their settings
 		this.binders?.refresh(); // the views: labels and statuses may have changed
 		this.focus?.optionsChanged(); // focus mode: what's on its page follows its options
+		this.paragraphs?.refresh(); // every editor on a binder's note: how paragraphs are shown
 	}
 
 	/** What Binders adds to the menu of one note or folder, wherever Obsidian shows it (the file explorer, a tab, a

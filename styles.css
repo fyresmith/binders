@@ -3938,6 +3938,53 @@ body.binders-focus-post :is(.workspace-ribbon, .workspace-split.mod-left-split, 
 	}
 }
 
+/* Paragraphs in a binder's notes (src/paragraphs/): a line that starts with a tab shown as a paragraph that starts
+   with one, and a first-line indent for a paragraph that follows another. Both are one measure, so a tab that was
+   typed and an indent that wasn't look the same; a theme or a snippet can set it. */
+body {
+	--binders-paragraph-indent: 1.5em;
+}
+
+/* The editor. A tab at the start of a paragraph is Obsidian's `cm-indent`, which it draws as a list's level: as wide
+   as a list's indent, with a guide line down it. Here it is the paragraph's indent, and nothing is drawn in it. */
+.markdown-source-view.mod-cm6 .cm-line.binders-tab-paragraph .cm-indent {
+	min-width: var(--binders-paragraph-indent);
+	width: var(--binders-paragraph-indent);
+}
+
+.markdown-source-view.mod-cm6 .cm-line.binders-tab-paragraph .cm-indent::before {
+	content: none;
+}
+
+/* Reading view. The paragraphs made from tab lines; lines with no blank line between them have none here either. */
+.markdown-rendered .binders-tab-paragraph {
+	text-indent: var(--binders-paragraph-indent);
+}
+
+.markdown-rendered .binders-tab-paragraph > * {
+	text-indent: 0;
+}
+
+.markdown-rendered .binders-tab-run {
+	margin-block: var(--p-spacing);
+}
+
+.markdown-rendered .binders-tab-run > p {
+	margin-block: 0;
+}
+
+.markdown-rendered .binders-tab-paragraphs > .binders-tab-run:first-child {
+	margin-block-start: 0;
+}
+
+/* (a line inside a paragraph that began with a tab: Markdown drops the tab, this stands where it was) */
+.markdown-rendered .binders-tab {
+	display: inline-block;
+	width: var(--binders-paragraph-indent);
+}
+
+/* (end of paragraphs) */
+
 /* Forced colors (Windows high contrast). Every ring in the view is a box-shadow, which that mode takes away: what has
    the keyboard and what is selected are outlined instead, in the system's own colors. Drawn inside the box, since rows
    and headers sit edge to edge. (Last in the sheet, and under the view, so it comes after the rules that take an
