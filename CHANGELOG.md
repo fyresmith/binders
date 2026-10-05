@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.13.0 (2026-10-05)
+
+### Changed
+
+- Ungroup now takes the emptied folder away, to the trash, with its synopsis, label and target. Undo last move brings the folder back with all of them and puts its notes back inside, in order. A folder that still holds something, such as text written in its folder note, stays.
+
 ## 0.12.154 (2026-10-05)
 
 ### Fixed

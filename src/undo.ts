@@ -17,6 +17,11 @@ export interface MoveHost {
 	newFolder(folder: TFolder, index?: number, title?: string): Promise<TFolder>;
 	/** Sets one property of an item (a folder's in its folder note); `undefined` takes it away. */
 	setProp(item: TAbstractFile, key: string, value: unknown): Promise<void>;
+	/** Trashes a folder that holds nothing but its folder note, and returns that note's bytes (null: it had none) to
+	    make it again with. Null, and nothing done, if the folder holds anything else. */
+	takeAway(folder: TFolder): Promise<{ note: ArrayBuffer | null } | null>;
+	/** Makes a folder that was taken away again (or uses the one that has its name now), with its folder note. */
+	bringBack(parent: TFolder, index: number, name: string, note: ArrayBuffer | null): Promise<TFolder>;
 }
 
 /** Are two property values the same, as written (a list by what's in it; none and null alike)? */
@@ -25,7 +30,10 @@ const sameValue = (a: unknown, b: unknown): boolean => a === b || JSON.stringify
     on either side, and a Longform scene's indent. */
 export interface Pos { parent: TFolder; path: string; next: TAbstractFile | null; prev: TAbstractFile | null; depth?: number; at: number }
 /** A change to a binder's order made by hand: what it moved, from where to where, and a folder it made to move them into. */
-export interface Undo { failed?: boolean; note: TFile; label: string; items: { file: TAbstractFile; before: Pos; after: Pos }[]; made?: { folder: TFolder; name: string; pos: Pos }; props?: PropChange[]; still?: boolean }
+export interface Undo { failed?: boolean; note: TFile; label: string; items: { file: TAbstractFile; before: Pos; after: Pos }[]; made?: { folder: TFolder; name: string; pos: Pos }; removed?: Removed; props?: PropChange[]; still?: boolean }
+/** A folder a change emptied and took away (Ungroup): where it stood, its name, and its folder note byte for byte (null:
+    it had none), which is where its synopsis and the rest of its data were. Undoing the change makes it again. */
+export interface Removed { folder: TFolder; name: string; pos: Pos; note: ArrayBuffer | null }
 /** A property a change by hand gave an item (a card dragged to another label's line): what it had (as written; undefined
     for none) and what it has now. A folder's is in its folder note. `still` on the change: nothing moved. */
 export interface PropChange { file: TAbstractFile; key: string; before: unknown; after: unknown }
@@ -79,29 +87,39 @@ export class MoveHistory {
 
 	/** Runs a change to a binder's order made by hand, remembering where each of `items` (in the order they show) was,
 	    so "Undo" can put them back. `label` says what it was ("Move “Arrival”"). `made`: a folder the change made to
-	    hold them, which undoing it takes away again. */
-	async change<T>(label: string, items: TAbstractFile[], fn: () => Promise<T>, made?: (out: T) => TFolder | null, props?: PropChange[]): Promise<T> {
+	    hold them, which undoing it takes away again. `emptied`: a folder the change moves everything out of, which goes
+	    to the trash once it holds nothing but its folder note, and which undoing the change makes again. */
+	async change<T>(label: string, items: TAbstractFile[], fn: () => Promise<T>, made?: (out: T) => TFolder | null, props?: PropChange[], emptied?: TFolder): Promise<T> {
 		const moving = new Set(items);
 		const before = items.map((file) => ({ file, pos: this.posOf(file, moving) }));
-		const record = (out?: T) => {
+		// (where the folder stands now: once it's gone there's no asking)
+		const stood = emptied ? this.posOf(emptied) : null;
+		const record = (out?: T): Undo | null => {
 			// (the binder they're in now: a note dragged in from outside any binder had none before)
 			const s = items.map((f) => this.host.binderOf(f.path)).find((x) => !!x);
-			if (!s || s.problem) return;
+			if (!s || s.problem) return null;
 			const same = (a: Pos, b: Pos) => a.parent === b.parent && a.next === b.next && a.prev === b.prev && a.depth === b.depth && a.at === b.at;
 			const moved: Undo['items'] = [];
 			for (const b of before) { const after = this.posOf(b.file, moving); if (b.pos && after && this.app.vault.getAbstractFileByPath(b.file.path) === b.file) moved.push({ file: b.file, before: b.pos, after }); }
 			// (a change that came to nothing isn't one to undo)
 			const still = !moved.some((x) => !same(x.before, x.after)), given = props?.filter((c) => !sameValue(c.before, c.after));
-			if (still && !given?.length) return;
+			if (still && !given?.length) return null;
 			const folder = out === undefined ? null : made?.(out) ?? null, at = folder ? this.posOf(folder) : null;
-			this.undos.push({ note: s.note, label, items: moved, made: folder && at ? { folder, name: folder.name, pos: at } : undefined, props: given?.length ? given : undefined, still });
+			const u: Undo = { note: s.note, label, items: moved, made: folder && at ? { folder, name: folder.name, pos: at } : undefined, props: given?.length ? given : undefined, still };
+			this.undos.push(u);
 			if (this.undos.length > 50) this.undos.shift();
 			this.redos = [];
+			return u;
 		};
 		let out: T;
 		// (a change that failed half-way is still one to take back, as far as it got)
 		try { out = await fn(); } catch (e) { record(); throw e; }
-		record(out);
+		const u = record(out);
+		// only a change that can be taken back takes the folder away: its note is kept with the change, to make it again
+		if (u && emptied && stood) {
+			const name = emptied.name, kept = await this.host.takeAway(emptied);
+			if (kept) u.removed = { folder: emptied, name, pos: stood, note: kept.note };
+		}
 		return out;
 	}
 
@@ -138,7 +156,22 @@ export class MoveHistory {
 			// (everything it moved has been deleted since: nothing to take back, so the change before it is the one)
 			if (!here.length) { from.splice(i, 1); continue; }
 			const place = (x: Undo['items'][number]) => (redo ? x.after : x.before);
+			// a folder the change emptied and took away is made again by undoing it: where, and whether it can be
+			const gone = !redo && u.removed && vault.getAbstractFileByPath(u.removed.folder.path) !== u.removed.folder ? u.removed : null;
+			let home: TFolder | null = null;
 			try {
+				if (gone) {
+					home = this.folderOf(gone.pos);
+					if (!home) throw new Error(`“${gone.name}” can’t be brought back: the folder it was in is gone.`);
+					const there = vault.getAbstractFileByPath(normalizePath(`${home.path}/${gone.name}`));
+					if (there && !(there instanceof TFolder)) throw new Error(`“${gone.name}” can’t be brought back: “${home.name}” has a file with that name now.`);
+					// (a folder with its name is there already, made by hand since: that's where its items go back to)
+					if (there instanceof TFolder) { for (const x of u.items) if (x.before.parent === gone.folder) x.before = { ...x.before, parent: there, path: there.path }; gone.folder = there; }
+					for (const x of here) {
+						if (x.before.parent !== gone.folder) continue;
+						if (x.file instanceof TFile && x.file.extension === 'md' && x.file.basename === gone.name) throw new Error(`“${name(x.file)}” can’t go back into “${gone.name}”: it would become the folder’s note. Rename it first.`);
+					}
+				}
 				// a folder the change made, taken away by undoing it, is made again to redo it
 				if (redo && u.made && vault.getAbstractFileByPath(u.made.folder.path) !== u.made.folder) {
 					const parent = this.folderOf(u.made.pos), old = u.made.folder;
@@ -149,6 +182,8 @@ export class MoveHistory {
 				}
 				// everything can go back, or nothing does
 				for (const x of here) {
+					// (what goes back into a folder that's about to be made again has nothing there in its way)
+					if (gone && place(x).parent === gone.folder && vault.getAbstractFileByPath(gone.folder.path) !== gone.folder) continue;
 					const parent = this.folderOf(place(x));
 					if (!parent) throw new Error(`“${name(x.file)}” can’t go back: its folder is gone.`);
 					if (x.file.parent === parent) continue;
@@ -163,6 +198,14 @@ export class MoveHistory {
 				throw e;
 			}
 			u.failed = false;
+			if (gone && home) {
+				const sibs = this.host.orderedChildren(home) ?? [], { next, prev } = gone.pos, old = gone.folder;
+				gone.folder = await this.host.bringBack(home, next && sibs.includes(next) ? sibs.indexOf(next) : prev && sibs.includes(prev) ? sibs.indexOf(prev) + 1 : Infinity, gone.name, gone.note);
+				for (const x of u.items) if (x.before.parent === old) x.before = { ...x.before, parent: gone.folder, path: gone.folder.path };
+			}
+			// (made again, the change empties that folder once more: where it stands now, under the name it has now)
+			const again = redo && u.removed && vault.getAbstractFileByPath(u.removed.folder.path) === u.removed.folder ? u.removed : null;
+			if (again) { again.pos = this.posOf(again.folder) ?? again.pos; again.name = again.folder.name; }
 			// in the order they stood in there (whatever order they were moved in): when all of a folder moved at once, as
 			// a sort kept does, that order is all there is to go by
 			const run = new Map<TAbstractFile | string, TAbstractFile>();
@@ -173,6 +216,11 @@ export class MoveHistory {
 				// (the name it has now, typed since it was made, is the one it's made again with)
 				u.made.name = u.made.folder.name;
 				if (!u.made.folder.children.length) await this.app.fileManager.trashFile(u.made.folder);
+			}
+			if (again) {
+				// (with its note as it is now: what was changed in it since goes with it, to come back with it)
+				const kept = await this.host.takeAway(again.folder);
+				if (kept) again.note = kept.note;
 			}
 			from.splice(from.indexOf(u), 1);
 			to.push(u);

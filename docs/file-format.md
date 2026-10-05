@@ -93,6 +93,12 @@ row.
 - "Undo last move" writes the list back as it was before the move, and moves the items back to the folders they
   were in. It refuses if a place has been taken or a folder is gone. Undo history is kept in memory (the last 50
   moves), not in any file.
+- "Ungroup" moves a folder's items out to where it stood. If nothing is then left in the folder but its folder note
+  (in the vault and on the disk), the folder goes to the trash with that note, as Obsidian's "Deleted files" setting
+  says. The note's bytes are kept in memory with the move, and "Undo last move" makes the folder again, writes the
+  note back byte for byte, and puts the items back inside in their order; it refuses, moving nothing, if a file has
+  the folder's name now or one of the items would become its folder note. A folder that still holds anything stays:
+  a file Obsidian doesn't list, or a folder note with text under its properties (a notice says so).
 - "Make this folder a binder" creates `Folder/Folder.md` with `binder: 1` and `contents` in the order the file explorer
   showed (folders first, then notes, by name; only notes and folders are listed, and a `Snapshots` folder is left out). If `Folder/Folder.md` already exists, it adds `binder: 1` (and
   `contents`, if it has none) to its properties and leaves its text alone. If that note already has a `contents` property

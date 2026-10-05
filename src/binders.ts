@@ -3,7 +3,8 @@ import type { ExplorerSource } from './explorer';
 import type BindersPlugin from './main';
 import { applyOps, checkFormat, diskList, FORMAT_VERSION, isBinderNote, isFolderNote, nameOf, orderChildren, parentOf, readIndex, relPath, removeFrom, settleNames, stepIndex, UnsupportedBinder, type ListOp } from './model';
 import { editProperties } from './properties';
-import { nextName } from './scene-text';
+import { nextName, parts } from './scene-text';
+import { saveOpen } from './scenes';
 import { MoveHistory, type PropChange, type Undo } from './undo';
 import { SNAPSHOTS } from './snapshot-text';
 import { followSnapshots } from './snapshots';
@@ -53,12 +54,14 @@ import { applySceneOps, conversionPlan, isIgnored, isLongformIndex, longformRunn
      reorder(folder, items): Promise<void>             gives a folder's items a new order in one step and one write
      moveUp(item) / moveDown(item): Promise<boolean>   one step within its folder; false if it can't go further
      group(items, title?): Promise<TFolder>            puts items into a new folder, made where the first of them is
-     ungroup(folder): Promise<void>                    moves everything in a folder out, to just after it
+     ungroup(folder): Promise<void>                    moves everything in a folder out, to just after it; the folder,
+                                                       left with nothing but its folder note, goes to the trash
+                                                       ("Undo" makes it again, with that note)
      label(items, key, value, label, to?): Promise<void>
                                                        gives every item the same value of a property (a folder's goes
                                                        in its folder note, made if need be) and, with `to`, puts them
                                                        there, as one change that "Undo" takes back
-     change(label, items, fn, made?, props?): Promise<T>
+     change(label, items, fn, made?, props?, emptied?): Promise<T>
                                                        runs a change made by hand, remembering where each item was, so
                                                        "Undo" can take it back (what `put`, `group` and the rest use)
      undoable(item | path, redo?): string | null       what "Undo" (or "Redo") would take back in that binder
@@ -223,6 +226,7 @@ export class BinderStore extends Events implements ExplorerSource {
 			move: (item, folder, index, depth) => this.move(item, folder, index, depth),
 			newFolder: (folder, index, title) => this.newFolder(folder, index, title),
 			setProp: (item, key, value) => this.setProp(item, key, value),
+			takeAway: (folder) => this.takeAway(folder), bringBack: (parent, index, name, note) => this.bringBack(parent, index, name, note),
 		});
 		let done: () => void = () => {}, settle: () => void = () => {};
 		this.ready = new Promise((r) => { done = r; });
@@ -639,8 +643,9 @@ export class BinderStore extends Events implements ExplorerSource {
 
 	/** Runs a change to a binder's order made by hand, remembering where each of `items` (in the order they show) was,
 	    so "Undo" can put them back. `label` says what it was ("Move “Arrival”"). `made`: a folder the change made to
-	    hold them, which undoing it takes away again. */
-	change<T>(label: string, items: TAbstractFile[], fn: () => Promise<T>, made?: (out: T) => TFolder | null, props?: PropChange[]): Promise<T> { return this.history.change(label, items, fn, made, props); }
+	    hold them, which undoing it takes away again. `emptied`: a folder the change moves everything out of, which
+	    goes to the trash once nothing but its folder note is left in it, and which undoing the change makes again. */
+	change<T>(label: string, items: TAbstractFile[], fn: () => Promise<T>, made?: (out: T) => TFolder | null, props?: PropChange[], emptied?: TFolder): Promise<T> { return this.history.change(label, items, fn, made, props, emptied); }
 
 	/** What "Undo" (or "Redo") would take back in this binder, or null. */
 	undoable(item: TAbstractFile | string, redo = false): string | null { return this.history.undoable(item, redo); }
@@ -807,13 +812,17 @@ export class BinderStore extends Events implements ExplorerSource {
 		}, (made) => made);
 	}
 
-	/** Moves everything in a folder out of it, to just after it, in order. The folder stays, empty (with its note). */
+	/** Moves everything in a folder out of it, to just after it, in order. The folder, left with nothing but its folder
+	    note, then goes to the trash (see `takeAway`), and "Undo" makes it again with that note; a folder that still
+	    holds something stays. */
 	async ungroup(folder: TFolder): Promise<void> {
 		const parent = folder.parent;
 		if (!parent) return;
 		const t = this.writable(parent);
 		if (folder === t.folder || t.kind === 'longform') throw new Error('A binder’s own folder can’t be emptied this way.');
 		const items = this.orderedChildren(folder) ?? [], name = (f: TAbstractFile) => (f instanceof TFile ? f.basename : f.name);
+		// (nothing to move out: not a change, so nothing "Undo" could take back, and the folder isn't touched)
+		if (!items.length) return;
 		// all of them can come out, or none does
 		for (const f of items) {
 			if (this.app.vault.getAbstractFileByPath(normalizePath(`${parent.path}/${f.name}`))) throw new Error(`“${parent.name}” already has “${name(f)}”. Rename one of them first.`);
@@ -822,7 +831,44 @@ export class BinderStore extends Events implements ExplorerSource {
 		await this.change(`Ungroup “${folder.name}”`, items, async () => {
 			let index = (this.orderedChildren(parent) ?? []).indexOf(folder) + 1;
 			for (const f of items) await this.move(f, parent, index++);
-		});
+		}, undefined, undefined, folder);
+	}
+
+	/** Trashes a folder an ungroup has emptied (as Obsidian's "Deleted files" setting says to), its folder note with
+	    it, and returns that note's bytes to make it again with (null: it had no note). Only a folder with nothing left
+	    in it but that note, in the vault and on the disk: anything else in it is someone's (a file Obsidian doesn't
+	    list, say), and then the folder stays and null is returned. A folder note with text of its own under its
+	    properties is writing, which never goes to the trash unasked: that folder stays too, and says why. */
+	private async takeAway(folder: TFolder): Promise<{ note: ArrayBuffer | null } | null> {
+		const { vault, fileManager } = this.app, s = this.at(folder.path);
+		if (!s || s.kind !== 'binder' || s.problem || folder === s.folder || vault.getAbstractFileByPath(folder.path) !== folder) return null;
+		const note = this.folderNote(folder);
+		if (folder.children.some((c) => c !== note)) return null;
+		try {
+			// (what a file manager leaves in every folder it shows isn't anyone's)
+			const disk = await vault.adapter.list(folder.path);
+			if (disk.folders.length || disk.files.some((p) => p !== note?.path && !/(^|\/)\.DS_Store$/.test(p))) return null;
+		} catch { return null; }
+		let bytes: ArrayBuffer | null = null;
+		if (note) {
+			// (what's typed in it and not saved yet goes with it)
+			await saveOpen(this.app, [note]);
+			if (parts(await vault.read(note)).body.trim()) { new Notice(`“${folder.name}” stays: its folder note has text in it.`, 6000); return null; }
+			bytes = await vault.readBinary(note);
+		}
+		// (asked again: a file may have arrived in it while its note was read)
+		if (vault.getAbstractFileByPath(folder.path) !== folder || folder.children.some((c) => c !== note)) return null;
+		await fileManager.trashFile(folder);
+		return { note: bytes };
+	}
+
+	/** Makes a folder that `takeAway` trashed again, at `index` among `parent`'s items, with its folder note as it was
+	    (byte for byte). A folder that has its name there now is used instead, and keeps a folder note it has. */
+	private async bringBack(parent: TFolder, index: number, name: string, note: ArrayBuffer | null): Promise<TFolder> {
+		const { vault } = this.app, there = vault.getAbstractFileByPath(normalizePath(`${parent.path}/${name}`));
+		const folder = there instanceof TFolder ? there : await this.newFolder(parent, index, name);
+		if (note && !vault.getAbstractFileByPath(this.folderNotePath(folder))) await vault.createBinary(this.folderNotePath(folder), note);
+		return folder;
 	}
 
 	async makeBinder(folder: TFolder): Promise<TFile> {

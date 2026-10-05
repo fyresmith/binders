@@ -177,6 +177,9 @@ you scroll to them.
   many links will stop working before you confirm.
 - The same menu has **Duplicate**, **New folder from selection** (or **Put in a new folder**), **Ungroup** on a
   folder, and **Set synopsis from text**, which takes a note's opening lines.
+- **Ungroup** moves what a folder holds out to where the folder stood, and the emptied folder goes to the trash with
+  its synopsis, label and target. **Undo last move** brings the folder back with all of them and puts its notes
+  back inside, in order. A folder stays if something is still in it: text you wrote in its folder note, say.
 - **Compile binder** (a command, and **Compile...** in a binder folder's right-click menu) writes the whole binder, or
   the folder shown, as one note beside the binder, or copies it. You choose the title, whether folders and note
   titles become headings, what goes between notes, and whether comments are left out. Your notes aren't changed.
@@ -267,7 +270,7 @@ device counts its own. **Start counting from here**, in the menu, starts the day
 
 **Undo last move** and **Redo last move** work on one binder at a time: the one in front (or the one the open note is
 in), and with neither, the binder changed last. A move made in another binder is not the one taken back. They take back, or make again, a drag, a **Move up** or **Move down**, a sort
-kept as the binder's order, a folder made around notes (or taken away from them), or a card dragged to another
+kept as the binder's order, a folder made around notes (or taken away from them: an ungrouped folder comes back from undo with its synopsis, label and target), or a card dragged to another
 label's line on the corkboard: each note goes back beside the neighbours it had, to the folder it was in, and to the
 label it had. Whatever you renamed or added since stays as it is. In the binder
 view, Ctrl+Z and Ctrl+Shift+Z (Cmd on macOS) do the same when you aren't typing. Undo of text is still the editor's
@@ -486,7 +489,7 @@ Binders is not at 1.0 yet. What isn't finished, honestly:
   a note that has Windows line breaks with its own when the note's tab is closed or given to another note.
 - **In the file explorer,** a selection that spans two folders of a binder, or a Longform project, still has Obsidian's
   own **New folder with selection**, which puts the folder last. Obsidian's **Make a copy** of a folder is placed right after the original, in the original's order, but it
-  copies the folder's own note under its old name, so it shows in the copy as a scene, listed last. **Ungroup** leaves the emptied folder behind, empty, for you to delete.
+  copies the folder's own note under its old name, so it shows in the copy as a scene, listed last.
 - **Undo** covers moves (and a folder made around notes), not renames, deletes, splits, merges or duplicates, and
   remembers the last fifty changes (of all binders together) while Obsidian is open. Undoing a kept sort of thousands of notes is slow.
 - **For screen readers,** the "New note" tile sits inside the list of cards, so a reader may skip its button, and "Undo last move" isn't announced.

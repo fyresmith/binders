@@ -679,7 +679,7 @@ test('group: cards that aren’t next to each other, and a folder among them, go
 	await closeMenus(p);
 });
 
-test('ungroup: a folder’s notes, folders and other files go out after it in order; the folder stays with its note; a name already taken in the parent is said', async (p, h, t) => {
+test('ungroup: a folder’s notes, folders and other files go out after it in order; a folder whose note has text of its own stays, with that note; a name already taken in the parent is said', async (p, h, t) => {
 	await p.ev(`(async () => {
 		await app.vault.create(${j(P2 + 'Part Two.md')}, '---\\nsynopsis: Part two syn\\n---\\nFolder note body.\\n');
 		await app.vault.createFolder(${j(P2 + 'Inner')});

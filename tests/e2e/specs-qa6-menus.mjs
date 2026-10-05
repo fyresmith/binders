@@ -549,11 +549,11 @@ test('stack card menu: Open, Open in new tab, Rename, Edit synopsis, status, lab
 	t.ok(await exists2(p, L + 'Arrivals/Arrival.md') && await exists2(p, L + 'Arrivals/Arrivals.md'), 'the folder, its notes and its folder note are under the new name');
 	const l = await list(p);
 	t.ok(l.includes('Arrivals/') && l.includes('Arrivals/Arrival'), 'the binder’s list follows: ' + j(l));
-	// Ungroup (the folder's own note stays with the folder, as the store says)
+	// Ungroup (the emptied folder goes to the trash with its folder note, and Undo brings both back)
 	await onCard(p, L + 'Arrivals', 'Ungroup');
 	await p.sleep(900);
 	const ung = await list(p);
-	t.eq(j(ung.slice(0, 5)), j(['Prologue', 'Arrivals/', 'Arrival', 'The keeper', 'Storm warning']), 'Ungroup: the notes are out, in order, after the folder: ' + j(ung));
+	t.eq(j(ung.slice(0, 4)), j(['Prologue', 'Arrival', 'The keeper', 'Storm warning']), 'Ungroup: the notes are out, in order, where the folder stood, and the folder is gone: ' + j(ung));
 	t.ok(await exists2(p, L + 'Arrival.md'), 'its notes are in the binder’s folder now');
 	t.ok(await undoMove(p), 'Undo is offered');
 	await p.sleep(900);
@@ -699,7 +699,7 @@ test('Rewrite... dialog: Start from this text, Start from a blank page, Cancel, 
 	t.ok(texts2.some((x) => x.includes(split(was).body.trim())), 'with the whole text in it');
 }));
 
-ux('Ungroup leaves the folder behind as an empty stack (a writer asks for it to go away)', tidied(async (p, h, t) => {
+ux('Ungroup doesn’t leave the folder behind as an empty stack (it goes to the trash, and Undo brings it back)', tidied(async (p, h, t) => {
 	await fresh(p);
 	await onCard(p, L + 'Part Two', 'Ungroup');
 	await p.sleep(900);

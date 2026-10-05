@@ -249,7 +249,8 @@ test('“New folder from selection” groups notes where the first was, named in
 	await clickMenu(p, 'Ungroup');
 	await until(p, `app.vault.adapter.exists(${j(P + 'The keeper.md')})`);
 	const list = await written(p, 'Part One/The keeper\n');
-	t.eq(j(list.slice(1, 6)), j(['Part One/', 'Part One/On the island/', 'Part One/Arrival', 'Part One/The keeper', 'Part One/Storm warning']), 'the notes are back, after the (now empty) folder, in order');
+	t.eq(j(list.slice(1, 5)), j(['Part One/', 'Part One/Arrival', 'Part One/The keeper', 'Part One/Storm warning']), 'the notes are back where they were, in order, and the emptied folder is off the list');
+	t.ok(!(await exists(p, P + 'On the island')), 'the emptied folder is gone');
 	same(t, before, await texts(p), { skip: [NOTE] });
 }));
 
@@ -810,3 +811,158 @@ slow('a slow disk: “Delete” on the corkboard while the note’s own tab is s
 		t.ok(!(await exists(p, K)), 'and no late save writes it back');
 	});
 });
+
+// ---- Ungroup takes the emptied folder away, and "Undo last move" brings it back ----
+// The folder's synopsis, label and target are in its folder note, which goes to the trash with it: undo must bring
+// back the folder, that note byte for byte, and the notes in their order.
+
+const P2 = L + 'Part Two/', P2NOTE = P2 + 'Part Two.md';
+const FOLDER_NOTE = '---\nsynopsis: "The second part: the storm."\nlabel: red\ntarget: 900\ncompile: false\n---\n';
+const UNGROUPED = [...LIST.slice(0, 5), 'The wreck', 'Lights out', 'Epilogue'];
+const OUT = { [P2 + 'The wreck.md']: L + 'The wreck.md', [P2 + 'Lights out.md']: L + 'Lights out.md' };
+const undoMove = (p, redo = false) => p.ev(`(() => { app.commands.executeCommandById('binders:${redo ? 'redo' : 'undo'}-move'); return 1; })()`);
+const gone = (p, path) => until(p, `app.vault.adapter.exists(${j(path)}).then(x => !x)`, 4000);
+const back = (p, path) => until(p, `app.vault.adapter.exists(${j(path)})`, 4000);
+/** The list on disk once it says `want` (or as it is after four seconds), as text to compare. */
+const listIs = async (p, want) => { let l; for (let i = 0; i < 40; i++) { await flush(p); l = await contents(p); if (j(l) === j(want)) break; await p.sleep(100); } return j(l); };
+const forget = (p) => p.ev(`(() => { ${B}.undos = []; ${B}.redos = []; return 1; })()`); // (moves other tests made)
+const viewFolder = (p) => p.ev(`${VIEW}.folder?.path ?? null`);
+
+test('Ungroup takes the emptied folder away with its folder note, to the trash; “Undo last move” brings back the folder, its note byte for byte and its notes in order; redo and a second ungroup lose nothing', withTidy(async (p, h, t) => {
+	await p.ev(`app.vault.create(${j(P2NOTE)}, ${j(FOLDER_NOTE)}).then(() => 1)`);
+	await p.sleep(400);
+	const before = await texts(p);
+	await forget(p);
+	await localTrash(p, async () => {
+		await openView(p);
+		const hd = await p.at(card(L + 'Part Two'));
+		await p.right(hd.x, hd.y);
+		await clickMenu(p, 'Ungroup');
+		t.ok(await gone(p, L + 'Part Two'), 'the folder is gone once its notes are out');
+		t.eq(await listIs(p, UNGROUPED), j(UNGROUPED), 'its notes stand where it stood, in order, and it is off the list');
+		t.eq(await read(p, '.trash/Part Two/Part Two.md'), FOLDER_NOTE, 'the folder and its note are in the trash, whole');
+		t.ok(!(await cards(p)).includes(L + 'Part Two'), 'no empty stack is left on the board');
+		same(t, before, await texts(p), { skip: [NOTE, P2NOTE], moved: OUT });
+		// undo: the folder, its note and its notes
+		t.eq(await p.ev(`${B}.undoable('The Lighthouse')`), 'Ungroup “Part Two”', 'the ungroup can be undone');
+		await undoMove(p);
+		t.ok(await back(p, P2 + 'Lights out.md'), 'undo: the notes are back in the folder');
+		t.eq(await listIs(p, LIST), j(LIST), 'the order is as it was');
+		t.eq(await read(p, P2NOTE), FOLDER_NOTE, 'the folder note is back, byte for byte');
+		same(t, before, await texts(p), { skip: [NOTE] });
+		await until(p, `app.metadataCache.getFileCache(${file(P2NOTE)})?.frontmatter?.synopsis`);
+		t.eq((await fm(p, P2NOTE)).synopsis, 'The second part: the storm.', 'the folder has its synopsis again');
+		t.ok(await until(p, `!!document.querySelector(${j(card(L + 'Part Two'))})?.textContent.includes('the storm')`), 'and its stack shows it');
+		// redo takes it away again, undo brings it back again
+		await undoMove(p, true);
+		t.ok(await gone(p, L + 'Part Two'), 'redo: the folder is gone again');
+		t.eq(await listIs(p, UNGROUPED), j(UNGROUPED), 'redo: the notes are out, in order');
+		same(t, before, await texts(p), { skip: [NOTE, P2NOTE], moved: OUT });
+		await undoMove(p);
+		t.ok(await back(p, P2 + 'Lights out.md'), 'undone again');
+		t.eq(await listIs(p, LIST), j(LIST), 'the order is as it was, again');
+		same(t, before, await texts(p), { skip: [NOTE] });
+		// its data changed since, then ungrouped a second time: what comes back is the note as it was when it went
+		await p.ev(`${B}.setProps(${file(P2NOTE)}, { synopsis: 'Rewritten.' }).then(() => 1)`);
+		await p.sleep(300);
+		const changed = await read(p, P2NOTE);
+		t.ok(changed.includes('Rewritten.'), '(the synopsis was changed)');
+		await p.ev(`${B}.ungroup(${file(L + 'Part Two')}).then(() => 1)`);
+		t.ok(await gone(p, L + 'Part Two'), 'ungrouped a second time: gone');
+		await undoMove(p);
+		t.ok(await back(p, P2 + 'Lights out.md'), 'and undone');
+		t.eq(await read(p, P2NOTE), changed, 'the folder note is the one that went, with the changed synopsis');
+		t.eq(await listIs(p, LIST), j(LIST), 'the order is as it was, a third time');
+		same(t, before, await texts(p), { skip: [NOTE, P2NOTE] });
+	});
+}));
+
+test('Ungroup leaves a folder that still holds something: text in its folder note (said), a file Obsidian doesn’t list; a folder with no note goes and comes back, also after another folder was renamed', withTidy(async (p, h, t) => {
+	await forget(p);
+	// text of the writer's own in the folder note: writing never goes to the trash unasked
+	const WITH_TEXT = '---\nsynopsis: Two.\n---\nNotes on the second part, written in the folder’s own note.\n', STAYED = [...LIST.slice(0, 6), 'The wreck', 'Lights out', 'Epilogue'];
+	await p.ev(`app.vault.create(${j(P2NOTE)}, ${j(WITH_TEXT)}).then(() => 1)`);
+	await p.sleep(400);
+	const before = await texts(p);
+	await p.ev(`${B}.ungroup(${file(L + 'Part Two')}).then(() => 1)`);
+	await p.sleep(600);
+	t.ok(await exists(p, P2NOTE), 'a folder whose note has text in it stays');
+	t.eq(await read(p, P2NOTE), WITH_TEXT, 'its note untouched');
+	t.ok(/“Part Two” stays: its folder note has text in it/.test(await notices(p)), 'and a notice says why: ' + await notices(p));
+	t.eq(await listIs(p, STAYED), j(STAYED), 'its notes are out, after it');
+	await undoMove(p);
+	t.ok(await back(p, P2 + 'Lights out.md'), 'undone as before');
+	t.eq(await listIs(p, LIST), j(LIST), 'in order');
+	same(t, before, await texts(p), { skip: [NOTE] });
+	// a file the vault doesn't list (its name starts with a dot): not Binders' to trash
+	await p.ev(`(async () => { await app.vault.delete(${file(P2NOTE)}); await app.vault.adapter.write(${j(P2 + '.keep')}, 'mine'); })().then(() => 1)`);
+	await p.sleep(300);
+	await p.ev(`${B}.ungroup(${file(L + 'Part Two')}).then(() => 1)`);
+	await p.sleep(600);
+	t.eq(await read(p, P2 + '.keep'), 'mine', 'a folder with a file Obsidian doesn’t list stays, the file with it');
+	await undoMove(p);
+	t.ok(await back(p, P2 + 'Lights out.md'), 'undone');
+	await p.ev(`app.vault.adapter.remove(${j(P2 + '.keep')}).then(() => 1)`);
+	// no folder note at all: the folder goes, and comes back
+	await p.ev(`${B}.ungroup(${file(L + 'Part Two')}).then(() => 1)`);
+	t.ok(await gone(p, L + 'Part Two'), 'a folder with no note goes too');
+	t.eq(await listIs(p, UNGROUPED), j(UNGROUPED), 'and is off the list');
+	await undoMove(p);
+	t.ok(await back(p, P2 + 'Lights out.md'), 'and comes back with its notes');
+	t.eq(await listIs(p, LIST), j(LIST), 'in its place');
+	t.ok(!(await exists(p, P2NOTE)), 'with no note made for it');
+	// another folder renamed while the folder was away: it comes back where it stood
+	await p.ev(`${B}.ungroup(${file(L + 'Part Two')}).then(() => 1)`);
+	t.ok(await gone(p, L + 'Part Two'), '(ungrouped)');
+	await p.ev(`app.fileManager.renameFile(${file(L + 'Part One')}, ${j(L + 'Act One')}).then(() => 1)`);
+	await p.sleep(500);
+	await undoMove(p);
+	t.ok(await back(p, P2 + 'Lights out.md'), 'undo after another folder was renamed: Part Two is back');
+	const renamed = LIST.map((x) => x.replace('Part One/', 'Act One/'));
+	t.eq(await listIs(p, renamed), j(renamed), 'between the renamed folder and the epilogue');
+	await p.ev(`app.fileManager.renameFile(${file(L + 'Act One')}, ${j(L + 'Part One')}).then(() => 1)`);
+	await p.sleep(500);
+}));
+
+test('“Undo last move” after Ungroup refuses in words when the folder can’t be made again, moving nothing, and works once what’s in the way is gone; a binder view on the folder goes to the folder above', withTidy(async (p, h, t) => {
+	await forget(p);
+	await p.ev(`app.vault.create(${j(P2NOTE)}, ${j(FOLDER_NOTE)}).then(() => 1)`);
+	await p.sleep(400);
+	const before = await texts(p);
+	// the folder open in a binder view when it goes
+	await openView(p, L + 'Part Two');
+	t.eq(await viewFolder(p), L + 'Part Two', '(the view shows Part Two)');
+	await p.ev(`${B}.ungroup(${file(L + 'Part Two')}).then(() => 1)`);
+	t.ok(await gone(p, L + 'Part Two'), 'ungrouped while a view shows it');
+	t.ok(await until(p, `${VIEW}.folder?.path === 'The Lighthouse'`), 'the view shows the binder’s folder instead: ' + await viewFolder(p));
+	t.ok(await until(p, `!!document.querySelector(${j(card(L + 'The wreck.md'))})`), 'with the notes that came out');
+	// a file with the folder's name where it stood
+	await p.ev(`app.vault.create(${j(L + 'Part Two')}, 'in the way').then(() => 1)`);
+	await p.sleep(500);
+	await flush(p);
+	const list = j(await contents(p));
+	await undoMove(p);
+	await p.sleep(600);
+	t.ok(/“Part Two” can’t be brought back: “The Lighthouse” has a file with that name now/.test(await notices(p)), 'undo says why it can’t: ' + await notices(p));
+	t.ok(await exists(p, L + 'The wreck.md') && !(await exists(p, P2NOTE)), 'and moves nothing');
+	await flush(p);
+	t.eq(j(await contents(p)), list, 'the list is as it was');
+	t.eq(await read(p, L + 'Part Two'), 'in the way', 'the file in the way untouched');
+	// a note that would become the folder's own note
+	await p.ev(`(async () => { await app.vault.delete(${file(L + 'Part Two')}); await app.fileManager.renameFile(${file(L + 'The wreck.md')}, ${j(L + 'Part Two.md')}); })().then(() => 1)`);
+	await p.sleep(500);
+	// (asked afresh: a second refusal with nothing changed gives the change up, as for any move)
+	await p.ev(`(() => { ${B}.undos[${B}.undos.length - 1].failed = false; return 1; })()`);
+	await undoMove(p);
+	await p.sleep(600);
+	t.ok(/can’t go back into “Part Two”: it would become the folder’s note/.test(await notices(p)), 'a note renamed to the folder’s name is said: ' + await notices(p));
+	t.ok(!(await exists(p, L + 'Part Two/Lights out.md')), 'and nothing moved');
+	await p.ev(`app.fileManager.renameFile(${file(L + 'Part Two.md')}, ${j(L + 'The wreck.md')}).then(() => 1)`);
+	await p.sleep(500);
+	await p.ev(`(() => { ${B}.undos[${B}.undos.length - 1].failed = false; return 1; })()`);
+	await undoMove(p);
+	t.ok(await back(p, P2 + 'Lights out.md'), 'with nothing in the way, undo brings the folder back');
+	t.eq(await read(p, P2NOTE), FOLDER_NOTE, 'its note byte for byte');
+	t.eq(await listIs(p, LIST), j(LIST), 'and the order');
+	same(t, before, await texts(p), { skip: [NOTE] });
+}));

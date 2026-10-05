@@ -289,7 +289,10 @@ twice before it exists once.
 - **Merge N notes**: text and synopses joined into the first, a blank line between; the result is read back and
   checked before the others go to the trash. Asks first.
 - **Duplicate** (a note, or a folder with everything in it, in order), **New folder from selection** / **Put in a
-  new folder**, **Ungroup** (a folder's items move out, after it; the folder stays), **Set synopsis from text** (the
+  new folder**, **Ungroup** (a folder's items move out, to where it stood; the folder, left with nothing but its
+  folder note, goes to the trash with that note, and "Undo last move" makes it again with the note byte for byte. A
+  folder that still holds something stays: a file Obsidian doesn't list, or a folder note with text under its
+  properties, which is writing and is never trashed unasked; a notice says so), **Set synopsis from text** (the
   note's first paragraph).
 - **Compile**: "Compile binder" (command) and "Compile..." (a binder folder's menu) open a dialog: title as the first
   heading, folders as headings, note titles as headings, what goes between notes (`* * *`, `#`, `---` or a blank
