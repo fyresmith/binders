@@ -1,6 +1,6 @@
 // Working on scenes (src/scenes.ts, and the store's duplicate, group and ungroup): splitting a note at the cursor,
 // merging notes, a synopsis from a note's text, duplicating, grouping into a folder and back, leaving notes out of a
-// compile, and compiling a binder into one note. These move text between notes, so every test checks, byte for byte,
+// export, and exporting a binder as one note. These move text between notes, so every test checks, byte for byte,
 // that none is lost and none changes that shouldn't.
 import { B, NOTE, PL, VIEW, card, cards, clickMenu, closeMenus, contents, exists, file, flush, hoverMenu, j, menuItems, openView, read, same, split, texts, until, withTidy } from './view-helpers.mjs';
 import { readFileSync } from 'fs';
@@ -254,44 +254,46 @@ test('“New folder from selection” groups notes where the first was, named in
 	same(t, before, await texts(p), { skip: [NOTE] });
 }));
 
-test('compile: the binder as one note beside it, in order, folders as headings; notes left out of the compile aren’t in it', withTidy(async (p, h, t) => {
+test('export as one note: the binder as one note beside it, in order, folders as headings; notes left out of the export aren’t in it', withTidy(async (p, h, t) => {
 	const before = await texts(p);
 	await openView(p, L + 'Part One');
 	// leave The keeper out, from its card's menu
 	const k = await at(p, 'Part One/The keeper.md');
 	await p.right(k.x, k.y);
-	t.ok(await p.ev(`[...document.querySelectorAll('.menu .menu-item')].some(e => e.querySelector('.menu-item-title')?.textContent === 'Include in compile' && e.querySelector('.menu-item-icon.mod-selected, .mod-checked, .menu-item-icon svg.lucide-check') != null) || true`), 'the menu has “Include in compile”');
-	await clickMenu(p, 'Include in compile');
-	await until(p, `app.metadataCache.getFileCache(${file(L + 'Part One/The keeper.md')})?.frontmatter?.compile === false`);
+	t.ok(await p.ev(`[...document.querySelectorAll('.menu .menu-item')].some(e => e.querySelector('.menu-item-title')?.textContent === 'Include in export' && e.querySelector('.menu-item-icon.mod-selected, .mod-checked, .menu-item-icon svg.lucide-check') != null) || true`), 'the menu has “Include in export”');
+	await clickMenu(p, 'Include in export');
+	await until(p, `app.metadataCache.getFileCache(${file(L + 'Part One/The keeper.md')})?.frontmatter?.export === false`);
 	t.eq(split(await read(p, L + 'Part One/The keeper.md')).body, split(before[L + 'Part One/The keeper.md']).body, 'only a property changed');
 	await openView(p);
-	await run(p, 'compile');
-	await until(p, `!!document.querySelector('.modal .binders-compile-path')`);
-	const says = await p.ev(`document.querySelector('.modal').textContent`);
-	t.ok(/6 notes/.test(says) && /1 is left out/.test(says), 'the dialog says how many notes, and how many are left out: ' + says.slice(0, 160));
-	t.eq(await p.ev(`document.querySelector('.modal .binders-compile-path').value`), 'The Lighthouse (compiled).md', 'saved beside the binder by default');
-	await p.ev(`(() => { [...document.querySelectorAll('.modal button')].find(b => b.textContent === 'Compile').click(); return 1; })()`);
-	await until(p, `app.vault.adapter.exists('The Lighthouse (compiled).md')`);
+	await (await p.ev(`(() => { app.plugins.plugins.binders.settings.exportKind = 'note'; return 1; })()`), run(p, 'export'));
+	await until(p, `!!document.querySelector('.modal .binders-export-path')`);
+	// (the bar's count comes once the notes are read)
+	await until(p, `!!document.querySelector('.modal.binders-export .binders-snapshots-detail')?.textContent`);
+	const says = await p.ev(`document.querySelector('.modal.binders-export .binders-snapshots-detail').textContent + ' | ' + document.querySelector('.modal.binders-export .binders-export-needs').textContent`);
+	t.ok(/^6 notes · /.test(says) && /1 note is left out\./.test(says), 'the window says how many notes, and how many are left out: ' + says.slice(0, 260));
+	t.eq(await p.ev(`document.querySelector('.modal .binders-export-path').value`), 'The Lighthouse (exported).md', 'saved beside the binder by default');
+	await p.ev(`(() => { [...document.querySelectorAll('.modal button')].find(b => b.textContent === 'Export').click(); return 1; })()`);
+	await until(p, `app.vault.adapter.exists('The Lighthouse (exported).md')`);
 	const body = (path) => split(before[L + path]).body.trim();
 	const want = ['# The Lighthouse', body('Prologue.md'), '## Part One', body('Part One/Arrival.md'), '* * *', body('Part One/Storm warning.md'), '## Part Two', body('Part Two/The wreck.md'), '* * *', body('Part Two/Lights out.md'), '* * *', body('Epilogue.md')].join('\n\n') + '\n';
-	t.eq(await read(p, 'The Lighthouse (compiled).md'), want, 'the title, folders as headings, each note’s text in order with a separator between notes that follow each other; no properties, and not the note left out');
-	await until(p, `app.workspace.getActiveFile()?.path === 'The Lighthouse (compiled).md'`);
-	t.ok(true, 'and the compiled note opens');
-	t.eq(await p.ev(`${B}.binderOf('The Lighthouse (compiled).md')`), null, 'it isn’t in the binder');
+	t.eq(await read(p, 'The Lighthouse (exported).md'), want, 'the title, folders as headings, each note’s text in order with a separator between notes that follow each other; no properties, and not the note left out');
+	await until(p, `app.workspace.getActiveFile()?.path === 'The Lighthouse (exported).md'`);
+	t.ok(true, 'and the exported note opens');
+	t.eq(await p.ev(`${B}.binderOf('The Lighthouse (exported).md')`), null, 'it isn’t in the binder');
 	same(t, before, await texts(p), { skip: [L + 'Part One/The keeper.md'] });
-	// compiling again replaces it; inside the binder is refused
+	// exporting again replaces it; inside the binder is refused
 	await openView(p);
-	await run(p, 'compile');
-	await until(p, `!!document.querySelector('.modal .binders-compile-path')`);
-	await p.ev(`(() => { const i = document.querySelector('.modal .binders-compile-path'); i.value = 'The Lighthouse/Whole.md'; i.dispatchEvent(new Event('input')); [...document.querySelectorAll('.modal button')].find(b => b.textContent === 'Compile').click(); return 1; })()`);
+	await (await p.ev(`(() => { app.plugins.plugins.binders.settings.exportKind = 'note'; return 1; })()`), run(p, 'export'));
+	await until(p, `!!document.querySelector('.modal .binders-export-path')`);
+	await p.ev(`(() => { const i = document.querySelector('.modal .binders-export-path'); i.value = 'The Lighthouse/Whole.md'; i.dispatchEvent(new Event('input')); [...document.querySelectorAll('.modal button')].find(b => b.textContent === 'Export').click(); return 1; })()`);
 	await p.sleep(500);
 	t.ok(/outside the binder/.test(await notices(p)), 'a place inside the binder is refused: ' + await notices(p));
 	t.ok(!(await exists(p, 'The Lighthouse/Whole.md')), 'and nothing is written there');
-	// (a refusal leaves the dialog open, to put right)
-	t.ok(await p.ev(`!!document.querySelector('.modal .binders-compile-path')`), 'the dialog stays open after a refusal');
+	// (a refusal leaves the window open, to put right)
+	t.ok(await p.ev(`!!document.querySelector('.modal .binders-export-path')`), 'the window stays open after a refusal');
 	await p.key('Escape');
 	await until(p, `!document.querySelector('.modal')`);
-	await p.ev(`app.vault.delete(app.vault.getAbstractFileByPath('The Lighthouse (compiled).md')).then(() => 1)`);
+	await p.ev(`app.vault.delete(app.vault.getAbstractFileByPath('The Lighthouse (exported).md')).then(() => 1)`);
 }));
 
 // ---- where properties end and text begins (scene-text.ts, `parts`): only a block that reads as properties is left out ----
@@ -362,20 +364,20 @@ test('merging into a note that opens with a rule, has bad properties, real ones,
 	}
 }));
 
-test('compiling a binder of such notes: every word of text, no properties, and no note changed by a byte', withTidy(async (p, h, t) => {
+test('exporting a binder of such notes as one note: every word of text, no properties, and no note changed by a byte', withTidy(async (p, h, t) => {
 	await odd(p, KINDS);
 	const before = Object.fromEntries(KINDS.map(([n]) => [n, disk(p, `Odd/${n}.md`)]));
 	for (const [n, text] of KINDS) t.eq(before[n], text, `“${n}” is on disk as given`);
 	await openView(p, 'Odd');
-	await run(p, 'compile');
-	await until(p, `!!document.querySelector('.modal .binders-compile-path')`);
-	await p.ev(`(() => { [...document.querySelectorAll('.modal button')].find(b => b.textContent === 'Compile').click(); return 1; })()`);
-	await until(p, `app.vault.adapter.exists('Odd (compiled).md')`);
+	await (await p.ev(`(() => { app.plugins.plugins.binders.settings.exportKind = 'note'; return 1; })()`), run(p, 'export'));
+	await until(p, `!!document.querySelector('.modal .binders-export-path')`);
+	await p.ev(`(() => { [...document.querySelectorAll('.modal button')].find(b => b.textContent === 'Export').click(); return 1; })()`);
+	await until(p, `app.vault.adapter.exists('Odd (exported).md')`);
 	await p.sleep(400);
 	const want = ['# Odd', ...KINDS.map((k) => textOfKind(k).replace(/^\s*\n/, '').replace(/\s+$/, '')).flatMap((b, i) => (i ? ['* * *', b] : [b]))].join('\n\n') + '\n';
-	t.eq(disk(p, 'Odd (compiled).md'), want, 'the compiled note, byte for byte');
+	t.eq(disk(p, 'Odd (exported).md'), want, 'the exported note, byte for byte');
 	for (const [n, text] of KINDS) t.eq(disk(p, `Odd/${n}.md`), text, `“${n}” is byte for byte what it was (its line breaks and its byte-order mark too)`);
-	await p.ev(`app.vault.delete(app.vault.getAbstractFileByPath('Odd (compiled).md')).then(() => 1)`);
+	await p.ev(`app.vault.delete(app.vault.getAbstractFileByPath('Odd (exported).md')).then(() => 1)`);
 }));
 
 test('splitting a note that opens with a rule, in its first paragraph; one with bad properties, in them; one with real properties and Windows line breaks', withTidy(async (p, h, t) => {
@@ -439,12 +441,12 @@ const TEXT_BLOCKS = KINDS.filter(([, , front]) => !front);
 /** What a note must be once properties are written above it: the mark, the new block in the note's own line breaks, the note. */
 const above = (text, yaml) => { const br = text.includes('\r\n') ? '\r\n' : '\n'; return `${text.startsWith(BOM) ? BOM : ''}---${br}${yaml.replace(/\n/g, br)}---${br}${noBom(text)}`; };
 
-test('a status, a label, a target and “Include in compile” set on a note that opens with a block of text: written above it, not a byte of the note dropped', withTidy(async (p, h, t) => {
+test('a status, a label, a target and “Include in export” set on a note that opens with a block of text: written above it, not a byte of the note dropped', withTidy(async (p, h, t) => {
 	const WRITES = [
 		['status', `${VIEW}.setProps(f, { status: 'Done' })`, 'status: Done\n'],
 		['label', `${B}.label([f], ${PL}.settings.labelProp, 'Red', 'Label “x”')`, 'label: Red\n'],
 		['target', `${VIEW}.setProps(f, { target: 500 })`, 'target: 500\n'],
-		['compile', `${B}.setProps(f, { compile: false })`, 'compile: false\n'],
+		['export', `${B}.setProps(f, { export: false })`, 'export: false\n'],
 	];
 	await odd(p, [...TEXT_BLOCKS.flatMap(([name, text]) => WRITES.map(([w]) => [`${name} ${w}`, text])), ['z none', RULED]]);
 	await openView(p, 'Odd');
@@ -474,20 +476,20 @@ test('a status, a label, a target and “Include in compile” set on a note tha
 	await p.ev(`(async () => { await app.vault.adapter.write('Odd/zz marked.md', ${j(marked[1])}); await new Promise(r => setTimeout(r, 700)); await ${B}.setProps(${file('Odd/zz marked.md')}, { label: 'Blue' }); })().then(() => 1)`);
 	t.eq(disk(p, 'Odd/zz marked.md'), BOM + PROPS.replace(/---\n$/, 'label: Blue\n---\n') + textOfKind(marked), 'a note with a byte-order mark: the property joins the ones it has, the mark and the text as they were');
 	// a property taken away from a note that has none: nothing to write, nothing written
-	await p.ev(`${B}.setProps(${file('Odd/z none.md')}, { compile: undefined }).then(() => 1)`);
+	await p.ev(`${B}.setProps(${file('Odd/z none.md')}, { export: undefined }).then(() => 1)`);
 	await p.sleep(300);
 	t.eq(disk(p, 'Odd/z none.md'), RULED, 'a property taken away from a note that has none: the note is as it was');
 }));
 
-test('from the corkboard, on notes that open with a rule: “Include in compile”, a synopsis typed on the card, “Set synopsis from text”, and a merge’s joined synopsis keep the first paragraph', withTidy(async (p, h, t) => {
+test('from the corkboard, on notes that open with a rule: “Include in export”, a synopsis typed on the card, “Set synopsis from text”, and a merge’s joined synopsis keep the first paragraph', withTidy(async (p, h, t) => {
 	const SYN = '---\nsynopsis: The second.\n---\nSecond text.\n';
 	await odd(p, [['a rule', RULED], ['b rule CRLF', crlf(RULED)], ['c rule', RULED], ['d rule', RULED], ['e other', SYN]]);
 	await openView(p, 'Odd');
 	const menu = async (name, item) => { const c = await p.at(card(`Odd/${name}.md`)); await p.right(c.x, c.t + 12); await clickMenu(p, item); };
-	// left out of the compile, from the card's menu
-	await menu('a rule', 'Include in compile');
-	await until(p, `app.vault.adapter.read('Odd/a rule.md').then(s => s.includes('compile'))`);
-	t.eq(disk(p, 'Odd/a rule.md'), above(RULED, 'compile: false\n'), '“Include in compile”: the property above, the note whole');
+	// left out of the export, from the card's menu
+	await menu('a rule', 'Include in export');
+	await until(p, `app.vault.adapter.read('Odd/a rule.md').then(s => s.includes('export'))`);
+	t.eq(disk(p, 'Odd/a rule.md'), above(RULED, 'export: false\n'), '“Include in export”: the property above, the note whole');
 	// a synopsis typed on the card, in a file with Windows line breaks
 	const syn = await p.at(`${card('Odd/b rule CRLF.md')} .binders-card-synopsis`);
 	// (a card is picked by the first click, and its synopsis edited by the next)
@@ -518,7 +520,7 @@ test('“Make this folder a binder” where the folder’s own note opens with a
 // ---- a note that is merely open ----
 // Whatever reads a note saves what's typed in it first (`saveOpen`). A tab nobody typed in has nothing to save, and
 // must not be saved: the editor's text has the editor's line breaks, and no byte-order mark.
-test('a note that is only open in a tab, nothing typed: a snapshot, the Snapshots dialog and a compile leave it byte for byte (Windows line breaks, a byte-order mark)', withTidy(async (p, h, t) => {
+test('a note that is only open in a tab, nothing typed: a snapshot, the Snapshots dialog and an export as one note leave it byte for byte (Windows line breaks, a byte-order mark)', withTidy(async (p, h, t) => {
 	const NOTES = [['crlf', crlf('One.\n\nTwo.\n')], ['crlf props', crlf(PROPS + 'Body.\n\nMore.\n')], ['marked', BOM + 'Marked.\n\nMore.\n'], ['reading', crlf('Read.\n\nOnly.\n')]];
 	await odd(p, NOTES);
 	const unchanged = (when) => { for (const [n, text] of NOTES) t.eq(disk(p, `Odd/${n}.md`), text, `${when}: “${n}” is byte for byte what it was`); };
@@ -537,16 +539,16 @@ test('a note that is only open in a tab, nothing typed: a snapshot, the Snapshot
 		await until(p, `!document.querySelector('.modal')`);
 		unchanged(`the snapshots of “${n}” shown`);
 	}
-	// all four still open, each in its tab: the binder compiled
+	// all four still open, each in its tab: the binder exported as one note
 	await openView(p, 'Odd', true);
-	await run(p, 'compile');
-	await until(p, `!!document.querySelector('.modal .binders-compile-path')`);
-	await p.ev(`(() => { [...document.querySelectorAll('.modal button')].find(b => b.textContent === 'Compile').click(); return 1; })()`);
-	await until(p, `app.vault.adapter.exists('Odd (compiled).md')`);
+	await (await p.ev(`(() => { app.plugins.plugins.binders.settings.exportKind = 'note'; return 1; })()`), run(p, 'export'));
+	await until(p, `!!document.querySelector('.modal .binders-export-path')`);
+	await p.ev(`(() => { [...document.querySelectorAll('.modal button')].find(b => b.textContent === 'Export').click(); return 1; })()`);
+	await until(p, `app.vault.adapter.exists('Odd (exported).md')`);
 	await p.sleep(2500); // (longer than an editor waits to save)
-	unchanged('the binder compiled');
-	t.ok(disk(p, 'Odd (compiled).md').includes('Two.') && disk(p, 'Odd (compiled).md').includes('Marked.'), 'and the compile has their text');
-	await p.ev(`app.vault.delete(app.vault.getAbstractFileByPath('Odd (compiled).md')).then(() => 1)`);
+	unchanged('the binder exported');
+	t.ok(disk(p, 'Odd (exported).md').includes('Two.') && disk(p, 'Odd (exported).md').includes('Marked.'), 'and the exported note has their text');
+	await p.ev(`app.vault.delete(app.vault.getAbstractFileByPath('Odd (exported).md')).then(() => 1)`);
 }));
 
 test('a note open in a tab with words typed and not yet saved: a snapshot taken at once holds them, and the note on disk has them', withTidy(async (p, h, t) => {
@@ -752,15 +754,15 @@ slow('a slow disk: a snapshot taken while earlier typing is still being written 
 	t.ok(snap.endsWith(split(typedInto(before)).body), 'the snapshot has the text as typed: ' + j(snap.slice(-80)));
 });
 
-slow('a slow disk: a compile while earlier typing is still being written has every word', async (p, h, t) => {
+slow('a slow disk: an export as one note while earlier typing is still being written has every word', async (p, h, t) => {
 	await midWrite(p);
-	await p.ev(`(() => { app.commands.executeCommandById('binders:compile'); return 1; })()`);
-	await until(p, `!!document.querySelector('.modal .binders-compile-path')`);
-	t.ok(await pressInDialog(p, 'Compile', releaseIn(300)), 'Compile');
-	await until(p, `app.vault.adapter.exists('The Lighthouse (compiled).md')`, 6000);
+	await p.ev(`(() => { (app.plugins.plugins.binders.settings.exportKind = 'note', app.commands.executeCommandById('binders:export')); return 1; })()`);
+	await until(p, `!!document.querySelector('.modal .binders-export-path')`);
+	t.ok(await pressInDialog(p, 'Export', releaseIn(300)), 'Export');
+	await until(p, `app.vault.adapter.exists('The Lighthouse (exported).md')`, 6000);
 	await p.sleep(300);
-	t.ok((await read(p, 'The Lighthouse (compiled).md')).includes('doorway. First words. Later words.'), 'the compiled note has the keeper’s text as typed');
-	await p.ev(`app.vault.delete(${file('The Lighthouse (compiled).md')}).then(() => 1)`);
+	t.ok((await read(p, 'The Lighthouse (exported).md')).includes('doorway. First words. Later words.'), 'the exported note has the keeper’s text as typed');
+	await p.ev(`app.vault.delete(${file('The Lighthouse (exported).md')}).then(() => 1)`);
 });
 
 slow('a slow disk: merging a note whose manuscript section (in another tab) is still writing its earlier typing: the merged note has every word before the other goes to the trash', async (p, h, t) => {

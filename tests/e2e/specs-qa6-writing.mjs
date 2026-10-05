@@ -185,19 +185,21 @@ bad('a note that opens with a rule and has another below it: merged into another
 		t.ok(merged.includes('Lost paragraph.'), 'the merged note has every paragraph: ' + j(merged));
 	} finally { await cleanOdd(p); }
 });
-bad('a note that opens with a rule and has another below it: compiled, its first paragraph is not left out', async (p, h, t) => {
+bad('a note that opens with a rule and has another below it: exported as one note, its first paragraph is not left out', async (p, h, t) => {
 	try {
 		await setupOdd(p, [['1 A', 'Alpha.\n'], ['2 Rule', RULED]], false);
 		await openMs(p, 'Odd');
-		await p.ev(`app.commands.executeCommandById('binders:compile')`);
-		await until(p, `!!document.querySelector('.modal .mod-cta')`, 4000);
+		await p.ev(`(app.plugins.plugins.binders.settings.exportKind = 'note', app.commands.executeCommandById('binders:export'))`);
+		await until(p, `!!document.querySelector('.modal.binders-export .binders-export-path')`, 4000);
 		await p.sleep(200);
-		await p.ev(`(() => { [...document.querySelectorAll('.modal button')].find(b => b.textContent === 'Compile').click(); return 1; })()`);
-		await p.sleep(1500);
-		const out = await raw(p, 'Odd (compiled).md').catch(() => '');
-		t.ok(out.includes('Alpha.') && out.includes('Kept.'), 'it compiled: ' + j(out));
+		await p.ev(`(() => { [...document.querySelectorAll('.modal.binders-export button')].find(b => b.textContent === 'Export').click(); return 1; })()`);
+		// (the window reads the notes for its preview, then again to export: the note is there when both are done)
+		await until(p, `app.vault.adapter.exists('Odd (exported).md')`, 10000);
+		await p.sleep(500);
+		const out = await raw(p, 'Odd (exported).md').catch(() => '');
+		t.ok(out.includes('Alpha.') && out.includes('Kept.'), 'it was exported: ' + j(out));
 		t.ok(out.includes('Lost paragraph.'), 'every paragraph is in it: ' + j(out));
-	} finally { await cleanOdd(p); await p.ev(`(async () => { const f = app.vault.getAbstractFileByPath('Odd (compiled).md'); if (f) await app.vault.delete(f); return 1; })()`); }
+	} finally { await cleanOdd(p); await p.ev(`(async () => { const f = app.vault.getAbstractFileByPath('Odd (exported).md'); if (f) await app.vault.delete(f); return 1; })()`); }
 });
 bad('a note that opens with a rule and has another below it: in the manuscript the caret can go to its first paragraph, and “Split scene at cursor” there splits it', async (p, h, t) => {
 	try {
@@ -858,21 +860,23 @@ ok('qa5 delete test, explained: with an older “The keeper.md” already in .tr
 
 // ---- 15. a note saved with a byte-order mark (Notepad, some exporters): Obsidian reads its properties, Binders' cut doesn't ----
 const BOMNOTE = '﻿---\nstatus: draft\nsynopsis: A bom scene.\n---\nBom body.\n';
-ok('a note that starts with a byte-order mark and has properties: compiled, its properties are not part of the text', async (p, h, t) => {
+ok('a note that starts with a byte-order mark and has properties: exported as one note, its properties are not part of the text', async (p, h, t) => {
 	try {
 		await setupOdd(p, [['1 A', 'Alpha.\n'], ['2 Bom', BOMNOTE]], false);
 		const cache = await p.ev(`JSON.stringify(app.metadataCache.getFileCache(app.vault.getAbstractFileByPath('Odd/2 Bom.md'))?.frontmatter ?? null)`);
 		t.ok(/draft/.test(cache), 'Obsidian reads its properties: ' + cache);
 		await openMs(p, 'Odd');
-		await p.ev(`app.commands.executeCommandById('binders:compile')`);
-		await until(p, `!!document.querySelector('.modal .mod-cta')`, 4000);
+		await p.ev(`(app.plugins.plugins.binders.settings.exportKind = 'note', app.commands.executeCommandById('binders:export'))`);
+		await until(p, `!!document.querySelector('.modal.binders-export .binders-export-path')`, 4000);
 		await p.sleep(200);
-		await p.ev(`(() => { [...document.querySelectorAll('.modal button')].find(b => b.textContent === 'Compile').click(); return 1; })()`);
-		await p.sleep(1500);
-		const out = await raw(p, 'Odd (compiled).md').catch(() => '');
-		t.ok(out.includes('Bom body.'), 'it compiled: ' + j(out));
-		t.ok(!/status: draft|synopsis: A bom/.test(out), 'the properties are not in the compiled text: ' + j(out));
-	} finally { await cleanOdd(p); await p.ev(`(async () => { const f = app.vault.getAbstractFileByPath('Odd (compiled).md'); if (f) await app.vault.delete(f); return 1; })()`); }
+		await p.ev(`(() => { [...document.querySelectorAll('.modal.binders-export button')].find(b => b.textContent === 'Export').click(); return 1; })()`);
+		// (the window reads the notes for its preview, then again to export: the note is there when both are done)
+		await until(p, `app.vault.adapter.exists('Odd (exported).md')`, 10000);
+		await p.sleep(500);
+		const out = await raw(p, 'Odd (exported).md').catch(() => '');
+		t.ok(out.includes('Bom body.'), 'it was exported: ' + j(out));
+		t.ok(!/status: draft|synopsis: A bom/.test(out), 'the properties are not in the exported text: ' + j(out));
+	} finally { await cleanOdd(p); await p.ev(`(async () => { const f = app.vault.getAbstractFileByPath('Odd (exported).md'); if (f) await app.vault.delete(f); return 1; })()`); }
 });
 ok('a note that starts with a byte-order mark and has properties: merged into another note, its properties are not pasted into the text', async (p, h, t) => {
 	try {

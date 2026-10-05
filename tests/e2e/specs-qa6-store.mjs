@@ -968,7 +968,7 @@ test('BUG: a binder with a PDF and its companion note (paper.pdf, paper.pdf.md) 
 	await p.ev(`(async () => { const v = app.vault; await v.createBinary('The Lighthouse/Part One/paper.pdf', new Uint8Array([37, 80, 68, 70]).buffer); await v.create('The Lighthouse/Part One/paper.pdf.md', 'my notes on the paper\\n'); })().then(() => 1)`);
 	await p.sleep(600);
 	const scenes = await p.ev(`${B}.scenes(${file('The Lighthouse')}).map(f => f.path)`);
-	t.eq(scenes.filter((x) => x.endsWith('paper.pdf.md')).length, 1, 'the note is one scene, not two (the manuscript and a compile would repeat its text): ' + j(scenes));
+	t.eq(scenes.filter((x) => x.endsWith('paper.pdf.md')).length, 1, 'the note is one scene, not two (the manuscript and an export would repeat its text): ' + j(scenes));
 }));
 
 // ---- the binder note changed from outside while a move waits to be written ----

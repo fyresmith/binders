@@ -290,7 +290,7 @@ test('what a label is: a preset in any case, a theme color by name, #abc or #AAB
 	// the menu ticks the preset whatever the case, and lists what notes use after the presets
 	await openItemMenu(p, 'Prologue.md', 'Set label');
 	t.eq(j((await menuItems(p)).slice(-9)), j(['Red', 'Blue', 'Twin', 'Mara', 'Cyan', 'Nobody', 'Custom color...', 'No label', 'Edit labels...']), 'the label menu');
-	t.eq(j((await checked(p)).filter((x) => x !== 'Include in compile')), j(['Red']), '“RED” ticks Red');
+	t.eq(j((await checked(p)).filter((x) => x !== 'Include in export')), j(['Red']), '“RED” ticks Red');
 	await closeMenus(p);
 	await openFilter(p);
 	const items = await menuItems(p);
@@ -321,7 +321,7 @@ test('menus: ticks for the current value, none for a mixed selection; by keyboar
 	await openView(p);
 	await openItemMenu(p, 'Prologue.md', 'Set status');
 	t.eq(j((await menuItems(p)).slice(-6)), j(['Idea', 'Draft', 'Revised', 'Done', 'New status...', 'No status']), 'the status menu');
-	t.eq(j((await checked(p)).filter((x) => x !== 'Include in compile')), j(['Draft']), '“draft” in the note ticks Draft');
+	t.eq(j((await checked(p)).filter((x) => x !== 'Include in export')), j(['Draft']), '“draft” in the note ticks Draft');
 	await clickMenu(p, 'New status...');
 	await until(p, `!!document.querySelector('.modal .binders-ask input')`);
 	t.eq(await p.ev(`document.activeElement === document.querySelector('.modal .binders-ask input')`), true, 'the dialog’s field has the focus');
@@ -338,7 +338,7 @@ test('menus: ticks for the current value, none for a mixed selection; by keyboar
 	await p.right(k.x, k.y);
 	await hoverMenu(p, 'Set status');
 	t.eq(j((await menuItems(p)).slice(-7)), j(['Idea', 'Draft', 'Revised', 'Done', 'Proofed', 'New status...', 'No status']), 'a status a note uses (elsewhere in the binder) is offered after the presets');
-	t.eq(j((await checked(p)).filter((x) => x !== 'Include in compile')), j([]), 'a mixed selection ticks nothing');
+	t.eq(j((await checked(p)).filter((x) => x !== 'Include in export')), j([]), 'a mixed selection ticks nothing');
 	await closeMenus(p);
 	await openView(p);
 	// keyboard only: the card's menu, down to "Set label", into its submenu, a label
@@ -386,7 +386,7 @@ test('custom color dialog: starts from the color shown; a three-digit hex in cap
 	await until(p, `app.metadataCache.getFileCache(${file(L + 'Prologue.md')})?.frontmatter?.label === '#ff00aa'`);
 	t.eq((await fm(p, L + 'Prologue.md')).label, '#ff00aa', 'written as six digits, lower case');
 	await openItemMenu(p, 'Prologue.md', 'Set label');
-	t.eq(j((await checked(p)).filter((x) => x !== 'Include in compile')), j(['Custom color...']), 'the menu ticks “Custom color...”');
+	t.eq(j((await checked(p)).filter((x) => x !== 'Include in export')), j(['Custom color...']), 'the menu ticks “Custom color...”');
 	await clickMenu(p, 'Custom color...');
 	await until(p, `!!document.querySelector('.modal input[aria-label="Hex color"]')`);
 	await p.key('a', 'ctrl');

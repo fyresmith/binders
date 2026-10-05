@@ -273,7 +273,7 @@ export function nextName(name: string, taken: (name: string) => boolean): string
 	for (let n = m?.[2] ? Number(m[2]) + 1 : 2; ; n++) { const next = `${base} ${String(n).padStart(width, '0')}`; if (!taken(next)) return next; }
 }
 
-// ---- compiling ----
+// ---- one text of many: export's "One note" (which was "Compile") ----
 
 export interface CompileOptions {
 	/** What goes between two scenes in the same folder: a line of its own ("#", "* * *"), or "" for just a blank line. */

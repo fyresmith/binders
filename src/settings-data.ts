@@ -26,12 +26,12 @@ export interface BindersSettings {
 	statuses: string[];
 	/** The outliner's columns as last arranged: what a newly opened outliner starts with. */
 	outlinerColumns: ColumnSpec[];
-	/** How "Compile" was last set up. */
+	/** How export's "One note" was last set up. (These three keep the names they had when it was "Compile".) */
 	compile: CompileOptions;
-	/** What "Compile" last wrote, by path (a fingerprint of the text): a note that's still as Compile left it is
-	    replaced without asking; one that's been written in since, or was never a compile, is asked about first. */
+	/** What "One note" last wrote, by path (a fingerprint of the text): a note that's still as export left it is
+	    replaced without asking; one that's been written in since, or was never an export, is asked about first. */
 	compiled: Record<string, string>;
-	/** Where each folder was last compiled to (its path → the note's path): offered again the next time. */
+	/** Where each folder's one note last went (its path → the note's path): offered again the next time. */
 	compiledTo: Record<string, string>;
 	/** Export: the folder exported files go to. A name is a folder beside each binder; a path (with a `/`) is one
 	    folder for the whole vault. */
@@ -119,7 +119,7 @@ export const TEXT: Record<Toggle | Prop, readonly [string, string]> = {
 	targetProp: ['Target', 'The property that holds a word count target: a note’s own, a folder’s, or the binder’s.'],
 };
 
-/** How many compiled notes are remembered (the latest). */
+/** How many exported notes are remembered (the latest). */
 export const COMPILED_KEPT = 30;
 
 /** Settings as saved, made whole: defaults for what's missing, and lists that aren't well formed put right. */

@@ -686,7 +686,7 @@ test('tablet: the same note open beside the manuscript: typing in one then at on
 	sameBut(t, before, snap(p), { [KEEPER]: want });
 }));
 
-test('phone: typing, then at once from the title’s menu: a status, a label, “Include in compile”, “Move down”, “Duplicate”; the properties change and every key stays, the copy has them too', on(PHONE, async (p, h, t, before) => {
+test('phone: typing, then at once from the title’s menu: a status, a label, “Include in export”, “Move down”, “Duplicate”; the properties change and every key stays, the copy has them too', on(PHONE, async (p, h, t, before) => {
 	await openMs(p);
 	await typeInKeeper(p, ' a');
 	await titleMenu(p, KEEPER);
@@ -703,7 +703,7 @@ test('phone: typing, then at once from the title’s menu: a status, a label, �
 	await p.sleep(400);
 	await typeInKeeper(p, 'c');
 	await titleMenu(p, KEEPER);
-	t.ok(await menuTap(p, 'Include in compile'), 'Include in compile');
+	t.ok(await menuTap(p, 'Include in export'), 'Include in export');
 	await p.sleep(400);
 	await typeInKeeper(p, 'd');
 	await titleMenu(p, KEEPER);
@@ -722,7 +722,7 @@ test('phone: typing, then at once from the title’s menu: a status, a label, �
 	t.eq(made.length, 1, 'one new note: ' + j(made));
 	const want = before[KEEPER].replace('doorway.', 'doorway. abcde');
 	t.eq(body(after[KEEPER]), body(want), 'every key is in the note’s text, once');
-	t.ok(/^status: Done$/m.test(after[KEEPER]) && /^label: Red$/m.test(after[KEEPER]) && /^compile: false$/m.test(after[KEEPER]), 'with its status, label and compile set: ' + fm(after[KEEPER]));
+	t.ok(/^status: Done$/m.test(after[KEEPER]) && /^label: Red$/m.test(after[KEEPER]) && /^export: false$/m.test(after[KEEPER]), 'with its status, label and export set: ' + fm(after[KEEPER]));
 	t.ok(/^synopsis: The keeper refuses to let her into the tower\.$/m.test(after[KEEPER]) && /^plotlines:\n  - Mara\n  - The keeper's secret$/m.test(after[KEEPER]), 'and its other properties as they were');
 	t.eq(body(after[made[0]]), body(want), 'the copy has every key too');
 	const order = fm(after[NOTE]);
@@ -1054,7 +1054,7 @@ test('phone: a title’s menu: its items; “New note after this” names a note
 	await shot(p, 'title-menu');
 	say('title menu:', items);
 	t.ok(isSheet(await sheet(p)), 'the menu is a sheet');
-	for (const x of ['Open', 'Open in new tab', 'Rename', 'Set synopsis from text', 'Set status', 'Set label', 'Set target...', 'Duplicate', 'Put in a new folder', 'Include in compile', 'Move up', 'Move down', 'New note after this', 'Delete']) t.ok(items.includes(x), `“${x}” is in it`);
+	for (const x of ['Open', 'Open in new tab', 'Rename', 'Set synopsis from text', 'Set status', 'Set label', 'Set target...', 'Duplicate', 'Put in a new folder', 'Include in export', 'Move up', 'Move down', 'New note after this', 'Delete']) t.ok(items.includes(x), `“${x}” is in it`);
 	t.ok(!items.includes('Open to the right') && !items.includes('Edit synopsis'), 'and nothing that can’t be done here');
 	t.ok((await sheet(p)).itemHeights.every((x) => x >= 40), 'its rows are a finger tall');
 	// New note after this
@@ -1172,7 +1172,7 @@ test('phone: a folder’s heading: a tap goes into the folder, its menu renames 
 // The toolbar and the folder's synopsis
 // =====================================================================================================================
 
-test('phone: “New” makes a note after the section with the caret, named in place; the word count follows the typing and opens the target dialog; the synopsis at the top of the page is typed in place; “More options” has the modes and Compile', on(PHONE, async (p, h, t, before) => {
+test('phone: “New” makes a note after the section with the caret, named in place; the word count follows the typing and opens the target dialog; the synopsis at the top of the page is typed in place; “More options” has the modes and Export', on(PHONE, async (p, h, t, before) => {
 	await openMs(p);
 	const count = () => p.ev(`document.querySelector('${LEAF} .binders-word-count').textContent`);
 	t.eq(await count(), '106 words', 'the count');
@@ -1224,7 +1224,7 @@ test('phone: “New” makes a note after the section with the caret, named in p
 	await tap(p, more.x, more.y, 500);
 	const items = await menuItems(p);
 	await shot(p, 'more-options');
-	for (const x of ['Corkboard', 'Outliner', 'Manuscript', 'Compile...', 'Open binder note']) t.ok(items.includes(x), `“${x}” is in More options: ${j(items)}`);
+	for (const x of ['Corkboard', 'Outliner', 'Manuscript', 'Export...', 'Open binder note']) t.ok(items.includes(x), `“${x}” is in More options: ${j(items)}`);
 	await gone(p);
 	await saveAll(p);
 	const after = snap(p);

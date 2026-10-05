@@ -2,7 +2,7 @@ import { Notice, Platform, PluginSettingTab, Setting, TextComponent, type App, t
 import type BindersPlugin from './main';
 import { DEFAULT_SETTINGS, FOCUS_TEXT, FOCUS_TOGGLES, focusToggles, PARAGRAPH_TEXT, PARAGRAPH_TOGGLES, PROPS, TEXT, TOGGLES, type BindersSettings, type FocusToggle, type ParagraphToggle, type Prop, type Toggle } from './settings-data';
 import { parseGoal } from './focus/session';
-import { COMPILE_PROP } from './scenes';
+import { COMPILE_PROP, EXPORT_PROP } from './scenes';
 import { DEFAULT_LABELS, DEFAULT_STATUSES, PALETTE, colorCss, display, freeName, hexColor } from './view/labels';
 import { confirm } from './view/modals';
 import { forgetPlaces, places } from './export/export';
@@ -16,7 +16,7 @@ export { DEFAULT_SETTINGS, readSettings, type BindersSettings } from './settings
 /** The color dropdown's value for a color of the writer's own (a hex color, not one of the theme's). */
 const CUSTOM = 'custom';
 /** Property names Binders keeps for itself: a note's synopsis, status, label or target can't be kept under one. */
-const RESERVED = ['binder', 'contents', 'longform', COMPILE_PROP];
+const RESERVED = ['binder', 'contents', 'longform', EXPORT_PROP, COMPILE_PROP, 'export-as'];
 
 /** Binders' tab in Obsidian's settings: the file explorer's switches, labels, statuses, focus mode, property names. */
 export class BindersSettingTab extends PluginSettingTab {

@@ -4,7 +4,7 @@ import type BindersPlugin from './main';
 import { applyOps, checkFormat, diskList, FORMAT_VERSION, isBinderNote, isFolderNote, nameOf, orderChildren, parentOf, readIndex, relPath, removeFrom, settleNames, stepIndex, UnsupportedBinder, type ListOp } from './model';
 import { editProperties } from './properties';
 import { nextName, parts } from './scene-text';
-import { COMPILE_PROP, saveOpen } from './scenes';
+import { COMPILE_PROP, EXPORT_PROP, saveOpen } from './scenes';
 import { MoveHistory, type PropChange, type Undo } from './undo';
 import { SNAPSHOTS } from './snapshot-text';
 import { followSnapshots } from './snapshots';
@@ -320,7 +320,7 @@ export class BinderStore extends Events implements ExplorerSource {
 	/** The binder's folder of snapshots: the folder named "Snapshots" at its top (in a Longform project, in its scene
 	    folder), unless that folder has notes in it (then it's a folder of the writer's own, and an item like any other).
 	    What's in it are earlier texts of the binder's notes, never items of the binder: not in its order, its counts, a
-	    compile or any view, and never shown in the file explorer. */
+	    export or any view, and never shown in the file explorer. */
 	snapshotsFolder(binder: Binder): TFolder | null {
 		const s = this.states.get(binder.note);
 		if (!s) return null;
@@ -815,7 +815,7 @@ export class BinderStore extends Events implements ExplorerSource {
 	    - it is directly in a folder that was recognised as a copy as it arrived (see `placeCopy`), and named like the
 	      folder that one is a copy of, which still stands beside it;
 	    - that folder has a folder note of its own, and this note is byte for byte the same;
-	    - it has at least one of the properties Binders keeps in a folder note (synopsis, status, label, target, compile);
+	    - it has at least one of the properties Binders keeps in a folder note (synopsis, status, label, target, export);
 	    - the copy has no note under its own name, in the vault or on the disk.
 	    A file that is still being written is looked at again a few times. Only the name changes: no note is written
 	    to, and links are left as they are (they never meant a note that has just arrived). */
@@ -824,7 +824,7 @@ export class BinderStore extends Events implements ExplorerSource {
 		this.adopting.add(copy);
 		try {
 			const { vault } = this.app, st = this.plugin.settings;
-			const props = [st.synopsisProp, st.statusProp, st.labelProp, st.targetProp, COMPILE_PROP];
+			const props = [st.synopsisProp, st.statusProp, st.labelProp, st.targetProp, EXPORT_PROP, COMPILE_PROP];
 			for (let i = 0; i < ADOPT_TRIES; i++) {
 				if (i) await sleep(ADOPT_WAIT);
 				const here = (f: TAbstractFile) => vault.getAbstractFileByPath(f.path) === f;

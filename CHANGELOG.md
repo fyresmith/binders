@@ -3,6 +3,18 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.24.0 (2026-10-05)
+
+### Changed
+
+- Compile is now One note in the Export window, with the same options and Copy, and a new option, on by default, that takes the tabs off the start of paragraphs.
+- 'Include in compile' is 'Include in export', and the outliner's Compile column is Export. Binders now writes export: false. compile: false is still read, and no note is rewritten to change it.
+- The note One note makes is named '... (exported)'.
+
+### Removed
+
+- The commands and menu items named Compile.
+
 ## 0.23.0 (2026-10-05)
 
 ### Added

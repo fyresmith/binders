@@ -1,6 +1,6 @@
 // QA round 3: what moves or rewrites a writer's text and files (src/scenes.ts, src/scene-text.ts, and the store's
 // duplicate, group, ungroup, put, change, undo): split, merge, duplicate, group and ungroup, a synopsis from the text,
-// compile, and undo and redo of moves. One question throughout: can this lose, duplicate, corrupt or silently change a
+// export as one note, and undo and redo of moves. One question throughout: can this lose, duplicate, corrupt or silently change a
 // writer's words or files? Tests named "BUG: …" fail on purpose until the bug they show is fixed, and "UX: …" until the
 // behaviour they ask for exists; the rest are regressions for what was checked and is solid. specs-scenes.mjs has the
 // happy paths; these go round the edges.
@@ -109,27 +109,37 @@ async function mergeUI(p, paths, { confirm = 'Merge', wait = 1200 } = {}) {
 	await p.sleep(wait);
 	return text;
 }
-/** The compile dialog: sets options and the path, presses a button. */
-async function compileUI(p, opts = {}, button = 'Compile', { open = true } = {}) {
-	if (open) await run(p, 'compile');
-	await until(p, `!!document.querySelector('.modal .binders-compile-path')`);
-	const desc = await p.ev(`document.querySelector('.modal .setting-item-description').textContent`);
-	await p.ev(`(() => {
-		const o = ${j(opts)}, items = [...document.querySelectorAll('.modal .setting-item')];
-		const by = (name) => items.find(i => i.querySelector('.setting-item-name')?.textContent === name);
-		const tog = (name, v) => { if (v == null) return; const c = by(name).querySelector('.checkbox-container'); if (c.classList.contains('is-enabled') !== v) c.click(); };
-		tog('Title', o.title); tog('Folders as headings', o.folderHeadings); tog('Note titles as headings', o.sceneHeadings); tog('Leave out comments', o.stripComments);
-		if (o.separator != null) { const s = by('Between notes').querySelector('select'); s.value = o.separator; s.dispatchEvent(new Event('change')); }
-		if (o.path != null) { const i = document.querySelector('.modal .binders-compile-path'); i.value = o.path; i.dispatchEvent(new Event('input')); }
-		return 1;
+const WIN = '.modal.binders-export';
+/** The Export window on “One note”: sets options and the path, presses a button of its bar ('Escape': closes the
+    window with the key; it has no Cancel). `desc`: the bar's count, then what the window says under its choices. */
+async function exportUI(p, opts = {}, button = 'Export', { open = true } = {}) {
+	if (open) await (await p.ev(`(() => { app.plugins.plugins.binders.settings.exportKind = 'note'; return 1; })()`), run(p, 'export'));
+	await until(p, `!!document.querySelector('${WIN} .binders-export-path')`);
+	// (the count is in the bar once the notes are read)
+	await until(p, `!!document.querySelector('${WIN} .binders-snapshots-detail')?.textContent`, 6000);
+	const desc = await p.ev(`document.querySelector('${WIN} .binders-snapshots-detail').textContent + ' | ' + document.querySelector('${WIN} .binders-export-needs').textContent`);
+	const set = await p.ev(`(() => {
+		// (a choice made draws the choices again: each control is looked up as it is used)
+		const o = ${j(opts)}, at = (key) => document.querySelector('${WIN} [data-binders-key="' + key + '"]');
+		let n = 0;
+		const tog = (key, v) => { if (v == null) return; const c = at(key); if (c.classList.contains('is-enabled') !== v) { c.click(); n++; } };
+		tog('title', o.title); tog('folders', o.folderHeadings); tog('notes', o.sceneHeadings); tog('comments', o.stripComments);
+		if (o.separator != null) { const s = at('separator'); s.value = o.separator; s.dispatchEvent(new Event('change')); n++; }
+		if (o.path != null) { const i = at('path'); i.value = o.path; i.dispatchEvent(new Event('input')); }
+		return n;
 	})()`);
+	// (as a writer does: the choices are made, then the button is pressed, not in the same instant)
+	if (set) await p.sleep(250);
 	await clearNotices(p);
-	await p.ev(`(() => { [...document.querySelectorAll('.modal button')].find(b => b.textContent === ${j(button)}).click(); return 1; })()`);
+	if (button === 'Escape') await p.key('Escape');
+	else await p.ev(`(() => { [...document.querySelectorAll('${WIN} button')].find(b => b.textContent === ${j(button)}).click(); return 1; })()`);
+	// (written, refused or asking about a note that's there: until then the bar says what export is doing)
+	await until(p, `!document.querySelector('${WIN} .binders-export-status') || document.querySelectorAll('.modal').length > 1`, 8000);
 	await p.sleep(700);
-	const open2 = await p.ev(`!!document.querySelector('.modal .binders-compile-path')`);
+	const open2 = await p.ev(`!!document.querySelector('${WIN} .binders-export-path')`);
 	return { desc, open: open2, notice: await notices(p) };
 }
-const OUT = 'The Lighthouse (compiled).md';
+const OUT = 'The Lighthouse (exported).md';
 const put = (p, items, folder, anchor, depth) => p.ev(`${B}.put([${items.map(file).join(',')}], ${file(folder)}, ${anchor ? file(anchor) : 'null'}${depth == null ? '' : ', ' + depth}).then(() => 'ok', e => 'ERR ' + e.message)`);
 const undo = (p, at = 'The Lighthouse', redo = false) => p.ev(`${B}.undo(${j(at)}, ${redo}).then(x => x, e => 'ERR ' + e.message)`);
 const undoable = (p, at = 'The Lighthouse', redo = false) => p.ev(`${B}.undoable(${j(at)}, ${redo})`);
@@ -839,10 +849,10 @@ test('UX: a synopsis from text reads as plain words for a callout, a quote and a
 });
 
 // =====================================================================================================================
-// Compile
+// Export: one note
 // =====================================================================================================================
 
-test('compile: properties go, text stays as written (embeds, block ids, footnotes, rules, a note’s own headings); empty notes and notes with only properties add nothing; `compile: false` on a folder’s note leaves the folder out', async (p, h, t) => {
+test('export as one note: properties go, text stays as written (embeds, block ids, footnotes, rules, a note’s own headings); empty notes and notes with only properties add nothing; `compile: false` on a folder’s note leaves the folder out', async (p, h, t) => {
 	await setNote(p, L + 'Prologue.md', '---\nstatus: draft\n---\nText %%hidden%% shown.\n\n<!-- html hidden -->\n\nFoot.[^1]\n\n[^1]: Prologue note.\n\n![[pic.png]]\n\nBlock para. ^blk\n\n---\n\nAfter rule.\n');
 	await setNote(p, P1 + 'Arrival.md', '# Own heading\n\nArrival.\n');
 	await setNote(p, K, '---\nstatus: x\n---\n');
@@ -852,43 +862,45 @@ test('compile: properties go, text stays as written (embeds, block ids, footnote
 	await p.sleep(500);
 	const before = await texts(p);
 	await openView(p);
-	const r = await compileUI(p, {});
-	t.ok(/5 notes/.test(r.desc) && /2 are left out/.test(r.desc), 'the dialog counts what’s in and out: ' + r.desc);
+	const r = await exportUI(p, {});
+	t.ok(/^5 notes · /.test(r.desc) && /2 notes are left out\./.test(r.desc), 'the window counts what’s in and out: ' + r.desc);
 	t.eq(await read(p, OUT), '# The Lighthouse\n\nText  shown.\n\n\n\nFoot.[^1]\n\n[^1]: Prologue note.\n\n![[pic.png]]\n\nBlock para. ^blk\n\n---\n\nAfter rule.\n\n## Part One\n\n# Own heading\n\nArrival.\n\n* * *\n\nEpilogue (the text “false” isn’t false).\n', 'as written, without properties and comments');
 	t.eq(j(await texts(p).then((x) => { delete x[OUT]; return x; })), j(before), 'no note of the binder changed');
 	t.eq(j(await contents(p)), j(LIST), 'nor its list');
-	t.eq(await p.ev(`${B}.binderOf(${j(OUT)})`), null, 'the compiled note isn’t in the binder');
+	t.eq(await p.ev(`${B}.binderOf(${j(OUT)})`), null, 'the exported note isn’t in the binder');
 });
 
-test('compile: every option; folders seven deep stop at heading 6; the options are remembered', async (p, h, t) => {
+test('export as one note: every option; folders seven deep stop at heading 6; the options are remembered', async (p, h, t) => {
 	await p.ev(`(async () => { let d = ${j(P2.slice(0, -1))}; for (let i = 0; i < 6; i++) { d += '/D' + i; await app.vault.createFolder(d); } await app.vault.create(d + '/Deep.md', 'Deep text.'); })().then(() => 1)`);
 	await settle(p);
 	const b = async (path) => split(await read(p, L + path)).body.trim();
 	const [pro, arr, kee, sto, wre, lig, epi] = await Promise.all(['Prologue.md', 'Part One/Arrival.md', 'Part One/The keeper.md', 'Part One/Storm warning.md', 'Part Two/The wreck.md', 'Part Two/Lights out.md', 'Epilogue.md'].map(b));
 	await openView(p);
-	await compileUI(p, { title: true, folderHeadings: true, sceneHeadings: true, separator: '#', stripComments: false });
+	await exportUI(p, { title: true, folderHeadings: true, sceneHeadings: true, separator: '#', stripComments: false });
 	t.eq(await read(p, OUT), ['# The Lighthouse', '## Prologue', pro, '## Part One', '### Arrival', arr, '### The keeper', kee, '### Storm warning', sto, '## Part Two', '### The wreck', wre, '### Lights out', lig, '### D0', '#### D1', '##### D2', '###### D3', '###### D4', '###### D5', '###### Deep', 'Deep text.', '## Epilogue', epi].join('\n\n') + '\n', 'titles as headings (no separators), a level per folder, never deeper than 6');
 	await openView(p);
-	await compileUI(p, { title: false, folderHeadings: false, sceneHeadings: false, separator: '', stripComments: true });
+	await exportUI(p, { title: false, folderHeadings: false, sceneHeadings: false, separator: '', stripComments: true });
 	t.eq(await read(p, OUT), [pro, arr, kee, sto, wre, lig, 'Deep text.', epi].join('\n\n') + '\n', 'nothing but the texts, a blank line between');
 	await openView(p);
-	await compileUI(p, { title: false, folderHeadings: true, sceneHeadings: false, separator: '---' });
+	await exportUI(p, { title: false, folderHeadings: true, sceneHeadings: false, separator: '---' });
 	t.eq(await read(p, OUT), [pro, '# Part One', arr, '---', kee, '---', sto, '# Part Two', wre, '---', lig, '## D0', '### D1', '#### D2', '##### D3', '###### D4', '###### D5', 'Deep text.', '---', epi].join('\n\n') + '\n', 'without a title folders start at level 1; a rule between notes that follow each other');
-	t.eq(j(await p.ev(`${PL}.settings.compile`)), j({ separator: '---', folderHeadings: true, sceneHeadings: false, title: false, stripComments: true }), 'the options are kept for next time');
+	t.eq(j(await p.ev(`${PL}.settings.compile`)), j({ separator: '---', folderHeadings: true, sceneHeadings: false, title: false, stripComments: true, stripTabs: true }), 'the options are kept for next time');
 });
 
-test('compile: “Save as” is refused inside a binder or a Longform project, for a name Obsidian can’t use and for none; a folder that doesn’t exist is made; Cancel writes nothing; Copy copies', async (p, h, t) => {
+test('export as one note: “Save as” is refused inside a binder or a Longform project, for a name Obsidian can’t use and for none; a folder that doesn’t exist is made; Escape writes nothing; Copy copies', async (p, h, t) => {
 	await openView(p);
 	const before = await files(p);
-	const tryPath = async (path, button = 'Compile') => { await openView(p); const r = await compileUI(p, { path }, button); if (r.open) { await p.key('Escape'); await p.sleep(250); } return r; };
+	const tryPath = async (path, button = 'Export') => { await openView(p); const r = await exportUI(p, { path }, button); if (r.open) { await p.key('Escape'); await p.sleep(250); } return r; };
 	for (const [name, path, want] of [['inside the binder', 'The Lighthouse/Part One/Whole', /outside the binder/], ['inside a Longform project', 'Longform demo/Whole', /outside the binder/], ['characters a name can’t have', 'Bo:ok*?.md', /can’t be used|cannot contain/i], ['no name', '', /./], ['above the vault', '../escape', /./]]) {
 		const r = await tryPath(path);
-		t.ok(r.open && want.test(r.notice), `${name}: refused, the dialog stays (${r.notice})`);
+		t.ok(r.open && want.test(r.notice), `${name}: refused, the window stays (${r.notice})`);
 		t.eq(j(await files(p)), j(before), `${name}: nothing written`);
 	}
 	t.ok(!existsSync(join(p.vaultDir, '..', 'escape.md')), 'nothing written outside the vault');
-	t.eq((await tryPath('Cancelled', 'Cancel')).notice, '', 'Cancel');
-	t.eq(j(await files(p)), j(before), 'Cancel writes nothing');
+	// (the window has no Cancel: Escape, or its close button, is how it's left)
+	const esc = await tryPath('Cancelled', 'Escape');
+	t.ok(!esc.open && esc.notice === '', 'Escape closes the window and says nothing: ' + j(esc.notice));
+	t.eq(j(await files(p)), j(before), 'Escape writes nothing');
 	const c = await tryPath('Copied', 'Copy');
 	t.ok(/Copied 7 notes/.test(c.notice), 'Copy says so');
 	t.eq(j(await files(p)), j(before), 'and writes nothing');
@@ -898,33 +910,37 @@ test('compile: “Save as” is refused inside a binder or a Longform project, f
 	t.eq(await p.ev(`${B}.binderOf('Out/Deep/Book.md')`), null, 'not in any binder');
 });
 
-test('compile: a subfolder from its menu, a Longform project in its order, typing not saved yet, and 300 notes in well under a second', async (p, h, t) => {
+test('export as one note: a subfolder from its menu, a Longform project in its order, typing not saved yet, and 300 notes in well under a second', async (p, h, t) => {
 	const b = async (path) => split(await read(p, path)).body.trim();
 	// the file explorer's menu on a folder of the binder
 	await p.ev(`(() => { app.workspace.leftSplit.expand(); const v = app.workspace.getLeavesOfType('file-explorer')[0].view; app.workspace.revealLeaf(v.leaf); v.fileItems['The Lighthouse']?.setCollapsed(false); return 1; })()`);
 	await p.sleep(400);
 	const row = await p.at(`.workspace-leaf-content[data-type="file-explorer"] .tree-item-self[data-path="The Lighthouse/Part One"]`);
+	// (the menu's “Export...” opens the window on the kind last made: one note, as a writer who made one last time)
+	await p.ev(`(() => { app.plugins.plugins.binders.settings.exportKind = 'note'; return 1; })()`);
 	await p.right(row.x, row.y);
-	await clickMenu(p, 'Compile...');
-	const r = await compileUI(p, {}, 'Compile', { open: false });
-	t.ok(/3 notes/.test(r.desc), 'the folder’s notes: ' + r.desc);
-	t.eq(await read(p, 'Part One (compiled).md'), ['# Part One', await b(P1 + 'Arrival.md'), '* * *', await b(K), '* * *', await b(P1 + 'Storm warning.md')].join('\n\n') + '\n', 'beside the binder, titled by the folder');
+	await until(p, `[...document.querySelectorAll('.menu .menu-item-title')].some(e => e.textContent === 'Export...')`);
+	await clickMenu(p, 'Export...');
+	t.eq(await until(p, `document.querySelector('${WIN} .modal-title')?.textContent`), 'Export “Part One”', 'the window is the folder’s');
+	const r = await exportUI(p, {}, 'Export', { open: false });
+	t.ok(/^3 notes · /.test(r.desc), 'the folder’s notes: ' + r.desc);
+	t.eq(await read(p, 'Part One (exported).md'), ['# Part One', await b(P1 + 'Arrival.md'), '* * *', await b(K), '* * *', await b(P1 + 'Storm warning.md')].join('\n\n') + '\n', 'beside the binder, titled by the folder');
 	await openView(p, 'Longform demo');
-	await compileUI(p, {});
-	t.eq(await read(p, 'Longform demo (compiled).md'), ['# Longform demo', ...(await Promise.all(['Harbor', 'Ticket office', 'The crossing', 'Island', 'Return'].map((n) => b(`${LF}${n}.md`)))).flatMap((x, i) => (i ? ['* * *', x] : [x]))].join('\n\n') + '\n', 'a Longform project: its scenes in its order, the note it ignores left out');
+	await exportUI(p, {});
+	t.eq(await read(p, 'Longform demo (exported).md'), ['# Longform demo', ...(await Promise.all(['Harbor', 'Ticket office', 'The crossing', 'Island', 'Return'].map((n) => b(`${LF}${n}.md`)))).flatMap((x, i) => (i ? ['* * *', x] : [x]))].join('\n\n') + '\n', 'a Longform project: its scenes in its order, the note it ignores left out');
 	// typing a moment before
 	await openAt(p, L + 'Prologue.md', { offset: -1 });
 	await p.key('ArrowLeft');
 	await p.type(' JUST-TYPED');
-	await compileUI(p, {});
-	t.ok((await read(p, OUT)).includes('surprised. JUST-TYPED\n'), 'words typed a moment before are compiled');
+	await exportUI(p, {});
+	t.ok((await read(p, OUT)).includes('surprised. JUST-TYPED\n'), 'words typed a moment before are exported');
 	// 300 notes
 	await p.ev(`(async () => { await app.vault.createFolder(${j(L + 'Big')}); const para = 'The lamp turned and the sea took the light. '.repeat(40); for (let i = 0; i < 300; i++) await app.vault.create(${j(L + 'Big/')} + 'Scene ' + String(i).padStart(3, '0') + '.md', '---\\nstatus: draft\\n---\\n' + i + ' ' + para + '\\n'); })().then(() => 1)`);
 	await settle(p); await p.sleep(1200);
 	await openView(p);
-	await run(p, 'compile');
-	await until(p, `!!document.querySelector('.modal .binders-compile-path')`);
-	await p.ev(`(() => { window.__stall = 0; let last = performance.now(); window.__iv = setInterval(() => { const n = performance.now(); window.__stall = Math.max(window.__stall, n - last); last = n; }, 10); [...document.querySelectorAll('.modal button')].find(b => b.textContent === 'Compile').click(); return 1; })()`);
+	await (await p.ev(`(() => { app.plugins.plugins.binders.settings.exportKind = 'note'; return 1; })()`), run(p, 'export'));
+	await until(p, `!!document.querySelector('.modal .binders-export-path')`);
+	await p.ev(`(() => { window.__stall = 0; let last = performance.now(); window.__iv = setInterval(() => { const n = performance.now(); window.__stall = Math.max(window.__stall, n - last); last = n; }, 10); [...document.querySelectorAll('.modal button')].find(b => b.textContent === 'Export').click(); return 1; })()`);
 	await until(p, `app.workspace.getActiveFile()?.path === ${j(OUT)} && !document.querySelector('.modal')`, 20000);
 	const stall = await p.ev(`(() => { clearInterval(window.__iv); return Math.round(window.__stall); })()`);
 	const out = await read(p, OUT);
@@ -932,80 +948,81 @@ test('compile: a subfolder from its menu, a Longform project in its order, typin
 	t.ok(stall < 500, `the window never froze for long (longest stall ${stall} ms)`);
 });
 
-test('BUG: compiling onto a note that’s already there asks before replacing it', async (p, h, t) => {
-	// a note of the writer's own that happens to have the name typed (or last month's compile, since edited by hand)
+test('BUG: exporting as one note onto a note that’s already there asks before replacing it', async (p, h, t) => {
+	// a note of the writer's own that happens to have the name typed (or last month's export, since edited by hand)
 	await p.ev(`app.vault.create('Loose.md', 'My own note. Do not lose me.').then(() => 1)`);
 	await openView(p);
-	await compileUI(p, { path: 'Loose.md' });
+	await exportUI(p, { path: 'Loose.md' });
 	try {
-		t.eq(await read(p, 'Loose.md'), 'My own note. Do not lose me.', 'the note isn’t replaced before the writer has said so (it’s overwritten at once; only the dialog’s small print says “it’s replaced”)');
-		// it asks; Cancel leaves the note, and the compile dialog stays to choose another name
+		t.eq(await read(p, 'Loose.md'), 'My own note. Do not lose me.', 'the note isn’t replaced before the writer has said so (it’s overwritten at once; only the window’s small print says “it’s replaced”)');
+		// it asks; Cancel leaves the note, and the Export window stays to choose another name
 		await until(p, `[...document.querySelectorAll('.modal')].some(m => /Replace this note/.test(m.textContent))`);
-		t.ok(/wasn’t made by Compile/.test(await p.ev(`[...document.querySelectorAll('.modal')].pop().textContent`)), 'the question says the note isn’t a compile');
+		t.ok(/wasn’t made by an export\. Replace its text with the exported binder\?/.test(await p.ev(`[...document.querySelectorAll('.modal')].pop().textContent`)), 'the question says the note isn’t an export’s');
 		await p.ev(`(() => { [...[...document.querySelectorAll('.modal')].pop().querySelectorAll('button')].find(b => b.textContent === 'Cancel').click(); return 1; })()`);
 		await p.sleep(300);
 		t.eq(await read(p, 'Loose.md'), 'My own note. Do not lose me.', 'Cancel: the note is as it was');
-		t.ok(await p.ev(`!!document.querySelector('.modal .binders-compile-path')`), 'and the compile dialog is still there');
-		// a compile's own note, untouched since, is replaced without asking; once written in, it's asked about
-		await p.ev(`(() => { const i = document.querySelector('.modal .binders-compile-path'); i.value = 'Whole.md'; i.dispatchEvent(new Event('input')); [...document.querySelectorAll('.modal button')].find(b => b.textContent === 'Compile').click(); return 1; })()`);
+		t.ok(await p.ev(`!!document.querySelector('.modal .binders-export-path')`), 'and the Export window is still there');
+		// an export's own note, untouched since, is replaced without asking; once written in, it's asked about
+		await p.ev(`(() => { const i = document.querySelector('.modal .binders-export-path'); i.value = 'Whole.md'; i.dispatchEvent(new Event('input')); [...document.querySelectorAll('.modal button')].find(b => b.textContent === 'Export').click(); return 1; })()`);
 		await until(p, `app.vault.adapter.exists('Whole.md')`);
 		await until(p, `!document.querySelector('.modal')`);
 		await setNote(p, L + 'Prologue.md', 'A new opening.\n');
 		await openView(p);
-		await compileUI(p, { path: 'Whole.md' });
+		await exportUI(p, { path: 'Whole.md' });
 		await until(p, `app.vault.adapter.read('Whole.md').then(s => s.includes('A new opening.'))`);
-		t.ok((await read(p, 'Whole.md')).includes('A new opening.'), 'compiling again replaces the last compile, without asking');
+		t.ok((await read(p, 'Whole.md')).includes('A new opening.'), 'exporting again replaces the last export, without asking');
 		await until(p, `!document.querySelector('.modal')`);
 		await p.ev(`app.vault.adapter.read('Whole.md').then(s => app.vault.adapter.write('Whole.md', s + '\\nMy own edits.\\n')).then(() => 1)`);
 		await p.sleep(500);
 		await openView(p);
-		await compileUI(p, { path: 'Whole.md' });
+		await exportUI(p, { path: 'Whole.md' });
 		await until(p, `[...document.querySelectorAll('.modal')].some(m => /Replace this note/.test(m.textContent))`);
-		t.ok(/changed since it was compiled/.test(await p.ev(`[...document.querySelectorAll('.modal')].pop().textContent`)), 'a compile edited by hand since is asked about');
+		t.ok(/has been changed since it was exported/.test(await p.ev(`[...document.querySelectorAll('.modal')].pop().textContent`)), 'an exported note edited by hand since is asked about');
 		t.ok((await read(p, 'Whole.md')).endsWith('My own edits.\n'), 'and not replaced meanwhile');
 	} finally {
 		for (let i = 0; i < 3 && await p.ev(`!!document.querySelector('.modal')`); i++) { await p.key('Escape'); await p.sleep(250); }
 	}
 });
 
-test('BUG: compile leaves code as it’s written, with “Leave out comments” on (%% and <!-- --> inside code aren’t comments)', async (p, h, t) => {
+test('BUG: export as one note leaves code as it’s written, with “Leave out comments” on (%% and <!-- --> inside code aren’t comments)', async (p, h, t) => {
 	const code = '```\nfence %% not a comment %% stays\n<!-- stays -->\n```\n\nInline `a %% b %% c` code.';
 	await setNote(p, L + 'Prologue.md', code + '\n');
 	await openView(p);
-	await compileUI(p, { title: false });
+	await exportUI(p, { title: false });
 	const out = await read(p, OUT);
 	t.ok(out.startsWith(code), 'the code block and the inline code are unchanged: ' + j(out.slice(0, 90)));
 });
 
-test('BUG: compile doesn’t leave out the text of a note that starts with empty properties and has a rule further down', async (p, h, t) => {
+test('BUG: export as one note doesn’t leave out the text of a note that starts with empty properties and has a rule further down', async (p, h, t) => {
 	await setNote(p, P1 + 'Arrival.md', '---\n---\nText of the scene.\n\n---\n\nMore text.\n');
 	await openView(p);
-	await compileUI(p, {});
+	await exportUI(p, {});
 	const out = await read(p, OUT);
-	t.ok(out.includes('More text.'), '(the text after the rule is compiled)');
-	t.ok(out.includes('Text of the scene.'), 'the text before the rule is compiled too (it’s taken for properties and dropped)');
+	t.ok(out.includes('More text.'), '(the text after the rule is exported)');
+	t.ok(out.includes('Text of the scene.'), 'the text before the rule is exported too (it’s taken for properties and dropped)');
 });
 
-test('BUG: compiling to a name that starts with a dot is refused in words, with nothing written', async (p, h, t) => {
+test('BUG: exporting as one note to a name that starts with a dot is refused in words, with nothing written', async (p, h, t) => {
 	await openView(p);
-	const r = await compileUI(p, { path: '.hidden' });
+	const r = await exportUI(p, { path: '.hidden' });
 	if (r.open) await p.key('Escape');
 	t.ok(!/Cannot read properties/.test(r.notice), 'no program error shown to the writer: ' + r.notice);
 	t.ok(!(await exists(p, '.hidden.md')), 'and no hidden file left in the vault that Obsidian doesn’t show');
 });
 
-test('UX: with no name in “Save as”, the dialog asks for one (it says to save outside the binder)', async (p, h, t) => {
+test('UX: with no name in “Save as”, the window asks for one (it says to save outside the binder)', async (p, h, t) => {
 	await openView(p);
-	const r = await compileUI(p, { path: '' });
+	const r = await exportUI(p, { path: '' });
 	if (r.open) await p.key('Escape');
 	t.ok(r.open && !/outside the binder/.test(r.notice), 'a message about the missing name: ' + r.notice);
+	t.eq(r.notice, 'Give the note a name.', 'in these words');
 });
 
-test('UX: footnotes of two notes with the same label don’t run into each other when compiled', async (p, h, t) => {
+test('UX: footnotes of two notes with the same label don’t run into each other when exported as one note', async (p, h, t) => {
 	await setNote(p, L + 'Prologue.md', 'One.[^1]\n\n[^1]: Prologue’s note.\n');
 	await setNote(p, P1 + 'Arrival.md', 'Two.[^1]\n\n[^1]: Arrival’s note.\n');
 	await openView(p);
-	await compileUI(p, {});
+	await exportUI(p, {});
 	const defs = (await read(p, OUT)).match(/^\[\^[^\]]+\]:/gm) ?? [];
 	t.eq(new Set(defs).size, defs.length, 'each footnote has a label of its own (both are “[^1]”, so the second mark shows the first note’s footnote): ' + j(defs));
 });
@@ -1059,8 +1076,8 @@ test('undo: Mod+Z does nothing to the order while a menu or a dialog is open, a 
 	await p.key('z', 'ctrl');
 	await still('a menu open');
 	await closeMenus(p);
-	await run(p, 'compile');
-	await until(p, `!!document.querySelector('.modal .binders-compile-path')`);
+	await (await p.ev(`(() => { app.plugins.plugins.binders.settings.exportKind = 'note'; return 1; })()`), run(p, 'export'));
+	await until(p, `!!document.querySelector('.modal .binders-export-path')`);
 	await p.ev(`document.activeElement.blur()`);
 	await p.key('z', 'ctrl');
 	await still('a dialog open');

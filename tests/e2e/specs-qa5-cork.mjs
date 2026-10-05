@@ -238,7 +238,7 @@ test('card sheet: “Rename” puts the title in a field with the name selected 
 	t.eq(after[L + 'Part One/The keeper refuses.md'].split('---\n').pop(), before[L + 'Part One/The keeper.md'].split('---\n').pop(), 'the renamed note’s text is the same');
 });
 
-test('card sheet: “Duplicate”, “Move down”, “Move up”, “Include in compile”, “Set synopsis from text” and “Put in a new folder” each do their job and close the sheet', async (p, h, t) => {
+test('card sheet: “Duplicate”, “Move down”, “Move up”, “Include in export”, “Set synopsis from text” and “Put in a new folder” each do their job and close the sheet', async (p, h, t) => {
 	await onDevice(p, PHONE, async () => {
 		await open(p, L + 'Part One');
 		const pick = async (path, title) => { await cardMenu(p, path); if (!(await menuTap(p, title))) throw new Error(`no “${title}” in the sheet of ${path}: ` + j(await menuItems(p))); await p.sleep(700); };
@@ -271,10 +271,10 @@ test('card sheet: “Duplicate”, “Move down”, “Move up”, “Include in
 		await cardMenu(p, 'Prologue.md');
 		t.ok(!(await menuItems(p)).includes('Move up') && (await menuItems(p)).includes('Move down'), 'the first card has “Move down” only');
 		await gone(p);
-		// Include in compile
-		await pick('Prologue.md', 'Include in compile');
+		// Include in export
+		await pick('Prologue.md', 'Include in export');
 		await flush(p);
-		t.eq(await prop(p, L + 'Prologue.md', 'compile'), 'false', '“Include in compile”, ticked, takes the note out');
+		t.eq(await prop(p, L + 'Prologue.md', 'export'), 'false', '“Include in export”, ticked, takes the note out');
 		t.eq(await menus(p), 0, 'and closes the sheet');
 		// Set synopsis from text
 		await p.ev(`app.fileManager.processFrontMatter(app.vault.getAbstractFileByPath(${j(L + 'Epilogue.md')}), fm => { delete fm.synopsis; }).then(() => 1)`);
@@ -357,7 +357,7 @@ test('stack sheet: every item is there; “Rename” names the folder on its car
 		const items = await menuItems(p);
 		say('stack items', j(items));
 		t.ok(isSheet(await sheet(p)), 'a stack’s menu is a sheet');
-		for (const x of ['Open', 'Open in new tab', 'Rename', 'Edit synopsis', 'Set status', 'Set label', 'Set target...', 'Duplicate', 'Put in a new folder', 'Compile...', 'Ungroup', 'Include in compile', 'Move down', 'Delete']) t.ok(items.includes(x), `“${x}” is in it`);
+		for (const x of ['Open', 'Open in new tab', 'Rename', 'Edit synopsis', 'Set status', 'Set label', 'Set target...', 'Duplicate', 'Put in a new folder', 'Export...', 'Ungroup', 'Include in export', 'Move down', 'Delete']) t.ok(items.includes(x), `“${x}” is in it`);
 		t.ok(items.includes('Move up'), '“Move up” too (Prologue is above it)');
 		// Rename
 		t.ok(await menuTap(p, 'Rename'), 'Rename');
@@ -445,15 +445,17 @@ test('stack sheet: every item is there; “Rename” names the folder on its car
 	});
 });
 
-test('stack sheet: “Delete” asks, naming the folder and how many notes go with it, and deletes; “Compile...” opens the dialog; “Open” goes into the folder', async (p, h, t) => {
+test('stack sheet: “Delete” asks, naming the folder and how many notes go with it, and deletes; “Export...” opens the window; “Open” goes into the folder', async (p, h, t) => {
 	await onDevice(p, PHONE, async () => {
 		await open(p);
+		// (“Export...” opens the window on the kind last used: one note, as a writer who made one last time)
+		await p.ev(`(() => { app.plugins.plugins.binders.settings.exportKind = 'note'; return 1; })()`);
 		await stackMenu(p, L + 'Part Two');
-		t.ok(await menuTap(p, 'Compile...'), 'Compile...');
-		await until(p, `!!document.querySelector('.modal .binders-compile-path')`);
+		t.ok(await menuTap(p, 'Export...'), 'Export...');
+		await until(p, `!!document.querySelector('.modal .binders-export-path')`);
 		await p.sleep(400);
 		let d = await dialog(p);
-		t.eq(d.title, 'Compile “Part Two”', 'the dialog opens');
+		t.eq(d.title, 'Export “Part Two”', 'the window opens');
 		t.eq(d.menus, 0, 'with no sheet over it');
 		await closeDialog(p);
 		await stackMenu(p, L + 'Part Two');
@@ -551,18 +553,20 @@ test('the board’s own sheet (a long press on the board): “New note”, “Ne
 	});
 });
 
-test('“More options”: the three modes, the board’s options, “Compile...” and “Open binder note” are there; a mode picked switches; “Open binder note” opens it', async (p, h, t) => {
+test('“More options”: the three modes, the board’s options, “Export...” and “Open binder note” are there; a mode picked switches; “Open binder note” opens it', async (p, h, t) => {
 	await onDevice(p, PHONE, async () => {
 		await open(p);
 		await moreMenu(p);
 		const items = await menuItems(p);
 		say('more', j(items));
-		for (const x of ['Corkboard', 'Outliner', 'Manuscript', 'Card size', 'Tint cards with their label color', 'Number the cards', 'Compile...', 'Open binder note']) t.ok(items.includes(x), `“${x}” is in it`);
+		for (const x of ['Corkboard', 'Outliner', 'Manuscript', 'Card size', 'Tint cards with their label color', 'Number the cards', 'Export...', 'Open binder note']) t.ok(items.includes(x), `“${x}” is in it`);
 		t.ok(!items.includes('Show subfolders as stacks'), 'and no “Show subfolders as stacks” (a folder is always a stack)');
-		t.ok(await menuTap(p, 'Compile...'), 'Compile...');
-		await until(p, `!!document.querySelector('.modal .binders-compile-path')`);
+		// (“Export...” opens the window on the kind last used: one note, as a writer who made one last time)
+		await p.ev(`(() => { app.plugins.plugins.binders.settings.exportKind = 'note'; return 1; })()`);
+		t.ok(await menuTap(p, 'Export...'), 'Export...');
+		await until(p, `!!document.querySelector('.modal .binders-export-path')`);
 		await p.sleep(400);
-		t.eq((await dialog(p)).menus, 0, 'Compile opens with no sheet over it');
+		t.eq((await dialog(p)).menus, 0, 'Export opens with no sheet over it');
 		await closeDialog(p);
 		await moreMenu(p);
 		t.ok(await menuTap(p, 'Outliner'), 'Outliner');
@@ -1036,7 +1040,7 @@ test('stacks: a card dropped on a stack’s middle goes into that folder; droppe
 		await cardMenu(p, 'Part One');
 		const items = await menuItems(p);
 		say('stack sheet', j(items));
-		for (const x of ['Open', 'Rename', 'Edit synopsis', 'Set status', 'Duplicate', 'Ungroup', 'Compile...', 'Delete']) t.ok(items.includes(x), `“${x}” is in a stack’s sheet`);
+		for (const x of ['Open', 'Rename', 'Edit synopsis', 'Set status', 'Duplicate', 'Ungroup', 'Export...', 'Delete']) t.ok(items.includes(x), `“${x}” is in a stack’s sheet`);
 		t.ok(await menuTap(p, 'Rename'), 'Rename');
 		await p.sleep(400);
 		t.eq((await active(p)).tag, 'INPUT', 'a stack is renamed on its card');
@@ -1114,7 +1118,7 @@ test('a read-only binder (a newer format): it says why, has no “New”, no til
 		const items = await menuItems(p);
 		await shot(p, 'read-only-sheet');
 		say('read-only sheet', j(items));
-		for (const x of ['Rename', 'Edit synopsis', 'Set status', 'Set label', 'Set target...', 'Duplicate', 'Put in a new folder', 'Include in compile', 'Move down']) t.ok(!items.includes(x), `no “${x}” in a read-only binder’s sheet`);
+		for (const x of ['Rename', 'Edit synopsis', 'Set status', 'Set label', 'Set target...', 'Duplicate', 'Put in a new folder', 'Include in export', 'Move down']) t.ok(!items.includes(x), `no “${x}” in a read-only binder’s sheet`);
 		t.ok(items.includes('Open'), 'but “Open”');
 		await gone(p);
 		// a drag

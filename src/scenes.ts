@@ -1,24 +1,26 @@
 import type { Extension } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
-import { ButtonComponent, MarkdownView, Modal, Notice, Platform, Setting, TFile, TFolder, editorInfoField, normalizePath, parseYaml, stringifyYaml, type App, type Editor, type TAbstractFile } from 'obsidian';
+import { MarkdownView, Notice, Platform, TFile, TFolder, editorInfoField, normalizePath, parseYaml, stringifyYaml, type App, type Editor, type TAbstractFile } from 'obsidian';
 import type BindersPlugin from './main';
-import { COMPILE_DEFAULTS, compile, frontFor, joinBodies, lf, linkTargets, nextName, parts, pointsAt, repointLinks, synopsisFrom, tidyHead, tidyTail, titleFrom, useYaml, type CompileItem, type CompileOptions } from './scene-text';
+import { compile, frontFor, joinBodies, lf, linkTargets, nextName, parts, pointsAt, repointLinks, synopsisFrom, tidyHead, tidyTail, titleFrom, useYaml, type CompileItem, type CompileOptions } from './scene-text';
 import { COMPILED_KEPT } from './settings-data';
 import { untab } from './paragraphs/text';
 import { saveEditors, saveTab } from './view/editable-embed';
 import { trashPhrase, updatesLinks } from './view/internals';
-import { buttonRow, cancelButton, confirm } from './view/modals';
+import { confirm } from './view/modals';
 
 /* Working on scenes as a writer does in Scrivener: splitting one in two where the cursor is, merging several into one,
-   giving one a synopsis from its opening lines, and compiling a binder into a single note. The text rules are in
+   giving one a synopsis from its opening lines, and a binder's text made into a single note (export's "One note"). The text rules are in
    scene-text.ts (pure, unit-tested); here they meet the vault. Each is ordered so that text exists twice before it
    exists once: the second half of a split is saved in its own note before the first lets go of it, and merged notes go
    to the trash only after the merged text has been read back. */
 
-/** The property that leaves a note (or, in a folder note, a whole folder) out of a compile when it's `false`. */
-export const COMPILE_PROP = 'compile';
-/** The same property under the name export gives it. Both are read, for good. */
+/** The property that leaves a note (or, in a folder note, a whole folder) out of an export when it's `false`: what
+    Binders writes. */
 export const EXPORT_PROP = 'export';
+/** The same property under the name it had before export ("Compile"). It is read as the same thing, for good, and
+    never written: a note that has it keeps it until its writer includes the note again. */
+export const COMPILE_PROP = 'compile';
 
 /** A Markdown note (not a folder, and not another kind of file). */
 export const isNote = (f: TAbstractFile | null): f is TFile => f instanceof TFile && f.extension === 'md';
@@ -81,7 +83,7 @@ async function repoint(app: App, from: TFile, to: TFile, only?: (subpath: string
 	return out;
 }
 
-/** A short fingerprint of a text: enough to tell whether a note is still what Compile wrote. */
+/** A short fingerprint of a text: enough to tell whether a note is still what export wrote. */
 function fingerprint(text: string): string {
 	let h = 5381;
 	for (let i = 0; i < text.length; i++) h = ((h << 5) + h + text.charCodeAt(i)) | 0;
@@ -308,8 +310,9 @@ export async function synopsisFromText(plugin: BindersPlugin, files: TFile[]): P
 	return n;
 }
 
-/** Is a note left out of compiles, by its own `compile: false` or a folder's above it (in the folder's note)? */
-export function compiles(plugin: BindersPlugin, item: TAbstractFile): boolean {
+/** Is a note or folder in an export? Not if it says `export: false` (or `compile: false`) itself, or a folder above
+    it does (in the folder's note). */
+export function isExported(plugin: BindersPlugin, item: TAbstractFile): boolean {
 	const { app, binders: store } = plugin, binder = store.binderOf(item);
 	const off = (f: TFile | null) => { const fm = f ? app.metadataCache.getFileCache(f)?.frontmatter : null; return !!fm && (fm[EXPORT_PROP] === false || fm[COMPILE_PROP] === false); };
 	if (item instanceof TFile && off(item)) return false;
@@ -317,92 +320,29 @@ export function compiles(plugin: BindersPlugin, item: TAbstractFile): boolean {
 	return true;
 }
 
-/** A folder of a binder as one text, in binder order (see compile() in scene-text.ts). */
-export async function compileText(plugin: BindersPlugin, folder: TFolder, options: CompileOptions): Promise<{ text: string; scenes: number }> {
+/** A folder of a binder as one text, in binder order: export's "One note" (see compile() in scene-text.ts). */
+export async function oneNoteText(plugin: BindersPlugin, folder: TFolder, options: CompileOptions): Promise<{ text: string; scenes: number }> {
 	const { app, binders: store } = plugin, items: CompileItem[] = [];
 	let scenes = 0;
 	const body = async (f: TFile) => { const b = parts(await app.vault.cachedRead(f)).body; return options.stripTabs ? untab(b) : b; };
 	const walk = async (f: TFolder, depth: number): Promise<void> => {
 		for (const c of store.orderedChildren(f) ?? []) {
-			if (!compiles(plugin, c)) continue;
+			if (!isExported(plugin, c)) continue;
 			if (c instanceof TFolder) { items.push({ kind: 'folder', name: c.name, depth }); await walk(c, depth + 1); }
 			else if (isNote(c)) { items.push({ kind: 'scene', name: c.basename, depth, text: await body(c) }); scenes++; }
 		}
 	};
 	await saveOpen(app, store.scenes(folder));
-	if (store.binderOf(folder)?.kind === 'longform') for (const f of store.scenes(folder)) { if (compiles(plugin, f)) { items.push({ kind: 'scene', name: f.basename, depth: 0, text: await body(f) }); scenes++; } }
+	if (store.binderOf(folder)?.kind === 'longform') for (const f of store.scenes(folder)) { if (isExported(plugin, f)) { items.push({ kind: 'scene', name: f.basename, depth: 0, text: await body(f) }); scenes++; } }
 	else await walk(folder, 0);
 	return { text: compile(folder.name, items, options), scenes };
-}
-
-const SEPARATORS: [string, string][] = [['* * *', 'Three stars (* * *)'], ['#', 'A hash (#), as in a manuscript'], ['---', 'A rule (---)'], ['', 'A blank line']];
-
-/** "Compile": the binder (or a folder of it) written out as one note beside it, or copied. */
-export class CompileModal extends Modal {
-	private o: CompileOptions;
-	private path: string;
-
-	constructor(private plugin: BindersPlugin, private folder: TFolder) {
-		super(plugin.app);
-		this.o = { ...COMPILE_DEFAULTS, ...plugin.settings.compile };
-		// beside the binder, not in it (there it would be one of its scenes)
-		const binder = plugin.binders.binderOf(folder)?.folder ?? folder, dir = binder.parent && !binder.parent.isRoot() ? binder.parent.path + '/' : '';
-		// (where it went last time, if it's been compiled before: compiling again replaces that note)
-		this.path = plugin.settings.compiledTo[folder.path] ?? `${dir}${folder.name} (compiled).md`;
-	}
-
-	onOpen(): void {
-		const { contentEl, o } = this, scenes = this.plugin.binders.scenes(this.folder);
-		const left = scenes.filter((f) => !compiles(this.plugin, f)).length, n = scenes.length - left;
-		this.setTitle(`Compile “${this.folder.name}”`);
-		contentEl.createEl('p', { cls: 'setting-item-description', text: `${n.toLocaleString()} ${n === 1 ? 'note' : 'notes'}, in binder order, become one note: their text only, without properties.${left ? ` ${left} ${left === 1 ? 'is' : 'are'} left out (“Include in compile” is off).` : ''} Your notes aren’t changed.` });
-		new Setting(contentEl).setName('Title').setDesc('The name of what’s compiled, as the first heading.').addToggle((t) => t.setValue(o.title).onChange((v) => { o.title = v; }));
-		new Setting(contentEl).setName('Folders as headings').setDesc('Each folder’s name as a heading, a level deeper for a folder inside another.').addToggle((t) => t.setValue(o.folderHeadings).onChange((v) => { o.folderHeadings = v; }));
-		new Setting(contentEl).setName('Note titles as headings').setDesc('Each note’s name above its text, instead of a separator.').addToggle((t) => t.setValue(o.sceneHeadings).onChange((v) => { o.sceneHeadings = v; }));
-		new Setting(contentEl).setName('Between notes').setDesc('What separates one note’s text from the next.').addDropdown((d) => {
-			for (const [value, name] of SEPARATORS) d.addOption(value, name);
-			if (!SEPARATORS.some(([v]) => v === o.separator)) d.addOption(o.separator, o.separator);
-			d.setValue(o.separator).onChange((v) => { o.separator = v; });
-		});
-		new Setting(contentEl).setName('Leave out comments').setDesc('Text between %% and %%, which Obsidian doesn’t show when reading.').addToggle((t) => t.setValue(o.stripComments).onChange((v) => { o.stripComments = v; }));
-		new Setting(contentEl).setName('Save as').setDesc('A note beside the binder. Compiling again replaces it; a note that’s been written in since is asked about first.').addText((t) => {
-			t.setValue(this.path).onChange((v) => { this.path = v.trim(); });
-			t.inputEl.addClass('binders-compile-path');
-			// Enter (a phone's "Done") compiles, as it sets a target in that dialog
-			t.inputEl.setAttr('enterkeyhint', 'done');
-			t.inputEl.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); void this.run(true); } });
-		});
-		// (Obsidian's own row of buttons: what the dialog does first, Cancel last)
-		this.modalEl.addClass('binders-compile');
-		const row = buttonRow(this);
-		new ButtonComponent(row).setButtonText('Compile').setCta().onClick(() => void this.run(true));
-		new ButtonComponent(row).setButtonText('Copy').setTooltip('Copy the compiled text instead of saving it').onClick(() => void this.run(false));
-		cancelButton(row, this);
-	}
-
-	onClose(): void { this.contentEl.empty(); }
-
-	private async run(save: boolean): Promise<void> {
-		try {
-			this.plugin.settings.compile = { ...this.o };
-			await this.plugin.saveData(this.plugin.settings);
-			const { text, scenes } = await compileText(this.plugin, this.folder, this.o);
-			if (!save) {
-				await navigator.clipboard.writeText(text);
-				new Notice(`Copied ${scenes.toLocaleString()} ${scenes === 1 ? 'note' : 'notes'} as one text.`);
-				this.close();
-				return;
-			}
-			if (await writeOneNote(this.plugin, this.folder, this.path, text, scenes)) this.close();
-		} catch (e) { say(e); }
-	}
 }
 
 /** Where "One note" would put a folder's text: where it went last time, or beside the binder (not in it: there it
     would be one of its scenes). */
 export function oneNotePath(plugin: BindersPlugin, folder: TFolder): string {
 	const binder = plugin.binders.binderOf(folder)?.folder ?? folder, dir = binder.parent && !binder.parent.isRoot() ? binder.parent.path + '/' : '';
-	return plugin.settings.compiledTo[folder.path] ?? `${dir}${folder.name} (compiled).md`;
+	return plugin.settings.compiledTo[folder.path] ?? `${dir}${folder.name} (exported).md`;
 }
 
 /** Writes a folder's text, made into one, as a note at the path typed, and opens it. A note there that isn't what
@@ -411,18 +351,18 @@ export function oneNotePath(plugin: BindersPlugin, folder: TFolder): string {
 export async function writeOneNote(plugin: BindersPlugin, folder: TFolder, typedPath: string, text: string, scenes: number): Promise<TFile | null> {
 	const { app } = plugin;
 	const typed = typedPath.replace(/\.md$/i, '').trim(), names = typed.split('/');
-	if (!typed) throw new Error('Give the compiled note a name.');
+	if (!typed) throw new Error('Give the note a name.');
 	if (names.some((n) => !n.trim() || n === '.' || n === '..' || n.startsWith('.') || /[*"\\<>:|?]/.test(n))) throw new Error('That name can’t be used: a name can’t start with a dot or have any of * " \\ < > : | ? in it.');
 	const path = normalizePath(typed + '.md');
-	if (plugin.binders.binderOf(path)) throw new Error('Save it outside the binder: in it, the compiled note would be one of its scenes.');
+	if (plugin.binders.binderOf(path)) throw new Error('Save it outside the binder: in it, the note would be one of its scenes.');
 	const at = app.vault.getAbstractFileByPath(path);
 	if (at && !(at instanceof TFile)) throw new Error(`“${path}” is a folder.`);
-	// a note that isn't what Compile last left there has someone's writing in it: asked about, never just replaced
+	// a note that isn't what export last left there has someone's writing in it: asked about, never just replaced
 	const memory = plugin.settings.compiled;
 	if (at instanceof TFile) {
 		const there = await app.vault.read(at);
 		if (there !== text && there.trim() && memory[path] !== fingerprint(there)) {
-			const replace = await confirm(app, { title: 'Replace this note', text: `“${at.basename}” ${memory[path] ? 'has been changed since it was compiled' : 'is already there, and wasn’t made by Compile'}. Replace its text with the compiled binder?`, cta: 'Replace' });
+			const replace = await confirm(app, { title: 'Replace this note', text: `“${at.basename}” ${memory[path] ? 'has been changed since it was exported' : 'is already there, and wasn’t made by an export'}. Replace its text with the exported binder?`, cta: 'Replace' });
 			if (!replace) return null;
 		}
 	}
@@ -442,6 +382,6 @@ export async function writeOneNote(plugin: BindersPlugin, folder: TFolder, typed
 	if (open) app.workspace.setActiveLeaf(open, { focus: true });
 	// (on a phone in the tab the binder is in, so Back returns to it: a tab of its own there is out of sight)
 	else await app.workspace.getLeaf(Platform.isPhone ? false : 'tab').openFile(file);
-	new Notice(`Compiled ${scenes.toLocaleString()} ${scenes === 1 ? 'note' : 'notes'} into “${file.basename}”.`);
+	new Notice(`Exported ${scenes.toLocaleString()} ${scenes === 1 ? 'note' : 'notes'} into “${file.basename}”.`);
 	return file;
 }

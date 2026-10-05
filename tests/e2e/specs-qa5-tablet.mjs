@@ -58,7 +58,7 @@ async function onDevice(p, [width, height], fn) {
 		await gone(p).catch(() => {});
 		for (let i = 0; i < 4 && (await p.ev(`document.querySelectorAll('.modal-container').length`).catch(() => 0)); i++) { await p.key('Escape'); await p.sleep(300); }
 		await p.ev(`(async () => { try { app.setting.close(); } catch {} try { app.workspace.leftSplit.setPinned?.(false); } catch {} app.vault.setConfig('trashOption', 'system');
-			for (const f of app.vault.getFiles()) if (f.extension !== 'md' || / \\(compiled\\)\\.md$/.test(f.path)) await app.vault.delete(f);
+			for (const f of app.vault.getFiles()) if (f.extension !== 'md' || / \\(exported\\)\\.md$/.test(f.path)) await app.vault.delete(f);
 			if (await app.vault.adapter.exists('.trash')) await app.vault.adapter.rmdir('.trash', true);
 			const leaves = []; app.workspace.iterateRootLeaves(l => { leaves.push(l); }); leaves.forEach(l => l.detach());
 			if ((app.vault.getConfig('baseFontSize') ?? 16) !== 16) { app.vault.setConfig('baseFontSize', 16); app.updateFontSize?.(); } })().then(() => 1)`).catch(() => {});
@@ -749,7 +749,7 @@ for (const [dev, size] of [['phone (390 × 844)', PHONE], ['small phone (320 × 
 		S.done();
 	});
 
-	test(`${dev} 1d. writing: typing in the manuscript with the keyboard up, a split at the cursor from the palette, a scene duplicated and the copy deleted (asked first, whole in the trash), a filter by status that holds in each mode, the book compiled into one note, opened, and the way back`, async (p, h, t) => {
+	test(`${dev} 1d. writing: typing in the manuscript with the keyboard up, a split at the cursor from the palette, a scene duplicated and the copy deleted (asked first, whole in the trash), a filter by status that holds in each mode, the book exported as one note, opened, and the way back`, async (p, h, t) => {
 		const S = softly(t);
 		await novel(p, { chapters: true });
 		await onDevice(p, size, async () => {
@@ -841,34 +841,35 @@ for (const [dev, size] of [['phone (390 × 844)', PHONE], ['small phone (320 × 
 			await pick(p, 'Clear filter');
 			await p.sleep(500);
 			S.eq((await sectionsIn(p)).length, 21, 'cleared: every note shows again');
-			// compile, from the view's own menu
+			// export as one note, from the view's own menu (“Export...” opens on the kind last made: one note)
+			await p.ev(`(() => { app.plugins.plugins.binders.settings.exportKind = 'note'; return 1; })()`);
 			await tapEl(p, `${LEAF} .view-actions .clickable-icon[aria-label="More options"]`);
-			S.ok((await menuItems(p)).includes('Compile...'), 'the view’s “More options” has “Compile...”: ' + j(await menuItems(p)));
-			await pick(p, 'Compile...');
-			await until(p, `!!document.querySelector('.modal .binders-compile-path')`);
+			S.ok((await menuItems(p)).includes('Export...'), 'the view’s “More options” has “Export...”: ' + j(await menuItems(p)));
+			await pick(p, 'Export...');
+			await until(p, `!!document.querySelector('.modal .binders-export-path')`);
 			await p.sleep(400);
 			await shot(p, `${tag}-1d-07-compile`);
-			S.eq(await p.ev(`document.querySelector('.modal .binders-compile-path').value`), 'Novel (compiled).md', 'it will be saved beside the binder');
-			await dialogTap(p, 'Compile');
-			await until(p, `app.workspace.getActiveFile()?.path === 'Novel (compiled).md'`, 6000);
+			S.eq(await p.ev(`document.querySelector('.modal .binders-export-path').value`), 'Novel (exported).md', 'it will be saved beside the binder');
+			await dialogTap(p, 'Export');
+			await until(p, `app.workspace.getActiveFile()?.path === 'Novel (exported).md'`, 6000);
 			await p.sleep(700);
 			await shot(p, `${tag}-1d-08-compiled`);
-			S.eq(await p.ev(`app.workspace.getActiveFile()?.path ?? null`), 'Novel (compiled).md', 'the compiled note opens');
-			const out = await read(p, 'Novel (compiled).md').catch(() => '');
+			S.eq(await p.ev(`app.workspace.getActiveFile()?.path ?? null`), 'Novel (exported).md', 'the exported note opens');
+			const out = await read(p, 'Novel (exported).md').catch(() => '');
 			const firsts = (await p.ev(`${B}.scenes(app.vault.getAbstractFileByPath('Novel')).map(f => f.basename)`)).map((n) => out.indexOf(n === 'One 2' ? 'A second paragraph of One' : `${n} begins here.`));
 			S.ok(firsts.every((x, i) => x >= 0 && (i === 0 || x > firsts[i - 1])), 'with every scene’s text, in binder order: ' + j(firsts));
 			S.eq(out.split('Typed on a phone.').length - 1, 1, 'and what was typed, once');
 			S.eq(out.split('LAST WORDS').length - 1, 1, 'and the last words, once');
 			// the way back
 			const nav = await p.ev(`[...document.querySelectorAll('.mobile-navbar .mobile-navbar-action, .mobile-navbar .clickable-icon')].map(e => ({ label: e.getAttribute('aria-label'), cls: e.className, disabled: e.classList.contains('is-disabled') || e.getAttribute('aria-disabled') }))`);
-			log(`${tag}: after Compile, the navigation bar:`, j(nav), 'tabs:', await p.ev(`(() => { let n = 0; app.workspace.iterateRootLeaves(() => { n++; }); return n; })()`));
+			log(`${tag}: after Export, the navigation bar:`, j(nav), 'tabs:', await p.ev(`(() => { let n = 0; app.workspace.iterateRootLeaves(() => { n++; }); return n; })()`));
 			await p.ev(`app.commands.executeCommandById('app:go-back')`);
 			await p.sleep(800);
 			const back = await p.ev(`app.workspace.getMostRecentLeaf()?.view.getViewType()`);
-			log(`${tag}: after Back from the compiled note the tab shows:`, back);
-			await p.ev(`(() => { const l = app.workspace.getLeavesOfType('markdown').find(l => l.view.file?.path === 'Novel (compiled).md'); l?.detach(); return 1; })()`);
+			log(`${tag}: after Back from the exported note the tab shows:`, back);
+			await p.ev(`(() => { const l = app.workspace.getLeavesOfType('markdown').find(l => l.view.file?.path === 'Novel (exported).md'); l?.detach(); return 1; })()`);
 			await p.sleep(800);
-			S.eq(await p.ev(`app.workspace.getMostRecentLeaf()?.view.getViewType()`), 'binders-view', 'closing the compiled note’s tab comes back to the binder');
+			S.eq(await p.ev(`app.workspace.getMostRecentLeaf()?.view.getViewType()`), 'binders-view', 'closing the exported note’s tab comes back to the binder');
 			S.eq((await viewState(p))?.mode, 'manuscript', 'in the mode it was left in');
 			S.eq(await menus(p) + await dialogs(p), 0, 'nothing left open');
 		});
@@ -1690,7 +1691,7 @@ test('phone 4. the README’s “Getting started” and “On phones and tablets
 		await explorerMenu(p, 'The Lighthouse');
 		const binder = await menuItems(p);
 		S.ok(!binder.includes('New binder') && !binder.includes('Make this folder a binder'), 'a binder’s own menu has neither');
-		for (const x of ['Open binder', 'New scene here', 'Compile...']) S.ok(binder.includes(x), `but has “${x}”`);
+		for (const x of ['Open binder', 'New scene here', 'Export...']) S.ok(binder.includes(x), `but has “${x}”`);
 		await gone(p);
 		// "Click the folder. The binder view opens on it, as a corkboard. A click that opens a folder's view doesn't fold the folder; click it again, or its arrow, to fold it."
 		const folded = () => p.ev(`app.workspace.getLeavesOfType('file-explorer')[0].view.fileItems['The Lighthouse'].collapsed`);
@@ -1843,7 +1844,7 @@ test('phone 5. one note’s menu in each mode and in the file explorer: the same
 		S.eq(j(menu.row), j(menu.card), 'a row’s menu is its card’s, item for item');
 		const common = menu.card.filter((x) => menu.title.includes(x));
 		S.eq(j(menu.title.filter((x) => menu.card.includes(x))), j(common), 'what a manuscript title’s menu shares with them is in the same order');
-		for (const x of ['Open', 'Rename', 'Set status', 'Set label', 'Set target...', 'Duplicate', 'Put in a new folder', 'Include in compile', 'Move up', 'Move down', 'Delete']) S.ok(menu.title.includes(x) && menu.card.includes(x), `“${x}” is in all three`);
+		for (const x of ['Open', 'Rename', 'Set status', 'Set label', 'Set target...', 'Duplicate', 'Put in a new folder', 'Include in export', 'Move up', 'Move down', 'Delete']) S.ok(menu.title.includes(x) && menu.card.includes(x), `“${x}” is in all three`);
 		S.eq(j(menu.card.filter((x) => !menu.title.includes(x))), j(['Select more', 'Edit synopsis']), 'only “Select more” (a card or a row is selected, a section isn’t) and “Edit synopsis” (it shows none) are missing from the manuscript’s');
 		S.eq(j(menu.title.filter((x) => !menu.card.includes(x))), j(['New note after this']), 'and only “New note after this” is the manuscript’s alone');
 		for (const x of ['Move up', 'Move down']) S.ok(menu.explorer.includes(x), `the explorer’s has “${x}” in the same words`);
@@ -2096,21 +2097,21 @@ test('phone 7. seams: a chapter renamed in the file explorer while a scene in it
 		S.eq(count(three, 'NEWER'), /NEWER/.test((await fm(p, 'Novel/Act One/Three.md'))?.synopsis ?? '') ? 2 : 1, 'and the text has it once');
 		S.eq(count(split(three).body, 'FRESH'), 1, 'what was typed before is there once');
 		await p.ev(`document.activeElement?.blur?.()`);
-		// compile right after typing
+		// export as one note right after typing
 		await tapEnd(p, `(${scene('Four')})`);
 		await p.type('JUST-TYPED');
-		await p.ev(`app.commands.executeCommandById('binders:compile')`);
-		await until(p, `!!document.querySelector('.modal .binders-compile-path')`);
-		await dialogTap(p, 'Compile');
-		await until(p, `!!app.vault.getAbstractFileByPath('Novel (compiled).md')`, 5000);
+		await p.ev(`(app.plugins.plugins.binders.settings.exportKind = 'note', app.commands.executeCommandById('binders:export'))`);
+		await until(p, `!!document.querySelector('.modal .binders-export-path')`);
+		await dialogTap(p, 'Export');
+		await until(p, `!!app.vault.getAbstractFileByPath('Novel (exported).md')`, 5000);
 		await p.sleep(500);
-		S.eq(count(await read(p, 'Novel (compiled).md').catch(() => ''), 'JUST-TYPED'), 1, 'what was typed a moment before compiling is in the compiled note, once');
-		// (on a phone the compiled note opens in the binder's own tab: Back returns to the binder)
-		await until(p, `app.workspace.getActiveFile()?.path === 'Novel (compiled).md'`, 4000);
+		S.eq(count(await read(p, 'Novel (exported).md').catch(() => ''), 'JUST-TYPED'), 1, 'what was typed a moment before exporting is in the exported note, once');
+		// (on a phone the exported note opens in the binder's own tab: Back returns to the binder)
+		await until(p, `app.workspace.getActiveFile()?.path === 'Novel (exported).md'`, 4000);
 		await p.ev(`app.commands.executeCommandById('app:go-back')`);
 		await until(p, `app.workspace.getMostRecentLeaf()?.view.getViewType() === 'binders-view'`, 4000);
 		await p.sleep(700);
-		S.eq(j([(await viewState(p))?.folder, (await viewState(p))?.mode]), j(['Novel', 'manuscript']), 'Back from the compiled note returns to the binder, in the manuscript');
+		S.eq(j([(await viewState(p))?.folder, (await viewState(p))?.mode]), j(['Novel', 'manuscript']), 'Back from the exported note returns to the binder, in the manuscript');
 		// a moved note deleted, then undo
 		await setMode(p, 'corkboard');
 		await intoStack(p, 'Novel/Act One');
@@ -2343,15 +2344,16 @@ bug('the outliner keeps its place after a look at another mode: with the selecte
 	t.ok(Math.abs(got.back2 - got.left2) <= 20, `selected row in sight: left at ${got.left2} px, it comes back at ${got.back2} px`);
 });
 
-ux('phone: after “Compile”, Back returns to the binder (the compiled note opens in a new tab, which on a phone hides the binder with no way back but the tab switcher: “Navigate back” is disabled)', async (p, h, t) => {
+ux('phone: after “Export”, Back returns to the binder (the exported note opens in a new tab, which on a phone hides the binder with no way back but the tab switcher: “Navigate back” is disabled)', async (p, h, t) => {
 	let back = '', disabled = null;
 	await onDevice(p, PHONE, async () => {
 		await open(p);
+		await p.ev(`(() => { app.plugins.plugins.binders.settings.exportKind = 'note'; return 1; })()`);
 		await tapEl(p, `${LEAF} .view-actions .clickable-icon[aria-label="More options"]`);
-		await pick(p, 'Compile...');
-		await until(p, `!!document.querySelector('.modal .binders-compile-path')`);
-		await dialogTap(p, 'Compile');
-		await until(p, `app.workspace.getActiveFile()?.path === 'The Lighthouse (compiled).md'`, 6000);
+		await pick(p, 'Export...');
+		await until(p, `!!document.querySelector('.modal .binders-export-path')`);
+		await dialogTap(p, 'Export');
+		await until(p, `app.workspace.getActiveFile()?.path === 'The Lighthouse (exported).md'`, 6000);
 		await p.sleep(600);
 		disabled = await p.ev(`document.querySelector('.mobile-navbar-action-back .clickable-icon')?.getAttribute('aria-disabled') ?? null`);
 		const b = await p.at('.mobile-navbar-action-back');

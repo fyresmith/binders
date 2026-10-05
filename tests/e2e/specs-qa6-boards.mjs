@@ -660,7 +660,7 @@ const ACTIONS = [
 	{ say: 'Set label', path: 'Part One/The keeper.md', pick: ['Set label', 'Green'], stays: true },
 	{ say: 'Move up', path: 'Part One/The keeper.md', pick: ['Move up'], stays: true },
 	{ say: 'Move down', path: 'Part One/The keeper.md', pick: ['Move down'], stays: true },
-	{ say: 'Include in compile', path: 'Part One/The keeper.md', pick: ['Include in compile'], stays: true },
+	{ say: 'Include in export', path: 'Part One/The keeper.md', pick: ['Include in export'], stays: true },
 	{ say: 'Duplicate', path: 'Part One/The keeper.md', pick: ['Duplicate'], to: /^Part One\/The keeper 2\.md$/ },
 	{ say: 'Put in a new folder', path: 'Part One/The keeper.md', pick: ['Put in a new folder'], to: /^view$|^Part One\/(The keeper|[^/]*)$/ },
 	{ say: 'Ungroup (a folder’s)', path: 'Part Two', pick: ['Ungroup'], to: /^(Part Two|Part Two\/(The wreck|Lights out)\.md|Prologue\.md|Part One|Epilogue\.md|The wreck\.md|Lights out\.md)$/ },

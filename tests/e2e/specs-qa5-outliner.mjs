@@ -89,7 +89,7 @@ async function open(p, folder = 'The Lighthouse', columns = null, more = {}) {
 	await until(p, `/\\d/.test(document.querySelector('${LEAF} .binders-word-count')?.textContent ?? '') || !!document.querySelector('${LEAF} .binders-outliner .binders-empty')`, 5000);
 	await p.sleep(500);
 }
-const ALL = ['label', 'status', 'words', 'target', 'progress', 'compile', 'created', 'modified'];
+const ALL = ['label', 'status', 'words', 'target', 'progress', 'export', 'created', 'modified'];
 const selected = (p) => p.ev(`[...document.querySelectorAll('${LEAF} .binders-outliner-row.is-selected')].map(c => c.dataset.path)`);
 const shown = (p) => p.ev(`[...document.querySelectorAll('${LEAF} .binders-outliner-row')].map(c => c.dataset.path)`);
 const prop = async (p, path, key) => (await read(p, path)).split('\n').find((l) => l.startsWith(key + ':'))?.slice(key.length + 1).trim() ?? null;
@@ -543,10 +543,10 @@ test('phone, nothing typed is lost: with a synopsis half typed, folding its fold
 // Cells
 // =====================================================================================================================
 
-test('phone cells: a tap on a row’s status selects, the next opens the statuses as a sheet; “New status...” is typed; a label is picked and shows its color; the Compile tick ticks; a folder’s status makes its folder note', async (p, h, t) => {
+test('phone cells: a tap on a row’s status selects, the next opens the statuses as a sheet; “New status...” is typed; a label is picked and shows its color; the Export tick ticks; a folder’s status makes its folder note', async (p, h, t) => {
 	const c = soft(t), f = {};
 	await onDevice(p, PHONE, async () => {
-		await open(p, 'The Lighthouse', ['status', 'label', 'compile', 'words']);
+		await open(p, 'The Lighthouse', ['status', 'label', 'export', 'words']);
 		const P = 'Part One/The keeper.md';
 		await see(p, P);
 		const sc = await p.at(cell(P, 'status'));
@@ -593,18 +593,18 @@ test('phone cells: a tap on a row’s status selects, the next opens the statuse
 		await flush(p);
 		c.eq(await prop(p, L + P, 'label'), '"#7c3aed"', 'a color of its own');
 		await scrollTo(p, 9999, null);
-		const box = await p.at(cell(P, 'compile') + ' input');
+		const box = await p.at(cell(P, 'export') + ' input');
 		f.tick = box;
 		await tap(p, box.x, box.y);
 		await p.sleep(500);
 		await flush(p);
-		c.eq(await prop(p, L + P, 'compile'), 'false', 'a tap on the Compile tick leaves the note out');
+		c.eq(await prop(p, L + P, 'export'), 'false', 'a tap on the Export tick leaves the note out');
 		await shot(p, 'cells-tick');
-		const box2 = await p.at(cell(P, 'compile') + ' input');
+		const box2 = await p.at(cell(P, 'export') + ' input');
 		await tap(p, box2.x, box2.y);
 		await p.sleep(500);
 		await flush(p);
-		c.eq(await prop(p, L + P, 'compile'), null, 'and another puts it back, the property gone');
+		c.eq(await prop(p, L + P, 'export'), null, 'and another puts it back, the property gone');
 		await scrollTo(p, 0, null);
 		const fc = await p.at(cell('Part Two', 'status'));
 		await tap(p, fc.x, fc.y);
@@ -679,7 +679,7 @@ test('phone cells: a target is typed in its cell (something that isn’t a numbe
 // Menus
 // =====================================================================================================================
 
-test('phone, a note’s menu: a held row lifts, then its menu is a sheet; Rename, Edit synopsis, Set synopsis from text, Set target, Include in compile, Move down, Duplicate, Put in a new folder, Open in new tab and Delete each do what they say', async (p, h, t) => {
+test('phone, a note’s menu: a held row lifts, then its menu is a sheet; Rename, Edit synopsis, Set synopsis from text, Set target, Include in export, Move down, Duplicate, Put in a new folder, Open in new tab and Delete each do what they say', async (p, h, t) => {
 	const c = soft(t), f = {};
 	await onDevice(p, PHONE, async () => {
 		await open(p);
@@ -697,7 +697,7 @@ test('phone, a note’s menu: a held row lifts, then its menu is a sheet; Rename
 		f.sheet = await sheet(p);
 		await shot(p, 'menu-note');
 		c.ok(isSheet(f.sheet) && f.sheet.itemHeights.every((x) => x >= 44), 'let go, its menu is a sheet with rows a finger tall');
-		for (const x of ['Open', 'Open in new tab', 'Rename', 'Edit synopsis', 'Set synopsis from text', 'Set status', 'Set label', 'Set target...', 'Duplicate', 'Put in a new folder', 'Include in compile ✓', 'Move down', 'Delete']) c.ok(f.items.includes(x), `“${x}” is in it`);
+		for (const x of ['Open', 'Open in new tab', 'Rename', 'Edit synopsis', 'Set synopsis from text', 'Set status', 'Set label', 'Set target...', 'Duplicate', 'Put in a new folder', 'Include in export ✓', 'Move down', 'Delete']) c.ok(f.items.includes(x), `“${x}” is in it`);
 		c.ok(!f.items.includes('Open to the right') && !f.items.includes('Move up'), 'without “Open to the right” (a phone) or “Move up” (it’s the first in its folder)');
 		c.eq(f.items[f.items.length - 1], 'Delete', 'Delete last');
 		c.eq(j([await selected(p), await activeFile(p)]), j([[L + A], null]), 'the row is selected and nothing opened');
@@ -744,12 +744,12 @@ test('phone, a note’s menu: a held row lifts, then its menu is a sheet; Rename
 		await flush(p);
 		c.eq(await prop(p, L + N, 'target'), '900', 'and sets it');
 		await rowMenu(p, N);
-		await menuTap(p, 'Include in compile');
+		await menuTap(p, 'Include in export');
 		await p.sleep(600);
 		await flush(p);
-		c.eq(await prop(p, L + N, 'compile'), 'false', 'Include in compile, unticked, leaves the note out');
+		c.eq(await prop(p, L + N, 'export'), 'false', 'Include in export, unticked, leaves the note out');
 		await rowMenu(p, N);
-		c.ok((await items(p)).includes('Include in compile'), 'and shows unticked the next time');
+		c.ok((await items(p)).includes('Include in export'), 'and shows unticked the next time');
 		await menuTap(p, 'Move down');
 		await p.sleep(700);
 		await flush(p);
@@ -804,7 +804,7 @@ test('phone, a note’s menu: a held row lifts, then its menu is a sheet; Rename
 	c.done();
 });
 
-test('phone, a folder’s menu: Rename takes its notes along, Compile... opens the dialog for it, Set status and a custom color make its folder note, Ungroup empties it in place, Delete counts what’s in it', async (p, h, t) => {
+test('phone, a folder’s menu: Rename takes its notes along, Export... opens the window for it, Set status and a custom color make its folder note, Ungroup empties it in place, Delete counts what’s in it', async (p, h, t) => {
 	const c = soft(t), f = {};
 	const before = await texts(p);
 	await onDevice(p, PHONE, async () => {
@@ -812,7 +812,7 @@ test('phone, a folder’s menu: Rename takes its notes along, Compile... opens t
 		await rowMenu(p, 'Part One');
 		f.items = await items(p);
 		await shot(p, 'menu-folder');
-		for (const x of ['Open', 'Rename', 'Edit synopsis', 'Set status', 'Set label', 'Set target...', 'Duplicate', 'Put in a new folder', 'Compile...', 'Ungroup', 'Include in compile ✓', 'Move up', 'Move down', 'Delete']) c.ok(f.items.includes(x), `“${x}” is in it`);
+		for (const x of ['Open', 'Rename', 'Edit synopsis', 'Set status', 'Set label', 'Set target...', 'Duplicate', 'Put in a new folder', 'Export...', 'Ungroup', 'Include in export ✓', 'Move up', 'Move down', 'Delete']) c.ok(f.items.includes(x), `“${x}” is in it`);
 		c.ok(!f.items.includes('Set synopsis from text'), 'a folder has no text to take a synopsis from');
 		await menuTap(p, 'Rename');
 		await p.sleep(500);
@@ -826,12 +826,18 @@ test('phone, a folder’s menu: Rename takes its notes along, Compile... opens t
 		c.eq(j((await contents(p)).slice(1, 5)), j(['Act One/', 'Act One/Arrival', 'Act One/The keeper', 'Act One/Storm warning']), 'and the binder’s order follows');
 		c.eq(j(await selected(p)), j([L + 'Act One']), 'the folder still selected, and still unfolded');
 		await rowMenu(p, 'Act One');
-		await menuTap(p, 'Compile...');
+		// (“Export...” opens the window on the kind last used: one note, as a writer who made one last time)
+		await p.ev(`(() => { app.plugins.plugins.binders.settings.exportKind = 'note'; return 1; })()`);
+		await menuTap(p, 'Export...');
 		await p.sleep(900);
-		f.compile = await dialog(p);
-		await shot(p, 'menu-folder-compile');
-		c.eq(f.compile?.title, 'Compile “Act One”', 'Compile... opens the dialog for the folder');
-		c.ok(/^3 notes/.test(f.compile.text), 'which counts its notes');
+		f.export = await dialog(p);
+		await shot(p, 'menu-folder-export');
+		c.eq(f.export?.title, 'Export “Act One”', 'Export... opens the window for the folder');
+		c.eq(await p.ev(`[...document.querySelectorAll('.modal.binders-export [role="option"]')].find(o => o.getAttribute('aria-selected') === 'true')?.querySelector('.binders-snapshots-item-name')?.textContent ?? null`), 'One note', 'on one note');
+		// (a phone shows the choices first; the count is on the bar over the preview)
+		await dialogTap(p, 'Preview');
+		f.export.detail = await until(p, `document.querySelector('.modal.binders-export .binders-export-pane .binders-snapshots-detail')?.textContent`, 6000);
+		c.ok(/^3 notes/.test(f.export.detail ?? ''), 'which counts its notes: ' + f.export.detail);
 		await closeDialog(p);
 		await rowMenu(p, 'Act One');
 		await menuTap(p, 'Set status');
@@ -1075,7 +1081,7 @@ test('phone headers: a tap opens the column’s menu as a sheet; sorting shows i
 		f.plusMenu = { items: await items(p), sheet: await sheet(p) };
 		await shot(p, 'head-plus-sheet');
 		c.ok(isSheet(f.plusMenu.sheet), '“+” opens the columns as a sheet');
-		c.eq(j(f.plusMenu.items), j(['Label', 'Status ✓', 'Words ✓', 'Target', 'Progress', 'Compile', 'Created', 'Modified', 'plotlines', 'Other property...']), 'the ones showing ticked, then the notes’ own properties');
+		c.eq(j(f.plusMenu.items), j(['Label', 'Status ✓', 'Words ✓', 'Target', 'Progress', 'Export', 'Created', 'Modified', 'plotlines', 'Other property...']), 'the ones showing ticked, then the notes’ own properties');
 		await menuTap(p, 'Progress');
 		await p.sleep(600);
 		c.eq(j([await cols(), await menus(p)]), j([['title', 'status', 'words', 'progress'], 0]), 'a pick adds the column and closes the sheet');
@@ -1120,7 +1126,7 @@ test('phone toolbar: the options sheet shows and hides columns and folds everyth
 		f.more = { items: await items(p), sheet: await sheet(p) };
 		await shot(p, 'toolbar-more');
 		c.ok(isSheet(f.more.sheet), 'the options are a sheet');
-		for (const x of ['Show synopses ✓', 'Columns', 'Expand all', 'Collapse all', 'Outliner ✓', 'Compile...', 'Open binder note']) c.ok(f.more.items.includes(x), `“${x}” is in it`);
+		for (const x of ['Show synopses ✓', 'Columns', 'Expand all', 'Collapse all', 'Outliner ✓', 'Export...', 'Open binder note']) c.ok(f.more.items.includes(x), `“${x}” is in it`);
 		await menuTap(p, 'Columns');
 		await p.sleep(500);
 		await shot(p, 'toolbar-columns-sub');
@@ -1209,7 +1215,7 @@ test('phone: an empty binder says so and takes a first note; a binder in a newer
 		const NOTE = L + 'The Lighthouse.md', orig = await read(p, NOTE), newer = orig.replace('binder: 1', 'binder: 9');
 		await p.ev(`app.vault.adapter.write(${j(NOTE)}, ${j(newer)}).then(() => 1)`);
 		await p.sleep(900);
-		await open(p, 'The Lighthouse', ['status', 'compile']);
+		await open(p, 'The Lighthouse', ['status', 'export']);
 		f.ro = { notice: await p.ev(`document.querySelector('${LEAF} .binders-notice')?.innerText ?? null`), noticeRect: await p.ev(`(${R})(document.querySelector('${LEAF} .binders-notice'))`) };
 		await p.sleep(4500); // (Obsidian's own notice, which says the same over the toolbar, goes)
 		await shot(p, 'state-read-only');
@@ -1219,7 +1225,7 @@ test('phone: an empty binder says so and takes a first note; a binder in a newer
 		c.eq(await p.at(`${LEAF} .binders-new-button`), null, 'there’s no New');
 		await rowMenu(p, 'Part One/Arrival.md');
 		f.ro.menu = await items(p);
-		c.ok(f.ro.menu.includes('Open') && !['Rename', 'Delete', 'Set status', 'Duplicate', 'Move down', 'Include in compile ✓'].some((x) => f.ro.menu.includes(x)), 'a row’s menu only opens: ' + j(f.ro.menu));
+		c.ok(f.ro.menu.includes('Open') && !['Rename', 'Delete', 'Set status', 'Duplicate', 'Move down', 'Include in export ✓'].some((x) => f.ro.menu.includes(x)), 'a row’s menu only opens: ' + j(f.ro.menu));
 		await gone(p);
 		const sc = await p.at(cell('Part One/Arrival.md', 'status'));
 		await tap(p, sc.x, sc.y);
@@ -1227,7 +1233,7 @@ test('phone: an empty binder says so and takes a first note; a binder in a newer
 		const s = await p.at(row('Part One/Arrival.md') + ' .binders-outliner-synopsis');
 		await tap(p, s.x, s.y);
 		c.eq((await active(p)).tag, 'DIV', 'its synopsis no field');
-		c.eq(await p.ev(`document.querySelector(${j(cell('Part One/Arrival.md', 'compile') + ' input')})?.disabled ?? null`), true, 'its tick is off limits');
+		c.eq(await p.ev(`document.querySelector(${j(cell('Part One/Arrival.md', 'export') + ' input')})?.disabled ?? null`), true, 'its tick is off limits');
 		const g = await grip(p, 'Part One/Arrival.md');
 		await pressAndMove(p, g.x, g.y, g.x, g.y + 150);
 		c.eq((await dragState(p)).ghost, null, 'and a held row doesn’t drag');
@@ -1374,7 +1380,7 @@ test('phone, light or dark, and with large text: labels, statuses, targets, a se
 		c.eq(await p.ev(`getComputedStyle(document.querySelector(${j(row('Part One/The keeper.md'))})).opacity`), '0.45', 'a dragged row dims');
 		await touch(p, 'touchCancel');
 		await p.sleep(400);
-		await open(p, 'The Lighthouse', ['target', 'progress', 'compile', 'created', 'modified']);
+		await open(p, 'The Lighthouse', ['target', 'progress', 'export', 'created', 'modified']);
 		await scrollTo(p, 180, 0);
 		await shot(p, `look-${theme}-more-columns`);
 		f.cells = (await layout(p)).rows.map((r) => r.cells.filter((q) => q.clipped).map((q) => q.col + '=' + q.text)).flat();
@@ -1796,21 +1802,21 @@ ux('phone: a name or a target typed and entered leaves no keyboard focus ring on
 	t.ok(!f.cell.ring || f.cell.shadow === 'none', 'after a target, the cell shows none: ' + j(f.cell));
 });
 
-ux('phone: the Compile tick is a target a finger can hit (the box is 18 × 18 px in a cell 76 px wide; a tap in the cell beside the box does nothing)', async (p, h, t) => {
+ux('phone: the Export tick is a target a finger can hit (the box is 18 × 18 px in a cell 76 px wide; a tap in the cell beside the box does nothing)', async (p, h, t) => {
 	const f = {};
 	await onDevice(p, PHONE, async () => {
-		await open(p, 'The Lighthouse', ['compile']);
+		await open(p, 'The Lighthouse', ['export']);
 		const P = 'Prologue.md';
 		await pick(p, P);
-		f.box = await p.at(cell(P, 'compile') + ' input');
-		const cc = f.cell = await p.at(cell(P, 'compile'));
+		f.box = await p.at(cell(P, 'export') + ' input');
+		const cc = f.cell = await p.at(cell(P, 'export'));
 		await tap(p, cc.l + cc.w - 12, cc.y);
 		await p.sleep(500);
 		await flush(p);
-		f.compile = await prop(p, L + P, 'compile');
+		f.left = await prop(p, L + P, 'export');
 		await shot(p, 'ux-tick-target');
 	});
-	t.ok((f.box.w >= 32 && f.box.h >= 32) || f.compile === 'false', `the tick’s box is ${Math.round(f.box.w)} × ${Math.round(f.box.h)} px, and a tap elsewhere in its ${Math.round(f.cell.w)} × ${Math.round(f.cell.h)} px cell ${f.compile === 'false' ? 'ticks it' : 'does nothing'}`);
+	t.ok((f.box.w >= 32 && f.box.h >= 32) || f.left === 'false', `the tick’s box is ${Math.round(f.box.w)} × ${Math.round(f.box.h)} px, and a tap elsewhere in its ${Math.round(f.cell.w)} × ${Math.round(f.cell.h)} px cell ${f.left === 'false' ? 'ticks it' : 'does nothing'}`);
 });
 
 ux('phone: a target that can’t be saved can be given up without a keyboard’s Escape (“abc” stays in the field through any tap elsewhere; only putting it right or emptying it, which takes the target away, gets out)', async (p, h, t) => {

@@ -471,14 +471,14 @@ test('columns: every one from “+”, ticked in its menu; a property typed by n
 	t.eq(Math.round((await thAt(p, 'label')).w), 120, 'a double click on the edge puts the width back');
 	t.eq(await p.ev(`document.querySelectorAll('.menu').length`), 0, 'and opens no menu');
 	// the rest of the columns, one by one (the "+" moves right as they're added)
-	for (const name of ['Target', 'Progress', 'Compile', 'Created', 'Modified', 'plotlines']) {
+	for (const name of ['Target', 'Progress', 'Export', 'Created', 'Modified', 'plotlines']) {
 		await p.ev(`(() => { const o = document.querySelector('${O}'); o.scrollLeft = o.scrollWidth; return 1; })()`);
 		b = await plus();
 		await p.click(b.x, b.y);
 		await clickMenu(p, name);
 		await closeMenus(p);
 	}
-	t.eq(j(await headers(p)), j(['title', 'label', 'status', 'words', 'target', 'progress', 'compile', 'created', 'modified', 'prop:plotlines']), 'all of them, in the order added');
+	t.eq(j(await headers(p)), j(['title', 'label', 'status', 'words', 'target', 'progress', 'export', 'created', 'modified', 'prop:plotlines']), 'all of them, in the order added');
 	await p.ev(`(() => { const o = document.querySelector('${O}'); o.scrollLeft = o.scrollWidth; return 1; })()`);
 	b = await plus();
 	await p.click(b.x, b.y);
@@ -646,16 +646,20 @@ ux('a click on a column’s header sorts by it, as in a base’s table (its menu
 	t.eq(await p.ev(`document.querySelector('${O} .binders-outliner-th[data-col="words"]').getAttribute('aria-sort')`), 'ascending', 'sorted by words');
 });
 
-bug('the reserved “compile” property is offered as a property column once a note is left out of compiles', withTidy(async (p, h, t) => {
-	await setFm(p, 'Epilogue.md', { compile: false });
+bug('the reserved “export” property is offered as a property column once a note is left out of exports', withTidy(async (p, h, t) => {
+	// (“compile” is the property's name from before export: typed by hand it is still read, and still Binders' own)
+	await setFm(p, 'Epilogue.md', { export: false });
+	await setFm(p, 'Prologue.md', { compile: false });
 	await p.sleep(400);
 	await open(p);
 	const plus = await p.at(`${O} .binders-outliner-th.mod-add`);
 	await p.click(plus.x, plus.y);
 	const items = await menuItems(p);
 	await closeMenus(p);
-	t.ok(items.includes('Compile'), 'Binders’ own Compile column is there');
-	t.ok(!items.includes('compile'), 'and the property behind it isn’t listed as one of the notes’ own: ' + items.join(', '));
+	t.ok(items.includes('Export'), 'Binders’ own Export column is there');
+	t.ok(!items.includes('export'), 'and the property behind it isn’t listed as one of the notes’ own: ' + items.join(', '));
+	t.ok(!items.includes('compile'), 'nor is “compile”, its name before export: ' + items.join(', '));
+	t.ok(!items.includes('Compile'), 'and there is no Compile column any more');
 }));
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -770,25 +774,25 @@ test('synopsis and target cells: Enter is a new line and Escape drops it; a clic
 	t.eq(p.errors.length, 0, 'no errors: ' + p.errors.join(' ; '));
 }));
 
-test('the Compile column: a tick writes only “compile: false”; a folder’s tick greys the ticks of what’s in it', withTidy(async (p, h, t) => {
+test('the Export column: a tick writes only “export: false”; a folder’s tick greys the ticks of what’s in it', withTidy(async (p, h, t) => {
 	const before = await texts(p);
-	await open(p, 'The Lighthouse', { columns: [{ id: 'compile' }] });
-	const ticks = () => p.ev(`[...document.querySelectorAll('${R} [data-col="compile"] input')].map(i => (i.checked ? 'x' : '-') + (i.disabled ? 'd' : '')).join(' ')`);
-	t.eq(await ticks(), 'x x x x x x x x x', 'everything compiles to begin with');
-	let cb = await p.at(`${cellSel('Epilogue.md', 'compile')} input`);
+	await open(p, 'The Lighthouse', { columns: [{ id: 'export' }] });
+	const ticks = () => p.ev(`[...document.querySelectorAll('${R} [data-col="export"] input')].map(i => (i.checked ? 'x' : '-') + (i.disabled ? 'd' : '')).join(' ')`);
+	t.eq(await ticks(), 'x x x x x x x x x', 'everything is exported to begin with');
+	let cb = await p.at(`${cellSel('Epilogue.md', 'export')} input`);
 	await p.click(cb.x, cb.y);
-	await until(p, `app.vault.adapter.read(${j(L + 'Epilogue.md')}).then(s => s.includes('compile: false'))`);
+	await until(p, `app.vault.adapter.read(${j(L + 'Epilogue.md')}).then(s => s.includes('export: false'))`);
 	const text = await read(p, L + 'Epilogue.md');
-	t.eq(split(text).yaml, split(before[L + 'Epilogue.md']).yaml + '\ncompile: false', 'one property added');
+	t.eq(split(text).yaml, split(before[L + 'Epilogue.md']).yaml + '\nexport: false', 'one property added');
 	t.eq(split(text).body, split(before[L + 'Epilogue.md']).body, 'the text untouched');
-	cb = await p.at(`${cellSel('Part Two', 'compile')} input`);
+	cb = await p.at(`${cellSel('Part Two', 'export')} input`);
 	await p.click(cb.x, cb.y);
 	await until(p, `app.vault.adapter.exists(${j(L + 'Part Two/Part Two.md')})`);
-	await until(p, `document.querySelector(${j(cellSel('Part Two/The wreck.md', 'compile') + ' input')})?.disabled === true`);
+	await until(p, `document.querySelector(${j(cellSel('Part Two/The wreck.md', 'export') + ' input')})?.disabled === true`);
 	t.eq(await ticks(), 'x x x x x - -d -d -', 'Part Two’s notes are out with it, and say so');
-	cb = await p.at(`${cellSel('Epilogue.md', 'compile')} input`);
+	cb = await p.at(`${cellSel('Epilogue.md', 'export')} input`);
 	await p.click(cb.x, cb.y);
-	await until(p, `app.vault.adapter.read(${j(L + 'Epilogue.md')}).then(s => !s.includes('compile'))`);
+	await until(p, `app.vault.adapter.read(${j(L + 'Epilogue.md')}).then(s => !s.includes('export'))`);
 	t.eq(await read(p, L + 'Epilogue.md'), before[L + 'Epilogue.md'], 'ticked again, the note is byte for byte as it was');
 	same(t, before, await texts(p));
 }));
@@ -915,15 +919,15 @@ bug('Alt+Down with several rows selected moves only the focused one', withTidy(a
 	t.eq(j((await contents(p)).slice(1, 5)), j(['Part One/', 'Part One/Storm warning', 'Part One/Arrival', 'Part One/The keeper']), 'both move down past Storm warning, in their order');
 }));
 
-bug('ticking Compile with the keyboard (Tab, Space) throws the focus to <body>', withTidy(async (p, h, t) => {
-	await open(p, 'The Lighthouse', { columns: [{ id: 'compile' }] });
+bug('ticking Export with the keyboard (Tab, Space) throws the focus to <body>', withTidy(async (p, h, t) => {
+	await open(p, 'The Lighthouse', { columns: [{ id: 'export' }] });
 	const a = await nameAt(p, 'Part One/Arrival.md');
 	await p.click(a.x, a.y);
 	// (the arrow keys go from a row into its cells; Tab is left to move between the outliner and the rest of the window)
 	await p.key('ArrowRight');
-	t.ok(await p.ev(`document.activeElement?.matches(${j(cellSel('Part One/Arrival.md', 'compile'))})`), 'Right reaches the row’s Compile cell');
+	t.ok(await p.ev(`document.activeElement?.matches(${j(cellSel('Part One/Arrival.md', 'export'))})`), 'Right reaches the row’s Export cell');
 	await p.key(' ');
-	await until(p, `app.metadataCache.getFileCache(app.vault.getAbstractFileByPath(${j(L + 'Part One/Arrival.md')}))?.frontmatter?.compile === false`);
+	await until(p, `app.metadataCache.getFileCache(app.vault.getAbstractFileByPath(${j(L + 'Part One/Arrival.md')}))?.frontmatter?.export === false`);
 	await p.sleep(300);
 	t.ok(await inOutliner(p), 'the focus is still in the outliner after the tick; it is on: ' + (await active(p)));
 }));
@@ -1139,7 +1143,7 @@ bug('a title in a right-to-left script sits at the far end of the title column, 
 // ---------------------------------------------------------------------------------------------------------------
 
 test('accessibility: a treegrid of rows and cells; levels, expanded, selected and sorted are said; every control has a name', async (p, h, t) => {
-	await open(p, 'The Lighthouse', { columns: [{ id: 'status' }, { id: 'words' }, { id: 'target' }, { id: 'progress' }, { id: 'compile' }] });
+	await open(p, 'The Lighthouse', { columns: [{ id: 'status' }, { id: 'words' }, { id: 'target' }, { id: 'progress' }, { id: 'export' }] });
 	await setFm(p, 'Prologue.md', { target: 42 });
 	await until(p, `!!document.querySelector(${j(cellSel('Prologue.md', 'progress') + ' [role="progressbar"]')})`);
 	const a = await nameAt(p, 'Part One/Arrival.md');
@@ -1191,8 +1195,8 @@ test('accessibility: a treegrid of rows and cells; levels, expanded, selected an
 	t.eq(await active(p), 'th:status', 'and it keeps the focus');
 });
 
-ux('Tab from a row leaves the rows: it doesn’t stop at every other row’s Compile tick on the way', async (p, h, t) => {
-	await open(p, 'The Lighthouse', { columns: [{ id: 'compile' }] });
+ux('Tab from a row leaves the rows: it doesn’t stop at every other row’s Export tick on the way', async (p, h, t) => {
+	await open(p, 'The Lighthouse', { columns: [{ id: 'export' }] });
 	const a = await nameAt(p, 'Part One/Arrival.md');
 	await p.click(a.x, a.y);
 	await p.key('Tab');

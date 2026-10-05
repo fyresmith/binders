@@ -1,6 +1,6 @@
 import { TFile, TFolder, normalizePath, type TAbstractFile } from 'obsidian';
 import type BindersPlugin from '../main';
-import { compiles, isNote, saveOpen } from '../scenes';
+import { isExported, isNote, saveOpen } from '../scenes';
 import { parts } from '../scene-text';
 import { bookNeeds, buildBook, type Resolver } from './book';
 import type { Desktop, Stamp } from './desktop';
@@ -36,10 +36,10 @@ export async function readBook(plugin: BindersPlugin, folder: TFolder, matter: b
 		if (f instanceof TFolder) {
 			const children: SourceItem[] = [];
 			for (const c of store.orderedChildren(f) ?? []) { const it = await item(c); if (it) children.push(it); }
-			return { kind: 'folder', name: f.name, path: f.path, included: compiles(plugin, f), exportAs: fm(store.folderNote(f))[EXPORT_AS], children };
+			return { kind: 'folder', name: f.name, path: f.path, included: isExported(plugin, f), exportAs: fm(store.folderNote(f))[EXPORT_AS], children };
 		}
 		if (!isNote(f)) return null;
-		const included = compiles(plugin, f);
+		const included = isExported(plugin, f);
 		return { kind: 'note', name: f.basename, path: f.path, included, exportAs: fm(f)[EXPORT_AS], text: included ? parts(await app.vault.cachedRead(f)).body : '' };
 	};
 	const items: SourceItem[] = [];

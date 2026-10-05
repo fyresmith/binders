@@ -714,6 +714,7 @@ test('a click on a column’s header sorts by it: ascending, descending, then bi
 
 test('the keyboard reaches a row’s cells: Right into them, Enter acts (a menu, a field, a tick), the focus stays; Alt+arrows move rows, several at once, in and out of folders', withTidy(async (p, h, t) => {
 	const before = await texts(p);
+	// (the column is saved as “compile”, its id before export: it is read as the Export column)
 	await open(p, 'The Lighthouse', { columns: [{ id: 'status' }, { id: 'target' }, { id: 'compile' }] });
 	const a = await nameAt(p, 'Part One/Arrival.md');
 	await p.click(a.x, a.y);
@@ -736,11 +737,11 @@ test('the keyboard reaches a row’s cells: Right into them, Enter acts (a menu,
 	t.eq(await at(), 'Part One/Arrival.md|target|DIV', 'Tab saves, and the focus stays in the cell');
 	await p.key('ArrowRight');
 	await p.key(' ');
-	await until(p, `app.metadataCache.getFileCache(app.vault.getAbstractFileByPath(${j(L + 'Part One/Arrival.md')}))?.frontmatter?.compile === false`);
+	await until(p, `app.metadataCache.getFileCache(app.vault.getAbstractFileByPath(${j(L + 'Part One/Arrival.md')}))?.frontmatter?.export === false`);
 	await p.sleep(300);
-	t.eq((await at()).split('|').slice(0, 2).join('|'), 'Part One/Arrival.md|compile', 'Space ticks, and the focus stays in the cell');
+	t.eq((await at()).split('|').slice(0, 2).join('|'), 'Part One/Arrival.md|export', 'Space ticks, and the focus stays in the cell');
 	await p.key('ArrowDown');
-	t.eq((await at()).split('|').slice(0, 2).join('|'), 'Part One/The keeper.md|compile', 'Down: the same cell in the next row');
+	t.eq((await at()).split('|').slice(0, 2).join('|'), 'Part One/The keeper.md|export', 'Down: the same cell in the next row');
 	await p.key('Escape');
 	t.eq(await at(), 'Part One/The keeper.md||DIV', 'Escape: back on the row');
 	// rows moved by the keyboard: two at once, down; then out of their folder, and back in

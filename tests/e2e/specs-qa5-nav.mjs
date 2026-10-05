@@ -170,8 +170,13 @@ const openSettings = async (p) => {
 	await p.sleep(700);
 };
 const TAB = `app.setting.activeTab.containerEl`;
-const openCompile = async (p) => { await p.ev(`app.commands.executeCommandById('binders:compile')`); await until(p, `!!document.querySelector('.modal .binders-compile-path')`); await p.sleep(500); };
-const setPath = async (p, v) => { await p.ev(`(() => { const i = document.querySelector('.modal .binders-compile-path'); i.focus(); i.select(); return 1; })()`); if (v) await p.type(v); else await p.key('Backspace'); await p.sleep(200); };
+/** A menu's “Export...” and the command open the Export window on the kind last used: this is a writer who made one note last time. */
+const NOTE_KIND = `(() => { app.plugins.plugins.binders.settings.exportKind = 'note'; return 1; })()`;
+/** The Export window on “One note” (what Compile was), by the command. On a phone: its choices, with Preview, Copy and Export at their foot. */
+const openOneNote = async (p) => { await p.ev(`(app.plugins.plugins.binders.settings.exportKind = 'note', app.commands.executeCommandById('binders:export'))`); await until(p, `!!document.querySelector('.modal .binders-export-path')`); await p.sleep(500); };
+/** The Export window's own buttons in sight: Preview, Copy, Export at the foot of a phone's choices; Copy, Export in the bar elsewhere. */
+const exportButtons = (p) => p.ev(`[...document.querySelectorAll('.modal.binders-export .binders-export-phone-row button, .modal.binders-export .modal-setting-titlebar-actions button')].filter(b => b.getBoundingClientRect().width).map(b => ({ text: b.textContent, rect: (${R})(b) }))`);
+const setPath = async (p, v) => { await p.ev(`(() => { const i = document.querySelector('.modal .binders-export-path'); i.focus(); i.select(); return 1; })()`); if (v) await p.type(v); else await p.key('Backspace'); await p.sleep(200); };
 const fitsScreen = (d) => d.box[0] >= 0 && d.box[1] >= 0 && d.box[0] + d.box[2] <= d.inner[0] && d.box[1] + d.box[3] <= d.inner[1];
 const FUTURE = `(async () => { await app.vault.createFolder('Future'); await app.vault.create('Future/Future.md', '---\\nbinder: 99\\ncontents:\\n  - One\\n---\\n'); await app.vault.create('Future/One.md', 'one'); })().then(() => 1)`;
 
@@ -235,18 +240,18 @@ test('phone explorer: every row’s menu is a sheet with Binders’ items where 
 		await p.ev(FUTURE);
 		await p.sleep(1200);
 		await showExplorer(p, ['The Lighthouse', L + 'Part One', 'Longform demo', 'Future', 'Plain']);
-		const OURS = ['Open binder', 'Show in binder', 'New scene here', 'New scene after this', 'Make this folder a binder', 'New binder', 'Convert to binder', 'Compile...', 'Move up', 'Move down', 'Merge 2 notes', 'New folder from selection'];
+		const OURS = ['Open binder', 'Show in binder', 'New scene here', 'New scene after this', 'Make this folder a binder', 'New binder', 'Convert to binder', 'Export...', 'Move up', 'Move down', 'Merge 2 notes', 'New folder from selection'];
 		const want = {
-			'The Lighthouse': ['Open binder', 'New scene here', 'Compile...'],
-			[L + 'Part One']: ['Open binder', 'New scene here', 'Compile...', 'Move up', 'Move down'],
+			'The Lighthouse': ['Open binder', 'New scene here', 'Export...'],
+			[L + 'Part One']: ['Open binder', 'New scene here', 'Export...', 'Move up', 'Move down'],
 			[L + 'Prologue.md']: ['Show in binder', 'New scene after this', 'Move down'],
 			[L + 'Part One/Storm warning.md']: ['Show in binder', 'New scene after this', 'Move up'],
 			'Plain': ['Make this folder a binder', 'New binder'],
 			'Plain/A note.md': [],
-			'Longform demo': ['Open binder', 'New scene here', 'Convert to binder', 'Compile...'],
+			'Longform demo': ['Open binder', 'New scene here', 'Convert to binder', 'Export...'],
 			'Longform demo/Harbor.md': ['Show in binder', 'New scene after this', 'Move down'],
 			'Longform demo/Notes on ferries.md': [],
-			'Future': ['Open binder', 'Compile...'],
+			'Future': ['Open binder', 'Export...'],
 			'Future/One.md': ['Show in binder'],
 		};
 		for (const [path, items] of Object.entries(want)) {
@@ -762,15 +767,15 @@ test('phone toolbar: at 320, 360, 390 and 430 px and on its side (568, 844, 932 
 	});
 });
 
-test('phone header: “More options” in each mode is a sheet of finger-tall rows: the mode’s own options, the three modes with the current one ticked, “Compile...” and the binder’s note; a folder without a note of its own offers none', async (p, h, t) => {
+test('phone header: “More options” in each mode is a sheet of finger-tall rows: the mode’s own options, the three modes with the current one ticked, “Export...” and the binder’s note; a folder without a note of its own offers none', async (p, h, t) => {
 	await onDevice(p, PHONE, async () => {
 		await open(p);
 		const more = await p.at(MORE);
 		t.ok(more.w >= 40 && more.h >= 40, `the button is ${Math.round(more.w)} × ${Math.round(more.h)} px`);
 		const want = {
-			corkboard: ['Close', 'Pin', 'Card size', 'Tint cards with their label color', 'Number the cards', 'Corkboard', 'Outliner', 'Manuscript', 'In a grid', 'By label, across', 'By label, down', 'Show notes in subfolders', 'Show unused labels', 'Compile...', 'Take a snapshot of every note...', 'Open binder note'],
-			outliner: ['Close', 'Pin', 'Show synopses', 'Columns', 'Expand all', 'Collapse all', 'Corkboard', 'Outliner', 'Manuscript', 'Compile...', 'Take a snapshot of every note...', 'Open binder note'],
-			manuscript: ['Close', 'Pin', 'Corkboard', 'Outliner', 'Manuscript', 'Compile...', 'Take a snapshot of every note...', 'Open binder note'],
+			corkboard: ['Close', 'Pin', 'Card size', 'Tint cards with their label color', 'Number the cards', 'Corkboard', 'Outliner', 'Manuscript', 'In a grid', 'By label, across', 'By label, down', 'Show notes in subfolders', 'Show unused labels', 'Export...', 'Take a snapshot of every note...', 'Open binder note'],
+			outliner: ['Close', 'Pin', 'Show synopses', 'Columns', 'Expand all', 'Collapse all', 'Corkboard', 'Outliner', 'Manuscript', 'Export...', 'Take a snapshot of every note...', 'Open binder note'],
+			manuscript: ['Close', 'Pin', 'Corkboard', 'Outliner', 'Manuscript', 'Export...', 'Take a snapshot of every note...', 'Open binder note'],
 		};
 		for (const [mode, items] of Object.entries(want)) {
 			await setMode(p, mode);
@@ -789,25 +794,31 @@ test('phone header: “More options” in each mode is a sheet of finger-tall ro
 		t.ok(await menuTap(p, 'Corkboard'), 'Corkboard');
 		await until(p, `${VIEW}.mode === 'corkboard'`);
 		t.eq(j([(await viewState(p)).mode, await menus(p)]), j(['corkboard', 0]), 'a mode picked in the sheet switches to it and closes the sheet');
-		// Compile... from there
+		// Export... from there
+		await p.ev(NOTE_KIND);
 		await tap(p, more.x, more.y);
 		await p.sleep(500);
-		t.ok(await menuTap(p, 'Compile...'), 'Compile...');
-		await until(p, `!!document.querySelector('.modal .binders-compile-path')`);
+		t.ok(await menuTap(p, 'Export...'), 'Export...');
+		await until(p, `!!document.querySelector('.modal .binders-export-path')`);
 		await p.sleep(400);
-		t.eq(j([(await dialog(p)).title, await menus(p)]), j(['Compile “The Lighthouse”', 0]), 'opens the Compile dialog, with no sheet left');
+		t.eq(j([(await dialog(p)).title, await menus(p)]), j(['Export “The Lighthouse”', 0]), 'opens the Export window, with no sheet left');
 		await closeDialog(p);
 		// in a folder
 		await open(p, L + 'Part One');
 		await tap(p, more.x, more.y);
 		await p.sleep(500);
 		const inFolder = await menuItems(p);
-		t.ok(inFolder.includes('Compile...') && !inFolder.includes('Open binder note') && !inFolder.includes('Open folder note'), 'in a folder with no note of its own: Compile, and no note to open: ' + j(inFolder));
-		await menuTap(p, 'Compile...');
-		await until(p, `!!document.querySelector('.modal .binders-compile-path')`);
+		t.ok(inFolder.includes('Export...') && !inFolder.includes('Open binder note') && !inFolder.includes('Open folder note'), 'in a folder with no note of its own: Export, and no note to open: ' + j(inFolder));
+		await p.ev(NOTE_KIND);
+		await menuTap(p, 'Export...');
+		await until(p, `!!document.querySelector('.modal .binders-export-path')`);
 		await p.sleep(400);
 		const d = await dialog(p);
-		t.ok(d.title === 'Compile “Part One”' && /^3 notes/.test(d.text) && /Part One \(compiled\)\.md/.test(j(d.fields)), 'which compiles that folder: ' + d.text.slice(0, 40));
+		// (how many notes go in is said in the bar over the preview: a phone's second screen)
+		await dialogTap(p, 'Preview');
+		await until(p, `/ · /.test(document.querySelector('.modal.binders-export .binders-snapshots-detail')?.textContent ?? '')`, 5000);
+		const detail = await p.ev(`document.querySelector('.modal.binders-export .binders-snapshots-detail')?.textContent ?? ''`);
+		t.ok(d.title === 'Export “Part One”' && /^3 notes · /.test(detail) && /Part One \(exported\)\.md/.test(j(d.fields)), 'which exports that folder: ' + detail);
 		await closeDialog(p);
 	});
 });
@@ -824,7 +835,7 @@ test('phone commands: the palette offers Binders’ commands where they apply an
 		const offered = async () => { const list = await palette(p, 'Binders'); await closePalette(p); return list.filter((x) => /^Binders/.test(x)).map((x) => x.replace(/^Binders/, '')).sort(); };
 		// (“New binder” is offered everywhere, since a binder can be made from anywhere)
 		const check = async (what, want) => t.eq(j(await offered()), j([...want, 'New binder'].sort()), what);
-		const VIEWS = ['Show corkboard', 'Show outliner', 'Show manuscript', 'Compile binder'], ARRANGE = 'Arrange corkboard by label', FOCUS = 'Toggle focus mode', STEP = ['Go to previous scene', 'Go to next scene'];
+		const VIEWS = ['Show corkboard', 'Show outliner', 'Show manuscript', 'Export binder'], ARRANGE = 'Arrange corkboard by label', FOCUS = 'Toggle focus mode', STEP = ['Go to previous scene', 'Go to next scene'];
 		// snapshots: of every note of the binder, wherever a binder is in view; a scene's own, where a scene is open
 		const ALL = 'Take a snapshot of every note in the binder', SCENE = ['Take a snapshot', 'Rewrite', 'Show snapshots', ALL];
 		await check('nothing open', []);
@@ -836,15 +847,15 @@ test('phone commands: the palette offers Binders’ commands where they apply an
 		await check('its manuscript, no caret in it', [...VIEWS, 'New scene here', 'Set word count target', ALL, FOCUS]);
 		await setMode(p, 'corkboard');
 		await h.open(L + 'Part One/Arrival.md');
-		await check('a scene, first in its folder', ['Open binder', 'Compile binder', 'New scene here', 'Split scene at cursor', 'Move down', ...SCENE, FOCUS, ...STEP]);
+		await check('a scene, first in its folder', ['Open binder', 'Export binder', 'New scene here', 'Split scene at cursor', 'Move down', ...SCENE, FOCUS, ...STEP]);
 		await h.open(L + 'Part One/Storm warning.md');
-		await check('a scene, last in its folder', ['Open binder', 'Compile binder', 'New scene here', 'Split scene at cursor', 'Move up', ...SCENE, FOCUS, ...STEP]);
+		await check('a scene, last in its folder', ['Open binder', 'Export binder', 'New scene here', 'Split scene at cursor', 'Move up', ...SCENE, FOCUS, ...STEP]);
 		await h.open(L + 'The Lighthouse.md');
-		await check('the binder note', ['Open binder', 'Compile binder', 'New scene here', ALL]);
+		await check('the binder note', ['Open binder', 'Export binder', 'New scene here', ALL]);
 		await h.open('Longform demo/Index.md');
-		await check('a Longform project’s index', ['Open binder', 'Compile binder', 'New scene here', 'Convert to binder', ALL]);
+		await check('a Longform project’s index', ['Open binder', 'Export binder', 'New scene here', 'Convert to binder', ALL]);
 		await h.open('Longform demo/Harbor.md');
-		await check('a Longform scene', ['Open binder', 'Compile binder', 'New scene here', 'Convert to binder', 'Split scene at cursor', 'Move down', ...SCENE, FOCUS, 'Go to next scene']);
+		await check('a Longform scene', ['Open binder', 'Export binder', 'New scene here', 'Convert to binder', 'Split scene at cursor', 'Move down', ...SCENE, FOCUS, 'Go to next scene']);
 		await open(p, 'Longform demo');
 		await check('a Longform project’s view', [...VIEWS, 'New scene here', 'Set word count target', 'Convert to binder', ALL, ARRANGE]);
 		await h.open('Plain/A note.md');
@@ -852,7 +863,7 @@ test('phone commands: the palette offers Binders’ commands where they apply an
 		await h.open('Loose.md');
 		await check('a note in the vault’s root', []);
 		await h.open('Future/One.md');
-		await check('a scene of a read-only binder', ['Open binder', 'Compile binder', 'Show snapshots', FOCUS]);
+		await check('a scene of a read-only binder', ['Open binder', 'Export binder', 'Show snapshots', FOCUS]);
 		await open(p, 'Future');
 		await check('a read-only binder’s view', [...VIEWS, ARRANGE]);
 		// a command run from the palette by touch
@@ -947,62 +958,63 @@ bug('phone dialogs: after Done on the keyboard in “Set target”, the word cou
 	});
 });
 
-test('phone dialogs: Compile to a name that’s taken asks before replacing and Cancel keeps that note; names that can’t be used are refused in words; a folder in the name is made; compiling again replaces the last compile without asking, and asks once it’s been written in; Copy copies', async (p, h, t) => {
+test('phone dialogs: Export as one note to a name that’s taken asks before replacing and Cancel keeps that note; names that can’t be used are refused in words; a folder in the name is made; exporting again replaces the last export without asking, and asks once it’s been written in; Copy copies', async (p, h, t) => {
 	const before = await texts(p);
 	await onDevice(p, PHONE, async () => {
 		await p.ev(`app.vault.create('Mine.md', 'My own writing.').then(() => 1)`);
 		await open(p);
-		await openCompile(p);
-		const field = await p.ev(`(() => { const i = document.querySelector('.modal .binders-compile-path'); return { rect: (${R})(i), cut: i.scrollWidth - i.clientWidth, value: i.value }; })()`);
-		t.ok(field.value === 'The Lighthouse (compiled).md' && field.cut <= 0 && field.rect[2] >= 300 && field.rect[3] >= 44, 'the name offered shows whole in a full-width field: ' + j(field));
+		await openOneNote(p);
+		const field = await p.ev(`(() => { const i = document.querySelector('.modal .binders-export-path'); return { rect: (${R})(i), cut: i.scrollWidth - i.clientWidth, value: i.value }; })()`);
+		t.ok(field.value === 'The Lighthouse (exported).md' && field.cut <= 0 && field.rect[2] >= 300 && field.rect[3] >= 44, 'the name offered shows whole in a full-width field: ' + j(field));
 		const rows = await p.ev(`[...document.querySelectorAll('.modal .setting-item')].map(s => { const R = ${R}; return { name: s.querySelector('.setting-item-name').textContent, row: R(s), control: R(s.querySelector('.setting-item-control > *')) }; })`);
-		t.eq(j(rows.map((r) => r.name)), j(['Title', 'Folders as headings', 'Note titles as headings', 'Between notes', 'Leave out comments', 'Save as']), 'its settings');
+		t.eq(j(rows.map((r) => r.name)), j(['Title', 'Folders as headings', 'Note titles as headings', 'Between notes', 'Leave out comments', 'Take tabs off paragraphs', 'Save as']), 'its settings');
+		t.eq(j((await exportButtons(p)).map((b) => b.text)), j(['Preview', 'Copy', 'Export']), 'and at their foot Preview, Copy and Export');
 		t.ok(rows.every((r) => r.control[0] >= r.row[0] && r.control[0] + r.control[2] <= r.row[0] + r.row[2] && r.control[3] >= 30), 'each control inside its row, a finger tall: ' + j(rows.map((r) => r.control)));
 		// taken by a note of the writer's
 		await setPath(p, 'Mine');
-		await dialogTap(p, 'Compile');
+		await dialogTap(p, 'Export');
 		await until(p, `document.querySelectorAll('.modal-container').length === 2`);
 		await p.sleep(400);
 		await shot(p, 'compile-replace-mine');
 		let d = await dialog(p);
-		t.ok(d.title === 'Replace this note' && /“Mine” is already there, and wasn’t made by Compile/.test(d.text) && fitsScreen(d), 'a note that isn’t Compile’s: asked about first');
+		t.ok(d.title === 'Replace this note' && /“Mine” is already there, and wasn’t made by an export/.test(d.text) && fitsScreen(d), 'a note that isn’t an export’s: asked about first');
 		await dialogTap(p, 'Cancel');
-		t.eq(j([await dialogs(p), await read(p, 'Mine.md')]), j([1, 'My own writing.']), 'Cancel keeps the note, and the Compile dialog');
-		for (const [v, why] of [['The Lighthouse/Out', /Save it outside the binder/], ['', /Give the compiled note a name/], ['a:b', /That name can’t be used/], ['.hidden', /That name can’t be used/], ['   ', /Give the compiled note a name/]]) {
+		t.eq(j([await dialogs(p), await read(p, 'Mine.md')]), j([1, 'My own writing.']), 'Cancel keeps the note, and the Export window');
+		for (const [v, why] of [['The Lighthouse/Out', /Save it outside the binder: in it, the note would be one of its scenes\./], ['', /Give the note a name\./], ['a:b', /That name can’t be used/], ['.hidden', /That name can’t be used/], ['   ', /Give the note a name\./]]) {
 			await clearNotices(p);
 			await setPath(p, v);
-			await dialogTap(p, 'Compile');
+			await dialogTap(p, 'Export');
 			await p.sleep(700);
-			t.ok((await notices(p)).some((n) => why.test(n)) && (await dialogs(p)) === 1, `“${v}” is refused, in words, and the dialog stays: ${j(await notices(p))}`);
+			t.ok((await notices(p)).some((n) => why.test(n)) && (await dialogs(p)) === 1, `“${v}” is refused, in words, and the window stays: ${j(await notices(p))}`);
 		}
 		await shot(p, 'compile-refused');
 		await clearNotices(p);
 		await setPath(p, 'Exports/Draft one');
-		await dialogTap(p, 'Compile');
+		await dialogTap(p, 'Export');
 		await until(p, `!!app.vault.getAbstractFileByPath('Exports/Draft one.md')`, 5000);
 		await p.sleep(900);
-		t.eq(j([await dialogs(p), await activeFile(p)]), j([0, 'Exports/Draft one.md']), 'a folder in the name is made, and the compiled note opens');
-		t.ok((await notices(p)).includes('Compiled 7 notes into “Draft one”.'), 'with a word about it');
+		t.eq(j([await dialogs(p), await activeFile(p)]), j([0, 'Exports/Draft one.md']), 'a folder in the name is made, and the exported note opens');
+		t.ok((await notices(p)).includes('Exported 7 notes into “Draft one”.'), 'with a word about it');
 		const text = await read(p, 'Exports/Draft one.md');
 		t.ok(/^# The Lighthouse\n/.test(text) && /The light had not gone out/.test(text) && !/^---/m.test(text.replace(/\n---\n/g, '')) && !/synopsis:/.test(text), 'the text of the notes, without properties');
 		// again, to the same place: no question
 		await open(p);
-		await openCompile(p);
+		await openOneNote(p);
 		await setPath(p, 'Exports/Draft one');
-		await dialogTap(p, 'Compile');
+		await dialogTap(p, 'Export');
 		await p.sleep(1200);
-		t.eq(j([await dialogs(p), (await tabs(p)).filter((x) => /Draft one/.test(x)).length]), j([0, 1]), 'compiled again: replaced without a question, in the tab it’s open in');
+		t.eq(j([await dialogs(p), (await tabs(p)).filter((x) => /Draft one/.test(x)).length]), j([0, 1]), 'exported again: replaced without a question, in the tab it’s open in');
 		// written in since: asked
 		await p.ev(`app.vault.adapter.write('Exports/Draft one.md', 'changed by hand').then(() => 1)`);
 		await p.sleep(900);
 		await open(p);
-		await openCompile(p);
+		await openOneNote(p);
 		await setPath(p, 'Exports/Draft one');
-		await dialogTap(p, 'Compile');
+		await dialogTap(p, 'Export');
 		await until(p, `document.querySelectorAll('.modal-container').length === 2`);
 		await p.sleep(400);
 		d = await dialog(p);
-		t.ok(/has been changed since it was compiled/.test(d.text), 'written in since: asked about');
+		t.ok(/has been changed since it was exported/.test(d.text), 'written in since: asked about');
 		await metrics(p, ...SMALL);
 		await p.sleep(500);
 		await shot(p, 'compile-replace-320');
@@ -1012,53 +1024,53 @@ test('phone dialogs: Compile to a name that’s taken asks before replacing and 
 		await p.sleep(400);
 		await dialogTap(p, 'Replace');
 		await until(p, `app.vault.adapter.read('Exports/Draft one.md').then(x => /^# The Lighthouse/.test(x))`, 5000);
-		t.eq(await dialogs(p), 0, 'Replace compiles and closes both');
+		t.eq(await dialogs(p), 0, 'Replace exports and closes both');
 		// Copy
 		await open(p);
-		await openCompile(p);
+		await openOneNote(p);
 		await clearNotices(p);
 		await dialogTap(p, 'Copy');
 		await p.sleep(900);
-		t.eq(j([await dialogs(p), j(await notices(p))]), j([0, j(['Copied 7 notes as one text.'])]), 'Copy closes the dialog and says how much was copied');
+		t.eq(j([await dialogs(p), j(await notices(p))]), j([0, j(['Copied 7 notes as one text.'])]), 'Copy closes the window and says how much was copied');
 	});
 	const after = await texts(p);
 	for (const [path, text] of Object.entries(before)) t.eq(after[path], text, `“${path}” is unchanged`);
 });
 
-ux('phone dialogs: in Compile, Done on the keyboard in “Save as” compiles, as it sets the target in “Set target” (nothing happens; the Compile button is a scroll away under the keyboard)', async (p, h, t) => {
+ux('phone dialogs: in Export, Done on the keyboard in “Save as” exports, as it sets the target in “Set target” (nothing happens; the Export button is a scroll away under the keyboard)', async (p, h, t) => {
 	await onDevice(p, PHONE, async () => {
 		await open(p);
-		await openCompile(p);
+		await openOneNote(p);
 		await setPath(p, 'Out');
 		await p.key('Enter');
 		await p.sleep(1500);
 		const made = await has(p, 'Out.md');
-		t.ok(made, 'Enter in the name’s field compiles (dialogs still open: ' + (await dialogs(p)) + ')');
+		t.ok(made, 'Enter in the name’s field exports (dialogs still open: ' + (await dialogs(p)) + ')');
 	});
 });
 
-ux('phone dialogs: Compile remembers where this binder was last compiled to, so that “compiling again replaces the last compile” without typing the name again (it offers “… (compiled).md” every time)', async (p, h, t) => {
+ux('phone dialogs: Export remembers where this binder was last exported to as one note, so that “exporting again replaces the last export” without typing the name again (it offers “… (exported).md” every time)', async (p, h, t) => {
 	await onDevice(p, PHONE, async () => {
 		await open(p);
-		await openCompile(p);
+		await openOneNote(p);
 		await setPath(p, 'Exports/Second draft');
-		await dialogTap(p, 'Compile');
+		await dialogTap(p, 'Export');
 		await until(p, `!!app.vault.getAbstractFileByPath('Exports/Second draft.md')`, 5000);
 		await p.sleep(700);
 		await open(p);
-		await openCompile(p);
-		const offered = await p.ev(`document.querySelector('.modal .binders-compile-path').value`);
+		await openOneNote(p);
+		const offered = await p.ev(`document.querySelector('.modal .binders-export-path').value`);
 		await closeDialog(p);
 		t.ok(/Exports\/Second draft/.test(offered), 'the name offered the second time: ' + offered);
 	});
 });
 
-ux('phone dialogs: after Compile, Back returns from the compiled note to the binder (the note opens in a second tab, whose Back is dead: the binder is only reachable through the tab switcher)', async (p, h, t) => {
+ux('phone dialogs: after Export, Back returns from the exported note to the binder (the note opens in a second tab, whose Back is dead: the binder is only reachable through the tab switcher)', async (p, h, t) => {
 	await onDevice(p, PHONE, async () => {
 		await open(p);
-		await openCompile(p);
-		await dialogTap(p, 'Compile');
-		await until(p, `app.workspace.getActiveFile()?.path === 'The Lighthouse (compiled).md'`, 5000);
+		await openOneNote(p);
+		await dialogTap(p, 'Export');
+		await until(p, `app.workspace.getActiveFile()?.path === 'The Lighthouse (exported).md'`, 5000);
 		await p.sleep(800);
 		await shot(p, 'ux-compiled-tab');
 		const n = (await tabs(p)).length, back = await p.ev(`${NAVBACK}.ariaDisabled`);
@@ -1080,12 +1092,13 @@ test('phone settings: the switches work by touch and “Hide binder and folder n
 		t.ok(await p.ev(`[...document.querySelectorAll('.modal.mod-settings .vertical-tab-nav-item')].some(e => e.textContent === 'Binders')`), 'Binders is in the settings’ list');
 		await openSettings(p);
 		await shot(p, 'settings-top');
-		t.eq(j(await p.ev(`[...${TAB}.querySelectorAll('.setting-item-heading')].map(e => e.textContent)`)), j(['File explorer', 'Labels', 'Statuses', 'Focus mode', 'Property names']), 'its five parts');
+		t.eq(j(await p.ev(`[...${TAB}.querySelectorAll('.setting-item-heading')].map(e => e.textContent)`)), j(['File explorer', 'Paragraphs', 'Labels', 'Statuses', 'Focus mode', 'Export', 'Property names']), 'its seven parts');
+		t.eq(j(await p.ev(`['exports', 'places', 'author', 'contact'].map(c => ${TAB}.querySelector('.binders-settings-' + c + ' .setting-item-name')?.textContent ?? null)`)), j(['Exports folder', 'Remembered places', 'Your name', 'Contact details']), 'Export’s four rows');
 		t.ok(await p.ev(`${TAB}.scrollWidth <= ${TAB}.clientWidth + 1`), 'nothing wider than the screen');
 		const toggles = () => p.ev(`[...${TAB}.querySelectorAll('.checkbox-container')].slice(0, 4).map(e => { e.scrollIntoView({ block: 'nearest' }); return (${R})(e); })`);
 		const flags = () => p.ev(`(({ orderExplorer, openOnClick, hideBinderNotes, explorerLabels }) => [orderExplorer, openOnClick, hideBinderNotes, explorerLabels].join())(${PL}.settings)`);
 		let tg = await toggles();
-		t.eq(await p.ev(`${TAB}.querySelectorAll('.checkbox-container').length`), 9, 'four explorer switches and five focus switches');
+		t.eq(await p.ev(`${TAB}.querySelectorAll('.checkbox-container').length`), 11, 'four explorer switches, two for paragraphs and five focus switches');
 		t.ok(tg.length === 4 && tg.every((r) => r[2] >= 44 && r[3] >= 28), 'four explorer switches, each a finger wide: ' + j(tg));
 		await tap(p, tg[0][0] + tg[0][2] / 2, tg[0][1] + tg[0][3] / 2);
 		await p.sleep(700);
@@ -1220,7 +1233,7 @@ test('phone settings: statuses are added, renamed (asking about the notes), reor
 		await p.sleep(700);
 		t.eq(await statuses(), 'Idea,Revised,Done,Proofread', 'and its ✕ deletes it');
 		// property names
-		const props = `[...${TAB}.querySelectorAll('.setting-item:not(.binders-settings-label):not(.binders-settings-status):not(.binders-settings-goal) input[type="text"]')]`;
+		const props = `[...${TAB}.querySelectorAll('.setting-item:not(.binders-settings-label):not(.binders-settings-status):not(.binders-settings-goal):not(.binders-settings-exports):not(.binders-settings-author) input[type="text"]')]`;
 		const fields = await p.ev(`${props}.map(i => { i.scrollIntoView({ block: 'center' }); return { v: i.value, ph: i.placeholder, r: (${R})(i) }; })`);
 		t.eq(j(fields.map((x) => [x.v, x.ph])), j([['synopsis', 'synopsis'], ['status', 'status'], ['label', 'label'], ['target', 'target']]), 'four property names');
 		t.ok(fields.every((x) => x.r[2] >= 200 && x.r[3] >= 40), 'in wide, finger-tall fields');
@@ -1260,7 +1273,7 @@ bug('phone settings: a label’s color menu shows the color’s name whole (the 
 ux('phone settings: a property’s name is typed without the keyboard capitalizing or correcting it (the fields have no `autocapitalize="none"`: “summary” comes out “Summary” on a phone, which is another property)', async (p, h, t) => {
 	await onDevice(p, PHONE, async () => {
 		await openSettings(p);
-		const fields = await p.ev(`[...${TAB}.querySelectorAll('.setting-item:not(.binders-settings-label):not(.binders-settings-status):not(.binders-settings-goal) input[type="text"]')].map(i => ({ value: i.value, autocapitalize: i.getAttribute('autocapitalize'), autocorrect: i.getAttribute('autocorrect') }))`);
+		const fields = await p.ev(`[...${TAB}.querySelectorAll('.setting-item:not(.binders-settings-label):not(.binders-settings-status):not(.binders-settings-goal):not(.binders-settings-exports):not(.binders-settings-author) input[type="text"]')].map(i => ({ value: i.value, autocapitalize: i.getAttribute('autocapitalize'), autocorrect: i.getAttribute('autocorrect') }))`);
 		t.ok(fields.length === 4 && fields.every((f) => /^(none|off)$/.test(f.autocapitalize ?? '')), 'each field turns capitals off: ' + j(fields));
 	});
 });
@@ -1269,7 +1282,7 @@ ux('phone settings: a property’s name is typed without the keyboard capitalizi
 // Other binders: read only, Longform, empty, many, long and right-to-left names
 // =====================================================================================================================
 
-test('phone: a binder in a newer format says it’s read only in every mode, at 390 and 320 px, with no “New” and no target to set; Compile still works', async (p, h, t) => {
+test('phone: a binder in a newer format says it’s read only in every mode, at 390 and 320 px, with no “New” and no target to set; Export still works', async (p, h, t) => {
 	await onDevice(p, PHONE, async () => {
 		await p.ev(FUTURE);
 		await p.sleep(1200);
@@ -1300,10 +1313,10 @@ test('phone: a binder in a newer format says it’s read only in every mode, at 
 		const items = await menuItems(p);
 		await gone(p);
 		t.ok(items.includes('Open') && !items.includes('Rename') && !items.includes('Delete') && !items.includes('Set status'), 'a card’s menu opens the note and changes nothing: ' + j(items));
-		await openCompile(p);
-		await dialogTap(p, 'Compile');
-		await until(p, `!!app.vault.getAbstractFileByPath('Future (compiled).md')`, 5000);
-		t.ok(/one/.test(await read(p, 'Future (compiled).md')), 'Compile reads it all the same');
+		await openOneNote(p);
+		await dialogTap(p, 'Export');
+		await until(p, `!!app.vault.getAbstractFileByPath('Future (exported).md')`, 5000);
+		t.ok(/one/.test(await read(p, 'Future (exported).md')), 'Export reads it all the same');
 		t.eq(await read(p, 'Future/Future.md'), '---\nbinder: 99\ncontents:\n  - One\n---\n', 'and its binder note is untouched');
 	});
 });
@@ -1328,7 +1341,7 @@ test('phone: a Longform project in the explorer and as a binder: its scenes in L
 		await p.sleep(500);
 		const items = await menuItems(p);
 		await gone(p);
-		t.ok(!items.includes('Show subfolders as stacks') && items.includes('Open binder note') && items.includes('Compile...'), 'More options: no stacks, where there are no folders: ' + j(items));
+		t.ok(!items.includes('Show subfolders as stacks') && items.includes('Open binder note') && items.includes('Export...'), 'More options: no stacks, where there are no folders: ' + j(items));
 	});
 });
 
@@ -1427,10 +1440,10 @@ test('phone explorer, light and dark, and with text at 22 px: the folder shown i
 		t.ok(rows.every((r) => (r.dotMid == null || Math.abs(r.dotMid) <= 1) && (r.tagMid == null || Math.abs(r.tagMid) <= 1) && r.inner <= 0), 'at 22 px: still centred, and no name cut: ' + j(rows.map((r) => [r.name, r.dotMid, r.tagMid, r.inner])));
 		await p.ev(`app.workspace.leftSplit.collapse()`);
 		await p.sleep(500);
-		await openCompile(p);
+		await openOneNote(p);
 		await shot(p, 'look-compile-large');
 		const d = await dialog(p);
-		t.ok(fitsScreen(d) && await p.ev(`[...document.querySelectorAll('.modal .setting-item')].every(s => { const r = s.getBoundingClientRect(), b = document.querySelector('.modal').getBoundingClientRect(); return r.left >= b.left && r.right <= b.right; })`), 'at 22 px the Compile dialog fits the screen, no setting wider than it');
+		t.ok(fitsScreen(d) && await p.ev(`[...document.querySelectorAll('.modal .setting-item')].every(s => { const r = s.getBoundingClientRect(), b = document.querySelector('.modal').getBoundingClientRect(); return r.left >= b.left && r.right <= b.right; })`), 'at 22 px the Export window fits the screen, no setting wider than it');
 		await closeDialog(p);
 	});
 });
@@ -1458,11 +1471,14 @@ test('tablet: the same binder in two tabs shows a change in both, the explorer m
 		await p.sleep(900);
 		const shown = await p.ev(`[...document.querySelectorAll('.workspace-split.mod-root .workspace-leaf')].map(l => [...l.querySelectorAll('.binders-card[data-path], .binders-outliner-row[data-path]')].map(c => c.dataset.path.split('/').pop()).filter(x => /Arrival|keeper/.test(x)).join())`);
 		t.eq(j(shown), j(['The keeper.md,Arrival.md', 'The keeper.md,Arrival.md']), 'a move shows in both tabs');
-		await openCompile(p);
+		await openOneNote(p);
 		await shot(p, 'tablet-compile');
 		let d = await dialog(p);
-		t.ok(fitsScreen(d) && d.box[2] < TABLET[0] - 100 && d.scrolls <= 0 && d.buttons.every((b) => b.rect[1] + b.rect[3] <= d.box[1] + d.box[3]), 'Compile is a box in the middle, whole, its buttons in sight: ' + j(d.box));
-		await closeDialog(p);
+		// (the Export window is Obsidian's two-pane dialog, wider than the small Compile box was: still a box, in the middle, both panes in it)
+		const made = await exportButtons(p), panes = await p.ev(`!!document.querySelector('.modal.binders-export .binders-export-side') && !!document.querySelector('.modal.binders-export .binders-export-pane')`);
+		t.ok(fitsScreen(d) && d.box[2] < TABLET[0] && Math.abs(d.box[0] - (TABLET[0] - d.box[0] - d.box[2])) <= 2 && d.scrolls <= 0 && panes && j(made.map((b) => b.text)) === j(['Copy', 'Export']) && made.every((b) => b.rect[1] >= d.box[1] && b.rect[1] + b.rect[3] <= d.box[1] + d.box[3]), 'Export is a box in the middle, whole, its two panes side by side and its buttons in sight: ' + j([d.box, made]));
+		await p.key('Escape');
+		await p.sleep(500);
 		await p.ev(`app.commands.executeCommandById('binders:set-target')`);
 		await until(p, `!!document.querySelector('.modal .binders-ask input')`);
 		await p.sleep(500);

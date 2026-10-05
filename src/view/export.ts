@@ -3,7 +3,7 @@ import type BindersPlugin from '../main';
 import { DOCX_MIME, KINDS, exportsFolder, fileName, manuscript, placeFor, readBook, save, setPlace, share, shownPath, type Kind, type Saved } from '../export/export';
 import { MANUSCRIPT_STYLES, manuscriptStyle } from '../export/docx-parts';
 import { STRUCTURES, type Book } from '../export/model';
-import { compileText, compiles, oneNotePath, writeOneNote } from '../scenes';
+import { oneNoteText, isExported, oneNotePath, writeOneNote } from '../scenes';
 import { COMPILE_DEFAULTS, forRender, type CompileOptions } from '../scene-text';
 import { drawManuscript, drawOutline } from './export-preview';
 import { historyLook } from './internals';
@@ -113,15 +113,23 @@ export class ExportModal extends Modal {
 	private draw(): void { this.choices(); this.bar(); }
 
 	/** Reads what is to be made, for the preview and the counts. A later read takes an earlier one's place. */
-	private async load(): Promise<void> {
+	private load(): Promise<void> {
 		const turn = ++this.loading;
+		return (this.reading = this.reading.then(() => this.read(turn)));
+	}
+	/** The read under way, and those before it: one at a time, and an export waits for them, so the notes' unsaved
+	    typing is never being written down by two readers at once. */
+	private reading: Promise<void> = Promise.resolve();
+
+	private async read(turn: number): Promise<void> {
+		if (turn !== this.loading) return;
 		try {
 			if (this.kind === 'manuscript') {
 				const { book, words } = await readBook(this.plugin, this.folder, this.matter);
 				if (turn !== this.loading) return;
 				this.book = book; this.words = words;
 			} else {
-				const note = await compileText(this.plugin, this.folder, this.o);
+				const note = await oneNoteText(this.plugin, this.folder, this.o);
 				if (turn !== this.loading) return;
 				this.note = note; this.words = countWords(note.text);
 			}
@@ -195,7 +203,7 @@ export class ExportModal extends Modal {
 			toggle('tabs', 'Take tabs off paragraphs', o.stripTabs, (v) => { o.stripTabs = v; });
 			new Setting(el).setName('Save as').setClass('binders-export-saveas').addText((t) => {
 				t.setValue(this.path).onChange((v) => { this.path = v.trim(); });
-				t.inputEl.addClass('binders-compile-path');
+				t.inputEl.addClass('binders-export-path');
 				t.inputEl.dataset.bindersKey = 'path';
 				t.inputEl.setAttrs({ enterkeyhint: 'done', 'aria-label': 'Save as: a note in this vault, outside the binder' });
 				t.inputEl.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); void this.run(); } });
@@ -238,7 +246,7 @@ export class ExportModal extends Modal {
 				}
 			}
 		} else {
-			const scenes = this.plugin.binders.scenes(this.folder), left = scenes.filter((f) => !compiles(this.plugin, f)).length;
+			const scenes = this.plugin.binders.scenes(this.folder), left = scenes.filter((f) => !isExported(this.plugin, f)).length;
 			foot.createDiv({ cls: 'binders-export-needs', text: `The notes’ text only, without properties, as one note. Exporting again replaces it; a note that’s been written in since is asked about first.${left ? ` ${left} ${left === 1 ? 'note is' : 'notes are'} left out.` : ''} Your notes aren’t changed.` });
 		}
 		if (Platform.isPhone) {
@@ -345,7 +353,7 @@ export class ExportModal extends Modal {
 
 	private async copy(): Promise<void> {
 		try {
-			const { text, scenes } = await compileText(this.plugin, this.folder, this.o);
+			const { text, scenes } = await oneNoteText(this.plugin, this.folder, this.o);
 			await navigator.clipboard.writeText(text);
 			new Notice(`Copied ${scenes.toLocaleString()} ${scenes === 1 ? 'note' : 'notes'} as one text.`);
 			this.close();
@@ -357,14 +365,15 @@ export class ExportModal extends Modal {
 		if (this.busy) return;
 		this.cancelled = false;
 		try {
+			this.say('Reading the notes…');
+			await this.reading;
 			if (this.kind === 'note') {
-				this.say('Reading the notes…');
-				const { text, scenes } = await compileText(this.plugin, this.folder, this.o);
+				const { text, scenes } = await oneNoteText(this.plugin, this.folder, this.o);
 				if (this.cancelled) return;
-				if (await writeOneNote(this.plugin, this.folder, this.path, text, scenes)) this.close();
+				// (a name that can't be used is said as it is: nothing went wrong, the writer is asked for another)
+				try { if (await writeOneNote(this.plugin, this.folder, this.path, text, scenes)) this.close(); } catch (e) { new Notice(e instanceof Error ? e.message : String(e)); }
 				return;
 			}
-			this.say('Reading the notes…');
 			const { book, words } = await readBook(this.plugin, this.folder, this.matter);
 			if (this.cancelled) return;
 			this.book = book; this.words = words;

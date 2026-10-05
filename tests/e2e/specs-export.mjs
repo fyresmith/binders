@@ -249,7 +249,7 @@ test('a note changed outside after the window opened is exported as it is now', 
 	t.ok(docx(join(p.vaultDir, 'Exports', 'The Lighthouse.docx')).all.includes('CHANGED-OUTSIDE'), 'the file has the note’s text as it is on disk at export');
 });
 
-test('one note: what Compile did, from the window, with tabs taken off paragraphs unless said otherwise', async (p, h, t, before) => {
+test('one note: what Compile was, from the window, with tabs taken off paragraphs unless said otherwise', async (p, h, t, before) => {
 	await writeRaw(p, L + 'Prologue.md', '\tA tabbed paragraph.\n\tAnd a second.\n');
 	await p.sleep(500);
 	const then = await texts(p);
@@ -258,12 +258,12 @@ test('one note: what Compile did, from the window, with tabs taken off paragraph
 	await until(p, `!!document.querySelector('${WIN} .binders-export-note > *')`);
 	t.eq(await p.ev(`document.querySelector('${WIN} .binders-snapshots-name').textContent`), 'One note', 'the bar names it');
 	t.eq((await p.ev(`[...document.querySelectorAll('${WIN} .binders-export-options .setting-item-name')].map(e => e.textContent)`)).join('|'), 'Title|Folders as headings|Note titles as headings|Between notes|Leave out comments|Take tabs off paragraphs|Save as', 'its options');
-	t.eq(await p.ev(`document.querySelector('${WIN} .binders-compile-path').value`), 'The Lighthouse (compiled).md', 'saved beside the binder by default');
+	t.eq(await p.ev(`document.querySelector('${WIN} .binders-export-path').value`), 'The Lighthouse (exported).md', 'saved beside the binder by default');
 	t.ok(await p.ev(`document.querySelector('${WIN} .binders-export-note h1')?.textContent === 'The Lighthouse' && !document.querySelector('${WIN} .binders-export-note pre')`), 'the preview is the note, and its tabbed paragraphs aren’t code');
 	t.eq((await p.ev(`[...document.querySelectorAll('${WIN} .modal-setting-titlebar-actions button')].map(b => b.textContent)`)).join('|'), 'Copy|Export', 'Copy, and Export');
 	await press(p, 'Export');
-	await until(p, `app.workspace.getActiveFile()?.path === 'The Lighthouse (compiled).md'`, 6000);
-	const made = await p.ev(`app.vault.adapter.read('The Lighthouse (compiled).md')`);
+	await until(p, `app.workspace.getActiveFile()?.path === 'The Lighthouse (exported).md'`, 6000);
+	const made = await p.ev(`app.vault.adapter.read('The Lighthouse (exported).md')`);
 	t.ok(made.startsWith('# The Lighthouse\n\nA tabbed paragraph.\nAnd a second.\n\n## Part One\n\n'), 'the note: the title, the text without its tabs, folders as headings');
 	t.eq((await asked(p)).length, 0, 'no save dialog: the note is in the vault');
 	t.ok(!(await p.ev(`!!document.querySelector('${WIN}')`)), 'the window closes and the note opens');
@@ -273,8 +273,8 @@ test('one note: what Compile did, from the window, with tabs taken off paragraph
 	await p.ev(`(() => { document.querySelector('${WIN} [data-binders-key="tabs"]').click(); return 1; })()`);
 	await p.sleep(500);
 	await press(p, 'Export');
-	await until(p, `app.vault.adapter.read('The Lighthouse (compiled).md').then(s => s.includes('\\tA tabbed paragraph.'))`, 6000);
-	t.ok((await p.ev(`app.vault.adapter.read('The Lighthouse (compiled).md')`)).includes('\tA tabbed paragraph.\n\tAnd a second.'), 'with “Take tabs off paragraphs” off, the text is as typed');
+	await until(p, `app.vault.adapter.read('The Lighthouse (exported).md').then(s => s.includes('\\tA tabbed paragraph.'))`, 6000);
+	t.ok((await p.ev(`app.vault.adapter.read('The Lighthouse (exported).md')`)).includes('\tA tabbed paragraph.\n\tAnd a second.'), 'with “Take tabs off paragraphs” off, the text is as typed');
 	same(t, then, await texts(p));
 	void before;
 });

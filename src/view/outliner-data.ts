@@ -16,7 +16,7 @@ export const BUILT_IN: readonly BuiltIn[] = [
 	{ id: 'words', name: 'Words', icon: 'whole-word', width: 80, numeric: true, about: 'Words in the note; for a folder, in every note in it' },
 	{ id: 'target', name: 'Target', icon: 'target', width: 80, numeric: true, about: 'The note’s word count target; for a folder without one, its notes’ targets together' },
 	{ id: 'progress', name: 'Progress', icon: 'loader', width: 120, numeric: true, about: 'How far along its target the note is' },
-	{ id: 'compile', name: 'Compile', icon: 'book-check', width: 76, about: 'Whether the note is included when the binder is compiled' },
+	{ id: 'export', name: 'Export', icon: 'book-up', width: 76, about: 'Whether the note is included when the binder is exported' },
 	{ id: 'created', name: 'Created', icon: 'calendar-plus', width: 110, numeric: true, about: 'When the note was created' },
 	{ id: 'modified', name: 'Modified', icon: 'calendar-clock', width: 110, numeric: true, about: 'When the note was last changed' },
 ];
@@ -50,7 +50,9 @@ export function readColumns(v: unknown): ColumnSpec[] | null {
 	if (!Array.isArray(v)) return null;
 	const out: ColumnSpec[] = [];
 	for (const x of v as unknown[]) {
-		const id = typeof x === 'string' ? x : x && typeof x === 'object' ? (x as { id?: unknown }).id : null;
+		const said = typeof x === 'string' ? x : x && typeof x === 'object' ? (x as { id?: unknown }).id : null;
+		// (the column "Export" was "Compile" once: columns saved then are it)
+		const id = said === 'compile' ? 'export' : said;
 		if (typeof id !== 'string' || !isColumn(id) || out.some((c) => c.id === id)) continue;
 		const w = x && typeof x === 'object' ? (x as { width?: unknown }).width : undefined;
 		out.push(typeof w === 'number' && isFinite(w) ? { id, width: clampWidth(w) } : { id });

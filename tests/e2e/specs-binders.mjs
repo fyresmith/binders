@@ -762,7 +762,7 @@ test('binders: a file and the note named after it (paper.pdf, paper.pdf.md) are 
 		// the file arrives beside it
 		await p.ev(`app.vault.createBinary(${j(pdf)}, new Uint8Array([37, 80, 68, 70]).buffer).then(() => 1)`); await p.sleep(300);
 		t.eq(j(await children(p, P1)), j(['Arrival.md', 'paper.pdf.md', 'paper.pdf', 'The keeper.md', 'Storm warning.md']), 'the file arrives: the note keeps its place, the file is a new item, right after it; each shows once');
-		t.eq(j(await p.ev(`${B}.scenes(${file(P1)}).map(f => f.name)`)), j(['Arrival.md', 'paper.pdf.md', 'The keeper.md', 'Storm warning.md']), 'the note is one scene (a manuscript or a compile has its text once)');
+		t.eq(j(await p.ev(`${B}.scenes(${file(P1)}).map(f => f.name)`)), j(['Arrival.md', 'paper.pdf.md', 'The keeper.md', 'Storm warning.md']), 'the note is one scene (a manuscript or an export has its text once)');
 		// each is moved on its own
 		await p.ev(`${B}.move(${file(pdf)}, ${file(P1)}, 0).then(() => 1)`);
 		await p.ev(`${B}.moveDown(${file(note)}).then(() => 1)`);

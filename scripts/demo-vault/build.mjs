@@ -147,8 +147,8 @@ function novel(add, rand) {
 	}
 	contents.push('Epilogue', 'Research/', 'Research/Salt making', 'Research/Guild ranks', 'Research/Map of the road.canvas');
 	add('Epilogue.md', note({ synopsis: 'The pans, a year on.', status: 'Idea', label: 'Purple' }, ''));
-	add('Research/Research.md', note({ synopsis: 'Not part of the book: left out of a compile.', compile: false }, ''));
-	add('Research/Salt making.md', note({ compile: false, label: 'Yellow' }, prose(rand, 300)));
+	add('Research/Research.md', note({ synopsis: 'Not part of the book: left out of every export.', export: false }, ''));
+	add('Research/Salt making.md', note({ export: false, label: 'Yellow' }, prose(rand, 300)));
 	add('Research/Guild ranks.md', note({ compile: false, label: 'Yellow' }, '- Master\n- Warden\n- Factor\n- Carter\n'));
 	add('Research/Map of the road.canvas', canvas([{ type: 'text', text: 'The pans' }, { type: 'text', text: 'The toll house' }, { type: 'text', text: 'The city' }]));
 	add('A note the list doesn’t mention.md', note({ synopsis: 'New notes show after the listed ones until they’re moved.' }, prose(rand, 80)));
@@ -268,7 +268,7 @@ const NEWER = '---\nbinder: 99\ncontents:\n  - id: a1\n    path: Second\n  - id:
 
 /** Every binder in the vault, in the order the README lists them. */
 export const SCENARIOS = [
-	{ folder: 'The Salt Road', about: 'A small novel as a writer would have it: three parts, labels, statuses, synopses, targets on scenes, folders and the book, research left out of a compile, a note the list doesn’t mention, and snapshots (three scenes, and one of a note that’s gone).', make: novel },
+	{ folder: 'The Salt Road', about: 'A small novel as a writer would have it: three parts, labels, statuses, synopses, targets on scenes, folders and the book, research left out of exports (one note by the property’s older name, compile), a note the list doesn’t mention, and snapshots (three scenes, and one of a note that’s gone).', make: novel },
 	{ folder: 'Empty binder', about: 'A binder with nothing in it: every mode’s empty state.', make: (add) => add('Empty binder.md', note({ binder: 1, contents: [] })) },
 	{ folder: 'One note', about: 'A binder of one note.', make: (add, rand) => { add('One note.md', note({ binder: 1, contents: ['The only scene'] })); add('The only scene.md', note({ synopsis: 'All there is.' }, prose(rand, 200))); } },
 	{ folder: 'Five thousand notes', about: '5,000 notes in 200 folders (ten parts of nineteen chapters). For speed: opening, scrolling, filtering, dragging, the file explorer.', make: huge },

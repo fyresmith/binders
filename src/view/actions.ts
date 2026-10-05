@@ -1,5 +1,6 @@
 import { Menu, Notice, Platform, TFile, TFolder, normalizePath, type TAbstractFile } from 'obsidian';
-import { COMPILE_PROP, CompileModal, compiles, isNote, mergeScenes, saveOpen, synopsisFromText } from '../scenes';
+import { COMPILE_PROP, EXPORT_PROP, isExported, isNote, mergeScenes, saveOpen, synopsisFromText } from '../scenes';
+import { ExportModal } from './export';
 import { fitItemMenu, openPluginSettings, submenu, trashPhrase } from './internals';
 import { hexColor, labelCss, labelDot, labelName, presetOf } from './labels';
 import { ask, confirm, pickColor } from './modals';
@@ -200,7 +201,7 @@ export function propItems(ctx: ModeContext, menu: Menu, items: TAbstractFile[]):
 
 const tell = async <T>(p: Promise<T>): Promise<T | null> => { try { return await p; } catch (e) { new Notice(e instanceof Error ? e.message : String(e)); return null; } };
 
-/** Copying, grouping, merging, and whether it's compiled: what changes the binder's shape. */
+/** Copying, grouping, merging, and whether it's exported: what changes the binder's shape. */
 function structureItems(ctx: ModeContext, menu: Menu, items: TAbstractFile[], h: Hooks): void {
 	const one = items.length === 1 ? items[0] : null, longform = ctx.binder.kind === 'longform', store = ctx.store;
 	if (one) menu.addItem((i) => i.setSection('structure').setTitle('Duplicate').setIcon('copy').onClick(async () => {
@@ -217,24 +218,25 @@ function structureItems(ctx: ModeContext, menu: Menu, items: TAbstractFile[], h:
 	}));
 	// siblings only: a folder goes where the first of them is
 	if (!longform && items.every((f) => f.parent === items[0].parent)) menu.addItem((i) => i.setSection('structure').setTitle(items.length > 1 ? 'New folder from selection' : 'Put in a new folder').setIcon('folder-plus').onClick(async () => { const made = await tell(store.group(items)); if (made) h.made?.(made, true); }));
-	if (one instanceof TFolder) menu.addItem((i) => i.setSection('structure').setTitle('Compile...').setIcon('book-check').onClick(() => new CompileModal(ctx.plugin, one).open()));
+	if (one instanceof TFolder) menu.addItem((i) => i.setSection('structure').setTitle('Export...').setIcon('book-up').onClick(() => new ExportModal(ctx.plugin, one).open()));
 	if (one instanceof TFolder && (store.orderedChildren(one) ?? []).length) menu.addItem((i) => i.setSection('structure').setTitle('Ungroup').setIcon('folder-output').onClick(() => void tell(store.ungroup(one))));
-	const on = items.every((f) => { const n = noteOf(ctx, f); return !n || ctx.app.metadataCache.getFileCache(n)?.frontmatter?.[COMPILE_PROP] !== false; });
-	menu.addItem((i) => i.setSection('structure').setTitle('Include in compile').setIcon('book-check').setChecked(on).onClick(() => void setCompile(ctx, items, !on)));
+	const on = items.every((f) => { const n = noteOf(ctx, f); const fm = n ? ctx.app.metadataCache.getFileCache(n)?.frontmatter : null; return !fm || (fm[EXPORT_PROP] !== false && fm[COMPILE_PROP] !== false); });
+	menu.addItem((i) => i.setSection('structure').setTitle('Include in export').setIcon('book-check').setChecked(on).onClick(() => void setExported(ctx, items, !on)));
 }
 
-/** Leaves items out of compiles (`compile: false`), or puts them back in (the property goes). */
-export async function setCompile(ctx: ModeContext, items: TAbstractFile[], include: boolean): Promise<void> {
+/** Leaves items out of exports (`export: false`), or puts them back in: the property goes, and so does
+    `compile: false`, its name before export, which is never written but still read. */
+export async function setExported(ctx: ModeContext, items: TAbstractFile[], include: boolean): Promise<void> {
 	await tell((async () => {
 		if (ctx.readOnly) throw new Error('This binder is read only.');
 		for (const f of items) {
 			const note = f instanceof TFolder ? (include ? ctx.store.folderNote(f) : await ctx.store.ensureFolderNote(f)) : noteOf(ctx, f);
-			if (note) await ctx.store.setProps(note, { [COMPILE_PROP]: include ? undefined : false });
+			if (note) await ctx.store.setProps(note, include ? { [EXPORT_PROP]: undefined, [COMPILE_PROP]: undefined } : { [EXPORT_PROP]: false });
 		}
 	})());
 }
 
-export { compiles };
+export { isExported };
 
 /** What Obsidian's core plugins and other plugins offer for a note or a folder (bookmark it, merge it…), as its menu
     in the file explorer has: a card is that note. Binders' own items for the explorer are left out (main.ts). */

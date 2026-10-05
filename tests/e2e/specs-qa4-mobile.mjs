@@ -888,7 +888,7 @@ ux('phone: the filter sheet stays put between picks (after each pick it’s clos
 // Dialogs and settings
 // =====================================================================================================================
 
-test('small phone (320 px): every dialog fits the screen, with its buttons a finger tall and reachable, also with the keyboard up; the Compile dialog scrolls to its buttons', async (p, h, t) => {
+test('small phone (320 px): every dialog fits the screen, with its buttons a finger tall and reachable, also with the keyboard up; the Export window scrolls to its buttons', async (p, h, t) => {
 	await onDevice(p, SMALL, async () => {
 		await open(p);
 		const fits = (d, what) => {
@@ -962,27 +962,30 @@ test('small phone (320 px): every dialog fits the screen, with its buttons a fin
 		await shot(p, 'dialog-320-delete');
 		fits(d, 'Delete');
 		await dialogTap(p, 'Cancel');
-		// Compile: longer than the screen, so it scrolls
-		await p.ev(`app.commands.executeCommandById('binders:compile')`);
-		await until(p, `!!document.querySelector('.modal .binders-compile-path')`);
+		// Export, on “One note” (what Compile was): its choices are longer than the screen, so they scroll, down to Preview, Copy and Export at their foot
+		await p.ev(`(app.plugins.plugins.binders.settings.exportKind = 'note', app.commands.executeCommandById('binders:export'))`);
+		await until(p, `!!document.querySelector('.modal .binders-export-path')`);
 		await p.sleep(600);
 		d = await dialog(p);
 		await shot(p, 'dialog-320-compile');
-		t.ok(d.box[0] >= 0 && d.box[0] + d.box[2] <= 320 && d.box[1] >= 0 && d.box[1] + d.box[3] <= SMALL[1], 'Compile: the dialog is on the screen: ' + j(d.box));
-		t.ok(d.scrolls > 100, 'Compile: its settings scroll');
-		t.eq(j(d.buttons.map((b) => b.text)), j(['Compile', 'Copy', 'Cancel']), 'Compile: three buttons');
-		const low = await p.ev(`(() => { const m = document.querySelector('.modal'), c = m.querySelector('.modal-content'); c.scrollTop = c.scrollHeight; return [...m.querySelectorAll('.modal-button-container button')].map(b => Math.round(b.getBoundingClientRect().bottom)).concat(Math.round(m.getBoundingClientRect().bottom)); })()`);
+		t.ok(d.box[0] >= 0 && d.box[0] + d.box[2] <= 320 && d.box[1] >= 0 && d.box[1] + d.box[3] <= SMALL[1], 'Export: the window is on the screen: ' + j(d.box));
+		t.ok(await p.ev(`!!document.querySelector('.modal.binders-export .binders-export-side') && !document.querySelector('.modal.binders-export .binders-export-pane')`), 'Export: the choices are its first screen');
+		// (whichever of the window's boxes holds the choices is the one that scrolls)
+		const scrolls = await p.ev(`Math.max(...[...document.querySelectorAll('.modal.binders-export .modal-content, .modal.binders-export .binders-export-side, .modal.binders-export .modal-sidebar-inner')].map(e => e.scrollHeight - e.clientHeight))`);
+		t.ok(scrolls > 0, 'Export: its choices scroll: ' + scrolls);
+		t.eq(j(await p.ev(`[...document.querySelectorAll('.modal.binders-export .binders-export-phone-row button')].map(b => b.textContent)`)), j(['Preview', 'Copy', 'Export']), 'Export: three buttons at their foot');
+		const low = await p.ev(`(() => { const m = document.querySelector('.modal.binders-export'), b = [...m.querySelectorAll('.binders-export-phone-row button')]; b[b.length - 1].scrollIntoView({ block: 'end' }); return b.map(x => Math.round(x.getBoundingClientRect().bottom)).concat(Math.round(m.getBoundingClientRect().bottom)); })()`);
 		await p.sleep(300);
 		await shot(p, 'dialog-320-compile-end');
-		t.ok(low.slice(0, 3).every((y) => y <= low[3]), 'Compile: scrolled to its end, the buttons are inside it: ' + j(low));
-		t.ok(await p.ev(`(() => { const m = document.querySelector('.modal'); return [...m.querySelectorAll('.setting-item')].every(s => { const r = s.getBoundingClientRect(), b = m.getBoundingClientRect(); return r.left >= b.left && r.right <= b.right; }); })()`), 'Compile: no setting is wider than the dialog');
-		await dialogTap(p, 'Compile');
-		await until(p, `!!app.vault.getAbstractFileByPath('The Lighthouse (compiled).md')`, 5000);
-		t.ok(/The light had not gone out/.test(await read(p, 'The Lighthouse (compiled).md')), 'and Compile writes the note');
+		t.ok(low.slice(0, 3).every((y) => y > 0 && y <= low[3]), 'Export: scrolled to its end, the buttons are inside it: ' + j(low));
+		t.ok(await p.ev(`(() => { const m = document.querySelector('.modal.binders-export'); return [...m.querySelectorAll('.setting-item')].every(s => { const r = s.getBoundingClientRect(), b = m.getBoundingClientRect(); return r.left >= b.left && r.right <= b.right; }); })()`), 'Export: no setting is wider than the window');
+		await dialogTap(p, 'Export');
+		await until(p, `!!app.vault.getAbstractFileByPath('The Lighthouse (exported).md')`, 5000);
+		t.ok(/The light had not gone out/.test(await read(p, 'The Lighthouse (exported).md')), 'and Export writes the note');
 	});
 });
 
-bug('small phone (320 px): a dialog’s title can be read whole (“Word count target for the binder” and “Compile “The Lighthouse”” are cut off under the ✕, with no ellipsis)', async (p, h, t) => {
+bug('small phone (320 px): a dialog’s title can be read whole (“Word count target for the binder” and “Export “The Lighthouse”” are cut off under the ✕, with no ellipsis)', async (p, h, t) => {
 	await onDevice(p, SMALL, async () => {
 		await open(p);
 		const cut = {};
@@ -993,27 +996,28 @@ bug('small phone (320 px): a dialog’s title can be read whole (“Word count t
 		let d = await dialog(p);
 		cut.target = [d.titleCut, d.titleUnderClose];
 		await closeDialog(p);
-		await p.ev(`app.commands.executeCommandById('binders:compile')`);
-		await until(p, `!!document.querySelector('.modal .binders-compile-path')`);
+		await p.ev(`(app.plugins.plugins.binders.settings.exportKind = 'note', app.commands.executeCommandById('binders:export'))`);
+		await until(p, `!!document.querySelector('.modal .binders-export-path')`);
 		await p.sleep(400);
 		await shot(p, 'bug-dialog-title-cut-compile');
 		d = await dialog(p);
-		cut.compile = [d.titleCut, d.titleUnderClose];
+		cut.export = [d.titleCut, d.titleUnderClose];
+		t.eq(d.title, 'Export “The Lighthouse”', 'the Export window’s title');
 		await closeDialog(p);
-		t.ok(cut.target.every((x) => x <= 0) && cut.compile.every((x) => x <= 0), `px of each title [cut off, under the ✕]: ${j(cut)}`);
+		t.ok(cut.target.every((x) => x <= 0) && cut.export.every((x) => x <= 0), `px of each title [cut off, under the ✕]: ${j(cut)}`);
 	});
 });
 
-bug('phone: the Compile dialog says what it will do (its first line, “7 notes, in binder order, become one note…”, is squashed to 4 px and can’t be seen)', async (p, h, t) => {
+bug('phone: the Export window says what one note will be (the line under its choices, “The notes’ text only, without properties, as one note…”; the Compile dialog’s first line was squashed to 4 px and couldn’t be seen)', async (p, h, t) => {
 	await onDevice(p, PHONE, async () => {
 		await open(p);
-		await p.ev(`app.commands.executeCommandById('binders:compile')`);
-		await until(p, `!!document.querySelector('.modal .binders-compile-path')`);
+		await p.ev(`(app.plugins.plugins.binders.settings.exportKind = 'note', app.commands.executeCommandById('binders:export'))`);
+		await until(p, `!!document.querySelector('.modal .binders-export-path')`);
 		await p.sleep(500);
 		await shot(p, 'bug-compile-description');
-		const d = await p.ev(`(() => { const e = document.querySelector('.modal .modal-content > p'), s = getComputedStyle(e); return { text: e.textContent.slice(0, 40), height: Math.round(e.getBoundingClientRect().height), lineHeight: s.lineHeight, fontSize: s.fontSize, flexShrink: s.flexShrink, overflow: s.overflow, minHeight: s.minHeight, parent: getComputedStyle(e.parentElement).display + ' ' + getComputedStyle(e.parentElement).flexDirection }; })()`);
+		const d = await p.ev(`(() => { const e = document.querySelector('.modal.binders-export .binders-export-needs'); e.scrollIntoView({ block: 'nearest' }); const s = getComputedStyle(e); return { text: e.textContent.slice(0, 40), height: Math.round(e.getBoundingClientRect().height), lineHeight: s.lineHeight, fontSize: s.fontSize, flexShrink: s.flexShrink, overflow: s.overflow, minHeight: s.minHeight, parent: getComputedStyle(e.parentElement).display + ' ' + getComputedStyle(e.parentElement).flexDirection }; })()`);
 		await closeDialog(p);
-		t.ok(/^7 notes, in binder order/.test(d.text), 'the line is there: ' + d.text);
+		t.ok(/^The notes’ text only, without properties/.test(d.text), 'the line is there: ' + d.text);
 		t.ok(d.height >= 16, 'and tall enough to read: ' + j(d));
 	});
 });
@@ -1059,7 +1063,7 @@ test('small phone (320 px): in the settings, a label’s name, color, well, dele
 		const see = async (sel, name) => { await p.ev(`(() => { ${TAB}.querySelector(${j(sel)}).scrollIntoView({ block: 'start' }); return 1; })()`); await p.sleep(300); await shot(p, name); };
 		await see('.binders-settings-labels', 'settings-320-labels');
 		t.ok(await p.ev(`${TAB}.scrollWidth <= ${TAB}.clientWidth + 1`), 'nothing is wider than the screen');
-		const rows = await p.ev(`(() => { const R = ${R}; const of = (row) => ({ row: R(row), name: R(row.querySelector('.setting-item-name input')), select: R(row.querySelector('select')), well: R(row.querySelector('input[type="color"]')), icons: [...row.querySelectorAll('.setting-item-control .clickable-icon, .setting-item-control .extra-setting-button')].map(e => [e.getAttribute('aria-label'), ...R(e)]) }); return { labels: [...${TAB}.querySelectorAll('.binders-settings-label')].map(of), statuses: [...${TAB}.querySelectorAll('.binders-settings-status')].map(of), props: [...${TAB}.querySelectorAll('.setting-item:not(.binders-settings-label):not(.binders-settings-status):not(.binders-settings-goal) input[type="text"]')].map(R), text: ${TAB}.innerText }; })()`);
+		const rows = await p.ev(`(() => { const R = ${R}; const of = (row) => ({ row: R(row), name: R(row.querySelector('.setting-item-name input')), select: R(row.querySelector('select')), well: R(row.querySelector('input[type="color"]')), icons: [...row.querySelectorAll('.setting-item-control .clickable-icon, .setting-item-control .extra-setting-button')].map(e => [e.getAttribute('aria-label'), ...R(e)]) }); return { labels: [...${TAB}.querySelectorAll('.binders-settings-label')].map(of), statuses: [...${TAB}.querySelectorAll('.binders-settings-status')].map(of), props: [...${TAB}.querySelectorAll('.setting-item:not(.binders-settings-label):not(.binders-settings-status):not(.binders-settings-goal):not(.binders-settings-exports):not(.binders-settings-author) input[type="text"]')].map(R), text: ${TAB}.innerText }; })()`);
 		t.eq(rows.labels.length, 8, 'eight labels');
 		for (const r of rows.labels) {
 			const parts = [r.name, r.select, r.well, ...r.icons.map((i) => i.slice(1))];
@@ -1158,14 +1162,16 @@ test('phone file explorer: the binder is in its own order with its icon and labe
 		await explorerMenu(p, 'The Lighthouse');
 		await shot(p, 'explorer-binder-menu');
 		items = await menuItems(p);
-		for (const x of ['Open binder', 'New scene here', 'Compile...']) t.ok(items.includes(x), `“${x}” is in the binder’s menu`);
+		for (const x of ['Open binder', 'New scene here', 'Export...']) t.ok(items.includes(x), `“${x}” is in the binder’s menu`);
 		t.ok(!items.includes('Make this folder a binder'), 'and not “Make this folder a binder”');
-		t.ok(await menuTap(p, 'Compile...'), 'Compile...');
-		await until(p, `!!document.querySelector('.modal .binders-compile-path')`);
+		// (“Export...” opens the window on the kind last made: here, one note)
+		await p.ev(`(() => { app.plugins.plugins.binders.settings.exportKind = 'note'; return 1; })()`);
+		t.ok(await menuTap(p, 'Export...'), 'Export...');
+		await until(p, `!!document.querySelector('.modal .binders-export-path')`);
 		await p.sleep(400);
 		await shot(p, 'explorer-compile');
 		const d = await dialog(p);
-		t.eq(d.title, 'Compile “The Lighthouse”', 'Compile opens over the drawer');
+		t.eq(d.title, 'Export “The Lighthouse”', 'Export opens over the drawer');
 		t.eq(d.menus, 0, 'with no sheet left');
 		await closeDialog(p);
 		// Move down, from the menu: the order changes, in the explorer too

@@ -108,18 +108,14 @@ test('What Binders writes: a label set from a card changes only that note’s pr
 	t.ok(/label: Blue/.test(split(after[path]).yaml), 'the label is in the properties: ' + split(after[path]).yaml);
 	same(t, before, after, { skip: [path] });
 }));
-test('What Binders writes: Compile writes one new note and changes no note', withTidy(async (p, h, t) => {
+// README: “the one note an export makes (beside the binder, never in it)” and “Export changes none of your notes.”
+test('What Binders writes: Export (one note) writes one new note and changes no note', withTidy(async (p, h, t) => {
 	const before = await texts(p);
 	await openView(p);
-	await p.ev(`app.commands.executeCommandById('binders:compile')`);
-	await until(p, `!!document.querySelector('.modal')`);
-	await p.sleep(300);
-	const btn = await p.ev(`[...document.querySelectorAll('.modal button')].map(b => b.textContent)`);
-	await p.ev(`(() => { const b = [...document.querySelectorAll('.modal button')].find(b => /^(Compile|Create|Write)/.test(b.textContent) && !/Copy/.test(b.textContent)); if (b) b.click(); return 1; })()`);
-	await p.sleep(1200);
+	const { btns } = await oneNote(p);
 	const after = await texts(p);
 	const made = Object.keys(after).filter((k) => !(k in before));
-	t.eq(made.length, 1, 'one new note (buttons: ' + btn.join('/') + '): ' + j(made));
+	t.eq(made.length, 1, 'one new note (buttons: ' + btns.join('/') + '): ' + j(made));
 	t.ok(made[0] && !made[0].startsWith(L + '/'), 'beside the binder, not in it: ' + made[0]);
 	same(t, before, after);
 }));
@@ -372,35 +368,49 @@ test('Outliner keyboard: Alt+Right puts the row in the folder above, Alt+Left ta
 	t.ok(await exists(p, L + '/Epilogue.md'), 'Alt+Left takes it out again');
 	t.eq((await contents(p)).pop(), 'Epilogue', 'after the folder');
 }));
-const compile = async (p) => {
-	await p.ev(`app.commands.executeCommandById('binders:compile')`);
-	await until(p, `!!document.querySelector('.modal')`);
+/** Export as one note, by the command with the binder's view in front: the Export window on “One note” (as a writer
+    who made one note last time), then its Export button. The window closes when the note is written; a question
+    about a note that's there keeps it open. */
+const oneNote = async (p, after = 1200) => {
+	await p.ev(`(app.plugins.plugins.binders.settings.exportKind = 'note', app.commands.executeCommandById('binders:export'))`);
+	const opened = !!(await until(p, `!!document.querySelector('.modal.binders-export .binders-export-path')`));
 	await p.sleep(300);
-	await p.ev(`(() => { const b = [...document.querySelectorAll('.modal button')].find(b => /^(Compile|Create|Write)/.test(b.textContent) && !/Copy/.test(b.textContent)); if (b) b.click(); return 1; })()`);
-	await p.sleep(1200);
+	const btns = await p.ev(`[...document.querySelectorAll('.modal.binders-export button')].map(b => b.textContent)`);
+	await p.ev(`(() => { const b = [...document.querySelectorAll('.modal.binders-export button')].find(b => b.textContent === 'Export'); if (b) b.click(); return 1; })()`);
+	await until(p, `!document.querySelector('.modal.binders-export') || document.querySelectorAll('.modal').length > 1`, 6000);
+	await p.sleep(after);
+	return { opened, btns };
 };
-test('Compile: compiling again replaces the last compile; a note written in since is asked about first; your notes aren’t changed', withTidy(async (p, h, t) => {
+// README: “Exporting again offers the same note, and replaces the last one; a note that has been written in since, or wasn't made by an export, is asked about first.”
+// README: “Export reads your notes and writes the exported file: your notes aren't changed.”
+test('Export, one note: exporting again replaces the last one; a note written in since is asked about first; your notes aren’t changed', withTidy(async (p, h, t) => {
 	const before = await texts(p);
 	await openView(p);
-	await compile(p);
+	await oneNote(p);
 	const made = Object.keys(await texts(p)).filter((k) => !(k in before));
-	t.eq(made.length, 1, 'one compile note: ' + j(made));
-	await compile(p);
-	t.eq(j(Object.keys(await texts(p)).filter((k) => !(k in before))), j(made), 'compiling again replaces it: still just that one');
+	t.eq(made.length, 1, 'one exported note: ' + j(made));
+	same(t, before, await texts(p));
+	// the binder is written in (by the writer, not by export) and exported again, from its view: the exported note
+	// isn't in a binder, so the command isn't offered from it
+	const epilogue = L + '/Epilogue.md';
+	await p.ev(`app.vault.modify(${file(epilogue)}, ${j(before[epilogue] + '\nA line added since.\n')}).then(() => 1)`);
+	await p.sleep(400);
+	await openView(p);
+	await oneNote(p);
+	t.eq(j(Object.keys(await texts(p)).filter((k) => !(k in before))), j(made), 'exporting again replaces it: still just that one');
 	const text = await read(p, made[0]);
 	t.ok(text.includes('Prologue') || text.length > 100, 'it holds the binder’s text');
+	t.ok(text.includes('A line added since.'), 'as the binder is now: the last one was replaced, without a question: ' + j(text.slice(-80)));
+	t.eq(await p.ev(`document.querySelectorAll('.modal').length`), 0, 'and the window has closed');
+	same(t, before, await texts(p), { skip: [epilogue] });
 	await p.ev(`app.vault.adapter.write(${j(made[0])}, ${j(text + '\nMy own addition.\n')}).then(() => 1)`);
 	await p.sleep(300);
 	await openView(p);
-	await p.ev(`app.commands.executeCommandById('binders:compile')`);
-	const opened = await until(p, `!!document.querySelector('.modal')`); await p.sleep(300);
-	const btns = await p.ev(`[...document.querySelectorAll('.modal button')].map(b => b.textContent)`);
-	await p.ev(`(() => { const b = [...document.querySelectorAll('.modal button')].find(b => /^(Compile|Create|Write)/.test(b.textContent) && !/Copy/.test(b.textContent)); if (b) b.click(); return 1; })()`);
-	await p.sleep(2500);
-	t.ok(opened, 'the compile dialog opened; buttons ' + j(btns));
+	const { opened, btns } = await oneNote(p, 2500);
+	t.ok(opened, 'the Export window opened; buttons ' + j(btns));
 	const nowText = await read(p, made[0]);
 	const modals = await p.ev(`[...document.querySelectorAll('.modal')].map(m => m.textContent.slice(0, 200))`);
-	t.ok(modals.length >= 1 && /has been changed since it was compiled/.test(modals.join(' ')), 'a note written in since is asked about before it is replaced: ' + j(modals));
+	t.ok(modals.length >= 1 && /has been changed since it was exported/.test(modals.join(' ')), 'a note written in since is asked about before it is replaced: ' + j(modals));
 	t.ok(nowText.includes('My own addition.'), 'and still has the addition');
 	for (let i = 0; i < 4 && await p.ev(`document.querySelectorAll('.modal').length`); i++) { await p.key('Escape'); await p.sleep(250); }
 }));

@@ -300,7 +300,7 @@ ux('a phone: a section’s title in the manuscript (a tap renames the note) and 
 
 const TOGGLE = { x: 34, y: 81 }; // the drawer's button, top left of a phone's screen
 
-test('a session by thumb: a folder made in the drawer becomes a binder; scenes named on the board; one dragged up; a label, a status and a target by sheets; written in the manuscript with the keyboard up; split in two; focus mode in and out; snapshot; compiled; every word typed is in the vault once', on(PHONE, async (p, h, t) => {
+test('a session by thumb: a folder made in the drawer becomes a binder; scenes named on the board; one dragged up; a label, a status and a target by sheets; written in the manuscript with the keyboard up; split in two; focus mode in and out; snapshot; exported as one note; every word typed is in the vault once', on(PHONE, async (p, h, t) => {
 	const read = (path) => p.ev(`app.vault.adapter.read(${j(path)}).catch(() => null)`);
 	// the drawer: a folder named, then made a binder from its menu
 	await tap(p, TOGGLE.x, TOGGLE.y, 700);
@@ -407,17 +407,17 @@ test('a session by thumb: a folder made in the drawer becomes a binder; scenes n
 	t.ok(await menuTap(p, 'Take a snapshot'), 'with “Take a snapshot”');
 	await p.sleep(1200);
 	t.ok((await p.ev(`app.vault.getFiles().filter(f => /snapshot/i.test(f.path)).length`)) >= 1, 'a snapshot is a file in the vault');
-	// compile (Copy would need the clipboard: the note is saved)
-	await p.ev(`app.commands.executeCommandById('binders:compile')`);
+	// export as one note (Copy would need the clipboard: the note is saved). On a phone, Export is at the foot of the window's choices
+	await p.ev(`(app.plugins.plugins.binders.settings.exportKind = 'note', app.commands.executeCommandById('binders:export'))`);
 	await p.sleep(900);
-	await dialogTapByText(p, 'Compile');
+	await dialogTapByText(p, 'Export');
 	await p.sleep(1500);
-	const compiled = await p.ev(`(async () => { const f = app.vault.getMarkdownFiles().find(f => f.path.startsWith('Story') && f.basename.toLowerCase().includes('compiled')); return f ? await app.vault.read(f) : null; })()`);
-	// every word typed is in the vault, once: in the scene and its split-off half, and in the compiled note
-	const all = await p.ev(`(async () => { let s = ''; for (const f of app.vault.getMarkdownFiles().filter(f => f.path.startsWith('Story/') && !/snapshot|compiled/i.test(f.path))) s += (await app.vault.read(f)).replace(/^---[\\s\\S]*?---\\n/, '') + '\\n'; return s; })()`);
+	const exported = await p.ev(`(async () => { const f = app.vault.getMarkdownFiles().find(f => f.path.startsWith('Story') && f.basename.toLowerCase().includes('exported')); return f ? await app.vault.read(f) : null; })()`);
+	// every word typed is in the vault, once: in the scene and its split-off half, and in the exported note
+	const all = await p.ev(`(async () => { let s = ''; for (const f of app.vault.getMarkdownFiles().filter(f => f.path.startsWith('Story/') && !/snapshot|exported/i.test(f.path))) s += (await app.vault.read(f)).replace(/^---[\\s\\S]*?---\\n/, '') + '\\n'; return s; })()`);
 	for (const para of typed) t.eq(all.split(para).length - 1, 1, `“${para.slice(0, 16)}…” is in the notes once`);
-	if (compiled) for (const para of typed) t.eq(compiled.split(para).length - 1, 1, `“${para.slice(0, 16)}…” is in the compiled note once`);
-	else t.ok(false, 'a compiled note was saved: ' + j(await p.ev(`app.vault.getMarkdownFiles().map(f => f.path)`)));
+	if (exported) for (const para of typed) t.eq(exported.split(para).length - 1, 1, `“${para.slice(0, 16)}…” is in the exported note once`);
+	else t.ok(false, 'an exported note was saved: ' + j(await p.ev(`app.vault.getMarkdownFiles().map(f => f.path)`)));
 }));
 
 /** Taps the button with this text in the dialog on top. */

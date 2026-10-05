@@ -1,5 +1,5 @@
 import { Menu, Platform, setIcon } from 'obsidian';
-import { COMPILE_PROP } from '../scenes';
+import { COMPILE_PROP, EXPORT_PROP } from '../scenes';
 import { ask } from './modals';
 import type { ModeContext } from './mode';
 import { BUILT_IN, MIN_WIDTH, TITLE, builtIn, clampWidth, columnName, move, nextSort, propId, propOf, suggestProps, type ColumnSpec, type Sort } from './outliner-data';
@@ -144,7 +144,7 @@ export class OutlinerColumns {
 		const cols = this.h.columns(), has = (id: string) => cols.some((c) => c.id === id);
 		const flip = (id: string) => { this.h.setColumns(has(id) ? cols.filter((c) => c.id !== id) : [...cols, { id }]); if (!has(id)) this.showColumn(id); };
 		for (const b of BUILT_IN) menu.addItem((i) => i.setSection('built-in').setTitle(b.name).setIcon(b.icon).setChecked(has(b.id)).onClick(() => flip(b.id)));
-		const s = this.h.ctx.plugin.settings, own = [s.synopsisProp, s.statusProp, s.labelProp, s.targetProp, COMPILE_PROP, 'binder', 'contents', 'longform', 'aliases', 'cssclasses'];
+		const s = this.h.ctx.plugin.settings, own = [s.synopsisProp, s.statusProp, s.labelProp, s.targetProp, EXPORT_PROP, COMPILE_PROP, 'export-as', 'binder', 'contents', 'longform', 'aliases', 'cssclasses'];
 		const shown = cols.map((c) => propOf(c.id)).filter((p): p is string => !!p);
 		const found = suggestProps(this.h.ctx.store.scenes(this.h.ctx.binder.folder).map((f) => (this.h.ctx.app.metadataCache.getFileCache(f)?.frontmatter ?? {})), [...own, ...shown]);
 		for (const p of [...shown, ...found.slice(0, 12)]) menu.addItem((i) => i.setSection('props').setTitle(p).setIcon('text').setChecked(has(propId(p))).onClick(() => flip(propId(p))));
@@ -153,7 +153,7 @@ export class OutlinerColumns {
 			if (!name) return;
 			// (a property Binders has a column of its own for is that column, not a second one beside it; the synopsis
 			// shows under the title)
-			const mine: [string, string][] = [[s.statusProp, 'status'], [s.labelProp, 'label'], [s.targetProp, 'target'], [COMPILE_PROP, 'compile']];
+			const mine: [string, string][] = [[s.statusProp, 'status'], [s.labelProp, 'label'], [s.targetProp, 'target'], [EXPORT_PROP, 'export'], [COMPILE_PROP, 'export']];
 			const id = mine.find(([p]) => p.toLowerCase() === name.toLowerCase())?.[1] ?? propId(name);
 			if (name.toLowerCase() === s.synopsisProp.toLowerCase()) { if (!this.h.synopses()) this.h.toggleSynopses(); return; }
 			if (!has(id)) this.h.setColumns([...this.h.columns(), { id }]);

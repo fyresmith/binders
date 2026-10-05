@@ -1,5 +1,5 @@
 import { Keymap, Menu, Notice, Platform, TFile, TFolder, setIcon, type EventRef, type TAbstractFile } from 'obsidian';
-import { compiles, emptyState, isNote, plain, itemMenu, labelItems, nameOf, noteOf, removeItems, renameItem, setAll, setCompile, statusItems } from './actions';
+import { isExported, emptyState, isNote, plain, itemMenu, labelItems, nameOf, noteOf, removeItems, renameItem, setAll, setExported, statusItems } from './actions';
 import { movedText } from './lanes-data';
 import { GLIDE_QUICK, Press, glide, held, places, settle, visibleBottom } from './drag';
 import { FileDrag } from './file-drag';
@@ -348,6 +348,9 @@ class Outliner implements BinderMode {
 	private props(item: TAbstractFile): SceneProps { const n = noteOf(this.ctx, item); return n ? this.ctx.props(n) : NO_PROPS; }
 	private frontmatter(item: TAbstractFile): Record<string, unknown> { const n = noteOf(this.ctx, item); return (n && this.ctx.app.metadataCache.getFileCache(n)?.frontmatter) || {}; }
 
+	/** Does the item itself say it is left out of an export (not a folder above it)? */
+	private leftOut(item: TAbstractFile): boolean { const fm = this.frontmatter(item); return fm.export === false || fm.compile === false; }
+
 	/** Words in a note, or in every note of a folder; null until they're all counted. */
 	private words(item: TAbstractFile): number | null {
 		if (item instanceof TFile) return this.ctx.words(item);
@@ -383,7 +386,7 @@ class Outliner implements BinderMode {
 			case 'progress': return progress(this.words(item), this.target(item).n);
 			case 'created': return item instanceof TFile ? item.stat.ctime : null;
 			case 'modified': return item instanceof TFile ? item.stat.mtime : null;
-			case 'compile': return compiles(this.ctx.plugin, item);
+			case 'export': return isExported(this.ctx.plugin, item);
 		}
 		const prop = propOf(id), v = prop ? this.frontmatter(item)[prop] : null;
 		return Array.isArray(v) ? text(v) : v;
@@ -528,7 +531,7 @@ class Outliner implements BinderMode {
 			case 'progress': return [this.words(item), this.target(item).n];
 			case 'created': return item instanceof TFile ? item.stat.ctime : null;
 			case 'modified': return item instanceof TFile ? item.stat.mtime : null;
-			case 'compile': return [compiles(this.ctx.plugin, item), this.frontmatter(item).compile === false];
+			case 'export': return [isExported(this.ctx.plugin, item), this.leftOut(item)];
 		}
 		const prop = propOf(id);
 		return prop ? this.frontmatter(item)[prop] ?? null : null;
@@ -620,13 +623,13 @@ class Outliner implements BinderMode {
 				td.createSpan({ cls: 'binders-outliner-percent', text: `${pct}%` });
 				return null;
 			}
-			case 'compile': {
+			case 'export': {
 				// ticked unless this note, or a folder it's in, is left out; a folder's tick is for everything in it
-				const box = td.createEl('input', { type: 'checkbox', attr: { 'aria-label': `Include ${nameOf(item)} in compile`, tabindex: '-1' } });
-				box.checked = compiles(this.ctx.plugin, item);
-				box.disabled = ro || (!box.checked && this.frontmatter(item).compile !== false);
+				const box = td.createEl('input', { type: 'checkbox', attr: { 'aria-label': `Include ${nameOf(item)} in export`, tabindex: '-1' } });
+				box.checked = isExported(this.ctx.plugin, item);
+				box.disabled = ro || (!box.checked && !this.leftOut(item));
 				box.addEventListener('click', (e) => e.stopPropagation());
-				box.addEventListener('change', () => void setCompile(this.ctx, [item], box.checked));
+				box.addEventListener('change', () => void setExported(this.ctx, [item], box.checked));
 				this.tickByCell(td, box);
 				return null;
 			}

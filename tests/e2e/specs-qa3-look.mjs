@@ -474,7 +474,7 @@ test('05 corkboard: mid-drag', async (p) => {
 // ---------------------------------------------------------------------------------------------------------------
 
 const row = (path) => `${LEAF} .binders-outliner-row[data-path="${L}${path}"]`;
-const ALL_COLS = ['label', 'status', 'words', 'target', 'progress', 'compile', 'created', 'modified'].map((id) => ({ id }));
+const ALL_COLS = ['label', 'status', 'words', 'target', 'progress', 'export', 'created', 'modified'].map((id) => ({ id }));
 
 test('06 outliner: rows, columns, menus, states', async (p) => {
 	await seed(p);
@@ -808,7 +808,7 @@ test('09 menus: every menu, and Obsidian’s own beside them', async (p) => {
 // 10. Dialogs, notices, settings
 // ---------------------------------------------------------------------------------------------------------------
 
-test('10 dialogs: compile, merge, target, color, delete, settings', async (p, h) => {
+test('10 dialogs: export, merge, target, color, delete, settings', async (p, h) => {
 	await seed(p, { big: false });
 	await sidebar(p, false);
 	await openView(p);
@@ -836,7 +836,7 @@ test('10 dialogs: compile, merge, target, color, delete, settings', async (p, h)
 	await p.click(a.x, a.t + 22); await p.click(s.x, s.t + 22, { modifiers: 8 });
 	await p.right(s.x, s.t + 22); await p.sleep(250); await clickMenu(p, 'Merge 2 notes'); await dialog('merge');
 	await p.right(s.x, s.t + 22); await p.sleep(250); await clickMenu(p, 'Delete 2 items'); await dialog('delete-two');
-	await h.run('compile'); await dialog('compile');
+	await (await p.ev(`(() => { app.plugins.plugins.binders.settings.exportKind = 'note'; return 1; })()`), h.run('export')); await dialog('export');
 	// a bad target, for the notice
 	await p.click(a.x, a.t + 22);
 	await menu(['Set target...']); await p.sleep(300); await p.type('lots'); await p.key('Enter'); await p.sleep(500);
@@ -960,8 +960,8 @@ test('12 phone: 390×844, every mode, menus and sheets', async (p) => {
 		await shot(p, '12-phone-breadcrumbs');
 		// a dialog
 		await openView(p);
-		await p.ev(`app.commands.executeCommandById('binders:compile')`); await p.sleep(700);
-		await shot(p, '12-phone-compile');
+		await p.ev(`(app.plugins.plugins.binders.settings.exportKind = 'note', app.commands.executeCommandById('binders:export'))`); await p.sleep(700);
+		await shot(p, '12-phone-export');
 		await p.key('Escape'); await p.sleep(300);
 		await p.ev(`document.querySelectorAll('.modal-close-button').forEach(b => b.click())`);
 		// Obsidian's own Bases cards on the phone, for comparison

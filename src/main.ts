@@ -11,7 +11,7 @@ import type { ModeFactory } from './view/mode';
 import { outliner } from './view/outliner';
 import { manuscript } from './view/manuscript';
 import { ConvertModal } from './longform-convert';
-import { CompileModal, mergeScenes, splitScene, splitUndo } from './scenes';
+import { mergeScenes, splitScene, splitUndo } from './scenes';
 import { Focus } from './focus/focus';
 import { desktop } from './export/desktop';
 import { ExportModal } from './view/export';
@@ -145,13 +145,6 @@ export default class BindersPlugin extends Plugin {
 			if (!checking) new ExportModal(this, folder).open();
 			return true;
 		} });
-		this.addCommand({ id: 'compile', name: 'Compile binder', icon: 'book-check', checkCallback: (checking) => {
-			const view = this.app.workspace.getActiveViewOfType(BinderView), file = active();
-			const folder = view?.folder ?? (file && this.binders.binderOf(file)?.folder) ?? null;
-			if (!folder) return false;
-			if (!checking) new CompileModal(this, folder).open();
-			return true;
-		} });
 		// a move made by hand (a drag, Move up) taken back, or made again: for the binder in view, or the open note's
 		for (const [id, name, redo] of [['undo-move', 'Undo last move', false], ['redo-move', 'Redo last move', true]] as const) {
 			this.addCommand({ id, name, icon: redo ? 'redo-2' : 'undo-2', checkCallback: (checking) => {
@@ -260,7 +253,6 @@ export default class BindersPlugin extends Plugin {
 			menu.addItem((i) => i.setSection('action-primary').setTitle('New scene here').setIcon('file-plus').onClick(() => void this.newScene(file)));
 		}
 		if (file instanceof TFolder && b.binderOf(file)) menu.addItem((i) => i.setSection('action').setTitle('Export...').setIcon('book-up').onClick(() => new ExportModal(this, file).open()));
-		if (file instanceof TFolder && b.binderOf(file)) menu.addItem((i) => i.setSection('action').setTitle('Compile...').setIcon('book-check').onClick(() => new CompileModal(this, file).open()));
 		// a note in a binder: its card, and a new note right after it
 		const folder = file.parent;
 		if (file instanceof TFile && folder && b.binderOf(file) && !b.isHiddenNote(file) && (b.orderedChildren(folder) ?? []).includes(file)) {

@@ -551,7 +551,7 @@ test('a click on another section’s title renames it in place while two section
 for (const [item, check] of [
 	['Set status', (t, b, s) => t.eq(s[ARRIVAL], A_TYPED(b).replace('status: revised', 'status: Idea'), 'the status and the typing')],
 	['Set target...', (t, b, s) => t.eq(s[ARRIVAL], A_TYPED(b).replace('  - Mara\n---', '  - Mara\ntarget: 500\n---'), 'the target and the typing')],
-	['Include in compile', (t, b, s) => t.eq(s[ARRIVAL], A_TYPED(b).replace('  - Mara\n---', '  - Mara\ncompile: false\n---'), 'left out of compiles, with the typing')],
+	['Include in export', (t, b, s) => t.eq(s[ARRIVAL], A_TYPED(b).replace('  - Mara\n---', '  - Mara\nexport: false\n---'), 'left out of exports, with the typing')],
 	['Duplicate', (t, b, s) => { t.eq(s[ARRIVAL], A_TYPED(b), 'the note'); t.eq(s[`${B}/Part One/Arrival 2.md`], A_TYPED(b), 'its copy has the unsaved typing too'); }],
 	['Put in a new folder', (t, b, s) => { t.eq(s[`${B}/Part One/Untitled/Arrival.md`], A_TYPED(b), 'moved into the folder with its typing'); t.ok(!(ARRIVAL in s), 'and not left behind'); }],
 	['Move down', (t, b, s) => { t.eq(s[ARRIVAL], A_TYPED(b), 'the typing'); t.ok(/Part One\/The keeper\n {2}- Part One\/Arrival\n/.test(s[`${B}/${B}.md`]), 'the new order'); }],

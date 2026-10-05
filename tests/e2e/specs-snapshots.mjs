@@ -1090,7 +1090,7 @@ test('never in search, the quick switcher, link suggestions, backlinks, tags or 
 	t.ok(found.searchWorks.includes(A), 'while a note’s text is found as ever: ' + found.searchWorks.join(', '));
 });
 
-test('never in the binder: its order, its counts, the filter, a compile, or any mode', async (p, h, t) => {
+test('never in the binder: its order, its counts, the filter, an export, or any mode', async (p, h, t) => {
 	await openView(p);
 	const words = await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-word-count').textContent`);
 	const scenes = await p.ev(`${B}.scenes(${file('The Lighthouse')}).map(f => f.path)`);
@@ -1114,14 +1114,14 @@ test('never in the binder: its order, its counts, the filter, a compile, or any 
 	await sleep(p, 300);
 	const c = await contents(p);
 	t.ok(c.length === 9 && !c.some((x) => /Snapshots/.test(x)), 'after a move, the list has the binder’s nine items and no snapshots: ' + c.join(', '));
-	// compile: one note of the scenes' text
-	await p.ev(`(() => { app.commands.executeCommandById('binders:compile'); return 1; })()`);
-	await until(p, `!!document.querySelector('.modal.binders-compile, .binders-compile')`);
-	await press(p, '.modal button', 'Compile');
-	await until(p, `!!${file('The Lighthouse (compiled).md')}`);
-	const out = await read(p, 'The Lighthouse (compiled).md');
-	t.ok(!/Zebrawords|It was raining/.test(out) && /supply boat/.test(out), 'the compiled note has the notes’ text and no snapshot’s');
-	await p.ev(`app.vault.delete(${file('The Lighthouse (compiled).md')}).then(() => 1)`);
+	// export, as one note: the scenes' text
+	await p.ev(`(() => { (app.plugins.plugins.binders.settings.exportKind = 'note', app.commands.executeCommandById('binders:export')); return 1; })()`);
+	await until(p, `!!document.querySelector('.modal.binders-export .binders-export-path')`);
+	await press(p, '.modal.binders-export button', 'Export');
+	await until(p, `!!${file('The Lighthouse (exported).md')}`);
+	const out = await read(p, 'The Lighthouse (exported).md');
+	t.ok(!/Zebrawords|It was raining/.test(out) && /supply boat/.test(out), 'the exported note has the notes’ text and no snapshot’s');
+	await p.ev(`app.vault.delete(${file('The Lighthouse (exported).md')}).then(() => 1)`);
 });
 
 // ---- the dialog ----

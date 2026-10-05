@@ -1360,11 +1360,6 @@
 	align-self: stretch;
 }
 
-/* The compile dialog: nothing in it is squeezed to make room (on a phone its sheet scrolls instead). */
-.binders-compile .modal-content > * {
-	flex-shrink: 0;
-}
-
 .binders-word-count:focus-visible {
 	outline: none;
 	box-shadow: 0 0 0 2px var(--background-modifier-border-focus);
@@ -4364,6 +4359,20 @@ body:not(.is-phone) .binders-export .binders-export-options .setting-item.settin
 
 .binders-export .binders-export-saveas .setting-item-control,
 .binders-export .binders-export-saveas input {
+	width: 100%;
+}
+
+/* (a phone's rows put a control beside its name, at most so wide: this field has the row's whole width, under it) */
+.is-phone .binders-export .binders-export-options .setting-item.binders-export-saveas {
+	flex-wrap: wrap;
+}
+
+.is-phone .binders-export .binders-export-options .setting-item.binders-export-saveas .setting-item-control {
+	flex: 1 1 100%;
+	max-width: 100%;
+}
+
+.is-phone .binders-export .binders-export-options .setting-item.binders-export-saveas input {
 	width: 100%;
 }
 

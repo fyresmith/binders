@@ -181,7 +181,7 @@ async function onDevice(p, [width, height], fn) {
 		await gone(p).catch(() => {});
 		for (let i = 0; i < 4 && (await p.ev(`document.querySelectorAll('.modal-container').length`).catch(() => 0)); i++) { await p.key('Escape'); await p.sleep(300); }
 		await p.ev(`(async () => { try { app.setting.close(); } catch {} try { app.workspace.leftSplit.setPinned?.(false); } catch {} app.vault.setConfig('trashOption', 'system');
-			for (const f of app.vault.getFiles()) if (f.extension !== 'md' || / \\(compiled\\)\\.md$/.test(f.path)) await app.vault.delete(f);
+			for (const f of app.vault.getFiles()) if (f.extension !== 'md' || / \\(exported\\)\\.md$/.test(f.path)) await app.vault.delete(f);
 			if (await app.vault.adapter.exists('.trash')) await app.vault.adapter.rmdir('.trash', true);
 			const leaves = []; app.workspace.iterateRootLeaves(l => { leaves.push(l); }); leaves.forEach(l => l.detach());
 			if ((app.vault.getConfig('baseFontSize') ?? 16) !== 16) { app.vault.setConfig('baseFontSize', 16); app.updateFontSize?.(); } })().then(() => 1)`).catch(() => {});
@@ -840,14 +840,14 @@ for (const [label, [w, hh, dsf]] of [['zoom 200% (a 720 × 450 window)', [720, 4
 
 // ======================================================================== dialogs from the keyboard
 const inModal = () => `(() => { const a = document.activeElement; const m = [...document.querySelectorAll('.modal')].pop(); return !!(m && a && m.contains(a)); })()`;
-test('keyboard only: each dialog (set target, compile, delete, snapshots, “Put in a new folder”) takes the focus when it opens, keeps it through Tab and Shift+Tab, and gives it back to the card on Escape', async (p, h, t) => {
+test('keyboard only: each dialog (set target, export, delete, snapshots, “Put in a new folder”) takes the focus when it opens, keeps it through Tab and Shift+Tab, and gives it back to the card on Escape', async (p, h, t) => {
 	await open(p);
 	const results = [];
 	const cardPath = 'The Lighthouse/Prologue.md';
 	const toCard = () => p.ev(`document.querySelector('${LEAF} .binders-card[data-path="${cardPath}"]').focus()`);
 	const dialogs = [
 		['set target', async () => { await h.run('set-target'); }],
-		['compile', async () => { await h.run('compile'); }],
+		['export', async () => { await (await p.ev(`(() => { app.plugins.plugins.binders.settings.exportKind = 'note'; return 1; })()`), h.run('export')); }],
 		['delete', async () => { await p.key('Delete'); }],
 		['snapshots', async () => { await h.run('show-snapshots'); }],
 	];
@@ -1365,7 +1365,7 @@ for (const mode of ['corkboard', 'outliner']) {
 		await setMode(p, mode);
 		const item = (name) => mode === 'corkboard' ? `${LEAF} .binders-card[data-path$="${name}"]` : `${LEAF} .binders-outliner-row[data-path$="${name}"]`;
 		const bad = [], out = [];
-		const tries = [['Duplicate'], ['Put in a new folder'], ['Move down'], ['Move up'], ['Include in compile'], ['Set status', 'Draft'], ['Set label', 'Red'], ['Set synopsis from text'], ['Snapshots']];
+		const tries = [['Duplicate'], ['Put in a new folder'], ['Move down'], ['Move up'], ['Include in export'], ['Set status', 'Draft'], ['Set label', 'Red'], ['Set synopsis from text'], ['Snapshots']];
 		for (const titles of tries) {
 			await setMode(p, mode);
 			await p.ev(`document.querySelector(${j(item('Prologue.md'))})?.focus()`);
@@ -1466,19 +1466,21 @@ a11y('manuscript: a folder’s heading (“Part One”) is a heading to a screen
 });
 
 for (const [label, dims] of [['768 × 1024', [768, 1024]], ['1024 × 768', [1024, 768]], ['1024 × 1366', [1024, 1366]]]) {
-	test(`tablet ${label}: the dialogs (set target, compile, delete, convert a note to a folder’s “Put in a new folder” name) are boxes on the screen with every button in reach, and the text in them fits`, async (p, h, t) => {
+	test(`tablet ${label}: the dialogs (set target, export, delete, convert a note to a folder’s “Put in a new folder” name) are boxes on the screen with every button in reach, and the text in them fits`, async (p, h, t) => {
 		await onDevice(p, dims, async () => {
 			await open(p);
 			const bad = [];
 			const look = async (what) => {
 				await p.sleep(700);
-				const m = await p.ev(`(() => { const e = [...document.querySelectorAll('.modal')].pop(); if (!e) return null; const r = e.getBoundingClientRect(); const bs = [...e.querySelectorAll('button')].map((b) => { const q = b.getBoundingClientRect(); return { t: b.textContent, ok: q.left >= 0 && q.right <= innerWidth && q.top >= 0 && q.bottom <= innerHeight, h: Math.round(q.height) }; }); const over = e.scrollWidth > e.clientWidth + 1; return { box: [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)], inside: r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight, sheet: r.width === innerWidth, buttons: bs, sideways: over }; })()`);
+				const m = await p.ev(`(() => { const e = [...document.querySelectorAll('.modal')].pop(); if (!e) return null; const r = e.getBoundingClientRect(); const bs = [...e.querySelectorAll('button')].filter((b) => b.getBoundingClientRect().width).map((b) => { const q = b.getBoundingClientRect(); return { t: b.textContent, ok: q.left >= 0 && q.right <= innerWidth && q.top >= 0 && q.bottom <= innerHeight, h: Math.round(q.height) }; }); const over = e.scrollWidth > e.clientWidth + 1; return { box: [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)], inside: r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight, sheet: r.width === innerWidth, buttons: bs, sideways: over }; })()`);
 				log(what, j(m));
 				if (!m) { bad.push(what + ': no dialog'); return; }
 				if (!m.inside) bad.push(what + ': off screen ' + j(m.box));
 				if (m.sheet) bad.push(what + ': a full-width sheet');
-				// (Cancel may be a scroll away in the Compile box on a short screen: a tap outside the box, or Escape, is the way out too)
-				if (m.buttons.slice(0, -1).some((b) => !b.ok)) bad.push(what + ': a button off screen');
+				// (the last button of a small dialog, Cancel, may be a scroll away on a short screen: a tap outside the box, or Escape, is the way out too.
+				// The Export window has no Cancel: Copy and Export are in its bar, and both must be in sight)
+				if ((what === 'export' ? m.buttons : m.buttons.slice(0, -1)).some((b) => !b.ok)) bad.push(what + ': a button off screen');
+				if (what === 'export' && j(m.buttons.map((b) => b.t)) !== j(['Copy', 'Export'])) bad.push(what + ': its buttons are ' + j(m.buttons.map((b) => b.t)));
 				if (m.buttons.some((b) => b.h < 32)) bad.push(what + ': a button under 32 px tall');
 				if (m.sideways) bad.push(what + ': scrolls sideways');
 				await p.key('Escape'); await p.sleep(400);
@@ -1486,7 +1488,7 @@ for (const [label, dims] of [['768 × 1024', [768, 1024]], ['1024 × 768', [1024
 			const card = await p.at(`${LEAF} .binders-card[data-path$="Prologue.md"]`);
 			await tap(p, card.x, card.t + card.h - 12);
 			await h.run('set-target'); await look('set target');
-			await h.run('compile'); await look('compile');
+			await (await p.ev(`(() => { app.plugins.plugins.binders.settings.exportKind = 'note'; return 1; })()`), h.run('export')); await look('export');
 			await p.ev(`document.querySelector('${LEAF} .binders-card[data-path$="Prologue.md"]').focus()`);
 			await p.key('Delete'); await look('delete');
 			t.eq(j(bad), '[]', 'every dialog fits');

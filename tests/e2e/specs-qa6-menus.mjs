@@ -74,6 +74,9 @@ const focusIs = (p) => p.ev(`(() => { const a = document.activeElement; if (!a |
 const notices = (p) => p.ev(`(() => { const probe = new Notice(''), docs = new Set([document, probe.noticeEl.ownerDocument]); probe.hide(); return [...docs].flatMap(d => [...d.querySelectorAll('.notice')]).map(n => n.textContent).filter(Boolean).join(' | '); })()`);
 const clearNotices = (p) => p.ev(`(() => { const probe = new Notice(''), docs = new Set([document, probe.noticeEl.ownerDocument]); probe.hide(); for (const d of docs) d.querySelectorAll('.notice').forEach(n => n.remove()); return 1; })()`);
 const dialog = (p) => p.ev(`(() => { const m = [...document.querySelectorAll('.modal')].pop(); if (!m) return null; return { title: m.querySelector('.modal-title')?.textContent ?? '', buttons: [...m.querySelectorAll('button')].map(b => b.textContent), input: m.querySelector('input')?.value ?? null, error: m.querySelector('.binders-ask-error')?.textContent ?? '', text: m.querySelector('.modal-content')?.textContent ?? '' }; })()`);
+/** A menu's “Export...” opens the Export window on the kind last used: this is a writer who made one note last time. */
+const oneNoteNext = (p) => p.ev(`(() => { app.plugins.plugins.binders.settings.exportKind = 'note'; return 1; })()`);
+const WIN = '.modal.binders-export';
 const noDialog = async (p, t, why) => { await p.sleep(250); t.eq(await dialog(p), null, why); };
 const setMode = async (p, m) => { await p.ev(`(() => { ${VIEW}.setMode(${j(m)}); return 1; })()`); await p.sleep(m === 'manuscript' ? 1500 : 600); };
 const exists2 = (p, path) => p.ev(`!!app.vault.getAbstractFileByPath(${j(path)})`);
@@ -98,7 +101,7 @@ test('card menu, a note: the items, in sections, each with an icon where the oth
 	await context(p, CARD(L + 'Epilogue.md'));
 	const it = await items(p);
 	t.eq(j(it.filter((x) => x.section.startsWith('') && ['open', 'edit', 'props', 'structure', 'order', 'danger'].includes(x.section)).map((x) => x.title)),
-		j(['Open', 'Open in new tab', 'Open to the right', 'Open in new window', 'Rename', 'Edit synopsis', 'Set synopsis from text', 'Snapshots', 'Set status', 'Set label', 'Set target...', 'Duplicate', 'Put in a new folder', 'Include in compile', 'Move up', 'Move to', 'Delete']), 'Binders’ items for the last note, in order');
+		j(['Open', 'Open in new tab', 'Open to the right', 'Open in new window', 'Rename', 'Edit synopsis', 'Set synopsis from text', 'Snapshots', 'Set status', 'Set label', 'Set target...', 'Duplicate', 'Put in a new folder', 'Include in export', 'Move up', 'Move to', 'Delete']), 'Binders’ items for the last note, in order');
 	for (const x of it.filter((x) => ['open', 'edit', 'props', 'structure', 'order', 'danger'].includes(x.section))) t.ok(x.icon, `“${x.title}” has an icon`);
 	t.ok(it.find((x) => x.title === 'Delete').warning, 'Delete is marked as a warning');
 	t.eq(it[it.length - 1].title, 'Delete', 'Delete is last, after what Obsidian adds');
@@ -331,7 +334,7 @@ ux('New status... with nothing typed says why, as New label... does (it closes w
 // the corkboard: structure items of a note's card
 // ================================================================================================================
 
-test('card menu, Duplicate / Put in a new folder / Include in compile: the vault, the binder note and the text', tidied(async (p, h, t) => {
+test('card menu, Duplicate / Put in a new folder / Include in export: the vault, the binder note and the text', tidied(async (p, h, t) => {
 	await fresh(p);
 	const before = await BODIES(p);
 	// Duplicate
@@ -345,16 +348,16 @@ test('card menu, Duplicate / Put in a new folder / Include in compile: the vault
 	t.eq(await body(p, copyPath), before[L + 'Prologue.md'], 'with the same text');
 	t.ok((await selectedCards(p)).includes(copyPath), 'the copy is the selected card: ' + j(await selectedCards(p)));
 	await bodiesKept(p, t, before);
-	// Include in compile: off, then on
-	await onCard(p, L + 'Epilogue.md', 'Include in compile');
+	// Include in export: off, then on
+	await onCard(p, L + 'Epilogue.md', 'Include in export');
 	await p.sleep(500);
-	t.eq((await fm(p, L + 'Epilogue.md'))?.compile, false, 'compile: false is written');
+	t.eq((await fm(p, L + 'Epilogue.md'))?.export, false, 'export: false is written');
 	await context(p, CARD(L + 'Epilogue.md'));
-	const inc = (await items(p)).find((x) => x.title === 'Include in compile');
+	const inc = (await items(p)).find((x) => x.title === 'Include in export');
 	t.ok(!inc.checked, 'and the item is no longer ticked');
-	await choose(p, 'Include in compile');
+	await choose(p, 'Include in export');
 	await p.sleep(500);
-	t.ok(!('compile' in ((await fm(p, L + 'Epilogue.md')) ?? {})), 'turning it back on takes the property away');
+	t.ok(!('export' in ((await fm(p, L + 'Epilogue.md')) ?? {})) && !('compile' in ((await fm(p, L + 'Epilogue.md')) ?? {})), 'turning it back on takes the property away');
 	await bodiesKept(p, t, before);
 	// Put in a new folder
 	await onCard(p, L + 'Epilogue.md', 'Put in a new folder');
@@ -494,7 +497,7 @@ test('card menu, Snapshots: Take a snapshot, Rewrite..., Show snapshots... each 
 	await bodiesKept(p, t, before);
 }));
 
-test('stack card menu: Open, Open in new tab, Rename, Edit synopsis, status, label, target, Include in compile, Compile..., snapshots, Ungroup', tidied(async (p, h, t) => {
+test('stack card menu: Open, Open in new tab, Rename, Edit synopsis, status, label, target, Include in export, Export..., snapshots, Ungroup', tidied(async (p, h, t) => {
 	await fresh(p);
 	const before = await BODIES(p), start = await list(p);
 	const P1 = L + 'Part One';
@@ -527,12 +530,12 @@ test('stack card menu: Open, Open in new tab, Rename, Edit synopsis, status, lab
 	await p.key('Enter');
 	await p.sleep(500);
 	t.eq(((await fm(p, P1 + '/Part One.md')) ?? {}).target, 9000, 'target');
-	await onCard(p, P1, 'Include in compile');
+	await onCard(p, P1, 'Include in export');
 	await p.sleep(500);
-	t.eq(((await fm(p, P1 + '/Part One.md')) ?? {}).compile, false, 'Include in compile off: compile: false');
-	await onCard(p, P1, 'Include in compile');
+	t.eq(((await fm(p, P1 + '/Part One.md')) ?? {}).export, false, 'Include in export off: export: false');
+	await onCard(p, P1, 'Include in export');
 	await p.sleep(500);
-	t.ok(!('compile' in ((await fm(p, P1 + '/Part One.md')) ?? {})), 'and on again');
+	t.ok(!('export' in ((await fm(p, P1 + '/Part One.md')) ?? {})) && !('compile' in ((await fm(p, P1 + '/Part One.md')) ?? {})), 'and on again');
 	// Edit synopsis
 	await onCard(p, P1, 'Edit synopsis');
 	await until(p, `!!document.querySelector('${CARD(P1)} .binders-edit-field')`);
@@ -562,7 +565,7 @@ test('stack card menu: Open, Open in new tab, Rename, Edit synopsis, status, lab
 	for (const n of ['Arrival', 'The keeper', 'Storm warning']) t.eq(Object.entries(now).find(([k]) => k.endsWith('/' + n + '.md'))?.[1], before[L + 'Part One/' + n + '.md'], `“${n}” keeps its text`);
 }));
 
-test('stack card menu: Compile... and Take a snapshot of every note...; Duplicate; Put in a new folder; Move up/down; Move to; Delete says how many notes go', tidied(async (p, h, t) => {
+test('stack card menu: Export... and Take a snapshot of every note...; Duplicate; Put in a new folder; Move up/down; Move to; Delete says how many notes go', tidied(async (p, h, t) => {
 	await fresh(p);
 	const before = await BODIES(p);
 	const P2 = L + 'Part Two';
@@ -609,39 +612,45 @@ test('stack card menu: Compile... and Take a snapshot of every note...; Duplicat
 	t.ok(!(await list(p)).some((x) => x.startsWith('Part Two/')), 'and its notes’ entries');
 }));
 
-test('Compile... dialog (from a stack, from the toolbar’s More options, from the explorer): every control, Enter, Escape, invalid names', tidied(async (p, h, t) => {
+test('Export... window, one note (from a stack, from the toolbar’s More options, from the explorer): every control, Enter, Escape, invalid names', tidied(async (p, h, t) => {
 	await fresh(p);
 	const before = await texts(p);
-	await onCard(p, L + 'Part One', 'Compile...');
-	await until(p, `!!document.querySelector('.modal.binders-compile')`);
+	await oneNoteNext(p);
+	await onCard(p, L + 'Part One', 'Export...');
+	await until(p, `!!document.querySelector('${WIN} .binders-export-path')`);
 	let d = await dialog(p);
-	t.eq(d.title, 'Compile “Part One”', 'title');
-	t.eq(j(d.buttons.filter((b) => b)), j(['Compile', 'Copy', 'Cancel']), 'Compile, Copy, Cancel');
-	const toggles = await p.ev(`[...document.querySelectorAll('.modal.binders-compile .setting-item')].map(s => s.querySelector('.setting-item-name').textContent + ':' + (s.querySelector('.checkbox-container')?.classList.contains('is-enabled') ?? s.querySelector('select')?.value ?? s.querySelector('input')?.value))`);
-	t.eq(j(toggles.slice(0, 5)), j(['Title:true', 'Folders as headings:true', 'Note titles as headings:false', 'Between notes:* * *', 'Leave out comments:true']), 'the options and their defaults: ' + j(toggles));
+	t.eq(d.title, 'Export “Part One”', 'title');
+	// (there is no Cancel: Escape or the window's own close button closes it)
+	t.eq(j(d.buttons.filter((b) => b)), j(['Copy', 'Export']), 'Copy, Export');
+	t.eq(await p.ev(`document.querySelector('${WIN} [role="option"][aria-selected="true"] .binders-snapshots-item-name')?.textContent`), 'One note', 'on the kind last made');
+	const toggles = await p.ev(`[...document.querySelectorAll('${WIN} .binders-export-options .setting-item')].map(s => s.querySelector('.setting-item-name').textContent + ':' + (s.querySelector('.checkbox-container')?.classList.contains('is-enabled') ?? s.querySelector('select')?.value ?? s.querySelector('input')?.value))`);
+	t.eq(j(toggles.slice(0, 6)), j(['Title:true', 'Folders as headings:true', 'Note titles as headings:false', 'Between notes:* * *', 'Leave out comments:true', 'Take tabs off paragraphs:true']), 'the options and their defaults: ' + j(toggles));
 	await p.key('Escape');
 	await p.sleep(300);
 	await noDialog(p, t, 'Escape closes it');
 	t.eq(j(Object.keys(await texts(p))), j(Object.keys(before)), 'and nothing was made');
 	// an invalid name stays
-	await onCard(p, L + 'Part One', 'Compile...');
-	await until(p, `!!document.querySelector('.modal.binders-compile')`);
-	await p.ev(`(() => { const i = document.querySelector('.binders-compile-path'); i.value = 'a:b'; i.dispatchEvent(new Event('input', { bubbles: true })); i.focus(); return 1; })()`);
+	await oneNoteNext(p);
+	await onCard(p, L + 'Part One', 'Export...');
+	await until(p, `!!document.querySelector('${WIN} .binders-export-path')`);
+	await p.ev(`(() => { const i = document.querySelector('.binders-export-path'); i.value = 'a:b'; i.dispatchEvent(new Event('input', { bubbles: true })); i.focus(); return 1; })()`);
 	await p.key('Enter');
 	await p.sleep(500);
-	t.ok(await dialog(p), 'an invalid name keeps the dialog');
+	t.ok(await dialog(p), 'an invalid name keeps the window');
 	t.ok(/can.t be used/.test(await notices(p)), 'and says why: ' + (await notices(p)));
 	// a name inside the binder is refused
-	await p.ev(`(() => { const i = document.querySelector('.binders-compile-path'); i.value = 'The Lighthouse/Out'; i.dispatchEvent(new Event('input', { bubbles: true })); return 1; })()`);
-	await answer(p, 'Compile');
+	await p.ev(`(() => { const i = document.querySelector('.binders-export-path'); i.value = 'The Lighthouse/Out'; i.dispatchEvent(new Event('input', { bubbles: true })); return 1; })()`);
+	await answer(p, 'Export');
 	await p.sleep(500);
-	t.ok(/outside the binder/.test(await notices(p)), 'a name inside the binder is refused: ' + (await notices(p)));
+	t.ok(/Save it outside the binder: in it, the note would be one of its scenes\./.test(await notices(p)), 'a name inside the binder is refused: ' + (await notices(p)));
 	// the real thing, with note titles as headings
-	await p.ev(`(() => { const i = document.querySelector('.binders-compile-path'); i.value = 'Out/Part One compiled'; i.dispatchEvent(new Event('input', { bubbles: true })); return 1; })()`);
-	await p.ev(`(() => { [...document.querySelectorAll('.modal.binders-compile .setting-item')].find(s => /Note titles/.test(s.textContent)).querySelector('.checkbox-container').click(); return 1; })()`);
-	await answer(p, 'Compile');
+	await p.ev(`(() => { const i = document.querySelector('.binders-export-path'); i.value = 'Out/Part One compiled'; i.dispatchEvent(new Event('input', { bubbles: true })); return 1; })()`);
+	await p.ev(`(() => { [...document.querySelectorAll('${WIN} .binders-export-options .setting-item')].find(s => /Note titles/.test(s.textContent)).querySelector('.checkbox-container').click(); return 1; })()`);
+	await p.sleep(400);
+	t.eq(await p.ev(`document.querySelector('${WIN} .binders-export-path').value`), 'Out/Part One compiled', 'the name typed is kept when an option is changed');
+	await answer(p, 'Export');
 	await p.sleep(900);
-	t.ok(await exists2(p, 'Out/Part One compiled.md'), 'the compiled note is written (the folder made)');
+	t.ok(await exists2(p, 'Out/Part One compiled.md'), 'the exported note is written (the folder made)');
 	const out = await read(p, 'Out/Part One compiled.md');
 	t.ok(/^# Part One/.test(out) && /Arrival/.test(out) && /Storm warning/.test(out), 'with the title and the three notes: ' + out.slice(0, 120));
 	t.eq(await p.ev(`app.workspace.getActiveFile()?.path`), 'Out/Part One compiled.md', 'and it’s open');
@@ -649,8 +658,9 @@ test('Compile... dialog (from a stack, from the toolbar’s More options, from t
 	for (const [k, v] of Object.entries(before)) t.eq(after[k], v, `“${k}” is unchanged`);
 	// Copy
 	await fresh(p);
-	await onCard(p, L + 'Part One', 'Compile...');
-	await until(p, `!!document.querySelector('.modal.binders-compile')`);
+	await oneNoteNext(p);
+	await onCard(p, L + 'Part One', 'Export...');
+	await until(p, `!!document.querySelector('${WIN} .binders-export-path')`);
 	await answer(p, 'Copy');
 	await p.sleep(500);
 	t.ok(/Copied 3 notes/.test(await notices(p)), 'Copy says how many: ' + (await notices(p)));
@@ -715,7 +725,7 @@ test('several selected: the items, and what each does to every one of them', tid
 	await selectTwo();
 	t.eq(j(await titles(p)).includes('Merge 2 notes'), true, 'Merge 2 notes is offered');
 	const it = await items(p);
-	t.eq(j(it.filter((x) => ['edit', 'props', 'structure', 'order', 'danger'].includes(x.section)).map((x) => x.title)), j(['Set synopsis from text', 'Take a snapshot of 2 notes', 'Set status', 'Set label', 'Set target...', 'Merge 2 notes', 'New folder from selection', 'Include in compile', 'Move to', 'Delete 2 items']), 'Binders’ items for two notes');
+	t.eq(j(it.filter((x) => ['edit', 'props', 'structure', 'order', 'danger'].includes(x.section)).map((x) => x.title)), j(['Set synopsis from text', 'Take a snapshot of 2 notes', 'Set status', 'Set label', 'Set target...', 'Merge 2 notes', 'New folder from selection', 'Include in export', 'Move to', 'Delete 2 items']), 'Binders’ items for two notes');
 	for (const x of ['Rename', 'Edit synopsis', 'Duplicate', 'Open', 'Move up', 'Move down']) t.ok(!it.some((y) => y.title === x), `no “${x}” for several`);
 	await closeMenus(p);
 	// status for both
@@ -727,12 +737,12 @@ test('several selected: the items, and what each does to every one of them', tid
 	await choose2(p, selectTwo, 'Set label', 'Green');
 	await p.sleep(600);
 	t.eq(j([(await fm(p, a)).label, (await fm(p, b)).label]), j(['Green', 'Green']), 'label on both');
-	await choose2(p, selectTwo, 'Include in compile');
+	await choose2(p, selectTwo, 'Include in export');
 	await p.sleep(600);
-	t.eq(j([(await fm(p, a)).compile, (await fm(p, b)).compile]), j([false, false]), 'Include in compile: off for both');
-	await choose2(p, selectTwo, 'Include in compile');
+	t.eq(j([(await fm(p, a)).export, (await fm(p, b)).export]), j([false, false]), 'Include in export: off for both');
+	await choose2(p, selectTwo, 'Include in export');
 	await p.sleep(600);
-	t.eq(j([(await fm(p, a)).compile, (await fm(p, b)).compile]), j([undefined, undefined]), 'and on again for both');
+	t.eq(j([(await fm(p, a)).export, (await fm(p, b)).export, (await fm(p, a)).compile, (await fm(p, b)).compile]), j([undefined, undefined, undefined, undefined]), 'and on again for both');
 	await choose2(p, selectTwo, 'Set target...');
 	await until(p, `!!document.querySelector('.modal')`);
 	t.eq((await dialog(p)).input, '', 'the target dialog starts empty for several');
@@ -1050,7 +1060,7 @@ test('outliner row menu: the card’s items, each working on the row (rename, st
 	const path = L + 'Epilogue.md';
 	await context(p, ROW(path));
 	const first = await titles(p);
-	t.ok(['Open', 'Rename', 'Edit synopsis', 'Set status', 'Set label', 'Set target...', 'Duplicate', 'Put in a new folder', 'Include in compile', 'Move up', 'Delete'].every((x) => first.includes(x)), 'the same items as a card: ' + first.join(', '));
+	t.ok(['Open', 'Rename', 'Edit synopsis', 'Set status', 'Set label', 'Set target...', 'Duplicate', 'Put in a new folder', 'Include in export', 'Move up', 'Delete'].every((x) => first.includes(x)), 'the same items as a card: ' + first.join(', '));
 	await choose(p, 'Rename');
 	await until(p, `!!document.querySelector('${ROW(path)} .binders-edit-field')`);
 	await p.type('Afterword');
@@ -1159,7 +1169,7 @@ test('outliner add-column “+” menu: every built-in column, the notes’ prop
 	await outl(p);
 	await click(p, `${LEAF} .binders-outliner-th.mod-add`);
 	const it = await items(p);
-	t.eq(j(it.filter((x) => x.section === 'built-in').map((x) => x.title)), j(['Label', 'Status', 'Words', 'Target', 'Progress', 'Compile', 'Created', 'Modified']), 'the built-in columns');
+	t.eq(j(it.filter((x) => x.section === 'built-in').map((x) => x.title)), j(['Label', 'Status', 'Words', 'Target', 'Progress', 'Export', 'Created', 'Modified']), 'the built-in columns');
 	t.eq(j(it.filter((x) => x.checked).map((x) => x.title)), j(['Label', 'Status', 'Words']), 'ticked: the three shown');
 	t.ok(it.some((x) => x.section === 'props'), 'and a property the notes have (plotlines)');
 	await choose(p, 'Target');
@@ -1170,7 +1180,7 @@ test('outliner add-column “+” menu: every built-in column, the notes’ prop
 	await choose(p, 'Target');
 	await p.sleep(500);
 	t.ok(!(await cols(p)).includes('target'), 'a second choice takes it away');
-	for (const name of ['Progress', 'Compile', 'Created', 'Modified']) {
+	for (const name of ['Progress', 'Export', 'Created', 'Modified']) {
 		await click(p, `${LEAF} .binders-outliner-th.mod-add`);
 		await choose(p, name);
 		await p.sleep(400);
@@ -1256,7 +1266,7 @@ test('outliner’s own menu (empty space and More options): Show synopses, Colum
 	// the toolbar's More options for the outliner
 	await click(p, `${LEAF} .view-action[aria-label="More options"]`);
 	const more = await items(p);
-	t.ok(more.some((x) => x.title === 'Show synopses') && more.some((x) => x.title === 'Columns') && more.some((x) => x.title === 'Compile...') && more.some((x) => x.title === 'Open binder note'), 'More options has the outliner’s items and the binder’s: ' + j(more.map((x) => x.title)));
+	t.ok(more.some((x) => x.title === 'Show synopses') && more.some((x) => x.title === 'Columns') && more.some((x) => x.title === 'Export...') && more.some((x) => x.title === 'Open binder note'), 'More options has the outliner’s items and the binder’s: ' + j(more.map((x) => x.title)));
 	await closeMenus(p);
 }));
 const log = (...a) => console.log('    ·', ...a);
@@ -1332,7 +1342,7 @@ test('manuscript: a section title’s menu (the card’s), New note after this, 
 	};
 	await ctxTitle('Prologue');
 	const first = await items(p);
-	t.eq(j(first.filter((x) => ['open', 'edit', 'props', 'structure', 'order', 'new', 'danger'].includes(x.section)).map((x) => x.title)), j(['Open', 'Open in new tab', 'Open to the right', 'Open in new window', 'Rename', 'Set synopsis from text', 'Snapshots', 'Set status', 'Set label', 'Set target...', 'Duplicate', 'Put in a new folder', 'Include in compile', 'Move down', 'Move to', 'New note after this', 'Delete']), 'the manuscript title’s own items');
+	t.eq(j(first.filter((x) => ['open', 'edit', 'props', 'structure', 'order', 'new', 'danger'].includes(x.section)).map((x) => x.title)), j(['Open', 'Open in new tab', 'Open to the right', 'Open in new window', 'Rename', 'Set synopsis from text', 'Snapshots', 'Set status', 'Set label', 'Set target...', 'Duplicate', 'Put in a new folder', 'Include in export', 'Move down', 'Move to', 'New note after this', 'Delete']), 'the manuscript title’s own items');
 	await choose(p, 'New note after this');
 	await until(p, `document.activeElement?.closest('.binders-manuscript-scene')?.classList.contains('is-fresh') || !!document.querySelector('${LEAF} .binders-manuscript-title [contenteditable], ${LEAF} .binders-manuscript-title input, ${LEAF} .binders-edit-field')`, 4000);
 	await p.sleep(400);
@@ -1476,7 +1486,7 @@ test('explorer, a note of a binder: Show in binder, New scene after this, the sn
 	await bodiesKept(p, t, before);
 }));
 
-test('explorer, a folder: Open binder, New scene here, Compile..., Take a snapshot of every note..., Move up / down; the order of the section is Obsidian’s own first', tidied(async (p, h, t) => {
+test('explorer, a folder: Open binder, New scene here, Export..., Take a snapshot of every note..., Move up / down; the order of the section is Obsidian’s own first', tidied(async (p, h, t) => {
 	await showExplorer(p, ['The Lighthouse']);
 	const start = await list(p);
 	await exContext(p, 'The Lighthouse');
@@ -1498,9 +1508,9 @@ test('explorer, a folder: Open binder, New scene here, Compile..., Take a snapsh
 	t.ok(/all \d+ notes in .The Lighthouse./.test((await dialog(p)).title), 'asks for a name: ' + (await dialog(p)).title);
 	await p.key('Escape');
 	await p.sleep(300);
-	await ex(p, 'The Lighthouse', 'Compile...');
-	await until(p, `!!document.querySelector('.modal.binders-compile')`);
-	t.eq((await dialog(p)).title, 'Compile “The Lighthouse”', 'Compile... opens its dialog');
+	await ex(p, 'The Lighthouse', 'Export...');
+	await until(p, `!!document.querySelector('${WIN}')`);
+	t.eq((await dialog(p)).title, 'Export “The Lighthouse”', 'Export... opens its window');
 	await p.key('Escape');
 	await p.sleep(300);
 	await ex(p, L + 'Part Two', 'Move up');
@@ -1518,7 +1528,7 @@ test('explorer, a folder outside any binder: Make this folder a binder, New bind
 	const it = await items(p);
 	t.ok(['Make this folder a binder', 'New binder'].every((x) => it.some((y) => y.title === x)), 'both items: ' + j(it.map((x) => x.title)));
 	t.eq(j(it.filter((x) => ['Make this folder a binder', 'New binder'].includes(x.title)).map((x) => x.icon)), j(['library', 'book']), 'their icons');
-	t.ok(!it.some((x) => ['Open binder', 'New scene here', 'Compile...', 'Move up'].includes(x.title)), 'none of a binder’s items');
+	t.ok(!it.some((x) => ['Open binder', 'New scene here', 'Export...', 'Move up'].includes(x.title)), 'none of a binder’s items');
 	await choose(p, 'Make this folder a binder');
 	await p.sleep(900);
 	t.ok(await exists2(p, 'Plain/Plain.md'), 'the binder note is made');
@@ -1581,7 +1591,7 @@ test('explorer, a Longform project: Convert to binder (its dialog: both switches
 	const before = await texts(p);
 	await exContext(p, 'Longform demo');
 	const it = await items(p);
-	t.ok(['Open binder', 'New scene here', 'Convert to binder', 'Compile...'].every((x) => it.some((y) => y.title === x)), 'its items: ' + j(it.map((x) => x.title)));
+	t.ok(['Open binder', 'New scene here', 'Convert to binder', 'Export...'].every((x) => it.some((y) => y.title === x)), 'its items: ' + j(it.map((x) => x.title)));
 	t.eq(it.find((x) => x.title === 'Convert to binder').icon, 'library', 'Convert to binder has the library icon, as Make this folder a binder');
 	await choose(p, 'Convert to binder');
 	await until(p, `!!document.querySelector('.modal')`);
@@ -1859,7 +1869,7 @@ test('palette: every command is named without the plugin’s name, in sentence c
 	for (const c of cmds) if (c.icon) t.ok(await p.ev(`!!window.getIconIds?.().includes(${j(c.icon)}) || true`), `${c.name}: icon ${c.icon}`);
 	// a name that says what it does
 	const names = cmds.map((c) => c.name);
-	t.ok(names.includes('Binders: Open binder') && names.includes('Binders: New binder') && names.includes('Binders: Compile binder'), 'the main ones are by those names');
+	t.ok(names.includes('Binders: Open binder') && names.includes('Binders: New binder') && names.includes('Binders: Export binder'), 'the main ones are by those names');
 }));
 
 test('palette: with nothing open, only the commands that need nothing are offered; none throws; “New binder” works', tidied(async (p, h, t) => {
@@ -1890,7 +1900,7 @@ test('palette: with a note outside any binder open, Make this folder a binder an
 	log('with a plain note open, offered:', on.join(', '));
 	t.eq(Object.values(av).filter((v) => typeof v === 'string').length, 0, 'none throws');
 	t.ok(on.includes('make-binder') && on.includes('new-binder'), 'make-binder and new-binder offered');
-	t.ok(!on.some((x) => ['open-binder', 'new-scene', 'take-snapshot', 'rewrite', 'move-up', 'move-down', 'compile', 'convert-longform', 'show-snapshots'].includes(x)), 'no binder command is offered: ' + on.join(', '));
+	t.ok(!on.some((x) => ['open-binder', 'new-scene', 'take-snapshot', 'rewrite', 'move-up', 'move-down', 'export', 'convert-longform', 'show-snapshots'].includes(x)), 'no binder command is offered: ' + on.join(', '));
 	for (const id of on) {
 		if (id === 'make-binder' || id === 'new-binder' || id === 'focus') continue;
 		const r = await runCommand(p, 'binders:' + id);
@@ -1914,13 +1924,13 @@ test('palette: in each mode of a binder view, every offered command runs; each e
 		const on = Object.entries(av).filter(([, v]) => v === true).map(([k]) => k.replace('binders:', ''));
 		log(mode + ' offers:', on.join(', '));
 		t.eq(Object.values(av).filter((v) => typeof v === 'string').length, 0, `${mode}: none throws when asked`);
-		for (const m of ['show-corkboard', 'show-outliner', 'show-manuscript', 'set-target', 'compile']) t.ok(on.includes(m), `${mode}: ${m} is offered`);
+		for (const m of ['show-corkboard', 'show-outliner', 'show-manuscript', 'set-target', 'export']) t.ok(on.includes(m), `${mode}: ${m} is offered`);
 		t.eq(on.includes('arrange-by-label'), mode === 'corkboard', `${mode}: Arrange corkboard by label is offered only on the corkboard`);
 		t.eq(on.includes('focus'), mode === 'manuscript', `${mode}: Toggle focus mode is offered only where there's text to focus on`);
 	}
 	await setMode(p, 'corkboard');
 	await p.sleep(400);
-	for (const id of ['show-outliner', 'show-manuscript', 'show-corkboard', 'arrange-by-label', 'arrange-by-label', 'set-target', 'compile', 'show-leftover-snapshots', 'take-snapshots', 'new-scene', 'undo-move', 'redo-move']) {
+	for (const id of ['show-outliner', 'show-manuscript', 'show-corkboard', 'arrange-by-label', 'arrange-by-label', 'set-target', 'export', 'show-leftover-snapshots', 'take-snapshots', 'new-scene', 'undo-move', 'redo-move']) {
 		await click(p, `${LEAF} .binders-card[data-path]`).catch(() => {});
 		const ok = await p.ev(`(() => { const c = app.commands.commands[${j('binders:' + id)}]; return c.checkCallback ? c.checkCallback(true) : true; })()`);
 		if (!ok) { log(id, 'is not offered here'); continue; }
@@ -1933,7 +1943,7 @@ test('palette: in each mode of a binder view, every offered command runs; each e
 	}
 }));
 
-test('palette: Show corkboard / outliner / manuscript, Arrange by label, Undo and Redo last move, Move up / down, Set word count target, Compile binder, New scene here: each does its one thing', tidied(async (p, h, t) => {
+test('palette: Show corkboard / outliner / manuscript, Arrange by label, Undo and Redo last move, Move up / down, Set word count target, Export binder, New scene here: each does its one thing', tidied(async (p, h, t) => {
 	await fresh(p);
 	const mode = () => p.ev(`${VIEW}.mode`);
 	await runCommand(p, 'binders:show-outliner'); await p.sleep(600);
@@ -1960,8 +1970,8 @@ test('palette: Show corkboard / outliner / manuscript, Arrange by label, Undo an
 	await runCommand(p, 'binders:set-target'); await until(p, `!!document.querySelector('.modal')`);
 	t.eq((await dialog(p)).title, 'Word count target for the binder', 'Set word count target opens the dialog');
 	await p.key('Escape'); await p.sleep(300);
-	await runCommand(p, 'binders:compile'); await until(p, `!!document.querySelector('.modal.binders-compile')`);
-	t.eq((await dialog(p)).title, 'Compile “The Lighthouse”', 'Compile binder opens the dialog');
+	await runCommand(p, 'binders:export'); await until(p, `!!document.querySelector('${WIN}')`);
+	t.eq((await dialog(p)).title, 'Export “The Lighthouse”', 'Export binder opens the window');
 	await p.key('Escape'); await p.sleep(300);
 	// new scene here, in a view with nothing being typed in
 	await runCommand(p, 'binders:new-scene'); await until(p, `document.activeElement?.tagName === 'INPUT'`, 3000);
@@ -1975,7 +1985,7 @@ test('palette: on a scene note: Open binder, New scene here, Move up / down, the
 	const av = await available(p);
 	const on = Object.entries(av).filter(([, v]) => v === true).map(([k]) => k.replace('binders:', ''));
 	log('on a scene, offered:', on.join(', '));
-	for (const id of ['open-binder', 'new-scene', 'move-up', 'move-down', 'take-snapshot', 'rewrite', 'show-snapshots', 'take-snapshots', 'compile', 'focus']) t.ok(on.includes(id), `${id} is offered on a scene`);
+	for (const id of ['open-binder', 'new-scene', 'move-up', 'move-down', 'take-snapshot', 'rewrite', 'show-snapshots', 'take-snapshots', 'export', 'focus']) t.ok(on.includes(id), `${id} is offered on a scene`);
 	t.ok(!on.includes('split-scene') || true, 'split is an editor command');
 	await runCommand(p, 'binders:take-snapshot'); await p.sleep(900);
 	t.eq((await snapshotFiles(p)).length, 1, 'Take a snapshot');
@@ -2178,7 +2188,7 @@ async function onDevice(p, [width, height], fn) {
 		await touch(p, 'touchCancel').catch(() => {});
 		for (let i = 0; i < 4 && (await p.ev(`document.querySelectorAll('.modal-container, .menu').length`).catch(() => 0)); i++) { await p.key('Escape'); await p.sleep(300); }
 		await p.ev(`(async () => { try { app.setting.close(); } catch {} document.querySelectorAll('.menu, .menu-backdrop').forEach(m => m.remove());
-			for (const f of app.vault.getFiles()) if (f.extension !== 'md' || / \\(compiled\\)\\.md$/.test(f.path)) await app.vault.delete(f);
+			for (const f of app.vault.getFiles()) if (f.extension !== 'md' || / \\(exported\\)\\.md$/.test(f.path)) await app.vault.delete(f);
 			const leaves = []; app.workspace.iterateRootLeaves(l => { leaves.push(l); }); leaves.forEach(l => l.detach()); })().then(() => 1)`).catch(() => {});
 		await p.send('Emulation.setTouchEmulationEnabled', { enabled: false });
 		await metrics(p, p.width, p.height, false);
@@ -2395,7 +2405,7 @@ test('phone: the file explorer drawer’s menus (a note, a folder, a plain folde
 		await gone2(p);
 		await ctxEx(L + 'Part One');
 		const f = await titles(p);
-		t.ok(f.includes('Open binder') && f.includes('New scene here') && f.includes('Compile...'), 'a folder’s menu: ' + j(f));
+		t.ok(f.includes('Open binder') && f.includes('New scene here') && f.includes('Export...'), 'a folder’s menu: ' + j(f));
 		await gone2(p);
 		await ctxEx('Plain');
 		t.ok((await titles(p)).includes('Make this folder a binder'), 'a plain folder: Make this folder a binder');
@@ -2488,7 +2498,7 @@ test('consistency: an action offered on several surfaces has one icon, and (wher
 	}
 	// sections: a menu's items group by section; the same title in the same family of menus sits in the same one
 	const sectionsOf = (title, surfaces) => [...new Set(surfaces.map((s) => (survey[s] ?? []).find((x) => x.title === title)?.section).filter(Boolean))];
-	for (const title of ['Open', 'Open in new tab', 'Rename', 'Set status', 'Set label', 'Set target...', 'Duplicate', 'Put in a new folder', 'Include in compile', 'Move up', 'Move down', 'Move to', 'Delete']) {
+	for (const title of ['Open', 'Open in new tab', 'Rename', 'Set status', 'Set label', 'Set target...', 'Duplicate', 'Put in a new folder', 'Include in export', 'Move up', 'Move down', 'Move to', 'Delete']) {
 		const s = sectionsOf(title, ['card', 'row', 'manuscript title']);
 		t.ok(s.length <= 1, `“${title}” is in one section on a card, a row and a title: ${j(s)}`);
 	}
@@ -2590,7 +2600,7 @@ test('a binder that can’t be changed: the card, row and title menus open and r
 	const card = await items(p);
 	log('RO card menu:', j(card.map((x) => x.section + ':' + x.title)));
 	for (const x of ['Open', 'Open in new tab']) t.ok(card.some((y) => y.title === x), `${x} is offered`);
-	t.ok(!card.some((x) => ['Rename', 'Edit synopsis', 'Set status', 'Set label', 'Set target...', 'Duplicate', 'Put in a new folder', 'Include in compile', 'Move up', 'Move down', 'Move to', 'Delete', 'Set synopsis from text'].includes(x.title)), 'none of the items that write');
+	t.ok(!card.some((x) => ['Rename', 'Edit synopsis', 'Set status', 'Set label', 'Set target...', 'Duplicate', 'Put in a new folder', 'Include in export', 'Move up', 'Move down', 'Move to', 'Delete', 'Set synopsis from text'].includes(x.title)), 'none of the items that write');
 	await choose(p, 'Show snapshots...');
 	await until(p, `!!document.querySelector('.modal')`);
 	t.ok(await dialog(p), 'Snapshots... opens the list to read');
@@ -2629,7 +2639,7 @@ test('a Longform project: the views’ menus leave out what a flat project can�
 	await context(p, CARD(LF + 'Harbor.md'));
 	const card = await titles(p);
 	log('Longform card menu:', j(card));
-	t.ok(!card.some((x) => ['Put in a new folder', 'Move to', 'Ungroup', 'Compile...'].includes(x)), 'no folder items on a Longform note');
+	t.ok(!card.some((x) => ['Put in a new folder', 'Move to', 'Ungroup', 'Export...'].includes(x)), 'no folder items on a Longform note');
 	t.ok(['Open', 'Rename', 'Set status', 'Duplicate', 'Move down', 'Delete'].every((x) => card.includes(x)), 'the rest are there');
 	await closeMenus(p);
 	await click(p, BTN('binders-new-button'));
@@ -2769,7 +2779,7 @@ test('Undo and Redo from the keyboard take back what the menus did to the order 
 	await bodiesKept(p, t, before);
 }));
 
-test('every dialog closes on a click outside it and does nothing: Delete, New status, Custom color, Set target, Compile, Rewrite, the snapshots list', tidied(async (p, h, t) => {
+test('every dialog closes on a click outside it and does nothing: Delete, New status, Custom color, Set target, Export, Rewrite, the snapshots list', tidied(async (p, h, t) => {
 	await fresh(p);
 	const before = await texts(p);
 	const outside = async () => { await p.click(6, 6); await p.sleep(400); };
@@ -2778,7 +2788,7 @@ test('every dialog closes on a click outside it and does nothing: Delete, New st
 		['New status', () => onCard(p, L + 'Epilogue.md', 'Set status', 'New status...')],
 		['Custom color', () => onCard(p, L + 'Epilogue.md', 'Set label', 'Custom color...')],
 		['Set target', () => onCard(p, L + 'Epilogue.md', 'Set target...')],
-		['Compile', () => onCard(p, L + 'Part One', 'Compile...')],
+		['Export', async () => { await oneNoteNext(p); await onCard(p, L + 'Part One', 'Export...'); }],
 		['Rewrite', () => onCard(p, L + 'Epilogue.md', 'Snapshots', 'Rewrite...')],
 		['Snapshots', () => onCard(p, L + 'Epilogue.md', 'Snapshots', 'Show snapshots...')],
 	];
