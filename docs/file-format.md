@@ -105,6 +105,14 @@ row.
   that isn't a list, Binders leaves the note as it is and doesn't make the folder a binder.
 - A folder made beside one it's named after ("Part One 1" next to "Part One", as Obsidian's "Make a copy" does) goes
   right after that one, and what's in it takes that folder's order.
+- Such a copy brings the original's folder note along under its old name (`Part One 1/Part One.md`), where it would
+  be a scene. Binders renames it to the copy's name (`Part One 1/Part One 1.md`), so the copy keeps its synopsis
+  and the rest; only the name changes, and no note is written to. It does so only when the note is plainly the
+  copied folder note: it is directly in the copy and named like the folder beside it that the copy is named after;
+  that folder has a folder note, and this one is byte for byte the same; it has at least one folder-note property
+  (`synopsis`, `status`, `label`, `target` under the names in settings, or `compile`); and the copy has no note under
+  its own name. Anything else is left as it is. Files may arrive one by one (a sync, a file manager): the note is
+  looked for as each arrives, for ten minutes after the last one.
 - A file deleted and created again within two seconds (as git and some editors rewrite files) goes back to its place.
 
 ## Scene properties
@@ -169,7 +177,8 @@ the commands you run on it:
   stays and a notice says the text is in both. Redo writes the new note again, as the split wrote it.
 - "Merge" appends the other notes' text to the first, a blank line between, joins their synopses the same way, reads
   the result back to check every note's text is in it, and only then moves the others to the trash.
-- "Duplicate" copies files byte for byte. A copied folder keeps its order, and its folder note is renamed to match.
+- "Duplicate" copies files byte for byte. A copied folder keeps its order, and its folder note is renamed to match
+  (as is the folder note of a folder copied outside Binders: see "Keeping the list up to date").
 - "Compile" writes one new note outside the binder (replacing a note of that name if there is one) and changes none
   of the binder's notes.
 - "Rewrite" with "Start from a blank page" and "Bring back" in the Snapshots dialog replace a note's text, after

@@ -1,10 +1,10 @@
-import { Events, FileSystemAdapter, Notice, TFile, TFolder, normalizePath, stringifyYaml, type App, type EventRef, type TAbstractFile } from 'obsidian';
+import { Events, FileSystemAdapter, Notice, TFile, TFolder, normalizePath, parseYaml, stringifyYaml, type App, type EventRef, type TAbstractFile } from 'obsidian';
 import type { ExplorerSource } from './explorer';
 import type BindersPlugin from './main';
 import { applyOps, checkFormat, diskList, FORMAT_VERSION, isBinderNote, isFolderNote, nameOf, orderChildren, parentOf, readIndex, relPath, removeFrom, settleNames, stepIndex, UnsupportedBinder, type ListOp } from './model';
 import { editProperties } from './properties';
 import { nextName, parts } from './scene-text';
-import { saveOpen } from './scenes';
+import { COMPILE_PROP, saveOpen } from './scenes';
 import { MoveHistory, type PropChange, type Undo } from './undo';
 import { SNAPSHOTS } from './snapshot-text';
 import { followSnapshots } from './snapshots';
@@ -153,6 +153,11 @@ const MEND = 30000;
 const RECALL = 2000;
 /** How long after the last file arrived in it a folder still counts as being copied, in ms. */
 const COPYING = 2000;
+/** How long after the last file arrived in it a copied folder's own note is still looked for, in ms: a sync or a file
+    manager can bring a folder's files minutes apart (see `adoptNote`). */
+const COPY_NOTE = 600000;
+/** How often, and how long apart in ms, a note that may still be arriving in a copied folder is looked at again. */
+const ADOPT_TRIES = 5, ADOPT_WAIT = 400;
 /** The longest a view waits for the metadata cache at startup before saying a folder isn't in a binder, in ms. */
 const SETTLE_MAX = 10000;
 
@@ -186,6 +191,9 @@ class State implements Binder {
 	    copy"), by their path in the binder: the folder each is a copy of, whether its order is waiting to be written,
 	    and when a file last arrived in it. See `placeCopy`. */
 	copies = new Map<string, { from: string; queued: boolean; at: number }>();
+	/** Folders recognised as copies made by something other than Binders (see `copies`), with the folder each is a copy
+	    of and when a file last arrived in it: the copied folder note may be among the last to come (see `adoptNote`). */
+	copied = new Map<TFolder, { from: TFolder; at: number }>();
 	/** Files deleted a moment ago, by their entry in the list (a Longform scene's name): the entries that stood before
 	    and after each in its folder (and a scene's indent), so a file created again within `RECALL` goes back there. */
 	gone = new Map<string, { prev: string | null; next: string | null; indent?: number; at: number }>();
@@ -753,8 +761,15 @@ export class BinderStore extends Events implements ExplorerSource {
 		if (s.kind !== 'binder' || s.problem || !f.parent) return;
 		const mine = this.relOf(s.folder.path, f.path, f instanceof TFolder);
 		if (!mine) return;
-		// a file arriving in a folder that's being copied: its place is in the order the copy was given
 		const now = Date.now();
+		// a file arriving in a folder that was copied: the copy's own folder note may be among them
+		for (const [copy, c] of s.copied) {
+			if (now - c.at > COPY_NOTE || this.app.vault.getAbstractFileByPath(copy.path) !== copy) { s.copied.delete(copy); continue; }
+			if (!f.path.startsWith(copy.path + '/')) continue;
+			c.at = now;
+			if (f instanceof TFile && f.parent === copy) void this.adoptNote(s, copy, c.from);
+		}
+		// a file arriving in a folder that's being copied: its place is in the order the copy was given
 		for (const [to, c] of s.copies) {
 			if (now - c.at > COPYING) { s.copies.delete(to); continue; }
 			if (mine === to || !mine.startsWith(to)) continue;
@@ -766,6 +781,8 @@ export class BinderStore extends Events implements ExplorerSource {
 		if (f instanceof TFolder) {
 			const m = /^(.+) (\d+)$/.exec(f.name), original = m ? this.app.vault.getAbstractFileByPath(normalizePath(`${f.parent.path}/${m[1]}`)) : null;
 			const from = original instanceof TFolder ? this.relOf(s.folder.path, original.path, true) : null;
+			// (its own folder note may come with it, whether or not the list knows the original: see `adoptNote`)
+			if (original instanceof TFolder) { s.copied.set(f, { from: original, at: now }); void this.adoptNote(s, f, original); }
 			if (!from || !this.contents(s).includes(from)) return;
 			// after this task: whoever made it may be about to place it itself (New folder, Duplicate)
 			window.setTimeout(() => {
@@ -785,6 +802,51 @@ export class BinderStore extends Events implements ExplorerSource {
 			const sibs = this.orderedChildren(f.parent) ?? [], at = sibs.filter((x) => x !== f).indexOf(original);
 			if (at >= 0) this.queue(s, { op: 'move', item: mine, folder: this.folderRel(s, f.parent), index: at + 1 });
 		}, 0);
+	}
+
+	/** Folders whose copied folder note is being looked at (see `adoptNote`): one look at a time for each. */
+	private adopting = new Set<TFolder>();
+
+	/** A folder copied by something other than Binders ("Part One 1", made beside "Part One" by Obsidian's "Make a
+	    copy", a file manager or a sync) brings the original's folder note along under its old name, "Part One.md",
+	    which is then a scene of the copy and no longer the folder's note. That note is renamed to the copy's name, as
+	    Binders' own Duplicate names it, so the copy keeps its synopsis and the rest. Only a note that is plainly the
+	    copied folder note, since a rename here hides a note from the binder's views:
+	    - it is directly in a folder that was recognised as a copy as it arrived (see `placeCopy`), and named like the
+	      folder that one is a copy of, which still stands beside it;
+	    - that folder has a folder note of its own, and this note is byte for byte the same;
+	    - it has at least one of the properties Binders keeps in a folder note (synopsis, status, label, target, compile);
+	    - the copy has no note under its own name, in the vault or on the disk.
+	    A file that is still being written is looked at again a few times. Only the name changes: no note is written
+	    to, and links are left as they are (they never meant a note that has just arrived). */
+	private async adoptNote(s: State, copy: TFolder, from: TFolder): Promise<void> {
+		if (this.adopting.has(copy)) return;
+		this.adopting.add(copy);
+		try {
+			const { vault } = this.app, st = this.plugin.settings;
+			const props = [st.synopsisProp, st.statusProp, st.labelProp, st.targetProp, COMPILE_PROP];
+			for (let i = 0; i < ADOPT_TRIES; i++) {
+				if (i) await sleep(ADOPT_WAIT);
+				const here = (f: TAbstractFile) => vault.getAbstractFileByPath(f.path) === f;
+				if (this.states.get(s.note) !== s || s.kind !== 'binder' || s.problem || s.frozen || !here(copy) || !here(from) || copy.parent !== from.parent || copy.name === from.name) return;
+				const note = vault.getAbstractFileByPath(normalizePath(`${copy.path}/${from.name}.md`)), theirs = vault.getAbstractFileByPath(this.folderNotePath(from)), to = this.folderNotePath(copy);
+				if (!(note instanceof TFile) || !(theirs instanceof TFile)) return;
+				// never over, or beside, a note that has the copy's name
+				if (vault.getAbstractFileByPath(to) || await vault.adapter.exists(to)) return;
+				const [a, b] = await Promise.all([vault.readBinary(note), vault.readBinary(theirs)]);
+				// (not the same: it may still be arriving, so it's looked at again; a note that stays different is left)
+				if (!sameBytes(a, b)) continue;
+				let fm: unknown = null;
+				try { const { yaml } = parts(new TextDecoder().decode(a)); fm = yaml ? parseYaml(yaml) : null; } catch { /* properties that can't be read aren't a folder note's */ }
+				if (!fm || typeof fm !== 'object' || Array.isArray(fm) || !props.some((k) => k in fm)) return;
+				// (asked again: all of this was read over several turns)
+				if (!here(copy) || !here(note) || note.parent !== copy || note.basename !== from.name || vault.getAbstractFileByPath(to)) return;
+				this.own.add(to);
+				try { await vault.rename(note, to); } catch (e) { this.own.delete(to); console.error('Binders: a copied folder’s note couldn’t take its name', e); }
+				return;
+			}
+		} catch (e) { console.error('Binders: a copied folder’s note couldn’t be looked at', e); }
+		finally { this.adopting.delete(copy); }
 	}
 
 	/** A byte-for-byte copy of a file. */
@@ -1522,6 +1584,14 @@ export class BinderStore extends Events implements ExplorerSource {
 			for (const p of paths) this.trigger('changed', p);
 		}, 0);
 	}
+}
+
+/** Are two files' bytes the same? */
+function sameBytes(a: ArrayBuffer, b: ArrayBuffer): boolean {
+	if (a.byteLength !== b.byteLength) return false;
+	const x = new Uint8Array(a), y = new Uint8Array(b);
+	for (let i = 0; i < x.length; i++) if (x[i] !== y[i]) return false;
+	return true;
 }
 
 /** Thrown inside a write to leave the note as it is: it's no longer a binder note, or there's nothing to write. */

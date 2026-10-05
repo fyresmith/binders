@@ -483,6 +483,105 @@ test('binders: Binders’ own “Duplicate” of a folder is as it was: the copy
 	same(t, before, await texts(p), { skip: [NOTE] });
 }));
 
+// A folder copied by something other than Binders arrives as "Part One 1" with its folder note still named
+// "Part One.md", which would show there as a scene. When the copy is recognised, that note takes the copy's name, as
+// Binders' own Duplicate gives it: but only a note that is plainly the copied folder note.
+const COPY = 'The Lighthouse/Part One 1', COPY_NOTE = `${COPY}/Part One 1.md`, OLD_NAME = `${COPY}/Part One.md`;
+const COPY_LIST = ['Prologue', 'Part One/', 'Part One/Arrival', 'Part One/The keeper', 'Part One/Storm warning', 'Part One 1/', 'Part One 1/Arrival', 'Part One 1/The keeper', 'Part One 1/Storm warning', 'Part Two/', 'Part Two/The wreck', 'Part Two/Lights out', 'Epilogue'];
+const noticed = (p) => p.ev(`(() => { const probe = new Notice(''), docs = new Set([document, probe.noticeEl.ownerDocument]); probe.hide(); return [...docs].flatMap(d => [...d.querySelectorAll('.notice')]).map(n => n.textContent).filter(Boolean).join(' | '); })()`);
+/** Copies files of Part One into a folder as something outside Obsidian does (a file manager, a sync): straight to
+    the disk, one by one, `gap` ms apart; `[name, text]` writes that text instead of copying. */
+const arrive = (p, to, names, gap = 0) => p.ev(`(async () => {
+	const a = app.vault.adapter;
+	if (!(await a.exists(${j(to)}))) await a.mkdir(${j(to)});
+	for (const n of ${j(names)}) {
+		const [name, text, wait] = Array.isArray(n) ? n : [n];
+		await new Promise(r => setTimeout(r, wait ?? ${gap}));
+		await a.write(${j(to)} + '/' + name, text ?? await a.read(${j(P1)} + '/' + name));
+	}
+})().then(() => 1)`);
+async function copyKeepsItsNote(p, t, before) {
+	t.ok(await until(p, `!!${file(COPY_NOTE)} && !${file(OLD_NAME)}`, 8000), 'the copy’s folder note has the copy’s name: ' + j(await children(p, COPY, true)));
+	t.eq(await read(p, COPY_NOTE), before[FOLDER_NOTE], 'byte for byte the note that was copied');
+	t.ok(!(await exists(p, OLD_NAME)), 'and no note named like the old folder is left on disk');
+	t.eq(await p.ev(`${B}.folderNote(${file(COPY)})?.path ?? null`), COPY_NOTE, 'it is the copy’s folder note');
+	t.eq(j(await children(p, COPY)), j(['Arrival.md', 'The keeper.md', 'Storm warning.md']), 'not a scene of the copy, whose notes are in the original’s order');
+	t.eq(j(await p.ev(`${B}.scenes(${file(COPY)}).map(f => f.name)`)), j(['Arrival.md', 'The keeper.md', 'Storm warning.md']), 'nor one of its scenes');
+	await until(p, `app.metadataCache.getFileCache(${file(COPY_NOTE)})?.frontmatter?.synopsis`, 4000);
+	t.eq(await p.ev(`app.metadataCache.getFileCache(${file(COPY_NOTE)})?.frontmatter?.synopsis`), 'Mara comes to the island.', 'the copy has the folder’s synopsis');
+	await p.sleep(700); await flush(p); await p.sleep(300);
+	t.eq(j(await contents(p)), j(COPY_LIST), 'the list: the copy after its original, in its order, and no entry for the note');
+	const after = await texts(p);
+	same(t, before, after, { skip: [NOTE] });
+	for (const n of ['Arrival', 'The keeper', 'Storm warning']) t.eq(after[`${COPY}/${n}.md`], before[`${P1}/${n}.md`], `the copy of “${n}” has its text`);
+	t.eq(await noticed(p), '', 'and nothing is said');
+}
+
+test('binders: a folder copied by Obsidian (“Make a copy”) keeps its folder note: the note takes the copy’s name, byte for byte, so the copy has its synopsis and no scene named like the old folder', withTidy(async (p, h, t) => {
+	await addFolderNote(p);
+	await p.sleep(400);
+	const before = await texts(p);
+	await p.ev(`app.vault.copy(${file(P1)}, ${j(COPY)}).then(() => 1)`);
+	await copyKeepsItsNote(p, t, before);
+	t.eq(await read(p, FOLDER_NOTE), before[FOLDER_NOTE], 'the original’s folder note is untouched');
+}));
+
+test('binders: a folder copied by a file manager or a sync, its files arriving one by one: the folder note is renamed whether it arrives first, or last after a long pause', withTidy(async (p, h, t) => {
+	await addFolderNote(p);
+	await p.sleep(400);
+	const before = await texts(p);
+	// the note first, the rest slowly
+	await arrive(p, COPY, ['Part One.md', 'Arrival.md', 'The keeper.md', 'Storm warning.md'], 500);
+	await copyKeepsItsNote(p, t, before);
+	await p.ev(`app.vault.delete(${file(COPY)}, true).then(() => 1)`);
+	await p.sleep(800); await flush(p); await p.sleep(300);
+	t.eq(j(await contents(p)), j(LIST), '(the copy deleted: the list as it was)');
+	// the note last, well after the folder stopped being taken for one that's being copied
+	await arrive(p, COPY, ['Arrival.md', 'The keeper.md', 'Storm warning.md', ['Part One.md', null, 3200]], 300);
+	await copyKeepsItsNote(p, t, before);
+}));
+
+test('binders: a note in a copied folder is left alone unless it is plainly the copied folder note: other text, no folder properties, a note with the copy’s name already there, an original with no folder note, a folder that isn’t named as a copy', withTidy(async (p, h, t) => {
+	const SCENE = '---\nsynopsis: A scene of the writer’s own.\n---\nA scene that happens to be called Part One.\n', OWN = '---\nsynopsis: The copy’s own.\n---\n';
+	const others = ['Arrival.md', 'The keeper.md', 'Storm warning.md'];
+	const away = async () => { await p.ev(`(async () => { for (const path of ${j([COPY, 'The Lighthouse/Part One (draft)'])}) { const f = app.vault.getAbstractFileByPath(path); if (f) await app.vault.delete(f, true); } })().then(() => 1)`); await p.sleep(700); };
+	const left = async (path, text, why) => {
+		await p.sleep(3600); // (past every second look at a note that might still be arriving)
+		t.ok(await exists(p, path), `${why}: the note keeps its name`);
+		t.eq(await read(p, path), text, `${why}: and its text`);
+	};
+	await addFolderNote(p);
+	await p.sleep(400);
+	const note = await read(p, FOLDER_NOTE);
+	// 1. a note of that name with other text: a scene, whatever it's called
+	await arrive(p, COPY, [...others, ['Part One.md', SCENE]], 100);
+	await left(OLD_NAME, SCENE, 'a note that isn’t the copied folder note');
+	t.ok(!(await exists(p, COPY_NOTE)), 'no note with the copy’s name was made');
+	t.ok((await children(p, COPY)).includes('Part One.md'), 'it shows as a scene of the copy');
+	await away();
+	// 2. the copy's own note is there already: neither is renamed or written over
+	await arrive(p, COPY, [['Part One 1.md', OWN], ...others, 'Part One.md'], 100);
+	await left(OLD_NAME, note, 'a note with the copy’s name is there already');
+	t.eq(await read(p, COPY_NOTE), OWN, 'and that note is untouched');
+	await away();
+	// 3. a folder that isn't named as a copy of the one beside it
+	await arrive(p, 'The Lighthouse/Part One (draft)', [...others, 'Part One.md'], 100);
+	await left('The Lighthouse/Part One (draft)/Part One.md', note, 'a folder not named as a copy');
+	await away();
+	// 4. a folder note with no folder properties (text only): not plainly Binders'
+	await p.ev(`app.vault.modify(${file(FOLDER_NOTE)}, 'Notes on Part One, and no properties.\\n').then(() => 1)`);
+	await p.sleep(400);
+	await arrive(p, COPY, [...others, 'Part One.md'], 100);
+	await left(OLD_NAME, 'Notes on Part One, and no properties.\n', 'a note without folder properties');
+	await away();
+	// 5. the original has no folder note: the note in the copy is no copy of one
+	await p.ev(`app.vault.delete(${file(FOLDER_NOTE)}).then(() => 1)`);
+	await p.sleep(400);
+	await arrive(p, COPY, [...others, ['Part One.md', note]], 100);
+	await left(OLD_NAME, note, 'an original with no folder note');
+	t.eq(await noticed(p), '', 'nothing was said in any of these');
+}));
+
 // "Undo last move" from the command palette is for the binder in front. Only with nothing of a binder in front (the
 // file explorer in use, a note outside every binder) is it for the binder that was changed last.
 test('binders: “Undo last move” with one binder’s view or note in front never undoes a move made in another binder', withTidy(async (p, h, t) => {

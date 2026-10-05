@@ -491,8 +491,8 @@ Binders is not at 1.0 yet. What isn't finished, honestly:
 - **Windows line breaks.** Binders leaves a note's line breaks alone unless you type in it. Obsidian itself rewrites
   a note that has Windows line breaks with its own when the note's tab is closed or given to another note.
 - **In the file explorer,** a selection that spans two folders of a binder, or a Longform project, still has Obsidian's
-  own **New folder with selection**, which puts the folder last. Obsidian's **Make a copy** of a folder is placed right after the original, in the original's order, but it
-  copies the folder's own note under its old name, so it shows in the copy as a scene, listed last.
+  own **New folder with selection**, which puts the folder last. Obsidian's **Make a copy** of a folder (or a copy made in a file manager while Obsidian is open) is placed right after the original, in the original's order, and
+  keeps the folder's synopsis, label and target: Binders renames the copied folder note to match the copy. A folder note with none of those properties, or one that differs from the original's, is left under its old name and shows in the copy as a scene, listed last.
 - **Undo last move** covers moves (and a folder made around notes or ungrouped), not renames, deletes, merges or duplicates (a split is undone in its note, with the editor's own undo), and
   remembers the last fifty changes (of all binders together) while Obsidian is open. Undoing a kept sort of thousands of notes is slow.
 - **For screen readers,** the "New note" tile sits inside the list of cards, so a reader may skip its button, and "Undo last move" isn't announced.

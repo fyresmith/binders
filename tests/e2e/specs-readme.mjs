@@ -24,7 +24,7 @@ test('Known limitations: Make a copy of a folder with a folder note: what the co
 	await p.ev(`app.vault.create(${j(P1 + '/Part One.md')}, '---\\nsynopsis: Folder syn\\n---\\nfolder note body').then(() => 1)`);
 	await settle(p);
 	await p.ev(`app.vault.copy(${file(P1)}, ${j(L + '/Part One 1')}).then(() => 1)`);
-	await until(p, `!!${file(L + '/Part One 1/Part One.md')}`, 5000);
+	await until(p, `!!${file(L + '/Part One 1/Part One 1.md')} && !${file(L + '/Part One 1/Part One.md')}`, 8000);
 	await settle(p);
 	const kids = await p.ev(`${B}.orderedChildren(${file(L + '/Part One 1')}).map(c => c.name)`);
 	const scenes = await p.ev(`${B}.scenes(${file(L + '/Part One 1')}).map(c => c.name)`);
@@ -32,9 +32,10 @@ test('Known limitations: Make a copy of a folder with a folder note: what the co
 	const cs = await cards(p);
 	t.eq(j(await p.ev(`${B}.orderedChildren(${file(L)}).map(c => c.name).slice(0, 4)`)), j(['Prologue.md', 'Part One', 'Part One 1', 'Part Two']), 'the copy is right after the original');
 	t.eq(j(kids.slice(0, 3)), j(['Arrival.md', 'The keeper.md', 'Storm warning.md']), 'its notes are in the original’s order');
-	// the README says it "may show in the copy as a scene": say what happens, exactly
+	// the README says the copy "keeps the folder's synopsis": its folder note is renamed to match, and is no scene
 	const note = `children ${j(kids)}; scenes ${j(scenes)}; cards ${j(cs.map((c) => c.split('/').pop()))}`;
-	t.ok(scenes.includes('Part One.md') && cs.some((c) => c.endsWith('/Part One.md')), 'the copied folder note shows as a scene (last, after the others) and as a card: ' + note);
+	t.eq(await p.ev(`app.vault.adapter.read(${j(L + '/Part One 1/Part One 1.md')})`), '---\nsynopsis: Folder syn\n---\nfolder note body', 'the copied folder note has the copy’s name, byte for byte');
+	t.ok(!scenes.some((n) => /^Part One( 1)?\.md$/.test(n)) && !cs.some((c) => /\/Part One( 1)?\.md$/.test(c)), 'and shows neither as a scene nor as a card: ' + note);
 }));
 
 // ---- 2. Undoing a move: Ungroup, New folder from selection

@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.15.0 (2026-10-05)
+
+### Fixed
+
+- A folder copied with Obsidian's Make a copy, or in a file manager while Obsidian is open, keeps its synopsis, label and target: its folder note is renamed to match the copy instead of showing there as a scene.
+
 ## 0.14.0 (2026-10-05)
 
 ### Changed
