@@ -288,14 +288,16 @@ test('“Show changes” says what is different, item by item: rewritten with it
 	const got = await tree(p);
 	t.eq(j(got), j([
 		'The binder’s own properties | target',
-		'Prologue',
+		// (a note that is the same says its size, as in the contents)
+		'Prologue | 21',
 		'Part One | synopsis',
 		'Arrival | +11 −4 words',
 		'The keeper | now “The old keeper”',
 		'Storm warning | moved to “Part Two”',
 		'Part Two | 2 notes',
-		'The wreck | label, status',
+		// (what is new is where it is now: The lamp room was put first in Part Two; properties in the note's own order)
 		'The lamp room [ins] | new',
+		'The wreck | status, label',
 		'Lights out [del] | gone',
 		'Epilogue | moved',
 	]), 'every row, with what is different about it');
@@ -399,7 +401,7 @@ test('one note brought back: its text is the snapshot’s, its properties stay, 
 	t.ok((await tree(p)).some((x) => x === 'Arrival | status'), 'and the contents say what is still different: its status');
 });
 
-test('a note that is gone is made again, byte for byte, where it stood; if a note has its name now, it comes back under the name counted on, and the one that is there isn’t touched', async (p, h, t) => {
+test('a note that is gone is made again, byte for byte, where it stood; another note made since under its name is that note rewritten, and Bring back gives it its text again, keeping what it replaced', async (p, h, t) => {
 	await openView(p);
 	const first = await take(p);
 	await age(p, first.files[0], '2026-09-19 16.20.05');
@@ -416,21 +418,23 @@ test('a note that is gone is made again, byte for byte, where it stood; if a not
 	t.eq(await hex(p, K), was, 'it is back, byte for byte');
 	t.eq(j((await contents(p)).slice(1, 5)), j(['Part One/', 'Part One/Arrival', 'Part One/The keeper', 'Part One/Storm warning']), 'after the note it followed then');
 	same(t, before, await texts(p), { skip: [K, NOTE] });
-	// again, with its name taken by another note
+	// another note made since under its name: a note is followed by where it is, so this is the same note, rewritten
+	// (the maintainer's call, 2026-10-06, as changes() documents it)
 	await closeAll(p);
+	const old = await read(p, K);
 	await p.ev(`(async () => { await app.vault.delete(${file(K)}); await ${B}.newScene(${file(P1)}, 0, 'The keeper', undefined, 'Another note altogether.\\n'); await ${B}.flush(); })().then(() => 1)`);
 	await sleep(p, 300);
-	const taken = await hex(p, K);
 	await openDialog(p);
 	await drawn(p);
-	await clickIn(p, DLG + ' .binders-folder-snapshots-tree del', 'The keeper');
-	await drawn(p);
+	const row = (await tree(p)).find((r) => r.startsWith('The keeper'));
+	t.ok(row && !/\[del\]|\[ins\]/.test(row) && /^The keeper \| [+−][^|]*words/.test(row), 'shown as the note rewritten, with its words in and out, not as one gone and one new: ' + row);
+	await treeRow(p, 'The keeper');
 	await clickIn(p, DLG + ' .modal-setting-titlebar-actions button', 'Bring back');
-	await until(p, `app.vault.adapter.exists(${j(P1 + '/The keeper 2.md')})`, 8000);
+	await until(p, `app.vault.adapter.read(${j(K)}).then(s => !s.includes('Another note altogether.'))`, 8000);
 	await settle(p);
-	t.eq(await hex(p, P1 + '/The keeper 2.md'), was, 'it comes back as “The keeper 2”, byte for byte');
-	t.eq(await hex(p, K), taken, 'and the note that has the name is as it was');
-	t.ok(/as “The keeper 2”: a note named “The keeper” is there now\.$/.test(await notices(p)), 'and it says so: ' + await notices(p));
+	t.eq(bodyOf(await read(p, K)), bodyOf(old), 'Bring back gives it its text as it was');
+	const kept = await p.ev(`(async () => { const d = ${j(SN + '/Part One/The keeper')}; if (!(await app.vault.adapter.exists(d))) return []; const l = await app.vault.adapter.list(d); return Promise.all(l.files.map(f => app.vault.adapter.read(f))); })()`);
+	t.ok(kept.some((x) => x.includes('Another note altogether.')), 'and the text it replaced is kept as a snapshot of the note');
 });
 
 test('“Make a binder from this snapshot” writes the binder as it stood into a new folder beside it: a binder, in its order, every note byte for byte; nothing that is there changes', async (p, h, t) => {

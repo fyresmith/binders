@@ -376,7 +376,8 @@ export class FolderSnapshotsModal extends Modal {
 	// ---- the contents: the folder as it stood, in its order ----
 
 	private contents(el: HTMLElement, then: State, c: Changes | null, marked: boolean): void {
-		const rows = c ? (marked ? c.rows : c.rows.filter((r) => r.then)) : changes(then.entries, then.entries, { words: false }).rows;
+		// (unmarked, the contents as they stood: no row for a folder's own properties, which is there only to say they changed)
+		const rows = c ? (marked ? c.rows : c.rows.filter((r) => r.then && !r.then.role)) : changes(then.entries, then.entries, { words: false }).rows;
 		const tree = el.createDiv({ cls: 'binders-folder-snapshots-tree', attr: { role: 'tree', 'aria-label': 'Contents' } });
 		const words = new Map<Row, { notes: number; words: number }>();
 		// (a folder's size is what's in it: added up from the end, each row into the folder rows above it)
