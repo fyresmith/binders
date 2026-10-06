@@ -44,10 +44,13 @@ const MATTER_FOLDER = /^(front|back)[ -]?matter$/i;
 const MATTER = /^(dedication|epigraph|acknowledge?ments|about the author|also by\b.*|copyright|title page)$/i;
 const PARTLIKE = /^(part|book|act)\b/i;
 
+/** A folder that counts toward the guess: one with a note to export somewhere in it (a folder of pictures has none). */
+const holds = (it: SourceItem): boolean => it.kind === 'folder' && it.included && !MATTER_FOLDER.test(it.name.trim()) && (it.children ?? []).some((c) => c.included && (c.kind === 'note' || holds(c)));
+
 /** How deep the folders go that hold something to export. */
 function depthOf(items: readonly SourceItem[]): number {
 	let d = 0;
-	for (const it of items) if (it.kind === 'folder' && it.included && !MATTER_FOLDER.test(it.name.trim())) d = Math.max(d, 1 + depthOf(it.children ?? []));
+	for (const it of items) if (holds(it)) d = Math.max(d, 1 + depthOf(it.children ?? []));
 	return d;
 }
 
@@ -56,7 +59,7 @@ export function guessStructure(items: readonly SourceItem[]): Structure {
 	const depth = depthOf(items);
 	if (depth === 0) return 'notes';
 	if (depth > 1) return 'parts-chapters';
-	const folders = items.filter((it) => it.kind === 'folder' && it.included && !MATTER_FOLDER.test(it.name.trim()));
+	const folders = items.filter(holds);
 	return folders.length && folders.every((f) => PARTLIKE.test(f.name.trim())) ? 'parts' : 'chapters';
 }
 

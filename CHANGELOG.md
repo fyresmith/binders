@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.29.2 (2026-10-06)
+
+### Fixed
+
+- A folder holding only pictures no longer changes how Export reads a binder's structure.
+
 ## 0.29.1 (2026-10-06)
 
 ### Fixed

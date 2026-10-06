@@ -133,6 +133,7 @@ const roles = (items: SourceItem[], s = guessStructure(items)) => assignRoles(it
 	eq(roles(deep), 'Part One:part One:chapter a:scene Deeper:group b:scene loose:chapter', 'its roles');
 	eq(assignRoles(deep, 'parts-chapters').deep.map((f) => f.name).join(), 'Deeper', 'a folder deeper than the rule reaches is said');
 	eq(guessStructure([note('a'), note('b')]), 'notes', 'no folders: every note is a chapter');
+	eq(guessStructure([folder('Part One', [note('a')]), folder('Part Two', [note('b')]), folder('Figures', []), folder('Maps', [folder('Old', [])])]), 'parts', 'a folder with no notes in it (pictures only) is no part of the guess');
 	eq(roles([folder('Group', [note('a')])], 'notes'), 'Group:group a:chapter', 'every note a chapter: folders only group');
 	const matter = [note('Dedication'), note('One'), note('Acknowledgements'), folder('Back matter', [note('Anything')]), note('About the author')];
 	eq(roles(matter, 'notes'), 'Dedication:front One:chapter Acknowledgements:chapter Back matter:back Anything:back About the author:back', 'front and back matter by name and place, and by folder');
