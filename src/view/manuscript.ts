@@ -141,7 +141,7 @@ class Manuscript implements BinderMode {
 			// (the page moved by anything but the hold: the scrollbar, a jump to another section, the cursor brought
 			// into sight. Held on, the section would drag the page back as the ones above it are drawn.)
 			if (this.pin && Math.abs(this.root.scrollTop - this.pinTop) > 1) this.pin = null;
-			this.scrolledAt = performance.now(); if (this.root.offsetParent) this.lastTop = this.root.scrollTop; this.leaveBehind(); }, { passive: true });
+			this.scrolledAt = performance.now(); if (this.root.offsetParent) this.lastTop = this.root.scrollTop; this.leaveBehind(); this.ctx.selectionChanged?.(); }, { passive: true });
 		c.registerDomEvent(this.root, 'click', (e) => this.onClick(e));
 		c.registerDomEvent(this.root, 'auxclick', (e) => { const s = this.sceneOf(e.target); if (e.button === 1 && s?.titleEl.contains(e.target as Node) && !s.renaming) { e.preventDefault(); void this.ctx.openFile(s.file, 'tab'); } });
 		c.registerDomEvent(this.list, 'contextmenu', (e) => this.onMenu(e));
@@ -361,6 +361,17 @@ class Manuscript implements BinderMode {
 
 	current(): TAbstractFile | null {
 		return (this.sceneOf(this.root.ownerDocument.activeElement) ?? null)?.file ?? this.caret?.file ?? null;
+	}
+
+	/** Where the reader is: the section with the cursor while that's in sight, else the first section on the page. */
+	here(): TAbstractFile | null {
+		if (this.dead || !this.entries.length || !this.root.isConnected) return this.current();
+		const view = this.root.getBoundingClientRect(), seen = (el: HTMLElement) => { const r = el.getBoundingClientRect(); return r.bottom > view.top + 1 && r.top < view.bottom; };
+		const cur = this.current(), at = cur ? this.byKey.get(cur) : null;
+		if (at && seen(at.el)) return cur;
+		const a = this.anchor(), i = Math.max(this.entries.findIndex((x) => x.el === a), 0);
+		const next = this.entries.slice(i).find((e): e is Scene => e.kind === 'scene');
+		return next?.file ?? cur;
 	}
 
 	/** The editor with the cursor in it, for focus mode (typewriter scrolling, the last line). */

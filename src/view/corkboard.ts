@@ -274,6 +274,8 @@ class Corkboard implements BinderMode {
 		}, (e) => new Notice(plain(e)));
 	}
 
+	selected(): TAbstractFile[] { return [...this.sel].map((p) => this.ctx.app.vault.getAbstractFileByPath(p)).filter((f): f is TAbstractFile => !!f); }
+
 	current(): TAbstractFile | null {
 		const path = this.focused ?? [...this.sel][0];
 		return path ? this.ctx.app.vault.getAbstractFileByPath(path) : null;
@@ -700,6 +702,7 @@ class Corkboard implements BinderMode {
 			c.setAttr('aria-selected', String(on));
 			c.setAttr('tabindex', c === tab ? '0' : '-1');
 		}
+		this.ctx.selectionChanged?.();
 	}
 
 	/** The items an action applies to: the selection if the card is in it, else just the card. */

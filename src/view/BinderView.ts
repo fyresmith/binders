@@ -5,10 +5,11 @@ import { folderSnapshotItems } from './snapshots';
 import type BindersPlugin from '../main';
 import { commitAll, commitFocused, editable, editingIn, type Editable } from './edit';
 import { keepOpen, readableLineLength, refreshHeader, selectMenuItem } from './internals';
-import { canonical, labelDot, labelName, rank, readLabel } from './labels';
+import { canonical, labelDot, labelName, rank } from './labels';
 import { readArrangement, readLines, type Arrangement, type Lines } from './lanes-data';
 import { ask } from './modals';
-import { parseTarget, readTarget, whyNotTarget } from './outliner-data';
+import { parseTarget, whyNotTarget } from './outliner-data';
+import { readProps, writeProps } from './props';
 import type { BinderMode, ModeContext, SceneProps } from './mode';
 import type { EditorView } from '@codemirror/view';
 import { WordCounter, wordsLabel } from './words';
@@ -19,6 +20,9 @@ import { WordCounter, wordsLabel } from './words';
 
 /** The view's type, as Obsidian knows it (saved workspaces name it). */
 export const VIEW_TYPE = 'binders-view';
+/** The workspace event a binder view sends when what it is on may have changed (a selection, the cursor's section, a
+    scroll of the manuscript, another folder or mode): the inspector follows it. */
+export const INSPECT = 'binders:inspect';
 
 /** The three modes of the view. */
 export type ModeName = 'corkboard' | 'outliner' | 'manuscript';
@@ -54,7 +58,6 @@ interface Filter { status: string[]; label: string[] }
 interface BinderViewState { folder?: string; mode?: ModeName; filter?: Filter; options?: Record<string, unknown> }
 
 const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
-const text = (v: unknown): string => (typeof v === 'string' ? v : typeof v === 'number' || typeof v === 'boolean' ? String(v) : Array.isArray(v) ? v.filter((x) => typeof x === 'string').join(', ') : '');
 
 /** Folders renamed or moved since Obsidian started, old path to new, so a tab's history (Back) still finds them. */
 const moved = new Map<string, string>();
@@ -150,6 +153,15 @@ export class BinderView extends ItemView {
 	/** "Go to previous scene" and "Go to next scene" in the manuscript. */
 	stepScene(delta: number, checking: boolean): boolean { return this.current?.stepScene?.(delta, checking) ?? false; }
 
+	// ---- for the inspector (src/inspector) ----
+
+	/** Everything selected in the mode (cards, rows); the manuscript has none. */
+	selectedItems(): TAbstractFile[] { return this.current?.selected?.() ?? []; }
+	/** Where the reader is: the manuscript's section with the cursor or at the top of the page; else what the mode is on. */
+	hereItem(): TAbstractFile | null { return this.current?.here?.() ?? this.current?.current?.() ?? null; }
+	/** Tells the inspector that what this view is on may have changed. */
+	inspect(): void { this.app.workspace.trigger(INSPECT, this); }
+
 	async setState(state: unknown, result: ViewStateResult): Promise<void> {
 		const s = (state ?? {}) as BinderViewState;
 		// another folder is a step in the tab's history, so Back returns to this one
@@ -231,6 +243,8 @@ export class BinderView extends ItemView {
 		this.registerDomEvent(this.contentEl, 'touchstart', () => this.contentEl.addClass('is-touch'), { passive: true });
 		this.registerDomEvent(this.contentEl, 'keydown', (e) => { if (e.key === 'Tab' || e.key.startsWith('Arrow')) this.contentEl.removeClass('is-touch'); });
 		for (const type of ['pointerdown', 'keydown'] as const) this.registerDomEvent(this.contentEl, type, () => { this.presses++; }, { capture: true, passive: true });
+		// (the cursor going into another section of the manuscript: the inspector follows)
+		this.registerDomEvent(this.contentEl, 'focusin', () => this.inspect());
 		// A phone with its keyboard up may leave the view a few lines (a small phone; any phone on its side): the
 		// toolbar then gives its line to the page. Only while something in the view is being typed in: with nothing
 		// being edited the toolbar is always there, however short the view (a small phone on its side is that short
@@ -533,6 +547,7 @@ export class BinderView extends ItemView {
 		if (this.wantFocus || (this.app.workspace.getActiveViewOfType(BinderView) === this && this.contentEl.doc.activeElement === this.contentEl.doc.body)) this.current.focus?.();
 		this.wantFocus = false;
 		this.entered();
+		this.inspect();
 	}
 
 	private refresh(): void {
@@ -751,27 +766,11 @@ export class BinderView extends ItemView {
 
 	// ---- the modes' context ----
 
-	props(file: TFile): SceneProps {
-		const fm = this.app.metadataCache.getFileCache(file)?.frontmatter ?? {};
-		const s = this.plugin.settings;
-		return {
-			synopsis: text(fm[s.synopsisProp]),
-			// as settings spell them, whatever case the note has them in
-			status: canonical(text(fm[s.statusProp]), s.statuses),
-			label: readLabel(fm[s.labelProp], s.labels.map((l) => l.name)),
-			target: readTarget(fm[s.targetProp]),
-		};
-	}
+	props(file: TFile): SceneProps { return readProps(this.plugin, file); }
 
 	async setProps(file: TFile, patch: Partial<SceneProps>): Promise<void> {
 		if (this.readOnly) throw new Error('This binder is read only.');
-		const s = this.plugin.settings;
-		const names: Record<keyof SceneProps, string> = { synopsis: s.synopsisProp, status: s.statusProp, label: s.labelProp, target: s.targetProp };
-		const out: Record<string, unknown> = {};
-		for (const [k, v] of Object.entries(patch) as [keyof SceneProps, unknown][]) {
-			out[names[k]] = v === '' || v === 0 || (Array.isArray(v) && !v.length) ? undefined : v;
-		}
-		await this.store.setProps(file, out);
+		await writeProps(this.plugin, file, patch);
 	}
 
 	/** Notes made in this view since the filter last changed: they show though it would hide them. */
@@ -800,6 +799,7 @@ export class BinderView extends ItemView {
 			visible: (f) => this.visible(f),
 			made: (f) => { this.madeHere.add(f); },
 			filtering: () => this.filter.status.length + this.filter.label.length > 0,
+			selectionChanged: () => this.inspect(),
 			option: <T>(key: string, fallback: T): T => (key in this.options ? this.options[key] : fallback) as T,
 			setOption: (key, value) => { this.options = { ...this.options, [key]: value }; this.remember(); this.app.workspace.requestSaveLayout(); },
 		};

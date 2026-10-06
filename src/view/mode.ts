@@ -48,6 +48,9 @@ export interface ModeContext {
 	/** A per-view option (kept with the view in the workspace, so it survives a reload). */
 	option<T>(key: string, fallback: T): T;
 	setOption(key: string, value: unknown): void;
+	/** Optional: what the mode is on changed (a card or row selected, the section with the cursor): the inspector
+	    follows it. */
+	selectionChanged?(): void;
 	/** Optional: a note's text changed as the user types in the view (before it's saved), e.g. to update a word count. */
 	onTextChange?(file: TFile, text: string): void;
 }
@@ -67,6 +70,11 @@ export interface BinderMode {
 	/** Optional: the item the mode is on (the card or row with the focus, the section with the cursor), so another mode
 	    can open on the same one. */
 	current?(): TAbstractFile | null;
+	/** Optional: everything selected (the boards and the outliner; the manuscript has only `current`). */
+	selected?(): TAbstractFile[];
+	/** Optional: where the reader is: the section with the cursor if it's in sight, else the one at the top of the
+	    page (the manuscript). */
+	here?(): TAbstractFile | null;
 	/** Optional: focus the mode's first focusable item (keyboard navigation). */
 	focus?(): void;
 	/** Optional: select and scroll to an item ("Open binder" from a note shows that note's card). `fresh`: it was just

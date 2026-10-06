@@ -213,6 +213,8 @@ class Outliner implements BinderMode {
 
 	current(): TAbstractFile | null { return this.item(this.focused ?? [...this.sel][0]); }
 
+	selected(): TAbstractFile[] { return [...this.sel].map((p) => this.item(p)).filter((f): f is TFile | TFolder => !!f); }
+
 	/** Where the table is: the first row in sight and how far it's scrolled past the top (rows out of sight are
 	    stand-ins of a guessed height, so a scroll position alone wouldn't find the same place again). */
 	place(): unknown {
@@ -712,6 +714,7 @@ class Outliner implements BinderMode {
 			r.setAttr('aria-selected', String(on));
 			r.setAttr('tabindex', r === tab ? '0' : '-1');
 		}
+		this.ctx.selectionChanged?.();
 	}
 
 	/** The items an action applies to: the selection if the row is in it, else just the row. A folder selected along
