@@ -52,10 +52,12 @@ state (code, tests and documentation).
     outside tools, so it works on phones. Settled 2026-10-01: Scrivener 3's format only; a toggle in the export
     dialog, **Include notes outside the manuscript**, puts those in Scrivener's Research folder; the maintainer has
     Scrivener and opens each build's result in it before this ships.
-- [ ] **Import from Scrivener.** A Scrivener 3 project (`.scriv`) in as a new binder: the Draft's folders and
+- [x] **Import from Scrivener.** A Scrivener 3 project (`.scriv`) in as a new binder: the Draft's folders and
       documents as folders and notes in the same order, rich text as Markdown, and synopsis, label, status, targets
       and snapshots carried across, with the same toggle for Research. Makes a new folder and never writes into an
-      existing one or changes the Scrivener project. After export, which settles how the two formats map.
+      existing one or changes the Scrivener project. Built: from the command palette, a project's folder on a
+      computer or a zipped backup anywhere, shown before it is made. Every original file is kept. See
+      [Import from Scrivener](docs/import-scrivener.md).
 - [ ] **Find and replace across the manuscript.** One search over every note of the binder, in binder order, with
       replace one or replace all, from the manuscript. Never loses writing: replace all is one step to undo, and says
       how many notes it will change before it does.

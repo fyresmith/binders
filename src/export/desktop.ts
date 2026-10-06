@@ -54,14 +54,22 @@ export interface Desktop {
 
 type Requires = (name: string) => unknown;
 
+/** Node's and Electron's modules, as Obsidian on a computer hands them over, or null: on a phone or tablet, in a
+    vault that isn't on a disk, or where there is no `require`. Export saves through this and import reads a
+    Scrivener project's folder through it (src/import/desktop.ts); each looks at what it is given before trusting it.
+    (`isMobile` too: Obsidian's own emulation of a phone on a computer is a phone here.) */
+export function nodeRequire(app: App): Requires | null {
+	if (!Platform.isDesktopApp || Platform.isMobile) return null;
+	const req = (window as unknown as { require?: Requires }).require;
+	return app.vault.adapter instanceof FileSystemAdapter && typeof req === 'function' ? req : null;
+}
+
 /** The computer's side of saving, or null: on a phone or tablet, in a vault that isn't on a disk, or where Electron's
     dialog or Node's `fs` isn't what this expects. */
 export function desktop(app: App): Desktop | null {
-	// (`isMobile` too: Obsidian's own emulation of a phone on a computer is a phone here)
-	if (!Platform.isDesktopApp || Platform.isMobile) return null;
 	try {
-		const adapter = app.vault.adapter, req = (window as unknown as { require?: Requires }).require;
-		if (!(adapter instanceof FileSystemAdapter) || typeof req !== 'function') return null;
+		const adapter = app.vault.adapter, req = nodeRequire(app);
+		if (!req || !(adapter instanceof FileSystemAdapter)) return null;
 		const fs = req('fs') as Fs | undefined, path = req('path') as PathLib | undefined;
 		const electron = req('electron') as { remote?: { dialog?: Dialog; shell?: Shell }; shell?: Shell } | undefined;
 		const dialog = electron?.remote?.dialog, shell = electron?.shell ?? electron?.remote?.shell;

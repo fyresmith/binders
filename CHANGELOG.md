@@ -3,6 +3,13 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.43.0 (2026-10-06)
+
+### Added
+
+- Import from Scrivener, in the command palette: a Scrivener 3 project, or a zipped backup of one, becomes a new binder. You see the binder and read any note of it before anything is made.
+- The order, synopses, notes, labels, statuses, targets, keywords and snapshots come across; Research can be left behind. The project itself is never changed, and every original file is kept beside the notes.
+
 ## 0.42.1 (2026-10-06)
 
 ### Fixed

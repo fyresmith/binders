@@ -53,6 +53,10 @@ export function scrivDate(d: Date): string {
 	return `${p(d.getFullYear(), 4)}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())} ${off < 0 ? '-' : '+'}${p(Math.trunc(Math.abs(off) / 60))}${p(Math.abs(off) % 60)}`;
 }
 
+/** A snapshot's file in a document's "Snapshots/<id>.snapshots/", named for its date as the index beside it gives it:
+    "2026-07-01 20:20:08 -0400" is "2026-07-01-20-20-08-0400.rtf". Export writes it and import looks for it. */
+export const snapshotRtf = (date: string): string => `${date.replace(/ ([+-]\d{4})$/, '$1').replace(/[ :]/g, '-')}.rtf`;
+
 /** Obsidian's accent colors in its default light theme: what a label named for one is in the project, whatever theme
     the vault wears (a project has one color for a label, not one a theme). */
 export const PALETTE_HEX: Record<string, string> = { red: '#e93147', orange: '#ec7500', yellow: '#e0ac00', green: '#08b94e', cyan: '#00bfbc', blue: '#086ddd', purple: '#7852ee', pink: '#d53984' };

@@ -1,7 +1,7 @@
 import { display, hexColor } from '../../view/labels';
 import { blocksText, countWords, type Picture, type Role, type Structure, type Warning } from '../model';
 import { assignRoles, guessStructure, type SourceItem } from '../roles';
-import { FORMAT, FULL_SHAPE, ITEM_SECTION_TYPES, KEYWORDS, NEUTRAL_HEX, PALETTE_HEX, PATH_FIELD, floats, scrivDate, uuid, xml } from './parts';
+import { FORMAT, FULL_SHAPE, ITEM_SECTION_TYPES, KEYWORDS, NEUTRAL_HEX, PALETTE_HEX, PATH_FIELD, floats, scrivDate, snapshotRtf, uuid, xml } from './parts';
 import { rtf, type RtfContext } from './rtf';
 import { ROOTS, compileXml, rootId, scrivx, type Doc, type Lists } from './scrivx';
 import { STYLES_XML } from './styles-xml';
@@ -188,7 +188,7 @@ export function writeScriv(src: ScrivSource, o: ScrivOptions): ScrivProject {
 				while (used.has(stamp)) { at = new Date(at.getTime() + 1000); stamp = scrivDate(at); }
 				used.add(stamp);
 				index.push('    <Snapshot>', `        <Title>${xml(s.title || 'Untitled Snapshot')}</Title>`, `        <Date>${stamp}</Date>`, '    </Snapshot>');
-				put(`${sdir}${stamp.replace(/ ([+-]\d{4})$/, '$1').replace(/[ :]/g, '-')}.rtf`, toRtf(it, s.text, false) ?? EMPTY_RTF);
+				put(`${sdir}${snapshotRtf(stamp)}`, toRtf(it, s.text, false) ?? EMPTY_RTF);
 				snapshots++;
 			}
 			put(`${sdir}index.xml`, ['<?xml version="1.0" encoding="UTF-8"?>', '<Snapshots Version="1.0">', ...index, '</Snapshots>', ''].join('\n'));

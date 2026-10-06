@@ -18,6 +18,8 @@ import { printer } from './export/pdf';
 import { ExportModal } from './view/export';
 import { exportAgain } from './view/export-again';
 import { Styles } from './export/styles';
+import { importDesktop } from './import/desktop';
+import { ImportScrivenerModal } from './view/import-scrivener';
 import { CONTENTS_VIEW, installContents } from './inspector/contents-pane';
 import { installInspector, showSide } from './inspector/views';
 import { placeSide } from './inspector/place';
@@ -60,6 +62,9 @@ export default class BindersPlugin extends Plugin {
 	/** Export's way to the computer's save dialog and disk (export/desktop.ts): null from it means there is none, and
 	    files go into the vault. A field so a test can stand in for the system's dialog, which nothing can drive. */
 	exportHost = { desktop, printer };
+	/** Choosing a Scrivener project's folder and reading it, on a computer (import/desktop.ts): null elsewhere, and
+	    a zipped backup is chosen instead. A field for the same reason: a test stands in for the system's dialog. */
+	importHost = { desktop: importDesktop };
 	/** The vault's export styles: the built-in ones and the files in the styles folder (export/styles.ts). */
 	styles: Styles;
 	/** What the inspector's panes follow: the notes and folders in hand in the tab the writer is in (inspector/follow.ts). */
@@ -124,6 +129,8 @@ export default class BindersPlugin extends Plugin {
 			if (!checking) void this.makeBinder(folder);
 			return true;
 		} });
+		// a binder from a Scrivener project: offered here and nowhere else (the maintainer's choice), wherever the writer is
+		this.addCommand({ id: 'import-scrivener', name: 'Import from Scrivener...', icon: 'book-down', callback: () => new ImportScrivenerModal(this).open() });
 		// a binder from nothing: beside the note that's open if that's outside a binder, else at the top of the vault
 		this.addCommand({ id: 'new-binder', name: 'New binder', icon: 'book', callback: () => {
 			const file = active(), parent = file?.parent && !this.binders.binderOf(file) ? file.parent : this.app.vault.getRoot();

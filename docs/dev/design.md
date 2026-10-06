@@ -120,6 +120,28 @@ here; that is what keeps the next round short.
   - A row's second line that needs its file read (how many words a snapshot holds) is filled in as the row comes
     into sight (`IntersectionObserver` on the list), so three hundred rows open at once.
 
+- Learned bringing import up to the Export window's standard (2026-10-06; the pictures before and after are in
+  `.claude/handoff/import-polish/`):
+  - A dialog that is a relative of one already built is built from that one's classes, not from rules of its own
+    that look like them: import's first version had 126 lines of CSS for a grid, a list and a button row, and looked
+    like a web form beside Export. On Export's classes it needs a dozen short rules.
+  - What made it look worse, in the order it showed: `Setting` rows at their settings-page size, with a rule
+    between each and the label over the field; a list of `modal-sidebar-list-item` rows 37px tall with an icon each,
+    indented by padding, where Obsidian has a tree; a footer of Cancel and the filled button, where the family has
+    one filled button on the bar and the dialog's own close; a browser's `<details>` triangle; everything on one
+    white ground.
+  - A list that has folders is Obsidian's tree with folders that fold (`nav-folder`, `collapse-icon`,
+    `tree-item-children`): the indent, the guide lines and the keys are then Obsidian's.
+  - Things to look at are grouped by what is said, not listed per note: "Part one and 11 others". And what is true
+    of every file is not said of any: the first version listed "some typography" for every document, since every
+    rich text file names a font size.
+  - A sidebar that can be long has to be told to scroll (`min-height: 0` on `.modal-content` and the sidebar,
+    `overflow-y: auto` on the sidebar): by Obsidian's rules alone it grows, and pushes the dialog's foot out of the
+    dialog. Export's sidebar has the same hole when it has many warnings.
+  - On a phone a list beside a text is the list, then the text: the same back button steps from text to list to
+    choices. The buttons a phone needs go above anything that can be long.
+  - A pattern with a lookbehind breaks the whole plugin on iOS before 16.4; the lint rule catches it.
+
 **Rejected, don't propose again:** a colored stripe along the top of a card, pill chips, thin accent or progress
 lines, decoration for its own sake, anything on a card that isn't the writer's own (no badges for snapshots and the
 like). The maintainer's word for these was "AI generated".

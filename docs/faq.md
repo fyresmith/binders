@@ -63,7 +63,8 @@ No. Longform projects open as binders as they are. Convert when you want folders
 
 ## Can I open my Scrivener project?
 
-Not yet. Import from Scrivener is planned. Going the other way works: see
+Yes. Run **Import from Scrivener...** from the command palette: it makes a new binder from a Scrivener 3 project, or
+a zipped backup of one, and shows it to you first. See [Import from Scrivener](import-scrivener.md). To go the other way, see
 [Scrivener project](export-scrivener.md).
 
 ## Can I make a PDF for print?

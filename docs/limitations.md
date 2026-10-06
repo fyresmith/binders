@@ -7,10 +7,16 @@ is a bug: [open an issue](https://github.com/fyresmith/binders/issues).
 
 - A paperback PDF in Export.
 - Editing an export style, and more book styles than **Classic**.
-- Import from a Scrivener project.
 - Find and replace across the manuscript.
 
 See the [roadmap](../ROADMAP.md).
+
+## Import from Scrivener
+
+Scrivener 3 projects only, up to 256 MB. Rich text becomes Markdown: fonts, sizes, colors, underlining and the
+layout of tables don't come across, and every original file is kept beside the notes. An import that is cancelled or
+fails leaves the notes it had made, as plain notes. Import makes a new binder: it doesn't merge into one, and there
+is no link back to Scrivener. See [Import from Scrivener](import-scrivener.md#limits).
 
 ## Phones and tablets
 

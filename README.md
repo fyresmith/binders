@@ -23,6 +23,7 @@ is in that scene's own properties. Turn Binders off and your notes are still ord
   group scenes; snapshots of a scene, a folder or the whole binder, so you can rewrite without losing the old text; undo of moves.
 - **Export.** A submission manuscript as a Word file in standard manuscript format, an ebook (EPUB) for Kindle,
   Apple Books and Kobo, the binder itself as a Scrivener project, or the whole binder as one note.
+- **Import from Scrivener.** A Scrivener 3 project, or a zipped backup of one, as a new binder: you see it before it is made.
 - **Focus mode.** The text and nothing else, with typewriter scrolling.
 - **Longform.** Longform projects open as binders, and convert to them.
 - **Phones and tablets.** The same views, by touch, on iOS and Android.
@@ -76,6 +77,14 @@ formatting work as they do in the note itself. [More](docs/manuscript.md)
 
 ![Manuscript](docs/images/manuscript.png)
 
+## Import from Scrivener
+
+Run **Import from Scrivener...** from the command palette and choose a project, or a zipped backup of one. The
+dialog shows the binder as it will be, and any note of it as it will read, before anything is made. The order,
+synopses, notes, labels, statuses, targets and snapshots come across; Research can be left behind. The project
+itself is never changed, and every original file is kept beside the notes.
+[More](docs/import-scrivener.md)
+
 ## Your files
 
 A binder is a folder with a binder note, named like the folder, whose `contents` property is the order:
@@ -105,7 +114,7 @@ note's text unless you type there or ask it to: split, merge, bring back a snaps
   outside its plugin API. If an update changes one, Binders falls back (name order, a read-only manuscript) and
   says so.
 - **Snapshots and Obsidian Sync.** Sync carries snapshots only with "Sync all other types" turned on.
-- **Not built yet:** a paperback PDF, import from Scrivener, and find and replace across the manuscript. See the
+- **Not built yet:** a paperback PDF, and find and replace across the manuscript. See the
   [roadmap](ROADMAP.md).
 
 The full list is in [Known limitations](docs/limitations.md).

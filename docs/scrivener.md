@@ -3,6 +3,9 @@
 Binders borrows Scrivener's way of working and puts it inside Obsidian, on plain Markdown files. Most of what you
 know has the same name. This page maps Scrivener's words to Binders'.
 
+Run **Import from Scrivener...** from the command palette to bring a project in as a new binder.
+[Import from Scrivener](import-scrivener.md) says what comes across and what doesn't.
+
 ## Scrivener's words, and where each is
 
 | In Scrivener | In Binders | Page |
@@ -52,14 +55,13 @@ know has the same name. This page maps Scrivener's words to Binders'.
 ## Not there yet
 
 - **Collections** and saved searches. The **Filter** by label and status is the nearest thing.
-- **Importing a Scrivener project.** Planned; see the [roadmap](../ROADMAP.md).
 - **A paperback PDF** and editing export styles. Planned.
 - **Find and replace across the manuscript.** Planned. Obsidian's own search covers the vault.
 
 ## Working with someone who uses Scrivener
 
 **Export → Scrivener project** writes the binder as a Scrivener 3 project, with its order, synopses, labels,
-statuses, targets, snapshots and notes. It is one way: changes made in Scrivener don't come back yet. See
+statuses, targets, snapshots and notes. Import brings a project back as a new binder; it doesn't merge changes into the one it came from. See
 [Scrivener project](export-scrivener.md).
 
 Next: [Getting started](getting-started.md)

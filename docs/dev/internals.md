@@ -386,3 +386,24 @@ they look like them in every theme. If one of these names changes, the views wor
 | `tree-item`, `tree-item-self`, `tree-item-inner`, `tree-item-children`, `tree-item-icon`, `collapse-icon`, `tree-item-flair-outer`, `tree-item-flair`, `is-clickable`, `is-active`, `is-collapsed`, `mod-collapsible`, `nav-folder`, `nav-file`, `nav-folder-title`, `nav-file-title` (Obsidian's tree, as Outline and the file explorer draw it), and `--nav-heading-color`, `--nav-heading-weight`, `--nav-item-size` | `src/inspector/contents-pane.ts`, `src/inspector/scene-pane.ts` (a note's snapshots), `styles.css` | The contents' rows, their indents and guide lines, the marked row, the fold arrow | A plain list: no indent, no mark's tint. Folding still hides rows (the rule that hides a folded folder's rows is ours), and clicks and keys work | `specs-inspector.mjs` (the contents' order, mark, folding, keys) |
 | `pane-empty` | both panes | "No binder is open." as Outline says "No headings found." | The same words, unstyled | `specs-inspector.mjs` (what it follows) |
 | `workspace.leftSplit`, `rightSplit`, `rootSplit`, `getRightLeaf`, `revealLeaf`, `getMostRecentLeaf`, a leaf's `getRoot()`, a sidebar's `collapse()` and `collapsed` (all public API) | `src/inspector/follow.ts`, `views.ts`, `contents-pane.ts` | Telling a sidebar's tab from the writer's; putting the inspector's tab in the right sidebar; closing a phone's drawer after a tap in the contents | | `specs-inspector.mjs` |
+
+## Import from Scrivener: the system's dialog and the disk (checked on Obsidian 1.13.7, Electron 43.6, Linux)
+
+A project's folder is outside the vault, so reading one is Electron's and Node's doing, not Obsidian's. Both are in
+one module, asked for when a project is chosen and not before, and only on a computer. The check for them
+(`nodeRequire`) is export's, in `src/export/desktop.ts`, and shared. Nothing here can write: only `readFile`,
+`readdir` and `lstat` are asked of `fs`.
+
+| Internal | Where | What for | Without it | Test |
+|---|---|---|---|---|
+| `window.require('electron').remote.dialog.showOpenDialog` (the system's dialog for choosing a folder or a file) | `src/import/desktop.ts` (`pick`) | "Choose a project...": the project's `.scriv` folder, or the `.scrivx` in it | `importDesktop()` is null: the first dialog offers "Choose a zipped backup..." alone, which is the browser's own file chooser (an `<input type="file">`), as on a phone | `specs-import-scrivener.mjs` ("a zip is read": the fallback, with `plugin.importHost.desktop` answering null; "a phone": `Platform`). The dialog itself can't be driven, so a stand-in answers for `pick` and everything after it is real |
+| `window.require('fs').promises` (`readFile`, `readdir`, `lstat`) and `window.require('path')` (`join`, `dirname`, `basename`) | `src/import/desktop.ts` (`read`) | Reading every file of the project's folder, with a link refused (`lstat().isSymbolicLink`); telling by each file's size and date whether the project has changed, once it is read and again before anything is imported | As above: null, and a zipped backup | `specs-import-scrivener.mjs` ("a project's folder becomes a binder", "a project that changed on the disk since it was read is refused") |
+| `Platform.isDesktopApp`, `Platform.isMobile`, `FileSystemAdapter` (public API) | `nodeRequire` in `src/export/desktop.ts` | Not asking for Node on a phone, a tablet, or a vault that isn't on a disk | | `specs-import-scrivener.mjs` ("a phone") |
+
+The second dialog is built from the class names the Export window is (the table above: `mod-sidebar-layout`,
+`modal-sidebar`, `sync-history-content-container`, `modal-setting-titlebar` and the rest, with the same `is-plain`
+fallback from `historyLook`), and its list from the tree's (`tree-item`, `tree-item-self`, `tree-item-inner`,
+`tree-item-children`, `collapse-icon`, `tree-item-flair`, `nav-folder`, `nav-file`, `is-collapsed`, `is-active`), as
+the Contents pane's is. A note's title over its text is Obsidian's `inline-title`. If one of these names changes the
+dialog works and looks plainer; `specs-import-scrivener.mjs` ("the dialog is one of the family") measures the
+bar's line and walks the tree with the keyboard.

@@ -2,11 +2,11 @@
 
 Status: feature-complete except what is in [ROADMAP.md](../../ROADMAP.md), and in QA. The explorer, binder store, corkboard
 (in a grid, or arranged by label), outliner, editable manuscript, Longform integration, labels and statuses, word count
-targets, scene operations (split, merge, duplicate, group), export (step 1: a manuscript, one note), snapshots, focus mode, dragging a card out of the
+targets, scene operations (split, merge, duplicate, group), export (a manuscript, ebook, Scrivener project and one note), Scrivener import, snapshots, focus mode, dragging a card out of the
 view, and undo of moves all work, on desktop and in mobile emulation. Nothing is tagged yet: the version in
 `package.json` is the latest committed. Six QA rounds have been run (`tests/e2e/specs-qa*.mjs`); the findings still
 open are in `tests/e2e/open-findings.json` and [integration-qa.md](integration-qa.md). Left before 1.0: mobile QA on real
-devices (so far phones and tablets are only emulated), export, import from Scrivener, and find and replace across the
+devices (so far phones and tablets are only emulated), the remaining export steps, and find and replace across the
 manuscript. Then release (1.0).
 
 ## What it is
@@ -553,8 +553,7 @@ undocumented parts, one by one, are in [internals.md](internals.md).
 
 ## Milestones
 
-**What's left before 1.0 is in [ROADMAP.md](../../ROADMAP.md)**: mobile QA to the end (on real devices), export, import
-from Scrivener, and find and replace across the manuscript.
+**What's left before 1.0 is in [ROADMAP.md](../../ROADMAP.md)**: mobile QA to the end (on real devices), the remaining export steps, and find and replace across the manuscript.
 
 The numbers are the plan's milestones, not the versions in the CHANGELOG (those are 0.12.x now, and every commit bumps
 them: see AGENTS.md). Nothing is tagged yet.
@@ -570,7 +569,7 @@ them: see AGENTS.md). Nothing is tagged yet.
 | 0.7 | Longform integration | Done |
 | 0.8 | Polish: keyboard, touch, themes, performance on a 1,000-scene binder, a full mobile pass, README | Done in emulation (keyboard and screen readers, themes, mobile emulation, `specs-perf.mjs`, a native-look pass against Obsidian's Bases and drag styles, explorer drag-to-reorder); real iOS and Android devices still to try |
 | 0.9 | QA rounds (as with Evra: parallel QA agents, e2e suites, fixes), and, on the maintainer's request (2026-10-01), from Scrivener: the outliner in place of the plot grid, labels and statuses in settings, custom label colors, label tint and explorer label dots, word count targets, split, merge, duplicate, group and ungroup, synopsis from text, compile, undo and redo of moves | Built. Six QA rounds so far (`specs-qa-*.mjs` to `specs-qa5-*.mjs` and the integration round in [integration-qa.md](integration-qa.md)); the sixth is the 2026-10-02 hardening push |
-| 0.10 | Before release (2026-10-01): mobile QA to the end; export (EPUB, DOCX, PDF, and a Scrivener project); import from Scrivener; find and replace across the manuscript; snapshots of a scene ("Rewrite"); focus mode. See ROADMAP.md | Arrange by label, snapshots, focus mode and dragging a card out of the view are built; mobile QA is in progress (emulated only); export, import and find and replace are not started |
+| 0.10 | Before release (2026-10-01): mobile QA to the end; export (EPUB, DOCX, PDF, and a Scrivener project); import from Scrivener; find and replace across the manuscript; snapshots of a scene ("Rewrite"); focus mode. See ROADMAP.md | Arrange by label, snapshots, focus mode and dragging a card out of the view are built; mobile QA is in progress (emulated only); Scrivener import and export through the PDF, style editor and Export again are built; real-device QA and find and replace remain |
 | 0.12.x | The 2026-10-02 hardening push: a sixth QA round, fixes, and refactors so the code is in files of one idea each (the undo history, the outliner's columns, the shared card helpers; folder cards that name what they hold), the documentation checked against the code | Release-ready work in progress: six QA rounds done, the findings still open listed in `tests/e2e/open-findings.json`. Not released: see "Decided" |
 | 1.0 | Release and directory submission | |
 

@@ -5582,3 +5582,124 @@ body:not(.is-phone) .binders-snapshots .sync-history-content {
 		justify-content: flex-end;
 	}
 }
+
+/* ---- Import from Scrivener (view/import-scrivener.ts) ----
+   Its second dialog is the Export window's layout, by the Export window's own classes: the choices, the foot, the
+   bar, the list and the text are styled there. These are the few things a binder to come asks for beyond them. */
+
+/* The first dialog's one line: what it is doing is said in the muted text, why it couldn't in the error's. */
+.binders-import-said.is-doing {
+	color: var(--text-muted);
+}
+
+/* (how to get a zipped backup: a hint under the dialog's sentence) */
+.binders-import-how {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+/* No list of kinds over the choices: there is nothing to rule them off from. */
+.binders-import .binders-import-options {
+	margin-top: 0;
+	border-top: 0;
+}
+
+/* Why the binder can't be made as it is named, under the name. It takes no room while there is nothing to say. */
+.binders-import .binders-import-why {
+	min-height: 0;
+	margin: 0;
+}
+
+.binders-import .binders-import-why:not(:empty) {
+	padding-block: var(--size-2-1) var(--size-4-2);
+}
+
+/* The binder as it will be: Obsidian's own tree, as the Contents pane wears it. A folded folder keeps its rows out of
+   sight, a long book's rows are laid out as they come into sight, and the row the keyboard is on is ringed inside
+   its box, as the file explorer rings its own. What is said of a row (its status) is at its end, in plain text. */
+.binders-import-tree .tree-item.is-collapsed > .tree-item-children {
+	display: none;
+}
+
+.binders-import-tree .tree-item.nav-file {
+	content-visibility: auto;
+	contain-intrinsic-size: auto 28px;
+}
+
+.binders-import-tree .tree-item-self:focus-visible {
+	outline: none;
+	box-shadow: inset 0 0 0 2px var(--background-modifier-border-focus);
+}
+
+.binders-import-tree .tree-item-flair-outer {
+	align-self: center;
+	flex: 0 0 auto;
+}
+
+.binders-import-tree .binders-export-out .tree-item-inner {
+	color: var(--text-faint);
+}
+
+.binders-import-note .binders-import-empty {
+	color: var(--text-faint);
+}
+
+/* (the button under what the notice says, when import had things to say) */
+.binders-import-notes {
+	margin-top: var(--size-4-2);
+}
+
+/* A phone: the list has the pane, and a note's text takes its place when one is tapped. */
+.is-phone .binders-import .binders-export-outline {
+	flex: 1 1 auto;
+	max-width: none;
+	border-inline-end: 0;
+}
+
+.is-phone .binders-import .binders-export-preview:not(.is-reading) .binders-export-stage,
+.is-phone .binders-import .binders-export-preview.is-reading .binders-export-outline {
+	display: none;
+}
+
+/* The choices can be longer than the dialog is tall (a project with a lot to say): they scroll, the dialog doesn't grow. */
+.binders-import.mod-sidebar-layout .modal-content,
+.binders-import .binders-export-side {
+	min-height: 0;
+}
+
+.binders-import .binders-export-side {
+	overflow-y: auto;
+}
+
+/* The binder's list is what this dialog is for: wider than the Export window's contents, but never more of a narrow
+   window or a tablet than the text beside it has. */
+.binders-import .binders-import-tree {
+	flex: 0 0 19em;
+	max-width: 45%;
+}
+
+.binders-import-tree .tree-item-inner {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.binders-import .binders-export-needs + .binders-export-warn-head {
+	margin-top: var(--size-4-3);
+}
+
+/* (a phone's way back is a round button over the foot's left corner: the list's last rows scroll clear of it) */
+.is-phone .binders-import .binders-import-tree {
+	padding-bottom: var(--size-4-16);
+}
+
+.is-phone .binders-import .binders-export-phone-row + .binders-export-warn-head {
+	margin-top: var(--size-4-4);
+}
+
+/* A finger's row: 44px on a phone and a tablet, as everywhere in Binders. */
+.is-mobile .binders-import-tree .tree-item-self {
+	min-height: 44px;
+	align-items: center;
+}
