@@ -13,7 +13,7 @@ import { isPictureName, pictureOf } from './picture';
 import type { SourceItem } from './roles';
 import { fontFaceCss } from './pages/fonts';
 import { printCss } from './pages/css';
-import { layPages, openStage, type Laid, type PagesSpec } from './pages/layout';
+import { layPages, openStage, type Laid, type PagesSpec, type Stage } from './pages/layout';
 import type { Printer } from './pdf';
 
 /* Export where it meets the vault: a binder (or a folder of one) read into the book model, the manuscript made from
@@ -296,14 +296,15 @@ export async function pagesPdf(plugin: BindersPlugin, book: Book, spec: PagesSpe
 	const printer = plugin.exportHost.printer();
 	if (!printer) throw new Error(NO_PDF);
 	const holder = activeDocument.body.createDiv({ cls: 'binders-export-offstage', attr: { 'aria-hidden': 'true' } });
+	let stage: Stage | null = null;
 	try {
-		const stage = await openStage(holder, 'binders-export-frame');
+		stage = await openStage(holder, 'binders-export-frame');
 		const laid = await layPages(stage, book, spec, { tick: (n) => o.say?.(`Laying out the pages… ${n.toLocaleString()}`), cancelled: o.cancelled });
 		if (!laid || o.cancelled?.()) return null;
 		o.say?.(`Printing ${laid.pages.length.toLocaleString()} ${laid.pages.length === 1 ? 'page' : 'pages'}…`);
 		const data = await printPages(printer, book, laid);
 		return o.cancelled?.() ? null : { data, laid };
-	} finally { holder.remove(); }
+	} finally { stage?.close(); holder.remove(); }
 }
 
 export const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';

@@ -585,3 +585,28 @@ test('a manuscript exported as Word, then again as a PDF: the Word file is kept,
 	t.eq(readFileSync(docxAt).subarray(0, 2).toString(), 'PK', 'and the Word file is still a Word file');
 	same(t, before, await texts(p));
 });
+
+test('a book’s pictures are given back when its pages are laid out again, and when the window closes', async (p, h, t) => {
+	const DOT = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+	await p.ev(`(async () => { await app.vault.createBinary('dot.png', Uint8Array.from(atob(${j(DOT)}), (c) => c.charCodeAt(0)).buffer); const f = app.vault.getAbstractFileByPath(${j(`${L}Prologue.md`)}); await app.vault.append(f, '\\n\\n![[dot.png]]\\n'); })().then(() => 1)`);
+	// (every object URL made and given back, counted)
+	await p.ev(`(() => { const live = window.__live = new Set(); window.__urlMade ??= URL.createObjectURL; window.__urlGone ??= URL.revokeObjectURL; URL.createObjectURL = (b) => { const u = window.__urlMade.call(URL, b); if (b?.type?.startsWith('image/')) live.add(u); return u; }; URL.revokeObjectURL = (u) => { live.delete(u); return window.__urlGone.call(URL, u); }; return 1; })()`);
+	try {
+		await open(p);
+		await pick(p, 'Paperback');
+		t.ok(await laidOut(p), 'the pages are laid out');
+		t.ok(await p.ev(`!!${FRAME}.contentDocument.querySelector('img')`), 'with the picture on a page');
+		t.eq(await p.ev(`window.__live.size`), 1, 'one picture, one URL');
+		await choose(p, 'page', '6x9');
+		t.ok(await laidAgain(p), 'another page size: laid out again');
+		await choose(p, 'page', '5x8');
+		t.ok(await laidAgain(p), 'and back');
+		t.eq(await p.ev(`window.__live.size`), 1, 'still one: the pages laid out before gave theirs back');
+		await closeAll(p);
+		await until(p, `window.__live.size === 0`, 5000);
+		t.eq(await p.ev(`window.__live.size`), 0, 'the window closed: none is kept');
+	} finally {
+		await p.ev(`(() => { URL.createObjectURL = window.__urlMade; URL.revokeObjectURL = window.__urlGone; return 1; })()`);
+		await closeAll(p);
+	}
+});

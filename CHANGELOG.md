@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.40.3 (2026-10-06)
+
+### Fixed
+
+- Laying a book's pages out again, as the style editor does with each change, no longer holds on to the memory of its pictures.
+
 ## 0.40.2 (2026-10-06)
 
 ### Fixed

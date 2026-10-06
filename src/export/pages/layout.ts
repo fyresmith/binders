@@ -99,6 +99,8 @@ export interface Stage {
 	vars: HTMLStyleElement;
 	/** The typefaces loaded into it. */
 	faces: Set<string>;
+	/** The pictures of the book laid out on it, as object URLs: given back when it is laid out again or closed. */
+	urls: Set<string>;
 	close(): void;
 }
 
@@ -112,7 +114,8 @@ export async function openStage(parent: HTMLElement, cls: string): Promise<Stage
 	const sheet = doc.head.appendChild(el(doc, 'style')), vars = doc.head.appendChild(el(doc, 'style'));
 	const book = doc.body.appendChild(el(doc, 'div'));
 	book.id = 'book';
-	return { frame, doc, book, sheet, vars, faces: new Set(), close: () => frame.remove() };
+	const urls = new Set<string>();
+	return { frame, doc, book, sheet, vars, faces: new Set(), urls, close: () => { for (const u of urls) URL.revokeObjectURL(u); urls.clear(); frame.remove(); } };
 }
 
 // ---- laying out ----
@@ -150,6 +153,9 @@ const base64 = (data: Uint8Array): string => { let s = ''; for (let i = 0; i < d
 export async function layPages(stage: Stage, book: Book, spec: PagesSpec, o: LayOptions = {}): Promise<Laid | null> {
 	const { doc } = stage, g = spec.geometry, began = performance.now();
 	stage.book.replaceChildren();
+	// (the pictures of the book laid out on it before are gone with its pages)
+	for (const u of stage.urls) URL.revokeObjectURL(u);
+	stage.urls.clear();
 	stage.sheet.textContent = screenCss(g) + spec.css;
 	stage.book.dir = spec.rtl ? 'rtl' : 'ltr';
 	stage.book.lang = spec.language;
@@ -161,12 +167,12 @@ export async function layPages(stage: Stage, book: Book, spec: PagesSpec, o: Lay
 	const flow = new BookFlow(doc, book, {
 		...spec.look,
 		hyphenate: hyphenator ? (t) => hyphenator.hyphenate(t) : null,
-		picture: (p) => { const url = URL.createObjectURL(new Blob([p.data.slice().buffer], { type: `image/${p.type}` })); urls.set(url, p); return url; },
+		picture: (p) => { const url = URL.createObjectURL(new Blob([p.data.slice().buffer], { type: `image/${p.type}` })); urls.set(url, p); stage.urls.add(url); return url; },
 		fit: (p) => { const k = Math.min(1, wide / Math.max(1, p.width), tall / Math.max(1, p.height)); return [Math.max(1, Math.floor(p.width * k)), Math.max(1, Math.floor(p.height * k))]; },
 	});
 	const over: number[] = [];
 	const host = new DomHost(doc, stage.book, flow, { block: g.block * PX, rtl: spec.rtl, scale: o.scale ?? (() => 1), cls: (s) => flow.flows[s].cls, id: (s) => flow.flows[s].id, over: (page) => over.push(page) });
-	const drop = () => { for (const u of urls.keys()) URL.revokeObjectURL(u); };
+	const drop = () => { for (const u of urls.keys()) { URL.revokeObjectURL(u); stage.urls.delete(u); } };
 
 	const it = fill(host, flow.flows);
 	let step = it.next(), at = performance.now();
