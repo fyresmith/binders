@@ -109,6 +109,11 @@ export class FolderSnapshotsModal extends Modal {
 	private heading(): string { return `Snapshots of “${this.folder.name}”`; }
 	private nowName(): string { return this.isBinder ? 'The binder now' : 'The folder now'; }
 	private takeOne = (): void => { void takeFolder(this.plugin, this.folder); };
+	/** The list being drawn, and whether something has changed since that began. */
+	private loading: Promise<void> | null = null;
+	private stale = false;
+	private closed = false;
+	private timer = 0;
 	private state(): Promise<State> { return this.now ??= stateNow(this.plugin, this.folder); }
 
 	onOpen(): void {
@@ -121,12 +126,12 @@ export class FolderSnapshotsModal extends Modal {
 		if (!Platform.isPhone) {
 			const head = inner.createDiv({ cls: 'binders-snapshots-head' });
 			head.createDiv({ cls: 'binders-snapshots-of', text: this.folder.name });
-			this.namedEl = iconButton(head, 'filter', 'Only snapshots with a name', () => { this.namedOnly = !this.namedOnly; void this.load(); });
+			this.namedEl = iconButton(head, 'filter', 'Only snapshots with a name', () => { this.namedOnly = !this.namedOnly; void this.refresh(); });
 			if (can) iconButton(head, 'camera', 'Take a snapshot', this.takeOne);
 		} else {
 			const head = inner.createDiv({ cls: 'binders-snapshots-head' });
 			if (can) new ButtonComponent(head).setButtonText('Take a snapshot').onClick(this.takeOne);
-			this.namedEl = iconButton(head, 'filter', 'Only snapshots with a name', () => { this.namedOnly = !this.namedOnly; void this.load(); });
+			this.namedEl = iconButton(head, 'filter', 'Only snapshots with a name', () => { this.namedOnly = !this.namedOnly; void this.refresh(); });
 		}
 		this.namedEl.addClass('binders-folder-snapshots-named');
 		this.listEl = inner.createDiv({ cls: 'modal-sidebar-list binders-snapshots-list', attr: { role: 'listbox', 'aria-label': this.heading() } });
@@ -150,15 +155,36 @@ export class FolderSnapshotsModal extends Modal {
 		this.drawn.load();
 		// the list follows the vault while the dialog is open; "now" is read again after anything in the folder changes
 		const { vault } = this.app, store = this.plugin.binders;
-		const seen = (path: string) => { if (store.inSnapshots(path)) void this.load(); else if (path.startsWith(this.folder.path + '/')) this.now = null; };
+		const seen = (path: string) => { if (store.inSnapshots(path)) this.soon(); else if (path.startsWith(this.folder.path + '/')) this.now = null; };
 		this.rendered.registerEvent(vault.on('create', (f) => seen(f.path)));
 		this.rendered.registerEvent(vault.on('delete', (f) => seen(f.path)));
 		this.rendered.registerEvent(vault.on('modify', (f) => { if (!store.inSnapshots(f.path) && f.path.startsWith(this.folder.path + '/')) this.now = null; }));
 		this.rendered.registerEvent(vault.on('rename', (f, old) => { seen(f.path); seen(old); }));
-		void this.load(true);
+		void this.refresh(true);
 	}
 
-	onClose(): void { this.seen?.disconnect(); this.rendered.unload(); this.drawn.unload(); this.contentEl.empty(); forgetRead(); }
+	/** The vault changed under "Snapshots": the list is drawn again in a moment, once for all that changes meanwhile.
+	    Files that arrive in a burst (sync) cost a few drawings, not one each (nothing is read for a drawing, so each
+	    is over before the next file comes: only waiting puts them together). */
+	private soon(): void {
+		if (this.timer || this.closed) return;
+		this.timer = window.setTimeout(() => { this.timer = 0; if (!this.closed) void this.refresh(); }, 50);
+	}
+
+	/** Draws the list again: one drawing at a time, and one more after it when anything changed meanwhile, as the
+	    note's dialog does (`SnapshotsModal.refresh`), so the last always starts after the last change. */
+	private refresh(first = false): Promise<void> {
+		if (this.loading !== null) { this.stale = true; return this.loading; }
+		const run = async (): Promise<void> => {
+			this.stale = false;
+			await this.load(first);
+			while (this.stale && !this.closed) { this.stale = false; await this.load(); }
+		};
+		const loading = this.loading = run().finally(() => { if (this.loading === loading) this.loading = null; });
+		return loading;
+	}
+
+	onClose(): void { this.closed = true; window.clearTimeout(this.timer); this.seen?.disconnect(); this.rendered.unload(); this.drawn.unload(); this.contentEl.empty(); forgetRead(); }
 
 	private layout(full: boolean): void {
 		const { contentEl, modalEl } = this;

@@ -1193,15 +1193,80 @@ ok('file-format: a snapshot file named some other way still counts under its who
 	}
 	await p.ev(`(async () => { app.vault.setConfig('trashOption', 'system'); if (await app.vault.adapter.exists('.trash')) await app.vault.adapter.rmdir('.trash', true); })().then(() => 1)`);
 });
+// (how often Binders looks while files arrive: each look by the dialog reads the note once, and every look reads every snapshot there is)
+const countLooks = (p) => p.ev(`(() => { const v = app.vault, read = v.read, cached = v.cachedRead; window.__looks = { note: 0, snapshots: 0, undo: () => { v.read = read; v.cachedRead = cached; } }; v.read = function (f) { if (f.path === ${j(A)}) window.__looks.note++; return read.apply(this, arguments); }; v.cachedRead = function (f) { if (f.extension === 'snapshot') window.__looks.snapshots++; return cached.apply(this, arguments); }; return 1; })()`);
+const looked = async (p) => { const n = await p.ev(`({ note: window.__looks.note, snapshots: window.__looks.snapshots })`); await p.ev(`(() => { window.__looks.undo(); delete window.__looks; return 1; })()`); return n; };
+/** 200 snapshots of Arrival made at once, as sync brings them: one for each second from 2026-06-01 00:00:00. */
+const burst = (p) => p.ev(`(async () => { const mk = (i) => { const d = new Date(2026, 5, 1, 0, 0, i); const pad = (x) => String(x).padStart(2, '0'); const name = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + '.' + pad(d.getMinutes()) + '.' + pad(d.getSeconds()); return app.vault.create(${j(DIR)} + '/' + name + '.snapshot', '---\\nsnapshot-of: "Part One/Arrival"\\ntaken: 2026-06-01T00:00:00\\n---\\nArrived ' + i + '\\n'); }; await Promise.all(Array.from({ length: 200 }, (_, i) => mk(i))); })().then(() => 1)`);
 ok('sync-style burst: 200 snapshot files arrive while the dialog is open: it ends with all of them, in order, and the note it shows is untouched', async (p, h, t) => {
 	await put(p, A, FRONT + 'Now.\n');
 	await seed(p, DIR, '2026-09-12 09.15.40 First', 'First text.\n');
 	await dialog(p, A);
-	const t0 = Date.now();
-	await p.ev(`(async () => { const mk = (i) => { const d = new Date(2026, 5, 1, 0, 0, i); const pad = (x) => String(x).padStart(2, '0'); const name = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + '.' + pad(d.getMinutes()) + '.' + pad(d.getSeconds()); return app.vault.create(${j(DIR)} + '/' + name + '.snapshot', '---\\nsnapshot-of: "Part One/Arrival"\\ntaken: 2026-06-01T00:00:00\\n---\\nArrived ' + i + '\\n'); }; await Promise.all(Array.from({ length: 200 }, (_, i) => mk(i))); })().then(() => 1)`);
-	const ok1 = await until(p, `document.querySelectorAll(${j(DLG + ' .binders-snapshots-item')}).length === 202`, 20000);
-	t.ok(ok1, 'all 201 snapshots and the note are listed (' + (Date.now() - t0) + ' ms): ' + await p.ev(`document.querySelectorAll(${j(DLG + ' .binders-snapshots-item')}).length`));
+	await countLooks(p);
+	let looks;
+	try {
+		const t0 = Date.now();
+		await burst(p);
+		const ok1 = await until(p, `document.querySelectorAll(${j(DLG + ' .binders-snapshots-item')}).length === 202`, 20000);
+		t.ok(ok1, 'all 201 snapshots and the note are listed (' + (Date.now() - t0) + ' ms): ' + await p.ev(`document.querySelectorAll(${j(DLG + ' .binders-snapshots-item')}).length`));
+		// newest first: the seeded one (September), then the burst (June, 00:00:00 to 00:03:19) from its last minute back
+		const names = await rows(p), mins = names.slice(2).map((n) => Number(/:(\d\d)/.exec(n)?.[1] ?? -1));
+		t.eq(names[1], 'First', 'the newest is first: ' + names.slice(0, 3).join(' | '));
+		t.ok(mins[0] === 3 && mins[199] === 0 && mins.every((m, i) => i === 0 || m <= mins[i - 1]), 'the burst in order, last to first: ' + names[2] + ' … ' + names[201]);
+		await sleep(p, 600);
+	} finally { looks = await looked(p); }
+	// it looked a few times, not once for each file: 200 looks at up to 200 files each took it seconds on a quiet
+	// machine and minutes on a busy one, with the list standing at the one snapshot all the while
+	t.ok(looks.note <= 20 && looks.snapshots <= 4000, `Binders read the folder a few times, not once for each file that arrived: ${looks.note} looks by the dialog, ${looks.snapshots} snapshots read`);
+	t.eq(await p.ev(`document.querySelectorAll(${j(DLG + ' .binders-snapshots-item')}).length`), 202, 'and it stays at all of them');
 	t.eq(await read(p, A), FRONT + 'Now.\n', 'the note is untouched');
+});
+ok('sync-style burst: 200 snapshot files arrive while the inspector shows the note: its list ends with all of them, read a few times and not once for each', async (p, h, t) => {
+	const I = '.workspace-leaf-content[data-type="binders-inspector"] .binders-inspector', ROWS = I + ' .binders-inspector-list .tree-item-self';
+	await put(p, A, FRONT + 'Now.\n');
+	await seed(p, DIR, '2026-09-12 09.15.40 First', 'First text.\n');
+	await p.ev(`(async () => { const ws = app.workspace; ws.detachLeavesOfType('binders-inspector'); ws.rightSplit.expand(); const b = ws.getRightLeaf(false); await b.setViewState({ type: 'binders-inspector', active: true }); ws.revealLeaf(b); })().then(() => 1)`);
+	try {
+		await openView(p, L + 'Part One');
+		const at = await p.at(card(A)); await p.click(at.x, at.y + 14 - at.h / 2);
+		t.ok(await until(p, `document.querySelector(${j(I + ' .binders-inspector-name')})?.textContent === 'Arrival' && document.querySelectorAll(${j(ROWS)}).length === 1`, 5000), 'the inspector is on Arrival, with its one snapshot');
+		await countLooks(p);
+		let looks;
+		try {
+			await burst(p);
+			t.ok(await until(p, `document.querySelectorAll(${j(ROWS)}).length === 201`, 20000), 'all 201 snapshots are listed: ' + await p.ev(`document.querySelectorAll(${j(ROWS)}).length`));
+			await sleep(p, 600);
+		} finally { looks = await looked(p); }
+		t.ok(looks.snapshots <= 4000, `the inspector read the folder a few times, not once for each file that arrived: ${looks.snapshots} snapshots read`);
+		t.eq(await p.ev(`document.querySelectorAll(${j(ROWS)}).length`), 201, 'and it stays at all of them');
+		t.eq(await read(p, A), FRONT + 'Now.\n', 'the note is untouched');
+	} finally { await p.ev(`(() => { app.workspace.detachLeavesOfType('binders-inspector'); app.workspace.rightSplit.collapse(); return 1; })()`); }
+});
+ok('sync-style burst: 200 snapshot files arrive while a binder’s snapshots dialog is open: its list is drawn a few times, not once for each, and ends as the folder is', async (p, h, t) => {
+	const FD = '.modal.binders-folder-snapshots', ITEMS = FD + ' .binders-snapshots-item';
+	await openView(p, L.slice(0, -1));
+	await run(p, 'take-snapshots');
+	t.ok(await until(p, `(app.vault.getAbstractFileByPath(${j(SN)})?.children ?? []).some(f => f.name.endsWith('.binder-snapshot'))`, 20000), 'a snapshot of the binder is taken');
+	await sleep(p, 600);
+	await p.ev(`(async () => { let at = ''; for (const part of ${j(DIR)}.split('/')) { at = at ? at + '/' + part : part; if (!app.vault.getAbstractFileByPath(at)) await app.vault.createFolder(at); } })().then(() => 1)`);
+	await run(p, 'show-binder-snapshots');
+	t.ok(await until(p, `document.querySelectorAll(${j(ITEMS)}).length === 2`, 5000), 'the dialog lists the binder now and its one snapshot');
+	await sleep(p, 500);
+	// (each time the list is drawn, its first row, the binder as it is now, is made again)
+	await p.ev(`(() => { window.__drawn = 0; const l = document.querySelector(${j(FD + ' .binders-snapshots-list')}); window.__mo = new MutationObserver((ms) => { for (const m of ms) for (const n of m.addedNodes) if (n.classList?.contains('is-now')) window.__drawn++; }); window.__mo.observe(l, { childList: true }); return 1; })()`);
+	try {
+		await burst(p);
+		await sleep(p, 2500);
+		t.eq(await p.ev(`document.querySelectorAll(${j(ITEMS)}).length`), 2, 'after the burst it still lists the binder now and its one snapshot');
+		// (how many drawings a burst costs depends on how fast its files come; 200 changes told in one go are one)
+		await p.ev(`(() => { window.__drawn = 0; const f = app.vault.getAbstractFileByPath(${j(DIR)}).children[0]; for (let i = 0; i < 200; i++) app.vault.trigger('create', f); return 1; })()`);
+		await sleep(p, 800);
+		const drawn = await p.ev(`window.__drawn`);
+		t.ok(drawn >= 1 && drawn <= 3, `200 changes at once: the list was drawn again once or so, not once for each: ${drawn} times`);
+		// one more of the binder, after the burst: the dialog has not stopped following
+		await p.ev(`(async () => { const f = app.vault.getAbstractFileByPath(${j(SN)}).children.find(f => f.name.endsWith('.binder-snapshot')); await app.vault.copy(f, ${j(SN)} + '/2026-01-02 03.04.05 Copied in.binder-snapshot'); })().then(() => 1)`);
+		t.ok(await until(p, `document.querySelectorAll(${j(ITEMS)}).length === 3`, 5000), 'a snapshot that arrives afterwards is listed: ' + await p.ev(`document.querySelectorAll(${j(ITEMS)}).length`));
+	} finally { await p.ev(`(() => { window.__mo?.disconnect(); delete window.__mo; delete window.__drawn; return 1; })()`); }
 });
 
 // ---- the same “saved first” step in other places ----

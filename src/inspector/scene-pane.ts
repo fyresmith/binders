@@ -43,6 +43,8 @@ export class ScenePane {
 	private words: WordCounter;
 	/** A note's snapshots, read in the background, by the note's path. */
 	private snaps = new Map<string, Snapshot[]>();
+	/** The notes whose snapshots are being read now, by path: true once something has changed since the read began. */
+	private reading = new Map<string, boolean>();
 	/** A binder's roles, as read at one revision of the data. */
 	private roles: { at: string; of: Map<string, Played> } | null = null;
 
@@ -50,7 +52,7 @@ export class ScenePane {
 		this.el = parent.createDiv({ cls: 'binders-inspector' });
 		this.words = new WordCounter(plugin, () => this.again());
 		// a snapshot taken, named or deleted anywhere: this note's list is read again
-		const stale = (path: string) => { if (plugin.binders.inSnapshots(path)) { this.snaps.clear(); this.again(); } };
+		const stale = (path: string) => { if (plugin.binders.inSnapshots(path)) { this.snaps.clear(); for (const k of this.reading.keys()) this.reading.set(k, true); this.again(); } };
 		owner.registerEvent(plugin.app.vault.on('create', (f) => stale(f.path)));
 		owner.registerEvent(plugin.app.vault.on('delete', (f) => stale(f.path)));
 		owner.registerEvent(plugin.app.vault.on('rename', (f, old) => { stale(f.path); stale(old); }));
@@ -249,9 +251,18 @@ export class ScenePane {
 
 	private snapshots(el: HTMLElement, scene: TFile, ro: boolean): void {
 		const plugin = this.plugin, list = this.snaps.get(scene.path);
-		if (!list) {
-			const key = this.key;
-			void snapshotsOf(plugin, scene).then((got) => { this.snaps.set(scene.path, got); if (this.key === key) this.again(); }, () => { /* none to show */ });
+		// one read of a note's snapshots at a time: files that arrive in a burst (sync) each draw this again, and a read
+		// begun for each of them was 200 reads of up to 200 files. One that the folder changed under isn't kept: the
+		// draw it asks for reads again, so the list ends as the folder is
+		if (!list && !this.reading.has(scene.path)) {
+			const key = this.key, path = scene.path;
+			this.reading.set(path, false);
+			void snapshotsOf(plugin, scene).then((got): Snapshot[] | null => got, (): Snapshot[] | null => null /* none to show */).then((got) => {
+				const stale = this.reading.get(path);
+				this.reading.delete(path);
+				if (got && !stale) this.snaps.set(path, got);
+				if ((got || stale) && this.key === key) this.again();
+			});
 		}
 		const head = el.createDiv({ cls: 'binders-inspector-heading' });
 		head.createSpan({ text: 'Snapshots' });

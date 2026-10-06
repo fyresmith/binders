@@ -284,7 +284,10 @@ export class SnapshotsModal extends Modal {
 	private changes = false;
 	private current = '';
 	private rendered = new Component();
-	private loading = 0;
+	/** The list being read, and whether something has changed since that read began. */
+	private reading: Promise<void> | null = null;
+	private stale = false;
+	private closed = false;
 	private readonly scene: TFile | null;
 	private readonly dir: string;
 	private readonly name: string;
@@ -343,13 +346,27 @@ export class SnapshotsModal extends Modal {
 		this.rendered.load();
 		// the list follows the vault while the dialog is open: a snapshot taken, named or deleted, here or elsewhere
 		const { vault } = this.app, mine = (path: string) => path.startsWith(this.dir + '/') || path === this.dir;
-		this.rendered.registerEvent(vault.on('create', (f) => { if (mine(f.path)) void this.load(); }));
-		this.rendered.registerEvent(vault.on('delete', (f) => { if (mine(f.path)) void this.load(); }));
-		this.rendered.registerEvent(vault.on('rename', (f, old) => { if (mine(f.path) || mine(old)) void this.load(); }));
-		void this.load(true);
+		this.rendered.registerEvent(vault.on('create', (f) => { if (mine(f.path)) void this.refresh(); }));
+		this.rendered.registerEvent(vault.on('delete', (f) => { if (mine(f.path)) void this.refresh(); }));
+		this.rendered.registerEvent(vault.on('rename', (f, old) => { if (mine(f.path) || mine(old)) void this.refresh(); }));
+		void this.refresh(true);
 	}
 
-	onClose(): void { this.rendered.unload(); this.contentEl.empty(); }
+	onClose(): void { this.closed = true; this.rendered.unload(); this.contentEl.empty(); }
+
+	/** Reads the list again: one read at a time, and one more after it when anything changed meanwhile. Files that
+	    arrive in a burst (sync, a folder copied in) cost a few reads, not one each (200 files were 200 reads of up to
+	    200 files, and the list stood still for seconds), and the last read always starts after the last change. */
+	private refresh(first = false): Promise<void> {
+		if (this.reading !== null) { this.stale = true; return this.reading; }
+		const run = async (): Promise<void> => {
+			this.stale = false;
+			await this.load(first);
+			while (this.stale && !this.closed) { this.stale = false; await this.load(); }
+		};
+		const reading = this.reading = run().finally(() => { if (this.reading === reading) this.reading = null; });
+		return reading;
+	}
 
 	/** The dialog's two shapes: Obsidian's File recovery layout (or, where it has none, ours) when there's a list to
 	    show, and one of its small dialogs (a sheet on a phone, as `buttonRow` makes them) when there's none. */
@@ -395,13 +412,11 @@ export class SnapshotsModal extends Modal {
 	}
 
 	private async load(first = false): Promise<void> {
-		const turn = ++this.loading;
 		let current = '';
 		try {
 			if (this.scene) { await saveOpen(this.app, [this.scene]); current = parts(await this.app.vault.read(this.scene)).body; }
 		} catch (e) { tell(e); }
 		const list = await snapshotsIn(this.app, this.dir);
-		if (turn !== this.loading) return; // a later look is on its way
 		this.current = current;
 		this.list = list;
 		// (the keyboard's place is kept: in the list, or on a button this is about to draw again)
@@ -557,7 +572,7 @@ export class SnapshotsModal extends Modal {
 			const { kept } = await bringBack(this.plugin, this.scene, s);
 			say(`Brought back the snapshot from ${whenIn(s.taken)}.${kept ? ' The text it replaced is kept as a snapshot.' : ''}`, 6000);
 			this.shown = s;
-			await this.load();
+			await this.refresh();
 		} catch (e) { tell(e); }
 	}
 }
