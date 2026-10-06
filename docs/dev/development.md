@@ -504,12 +504,18 @@ exactly one test matches.
 
 ## Releasing
 
-1. Make sure `main` is green (`npm run check`, e2e) and pushed. There is no version to bump by hand: the last
-   `npm run ship` already set it in `manifest.json`, `package.json` and `versions.json`, and that commit is what you tag.
-2. Tag the version: `git tag x.y.z && git push origin x.y.z` (no `v`; it must match `manifest.json`).
-3. The **Release** workflow checks and builds the plugin, attests `main.js`, `manifest.json` and `styles.css`, and
-   publishes a release whose notes are the CHANGELOG since the previous tag. `0.x` tags become draft pre-releases;
-   `1.x` and later are published as the latest release.
+`manifest.json` on `main` always names a published release: Obsidian and BRAT read it there and look for a release
+of exactly that version. So `npm run ship` leaves `manifest.json` and `versions.json` alone, and a release is made in
+one go:
+
+1. Make sure `main` is green (`npm run check`, e2e) and pushed.
+2. Ship the release commit with `--release`: `npm run ship -- patch "…" --changed "…" --release`. It bumps the
+   version as any commit does and writes it into `manifest.json` and `versions.json` as well.
+3. Tag that commit with its version and push both together: `git tag x.y.z && git push origin main x.y.z` (no `v`;
+   the workflow checks the tag against `manifest.json`).
+4. The **Release** workflow checks and builds the plugin, attests `main.js`, `manifest.json` and `styles.css`, and
+   publishes a release whose notes are the CHANGELOG since the previous tag. `0.x` releases are marked as
+   pre-releases; `1.x` and later are published as the latest release. Check the release is there with its three files.
 
 ## Submitting to the community plugin directory
 

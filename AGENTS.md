@@ -61,7 +61,7 @@ git add <the files you changed>
 npm run ship -- patch "Short title in sentence case" --fixed "What changed, for users, in one sentence."
 ```
 
-- `ship` bumps the version in `package.json`, `manifest.json` and `versions.json`, writes a dated CHANGELOG entry
+- `ship` bumps the version in `package.json`, writes a dated CHANGELOG entry
   (sections: `--added`, `--changed`, `--fixed`, `--removed`; repeat as needed), and commits what you staged.
 - Add attribution trailers with `--trailer "Co-Authored-By: …"` if your setup asks for them.
 - One logical change per commit. Don't mix a fix with a refactor.
@@ -69,6 +69,12 @@ npm run ship -- patch "Short title in sentence case" --fixed "What changed, for 
   files that directly cover what changed. Wider runs are the test runner's (see "Working as a team of agents").
 - Pushing: the coordinator pushes `main` after each shipped commit or small batch. Tagging: only when the
   maintainer asks. A tag `x.y.z` (no `v`) triggers the release workflow.
+- **`manifest.json` always names a published release** (the maintainer's rule, 2026-10-06: Obsidian and BRAT read
+  it on `main` and look for a release of exactly that version, so a manifest ahead of the releases breaks
+  installing). `ship` leaves `manifest.json` and `versions.json` alone. A release is one commit shipped with
+  `--release`, which writes the new version into both; that commit is tagged with its version and the tag pushed
+  with it, and the workflow publishes the release (a 0.x one as a pre-release). Never edit the manifest's version
+  by hand, and never push a `--release` commit without its tag.
 
 ## CHANGELOG style
 
