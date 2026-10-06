@@ -773,9 +773,9 @@ test('phone header: “More options” in each mode is a sheet of finger-tall ro
 		const more = await p.at(MORE);
 		t.ok(more.w >= 40 && more.h >= 40, `the button is ${Math.round(more.w)} × ${Math.round(more.h)} px`);
 		const want = {
-			corkboard: ['Close', 'Pin', 'Card size', 'Tint cards with their label color', 'Number the cards', 'Corkboard', 'Outliner', 'Manuscript', 'In a grid', 'By label, across', 'By label, down', 'Show notes in subfolders', 'Show unused labels', 'Export...', 'Take a snapshot of every note...', 'Open binder note'],
-			outliner: ['Close', 'Pin', 'Show synopses', 'Columns', 'Expand all', 'Collapse all', 'Corkboard', 'Outliner', 'Manuscript', 'Export...', 'Take a snapshot of every note...', 'Open binder note'],
-			manuscript: ['Close', 'Pin', 'Corkboard', 'Outliner', 'Manuscript', 'Export...', 'Take a snapshot of every note...', 'Open binder note'],
+			corkboard: ['Close', 'Pin', 'Card size', 'Tint cards with their label color', 'Number the cards', 'Corkboard', 'Outliner', 'Manuscript', 'In a grid', 'By label, across', 'By label, down', 'Show notes in subfolders', 'Show unused labels', 'Export...', 'Take a snapshot', 'Show snapshots...', 'Open binder note'],
+			outliner: ['Close', 'Pin', 'Show synopses', 'Columns', 'Expand all', 'Collapse all', 'Corkboard', 'Outliner', 'Manuscript', 'Export...', 'Take a snapshot', 'Show snapshots...', 'Open binder note'],
+			manuscript: ['Close', 'Pin', 'Corkboard', 'Outliner', 'Manuscript', 'Export...', 'Take a snapshot', 'Show snapshots...', 'Open binder note'],
 		};
 		for (const [mode, items] of Object.entries(want)) {
 			await setMode(p, mode);
@@ -836,28 +836,28 @@ test('phone commands: the palette offers Binders’ commands where they apply an
 		// (“New binder” is offered everywhere, since a binder can be made from anywhere)
 		const check = async (what, want) => t.eq(j(await offered()), j([...want, 'New binder'].sort()), what);
 		const VIEWS = ['Show corkboard', 'Show outliner', 'Show manuscript', 'Export binder'], ARRANGE = 'Arrange corkboard by label', FOCUS = 'Toggle focus mode', STEP = ['Go to previous scene', 'Go to next scene'];
-		// snapshots: of every note of the binder, wherever a binder is in view; a scene's own, where a scene is open
-		const ALL = 'Take a snapshot of every note in the binder', SCENE = ['Take a snapshot', 'Rewrite', 'Show snapshots', ALL];
+		// snapshots: the binder's, wherever a binder is in view; a scene's own too, where a scene is open
+		const ALL = ['Take a snapshot of the binder', 'Show snapshots of the binder'], SCENE = ['Take a snapshot', 'Rewrite', 'Show snapshots', ...ALL];
 		await check('nothing open', []);
 		await open(p);
-		await check('a binder’s corkboard', [...VIEWS, 'New scene here', 'Set word count target', ALL, ARRANGE]);
+		await check('a binder’s corkboard', [...VIEWS, 'New scene here', 'Set word count target', ...ALL, ARRANGE]);
 		await setMode(p, 'outliner');
-		await check('its outliner', [...VIEWS, 'New scene here', 'Set word count target', ALL]);
+		await check('its outliner', [...VIEWS, 'New scene here', 'Set word count target', ...ALL]);
 		await setMode(p, 'manuscript');
-		await check('its manuscript, no caret in it', [...VIEWS, 'New scene here', 'Set word count target', ALL, FOCUS]);
+		await check('its manuscript, no caret in it', [...VIEWS, 'New scene here', 'Set word count target', ...ALL, FOCUS]);
 		await setMode(p, 'corkboard');
 		await h.open(L + 'Part One/Arrival.md');
 		await check('a scene, first in its folder', ['Open binder', 'Export binder', 'New scene here', 'Split scene at cursor', 'Move down', ...SCENE, FOCUS, ...STEP]);
 		await h.open(L + 'Part One/Storm warning.md');
 		await check('a scene, last in its folder', ['Open binder', 'Export binder', 'New scene here', 'Split scene at cursor', 'Move up', ...SCENE, FOCUS, ...STEP]);
 		await h.open(L + 'The Lighthouse.md');
-		await check('the binder note', ['Open binder', 'Export binder', 'New scene here', ALL]);
+		await check('the binder note', ['Open binder', 'Export binder', 'New scene here', ...ALL]);
 		await h.open('Longform demo/Index.md');
-		await check('a Longform project’s index', ['Open binder', 'Export binder', 'New scene here', 'Convert to binder', ALL]);
+		await check('a Longform project’s index', ['Open binder', 'Export binder', 'New scene here', 'Convert to binder', ...ALL]);
 		await h.open('Longform demo/Harbor.md');
 		await check('a Longform scene', ['Open binder', 'Export binder', 'New scene here', 'Convert to binder', 'Split scene at cursor', 'Move down', ...SCENE, FOCUS, 'Go to next scene']);
 		await open(p, 'Longform demo');
-		await check('a Longform project’s view', [...VIEWS, 'New scene here', 'Set word count target', 'Convert to binder', ALL, ARRANGE]);
+		await check('a Longform project’s view', [...VIEWS, 'New scene here', 'Set word count target', 'Convert to binder', ...ALL, ARRANGE]);
 		await h.open('Plain/A note.md');
 		await check('a note in a plain folder', ['Make this folder a binder']);
 		await h.open('Loose.md');

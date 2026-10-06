@@ -41,7 +41,7 @@ The inspector follows the tab you're writing in. It shows:
 | **Include in export** | Untick to leave the note or folder out of every export |
 | **Export as** | The part the note or folder plays in an exported book: **Part**, **Chapter**, **Scene**, **Front matter** or **Back matter**. Until you choose one it shows the part export gives it by its place, marked "auto". **Automatic** in the menu goes back to that. A folder can't be a scene. See [Book details and structure](book-details.md) |
 | **Notes** | Your own notes on the scene. See [Scene notes](scene-notes.md) |
-| **Snapshots** | A note's snapshots, newest first, with a camera to take one. Click a row to open the Snapshots window on it. See [Snapshots](snapshots.md) |
+| **Snapshots** | A note's snapshots, newest first, with a camera to take one; for a folder, the folder's own, and with nothing selected the binder's. Click a row to open the Snapshots window on it. See [Snapshots](snapshots.md) |
 
 ### Several at once
 

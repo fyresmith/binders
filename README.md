@@ -20,7 +20,7 @@ is in that scene's own properties. Turn Binders off and your notes are still ord
 - **Three views of one binder.** A corkboard of index cards, an outliner with columns you pick, and the whole
   manuscript as one page you can edit.
 - **Scrivener-style tools.** Labels, statuses and word count targets; an inspector; split, merge, duplicate and
-  group scenes; snapshots of a scene, so you can rewrite without losing the old text; undo of moves.
+  group scenes; snapshots of a scene, a folder or the whole binder, so you can rewrite without losing the old text; undo of moves.
 - **Export.** A submission manuscript as a Word file in standard manuscript format, an ebook (EPUB) for Kindle,
   Apple Books and Kobo, the binder itself as a Scrivener project, or the whole binder as one note.
 - **Focus mode.** The text and nothing else, with typewriter scrolling.

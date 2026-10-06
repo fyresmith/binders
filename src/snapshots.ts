@@ -3,6 +3,7 @@ import type { Binder } from './binders';
 import type BindersPlugin from './main';
 import { frontFor, lf, parts } from './scene-text';
 import { saveOpen } from './scenes';
+import { BINDER_SNAPSHOT_EXT } from './binder-snapshot-text';
 import { SNAPSHOTS, SNAPSHOT_EXT, readSnapshot, readSnapshotName, snapshotFile, snapshotName } from './snapshot-text';
 import { liveEditors, saveTab } from './view/editable-embed';
 
@@ -157,14 +158,19 @@ export async function rewrite(plugin: BindersPlugin, scene: TFile, blank: boolea
 /** Brings a snapshot back: the text as it is now is kept as a snapshot first (unless one holds it already, word for
     word), then the snapshot's text takes its place. */
 export async function bringBack(plugin: BindersPlugin, scene: TFile, s: Snapshot): Promise<{ kept: Snapshot | null }> {
-	const { app } = plugin, b = writable(plugin, scene);
 	// (from the disk, not from a list drawn a while ago)
-	const text = readSnapshot(await app.vault.adapter.read(s.file.path)).body;
+	return bringBackText(plugin, scene, readSnapshot(await plugin.app.vault.adapter.read(s.file.path)).body);
+}
+
+/** Puts a text a note once had in its place (a snapshot's, or the note's in a snapshot of its folder), keeping what is
+    there now as a snapshot first. */
+export async function bringBackText(plugin: BindersPlugin, scene: TFile, text: string, why = 'Before bringing back'): Promise<{ kept: Snapshot | null }> {
+	const { app } = plugin, b = writable(plugin, scene);
 	await saveOpen(app, [scene]);
 	const now = parts(await app.vault.read(scene)).body;
 	if (lf(now) === lf(text)) throw new Error('The note already has this text.');
 	const have = now.trim() ? (await snapshotsIn(app, snapshotsPath(b, scene.path))).find((o) => lf(o.body) === lf(now)) ?? null : null;
-	const kept = have || !now.trim() ? null : (await takeSnapshot(plugin, scene, 'Before bringing back'))?.snapshot ?? null;
+	const kept = have || !now.trim() ? null : (await takeSnapshot(plugin, scene, why))?.snapshot ?? null;
 	// (what was kept is what's replaced: text typed between the two would be refused, not lost)
 	await replaceText(plugin, scene, kept ? kept.body : now, text);
 	return { kept };
@@ -177,6 +183,11 @@ export async function nameSnapshot(app: App, s: Snapshot, title: string): Promis
 	if (name !== s.file.basename) await app.vault.rename(s.file, at(name));
 }
 
+/** Is this, in a folder of snapshots, the note's or the folder's of that name? A note's are its snapshot files. A
+    folder's are the folders in it (those of the notes in the folder) and the folder's own snapshots, which are files
+    of another kind (binder-snapshots.ts). */
+export const isOwn = (c: unknown, what: 'note' | 'folder'): boolean => (c instanceof TFile && c.extension === BINDER_SNAPSHOT_EXT ? what === 'folder' : what === 'note' ? c instanceof TFile : c instanceof TFolder);
+
 /** Moves snapshots from one folder to another: a note renamed or moved takes its snapshots along (the files in its
     folder of them), and so does a folder (the folders in its own: those of the notes in it). A note and a folder can
     share a name, and then share a folder here: each takes only what's its own. Nothing is ever written over: if there
@@ -185,7 +196,7 @@ export async function nameSnapshot(app: App, s: Snapshot, title: string): Promis
 export async function followSnapshots(app: App, from: string, to: string, what: 'note' | 'folder'): Promise<boolean> {
 	const old = app.vault.getAbstractFileByPath(normalizePath(from)), dest = normalizePath(to);
 	if (!(old instanceof TFolder) || old.path === dest || dest.startsWith(old.path + '/')) return false;
-	const mine = old.children.filter((c) => (what === 'note' ? c instanceof TFile : c instanceof TFolder));
+	const mine = old.children.filter((c) => isOwn(c, what));
 	if (!mine.length) return false;
 	const there = app.vault.getAbstractFileByPath(dest);
 	if (there instanceof TFile) throw new Error(`“${dest}” is a file.`);

@@ -3,6 +3,16 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.41.0 (2026-10-06)
+
+### Added
+
+- Snapshots of a folder or a whole binder: the clock button in the binder view's header takes one (one file holding every note, in order) and lists them; Show changes says what is different, note by note; Read shows one as it stood; Make a binder from this snapshot writes it beside the one that's there.
+
+### Removed
+
+- Take a snapshot of every note. A folder's or binder's snapshot takes its place; snapshots it took stay each note's own.
+
 ## 0.40.9 (2026-10-06)
 
 ### Changed

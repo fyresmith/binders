@@ -136,10 +136,13 @@ not a reason to build something.
 
 ### Defer or leave to Obsidian
 
-- **Whole-project drafts and branching:** defer. Existing named batches of scene snapshots cover text checkpoints.
-  Preserving and restoring structure, metadata and links introduces a second project history system. Reconsider
-  only when writers need to compare or recover an earlier book structure; begin with a read-only structure
-  checkpoint, not branching or automatic restoration.
+- **Branching:** do not add. Two live versions of a book need merging, and merging prose is where writing is
+  lost. A snapshot of the binder (below, built) is read, compared and brought back; "Make a binder from this
+  snapshot" writes it out as a second binder for the writer who wants to try another ending.
+- **Daily automatic snapshots of a binder:** later, off by default. Snapshots of a folder and of the whole binder
+  were decided and built on 2026-10-06 (`docs/dev/plan.md`, "Snapshots of a folder and of the binder"): taking,
+  reading, comparing, one note brought back and a binder made from a snapshot first; then bringing back the text
+  and the order; then everything; then the automatic ones before a bring back and before find and replace.
 - **A research browser or story-bible system:** do not add. Use ordinary links, backlinks, Properties and split
   panes. Reconsider a small scene-to-reference navigation action only if observed writing sessions expose a gap;
   no duplicated character, location or source database.

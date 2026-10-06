@@ -187,7 +187,11 @@ the commands you run on it:
   binder, replacing a note of that name if there is one) and changes none of the binder's notes: not their text,
   and not their properties.
 - "Rewrite" with "Start from a blank page" and "Bring back" in the Snapshots dialog replace a note's text, after
-  keeping it as a snapshot (below). The note's properties are left byte for byte.
+  keeping it as a snapshot (below). The note's properties are left byte for byte. That holds for one note brought
+  back from a snapshot of its folder too.
+- From a snapshot of a folder or the binder, "Bring back" on a note that is gone makes that note again (a new file,
+  under a name that is free), and "Make a binder (or folder) from this snapshot" makes a new folder of new notes
+  beside the one it is of. Neither writes to a note that is there.
 
 One change to a note's text is made without a command, and it is this and nothing wider. When a note or file is
 renamed or moved, "Start a paragraph with a tab" is on and Obsidian's "Automatically update internal links" is on,
@@ -227,8 +231,8 @@ byte-order mark has its block rewritten in place after the mark.
 
 ## Snapshots
 
-A binder can have a folder named `Snapshots` at its top. It holds earlier texts of the binder's notes and is not part
-of the binder: it never appears in `contents`, in a binder view, in a word count, the filter or an export, and
+A binder can have a folder named `Snapshots` at its top. It holds earlier texts of the binder's notes, and snapshots
+of its folders and of the binder itself (next section), and is not part of the binder: it never appears in `contents`, in a binder view, in a word count, the filter or an export, and
 Binders never lists it in the file explorer.
 
 ```
@@ -289,6 +293,104 @@ The Lighthouse/
   index note.
 - In a binder Binders can't change (a newer format), snapshots can be read but not taken, named, deleted or brought
   back.
+
+## Snapshots of a folder or of the binder (`binder-snapshot: 1`)
+
+A snapshot of a folder is one plain-text file that holds everything in the folder as it stood. It has a format
+number of its own, apart from the binder's.
+
+```
+The Lighthouse/
+  Snapshots/
+    2026-10-05 16.20.05 Draft sent to Sam.binder-snapshot      the binder's
+    2026-10-06 21.15.02 Before bringing back Draft.auto.binder-snapshot
+    Part One/
+      2026-10-03 09.12.44 Before the new order.binder-snapshot   the folder's
+      Arrival/
+        2026-10-01 14.32.07 First draft.snapshot                 a note's (above)
+```
+
+- **Where.** In `Snapshots/` under the folder's own path in the binder; the binder's own at its top. A folder's
+  files and the folders of its notes' snapshots share that folder. A note and a folder of one name share it too:
+  `.snapshot` files there are the note's, `.binder-snapshot` files and folders are the folder's.
+- **Its name** is a note's snapshot's: when it was taken, local time, then its name if it has one, counted on if
+  taken (`… (2)`). Naming one renames its file. One Binders took unasked ends in `.auto` before the extension, and
+  is named for why; only those may ever be thinned. Giving one a name takes the `.auto` away.
+- **The file:**
+
+  ```
+  ---
+  binder-snapshot: 1
+  binder: "The Lighthouse"
+  of: ""
+  taken: 2026-10-05T16:20:05
+  notes: 7
+  words: 5204
+  ---
+  Everything in “The Lighthouse” as it stood, in its order. Each item starts at a line of ===== that says what it is and how long; a note’s file follows, exactly as it was.
+
+  ===== "The Lighthouse.md" | binder note | 312 characters | 5f0c3a9e77b1d204 =====
+  ---
+  binder: 1
+  contents:
+    - Prologue
+  ---
+  ===== "Prologue.md" | note | 96 characters | 0b16f77849df045b =====
+  ---
+  synopsis: The light, seen from the sea.
+  ---
+  The light came round every twelve seconds.
+  ===== "Part One/" | folder =====
+  ===== "Part One/Part One.md" | folder note | 41 characters | f36c52fb4c7a7096 =====
+  ---
+  synopsis: Mara arrives.
+  ---
+  ===== "Part One/Arrival.md" | note | 88 characters | 8237ba997f642c0f =====
+  The supply boat left Mara on the jetty with two cases and a letter she had not opened.
+  ===== "map.png" | file | 48213 bytes =====
+  ```
+
+| Property | Meaning |
+|---|---|
+| `binder-snapshot` | The format, `1`. A file with a larger number is listed and says a newer Binders made it; this version never opens, renames, deletes or thins it |
+| `binder` | The binder's name when it was taken (for a reader; nothing depends on it) |
+| `of` | The folder it is of, as a path in the binder, `""` for the binder itself (for a reader: where the file is says whose it is, and that follows renames) |
+| `taken` | When, local time |
+| `why` | Only on one Binders took unasked: what it was about to do |
+| `notes`, `words` | How many notes and words it holds, so a list can say so without reading the rest |
+
+- **The items** follow one line of prose and a blank line, in the binder's order, each opened by a line
+  `===== "<path>" | <kind>[ | <n> characters | <fingerprint>] =====`. The path is in the folder the snapshot is of,
+  written as JSON text; a folder's ends in `/`. The kinds are `note`, `folder`, `binder note` and `folder note` (the
+  note that holds a folder's own data, which comes right after its folder's line; the snapshotted folder's own
+  comes first of all), and `file` for a file that isn't a note, which has `| <n> bytes` and no text: it is listed,
+  not kept.
+- **A note's text** follows its line: the note's whole file, properties and all, exactly `<n>` characters as
+  JavaScript counts them (UTF-16 units), then one line break that is not part of it. It is read by that length, so
+  nothing in a note can be taken for the next item. A byte-order mark, CR LF, a lone CR and a missing last line
+  break are all kept as they were.
+- **The fingerprint** is sixteen hex digits of the note's text (`fingerprint` in `src/binder-snapshot-text.ts`).
+  Reading checks every note against its length and fingerprint, and that there are as many notes as the head says.
+  A file that fails any of it (changed by hand, cut short by a sync) is still shown, says which notes don't match,
+  and nothing is brought back or made from it.
+- **Line endings.** Binders writes LF. If a tool has rewritten every line break in the file to CR LF (git does, on
+  Windows, unless `.gitattributes` says `*.binder-snapshot -text`), the file is read with them put back; a note
+  that had CR LF of its own then doesn't match its fingerprint and says so.
+- **The order** is the order of the items. The binder note's own `contents` is in its text too, but nothing reads
+  the order from there. A Longform project's scenes are in Longform's order; its index note is in the snapshot only
+  when it is inside the scene folder.
+- **Written once.** Binders never changes a snapshot file. It writes it, reads it back from the disk and compares
+  before it says one was taken.
+- **Nothing is taken twice in a row:** a snapshot that would hold exactly what the folder's newest one holds (the
+  same items in the same order, every note's file the same) isn't written. Asked for under a name, the newest one
+  takes the name if it has none.
+- **Renames and moves.** When a folder is renamed or moved in its binder, or to another binder, its snapshot files
+  go with it, as its notes' snapshot folders do; nothing is written over (a clashing name is counted on). A folder
+  that is deleted or leaves every binder leaves its snapshots where they were.
+- **Size.** About the size of the folder's notes: half a megabyte for a novel of 100,000 words.
+- Everything said above of `.snapshot` files holds for these: not notes, not indexed, never in the binder's order,
+  counts, views or exports, never listed in the file explorer, and carried by Obsidian Sync only with "Sync all
+  other types" on (and, on its Standard plan, only up to 5 MB a file).
 
 ## Export
 

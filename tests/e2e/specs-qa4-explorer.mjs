@@ -356,7 +356,7 @@ test('drag: a note dragged from the explorer onto a note’s text inserts a link
 // Menus
 // ================================================================================================================
 
-const isOurs = (x) => ['Open binder', 'Show in binder', 'New scene here', 'New scene after this', 'Export...', 'Move up', 'Move down', 'Convert to binder', 'Make this folder a binder', 'New binder', 'New folder from selection', 'Take a snapshot', 'Rewrite...', 'Show snapshots...', 'Take a snapshot of every note...', 'Snapshots of notes that are gone...'].includes(x) || /^Merge \d+ notes$/.test(x);
+const isOurs = (x) => ['Open binder', 'Show in binder', 'New scene here', 'New scene after this', 'Export...', 'Move up', 'Move down', 'Convert to binder', 'Make this folder a binder', 'New binder', 'New folder from selection', 'Take a snapshot', 'Rewrite...', 'Show snapshots...', 'Snapshots of notes that are gone...'].includes(x) || /^Merge \d+ notes$/.test(x);
 /** A menu without Binders' items (and without the separators that leaves doubled or dangling). */
 const stock = (m) => m.filter((x) => !isOurs(x)).filter((x, i, a) => !(x === '---' && (i === 0 || a[i - 1] === '---'))).filter((x, i, a) => !(x === '---' && i === a.length - 1));
 const menuIcons = (p) => p.ev(`Object.fromEntries([...document.querySelectorAll('.menu .menu-item')].map(e => [e.querySelector('.menu-item-title')?.textContent, [...(e.querySelector('.menu-item-icon svg')?.classList ?? [])].find(c => c.startsWith('lucide-')) ?? null]))`);
@@ -383,12 +383,12 @@ test('menus: Binders’ items sit in Obsidian’s own sections, with its icons, 
 	t.ok(i > folder.indexOf('New note') && folder.slice(folder.indexOf('New note'), i).every((x) => x !== '---') && folder[i + 1] === '---', '“New scene here” ends the section “New note” is in: ' + j(folder.slice(0, i + 2)));
 	i = folder.indexOf('Export...');
 	t.ok(folder.slice(folder.indexOf('Make a copy'), i).every((x) => x !== '---'), '“Export...” is in the section “Make a copy” is in');
-	same(t, folder.slice(i, i + 5), ['Export...', 'Take a snapshot of every note...', 'Move up', 'Move down', '---'], 'then its notes’ snapshots, then “Move up” and “Move down”');
+	same(t, folder.slice(i, i + 6), ['Export...', 'Take a snapshot', 'Show snapshots...', 'Move up', 'Move down', '---'], 'then its snapshots, then “Move up” and “Move down”');
 	i = note.indexOf('Take a snapshot');
 	same(t, note.slice(i - 1, i + 4), ['Merge entire file with...', 'Take a snapshot', 'Rewrite...', 'Show snapshots...', 'Move up'], 'a scene’s snapshots: after Obsidian’s own items of that section, before “Move up”');
 	t.eq(folder[folder.length - 1], 'Delete', '“Delete” is last');
 	same(t, [noteIcons['Show in binder'], noteIcons['New scene after this'], noteIcons['Move up'], noteIcons['Move down']], ['lucide-book', 'lucide-file-plus', 'lucide-arrow-up', 'lucide-arrow-down'], 'a scene’s icons');
-	same(t, [noteIcons['Take a snapshot'], noteIcons['Rewrite...'], noteIcons['Show snapshots...'], folderIcons['Take a snapshot of every note...']], ['lucide-camera', 'lucide-file-pen-line', 'lucide-history', 'lucide-camera'], 'the snapshot items’ icons');
+	same(t, [noteIcons['Take a snapshot'], noteIcons['Rewrite...'], noteIcons['Show snapshots...'], folderIcons['Take a snapshot']], ['lucide-camera', 'lucide-file-pen-line', 'lucide-history', 'lucide-camera'], 'the snapshot items’ icons');
 	same(t, [folderIcons['Open binder'], folderIcons['New scene here'], folderIcons['Export...']], ['lucide-book', 'lucide-file-plus', 'lucide-book-up'], 'a folder’s icons');
 });
 
@@ -398,14 +398,14 @@ test('menus: what’s offered where — scenes, folders, the binder’s own note
 	await rows(p, '', [...FOLDERS, 'Plain', LF, 'Newer', 'Newer/Sub']);
 	const ours = async (path) => { const m = await rightClick(p, path); await closeMenu(p); if (!m) throw new Error(`no menu for ${path}`); return m.filter(isOurs); };
 	const want = {
-		[L]: ['Open binder', 'New scene here', 'Export...', 'Take a snapshot of every note...'], [`${L}/Part One`]: ['Open binder', 'New scene here', 'Export...', 'Take a snapshot of every note...', 'Move up', 'Move down'],
+		[L]: ['Open binder', 'New scene here', 'Export...', 'Take a snapshot', 'Show snapshots...'], [`${L}/Part One`]: ['Open binder', 'New scene here', 'Export...', 'Take a snapshot', 'Show snapshots...', 'Move up', 'Move down'],
 		[`${L}/Prologue.md`]: ['Show in binder', 'New scene after this', 'Take a snapshot', 'Rewrite...', 'Show snapshots...', 'Move down'], [`${L}/Part One/The keeper.md`]: ['Show in binder', 'New scene after this', 'Take a snapshot', 'Rewrite...', 'Show snapshots...', 'Move up', 'Move down'],
 		// (the binder's own note, where the quick switcher lands for a binder's name, leads to its binder)
 		[NOTE]: ['Open binder'], [`${L}/Part One/Part One.md`]: [], [`${L}/map.png`]: ['Show in binder', 'Move up'],
 		Plain: ['Make this folder a binder', 'New binder'], 'Plain/x.md': [], 'Loose.md': [],
-		[LF]: ['Open binder', 'New scene here', 'Convert to binder', 'Export...', 'Take a snapshot of every note...'], [`${LF}/Index.md`]: ['Open binder', 'Convert to binder'], [`${LF}/Island.md`]: ['Show in binder', 'New scene after this', 'Take a snapshot', 'Rewrite...', 'Show snapshots...', 'Move up', 'Move down'], [`${LF}/Notes on ferries.md`]: [],
+		[LF]: ['Open binder', 'New scene here', 'Convert to binder', 'Export...', 'Take a snapshot', 'Show snapshots...'], [`${LF}/Index.md`]: ['Open binder', 'Convert to binder'], [`${LF}/Island.md`]: ['Show in binder', 'New scene after this', 'Take a snapshot', 'Rewrite...', 'Show snapshots...', 'Move up', 'Move down'], [`${LF}/Notes on ferries.md`]: [],
 		// a binder Binders can't change: it can be opened and exported, and a note's snapshots read, nothing more
-		Newer: ['Open binder', 'Export...'], 'Newer/Zed.md': ['Show in binder', 'Show snapshots...'], 'Newer/Sub': ['Open binder', 'Export...'], 'Newer/Newer.md': ['Open binder'],
+		Newer: ['Open binder', 'Export...', 'Show snapshots...'], 'Newer/Zed.md': ['Show in binder', 'Show snapshots...'], 'Newer/Sub': ['Open binder', 'Export...', 'Show snapshots...'], 'Newer/Newer.md': ['Open binder'],
 	};
 	for (const [path, items] of Object.entries(want)) same(t, await ours(path), items, `the menu of “${path}”`);
 	const selection = async (paths) => { await clearSelection(p); await select(p, paths); const a = await row(p, paths[paths.length - 1]); await p.right(a.x, a.y); await p.sleep(250); const m = await menuOf(p); await closeMenu(p); if (!m) throw new Error(`no menu for ${paths}`); return m.filter(isOurs); };
@@ -1214,7 +1214,7 @@ testRaw('mobile: the explorer’s menus offer the same items, in the same sectio
 		};
 		const note = await menu(`${L}/Part One/The keeper.md`), folder = await menu(`${L}/Part One`);
 		same(t, note.filter(isOurs), ['Show in binder', 'New scene after this', 'Take a snapshot', 'Rewrite...', 'Show snapshots...', 'Move up', 'Move down'], 'a scene');
-		same(t, folder.filter(isOurs), ['Open binder', 'New scene here', 'Export...', 'Take a snapshot of every note...', 'Move up', 'Move down'], 'a folder');
+		same(t, folder.filter(isOurs), ['Open binder', 'New scene here', 'Export...', 'Take a snapshot', 'Show snapshots...', 'Move up', 'Move down'], 'a folder');
 		same(t, (await menu(`${LF}/Island.md`)).filter(isOurs), ['Show in binder', 'New scene after this', 'Take a snapshot', 'Rewrite...', 'Show snapshots...', 'Move up', 'Move down'], 'a Longform scene');
 		let i = note.indexOf('Show in binder');
 		same(t, note.slice(i, i + 5), ['Show in binder', '---', 'New scene after this', '---', 'Make a copy'], 'the same sections as on desktop');
