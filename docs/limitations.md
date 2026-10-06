@@ -5,8 +5,6 @@ is a bug: [open an issue](https://github.com/fyresmith/binders/issues).
 
 ## Planned, not built
 
-- A paperback PDF in Export.
-- Editing an export style, and more book styles than **Classic**.
 - Import from a Scrivener project.
 - Find and replace across the manuscript.
 
@@ -15,6 +13,10 @@ See the [roadmap](../ROADMAP.md).
 ## Phones and tablets
 
 Phone and tablet support is new and has had little testing on real devices. See [Phones and tablets](mobile.md).
+
+- **A menu taller than the screen** (a note's menu on a tablet held sideways, for one) scrolls with your finger as
+  you touch it: that is Obsidian's way with every long menu. A tap near its foot can then open the item next to the
+  one you meant. Scroll the menu first, then tap.
 
 ## Splitting
 
