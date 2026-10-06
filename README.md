@@ -35,9 +35,9 @@ The [manual](docs/README.md) covers all of it.
 
 Binders needs Obsidian 1.13.4 or later, on a computer, a phone or a tablet.
 
-Binders is not in Obsidian's community plugin directory yet. It will be submitted after the beta. Until then:
-
-- **With BRAT:** install **BRAT** from **Settings → Community plugins → Browse**, run its command **Plugins: Add a
+- **From Obsidian:** open **Settings → Community plugins → Browse**, search for **Binders**, then **Install** and
+  **Enable**. Binders is in Obsidian's [community plugin directory](https://community.obsidian.md/plugins/binders).
+- **With BRAT**, to try versions as they come out: install **BRAT** from **Settings → Community plugins → Browse**, run its command **Plugins: Add a
   beta plugin for testing**, give it `fyresmith/binders` and choose the newest version. BRAT installs Binders and
   can keep it up to date.
 - **By hand:** download `main.js`, `manifest.json` and `styles.css` from the newest

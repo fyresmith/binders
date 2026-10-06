@@ -2,13 +2,22 @@
 
 Binders needs Obsidian 1.13.4 or later. It works on a computer, a phone and a tablet.
 
-Binders is in public beta, and is not in Obsidian's community plugin directory yet. It will be submitted after the
-beta, and this page will say when it is there. Until then there are two ways to install it.
+Binders is in public beta. It is in Obsidian's [community plugin directory](https://community.obsidian.md/plugins/binders), which is the easiest way to
+install it.
+
+## From Obsidian
+
+1. Open **Settings → Community plugins**. If community plugins are off, turn them on.
+2. Choose **Browse** and search for **Binders**, or open its [page in the directory](https://community.obsidian.md/plugins/binders).
+3. Choose **Install**, then **Enable**.
+
+Obsidian keeps it up to date from there: **Settings → Community plugins → Check for updates**. This works on a phone
+or tablet too.
 
 ## With BRAT
 
 BRAT is the community's plugin for trying plugins that are in beta. It installs Binders from its releases on GitHub
-and keeps it up to date.
+and keeps it up to date. Use it if you want each version as it comes out.
 
 1. Open **Settings → Community plugins**. If community plugins are off, turn them on.
 2. Choose **Browse**, search for **BRAT**, then **Install** and **Enable**.

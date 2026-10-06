@@ -79,7 +79,8 @@ Yes. Choose a style in the Export window, and click the sliders button beside it
 
 ## Is it in Obsidian's community plugins?
 
-Not yet. While it is in beta, install it with BRAT or by hand. See [Installation](installation.md).
+Yes: search for **Binders** under **Settings → Community plugins → Browse**, or open its
+[page in the directory](https://community.obsidian.md/plugins/binders). See [Installation](installation.md).
 
 ## Where do I report a problem or ask for something?
 
