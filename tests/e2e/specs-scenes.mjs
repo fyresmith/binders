@@ -565,10 +565,17 @@ test('a note open in a tab with words typed and not yet saved: a snapshot taken 
 	t.eq(disk(p, 'Odd/typed.md'), 'One.\n\nTwo.\nThree.', 'and so has the note on disk (in the editor’s line breaks now: it was typed in)');
 }));
 
+/** Obsidian set to update links ("Automatically update internal links"), as the test vault has it: said here, since
+    links follow a merge or a split only then, and a test elsewhere that left it off would fail these. */
+const linksOn = (p) => p.ev(`(() => { app.vault.setConfig('alwaysUpdateLinks', true); return 1; })()`);
+/** Waits until Obsidian's link index says `from` links to `to` this many times. */
+const indexed = (p, from, to, n) => until(p, `(app.metadataCache.resolvedLinks[${j(from)}] ?? {})[${j(to)}] === ${n}`, 8000);
+
 test('a link with other words to show, in a table (where Obsidian writes its bar with a backslash), follows a merge to the note that has the text', withTidy(async (p, h, t) => {
 	const GAMMA = 'See [[Beta]] and [[Beta|the second]].\n\n| note | part |\n| --- | --- |\n| [[Beta\\|in a table]] | [[Beta#Part\\|its part]] |\n';
+	await linksOn(p);
 	await odd(p, [['Alpha', 'Alpha text.\n'], ['Beta', '# Part\n\nBeta text.\n'], ['Gamma', GAMMA]]);
-	await p.sleep(500); // (Obsidian has read the links)
+	t.ok(await indexed(p, 'Odd/Gamma.md', 'Odd/Beta.md', 4), '(Obsidian has read the four links)');
 	await merge(p, ['Odd/Alpha.md', 'Odd/Beta.md']);
 	await until(p, `app.vault.adapter.read('Odd/Gamma.md').then(s => !s.includes('Beta'))`);
 	t.eq(disk(p, 'Odd/Gamma.md'), GAMMA.replace(/Beta/g, 'Alpha'), 'every link to the note that went leads to the merged one, the two in the table too, and nothing else changed');
@@ -980,8 +987,9 @@ test('“Split scene with selection as title” is undone by Ctrl+Z the same way
 test('a split made from the command palette is undone by Ctrl+Z the same way; links that followed a heading to the new note lead back, and follow it again on redo', withTidy(async (p, h, t) => {
 	const TEXT = 'The beginning.\n\n## The tower\n\nUp he went.\n', EP = L + 'Epilogue.md', NEW = K2;
 	const epilogue = await read(p, EP);
+	await linksOn(p);
 	await p.ev(`(async () => { await app.vault.modify(${file(K)}, ${j(TEXT)}); await app.vault.modify(${file(EP)}, ${j(epilogue + '\nSee [[The keeper#The tower]].\n')}); })().then(() => 1)`);
-	await until(p, `(app.metadataCache.resolvedLinks[${j(EP)}] ?? {})[${j(K)}] === 1`, 4000);
+	t.ok(await indexed(p, EP, K, 1), '(Obsidian has read the link)');
 	await openAt(p, K, { before: '## The tower' });
 	await palette(p, 'Split scene at cursor');
 	t.ok(await back(p, NEW), 'split from the palette');
@@ -993,7 +1001,7 @@ test('a split made from the command palette is undone by Ctrl+Z the same way; li
 	t.ok(await gone(p, NEW), 'Ctrl+Z: the new note is gone');
 	t.ok(await diskIs(p, K, TEXT), 'the note is whole again: ' + j(await read(p, K)));
 	t.ok(await until(p, `app.vault.adapter.read(${j(EP)}).then(s => s.includes('[[The keeper#The tower]]'))`, 4000), 'and the link leads to the heading where it is again: ' + j((await read(p, EP)).slice(-60)));
-	await until(p, `(app.metadataCache.resolvedLinks[${j(EP)}] ?? {})[${j(K)}] === 1`, 4000);
+	t.ok(await indexed(p, EP, K, 1), '(Obsidian has read the link again)');
 	await p.key('z', 'ctrl', 'shift');
 	t.ok(await back(p, NEW), 'redo: the new note again');
 	t.ok(await diskIs(p, NEW, second), 'as the split wrote it');

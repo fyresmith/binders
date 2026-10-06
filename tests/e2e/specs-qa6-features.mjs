@@ -685,7 +685,8 @@ async function linksBinder(p, on = true) {
 	await p.ev(`(async () => { app.vault.setConfig('alwaysUpdateLinks', ${on}); await app.vault.createFolder('Links'); for (const [n, s] of Object.entries(${j(linkNotes)})) await app.vault.adapter.write('Links/' + n + '.md', s); await new Promise(r => setTimeout(r, 900)); await ${B}.makeBinder(${file('Links')}); })().then(() => 1)`);
 	await sleep(p, 1000);
 }
-const restoreLinks = (p) => p.ev(`(() => { app.vault.setConfig('alwaysUpdateLinks', false); return 1; })()`);
+// (on, as the test vault has it: left off, every later test of links following a merge or a split fails)
+const restoreLinks = (p) => p.ev(`(() => { app.vault.setConfig('alwaysUpdateLinks', true); return 1; })()`);
 ok('merge with “update links” on: every link to the merged-away note, whatever its form, leads to the note that has its text now, and none is left dead', async (p, h, t) => {
 	await linksBinder(p, true);
 	try {
