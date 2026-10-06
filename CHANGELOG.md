@@ -3,6 +3,13 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.38.2 (2026-10-06)
+
+### Fixed
+
+- A page of a PDF no longer comes out a line too long, and a word broken at a line's end keeps its hyphen.
+- A book with pictures prints.
+
 ## 0.38.1 (2026-10-06)
 
 ### Fixed

@@ -21,6 +21,8 @@ function core(g: Geometry, o: { family: string; step: number; noteSize: number; 
 		'p, h1, h2, h3, h4, pre, table, figure { margin: 0; }',
 		'p.first, p.cont, p.li, p.fig { text-indent: 0; }',
 		`.cut { text-align-last: ${last}; }`,
+		// a finished page's lines are fast (pages/dom.ts): each ends at its break, and none is broken anywhere else
+		'.pin { white-space: nowrap; } .pin.just { text-align-last: justify; } .fill { display: inline-block; width: 100%; height: 0; }',
 		`.in1 { margin-inline-start: ${n(o.step)}; } .in2 { margin-inline-start: ${n(o.step * 2)}; } .in3 { margin-inline-start: ${n(o.step * 3)}; }`,
 		`.q { margin-inline-end: ${n(o.step)}; }`,
 		`.sp-a { margin-top: ${n(g.lead / 2)}; } .sp-b { margin-bottom: ${n(g.lead / 2)}; }`,
@@ -38,7 +40,7 @@ function core(g: Geometry, o: { family: string; step: number; noteSize: number; 
 		`.notes { position: absolute; left: 0; right: 0; bottom: 0; font-size: ${n(o.noteSize)}; line-height: ${n(o.noteLead)}; text-align: ${o.justified ? 'justify' : 'start'}; hyphens: ${o.justified ? 'manual' : 'none'}; }`,
 		`.notes.has { padding-top: ${n(o.noteLead)}; }`,
 		`.notes.has::before { content: ""; display: block; width: ${n(Math.min(72, g.width * 0.12))}; border-top: 0.5pt solid #000; margin-bottom: ${n(o.noteLead / 2)}; }`,
-		'.note p { text-indent: 0; } .note .n { font-variant-numeric: lining-nums; margin-inline-end: 0.5em; }',
+		'.note p { text-indent: 0; } .note .n { font-variant-numeric: lining-nums; margin-inline-end: 0.25em; }',
 		'.head, .folio { position: absolute; left: 0; right: 0; }',
 		'[dir="rtl"] .page, .page[dir="rtl"] { direction: rtl; }',
 	];
@@ -78,7 +80,7 @@ export function bookCss(s: BookStyle, g: Geometry, family: string): string {
 		`.page.copyright .text { position: absolute; left: 0; right: 0; bottom: 0; text-align: start; hyphens: none; font-size: ${n(noteSize)}; line-height: 12pt; }`,
 		'.page.copyright p { text-indent: 0; margin-top: 6pt; }',
 		`.page:is(.dedication, .epigraph) .text { text-align: center; font-style: italic; hyphens: none; padding-top: ${n(Math.round(g.lines * 0.22) * g.lead)}; }`,
-		'.page:is(.dedication, .epigraph) p { text-indent: 0; } .page:is(.dedication, .epigraph) h1 { display: none; }',
+		'.page:is(.dedication, .epigraph) p { text-indent: 0; }',
 		`p.toc { display: flex; gap: 1em; text-indent: 0; text-align: start; hyphens: none; } p.toc .n { margin-inline-start: auto; min-width: 2.2em; text-align: end; font-variant-numeric: lining-nums; }`,
 		`p.toc.under { margin-inline-start: ${n(g.lead)}; } p.toc.top { margin-top: ${n(g.lead / 2)}; }`,
 	];

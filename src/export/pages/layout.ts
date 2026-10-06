@@ -83,7 +83,7 @@ body { margin: 0; }
 #book { display: grid; grid-template-columns: repeat(2, max-content); justify-content: center; gap: 20px 0; padding: 20px 12px; }
 #book.single { grid-template-columns: max-content; gap: 14px; }
 #book:not(.single) .sheet:first-child { grid-column: 2; }
-.sheet { width: calc(var(--w) * var(--s)); height: calc(var(--h) * var(--s)); overflow: hidden; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); background: #fff; }
+.sheet { width: calc(var(--w) * var(--s)); height: calc(var(--h) * var(--s)); contain: strict; overflow: hidden; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); background: #fff; }
 .sheet > .page { transform: scale(var(--s)); transform-origin: 0 0; }
 [dir="rtl"] .sheet > .page { transform-origin: 100% 0; }
 .page[data-done] { content-visibility: auto; }
@@ -140,6 +140,10 @@ export interface Laid {
 	took: number;
 }
 
+/** A turn of the event loop: the window can draw and take a click. Not a timer: a window that isn't in front has its
+    timers slowed to one a second, and a book would take a minute. */
+const breath = (): Promise<void> => new Promise((done) => { const c = new MessageChannel(); c.port1.onmessage = () => { c.port1.close(); done(); }; c.port2.postMessage(0); });
+
 const base64 = (data: Uint8Array): string => { let s = ''; for (let i = 0; i < data.length; i += 0x8000) s += String.fromCharCode(...data.subarray(i, i + 0x8000)); return btoa(s); };
 
 /** Lays a book out on a stage. Null if it was cancelled. The stage is emptied first: it holds one book. */
@@ -167,9 +171,9 @@ export async function layPages(stage: Stage, book: Book, spec: PagesSpec, o: Lay
 	const it = fill(host, flow.flows);
 	let step = it.next(), at = performance.now();
 	while (!step.done) {
-		if (performance.now() - at > 40) {
+		if (performance.now() - at > 200) {
 			o.tick?.(host.pages.length);
-			await new Promise((r) => window.setTimeout(r, 0));
+			await breath();
 			if (o.cancelled?.() || !stage.frame.isConnected) { drop(); return null; }
 			at = performance.now();
 		}

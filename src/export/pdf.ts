@@ -55,7 +55,7 @@ async function print(job: PrintJob): Promise<Uint8Array> {
 		}));
 		// the pages are written into the webview's own document, and it says when every face and picture is in
 		const ready = `(() => { document.open(); document.write(${JSON.stringify(html)}); document.close();
-			return new Promise((done) => { const go = () => Promise.all([...document.fonts].map((f) => f.load().catch(() => null))).then(() => document.fonts.ready).then(() => Promise.all([...document.images].map((i) => (i.decode ? i.decode().catch(() => null) : null)))).then(() => done(document.querySelectorAll('.page').length));
+			return new Promise((done) => { const go = () => Promise.all([...document.fonts].map((f) => f.load().catch(() => null))).then(() => document.fonts.ready).then(() => Promise.all([...document.images].map((i) => (i.complete ? null : new Promise((r) => { i.addEventListener('load', r, { once: true }); i.addEventListener('error', r, { once: true }); }))))).then(() => done(document.querySelectorAll('.page').length));
 				if (document.readyState === 'complete') go(); else window.addEventListener('load', go, { once: true }); }); })()`;
 		const there = await within(LOAD_MS * 3, 'Getting the pages ready', view.executeJavaScript(ready));
 		if (there !== job.pages) throw new Error('The pages didn’t reach the printer whole.');

@@ -7,7 +7,11 @@ import { SHY } from './hyphenate';
    (`.page`) holding the text block (`.block`: the text, and the notes at its foot); the lines in it are Chromium's.
    Everything the paginator asks (how much room is left, how many lines a paragraph has, where its footnote marks
    are, cut it at this line) is answered here from the layout, and nothing is decided. A page sits in a `.sheet`,
-   which the window may show smaller than life: so every measure is taken through `scale()`. */
+   which the window may show smaller than life: so every measure is taken through `scale()`.
+
+   When a page is full its lines are made fast (`finish`): the soft hyphens come out, and each line's end is written
+   down as a break. From then on no line of it can be broken anywhere else, by a printer that measures a hair
+   differently or by letters that sit closer once the soft hyphen between them is gone. */
 
 export interface PageBox { sheet: HTMLElement; page: HTMLElement; text: HTMLElement; notes: HTMLElement; opened: Opened }
 
@@ -27,7 +31,51 @@ export interface DomOptions {
 }
 
 const isText = (b: HTMLElement) => (b.tagName === 'P' && !b.classList.contains('break') && !b.classList.contains('fig') && !b.classList.contains('toc')) || b.tagName === 'PRE' || b.classList.contains('note');
+/** The box a character is drawn in, of those a range gives for it: a soft hyphen a line broke at has an empty one and
+    then its hyphen's; one no line broke at, and a space a line's end swallowed, have none that is wide. */
+const wide = (rects: DOMRectList): DOMRect | null => { for (let i = rects.length - 1; i >= 0; i--) if (rects[i].width > 0.01) return rects[i]; return null; };
 const rows = (b: HTMLElement) => Array.from((b as HTMLTableElement).rows);
+
+/** A block's text read as one run of characters, each of which can be asked where it stands. */
+class Run {
+	nodes: [Text, number][] = [];
+	all = '';
+	private range: Range;
+	constructor(doc: Document, b: HTMLElement) {
+		const walk = doc.createTreeWalker(b, NodeFilter.SHOW_TEXT);
+		for (let n = walk.nextNode() as Text | null; n; n = walk.nextNode() as Text | null) { this.nodes.push([n, this.all.length]); this.all += n.data; }
+		this.range = doc.createRange();
+	}
+	/** The text node a character is in, and its place there. */
+	at(offset: number): [Text, number] {
+		let lo = 0, hi = this.nodes.length - 1;
+		while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (this.nodes[mid][1] <= offset) lo = mid; else hi = mid - 1; }
+		return [this.nodes[lo][0], offset - this.nodes[lo][1]];
+	}
+	private box(offset: number): DOMRect | null {
+		const [n, o] = this.at(offset);
+		if (o >= n.data.length) return null;
+		this.range.setStart(n, o); this.range.setEnd(n, o + 1);
+		return wide(this.range.getClientRects());
+	}
+	/** How far down the middle of a character's line is: the character's own, or (for one with no box: a soft
+	    hyphen, a space a line swallowed) the next that has one. */
+	middle(offset: number): number {
+		for (let x = offset; x < this.all.length; x++) { const r = this.box(x); if (r) return (r.top + r.bottom) / 2; }
+		return Infinity;
+	}
+	/** The same for the last character that has a box. */
+	last(): number {
+		for (let x = this.all.length - 1; x >= 0; x--) { const r = this.box(x); if (r) return (r.top + r.bottom) / 2; }
+		return -Infinity;
+	}
+	/** The first character whose line's middle is at `y` or under it. */
+	firstAt(y: number, from = 0): number {
+		let lo = from, hi = this.all.length - 1;
+		while (lo < hi) { const mid = (lo + hi) >> 1; if (this.middle(mid) >= y) hi = mid; else lo = mid + 1; }
+		return lo;
+	}
+}
 
 export class DomHost implements Host<HTMLElement> {
 	pages: PageBox[] = [];
@@ -100,28 +148,10 @@ export class DomHost implements Host<HTMLElement> {
 			body.append(...rows(b).slice(k));
 			return rest;
 		}
-		const lead = this.lead(b) * this.o.scale(), top = b.getBoundingClientRect().top + k * lead;
-		const nodes: [Text, number][] = [];
-		let total = 0;
-		const walk = this.doc.createTreeWalker(b, NodeFilter.SHOW_TEXT);
-		for (let n = walk.nextNode() as Text | null; n; n = walk.nextNode() as Text | null) { nodes.push([n, total]); total += n.data.length; }
-		if (!total) return rest;
-		const at = (offset: number): [Text, number] => { let lo = 0, hi = nodes.length - 1; while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (nodes[mid][1] <= offset) lo = mid; else hi = mid - 1; } return [nodes[lo][0], offset - nodes[lo][1]]; };
+		const run = new Run(this.doc, b);
+		if (!run.all.length) return rest;
+		const [n, o] = run.at(run.firstAt(b.getBoundingClientRect().top + k * this.lead(b) * this.o.scale()));
 		const range = this.doc.createRange();
-		// (a soft hyphen or a space the line swallowed has no box: it is where the next character that has one is)
-		const middle = (offset: number): number => {
-			for (let x = offset; x < total; x++) {
-				const [n, o] = at(x);
-				if (o >= n.data.length) continue;
-				range.setStart(n, o); range.setEnd(n, o + 1);
-				const rects = range.getClientRects();
-				if (rects.length && rects[0].width > 0) { const r = rects[rects.length - 1]; return (r.top + r.bottom) / 2; }
-			}
-			return Infinity;
-		};
-		let lo = 0, hi = total - 1; // the first character on line k or below
-		while (lo < hi) { const mid = (lo + hi) >> 1; if (middle(mid) >= top) hi = mid; else lo = mid + 1; }
-		const [n, o] = at(lo);
 		range.setStart(n, o);
 		if (b.lastChild) range.setEndAfter(b.lastChild);
 		rest.append(range.extractContents());
@@ -141,37 +171,71 @@ export class DomHost implements Host<HTMLElement> {
 		return rest;
 	}
 
-	/** A page that is full: the soft hyphens no line broke at are taken out again, and the ones a line did break at
-	    become hyphens, so the text a reader selects, searches or has read aloud is the words. */
+	/** A page that is full has its lines made fast. In every block that was given soft hyphens: the ones no line
+	    broke at are taken out and the ones a line did break at become hyphens, so the text a reader selects, searches
+	    or has read aloud is the words; and each line's end becomes a break, so the lines stay the lines that were
+	    measured (two letters sit a little closer once no soft hyphen is between them). */
 	finish(p: PageBox): void {
 		if (p.page.dataset.done) return;
 		if (this.o.block - this.height(p.text) - this.height(p.notes) + 0.5 < 0) this.o.over?.(this.pages.indexOf(p) + 1);
-		const walk = this.doc.createTreeWalker(p.page, NodeFilter.SHOW_TEXT), texts: Text[] = [], range = this.doc.createRange();
-		for (let n = walk.nextNode() as Text | null; n; n = walk.nextNode() as Text | null) if (n.data.includes(SHY)) texts.push(n);
-		const changes: [Text, string][] = [];
-		for (const n of texts) {
-			let out = '', from = 0;
-			for (let i = n.data.indexOf(SHY); i >= 0; i = n.data.indexOf(SHY, i + 1)) {
-				range.setStart(n, i); range.setEnd(n, i + 1);
-				const r = range.getClientRects();
-				out += n.data.slice(from, i) + (r.length && r[0].width > 0.01 ? '-' : '');
-				from = i + 1;
-			}
-			changes.push([n, out + n.data.slice(from)]);
+		const walk = this.doc.createTreeWalker(p.page, NodeFilter.SHOW_TEXT), blocks = new Set<HTMLElement>();
+		for (let n = walk.nextNode() as Text | null; n; n = walk.nextNode() as Text | null) {
+			if (!n.data.includes(SHY)) continue;
+			const b = n.parentElement?.closest<HTMLElement>('p, pre, h1, h2, h3, h4, td, th');
+			if (b) blocks.add(b);
 		}
-		for (const [n, data] of changes) n.data = data;
+		// everything is read before anything is written: a change would have the page laid out again for each block
+		const writes = Array.from(blocks, (b) => this.fasten(b));
+		for (const write of writes) write();
 		// (only now: a finished page out of sight is no longer laid out, and nothing could be measured in it)
 		p.page.dataset.done = '1';
+	}
+
+	/** Reads where a block's lines end, and returns what writes that down. */
+	private fasten(b: HTMLElement): () => void {
+		const run = new Run(this.doc, b), all = run.all, starts = new Set<number>();
+		const cell = b.tagName === 'TD' || b.tagName === 'TH', lead = this.lead(b) * this.o.scale();
+		// (a table's cell keeps its own lines: its width is the table's to give)
+		const first = cell ? Infinity : run.middle(0), lines = Number.isFinite(first) ? Math.round((run.last() - first) / lead) + 1 : 1;
+		const justified = !cell && getComputedStyle(b).textAlign === 'justify';
+		let from = 0;
+		for (let j = 1; j < lines; j++) { from = run.firstAt(first - lead / 2 + j * lead, from); starts.add(from); }
+		/** True for a soft hyphen a line broke at: the next character that isn't one begins a line. */
+		const used = (i: number): boolean => { let x = i + 1; while (all[x] === SHY) x++; return starts.has(x); };
+		return () => {
+			for (let k = run.nodes.length - 1; k >= 0; k--) {
+				const [node, g] = run.nodes[k], data = node.data, pieces: string[] = [];
+				let cur = '';
+				for (let i = 0; i < data.length; i++) {
+					if (starts.has(g + i) && g + i > 0) { pieces.push(cur); cur = ''; }
+					cur += data[i] !== SHY ? data[i] : used(g + i) ? '-' : '';
+				}
+				node.data = pieces.length ? pieces[0] : cur;
+				let after: ChildNode = node;
+				for (const piece of pieces.length ? [...pieces.slice(1), cur] : []) {
+					const br = el(this.doc, 'br'), text = this.doc.createTextNode(piece);
+					after.after(br, text);
+					after = text;
+				}
+			}
+			if (cell) return;
+			b.classList.add('pin');
+			if (!justified) return;
+			// every line but the last is set to the full measure, as it was; the last ends where its words end
+			b.classList.add('just');
+			if (!b.classList.contains('cut')) b.append(el(this.doc, 'span', 'fill'));
+		};
 	}
 
 	/** The last page is full too. */
 	end(): void { if (this.at) this.finish(this.at); }
 }
 
-/** A page's text as a reader has it: its blocks a line each, the words in order. */
+/** A page's text as a reader has it: its blocks a line each, a line break a new line, the words in order. */
 export function pageText(p: PageBox): string {
 	const out: string[] = [];
-	const add = (root: HTMLElement) => { for (const e of Array.from(root.children) as HTMLElement[]) out.push(e.tagName === 'TABLE' ? Array.from(e.querySelectorAll('th, td'), (c) => c.textContent ?? '').join(' ') : e.textContent ?? ''); };
+	const text = (e: Element): string => Array.from(e.childNodes, (n) => (n.nodeType === 3 ? (n as Text).data : n.nodeName === 'BR' ? '\n' : n.nodeType === 1 ? text(n as Element) : '')).join('');
+	const add = (root: HTMLElement) => { for (const e of Array.from(root.children)) out.push(e.tagName === 'TABLE' ? Array.from(e.querySelectorAll('th, td'), text).join(' ') : text(e)); };
 	add(p.text); add(p.notes);
 	return out.join('\n');
 }

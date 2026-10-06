@@ -83,7 +83,8 @@ export class BookFlow {
 			if (look.style) list(contentsOf(book, look.style).filter((e) => book.sections.indexOf(e.s) > at), false);
 			return flow;
 		}
-		const lines = look.heading(s);
+		// (a dedication and an epigraph stand alone on their page: a book doesn't print the word over them)
+		const lines = !look.plain && (s.matter === 'dedication' || s.matter === 'epigraph') ? [] : look.heading(s);
 		if (lines.length) blocks.push(this.heading(lines));
 		this.blocks(blocks, s.blocks, { depth: 0, quote: false, first: true, lead: look.lead && s.role === 'chapter', foot: false });
 		return flow;
@@ -126,7 +127,7 @@ export class BookFlow {
 		const label = this.el('span', 'n', String(this.shown.get(n)));
 		let first = inner[0];
 		if (!first || first.tagName !== 'P') { first = this.el('p', 'first'); inner.unshift(first); }
-		first.prepend(label);
+		first.prepend(label, ' ');
 		note.append(...inner);
 		this.notes.set(n, note);
 	}
