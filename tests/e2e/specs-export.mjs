@@ -155,7 +155,7 @@ test('“Save here next time without asking”: the dialog is skipped, a file ch
 	await p.ev(`(() => { app.setting.open(); app.setting.openTabById('binders'); return 1; })()`);
 	const row = `(app.setting.activeTab.containerEl.querySelector('.binders-settings-places'))`;
 	await until(p, `!!${row}`);
-	t.ok((await p.ev(`${row}.querySelector('.setting-item-description').textContent`)).includes('The Lighthouse (manuscript)'), 'settings list the place remembered');
+	t.ok((await p.ev(`${row}.querySelector('.setting-item-description').textContent`)).includes('The Lighthouse (Manuscript) to '), 'settings list the place remembered');
 	await p.ev(`(() => { ${row}.querySelector('button').click(); return 1; })()`);
 	await p.sleep(300);
 	t.ok((await p.ev(`${row}.querySelector('.setting-item-description').textContent`)).startsWith('Every export asks'), '“Ask again” forgets it');

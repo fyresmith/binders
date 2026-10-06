@@ -5,7 +5,7 @@ import { parseGoal } from './focus/session';
 import { COMPILE_PROP, EXPORT_PROP } from './scenes';
 import { DEFAULT_LABELS, DEFAULT_STATUSES, PALETTE, colorCss, display, freeName, hexColor } from './view/labels';
 import { confirm } from './view/modals';
-import { forgetPlaces, places } from './export/export';
+import { KINDS, forgetPlaces, places } from './export/export';
 
 /* The settings tab, declarative: Obsidian draws it from `getSettingDefinitions`, and can search it.
    What the settings are, and how saved ones are read back, is settings-data.ts. Renaming a label or a status asks
@@ -198,7 +198,7 @@ export class BindersSettingTab extends PluginSettingTab {
 	private placesRow(setting: Setting): void {
 		setting.settingEl.addClass('binders-settings-places');
 		const list = places(this.plugin), name = (p: string) => p.split('/').pop() ?? p;
-		setting.setDesc(list.length ? `${list.length === 1 ? 'One export saves' : `${list.length} exports save`} without asking on this device: ${list.map((p) => `${name(p.folder)} (${p.kind}) to ${p.path}`).join('; ')}.` : 'Every export asks where to save. After one is saved, its window offers to save there next time without asking.');
+		setting.setDesc(list.length ? `${list.length === 1 ? 'One export saves' : `${list.length} exports save`} without asking on this device: ${list.map((p) => `${name(p.folder)} (${KINDS.find((k) => k.id === p.kind)?.name ?? p.kind}) to ${p.path}`).join('; ')}.` : 'Every export asks where to save. After one is saved, its window offers to save there next time without asking.');
 		setting.addButton((b) => b.setButtonText('Ask again').setDisabled(!list.length).onClick(() => { forgetPlaces(this.plugin); this.update(); }));
 	}
 
