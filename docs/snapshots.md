@@ -63,7 +63,8 @@ With no snapshots yet, the window says what a snapshot is and offers to take the
 ## Snapshots of a folder or the binder
 
 A binder view has the same **Snapshots** button (the clock) in its header as a note has. It is for the folder the
-view shows: the binder, or the subfolder you are in.
+view shows: the binder, or the subfolder you are in. On a phone the header has no room for it: **Take a snapshot** and
+**Show snapshots...** are under **More options**.
 
 - **Take a snapshot** asks nothing and says what it took: "Took a snapshot of “The Lighthouse”: 7 notes · 5,204
   words." What you have typed and not yet saved goes in. If nothing at all has changed since the last one, it says

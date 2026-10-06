@@ -3,6 +3,18 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.44.4 (2026-10-06)
+
+### Added
+
+- The first public beta of Binders. A folder becomes a binder: its notes and folders keep the order you give them, in Obsidian's own file explorer, and open as a corkboard, an outliner, or the whole manuscript as one page you can write in.
+- In this beta: labels, statuses and word count targets; an inspector and the book's contents in the sidebar; split, merge, duplicate and group; snapshots of a scene, a folder or the whole binder; focus mode; export as a manuscript (Word or PDF), an ebook, a print-ready paperback PDF, a Scrivener project or one note, with styles you can change; import from Scrivener; Longform projects; phones and tablets.
+- Install it with BRAT (`fyresmith/binders`) or by hand from this release's three files. It is not in Obsidian's community directory yet.
+
+### Changed
+
+- Be careful of: Binders is tested on Linux and in Obsidian's emulation of a phone and a tablet. It has not been tried on a real phone, on macOS or on Windows. The exported Word file, ebook and PDF have not been opened in Word, Kindle Previewer or Apple Books, or sent to a printer. Keep a backup of your vault, and say what you find in the issue tracker. The manual's "Known limitations" has the full list.
+
 ## 0.44.3 (2026-10-06)
 
 ### Fixed
