@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.24.3 (2026-10-06)
+
+### Fixed
+
+- A link written just before a merge or a split now follows it to the note that has the text, even when Obsidian hasn't indexed the link yet.
+
 ## 0.24.2 (2026-10-06)
 
 ### Fixed

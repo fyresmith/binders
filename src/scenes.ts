@@ -62,19 +62,29 @@ function linksTo(app: App, files: TFile[]): number {
 /** Points the vault's links to `from` at `to` instead (all of them, or those whose part `only` says yes to), as
     Obsidian does when a note is renamed, and only if it's set to ("Automatically update internal links"). Each note
     with such a link is rewritten once, its links and nothing else. Returns the notes that were changed. `also`: notes
-    to look through whatever the link index says (it is filled a moment after a note is written). */
+    to look through whatever the link index says.
+
+    Which notes link to `from` is Obsidian's link index's to say, and that index is filled a moment after a note is
+    written (Obsidian reads the note again, off the main thread; longer on a busy machine). So the notes it may not
+    have caught up with are read as well: those written in the last minute, and those it has nothing of yet. Where a
+    link leads is asked of Obsidian's lookup by name, which knows a note as soon as it's made. */
 async function repoint(app: App, from: TFile, to: TFile, only?: (subpath: string) => boolean, skip: TFile[] = [], also: TFile[] = []): Promise<TFile[]> {
 	if (!updatesLinks(app)) return [];
-	const out: TFile[] = [];
+	const out: TFile[] = [], now = Date.now();
 	const indexed = Object.entries(app.metadataCache.resolvedLinks).filter(([, dests]) => dests[from.path]).map(([source]) => app.vault.getAbstractFileByPath(source));
-	for (const file of new Set([...indexed, ...also])) {
+	const unread = app.vault.getMarkdownFiles().filter((f) => now - f.stat.mtime < INDEX_LAG || !app.metadataCache.getFileCache(f));
+	for (const file of new Set([...indexed, ...also, ...unread])) {
 		if (!isNote(file) || file === from || skip.includes(file) || app.vault.getAbstractFileByPath(file.path) !== file) continue;
+		const pointed = (text: string) => repointLinks(text, (path, sub) => {
+			if (!path || app.metadataCache.getFirstLinkpathDest(path, file.path) !== from || (only && !only(sub))) return null;
+			return app.metadataCache.fileToLinktext(to, file.path, true);
+		});
+		// (a note with no such link isn't written to at all)
+		const seen = await app.vault.read(file);
+		if (pointed(seen) === seen) continue;
 		let changed = false;
 		await app.vault.process(file, (text) => {
-			const next = repointLinks(text, (path, sub) => {
-				if (!path || app.metadataCache.getFirstLinkpathDest(path, file.path) !== from || (only && !only(sub))) return null;
-				return app.metadataCache.fileToLinktext(to, file.path, true);
-			});
+			const next = pointed(text);
 			changed = next !== text;
 			return next;
 		});
@@ -82,6 +92,9 @@ async function repoint(app: App, from: TFile, to: TFile, only?: (subpath: string
 	}
 	return out;
 }
+/** How long after a note was written its links may still be missing from Obsidian's link index, in ms (generous: it
+    is a few milliseconds on an idle machine, and reading the few notes written in that time costs little). */
+const INDEX_LAG = 60000;
 
 /** A short fingerprint of a text: enough to tell whether a note is still what export wrote. */
 function fingerprint(text: string): string {

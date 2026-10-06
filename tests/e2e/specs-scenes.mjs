@@ -581,6 +581,34 @@ test('a link with other words to show, in a table (where Obsidian writes its bar
 	t.eq(disk(p, 'Odd/Gamma.md'), GAMMA.replace(/Beta/g, 'Alpha'), 'every link to the note that went leads to the merged one, the two in the table too, and nothing else changed');
 }));
 
+// Obsidian's link index is filled a moment after a note is written (it reads the note again, off the main thread):
+// on a busy machine a merge can come before it. Here that reading is held back until the merge is done.
+test('a link written a moment before a merge, which Obsidian’s link index doesn’t have yet, still follows the merge', withTidy(async (p, h, t) => {
+	const GAMMA = 'See [[Beta]] and [[Beta#Part|its part]].\n';
+	await linksOn(p);
+	await odd(p, [['Alpha', 'Alpha text.\n'], ['Beta', '# Part\n\nBeta text.\n']]);
+	try {
+		await p.ev(`(async () => {
+			const a = app.vault.adapter, held = window.__held = { release: () => {}, restore: () => {} }, gate = new Promise(r => { held.release = r; });
+			for (const k of ['readBinary']) { const was = a[k]; a[k] = async function (...args) { if (args[0] === 'Odd/Gamma.md') await gate; return was.apply(this, args); }; const undo = held.restore; held.restore = () => { undo(); a[k] = was; }; }
+			await app.vault.create('Odd/Gamma.md', ${j(GAMMA)});
+		})().then(() => 1)`);
+		await p.sleep(600);
+		t.eq(await p.ev(`JSON.stringify(app.metadataCache.resolvedLinks['Odd/Gamma.md'] ?? null)`), 'null', '(the index has nothing of the new note’s links yet)');
+		await explorerMenu(p, ['Odd/Alpha.md', 'Odd/Beta.md'], 'Merge 2 notes');
+		await until(p, `!!document.querySelector('.modal .mod-cta')`);
+		// (the merge itself reads the note as it is on disk: only the indexer's reading stays held)
+		await p.ev(`(() => { [...document.querySelectorAll('.modal button')].find(b => b.textContent === 'Merge').click(); return 1; })()`);
+		await until(p, `!app.vault.getAbstractFileByPath('Odd/Beta.md')`, 8000);
+		await p.sleep(300);
+		t.eq(await p.ev(`JSON.stringify(app.metadataCache.resolvedLinks['Odd/Gamma.md'] ?? null)`), 'null', '(and still had nothing when the merge was done)');
+	} finally { await p.ev(`(() => { window.__held?.release(); window.__held?.restore(); delete window.__held; return 1; })()`); }
+	t.eq(disk(p, 'Odd/Gamma.md'), GAMMA.replace(/Beta/g, 'Alpha'), 'the links lead to the merged note');
+	// (Obsidian's reading, let go now, is done before the notes are tidied away: it logs an error for a note that has gone)
+	t.ok(await indexed(p, 'Odd/Gamma.md', 'Odd/Alpha.md', 2), 'and Obsidian’s index, once it has read the note, says so too');
+	await p.sleep(400);
+}));
+
 test('“Scene 01” split or duplicated makes “Scene 02”: a number keeps its zeros', withTidy(async (p, h, t) => {
 	await odd(p, [['Scene 01', 'First half.\n\nSecond half.\n'], ['Scene 09', 'Nine.\n']]);
 	await openAt(p, 'Odd/Scene 01.md', { before: 'Second half.' });
