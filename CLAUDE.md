@@ -10,8 +10,10 @@
 - **Where it came from:** planned 2026-09-30 in a session that also built and released the maintainer's first plugin,
   **Evra Timelines** (`~/Projects/evra`). Binders reuses Evra's toolchain and team workflow. Evra is a good reference
   for native-looking UI, e2e tests, the release workflow, and the lessons in AGENTS.md.
-- **Version:** 0.12.x (the number is in `package.json`; every commit bumps it). Unreleased: nothing is tagged yet,
-  and no release is planned before export is built. The aim until then is a release-ready state.
+- **Version:** 0.33.x (the number is in `package.json`; every commit bumps it). Unreleased: nothing is tagged yet.
+  The maintainer will release it to the community directory as a public beta before 1.0.
+- **Start here if you have no earlier conversation:** `docs/dev/handoff/README.md` says what is on `main`, what is
+  on unmerged branches (`export-step-5`, `export-step-3`, `binder-snapshots`), what was decided and what is next.
 - **Built:** binders in the vault and in the file explorer (order, drag to reorder, label dots), the three modes, the
   Longform integration, the scene operations (split, merge, duplicate, group, compile, undo of moves), arrange by
   label, snapshots and focus mode. `docs/dev/architecture.md` is the map of the code; the milestone table in

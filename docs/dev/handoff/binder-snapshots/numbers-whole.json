@@ -1,0 +1,106 @@
+{
+ "store": "whole",
+ "novelSize": 533723,
+ "novelFirst": {
+  "made": true,
+  "took": {
+   "read": 7.099999964237213,
+   "write": 9.200000047683716,
+   "check": 2,
+   "bytes": 550011,
+   "files": 1
+  },
+  "notes": 99,
+  "words": 98057,
+  "path": "Examples/Low Water at Corran/Snapshots/2026-08-14 18.02.11 First full draft.binder-snapshot"
+ },
+ "novelSam": {
+  "made": true,
+  "took": {
+   "read": 6.700000047683716,
+   "write": 5.399999976158142,
+   "check": 1.5,
+   "bytes": 550094,
+   "files": 1
+  },
+  "notes": 99,
+  "words": 98074,
+  "path": "Examples/Low Water at Corran/Snapshots/2026-09-19 16.20.05 Draft sent to Sam.binder-snapshot"
+ },
+ "novelSnapshots": {
+  "bytes": 1650209,
+  "files": 3
+ },
+ "roundTrip": {
+  "files": 133,
+  "same": 133,
+  "differ": [],
+  "extra": [],
+  "orderSame": true,
+  "isBinder": true,
+  "ms": 29827.80000001192
+ },
+ "novelCompare": {
+  "now": 6.099999964237213,
+  "read": 10.600000023841858,
+  "changes": 10.399999976158142
+ },
+ "month": {
+  "days": 30,
+  "bytes": 16674291,
+  "files": 30,
+  "msEach": 152.04999999602634,
+  "onDisk": {
+   "bytes": 16674921,
+   "files": 30
+  }
+ },
+ "big": {
+  "stateFirst": 178.10000002384186,
+  "notes": 5000,
+  "words": 374236,
+  "take": 64.89999997615814,
+  "took": {
+   "read": 45.69999998807907,
+   "write": 13.300000011920929,
+   "check": 5.800000011920929,
+   "bytes": 3159120,
+   "files": 1
+  },
+  "takeUnchanged": 323.30000001192093,
+  "unchangedMade": false,
+  "state": 163.39999997615814,
+  "read": 35.5,
+  "changes": 98.60000002384186,
+  "c": {
+   "rewritten": 20,
+   "fresh": 0,
+   "gone": 5,
+   "moved": 10,
+   "renamed": 1,
+   "rows": 5200
+  },
+  "takeSecond": 104.90000003576279,
+  "tookSecond": {
+   "read": 49.69999998807907,
+   "write": 49.80000001192093,
+   "check": 5.300000011920929,
+   "bytes": 3167131,
+   "files": 1
+  }
+ },
+ "bigOnDisk": {
+  "bytes": 6326263,
+  "files": 2
+ },
+ "bigDialogMs": 626,
+ "many": {
+  "n": 300,
+  "ms": 2057.600000023842
+ },
+ "manyOnDisk": {
+  "bytes": 23207571,
+  "files": 306
+ },
+ "manyDialogMs": 960
+}

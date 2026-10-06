@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Binder snapshots</title>
+<style>
+:root { --bg: #fbfbfa; --fg: #1f1f1f; --muted: #666; --line: #dcdcd8; --card: #fff; --accent: #6d4fd6; --good: #1b7a43; --warn: #9a5b00; }
+@media (prefers-color-scheme: dark) { :root { --bg: #1b1b1b; --fg: #e4e4e4; --muted: #9a9a9a; --line: #383838; --card: #232323; --accent: #a892ff; --good: #62c58c; --warn: #e0a84a; } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.55 -apple-system, "Segoe UI", Inter, system-ui, sans-serif; }
+main { max-width: 1120px; margin: 0 auto; padding: 32px 16px 96px; }
+h1 { font-size: 30px; line-height: 1.2; margin: 0 0 8px; }
+h2 { font-size: 22px; margin: 56px 0 12px; padding-top: 16px; border-top: 1px solid var(--line); }
+h3 { font-size: 17px; margin: 28px 0 8px; }
+p, li { max-width: 76ch; }
+.lead { font-size: 18px; color: var(--muted); max-width: 70ch; }
+.pick { border: 1px solid var(--line); background: var(--card); padding: 16px 20px; border-radius: 8px; margin: 20px 0; }
+.pick p { margin: 6px 0; }
+figure { margin: 20px 0; }
+figure img { display: block; max-width: 100%; height: auto; border: 1px solid var(--line); border-radius: 8px; }
+figcaption { color: var(--muted); font-size: 14px; margin-top: 8px; max-width: 80ch; }
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; align-items: start; }
+.phones { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; align-items: start; }
+.phones img { max-height: 620px; width: auto; }
+table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 15px; display: block; overflow-x: auto; }
+th, td { text-align: left; vertical-align: top; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+th { font-weight: 600; white-space: nowrap; }
+td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+code, pre { font: 13px/1.5 ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+pre { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; overflow-x: auto; }
+.real { color: var(--good); font-weight: 600; }
+.inert { color: var(--warn); font-weight: 600; }
+.q { border-left: 3px solid var(--accent); padding: 4px 0 4px 16px; margin: 18px 0; }
+.q b { display: block; }
+.q span { color: var(--muted); }
+nav { font-size: 14px; color: var(--muted); margin: 12px 0 0; }
+nav a { color: var(--accent); margin-right: 14px; white-space: nowrap; }
+small { color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+<h1>Snapshots of a folder and of a whole binder</h1>
+<p class="lead">A design round, built in the real plugin behind a switch (Settings, Snapshots, “Snapshots of folders and binders”, off by default). The pictures are the plugin on the demo vault's novel, its messy draft and its 5,000-note binder. Nothing here is on <code>main</code>.</p>
+<nav><a href="#pick">The pick</a><a href="#in">The way in</a><a href="#seeing">Seeing them</a><a href="#back">Bringing one back</a><a href="#disk">On disk: two directions</a><a href="#numbers">Numbers</a><a href="#answers">The seven questions</a><a href="#ask">Questions for you</a><a href="#next">Finishing</a></nav>
+
+<div class="pick" id="pick">
+<p><b>What I'd build.</b> One word, <i>snapshot</i>, for a note and for a folder. A folder's snapshot is everything in it as it stood: every note's file (text and properties), the folder notes, the order and nesting, and which files were there. It is taken in one click from a Snapshots button in the binder view's header, the same clock a note has. It opens in the note's own Snapshots dialog, grown to hold a book: the list at the side under “The binder now”, and beside it the book's contents in their order, with <b>Show changes</b> marking what is different now. A note in the contents opens as a note's snapshot does, with the same prose comparison.</p>
+<p><b>On disk: one plain-text file per snapshot</b> (direction A below), not a store of shared texts. It is one write, it is whole or it is not there, it opens in any text editor as the book in order, and a 5,000-note binder takes a tenth of a second. It costs disk (0.55 MB per snapshot of a 98,000-word novel), which thinning the automatic ones bounds.</p>
+<p><b>Restoring is the risky part and is not built.</b> What is real today never touches what is there: bringing back one note's text (through the note's own guarded path), making a gone note again, and “Make a binder from this snapshot”, which writes a new folder beside the binder. The whole-binder “Bring back...” screen is real and its numbers are real; its button changes nothing.</p>
+</div>
+
+<h2 id="in">The way in</h2>
+<div class="two">
+<figure><img src="screens/light/header-menu.png" alt="The Snapshots button in a binder view's header, with its menu open"><figcaption>The binder view's header gets the note's button, beside “More options”. Its menu is the note's without “Rewrite...”: <b>Take a snapshot</b> (asks nothing) and <b>Show snapshots...</b>. In a subfolder's view it is that folder's.</figcaption></figure>
+<figure><img src="screens/light/none.png" alt="The dialog with no snapshots yet"><figcaption>With none yet: one of Obsidian's small dialogs, as the note's is.</figcaption></figure>
+</div>
+<p>The same two items replace “Take a snapshot of every note...” in the folder's and binder's menus (the view's menu, a folder card or row, the file explorer), and there are two commands for the folder a binder view shows. “Snapshots of notes that are gone” and a note's “Rewrite...” stay as they are.</p>
+
+<h2 id="seeing">Seeing them</h2>
+<figure><img src="screens/light/changes.png" alt="The dialog on a named snapshot of the novel, with the changes marked"><figcaption><b>What changed since “Draft sent to Sam”</b>, computed for real on the 98,000-word novel after a month's edits: three notes rewritten, one deleted, one new, a scene moved to another chapter, a chapter moved up, a note renamed, a label, a status and a folder's synopsis changed. Stretches that are the same fold to one line and open on a click. Rows are a sidebar's tree rows; what is different is said at the row's end in plain text, and a note that is gone or new carries the same two marks the prose comparison uses.</figcaption></figure>
+<div class="two">
+<figure><img src="screens/light/contents.png" alt="The same snapshot with Show changes off"><figcaption>“Show changes” off: the book as it stood, in its order, with each note's words.</figcaption></figure>
+<figure><img src="screens/dark/changes.png" alt="The changes in the dark theme"><figcaption>The dark theme.</figcaption></figure>
+</div>
+<figure><img src="screens/light/note-changes.png" alt="One note of the snapshot, compared with the note now"><figcaption><b>Down into one note.</b> A click on a row opens that note as it stood, with the comparison the note's own dialog draws (it is the same code). “Bring back” here is real: it puts this text in the note after taking a snapshot of the note as it is, exactly as a note's own “Bring back” does.</figcaption></figure>
+<div class="two">
+<figure><img src="screens/light/read-changes.png" alt="Read, with changes"><figcaption><b>Read</b>: the snapshot as a manuscript, top to bottom. With “Show changes” on it is the month's changes as prose, in the book's order, the notes that are the same passed over in a line.</figcaption></figure>
+<figure><img src="screens/light/read.png" alt="Read, without changes"><figcaption>“Show changes” off: the book as it was, to read. Notes are drawn as they come near the window, so a long book opens at once.</figcaption></figure>
+</div>
+<h3>One snapshot, and three hundred</h3>
+<div class="two">
+<figure><img src="screens/light/one.png" alt="A binder with one snapshot"><figcaption>One. Nothing has changed since, so the two switches that would show nothing say why.</figcaption></figure>
+<figure><img src="screens/light/many.png" alt="Three hundred snapshots of the messy draft"><figcaption>Three hundred, over fourteen months of the messy draft. Past twelve the list says the months and gets one quiet switch, “Only snapshots with a name”. The ones Binders took itself (“Before find and replace”) are quieter. Each row says how big the book was, read from its file as the row comes into sight.</figcaption></figure>
+</div>
+<div class="two">
+<figure><img src="screens/light/many-named.png" alt="Only the named ones"><figcaption>“Only snapshots with a name”: nine of the three hundred.</figcaption></figure>
+<figure><img src="screens/light/folder.png" alt="A subfolder's snapshots"><figcaption><b>A subfolder's list</b> has its own snapshots and those of every folder it is in, each saying so (“In the whole binder”): a snapshot of the binder holds the folder, so it is one of the folder's. A snapshot taken of the folder alone doesn't show in the binder's list.</figcaption></figure>
+</div>
+<figure><img src="screens/light/big.png" alt="The 5,000-note binder"><figcaption><b>5,000 notes in 200 folders.</b> Twenty notes written in, five deleted, ten moved, a folder renamed: the dialog draws in about 0.6 s. A folder renamed is followed (its notes are not “gone” and “new”); a folder in which nothing changed is shut.</figcaption></figure>
+<h3>A phone and a tablet</h3>
+<div class="phones">
+<figure><img src="screens/light/phone-view.png" alt="The button on a phone"><figcaption>The button, in the phone's header.</figcaption></figure>
+<figure><img src="screens/light/phone-list.png" alt="The list on a phone"><figcaption>The list is the sheet's first page, as the note's is.</figcaption></figure>
+<figure><img src="screens/light/phone-changes.png" alt="The changes on a phone"><figcaption>The contents. “Read” is in the menu here: the bar has room for one switch and the button.</figcaption></figure>
+<figure><img src="screens/dark/phone-note.png" alt="One note on a phone, dark"><figcaption>One note, dark.</figcaption></figure>
+</div>
+<figure><img src="screens/light/tablet-list.png" alt="A tablet" style="max-width:560px"><figcaption>A tablet (820 px). “Read” is in the menu here too. Known and not yet put right: at this width the buttons leave the snapshot's name a few letters. The note's dialog has the same squeeze; both want the same fix.</figcaption></figure>
+
+<h2 id="back">Bringing one back</h2>
+<div class="two">
+<figure><img src="screens/light/bring-back.png" alt="The Bring back screen"><figcaption><b>What will change, before it does.</b> The counts and names are computed from the snapshot and the binder as it is. One dropdown says how much comes back (everything, the text of the notes, the order); a second appears only when there are notes written since. <span class="inert">The button changes nothing in this build.</span></figcaption></figure>
+<figure><img src="screens/light/menu.png" alt="A snapshot's menu"><figcaption>A snapshot's menu. <b>Compare with</b> another snapshot instead of now. <b>Make a binder from this snapshot</b> writes the book as it stood into a new folder beside the binder (<span class="real">real</span>): the safest way back, and the answer to “try a different ending”.</figcaption></figure>
+</div>
+<p><b>The rule.</b> A snapshot of everything as it is now is taken first (unless one already holds exactly that). Nothing is ever deleted by a restore. Then, by scope:</p>
+<table>
+<tr><th>Bring back</th><th>What it does</th></tr>
+<tr><td>Everything</td><td>Each note's file as it was (text and properties); notes and folders that are gone made again; moved and renamed ones put back (through Obsidian, so links follow); the order as it was.</td></tr>
+<tr><td>The text of the notes</td><td>Text only, into the notes that are there. Nothing moves, nothing is made.</td></tr>
+<tr><td>The order</td><td>Items that exist both times go back to where they were. No text changes.</td></tr>
+<tr><td>One folder, one note</td><td>From its row: the same, for that part alone. (One note's text: <span class="real">real</span>.)</td></tr>
+</table>
+<h3>The hard cases, each with its behavior</h3>
+<table>
+<tr><th>Since the snapshot</th><th>Bringing everything back</th></tr>
+<tr><td>A note renamed</td><td>Followed without any id in the note, as git follows a file: the same path, else the very same text, else the note sharing most of its paragraphs (half or more). It gets its name back by Obsidian's rename, so links follow. Shown first: “‘The moor road’ becomes ‘Over the moor’”.</td></tr>
+<tr><td>Moved to another folder</td><td>Moved back, to its place in the order.</td></tr>
+<tr><td>Moved out of the binder</td><td>Binders doesn't look outside the binder. To the snapshot it is gone: it is made again from the snapshot; the one outside is not touched.</td></tr>
+<tr><td>Merged into another</td><td>The note it was merged into gets its own text back; the merged-away note is made again.</td></tr>
+<tr><td>Split in two</td><td>The first half gets its whole text back. The second half is “new since”: it stays (or goes to the folder, below), so its text is in two places, and the screen says so.</td></tr>
+<tr><td>Deleted</td><td>Made again with its text and properties, at its place.</td></tr>
+<tr><td>A note now has the name an old one had</td><td>The note that is there keeps its name. The one coming back is named by counting on (“Arrival 2”), and the screen says which.</td></tr>
+<tr><td>A folder is gone</td><td>Made again, with its folder note, before what goes in it.</td></tr>
+<tr><td>Notes and folders new since</td><td>Never deleted. They stay where they are, after the item they follow now (the default), or go to one folder, “Since Draft sent to Sam”, at the end.</td></tr>
+<tr><td>A Longform project</td><td>Texts as above; the order is written to <code>longform.scenes</code> and nothing else in the index note.</td></tr>
+<tr><td>A binder in a newer format</td><td>Read only: snapshots can be read, not taken or brought back. A snapshot file in a newer format is listed, says why, and is never opened, renamed, thinned or deleted.</td></tr>
+<tr><td>A note open with unsaved typing</td><td>Saved first, so it is in the “before” snapshot; then replaced through its editor, as one change Undo takes back.</td></tr>
+<tr><td>An outside edit arrives during it</td><td>Each note is replaced only if it still says what the “before” snapshot holds. One that doesn't is left, and listed at the end.</td></tr>
+<tr><td>Interrupted half-way</td><td>The plan is written down before the first step, as a file beside the snapshots, and every step is safe to make twice. The next time the binder is opened: “Bringing back ‘X’ was interrupted”, with <b>Finish</b> and <b>Put it back as it was</b>.</td></tr>
+<tr><td>Undo</td><td>The view's menu offers “Undo: bring back ‘X’”, which brings back the “before” snapshot. That is itself an ordinary restore, so it is as safe as one.</td></tr>
+</table>
+
+<h2 id="disk">On disk: two directions, both built</h2>
+<p>The dialog is the same either way. This is the one place with a real choice, so both are in the build and both were measured.</p>
+<table>
+<tr><th></th><th>A. One file per snapshot <small>(my pick)</small></th><th>B. Shared texts</th></tr>
+<tr><td>What is written</td><td>One plain-text file: a few properties, then every item in order, each note's file whole under a line that says what it is.</td><td>The same file without the notes' text (an index), and each distinct note file once, named by its fingerprint, in <code>Snapshots/Texts</code>.</td></tr>
+<tr><td>Can</td><td>Be taken in one write. Be whole or not there. Be opened by hand and read as the book. Be copied, mailed or deleted as one thing.</td><td>Keep a year of daily snapshots in about 13 MB. Show cheaply which snapshots a given note changed in.</td></tr>
+<tr><td>Can't</td><td>Share anything: every snapshot costs the book's full size.</td><td>Be read by hand as a book (an index and files named <code>3f9a2c…</code>). Be whole unless every text it names has arrived: a sync delivers the index first. Be deleted without a pass that removes texts nothing names any more, which is code that deletes files.</td></tr>
+<tr><td>Costs</td><td>Disk. Obsidian Sync's Standard plan carries files up to 5 MB: a snapshot of a binder past about 900,000 words would stay on the device (the 5,000-note binder's is 3.2 MB).</td><td>Time and file count: 134 files and 38 s for the novel's first snapshot, 5,002 files and 4 minutes for the big binder's, on this machine under load.</td></tr>
+</table>
+<h3>What a snapshot file looks like (A)</h3>
+<pre>Low Water at Corran/Snapshots/2026-09-19 16.20.05 Draft sent to Sam.binder-snapshot
+
+---
+binder-snapshot: 1
+binder: "Low Water at Corran"
+of: ""
+taken: 2026-09-19T16:20:05
+notes: 99
+words: 98074
+---
+Everything in “Low Water at Corran” as it stood, in its order. Each item starts at a line of ===== that says
+what it is and how long; a note’s file follows, exactly as it was.
+
+===== "Low Water at Corran.md" | binder note | 6296 characters | 0b16f77849df045b =====
+---
+binder: 1
+contents:
+  - Dedication
+  …
+===== "Prologue.md" | note | 3682 characters | 97be6938536eb0d9 =====
+---
+synopsis: Thirty years before: the clock is set going, …
+---
+The clock was carried up from the quay on a door…
+===== "Part One - Ebb/" | folder =====
+===== "Part One - Ebb/Part One - Ebb.md" | folder note | 231 characters | f36c52fb4c7a7096 =====
+===== "Part One - Ebb/The stopped clock/Low water.md" | note | 7010 characters | 8237ba997f642c0f =====
+…</pre>
+<ul>
+<li>Where: in the binder's hidden <code>Snapshots</code> folder, under the folder's own path, beside its notes' snapshot folders. The binder's are at the top. Named as a note's snapshot is: when, then the name. Naming one renames its file; the file's content is never changed.</li>
+<li>It is read by the lengths, so nothing a note says can be taken for the next item. Each item carries a fingerprint of its file. <small>This build reads by length and doesn't yet check the fingerprints; the finished reader checks each one and says which items of a file changed by hand no longer match.</small></li>
+<li>One Binders took itself ends in <code>.auto.binder-snapshot</code>. Only those are ever thinned. Giving one a name makes it yours.</li>
+<li><code>binder-snapshot: 1</code> is its own format number. An older Binders lists a newer file and refuses it.</li>
+<li>Files that aren't notes (pictures, canvases, PDFs) are listed with their size, not copied.</li>
+<li>The folder <code>sample/</code> beside this page has the novel's three snapshots as A wrote them (“A one file”), and the same three as B did (“B shared texts”). Open one in a text editor.</li>
+</ul>
+
+<h2 id="numbers">Numbers</h2>
+<p>Desktop, headless Obsidian, with a whole-suite run and two developers on the same machine, so read them as upper bounds. The novel is “Low Water at Corran”: 99 scenes, 133 notes with folder notes, 98,057 words, 534 KB of text.</p>
+<table>
+<tr><th></th><th class="n">A. One file</th><th class="n">B. Shared texts</th></tr>
+<tr><td>Take a snapshot of the novel, the first time</td><td class="n">18 ms · 1 file · 550 KB</td><td class="n">38 s · 134 files · 552 KB</td></tr>
+<tr><td>Take another after a small edit</td><td class="n">14 ms · 550 KB</td><td class="n">0.6 s · 2 files · 26 KB</td></tr>
+<tr><td>Thirty days, three scenes worked on a day, one snapshot a day</td><td class="n">16.7 MB · 30 files</td><td class="n">1.1 MB · 128 files</td></tr>
+<tr><td>The same for a year, nothing thinned</td><td class="n">about 203 MB · 365 files</td><td class="n">about 13 MB · 1,550 files</td></tr>
+<tr><td>A year, automatic ones thinned to one a week after two weeks</td><td class="n">about 36 MB</td><td class="n">about 13 MB</td></tr>
+<tr><td>What changed since: read the binder now, read the snapshot, compare</td><td class="n">6 + 11 + 10 ms</td><td class="n">12 + 58 + 66 ms</td></tr>
+<tr><td>5,000 notes (374,000 words): take the first</td><td class="n">65 ms · 3.2 MB</td><td class="n">246 s · 5,002 files</td></tr>
+<tr><td>5,000 notes: take another after a day's work</td><td class="n">105 ms · 3.2 MB</td><td class="n">0.5 s · 22 files · 0.8 MB</td></tr>
+<tr><td>5,000 notes: read now, read the snapshot, compare</td><td class="n">163 + 36 + 99 ms</td><td class="n">168 + 16 + 331 ms</td></tr>
+<tr><td>5,000 notes: the dialog open with the changes drawn</td><td class="n">0.6 s</td><td class="n">not shot</td></tr>
+<tr><td>300 snapshots of the messy draft (13,400 words): taken, on disk, the dialog open</td><td class="n">2.1 s · 23 MB · 1.0 s</td><td class="n">not run</td></tr>
+</table>
+<p><b>Trusting the format.</b> A binder made from the novel's first snapshot was compared with the files that snapshot was taken of: 133 of 133 notes byte for byte the same, the scenes in the same order, and the copy is itself a binder. That holds for A and for B. Through the dialog, once each: one note's text brought back is the snapshot's text and the text it replaced is a snapshot of the note; a deleted note made again is byte for byte what it was; naming renames the file and changes nothing in it; a second snapshot of an unchanged binder isn't taken. The note snapshots' own 56 tests still pass with the round's code in.</p>
+<p><b>Found on the way.</b> A notice (“Brought back the text of…”) sits over the dialog's buttons for its six seconds, here and in the note's dialog: a second click lands on the notice. Making 133 notes through Obsidian's vault took 30 s here (the binder store looks at each one as it arrives). A restore that makes or moves many files needs to say how far it has got, and the store should be told once at the end. And <code>vault.read</code> drops a byte-order mark: the finished thing reads bytes through the adapter, so a note with one comes back with it.</p>
+
+<h2 id="answers">The seven questions</h2>
+<h3>1. What a snapshot of a folder is, on disk</h3>
+<p>Direction A, above. Today's “every note” snapshots stay exactly where they are, as each note's own snapshots: they hold text only (no order, no properties, nothing of a note that was blank) and their times differ note to note, so I would not dress them up as snapshots of the binder. The item that makes them is replaced. If Binders is gone, a snapshot is still a text file with the whole book in it.</p>
+<h3>2. Taking one</h3>
+<ul>
+<li>One click, no question. The notice says what it took: “Took a snapshot of ‘Low Water at Corran’: 99 notes, 98,057 words.” A name is given afterwards in the dialog (“Name this snapshot...”), as for a note.</li>
+<li>“Nothing has changed” means the same items in the same order and every note's file the same, against the folder's newest snapshot. Then none is taken and the notice says when the last one was. <small>To build: naming an unchanged state names that last snapshot if it has no name, instead of writing a twin.</small></li>
+<li>Unsaved typing goes in: open editors and the manuscript are saved first (built). <small>To build: a synopsis or an outliner cell being typed is committed too.</small></li>
+<li>Automatic, at 1.0: before bringing a snapshot back, and before find and replace across the manuscript when that exists. Later, and off by default: one each day the binder changed (one dropdown in settings), and a checkbox in the export window, “Take a snapshot of the book as exported”. Not before a merge or a split: those already keep the text twice. Not before an export by default: an export writes to no note.</li>
+<li>Thinning touches only the ones Binders took: all of them for two weeks, then one a week, moved to the trash as Obsidian's setting says. One you took, or named, is never removed.</li>
+</ul>
+<h3>3. Seeing them</h3>
+<p>Shown above. Two snapshots are compared through “Compare with” in a snapshot's menu (built); the summary line then reads “From this snapshot to ‘Second draft’”.</p>
+<h3>4. Bringing one back</h3>
+<p>The table above. It is the part to prove before anything else is finished.</p>
+<h3>5. The way in</h3>
+<ul>
+<li>Built: the header button, the menus, two commands, a phone and a tablet, the list as a listbox and the contents as a tree (arrow keys, Enter, every row named for a screen reader with what is different about it: “Over the moor, +12 words · now ‘The moor road’”). Checked by script, not yet with a screen reader.</li>
+<li>To build: the inspector's Snapshots list for a folder and the binder, as it has one for a note (rows open the dialog on that snapshot); in a note's own dialog, one line at the foot, “In snapshots of the binder...”, that lists the binder snapshots in which this note's text differs.</li>
+</ul>
+<h3>6. What “extremely good versioning” should mean here</h3>
+<table>
+<tr><th>From</th><th>Taken</th><th>Left</th></tr>
+<tr><td>Scrivener</td><td>The word, the per-document snapshot it already inspired, and “take one before you do something drastic”.</td><td>Per-document only (its writers' standing complaint, and the reason for this round). Zipped backups on close: opaque, and not Obsidian's way.</td></tr>
+<tr><td>Google Docs, Word</td><td>Named versions as the ones that matter; automatic ones quieter and thinned; “restore” that keeps the present.</td><td>A timeline of every keystroke: Obsidian's File recovery and Sync already hold recent states of each note.</td></tr>
+<tr><td>Ulysses</td><td>Browsing a version as the text it was, and bringing back part of it.</td><td>The full-screen time-travel look.</td></tr>
+<tr><td>Time Machine</td><td>Opening a moment and seeing the whole thing as it stood.</td><td>The cosmos.</td></tr>
+<tr><td>git, Obsidian Git</td><td>Following a renamed note by its text, with no id in it. “What changed” as a list of files, then one file's changes.</td><td>Commits, branches, merges, a staging step, and any wording of theirs. Binders sits beside git: a snapshot is one new file, never rewritten, so it adds one clean file to a commit and git packs the lot small.</td></tr>
+<tr><td>File recovery, Sync history</td><td>The dialog's layout, already borrowed.</td><td>They cover one note for a while. Neither knows the binder's order, which notes existed, names, or what changed across the book.</td></tr>
+</table>
+<p><b>Branching</b> doesn't belong, now or later: two live versions of a book need merging, and merging prose is the thing git users lose writing to. “Make a binder from this snapshot” gives the writer the other ending as a second binder they can see, and “Compare with” covers looking at two states.</p>
+<h3>7. Cost and order</h3>
+<ul>
+<li>Touches: three new modules (<code>set-text.ts</code> pure, <code>sets.ts</code> vault side, <code>view/sets.ts</code>), and small hooks in the binder view's header, the folder menus, the commands, settings, and the snapshots module (the prose comparison and “bring back a text” made shareable). The names are the round's and want choosing.</li>
+<li>No new undocumented internals. The dialog reuses the File recovery classes the note's dialog already uses, with the same fallback.</li>
+<li>To finish alongside: a folder renamed or moved must take its own snapshot files with it (today's follower moves a note's files and a folder's folders; a folder's files are new); the file explorer, search, word counts and export already ignore everything under <code>Snapshots</code>.</li>
+</ul>
+
+<h2 id="ask">Questions for you</h2>
+<div class="q"><b>1. One file per snapshot (A), or shared texts (B)?</b><span>A. It is the one that can't be half there, and the one a writer can open without Binders. Thinning keeps a year near 36 MB for a novel.</span></div>
+<div class="q"><b>2. One word for both, “snapshot”, or “version” for a folder's?</b><span>One word. It is what you called it, the button is the same button, and a second noun would need explaining.</span></div>
+<div class="q"><b>3. May “Bring back” on a folder write a note's properties as they were, and make, rename and move notes?</b><span>Yes, and only there, after the screen that says what will change. It widens golden rule 3, which today lets “Bring back” replace a note's text and leaves its properties byte for byte, so it needs your word.</span></div>
+<div class="q"><b>4. Notes written since the snapshot: stay where they are, or go to a folder?</b><span>Stay, by default, with the dropdown to move them to one folder. Never deleted either way.</span></div>
+<div class="q"><b>5. Automatic snapshots at 1.0?</b><span>Only before bringing one back and before find and replace. Daily comes after, off by default.</span></div>
+<div class="q"><b>6. Remove “Take a snapshot of every note...”, and leave the batches it made as the notes' own snapshots?</b><span>Yes to both. They are text only; calling them snapshots of the binder would promise an order they don't have.</span></div>
+<div class="q"><b>7. Files that aren't notes: listed, not copied?</b><span>Yes. A snapshot is of the writing. A restore says which of them are missing now and makes none.</span></div>
+
+<h2 id="next">Finishing, in steps that each leave something usable</h2>
+<table>
+<tr><th>Step</th><th>What a writer gets</th><th>Size</th></tr>
+<tr><td>1. Take, see, compare</td><td>What is in the pictures, finished: the button, taking, the list, contents, changes, one note, read, compare with another, one note brought back, a binder made from a snapshot, the inspector's list, names kept when a folder is renamed or moved, Longform, a newer format refused, exact bytes. Docs and the format page.</td><td>About the size of the note snapshots' own tests again (their spec file is 1,700 lines). One session.</td></tr>
+<tr><td>2. Bring back the text, and the order</td><td>The two scopes that make and move nothing. The “before” snapshot, the plan written down, finish or put back after an interruption, undo.</td><td>One session. The restore's safety net is built here, on the easy scopes.</td></tr>
+<tr><td>3. Bring back everything</td><td>Notes and folders made again, renames and moves put back, properties, “new since”.</td><td>One to two sessions. The risky one.</td></tr>
+<tr><td>4. Automatic</td><td>Daily when changed, thinning, the export checkbox.</td><td>Half a session.</td></tr>
+</table>
+<p><b>How it is tested.</b> One table of cases drives everything: for each row of “the hard cases”, a spec changes the binder that way, restores, and compares the vault with a copy made when the snapshot was taken, byte for byte for every file the snapshot holds; then restores the “before” snapshot and compares with a copy of the present, so no word of the present is ever lost. The same cases run with an outside edit mid-way, with Obsidian closed mid-way, and on a phone. The pure parts (the file read back, following renamed notes, what changed) are unit tests.</p>
+<p><small>Real in this build: the switch, the button, taking (both ways of keeping), the list, contents, changes, compare with another snapshot, one note, read, naming, deleting, bringing back one note's text, making a gone note again, making a binder from a snapshot, the “Bring back...” screen and its numbers. Inert: that screen's button. Not built: the inspector's list, thinning, automatic snapshots, anything in “to build” above.</small></p>
+</main>
+</body>
+</html>
