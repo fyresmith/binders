@@ -1092,13 +1092,13 @@ test('phone settings: the switches work by touch and “Hide binder and folder n
 		t.ok(await p.ev(`[...document.querySelectorAll('.modal.mod-settings .vertical-tab-nav-item')].some(e => e.textContent === 'Binders')`), 'Binders is in the settings’ list');
 		await openSettings(p);
 		await shot(p, 'settings-top');
-		t.eq(j(await p.ev(`[...${TAB}.querySelectorAll('.setting-item-heading')].map(e => e.textContent)`)), j(['File explorer', 'Paragraphs', 'Labels', 'Statuses', 'Focus mode', 'Export', 'Property names']), 'its seven parts');
+		t.eq(j(await p.ev(`[...${TAB}.querySelectorAll('.setting-item-heading')].map(e => e.textContent)`)), j(['File explorer', 'Paragraphs', 'Sidebar', 'Labels', 'Statuses', 'Focus mode', 'Export', 'Property names']), 'its eight parts');
 		t.eq(j(await p.ev(`['exports', 'places', 'author', 'contact'].map(c => ${TAB}.querySelector('.binders-settings-' + c + ' .setting-item-name')?.textContent ?? null)`)), j(['Exports folder', 'Remembered places', 'Your name', 'Contact details']), 'Export’s four rows');
 		t.ok(await p.ev(`${TAB}.scrollWidth <= ${TAB}.clientWidth + 1`), 'nothing wider than the screen');
 		const toggles = () => p.ev(`[...${TAB}.querySelectorAll('.checkbox-container')].slice(0, 4).map(e => { e.scrollIntoView({ block: 'nearest' }); return (${R})(e); })`);
 		const flags = () => p.ev(`(({ orderExplorer, openOnClick, hideBinderNotes, explorerLabels }) => [orderExplorer, openOnClick, hideBinderNotes, explorerLabels].join())(${PL}.settings)`);
 		let tg = await toggles();
-		t.eq(await p.ev(`${TAB}.querySelectorAll('.checkbox-container').length`), 11, 'four explorer switches, two for paragraphs and five focus switches');
+		t.eq(await p.ev(`${TAB}.querySelectorAll('.checkbox-container').length`), 12, 'four explorer switches, two for paragraphs, one for the sidebar and five focus switches');
 		t.ok(tg.length === 4 && tg.every((r) => r[2] >= 44 && r[3] >= 28), 'four explorer switches, each a finger wide: ' + j(tg));
 		await tap(p, tg[0][0] + tg[0][2] / 2, tg[0][1] + tg[0][3] / 2);
 		await p.sleep(700);
@@ -1235,7 +1235,7 @@ test('phone settings: statuses are added, renamed (asking about the notes), reor
 		// property names
 		const props = `[...${TAB}.querySelectorAll('.setting-item:not(.binders-settings-label):not(.binders-settings-status):not(.binders-settings-goal):not(.binders-settings-exports):not(.binders-settings-author) input[type="text"]')]`;
 		const fields = await p.ev(`${props}.map(i => { i.scrollIntoView({ block: 'center' }); return { v: i.value, ph: i.placeholder, r: (${R})(i) }; })`);
-		t.eq(j(fields.map((x) => [x.v, x.ph])), j([['synopsis', 'synopsis'], ['status', 'status'], ['label', 'label'], ['target', 'target']]), 'four property names');
+		t.eq(j(fields.map((x) => [x.v, x.ph])), j([['synopsis', 'synopsis'], ['status', 'status'], ['label', 'label'], ['target', 'target'], ['notes', 'notes']]), 'five property names');
 		t.ok(fields.every((x) => x.r[2] >= 200 && x.r[3] >= 40), 'in wide, finger-tall fields');
 		for (const [v, value, why] of [['status', 'synopsis', /“status” is the property for the status/], ['contents', 'synopsis', /Binders keeps “contents” for itself/], ['', 'synopsis', null], ['summary', 'summary', null]]) {
 			await clearNotices(p);
@@ -1274,7 +1274,7 @@ ux('phone settings: a property’s name is typed without the keyboard capitalizi
 	await onDevice(p, PHONE, async () => {
 		await openSettings(p);
 		const fields = await p.ev(`[...${TAB}.querySelectorAll('.setting-item:not(.binders-settings-label):not(.binders-settings-status):not(.binders-settings-goal):not(.binders-settings-exports):not(.binders-settings-author) input[type="text"]')].map(i => ({ value: i.value, autocapitalize: i.getAttribute('autocapitalize'), autocorrect: i.getAttribute('autocorrect') }))`);
-		t.ok(fields.length === 4 && fields.every((f) => /^(none|off)$/.test(f.autocapitalize ?? '')), 'each field turns capitals off: ' + j(fields));
+		t.ok(fields.length === 5 && fields.every((f) => /^(none|off)$/.test(f.autocapitalize ?? '')), 'each field turns capitals off: ' + j(fields));
 	});
 });
 

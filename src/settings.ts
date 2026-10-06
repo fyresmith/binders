@@ -1,6 +1,6 @@
 import { Notice, Platform, PluginSettingTab, Setting, TextComponent, type App, type SettingDefinition, type SettingDefinitionItem } from 'obsidian';
 import type BindersPlugin from './main';
-import { DEFAULT_SETTINGS, FOCUS_TEXT, FOCUS_TOGGLES, focusToggles, PARAGRAPH_TEXT, PARAGRAPH_TOGGLES, PROPS, TEXT, TOGGLES, type BindersSettings, type FocusToggle, type ParagraphToggle, type Prop, type Toggle } from './settings-data';
+import { DEFAULT_SETTINGS, FOCUS_TEXT, FOCUS_TOGGLES, focusToggles, PARAGRAPH_TEXT, PARAGRAPH_TOGGLES, PROPS, SIDE_TEXT, TEXT, TOGGLES, type BindersSettings, type FocusToggle, type ParagraphToggle, type Prop, type Toggle } from './settings-data';
 import { parseGoal } from './focus/session';
 import { COMPILE_PROP, EXPORT_PROP } from './scenes';
 import { DEFAULT_LABELS, DEFAULT_STATUSES, PALETTE, colorCss, display, freeName, hexColor } from './view/labels';
@@ -41,6 +41,7 @@ export class BindersSettingTab extends PluginSettingTab {
 			// (hiding notes is done by the same patch that orders the explorer: without the one, the other can't be on)
 			{ type: 'group', heading: 'File explorer', items: TOGGLES.map((k): SettingDefinition => ({ name: TEXT[k][0], desc: TEXT[k][1], control: { type: 'toggle', key: k }, ...(k === 'hideBinderNotes' ? { disabled: () => !this.s.orderExplorer } : {}) })) },
 			{ type: 'group', heading: 'Paragraphs', items: PARAGRAPH_TOGGLES.map((k): SettingDefinition => ({ name: PARAGRAPH_TEXT[k][0], desc: PARAGRAPH_TEXT[k][1], control: { type: 'toggle', key: k } })) },
+			{ type: 'group', heading: 'Sidebar', items: [{ name: SIDE_TEXT[0], desc: SIDE_TEXT[1], control: { type: 'toggle', key: 'sidePanes' } }] },
 			{
 				type: 'list', heading: 'Labels', cls: 'binders-settings-labels',
 				emptyState: 'No labels. A note’s label then shows in the color it names, if it names one.',
@@ -77,6 +78,7 @@ export class BindersSettingTab extends PluginSettingTab {
 		if ((TOGGLES as string[]).includes(key) && typeof value === 'boolean') s[key as Toggle] = value;
 		if ((FOCUS_TOGGLES as string[]).includes(key) && typeof value === 'boolean') s[key as FocusToggle] = value;
 		if ((PARAGRAPH_TOGGLES as string[]).includes(key) && typeof value === 'boolean') s[key as ParagraphToggle] = value;
+		if (key === 'sidePanes' && typeof value === 'boolean') s.sidePanes = value;
 		// (what depends on it is drawn again: hiding notes can't be on without ordering)
 		if (key === 'orderExplorer') await this.changed(); else await this.save();
 	}

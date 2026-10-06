@@ -68,22 +68,10 @@ export async function showSide(plugin: BindersPlugin, type: string): Promise<voi
 	if (leaf) await ws.revealLeaf(leaf);
 }
 
-/** Registers the inspector and its command, and puts its tab in the right sidebar once. */
+/** Registers the inspector and its command. (Its tab is put in the sidebar with a binder view: place.ts.) */
 export function installInspector(plugin: BindersPlugin): Follow {
 	const follow = new Follow(plugin);
 	plugin.registerView(INSPECTOR_VIEW, (leaf) => new InspectorView(leaf, plugin, follow));
 	plugin.addCommand({ id: 'show-inspector', name: 'Show inspector', icon: INSPECTOR_ICON, callback: () => void showSide(plugin, INSPECTOR_VIEW) });
-	// The first time, its tab is put among the right sidebar's own, as Obsidian's sidebar views put theirs: the
-	// sidebar isn't opened and the tab isn't brought to the front. Only once: a writer who closes it has closed it.
-	plugin.app.workspace.onLayoutReady(() => void (async () => {
-		if (plugin.settings.inspectorPlaced) return;
-		const ws = plugin.app.workspace;
-		try {
-			if (!ws.getLeavesOfType(INSPECTOR_VIEW).length) await ws.getRightLeaf(false)?.setViewState({ type: INSPECTOR_VIEW, active: false });
-			plugin.settings.inspectorPlaced = true;
-			// (the flag alone: nothing any view shows has changed)
-			await plugin.saveData(plugin.settings);
-		} catch (e) { console.error('Binders: the inspector’s tab couldn’t be added to the sidebar', e); }
-	})());
 	return follow;
 }

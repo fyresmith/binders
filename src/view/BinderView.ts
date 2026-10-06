@@ -231,6 +231,8 @@ export class BinderView extends ItemView {
 	async onOpen(): Promise<void> {
 		this.closed = false;
 		this.contentEl.addClass('binders-view');
+		// (a binder is open: the inspector and the contents are among the right sidebar's tabs)
+		this.plugin.binderOpened();
 		// the manuscript's page follows the editor's "Readable line length", as a note does
 		const readable = () => this.contentEl.toggleClass('is-readable-line-width', readableLineLength(this.app));
 		readable();

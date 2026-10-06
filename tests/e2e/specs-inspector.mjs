@@ -506,33 +506,104 @@ test('snapshots: the camera takes one, the list shows them, and a row opens the 
 	await p.key('Escape');
 });
 
-test('the inspector’s tab is put in the right sidebar once, unopened; closed, it isn’t put back; “Show inspector” and “Show contents” show them', async (p, h, t) => {
-	const again = async (data) => {
-		await p.ev(`(async () => { const pl = ${PL}; await pl.saveData(${j(data)}); await app.plugins.disablePlugin('binders'); await app.plugins.enablePlugin('binders'); })().then(() => 1)`);
-		await until(p, `!!app.plugins.plugins.binders?.explorer`);
-		await p.ev(`app.plugins.plugins.binders.binders.ready.then(() => 1)`);
-		await p.sleep(700);
-	};
-	const leaves = (type) => p.ev(`app.workspace.getLeavesOfType(${j(type)}).length`);
-	await p.ev(`(() => { for (const t of ['binders-inspector', 'binders-contents']) app.workspace.detachLeavesOfType(t); app.workspace.rightSplit.collapse(); return 1; })()`);
-	await again({});
-	t.eq(await leaves('binders-inspector'), 1, 'a first run puts the inspector’s tab in the sidebar');
-	t.ok(await p.ev(`app.workspace.getLeavesOfType('binders-inspector')[0].getRoot() === app.workspace.rightSplit`), 'the right one');
+const leaves = (p, type) => p.ev(`app.workspace.getLeavesOfType(${j(type)}).length`);
+const both = async (p) => [await leaves(p, 'binders-contents'), await leaves(p, 'binders-inspector')];
+const fronts = (p) => p.ev(`[...document.querySelectorAll('.workspace-split.mod-right-split .workspace-tab-header.is-active')].map(e => e.dataset.type)`);
+/** The sidebar without either tab, shut, as a vault that has never had a binder open. */
+const bare = (p) => p.ev(`(() => { for (const t of ['binders-inspector', 'binders-contents']) app.workspace.detachLeavesOfType(t); app.workspace.rightSplit.collapse(); return 1; })()`).then(() => p.sleep(200));
+
+test('opening a binder puts the contents and the inspector among the right sidebar’s tabs: once, unopened, nothing brought to the front; a closed one comes back with the next binder', async (p, h, t) => {
+	await bare(p);
+	// the plugin loaded with no binder open: nothing is added
+	await p.ev(`(async () => { await app.plugins.disablePlugin('binders'); await app.plugins.enablePlugin('binders'); })().then(() => 1)`);
+	await until(p, `!!app.plugins.plugins.binders?.explorer`);
+	await p.ev(`app.plugins.plugins.binders.binders.ready.then(() => 1)`);
+	await h.open(KEEPER);
+	await p.sleep(600);
+	t.eq(j(await both(p)), j([0, 0]), 'with no binder view open, neither tab is added (a note of a binder in a tab isn’t one)');
+	const front = await fronts(p);
+	await openView(p);
+	t.ok(await until(p, `app.workspace.getLeavesOfType('binders-contents').length === 1 && app.workspace.getLeavesOfType('binders-inspector').length === 1`), 'a binder opened: both are there: ' + j(await both(p)));
+	t.ok(await p.ev(`['binders-contents', 'binders-inspector'].every(t => app.workspace.getLeavesOfType(t)[0].getRoot() === app.workspace.rightSplit)`), 'in the right sidebar');
+	t.ok(await p.ev(`app.workspace.getLeavesOfType('binders-contents')[0].parent === app.workspace.getLeavesOfType('binders-inspector')[0].parent`), 'together, among the same tabs');
 	t.ok(await p.ev(`app.workspace.rightSplit.collapsed`), 'which stays shut');
-	const front = await p.ev(`[...document.querySelectorAll('.workspace-split.mod-right-split .workspace-tab-header.is-active')].map(e => e.dataset.type)`);
-	t.ok(!front.includes('binders-inspector'), 'and its tab isn’t brought to the front of the others there: ' + j(front));
-	t.eq(await leaves('binders-contents'), 0, 'the contents aren’t put there');
-	t.ok(await p.ev(`${PL}.settings.inspectorPlaced === true`), 'and that it was done is kept');
-	// closed by the writer: not put back
+	t.eq(j(await fronts(p)), j(front), 'the tab in front there is the one that was');
+	t.eq(await p.ev(`app.workspace.getMostRecentLeaf()?.view.getViewType()`), 'binders-view', 'and the binder has the focus, not the sidebar');
+	// another binder, and the same one in another tab: nothing more
+	await openView(p, 'Longform demo', 'tab');
+	await openView(p, 'The Lighthouse/Part One', 'tab');
+	await p.sleep(500);
+	t.eq(j(await both(p)), j([1, 1]), 'more binder views add no more tabs');
+	// the writer moves one to the left sidebar: it is still the one
+	await p.ev(`(async () => { const ws = app.workspace; ws.detachLeavesOfType('binders-contents'); const l = ws.getLeftLeaf(false); await l.setViewState({ type: 'binders-contents', active: false }); })().then(() => 1)`);
+	await openView(p, 'The Lighthouse/Part Two', 'tab');
+	await p.sleep(500);
+	t.eq(j(await both(p)), j([1, 1]), 'one moved to the left sidebar isn’t added again on the right');
+	// closed, it comes back with the next binder view
 	await p.ev(`(() => { app.workspace.detachLeavesOfType('binders-inspector'); return 1; })()`);
-	await again({ inspectorPlaced: true });
-	t.eq(await leaves('binders-inspector'), 0, 'closed, it stays closed the next time');
+	await p.sleep(300);
+	t.eq(await leaves(p, 'binders-inspector'), 0, 'closed while a binder is open, it stays closed for now');
+	await openView(p, 'The Lighthouse', 'tab');
+	t.ok(await until(p, `app.workspace.getLeavesOfType('binders-inspector').length === 1`), 'and is back with the next binder view');
+	t.ok(await p.ev(`app.workspace.rightSplit.collapsed`), 'the sidebar still shut');
+	// the last binder view closed: they stay, as Outline stays with no note open
+	await p.ev(`(() => { const all = []; app.workspace.iterateRootLeaves(l => { all.push(l); }); all.forEach(l => l.detach()); return 1; })()`);
+	await p.sleep(500);
+	t.eq(j(await both(p)), j([1, 1]), 'with every binder view closed, both stay');
+	t.ok(/No binder is open/.test(await p.ev(`document.querySelector(${j(I)})?.textContent ?? ''`)), 'the inspector saying there is none');
+	t.eq(p.errors.filter((e) => !e.includes('Electron Security')).join('\n'), '', 'no errors');
+});
+
+test('“Show the inspector and contents with a binder” turned off: nothing is added, and a closed tab stays closed', async (p, h, t) => {
+	await bare(p);
+	await p.ev(`(async () => { const pl = ${PL}; pl.settings.sidePanes = false; await pl.saveSettings(); })().then(() => 1)`);
+	await openView(p);
+	await p.sleep(700);
+	t.eq(j(await both(p)), j([0, 0]), 'a binder opened with it off: neither tab');
+	await h.run('show-inspector');
+	await until(p, `app.workspace.getLeavesOfType('binders-inspector').length === 1`);
+	await p.ev(`(() => { app.workspace.detachLeavesOfType('binders-inspector'); app.workspace.rightSplit.collapse(); return 1; })()`);
+	await openView(p, 'Longform demo', 'tab');
+	await p.sleep(700);
+	t.eq(j(await both(p)), j([0, 0]), 'opened by its command, then closed: another binder doesn’t bring it back');
+	// the switch is in the settings, and on again it does what it says
+	await p.ev(`(() => { app.setting.open(); app.setting.openTabById('binders'); return 1; })()`);
+	await p.sleep(700);
+	// (the settings may be in a window of their own: looked for in their tab, and clicked there)
+	const sw = `[...(app.setting.activeTab?.containerEl.querySelectorAll('.setting-item') ?? [])].find(e => e.querySelector('.setting-item-name')?.textContent === 'Show the inspector and contents with a binder')?.querySelector('.checkbox-container')`;
+	t.ok(await until(p, `!!(${sw})`), 'the setting is in the settings');
+	t.ok(await p.ev(`!(${sw}).classList.contains('is-enabled')`), 'and off');
+	await p.ev(`(() => { (${sw}).click(); return 1; })()`);
+	await until(p, `${PL}.settings.sidePanes === true`);
+	t.ok(await p.ev(`${PL}.settings.sidePanes === true`), 'a click turns it on');
+	await p.ev(`(() => { app.setting.close(); return 1; })()`);
+	await openView(p, 'The Lighthouse/Part One', 'tab');
+	t.ok(await until(p, `app.workspace.getLeavesOfType('binders-contents').length === 1 && app.workspace.getLeavesOfType('binders-inspector').length === 1`), 'and the next binder has both: ' + j(await both(p)));
+});
+
+test('a binder view brought back with the workspace at startup has both tabs too, the sidebar as it was left', async (p, h, t) => {
+	await openView(p);
+	await bare(p);
+	await p.ev(`(async () => { await app.workspace.saveLayout?.(); })().then(() => 1)`);
+	await p.sleep(400);
+	await reload(p);
+	await p.focusMain();
+	t.ok(await until(p, `app.workspace.getLeavesOfType('binders-view').length === 1`, 6000), 'the binder view came back');
+	t.ok(await until(p, `app.workspace.getLeavesOfType('binders-contents').length === 1 && app.workspace.getLeavesOfType('binders-inspector').length === 1`, 6000), 'and both tabs are in the sidebar: ' + j(await both(p)));
+	t.ok(await p.ev(`app.workspace.rightSplit.collapsed`), 'which is shut, as it was left');
+	await p.sleep(500);
+	t.eq(j(await both(p)), j([1, 1]), 'one of each');
+});
+
+test('“Show inspector” and “Show contents” show the tab there is, or make one', async (p, h, t) => {
+	await bare(p);
+	await p.ev(`(async () => { const pl = ${PL}; pl.settings.sidePanes = false; await pl.saveSettings(); })().then(() => 1)`);
 	await h.run('show-inspector');
 	await until(p, `app.workspace.getLeavesOfType('binders-inspector').length === 1 && !app.workspace.rightSplit.collapsed`);
 	t.ok(await p.ev(`!app.workspace.rightSplit.collapsed`), '“Show inspector” opens the sidebar on it');
 	await h.run('show-inspector');
 	await p.sleep(300);
-	t.eq(await leaves('binders-inspector'), 1, 'asked again, it is the same tab');
+	t.eq(await leaves(p, 'binders-inspector'), 1, 'asked again, it is the same tab');
 	// the contents: by their command, and from the binder view's "More options"
 	await openView(p);
 	const more = await p.ev(`(() => { const b = ${VIEW}.containerEl.querySelector('.view-actions [aria-label="More options"]'); const r = b?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`);
@@ -542,7 +613,7 @@ test('the inspector’s tab is put in the right sidebar once, unopened; closed, 
 	t.ok(titles.includes('Show contents'), 'the binder view’s “More options” has “Show contents”: ' + titles.join(', '));
 	await clickMenu(p, 'Show contents');
 	await until(p, `app.workspace.getLeavesOfType('binders-contents').length === 1`);
-	t.eq(await leaves('binders-contents'), 1, 'which shows them');
+	t.eq(await leaves(p, 'binders-contents'), 1, 'which shows them');
 	t.ok(await until(p, `document.querySelectorAll(${j(C + ' .tree-item-self[data-path]')}).length > 5`), 'with the book in them');
 });
 
@@ -683,10 +754,12 @@ async function onDevice(p, width, height, fn) {
 	}
 }
 for (const [device, width, height] of [['a phone', 390, 844], ['a tablet', 820, 1180]]) {
-	test(`${device}: the inspector is a page of the right drawer, on the section last tapped; a synopsis typed there is saved; a tap in the contents goes there`, async (p, h, t) => {
+	test(`${device}: the inspector is a page of the right drawer, put there with the binder and not opened, on the section last tapped; a synopsis typed there is saved; a tap in the contents goes there`, async (p, h, t) => {
 		await onDevice(p, width, height, async () => {
-			t.ok(await until(p, `app.workspace.getLeavesOfType('binders-inspector').length === 1`, 5000), 'the inspector’s tab is in the drawer from the start');
+			await p.ev(`(() => { for (const t of ['binders-inspector', 'binders-contents']) app.workspace.detachLeavesOfType(t); return 1; })()`);
 			await openView(p);
+			t.ok(await until(p, `app.workspace.getLeavesOfType('binders-contents').length === 1 && app.workspace.getLeavesOfType('binders-inspector').length === 1`, 5000), 'a binder opened: both are pages of the drawer');
+			t.ok(await p.ev(`app.workspace.rightSplit.collapsed === true && app.workspace.getLeavesOfType('binders-inspector')[0].getRoot() === app.workspace.rightSplit`), 'the right one, which isn’t opened for it');
 			await p.ev(`(() => { ${VIEW}.setMode('manuscript'); return 1; })()`);
 			await p.sleep(1500);
 			const at = await p.ev(`(() => { const s = [...document.querySelectorAll('.binders-manuscript-scene')].find(e => e.textContent.includes('The supply boat left')); const x = s?.querySelector('.cm-line, p'); const r = x?.getBoundingClientRect(); return r ? { x: r.left + 60, y: r.top + 12 } : null; })()`);

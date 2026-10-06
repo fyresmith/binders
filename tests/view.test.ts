@@ -54,6 +54,8 @@ eq(wordsLabel(12345), `${(12345).toLocaleString()} words`, 'many words');
 	eq(s.hideBinderNotes, true, 'settings: a missing one is its default');
 	eq(s.synopsisProp, 'synopsis', 'settings: a blank property name is the default');
 	eq(s.labelProp, 'colour', 'settings: a saved property name');
+	eq(s.sidePanes, true, 'settings: the inspector and contents come with a binder until that is turned off');
+	eq(readSettings({ sidePanes: false, inspectorPlaced: true }).sidePanes, false, 'settings: turned off, as saved (the flag of the version before is no longer read)');
 	eq(s.notesProp, 'notes', 'settings: notes are kept in “notes” until that is changed');
 	eq(readSettings({ notesProp: ' remarks ' }).notesProp, 'remarks', 'settings: the property for notes, as saved');
 	eq(JSON.stringify(s.labels), JSON.stringify([{ name: 'A', color: 'red' }]), 'settings: saved labels');

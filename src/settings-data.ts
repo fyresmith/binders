@@ -53,8 +53,9 @@ export interface BindersSettings {
 	tabParagraphs: boolean;
 	/** In a binder’s notes, a paragraph that follows another is shown with its first line indented. */
 	indentParagraphs: boolean;
-	/** The inspector's tab has been put in the right sidebar once (inspector/views.ts): closed, it isn't put back. */
-	inspectorPlaced: boolean;
+	/** The inspector's and the contents' tabs are put in the right sidebar whenever a binder view opens
+	    (inspector/place.ts). Off: they are opened by their commands, and closed they stay closed. */
+	sidePanes: boolean;
 	/** Focus mode: the line being written at the end of a scene is held at one height. On to begin with, as dimming is. */
 	focusTypewriter: boolean;
 	/** Focus mode: where the scene is in the binder, and its synopsis, beside the text. */
@@ -77,7 +78,7 @@ export const DEFAULT_SETTINGS: BindersSettings = {
 	synopsisProp: 'synopsis', statusProp: 'status', labelProp: 'label', targetProp: 'target', notesProp: 'notes',
 	labels: DEFAULT_LABELS, statuses: DEFAULT_STATUSES, outlinerColumns: DEFAULT_COLUMNS, compile: COMPILE_DEFAULTS, compiled: {}, compiledTo: {},
 	exportsFolder: 'Exports', authorName: '', contact: '', exportKind: 'manuscript', exportStyle: '', exportMatter: false, exportOutside: true, exportSnapshots: true,
-	tabParagraphs: true, indentParagraphs: false, inspectorPlaced: false,
+	tabParagraphs: true, indentParagraphs: false, sidePanes: true,
 	focusTypewriter: true, focusPlace: false, focusNumbers: false, focusDim: true, focusNeighbours: false, focusGoal: 0, focusFullscreen: false,
 };
 
@@ -97,6 +98,9 @@ export const FOCUS_TEXT: Record<FocusToggle | 'focusGoal', readonly [string, str
 	focusFullscreen: ['Enter fullscreen', 'Focus mode takes the whole screen, and gives it back when you leave.'],
 	focusGoal: ['Words to write today', 'A goal for a day’s writing in a binder, shown with the word counts. Leave empty for none.'],
 };
+
+/** The sidebar's one switch, as the settings tab says it. */
+export const SIDE_TEXT: readonly [string, string] = ['Show the inspector and contents with a binder', 'Opening a binder puts the inspector and the contents among the right sidebar’s tabs, if they aren’t there. Turn this off to open them yourself, and to keep them closed once you close them.'];
 
 /** How paragraphs are shown in a binder’s notes (paragraphs/paragraphs.ts). */
 export type ParagraphToggle = 'tabParagraphs' | 'indentParagraphs';
@@ -145,7 +149,7 @@ export function readSettings(data: unknown): BindersSettings {
 	if (typeof c.separator === 'string') s.compile.separator = c.separator;
 	for (const k of FOCUS_TOGGLES) if (typeof d[k] === 'boolean') s[k] = d[k];
 	for (const k of PARAGRAPH_TOGGLES) if (typeof d[k] === 'boolean') s[k] = d[k];
-	s.inspectorPlaced = d.inspectorPlaced === true;
+	if (typeof d.sidePanes === 'boolean') s.sidePanes = d.sidePanes;
 	if (typeof d.focusGoal === 'number' && Number.isInteger(d.focusGoal) && d.focusGoal > 0) s.focusGoal = d.focusGoal;
 	if (typeof d.exportsFolder === 'string' && d.exportsFolder.trim()) s.exportsFolder = d.exportsFolder.trim();
 	for (const k of ['authorName', 'contact', 'exportStyle'] as const) if (typeof d[k] === 'string') s[k] = d[k];

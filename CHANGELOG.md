@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.31.0 (2026-10-06)
+
+### Changed
+
+- Opening a binder puts the inspector and the contents among the right sidebar's tabs, without opening the sidebar. Close one and it comes back with the next binder you open; turn off Show the inspector and contents with a binder in settings to keep them closed.
+
 ## 0.30.2 (2026-10-06)
 
 ### Changed

@@ -17,6 +17,7 @@ import { desktop } from './export/desktop';
 import { ExportModal } from './view/export';
 import { CONTENTS_VIEW, installContents } from './inspector/contents-pane';
 import { installInspector, showSide } from './inspector/views';
+import { placeSide } from './inspector/place';
 import type { Follow } from './inspector/follow';
 import { installParagraphs, type Paragraphs } from './paragraphs/paragraphs';
 import { isScene, leftovers } from './snapshots';
@@ -68,6 +69,8 @@ export default class BindersPlugin extends Plugin {
 		this.registerView(SNAPSHOT_VIEW, (leaf) => new SnapshotView(leaf, this));
 		this.inspect = installInspector(this);
 		installContents(this, this.inspect);
+		// (a binder view the workspace brings back in a tab not yet shown hasn't opened: it counts all the same)
+		placeSide(this);
 		// (not in a card's own menu, which has these already)
 		this.registerEvent(this.app.workspace.on('file-menu', (menu, file, source) => { if (source !== ITEM_MENU) this.fileMenu(menu, file, source); }));
 		this.registerEvent(this.app.workspace.on('files-menu', (menu, files, source) => { if (source !== ITEM_MENU) this.filesMenu(menu, files, source); }));
@@ -218,6 +221,9 @@ export default class BindersPlugin extends Plugin {
 			leaf.view.focusMode();
 		}
 	}
+
+	/** A binder view has opened: the inspector and the contents are among the right sidebar's tabs (inspector/place.ts). */
+	binderOpened(): void { placeSide(this); }
 
 	/** Shows the contents of the book in the sidebar (the binder view's "More options" asks; inspector/contents-pane.ts). */
 	showContents(): void { void showSide(this, CONTENTS_VIEW); }
