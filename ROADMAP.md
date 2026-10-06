@@ -37,7 +37,8 @@ state (code, tests and documentation).
         documents, synopses, labels, statuses, targets, snapshots, section types, held to the word-for-word test;
         written whole or not at all, never over a project opened since; zipped on a phone. Opened so far only as
         the format spike's projects, in the maintainer's Scrivener: `docs/dev/export.md`, "As built".
-  - [ ] Step 5: overruling and owning ("Export as" and its column, the style editor and style files, Export again).
+  - [x] Step 5: overruling and owning ("Export as" from Contents, the menus and an outliner column; the style editor
+        and style files in a hidden `Export styles` folder; the second book style, Modern; Export again).
   - [ ] Step 6: finish (phones and tablets by touch, both themes, the docs, a QA round).
   - **And out as a Scrivener project** (added 2026-10-01): a `.scriv` folder Scrivener 3 opens, for a writer who
     moves on to Scrivener or sends the book to someone who uses it. Not a book but the binder itself: folders and

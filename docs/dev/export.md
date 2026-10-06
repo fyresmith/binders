@@ -7,7 +7,9 @@ and `docs/dev/architecture.md` ("Export"). **Step 2 is built too** (2026-10-05: 
 as the first book style, Book details, the made pages, the cover, EPUBCheck in the tests); what was decided while
 building it is under "Decided while building the ebook (step 2)". **So is step 4, the Scrivener project**
 (2026-10-05): what it is as built, the format's choices and what each stands on are under "The Scrivener project".
-The rest is not built yet. The
+**And step 5, overruling and owning** (2026-10-06: Modern, style files and the style editor, "Export as" from
+Contents, the menus and the outliner, Export again): "Overruling and owning, as built". What is left is step 3's (the
+pages: the PDF, the Paperback kind, the exact preview) and step 6. The
 research behind it (Scrivener's Compile, the neighbouring tools, the formats, the routes tried), the two directions
 that were turned down, the screens and the sample files are in `.claude/handoff/export-design/` (`DESIGN.md`,
 `screens.html`, `samples/`, `spike/`), which git doesn't carry. The points the designer left open (the
@@ -154,24 +156,14 @@ the file explorer, as it does a binder's `Snapshots` (its name is a setting). Li
 Obsidian doesn't index it, so it is in no search, switcher or graph; and Obsidian Sync carries it only with "Sync
 all other types" on. Sharing a style is sending that file; adding one is choosing a file.
 
-```yaml
----
-export-style: 1              # format version: a newer one is listed, not used, and never rewritten
-based-on: Classic            # a built-in style, or another style; only the differences are written
-margins: wide
-scene-break: "⁂"
----
-/* optional: CSS added after Binders' own rules, in the ebook and in the PDF */
-```
+The format, as built, is in [file-format.md](file-format.md), "Export styles": properties under the editor's
+rows' names, `export-style` as its version, `based-on` for the style it starts from (only the differences are
+written), then optional CSS.
 
-- The properties are the editor's rows under plain names: `typeface`, `type-size`, `line-spacing`, `paragraphs`,
-  `alignment`, `quotes`, `chapter-heading`, `heading-lettering`, `heading-size`, `heading-alignment`, `space-above`,
-  `chapter-opens`, `first-words`, `scene-break`, `running-heads`, `page-numbers`, `margins` (a manuscript style:
-  `typeface`, `line-spacing`, `italics`, `chapter-starts`, `scene-break`, `header`, `title-page`).
 - A property Binders doesn't know is left alone; a value it can't read falls back to the style it is based on, and
   is listed with the warnings. A style whose `based-on` is missing falls back to Classic.
 - Binders writes these files itself, only from the editor; a newer `export-style` is refused, not rewritten (golden
-  rules 3 and 6). `docs/dev/file-format.md` gains this section when styles are built.
+  rules 3 and 6).
 - **Custom CSS is kept, and only in the file:** the editor has no field for it. It is for the few who
   will open the file by hand ("Show the style's file"); it reaches the ebook and the PDF, not Word.
 
@@ -388,7 +380,7 @@ Each step leaves something a writer can use.
 | 2 | Ebook: the EPUB writer, the first book style, Book details, the made pages, EPUBCheck in the tests | A valid ebook, on phones too |
 | 3 | Pages: the paginator made whole, hyphenation, fonts, the PDF module, page sizes, the exact preview | A paperback and a manuscript PDF |
 | 4 | Scrivener project (can run beside 2 and 3). **Built** | A project Scrivener opens |
-| 5 | Overruling and owning: "Export as" and its column; the style editor and style files; the second book style; the warnings; where files go, remembered; Export again | The design complete |
+| 5 | Overruling and owning: "Export as" and its column; the style editor and style files; the second book style; the warnings; where files go, remembered; Export again. **Built** | The design complete |
 | 6 | Finish: phones and tablets by touch, both themes, the docs, a QA round | Ready for 1.0 |
 
 **Tests.** An export never drops, repeats or reorders a word: for each writer, the words read back out of the file
@@ -398,6 +390,71 @@ vault's extremes, a 150,000-word binder under a time limit, a phone and a tablet
 
 **Waits until after 1.0:** PDF on a phone; replacements; several kinds in one go; drop capitals; typefaces installed
 on the computer; pages of equal depth; PDF/X; math; single-file HTML and plain text; Fountain; large print.
+
+## Overruling and owning, as built (step 5, 2026-10-06)
+
+**The second book style.** Modern is a built-in style beside Classic (`MODERN` in `src/export/style.ts`): Source
+Serif 4, 10 on 14.5, a large plain numeral at the left, breaks as space, the title along the top and the page number
+at the top outside.
+
+**Style files.** As designed; the format is in [file-format.md](file-format.md), "Export styles". The pure parts
+are `src/export/style-rows.ts` (one table: the editor's rows, the file's properties and what is checked when a file
+is read) and `style-file.ts` (read, changed a line at a time, resolved over what it is based on); the vault's side
+is `styles.ts` (`plugin.styles`), which keeps the folder read and reads it again on every change there.
+
+**The style editor** (`src/view/export-style-editor.ts`). "Edit this style" is the button beside the Style dropdown
+(and in the window's menu): the sidebar becomes the editor, the preview stays and follows each change 90 ms after
+the last one. A book style edited from Ebook has 8 rows (9 with "Your own" heading), a manuscript style 7; the 9
+rows that are the pages' alone are in the table, marked `pages`, and shown when the editor is opened from a kind
+that has pages (`StyleEditorHost.pages`). It is laid out on Bases' "Configure view" classes, with Binders' own
+rules for the same layout where an Obsidian has none (`configLook`, [internals.md](internals.md)).
+
+**"Export as"** is one menu (`src/view/export-as.ts`) and one write path (`writeExportAs` in `src/view/props.ts`),
+offered from a row of Contents in the window, a card's and a row's menu (a submenu beside "Include in export"), the
+outliner's column "Export as", and the inspector's row. A role Binders read from the binder's shape is said more
+quietly than one written by hand, everywhere.
+
+**Export again** (`src/view/export-again.ts`): the command, and "Export again" in the binder view's menu once the
+binder has been exported on this device. The last kind, to the last place, with the choices as they stand now.
+
+### Decided while building (step 5)
+
+Where the design was silent, or the code said otherwise:
+
+1. **Modern's heading is `{number} / {title}`**, not `{number}` as the design's sample had it. The sample chapter
+   had no title, so it looks the same; a chapter that has a title keeps it, set under the numeral.
+2. **A style's family is said by what it is based on.** The design gave one file format for both families and no
+   property for which: a style is a manuscript style when the built-in style at the bottom of its `based-on` is one.
+3. **A style based on a built-in one is based on it as it is changed in this vault.** So a duplicate starts as the
+   style looked when it was made, and Reset on the built-in one changes what is based on it too.
+4. **A broken file and a newer one are never written, and the editor's rows are disabled for them**; a file with
+   one value that can't be read is edited as usual, and the editor leaves the bad line alone until its row is set.
+5. **Deleting a style keeps the styles based on it as they look** (they are rewritten to stand on the built-in
+   style, with what they had from the deleted one, its CSS too). **Renaming** follows into them and into the binder
+   notes that named the style. Delete is to the trash.
+6. **Sharing.** "Save a copy to share" (a computer) and "Share this style" (a phone) send a copy that stands by
+   itself on a built-in style, so it works in a vault that has none of the writer's other styles. A built-in style
+   with nothing changed has nothing to send. "Add a style from a file" takes the file under its name, or the first
+   free one like it ("Classic 2"), and never replaces a style; a newer or broken file isn't taken.
+7. **The styles folder with notes in it is shown** in the file explorer (it is the writer's then), as `Snapshots`
+   is. Changing its name in settings renames the folder.
+8. **A manuscript's style is the binder's** (`manuscript-style`, as the design lists it), falling back to the one
+   last used in the vault.
+9. **The manuscript preview shows the running head once**, over the first page of the text, so the "Along the top"
+   row has something to change in a preview that isn't pages yet.
+10. **The size and line-spacing sliders** go by 0.5 pt and 0.01 (the design's 0.02 can't land on Modern's 1.45).
+11. **Contents.** The pages Binders makes are listed first, quietly. A row opens its note; its role, at the row's
+    end, is the button for "Export as" (and the row's own menu). A folder that only groups shows its menu on hover
+    or focus. The design's highlight of the row whose pages are in view is not built: it needs the pages.
+12. **"Export as" on an item that is left out puts it back in** from the menus (where "Leave out" is one of the
+    choices); the inspector keeps its own box for that, as it had.
+13. **Export again with nothing exported yet opens the window.** The place it goes to is the last one whether or
+    not "Save here next time without asking" was ticked, and using it doesn't tick it. It asks only before
+    replacing a file that is no longer what export left. On a phone: the Exports folder, then the share sheet.
+14. **"Show the Exports folder" is worded "Show where exports go"**: the review bot's sentence-case rule reads a
+    capital in the middle of a menu item as a mistake, and can't be told otherwise.
+15. **Custom CSS reaches the ebook's file, not the window's preview of it**: the preview is Binders' drawing of
+    the book's shape, not the EPUB rendered.
 
 ## Decided while building the ebook (step 2)
 

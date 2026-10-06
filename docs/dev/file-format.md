@@ -294,11 +294,13 @@ The Lighthouse/
 
 What export reads from notes. All of it is optional, so this is still format 1. Exporting never writes to a note.
 The book's own details, in the binder note, are written by **Book details** and the **Cover** button of the Export
-window, and by nothing else: only the properties in the second table, only when the writer changes one, through
+window (and the style chosen there, and a style's new name when one is renamed), and by nothing else: only the properties in the second table, only when the writer changes one, through
 Obsidian's property writer (the note's text and its other properties are untouched), never in a binder whose format
 is newer than this version reads, and never in a Longform project's note. A detail that says nothing is taken out
-of the note, not written empty. `export-as` is still typed as a property (its menu comes with a later step). The
-design is [export.md](export.md).
+of the note, not written empty. `export-as` and `export: false` are written by "Export as" (a card's and a row's menu, the
+outliner's column, the inspector's row, a row of Contents in the Export window: one write path, `writeExportAs` in
+`src/view/props.ts`), on the note or in the folder's note, and nothing else in the note changes. The design is
+[export.md](export.md).
 
 **In a note, or in a folder's note for the folder:**
 
@@ -323,11 +325,11 @@ in Scrivener, which it never compiles), and every other property of a note (cust
 | `cover` | text | The cover: a PNG or a JPEG in the vault, as a link (`"[[cover.png]]"`, which Obsidian follows when the picture is renamed) or a path. In the ebook it is the book's cover image |
 | `title-page` | checkbox | `false`: no title page is made. Written only when it is off. A note of the book named "Title page" takes the made one's place |
 | `contents-page` | text | `always` or `never`. Without it a contents page is made when a chapter has a title. (An ebook's own list of contents, the one a reading app shows, is always there) |
-| `book-style` | text | The book style last chosen for this binder (`Classic`). Written when another is chosen |
+| `book-style` | text | The book style chosen for this binder, by name (`Classic`, `Modern`, or a style of the writer's own: see "Export styles"). Written when one is chosen; a name that is no style is read as Classic |
+| `manuscript-style` | text | The manuscript style chosen for this binder, likewise. Without it, the one last used in the vault |
 | `structure` | text | Which rule gives folders and notes their roles: `chapters and scenes` (folders are chapters, notes are scenes), `parts and chapters` (folders are parts, notes are chapters), `parts, chapters and scenes`, or `every note a chapter`. Without it Binders reads the rule off the binder's shape: no folders, every note a chapter; folders one deep, parts and chapters if every top folder's name starts with "Part", "Book" or "Act", else chapters and scenes; deeper, parts, chapters and scenes. A Longform project is every note a chapter |
 
-Not read yet, and kept for the steps that build them: `manuscript-style` (the manuscript's style is still one of
-Binders' settings), `page-size`.
+Not read yet, and kept for the step that builds it: `page-size`.
 
 **What isn't in any note:**
 
@@ -338,6 +340,84 @@ Binders' settings), `page-size`.
   vault: a path on one computer's disk means nothing on another.
 - An exported file is not a note and Binders keeps no record of it in the vault. In the vault's `Exports` folder it
   shows in the file explorer only with Obsidian's "Detect all file extensions" on.
+
+## Export styles
+
+A style of the writer's own, or the changes made to a built-in one, is one plain file:
+`Export styles/<name>.bookstyle`, in a folder at the top of the vault (its name is the setting "Styles folder").
+The file's name is the style's name. Binders keeps the folder out of the file explorer, as it does a binder's
+`Snapshots`, unless the writer keeps notes of their own in it. Like a snapshot it is not a note: Obsidian doesn't
+index it, so it is in no search, switcher or graph, and Obsidian Sync carries it only with "Sync all other types" on.
+
+```yaml
+---
+export-style: 1              # the format's version
+based-on: Classic            # a built-in style, or another style by name
+margins: wide                # only what differs from the style it is based on
+scene-break: "⁂"
+---
+/* optional: CSS, added after Binders' own rules in the ebook (and in the PDF) */
+```
+
+- **`export-style`** is the format's version, 1. A file that doesn't say is read as 1. A file with a newer one is
+  listed with the styles, saying so, is not used (the style it would change, or Classic, is used as it comes), and
+  is **never written**: not by the editor, not by Reset (golden rule 6).
+- **`based-on`** names the style whose values this one starts from: a built-in style (Classic, Modern; Standard
+  manuscript, Standard manuscript, Courier, Plain, for a typesetter) or another file's style. It also says the
+  family: a style is a book style or a manuscript style by the built-in one at the bottom of what it is based on.
+  A file named for a built-in style holds the changes made to that style, over the style as it comes. A style based
+  on a built-in one is based on it *as it is changed in this vault*. A missing `based-on`, one that names no style,
+  or two styles based on each other fall back to Classic, with a warning.
+- **The properties** are the editor's rows. Only a value that differs from the style it is based on is written; a
+  row put back to that value has its line taken out.
+
+  | A book style | Values |
+  |---|---|
+  | `typeface` | `EB Garamond`, `Source Serif 4` |
+  | `type-size` | points, 9 to 13 |
+  | `line-spacing` | a multiple of the size, 1.2 to 1.6 |
+  | `paragraphs` | `indented`, `spaced` |
+  | `alignment` | `justified`, `left` |
+  | `quotes` | `typeset`, `as typed` |
+  | `chapter-heading` | a pattern: `{number}`, `{number:words}`, `{number:roman}`, `{title}`; `/` starts a new line; a line whose `{title}` is empty is dropped. Up to 80 characters |
+  | `heading-lettering` | `small capitals`, `capitals`, `italic`, `as typed` |
+  | `heading-size` | `small`, `medium`, `large` |
+  | `heading-alignment` | `centre`, `left` |
+  | `space-above` | hundredths of the page, 0 to 40 |
+  | `chapter-opens` | `right-hand page`, `next page` |
+  | `first-words` | `small capitals`, `as the rest` |
+  | `scene-break` | the mark, up to 12 characters; `""` for space only |
+  | `running-heads` | `author and title`, `title`, `none` |
+  | `page-numbers` | `foot`, `top outside`, `none` |
+  | `margins` | `narrow`, `normal`, `wide` |
+
+  | A manuscript style | Values |
+  |---|---|
+  | `typeface` | `Times New Roman`, `Courier New` |
+  | `line-spacing` | `double`, `one and a half`, `single` |
+  | `italics` | `italic`, `underlined` |
+  | `chapter-starts` | `a third of the way down`, `at the top` |
+  | `scene-break` | the mark, up to 12 characters |
+  | `header` | `Surname / TITLE / page`, `page`, `none` |
+  | `title-page` | `true`, `false` |
+
+- **A value Binders can't read** (a word that isn't one of a row's, a number outside its range, a list) falls back
+  to the style it is based on, and is listed in the Export window with what there is to look at. The rest of the
+  file is used.
+- **A property Binders doesn't know, a comment, the order of the lines** are the writer's and are left exactly as
+  they are: the file is changed a line at a time, never read and written out again (`src/export/style-file.ts`).
+- **The CSS** under the properties is kept, and only here: the editor has no field for it. It is added after
+  Binders' own rules in the ebook; a style based on another has that one's CSS before its own. It doesn't reach Word.
+- **A file that isn't a style's** (no properties between two lines of `---`, or an `export-style` that is no whole
+  number) is listed, saying it can't be read, is not used, and is never written.
+
+**What Binders writes.** These files, and only from the style editor in the Export window (golden rule 3): a row
+changed writes that row's line; Reset takes every row's line out of a built-in style's file; a built-in style's file
+that then says nothing (no property of the writer's, no CSS) is removed; Duplicate makes a file with `based-on` and
+nothing else; Rename renames the file, rewrites `based-on` in the styles based on it, and the `book-style` or
+`manuscript-style` of the binder notes that named it; Delete moves the file to the trash (as Obsidian is set to
+delete), after the styles based on it have been given what they had from it, so they look as they did. A file
+changed, added or deleted by anything else (another program, sync) is read again at once.
 
 ## Longform projects
 
