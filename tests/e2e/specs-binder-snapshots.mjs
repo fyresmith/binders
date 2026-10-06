@@ -179,9 +179,11 @@ test('what is typed and not yet saved goes in: in a note’s open editor, in the
 	await p.ev(`(() => { app.workspace.getLeavesOfType('binders-view')[0].view.setMode('manuscript'); return 1; })()`);
 	await until(p, `!!document.querySelector('.binders-manuscript .cm-content')`, 8000);
 	await sleep(p, 600);
-	const cm = await p.at('.binders-manuscript .cm-content');
-	await p.click(cm.x, cm.y);
-	await p.type('TYPED-IN-THE-MANUSCRIPT ');
+	// (the first section made an editor and given the cursor, as a click does: then typed into, as by hand)
+	await p.ev(`(async () => { const m = app.workspace.getLeavesOfType('binders-view')[0].view.current, s = m.scenes[0]; s.el.scrollIntoView({ block: 'center' }); await m.mount(s); const ed = s.live.editor; ed.focus(); ed.setCursor({ line: ed.lastLine(), ch: ed.getLine(ed.lastLine()).length }); return 1; })()`);
+	await sleep(p, 150);
+	await p.type(' TYPED-IN-THE-MANUSCRIPT');
+	t.ok(await until(p, `document.querySelector('.binders-manuscript .cm-content')?.textContent.includes('TYPED-IN-THE-MANUSCRIPT')`, 4000), 'typed into the manuscript, not saved yet');
 	await run(p, 'take-snapshots');
 	await until(p, `app.vault.adapter.list(${j(SN)}).then(l => l.files.length === 2)`, 20000);
 	await sleep(p, 400);
