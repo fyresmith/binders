@@ -45,7 +45,10 @@ export interface BindersSettings {
 	authorName: string;
 	contact: string;
 	/** Export: the kind last made, the manuscript style last used, and whether front and back matter went in. */
-	exportKind: 'manuscript' | 'ebook' | 'scrivener' | 'note';
+	exportKind: 'manuscript' | 'ebook' | 'paperback' | 'scrivener' | 'note';
+	/** The manuscript's file (Word, or PDF on a computer) and the paper a PDF of it is on. */
+	exportFile: 'docx' | 'pdf';
+	exportPaper: string;
 	exportStyle: string;
 	exportMatter: boolean;
 	/** A Scrivener project: notes outside the manuscript into Research, and snapshots carried across. */
@@ -84,7 +87,7 @@ export const DEFAULT_SETTINGS: BindersSettings = {
 	orderExplorer: true, openOnClick: true, hideBinderNotes: true, explorerLabels: true,
 	synopsisProp: 'synopsis', statusProp: 'status', labelProp: 'label', targetProp: 'target', notesProp: 'notes',
 	labels: DEFAULT_LABELS, statuses: DEFAULT_STATUSES, outlinerColumns: DEFAULT_COLUMNS, compile: COMPILE_DEFAULTS, compiled: {}, compiledTo: {},
-	exportsFolder: 'Exports', stylesFolder: 'Export styles', authorName: '', contact: '', exportKind: 'manuscript', exportStyle: '', exportMatter: false, exportOutside: true, exportSnapshots: true,
+	exportsFolder: 'Exports', stylesFolder: 'Export styles', authorName: '', contact: '', exportKind: 'manuscript', exportFile: 'docx', exportPaper: 'letter', exportStyle: '', exportMatter: false, exportOutside: true, exportSnapshots: true,
 	tabParagraphs: true, indentParagraphs: false, sidePanes: true,
 	focusTypewriter: true, focusPlace: false, focusNumbers: false, focusDim: true, focusDark: true, focusNeighbours: false, focusGoal: 0, focusFullscreen: false,
 	bookWords: true,
@@ -167,7 +170,9 @@ export function readSettings(data: unknown): BindersSettings {
 	if (typeof d.exportsFolder === 'string' && d.exportsFolder.trim()) s.exportsFolder = d.exportsFolder.trim();
 	if (typeof d.stylesFolder === 'string' && d.stylesFolder.trim() && !/[\\/]/.test(d.stylesFolder.trim())) s.stylesFolder = d.stylesFolder.trim();
 	for (const k of ['authorName', 'contact', 'exportStyle'] as const) if (typeof d[k] === 'string') s[k] = d[k];
-	if (d.exportKind === 'note' || d.exportKind === 'manuscript' || d.exportKind === 'ebook' || d.exportKind === 'scrivener') s.exportKind = d.exportKind;
+	if (d.exportKind === 'note' || d.exportKind === 'manuscript' || d.exportKind === 'ebook' || d.exportKind === 'paperback' || d.exportKind === 'scrivener') s.exportKind = d.exportKind;
+	if (d.exportFile === 'docx' || d.exportFile === 'pdf') s.exportFile = d.exportFile;
+	if (d.exportPaper === 'letter' || d.exportPaper === 'a4') s.exportPaper = d.exportPaper;
 	s.exportOutside = d.exportOutside !== false;
 	s.exportSnapshots = d.exportSnapshots !== false;
 	if (typeof d.exportMatter === 'boolean') s.exportMatter = d.exportMatter;

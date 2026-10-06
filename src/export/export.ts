@@ -11,6 +11,10 @@ import { writeEpub } from './epub';
 import { bookWords, type Book, type Picture } from './model';
 import { isPictureName, pictureOf } from './picture';
 import type { SourceItem } from './roles';
+import { fontFaceCss } from './pages/fonts';
+import { printCss } from './pages/css';
+import { layPages, openStage, type Laid, type PagesSpec } from './pages/layout';
+import type { Printer } from './pdf';
 
 /* Export where it meets the vault: a binder (or a folder of one) read into the book model, the manuscript made from
    it, and the file put where it goes. It reads notes and writes the exported file, and nothing else: no note's text
@@ -21,10 +25,11 @@ import type { SourceItem } from './roles';
 export const EXPORT_AS = 'export-as';
 
 /** The kinds of export there are so far. */
-export type Kind = 'manuscript' | 'ebook' | 'scrivener' | 'note';
+export type Kind = 'manuscript' | 'ebook' | 'paperback' | 'scrivener' | 'note';
 export const KINDS: { id: Kind; name: string; detail: string }[] = [
 	{ id: 'manuscript', name: 'Manuscript', detail: 'Word, in standard manuscript format' },
 	{ id: 'ebook', name: 'Ebook', detail: 'EPUB, for Kindle, Apple Books and Kobo' },
+	{ id: 'paperback', name: 'Paperback', detail: 'PDF, ready for print' },
 	{ id: 'scrivener', name: 'Scrivener project', detail: 'The binder itself, for Scrivener 3' },
 	{ id: 'note', name: 'One note', detail: 'Markdown, in this vault' },
 ];
@@ -53,8 +58,9 @@ export async function saveDetails(plugin: BindersPlugin, folder: TFolder, change
 
 /** A folder of a binder, read for export: the book, and how many words it has. `asBook`: with the pages Binders
     makes for a book (a title page, a copyright page, the contents) and its cover, as an ebook has them. `asTyped`:
-    quotes and dashes are left as they were typed (a book style can say so). */
-export async function readBook(plugin: BindersPlugin, folder: TFolder, matter: boolean, asBook = false, asTyped = false): Promise<{ book: Book; words: number }> {
+    quotes and dashes are left as they were typed (a book style can say so). `withCover`:
+    with the cover (a printed book has none inside it). */
+export async function readBook(plugin: BindersPlugin, folder: TFolder, matter: boolean, asBook = false, asTyped = false, withCover = asBook): Promise<{ book: Book; words: number }> {
 	const { app, binders: store, settings } = plugin, binder = store.binderOf(folder);
 	if (!binder) throw new Error(`“${folder.name}” isn’t in a binder.`);
 	const fm = (f: TFile | null): Record<string, unknown> => (f ? app.metadataCache.getFileCache(f)?.frontmatter ?? {} : {});
@@ -99,7 +105,7 @@ export async function readBook(plugin: BindersPlugin, folder: TFolder, matter: b
 	const own = fm(binder.note), d = readDetails(own);
 	// the cover: a PNG or a JPEG of the vault, named in Book details
 	let cover: Picture | null = null, coverSaid = '';
-	if (asBook && d.cover) {
+	if (withCover && d.cover) {
 		const file = app.metadataCache.getFirstLinkpathDest(d.cover, binder.note.path);
 		try { const pic = file ? pictureOf(new Uint8Array(await app.vault.readBinary(file))) : null; cover = pic && pic.type !== 'gif' ? pic : null; } catch { cover = null; }
 		coverSaid = !cover ? `The cover “${d.cover}” isn’t in the vault, or isn’t a PNG or a JPEG. The book has no cover.` : Math.max(cover.width, cover.height) < COVER_SIDE ? `The cover is ${Math.max(cover.width, cover.height).toLocaleString()} pixels on its longer side. Stores ask for at least ${COVER_SIDE.toLocaleString()}.` : '';
@@ -267,6 +273,32 @@ export async function share(data: Uint8Array, name: string, mime: string): Promi
 		await nav.share({ files, title: name });
 		return true;
 	} catch { return false; } // (the writer closed the sheet: the file is in the vault all the same)
+}
+
+/** What stands where a PDF can't be made: on a phone or a tablet, or where Obsidian's webviews aren't to be had. */
+export const NO_PDF = 'PDF isn’t available here.';
+export const PDF_MIME = 'application/pdf';
+
+/** Pages that are laid out, printed: the PDF's bytes. */
+export function printPages(printer: Printer, book: Book, laid: Laid): Promise<Uint8Array> {
+	const spec = laid.spec;
+	return printer.print({ title: book.title, author: book.author.trim(), language: spec.language, rtl: spec.rtl, css: fontFaceCss(spec.typeface) + spec.css + printCss(spec.geometry), body: laid.html(), pages: laid.pages.length });
+}
+
+/** A book as a PDF: laid out as pages out of sight, exactly as the window shows them, and printed. Null if it was
+    cancelled. `say`: what is happening, in words. */
+export async function pagesPdf(plugin: BindersPlugin, book: Book, spec: PagesSpec, o: { say?: (doing: string) => void; cancelled?: () => boolean } = {}): Promise<{ data: Uint8Array; laid: Laid } | null> {
+	const printer = plugin.exportHost.printer();
+	if (!printer) throw new Error(NO_PDF);
+	const holder = activeDocument.body.createDiv({ cls: 'binders-export-offstage', attr: { 'aria-hidden': 'true' } });
+	try {
+		const stage = await openStage(holder, 'binders-export-frame');
+		const laid = await layPages(stage, book, spec, { tick: (n) => o.say?.(`Laying out the pages… ${n.toLocaleString()}`), cancelled: o.cancelled });
+		if (!laid || o.cancelled?.()) return null;
+		o.say?.(`Printing ${laid.pages.length.toLocaleString()} ${laid.pages.length === 1 ? 'page' : 'pages'}…`);
+		const data = await printPages(printer, book, laid);
+		return o.cancelled?.() ? null : { data, laid };
+	} finally { holder.remove(); }
 }
 
 export const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';

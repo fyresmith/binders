@@ -3,6 +3,15 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.38.0 (2026-10-06)
+
+### Added
+
+- Paperback: a book style on a trim size (5 × 8 to 6 × 9 in, or A5), exported as a print-ready PDF with its fonts embedded.
+- A manuscript can be exported as a PDF as well as a Word file, on Letter or A4.
+- For a PDF the Export window shows the pages themselves, facing, exactly as they will print.
+- On a phone or tablet a PDF's pages can be looked at; the PDF is made on a computer.
+
 ## 0.37.4 (2026-10-06)
 
 ### Fixed

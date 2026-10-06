@@ -2,8 +2,11 @@ import { headingLines, roundedWords } from '../export/docx';
 import type { ManuscriptStyle } from '../export/docx-parts';
 import { contentsOf } from '../export/epub';
 import { leadSplit } from '../export/epub-text';
-import { plain, type Block, type Book, type Inline, type OutlineRow, type Section } from '../export/model';
+import { bookWords, plain, type Block, type Book, type Inline, type OutlineRow, type Section } from '../export/model';
 import { against, bookHeading, bookWord, isRtl, type BookStyle } from '../export/style';
+import { Platform } from 'obsidian';
+import { TRIM_SIZES, type PageSize } from '../export/pages/geometry';
+import { bookPages, layPages, openStage, type Laid, type PagesSpec } from '../export/pages/layout';
 
 /* What the Export window shows of a manuscript before it is made: its text as it will read, set as the style sets
    it (the typeface, the spacing, the headings, the breaks, the notes), on paper that is white in both themes. It is
@@ -206,4 +209,51 @@ export function drawEbook(el: HTMLElement, book: Book, style: BookStyle): () => 
 	};
 	more();
 	return () => { stopped = true; window.clearTimeout(timer); for (const u of urls) URL.revokeObjectURL(u); };
+}
+
+// ---- the pages: what a PDF will be ----
+
+/** Pages being shown: `laid` is the pages once they are all there (null if another preview took their place). */
+export interface PagesView { stop: () => void; laid: Promise<Laid | null> }
+export interface PagesOptions {
+	/** Told as the pages come: how many so far, and null when they are all there. */
+	progress?: (pages: number | null) => void;
+}
+
+/** Draws a book's pages into `el`, in a book style, on a page size (5 × 8 in when none is said): the very boxes
+    that are printed, as facing pages when there is room for two and one under another when there isn't. The one
+    call the style editor needs: stop the view it returns and call again when the style changes. */
+export function drawPages(el: HTMLElement, book: Book, style: BookStyle, o: PagesOptions & { size?: PageSize } = {}): PagesView {
+	return showPages(el, book, bookPages(book, style, o.size ?? TRIM_SIZES[0], bookWords(book)), o);
+}
+
+/** The same for pages laid out any way (a manuscript's): `spec` says how. */
+export function showPages(el: HTMLElement, book: Book, spec: PagesSpec, o: PagesOptions = {}): PagesView {
+	el.empty();
+	const wrap = el.createDiv({ cls: 'binders-export-pages' });
+	let stopped = false, scale = 1, close = () => { /* nothing is open yet */ };
+	const laid = (async (): Promise<Laid | null> => {
+		const stage = await openStage(wrap, 'binders-export-frame');
+		if (stopped) { stage.close(); return null; }
+		stage.frame.setAttrs({ tabindex: '0', 'aria-label': 'The pages, as they will print' });
+		const wide = spec.geometry.width * 96 / 72;
+		/** The pages as large as the window lets them be, never larger than life: two side by side, or one. */
+		const fit = () => {
+			const room = wrap.clientWidth - 24;
+			if (room <= 0) return;
+			const single = Platform.isPhone || room < wide * 1.25;
+			scale = Math.max(0.2, Math.min(1, room / (single ? wide : wide * 2)));
+			stage.book.classList.toggle('single', single);
+			stage.vars.textContent = `:root { --s: ${scale}; --desk: ${getComputedStyle(wrap).backgroundColor || '#8a8a8a'}; }`;
+		};
+		fit();
+		const watch = new ResizeObserver(fit);
+		watch.observe(wrap);
+		close = () => { watch.disconnect(); stage.close(); };
+		const done = await layPages(stage, book, spec, { scale: () => scale, cancelled: () => stopped, tick: (n) => o.progress?.(n) });
+		if (done && !stopped) o.progress?.(null);
+		return stopped ? null : done;
+	})();
+	laid.catch(() => { /* said by whoever waits for the pages */ });
+	return { stop: () => { stopped = true; close(); }, laid };
 }

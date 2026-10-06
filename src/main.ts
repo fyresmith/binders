@@ -14,6 +14,7 @@ import { ConvertModal } from './longform-convert';
 import { mergeScenes, splitScene, splitUndo } from './scenes';
 import { Focus } from './focus/focus';
 import { desktop } from './export/desktop';
+import { printer } from './export/pdf';
 import { ExportModal } from './view/export';
 import { exportAgain } from './view/export-again';
 import { Styles } from './export/styles';
@@ -44,7 +45,7 @@ export default class BindersPlugin extends Plugin {
 	focus: Focus;
 	/** Export's way to the computer's save dialog and disk (export/desktop.ts): null from it means there is none, and
 	    files go into the vault. A field so a test can stand in for the system's dialog, which nothing can drive. */
-	exportHost = { desktop };
+	exportHost = { desktop, printer };
 	/** The vault's export styles: the built-in ones and the files in the styles folder (export/styles.ts). */
 	styles: Styles;
 	/** What the inspector's panes follow: the notes and folders in hand in the tab the writer is in (inspector/follow.ts). */

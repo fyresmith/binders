@@ -23,10 +23,12 @@ export interface Details {
 	contents: Contents;
 	bookStyle: string;
 	manuscriptStyle: string;
+	/** The page a paperback was last made at (a trim size's id); "" for the usual one. */
+	pageSize: string;
 }
 
 /** The binder note's properties that are a book's details: the only ones Book details ever writes. */
-export const DETAIL_PROPS = ['title', 'subtitle', 'author', 'structure', 'cover', 'copyright', 'language', 'title-page', 'contents-page', 'book-style', 'manuscript-style'] as const;
+export const DETAIL_PROPS = ['title', 'subtitle', 'author', 'structure', 'cover', 'copyright', 'language', 'title-page', 'contents-page', 'book-style', 'manuscript-style', 'page-size'] as const;
 
 const text = (v: unknown): string => (typeof v === 'string' ? v.trim() : typeof v === 'number' ? String(v) : '');
 /** A property that names a file, as its path or name: `[[cover.png]]`, `[[Art/cover.png|the cover]]`, `Art/cover.png`. */
@@ -65,7 +67,7 @@ export function readDetails(fm: Record<string, unknown>): Details {
 		language: languageTag(fm.language) ?? '',
 		titlePage: fm['title-page'] !== false,
 		contents: CONTENTS[text(fm['contents-page']).toLowerCase()] ?? 'titled',
-		bookStyle: text(fm['book-style']), manuscriptStyle: text(fm['manuscript-style']),
+		bookStyle: text(fm['book-style']), manuscriptStyle: text(fm['manuscript-style']), pageSize: text(fm['page-size']),
 	};
 }
 
@@ -84,4 +86,5 @@ export function applyDetails(fm: Record<string, unknown>, d: Partial<Details>): 
 	if (d.contents !== undefined) set('contents-page', d.contents === 'titled' ? '' : d.contents);
 	if (d.bookStyle !== undefined) set('book-style', d.bookStyle.trim());
 	if (d.manuscriptStyle !== undefined) set('manuscript-style', d.manuscriptStyle.trim());
+	if (d.pageSize !== undefined) set('page-size', d.pageSize.trim());
 }

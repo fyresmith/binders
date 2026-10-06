@@ -30,6 +30,8 @@ const context = await esbuild.context({
   bundle: true,
   external: ["obsidian", "electron", "@codemirror/*", "@lezer/*", ...builtinModules, ...builtinModules.map((m) => `node:${m}`)],
   format: "cjs",
+  // the typefaces the pages are set in travel inside main.js (src/export/pages/fonts.ts)
+  loader: { ".woff2": "base64" },
   target: "es2020",
   logLevel: "info",
   sourcemap: prod ? false : "inline",

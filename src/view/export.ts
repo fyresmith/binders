@@ -1,6 +1,8 @@
 import { ButtonComponent, Component, MarkdownRenderer, Menu, Modal, Notice, Platform, Setting, TFile, setIcon, type TFolder } from 'obsidian';
 import type BindersPlugin from '../main';
-import { DOCX_MIME, KINDS, bookDetails, ebook, exportsFolder, fileName, manuscript, noteLast, placeFor, readBook, save, saveDetails, setPlace, share, shownPath, type Kind, type Saved } from '../export/export';
+import { DOCX_MIME, KINDS, NO_PDF, PDF_MIME, bookDetails, ebook, exportsFolder, fileName, manuscript, noteLast, pagesPdf, placeFor, readBook, save, saveDetails, setPlace, share, shownPath, type Kind, type Saved } from '../export/export';
+import { PAPER_SIZES, TRIM_SIZES, paperSize, trimSize } from '../export/pages/geometry';
+import { bookPages, manuscriptPages, withTitlePage, type PagesSpec } from '../export/pages/layout';
 import { EPUB_MIME } from '../export/epub';
 import { STRUCTURES, type Book } from '../export/model';
 import type { Family } from '../export/style-rows';
@@ -11,7 +13,7 @@ import { readScriv } from '../export/scriv/vault';
 import { BookDetailsModal, pickCover } from './book-details';
 import { exportAsItems } from './export-as';
 import { drawContents } from './export-contents';
-import { drawEbook, drawManuscript } from './export-preview';
+import { drawEbook, drawManuscript, showPages } from './export-preview';
 import { drawStyleEditor, dress, runningHead, styleRow, type StyleEditor, type StyleEditorHost } from './export-style-editor';
 import { drawScriv, exportScriv, scrivChoices, scrivDetail, scrivFile } from './export-scriv';
 import { historyLook } from './internals';
@@ -28,13 +30,22 @@ const SEPARATORS: [string, string][] = [['* * *', '* * *'], ['#', '#'], ['---', 
 /** How much of one note is drawn in the preview: past this a renderer holds the window up. The note has it all. */
 const NOTE_SHOWN = 120000;
 /** What each kind that is a book's file is, to the save dialog and the share sheet. */
-export const FILES = { manuscript: { extension: 'docx', type: 'Word document', mime: DOCX_MIME }, ebook: { extension: 'epub', type: 'EPUB ebook', mime: EPUB_MIME } } as const;
+export const FILES = { manuscript: { extension: 'docx', type: 'Word document', mime: DOCX_MIME }, ebook: { extension: 'epub', type: 'EPUB ebook', mime: EPUB_MIME }, paperback: { extension: 'pdf', type: 'PDF document', mime: PDF_MIME } } as const;
+/** What a phone or a tablet says of a PDF: its pages can be looked at there, and it is made on a computer. */
+const PDF_ELSEWHERE = 'A PDF is made by Obsidian on a computer. Here you can look at its pages and choose its style; export it when this vault is open on a computer.';
+
+/** The family of styles a kind is set in: an ebook's and a paperback's are book styles. */
+const familyOf = (kind: Kind): Family => (kind === 'ebook' || kind === 'paperback' ? 'book' : 'manuscript');
 
 export class ExportModal extends Modal {
 	private kind: Kind;
 	private style: string;
 	/** The book style, kept in the binder note (`book-style`) with the book's other details. */
 	private bookStyle: string;
+	/** The paperback's page (a trim size's id), kept in the binder note (`page-size`). */
+	private pageSize = '';
+	/** How many pages the PDF being shown has, once they are laid out. */
+	private pages: number | null = null;
 	private matter: boolean;
 	private o: CompileOptions;
 	private path: string;
@@ -61,7 +72,7 @@ export class ExportModal extends Modal {
 	private timer = 0;
 	/** The style editor, while the sidebar is it (view/export-style-editor.ts). */
 	private editing = false;
-	private editor: (StyleEditor & { kind: 'manuscript' | 'ebook' }) | null = null;
+	private editor: (StyleEditor & { kind: 'manuscript' | 'ebook' | 'paperback' }) | null = null;
 	private quotes = '';
 
 	constructor(private plugin: BindersPlugin, private folder: TFolder) {
@@ -69,7 +80,7 @@ export class ExportModal extends Modal {
 		const s = plugin.settings;
 		this.kind = s.exportKind;
 		let said = '', saidM = '';
-		try { const d = bookDetails(plugin, folder).details; said = d.bookStyle; saidM = d.manuscriptStyle; } catch { /* not a binder: reading it says so */ }
+		try { const d = bookDetails(plugin, folder).details; said = d.bookStyle; saidM = d.manuscriptStyle; this.pageSize = trimSize(d.pageSize).id; } catch { /* not a binder: reading it says so */ }
 		// (a binder's own manuscript style, or the one last used in this vault)
 		this.style = plugin.styles.get(saidM || s.exportStyle, 'manuscript').name;
 		this.bookStyle = plugin.styles.get(said, 'book').name;
@@ -80,7 +91,19 @@ export class ExportModal extends Modal {
 
 	private get host() { return this.plugin.exportHost.desktop(this.app); }
 	/** The kind being made, when it is a book's file (not a Scrivener project, which is the binder itself, and not one note). */
-	private get file(): 'manuscript' | 'ebook' | null { return this.kind === 'manuscript' || this.kind === 'ebook' ? this.kind : null; }
+	private get file(): 'manuscript' | 'ebook' | 'paperback' | null { return this.kind === 'manuscript' || this.kind === 'ebook' || this.kind === 'paperback' ? this.kind : null; }
+	/** True when what is being made is a PDF: a paperback, or a manuscript whose file is one. */
+	private get pdf(): boolean { return this.kind === 'paperback' || (this.kind === 'manuscript' && this.plugin.settings.exportFile === 'pdf'); }
+	/** True when a PDF is being made and can't be here (a phone, a tablet, an Obsidian without webviews). */
+	private get noPdf(): boolean { return this.pdf && !this.plugin.exportHost.printer(); }
+	/** The file of the kind being made: a manuscript's is Word's or a PDF. */
+	private get made() { return FILES[this.pdf ? 'paperback' : this.kind === 'ebook' ? 'ebook' : 'manuscript']; }
+	/** How the pages of a PDF are laid out: the book (a manuscript's with its title page) and the style on its page. */
+	private paged(book: Book): { book: Book; spec: PagesSpec } {
+		if (this.kind === 'paperback') return { book, spec: bookPages(book, this.plugin.styles.book(this.bookStyle), trimSize(this.pageSize), this.words) };
+		const style = this.plugin.styles.manuscript(this.style), whole = style.titlePage ? withTitlePage(book) : book;
+		return { book: whole, spec: manuscriptPages(whole, style, paperSize(this.plugin.settings.exportPaper), { contact: this.plugin.settings.contact.split(/\r?\n/).map((l) => l.trim()).filter((l) => l), words: this.words }) };
+	}
 
 	/** Book details, the binder's: when the window is closed, the book is read again with them. */
 	private details(): void { new BookDetailsModal(this.plugin, this.folder, () => { if (this.contentEl.isConnected) void this.load(); }).open(); }
@@ -157,7 +180,7 @@ export class ExportModal extends Modal {
 		if (turn !== this.loading) return;
 		try {
 			if (this.file) {
-				const { book, words } = await readBook(this.plugin, this.folder, this.kind === 'ebook' || this.matter, this.kind === 'ebook', this.asTyped());
+				const { book, words } = await readBook(this.plugin, this.folder, this.kind !== 'manuscript' || this.matter, this.kind !== 'manuscript', this.asTyped(), this.kind === 'ebook');
 				if (turn !== this.loading) return;
 				this.book = book; this.words = words; this.quotes = this.asTyped() ? 'as typed' : '';
 				} else if (this.kind === 'scrivener') {
@@ -201,12 +224,13 @@ export class ExportModal extends Modal {
 		const list = inner.createDiv({ cls: 'modal-sidebar-list binders-export-kinds', attr: { role: 'listbox', 'aria-label': 'What to make' } });
 		const items: HTMLElement[] = [];
 		for (const k of KINDS) {
-			const on = k.id === this.kind;
-			const el = list.createDiv({ cls: 'modal-sidebar-list-item file-recovery-list-item-header tappable binders-snapshots-item', attr: { role: 'option', tabindex: on ? '0' : '-1', 'aria-selected': String(on), 'aria-label': `${k.name}: ${k.detail}`, 'data-binders-key': `kind-${k.id}` } });
+			// (a phone and a tablet make no PDF, and the row says so)
+			const on = k.id === this.kind, detail = k.id === 'paperback' && Platform.isMobile ? 'PDF, made on a computer' : k.detail;
+			const el = list.createDiv({ cls: 'modal-sidebar-list-item file-recovery-list-item-header tappable binders-snapshots-item', attr: { role: 'option', tabindex: on ? '0' : '-1', 'aria-selected': String(on), 'aria-label': `${k.name}: ${detail}`, 'data-binders-key': `kind-${k.id}` } });
 			el.toggleClass('is-active', on);
 			const d = el.createDiv({ cls: 'modal-sidebar-list-item-details' });
 			d.createDiv({ cls: 'binders-snapshots-item-name', text: k.name });
-			d.createDiv({ cls: 'binders-snapshots-item-detail', text: k.detail });
+			d.createDiv({ cls: 'binders-snapshots-item-detail', text: detail });
 			const pick = () => { if (this.kind === k.id || this.busy) return; this.kind = k.id; this.contents = false; this.changed(true); };
 			el.addEventListener('click', pick);
 			el.addEventListener('keydown', (e) => {
@@ -224,6 +248,23 @@ export class ExportModal extends Modal {
 		if (this.kind === 'manuscript') {
 			styleRow(el, this.plugin, 'manuscript', this.style, (v) => this.chooseStyle('manuscript', v), () => this.edit());
 			toggle('matter', 'Front and back matter', this.matter, (v) => { this.matter = v; });
+			new Setting(el).setName('File').addDropdown((d) => {
+				d.addOption('docx', 'Word (.docx)').addOption('pdf', 'PDF');
+				d.setValue(s.exportFile).onChange((v) => { s.exportFile = v === 'pdf' ? 'pdf' : 'docx'; this.changed(false); });
+				d.selectEl.dataset.bindersKey = 'file';
+			});
+			if (this.pdf) new Setting(el).setName('Paper').addDropdown((d) => {
+				for (const size of PAPER_SIZES) d.addOption(size.id, size.name);
+				d.setValue(paperSize(s.exportPaper).id).onChange((v) => { s.exportPaper = v; this.changed(false); });
+				d.selectEl.dataset.bindersKey = 'paper';
+			});
+		} else if (this.kind === 'paperback') {
+			styleRow(el, this.plugin, 'book', this.bookStyle, (v) => this.chooseStyle('book', v), () => this.edit());
+			new Setting(el).setName('Page').addDropdown((d) => {
+				for (const size of TRIM_SIZES) d.addOption(size.id, size.name);
+				d.setValue(this.pageSize).onChange((v) => { this.pageSize = v; void saveDetails(this.plugin, this.folder, { pageSize: v === TRIM_SIZES[0].id ? '' : v }).catch(() => { /* as the style: it holds for this window */ }); this.changed(false); });
+				d.selectEl.dataset.bindersKey = 'page';
+			});
 		} else if (this.kind === 'ebook') {
 			styleRow(el, this.plugin, 'book', this.bookStyle, (v) => this.chooseStyle('book', v), () => this.edit());
 			const cover = this.book?.cover ? 'Change...' : 'Choose...';
@@ -265,6 +306,7 @@ export class ExportModal extends Modal {
 				t.inputEl.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); void this.run(); } });
 			});
 		}
+		if (this.noPdf) el.createDiv({ cls: 'binders-export-needs binders-export-nopdf', text: Platform.isMobile ? PDF_ELSEWHERE : `${NO_PDF} This Obsidian can’t print pages to a file; its pages can still be looked at.` });
 		this.foot(inner);
 		if (held) this.side.querySelector<HTMLElement>(`[data-binders-key="${held}"]`)?.focus();
 	}
@@ -272,8 +314,8 @@ export class ExportModal extends Modal {
 
 	// ---- the style, and its editor ----
 
-	private styleName(kind = this.kind): string { return kind === 'ebook' ? this.bookStyle : this.style; }
-	private asTyped(): boolean { return this.kind === 'ebook' && this.plugin.styles.get(this.bookStyle, 'book').values.quotes === 'as typed'; }
+	private styleName(kind = this.kind): string { return familyOf(kind) === 'book' ? this.bookStyle : this.style; }
+	private asTyped(): boolean { return familyOf(this.kind) === 'book' && this.plugin.styles.get(this.bookStyle, 'book').values.quotes === 'as typed'; }
 	/** A style was chosen: it is this binder's from now on (kept with its Book details, where they can be written). */
 	private chooseStyle(family: Family, name: string): void {
 		if (family === 'book') this.bookStyle = name; else this.style = name;
@@ -281,8 +323,8 @@ export class ExportModal extends Modal {
 		this.changed(this.asTyped() !== (this.quotes === 'as typed'));
 	}
 	private edit(): void { this.editing = true; this.contents = false; this.draw(); this.preview(); this.side.querySelector<HTMLElement>('[data-binders-key="style-back"]')?.focus(); }
-	private editorHost(kind: 'manuscript' | 'ebook'): StyleEditorHost {
-		const family: Family = kind === 'ebook' ? 'book' : 'manuscript';
+	private editorHost(kind: 'manuscript' | 'ebook' | 'paperback'): StyleEditorHost {
+		const family = familyOf(kind);
 		return {
 			plugin: this.plugin, family, pages: kind !== 'ebook', desktop: this.host,
 			name: () => this.styleName(kind),
@@ -299,8 +341,8 @@ export class ExportModal extends Modal {
 		// (a file saved a moment ago is not this style's any more: Export is offered again)
 		if (this.saved) { this.saved = null; this.bar(); }
 		// (a style that is gone, renamed or deleted elsewhere: the choice falls back with it)
-		const now = this.plugin.styles.get(this.styleName(), this.kind === 'ebook' ? 'book' : 'manuscript').name;
-		if (now !== this.styleName()) { if (this.kind === 'ebook') this.bookStyle = now; else this.style = now; }
+		const now = this.plugin.styles.get(this.styleName(), familyOf(this.kind)).name;
+		if (now !== this.styleName()) { if (familyOf(this.kind) === 'book') this.bookStyle = now; else this.style = now; }
 		if (!this.editing) this.choices();
 		window.clearTimeout(this.timer);
 		const reread = this.asTyped() !== (this.quotes === 'as typed');
@@ -323,11 +365,11 @@ export class ExportModal extends Modal {
 				box.addEventListener('change', () => { setPlace(this.plugin, this.folder, kind, box.checked ? this.saved?.path ?? kept : null); this.draw(); });
 				label.appendText('Save here next time without asking');
 			} else if (!host) {
-				const to = `${exportsFolder(this.plugin, this.folder)}/${kind === 'scrivener' ? scrivFile(this.folder, host) : `${this.fileName()}.${FILES[kind].extension}`}`;
+				const to = `${exportsFolder(this.plugin, this.folder)}/${kind === 'scrivener' ? scrivFile(this.folder, host) : `${this.fileName()}.${this.made.extension}`}`;
 				place(Platform.isMobile ? `Goes to ${to}, then to where you share it` : `Goes to ${to}, in this vault`);
 			}
 			// (what a style's file has that can't be read is said with the rest: its line opens the editor)
-			const styled = kind === 'scrivener' ? [] : this.plugin.styles.get(this.styleName(kind), kind === 'ebook' ? 'book' : 'manuscript').warnings.map((text) => ({ path: '', name: 'Style', text }));
+			const styled = kind === 'scrivener' ? [] : this.plugin.styles.get(this.styleName(kind), familyOf(kind)).warnings.map((text) => ({ path: '', name: 'Style', text }));
 			const warnings = [...styled, ...(kind === 'scrivener' ? this.scriv?.warnings : this.book?.warnings) ?? []];
 			if (warnings.length) {
 				const head = foot.createDiv({ cls: 'binders-export-warn-head' });
@@ -350,7 +392,7 @@ export class ExportModal extends Modal {
 			const row = foot.createDiv({ cls: 'binders-export-phone-row' });
 			new ButtonComponent(row).setButtonText('Preview').onClick(() => this.toPane());
 			if (this.kind === 'note') new ButtonComponent(row).setButtonText('Copy').onClick(() => void this.copy());
-			new ButtonComponent(row).setButtonText(this.busy ? 'Exporting…' : 'Export').setCta().setDisabled(!!this.busy).onClick(() => void this.run());
+			if (!this.noPdf) new ButtonComponent(row).setButtonText(this.busy ? 'Exporting…' : 'Export').setCta().setDisabled(!!this.busy).onClick(() => void this.run());
 		}
 	}
 
@@ -397,7 +439,7 @@ export class ExportModal extends Modal {
 		this.nameEl.setText(k.name);
 		const n = (count: number, one: string, many = `${one}s`) => `${count.toLocaleString()} ${count === 1 ? one : many}`;
 		const chapters = this.book?.sections.filter((s) => s.role === 'chapter').length ?? 0;
-		this.detailEl.setText(this.kind === 'scrivener' ? scrivDetail(this.scriv) : this.kind !== 'note' ? (this.book ? `${n(this.words, 'word')} · ${n(chapters, 'chapter')}` : '') : this.note ? `${n(this.note.scenes, 'note')} · ${n(this.words, 'word')}` : '');
+		this.detailEl.setText(this.kind === 'scrivener' ? scrivDetail(this.scriv) : this.pdf ? (this.book ? `${this.pages == null ? n(this.words, 'word') : n(this.pages, 'page')} · ${(this.kind === 'paperback' ? trimSize(this.pageSize) : paperSize(this.plugin.settings.exportPaper)).name}` : '') : this.kind !== 'note' ? (this.book ? `${n(this.words, 'word')} · ${n(chapters, 'chapter')}` : '') : this.note ? `${n(this.note.scenes, 'note')} · ${n(this.words, 'word')}` : '');
 		const focused = this.actions.contains(this.modalEl.doc.activeElement);
 		this.actions.empty();
 		const status = (text: string) => this.actions.createSpan({ cls: 'binders-export-status', text, attr: { role: 'status', 'aria-live': 'polite' } });
@@ -423,7 +465,7 @@ export class ExportModal extends Modal {
 				c.addEventListener('click', flip);
 				c.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); flip(); } });
 			} else if (this.kind === 'note') new ButtonComponent(this.actions).setButtonText('Copy').setTooltip('Copy the text instead of saving it').onClick(() => void this.copy());
-			new ButtonComponent(this.actions).setButtonText('Export').setCta().onClick(() => void this.run());
+			if (!this.noPdf) new ButtonComponent(this.actions).setButtonText('Export').setCta().onClick(() => void this.run());
 		}
 		if (this.file || (this.kind === 'scrivener' && (host || saved))) {
 			const more = this.actions.createDiv({ cls: 'clickable-icon', attr: { 'aria-label': 'More', role: 'button', tabindex: '0', 'aria-haspopup': 'menu' } });
@@ -431,7 +473,7 @@ export class ExportModal extends Modal {
 			const menu = (e: MouseEvent | null) => {
 				const m = new Menu();
 				if (saved) m.addItem((i) => i.setTitle('Export').setIcon('book-check').onClick(() => void this.run()));
-				if (host) m.addItem((i) => i.setTitle('Choose where to save...').setIcon('folder-open').onClick(() => void this.run(true)));
+				if (host && !this.noPdf) m.addItem((i) => i.setTitle('Choose where to save...').setIcon('folder-open').onClick(() => void this.run(true)));
 				if (host) m.addItem((i) => i.setTitle('Show where exports go').setIcon('folder').onClick(() => void this.showExports()));
 				if (this.file && !this.editing) m.addItem((i) => i.setTitle('Edit this style').setIcon('sliders-horizontal').onClick(() => this.edit()));
 				if (this.file) m.addItem((i) => i.setTitle('Book details...').setIcon('book-open').onClick(() => this.details()));
@@ -449,6 +491,7 @@ export class ExportModal extends Modal {
 		const el = this.previewEl;
 		this.stop?.();
 		this.stop = null;
+		this.pages = null;
 		el.empty();
 		if (this.kind === 'scrivener') { drawScriv(el, this.scriv, { outside: this.plugin.settings.exportOutside, open: (path) => this.openNote(path) }); return; }
 		if (this.kind !== 'note') {
@@ -460,6 +503,14 @@ export class ExportModal extends Modal {
 				drawContents(side.createDiv(), book, { open: (path) => this.openNote(path), menu: this.canOverrule() ? (path, at) => this.roleMenu(path, at) : undefined });
 			}
 			const stage = el.createDiv({ cls: 'binders-export-stage' });
+			if (this.pdf) {
+				// the very pages that are printed: laid out here as they are for the file
+				const { book: whole, spec } = this.paged(book), turn = this.loading;
+				const view = showPages(stage, whole, spec, { progress: (pages) => { if (turn === this.loading && this.stop === view.stop) this.detailEl.setText(pages == null ? this.detailEl.getText() : `Laying out the pages… ${pages.toLocaleString()}`); } });
+				this.stop = view.stop;
+				void view.laid.then((laid) => { if (!laid || this.stop !== view.stop) return; this.pages = laid.pages.length; this.previewEl.dataset.pages = String(laid.pages.length); this.bar(); }, (e) => { if (this.stop === view.stop) new Notice(e instanceof Error ? e.message : String(e)); });
+				return;
+			}
 			if (this.kind === 'ebook') {
 				const scroll = stage.createDiv({ cls: 'binders-export-scroll', attr: { tabindex: '0', role: 'region', 'aria-label': 'The ebook’s text' } });
 				this.stop = drawEbook(scroll, book, dress(scroll, this.plugin.styles.book(this.bookStyle)));
@@ -515,14 +566,21 @@ export class ExportModal extends Modal {
 				new Notice(`Exported “${this.folder.name}” to ${saved.shown}.`);
 				return;
 			}
-			const kind = this.kind, { extension, type, mime } = FILES[kind];
-			const { book, words } = await readBook(this.plugin, this.folder, kind === 'ebook' || this.matter, kind === 'ebook', this.asTyped());
+			const kind = this.kind, pdf = this.pdf, { extension, type, mime } = this.made;
+			if (this.noPdf) throw new Error(NO_PDF);
+			const { book, words } = await readBook(this.plugin, this.folder, kind !== 'manuscript' || this.matter, kind !== 'manuscript', this.asTyped(), kind === 'ebook');
 			if (this.cancelled) return;
 			this.book = book; this.words = words;
 			this.say('Writing the file…');
 			// (a breath, so the words above are on screen before a long book is written)
 			await new Promise((r) => window.setTimeout(r, 0));
-			const data = kind === 'ebook' ? ebook(this.plugin, book, this.bookStyle) : manuscript(this.plugin, book, words, this.style);
+			let data: Uint8Array;
+			if (pdf) {
+				const { book: whole, spec } = this.paged(book);
+				const made = await pagesPdf(this.plugin, whole, spec, { say: (doing) => this.say(doing), cancelled: () => this.cancelled });
+				if (!made) return;
+				data = made.data;
+			} else data = kind === 'ebook' ? ebook(this.plugin, book, this.bookStyle) : manuscript(this.plugin, book, words, this.style);
 			if (this.cancelled) return;
 			this.say('Saving…');
 			const name = this.fileName();

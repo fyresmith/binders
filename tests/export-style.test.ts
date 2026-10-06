@@ -34,7 +34,7 @@ import { done, eq, ok } from './harness';
 	eq(languageName('en-GB'), 'British English', 'a language has a name');
 	eq([linked('[[cover.png]]'), linked('[[Art/cover.png|the cover]]'), linked('Art/cover.png'), linked(undefined)].join('|'), 'cover.png|Art/cover.png|Art/cover.png|', 'a cover is named as a link or a path');
 	const d = readDetails({ binder: 1, title: ' The Lighthouse ', author: 'Mara', structure: 'parts and chapters', cover: '[[cover.png]]', language: 'EN-gb', 'title-page': false, 'contents-page': 'Always', copyright: '© Mara', 'book-style': 'Classic' });
-	eq(JSON.stringify(d), JSON.stringify({ title: 'The Lighthouse', subtitle: '', author: 'Mara', structure: 'parts', cover: 'cover.png', copyright: '© Mara', language: 'en-GB', titlePage: false, contents: 'always', bookStyle: 'Classic', manuscriptStyle: '' }), 'details as the note says them');
+	eq(JSON.stringify(d), JSON.stringify({ title: 'The Lighthouse', subtitle: '', author: 'Mara', structure: 'parts', cover: 'cover.png', copyright: '© Mara', language: 'en-GB', titlePage: false, contents: 'always', bookStyle: 'Classic', manuscriptStyle: '', pageSize: '' }), 'details as the note says them');
 	const none = readDetails({ language: 'Klingon!', structure: 3 });
 	ok(none.language === '' && none.structure === null && none.titlePage && none.contents === 'titled' && none.title === '', 'what isn’t said, or can’t be read, is not said');
 
