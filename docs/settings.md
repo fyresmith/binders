@@ -29,6 +29,12 @@ See [Paragraphs](paragraphs.md).
 |---|---|---|
 | **Show the inspector and contents with a binder** | On | Opening a binder puts the inspector and the contents among the right sidebar's tabs, if they aren't there. Turn this off to open them yourself, and to keep them closed once you close them |
 
+## Word counts
+
+| Setting | Default | What it does |
+|---|---|---|
+| **Count words as the exported book does** | On | Every count in Binders is the book's: comments, a link's hidden part, web addresses and properties aren't counted. Turn it off to count as Obsidian's status bar does. See [how words are counted](labels-statuses-targets.md#how-words-are-counted) |
+
 See [The inspector and the contents](inspector.md).
 
 ## Labels

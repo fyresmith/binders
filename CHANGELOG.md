@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.33.3 (2026-10-06)
+
+### Changed
+
+- The manual says how words are counted, and lists the new setting.
+
 ## 0.33.2 (2026-10-06)
 
 ### Fixed

@@ -68,6 +68,25 @@ A folder with no target of its own shows its notes' targets added together in th
 
 For a goal for one day's writing, see **Words to write today** in [Focus mode](focus-mode.md#word-counts-and-a-goal-for-the-day).
 
+## How words are counted
+
+Binders counts the words that end up in the book, so a card, a target and an export agree.
+
+- **Not counted:** a note's properties, comments (`%%like this%%` and `<!-- like this -->`), the note name behind
+  `[[Note|shown words]]`, a link's web address, a picture's description, list numbers, and lines that hold only tags.
+- **Counted:** a footnote's text (once, however often it is marked), code, headings, table cells, a callout's title,
+  and the words of a note you embed with `![[Note]]`.
+- **Chapter titles:** a `# Heading` at the very top of a note that opens a chapter is the chapter's title, and isn't
+  counted with its text. In a scene it is counted.
+- **Chinese and Japanese** are counted a character at a time, as Obsidian counts them.
+- **Notes left out of export** still show their own words and still count toward their folder's and the binder's
+  totals. The Export window counts only what is exported, so its number can be lower.
+- **The day's words** in focus mode follow the same rule.
+
+To count as Obsidian's status bar does, turn off **Count words as the exported book does** in
+[Settings](settings.md#word-counts). Changing it leaves the day's words as they were. A note with comments or links
+shows fewer words with the setting on, so a target that was only just met can be just short.
+
 ## The filter
 
 The **Filter** button in the binder view's toolbar shows only the notes with a given status or label, in all three
