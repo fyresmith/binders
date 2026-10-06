@@ -32,6 +32,10 @@ Their text is joined into the first, in binder order, with a blank line between.
 [scene notes](scene-notes.md) are joined too. The other notes go to the trash, with their other properties, once the
 merged note has been checked to hold all their text.
 
+If a source note changes during the merge, or the merged note no longer holds its text, that source and the
+remaining notes stay in place. A notice explains why. The text already joined into the first note stays there,
+so you can compare the copies before deciding what to keep.
+
 ## Links after a split or a merge
 
 If Obsidian is set to update links automatically (**Settings → Files and links → Automatically update internal

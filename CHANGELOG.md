@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.32.6 (2026-10-06)
+
+### Fixed
+
+- Merging notes keeps sources that change during the merge, including their properties, and stops if the merged copy no longer holds their text.
+
 ## 0.32.5 (2026-10-06)
 
 ### Changed

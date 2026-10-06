@@ -346,6 +346,102 @@ async function merge(p, paths) {
 /** Texts joined as a merge joins them: a blank line between, one line break at the end. */
 const joined = (bodies) => bodies.map((b) => b.replace(/^\s*\n/, '').replace(/\s+$/, '')).filter((b) => b.trim()).join('\n\n') + '\n';
 
+// Hold a merge after the destination or a linking note is written: sync or typing can arrive before deletion.
+for (const [kind, held, edit] of [
+	['an outside edit to the source after it was read', 'Odd/Alpha.md', `await app.vault.process(beta, text => text + 'From another device.\\n');`],
+	['a property edit to the source after it was read', 'Odd/Alpha.md', `await app.fileManager.processFrontMatter(beta, fm => { fm.notes = 'New notes on the scene.'; });`],
+	['typing in the source after it was read, and undo', 'Odd/Alpha.md', `const ed = app.workspace.getLeavesOfType('markdown').find(l => l.view.file === beta).view.editor; ed.replaceRange('Typed during the merge.\\n', ed.offsetToPos(ed.getValue().length));`],
+	['an outside edit to the source while links are updated', 'Odd/Gamma.md', `await app.vault.process(beta, text => text + 'From another device.\\n');`],
+	['an outside edit to the destination while links are updated', 'Odd/Gamma.md', `await app.vault.process(alpha, () => 'Changed on another device.\\n');`],
+]) {
+	test(`merge keeps every note needed after ${kind}`, withTidy(async (p, h, t) => {
+		const A = 'Odd/Alpha.md', BETA = 'Odd/Beta.md', G = 'Odd/Gamma.md', body = 'Beta text.\n';
+		await linksOn(p);
+		await odd(p, [['Alpha', 'Alpha text.\n'], ['Beta', body], ['Gamma', 'See [[Beta]].\n']]);
+		t.ok(await indexed(p, G, BETA, 1), 'the source link is indexed');
+		if (kind.includes('typing')) await openAt(p, BETA, { before: 'Beta text.' });
+		try {
+			await p.ev(`(() => {
+				const v = app.vault, process = v.process, plugin = ${PL}, tell = plugin.tell;
+				const held = window.__mergeHeld = { reached: false, done: false, finished: false, release: () => {}, restore: () => { v.process = process; plugin.tell = tell; } };
+				plugin.tell = async function (...args) { try { return await tell.apply(this, args); } finally { held.finished = true; } };
+				const gate = new Promise(r => { held.release = r; });
+				v.process = async function (...args) {
+					const result = await process.apply(this, args);
+					if (args[0].path === ${j(held)} && !held.reached) { held.reached = true; await gate; held.done = true; }
+					return result;
+				};
+				return 1;
+			})()`);
+			await explorerMenu(p, [A, BETA], 'Merge 2 notes');
+			t.ok(await until(p, `!!document.querySelector('.modal .mod-cta')`), 'merge asks first');
+			await p.ev(`(() => { [...document.querySelectorAll('.modal button')].find(b => b.textContent === 'Merge').click(); return 1; })()`);
+			t.ok(await until(p, `window.__mergeHeld.reached`, 8000), 'merge reached the held write');
+			await p.ev(`(async () => { const alpha = ${file(A)}, beta = ${file(BETA)}; ${edit} return 1; })()`);
+			await p.sleep(350);
+			await p.ev(`(() => { window.__mergeHeld.release(); return 1; })()`);
+			t.ok(await until(p, `window.__mergeHeld.done`, 5000), 'merge resumed');
+			t.ok(await until(p, `window.__mergeHeld.finished`, 8000), 'merge finished');
+			t.ok(await exists(p, BETA), 'the source stays instead of being deleted');
+			t.ok(/kept|changed/i.test(await notices(p)), 'a notice explains why the source stayed');
+			if (held === A) t.eq(await read(p, G), 'See [[Beta]].\n', 'links to a source found changed are left alone');
+			if (kind.includes('typing')) {
+				t.eq(await read(p, BETA), body + 'Typed during the merge.\n', 'pending typing is on disk');
+				await p.ev(`(() => { const ed = app.workspace.getLeavesOfType('markdown').find(l => l.view.file?.path === ${j(BETA)}).view.editor; ed.undo(); return 1; })()`);
+				await until(p, `app.vault.adapter.read(${j(BETA)}).then(s => s === ${j(body)})`, 4000);
+				t.eq(await read(p, BETA), body, 'undo preserves the source’s original text');
+			} else if (kind.includes('property')) {
+				t.ok((await read(p, BETA)).includes('New notes on the scene.'), 'the new property is preserved');
+			} else if (kind.includes('destination')) {
+				t.eq(await read(p, A), 'Changed on another device.\n', 'the outside destination edit is preserved');
+				t.eq(await read(p, BETA), body, 'its removed text stays in the source');
+			} else t.eq(await read(p, BETA), body + 'From another device.\n', 'the source and outside edit are preserved');
+		} finally {
+			await p.ev(`(() => { window.__mergeHeld?.release(); window.__mergeHeld?.restore(); delete window.__mergeHeld; return 1; })()`);
+		}
+	}));
+}
+
+test('merge rechecks a later source after removing an earlier source', withTidy(async (p, h, t) => {
+	const A = 'Odd/Alpha.md', BETA = 'Odd/Beta.md', D = 'Odd/Delta.md';
+	await linksOn(p);
+	await odd(p, [['Alpha', 'Alpha text.\n'], ['Beta', 'Beta text.\n'], ['Delta', 'Delta text with [[Beta]].\n']]);
+	t.ok(await indexed(p, D, BETA, 1), 'the later source links to the earlier one');
+	try {
+		await p.ev(`(() => {
+			const manager = app.fileManager, trash = manager.trashFile, plugin = ${PL}, tell = plugin.tell;
+			const held = window.__mergeHeld = { finished: false, restore: () => { manager.trashFile = trash; plugin.tell = tell; } };
+			plugin.tell = async function (...args) { try { return await tell.apply(this, args); } finally { held.finished = true; } };
+			manager.trashFile = async function (f) {
+				const result = await trash.call(this, f);
+				if (f.path === ${j(BETA)}) await app.vault.process(${file(D)}, text => text + 'Late writing.\\n');
+				return result;
+			};
+			return 1;
+		})()`);
+		await explorerMenu(p, [A, BETA, D], 'Merge 3 notes');
+		t.ok(await until(p, `!!document.querySelector('.modal .mod-cta')`), 'merge asks first');
+		await p.ev(`(() => { [...document.querySelectorAll('.modal button')].find(b => b.textContent === 'Merge').click(); return 1; })()`);
+		t.ok(await until(p, `window.__mergeHeld.finished`, 8000), 'merge finished');
+		t.ok(!(await exists(p, BETA)), 'the unchanged source was merged and removed');
+		t.ok(await exists(p, D), 'the later source stays');
+		t.eq(await read(p, D), 'Delta text with [[Alpha]].\nLate writing.\n', 'its outside edit after the link update is preserved');
+		t.eq(await read(p, A), 'Alpha text.\n\nBeta text.\n\nDelta text with [[Alpha]].\n', 'the merged copy preserves every original text');
+	} finally { await p.ev(`(() => { window.__mergeHeld?.restore(); delete window.__mergeHeld; return 1; })()`); }
+}));
+
+test('merge keeps its safety checks when its own link updates change the copied text and a later source', withTidy(async (p, h, t) => {
+	const A = 'Odd/Alpha.md', BETA = 'Odd/Beta.md', D = 'Odd/Delta.md';
+	await linksOn(p);
+	await odd(p, [['Alpha', 'Alpha text.\n'], ['Beta', 'Beta text with [[Delta]].\n'], ['Delta', 'Delta text with [[Beta]].\n']]);
+	t.ok(await indexed(p, BETA, D, 1), 'the later source is linked');
+	t.ok(await indexed(p, D, BETA, 1), 'the earlier source is linked');
+	await openAt(p, A, { before: 'Alpha text.' });
+	await merge(p, [A, BETA, D]);
+	t.ok(!(await exists(p, BETA)) && !(await exists(p, D)), 'both unchanged sources were merged and removed');
+	t.eq(await read(p, A), 'Alpha text.\n\nBeta text with [[Alpha]].\n\nDelta text with [[Alpha]].\n', 'the complete text and updated links stay in the open destination');
+}));
+
 test('merging notes that open with a rule, bad properties, a list, real properties, Windows line breaks, a byte-order mark: every word of text is in the merged note, and only properties are left out', withTidy(async (p, h, t) => {
 	await odd(p, [['0 Alpha', 'Alpha.\n'], ...KINDS]);
 	const paths = ['0 Alpha', ...KINDS.map((k) => k[0])].map((n) => `Odd/${n}.md`);

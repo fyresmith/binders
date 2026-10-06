@@ -69,7 +69,7 @@ function linksTo(app: App, files: TFile[]): number {
     written (Obsidian reads the note again, off the main thread; longer on a busy machine). So the notes it may not
     have caught up with are read as well: those written in the last minute, and those it has nothing of yet. Where a
     link leads is asked of Obsidian's lookup by name, which knows a note as soon as it's made. */
-async function repoint(app: App, from: TFile, to: TFile, only?: (subpath: string) => boolean, skip: TFile[] = [], also: TFile[] = []): Promise<TFile[]> {
+async function repoint(app: App, from: TFile, to: TFile, only?: (subpath: string) => boolean, skip: TFile[] = [], also: TFile[] = [], written?: (file: TFile, before: string, after: string, rewrite: (text: string) => string) => void): Promise<TFile[]> {
 	if (!updatesLinks(app)) return [];
 	const out: TFile[] = [], now = Date.now();
 	const indexed = Object.entries(app.metadataCache.resolvedLinks).filter(([, dests]) => dests[from.path]).map(([source]) => app.vault.getAbstractFileByPath(source));
@@ -83,13 +83,13 @@ async function repoint(app: App, from: TFile, to: TFile, only?: (subpath: string
 		// (a note with no such link isn't written to at all)
 		const seen = await app.vault.read(file);
 		if (pointed(seen) === seen) continue;
-		let changed = false;
+		let before = seen, after = seen;
 		await app.vault.process(file, (text) => {
-			const next = pointed(text);
-			changed = next !== text;
-			return next;
+			before = text;
+			after = pointed(text);
+			return after;
 		});
-		if (changed) out.push(file);
+		if (after !== before) { out.push(file); written?.(file, before, after, pointed); }
 	}
 	return out;
 }
@@ -285,6 +285,7 @@ export async function mergeScenes(plugin: BindersPlugin, files: TFile[]): Promis
 	if (!ok) return null;
 	try {
 		await saveOpen(app, files);
+		const paths = files.map((f) => f.path);
 		const texts = await Promise.all(rest.map((f) => app.vault.read(f)));
 		const bodies = texts.map((t) => parts(t).body);
 		await app.vault.process(first, (cur) => {
@@ -301,9 +302,28 @@ export async function mergeScenes(plugin: BindersPlugin, files: TFile[]): Promis
 		// read it back: every note's text must be in the merged one before any note is let go
 		const now = parts(await app.vault.read(first)).body, flat = (x: string) => x.replace(/\s+/g, ' ').trim();
 		if (!bodies.every((b) => flat(now).includes(flat(b)))) throw new Error('The merged note doesn’t have all the text, so nothing was deleted.');
-		// links to the notes that go now lead to the one that has their text (while they're still there to be found)
-		for (const f of rest) await repoint(app, f, first).catch(say);
-		for (const f of rest) await app.fileManager.trashFile(f);
+		const safeToRemove = async (f: TFile, i: number): Promise<void> => {
+			await saveOpen(app, [first, f]);
+			const changed = new Error(`The notes changed during the merge. “${f.basename}” and the remaining notes were kept.`);
+			if (first.path !== paths[0] || f.path !== paths[i + 1] || app.vault.getAbstractFileByPath(first.path) !== first || app.vault.getAbstractFileByPath(f.path) !== f) throw changed;
+			// A link write, another note's deletion, or a slow save leaves time for sync and more typing. The merged
+			// copy must still be there, and the source (properties too) must still be the note that was read.
+			if (!flat(parts(await app.vault.read(first)).body).includes(flat(bodies[i]))) throw changed;
+			if ((await app.vault.read(f)) !== texts[i]) throw changed;
+		};
+		for (const [i, f] of rest.entries()) {
+			await safeToRemove(f, i);
+			// links follow the text while the source is still there to be found
+			await repoint(app, f, first, undefined, [], [], (note, before, after, rewrite) => {
+				// Only our own link changes count as the same writing. A source already changed before this write
+				// still fails the check, and an outside change after it does too.
+				if (note === first) for (let k = 0; k < bodies.length; k++) bodies[k] = rewrite(bodies[k]);
+				const k = rest.indexOf(note);
+				if (k >= 0 && texts[k] === before) texts[k] = after;
+			}).catch(say);
+			await safeToRemove(f, i);
+			await app.fileManager.trashFile(f);
+		}
 		return first;
 	} catch (e) { say(e); return null; }
 }
