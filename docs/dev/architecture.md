@@ -31,14 +31,14 @@ neighbours, for example the store and `snapshots.ts`, which follow each other's 
    export/model.ts  markdown.ts  typography.ts  roles.ts  book.ts  picture.ts  docx.ts  docx-parts.ts
                     style.ts  details.ts  epub.ts  epub-text.ts  epub-css.ts
    focus/session.ts  view/labels.ts  view/outliner-data.ts  view/lanes-data.ts  view/file-drag-data.ts
-   view/tap-text.ts
+   view/tap-text.ts  view/words.ts  view/book-words.ts
 ```
 
 Three rules hold the layers together:
 
 1. **Pure logic has no Obsidian in it.** Everything in the bottom band imports nothing from `obsidian` (but
-   `longform.ts` takes its `App` type for the one function at its end, `longformRunning`, and `view/words.ts` counts
-   words purely but its `WordCounter` reads notes through the app) and is covered by unit tests that run in Node. If a rule can be written as a function from data to
+   `longform.ts` takes its `App` type for the one function at its end, `longformRunning`, and `view/words.ts` takes
+   the plugin's type for the one function that asks its settings which way to count) and is covered by unit tests that run in Node. If a rule can be written as a function from data to
    data, it belongs there, and the vault-facing code is a thin layer that calls it.
 2. **Only the store changes a binder.** Views and the explorer ask `plugin.binders` (`BinderStore`) to move, make,
    rename or label things. They never edit a binder note themselves.
@@ -131,7 +131,9 @@ word-for-word test (development.md) holds each writer to "no word dropped, repea
 | `src/view/file-drag.ts`, `file-drag-data.ts` | A card or row dragged out of the view becomes a file drag Obsidian understands (a canvas, a tab, bookmarks, the explorer). `file-drag-data.ts` holds the pure geometry. | Do anything while the pointer is inside the view. |
 | `src/view/edit.ts` | Text edited in place (a title, a synopsis, a cell). What's typed stays in the field until it is saved; a failed save keeps it. | Drop typed text. |
 | `src/view/labels.ts` | Labels and statuses: the palette, colors, reading what notes and settings hold. Pure. | |
-| `src/view/words.ts` | Word counts as Obsidian counts them; `WordCounter` caches per note by modification time and reads in the background. | Block a view on disk reads. |
+| `src/view/words.ts` | Word counts as Obsidian's status bar counts them (`countWords`), and `wordsIn`: a text's words by the way the setting "Count words as the exported book does" says. Pure. | |
+| `src/view/book-words.ts` | A note's words as the exported book has them: export's own reader and `countWords`, with a light path for lines of plain prose so a count stays fast (`docs/dev/plan.md`, "What a word of the book is"). Pure. | Decide what a word is, or what is in the book: that is `src/export/`'s. |
+| `src/view/word-counter.ts` | `WordCounter`: each note counted the way the setting says, kept by modification time and read in the background; a note's count in the book (what it embeds, the title of the chapter it opens). | Block a view on disk reads. |
 | `src/view/modals.ts` | Small dialogs in Obsidian's own style: confirm, ask for text, pick a color, new label. | |
 | `src/view/snapshots.ts` | Snapshots, writer side: "Take a snapshot", "Rewrite", the Snapshots dialog and its diff, a snapshot opened in a pane (`SnapshotView`), the menu items, notes that are gone. | Write snapshot files itself: it asks `src/snapshots.ts`. |
 | `src/view/windows.ts` | What belongs to the window a view is in when that is a window of its own: `watchSize` observes an element's size from its own window and follows it when its tab moves to another. | Use the main `window`'s observers or frames for a view that may be in a popout. |

@@ -45,6 +45,9 @@ export class Session {
 
 	has(path: string): boolean { return path in this.data.notes; }
 
+	/** The notes counted today. */
+	paths(): string[] { return Object.keys(this.data.notes); }
+
 	/** A note's count as it is now. The first time it's seen today, `base` is what it's counted from (its count before
 	    anything was typed; `now` if that isn't known). */
 	see(path: string, now: number, base?: number): void {
@@ -60,6 +63,15 @@ export class Session {
 		if (!n) return;
 		if (n[1] === onDisk) n[1] += delta;
 		n[0] += delta;
+	}
+
+	/** A note counted by another rule (the setting that says what a word is was changed): it has `now` words by the
+	    new one, and what was written in it today is what it was. A note not counted today stays uncounted. */
+	recount(path: string, now: number): void {
+		const n = this.data.notes[path];
+		if (!n) return;
+		n[0] = now - (n[1] - n[0]);
+		n[1] = now;
 	}
 
 	/** Net words written today in the notes under a folder (never less than none). */

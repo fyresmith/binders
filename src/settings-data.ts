@@ -72,6 +72,9 @@ export interface BindersSettings {
 	focusGoal: number;
 	/** Focus mode: the window goes to the system's fullscreen with it, and comes back out with it. */
 	focusFullscreen: boolean;
+	/** Word counts: a note's words as the exported book has them (comments out, a link's shown words only: the rule
+	    is in docs/dev/plan.md), or, off, as Obsidian's status bar counts them. */
+	bookWords: boolean;
 }
 
 /** What a new vault starts with. */
@@ -82,6 +85,7 @@ export const DEFAULT_SETTINGS: BindersSettings = {
 	exportsFolder: 'Exports', authorName: '', contact: '', exportKind: 'manuscript', exportStyle: '', exportMatter: false, exportOutside: true, exportSnapshots: true,
 	tabParagraphs: true, indentParagraphs: false, sidePanes: true,
 	focusTypewriter: true, focusPlace: false, focusNumbers: false, focusDim: true, focusDark: true, focusNeighbours: false, focusGoal: 0, focusFullscreen: false,
+	bookWords: true,
 };
 
 /** Focus mode's options that are on or off. */
@@ -101,6 +105,9 @@ export const FOCUS_TEXT: Record<FocusToggle | 'focusGoal', readonly [string, str
 	focusFullscreen: ['Enter fullscreen', 'Focus mode takes the whole screen, and gives it back when you leave.'],
 	focusGoal: ['Words to write today', 'A goal for a day’s writing in a binder, shown with the word counts. Leave empty for none.'],
 };
+
+/** The word counts' one switch, as the settings tab says it. */
+export const WORDS_TEXT: readonly [string, string] = ['Count words as the exported book does', 'Comments, the hidden part of a link and a note’s properties aren’t counted, so a card, a target and the toolbar say what an export of the binder says. Turn this off to count as Obsidian’s status bar does.'];
 
 /** The sidebar's one switch, as the settings tab says it. */
 export const SIDE_TEXT: readonly [string, string] = ['Show the inspector and contents with a binder', 'Opening a binder puts the inspector and the contents among the right sidebar’s tabs, if they aren’t there. Turn this off to open them yourself, and to keep them closed once you close them.'];
@@ -153,6 +160,7 @@ export function readSettings(data: unknown): BindersSettings {
 	for (const k of FOCUS_TOGGLES) if (typeof d[k] === 'boolean') s[k] = d[k];
 	for (const k of PARAGRAPH_TOGGLES) if (typeof d[k] === 'boolean') s[k] = d[k];
 	if (typeof d.sidePanes === 'boolean') s.sidePanes = d.sidePanes;
+	if (typeof d.bookWords === 'boolean') s.bookWords = d.bookWords;
 	if (typeof d.focusGoal === 'number' && Number.isInteger(d.focusGoal) && d.focusGoal > 0) s.focusGoal = d.focusGoal;
 	if (typeof d.exportsFolder === 'string' && d.exportsFolder.trim()) s.exportsFolder = d.exportsFolder.trim();
 	for (const k of ['authorName', 'contact', 'exportStyle'] as const) if (typeof d[k] === 'string') s[k] = d[k];

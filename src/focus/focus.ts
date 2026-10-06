@@ -4,6 +4,7 @@ import { Component, MarkdownRenderer, MarkdownView, Menu, Notice, Platform, Scop
 import type { Binder } from '../binders';
 import type BindersPlugin from '../main';
 import { FOCUS_TEXT, focusToggles, type FocusToggle } from '../settings-data';
+import { saveOpen } from '../scenes';
 import { BinderView } from '../view/BinderView';
 import { GLIDE } from '../view/drag';
 import { clearHeaderSnapshots, headerSnapshots } from '../view/snapshots';
@@ -11,7 +12,8 @@ import { readableLineLength, submenu, vimMode } from '../view/internals';
 import { ask } from '../view/modals';
 import { readTarget } from '../view/outliner-data';
 import { watchSize } from '../view/windows';
-import { WordCounter, countWords } from '../view/words';
+import { WordCounter } from '../view/word-counter';
+import { wordsIn } from '../view/words';
 import { caretRect, editorDoc, editorView, lightTheme, noteColumn, tailRoom } from './dom';
 import { Session, atEnd, bodyStart, dayOf, excerpt, parseGoal } from './session';
 
@@ -33,7 +35,7 @@ const PAUSE = 2500;
 /** How long what's around the page takes to fade (Obsidian's --anim-duration-fast). */
 const FADE = 140;
 /** Kept in the vault's local storage, on this device: the day's words, and that the way out has been said once. */
-const SESSION = 'binders-session', HINTED = 'binders-focus-hinted';
+const SESSION = 'binders-session', RULE = 'binders-session-rule', HINTED = 'binders-focus-hinted';
 /** A short fingerprint of a text, whatever its line breaks (an editor has one kind, a file may have the other). */
 function fingerprint(text: string): number {
 	let h = 5381;
@@ -88,7 +90,11 @@ export class Focus {
 	constructor(private plugin: BindersPlugin) {
 		const app = plugin.app, ws = app.workspace;
 		this.session = new Session(app.loadLocalStorage(SESSION), dayOf(new Date()));
-		this.words = new WordCounter(app, () => this.draw());
+		this.words = new WordCounter(plugin, () => this.draw());
+		// (a session kept before there were two ways to count was counted as the status bar counts)
+		const rule: unknown = app.loadLocalStorage(RULE);
+		this.rule = typeof rule === 'boolean' ? rule : false;
+		ws.onLayoutReady(() => this.ruled());
 		plugin.addCommand({ id: 'focus', name: 'Toggle focus mode', icon: 'maximize-2', checkCallback: (checking) => {
 			const leaf = this.on?.leaf ?? ws.getMostRecentLeaf();
 			if (!this.on && (!leaf || !this.eligible(leaf))) return false;
@@ -234,6 +240,7 @@ export class Focus {
 
 	/** Settings changed (in the settings tab, or the focus menu): what's on the page follows at once. */
 	optionsChanged(): void {
+		this.ruled();
 		const on = this.on;
 		if (!on) return;
 		this.screen(on, this.opt.focusFullscreen);
@@ -662,12 +669,40 @@ export class Focus {
 
 	private store(): void { this.plugin.app.saveLocalStorage(SESSION, this.session.toJSON()); }
 
+	/** The way of counting the day's notes were last counted by ("Count words as the exported book does", on or off). */
+	private rule: boolean;
+
+	/** The setting that says what a word is was changed (here, or while Obsidian was closed): the day's words are a
+	    difference between two counts of each note, so every note counted today is counted again by the new way, and
+	    what was written in it today stays what it was. Changing the setting neither adds to the day nor takes from it. */
+	private ruled(): void {
+		const now = this.plugin.settings.bookWords;
+		if (now === this.rule) return;
+		this.rule = now;
+		this.plugin.app.saveLocalStorage(RULE, now);
+		void this.recount();
+	}
+	private async recount(): Promise<void> {
+		const { app } = this.plugin;
+		// (a moment's typing not counted yet would be counted the new way against the old: it is let go, and the day
+		// carries on from the note as it is saved)
+		if (this.pendingTimer) { window.clearTimeout(this.pendingTimer); this.pending.clear(); this.pendingTimer = 0; }
+		const files = this.session.paths().map((p) => app.vault.getAbstractFileByPath(p)).filter((f): f is TFile => f instanceof TFile);
+		// what is typed and not saved yet is on disk before a note is read
+		try { await saveOpen(app, files); } catch { /* counted as it is on disk */ }
+		for (const f of files) {
+			try { const n = wordsIn(this.plugin, await app.vault.cachedRead(f)); this.session.recount(f.path, n); this.onDisk.set(f.path, n); } catch { /* gone */ }
+		}
+		this.store();
+		if (this.on) this.drawNow();
+	}
+
 	/** A note of a binder seen for the first time today: what it has now is what the day is counted from. */
 	private seen(file: TFile): void {
 		if (this.session.has(file.path)) return;
 		void this.plugin.app.vault.cachedRead(file).then((text) => {
 			this.session.roll(dayOf(new Date()), !!this.on);
-			if (!this.session.has(file.path)) { this.session.see(file.path, countWords(text)); this.onDisk.set(file.path, countWords(text)); this.keep(); }
+			if (!this.session.has(file.path)) { const n = wordsIn(this.plugin, text); this.session.see(file.path, n); this.onDisk.set(file.path, n); this.keep(); }
 		}, () => { /* gone */ });
 	}
 
@@ -712,7 +747,7 @@ export class Focus {
 		try { text = await this.plugin.app.vault.cachedRead(file); } catch { return; }
 		// (what's typed and not counted yet is counted first)
 		if (this.pendingTimer) { window.clearTimeout(this.pendingTimer); this.count(); }
-		const n = countWords(text), was = this.onDisk.get(file.path);
+		const n = wordsIn(this.plugin, text), was = this.onDisk.get(file.path);
 		this.onDisk.set(file.path, n);
 		if (was === undefined || n === was || this.wasHeld(file.path, text)) return;
 		this.session.shift(file.path, n - was, was);
@@ -732,11 +767,11 @@ export class Focus {
 	/** A note's text as it is now (typed in the manuscript or in a tab, before it's saved). A note not seen yet today
 	    is counted from what's in the vault, which is what it had before this typing. */
 	typed(file: TFile, text: string): void {
-		const n = countWords(text), s = this.session;
+		const n = wordsIn(this.plugin, text), s = this.session;
 		this.words.typed(file, text);
 		s.roll(dayOf(new Date()), !!this.on);
 		if (s.has(file.path)) { s.see(file.path, n); this.keep(); if (this.on) this.draw(); return; }
-		void this.plugin.app.vault.cachedRead(file).then((was) => countWords(was), () => n).then((base) => {
+		void this.plugin.app.vault.cachedRead(file).then((was) => wordsIn(this.plugin, was), () => n).then((base) => {
 			s.see(file.path, n, base);
 			if (!this.onDisk.has(file.path)) this.onDisk.set(file.path, base);
 			this.keep();

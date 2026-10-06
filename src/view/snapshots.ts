@@ -8,7 +8,7 @@ import { attach, bringBack, isScene, leftovers, nameSnapshot, rewrite, snapshots
 import { liveEditors } from './editable-embed';
 import { historyLook, refreshHeader, submenu, trashPhrase } from './internals';
 import { ask, buttonRow, cancelButton, confirm } from './modals';
-import { countWords, wordsLabel } from './words';
+import { wordsIn, wordsLabel } from './words';
 
 /* Snapshots, to the writer: "Take a snapshot", "Rewrite", the dialog that lists a note's snapshots, and a pane that
    shows one beside the note. The dialog is laid out as Obsidian's own File recovery and Sync history dialogs are, with
@@ -169,7 +169,7 @@ export class SnapshotView extends ItemView {
 		if (!(file instanceof TFile) || file.extension !== SNAPSHOT_EXT) { if (this.path) page.createDiv({ cls: 'binders-snapshot-of', text: 'This snapshot isn’t there any more.' }); return; }
 		const named = readSnapshotName(file.basename, this.beside()), read = readSnapshot(await this.app.vault.cachedRead(file));
 		const at = named?.when.getTime() ?? read.taken ?? file.stat.mtime, title = named ? named.title : file.basename;
-		page.createDiv({ cls: 'binders-snapshot-of', text: `Snapshot${title ? ` “${title}”` : ''}, taken ${whenIn(at)} · ${wordsLabel(countWords(read.body))}` });
+		page.createDiv({ cls: 'binders-snapshot-of', text: `Snapshot${title ? ` “${title}”` : ''}, taken ${whenIn(at)} · ${wordsLabel(wordsIn(this.plugin, read.body))}` });
 		if (read.body.trim()) await MarkdownRenderer.render(this.app, forRender(this.plugin.paragraphs.forRender(read.body, this.of || file.path)), page, this.of || file.path, this.shown);
 		else page.createDiv({ cls: 'binders-snapshot-of', text: 'A blank page.' });
 		copyAsMarkdown(page);
@@ -382,12 +382,12 @@ export class SnapshotsModal extends Modal {
 		};
 		const rows = new Map<Snapshot | null, HTMLElement>();
 		if (this.scene) {
-			const words = wordsLabel(countWords(this.current)), el = row(null, 'The note now', words, `The note now, ${words}`);
+			const words = wordsLabel(wordsIn(this.plugin, this.current)), el = row(null, 'The note now', words, `The note now, ${words}`);
 			el.addClass('is-now');
 			rows.set(null, el);
 		}
 		for (const s of list) {
-			const at = whenShort(s.taken), words = wordsLabel(countWords(s.body));
+			const at = whenShort(s.taken), words = wordsLabel(wordsIn(this.plugin, s.body));
 			rows.set(s, row(s, s.title || at, s.title ? `${at} · ${words}` : words, `Snapshot${s.title ? ` “${s.title}”` : ''}, ${whenIn(s.taken)}, ${words}${this.scene && this.sameAsNote(s) ? ', the same as the note now' : ''}`));
 		}
 		// what was shown stays shown; otherwise the newest snapshot (a phone starts at the list)
@@ -422,7 +422,7 @@ export class SnapshotsModal extends Modal {
 		// which one this is: its name if it has one, else when it was taken
 		const name = s ? s.title || when(s.taken) : 'The note now';
 		this.nameEl.setText(name);
-		this.detailEl.setText([s?.title ? when(s.taken) : '', wordsLabel(countWords(text)), same ? 'Same as the note now' : ''].filter((x) => x).join(' · '));
+		this.detailEl.setText([s?.title ? when(s.taken) : '', wordsLabel(wordsIn(this.plugin, text)), same ? 'Same as the note now' : ''].filter((x) => x).join(' · '));
 		// (a phone has the name where the dialog's title is, with the way back to the list beside it, as File recovery has)
 		if (this.back) { this.setTitle(name); this.titleEl.appendChild(this.back); }
 		this.actions.empty();

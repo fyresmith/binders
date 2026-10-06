@@ -138,6 +138,7 @@ npm test -- lanes        # only the files whose name has "lanes" in it (several 
 | `tests/model.test.ts`, `tests/qa-model.test.ts` | The binder index (`src/model.ts`): reading `contents`, ordering, renames, moves, batches of changes |
 | `tests/longform.test.ts` | Longform projects (`src/longform.ts`): reading and writing `longform.scenes`, groups, conversion |
 | `tests/view.test.ts` | Word counts (`src/view/words.ts`), labels and statuses (`src/view/labels.ts`), settings as saved (`src/settings-data.ts`) |
+| `tests/book-words.test.ts` | Word counts that agree with the book (`src/view/book-words.ts`): each kind of content, the light reader against export's parser (the demo vault's notes, notes made at random), the views' totals against `bookWords` for every demo binder and every row of "What Markdown becomes", the day's words across a change of the setting |
 | `tests/outliner.test.ts` | The outliner's columns, sorting, targets and typed values (`src/view/outliner-data.ts`) |
 | `tests/lanes.test.ts` | The corkboard by label (`src/view/lanes-data.ts`): the lines, where a card is on them, where a drop lands, what is announced |
 | `tests/file-drag.test.ts` | A card dragged out as a file (`src/view/file-drag-data.ts`): inside the view or out of it, the drop effect, scrolling at the edge, the ghost's title |
@@ -238,6 +239,7 @@ Without `--specs`, every `tests/e2e/specs*.mjs` runs:
 | `specs-binders.mjs` | The binder store: detection, keeping the list in step, batching, newer formats, commands |
 | `specs-explorer.mjs` | The file explorer: order, hidden notes, icon, click to open, dragging to reorder |
 | `specs-view.mjs` | The view shell: state, breadcrumb, modes, word count and target, filter, synopsis |
+| `specs-word-counts.mjs` | Word counts that agree with the book: a note with comments, links and code on a card, a stack, the toolbar, the outliner, a target, the inspector, Contents and focus mode, and in the export window; the setting off (as the status bar counts); a chapter's title; an embedded note; the day's words across a change of the setting |
 | `specs-corkboard.mjs` | The corkboard |
 | `specs-lanes.mjs` | The corkboard arranged by label: a line per label, dragging across and along the lines, stacks, the filter, the keyboard, a line's menu, Longform, right to left, a phone, a thousand cards |
 | `specs-card-file-drag.mjs` | A card or an outliner row dragged out of the view as a file: each place that takes one, the refusals, Escape, a tablet, the fallback |

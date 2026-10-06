@@ -3,7 +3,8 @@ import type { Binder } from '../binders';
 import type BindersPlugin from '../main';
 import { labelDot, readLabel } from '../view/labels';
 import { readProps } from '../view/props';
-import { WordCounter, wordsLabel } from '../view/words';
+import { WordCounter } from '../view/word-counter';
+import { wordsLabel } from '../view/words';
 import type { Follow, Target } from './follow';
 import { FollowingView, showSide } from './views';
 
@@ -47,7 +48,7 @@ export class ContentsPane {
 		this.el = parent.createDiv({ cls: 'binders-contents' });
 		this.list = this.el.createDiv({ cls: 'binders-contents-list', attr: { role: 'tree', 'aria-label': 'Contents' } });
 		this.foot = this.el.createDiv({ cls: 'binders-contents-foot' });
-		this.words = new WordCounter(plugin.app, () => this.count());
+		this.words = new WordCounter(plugin, () => this.count());
 		owner.registerEvent(plugin.app.vault.on('modify', () => this.count()));
 		// one listener each for every row, however many there are
 		const rowOf = (e: Event): { path: string; self: HTMLElement } | null => {

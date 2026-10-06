@@ -12,7 +12,8 @@ import { parseTarget, whyNotTarget } from './outliner-data';
 import { readProps, writeProps } from './props';
 import type { BinderMode, ModeContext, SceneProps } from './mode';
 import type { EditorView } from '@codemirror/view';
-import { WordCounter, wordsLabel } from './words';
+import { WordCounter } from './word-counter';
+import { wordsLabel } from './words';
 
 /* The binder view: one folder of a binder, shown as a corkboard, an outliner or a manuscript. The view owns the toolbar
    (breadcrumb, word count, filter, mode), the folder's synopsis and the subscriptions; the mode draws the rest (mode.ts).
@@ -94,7 +95,7 @@ export class BinderView extends ItemView {
 
 	constructor(leaf: WorkspaceLeaf, private plugin: BindersPlugin) {
 		super(leaf);
-		this.words = new WordCounter(this.app, () => this.schedule());
+		this.words = new WordCounter(this.plugin, () => this.schedule());
 		// Mod-Enter saves a synopsis. Obsidian's own Mod-Enter ("Open link in new tab") would otherwise take it when an
 		// editor was active last.
 		this.scope = new Scope(this.app.scope);

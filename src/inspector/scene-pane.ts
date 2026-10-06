@@ -12,7 +12,8 @@ import type { ModeContext } from '../view/mode';
 import { parseTarget, whyNotTarget } from '../view/outliner-data';
 import { readNotes, readProps, writeNotes, writeProps } from '../view/props';
 import { SnapshotsModal, take, whenShort } from '../view/snapshots';
-import { WordCounter, countWords, wordsLabel } from '../view/words';
+import { WordCounter } from '../view/word-counter';
+import { wordsIn, wordsLabel } from '../view/words';
 import type { Follow, Target } from './follow';
 import { ROLE_NAMES, rolesOf, type Played } from './roles';
 
@@ -47,7 +48,7 @@ export class ScenePane {
 
 	constructor(parent: HTMLElement, private plugin: BindersPlugin, private follow: Follow, private owner: Component) {
 		this.el = parent.createDiv({ cls: 'binders-inspector' });
-		this.words = new WordCounter(plugin.app, () => this.again());
+		this.words = new WordCounter(plugin, () => this.again());
 		// a snapshot taken, named or deleted anywhere: this note's list is read again
 		const stale = (path: string) => { if (plugin.binders.inSnapshots(path)) { this.snaps.clear(); this.again(); } };
 		owner.registerEvent(plugin.app.vault.on('create', (f) => stale(f.path)));
@@ -265,7 +266,7 @@ export class ScenePane {
 			const row = rows.createDiv({ cls: 'tree-item' }).createDiv({ cls: 'tree-item-self is-clickable', attr: { tabindex: '0', role: 'button' } });
 			row.dataset.field = `snapshot:${s.file.name}`;
 			row.createDiv({ cls: 'tree-item-inner', text: s.title || whenShort(s.taken) });
-			row.createDiv({ cls: 'tree-item-flair-outer' }).createSpan({ cls: 'tree-item-flair', text: s.title ? whenShort(s.taken) : wordsLabel(countWords(s.body)) });
+			row.createDiv({ cls: 'tree-item-flair-outer' }).createSpan({ cls: 'tree-item-flair', text: s.title ? whenShort(s.taken) : wordsLabel(wordsIn(this.plugin, s.body)) });
 			// (the dialog the note's menu opens, on this one: what's compared, brought back and named is there)
 			const open = () => new SnapshotsModal(plugin, scene, s.file).open();
 			row.addEventListener('click', open);

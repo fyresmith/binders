@@ -172,7 +172,7 @@ New (note, folder). The view runs edge to edge, as a base, a canvas or a note do
   accent at 10%), with a 1 px line.
 - Card: title, synopsis (editable in place), status chip, label color (the card's border, and by default its face
   faintly tinted, as a colored card on a canvas; the view option "Tint cards with their label color" turns the tint
-  off), word count. A note with a target shows "words / target" and a progress line along the
+  off), word count (as the book has it: "What a word of the book is", below). A note with a target shows "words / target" and a progress line along the
   card's foot. Double-click opens the note.
 - Drag to reorder; onto a folder's card to move into that folder; onto a folder in the breadcrumb to move out to it. Multi-select as in a file manager (below). A drag
   looks like Obsidian's own reordering: the card follows the pointer (`drag-reorder-ghost`), a tinted slot holds its
@@ -440,7 +440,8 @@ of its own, so the editor being typed in is never remounted. `src/focus/focus.ts
 - **"Go to previous scene" and "Go to next scene":** commands, in or out of focus. A note in a tab gives way to that
   note in the same tab (Obsidian saves the one left); in the manuscript the cursor goes to that section.
 - **The day's words:** a session is a day's writing in a binder on one device: each note's word count when it was
-  first seen that day and its count now (`src/focus/session.ts`, pure). Counted in any note of a binder as it's
+  first seen that day and its count now (`src/focus/session.ts`, pure; counted as every count is: "What a word of
+  the book is", below). Counted in any note of a binder as it's
   typed, in focus or not; kept in the vault's local storage (`app.saveLocalStorage`), never in a note or in
   `data.json`. Renames follow; a note split or merged counts once. A session that runs past midnight carries on
   until focus is left.
@@ -619,6 +620,79 @@ them: see AGENTS.md). Nothing is tagged yet.
   space between; none after a heading or a scene break). The built-in styles indent. A tab in the source doesn't
   decide it paragraph by paragraph, and neither does the editor's "Indent paragraphs".
 - **Scrivener import** keeps tabs as typed.
+
+## What a word of the book is (2026-10-06)
+
+One rule, and it is export's. A card, a stack, the outliner's Words column and its last row, the toolbar's count and
+its progress, a target on a note, a folder or the binder, the inspector, Contents' foot, focus mode's numbers and the
+day's words all count a note as the exported book has it, so none of them says more words than the book. The
+setting **"Count words as the exported book does"** (Settings, "Word counts"; on to begin with) turns this off: then
+every one of them counts as Obsidian's status bar does (`countWords` in `src/view/words.ts`), which is how Binders
+counted before 0.33 and what a writer who checks a note against the status bar will want.
+
+Nothing about the rule is written twice. `src/view/book-words.ts` hands a note to export's own reader
+(`parseBody` in `src/export/markdown.ts`) and counts with export's own `countWords` and `blocksText`
+(`src/export/model.ts`), as `bookWords` does. So the table below is "What Markdown becomes" in
+[export.md](export.md) read for its words, and a change to export changes the counts with it.
+
+| In a note | Counted |
+|---|---|
+| Properties | No |
+| `%%comment%%`, `<!-- comment -->`, on a line or over several | No. In code they are the writer's text, and counted |
+| `[[Note]]` | The note's name (and what follows a `#`): the words the book shows |
+| `[[Note\|words]]` | The words shown; not the note's name |
+| `[words](https://…)`, `[words][label]` | The words; not the address, and not a link's definition (`[label]: …`) |
+| `<https://…>` | Yes: the address is what the page shows |
+| `[^1]` and its text, `^[a footnote typed in place]` | The text, once, however often it is marked: a footnote is in the book (at the foot of the page, or a pop-up). A footnote nothing points at is left out of the book, and isn't counted |
+| `![[Note]]` | The embedded note's words, each time it is embedded, as the book has them there. A whole note only, one level deep: `![[Note#Heading]]`, a note embedded by an embedded note, and anything that isn't a note are left out |
+| `![[picture.png]]`, `![description](picture.png)` | No: a picture's description is no word on the page |
+| `> [!note] Title` | The title and the text; not the kind (`[!note]`) |
+| `## Heading` | Yes |
+| `# Heading` as a note's first block | In a scene, yes. In a note that opens a section (a chapter, a part, a page of front or back matter) it is that section's title: export sets it with its own headings and doesn't count those, so it isn't counted |
+| A table | Its cells; not its rule |
+| A fenced code block, `code` in a line | Yes, as typed: export sets code in the book. (Not the fence, or the language it names) |
+| A paragraph begun with a tab or with spaces | Yes: a paragraph, never code |
+| HTML | The text between the tags; not the tags |
+| `==highlight==`, `*emphasis*`, `**bold**`, `~~struck~~` | The words (`un*believ*able` is one) |
+| `$math$`, `$$math$$` | As typed |
+| A list's number or mark, a task's box, a rule (`---`, `* * *`) | No |
+| `#tag` in a line of text | As typed. A line of nothing but tags: no |
+| `^block-id` at a line's end | No |
+| `&amp;`, `\*` | The character they stand for |
+
+A word is what export says it is: a run of letters and digits, with `'`, `’`, `.` or `-` inside it (`don’t`,
+`well-known`, `3.14`). That differs from the status bar in small ways, and in two that matter (2026-10-06, said to
+export's owners): `1,000` is two words, and a run of Chinese or Japanese characters is one word, where the status
+bar counts each character. Until export counts those as a writer would, a book in Chinese or Japanese is better
+counted with the setting off.
+
+What a count leaves to the writer's own sense:
+
+- **A note left out of an export** (`export: false`) still shows its own words, and is still in its folder's and
+  the binder's totals: the totals are of the binder, and the export window's is of what is exported. Front and back
+  matter count too, as they do in an ebook; a manuscript without them has fewer words than the toolbar says.
+- **The day's words** are counted by the same rule as everything else, from each note's own text (not what it
+  embeds). Changing the setting counts every note of the day again by the new rule and keeps what was written
+  (`Session.recount`): the switch neither adds to the day nor takes from it. Which rule the day was counted by is
+  kept beside the session, in the vault's local storage.
+- **A snapshot's** words are its own text's, by the same rule.
+- **Nothing says so when a count drops.** With the setting on, a note with comments or links has fewer words than
+  it showed before, and a target that was just met may be just unmet. Nothing records that a target was met, so
+  there is nothing to put right: the changelog says it, and the setting's description says why.
+
+**Fast enough.** Export's reader is a full Markdown parser: half a second on a note of 100,000 words, where the
+status bar's way takes 9 ms. So `readBody` hands the parser only the lines that need it. A line of plain prose
+(letters, digits, spaces, a sentence's punctuation, and emphasis marks that can't join two pieces of a word) has the
+same words wherever it stands, so it is counted as it is, and a full stop stands in for it in what the parser reads,
+which keeps every other line in the paragraph, list, quotation or block it was in. A footnote's and a link's
+definition take the lines after them along. Measured on the demo vault, on a busy machine: the note of 100,000
+words in 8 ms (the status bar's way: 9 ms; the parser: 530 ms), the binder of 5,000 notes in 45 ms (24 ms; 2.2 s).
+
+**Held to export by a test.** `tests/book-words.test.ts` fails if the views ever count a word export doesn't: the
+light reader against the parser on every note of the demo vault, on 6,000 notes made at random from lines of every
+kind, and on a list of awkward texts; each row of the demo vault's "What Markdown becomes" as a chapter and as a
+scene against `bookWords` of the book export builds; and the views' total for each of the 27 demo binders against
+`bookWords` of that binder.
 
 ## After 1.0 (from Scrivener)
 

@@ -3,6 +3,17 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.33.0 (2026-10-06)
+
+### Added
+
+- A setting, Count words as the exported book does (on to begin with): turn it off to count as Obsidian's status bar does. Changing it leaves the day's words as they were.
+
+### Changed
+
+- Word counts now say what an export says: comments, the hidden part of a link, a web address and a note's properties aren't counted, and a footnote is counted once. Cards, stacks, the outliner, the toolbar, targets, the inspector, Contents, focus mode and the day's words all follow. A note with comments or links shows fewer words than before, and a target that was only just met may be just short.
+- A heading at the top of a note that opens a chapter is the chapter's title, and isn't counted with its text. A note that embeds another counts the embedded note's words.
+
 ## 0.32.7 (2026-10-06)
 
 ### Changed

@@ -298,7 +298,8 @@ test('word count, and the binder’s target', withTidy(async (p, h, t) => {
 		Object.assign(perCard, inside);
 	}
 	t.eq(Object.keys(perCard).length, 7, 'seven notes in all');
-	// each card agrees with Obsidian's own count in the status bar
+	// each card agrees with Obsidian's own count in the status bar (these notes are plain prose, which the book's way
+	// of counting and the status bar's count alike; specs-word-counts.mjs has a note they differ on, the setting on and off)
 	for (const [path, n] of Object.entries(perCard)) {
 		await p.ev(`app.workspace.getLeaf('tab').openFile(app.vault.getAbstractFileByPath(${j(path)})).then(() => 1)`);
 		const bar = await until(p, `(() => { const e = document.querySelector('.status-bar-item.plugin-word-count'); return e && /\\d/.test(e.textContent) && app.workspace.getActiveFile()?.path === ${j(path)} ? e.textContent : null; })()`);
