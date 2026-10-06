@@ -1,0 +1,86 @@
+# Known limitations
+
+What doesn't work yet, what works in a way you might not expect, and what is planned. Anything else that goes wrong
+is a bug: [open an issue](https://github.com/fyresmith/binders/issues).
+
+## Planned, not built
+
+- A paperback PDF in Export.
+- Editing an export style, and more book styles than **Classic**.
+- Import from a Scrivener project.
+- Find and replace across the manuscript.
+
+See the [roadmap](../ROADMAP.md).
+
+## Phones and tablets
+
+Phone and tablet support is new and has had little testing on real devices. See [Phones and tablets](mobile.md).
+
+## Splitting
+
+- After **Split scene at cursor**, Undo in the note you split takes the split back only while Obsidian stays open
+  and Binders stays on. After a restart, or once the note's own undo history is gone, the split is two notes like
+  any others.
+- If the note changes in the moment it is being split, both notes keep the text and a notice says so.
+
+## Undoing a move
+
+- **Undo last move** covers moves, and a folder made around notes or ungrouped. It doesn't cover renames, deletes,
+  merges or duplicates. A split is undone in its note, with the editor's own undo.
+- It remembers the last fifty changes, of all binders together, while Obsidian is open.
+- Undoing a kept sort of thousands of notes is slow.
+- For screen readers, "Undo last move" isn't announced.
+
+## Properties
+
+- **Setting a property** (a status, a label, a target, a synopsis) goes through Obsidian, which writes the note's
+  whole properties block again in its own form: comments in the block are dropped, and `0123` becomes `123`. The
+  same happens to a binder note, or a Longform project's index note, when its order is written. Obsidian's own
+  Properties view does the same. The note's text is never touched.
+- **Windows line breaks.** Binders leaves a note's line breaks alone unless you type in it. Obsidian itself rewrites
+  a note that has Windows line breaks with its own when the note's tab is closed or given to another note.
+
+## Paragraphs that start with a tab
+
+To everything but Binders, a line that starts with a tab is a code block: in the same note outside a binder, in
+another Markdown app, in Obsidian Publish. Obsidian doesn't list links or tags in such a line among backlinks, in
+the graph or in the tag list. See [Paragraphs](paragraphs.md).
+
+## The file explorer
+
+- Plugins that replace the file explorer don't show binder order.
+- A selection that spans two folders of a binder, or a Longform project, still has Obsidian's own **New folder with
+  selection**, which puts the folder last.
+- **Copying a folder.** Obsidian's **Make a copy** of a folder (or a copy made in a file manager while Obsidian is
+  open) is placed right after the original, in the original's order, and keeps the folder's synopsis, label and
+  target: Binders renames the copied folder note to match the copy. A folder note with none of those properties, or
+  one that differs from the original's, is left under its old name and shows in the copy as a scene, listed last.
+
+## Binders
+
+- Nested binders aren't supported: a binder note inside a binder is treated as an ordinary note.
+- The top of the vault can't be a binder.
+- Longform projects that hold a single note (`format: single`) aren't binders.
+- A binder made by a newer version of Binders is read only.
+
+## Export
+
+- Pictures are PNG, JPEG or GIF. Other formats are listed and left out.
+- An embedded PDF or other file, and part of a note embedded by its heading, are left out. Math and tags in a line
+  of text are exported as typed.
+- A manuscript's "by" and word count line are in English whatever the book's language.
+- A Scrivener project is one way. Scrivener's format has no published description, so a version of Scrivener may
+  read something differently. See [Scrivener project](export-scrivener.md).
+- Obsidian lists exported .docx and .epub files in its file explorer only with **Detect all file extensions** on.
+
+## Snapshots
+
+- Obsidian Sync carries snapshots only with **Sync all other types** on.
+- Obsidian's "Move file to..." list shows the `Snapshots` folders.
+- A snapshot keeps a note's text, not its properties.
+
+## Focus mode
+
+- With Vim key bindings on, Esc is Vim's: leave with the button or the command.
+- **Enter fullscreen** isn't available on phones and tablets.
+- The words written today don't sync: each device counts its own.
