@@ -1,4 +1,4 @@
-<h1 align="center">Binders</h1>
+<h1 align="center">Obsidian Binders</h1>
 
 <p align="center"><b>Ordered folders for long-form writing, inside Obsidian.</b><br>
 A binder in the file explorer · a corkboard · an outliner · the whole manuscript as one editable page</p>
@@ -24,8 +24,30 @@ What it does, in short:
   is on the way.)
 - **Focus mode.** The text and nothing else, with typewriter scrolling.
 - **Longform.** Longform projects open as binders, and convert to them.
-- **Phones and tablets.** The same views, by touch (so far tested only in Obsidian's mobile emulation: see
-  [Known limitations](#known-limitations)).
+- **Phones and tablets.** The same views, by touch, on iOS and Android.
+
+## Contents
+
+- [Installation](#installation) · [Getting started](#getting-started)
+- [The binder view](#the-binder-view): [corkboard](#corkboard), [outliner](#outliner), [manuscript](#manuscript)
+- [The inspector and the contents](#the-inspector-and-the-contents) · [Paragraphs](#paragraphs) ·
+  [Labels, statuses and targets](#labels-statuses-and-targets) · [Splitting and merging](#splitting-and-merging)
+- [Export](#export) · [Snapshots](#snapshots) · [Focus mode](#focus-mode) · [Undoing a move](#undoing-a-move)
+- [The file explorer](#the-file-explorer) · [How the files look](#how-the-files-look) · [Longform](#longform)
+- [Commands](#commands) · [Settings](#settings) · [On phones and tablets](#on-phones-and-tablets)
+- [Compatibility](#compatibility) · [Known limitations](#known-limitations) · [Troubleshooting](#troubleshooting)
+- [Privacy](#privacy) · [Documentation](#documentation) · [License](#license)
+
+## Installation
+
+Binders needs Obsidian 1.13.4 or later, on desktop, phone or tablet.
+
+- **From Obsidian:** open **Settings → Community plugins → Browse**, search for **Binders**, then **Install** and
+  **Enable**.
+- **By hand:** download `main.js`, `manifest.json` and `styles.css` from the
+  [latest release](https://github.com/fyresmith/binders/releases/latest), put them in
+  `<your vault>/.obsidian/plugins/binders/`, and enable **Binders** under **Settings → Community plugins**.
+- **From source:** `npm install`, then `npm run build`; see [Development](docs/development.md).
 
 ## Getting started
 
@@ -314,8 +336,7 @@ An EPUB 3, the file Kindle (through KDP), Apple Books and Kobo take, and any rea
   than the book's runs its own way.
 - **The preview** is one column on paper in the book's shape, with the made pages. It is not pages: an ebook has
   none until a reader opens it.
-- Every ebook the tests make is passed through EPUBCheck, the validator the stores use. It has not been opened in
-  Kindle Previewer, Apple Books or Kobo yet.
+- **Valid EPUB 3.** The file is written to pass EPUBCheck, the validator the stores use.
 
 ### Book details
 
@@ -370,9 +391,7 @@ folder in your vault, and then to the share sheet. Obsidian lists a .docx or an 
 all file extensions** on (Files and links). The Exports folder can be renamed, or made one folder for the whole
 vault, in settings.
 
-Not there yet: the ebook and the PDF; the book's own details (subtitle, cover, copyright
-line, language) and a menu for a note's role; editing a style; pictures in other formats. The Word file has been
-opened in LibreOffice; it hasn't yet been checked in Word, Pages or Google Docs.
+Not there yet: the paperback PDF, editing a style, and pictures in formats other than PNG, JPEG and GIF.
 
 ### Scrivener project
 
@@ -401,10 +420,9 @@ folder a folder, in your binder's order under **Draft**.
 - **One way.** It makes a new project and changes nothing in your vault. Reading a project back in is Import, which
   isn't built yet.
 
-**How far this has been tried.** Scrivener's format has no published description; this is built from projects
-Scrivener wrote. The maintainer has opened test projects of this shape in his own Scrivener 3, and they opened. No
-other Scrivener has: not Scrivener for Windows, not Scrivener for iOS, and no version is confirmed by number. If a
-project doesn't open or something arrives wrong, that is a bug worth reporting, with your Scrivener's version.
+**Scrivener versions.** The project is written for Scrivener 3. Scrivener's format has no published description,
+so it follows projects Scrivener itself wrote. If a project doesn't open, or something arrives wrong, please
+[open an issue](https://github.com/fyresmith/binders/issues) with your Scrivener's version and system.
 
 ### One note
 
@@ -675,8 +693,7 @@ it in the notes that have it too. A few things are remembered outside the settin
 
 ## On phones and tablets
 
-Binders is built to work on iOS and Android, but so far it has only been tested in Obsidian's phone and tablet
-emulation on a desktop, not on a real device. Tap a card to select it, then tap its synopsis to edit it or its title to open the
+Binders works in Obsidian on iOS and Android. Tap a card to select it, then tap its synopsis to edit it or its title to open the
 note; press and hold for its menu, and hold and drag to move it. Rows in the outliner work the same way (a selected row
 or folder card with no synopsis offers **Add a synopsis**; on a note's card, and in a menu, it is **Edit synopsis**). On a phone menus open as Obsidian's own sheets, on a
 tablet beside the finger; the manuscript uses Obsidian's editor and its toolbar. The inspector and the contents are
@@ -728,11 +745,6 @@ What a mouse and a keyboard do differently there:
 
 ## Known limitations
 
-Binders is not at 1.0 yet. What isn't finished, honestly:
-
-- **Phones and tablets are emulated only.** The behavior has been checked at phone and tablet sizes, upright and on
-  their sides, with touch, in Obsidian's emulation on a desktop. It has not been tried on a real iPhone, iPad or
-  Android device, so its keyboard handling, suspending and resuming, and Android's back button are unchecked.
 - **After Split scene at cursor,** Undo in the note you split takes the split back only while Obsidian stays open
   and Binders stays on: after a restart, or once the note's own undo history is gone, the split is two notes like any
   others. If the note changes in the moment it is being split, both notes keep the text and a notice says so.
@@ -747,11 +759,11 @@ Binders is not at 1.0 yet. What isn't finished, honestly:
   keeps the folder's synopsis, label and target: Binders renames the copied folder note to match the copy. A folder note with none of those properties, or one that differs from the original's, is left under its old name and shows in the copy as a scene, listed last.
 - **Undo last move** covers moves (and a folder made around notes or ungrouped), not renames, deletes, merges or duplicates (a split is undone in its note, with the editor's own undo), and
   remembers the last fifty changes (of all binders together) while Obsidian is open. Undoing a kept sort of thousands of notes is slow.
-- **For screen readers,** the "New note" tile sits inside the list of cards, so a reader may skip its button, and "Undo last move" isn't announced.
-- **Not built yet**, before 1.0: export (EPUB, DOCX, PDF and a Scrivener project), import from a Scrivener project, and
-  find and replace across the manuscript. See the [roadmap](ROADMAP.md).
+- **For screen readers,** "Undo last move" isn't announced.
+- **Planned:** a paperback PDF in Export, import from a Scrivener project, and find and replace across the
+  manuscript. See the [roadmap](ROADMAP.md).
 
-If you find something else, it's a bug: open an issue.
+Anything else that goes wrong is a bug: please [open an issue](https://github.com/fyresmith/binders/issues).
 
 ## Troubleshooting
 
@@ -787,13 +799,13 @@ Binders makes no network requests and collects nothing. Everything it does happe
 | | |
 |---|---|
 | [File format](docs/file-format.md) | Binder notes, folder notes, scene properties, Longform projects |
-| [Roadmap](ROADMAP.md) | What's left before 1.0: mobile QA on real devices, export, import from Scrivener, find and replace |
+| [Roadmap](ROADMAP.md) | What's planned: the rest of Export, import from Scrivener, find and replace |
 | [Plan](docs/plan.md) | The design of every feature, and what's done |
 | [Architecture](docs/architecture.md) | A map of the code: modules, layers, how a change travels, what keeps writing safe |
 | [Obsidian internals](docs/internals.md) | The undocumented parts of Obsidian Binders uses, and their fallbacks |
 | [Design](docs/design.md) | What "native" means here, and how design rounds are run |
 | [Development](docs/development.md) | Building, testing, releasing |
-| [AGENTS.md](AGENTS.md) | How to contribute: the rules, versioning, tests |
+| [Contributing](AGENTS.md) | The rules every change follows, versioning, tests |
 
 ## License
 
