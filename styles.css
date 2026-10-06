@@ -3877,26 +3877,56 @@ body.binders-focus-typing .binders-focus-leaf {
 	padding-bottom: 60vh;
 }
 
-/* "Dim other paragraphs": while typing, every paragraph but the one being written steps back (never below 4.5:1
-   against the page in Obsidian's own themes). The pointer moving, to select or to read back, brings them all forward
-   again. */
-.binders-focus-leaf .cm-line,
+/* "Dim other paragraphs": while typing, every paragraph but the one being written steps well back, to three tenths of
+   its strength (the maintainer's word, 2026-10-05: "significant"; it was 0.62 before, which kept 4.5:1 against the
+   page and was hard to tell from the paragraph being written). They are there to be seen, not read: the pointer
+   moving, to select or to read back, brings them all forward again at full strength. */
+/* (a paragraph is a line of the editor; a table, a callout, an image or an embed is a block of its own beside the
+   lines, and steps back with them: all but one being typed in, as a table's cell is) */
+.binders-focus-leaf .cm-content > *,
 .binders-focus-leaf .binders-manuscript-body,
 .binders-focus-leaf .binders-manuscript-heading,
 .binders-focus-leaf .binders-focus-near-text {
 	transition: opacity var(--anim-duration-moderate) ease-in-out;
 }
 
-body.binders-focus-dim.binders-focus-typing .binders-focus-leaf .cm-editor.cm-focused .cm-line:not(.cm-active),
+body.binders-focus-dim.binders-focus-typing .binders-focus-leaf .cm-editor.cm-focused .cm-content > :not(.cm-active, :focus-within),
 body.binders-focus-dim.binders-focus-typing .binders-focus-leaf .binders-manuscript-scene:not(:focus-within) .binders-manuscript-body,
 body.binders-focus-dim.binders-focus-typing .binders-focus-leaf .binders-manuscript-heading,
 body.binders-focus-dim.binders-focus-typing .binders-focus-leaf .binders-focus-near-text {
-	opacity: 0.62;
+	opacity: 0.3;
 }
 
 /* (the scenes before and after step back as far as the other paragraphs, no further) */
 body.binders-focus-dim.binders-focus-typing .binders-focus-leaf .binders-focus-near-text {
 	color: var(--text-normal);
+}
+
+/* "Dim the background": the page a deep charcoal, almost black, in a light theme too. <body> has Obsidian's own
+   `theme-dark` while it's on (focus.ts), so every color is the dark appearance's: the theme's, and a snippet's. Over
+   that, the page and what little of the window shows around it are one neutral charcoal, a step darker than
+   Obsidian's dark page (#1e1e1e) and well short of black. (Code and the like keep the dark appearance's own step
+   up from the page.) */
+body.binders-focus.binders-focus-dark {
+	--binders-focus-page: #161616;
+	--background-primary: var(--binders-focus-page);
+	--titlebar-background: var(--binders-focus-page);
+	--titlebar-background-focused: var(--binders-focus-page);
+	--tab-container-background: var(--binders-focus-page);
+	--status-bar-background: var(--binders-focus-page);
+	background-color: var(--binders-focus-page);
+}
+
+/* (it comes and goes with the fade of what's around the page, not at a stroke: the color of what paints the page,
+   and of the text, which everything on the page takes from <body>. The text's color is eased there and nowhere
+   below it: eased again at each level, each would trail the one above.) */
+@media (prefers-reduced-motion: no-preference) {
+	body:is(.binders-focus-dark, .binders-focus-post) {
+		transition: background-color var(--anim-duration-moderate) ease-in-out, color var(--anim-duration-moderate) ease-in-out;
+	}
+	body:is(.binders-focus-dark, .binders-focus-post) :is(.app-container, .horizontal-main-container, .workspace, .workspace-split, .workspace-tabs, .workspace-tab-container, .workspace-leaf, .workspace-leaf-content, .view-content, .titlebar, .markdown-source-view, .markdown-reading-view, .cm-editor, .cm-scroller, .binders-manuscript) {
+		transition: background-color var(--anim-duration-moderate) ease-in-out;
+	}
 }
 
 /* The way in and out. First what's around the page fades where it stands (`binders-focus-pre`: there, unseen), and only

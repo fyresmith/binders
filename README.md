@@ -472,9 +472,18 @@ Nothing of Obsidian's is closed or rearranged to do this: the sidebars, tabs, ot
 of sight while you write, and exactly where they were when you leave. Dialogs, menus and the command palette open
 over the page as usual, and take Esc first. With Vim key bindings on, Esc is Vim's; use the button or the command.
 
-**Typewriter scrolling** and **Dim other paragraphs** are on to begin with. Typewriter scrolling: while you write at
-the end of a scene, the line you're on stays at one height, a little above the middle, and the page moves under it. Go
-back up to change something and the page scrolls as it always does; the page never moves because you clicked.
+**Typewriter scrolling**, **Dim other paragraphs** and **Dim the background** are on to begin with. Typewriter
+scrolling: while you write at the end of a scene, the line you're on stays at one height, a little above the middle,
+and the page moves under it. Go back up to change something and the page scrolls as it always does; the page never
+moves because you clicked.
+
+Dim the background: in focus mode the page is a deep charcoal, almost black, with light text on it, whatever your
+theme. In a light theme too: the whole window takes Obsidian's dark colors (your theme's own, if it has them) while
+you're in focus, and is exactly as it was when you leave. Turn it off to write on your theme's own page.
+
+Dim other paragraphs: while you type, every paragraph but the one you're in steps well back, to about a third of its
+strength, and so do the tables, callouts and images between them, and the scenes before and after. They are there to
+be seen, not read: move the pointer and everything is at full strength again.
 
 Everything else is off until you turn it on, in Binders' settings or in focus mode's own menu (right-click the leave
 button or the text, or click the word counts):
@@ -651,7 +660,8 @@ Settings, Community plugins, Binders.
 | Show the scenes before and after | (Focus mode.) In a note, the end of the scene before and the start of the scene after, above and below its text. |
 | Show where you are | (Focus mode.) The scene's place in the binder and its synopsis, beside the text. |
 | Show word counts | (Focus mode.) The scene's words and the words written today, hidden while you type. |
-| Dim other paragraphs | (Focus mode.) While you type, every paragraph but the one you're in steps back. On to begin with. |
+| Dim other paragraphs | (Focus mode.) While you type, every paragraph but the one you're in steps well back. On to begin with. |
+| Dim the background | (Focus mode.) The page is a deep charcoal with light text, in a light theme too. On to begin with. |
 | Enter fullscreen | (Focus mode; desktop only.) Focus mode takes the whole screen and gives it back when you leave. |
 | Words to write today | (Focus mode.) A goal for a day's writing in a binder, shown with the word counts. Empty for none. |
 | Exports folder | (Export.) Where exported files go on a phone or tablet, and where the save dialog starts on a computer. A name is a folder beside each binder; a path, such as `Books/Exports`, is one folder for the whole vault. |

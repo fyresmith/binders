@@ -18,7 +18,7 @@ const ED = `${VIEWOF}.editor`, CM = `${ED}.cm`;
 const M = `${VIEW}.current`;
 const disk = (p, path) => readFileSync(join(p.vaultDir, path), 'utf8');
 // (what each test starts from; not the defaults: dimming is on by default, and off here so that each test turns on what it looks at)
-const OFF = { focusTypewriter: true, focusNeighbours: false, focusPlace: false, focusNumbers: false, focusDim: false, focusFullscreen: false, focusGoal: 0 };
+const OFF = { focusTypewriter: true, focusNeighbours: false, focusPlace: false, focusNumbers: false, focusDim: false, focusDark: false, focusFullscreen: false, focusGoal: 0 };
 const set = (p, s) => p.ev(`(async () => { Object.assign(${PL}.settings, ${j(s)}); await ${PL}.saveSettings(); })().then(() => 1)`).then(() => p.sleep(250));
 const inFocus = (p) => p.ev(`document.body.classList.contains('binders-focus')`);
 
@@ -292,7 +292,7 @@ test('each option shows its piece, from the settings and from the menu, and take
 	await press(p, '\n\nA second paragraph.');
 	await p.sleep(700);
 	const dim = await p.ev(`(() => { const ls = [...document.querySelectorAll('.binders-focus-leaf .cm-content > .cm-line')].filter(e => e.textContent.trim()); const o = ls.map(e => Number(getComputedStyle(e).opacity)); return { others: o.slice(0, -1), mine: o[o.length - 1] }; })()`);
-	t.ok(dim.mine === 1 && dim.others.length > 0 && dim.others.every((o) => Math.abs(o - 0.62) < 0.01), `while typing, the paragraph being written is whole and the others step back: ${j(dim)}`);
+	t.ok(dim.mine === 1 && dim.others.length > 0 && dim.others.every((o) => Math.abs(o - 0.3) < 0.01), `while typing, the paragraph being written is whole and the others step back: ${j(dim)}`);
 	await wiggle(p);
 	await p.sleep(400);
 	t.eq(await p.ev(`getComputedStyle([...document.querySelectorAll('.binders-focus-leaf .cm-content > .cm-line')].find(e => e.textContent.trim())).opacity`), '1', 'the pointer moving brings them forward again');
@@ -300,7 +300,7 @@ test('each option shows its piece, from the settings and from the menu, and take
 	// from the menu on the way out
 	const b = await p.at('.binders-focus-leave');
 	await p.right(b.x, b.y);
-	t.eq(j((await menuItems(p)).filter((x) => !/^(Previous|Next) scene/.test(x))), j(['Typewriter scrolling', 'Show the scenes before and after', 'Show where you are', 'Show word counts', 'Dim other paragraphs', 'Enter fullscreen', 'Leave focus mode']), 'a right click on the way out lists the options');
+	t.eq(j((await menuItems(p)).filter((x) => !/^(Previous|Next) scene/.test(x))), j(['Typewriter scrolling', 'Show the scenes before and after', 'Show where you are', 'Show word counts', 'Dim other paragraphs', 'Dim the background', 'Enter fullscreen', 'Leave focus mode']), 'a right click on the way out lists the options');
 	await clickMenu(p, 'Show word counts');
 	await p.sleep(400);
 	t.ok((await pieces(p)).numbers, 'picking one turns it on');
@@ -764,7 +764,7 @@ test('the day’s words: counted in and out of focus, kept on this device and ne
 	const kept = await p.ev(`JSON.stringify(app.loadLocalStorage('binders-session'))`).then(JSON.parse);
 	t.ok(kept && typeof kept.day === 'string' && Array.isArray(kept.notes[KEEPER]), 'the session is in the vault’s local storage: ' + j(kept));
 	const data = await p.ev(`app.vault.adapter.read(app.vault.configDir + '/plugins/binders/data.json')`);
-	t.ok(!/binders-session|"notes"/.test(data), 'not in the plugin’s settings');
+	t.ok(!/binders-session|"notes":|"day":/.test(data), 'not in the plugin’s settings');
 	const after = await texts(p);
 	for (const [path, text] of Object.entries(before)) { if (path !== KEEPER) t.eq(after[path], text, `“${path}” is unchanged`); }
 	t.ok(!/session|focus|today/.test(after[KEEPER].split('---')[1]), 'and nothing is written in the note’s properties');
@@ -832,6 +832,182 @@ test('the day’s words: a save in the middle of typing is the writer’s own an
 	} finally {
 		await p.ev(`(() => { window.__unhide?.(); return 1; })()`);
 	}
+});
+
+// ---- "Dim the background": the page a deep charcoal, in a light theme too ----
+
+const CHARCOAL = 'rgb(22, 22, 22)';
+/** The strength the paragraphs that aren't being written keep while typing ("Dim other paragraphs"). */
+const DIMMED = 0.3;
+/** What paints each of a grid of points across the window: the background of the topmost thing there that has one.
+    Every color found, with how many points have it. */
+const surface = (p, except = '') => p.ev(`(() => { const but = ${j(except)}, clear = (c) => /^rgba?\\(\\d+, \\d+, \\d+, 0\\)$|^transparent$/.test(c), out = {}; for (let i = 0; i < 12; i++) for (let k = 0; k < 9; k++) { const x = (i + 0.5) * innerWidth / 12, y = (k + 0.5) * innerHeight / 9; let c = 'nothing'; for (const e of document.elementsFromPoint(x, y)) { if (but && e.closest(but)) { c = but; break; } const b = getComputedStyle(e).backgroundColor; if (!clear(b)) { c = b; break; } } out[c] = (out[c] ?? 0) + 1; } return JSON.stringify(out); })()`);
+/** The window's colors, as Obsidian and its theme set them: <body>'s theme and what it and the parts around a tab
+    are drawn in. (To compare before and after: exactly the same means nothing of focus mode's dark page is left.) */
+const colors = (p, page = false) => p.ev(`(() => { const of = (s) => { const e = document.querySelector(s); if (!e) return null; const cs = getComputedStyle(e); return [cs.backgroundColor, cs.color, cs.caretColor].join(' / '); }, b = getComputedStyle(document.body); return JSON.stringify({ theme: [...document.body.classList].filter(c => /^theme-|^binders-focus/.test(c)).sort().join(' '), vars: ['--background-primary', '--background-secondary', '--text-normal', '--text-muted', '--text-accent', '--titlebar-background', '--code-background', '--interactive-accent'].map(v => b.getPropertyValue(v).trim()).join(' | '), body: of('body'), workspace: of('.workspace'), ribbon: of('.workspace-ribbon'), status: of('.status-bar'), titlebar: of('.titlebar'), tabs: of('.mod-root .workspace-tab-header-container'), ...(${page} ? { content: of('.workspace-leaf.mod-active .view-content'), text: of('.workspace-leaf.mod-active .cm-content'), line: of('.workspace-leaf.mod-active .cm-line') } : {}) }); })()`);
+/** How a thing reads against the page: its color at its strength (its own opacity and what holds it, up to the
+    page), over `bg`. */
+const READ = `(el, bg) => {
+	const rgb = (s) => (s.match(/[\\d.]+/g) ?? []).slice(0, 3).map(Number);
+	const lum = (c) => { const [r, g, b] = c.map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+	let o = 1; for (let e = el; e && !e.classList.contains('view-content'); e = e.parentElement) o *= Number(getComputedStyle(e).opacity);
+	const back = rgb(bg), fg = rgb(getComputedStyle(el).color).map((v, i) => v * o + back[i] * (1 - o)), a = lum(fg), b = lum(back);
+	return { strength: Math.round(o * 100) / 100, ratio: Math.round(((Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)) * 10) / 10 };
+}`;
+const allOf = (s, color) => { const o = JSON.parse(s); return Object.keys(o).length === 1 && Object.keys(o)[0] === color; };
+const fresh = (p) => p.ev(`(async () => { const pl = ${PL}; await pl.saveData({}); await pl.loadSettings(); return pl.settings.focusDark; })()`);
+
+test('“Dim the background”, on by default: in focus the whole window is a deep charcoal with light text on it, in a light theme too; leaving, closing the tab and turning the plugin off each put every color back exactly; off, the page is the theme’s', async (p, h, t) => {
+	t.eq(await fresh(p), true, 'the setting is on in a vault that has never set it');
+	await set(p, { ...OFF, focusDark: true });
+	const light = await p.ev(`document.body.classList.contains('theme-light')`);
+	// a note with the things that have colors of their own
+	await p.ev(`app.vault.modify(app.vault.getAbstractFileByPath(${j(KEEPER)}), ${j('---\nsynopsis: The keeper.\n---\n# A heading\n\nThe keeper, with a [[Prologue]] link, some `code` and **bold** words, climbs the stairs.\n\n> A quotation.\n\nA second paragraph, to stand behind the one being written.\n\nAnd a third.')}).then(() => 1)`);
+	await openNote(p, KEEPER);
+	await caretEnd(p);
+	const before = await colors(p, true), was = await surface(p);
+	t.ok(!allOf(was, CHARCOAL), 'out of focus the window is the theme’s: ' + was);
+	await enter(p, h);
+	await p.sleep(400);
+	t.eq(await surface(p), j({ [CHARCOAL]: 108 }), 'in focus every part of the window is the charcoal: the page, the space around the text, and what’s left of Obsidian around it');
+	t.eq(await p.ev(`[...document.body.classList].filter(c => /^theme-/.test(c)).join()`), 'theme-dark', 'with Obsidian’s own dark colors over the whole window');
+	const read = await p.ev(`(() => { const read = ${READ}, leaf = document.querySelector('.binders-focus-leaf'), q = (s) => leaf.querySelector(s), bg = ${j(CHARCOAL)}; const out = {}; for (const [k, s] of [['line', '.cm-line.cm-active'], ['heading', '.cm-line .cm-header'], ['link', '.cm-line .cm-hmd-internal-link, .cm-line .cm-link'], ['code', '.cm-line .cm-inline-code'], ['quote', '.cm-line.HyperMD-quote'], ['out', '.binders-focus-leave']]) { const e = q(s); out[k] = e ? read(e, bg).ratio : null; } const rgb = (s) => s; out.caret = read(Object.assign(document.createElement('span'), { style: 'color:' + getComputedStyle(q('.cm-content')).caretColor }), bg) && (() => { const s = document.body.appendChild(document.createElement('span')); s.style.color = getComputedStyle(q('.cm-content')).caretColor; const r = read(s, bg).ratio; s.remove(); return r; })(); return out; })()`);
+	t.ok(read.line >= 7, `the paragraph being written is 7:1 or better against it: ${j(read)}`);
+	t.ok([read.heading, read.link, read.code, read.quote].every((x) => x != null && x >= 4.5), `a heading, a link, code and a quotation are 4.5:1 or better: ${j(read)}`);
+	t.ok(read.caret >= 3 && read.out >= 3, `the cursor and the way out are 3:1 or better: ${j(read)}`);
+	// leaving
+	await leave(p, h);
+	await p.sleep(500);
+	t.eq(await colors(p, true), before, 'leaving focus puts every color back exactly');
+	t.eq(await surface(p), was, 'and the window is drawn as it was');
+	// and without Obsidian's own word for its appearance (an Obsidian whose `getConfig('theme')` said nothing): by what
+	// <body> said when focus began
+	await p.ev(`(() => { const v = app.vault, real = v.getConfig; v.getConfig = function (k) { return k === 'theme' ? undefined : real.call(this, k); }; window.__theme = () => { v.getConfig = real; delete window.__theme; }; return 1; })()`);
+	try {
+		await p.ev(`(() => { ${ED}.focus(); return 1; })()`);
+		await enter(p, h);
+		t.ok(allOf(await surface(p), CHARCOAL), 'without it: the charcoal still');
+		await leave(p, h);
+		await p.sleep(500);
+		t.eq(await colors(p, true), before, 'and every color back on leaving');
+	} finally { await p.ev(`(() => { window.__theme?.(); return 1; })()`); }
+	// the tab closed while in focus
+	const chromeBefore = await colors(p);
+	await p.ev(`(() => { ${ED}.focus(); return 1; })()`);
+	await enter(p, h);
+	t.ok(allOf(await surface(p), CHARCOAL), 'in focus again');
+	await p.ev(`(() => { app.workspace.getMostRecentLeaf().detach(); return 1; })()`);
+	await until(p, `!document.body.classList.contains('binders-focus')`);
+	await p.sleep(400);
+	t.eq(await colors(p), chromeBefore, 'the tab closed while in focus: every color is back');
+	// the plugin turned off while in focus
+	await openNote(p, KEEPER);
+	await enter(p, h);
+	t.ok(allOf(await surface(p), CHARCOAL), 'in focus again');
+	const off = await colors(p, true).then(() => null);
+	void off;
+	await p.ev(`app.plugins.disablePlugin('binders').then(() => 1)`);
+	await p.sleep(500);
+	try {
+		t.eq(await colors(p, true), before, 'the plugin turned off while in focus: every color is back, and nothing of the dark page is left');
+	} finally {
+		await p.ev(`(async () => { await app.plugins.enablePlugin('binders'); await app.plugins.plugins.binders.binders.ready; })().then(() => 1)`);
+		await p.sleep(600);
+	}
+	// off: as before this option
+	await set(p, { ...OFF, focusDark: false });
+	await openNote(p, KEEPER);
+	const plain = await surface(p);
+	await enter(p, h);
+	const inside = JSON.parse(await colors(p, true)), outside = JSON.parse(before);
+	t.eq(j([inside.theme.replace(/ ?binders-focus\S*/g, '').trim(), inside.vars, inside.content, inside.text]), j([outside.theme, outside.vars, outside.content, outside.text]), 'with the option off, focus mode’s page is the theme’s own, as it was before there was one');
+	t.ok(!allOf(await surface(p), CHARCOAL) && Object.keys(JSON.parse(await surface(p))).every((c) => Object.keys(JSON.parse(plain)).includes(c)), 'and nothing is charcoal' + (light ? '' : ' (the dark theme’s own page is lighter)'));
+	// turned on and off while in focus (the menu on the way out, the settings)
+	await set(p, { focusDark: true });
+	await p.sleep(500);
+	t.ok(allOf(await surface(p), CHARCOAL), 'turned on while in focus: the charcoal');
+	await set(p, { focusDark: false });
+	await p.sleep(500);
+	t.eq(j([JSON.parse(await colors(p, true)).vars, JSON.parse(await colors(p, true)).content]), j([outside.vars, outside.content]), 'and off again: the theme’s page');
+	await leave(p, h);
+});
+
+test('“Dim other paragraphs” is significant: while typing, every paragraph but the one being written is at three tenths of its strength, on the charcoal and on the theme’s own page; the pointer moving brings them back', async (p, h, t) => {
+	for (const dark of [true, false]) {
+		const what = dark ? 'on the charcoal' : 'on the theme’s page';
+		await set(p, { ...OFF, focusDim: true, focusDark: dark, focusNeighbours: true });
+		// (a callout and a table too: blocks of their own in the editor, beside its lines)
+		if (dark) await p.ev(`app.vault.modify(app.vault.getAbstractFileByPath(${j(KEEPER)}), ${j('A first paragraph.\n\n> [!note] A callout\n> In it.\n\n| Tide | Time |\n|---|---|\n| High | 04:12 |\n\nA last paragraph.')}).then(() => 1)`);
+		await openNote(p, KEEPER);
+		await caretEnd(p);
+		await enter(p, h);
+		await press(p, '\n\nA paragraph being written now.');
+		await p.sleep(800);
+		const blocks = await p.ev(`[...document.querySelectorAll('.binders-focus-leaf .cm-content > .cm-embed-block')].map(e => Number(getComputedStyle(e).opacity))`);
+		t.ok(blocks.length >= 2 && blocks.every((o) => o === DIMMED), `${what}: a callout and a table step back with the paragraphs: ${j(blocks)}`);
+		const look = await p.ev(`(() => { const read = ${READ}, leaf = document.querySelector('.binders-focus-leaf'), bg = getComputedStyle(leaf.querySelector('.view-content')).backgroundColor; const lines = [...leaf.querySelectorAll('.cm-content > .cm-line')].filter(e => e.textContent.trim()); return { bg, mine: read(lines[lines.length - 1], bg), others: lines.slice(0, -1).map(e => read(e, bg)), near: [...leaf.querySelectorAll('.binders-focus-near-text')].map(e => read(e, bg)), duration: getComputedStyle(lines[0]).transitionDuration, property: getComputedStyle(lines[0]).transitionProperty }; })()`);
+		if (dark) t.eq(look.bg, CHARCOAL, `${what}: the page is the charcoal`);
+		t.ok(look.mine.strength === 1 && look.mine.ratio >= 7, `${what}: the paragraph being written is whole, 7:1 or better: ${j(look.mine)}`);
+		t.ok(look.others.length > 0 && look.others.every((o) => o.strength === DIMMED), `${what}: every other paragraph is at ${DIMMED} of its strength: ${j(look.others)}`);
+		t.ok(look.others.every((o) => o.ratio < look.mine.ratio / 3 && o.ratio >= 1.5), `${what}: far back from it, and still to be seen: ${j(look.others)}`);
+		t.ok(look.near.length > 0 && look.near.every((o) => o.strength === DIMMED), `${what}: the scenes before and after step back as far: ${j(look.near)}`);
+		t.ok(/opacity/.test(look.property) && parseFloat(look.duration) > 0, `${what}: they go and come over a moment, not at a stroke: ${look.property} ${look.duration}`);
+		// the next paragraph: the one just left steps back, the new one is whole
+		await press(p, '\n\nAnd the next.');
+		await p.sleep(800);
+		const next = await p.ev(`(() => { const lines = [...document.querySelectorAll('.binders-focus-leaf .cm-content > .cm-line')].filter(e => e.textContent.trim()).map(e => Number(getComputedStyle(e).opacity)); return lines.slice(-2); })()`);
+		t.eq(j(next), j([DIMMED, 1]), `${what}: on to a new paragraph, the one before steps back and the new one is whole`);
+		await wiggle(p);
+		await p.sleep(500);
+		t.ok(await p.ev(`[...document.querySelectorAll('.binders-focus-leaf .cm-content > .cm-line, .binders-focus-leaf .binders-focus-near-text')].every(e => getComputedStyle(e).opacity === '1')`), `${what}: the pointer moving brings them all forward`);
+		await leave(p, h);
+	}
+});
+
+test('“Dim the background” in the manuscript: the page and the space around it are the charcoal, section titles readable, the other sections step back as far while typing; all as it was after leaving', async (p, h, t) => {
+	await set(p, { ...OFF, focusDim: true, focusDark: true });
+	await openMs(p, L + 'Part One');
+	await msCaret(p, KEEPER, 'end');
+	const before = await colors(p), was = await surface(p);
+	await enter(p, h);
+	await p.sleep(400);
+	t.eq(await surface(p), j({ [CHARCOAL]: 108 }), 'in focus every part of the window is the charcoal');
+	const heads = await p.ev(`(() => { const read = ${READ}; return [...document.querySelectorAll('.binders-focus-leaf .binders-manuscript-title')].map(e => read(e, ${j(CHARCOAL)}).ratio); })()`);
+	// (a section's title is set faint on purpose, in every theme: it is no fainter here than on the dark theme's own page)
+	t.ok(heads.length >= 3 && heads.every((r) => r >= 3), `the sections’ titles are 3:1 or better against it, as on Obsidian’s dark page: ${j(heads)}`);
+	await press(p, ' More.');
+	await p.sleep(800);
+	const look = await p.ev(`(() => { const read = ${READ}, bg = ${j(CHARCOAL)}; return [...document.querySelectorAll('.binders-focus-leaf .binders-manuscript-scene')].filter(s => s.querySelector('.cm-content')).map(s => ({ mine: s.contains(document.activeElement), body: read(s.querySelector(s.contains(document.activeElement) ? '.cm-line.cm-active' : '.cm-line') ?? s.querySelector('.binders-manuscript-body'), bg) })); })()`);
+	t.ok(look.some((s) => s.mine) && look.filter((s) => s.mine).every((s) => s.body.strength === 1 && s.body.ratio >= 7), `the paragraph being written, in its section, is whole, 7:1 or better: ${j(look)}`);
+	t.ok(look.some((s) => !s.mine) && look.filter((s) => !s.mine).every((s) => s.body.strength === DIMMED), `the others are at ${DIMMED} of their strength: ${j(look)}`);
+	await leave(p, h);
+	await p.sleep(500);
+	t.eq(await colors(p), before, 'leaving puts every color back');
+	t.eq(await surface(p), was, 'and the window is drawn as it was');
+});
+
+test('“Dim the background” on a phone: the page, the strip along the top and the room under the text are the charcoal; all as it was after leaving', async (p, h, t) => {
+	await set(p, { ...OFF, focusDark: true, focusNumbers: true });
+	await novel(p);
+	await onDevice(p, [390, 844], async () => {
+		await set(p, { ...OFF, focusDark: true, focusNumbers: true });
+		await openNote(p, N(2));
+		await caretEnd(p);
+		const before = await colors(p, true), was = await surface(p);
+		await enter(p, h);
+		await p.sleep(400);
+		// (but for the bar of editing buttons Obsidian keeps over the keyboard, which is its own, in its dark colors)
+		const screen = JSON.parse(await surface(p, '.mobile-toolbar'));
+		t.ok(screen[CHARCOAL] >= 90 && Object.keys(screen).every((c) => c === CHARCOAL || c === '.mobile-toolbar'), 'in focus the whole screen is the charcoal: ' + j(screen));
+		t.ok(await p.ev(`(() => { const b = document.querySelector('.mobile-toolbar'); return !b || /0\\.2 0\\.2 0\\.2|rgba?\\((\\d+), \\1, \\1/.test(getComputedStyle(b.querySelector('.mobile-toolbar-options-list-container') ?? b).backgroundColor); })()`), 'and Obsidian’s bar of editing buttons is in its dark colors');
+		const read = await p.ev(`(() => { const read = ${READ}; return { line: read(document.querySelector('.binders-focus-leaf .cm-line.cm-active'), ${j(CHARCOAL)}).ratio, out: read(document.querySelector('.binders-focus-leave'), ${j(CHARCOAL)}).ratio }; })()`);
+		t.ok(read.line >= 7 && read.out >= 3, `the text is 7:1 or better, the way out 3:1 or better: ${j(read)}`);
+		await leave(p, h);
+		await p.sleep(500);
+		t.eq(await colors(p, true), before, 'leaving puts every color back');
+		// (in the same colors: how much of the screen Obsidian's bars take depends on where the keyboard is)
+		t.eq(j(Object.keys(JSON.parse(await surface(p))).sort()), j(Object.keys(JSON.parse(was)).sort()), 'and the screen is drawn in the colors it was');
+	});
 });
 
 // ---- fullscreen ----
@@ -907,9 +1083,9 @@ test('settings: a “Focus mode” group with every option; a change there shows
 	await enter(p, h);
 	await p.ev(`(() => { app.setting.open(); app.setting.openTabById('binders'); return 1; })()`);
 	await until(p, `[...${TAB}.querySelectorAll('.setting-item-heading, .setting-group .setting-item-name')].some(e => e.textContent === 'Focus mode')`);
-	const rows = await p.ev(`(() => { const c = ${TAB}, all = [...c.querySelectorAll('.setting-item')], names = all.map(e => e.querySelector('.setting-item-name')?.textContent ?? ''); const from = names.indexOf('Typewriter scrolling'); return all.slice(from, from + 7).map(e => ({ name: e.querySelector('.setting-item-name').textContent, desc: !!e.querySelector('.setting-item-description')?.textContent, on: e.querySelector('.checkbox-container') ? e.querySelector('.checkbox-container').classList.contains('is-enabled') : e.querySelector('input[type="text"]')?.value })); })()`);
-	t.eq(j(rows.map((r) => r.name)), j(['Typewriter scrolling', 'Show the scenes before and after', 'Show where you are', 'Show word counts', 'Dim other paragraphs', 'Enter fullscreen', 'Words to write today']), 'the options, in plain words');
-	t.eq(j(rows.map((r) => r.on)), j([true, false, false, false, false, false, '']), 'each shows whether it is on');
+	const rows = await p.ev(`(() => { const c = ${TAB}, all = [...c.querySelectorAll('.setting-item')], names = all.map(e => e.querySelector('.setting-item-name')?.textContent ?? ''); const from = names.indexOf('Typewriter scrolling'); return all.slice(from, from + 8).map(e => ({ name: e.querySelector('.setting-item-name').textContent, desc: !!e.querySelector('.setting-item-description')?.textContent, on: e.querySelector('.checkbox-container') ? e.querySelector('.checkbox-container').classList.contains('is-enabled') : e.querySelector('input[type="text"]')?.value })); })()`);
+	t.eq(j(rows.map((r) => r.name)), j(['Typewriter scrolling', 'Show the scenes before and after', 'Show where you are', 'Show word counts', 'Dim other paragraphs', 'Dim the background', 'Enter fullscreen', 'Words to write today']), 'the options, in plain words');
+	t.eq(j(rows.map((r) => r.on)), j([true, false, false, false, false, false, false, '']), 'each shows whether it is on');
 	t.ok(rows.every((r) => r.desc), 'each says what it does');
 	// turn one on there
 	await p.ev(`(() => { const row = [...${TAB}.querySelectorAll('.setting-item')].find(e => e.querySelector('.setting-item-name')?.textContent === 'Show where you are'); row.querySelector('.checkbox-container').click(); return 1; })()`);
@@ -943,12 +1119,13 @@ test('the way in: what’s around the page fades first, the text doesn’t jump;
 	const pre = await p.ev(`JSON.stringify({ pre: document.body.classList.contains('binders-focus-pre'), on: document.body.classList.contains('binders-focus'), tabs: document.querySelector('.workspace-tab-header-container').getBoundingClientRect().height > 0 })`).then(JSON.parse);
 	t.ok(pre.pre && !pre.on && pre.tabs, `first what’s around the page fades where it stands: ${j(pre)}`);
 	await until(p, `document.body.classList.contains('binders-focus') && !document.body.classList.contains('binders-focus-pre')`);
-	const mid = await p.ev(`(() => { const a = ${VIEWOF}.contentEl.getAnimations(); return { gliding: a.length, y: Math.round(${CM}.coordsAtPos(${CM}.state.selection.main.head).top) }; })()`);
+	// (the glide itself: the page's color coming in with it, "Dim the background", is a transition of its own)
+	const mid = await p.ev(`(() => { const a = ${VIEWOF}.contentEl.getAnimations().filter(x => !(x instanceof CSSTransition)); return { gliding: a.length, y: Math.round(${CM}.coordsAtPos(${CM}.state.selection.main.head).top) }; })()`);
 	t.eq(mid.gliding, 1, 'then the text glides across to the middle');
 	await p.sleep(600);
 	const g = await at(p);
 	t.ok(Math.abs(g.y - y0) <= 2, `and stays at the height it was (${y0} then, ${g.y} now): only what’s around it went`);
-	t.eq(await p.ev(`${VIEWOF}.contentEl.getAnimations().length`), 0, 'the glide leaves nothing behind');
+	t.eq(await p.ev(`${VIEWOF}.contentEl.getAnimations().length`), 0, 'the glide leaves nothing behind, and the page’s color has arrived');
 	await leave(p, h);
 	t.ok(Math.abs((await at(p)).y - y0) <= 2, 'on the way out it’s at that height still');
 	// the first time ever, the way out is said once
@@ -972,7 +1149,7 @@ test('the way in: what’s around the page fades first, the text doesn’t jump;
 
 // ---- keyboard and screen readers ----
 
-test('accessibility: entering is announced; the way out is a button the keyboard reaches; hidden parts are out of reach; dimmed text keeps its contrast', async (p, h, t) => {
+test('accessibility: entering is announced; the way out is a button the keyboard reaches; hidden parts are out of reach; the paragraph being written keeps its contrast, and the dimmed ones can still be seen', async (p, h, t) => {
 	await set(p, { focusDim: true, focusNumbers: true, focusNeighbours: true });
 	await openNote(p, KEEPER);
 	await caretEnd(p);
@@ -1009,8 +1186,16 @@ test('accessibility: entering is announced; the way out is a button the keyboard
 		const line = [...leaf.querySelectorAll('.cm-content > .cm-line')].find(e => e.textContent.trim() && !e.classList.contains('cm-active'));
 		return { line: of(line), near: of(leaf.querySelector('.binders-focus-near.is-after .binders-focus-near-text')) };
 	})()`);
-	t.ok(ratio.line.o < 1 && ratio.line.ratio >= 4.5, `a dimmed paragraph is still 4.5:1 or better against the page: ${j(ratio.line)}`);
-	t.ok(ratio.near.ratio >= 4.5, `and so is the text of the scene after: ${j(ratio.near)}`);
+	// (The paragraphs that aren't being written step well back, to three tenths: the maintainer's decision of
+	// 2026-10-05, in place of the 4.5:1 they kept before. What must read is the one being written; the others are
+	// there to be seen, and the pointer moving brings them forward whole.)
+	const mine = await p.ev(`(() => { const rgb = (s) => (s.match(/[\\d.]+/g) ?? []).slice(0, 3).map(Number), lum = (c) => { const [r, g, b] = c.map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; }; const leaf = document.querySelector('.binders-focus-leaf'), el = leaf.querySelector('.cm-line.cm-active'), a = lum(rgb(getComputedStyle(el).color)), b = lum(rgb(getComputedStyle(leaf.querySelector('.view-content')).backgroundColor)); return { o: Number(getComputedStyle(el).opacity), ratio: (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05) }; })()`);
+	t.ok(mine.o === 1 && mine.ratio >= 7, `the paragraph being written is whole, 7:1 or better against the page: ${j(mine)}`);
+	t.ok(ratio.line.o === 0.3 && ratio.line.ratio >= 1.5, `a dimmed paragraph is at three tenths, still to be seen: ${j(ratio.line)}`);
+	t.ok(ratio.near.ratio >= 1.5, `and so is the text of the scene after: ${j(ratio.near)}`);
+	await wiggle(p);
+	await p.sleep(500);
+	t.eq(await p.ev(`getComputedStyle([...document.querySelectorAll('.binders-focus-leaf .cm-content > .cm-line')].find(e => e.textContent.trim() && !e.classList.contains('cm-active'))).opacity`), '1', 'and whole again when the pointer moves');
 });
 
 // ---- when Obsidian isn't built as expected ----

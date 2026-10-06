@@ -1,6 +1,6 @@
 import type { Text } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
-import { MarkdownView, type Editor } from 'obsidian';
+import { MarkdownView, type App, type Editor } from 'obsidian';
 
 /* Obsidian's own DOM and editor, as far as focus mode reaches into them: everything undocumented it relies on is here
    (and the class names of what it hides are in one block of styles.css). Each is looked for, and has a fallback when
@@ -18,6 +18,16 @@ export function editorView(view: MarkdownView): EditorView | null {
 export function editorDoc(editor: Editor): Text | null {
 	const doc = (editor as unknown as { cm?: { state?: { doc?: Partial<Text> } } }).cm?.state?.doc;
 	return doc && typeof doc.length === 'number' && typeof doc.toString === 'function' && typeof doc.sliceString === 'function' ? doc as Text : null;
+}
+
+/** Is Obsidian's appearance light now, by its own setting (the vault's undocumented `getConfig('theme')`: 'moonstone'
+    is light, 'obsidian' dark, 'system' what the system says)? Null if it can't be read: then what <body> said when it
+    was last looked at stands. */
+export function lightTheme(app: App, win: Window): boolean | null {
+	const get = (app.vault as { getConfig?: (key: string) => unknown }).getConfig;
+	let theme: unknown;
+	try { theme = typeof get === 'function' ? get.call(app.vault, 'theme') : undefined; } catch { return null; }
+	return theme === 'moonstone' ? true : theme === 'obsidian' ? false : theme === 'system' ? !win.matchMedia('(prefers-color-scheme: dark)').matches : null;
 }
 
 /** The column a note's text is set in, as its view shows it now (editing or reading). */

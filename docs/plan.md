@@ -410,14 +410,33 @@ of its own, so the editor being typed in is never remounted. `src/focus/focus.ts
   text (everything after its line is blank: the last paragraph, or an empty line after it), that line is held at
   42% of what can be seen of the page, and the page moves under it. In the manuscript "the text" is the section the
   cursor is in. Anywhere else, and after a click, the page scrolls as the editor (or the manuscript) always does.
-- **Options, all off by default:** "Show the scenes before and after" (a note in a tab: the end of the scene before
+- **Options, off by default:** "Show the scenes before and after" (a note in a tab: the end of the scene before
   above its text and the start of the scene after below, set as the manuscript sets its sections; a click goes
   there); "Show where you are" (the folders down to the scene, and its synopsis: a note in the margin, or a strip
   along the top where there's no margin); "Show word counts" (the scene's, with its target, and the day's, with the
-  goal; hidden while typing, back after a pause of 2.5 s); "Words to write today"; "Dim other paragraphs" (while
-  typing; 0.62 opacity, 4.5:1 or better in Obsidian's own themes). In settings under "Focus mode" and in focus
-  mode's menu (a right click or long press on the leave button, "Focus mode" in the editor's menu, a click on the
-  numbers).
+  goal; hidden while typing, back after a pause of 2.5 s); "Words to write today". In settings under "Focus mode"
+  and in focus mode's menu (a right click or long press on the leave button, "Focus mode" in the editor's menu, a
+  click on the numbers).
+- **"Dim other paragraphs", on by default:** while typing, every block of the editor but the one with the cursor
+  (a paragraph is a line of it; a table, a callout, an image or an embed a block beside the lines), the manuscript's
+  other sections and the scenes before and after are at 0.3 opacity; the pointer moving brings them back. It was
+  0.62, which kept 4.5:1 against the page; the maintainer asked (2026-10-05) for the dimming to be "significant",
+  so the dimmed text no longer keeps a reading contrast (about 2.3:1 on the charcoal): it is there to be seen, the
+  paragraph being written is what must read (13:1 on the charcoal), and nothing is dimmed unless keys are being
+  pressed. No setting for the strength: one can be added if 0.3 isn't right for everyone.
+- **"Dim the background", on by default** (the maintainer, 2026-10-05: "the background turns to a deep charcoal,
+  almost black, but not quite"). In focus the page and what's left of the window around it are `#161616`: a neutral
+  grey a step under Obsidian's dark page (`#1e1e1e`), well short of black. In a light theme too, which is the hard
+  part: a dark page needs every color on it to be a dark theme's. So while focus is on with this option, `<body>`
+  has Obsidian's own `theme-dark` in place of `theme-light` (`dark` in `focus.ts`): the stylesheet's, the theme's and
+  any snippet's dark colors apply to everything, as in the dark appearance, with nothing listed here to go stale;
+  and `binders-focus-dark` sets the page's color over them. Everything else of the window is out of sight in focus,
+  so nothing is seen to change but the page; a menu, a dialog or the command palette opened over it is dark too.
+  On leaving, the class `<body>` had is put back, by what Obsidian says its appearance is then (so a change of theme
+  made while in focus stands). The color comes and goes over 0.3 s with the way in and out (not under "reduce
+  motion"). Rejected: giving only the tab the dark variables, since Obsidian works its colors out on `<body>` and
+  a theme's rules look for the class there. On a phone Obsidian's own dark page is black: the charcoal is lighter.
+
 - **"Go to previous scene" and "Go to next scene":** commands, in or out of focus. A note in a tab gives way to that
   note in the same tab (Obsidian saves the one left); in the manuscript the cursor goes to that section.
 - **The day's words:** a session is a day's writing in a binder on one device: each note's word count when it was

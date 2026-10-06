@@ -12,7 +12,7 @@ import { ask } from '../view/modals';
 import { readTarget } from '../view/outliner-data';
 import { watchSize } from '../view/windows';
 import { WordCounter, countWords } from '../view/words';
-import { caretRect, editorDoc, editorView, noteColumn, tailRoom } from './dom';
+import { caretRect, editorDoc, editorView, lightTheme, noteColumn, tailRoom } from './dom';
 import { Session, atEnd, bodyStart, dayOf, excerpt, parseGoal } from './session';
 
 /* Focus mode: a quiet way to write a note of a binder, in a tab or in the manuscript. It is a state of the view that's
@@ -65,6 +65,9 @@ interface Active {
 	reached: boolean;
 	/** Still fading in: the classes aren't on yet. */
 	entering: boolean;
+	/** "Dim the background" has the window in Obsidian's dark colors: `light` if it was light before (so it's ours to
+	    put back). Null while it hasn't. */
+	dark: { light: boolean } | null;
 	/** The window is in fullscreen because focus mode put it there (so it's ours to give back). */
 	full: boolean;
 }
@@ -293,7 +296,7 @@ export class Focus {
 		setIcon(out, 'minimize-2');
 		// (said to a screen reader as focus begins: what this is, and the way out)
 		const live = createDiv({ cls: 'binders-focus-live', attr: { role: 'status', 'aria-live': 'polite' } });
-		const on: Active = { leaf, doc, leafEl, comp, top, note: null, corner: null, live, cm: null, slot: new Compartment(), near: [], nearKey: '', nearComp: null, pauseTimer: 0, pointer: { x: -1, y: -1, at: 0 }, full: false, reached: false, entering: true };
+		const on: Active = { leaf, doc, leafEl, comp, top, note: null, corner: null, live, cm: null, slot: new Compartment(), near: [], nearKey: '', nearComp: null, pauseTimer: 0, pointer: { x: -1, y: -1, at: 0 }, full: false, reached: false, dark: null, entering: true };
 		this.on = on;
 		this.screen(on, this.opt.focusFullscreen);
 		// (Esc takes the window out of fullscreen before any key reaches the page: that Esc leaves focus mode too)
@@ -336,6 +339,8 @@ export class Focus {
 		const again = () => window.setTimeout(() => { if (this.on === on && !on.entering) this.measure(on); }, 150);
 		comp.registerEvent((app.vault as Events).on('config-changed', again));
 		comp.registerEvent(app.workspace.on('css-change', again));
+		// (Obsidian has set the window's colors again, for a change of theme or of the system's: dark again, over that)
+		comp.registerEvent(app.workspace.on('css-change', () => { if (this.on === on && on.dark) { on.dark = null; this.dark(on, true); } }));
 		// (the cursor in another section of the manuscript: where that is, and its words)
 		comp.registerDomEvent(leafEl, 'focusin', () => this.draw());
 		comp.registerDomEvent(doc, 'keydown', (e) => this.onKey(e), { capture: true });
@@ -376,6 +381,7 @@ export class Focus {
 		const body = on.doc.body, hold = on.entering ? () => { /* nothing has moved yet */ } : this.holder(on);
 		const undo = () => {
 			body.removeClass('binders-focus', 'binders-focus-typing', 'binders-focus-paused', 'binders-focus-dim');
+			this.dark(on, false);
 			on.leafEl.removeClass('binders-focus-leaf', 'has-margins', 'has-place', 'has-numbers', 'has-near', 'is-typewriter');
 			on.leafEl.style.removeProperty('--binders-focus-margin');
 			on.leafEl.style.removeProperty('--binders-focus-tail');
@@ -542,6 +548,27 @@ export class Focus {
 		}, 60);
 	}
 
+	/** "Dim the background": while focus is on, the whole window has Obsidian's dark colors, by the class Obsidian's
+	    own dark appearance puts on <body> (`theme-dark`, which is what its stylesheet, a theme and a snippet hang their
+	    dark colors on: so text, links, code, tables and callouts are as they are in the dark, whatever is in them), and
+	    over those the page's charcoal (`binders-focus-dark`, in styles.css). Off, or on leaving: as it was. */
+	private dark(on: Active, want: boolean): void {
+		const body = on.doc.body;
+		if (want === !!on.dark) return;
+		if (want) {
+			// (as Obsidian says its appearance is; else as <body> says: it has one of the two classes, never both)
+			on.dark = { light: lightTheme(this.plugin.app, on.doc.defaultView ?? window) ?? body.hasClass('theme-light') };
+			body.addClass('binders-focus-dark', 'theme-dark');
+			body.removeClass('theme-light');
+			return;
+		}
+		// (asked again now: the appearance may have been changed while focus was on)
+		const light = lightTheme(this.plugin.app, on.doc.defaultView ?? window) ?? on.dark?.light ?? false;
+		on.dark = null;
+		body.removeClass('binders-focus-dark');
+		if (light) { body.removeClass('theme-dark'); body.addClass('theme-light'); }
+	}
+
 	// ---- what's on the page besides the text ----
 
 	/** Puts on the page what the options say (and takes off what they don't): the place and synopsis, the numbers,
@@ -549,6 +576,7 @@ export class Focus {
 	private furnish(on: Active): void {
 		const o = this.opt, view = on.leaf.view;
 		on.doc.body.toggleClass('binders-focus-dim', o.focusDim);
+		this.dark(on, o.focusDark);
 		on.leafEl.toggleClass('has-place', o.focusPlace);
 		on.leafEl.toggleClass('has-numbers', o.focusNumbers);
 		on.leafEl.toggleClass('is-typewriter', o.focusTypewriter);

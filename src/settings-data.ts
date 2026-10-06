@@ -64,6 +64,8 @@ export interface BindersSettings {
 	focusNumbers: boolean;
 	/** Focus mode: while typing, every paragraph but the one being written steps back. */
 	focusDim: boolean;
+	/** Focus mode: the page is a deep charcoal, with Obsidian's dark colors on it, whatever the theme. */
+	focusDark: boolean;
 	/** Focus mode: in a note, the end of the scene before and the start of the scene after, above and below its text. */
 	focusNeighbours: boolean;
 	/** Focus mode: the words to write in a day, or 0 for no goal. */
@@ -79,13 +81,13 @@ export const DEFAULT_SETTINGS: BindersSettings = {
 	labels: DEFAULT_LABELS, statuses: DEFAULT_STATUSES, outlinerColumns: DEFAULT_COLUMNS, compile: COMPILE_DEFAULTS, compiled: {}, compiledTo: {},
 	exportsFolder: 'Exports', authorName: '', contact: '', exportKind: 'manuscript', exportStyle: '', exportMatter: false, exportOutside: true, exportSnapshots: true,
 	tabParagraphs: true, indentParagraphs: false, sidePanes: true,
-	focusTypewriter: true, focusPlace: false, focusNumbers: false, focusDim: true, focusNeighbours: false, focusGoal: 0, focusFullscreen: false,
+	focusTypewriter: true, focusPlace: false, focusNumbers: false, focusDim: true, focusDark: true, focusNeighbours: false, focusGoal: 0, focusFullscreen: false,
 };
 
 /** Focus mode's options that are on or off. */
-export type FocusToggle = 'focusTypewriter' | 'focusNeighbours' | 'focusPlace' | 'focusNumbers' | 'focusDim' | 'focusFullscreen';
+export type FocusToggle = 'focusTypewriter' | 'focusNeighbours' | 'focusPlace' | 'focusNumbers' | 'focusDim' | 'focusDark' | 'focusFullscreen';
 /** In the order the settings and the focus menu list them. */
-export const FOCUS_TOGGLES: FocusToggle[] = ['focusTypewriter', 'focusNeighbours', 'focusPlace', 'focusNumbers', 'focusDim', 'focusFullscreen'];
+export const FOCUS_TOGGLES: FocusToggle[] = ['focusTypewriter', 'focusNeighbours', 'focusPlace', 'focusNumbers', 'focusDim', 'focusDark', 'focusFullscreen'];
 /** The ones this device can do: a phone or tablet has no window to put in fullscreen. */
 export const focusToggles = (mobile: boolean): FocusToggle[] => FOCUS_TOGGLES.filter((k) => !mobile || k !== 'focusFullscreen');
 /** The names and descriptions of focus mode's options, shared by the settings tab and focus mode's own menu. */
@@ -94,7 +96,8 @@ export const FOCUS_TEXT: Record<FocusToggle | 'focusGoal', readonly [string, str
 	focusNeighbours: ['Show the scenes before and after', 'In a note, the end of the scene before is shown above its text and the start of the scene after below it, as in the manuscript. Click one to go there.'],
 	focusPlace: ['Show where you are', 'The scene’s place in the binder and its synopsis, beside the text. They go while you type.'],
 	focusNumbers: ['Show word counts', 'The scene’s words, with its target, and the words written today in the binder. They go while you type and come back when you pause.'],
-	focusDim: ['Dim other paragraphs', 'While you type, every paragraph but the one you’re in steps back.'],
+	focusDim: ['Dim other paragraphs', 'While you type, every paragraph but the one you’re in steps well back.'],
+	focusDark: ['Dim the background', 'The page turns a deep charcoal while you’re in focus mode, with light text on it, in a light theme too.'],
 	focusFullscreen: ['Enter fullscreen', 'Focus mode takes the whole screen, and gives it back when you leave.'],
 	focusGoal: ['Words to write today', 'A goal for a day’s writing in a binder, shown with the word counts. Leave empty for none.'],
 };

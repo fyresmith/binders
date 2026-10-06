@@ -3,6 +3,16 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.32.0 (2026-10-06)
+
+### Added
+
+- Focus mode has a new option, Dim the background, on to begin with: the page turns a deep charcoal with light text while you're in focus, in a light theme too, and everything is as it was when you leave.
+
+### Changed
+
+- Dim other paragraphs dims much more: while you type, everything but the paragraph you're in steps back to about a third of its strength, tables, callouts and images included.
+
 ## 0.31.1 (2026-10-06)
 
 ### Changed
