@@ -3,7 +3,7 @@
 //   npm run e2e:all -- --retry-alone             afterwards, run each failure again by itself: a real one fails alone too
 //   npm run e2e:all -- --out dir                 where the logs go (default test-dist/e2e-all)
 //   npm run e2e:all -- --hover                   a mouse that hovers (BINDERS_HOVER=1 for every job)
-//   --grep, --repeat and --specs are passed on to run.mjs.
+//   --grep, --repeat, --specs and --timeout are passed on to run.mjs.
 //   npm run e2e:all -- --reap                    end what an earlier run left behind (after a kill -9, say), and stop
 // One log per job (job-1.log …), failure screenshots in shots/, and at the end one summary of them all (also in
 // summary.txt). It fails (exit 1) only for failures that aren't listed in open-findings.json; with --retry-alone, only
@@ -79,11 +79,12 @@ for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.on(signal, async (
 	process.exit(130);
 });
 
+const limit = arg('timeout', '') ? ['--timeout', arg('timeout')] : [];
 console.log(`${plural(total, 'test')} in ${plural(counted.length, 'file')}, over ${plural(bins.length, 'job')}${themes.length > 1 ? ', light then dark' : ''}. Logs in ${out}.`);
 bins.forEach((b, i) => console.log(`  job ${i + 1}: ${plural(b.n, 'test')}${themes.length * repeat > 1 ? ' a pass' : ''}  ${b.files.map((f) => f.replace(/^tests\/e2e\/specs-?|\.mjs$/g, '') || 'specs').join(' ')}`));
 const tick = setInterval(() => console.log(`  ${mins()} min: ${results.length} of ${total} done, ${results.filter((r) => r.mark === '✗').length} failed`), 120000);
 await Promise.all(bins.map(async (b, i) => {
-	const r = await run(['--theme', theme, '--specs', b.files.join(','), '--shots', join(out, 'shots'), ...(grep ? ['--grep', grep] : []), ...(repeat > 1 ? ['--repeat', String(repeat)] : [])], join(out, `job-${i + 1}.log`), (res) => {
+	const r = await run(['--theme', theme, '--specs', b.files.join(','), '--shots', join(out, 'shots'), ...(grep ? ['--grep', grep] : []), ...(repeat > 1 ? ['--repeat', String(repeat)] : []), ...limit], join(out, `job-${i + 1}.log`), (res) => {
 		results.push({ ...res, job: i + 1, file: fileOf.get(res.name) });
 		if (res.mark === '✗') console.log(`✗ ${res.title}  (job ${i + 1})\n    ${res.err}`);
 	});
@@ -101,7 +102,7 @@ if (flag('retry-alone') && !stopping) {
 		if (stopping) break;
 		const again = [];
 		// (run.mjs matches names as a pattern: this one is the whole name, and nothing else)
-		await run(['--theme', f.theme, '--specs', f.file, '--grep', '^' + f.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', '--shots', join(out, 'shots-alone')], join(out, `alone-${i + 1}.log`), (res) => again.push(res));
+		await run(['--theme', f.theme, '--specs', f.file, '--grep', '^' + f.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', '--shots', join(out, 'shots-alone'), ...limit], join(out, `alone-${i + 1}.log`), (res) => again.push(res));
 		const bad = again.find((r) => r.mark !== '✓');
 		alone.push({ ...f, alone: again.length && !bad ? 'passed' : 'failed', aloneErr: bad?.err ?? (again.length ? '' : 'it did not run: see ' + join(out, `alone-${i + 1}.log`)) });
 		console.log(`  ${again.length && !bad ? 'passed alone (load)' : 'fails alone too'}: ${f.title}`);

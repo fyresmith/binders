@@ -6,11 +6,14 @@
 //   npm run e2e -- --specs a.mjs,b.mjs    only these spec files (default: every tests/e2e/specs*.mjs)
 //   npm run e2e -- --shots dir      where failure screenshots go (default test-dist/e2e-failures)
 //   npm run e2e -- --hover          a mouse that hovers (see docs/development.md); also BINDERS_HOVER=1
+//   npm run e2e -- --timeout 1200   how long one test may take, in seconds (default 600); a test's own `timeout` (ms,
+//                                   beside its name and fn) wins. A test over its limit fails, and its Obsidian is replaced.
 // Tests listed in open-findings.json are known to fail (see there): they're reported, and don't fail the run.
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync } from 'fs';
 import { join, relative } from 'path';
 import { pathToFileURL } from 'url';
 import { launch, VAULT } from './driver.mjs';
+import { TimedOut, limitOf, withLimit } from './run-all-lib.mjs';
 
 const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i > 0 ? process.argv[i + 1] : d; };
 const themes = arg('theme', 'light') === 'both' ? ['light', 'dark'] : [arg('theme', 'light')];
@@ -38,7 +41,15 @@ const results = [];
 let lost = 0;
 for (let round = 1; round <= repeat; round++) {
 	for (const theme of themes) {
-		const start = () => launch({ theme, ...(process.argv.includes('--hover') ? { hover: true } : {}) });
+		// (an Obsidian that doesn't come up in three minutes isn't going to: twice more, then the run ends saying so)
+		const start = async () => {
+			for (let tries = 1; ; tries++) {
+				try { return await withLimit(launch({ theme, ...(process.argv.includes('--hover') ? { hover: true } : {}) }), 180000, 'starting Obsidian'); } catch (e) {
+					if (tries >= 3) throw e;
+					console.log(`Obsidian did not start (${e.message}): trying again.`);
+				}
+			}
+		};
 		let p = await start(), h = helpers(p);
 		// (OBSIDIAN_ASAR can point at an older build: every log says which one ran)
 		console.log(`Obsidian ${p.running.obsidian}, Electron ${p.running.electron}${repeat > 1 ? ` [${theme} #${round}]` : themes.length > 1 ? ` [${theme}]` : ''}`);
@@ -47,29 +58,39 @@ for (let round = 1; round <= repeat; round++) {
 			const name = `${s.name} [${theme}${repeat > 1 ? ' #' + round : ''}]`;
 			const t0 = Date.now();
 			p.errors.length = 0;
-			let err = null;
+			let err = null, stuck = false;
+			const limit = limitOf(s, arg('timeout', ''));
 			try {
-				await h.reset();
-				await s.fn(p, h, {
-					ok: (c, m) => { if (!c) throw new Fail(m); },
-					eq: (a, b, m) => { if (a !== b) throw new Fail(`${m}: expected ${JSON.stringify(b)}, got ${JSON.stringify(a)}`); },
-				});
-				await p.sleep(80);
+				// One call that is never answered (it happened: a job sat two hours on one, and 402 tests never ran) must
+				// not hold the run: past its limit the test has failed, and its Obsidian is ended below, which also ends
+				// whatever the test is still waiting on.
+				await withLimit((async () => {
+					await h.reset();
+					await s.fn(p, h, {
+						ok: (c, m) => { if (!c) throw new Fail(m); },
+						eq: (a, b, m) => { if (a !== b) throw new Fail(`${m}: expected ${JSON.stringify(b)}, got ${JSON.stringify(a)}`); },
+					});
+					await p.sleep(80);
+				})(), limit, 'the test');
 				const bad = p.errors.filter((e) => !/ERR_|net::|DevTools|favicon|Failed to load resource|Electron Security Warning/.test(e));
 				if (bad.length) throw new Fail('errors logged: ' + bad.slice(0, 3).join(' ; '));
 			} catch (e) {
-				err = e instanceof Fail ? e.message : 'crashed: ' + (e.stack || e).toString().split('\n').slice(0, 3).join(' | ');
-				await p.shot(join(shots, name.replace(/[^\w]+/g, '_') + '.png')).catch(() => {});
+				stuck = e instanceof TimedOut;
+				err = stuck ? `timed out: ${e.message} (--timeout <seconds>, or a timeout in ms on the test, gives it longer)` : e instanceof Fail ? e.message : 'crashed: ' + (e.stack || e).toString().split('\n').slice(0, 3).join(' | ');
+				// (the picture too is asked of a page that may never answer)
+				await withLimit(p.shot(join(shots, name.replace(/[^\w]+/g, '_') + '.png')), 10000, 'the screenshot').catch(() => {});
 			}
 			const known = open.has(s.name);
 			results.push({ name, ok: !err, err, known, ms: Date.now() - t0 });
 			console.log(`${err ? (known ? '○' : '✗') : '✓'} ${name} ${err ? '\n    ' + err : ''} (${Date.now() - t0}ms)`);
 			// Obsidian ended under that test (a crash, or the machine out of memory): the test has failed, and the rest
 			// run in a new one. Four in a row, and it isn't going to start.
-			if (p.gone) {
+			// One that timed out is ended here: nothing says what state the page was left in, or that it answers at all.
+			if (p.gone || stuck) {
+				const ended = p.gone;
 				await p.close().catch(() => {});
-				if (++lost > 3) { console.log('Obsidian ended four times: stopping.'); process.exit(1); }
-				console.log('Obsidian ended: starting another.');
+				if (ended && ++lost > 3) { console.log('Obsidian ended four times: stopping.'); process.exit(1); }
+				console.log(ended ? 'Obsidian ended: starting another.' : 'That Obsidian is closed: starting another.');
 				p = await start(); h = helpers(p);
 			} else if (!err) lost = 0;
 		}

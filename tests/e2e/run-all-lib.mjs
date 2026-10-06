@@ -39,3 +39,23 @@ export function parser(onResult) {
 		finished: () => finished,
 	};
 }
+
+/** How long one test may take when nothing says otherwise: ten minutes. The slowest honest test (a phone journey, six
+    Obsidians at once) takes a little over two. */
+export const LIMIT = 600000;
+/** A test's time limit in ms: its own (`{ name, fn, timeout: ms }` in its spec file), else the `--timeout` flag's
+    (seconds), else LIMIT. Anything that isn't a number above zero is passed over. */
+export function limitOf(spec, flag) {
+	const ok = (n) => typeof n === 'number' && Number.isFinite(n) && n > 0;
+	const secs = flag == null || flag === '' ? NaN : Number(flag);
+	return ok(spec?.timeout) ? spec.timeout : ok(secs) ? secs * 1000 : LIMIT;
+}
+export class TimedOut extends Error {}
+/** `work`'s own end, or a TimedOut after `ms` if it hasn't ended by then. The work isn't stopped (nothing can stop a
+    promise): whoever asked ends what it was waiting on. A late failure of abandoned work is nobody's any more. */
+export function withLimit(work, ms, what = 'it') {
+	let timer;
+	const late = new Promise((_r, reject) => { timer = setTimeout(() => reject(new TimedOut(`${what} did not finish in ${Math.round(ms / 1000)} s`)), ms); });
+	work.catch(() => {});
+	return Promise.race([work, late]).finally(() => clearTimeout(timer));
+}

@@ -209,6 +209,13 @@ npm run e2e:all -- --jobs 3 --hover --out /tmp/e2e   # a hovering mouse; logs so
   and "Passed alone (load)". Then only the first kind fails the run.
 - **Ctrl-C** stops every job; each closes its Obsidian and removes its throwaway folder (the driver does that for
   any runner that is interrupted or killed, `run.mjs` alone too), and the summary of what had run is printed.
+- **A test that never ends** (a call the page doesn't answer, a wait for something that doesn't come) fails after
+  its time limit with "timed out: the test did not finish in 600 s". Its Obsidian is closed and another started
+  for the tests that are left, as below; the failure's screenshot is taken first if the page still answers within
+  ten seconds. The limit is ten minutes (the slowest honest test takes a little over two with six Obsidians
+  running); `--timeout 1200` sets it in seconds for a run, and a test that needs longer says so itself:
+  `{ name, fn, timeout: 1200000 }` (ms) in its spec file, which wins over the flag. Before this, one stuck call held a
+  job for two hours and 402 tests never ran.
 - **An Obsidian that ends under a test** (a crash, or the machine out of memory: with many running at once it
   happens) fails that test with "Obsidian is gone", and `run.mjs` starts another for the tests that are left; the
   log says "Obsidian ended: starting another". After four in a row it stops, and the job counts as stopped early.
@@ -326,7 +333,8 @@ table; card drags on Obsidian's `drag-reorder-ghost` reordering, row drags on th
 the insertion lines on its `drop-indicator`. When one of those changes
 in a new Obsidian, compare again: make a `.base` file with a cards view in the test vault and put the two side by side.
 
-Each spec file exports `specs`, a list of `{ name, fn(p, h, t) }`: `p` drives Obsidian (`p.ev`, `p.click`, `p.dbl`,
+Each spec file exports `specs`, a list of `{ name, fn(p, h, t) }` (and `timeout`, in ms, for a test that honestly
+needs more than ten minutes): `p` drives Obsidian (`p.ev`, `p.click`, `p.dbl`,
 `p.key`, `p.drag`, `p.at`, `p.shot`…), `h` has helpers (`h.open`, `h.run`), `t` asserts (`t.ok`, `t.eq`). Input is
 real: `p.dbl` is a double-click the page sees as one, and `p.key('Enter')` types a new line where a real key would.
 

@@ -6,7 +6,7 @@ import { join } from 'path';
 // @ts-expect-error a plain script, with no types
 import { reap } from './e2e/driver.mjs';
 // @ts-expect-error a plain script, with no types
-import { groups, parser, plural } from './e2e/run-all-lib.mjs';
+import { LIMIT, TimedOut, groups, limitOf, parser, plural, withLimit } from './e2e/run-all-lib.mjs';
 import { done, eq, ok } from './harness';
 
 const j = (x: unknown) => JSON.stringify(x);
@@ -63,9 +63,30 @@ const j = (x: unknown) => JSON.stringify(x);
 eq(plural(1, 'job'), '1 job', 'one');
 eq(plural(2960, 'test'), '2,960 tests', 'many');
 
-// reap (tests/e2e/driver.mjs): ends what a run wrote down that it started, and only that. Stand-ins here: processes
+// a test's time limit: its own, else the flag's, else ten minutes
+eq(limitOf({ name: 'a' }, undefined), LIMIT, 'nothing said: the default');
+eq(limitOf({ name: 'a' }, '90'), 90000, 'the flag is in seconds');
+eq(limitOf({ name: 'a', timeout: 1200000 }, '90'), 1200000, 'a test’s own limit (ms) wins over the flag');
+eq(limitOf({ name: 'a', timeout: 0 }, 'soon'), LIMIT, 'nonsense is passed over');
+eq(limitOf({ name: 'a', timeout: -5 }, '0'), LIMIT, 'and nothing at or under zero');
+
+// withLimit: the work's own end, or a TimedOut; abandoned work that fails later troubles nobody. Then reap
+// (tests/e2e/driver.mjs): ends what a run wrote down that it started, and only that. Stand-ins here: processes
 // that do nothing, with the command lines a runner and an Obsidian have.
 void (async () => {
+	eq(await withLimit(Promise.resolve(7), 1000, 'quick'), 7, 'work that ends in time gives its value');
+	let said = '';
+	try { await withLimit(Promise.reject(new Error('its own')), 1000, 'failing'); } catch (e) { said = (e as Error).message; }
+	eq(said, 'its own', 'and its own failure');
+	let err: unknown = null;
+	const t0 = Date.now();
+	try { await withLimit(new Promise(() => {}), 1100, 'the test'); } catch (e) { err = e; }
+	ok(err instanceof TimedOut && Date.now() - t0 < 3000, 'work that never ends is given up on');
+	eq((err as Error).message, 'the test did not finish in 1 s', 'and says what and after how long');
+	let late: unknown = null;
+	try { await withLimit(new Promise((_r, no) => setTimeout(() => no(new Error('late')), 120)), 40, 'slow'); } catch (e) { late = e; }
+	ok(late instanceof TimedOut, 'slow work times out');
+	await new Promise((r) => setTimeout(r, 150)); // its late failure passes unheard (an unhandled one would end this file)
 	const dir = mkdtempSync(join(tmpdir(), 'binders-reap-test-')), file = join(dir, 'started.jsonl');
 	const idle = join(dir, 'idle.mjs'), runner = join(dir, 'run.mjs');
 	writeFileSync(idle, 'setInterval(() => {}, 1000);\n');
