@@ -3,7 +3,28 @@
 Written for a session that starts fresh from this repository (for example Claude Code in the cloud) and has none
 of the earlier conversation. Read `AGENTS.md` and `CLAUDE.md` first: they are the rules. This file is the state.
 
-`main` is at 0.33.4 and is what users would get. Everything below that is "on a branch" is **not** on `main`.
+`main` is at 0.33.7 and is what users would get. Everything below that is "on a branch" is **not** on `main`.
+
+## Since then (2026-10-06, a cloud session)
+
+- **The e2e suite runs in a cloud sandbox.** `scripts/cloud-setup.sh` works as it is; Electron needed `--no-sandbox`
+  as root, which `tests/e2e/driver.mjs` now passes. Then `. ./.cloud-env` and `npm run e2e` as anywhere.
+- **Export steps 5 and 3 are shipped onto branch `claude/quirky-ramanujan-kysgwa`** (pull request
+  fyresmith/binders#1, waiting for the maintainer's review), joined: Paperback uses the vault's styles and the style
+  editor, Export again makes PDFs. Reviewing both found and fixed: a deleted style's binders falling back to Classic,
+  the styles folder taking over an existing folder, a manuscript PDF written over its Word file, `nodeintegration`
+  on in the print webview, picture URLs never freed. Older menu and settings specs now know "Export as".
+  Left open (in the pull request): the bundle size and the hyphenation licences, for the maintainer; a landscape
+  tablet's note menu, now taller than the screen, where an emulated tap scrolls it and opens the next item; the demo
+  books test and a 5,000-note test logging ENOENT now and then while they write files from outside; the sync-burst
+  snapshots test failing about one run in three on the branch (none of four on `main`).
+- **Binder snapshots step 1 is rebased onto that branch, in a local branch `snapshots`** (not pushed: the session
+  may push only its own branch). The test named below was the test's own fault (it typed where the manuscript had
+  no editor); the stylesheet join, a date's wording and four more tests are fixed; the narrow dialog's title is
+  laid out; counts follow the word-count setting; the older specs know a folder's snapshot. `specs-binder-snapshots`
+  passes 26 of 28 in both themes. The two left wait on the maintainer: whether a note deleted and another made under
+  its name is "rewritten" (what `changes()` documents) or "gone" plus "new" (what the test expects), and whether
+  unchanged notes show their words in "Show changes".
 
 ## Unmerged work, on branches pushed to `origin`
 
