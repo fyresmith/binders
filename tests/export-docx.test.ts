@@ -11,6 +11,7 @@ import { pictureOf } from '../src/export/picture';
 import type { SourceItem } from '../src/export/roles';
 import { parts } from '../src/scene-text';
 import { bindersOf, type Files, type TestBinder } from './export-vault';
+import { ROWS_INNER, ROWS_TEXT, bigBinder, read } from './export-fixtures';
 import { firstDifference, readDocx, sourceWords, tokens } from './export-words';
 import { done, eq, ok } from './harness';
 
@@ -101,7 +102,7 @@ function wordForWord(b: TestBinder, what: string): { words: number; ms: number; 
 	sound(writeDocx(book, PLAIN, { contact: [], words: 1 }), 'the typesetter’s style');
 	eq([roundedWords(1474), roundedWords(40), roundedWords(84321), roundedWords(19949)].join(), '1500,100,84000,19900', 'the count is rounded');
 	eq([keyword('The Lighthouse'), keyword('A Salt Road'), surname('Mara Lindqvist'), surname('')].join('|'), 'LIGHTHOUSE|SALT ROAD|Lindqvist|', 'the header’s words');
-	eq(headingLines({ role: 'part', number: 2, title: 'The Island', blocks: [], paths: [] }).join('|'), 'Part Two|The Island', 'a part’s heading');
+	eq(headingLines({ id: 'part-2', role: 'part', number: 2, title: 'The Island', blocks: [], paths: [] }).join('|'), 'Part Two|The Island', 'a part’s heading');
 	eq(esc('a<b>&"\u0001\uD800'), 'a&lt;b&gt;&amp;&quot;', 'text is made safe for XML');
 	sound(writeDocx(buildBook([], { title: 'Empty', author: '', matter: false }), STANDARD, { contact: [], words: 0 }), 'an empty binder');
 }
@@ -120,15 +121,6 @@ function wordForWord(b: TestBinder, what: string): { words: number; ms: number; 
 }
 
 // ---- word for word: the test vault ----
-const read = (dir: string, files: Files = new Map(), at = ''): Files => {
-	for (const name of readdirSync(join(dir, at))) {
-		if (name.startsWith('.')) continue;
-		const rel = at ? `${at}/${name}` : name, full = join(dir, rel);
-		if (statSync(full).isDirectory()) read(dir, files, rel);
-		else files.set(rel, /\.(md|txt|canvas|snapshot)$/.test(name) ? readFileSync(full, 'utf8') : new Uint8Array(readFileSync(full)));
-	}
-	return files;
-};
 const results: string[] = [];
 let sample: Uint8Array | null = null;
 {
@@ -139,8 +131,8 @@ let sample: Uint8Array | null = null;
 
 // ---- word for word: every row of "What Markdown becomes", in one note ----
 {
-	const text = '---\nstatus: draft\n---\n# The crossing\n\n\tA tab starts this one, and *stress* with **weight** and ~~a cut~~ follow.\n\tA second, with `code words` and ==lit words== and a %%hidden remark%% gap.\n    Four spaces start this one. <!-- unseen --> It goes on.\n\nShe said "wait" -- then... nothing. It\'s the \'90s.\n---\nA link to [[Arrival]], to [[Part One/The keeper|the keeper]], to [[Arrival#The jetty]] and to [the site](https://example.com/page).\nAn address <https://example.org/plain> and a picture ![alt words here](missing.png) that is gone.\n\n![[Inner note]]\n\n![[paper.pdf]]\n\nA mark[^one] and another[^two], then one typed^[In place, with [a link](https://example.com) inside.] here.\n\n#draft #later\nA line with a #tag inside and an id at its end. ^abc-1\n\n> A quotation of two lines.\n> Its second line.\n\n> [!warning]+ Mind the step\n> The callout\'s own words.\n\n- first point\n- second point\n    - under the second\n\n3. third\n4. fourth\n\n| Left | Right |\n|:---|---:|\n| one [[N\\|shown]] | two |\n\n```js\nconst kept = `as typed`;\n```\n\n## A subheading here\n\nMath $a_1 + b_2$ stays, and a price of $5 too.\nA <span class="x">spanned</span> word and a line<br>broken.\n\n[^one]: The first note, with *stress*.\n[^two]: The second,\n    on two lines.\n[^three]: Never marked.';
-	const inner = '---\nsynopsis: no\n---\nThe inner note\'s text.[^1]\n\n[^1]: And its own note.';
+	const text = ROWS_TEXT;
+	const inner = ROWS_INNER;
 	const b: TestBinder = { folder: 'Rows', name: 'Rows', items: [folder('One', [note('Every row', parts(text).body), note('After', 'The scene after.')])], resolve: { embed: (t) => (t === 'Inner note' ? { text: inner } : null) }, embedded: (t) => (t === 'Inner note' ? inner : null) };
 	const r = wordForWord(b, 'every row of the table');
 	ok(r.words > 150, `it has its words (${r.words})`);
@@ -157,12 +149,7 @@ let sample: Uint8Array | null = null;
 
 // ---- word for word, and in time: a binder of 150,000 words ----
 {
-	const rand = rng('export-150k') as () => number, items: SourceItem[] = [];
-	for (let p = 1; p <= 3; p++) {
-		const chapters: SourceItem[] = [];
-		for (let c = 1; c <= 10; c++) chapters.push(folder(`Chapter ${(p - 1) * 10 + c}`, Array.from({ length: 5 }, (_, s) => note(`Scene ${s + 1}`, `${prose(rand, 500) as string}[^a]\n\n***\n\n${(prose(rand, 500) as string).replace(/\. /g, '.\n\t')}\n\n[^a]: ${prose(rand, 12) as string}`, { path: `Part ${p}/Chapter ${(p - 1) * 10 + c}/Scene ${s + 1}.md` }))));
-		items.push(folder(`Part ${p}`, chapters));
-	}
+	const items = bigBinder();
 	const big: TestBinder = { folder: 'Big', name: 'A long book', items, resolve: {}, embedded: () => null };
 	const r = wordForWord(big, 'a binder of 150,000 words');
 	ok(r.words > 150000, `it has its words (${r.words})`);

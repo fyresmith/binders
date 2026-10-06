@@ -1,6 +1,6 @@
 import { buildBook } from '../src/export/book';
 import { needs, parseBody, parseNote } from '../src/export/markdown';
-import { blocksText, numberWords, plain, type Block, type Inline } from '../src/export/model';
+import { blocksText, bookWords, numberWords, plain, type Block, type Inline } from '../src/export/model';
 import { pictureOf } from '../src/export/picture';
 import { assignRoles, guessStructure, readRole, readStructure, titleFrom, type SourceItem } from '../src/export/roles';
 import { typeset } from '../src/export/typography';
@@ -179,6 +179,38 @@ const roles = (items: SourceItem[], s = guessStructure(items)) => assignRoles(it
 	eq(b.notes.map(blocksText).join('|'), 'Outer note.|Inner note.', 'its footnotes join the book’s');
 	eq(b.warnings.length, 4, 'a note embedded in an embedded note, two pictures not found and a PDF are said');
 	ok(b.warnings.every((w) => w.path === 'A.md' && w.name === 'A'), 'each with the note it is in');
+}
+
+// what the ebook needs of the model: an id for every section, links inside the book, matter by name, the made pages
+{
+	const items = [
+		note('Title page', 'My own title page.'), note('Dedication', 'For M.'),
+		note('Prologue', 'See [[Arrival]] and [[Arrival#Later|later]], [[Elsewhere]], [the wreck](The%20wreck.md).'),
+		folder('Part One', [note('01 Arrival', 'It began.'), note('Chapter 2', 'Two.'), note('Arrival', 'Again, the same name.')]),
+		folder('Part Two', [note('The wreck', 'Three.')]), note('Été à 東京', 'Four.'), note('About the author', 'She writes.'),
+	];
+	const where: Record<string, string> = { Arrival: 'Part One/01 Arrival.md', 'Arrival#Later': 'Part One/01 Arrival.md', 'The wreck.md': 'Part Two/The wreck.md', Elsewhere: 'Notes/Elsewhere.md' };
+	for (const f of items) for (const c of f.children ?? []) c.path = `${f.name}/${c.name}.md`;
+	const b = buildBook(items, { title: 'T', author: 'A', matter: true }, { link: (t) => where[t] ?? null });
+	eq(b.sections.map((x) => x.id).join(' '), 'title-page dedication prologue part-1 chapter-1 chapter-2 chapter-3 part-2 chapter-4 chapter-5 about-the-author', 'every section has an id of its own: its number, or its name');
+	ok(new Set(b.sections.map((x) => x.id)).size === b.sections.length && b.sections.every((x) => /^[a-z][a-z0-9-]*$/.test(x.id)), 'ids are plain and never the same twice');
+	const links = (b.sections[2].blocks[0] as { runs: Inline[] }).runs.filter((r) => r.kind === 'text' && r.to !== undefined).map((r) => (r.kind === 'text' ? `${r.text}>${r.at ?? '-'}` : ''));
+	eq(links.join(' '), 'Arrival>chapter-1 later>chapter-1 Elsewhere>- the wreck>chapter-4', 'a link to a note of the book leads to its section; one out of the book is its words');
+	eq(b.sections.map((x) => x.matter ?? '-').join(' '), 'title-page dedication - - - - - - - - about-the-author', 'front and back matter are known by name');
+	eq(buildBook([note('A', '[[B]]'), note('B', 'x', { included: false })], { title: '', author: '', matter: false }, { link: () => 'B.md' }).sections[0].blocks.flatMap((x) => (x.kind === 'p' ? x.runs : [])).some((r) => r.kind === 'text' && r.at), false, 'a link to a note that is left out leads nowhere');
+
+	const plainBook = buildBook([note('One', 'x'), note('Acknowledgements', 'Thanks.')], { title: 'T', author: 'Mara L', matter: true, year: 2026 });
+	ok(!plainBook.sections.some((x) => x.made), 'no pages are made unless asked for (a manuscript has its own)');
+	const made = buildBook([note('Dedication', 'For M.'), note('One', 'x'), note('Storm', 'y'), note('Acknowledgements', 'Thanks.')], { title: 'T', subtitle: 'A tale', author: 'Mara L', matter: true, year: 2026, made: {} });
+	eq(made.sections.map((x) => `${x.id}${x.made ? '*' : ''}`).join(' '), 'title-page* copyright* dedication contents* chapter-1 chapter-2 acknowledgements', 'the made pages: a title page, a copyright page, then the front matter, then the contents');
+	eq(blocksText(made.sections[1].blocks), '© 2026 Mara L', 'the copyright page says who and when, when nobody said more');
+	eq(`${made.subtitle}|${made.copyright}`, 'A tale|© 2026 Mara L', 'the book has its subtitle and its copyright line');
+	const own = buildBook([note('Copyright', 'All mine.'), note('Title page', 'Mine too.'), note('1', 'x')], { title: 'T', author: 'A', matter: true, copyright: 'Line one\nLine two', made: {} });
+	eq(own.sections.map((x) => `${x.id}${x.made ? '*' : ''}`).join(' '), 'copyright title-page chapter-1', 'a note named “Copyright” or “Title page” takes the made one’s place; untitled chapters need no contents page');
+	const off = buildBook([note('One', 'x')], { title: 'T', author: '', matter: true, copyright: 'Line one\nLine two', made: { titlePage: false, contents: 'never' } });
+	eq(`${off.sections.map((x) => x.id).join(' ')}|${off.sections[0].blocks.length}`, 'copyright chapter-1|2', 'the title page and the contents can be turned off; a copyright line is a paragraph a line');
+	eq(buildBook([note('1', 'x')], { title: 'T', author: '', matter: true, made: { contents: 'always' } }).sections.map((x) => x.id).join(' '), 'title-page contents chapter-1', 'no author and no line: no copyright page; a contents page when it is asked for');
+	eq(bookWords(made), bookWords(buildBook([note('Dedication', 'For M.'), note('One', 'x'), note('Storm', 'y'), note('Acknowledgements', 'Thanks.')], { title: 'T', author: 'Mara L', matter: true })), 'made pages are no part of the book’s word count');
 }
 
 done('export model');

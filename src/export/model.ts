@@ -13,6 +13,9 @@ export interface Text {
 	/** A link to a note of the vault, as the note wrote it: its words are `text`. A writer that can link inside the
 	    book (the ebook) looks the note up; the others set the words. */
 	to?: string;
+	/** The section of the book that note is in (a `Section.id`), when it is in the book: where a link inside the book
+	    leads. Without it the words are only words. */
+	at?: string;
 }
 /** What a paragraph is made of: text, the mark of a footnote (its place in `Book.notes`), a line break. */
 export type Inline = Text | { kind: 'note'; note: number } | { kind: 'br' };
@@ -54,8 +57,20 @@ export const STRUCTURES: Record<Structure, readonly [string, string]> = {
 	notes: ['every note a chapter', 'Every note is a chapter'],
 };
 
+/** What a page of front or back matter is, by its name; anything else there is a titled page. `contents` is only
+    ever made. */
+export type Matter = 'title-page' | 'copyright' | 'dedication' | 'epigraph' | 'acknowledgements' | 'about-the-author' | 'also-by' | 'contents';
+
 /** A piece of the book that opens on a page of its own. */
 export interface Section {
+	/** Its own name in the book, never the same twice: plain letters, digits and hyphens (`chapter-3`, `prologue`).
+	    What a file in an ebook is named for, and what a link inside the book points at. */
+	id: string;
+	/** For front and back matter: which page it is, when its name says. */
+	matter?: Matter;
+	/** True for a page Binders made (a title page, a copyright page, the contents): no note wrote it. A title page
+	    and the contents have no blocks: a writer sets them from the book's details and its sections. */
+	made?: boolean;
 	role: 'part' | 'chapter' | 'front' | 'back';
 	/** Its number among the parts or the chapters; null for one that has a name instead (a prologue), and for front
 	    and back matter. */
@@ -82,7 +97,12 @@ export interface OutlineRow {
 
 export interface Book {
 	title: string;
+	subtitle: string;
 	author: string;
+	/** The copyright line, a line of it to a line: "" when there is none. */
+	copyright: string;
+	/** The cover, when the book has one and it was found. */
+	cover: Picture | null;
 	/** A language tag (`en`, `en-GB`, `de`): which quotes are set, and what the file says it is written in. */
 	language: string;
 	structure: Structure;
@@ -129,7 +149,7 @@ export function blocksText(blocks: readonly Block[]): string {
 
 /** How many words the book's text has: its sections' and its footnotes'. (Not the headings export makes.) */
 export function bookWords(book: Book): number {
-	return book.sections.reduce((n, s) => n + countWords(blocksText(s.blocks)), 0) + book.notes.reduce((n, b) => n + countWords(blocksText(b)), 0);
+	return book.sections.reduce((n, s) => n + (s.made ? 0 : countWords(blocksText(s.blocks))), 0) + book.notes.reduce((n, b) => n + countWords(blocksText(b)), 0);
 }
 
 const ONES = ['Zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];

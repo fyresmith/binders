@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.29.4 (2026-10-06)
+
+### Changed
+
+- Nothing a writer will notice yet: the parts of Export that make an ebook, with a test that no word is dropped or reordered and EPUBCheck in the test run.
+
 ## 0.29.3 (2026-10-06)
 
 ### Fixed
