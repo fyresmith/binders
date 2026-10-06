@@ -65,6 +65,7 @@ export class BindersSettingTab extends PluginSettingTab {
 			{ type: 'group', heading: 'Focus mode', items: [...focusToggles(Platform.isMobile).map((k): SettingDefinition => ({ name: FOCUS_TEXT[k][0], desc: FOCUS_TEXT[k][1], control: { type: 'toggle', key: k } })), { name: FOCUS_TEXT.focusGoal[0], desc: FOCUS_TEXT.focusGoal[1], render: (setting) => { this.goalRow(setting); } }] },
 			{ type: 'group', heading: 'Export', items: [
 				{ name: 'Exports folder', desc: 'Where exported files go on a phone or tablet, and where the save dialog starts on a computer. A name is a folder beside each binder; a path, such as Books/Exports, is one folder for the whole vault.', render: (setting) => { this.textRow(setting, 'exportsFolder', 'Exports'); } },
+				{ name: 'Styles folder', desc: 'The folder at the top of the vault that holds your export styles, one file each. Binders keeps it out of the file explorer. To sync styles with Obsidian Sync, turn on “Sync all other types”.', render: (setting) => { this.textRow(setting, 'stylesFolder', 'Export styles'); } },
 				{ name: 'Remembered places', desc: '', render: (setting) => { this.placesRow(setting); } },
 				{ name: 'Your name', desc: 'The author of a book that doesn’t say otherwise.', render: (setting) => { this.textRow(setting, 'authorName', ''); } },
 				{ name: 'Contact details', desc: 'For the title page of a manuscript: an address, an email, a phone number, a line each.', render: (setting) => { this.contactRow(setting); } },
@@ -172,15 +173,18 @@ export class BindersSettingTab extends PluginSettingTab {
 	}
 
 	/** One of export's lines of text: taken when the field is left. An empty Exports folder is the default again. */
-	private textRow(setting: Setting, k: 'exportsFolder' | 'authorName', fallback: string): void {
-		setting.settingEl.addClass(`binders-settings-${k === 'exportsFolder' ? 'exports' : 'author'}`);
+	private textRow(setting: Setting, k: 'exportsFolder' | 'stylesFolder' | 'authorName', fallback: string): void {
+		setting.settingEl.addClass(`binders-settings-${k === 'exportsFolder' ? 'exports' : k === 'stylesFolder' ? 'styles' : 'author'}`);
 		setting.addText((t) => {
 			t.setPlaceholder(fallback).setValue(this.s[k]);
 			this.field(t.inputEl, () => t.getValue() !== this.s[k], () => { t.setValue(this.s[k]); }, () => {
 				const v = t.getValue().trim().replace(/^\/+|\/+$/g, '') || fallback;
 				if (k === 'exportsFolder' && v.split('/').some((n) => !n.trim() || n.startsWith('.') || /[*"\\<>:|?]/.test(n))) { new Notice('That folder can’t be used. A name can’t start with a dot, or have a character a file name can’t have.'); t.setValue(this.s[k]); return; }
+				if (k === 'stylesFolder' && (v.includes('/') || v.startsWith('.') || /[*"\\<>:|?]/.test(v))) { new Notice('That folder can’t be used. The styles folder is one name, at the top of the vault.'); t.setValue(this.s[k]); return; }
 				t.setValue(v);
 				if (v === this.s[k]) return;
+				// (the styles go with their folder's name: the files are moved, not left behind)
+				if (k === 'stylesFolder') { void this.plugin.styles.moveTo(v).catch((e) => { new Notice(e instanceof Error ? e.message : String(e)); t.setValue(this.s[k]); }); return; }
 				this.s[k] = v;
 				void this.save();
 			});

@@ -160,8 +160,8 @@ interface Place { items: TAbstractFile[]; folder: TFolder; anchor: TAbstractFile
 
 /** Patches the file explorer and listens for its clicks and drags, for as long as the plugin is loaded. `source` is
     the binder store; `openBinder` opens a folder's binder view; `shown` is the folder the binder view in front shows
-    (its row is marked). Everything it adds is taken away again when the plugin unloads. */
-export function installExplorer(plugin: Plugin, source: ExplorerSource, settings: () => ExplorerSettings, openBinder: (folder: TFolder, newLeaf: boolean | PaneType) => void, shown: () => TFolder | null = () => null): Explorer {
+    (its row is marked); `kept` says which folder at the top of the vault is never listed. Everything it adds is taken away again when the plugin unloads. */
+export function installExplorer(plugin: Plugin, source: ExplorerSource, settings: () => ExplorerSettings, openBinder: (folder: TFolder, newLeaf: boolean | PaneType) => void, shown: () => TFolder | null = () => null, kept: (file: TAbstractFile) => boolean = () => false): Explorer {
 	const { app } = plugin;
 	let unpatch: (() => void) | null = null, noticed = false, loaded = true;
 	let status: Explorer['status'] = 'waiting';
@@ -174,6 +174,8 @@ export function installExplorer(plugin: Plugin, source: ExplorerSource, settings
 		for (const it of items) mark(it);
 		// a binder's snapshots are never listed, whatever the settings say (and whatever kinds of file Obsidian is set to show)
 		if (source.isBinderFolder(folder)) items = items.filter((it) => !source.isSnapshotsFolder(it.file));
+		// nor is the folder of export styles at the top of the vault (`kept`: a folder Binders keeps for itself)
+		if (folder.isRoot()) items = items.filter((it) => !kept(it.file));
 		const order = settings().orderExplorer ? source.orderedChildren(folder) : null;
 		if (!order) return items;
 		const hide = settings().hideBinderNotes;

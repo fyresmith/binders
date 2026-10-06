@@ -7,12 +7,10 @@ import { bookNeeds, buildBook, type Resolver } from './book';
 import { applyDetails, readDetails, type Details } from './details';
 import type { Desktop, Stamp } from './desktop';
 import { writeDocx } from './docx';
-import { manuscriptStyle } from './docx-parts';
 import { writeEpub } from './epub';
 import { bookWords, type Book, type Picture } from './model';
 import { isPictureName, pictureOf } from './picture';
 import type { SourceItem } from './roles';
-import { bookStyle } from './style';
 
 /* Export where it meets the vault: a binder (or a folder of one) read into the book model, the manuscript made from
    it, and the file put where it goes. It reads notes and writes the exported file, and nothing else: no note's text
@@ -54,8 +52,9 @@ export async function saveDetails(plugin: BindersPlugin, folder: TFolder, change
 }
 
 /** A folder of a binder, read for export: the book, and how many words it has. `asBook`: with the pages Binders
-    makes for a book (a title page, a copyright page, the contents) and its cover, as an ebook has them. */
-export async function readBook(plugin: BindersPlugin, folder: TFolder, matter: boolean, asBook = false): Promise<{ book: Book; words: number }> {
+    makes for a book (a title page, a copyright page, the contents) and its cover, as an ebook has them. `asTyped`:
+    quotes and dashes are left as they were typed (a book style can say so). */
+export async function readBook(plugin: BindersPlugin, folder: TFolder, matter: boolean, asBook = false, asTyped = false): Promise<{ book: Book; words: number }> {
 	const { app, binders: store, settings } = plugin, binder = store.binderOf(folder);
 	if (!binder) throw new Error(`“${folder.name}” isn’t in a binder.`);
 	const fm = (f: TFile | null): Record<string, unknown> => (f ? app.metadataCache.getFileCache(f)?.frontmatter ?? {} : {});
@@ -117,6 +116,7 @@ export async function readBook(plugin: BindersPlugin, folder: TFolder, matter: b
 		structure: d.structure,
 		flat: binder.kind === 'longform',
 		matter,
+		asTyped,
 		made: asBook ? { titlePage: d.titlePage, contents: d.contents } : undefined,
 	}, resolve);
 	const said = (text: string) => book.warnings.unshift({ path: binder.note.path, name: 'Book details', text });
@@ -128,11 +128,11 @@ const safeDecode = (s: string): string => { try { return decodeURIComponent(s); 
 
 /** The manuscript of a book as a Word file. */
 export function manuscript(plugin: BindersPlugin, book: Book, words: number, style: string): Uint8Array {
-	return writeDocx(book, manuscriptStyle(style), { contact: plugin.settings.contact.split(/\r?\n/).map((l) => l.trim()).filter((l) => l), words });
+	return writeDocx(book, plugin.styles.manuscript(style), { contact: plugin.settings.contact.split(/\r?\n/).map((l) => l.trim()).filter((l) => l), words });
 }
 
-/** The ebook of a book, in a book style. */
-export const ebook = (book: Book, style: string): Uint8Array => writeEpub(book, bookStyle(style));
+/** The ebook of a book, in a book style: one of the vault's, by name. */
+export const ebook = (plugin: BindersPlugin, book: Book, style: string): Uint8Array => writeEpub(book, plugin.styles.book(style));
 
 /** The longer side stores ask of a cover, in pixels (Apple's floor; Kindle's ideal is 2,560). */
 const COVER_SIDE = 1400;

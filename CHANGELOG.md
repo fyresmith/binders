@@ -3,6 +3,18 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.35.0 (2026-10-06)
+
+### Added
+
+- "Edit this style" beside the Style dropdown turns the Export window's sidebar into a style editor; the preview follows every change, and changes are kept as you make them.
+- Built-in styles can be changed and reset; Duplicate makes a style of your own, which can be renamed, deleted, shared as a file and added from one.
+- Styles are plain files in "Export styles" at the top of the vault, kept out of the file explorer (the folder's name is a setting).
+
+### Changed
+
+- A manuscript's style is now kept with its binder.
+
 ## 0.34.0 (2026-10-06)
 
 ### Added

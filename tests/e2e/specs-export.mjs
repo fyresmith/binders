@@ -11,6 +11,8 @@ import { strFromU8, unzipSync } from 'fflate';
 import { PL, clickMenu, file, j, openView, reload, same, split, texts, until, withTidy, writeRaw } from './view-helpers.mjs';
 
 export const specs = [];
+// (what the style editor's tests, specs-export-styles.mjs, share with these)
+export { WIN, EBOOK, docx, epub, epubcheck, words, sourceWords, run, open, openEbook, open2, press, pick, saved, status, notices, asked, standIn, closeAll, onMobile, tapEl, button, withAuthor };
 const L = 'The Lighthouse/';
 const WIN = '.modal.binders-export';
 

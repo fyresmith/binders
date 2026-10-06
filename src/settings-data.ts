@@ -38,6 +38,8 @@ export interface BindersSettings {
 	/** Export: the folder exported files go to. A name is a folder beside each binder; a path (with a `/`) is one
 	    folder for the whole vault. */
 	exportsFolder: string;
+	/** Export: the folder at the top of the vault that holds the styles' files (kept out of the file explorer). */
+	stylesFolder: string;
 	/** Export: the author of a book that doesn't say otherwise, and the lines under the name on a manuscript's title
 	    page (an address, an email, a phone number). */
 	authorName: string;
@@ -82,7 +84,7 @@ export const DEFAULT_SETTINGS: BindersSettings = {
 	orderExplorer: true, openOnClick: true, hideBinderNotes: true, explorerLabels: true,
 	synopsisProp: 'synopsis', statusProp: 'status', labelProp: 'label', targetProp: 'target', notesProp: 'notes',
 	labels: DEFAULT_LABELS, statuses: DEFAULT_STATUSES, outlinerColumns: DEFAULT_COLUMNS, compile: COMPILE_DEFAULTS, compiled: {}, compiledTo: {},
-	exportsFolder: 'Exports', authorName: '', contact: '', exportKind: 'manuscript', exportStyle: '', exportMatter: false, exportOutside: true, exportSnapshots: true,
+	exportsFolder: 'Exports', stylesFolder: 'Export styles', authorName: '', contact: '', exportKind: 'manuscript', exportStyle: '', exportMatter: false, exportOutside: true, exportSnapshots: true,
 	tabParagraphs: true, indentParagraphs: false, sidePanes: true,
 	focusTypewriter: true, focusPlace: false, focusNumbers: false, focusDim: true, focusDark: true, focusNeighbours: false, focusGoal: 0, focusFullscreen: false,
 	bookWords: true,
@@ -163,6 +165,7 @@ export function readSettings(data: unknown): BindersSettings {
 	if (typeof d.bookWords === 'boolean') s.bookWords = d.bookWords;
 	if (typeof d.focusGoal === 'number' && Number.isInteger(d.focusGoal) && d.focusGoal > 0) s.focusGoal = d.focusGoal;
 	if (typeof d.exportsFolder === 'string' && d.exportsFolder.trim()) s.exportsFolder = d.exportsFolder.trim();
+	if (typeof d.stylesFolder === 'string' && d.stylesFolder.trim() && !/[\\/]/.test(d.stylesFolder.trim())) s.stylesFolder = d.stylesFolder.trim();
 	for (const k of ['authorName', 'contact', 'exportStyle'] as const) if (typeof d[k] === 'string') s[k] = d[k];
 	if (d.exportKind === 'note' || d.exportKind === 'manuscript' || d.exportKind === 'ebook' || d.exportKind === 'scrivener') s.exportKind = d.exportKind;
 	s.exportOutside = d.exportOutside !== false;

@@ -148,3 +148,19 @@ export function historyLook(contentEl: HTMLElement): boolean {
 		return tinted && contentEl.win.getComputedStyle(contentEl).display === 'flex';
 	} catch { return false; }
 }
+
+/** Whether this Obsidian lays a form out as Bases' "Configure view" does. The style editor in the Export window is
+    built on that form's own class names (`bases-toolbar-menu-form view-config-menu`, `input-group-container`,
+    `input-group-header`, `input-row`, `input-row-label`, `input-row-content`, and `bases-toolbar-menu-container-header`
+    with its `back-button`), which are not in the API. They are known by what they do: a group in such a form lays
+    its rows out as a column. If that isn't so (Bases is off the build, or a later Obsidian renamed them),
+    this says no, and the editor takes Binders' own rules for the same layout (`.binders-style-editor.is-plain` in
+    styles.css). `form` is the editor's form, in the document. */
+export function configLook(form: HTMLElement): boolean {
+	try {
+		const group = form.createDiv({ cls: 'input-group-container' }), s = group.win.getComputedStyle(group);
+		const column = s.display === 'flex' && s.flexDirection === 'column';
+		group.remove();
+		return column;
+	} catch { return false; }
+}

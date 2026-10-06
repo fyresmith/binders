@@ -4631,6 +4631,213 @@ body:not(.is-phone) .binders-export .binders-export-options .setting-item.settin
 	line-height: var(--line-height-tight);
 }
 
+/* ---- Export: the style editor (view/export-style-editor.ts) ----
+   The sidebar while a style is edited, laid out as Bases lays out "Configure view", on Bases' own classes: these
+   rules only fit that form into the window. Where an Obsidian doesn't have those classes the editor is `.is-plain`,
+   and the rules at the end of this block give it the same layout. */
+
+/* The style's row in the choices: the dropdown, and the way into its editor on the row's own line. */
+.binders-export .binders-export-style .setting-item-control {
+	gap: var(--size-4-1);
+}
+
+.binders-export .binders-export-style .extra-setting-button {
+	flex: 0 0 auto;
+	width: var(--input-height);
+	height: var(--input-height);
+	padding: 0;
+}
+
+.binders-export .binders-export-style select {
+	min-width: 0;
+	flex: 0 1 auto;
+}
+
+.binders-export .binders-style-editor {
+	flex: 1 1 0;
+	min-height: 0;
+	height: 100%;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+}
+
+.binders-export .binders-style-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: var(--size-4-2) var(--size-4-2) var(--size-4-1);
+}
+
+.binders-export .binders-style-head .back-button {
+	font-size: var(--font-ui-medium);
+	font-weight: var(--font-semibold);
+	cursor: var(--cursor);
+}
+
+.binders-export .binders-style-head .clickable-icon {
+	flex: 0 0 auto;
+	width: var(--input-height);
+	height: var(--input-height);
+	padding: 0;
+}
+
+.binders-export .binders-style-form {
+	flex: 1 1 0;
+	min-height: 0;
+	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-2-3);
+	padding: 0 var(--size-4-4) var(--size-4-6);
+	font-size: var(--font-ui-small);
+}
+
+.binders-export .binders-style-form .input-group-container {
+	margin-top: var(--size-4-2);
+}
+
+.binders-export .binders-style-form .input-group-divider {
+	margin-inline: calc(-1 * var(--size-4-4));
+	width: calc(100% + 2 * var(--size-4-4));
+}
+
+.binders-export .binders-style-form select,
+.binders-export .binders-style-form input[type="text"] {
+	width: 100%;
+}
+
+.binders-export .binders-style-form .input-row-content {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+}
+
+.binders-export .binders-style-form input[type="range"] {
+	flex: 1 1 0;
+	min-width: 0;
+}
+
+.binders-export .binders-style-form .slider-value {
+	flex: 0 0 3.4em;
+	color: var(--text-muted);
+	font-variant-numeric: tabular-nums;
+}
+
+.binders-export .binders-style-form input[readonly] {
+	color: var(--text-muted);
+}
+
+/* What a style is (built in, changed, based on another), and the few words under a row or the form. */
+.binders-style-note {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--size-2-1) var(--size-4-2);
+	padding: 0 var(--size-2-1);
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	line-height: var(--line-height-tight);
+}
+
+.binders-style-note.mod-warning {
+	color: var(--text-warning);
+}
+
+.binders-style-note.mod-foot {
+	padding-top: var(--size-4-4);
+}
+
+.binders-style-note a {
+	cursor: var(--cursor-link);
+}
+
+.binders-export .binders-style-editor .binders-export-foot {
+	margin-top: 0;
+}
+
+/* (the system's file chooser is opened from the menu: its own field is never seen) */
+.binders-style-file {
+	display: none;
+}
+
+.is-phone .binders-export .binders-style-head {
+	padding-inline: var(--size-4-4);
+}
+
+.is-phone .binders-export .binders-style-form {
+	padding-inline: var(--size-4-6);
+	font-size: var(--font-ui-medium);
+}
+
+/* Without Bases' classes: the same form, by Binders' own rules (they say what Obsidian 1.13's say). */
+.binders-style-editor.is-plain .back-button {
+	display: flex;
+	flex-grow: 1;
+	align-items: center;
+	gap: var(--size-4-1);
+	padding: var(--size-2-2);
+	border-radius: var(--radius-s);
+}
+
+.binders-style-editor.is-plain .back-icon {
+	display: flex;
+	align-items: center;
+	color: var(--text-muted);
+}
+
+.binders-style-editor.is-plain :is(.input-group-container, .input-group-content) {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-2);
+}
+
+.binders-style-editor.is-plain .input-group-content {
+	gap: var(--size-2-3);
+}
+
+.binders-style-editor.is-plain .input-row-label {
+	padding: var(--size-2-2) var(--size-2-1);
+	color: var(--text-normal);
+}
+
+.binders-style-editor.is-plain .input-row-content {
+	min-height: var(--input-height);
+}
+
+.binders-style-editor.is-plain .input-row-content :is(select, input) {
+	flex-grow: 1;
+}
+
+.binders-style-editor.is-plain .input-group-divider {
+	border-top: var(--border-width) solid var(--background-modifier-border);
+}
+
+.binders-style-editor.is-plain .input-group-header {
+	font-weight: var(--font-semibold);
+}
+
+/* What the preview's drawing leaves to the style: a chapter heading's size in the ebook, and a manuscript's running
+   head, shown once at the top of the sheet. */
+.binders-export-scroll[data-heading-size="medium"] .binders-export-paper.mod-ebook .binders-export-heading {
+	font-size: 1.5em;
+}
+
+.binders-export-scroll[data-heading-size="large"] .binders-export-paper.mod-ebook .binders-export-heading {
+	font-size: 2.2em;
+}
+
+.binders-export-scroll:is([data-heading-size="medium"], [data-heading-size="large"]) .binders-export-paper.mod-ebook .binders-export-heading-title {
+	font-size: 0.62em;
+	font-style: italic;
+	letter-spacing: 0;
+	text-transform: none;
+}
+
+.binders-export-paper .binders-export-running {
+	text-align: end;
+	padding-bottom: 1em;
+}
+
 /* Where the file went, and whether to go there again without asking: Obsidian's own "Don't ask again". */
 .binders-export-place {
 	display: flex;
