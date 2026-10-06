@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.32.5 (2026-10-06)
+
+### Changed
+
+- The README is a short introduction titled Binders for Obsidian, with the public beta note, installation, a quick start and links into the manual.
+
 ## 0.32.4 (2026-10-06)
 
 ### Changed
