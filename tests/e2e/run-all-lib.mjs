@@ -59,3 +59,9 @@ export function withLimit(work, ms, what = 'it') {
 	work.catch(() => {});
 	return Promise.race([work, late]).finally(() => clearTimeout(timer));
 }
+
+/** What differs between two records of a checkout, `{ name: fingerprint }` each: the names changed, added or gone,
+    sorted. Empty when it is the same code that was run. */
+export function moved(before, after) {
+	return [...new Set([...Object.keys(before), ...Object.keys(after)])].filter((k) => before[k] !== after[k]).sort();
+}

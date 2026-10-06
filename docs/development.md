@@ -185,7 +185,14 @@ Without `--specs`, every `tests/e2e/specs*.mjs` runs:
 | `specs-qa-*.mjs` to `specs-qa6-*.mjs` | QA rounds, each file an area. Tests named "BUG: …" or "UX: …" were written to fail until what they show is fixed, and stay as regressions after. Rounds 1 and 2: the store, the explorer, the corkboard, the manuscript. Round 3: labels, the outliner, the scene tools, and `qa3-look`, which records screenshots and measurements and asserts nothing. Round 4: the explorer, the manuscript, a writer's whole day (`qa4-journey`), a phone and a tablet. Round 5: a phone and a tablet by touch, mode by mode (`cork`, `outliner`, `manuscript`, `nav`, `tablet`). Round 6: `writing`, `scale`, `store`, `boards`, `menus`, `phone`, `tablet`, `features` (eight files, `specs-qa6-*.mjs`) |
 
 **The whole suite, in several Obsidians at once.** In one Obsidian the suite takes hours.
-`tests/e2e/run-all.mjs` shares the spec files out over several, each job a `run.mjs` of its own:
+`tests/e2e/run-all.mjs` shares the spec files out over several, each job a `run.mjs` of its own.
+
+**Run it from a checkout that won't move:** a worktree or a clone at one commit, built there, and left alone until the
+run has ended (not the folder work is being merged into). Each job reads the spec files as it starts, each Obsidian
+takes the built plugin as it is launched, and each retry reads the spec files again: a run over a checkout that
+changes is a run of several versions. The runner writes down the commit, the scripts and spec files it runs and the
+built plugin when it starts, and looks again when the jobs are done: if anything differs it says "THE CHECKOUT MOVED
+DURING THE RUN" with what changed, retries nothing, and fails the run. The summary's first line has the commit.
 
 ```bash
 npm run e2e:all -- --jobs 6 --theme both      # six Obsidians, light then dark in each

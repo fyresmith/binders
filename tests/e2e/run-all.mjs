@@ -4,16 +4,20 @@
 //   npm run e2e:all -- --out dir                 where the logs go (default test-dist/e2e-all)
 //   npm run e2e:all -- --hover                   a mouse that hovers (BINDERS_HOVER=1 for every job)
 //   --grep, --repeat, --specs and --timeout are passed on to run.mjs.
+// Run it from a checkout that stays as it is until the run has ended (a worktree or a clone at one commit): each job
+// reads the spec files when it starts, each Obsidian takes the built plugin when it is launched, and each retry reads
+// the spec files again. If any of that changed meanwhile, the summary says so and nothing is retried.
 //   npm run e2e:all -- --reap                    end what an earlier run left behind (after a kill -9, say), and stop
 // One log per job (job-1.log …), failure screenshots in shots/, and at the end one summary of them all (also in
 // summary.txt). It fails (exit 1) only for failures that aren't listed in open-findings.json; with --retry-alone, only
 // for those that fail alone too. Ctrl-C stops every job and closes every Obsidian.
-import { spawn } from 'child_process';
+import { execFileSync, spawn } from 'child_process';
+import { createHash } from 'crypto';
 import { createWriteStream, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { pathToFileURL } from 'url';
-import { reap, record } from './driver.mjs';
-import { groups, parser, plural } from './run-all-lib.mjs';
+import { VAULT, reap, record } from './driver.mjs';
+import { groups, moved, parser, plural } from './run-all-lib.mjs';
 
 const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i > 0 ? process.argv[i + 1] : d; };
 const flag = (k) => process.argv.includes('--' + k);
@@ -48,6 +52,19 @@ if (!counted.length) { console.error('No tests to run.'); process.exit(2); }
 const times = !grep && existsSync(TIMES) ? JSON.parse(readFileSync(TIMES, 'utf8')) : {};
 const known = counted.filter((c) => times[c.file]), per = known.length ? known.reduce((a, c) => a + times[c.file], 0) / known.reduce((a, c) => a + c.n, 0) : 1;
 const bins = groups(counted.map((c) => ({ ...c, weight: times[c.file] ?? c.n * per })), jobs);
+// What is being run: the commit, every script and list the tests are made of, and the built plugin in the vault that
+// each Obsidian copies. Looked at again before anything is retried: a retry of other code than was run proves nothing.
+function checkout() {
+	const rec = {}, sum = (f) => createHash('sha1').update(readFileSync(f)).digest('hex');
+	try { rec.HEAD = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); } catch { /* not a git checkout: the files say enough */ }
+	// (of the spec files, the ones this run runs: another being edited meanwhile is no matter)
+	const made = readdirSync('tests/e2e').filter((f) => /\.(mjs|json)$/.test(f) && !/^specs.*\.mjs$/.test(f)).map((f) => 'tests/e2e/' + f);
+	const built = ['main.js', 'styles.css', 'manifest.json'].map((f) => join(VAULT, '.obsidian/plugins/binders', f));
+	for (const f of new Set([...made, ...files, ...built])) { try { rec[f] = sum(f); } catch { /* not there: its absence is the record */ } }
+	return rec;
+}
+const ran = checkout();
+let shifted = [];
 const total = counted.reduce((a, c) => a + c.n, 0) * themes.length * repeat;
 const open = new Set(existsSync(OPEN) ? JSON.parse(readFileSync(OPEN, 'utf8')).map((f) => f.name) : []);
 
@@ -94,8 +111,12 @@ await Promise.all(bins.map(async (b, i) => {
 clearInterval(tick);
 if (stopping) await new Promise(() => {}); // the handler above reports and exits, once every job has ended
 
+// the same code as at the start? (each retry reads the spec files again, and launches the plugin as it is built now)
+if (!stopping) shifted = moved(ran, checkout());
+if (shifted.length) console.log(`\nTHE CHECKOUT MOVED DURING THE RUN: ${shifted.join(', ')}.\nParts of this run were of different code${flag('retry-alone') ? ', and nothing is retried: a retry would run other tests, or another build, than failed' : ''}. Run it again from a checkout that stays put (a worktree or a clone at one commit).`);
+
 // each failure again, by itself, with nothing else running: what fails only under load passes here
-if (flag('retry-alone') && !stopping) {
+if (flag('retry-alone') && !stopping && !shifted.length) {
 	const failed = results.filter((r) => r.mark === '✗');
 	if (failed.length) console.log(`\nRunning ${plural(failed.length, 'failure')} again, one at a time…`);
 	for (const [i, f] of failed.entries()) {
@@ -115,6 +136,8 @@ function report() {
 	const passed = results.filter((r) => r.mark === '✓'), failed = results.filter((r) => r.mark === '✗'), still = results.filter((r) => r.mark === '○');
 	const fixed = passed.filter((r) => open.has(r.name)), early = ended.map((r, i) => (r && !r.finished ? i + 1 : 0)).filter(Boolean);
 	const lines = [`\n${passed.length} passed, ${failed.length} failed${still.length ? `, ${plural(still.length, 'open finding')} (${OPEN})` : ''}, in ${mins()} min over ${plural(bins.length, 'job')}${builds.size ? ` (${[...builds].join('; ')})` : ''}`];
+	if (ran.HEAD) lines[0] += `, at ${ran.HEAD.slice(0, 7)}`;
+	if (shifted.length) lines.push(`The checkout moved during the run (${shifted.join(', ')}): parts of it were of different code${flag('retry-alone') ? ', and nothing was retried' : ''}. Run it again from a checkout that stays put.`);
 	if (results.length < total) lines.push(`${plural(total - results.length, 'test')} didn't run${stopping ? ': stopped' : early.length ? `: job ${early.join(', ')} stopped early (see ${early.length > 1 ? 'their logs' : 'its log'})` : ''}`);
 	const entry = (r, more = '') => `  ${r.title}\n      ${r.file ?? '?'}, job ${r.job}${more}\n      ${r.err}`;
 	if (alone.length) {
@@ -134,5 +157,5 @@ function report() {
 		writeFileSync(TIMES, JSON.stringify(took, null, '\t'));
 	}
 	const real = alone.length ? alone.filter((r) => r.alone === 'failed').length : failed.length;
-	return real || early.length || (stopping ? 1 : 0) ? 1 : 0;
+	return real || early.length || shifted.length || (stopping ? 1 : 0) ? 1 : 0;
 }

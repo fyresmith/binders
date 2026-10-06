@@ -6,7 +6,7 @@ import { join } from 'path';
 // @ts-expect-error a plain script, with no types
 import { reap } from './e2e/driver.mjs';
 // @ts-expect-error a plain script, with no types
-import { LIMIT, TimedOut, groups, limitOf, parser, plural, withLimit } from './e2e/run-all-lib.mjs';
+import { LIMIT, TimedOut, groups, limitOf, moved, parser, plural, withLimit } from './e2e/run-all-lib.mjs';
 import { done, eq, ok } from './harness';
 
 const j = (x: unknown) => JSON.stringify(x);
@@ -69,6 +69,10 @@ eq(limitOf({ name: 'a' }, '90'), 90000, 'the flag is in seconds');
 eq(limitOf({ name: 'a', timeout: 1200000 }, '90'), 1200000, 'a test’s own limit (ms) wins over the flag');
 eq(limitOf({ name: 'a', timeout: 0 }, 'soon'), LIMIT, 'nonsense is passed over');
 eq(limitOf({ name: 'a', timeout: -5 }, '0'), LIMIT, 'and nothing at or under zero');
+
+// what moved in a checkout between the run and its retries
+eq(j(moved({ HEAD: 'a1', 'specs-a.mjs': 'x', 'specs-b.mjs': 'y' }, { HEAD: 'a1', 'specs-a.mjs': 'x', 'specs-b.mjs': 'y' })), '[]', 'the same code: nothing moved');
+eq(j(moved({ HEAD: 'a1', 'specs-a.mjs': 'x', 'specs-b.mjs': 'y' }, { HEAD: 'b2', 'specs-a.mjs': 'x2', 'specs-c.mjs': 'z' })), j(['HEAD', 'specs-a.mjs', 'specs-b.mjs', 'specs-c.mjs']), 'the commit, a file changed, one gone and one new');
 
 // withLimit: the work's own end, or a TimedOut; abandoned work that fails later troubles nobody. Then reap
 // (tests/e2e/driver.mjs): ends what a run wrote down that it started, and only that. Stand-ins here: processes
