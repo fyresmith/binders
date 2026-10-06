@@ -761,9 +761,31 @@ test('phone toolbar: at 320, 360, 390 and 430 px and on its side (568, 844, 932 
 			}
 			const head = await p.ev(`({ header: (${R})(document.querySelector('${LEAF} .view-header')), title: (${R})(document.querySelector('${LEAF} .view-header-title')), navbar: (${R})(document.querySelector('.mobile-navbar')), bar: (${R})(document.querySelector('${LEAF} .binders-toolbar')) })`);
 			t.ok(Math.abs(head.title[0] + head.title[2] / 2 - w / 2) <= 2, `${w} × ${hh}: the header’s title is centred: ${j(head.title)}`);
+			// (as Obsidian's own phone headers: one button each side of the title, and the rest in “More options”. The
+			// Snapshots button of 0.41.0 stood beside it and pushed the title 23 px off the middle)
+			const acts = await p.ev(`(() => { const R = ${R}, t = document.querySelector('${LEAF} .view-header-title'); return { shown: [...document.querySelectorAll('${LEAF} .view-header .view-actions > *')].filter(e => e.getBoundingClientRect().width > 0).map(e => e.getAttribute('aria-label')), left: (${R})(document.querySelector('${LEAF} .view-header-left')), right: (${R})(document.querySelector('${LEAF} .view-header .view-actions')), cut: t.scrollWidth - t.clientWidth }; })()`);
+			t.eq(j(acts.shown), j(['More options']), `${w} × ${hh}: the header has “More options” alone beside the title`);
+			t.ok(acts.cut <= 0 && head.title[0] >= acts.left[0] + acts.left[2] && head.title[0] + head.title[2] <= acts.right[0], `${w} × ${hh}: the title is whole, between the buttons and under neither: ${j([head.title, acts])}`);
 			t.eq(head.bar[1], head.header[1] + head.header[3] + 7, `${w} × ${hh}: the toolbar sits right under the header: ${j(head)}`);
 			t.ok(head.navbar[0] >= 0 && head.navbar[0] + head.navbar[2] <= w && head.navbar[1] + head.navbar[3] <= hh, `${w} × ${hh}: the navigation bar is on the screen`);
 		}
+	});
+});
+
+test('tablet header: the Snapshots button stays beside “More options” (a phone has it in the sheet only), and opens the two snapshot items', async (p, h, t) => {
+	await onDevice(p, TABLET, async () => {
+		await open(p);
+		const shown = () => p.ev(`[...document.querySelectorAll('${LEAF} .view-header .view-actions > *')].filter(e => e.getBoundingClientRect().width > 0).map(e => e.getAttribute('aria-label'))`);
+		t.eq(j(await shown()), j(['Snapshots', 'More options']), 'the binder’s header: Snapshots, then More options');
+		await open(p, L + 'Part One');
+		t.eq(j(await shown()), j(['Snapshots', 'More options']), 'a folder’s too');
+		const b = await p.at(`${LEAF} .view-actions .clickable-icon[aria-label="Snapshots"]`);
+		const more = await p.at(MORE);
+		t.eq(j([Math.round(b.w), Math.round(b.h)]), j([Math.round(more.w), Math.round(more.h)]), 'the size of Obsidian’s own button beside it');
+		await tap(p, b.x, b.y);
+		await p.sleep(500);
+		t.eq(j(await menuItems(p)), j(['Take a snapshot', 'Show snapshots...']), 'a tap opens its two items');
+		await gone(p);
 	});
 });
 
@@ -794,6 +816,14 @@ test('phone header: “More options” in each mode is a sheet of finger-tall ro
 		t.ok(await menuTap(p, 'Corkboard'), 'Corkboard');
 		await until(p, `${VIEW}.mode === 'corkboard'`);
 		t.eq(j([(await viewState(p)).mode, await menus(p)]), j(['corkboard', 0]), 'a mode picked in the sheet switches to it and closes the sheet');
+		// snapshots from there: one tap (a phone's header has no Snapshots button of its own)
+		await tap(p, more.x, more.y);
+		await p.sleep(500);
+		t.ok(await menuTap(p, 'Show snapshots...'), 'Show snapshots...');
+		await until(p, `!!document.querySelector('.modal.binders-folder-snapshots')`);
+		await p.sleep(400);
+		t.eq(j([await p.ev(`!!document.querySelector('.modal.binders-folder-snapshots')`), await menus(p)]), j([true, 0]), 'opens the binder’s snapshots, with no sheet left');
+		await closeDialog(p);
 		// Export... from there
 		await p.ev(NOTE_KIND);
 		await tap(p, more.x, more.y);

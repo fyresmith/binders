@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.44.2 (2026-10-06)
+
+### Fixed
+
+- On a phone, the binder view's title is centred again: the Snapshots button is no longer in the header there, and Take a snapshot and Show snapshots... are under More options. Tablets and computers keep the button.
+
 ## 0.44.1 (2026-10-06)
 
 ### Fixed

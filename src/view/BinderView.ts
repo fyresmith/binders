@@ -562,10 +562,12 @@ export class BinderView extends ItemView {
 		this.inspect();
 	}
 
-	/** The Snapshots button in the view's header, as a note of a binder has: for the folder shown. */
+	/** The Snapshots button in the view's header, as a note of a binder has: for the folder shown. Not on a phone,
+	    where a second button beside "More options" pushes the title off the middle of the header (23 px at 320 px wide,
+	    measured): there the two items are in "More options", one tap further (`folderSnapshotItems` in onPaneMenu). */
 	private snapshotsButton: HTMLElement | null = null;
 	private headerSnapshots(): void {
-		const want = !!this.folder && !!this.binder && hasSnapshots(this.plugin, this.folder);
+		const want = !!this.folder && !!this.binder && !Platform.isPhone && hasSnapshots(this.plugin, this.folder);
 		if (want && !this.snapshotsButton) {
 			const b = this.snapshotsButton = this.addAction('history', 'Snapshots', () => { if (this.folder) headerFolderSnapshots(this.plugin, this.folder, b); });
 		} else if (!want && this.snapshotsButton) { this.snapshotsButton.remove(); this.snapshotsButton = null; }
