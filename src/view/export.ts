@@ -14,7 +14,7 @@ import { drawEbook, drawManuscript, drawOutline } from './export-preview';
 import { drawScriv, exportScriv, scrivChoices, scrivDetail, scrivFile } from './export-scriv';
 import { historyLook } from './internals';
 import { confirm } from './modals';
-import { countWords } from './words';
+import { wordsIn } from './words';
 
 /* The Export window: Obsidian's two-pane dialog, the one File recovery and Snapshots use. On the left what to make
    (the kinds that exist so far: a manuscript, an ebook, a Scrivener project, and one note), the chosen kind's few choices, where the file goes and
@@ -157,7 +157,7 @@ export class ExportModal extends Modal {
 			} else {
 				const note = await oneNoteText(this.plugin, this.folder, this.o);
 				if (turn !== this.loading) return;
-				this.note = note; this.words = countWords(note.text);
+				this.note = note; this.words = wordsIn(this.plugin, note.text);
 			}
 		} catch (e) {
 			if (turn !== this.loading) return;

@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.33.2 (2026-10-06)
+
+### Fixed
+
+- The export window's count for One note is counted the same way as every other count.
+
 ## 0.33.1 (2026-10-06)
 
 ### Fixed
