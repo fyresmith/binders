@@ -181,8 +181,7 @@ in a tab of its own.
 - **Snapshots** of a note, newest first, with a camera to take one. A row opens the Snapshots window on it.
 
 With several cards or rows selected it shows what they share ("Mixed" where they differ), and a label, status, target
-or role set there goes to all of them. Its tab is put in the right sidebar the first time Binders runs, without
-opening the sidebar; close it and it stays closed. **Show inspector** brings it back.
+or role set there goes to all of them.
 
 Nothing you type in it is lost when you move on: a field is saved to the note it was opened on as soon as you leave
 it, the cursor moves to another section, or you close the tab or the app; if it can't be saved, it stays in its field
@@ -192,8 +191,14 @@ and the inspector stays on that note.
 write. Click a row to go there in the binder view you have open: the manuscript scrolls to that section, the corkboard
 opens its folder and selects its card, the outliner selects its row. With only a note open, the note opens. Mod-click
 opens a tab. Folders fold; the arrow keys, Home, End and Enter work as in the file explorer. The contents don't
-reorder: drag in the file explorer, the corkboard or the outliner for that. Open them with **Show contents**, from the
-command palette or the binder view's **More options**.
+reorder: drag in the file explorer, the corkboard or the outliner for that.
+
+**Where they are.** Opening a binder puts both among the right sidebar's tabs, if they aren't there already. The
+sidebar isn't opened for them and the tab you had in front stays in front; open the sidebar and they are there. They
+stay when you close the binder, as Outline stays with no note open. Close one and it comes back with the next binder
+you open; to keep them closed, turn off **Show the inspector and contents with a binder** in settings. **Show
+inspector** and **Show contents** (the command palette; the contents are in the binder view's **More options** too)
+open the sidebar on them, or make the tab if there is none.
 
 ## Paragraphs
 
@@ -639,6 +644,7 @@ Settings, Community plugins, Binders.
 | Show label colors in the file explorer | A dot in its label's color beside each labeled note and folder in a binder. |
 | Start a paragraph with a tab | In a binder's notes, a line that starts with a tab is shown as an indented paragraph, not as code, and links in it follow a rename. The note keeps the tab. On to begin with. |
 | Indent paragraphs | In a binder's notes, the first line of a paragraph that follows another is indented. Nothing is added to the note. |
+| Show the inspector and contents with a binder | Opening a binder puts the inspector and the contents among the right sidebar's tabs, if they aren't there. Off: you open them yourself, and closed they stay closed. On to begin with. |
 | Labels | The labels a note can have: a name and a color each. Add, rename, recolor, reorder and delete them; a reset puts back the defaults. |
 | Statuses | The statuses a note can have, in the order a draft goes through them. |
 | Typewriter scrolling | (Focus mode.) While you write at the end of a scene, the line you're on stays at one height. On to begin with. |
@@ -664,7 +670,7 @@ emulation on a desktop, not on a real device. Tap a card to select it, then tap 
 note; press and hold for its menu, and hold and drag to move it. Rows in the outliner work the same way (a selected row
 or folder card with no synopsis offers **Add a synopsis**; on a note's card, and in a menu, it is **Edit synopsis**). On a phone menus open as Obsidian's own sheets, on a
 tablet beside the finger; the manuscript uses Obsidian's editor and its toolbar. The inspector and the contents are
-pages of the right drawer: swipe in from the right edge, or run **Show inspector**. The inspector is on the section
+pages of the right drawer, put there when you open a binder: swipe in from the right edge, or run **Show inspector**. The inspector is on the section
 you last tapped; a tap on a row of the contents closes the drawer on a phone and takes the manuscript there.
 
 What a mouse and a keyboard do differently there:

@@ -87,6 +87,8 @@ here; that is what keeps the next round short.
   - A sidebar view follows the tab the writer was last in, not the active one (taking the focus itself makes it the
     active one): the last `active-leaf-change` whose leaf isn't in `leftSplit` or `rightSplit`.
   - At a tab's size `table-of-contents` can't be told from `list`, which is Outline's icon.
+  - `getRightLeaf(false)` then `setViewState({ type, active: false })` adds a tab to the right sidebar without
+    opening it and without changing which tab is in front: how a view comes with another, unasked.
 
 **Rejected, don't propose again:** a colored stripe along the top of a card, pill chips, thin accent or progress
 lines, decoration for its own sake, anything on a card that isn't the writer's own (no badges for snapshots and the

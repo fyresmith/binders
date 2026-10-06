@@ -572,8 +572,12 @@ them: see AGENTS.md). Nothing is tagged yet.
   Obsidian's emulation of both, run in the e2e suite, is the standard for what works on mobile. A real iPhone, iPad and
   Android device are still to try when there is one, and the README says so.
 - **The inspector and the contents** (2026-10-05, the maintainer, from two directions built): two sidebar views, not
-  one view with both in it. The inspector's tab is put in the right sidebar once, unopened, and not again if it is
-  closed; the contents open by their command and from "More options". In the manuscript the panes are on the section
+  one view with both in it. Both tabs are put among the right sidebar's whenever a binder view opens (or comes
+  back with the workspace), if they aren't anywhere already: the sidebar isn't opened, nothing is brought to the
+  front, and they stay when the last binder closes. A closed one comes back with the next binder unless "Show the
+  inspector and contents with a binder" is off. (He changed this the same day, after trying "the inspector once,
+  the contents by command": "the contents and inspector tab should be automatically included in the right tabs when
+  a binder is open".) In the manuscript the panes are on the section
   with the cursor, and on the section at the top of the page once the cursor is out of sight. Scene notes are a
   property (`notes`, its name a setting), never exported. A note's snapshots are listed in the inspector, and a row
   opens the dialog on that snapshot. The contents don't reorder at 1.0. Left out on purpose: other properties
