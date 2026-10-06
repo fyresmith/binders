@@ -5,8 +5,8 @@
 #
 #   sh scripts/cloud-setup.sh          # then: . ./.cloud-env  (or copy its two lines into the environment)
 #
-# UNPROVEN in a cloud sandbox as of 2026-10-06: it has only been run by hand on the maintainer's Linux machine, in
-# pieces. The first job on a new machine is to run it and then the smoke tests, and to say here what had to change.
+# Proven in a Claude Code cloud sandbox on 2026-10-06 (Ubuntu, running as root, no display): no libraries were missing,
+# and the one thing that had to change was --no-sandbox, which tests/e2e/driver.mjs now passes when run as root.
 set -e
 OBSIDIAN_VERSION="${OBSIDIAN_VERSION:-1.13.7}"
 TOOLS="${BINDERS_E2E_HOME:-$HOME/.cache/binders-e2e}"
@@ -44,4 +44,3 @@ export OBSIDIAN_ELECTRON="$DIR/obsidian"
 export OBSIDIAN_ASAR="$DIR/resources/app.asar"
 ENV
 echo "Done. Next:  . ./.cloud-env && npm run build && npm run e2e -- --specs tests/e2e/specs.mjs,tests/e2e/specs-driver.mjs"
-echo "(Electron may need --no-sandbox when run as root: if Obsidian exits at once, see tests/e2e/driver.mjs, where it is started.)"

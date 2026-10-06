@@ -118,7 +118,9 @@ export async function launch({ vault = VAULT, theme = 'light', width = 1440, hei
 	cpSync(vault, vaultDir, { recursive: true });
 	rmSync(join(vaultDir, '.obsidian/workspace.json'), { force: true });
 	// Let Chromium reserve the port. Guessing one can attach a test to another running vault.
-	const proc = spawn(ELECTRON, ['--ozone-platform=headless', '--disable-gpu', ...(hover ? [POINTER] : []), `--user-data-dir=${join(work, 'profile')}`, '--remote-debugging-port=0', ASAR], { stdio: ['ignore', 'ignore', 'pipe'], detached: true });
+	// (as root, as in a cloud sandbox or a container, Electron refuses to start without --no-sandbox)
+	const root = process.getuid?.() === 0;
+	const proc = spawn(ELECTRON, ['--ozone-platform=headless', '--disable-gpu', ...(root ? ['--no-sandbox'] : []), ...(hover ? [POINTER] : []), `--user-data-dir=${join(work, 'profile')}`, '--remote-debugging-port=0', ASAR], { stdio: ['ignore', 'ignore', 'pipe'], detached: true });
 	guard();
 	live.set(proc, work);
 	record({ pid: proc.pid, work });
