@@ -2,7 +2,7 @@ import { Keymap, Menu, Notice, TFile, TFolder, setIcon, type PaneType, type TAbs
 import { buildCard, cardKey, countLabel, crumbAt, heir, numberCards, overPane, owedFocus, typingNow, type CardHost } from './card';
 import type { Editable } from './edit';
 import { emptyState, badName, isNote, itemMenu, nameOf, noteOf, plain, removeItems, renameItem } from './actions';
-import { LONG_PRESS, held, settle, visibleBottom } from './drag';
+import { LONG_PRESS, SelectBox, held, settle, visibleBottom } from './drag';
 import { FileDrag } from './file-drag';
 import { CARD_SIZES, movedText, type CardSize } from './lanes-data';
 import { submenu } from './internals';
@@ -135,6 +135,22 @@ class Corkboard implements BinderMode {
 		});
 		on('contextmenu', (e) => this.onContextMenu(e));
 		on('keydown', (e) => this.onKey(e));
+		// a press on empty space that becomes a drag draws a selection box (drag.ts)
+		this.box = new SelectBox({
+			el: this.container,
+			empty: (t) => this.container.contains(t) && !t.closest('.binders-card, .binders-group-heading, .binders-view-synopsis-row, .is-editing, input, textarea, a, button') && !this.drag,
+			cards: () => this.cards(),
+			begin: () => {
+				const sel = [...this.sel], focused = this.focused, anchor = this.anchor;
+				this.boxFrom = { focused, anchor };
+				return { selected: this.cards().map((c) => c.dataset.path ?? '').filter((x) => this.sel.has(x)), restore: () => this.select(sel, focused, anchor) };
+			},
+			// (the keyboard goes to the last card the box touches; a Shift-click afterwards still starts from the card it
+			// started from before, or with none from the first one touched)
+			select: (paths, touched) => this.select(paths, touched[touched.length - 1] ?? this.boxFrom.focused, this.boxFrom.anchor ?? touched[0] ?? null),
+			end: (kept) => { if (kept && this.sel.size) this.cardEl(this.focused)?.focus({ preventScroll: true }); },
+		});
+		this.cleanup.push(() => this.box?.destroy());
 		// while a card is held or dragged by touch, the page mustn't scroll instead
 		on('touchmove', (e) => { if (this.press?.armed || this.drag) e.preventDefault(); }, { passive: false });
 		// and lifting the finger after a long press or a drag mustn't click (which would also close the menu just opened)
@@ -729,6 +745,10 @@ class Corkboard implements BinderMode {
 		this.select([path]);
 	}
 	private picking = false;
+	private box: SelectBox | null = null;
+	private boxFrom: { focused: string | null; anchor: string | null } = { focused: null, anchor: null };
+	/** The card a press has already selected (see onPointerDown): the click that ends that press selects nothing more. */
+	private pressed: string | null = null;
 	private edgeSince = 0;
 	/** When the selection last changed. */
 	private selectedAt = 0;
@@ -736,7 +756,11 @@ class Corkboard implements BinderMode {
 	// ---- pointer: select, open, menu, drag ----
 
 	private onClick(e: MouseEvent): void {
+		const pressed = this.pressed;
+		this.pressed = null;
 		if (this.noClick) { this.noClick = false; return; }
+		// (the click that ends a selection box, or the one cancelled by Escape)
+		if (this.box?.noClick) return;
 		const t = e.target as HTMLElement;
 		const card = t.closest<HTMLElement>('.binders-card[data-path]');
 		if (!card) {
@@ -750,11 +774,13 @@ class Corkboard implements BinderMode {
 			return;
 		}
 		const editingNow = !!t.closest('.is-editing');
-		this.clickSelect(card, e);
+		if (pressed !== card.dataset.path) this.clickSelect(card, e);
 		if (!editingNow) card.focus({ preventScroll: true });
 	}
 
 	private onDblClick(e: MouseEvent): void {
+		// (two Shift-clicks on one card are two Shift-clicks: selecting, not opening)
+		if (e.shiftKey && !Keymap.isModEvent(e)) return;
 		const card = (e.target as HTMLElement).closest<HTMLElement>('.binders-card[data-path]');
 		// (on a note's synopsis a double-click edits it; a folder's card is gone into wherever it's double-clicked)
 		if (!card || (e.target as HTMLElement).closest(card.hasClass('is-stack') ? '.is-editing' : '.is-editing, .binders-card-synopsis.is-editable')) return;
@@ -791,6 +817,7 @@ class Corkboard implements BinderMode {
 
 	private onPointerDown(e: PointerEvent): void {
 		this.lastPointer = e.pointerType;
+		this.pressed = null;
 		const t = e.target as HTMLElement;
 		const card = t.closest<HTMLElement>('.binders-card[data-path]');
 		// (a second finger isn't a press of its own: it ends the first's, so two fingers never hold or drag a card)
@@ -805,8 +832,12 @@ class Corkboard implements BinderMode {
 				this.press.armed = true;
 				card.addClass('is-lifted');
 			}, LONG_PRESS);
-		} else if (!this.sel.has(card.dataset.path) && !e.shiftKey && !Keymap.isModEvent(e)) {
-			this.select([card.dataset.path]); // so a drag right away drags this card
+		} else if (!this.sel.has(card.dataset.path)) {
+			// A card that isn't selected is selected as it's pressed, not when the button lifts: so a drag right away
+			// drags it; and with Shift or Ctrl, so a hand that moves a little between the press and the release (which
+			// makes it a drag, and no click follows) has still selected the range, and drags all of it.
+			if (e.shiftKey || Keymap.isModEvent(e)) { this.clickSelect(card, e); this.pressed = card.dataset.path ?? null; }
+			else this.select([card.dataset.path]);
 		}
 		const doc = this.board.doc;
 		const move = (ev: PointerEvent) => this.onPointerMove(ev);

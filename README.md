@@ -61,8 +61,13 @@ synopsis** in its menu (on a phone, a selected folder card offers **Add a synops
 
 - Drag cards to reorder them, onto a folder's card to move them into that folder, or onto a folder in the breadcrumb to move
   them out to it. The card follows the pointer,
-  a line shows where it will go, and the others glide aside when you let go. Shift-click or Ctrl-click (Cmd-click on
-  macOS) selects several, and they move together.
+  a line shows where it will go, and the others glide aside when you let go. Several selected cards move together.
+- Select several cards as you would files: Shift-click selects from the card you last clicked to this one, Ctrl-click
+  (Cmd-click on macOS) adds a card or takes it out, and Ctrl+Shift-click adds a range to what's selected. Or drag on
+  empty space of the board to draw a box: the cards it touches are selected (with Shift they're added to what's
+  selected; with Ctrl or Cmd each one touched changes sides). Held near the top or the foot of the pane, the board
+  scrolls under the box. Esc while dragging puts the selection back. The box is for a mouse or a pen: on a phone or a
+  tablet a finger on empty space scrolls, and **Select more** in a card's menu selects several.
 - Click a card to select it; click a selected card's synopsis to edit it. Right-click a card to rename it, set its status, label or target, duplicate
   it, move it (**Move up**, **Move down**, or **Move to** any folder of the binder) or delete it; the menu also has what Obsidian and your other plugins offer for that note (bookmark it,
   reveal it in the file explorer, and so on).
@@ -92,8 +97,8 @@ The menu is always the same: **In a grid**, **By label, across** and **By label,
 
 - **Drag a card to another line** to give it that line's label: the card takes the line's color as you hold it
   there, and the label's name shows beside it. **Drag it along the lines** to change its place in the binder. Do
-  both at once and it does both. Several selected cards go together. **Undo last move** takes the label and the
-  place back as one change.
+  both at once and it does both. Several selected cards go together (Shift-click, Ctrl-click and a box drawn on empty
+  space select them, as in the grid). **Undo last move** takes the label and the place back as one change.
 - The lines run **across** or **down**. They stand as far apart as the pane has room for; when there are many they
   close up, and the cards pass each other.
 - **Show unused labels** (on as it comes) keeps a line for every label, so there's always one to drop a card on;

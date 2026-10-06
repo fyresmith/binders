@@ -3,6 +3,17 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.28.0 (2026-10-06)
+
+### Added
+
+- Drag on empty space of the corkboard to draw a selection box: the cards it touches are selected. With Shift they're added to what's selected; with Ctrl (Cmd on macOS) each one touched changes sides. Esc while dragging puts the selection back. Works in the grid and by label.
+
+### Fixed
+
+- A Shift-click or Ctrl-click on a card selects even when the pointer moves a little between pressing and letting go; before, that picked the one card up and dropped the rest of the selection.
+- Two Shift-clicks on the same card no longer open the note.
+
 ## 0.27.2 (2026-10-06)
 
 ### Changed

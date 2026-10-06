@@ -1,7 +1,7 @@
 import { Keymap, Menu, Notice, TFile, TFolder, setIcon, type PaneType, type TAbstractFile } from 'obsidian';
 import { emptyState, isNote, itemMenu, nameOf, noteOf, plain, removeItems, renameItem } from './actions';
 import { buildCard, cardKey, crumbAt, heir, numberCards, overPane, owedFocus, passing, sumWords, typingNow, type CardEditors, type CardHost } from './card';
-import { Press, glide, held, places, settle, visibleBottom } from './drag';
+import { Press, SelectBox, glide, held, places, settle, visibleBottom } from './drag';
 import { FileDrag } from './file-drag';
 import { openPluginSettings, submenu } from './internals';
 import { display, labelDot, labelName, paintLabel, presetOf } from './labels';
@@ -143,6 +143,22 @@ class ByLabel implements BinderMode {
 		this.cleanup.push(() => this.ctx.app.vault.offref(moved));
 		// (the keyboard asked for before there was a card isn't given once it has gone elsewhere, as on the grid)
 		this.cleanup.push(owedFocus(this.container, () => this.focusOnDraw, () => { this.focusOnDraw = false; }));
+		// a press on empty space that becomes a drag draws a selection box (drag.ts)
+		this.box = new SelectBox({
+			el: this.container,
+			empty: (t) => this.container.contains(t) && !t.closest('.binders-card, .binders-lane-head, .binders-lane-divider, .binders-view-synopsis-row, .is-editing, input, textarea, a, button') && !this.drag,
+			cards: () => this.cards(),
+			begin: () => {
+				const sel = [...this.sel], focused = this.focused, anchor = this.anchor;
+				this.boxFrom = { focused, anchor };
+				return { selected: this.cards().map((c) => c.dataset.path ?? '').filter((x) => this.sel.has(x)), restore: () => this.select(sel, focused, anchor) };
+			},
+			// (the keyboard goes to the last card the box touches; a Shift-click afterwards still starts from the card it
+			// started from before, or with none from the first one touched)
+			select: (paths, touched) => this.select(paths, touched[touched.length - 1] ?? this.boxFrom.focused, this.boxFrom.anchor ?? touched[0] ?? null),
+			end: (kept) => { if (kept && this.sel.size) this.cardEl(this.focused)?.focus({ preventScroll: true }); },
+		});
+		this.cleanup.push(() => this.box?.destroy());
 		this.press = new Press<HTMLElement>({
 			el: this.board,
 			pick: (e) => {
@@ -150,7 +166,13 @@ class ByLabel implements BinderMode {
 				return card && !t.closest('.is-editing') ? { el: card, data: card } : null;
 			},
 			// (so a drag right away drags this card)
-			down: (card, e) => { if (!this.sel.has(card.dataset.path) && !e.shiftKey && !Keymap.isModEvent(e)) this.select([card.dataset.path]); },
+			// (with Shift or Ctrl too: a hand that moves a little between the press and the release has still selected
+			// the range, as on the grid)
+			down: (card, e) => {
+				this.pressed = null;
+				if (this.sel.has(card.dataset.path)) return;
+				if (e.shiftKey || Keymap.isModEvent(e)) { this.clickSelect(card, e); this.pressed = card.dataset.path ?? null; } else this.select([card.dataset.path]);
+			},
 			canDrag: () => !this.ctx.readOnly,
 			start: (card, x, y) => this.startDrag(card, x, y),
 			move: (x, y) => this.dragTo(x, y),
@@ -599,8 +621,15 @@ class ByLabel implements BinderMode {
 
 	// ---- pointer: select, open, menu ----
 
+	private box: SelectBox | null = null;
+	private boxFrom: { focused: string | null; anchor: string | null } = { focused: null, anchor: null };
+	/** The card a press has already selected: the click that ends that press selects nothing more. */
+	private pressed: string | null = null;
+
 	private onClick(e: MouseEvent): void {
-		if (this.press.noClick) return;
+		const pressed = this.pressed;
+		this.pressed = null;
+		if (this.press.noClick || this.box?.noClick) return;
 		const t = e.target as HTMLElement, card = t.closest<HTMLElement>(CARD);
 		if (!card) {
 			if (!t.closest('.binders-lane-head, .binders-lane-divider, a') && !e.shiftKey && !Keymap.isModEvent(e)) { this.select([]); this.picking = false; }
@@ -613,11 +642,12 @@ class ByLabel implements BinderMode {
 			return;
 		}
 		const editingNow = !!t.closest('.is-editing');
-		this.clickSelect(card, e);
+		if (pressed !== card.dataset.path) this.clickSelect(card, e);
 		if (!editingNow) card.focus({ preventScroll: true });
 	}
 
 	private onDblClick(e: MouseEvent): void {
+		if (e.shiftKey && !Keymap.isModEvent(e)) return;
 		const t = e.target as HTMLElement, card = t.closest<HTMLElement>(CARD);
 		if (card) {
 			// (on a note's synopsis a double-click edits it; a folder's card is gone into wherever it's double-clicked)

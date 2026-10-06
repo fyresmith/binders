@@ -2498,6 +2498,24 @@
 	z-index: calc(var(--layer-dragged-item, 80) + 1);
 }
 
+/* The selection box, drawn on empty space of a board (drag.ts): as a canvas draws its own, the accent color faint
+   with a line of it around, here a hairline. It is on the page's top layer (a pane is its own containing block), cut
+   to the pane by the code; it takes no presses. */
+.binders-select-box {
+	position: fixed;
+	z-index: var(--layer-dragged-item, 80);
+	box-sizing: border-box;
+	pointer-events: none;
+	background-color: color-mix(in oklch, var(--color-accent) 10%, transparent);
+	border: 1px solid var(--color-accent);
+}
+
+/* (while it's drawn, no text of the cards it passes is selected) */
+.binders-corkboard.is-selecting {
+	user-select: none;
+	-webkit-user-select: none;
+}
+
 /* (a field being typed in is brought into sight with a little room under it) */
 .binders-edit-field {
 	scroll-margin-block: var(--size-4-4);

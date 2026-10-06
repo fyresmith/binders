@@ -1510,3 +1510,271 @@ test('the window made narrower and wider again (fewer cards to a row, then more)
 		await p.send('Emulation.setDeviceMetricsOverride', { width: p.width, height: p.height, deviceScaleFactor: 1, mobile: false });
 	}
 }));
+
+// ---- selecting several: Shift-click, Ctrl-click, and a box drawn by dragging on empty space ----
+
+const SHIFT = 8, CTRL = 2;
+const BOX = '.binders-select-box';
+/** A binder "Many" of `n` notes (N01, N02, …), with a folder "Sub" after the fourth when asked. */
+async function many(p, n, sub = false) {
+	const names = Array.from({ length: n }, (_, i) => 'N' + String(i + 1).padStart(2, '0'));
+	const list = sub ? [...names.slice(0, 4), 'Sub/', 'Sub/In', ...names.slice(4)] : names;
+	await p.ev(`(async () => { const a = app.vault.adapter; await a.mkdir('Many'); ${sub ? `await a.mkdir('Many/Sub'); await a.write('Many/Sub/In.md', 'in');` : ''} for (const x of ${j(names)}) await a.write('Many/' + x + '.md', '---\\nsynopsis: Synopsis of ' + x + '.\\n---\\nText of ' + x + '.\\n'); await a.write('Many/Many.md', ${j('---\nbinder: 1\ncontents:\n' + list.map((x) => '  - ' + x).join('\n') + '\n---\n')}); return 1; })()`);
+	await until(p, `${B}.isBinderFolder(${file('Many')}) && (${B}.orderedChildren(${file('Many')}) || []).length === ${n + (sub ? 1 : 0)}`, 6000);
+	await openView(p, 'Many');
+	await until(p, `document.querySelectorAll('.workspace-leaf.mod-active .binders-card[data-path]').length === ${n + (sub ? 1 : 0)}`);
+	await p.sleep(300);
+}
+const M = (i) => `Many/N${String(i).padStart(2, '0')}.md`;
+const short = (paths) => paths.map((x) => x.replace(/^Many\//, '').replace(/\.md$/, '')).join(' ');
+const sel = async (p) => short(await selected(p));
+/** A click on a card's foot (its status and words: nothing there opens or edits), with these modifiers. */
+const clickCard = async (p, path, modifiers = 0) => { const a = await p.at(card(path)); await p.click(a.x, a.t + a.h - 8, { modifiers }); await p.sleep(150); };
+/** A mouse button pressed, moved through these points and (unless `hold`) let go, with these modifiers. */
+async function sweep(p, points, modifiers = 0, hold = false) {
+	const ev = (type, x, y, extra = {}) => p.send('Input.dispatchMouseEvent', { type, x, y, button: 'left', clickCount: 1, modifiers, ...extra });
+	const [first, ...rest] = points;
+	await p.move(first.x, first.y, 2);
+	await ev('mousePressed', first.x, first.y);
+	let at = first;
+	for (const to of rest) { for (let i = 1; i <= 6; i++) await ev('mouseMoved', at.x + (to.x - at.x) * i / 6, at.y + (to.y - at.y) * i / 6, { buttons: 1 }); at = to; await p.sleep(80); }
+	if (!hold) { await ev('mouseReleased', at.x, at.y); await p.sleep(200); }
+	return () => ev('mouseReleased', at.x, at.y).then(() => p.sleep(200));
+}
+/** Where things are: the board's pane, each card, the selection box (all in the window's coordinates). */
+const layout = (p) => p.ev(`(() => { const R = (e) => { const r = e.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom }; }; const s = document.querySelector('.workspace-leaf.mod-active .binders-corkboard'), box = document.querySelector(${j(BOX)}); return { pane: { ...R(s), r: R(s).l + s.clientWidth, top: s.scrollTop, more: s.scrollHeight - s.clientHeight }, cards: [...s.querySelectorAll('.binders-card[data-path]')].map(c => ({ path: c.dataset.path, ...R(c) })), box: box ? R(box) : null, ghost: !!document.querySelector('.binders-drag-ghost'), text: String(getSelection()).length, fields: s.querySelectorAll('.is-editing').length }; })()`);
+/** The cards a box from `a` to `b` touches. */
+const touched = (cards, a, b) => { const l = Math.min(a.x, b.x), r = Math.max(a.x, b.x), t = Math.min(a.y, b.y), bt = Math.max(a.y, b.y); return short(cards.filter((c) => c.r > l && c.l < r && c.b > t && c.t < bt).map((c) => c.path)); };
+const stillHere = (p) => p.ev(`(() => { const l = app.workspace.getMostRecentLeaf(); return l.view.getViewType() + ' ' + (l.getViewState().state?.folder ?? ''); })()`);
+
+test('Shift-click selects from the card last clicked to this one, in every state: nothing selected, one, several, a folder’s card, with Ctrl, across a Longform project’s groups; it never opens, renames or drags', withTidy(async (p, h, t) => {
+	await many(p, 8, true);
+	const note = await read(p, 'Many/Many.md');
+	t.eq(await sel(p), '', 'nothing is selected to begin with');
+	await clickCard(p, M(3), SHIFT);
+	t.eq(await sel(p), 'N03', 'with nothing selected, a Shift-click selects the card clicked');
+	await clickCard(p, M(6), SHIFT);
+	t.eq(await sel(p), 'N03 N04 Sub N05 N06', 'and the next one selects from it to the card clicked, a folder’s card between them too');
+	await clickCard(p, M(2), SHIFT);
+	t.eq(await sel(p), 'N02 N03', 'back past where it started: from there to the card clicked, and no more');
+	await clickCard(p, M(1));
+	t.eq(await sel(p), 'N01', 'a plain click selects one');
+	await clickCard(p, 'Many/Sub', SHIFT);
+	t.eq(await sel(p), 'N01 N02 N03 N04 Sub', 'a Shift-click on a folder’s card selects up to it');
+	t.eq(await stillHere(p), 'binders-view Many', 'and doesn’t go into the folder');
+	// on a card's synopsis and its title, inside what's selected: nothing opens to be typed in
+	for (const part of ['.binders-card-synopsis', '.binders-card-title']) { const a = await p.at(card(M(2)) + ' ' + part); await p.click(a.x, a.y, { modifiers: SHIFT }); await p.sleep(200); }
+	t.eq(j([await sel(p), (await layout(p)).fields]), j(['N01 N02', 0]), 'a Shift-click on a selected card’s synopsis or title selects up to it, and opens no field');
+	// Ctrl
+	await clickCard(p, M(7), CTRL);
+	t.eq(await sel(p), 'N01 N02 N07', 'Ctrl-click adds one');
+	await clickCard(p, M(7), CTRL);
+	t.eq(await sel(p), 'N01 N02', 'and takes it out again');
+	await clickCard(p, M(1));
+	await clickCard(p, M(3), CTRL);
+	await clickCard(p, M(6), CTRL | SHIFT);
+	t.eq(await sel(p), 'N01 N03 N04 Sub N05 N06', 'Ctrl+Shift-click adds the cards from the last one clicked to this one to what’s selected');
+	// the keyboard carries on from the same place
+	await clickCard(p, M(1));
+	await clickCard(p, M(3), SHIFT);
+	await p.key('ArrowRight', 'shift');
+	t.eq(await sel(p), 'N01 N02 N03 N04', 'Shift+Right after a Shift-click: one more, from the same card');
+	await p.key('ArrowLeft', 'shift');
+	await p.key('ArrowLeft', 'shift');
+	t.eq(await sel(p), 'N01 N02', 'and Shift+Left takes them back');
+	// a hand that isn't quite still: the pointer moves a few pixels between the press and the release
+	await clickCard(p, M(1));
+	const four = await p.at(card(M(4)));
+	const letGo = await sweep(p, [{ x: four.x, y: four.t + four.h - 8 }, { x: four.x + 7, y: four.t + four.h - 8 }], SHIFT, true);
+	t.eq(await sel(p), 'N01 N02 N03 N04', 'a Shift-press on a card selects up to it at once, so a hand that moves a little still selects the range');
+	await letGo();
+	await p.sleep(400);
+	t.eq(j([await sel(p), (await layout(p)).ghost]), j(['N01 N02 N03 N04', false]), 'and they are still selected when the button is let go');
+	// twice, quickly
+	await clickCard(p, M(1));
+	const three = await p.at(card(M(3)) + ' .binders-card-title');
+	await p.dbl(three.x, three.y, SHIFT);
+	await p.sleep(500);
+	t.eq(j([await stillHere(p), await sel(p)]), j(['binders-view Many', 'N01 N02 N03']), 'a Shift-click made twice doesn’t open the note');
+	// empty space
+	const pane = (await layout(p)).pane;
+	await p.click(pane.r - 30, pane.b - 30, { modifiers: SHIFT });
+	await p.sleep(200);
+	t.eq(await sel(p), 'N01 N02 N03', 'a Shift-click on empty space changes nothing');
+	await p.click(pane.r - 30, pane.b - 30);
+	await p.sleep(200);
+	t.eq(await sel(p), '', 'a plain click there selects nothing');
+	t.eq(await read(p, 'Many/Many.md'), note, 'and through all of it the binder’s list is as it was, byte for byte');
+	// a Longform project's scenes stand in groups: the range runs through them
+	await openView(p, 'Longform demo');
+	const lf = await cards(p);
+	t.ok(await p.ev(`document.querySelectorAll('.workspace-leaf.mod-active .binders-group').length`) > 1, 'a Longform project: several groups');
+	await clickCard(p, lf[1]);
+	await clickCard(p, lf[lf.length - 1], SHIFT);
+	t.eq(j(await selected(p)), j(lf.slice(1)), 'a Shift-click in another group selects every card between, across the groups');
+}));
+
+test('a box drawn by dragging on empty space selects the cards it touches as it moves, and they stay selected when it’s let go; plain it replaces the selection, with Shift it adds to it, with Ctrl it turns each over; no card moves', withTidy(async (p, h, t) => {
+	await many(p, 8, true);
+	const note = await read(p, 'Many/Many.md');
+	// (what the inspector and the outliner hear of: the same call a click makes)
+	await p.ev(`(() => { const v = ${VIEW}, real = v.inspect; window.__heard = 0; v.inspect = function (...a) { window.__heard++; return real.apply(this, a); }; window.__unhear = () => { v.inspect = real; delete window.__heard; delete window.__unhear; }; return 1; })()`);
+	try {
+		const lay = await layout(p), pane = lay.pane;
+		const from = { x: pane.r - 40, y: pane.b - 60 }, c2 = lay.cards[1], to = { x: (c2.l + c2.r) / 2, y: (c2.t + c2.b) / 2 };
+		const want = touched(lay.cards, from, to);
+		t.ok(want.split(' ').length >= 2 && want.split(' ').length < lay.cards.length && !/N01/.test(want), 'the box will touch some of the cards, not all: ' + want);
+		// plain: what was selected is replaced by what the box touches
+		await clickCard(p, M(1));
+		const letGo = await sweep(p, [from, { x: to.x + 200, y: to.y + 150 }, to], 0, true);
+		const mid = await layout(p);
+		t.ok(mid.box, 'a box follows the pointer');
+		t.ok(Math.abs(mid.box.l - to.x) <= 1.5 && Math.abs(mid.box.t - to.y) <= 1.5 && Math.abs(mid.box.r - from.x) <= 1.5 && Math.abs(mid.box.b - from.y) <= 1.5, `from where the button went down to where the pointer is: ${j(mid.box)} for ${j([to, from])}`);
+		t.eq(await sel(p), want, 'the cards it touches are selected while it moves');
+		t.ok(await p.ev(`window.__heard`) > 0, 'and the rest of the view hears of the selection as it does of a click');
+		const look = await p.ev(`(() => { const cs = getComputedStyle(document.querySelector(${j(BOX)})); return { border: cs.borderTopWidth + ' ' + cs.borderTopStyle, pointer: cs.pointerEvents, bg: cs.backgroundColor, hidden: document.querySelector(${j(BOX)}).getAttribute('aria-hidden') }; })()`);
+		t.ok(look.border === '1px solid' && look.pointer === 'none' && look.hidden === 'true' && !/^rgba?\(0, 0, 0, 0\)$|transparent/.test(look.bg), 'the box is a faint tint with a 1 px line, takes no clicks, and isn’t read out: ' + j(look));
+		t.eq(j([mid.ghost, mid.text]), j([false, 0]), 'no card is picked up, and no text is selected');
+		await letGo();
+		const after = await layout(p);
+		t.eq(j([after.box, await sel(p)]), j([null, want]), 'let go: the box is gone and the cards stay selected');
+		// the keyboard carries on from them
+		t.ok(await p.ev(`document.activeElement?.classList.contains('binders-card') && document.activeElement.classList.contains('is-selected')`), 'the keyboard is on one of them');
+		// with Shift, added to what was selected; with Ctrl, what the box touches changes sides
+		await clickCard(p, M(1));
+		await sweep(p, [from, to], SHIFT);
+		t.eq(await sel(p), 'N01 ' + want, 'with Shift, the box adds to what was selected');
+		const c1 = lay.cards[0], far = { x: (c1.l + c1.r) / 2, y: (c1.t + c1.b) / 2 };
+		const all = touched(lay.cards, from, far).split(' '), every = short(lay.cards.map((c) => c.path)).split(' ');
+		let had = ('N01 ' + want).split(' ');
+		for (const [mods, what] of [[CTRL, 'Ctrl'], [CTRL | SHIFT, 'Ctrl+Shift']]) {
+			await sweep(p, [from, far], mods);
+			const now = every.filter((x) => all.includes(x) !== had.includes(x));
+			t.eq(await sel(p), now.join(' '), `with ${what}, the cards the box touches are taken out if they were selected, and added if they weren’t`);
+			had = now;
+		}
+		t.eq(await read(p, 'Many/Many.md'), note, 'the binder’s list is as it was, byte for byte');
+		t.eq(await stillHere(p), 'binders-view Many', 'and nothing was opened');
+	} finally { await p.ev(`(() => { window.__unhear?.(); return 1; })()`); }
+}));
+
+test('the selection box: Escape puts the selection back as it was; a press on a card or the “New note” tile draws none, nor does another button; a click with a hand not quite still is a click', withTidy(async (p, h, t) => {
+	await many(p, 8, true);
+	const note = await read(p, 'Many/Many.md');
+	const lay = await layout(p), pane = lay.pane, from = { x: pane.r - 40, y: pane.b - 60 }, c2 = lay.cards[1], to = { x: (c2.l + c2.r) / 2, y: (c2.t + c2.b) / 2 };
+	await clickCard(p, M(1));
+	await clickCard(p, M(3), CTRL);
+	const was = await p.ev(`(() => { const m = ${VIEW}.current; return JSON.stringify([[...m.sel], m.focused, m.anchor]); })()`);
+	const letGo = await sweep(p, [from, to], SHIFT, true);
+	t.ok((await layout(p)).box && (await sel(p)) !== 'N01 N03', 'a box, and more selected');
+	await p.key('Escape');
+	t.eq(j([(await layout(p)).box, await sel(p)]), j([null, 'N01 N03']), 'Escape: the box is gone and the selection is what it was');
+	await letGo();
+	t.eq(await sel(p), 'N01 N03', 'and stays so when the button is let go');
+	t.eq(await p.ev(`(() => { const m = ${VIEW}.current; return JSON.stringify([[...m.sel], m.focused, m.anchor]); })()`), was, 'with the same card in hand, and the same one to Shift-click from');
+	// not from a card: that is a card being dragged (and here put back where it was)
+	const c6 = lay.cards.find((c) => c.path === M(6));
+	const hold = await sweep(p, [{ x: (c6.l + c6.r) / 2, y: c6.b - 8 }, { x: (c6.l + c6.r) / 2 + 30, y: c6.b - 4 }], SHIFT, true);
+	t.eq((await layout(p)).box, null, 'a Shift-press on a card and a move draws no box');
+	await p.key('Escape');
+	await hold();
+	// not from the tile
+	const tile = await p.at('.workspace-leaf.mod-active .binders-card-new');
+	await sweep(p, [{ x: tile.x, y: tile.y }, { x: tile.x - 300, y: tile.y - 20 }], SHIFT, true).then(async (up) => { t.eq((await layout(p)).box, null, 'nor one from the “New note” tile'); await up(); });
+	await p.key('Escape');
+	await p.sleep(200);
+	// a plain box, cancelled: what it replaced is back
+	await clickCard(p, M(1));
+	await clickCard(p, M(3), CTRL);
+	const plain = await sweep(p, [from, to], 0, true);
+	t.ok((await layout(p)).box && !/N01/.test(await sel(p)), 'a plain box replaces the selection while it’s drawn');
+	await p.key('Escape');
+	await plain();
+	t.eq(await sel(p), 'N01 N03', 'Escape: what was selected before is selected again');
+	// a click on empty space with a hand that moves a few pixels is still a click: no box, and it clears the selection
+	const shaky = await sweep(p, [from, { x: from.x - 3, y: from.y - 2 }], 0, true);
+	t.eq(j([(await layout(p)).box, await sel(p)]), j([null, 'N01 N03']), 'moved 3 px with the button down: no box yet');
+	await shaky();
+	t.eq(await sel(p), '', 'let go: a click on empty space, which selects nothing');
+	// the other buttons: the middle one draws none; the right one opens the board's menu, as before
+	await clickCard(p, M(1));
+	for (const button of ['middle', 'right']) {
+		const ev = (type, x, y, buttons) => p.send('Input.dispatchMouseEvent', { type, x, y, button: type === 'mouseMoved' ? 'none' : button, buttons, clickCount: 1 });
+		const held = button === 'middle' ? 4 : 2;
+		await ev('mousePressed', from.x, from.y, held);
+		for (let i = 1; i <= 5; i++) await ev('mouseMoved', from.x - i * 40, from.y - i * 30, held);
+		t.eq((await layout(p)).box, null, `the ${button} button pressed on empty space and moved draws no box`);
+		await ev('mouseReleased', from.x - 200, from.y - 150, 0);
+		await p.sleep(200);
+	}
+	t.ok((await menuItems(p)).includes('New note'), 'and a right click on empty space still opens the board’s menu: ' + j(await menuItems(p)));
+	await closeMenus(p);
+	// a Shift-click on empty space with no move
+	await clickCard(p, M(1));
+	await clickCard(p, M(2), CTRL);
+	await p.click(from.x, from.y, { modifiers: SHIFT });
+	await p.sleep(200);
+	t.eq(j([(await layout(p)).box, await sel(p)]), j([null, 'N01 N02']), 'a Shift-click on empty space, without a move, changes nothing');
+	t.eq(await read(p, 'Many/Many.md'), note, 'the binder’s list is as it was, byte for byte');
+}));
+
+test('the selection box in a long board: held at the foot of the pane the board scrolls under it, the box stays where it was begun on the board, and every card it has passed is selected', withTidy(async (p, h, t) => {
+	await many(p, 60);
+	const note = await read(p, 'Many/Many.md');
+	const lay = await layout(p), pane = lay.pane;
+	t.ok(pane.more > 300, 'more board than the pane shows: ' + pane.more);
+	// begun in the gap under the first row, at the pane's left edge; carried to the foot of the pane, at its right
+	const first = lay.cards[0], row2 = lay.cards.find((c) => c.t > first.b), from = { x: first.l + 20, y: (first.b + row2.t) / 2 }, to = { x: pane.r - 40, y: pane.b - 6 };
+	t.eq(await p.ev(`document.elementFromPoint(${from.x}, ${from.y}).closest('.binders-card') === null`), true, 'the gap between two rows is empty space');
+	const letGo = await sweep(p, [from, to], SHIFT, true);
+	await until(p, `document.querySelector('.workspace-leaf.mod-active .binders-corkboard').scrollTop > 250`, 6000);
+	const mid = await layout(p);
+	t.ok(mid.pane.top > 250, `held at the foot of the pane, the board scrolls: ${mid.pane.top} px`);
+	t.ok(mid.box && mid.box.t <= pane.t + 1 && Math.abs(mid.box.b - to.y) <= 1.5 && Math.abs(mid.box.l - from.x) <= 1.5, `the box runs from where it began, now above the pane, to the pointer: ${j(mid.box)}`);
+	// what it touches, reckoned on the board: from where it began (scrolled away since) to the pointer
+	const begun = { x: from.x, y: from.y - mid.pane.top }, want = touched(mid.cards, begun, to), got = await sel(p);
+	t.eq(got, want, 'every card between is selected, the ones scrolled out of sight too');
+	t.ok(!/N01( |$)/.test(got) && got.split(' ').length > 8, 'the first row, above where it began, is not: ' + got.split(' ').length + ' cards');
+	await letGo();
+	t.eq(j([(await layout(p)).box, await sel(p)]), j([null, want]), 'let go: they stay selected');
+	t.eq(await read(p, 'Many/Many.md'), note, 'and the binder’s list is as it was, byte for byte');
+}));
+
+test('arranged by label, the same: Shift-click selects a range (a hand not quite still too), and a box drawn on empty space selects the cards it touches; Escape puts the selection back; no card moves or changes label', withTidy(async (p, h, t) => {
+	await many(p, 8);
+	const before = await texts(p);
+	await p.ev(`(() => { ${VIEW}.arrange('label'); return 1; })()`);
+	await until(p, `document.querySelectorAll('.workspace-leaf.mod-active .binders-lanes .binders-card[data-path]').length === 8`);
+	await p.sleep(400);
+	// (the notes have no label: one line of cards, the first few of them in the pane)
+	await clickCard(p, M(1));
+	await clickCard(p, M(3), SHIFT);
+	t.eq(await sel(p), 'N01 N02 N03', 'Shift-click selects from the card last clicked to this one');
+	await clickCard(p, M(1));
+	const two = await p.at(card(M(2)));
+	const letGo = await sweep(p, [{ x: two.x, y: two.t + two.h - 8 }, { x: two.x + 7, y: two.t + two.h - 8 }], SHIFT, true);
+	t.eq(await sel(p), 'N01 N02', 'a Shift-press that moves a little has selected the range');
+	await p.key('Escape');
+	await letGo();
+	await p.sleep(300);
+	// the box
+	const lay = await layout(p), pane = lay.pane, from = { x: pane.r - 40, y: pane.b - 60 }, c3 = lay.cards[1], to = { x: (c3.l + c3.r) / 2, y: (c3.t + c3.b) / 2 };
+	const want = touched(lay.cards, from, to);
+	t.ok(want.split(' ').length >= 2 && !/N01/.test(want), 'the box will touch some of the cards: ' + want);
+	await clickCard(p, M(1));
+	const hold = await sweep(p, [from, to], 0, true);
+	const mid = await layout(p);
+	t.ok(mid.box && Math.abs(mid.box.l - to.x) <= 1.5 && Math.abs(mid.box.b - from.y) <= 1.5, 'a box from the press to the pointer: ' + j(mid.box));
+	t.eq(await sel(p), want, 'plain, the cards it touches are the selection');
+	await hold();
+	t.eq(j([(await layout(p)).box, await sel(p)]), j([null, want]), 'and stay selected when it’s let go');
+	await clickCard(p, M(1));
+	await sweep(p, [from, to], SHIFT);
+	t.eq(await sel(p), 'N01 ' + want, 'with Shift, added to what was selected');
+	const esc = await sweep(p, [from, { x: lay.cards[0].l + 5, y: lay.cards[0].t + 5 }], 0, true);
+	await p.key('Escape');
+	await esc();
+	t.eq(await sel(p), 'N01 ' + want, 'Escape puts the selection back');
+	await p.sleep(400);
+	same(t, before, await texts(p));
+}));

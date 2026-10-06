@@ -155,11 +155,26 @@ New (note, folder). The view runs edge to edge, as a base, a canvas or a note do
   that folder's note (creating it if needed).
 - One "New note" tile ends the board: the next card's place, with a plus and the words in its middle; it becomes a
   card while the title is typed.
+- **Selecting several** (decided 2026-10-05, the maintainer's request: "Shift click should allow you to multi-select
+  cards", and a selection box, on a plain drag too "if that is typical behavior": it is, in Finder, Explorer and
+  Scrivener's corkboard). As in a file manager and Obsidian's file explorer: a click selects one; Shift-click selects
+  from the anchor (the card last clicked) to this one, or with no anchor this card, which becomes it; Mod-click turns
+  one over; Mod+Shift-click adds the range to what's selected. A card not yet selected is selected as it's pressed,
+  with a modifier too, so a press that moves a little (which makes it a drag, with no click after) has still selected,
+  and drags the lot. Two Shift-clicks on one card don't open it. A press on empty space (not a card, the tile, a
+  heading, a field) that moves more than 5 px draws a **selection box** (`SelectBox` in `src/view/drag.ts`, used by the
+  grid and by the board by label): plain it replaces the selection with the cards it touches, with Shift it adds
+  them, with Mod it turns each over; Escape puts back what was selected; a click that doesn't move still clears the
+  selection. The box is begun at a place on the board, so the board scrolls under it when the pointer is held near the
+  pane's edge (the drag's own speeds). It selects through the same `select` a click uses, so the inspector hears of it
+  the same way. Mouse and pen only: a finger on empty space scrolls, and "Select more" in a card's menu is touch's way.
+  It is a pointer's convenience: the keyboard has Shift+arrows, Mod+A and Space. Drawn as a canvas draws its own (the
+  accent at 10%), with a 1 px line.
 - Card: title, synopsis (editable in place), status chip, label color (the card's border, and by default its face
   faintly tinted, as a colored card on a canvas; the view option "Tint cards with their label color" turns the tint
   off), word count. A note with a target shows "words / target" and a progress line along the
   card's foot. Double-click opens the note.
-- Drag to reorder; onto a folder's card to move into that folder; onto a folder in the breadcrumb to move out to it. Multi-select with Shift/Ctrl. A drag
+- Drag to reorder; onto a folder's card to move into that folder; onto a folder in the breadcrumb to move out to it. Multi-select as in a file manager (below). A drag
   looks like Obsidian's own reordering: the card follows the pointer (`drag-reorder-ghost`), a tinted slot holds its
   place, an insertion line shows where it goes, and the group it would move into is tinted as a folder in the explorer
   is. Nothing on the board moves until the drop (what's under the pointer stays there); then every card glides to its
