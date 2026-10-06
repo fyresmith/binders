@@ -32,7 +32,10 @@ state (code, tests and documentation).
         standard manuscript format, held to the word-for-word test; where files go (the save dialog, remembered
         places, the Exports folder). "Compile" is now Export's "One note", and `export: false` is what is written.
   - [x] Step 2: the ebook (the EPUB writer, the first book style, Book details, the made pages).
-  - [ ] Step 3: pages (the paginator, hyphenation, fonts, the PDF module, the exact preview).
+  - [x] Step 3 (2026-10-06): pages. The paginator, hyphenation, EB Garamond and Source Serif 4 inside the plugin,
+        the PDF module, **Paperback** (a book style on a trim size) and the manuscript as a PDF, and the window
+        showing the very pages that are printed. A computer makes the PDF; a phone shows the pages.
+        `docs/dev/export.md`, "Pages and PDF, as built".
   - [x] **Step 4: the Scrivener project** (2026-10-05). The binder itself as a `.scriv` folder: the `.scrivx`, RTF
         documents, synopses, labels, statuses, targets, snapshots, section types, held to the word-for-word test;
         written whole or not at all, never over a project opened since; zipped on a phone. Opened so far only as

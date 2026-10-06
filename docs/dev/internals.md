@@ -313,6 +313,20 @@ asked for when an export is saved and not before, and only on a computer (`Platf
 | `getSortedFolderItems` on the explorer view's class (the patch described under "The file explorer"), for the vault's root | `src/explorer.ts` (`arrange`, its `kept` argument), asked of `Styles.isStylesFolder` in `src/export/styles.ts` | The styles folder at the top of the vault is not listed in the file explorer (unless it has notes in it) | Without the patch the folder is listed like any other. Its files are styles either way | `specs-export-styles`: "the styles folder is kept out of the file explorer…" |
 | A file input (`<input type="file">`, a web API) clicked from a menu item | `src/view/export-style-editor.ts` (`pickFile`) | "Add a style from a file" on a computer and on a phone, with no Electron dialog | | `specs-export-styles`: "sharing…" hands the field a file (the system's chooser can't be driven) |
 
+## Export: printing pages to a PDF (checked on Obsidian 1.13.7, Electron 43.6, Linux)
+
+Obsidian has no API for making a PDF of anything but a note. Binders prints its own pages through Electron's
+`<webview>` tag, in `src/export/pdf.ts` and nowhere else.
+
+| What | Where | Why | Fallback | Test |
+|---|---|---|---|---|
+| A `<webview>` element (Electron's tag, which Obsidian has switched on), hidden, at `about:blank`, `nodeintegration` off; its `dom-ready` and `did-fail-load` events; `executeJavaScript` | `src/export/pdf.ts` (`print`) | The pages, already laid out, are written into a document of the webview's own (no theme reaches it), and it answers when every face and picture is in | `printer()` is null where a webview hasn't `printToPDF` and `executeJavaScript` (a phone, a tablet, webviews off): the window says "PDF isn't available here." (a phone: "PDF, made on a computer"), shows the pages, and has no Export | `specs-export-pdf.mjs` ("where a PDF can't be made", "a phone", "the real way to a PDF is found on a computer"); the printer is reached through `plugin.exportHost.printer`, so a test can take it away |
+| `webview.printToPDF({ preferCSSPageSize, printBackground, generateTaggedPDF })` | `src/export/pdf.ts` | One page box to a sheet, the sheet's size from `@page { size }`: nothing newer is asked of Chromium, so an old installer does the same | As above. A print that takes too long, a page count that isn't the book's: the export stops, says why, and saves nothing | `specs-export-pdf.mjs` (every test that exports reads the PDF back with Poppler's tools) |
+
+Not used: a second `BrowserWindow` (it crashes an Electron that has no screen), `remote.webContents.printToPDF` of the
+main window (the theme's CSS would be in the book), `window.print` (a dialog). The pages' own document in the window
+is an ordinary `<iframe srcdoc>`, which is the web's and nothing of Obsidian's.
+
 ## Paragraphs begun with a tab (checked on Obsidian 1.13.7, desktop and `app.emulateMobile(true)`)
 
 | Internal | Where | What for | Without it | Test |

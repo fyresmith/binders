@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.39.1 (2026-10-06)
+
+### Changed
+
+- The developer notes describe the pages and the PDF as built.
+
 ## 0.39.0 (2026-10-06)
 
 ### Added

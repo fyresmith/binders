@@ -504,3 +504,18 @@ exactly one test matches.
 
 See <https://docs.obsidian.md/Plugins/Releasing/Submit+your+plugin>: a public repository with `README.md`, `LICENSE`
 and `manifest.json`, a release with the three files attached, then add the plugin at <https://community.obsidian.md>.
+
+## PDFs in the tests
+
+`tests/e2e/specs-export-pdf.mjs` exports real PDFs from a headless Obsidian and reads them back with Poppler's
+`pdftotext`, `pdffonts` and `pdfinfo` (the `poppler` package of any Linux, Homebrew's `poppler` on a Mac). They are
+dev-time tools: nothing of them is in the plugin. **Without one, the part of a test that needs it says so loudly and
+is skipped, not passed.** The spec also puts the demo vault's example books into the vault under test (from
+`scripts/demo-vault/`) and lays out and prints each.
+
+```bash
+BINDERS_KEEP_PDF=/some/folder npm run e2e -- --specs tests/e2e/specs-export-pdf.mjs   # keeps every PDF it makes, to look at
+```
+
+The fonts in `src/export/fonts/` are made by `scripts/subset-fonts.py` from the families' static TrueType files
+(`pip install fonttools brotli`); run it only to change what the subsets hold.

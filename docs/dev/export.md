@@ -8,8 +8,9 @@ as the first book style, Book details, the made pages, the cover, EPUBCheck in t
 building it is under "Decided while building the ebook (step 2)". **So is step 4, the Scrivener project**
 (2026-10-05): what it is as built, the format's choices and what each stands on are under "The Scrivener project".
 **And step 5, overruling and owning** (2026-10-06: Modern, style files and the style editor, "Export as" from
-Contents, the menus and the outliner, Export again): "Overruling and owning, as built". What is left is step 3's (the
-pages: the PDF, the Paperback kind, the exact preview) and step 6. The
+Contents, the menus and the outliner, Export again): "Overruling and owning, as built". **And step 3, the pages**
+(2026-10-06: the paginator, hyphenation, the fonts, the PDF module, Paperback and the manuscript as a PDF, the exact
+preview): "Pages and PDF, as built". Step 3 was built beside step 5 and joined to it after; what is left is step 6. The
 research behind it (Scrivener's Compile, the neighbouring tools, the formats, the routes tried), the two directions
 that were turned down, the screens and the sample files are in `.claude/handoff/export-design/` (`DESIGN.md`,
 `screens.html`, `samples/`, `spike/`), which git doesn't carry. The points the designer left open (the
@@ -367,7 +368,9 @@ professional typesetter's.
 Apple Books and Kobo (EPUBCheck passes it); Vellum and Atticus importing the DOCX; the Scrivener project in any
 Scrivener but the maintainer's, and as production writes it in his (the spike's projects opened there: "As built");
 Scrivener for Windows and for iOS; macOS and
-Windows; an old Obsidian installer; the share sheet on a real phone.
+Windows; an old Obsidian installer; the share sheet on a real phone; the PDF anywhere but Linux (its `<webview>` and
+`printToPDF` on macOS and Windows, and the faces a Mac or Windows has for other scripts); a print shop's intake (KDP's
+and IngramSpark's checks on a real upload); the printed book in the hand.
 
 ## The order
 
@@ -378,7 +381,7 @@ Each step leaves something a writer can use.
 | 0 | What needs other hands: a minimal `.scriv` in the maintainer's Scrivener; the sample DOCX and EPUB opened in the real apps; `printToPDF` on macOS, Windows and an old installer; the parser against the demo vault | Answers |
 | 1 | The book model and the manuscript: the parser, roles from structure, the window with Manuscript and One note, the Word writer, the word-for-word test. "Compile" renamed | A submission manuscript in one step |
 | 2 | Ebook: the EPUB writer, the first book style, Book details, the made pages, EPUBCheck in the tests | A valid ebook, on phones too |
-| 3 | Pages: the paginator made whole, hyphenation, fonts, the PDF module, page sizes, the exact preview | A paperback and a manuscript PDF |
+| 3 | Pages: the paginator made whole, hyphenation, fonts, the PDF module, page sizes, the exact preview. **Built** | A paperback and a manuscript PDF |
 | 4 | Scrivener project (can run beside 2 and 3). **Built** | A project Scrivener opens |
 | 5 | Overruling and owning: "Export as" and its column; the style editor and style files; the second book style; the warnings; where files go, remembered; Export again. **Built** | The design complete |
 | 6 | Finish: phones and tablets by touch, both themes, the docs, a QA round | Ready for 1.0 |
@@ -457,6 +460,123 @@ Where the design was silent, or the code said otherwise:
     capital in the middle of a menu item as a mistake, and can't be told otherwise.
 15. **Custom CSS reaches the ebook's file, not the window's preview of it**: the preview is Binders' drawing of
     the book's shape, not the EPUB rendered.
+
+## Pages and PDF, as built (step 3, 2026-10-06)
+
+**Pages are Binders', lines are Chromium's.** A book is laid out in a document of its own (a frame no theme reaches),
+into fixed page boxes, a block at a time. The pages the window shows are those boxes; the PDF is those boxes handed
+to a hidden `<webview>` and printed one to a sheet. So the preview is the print, on a phone too (which lays out and
+shows the same pages, and makes no PDF).
+
+| Part | Where | What it does |
+|---|---|---|
+| The deciding | `src/export/pages/fill.ts` (pure, unit-tested on pages that are only numbers) | Fills pages; cuts a paragraph at a line, never leaving fewer than two lines at the foot of a page or the head of the next; keeps a heading or a scene break with what follows; puts a footnote at the foot of the page its mark is on, and lets one too long for its page flow on to the next (at least two lines each side); opens a section on a right-hand page with a blank before it when the style says so |
+| The measuring | `pages/dom.ts` | The real boxes: how much room is left, how many lines a block has, where its marks are, cut it here. When a page is full its lines are made fast (below) |
+| The book as blocks | `pages/flow.ts` | Every section as flat blocks. A list or a quotation is its paragraphs set in by depth, so one thing is placed and cut. Footnotes are made as their marks are met |
+| The measures | `pages/geometry.ts` (pure) | Trim sizes, margins by name, the lines a page holds. `pages/css.ts` (pure): a style as the pages' stylesheet |
+| Heads and numbers | `pages/furniture.ts` (pure) | Which pages have a running head and a number, and what they say |
+| Hyphenation | `pages/hyphenate.ts` (pure), `pages/patterns.ts` | Liang's algorithm over TeX's patterns |
+| Fonts | `pages/fonts.ts`, `src/export/fonts/` | The two families, inside `main.js` |
+| Putting it together | `pages/layout.ts` | `bookPages` and `manuscriptPages` (a style on a page size), `openStage` (the document), `layPages` (fills it, a slice at a time) |
+| Printing | `src/export/pdf.ts` (golden rule 5), `pdf-info.ts` (pure) | The webview and `printToPDF`; the title and the author written into the file |
+| The window | `src/view/export-preview.ts` (`drawPages`, `showPages`) | The pages in the window |
+
+**The kinds.** Paperback is a kind of its own, between Ebook and Scrivener project: a book style and a page. The
+manuscript's PDF is a choice on the Manuscript kind (**File**: Word or PDF; with PDF, **Paper**: Letter or A4), as the
+table of kinds has it. The page of a paperback is kept in the binder note (`page-size`, a trim size's id; not written
+for 5 × 8 in); the manuscript's file and paper are kept in Binders' settings, as its style is.
+
+**What each thing becomes on a page.**
+
+| In the book | On the page |
+|---|---|
+| A paragraph | Cut at a line when it must be: at least two lines stay and two go over. A paragraph of three lines is never cut |
+| A heading inside a note, a scene break | Never the last thing on a page. A break that falls at a page turn opens the next page, and shows `* * *` there even in a style whose breaks are only space |
+| A footnote | At the foot of the page its mark is on, under a short rule, numbered from 1 in each chapter. Too long for the page: it begins under its mark and goes on at the foot of the next. Marked twice: set once. A footnote inside a footnote: in brackets, as in Word |
+| A block quotation, a callout, a list | Their paragraphs, set in; a list's number or bullet hangs in the margin. Cut like any paragraph |
+| A table | Broken between rows, never leaving its head row alone. The head row is not repeated on the next page (it would be words the notes don't have twice). A row taller than a page stays whole and overflows: the window's warnings don't yet say so |
+| A picture | Scaled down to the text's width and to a page less a line, never up. Alone on a page if it must be |
+| Code | Monospaced, wrapped, cut at any line |
+| Front and back matter | A page of its own. A title page, a copyright page, a dedication, an epigraph and a part's page carry no head and no number. A dedication and an epigraph are not headed with the word |
+| The title page, the copyright page | Made as for the ebook. The copyright line stands at the foot of the title page's back |
+| The contents | Laid out in its place with room for the numbers, which are filled in when every page has one. What stands before it (the title page) isn't listed |
+| Text in another direction or script | A paragraph in Hebrew or Arabic in an English book takes its own direction; a line of Chinese or Japanese breaks where that script breaks. None is hyphenated or broken wrongly |
+
+**Numbers.** Front matter is counted in small Roman numerals; the text starts at 1 on the first page of the first
+part or chapter (so the contents can be any length without moving a number). A chapter's first page has no running
+head and its number at the foot, whatever the style. A manuscript counts from its first page of text and has its
+header on every page of text.
+
+**Margins.** Three names. On 5 × 8 in: narrow 0.6 in inside and 0.4 outside, normal 0.7 and 0.5, wide 0.82 and 0.62;
+a larger page has them larger in proportion. The inside margin is never less than the printers' table asks for the
+book's page count (0.375 in to 150 pages, 0.5 to 300, 0.625 to 500, 0.75 to 700, then 0.875): the count is estimated
+from the words first, and a book that comes out thicker than thought is laid out once more.
+
+**Lines made fast.** A word is given soft hyphens before it is measured. When a page is full, the ones no line broke
+at are taken out and the ones a line did break at become real hyphens (the PDF's text is the words: selectable,
+searchable). Taking one out lets two letters sit a hair closer (kerning comes back), and a printer may measure a
+hair differently from a screen: either could move a line's end and put a page a line over. So each line's end is
+written into the page as a break when the page is finished, and no line can be broken anywhere else afterwards.
+Found by the test that lays out the demo vault's novel: five pages of 430 were a line over-full before this.
+
+**Hyphenation.** English (British patterns for every English but American and Canadian), German, French, Spanish,
+Italian and Portuguese: about 190 kB of patterns from the `hyphenation.*` packages. A book in another language is set
+without hyphens. Only where the style justifies its lines.
+
+**Fonts.** EB Garamond and Source Serif 4, four faces each (regular, italic, bold, bold italic; Source Serif's bold
+is its Semibold), as static WOFF2 files inside `main.js`, cut down to Latin, Latin-1, Latin Extended-A, Vietnamese,
+punctuation and the features a book uses (kerning, ligatures, small capitals, old-style and lining figures):
+`scripts/subset-fonts.py`. 145 kB and 117 kB as files; a third more as text in `main.js`. Both are SIL Open Font
+License; the notices are `src/export/fonts/OFL-EBGaramond.txt` and `OFL-SourceSerif4.md`. A book whose language is
+written in Cyrillic, Greek, Hebrew, Arabic, Chinese, Japanese or Korean is set throughout in the computer's own
+serif for that script (Noto Serif first), and the window says so; a word of such a script in a Latin book falls back
+letter by letter. Those are the computer's fonts, embedded by Chromium as it embeds them: on Linux, Noto's CJK and
+colour emoji fonts go in as Type 3. Binders' own faces never do.
+
+**The PDF.** The sheet is exactly the page's size; fonts are embedded as subsets; the file is tagged and says its
+language, its title and its author (Chromium writes the title only: the author is added as an incremental update,
+`pdf-info.ts`). Export lays the book out again out of sight at full size and prints that, so what is printed never
+depends on how large the window was showing the pages. The printer is checked: the pages that reached it and the
+pages in the file must be as many as were laid out, or nothing is saved.
+
+**Where there is no PDF** (a phone, a tablet, an Obsidian without webviews): the kinds are there, the pages can be
+looked at, the style and the page chosen, and there is no Export. A phone says "PDF, made on a computer" in the
+row and why under the choices; a computer that can't says "PDF isn't available here."
+
+**Speed.** 150,000 words: 542 pages laid out in about 3 seconds and exported (read, laid out again, printed, saved)
+in about 5, on a machine doing nothing else. The layout yields to the window five times a second; the bar counts
+the pages, and Cancel stops an export. Pages that are finished and out of sight are not laid out again.
+
+**Its ceiling, as built.** Lines are broken one at a time (Chromium's), so a loose line here and there, more in a
+narrow measure. Facing pages are not forced to equal depth: a page ends short when what comes next can't be cut
+(a heading, a three-line paragraph, a picture). The file is RGB and not PDF/X. No bleed, no crop marks, no even
+page count forced. A good trade paperback for KDP; below a professional typesetter's.
+
+### Decided while building the pages (step 3)
+
+Where the design was silent, as built. Each is a line of code to change.
+
+1. **The trim sizes:** 5 × 8, 5.25 × 8, 5.5 × 8.5 and 6 × 9 in, and A5. The design says "5 × 8 to 6 × 9".
+2. **Front matter in Roman numerals, the text from 1.** The design doesn't say how pages are counted.
+3. **A chapter's number is at the foot of its first page** even in a style that puts numbers at the top.
+4. **The manuscript's PDF is a File choice on Manuscript,** with Paper beside it, not a sixth kind.
+5. **The manuscript's file and paper are settings** (per vault), the paperback's page is the binder's (`page-size`).
+6. **A table's head row is not repeated** where a table goes over a page.
+7. **A dedication and an epigraph have no heading** on their page (the ebook has one, for its contents).
+8. **The printed contents leave out the title page.**
+9. **A part in a manuscript is headed like a chapter** on a page of its own, with the header: only the title page is bare.
+10. **Which languages are hyphenated** (seven), and that British patterns serve every English but American and Canadian.
+11. **A book in a script the faces don't hold is set whole in the computer's serif,** with a warning, rather than
+    in two faces.
+12. **Export lays the book out again** rather than printing the window's own pages: the notes are read afresh for
+    an export, and the window may be showing the pages small.
+13. **On a phone the Manuscript kind has one row more** (File), so Preview and Export can be under the fold of a
+    small screen; they scroll into view.
+14. **The margins' numbers** (above), and that a larger page scales them.
+
+**To be reported, not decided:** the bundle grew from 645 kB to about 1.23 MB (fonts about 350 kB, patterns about
+190 kB). The `hyphenation.*` packages carry no licence field of their own: the patterns are TeX's, each language
+under its own free licence, and that wants a look before a release.
 
 ## Decided while building the ebook (step 2)
 
