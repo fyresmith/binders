@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.27.0 (2026-10-06)
+
+### Added
+
+- Contents, a sidebar view of the whole book in its order with the row you are on marked. Click a row to go there in the binder view you have open. Show contents opens it, from the command palette or the binder view's More options.
+
 ## 0.26.0 (2026-10-06)
 
 ### Added

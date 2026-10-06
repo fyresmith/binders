@@ -15,7 +15,8 @@ import { mergeScenes, splitScene, splitUndo } from './scenes';
 import { Focus } from './focus/focus';
 import { desktop } from './export/desktop';
 import { ExportModal } from './view/export';
-import { installInspector } from './inspector/views';
+import { CONTENTS_VIEW, installContents } from './inspector/contents-pane';
+import { installInspector, showSide } from './inspector/views';
 import type { Follow } from './inspector/follow';
 import { installParagraphs, type Paragraphs } from './paragraphs/paragraphs';
 import { isScene, leftovers } from './snapshots';
@@ -66,6 +67,7 @@ export default class BindersPlugin extends Plugin {
 		this.paragraphs = installParagraphs(this);
 		this.registerView(SNAPSHOT_VIEW, (leaf) => new SnapshotView(leaf, this));
 		this.inspect = installInspector(this);
+		installContents(this, this.inspect);
 		// (not in a card's own menu, which has these already)
 		this.registerEvent(this.app.workspace.on('file-menu', (menu, file, source) => { if (source !== ITEM_MENU) this.fileMenu(menu, file, source); }));
 		this.registerEvent(this.app.workspace.on('files-menu', (menu, files, source) => { if (source !== ITEM_MENU) this.filesMenu(menu, files, source); }));
@@ -216,6 +218,9 @@ export default class BindersPlugin extends Plugin {
 			leaf.view.focusMode();
 		}
 	}
+
+	/** Shows the contents of the book in the sidebar (the binder view's "More options" asks; inspector/contents-pane.ts). */
+	showContents(): void { void showSide(this, CONTENTS_VIEW); }
 
 	/** How each binder's view was last left (mode, filter, options), by its binder note, for opening it again. */
 	lastView = new Map<string, Record<string, unknown>>();

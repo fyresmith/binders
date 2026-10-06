@@ -334,6 +334,8 @@ export class BinderView extends ItemView {
 			}
 			menu.addItem((i) => i.setSection('binders-note').setTitle('Export...').setIcon('book-up').onClick(() => new ExportModal(this.plugin, folder).open()));
 			folderSnapshotItems(this.plugin, menu, folder, 'binders-note', this.readOnly);
+			// (the whole book as a list in the sidebar, with where this view is)
+			menu.addItem((i) => i.setSection('binders-note').setTitle('Show contents').setIcon('book-open').onClick(() => this.plugin.showContents()));
 			if (note) menu.addItem((i) => i.setSection('binders-note').setTitle(binder ? 'Open binder note' : 'Open folder note').setIcon('file-text').onClick((e) => void this.app.workspace.getLeaf(Keymap.isModEvent(e)).openFile(note)));
 		}
 		super.onPaneMenu(menu, source);

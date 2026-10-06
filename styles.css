@@ -4239,6 +4239,76 @@ body {
 	box-shadow: inset 0 0 0 2px var(--background-modifier-border-focus);
 }
 
+/* The contents (src/inspector/contents-pane.ts): Obsidian's tree, the book's name over it as a heading, its length
+   under it. */
+.binders-contents-view.view-content {
+	display: flex;
+	flex-direction: column;
+	padding: 0;
+	overflow: hidden;
+}
+
+.binders-contents {
+	display: flex;
+	flex: 1 1 0;
+	flex-direction: column;
+	min-height: 0;
+}
+
+.binders-contents-list {
+	flex: 1 1 0;
+	min-height: 0;
+	overflow-y: auto;
+	padding: var(--size-4-1) var(--size-4-3) var(--size-4-4);
+}
+
+.binders-contents-book {
+	color: var(--nav-heading-color);
+}
+
+.binders-contents-book .tree-item-inner {
+	font-weight: var(--nav-heading-weight);
+}
+
+.binders-contents-list .tree-item-flair-outer {
+	align-self: center;
+}
+
+/* a folded folder keeps its rows, out of sight (they are thousands in a long book: kept, not made again) */
+.binders-contents-list .tree-item.is-collapsed > .tree-item-children {
+	display: none;
+}
+
+/* (rows far out of sight aren't laid out until they are scrolled to: a book of thousands of notes opens at once) */
+.binders-contents-list .tree-item.nav-file {
+	content-visibility: auto;
+	contain-intrinsic-size: auto 28px;
+}
+
+/* the row the keyboard is on, ringed inside its box as the file explorer rings its own */
+.binders-contents-list .tree-item-self:focus-visible {
+	outline: none;
+	box-shadow: inset 0 0 0 2px var(--background-modifier-border-focus);
+}
+
+.binders-contents-foot {
+	flex: none;
+	padding: var(--size-4-2) var(--size-4-5);
+	border-top: var(--border-width) solid var(--background-modifier-border);
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	font-variant-numeric: tabular-nums;
+}
+
+/* (a phone's drawer fades out what's just above its switcher: the count stands clear of that) */
+.is-phone .binders-contents-foot {
+	padding-bottom: var(--size-4-6);
+}
+
+.binders-contents-foot:empty {
+	display: none;
+}
+
 /* (end of the inspector) */
 
 /* Forced colors (Windows high contrast). Every ring in the view is a box-shadow, which that mode takes away: what has
