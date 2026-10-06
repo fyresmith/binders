@@ -111,6 +111,16 @@ export function readHead(text: string): { head: Head; from: number } {
 	return { head: { format, of: str('of'), binder: str('binder'), taken: Number.isNaN(at) ? 0 : at, why: str('why'), notes: Number(prop('notes')) || 0, words: Number(prop('words')) || 0 }, from: m[0].length + (intro && !intro[0].startsWith(RULE) ? intro[0].length : 0) };
 }
 
+/** Is this a path an item of a folder can have: every step of it a name, inside the folder? A snapshot is a file like
+    any other (it syncs, it can be handed on), and what is made from one is written where its paths say: so one that
+    climbs out ("../"), starts at the top ("/"), or names what a vault never holds (a step that starts with a dot) is
+    not an item. A backslash is a step too, as it is on Windows. A note's ends in ".md", a folder's in "/". */
+export function inFolder(path: string, kind: Kind): boolean {
+	const p = kind === 'folder' ? (path.endsWith('/') ? path.slice(0, -1) : '') : path;
+	if (!p || p.includes('\0') || (kind === 'note' && !/\.md$/i.test(p))) return false;
+	return p.split(/[/\\]/).every((step) => step.trim() !== '' && !step.trimStart().startsWith('.'));
+}
+
 /** A snapshot's file read back: its items in their order, each note's file as it was. `damaged` names the notes whose
     text is not what the file says it holds (a file changed by hand, or cut short): they are still given, as far as
     they can be read, and nothing is brought back from a snapshot that has any. */
@@ -141,6 +151,8 @@ export function parseFolderSnapshot(text: string): { head: Head; entries: Entry[
 			at += e.size + 1;
 			if (e.text.length !== e.size || fingerprint(e.text) !== e.hash) damaged.add(e.path);
 		}
+		// (an item that would be somewhere else than in the folder is left out, and the file isn't as Binders wrote it)
+		if (!inFolder(path, kind)) { damaged.delete(e.path); damaged.add(''); continue; }
 		entries.push(e);
 	}
 	// (a file cut short has fewer notes than it says)

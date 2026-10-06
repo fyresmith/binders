@@ -2,7 +2,7 @@ import { TFile, TFolder, normalizePath, type App, type TAbstractFile } from 'obs
 import type { Binder } from './binders';
 import type BindersPlugin from './main';
 import { saveOpen } from './scenes';
-import { BINDER_SNAPSHOT_EXT, BINDER_SNAPSHOT_FORMAT, NewerSnapshot, fingerprint, parseFolderSnapshot, readHead, writeFolderSnapshot, type Entry, type Head } from './binder-snapshot-text';
+import { BINDER_SNAPSHOT_EXT, BINDER_SNAPSHOT_FORMAT, NewerSnapshot, fingerprint, inFolder, parseFolderSnapshot, readHead, writeFolderSnapshot, type Entry, type Head } from './binder-snapshot-text';
 import { SNAPSHOTS, readSnapshotName, snapshotName } from './snapshot-text';
 import { wordsIn } from './view/words';
 
@@ -234,6 +234,8 @@ export async function makeFromSnapshot(plugin: BindersPlugin, s: FolderSnapshot,
 	const parent = folder.parent?.path ?? '', safe = label.replace(/[*"\\/<>:|?]/g, ' ').replace(/\s+/g, ' ').trim();
 	const name = free(app, parent, `${folder.name} (${safe})`);
 	const root = await app.vault.createFolder(normalizePath(`${parent}/${name}`));
+	// (the reader leaves such items out; nothing is written anywhere on the word of a path, all the same)
+	if (state.entries.some((e) => !inFolder(e.path, e.kind))) throw new Error('This snapshot names a place outside its folder, so nothing was made from it.');
 	const notes = state.entries.filter((e) => e.kind === 'note' && e.text != null), own = notes.find((e) => e.role && !e.path.includes('/'));
 	let done = 0;
 	const write = async (e: Entry, path: string) => {
@@ -270,7 +272,7 @@ export async function makeFromSnapshot(plugin: BindersPlugin, s: FolderSnapshot,
 export async function remakeNote(plugin: BindersPlugin, folder: TFolder, then: Entry[], e: Entry): Promise<TFile> {
 	const { app } = plugin, store = plugin.binders;
 	writable(plugin, folder);
-	if (e.kind !== 'note' || e.text == null || e.role) throw new Error('Only a note can be made again.');
+	if (e.kind !== 'note' || e.text == null || e.role || !inFolder(e.path, e.kind)) throw new Error('Only a note can be made again.');
 	const path = `${folder.path}/${e.path}`, dir = path.slice(0, path.lastIndexOf('/')), base = path.slice(dir.length + 1).replace(/\.md$/i, '');
 	await ensureFolder(app, dir);
 	const name = free(app, dir, base, '.md'), file = await app.vault.create(`${dir}/${name}.md`, e.text);

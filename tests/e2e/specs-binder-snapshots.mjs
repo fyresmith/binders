@@ -4,6 +4,8 @@
 // changed; and every test that only looks checks that nothing changed at all.
 import { B, NOTE, PL, card, clickMenu, closeMenus, contents, exists, file, hoverMenu, j, menuItems, openView, read, reload, same, texts, until, withTidy, writeRaw } from './view-helpers.mjs';
 import { make } from './specs-qa6-scale.mjs';
+import { existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 
 export const specs = [];
 const test = (name, fn, timeout) => specs.push({ name: 'binder snapshots: ' + name, ...(timeout ? { timeout } : {}), fn: withTidy(async (p, h, t) => { try { await fn(p, h, t); } finally { await closeAll(p); } }) });
@@ -589,6 +591,21 @@ test('a snapshot that arrives from outside (a sync) joins the open list; one cha
 	await pickRow(p, 'From the laptop');
 	await pickRow(p, 'Mine');
 	t.ok(/isn’t as it was written \(part of it is missing\)/.test(await p.ev(`document.querySelector(${j(DLG + ' .binders-folder-snapshots-damaged')})?.textContent ?? ''`)), 'one that is cut short says part of it is missing');
+});
+
+test('a snapshot whose items say they are somewhere else (“../”, the top of the disk): nothing is made outside the new folder, or made at all', async (p, h, t) => {
+	await p.ev(`${PL}.snapshotsApi.takeFolder(${file(L)}, 'Real')`);
+	const real = (await list(p))[0], text = await exact(p, `${SN}/${real}`);
+	const crafted = text.replace('"Prologue.md"', '"../../climbed-out-of-the-vault.md"').replace('"Epilogue.md"', '"../climbed-out-of-the-folder.md"').replace('"Part Two/"', '"../Part Two/"');
+	t.ok(crafted !== text && parse(crafted).items.some((i) => i.path.startsWith('../')), 'a snapshot’s file with three paths changed, each note’s length and fingerprint still right');
+	await writeRaw(p, `${SN}/2020-01-01 10.00.00 Crafted.binder-snapshot`, crafted);
+	await until(p, `${PL}.snapshotsApi.list(${file(L)}).some(x => x.title === 'Crafted')`);
+	const before = await p.ev(`app.vault.getFiles().map(f => f.path).sort().join('|')`);
+	const out = await p.ev(`(async () => { try { const s = ${PL}.snapshotsApi.list(${file(L)}).find(x => x.title === 'Crafted'); const f = await ${PL}.snapshotsApi.make(s, ${file(L)}, 'x'); return 'made ' + f.path; } catch (e) { return e.message; } })()`);
+	t.ok(/isn’t as it was written|outside its folder/.test(out), 'Make a binder from it: refused (' + out + ')');
+	t.eq(await p.ev(`app.vault.getFiles().map(f => f.path).sort().join('|')`), before, 'no file was made in the vault');
+	t.ok(!existsSync(join(p.vaultDir, 'climbed-out-of-the-folder.md')) && !existsSync(join(dirname(p.vaultDir), 'climbed-out-of-the-vault.md')), 'and none beside the binder or outside the vault');
+	t.ok(!(await exists(p, L + ' (x)')), 'not even the new folder');
 });
 
 test('exact bytes: a byte-order mark, CR LF, a lone CR, no line break at the end, an empty note, and a note that looks like the file’s own lines all come back as they were', async (p, h, t) => {

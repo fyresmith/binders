@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.41.1 (2026-10-06)
+
+### Fixed
+
+- A folder's or binder's snapshot whose file had been changed to name places outside its folder could have notes written there by "Make a binder from this snapshot". Such a snapshot now counts as damaged, and nothing is made from it.
+
 ## 0.41.0 (2026-10-06)
 
 ### Added

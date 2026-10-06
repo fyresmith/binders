@@ -62,6 +62,18 @@ const throws = (fn: () => unknown): unknown => { try { fn(); } catch (e) { retur
 	ok(!(throws(() => parseFolderSnapshot(t.replace('binder-snapshot: 1', 'binder-snapshot: soon'))) instanceof NewerSnapshot), '(that one isn’t “newer”)');
 }
 
+// an item whose path would land outside the folder (a file made to do harm, or mangled) is not an item at all
+{
+	const t = writeFolderSnapshot({ ...head, notes: 3 }, [note('A.md', 'Alpha.\n'), folder('Part/'), note('Part/B.md', 'Beta.\n'), note('C.md', 'Gamma.\n')]);
+	for (const bad of ['../A.md', '../../A.md', '/A.md', 'x/../../A.md', './A.md', 'x//A.md', 'x\\..\\..\\A.md', '..\\A.md', 'A.js', '.obsidian/A.md', '']) {
+		const got = parseFolderSnapshot(t.replace('"A.md"', JSON.stringify(bad)));
+		eq(j([got.entries.map((e) => e.path), got.damaged.length > 0]), j([['Part/', 'Part/B.md', 'C.md'], true]), `a note at ${j(bad)}: left out, the snapshot damaged, the notes after it still read`);
+	}
+	const dir = parseFolderSnapshot(t.replace('"Part/"', '"../Part/"'));
+	eq(j([dir.entries.some((e) => e.path.includes('..')), dir.damaged.length > 0]), j([false, true]), 'a folder that climbs out: left out too');
+	for (const good of ['Part/A.md', 'A b.c.md', 'Ünï/x .. y.md', 'a..b.md', 'C: a \\ b.md']) eq(j(parseFolderSnapshot(t.replace('"A.md"', JSON.stringify(good))).damaged), '[]', `${j(good)} is a name like any other`);
+}
+
 // a file changed by hand, or cut short, says which notes no longer match
 {
 	const list = [note('A.md', 'Alpha one.\nAlpha two.\n'), note('B.md', 'Beta.\n'), note('C.md', 'Gamma.\n')];
