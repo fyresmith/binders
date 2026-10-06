@@ -10,16 +10,18 @@
 - **Where it came from:** planned 2026-09-30 in a session that also built and released the maintainer's first plugin,
   **Evra Timelines** (`~/Projects/evra`). Binders reuses Evra's toolchain and team workflow. Evra is a good reference
   for native-looking UI, e2e tests, the release workflow, and the lessons in AGENTS.md.
-- **Version:** 0.40.x (the number is in `package.json`; every commit bumps it). Unreleased: nothing is tagged yet.
+- **Version:** 0.43.x (the number is in `package.json`; every commit bumps it). Unreleased: nothing is tagged yet.
   The maintainer will release it to the community directory as a public beta before 1.0.
-- **Unmerged:** branch `binder-snapshots` (snapshots of a folder and of a whole binder; step 1 of 4, work in
-  progress). Export's steps 5 and 3 were merged on 2026-10-06 (0.40.5).
+- **Unmerged:** nothing (2026-10-06). Snapshots of a folder and of a whole binder are at step 1 of 4 on `main`
+  (take, see, compare; 0.41.0): bringing back the text and the order, bringing back everything, and automatic
+  snapshots are still to build (`docs/dev/plan.md`).
 - **Built:** binders in the vault and in the file explorer (order, drag to reorder, label dots), the three modes, the
   Longform integration, the scene operations (split, merge, duplicate, group, compile, undo of moves), arrange by
-  label, snapshots and focus mode. `docs/dev/architecture.md` is the map of the code; the milestone table in
+  label, snapshots (a note's, and a folder's or binder's), focus mode, export (EPUB, DOCX, PDF, a Scrivener project) and
+  import from Scrivener. `docs/dev/architecture.md` is the map of the code; the milestone table in
   `docs/dev/plan.md` has the history.
-- **Left before 1.0** (`ROADMAP.md`, in its order): export (EPUB, DOCX, PDF, a Scrivener project); import from
-  Scrivener; find and replace across the manuscript; mobile on a real device (the maintainer has none yet, so the
+- **Left before 1.0** (`ROADMAP.md`, in its order): export's last step (touch, a QA round, the manual's pages); the
+  rest of binder snapshots; find and replace across the manuscript; mobile on a real device (the maintainer has none yet, so the
   emulated phone and tablet tests are the standard: "emulator is king").
 - **Tests:** unit tests and about fifty e2e spec files, six QA rounds among them. `npm run e2e:all -- --jobs 6 --theme
   both --retry-alone` runs the suite in several Obsidians at once (about two hours); tests known to fail on purpose are

@@ -5,8 +5,6 @@ is a bug: [open an issue](https://github.com/fyresmith/binders/issues).
 
 ## Planned, not built
 
-- A paperback PDF in Export.
-- Editing an export style, and more book styles than **Classic**.
 - Find and replace across the manuscript.
 
 See the [roadmap](../ROADMAP.md).
