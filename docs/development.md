@@ -330,9 +330,11 @@ Each spec file exports `specs`, a list of `{ name, fn(p, h, t) }`: `p` drives Ob
 `p.key`, `p.drag`, `p.at`, `p.shot`…), `h` has helpers (`h.open`, `h.run`), `t` asserts (`t.ok`, `t.eq`). Input is
 real: `p.dbl` is a double-click the page sees as one, and `p.key('Enter')` types a new line where a real key would.
 
-Before each test the runner closes every tab, restores the test notes, deletes what tests made, puts every setting back
-to its default, removes the saved mobile layout, clears notices and focuses the main window, so tests don't depend on
-their order.
+Before each test the runner closes every tab (a view of the plugin's left in a sidebar too, and every other window),
+restores the test notes, deletes what tests made, puts every setting back to its default and Obsidian's own settings
+(the vault's config: "Deleted files", Vim, the font size, the theme…) back to what that Obsidian started with, removes
+the saved mobile layout, clears notices and focuses the main window, so tests don't depend on their order. A test
+still puts back what it changes; the runner is there for the one that fails before it can.
 
 ## What's in `scripts/`
 

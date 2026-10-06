@@ -82,11 +82,15 @@ if (fixed.length) console.log(`\nListed as open, and passing: take them off the 
 process.exit(failed.length ? 1 : 0);
 
 function helpers(p) {
+	// Obsidian's own settings (the vault's config) as this Obsidian started with them, read before its first test
+	let config = null;
 	const h = {
-		/** Close every pane, put every test note back as it was, delete anything tests created, reset settings, clear
-		    notices and the saved mobile layout, and focus the main window. */
+		/** Close every pane (the plugin's views in a sidebar and every other window too), put every test note back as it
+		    was, delete anything tests created, reset the plugin's settings and Obsidian's own, clear notices and the saved
+		    mobile layout, and focus the main window. */
 		async reset() {
 			await p.focusMain();
+			config ??= await p.ev(`JSON.stringify(app.vault.config ?? {})`);
 			// the window and its sidebars as a fresh Obsidian has them: a test that opened the right sidebar (or failed
 			// before it could give the window its size back) would narrow the pane of every test after it
 			await p.send('Emulation.setDeviceMetricsOverride', { width: p.width, height: p.height, deviceScaleFactor: 1, mobile: false });
@@ -96,6 +100,22 @@ function helpers(p) {
 				// the layout saved in mobile mode, so a test that switches to mobile starts from the same one every time
 				const mobile = app.vault.configDir + '/workspace-mobile.json'; if (await app.vault.adapter.exists(mobile)) await app.vault.adapter.remove(mobile);
 				const leaves = []; app.workspace.iterateRootLeaves(l => { leaves.push(l); }); leaves.forEach(l => l.detach()); // not while iterating
+				// and what isn't in the main window's middle: a view of the plugin's left in a sidebar (a phone's drawer too),
+				// and everything in another window, which is then closed. One left over is counted by the next test that
+				// counts binder views.
+				const stray = []; app.workspace.iterateAllLeaves(l => { const type = l.getViewState().type, win = l.getContainer?.()?.win; if ((win && win !== window) || type === 'binders-view' || type === 'binders-snapshot') stray.push(l); });
+				stray.forEach(l => l.detach());
+				for (const w of [...(app.workspace.floatingSplit?.children ?? [])]) { try { w.win?.close(); } catch { /* closed with its last tab */ } }
+				// Obsidian's own settings as they were: a test that sets one and fails before it puts it back (or puts it
+				// back only at its end) would have every test after it deleting to the vault's trash, or typing in Vim
+				const was = ${config}, now = app.vault.config ?? {};
+				for (const k of new Set([...Object.keys(was), ...Object.keys(now)])) {
+					if (JSON.stringify(was[k]) === JSON.stringify(now[k])) continue;
+					if (k === 'theme' && typeof was[k] === 'string') { app.changeTheme(was[k]); continue; }
+					app.vault.setConfig(k, was[k]); // (a key that wasn't there is taken away: Obsidian's default again)
+					if (k === 'baseFontSize') app.updateFontSize?.();
+					if (k === 'rightToLeft') { document.body.classList.toggle('mod-rtl', !!was[k]); document.body.dir = was[k] ? 'rtl' : ''; }
+				}
 				// what earlier tests put in the vault's trash: a note trashed again under the same name gets a number
 				// ("The keeper 2.md"), and a test reading ".trash/The keeper.md" would read the older one
 				try { if (await app.vault.adapter.exists('.trash')) await app.vault.adapter.rmdir('.trash', true); } catch { /* no trash in the vault: nothing to clear */ }

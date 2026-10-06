@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.24.4 (2026-10-06)
+
+### Fixed
+
+- Nothing changes in the plugin: the end-to-end tests no longer leave a view or a setting behind for the next test.
+
 ## 0.24.3 (2026-10-06)
 
 ### Fixed
