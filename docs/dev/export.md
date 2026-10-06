@@ -437,8 +437,9 @@ Where the design was silent, or the code said otherwise:
    itself on a built-in style, so it works in a vault that has none of the writer's other styles. A built-in style
    with nothing changed has nothing to send. "Add a style from a file" takes the file under its name, or the first
    free one like it ("Classic 2"), and never replaces a style; a newer or broken file isn't taken.
-7. **The styles folder with notes in it is shown** in the file explorer (it is the writer's then), as `Snapshots`
-   is. Changing its name in settings renames the folder.
+7. **The styles folder with anything but styles in it is shown** in the file explorer (it is the writer's then).
+   Changing its name in settings renames the folder, and never to a name that is taken: a folder that is there
+   already is the writer's, and isn't adopted and hidden.
 8. **A manuscript's style is the binder's** (`manuscript-style`, as the design lists it), falling back to the one
    last used in the vault.
 9. **The manuscript preview shows the running head once**, over the first page of the text, so the "Along the top"

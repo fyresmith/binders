@@ -331,6 +331,25 @@ test('deleting a style a binder uses: the binder uses the style it was based on,
 	t.eq((await fmOf(p, BINDER)).replace('book-style: Modern\n', ''), before[BINDER], 'nothing else in the binder note changed');
 }, { skip: [BINDER] });
 
+test('the styles folder never takes over a folder that is there, and is shown when it holds anything but styles', async (p, h, t) => {
+	const top = await explorerNames(p);
+	await p.ev(`(async () => { await app.vault.createFolder('Pictures'); await app.vault.createBinary('Pictures/map.png', new Uint8Array([137, 80, 78, 71]).buffer); })().then(() => 1)`);
+	t.eq(await p.ev(`app.vault.getAbstractFileByPath(${styles}.folder) === null`), true, 'no style made yet: there is no styles folder');
+	const said = await p.ev(`${styles}.moveTo('Pictures').then(() => '', (e) => e.message)`);
+	t.ok(said.includes('already something named'), 'a folder that is there already is refused');
+	t.eq(await p.ev(`${PL}.settings.stylesFolder`), DIR, 'and the setting is as it was');
+	await until(p, `[...document.querySelectorAll('.nav-folder-title-content')].some(e => e.textContent === 'Pictures')`, 5000);
+	t.ok((await explorerNames(p)).includes('Pictures'), 'the folder stays in the file explorer');
+	// a picture of the writer's in the styles folder: it is theirs too, and shown
+	await outside(p, 'Mine', '---\nexport-style: 1\nbased-on: Classic\n---\n');
+	await p.ev(`app.vault.createBinary('${DIR}/cover.png', new Uint8Array([137, 80, 78, 71]).buffer).then(() => 1)`);
+	await until(p, `[...document.querySelectorAll('.nav-folder-title-content')].some(e => e.textContent === '${DIR}')`, 5000);
+	t.ok((await explorerNames(p)).includes(DIR), 'with a picture in it the styles folder is shown');
+	await p.ev(`(async () => { await app.vault.delete(app.vault.getAbstractFileByPath('${DIR}/cover.png')); await app.vault.delete(app.vault.getAbstractFileByPath('Pictures'), true); })().then(() => 1)`);
+	await until(p, `![...document.querySelectorAll('.nav-folder-title-content')].some(e => e.textContent === '${DIR}')`, 5000);
+	t.eq((await explorerNames(p)).join('|'), top.join('|'), 'with only styles in it, hidden again');
+});
+
 const explorerNames = (p) => p.ev(`[...document.querySelectorAll('.nav-files-container > div > .tree-item > .tree-item-self .tree-item-inner')].map(e => e.textContent)`);
 
 test('the styles folder is kept out of the file explorer, in no search or switcher, and shown if the writer keeps notes in it', async (p, h, t) => {

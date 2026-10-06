@@ -346,7 +346,7 @@ Not read yet, and kept for the step that builds it: `page-size`.
 A style of the writer's own, or the changes made to a built-in one, is one plain file:
 `Export styles/<name>.bookstyle`, in a folder at the top of the vault (its name is the setting "Styles folder").
 The file's name is the style's name. Binders keeps the folder out of the file explorer, as it does a binder's
-`Snapshots`, unless the writer keeps notes of their own in it. Like a snapshot it is not a note: Obsidian doesn't
+`Snapshots`, while it holds nothing but styles: a note, a picture or a folder of the writer's in it and it is shown. Like a snapshot it is not a note: Obsidian doesn't
 index it, so it is in no search, switcher or graph, and Obsidian Sync carries it only with "Sync all other types" on.
 
 ```yaml

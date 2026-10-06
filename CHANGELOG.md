@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.37.4 (2026-10-06)
+
+### Fixed
+
+- The styles folder setting no longer adopts and hides a folder that is already there, and the styles folder is shown whenever it holds anything but styles.
+
 ## 0.37.3 (2026-10-06)
 
 ### Fixed

@@ -55,7 +55,8 @@ export class Styles {
 	async moveTo(name: string): Promise<void> {
 		const { plugin } = this, { app } = plugin, was = app.vault.getAbstractFileByPath(this.folder);
 		await this.settled();
-		if (was instanceof TFolder && app.vault.getAbstractFileByPath(normalizePath(name))) throw new Error(`There is already something named “${name}” at the top of the vault.`);
+		// (a folder that is there already is the writer's, styles folder or not: it is never taken over and hidden)
+		if (normalizePath(name) !== this.folder && app.vault.getAbstractFileByPath(normalizePath(name))) throw new Error(`There is already something named “${name}” at the top of the vault.`);
 		if (was instanceof TFolder) await app.fileManager.renameFile(was, normalizePath(name));
 		plugin.settings.stylesFolder = name;
 		await plugin.saveData(plugin.settings);
@@ -94,11 +95,11 @@ export class Styles {
 	/** Tells `fn` whenever a style changes. Returns what stops it. */
 	on(fn: () => void): () => void { this.listeners.add(fn); return () => { this.listeners.delete(fn); }; }
 
-	/** Is this the styles folder? It is kept out of the file explorer, unless the writer keeps notes in it. */
+	/** Is this the styles folder? It is kept out of the file explorer while it holds nothing but styles: anything else
+	    in it (a note, a picture, a folder) is the writer's, and the folder is shown. */
 	isStylesFolder(file: TAbstractFile): boolean {
 		if (!(file instanceof TFolder) || file.path !== this.folder) return false;
-		const holdsNote = (d: TFolder): boolean => d.children.some((c) => (c instanceof TFolder ? holdsNote(c) : c instanceof TFile && c.extension === 'md'));
-		return !holdsNote(file);
+		return file.children.every((c) => c instanceof TFile && this.nameOf(c.path) !== null);
 	}
 
 	// ---- reading ----
