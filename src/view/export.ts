@@ -362,7 +362,7 @@ export class ExportModal extends Modal {
 		if (this.kind !== 'note') {
 			// (a Scrivener project is a folder: where one can't be written, it is zipped into the vault)
 			const kind = this.kind, host = kind === 'scrivener' && !all?.writeFolder ? null : all;
-			const kept = host ? placeFor(this.plugin, this.folder, kind) : null;
+			const kept = host ? placeFor(this.plugin, this.folder, kind, kind === 'scrivener' ? undefined : this.made.extension) : null;
 			if (host && (kept || this.saved)) {
 				place(kept ? `Saves to ${this.shown(kept)}` : `Saved to ${this.saved?.shown ?? ''}`);
 				const label = foot.createEl('label', { cls: 'mod-checkbox binders-export-remember' });

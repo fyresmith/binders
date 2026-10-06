@@ -559,3 +559,25 @@ test('Export again makes a paperback’s PDF once more with no window', async (p
 	checkPdf(t, at, shown, { name: 'again' });
 	same(t, before, await texts(p));
 });
+
+test('a manuscript exported as Word, then again as a PDF: the Word file is kept, and the PDF goes beside it', async (p, h, t, before) => {
+	await withAuthor(p);
+	await open(p);
+	await pick(p, 'Manuscript');
+	await press(p, 'Export');
+	t.ok(await saved(p), 'exported once as a Word file');
+	const docxAt = join(p.vaultDir, 'Exports', 'The Lighthouse.docx'), pdfAt = join(p.vaultDir, 'Exports', 'The Lighthouse.pdf');
+	t.eq(readFileSync(docxAt).subarray(0, 2).toString(), 'PK', 'a Word file');
+	// "Save here next time without asking", ticked: the place is the Word file's
+	await p.ev(`(() => { const b = document.querySelector('${WIN} [data-binders-key="remember"]'); if (!b.checked) b.click(); return 1; })()`);
+	await choose(p, 'file', 'pdf');
+	t.ok(await laidOut(p), 'File is PDF: the pages are laid out');
+	t.ok((await p.ev(`document.querySelector('${WIN} .binders-export-place')?.textContent ?? ''`)).includes('The Lighthouse.pdf'), 'the foot says the PDF goes beside the Word file, not over it');
+	await closeAll(p);
+	await run(p, 'export-again');
+	await until(p, `app.vault.adapter.exists('Exports/The Lighthouse.pdf')`, 90000);
+	await p.sleep(500);
+	t.eq(readFileSync(pdfAt).subarray(0, 5).toString(), '%PDF-', 'Export again made the PDF, under its own name');
+	t.eq(readFileSync(docxAt).subarray(0, 2).toString(), 'PK', 'and the Word file is still a Word file');
+	same(t, before, await texts(p));
+});

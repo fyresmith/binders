@@ -178,8 +178,13 @@ export function remember(plugin: BindersPlugin, change: (m: Memory) => void): vo
 	plugin.app.saveLocalStorage(MEMORY, m);
 }
 
-/** The place remembered for a kind of export of a folder, or null: then export asks. */
-export const placeFor = (plugin: BindersPlugin, folder: TFolder, kind: Kind): string | null => memory(plugin).places[placeKey(folder, kind)] ?? null;
+/** The place remembered for a kind of export of a folder, or null: then export asks. With `extension`, the place for
+    a file of that ending: a manuscript remembered as a Word file and made as a PDF goes beside it, never over it. */
+export function placeFor(plugin: BindersPlugin, folder: TFolder, kind: Kind, extension?: string): string | null {
+	const kept = memory(plugin).places[placeKey(folder, kind)] ?? null;
+	if (!kept || !extension || kept.toLowerCase().endsWith(`.${extension.toLowerCase()}`)) return kept;
+	return `${kept.replace(/\.[^./\\]*$/, '')}.${extension}`;
+}
 export function setPlace(plugin: BindersPlugin, folder: TFolder, kind: Kind, path: string | null): void {
 	remember(plugin, (m) => { if (path) m.places[placeKey(folder, kind)] = path; else delete m.places[placeKey(folder, kind)]; });
 }
@@ -223,7 +228,7 @@ export interface SaveOptions {
 export async function save(plugin: BindersPlugin, host: Desktop | null, data: Uint8Array, o: SaveOptions): Promise<Saved | null> {
 	const { app } = plugin, dir = exportsFolder(plugin, o.folder), file = `${o.name}.${o.extension}`;
 	if (host) {
-		const kept = o.ask ? null : placeFor(plugin, o.folder, o.kind);
+		const kept = o.ask ? null : placeFor(plugin, o.folder, o.kind, o.extension);
 		let path = kept;
 		if (!path) {
 			// the dialog starts in the Exports folder: made for it, and taken away again if the file goes elsewhere

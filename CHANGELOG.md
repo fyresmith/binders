@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.40.1 (2026-10-06)
+
+### Fixed
+
+- A manuscript saved as a Word file and then exported as a PDF to the same place no longer replaces the Word file: the PDF goes beside it.
+
 ## 0.40.0 (2026-10-06)
 
 ### Added
