@@ -3,6 +3,16 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.36.0 (2026-10-06)
+
+### Added
+
+- "Export as" (Automatic, Part, Chapter, Scene, Front matter, Back matter, Leave out) in a card's and a row's menu, as an outliner column, and on each row of Contents in the Export window.
+
+### Changed
+
+- Contents lists the pages Binders makes, and says a role it worked out more quietly than one you set.
+
 ## 0.35.0 (2026-10-06)
 
 ### Added

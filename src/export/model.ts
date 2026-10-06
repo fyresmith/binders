@@ -91,6 +91,8 @@ export interface OutlineRow {
 	role: Role;
 	/** What the rule alone would have made it (the same, unless `export-as` says otherwise). */
 	auto: Role;
+	/** The role written on it by hand (`export-as`), or null: then its role is Binders' reading of the binder. */
+	said: Role | null;
 	/** A part's or chapter's number, when it has one. */
 	number: number | null;
 }

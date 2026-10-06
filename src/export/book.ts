@@ -1,7 +1,7 @@
 import { needs, parseBody, parseNote, type Parsed } from './markdown';
 import { inlines, plain, type Block, type Book, type Matter, type Picture, type Section, type Structure, type Warning } from './model';
 import { isPictureName } from './picture';
-import { UNNUMBERED, assignRoles, guessStructure, titleFrom, type SourceItem } from './roles';
+import { UNNUMBERED, assignRoles, guessStructure, readRole, titleFrom, type SourceItem } from './roles';
 import { typesetBlocks } from './typography';
 
 /* A binder put together as a book: every included note read (markdown.ts), given its role (roles.ts), and joined
@@ -141,7 +141,7 @@ export function buildBook(items: readonly SourceItem[], o: BookOptions, resolve:
 			number = s.number;
 			open = role === 'chapter' ? s : null;
 		}
-		book.outline.push({ name: item.name, path: item.path, depth: p.depth, folder: item.kind === 'folder', role, auto: p.auto, number });
+		book.outline.push({ name: item.name, path: item.path, depth: p.depth, folder: item.kind === 'folder', role, auto: p.auto, said: readRole(item.exportAs), number });
 	}
 	renumber(book);
 	book.copyright = (o.copyright?.trim() || (o.author.trim() ? `© ${o.year ?? new Date().getFullYear()} ${o.author.trim()}` : '')).split(/\r?\n/).map((l) => l.trim()).filter((l) => l).join('\n');

@@ -1,3 +1,5 @@
+import { playedIn, type Played } from '../inspector/roles';
+import { exportAsItems, saidRole } from './export-as';
 import { Keymap, Menu, Notice, Platform, TFile, TFolder, setIcon, type EventRef, type TAbstractFile } from 'obsidian';
 import { isExported, emptyState, isNote, plain, itemMenu, labelItems, nameOf, noteOf, removeItems, renameItem, setAll, setExported, statusItems } from './actions';
 import { movedText } from './lanes-data';
@@ -351,6 +353,8 @@ class Outliner implements BinderMode {
 	private props(item: TAbstractFile): SceneProps { const n = noteOf(this.ctx, item); return n ? this.ctx.props(n) : NO_PROPS; }
 	private frontmatter(item: TAbstractFile): Record<string, unknown> { const n = noteOf(this.ctx, item); return (n && this.ctx.app.metadataCache.getFileCache(n)?.frontmatter) || {}; }
 
+	/** The part an item plays in the book (inspector/roles.ts: worked out once for the binder, until something changes). */
+	private played(item: TAbstractFile): Played | null { return playedIn(this.ctx.plugin, this.ctx.binder).get(item.path) ?? null; }
 	/** Does the item itself say it is left out of an export (not a folder above it)? */
 	private leftOut(item: TAbstractFile): boolean { const fm = this.frontmatter(item); return fm.export === false || fm.compile === false; }
 
@@ -393,6 +397,7 @@ class Outliner implements BinderMode {
 			case 'created': return item instanceof TFile ? item.stat.ctime : null;
 			case 'modified': return item instanceof TFile ? item.stat.mtime : null;
 			case 'export': return isExported(this.ctx.plugin, item);
+			case 'role': return saidRole(this.played(item)).text;
 		}
 		const prop = this.propFor(id), v = prop ? this.frontmatter(item)[prop] : null;
 		return Array.isArray(v) ? text(v) : v;
@@ -538,6 +543,7 @@ class Outliner implements BinderMode {
 			case 'created': return item instanceof TFile ? item.stat.ctime : null;
 			case 'modified': return item instanceof TFile ? item.stat.mtime : null;
 			case 'export': return [isExported(this.ctx.plugin, item), this.leftOut(item)];
+			case 'role': { const p = this.played(item); return p ? `${p.role}|${p.said ?? ''}` : null; }
 		}
 		const prop = this.propFor(id);
 		return prop ? this.frontmatter(item)[prop] ?? null : null;
@@ -627,6 +633,13 @@ class Outliner implements BinderMode {
 				const bar = td.createDiv({ cls: 'binders-progress' + (done >= 1 ? ' is-complete' : ''), attr: { role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(pct), 'aria-label': `${pct}% of its target` } });
 				bar.createDiv({ cls: 'binders-progress-bar' }).setCssStyles({ width: `${pct}%` });
 				td.createSpan({ cls: 'binders-outliner-percent', text: `${pct}%` });
+				return null;
+			}
+			case 'role': {
+				// what it is in the book: said by hand, or (fainter) what the binder's shape makes it
+				const r = saidRole(this.played(item));
+				if (!ro && !this.longform) td.addClass('is-menu');
+				if (r.text) td.createSpan({ cls: `binders-outliner-value binders-outliner-role${r.auto ? ' is-auto' : ''}`, text: r.text, attr: { 'aria-label': r.auto ? `${r.text}, automatic` : r.text } });
 				return null;
 			}
 			case 'export': {
@@ -904,7 +917,7 @@ class Outliner implements BinderMode {
 	private cellMenu(cell: HTMLElement, row: HTMLElement): void {
 		if (this.ro) return;
 		const at = this.item(row.dataset.path), items = at ? this.withSelection(at) : [], menu = new Menu();
-		if (cell.dataset.col === 'label') labelItems(this.ctx, menu, items); else statusItems(this.ctx, menu, items);
+		if (cell.dataset.col === 'label') labelItems(this.ctx, menu, items); else if (cell.dataset.col === 'role') exportAsItems(this.ctx.plugin, menu, this.ctx.binder, items); else statusItems(this.ctx, menu, items);
 		// the focus comes back to the cell when the menu goes, whatever was picked
 		const path = row.dataset.path ?? '', col = cell.dataset.col ?? '', inCell = this.root.doc.activeElement === cell;
 		this.cellMenuOpen = true;

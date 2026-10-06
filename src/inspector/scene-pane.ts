@@ -1,7 +1,5 @@
 import { Menu, Notice, TFile, TFolder, setIcon, type Component, type TAbstractFile } from 'obsidian';
-import { EXPORT_AS } from '../export/export';
 import { ROLES } from '../export/model';
-import { writeRole } from '../export/roles';
 import type BindersPlugin from '../main';
 import { COMPILE_PROP, EXPORT_PROP, saveOpen } from '../scenes';
 import { isScene, snapshotsOf, type Snapshot } from '../snapshots';
@@ -10,7 +8,7 @@ import { commitAll, editable, editingIn } from '../view/edit';
 import { labelDot, labelName } from '../view/labels';
 import type { ModeContext } from '../view/mode';
 import { parseTarget, whyNotTarget } from '../view/outliner-data';
-import { readNotes, readProps, writeNotes, writeProps } from '../view/props';
+import { readNotes, readProps, writeExportAs, writeNotes, writeProps } from '../view/props';
 import { SnapshotsModal, take, whenShort } from '../view/snapshots';
 import { WordCounter } from '../view/word-counter';
 import { wordsIn, wordsLabel } from '../view/words';
@@ -226,8 +224,8 @@ export class ScenePane {
 		const set = async (role: (typeof ROLES)[number] | null) => {
 			try {
 				if (ro) throw new Error('This binder is read only.');
-				// (a folder with no folder note has nothing to take away: one isn't made to hold nothing)
-				for (const f of items) { const note = f instanceof TFolder && !role ? this.noteOf(f) : await this.noteFor(f); if (note) await plugin.binders.setProps(note, { [EXPORT_AS]: role ? writeRole(role) : undefined }); }
+				// (the one way "Export as" is written: view/props.ts. The box above is this pane's way to leave out or put back)
+				await writeExportAs(plugin, items, role ?? 'auto', false);
 			} catch (e) { new Notice(e instanceof Error ? e.message : String(e)); }
 		};
 		const rb = pick('role', this.row(rows, 'book-open', 'Export as'), (m) => {

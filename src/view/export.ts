@@ -9,7 +9,9 @@ import { COMPILE_DEFAULTS, forRender, type CompileOptions } from '../scene-text'
 import type { ScrivProject } from '../export/scriv/project';
 import { readScriv } from '../export/scriv/vault';
 import { BookDetailsModal, pickCover } from './book-details';
-import { drawEbook, drawManuscript, drawOutline } from './export-preview';
+import { exportAsItems } from './export-as';
+import { drawContents } from './export-contents';
+import { drawEbook, drawManuscript } from './export-preview';
 import { drawStyleEditor, dress, runningHead, styleRow, type StyleEditor, type StyleEditorHost } from './export-style-editor';
 import { drawScriv, exportScriv, scrivChoices, scrivDetail, scrivFile } from './export-scriv';
 import { historyLook } from './internals';
@@ -106,9 +108,10 @@ export class ExportModal extends Modal {
 		// Obsidian's own look for such a dialog, or (where it has none) ours
 		modalEl.toggleClass('is-plain', !historyLook(contentEl));
 		this.rendered.load();
-		// Book details and the cover are the binder note's properties: when they change, the book is read again
+		// Book details and the cover are the binder note's properties, and a role is a note's own ("Export as", from
+		// Contents): when one changes, the book is read again
 		const note = this.plugin.binders.binderOf(this.folder)?.note;
-		this.rendered.registerEvent(this.app.metadataCache.on('changed', (f) => { if (f === note && this.file && !this.busy) { window.clearTimeout(this.timer); this.timer = window.setTimeout(() => { void this.load(); }, 60); } }));
+		this.rendered.registerEvent(this.app.metadataCache.on('changed', (f) => { if ((f === note || f.path.startsWith(`${this.folder.path}/`)) && this.file && !this.busy) { window.clearTimeout(this.timer); this.timer = window.setTimeout(() => { void this.load(); }, 60); } }));
 		// a style changed, here or in its file: what is shown follows it
 		this.rendered.register(this.plugin.styles.on(() => this.styleChanged()));
 		this.draw();
@@ -355,6 +358,20 @@ export class ExportModal extends Modal {
 	/** A place on the disk as it's said: from the vault's folder, when it is in it. */
 	private shown(path: string): string { const h = this.host; return h ? shownPath(h, path) : path; }
 
+	/** Whether roles can be overruled from here: not in a Longform project (its note is Longform's), nor in a binder
+	    that can't be written. */
+	private canOverrule(): boolean { const b = this.plugin.binders.binderOf(this.folder); return !!b && b.kind === 'binder' && !b.problem; }
+	/** "Export as" for a row of Contents: the same menu a card has. What it writes is read back by the window's own
+	    watch on the binder's notes. */
+	private roleMenu(path: string, at: HTMLElement | MouseEvent): void {
+		const item = this.app.vault.getAbstractFileByPath(path), binder = this.plugin.binders.binderOf(this.folder);
+		if (!item || !binder) return;
+		const m = new Menu();
+		exportAsItems(this.plugin, m, binder, [item]);
+		m.onHide(() => window.setTimeout(() => { if (this.contentEl.isConnected && this.modalEl.doc.activeElement === this.modalEl.doc.body) this.previewEl.querySelector<HTMLElement>(`[data-path="${CSS.escape(path)}"] .binders-export-role`)?.focus(); }, 0));
+		if (at instanceof MouseEvent) m.showAtMouseEvent(at); else { const r = at.getBoundingClientRect(); m.showAtPosition({ x: r.left, y: r.bottom + 2 }); }
+	}
+
 	private openNote(path: string): void {
 		if (!path) { this.edit(); return; }
 		const f = this.app.vault.getAbstractFileByPath(path);
@@ -429,7 +446,7 @@ export class ExportModal extends Modal {
 			if (this.contents) {
 				const side = el.createDiv({ cls: 'binders-export-outline nav-files-container' });
 				side.createDiv({ cls: 'binders-export-structure', text: `${STRUCTURES[book.structure][1]}${book.guessed ? ' (read from the binder’s shape)' : ''}.` });
-				drawOutline(side.createDiv(), book, (path) => this.openNote(path));
+				drawContents(side.createDiv(), book, { open: (path) => this.openNote(path), menu: this.canOverrule() ? (path, at) => this.roleMenu(path, at) : undefined });
 			}
 			const stage = el.createDiv({ cls: 'binders-export-stage' });
 			if (this.kind === 'ebook') {

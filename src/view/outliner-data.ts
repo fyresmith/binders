@@ -17,6 +17,7 @@ export const BUILT_IN: readonly BuiltIn[] = [
 	{ id: 'target', name: 'Target', icon: 'target', width: 80, numeric: true, about: 'The note’s word count target; for a folder without one, its notes’ targets together' },
 	{ id: 'progress', name: 'Progress', icon: 'loader', width: 120, numeric: true, about: 'How far along its target the note is' },
 	{ id: 'export', name: 'Export', icon: 'book-up', width: 76, about: 'Whether the note is included when the binder is exported' },
+	{ id: 'role', name: 'Export as', icon: 'book-open', width: 132, about: 'The part the note plays in the book: a chapter, a scene, front matter' },
 	{ id: 'notes', name: 'Notes', icon: 'notebook-pen', width: 200, about: 'Your notes on the note, which are never exported' },
 	{ id: 'created', name: 'Created', icon: 'calendar-plus', width: 110, numeric: true, about: 'When the note was created' },
 	{ id: 'modified', name: 'Modified', icon: 'calendar-clock', width: 110, numeric: true, about: 'When the note was last changed' },

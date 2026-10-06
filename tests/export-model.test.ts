@@ -158,6 +158,9 @@ const roles = (items: SourceItem[], s = guessStructure(items)) => assignRoles(it
 	ok(b.sections.every((s) => s.blocks[0]?.kind !== 'break' && s.blocks[s.blocks.length - 1]?.kind !== 'break'), 'no scene break at a section’s start or end');
 	ok(!b.sections.some((s) => s.role === 'back') && buildBook(items, { title: '', author: '', matter: true }).sections.some((s) => s.role === 'back' && s.title === 'Dedication'), 'back matter only when asked for');
 	eq(b.outline.map((r) => `${'.'.repeat(r.depth)}${r.name}=${r.role}${r.number ?? ''}`).join(' '), 'Prologue=chapter Part One=part1 .01 Arrival=chapter1 .Chapter 2=chapter2 Part Two=part2 .Left out=out .The wreck=chapter3 Dedication=back', 'contents: each item with its role');
+	// what was said by hand is told apart from what was read from the binder's shape
+	const over = buildBook([note('One'), folder('Part One', [note('Two', 'Two text.', { exportAs: 'Scene' }), note('Three', 'Three text.', { exportAs: 'nonsense' })], { exportAs: 'chapter' }), note('Four', 'Four text.', { exportAs: 'back matter' }), note('Five', 'Five text.', { included: false, exportAs: 'chapter' })], { title: 'T', author: '', matter: true });
+	eq(over.outline.map((r) => `${r.name}=${r.role}/${r.auto}/${r.said ?? '-'}`).join(' '), 'One=chapter/chapter/- Part One=chapter/part/chapter Two=scene/scene/scene Three=scene/scene/- Four=back/chapter/back Five=out/out/chapter', 'a row of Contents has its role, the role its place alone gives it, and the one written on it (anything else written there is no role)');
 	const scenes = buildBook([folder('Storm', [note('a', 'One.'), note('empty', ''), note('b', 'Two.')])], { title: '', author: '', matter: false });
 	eq(kinds(scenes.sections[0].blocks), 'p break p', 'scenes join with one scene break; an empty one adds none');
 	ok(scenes.guessed && scenes.structure === 'chapters', 'the structure is guessed, and said to be');

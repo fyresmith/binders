@@ -4838,6 +4838,59 @@ body:not(.is-phone) .binders-export .binders-export-options .setting-item.settin
 	padding-bottom: 1em;
 }
 
+/* Contents: a row's role is the way to overrule it ("Export as"). A role Binders read from the binder's shape is
+   said more quietly than one written by hand; a page Binders makes is quieter still. */
+.binders-export-outline .binders-export-role {
+	flex: 0 0 auto;
+	display: flex;
+	align-items: center;
+	gap: var(--size-2-1);
+}
+
+.binders-export-outline .binders-export-role.is-auto,
+.binders-export-outline .binders-export-role.is-none {
+	color: var(--text-faint);
+}
+
+.binders-export-outline .binders-export-role.is-menu {
+	cursor: var(--cursor);
+}
+
+.binders-export-outline .binders-export-role.is-menu:hover,
+.binders-export-outline .binders-export-role.is-menu:focus-visible {
+	color: var(--text-normal);
+	background-color: var(--background-modifier-hover);
+}
+
+.binders-export-outline .binders-export-role.is-menu:focus-visible,
+.binders-export-outline .nav-file-title-content:focus-visible {
+	outline: 2px solid var(--interactive-accent);
+	outline-offset: 1px;
+	border-radius: var(--radius-s);
+}
+
+.binders-export-outline .binders-export-role-icon {
+	display: none;
+	--icon-size: var(--icon-xs);
+}
+
+.binders-export-outline .binders-export-role.is-menu:is(:hover, :focus-visible) .binders-export-role-icon {
+	display: flex;
+}
+
+.binders-export-outline .binders-export-role.is-none:not(:hover, :focus-visible) > span:first-child {
+	visibility: hidden;
+}
+
+.binders-export-outline .binders-export-made .nav-file-title-content {
+	color: var(--text-muted);
+}
+
+/* The outliner's "Export as" column: a role read from the binder's shape is fainter than one said by hand. */
+.binders-outliner-role.is-auto {
+	color: var(--text-faint);
+}
+
 /* Where the file went, and whether to go there again without asking: Obsidian's own "Don't ask again". */
 .binders-export-place {
 	display: flex;

@@ -40,3 +40,12 @@ export function rolesOf(plugin: BindersPlugin, binder: Binder): Map<string, Play
 	for (const p of placed) out.set(p.item.path, { role: p.role, auto: p.auto, said: readRole(p.item.exportAs) });
 	return out;
 }
+
+let kept: { at: string; of: Map<string, Played> } | null = null;
+/** The same, kept until something a role could depend on changes (the inspector's own count of that): asked for by
+    every row of an outliner, it is worked out once. */
+export function playedIn(plugin: BindersPlugin, binder: Binder): Map<string, Played> {
+	const at = `${binder.note.path}|${plugin.inspect.rev}`;
+	if (kept?.at !== at) kept = { at, of: rolesOf(plugin, binder) };
+	return kept.of;
+}

@@ -1,3 +1,4 @@
+import { exportAsItems } from './export-as';
 import { Menu, Notice, Platform, TFile, TFolder, normalizePath, type TAbstractFile } from 'obsidian';
 import { COMPILE_PROP, EXPORT_PROP, isExported, isNote, mergeScenes, saveOpen, synopsisFromText } from '../scenes';
 import { ExportModal } from './export';
@@ -222,6 +223,8 @@ function structureItems(ctx: ModeContext, menu: Menu, items: TAbstractFile[], h:
 	if (one instanceof TFolder && (store.orderedChildren(one) ?? []).length) menu.addItem((i) => i.setSection('structure').setTitle('Ungroup').setIcon('folder-output').onClick(() => void tell(store.ungroup(one))));
 	const on = items.every((f) => { const n = noteOf(ctx, f); const fm = n ? ctx.app.metadataCache.getFileCache(n)?.frontmatter : null; return !fm || (fm[EXPORT_PROP] !== false && fm[COMPILE_PROP] !== false); });
 	menu.addItem((i) => i.setSection('structure').setTitle('Include in export').setIcon('book-check').setChecked(on).onClick(() => void setExported(ctx, items, !on)));
+	// the part it plays in the book, overruled by hand (a Longform project's note is Longform's: its scenes are chapters)
+	if (!longform) menu.addItem((i) => { i.setSection('structure').setTitle('Export as').setIcon('book-open'); submenu(i, (m) => exportAsItems(ctx.plugin, m, ctx.binder, items, { readOnly: ctx.readOnly }), menu); });
 }
 
 /** Leaves items out of exports (`export: false`), or puts them back in: the property goes, and so does
