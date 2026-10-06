@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.40.4 (2026-10-06)
+
+### Fixed
+
+- Older tests expect the "Export as" menu item and column, leave the styles folder out of the property names, and tap a menu item only once its menu has stopped scrolling.
+
 ## 0.40.3 (2026-10-06)
 
 ### Fixed

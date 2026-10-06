@@ -101,7 +101,7 @@ test('card menu, a note: the items, in sections, each with an icon where the oth
 	await context(p, CARD(L + 'Epilogue.md'));
 	const it = await items(p);
 	t.eq(j(it.filter((x) => x.section.startsWith('') && ['open', 'edit', 'props', 'structure', 'order', 'danger'].includes(x.section)).map((x) => x.title)),
-		j(['Open', 'Open in new tab', 'Open to the right', 'Open in new window', 'Rename', 'Edit synopsis', 'Set synopsis from text', 'Snapshots', 'Set status', 'Set label', 'Set target...', 'Duplicate', 'Put in a new folder', 'Include in export', 'Move up', 'Move to', 'Delete']), 'Binders’ items for the last note, in order');
+		j(['Open', 'Open in new tab', 'Open to the right', 'Open in new window', 'Rename', 'Edit synopsis', 'Set synopsis from text', 'Snapshots', 'Set status', 'Set label', 'Set target...', 'Duplicate', 'Put in a new folder', 'Include in export', 'Export as', 'Move up', 'Move to', 'Delete']), 'Binders’ items for the last note, in order');
 	for (const x of it.filter((x) => ['open', 'edit', 'props', 'structure', 'order', 'danger'].includes(x.section))) t.ok(x.icon, `“${x.title}” has an icon`);
 	t.ok(it.find((x) => x.title === 'Delete').warning, 'Delete is marked as a warning');
 	t.eq(it[it.length - 1].title, 'Delete', 'Delete is last, after what Obsidian adds');
@@ -725,7 +725,7 @@ test('several selected: the items, and what each does to every one of them', tid
 	await selectTwo();
 	t.eq(j(await titles(p)).includes('Merge 2 notes'), true, 'Merge 2 notes is offered');
 	const it = await items(p);
-	t.eq(j(it.filter((x) => ['edit', 'props', 'structure', 'order', 'danger'].includes(x.section)).map((x) => x.title)), j(['Set synopsis from text', 'Take a snapshot of 2 notes', 'Set status', 'Set label', 'Set target...', 'Merge 2 notes', 'New folder from selection', 'Include in export', 'Move to', 'Delete 2 items']), 'Binders’ items for two notes');
+	t.eq(j(it.filter((x) => ['edit', 'props', 'structure', 'order', 'danger'].includes(x.section)).map((x) => x.title)), j(['Set synopsis from text', 'Take a snapshot of 2 notes', 'Set status', 'Set label', 'Set target...', 'Merge 2 notes', 'New folder from selection', 'Include in export', 'Export as', 'Move to', 'Delete 2 items']), 'Binders’ items for two notes');
 	for (const x of ['Rename', 'Edit synopsis', 'Duplicate', 'Open', 'Move up', 'Move down']) t.ok(!it.some((y) => y.title === x), `no “${x}” for several`);
 	await closeMenus(p);
 	// status for both
@@ -1169,7 +1169,7 @@ test('outliner add-column “+” menu: every built-in column, the notes’ prop
 	await outl(p);
 	await click(p, `${LEAF} .binders-outliner-th.mod-add`);
 	const it = await items(p);
-	t.eq(j(it.filter((x) => x.section === 'built-in').map((x) => x.title)), j(['Label', 'Status', 'Words', 'Target', 'Progress', 'Export', 'Notes', 'Created', 'Modified']), 'the built-in columns');
+	t.eq(j(it.filter((x) => x.section === 'built-in').map((x) => x.title)), j(['Label', 'Status', 'Words', 'Target', 'Progress', 'Export', 'Export as', 'Notes', 'Created', 'Modified']), 'the built-in columns');
 	t.eq(j(it.filter((x) => x.checked).map((x) => x.title)), j(['Label', 'Status', 'Words']), 'ticked: the three shown');
 	t.ok(it.some((x) => x.section === 'props'), 'and a property the notes have (plotlines)');
 	await choose(p, 'Target');
@@ -1342,7 +1342,7 @@ test('manuscript: a section title’s menu (the card’s), New note after this, 
 	};
 	await ctxTitle('Prologue');
 	const first = await items(p);
-	t.eq(j(first.filter((x) => ['open', 'edit', 'props', 'structure', 'order', 'new', 'danger'].includes(x.section)).map((x) => x.title)), j(['Open', 'Open in new tab', 'Open to the right', 'Open in new window', 'Rename', 'Set synopsis from text', 'Snapshots', 'Set status', 'Set label', 'Set target...', 'Duplicate', 'Put in a new folder', 'Include in export', 'Move down', 'Move to', 'New note after this', 'Delete']), 'the manuscript title’s own items');
+	t.eq(j(first.filter((x) => ['open', 'edit', 'props', 'structure', 'order', 'new', 'danger'].includes(x.section)).map((x) => x.title)), j(['Open', 'Open in new tab', 'Open to the right', 'Open in new window', 'Rename', 'Set synopsis from text', 'Snapshots', 'Set status', 'Set label', 'Set target...', 'Duplicate', 'Put in a new folder', 'Include in export', 'Export as', 'Move down', 'Move to', 'New note after this', 'Delete']), 'the manuscript title’s own items');
 	await choose(p, 'New note after this');
 	await until(p, `document.activeElement?.closest('.binders-manuscript-scene')?.classList.contains('is-fresh') || !!document.querySelector('${LEAF} .binders-manuscript-title [contenteditable], ${LEAF} .binders-manuscript-title input, ${LEAF} .binders-edit-field')`, 4000);
 	await p.sleep(400);
@@ -2227,7 +2227,11 @@ const tapEl = async (p, sel, i = 0) => {
 /** Taps menu items one after another, a submenu's parent first. */
 const tapMenu = async (p, ...path) => {
 	for (const title of path) {
-		const at = await p.ev(`(() => { const it = [...document.querySelectorAll('.menu .menu-item')].filter(e => e.querySelector('.menu-item-title')?.textContent === ${j(title)}).pop(); if (!it) return null; it.scrollIntoView({ block: 'center' }); const r = it.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
+		// (brought into view first, and measured once the menu has stopped scrolling: a menu taller than the screen scrolls)
+		const found = await p.ev(`(() => { const it = [...document.querySelectorAll('.menu .menu-item')].filter(e => e.querySelector('.menu-item-title')?.textContent === ${j(title)}).pop(); if (!it) return null; it.scrollIntoView({ block: 'center' }); return true; })()`);
+		if (!found) throw new Error(`no menu item “${title}”: ` + ((await titles(p, 0)) ?? []).join(', '));
+		await p.sleep(350);
+		const at = await p.ev(`(() => { const it = [...document.querySelectorAll('.menu .menu-item')].filter(e => e.querySelector('.menu-item-title')?.textContent === ${j(title)}).pop(); if (!it) return null; const r = it.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
 		if (!at) throw new Error(`no menu item “${title}”: ` + ((await titles(p, 0)) ?? []).join(', '));
 		await p.sleep(200);
 		await tap(p, at.x, at.y);

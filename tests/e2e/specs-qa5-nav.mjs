@@ -1233,7 +1233,7 @@ test('phone settings: statuses are added, renamed (asking about the notes), reor
 		await p.sleep(700);
 		t.eq(await statuses(), 'Idea,Revised,Done,Proofread', 'and its ✕ deletes it');
 		// property names
-		const props = `[...${TAB}.querySelectorAll('.setting-item:not(.binders-settings-label):not(.binders-settings-status):not(.binders-settings-goal):not(.binders-settings-exports):not(.binders-settings-author) input[type="text"]')]`;
+		const props = `[...${TAB}.querySelectorAll('.setting-item:not(.binders-settings-label):not(.binders-settings-status):not(.binders-settings-goal):not(.binders-settings-exports):not(.binders-settings-author):not(.binders-settings-styles) input[type="text"]')]`;
 		const fields = await p.ev(`${props}.map(i => { i.scrollIntoView({ block: 'center' }); return { v: i.value, ph: i.placeholder, r: (${R})(i) }; })`);
 		t.eq(j(fields.map((x) => [x.v, x.ph])), j([['synopsis', 'synopsis'], ['status', 'status'], ['label', 'label'], ['target', 'target'], ['notes', 'notes']]), 'five property names');
 		t.ok(fields.every((x) => x.r[2] >= 200 && x.r[3] >= 40), 'in wide, finger-tall fields');
@@ -1273,7 +1273,7 @@ bug('phone settings: a label’s color menu shows the color’s name whole (the 
 ux('phone settings: a property’s name is typed without the keyboard capitalizing or correcting it (the fields have no `autocapitalize="none"`: “summary” comes out “Summary” on a phone, which is another property)', async (p, h, t) => {
 	await onDevice(p, PHONE, async () => {
 		await openSettings(p);
-		const fields = await p.ev(`[...${TAB}.querySelectorAll('.setting-item:not(.binders-settings-label):not(.binders-settings-status):not(.binders-settings-goal):not(.binders-settings-exports):not(.binders-settings-author) input[type="text"]')].map(i => ({ value: i.value, autocapitalize: i.getAttribute('autocapitalize'), autocorrect: i.getAttribute('autocorrect') }))`);
+		const fields = await p.ev(`[...${TAB}.querySelectorAll('.setting-item:not(.binders-settings-label):not(.binders-settings-status):not(.binders-settings-goal):not(.binders-settings-exports):not(.binders-settings-author):not(.binders-settings-styles) input[type="text"]')].map(i => ({ value: i.value, autocapitalize: i.getAttribute('autocapitalize'), autocorrect: i.getAttribute('autocorrect') }))`);
 		t.ok(fields.length === 5 && fields.every((f) => /^(none|off)$/.test(f.autocapitalize ?? '')), 'each field turns capitals off: ' + j(fields));
 	});
 });
