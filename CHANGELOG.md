@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.40.2 (2026-10-06)
+
+### Fixed
+
+- The hidden page that prints a PDF no longer has Node turned on.
+
 ## 0.40.1 (2026-10-06)
 
 ### Fixed

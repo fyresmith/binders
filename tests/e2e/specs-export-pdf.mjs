@@ -574,8 +574,12 @@ test('a manuscript exported as Word, then again as a PDF: the Word file is kept,
 	t.ok(await laidOut(p), 'File is PDF: the pages are laid out');
 	t.ok((await p.ev(`document.querySelector('${WIN} .binders-export-place')?.textContent ?? ''`)).includes('The Lighthouse.pdf'), 'the foot says the PDF goes beside the Word file, not over it');
 	await closeAll(p);
+	// (the printer's webview, watched as it is made: Node is never on in the page it prints)
+	await p.ev(`(() => { window.__printers = []; window.__watch?.disconnect(); window.__watch = new MutationObserver((ms) => { for (const m of ms) for (const n of m.addedNodes) if (n.tagName === 'WEBVIEW') window.__printers.push([...n.attributes].map(a => a.name)); }); window.__watch.observe(document.body, { childList: true }); return 1; })()`);
 	await run(p, 'export-again');
 	await until(p, `app.vault.adapter.exists('Exports/The Lighthouse.pdf')`, 90000);
+	const printers = await p.ev(`(() => { window.__watch.disconnect(); return window.__printers; })()`);
+	t.ok(printers.length > 0 && printers.every((a) => !a.includes('nodeintegration')), `the printer is a webview with no nodeintegration attribute (${JSON.stringify(printers)})`);
 	await p.sleep(500);
 	t.eq(readFileSync(pdfAt).subarray(0, 5).toString(), '%PDF-', 'Export again made the PDF, under its own name');
 	t.eq(readFileSync(docxAt).subarray(0, 2).toString(), 'PK', 'and the Word file is still a Word file');

@@ -47,7 +47,7 @@ export function printer(): Printer | null {
 
 async function print(job: PrintJob): Promise<Uint8Array> {
 	const html = `<!doctype html><html lang="${esc(job.language)}"${job.rtl ? ' dir="rtl"' : ''}><head><meta charset="utf-8"><title>${esc(job.title)}</title><meta name="author" content="${esc(job.author)}"><style>${job.css.replace(/<\/style/gi, '<\\/style')}</style></head><body>${job.body}</body></html>`;
-	const view = activeDocument.body.createEl('webview' as 'div', { cls: 'binders-export-printer', attr: { src: 'about:blank', nodeintegration: 'false', 'aria-hidden': 'true' } }) as unknown as WebviewTag;
+	const view = activeDocument.body.createEl('webview' as 'div', { cls: 'binders-export-printer', attr: { src: 'about:blank', 'aria-hidden': 'true' } }) as unknown as WebviewTag;
 	try {
 		await within(LOAD_MS, 'Starting the printer', new Promise<void>((ok, no) => {
 			view.addEventListener('dom-ready', () => ok(), { once: true });
