@@ -3,9 +3,11 @@
 Decided with the maintainer on 2026-10-05. This is what is to be built, written as decided. **Step 1 of "The
 order" is built** (2026-10-05: the book model, the Word manuscript, the window with Manuscript and One note, where
 files go, "Compile" renamed); what it is as built is in the README ("Export"), `docs/file-format.md` ("Export")
-and `docs/architecture.md` ("Export"). **Step 4, the Scrivener project, is built too** (2026-10-05): what it is
-as built, the format's choices and what each stands on are under "The Scrivener project". The rest is not built
-yet. The
+and `docs/architecture.md` ("Export"). **Step 2 is built too** (2026-10-05: the ebook: the EPUB writer, Classic
+as the first book style, Book details, the made pages, the cover, EPUBCheck in the tests); what was decided while
+building it is under "Decided while building the ebook (step 2)". **So is step 4, the Scrivener project**
+(2026-10-05): what it is as built, the format's choices and what each stands on are under "The Scrivener project".
+The rest is not built yet. The
 research behind it (Scrivener's Compile, the neighbouring tools, the formats, the routes tried), the two directions
 that were turned down, the screens and the sample files are in `.claude/handoff/export-design/` (`DESIGN.md`,
 `screens.html`, `samples/`, `spike/`), which git doesn't carry. The points the designer left open (the
@@ -396,3 +398,38 @@ vault's extremes, a 150,000-word binder under a time limit, a phone and a tablet
 
 **Waits until after 1.0:** PDF on a phone; replacements; several kinds in one go; drop capitals; typefaces installed
 on the computer; pages of equal depth; PDF/X; math; single-file HTML and plain text; Fountain; large print.
+
+## Decided while building the ebook (step 2)
+
+Where the design was silent, as built:
+
+- **No typeface travels in the EPUB.** The design leaves an ebook's typeface to its reader; so nothing is embedded
+  (0 kB), and the stylesheet sets no face, size, colour or justification. Fonts come with the pages (step 3).
+- **Pictures:** PNG, JPEG and GIF, as in the manuscript; the cover a PNG or a JPEG. The design asks for no more.
+- **The cover is the package's cover image and no page of its own:** Kindle's guidelines ask that it not be put in
+  the text a second time. A cover under 1,400 pixels on its longer side is said with the warnings.
+- **The made pages, in order:** the title page, the copyright page, the book's own front matter, the contents, the
+  text, the back matter. The contents page is the EPUB's navigation document, in the reading order; with "Never"
+  it is still the reading app's list and no page.
+- **Two properties the Book details screen shows and the property list didn't name:** `title-page` (written only
+  as `false`) and `contents-page` (`always`, `never`).
+- **The copyright page without a line** says `© year author`: no word of Binders', in any language. With no author
+  and no line there is no page. It has no switch of its own: a note named "Copyright" takes its place.
+- **The book's language reaches the words export writes.** "Chapter" and "Part" in the built-in heading, the
+  contents page's heading and the notes' name are the language's own for eighteen languages; numbers are in words
+  only in English ("Chapitre 3"); a language Binders has no words for gets the number alone and the book's title
+  over its contents. The title page has the title, the subtitle and the author, and no "by".
+- **A part's heading** is "Part" and its number, set as the chapter pattern sets its number, then its title: a
+  style has one pattern, the chapter's.
+- **The identifier** is made from the title, the author and the language, so the same book exported twice is the
+  same book to a store. Nothing is kept in the vault for it.
+- **Footnotes** are numbered from one in each chapter and set under their chapter, each with its way back; a
+  footnote in a footnote is set in its place in brackets, as in Word.
+- **A link to a note of the book** leads to the section that note is in (its chapter, not the scene's own line).
+- **Text against the book's direction** (Hebrew in an English book, English in an Arabic one) is marked
+  `dir="auto"` paragraph by paragraph; a book whose language runs right to left turns its pages that way.
+- **A Longform project** has no Book details to write: its note is Longform's. The details are read from it if
+  typed there.
+- **The manuscript's "by" and "about N words" stay in English** whatever the book's language: standard manuscript
+  format is an English-language convention. Left as step 1 built it; to be decided.
+

@@ -3,6 +3,17 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.30.0 (2026-10-06)
+
+### Added
+
+- Export makes an ebook: an EPUB for Kindle, Apple Books and Kobo, in the Classic style, with a title page, a copyright page and contents made for you, footnotes a reader taps open, and a cover from your vault.
+- Book details (the button beside the book's name in the Export window): title, subtitle, author, structure, title page, copyright line, contents page and language, kept in the binder note's properties.
+
+### Fixed
+
+- The Export window no longer asks for your name when the book already has an author.
+
 ## 0.29.4 (2026-10-06)
 
 ### Changed

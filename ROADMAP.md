@@ -31,7 +31,7 @@ state (code, tests and documentation).
         `structure` honoured as properties); the Export window with Manuscript and One note; the Word writer in
         standard manuscript format, held to the word-for-word test; where files go (the save dialog, remembered
         places, the Exports folder). "Compile" is now Export's "One note", and `export: false` is what is written.
-  - [ ] Step 2: the ebook (the EPUB writer, the first book style, Book details, the made pages).
+  - [x] Step 2: the ebook (the EPUB writer, the first book style, Book details, the made pages).
   - [ ] Step 3: pages (the paginator, hyphenation, fonts, the PDF module, the exact preview).
   - [x] **Step 4: the Scrivener project** (2026-10-05). The binder itself as a `.scriv` folder: the `.scrivx`, RTF
         documents, synopses, labels, statuses, targets, snapshots, section types, held to the word-for-word test;

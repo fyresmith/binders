@@ -19,8 +19,9 @@ What it does, in short:
   storyline or point of view), an outliner with columns you pick, and the whole manuscript as one page you can edit.
 - **Scrivener-style tools.** Labels, statuses and word count targets; split, merge, duplicate and group scenes;
   snapshots of a scene so you can rewrite without losing the old text; undo of moves.
-- **Export.** A submission manuscript as a Word file in standard manuscript format, the binder itself as a Scrivener
-  project, or the whole binder as one note. (An ebook and a paperback PDF are on the way.)
+- **Export.** A submission manuscript as a Word file in standard manuscript format, an ebook (EPUB) for Kindle,
+  Apple Books and Kobo, the binder itself as a Scrivener project, or the whole binder as one note. (A paperback PDF
+  is on the way.)
 - **Focus mode.** The text and nothing else, with typewriter scrolling.
 - **Longform.** Longform projects open as binders, and convert to them.
 - **Phones and tablets.** The same views, by touch (so far tested only in Obsidian's mobile emulation: see
@@ -267,7 +268,7 @@ options** menu, and in the menu of a binder or of a folder in one) open one wind
 few choices, on the right what it will be. It opens on the kind you made last, and nothing has to be decided before
 the first file. Export reads your notes and writes the exported file: your notes aren't changed.
 
-Three kinds are built so far. An ebook and a paperback PDF are still to come (see the [roadmap](ROADMAP.md)).
+Four kinds are built so far. A paperback PDF is still to come (see the [roadmap](ROADMAP.md)).
 
 ### Manuscript
 
@@ -285,6 +286,40 @@ way down, and `#` between scenes.
 - **Front and back matter** (a dedication, acknowledgements) are left out of a manuscript unless you turn them on.
 - **The preview** is the manuscript's text as it will read, on paper: the headings, the breaks and the notes, not
   the pages. Word sets its own lines and turns its own pages.
+
+### Ebook
+
+An EPUB 3, the file Kindle (through KDP), Apple Books and Kobo take, and any reading app opens.
+
+- **The book's shape, not its typeface.** A reader chooses the typeface, the size and the colors, and stores remove
+  a book's own. So a style gives the ebook its shape: how a chapter opens, its first words, the scene breaks, the
+  indents. **Classic** is the first: a centred chapter line in capitals ("Chapter One", its title under it), the
+  first words of a chapter in small capitals, three asterisks between scenes, paragraphs indented except the first
+  after a heading or a break.
+- **Made for you:** a title page (the title, the subtitle, the author), a copyright page, and the contents, both as
+  a page and as the list the reading app shows. A note of the book named "Title page" or "Copyright" takes the made
+  one's place. Front and back matter (a dedication, an epigraph, acknowledgements, about the author) are in the
+  book, each on a page of its own.
+- **Cover:** choose a PNG or a JPEG from your vault. Stores ask for at least 1,400 pixels on the longer side
+  (Kindle likes 2,560); a smaller one is said before you export.
+- **Footnotes** are notes a reader taps open. **Links** to the web are links, and a link to a note that is in the
+  book leads to its chapter; a link to any other note is its words. Pictures (PNG, JPEG, GIF) are in the file.
+- **Other languages and scripts.** The book's language sets its quotation marks and the words Binders writes
+  ("Chapitre 3", "Kapitel 3"); a book in Arabic or Hebrew runs right to left, and a paragraph in another script
+  than the book's runs its own way.
+- **The preview** is one column on paper in the book's shape, with the made pages. It is not pages: an ebook has
+  none until a reader opens it.
+- Every ebook the tests make is passed through EPUBCheck, the validator the stores use. It has not been opened in
+  Kindle Previewer, Apple Books or Kobo yet.
+
+### Book details
+
+The button beside the book's name in the Export window (on a phone, **Book details** under the choices). What every
+export of the binder shares: its **title** (the folder's name unless you say), **subtitle**, **author** (your name
+from Binders' settings unless you say), **structure**, whether a **title page** is made, the **copyright** line,
+when a **contents page** is made, and the **language**, chosen from a list. Each is kept as you change it, as a
+property of the binder note and nowhere else; one you clear is taken out of the note again. Nothing else in the
+note is touched.
 
 **How a binder becomes a book.** Every note and folder plays a part: a part, a chapter, a scene, front or back
 matter. Binders works it out from the binder's shape:
@@ -323,10 +358,10 @@ text is kept), a folder deeper than the structure reaches. Click one to open its
 **Where the file goes.** On a computer, Export opens your system's save dialog, starting in a folder named `Exports`
 beside the binder. This is the one place Binders writes outside your vault, and only where you say. Once a file is
 saved the window says where, with **Show in folder** and **Open**, and offers **Save here next time without
-asking**: ticked, later manuscripts of that binder go straight there (a file there that export didn't write, or that
+asking**: ticked, later exports of that kind of that binder go straight there (a file there that export didn't write, or that
 has been changed since, is asked about first). **Choose where to save...** in the window's menu, unticking the box,
 or **Ask again** in Binders' settings brings the dialog back. On a phone or tablet the file goes into the `Exports`
-folder in your vault, and then to the share sheet. Obsidian lists a .docx in its file explorer only with **Detect
+folder in your vault, and then to the share sheet. Obsidian lists a .docx or an .epub in its file explorer only with **Detect
 all file extensions** on (Files and links). The Exports folder can be renamed, or made one folder for the whole
 vault, in settings.
 
@@ -582,7 +617,7 @@ Obsidian's Hotkeys settings. Most only appear where they apply (a binder view in
 | **Convert to binder** | For a Longform project: turns it into a binder. |
 | **Split scene at cursor**, **Split scene with selection as title** | Move the text from the cursor on into a new note after this one (in a note, or in the manuscript). |
 | **Set word count target** | Sets the target of the folder the binder view shows (the binder's own, on the binder). |
-| **Export binder** | Opens the Export window for the binder, or the folder shown: a manuscript as a Word file, a Scrivener project, or one Markdown note. |
+| **Export binder** | Opens the Export window for the binder, or the folder shown: a manuscript as a Word file, an ebook, a Scrivener project, or one Markdown note. |
 | **Undo last move**, **Redo last move** | Take back, or make again, the last move made by hand in the binder in front (or the open note's). |
 | **Move up**, **Move down** | Move the open note one place in its folder. |
 | **Take a snapshot**, **Rewrite**, **Show snapshots** | Snapshots of the open note (or, in the manuscript, the section the cursor is in). |

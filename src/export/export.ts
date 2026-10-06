@@ -2,13 +2,17 @@ import { TFile, TFolder, normalizePath, type TAbstractFile } from 'obsidian';
 import type BindersPlugin from '../main';
 import { isExported, isNote, saveOpen } from '../scenes';
 import { parts } from '../scene-text';
+import { checkFormat, isBinderNote } from '../model';
 import { bookNeeds, buildBook, type Resolver } from './book';
+import { applyDetails, readDetails, type Details } from './details';
 import type { Desktop, Stamp } from './desktop';
 import { writeDocx } from './docx';
 import { manuscriptStyle } from './docx-parts';
+import { writeEpub } from './epub';
 import { bookWords, type Book, type Picture } from './model';
 import { isPictureName, pictureOf } from './picture';
-import { readStructure, type SourceItem } from './roles';
+import type { SourceItem } from './roles';
+import { bookStyle } from './style';
 
 /* Export where it meets the vault: a binder (or a folder of one) read into the book model, the manuscript made from
    it, and the file put where it goes. It reads notes and writes the exported file, and nothing else: no note's text
@@ -19,15 +23,39 @@ import { readStructure, type SourceItem } from './roles';
 export const EXPORT_AS = 'export-as';
 
 /** The kinds of export there are so far. */
-export type Kind = 'manuscript' | 'scrivener' | 'note';
+export type Kind = 'manuscript' | 'ebook' | 'scrivener' | 'note';
 export const KINDS: { id: Kind; name: string; detail: string }[] = [
 	{ id: 'manuscript', name: 'Manuscript', detail: 'Word, in standard manuscript format' },
+	{ id: 'ebook', name: 'Ebook', detail: 'EPUB, for Kindle, Apple Books and Kobo' },
 	{ id: 'scrivener', name: 'Scrivener project', detail: 'The binder itself, for Scrivener 3' },
 	{ id: 'note', name: 'One note', detail: 'Markdown, in this vault' },
 ];
 
-/** A folder of a binder, read for export: the book, and how many words it has. */
-export async function readBook(plugin: BindersPlugin, folder: TFolder, matter: boolean): Promise<{ book: Book; words: number }> {
+/** A book's details as its binder note has them, and why they can't be changed here (null when they can): a binder
+    in a newer format is never written, and a Longform project's note is Longform's. */
+export function bookDetails(plugin: BindersPlugin, folder: TFolder): { details: Details; binder: string; locked: string | null } {
+	const binder = plugin.binders.binderOf(folder);
+	if (!binder) throw new Error(`“${folder.name}” isn’t in a binder.`);
+	const fm = (plugin.app.metadataCache.getFileCache(binder.note)?.frontmatter ?? {}) as Record<string, unknown>;
+	const locked = binder.kind === 'longform' ? 'This is a Longform project: its note is Longform’s, and Binders writes nothing of its own there. Type these as properties of the project’s note.' : binder.problem ? `This binder can’t be changed. ${binder.problem}` : null;
+	return { details: readDetails(fm), binder: binder.folder.name, locked };
+}
+
+/** Book details kept: only the details given, only as Book details' own properties of the binder note, and never in
+    a note that isn't a binder's or is in a newer format (golden rules 3 and 6). The note's text is not touched. */
+export async function saveDetails(plugin: BindersPlugin, folder: TFolder, change: Partial<Details>): Promise<void> {
+	const binder = plugin.binders.binderOf(folder);
+	if (!binder || binder.kind !== 'binder') throw new Error('Book details are kept in a binder’s own note, and this isn’t one.');
+	await plugin.app.fileManager.processFrontMatter(binder.note, (fm: Record<string, unknown>) => {
+		if (!isBinderNote(fm)) throw new Error('Book details are kept in a binder’s own note, and this isn’t one.');
+		checkFormat(fm);
+		applyDetails(fm, change);
+	});
+}
+
+/** A folder of a binder, read for export: the book, and how many words it has. `asBook`: with the pages Binders
+    makes for a book (a title page, a copyright page, the contents) and its cover, as an ebook has them. */
+export async function readBook(plugin: BindersPlugin, folder: TFolder, matter: boolean, asBook = false): Promise<{ book: Book; words: number }> {
 	const { app, binders: store, settings } = plugin, binder = store.binderOf(folder);
 	if (!binder) throw new Error(`“${folder.name}” isn’t in a binder.`);
 	const fm = (f: TFile | null): Record<string, unknown> => (f ? app.metadataCache.getFileCache(f)?.frontmatter ?? {} : {});
@@ -66,17 +94,34 @@ export async function readBook(plugin: BindersPlugin, folder: TFolder, matter: b
 	const resolve: Resolver = {
 		embed: (target, from) => found.get(key(target, from)) ?? null,
 		image: (src, from) => { const f = found.get(key(src, from)); return f && 'picture' in f ? f.picture : null; },
+		// (a link is followed as Obsidian follows it: to a note, wherever in the vault it is)
+		link: (target, from) => { const f = app.metadataCache.getFirstLinkpathDest(safeDecode(target.split('#')[0].trim()) || from, from); return f instanceof TFile && f.extension === 'md' ? f.path : null; },
 	};
-	const own = fm(binder.note), text = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : '');
+	const own = fm(binder.note), d = readDetails(own);
+	// the cover: a PNG or a JPEG of the vault, named in Book details
+	let cover: Picture | null = null, coverSaid = '';
+	if (asBook && d.cover) {
+		const file = app.metadataCache.getFirstLinkpathDest(d.cover, binder.note.path);
+		try { const pic = file ? pictureOf(new Uint8Array(await app.vault.readBinary(file))) : null; cover = pic && pic.type !== 'gif' ? pic : null; } catch { cover = null; }
+		coverSaid = !cover ? `The cover “${d.cover}” isn’t in the vault, or isn’t a PNG or a JPEG. The book has no cover.` : Math.max(cover.width, cover.height) < COVER_SIDE ? `The cover is ${Math.max(cover.width, cover.height).toLocaleString()} pixels on its longer side. Stores ask for at least ${COVER_SIDE.toLocaleString()}.` : '';
+	}
 	// (a folder of the binder exported by itself is named for itself; the binder's own title is the whole book's)
 	const book = buildBook(items, {
-		title: folder === binder.folder ? text(own.title) || folder.name : folder.name,
-		author: text(own.author) || settings.authorName.trim(),
-		language: text(own.language) || 'en',
-		structure: readStructure(own.structure),
+		title: folder === binder.folder ? d.title || folder.name : folder.name,
+		subtitle: folder === binder.folder ? d.subtitle : '',
+		author: d.author || settings.authorName.trim(),
+		copyright: d.copyright,
+		year: new Date().getFullYear(),
+		cover,
+		language: d.language || 'en',
+		structure: d.structure,
 		flat: binder.kind === 'longform',
 		matter,
+		made: asBook ? { titlePage: d.titlePage, contents: d.contents } : undefined,
 	}, resolve);
+	const said = (text: string) => book.warnings.unshift({ path: binder.note.path, name: 'Book details', text });
+	if (coverSaid) said(coverSaid);
+	if (typeof own.language === 'string' && own.language.trim() && !d.language) said(`“${own.language.trim()}” isn’t a language Binders can read. The book is taken to be in English until one is chosen.`);
 	return { book, words: bookWords(book) };
 }
 const safeDecode = (s: string): string => { try { return decodeURIComponent(s); } catch { return s; } };
@@ -85,6 +130,12 @@ const safeDecode = (s: string): string => { try { return decodeURIComponent(s); 
 export function manuscript(plugin: BindersPlugin, book: Book, words: number, style: string): Uint8Array {
 	return writeDocx(book, manuscriptStyle(style), { contact: plugin.settings.contact.split(/\r?\n/).map((l) => l.trim()).filter((l) => l), words });
 }
+
+/** The ebook of a book, in a book style. */
+export const ebook = (book: Book, style: string): Uint8Array => writeEpub(book, bookStyle(style));
+
+/** The longer side stores ask of a cover, in pixels (Apple's floor; Kindle's ideal is 2,560). */
+const COVER_SIDE = 1400;
 
 /** A file's name from a book's title: without what a file name can't have. */
 export const fileName = (title: string): string => title.replace(/[\\/:*?"<>|#^[\]]/g, ' ').replace(/\s+/g, ' ').trim().replace(/^\.+/, '') || 'Untitled';

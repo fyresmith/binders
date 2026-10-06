@@ -29,6 +29,7 @@ neighbours, for example the store and `snapshots.ts`, which follow each other's 
  ───────────────────────────────────────────────────────────────────────────────────
  pure logic, no Obsidian: model.ts  longform.ts  scene-text.ts  snapshot-text.ts  settings-data.ts
    export/model.ts  markdown.ts  typography.ts  roles.ts  book.ts  picture.ts  docx.ts  docx-parts.ts
+                    style.ts  details.ts  epub.ts  epub-text.ts  epub-css.ts
    focus/session.ts  view/labels.ts  view/outliner-data.ts  view/lanes-data.ts  view/file-drag-data.ts
    view/tap-text.ts
 ```
@@ -101,12 +102,16 @@ word-for-word test (development.md) holds each writer to "no word dropped, repea
 | `src/export/roles.ts` | The structure rule: `guessStructure` from a binder's shape, `assignRoles` (with `export-as` and what is left out), `titleFrom` a name. Pure. | |
 | `src/export/book.ts` | `buildBook`: the binder's items, read and given roles, joined into sections; embeds and pictures brought in through a `Resolver`; footnotes numbered in the order of their marks; warnings with their note. Pure. | Read a file itself. |
 | `src/export/picture.ts` | A picture's kind and size from its first bytes (PNG, JPEG, GIF). Pure. | |
+| `src/export/style.ts` | Book styles as data, under the names a `.bookstyle` file has (`BookStyle`; built in: `CLASSIC`); `bookHeading` (the heading pattern: `{number}`, `{number:words}`, `{number:roman}`, `{title}`, `/`), the few words export writes in the book's language (`bookWord`), which languages and paragraphs run right to left. Pure. | Know what an ebook or a page looks like: the writers read it. |
+| `src/export/details.ts` | Book details as the binder note's properties: `readDetails`, `applyDetails` (only `DETAIL_PROPS`; an empty one is taken out), `languageTag` (a checked tag or null), the languages offered. Pure. | Write to a note (that is `saveDetails` in `export.ts`). |
+| `src/export/epub.ts`, `epub-text.ts`, `epub-css.ts` | The ebook writer: a book as an EPUB 3, written by hand as text and zipped with fflate (`mimetype` first, stored). `epub.ts` is the package, the navigation document (the contents page too), the NCX, the cover and the accessibility metadata; `epub-text.ts` a section as XHTML (headings, first words, breaks, footnotes as pop-up notes, links inside the book, pictures); `epub-css.ts` a style as a stylesheet. Pure. | Set a typeface, a size, a colour or justification: those are the reader's. |
 | `src/export/docx.ts`, `docx-parts.ts` | The Word writer: a book as a .docx in standard manuscript format, written by hand as text and zipped with fflate. `docx-parts.ts` has the styles (the three manuscript styles), numbering, settings and the package's small files. Pure. | Change the order of elements inside `w:pPr`, `w:rPr`, `w:style` or `w:sectPr` without checking it against the schema: Word refuses a file for that. |
 | `src/export/export.ts` | Export where it meets the vault: `readBook` (what is typed is saved first, the binder is read in its order, what notes embed is found as Obsidian finds it), `manuscript`, and `save`: the system's dialog or the Exports folder, the places remembered on this device, the share sheet. | Write to a note, its text or its properties. Replace a file export didn't write without asking. |
 | `src/export/scriv/` | The Scrivener project. `project.ts` (`writeScriv`: a binder's items with what Binders knows of each, into the project's files; what goes to Draft and what to Research), `scrivx.ts` (the `.scrivx` and `compile.xml` as text), `rtf.ts` (a note's blocks as RTF, with Scrivener's inline footnotes and annotations), `text.ts` (the Markdown reader with comments and tab-led paragraphs kept through it), `parts.ts` (the format's open choices, one constant each; ids, dates, colors), `styles-xml.ts` (Scrivener's own default styles file). All pure. `vault.ts` is where it meets Obsidian: `readScriv` reads the binder (properties, folder notes, snapshots, pictures), `saveScriv` puts the project where it goes. | Write to a note; write into a project that isn't as export left it; go through the book model (a project is the binder, not a book). |
 | `src/view/export-scriv.ts` | The Export window's Scrivener kind: its two switches, its bar, its preview (the binder as Scrivener will list it) and its export. `view/export.ts` asks here for each. | |
 | `src/export/desktop.ts` | The save dialog and the disk, on a computer: Electron's and Node's, asked for only when used (golden rule 5). `writeFolder` writes a folder of files (a Scrivener project) whole or not at all. `desktop()` is null when anything is missing. Reached through `plugin.exportHost`, so a test can stand in for the dialog. | Be imported for anything but saving an export; throw when something isn't there. |
-| `src/view/export.ts`, `export-preview.ts` | The Export window (`ExportModal`): Obsidian's two-pane dialog with the kinds that exist (Manuscript, One note), their choices, where the file goes, the warnings; the bar, Contents, and the preview (`export-preview.ts` draws a manuscript's text on paper from the book model, and the outline). A phone has the choices first and the preview second. | Write anything itself: it asks `export/export.ts` and `scenes.ts`. |
+| `src/view/book-details.ts` | Book details (`BookDetailsModal`): Obsidian's setting rows over the binder note's own properties, kept as they are changed; `pickCover`. A binder that can't be written (a newer format, a Longform project) is shown and not changed. | |
+| `src/view/export.ts`, `export-preview.ts` | The Export window (`ExportModal`): Obsidian's two-pane dialog with the kinds that exist (Manuscript, Ebook, Scrivener project, One note), their choices, where the file goes, the warnings; the bar, Contents, and the preview (`export-preview.ts` draws a manuscript's text on paper from the book model, and the outline). A phone has the choices first and the preview second. | Write anything itself: it asks `export/export.ts` and `scenes.ts`. |
 
 ### The binder view
 
@@ -292,7 +297,7 @@ These are the rules the code is held to. A change that breaks one needs a new te
 | Longform | `longform` | `specs-longform` |
 | Settings, labels, words | `view` | `specs` (settings tab), `specs-labels`, `specs-qa3-labels` |
 | Scene work | `scene-text` | `specs-scenes`, `specs-qa3-scenes` |
-| Export | `export-model`, `export-docx` (the word-for-word test) | `specs-export` |
+| Export | `export-model`, `export-style`, `export-docx` and `export-epub` (the word-for-word tests; EPUBCheck) | `specs-export` |
 | Paragraphs | `paragraphs` | `specs-paragraphs` |
 | Snapshots | `snapshot-text` | `specs-snapshots` |
 | Focus mode | `focus-session` | `specs-focus` |

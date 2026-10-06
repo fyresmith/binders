@@ -4889,3 +4889,170 @@ body:not(.is-phone) .binders-export .binders-export-options .setting-item.settin
 		border: 1px solid CanvasText;
 	}
 }
+
+/* The book's name over the kinds, with Book details beside it. */
+.binders-export .binders-export-head {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+}
+
+.binders-export .binders-export-head .binders-snapshots-of {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.binders-export .binders-export-head .clickable-icon {
+	flex: 0 0 auto;
+}
+
+/* An ebook before it is made: one column on paper, in the shape its style gives it. The typeface, the size and the
+   colours are a reader's own, so the paper is plain: a serif at a reading size. */
+.binders-export-paper.mod-ebook {
+	--binders-paper-line: 1.5;
+	max-width: 32em;
+	padding: 3em clamp(var(--size-4-6), 10%, 3em);
+	font-family: Georgia, "Iowan Old Style", "Palatino Linotype", "Liberation Serif", serif;
+	font-size: 13pt;
+}
+
+.binders-export-paper.mod-ebook p {
+	text-indent: 1.4em;
+}
+
+.binders-export-paper.mod-ebook[data-paragraphs="spaced"] p {
+	text-indent: 0;
+}
+
+.binders-export-paper.mod-ebook[data-paragraphs="spaced"] p + p {
+	margin-top: 0.7em;
+}
+
+.binders-export-paper.mod-ebook p.mod-first,
+.binders-export-paper.mod-ebook :is(blockquote, li, td, th) p,
+.binders-export-paper.mod-ebook .binders-export-footnote p {
+	text-indent: 0;
+}
+
+.binders-export-paper.mod-ebook .binders-export-section + .binders-export-section {
+	margin-top: 3em;
+	padding-top: 3em;
+}
+
+.binders-export-paper.mod-ebook .binders-export-heading {
+	padding: 2.4em 0 2.2em;
+	font-size: 1.1em;
+}
+
+.binders-export-paper.mod-ebook .binders-export-heading span {
+	display: block;
+}
+
+.binders-export-paper.mod-ebook .binders-export-heading-title {
+	margin-top: 0.5em;
+}
+
+.binders-export-paper.mod-ebook[data-heading="left"] .binders-export-heading {
+	text-align: start;
+}
+
+.binders-export-paper.mod-ebook:is([data-lettering="small capitals"], [data-lettering="capitals"]) .binders-export-heading {
+	text-transform: uppercase;
+	letter-spacing: 0.12em;
+}
+
+.binders-export-paper.mod-ebook[data-lettering="small capitals"] .binders-export-heading {
+	font-size: 1.05em;
+}
+
+.binders-export-paper.mod-ebook[data-lettering="italic"] .binders-export-heading {
+	font-style: italic;
+}
+
+.binders-export-paper.mod-ebook .mod-part .binders-export-heading {
+	padding-top: 6em;
+}
+
+.binders-export-paper.mod-ebook .binders-export-lead {
+	text-transform: uppercase;
+	font-size: 0.82em;
+	letter-spacing: 0.06em;
+}
+
+.binders-export-paper.mod-ebook .binders-export-break {
+	margin: 1.1em 0;
+}
+
+.binders-export-paper.mod-ebook .binders-export-title {
+	padding-top: 22%;
+	text-align: center;
+	font-size: 1.9em;
+	letter-spacing: 0.06em;
+	line-height: 1.2;
+}
+
+.binders-export-paper.mod-ebook .binders-export-subtitle {
+	margin-top: 0.9em;
+	text-indent: 0;
+	text-align: center;
+	font-style: italic;
+}
+
+.binders-export-paper.mod-ebook .binders-export-by {
+	margin-top: 2.5em;
+	text-transform: uppercase;
+	letter-spacing: 0.12em;
+	font-size: 0.9em;
+}
+
+.binders-export-paper.mod-ebook .mod-copyright p {
+	text-indent: 0;
+	font-size: 0.85em;
+}
+
+.binders-export-paper.mod-ebook :is(.mod-dedication, .mod-epigraph) p {
+	text-indent: 0;
+	text-align: center;
+	font-style: italic;
+}
+
+.binders-export-paper.mod-ebook .binders-export-toc {
+	list-style: none;
+	padding-inline-start: 0;
+}
+
+.binders-export-paper.mod-ebook .binders-export-toc .binders-export-toc {
+	padding-inline-start: 1.4em;
+}
+
+.binders-export-paper.mod-ebook .binders-export-toc li {
+	margin: 0.5em 0;
+}
+
+.binders-export-paper.mod-ebook .binders-export-link {
+	text-decoration: underline;
+}
+
+.binders-export-paper.mod-ebook .mod-cover {
+	text-align: center;
+}
+
+.binders-export-paper.mod-ebook .mod-cover .binders-export-picture {
+	max-height: 30em;
+}
+
+/* Book details: Obsidian's own setting rows; what can't be changed says why. */
+.binders-book-details .binders-book-details-about,
+.binders-book-details .binders-book-details-locked {
+	margin: 0 0 var(--size-4-3);
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.binders-book-details .binders-book-details-locked {
+	color: var(--text-warning);
+}
+
+.binders-book-details .setting-item-control select {
+	max-width: 18em;
+}

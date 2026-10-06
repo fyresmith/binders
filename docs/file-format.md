@@ -292,9 +292,13 @@ The Lighthouse/
 
 ## Export
 
-What export reads from notes. All of it is optional, so this is still format 1. Export writes none of these itself
-yet (the windows that set them come with later steps; until then they are typed as properties), and it never writes
-to a note it reads. The design is [export.md](export.md).
+What export reads from notes. All of it is optional, so this is still format 1. Exporting never writes to a note.
+The book's own details, in the binder note, are written by **Book details** and the **Cover** button of the Export
+window, and by nothing else: only the properties in the second table, only when the writer changes one, through
+Obsidian's property writer (the note's text and its other properties are untouched), never in a binder whose format
+is newer than this version reads, and never in a Longform project's note. A detail that says nothing is taken out
+of the note, not written empty. `export-as` is still typed as a property (its menu comes with a later step). The
+design is [export.md](export.md).
 
 **In a note, or in a folder's note for the folder:**
 
@@ -313,11 +317,17 @@ in Scrivener, which it never compiles), and every other property of a note (cust
 |---|---|---|
 | `title` | text | The book's title. The folder's name without it |
 | `author` | text | The author. Without it, "Your name" in Binders' settings |
-| `language` | text | A language tag (`en`, `en-GB`, `de`, `fr`): which quotes are set, and what the exported file says it is written in. English without it |
+| `subtitle` | text | The book's subtitle, under its title on the title page |
+| `language` | text | A language tag as the standard writes it (`en`, `en-GB`, `de`, `fr-CA`, `zh-Hant`): which quotes are set, which way the text runs, the few words export itself writes ("Chapitre 3"), and what the exported file says it is written in. Book details offers a list and writes only a tag from it; anything else typed here is not a language, is said with the warnings, and the book is taken to be in English |
+| `copyright` | text | The copyright page's line (a line of it to a paragraph). Without it, and with an author, the page says `© year author`. A note of the book named "Copyright" takes the page's place |
+| `cover` | text | The cover: a PNG or a JPEG in the vault, as a link (`"[[cover.png]]"`, which Obsidian follows when the picture is renamed) or a path. In the ebook it is the book's cover image |
+| `title-page` | checkbox | `false`: no title page is made. Written only when it is off. A note of the book named "Title page" takes the made one's place |
+| `contents-page` | text | `always` or `never`. Without it a contents page is made when a chapter has a title. (An ebook's own list of contents, the one a reading app shows, is always there) |
+| `book-style` | text | The book style last chosen for this binder (`Classic`). Written when another is chosen |
 | `structure` | text | Which rule gives folders and notes their roles: `chapters and scenes` (folders are chapters, notes are scenes), `parts and chapters` (folders are parts, notes are chapters), `parts, chapters and scenes`, or `every note a chapter`. Without it Binders reads the rule off the binder's shape: no folders, every note a chapter; folders one deep, parts and chapters if every top folder's name starts with "Part", "Book" or "Act", else chapters and scenes; deeper, parts, chapters and scenes. A Longform project is every note a chapter |
 
-Not read yet, and kept for the steps that build them: `subtitle`, `cover`, `copyright`, `book-style`,
-`manuscript-style`, `page-size`.
+Not read yet, and kept for the steps that build them: `manuscript-style` (the manuscript's style is still one of
+Binders' settings), `page-size`.
 
 **What isn't in any note:**
 

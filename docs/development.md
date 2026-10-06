@@ -175,6 +175,28 @@ on every part, and LibreOffice (`soffice --headless --convert-to pdf`), which mu
 (about ten seconds; `BINDERS_NO_SOFFICE=1` skips it). Without them the run says so and goes on. The files are left in
 `test-dist/export-docx/` to look at. Not run here: Microsoft's Open XML validator, and Word itself.
 
+`tests/export-epub.test.ts` holds the ebook to the same: the words read back out of the `.epub` (by
+`tests/export-epub-read.ts`, which goes as a reading app goes: the container, the package's reading order, a file at
+a time, with patterns of its own and none of the writer's code) are the words that went in, for the same four
+sources, front and back matter included; the pages Binders makes are no words of the writer's and are left out.
+Each file is checked as an EPUB (`sound`: `mimetype` first, stored and bare; every file in the manifest and every
+manifest entry a file; every link and footnote leading somewhere; no id twice; well-formed text).
+
+**EPUBCheck**, the validator every ebook store names, runs on every EPUB those tests make (the samples, the test
+vault, each binder of the demo vault, the 150,000-word book) and on the files `specs-export.mjs` exports. It is a
+dev-time tool only, never part of the plugin, and it needs Java:
+
+```bash
+npm run get-epubcheck      # once: EPUBCheck, and a Java runtime if the computer has none (about 60 MB together)
+```
+
+It is unpacked outside the repository, into `~/.cache/binders-tools` (or the folder `BINDERS_TOOLS` names), so every
+worktree finds it. **Without it the tests still pass, and say in capitals that EPUBCheck was not run**: an ebook
+change isn't verified until it has been. With it, `npm test -- export-epub` takes about a minute and a half longer
+(a Java starts for each file, four at a time; the two largest demo binders take most of it):
+`BINDERS_EPUBCHECK=some` checks one demo binder in four, `BINDERS_NO_EPUBCHECK=1` none. The files are left in
+`test-dist/export-epub/` to open in a reading app.
+
 `specs-export.mjs` repeats the word-for-word check end to end, on the file a real Obsidian wrote to the disk.
 
 **The Scrivener project** is held to the same rule document by document (`tests/export-scriv-words.test.ts`): for

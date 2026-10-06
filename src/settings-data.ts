@@ -43,7 +43,7 @@ export interface BindersSettings {
 	authorName: string;
 	contact: string;
 	/** Export: the kind last made, the manuscript style last used, and whether front and back matter went in. */
-	exportKind: 'manuscript' | 'scrivener' | 'note';
+	exportKind: 'manuscript' | 'ebook' | 'scrivener' | 'note';
 	exportStyle: string;
 	exportMatter: boolean;
 	/** A Scrivener project: notes outside the manuscript into Research, and snapshots carried across. */
@@ -149,7 +149,7 @@ export function readSettings(data: unknown): BindersSettings {
 	if (typeof d.focusGoal === 'number' && Number.isInteger(d.focusGoal) && d.focusGoal > 0) s.focusGoal = d.focusGoal;
 	if (typeof d.exportsFolder === 'string' && d.exportsFolder.trim()) s.exportsFolder = d.exportsFolder.trim();
 	for (const k of ['authorName', 'contact', 'exportStyle'] as const) if (typeof d[k] === 'string') s[k] = d[k];
-	if (d.exportKind === 'note' || d.exportKind === 'manuscript' || d.exportKind === 'scrivener') s.exportKind = d.exportKind;
+	if (d.exportKind === 'note' || d.exportKind === 'manuscript' || d.exportKind === 'ebook' || d.exportKind === 'scrivener') s.exportKind = d.exportKind;
 	s.exportOutside = d.exportOutside !== false;
 	s.exportSnapshots = d.exportSnapshots !== false;
 	if (typeof d.exportMatter === 'boolean') s.exportMatter = d.exportMatter;

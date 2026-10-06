@@ -2,10 +2,13 @@
 // system's own save dialog can't be driven from a test, so a stand-in answers for it (the plugin's `exportHost`), and
 // everything after the dialog is real: the file is written to the disk and read back here. Every test that exports
 // checks that no note changed.
+import { spawnSync } from 'child_process';
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'fs';
+import { homedir } from 'os';
 import { join } from 'path';
+import { crc32, deflateSync } from 'zlib';
 import { strFromU8, unzipSync } from 'fflate';
-import { PL, clickMenu, file, j, openView, reload, same, texts, until, withTidy, writeRaw } from './view-helpers.mjs';
+import { PL, clickMenu, file, j, openView, reload, same, split, texts, until, withTidy, writeRaw } from './view-helpers.mjs';
 
 export const specs = [];
 const L = 'The Lighthouse/';
@@ -65,7 +68,7 @@ const sourceWords = (all) => BODIES.flatMap((n) => words(all[`${L}${n}.md`].repl
 
 test('the window opens on a manuscript: the kinds that exist, the choices, the text on paper', async (p, h, t) => {
 	await open(p);
-	t.eq((await kinds(p)).join('|'), 'Manuscript|Scrivener project|One note', 'the kinds built so far, and no others');
+	t.eq((await kinds(p)).join('|'), 'Manuscript|Ebook|Scrivener project|One note', 'the kinds built so far, and no others');
 	t.eq(await p.ev(`document.querySelector('${WIN} [role="option"][aria-selected="true"] .binders-snapshots-item-name').textContent`), 'Manuscript', 'a manuscript the first time');
 	t.eq(await p.ev(`document.querySelector('${WIN} .binders-snapshots-name').textContent`), 'Manuscript', 'the bar names what is being made');
 	t.ok(/^\d+ words · 7 chapters$/.test(await p.ev(`document.querySelector('${WIN} .binders-snapshots-detail').textContent`)), 'and how big it is');
@@ -289,10 +292,23 @@ test('one note: what Compile was, from the window, with tabs taken off paragraph
 test('by keyboard, and for a screen reader: the kinds are a list, the arrows choose, Tab reaches Export, Escape closes', async (p, h, t) => {
 	await open(p);
 	t.eq(await p.ev(`(() => { const a = document.activeElement; return a?.getAttribute('role') + ':' + a?.querySelector('.binders-snapshots-item-name')?.textContent; })()`), 'option:Manuscript', 'the keyboard starts on the kind chosen');
-	t.eq(await p.ev(`(() => { const l = document.querySelector('${WIN} [role="listbox"]'); return l.getAttribute('aria-label') + '|' + [...l.querySelectorAll('[role="option"]')].map(o => o.getAttribute('aria-label')).join('|'); })()`), 'What to make|Manuscript: Word, in standard manuscript format|Scrivener project: The binder itself, for Scrivener 3|One note: Markdown, in this vault', 'the list and its rows are named');
+	t.eq(await p.ev(`(() => { const l = document.querySelector('${WIN} [role="listbox"]'); return l.getAttribute('aria-label') + '|' + [...l.querySelectorAll('[role="option"]')].map(o => o.getAttribute('aria-label')).join('|'); })()`), 'What to make|Manuscript: Word, in standard manuscript format|Ebook: EPUB, for Kindle, Apple Books and Kobo|Scrivener project: The binder itself, for Scrivener 3|One note: Markdown, in this vault', 'the list and its rows are named');
 	await p.key('ArrowDown');
+	await until(p, `document.querySelector('${WIN} .binders-snapshots-name').textContent === 'Ebook'`);
+	t.eq(await p.ev(`document.activeElement?.querySelector('.binders-snapshots-item-name')?.textContent`), 'Ebook', 'Down chooses the next kind, and the keyboard stays in the list');
+	await p.key('End');
+	await until(p, `document.querySelector('${WIN} .binders-snapshots-name').textContent === 'One note'`);
+	t.eq(await p.ev(`document.activeElement?.querySelector('.binders-snapshots-item-name')?.textContent`), 'One note', 'End chooses the last');
+	await p.key('ArrowUp');
 	await until(p, `document.querySelector('${WIN} .binders-snapshots-name').textContent === 'Scrivener project'`);
-	t.eq(await p.ev(`document.activeElement?.querySelector('.binders-snapshots-item-name')?.textContent`), 'Scrivener project', 'Down chooses the next kind, and the keyboard stays in the list');
+	t.eq(await p.ev(`document.activeElement?.querySelector('.binders-snapshots-item-name')?.textContent`), 'Scrivener project', 'Up goes back through the kinds, in the order they are listed');
+	await p.key('ArrowUp');
+	await until(p, `document.querySelector('${WIN} .binders-snapshots-name').textContent === 'Ebook'`);
+	await until(p, `!!document.querySelector('${WIN} .binders-export-paper.mod-ebook .binders-export-section')`);
+	const ebookTabs = [];
+	for (let i = 0; i < 12; i++) { await p.key('Tab'); ebookTabs.push(await p.ev(`(() => { const a = document.activeElement; return a?.dataset.bindersKey || a?.getAttribute('aria-label') || a?.textContent || a?.tagName; })()`)); if (ebookTabs[ebookTabs.length - 1] === 'Export') break; }
+	t.ok(ebookTabs.includes('style') && ebookTabs.includes('cover') && ebookTabs.includes('Contents') && ebookTabs[ebookTabs.length - 1] === 'Export', `in the ebook, Tab goes through the style and the cover to Contents and Export (${ebookTabs.join(', ')})`);
+	await p.ev(`(() => { document.querySelector('${WIN} [role="option"][aria-selected="true"]').focus(); return 1; })()`);
 	await p.key('ArrowUp');
 	await until(p, `document.querySelector('${WIN} .binders-snapshots-name').textContent === 'Manuscript'`);
 	await until(p, `!!document.querySelector('${WIN} .binders-export-paper .binders-export-section')`);
@@ -342,6 +358,244 @@ test('a binder of 150,000 words is exported in time, word for word', async (p, h
 // ---- a phone and a tablet ----
 
 /** Runs fn in Obsidian's mobile mode at a size, by touch; then puts the desktop back. */
+// ---- the ebook ----
+
+/** An .epub on the disk, read as a reading app reads it (the package's reading order, a file at a time), with
+    patterns of its own: the names in the zip, the package, each heading, and the text without what export made. */
+function epub(path) {
+	const z = unzipSync(new Uint8Array(readFileSync(path))), names = Object.keys(z), x = (n) => (z[n] ? strFromU8(z[n]) : '');
+	const opf = x('OEBPS/package.opf'), hrefs = new Map([...opf.matchAll(/<item id="([^"]+)" href="([^"]+)"/g)].map((m) => [m[1], m[2]]));
+	const spine = [...opf.matchAll(/<itemref idref="([^"]+)"/g)].map((m) => hrefs.get(m[1]));
+	const text = (h) => h.replace(/<[^>]+>/g, ' ').replace(/&#(\d+);/g, (_m, n) => String.fromCodePoint(Number(n))).replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+	const headings = [];
+	let body = '';
+	for (const href of spine) {
+		if (href === 'nav.xhtml') continue;
+		let b = /<body[^>]*>([\s\S]*)<\/body>/.exec(x(`OEBPS/${href}`))?.[1] ?? '';
+		if (/class="(titlepage|[^"]* made)"/.test(b)) continue;
+		b = b.replace(/<h1[^>]*>([\s\S]*?)<\/h1>/, (_m, h) => { headings.push(text(h).replace(/\s+/g, ' ').trim()); return ''; });
+		body += ' ' + text(b.replace(/<p class="break"[^>]*>[\s\S]*?<\/p>/g, ' ').replace(/<a class="noteref"[^>]*>[^<]*<\/a>/g, '').replace(/<a [^>]*doc-backlink[^>]*>[^<]*<\/a>/g, ''));
+	}
+	return { names, opf, spine, headings, body, x, stored: new Uint8Array(readFileSync(path)).slice(30, 38).join() === [...'mimetype'].map((c) => c.charCodeAt(0)).join() };
+}
+/** EPUBCheck's verdict on a file: "" when it passes, what it says when it doesn't, null when it isn't installed
+    (`npm run get-epubcheck`). */
+function epubcheck(path) {
+	const tools = process.env.BINDERS_TOOLS || join(homedir(), '.cache', 'binders-tools'), jar = join(tools, 'epubcheck', 'epubcheck.jar');
+	const java = [join(tools, 'jre', 'bin', 'java'), join(tools, 'jre', 'Contents', 'Home', 'bin', 'java')].find((f) => existsSync(f)) ?? (spawnSync('which', ['java']).status === 0 ? 'java' : '');
+	if (!existsSync(jar) || !java) { console.log('    ******** EPUBCheck WAS NOT RUN: it isn’t installed (npm run get-epubcheck). ********'); return null; }
+	const r = spawnSync(java, ['-jar', jar, path, '--failonwarnings'], { encoding: 'utf8', timeout: 120000 });
+	return r.status === 0 ? '' : `${r.stdout ?? ''}${r.stderr ?? ''}`.split('\n').filter((l) => /^(ERROR|WARNING|FATAL)/.test(l)).slice(0, 3).join(' | ') || 'it failed';
+}
+/** A real PNG of one grey. */
+function png(width, height) {
+	const chunk = (type, data) => { const body = Buffer.concat([Buffer.from(type, 'latin1'), data]), out = Buffer.alloc(body.length + 8); out.writeUInt32BE(data.length, 0); body.copy(out, 4); out.writeUInt32BE(crc32(body) >>> 0, body.length + 4); return out; };
+	const head = Buffer.alloc(13);
+	head.writeUInt32BE(width, 0); head.writeUInt32BE(height, 4); head[8] = 8;
+	const rows = Buffer.alloc((width + 1) * height, 0xcc);
+	for (let y = 0; y < height; y++) rows[y * (width + 1)] = 0;
+	return Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk('IHDR', head), chunk('IDAT', deflateSync(rows)), chunk('IEND', Buffer.alloc(0))]);
+}
+const EBOOK = `${WIN} .binders-export-paper.mod-ebook`;
+/** The window, with the Ebook kind chosen and its text shown. */
+async function openEbook(p, folder = 'The Lighthouse') {
+	await open(p, folder);
+	await pick(p, 'Ebook');
+	await until(p, `!!document.querySelector('${EBOOK} .binders-export-section.mod-chapter')`, 8000);
+	await p.sleep(200);
+}
+const NOTE = `${L}The Lighthouse.md`;
+const DETAILS = '.modal.binders-book-details';
+const fm = (p, path = NOTE) => p.ev(`app.vault.adapter.read(${j(path)}).then(t => t)`).then((t) => split(t));
+/** Sets one of Book details' fields as a writer does: typed and left, chosen, or switched. */
+const detail = async (p, key, value) => {
+	await p.ev(`(() => { const e = document.querySelector('${DETAILS} [data-binders-key="${key}"]'); if (!e) throw new Error('no field ${key}'); if (e.classList.contains('checkbox-container')) e.click(); else { e.value = ${j(value)}; e.dispatchEvent(new Event('input', { bubbles: true })); e.dispatchEvent(new Event('change', { bubbles: true })); } return 1; })()`);
+	await p.sleep(250);
+};
+const withAuthor = (p) => p.ev(`(async () => { const pl = ${PL}; pl.settings.authorName = 'Mara Lindqvist'; await pl.saveData(pl.settings); })().then(() => 1)`);
+
+test('the Ebook kind: its choices, its text in the shape of the style, and what a reader chooses said', async (p, h, t) => {
+	await withAuthor(p);
+	await openEbook(p);
+	t.eq((await kinds(p)).join('|'), 'Manuscript|Ebook|Scrivener project|One note', 'the kinds built so far, in the design’s order');
+	t.eq(await p.ev(`document.querySelector('${WIN} [role="option"][aria-selected="true"]').getAttribute('aria-label')`), 'Ebook: EPUB, for Kindle, Apple Books and Kobo', 'the ebook, and what it is for');
+	t.eq((await p.ev(`[...document.querySelectorAll('${WIN} .binders-export-options .setting-item-name')].map(e => e.textContent)`)).join('|'), 'Style|Cover', 'its choices: the style and the cover');
+	t.eq(await p.ev(`(() => { const s = document.querySelector('${WIN} [data-binders-key="style"]'); return [...s.options].map(o => o.textContent).join() + '=' + s.value; })()`), 'Classic=Classic', 'the first book style');
+	t.ok(/^\d+ words · 7 chapters$/.test(await p.ev(`document.querySelector('${WIN} .binders-snapshots-detail').textContent`)), 'the bar says how big it is');
+	const heads = await p.ev(`[...document.querySelectorAll('${EBOOK} .binders-export-section')].map(s => s.querySelector('.binders-export-title, .binders-export-heading')?.innerText.replace(/\\n+/g, ' / ') ?? (s.classList.contains('mod-copyright') ? '(copyright)' : ''))`);
+	t.eq(heads.join('|').toLowerCase(), 'the lighthouse|(copyright)|contents|prologue|part one|chapter one / arrival|chapter two / the keeper|chapter three / storm warning|part two|chapter four / the wreck|chapter five / lights out|epilogue', 'the made pages, then the book, headed as Classic heads it');
+	t.eq(await p.ev(`document.querySelector('${EBOOK} .mod-copyright').textContent`), `© ${new Date().getFullYear()} Mara Lindqvist`, 'the copyright page says who and when');
+	t.eq((await p.ev(`[...document.querySelectorAll('${EBOOK} .binders-export-toc li')].map(e => e.firstChild.textContent)`)).slice(0, 4).join('|'), 'The Lighthouse|Prologue|Part One|Chapter One · Arrival', 'the contents list the book');
+	const shape = await p.ev(`(() => { const sec = [...document.querySelectorAll('${EBOOK} .mod-chapter')].find(s => s.querySelectorAll('p').length > 1) ?? document.querySelector('${EBOOK} .mod-chapter'), ps = sec.querySelectorAll('p'), cs = (e) => getComputedStyle(e), h = sec.querySelector('.binders-export-heading'); return { first: cs(ps[0]).textIndent, head: cs(h).textAlign + ' ' + cs(h).textTransform, paper: cs(document.querySelector('${EBOOK}')).backgroundColor + ' ' + cs(document.querySelector('${EBOOK}')).color }; })()`);
+	t.eq(shape.first, '0px', 'a chapter’s first paragraph isn’t indented');
+	t.eq(shape.head, 'center uppercase', 'the heading is centred, in capitals');
+	t.eq(shape.paper, 'rgb(255, 255, 255) rgb(0, 0, 0)', 'paper is white and ink black, whatever the theme');
+	t.ok((await p.ev(`document.querySelector('${WIN} .binders-export-caption').textContent`)).startsWith('A reader chooses the typeface, the size and the colors.'), 'and the window says what an ebook leaves to its reader');
+	const fits = await p.ev(`(() => { const s = document.querySelector('${WIN} .binders-export-scroll').getBoundingClientRect(), e = document.querySelector('${EBOOK}').getBoundingClientRect(); return e.left >= s.left - 1 && e.right <= s.right + 1; })()`);
+	t.ok(fits, 'one column, inside its pane');
+	await closeAll(p);
+	await open(p);
+	t.eq(await p.ev(`document.querySelector('${WIN} [role="option"][aria-selected="true"] .binders-snapshots-item-name').textContent`), 'Ebook', 'the kind last used is the one the window opens on');
+});
+
+test('an ebook goes through the save dialog to the Exports folder: an EPUB with the notes’ words, in order, that EPUBCheck passes', async (p, h, t, before) => {
+	await withAuthor(p);
+	await openEbook(p);
+	await press(p, 'Export');
+	t.ok(await saved(p), 'the bar says it was saved');
+	const at = join(p.vaultDir, 'Exports', 'The Lighthouse.epub');
+	t.eq((await asked(p)).join(), at, 'the dialog was opened once, in Exports beside the binder, with the book’s name');
+	t.eq(readdirSync(join(p.vaultDir, 'Exports')).join(), 'The Lighthouse.epub', 'the file is there, and nothing else is: no half-written file');
+	const e = epub(at);
+	t.ok(e.names[0] === 'mimetype' && e.stored && e.x('mimetype') === 'application/epub+zip', 'it is an EPUB: `mimetype` first, stored');
+	t.eq(e.spine.map((s) => s.replace(/^text\/|\.xhtml$/g, '')).join(' '), 'title-page copyright nav prologue part-1 chapter-1 chapter-2 chapter-3 part-2 chapter-4 chapter-5 epilogue', 'a file to a section, in the book’s order');
+	t.eq(words(e.body).join(' '), sourceWords(before).join(' '), 'word for word: the words in the file are the words of the notes, in binder order');
+	t.eq(e.headings.join('|'), 'Prologue|Part One|Chapter One Arrival|Chapter Two The keeper|Chapter Three Storm warning|Part Two|Chapter Four The wreck|Chapter Five Lights out|Epilogue', 'parts and chapters are headed; a prologue has no number');
+	t.ok(e.opf.includes('<dc:title>The Lighthouse</dc:title>') && e.opf.includes('>Mara Lindqvist</dc:creator>') && e.opf.includes('<dc:language>en</dc:language>'), 'the package says whose book it is');
+	const verdict = epubcheck(at);
+	if (verdict !== null) t.eq(verdict, '', 'EPUBCheck passes it without errors or warnings');
+	t.eq(await status(p), 'Saved to Exports/The Lighthouse.epub', 'the window says where it went');
+	// a place is remembered for each kind of each binder
+	await p.ev(`(() => { document.querySelector('${WIN} .binders-export-remember input').click(); return 1; })()`);
+	await p.sleep(200);
+	t.eq(await p.ev(`document.querySelector('${WIN} .binders-export-place')?.textContent ?? ''`), 'Saves to Exports/The Lighthouse.epub', 'ticked, the ebook saves there without asking');
+	await pick(p, 'Manuscript');
+	t.eq(await p.ev(`document.querySelector('${WIN} .binders-export-place')?.textContent ?? ''`), '', 'and the manuscript is still asked about: the place is the ebook’s');
+	await pick(p, 'Ebook');
+	await until(p, `!!document.querySelector('${EBOOK} .mod-chapter')`);
+	await press(p, 'Export');
+	t.ok(await saved(p), 'exported again');
+	t.eq((await asked(p)).length, 1, 'without the dialog');
+	same(t, before, await texts(p));
+});
+
+test('Book details: kept as the binder note’s own properties and nothing else; the ebook follows them', async (p, h, t, before) => {
+	await openEbook(p);
+	await p.ev(`(() => { document.querySelector('${WIN} [data-binders-key="details"]').click(); return 1; })()`);
+	t.ok(await until(p, `!!document.querySelector('${DETAILS} [data-binders-key="title"]')`), 'the button beside the book’s name opens Book details');
+	t.eq((await p.ev(`[...document.querySelectorAll('${DETAILS} .setting-item-name')].map(e => e.textContent)`)).filter((n) => n).join('|'), 'Title|Subtitle|Author|Structure|Title page|Copyright page|Contents page|Language', 'its rows');
+	t.eq(await p.ev(`document.querySelector('${DETAILS} [data-binders-key="title"]').placeholder`), 'The Lighthouse', 'the title is the folder’s name until one is said');
+	t.ok(await p.ev(`document.querySelector('${DETAILS} [data-binders-key="language"]').tagName === 'SELECT' && document.querySelector('${DETAILS} [data-binders-key="language"]').options.length > 40`), 'the language is chosen from a list, not typed');
+	await detail(p, 'title', 'The Lighthouse Keeper');
+	await detail(p, 'subtitle', 'A short novel');
+	await detail(p, 'author', 'M. L. Lindqvist');
+	await detail(p, 'copyright', 'Copyright © 2026 M. L. Lindqvist. All rights reserved.');
+	await detail(p, 'language', 'en-GB');
+	await detail(p, 'contents-page', 'never');
+	await detail(p, 'structure', 'notes');
+	t.ok(await until(p, `app.vault.adapter.read(${j(NOTE)}).then(t => t.includes('structure:'))`, 4000), 'each change is kept as it is made');
+	const now = await fm(p), was = split(before[NOTE]);
+	t.eq(now.body, was.body, 'the binder note’s text is untouched');
+	t.ok(now.yaml.startsWith(was.yaml), 'what the note had (its format, its order, the writer’s own properties) is as it was, in place');
+	t.eq(now.yaml.slice(was.yaml.length).trim().split('\n').map((l) => l.split(':')[0]).sort().join(), 'author,contents-page,copyright,language,structure,subtitle,title', 'and only Book details’ own properties are added');
+	t.ok(now.yaml.includes('language: en-GB') && now.yaml.includes('structure: every note a chapter') && now.yaml.includes('contents-page: never'), 'written as the file format has them');
+	await p.ev(`(() => { [...document.querySelectorAll('${DETAILS} button')].find(b => b.textContent === 'Done').click(); return 1; })()`);
+	t.ok(await until(p, `document.querySelector('${EBOOK} .binders-export-title')?.textContent === 'The Lighthouse Keeper' && !document.querySelector('${EBOOK} .mod-contents')`, 6000), 'the window reads the book again: its title, and no contents page');
+	t.eq(await p.ev(`[document.querySelector('${EBOOK} .binders-export-subtitle').textContent, document.querySelector('${EBOOK} .binders-export-by').textContent, document.querySelector('${EBOOK} .mod-copyright').textContent, document.querySelector('${EBOOK}').lang].join('|')`), 'A short novel|M. L. Lindqvist|Copyright © 2026 M. L. Lindqvist. All rights reserved.|en-GB', 'its subtitle, its author, its copyright line, its language');
+	t.ok(!(await p.ev(`!!document.querySelector('${EBOOK} .mod-part')`)), 'and its structure: every note a chapter, no parts');
+	// taken back: a detail that says nothing is taken out of the note, not left empty
+	await p.ev(`(() => { document.querySelector('${WIN} [data-binders-key="details"]').click(); return 1; })()`);
+	await until(p, `!!document.querySelector('${DETAILS} [data-binders-key="title"]')`);
+	for (const [k, v] of [['title', ''], ['subtitle', ''], ['author', ''], ['copyright', ''], ['language', ''], ['contents-page', 'titled'], ['structure', '']]) await detail(p, k, v);
+	t.ok(await until(p, `app.vault.adapter.read(${j(NOTE)}).then(t => t === ${j(before[NOTE])})`, 4000), 'every detail taken back: the binder note is byte for byte what it was');
+	await closeAll(p);
+	same(t, before, await texts(p));
+});
+
+test('Book details and the cover never write to a binder in a newer format, or to a Longform project’s note', async (p, h, t) => {
+	const was = await p.ev(`app.vault.adapter.read(${j(NOTE)})`);
+	await writeRaw(p, NOTE, was.replace('binder: 1', 'binder: 99'));
+	await until(p, `!!${PL}.binders.problem('The Lighthouse')`, 6000);
+	const before = await texts(p);
+	await openView(p, 'The Lighthouse');
+	await run(p, 'export');
+	await until(p, `!!document.querySelector('${WIN} [role="option"]')`, 6000);
+	await p.ev(`(() => { document.querySelector('${WIN} [data-binders-key="details"]').click(); return 1; })()`);
+	await until(p, `!!document.querySelector('${DETAILS} [data-binders-key="title"]')`);
+	t.ok((await p.ev(`document.querySelector('${DETAILS} .binders-book-details-locked')?.textContent ?? ''`)).includes('newer version of Binders'), 'Book details says why nothing can be changed');
+	t.eq((await p.ev(`[...document.querySelectorAll('${DETAILS} input[type="text"], ${DETAILS} select:not([aria-hidden]), ${DETAILS} .checkbox-container')].filter(e => !(e.disabled || e.classList.contains('is-disabled'))).map(e => e.dataset.bindersKey ?? e.outerHTML.slice(0, 90))`)).join(), '', 'and every field is shut');
+	// (and if a field were written to all the same, the note is refused, not rewritten)
+	await detail(p, 'title', 'Forced');
+	await detail(p, 'language', 'fr');
+	await p.sleep(600);
+	await closeAll(p);
+	same(t, before, await texts(p));
+	const lf = Object.keys(before).find((k) => k.startsWith('Longform demo/') && /^---\n[\s\S]*?longform:/.test(before[k]));
+	t.ok(!!lf, 'the test vault has a Longform project');
+	await openView(p, 'Longform demo');
+	await run(p, 'export');
+	await until(p, `!!document.querySelector('${WIN} [role="option"]')`, 6000);
+	await p.ev(`(() => { document.querySelector('${WIN} [data-binders-key="details"]').click(); return 1; })()`);
+	await until(p, `!!document.querySelector('${DETAILS} [data-binders-key="title"]')`);
+	t.ok((await p.ev(`document.querySelector('${DETAILS} .binders-book-details-locked')?.textContent ?? ''`)).includes('Longform'), 'a Longform project’s details are Longform’s to keep');
+	await detail(p, 'title', 'Forced');
+	await p.sleep(500);
+	await closeAll(p);
+	same(t, before, await texts(p));
+});
+
+test('the cover: chosen from the vault’s pictures, kept as a link in the binder note, and the EPUB’s cover image', async (p, h, t, before) => {
+	writeFileSync(join(p.vaultDir, 'cover.png'), png(1600, 2560));
+	writeFileSync(join(p.vaultDir, 'small.png'), png(300, 480));
+	await until(p, `!!app.vault.getAbstractFileByPath('cover.png') && !!app.vault.getAbstractFileByPath('small.png')`, 8000);
+	await withAuthor(p);
+	await openEbook(p);
+	const choose = async (name) => {
+		await p.ev(`(() => { document.querySelector('${WIN} [data-binders-key="cover"]').click(); return 1; })()`);
+		await until(p, `[...document.querySelectorAll('.suggestion-item')].some(e => e.textContent === ${j(name)})`, 4000);
+		await p.ev(`(() => { [...document.querySelectorAll('.suggestion-item')].find(e => e.textContent === ${j(name)}).click(); return 1; })()`);
+	};
+	t.eq(await p.ev(`document.querySelector('${WIN} [data-binders-key="cover"]').textContent`), 'Choose...', 'no cover yet');
+	await choose('small.png');
+	t.ok(await until(p, `!!document.querySelector('${EBOOK} .mod-cover img') && [...document.querySelectorAll('${WIN} .binders-export-warn-text')].some(e => e.textContent.includes('480 pixels on its longer side'))`, 6000), 'a small cover is shown, and said to be small for the stores');
+	await choose('cover.png');
+	t.ok(await until(p, `app.vault.adapter.read(${j(NOTE)}).then(t => t.includes('cover: "[[cover.png]]"'))`, 4000), 'the cover is kept in the binder note, as a link');
+	t.ok(await until(p, `!!document.querySelector('${EBOOK} .mod-cover img') && ![...document.querySelectorAll('${WIN} .binders-export-warn-text')].some(e => e.textContent.includes('longer side'))`, 6000), 'and shown first in the book, with nothing said against it');
+	t.eq(await p.ev(`document.querySelector('${WIN} [data-binders-key="cover"]').textContent`), 'Change...', 'the button offers to change it');
+	await press(p, 'Export');
+	t.ok(await saved(p), 'exported');
+	const at = join(p.vaultDir, 'Exports', 'The Lighthouse.epub'), e = epub(at);
+	t.ok(e.names.includes('OEBPS/images/cover.png') && e.opf.includes('href="images/cover.png" media-type="image/png" properties="cover-image"'), 'the EPUB has it as its cover image');
+	const verdict = epubcheck(at);
+	if (verdict !== null) t.eq(verdict, '', 'EPUBCheck passes the book with its cover');
+	await choose('No cover');
+	t.ok(await until(p, `app.vault.adapter.read(${j(NOTE)}).then(t => t === ${j(before[NOTE])})`, 4000), '“No cover” takes it out of the note again, which is then what it was');
+	same(t, before, await texts(p));
+});
+
+test('an ebook of 150,000 words is exported in time, word for word', async (p, h, t) => {
+	const LIST = 'the light keeper water stone island storm glass tower lamp night boat letter she he was had and of in to a not with for on at from by when then'.split(' ');
+	const n = await p.ev(`(async () => {
+		const list = ${j(LIST)}; let seed = 11; const next = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+		await app.vault.createFolder('Big'); let total = 0; const order = [];
+		for (let c = 1; c <= 30; c++) {
+			const lines = [];
+			for (let l = 0; l < 100; l++) { const w = []; for (let i = 0; i < 50; i++) w.push(list[Math.floor(next() * list.length)]); lines.push(w.join(' ') + '.'); total += 50; }
+			await app.vault.create('Big/Chapter ' + c + '.md', lines.join('\\n') + '\\n'); order.push('Chapter ' + c);
+		}
+		await app.vault.create('Big/Big.md', '---\\nbinder: 1\\ncontents:\\n' + order.map(o => '  - ' + o).join('\\n') + '\\n---\\n');
+		return total;
+	})()`);
+	t.eq(n, 150000, 'a binder of 150,000 words');
+	await until(p, `!!${PL}.binders.binderOf('Big')`, 8000);
+	await p.sleep(500);
+	await open(p, 'Big');
+	const t0 = Date.now();
+	await pick(p, 'Ebook');
+	await until(p, `!!document.querySelector('${EBOOK} .binders-export-section.mod-chapter')`, 20000);
+	const shown = Date.now() - t0, t1 = Date.now();
+	await press(p, 'Export');
+	t.ok(await saved(p, 30000), 'it is exported');
+	const took = Date.now() - t1;
+	t.ok(shown < 15000, `the window shows it in under 15 s (${shown} ms)`);
+	t.ok(took < 15000, `and exports it in under 15 s (${took} ms)`);
+	const e = epub(join(p.vaultDir, 'Exports', 'Big.epub')), got = words(e.body);
+	const want = words((await Promise.all(Array.from({ length: 30 }, (_, i) => p.ev(`app.vault.adapter.read('Big/Chapter ${i + 1}.md')`)))).join(' '));
+	t.eq(got.length, 150000, 'every word is in the file');
+	t.ok(got.every((w, i) => w === want[i]), 'in order');
+	t.eq(e.headings.length, 30, 'thirty chapters');
+});
+
 async function onMobile(p, width, height, fn) {
 	const dark = await p.ev(`document.body.classList.contains('theme-dark')`);
 	const theme = () => p.ev(`(() => { app.changeTheme(${j(dark ? 'obsidian' : 'moonstone')}); return 1; })()`);
@@ -369,7 +623,7 @@ specs.push({ name: 'export: a phone: the choices first with Preview and Export a
 		t.eq(await p.ev(`${PL}.exportHost.desktop(app)`), null, 'a phone has no save dialog: the way to it says so');
 		await open2(p);
 		t.ok(await p.ev(`!!document.querySelector('${WIN} .binders-export-side') && !document.querySelector('${WIN} .binders-export-pane')`), 'the choices are the first screen');
-		t.eq((await kinds(p)).join('|'), 'Manuscript|Scrivener project|One note', 'the same kinds');
+		t.eq((await kinds(p)).join('|'), 'Manuscript|Ebook|Scrivener project|One note', 'the same kinds');
 		t.eq((await p.ev(`[...document.querySelectorAll('${WIN} .binders-export-phone-row button')].map(b => b.textContent)`)).join('|'), 'Preview|Export', 'Preview and Export at the foot');
 		t.eq(await p.ev(`document.querySelector('${WIN} .binders-export-place').textContent`), 'Goes to Exports/The Lighthouse.docx, then to where you share it', 'where the file will go');
 		const fits = await p.ev(`(() => { const m = document.querySelector('${WIN}').getBoundingClientRect(); return [...document.querySelectorAll('${WIN} .setting-item, ${WIN} .binders-export-phone-row button')].every(e => { const r = e.getBoundingClientRect(); return r.left >= m.left - 1 && r.right <= m.right + 1; }); })()`);
@@ -404,4 +658,42 @@ specs.push({ name: 'export: a tablet has both panes', fn: withTidy(async (p, h, 
 		t.ok(r, 'the preview beside the choices, and wider');
 		t.ok(await p.ev(`!!${button('Export')} && !document.querySelector('${WIN} .binders-export-phone-row')`), 'Export is in the bar, as on a computer');
 	});
+}) });
+
+specs.push({ name: 'export: an ebook on a phone and a tablet: three kinds, its rows whole on the screen, the file in Exports', fn: withTidy(async (p, h, t) => {
+	const before = await texts(p);
+	await onMobile(p, 390, 844, async () => {
+		await open2(p);
+		t.eq((await kinds(p)).join('|'), 'Manuscript|Ebook|Scrivener project|One note', 'the same three kinds');
+		await tapEl(p, `[...document.querySelectorAll('${WIN} [role="option"]')].find(e => e.querySelector('.binders-snapshots-item-name').textContent === 'Ebook')`);
+		t.ok(await until(p, `document.querySelector('${WIN} .binders-export-place')?.textContent === 'Goes to Exports/The Lighthouse.epub, then to where you share it'`, 6000), 'the ebook is chosen, and says where its file will go');
+		t.eq((await p.ev(`[...document.querySelectorAll('${WIN} .binders-export-options .setting-item-name')].map(e => e.textContent)`)).join('|'), 'Style|Cover|Book details|Your name', 'its rows: the style, the cover, Book details, and (until it is said) the writer’s name');
+		const rows = await p.ev(`(() => { const m = document.querySelector('${WIN}').getBoundingClientRect(); return [...document.querySelectorAll('${WIN} [role="option"], ${WIN} .setting-item, ${WIN} .binders-export-phone-row button')].map(e => { const r = e.getBoundingClientRect(), n = e.querySelector('.setting-item-name'); return { what: (n ?? e).textContent.slice(0, 24), inside: r.left >= m.left - 1 && r.right <= m.right + 1, cut: !!n && n.scrollWidth > n.clientWidth + 1, tall: r.height }; }); })()`);
+		for (const r of rows) t.ok(r.inside && !r.cut && r.tall >= 40, `“${r.what}” is whole, on the screen, and big enough to tap (${JSON.stringify(r)})`);
+		t.ok(await p.ev(`(() => { const s = document.querySelector('${WIN} .binders-export-side .modal-sidebar-inner') ?? document.querySelector('${WIN} .binders-export-side'), b = ${button('Export')}.getBoundingClientRect(); return b.bottom <= window.innerHeight + 1 || s.scrollHeight > s.clientHeight; })()`), 'Export is on the screen, or the choices scroll to it');
+		await tapEl(p, `document.querySelector('${WIN} [data-binders-key="details"]')`);
+		t.ok(await until(p, `!!document.querySelector('${DETAILS} [data-binders-key="title"]')`, 4000), 'Book details opens from its row');
+		t.ok(await p.ev(`[...document.querySelectorAll('${DETAILS} .setting-item')].every(e => { const r = e.getBoundingClientRect(); return r.left >= -1 && r.right <= window.innerWidth + 1; })`), 'and its rows fit the screen');
+		await p.key('Escape');
+		await p.sleep(400);
+		await tapEl(p, button('Preview'));
+		t.ok(await until(p, `!!document.querySelector('${WIN} .binders-export-pane ${'.binders-export-paper.mod-ebook'} .mod-chapter') && !document.querySelector('${WIN} .binders-export-side')`, 6000), 'Preview is the second screen: the ebook on paper');
+		t.ok(await p.ev(`document.querySelector('${EBOOK}').getBoundingClientRect().width <= 390`), 'the paper fits the screen');
+		await tapEl(p, `document.querySelector('${WIN} .modal-setting-back-button')`);
+		await until(p, `!!document.querySelector('${WIN} .binders-export-side')`);
+		await tapEl(p, button('Export'));
+		t.ok(await until(p, `app.vault.adapter.exists('Exports/The Lighthouse.epub')`, 8000), 'Export puts the file in Exports, in the vault');
+		await p.sleep(500);
+		const e = epub(join(p.vaultDir, 'Exports', 'The Lighthouse.epub'));
+		t.eq(words(e.body).join(' '), sourceWords(before).join(' '), 'word for word');
+		t.ok((await notices(p)).includes('Exported “The Lighthouse” to Exports/The Lighthouse.epub.'), 'and says so (there is no share sheet in a test)');
+		const verdict = epubcheck(join(p.vaultDir, 'Exports', 'The Lighthouse.epub'));
+		if (verdict !== null) t.eq(verdict, '', 'EPUBCheck passes the ebook a phone made');
+	});
+	await onMobile(p, 1024, 768, async () => {
+		await open2(p);
+		t.ok(await until(p, `!!document.querySelector('${WIN} .binders-export-side') && !!document.querySelector('${WIN} .binders-export-pane ${'.binders-export-paper.mod-ebook'} .mod-chapter')`, 8000), 'a tablet: the ebook (the kind last used) beside its choices');
+		t.ok(await p.ev(`!!document.querySelector('${WIN} .binders-export-head [data-binders-key="details"]')`), 'with Book details beside the book’s name, as on a computer');
+	});
+	same(t, before, await texts(p));
 }) });
