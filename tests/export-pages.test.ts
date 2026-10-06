@@ -1,3 +1,4 @@
+import { readFileSync, readdirSync } from 'fs';
 import { CLASSIC } from '../src/export/style';
 import { fill, type Flow, type Host, type Mark, type Opened, type PageKind } from '../src/export/pages/fill';
 import { furnish } from '../src/export/pages/furniture';
@@ -170,6 +171,17 @@ function run(H: number, flows: Flow<Blk>[], notes: Record<number, number> = {}):
 	eq(show(hyphenatorFor('fr-CA') as Hyphenator, 'bibliothèque'), 'bi-blio-thèque', 'French, by the language’s first letters');
 	ok(['es', 'it', 'pt', 'pt-BR'].every((l) => hyphenatorFor(l)), 'Spanish, Italian and Portuguese too');
 	ok(['nl', 'ru', 'ja', 'he', 'xx'].every((l) => hyphenatorFor(l) === null), 'and none where there are no patterns');
+	// the words TeX's files break by hand (\hyphenation) come with the patterns, and are believed before them
+	eq(show(en, 'associate, present, reformation'), 'as-so-ciate, present, ref-or-ma-tion', 'TeX’s own exceptions, American');
+	eq(show(hyphenatorFor('en') as Hyphenator, 'Manuscript, university'), 'Ma-nu-script, uni-ver-sity', 'and British, whatever the capitals');
+	eq(show(hyphenatorFor('pt') as Hyphenator, 'software constituição'), 'soft-ware cons-ti-tu-ição', 'Portuguese, with a break kept four letters from the end');
+	eq(show(hyphenatorFor('es') as Hyphenator, 'desarrollo'), 'de-sa-rro-llo', 'Spanish');
+	eq(show(hyphenatorFor('it') as Hyphenator, 'straordinariamente'), 'straor-di-na-ria-men-te', 'Italian');
+	// every pattern set travels with its makers' notice: a comment the build keeps in main.js (it starts with "!")
+	const sets = readdirSync('src/export/pages/patterns'), heads = sets.map((f) => readFileSync(`src/export/pages/patterns/${f}`, 'utf8').split('*/')[0]);
+	eq(sets.join(' '), 'de.ts en-gb.ts en-us.ts es.ts fr.ts it.ts pt.ts', 'a module a language');
+	ok(heads.every((h) => h.startsWith('/*! ') && /% copyright: Copyright/.test(h) && /% licence:/.test(h)), 'each with its copyright and its licence at its head');
+	eq(heads.filter((h) => /name: (MIT|BSD 3-clause)/.test(h) || /Copying and distribution of this file, with or without modification,\n%\s+are permitted/.test(h)).length, sets.length, 'and each a licence that may travel in the plugin');
 	const text = 'The keeper—unremarkable, extraordinarily patient—waited. “Unbelievable,” she said; it’s 1,000 well-known İstanbul.';
 	eq(unhyphenated(en.hyphenate(text)), text, 'only soft hyphens are added: the words are the words');
 	ok(en.hyphenate(text).includes(SHY), 'and there are some');

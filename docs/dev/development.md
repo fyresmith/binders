@@ -437,6 +437,7 @@ still puts back what it changes; the runner is there for the one that fails befo
 | `make-demo-vault.mjs`, `demo-vault/` | `npm run demo-vault` | Makes or updates `demo-vault/` (above) |
 | `banner/` | `npm run banner`; `node scripts/banner/shoot.mjs` | The README's headline image, the social preview and the mark (`docs/images/banner.png`, `social-preview.png`, `mark*.svg`, `mark-tile.png`), from the screenshot in `banner/raw/`; `shoot.mjs` takes that screenshot again (after `npm run build`). See "The banner and the mark" in [design.md](design.md) |
 | `run-tests.mjs` | `npm test [-- name]` | Bundles and runs the unit tests |
+| `hyphenation-patterns.mjs` | `node scripts/hyphenation-patterns.mjs` (`--check`, `--from <folder>`) | Makes the hyphenation patterns in `src/export/pages/patterns/` from TeX's hyph-utf8 files at one commit, each with its licence at its head. Run it only to add a language or take a newer commit (see "Where the patterns come from" in [export.md](export.md)) |
 
 `esbuild.config.mjs` (the build) and `version-bump.mjs` (called by `npm version`, so by `ship`) are at the top of the
 project. The e2e tools are in `tests/e2e/`: `driver.mjs`, `run.mjs`, `run-all.mjs`, `screenshots.mjs`.

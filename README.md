@@ -132,4 +132,5 @@ Binders makes no network requests and has no telemetry. [More](docs/privacy.md)
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE). The hyphenation patterns, typefaces and libraries inside the plugin are others' work, under their own
+licences: [third-party notices](THIRD-PARTY-NOTICES.md).

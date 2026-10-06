@@ -476,7 +476,7 @@ shows the same pages, and makes no PDF).
 | The book as blocks | `pages/flow.ts` | Every section as flat blocks. A list or a quotation is its paragraphs set in by depth, so one thing is placed and cut. Footnotes are made as their marks are met |
 | The measures | `pages/geometry.ts` (pure) | Trim sizes, margins by name, the lines a page holds. `pages/css.ts` (pure): a style as the pages' stylesheet |
 | Heads and numbers | `pages/furniture.ts` (pure) | Which pages have a running head and a number, and what they say |
-| Hyphenation | `pages/hyphenate.ts` (pure), `pages/patterns.ts` | Liang's algorithm over TeX's patterns |
+| Hyphenation | `pages/hyphenate.ts` (pure), `pages/patterns.ts`, `pages/patterns/` (made by `scripts/hyphenation-patterns.mjs`) | Liang's algorithm over TeX's patterns |
 | Fonts | `pages/fonts.ts`, `src/export/fonts/` | The two families, inside `main.js` |
 | Putting it together | `pages/layout.ts` | `bookPages` and `manuscriptPages` (a style on a page size), `openStage` (the document), `layPages` (fills it, a slice at a time) |
 | Printing | `src/export/pdf.ts` (golden rule 5), `pdf-info.ts` (pure) | The webview and `printToPDF`; the title and the author written into the file |
@@ -520,9 +520,38 @@ hair differently from a screen: either could move a line's end and put a page a 
 written into the page as a break when the page is finished, and no line can be broken anywhere else afterwards.
 Found by the test that lays out the demo vault's novel: five pages of 430 were a line over-full before this.
 
-**Hyphenation.** English (British patterns for every English but American and Canadian), German, French, Spanish,
-Italian and Portuguese: about 190 kB of patterns from the `hyphenation.*` packages. A book in another language is set
-without hyphens. Only where the style justifies its lines.
+**Hyphenation.** English (British patterns for every English but American and Canadian), German in the reformed
+spelling, French, Spanish, Italian and Portuguese. A book in another language is set without hyphens. Only where
+the style justifies its lines.
+
+**Where the patterns come from.** TeX's own: the hyph-utf8 files of
+[tex-hyphen](https://github.com/hyphenation/tex-hyphen), each as it stood at one commit, made into
+`src/export/pages/patterns/<language>.ts` by `scripts/hyphenation-patterns.mjs` (the commit, the files and a
+checksum of each are at its top). The patterns are not changed, only packed as `Patterns` (`pages/hyphenate.ts`);
+the words a file breaks by hand (`\hyphenation`) come too and are believed before the patterns. About 385 kB in
+`main.js`, German nearly two thirds of it.
+
+- **Each set has its own copyright and licence,** in the head of its file: MIT for German, British English,
+  Spanish, French and Italian (Italian is MIT or LPPL, and is taken as MIT), BSD 3-clause for Portuguese, and for
+  American English "copying and distribution … permitted … provided the copyright notice and this notice are
+  preserved". The script copies each head whole into its module in a `/*! … */` comment, which esbuild keeps when
+  it minifies: so they are in `main.js` (at its end), which is all a release gives out. They are also in
+  [THIRD-PARTY-NOTICES.md](../../THIRD-PARTY-NOTICES.md), with the typefaces.
+- **To take a newer commit or add a language:** change `COMMIT` or add a line to `LANGUAGES` in the script, read
+  the head of each file that changed, put its new checksum in (the script prints the one it found and stops), run
+  `node scripts/hyphenation-patterns.mjs`, add the language to `BY_LANGUAGE` in `pages/patterns.ts`, and write it
+  into the notices. `--check` writes nothing and fails if a module is not what upstream makes; `--from <folder>`
+  reads the `.tex` files from a folder.
+- **Only a licence that can travel in an MIT plugin:** MIT, BSD, or copying permitted with the notice kept. Never a
+  set that is LPPL, LGPL or GPL alone: its language goes without hyphens instead.
+- **The fewest letters beside a break** (`leftmin`, `rightmin`) are Binders' own, in the script: upstream's, but
+  three letters after a break in French (upstream two; three is what babel-french sets) and four in Portuguese
+  (upstream three).
+- Until 0.40.7 the patterns came from the `hyphenation.*` npm packages (2012; no licence in them, LGPL by their
+  repository's README). The English and French patterns are the same ones; English now has TeX's lists of words
+  broken by hand as well ("manuscript" is ma-nu-script in British English, "present" is not broken in American).
+  German, Spanish, Italian and Portuguese are upstream's newer sets. The demo vault's eleven books came to the same
+  1,113 pages before and after.
 
 **Fonts.** EB Garamond and Source Serif 4, four faces each (regular, italic, bold, bold italic; Source Serif's bold
 is its Semibold), as static WOFF2 files inside `main.js`, cut down to Latin, Latin-1, Latin Extended-A, Vietnamese,
@@ -577,7 +606,8 @@ Where the design was silent, as built. Each is a line of code to change.
 
 **To be reported, not decided:** the bundle grew from 645 kB to about 1.23 MB (fonts about 350 kB, patterns about
 190 kB). The `hyphenation.*` packages carry no licence field of their own: the patterns are TeX's, each language
-under its own free licence, and that wants a look before a release.
+under its own free licence, and that wants a look before a release. (Looked at 2026-10-06: the packages are gone,
+and the patterns are taken from TeX's files with their licences. See "Where the patterns come from", above.)
 
 ## Decided while building the ebook (step 2)
 

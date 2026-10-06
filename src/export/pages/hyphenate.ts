@@ -1,10 +1,11 @@
 /* Hyphenation, Binders' own: Electron carries no hyphenation dictionaries, so `hyphens: auto` does nothing there.
    Words are given soft hyphens (U+00AD) where TeX's patterns for the book's language allow a break (Liang's
    algorithm), Chromium breaks lines at them, and the ones no line used are taken out again after layout
-   (pages/dom.ts), so the PDF's text stays the words. The patterns come from packages (pages/patterns.ts). Pure. */
+   (pages/dom.ts), so the PDF's text stays the words. The patterns are TeX's own files (pages/patterns.ts). Pure. */
 
-/** A language's patterns as the `hyphenation.*` packages hold them: under each length, the patterns of that length
-    run together; a digit in a pattern is how good (odd) or bad (even) a break there is; `_` is a word's edge. */
+/** A language's patterns as pages/patterns/ holds them: under each length, the patterns of that length run
+    together; a digit in a pattern is how good (odd) or bad (even) a break there is; `_` is a word's edge.
+    `exceptions` are words broken by hand, at their hyphens, believed before the patterns. */
 export interface Patterns { leftmin: number; rightmin: number; patterns: Record<string, string>; exceptions?: string }
 
 interface Node { points?: number[]; next: Map<string, Node> }

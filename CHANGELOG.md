@@ -3,6 +3,16 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.40.8 (2026-10-06)
+
+### Added
+
+- Third-party notices: whose hyphenation patterns, typefaces and libraries are inside the plugin, and under which licences.
+
+### Changed
+
+- The hyphenation patterns in exported pages are now TeX's current ones, with their makers' notices: a few words break in better places (in English, 'manuscript' and 'something'; German, Spanish, Italian and Portuguese use newer patterns).
+
 ## 0.40.7 (2026-10-06)
 
 ### Removed
