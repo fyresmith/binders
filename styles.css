@@ -4060,6 +4060,187 @@ body {
 
 /* (end of paragraphs) */
 
+/* ---- The inspector (src/inspector): a sidebar view beside the binder ----
+   Built from what Obsidian's own sidebar views are built from: a note's properties as its rows (`metadata-property`),
+   the tree's rows for a list (`tree-item`), the backlinks pane's headings, `pane-empty` when there's nothing to say.
+   Nothing here has a box, a fill or a line of its own. (If Obsidian renames one of those classes the pane works as
+   before and looks plainer: docs/internals.md.) */
+
+.binders-inspector-view.view-content {
+	display: flex;
+	flex-direction: column;
+	padding: 0;
+	overflow: hidden;
+}
+
+.binders-inspector {
+	flex: 1 1 0;
+	min-height: 0;
+	overflow-y: auto;
+	padding: var(--size-4-2) var(--size-4-3) var(--size-4-8);
+}
+
+/* what's in hand: its name, as the heading of a pane, and how long it is */
+.binders-inspector-head {
+	padding: var(--size-4-1) var(--size-4-1) 0;
+}
+
+.binders-inspector-name {
+	color: var(--text-normal);
+	font-size: var(--font-ui-medium);
+	font-weight: var(--font-semibold);
+	line-height: var(--line-height-tight);
+	overflow-wrap: anywhere;
+}
+
+.binders-inspector-detail {
+	margin-top: var(--size-2-1);
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	font-variant-numeric: tabular-nums;
+}
+
+/* why nothing here can be changed (a binder in a newer format): said once, quietly, as the binder view says it */
+.binders-inspector-problem {
+	margin-top: var(--size-4-2);
+	padding: 0 var(--size-4-1);
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+}
+
+/* the synopsis and the notes: text, as a card's synopsis is. A field only while it's typed in. */
+.binders-inspector-synopsis,
+.binders-inspector-notes {
+	margin-top: var(--size-4-2);
+	padding: var(--size-4-1);
+	color: var(--text-normal);
+	font-size: var(--font-ui-small);
+	line-height: var(--line-height-tight);
+}
+
+.binders-inspector-notes {
+	margin-top: 0;
+	min-height: 3lh;
+}
+
+/* (on a phone or tablet what's read and typed is at the size its lists are, as a card's synopsis is: and a field
+   under 16px makes iOS zoom the page when it takes the keyboard) */
+.is-mobile .binders-inspector-synopsis,
+.is-mobile .binders-inspector-notes {
+	font-size: var(--font-ui-medium);
+}
+
+/* its properties: Obsidian's rows. In a sidebar it draws a hairline under each, and under 250px of width it puts a
+   value under its name. (No padding of ours round them: the rows' own box is what Obsidian measures.) */
+.binders-inspector-props.metadata-container {
+	--metadata-label-width: 9.5em;
+	margin-block: var(--size-4-2) 0;
+	padding: 0;
+}
+
+/* (on a phone or tablet the rows are the size of the text round them, and tall enough for a finger) */
+.is-mobile .binders-inspector-props.metadata-container {
+	--metadata-label-font-size: var(--font-ui-medium);
+	--metadata-input-font-size: var(--font-ui-medium);
+	--metadata-input-height: var(--touch-size-m, 44px);
+	--metadata-label-width: 11.5em; /* ("Include in export", whole, at the larger size) */
+}
+
+.binders-inspector-key {
+	display: flex;
+	align-items: center;
+	height: var(--input-height);
+	padding: var(--metadata-input-padding);
+	overflow: hidden;
+	color: var(--metadata-label-text-color);
+	font-size: var(--metadata-label-font-size);
+	font-weight: var(--metadata-label-font-weight);
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.binders-inspector-value {
+	display: flex;
+	flex: 1 1 auto;
+	align-items: center;
+	align-self: stretch;
+	gap: var(--size-4-2);
+	min-width: 0;
+	padding: var(--metadata-input-padding);
+	color: var(--metadata-input-text-color);
+	font-size: var(--metadata-input-font-size);
+	border-radius: 0;
+}
+
+.binders-inspector-value[role="button"]:not([aria-disabled="true"]) {
+	cursor: var(--cursor);
+}
+
+.binders-inspector-value > span {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.binders-inspector-none,
+.binders-inspector-value.is-empty {
+	color: var(--text-faint);
+}
+
+/* ("auto" after a role nobody wrote on the note: the role is never cut short for it) */
+.binders-inspector-value > span:has(+ .binders-inspector-auto) {
+	flex: none;
+}
+
+.binders-inspector-value.is-editing {
+	box-shadow: none; /* the row says it has the focus, as a property being typed in does */
+}
+
+.binders-inspector-value .binders-label-dot {
+	flex: none;
+}
+
+/* a heading over a part of the pane, as "Linked mentions" is over its list */
+.binders-inspector-heading {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	min-height: var(--input-height);
+	margin-top: var(--size-4-4);
+	padding: 0 var(--size-4-1);
+	color: var(--nav-heading-color);
+	font-size: var(--nav-item-size);
+	font-weight: var(--nav-heading-weight);
+}
+
+.binders-inspector-heading .clickable-icon {
+	--icon-size: var(--icon-xs);
+	--icon-stroke: var(--icon-xs-stroke-width);
+	margin-inline-end: calc(-1 * var(--size-2-2));
+}
+
+/* a note's snapshots: rows of Obsidian's tree, flush with the rest (a tree's own rows leave room for a fold arrow) */
+.binders-inspector-list .tree-item-self {
+	padding-inline-start: var(--size-4-1);
+	padding-inline-end: var(--size-4-1);
+}
+
+.binders-inspector-hint {
+	padding: var(--size-4-1);
+	font-size: var(--font-ui-small);
+}
+
+/* what has the keyboard is ringed inside its box: the rows sit edge to edge */
+.binders-inspector .binders-inspector-value:focus-visible,
+.binders-inspector .binders-editable[tabindex]:focus-visible,
+.binders-inspector .tree-item-self:focus-visible,
+.binders-inspector .clickable-icon:focus-visible {
+	outline: none;
+	box-shadow: inset 0 0 0 2px var(--background-modifier-border-focus);
+}
+
+/* (end of the inspector) */
+
 /* Forced colors (Windows high contrast). Every ring in the view is a box-shadow, which that mode takes away: what has
    the keyboard and what is selected are outlined instead, in the system's own colors. Drawn inside the box, since rows
    and headers sit edge to edge. (Last in the sheet, and under the view, so it comes after the rules that take an

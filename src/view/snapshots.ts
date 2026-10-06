@@ -23,7 +23,7 @@ export const when = (ms: number): string => window.moment(ms).calendar(null, { s
 const whenIn = (ms: number): string => when(ms).replace(/^(Today|Yesterday)/, (w) => w.toLowerCase());
 /** In a list, to take in at a glance: the same for the last week ("Today at 14:32", "Sunday at 09:15"), then the day
     and time without the year ("Sep 12, 9:15 AM"), and in another year the day alone ("Aug 27, 2025"). */
-function whenShort(ms: number): string {
+export function whenShort(ms: number): string {
 	const m = window.moment(ms), now = window.moment(), days = now.clone().startOf('day').diff(m.clone().startOf('day'), 'days');
 	if (days < 7) return when(ms);
 	if (m.year() !== now.year()) return m.format('ll');
@@ -240,7 +240,8 @@ export class SnapshotsModal extends Modal {
 	private readonly readOnly: boolean;
 	private readonly why: string;
 
-	constructor(private plugin: BindersPlugin, of: TFile | Leftover) {
+	/** `open`: the snapshot to open on (its file), where the dialog would open on the newest. */
+	constructor(private plugin: BindersPlugin, of: TFile | Leftover, private opening: TFile | null = null) {
 		super(plugin.app);
 		this.scene = of instanceof TFile ? of : null;
 		this.dir = of instanceof TFile ? snapshotsDir(plugin, of) ?? '\0' : of.dir.path;
@@ -391,8 +392,12 @@ export class SnapshotsModal extends Modal {
 		}
 		// what was shown stays shown; otherwise the newest snapshot (a phone starts at the list)
 		const again = was ? list.find((s) => s.file === was.file) ?? (this.scene ? null : list[0]) : was;
-		const pick = again !== undefined ? again : !Platform.isPhone ? list[0] : undefined;
-		if (pick !== undefined && !(Platform.isPhone && !this.pane.parentElement)) await this.show(pick, rows.get(pick) ?? null);
+		// (asked for one, from the inspector's list: that one, as a click on its row here would show it)
+		const asked = this.opening ? list.find((x) => x.file === this.opening) : undefined;
+		this.opening = null;
+		const pick = asked ?? (again !== undefined ? again : !Platform.isPhone ? list[0] : undefined);
+		if (asked) await this.show(asked, rows.get(asked) ?? null);
+		else if (pick !== undefined && !(Platform.isPhone && !this.pane.parentElement)) await this.show(pick, rows.get(pick) ?? null);
 		else if (Platform.isPhone && this.pane.parentElement && (!was || !list.some((s) => s.file === was.file))) this.toList();
 		// one stop for Tab: the row shown, or the first
 		const stop = this.listEl.querySelector<HTMLElement>('.is-active') ?? items[0];

@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.26.0 (2026-10-06)
+
+### Added
+
+- The inspector, a sidebar view that shows the scene you are in (or the selected card, row, folder or binder) and lets you set its synopsis, label, status, target, whether it is exported and as what, your notes on it, and see its snapshots, without leaving the page. Its tab is added to the right sidebar once; Show inspector brings it back.
+
 ## 0.25.0 (2026-10-06)
 
 ### Added

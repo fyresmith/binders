@@ -50,6 +50,8 @@ export interface BindersSettings {
 	tabParagraphs: boolean;
 	/** In a binder’s notes, a paragraph that follows another is shown with its first line indented. */
 	indentParagraphs: boolean;
+	/** The inspector's tab has been put in the right sidebar once (inspector/views.ts): closed, it isn't put back. */
+	inspectorPlaced: boolean;
 	/** Focus mode: the line being written at the end of a scene is held at one height. On to begin with, as dimming is. */
 	focusTypewriter: boolean;
 	/** Focus mode: where the scene is in the binder, and its synopsis, beside the text. */
@@ -72,7 +74,7 @@ export const DEFAULT_SETTINGS: BindersSettings = {
 	synopsisProp: 'synopsis', statusProp: 'status', labelProp: 'label', targetProp: 'target', notesProp: 'notes',
 	labels: DEFAULT_LABELS, statuses: DEFAULT_STATUSES, outlinerColumns: DEFAULT_COLUMNS, compile: COMPILE_DEFAULTS, compiled: {}, compiledTo: {},
 	exportsFolder: 'Exports', authorName: '', contact: '', exportKind: 'manuscript', exportStyle: '', exportMatter: false,
-	tabParagraphs: true, indentParagraphs: false,
+	tabParagraphs: true, indentParagraphs: false, inspectorPlaced: false,
 	focusTypewriter: true, focusPlace: false, focusNumbers: false, focusDim: true, focusNeighbours: false, focusGoal: 0, focusFullscreen: false,
 };
 
@@ -140,6 +142,7 @@ export function readSettings(data: unknown): BindersSettings {
 	if (typeof c.separator === 'string') s.compile.separator = c.separator;
 	for (const k of FOCUS_TOGGLES) if (typeof d[k] === 'boolean') s[k] = d[k];
 	for (const k of PARAGRAPH_TOGGLES) if (typeof d[k] === 'boolean') s[k] = d[k];
+	s.inspectorPlaced = d.inspectorPlaced === true;
 	if (typeof d.focusGoal === 'number' && Number.isInteger(d.focusGoal) && d.focusGoal > 0) s.focusGoal = d.focusGoal;
 	if (typeof d.exportsFolder === 'string' && d.exportsFolder.trim()) s.exportsFolder = d.exportsFolder.trim();
 	for (const k of ['authorName', 'contact', 'exportStyle'] as const) if (typeof d[k] === 'string') s[k] = d[k];

@@ -15,6 +15,8 @@ import { mergeScenes, splitScene, splitUndo } from './scenes';
 import { Focus } from './focus/focus';
 import { desktop } from './export/desktop';
 import { ExportModal } from './view/export';
+import { installInspector } from './inspector/views';
+import type { Follow } from './inspector/follow';
 import { installParagraphs, type Paragraphs } from './paragraphs/paragraphs';
 import { isScene, leftovers } from './snapshots';
 import { LeftoversModal, SNAPSHOT_VIEW, SnapshotView, SnapshotsModal, folderSnapshotItems, snapshotItems, startRewrite, take, takeAll } from './view/snapshots';
@@ -39,6 +41,8 @@ export default class BindersPlugin extends Plugin {
 	/** Export's way to the computer's save dialog and disk (export/desktop.ts): null from it means there is none, and
 	    files go into the vault. A field so a test can stand in for the system's dialog, which nothing can drive. */
 	exportHost = { desktop };
+	/** What the inspector's panes follow: the notes and folders in hand in the tab the writer is in (inspector/follow.ts). */
+	inspect: Follow;
 	/** Tab paragraphs and first-line indents in a binder’s notes (paragraphs/paragraphs.ts). */
 	paragraphs: Paragraphs;
 	/** The binder view's modes by id: the view mounts one into its content (see view/mode.ts). */
@@ -61,6 +65,7 @@ export default class BindersPlugin extends Plugin {
 		this.focus = new Focus(this);
 		this.paragraphs = installParagraphs(this);
 		this.registerView(SNAPSHOT_VIEW, (leaf) => new SnapshotView(leaf, this));
+		this.inspect = installInspector(this);
 		// (not in a card's own menu, which has these already)
 		this.registerEvent(this.app.workspace.on('file-menu', (menu, file, source) => { if (source !== ITEM_MENU) this.fileMenu(menu, file, source); }));
 		this.registerEvent(this.app.workspace.on('files-menu', (menu, files, source) => { if (source !== ITEM_MENU) this.filesMenu(menu, files, source); }));
