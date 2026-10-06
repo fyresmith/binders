@@ -433,6 +433,7 @@ still puts back what it changes; the runner is there for the one that fails befo
 | `memo.mjs` | `npm run memo` | Progress memos for a team of agents: write one, list them all, read one (AGENTS.md, "Progress memos") |
 | `install-to-vault.mjs` | by every build; `npm run install-vault -- <vault>` | Copies the build into a vault and turns the plugin on there |
 | `make-demo-vault.mjs`, `demo-vault/` | `npm run demo-vault` | Makes or updates `demo-vault/` (above) |
+| `banner/` | `npm run banner`; `node scripts/banner/shoot.mjs` | The README's headline image, the social preview and the mark (`docs/images/banner.png`, `social-preview.png`, `mark*.svg`, `mark-tile.png`), from the screenshot in `banner/raw/`; `shoot.mjs` takes that screenshot again (after `npm run build`). See "The banner and the mark" in [design.md](design.md) |
 | `run-tests.mjs` | `npm test [-- name]` | Bundles and runs the unit tests |
 
 `esbuild.config.mjs` (the build) and `version-bump.mjs` (called by `npm version`, so by `ship`) are at the top of the

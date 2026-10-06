@@ -1,6 +1,6 @@
 {
   "name": "binders",
-  "version": "0.32.6",
+  "version": "0.32.7",
   "description": "Ordered folders for long-form writing in Obsidian: a binder in the file explorer, a corkboard, an outliner and an editable manuscript.",
   "main": "main.js",
   "type": "module",
@@ -17,6 +17,7 @@
     "e2e:all": "node tests/e2e/run-all.mjs",
     "ship": "node scripts/ship.mjs",
     "memo": "node scripts/memo.mjs",
+    "banner": "node scripts/banner/build.mjs",
     "version": "node version-bump.mjs && git add manifest.json versions.json"
   },
   "keywords": [

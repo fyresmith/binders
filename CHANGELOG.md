@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.32.7 (2026-10-06)
+
+### Changed
+
+- The README opens with a banner: the Binders mark and name over a novel's corkboard.
+
 ## 0.32.6 (2026-10-06)
 
 ### Fixed

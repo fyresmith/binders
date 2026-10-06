@@ -1,9 +1,8 @@
 <h1 align="center">Binders for Obsidian</h1>
 
-<!-- banner: docs/images/banner.png, to be added -->
+<p align="center"><img src="docs/images/banner.png" alt="Binders for Obsidian: ordered folders for long-form writing. A novel's corkboard, with a card for each scene and part, beside the file explorer listing its chapters and scenes in the binder's order."></p>
 
-<p align="center"><b>Ordered folders for long-form writing, inside Obsidian.</b><br>
-A binder in the file explorer · a corkboard · an outliner · the whole manuscript as one editable page</p>
+<p align="center">A binder in the file explorer · a corkboard · an outliner · the whole manuscript as one editable page</p>
 
 Folders in Obsidian list their notes by name. Books don't work that way. Binders turns a folder into a **binder**: its
 chapters and scenes keep the order you give them, in Obsidian's own file explorer. Open a binder to see the same notes

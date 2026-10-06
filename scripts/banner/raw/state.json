@@ -1,0 +1,25 @@
+{
+	"obsidian": "obsidian/1.13.7",
+	"plugin": "0.32.6",
+	"window": [
+		990,
+		760,
+		3
+	],
+	"folder": "Low Water at Corran",
+	"mode": "corkboard",
+	"cards": [
+		"Low Water at Corran/Prologue.md",
+		"Low Water at Corran/Part One - Ebb",
+		"Low Water at Corran/Part Two - Slack",
+		"Low Water at Corran/Part Three - Flood",
+		"Low Water at Corran/Epilogue.md"
+	],
+	"explorer": 250,
+	"firstCard": {
+		"x": 262,
+		"y": 164.4375,
+		"width": 230.65625,
+		"height": 174.5
+	}
+}

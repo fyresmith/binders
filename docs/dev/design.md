@@ -148,6 +148,28 @@ outliner Contents repeats the Title column; they earn their place beside the man
 nobody wrote on a note is shown with "auto" after it: "automatic" didn't fit beside "Front matter" in a sidebar at
 its default width.
 
+**The banner and the mark (2026-10-06).** The maintainer showed another plugin's banner (a violet panel, a logo, the
+name large, a line of pitch, the app's window running off the edge): "I want a headlining image like this for my
+plugin. Official looking." Obsidian's brand guidelines rule out their logo and a name that reads as theirs, so the
+name is "Binders" with "for Obsidian" small under it, and the mark is the plugin's own.
+- Three grounds were built (the accent violet with the dark app, a charcoal, a paper with the light app); he chose the
+  violet, with the sans. Violet is `#6d4fd8`: Obsidian's accent a step deeper, so white type holds on it.
+- The first mark, a ring binder from the front, read as a notebook, and he asked for "a much better icon or logo".
+  Eight ideas were drawn; he chose "in order": three scenes in a column, the middle one out of line, on its way to
+  its place. It says what the plugin does (an order you set by hand), not what it is named after. It is drawn as
+  Obsidian's icons are (Lucide's 24 grid, a 2 stroke, round ends), so the same drawing can be an icon: `docs/images/mark.svg`.
+  Beside the heavy wordmark and on the tile its stroke is 2.35, or it looks thin.
+- Checked against, from memory and not by a trademark search: the marks of Obsidian, Scrivener, Notion, Bear, Ulysses,
+  iA Writer, Day One, Evernote, Craft; and Lucide's `rows-3`, `list`, `align-left` and Gantt icons, which share its
+  bars and are none of them it. Given up: a picture of a binder. Front on, rings make a notebook; at an angle, a
+  megaphone; open from above, a list in a box; a B is the Bold button in an editor.
+- `npm run banner` makes the pictures (`scripts/banner/build.mjs`: pages photographed by a headless Chromium, Inter
+  shipped beside it); `node scripts/banner/shoot.mjs` takes the screenshot again. What is staged, in a throwaway copy
+  of the demo vault: "Low Water at Corran" at the top of the vault with its story bible and nothing else; the book
+  without its four one-line pages of front and back matter (cards with a title and nothing on them); the ribbon off
+  (Obsidian's own setting) and the sidebar 250 px, so the explorer and two whole cards fit. The shot is placed one CSS
+  pixel to one of the app's: a card's synopsis can still be read at the 830 px a README gives the picture.
+
 ## How a design round runs: narrow, then build
 
 The quality comes from three things: this page, the designer looking at the real plugin and correcting what it sees,
