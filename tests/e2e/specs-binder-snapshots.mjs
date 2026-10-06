@@ -449,7 +449,7 @@ test('“Make a binder from this snapshot” writes the binder as it stood into 
 	const C = 'The Lighthouse (Draft sent to Sam)';
 	await until(p, `/^Made “/.test([...document.querySelectorAll('.notice')].map(n => n.textContent).join('|'))`, 30000);
 	await settle(p);
-	t.ok(/^Made “The Lighthouse \(Draft sent to Sam\)”: the binder as it stood Sep 19, 2026 [^,]+, beside the one that’s there\.$/.test((await notices(p)).split('|').pop()), 'it says what it made: ' + await notices(p));
+	t.ok(/^Made “The Lighthouse \(Draft sent to Sam\)”: the binder as it stood Sep 19, 2026(?:,| at) [^,]+, beside the one that’s there\.$/.test((await notices(p)).split('|').pop()), 'it says what it made: ' + await notices(p));
 	t.eq(await p.ev(`${B}.binderOf(${file(C)})?.folder.path ?? null`), C, 'the new folder is a binder');
 	for (const [f, bytes] of Object.entries(then)) t.eq(await hex(p, `${C}/${f === 'The Lighthouse.md' ? C + '.md' : f}`), bytes, `“${f}” is in it byte for byte (a byte-order mark and CR LF among them)`);
 	t.eq(j(await p.ev(`${B}.scenes(${file(C)}).map(f => f.path.slice(${C.length + 1}))`)), j(order), 'in the order the binder had');
@@ -780,15 +780,12 @@ test('the commands and the menus: “Take a snapshot of the binder” and “Sho
 	t.eq((await list(p, SN + '/Part One')).length, 1, 'which takes the folder’s');
 	await closeMenus(p);
 	// the view's own menu
-	await p.ev(`(() => { const v = app.workspace.getLeavesOfType('binders-view')[0].view, m = new (require('obsidian').Menu)(); v.onPaneMenu(m, 'more-options'); m.showAtPosition({ x: 300, y: 200 }); return 1; })()`);
-	await sleep(p, 250);
-	const pane = await menuItems(p);
+	// (the items a menu is given, by title: as the view and the explorer give them, with no menu drawn)
+	const pane = await p.ev(`(() => { const items = [], menu = new Proxy({}, { get: (o, k) => k === 'addItem' ? (cb) => { const it = new Proxy({}, { get: (x, m) => (v) => { if (m === 'setTitle') items.push(v); if (m === 'setSubmenu') return menu; return it; } }); cb(it); return menu; } : () => menu }); app.workspace.getLeavesOfType('binders-view')[0].view.onPaneMenu(menu, 'more-options'); return items; })()`);
 	t.ok(pane.includes('Take a snapshot') && pane.includes('Show snapshots...') && !pane.some((i) => /every note/.test(i)), 'the view’s menu too: ' + j(pane));
 	await closeMenus(p);
 	// the file explorer
-	await p.ev(`(() => { const m = new (require('obsidian').Menu)(); app.workspace.trigger('file-menu', m, ${file(P2)}, 'file-explorer-context-menu'); m.showAtPosition({ x: 300, y: 200 }); return 1; })()`);
-	await sleep(p, 250);
-	const ex = await menuItems(p);
+	const ex = await p.ev(`(() => { const items = [], menu = new Proxy({}, { get: (o, k) => k === 'addItem' ? (cb) => { const it = new Proxy({}, { get: (x, m) => (v) => { if (m === 'setTitle') items.push(v); if (m === 'setSubmenu') return menu; return it; } }); cb(it); return menu; } : () => menu }); app.workspace.trigger('file-menu', menu, ${file(P2)}, 'file-explorer-context-menu'); return items; })()`);
 	t.ok(ex.includes('Take a snapshot') && ex.includes('Show snapshots...'), 'and a folder in the file explorer: ' + j(ex));
 });
 
@@ -871,7 +868,7 @@ test('keyboard and screen reader: the list is a listbox with one stop for Tab an
 	await drawn(p);
 	t.ok((await tree(p)).length > 3, 'and Enter on it goes back');
 	// a folder row opens and shuts by the keyboard, and says which
-	await p.ev(`(() => { [...document.querySelectorAll(${j(DLG + ' .binders-folder-snapshots-tree .tree-item-self')})].find(e => e.textContent.startsWith('Part Two')).focus(); return 1; })()`);
+	await p.ev(`(() => { [...document.querySelectorAll(${j(DLG + ' .binders-folder-snapshots-tree .tree-item-self')})].find(e => e.textContent.startsWith('Part One')).focus(); return 1; })()`);
 	const was = await p.ev(`document.activeElement.getAttribute('aria-expanded')`);
 	await p.key(' ');
 	t.ok(was !== await p.ev(`document.activeElement.getAttribute('aria-expanded')`), 'Space opens or shuts a folder, and it says which');

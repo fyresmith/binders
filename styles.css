@@ -5379,6 +5379,7 @@ body:not(.is-phone) .binders-export .binders-export-options .setting-item.settin
 
 .binders-export-offstage {
 	display: flex;
+}
 
 /* ---- Snapshots of a folder or a binder (DESIGN ROUND) ----
    The note's Snapshots dialog, holding a book: the rules above lay it out. These are what a list of a book's
