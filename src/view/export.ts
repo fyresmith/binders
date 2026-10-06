@@ -34,6 +34,14 @@ export const FILES = { manuscript: { extension: 'docx', type: 'Word document', m
 /** What a phone or a tablet says of a PDF: its pages can be looked at there, and it is made on a computer. */
 const PDF_ELSEWHERE = 'A PDF is made by Obsidian on a computer. Here you can look at its pages and choose its style; export it when this vault is open on a computer.';
 
+/** A book as the pages of a PDF: a paperback's (a book style on a trim size) or a manuscript's (a manuscript style on
+    the paper in settings, with its title page). The window and Export again lay a PDF out with this one function. */
+export function pagedBook(plugin: BindersPlugin, book: Book, words: number, o: { book: string; page: string } | { manuscript: string }): { book: Book; spec: PagesSpec } {
+	if ('book' in o) return { book, spec: bookPages(book, plugin.styles.book(o.book), trimSize(o.page), words) };
+	const s = plugin.settings, style = plugin.styles.manuscript(o.manuscript), whole = style.titlePage ? withTitlePage(book) : book;
+	return { book: whole, spec: manuscriptPages(whole, style, paperSize(s.exportPaper), { contact: s.contact.split(/\r?\n/).map((l) => l.trim()).filter((l) => l), words }) };
+}
+
 /** The family of styles a kind is set in: an ebook's and a paperback's are book styles. */
 const familyOf = (kind: Kind): Family => (kind === 'ebook' || kind === 'paperback' ? 'book' : 'manuscript');
 
@@ -100,9 +108,7 @@ export class ExportModal extends Modal {
 	private get made() { return FILES[this.pdf ? 'paperback' : this.kind === 'ebook' ? 'ebook' : 'manuscript']; }
 	/** How the pages of a PDF are laid out: the book (a manuscript's with its title page) and the style on its page. */
 	private paged(book: Book): { book: Book; spec: PagesSpec } {
-		if (this.kind === 'paperback') return { book, spec: bookPages(book, this.plugin.styles.book(this.bookStyle), trimSize(this.pageSize), this.words) };
-		const style = this.plugin.styles.manuscript(this.style), whole = style.titlePage ? withTitlePage(book) : book;
-		return { book: whole, spec: manuscriptPages(whole, style, paperSize(this.plugin.settings.exportPaper), { contact: this.plugin.settings.contact.split(/\r?\n/).map((l) => l.trim()).filter((l) => l), words: this.words }) };
+		return pagedBook(this.plugin, book, this.words, this.kind === 'paperback' ? { book: this.bookStyle, page: this.pageSize } : { manuscript: this.style });
 	}
 
 	/** Book details, the binder's: when the window is closed, the book is read again with them. */

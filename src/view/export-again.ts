@@ -1,9 +1,9 @@
 import { Notice, Platform, type TFolder } from 'obsidian';
-import { KINDS, bookDetails, ebook, fileName, lastExport, manuscript, noteLast, placeFor, readBook, save, setPlace, share, type Saved } from '../export/export';
+import { KINDS, bookDetails, ebook, fileName, lastExport, manuscript, noteLast, pagesPdf, placeFor, readBook, save, setPlace, share, type Saved } from '../export/export';
 import type BindersPlugin from '../main';
 import { oneNoteText, writeOneNote } from '../scenes';
 import { COMPILE_DEFAULTS } from '../scene-text';
-import { ExportModal, FILES } from './export';
+import { ExportModal, FILES, pagedBook } from './export';
 import { exportScriv } from './export-scriv';
 import { confirm } from './modals';
 
@@ -32,12 +32,22 @@ export async function exportAgain(plugin: BindersPlugin, folder: TFolder): Promi
 			if (note) saved = { where: 'vault', path: note.path, shown: note.path };
 		} else if (kind === 'scrivener') {
 			saved = await exportScriv(plugin, host, folder, { ask: false, say: () => { /* one notice says it */ }, cancelled: () => false, made: () => { /* nothing to show it in */ } });
-		} else if (kind === 'manuscript' || kind === 'ebook') {
-			const { extension, type, mime } = FILES[kind], d = bookDetails(plugin, folder).details;
-			const style = kind === 'ebook' ? plugin.styles.get(d.bookStyle, 'book') : plugin.styles.get(d.manuscriptStyle || s.exportStyle, 'manuscript');
-			const { book, words } = await readBook(plugin, folder, kind === 'ebook' || s.exportMatter, kind === 'ebook', kind === 'ebook' && style.values.quotes === 'as typed');
+		} else if (kind === 'manuscript' || kind === 'ebook' || kind === 'paperback') {
+			// (a PDF is a paperback, or a manuscript whose file is one; where none can be made, the window says why)
+			const pdf = kind === 'paperback' || (kind === 'manuscript' && s.exportFile === 'pdf');
+			if (pdf && !plugin.exportHost.printer()) { new ExportModal(plugin, folder).open(); return; }
+			const { extension, type, mime } = FILES[pdf ? 'paperback' : kind], d = bookDetails(plugin, folder).details;
+			const style = kind === 'manuscript' ? plugin.styles.get(d.manuscriptStyle || s.exportStyle, 'manuscript') : plugin.styles.get(d.bookStyle, 'book');
+			const { book, words } = await readBook(plugin, folder, kind !== 'manuscript' || s.exportMatter, kind !== 'manuscript', kind !== 'manuscript' && style.values.quotes === 'as typed', kind === 'ebook');
 			title = book.title;
-			const data = kind === 'ebook' ? ebook(plugin, book, style.name) : manuscript(plugin, book, words, style.name), name = fileName(book.title);
+			let data: Uint8Array;
+			if (pdf) {
+				const { book: whole, spec } = pagedBook(plugin, book, words, kind === 'paperback' ? { book: style.name, page: d.pageSize } : { manuscript: style.name });
+				const made = await pagesPdf(plugin, whole, spec);
+				if (!made) return;
+				data = made.data;
+			} else data = kind === 'ebook' ? ebook(plugin, book, style.name) : manuscript(plugin, book, words, style.name);
+			const name = fileName(book.title);
 			saved = await save(plugin, host, data, { folder, kind, name, extension, type, replace });
 			if (saved?.where === 'vault' && Platform.isMobile) await share(data, `${name}.${extension}`, mime);
 		} else { new ExportModal(plugin, folder).open(); return; } // (a kind made only from the window)

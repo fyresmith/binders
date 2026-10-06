@@ -472,3 +472,90 @@ test('a book in a script the typeface doesn’t hold is set whole in the compute
 	t.ok(!/Garamond/.test(family) && /serif$/.test(family), `and the page is set in a serif that has (${family})`);
 	t.ok((await pages(p)).some((s) => s.text.includes('Глава 1')), 'with the book’s own words for a chapter');
 });
+
+// ---- Pages and the styles of step 5: the vault's styles on a page, the style editor from Paperback, Export again ----
+
+const STYLES_DIR = 'Export styles', BINDER_NOTE = `${L}The Lighthouse.md`;
+/** Every style file taken away, and the binder's choices with them, once a test is done with them. */
+const unstyle = (p) => p.ev(`(async () => { const st = ${PL}.styles; await st.settled(); const f = app.vault.getAbstractFileByPath(st.folder); if (f) await app.vault.delete(f, true); await st.reload(); })().then(() => 1)`);
+const laidAgain = async (p) => { await p.sleep(400); return laidOut(p, 60000); };
+const typeface = (p) => p.ev(`getComputedStyle(${FRAME}.contentDocument.querySelector('.page .text')).fontFamily`);
+
+test('a paperback in Modern: the vault’s styles in its Style row, its pages word for word, set in Source Serif', async (p, h, t, before) => {
+	try {
+		await withAuthor(p);
+		await open(p);
+		await pick(p, 'Paperback');
+		t.eq(await p.ev(`[...document.querySelector('${WIN} select[data-binders-key="style"]').options].map(o => o.textContent).join()`), 'Classic,Modern', 'the Style row lists the vault’s book styles');
+		t.ok(await p.ev(`!!document.querySelector('${WIN} [data-binders-key="edit-style"]')`), 'with the button that opens the style editor');
+		t.ok(await laidOut(p), 'Classic’s pages are laid out');
+		const classic = (await pages(p)).length;
+		await choose(p, 'style', 'Modern');
+		t.ok(await laidAgain(p), 'Modern chosen: the pages are laid out again');
+		t.ok((await typeface(p)).includes('Source Serif'), `in Source Serif (${await typeface(p)})`);
+		const shown = await pages(p);
+		await shot(p, 'window-paperback-modern');
+		t.ok(shown.length >= 8, `the book has pages (${shown.length}; ${classic} in Classic)`);
+		const opener = shown.find((s) => /opener/.test(s.cls) && /chapter/.test(s.cls) && s.text.includes('Arrival'));
+		t.ok(opener && /^1\s+Arrival/.test(opener.text.trim()), `the first chapter opens with Modern’s plain numeral, its title beside it (“${opener?.text.slice(0, 20)}”)`);
+		sameWords(t, words(await bodyWords(p)), sourceWords(before), 'word for word: the pages hold the notes’ words, in binder order');
+		t.ok((await p.ev(`app.vault.adapter.read(${j(BINDER_NOTE)})`)).includes('book-style: Modern'), 'the style is kept with the binder');
+
+		await press(p, 'Export');
+		t.ok(await saved(p), 'the bar says it was saved');
+		const at = join(p.vaultDir, 'Exports', 'The Lighthouse.pdf');
+		keep(at, 'test-vault-the-lighthouse-modern.pdf');
+		checkPdf(t, at, shown, { name: 'Modern' });
+		if (TOOLS.fonts) t.ok(pdfFonts(at).some((f) => /SourceSerif/.test(f.name)), 'the PDF’s text is in Source Serif');
+		same(t, before, await texts(p), { skip: [BINDER_NOTE] });
+	} finally { await unstyle(p); }
+});
+
+test('the style editor from Paperback: the pages’ own rows, and the pages follow a change', async (p, h, t, before) => {
+	try {
+		await withAuthor(p);
+		await open(p);
+		await pick(p, 'Paperback');
+		t.ok(await laidOut(p), 'the pages are laid out');
+		const measure = () => p.ev(`(() => { const e = ${FRAME}.contentDocument.querySelector('.page .text'); return [Math.round(e.getBoundingClientRect().width), getComputedStyle(e).fontSize]; })()`);
+		const [narrowWidth, narrowSize] = await measure();
+		await p.ev(`(() => { document.querySelector('${WIN} [data-binders-key="edit-style"]').click(); return 1; })()`);
+		await until(p, `!!document.querySelector('${WIN} .binders-style-editor .input-row')`, 6000);
+		const labels = await p.ev(`[...document.querySelectorAll('${WIN} .binders-style-editor .input-row-label')].map(l => l.textContent)`);
+		for (const row of ['Typeface', 'Size', 'Line spacing', 'Lines', 'Space above', 'Opens on', 'Along the top', 'Page numbers', 'Margins']) t.ok(labels.includes(row), `the pages’ row “${row}” is there`);
+		await shot(p, 'editor-paperback');
+		await p.ev(`(() => { const s = document.querySelector('${WIN} [data-binders-key="style-type-size"]'); s.value = '12'; s.dispatchEvent(new Event('input')); return 1; })()`);
+		await p.ev(`(() => { const s = document.querySelector('${WIN} [data-binders-key="style-margins"]'); s.value = [...s.options].find(o => o.textContent === 'Wide').value; s.dispatchEvent(new Event('change')); return 1; })()`);
+		t.ok(await laidAgain(p), 'the pages are laid out again');
+		const [wideWidth, wideSize] = await measure();
+		t.ok(wideWidth < narrowWidth, `wider margins: a narrower column of text (${narrowWidth} → ${wideWidth} px)`);
+		t.ok(wideSize === '16px' && wideSize !== narrowSize, `12 pt type (${narrowSize} → ${wideSize})`);
+		await p.ev(`${PL}.styles.settled().then(() => 1)`);
+		const file = await p.ev(`app.vault.adapter.read(${j(`${STYLES_DIR}/Classic.bookstyle`)})`);
+		t.ok(/margins: wide/.test(file) && /type-size: 12/.test(file), 'the change is kept in the style’s file');
+		sameWords(t, words(await bodyWords(p)), sourceWords(before), 'and the pages still hold every word');
+		same(t, before, await texts(p), { skip: [BINDER_NOTE] });
+	} finally { await unstyle(p); }
+});
+
+test('Export again makes a paperback’s PDF once more with no window', async (p, h, t, before) => {
+	await withAuthor(p);
+	await open(p);
+	await pick(p, 'Paperback');
+	t.ok(await laidOut(p), 'the pages are laid out');
+	const shown = await pages(p);
+	await press(p, 'Export');
+	t.ok(await saved(p), 'exported once from the window');
+	await closeAll(p);
+	const at = join(p.vaultDir, 'Exports', 'The Lighthouse.pdf');
+	writeFileSync(at, '');
+	// (the file left by export, changed since: Export again asks before replacing it)
+	await run(p, 'export-again');
+	await until(p, `!!document.querySelector('.modal-container .mod-cta')`, 60000);
+	t.ok(!(await p.ev(`!!document.querySelector('${WIN}')`)), 'no Export window: only the question');
+	await p.ev(`(() => { document.querySelector('.modal-container .mod-cta').click(); return 1; })()`);
+	await until(p, `app.vault.adapter.stat('Exports/The Lighthouse.pdf').then(s => s && s.size > 1000)`, 90000);
+	t.eq(readFileSync(at).subarray(0, 5).toString(), '%PDF-', 'replaced: a PDF again');
+	checkPdf(t, at, shown, { name: 'again' });
+	same(t, before, await texts(p));
+});

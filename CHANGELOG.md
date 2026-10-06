@@ -3,6 +3,13 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.40.0 (2026-10-06)
+
+### Added
+
+- The style editor opens from Paperback too, with the rows that are the pages' own: typeface, size, line spacing, lines, space above, where chapters open, along the top, page numbers and margins.
+- Export again makes a paperback, or a manuscript as a PDF, once more.
+
 ## 0.39.2 (2026-10-06)
 
 ### Fixed

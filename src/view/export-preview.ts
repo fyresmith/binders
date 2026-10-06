@@ -2,7 +2,7 @@ import { headingLines, roundedWords } from '../export/docx';
 import type { ManuscriptStyle } from '../export/docx-parts';
 import { contentsOf } from '../export/epub';
 import { leadSplit } from '../export/epub-text';
-import { bookWords, plain, type Block, type Book, type Inline, type OutlineRow, type Section } from '../export/model';
+import { bookWords, plain, type Block, type Book, type Inline, type Section } from '../export/model';
 import { against, bookHeading, bookWord, isRtl, type BookStyle } from '../export/style';
 import { Platform } from 'obsidian';
 import { TRIM_SIZES, type PageSize } from '../export/pages/geometry';
@@ -11,34 +11,8 @@ import { bookPages, layPages, openStage, type Laid, type PagesSpec } from '../ex
 /* What the Export window shows of a manuscript before it is made: its text as it will read, set as the style sets
    it (the typeface, the spacing, the headings, the breaks, the notes), on paper that is white in both themes. It is
    one continuous sheet, not pages: Word sets its own lines and turns its own pages, and the pages Binders lays out
-   itself come with the PDF. And "Contents": every item of the binder with the role it was given. Drawn from the same
-   book model the Word writer reads, with `createEl` only. */
-
-const ROLE: Record<string, string> = { part: 'Part', chapter: 'Chapter', scene: 'Scene', front: 'Front matter', back: 'Back matter', out: 'Left out', group: '' };
-/** A role as "Contents" says it. */
-export const roleName = (r: OutlineRow): string => `${ROLE[r.role] ?? ''}${r.number != null ? ` ${r.number}` : ''}`;
-
-/** "Contents": the binder's items, each with its role; one that is left out is faint. A row opens its note. */
-export function drawOutline(el: HTMLElement, book: Book, open: (path: string) => void): void {
-	el.empty();
-	el.setAttrs({ role: 'list', 'aria-label': 'Contents' });
-	if (!book.outline.length) el.createDiv({ cls: 'binders-export-none', text: 'Nothing here is exported.' });
-	for (const r of book.outline) {
-		const role = roleName(r);
-		const row = el.createDiv({ cls: 'tree-item nav-file', attr: { role: 'listitem' } });
-		const self = row.createDiv({ cls: 'tree-item-self nav-file-title binders-export-row', attr: { 'aria-label': role ? `${r.name}, ${role.toLowerCase()}` : r.name } });
-		self.setCssProps({ '--binders-export-depth': String(r.depth) });
-		self.toggleClass('binders-export-out', r.role === 'out');
-		self.createDiv({ cls: 'tree-item-inner nav-file-title-content', text: r.name });
-		if (role) self.createDiv({ cls: 'nav-file-tag', text: role });
-		if (!r.folder) {
-			self.addClass('is-clickable');
-			self.setAttrs({ tabindex: '0', role: 'button' });
-			self.addEventListener('click', () => open(r.path));
-			self.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(r.path); } });
-		}
-	}
-}
+   itself come with the PDF ("Contents" is export-contents.ts). Drawn from the same book model the Word writer reads,
+   with `createEl` only. */
 
 /** Draws a manuscript's text into `el`, a section at a time so a long book doesn't hold the window up. Returns what
     stops it (the window closed, or another preview took its place). */
