@@ -7,5 +7,9 @@ export default tseslint.config(
   {
     files: ["src/**/*.ts"],
     languageOptions: { parser: tseslint.parser, parserOptions: { project: "./tsconfig.json" } },
+    rules: {
+      // a setting named inside a sentence keeps its capital: "Show the Exports folder" (the maintainer's exception, 2026-10-06)
+      "obsidianmd/ui/sentence-case": ["warn", { enforceCamelCaseLower: true, ignoreRegex: ["^Show the Exports folder$"] }],
+    },
   }
 );

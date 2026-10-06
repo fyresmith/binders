@@ -154,3 +154,5 @@ without interrupting anyone (and without an agent spending its time answering "h
 
 - TypeScript, tabs, terse code with short comments that explain *why*. Match the code around you.
 - UI text: sentence case, plain words, no jargon, no "please". Commands have no default hotkeys and no plugin-name prefix.
+  One exception to sentence case (the maintainer's, 2026-10-06): "Show the Exports folder" keeps the capital of the
+  setting it names. It is listed by its exact text in `eslint.config.mjs`; another needs his word.

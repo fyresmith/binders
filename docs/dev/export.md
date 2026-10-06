@@ -456,8 +456,9 @@ Where the design was silent, or the code said otherwise:
 13. **Export again with nothing exported yet opens the window.** The place it goes to is the last one whether or
     not "Save here next time without asking" was ticked, and using it doesn't tick it. It asks only before
     replacing a file that is no longer what export left. On a phone: the Exports folder, then the share sheet.
-14. **"Show the Exports folder" is worded "Show where exports go"**: the review bot's sentence-case rule reads a
-    capital in the middle of a menu item as a mistake, and can't be told otherwise.
+14. **"Show the Exports folder" keeps its capital**: it names the setting. The sentence-case lint rule reads a
+    capital in the middle of a menu item as a mistake, so the item is excepted by its exact text in
+    `eslint.config.mjs` (the maintainer's exception, 2026-10-06; the review bot may still remark on it).
 15. **Custom CSS reaches the ebook's file, not the window's preview of it**: the preview is Binders' drawing of
     the book's shape, not the EPUB rendered.
 

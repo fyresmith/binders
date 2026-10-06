@@ -116,20 +116,20 @@ specs.push({ name: 'export again: on a phone the file goes to Exports in the vau
 	same(t, before, await texts(p), { skip: [BINDER] });
 }) });
 
-test('the window’s menu shows where exports go; settings name the styles folder', async (p, h, t) => {
+test('the window’s menu shows the Exports folder; settings name the styles folder', async (p, h, t) => {
 	await withAuthor(p);
 	await p.ev(`(() => { const pl = ${PL}, was = pl.exportHost.desktop; pl.exportHost.desktop = (app) => { const d = was(app); return d && { ...d, reveal: (path) => { window.__shown = path; } }; }; window.__shown = null; return 1; })()`);
 	await open(p);
 	const more = async () => { await p.ev(`(() => { document.querySelector('${WIN} [aria-label="More"]').click(); return 1; })()`); await until(p, `!!document.querySelector('.menu')`); };
 	await more();
-	t.eq((await menuItems(p)).join('|'), 'Choose where to save...|Show where exports go|Edit this style|Book details...', 'the menu beside Export');
-	await clickMenu(p, 'Show where exports go');
+	t.eq((await menuItems(p)).join('|'), 'Choose where to save...|Show the Exports folder|Edit this style|Book details...', 'the menu beside Export');
+	await clickMenu(p, 'Show the Exports folder');
 	t.ok(await told(p, 'Nothing has been saved there yet'), 'before anything is exported there is no folder to show, and it says so');
 	t.eq(await p.ev(`window.__shown`), null, 'nothing is opened');
 	await press(p, 'Export');
 	await saved(p);
 	await more();
-	await clickMenu(p, 'Show where exports go');
+	await clickMenu(p, 'Show the Exports folder');
 	await until(p, `window.__shown !== null`, 5000);
 	t.eq(await p.ev(`window.__shown`), join(p.vaultDir, 'Exports'), 'after an export: the Exports folder, in the system’s file manager');
 	await closeAll(p);

@@ -480,7 +480,7 @@ export class ExportModal extends Modal {
 				const m = new Menu();
 				if (saved) m.addItem((i) => i.setTitle('Export').setIcon('book-check').onClick(() => void this.run()));
 				if (host && !this.noPdf) m.addItem((i) => i.setTitle('Choose where to save...').setIcon('folder-open').onClick(() => void this.run(true)));
-				if (host) m.addItem((i) => i.setTitle('Show where exports go').setIcon('folder').onClick(() => void this.showExports()));
+				if (host) m.addItem((i) => i.setTitle('Show the Exports folder').setIcon('folder').onClick(() => void this.showExports()));
 				if (this.file && !this.editing) m.addItem((i) => i.setTitle('Edit this style').setIcon('sliders-horizontal').onClick(() => this.edit()));
 				if (this.file) m.addItem((i) => i.setTitle('Book details...').setIcon('book-open').onClick(() => this.details()));
 				if (e) m.showAtMouseEvent(e); else { const r = more.getBoundingClientRect(); m.showAtPosition({ x: r.left, y: r.bottom }); }
