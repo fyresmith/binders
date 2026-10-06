@@ -84,7 +84,9 @@ copy made at snapshot time); (4) automatic snapshots and thinning.
 Git-ignored there and not here: the full design folders with every screenshot and sample file (export, inspector,
 banner options), the agents' progress memos, the demo vault (remake it with `npm run demo-vault`), Obsidian itself
 and the 1.13.4 floor build for e2e, EPUBCheck (`npm run get-epubcheck` fetches it; it needs Java). **Whether the
-e2e suite can run in a cloud sandbox is unproven**: it drives a real headless Obsidian (Electron). Unit tests, lint
+e2e suite can run in a cloud sandbox is unproven**: it drives a real headless Obsidian (Electron).
+`scripts/cloud-setup.sh` fetches Obsidian and EPUBCheck and writes the two environment variables the tests need; it
+has not been run in a sandbox yet, so proving it (or saying what stops it) is the first job there. Unit tests, lint
 and the build need nothing but Node.
 
 ## In this folder

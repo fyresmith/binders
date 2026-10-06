@@ -7,6 +7,17 @@ here; that is what keeps the next round short.
 
 **Native is judged against Obsidian itself**, not against other plugins and not by using its CSS variables alone.
 
+- **How to check, not guess:** read Obsidian's own style sheet and code (`app.css` and `app.js` inside
+  `obsidian.asar` of the installed Obsidian) and screenshot the thing beside Obsidian's own equivalent (a `.base`
+  cards view beside the binder view; Outline or Properties beside a sidebar pane). Look at screenshots taken in the
+  middle of an interaction (a drag held, 60 ms after a drop), not only at rest: that is where the first version
+  looked wrong. Drags follow Obsidian's own reorder ghost (300 ms, `cubic-bezier(0.2, 0, 0, 1)`) and its drop
+  indicator.
+- **What the maintainer has turned down, in his words "heavily AI generated"** (2026-10-01): rounded cards with a
+  colored stripe along the top, grey pill chips for a status, thin accent or progress lines along a card's foot.
+  Using Obsidian's variables is not enough: it has to look designed by a person and still native. Don't propose
+  those again. For a restyle, build distinct directions and let him choose from screenshots.
+
 - The binder view is modelled on Obsidian's Bases cards view: edge to edge, a 40px bordered toolbar with the view
   switcher on the left, flat cards with a hairline border.
 - Cards are Canvas-style: a label is the card's border plus a faint tint (about 7%) of the same color.

@@ -11,3 +11,4 @@ test-vault/.obsidian/community-plugins.json
 .claude/worktrees/
 .claude/memos/
 .claude/settings.local.json
+.cloud-env
