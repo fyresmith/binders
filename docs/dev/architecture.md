@@ -5,7 +5,7 @@ never do, how a change travels from a gesture to a file, and where the rules tha
 design (what Binders is for, and how each feature behaves) is in [plan.md](plan.md); the file format in
 [file-format.md](file-format.md); the parts of Obsidian we rely on that it doesn't document in
 [internals.md](internals.md); building and testing in [development.md](development.md). The working rules are in
-[AGENTS.md](../AGENTS.md).
+[AGENTS.md](../../AGENTS.md).
 
 ## The shape of it
 

@@ -9,7 +9,7 @@ import { bookHeading, bookWord, isRtl, type BookStyle } from './style';
    Books and Kobo turn the page between files), a navigation document (which is the contents page too) and an NCX for
    old readers, footnotes a reader pops up, the cover as the package's cover image, and what stores ask a book to
    say about its accessibility. The reader's typeface is left alone (epub-css.ts). Pure: a function from the book
-   model and a style to the file's bytes. The design is docs/export.md; EPUBCheck reads what this writes in the tests. */
+   model and a style to the file's bytes. The design is docs/dev/export.md; EPUBCheck reads what this writes in the tests. */
 
 export interface EbookDetails {
 	/** When it is made: the package's "modified". */

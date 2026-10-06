@@ -5,7 +5,7 @@
 //   npm run e2e -- --repeat 3       run everything several times
 //   npm run e2e -- --specs a.mjs,b.mjs    only these spec files (default: every tests/e2e/specs*.mjs)
 //   npm run e2e -- --shots dir      where failure screenshots go (default test-dist/e2e-failures)
-//   npm run e2e -- --hover          a mouse that hovers (see docs/development.md); also BINDERS_HOVER=1
+//   npm run e2e -- --hover          a mouse that hovers (see docs/dev/development.md); also BINDERS_HOVER=1
 //   npm run e2e -- --timeout 1200   how long one test may take, in seconds (default 600); a test's own `timeout` (ms,
 //                                   beside its name and fn) wins. A test over its limit fails, and its Obsidian is replaced.
 // Tests listed in open-findings.json are known to fail (see there): they're reported, and don't fail the run.

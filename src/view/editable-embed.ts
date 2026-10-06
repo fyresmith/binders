@@ -6,7 +6,7 @@ import { lf } from '../scene-text';
 
 /* Undocumented: the editable Markdown embed that Canvas, hover popovers and `![[note]]` use. This module is the only
    place Binders touches it; every internal it relies on is checked in `embedSupported()` and listed in
-   docs/internals.md. See docs/spike-manuscript.md for why this route, and for the sharp edges handled below. */
+   docs/dev/internals.md. See docs/dev/spike-manuscript.md for why this route, and for the sharp edges handled below. */
 
 interface EditMode {
 	sourceMode: boolean;

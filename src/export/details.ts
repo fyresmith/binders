@@ -3,7 +3,7 @@ import type { Structure } from './model';
 import { readStructure } from './roles';
 import { STRUCTURES } from './model';
 
-/* Book details: what every export of a binder shares, kept as properties of its binder note (docs/file-format.md,
+/* Book details: what every export of a binder shares, kept as properties of its binder note (docs/dev/file-format.md,
    "Export"). Here they are read from a note's properties and put back into them, and a language is checked. Pure:
    the window is view/book-details.ts, and the writing to the note is in export.ts. */
 

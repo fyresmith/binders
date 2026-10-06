@@ -28,8 +28,8 @@ import { LeftoversModal, SNAPSHOT_VIEW, SnapshotView, SnapshotsModal, folderSnap
    a view or the store needs: a command finds what it applies to (`checkCallback`) and calls into them. A change the
    store can refuse (make a binder, new scene, move, group, merge, undo) runs through `tell()`, so a refusal is a notice,
    not silence. Focus mode registers its own commands
-   (focus/focus.ts); the snapshot commands are in `snapshotCommands` here. The design is in docs/plan.md, the map of the
-   code in docs/architecture.md. */
+   (focus/focus.ts); the snapshot commands are in `snapshotCommands` here. The design is in docs/dev/plan.md, the map of the
+   code in docs/dev/architecture.md. */
 
 /** The plugin. `app.plugins.plugins.binders` is this: the store is `binders`, the explorer patch `explorer`. */
 export default class BindersPlugin extends Plugin {

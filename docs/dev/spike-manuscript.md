@@ -201,7 +201,7 @@ Mount a live editor only for the sections in or near the viewport; show the rest
   `metadataCache.getFileCache(file).frontmatterPosition`, with a one-time notice and "Open note" on each section.
   Double-click or Enter on a section opens the note in a tab for editing.
 - Wrap each `mountEditor()` in `try`/`catch`: a failure degrades that section to the rendered placeholder, never the page.
-- Add to `docs/internals.md` (0.6): `app.embedRegistry.embedByExtension.md`, the embed's `editable`, `loadFile`,
+- Add to `docs/dev/internals.md` (0.6): `app.embedRegistry.embedByExtension.md`, the embed's `editable`, `loadFile`,
   `showEditor`, `save`, `set`, `loadFileInternal`, `onFileChanged`, `requestSave`, `text`/`data`/`dirty`,
   `editMode.get`/`sourceMode`/`toggleSource`/`saveHistory`, `workspace.unsetActiveEditor`.
 

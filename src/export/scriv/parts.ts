@@ -1,7 +1,7 @@
 /* The Scrivener 3 project's small parts: the choices about the format that are still open, each one constant; ids,
    dates and colors as Scrivener writes them. Pure. No specification of the format exists: what is here is from
    projects Scrivener itself wrote (Mac 3.1.4 to 3.5.2, Windows 3.1.5.1) and from the eight projects of the format
-   spike, which the maintainer's Scrivener opened (docs/export.md, "The Scrivener project"). */
+   spike, which the maintainer's Scrivener opened (docs/dev/export.md, "The Scrivener project"). */
 
 /** Who the project says made it. Honest by default: Binders and its version. `false` writes the string a real
     Scrivener wrote instead (Mac 3.1.4, older than any 3.x in use), which is what the spike's main project claimed. */

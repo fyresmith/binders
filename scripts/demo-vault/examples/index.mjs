@@ -70,7 +70,7 @@ export const EXAMPLES = [
 	},
 	{
 		folder: 'What Markdown becomes', make: markdown,
-		about: 'One scene for each row of the table “What Markdown becomes” in `docs/export.md`, in the table’s order, each with a synopsis that says what an export should do with it: properties, paragraphs, tabs, italics, quotes, scene breaks, headings, links, pictures, embedded notes, footnotes, comments, highlights, tags, callouts, quotations, lists, tables, code, math and block ids (and one for HTML, which the table doesn’t decide).',
+		about: 'One scene for each row of the table “What Markdown becomes” in `docs/dev/export.md`, in the table’s order, each with a synopsis that says what an export should do with it: properties, paragraphs, tabs, italics, quotes, scene breaks, headings, links, pictures, embedded notes, footnotes, comments, highlights, tags, callouts, quotations, lists, tables, code, math and block ids (and one for HTML, which the table doesn’t decide).',
 		tryIt: 'Export it as a Manuscript and as One note, and read the file beside the corkboard: each card says what its page should look like. The window’s list of what is left out or changed should name each of these.',
 	},
 ];

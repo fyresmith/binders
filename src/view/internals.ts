@@ -1,9 +1,9 @@
 import { Menu, type App, type ItemView, type MenuItem, type TFile, type WorkspaceLeaf } from 'obsidian';
 
-/* Obsidian internals the binder view uses, each feature-detected with a fallback (see docs/internals.md).
+/* Obsidian internals the binder view uses, each feature-detected with a fallback (see docs/dev/internals.md).
 
    Submenus in Obsidian's menus. Obsidian has them (its editor menu's "Format" and "Insert") but not in its API: a menu
-   item's undocumented `setSubmenu()` returns the submenu. Everything undocumented is here and in docs/internals.md.
+   item's undocumented `setSubmenu()` returns the submenu. Everything undocumented is here and in docs/dev/internals.md.
    Without it, the item opens the submenu as a menu of its own where the first one was. */
 
 interface WithSubmenu { setSubmenu(): Menu }

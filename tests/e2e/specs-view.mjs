@@ -446,7 +446,7 @@ test('follows its folder when it’s renamed; when it’s deleted, shows the fol
 	await openView(p, 'The Lighthouse/Part Two');
 	await p.ev(`app.fileManager.renameFile(${file('The Lighthouse/Part Two')}, 'The Lighthouse/Part 2').then(() => 1)`);
 	await until(p, `app.workspace.getMostRecentLeaf().getViewState().state?.folder === 'The Lighthouse/Part 2'`);
-	t.eq(await headerTitle(p), 'Part 2', 'the header follows (the view’s titleEl and leaf.updateHeader, internals: see docs/internals.md)');
+	t.eq(await headerTitle(p), 'Part 2', 'the header follows (the view’s titleEl and leaf.updateHeader, internals: see docs/dev/internals.md)');
 	t.eq(await tabTitle(p), 'Part 2', 'and the tab');
 	await until(p, `document.querySelector('.workspace-leaf.mod-active .binders-card')?.dataset.path.startsWith('The Lighthouse/Part 2/')`);
 	t.eq(j(await cards(p)), j(['The Lighthouse/Part 2/The wreck.md', 'The Lighthouse/Part 2/Lights out.md']), 'the cards too');

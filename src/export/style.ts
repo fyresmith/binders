@@ -1,7 +1,7 @@
 import { numberWords, type Section } from './model';
 
 /* A book style: how each role is set, in the ebook and (from step 3) on the pages. A style is data, under the very
-   names a `.bookstyle` file has for them (docs/export.md, "The style's file"), so the editor and the files of a later
+   names a `.bookstyle` file has for them (docs/dev/export.md, "The style's file"), so the editor and the files of a later
    step read and write this shape and nothing here changes. Built in so far: Classic. Pure.
 
    An ebook takes its shape from a style (headings, breaks, indents, first words) and leaves the typeface, the size,

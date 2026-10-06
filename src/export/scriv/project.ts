@@ -8,7 +8,7 @@ import { STYLES_XML } from './styles-xml';
 import { readText, unmarked } from './text';
 
 /* A binder as a Scrivener 3 project: not a book but the binder itself. Its folders and notes in binder order under
-   Draft, each note's text as rich text, and what a writer set in Binders carried across (docs/export.md, "The
+   Draft, each note's text as rich text, and what a writer set in Binders carried across (docs/dev/export.md, "The
    Scrivener project", has the table; the import that comes after reads it right to left). Pure: the notes' text and
    everything about them is handed in, and what comes out is the project's files, to be written as a folder. */
 

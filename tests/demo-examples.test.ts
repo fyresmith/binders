@@ -1,5 +1,5 @@
 // The demo vault's example books (scripts/demo-vault/examples/): each is there, is a valid binder by
-// docs/file-format.md, and has the shape and the features its line in the README claims, read with the plugin's own
+// docs/dev/file-format.md, and has the shape and the features its line in the README claims, read with the plugin's own
 // readers and built into a book by export's own code.
 import { readFileSync } from 'fs';
 // @ts-expect-error a plain module, without types
@@ -225,7 +225,7 @@ for (const s of examples) {
 
 // ---- What Markdown becomes: a scene for each row of the doc's table ----
 {
-	const doc = readFileSync('docs/export.md', 'utf8'), table = /\*\*What Markdown becomes\.\*\*\n\n\| In the note \| In the book \|\n\|---\|---\|\n((?:\|.*\n)+)/.exec(doc);
+	const doc = readFileSync('docs/dev/export.md', 'utf8'), table = /\*\*What Markdown becomes\.\*\*\n\n\| In the note \| In the book \|\n\|---\|---\|\n((?:\|.*\n)+)/.exec(doc);
 	const rows = table ? table[1].trim().split('\n') : [];
 	ok(rows.length >= 20, `the doc’s table is found (${rows.length} rows)`);
 	const numbered = (ROWS as string[][]).filter((r) => /^\d\d /.test(r[0]));

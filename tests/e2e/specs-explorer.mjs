@@ -31,7 +31,7 @@ const same = (t, a, b, m) => t.eq(JSON.stringify(a), JSON.stringify(b), m);
 const setSettings = (p, s) => p.ev(`(async () => { Object.assign(${pl}.settings, ${JSON.stringify(s)}); await ${pl}.saveSettings(); })().then(() => 1)`).then(() => p.sleep(300));
 /** Fails loudly if Obsidian drops or renames the method Binders patches. */
 async function patched(p, t) {
-	t.ok(await p.ev(`typeof Object.getPrototypeOf(${EXP}).getSortedFolderItems === 'function'`), 'the file explorer still has getSortedFolderItems (an Obsidian update may have removed it: see docs/internals.md)');
+	t.ok(await p.ev(`typeof Object.getPrototypeOf(${EXP}).getSortedFolderItems === 'function'`), 'the file explorer still has getSortedFolderItems (an Obsidian update may have removed it: see docs/dev/internals.md)');
 	t.eq(await p.ev(`${pl}.explorer.status`), 'patched', 'the explorer patch is on');
 }
 const reenable = async (p) => {
@@ -336,7 +336,7 @@ test('dragging a note above another reorders the binder: a line shows where, the
 	await rows(p);
 	const a = await row(p, 'The Lighthouse/Part One/Arrival.md');
 	const seen = await dragRow(p, 'The Lighthouse/Part One/The keeper.md', { x: a.x, y: a.t + 3 });
-	// fails loudly if Obsidian's drag manager changes (see docs/internals.md)
+	// fails loudly if Obsidian's drag manager changes (see docs/dev/internals.md)
 	same(t, seen.dragging, { type: 'file', path: 'The Lighthouse/Part One/The keeper.md' }, 'Obsidian’s drag manager says what is being dragged');
 	t.ok(seen.line && Math.abs(seen.line.y - a.t) <= 2, `a line along the top of Arrival (${JSON.stringify(seen.line)} vs ${a.t})`);
 	t.eq(seen.hint, 'Move before “Arrival”', 'the hint under the pointer says where');

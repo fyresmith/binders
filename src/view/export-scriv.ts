@@ -9,7 +9,7 @@ import { confirm } from './modals';
 
 /* The Export window's Scrivener project: its two switches, what its bar and its foot say, its preview (the binder
    as Scrivener will list it, and what is carried across: a list, not pages) and its export. The window itself is
-   view/export.ts, which asks here for each; the design is docs/export.md, "The Scrivener project". */
+   view/export.ts, which asks here for each; the design is docs/dev/export.md, "The Scrivener project". */
 
 const n = (count: number, one: string, many = `${one}s`) => `${count.toLocaleString()} ${count === 1 ? one : many}`;
 

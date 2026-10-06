@@ -832,7 +832,7 @@ test('longform: convert a project whose index note is outside the scene folder m
 }));
 
 test('UX: a comment in the binder note’s properties survives a move', withTidy(async (p, h, t) => {
-	// the example in docs/file-format.md has comments on its lines; a writer may keep notes to self there
+	// the example in docs/dev/file-format.md has comments on its lines; a writer may keep notes to self there
 	await edit(p, `---\nbinder: 1                 # format version\n# my own note about the order\ncontents:\n  - Prologue   # the start\n  - Part One/\n  - Part One/Arrival\n  - Part One/The keeper\n  - Part One/Storm warning\n  - Part Two/\n  - Part Two/The wreck\n  - Part Two/Lights out\n  - Epilogue\n---\nbody\n`);
 	await p.ev(`${B}.moveDown(${file('The Lighthouse/Prologue.md')}).then(() => 1)`);
 	await flush(p); await p.sleep(500);

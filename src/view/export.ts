@@ -19,7 +19,7 @@ import { countWords } from './words';
 /* The Export window: Obsidian's two-pane dialog, the one File recovery and Snapshots use. On the left what to make
    (the kinds that exist so far: a manuscript, an ebook, a Scrivener project, and one note), the chosen kind's few choices, where the file goes and
    what export has to leave out or change. On the right what is being made, "Contents", Export, and the preview. A
-   phone has the choices first and the preview second. The design is docs/export.md; what it does is in
+   phone has the choices first and the preview second. The design is docs/dev/export.md; what it does is in
    export/export.ts, and nothing here writes to a note. */
 
 const SEPARATORS: [string, string][] = [['* * *', '* * *'], ['#', '#'], ['---', '---'], ['', 'A blank line']];

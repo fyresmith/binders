@@ -3544,7 +3544,7 @@ body:not(.is-phone) .binders-snapshots:is(.mod-sidebar-layout, .is-plain) > .mod
    A state of the view that's open (src/focus/focus.ts). <body> has `binders-focus` while it's on, and the tab being
    written in has `binders-focus-leaf`. Everything Obsidian draws around that tab is hidden, not closed: take the
    classes away (a reload does) and it is all exactly where it was. These are Obsidian's own class names, listed in
-   docs/internals.md: one that's renamed leaves that part in sight, and a test says so. */
+   docs/dev/internals.md: one that's renamed leaves that part in sight, and a test says so. */
 body.binders-focus .workspace-ribbon,
 body.binders-focus .workspace-split.mod-left-split,
 body.binders-focus .workspace-split.mod-right-split,
@@ -4112,7 +4112,7 @@ body {
    Built from what Obsidian's own sidebar views are built from: a note's properties as its rows (`metadata-property`),
    the tree's rows for a list (`tree-item`), the backlinks pane's headings, `pane-empty` when there's nothing to say.
    Nothing here has a box, a fill or a line of its own. (If Obsidian renames one of those classes the pane works as
-   before and looks plainer: docs/internals.md.) */
+   before and looks plainer: docs/dev/internals.md.) */
 
 .binders-inspector-view.view-content {
 	display: flex;

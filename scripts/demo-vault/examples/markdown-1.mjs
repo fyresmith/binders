@@ -1,4 +1,4 @@
-// "What Markdown becomes", first half: a scene for each row of the table of that name in docs/export.md, in the
+// "What Markdown becomes", first half: a scene for each row of the table of that name in docs/dev/export.md, in the
 // table's order. [name, what should happen to it in an export (the scene's synopsis), the note's text].
 export const ROWS_1 = [
 	['01 Properties', 'Properties are never exported: the book has only the one sentence under them.', 'This sentence is the whole of the scene. Its note has six properties above it, and none of them is in the book.\n', { tags: ['sample', 'export'], aliases: ['Row one'], 'a-property-of-my-own': 'kept in the note, never in the book', reviewed: true }],

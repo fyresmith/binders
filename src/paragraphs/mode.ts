@@ -1,6 +1,6 @@
 /* Undocumented: the state of Obsidian's Markdown mode (HyperMD, a CodeMirror 5 mode run as a stream language). This
    module and language.ts are the only places Binders touches it; what is relied on is checked in `wrapMode()` and
-   listed in docs/internals.md.
+   listed in docs/dev/internals.md.
 
    Markdown reads a line that starts with a tab, or four spaces, as code, and Obsidian's editor has no setting for
    that (`indentedCode: true` is written into its mode; turning the option off there only takes the code font away,

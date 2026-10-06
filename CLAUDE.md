@@ -14,8 +14,8 @@
   and no release is planned before export is built. The aim until then is a release-ready state.
 - **Built:** binders in the vault and in the file explorer (order, drag to reorder, label dots), the three modes, the
   Longform integration, the scene operations (split, merge, duplicate, group, compile, undo of moves), arrange by
-  label, snapshots and focus mode. `docs/architecture.md` is the map of the code; the milestone table in
-  `docs/plan.md` has the history.
+  label, snapshots and focus mode. `docs/dev/architecture.md` is the map of the code; the milestone table in
+  `docs/dev/plan.md` has the history.
 - **Left before 1.0** (`ROADMAP.md`, in its order): export (EPUB, DOCX, PDF, a Scrivener project); import from
   Scrivener; find and replace across the manuscript; mobile on a real device (the maintainer has none yet, so the
   emulated phone and tablet tests are the standard: "emulator is king").
@@ -37,16 +37,16 @@
 - **Patch the core file explorer** for binder order. Being incompatible with explorer-replacing plugins such as Notebook
   Navigator is accepted. Keep the patch isolated, feature-detected, with an alphabetical fallback and a setting to turn
   it off.
-- **Binders has its own format** (`docs/file-format.md`) plus a **Longform integration**: read Longform projects and write
+- **Binders has its own format** (`docs/dev/file-format.md`) plus a **Longform integration**: read Longform projects and write
   only `longform.scenes` on reorder. Don't use Longform's format as the native one: it's flat, keyed by file name, and
   its nesting has no fixed meaning.
 - **1.0 ships all three views:** corkboard, outliner and the editable manuscript. The outliner replaced the plot grid
-  on 2026-10-01 (the maintainer's request); see "Decided" in `docs/plan.md`.
+  on 2026-10-01 (the maintainer's request); see "Decided" in `docs/dev/plan.md`.
 
 ## Answers (2026-09-30)
 
 1. **Folder data:** binders and subfolders each have a hidden note (the binder note; a folder note named like the
-   folder) that stores their data. Their synopsis is set in the binder view. See `docs/file-format.md`.
+   folder) that stores their data. Their synopsis is set in the binder view. See `docs/dev/file-format.md`.
 2. **Hiding:** binder and folder notes are hidden in the explorer by default, with a setting to show them.
 3. **Plot grid cell text:** in scene properties, `plot: {Mara: "…"}`. Superseded 2026-10-01: the plot grid was
    dropped, and `plot`, `plotlines` and `plotlineColors` are no longer read or written (notes that have them keep them).

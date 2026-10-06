@@ -477,7 +477,7 @@ test('status and label from the menu', withTidy(async (p, h, t) => {
 	await openView(p);
 	const c = await at(p, 'Epilogue.md');
 	await p.right(c.x, c.y);
-	t.ok(await p.ev(`!!document.querySelector('.menu .menu-item.has-submenu')`), 'Obsidian’s menus still have submenus (MenuItem.setSubmenu, an internal: see docs/internals.md)');
+	t.ok(await p.ev(`!!document.querySelector('.menu .menu-item.has-submenu')`), 'Obsidian’s menus still have submenus (MenuItem.setSubmenu, an internal: see docs/dev/internals.md)');
 	await hoverMenu(p, 'Set status');
 	const items = await menuItems(p);
 	t.eq(j(items.slice(-6)), j(['Idea', 'Draft', 'Revised', 'Done', 'New status...', 'No status']), 'the statuses from settings (the notes’ own “draft” is “Draft”), a new one, and none: ' + items.join(', '));

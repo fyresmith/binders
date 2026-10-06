@@ -3,7 +3,7 @@
 
    Obsidian has no API for the explorer's order, so this patches one undocumented method, the explorer view's
    `getSortedFolderItems(folder)`, which both the view's `sort()` and every folder item's `sort()` call to get the items
-   to show in a folder. Everything undocumented is in the "Internals" block below and listed in docs/internals.md. If the
+   to show in a folder. Everything undocumented is in the "Internals" block below and listed in docs/dev/internals.md. If the
    method is missing, Binders says so once and the explorer keeps Obsidian's own order. */
 import { around } from 'monkey-around';
 import { Keymap, Notice, Platform, TAbstractFile, TFolder, type App, type EventRef, type Menu, type PaneType, type Plugin, type View } from 'obsidian';
@@ -56,7 +56,7 @@ export interface Explorer {
 	readonly status: 'patched' | 'off' | 'missing' | 'waiting';
 }
 
-// ---- Internals (undocumented, see docs/internals.md) ----
+// ---- Internals (undocumented, see docs/dev/internals.md) ----
 
 /** A row of the explorer, as its view keeps it. */
 interface ExplorerItem { file: TAbstractFile; selfEl: HTMLElement; innerEl?: HTMLElement }

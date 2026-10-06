@@ -47,7 +47,7 @@ Binders needs Obsidian 1.13.4 or later, on desktop, phone or tablet.
 - **By hand:** download `main.js`, `manifest.json` and `styles.css` from the
   [latest release](https://github.com/fyresmith/binders/releases/latest), put them in
   `<your vault>/.obsidian/plugins/binders/`, and enable **Binders** under **Settings → Community plugins**.
-- **From source:** `npm install`, then `npm run build`; see [Development](docs/development.md).
+- **From source:** `npm install`, then `npm run build`; see [Development](docs/dev/development.md).
 
 ## Getting started
 
@@ -364,7 +364,7 @@ start or the end named Dedication, Epigraph, Acknowledgements, About the author,
 and everything in a folder named "Front matter" or "Back matter", are front and back matter. To overrule any of it,
 set **Export as** for a note or folder in the inspector (it writes the property `export-as`: `part`, `chapter`,
 `scene`, `front matter` or `back matter`), and the book's **Structure** in Book details (the binder note's
-`structure`; see [docs/file-format.md](docs/file-format.md)).
+`structure`; see [docs/dev/file-format.md](docs/dev/file-format.md)).
 
 **What your Markdown becomes.** Properties are never exported. A new line is a new paragraph, and a tab or spaces at
 a paragraph's start are dropped (the manuscript indents every paragraph itself); two spaces or a backslash at a
@@ -599,7 +599,7 @@ target and notes. Binders creates it the first time you give the folder one of t
 
 Binders changes only `contents` and its own properties in the binder note, and only the properties you edit in its views
 in your notes. Renaming, moving or deleting notes anywhere in Obsidian keeps the order up to date. Notes the order
-doesn't mention yet show after the others, by name. The full format is in [docs/file-format.md](docs/file-format.md).
+doesn't mention yet show after the others, by name. The full format is in [docs/dev/file-format.md](docs/dev/file-format.md).
 
 ### What Binders writes, and what it never touches
 
@@ -798,13 +798,13 @@ Binders makes no network requests and collects nothing. Everything it does happe
 
 | | |
 |---|---|
-| [File format](docs/file-format.md) | Binder notes, folder notes, scene properties, Longform projects |
+| [File format](docs/dev/file-format.md) | Binder notes, folder notes, scene properties, Longform projects |
 | [Roadmap](ROADMAP.md) | What's planned: the rest of Export, import from Scrivener, find and replace |
-| [Plan](docs/plan.md) | The design of every feature, and what's done |
-| [Architecture](docs/architecture.md) | A map of the code: modules, layers, how a change travels, what keeps writing safe |
-| [Obsidian internals](docs/internals.md) | The undocumented parts of Obsidian Binders uses, and their fallbacks |
-| [Design](docs/design.md) | What "native" means here, and how design rounds are run |
-| [Development](docs/development.md) | Building, testing, releasing |
+| [Plan](docs/dev/plan.md) | The design of every feature, and what's done |
+| [Architecture](docs/dev/architecture.md) | A map of the code: modules, layers, how a change travels, what keeps writing safe |
+| [Obsidian internals](docs/dev/internals.md) | The undocumented parts of Obsidian Binders uses, and their fallbacks |
+| [Design](docs/dev/design.md) | What "native" means here, and how design rounds are run |
+| [Development](docs/dev/development.md) | Building, testing, releasing |
 | [Contributing](AGENTS.md) | The rules every change follows, versioning, tests |
 
 ## License

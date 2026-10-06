@@ -4,7 +4,7 @@ import { MarkdownView, type App, type Editor } from 'obsidian';
 
 /* Obsidian's own DOM and editor, as far as focus mode reaches into them: everything undocumented it relies on is here
    (and the class names of what it hides are in one block of styles.css). Each is looked for, and has a fallback when
-   it isn't there; all are listed in docs/internals.md and tested in tests/e2e/specs-focus.mjs. */
+   it isn't there; all are listed in docs/dev/internals.md and tested in tests/e2e/specs-focus.mjs. */
 
 /** A note's CodeMirror editor (the `Editor`'s own `cm`), or null: then there's no typewriter line in a note tab. */
 export function editorView(view: MarkdownView): EditorView | null {

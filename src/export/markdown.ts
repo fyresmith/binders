@@ -10,7 +10,7 @@ import type { Block, Inline, Text } from './model';
 
 /* A note's text read for a book. Markdown is read by a real parser (micromark, with footnotes, tables and
    strikethrough); what is Obsidian's own (wikilinks, embeds, comments, highlights, inline footnotes, block ids, tags,
-   callouts, math) is taken out of the text first and put back as the model has it. The table in docs/export.md, "What
+   callouts, math) is taken out of the text first and put back as the model has it. The table in docs/dev/export.md, "What
    Markdown becomes", is this file row by row. Pure.
 
    Three things are read differently from Markdown, on purpose:

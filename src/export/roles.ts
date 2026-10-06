@@ -1,7 +1,7 @@
 import { STRUCTURES, numberWords, type Role, type Structure } from './model';
 
 /* Which note and folder plays which part in the book: the one structure rule, Binders' guess at it, and what a
-   writer's `export-as` overrules. Pure. The design is docs/export.md, "The model". */
+   writer's `export-as` overrules. Pure. The design is docs/dev/export.md, "The model". */
 
 /** A note or folder of the binder, as export is handed it: in binder order, a note with its text (properties off). */
 export interface SourceItem {

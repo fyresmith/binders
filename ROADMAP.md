@@ -12,7 +12,7 @@ state (code, tests and documentation).
       sizes, by touch: every bug found is fixed with a test, and the result is tried on a real iPhone or iPad and a
       real Android device (so far phones are only emulated; "emulator is king": until the maintainer has a real
       device, the emulated phone and tablet tests are the standard). Findings live in `tests/e2e/specs-qa4-mobile.mjs` and
-      `tests/e2e/specs-qa5-*.mjs`. Integration results and remaining findings: [integration QA](docs/integration-qa.md).
+      `tests/e2e/specs-qa5-*.mjs`. Integration results and remaining findings: [integration QA](docs/dev/integration-qa.md).
 
 ## Next, in this order
 
@@ -20,11 +20,11 @@ state (code, tests and documentation).
       "Arrange by Label" does: which thread each scene is on, and how the threads interleave. "Arrange" in the
       corkboard's toolbar chooses; lines run across or down; dragging a card to another line gives it that label,
       along the lines changes its place, and Undo takes both back. Design approved by the maintainer and built
-      (2026-10-01); see `docs/plan.md`, "Arranged by label".
+      (2026-10-01); see `docs/dev/plan.md`, "Arranged by label".
 
 - [ ] **Export.** A binder (or a folder of it) out as a book: EPUB, DOCX and PDF, with front and back matter, a
       title page, chapters from folders, and scene breaks. **Designed and decided 2026-10-05:
-      [docs/export.md](docs/export.md)** (roles and styles, a style editor with the real pages beside it, five
+      [docs/dev/export.md](docs/dev/export.md)** (roles and styles, a style editor with the real pages beside it, five
       kinds, built with no outside tools, PDF on a computer only, and the order it is built in, steps 0 to 6).
   - [x] **Step 1: the book model and the manuscript** (2026-10-05). The Markdown reader and the one book model
         every writer reads; roles from the structure Binders reads off a binder's shape (`export-as` and
@@ -36,7 +36,7 @@ state (code, tests and documentation).
   - [x] **Step 4: the Scrivener project** (2026-10-05). The binder itself as a `.scriv` folder: the `.scrivx`, RTF
         documents, synopses, labels, statuses, targets, snapshots, section types, held to the word-for-word test;
         written whole or not at all, never over a project opened since; zipped on a phone. Opened so far only as
-        the format spike's projects, in the maintainer's Scrivener: `docs/export.md`, "As built".
+        the format spike's projects, in the maintainer's Scrivener: `docs/dev/export.md`, "As built".
   - [ ] Step 5: overruling and owning ("Export as" and its column, the style editor and style files, Export again).
   - [ ] Step 6: finish (phones and tablets by touch, both themes, the docs, a QA round).
   - **And out as a Scrivener project** (added 2026-10-01): a `.scriv` folder Scrivener 3 opens, for a writer who
@@ -61,7 +61,7 @@ state (code, tests and documentation).
       the synopsis, status or label. Snapshots live in one folder per binder that never shows in the file explorer
       or in search, never counts as part of the binder, follows a scene when it's renamed or moved, and stays when
       a scene is deleted. Built 2026-10-01: plain `.snapshot` files in the binder's `Snapshots` folder (see
-      `docs/file-format.md`). Obsidian Sync carries them only with "Sync all other types" turned on.
+      `docs/dev/file-format.md`). Obsidian Sync carries them only with "Sync all other types" turned on.
 - [x] **Focus mode.** The text and nothing else, for a note of a binder (in the manuscript and in a note's own
       tab), in the vault's own type, with one key to leave. Typewriter scrolling is on as it comes (for the last
       line only: editing further up scrolls as ever). Everything more is an option, off as it comes: the scenes
@@ -71,9 +71,9 @@ state (code, tests and documentation).
 
 ## Then
 
-- [ ] 1.0: release and directory submission (see `docs/plan.md`, Milestones).
+- [ ] 1.0: release and directory submission (see `docs/dev/plan.md`, Milestones).
 
-Smaller things wanted after 1.0 are listed at the end of `docs/plan.md`.
+Smaller things wanted after 1.0 are listed at the end of `docs/dev/plan.md`.
 
 ## After 1.0: focused additions
 

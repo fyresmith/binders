@@ -203,7 +203,7 @@ export function conversionPlan(shown: Scene[], folders: boolean, taken: (name: s
 }
 
 /** Whether the Longform plugin is running. It keeps `scenes` in step with renames and deletes itself, so Binders then
-    leaves that to it. Internal: `app.plugins.plugins` (see docs/internals.md); if it's missing, Binders does it. */
+    leaves that to it. Internal: `app.plugins.plugins` (see docs/dev/internals.md); if it's missing, Binders does it. */
 export function longformRunning(app: App): boolean {
 	const plugins = (app as unknown as { plugins?: { plugins?: Record<string, unknown> } }).plugins?.plugins;
 	return !!plugins && typeof plugins === 'object' && !!plugins.longform;

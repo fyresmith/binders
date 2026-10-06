@@ -1,6 +1,6 @@
 # Binders: plan
 
-Status: feature-complete except what is in [ROADMAP.md](../ROADMAP.md), and in QA. The explorer, binder store, corkboard
+Status: feature-complete except what is in [ROADMAP.md](../../ROADMAP.md), and in QA. The explorer, binder store, corkboard
 (in a grid, or arranged by label), outliner, editable manuscript, Longform integration, labels and statuses, word count
 targets, scene operations (split, merge, duplicate, group), export (step 1: a manuscript, one note), snapshots, focus mode, dragging a card out of the
 view, and undo of moves all work, on desktop and in mobile emulation. Nothing is tagged yet: the version in
@@ -146,7 +146,7 @@ New (note, folder). The view runs edge to edge, as a base, a canvas or a note do
   its folder note (two lines; three on a large card), then the names of the first things it holds (three; two on a
   small card, five on a large), each with its label's dot, and its count at the foot. A small card with a synopsis
   shows the synopsis alone. It's gone into to see what it holds, and the breadcrumb leads back out. (The names in place
-  of a drawn stack of cards: decided 2026-10-02, see `docs/design.md`.) (Decided 2026-10-01, after a study of three layouts: before that,
+  of a drawn stack of cards: decided 2026-10-02, see `docs/dev/design.md`.) (Decided 2026-10-01, after a study of three layouts: before that,
   subfolders showed as sections under headings, which left loose notes in rows of their own between them.) A
   Longform project, which has no folders, still shows the scenes indented under a scene as a group below it. Card
   size (small, medium, large) is a view option.
@@ -334,7 +334,7 @@ twice before it exists once.
 
 In `src/snapshots.ts` (the vault side), `src/snapshot-text.ts` (names, the file's own text, and comparing two texts
 as prose; pure) and `src/view/snapshots.ts` (the dialogs, the menus, and a pane that shows one). The format is in
-`docs/file-format.md`.
+`docs/dev/file-format.md`.
 
 - The model is Scrivener's: the note stays the note (its place, its properties, the links to it), and its text as it
   was is set aside. A snapshot holds the text only.
@@ -383,7 +383,7 @@ as prose; pure) and `src/view/snapshots.ts` (the dialogs, the menus, and a pane 
 A card or an outliner row dragged out of the binder view is handed to Obsidian as a file drag, as a row of the file
 explorer is, so everything that takes a note takes it: the file explorer (moved), a note (a link), a canvas (a card of
 it; a folder as the notes in it), a tab (the note opened) and the bookmarks. Inside the view the drag is the view's own.
-`src/view/file-drag.ts` (geometry in `file-drag-data.ts`), listed in `docs/internals.md`. Not on a phone, and not in a
+`src/view/file-drag.ts` (geometry in `file-drag-data.ts`), listed in `docs/dev/internals.md`. Not on a phone, and not in a
 window of its own: there the drag stays inside the view. A move to a folder in a binder through the file explorer is
 one change that "Undo last move" takes back; a move out of the binder isn't recorded.
 
@@ -510,7 +510,7 @@ undocumented parts, one by one, are in [internals.md](internals.md).
 
 ## Milestones
 
-**What's left before 1.0 is in [ROADMAP.md](../ROADMAP.md)**: mobile QA to the end (on real devices), export, import
+**What's left before 1.0 is in [ROADMAP.md](../../ROADMAP.md)**: mobile QA to the end (on real devices), export, import
 from Scrivener, and find and replace across the manuscript.
 
 The numbers are the plan's milestones, not the versions in the CHANGELOG (those are 0.12.x now, and every commit bumps

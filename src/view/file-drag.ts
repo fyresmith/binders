@@ -8,7 +8,7 @@
    canvas (a card of it), a tab (the note opened), the bookmarks, the file explorer (moved). Back over the view the file
    drag is ended, with nothing dropped, and the card is a card again.
 
-   Undocumented, all of it (docs/internals.md): `app.dragManager` and its `draggable`, `ghostEl`, `dragStart`,
+   Undocumented, all of it (docs/dev/internals.md): `app.dragManager` and its `draggable`, `ghostEl`, `dragStart`,
    `onDragStart`, `onDragEnd`, `dragFile`, `dragFolder`, `dragFiles`; drag events made by hand. Without any of them
    `FileDrag.begin()` returns null and a drag never leaves the view, as before. */
 import { Platform, TFile, TFolder, type App, type TAbstractFile } from 'obsidian';

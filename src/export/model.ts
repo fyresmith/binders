@@ -1,6 +1,6 @@
 /* The book model: what a binder is once it has been read for export, and the one thing every writer (Word now; the
    ebook, the pages and the Scrivener project after it) reads. Pure: no Obsidian, no file, no style. A style decides
-   how a role is set; nothing here knows what a chapter looks like. The design is docs/export.md. */
+   how a role is set; nothing here knows what a chapter looks like. The design is docs/dev/export.md. */
 
 /** A stretch of text set one way. */
 export interface Text {

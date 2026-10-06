@@ -15,7 +15,7 @@ export interface ManuscriptStyle {
 	titlePage: boolean;
 }
 
-/** The three built in (docs/export.md, "Styles"). The first is what a manuscript starts as. */
+/** The three built in (docs/dev/export.md, "Styles"). The first is what a manuscript starts as. */
 export const MANUSCRIPT_STYLES: readonly ManuscriptStyle[] = [
 	{ name: 'Standard manuscript', typeface: 'Times New Roman', lineSpacing: 'double', italics: 'italic', chapterStarts: 'a third of the way down', sceneBreak: '#', header: 'Surname / TITLE / page', titlePage: true },
 	{ name: 'Standard manuscript, Courier', typeface: 'Courier New', lineSpacing: 'double', italics: 'underlined', chapterStarts: 'a third of the way down', sceneBreak: '#', header: 'Surname / TITLE / page', titlePage: true },

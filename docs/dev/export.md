@@ -2,8 +2,8 @@
 
 Decided with the maintainer on 2026-10-05. This is what is to be built, written as decided. **Step 1 of "The
 order" is built** (2026-10-05: the book model, the Word manuscript, the window with Manuscript and One note, where
-files go, "Compile" renamed); what it is as built is in the README ("Export"), `docs/file-format.md` ("Export")
-and `docs/architecture.md` ("Export"). **Step 2 is built too** (2026-10-05: the ebook: the EPUB writer, Classic
+files go, "Compile" renamed); what it is as built is in the README ("Export"), `docs/dev/file-format.md` ("Export")
+and `docs/dev/architecture.md` ("Export"). **Step 2 is built too** (2026-10-05: the ebook: the EPUB writer, Classic
 as the first book style, Book details, the made pages, the cover, EPUBCheck in the tests); what was decided while
 building it is under "Decided while building the ebook (step 2)". **So is step 4, the Scrivener project**
 (2026-10-05): what it is as built, the format's choices and what each stands on are under "The Scrivener project".
@@ -171,7 +171,7 @@ scene-break: "⁂"
 - A property Binders doesn't know is left alone; a value it can't read falls back to the style it is based on, and
   is listed with the warnings. A style whose `based-on` is missing falls back to Classic.
 - Binders writes these files itself, only from the editor; a newer `export-style` is refused, not rewritten (golden
-  rules 3 and 6). `docs/file-format.md` gains this section when styles are built.
+  rules 3 and 6). `docs/dev/file-format.md` gains this section when styles are built.
 - **Custom CSS is kept, and only in the file:** the editor has no field for it. It is for the few who
   will open the file by hand ("Show the style's file"); it reaches the ebook and the PDF, not Word.
 

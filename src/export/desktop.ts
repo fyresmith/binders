@@ -4,7 +4,7 @@ import { FileSystemAdapter, Platform, type App } from 'obsidian';
    vault. Neither is Obsidian's API: the dialog is Electron's, reached through the `remote` Obsidian keeps for its own
    "Export to PDF", and the disk is Node's `fs`. So they are here and nowhere else (golden rule 5), asked for only when
    used, only on a computer, and looked at before they are trusted: `desktop()` is null when anything is missing, and
-   export then saves into the vault's Exports folder instead, as it does on a phone (docs/internals.md). */
+   export then saves into the vault's Exports folder instead, as it does on a phone (docs/dev/internals.md). */
 
 interface Fs {
 	promises: {

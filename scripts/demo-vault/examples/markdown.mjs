@@ -1,4 +1,4 @@
-// "What Markdown becomes": a binder with a scene for each row of the table of that name in docs/export.md. Each
+// "What Markdown becomes": a binder with a scene for each row of the table of that name in docs/dev/export.md. Each
 // scene's synopsis says what an export should do with it, so an exported file can be checked by eye against the doc.
 import { picture } from '../png.mjs';
 import { EMBEDDED, JOIN, ROWS_1 } from './markdown-1.mjs';
@@ -24,5 +24,5 @@ export function markdown(add) {
 	return binder(add, 'What Markdown becomes', {
 		title: 'What Markdown becomes', author: 'Binders', language: 'en-GB',
 		synopsis: 'One scene for each kind of content an export has to decide about. Each synopsis says what should happen to it.',
-	}, 'The rows of “What Markdown becomes” in the Binders project’s `docs/export.md`, in order. Export this binder and read the file beside the corkboard.\n', items);
+	}, 'The rows of “What Markdown becomes” in the Binders project’s `docs/dev/export.md`, in order. Export this binder and read the file beside the corkboard.\n', items);
 }

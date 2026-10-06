@@ -10,7 +10,7 @@ import { liveEditors, saveTab } from './view/editable-embed';
    "Snapshots" folder, under the note's own path: the snapshots of "Part One/Arrival" are the files in
    "Snapshots/Part One/Arrival". The scene stays the scene (its place, its properties, the links to it); only its text
    is set aside. The files end in ".snapshot", which Obsidian doesn't take for notes: they're in no search, no quick
-   switcher, no backlinks, no graph (see docs/file-format.md for what that costs with Obsidian Sync).
+   switcher, no backlinks, no graph (see docs/dev/file-format.md for what that costs with Obsidian Sync).
 
    What this writes, and nothing else:
      - a new snapshot file (never over a file that's there), read back from the disk and checked before anything

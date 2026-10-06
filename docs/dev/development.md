@@ -1,7 +1,7 @@
 # Development
 
 How the code is laid out is in [architecture.md](architecture.md); the rules everyone works to are in
-[AGENTS.md](../AGENTS.md).
+[AGENTS.md](../../AGENTS.md).
 
 ## Setup
 
@@ -58,7 +58,7 @@ a real manuscript throws at Binders, and each of the four structures export can 
 | Die Uhr von Sankt Veit, Le Bac de minuit | Short books in German and French (`language: de`, `fr`), for export's quotes |
 | Other Alphabets | Hebrew, Arabic, Chinese, Japanese, Korean, Greek, Russian, emoji, accents, dashes and dots, verse with line breaks, a chapter of letters |
 | The Cartographer's Winter | A Longform project that is a real book: fourteen scenes, two nested, an ignored file, a snapshot |
-| What Markdown becomes | A scene for each row of that table in `docs/export.md`, each synopsis saying what an export should do with it |
+| What Markdown becomes | A scene for each row of that table in `docs/dev/export.md`, each synopsis saying what an export should do with it |
 
 The examples' prose is composed, not typed: `scripts/demo-vault/prose.mjs` puts paragraphs together (dialogue with
 its attributions, description, long and short paragraphs, a thought in italics, scene breaks) from sentences and
@@ -161,7 +161,7 @@ words back out of the file, and `sourceWords` reads the words that went in strai
 few patterns of its own (not the parser export uses). A word is a run of letters and digits, so typeset quotes and
 dashes are no difference. The text and the footnotes are each compared in order. It runs on:
 
-- one note that has every row of the table "What Markdown becomes" in `docs/export.md`;
+- one note that has every row of the table "What Markdown becomes" in `docs/dev/export.md`;
 - the test vault's binder, read from disk (`tests/export-vault.ts` reads a vault held in memory as binders);
 - every binder of the demo vault, made in memory by its generator (27, about 710,000 words: the example books, and among the stress binders
   a note of 100,000 words, 5,000 notes, fifteen folders deep, odd names and odd files);
@@ -429,7 +429,7 @@ still puts back what it changes; the runner is there for the one that fails befo
 
 | Script | Run as | What it does |
 |---|---|---|
-| `ship.mjs` | `npm run ship -- patch "Title" --fixed "…"` | Bumps the version, writes the CHANGELOG entry and commits what is staged. Every commit goes through it (see [AGENTS.md](../AGENTS.md)) |
+| `ship.mjs` | `npm run ship -- patch "Title" --fixed "…"` | Bumps the version, writes the CHANGELOG entry and commits what is staged. Every commit goes through it (see [AGENTS.md](../../AGENTS.md)) |
 | `memo.mjs` | `npm run memo` | Progress memos for a team of agents: write one, list them all, read one (AGENTS.md, "Progress memos") |
 | `install-to-vault.mjs` | by every build; `npm run install-vault -- <vault>` | Copies the build into a vault and turns the plugin on there |
 | `make-demo-vault.mjs`, `demo-vault/` | `npm run demo-vault` | Makes or updates `demo-vault/` (above) |
@@ -452,7 +452,7 @@ run on a developer's machine. Before a release, run it there (`npm run e2e:all -
 
 ## Versions and commits
 
-Every commit goes through `npm run ship`, which bumps the version and writes the CHANGELOG. See [AGENTS.md](../AGENTS.md).
+Every commit goes through `npm run ship`, which bumps the version and writes the CHANGELOG. See [AGENTS.md](../../AGENTS.md).
 
 ### Before a fix ships
 

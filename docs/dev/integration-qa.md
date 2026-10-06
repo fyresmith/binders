@@ -92,7 +92,7 @@ scenarios are `tests/e2e/specs-qa6-*.mjs`. Developers fixed them through the day
   run`), twenty-five were tests that still described behavior changed on purpose or specs left half-edited, six were
   listed as open, one was load. A re-check of all 45 in both themes on 0.12.133 left none failing alone. The rule
   since: a fix runs its area's specs in both themes before it ships, and the whole suite runs after each batch
-  (`docs/development.md`, "Before a fix ships").
+  (`docs/dev/development.md`, "Before a fix ships").
 - **Still open**, each listed in `tests/e2e/open-findings.json` with why, and in the README's known limitations: the
   split's undo; four kinds of content whose rendered and live heights differ; "Measure loop restarted" warnings from
   the editor in three places; a tap in another section with the caret at a wrapped line's start; the "New note" tile
