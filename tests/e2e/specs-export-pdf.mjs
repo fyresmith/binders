@@ -15,6 +15,9 @@ const WIN = '.modal.binders-export';
 const KEEP = process.env.BINDERS_KEEP_PDF || '';
 const keep = (path, name) => { if (!KEEP) return; mkdirSync(KEEP, { recursive: true }); copyFileSync(path, join(KEEP, name)); };
 
+/** A picture of the window, kept beside the PDFs. */
+const shot = async (p, name) => { if (!KEEP) return; mkdirSync(KEEP, { recursive: true }); const dark = await p.ev(`document.body.classList.contains('theme-dark')`); await p.sleep(300); await p.shot(join(KEEP, `${name}-${dark ? 'dark' : 'light'}.png`)); };
+
 // ---- reading a PDF back ----
 const tool = (name) => !spawnSync(name, ['-v']).error;
 const TOOLS = { text: tool('pdftotext'), fonts: tool('pdffonts'), info: tool('pdfinfo') };
@@ -87,6 +90,7 @@ test('a paperback: the kind and its choices, the pages in the window, and a PDF 
 	t.eq((await p.ev(`[...document.querySelectorAll('${WIN} select[data-binders-key="page"] option')].map(o => o.textContent)`)).join('|'), '5 × 8 in|5.25 × 8 in|5.5 × 8.5 in|6 × 9 in|A5', 'the trim sizes');
 	t.ok(await laidOut(p), 'the pages are laid out in the window');
 	const shown = await pages(p);
+	await shot(p, 'window-paperback');
 	t.ok(shown.length >= 8, `the book has pages (${shown.length})`);
 	t.eq(await detail(p), `${shown.length} pages · 5 × 8 in`, 'the bar says how many, and how large');
 	t.ok(/title-page/.test(shown[0].cls) && /spine-left/.test(shown[0].cls) && shown[0].text.startsWith('The Lighthouse') && !shown[0].folio && !shown[0].head, 'the title page first, a right-hand page, with no number');
@@ -166,6 +170,7 @@ test('a manuscript as a PDF: the File and Paper choices, standard manuscript for
 	let shown = await pages(p);
 	t.eq(await detail(p), `${shown.length} pages · Letter`, 'the bar says how many pages, on Letter');
 	t.ok(/title-page/.test(shown[0].cls) && /about \d[\d,]* words/.test(shown[0].text) && shown[0].text.includes('by Mara Lindqvist') && !shown[0].head, 'the title page: the count, the title, the byline, and no header');
+	await shot(p, 'window-manuscript-pdf');
 	t.eq(shown[1].head, 'Lindqvist / LIGHTHOUSE / 1', 'the header on the first page of text, which is page 1');
 	t.ok(shown.slice(1).every((s, i) => s.head === `Lindqvist / LIGHTHOUSE / ${i + 1}`), 'and on every page after, counted');
 	t.ok(shown.some((s) => s.text.startsWith('Chapter One')), 'chapters are headed as the Word file heads them');
@@ -208,6 +213,7 @@ test('where a PDF can’t be made: the window says so, shows the pages, and has 
 	await open(p);
 	await pick(p, 'Paperback');
 	t.ok(await laidOut(p), 'the pages are laid out all the same');
+	await shot(p, 'window-no-pdf-here');
 	t.ok((await pages(p)).length >= 8, 'and can be looked at');
 	t.ok(!(await buttons(p)).includes('Export'), 'there is no Export');
 	t.ok((await p.ev(`document.querySelector('${WIN} .binders-export-nopdf')?.textContent ?? ''`)).startsWith('PDF isn’t available here.'), 'and the choices say why');
@@ -255,12 +261,15 @@ specs.push({ name: 'export pdf: a phone: Paperback says “PDF, made on a comput
 			t.eq(await p.ev(`[...document.querySelectorAll('${WIN} [role="option"]')].find(e => e.getAttribute('aria-selected') === 'true').getAttribute('aria-label')`), 'Paperback: PDF, made on a computer', 'the row says where it is made');
 			t.ok((await p.ev(`document.querySelector('${WIN} .binders-export-nopdf')?.textContent ?? ''`)).startsWith('A PDF is made by Obsidian on a computer.'), 'and a sentence under its choices');
 			t.eq((await rows(p)).join('|'), 'Style|Page|Book details', 'its style and its page can be chosen here');
+			t.ok(await p.ev(`!document.querySelector('${WIN} .binders-export-place')`), 'and nothing says a file will go anywhere');
 			t.eq((await p.ev(`[...document.querySelectorAll('${WIN} .binders-export-phone-row button')].map(b => b.textContent)`)).join('|'), 'Preview', 'Preview, and no Export');
+			await shot(p, 'phone-paperback-choices');
 			const fits = await p.ev(`(() => { const m = document.querySelector('${WIN}').getBoundingClientRect(); return [...document.querySelectorAll('${WIN} .setting-item, ${WIN} .binders-export-nopdf, ${WIN} .binders-export-phone-row button')].every(e => { const r = e.getBoundingClientRect(); return r.left >= m.left - 1 && r.right <= m.right + 1; }); })()`);
 			t.ok(fits, 'nothing is wider than the screen');
 			await click(p, `[...document.querySelectorAll('${WIN} .binders-export-phone-row button')].find(b => b.textContent === 'Preview')`);
 			t.ok(await laidOut(p), 'Preview: the pages are laid out on the phone');
 			const shown = await pages(p);
+			await shot(p, 'phone-paperback-pages');
 			t.ok(shown.length >= 8 && shown[0].text.startsWith('The Lighthouse'), `the same book (${shown.length} pages)`);
 			const look = await p.ev(`(() => { const f = ${FRAME}, d = f.contentDocument, sheets = [...d.querySelectorAll('.sheet')].slice(0, 3).map(s => s.getBoundingClientRect()); return { single: d.querySelector('#book').classList.contains('single'), wide: f.getBoundingClientRect().width, sheet: sheets[0].width, under: sheets[1].top > sheets[0].bottom - 1 && sheets[2].top > sheets[1].bottom - 1, left: sheets[0].left, paper: getComputedStyle(d.querySelector('.page')).backgroundColor }; })()`);
 			t.ok(look.single && look.under, 'single pages, one under another');
@@ -283,6 +292,7 @@ test('the window’s pages: facing on a wide window (the first alone on the righ
 	t.ok(look.right <= look.wide, 'and fits the window');
 	t.eq(look.paper, 'rgb(255, 255, 255)', 'pages are paper: white');
 	t.eq(look.desk, look.pane, 'on the theme’s own background');
+	t.eq(await p.ev(`getComputedStyle(${FRAME}.contentDocument.documentElement).colorScheme`), (await p.ev(`document.body.classList.contains('theme-dark')`)) ? 'dark' : 'light', 'with the theme’s own scrollbar');
 	t.ok(look.label === 'The pages, as they will print' && look.tab === 0, 'the frame is named and can be reached by keyboard');
 });
 

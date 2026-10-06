@@ -364,7 +364,7 @@ export class ExportModal extends Modal {
 				box.checked = !!kept;
 				box.addEventListener('change', () => { setPlace(this.plugin, this.folder, kind, box.checked ? this.saved?.path ?? kept : null); this.draw(); });
 				label.appendText('Save here next time without asking');
-			} else if (!host) {
+			} else if (!host && !this.noPdf) {
 				const to = `${exportsFolder(this.plugin, this.folder)}/${kind === 'scrivener' ? scrivFile(this.folder, host) : `${this.fileName()}.${this.made.extension}`}`;
 				place(Platform.isMobile ? `Goes to ${to}, then to where you share it` : `Goes to ${to}, in this vault`);
 			}

@@ -3,6 +3,13 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.39.2 (2026-10-06)
+
+### Fixed
+
+- The scrollbar beside a PDF's pages follows the light or dark theme.
+- A phone no longer says where a PDF it can't make would be saved.
+
 ## 0.39.1 (2026-10-06)
 
 ### Changed

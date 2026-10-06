@@ -244,7 +244,8 @@ export function showPages(el: HTMLElement, book: Book, spec: PagesSpec, o: Pages
 			const single = Platform.isPhone || room < wide * 1.25;
 			scale = Math.max(0.2, Math.min(1, room / (single ? wide : wide * 2)));
 			stage.book.classList.toggle('single', single);
-			stage.vars.textContent = `:root { --s: ${scale}; --desk: ${getComputedStyle(wrap).backgroundColor || '#8a8a8a'}; }`;
+			// (the frame's own scrollbar is the theme's: light or dark)
+			stage.vars.textContent = `:root { --s: ${scale}; --desk: ${getComputedStyle(wrap).backgroundColor || '#8a8a8a'}; color-scheme: ${wrap.doc.body.hasClass('theme-dark') ? 'dark' : 'light'}; }`;
 		};
 		fit();
 		const watch = new ResizeObserver(fit);
