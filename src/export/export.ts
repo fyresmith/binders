@@ -19,7 +19,7 @@ import { readStructure, type SourceItem } from './roles';
 export const EXPORT_AS = 'export-as';
 
 /** The kinds of export there are so far. */
-export type Kind = 'manuscript' | 'note';
+export type Kind = 'manuscript' | 'scrivener' | 'note';
 export const KINDS: { id: Kind; name: string; detail: string }[] = [
 	{ id: 'manuscript', name: 'Manuscript', detail: 'Word, in standard manuscript format' },
 	{ id: 'note', name: 'One note', detail: 'Markdown, in this vault' },
@@ -111,7 +111,7 @@ export function memory(plugin: BindersPlugin): Memory {
 	const rec = <T>(v: unknown): Record<string, T> => (v && typeof v === 'object' && !Array.isArray(v) ? { ...(v as Record<string, T>) } : {});
 	return { places: rec<string>(m?.places), written: rec<Stamp>(m?.written) };
 }
-function remember(plugin: BindersPlugin, change: (m: Memory) => void): void {
+export function remember(plugin: BindersPlugin, change: (m: Memory) => void): void {
 	const m = memory(plugin);
 	change(m);
 	for (const k of Object.keys(m.written).slice(0, -WRITTEN_KEPT)) delete m.written[k];

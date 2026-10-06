@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.28.1 (2026-10-06)
+
+### Changed
+
+- Nothing a writer will notice yet: the part of Export that writes a Scrivener project, with a test that no word is dropped or reordered.
+
 ## 0.28.0 (2026-10-06)
 
 ### Added
