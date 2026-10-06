@@ -4,6 +4,8 @@ import { ExportModal } from './export';
 import { exportAgain } from './export-again';
 import { lastExport } from '../export/export';
 import { folderSnapshotItems } from './snapshots';
+import { headerFolderSnapshots } from './binder-snapshots';
+import { hasSnapshots } from '../binder-snapshots';
 import type BindersPlugin from '../main';
 import { commitAll, commitFocused, editable, editingIn, type Editable } from './edit';
 import { keepOpen, readableLineLength, refreshHeader, selectMenuItem } from './internals';
@@ -498,6 +500,7 @@ export class BinderView extends ItemView {
 		this.current = null;
 		this.synopsis = null;
 		this.resolve();
+		this.headerSnapshots();
 		this.identity = this.key();
 		// (the file explorer marks the folder shown, as it marks the open note)
 		this.plugin.explorer?.active();
@@ -559,9 +562,19 @@ export class BinderView extends ItemView {
 		this.inspect();
 	}
 
+	/** The Snapshots button in the view's header, as a note of a binder has: for the folder shown. */
+	private snapshotsButton: HTMLElement | null = null;
+	private headerSnapshots(): void {
+		const want = !!this.folder && !!this.binder && hasSnapshots(this.plugin, this.folder);
+		if (want && !this.snapshotsButton) {
+			const b = this.snapshotsButton = this.addAction('history', 'Snapshots', () => { if (this.folder) headerFolderSnapshots(this.plugin, this.folder, b); });
+		} else if (!want && this.snapshotsButton) { this.snapshotsButton.remove(); this.snapshotsButton = null; }
+	}
+
 	private refresh(): void {
 		if (this.closed) return;
 		this.resolve();
+		this.headerSnapshots();
 		// (made again, where it was: the same folder may have become another kind of binder, or read only)
 		if (this.key() !== this.identity) { this.keepPlace(); this.rebuild(); return; }
 		if (!this.folder) return;

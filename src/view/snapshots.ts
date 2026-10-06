@@ -8,6 +8,7 @@ import { attach, bringBack, isScene, leftovers, nameSnapshot, rewrite, snapshots
 import { liveEditors } from './editable-embed';
 import { historyLook, refreshHeader, submenu, trashPhrase } from './internals';
 import { ask, buttonRow, cancelButton, confirm } from './modals';
+import { folderItems } from './binder-snapshots';
 import { wordsIn, wordsLabel } from './words';
 
 /* Snapshots, to the writer: "Take a snapshot", "Rewrite", the dialog that lists a note's snapshots, and a pane that
@@ -16,11 +17,11 @@ import { wordsIn, wordsLabel } from './words';
    in any theme, and on a phone it's a sheet whose list leads to the text, as theirs is. Where this Obsidian has no
    such classes, Binders' own rules lay it out the same way (see `historyLook` in internals.ts). */
 
-const tell = (e: unknown) => { new Notice(e instanceof Error ? e.message.replace(/^E[A-Z]+: /, '') : typeof e === 'string' ? e : 'That didn’t work.'); };
+const tell = (e: unknown) => { say(e instanceof Error ? e.message.replace(/^E[A-Z]+: /, '') : typeof e === 'string' ? e : 'That didn’t work.'); };
 /** "Today at 14:32", "Yesterday at 09:15", "Sep 12, 2026, 9:15 AM". */
 export const when = (ms: number): string => window.moment(ms).calendar(null, { sameDay: '[Today at] LT', lastDay: '[Yesterday at] LT', lastWeek: 'dddd [at] LT', sameElse: 'll, LT' });
 /** The same inside a sentence: "today at 14:32". */
-const whenIn = (ms: number): string => when(ms).replace(/^(Today|Yesterday)/, (w) => w.toLowerCase());
+export const whenIn = (ms: number): string => when(ms).replace(/^(Today|Yesterday)/, (w) => w.toLowerCase());
 /** In a list, to take in at a glance: the same for the last week ("Today at 14:32", "Sunday at 09:15"), then the day
     and time without the year ("Sep 12, 9:15 AM"), and in another year the day alone ("Aug 27, 2025"). */
 export function whenShort(ms: number): string {
@@ -31,7 +32,14 @@ export function whenShort(ms: number): string {
 	try { day = new Intl.DateTimeFormat(window.moment.locale(), { month: 'short', day: 'numeric' }).format(ms); } catch { day = m.format('MMM D'); }
 	return `${day}, ${m.format('LT')}`;
 }
-const copyText = (text: string): void => { void navigator.clipboard.writeText(text).then(() => new Notice('Copied the text.'), tell); };
+/** Says something as Obsidian's notices do. Over one of these dialogs a notice lies on the bar's buttons for as long
+    as it shows, and would take the click meant for one of them: there, it lets the click through. */
+export function say(text: string, ms?: number): Notice {
+	const n = new Notice(text, ms), el = (n.containerEl) ?? n.messageEl?.parentElement;
+	if (el?.doc.querySelector('.modal.binders-snapshots')) el.addClass('binders-notice-over-dialog');
+	return n;
+}
+const copyText = (text: string): void => { void navigator.clipboard.writeText(text).then(() => say('Copied the text.'), tell); };
 const notes = (n: number) => `${n.toLocaleString()} ${n === 1 ? 'note' : 'notes'}`;
 
 /** "Take a snapshot": no questions. Says what it did. With a name (a whole folder's, taken together), every note with
@@ -42,21 +50,13 @@ export async function take(plugin: BindersPlugin, scenes: TFile[], title = ''): 
 		for (const f of scenes) { const r = await takeSnapshot(plugin, f, title); if (r?.made) made++; else if (r) same++; }
 	} catch (e) {
 		// (said with how far it got: the ones taken are there)
-		new Notice(`${made ? `Took a snapshot of ${notes(made)}, then stopped. ` : ''}${e instanceof Error ? e.message : String(e)}`, 8000);
+		say(`${made ? `Took a snapshot of ${notes(made)}, then stopped. ` : ''}${e instanceof Error ? e.message : String(e)}`, 8000);
 		return;
 	}
 	const one = scenes.length === 1 ? `“${scenes[0].basename}”` : null;
-	if (made) new Notice(`Took a snapshot of ${one ?? notes(made)}${title ? `, named “${title}”` : ''}.${!one && same ? ` ${same === 1 ? 'One hasn’t' : `${same} haven’t`} changed since ${same === 1 ? 'its' : 'their'} last snapshot.` : ''}`);
-	else if (same) new Notice(one ? `${one} hasn’t changed since its last snapshot.` : 'None of them has changed since its last snapshot.');
-	else new Notice(one ? 'There’s no text to take a snapshot of yet.' : 'None of them has any text yet.');
-}
-
-/** "Take a snapshot of every note": a whole folder (or the binder) at one moment, under one name if it's given one. */
-export async function takeAll(plugin: BindersPlugin, folder: TFolder): Promise<void> {
-	const scenes = plugin.binders.scenes(folder).filter((f) => isScene(plugin, f));
-	if (!scenes.length) { new Notice('There are no notes here to take a snapshot of.'); return; }
-	const name = await ask(plugin.app, { title: `Take a snapshot of ${scenes.length === 1 ? 'the note' : `all ${scenes.length} notes`} in “${folder.name}”`, placeholder: 'A name for them, such as “Draft sent to Sam”', cta: scenes.length === 1 ? 'Take snapshot' : 'Take snapshots', allowEmpty: true, check: (v) => (v ? badSnapshotName(v) : null) });
-	if (name != null) await take(plugin, scenes, name);
+	if (made) say(`Took a snapshot of ${one ?? notes(made)}${title ? `, named “${title}”` : ''}.${!one && same ? ` ${same === 1 ? 'One hasn’t' : `${same} haven’t`} changed since ${same === 1 ? 'its' : 'their'} last snapshot.` : ''}`);
+	else if (same) say(one ? `${one} hasn’t changed since its last snapshot.` : 'None of them has changed since its last snapshot.');
+	else say(one ? 'There’s no text to take a snapshot of yet.' : 'None of them has any text yet.');
 }
 
 /** "Rewrite": a snapshot of the text as it is; the writer starts again from it, or from a blank page. */
@@ -91,7 +91,7 @@ export class RewriteModal extends Modal {
 		try {
 			const kept = await rewrite(this.plugin, this.scene, blank, title);
 			this.close();
-			if (kept) this.then(blank, kept); else new Notice('There’s no text to take a snapshot of yet: the page is blank already.');
+			if (kept) this.then(blank, kept); else say('There’s no text to take a snapshot of yet: the page is blank already.');
 		} catch (e) { this.refuse(e instanceof Error ? e.message : String(e)); }
 	}
 }
@@ -112,7 +112,7 @@ export function startRewrite(plugin: BindersPlugin, scene: TFile): void {
 			if (leaf?.view instanceof MarkdownView && leaf.view.getMode() === 'source') leaf.view.editor.focus();
 			// (in the manuscript, the cursor back in the section it was in)
 			if (inManuscript && !Platform.isMobile) liveEditors(scene)[0]?.editor?.focus();
-			new Notice(blank ? `A blank page for “${scene.basename}”. Its text is kept as a snapshot${kept.title ? `, “${kept.title}”` : ''}.` : `Took a snapshot of “${scene.basename}”${kept.title ? `, named “${kept.title}”` : ''}.`, blank ? 6000 : undefined);
+			say(blank ? `A blank page for “${scene.basename}”. Its text is kept as a snapshot${kept.title ? `, “${kept.title}”` : ''}.` : `Took a snapshot of “${scene.basename}”${kept.title ? `, named “${kept.title}”` : ''}.`, blank ? 6000 : undefined);
 		})().catch(tell);
 	}).open();
 }
@@ -198,10 +198,62 @@ export async function openSnapshot(plugin: BindersPlugin, file: TFile, scene: TF
 	if (open) ws.setActiveLeaf(open, { focus: false });
 }
 
+/** What changed between two texts, as prose, into `el` (a `sync-history-diff`): the later text's paragraphs with what
+    was taken out struck through and what was put in marked, each where it falls; long stretches that are the same
+    fold away. `lead` says what is compared, before the key to the marks. */
+export function proseChanges(el: HTMLElement, before: string, after: string, lead: string | null = 'Since this snapshot: '): void {
+	// since this snapshot: what was taken out, what was put in, said once in the marks themselves
+	if (lead != null) {
+		const key = el.createDiv({ cls: 'binders-snapshots-key' });
+		key.appendText(lead);
+		key.createEl('del', { text: 'Taken out' });
+		key.appendText(' ');
+		key.createEl('ins', { text: 'Put in' });
+	}
+	// the note's own paragraphs with the changes marked in them where they fall: prose, not two columns of lines
+	const view = el.createDiv({ cls: 'binders-snapshots-changes' });
+	const para = (parts: Stretch[]): HTMLElement => {
+		const p = createEl('p');
+		parts.forEach((x, i) => {
+			if (i) p.appendText(' ');
+			const t = x.words.join(' ');
+			if (x.kind === 'same') p.appendText(t); else p.createEl(x.kind === 'old' ? 'del' : 'ins', { text: t });
+		});
+		return p;
+	};
+	const whole = (r: Row): string[] => [r.pieces.map((p) => p.text).join('')];
+	let run: HTMLElement[] = [];
+	const fold = (last: boolean) => {
+		// a long stretch that's the same folds away, a paragraph of it left on either side of a change
+		const head = view.childElementCount ? 1 : 0, tail = last ? 0 : 1;
+		if (run.length > head + tail + 1) {
+			const hidden = run.slice(head, run.length - tail), note = createDiv({ cls: 'diff-collapsed binders-snapshots-folded', text: `${hidden.length} paragraphs the same`, attr: { role: 'button', tabindex: '0' } });
+			for (const el of run.slice(0, head)) view.appendChild(el);
+			view.appendChild(note);
+			for (const el of run.slice(run.length - tail)) view.appendChild(el);
+			const unfold = () => { for (const el of hidden) view.insertBefore(el, note); note.detach(); };
+			note.addEventListener('click', unfold);
+			note.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); unfold(); } });
+		} else for (const el of run) view.appendChild(el);
+		run = [];
+	};
+	const rows = compare(before, after);
+	for (let i = 0; i < rows.length; i++) {
+		const r = rows[i], next = rows[i + 1];
+		if (r.kind === 'same') { run.push(para([{ kind: 'same', words: whole(r) }])); continue; }
+		fold(false);
+		// a paragraph reworded comes as its old self then its new one, each in pieces (the words both have, the words
+		// only it has): here, one paragraph. One taken out followed by another put in are each a single piece.
+		if (r.kind === 'old' && next?.kind === 'new' && (r.pieces.length > 1 || next.pieces.length > 1)) { view.appendChild(para(reworded(r.pieces, next.pieces))); i++; }
+		else view.appendChild(para([{ kind: r.kind, words: whole(r) }]));
+	}
+	fold(true);
+}
+
 // ---- the dialog ----
 
 /** An icon that's a button: pressed by a click, Enter or Space, and named for a screen reader (and in its tooltip). */
-function iconButton(parent: HTMLElement, icon: string, name: string, press: () => void): HTMLElement {
+export function iconButton(parent: HTMLElement, icon: string, name: string, press: () => void): HTMLElement {
 	const el = parent.createDiv({ cls: 'clickable-icon', attr: { 'aria-label': name, role: 'button', tabindex: '0' } });
 	setIcon(el, icon);
 	el.addEventListener('click', press);
@@ -471,50 +523,7 @@ export class SnapshotsModal extends Modal {
 			this.textEl.scrollTop = 0;
 			return;
 		}
-		// since this snapshot: what was taken out, what was put in, said once in the marks themselves
-		const key = this.diffEl.createDiv({ cls: 'binders-snapshots-key' });
-		key.appendText('Since this snapshot: ');
-		key.createEl('del', { text: 'Taken out' });
-		key.appendText(' ');
-		key.createEl('ins', { text: 'Put in' });
-		// the note's own paragraphs with the changes marked in them where they fall: prose, not two columns of lines
-		const view = this.diffEl.createDiv({ cls: 'binders-snapshots-changes' });
-		const para = (parts: Stretch[]): HTMLElement => {
-			const p = createEl('p');
-			parts.forEach((x, i) => {
-				if (i) p.appendText(' ');
-				const t = x.words.join(' ');
-				if (x.kind === 'same') p.appendText(t); else p.createEl(x.kind === 'old' ? 'del' : 'ins', { text: t });
-			});
-			return p;
-		};
-		const whole = (r: Row): string[] => [r.pieces.map((p) => p.text).join('')];
-		let run: HTMLElement[] = [];
-		const fold = (last: boolean) => {
-			// a long stretch that's the same folds away, a paragraph of it left on either side of a change
-			const head = view.childElementCount ? 1 : 0, tail = last ? 0 : 1;
-			if (run.length > head + tail + 1) {
-				const hidden = run.slice(head, run.length - tail), note = createDiv({ cls: 'diff-collapsed binders-snapshots-folded', text: `${hidden.length} paragraphs the same`, attr: { role: 'button', tabindex: '0' } });
-				for (const el of run.slice(0, head)) view.appendChild(el);
-				view.appendChild(note);
-				for (const el of run.slice(run.length - tail)) view.appendChild(el);
-				const unfold = () => { for (const el of hidden) view.insertBefore(el, note); note.detach(); };
-				note.addEventListener('click', unfold);
-				note.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); unfold(); } });
-			} else for (const el of run) view.appendChild(el);
-			run = [];
-		};
-		const rows = compare(text, this.current);
-		for (let i = 0; i < rows.length; i++) {
-			const r = rows[i], next = rows[i + 1];
-			if (r.kind === 'same') { run.push(para([{ kind: 'same', words: whole(r) }])); continue; }
-			fold(false);
-			// a paragraph reworded comes as its old self then its new one, each in pieces (the words both have, the words
-			// only it has): here, one paragraph. One taken out followed by another put in are each a single piece.
-			if (r.kind === 'old' && next?.kind === 'new' && (r.pieces.length > 1 || next.pieces.length > 1)) { view.appendChild(para(reworded(r.pieces, next.pieces))); i++; }
-			else view.appendChild(para([{ kind: r.kind, words: whole(r) }]));
-		}
-		fold(true);
+		proseChanges(this.diffEl, text, this.current);
 		this.diffEl.scrollTop = 0;
 	}
 
@@ -546,7 +555,7 @@ export class SnapshotsModal extends Modal {
 		if (!this.scene) return;
 		try {
 			const { kept } = await bringBack(this.plugin, this.scene, s);
-			new Notice(`Brought back the snapshot from ${whenIn(s.taken)}.${kept ? ' The text it replaced is kept as a snapshot.' : ''}`, 6000);
+			say(`Brought back the snapshot from ${whenIn(s.taken)}.${kept ? ' The text it replaced is kept as a snapshot.' : ''}`, 6000);
 			this.shown = s;
 			await this.load();
 		} catch (e) { tell(e); }
@@ -589,7 +598,7 @@ export class LeftoversModal extends Modal {
 			const row = new Setting(contentEl).setName(left.path).setDesc(`${left.count} ${left.count === 1 ? 'snapshot' : 'snapshots'}`);
 			row.addButton((b) => b.setButtonText('Show').onClick(() => new SnapshotsModal(this.plugin, left).open()));
 			if (!ro) row.addButton((b) => b.setButtonText('Give to a note...').onClick(() => new ScenePicker(this.plugin, this.binder, (scene) => {
-				void attach(this.plugin, left, scene).then(() => new Notice(`“${scene.basename}” now has the ${left.count === 1 ? 'snapshot' : `${left.count} snapshots`} of “${left.path.slice(left.path.lastIndexOf('/') + 1)}”.`), tell);
+				void attach(this.plugin, left, scene).then(() => say(`“${scene.basename}” now has the ${left.count === 1 ? 'snapshot' : `${left.count} snapshots`} of “${left.path.slice(left.path.lastIndexOf('/') + 1)}”.`), tell);
 			}).open()));
 		}
 	}
@@ -637,11 +646,11 @@ export function snapshotItems(plugin: BindersPlugin, menu: Menu, items: unknown[
 	else three(menu, section);
 }
 
-/** For a folder of a binder (or the binder): "Take a snapshot of every note..."; and for the binder itself, the
-    snapshots of notes that are gone, when there are any. */
+/** For a folder of a binder (or the binder): its own two items, "Take a snapshot" and "Show snapshots..."; and for
+    the binder itself, the snapshots of notes that are gone, when there are any. */
 export function folderSnapshotItems(plugin: BindersPlugin, menu: Menu, folder: TFolder, section = 'snapshots', readOnly = false): void {
 	const store = plugin.binders, b = store.binderOf(folder);
 	if (!b || store.inSnapshots(folder.path)) return;
-	if (!readOnly && !b.problem && store.scenes(folder).length) menu.addItem((i) => i.setSection(section).setTitle('Take a snapshot of every note...').setIcon('camera').onClick(() => void takeAll(plugin, folder)));
+	folderItems(plugin, menu, folder, section, readOnly || !!b.problem);
 	if (folder === b.folder && leftovers(plugin, b).length) menu.addItem((i) => i.setSection(section).setTitle('Snapshots of notes that are gone...').setIcon('history').onClick(() => new LeftoversModal(plugin, b).open()));
 }

@@ -10,6 +10,8 @@ import type { ModeContext } from '../view/mode';
 import { parseTarget, whyNotTarget } from '../view/outliner-data';
 import { readNotes, readProps, writeExportAs, writeNotes, writeProps } from '../view/props';
 import { SnapshotsModal, take, whenShort } from '../view/snapshots';
+import { folderSnapshots, hasSnapshots } from '../binder-snapshots';
+import { FolderSnapshotsModal, takeFolder } from '../view/binder-snapshots';
 import { WordCounter } from '../view/word-counter';
 import { wordsIn, wordsLabel } from '../view/words';
 import type { Follow, Target } from './follow';
@@ -189,6 +191,8 @@ export class ScenePane {
 
 		// a note's snapshots
 		if (one instanceof TFile && isScene(plugin, one)) this.snapshots(el, one, ro);
+		// a folder's, or the binder's: everything in it, as it stood
+		if (one instanceof TFolder && hasSnapshots(plugin, one)) this.folderSnapshots(el, one, ro);
 
 		el.scrollTop = top;
 		if (had) el.querySelector<HTMLElement>(`[data-field="${had}"]`)?.focus({ preventScroll: true });
@@ -271,6 +275,42 @@ export class ScenePane {
 			row.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
 		}
 		if (list && !list.length) rows.createDiv({ cls: 'binders-inspector-none binders-inspector-hint', text: 'None yet' });
+	}
+
+	/** A folder's own snapshots (and the binder's own), newest first: read from the names of their files, so there is
+	    nothing to wait for. Those of the folders it is in are in the dialog, which a row opens. */
+	private folderSnapshots(el: HTMLElement, folder: TFolder, ro: boolean): void {
+		const plugin = this.plugin, all = folderSnapshots(plugin, folder);
+		const mine = plugin.binders.binderOf(folder)?.folder === folder ? '' : folder.path.slice((plugin.binders.binderOf(folder)?.folder.path.length ?? 0) + 1);
+		const list = all.filter((s) => s.of === mine);
+		const head = el.createDiv({ cls: 'binders-inspector-heading' });
+		head.createSpan({ text: 'Snapshots' });
+		if (!ro) {
+			const b = head.createDiv({ cls: 'clickable-icon', attr: { 'aria-label': 'Take a snapshot', role: 'button', tabindex: '0' } });
+			b.dataset.field = 'take';
+			setIcon(b, 'camera');
+			const go = (): void => { void takeFolder(plugin, folder); };
+			b.addEventListener('click', go);
+			b.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+		}
+		const rows = el.createDiv({ cls: 'binders-inspector-list' });
+		for (const s of list.slice(0, 50)) {
+			const row = rows.createDiv({ cls: 'tree-item' }).createDiv({ cls: 'tree-item-self is-clickable', attr: { tabindex: '0', role: 'button' } });
+			row.dataset.field = `snapshot:${s.file.name}`;
+			row.createDiv({ cls: 'tree-item-inner', text: s.title || whenShort(s.taken) });
+			if (s.title) row.createDiv({ cls: 'tree-item-flair-outer' }).createSpan({ cls: 'tree-item-flair', text: whenShort(s.taken) });
+			const open = () => new FolderSnapshotsModal(plugin, folder, s.file).open();
+			row.addEventListener('click', open);
+			row.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+		}
+		if (list.length > 50 || all.length > list.length) {
+			const more = rows.createDiv({ cls: 'tree-item' }).createDiv({ cls: 'tree-item-self is-clickable binders-inspector-hint', attr: { tabindex: '0', role: 'button' }, text: list.length > 50 ? `All ${list.length.toLocaleString()}...` : 'Those of the folders it is in...' });
+			more.dataset.field = 'snapshots:all';
+			const open = () => new FolderSnapshotsModal(plugin, folder).open();
+			more.addEventListener('click', open);
+			more.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+		}
+		if (!all.length) rows.createDiv({ cls: 'binders-inspector-none binders-inspector-hint', text: 'None yet' });
 	}
 
 	/** An edit ended: what waited for it is drawn now. */

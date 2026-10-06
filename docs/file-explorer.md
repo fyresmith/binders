@@ -45,7 +45,7 @@ Binders adds items to the file explorer's right-click menus.
 |---|---|
 | A note in a binder | **Show in binder**, **New scene after this**, **Move up**, **Move down**, and **Take a snapshot**, **Rewrite...**, **Show snapshots...** |
 | Several notes in a binder | **New folder from selection**, **Merge 3 notes** (or however many) |
-| A binder, or a folder in one | **Open binder**, **New scene here**, **Export...**, **Take a snapshot of every note...**; on a folder inside a binder, **Move up** and **Move down** |
+| A binder, or a folder in one | **Open binder**, **New scene here**, **Export...**, **Take a snapshot**, **Show snapshots...** (of the folder: see [Snapshots](snapshots.md)); on a folder inside a binder, **Move up** and **Move down** |
 | A folder that isn't in a binder | **Make this folder a binder**, **New binder** |
 | The explorer's empty space | **New binder**, beside **New note** and **New folder** |
 | A Longform project's index note or folder | **Convert to binder**. See [Coming from Longform](longform.md) |

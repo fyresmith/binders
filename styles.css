@@ -5379,4 +5379,200 @@ body:not(.is-phone) .binders-export .binders-export-options .setting-item.settin
 
 .binders-export-offstage {
 	display: flex;
+
+/* ---- Snapshots of a folder or a binder (DESIGN ROUND) ----
+   The note's Snapshots dialog, holding a book: the rules above lay it out. These are what a list of a book's
+   contents asks for beyond a page of prose. */
+
+/* The contents: rows as a sidebar's tree has them, at the width a note is read at. */
+.binders-folder-snapshots-tree {
+	font-family: var(--font-interface);
+	font-size: var(--font-ui-medium);
+}
+
+.binders-folder-snapshots-tree .tree-item-self {
+	align-items: baseline;
+}
+
+.binders-folder-snapshots-tree .tree-item-self:not(.is-clickable) {
+	cursor: default;
+}
+
+.binders-folder-snapshots-tree .tree-item-inner {
+	flex: 1 1 auto;
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.binders-folder-snapshots-tree .tree-item-flair-outer {
+	flex: 0 1 auto;
+	margin-inline-start: var(--size-4-3);
+	text-align: end;
+}
+
+.binders-folder-snapshots-tree .tree-item-flair {
+	color: var(--text-faint);
+	font-size: var(--font-ui-smaller);
+}
+
+/* What is different about an item is said in the text's own color: it is what the list is being read for. */
+.binders-folder-snapshots-tree .is-different .tree-item-flair {
+	color: var(--text-muted);
+}
+
+.binders-folder-snapshots-tree del,
+.binders-folder-snapshots-tree ins {
+	border-radius: var(--radius-s);
+	padding: var(--size-2-1) var(--size-2-2);
+}
+
+.binders-folder-snapshots-tree del {
+	background-color: rgba(var(--color-red-rgb), 0.2);
+	color: var(--text-muted);
+	text-decoration: line-through rgba(var(--color-red-rgb), 0.7);
+}
+
+.binders-folder-snapshots-tree ins {
+	background-color: rgba(var(--color-green-rgb), 0.25);
+	text-decoration: none;
+}
+
+.binders-folder-snapshots .binders-folder-snapshots-tree .binders-folder-snapshots-folded {
+	margin-block: 0;
+	padding: var(--size-2-3) var(--size-4-2) var(--size-2-3) var(--size-4-6);
+	font-size: var(--font-ui-smaller);
+}
+
+.binders-folder-snapshots-key {
+	font-family: var(--font-interface);
+}
+
+.binders-folder-snapshots-wait {
+	font-family: var(--font-interface);
+	font-size: var(--font-ui-small);
+}
+
+/* The list: the months, said as a sidebar says a heading; the snapshots Binders took itself, quieter. */
+.binders-folder-snapshots-month {
+	padding: var(--size-4-3) var(--size-4-2) var(--size-2-2);
+	color: var(--nav-heading-color);
+	font-size: var(--font-ui-smaller);
+	font-weight: var(--nav-heading-weight);
+}
+
+.binders-folder-snapshots .binders-snapshots-item.is-auto:not(.is-active) .binders-snapshots-item-name {
+	color: var(--text-muted);
+}
+
+.binders-folder-snapshots .binders-folder-snapshots-named.is-active {
+	color: var(--text-accent);
+	background-color: var(--background-modifier-hover);
+}
+
+/* A book's snapshot says more after its name than a note's: the name keeps its room, and the rest gives way. */
+.binders-folder-snapshots .binders-snapshots-name {
+	flex-shrink: 1;
+	min-width: 6em;
+}
+
+.binders-folder-snapshots .binders-snapshots-detail {
+	flex-shrink: 4;
+	white-space: nowrap;
+}
+
+.binders-folder-snapshots-read-text {
+	min-height: var(--binders-folder-snapshots-room, 0);
+}
+
+/* One note of a snapshot: where it is in the book, and the way back to the contents. */
+.binders-folder-snapshots-crumb {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-1);
+	margin-bottom: var(--size-4-4);
+	font-family: var(--font-interface);
+	font-size: var(--font-ui-small);
+	color: var(--text-muted);
+}
+
+.binders-folder-snapshots-crumb .clickable-icon {
+	flex: 0 0 auto;
+	margin-inline-start: calc(-1 * var(--size-4-2));
+}
+
+.binders-folder-snapshots-crumb-name {
+	color: var(--text-normal);
+	font-weight: var(--font-semibold);
+}
+
+.binders-folder-snapshots-crumb-said {
+	margin-inline-start: auto;
+	padding-inline-start: var(--size-4-3);
+}
+
+/* The whole of it, to read. */
+.binders-folder-snapshots-read-said {
+	margin-inline-start: var(--size-4-3);
+	color: var(--text-muted);
+	font-family: var(--font-interface);
+	font-size: var(--font-ui-small);
+	font-weight: var(--font-normal);
+}
+
+.binders-folder-snapshots-read .binders-folder-snapshots-folded {
+	font-size: var(--font-ui-small);
+}
+
+/* "Bring back...": what will change. */
+.binders-folder-snapshots-plan ul {
+	margin-block: var(--size-4-3);
+	padding-inline-start: var(--size-4-6);
+}
+
+.binders-folder-snapshots-plan li {
+	margin-block: var(--size-4-1);
+}
+
+/* With the changes marked, an item that is the same steps back. */
+.binders-folder-snapshots-tree .tree-item-self.is-same .tree-item-inner {
+	color: var(--text-muted);
+}
+
+/* A phone: a note of a snapshot says its name and what is different; where it is was on the page before. */
+.is-phone .binders-folder-snapshots-crumb-path {
+	display: none;
+}
+
+.is-phone .binders-folder-snapshots .binders-folder-snapshots-body {
+	padding: var(--size-4-4);
+}
+
+/* A notice raised while a Snapshots dialog is open lies over the dialog's buttons: a click goes through it to them. */
+.binders-notice-over-dialog {
+	pointer-events: none;
+}
+
+/* A dialog that is narrow (a tablet, a small window): the bar's buttons would leave the snapshot's name a few letters,
+   so the name has a line of its own and the buttons the next. (A phone has its own layout, above.) */
+body:not(.is-phone) .binders-snapshots .sync-history-content {
+	container-type: inline-size;
+}
+
+@container (max-width: 640px) {
+	body:not(.is-phone) .binders-snapshots .binders-snapshots-bar {
+		flex-wrap: wrap;
+		row-gap: var(--size-4-1);
+		padding-block: var(--size-4-2);
+	}
+
+	body:not(.is-phone) .binders-snapshots .binders-snapshots-bar .binders-snapshots-title {
+		flex: 1 0 100%;
+	}
+
+	body:not(.is-phone) .binders-snapshots .binders-snapshots-bar .modal-setting-titlebar-actions {
+		flex: 1 1 auto;
+		justify-content: flex-end;
+		/* (the button that closes the dialog is beside the name, a line up: these have the whole width) */
+		margin-inline-end: calc(-1 * (var(--binders-snapshots-control) + var(--size-4-1)));
+	}
 }

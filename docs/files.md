@@ -77,7 +77,8 @@ change one in [Book details](book-details.md) or choose a cover. One you clear i
 
 ## Snapshots and exports
 
-- **Snapshots** are `.snapshot` files in a `Snapshots` folder in the binder, one folder per note. See
+- **Snapshots** are `.snapshot` files in a `Snapshots` folder in the binder, one folder per note, and one
+  `.binder-snapshot` file for each snapshot of a folder or of the binder. See
   [Snapshots](snapshots.md#where-snapshots-are-kept).
 - **Exported files** go where the save dialog says on a computer, otherwise into the `Exports` folder beside the
   binder. See [Export](export.md#where-the-file-goes).

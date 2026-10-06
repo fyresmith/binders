@@ -114,7 +114,7 @@ See [file-format.md](file-format.md) for the full specification.
   outliner", "Show manuscript", "Arrange corkboard by label", "Make this folder a binder", "New binder", "New scene
   here", "Convert to binder" (Longform), "Split scene at cursor", "Split scene with selection as title", "Set word
   count target", "Export binder", "Undo last move", "Redo last move", "Move up", "Move down", "Take a snapshot",
-  "Rewrite", "Show snapshots", "Take a snapshot of every note in the binder", "Show snapshots of notes that are
+  "Rewrite", "Show snapshots", "Take a snapshot of the binder", "Show snapshots of the binder", "Show snapshots of notes that are
   gone", "Toggle focus mode", "Go to previous scene", "Go to next scene". None has a default hotkey.
 - **File menu** (a note's or folder's right-click menu): "Open binder", "Show in binder", "Make this folder a binder", "New
   binder", "New scene here", "New scene after this", "Export...", "Convert to binder", the snapshot items, "Move up",
@@ -361,6 +361,46 @@ as prose; pure) and `src/view/snapshots.ts` (the dialogs, the menus, and a pane 
 - Automatic snapshots are taken only when Binders itself replaces text ("Before bringing back", and before a blank
   page). There are no timed ones and no pruning.
 
+### Snapshots of a folder and of the binder
+
+In `src/binder-snapshots.ts` (the vault side), `src/binder-snapshot-text.ts` (the file, and what changed between two
+states of a folder; pure) and `src/view/binder-snapshots.ts` (the dialog, the menus). The format is in
+`docs/dev/file-format.md`. Decided 2026-10-06, after a design round that built two ways of keeping one and measured
+both (see "Decided"). Built in four steps; this section says what each has.
+
+- **One word.** A snapshot of a note is its text; a snapshot of a folder or binder is everything in it: every
+  note's file (text and properties), the folders' own notes, the order and nesting, which items were there. Files
+  that aren't notes are listed, not kept.
+- **The way in** is the note's: a Snapshots button (the same clock) in the binder view's header, for the folder
+  shown, with "Take a snapshot" and "Show snapshots..."; the same two in a folder's menus (card, row, file explorer,
+  the view's "More options"); the inspector's list for a folder and for the binder; and two commands for the whole
+  binder, from its view or any of its notes.
+- **Taking one** asks nothing. Editors and fields being typed in are saved first (`saveOpen`, `commitAll`). Notes
+  are read from the disk as bytes, so a byte-order mark is kept. Nothing is taken twice in a row; a name given to
+  an unchanged binder goes to its newest snapshot.
+- **One file per snapshot**, written once, read back and compared. A snapshot of 5,000 notes is one write.
+- **The dialog** is the note's Snapshots dialog (the same classes and layout) with the folder's contents where a
+  note's text is: a tree of `tree-item` rows in the order it stood. "Show changes" (on to begin with) says at each
+  row's end what is different now, in plain words, and folds what is the same; a note opens into the prose
+  comparison the note's dialog draws (`proseChanges`); "Read" is the snapshot as a manuscript; "Compare with" sets
+  it against another snapshot instead of now.
+- **A note is followed without an id** (nothing is written into a note to say which it is): the same path, else
+  the very same text, else the note that shares half or more of its paragraphs. A folder is followed by where most
+  of its notes went. So a rename is "renamed", not one gone and one new, wherever it was done.
+- **A subfolder's list** has its own snapshots and those of every folder it is in, reading its part of them.
+- **Getting something back, step 1:** one note's text (through `bringBackText`, the note's own guarded path: a
+  snapshot of the note first, then its editor or a write that refuses if the note changed); a note that is gone,
+  made again under a free name; and "Make a binder (folder) from this snapshot", which writes new files into a new
+  folder (its own note last, so the store finds a binder once, when it is whole). Bringing a whole snapshot back in
+  place is steps 2 and 3.
+- **Refused:** a binder in a newer format takes and changes nothing; a snapshot file in a newer format is listed
+  and never opened, named or deleted; a file whose notes don't match their fingerprints is read and nothing is
+  brought back or made from it.
+- **A notice over the dialog** (either dialog) lets a click through to the bar's buttons under it (`say` in
+  `src/view/snapshots.ts`).
+- Removed: "Take a snapshot of every note..." and its command's name. The command's id, `take-snapshots`, is now
+  "Take a snapshot of the binder". The per-note snapshots it made stay what they are: each note's own.
+
 ### Undo of moves
 
 - `BinderStore.put()` is what a drop does (corkboard, outliner, explorer) and `change()` wraps it, and "Move up" and
@@ -562,6 +602,21 @@ them: see AGENTS.md). Nothing is tagged yet.
 - **Arrange by label** (2026-10-01, approved after a prototype): an arrangement of the corkboard, not a mode.
 - **Snapshots** (2026-10-01): plain `.snapshot` files in a `Snapshots` folder in the binder, never `.md`; the cost is
   that Obsidian Sync needs "Sync all other types" on to carry them.
+- **Snapshots of a folder and of the binder** (2026-10-06, the maintainer, after a design round: "Yes to all those
+  recs"). One word, "snapshot", and the note's clock button in the binder view's header. One plain-text file per
+  snapshot, whole or not there, readable by hand as the book in order; not a store of texts shared between
+  snapshots, which was built and measured beside it (a year of daily snapshots of a novel: about 13 MB against
+  about 200 MB, or 36 MB with the automatic ones thinned; but 5,002 files and four minutes for the first snapshot
+  of 5,000 notes against one file in a tenth of a second, an index that is no use by hand, a snapshot that is half
+  there until a sync has brought every text, and a pass that deletes files nothing names). "Bring back" on a folder
+  or binder may write notes' properties as they were and make, rename and move notes, only there and only after a
+  screen that says what will change (written into golden rule 3 when that step is built). Notes written since the
+  snapshot stay where they are by default, with the choice of moving them to one folder; never deleted. Automatic
+  snapshots at 1.0 only before bringing one back and before find and replace; daily ones later, off by default;
+  only automatic ones are ever thinned. "Take a snapshot of every note..." is removed, and its old batches stay as
+  the notes' own snapshots (they hold text only, and their times differ note by note: calling them snapshots of the
+  binder would promise an order they don't have). Files that aren't notes are listed, not copied. No branching:
+  "Make a binder from this snapshot" is the other ending, as a second binder.
 - **Focus mode** (2026-10-01, the maintainer): the text and nothing else by default, with typewriter scrolling the
   only thing on; typewriter scrolling is for the last line only; the scenes before and after, the place and synopsis,
   the word counts, the goal and dimming are each an option; a session is today's words in this binder on this

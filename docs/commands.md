@@ -47,7 +47,8 @@ Most commands only appear where they apply: with a binder view in front, or with
 | **Take a snapshot** | Keeps the note's text as it is now | A note of a binder, or the manuscript section the cursor is in |
 | **Rewrite** | Takes a snapshot, then starts again from the same text or a blank page | The same |
 | **Show snapshots** | Lists the note's snapshots | The same |
-| **Take a snapshot of every note in the binder** | One snapshot of each note, at one moment, under one name if you give it one | A binder view, or a note of a binder |
+| **Take a snapshot of the binder** | One snapshot of the whole binder: every note's text and properties, and the order | A binder view, or a note of a binder |
+| **Show snapshots of the binder** | The binder's snapshots: read, compare, bring back | A binder view, or a note of a binder |
 | **Show snapshots of notes that are gone** | Lists the snapshots left by deleted, merged-away or moved-out notes | A binder that has some |
 
 ## Focus mode

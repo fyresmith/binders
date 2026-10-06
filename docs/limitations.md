@@ -77,7 +77,10 @@ the graph or in the tag list. See [Paragraphs](paragraphs.md).
 
 - Obsidian Sync carries snapshots only with **Sync all other types** on.
 - Obsidian's "Move file to..." list shows the `Snapshots` folders.
-- A snapshot keeps a note's text, not its properties.
+- A note's snapshot keeps its text, not its properties. A folder's or a binder's keeps both, and the order.
+- A whole snapshot of a folder or binder can't yet be brought back in place: one note at a time, or as a copy
+  (**Make a binder from this snapshot**).
+- A snapshot of a folder lists files that aren't notes (pictures, PDFs) and doesn't copy them.
 
 ## Focus mode
 

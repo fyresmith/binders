@@ -101,6 +101,25 @@ here; that is what keeps the next round short.
   - `getRightLeaf(false)` then `setViewState({ type, active: false })` adds a tab to the right sidebar without
     opening it and without changing which tab is in front: how a view comes with another, unasked.
 
+- Learned designing snapshots of a folder and a binder (2026-10-06; the round's page and numbers are with its
+  report, and nothing is chosen yet):
+  - A book's contents in a dialog are a sidebar's tree (`tree-item` rows), and what is said about a row goes at its
+    end as `tree-item-flair`, in plain muted text. What is different about an item is words there ("+48 −7 words",
+    "moved to “The mail coach”"), and a name that is gone or new takes the prose comparison's two marks. No tag, no
+    chip, no icon per kind of change.
+  - What is the same folds to one line that opens ("27 notes the same"), as the prose comparison folds paragraphs.
+    A lone folder in which nothing changed, among ones that did, is shut: opened, it is a page of rows that say
+    nothing.
+  - A dialog's bar holds a switch or two and the one filled button on a desktop; on a phone or tablet, one switch
+    and the button, and the rest goes in the menu.
+  - A notice sits over the top right of a sidebar dialog for as long as it shows, which is where the dialog's
+    buttons are: a click meant for one lands on the notice. (A script has to clear notices first.)
+  - Many small files are slow to make through the vault in a big binder: the store looks at each as it arrives
+    (0.05 to 0.3 s a file under load). One file for 5,000 notes is written in a tenth of a second; 5,000 files took
+    four minutes.
+  - A row's second line that needs its file read (how many words a snapshot holds) is filled in as the row comes
+    into sight (`IntersectionObserver` on the list), so three hundred rows open at once.
+
 **Rejected, don't propose again:** a colored stripe along the top of a card, pill chips, thin accent or progress
 lines, decoration for its own sake, anything on a card that isn't the writer's own (no badges for snapshots and the
 like). The maintainer's word for these was "AI generated".

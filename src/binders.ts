@@ -7,7 +7,7 @@ import { nextName, parts } from './scene-text';
 import { COMPILE_PROP, EXPORT_PROP, saveOpen } from './scenes';
 import { MoveHistory, type PropChange, type Undo } from './undo';
 import { SNAPSHOTS } from './snapshot-text';
-import { followSnapshots } from './snapshots';
+import { followSnapshots, isOwn } from './snapshots';
 import { labelCss, readLabel } from './view/labels';
 import { applySceneOps, conversionPlan, isIgnored, isLongformIndex, longformRunning, readProject, sameScenes, sceneGroups, shownScenes, writeScenes, type Project, type Scene, type SceneOp } from './longform';
 
@@ -401,7 +401,7 @@ export class BinderStore extends Events implements ExplorerSource {
 				const m = line.splice(Math.max(0, ahead), 1)[0];
 				const there = this.app.vault.getAbstractFileByPath(m.from);
 				// (what's the item's own there: a note's snapshots are files, a folder's notes' are in folders)
-				if (!(there instanceof TFolder) || !there.children.some((c) => (m.what === 'note' ? c instanceof TFile : c instanceof TFolder))) continue;
+				if (!(there instanceof TFolder) || !there.children.some((c) => isOwn(c, m.what))) continue;
 				// out of every binder: its snapshots stay with the binder it left, as a deleted note's do
 				if (!m.to) { new Notice(`“${m.name}” has left “${m.binder}”. Its snapshots stay there.`, 8000); continue; }
 				try { await followSnapshots(this.app, m.from, m.to, m.what); }

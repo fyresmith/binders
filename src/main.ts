@@ -24,7 +24,9 @@ import { placeSide } from './inspector/place';
 import type { Follow } from './inspector/follow';
 import { installParagraphs, type Paragraphs } from './paragraphs/paragraphs';
 import { isScene, leftovers } from './snapshots';
-import { LeftoversModal, SNAPSHOT_VIEW, SnapshotView, SnapshotsModal, folderSnapshotItems, snapshotItems, startRewrite, take, takeAll } from './view/snapshots';
+import { FolderSnapshotsModal, takeFolder } from './view/binder-snapshots';
+import { deleteFolderSnapshot, folderSnapshots, hasSnapshots, makeFromSnapshot, nameFolderSnapshot, type FolderSnapshot } from './binder-snapshots';
+import { LeftoversModal, SNAPSHOT_VIEW, SnapshotView, SnapshotsModal, folderSnapshotItems, snapshotItems, startRewrite, take } from './view/snapshots';
 
 /* The plugin: builds the store, the explorer patch, the binder view and its modes, focus mode and the settings tab;
    registers the commands and the items Binders adds to Obsidian's file menus; and opens a binder view. It holds no logic
@@ -41,6 +43,18 @@ export default class BindersPlugin extends Plugin {
 	explorer: Explorer;
 	/** Every binder in the vault; views, the explorer and tests go through this. */
 	binders: BinderStore;
+	/** Snapshots, for the tests to ask of the plugin what a writer asks of it through a menu or a dialog (and to ask
+	    the vault side directly for what the dialog never offers, to see it refused). */
+	readonly snapshotsApi = {
+		take: (note: TFile, title = '') => take(this, [note], title),
+		takeFolder: (folder: TFolder, title = '') => takeFolder(this, folder, title),
+		show: (folder: TFolder) => { new FolderSnapshotsModal(this, folder).open(); },
+		has: (folder: TFolder) => hasSnapshots(this, folder),
+		list: (folder: TFolder) => folderSnapshots(this, folder),
+		name: (s: FolderSnapshot, _folder: TFolder, title: string) => nameFolderSnapshot(this.app, s, title),
+		remove: (s: FolderSnapshot) => deleteFolderSnapshot(this.app, s),
+		make: (s: FolderSnapshot, folder: TFolder, label: string) => makeFromSnapshot(this, s, folder, label),
+	};
 	/** Focus mode: its commands, the button on a binder's notes, the day's words (focus/focus.ts). */
 	focus: Focus;
 	/** Export's way to the computer's save dialog and disk (export/desktop.ts): null from it means there is none, and
@@ -207,7 +221,10 @@ export default class BindersPlugin extends Plugin {
 		this.addCommand({ id: 'take-snapshot', name: 'Take a snapshot', icon: 'camera', checkCallback: (checking) => { const f = scene(true); if (!f) return false; if (!checking) void take(this, [f]); return true; } });
 		this.addCommand({ id: 'rewrite', name: 'Rewrite', icon: 'file-pen-line', checkCallback: (checking) => { const f = scene(true); if (!f) return false; if (!checking) startRewrite(this, f); return true; } });
 		this.addCommand({ id: 'show-snapshots', name: 'Show snapshots', icon: 'history', checkCallback: (checking) => { const f = scene(false); if (!f) return false; if (!checking) new SnapshotsModal(this, f).open(); return true; } });
-		this.addCommand({ id: 'take-snapshots', name: 'Take a snapshot of every note in the binder', icon: 'camera', checkCallback: (checking) => { const f = folder(); if (!f || this.binders.problem(f)) return false; if (!checking) void takeAll(this, f); return true; } });
+		// the whole binder, from its view or from any of its notes. ("take-snapshots" was "Take a snapshot of every note
+		// in the binder": the same wish, and a hotkey given to it still works.)
+		this.addCommand({ id: 'take-snapshots', name: 'Take a snapshot of the binder', icon: 'camera', checkCallback: (checking) => { const f = folder(); if (!f || this.binders.problem(f)) return false; if (!checking) void takeFolder(this, f); return true; } });
+		this.addCommand({ id: 'show-binder-snapshots', name: 'Show snapshots of the binder', icon: 'history', checkCallback: (checking) => { const f = folder(); if (!f) return false; if (!checking) new FolderSnapshotsModal(this, f).open(); return true; } });
 		this.addCommand({ id: 'show-leftover-snapshots', name: 'Show snapshots of notes that are gone', icon: 'history', checkCallback: (checking) => { const f = folder(), b = f ? this.binders.binderOf(f) : null; if (!b || !leftovers(this, b).length) return false; if (!checking) new LeftoversModal(this, b).open(); return true; } });
 	}
 
