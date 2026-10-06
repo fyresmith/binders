@@ -98,6 +98,8 @@ const run = (text: string, at = 0): Inline[] => { const b = p(text).blocks[at]; 
 	eq(typeset('"Wait," she said. "It\'s the \'90s -- or..."'), '“Wait,” she said. “It’s the ’90s — or…”', 'quotes, apostrophes, a dash, an ellipsis');
 	eq(typeset('\'Single\' and "nested \'inner\'"'), '‘Single’ and “nested ‘inner’”', 'single quotes');
 	eq(typeset('"Zitat"', '', 'de'), '„Zitat“', 'German quotes');
+	eq(typeset("qu'il dit: \"l'heure\"", '', 'fr'), 'qu’il dit: «\u00A0l’heure\u00A0»', 'an apostrophe inside a French word is an apostrophe');
+	eq(typeset("Wie geht's? 'So' ist's, Hans' Uhr.", '', 'de'), 'Wie geht’s? ‚So‘ ist’s, Hans’ Uhr.', 'and in German: a quote that was opened is closed, anything else after a word is an apostrophe');
 	const b = buildBook([{ kind: 'note', name: 'A', path: 'A.md', included: true, text: '"He said *no*" and `"code"`.' }], { title: 'T', author: '', matter: false });
 	eq(blocksText(b.sections[0].blocks), '“He said no” and "code".', 'across italics; code as typed');
 	const typed = buildBook([{ kind: 'note', name: 'A', path: 'A.md', included: true, text: '"As typed" -- so.' }], { title: 'T', author: '', matter: false, asTyped: true });

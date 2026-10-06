@@ -13,8 +13,14 @@ const QUOTES: Record<string, readonly [string, string, string, string]> = {
 const ELIDED = /^(?:\d0s|\d\d\b|tis\b|twas\b|twere\b|em\b|cause\b|til\b|round\b|n\b|bout\b)/i;
 const opens = (before: string): boolean => before === '' || /[\s([{\u00A0—–-]|[“‘„‚«]/.test(before);
 
-/** A stretch of text, typeset. `before` is the character it follows ("" at a paragraph's start). */
-export function typeset(text: string, before = '', language = 'en'): string {
+const WORD = /[\p{L}\p{N}]/u;
+
+/** A stretch of text, typeset. `before` is the character it follows ("" at a paragraph's start). `open` counts the
+    single quotes opened and not closed yet, when a paragraph is typeset a run at a time.
+
+    An apostrophe is `’` in every language; only a quote takes the language's marks. So a `'` inside a word is an
+    apostrophe, and one after a word closes a quote only if one was opened ("Hans' Uhr" has none). */
+export function typeset(text: string, before = '', language = 'en', open: { single: number } = { single: 0 }): string {
 	const q = QUOTES[language.slice(0, 2).toLowerCase()] ?? QUOTES.en;
 	let out = '', prev = before;
 	for (let i = 0; i < text.length; i++) {
@@ -23,7 +29,12 @@ export function typeset(text: string, before = '', language = 'en'): string {
 		if (c === '.' && text.startsWith('...', i) && text[i + 3] !== '.' && prev !== '.') { put = '…'; i += 2; }
 		else if (c === '-' && text[i + 1] === '-' && prev !== '-') { put = '—'; i += text[i + 2] === '-' && text[i + 3] !== '-' ? 2 : 1; }
 		else if (c === '"') put = opens(prev) ? q[0] : q[1];
-		else if (c === '\'') put = opens(prev) && !ELIDED.test(text.slice(i + 1)) ? q[2] : q[3];
+		else if (c === '\'') {
+			if (opens(prev)) { if (ELIDED.test(text.slice(i + 1))) put = '’'; else { put = q[2]; open.single++; } }
+			else if (WORD.test(prev) && WORD.test(text[i + 1] ?? '')) put = '’';
+			else if (open.single > 0) { put = q[3]; open.single--; }
+			else put = '’';
+		}
 		out += put;
 		prev = put[put.length - 1];
 	}
@@ -33,10 +44,11 @@ export function typeset(text: string, before = '', language = 'en'): string {
 /** Inline content typeset in place: what a quote follows is looked for across runs (an italic word in quotes). */
 export function typesetRuns(runs: Inline[], language = 'en'): void {
 	let before = '';
+	const open = { single: 0 };
 	for (const r of runs) {
 		if (r.kind === 'br') { before = ''; continue; }
 		if (r.kind !== 'text' || !r.text) continue;
-		if (!r.code) r.text = typeset(r.text, before, language);
+		if (!r.code) r.text = typeset(r.text, before, language, open);
 		before = r.text[r.text.length - 1];
 	}
 }

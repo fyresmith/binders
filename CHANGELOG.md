@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.29.1 (2026-10-06)
+
+### Fixed
+
+- In a French or German book, an apostrophe inside or after a word (qu'il, geht's, Hans' Uhr) was exported as a quotation mark.
+
 ## 0.29.0 (2026-10-06)
 
 ### Added
