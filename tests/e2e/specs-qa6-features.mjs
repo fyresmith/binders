@@ -1054,33 +1054,8 @@ ok('a note open in a tab with the manuscript behind it in the same group: after 
 	const d = await read(p, A);
 	t.ok(d.includes('In the manuscript.') && !d.includes('Typed in the tab.'), 'typing in the manuscript then doesn’t bring back what was undone: ' + j(d));
 });
-ok('“Take a snapshot of every note in the binder” on 400 notes: one each, all with the text, at one moment under one name, in reasonable time; none for the binder or folder notes; a second time takes none', async (p, h, t) => {
-	await p.ev(`(async () => { await app.vault.createFolder('Big'); for (let f = 1; f <= 4; f++) { await app.vault.createFolder('Big/Part ' + f); for (let n = 1; n <= 100; n++) await app.vault.create('Big/Part ' + f + '/Scene ' + String(n).padStart(3, '0') + '.md', '---\\nstatus: draft\\n---\\nPart ' + f + ' scene ' + n + ' text.\\n'); } await new Promise(r => setTimeout(r, 1200)); await ${B}.makeBinder(${file('Big')}); })().then(() => 1)`);
-	await sleep(p, 2000);
-	await openView(p, 'Big');
-	const t0 = Date.now();
-	await run(p, 'take-snapshots');
-	await until(p, `!!document.querySelector('.modal input')`);
-	await p.type('Draft sent to Sam');
-	await p.key('Enter');
-	await until(p, `app.vault.getFiles().filter(f => f.extension === 'snapshot').length >= 400`, 40000);
-	const took = Date.now() - t0;
-	await sleep(p, 800);
-	const snaps = await p.ev(`app.vault.getFiles().filter(f => f.extension === 'snapshot').map(f => f.path)`);
-	t.eq(snaps.length, 400, 'one snapshot each (took ' + took + ' ms)');
-	t.ok(snaps.every((s) => / Draft sent to Sam\.snapshot$/.test(s)), 'all under the one name');
-	const times = new Set(snaps.map((s) => /(\d{4}-\d\d-\d\d \d\d\.\d\d\.\d\d)/.exec(s)[1]));
-	t.ok(times.size <= 2, 'at one moment: ' + [...times].join(', '));
-	t.ok(!snaps.some((s) => /Big\/Snapshots\/Big\//.test(s) || /Part \d\/Part \d/.test(s)), 'none for binder or folder notes');
-	t.ok(took < 30000, 'in under 30 s: ' + took);
-	await closeAll(p);
-	await openView(p, 'Big');
-	await run(p, 'take-snapshots');
-	await until(p, `!!document.querySelector('.modal input')`);
-	await p.key('Enter');
-	await sleep(p, 6000);
-	t.eq((await p.ev(`app.vault.getFiles().filter(f => f.extension === 'snapshot').length`)), 400, 'the same text again: no more are taken');
-});
+// (“Take a snapshot of every note in the binder” on 400 notes was here: the command is gone, and a binder's own
+// snapshot of 5,000 notes is tested in specs-binder-snapshots.mjs)
 ok('README: Obsidian’s own “Move file to...” list does show the Snapshots folders (as the README says), and the snapshot files are not in the quick switcher', async (p, h, t) => {
 	await seed(p, DIR, '2026-09-12 09.15.40 First', 'Text.\n');
 	await openNote(p, K);
@@ -1386,7 +1361,7 @@ for (const seed of [11, 23, 37]) {
 // Obsidian's own dialogs too; what a finger hits is the toggle around it, which is Obsidian's to size.)
 const boxes = (p) => p.ev(`(() => { const m = [...document.querySelectorAll('.modal')].pop(); if (!m) return null; const r = m.getBoundingClientRect(); const bs = [...m.querySelectorAll('button, .clickable-icon, input')].filter(e => e.offsetParent && !e.closest('.checkbox-container')).map(e => { const b = e.getBoundingClientRect(); return { what: (e.textContent || e.getAttribute('aria-label') || e.type || '').slice(0, 20), w: Math.round(b.width), h: Math.round(b.height), l: Math.round(b.left), r: Math.round(b.right), t: Math.round(b.top), b: Math.round(b.bottom) }; }); return { l: Math.round(r.left), r: Math.round(r.right), t: Math.round(r.top), b: Math.round(r.bottom), vw: innerWidth, vh: innerHeight, overflowX: m.scrollWidth > m.clientWidth + 1, title: m.querySelector('.modal-title')?.textContent ?? '', buttons: bs }; })()`);
 for (const size of [[320, 568], [390, 844]]) {
-	ok(`phone ${size.join('x')}: Export, Rewrite, Take a snapshot of every note and Show snapshots open inside the screen, with nothing wider than it, and every button at least 32 px tall`, async (p, h, t) => {
+	ok(`phone ${size.join('x')}: Export, Rewrite, the binder’s snapshots and a note’s open inside the screen, with nothing wider than it, and every button at least 32 px tall`, async (p, h, t) => {
 		await onDevice(p, size, async () => {
 			await put(p, A, FRONT + 'Some text of the note to take a snapshot of.\n');
 			await seed(p, DIR, '2026-09-12 09.15.40 First', 'An earlier text.\n');
@@ -1408,10 +1383,10 @@ for (const size of [[320, 568], [390, 844]]) {
 			if (foot.join('|') !== 'Preview|Copy|Export') bad.push(`export: the buttons at the foot of the choices are ${j(foot)}`);
 			if (ex && !ex.buttons.some((x) => /^Save as/.test(x.what))) bad.push('export: the “Save as” field isn’t on the screen of choices');
 			await closeAll(p);
-			await run(p, 'take-snapshots');
-			await until(p, `!!document.querySelector('.modal input')`);
+			await run(p, 'show-binder-snapshots');
+			await until(p, `!!document.querySelector('.modal.binders-snapshots')`);
 			await sleep(p, 500);
-			check('take all', await boxes(p));
+			check('the binder’s snapshots', await boxes(p));
 			await closeAll(p);
 			await openNote(p, A);
 			await run(p, 'rewrite');

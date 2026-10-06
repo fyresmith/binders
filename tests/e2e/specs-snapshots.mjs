@@ -245,47 +245,23 @@ test('several at once, and nothing twice: a note that hasn’t changed isn’t s
 	t.ok(/“Arrival” hasn’t changed since its last snapshot\./.test(await notices(p)), await notices(p));
 });
 
-test('a folder, and the binder, under one name', async (p, h, t) => {
+// "Take a snapshot of every note..." is gone (a folder's or a binder's snapshot took its place, specs-binder-snapshots):
+// what it took stays each note's own, under the name it was given.
+test('what “Take a snapshot of every note” took stays each note’s own snapshot, under its name', async (p, h, t) => {
 	const before = await texts(p);
-	await cardMenu(p, L + 'Part One', 'The Lighthouse');
-	t.ok((await menuItems(p)).includes('Take a snapshot of every note...'), 'a folder’s menu has it: ' + (await menuItems(p)).join(', '));
-	await clickMenu(p, 'Take a snapshot of every note...');
-	await until(p, `!!document.querySelector('.modal .binders-ask input')`);
-	t.eq(await p.ev(`document.querySelector('.modal .modal-title').textContent`), 'Take a snapshot of all 3 notes in “Part One”', 'the dialog says how many');
-	await typeInto(p, 'Draft sent to Sam');
-	await p.key('Enter');
-	await until(p, `app.vault.adapter.exists(${j(SN + '/Part One/Storm warning')})`);
-	await sleep(p, 500);
-	for (const n of ['Arrival', 'The keeper', 'Storm warning']) {
-		const files = await list(p, `${SN}/Part One/${n}`);
-		t.ok(files.length === 1 && / Draft sent to Sam\.snapshot$/.test(files[0]), `${n}: ${files.join(', ')}`);
-		t.eq(await textOf(p, `${SN}/Part One/${n}/${files[0]}`), bodyOf(before[`${L}Part One/${n}.md`]), `${n}: its text`);
+	for (const n of ['Arrival', 'The keeper']) await seed(p, `${SN}/Part One/${n}`, '2026-09-19 16.20.05 Draft sent to Sam', bodyOf(before[`${L}Part One/${n}.md`]), `Part One/${n}`, '2026-09-19T16:20:05');
+	await sleep(p, 400);
+	for (const n of ['Arrival', 'The keeper']) {
+		await closeAll(p);
+		await openNote(p, `${L}Part One/${n}.md`);
+		await run(p, 'show-snapshots');
+		await until(p, `!!document.querySelector(${j(DLG + ' .binders-snapshots-item')})`, 8000);
+		const names = await p.ev(`[...document.querySelectorAll(${j(DLG + ' .binders-snapshots-item-name')})].map(e => e.textContent)`);
+		t.ok(names.includes('Draft sent to Sam'), `${n}: its snapshot from the old batch is listed by its name: ${j(names)}`);
 	}
-	t.eq(await exists(p, SN + '/Prologue'), false, 'notes outside the folder aren’t touched');
-	t.ok(/Took a snapshot of 3 notes, named “Draft sent to Sam”\./.test(await notices(p)), await notices(p));
-	// the binder: every note, the unchanged ones too (the name is the point)
-	await closeAll(p);
-	await openView(p);
-	t.ok(await can(p, 'take-snapshots'), 'the command for the binder in view');
-	await run(p, 'take-snapshots');
-	await until(p, `!!document.querySelector('.modal .binders-ask input')`);
-	await typeInto(p, 'Second draft');
-	await p.key('Enter');
-	await until(p, `app.vault.adapter.exists(${j(SN + '/Epilogue')})`);
-	await sleep(p, 600);
-	t.eq((await list(p)).filter((f) => / Second draft\.snapshot$/.test(f)).length, 1, 'Arrival has one named for the second draft, though its text hasn’t changed');
-	t.eq((await list(p, SN + '/Part Two/The wreck')).length + (await list(p, SN + '/Prologue')).length + (await list(p, SN + '/Epilogue')).length, 3, 'every note of the binder');
+	t.ok(!(await p.ev(`Object.values(app.commands.commands).some(c => c.id.startsWith('binders:') && /every note/.test(c.name))`)), 'and no command takes one of every note');
 	same(t, before, await texts(p));
-	// a name a file can't have is refused in the dialog
-	await run(p, 'take-snapshots');
-	await until(p, `!!document.querySelector('.modal .binders-ask input')`);
-	await typeInto(p, 'a/b');
-	await p.key('Enter');
-	await sleep(p, 300);
-	t.ok(/can’t contain/.test(await p.ev(`document.querySelector('.modal .binders-ask-error')?.textContent ?? ''`)), 'refused, with why');
-	t.eq((await list(p)).length, 2, 'nothing taken');
 });
-
 test('an empty note: nothing to take; text with Windows line breaks or a first line of dashes: byte for byte', async (p, h, t) => {
 	await write(p, A, '');
 	await openNote(p, A);
@@ -404,11 +380,8 @@ test('what Obsidian takes for properties is what a snapshot leaves out: every wa
 	for (const [n, text] of notes) t.eq(disk(p, `Odd/${n}.md`), text, `“${n}” is on disk as given`);
 	// what Obsidian says of each: where its properties end (if its cache has any), and where the block it opens with does
 	const says = JSON.parse(await p.ev(`(async () => JSON.stringify(await Promise.all(${j(notes.map((n) => n[0]))}.map(async n => { const f = app.vault.getAbstractFileByPath('Odd/' + n + '.md'), c = app.metadataCache.getFileCache(f); return { text: await app.vault.read(f), props: c?.frontmatterPosition?.end.offset ?? null, block: c?.sections?.[0]?.type === 'yaml' ? c.sections[0].position.end.offset : null }; }))))()`));
-	await openView(p, 'Odd');
-	await run(p, 'take-snapshots');
-	await until(p, `!!document.querySelector('.modal .binders-ask input')`);
-	await press(p, '.modal button', 'Take snapshots');
-	await until(p, `app.vault.adapter.exists(${j(`Odd/Snapshots/${notes[notes.length - 1][0]}`)})`, 15000);
+	// (each note's own snapshot, as "Take a snapshot" takes it: what "every note" did, one at a time)
+	await p.ev(`(async () => { for (const n of ${j(notes.map((n) => n[0]))}) await ${PL}.snapshotsApi.take(app.vault.getAbstractFileByPath('Odd/' + n + '.md')); })().then(() => 1)`);
 	await sleep(p, 500);
 	const nothing = /^(?:[ \t]*(?:#.*)?(?:\r\n|\n|\r|$))*$/, rest = /^[ \t]*(?:\r\n|\n|\r|$)/;
 	let props = 0, hidden = 0, whole = 0;
@@ -1287,7 +1260,7 @@ test('“Open to the right”: the snapshot in a pane of its own, read only; it 
 	t.eq(await read(p, A), FRONT + LATER, 'the note is untouched');
 });
 
-test('the menus: a note’s own menu and the file explorer’s have the three; a folder’s has the one; other notes have none', async (p, h, t) => {
+test('the menus: a note’s own menu and the file explorer’s have the three; a folder’s has its own two; other notes have none', async (p, h, t) => {
 	/** A note's own "More options" menu (the note open in a tab), or the file explorer's menu for a row. */
 	const menuFor = async (path, where) => {
 		if (where === 'note') { await openNote(p, path); const at = await p.at(MORE); await p.click(at.x, at.y); }
@@ -1302,7 +1275,7 @@ test('the menus: a note’s own menu and the file explorer’s have the three; a
 		t.ok(['Take a snapshot', 'Rewrite...', 'Show snapshots...'].every((x) => items.includes(x)), `${where}: ${items.join(', ')}`);
 	}
 	const folder = await menuFor(L + 'Part One', 'explorer');
-	t.ok(folder.includes('Take a snapshot of every note...') && !folder.includes('Rewrite...'), 'a folder of a binder: ' + folder.join(', '));
+	t.ok(folder.includes('Take a snapshot') && folder.includes('Show snapshots...') && !folder.includes('Rewrite...') && !folder.some((x) => /every note/.test(x)), 'a folder of a binder: its own snapshot’s two: ' + folder.join(', '));
 	const binderNote = await menuFor(NOTE, 'note');
 	t.ok(!binderNote.some((x) => /snapshot/i.test(x)), 'the binder’s own note has none: ' + binderNote.join(', '));
 	await p.ev(`app.vault.create('Loose.md', 'Not in a binder.').then(() => 1)`);
@@ -1315,7 +1288,7 @@ test('the menus: a note’s own menu and the file explorer’s have the three; a
 	await openView(p, L + 'Part One');
 	const k = await p.at(card(K));
 	await p.click(k.x, k.y - 30);
-	t.eq(j([await can(p, 'take-snapshot'), await can(p, 'rewrite'), await can(p, 'show-snapshots'), await can(p, 'take-snapshots'), await can(p, 'show-leftover-snapshots')]), j([false, false, false, true, false]), 'on the corkboard: only “Take a snapshot of every note in the binder”');
+	t.eq(j([await can(p, 'take-snapshot'), await can(p, 'rewrite'), await can(p, 'show-snapshots'), await can(p, 'take-snapshots'), await can(p, 'show-leftover-snapshots')]), j([false, false, false, true, false]), 'on the corkboard: only “Take a snapshot of the binder”');
 	await run(p, 'take-snapshot');
 	await sleep(p, 400);
 	t.eq(await exists(p, 'Snapshots'), false, 'nothing for the loose note');

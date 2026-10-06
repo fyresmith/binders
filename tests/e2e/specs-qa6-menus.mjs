@@ -565,31 +565,21 @@ test('stack card menu: Open, Open in new tab, Rename, Edit synopsis, status, lab
 	for (const n of ['Arrival', 'The keeper', 'Storm warning']) t.eq(Object.entries(now).find(([k]) => k.endsWith('/' + n + '.md'))?.[1], before[L + 'Part One/' + n + '.md'], `“${n}” keeps its text`);
 }));
 
-test('stack card menu: Export... and Take a snapshot of every note...; Duplicate; Put in a new folder; Move up/down; Move to; Delete says how many notes go', tidied(async (p, h, t) => {
+test('stack card menu: Export..., Take a snapshot and Show snapshots...; Duplicate; Put in a new folder; Move up/down; Move to; Delete says how many notes go', tidied(async (p, h, t) => {
 	await fresh(p);
 	const before = await BODIES(p);
 	const P2 = L + 'Part Two';
-	await onCard(p, P2, 'Take a snapshot of every note...');
-	await until(p, `!!document.querySelector('.modal')`);
-	let dd = await dialog(p);
-	t.eq(dd.title, 'Take a snapshot of all 2 notes in “Part Two”', 'the dialog says how many');
-	t.eq(j(dd.buttons.filter((b) => b)), j(['Take snapshots', 'Cancel']), 'Take snapshots, Cancel');
-	await p.type('bad/name');
-	await p.key('Enter');
-	await p.sleep(400);
-	dd = await dialog(p);
-	t.ok(dd && dd.error, 'a name with a slash is refused, the dialog stays: ' + j(dd?.error));
-	await p.key('Escape');
-	await p.sleep(400);
-	t.eq((await snapshotFiles(p)).length, 0, 'Escape takes nothing');
-	await onCard(p, P2, 'Take a snapshot of every note...');
-	await until(p, `!!document.querySelector('.modal')`);
-	await p.type('Sent to Sam');
-	await p.key('Enter');
-	await p.sleep(1000);
+	// the folder's own snapshot: no questions, one file of the folder's notes
+	await onCard(p, P2, 'Take a snapshot');
+	await until(p, `app.vault.adapter.exists(${j(SNAP_DIR + 'Part Two')})`, 10000);
+	await p.sleep(600);
 	const files = await snapshotFiles(p);
-	t.eq(files.length, 2, 'a snapshot of each of Part Two’s two notes: ' + j(files));
-	t.ok(files.every((x) => /Sent to Sam/.test(x)), 'each with the name');
+	t.ok(files.length === 1 && /\/Snapshots\/Part Two\/[^/]+\.binder-snapshot$/.test(files[0]), 'one snapshot of Part Two, as one file: ' + j(files));
+	await onCard(p, P2, 'Show snapshots...');
+	await until(p, `!!document.querySelector('.modal.binders-snapshots')`, 8000);
+	t.ok(await p.ev(`document.querySelectorAll('.modal.binders-snapshots .binders-snapshots-item').length === 2`), 'Show snapshots... lists it, under “now”');
+	await p.key('Escape');
+	await p.sleep(300);
 	await onCard(p, P2, 'Duplicate');
 	await p.sleep(1000);
 	const l = await list(p);
@@ -1486,7 +1476,7 @@ test('explorer, a note of a binder: Show in binder, New scene after this, the sn
 	await bodiesKept(p, t, before);
 }));
 
-test('explorer, a folder: Open binder, New scene here, Export..., Take a snapshot of every note..., Move up / down; the order of the section is Obsidian’s own first', tidied(async (p, h, t) => {
+test('explorer, a folder: Open binder, New scene here, Export..., Take a snapshot, Show snapshots..., Move up / down; the order of the section is Obsidian’s own first', tidied(async (p, h, t) => {
 	await showExplorer(p, ['The Lighthouse']);
 	const start = await list(p);
 	await exContext(p, 'The Lighthouse');
@@ -1503,11 +1493,9 @@ test('explorer, a folder: Open binder, New scene here, Export..., Take a snapsho
 	await ex(p, L + 'Part Two', 'New scene here');
 	await p.sleep(1000);
 	t.eq((await list(p)).filter((x) => x.startsWith('Part Two/')).length, 4, 'a third note in Part Two (and its folder): ' + j(await list(p)));
-	await ex(p, 'The Lighthouse', 'Take a snapshot of every note...');
-	await until(p, `!!document.querySelector('.modal')`);
-	t.ok(/all \d+ notes in .The Lighthouse./.test((await dialog(p)).title), 'asks for a name: ' + (await dialog(p)).title);
-	await p.key('Escape');
-	await p.sleep(300);
+	await ex(p, 'The Lighthouse', 'Take a snapshot');
+	await until(p, `app.vault.adapter.exists(${j(SNAP_DIR.slice(0, -1))}).then(ok => ok && app.vault.adapter.list(${j(SNAP_DIR.slice(0, -1))}).then(l => l.files.some(f => f.endsWith('.binder-snapshot'))))`, 10000);
+	t.ok((await snapshotFiles(p)).some((f) => f.endsWith('.binder-snapshot')), 'Take a snapshot takes the binder’s, with no questions');
 	await ex(p, 'The Lighthouse', 'Export...');
 	await until(p, `!!document.querySelector('${WIN}')`);
 	t.eq((await dialog(p)).title, 'Export “The Lighthouse”', 'Export... opens its window');
@@ -1624,7 +1612,7 @@ test('explorer, a binder that can’t be changed (a newer format): Open binder i
 	const it = await items(p);
 	log('read-only binder folder menu:', j(it.map((x) => x.title)));
 	t.ok(it.some((x) => x.title === 'Open binder'), 'Open binder');
-	t.ok(!it.some((x) => ['New scene here', 'Take a snapshot of every note...', 'Convert to binder', 'Make this folder a binder', 'New binder', 'Move up', 'Move down'].includes(x.title)), 'none of the items that would write');
+	t.ok(!it.some((x) => ['New scene here', 'Take a snapshot', 'Convert to binder', 'Make this folder a binder', 'New binder', 'Move up', 'Move down'].includes(x.title)), 'none of the items that would write');
 	await closeMenus(p);
 	await exContext(p, 'Future/a.md');
 	const n = await titles(p);
@@ -2510,7 +2498,7 @@ test('consistency: an action offered on several surfaces has one icon, and (wher
 	for (const [surface, list] of Object.entries(survey)) for (const x of list) {
 		if (OBSIDIANS.has(x.title) || x.label || !x.title) continue;
 		const words = x.title.replace(/\.\.\.$/, '').split(' ');
-		t.ok(words.slice(1).every((w) => w === w.toLowerCase() || /^[A-Z]{2,}$/.test(w) || /^[“”‘’"]/.test(w) || /^\d/.test(w)) || ['Take a snapshot of every note...'].includes(x.title) || surface === 'add column' || surface === 'toolbar filter', `${surface}: “${x.title}” is in sentence case`);
+		t.ok(words.slice(1).every((w) => w === w.toLowerCase() || /^[A-Z]{2,}$/.test(w) || /^[“”‘’"]/.test(w) || /^\d/.test(w)) || surface === 'add column' || surface === 'toolbar filter', `${surface}: “${x.title}” is in sentence case`);
 		t.ok(!/…/.test(x.title), `${surface}: “${x.title}” spells its ellipsis as three dots, as Obsidian’s items do`);
 	}
 }));
@@ -2622,7 +2610,7 @@ test('a binder that can’t be changed: the card, row and title menus open and r
 	await click(p, `${LEAF} .view-action[aria-label="More options"]`);
 	const more = await titles(p);
 	log('RO more options:', j(more));
-	t.ok(!more.some((x) => /Take a snapshot of every note|Undo|Redo/.test(x)), 'More options has nothing that writes');
+	t.ok(!more.some((x) => /^Take a snapshot$|Undo|Redo/.test(x)), 'More options has nothing that writes');
 	await closeMenus(p);
 	await setMode(p, 'outliner');
 	await context(p, `${LEAF} .binders-outliner-row`);
