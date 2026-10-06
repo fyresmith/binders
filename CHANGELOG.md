@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.44.1 (2026-10-06)
+
+### Fixed
+
+- Nothing a writer will notice: older tests expect what has been built since they were written, and two phone and tablet tests now run at the screen sizes they name.
+
 ## 0.44.0 (2026-10-06)
 
 ### Changed

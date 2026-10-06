@@ -1081,7 +1081,7 @@ test('phone headers: a tap opens the column’s menu as a sheet; sorting shows i
 		f.plusMenu = { items: await items(p), sheet: await sheet(p) };
 		await shot(p, 'head-plus-sheet');
 		c.ok(isSheet(f.plusMenu.sheet), '“+” opens the columns as a sheet');
-		c.eq(j(f.plusMenu.items), j(['Label', 'Status ✓', 'Words ✓', 'Target', 'Progress', 'Export', 'Notes', 'Created', 'Modified', 'plotlines', 'Other property...']), 'the ones showing ticked, then the notes’ own properties');
+		c.eq(j(f.plusMenu.items), j(['Label', 'Status ✓', 'Words ✓', 'Target', 'Progress', 'Export', 'Export as', 'Notes', 'Created', 'Modified', 'plotlines', 'Other property...']), 'the ones showing ticked, then the notes’ own properties');
 		await menuTap(p, 'Progress');
 		await p.sleep(600);
 		c.eq(j([await cols(), await menus(p)]), j([['title', 'status', 'words', 'progress'], 0]), 'a pick adds the column and closes the sheet');

@@ -1836,6 +1836,7 @@ const COMMANDS = (p) => p.ev(`Object.values(app.commands.commands).filter(c => c
 /** Which of the commands the palette would list now (`checkCallback(true)`), by id; never throws. */
 const available = (p) => p.ev(`(() => { const o = {}; for (const c of Object.values(app.commands.commands)) { if (!c.id.startsWith('binders:')) continue; try { o[c.id] = app.commands.executeCommandById ? !!(c.checkCallback ? c.checkCallback(true) : c.editorCheckCallback ? (app.workspace.activeEditor?.editor ? c.editorCheckCallback(true, app.workspace.activeEditor.editor, app.workspace.activeEditor) : false) : c.callback ? true : true) : null; } catch (e) { o[c.id] = 'THROWS ' + e.message; } } return o; })()`);
 const runCommand = (p, id) => p.ev(`(() => { try { return app.commands.executeCommandById(${j(id)}); } catch (e) { return 'THROWS ' + e.message; } })()`);
+const PROPER = new Set(['Scrivener']);
 const dismiss = async (p) => { for (let i = 0; i < 4 && (await p.ev(`document.querySelectorAll('.modal-container, .menu').length`)); i++) { await p.key('Escape'); await p.sleep(200); } await clearNotices(p); };
 
 test('palette: every command is named without the plugin’s name, in sentence case, has no default hotkey, and its icon exists', tidied(async (p, h, t) => {
@@ -1847,7 +1848,8 @@ test('palette: every command is named without the plugin’s name, in sentence c
 		const own = c.name.replace(/^Binders: /, '');
 		t.ok(!/binders\b/i.test(own.replace(/ in the binder$/, '')) || /binder/.test(own), `“${own}” has no plugin prefix`);
 		t.ok(!/^Binders:/i.test(own), `“${own}” doesn’t repeat the plugin’s name`);
-		t.ok(own.split(' ').slice(1).every((w) => w === w.toLowerCase() || /^[A-Z]$/.test(w)), `“${own}” is in sentence case`);
+		// (a product's name keeps its capital: the same list as `ignoreWords` in eslint.config.mjs)
+		t.ok(own.split(' ').slice(1).every((w) => w === w.toLowerCase() || /^[A-Z]$/.test(w) || PROPER.has(w.replace(/\.+$/, ''))), `“${own}” is in sentence case`);
 		t.ok(!c.hotkeys || c.hotkeys.length === 0, `“${c.name}” has no default hotkey`);
 	}
 	const keys = await p.ev(`Object.keys(app.hotkeyManager.defaultKeys ?? {}).filter(k => k.startsWith('binders:'))`);
@@ -1868,6 +1870,8 @@ test('palette: with nothing open, only the commands that need nothing are offere
 	log('with nothing open, offered:', on.join(', '));
 	t.eq(Object.values(av).filter((v) => typeof v === 'string').length, 0, 'no command throws when asked if it applies: ' + j(Object.entries(av).filter(([, v]) => typeof v === 'string')));
 	t.ok(on.includes('new-binder'), 'New binder is offered');
+	// (the same four as on a phone: “phone commands: the palette offers…” in specs-qa5-nav)
+	t.eq(j([...on].sort()), j(['import-scrivener', 'new-binder', 'show-contents', 'show-inspector']), 'what makes a binder (new, or from Scrivener) and the two sidebar tabs, and nothing else');
 	t.ok(!on.some((x) => ['open-binder', 'show-corkboard', 'show-outliner', 'show-manuscript', 'make-binder', 'new-scene', 'set-target', 'split-scene', 'take-snapshot', 'move-up', 'move-down'].includes(x)), 'and the ones that need a note or a view are not: ' + on.join(', '));
 	const before = await p.ev(`app.vault.getRoot().children.filter(f => f.children).map(f => f.path).sort()`);
 	t.ok(await runCommand(p, 'binders:new-binder') !== undefined, 'New binder runs');

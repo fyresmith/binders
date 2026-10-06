@@ -1063,7 +1063,7 @@ test('small phone (320 px): in the settings, a label’s name, color, well, dele
 		const see = async (sel, name) => { await p.ev(`(() => { ${TAB}.querySelector(${j(sel)}).scrollIntoView({ block: 'start' }); return 1; })()`); await p.sleep(300); await shot(p, name); };
 		await see('.binders-settings-labels', 'settings-320-labels');
 		t.ok(await p.ev(`${TAB}.scrollWidth <= ${TAB}.clientWidth + 1`), 'nothing is wider than the screen');
-		const rows = await p.ev(`(() => { const R = ${R}; const of = (row) => ({ row: R(row), name: R(row.querySelector('.setting-item-name input')), select: R(row.querySelector('select')), well: R(row.querySelector('input[type="color"]')), icons: [...row.querySelectorAll('.setting-item-control .clickable-icon, .setting-item-control .extra-setting-button')].map(e => [e.getAttribute('aria-label'), ...R(e)]) }); return { labels: [...${TAB}.querySelectorAll('.binders-settings-label')].map(of), statuses: [...${TAB}.querySelectorAll('.binders-settings-status')].map(of), props: [...${TAB}.querySelectorAll('.setting-item:not(.binders-settings-label):not(.binders-settings-status):not(.binders-settings-goal):not(.binders-settings-exports):not(.binders-settings-author):not(.binders-settings-styles) input[type="text"]')].map(R), text: ${TAB}.innerText }; })()`);
+		const rows = await p.ev(`(() => { const R = ${R}; const of = (row) => ({ row: R(row), name: R(row.querySelector('.setting-item-name input')), select: R(row.querySelector('select')), well: R(row.querySelector('input[type="color"]')), icons: [...row.querySelectorAll('.setting-item-control .clickable-icon, .setting-item-control .extra-setting-button')].map(e => [e.getAttribute('aria-label'), ...R(e)]) }); return { labels: [...${TAB}.querySelectorAll('.binders-settings-label')].map(of), statuses: [...${TAB}.querySelectorAll('.binders-settings-status')].map(of), props: [...([...${TAB}.querySelectorAll('.setting-group')].find(g => g.querySelector('.setting-item-heading .setting-item-name')?.textContent === 'Property names')?.querySelectorAll('input[type="text"]') ?? [])].map(R), text: ${TAB}.innerText }; })()`);
 		t.eq(rows.labels.length, 8, 'eight labels');
 		for (const r of rows.labels) {
 			const parts = [r.name, r.select, r.well, ...r.icons.map((i) => i.slice(1))];
@@ -1079,8 +1079,16 @@ test('small phone (320 px): in the settings, a label’s name, color, well, dele
 		t.eq(rows.statuses.length, 4, 'four statuses');
 		t.ok(rows.statuses.every((r) => r.name[2] >= 200 && r.name[3] >= 40), 'a status’s name is wide and tall enough');
 		t.ok(/Add label/.test(rows.text) && /Add status/.test(rows.text), 'the lists end in “Add label” and “Add status”');
-		t.eq(rows.props.length, 4, 'four property names');
+		// (the fields under “Property names”, one for each property that has a name: the notes' has had one since 0.26)
+		t.eq(rows.props.length, 5, 'five property names');
 		t.ok(rows.props.every((r) => r[2] >= 200 && r[3] >= 40), 'each field wide and tall enough: ' + j(rows.props));
+		// the rows that came after this test was written: focus mode's goal, and export's folders, places, name and contact
+		const later = await p.ev(`(async () => { const R = ${R}, out = []; for (const cls of ['goal', 'exports', 'places', 'author', 'contact', 'styles']) { const row = ${TAB}.querySelector('.binders-settings-' + cls), c = row?.querySelector('input, textarea, button'); if (!c) { out.push({ cls }); continue; } c.scrollIntoView({ block: 'center' }); await new Promise(r => setTimeout(r, 120)); const b = c.getBoundingClientRect(), hit = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2); out.push({ cls, row: R(row), name: R(row.querySelector('.setting-item-name')), desc: R(row.querySelector('.setting-item-description')), control: R(c), hit: hit === c || c.contains(hit) }); } return out; })()`);
+		for (const r of later) {
+			t.ok(r.control && r.row[0] >= 0 && r.row[0] + r.row[2] <= SMALL[0] && [r.name, r.desc, r.control].every((x) => x && x[0] >= r.row[0] && x[0] + x[2] <= r.row[0] + r.row[2] + 1), `“${r.cls}”: its name, what it says and its field are inside its row, and the row on the screen: ` + j(r));
+			t.ok(r.control[2] >= 200 && r.control[3] >= 40 && r.hit, `“${r.cls}”: its field is wide and tall enough, and a finger lands on it: ` + j(r));
+		}
+		t.ok(await p.ev(`${TAB}.scrollWidth <= ${TAB}.clientWidth + 1`), 'and still nothing is wider than the screen');
 		// a name typed by touch is kept
 		const first = `${TAB}.querySelector('.binders-settings-status .setting-item-name input')`;
 		await p.ev(`(() => { ${first}.scrollIntoView({ block: 'center' }); return 1; })()`);

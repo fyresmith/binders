@@ -1828,9 +1828,13 @@ test('phone on its side (844 × 390 and 568 × 320): cards are in columns, a tap
 		t.ok(await p.ev(`document.body.classList.contains('is-phone')`), 'still a phone');
 		for (const size of [side(PHONE), side(SMALL)]) {
 			const name = size.join('x');
+			// (the runner's reset gives the window its desktop size back, 1440 × 900, where Obsidian takes this for a
+			// tablet: the phone's size is set after it. Set before it, as this was, every check below was made on
+			// that tablet, which went unseen until a tablet's menu lost “Move down” to “Move” in 0.42.0)
+			await h.reset();
 			await metrics(p, ...size);
 			await p.sleep(600);
-			await h.reset();
+			t.eq(j(await p.ev(`[innerWidth, innerHeight, document.body.classList.contains('is-phone')]`)), j([...size, true]), `${name}: a phone, at that size`);
 			await open(p, L + 'Part One');
 			const cols = await p.ev(`getComputedStyle(document.querySelector('${LEAF} .binders-cards')).gridTemplateColumns.trim().split(/\\s+/).length`);
 			t.ok(cols >= 2, `${name}: a folder’s cards are in ${cols} columns`);
@@ -1896,9 +1900,11 @@ test('tablet, upright and on its side: the board is a grid, menus are popovers b
 		t.ok(await p.ev(`document.body.classList.contains('is-tablet')`), 'a tablet');
 		for (const size of [TABLET, side(TABLET)]) {
 			const name = size.join('x');
+			// (after the reset, which gives the window its desktop size back)
+			await h.reset();
 			await metrics(p, ...size);
 			await p.sleep(700);
-			await h.reset();
+			t.eq(j(await p.ev(`[innerWidth, innerHeight, document.body.classList.contains('is-tablet')]`)), j([...size, true]), `${name}: a tablet, at that size`);
 			await open(p, L + 'Part One');
 			await shot(p, `tablet-${name}`);
 			const s = await sideways(p), tg = await targets(p);

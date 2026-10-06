@@ -773,9 +773,9 @@ test('phone header: “More options” in each mode is a sheet of finger-tall ro
 		const more = await p.at(MORE);
 		t.ok(more.w >= 40 && more.h >= 40, `the button is ${Math.round(more.w)} × ${Math.round(more.h)} px`);
 		const want = {
-			corkboard: ['Close', 'Pin', 'Card size', 'Tint cards with their label color', 'Number the cards', 'Corkboard', 'Outliner', 'Manuscript', 'In a grid', 'By label, across', 'By label, down', 'Show notes in subfolders', 'Show unused labels', 'Export...', 'Take a snapshot', 'Show snapshots...', 'Open binder note'],
-			outliner: ['Close', 'Pin', 'Show synopses', 'Columns', 'Expand all', 'Collapse all', 'Corkboard', 'Outliner', 'Manuscript', 'Export...', 'Take a snapshot', 'Show snapshots...', 'Open binder note'],
-			manuscript: ['Close', 'Pin', 'Corkboard', 'Outliner', 'Manuscript', 'Export...', 'Take a snapshot', 'Show snapshots...', 'Open binder note'],
+			corkboard: ['Close', 'Pin', 'Card size', 'Tint cards with their label color', 'Number the cards', 'Corkboard', 'Outliner', 'Manuscript', 'In a grid', 'By label, across', 'By label, down', 'Show notes in subfolders', 'Show unused labels', 'Export...', 'Take a snapshot', 'Show snapshots...', 'Show contents', 'Open binder note'],
+			outliner: ['Close', 'Pin', 'Show synopses', 'Columns', 'Expand all', 'Collapse all', 'Corkboard', 'Outliner', 'Manuscript', 'Export...', 'Take a snapshot', 'Show snapshots...', 'Show contents', 'Open binder note'],
+			manuscript: ['Close', 'Pin', 'Corkboard', 'Outliner', 'Manuscript', 'Export...', 'Take a snapshot', 'Show snapshots...', 'Show contents', 'Open binder note'],
 		};
 		for (const [mode, items] of Object.entries(want)) {
 			await setMode(p, mode);
@@ -808,7 +808,7 @@ test('phone header: “More options” in each mode is a sheet of finger-tall ro
 		await tap(p, more.x, more.y);
 		await p.sleep(500);
 		const inFolder = await menuItems(p);
-		t.ok(inFolder.includes('Export...') && !inFolder.includes('Open binder note') && !inFolder.includes('Open folder note'), 'in a folder with no note of its own: Export, and no note to open: ' + j(inFolder));
+		t.eq(j(inFolder), j([...want.corkboard.slice(0, -1)]), 'in a folder with no note of its own: everything the binder’s sheet has (Export, snapshots, Contents), and no note to open');
 		await p.ev(NOTE_KIND);
 		await menuTap(p, 'Export...');
 		await until(p, `!!document.querySelector('.modal .binders-export-path')`);
@@ -833,9 +833,13 @@ test('phone commands: the palette offers Binders’ commands where they apply an
 		await p.ev(FUTURE);
 		await p.sleep(1200);
 		const offered = async () => { const list = await palette(p, 'Binders'); await closePalette(p); return list.filter((x) => /^Binders/.test(x)).map((x) => x.replace(/^Binders/, '')).sort(); };
-		// (“New binder” is offered everywhere, since a binder can be made from anywhere)
-		const check = async (what, want) => t.eq(j(await offered()), j([...want, 'New binder'].sort()), what);
-		const VIEWS = ['Show corkboard', 'Show outliner', 'Show manuscript', 'Export binder'], ARRANGE = 'Arrange corkboard by label', FOCUS = 'Toggle focus mode', STEP = ['Go to previous scene', 'Go to next scene'];
+		// (“New binder” is offered everywhere, since a binder can be made from anywhere; so are “Import from Scrivener...”,
+		// which makes one, and the two sidebar tabs, “Show contents” and “Show inspector”, which like Obsidian's own
+		// “Show outline” open with nothing to show: the desktop's twin is “palette: with nothing open…” in specs-qa6-menus)
+		const ANYWHERE = ['New binder', 'Import from Scrivener...', 'Show contents', 'Show inspector'];
+		const check = async (what, want) => t.eq(j(await offered()), j([...want, ...ANYWHERE].sort()), what);
+		// (“Export again” goes wherever “Export binder” does: with nothing exported yet it opens the window)
+		const EXPORT = ['Export binder', 'Export again'], VIEWS = ['Show corkboard', 'Show outliner', 'Show manuscript', ...EXPORT], ARRANGE = 'Arrange corkboard by label', FOCUS = 'Toggle focus mode', STEP = ['Go to previous scene', 'Go to next scene'];
 		// snapshots: the binder's, wherever a binder is in view; a scene's own too, where a scene is open
 		const ALL = ['Take a snapshot of the binder', 'Show snapshots of the binder'], SCENE = ['Take a snapshot', 'Rewrite', 'Show snapshots', ...ALL];
 		await check('nothing open', []);
@@ -847,25 +851,26 @@ test('phone commands: the palette offers Binders’ commands where they apply an
 		await check('its manuscript, no caret in it', [...VIEWS, 'New scene here', 'Set word count target', ...ALL, FOCUS]);
 		await setMode(p, 'corkboard');
 		await h.open(L + 'Part One/Arrival.md');
-		await check('a scene, first in its folder', ['Open binder', 'Export binder', 'New scene here', 'Split scene at cursor', 'Move down', ...SCENE, FOCUS, ...STEP]);
+		await check('a scene, first in its folder', ['Open binder', ...EXPORT, 'New scene here', 'Split scene at cursor', 'Move down', ...SCENE, FOCUS, ...STEP]);
 		await h.open(L + 'Part One/Storm warning.md');
-		await check('a scene, last in its folder', ['Open binder', 'Export binder', 'New scene here', 'Split scene at cursor', 'Move up', ...SCENE, FOCUS, ...STEP]);
+		await check('a scene, last in its folder', ['Open binder', ...EXPORT, 'New scene here', 'Split scene at cursor', 'Move up', ...SCENE, FOCUS, ...STEP]);
 		await h.open(L + 'The Lighthouse.md');
-		await check('the binder note', ['Open binder', 'Export binder', 'New scene here', ...ALL]);
+		await check('the binder note', ['Open binder', ...EXPORT, 'New scene here', ...ALL]);
 		await h.open('Longform demo/Index.md');
-		await check('a Longform project’s index', ['Open binder', 'Export binder', 'New scene here', 'Convert to binder', ...ALL]);
+		await check('a Longform project’s index', ['Open binder', ...EXPORT, 'New scene here', 'Convert to binder', ...ALL]);
 		await h.open('Longform demo/Harbor.md');
-		await check('a Longform scene', ['Open binder', 'Export binder', 'New scene here', 'Convert to binder', 'Split scene at cursor', 'Move down', ...SCENE, FOCUS, 'Go to next scene']);
+		await check('a Longform scene', ['Open binder', ...EXPORT, 'New scene here', 'Convert to binder', 'Split scene at cursor', 'Move down', ...SCENE, FOCUS, 'Go to next scene']);
 		await open(p, 'Longform demo');
 		await check('a Longform project’s view', [...VIEWS, 'New scene here', 'Set word count target', 'Convert to binder', ...ALL, ARRANGE]);
 		await h.open('Plain/A note.md');
 		await check('a note in a plain folder', ['Make this folder a binder']);
 		await h.open('Loose.md');
 		await check('a note in the vault’s root', []);
+		// (a binder that can't be changed can still be looked at: its snapshots are shown, none is taken)
 		await h.open('Future/One.md');
-		await check('a scene of a read-only binder', ['Open binder', 'Export binder', 'Show snapshots', FOCUS]);
+		await check('a scene of a read-only binder', ['Open binder', ...EXPORT, 'Show snapshots', ALL[1], FOCUS]);
 		await open(p, 'Future');
-		await check('a read-only binder’s view', [...VIEWS, ARRANGE]);
+		await check('a read-only binder’s view', [...VIEWS, ALL[1], ARRANGE]);
 		// a command run from the palette by touch
 		await open(p);
 		await palette(p, 'Show outliner');

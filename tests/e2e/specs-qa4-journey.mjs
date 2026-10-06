@@ -96,6 +96,11 @@ async function palette(p, name) {
 async function explorerRows(p, under) {
 	await p.ev(`(() => { app.workspace.leftSplit.expand(); const v = app.workspace.getLeavesOfType('file-explorer')[0].view; for (const k of Object.keys(v.fileItems)) if (k === ${j(under)} || k.startsWith(${j(under + '/')})) v.fileItems[k].setCollapsed?.(false); return 1; })()`);
 	await p.sleep(350);
+	// The folder's row at the top of the explorer, so its rows are in the window to be pointed at: folders stay as the
+	// tests before this one left them, and with those above unfolded the last rows here were below the window's edge
+	// (a press there starts no drag: "the explorer says where a drop will go" got "").
+	await p.ev(`(() => { [...document.querySelectorAll('.workspace-leaf-content[data-type="file-explorer"] .tree-item-self[data-path]')].find(e => e.dataset.path === ${j(under)})?.scrollIntoView({ block: 'start' }); return 1; })()`);
+	await p.sleep(150);
 	return p.ev(`[...document.querySelectorAll('.workspace-leaf-content[data-type="file-explorer"] .tree-item-self[data-path]')].map(e => e.dataset.path).filter(x => x.startsWith(${j(under + '/')}))`);
 }
 const exRow = (p, path) => p.at(`.workspace-leaf-content[data-type="file-explorer"] .tree-item-self[data-path="${path}"]`);
@@ -470,7 +475,7 @@ test('1b. chapters: scenes grouped into three folders by “New folder from sele
 	// a chapter's target in the outliner's Target column, its synopsis from its row's menu
 	const plus = await p.at(`${AL} .binders-outliner-th.mod-add`);
 	await p.click(plus.x, plus.y);
-	t.eq(j(await menuItems(p)), j(['Label', 'Status', 'Words', 'Target', 'Progress', 'Export', 'Notes', 'Created', 'Modified', 'Other property...']), 'the columns to choose from');
+	t.eq(j(await menuItems(p)), j(['Label', 'Status', 'Words', 'Target', 'Progress', 'Export', 'Export as', 'Notes', 'Created', 'Modified', 'Other property...']), 'the columns to choose from');
 	await clickMenu(p, 'Target');
 	await p.sleep(300);
 	let n = await oname(p, 'Novel/Chapter 1');
