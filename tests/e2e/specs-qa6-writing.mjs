@@ -13,9 +13,14 @@ const bad = (name, fn) => add('BUG: ', name, fn);
 const on = (size, fn) => async (p, h, t) => { const before = snap(p); await onDevice(p, size, () => fn(p, h, t, before)); };
 const openMs = async (p, ...a) => { await patchFix(p); return openMs0(p, ...a); };
 const throttle = (p, rate) => p.send('Emulation.setCPUThrottlingRate', { rate });
+/** Has this section its editor, with the caret in it? */
+const caretIn = (path) => `(() => { const s = ${sc(path)}; return !!s?.live?.cm && s.live.cm.hasFocus && document.activeElement === s.live.cm.contentDOM; })()`;
+/** A tap just past the end of a section's last line of text. On a phone a section is plain text until it's tapped: the
+    tap is on whichever is there, and the caret is waited for (its editor is made by the tap). */
 const tapEndOf = async (p, path, wait = 700) => {
-	const at = await p.ev(`(() => { const s = ${sc(path)}; const ls = [...s.bodyEl.querySelectorAll('.cm-content > .cm-line')].filter(x => x.textContent.trim()); const r = document.createRange(); r.selectNodeContents(ls.pop()); const b = [...r.getClientRects()].pop(); return { x: b.right + 2, y: (b.top + b.bottom) / 2 }; })()`);
+	const at = await p.ev(`(() => { const s = ${sc(path)}; const ls = [...s.bodyEl.querySelectorAll('.cm-content > .cm-line, .binders-manuscript-rendered > *')].filter(x => x.textContent.trim()); const r = document.createRange(); r.selectNodeContents(ls.pop()); const b = [...r.getClientRects()].pop(); return { x: b.right + 2, y: (b.top + b.bottom) / 2 }; })()`);
 	await tap(p, at.x, at.y, wait);
+	if (!(await until(p, caretIn(path), 5000))) throw new Error(`a tap at the end of ${path} put no caret there`);
 };
 const editorText = (p, path) => p.ev(`${sc(path)}.live?.text ?? null`);
 
@@ -734,8 +739,13 @@ for (const [name, tear] of Object.entries({ 'another mode': TEARDOWNS['another m
 bad('phone: two outside changes in a row while there is unsaved typing: the first is not undone by the second', on(PHONE, async (p, h, t) => {
 	await setupOdd(p, [['M', FIXTURE]], false);
 	await openMs(p, 'Odd');
-	await p.ev(`(() => { const E = ${sc('Odd/M.md')}.live.editor; E.focus(); E.setCursor(E.offsetToPos(E.getValue().indexOf('First') + 3)); return 1; })()`);
+	// (a phone's section is plain text until it's tapped: a real tap, between "Fir" and "st", makes it its editor)
+	t.eq(await p.ev(`!!${sc('Odd/M.md')}.live`), false, 'before the tap the section is plain text');
+	await tapText(p, 'Odd/M.md', 'First', 3);
+	t.ok(await until(p, caretIn('Odd/M.md'), 5000), 'the tap makes the section its editor, with the caret in it');
+	t.eq(await p.ev(`(() => { const cm = ${sc('Odd/M.md')}.live.cm, h = cm.state.selection.main.head; return cm.state.doc.sliceString(h - 3, h) + '|' + cm.state.doc.sliceString(h, h + 2); })()`), 'Fir|st', 'the caret is where the finger was');
 	await typeKeys(p, 'Y');
+	t.eq(await p.ev(`[${sc('Odd/M.md')}.live.dirty, ${sc('Odd/M.md')}.live.text.includes('FirYst')].join()`), 'true,true', 'what was typed is in the editor and not saved yet as the first outside change comes');
 	await outside(p, 'Odd/M.md', `c => c + 'External line 1.\\n'`);
 	await p.sleep(700);
 	await outside(p, 'Odd/M.md', `c => c + 'External line 2.\\n'`);

@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.24.7 (2026-10-06)
+
+### Fixed
+
+- Nothing a writer will notice: the phone tests that expected an editor without a tap now tap first, and the check that unsaved phone typing survives an outside edit runs again.
+
 ## 0.24.6 (2026-10-06)
 
 ### Fixed

@@ -1418,7 +1418,8 @@ test('phone, CPU four times slower, a binder of 300 notes: every mode opens in u
 		await swipes();
 		out.outlinerScroll = await frameStats();
 		out.manuscriptOpens = await timed(`(async () => { ${VIEW}.setMode('manuscript'); })()`);
-		await until(p, `!!document.querySelector('${LEAF} .binders-manuscript .cm-editor')`, 30000);
+		// (a phone: sections are drawn as plain text; an editor comes with a tap)
+		await until(p, `!!document.querySelector('${LEAF} .binders-manuscript :is(.cm-editor, .binders-manuscript-rendered)')`, 30000);
 		await p.sleep(1500);
 		await frames(2800);
 		await swipes();
@@ -1426,8 +1427,8 @@ test('phone, CPU four times slower, a binder of 300 notes: every mode opens in u
 		// typing: how long each key takes to show
 		await p.sleep(1500);
 		// (a scene here is one paragraph taller than the screen: anywhere in an editor that's in sight)
-		const line = await until(p, `[...document.querySelectorAll('${LEAF} .binders-manuscript .cm-content')].map(e => e.getBoundingClientRect()).filter(r => r.top < 500 && r.bottom > 400).map(r => [r.left + 60, Math.max(r.top + 12, 300)])[0]`, 15000);
-		t.ok(line, 'after the swipes, the sections in sight are editors again');
+		const line = await until(p, `[...document.querySelectorAll('${LEAF} .binders-manuscript :is(.cm-content, .binders-manuscript-rendered)')].map(e => e.getBoundingClientRect()).filter(r => r.top < 500 && r.bottom > 400).map(r => [r.left + 60, Math.max(r.top + 12, 300)])[0]`, 15000);
+		t.ok(line, 'after the swipes, the sections in sight are drawn (plain text on a phone, until one is tapped)');
 		await tap(p, line[0], line[1]);
 		await p.sleep(900);
 		t.ok(await p.ev(`document.activeElement.matches('.cm-content')`), 'a tap puts the caret in a section');

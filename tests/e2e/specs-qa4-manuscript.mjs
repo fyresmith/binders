@@ -1204,8 +1204,10 @@ const phone = (fn) => async (p, h, t) => {
 /** A tap in the third paragraph of the first scene, then “TAP ” typed there. */
 async function tapAndType(p, t) {
 	t.eq(await active(p), 'body', 'opening the manuscript on a phone puts the caret nowhere (no keyboard)');
-	const at = await p.ev(`(() => { const ls = ${scene(N(1))}.el.querySelectorAll('.cm-line'); const r = ls[4].getBoundingClientRect(); return { x: r.left + 120, y: r.top + 12 }; })()`);
+	// (the third paragraph: on a phone the section is plain text until this tap, which makes it its editor)
+	const at = await p.ev(`(() => { const el = ${scene(N(1))}.el, ls = el.querySelectorAll('.cm-line'), third = ls.length ? ls[4] : el.querySelectorAll('.binders-manuscript-rendered > p')[2]; const r = third.getBoundingClientRect(); return { x: r.left + 120, y: r.top + 12 }; })()`);
 	await tap(p, at.x, at.y);
+	await until(p, `!!document.activeElement?.matches('.binders-manuscript .cm-content')`, 5000);
 	const c = await caret(p), text = disk(p, N(1));
 	t.ok(c?.path === N(1) && c.head >= text.indexOf('Scene 1 paragraph 3') && c.head < text.indexOf('Scene 1 paragraph 4'), 'a tap puts the caret in the paragraph tapped: ' + J(c && c.before + '|' + c.after));
 	await keys(p, 'TAP '); await p.sleep(300);

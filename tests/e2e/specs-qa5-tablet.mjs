@@ -757,8 +757,10 @@ for (const [dev, size] of [['phone (390 × 844)', PHONE], ['small phone (320 × 
 			await modeByTouch(p, 'Manuscript');
 			S.eq(await focusIs(p), 'BODY', 'switching to the manuscript puts no caret anywhere (no keyboard comes up)');
 			// a tap at the end of One's first paragraph, then typing with the keyboard up
-			const at = await p.ev(`(() => { const l = (${scene('One')}).querySelector('.cm-line'); const r = document.createRange(); r.selectNodeContents(l); const rs = r.getClientRects(), last = rs[rs.length - 1]; return { x: last.right - 2, y: last.top + last.height / 2 }; })()`);
+			const at = await p.ev(`(() => { const l = (${scene('One')}).querySelector('.cm-line, .binders-manuscript-rendered > p'); const r = document.createRange(); r.selectNodeContents(l); const rs = r.getClientRects(), last = rs[rs.length - 1]; return { x: last.right - 2, y: last.top + last.height / 2 }; })()`);
 			await tap(p, at.x, at.y);
+			// (on a phone the section is plain text until this tap: its editor is made by it)
+			await until(p, `!!document.activeElement?.matches('.binders-manuscript .cm-content')`, 5000);
 			await p.sleep(400);
 			S.eq(await p.ev(`document.activeElement.closest('.binders-manuscript-scene')?.querySelector('.binders-manuscript-title')?.textContent ?? null`), 'One', 'a tap puts the caret in the section tapped');
 			await keyboard(p, size, true);
@@ -787,7 +789,7 @@ for (const [dev, size] of [['phone (390 × 844)', PHONE], ['small phone (320 × 
 			S.eq(j((await list(p, NNOTE)).slice(0, 4)), j(['Chapter 1/', 'Chapter 1/One', 'Chapter 1/One 2', 'Chapter 1/Two']), 'and the new note is right after the first in the binder note');
 			log(`${tag}: after the split the keyboard is on`, await focusIs(p), 'in', await p.ev(`document.activeElement.closest('.binders-manuscript-scene')?.querySelector('.binders-manuscript-title')?.textContent ?? null`));
 			// more typing, in the new section, then straight to the corkboard: nothing lost on the way
-			await p.ev(`(() => { const s = ${scene('One 2')}; s.querySelector('.cm-content')?.focus(); const ed = app.workspace.activeEditor?.editor; if (ed) ed.setCursor({ line: ed.lastLine(), ch: ed.getLine(ed.lastLine()).length }); return 1; })()`);
+			await tapEnd(p, `(${scene('One 2')})`);
 			await p.type('LAST WORDS');
 			await keyboard(p, size, false);
 			await modeByTouch(p, 'Corkboard');
@@ -1097,8 +1099,9 @@ for (const [dev, size] of TABLETS) {
 			await p.key('Escape');
 			// --- the manuscript ---
 			await modeByTouch(p, 'Manuscript');
-			const at = await p.ev(`(() => { const l = (${scene('First')}).querySelector('.cm-line'); const r = l.getBoundingClientRect(); return { x: r.left + 40, y: r.top + 12 }; })()`);
+			const at = await p.ev(`(() => { const l = (${scene('First')}).querySelector('.cm-line, .binders-manuscript-rendered > p'); const r = l.getBoundingClientRect(); return { x: r.left + 40, y: r.top + 12 }; })()`);
 			await tap(p, at.x, at.y);
+			await until(p, `!!document.activeElement?.matches('.binders-manuscript .cm-content')`, 5000);
 			await p.sleep(400);
 			await p.ev(`(() => { const ed = app.workspace.activeEditor.editor; ed.setCursor({ line: ed.lastLine(), ch: ed.getLine(ed.lastLine()).length }); return 1; })()`);
 			await keys(p, 'Typed with keys.');
@@ -1139,14 +1142,16 @@ const pane = (i) => `.workspace-leaf[data-qa="p${i}"]`;
 const paneScene = (i, name) => `[...document.querySelectorAll('${pane(i)} .binders-manuscript-scene')].find(s => s.querySelector('.binders-manuscript-title').textContent === ${j(name)})`;
 /** A tap at the end of the last line of an editor (a note's, or a manuscript section's), which puts the caret there. */
 async function tapEnd(p, expr) {
-	// (a section out of sight is plain text until it's near: scrolled to, it becomes an editor a moment later)
+	// (a section out of sight is plain text until it's near: scrolled to, it becomes an editor a moment later. On a
+	// phone it stays plain text until it's tapped: the tap is on whichever is there, and its editor is waited for.)
 	await p.ev(`(() => { (${expr})?.scrollIntoView({ block: 'center' }); return 1; })()`);
-	await until(p, `!!(${expr})?.querySelector('.cm-line')`, 5000);
-	const where = `(() => { const root = ${expr}; const ls = root.querySelectorAll('.cm-line'); const l = ls[ls.length - 1]; l.scrollIntoView({ block: 'center' }); const r = document.createRange(); r.selectNodeContents(l); const rs = r.getClientRects(), last = rs[rs.length - 1] ?? l.getBoundingClientRect(); return { x: Math.max(last.right - 1, last.left + 1), y: last.top + last.height / 2 }; })()`;
+	await until(p, `!!(${expr})?.querySelector('.cm-line, .binders-manuscript-rendered > *')`, 5000);
+	const where = `(() => { const root = ${expr}; const live = root.querySelectorAll('.cm-line'), ls = live.length ? live : root.querySelectorAll('.binders-manuscript-rendered > *'); const l = ls[ls.length - 1]; l.scrollIntoView({ block: 'center' }); const r = document.createRange(); r.selectNodeContents(l); const rs = r.getClientRects(), last = rs[rs.length - 1] ?? l.getBoundingClientRect(); return { x: Math.max(last.right - 1, last.left + 1), y: last.top + last.height / 2 }; })()`;
 	await p.ev(where);
 	await p.sleep(250);
 	const at = await p.ev(where);
 	await tap(p, at.x, at.y);
+	if (!(await until(p, `(() => { const root = ${expr}, a = document.activeElement; return !!a?.matches('.cm-content') && (root === a || root.contains(a)); })()`, 5000))) throw new Error('a tap at the end of the text put no caret there');
 	await p.ev(`(() => { const ed = app.workspace.activeEditor?.editor; if (ed) ed.setCursor({ line: ed.lastLine(), ch: ed.getLine(ed.lastLine()).length }); return 1; })()`);
 	return at;
 }
@@ -2535,15 +2540,16 @@ test('phone 9. a binder of 1,000 notes in 20 folders, CPU four times slower: eac
 		await p.sleep(800);
 		out.manuscriptOpens = await timed(`(async () => { ${VIEW}.setMode('manuscript'); })()`);
 		const m0 = Date.now();
-		await until(p, `!!document.querySelector('${LEAF} .binders-manuscript .cm-editor')`, 60000);
+		// (a phone: the first section drawn; its editor comes with a tap)
+		await until(p, `!!document.querySelector('${LEAF} .binders-manuscript :is(.cm-editor, .binders-manuscript-rendered)')`, 60000);
 		out.manuscriptFirstEditor = Date.now() - m0;
 		await p.sleep(2500);
 		await frames(2800);
 		await swipes();
 		out.manuscriptScroll = await frameStats();
 		await p.sleep(2500);
-		const line = await until(p, `[...document.querySelectorAll('${LEAF} .binders-manuscript .cm-content')].map(e => e.getBoundingClientRect()).filter(r => r.top < 500 && r.bottom > 400).map(r => [r.left + 60, Math.max(r.top + 12, 300)])[0]`, 30000);
-		t.ok(line, 'after the swipes, the sections in sight are editors again');
+		const line = await until(p, `[...document.querySelectorAll('${LEAF} .binders-manuscript :is(.cm-content, .binders-manuscript-rendered)')].map(e => e.getBoundingClientRect()).filter(r => r.top < 500 && r.bottom > 400).map(r => [r.left + 60, Math.max(r.top + 12, 300)])[0]`, 30000);
+		t.ok(line, 'after the swipes, the sections in sight are drawn (plain text on a phone, until one is tapped)');
 		await tap(p, line[0], line[1]);
 		await p.sleep(1500);
 		t.ok(await p.ev(`document.activeElement.matches('.cm-content')`), 'a tap puts the caret in a section');
@@ -2555,9 +2561,11 @@ test('phone 9. a binder of 1,000 notes in 20 folders, CPU four times slower: eac
 		out.keys = await p.ev(`(() => { window.removeEventListener('keydown', window.__qa5d, true); const of = (k) => { const s = window.__qa5k.map(r => r[k]).filter(x => x != null).sort((a, b) => a - b); return { n: s.length, median: s[s.length >> 1] ?? -1, worst: s[s.length - 1] ?? -1 }; }; return { text: of('text'), frame: of('frame') }; })()`);
 		const file = await p.ev(`app.workspace.activeEditor?.file?.path ?? null`);
 		const s0 = Date.now();
-		await until(p, `app.vault.adapter.read(${j(file)}).then(x => /hello world/.test(x))`, 15000);
+		// (all of it, to the last space: a save part of the way through the typing has "hello world" too, without it)
+		await until(p, `app.vault.adapter.read(${j(file)}).then(x => /hello world /.test(x))`, 15000);
 		out.typingSaved = Date.now() - s0;
-		t.eq(count(await read(p, file), 'xhello world '), 1, 'what was typed is in the note, once');
+		const saved = await read(p, file), near = saved.indexOf('hello');
+		t.eq(count(saved, 'xhello world '), 1, 'what was typed is in the note, once: ' + j(near < 0 ? saved.slice(-80) : saved.slice(Math.max(0, near - 20), near + 30)));
 		await p.send('Emulation.setCPUThrottlingRate', { rate: 1 });
 		await shot(p, 'phone-9-speed');
 	});
