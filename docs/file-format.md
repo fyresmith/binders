@@ -33,7 +33,7 @@ Anything you like: notes on the book, links, a to-do list.
 ## Folder notes
 
 A subfolder in a binder can have a **folder note**: the note directly inside it with the folder's name
-(`Part One/Part One.md`). It holds the folder's own `synopsis`, `status`, `label` and `target`, and its body is free
+(`Part One/Part One.md`). It holds the folder's own `synopsis`, `status`, `label`, `target` and `notes`, and its body is free
 for notes. `export: false` in it leaves the whole folder out of an export, and `export-as` gives the folder a role (see
 "Export", below). Binders creates it (empty) when you first
 give the folder one of these in a binder view, or type into one of the outliner's property columns on the folder's
@@ -119,7 +119,7 @@ row.
 ## Scene properties
 
 Each note in a binder can have these properties. They are ordinary Obsidian properties. The names of the first four
-can be changed in settings; `export` and `export-as` are fixed.
+and of `notes` can be changed in settings; `export` and `export-as` are fixed.
 
 | Property | Type | Used for |
 |---|---|---|
@@ -127,6 +127,7 @@ can be changed in settings; `export` and `export-as` are fixed.
 | `status` | text | A chip on the card, a column in the outliner, and a filter. Settings list the statuses offered (Idea, Draft, Revised, Done to start with); any other text works too |
 | `label` | text | The note's color: the border and tint of its card, a dot in the outliner and in the file explorer, and a filter. See below |
 | `target` | number | A word count target for the note: progress on its card, and the outliner's Target and Progress columns. A whole number above zero and up to a billion; text such as `"1,500"`, `"1 500"` or `"1.500"` is read as 1500; anything else (`1.5`, `lots`, `0`) is no target |
+| `notes` | text | The writer's own notes on the note: not manuscript text, and never exported. Typed in the inspector or the outliner's Notes column, as plain text of as many lines as are typed (YAML writes them as a block). A folder's are in its folder note, the binder's in the binder note. Clearing them removes the property. The Scrivener project export (docs/export.md) is to carry them as the document's notes |
 | `export` | checkbox | `false` leaves the note out of every export. Missing, or anything else, means included; turning it back on removes the property |
 | `compile` | checkbox | The name `export` had before export was built. `false` is read as `export: false`, for good. Binders never writes it, and never rewrites a note to change one into the other: a note keeps it until "Include in export" is turned on for it, which removes both |
 | `export-as` | text | The note's role in an exported book, when the structure's own answer isn't wanted: `part`, `chapter`, `scene`, `front matter` or `back matter`. See "Export" |
@@ -178,7 +179,7 @@ the commands you run on it:
   there, and the new note then goes to the trash, but only if it is still byte for byte what the split wrote, under
   the name and in the folder the split gave it, and only once the first note is on disk with that text; otherwise it
   stays and a notice says the text is in both. Redo writes the new note again, as the split wrote it.
-- "Merge" appends the other notes' text to the first, a blank line between, joins their synopses the same way, reads
+- "Merge" appends the other notes' text to the first, a blank line between, joins their synopses and their notes the same way, reads
   the result back to check every note's text is in it, and only then moves the others to the trash.
 - "Duplicate" copies files byte for byte. A copied folder keeps its order, and its folder note is renamed to match
   (as is the folder note of a folder copied outside Binders: see "Keeping the list up to date").

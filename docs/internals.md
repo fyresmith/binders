@@ -350,3 +350,15 @@ asked for when an export is saved and not before, and only on a computer (`Platf
   to and what was selected, so Back returns there. Switching modes keeps a place per mode and folder in the view.
 - In the e2e harness, `activeDocument` can be another of Obsidian's windows, so menus opened without a position open
   there; the harness focuses the main window before each test, click and right-click.
+
+## The inspector and the contents (checked on Obsidian 1.13.7, desktop and `app.emulateMobile(true)`)
+
+No undocumented API. The two sidebar views are drawn with the class names Obsidian's own sidebar views use, so that
+they look like them in every theme. If one of these names changes, the views work as before and look plainer.
+
+| Internal | Where | What for | Without it | Test |
+|---|---|---|---|---|
+| `metadata-container`, `metadata-properties`, `metadata-property`, `metadata-property-key`, `metadata-property-icon`, `metadata-property-value`, `metadata-input-checkbox` (a note's properties, as "File properties" draws them), and the variables `--metadata-label-width`, `--metadata-input-height`, `--metadata-label-font-size`, `--metadata-input-font-size`, `--metadata-input-padding` | `src/inspector/scene-pane.ts` (`row`), `styles.css` | The inspector's rows: the hairline under each in a sidebar, the focus tint, a value put under its name below 250px of width | Rows without a hairline or a tint, each a name and a value side by side; every field still works | `specs-inspector.mjs` (every edit; a phone's rows at 44px) |
+| `tree-item`, `tree-item-self`, `tree-item-inner`, `tree-item-children`, `tree-item-icon`, `collapse-icon`, `tree-item-flair-outer`, `tree-item-flair`, `is-clickable`, `is-active`, `is-collapsed`, `mod-collapsible`, `nav-folder`, `nav-file`, `nav-folder-title`, `nav-file-title` (Obsidian's tree, as Outline and the file explorer draw it), and `--nav-heading-color`, `--nav-heading-weight`, `--nav-item-size` | `src/inspector/contents-pane.ts`, `src/inspector/scene-pane.ts` (a note's snapshots), `styles.css` | The contents' rows, their indents and guide lines, the marked row, the fold arrow | A plain list: no indent, no mark's tint. Folding still hides rows (the rule that hides a folded folder's rows is ours), and clicks and keys work | `specs-inspector.mjs` (the contents' order, mark, folding, keys) |
+| `pane-empty` | both panes | "No binder is open." as Outline says "No headings found." | The same words, unstyled | `specs-inspector.mjs` (what it follows) |
+| `workspace.leftSplit`, `rightSplit`, `rootSplit`, `getRightLeaf`, `revealLeaf`, `getMostRecentLeaf`, a leaf's `getRoot()`, a sidebar's `collapse()` and `collapsed` (all public API) | `src/inspector/follow.ts`, `views.ts`, `contents-pane.ts` | Telling a sidebar's tab from the writer's; putting the inspector's tab in the right sidebar; closing a phone's drawer after a tap in the contents | | `specs-inspector.mjs` |

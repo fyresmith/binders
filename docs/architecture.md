@@ -18,6 +18,7 @@ neighbours, for example the store and `snapshots.ts`, which follow each other's 
  ───────────────────────────────────────────────────────────────────────────────────
  view/BinderView.ts  ->  modes: corkboard.ts, lanes.ts, outliner.ts, manuscript.ts     what the writer sees
  focus/focus.ts      view/snapshots.ts       view/actions.ts, card.ts, edit.ts, drag.ts, ...
+ inspector/views.ts, contents-pane.ts       the sidebar: what's in hand, and the book with where you are
  ───────────────────────────────────────────────────────────────────────────────────
  binders.ts   the store: the only code that changes a binder (and its undo: undo.ts)
  scenes.ts    splitting, merging, one note of many   snapshots.ts    taking and bringing back
@@ -129,6 +130,20 @@ word-for-word test (development.md) holds each writer to "no word dropped, repea
 | `src/view/windows.ts` | What belongs to the window a view is in when that is a window of its own: `watchSize` observes an element's size from its own window and follows it when its tab moves to another. | Use the main `window`'s observers or frames for a view that may be in a popout. |
 | `src/view/internals.ts` | Undocumented Obsidian API the views use: submenus, keeping a menu open, opening settings, header titles, the vault's trash, link and Vim settings, the history dialogs' classes. Each function checks for what it needs and falls back. | Throw if something is missing. |
 
+### The inspector and the contents
+
+Two views for the sidebar. They read the binder view and the workspace, and write only through the functions the
+cards and rows write through.
+
+| File | What it is | Must never |
+|---|---|---|
+| `src/inspector/follow.ts` | `Follow`, one for the plugin (`plugin.inspect`): which tab the writer was last in (never a sidebar's) and what is in hand there (`Target`: the section with the cursor or at the top of the page, selected cards or rows, a folder, a note in a tab). Tells the panes by `on('target')`. `rev` goes up when the data may have changed, and not when only the place did. | Change anything; follow a sidebar's own tab. |
+| `src/inspector/views.ts` | `FollowingView`, the base of both views (it saves open fields on every way out, as `BinderView` does), `InspectorView` (`binders-inspector`), "Show inspector", and the one time its tab is put in the right sidebar. | Open or reveal the sidebar unasked; put the tab back once it has been closed. |
+| `src/inspector/scene-pane.ts` | The inspector's pane: synopsis, label, status, target, export and role, notes, a note's snapshots, for one item or several. Fields are `view/edit.ts`'s; menus and writes are `view/actions.ts`'s and `view/props.ts`'s. | Save a field to any note but the one it was opened on; draw while a field is being typed in; turn to another item before what's typed is saved. |
+| `src/inspector/roles.ts` | The role each item plays in an export, as `export/roles.ts` assigns it, read from properties alone. | Read a note's text. |
+| `src/inspector/contents-pane.ts` | `ContentsPane` and `ContentsView` (`binders-contents`): the binder as a tree in reading order, the mark, a click that goes there in the open binder view, folding (kept in the view's state), the keys. Rows are kept and put right (`sync`); a change of place only moves the mark. | Reorder, rename or delete anything; draw the whole list again for a change. |
+| `src/view/props.ts` | Reading and writing a note's card data and its notes under the property names in settings: the one way, for the binder view and the inspector. | |
+
 ### Focus mode
 
 | File | What it is | Must never |
@@ -225,6 +240,7 @@ The full table (what each internal is, how it is detected, the fallback, the tes
 | `src/focus/dom.ts` | The editor's `cm`, the structure of a note's page, the editor's bottom padding. |
 | `src/paragraphs/mode.ts`, `src/paragraphs/language.ts` | The state of Obsidian's Markdown mode (`indentation`, `indentationDiff`, `list`, `quote`) and its token `hmd-indented-code`; that the editor's language is a stream language. |
 | `src/longform.ts` | `app.plugins.plugins` (is Longform running). |
+| `src/inspector/scene-pane.ts`, `src/inspector/contents-pane.ts`, `styles.css` | No API: the class names of Obsidian's own sidebar views, for their look (`metadata-property`, `tree-item`, `pane-empty`). |
 | `src/view/manuscript.ts`, `src/view/drag.ts`, `src/focus/focus.ts`, `styles.css` | A few class names of Obsidian's own window, each with a fallback. |
 
 When you add one, put it in one of those places (or a new module named for it), feature-detect it, give it a
@@ -286,6 +302,7 @@ These are the rules the code is held to. A change that breaks one needs a new te
 | Dragging between views | `file-drag` | `specs-card-file-drag` |
 | Phones and tablets | | `specs-mobile`, `specs-qa4-mobile`, `specs-qa5-tablet`, `specs-qa5-nav`, `specs-qa4-journey` |
 | Speed on a large binder | | `specs-perf` |
+| The inspector and the contents | `view` (the notes setting), `outliner` (the Notes column) | `specs-inspector` |
 | The sixth QA round, by area (2026-10-02) | | `specs-qa6-writing` (nothing typed is lost), `specs-qa6-scale` (thousands of notes), `specs-qa6-store`, `specs-qa6-boards`, `specs-qa6-menus` (every menu item, command and setting), `specs-qa6-phone`, `specs-qa6-tablet` (also keyboard, screen readers, themes), `specs-qa6-features` (snapshots, focus mode, scene work) |
 | The test tools themselves | `demo-vault` | `specs-driver`, `specs-hover` |
 

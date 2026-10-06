@@ -556,6 +556,14 @@ them: see AGENTS.md). Nothing is tagged yet.
 - **Mobile: "emulator is king"** (2026-10-02, the maintainer). He has no phone or tablet to try it on yet, so
   Obsidian's emulation of both, run in the e2e suite, is the standard for what works on mobile. A real iPhone, iPad and
   Android device are still to try when there is one, and the README says so.
+- **The inspector and the contents** (2026-10-05, the maintainer, from two directions built): two sidebar views, not
+  one view with both in it. The inspector's tab is put in the right sidebar once, unopened, and not again if it is
+  closed; the contents open by their command and from "More options". In the manuscript the panes are on the section
+  with the cursor, and on the section at the top of the page once the cursor is out of sight. Scene notes are a
+  property (`notes`, its name a setting), never exported. A note's snapshots are listed in the inspector, and a row
+  opens the dialog on that snapshot. The contents don't reorder at 1.0. Left out on purpose: other properties
+  (Obsidian's own view shows them), comments and footnotes as a list, bookmarks, progress bars. See
+  [design.md](design.md).
 - **How fixes ship** (2026-10-02): a fix runs its area's specs in both themes before it ships, the whole suite runs
   after each batch, and a failure on `main` is found by bisecting before anyone guesses. See
   [development.md](development.md).

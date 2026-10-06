@@ -156,6 +156,39 @@ and the keyboard opens. Rendered text stands as its editor will, line for line, 
 click into a section; footnotes are shown there as the editor shows them (each one's text where you wrote it, small,
 and `[^1]` in the line), not as a list at the foot.
 
+## The inspector and the contents
+
+Two views for the sidebar, as Outline and Backlinks are: put them side by side, one over the other, in either
+sidebar, or close them.
+
+**The inspector** shows what you have in hand in the tab you're writing in, and lets you change it without leaving
+the page: the section of the manuscript the cursor is in (once that has scrolled out of sight, the section at the
+top of the page), the selected card or row, the folder a board shows, the binder itself, or a note of a binder open
+in a tab of its own.
+
+- **The synopsis**, as on its card. Click it to type; Mod-Enter saves, Escape leaves it as it was.
+- **Label**, **Status** and **Target**: the same menus and the same field a card has.
+- **Include in export**, and **Export as**: the part the note or folder plays in an exported book. Until you choose
+  one it shows the role export gives it by its place, marked "auto".
+- **Notes**: your own notes on the scene, which are not part of the manuscript and are never exported. They are kept
+  in the note's `notes` property (a folder's in its folder note), and the outliner has a **Notes** column for them.
+- **Snapshots** of a note, newest first, with a camera to take one. A row opens the Snapshots window on it.
+
+With several cards or rows selected it shows what they share ("Mixed" where they differ), and a label, status, target
+or role set there goes to all of them. Its tab is put in the right sidebar the first time Binders runs, without
+opening the sidebar; close it and it stays closed. **Show inspector** brings it back.
+
+Nothing you type in it is lost when you move on: a field is saved to the note it was opened on as soon as you leave
+it, the cursor moves to another section, or you close the tab or the app; if it can't be saved, it stays in its field
+and the inspector stays on that note.
+
+**The contents** are the whole book as one list, in its order, with the row you're on marked and kept in sight as you
+write. Click a row to go there in the binder view you have open: the manuscript scrolls to that section, the corkboard
+opens its folder and selects its card, the outliner selects its row. With only a note open, the note opens. Mod-click
+opens a tab. Folders fold; the arrow keys, Home, End and Enter work as in the file explorer. The contents don't
+reorder: drag in the file explorer, the corkboard or the outliner for that. Open them with **Show contents**, from the
+command palette or the binder view's **More options**.
+
 ## Paragraphs
 
 Obsidian shows a line that starts with a tab as a block of code: grey, in the code font, with `*stress*` and
@@ -456,10 +489,10 @@ The supply boat left Mara on the jetty with two cases and a letter she had not o
 
 `label` is the name of a label from settings, one of the theme's colors (`blue`), or a color of its own (`#7c3aed`).
 `export: false` leaves a note out when the binder is exported (`compile: false`, its name in earlier versions, still
-does).
+does). `notes` holds your own notes on the scene, typed in the inspector; they are never exported.
 
-A subfolder can have a **folder note** named like it (`Part One/Part One.md`) for its own synopsis, status, label and
-target. Binders creates it the first time you give the folder one of these.
+A subfolder can have a **folder note** named like it (`Part One/Part One.md`) for its own synopsis, status, label,
+target and notes. Binders creates it the first time you give the folder one of these.
 
 Binders changes only `contents` and its own properties in the binder note, and only the properties you edit in its views
 in your notes. Renaming, moving or deleting notes anywhere in Obsidian keeps the order up to date. Notes the order
@@ -469,9 +502,10 @@ doesn't mention yet show after the others, by name. The full format is in [docs/
 
 - **In a binder note:** `binder`, `contents`, and `synopsis`, `status`, `label` and `target` for the binder itself.
   Binders makes the note when you make a binder.
-- **In a folder note:** the same four, made the first time you give a folder one of them.
+- **In a folder note:** the same four, `notes`, `export` and `export-as`, made the first time you give a folder one
+  of them.
 - **In your notes:** only the properties you change through its views (`synopsis`, `status`, `label`, `target`,
-  `export`, and any property you edit in an outliner cell), through Obsidian's own property writer, so the rest of
+  `notes`, `export`, `export-as`, and any property you edit in an outliner cell), through Obsidian's own property writer, so the rest of
   the note stays as it is.
 - **Note text** is never rewritten behind your back. It changes only where you type (in a note, or in the manuscript,
   which is Obsidian's own editor), or when you ask: **Split**, **Merge**, **Bring back** a snapshot, **Rewrite**, and
@@ -518,6 +552,7 @@ Obsidian's Hotkeys settings. Most only appear where they apply (a binder view in
 | **Take a snapshot**, **Rewrite**, **Show snapshots** | Snapshots of the open note (or, in the manuscript, the section the cursor is in). |
 | **Take a snapshot of every note in the binder** | One snapshot of each note, at one moment, under one name if you give it one. |
 | **Show snapshots of notes that are gone** | Lists the snapshots left by deleted, merged-away or moved-out notes. |
+| **Show inspector**, **Show contents** | Show the inspector, or the contents of the book, in the sidebar. |
 | **Toggle focus mode** | Goes into focus mode, or out of it. |
 | **Go to previous scene**, **Go to next scene** | Move through the binder in its order, in focus mode or out of it. |
 
@@ -545,7 +580,7 @@ Settings, Community plugins, Binders.
 | Exports folder | (Export.) Where exported files go on a phone or tablet, and where the save dialog starts on a computer. A name is a folder beside each binder; a path, such as `Books/Exports`, is one folder for the whole vault. |
 | Remembered places | (Export.) The exports this device saves without asking, with **Ask again** to forget them. |
 | Your name, Contact details | (Export.) The author of a book that doesn't say otherwise, and the lines for a manuscript's title page. |
-| Synopsis, Status, Label, Target | (Property names.) The properties that hold each, if your notes already use other names. |
+| Synopsis, Status, Label, Target, Notes | (Property names.) The properties that hold each, if your notes already use other names. |
 
 A note has a label when its property says that name, so renaming a label or status in settings asks whether to rename
 it in the notes that have it too. A few things are remembered outside the settings page: how each binder view was left
@@ -557,7 +592,9 @@ Binders is built to work on iOS and Android, but so far it has only been tested 
 emulation on a desktop, not on a real device. Tap a card to select it, then tap its synopsis to edit it or its title to open the
 note; press and hold for its menu, and hold and drag to move it. Rows in the outliner work the same way (a selected row
 or folder card with no synopsis offers **Add a synopsis**; on a note's card, and in a menu, it is **Edit synopsis**). On a phone menus open as Obsidian's own sheets, on a
-tablet beside the finger; the manuscript uses Obsidian's editor and its toolbar.
+tablet beside the finger; the manuscript uses Obsidian's editor and its toolbar. The inspector and the contents are
+pages of the right drawer: swipe in from the right edge, or run **Show inspector**. The inspector is on the section
+you last tapped; a tap on a row of the contents closes the drawer on a phone and takes the manuscript there.
 
 What a mouse and a keyboard do differently there:
 

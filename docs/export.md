@@ -221,6 +221,9 @@ A PDF made on a phone needs a second typesetting engine: after 1.0, if writers a
 
 ## The Scrivener project
 
+A note's notes (its `notes` property) are never part of a book: no kind of export but this one carries them, as no
+kind carries any property. Here they become the document's notes.
+
 A kind of its own: not a book but the binder itself, so no style and no Book details. Two switches: Notes outside
 the manuscript (into Research) and Snapshots. One way, into a new folder; a phone gets it zipped.
 
@@ -228,6 +231,7 @@ the manuscript (into Research) and Snapshots. One way, into a new folder; a phon
 |---|---|
 | Folder, note, their order | Folder and Text items under Draft, in order |
 | Synopsis | `synopsis.txt` |
+| Notes (the `notes` property, typed in the inspector) | The document's notes, `notes.rtf` |
 | Label and its color; status | The project's lists, and the item's label and status |
 | Target | The document's target, in words |
 | "Include in export" off | Not included in compile |

@@ -69,6 +69,24 @@ here; that is what keeps the next round short.
   - "Remember this" beside a result is Obsidian's "Don't ask again": a `label.mod-checkbox`, not a toggle.
   - A style whose typeface can be changed can't be named for its typeface.
   - Headless Obsidian can't open a second `BrowserWindow` (Electron crashes); a hidden `<webview>` prints to PDF.
+- Learned designing the inspector (2026-10-05):
+  - A view in a sidebar is made of what Obsidian's own are made of, by their classes: a note's properties as rows
+    (`metadata-container` > `metadata-properties` > `metadata-property`, a key and a value), a list as `tree-item`
+    rows (`is-active` is "the one you're on"), a heading over part of a pane in `--nav-heading-color` and
+    `--nav-heading-weight` (as "Linked mentions" is), `pane-empty` when there is nothing to show, and
+    `nav-header` > `nav-buttons-container` > `nav-action-button` for a pane's own buttons. No box, fill or line of
+    our own.
+  - In a sidebar Obsidian itself draws a hairline under each property row, and under 250px of width puts a value
+    under its key. The rows' container is measured, not the sidebar: padding round it wraps every row in a sidebar
+    at its default 300px.
+  - On a phone a sidebar view is a page of the right drawer, with Obsidian's own switcher under it. A `nav-header`
+    is moved to the foot there, just above that switcher: a view with tabs of its own has two switchers on a phone.
+    A drawer that is shut is still in the page, with no size: ask `rightSplit.collapsed`, don't measure it.
+  - A long tree in a sidebar is kept and put right, not drawn again, and its rows get `content-visibility: auto`:
+    5,000 rows are 90 ms to make once and 12 ms to check against the binder after a change.
+  - A sidebar view follows the tab the writer was last in, not the active one (taking the focus itself makes it the
+    active one): the last `active-leaf-change` whose leaf isn't in `leftSplit` or `rightSplit`.
+  - At a tab's size `table-of-contents` can't be told from `list`, which is Outline's icon.
 
 **Rejected, don't propose again:** a colored stripe along the top of a card, pill chips, thin accent or progress
 lines, decoration for its own sake, anything on a card that isn't the writer's own (no badges for snapshots and the
@@ -113,6 +131,20 @@ count as a tab; B keeps the blank line between paragraphs. Given up: Tab typing 
 space), which would put odd characters in the writer's file. Found on the way: Obsidian's index has its own parser
 and takes a tab paragraph for code, so a link there, which A shows as a live link, was not kept up on a rename. He
 chose to have Binders keep those links up itself, the one exception to "never rewrites note bodies".
+
+**The inspector (2026-10-05).** The maintainer: "Could we do a right hand sidebar tab for table of contents that shows
+the whole binder", then "Launch a design agent tasked with building an inspector panel." Two directions were built
+from the same two panes: A, two sidebar views (Inspector: what's in hand; Contents: the book and where you are), and
+B, one view with both behind two buttons. He chose A: the two can be in sight together or apart and in either
+sidebar, a later thing is a view of its own instead of another button, and on a phone B's buttons sat right above
+the drawer's own switcher. Taken from Scrivener's Inspector: the synopsis over the notes, label and status always in
+sight, "include in export", a note's snapshots, and following the section with the cursor. Left: its five tabs, its
+bookmarks, keywords and custom metadata (Obsidian has properties, links and bookmarks), and comparing inside the
+panel (the Snapshots dialog does that). Also left out: comments and footnotes as a list, progress bars, reordering
+in Contents. Said to him plainly, and still true: beside the corkboard the Inspector repeats the card and beside the
+outliner Contents repeats the Title column; they earn their place beside the manuscript and a note in a tab. A role
+nobody wrote on a note is shown with "auto" after it: "automatic" didn't fit beside "Front matter" in a sidebar at
+its default width.
 
 ## How a design round runs: narrow, then build
 
