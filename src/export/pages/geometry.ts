@@ -3,7 +3,7 @@ import type { BookStyle } from '../style';
 
 /* The page's measures: the sizes a book or a manuscript can be printed at, and, for a style on one of them, where
    the text block sits and how many lines it holds. Everything is in points (72 to the inch). The block is a whole
-   number of lines, so every page of the book ends on the same line. Pure. The design is docs/export.md. */
+   number of lines, so every page of the book ends on the same line. Pure. The design is docs/dev/export.md. */
 
 export interface PageSize { id: string; name: string; width: number; height: number }
 

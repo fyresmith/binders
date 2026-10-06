@@ -120,8 +120,7 @@ test('a paperback: the kind and its choices, the pages in the window, and a PDF 
 	if (!TOOLS.text) loud(t, 'pdftotext'); else {
 		const printed = pdfPages(at);
 		t.eq(printed.length, shown.length, 'the printed pages are the window’s pages: as many');
-		// (a script whose letters join, Arabic, comes out of a PDF letter by letter: there the letters are held, not the words)
-		const bag = (text) => (o.others ? [...words(text).join('')].sort().join('') : words(text).sort().join(' '));
+		const bag = (text) => words(text).sort().join(' ');
 		const differ = shown.map((s, i) => [bag(`${s.head}\n${s.text}\n${s.notes}\n${s.folio}`), bag(printed[i] ?? '')]).findIndex(([a, b]) => a !== b);
 		t.eq(differ, -1, `and each holds the same words (page ${differ + 1})`);
 		const first = (s) => words(s).slice(0, 4).join(' ');
@@ -449,4 +448,17 @@ test('a paperback of 150,000 words is laid out and printed in time, word for wor
 		t.ok(missed < 0 && i === want.length, `word for word, in the PDF, running heads and page numbers set aside (${i} of ${want.length}${missed < 0 ? '' : `, lost at word ${missed}: “${want.slice(Math.max(0, missed - 4), missed + 4).join(' ')}”`})`);
 		t.eq(body.length - chapters * 2, 150000, 'and no word more');
 	}
+});
+
+test('a book in a script the typeface doesn’t hold is set whole in the computer’s serif, and the window says so', async (p, h, t) => {
+	await withAuthor(p);
+	await p.ev(`app.fileManager.processFrontMatter(app.vault.getAbstractFileByPath('The Lighthouse/The Lighthouse.md'), (fm) => { fm.language = 'ru'; }).then(() => 1)`);
+	await until(p, `app.metadataCache.getCache('The Lighthouse/The Lighthouse.md')?.frontmatter?.language === 'ru'`, 4000);
+	await open(p);
+	await pick(p, 'Paperback');
+	t.ok(await laidOut(p), 'the pages are laid out');
+	t.ok(await until(p, `[...document.querySelectorAll('${WIN} .binders-export-warn-text')].some(e => e.textContent === 'EB Garamond has no Cyrillic letters. The pages are set in this computer’s own serif instead.')`, 3000), 'the things to look at say the typeface has no Cyrillic');
+	const family = await p.ev(`getComputedStyle(${FRAME}.contentDocument.querySelector('.page')).fontFamily`);
+	t.ok(!/Garamond/.test(family) && /serif$/.test(family), `and the page is set in a serif that has (${family})`);
+	t.ok((await pages(p)).some((s) => s.text.includes('Глава 1')), 'with the book’s own words for a chapter');
 });

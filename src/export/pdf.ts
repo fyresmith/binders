@@ -4,7 +4,7 @@ import { pdfPages, withInfo } from './pdf-info';
 /* Printing pages to a PDF, on a computer. Obsidian has no API for it: this is Electron's `<webview>` tag and its
    `printToPDF`, so it is here and nowhere else (golden rule 5), looked at before it is trusted, and `printer()` is
    null wherever it isn't to be had (a phone, a tablet, an Obsidian whose webviews are off): then the window says
-   "PDF isn't available here" and nothing is tried (docs/internals.md).
+   "PDF isn't available here" and nothing is tried (docs/dev/internals.md).
 
    The pages are Binders' own boxes, already laid out (pages/layout.ts); the webview is handed them as text, in a
    document of its own that no theme reaches, and prints one box to a sheet. Nothing is asked of Chromium's own

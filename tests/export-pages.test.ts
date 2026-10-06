@@ -5,6 +5,7 @@ import { TRIM_SIZES, bookGeometry, gutter, manuscriptGeometry, paperSize, trimSi
 import { Hyphenator, SHY, unhyphenated } from '../src/export/pages/hyphenate';
 import { hyphenatorFor } from '../src/export/pages/patterns';
 import { manuscriptStyle } from '../src/export/docx-parts';
+import { pdfPages, withInfo } from '../src/export/pdf-info';
 import { done, eq, ok } from './harness';
 
 // ---- the paginator, on pages that are only numbers: a line is 1 high, a page holds `H` of them ----
@@ -172,6 +173,22 @@ function run(H: number, flows: Flow<Blk>[], notes: Record<number, number> = {}):
 	const text = 'The keeper—unremarkable, extraordinarily patient—waited. “Unbelievable,” she said; it’s 1,000 well-known İstanbul.';
 	eq(unhyphenated(en.hyphenate(text)), text, 'only soft hyphens are added: the words are the words');
 	ok(en.hyphenate(text).includes(SHY), 'and there are some');
+}
+
+// ---- what a PDF says about itself ----
+{
+	const body = '%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Count 3 /Kids [] >>\nendobj\n';
+	const pdf = `${body}xref\n0 3\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \ntrailer\n<< /Size 3 /Root 1 0 R >>\nstartxref\n${body.length}\n%%EOF\n`;
+	const bytes = (t: string) => Uint8Array.from(t, (c) => c.charCodeAt(0)), text = (d: Uint8Array) => String.fromCharCode(...d);
+	eq(pdfPages(bytes(pdf)), 3, 'a PDF’s pages are counted');
+	const out = text(withInfo(bytes(pdf), { title: 'Łódź', author: 'Mara Lindqvist', creator: 'Binders', when: new Date(Date.UTC(2026, 9, 5, 12, 0, 0)) }));
+	ok(out.startsWith(pdf), 'the title and the author are added after the file: nothing that was printed changes');
+	ok(out.includes('/Title <FEFF014100F30064017A>') && out.includes('/Author <FEFF004D0061007200610020004C0069006E006400710076006900730074>'), 'as text any PDF reader can read, in any alphabet');
+	ok(out.includes('/CreationDate (D:20261005120000Z)'), 'with when it was made');
+	const xref = Number(/startxref\n(\d+)\n%%EOF\n$/.exec(out)?.[1]), obj = Number(/\n3 1\n(\d{10}) 00000 n /.exec(out)?.[1]);
+	ok(out.slice(xref).startsWith('xref\n0 1\n') && out.slice(obj).startsWith('3 0 obj\n'), 'and the file’s own table points at them');
+	ok(out.includes(`/Size 4 /Root 1 0 R /Info 3 0 R /Prev ${body.length} >>`), 'after the table that was there');
+	eq(text(withInfo(bytes('not a pdf'), { title: 'T', author: '', creator: 'B' })), 'not a pdf', 'a file that isn’t built that way is left as it is');
 }
 
 done('export-pages');

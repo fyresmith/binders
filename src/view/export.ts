@@ -507,6 +507,8 @@ export class ExportModal extends Modal {
 			if (this.pdf) {
 				// the very pages that are printed: laid out here as they are for the file
 				const { book: whole, spec } = this.paged(book), turn = this.loading;
+				// (a typeface that doesn't hold the book's script: said with the other things to look at)
+				if (spec.warning && !book.warnings.some((w) => w.text === spec.warning)) { book.warnings.unshift({ path: this.plugin.binders.binderOf(this.folder)?.note.path ?? '', name: 'Book details', text: spec.warning }); this.choices(); }
 				const view = showPages(stage, whole, spec, { progress: (pages) => { if (turn === this.loading && this.stop === view.stop) this.detailEl.setText(pages == null ? this.detailEl.getText() : `Laying out the pages… ${pages.toLocaleString()}`); } });
 				this.stop = view.stop;
 				void view.laid.then((laid) => { if (!laid || this.stop !== view.stop) return; this.pages = laid.pages.length; this.previewEl.dataset.pages = String(laid.pages.length); this.previewEl.dataset.took = String(Math.round(laid.took)); this.bar(); }, (e) => { if (this.stop === view.stop) new Notice(e instanceof Error ? e.message : String(e)); });

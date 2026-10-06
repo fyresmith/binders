@@ -5,7 +5,7 @@
    style says so, with a blank page before it if need be.
 
    What is here is the deciding, and it is pure: everything that needs a measure is asked of a `Host`, which is the
-   real pages in pages/dom.ts and a few numbers in the unit tests. The design is docs/export.md. */
+   real pages in pages/dom.ts and a few numbers in the unit tests. The design is docs/dev/export.md. */
 
 export type PageKind = 'blank' | 'display' | 'opener' | 'body';
 /** A page as it was opened: what it is, and the section it belongs to (-1 for a blank page). */

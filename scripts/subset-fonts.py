@@ -3,7 +3,7 @@ EB Garamond and Source Serif 4 (both SIL Open Font License; the notices are besi
 
     python3 scripts/subset-fonts.py <folder with the .ttf files>     needs: pip install fonttools brotli
 
-Static files, never the variable ones: Chromium embeds a variable font in a PDF as Type 3 (docs/export.md).
+Static files, never the variable ones: Chromium embeds a variable font in a PDF as Type 3 (docs/dev/export.md).
 Kept: Latin, Latin-1, Latin Extended-A, the few of Extended-B that Romanian needs, Vietnamese, punctuation, the
 currency signs, and the features a book uses (kerning, ligatures, small capitals, old-style and lining figures)."""
 import os
