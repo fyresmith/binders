@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.33.7 (2026-10-06)
+
+### Changed
+
+- Nothing a writer will notice: the handoff note records the finished PDF work waiting on its branch.
+
 ## 0.33.6 (2026-10-06)
 
 ### Changed

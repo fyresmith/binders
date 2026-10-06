@@ -10,7 +10,7 @@ of the earlier conversation. Read `AGENTS.md` and `CLAUDE.md` first: they are th
 | Branch | What | State | To finish |
 |---|---|---|---|
 | `export-step-5` | Export: the Modern style, style files, the style editor, "Export as" in menus, Contents and an outliner column, "Export again" | Finished and reported: 6 commits on 0.33.4, `npm run check` passes, 86 e2e passing in both themes. Not reviewed by the coordinator, not shipped | Review, cherry-pick each commit with `npm run ship` (bumps and CHANGELOG lines are in `export-step-5-report.md`), push. Ship this one first |
-| `export-step-3` | Export: the paginator, hyphenation, fonts, the PDF module, the Paperback kind, the manuscript as a PDF, the exact page preview | Built, in final verification when this was written (8 commits; by its memo, 11 demo books word for word, 150,000 words laid out in about 3 s). **No final report yet**: the branch may be behind its developer's last work | Rebase onto `main` after step 5 is in. The notes for joining the two are in `export-step-5-report.md` ("For the coordinator: merging with export-step-3"): the editor's preview call, `editorHost(kind)`, `export-again.ts` needing a Paperback branch. Then verify, ship |
+| `export-step-3` | Export: the paginator, hyphenation, fonts, the PDF module, the Paperback kind, the manuscript as a PDF, the exact page preview | Finished and reported: 9 commits on 0.33.2 (tip `c40b6bf`), `npm run check` passes, the three export spec files 78 of 78 in both themes; 11 demo books (231,307 words, 1,113 pages) word for word; 150,000 words laid out in about 3 s. Not reviewed, not shipped. **`main.js` goes from 645 kB to 1.23 MB** (two typefaces about 350 kB, hyphenation patterns about 190 kB): the maintainer has not been asked about that yet, and the hyphenation packages' licences were not checked | Ship step 5 first, then rebase this onto `main` and join the two as both reports describe (`export-step-3-report.md` "For step 5", `export-step-5-report.md` "merging with export-step-3"): the style editor's preview calls `drawPages`, `export-again.ts` needs a Paperback branch, and the Modern style has never been run through the paginator. Then make the Modern samples, verify, ship |
 | `binder-snapshots` | Snapshots of a folder and of a whole binder (the design the maintainer approved) | **Work in progress, stopped for the usage limit.** Commit `b1fd4c3`, on 0.32.7, not rebased, not shippable | See "Binder snapshots" below |
 
 ## Binder snapshots
@@ -93,6 +93,7 @@ and the build need nothing but Node.
 
 | File | What |
 |---|---|
+| `export-step-3-report.md` | The step 3 developer's full report: commits, bumps, CHANGELOG lines, results, what is unverified, text for the manual |
 | `export-step-5-report.md` | The step 5 developer's full report: commits, bumps, CHANGELOG lines, what is and isn't tested, how to join it with step 3, text for the manual |
 | `binder-snapshots-design-report.md` | The snapshots designer's report: recommendations, numbers, questions and answers, the finishing stages |
 | `binder-snapshots/` | The design page (`options.html`), its screens in light and dark, the measurements |
