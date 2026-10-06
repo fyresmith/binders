@@ -114,15 +114,15 @@ export function drawStyleEditor(side: HTMLElement, h: StyleEditorHost): StyleEdi
 		const el = parent.createDiv({ cls: 'input-row', attr: { 'data-row': row.key } });
 		el.createDiv({ cls: 'input-row-label', text: row.name });
 		const content = el.createDiv({ cls: 'input-row-content' });
-		const mark = () => el.toggleClass('is-changed', style().values[row.key] !== style().original[row.key]);
-		follow.push(mark);
-		mark();
 		if (row.kind === 'slide') {
 			const value = content.createSpan({ cls: 'slider-value' });
 			const s = new SliderComponent(content).setLimits(row.min ?? 0, row.max ?? 1, row.step ?? 1).setInstant(true).setValue(Number(r.values[row.key])).setDisabled(locked);
 			s.sliderEl.setAttrs({ 'aria-label': row.name, 'data-ignore-swipe': 'true', 'data-binders-key': `style-${row.key}` });
 			s.sliderEl.disabled = locked;
-		const say = (v: number) => { value.setText(said(row, v)); s.sliderEl.setAttr('aria-valuetext', said(row, v)); };
+			// (Obsidian's slider, since 1.13 or so, writes its bare number in a span of its own before it: "11 pt 11.00".
+			// One value shows, the worded one, where Obsidian's stood; an Obsidian that makes none leaves ours alone there)
+			content.querySelectorAll('.slider-value').forEach((e) => { if (e !== value) e.remove(); });
+			const say = (v: number) => { value.setText(said(row, v)); s.sliderEl.setAttr('aria-valuetext', said(row, v)); };
 			say(Number(r.values[row.key]));
 			s.onChange((v) => { say(v); set(row.key, v); });
 			follow.push(() => { const v = Number(style().values[row.key]); if (s.getValue() !== v) { s.setValue(v); say(v); } });

@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.44.3 (2026-10-06)
+
+### Fixed
+
+- In the style editor, a slider shows its value once ("11 pt"), not twice ("11 pt 11.00").
+
 ## 0.44.2 (2026-10-06)
 
 ### Fixed

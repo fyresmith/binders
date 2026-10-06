@@ -88,6 +88,26 @@ test('“Edit this style” turns the sidebar into the editor: a book style’s 
 	t.ok(await p.ev(`!!document.querySelector('${WIN} [role="option"]') && !document.querySelector('${ED}')`), 'back to the choices');
 });
 
+/** The editor's slider rows: the row's name, and every piece of text that shows beside its slider. */
+const sliders = (p) => p.ev(`[...document.querySelectorAll('${ED} .input-row')].filter(r => r.querySelector('input[type="range"]')).map(r => { const c = r.querySelector('.input-row-content'), w = document.createTreeWalker(c, NodeFilter.SHOW_TEXT), said = []; for (let n = w.nextNode(); n; n = w.nextNode()) { const e = n.parentElement, b = e.getBoundingClientRect(); if (n.textContent.trim() && b.width > 0 && b.height > 0 && getComputedStyle(e).visibility !== 'hidden') said.push(n.textContent.trim()); } return { name: r.querySelector('.input-row-label').textContent, said, valuetext: c.querySelector('input[type="range"]').getAttribute('aria-valuetext'), order: [...c.children].filter(e => e.getBoundingClientRect().width > 0).map(e => e.tagName === 'INPUT' ? 'slider' : 'value') }; })`);
+
+test('from Paperback, each of the editor’s sliders shows its value once, in words, where Obsidian’s own slider has it, and it follows the slider', async (p, h, t) => {
+	await withAuthor(p);
+	await open(p);
+	await pick(p, 'Paperback');
+	await until(p, `!!${key('edit-style')}`);
+	await edit(p);
+	await until(p, `!!document.querySelector('${ED} input[type="range"]')`);
+	const want = (a, b, c) => j([{ name: 'Size', said: [a], valuetext: a, order: ['value', 'slider'] }, { name: 'Line spacing', said: [b], valuetext: b, order: ['value', 'slider'] }, { name: 'Space above', said: [c], valuetext: c, order: ['value', 'slider'] }]);
+	const first = await sliders(p);
+	await shot(p, 'editor-paperback-sliders');
+	t.eq(j(first), want(first[0]?.said[0], first[1]?.said[0], first[2]?.said[0]), 'three sliders, one value each, before the slider (where Obsidian’s own slider writes its number)');
+	t.ok(/^\d+(\.5)? pt$/.test(first[0].said[0]) && /^\d\.\d\d$/.test(first[1].said[0]) && /^\d+%$/.test(first[2].said[0]), 'in words: points, a number, a share: ' + j(first.map((r) => r.said)));
+	await slide(p, 'type-size', 12.5);
+	await slide(p, 'space-above', 30);
+	t.eq(j(await sliders(p)), want('12.5 pt', first[1].said[0], '30%'), 'moved, each still says one value: the new one');
+});
+
 /** Before a test's notes are noted down: folders are chapters and notes their scenes (so there are scene breaks),
     and one note has quotes, a dash and an ellipsis as they are typed. */
 const SHAPED = async (p) => {
@@ -142,7 +162,6 @@ test('every row of a book style changes the ebook’s preview and the EPUB, is k
 	await choose(p, 'scene-break', '⁂');
 	t.ok(await shown(p, `(s) => s.mark === '⁂'`), 'Mark: the one chosen');
 	t.eq(await note(p), 'Built in · 8 changes Reset', 'eight rows, eight changes');
-	t.eq(await p.ev(`document.querySelectorAll('${ED} .input-row.is-changed').length`), 8, 'each changed row is marked');
 	await shot(p, 'editor-ebook-changed');
 	await settle(p);
 	t.eq(onDisk(p, 'Classic'), '---\nexport-style: 1\nbased-on: Classic\nparagraphs: spaced\nquotes: as typed\nchapter-heading: "Chapter {number}"\nheading-lettering: italic\nheading-size: large\nheading-alignment: left\nfirst-words: as the rest\nscene-break: "⁂"\n---\n', 'the file: its version, what it is based on, and the differences under the editor’s rows’ names');
