@@ -514,8 +514,8 @@ one go:
 3. Tag that commit with its version and push both together: `git tag x.y.z && git push origin main x.y.z` (no `v`;
    the workflow checks the tag against `manifest.json`).
 4. The **Release** workflow checks and builds the plugin, attests `main.js`, `manifest.json` and `styles.css`, and
-   publishes a release whose notes are the CHANGELOG since the previous tag. `0.x` releases are marked as
-   pre-releases; `1.x` and later are published as the latest release. Check the release is there with its three files.
+   publishes a release whose notes are the CHANGELOG since the previous tag. Every release, a `0.x` beta too, is a full release published as the latest: Obsidian's directory and GitHub's
+   "latest release" pass over drafts and pre-releases. Check `gh release list` shows it as Latest with its three files.
 
 ## Submitting to the community plugin directory
 

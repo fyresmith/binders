@@ -73,7 +73,8 @@ npm run ship -- patch "Short title in sentence case" --fixed "What changed, for 
   it on `main` and look for a release of exactly that version, so a manifest ahead of the releases breaks
   installing). `ship` leaves `manifest.json` and `versions.json` alone. A release is one commit shipped with
   `--release`, which writes the new version into both; that commit is tagged with its version and the tag pushed
-  with it, and the workflow publishes the release (a 0.x one as a pre-release). Never edit the manifest's version
+  with it, and the workflow publishes it as the latest release (never a draft or a
+  pre-release: to Obsidian those are no release at all). Never edit the manifest's version
   by hand, and never push a `--release` commit without its tag.
 
 ## CHANGELOG style
