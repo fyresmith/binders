@@ -3,7 +3,7 @@
 //   npm run demo-vault                  make or update ./demo-vault
 //   npm run demo-vault -- --reset       also put back the generated files that were changed or deleted since
 //   npm run demo-vault -- /some/folder  somewhere else
-// The same files every time (scripts/demo-vault/build.mjs). Safe to run again: it keeps a list of what it wrote, with
+// The same files every time (scripts/demo-vault/). Safe to run again: it keeps a list of what it wrote, with
 // each file's hash, and writes over a file only if it is still as the generator left it. A file you added or changed
 // is never touched, and a generated file you deleted, renamed or moved is not made again. Every build of the plugin
 // installs itself into ./demo-vault from then on.

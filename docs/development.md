@@ -22,7 +22,7 @@ and `manifest.json`, which are copied as they are.
 
 | | `test-vault/` | `demo-vault/` |
 |---|---|---|
-| What it is | The small fixture the e2e tests count on: *The Lighthouse* and *Longform demo* | Binders of every kind and size, for a person to open in Obsidian |
+| What it is | The small fixture the e2e tests count on: *The Lighthouse* and *Longform demo* | Example books and stress binders, for a person to open in Obsidian |
 | In git | Yes (its notes and three settings files) | No: generated, and ignored |
 | For hand use | **No.** The tests copy it as it is on disk, so a note added or changed there by hand fails tests that count notes. Keep it as committed (`git status test-vault` should be clean) | Yes: change anything |
 | Gets each build | Yes | Yes, once it exists |
@@ -40,8 +40,36 @@ plugins), or Binders won't load. The tests answer for themselves.
 ### The demo vault
 
 `npm run demo-vault` writes `demo-vault/` (`scripts/make-demo-vault.mjs`; what's in it is
-`scripts/demo-vault/build.mjs`). Open the folder as a vault in Obsidian and trust the plugin; it opens on a README
-that says what each folder is for:
+`scripts/demo-vault/`). Open the folder as a vault in Obsidian and trust the plugin; it opens on a README
+that says what each folder is for, and what to try in it. Two folders at the top:
+
+**`Examples/`: books as a writer would have them** (about 215,000 words in all). Between them they have everything
+a real manuscript throws at Binders, and each of the four structures export can guess.
+
+| Folder | What it is |
+|---|---|
+| Low Water at Corran | A full-length novel, about 93,000 words: three parts, thirty chapters (folders), ninety-odd scenes, a prologue and an epilogue, front and back matter; a synopsis, a point of view (label and `pov`), a status and a target on every scene, `notes` on some, three scenes left out of export |
+| Corran story bible | Not a binder: the novel's people, places and timeline beside it, linked from its scenes |
+| Twelve Hives | A novella with chapters only: twelve folders named "One" to "Twelve", scenes in each; first person, typed with curly quotes |
+| Kettleby Junction | A novel that is one flat list of 36 notes, every paragraph begun with a tab, with italics and links on those lines |
+| Nine Kinds of Weather | A story collection, each story a different shape (a note, a folder of scenes, numbered sections, flash fiction, a folder in a folder, fragments, all talk, an epigraph and a footnote, only a card); `structure` set by hand |
+| The Kitchen Table Press | A handbook: parts and chapters, front and back matter in folders of those names, headings, footnotes of every kind, tables, lists, quotations, callouts, four drawn figures, links, a bibliography |
+| The Varga Job | A draft in progress: mixed statuses, empty scenes, a one-paragraph scene, comments and notes to self, targets missed, repeated names, `export-as` on five items, cut scenes, an unlisted note, six snapshots |
+| Die Uhr von Sankt Veit, Le Bac de minuit | Short books in German and French (`language: de`, `fr`), for export's quotes |
+| Other Alphabets | Hebrew, Arabic, Chinese, Japanese, Korean, Greek, Russian, emoji, accents, dashes and dots, verse with line breaks, a chapter of letters |
+| The Cartographer's Winter | A Longform project that is a real book: fourteen scenes, two nested, an ignored file, a snapshot |
+| What Markdown becomes | A scene for each row of that table in `docs/export.md`, each synopsis saying what an export should do with it |
+
+The examples' prose is composed, not typed: `scripts/demo-vault/prose.mjs` puts paragraphs together (dialogue with
+its attributions, description, long and short paragraphs, a thought in italics, scene breaks) from sentences and
+half-sentences written for the purpose in `scripts/demo-vault/stock/` (shared English stock, and each book's own
+people, places, things and sentences). It reads like a draft when skimmed and means nothing. What has to be
+particular is written by hand in each book's module in `scripts/demo-vault/examples/`: every synopsis, the
+openings, the handbook's tables and notes, the other languages, the Markdown rows. The handbook's figures are drawn
+by `png.mjs`. `node scripts/demo-vault/stats.mjs` prints each book's size (`stats.mjs repeats`: how often its
+commonest sentences come round), and `node scripts/demo-vault/sample.mjs` a page of prose, for whoever adds stock.
+
+**`Stress tests/`: binders that are too big, too deep, oddly named or wrong on purpose.** Their text is filler.
 
 | Folder | What it tries |
 |---|---|
@@ -62,8 +90,13 @@ that says what each folder is for:
 | Mixed files | Canvases, images, a PDF and a text file among the notes |
 | Not a binder | An ordinary folder beside them |
 
-- **The same every time.** Text comes from a seed (`SEED` in `build.mjs`), each folder with its own run of random
-  numbers, so two runs give the same bytes and changing one folder leaves the others as they were.
+- **The same every time.** Text comes from a seed (`SEED` in `core.mjs`), each folder with its own run of random
+  numbers, so two runs give the same bytes and changing one folder leaves the others as they were. A run takes
+  about 0.4 seconds (5,700 files, 26 MB; 0.2 seconds before the examples).
+- **Adding an example.** A module in `scripts/demo-vault/examples/` with a `make(add, rand)` that adds the book's
+  files (`shape.mjs` writes a binder from a tree of notes and folders), and an entry in `examples/index.mjs` with
+  what it is and what to try: the README and the tests take it from there. A line that says "about N words" is
+  held to it by the tests.
 - **Safe to run again.** The generator keeps a list of the files it made, with a hash of each
   (`demo-vault/.demo-vault.json`). A re-run writes over a file only if it is still exactly as the generator left it.
   A file you changed is kept; a file you added is never touched; a generated file you deleted, renamed or moved (as
@@ -76,7 +109,10 @@ that says what each folder is for:
   from the command palette.
 - `npm run demo-vault -- /some/folder` makes it somewhere else (builds install only into `./demo-vault`).
 - `tests/demo-vault.test.ts` checks the generator's pure parts with the plugin's own readers: the list of every
-  binder, the sixty labels, the snapshots, and what a re-run may write.
+  binder, the sixty labels, the snapshots, and what a re-run may write. `tests/demo-examples.test.ts` holds each
+  example to what its line claims: that it is a valid binder, its parts, chapters and scenes as export builds them,
+  its footnotes, tables and pictures, its tab-led lines, its words, that every link leads to one note, and that a
+  second run changes nothing.
 
 ## Checks
 
@@ -107,6 +143,7 @@ npm test -- lanes        # only the files whose name has "lanes" in it (several 
 | `tests/file-drag.test.ts` | A card dragged out as a file (`src/view/file-drag-data.ts`): inside the view or out of it, the drop effect, scrolling at the edge, the ghost's title |
 | `tests/run-all.test.ts` | The parallel e2e runner's pure parts (`tests/e2e/run-all-lib.mjs`): sharing spec files out over jobs, reading a job's output; and the driver's `reap`, with stand-in processes |
 | `tests/demo-vault.test.ts` | The demo vault's generator (`scripts/demo-vault/build.mjs`), read back with the plugin's own readers: every binder, the labels, the snapshots, what a re-run may write |
+| `tests/demo-examples.test.ts` | The demo vault's example books, each built into a book by export's own code: valid binders, the structure guessed, parts, chapters and scenes counted, footnotes, tables and pictures, tab-led lines, words, links |
 | `tests/scene-text.test.ts` | Splitting, merging, a synopsis from text, names, a binder's text as one note (`src/scene-text.ts`) |
 | `tests/export-model.test.ts` | Export's book model (`src/export/`): every row of "What Markdown becomes" (`markdown.ts`), quotes and dashes (`typography.ts`), roles from structure, titles and numbers (`roles.ts`), the book put together with its footnotes, embeds and warnings (`book.ts`), a picture's size (`picture.ts`) |
 | `tests/export-docx.test.ts` | The Word writer (`src/export/docx.ts`, `docx-parts.ts`): the shape of a manuscript, the three styles, and the word-for-word test (below) |
@@ -125,7 +162,7 @@ dashes are no difference. The text and the footnotes are each compared in order.
 
 - one note that has every row of the table "What Markdown becomes" in `docs/export.md`;
 - the test vault's binder, read from disk (`tests/export-vault.ts` reads a vault held in memory as binders);
-- every binder of the demo vault, made in memory by its generator (seventeen, about half a million words, among them
+- every binder of the demo vault, made in memory by its generator (27, about 710,000 words: the example books, and among the stress binders
   a note of 100,000 words, 5,000 notes, fifteen folders deep, odd names and odd files);
 - a generated binder of 150,000 words, which must be read and written in under ten seconds;
 - and the test itself is tested: a paragraph taken out, or two sections changing places, must be noticed.
@@ -358,7 +395,7 @@ still puts back what it changes; the runner is there for the one that fails befo
 | `ship.mjs` | `npm run ship -- patch "Title" --fixed "…"` | Bumps the version, writes the CHANGELOG entry and commits what is staged. Every commit goes through it (see [AGENTS.md](../AGENTS.md)) |
 | `memo.mjs` | `npm run memo` | Progress memos for a team of agents: write one, list them all, read one (AGENTS.md, "Progress memos") |
 | `install-to-vault.mjs` | by every build; `npm run install-vault -- <vault>` | Copies the build into a vault and turns the plugin on there |
-| `make-demo-vault.mjs`, `demo-vault/build.mjs` | `npm run demo-vault` | Makes or updates `demo-vault/` (above) |
+| `make-demo-vault.mjs`, `demo-vault/` | `npm run demo-vault` | Makes or updates `demo-vault/` (above) |
 | `run-tests.mjs` | `npm test [-- name]` | Bundles and runs the unit tests |
 
 `esbuild.config.mjs` (the build) and `version-bump.mjs` (called by `npm version`, so by `ship`) are at the top of the

@@ -1,73 +1,16 @@
 // The demo vault's pure parts: what files it has (the same every time, from a seed) and which of them a re-run may
 // write. No file is read or written here, so tests/demo-vault.test.ts can check it; scripts/make-demo-vault.mjs does
-// the writing.
-import { createHash } from 'node:crypto';
+// the writing. The example books are in examples/ (one module each, their text written by prose.mjs from the
+// sentences in stock/); the stress binders are here.
+import { SEED, canvas, hash, int, note, p2, pick, prose, rng, snapshot } from './core.mjs';
+import { EXAMPLES } from './examples/index.mjs';
 
-/** Change it and every generated text changes. */
-export const SEED = 'binders-demo-1';
+export { SEED, hash, note, prose, rng, snapshot, yamlText } from './core.mjs';
+export { EXAMPLES };
 /** Where the generator keeps the list of what it wrote, in the vault. */
 export const MANIFEST = '.demo-vault.json';
-
-export const hash = (data) => createHash('sha256').update(data).digest('hex');
-
-/** Random numbers from 0 to 1 that are the same for the same seed (mulberry32, seeded from the text's hash). */
-export function rng(seed) {
-	let a = parseInt(hash(String(seed)).slice(0, 8), 16);
-	return () => {
-		a = (a + 0x6d2b79f5) | 0;
-		let t = Math.imul(a ^ (a >>> 15), 1 | a);
-		t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-		return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-	};
-}
-const int = (rand, lo, hi) => lo + Math.floor(rand() * (hi - lo + 1));
-const pick = (rand, list) => list[Math.floor(rand() * list.length)];
-
-const WORDS = ('salt road harbor lantern keeper tide ledger rope gull morning evening winter letter door stair window ' +
-	'kitchen bread knife table river bridge market coin stranger sister brother mother captain boat sail weather storm ' +
-	'quiet cold warm heavy narrow empty old young grey white dark bright slow sudden careful tired patient ' +
-	'walked waited watched carried counted opened closed remembered forgot promised answered listened turned crossed ' +
-	'the the the the a a and and but of of in in on to to with from over under before after until while ' +
-	'she she he they it her his their nobody someone everything nothing again already almost never always').split(' ');
-
-/** About `words` words of prose in paragraphs: enough like writing to count, scroll and read past. */
-export function prose(rand, words) {
-	const paras = [];
-	for (let left = words; left > 0;) {
-		const sentences = [];
-		for (let s = int(rand, 2, 6); s > 0 && left > 0; s--) {
-			const n = Math.min(left, int(rand, 5, 16)), w = [];
-			for (let i = 0; i < n; i++) w.push(pick(rand, WORDS));
-			left -= n;
-			const text = w.join(' ');
-			sentences.push(text[0].toUpperCase() + text.slice(1) + (rand() < 0.1 ? '?' : '.'));
-		}
-		paras.push(sentences.join(' '));
-	}
-	return paras.join('\n\n') + '\n';
-}
-
-/** Text as a YAML value: bare where YAML reads it back as the same text, quoted otherwise (a name like `1984`,
-    `true` or `# hash`, anything with a colon, an emoji). */
-export function yamlText(s) {
-	return /^[A-Za-z][A-Za-z0-9 _.,'()/-]*$/.test(s) && !/\s$/.test(s) && !/^(true|false|null|yes|no|on|off|y|n)$/i.test(s) ? s : JSON.stringify(s);
-}
-
-/** A note: properties, then text. A list is written one entry to a line, as Obsidian writes it. */
-export function note(props, body = '') {
-	const lines = [];
-	for (const [k, v] of Object.entries(props ?? {})) {
-		if (v === undefined) continue;
-		if (Array.isArray(v)) lines.push(v.length ? `${k}:` : `${k}: []`, ...v.map((x) => `  - ${typeof x === 'string' ? yamlText(x) : x}`));
-		else lines.push(`${k}: ${typeof v === 'string' ? yamlText(v) : v}`);
-	}
-	return (lines.length ? `---\n${lines.join('\n')}\n---\n` : '') + body;
-}
-
-/** A snapshot's file, as src/snapshot-text.ts writes one. `at` is "2026-09-12 09.15.40". */
-export function snapshot(of, at, body) {
-	return `---\nsnapshot-of: ${JSON.stringify(of)}\ntaken: ${at.replace(' ', 'T').replace(/\./g, ':')}\n---\n${body}`;
-}
+/** The two folders at the top of the vault: the books to try Binders on, and the binders that try to break it. */
+export const GROUPS = { examples: 'Examples', stress: 'Stress tests' };
 
 function hex(h, s, l) {
 	const f = (n) => { const k = (n + h / 30) % 12, a = s * Math.min(l, 1 - l); return Math.round(255 * (l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)))).toString(16).padStart(2, '0'); };
@@ -103,9 +46,7 @@ function pdf() {
 	out += `xref\n0 ${objs.length + 1}\n0000000000 65535 f \n${at.map((p) => String(p).padStart(10, '0') + ' 00000 n \n').join('')}trailer\n<< /Size ${objs.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
 	return Buffer.from(out, 'latin1');
 }
-const canvas = (cards) => JSON.stringify({ nodes: cards.map((c, i) => ({ id: `n${i}`, x: i * 320, y: 0, width: 280, height: 160, ...c })), edges: cards.slice(1).map((_, i) => ({ id: `e${i}`, fromNode: `n${i}`, fromSide: 'right', toNode: `n${i + 1}`, toSide: 'left' })) }, null, '\t') + '\n';
 
-const p2 = (n) => String(n).padStart(2, '0');
 
 // ---- the binders ----
 // Each has a folder, a line for the README, and `make(add, rand, opts)`, which adds its files (paths inside its folder).
@@ -265,9 +206,7 @@ function longform(add, rand, nested) {
 }
 
 const NEWER = '---\nbinder: 99\ncontents:\n  - id: a1\n    path: Second\n  - id: b2\n    path: First\nlayout:\n  columns: 3\n---\nA binder note from a version of Binders that doesn’t exist yet. This note must never change.\n';
-
-/** Every binder in the vault, in the order the README lists them. */
-export const SCENARIOS = [
+const STRESS = [
 	{ folder: 'The Salt Road', about: 'A small novel as a writer would have it: three parts, labels, statuses, synopses, targets on scenes, folders and the book, research left out of exports (one note by the property’s older name, compile), a note the list doesn’t mention, and snapshots (three scenes, and one of a note that’s gone).', make: novel },
 	{ folder: 'Empty binder', about: 'A binder with nothing in it: every mode’s empty state.', make: (add) => add('Empty binder.md', note({ binder: 1, contents: [] })) },
 	{ folder: 'One note', about: 'A binder of one note.', make: (add, rand) => { add('One note.md', note({ binder: 1, contents: ['The only scene'] })); add('The only scene.md', note({ synopsis: 'All there is.' }, prose(rand, 200))); } },
@@ -324,7 +263,7 @@ export const SCENARIOS = [
 	{ folder: 'Mixed files', about: 'Notes with canvases, images, a PDF and a text file among them, some in the list and some not.', make: (add, rand) => {
 		add('Mixed files.md', note({ binder: 1, contents: ['Opening', 'Map.canvas', 'Cover.png', 'Middle', 'Art/', 'Art/Sketch.jpg', 'Art/About the art', 'Contract.pdf', 'Ending'] }));
 		for (const n of ['Opening', 'Middle', 'Ending', 'Art/About the art']) add(n + '.md', note({ synopsis: `${n.split('/').pop()}.` }, prose(rand, 80)));
-		add('Map.canvas', canvas([{ type: 'file', file: 'Mixed files/Opening.md' }, { type: 'text', text: 'A card on a canvas' }, { type: 'file', file: 'Mixed files/Cover.png' }]));
+		add('Map.canvas', canvas([{ type: 'file', file: 'Stress tests/Mixed files/Opening.md' }, { type: 'text', text: 'A card on a canvas' }, { type: 'file', file: 'Stress tests/Mixed files/Cover.png' }]));
 		add('Cover.png', PNG); add('Art/Sketch.jpg', JPEG); add('Contract.pdf', pdf());
 		add('Unlisted picture.png', PNG); add('Unlisted board.canvas', canvas([{ type: 'text', text: 'Not in the list' }])); add('Word list.txt', 'salt\nroad\nledger\n');
 	} },
@@ -336,24 +275,50 @@ export const SCENARIOS = [
 	} },
 ];
 
+/** Every folder the generator makes, in the order the README lists them: the example books, then the stress
+    binders. `path` is where it is in the vault, `folder` its name, `about` what it is for; an example also has
+    `tryIt` (what to try in it). `binder: false` marks a folder that is not a binder. */
+export const SCENARIOS = [
+	...EXAMPLES.map((s) => ({ ...s, group: GROUPS.examples, path: `${GROUPS.examples}/${s.folder}` })),
+	...STRESS.map((s) => ({ ...s, group: GROUPS.stress, path: `${GROUPS.stress}/${s.folder}` })),
+];
+
+// a note of each folder that a link can open: its binder note, or its Longform index
+const first = (s) => s.opens ?? (/^Longform/.test(s.folder) ? 'Index' : s.folder);
+const link = (s) => `[[${s.path}/${first(s)}\\|${s.folder}]]`;
+
 function readme(opts) {
 	const skipped = [!(opts.caseSensitive ?? true) && 'names that differ only in case', !(opts.bothForms ?? true) && 'the same name written with a combining accent'].filter(Boolean);
+	const of = (group) => SCENARIOS.filter((s) => s.group === group);
 	return `# Binders demo vault
 
 A vault to try Binders in by hand. \`npm run demo-vault\` in the Binders project makes it, and every build of the
 plugin installs itself here. Change anything you like: making the vault again replaces only the files it made that
 you haven’t changed, never a file you added, and doesn’t bring back one you deleted or moved. \`npm run demo-vault -- --reset\` puts every generated file back.
 
+The link in each row opens a note of that folder; click the folder itself in the file explorer to open its binder
+view.
+
+## Examples
+
+Books as a writer would have them, in \`${GROUPS.examples}/\`. Their text is made up by the generator from sentences
+written for it: it reads like writing and means nothing. Every word count below is the manuscript’s.
+
+| Binder | What it is | What to try |
+|---|---|---|
+${of(GROUPS.examples).map((s) => `| ${link(s)} | ${s.about} | ${s.tryIt} |`).join('\n')}
+
+## Stress tests
+
+Binders that are too big, too deep, oddly named or wrong on purpose, in \`${GROUPS.stress}/\`. Their text is filler.
+
 | Folder | What it’s for |
 |---|---|
-${SCENARIOS.map((s) => `| [[${s.folder}/${first(s)}\\|${s.folder}]] | ${s.about} |`).join('\n')}
+${of(GROUPS.stress).map((s) => `| ${link(s)} | ${s.about} |`).join('\n')}
 ${skipped.length ? `\nLeft out of “Odd names”, because this disk can’t hold them: ${skipped.join(', ')}.\n` : ''}
-The vault’s Binders settings list sixty labels, for “Sixty labels”. The link in each row opens a note of that folder;
-click the folder itself in the file explorer to open its binder view.
+The vault’s Binders settings list sixty labels, for “Sixty labels”.
 `;
 }
-// a note of each folder that a link can open: its binder note, or its Longform index
-const first = (s) => (/^Longform/.test(s.folder) ? 'Index' : s.folder);
 
 const CORE = { 'file-explorer': true, 'global-search': true, switcher: true, graph: true, backlink: true, canvas: true, 'outgoing-link': true, 'tag-pane': true, properties: true, 'page-preview': true, 'command-palette': true, 'editor-status': true, bookmarks: true, outline: true, 'word-count': true, 'file-recovery': true, bases: true };
 const leaf = (id, type, state = {}) => ({ id, type: 'leaf', state: { type, state } });
@@ -373,10 +338,10 @@ export function plan(opts = {}) {
 	for (const s of SCENARIOS) {
 		// each binder has its own run of random numbers, so changing one leaves the others' text as it was
 		s.make((path, data) => {
-			const full = `${s.folder}/${path}`;
+			const full = `${s.path}/${path}`;
 			if (files.has(full)) throw new Error(`The demo vault makes ${full} twice`);
 			files.set(full, data);
-		}, rng(`${SEED}:${s.folder}`), opts);
+		}, rng(`${SEED}:${s.folder}`), opts, s.path);
 	}
 	files.set('README.md', readme(opts));
 	files.set('.obsidian/app.json', json({ alwaysUpdateLinks: true }));

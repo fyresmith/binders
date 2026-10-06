@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.24.8 (2026-10-06)
+
+### Changed
+
+- The demo vault (npm run demo-vault) now has a set of complete example books to try Binders on: a full-length novel with a story bible, a novella, a novel typed with tabs, a story collection, a handbook with footnotes, tables and figures, a draft in progress, short books in German and French, other scripts, a Longform project, and a binder with a scene for everything export has to decide about. The stress binders moved into a folder of their own.
+
 ## 0.24.7 (2026-10-06)
 
 ### Fixed
