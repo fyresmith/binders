@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.37.2 (2026-10-06)
+
+### Fixed
+
+- A test of deleting a style no longer depends on whether the computer has a system trash.
+
 ## 0.37.1 (2026-10-06)
 
 ### Changed

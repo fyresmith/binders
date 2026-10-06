@@ -285,9 +285,14 @@ test('a style of one’s own: Duplicate makes it, it is renamed and deleted, and
 	await more(p);
 	t.eq((await menuItems(p)).join('|'), 'Duplicate|Rename...|Save a copy to share...|Add a style from a file...|Show the style’s file|Delete', 'a style of one’s own: Rename and Delete');
 	await shot(p, 'editor-own-style-menu');
-	await clickMenu(p, 'Delete');
-	await answer(p, 'Delete');
-	await until(p, `${key('style-name')}?.value === 'Classic'`, 6000);
+	// (to the vault's own trash, where the test can see it: the system's, Obsidian's default, is there only on some machines)
+	const trash = await p.ev(`app.vault.getConfig('trashOption')`);
+	await p.ev(`(() => { app.vault.setConfig('trashOption', 'local'); return 1; })()`);
+	try {
+		await clickMenu(p, 'Delete');
+		await answer(p, 'Delete');
+		await until(p, `${key('style-name')}?.value === 'Classic'`, 6000);
+	} finally { await p.ev(`(() => { app.vault.setConfig('trashOption', ${j(trash ?? 'system')}); return 1; })()`); }
 	await settle(p);
 	t.eq(files(p).join(), 'Classic.bookstyle', 'deleted: its file is gone');
 	t.eq(await p.ev(`app.vault.adapter.exists('.trash/Wide and airy.bookstyle')`), true, 'to the trash, where it can be had back');
