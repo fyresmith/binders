@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.33.1 (2026-10-06)
+
+### Fixed
+
+- An export's word count takes each Chinese or Japanese character for a word, as Obsidian does, counts a number such as 1,000 as one word, and no longer splits a word at an accent typed as a separate mark.
+
 ## 0.33.0 (2026-10-06)
 
 ### Added

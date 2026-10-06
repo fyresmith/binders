@@ -115,8 +115,18 @@ export interface Book {
 	outline: OutlineRow[];
 }
 
-/** The words of some text, as a writer counts them: runs of letters and digits (with the marks inside a word). */
-export const countWords = (text: string): number => (text.match(/[\p{L}\p{N}]+(?:['’.-][\p{L}\p{N}]+)*/gu) ?? []).length;
+// A character of Chinese or Japanese (Han, hiragana, katakana), written without spaces: a word each, as Obsidian's
+// status bar counts them. Korean has spaces, and is counted by them. Then what a word is made of anywhere else:
+// letters, digits and the marks that sit on a letter (an accent typed as its own character, a vowel sign).
+const CJK = '\\p{Script=Han}\\p{Script=Hiragana}\\p{Script=Katakana}', IN = `(?:(?![${CJK}])[\\p{L}\\p{N}\\p{M}])`, DIGIT = `(?:(?![${CJK}])\\p{N})`;
+// A stretch of a word: a number with commas in it ("1,000", "1,000th"), or letters and digits. It starts with a
+// letter or a digit: a mark with nothing under it (the one that makes a sign an emoji) is no word.
+const PIECE = `(?:${DIGIT}+(?:,${DIGIT}+)+${IN}*|(?![${CJK}])[\\p{L}\\p{N}]${IN}*)`;
+const WORD = new RegExp(`[${CJK}]|${PIECE}(?:['’.-]${PIECE})*`, 'gu');
+
+/** The words of some text, as a writer counts them: runs of letters and digits, with the marks inside a word
+    ("don’t", "well-known", "3.14", "1,000"); a character each where the script has no spaces. */
+export const countWords = (text: string): number => (text.match(WORD) ?? []).length;
 
 /** The text of inline content, without its footnote marks. */
 export const plain = (runs: readonly Inline[]): string => runs.map((r) => (r.kind === 'text' ? r.text : r.kind === 'br' ? '\n' : '')).join('');

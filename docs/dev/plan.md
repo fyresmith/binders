@@ -660,11 +660,12 @@ Nothing about the rule is written twice. `src/view/book-words.ts` hands a note t
 | `^block-id` at a line's end | No |
 | `&amp;`, `\*` | The character they stand for |
 
-A word is what export says it is: a run of letters and digits, with `'`, `’`, `.` or `-` inside it (`don’t`,
-`well-known`, `3.14`). That differs from the status bar in small ways, and in two that matter (2026-10-06, said to
-export's owners): `1,000` is two words, and a run of Chinese or Japanese characters is one word, where the status
-bar counts each character. Until export counts those as a writer would, a book in Chinese or Japanese is better
-counted with the setting off.
+A word is what export says it is (`countWords` in `src/export/model.ts`): a run of letters and digits, with `'`,
+`’`, `.` or `-` inside it (`don’t`, `well-known`, `3.14`), a number with its commas (`1,000`), and the marks that sit
+on a letter kept with it (an accent typed as its own character). Chinese and Japanese are written without spaces,
+so each Han, hiragana or katakana character is a word, as in Obsidian's status bar; Korean has spaces and is counted
+by them, as the status bar counts it. What still differs from the status bar is small: a hyphen or an apostrophe
+standing alone is a word there and none in the book, and so is a list's mark.
 
 What a count leaves to the writer's own sense:
 

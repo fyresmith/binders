@@ -1,6 +1,6 @@
 import { buildBook } from '../src/export/book';
 import { needs, parseBody, parseNote } from '../src/export/markdown';
-import { blocksText, bookWords, numberWords, plain, type Block, type Inline } from '../src/export/model';
+import { blocksText, bookWords, countWords, numberWords, plain, type Block, type Inline } from '../src/export/model';
 import { pictureOf } from '../src/export/picture';
 import { assignRoles, guessStructure, readRole, readStructure, titleFrom, type SourceItem } from '../src/export/roles';
 import { typeset } from '../src/export/typography';
@@ -211,6 +211,27 @@ const roles = (items: SourceItem[], s = guessStructure(items)) => assignRoles(it
 	eq(`${off.sections.map((x) => x.id).join(' ')}|${off.sections[0].blocks.length}`, 'copyright chapter-1|2', 'the title page and the contents can be turned off; a copyright line is a paragraph a line');
 	eq(buildBook([note('1', 'x')], { title: 'T', author: '', matter: true, made: { contents: 'always' } }).sections.map((x) => x.id).join(' '), 'title-page contents chapter-1', 'no author and no line: no copyright page; a contents page when it is asked for');
 	eq(bookWords(made), bookWords(buildBook([note('Dedication', 'For M.'), note('One', 'x'), note('Storm', 'y'), note('Acknowledgements', 'Thanks.')], { title: 'T', author: 'Mara L', matter: true })), 'made pages are no part of the book’s word count');
+}
+
+// ---- what a word is: as a writer counts, and as Obsidian's status bar does for text without spaces ----
+{
+	eq(countWords('He met her at the foot of the tower.'), 9, 'a sentence');
+	eq(countWords('Don’t stop: well-known, co-op; e.g. this.'), 6, 'apostrophes, hyphens and full stops inside a word');
+	eq(countWords('A — dash, a - hyphen and an ... ellipsis.'), 7, 'marks that stand alone are no words');
+	eq(countWords('雨从夜里开始下，一直下到早晨。'), 13, 'Chinese: a character is a word (and its punctuation none)');
+	eq(countWords('雨は夜に降り始め、コーヒーを飲んだ。'), 16, 'Japanese: kanji, hiragana and katakana each count one');
+	eq(countWords('the 雨 fell on 東京 that night'), 8, 'characters among words in letters');
+	eq(countWords('abc雨def'), 3, 'and against them, with no space between');
+	eq(countWords('비는 밤에 내리기 시작해서'), 4, 'Korean is written with spaces: a word is what stands between them');
+	eq(countWords('It cost 1,000 or 1,000,000.50, not 3.14.'), 7, 'a number is one word, with its commas and its point');
+	eq(countWords('one,two and 3,x and x,3'), 8, 'a comma joins digits only');
+	eq(countWords('In 1986, 20 came; 5, 6 and 7.'), 8, 'a comma after a number, with a space, ends it');
+	eq(countWords('the 1,000th time'), 3, 'a number with letters after it');
+	eq(countWords('Zoe\u0308 Bronte\u0308-Okafor, Dvor\u030Ca\u0301k'), 3, 'a letter with a combining mark is in its word, as the same letter in one character is');
+	eq(countWords('Zoë Brontë-Okafor, Dvořák'), 3, 'the same, composed');
+	eq(countWords('हिन्दी में लिखा'), 3, 'a script whose vowels are marks');
+	eq(countWords('She sent \u{1F327}\uFE0F \u2615 and \u{1F44D}\u{1F3FD}.'), 3, 'a mark with no letter under it (the one that makes a sign an emoji) is no word');
+	eq(countWords(''), 0, 'nothing');
 }
 
 done('export model');
