@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.40.8 (2026-10-06)
+
+### Fixed
+
+- The plugin's file now carries the copyright notices and licences of the typefaces and hyphenation patterns it includes.
+
 ## 0.40.7 (2026-10-06)
 
 ### Removed

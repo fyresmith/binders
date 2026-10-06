@@ -1,12 +1,17 @@
 import esbuild from "esbuild";
 import process from "process";
 import { watchFile } from "node:fs";
+import { readFileSync } from "node:fs";
 import { builtinModules } from "node:module";
 import { installAll } from "./scripts/install-to-vault.mjs";
 
+// (the fonts and hyphenation patterns this file carries come with their notices: a release ships only main.js)
+const notices = readFileSync("THIRD-PARTY-NOTICES.txt", "utf8").replaceAll("*/", "* /").trim();
 const banner = `/*
 Binders: ordered folders, corkboards and manuscripts for Obsidian.
 This is a generated file. The source lives at https://github.com/fyresmith/binders
+
+${notices}
 */
 `;
 const prod = process.argv[2] === "production";
