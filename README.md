@@ -336,9 +336,9 @@ note's or folder's name without a number it starts with ("03 - Storm warning" is
 name is only a number or "Chapter 3"; a level-one heading at the top of the note is the title instead. Notes at the
 start or the end named Dedication, Epigraph, Acknowledgements, About the author, Also by, Copyright or Title page,
 and everything in a folder named "Front matter" or "Back matter", are front and back matter. To overrule any of it,
-give a note (or a folder's note) the property `export-as: chapter` (or `part`, `scene`, `front matter`,
-`back matter`), and a binder note `structure:` (see [docs/file-format.md](docs/file-format.md)). A menu for both is
-on the way.
+set **Export as** for a note or folder in the inspector (it writes the property `export-as`: `part`, `chapter`,
+`scene`, `front matter` or `back matter`), and the book's **Structure** in Book details (the binder note's
+`structure`; see [docs/file-format.md](docs/file-format.md)).
 
 **What your Markdown becomes.** Properties are never exported. A new line is a new paragraph, and a tab or spaces at
 a paragraph's start are dropped (the manuscript indents every paragraph itself); two spaces or a backslash at a

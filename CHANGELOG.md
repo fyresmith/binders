@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.30.2 (2026-10-06)
+
+### Changed
+
+- The README says where a note's role and a book's structure are set now: the inspector and Book details.
+
 ## 0.30.1 (2026-10-06)
 
 ### Fixed
