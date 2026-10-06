@@ -5566,14 +5566,19 @@ body:not(.is-phone) .binders-snapshots .sync-history-content {
 		padding-block: var(--size-4-2);
 	}
 
+	/* (the name a line of its own, the date and size under it; both clear of the button that closes the dialog) */
 	body:not(.is-phone) .binders-snapshots .binders-snapshots-bar .binders-snapshots-title {
+		flex: 1 0 100%;
+		flex-wrap: wrap;
+		padding-inline-end: calc(var(--binders-snapshots-control) + var(--size-4-1));
+	}
+
+	body:not(.is-phone) .binders-snapshots .binders-snapshots-bar .binders-snapshots-name {
 		flex: 1 0 100%;
 	}
 
 	body:not(.is-phone) .binders-snapshots .binders-snapshots-bar .modal-setting-titlebar-actions {
 		flex: 1 1 auto;
 		justify-content: flex-end;
-		/* (the button that closes the dialog is beside the name, a line up: these have the whole width) */
-		margin-inline-end: calc(-1 * (var(--binders-snapshots-control) + var(--size-4-1)));
 	}
 }
