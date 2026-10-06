@@ -405,7 +405,7 @@ test('menus: what’s offered where — scenes, folders, the binder’s own note
 		Plain: ['Make this folder a binder', 'New binder'], 'Plain/x.md': [], 'Loose.md': [],
 		[LF]: ['Open binder', 'New scene here', 'Convert to binder', 'Export...', 'Take a snapshot', 'Show snapshots...'], [`${LF}/Index.md`]: ['Open binder', 'Convert to binder'], [`${LF}/Island.md`]: ['Show in binder', 'New scene after this', 'Take a snapshot', 'Rewrite...', 'Show snapshots...', 'Move up', 'Move down'], [`${LF}/Notes on ferries.md`]: [],
 		// a binder Binders can't change: it can be opened and exported, and a note's snapshots read, nothing more
-		Newer: ['Open binder', 'Export...'], 'Newer/Zed.md': ['Show in binder', 'Show snapshots...'], 'Newer/Sub': ['Open binder', 'Export...'], 'Newer/Newer.md': ['Open binder'],
+		Newer: ['Open binder', 'Export...', 'Show snapshots...'], 'Newer/Zed.md': ['Show in binder', 'Show snapshots...'], 'Newer/Sub': ['Open binder', 'Export...', 'Show snapshots...'], 'Newer/Newer.md': ['Open binder'],
 	};
 	for (const [path, items] of Object.entries(want)) same(t, await ours(path), items, `the menu of “${path}”`);
 	const selection = async (paths) => { await clearSelection(p); await select(p, paths); const a = await row(p, paths[paths.length - 1]); await p.right(a.x, a.y); await p.sleep(250); const m = await menuOf(p); await closeMenu(p); if (!m) throw new Error(`no menu for ${paths}`); return m.filter(isOurs); };
