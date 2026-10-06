@@ -17,6 +17,8 @@ const j = (x: unknown) => JSON.stringify(x);
 	eq(clampWidth(9999), 640, 'nor absurdly wide');
 	eq(j(readColumns(['label', { id: 'words', width: 91.4 }, { id: 'words' }, 'bogus', 7, null, { id: 'prop:POV', width: 'wide' }])), j([{ id: 'label' }, { id: 'words', width: 91 }, { id: 'prop:POV' }]), 'read from saved state: known, once each');
 	eq(readColumns({ id: 'label' }), null, 'not a list');
+	eq(j(readColumns(['notes', { id: 'notes', width: 300 }])), j([{ id: 'notes' }]), 'the notes have a column of their own');
+	eq(columnName('notes'), 'Notes', 'and it is named for them');
 	eq(j(readColumns(['compile', { id: 'export', width: 90 }, 'words'])), j([{ id: 'export' }, { id: 'words' }]), 'the column “Export” was “Compile” once: one saved then is it, and counts once');
 	ok(isColumn('export') && !isColumn('compile') && columnName('export') === 'Export', 'the column is Export');
 	eq(j(readColumns([])), '[]', 'no columns at all is a choice');

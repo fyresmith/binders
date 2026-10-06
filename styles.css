@@ -526,6 +526,11 @@
 	overflow: visible;
 }
 
+/* (notes are several lines: one line with an ellipsis in the cell, and all of them while they're typed in) */
+.binders-outliner-notes.is-editing {
+	white-space: pre-wrap;
+}
+
 .binders-outliner-cell .binders-progress {
 	flex: 1 1 auto;
 	width: auto;

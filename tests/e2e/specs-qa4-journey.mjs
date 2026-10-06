@@ -470,7 +470,7 @@ test('1b. chapters: scenes grouped into three folders by “New folder from sele
 	// a chapter's target in the outliner's Target column, its synopsis from its row's menu
 	const plus = await p.at(`${AL} .binders-outliner-th.mod-add`);
 	await p.click(plus.x, plus.y);
-	t.eq(j(await menuItems(p)), j(['Label', 'Status', 'Words', 'Target', 'Progress', 'Export', 'Created', 'Modified', 'Other property...']), 'the columns to choose from');
+	t.eq(j(await menuItems(p)), j(['Label', 'Status', 'Words', 'Target', 'Progress', 'Export', 'Notes', 'Created', 'Modified', 'Other property...']), 'the columns to choose from');
 	await clickMenu(p, 'Target');
 	await p.sleep(300);
 	let n = await oname(p, 'Novel/Chapter 1');

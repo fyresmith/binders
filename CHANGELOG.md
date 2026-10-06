@@ -3,6 +3,16 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.25.0 (2026-10-06)
+
+### Added
+
+- Notes on a scene or folder, kept in its notes property (the name is a setting) and never exported. The outliner has a Notes column for them.
+
+### Changed
+
+- Merging notes joins their notes as it joins their synopses.
+
 ## 0.24.9 (2026-10-06)
 
 ### Changed

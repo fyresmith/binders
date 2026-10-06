@@ -20,6 +20,8 @@ export interface BindersSettings {
 	statusProp: string;
 	labelProp: string;
 	targetProp: string;
+	/** The property that holds the writer's notes on a note or folder (never exported). */
+	notesProp: string;
 	/** The labels a note can have, in the order menus list them: a name and a color each. */
 	labels: LabelPreset[];
 	/** The statuses a note can have, in the order a draft goes through them. */
@@ -67,7 +69,7 @@ export interface BindersSettings {
 /** What a new vault starts with. */
 export const DEFAULT_SETTINGS: BindersSettings = {
 	orderExplorer: true, openOnClick: true, hideBinderNotes: true, explorerLabels: true,
-	synopsisProp: 'synopsis', statusProp: 'status', labelProp: 'label', targetProp: 'target',
+	synopsisProp: 'synopsis', statusProp: 'status', labelProp: 'label', targetProp: 'target', notesProp: 'notes',
 	labels: DEFAULT_LABELS, statuses: DEFAULT_STATUSES, outlinerColumns: DEFAULT_COLUMNS, compile: COMPILE_DEFAULTS, compiled: {}, compiledTo: {},
 	exportsFolder: 'Exports', authorName: '', contact: '', exportKind: 'manuscript', exportStyle: '', exportMatter: false,
 	tabParagraphs: true, indentParagraphs: false,
@@ -101,11 +103,11 @@ export const PARAGRAPH_TEXT: Record<ParagraphToggle, readonly [string, string]> 
 
 /** The file explorer’s four switches. */
 export type Toggle = 'orderExplorer' | 'openOnClick' | 'hideBinderNotes' | 'explorerLabels';
-/** The four property names settings can change. */
-export type Prop = 'synopsisProp' | 'statusProp' | 'labelProp' | 'targetProp';
+/** The five property names settings can change. */
+export type Prop = 'synopsisProp' | 'statusProp' | 'labelProp' | 'targetProp' | 'notesProp';
 /** Both in the order the settings tab lists them. */
 export const TOGGLES: Toggle[] = ['orderExplorer', 'openOnClick', 'hideBinderNotes', 'explorerLabels'];
-export const PROPS: Prop[] = ['synopsisProp', 'statusProp', 'labelProp', 'targetProp'];
+export const PROPS: Prop[] = ['synopsisProp', 'statusProp', 'labelProp', 'targetProp', 'notesProp'];
 
 /** Their names and descriptions in the settings tab. */
 export const TEXT: Record<Toggle | Prop, readonly [string, string]> = {
@@ -117,6 +119,7 @@ export const TEXT: Record<Toggle | Prop, readonly [string, string]> = {
 	statusProp: ['Status', 'The property that holds a note’s status, such as draft or revised.'],
 	labelProp: ['Label', 'The property that holds a note’s label.'],
 	targetProp: ['Target', 'The property that holds a word count target: a note’s own, a folder’s, or the binder’s.'],
+	notesProp: ['Notes', 'The property that holds your notes on a note or folder. They are never exported.'],
 };
 
 /** How many exported notes are remembered (the latest). */

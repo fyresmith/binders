@@ -32,3 +32,15 @@ export async function writeProps(plugin: BindersPlugin, file: TFile, patch: Part
 	}
 	await plugin.binders.setProps(file, out);
 }
+
+/** The notes kept on a note (a folder's are on its folder note): the writer's own, about it, never part of the
+    manuscript and never exported. Text as it was typed, line breaks and all; "" for none. */
+export function readNotes(plugin: BindersPlugin, file: TFile): string {
+	const v: unknown = plugin.app.metadataCache.getFileCache(file)?.frontmatter?.[plugin.settings.notesProp];
+	return typeof v === 'string' ? v : typeof v === 'number' ? String(v) : Array.isArray(v) ? v.filter((x) => typeof x === 'string').join('\n') : '';
+}
+
+/** Writes them; nothing typed takes the property away. */
+export async function writeNotes(plugin: BindersPlugin, file: TFile, notes: string): Promise<void> {
+	await plugin.binders.setProps(file, { [plugin.settings.notesProp]: notes.trim() ? notes : undefined });
+}

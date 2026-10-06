@@ -4,6 +4,7 @@ import { movedText } from './lanes-data';
 import { GLIDE_QUICK, Press, glide, held, places, settle, visibleBottom } from './drag';
 import { FileDrag } from './file-drag';
 import { editable, type Editable } from './edit';
+import { readNotes, writeNotes } from './props';
 import { submenu } from './internals';
 import { labelDot, labelName, rank } from './labels';
 import type { BinderMode, ModeContext, ModeFactory, SceneProps } from './mode';
@@ -376,6 +377,9 @@ class Outliner implements BinderMode {
 		return { n: this.scenesIn(item).reduce((a, f) => a + this.ctx.props(f).target, 0), own: false };
 	}
 
+	/** The property a column shows: a property's own column, or the notes (under the name settings give them). */
+	private propFor(id: string): string | null { return id === 'notes' ? this.settings.notesProp : propOf(id); }
+
 	private sortValue(item: TAbstractFile, id: string): unknown {
 		const p = this.props(item);
 		switch (id) {
@@ -390,7 +394,7 @@ class Outliner implements BinderMode {
 			case 'modified': return item instanceof TFile ? item.stat.mtime : null;
 			case 'export': return isExported(this.ctx.plugin, item);
 		}
-		const prop = propOf(id), v = prop ? this.frontmatter(item)[prop] : null;
+		const prop = this.propFor(id), v = prop ? this.frontmatter(item)[prop] : null;
 		return Array.isArray(v) ? text(v) : v;
 	}
 
@@ -535,7 +539,7 @@ class Outliner implements BinderMode {
 			case 'modified': return item instanceof TFile ? item.stat.mtime : null;
 			case 'export': return [isExported(this.ctx.plugin, item), this.leftOut(item)];
 		}
-		const prop = propOf(id);
+		const prop = this.propFor(id);
 		return prop ? this.frontmatter(item)[prop] ?? null : null;
 	}
 
@@ -639,7 +643,7 @@ class Outliner implements BinderMode {
 				if (item instanceof TFile) td.createSpan({ cls: 'binders-outliner-value', text: date(id === 'created' ? item.stat.ctime : item.stat.mtime) });
 				return null;
 		}
-		const prop = propOf(id);
+		const prop = this.propFor(id);
 		if (!prop) return null;
 		const v = this.frontmatter(item)[prop];
 		const write = async (value: unknown, all = false) => {
@@ -659,6 +663,21 @@ class Outliner implements BinderMode {
 			return null;
 		}
 		if (v && typeof v === 'object' && !Array.isArray(v)) { td.createSpan({ cls: 'binders-outliner-value', text: '…' }); return null; }
+		// notes are several lines: a field that keeps its line breaks (a line's field would join them on the first
+		// save), shown as one line until it's typed in
+		if (id === 'notes') {
+			const note = noteOf(this.ctx, item);
+			return editable(td, {
+				cls: 'binders-outliner-field binders-outliner-notes', value: note ? readNotes(this.ctx.plugin, note) : '', placeholder: '', label: `Notes on ${nameOf(item)}`, readOnly: ro,
+				shouldEdit: () => this.sel.has(item.path),
+				save: async (typed) => {
+					if (this.ro) throw new Error('This binder is read only.');
+					const to = item instanceof TFolder ? (typed.trim() ? await this.store.ensureFolderNote(item) : this.store.folderNote(item)) : noteOf(this.ctx, item);
+					if (to) await writeNotes(this.ctx.plugin, to, typed);
+				},
+				onEditing: (on) => this.onEditing(on, row),
+			});
+		}
 		return editable(td, {
 			cls: 'binders-outliner-field', value: text(v), placeholder: '', label: `${prop} of ${nameOf(item)}`, singleLine: true, allowEmpty: true, readOnly: ro,
 			shouldEdit: () => this.sel.has(item.path),

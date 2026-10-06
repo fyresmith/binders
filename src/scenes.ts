@@ -8,6 +8,7 @@ import { untab } from './paragraphs/text';
 import { saveEditors, saveTab } from './view/editable-embed';
 import { trashPhrase, updatesLinks } from './view/internals';
 import { confirm } from './view/modals';
+import { readNotes, writeNotes } from './view/props';
 
 /* Working on scenes as a writer does in Scrivener: splitting one in two where the cursor is, merging several into one,
    giving one a synopsis from its opening lines, and a binder's text made into a single note (export's "One note"). The text rules are in
@@ -278,7 +279,7 @@ export async function mergeScenes(plugin: BindersPlugin, files: TFile[]): Promis
 	const links = linksTo(app, rest), follow = updatesLinks(app);
 	const ok = await confirm(app, {
 		title: `Merge ${files.length} notes`,
-		text: `Their text is joined into “${first.basename}” in this order, with a blank line between, and so are their synopses. ${rest.length === 1 ? `“${rest[0].basename}”` : `The other ${rest.length}`} ${trashPhrase(app, rest.length > 1)}, with ${rest.length === 1 ? 'its' : 'their'} other properties.${links ? ` ${links === 1 ? 'One link' : `${links} links`} to ${rest.length === 1 ? 'it' : 'them'} will ${follow ? `lead to “${first.basename}”` : 'no longer lead anywhere'}.` : ''}`,
+		text: `Their text is joined into “${first.basename}” in this order, with a blank line between, and so are their synopses and notes. ${rest.length === 1 ? `“${rest[0].basename}”` : `The other ${rest.length}`} ${trashPhrase(app, rest.length > 1)}, with ${rest.length === 1 ? 'its' : 'their'} other properties.${links ? ` ${links === 1 ? 'One link' : `${links} links`} to ${rest.length === 1 ? 'it' : 'them'} will ${follow ? `lead to “${first.basename}”` : 'no longer lead anywhere'}.` : ''}`,
 		cta: 'Merge',
 	});
 	if (!ok) return null;
@@ -294,6 +295,9 @@ export async function mergeScenes(plugin: BindersPlugin, files: TFile[]): Promis
 		const synopsis = (f: TFile) => { const v: unknown = app.metadataCache.getFileCache(f)?.frontmatter?.[settings.synopsisProp]; return typeof v === 'string' ? v.trim() : ''; };
 		const joined = files.map(synopsis).filter((x) => x).join('\n\n');
 		if (joined && joined !== synopsis(first)) await store.setProps(first, { [settings.synopsisProp]: joined });
+		// (and the notes kept on them: they are writing too, and would go to the trash with the notes that go)
+		const kept = files.map((f) => readNotes(plugin, f).trim()).filter((x) => x).join('\n\n');
+		if (kept && kept !== readNotes(plugin, first).trim()) await writeNotes(plugin, first, kept);
 		// read it back: every note's text must be in the merged one before any note is let go
 		const now = parts(await app.vault.read(first)).body, flat = (x: string) => x.replace(/\s+/g, ' ').trim();
 		if (!bodies.every((b) => flat(now).includes(flat(b)))) throw new Error('The merged note doesn’t have all the text, so nothing was deleted.');

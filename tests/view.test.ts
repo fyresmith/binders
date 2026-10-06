@@ -54,6 +54,8 @@ eq(wordsLabel(12345), `${(12345).toLocaleString()} words`, 'many words');
 	eq(s.hideBinderNotes, true, 'settings: a missing one is its default');
 	eq(s.synopsisProp, 'synopsis', 'settings: a blank property name is the default');
 	eq(s.labelProp, 'colour', 'settings: a saved property name');
+	eq(s.notesProp, 'notes', 'settings: notes are kept in “notes” until that is changed');
+	eq(readSettings({ notesProp: ' remarks ' }).notesProp, 'remarks', 'settings: the property for notes, as saved');
 	eq(JSON.stringify(s.labels), JSON.stringify([{ name: 'A', color: 'red' }]), 'settings: saved labels');
 	eq(JSON.stringify(s.statuses), JSON.stringify(DEFAULT_STATUSES), 'settings: statuses that aren’t a list are the defaults');
 	eq(JSON.stringify(s.outlinerColumns), JSON.stringify([{ id: 'words' }, { id: 'prop:POV', width: 640 }]), 'settings: known columns, once each, widths in bounds');

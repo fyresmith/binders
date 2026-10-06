@@ -1169,7 +1169,7 @@ test('outliner add-column “+” menu: every built-in column, the notes’ prop
 	await outl(p);
 	await click(p, `${LEAF} .binders-outliner-th.mod-add`);
 	const it = await items(p);
-	t.eq(j(it.filter((x) => x.section === 'built-in').map((x) => x.title)), j(['Label', 'Status', 'Words', 'Target', 'Progress', 'Export', 'Created', 'Modified']), 'the built-in columns');
+	t.eq(j(it.filter((x) => x.section === 'built-in').map((x) => x.title)), j(['Label', 'Status', 'Words', 'Target', 'Progress', 'Export', 'Notes', 'Created', 'Modified']), 'the built-in columns');
 	t.eq(j(it.filter((x) => x.checked).map((x) => x.title)), j(['Label', 'Status', 'Words']), 'ticked: the three shown');
 	t.ok(it.some((x) => x.section === 'props'), 'and a property the notes have (plotlines)');
 	await choose(p, 'Target');

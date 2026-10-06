@@ -824,7 +824,7 @@ export class BinderStore extends Events implements ExplorerSource {
 		this.adopting.add(copy);
 		try {
 			const { vault } = this.app, st = this.plugin.settings;
-			const props = [st.synopsisProp, st.statusProp, st.labelProp, st.targetProp, EXPORT_PROP, COMPILE_PROP];
+			const props = [st.synopsisProp, st.statusProp, st.labelProp, st.targetProp, st.notesProp, EXPORT_PROP, COMPILE_PROP];
 			for (let i = 0; i < ADOPT_TRIES; i++) {
 				if (i) await sleep(ADOPT_WAIT);
 				const here = (f: TAbstractFile) => vault.getAbstractFileByPath(f.path) === f;
