@@ -1098,7 +1098,7 @@ test('phone settings: the switches work by touch and “Hide binder and folder n
 		const toggles = () => p.ev(`[...${TAB}.querySelectorAll('.checkbox-container')].slice(0, 4).map(e => { e.scrollIntoView({ block: 'nearest' }); return (${R})(e); })`);
 		const flags = () => p.ev(`(({ orderExplorer, openOnClick, hideBinderNotes, explorerLabels }) => [orderExplorer, openOnClick, hideBinderNotes, explorerLabels].join())(${PL}.settings)`);
 		let tg = await toggles();
-		t.eq(await p.ev(`${TAB}.querySelectorAll('.checkbox-container').length`), 12, 'four explorer switches, two for paragraphs, one for the sidebar and five focus switches');
+		t.eq(await p.ev(`${TAB}.querySelectorAll('.checkbox-container').length`), 13, 'four explorer switches, two for paragraphs, one for the sidebar and six focus switches');
 		t.ok(tg.length === 4 && tg.every((r) => r[2] >= 44 && r[3] >= 28), 'four explorer switches, each a finger wide: ' + j(tg));
 		await tap(p, tg[0][0] + tg[0][2] / 2, tg[0][1] + tg[0][3] / 2);
 		await p.sleep(700);
