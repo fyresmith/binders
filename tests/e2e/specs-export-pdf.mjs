@@ -511,6 +511,38 @@ test('a paperback in Modern: the vault’s styles in its Style row, its pages wo
 	} finally { await unstyle(p); }
 });
 
+// Source Serif 4 is carried whole, as Adobe released it (its licence asks it: scripts/source-serif-fonts.mjs), and
+// whole it has Cyrillic and Greek. EB Garamond, cut down to Latin, doesn't: the test before the last.
+test('a Russian book in Modern is set in Source Serif itself, its Cyrillic too, and the window has nothing to say of it', async (p, h, t) => {
+	const RU = 'Маяк стоял на краю земли, и никто уже не помнил, кто зажёг его первым.';
+	try {
+		await withAuthor(p);
+		await p.ev(`(async () => { await app.vault.append(app.vault.getAbstractFileByPath(${j(`${L}Prologue.md`)}), ${j(`\n\n${RU}\n`)}); await app.fileManager.processFrontMatter(app.vault.getAbstractFileByPath(${j(BINDER_NOTE)}), (fm) => { fm.language = 'ru'; }); return 1; })()`);
+		await until(p, `app.metadataCache.getCache(${j(BINDER_NOTE)})?.frontmatter?.language === 'ru'`, 4000);
+		await open(p);
+		await pick(p, 'Paperback');
+		t.ok(await laidOut(p), 'Classic’s pages are laid out');
+		const warned = `[...document.querySelectorAll('${WIN} .binders-export-warn-text')].some(e => /has no .* letters/.test(e.textContent))`;
+		t.ok(await until(p, warned, 3000), 'in Classic the window says EB Garamond has no Cyrillic');
+		await choose(p, 'style', 'Modern');
+		t.ok(await laidAgain(p), 'Modern chosen: the pages are laid out again');
+		t.ok(await until(p, `!(${warned})`, 3000), 'and the window no longer says a typeface lacks the letters');
+		t.ok(/^"?Source Serif 4/.test(await typeface(p)), `the page is set in Source Serif first (${await typeface(p)})`);
+		// the face has the letters itself: in a stack of it and a monospace, the line isn't as wide as the monospace sets it
+		const [own, mono] = await p.ev(`(() => { const d = ${FRAME}.contentDocument, c = d.createElement('canvas').getContext('2d'); const w = (f) => { c.font = '20px ' + f; return c.measureText(${j(RU)}).width; }; return [w('"Source Serif 4", monospace'), w('monospace')]; })()`);
+		t.ok(Math.abs(own - mono) > 20, `the Cyrillic is Source Serif’s own (${Math.round(own)}px; ${Math.round(mono)}px in the fallback)`);
+		const shown = await pages(p);
+		t.ok(shown.some((s) => s.text.includes('Маяк стоял')), 'the Russian paragraph is on a page');
+		await press(p, 'Export');
+		t.ok(await saved(p), 'the bar says it was saved');
+		const at = join(p.vaultDir, 'Exports', 'The Lighthouse.pdf');
+		keep(at, 'test-vault-the-lighthouse-modern-russian.pdf');
+		checkPdf(t, at, shown, { name: 'Modern, Russian' });
+		if (!TOOLS.fonts) loud(t, 'pdffonts'); else { const fonts = pdfFonts(at); t.ok(fonts.length > 0 && fonts.every((f) => /SourceSerif4/.test(f.name)), `every font in the PDF is Source Serif: no other was needed for the Cyrillic (${fonts.map((f) => f.name).join(', ')})`); }
+		if (!TOOLS.text) loud(t, 'pdftotext'); else t.ok(pdfPages(at).join('\n').includes('Маяк'), 'and the Russian can be read out of the PDF');
+	} finally { await unstyle(p); }
+});
+
 test('the style editor from Paperback: the pages’ own rows, and the pages follow a change', async (p, h, t, before) => {
 	try {
 		await withAuthor(p);

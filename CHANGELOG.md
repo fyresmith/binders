@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.44.0 (2026-10-06)
+
+### Changed
+
+- A book in Russian, Ukrainian, Bulgarian, Serbian, Belarusian, Macedonian, Kazakh, Mongolian or Greek in the Modern style is set in Source Serif itself, not in the computer's own serif, and the Export window no longer warns about it. A Greek or Cyrillic word in any Modern book uses Source Serif's letters too.
+
 ## 0.43.3 (2026-10-06)
 
 ### Fixed

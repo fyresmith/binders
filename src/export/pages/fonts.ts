@@ -35,21 +35,26 @@ const SCRIPTS: [RegExp, string, string][] = [
 	[/^ko\b/i, 'Korean', '"Noto Serif CJK KR", "Noto Serif KR", "AppleMyungjo", "Batang"'],
 	[/^(hi|th|ka|hy)\b/i, 'this script', '"Noto Serif", "Times New Roman"'],
 ];
-const script = (language: string) => SCRIPTS.find(([re]) => re.test(language));
+/** The scripts beyond Latin that a carried family holds. Source Serif 4 is carried whole (its licence asks it), and
+    whole it has the Cyrillic of every language above and modern Greek, in all four faces. EB Garamond is cut down to
+    Latin. */
+const HOLDS: Record<string, readonly string[]> = { 'Source Serif 4': ['Cyrillic', 'Greek'] };
+/** The script of a book's language, when the typeface doesn't hold it. */
+const script = (typeface: string, language: string) => { const own = SCRIPTS.find(([re]) => re.test(language)); return own && !HOLDS[typeface]?.includes(own[1]) ? own : undefined; };
 
 /** True for a typeface that travels in the plugin. */
 export const carried = (typeface: string): boolean => typeface in FAMILIES;
 
 /** The `font-family` for a style's typeface in a book of some language. A letter the typeface doesn't have (a word
-    of Greek in an English book) is set in the computer's own serif, as any page would have it. */
+    of Hebrew in an English book) is set in the computer's own serif, as any page would have it. */
 export function fontStack(typeface: string, language: string): string {
-	const own = script(language), name = `"${typeface.replace(/["\\;{}]/g, '')}"`;
+	const own = script(typeface, language), name = `"${typeface.replace(/["\\;{}]/g, '')}"`;
 	return own ? `${own[2]}, serif` : `${name}, "Noto Serif", "Times New Roman", "Liberation Serif", serif`;
 }
 
 /** What to say when a book's language isn't written in what the style's typeface holds; "" when it is. */
 export function fontWarning(typeface: string, language: string): string {
-	const own = script(language);
+	const own = script(typeface, language);
 	return own && carried(typeface) ? `${typeface} has no ${own[1] === 'this script' ? 'letters for this language' : `${own[1]} letters`}. The pages are set in this computer’s own serif instead.` : '';
 }
 

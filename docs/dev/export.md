@@ -576,10 +576,11 @@ which heads `main.js`, carries the licence where the files go.
   inferior figures, arrows and mathematical signs, which were set in the computer's own serif before.
 - A third more than the files' size as text in `main.js`.
 
-A book whose language is
-written in Cyrillic, Greek, Hebrew, Arabic, Chinese, Japanese or Korean is set throughout in the computer's own
-serif for that script (Noto Serif first), and the window says so; a word of such a script in a Latin book falls back
-letter by letter. Those are the computer's fonts, embedded by Chromium as it embeds them: on Linux, Noto's CJK and
+A book whose language is written in a script its typeface doesn't hold (Hebrew, Arabic, Chinese, Japanese or Korean
+in either; Cyrillic or Greek in Classic) is set throughout in the computer's own serif for that script (Noto Serif
+first), and the window says so; a word of such a script in a Latin book falls back letter by letter. A Russian,
+Ukrainian, Bulgarian, Serbian, Belarusian, Macedonian, Kazakh, Mongolian or Greek book in Modern is set in Source
+Serif 4 itself, which has those letters in all four faces (`HOLDS` in `pages/fonts.ts`), with no warning. Those are the computer's fonts, embedded by Chromium as it embeds them: on Linux, Noto's CJK and
 colour emoji fonts go in as Type 3. Binders' own faces never do.
 
 **The PDF.** The sheet is exactly the page's size; fonts are embedded as subsets; the file is tagged and says its
