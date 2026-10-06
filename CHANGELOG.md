@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.34.0 (2026-10-06)
+
+### Added
+
+- A second book style, Modern: Source Serif, a large plain numeral at the left (a chapter's title under it), scene breaks as space.
+
 ## 0.33.8 (2026-10-06)
 
 ### Fixed

@@ -1,8 +1,8 @@
 import { numberWords, type Section } from './model';
 
 /* A book style: how each role is set, in the ebook and (from step 3) on the pages. A style is data, under the very
-   names a `.bookstyle` file has for them (docs/dev/export.md, "The style's file"), so the editor and the files of a later
-   step read and write this shape and nothing here changes. Built in so far: Classic. Pure.
+   names a `.bookstyle` file has for them (docs/dev/file-format.md, "Export styles"), so the editor and the files
+   read and write this shape. Built in: Classic and Modern. Pure.
 
    An ebook takes its shape from a style (headings, breaks, indents, first words) and leaves the typeface, the size,
    the margins and what runs along a page to the reader: those values are here for the pages. */
@@ -45,8 +45,21 @@ export const CLASSIC: BookStyle = {
 	'scene-break': '* * *', 'running-heads': 'author and title', 'page-numbers': 'foot', margins: 'normal',
 };
 
+/** Modern: Source Serif, 10 on 14.5; a large plain numeral at the left (a chapter's title under it, when it has
+    one); scene breaks as space; the title and the page number together at the top outside. */
+export const MODERN: BookStyle = {
+	name: 'Modern',
+	typeface: 'Source Serif 4', 'type-size': 10, 'line-spacing': 1.45, paragraphs: 'indented', alignment: 'justified', quotes: 'typeset',
+	'chapter-heading': '{number} / {title}', 'heading-lettering': 'as typed', 'heading-size': 'large', 'heading-alignment': 'left',
+	'space-above': 14, 'chapter-opens': 'right-hand page', 'first-words': 'as the rest',
+	'scene-break': '', 'running-heads': 'title', 'page-numbers': 'top outside', margins: 'normal',
+};
+
+/** The typefaces a book style can name: the ones that travel in the plugin (both SIL Open Font License). */
+export const TYPEFACES: readonly string[] = ['EB Garamond', 'Source Serif 4'];
+
 /** The book styles built in. The first is what a book starts as. */
-export const BOOK_STYLES: readonly BookStyle[] = [CLASSIC];
+export const BOOK_STYLES: readonly BookStyle[] = [CLASSIC, MODERN];
 export const bookStyle = (name: unknown): BookStyle => BOOK_STYLES.find((s) => s.name === name) ?? BOOK_STYLES[0];
 
 /** The few words export itself writes into a book, in the book's language: "Chapter 3", "Part 2" (`{n}` is the

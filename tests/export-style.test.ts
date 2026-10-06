@@ -1,10 +1,15 @@
 import { DETAIL_PROPS, applyDetails, languageName, languageTag, linked, readDetails } from '../src/export/details';
-import { BOOK_STYLES, CLASSIC, bookHeading, bookStyle, bookWord, isRtl, roman } from '../src/export/style';
+import { BOOK_STYLES, CLASSIC, MODERN, TYPEFACES, bookHeading, bookStyle, bookWord, isRtl, roman } from '../src/export/style';
 import { done, eq, ok } from './harness';
 
 // ---- a book style is data, under the names its file has; headings from its pattern ----
 {
-	eq(BOOK_STYLES.map((s) => s.name).join(), 'Classic', 'the book styles built in so far');
+	eq(BOOK_STYLES.map((s) => s.name).join(), 'Classic,Modern', 'the book styles built in');
+	eq(bookStyle('Modern').typeface, 'Source Serif 4', 'Modern is set in Source Serif');
+	eq(Object.keys(MODERN).sort().join(), Object.keys(CLASSIC).sort().join(), 'the two built in have the same properties');
+	ok(BOOK_STYLES.every((s) => TYPEFACES.includes(s.typeface)), 'and a typeface that travels in the plugin');
+	eq([MODERN['scene-break'], MODERN['heading-alignment'], MODERN['heading-size'], MODERN['heading-lettering'], MODERN['first-words'], MODERN['running-heads'], MODERN['page-numbers']].join('|'), '|left|large|as typed|as the rest|title|top outside', 'Modern: a large plain numeral at the left, breaks as space, the title and the number at the top outside');
+	eq([bookHeading(MODERN, { role: 'chapter', number: 3, title: '' }).join(' / '), bookHeading(MODERN, { role: 'chapter', number: 3, title: 'Storm' }).join(' / ')].join('|'), '3|3 / Storm', 'Modern: the numeral alone, and a chapter’s title under it when it has one');
 	eq(bookStyle('Nothing').name, 'Classic', 'a style that isn’t there is Classic');
 	const keys = ['typeface', 'type-size', 'line-spacing', 'paragraphs', 'alignment', 'quotes', 'chapter-heading', 'heading-lettering', 'heading-size', 'heading-alignment', 'space-above', 'chapter-opens', 'first-words', 'scene-break', 'running-heads', 'page-numbers', 'margins'];
 	eq(Object.keys(CLASSIC).filter((k) => k !== 'name').sort().join(), keys.sort().join(), 'a style has the properties a .bookstyle file has, by those names');
