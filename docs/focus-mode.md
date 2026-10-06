@@ -3,7 +3,7 @@
 Focus mode is for writing a note of a binder with nothing else on the screen: the text, in your vault's own type
 and line length, and one button to leave.
 
-<!-- to come: a picture of a note in focus mode as it is now, on the charcoal page with the other paragraphs dimmed -->
+![A note in focus mode: the text alone on a charcoal page, the paragraph being written at full strength and the others stepped back](images/focus-mode.png)
 
 It works for a note in its own tab, editing or reading, and for the manuscript. A note that isn't in a binder is
 left exactly as Obsidian has it.

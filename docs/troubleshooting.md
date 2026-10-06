@@ -36,6 +36,17 @@ In a Longform project, order is the project's own `longform.scenes`.
 Binders says "The manuscript can't edit notes in this version of Obsidian". Click a section to open its note and
 edit it there. The rest of Binders is unaffected, and an update to Binders is the fix.
 
+## There is no Export button for a PDF
+
+A PDF (a **Paperback**, or a **Manuscript** with **File** set to **PDF**) is made on a computer. On a phone or tablet
+the window shows the pages and has no **Export**: export it when the vault is open on a computer. A computer that
+says "PDF isn't available here" has an Obsidian that can't print pages to a file.
+
+## A style I made isn't on my other device
+
+Styles are files in the `Export styles` folder at the top of the vault. Obsidian Sync carries them only with **Sync
+all other types** on. See [Styles](export-styles.md#a-styles-file).
+
 ## A paragraph shows as grey code
 
 A line that starts with a tab is code to Markdown. Binders shows it as a paragraph in a binder's notes while **Start

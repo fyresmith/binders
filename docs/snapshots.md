@@ -77,6 +77,8 @@ the binder** and **Show snapshots of the binder**.
 
 ### The window
 
+![A binder's snapshots, with Show changes on: each note says what is different about it since the snapshot](images/binder-snapshots.png)
+
 The list is on the left, newest first, under the binder (or folder) as it is now. Beside it is the snapshot you
 picked: the contents as they stood, in their order.
 
@@ -165,7 +167,7 @@ The Lighthouse/Snapshots/2026-10-05 16.20.05 Draft sent to Sam.binder-snapshot
 - A snapshot file made by a newer version of Binders is listed and says so. This version doesn't open, rename or
   delete it.
 - A snapshot file that was changed outside Binders, or that a sync hasn't finished bringing, says which notes in it
-  no longer match. It can be read, and nothing is brought back from it.
+  no longer match. It can be read, and nothing is brought back or made from it.
 - A Longform project has snapshots of the whole project, not of a part of it.
 
 Next: [Undoing a move](undo.md)

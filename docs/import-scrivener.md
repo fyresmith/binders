@@ -23,6 +23,8 @@ and everything keeps its order. The project itself is only read: nothing in it i
 5. **Import**. The bar says how far it is, and **Cancel** stops it. When it is done the new binder opens, and a
    notice offers **Open import notes** if there was anything to look at.
 
+![The import dialog: the new binder's name and choices, the binder as it will be, and one note as it will read](images/import.png)
+
 On a phone the choices come first, with **Preview** for the list; tap a note to read it, and the arrow goes back.
 
 Nothing is made until you choose **Import**. Closing the dialog before that leaves the vault as it was.

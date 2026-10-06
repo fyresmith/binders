@@ -75,8 +75,8 @@ where Scrivener is.
 
 ## One way
 
-Export makes a new project and changes nothing in your vault. Reading a project back in is Import, which isn't
-built yet. See the [roadmap](../ROADMAP.md).
+Export makes a new project and changes nothing in your vault. To read a project back in, see
+[Import from Scrivener](import-scrivener.md): it makes a new binder, and doesn't merge into the one the project came from.
 
 ## Scrivener versions
 

@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.43.2 (2026-10-06)
+
+### Changed
+
+- The manual has pages for the paperback PDF and export styles, says what has not been tried yet, and has new pictures; the README says how to install the beta, what is read and written outside the vault, and shows its screenshots in the dark theme.
+
 ## 0.43.1 (2026-10-06)
 
 ### Fixed

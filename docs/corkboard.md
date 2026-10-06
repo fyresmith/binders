@@ -78,6 +78,7 @@ Right-click a card, or several selected together. The menu has:
 | **Duplicate**, **Merge 3 notes**, **New folder from selection** (or **Put in a new folder**), **Ungroup** | See [Splitting, merging and grouping](splitting-and-merging.md) |
 | **Export...** | On a folder: opens [Export](export.md) for that folder |
 | **Include in export** | Ticked as it comes. Untick it to leave the note or folder out of every export |
+| **Export as** | The part it plays in an exported book: **Automatic**, **Part**, **Chapter**, **Scene**, **Front matter**, **Back matter** or **Leave out**. See [Book details and structure](book-details.md#overruling-it) |
 | **Move up**, **Move down**, **Move to** | Moves it one place, or to another folder of the binder |
 | **Snapshots** | **Take a snapshot**, **Rewrite...**, **Show snapshots...**. See [Snapshots](snapshots.md) |
 | **Delete** | Asks first, then moves the note or folder to the trash, as Obsidian's own settings say to |

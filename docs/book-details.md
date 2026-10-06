@@ -2,7 +2,7 @@
 
 This page covers what every export of a binder shares: the book's title and author, how its folders and notes
 become parts, chapters and scenes, and what your Markdown turns into. It applies to the
-[manuscript](export-manuscript.md) and the [ebook](export-ebook.md).
+[manuscript](export-manuscript.md), the [ebook](export-ebook.md) and the [paperback](export-paperback.md).
 
 ## Book details
 
@@ -22,6 +22,9 @@ under the choices. **Book details...** is in the window's **More** menu too.
 
 There is no Save button. Each detail is kept as you change it, as a property of the binder note and nowhere else.
 One you clear is taken out of the note again. Nothing else in the note is touched.
+
+The book's [styles](export-styles.md), its cover and a paperback's page size are kept in the binder note too. They
+are chosen in the Export window, not here.
 
 A note of the book named "Title page" or "Copyright" takes the made page's place.
 
@@ -44,7 +47,7 @@ works it out from the binder's shape.
 | A Longform project | Every note is a chapter |
 
 **Contents**, in the Export window, lists every item with the part it was given, so you can check before you
-export.
+export. A part Binders worked out is said more quietly than one you set.
 
 ### Chapter numbers and titles
 
@@ -63,16 +66,27 @@ These are front or back matter:
   by, Copyright or Title page;
 - everything in a folder named "Front matter" or "Back matter".
 
-An ebook includes them, each on a page of its own. A manuscript leaves them out unless you turn on **Front and back
-matter**.
+An ebook and a paperback include them, each on a page of its own. A manuscript leaves them out unless you turn on
+**Front and back matter**.
 
 ### Overruling it
 
-- **For one note or folder:** set **Export as** in the [inspector](inspector.md) to **Part**, **Chapter**,
-  **Scene**, **Front matter** or **Back matter**. **Automatic** goes back to what its place gives it. What is in a
-  folder follows: notes in a folder that is a chapter are scenes.
+- **For one note or folder:** set **Export as** to **Part**, **Chapter**, **Scene**, **Front matter** or **Back
+  matter**. **Automatic** goes back to what its place gives it, and the menu says what that is ("Automatic:
+  chapter"). **Leave out** takes it out of every export. What is in a folder follows: notes in a folder that is a
+  chapter are scenes. A folder can't be a scene.
 - **For the whole book:** set **Structure** in Book details to **Folders are chapters, notes are scenes**,
   **Folders are parts, notes are chapters**, **Parts, chapters and scenes** or **Every note is a chapter**.
+
+**Export as** is in four places, and they are one setting:
+
+- a card's or a row's right-click menu, beside **Include in export**;
+- the outliner's **Export as** column;
+- the [inspector](inspector.md);
+- a row of **Contents** in the Export window: click the part at the row's end.
+
+With several cards or rows selected, it is set on all of them. A Longform project has no **Export as**: every note
+of it is a chapter.
 
 **Export as** is kept in the note's `export-as` property, and **Structure** in the binder note's `structure`.
 
@@ -95,8 +109,8 @@ Properties are never exported. For the rest:
 | The join of two scenes | A scene break |
 | A heading inside a note | A subheading |
 | A link to a note | Its words. In an ebook, a link to a note that is in the book leads to its chapter |
-| A web link | A link |
-| Footnotes, `[^1]` and `^[typed in place]` | Footnotes |
+| A web link | A link. On paper, its words |
+| Footnotes, `[^1]` and `^[typed in place]` | Footnotes: at the foot of the page in Word and in a PDF, notes a reader taps open in an ebook |
 | Comments, `%% %%` and `<!-- -->` | Left out |
 | Block ids, and lines of nothing but tags | Left out |
 | Highlights | Their words |
@@ -113,4 +127,4 @@ The book's **Language** sets its quotation marks and the words Binders itself wr
 A book in Arabic or Hebrew runs right to left, and a paragraph in another script than the book's runs its own way.
 Chapter numbers are written as words only in English.
 
-Next: [Manuscript (Word)](export-manuscript.md)
+Next: [Styles](export-styles.md)

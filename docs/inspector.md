@@ -6,7 +6,7 @@ so you always know where you are.
 
 Put them side by side, one over the other, in either sidebar, or close them.
 
-<!-- to come: a picture of the manuscript with the inspector and the contents open in the right sidebar -->
+![The manuscript with the inspector over the contents in the right sidebar: the scene the cursor is in, and its place in the book](images/inspector.png)
 
 ## Where they are
 

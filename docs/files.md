@@ -72,8 +72,9 @@ the file explorer with the binder note. When you rename the folder, its folder n
 ## Book details
 
 The details of an exported book are properties of the binder note: `title`, `subtitle`, `author`, `structure`,
-`cover`, `copyright`, `language`, `title-page`, `contents-page` and `book-style`. They are written only when you
-change one in [Book details](book-details.md) or choose a cover. One you clear is taken out of the note.
+`cover`, `copyright`, `language`, `title-page`, `contents-page`, `book-style`, `manuscript-style` and `page-size`.
+They are written only when you change one in [Book details](book-details.md), or choose a cover, a style or a
+paperback's page in the Export window. One you clear is taken out of the note.
 
 ## Snapshots and exports
 
@@ -82,6 +83,10 @@ change one in [Book details](book-details.md) or choose a cover. One you clear i
   [Snapshots](snapshots.md#where-snapshots-are-kept).
 - **Exported files** go where the save dialog says on a computer, otherwise into the `Exports` folder beside the
   binder. See [Export](export.md#where-the-file-goes).
+- **Export styles** of your own, and your changes to a built-in one, are `.bookstyle` files in an `Export styles`
+  folder at the top of the vault. See [Styles](export-styles.md#a-styles-file).
+- **An imported Scrivener project** is a new binder with a `Research` folder in it, which holds the project's
+  original files. See [Import from Scrivener](import-scrivener.md).
 
 ## Keeping the order up to date
 
@@ -107,7 +112,8 @@ yet show after the others, by name. A new note is written into the list when som
   itself, because it reads such a line as code. This is the one change to a note's text you didn't ask for one by
   one. See [Paragraphs](paragraphs.md).
 - **New files:** notes you make or duplicate, folder notes, the one note an export makes (beside the binder, never
-  in it), snapshots (in the binder's `Snapshots` folder), and exported files.
+  in it), snapshots (in the binder's `Snapshots` folder), exported files, export styles (in `Export styles`), and
+  the notes and files of a binder you import or make from a snapshot, each in a new folder of its own.
 - **Files moved or renamed:** only when you move or rename them (dragging in a view or in the file explorer,
   renaming in a view, grouping), and a folder note or a note's snapshots, which follow when you rename the folder
   or the note.
@@ -128,7 +134,7 @@ Turn Binders off, or open the vault in another app, and:
 - every scene is a Markdown note with a few properties;
 - every folder is a folder;
 - the binder note is a note with a list in it;
-- snapshots are text files you can open in any editor;
+- snapshots and export styles are text files you can open in any editor;
 - the file explorer lists the notes by name again.
 
 Nothing needs converting back.

@@ -21,8 +21,9 @@ is in that scene's own properties. Turn Binders off and your notes are still ord
   manuscript as one page you can edit.
 - **Scrivener-style tools.** Labels, statuses and word count targets; an inspector; split, merge, duplicate and
   group scenes; snapshots of a scene, a folder or the whole binder, so you can rewrite without losing the old text; undo of moves.
-- **Export.** A submission manuscript as a Word file in standard manuscript format, an ebook (EPUB) for Kindle,
-  Apple Books and Kobo, the binder itself as a Scrivener project, or the whole binder as one note.
+- **Export.** A submission manuscript in standard manuscript format (Word or PDF), an ebook (EPUB) for Kindle,
+  Apple Books and Kobo, a print-ready paperback PDF, the binder itself as a Scrivener project, or the whole binder
+  as one note. Book styles you can change, with the real pages beside them.
 - **Import from Scrivener.** A Scrivener 3 project, or a zipped backup of one, as a new binder: you see it before it is made.
 - **Focus mode.** The text and nothing else, with typewriter scrolling.
 - **Longform.** Longform projects open as binders, and convert to them.
@@ -34,10 +35,13 @@ The [manual](docs/README.md) covers all of it.
 
 Binders needs Obsidian 1.13.4 or later, on a computer, a phone or a tablet.
 
-- **From Obsidian:** open **Settings → Community plugins → Browse**, search for **Binders**, then **Install** and
-  **Enable**. <!-- directory link: to be added -->
-- **By hand:** download `main.js`, `manifest.json` and `styles.css` from the
-  [latest release](https://github.com/fyresmith/binders/releases/latest), put them in
+Binders is not in Obsidian's community plugin directory yet. It will be submitted after the beta. Until then:
+
+- **With BRAT:** install **BRAT** from **Settings → Community plugins → Browse**, run its command **Plugins: Add a
+  beta plugin for testing**, give it `fyresmith/binders` and choose the newest version. BRAT installs Binders and
+  can keep it up to date.
+- **By hand:** download `main.js`, `manifest.json` and `styles.css` from the newest
+  [release](https://github.com/fyresmith/binders/releases), put them in
   `<your vault>/.obsidian/plugins/binders/`, and enable **Binders** under **Settings → Community plugins**.
 - **From source:** `npm install`, then `npm run build`; see [Development](docs/dev/development.md).
 
@@ -61,21 +65,21 @@ The [walkthrough](docs/getting-started.md) goes on from here to a first exported
 One index card per note, with its title, synopsis, status, label color and word count. Drag cards to reorder them,
 or lay them out by label to see how a book's threads take turns. [More](docs/corkboard.md)
 
-![Corkboard](docs/images/corkboard.png)
+![Corkboard](docs/images/corkboard-dark.png)
 
 ### Outliner
 
 The same notes as rows of a table, folders with their notes under them, with columns you pick: label, status,
 words, target, progress, or any property of your notes. [More](docs/outliner.md)
 
-![Outliner](docs/images/outliner.png)
+![Outliner](docs/images/outliner-dark.png)
 
 ### Manuscript
 
 Every note in order as one page. Each section is a real Obsidian editor on that note, so typing, undo, links and
 formatting work as they do in the note itself. [More](docs/manuscript.md)
 
-![Manuscript](docs/images/manuscript.png)
+![Manuscript](docs/images/manuscript-dark.png)
 
 ## Import from Scrivener
 
@@ -107,21 +111,33 @@ note's text unless you type there or ask it to: split, merge, bring back a snaps
 
 ## Limitations
 
-- **Public beta.** Phone and tablet support has had little testing on real devices.
+- **Public beta.** Phone and tablet support has had little testing on real devices, and Binders has not yet been
+  tried on macOS or Windows. [What hasn't been tried](docs/limitations.md#not-yet-tried) is listed in full.
 - **Other file explorers.** Plugins that replace the file explorer, such as Notebook Navigator, don't show binder
   order. The binder view works either way.
 - **Obsidian internals.** Binder order in the file explorer and the editable manuscript rely on parts of Obsidian
   outside its plugin API. If an update changes one, Binders falls back (name order, a read-only manuscript) and
   says so.
-- **Snapshots and Obsidian Sync.** Sync carries snapshots only with "Sync all other types" turned on.
-- **Not built yet:** a paperback PDF, and find and replace across the manuscript. See the
-  [roadmap](ROADMAP.md).
+- **Snapshots, export styles and Obsidian Sync.** Sync carries them only with "Sync all other types" turned on.
+- **PDF on a computer.** A paperback, or a manuscript as a PDF, is made on a computer. A phone or tablet shows its
+  pages.
+- **Not built yet:** find and replace across the manuscript. See the [roadmap](ROADMAP.md).
 
 The full list is in [Known limitations](docs/limitations.md).
 
 ## Privacy
 
-Binders makes no network requests and has no telemetry. [More](docs/privacy.md)
+Binders makes no network requests and has no telemetry. Nothing is downloaded: the typefaces and hyphenation
+patterns export uses are inside the plugin.
+
+It reads and writes outside your vault in two cases, on a computer, and only where you say in your system's own
+dialog:
+
+- **Export** writes the file you export (a Word file, an EPUB, a PDF, a Scrivener project, a copy of a style to
+  share) to the place you choose in the save dialog, and to that place again when you export again.
+- **Import from Scrivener** reads the Scrivener project you choose. It never changes it.
+
+[More](docs/privacy.md)
 
 ## Documentation
 
@@ -130,7 +146,8 @@ Binders makes no network requests and has no telemetry. [More](docs/privacy.md)
 | [Manual](docs/README.md) | Everything Binders does, a page per topic |
 | [Getting started](docs/getting-started.md) | From an empty folder to a first exported file |
 | [The binder view](docs/binder-view.md) | Corkboard, outliner, manuscript, the inspector |
-| [Export](docs/export.md) | Manuscript, ebook, Scrivener project, one note |
+| [Export](docs/export.md) · [Styles](docs/export-styles.md) | Manuscript, ebook, paperback, Scrivener project, one note |
+| [Import from Scrivener](docs/import-scrivener.md) | A Scrivener 3 project as a new binder |
 | [Snapshots](docs/snapshots.md) · [Focus mode](docs/focus-mode.md) | Rewriting safely, and writing with nothing else on the screen |
 | [Coming from Scrivener](docs/scrivener.md) · [Coming from Longform](docs/longform.md) | Where each thing you know is |
 | [Commands](docs/commands.md) · [Settings](docs/settings.md) | Reference |

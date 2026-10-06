@@ -345,10 +345,14 @@ itself and Obsidian's tooltips follow the mouse events the driver sends, so they
   `await p.tooltip()` reads the tooltip showing now, and `await p.pointer()` says what the page has: `'mouse'`,
   `'touch'` or `'none'`.
 
-`view-helpers.mjs` has helpers the view specs share. `node tests/e2e/screenshots.mjs [outdir]` remakes the README's
-pictures (`docs/images`: `corkboard`, `explorer`, `arrange-by-label`, `outliner`, `manuscript`, `snapshots`,
-`focus-mode`, `mobile`) from a throwaway copy of the test vault, which it first fills out a little (storylines as
-labels, a third part, a longer scene). Look at each picture after remaking them, and at the README beside them.
+`view-helpers.mjs` has helpers the view specs share. `node tests/e2e/screenshots.mjs [outdir]` remakes the manual's
+pictures (`docs/images`: `corkboard`, `explorer`, `arrange-by-label`, `outliner`, `manuscript`, `inspector`,
+`snapshots`, `binder-snapshots`, `focus-mode`, `export`, `export-paperback`, `export-styles`, `mobile`, `import`)
+from a throwaway copy of the test vault, which it first fills out a little (storylines as labels, a third part, a
+longer scene). The manual's are in the light theme. `--theme dark` makes the same pictures in Obsidian's own dark
+theme as `<name>-dark.png`: the README shows those (the maintainer's choice, 2026-10-06), so
+`node tests/e2e/screenshots.mjs --theme dark --only corkboard,outliner,manuscript` remakes the README's. `--only`
+keeps the pictures named. Look at each picture after remaking them, and at the page beside them.
 
 **Where Obsidian is.** The driver runs Obsidian's `app.asar` with the Electron it ships with, and looks for them where
 the Arch Linux package puts them: `/usr/lib/electron43/electron` and `/usr/lib/obsidian/app.asar`. Anywhere else

@@ -17,6 +17,7 @@ The title comes first, with the synopsis under it. The other columns are yours t
 | **Target** | The note's word count target; for a folder without one, its notes' targets together |
 | **Progress** | How far along its target the note is |
 | **Export** | Whether the note is included when the binder is exported |
+| **Export as** | The part the note plays in the book: a chapter, a scene, front matter. Click it on a selected row for its menu. See [Book details and structure](book-details.md#overruling-it) |
 | **Notes** | Your [notes on the scene](scene-notes.md), which are never exported |
 | **Created**, **Modified** | When the note was created and last changed |
 | Any property | A property of your notes, such as a POV or a date |

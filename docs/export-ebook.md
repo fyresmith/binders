@@ -12,7 +12,7 @@ gives an ebook its shape, not its type: how a chapter opens, its first words, th
 
 | Choice | What it does |
 |---|---|
-| **Style** | The book's shape. **Classic** is the one built so far |
+| **Style** | The book's shape: **Classic**, **Modern**, or a style of your own. The sliders button beside it is **Edit this style** |
 | **Cover** | **Choose...** a PNG or a JPEG from your vault. **Change...** offers **No cover** as well |
 
 **Classic** sets:
@@ -22,9 +22,19 @@ gives an ebook its shape, not its type: how a chapter opens, its first words, th
 - three asterisks between scenes;
 - paragraphs indented, except the first after a heading or a break.
 
-The style you choose is kept with the book, in its binder note.
+**Modern** sets:
 
-<!-- to come: more book styles, and the style editor for changing one or making your own -->
+- a large plain numeral at the left, with the chapter's title under it;
+- the first words of a chapter as the rest;
+- space between scenes, with no mark;
+- paragraphs indented, as in Classic.
+
+The style you choose is kept with the book, in its binder note. The same style sets the book's
+[paperback](export-paperback.md).
+
+To change a style or make your own, see [Styles](export-styles.md). Opened from **Ebook**, the editor has the rows
+that shape an ebook: paragraphs, quotes and dashes, the chapter heading and its lettering, size and place, the
+first words, and the scene break's mark. CSS of your own in a style's file reaches the ebook too.
 
 ## Pages made for you
 
@@ -74,7 +84,8 @@ The file is written to pass EPUBCheck, the validator the stores use. No typeface
 
 ## Limits
 
-- One style, **Classic**, so far.
+- The ebook has been checked with EPUBCheck. It hasn't yet been opened in Kindle Previewer, Apple Books or Kobo by
+  the maintainer. See [Known limitations](limitations.md#not-yet-tried).
 - Pictures are PNG, JPEG or GIF. The cover is a PNG or a JPEG.
 
-Next: [Scrivener project](export-scrivener.md)
+Next: [Paperback (PDF)](export-paperback.md)

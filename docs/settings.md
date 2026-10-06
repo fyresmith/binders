@@ -82,8 +82,9 @@ See [Focus mode](focus-mode.md).
 | **Remembered places** | None | The exports this device saves without asking. **Ask again** forgets them, so every export asks where to save |
 | **Your name** | Empty | The author of a book that doesn't say otherwise |
 | **Contact details** | Empty | For the title page of a manuscript: an address, an email, a phone number, a line each |
+| **Styles folder** | `Export styles` | The folder at the top of the vault that holds your export styles, one file each. Binders keeps it out of the file explorer. Changing the name renames the folder, and the styles go with it. To sync styles with Obsidian Sync, turn on **Sync all other types** |
 
-See [Export](export.md).
+See [Export](export.md) and [Styles](export-styles.md).
 
 ## Property names
 
@@ -108,5 +109,9 @@ reads the new one from then on.
 A few things are remembered without a setting:
 
 - how each binder view was left: its mode, filter, card size and outliner columns;
-- how **Export** was last set up;
-- on each device by itself, the places exports are saved without asking, and the words written today.
+- how **Export** was last set up: the kind, the switches, a manuscript's file and paper;
+- on each device by itself, the places exports are saved without asking, where each binder was last exported (for
+  **Export again**), and the words written today.
+
+A book's own details, its styles and a paperback's page size are kept in its binder note, not in settings. Import
+from Scrivener adds a project's labels and statuses to the lists above.

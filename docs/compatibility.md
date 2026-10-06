@@ -33,7 +33,8 @@ An update to Binders is the fix in each case.
 ## Sync and backup
 
 - **Obsidian Sync** carries your notes, the binder note and folder notes as it carries any note. It carries
-  snapshots (`.snapshot` files) only with **Sync all other types** on, in Obsidian's Sync settings, on each device.
+  snapshots (`.snapshot` and `.binder-snapshot` files) and export styles (`.bookstyle` files) only with **Sync all
+  other types** on, in Obsidian's Sync settings, on each device.
   See [Snapshots](snapshots.md#three-things-to-know).
 - **Tools that copy every file** (iCloud, Syncthing, Dropbox, git) carry everything, snapshots included, without
   any setting.
@@ -58,6 +59,10 @@ Nested binders aren't supported. A binder note inside a binder is treated as an 
 
 ## Exported files
 
-- **Word files** open in Word and in anything that reads .docx, including Vellum and Atticus.
+- **Word files** are .docx, for Word and anything that reads it, including Vellum and Atticus.
 - **Ebooks** are EPUB 3, written to pass EPUBCheck.
+- **PDFs** are made by Obsidian on a computer, with their typefaces inside.
 - **Scrivener projects** are written for Scrivener 3. See [Scrivener project](export-scrivener.md#scrivener-versions).
+
+Which of these have been opened in the apps they are for, and which haven't yet, is in
+[Known limitations](limitations.md#not-yet-tried).

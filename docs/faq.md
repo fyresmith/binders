@@ -18,8 +18,8 @@ It writes the properties you set through its views, and nothing else in a note u
 
 ## Does it work with Obsidian Sync?
 
-Yes. Notes, binder notes and folder notes sync as any note does. Snapshots sync only with **Sync all other types**
-turned on in Obsidian's Sync settings, on each device.
+Yes. Notes, binder notes and folder notes sync as any note does. Snapshots and export styles sync only with **Sync
+all other types** turned on in Obsidian's Sync settings, on each device.
 
 ## Does it work with git, iCloud, Dropbox or Syncthing?
 
@@ -69,8 +69,17 @@ a zipped backup of one, and shows it to you first. See [Import from Scrivener](i
 
 ## Can I make a PDF for print?
 
-Not yet. A paperback PDF is planned. For now, export a **Manuscript** and set it in Word, or an **Ebook**. See the
-[roadmap](../ROADMAP.md).
+Yes, on a computer. **Paperback** in the Export window makes a print-ready PDF on the trim size you choose, with
+its typefaces in the file. See [Paperback](export-paperback.md). A manuscript can be a PDF too.
+
+## Can I change how the exported book looks?
+
+Yes. Choose a style in the Export window, and click the sliders button beside it to change it or make your own. See
+[Styles](export-styles.md).
+
+## Is it in Obsidian's community plugins?
+
+Not yet. While it is in beta, install it with BRAT or by hand. See [Installation](installation.md).
 
 ## Where do I report a problem or ask for something?
 

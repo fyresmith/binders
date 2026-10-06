@@ -109,6 +109,15 @@ A phone has no Tab key. Turn on **Indent paragraphs** in settings for an indente
   choices.
 - The exported file goes into the `Exports` folder in your vault, and then to the share sheet.
 - A Scrivener project is zipped. Unzip it where Scrivener is.
+- A PDF (a paperback, or a manuscript as a PDF) is made on a computer. On a phone or tablet you can look at its
+  pages and choose its style and page, and there is no **Export**.
+- **Edit this style** opens the style editor in place of the choices. On a phone, **Preview** shows the book in it.
+- **Export again** is in the binder view's **More options** menu once the binder has been exported.
+
+## Import
+
+**Import from Scrivener...** takes a zipped backup of a project on a phone or tablet. See
+[Import from Scrivener](import-scrivener.md).
 
 See [Export](export.md).
 

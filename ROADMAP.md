@@ -6,6 +6,11 @@ only to notes inside a binder; a note anywhere else in the vault is left exactly
 Added 2026-10-02: nothing is released before export is built. Until then the project is brought to a release-ready
 state (code, tests and documentation).
 
+Added 2026-10-06: export and import are built, and Binders is out as a **public beta** (0.x releases on GitHub,
+installed with BRAT or by hand: [Installation](docs/installation.md)). What a beta tester should know has not been
+tried yet is in [Known limitations](docs/limitations.md#not-yet-tried). It goes to Obsidian's community directory
+with 1.0.
+
 ## Now
 
 - [ ] **Mobile QA, to the end.** Every mode, the file explorer, the dialogs and the settings, on phone and tablet
@@ -42,7 +47,10 @@ state (code, tests and documentation).
         the format spike's projects, in the maintainer's Scrivener: `docs/dev/export.md`, "As built".
   - [x] Step 5: overruling and owning ("Export as" from Contents, the menus and an outliner column; the style editor
         and style files in a hidden `Export styles` folder; the second book style, Modern; Export again).
-  - [ ] Step 6: finish (phones and tablets by touch, both themes, the docs, a QA round).
+  - [ ] Step 6: finish (phones and tablets by touch, both themes, a QA round; the manual's export pages were
+        written for the beta, 2026-10-06). Still to do by other hands: the Word file in Word, the ebook in Kindle
+        Previewer and Apple Books, the PDF on macOS and Windows and through a printer's checks, a project as export
+        writes it in Scrivener (`docs/dev/export.md`, "Not verified yet").
   - **And out as a Scrivener project** (added 2026-10-01): a `.scriv` folder Scrivener 3 opens, for a writer who
     moves on to Scrivener or sends the book to someone who uses it. Not a book but the binder itself: folders and
     notes in binder order as Scrivener's Draft, each note's text as rich text (headings, bold, italics, lists, links

@@ -33,6 +33,7 @@ Run **Import from Scrivener...** from the command palette to bring a project in 
 | Group, Ungroup | **New folder from selection**, **Ungroup** | |
 | Include in Compile | **Include in export** | [Export](export.md) |
 | Compile | **Export** | [Export](export.md) |
+| Compile formats | **Styles**, with an editor | [Styles](export-styles.md) |
 | Section types | **Export as**: part, chapter, scene, front matter, back matter | [Book details and structure](book-details.md) |
 | Composition mode | **Focus mode** | [Focus mode](focus-mode.md) |
 | Typewriter scrolling | **Typewriter scrolling**, in focus mode | |
@@ -55,7 +56,6 @@ Run **Import from Scrivener...** from the command palette to bring a project in 
 ## Not there yet
 
 - **Collections** and saved searches. The **Filter** by label and status is the nearest thing.
-- **A paperback PDF** and editing export styles. Planned.
 - **Find and replace across the manuscript.** Planned. Obsidian's own search covers the vault.
 
 ## Working with someone who uses Scrivener

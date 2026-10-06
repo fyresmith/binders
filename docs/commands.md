@@ -64,9 +64,8 @@ Most commands only appear where they apply: with a binder view in front, or with
 
 | Command | What it does | Where it applies |
 |---|---|---|
-| **Export binder** | Opens the Export window for the binder, or the folder shown: a manuscript as a Word file, an ebook, a Scrivener project, or one Markdown note | A binder view, or a note of a binder |
-
-<!-- to come: "Export again", which makes the last kind again in the same place without opening the window -->
+| **Export binder** | Opens the Export window for the binder, or the folder shown: a manuscript, an ebook, a paperback, a Scrivener project, or one Markdown note. See [Export](export.md) | A binder view, or a note of a binder |
+| **Export again** | Makes the last export of the binder once more, in the same place, without opening the window. With none yet, it opens the window. See [Export again](export.md#export-again) | A binder view, or a note of a binder |
 
 ## Things that are not commands
 
@@ -74,7 +73,9 @@ Some things are in menus only:
 
 - **Merge 3 notes** (or however many), **Duplicate**, **New folder from selection**, **Ungroup**, **Set status**, **Set label**, **Set
   target...** and **Delete** are in the right-click menu of a card or a row. See [a card's menu](corkboard.md#a-cards-menu).
+- **Export as**, **Include in export** and **Move to** are there too.
 - **Show in binder** and **New scene after this** are in a note's right-click menu in the file explorer.
+- A style's **Duplicate**, **Save a copy to share...** and the rest are in the [style editor](export-styles.md)'s menu.
 - Focus mode's options are in its own menu and in settings.
 
 ## Keys in the binder view

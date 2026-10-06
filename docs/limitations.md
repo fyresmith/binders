@@ -6,8 +6,32 @@ is a bug: [open an issue](https://github.com/fyresmith/binders/issues).
 ## Planned, not built
 
 - Find and replace across the manuscript.
+- Bringing a whole snapshot of a folder or binder back in place.
 
 See the [roadmap](../ROADMAP.md).
+
+## Not yet tried
+
+Binders is in public beta. It is built and tested on Linux, and in Obsidian's own emulation of a phone and a tablet.
+These things have not been tried yet, and are where a beta tester is most likely to find something:
+
+- **A real phone or tablet.** iOS and Android are tested only as Obsidian emulates them on a computer. The share
+  sheet, Android's back button and a device's own keyboard have not been tried.
+- **macOS and Windows.** Nothing is known to differ there, and none of it has been run there by the maintainer.
+- **A PDF anywhere but Linux.** Making the file, and the typefaces a Mac or Windows has for the scripts that the
+  two typefaces inside Binders don't hold.
+- **A printer's checks.** No paperback PDF has been sent to KDP or IngramSpark, and none has been printed.
+- **The Word file in Word.** It opens in LibreOffice. It has not been opened in Word, Pages or Google Docs, or
+  brought into Vellum or Atticus.
+- **The ebook in a store's own reader.** It passes EPUBCheck. It has not been opened in Kindle Previewer, Apple
+  Books or Kobo.
+- **A Scrivener project in Scrivener.** The format was worked out from projects Scrivener wrote, and trial projects
+  were opened in the maintainer's Scrivener. A project as export writes it now has not been opened there, nor in
+  Scrivener for Windows or iOS.
+- **Import from Scrivener** has been checked against projects written by hand and by Binders' own export, and one
+  written by Scrivener on a Mac. None from Scrivener for Windows.
+
+If you try one of these, [say how it went](https://github.com/fyresmith/binders/issues), whether it worked or not.
 
 ## Import from Scrivener
 
@@ -69,12 +93,19 @@ the graph or in the tag list. See [Paragraphs](paragraphs.md).
 
 ## Export
 
+- A PDF (a paperback, or a manuscript as a PDF) is made on a computer only. A phone or tablet shows its pages.
+- A paperback's PDF is RGB, with no bleed and no crop marks, in one of two typefaces. See
+  [Paperback](export-paperback.md#limits).
+- A book in a script the two typefaces don't hold is set in the computer's own serif, and the window says so.
+- Hyphenation is for English, German, French, Spanish, Italian and Portuguese. Other languages are set without
+  hyphens.
+- Export styles sync with Obsidian Sync only with **Sync all other types** on.
 - Pictures are PNG, JPEG or GIF. Other formats are listed and left out.
 - An embedded PDF or other file, and part of a note embedded by its heading, are left out. Math and tags in a line
   of text are exported as typed.
 - A manuscript's "by" and word count line are in English whatever the book's language.
-- A Scrivener project is one way. Scrivener's format has no published description, so a version of Scrivener may
-  read something differently. See [Scrivener project](export-scrivener.md).
+- Scrivener's format has no published description, so a version of Scrivener may read an exported project
+  differently. Import makes a new binder and doesn't merge into the one a project came from. See [Scrivener project](export-scrivener.md).
 - Obsidian lists exported .docx and .epub files in its file explorer only with **Detect all file extensions** on.
 
 ## Snapshots

@@ -4,8 +4,9 @@ Binders turns a folder in Obsidian into a binder: its chapters and scenes keep t
 see them as a corkboard, an outliner, or one continuous manuscript you can edit. This manual covers everything it
 does.
 
-Binders is in public beta. Phone and tablet support is new and has had little testing on real devices. If something
-goes wrong, [open an issue](https://github.com/fyresmith/binders/issues).
+Binders is in public beta. Phone and tablet support is new and has had little testing on real devices: see
+[Known limitations](limitations.md#not-yet-tried) for what hasn't been tried yet. If something goes wrong,
+[open an issue](https://github.com/fyresmith/binders/issues).
 
 New here? Read [Installation](installation.md), then [Getting started](getting-started.md).
 
@@ -13,7 +14,7 @@ New here? Read [Installation](installation.md), then [Getting started](getting-s
 
 | Page | What it covers |
 |---|---|
-| [Installation](installation.md) | What you need, and three ways to install |
+| [Installation](installation.md) | What you need, and the ways to install the beta |
 | [Getting started](getting-started.md) | A walkthrough, from an empty folder to a first exported file |
 | [Import from Scrivener](import-scrivener.md) | A project or zipped backup as a new native binder |
 | [Coming from Scrivener](scrivener.md) | Scrivener's words and where each one is in Binders |
@@ -45,10 +46,12 @@ New here? Read [Installation](installation.md), then [Getting started](getting-s
 
 | Page | What it covers |
 |---|---|
-| [Export](export.md) | The Export window, where files go, leaving a note out |
+| [Export](export.md) | The Export window, where files go, Export again, leaving a note out |
 | [Book details and structure](book-details.md) | Title and author, how folders become parts and chapters, what your Markdown becomes |
-| [Manuscript (Word)](export-manuscript.md) | A submission manuscript in standard manuscript format |
+| [Styles](export-styles.md) | Choosing a style, changing one, making and sharing your own |
+| [Manuscript (Word or PDF)](export-manuscript.md) | A submission manuscript in standard manuscript format |
 | [Ebook (EPUB)](export-ebook.md) | An ebook for Kindle, Apple Books and Kobo |
+| [Paperback (PDF)](export-paperback.md) | A print-ready PDF on the page it will be printed at |
 | [Scrivener project](export-scrivener.md) | The binder itself as a Scrivener 3 project |
 | [One note](export-one-note.md) | The binder as a single Markdown note |
 
