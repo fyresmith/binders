@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.29.3 (2026-10-06)
+
+### Fixed
+
+- "Your name" in the Export window was squeezed to a few letters beside its field.
+
 ## 0.29.2 (2026-10-06)
 
 ### Fixed

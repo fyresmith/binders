@@ -4384,6 +4384,27 @@ body:not(.is-phone) .binders-export .binders-export-options .setting-item.settin
 	max-width: 12.5em;
 }
 
+/* A choice's name is whole, on one line: what gives way in a narrow sidebar is its control (a text field shrinks). */
+.binders-export .binders-export-options .setting-item-info {
+	flex: 0 0 auto;
+	margin-inline-end: var(--size-4-3);
+}
+
+.binders-export .binders-export-options .setting-item-name {
+	white-space: nowrap;
+}
+
+.binders-export .binders-export-options .setting-item-control {
+	flex: 1 1 0;
+	min-width: 0;
+}
+
+.binders-export .binders-export-options .setting-item-control input[type="text"] {
+	flex: 1 1 0;
+	min-width: 0;
+	width: 100%;
+}
+
 /* What export will leave out or change: the note, and in a line what happens to it. */
 .binders-export .binders-export-foot {
 	margin-top: auto;

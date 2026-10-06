@@ -88,6 +88,13 @@ test('the window opens on a manuscript: the kinds that exist, the choices, the t
 	t.ok(await until(p, `!!document.querySelector('${WIN}')`), 'which opens the window');
 });
 
+test('a choice’s name is never squeezed: “Your name” is whole beside its field', async (p, h, t) => {
+	await open(p);
+	const rows = await p.ev(`[...document.querySelectorAll('${WIN} .binders-export-options .setting-item')].map(r => { const n = r.querySelector('.setting-item-name'), c = r.querySelector('.setting-item-control').getBoundingClientRect(), b = n.getBoundingClientRect(), s = document.querySelector('${WIN} .binders-export-side').getBoundingClientRect(); const range = document.createRange(); range.selectNodeContents(n); return { name: n.textContent, lines: range.getClientRects().length, cut: n.scrollWidth > n.clientWidth + 1, inside: c.right <= s.right + 1 && b.left >= s.left - 1, apart: b.right <= c.left + 1 }; })`);
+	t.ok(rows.some((r) => r.name === 'Your name'), 'the writer’s name is asked for');
+	for (const r of rows) t.ok(r.lines === 1 && !r.cut && r.inside && r.apart, `“${r.name}” is on one line, whole, beside its control (${JSON.stringify(r)})`);
+});
+
 test('a manuscript goes through the save dialog to the Exports folder: a Word file with the notes’ words, in order', async (p, h, t, before) => {
 	await p.ev(`(async () => { const pl = ${PL}; pl.settings.authorName = 'Mara Lindqvist'; pl.settings.contact = '12 Harbour Row\\nmara@example.com'; await pl.saveData(pl.settings); })().then(() => 1)`);
 	await open(p);
