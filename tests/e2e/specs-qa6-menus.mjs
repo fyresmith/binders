@@ -2248,11 +2248,23 @@ for (const [name, size] of [['phone', PHONE], ['small phone', SMALL], ['tablet',
 			log(name + ' card menu:', names.join(' | '));
 			t.ok(names.includes('Select more'), 'Select more is offered by touch');
 			t.eq(names.includes('Open to the right'), !phone, 'Open to the right only off a phone');
-			for (const x of ['Open', 'Rename', 'Set status', 'Set label', 'Set target...', 'Duplicate', 'Move to', 'Delete']) t.ok(names.includes(x), `${x} is there`);
+			for (const x of ['Open', 'Rename', 'Set status', 'Set label', 'Set target...', 'Duplicate', 'Export as', phone ? 'Move to' : 'Move', 'Delete']) t.ok(names.includes(x), `${x} is there`);
+			// a tablet's menu is the short one: moving is under “Move”, and “Include in export” is “Leave out” under “Export as”
+			const LONG = ['Move up', 'Move down', 'Move to', 'Put in a new folder', 'Include in export'];
+			if (phone) t.ok(['Move down', 'Put in a new folder', 'Include in export'].every((x) => names.includes(x)), 'a phone’s sheet has the long menu’s items');
+			else t.eq(j(names.filter((x) => LONG.includes(x))), j([]), 'a tablet’s menu has one “Move” for the items that move, and no “Include in export”');
 			const s = await sheetOf(p);
 			log(name + ' menu box:', j(s));
 			if (phone) t.ok(s.left === 0 && s.width === s.inner[0] && s.bottom === s.inner[1], 'on a phone the menu is a sheet from the foot of the screen');
-			else t.ok(reachable(s), 'on a tablet the menu fits on the screen');
+			else {
+				t.ok(reachable(s), 'on a tablet the menu fits on the screen');
+				// whole, with nothing to scroll: under a finger a menu that scrolls takes the tap for the item beside the one meant
+				// (64 px: what Binders keeps clear of the screen's edges, styles.css)
+				const fit = await p.ev(`(() => { const m = [...document.querySelectorAll('.menu')].pop(), sc = m.querySelector('.menu-scroll') ?? m; return { scrolls: sc.scrollHeight > sc.clientHeight + 1 || m.scrollHeight > m.clientHeight + 1, spare: Math.round(innerHeight - 64 - m.getBoundingClientRect().height) }; })()`);
+				log(name + ' menu fit:', j(fit));
+				t.ok(!fit.scrolls, 'and all of it shows: there is nothing to scroll');
+				t.ok(fit.spare >= 40, `with room for an item another plugin adds: ${fit.spare} px to spare`);
+			}
 			// every item can be scrolled to and is tappable (not covered)
 			const unreachable = await p.ev(`(() => { const m = [...document.querySelectorAll('.menu')].pop(); const scroller = m.querySelector('.menu-scroll') ?? m; const bad = []; for (const it of m.querySelectorAll('.menu-item')) { it.scrollIntoView({ block: 'nearest' }); const r = it.getBoundingClientRect(); if (r.height < 24 || r.bottom > innerHeight + 1 || r.top < -1) bad.push(it.textContent + ':' + Math.round(r.top) + '-' + Math.round(r.bottom)); } scroller.scrollTop = 0; return bad; })()`);
 			t.eq(unreachable.length, 0, 'every item can be brought into view and is at least touch height: ' + j(unreachable));
@@ -2284,7 +2296,50 @@ for (const [name, size] of [['phone', PHONE], ['small phone', SMALL], ['tablet',
 			await longPress(p, CARD(L + 'Epilogue.md'));
 			const multi = await titles(p);
 			t.ok(multi.includes('Merge 2 notes') && multi.includes('Delete 2 items'), 'and the menu is the several-notes one: ' + j(multi));
+			if (!phone) t.ok(multi.includes('Move') && !multi.includes('New folder from selection'), 'with “Move” for several too: ' + j(multi));
 			await gone2(p);
+			if (phone) return;
+			// the short menu's “Move”: up and down, the binder's folders, a new folder; each by a tap
+			// (a tap on each selected card takes it out, and the last one ends the selecting)
+			for (const f of ['Prologue.md', 'Epilogue.md']) { await tapEl(p, CARD(L + f) + ' .binders-card-foot, ' + CARD(L + f)); await p.sleep(300); }
+			t.eq(j(await selectedCards(p)), j([]), 'a tap on each selected card takes it out of the selection');
+			const order = await list(p);
+			await longPress(p, CARD(L + 'Epilogue.md'));
+			await tapMenu(p, 'Move');
+			t.eq(j(await titles(p, 1)), j(['Move up', 'The Lighthouse', 'Part One', 'Part Two', 'Put in a new folder']), '“Move” on the last note: up, the folders, a new folder');
+			t.ok(reachable(await sheetOf(p)), 'its submenu is on the screen');
+			await tapMenu(p, 'Move up');
+			await p.sleep(500);
+			t.eq(await p.ev(`document.querySelectorAll('.menu').length`), 0, 'a pick under “Move” closes both menus');
+			const moved = await list(p);
+			t.ok(order.indexOf('Epilogue') > order.indexOf('Part Two/') && moved.indexOf('Epilogue') < moved.indexOf('Part Two/') && moved.indexOf('Epilogue') > moved.indexOf('Part One/'), 'Move > Move up moves the note one place up, above the folder before it: ' + j(moved));
+			// “Export as” > “Leave out” is “Include in export”, unticked; Automatic puts the note back
+			await longPress(p, CARD(L + 'Epilogue.md'));
+			await tapMenu(p, 'Export as', 'Leave out');
+			await p.sleep(500);
+			t.eq((await fm(p, L + 'Epilogue.md')).export, false, 'Export as > Leave out writes export: false');
+			await longPress(p, CARD(L + 'Epilogue.md'));
+			await tapMenu(p, 'Export as');
+			const roles = await items(p, 1);
+			t.ok(roles.find((x) => x.title === 'Leave out')?.checked, '“Leave out” is ticked the next time: ' + j(roles.map((x) => x.title + (x.checked ? ' ✓' : ''))));
+			await tapMenu(p, roles.find((x) => x.title.startsWith('Automatic')).title);
+			await p.sleep(500);
+			t.ok(!('export' in ((await fm(p, L + 'Epilogue.md')) ?? {})), 'Export as > Automatic puts it back in: the property is gone');
+			// to a folder, and to a new one
+			await longPress(p, CARD(L + 'Epilogue.md'));
+			await tapMenu(p, 'Move', 'Part One');
+			await p.sleep(700);
+			t.ok(await exists2(p, L + 'Part One/Epilogue.md') && !(await exists2(p, L + 'Epilogue.md')), 'Move > Part One moves the note there');
+			const folders = () => p.ev(`app.vault.getAbstractFileByPath(${j(L.slice(0, -1))}).children.filter(c => c.children).map(c => c.name)`);
+			const had = await folders();
+			await longPress(p, CARD(L + 'Prologue.md'));
+			await tapMenu(p, 'Move', 'Put in a new folder');
+			await p.sleep(900);
+			const made = (await folders()).filter((x) => !had.includes(x));
+			t.eq(made.length, 1, 'Move > Put in a new folder makes a folder: ' + j(made));
+			t.ok(await exists2(p, `${L}${made[0]}/Prologue.md`), 'with the note in it');
+			await p.key('Escape');
+			await p.sleep(300);
 		});
 	}));
 }
@@ -3128,7 +3183,7 @@ for (const [name, size] of [['tablet', TABLET], ['tablet on its side', TABLET_WI
 			await gone2(p);
 			await longPress(p, CARD(L + 'Prologue.md'));
 			await inside('a card’s menu');
-			for (const sub of ['Snapshots', 'Set status', 'Set label', 'Move to']) {
+			for (const sub of ['Snapshots', 'Set status', 'Set label', 'Export as', 'Move']) {
 				await tapMenu(p, sub);
 				await p.sleep(300);
 				const n = await p.ev(`document.querySelectorAll('.menu').length`);

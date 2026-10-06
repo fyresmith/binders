@@ -202,8 +202,23 @@ export function propItems(ctx: ModeContext, menu: Menu, items: TAbstractFile[]):
 
 const tell = async <T>(p: Promise<T>): Promise<T | null> => { try { return await p; } catch (e) { new Notice(e instanceof Error ? e.message : String(e)); return null; } };
 
+/** Whether the item menu is the short one: on a tablet, where it opens beside the finger and has to fit on the
+    screen as it is (a menu that scrolls under a finger takes the tap for the item next to the one meant). What is
+    one tap in the long menu and has a submenu to go in goes there: moving, under "Move"; and "Include in export",
+    which "Leave out" under "Export as" already is. A phone's sheet scrolls as Obsidian's own do, and a computer has
+    the room: theirs is the long one. */
+export const shortMenu = (): boolean => Platform.isMobile && !Platform.isPhone;
+
+/** Whether the items can go in a new folder together (siblings only: a folder goes where the first of them is). */
+const canGroup = (ctx: ModeContext, items: TAbstractFile[]): boolean => ctx.binder.kind !== 'longform' && items.every((f) => f.parent === items[0].parent);
+
+/** "Put in a new folder", for the menu or for "Move". */
+function groupItem(ctx: ModeContext, menu: Menu, items: TAbstractFile[], h: Hooks, section: string): void {
+	menu.addItem((i) => i.setSection(section).setTitle(items.length > 1 ? 'New folder from selection' : 'Put in a new folder').setIcon('folder-plus').onClick(async () => { const made = await tell(ctx.store.group(items)); if (made) h.made?.(made, true); }));
+}
+
 /** Copying, grouping, merging, and whether it's exported: what changes the binder's shape. */
-function structureItems(ctx: ModeContext, menu: Menu, items: TAbstractFile[], h: Hooks): void {
+function structureItems(ctx: ModeContext, menu: Menu, items: TAbstractFile[], h: Hooks, short: boolean): void {
 	const one = items.length === 1 ? items[0] : null, longform = ctx.binder.kind === 'longform', store = ctx.store;
 	if (one) menu.addItem((i) => i.setSection('structure').setTitle('Duplicate').setIcon('copy').onClick(async () => {
 		// (what's typed and not saved yet is copied too)
@@ -217,12 +232,12 @@ function structureItems(ctx: ModeContext, menu: Menu, items: TAbstractFile[], h:
 		const kept = await mergeScenes(ctx.plugin, store.inOrder(notes).filter(isNote));
 		if (kept) h.made?.(kept, false);
 	}));
-	// siblings only: a folder goes where the first of them is
-	if (!longform && items.every((f) => f.parent === items[0].parent)) menu.addItem((i) => i.setSection('structure').setTitle(items.length > 1 ? 'New folder from selection' : 'Put in a new folder').setIcon('folder-plus').onClick(async () => { const made = await tell(store.group(items)); if (made) h.made?.(made, true); }));
+	if (!short && canGroup(ctx, items)) groupItem(ctx, menu, items, h, 'structure');
 	if (one instanceof TFolder) menu.addItem((i) => i.setSection('structure').setTitle('Export...').setIcon('book-up').onClick(() => new ExportModal(ctx.plugin, one).open()));
 	if (one instanceof TFolder && (store.orderedChildren(one) ?? []).length) menu.addItem((i) => i.setSection('structure').setTitle('Ungroup').setIcon('folder-output').onClick(() => void tell(store.ungroup(one))));
 	const on = items.every((f) => { const n = noteOf(ctx, f); const fm = n ? ctx.app.metadataCache.getFileCache(n)?.frontmatter : null; return !fm || (fm[EXPORT_PROP] !== false && fm[COMPILE_PROP] !== false); });
-	menu.addItem((i) => i.setSection('structure').setTitle('Include in export').setIcon('book-check').setChecked(on).onClick(() => void setExported(ctx, items, !on)));
+	// (the short menu leaves it to "Leave out" under "Export as"; a Longform project's notes have no "Export as")
+	if (!short || longform) menu.addItem((i) => i.setSection('structure').setTitle('Include in export').setIcon('book-check').setChecked(on).onClick(() => void setExported(ctx, items, !on)));
 	// the part it plays in the book, overruled by hand (a Longform project's note is Longform's: its scenes are chapters)
 	if (!longform) menu.addItem((i) => { i.setSection('structure').setTitle('Export as').setIcon('book-open'); submenu(i, (m) => exportAsItems(ctx.plugin, m, ctx.binder, items, { readOnly: ctx.readOnly }), menu); });
 }
@@ -273,41 +288,72 @@ export interface Hooks {
 	pick?: (() => void) | null;
 }
 
-/** "Move to": every folder of the binder, as the file explorer nests them, to move the items to (at its end). A way
-    to another folder that needs no dragging: across a long binder, by touch, or from a board that shows one folder. */
-function moveItems(ctx: ModeContext, menu: Menu, items: TAbstractFile[]): void {
-	const binder = ctx.binder, store = ctx.store;
-	// (a Longform project is one flat folder: there's nowhere else in it to go)
-	if (binder.kind === 'longform') return;
-	const folders: { folder: TFolder; depth: number }[] = [];
+/** One place up or down among what shows. */
+function stepItems(menu: Menu, items: TAbstractFile[], h: Hooks, section: string): void {
+	if (items.length !== 1) return;
+	if (h.up) menu.addItem((x) => x.setSection(section).setTitle('Move up').setIcon('arrow-up').onClick(() => h.up?.()));
+	if (h.down) menu.addItem((x) => x.setSection(section).setTitle('Move down').setIcon('arrow-down').onClick(() => h.down?.()));
+}
+
+type Target = { folder: TFolder; depth: number };
+
+/** Every folder of the binder, as the file explorer nests them, to move items to: none when there is nowhere else
+    to go. */
+function moveTargets(ctx: ModeContext): Target[] {
+	// (a Longform project is one flat folder)
+	if (ctx.binder.kind === 'longform') return [];
+	const folders: Target[] = [];
 	const walk = (f: TFolder, depth: number) => {
 		folders.push({ folder: f, depth });
-		for (const c of store.orderedChildren(f) ?? []) if (c instanceof TFolder) walk(c, depth + 1);
+		for (const c of ctx.store.orderedChildren(f) ?? []) if (c instanceof TFolder) walk(c, depth + 1);
 	};
-	walk(binder.folder, 0);
-	if (folders.length < 2) return;
+	walk(ctx.binder.folder, 0);
+	return folders.length < 2 ? [] : folders;
+}
+
+/** The folders to move the items to (at the folder's end), as a menu's items. */
+function targetItems(ctx: ModeContext, m: Menu, items: TAbstractFile[], folders: Target[], section?: string): void {
+	const store = ctx.store;
+	for (const { folder, depth } of folders) {
+		// not into itself or a folder inside it; and where it already is says so, and does nothing
+		const inside = items.some((x) => x instanceof TFolder && (folder === x || folder.path.startsWith(x.path + '/')));
+		const here = items.every((x) => x.parent === folder);
+		m.addItem((x) => {
+			const title = createFragment();
+			title.createSpan({ cls: 'binders-menu-indent' }).setCssProps({ '--binders-depth': String(depth) });
+			title.appendText(folder.name);
+			if (section) x.setSection(section);
+			x.setTitle(title).setIcon(depth ? 'folder' : 'book').setChecked(here).setDisabled(inside || here)
+				.onClick(() => void tell(store.put(store.inOrder(items), folder, null)));
+		});
+	}
+}
+
+/** "Move up", "Move down" and "Move to": the last a way to another folder that needs no dragging (across a long
+    binder, by touch, or from a board that shows one folder). In the short menu they are one item, "Move", with "Put
+    in a new folder" (a move too) at its foot. */
+function moveItems(ctx: ModeContext, menu: Menu, items: TAbstractFile[], h: Hooks, short: boolean): void {
+	const folders = moveTargets(ctx);
+	if (!short) {
+		stepItems(menu, items, h, 'order');
+		if (folders.length) menu.addItem((i) => { i.setSection('order').setTitle('Move to').setIcon('folder-input'); submenu(i, (m) => targetItems(ctx, m, items, folders), menu); });
+		return;
+	}
+	const steps = items.length === 1 && !!(h.up || h.down), group = canGroup(ctx, items);
+	if (!steps && !folders.length && !group) return;
 	menu.addItem((i) => {
-		i.setSection('order').setTitle('Move to').setIcon('folder-input');
+		i.setSection('structure').setTitle('Move').setIcon('move');
 		submenu(i, (m) => {
-			for (const { folder, depth } of folders) {
-				// not into itself or a folder inside it; and where it already is says so, and does nothing
-				const inside = items.some((x) => x instanceof TFolder && (folder === x || folder.path.startsWith(x.path + '/')));
-				const here = items.every((x) => x.parent === folder);
-				m.addItem((x) => {
-					const title = createFragment();
-					title.createSpan({ cls: 'binders-menu-indent' }).setCssProps({ '--binders-depth': String(depth) });
-					title.appendText(folder.name);
-					x.setTitle(title).setIcon(depth ? 'folder' : 'book').setChecked(here).setDisabled(inside || here)
-						.onClick(() => void tell(store.put(store.inOrder(items), folder, null)));
-				});
-			}
+			stepItems(m, items, h, 'order');
+			targetItems(ctx, m, items, folders, 'to');
+			if (group) groupItem(ctx, m, items, h, 'new');
 		}, menu);
 	});
 }
 
 /** The menu of one item, or of several selected together. */
 export function itemMenu(ctx: ModeContext, items: TAbstractFile[], h: Hooks): Menu {
-	const menu = new Menu(), ro = ctx.readOnly, one = items.length === 1 ? items[0] : null;
+	const menu = new Menu(), ro = ctx.readOnly, one = items.length === 1 ? items[0] : null, short = shortMenu();
 	const pick = h.pick;
 	if (Platform.isMobile && pick) menu.addItem((i) => i.setSection('open').setTitle('Select more').setIcon('list-checks').onClick(() => pick()));
 	if (one instanceof TFolder) {
@@ -329,10 +375,8 @@ export function itemMenu(ctx: ModeContext, items: TAbstractFile[], h: Hooks): Me
 			if (!n) new Notice(notes.length === 1 ? 'Nothing to make a synopsis from.' : 'No note without a synopsis has text to make one from.');
 		}));
 		propItems(ctx, menu, items);
-		structureItems(ctx, menu, items, h);
-		if (one && h.up) menu.addItem((x) => x.setSection('order').setTitle('Move up').setIcon('arrow-up').onClick(() => h.up?.()));
-		if (one && h.down) menu.addItem((x) => x.setSection('order').setTitle('Move down').setIcon('arrow-down').onClick(() => h.down?.()));
-		moveItems(ctx, menu, items);
+		structureItems(ctx, menu, items, h, short);
+		moveItems(ctx, menu, items, h, short);
 	}
 	// snapshots: a note's earlier texts (taken, started again from, looked through); a folder's notes, all at once
 	snapshotItems(ctx.plugin, menu, items, 'edit', ro, true);

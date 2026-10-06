@@ -136,7 +136,9 @@ New (note, folder). The view runs edge to edge, as a base, a canvas or a note do
 - The corkboard and the outliner share one item menu and its actions (`src/view/actions.ts`): open, rename, edit
   synopsis, "Set synopsis from text", "Set status", "Set label", "Set target...", "Move to" (every folder of the binder), "Duplicate", "Merge N notes",
   "New folder from selection" / "Put in a new folder", "Ungroup", "Include in export", "Move up", "Move down",
-  what Obsidian and other plugins add (`file-menu`, source `binders-card`), and "Delete".
+  what Obsidian and other plugins add (`file-menu`, source `binders-card`), and "Delete". On a tablet it is the
+  short menu (`shortMenu`), which has to fit on an 820 px screen without scrolling: "Move up", "Move down", "Move
+  to" and the new folder are under one "Move", and "Include in export" is "Leave out" under "Export as".
 
 ### Corkboard
 

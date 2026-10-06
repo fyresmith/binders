@@ -83,7 +83,7 @@ the trash with its synopsis, label and target.
 
 **Move up**, **Move down** and **Move to** in a card's or row's menu move a note or folder one place, or to any
 folder of the binder. **Move up** and **Move down** are commands too, and are in a note's right-click menu in the
-file explorer.
+file explorer. On a tablet the three are under **Move** in the menu: see [Phones and tablets](mobile.md).
 
 ## Deleting
 

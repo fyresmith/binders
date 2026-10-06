@@ -3,6 +3,16 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.42.0 (2026-10-06)
+
+### Changed
+
+- On a tablet, a card's, row's or title's menu is shorter so that all of it shows without scrolling: Move up, Move down, Move to and Put in a new folder are under one Move, and Include in export is Leave out under Export as.
+
+### Fixed
+
+- On a tablet on its side, a tap in a note's menu could open the item below the one tapped.
+
 ## 0.41.1 (2026-10-06)
 
 ### Fixed

@@ -98,7 +98,7 @@ out takes everything in it along.
 
 You'll find **Include in export** in:
 
-- a card's or row's right-click menu;
+- a card's or row's right-click menu (on a tablet, **Leave out** under **Export as**: see [Phones and tablets](mobile.md));
 - the outliner's **Export** column;
 - the [inspector](inspector.md).
 

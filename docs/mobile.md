@@ -24,6 +24,17 @@ A selected row or folder card with no synopsis offers **Add a synopsis**. On a n
 
 On a phone menus open as Obsidian's own sheets. On a tablet they open beside your finger.
 
+**On a tablet** a card's, row's or title's menu is shorter, so that all of it fits on the screen with the tablet on
+its side. Nothing is missing from it:
+
+| On a computer or a phone | On a tablet |
+|---|---|
+| **Move up**, **Move down**, **Move to** | **Move**, then **Move up**, **Move down** or a folder of the binder |
+| **Put in a new folder**, **New folder from selection** | **Move**, then the same words, at the foot of the list |
+| **Include in export** | **Export as**, then **Leave out**. **Automatic**, or what the note is, puts it back in |
+
+In a Longform project, which has no **Export as**, **Include in export** stays where it is.
+
 ## Selecting several
 
 There's no Shift or Ctrl, so a card's or row's menu has **Select more**. After you choose it, each tap adds an item

@@ -85,6 +85,8 @@ Right-click a card, or several selected together. The menu has:
 After these come the items Obsidian and your other plugins offer for that note: bookmark it, reveal it in the file
 explorer, and so on.
 
+On a tablet the menu is shorter, with the moves under one **Move**: see [Phones and tablets](mobile.md).
+
 ## The board's own menu
 
 Right-click empty space on the board for:

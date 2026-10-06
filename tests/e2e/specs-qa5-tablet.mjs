@@ -1023,9 +1023,9 @@ for (const [dev, size] of TABLETS) {
 			await tapMod(p, c5.x, c5.t + c5.h - 14, 8);
 			S.eq(j(await selected(p)), j(['Three', 'Four', 'Five'].map((n) => N + n + '.md')), 'a tap with Shift held selects the range');
 			await hold(p, c5.x, c5.t + c5.h - 14);
-			S.ok((await menuItems(p)).includes('New folder from selection') && (await menuItems(p)).includes('Merge 3 notes'), 'held, the selection’s menu offers a folder and a merge: ' + j(await menuItems(p)));
+			S.ok((await menuItems(p)).includes('Move') && (await menuItems(p)).includes('Merge 3 notes'), 'held, the selection’s menu offers “Move” (a tablet’s short menu: the new folder is under it) and a merge: ' + j(await menuItems(p)));
 			await shot(p, `${tag}-2b-01-selection-menu`);
-			await pick(p, 'New folder from selection');
+			await pick(p, 'Move', 'New folder from selection');
 			await until(p, `document.activeElement?.tagName === 'INPUT'`, 3000);
 			await keys(p, 'Middle');
 			await p.key('Enter');
