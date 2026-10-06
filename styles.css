@@ -4654,6 +4654,18 @@ body:not(.is-phone) .binders-export .binders-export-options .setting-item.settin
 	padding-inline-start: calc(var(--size-4-3) + var(--binders-export-depth, 0) * var(--size-4-4));
 }
 
+/* A Scrivener project's preview: the binder as Scrivener will list it, the pane's whole width. */
+.binders-export-outline.binders-export-binder {
+	flex: 1 1 auto;
+	padding: var(--size-4-4) var(--size-4-6);
+	border-inline-end: 0;
+	background-color: transparent;
+}
+
+.binders-export-binder .binders-export-row {
+	max-width: 28em;
+}
+
 .binders-export-structure {
 	padding: var(--size-4-1) var(--size-4-3) var(--size-4-2);
 	color: var(--text-muted);

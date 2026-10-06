@@ -22,6 +22,7 @@ export const EXPORT_AS = 'export-as';
 export type Kind = 'manuscript' | 'scrivener' | 'note';
 export const KINDS: { id: Kind; name: string; detail: string }[] = [
 	{ id: 'manuscript', name: 'Manuscript', detail: 'Word, in standard manuscript format' },
+	{ id: 'scrivener', name: 'Scrivener project', detail: 'The binder itself, for Scrivener 3' },
 	{ id: 'note', name: 'One note', detail: 'Markdown, in this vault' },
 ];
 

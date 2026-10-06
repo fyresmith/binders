@@ -19,8 +19,8 @@ What it does, in short:
   storyline or point of view), an outliner with columns you pick, and the whole manuscript as one page you can edit.
 - **Scrivener-style tools.** Labels, statuses and word count targets; split, merge, duplicate and group scenes;
   snapshots of a scene so you can rewrite without losing the old text; undo of moves.
-- **Export.** A submission manuscript as a Word file in standard manuscript format, or the whole binder as one note.
-  (An ebook, a paperback PDF and a Scrivener project are on the way.)
+- **Export.** A submission manuscript as a Word file in standard manuscript format, the binder itself as a Scrivener
+  project, or the whole binder as one note. (An ebook and a paperback PDF are on the way.)
 - **Focus mode.** The text and nothing else, with typewriter scrolling.
 - **Longform.** Longform projects open as binders, and convert to them.
 - **Phones and tablets.** The same views, by touch (so far tested only in Obsidian's mobile emulation: see
@@ -267,8 +267,7 @@ options** menu, and in the menu of a binder or of a folder in one) open one wind
 few choices, on the right what it will be. It opens on the kind you made last, and nothing has to be decided before
 the first file. Export reads your notes and writes the exported file: your notes aren't changed.
 
-Two kinds are built so far. An ebook, a paperback PDF and a Scrivener project are still to come (see the
-[roadmap](ROADMAP.md)).
+Three kinds are built so far. An ebook and a paperback PDF are still to come (see the [roadmap](ROADMAP.md)).
 
 ### Manuscript
 
@@ -331,9 +330,41 @@ folder in your vault, and then to the share sheet. Obsidian lists a .docx in its
 all file extensions** on (Files and links). The Exports folder can be renamed, or made one folder for the whole
 vault, in settings.
 
-Not there yet: the ebook, the PDF and the Scrivener project; the book's own details (subtitle, cover, copyright
+Not there yet: the ebook and the PDF; the book's own details (subtitle, cover, copyright
 line, language) and a menu for a note's role; editing a style; pictures in other formats. The Word file has been
 opened in LibreOffice; it hasn't yet been checked in Word, Pages or Google Docs.
+
+### Scrivener project
+
+The binder itself, not a book of it, as a Scrivener 3 project (`.scriv`): for moving on to Scrivener, or for sending
+the book to someone who works there. Nothing is typeset and nothing is joined: every note is a document, every
+folder a folder, in your binder's order under **Draft**.
+
+- **Carried across:** synopses; labels with their colors, and statuses (your lists from Binders' settings become
+  the project's); word count targets, the binder's own as the draft's; **Include in export** off as "not included in
+  compile"; snapshots, with their names and dates; a folder note's text as the folder's own text; tags as keywords;
+  your notes on a note or folder as the document's notes; your other properties as custom metadata. Each part, chapter and scene
+  is given a section type, so Scrivener's own Compile has something to work with.
+- **The text** becomes rich text: italics, bold, headings, lists, quotations, links, pictures. A footnote is
+  Scrivener's inline footnote and a `%%comment%%` its inline annotation. A link to a note in the binder leads to
+  that document. A paragraph you began with a tab arrives with a first-line indent and no tab. What rich text has no
+  match for (a table, a note embedded in another) stays as you typed it, and the window lists each place first.
+- **Notes outside the manuscript** (a switch, on to start with) puts in Scrivener's **Research** folder: the binder
+  note's own text; any note or folder at the top of the binder that is left out of export, which is how a binder
+  keeps research beside its book; and, for a Longform project, the notes in its folder that aren't scenes. Off, the
+  first and last are left behind and the second stay where they are. **Snapshots** is the other switch.
+- **Where it goes.** On a computer, a `.scriv` folder where the save dialog says (a Mac with Scrivener shows it as one file),
+  written whole or not at all. Exporting again replaces a project that is still exactly as export left it. One you
+  have since opened in Scrivener is never written over, because what you did there would be lost: the window says
+  so and offers to save beside it ("The Lighthouse 2.scriv"). On a phone or tablet the project is zipped into the
+  `Exports` folder and handed to the share sheet; unzip it where Scrivener is.
+- **One way.** It makes a new project and changes nothing in your vault. Reading a project back in is Import, which
+  isn't built yet.
+
+**How far this has been tried.** Scrivener's format has no published description; this is built from projects
+Scrivener wrote. The maintainer has opened test projects of this shape in his own Scrivener 3, and they opened. No
+other Scrivener has: not Scrivener for Windows, not Scrivener for iOS, and no version is confirmed by number. If a
+project doesn't open or something arrives wrong, that is a bug worth reporting, with your Scrivener's version.
 
 ### One note
 
@@ -551,7 +582,7 @@ Obsidian's Hotkeys settings. Most only appear where they apply (a binder view in
 | **Convert to binder** | For a Longform project: turns it into a binder. |
 | **Split scene at cursor**, **Split scene with selection as title** | Move the text from the cursor on into a new note after this one (in a note, or in the manuscript). |
 | **Set word count target** | Sets the target of the folder the binder view shows (the binder's own, on the binder). |
-| **Export binder** | Opens the Export window for the binder, or the folder shown: a manuscript as a Word file, or one Markdown note. |
+| **Export binder** | Opens the Export window for the binder, or the folder shown: a manuscript as a Word file, a Scrivener project, or one Markdown note. |
 | **Undo last move**, **Redo last move** | Take back, or make again, the last move made by hand in the binder in front (or the open note's). |
 | **Move up**, **Move down** | Move the open note one place in its folder. |
 | **Take a snapshot**, **Rewrite**, **Show snapshots** | Snapshots of the open note (or, in the manuscript, the section the cursor is in). |

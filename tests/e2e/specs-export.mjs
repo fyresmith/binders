@@ -65,7 +65,7 @@ const sourceWords = (all) => BODIES.flatMap((n) => words(all[`${L}${n}.md`].repl
 
 test('the window opens on a manuscript: the kinds that exist, the choices, the text on paper', async (p, h, t) => {
 	await open(p);
-	t.eq((await kinds(p)).join('|'), 'Manuscript|One note', 'the kinds built so far, and no others');
+	t.eq((await kinds(p)).join('|'), 'Manuscript|Scrivener project|One note', 'the kinds built so far, and no others');
 	t.eq(await p.ev(`document.querySelector('${WIN} [role="option"][aria-selected="true"] .binders-snapshots-item-name').textContent`), 'Manuscript', 'a manuscript the first time');
 	t.eq(await p.ev(`document.querySelector('${WIN} .binders-snapshots-name').textContent`), 'Manuscript', 'the bar names what is being made');
 	t.ok(/^\d+ words · 7 chapters$/.test(await p.ev(`document.querySelector('${WIN} .binders-snapshots-detail').textContent`)), 'and how big it is');
@@ -282,10 +282,10 @@ test('one note: what Compile was, from the window, with tabs taken off paragraph
 test('by keyboard, and for a screen reader: the kinds are a list, the arrows choose, Tab reaches Export, Escape closes', async (p, h, t) => {
 	await open(p);
 	t.eq(await p.ev(`(() => { const a = document.activeElement; return a?.getAttribute('role') + ':' + a?.querySelector('.binders-snapshots-item-name')?.textContent; })()`), 'option:Manuscript', 'the keyboard starts on the kind chosen');
-	t.eq(await p.ev(`(() => { const l = document.querySelector('${WIN} [role="listbox"]'); return l.getAttribute('aria-label') + '|' + [...l.querySelectorAll('[role="option"]')].map(o => o.getAttribute('aria-label')).join('|'); })()`), 'What to make|Manuscript: Word, in standard manuscript format|One note: Markdown, in this vault', 'the list and its rows are named');
+	t.eq(await p.ev(`(() => { const l = document.querySelector('${WIN} [role="listbox"]'); return l.getAttribute('aria-label') + '|' + [...l.querySelectorAll('[role="option"]')].map(o => o.getAttribute('aria-label')).join('|'); })()`), 'What to make|Manuscript: Word, in standard manuscript format|Scrivener project: The binder itself, for Scrivener 3|One note: Markdown, in this vault', 'the list and its rows are named');
 	await p.key('ArrowDown');
-	await until(p, `document.querySelector('${WIN} .binders-snapshots-name').textContent === 'One note'`);
-	t.eq(await p.ev(`document.activeElement?.querySelector('.binders-snapshots-item-name')?.textContent`), 'One note', 'Down chooses the next kind, and the keyboard stays in the list');
+	await until(p, `document.querySelector('${WIN} .binders-snapshots-name').textContent === 'Scrivener project'`);
+	t.eq(await p.ev(`document.activeElement?.querySelector('.binders-snapshots-item-name')?.textContent`), 'Scrivener project', 'Down chooses the next kind, and the keyboard stays in the list');
 	await p.key('ArrowUp');
 	await until(p, `document.querySelector('${WIN} .binders-snapshots-name').textContent === 'Manuscript'`);
 	await until(p, `!!document.querySelector('${WIN} .binders-export-paper .binders-export-section')`);
@@ -362,7 +362,7 @@ specs.push({ name: 'export: a phone: the choices first with Preview and Export a
 		t.eq(await p.ev(`${PL}.exportHost.desktop(app)`), null, 'a phone has no save dialog: the way to it says so');
 		await open2(p);
 		t.ok(await p.ev(`!!document.querySelector('${WIN} .binders-export-side') && !document.querySelector('${WIN} .binders-export-pane')`), 'the choices are the first screen');
-		t.eq((await kinds(p)).join('|'), 'Manuscript|One note', 'the same kinds');
+		t.eq((await kinds(p)).join('|'), 'Manuscript|Scrivener project|One note', 'the same kinds');
 		t.eq((await p.ev(`[...document.querySelectorAll('${WIN} .binders-export-phone-row button')].map(b => b.textContent)`)).join('|'), 'Preview|Export', 'Preview and Export at the foot');
 		t.eq(await p.ev(`document.querySelector('${WIN} .binders-export-place').textContent`), 'Goes to Exports/The Lighthouse.docx, then to where you share it', 'where the file will go');
 		const fits = await p.ev(`(() => { const m = document.querySelector('${WIN}').getBoundingClientRect(); return [...document.querySelectorAll('${WIN} .setting-item, ${WIN} .binders-export-phone-row button')].every(e => { const r = e.getBoundingClientRect(); return r.left >= m.left - 1 && r.right <= m.right + 1; }); })()`);

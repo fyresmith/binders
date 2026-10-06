@@ -3,6 +3,14 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.29.0 (2026-10-06)
+
+### Added
+
+- Export has a new kind, Scrivener project: the binder itself as a Scrivener 3 project (.scriv), with its order, synopses, labels and colors, statuses, targets, snapshots, notes, footnotes, comments and links carried across.
+- A project you have since opened in Scrivener is never written over: export offers to save beside it instead.
+- On a phone or tablet the project is zipped into the Exports folder and handed to the share sheet.
+
 ## 0.28.1 (2026-10-06)
 
 ### Changed

@@ -5,7 +5,10 @@ import { MANUSCRIPT_STYLES, manuscriptStyle } from '../export/docx-parts';
 import { STRUCTURES, type Book } from '../export/model';
 import { oneNoteText, isExported, oneNotePath, writeOneNote } from '../scenes';
 import { COMPILE_DEFAULTS, forRender, type CompileOptions } from '../scene-text';
+import type { ScrivProject } from '../export/scriv/project';
+import { readScriv } from '../export/scriv/vault';
 import { drawManuscript, drawOutline } from './export-preview';
+import { drawScriv, exportScriv, scrivChoices, scrivDetail, scrivFile } from './export-scriv';
 import { historyLook } from './internals';
 import { confirm } from './modals';
 import { countWords } from './words';
@@ -38,6 +41,7 @@ export class ExportModal extends Modal {
 	private book: Book | null = null;
 	private words = 0;
 	private note: { text: string; scenes: number } | null = null;
+	private scriv: ScrivProject | null = null;
 	/** What export is doing just now, in words; null when it is doing nothing. */
 	private busy: string | null = null;
 	private cancelled = false;
@@ -128,6 +132,10 @@ export class ExportModal extends Modal {
 				const { book, words } = await readBook(this.plugin, this.folder, this.matter);
 				if (turn !== this.loading) return;
 				this.book = book; this.words = words;
+			} else if (this.kind === 'scrivener') {
+				const { project } = await readScriv(this.plugin, this.folder, { outside: this.plugin.settings.exportOutside, snapshots: this.plugin.settings.exportSnapshots });
+				if (turn !== this.loading) return;
+				this.scriv = project; this.words = project.words;
 			} else {
 				const note = await oneNoteText(this.plugin, this.folder, this.o);
 				if (turn !== this.loading) return;
@@ -135,7 +143,7 @@ export class ExportModal extends Modal {
 			}
 		} catch (e) {
 			if (turn !== this.loading) return;
-			this.book = null; this.note = null;
+			this.book = null; this.note = null; this.scriv = null;
 			new Notice(e instanceof Error ? e.message : String(e));
 		}
 		this.draw();
@@ -188,7 +196,8 @@ export class ExportModal extends Modal {
 					t.inputEl.addEventListener('change', () => { s.authorName = t.getValue().trim(); this.changed(true); });
 				});
 			}
-		} else {
+		} else if (this.kind === 'scrivener') scrivChoices(el, plugin, () => this.changed(true));
+		else {
 			const o = this.o;
 			toggle('title', 'Title', o.title, (v) => { o.title = v; });
 			toggle('folders', 'Folders as headings', o.folderHeadings, (v) => { o.folderHeadings = v; });
@@ -216,22 +225,24 @@ export class ExportModal extends Modal {
 
 	/** The foot of the choices: where the file goes or went, and what export leaves out or changes. */
 	private foot(inner: HTMLElement): void {
-		const foot = inner.createDiv({ cls: 'binders-export-foot' }), host = this.host;
+		const foot = inner.createDiv({ cls: 'binders-export-foot' }), all = this.host;
 		const place = (text: string) => { const p = foot.createDiv({ cls: 'binders-export-place' }); setIcon(p.createSpan({ cls: 'binders-export-place-icon' }), 'folder-open'); p.createSpan({ text }); };
-		if (this.kind === 'manuscript') {
-			const kept = host ? placeFor(this.plugin, this.folder, 'manuscript') : null;
+		if (this.kind !== 'note') {
+			// (a Scrivener project is a folder: where one can't be written, it is zipped into the vault)
+			const kind = this.kind, host = kind === 'scrivener' && !all?.writeFolder ? null : all;
+			const kept = host ? placeFor(this.plugin, this.folder, kind) : null;
 			if (host && (kept || this.saved)) {
 				place(kept ? `Saves to ${this.shown(kept)}` : `Saved to ${this.saved?.shown ?? ''}`);
 				const label = foot.createEl('label', { cls: 'mod-checkbox binders-export-remember' });
 				const box = label.createEl('input', { type: 'checkbox', attr: { 'data-binders-key': 'remember' } });
 				box.checked = !!kept;
-				box.addEventListener('change', () => { setPlace(this.plugin, this.folder, 'manuscript', box.checked ? this.saved?.path ?? kept : null); this.draw(); });
+				box.addEventListener('change', () => { setPlace(this.plugin, this.folder, kind, box.checked ? this.saved?.path ?? kept : null); this.draw(); });
 				label.appendText('Save here next time without asking');
 			} else if (!host) {
-				const to = `${exportsFolder(this.plugin, this.folder)}/${this.fileName()}.docx`;
+				const to = `${exportsFolder(this.plugin, this.folder)}/${kind === 'scrivener' ? scrivFile(this.folder, host) : `${this.fileName()}.docx`}`;
 				place(Platform.isMobile ? `Goes to ${to}, then to where you share it` : `Goes to ${to}, in this vault`);
 			}
-			const warnings = this.book?.warnings ?? [];
+			const warnings = (kind === 'scrivener' ? this.scriv?.warnings : this.book?.warnings) ?? [];
 			if (warnings.length) {
 				const head = foot.createDiv({ cls: 'binders-export-warn-head' });
 				setIcon(head.createSpan({ cls: 'binders-export-warn-icon' }), 'alert-triangle');
@@ -275,7 +286,7 @@ export class ExportModal extends Modal {
 		this.nameEl.setText(k.name);
 		const n = (count: number, one: string, many = `${one}s`) => `${count.toLocaleString()} ${count === 1 ? one : many}`;
 		const chapters = this.book?.sections.filter((s) => s.role === 'chapter').length ?? 0;
-		this.detailEl.setText(this.kind === 'manuscript' ? (this.book ? `${n(this.words, 'word')} · ${n(chapters, 'chapter')}` : '') : this.note ? `${n(this.note.scenes, 'note')} · ${n(this.words, 'word')}` : '');
+		this.detailEl.setText(this.kind === 'scrivener' ? scrivDetail(this.scriv) : this.kind === 'manuscript' ? (this.book ? `${n(this.words, 'word')} · ${n(chapters, 'chapter')}` : '') : this.note ? `${n(this.note.scenes, 'note')} · ${n(this.words, 'word')}` : '');
 		const focused = this.actions.contains(this.modalEl.doc.activeElement);
 		this.actions.empty();
 		const status = (text: string) => this.actions.createSpan({ cls: 'binders-export-status', text, attr: { role: 'status', 'aria-live': 'polite' } });
@@ -300,10 +311,10 @@ export class ExportModal extends Modal {
 				const flip = () => { this.contents = !this.contents; this.bar(); this.preview(); this.actions.querySelector<HTMLElement>('.binders-snapshots-compare')?.focus(); };
 				c.addEventListener('click', flip);
 				c.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); flip(); } });
-			} else new ButtonComponent(this.actions).setButtonText('Copy').setTooltip('Copy the text instead of saving it').onClick(() => void this.copy());
+			} else if (this.kind === 'note') new ButtonComponent(this.actions).setButtonText('Copy').setTooltip('Copy the text instead of saving it').onClick(() => void this.copy());
 			new ButtonComponent(this.actions).setButtonText('Export').setCta().onClick(() => void this.run());
 		}
-		if (this.kind === 'manuscript' && (host || saved)) {
+		if (this.kind !== 'note' && (host || saved)) {
 			const more = this.actions.createDiv({ cls: 'clickable-icon', attr: { 'aria-label': 'More', role: 'button', tabindex: '0', 'aria-haspopup': 'menu' } });
 			setIcon(more, 'more-horizontal');
 			const menu = (e: MouseEvent | null) => {
@@ -325,6 +336,7 @@ export class ExportModal extends Modal {
 		this.stop?.();
 		this.stop = null;
 		el.empty();
+		if (this.kind === 'scrivener') { drawScriv(el, this.scriv, { outside: this.plugin.settings.exportOutside, open: (path) => this.openNote(path) }); return; }
 		if (this.kind === 'manuscript') {
 			const book = this.book;
 			if (!book) { el.createDiv({ cls: 'binders-export-stage' }).createDiv({ cls: 'binders-export-none', text: 'Reading the notes…' }); return; }
@@ -372,6 +384,13 @@ export class ExportModal extends Modal {
 				if (this.cancelled) return;
 				// (a name that can't be used is said as it is: nothing went wrong, the writer is asked for another)
 				try { if (await writeOneNote(this.plugin, this.folder, this.path, text, scenes)) this.close(); } catch (e) { new Notice(e instanceof Error ? e.message : String(e)); }
+				return;
+			}
+			if (this.kind === 'scrivener') {
+				const saved = await exportScriv(this.plugin, this.host, this.folder, { ask, say: (doing) => this.say(doing), cancelled: () => this.cancelled, made: (p) => { this.scriv = p; this.words = p.words; } });
+				if (!saved) return;
+				this.saved = saved;
+				new Notice(`Exported “${this.folder.name}” to ${saved.shown}.`);
 				return;
 			}
 			const { book, words } = await readBook(this.plugin, this.folder, this.matter);

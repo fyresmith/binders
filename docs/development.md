@@ -147,6 +147,7 @@ npm test -- lanes        # only the files whose name has "lanes" in it (several 
 | `tests/scene-text.test.ts` | Splitting, merging, a synopsis from text, names, a binder's text as one note (`src/scene-text.ts`) |
 | `tests/export-model.test.ts` | Export's book model (`src/export/`): every row of "What Markdown becomes" (`markdown.ts`), quotes and dashes (`typography.ts`), roles from structure, titles and numbers (`roles.ts`), the book put together with its footnotes, embeds and warnings (`book.ts`), a picture's size (`picture.ts`) |
 | `tests/export-docx.test.ts` | The Word writer (`src/export/docx.ts`, `docx-parts.ts`): the shape of a manuscript, the three styles, and the word-for-word test (below) |
+| `tests/export-scriv.test.ts`, `export-scriv-words.test.ts` | The Scrivener project's writer (`src/export/scriv/`): the shape of a project piece by piece; and its word-for-word test with the structural checks (below) |
 | `tests/tap-text.test.ts` | Where a tap on a manuscript section's rendered text is in the note (`src/view/tap-text.ts`): plain prose, repeated words, bold, links, headings, lists, quotes, line breaks |
 | `tests/focus-session.test.ts` | Focus mode's pure parts (`src/focus/session.ts`): the day's words, the last line, the scenes before and after, a goal as typed; and its settings' defaults |
 | `tests/paragraphs.test.ts` | Paragraphs (`src/paragraphs/text.ts`, `mode.ts`): which lines are paragraphs begun with a tab, the text made ready for a renderer, whether a link meant a renamed file, links repointed byte for byte, Obsidian's Markdown mode wrapped (with a stand-in) and refused when it isn't the one known; the two settings |
@@ -175,6 +176,19 @@ on every part, and LibreOffice (`soffice --headless --convert-to pdf`), which mu
 `test-dist/export-docx/` to look at. Not run here: Microsoft's Open XML validator, and Word itself.
 
 `specs-export.mjs` repeats the word-for-word check end to end, on the file a real Obsidian wrote to the disk.
+
+**The Scrivener project** is held to the same rule document by document (`tests/export-scriv-words.test.ts`): for
+every note and folder note, the words read back out of its RTF file equal the words of its Markdown, and the tree in
+the `.scrivx` is the binder in its order. The two readers are the test's own (`tests/export-scriv-words.ts`: a small
+RTF text reader, and a few patterns over the Markdown) and share nothing with the writer. Every project made on the
+way gets the structural checks of the format spike's `check-scriv.mjs` (`checkProject` in
+`tests/export-scriv-tools.ts`): every XML file parses; one Draft, one Research, one Trash; no id twice; every folder
+of files belongs to an item of the tree; every label, status, keyword, custom field, section type and link leads to
+something that exists; the RTF is balanced and ASCII. Where LibreOffice is installed it reads the sample projects'
+RTF files too and must see the same words in the same order as the test's reader (`BINDERS_NO_SOFFICE=1` skips it,
+and the run says in capitals that it did). `BINDERS_SCRIV_SAMPLES=<folder> npm test -- export-scriv-words` writes
+the sample projects there, zipped, for a real Scrivener to open: nothing here can stand in for that.
+`specs-export-scriv.mjs` is the kind end to end: the folder on the disk, a project opened since, the fallback.
 
 ### End-to-end tests
 

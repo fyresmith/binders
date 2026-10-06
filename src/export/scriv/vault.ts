@@ -20,10 +20,8 @@ import { readText } from './text';
    vault's Exports folder on a phone or tablet, and wherever a folder can't be written. It reads notes and snapshots
    and changes none. */
 
-/** The property that holds a note's notes about itself: the document's notes in Scrivener. */
-export const NOTES_PROP = 'notes';
 /** Properties that are no custom metadata: Binders' own, and Obsidian's. */
-const NOT_FIELDS = ['tags', 'tag', NOTES_PROP, 'export', 'compile', EXPORT_AS, 'binder', 'contents', 'longform', 'position', 'cssclasses', 'cssclass'];
+const NOT_FIELDS = ['tags', 'tag', 'export', 'compile', EXPORT_AS, 'binder', 'contents', 'longform', 'position', 'cssclasses', 'cssclass'];
 const safeDecode = (s: string): string => { try { return decodeURIComponent(s); } catch { return s; } };
 
 export interface ScrivChoices { outside: boolean; snapshots: boolean }
@@ -35,7 +33,7 @@ export async function readScriv(plugin: BindersPlugin, folder: TFolder, o: Scriv
 	const fm = (f: TFile | null): Record<string, unknown> => (f ? app.metadataCache.getFileCache(f)?.frontmatter ?? {} : {});
 	const body = async (f: TFile | null): Promise<string> => (f ? parts(await app.vault.cachedRead(f)).body : '');
 	const said = (v: unknown): string => (typeof v === 'string' ? v.trim() : typeof v === 'number' ? String(v) : '');
-	const own = new Set([s.synopsisProp, s.statusProp, s.labelProp, s.targetProp, ...NOT_FIELDS]), names = s.labels.map((l) => l.name);
+	const own = new Set([s.synopsisProp, s.statusProp, s.labelProp, s.targetProp, s.notesProp, ...NOT_FIELDS]), names = s.labels.map((l) => l.name);
 	const card = (f: TFile | null, fields = true): Partial<ScrivItem> => {
 		const p = fm(f), props: Record<string, string> = {};
 		if (fields) for (const [k, v] of Object.entries(p)) {
@@ -44,7 +42,7 @@ export async function readScriv(plugin: BindersPlugin, folder: TFolder, o: Scriv
 		}
 		return {
 			synopsis: said(p[s.synopsisProp]), status: said(p[s.statusProp]), label: readLabel(p[s.labelProp], names), target: readTarget(p[s.targetProp]),
-			tags: (parseFrontMatterTags(p) ?? []).map((t) => t.replace(/^#/, '')), notes: said(p[NOTES_PROP]), props,
+			tags: (parseFrontMatterTags(p) ?? []).map((t) => t.replace(/^#/, '')), notes: said(p[s.notesProp]), props,
 			created: f?.stat.ctime, modified: f?.stat.mtime,
 		};
 	};

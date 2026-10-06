@@ -17,7 +17,8 @@ import { done, eq, ok } from './harness';
    the XML, the ids, the lists. On the test vault, the demo vault and a binder of 150,000 words under a time limit. */
 
 const WHEN = new Date('2026-10-05T12:00:00Z');
-const OPTS: ScrivOptions = { outside: true, snapshots: true, version: '0.0.0', when: WHEN };
+// (Binders' own version, so the sample projects say what a real export says)
+const OPTS: ScrivOptions = { outside: true, snapshots: true, version: (JSON.parse(readFileSync('package.json', 'utf8')) as { version: string }).version, when: WHEN };
 
 interface Result { words: number; ms: number; files: Map<string, Uint8Array>; documents: number; rtfs: number }
 
@@ -90,7 +91,7 @@ const shownIn = (files: Files) => { const picture = pictureIn(files); return (na
 		const r = wordForWord(sourceOf(files, b), `demo vault, ${b.name}`, { picture: pictureIn(files) }, shownIn(files));
 		words += r.words; ms += r.ms; documents += r.documents;
 		snapshots += [...r.files.keys()].filter((p) => p.startsWith('Snapshots/') && p.endsWith('.rtf')).length;
-		if (b.name === 'Low Water at Corran' || b.name === 'Other Alphabets' || b.name === 'What Markdown becomes') samples.set(b.name, r.files);
+		if (['Low Water at Corran', 'The Varga Job', 'Other Alphabets', 'What Markdown becomes'].includes(b.name)) samples.set(b.name, r.files);
 	}
 	ok(snapshots > 0, `the demo vault’s snapshots are carried across (${snapshots})`);
 	results.push(`demo vault, ${binders.length} binders: ${words} words in ${documents} items, ${ms} ms`);
@@ -170,6 +171,6 @@ console.log(`  word for word: ${results.join('; ')}`);
 		console.log(`  ${samples.size} sample projects written to ${to}`);
 	}
 }
-eq(samples.size, 5, 'the sample projects');
+eq(samples.size, 6, 'the sample projects');
 
 done('export scriv, word for word');

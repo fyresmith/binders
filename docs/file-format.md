@@ -304,6 +304,9 @@ to a note it reads. The design is [export.md](export.md).
 | `compile` | checkbox | Read as `export`, for good (above). Never written |
 | `export-as` | text | A role given by hand: `part`, `chapter`, `scene`, `front matter`, `back matter` (also read: `front`, `back`, with a hyphen, any case). Anything else is "automatic". On a folder, what is in it follows: notes in a folder that is a chapter are scenes; a folder said to be a scene only holds scenes |
 
+A Scrivener project also reads, and never writes: `tags` (the document's keywords), `notes` (the document's notes
+in Scrivener, which it never compiles), and every other property of a note (custom metadata, as text).
+
 **In the binder note** (the book's own details):
 
 | Property | Type | Meaning |

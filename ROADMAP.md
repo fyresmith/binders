@@ -33,7 +33,10 @@ state (code, tests and documentation).
         places, the Exports folder). "Compile" is now Export's "One note", and `export: false` is what is written.
   - [ ] Step 2: the ebook (the EPUB writer, the first book style, Book details, the made pages).
   - [ ] Step 3: pages (the paginator, hyphenation, fonts, the PDF module, the exact preview).
-  - [ ] Step 4: the Scrivener project.
+  - [x] **Step 4: the Scrivener project** (2026-10-05). The binder itself as a `.scriv` folder: the `.scrivx`, RTF
+        documents, synopses, labels, statuses, targets, snapshots, section types, held to the word-for-word test;
+        written whole or not at all, never over a project opened since; zipped on a phone. Opened so far only as
+        the format spike's projects, in the maintainer's Scrivener: `docs/export.md`, "As built".
   - [ ] Step 5: overruling and owning ("Export as" and its column, the style editor and style files, Export again).
   - [ ] Step 6: finish (phones and tablets by touch, both themes, the docs, a QA round).
   - **And out as a Scrivener project** (added 2026-10-01): a `.scriv` folder Scrivener 3 opens, for a writer who

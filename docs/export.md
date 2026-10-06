@@ -3,7 +3,9 @@
 Decided with the maintainer on 2026-10-05. This is what is to be built, written as decided. **Step 1 of "The
 order" is built** (2026-10-05: the book model, the Word manuscript, the window with Manuscript and One note, where
 files go, "Compile" renamed); what it is as built is in the README ("Export"), `docs/file-format.md` ("Export")
-and `docs/architecture.md` ("Export"). The rest is not built yet. The
+and `docs/architecture.md` ("Export"). **Step 4, the Scrivener project, is built too** (2026-10-05): what it is
+as built, the format's choices and what each stands on are under "The Scrivener project". The rest is not built
+yet. The
 research behind it (Scrivener's Compile, the neighbouring tools, the formats, the routes tried), the two directions
 that were turned down, the screens and the sample files are in `.claude/handoff/export-design/` (`DESIGN.md`,
 `screens.html`, `samples/`, `spike/`), which git doesn't carry. The points the designer left open (the
@@ -247,6 +249,95 @@ The mapping lives in one pure module that the import after it uses too; export w
 metadata field, so a project that began in Binders can be matched note for note; the test for both is the round
 trip. What only a real Scrivener can settle is being tried first (the `scriv-spike` ticket).
 
+### As built (step 4, 2026-10-05)
+
+The writer is `src/export/scriv/` (pure, tested in Node); `vault.ts` there reads the binder and saves the project;
+the window's part is `src/view/export-scriv.ts`. It doesn't go through the book: a project is the binder itself, so
+each note is read by itself (the same Markdown reader, `text.ts`), nothing is typeset (quotes and dashes stay as
+typed), nothing is joined into chapters, and a note left out of export is still in the project.
+
+**What is manuscript and what is Research.** The binder's items, in binder order, are the Draft. With **Notes
+outside the manuscript** on (the default), three things go to Research instead, in this order: the binder note's own
+text, as a document named "*Binder* (binder note)"; every note or folder **at the top of the binder that is left out
+of export** (`export: false`: that is how a binder keeps its research beside its book), with all that is in it; and,
+for a Longform project, the notes in its folder that are no scenes of it. With it off, the first and last aren't
+exported, and the second stay where they are in the Draft, not included in compile. A note left out deeper in the
+binder (a cut scene in a chapter) always stays in its place, not included in compile; a folder left out leaves out
+what is in it. Pictures the text shows are also files in Research, either way.
+
+**What Markdown becomes in a project** (where it differs from the table under "The model"):
+
+| In the note | In the project |
+|---|---|
+| A paragraph begun with a tab | A first-line indent (`\fi360`), no space after it, never a tab. Any other paragraph: flush left, with space after (`\sa200`) |
+| `%% comment %%` | Scrivener's inline annotation, in place (on one line, whatever it was). `<!-- -->` is left out |
+| `[^1]`, `^[inline]` | Scrivener's inline footnote where the mark is; its paragraphs run together. One marked twice is written once |
+| `[[Note]]` | A link to that document (`scrivlnk://`) when the note is in the project; its words otherwise |
+| `![[Note]]` | Stays as typed (a link to the document, if it is one), and is counted: Scrivener sets no document inside another |
+| A picture | In the text (PNG and JPEG), no wider than a page; and a file in Research. A GIF, or one not found: as typed, counted |
+| A callout | A block quotation, its title in bold (rich text has a match after all) |
+| A table | Stays as Markdown, monospaced, and is counted |
+| A list | Paragraphs with a hanging indent and a bullet or its number: they look like a list and are not one of Scrivener's |
+| Quotes, dashes, `...` | As typed: a project is the writing, not a book |
+| A scene break | `* * *`, centered |
+| Notes on a note or folder (the `notes` property, or the one settings name) | The document's notes (`notes.rtf`): never compiled there, as they are never exported here |
+| `tags` | Keywords. Other properties: custom metadata, as text |
+
+**The format's choices, and what each stands on.** No specification exists. The evidence is the 13 projects written
+by Scrivener itself that the designer read (Mac 3.1.4 to 3.5.2, Windows 3.1.5.1), and the format spike's eight
+projects, which the maintainer opened in his Scrivener on 2026-10-05: "I opened the test projects and it worked."
+Which of the eight, his version and his system aren't known yet, so that is taken as: the main project, shaped like
+one Scrivener wrote, opens. Each open choice is one constant in `src/export/scriv/parts.ts`.
+
+| Choice | Written | Stands on |
+|---|---|---|
+| The root element, `Version="2.0"`, `Files/version.txt` = `23` | The Mac form | Every real project read; the spike's opened |
+| `Creator` | `BINDERS-<version>`: honest (`HONEST_CREATOR`) | The spike's variant 5 said this; whether that one was opened isn't known. `false` writes a string a real Scrivener wrote |
+| `Files/styles.xml`, `Settings/compile.xml` | Written (`FULL_SHAPE`) | The spike's main project had both. The bare shape (variant 2) is unconfirmed |
+| A `Files/Data/<id>/` folder | Only for an item with text, a synopsis or notes | Real projects; the spike |
+| Left out of compile | The element is left out; never `No` | No real project says `No` |
+| RTF | Plain RTF 1, ASCII, `\uN?` for everything else, Times New Roman and Courier New | The spike; LibreOffice reads every file the same |
+| Footnotes, comments | `{\Scrv_fn=…\end_Scrv_fn}`, `{\Scrv_annot …\end_Scrv_annot}` as text | Scrivener's own Tutorial (Mac 3.5.2); Windows unconfirmed |
+| Labels | The settings' list, then any other label used; Obsidian's colors as its default light theme has them | The spike |
+| Ids | Derived from the binder's path and each item's path in it: the same on every export | The spike (it used SHA-1; this is a hash of our own, as stable) |
+| Section types | Part, Chapter, Scene, Front matter, Back matter, Group; a default for folders and one for notes, by the structure; an item whose role differs says its own (`ITEM_SECTION_TYPES`) | The defaults: the spike's shape. An item's own `<SectionType>`: from real projects, **not yet opened** |
+| Keywords (`KEYWORDS`), more custom fields, `notes.rtf` | Only when the binder has tags, other properties, `notes` | Real projects; **not yet opened**. A binder without them writes none of these elements |
+| Snapshots | `Snapshots/<id>.snapshots/index.xml` and an `.rtf` named for its date | The spike's variant 7; whether that one was opened isn't known |
+
+**Saving.** On a computer the project is a `.scriv` folder where the save dialog says, written whole or not at all
+(`writeFolder` in `desktop.ts`: beside its place, then renamed). Exported again to the same place, a project that is
+still exactly what export left (every file's size, their number, the newest date) is replaced whole. One that isn't
+(it has been opened in Scrivener, which writes into it; or export never made it) is **never written over**: the
+window says so and offers the first free name beside it ("The Lighthouse 2.scriv"). On a phone or tablet, and on a
+computer where a folder can't be written, the project is zipped (`Name.scriv.zip`) into the Exports folder in the
+vault, and on a phone handed to the share sheet.
+
+**Decided while building** (the design was silent):
+
+1. What "outside the manuscript" is (above). The spike had it hard-coded.
+2. The Draft folder is titled "Draft", as the design's screen has it (the spike wrote "Manuscript").
+3. A paragraph not begun with a tab gets space after it, whether or not a blank line followed it in the note.
+4. A callout is a block quotation with a bold title, not Markdown. A note embedded in another stays as typed.
+5. A footnote marked twice is written once, at its first mark.
+6. A label named for one of Obsidian's colors has that color as the default light theme has it, in either theme.
+7. Binders' notes on a note or folder are the document's notes in Scrivener: they are "never exported" into a
+   book, and Scrivener's document notes are never compiled either, so the binder itself carries them.
+8. A folder's target is written too (the spike wrote notes' only).
+9. The remembered place stays the one chosen when a project is saved beside it under another name.
+10. Roles reach Scrivener as section types by the smallest means: two defaults, and an item's own type only where
+    it differs.
+
+**What the import will need from this** (the next roadmap item). The custom metadata field `binderspath` on every
+item: its path in the binder as `contents` writes it (`Part One/`, `Part One/Arrival`; the binder's name for the
+binder note's document), so a project that began here is matched note for note; and the ids, which are the same on
+every export of the same binder. Round-trips: order and nesting, titles, synopses, labels (by name), statuses,
+targets, "Include in export", tags, other properties (as text), `notes`, snapshots with names and dates, footnotes,
+comments, links between notes, emphasis, headings, quotations, pictures. Does not: which paragraphs had a blank line
+between them; a list's own numbers when they weren't in order; a callout's kind; a footnote's second mark; an HTML
+comment; a label's color where the theme gave it; where a top-level left-out item stood among its neighbours (it is
+in Research); the dates of folders (they are their folder notes'). Import still needs the RTF reader, for both of
+Scrivener's dialects: `tests/export-scriv-words.ts` has a small one that reads what this writer writes, no more.
+
 ## How it is built
 
 No outside tools, no network.
@@ -279,7 +370,9 @@ depth; the file is RGB and not PDF/X (KDP's rules, not IngramSpark's stated ones
 professional typesetter's.
 
 **Not verified yet:** the DOCX in Word, Pages and Google Docs (LibreOffice opens it); the EPUB in Kindle Previewer,
-Apple Books and Kobo (EPUBCheck passes it); Vellum and Atticus importing the DOCX; a real Scrivener; macOS and
+Apple Books and Kobo (EPUBCheck passes it); Vellum and Atticus importing the DOCX; the Scrivener project in any
+Scrivener but the maintainer's, and as production writes it in his (the spike's projects opened there: "As built");
+Scrivener for Windows and for iOS; macOS and
 Windows; an old Obsidian installer; the share sheet on a real phone.
 
 ## The order
@@ -292,7 +385,7 @@ Each step leaves something a writer can use.
 | 1 | The book model and the manuscript: the parser, roles from structure, the window with Manuscript and One note, the Word writer, the word-for-word test. "Compile" renamed | A submission manuscript in one step |
 | 2 | Ebook: the EPUB writer, the first book style, Book details, the made pages, EPUBCheck in the tests | A valid ebook, on phones too |
 | 3 | Pages: the paginator made whole, hyphenation, fonts, the PDF module, page sizes, the exact preview | A paperback and a manuscript PDF |
-| 4 | Scrivener project (can run beside 2 and 3) | A project Scrivener opens |
+| 4 | Scrivener project (can run beside 2 and 3). **Built** | A project Scrivener opens |
 | 5 | Overruling and owning: "Export as" and its column; the style editor and style files; the second book style; the warnings; where files go, remembered; Export again | The design complete |
 | 6 | Finish: phones and tablets by touch, both themes, the docs, a QA round | Ready for 1.0 |
 
