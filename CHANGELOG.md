@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.43.3 (2026-10-06)
+
+### Fixed
+
+- The Modern style's typeface, Source Serif 4, is now carried exactly as Adobe released it, as its licence asks. Pages in Modern are set as they were; the plugin's file is about 220 kB larger.
+
 ## 0.43.2 (2026-10-06)
 
 ### Changed

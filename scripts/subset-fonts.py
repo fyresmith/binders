@@ -1,7 +1,12 @@
-"""Makes the font files Binders carries for the pages (src/export/fonts/*.woff2) from the static TrueType files of
-EB Garamond and Source Serif 4 (both SIL Open Font License; the notices are beside the files).
+"""Makes the EB Garamond files Binders carries for the pages (src/export/fonts/eb-garamond-*.woff2) from the family's
+static TrueType files (SIL Open Font License; the notice is beside the files).
 
     python3 scripts/subset-fonts.py <folder with the .ttf files>     needs: pip install fonttools brotli
+
+EB Garamond ONLY. Its licence declares no Reserved Font Name, so a cut-down file may keep the family's name. Source
+Serif 4's reserves "Source": a subset is a Modified Version and may not be called Source Serif, so that family is
+carried as Adobe's own files, untouched (scripts/source-serif-fonts.mjs). Before adding a typeface here, read the
+first lines of its licence: "with Reserved Font Name" means it can't be cut down and keep its name.
 
 Static files, never the variable ones: Chromium embeds a variable font in a PDF as Type 3 (docs/dev/export.md).
 Kept: Latin, Latin-1, Latin Extended-A, the few of Extended-B that Romanian needs, Vietnamese, punctuation, the
@@ -15,8 +20,6 @@ FEATURES = "kern,liga,clig,calt,ccmp,locl,mark,mkmk,smcp,c2sc,onum,lnum,pnum,tnu
 FILES = {
     "EBGaramond-Regular": "eb-garamond-regular", "EBGaramond-Italic": "eb-garamond-italic",
     "EBGaramond-Bold": "eb-garamond-bold", "EBGaramond-BoldItalic": "eb-garamond-bold-italic",
-    "SourceSerif4-Regular": "source-serif-4-regular", "SourceSerif4-It": "source-serif-4-italic",
-    "SourceSerif4-Semibold": "source-serif-4-bold", "SourceSerif4-SemiboldIt": "source-serif-4-bold-italic",
 }
 
 source = sys.argv[1]

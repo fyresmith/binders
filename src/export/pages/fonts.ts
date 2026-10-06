@@ -2,15 +2,18 @@ import garamondBold from '../fonts/eb-garamond-bold.woff2';
 import garamondBoldItalic from '../fonts/eb-garamond-bold-italic.woff2';
 import garamondItalic from '../fonts/eb-garamond-italic.woff2';
 import garamond from '../fonts/eb-garamond-regular.woff2';
-import sourceBold from '../fonts/source-serif-4-bold.woff2';
-import sourceBoldItalic from '../fonts/source-serif-4-bold-italic.woff2';
-import sourceItalic from '../fonts/source-serif-4-italic.woff2';
-import source from '../fonts/source-serif-4-regular.woff2';
+import sourceItalic from '../fonts/SourceSerif4-It.ttf.woff2';
+import source from '../fonts/SourceSerif4-Regular.ttf.woff2';
+import sourceBold from '../fonts/SourceSerif4-Semibold.ttf.woff2';
+import sourceBoldItalic from '../fonts/SourceSerif4-SemiboldIt.ttf.woff2';
 
 /* The typefaces Binders carries for the pages: EB Garamond (Classic) and Source Serif 4 (Modern), both under the SIL
-   Open Font License (the notices are in src/export/fonts/). They are inside main.js as static files, cut down to
-   what a book in the Latin alphabet needs (scripts/subset-fonts.py): a variable font would be embedded in the PDF
-   as Type 3, drawn and not text. A style names its typeface by family; the faces are loaded into the pages'
+   Open Font License (the notices are in src/export/fonts/). They are inside main.js as static files: a variable font
+   would be embedded in the PDF as Type 3, drawn and not text. EB Garamond is cut down to what a book in the Latin
+   alphabet needs (scripts/subset-fonts.py). Source Serif 4 is NOT cut down and must not be: its licence keeps the
+   name "Source" for files that are as Adobe released them, so these are Adobe's own WOFF2 files, byte for byte
+   (scripts/source-serif-fonts.mjs says which and why; tests/export-fonts.test.ts fails if one is changed). The
+   style's bold is the family's Semibold. A style names its typeface by family; the faces are loaded into the pages'
    document before anything is measured, or the lines would be measured in another face. */
 
 /** A family's four faces, each a WOFF2 file as base64: regular, italic, bold, bold italic. */

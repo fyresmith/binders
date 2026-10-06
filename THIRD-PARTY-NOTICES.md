@@ -353,10 +353,19 @@ From the head of `hyph-pt.tex`:
 ## Typefaces
 
 The Classic book style is set in EB Garamond and the Modern one in Source Serif 4. Four faces of each (regular,
-italic, bold, bold italic) are inside `main.js` as WOFF2 files, cut down to the Latin alphabet and what a book needs
-of it (`scripts/subset-fonts.py`); the files are in `src/export/fonts/`, with each family's own notice beside them
-(`OFL-EBGaramond.txt`, `OFL-SourceSerif4.md`). A PDF that Binders exports has the letters it uses of them embedded.
-Both families are under the SIL Open Font License, version 1.1, given once below.
+italic, bold, bold italic) are inside `main.js` as WOFF2 files; the files are in `src/export/fonts/`, with each
+family's own notice beside them (`OFL-EBGaramond.txt`, `OFL-SourceSerif4.md`). A PDF that Binders exports has the
+letters it uses of them embedded. Both families are under the SIL Open Font License, version 1.1, given once below.
+
+- **EB Garamond** is a Modified Version: its four files are cut down to the Latin alphabet and what a book needs of
+  it (`scripts/subset-fonts.py`). Its licence declares no Reserved Font Name, so the files keep the family's name.
+- **Source Serif 4** is the Original Version, not modified in any way: the four files are Adobe's own, byte for
+  byte, from its release 4.005R of <https://github.com/adobe-fonts/source-serif> (commit
+  `2823e993c53fca27c5c8749f529b56a5a7c77b6b`, folder `WOFF2/TTF/`): `SourceSerif4-Regular.ttf.woff2`,
+  `SourceSerif4-It.ttf.woff2`, `SourceSerif4-Semibold.ttf.woff2` (the styles' bold) and
+  `SourceSerif4-SemiboldIt.ttf.woff2`. They are not subset, converted, renamed or compressed again, because the
+  licence reserves the name "Source" to unmodified files. `scripts/source-serif-fonts.mjs` fetches them and checks
+  each against its SHA-256, and a test fails if a file in the repository is not the one released.
 
 ### EB Garamond
 

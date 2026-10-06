@@ -554,10 +554,29 @@ the words a file breaks by hand (`\hyphenation`) come too and are believed befor
   1,113 pages before and after.
 
 **Fonts.** EB Garamond and Source Serif 4, four faces each (regular, italic, bold, bold italic; Source Serif's bold
-is its Semibold), as static WOFF2 files inside `main.js`, cut down to Latin, Latin-1, Latin Extended-A, Vietnamese,
-punctuation and the features a book uses (kerning, ligatures, small capitals, old-style and lining figures):
-`scripts/subset-fonts.py`. 145 kB and 117 kB as files; a third more as text in `main.js`. Both are SIL Open Font
-License; the notices are `src/export/fonts/OFL-EBGaramond.txt` and `OFL-SourceSerif4.md`. A book whose language is
+is its Semibold), as static WOFF2 files inside `main.js`. Both are SIL Open Font License; the notices are
+`src/export/fonts/OFL-EBGaramond.txt` and `OFL-SourceSerif4.md`, and [THIRD-PARTY-NOTICES.md](../../THIRD-PARTY-NOTICES.md),
+which heads `main.js`, carries the licence where the files go.
+
+- **EB Garamond is cut down** to Latin, Latin-1, Latin Extended-A, Vietnamese, punctuation and the features a book
+  uses (kerning, ligatures, small capitals, old-style and lining figures): `scripts/subset-fonts.py`. 145 kB as
+  files. Its licence declares no Reserved Font Name, so a cut-down file may keep the name.
+- **Source Serif 4 is not, and must not be.** Its licence reads "with Reserved Font Name 'Source'": a subset, a
+  conversion or a file compressed again is a Modified Version, and a Modified Version may not be called Source Serif
+  without Adobe's written permission (condition 3). 0.38.0 to 0.43.1 carried subsets under the name; nothing was
+  released with them. Now the four files are Adobe's own, byte for byte: `WOFF2/TTF/SourceSerif4-{Regular,It,
+  Semibold,SemiboldIt}.ttf.woff2` of release 4.005R (the version the subsets were cut from, at the same optical
+  size and weights), 280 kB as files. `scripts/source-serif-fonts.mjs` fetches them at the release's commit and
+  checks their SHA-256 (`--check` compares the repository's with Adobe's); `tests/export-fonts.test.ts` fails if a
+  file here isn't the one released. The TrueType-outline files, because Chromium embeds those in a PDF as text;
+  Adobe's own WOFF2, because converting its TTF would be a change of format.
+- **What the whole files changed: nothing on a Latin page.** For every character the subsets held, the advance
+  widths, the kerning and the vertical metrics are the same, so every line breaks where it did. The whole files hold
+  464 characters more: Cyrillic, Greek without the old accents, more accented Latin, fractions, superior and
+  inferior figures, arrows and mathematical signs, which were set in the computer's own serif before.
+- A third more than the files' size as text in `main.js`.
+
+A book whose language is
 written in Cyrillic, Greek, Hebrew, Arabic, Chinese, Japanese or Korean is set throughout in the computer's own
 serif for that script (Noto Serif first), and the window says so; a word of such a script in a Latin book falls back
 letter by letter. Those are the computer's fonts, embedded by Chromium as it embeds them: on Linux, Noto's CJK and
