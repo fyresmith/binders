@@ -430,8 +430,9 @@ Where the design was silent, or the code said otherwise:
 4. **A broken file and a newer one are never written, and the editor's rows are disabled for them**; a file with
    one value that can't be read is edited as usual, and the editor leaves the bad line alone until its row is set.
 5. **Deleting a style keeps the styles based on it as they look** (they are rewritten to stand on the built-in
-   style, with what they had from the deleted one, its CSS too). **Renaming** follows into them and into the binder
-   notes that named the style. Delete is to the trash.
+   style, with what they had from the deleted one, its CSS too), and the binder notes that named it name the style it
+   was based on, as the delete dialog says. **Renaming** follows into them and into the binder notes that named the
+   style. Delete is to the trash.
 6. **Sharing.** "Save a copy to share" (a computer) and "Share this style" (a phone) send a copy that stands by
    itself on a built-in style, so it works in a vault that has none of the writer's other styles. A built-in style
    with nothing changed has nothing to send. "Add a style from a file" takes the file under its name, or the first

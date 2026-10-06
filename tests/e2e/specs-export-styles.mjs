@@ -317,6 +317,20 @@ test('deleting a style keeps the styles based on it as they look; renaming it ke
 	t.eq(await look(), '#|medium|Source Serif 4|h1 { color: navy; }', 'and still looks as it did');
 });
 
+test('deleting a style a binder uses: the binder uses the style it was based on, as the dialog says', async (p, h, t, before) => {
+	await outside(p, 'House', '---\nexport-style: 1\nbased-on: Modern\nscene-break: "#"\n---\n');
+	await outside(p, 'My manuscript', '---\nexport-style: 1\nbased-on: Standard manuscript\n---\n');
+	await p.ev(`(async () => { const f = app.vault.getAbstractFileByPath(${j(BINDER)}); await app.fileManager.processFrontMatter(f, (fm) => { fm['book-style'] = 'House'; }); const pl = ${PL}; pl.settings.exportStyle = 'My manuscript'; await pl.saveData(pl.settings); })().then(() => 1)`);
+	await until(p, `app.metadataCache.getCache(${j(BINDER)})?.frontmatter?.['book-style'] === 'House'`, 6000);
+	await p.ev(`${styles}.remove(${styles}.get('House', 'book')).then(() => 1)`);
+	await until(p, `app.metadataCache.getCache(${j(BINDER)})?.frontmatter?.['book-style'] === 'Modern'`, 6000);
+	t.ok((await fmOf(p, BINDER)).includes('book-style: Modern'), 'the binder that used it names the style it was based on');
+	t.eq(await p.ev(`${styles}.book(app.metadataCache.getCache(${j(BINDER)}).frontmatter['book-style']).name`), 'Modern', 'and is exported in it, not in the first style');
+	await p.ev(`${styles}.remove(${styles}.get('My manuscript', 'manuscript')).then(() => 1)`);
+	t.eq(await p.ev(`${PL}.settings.exportStyle`), 'Standard manuscript', 'a manuscript style last used in the vault: the setting follows too');
+	t.eq((await fmOf(p, BINDER)).replace('book-style: Modern\n', ''), before[BINDER], 'nothing else in the binder note changed');
+}, { skip: [BINDER] });
+
 const explorerNames = (p) => p.ev(`[...document.querySelectorAll('.nav-files-container > div > .tree-item > .tree-item-self .tree-item-inner')].map(e => e.textContent)`);
 
 test('the styles folder is kept out of the file explorer, in no search or switcher, and shown if the writer keeps notes in it', async (p, h, t) => {

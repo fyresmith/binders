@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.37.3 (2026-10-06)
+
+### Fixed
+
+- Deleting an export style that binders use now gives them the style it was based on, as the delete dialog says, instead of the first built-in style.
+
 ## 0.37.2 (2026-10-06)
 
 ### Fixed

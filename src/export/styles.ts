@@ -213,6 +213,8 @@ export class Styles {
 		for (const d of this.dependents(r.name)) this.put(d.name, standalone(d, this.text(d.name)));
 		this.put(r.name, null);
 		await this.settled();
+		// (the binders that used it use what it was based on, as the delete dialog says)
+		await this.follow(r.name, r.basedOn, r.family);
 	}
 	/** The usable styles based on this one. */
 	private dependents(name: string): Resolved[] { return listStyles(this.files).filter((s) => !s.builtIn && s.state === 'ok' && s.basedOn === name && s.hasFile && this.files.get(s.name)?.basedOn === name); }
