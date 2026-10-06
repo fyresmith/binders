@@ -9,7 +9,7 @@ import { commitAll } from './edit';
 import { historyLook, submenu, trashPhrase } from './internals';
 import { ask, cancelButton, confirm } from './modals';
 import { iconButton, proseChanges, say, when, whenIn, whenShort } from './snapshots';
-import { countWords, wordsLabel } from './words';
+import { wordsIn, wordsLabel } from './words';
 
 /* Snapshots of a folder or of a whole binder, to the writer. The dialog is the note's Snapshots dialog grown to hold
    a book: the same list at the side, under "now"; beside it, where a note's snapshot shows its text, a folder's shows
@@ -384,7 +384,7 @@ export class FolderSnapshotsModal extends Modal {
 		for (const r of rows) {
 			while (open.length > r.depth) open.pop();
 			if (r.kind === 'folder') { words.set(r, { notes: 0, words: 0 }); open[r.depth] = r; open.length = r.depth + 1; }
-			else if (r.kind === 'note' && r.then && !r.then.role) { const w = countWords(r.then.text ?? ''); words.set(r, { notes: 1, words: w }); for (const f of open) { const t = words.get(f); if (t) { t.notes++; t.words += w; } } }
+			else if (r.kind === 'note' && r.then && !r.then.role) { const w = wordsIn(this.plugin, r.then.text ?? ''); words.set(r, { notes: 1, words: w }); for (const f of open) { const t = words.get(f); if (t) { t.notes++; t.words += w; } } }
 		}
 		const parents: HTMLElement[] = [tree];
 		const same = (r: Row) => !differs(r) && !r.inside;

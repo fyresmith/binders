@@ -4,7 +4,7 @@ import type BindersPlugin from './main';
 import { saveOpen } from './scenes';
 import { BINDER_SNAPSHOT_EXT, BINDER_SNAPSHOT_FORMAT, NewerSnapshot, fingerprint, parseFolderSnapshot, readHead, writeFolderSnapshot, type Entry, type Head } from './binder-snapshot-text';
 import { SNAPSHOTS, readSnapshotName, snapshotName } from './snapshot-text';
-import { countWords } from './view/words';
+import { wordsIn } from './view/words';
 
 /* Snapshots of a folder or of a whole binder, vault side: everything in the folder as it stood, in one file.
 
@@ -92,7 +92,7 @@ export async function stateNow(plugin: BindersPlugin, folder: TFolder): Promise<
 		await Promise.all(notes.slice(i, i + 64).map(async ({ e, f }) => {
 			const text = await readExact(app, f.path);
 			e.text = text; e.size = text.length; e.hash = fingerprint(text);
-			if (!e.role) { count++; words += countWords(text.replace(/^\uFEFF/, '')); }
+			if (!e.role) { count++; words += wordsIn(plugin, text.replace(/^\uFEFF/, '')); }
 		}));
 	}
 	return { entries, notes: count, words };
@@ -177,7 +177,7 @@ export async function readFolderSnapshot(plugin: BindersPlugin, s: FolderSnapsho
 	// (the folder's own note, in a snapshot of a folder above it, is that folder's folder note)
 	const entries = inside ? got.entries.filter((e) => e.path.startsWith(inside) && e.path !== inside).map((e) => ({ ...e, path: e.path.slice(inside.length) })) : got.entries;
 	let words = 0, notes = 0;
-	for (const e of entries) if (e.kind === 'note' && !e.role) { notes++; words += countWords((e.text ?? '').replace(/^\uFEFF/, '')); }
+	for (const e of entries) if (e.kind === 'note' && !e.role) { notes++; words += wordsIn(plugin, (e.text ?? '').replace(/^\uFEFF/, '')); }
 	const damaged = inside ? got.damaged.filter((p) => !p || p.startsWith(inside)).map((p) => p.slice(p ? inside.length : 0)) : got.damaged;
 	return { head: got.head, entries, notes, words, damaged };
 }
