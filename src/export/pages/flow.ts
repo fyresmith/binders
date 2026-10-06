@@ -27,6 +27,8 @@ export interface Look {
 	fit(p: Picture): [width: number, height: number];
 	/** The title page, when it is made a way of the look's own (a manuscript's). */
 	titlePage?: (page: HTMLElement) => void;
+	/** A manuscript: only its title page is a page set by itself; a part is headed as a chapter is. */
+	plain?: boolean;
 	/** The style the contents are named by (a book's). */
 	style?: BookStyle;
 }
@@ -56,7 +58,7 @@ export class BookFlow {
 	private section(s: Section): SectionFlow {
 		const { book, look } = this, blocks: HTMLElement[] = [];
 		this.count = 0;
-		const display = s.role === 'part' || (!!s.matter && DISPLAY.has(s.matter));
+		const display = look.plain ? !!s.made && s.matter === 'title-page' : s.role === 'part' || (!!s.matter && DISPLAY.has(s.matter));
 		const flow: SectionFlow = { id: s.id, cls: s.matter ?? s.role, front: s.role === 'front', blocks, first: display ? 'display' : 'opener', rest: display ? 'display' : 'body', recto: look.recto && s.matter !== 'copyright' };
 		if (s.made && s.matter === 'title-page') {
 			if (look.titlePage) { const page = this.el('div', 'made'); look.titlePage(page); blocks.push(page); return flow; }

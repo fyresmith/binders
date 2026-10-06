@@ -492,6 +492,7 @@ export class ExportModal extends Modal {
 		this.stop?.();
 		this.stop = null;
 		this.pages = null;
+		delete el.dataset.pages;
 		el.empty();
 		if (this.kind === 'scrivener') { drawScriv(el, this.scriv, { outside: this.plugin.settings.exportOutside, open: (path) => this.openNote(path) }); return; }
 		if (this.kind !== 'note') {
@@ -508,7 +509,7 @@ export class ExportModal extends Modal {
 				const { book: whole, spec } = this.paged(book), turn = this.loading;
 				const view = showPages(stage, whole, spec, { progress: (pages) => { if (turn === this.loading && this.stop === view.stop) this.detailEl.setText(pages == null ? this.detailEl.getText() : `Laying out the pages… ${pages.toLocaleString()}`); } });
 				this.stop = view.stop;
-				void view.laid.then((laid) => { if (!laid || this.stop !== view.stop) return; this.pages = laid.pages.length; this.previewEl.dataset.pages = String(laid.pages.length); this.bar(); }, (e) => { if (this.stop === view.stop) new Notice(e instanceof Error ? e.message : String(e)); });
+				void view.laid.then((laid) => { if (!laid || this.stop !== view.stop) return; this.pages = laid.pages.length; this.previewEl.dataset.pages = String(laid.pages.length); this.previewEl.dataset.took = String(Math.round(laid.took)); this.bar(); }, (e) => { if (this.stop === view.stop) new Notice(e instanceof Error ? e.message : String(e)); });
 				return;
 			}
 			if (this.kind === 'ebook') {

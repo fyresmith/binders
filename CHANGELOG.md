@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.38.1 (2026-10-06)
+
+### Fixed
+
+- A part in a manuscript PDF has the header and its page number.
+
 ## 0.38.0 (2026-10-06)
 
 ### Added

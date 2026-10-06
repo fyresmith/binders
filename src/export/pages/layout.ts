@@ -25,7 +25,7 @@ export interface PagesSpec {
 	typeface: string;
 	language: string;
 	rtl: boolean;
-	look: Pick<Look, 'heading' | 'mark' | 'lead' | 'recto' | 'titlePage' | 'style'>;
+	look: Pick<Look, 'heading' | 'mark' | 'lead' | 'recto' | 'titlePage' | 'style' | 'plain'>;
 	hyphens: boolean;
 	furnish: Omit<Furnish, 'front'>;
 	/** Something to tell the writer (the typeface doesn't hold the book's script); "" for nothing. */
@@ -60,7 +60,7 @@ export function manuscriptPages(book: Book, style: ManuscriptStyle, paper: PageS
 	};
 	return {
 		geometry: g, css: manuscriptCss(style, g), typeface: style.typeface, language, rtl: isRtl(language),
-		look: { heading: headingLines, mark: style.sceneBreak, lead: false, recto: false, titlePage },
+		look: { heading: headingLines, mark: style.sceneBreak, lead: false, recto: false, titlePage, plain: true },
 		hyphens: false,
 		furnish: { heads: 'none', numbers: 'none', title: book.title, author: book.author.trim(), header },
 		warning: '',
@@ -161,7 +161,7 @@ export async function layPages(stage: Stage, book: Book, spec: PagesSpec, o: Lay
 		fit: (p) => { const k = Math.min(1, wide / Math.max(1, p.width), tall / Math.max(1, p.height)); return [Math.max(1, Math.floor(p.width * k)), Math.max(1, Math.floor(p.height * k))]; },
 	});
 	const over: number[] = [];
-	const host = new DomHost(doc, stage.book, flow, { block: g.block * PX, rtl: spec.rtl, scale: o.scale ?? (() => 1), cls: (s) => flow.flows[s].cls, over: (page) => over.push(page) });
+	const host = new DomHost(doc, stage.book, flow, { block: g.block * PX, rtl: spec.rtl, scale: o.scale ?? (() => 1), cls: (s) => flow.flows[s].cls, id: (s) => flow.flows[s].id, over: (page) => over.push(page) });
 	const drop = () => { for (const u of urls.keys()) URL.revokeObjectURL(u); };
 
 	const it = fill(host, flow.flows);

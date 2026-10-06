@@ -20,6 +20,8 @@ export interface DomOptions {
 	scale(): number;
 	/** The class a section's pages have. */
 	cls(section: number): string;
+	/** A section's name in the book: its pages say which they are. */
+	id(section: number): string;
 	/** Told of a page that holds more than it should (its number, from 1). */
 	over?(page: number): void;
 }
@@ -41,6 +43,7 @@ export class DomHost implements Host<HTMLElement> {
 		if (this.at) this.finish(this.at);
 		const spine = (index % 2 === 0) !== this.o.rtl ? 'spine-left' : 'spine-right';
 		const sheet = this.make('sheet'), page = this.make(`page ${spine} ${opened.kind}${opened.section >= 0 ? ` ${this.o.cls(opened.section)}` : ''}`);
+		if (opened.section >= 0) page.dataset.section = this.o.id(opened.section);
 		const block = this.make('block'), text = this.make('text'), notes = this.make('notes');
 		block.append(text, notes);
 		page.append(block);

@@ -5,7 +5,7 @@
 import { spawnSync } from 'child_process';
 import { copyFileSync, existsSync, mkdirSync, readFileSync } from 'fs';
 import { join } from 'path';
-import { PL, j, openView, same, texts, until, withTidy } from './view-helpers.mjs';
+import { PL, j, openView, reload, same, texts, until, withTidy } from './view-helpers.mjs';
 
 export const specs = [];
 const L = 'The Lighthouse/';
@@ -118,4 +118,153 @@ test('a paperback: the kind and its choices, the pages in the window, and a PDF 
 		t.eq(printed.map(first).join('|'), shown.map((s) => first(`${s.head}\n${s.text}`)).join('|'), 'each beginning with the same words');
 	}
 	same(t, before, await texts(p));
+});
+
+/** The PDF read back and held against the window's pages: as many, each with the same words, every font in it. */
+function checkPdf(t, at, shown, o = {}) {
+	if (!TOOLS.info) loud(t, 'pdfinfo'); else {
+		const info = pdfInfo(at);
+		t.eq(info.Pages, String(shown.length), 'as many pages as the window showed');
+		if (o.size) t.ok(info['Page size'].includes(o.size), `each exactly the page’s size (${info['Page size']})`);
+	}
+	if (!TOOLS.fonts) loud(t, 'pdffonts'); else {
+		const fonts = pdfFonts(at);
+		t.ok(fonts.length > 0 && fonts.every((f) => f.embedded), `every font is embedded (${fonts.map((f) => `${f.name} ${f.type}${f.embedded ? '' : ' NOT EMBEDDED'}`).join('; ')})`);
+		t.ok(fonts.every((f) => f.type !== 'Type 3'), 'none as Type 3');
+	}
+	if (!TOOLS.text) loud(t, 'pdftotext'); else {
+		const printed = pdfPages(at);
+		const differ = shown.map((s, i) => [words(`${s.head}\n${s.text}\n${s.notes}\n${s.folio}`).sort().join(' '), words(printed[i] ?? '').sort().join(' ')]).findIndex(([a, b]) => a !== b);
+		t.eq(differ, -1, `each printed page holds the words of the window’s page (page ${differ + 1})`);
+	}
+}
+
+test('a manuscript as a PDF: the File and Paper choices, standard manuscript format on its pages, the header on each', async (p, h, t, before) => {
+	await withAuthor(p);
+	await open(p);
+	t.eq((await rows(p)).join('|'), 'Style|Front and back matter|File', 'a manuscript has a File choice');
+	await choose(p, 'file', 'pdf');
+	t.eq((await rows(p)).join('|'), 'Style|Front and back matter|File|Paper', 'a PDF has its paper');
+	t.ok(await laidOut(p), 'the pages are laid out in the window');
+	let shown = await pages(p);
+	t.eq(await detail(p), `${shown.length} pages · Letter`, 'the bar says how many pages, on Letter');
+	t.ok(/title-page/.test(shown[0].cls) && /about \d[\d,]* words/.test(shown[0].text) && shown[0].text.includes('by Mara Lindqvist') && !shown[0].head, 'the title page: the count, the title, the byline, and no header');
+	t.eq(shown[1].head, 'Lindqvist / LIGHTHOUSE / 1', 'the header on the first page of text, which is page 1');
+	t.ok(shown.slice(1).every((s, i) => s.head === `Lindqvist / LIGHTHOUSE / ${i + 1}`), 'and on every page after, counted');
+	t.ok(shown.some((s) => s.text.startsWith('Chapter One')), 'chapters are headed as the Word file heads them');
+	t.eq(words(await bodyWords(p)).join(' '), sourceWords(before).join(' '), 'word for word: the pages hold the notes’ words, in binder order');
+	await choose(p, 'paper', 'a4');
+	t.ok(await laidOut(p), 'A4 is laid out');
+	shown = await pages(p);
+	t.eq(await detail(p), `${shown.length} pages · A4`, 'the bar follows');
+	await press(p, 'Export');
+	t.ok(await saved(p), 'the bar says it was saved');
+	const at = join(p.vaultDir, 'Exports', 'The Lighthouse.pdf');
+	t.ok(existsSync(at), 'a PDF, in Exports beside the binder');
+	keep(at, 'test-vault-manuscript-a4.pdf');
+	checkPdf(t, at, shown, { size: '(A4)' });
+	same(t, before, await texts(p));
+});
+
+test('the page: a larger one holds more, is kept with the book, and is the PDF’s size', async (p, h, t) => {
+	await withAuthor(p);
+	await open(p);
+	await pick(p, 'Paperback');
+	await laidOut(p);
+	await choose(p, 'page', '6x9');
+	t.ok(await laidOut(p), 'the pages are laid out again');
+	const shown = await pages(p);
+	t.eq(await detail(p), `${shown.length} pages · 6 × 9 in`, 'the bar follows');
+	t.ok(await until(p, `app.metadataCache.getCache('The Lighthouse/The Lighthouse.md')?.frontmatter?.['page-size'] === '6x9'`, 4000), 'the size is kept in the binder note, as `page-size`');
+	await closeAll(p);
+	await open(p);
+	t.eq(await p.ev(`document.querySelector('${WIN} select[data-binders-key="page"]').value`), '6x9', 'and is there when the window is opened again');
+	await laidOut(p);
+	await press(p, 'Export');
+	t.ok(await saved(p), 'exported');
+	checkPdf(t, join(p.vaultDir, 'Exports', 'The Lighthouse.pdf'), await pages(p), { size: '432 x 648' });
+});
+
+test('where a PDF can’t be made: the window says so, shows the pages, and has no Export', async (p, h, t, before) => {
+	await withAuthor(p);
+	t.eq(await p.ev(`${PL}.exportHost.printer()`), null, 'no way to a PDF here');
+	await open(p);
+	await pick(p, 'Paperback');
+	t.ok(await laidOut(p), 'the pages are laid out all the same');
+	t.ok((await pages(p)).length >= 8, 'and can be looked at');
+	t.ok(!(await buttons(p)).includes('Export'), 'there is no Export');
+	t.ok((await p.ev(`document.querySelector('${WIN} .binders-export-nopdf')?.textContent ?? ''`)).startsWith('PDF isn’t available here.'), 'and the choices say why');
+	await pick(p, 'Manuscript');
+	t.ok((await buttons(p)).includes('Export'), 'a Word manuscript is exported as ever');
+	await choose(p, 'file', 'pdf');
+	t.ok(!(await buttons(p)).includes('Export') && (await p.ev(`!!document.querySelector('${WIN} .binders-export-nopdf')`)), 'a manuscript as a PDF is the same');
+	t.ok(!existsSync(join(p.vaultDir, 'Exports')), 'nothing was written');
+	same(t, before, await texts(p));
+}, { noPrinter: true });
+
+test('the real way to a PDF is found on a computer', async (p, h, t) => {
+	t.ok(await p.ev(`typeof ${PL}.exportHost.printer()?.print === 'function'`), 'a webview that can print');
+});
+
+// ---- a phone ----
+async function onPhone(p, fn) {
+	const dark = await p.ev(`document.body.classList.contains('theme-dark')`);
+	const theme = () => p.ev(`(() => { app.changeTheme(${j(dark ? 'obsidian' : 'moonstone')}); return 1; })()`);
+	await p.send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+	await reload(p, true);
+	await p.focusMain();
+	await p.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 1 });
+	await theme();
+	await p.sleep(200);
+	try { await fn(); } finally {
+		await closeAll(p);
+		await p.send('Emulation.setTouchEmulationEnabled', { enabled: false });
+		await p.send('Emulation.setDeviceMetricsOverride', { width: p.width, height: p.height, deviceScaleFactor: 1, mobile: false });
+		await reload(p, false);
+		await p.focusMain();
+		await theme();
+	}
+}
+const click = (p, expr) => p.ev(`(() => { const e = ${expr}; if (!e) return false; e.scrollIntoView({ block: 'center' }); e.click(); return true; })()`);
+
+specs.push({ name: 'export pdf: a phone: Paperback says “PDF, made on a computer”, has Preview and no Export, and shows its pages one under another', fn: withTidy(async (p, h, t) => {
+	const before = await texts(p);
+	await withAuthor(p);
+	try {
+		await onPhone(p, async () => {
+			t.eq(await p.ev(`${PL}.exportHost.printer()`), null, 'a phone has no way to a PDF');
+			await open(p);
+			await pick(p, 'Paperback');
+			t.eq(await p.ev(`[...document.querySelectorAll('${WIN} [role="option"]')].find(e => e.getAttribute('aria-selected') === 'true').getAttribute('aria-label')`), 'Paperback: PDF, made on a computer', 'the row says where it is made');
+			t.ok((await p.ev(`document.querySelector('${WIN} .binders-export-nopdf')?.textContent ?? ''`)).startsWith('A PDF is made by Obsidian on a computer.'), 'and a sentence under its choices');
+			t.eq((await rows(p)).join('|'), 'Style|Page|Book details', 'its style and its page can be chosen here');
+			t.eq((await p.ev(`[...document.querySelectorAll('${WIN} .binders-export-phone-row button')].map(b => b.textContent)`)).join('|'), 'Preview', 'Preview, and no Export');
+			const fits = await p.ev(`(() => { const m = document.querySelector('${WIN}').getBoundingClientRect(); return [...document.querySelectorAll('${WIN} .setting-item, ${WIN} .binders-export-nopdf, ${WIN} .binders-export-phone-row button')].every(e => { const r = e.getBoundingClientRect(); return r.left >= m.left - 1 && r.right <= m.right + 1; }); })()`);
+			t.ok(fits, 'nothing is wider than the screen');
+			await click(p, `[...document.querySelectorAll('${WIN} .binders-export-phone-row button')].find(b => b.textContent === 'Preview')`);
+			t.ok(await laidOut(p), 'Preview: the pages are laid out on the phone');
+			const shown = await pages(p);
+			t.ok(shown.length >= 8 && shown[0].text.startsWith('The Lighthouse'), `the same book (${shown.length} pages)`);
+			const look = await p.ev(`(() => { const f = ${FRAME}, d = f.contentDocument, sheets = [...d.querySelectorAll('.sheet')].slice(0, 3).map(s => s.getBoundingClientRect()); return { single: d.querySelector('#book').classList.contains('single'), wide: f.getBoundingClientRect().width, sheet: sheets[0].width, under: sheets[1].top > sheets[0].bottom - 1 && sheets[2].top > sheets[1].bottom - 1, left: sheets[0].left, paper: getComputedStyle(d.querySelector('.page')).backgroundColor }; })()`);
+			t.ok(look.single && look.under, 'single pages, one under another');
+			t.ok(look.sheet <= look.wide && look.left >= 0, `each as wide as the screen lets it be (${Math.round(look.sheet)} of ${Math.round(look.wide)})`);
+			t.eq(look.paper, 'rgb(255, 255, 255)', 'on white paper, whatever the theme');
+			t.eq(words(await bodyWords(p)).join(' '), sourceWords(before).join(' '), 'word for word, on a phone too');
+		});
+	} finally { await p.ev(`(async () => { const pl = ${PL}; Object.assign(pl.settings, { exportKind: 'manuscript', exportFile: 'docx', authorName: '' }); await pl.saveData(pl.settings); return 1; })()`); }
+	same(t, before, await texts(p));
+}) });
+
+test('the window’s pages: facing on a wide window (the first alone on the right), white in both themes, the frame named', async (p, h, t) => {
+	await withAuthor(p);
+	await open(p);
+	await pick(p, 'Paperback');
+	await laidOut(p);
+	const look = await p.ev(`(() => { const f = ${FRAME}, d = f.contentDocument, s = [...d.querySelectorAll('.sheet')].slice(0, 3).map(x => x.getBoundingClientRect()); return { single: d.querySelector('#book').classList.contains('single'), first: s[0].left, second: s[1].left, third: s[2].left, row: Math.abs(s[1].top - s[2].top) < 1 && s[1].top > s[0].bottom - 1, touch: Math.abs(s[1].right - s[2].left) < 1, paper: getComputedStyle(d.querySelector('.page')).backgroundColor, desk: getComputedStyle(d.documentElement).backgroundColor, pane: getComputedStyle(document.querySelector('${WIN} .binders-export-pages')).backgroundColor, label: f.getAttribute('aria-label'), tab: f.tabIndex, wide: f.getBoundingClientRect().width, right: Math.max(...s.map(x => x.right)) }; })()`);
+	t.ok(!look.single && look.first === look.third && look.second < look.third, 'the first page stands alone on the right; the next two face each other');
+	t.ok(look.row && look.touch, 'a spread is two pages meeting at the spine');
+	t.ok(look.right <= look.wide, 'and fits the window');
+	t.eq(look.paper, 'rgb(255, 255, 255)', 'pages are paper: white');
+	t.eq(look.desk, look.pane, 'on the theme’s own background');
+	t.ok(look.label === 'The pages, as they will print' && look.tab === 0, 'the frame is named and can be reached by keyboard');
 });
