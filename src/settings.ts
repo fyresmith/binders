@@ -65,10 +65,10 @@ export class BindersSettingTab extends PluginSettingTab {
 			{ type: 'group', heading: 'Focus mode', items: [...focusToggles(Platform.isMobile).map((k): SettingDefinition => ({ name: FOCUS_TEXT[k][0], desc: FOCUS_TEXT[k][1], control: { type: 'toggle', key: k } })), { name: FOCUS_TEXT.focusGoal[0], desc: FOCUS_TEXT.focusGoal[1], render: (setting) => { this.goalRow(setting); } }] },
 			{ type: 'group', heading: 'Export', items: [
 				{ name: 'Exports folder', desc: 'Where exported files go on a phone or tablet, and where the save dialog starts on a computer. A name is a folder beside each binder; a path, such as Books/Exports, is one folder for the whole vault.', render: (setting) => { this.textRow(setting, 'exportsFolder', 'Exports'); } },
-				{ name: 'Styles folder', desc: 'The folder at the top of the vault that holds your export styles, one file each. Binders keeps it out of the file explorer. To sync styles with Obsidian Sync, turn on “Sync all other types”.', render: (setting) => { this.textRow(setting, 'stylesFolder', 'Export styles'); } },
 				{ name: 'Remembered places', desc: '', render: (setting) => { this.placesRow(setting); } },
 				{ name: 'Your name', desc: 'The author of a book that doesn’t say otherwise.', render: (setting) => { this.textRow(setting, 'authorName', ''); } },
 				{ name: 'Contact details', desc: 'For the title page of a manuscript: an address, an email, a phone number, a line each.', render: (setting) => { this.contactRow(setting); } },
+				{ name: 'Styles folder', desc: 'The folder at the top of the vault that holds your export styles, one file each. Binders keeps it out of the file explorer. To sync styles with Obsidian Sync, turn on “Sync all other types”.', render: (setting) => { this.textRow(setting, 'stylesFolder', 'Export styles'); } },
 			] },
 			{ type: 'group', heading: 'Property names', items: PROPS.map((k): SettingDefinition => ({ name: TEXT[k][0], desc: TEXT[k][1], render: (setting) => { this.propRow(setting, k); } })) },
 		];

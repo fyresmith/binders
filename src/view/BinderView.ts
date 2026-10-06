@@ -1,6 +1,8 @@
 import { FileSystemAdapter, ItemView, Keymap, Menu, Notice, Platform, Scope, type Events, TFile, TFolder, setIcon, type PaneType, type TAbstractFile, type ViewStateResult, type WorkspaceLeaf } from 'obsidian';
 import type { Binder } from '../binders';
 import { ExportModal } from './export';
+import { exportAgain } from './export-again';
+import { lastExport } from '../export/export';
 import { folderSnapshotItems } from './snapshots';
 import type BindersPlugin from '../main';
 import { commitAll, commitFocused, editable, editingIn, type Editable } from './edit';
@@ -336,6 +338,8 @@ export class BinderView extends ItemView {
 				if (what) menu.addItem((i) => i.setSection('binders-note').setTitle(`${redo ? 'Redo' : 'Undo'}: ${what.charAt(0).toLowerCase()}${what.slice(1)}`).setIcon(redo ? 'redo-2' : 'undo-2').onClick(() => void this.plugin.undoMove(folder, redo)));
 			}
 			menu.addItem((i) => i.setSection('binders-note').setTitle('Export...').setIcon('book-up').onClick(() => new ExportModal(this.plugin, folder).open()));
+			// (the last export of it made once more, with no window: there once there has been one)
+			if (lastExport(this.plugin, folder)) menu.addItem((i) => i.setSection('binders-note').setTitle('Export again').setIcon('book-check').onClick(() => void exportAgain(this.plugin, folder)));
 			folderSnapshotItems(this.plugin, menu, folder, 'binders-note', this.readOnly);
 			// (the whole book as a list in the sidebar, with where this view is)
 			menu.addItem((i) => i.setSection('binders-note').setTitle('Show contents').setIcon('book-open').onClick(() => this.plugin.showContents()));

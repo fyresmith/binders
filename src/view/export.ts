@@ -1,6 +1,6 @@
 import { ButtonComponent, Component, MarkdownRenderer, Menu, Modal, Notice, Platform, Setting, TFile, setIcon, type TFolder } from 'obsidian';
 import type BindersPlugin from '../main';
-import { DOCX_MIME, KINDS, bookDetails, ebook, exportsFolder, fileName, manuscript, placeFor, readBook, save, saveDetails, setPlace, share, shownPath, type Kind, type Saved } from '../export/export';
+import { DOCX_MIME, KINDS, bookDetails, ebook, exportsFolder, fileName, manuscript, noteLast, placeFor, readBook, save, saveDetails, setPlace, share, shownPath, type Kind, type Saved } from '../export/export';
 import { EPUB_MIME } from '../export/epub';
 import { STRUCTURES, type Book } from '../export/model';
 import type { Family } from '../export/style-rows';
@@ -28,7 +28,7 @@ const SEPARATORS: [string, string][] = [['* * *', '* * *'], ['#', '#'], ['---', 
 /** How much of one note is drawn in the preview: past this a renderer holds the window up. The note has it all. */
 const NOTE_SHOWN = 120000;
 /** What each kind that is a book's file is, to the save dialog and the share sheet. */
-const FILES = { manuscript: { extension: 'docx', type: 'Word document', mime: DOCX_MIME }, ebook: { extension: 'epub', type: 'EPUB ebook', mime: EPUB_MIME } } as const;
+export const FILES = { manuscript: { extension: 'docx', type: 'Word document', mime: DOCX_MIME }, ebook: { extension: 'epub', type: 'EPUB ebook', mime: EPUB_MIME } } as const;
 
 export class ExportModal extends Modal {
 	private kind: Kind;
@@ -372,6 +372,16 @@ export class ExportModal extends Modal {
 		if (at instanceof MouseEvent) m.showAtMouseEvent(at); else { const r = at.getBoundingClientRect(); m.showAtPosition({ x: r.left, y: r.bottom + 2 }); }
 	}
 
+	/** The Exports folder in the system's file manager. It is made when a file is first saved there: until then
+	    there is nothing to show, and the window says so. */
+	private async showExports(): Promise<void> {
+		const host = this.host;
+		if (!host) return;
+		const at = host.join(host.base, ...exportsFolder(this.plugin, this.folder).split('/'));
+		const there = await host.stamp(at).catch((): null => null);
+		if (there) host.reveal(at); else new Notice('Nothing has been saved there yet: the folder is made when a file first is.');
+	}
+
 	private openNote(path: string): void {
 		if (!path) { this.edit(); return; }
 		const f = this.app.vault.getAbstractFileByPath(path);
@@ -422,6 +432,7 @@ export class ExportModal extends Modal {
 				const m = new Menu();
 				if (saved) m.addItem((i) => i.setTitle('Export').setIcon('book-check').onClick(() => void this.run()));
 				if (host) m.addItem((i) => i.setTitle('Choose where to save...').setIcon('folder-open').onClick(() => void this.run(true)));
+				if (host) m.addItem((i) => i.setTitle('Show where exports go').setIcon('folder').onClick(() => void this.showExports()));
 				if (this.file && !this.editing) m.addItem((i) => i.setTitle('Edit this style').setIcon('sliders-horizontal').onClick(() => this.edit()));
 				if (this.file) m.addItem((i) => i.setTitle('Book details...').setIcon('book-open').onClick(() => this.details()));
 				if (e) m.showAtMouseEvent(e); else { const r = more.getBoundingClientRect(); m.showAtPosition({ x: r.left, y: r.bottom }); }
@@ -493,13 +504,14 @@ export class ExportModal extends Modal {
 				const { text, scenes } = await oneNoteText(this.plugin, this.folder, this.o);
 				if (this.cancelled) return;
 				// (a name that can't be used is said as it is: nothing went wrong, the writer is asked for another)
-				try { if (await writeOneNote(this.plugin, this.folder, this.path, text, scenes)) this.close(); } catch (e) { new Notice(e instanceof Error ? e.message : String(e)); }
+				try { const made = await writeOneNote(this.plugin, this.folder, this.path, text, scenes); if (made) { noteLast(this.plugin, this.folder, 'note', { where: 'vault', path: made.path }); this.close(); } } catch (e) { new Notice(e instanceof Error ? e.message : String(e)); }
 				return;
 			}
 			if (this.kind === 'scrivener') {
 				const saved = await exportScriv(this.plugin, this.host, this.folder, { ask, say: (doing) => this.say(doing), cancelled: () => this.cancelled, made: (p) => { this.scriv = p; this.words = p.words; } });
 				if (!saved) return;
 				this.saved = saved;
+				noteLast(this.plugin, this.folder, 'scrivener', saved);
 				new Notice(`Exported “${this.folder.name}” to ${saved.shown}.`);
 				return;
 			}
@@ -520,6 +532,7 @@ export class ExportModal extends Modal {
 			});
 			if (!saved) return;
 			this.saved = saved;
+			noteLast(this.plugin, this.folder, kind, saved);
 			new Notice(`Exported “${book.title}” to ${saved.shown}.`);
 			if (saved.where === 'vault' && Platform.isMobile) await share(data, `${name}.${extension}`, mime);
 		} catch (e) {

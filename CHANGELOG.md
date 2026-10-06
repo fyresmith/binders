@@ -3,6 +3,13 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.37.0 (2026-10-06)
+
+### Added
+
+- "Export again" (a command, and in the binder view's menu once a binder has been exported) repeats the last export to the same place with no window; it asks only before replacing a file that has changed since.
+- "Show where exports go" in the Export window's menu.
+
 ## 0.36.0 (2026-10-06)
 
 ### Added

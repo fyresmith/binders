@@ -154,14 +154,16 @@ export function exportsFolder(plugin: BindersPlugin, folder: TFolder): string {
 /** What this device remembers about saving: for each binder and kind, the place chosen "without asking"; and for the
     files export wrote, what each was when it left it. Kept in the device's own storage, not in the vault's settings:
     a path on this disk means nothing on another. */
-interface Memory { places: Record<string, string>; written: Record<string, Stamp> }
+interface Memory { places: Record<string, string>; written: Record<string, Stamp>; last: Record<string, Last> }
+/** The last export of a binder (or a folder of one) on this device: what kind, and where it went. */
+export interface Last { kind: string; where: 'disk' | 'vault'; path: string }
 const MEMORY = 'binders-export', WRITTEN_KEPT = 60;
 const placeKey = (folder: TFolder, kind: Kind) => `${kind}\n${folder.path}`;
 
 export function memory(plugin: BindersPlugin): Memory {
 	const m = plugin.app.loadLocalStorage(MEMORY) as Partial<Memory> | null;
 	const rec = <T>(v: unknown): Record<string, T> => (v && typeof v === 'object' && !Array.isArray(v) ? { ...(v as Record<string, T>) } : {});
-	return { places: rec<string>(m?.places), written: rec<Stamp>(m?.written) };
+	return { places: rec<string>(m?.places), written: rec<Stamp>(m?.written), last: rec<Last>(m?.last) };
 }
 export function remember(plugin: BindersPlugin, change: (m: Memory) => void): void {
 	const m = memory(plugin);
@@ -175,6 +177,16 @@ export const placeFor = (plugin: BindersPlugin, folder: TFolder, kind: Kind): st
 export function setPlace(plugin: BindersPlugin, folder: TFolder, kind: Kind, path: string | null): void {
 	remember(plugin, (m) => { if (path) m.places[placeKey(folder, kind)] = path; else delete m.places[placeKey(folder, kind)]; });
 }
+/** The last export of a folder on this device, for "Export again"; null if there was none. */
+export function lastExport(plugin: BindersPlugin, folder: TFolder): Last | null {
+	const l = memory(plugin).last[folder.path];
+	return l && typeof l.kind === 'string' && typeof l.path === 'string' && (l.where === 'disk' || l.where === 'vault') ? l : null;
+}
+/** An export was made: it is the one "Export again" repeats. */
+export function noteLast(plugin: BindersPlugin, folder: TFolder, kind: string, saved: Pick<Saved, 'where' | 'path'>): void {
+	remember(plugin, (m) => { m.last[folder.path] = { kind, where: saved.where, path: saved.path }; });
+}
+
 /** Every place remembered on this device, as the settings tab lists them: the folder, the kind, the path. */
 export function places(plugin: BindersPlugin): { folder: string; kind: string; path: string }[] {
 	return Object.entries(memory(plugin).places).map(([k, path]) => { const [kind, folder] = k.split('\n'); return { folder, kind, path }; });
