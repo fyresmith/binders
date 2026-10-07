@@ -2261,7 +2261,7 @@
 	margin-bottom: calc(-1 * var(--size-2-3));
 }
 
-.is-phone .binders-board:not(.is-read-only) .binders-card.is-stack.is-selected:has(> .binders-card-synopsis.is-empty:not(.is-editing)) > .binders-card-held {
+.is-phone .binders-board:not(.is-read-only) .binders-card.is-stack.is-selected > .binders-card-synopsis.is-empty:not(.is-editing) ~ .binders-card-held {
 	max-height: calc((var(--binders-card-held, 3) - 1) * var(--binders-card-held-row));
 }
 
@@ -2281,7 +2281,7 @@
 	-webkit-line-clamp: var(--binders-card-lines, 4);
 }
 
-.binders-board.mod-cards-small .binders-card.is-stack:has(> .binders-card-synopsis:not(.is-empty)) > .binders-card-held {
+.binders-board.mod-cards-small .binders-card.is-stack > .binders-card-synopsis:not(.is-empty) ~ .binders-card-held {
 	display: none;
 }
 
@@ -4101,10 +4101,11 @@ body {
 	text-indent: 0;
 }
 
-/* (one that begins with a tab of its own has its indent already) */
-.markdown-rendered div.binders-prose-indent:is(.el-p, .binders-tab-paragraphs):not(.binders-embed-block) + div.el-p.binders-prose-indent > p:has(> .binders-tab:first-child),
-.markdown-rendered .binders-prose-indent > p + p:has(> .binders-tab:first-child) {
-	text-indent: 0;
+/* (one that begins with a tab of its own isn't set in twice: the indent stands for the tab, which is the same
+   measure, and the tab's mark, which is empty, takes no room) */
+.markdown-rendered div.binders-prose-indent:is(.el-p, .binders-tab-paragraphs):not(.binders-embed-block) + div.el-p.binders-prose-indent > p > .binders-tab:first-child,
+.markdown-rendered .binders-prose-indent > p + p > .binders-tab:first-child {
+	display: none;
 }
 
 /* (end of paragraphs) */

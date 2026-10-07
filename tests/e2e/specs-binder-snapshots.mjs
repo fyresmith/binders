@@ -378,6 +378,50 @@ test('one note of a snapshot opens as a note’s snapshot does, with the same co
 
 // ---- what is real of bringing back ----
 
+test('a note of a snapshot, read with “Start a paragraph with a tab” and “Indent paragraphs” both on: a paragraph begun with a tab that follows a paragraph is set in once, not twice, and so is a plain one', async (p, h, t) => {
+	const TEXT = '\tOpens with a tab.\n\n\tSecond, begun with a tab.\n\nThird, plain.\n\n\tFourth, begun with a tab.\n\tIts second line.\n';
+	const settings = (o) => p.ev(`(async () => { const pl = ${PL}; Object.assign(pl.settings, ${j(o)}); await pl.saveSettings(); return 1; })()`);
+	await p.ev(`app.vault.process(${file(A)}, (x) => x.slice(0, x.indexOf('\\n---\\n', 3) + 5) + ${j(TEXT)}).then(() => 1)`);
+	await sleep(p, 300);
+	const before = await texts(p);
+	t.ok(before[A].endsWith(TEXT), 'the note has the text: ' + j(before[A]));
+	await openView(p);
+	const taken = await take(p);
+	await age(p, taken.files[0], '2026-08-14 18.02.11 Tabs');
+	const PAGE = DLG + ' .binders-folder-snapshots-page';
+	// where each paragraph's text starts, from the paragraph's own edge: of its first line, and of a line after a break
+	const starts = () => p.ev(`(() => { const e = document.querySelector(${j(PAGE)}); if (!e) return null;
+		const left = (n) => { const r = document.createRange(); r.setStart(n, 0); r.setEnd(n, 1); return r.getClientRects()[0].left; };
+		return { marks: e.querySelectorAll('.binders-tab').length, text: e.textContent, ps: [...e.querySelectorAll(':scope > p')].map(x => { const words = [...x.childNodes].filter(n => n.nodeType === 3 && n.textContent.trim()); const at = x.getBoundingClientRect().left; return { text: x.textContent, first: Math.round(left(words[0]) - at), rest: words.slice(1).map(n => Math.round(left(n) - at)) }; }) }; })()`);
+	const said = (g) => j(g.ps.map((x) => [x.first, ...x.rest]));
+	const page = async () => {
+		await openDialog(p);
+		await pickRow(p, 'Tabs');
+		await treeRow(p, 'Arrival');
+		await until(p, `document.querySelectorAll(${j(PAGE + ' > p')}).length === 4`, 8000);
+		await sleep(p, 200);
+		const got = await starts();
+		await closeAll(p);
+		return got;
+	};
+	try {
+		await settings({ tabParagraphs: true, indentParagraphs: false });
+		const off = await page();
+		t.eq(off.ps.length, 4, 'four paragraphs: ' + j(off.ps.map((x) => x.text)));
+		t.eq(off.marks, 4, 'each tab line has its mark');
+		t.ok(off.ps.every((x, i) => Math.abs(x.first - (i === 2 ? 0 : 24)) < 1.5), 'with “Indent paragraphs” off, a tab is the paragraph indent and a plain paragraph is flush: ' + said(off));
+		t.ok(Math.abs(off.ps[3].rest[0] - 24) < 1.5, 'and a tab line after a break in a paragraph: ' + said(off));
+		await settings({ indentParagraphs: true });
+		const on = await page();
+		t.eq(on.ps.length, 4, 'four paragraphs still: ' + j(on.ps.map((x) => x.text)));
+		t.ok(on.ps.every((x) => Math.abs(x.first - 24) < 1.5), 'with it on, every paragraph starts one indent in (the first by its tab, the plain one by the indent), and none by two: ' + said(on));
+		t.ok(Math.abs(on.ps[3].rest[0] - 24) < 1.5, 'and the tab line after a break keeps its tab: ' + said(on));
+		t.eq(on.marks, 4, 'the marks are all there');
+		t.eq(on.text, off.text, 'and the words are the same');
+	} finally { await settings({ tabParagraphs: true, indentParagraphs: false }); }
+	same(t, before, await texts(p));
+});
+
 test('one note brought back: its text is the snapshot’s, its properties stay, the text it replaced is a snapshot of the note, and no other note changes', async (p, h, t) => {
 	await openView(p);
 	const first = await take(p);
