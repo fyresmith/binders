@@ -3285,8 +3285,7 @@ body:not(.is-phone) .binders-snapshots:is(.mod-sidebar-layout, .is-plain) > .mod
 	background-color: rgba(var(--color-red-rgb), 0.2);
 	color: var(--text-muted);
 	/* (the line in the mark's color, so a whole paragraph taken out can still be read) */
-	text-decoration-line: line-through;
-	text-decoration-color: rgba(var(--color-red-rgb), 0.7);
+	text-decoration: line-through rgba(var(--color-red-rgb), 0.7);
 }
 
 .binders-snapshots-diff ins {
@@ -5430,8 +5429,7 @@ body:not(.is-phone) .binders-export .binders-export-options .setting-item.settin
 .binders-folder-snapshots-tree del {
 	background-color: rgba(var(--color-red-rgb), 0.2);
 	color: var(--text-muted);
-	text-decoration-line: line-through;
-	text-decoration-color: rgba(var(--color-red-rgb), 0.7);
+	text-decoration: line-through rgba(var(--color-red-rgb), 0.7);
 }
 
 .binders-folder-snapshots-tree ins {
