@@ -6,6 +6,17 @@ import { MarkdownView, type App, type Editor } from 'obsidian';
    (and the class names of what it hides are in one block of styles.css). Each is looked for, and has a fallback when
    it isn't there; all are listed in docs/dev/internals.md and tested in tests/e2e/specs-focus.mjs. */
 
+/** What a tab is in, as Obsidian's workspace is built (its own class names, unchanged for years): the element of
+    every split and tab group from the tab's own up to the root split of its window (`.mod-root`, in a window of its
+    own too), and that root. With no root found there is nothing to go by: `root` is null and `chain` empty, and focus
+    mode then hides no other pane (the tab's own strip, the sidebars and the rest go all the same). */
+export function panesAbove(leafEl: HTMLElement): { root: HTMLElement | null; chain: HTMLElement[] } {
+	const root = leafEl.closest<HTMLElement>('.mod-root'), chain: HTMLElement[] = [];
+	if (!root || root === leafEl) return { root: null, chain };
+	for (let el = leafEl.parentElement; el && el !== root; el = el.parentElement) chain.push(el);
+	return { root, chain };
+}
+
 /** A note's CodeMirror editor (the `Editor`'s own `cm`), or null: then there's no typewriter line in a note tab. */
 export function editorView(view: MarkdownView): EditorView | null {
 	const cm = (view.editor as unknown as { cm?: Partial<EditorView> } | undefined)?.cm;

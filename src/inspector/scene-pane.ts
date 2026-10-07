@@ -243,9 +243,10 @@ export class ScenePane {
 		if (!same || !first) rb.createSpan({ cls: 'binders-inspector-none', text: first ? 'Mixed' : 'Automatic' });
 		else if (first.role === 'out') rb.createSpan({ cls: 'binders-inspector-none', text: ROLE_NAMES.out });
 		else {
-			rb.createSpan({ text: ROLE_NAMES[first.role] });
+			const role = rb.createSpan({ text: ROLE_NAMES[first.role] });
 			// (not written on it: what export makes of it where it stands, which can change as the book does)
-			if (!first.said) { rb.createSpan({ cls: 'binders-inspector-none binders-inspector-auto', text: 'auto' }); rb.setAttr('aria-label', `${ROLE_NAMES[first.role]}, automatic`); }
+			// (`has-auto`: the role is never cut short for the word after it, styles.css)
+			if (!first.said) { role.addClass('has-auto'); rb.createSpan({ cls: 'binders-inspector-none binders-inspector-auto', text: 'auto' }); rb.setAttr('aria-label', `${ROLE_NAMES[first.role]}, automatic`); }
 		}
 	}
 

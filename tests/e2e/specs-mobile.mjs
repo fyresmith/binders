@@ -230,3 +230,40 @@ test('a small phone on its side, typing in the manuscript with the keyboard up: 
 		});
 	}
 });
+
+test('a small phone on its side, the manuscript being typed in with the header slid away: another mode shown then has the header back, and starts below it; the manuscript shown again is as it was before the typing', async (p, h, t) => {
+	const V = '.workspace-leaf.mod-active .binders-view';
+	/** The header's foot, the view's top, and whether the view fades out under the header as a note's text does. */
+	const look = () => p.ev(`(() => { const leaf = document.querySelector('.workspace-leaf.mod-active'), v = leaf.querySelector('.binders-view'), cs = getComputedStyle(v); return { header: Math.round(leaf.querySelector('.view-header').getBoundingClientRect().bottom), top: Math.round(v.getBoundingClientRect().top), under: parseFloat(cs.marginTop) === 0, short: v.classList.contains('is-short'), mode: ${VIEW}.mode }; })()`);
+	await onDevice(p, 568, 320, async () => {
+		await openView(p);
+		await p.ev(`(() => { ${VIEW}.setMode('manuscript'); return 1; })()`);
+		await until(p, `!!document.querySelector('${V} .binders-manuscript :is(.binders-manuscript-rendered p, .cm-content)')`, 5000);
+		const before = await look();
+		t.ok(before.header > 0 && !before.under && before.top >= before.header - 1, `with nothing being typed the header is there and the page starts below it (${j(before)})`);
+		await tapManuscript(p, V);
+		await p.sleep(300);
+		await p.send('Emulation.setDeviceMetricsOverride', { width: 568, height: 140, deviceScaleFactor: 1, mobile: true });
+		await p.sleep(500);
+		await p.type('Typed. ');
+		await p.sleep(600);
+		const typing = await look();
+		t.ok(typing.short && typing.under && typing.header <= 1, `typing with the keyboard up: the header is off the top and the page runs to the top of the screen (${j(typing)})`);
+		// another mode, with the keyboard still up
+		for (const mode of ['outliner', 'corkboard']) {
+			// (the header slides back in, as Obsidian has it move: where it is going is asked with the slide turned off)
+			const at = await p.ev(`(() => { ${VIEW}.setMode(${j(mode)}); const leaf = document.querySelector('.workspace-leaf.mod-active'), v = leaf.querySelector('.binders-view'), hd = leaf.querySelector('.view-header'); hd.style.transition = 'none'; const header = Math.round(hd.getBoundingClientRect().bottom); hd.style.transition = ''; return { header, top: Math.round(v.getBoundingClientRect().top), under: parseFloat(getComputedStyle(v).marginTop) === 0 }; })()`);
+			t.ok(at.header > 0 && !at.under && at.top > 40, `the ${mode} shown instead: the header is on its way back at once, and the view keeps clear of the top (${j(at)})`);
+			await p.sleep(500);
+			const then = await look();
+			t.ok(then.header > 0 && !then.under && then.top >= then.header - 1, `the ${mode}, a moment later: the header is there, and the view starts below it (${j(then)})`);
+		}
+		await p.send('Emulation.setDeviceMetricsOverride', { width: 568, height: 320, deviceScaleFactor: 1, mobile: true });
+		await p.ev(`(() => { document.activeElement?.blur?.(); ${VIEW}.setMode('manuscript'); return 1; })()`);
+		await until(p, `!!document.querySelector('${V} .binders-manuscript :is(.binders-manuscript-rendered p, .cm-content)')`, 5000);
+		await p.sleep(700);
+		const after = await look();
+		t.ok(after.header > 0 && !after.under && !after.short && after.top >= after.header - 1, `the manuscript again, nothing being typed: the header is there and the page starts below it (${j(after)})`);
+		t.eq(await p.ev(`document.querySelectorAll('.binders-short-manuscript').length`), 0, 'and nothing says the page is short');
+	});
+});

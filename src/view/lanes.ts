@@ -537,6 +537,9 @@ class ByLabel implements BinderMode {
 
 	private onEditing(on: boolean, card?: HTMLElement): void {
 		this.editing += on ? 1 : -1;
+		// (said on the card, for the stylesheet: it grows to hold what's being written. By what the card holds now, not
+		// by `on`: going from its name to its synopsis, the synopsis says it has begun before the name says it's done)
+		card?.toggleClass('has-editing', !!card.querySelector('.is-editing'));
 		if (on && card) this.show(card);
 		if (!on && !this.busy()) window.setTimeout(() => { if (!this.busy() && (this.dirty || this.signature() !== this.sig)) this.draw(); }, 0);
 	}

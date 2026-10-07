@@ -1118,6 +1118,75 @@ test('a card carried to a folder in the breadcrumb goes out to it, at its end, a
 	t.eq(split(await read(p, P1 + 'Arrival.md')).body, split(before[P1 + 'Arrival.md']).body, 'its text whole');
 });
 
+test('lines across: a card being written in grows to hold it and stands over the cards around it, from its name to its synopsis and out again; it is a card’s height again when the writing stops', withTidy(async (p, h, t) => {
+	const LONG = 'Mara comes to the island with the supply boat and learns the rules of the light, one by one, from a man who would rather not say them aloud to anyone at all, least of all to her, and who says them anyway, twice, in the dark, on the stairs, because the lamp must not go out and she is the only other pair of hands for forty miles of water.';
+	await p.ev(`app.fileManager.processFrontMatter(${file(PART_ONE[0])}, fm => { fm.synopsis = ${j(LONG)}; }).then(() => 1)`);
+	await until(p, `app.metadataCache.getFileCache(${file(PART_ONE[0])})?.frontmatter?.synopsis === ${j(LONG)}`, 4000);
+	const before = await texts(p);
+	await openBy(p, L + 'Part One', { lines: 'across' });
+	const C = card(PART_ONE[0]);
+	await until(p, `document.querySelector(${j(C + ' .binders-card-synopsis')})?.textContent === ${j(LONG)}`, 4000);
+	/** The card: how tall, over the others or not, which of its fields is being written in, and whether the synopsis shows all of itself. */
+	const look = () => p.ev(`(() => { const c = document.querySelector(${j(C)}), cs = getComputedStyle(c), s = c.querySelector(':scope > .binders-card-synopsis'), f = s.querySelector('textarea'); return { h: Math.round(c.getBoundingClientRect().height), z: cs.zIndex, title: !!c.querySelector('.binders-card-title.is-editing'), synopsis: s.classList.contains('is-editing'), whole: s.scrollHeight <= s.clientHeight + 1 && (!f || f.scrollHeight <= f.clientHeight + 1), flex: getComputedStyle(s).flex, inCard: s.getBoundingClientRect().bottom <= c.getBoundingClientRect().bottom + 0.5 }; })()`);
+	const rest = await look();
+	const size = await p.ev(`parseFloat(getComputedStyle(document.querySelector(${j(C)})).getPropertyValue('--binders-card-height')) || 132`);
+	t.eq(rest.h, Math.round(size), `at rest the card is a card’s height (${j(rest)})`);
+	t.ok(!rest.whole && !rest.title && !rest.synopsis, `and its long synopsis is cut to fit (${j(rest)})`);
+	const atRest = (g, what) => t.eq(j({ h: g.h, z: g.z, flex: g.flex, whole: g.whole, title: g.title, synopsis: g.synopsis }), j({ h: rest.h, z: rest.z, flex: rest.flex, whole: false, title: false, synopsis: false }), `${what}: the card is as it was at rest`);
+	const written = (g, what, field) => {
+		t.eq(j([g.title, g.synopsis]), j([field === 'title', field === 'synopsis']), `${what}: the ${field} is being written in`);
+		t.eq(g.z, '2', `${what}: the card stands over the cards around it (${j(g)})`);
+		if (field === 'synopsis') t.ok(g.h > rest.h && g.whole && g.inCard, `${what}: it has grown to hold all of its synopsis (${j(g)})`);
+		else t.ok(g.h >= rest.h && g.inCard, `${what}: it is no shorter than a card, and holds what it shows (${j(g)})`);
+	};
+	// the card in hand, then its name
+	const pick = async () => { const at = await p.at(C + ' .binders-card-footer'); await p.click(at.x, at.y); await p.sleep(300); };
+	const rename = async () => { await p.ev(`document.querySelector(${j(C)}).focus()`); await p.key('F2'); await p.sleep(250); };
+	const intoSynopsis = async () => { const at = await p.at(C + ' > .binders-card-synopsis'); await p.click(at.x, at.y); await p.sleep(350); };
+	await pick();
+	atRest(await look(), 'selected');
+	await rename();
+	t.ok(await p.ev(`document.activeElement?.matches(${j(C + ' .binders-card-title input')})`), 'F2: the name is a field');
+	written(await look(), 'renaming', 'title');
+	// from the name straight to the synopsis: one field begins as the other ends
+	await intoSynopsis();
+	t.ok(await p.ev(`document.activeElement?.matches(${j(C + ' > .binders-card-synopsis textarea')})`), 'a click on the synopsis: it is a field, and the name is not');
+	written(await look(), 'from the name to the synopsis', 'synopsis');
+	await p.key('Escape');
+	await p.sleep(350);
+	atRest(await look(), 'Escape');
+	// the synopsis alone, left by Tab (which saves what's there: nothing was typed)
+	await intoSynopsis();
+	written(await look(), 'the synopsis again', 'synopsis');
+	await p.key('Tab');
+	await p.sleep(450);
+	atRest(await look(), 'Tab');
+	// the name alone, left by Escape; and by a click on the board's empty space
+	await rename();
+	written(await look(), 'renaming again', 'title');
+	await p.key('Escape');
+	await p.sleep(350);
+	atRest(await look(), 'Escape from the name');
+	await rename();
+	await intoSynopsis();
+	written(await look(), 'to the synopsis once more', 'synopsis');
+	await p.ev(`(() => { document.activeElement.blur(); return 1; })()`);
+	await p.sleep(450);
+	atRest(await look(), 'the field left');
+	// from the name to the synopsis with no press between them (as “Edit synopsis” goes, and the keyboard): the
+	// synopsis begins before the name has ended, and the card is still one being written in when the name has
+	await rename();
+	await p.ev(`(() => { ${VIEW}.current.editors.get(${j(PART_ONE[0])}).synopsis.edit(); return 1; })()`);
+	await p.sleep(450);
+	t.ok(await p.ev(`document.activeElement?.matches(${j(C + ' > .binders-card-synopsis textarea')})`), 'the synopsis is a field, straight from the name');
+	written(await look(), 'straight from the name to the synopsis', 'synopsis');
+	await p.key('Escape');
+	await p.sleep(350);
+	atRest(await look(), 'Escape once more');
+	await flush(p);
+	same(t, before, await texts(p), { skip: [NOTE] });
+}));
+
 // 0.12.140. A folder's card on the board by label showed its synopsis squeezed by the names under it: a line with no
 // ellipsis (and on a phone the top of the next line).
 test('by label, a folder card’s synopsis is whole lines ending in an ellipsis, at every card size and on a phone: never a slice of a line', async (p, h, t) => {

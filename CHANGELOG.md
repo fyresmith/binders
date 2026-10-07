@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.44.11 (2026-10-07)
+
+### Fixed
+
+- Nothing you'll notice: the remaining style rules Obsidian's plugin review flagged for performance were replaced.
+
 ## 0.44.10 (2026-10-07)
 
 ### Fixed

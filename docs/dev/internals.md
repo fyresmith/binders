@@ -260,7 +260,15 @@ touches it; `mountEditor()` builds one embed and patches that instance only:
 - Nothing of Obsidian's state is changed: the classes `binders-focus` on `<body>` and `binders-focus-leaf` on the
   tab's `.workspace-leaf` hide what's around the page. `workspace.getLayout()` is the same before, during and after.
   `leftSplit.collapse()` isn't used: it's saved with the layout, and would stay collapsed after a crash.
-- Other panes are hidden with `:has()`: `.mod-root :is(.workspace-tabs, .workspace-split):not(:has(.binders-focus-leaf))`.
+- Other panes are hidden by a class on the ones the tab is in: `.mod-root :is(.workspace-tabs, .workspace-split):not(.binders-focus-path)`.
+  `panesAbove` (`src/focus/dom.ts`) walks from the tab's `.workspace-leaf` up to the `.mod-root` of its window, and
+  focus mode marks every element between. (It was `:not(:has(.binders-focus-leaf))` until 0.44: Obsidian's review
+  flags `:has()`.) The marks are put right when Obsidian tells of a change of layout (`layout-change`, which it sends
+  10 ms after the change) and, before that, the moment any of those elements or the root gains or loses a child (a
+  `MutationObserver` on each, `childList` only): a pane split or closed beside the tab re-parents it, and the page is
+  never drawn with the tab's own pane hidden. If `.mod-root` isn't found, nothing is marked and no other pane is
+  hidden: the body's class is still what hides everything else. Test: `specs-focus.mjs`, "the layout changed under
+  focus mode".
 - With the keyboard up on a phone whose view is under 180 px tall (a small phone on its side), Obsidian's `.view-header`
   is slid off the top while the manuscript is being typed in, as a note's header is (styles only; test: `specs-mobile.mjs`,
   "a small phone on its side, typing in the manuscript with the keyboard up").

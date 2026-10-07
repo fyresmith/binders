@@ -151,6 +151,8 @@ function dragged(app: App): TAbstractFile[] {
 const fromBinderView = (app: App): boolean => dragManager(app)?.draggable?.source === 'binders';
 
 const EXPLORER = '.workspace-leaf-content[data-type="file-explorer"]';
+/** On a row with a label's dot or a binder's tag at its end. */
+const ENDED = 'binders-row-ended';
 /** How long a drag stays over a folded folder before it springs open (Obsidian's own wait is much the same). */
 const SPRING = 750;
 /** A drop between two rows: the folder it goes into, the item it goes before (null: last), and where the line shows. */
@@ -190,16 +192,21 @@ export function installExplorer(plugin: Plugin, source: ExplorerSource, settings
 		return out;
 	};
 
+	/** A row with something of ours at its end (a label's dot, a binder's tag) says so, for the stylesheet: its name
+	    keeps a little clear of it. Said again whenever either is put there or taken away. */
+	const ended = (row: HTMLElement) => row.toggleClass(ENDED, !!row.querySelector(':scope > .binders-folder-tag, :scope > .binders-explorer-label'));
+
 	/** A labeled item's color, as a dot after its name (and none on anything else). */
 	const dot = (it: ExplorerItem) => {
 		if (!it.selfEl) return;
 		const color = loaded && settings().explorerLabels ? source.labelColor(it.file) : null;
 		let el = it.selfEl.querySelector<HTMLElement>(':scope > .binders-explorer-label');
-		if (!color) { el?.remove(); return; }
+		if (!color) { el?.remove(); ended(it.selfEl); return; }
 		el ??= createDiv({ cls: 'binders-explorer-label', attr: { 'aria-hidden': 'true' } });
 		// (before a binder's tag, at the row's end)
 		if (!el.parentElement) it.selfEl.insertBefore(el, it.selfEl.querySelector(':scope > .binders-folder-tag'));
 		el.setCssProps({ '--binders-label': color });
+		ended(it.selfEl);
 	};
 
 	/** A binder folder says what it is at the end of its row, as Obsidian says "canvas" or "base" after a file that
@@ -210,6 +217,7 @@ export function installExplorer(plugin: Plugin, source: ExplorerSource, settings
 		const want = loaded && source.isBinderFolder(it.file), el = it.selfEl.querySelector(':scope > .binders-folder-tag');
 		if (want && !el) it.selfEl.createDiv({ cls: 'nav-file-tag binders-folder-tag', text: 'binder' });
 		else if (!want && el) el.remove();
+		ended(it.selfEl);
 		if (lit.includes(it.selfEl) !== (it.file === (loaded ? shown() : null))) active();
 	};
 
@@ -517,7 +525,7 @@ export function installExplorer(plugin: Plugin, source: ExplorerSource, settings
 		springOpen(null);
 		active();
 		unpatch?.(); unpatch = null;
-		for (const v of explorerViews(app).views) { for (const k in v.fileItems) v.fileItems[k]?.selfEl?.querySelectorAll(':scope > .binders-folder-tag, :scope > .binders-explorer-label').forEach((el) => el.remove()); resort(v); }
+		for (const v of explorerViews(app).views) { for (const k in v.fileItems) { const row = v.fileItems[k]?.selfEl; row?.querySelectorAll(':scope > .binders-folder-tag, :scope > .binders-explorer-label').forEach((el) => el.remove()); row?.removeClass(ENDED); } resort(v); }
 	});
 
 	return { refresh, active, get status() { return status; } };

@@ -10,7 +10,8 @@
 	flex: none;
 }
 
-.tree-item-self:has(> .binders-folder-tag) > .tree-item-inner {
+/* (a long name cut short doesn't run into it, or into a label's dot: explorer.ts says which rows have either) */
+.tree-item-self.binders-row-ended > .tree-item-inner {
 	margin-inline-end: var(--size-4-1);
 }
 
@@ -33,11 +34,6 @@
 	margin-inline-start: auto;
 	border-radius: 2px;
 	background-color: var(--binders-label);
-}
-
-/* (a long name cut short doesn't run into its dot) */
-.tree-item-self:has(> .binders-explorer-label) > .tree-item-inner {
-	margin-inline-end: var(--size-4-1);
 }
 
 .tree-item-self > .binders-explorer-label + .nav-file-tag,
@@ -1169,7 +1165,7 @@
    every view but a note below its header (a margin of `--view-top-spacing`), which on a phone on its side leaves the
    page a line. The page starts at the top of the screen instead, fading out under the header as a note's text does;
    its own text starts below the header, and the cursor is kept below it (manuscript.ts reads `scroll-padding-top`). */
-.is-phone .mod-root .workspace-leaf-content .view-content.binders-view.is-short:has(.binders-manuscript) {
+.is-phone .mod-root .workspace-leaf-content .view-content.binders-view.is-short.mod-manuscript {
 	margin-top: 0;
 	mask-image: var(--view-top-fade-mask);
 }
@@ -1184,10 +1180,10 @@
    header off the top of the screen and has the whole height; so does the manuscript, and nothing covers its top. The
    header is back with the toolbar when the typing stops.) */
 @media (max-height: 180px) {
-	.is-phone .mod-root .workspace-leaf-content:has(> .view-content.binders-view.is-short .binders-manuscript) > .view-header {
+	.is-phone .mod-root .workspace-leaf-content.binders-short-manuscript > .view-header {
 		transform: translateY(calc(-100% - var(--safe-area-inset-top, 0px)));
 	}
-	.is-phone .mod-root .workspace-leaf-content .view-content.binders-view.is-short:has(.binders-manuscript) {
+	.is-phone .mod-root .workspace-leaf-content .view-content.binders-view.is-short.mod-manuscript {
 		mask-image: none;
 	}
 	.is-phone .binders-view.is-short .binders-manuscript {
@@ -2785,24 +2781,25 @@
 	min-height: 0;
 }
 
-.binders-lanes.mod-across > .binders-card:not(:has(.is-editing)) > .binders-card-synopsis,
+.binders-lanes.mod-across > .binders-card:not(.has-editing) > .binders-card-synopsis,
 .binders-drag-ghost.mod-lanes > .binders-card > .binders-card-synopsis {
 	flex: 0 1 auto;
 }
 
 /* (a folder's card there holds a line of its synopsis and the first of its notes, two lines on a large card: whole
    lines, the last ending in an ellipsis, never one squeezed to a slice by the names under it) */
-.binders-board .binders-lanes.mod-across > .binders-card.is-stack:not(:has(.is-editing)) > .binders-card-synopsis {
+.binders-board .binders-lanes.mod-across > .binders-card.is-stack:not(.has-editing) > .binders-card-synopsis {
 	flex: none;
 	-webkit-line-clamp: 1;
 }
 
-.binders-board.mod-cards-large .binders-lanes.mod-across > .binders-card.is-stack:not(:has(.is-editing)) > .binders-card-synopsis {
+.binders-board.mod-cards-large .binders-lanes.mod-across > .binders-card.is-stack:not(.has-editing) > .binders-card-synopsis {
 	-webkit-line-clamp: 2;
 }
 
-/* (a card being written in grows to hold it) */
-.binders-lanes.mod-across > .binders-card:has(.is-editing) {
+/* (a card being written in grows to hold it: lanes.ts says which, `has-editing`, while its name or its synopsis is
+   a field) */
+.binders-lanes.mod-across > .binders-card.has-editing {
 	height: auto;
 	min-height: var(--binders-card-height, 132px);
 	z-index: 2;
@@ -3045,7 +3042,7 @@
    way up keeps its name (it's how you leave the folder), and the count gives way (on the binder's own board,
    where there's no way up to make room for, it stays). */
 @container binders-view (width < 440px) {
-	.binders-toolbar:has(> .binders-arrange-button:not(.is-hidden)):has(> .binders-breadcrumbs:not(.is-root)) > .binders-word-count {
+	.binders-toolbar.has-arrange > .binders-breadcrumbs:not(.is-root) ~ .binders-word-count {
 		display: none;
 	}
 }
@@ -3542,10 +3539,11 @@ body:not(.is-phone) .binders-snapshots:is(.mod-sidebar-layout, .is-plain) > .mod
 }
 
 /* ==== Focus mode ====
-   A state of the view that's open (src/focus/focus.ts). <body> has `binders-focus` while it's on, and the tab being
-   written in has `binders-focus-leaf`. Everything Obsidian draws around that tab is hidden, not closed: take the
-   classes away (a reload does) and it is all exactly where it was. These are Obsidian's own class names, listed in
-   docs/dev/internals.md: one that's renamed leaves that part in sight, and a test says so. */
+   A state of the view that's open (src/focus/focus.ts). <body> has `binders-focus` while it's on, the tab being
+   written in has `binders-focus-leaf`, and the splits and tab groups it is in have `binders-focus-path`. Everything
+   Obsidian draws around that tab is hidden, not closed: take the classes away (a reload does) and it is all exactly
+   where it was. These are Obsidian's own class names, listed in docs/dev/internals.md: one that's renamed leaves
+   that part in sight, and a test says so. */
 body.binders-focus .workspace-ribbon,
 body.binders-focus .workspace-split.mod-left-split,
 body.binders-focus .workspace-split.mod-right-split,
@@ -3554,7 +3552,7 @@ body.binders-focus .mobile-navbar,
 body.binders-focus .workspace-tab-header-container,
 body.binders-focus .mod-root .workspace-tabs.mod-stacked .workspace-tab-header,
 body.binders-focus .titlebar-button-container,
-body.binders-focus .mod-root :is(.workspace-tabs, .workspace-split):not(:has(.binders-focus-leaf)),
+body.binders-focus .mod-root :is(.workspace-tabs, .workspace-split):not(.binders-focus-path),
 body.binders-focus .mod-root .workspace-tabs .workspace-leaf:not(.binders-focus-leaf),
 body.binders-focus .binders-focus-leaf .view-header,
 body.binders-focus .binders-focus-leaf .binders-toolbar,
@@ -4238,7 +4236,7 @@ body {
 }
 
 /* ("auto" after a role nobody wrote on the note: the role is never cut short for it) */
-.binders-inspector-value > span:has(+ .binders-inspector-auto) {
+.binders-inspector-value > span.has-auto {
 	flex: none;
 }
 

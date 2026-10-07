@@ -717,6 +717,50 @@ test('a split window: the other panes go with the rest, and are back afterwards,
 	t.eq(await layout(p), saved, 'and the layout is what it was');
 });
 
+test('the layout changed under focus mode (a pane split beside the tab, the tab’s own pane split, panes closed): the tab being written in has the window all along, never a blank one, and everything is back afterwards', async (p, h, t) => {
+	await openNote(p, ARRIVAL);
+	await p.ev(`(async () => { const l = app.workspace.getLeaf('split', 'vertical'); await l.openFile(app.vault.getAbstractFileByPath(${j(KEEPER)})); app.workspace.setActiveLeaf(l, { focus: true }); })().then(() => 1)`);
+	await p.sleep(700);
+	await p.ev(`(() => { ${ED}.focus(); window.__focused = app.workspace.getMostRecentLeaf(); window.__other = app.workspace.getLeavesOfType('markdown').find(l => l !== window.__focused && l.getRoot() === app.workspace.rootSplit); window.__made = []; return 1; })()`);
+	const start = await layout(p);
+	await enter(p, h);
+	const wide = await p.ev(`innerWidth`);
+	/** Each pane of the middle of the window as "width x height" (0x0 while hidden), the tab in focus first. */
+	const SEEN = `(() => { const size = (e) => { const r = e.getBoundingClientRect(); return Math.round(r.width) + 'x' + Math.round(r.height); }; const mine = window.__focused.containerEl; return { focus: document.body.classList.contains('binders-focus'), mine: size(mine), text: size(mine.querySelector('.cm-content')), others: [...document.querySelectorAll('.mod-root .workspace-leaf')].filter(e => e !== mine).map(size) }; })()`;
+	const whole = (g, what) => {
+		t.ok(g.focus, `${what}: still in focus mode`);
+		t.ok(g.mine.startsWith(wide + 'x') && g.text !== '0x0', `${what}: the tab being written in has the window, and its text is in sight (${j(g)})`);
+		t.ok(g.others.length > 0 && g.others.every((x) => x === '0x0'), `${what}: every other pane is out of sight (${j(g.others)})`);
+	};
+	whole(await p.ev(SEEN), 'in focus');
+	// Each change is looked at twice: at once, in the same breath as the change (before Obsidian has said anything of
+	// it, and before the page is drawn again), and once things have settled.
+	const change = async (what, code) => {
+		const now = await p.ev(`(async () => { ${code}; await Promise.resolve(); return ${SEEN}; })()`);
+		whole(now, `${what}, at once`);
+		await p.sleep(500);
+		whole(await p.ev(SEEN), `${what}, a moment later`);
+	};
+	// (a pane made without being gone to, as a plugin or a synced layout might: Obsidian's own commands that split a
+	// pane go to the new one, and focus mode ends when its tab is left)
+	const SPLIT = `const split = (from, way) => { const l = new from.constructor(app); app.workspace.splitLeaf(from, l, way); window.__made.push(l); }`;
+	await change('the other pane split in two', `${SPLIT}; split(window.__other, 'horizontal')`);
+	// (the tab's own pane split: Obsidian puts the tab's group inside a new split, which is hidden unless it is known for the tab's)
+	await change('the tab’s own pane split in two', `${SPLIT}; split(window.__focused, 'horizontal')`);
+	await change('and split again, the other way', `${SPLIT}; split(window.__focused, 'vertical')`);
+	t.eq(await p.ev(`document.querySelectorAll('.mod-root .workspace-leaf').length`), 5, 'five panes now');
+	// (closed again: the splits made for them go, and the tab is put back where it was)
+	await change('a pane beside the tab closed', `window.__made.pop().detach()`);
+	await change('the other one beside it closed', `window.__made.pop().detach()`);
+	await change('the pane first made closed', `window.__made.pop().detach()`);
+	t.eq(await p.ev(`${VIEWOF}.file.path`), KEEPER, 'the note that was being written, all along');
+	await leave(p, h);
+	const after = await p.ev(`(() => { const out = { sizes: [...document.querySelectorAll('.mod-root .workspace-tabs')].map(e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; }), left: [...document.querySelectorAll('.workspace-split, .workspace-tabs, .workspace-leaf')].filter(e => /binders-focus/.test(e.className)).length }; delete window.__focused; delete window.__other; delete window.__made; return out; })()`);
+	t.eq(j(after.sizes), j([true, true]), 'afterwards both panes are back in sight');
+	t.eq(after.left, 0, 'and nothing of focus mode is left on any pane');
+	t.eq(await layout(p), start, 'the layout is what it was before focus mode');
+});
+
 // ---- the day's words ----
 
 test('the day’s words: counted in and out of focus, kept on this device and never in a note; a goal reached shows quietly; counting can start again', async (p, h, t) => {

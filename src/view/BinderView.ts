@@ -268,6 +268,7 @@ export class BinderView extends ItemView {
 				if (!el.hasClass('is-short') || top > 0) lead = top;
 				const was = el.hasClass('is-short'), short = el.clientHeight - (top > 0 ? 0 : lead) < SHORT && typing();
 				el.toggleClass('is-short', short);
+				this.shortPage();
 				// (the page has just moved under what's being typed: a name or a synopsis in its field is brought back
 				// into sight, clear of the header; an editor's cursor is the manuscript's own to follow)
 				const a = el.doc.activeElement;
@@ -315,9 +316,17 @@ export class BinderView extends ItemView {
 		}));
 	}
 
+	/** Says on the tab itself that the view is short and showing the manuscript: Obsidian's header, which is the
+	    view's neighbor and not inside it, is slid away then (styles.css). Kept true where either changes: `is-short`
+	    in onOpen, the mode in rebuild. */
+	private shortPage(): void {
+		this.containerEl.toggleClass('binders-short-manuscript', this.contentEl.hasClass('is-short') && this.contentEl.hasClass('mod-manuscript'));
+	}
+
 	async onClose(): Promise<void> {
 		await commitAll(this.contentEl);
 		this.closed = true;
+		this.containerEl.removeClass('binders-short-manuscript');
 		this.places.clear();
 		this.leftOn.clear();
 		window.clearTimeout(this.timer);
@@ -507,6 +516,9 @@ export class BinderView extends ItemView {
 		const el = this.contentEl;
 		el.empty();
 		this.ui = null;
+		// (which mode the view is in, for the stylesheet: the manuscript's page is laid out as a note's is)
+		el.toggleClass('mod-manuscript', !!this.folder && this.mode === 'manuscript');
+		this.shortPage();
 		refreshHeader(this);
 		if (!this.folder) {
 			const box = el.createDiv({ cls: 'binders-empty' });
@@ -657,6 +669,8 @@ export class BinderView extends ItemView {
 		// "Arrange", on the corkboard: always called that; its icon says how (and its name, to a screen reader)
 		const how = this.arranged();
 		ui.arrange.toggleClass('is-hidden', this.mode !== 'corkboard');
+		// (said on the toolbar too: what stands before "Arrange" makes room for it on a narrow phone, styles.css)
+		ui.arrange.parentElement?.toggleClass('has-arrange', this.mode === 'corkboard');
 		ui.arrange.toggleClass('is-active', how.arrange === 'label');
 		ui.arrange.setAttr('aria-label', `Arrange: ${how.title.charAt(0).toLowerCase()}${how.title.slice(1)}`);
 		setIcon(ui.arrange.querySelector<HTMLElement>('.text-button-icon'), how.icon);

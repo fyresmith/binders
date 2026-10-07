@@ -14,7 +14,7 @@ import { readTarget } from '../view/outliner-data';
 import { watchSize } from '../view/windows';
 import { WordCounter } from '../view/word-counter';
 import { wordsIn } from '../view/words';
-import { caretRect, editorDoc, editorView, lightTheme, noteColumn, tailRoom } from './dom';
+import { caretRect, editorDoc, editorView, lightTheme, noteColumn, panesAbove, tailRoom } from './dom';
 import { Session, atEnd, bodyStart, dayOf, excerpt, parseGoal } from './session';
 
 /* Focus mode: a quiet way to write a note of a binder, in a tab or in the manuscript. It is a state of the view that's
@@ -34,6 +34,8 @@ export const LINE = 0.42;
 const PAUSE = 2500;
 /** How long what's around the page takes to fade (Obsidian's --anim-duration-fast). */
 const FADE = 140;
+/** On each split and tab group the tab in focus is in (see `path`). */
+const PATH = 'binders-focus-path';
 /** Kept in the vault's local storage, on this device: the day's words, and that the way out has been said once. */
 const SESSION = 'binders-session', RULE = 'binders-session-rule', HINTED = 'binders-focus-hinted';
 /** A short fingerprint of a text, whatever its line breaks (an editor has one kind, a file may have the other). */
@@ -72,6 +74,10 @@ interface Active {
 	dark: { light: boolean } | null;
 	/** The window is in fullscreen because focus mode put it there (so it's ours to give back). */
 	full: boolean;
+	/** The splits and tab groups the tab is in, marked so that every other one is hidden (see `path`), and what
+	    watches them for the tab being put somewhere else. */
+	path: HTMLElement[];
+	watch: MutationObserver | null;
 }
 
 /** Focus mode: its commands, the header buttons, and a state added to the view in front. See the header comment. */
@@ -227,8 +233,26 @@ export class Focus {
 		if (!on) return;
 		if (!on.leafEl.isConnected || !this.eligible(on.leaf)) { this.leave(true); return; }
 		if (on.entering) return;
+		this.path(on);
 		this.furnish(on);
 		this.draw();
+	}
+
+	/** Marks the splits and tab groups the tab is in (`binders-focus-path`): every other one under the window's root
+	    is hidden by the stylesheet, so the tab has the window. The marks are put right the moment the tab is given
+	    another place (a pane closed beside it, or panes put another way by a plugin): whatever it is in
+	    gains or loses a child then, which is watched for, each of them and the root, so that the page is never drawn
+	    with the tab's own pane hidden. And again on every change of layout Obsidian tells of (`check`).
+	    (The watcher is the tab's own window's: a tab in a window of its own is watched there.) */
+	private path(on: Active): void {
+		const { root, chain } = panesAbove(on.leafEl);
+		for (const el of on.path) if (!chain.includes(el)) el.removeClass(PATH);
+		for (const el of chain) el.addClass(PATH);
+		on.path = chain;
+		on.watch?.disconnect();
+		if (!root) return;
+		on.watch ??= new (on.leafEl.win as Window & { MutationObserver: typeof MutationObserver }).MutationObserver(() => { if (this.on === on && !on.entering && on.leafEl.isConnected) this.path(on); });
+		for (const el of [root, ...chain]) on.watch.observe(el, { childList: true });
 	}
 
 	toggle(): void {
@@ -303,7 +327,7 @@ export class Focus {
 		setIcon(out, 'minimize-2');
 		// (said to a screen reader as focus begins: what this is, and the way out)
 		const live = createDiv({ cls: 'binders-focus-live', attr: { role: 'status', 'aria-live': 'polite' } });
-		const on: Active = { leaf, doc, leafEl, comp, top, note: null, corner: null, live, cm: null, slot: new Compartment(), near: [], nearKey: '', nearComp: null, pauseTimer: 0, pointer: { x: -1, y: -1, at: 0 }, full: false, reached: false, dark: null, entering: true };
+		const on: Active = { leaf, doc, leafEl, comp, top, note: null, corner: null, live, cm: null, slot: new Compartment(), near: [], nearKey: '', nearComp: null, pauseTimer: 0, pointer: { x: -1, y: -1, at: 0 }, full: false, reached: false, dark: null, entering: true, path: [], watch: null };
 		this.on = on;
 		this.screen(on, this.opt.focusFullscreen);
 		// (Esc takes the window out of fullscreen before any key reaches the page: that Esc leaves focus mode too)
@@ -322,6 +346,7 @@ export class Focus {
 			doc.body.addClass('binders-focus');
 			doc.body.removeClass('binders-focus-pre');
 			leafEl.addClass('binders-focus-leaf');
+			this.path(on);
 			view.containerEl.append(top);
 			doc.body.append(live);
 			this.furnish(on);
@@ -390,6 +415,9 @@ export class Focus {
 			body.removeClass('binders-focus', 'binders-focus-typing', 'binders-focus-paused', 'binders-focus-dim');
 			this.dark(on, false);
 			on.leafEl.removeClass('binders-focus-leaf', 'has-margins', 'has-place', 'has-numbers', 'has-near', 'is-typewriter');
+			on.watch?.disconnect(); on.watch = null;
+			for (const el of on.path) el.removeClass(PATH);
+			on.path = [];
 			on.leafEl.style.removeProperty('--binders-focus-margin');
 			on.leafEl.style.removeProperty('--binders-focus-tail');
 			on.top.remove();

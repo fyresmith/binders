@@ -64,6 +64,60 @@ test('a binder folder says “binder” at the end of its row, as a canvas says 
 	}
 });
 
+test('a row with “binder” or a label’s dot at its end keeps its name a little clear of it; a row with neither, or with what it had taken away, has no such gap', async (p, h, t) => {
+	const L = 'The Lighthouse', NOTE = L + '/The Lighthouse.md', PRO = L + '/Prologue.md', EPI = L + '/Epilogue.md', ONE = L + '/Part One';
+	const label = (path, to) => p.ev(`app.fileManager.processFrontMatter(app.vault.getAbstractFileByPath(${JSON.stringify(path)}), fm => { ${to ? `fm.label = ${JSON.stringify(to)}` : 'delete fm.label'}; }).then(() => 1)`);
+	const row = (path) => `.workspace-leaf-content[data-type="file-explorer"] .tree-item-self[data-path="${path}"]`;
+	const dotted = async (path, on) => { for (let i = 0; i < 40 && (await p.ev(`!!document.querySelector(${JSON.stringify(row(path) + ' > .binders-explorer-label')})`)) !== on; i++) await p.sleep(100); };
+	/** The room after each row's name, and what stands at the row's end. */
+	const gaps = () => p.ev(`Object.fromEntries(${JSON.stringify([L, ONE, PRO, EPI])}.map(path => { const r = document.querySelector('.workspace-leaf-content[data-type="file-explorer"] .tree-item-self[data-path="' + path + '"]'); return [path, { gap: getComputedStyle(r.querySelector(':scope > .tree-item-inner')).marginInlineEnd, tag: !!r.querySelector(':scope > .binders-folder-tag'), dot: !!r.querySelector(':scope > .binders-explorer-label') }]; }))`);
+	const is = (g, path, gap, tag, dot, m) => t.eq(JSON.stringify(g[path]), JSON.stringify({ gap, tag, dot }), m);
+	await setSettings(p, { explorerLabels: true });
+	try {
+		await rows(p);
+		let g = await gaps();
+		is(g, L, '4px', true, false, 'the binder’s row, with “binder” after its name');
+		is(g, ONE, '0px', false, false, 'a folder inside it: nothing after its name, no gap');
+		is(g, PRO, '0px', false, false, 'a note with no label: no gap');
+		// a label: a dot, and the gap; on the binder's own row too, beside its tag
+		await label(PRO, 'Blue'); await label(NOTE, 'Red');
+		await dotted(PRO, true); await dotted(L, true);
+		g = await gaps();
+		is(g, PRO, '4px', false, true, 'a labeled note: its dot, and the gap');
+		is(g, L, '4px', true, true, 'the binder with a label: the tag and the dot');
+		is(g, EPI, '0px', false, false, 'the note beside it is as it was');
+		// the label gone: the dot and the gap with it; the binder keeps the gap for its tag
+		await label(PRO, null); await label(NOTE, null);
+		await dotted(PRO, false); await dotted(L, false);
+		g = await gaps();
+		is(g, PRO, '0px', false, false, 'the label taken away: no dot, no gap');
+		is(g, L, '4px', true, false, 'the binder without its label: still the gap, for “binder”');
+		// dots turned off in the settings
+		await label(EPI, 'Green');
+		await dotted(EPI, true);
+		is(await gaps(), EPI, '4px', false, true, 'another labeled note');
+		await setSettings(p, { explorerLabels: false });
+		await dotted(EPI, false);
+		is(await gaps(), EPI, '0px', false, false, 'dots turned off: no gap left behind');
+		await setSettings(p, { explorerLabels: true });
+		await dotted(EPI, true);
+		// Binders turned off: nothing of it is left on any row
+		await p.ev(`app.plugins.disablePlugin('binders').then(() => 1)`);
+		try {
+			await p.sleep(300);
+			g = await gaps();
+			is(g, L, '0px', false, false, 'Binders off: the binder’s row is a folder’s');
+			is(g, EPI, '0px', false, false, 'and the labeled note’s row a note’s');
+			t.eq(await p.ev(`document.querySelectorAll('.workspace-leaf-content[data-type="file-explorer"] [class*="binders-"]').length`), 0, 'no class of Binders’ is left in the explorer');
+		} finally { await p.ev(`app.plugins.enablePlugin('binders').then(() => 1)`); }
+		for (let i = 0; i < 40 && (await p.ev(`${pl}?.explorer?.status ?? 'none'`)) !== 'patched'; i++) await p.sleep(100);
+		await dotted(EPI, true);
+		g = await gaps();
+		is(g, L, '4px', true, false, 'on again: the binder’s row');
+		is(g, EPI, '4px', false, true, 'and the labeled note’s');
+	} finally { await setSettings(p, { explorerLabels: true }); }
+});
+
 test('the folder a binder view shows has the open row’s look in the explorer, as an open note has; it follows the view', async (p, h, t) => {
 	await rows(p);
 	const lit = () => p.ev(`[...document.querySelectorAll('.workspace-leaf-content[data-type="file-explorer"] .tree-item-self.is-active')].map(e => e.dataset.path)`);

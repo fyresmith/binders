@@ -196,6 +196,34 @@ test('a synopsis, a label, a status, a target, the export switch and the role ea
 	t.eq(p.errors.filter((e) => !e.includes('Electron Security')).join('\n'), '', 'no errors');
 });
 
+test('“auto” after a role nobody wrote: the role beside it is never cut short for it, in a pane too narrow for both; a role that was written is cut as any value is', async (p, h, t) => {
+	await open(p, 'manuscript');
+	await reveal(p, ARRIVAL);
+	await onItem(p, 'Arrival');
+	await until(p, `/auto/.test(document.querySelector(${j(fieldSel('role'))})?.textContent ?? '')`);
+	// (the value squeezed to less than its words need, as a narrow sidebar does)
+	const squeezed = (px) => p.ev(`(() => { const v = document.querySelector(${j(fieldSel('role'))}); v.style.width = ${j(px)}; v.style.flex = 'none'; const s = [...v.querySelectorAll(':scope > span')]; const got = s.map(e => ({ text: e.textContent, shrink: getComputedStyle(e).flexShrink, cut: e.scrollWidth > e.clientWidth, width: Math.round(e.getBoundingClientRect().width) })); v.style.width = ''; v.style.flex = ''; return got; })()`);
+	const whole = await squeezed(''), tight = await squeezed('30px');
+	t.eq(whole.length, 2, 'the role and “auto”: ' + j(whole));
+	t.eq(whole[1].text, 'auto', 'in that order');
+	t.eq(tight[0].shrink, '0', 'the role doesn’t give way: ' + j(tight));
+	t.ok(!tight[0].cut && tight[0].width === whole[0].width, `the role is as wide as its words, squeezed or not: ${j(whole)} ${j(tight)}`);
+	t.eq(tight[1].shrink, '1', '“auto” is what gives way');
+	// a role written on the note stands alone, and is cut short like any value
+	await field(p, 'role');
+	await clickMenu(p, 'Front matter');
+	await until(p, `document.querySelector(${j(fieldSel('role'))})?.textContent === 'Front matter'`);
+	const written = await squeezed('30px');
+	t.eq(written.length, 1, 'no “auto”: ' + j(written));
+	t.ok(written[0].shrink === '1' && written[0].cut, 'and it is cut short in a pane too narrow for it: ' + j(written));
+	// automatic again: the role has “auto” beside it again, and holds its width again
+	await field(p, 'role');
+	await clickMenu(p, `Automatic: ${whole[0].text.toLowerCase()}`);
+	await until(p, `/auto/.test(document.querySelector(${j(fieldSel('role'))})?.textContent ?? '')`);
+	const again = await squeezed('30px');
+	t.ok(again.length === 2 && again[0].shrink === '0' && !again[0].cut, 'automatic again: ' + j(again));
+});
+
 test('several selected: one status, one target and one role go to all of them; a folder with no folder note gets one only when something is set', async (p, h, t) => {
 	await open(p, 'corkboard', 'The Lighthouse/Part One');
 	await clickCard(p, ARRIVAL);
