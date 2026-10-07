@@ -38,9 +38,9 @@ export function submenu(item: MenuItem, build: (menu: Menu) => void, root?: Menu
 				if (root) {
 					type Add = (cb: (item: MenuItem) => unknown) => Menu;
 					type OnClick = (fn: (evt: MouseEvent | KeyboardEvent) => unknown) => MenuItem;
-					const add = (sub.addItem as Add).bind(sub) as Add;
+					const add = (sub.addItem as Add).bind(sub);
 					(sub as { addItem: Add }).addItem = (cb) => add((it) => {
-						const on = (it.onClick as OnClick).bind(it) as OnClick;
+						const on = (it.onClick as OnClick).bind(it);
 						(it as { onClick: OnClick }).onClick = (fn) => on((e) => { root.close(); return fn(e); });
 						cb(it);
 					});

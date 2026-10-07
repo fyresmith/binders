@@ -9,6 +9,7 @@
     "noImplicitAny": true,
     "noImplicitReturns": false,
     "strictNullChecks": false,
+    "strictBindCallApply": true,
     "moduleResolution": "bundler",
     "importHelpers": true,
     "isolatedModules": true,

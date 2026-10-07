@@ -244,7 +244,7 @@ export function installExplorer(plugin: Plugin, source: ExplorerSource, settings
 		unpatch = around(proto, {
 			getSortedFolderItems: (next: (folder: TFolder) => ExplorerItem[]) => function (this: ExplorerView, folder: TFolder) {
 				reached = true;
-				const items = next.call(this, folder) as ExplorerItem[];
+				const items = next.call(this, folder);
 				try { return arrange(folder, items); } catch (e) { console.error('Binders: could not order the file explorer', e); return items; }
 			},
 		});

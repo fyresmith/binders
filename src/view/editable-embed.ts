@@ -271,7 +271,7 @@ export async function mountEditor(app: App, container: HTMLElement, file: TFile,
 		// (the other way round: a tab of the note showing this very text takes it as saved, so that typing there while
 		// the write is on its way isn't merged with it as if it were an outside change, and doubled)
 		if (now && this.dirty && this.lastSavedData !== null && this.lastSavedData !== text) markSaved(app, file, text);
-		const p = proto.save.call(this, text, now) as Promise<void>;
+		const p = proto.save.call(this, text, now);
 		// (one after the other; a write that failed doesn't make every later one look failed)
 		if (now) {
 			const earlier = writing;
