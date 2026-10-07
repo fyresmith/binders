@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.44.16 (2026-10-07)
+
+### Fixed
+
+- This release carries the fix for the Folder notes plugin: with it on, clicking a binder or a folder inside one opens the binder view, not the folder's note.
+
 ## 0.44.15 (2026-10-07)
 
 ### Fixed
