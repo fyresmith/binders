@@ -10,8 +10,8 @@
 - **Where it came from:** planned 2026-09-30 in a session that also built and released the maintainer's first plugin,
   **Evra Timelines** (`~/Projects/evra`). Binders reuses Evra's toolchain and team workflow. Evra is a good reference
   for native-looking UI, e2e tests, the release workflow, and the lessons in AGENTS.md.
-- **Version:** 0.44.x (the number is in `package.json`; every commit bumps it). **Released:** 0.44.5 is the latest
-  release (2026-10-06, the first public beta), and Binders is in Obsidian's community directory
+- **Version:** 0.44.x (the number is in `package.json`; every commit bumps it). **Released:** 0.44.12 is the latest
+  release (2026-10-06; 0.44.5, the same day, was the first public beta), and Binders is in Obsidian's community directory
   (https://community.obsidian.md/plugins/binders). `manifest.json` names the last release; only `ship --release`
   changes it, and every release is a full one, never a draft or a pre-release (AGENTS.md).
 - **Unmerged:** nothing (2026-10-06). Snapshots of a folder and of a whole binder are at step 1 of 4 on `main`
