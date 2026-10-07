@@ -255,6 +255,98 @@ test('click opens a binder or a folder in one, and still expands it', async (p, 
 	}
 });
 
+// The Folder notes plugin (LostPaul/obsidian-folder-notes, 1.8.26), as far as it matters here: a stand-in under its id
+// that takes clicks as it does (`handleFileExplorerClick`): on the document, ahead of Obsidian; a folder with a note
+// named like it opens that note, and the click goes no further.
+const FOLDER_NOTES = `(() => {
+	window.__notes = [];
+	const take = (e) => {
+		if (e.shiftKey || e.button === 2 || e.target.closest('.collapse-icon')) return;
+		const path = e.target.closest('.nav-folder-title')?.getAttribute('data-path');
+		const note = path && app.vault.getAbstractFileByPath(path + '/' + path.split('/').pop() + '.md');
+		if (!note) return;
+		e.preventDefault(); e.stopImmediatePropagation();
+		window.__notes.push(note.path);
+	};
+	document.addEventListener('click', take, true); document.addEventListener('auxclick', take, true);
+	app.plugins.plugins['folder-notes'] = { manifest: { id: 'folder-notes' }, off: () => { document.removeEventListener('click', take, true); document.removeEventListener('auxclick', take, true); } };
+	return 1;
+})()`;
+
+test('with Folder notes on, a click on a binder or a folder in one opens its view, not its note; other folders open their notes', async (p, h, t) => {
+	await p.ev(`(async () => { await app.vault.createFolder('Plain'); await app.vault.create('Plain/Plain.md', 'A plain folder’s note.'); await app.vault.create('The Lighthouse/Part One/Part One.md', ''); await app.vault.create('The Lighthouse/Part Two/Part Two.md', ''); })().then(() => 1)`);
+	try {
+		await rows(p);
+		await p.ev(`(() => { window.__opened = []; ${pl}.openBinder = (f, leaf) => window.__opened.push(f.path + (leaf ? ' (' + leaf + ')' : '')); ${EXP}.fileItems['The Lighthouse/Part One'].setCollapsed(true); return 1; })()`);
+		await p.ev(FOLDER_NOTES);
+		await p.sleep(200);
+		const title = (path) => p.at(`.nav-folder-title[data-path="${path}"] .nav-folder-title-content`);
+		const collapsed = (path) => p.ev(`${EXP}.fileItems[${JSON.stringify(path)}].collapsed`);
+		const opened = () => p.ev(`window.__opened`), notes = () => p.ev(`window.__notes`);
+		let at = await title('The Lighthouse/Part One');
+		await p.click(at.x, at.y); await p.sleep(250);
+		same(t, await opened(), ['The Lighthouse/Part One'], 'a folded folder in the binder opens its view');
+		t.eq(await collapsed('The Lighthouse/Part One'), false, 'and unfolds');
+		at = await title('The Lighthouse/Part One');
+		await p.click(at.x, at.y); await p.sleep(250);
+		same(t, await opened(), ['The Lighthouse/Part One', 'The Lighthouse/Part One'], 'an open one opens its view');
+		t.eq(await collapsed('The Lighthouse/Part One'), false, 'and stays open');
+		// the row beside the name
+		at = await p.at(`.nav-folder-title[data-path="The Lighthouse"]`);
+		await p.click(at.l + at.w - 6, at.y); await p.sleep(250);
+		t.eq((await opened())[2], 'The Lighthouse', 'the binder’s row opens the binder');
+		at = await title('The Lighthouse/Part Two');
+		await p.click(at.x, at.y, { modifiers: process.platform === 'darwin' ? 4 : 2 }); await p.sleep(250);
+		t.eq((await opened())[3], 'The Lighthouse/Part Two (tab)', 'Mod-click opens the view in a new tab');
+		t.eq(await collapsed('The Lighthouse/Part Two'), true, 'and folds the folder, as Obsidian does at a click');
+		at = await title('The Lighthouse/Part Two');
+		await p.click(at.x, at.y, { button: 'middle' }); await p.sleep(250);
+		t.eq((await opened())[4], 'The Lighthouse/Part Two (tab)', 'so does a middle click');
+		t.eq(await collapsed('The Lighthouse/Part Two'), true, 'which folds nothing');
+		same(t, await notes(), [], 'Folder notes opened none of their notes');
+		// the chevron only folds and unfolds
+		at = await p.at(`.nav-folder-title[data-path="The Lighthouse/Part Two"] .collapse-icon`);
+		await p.click(at.x, at.y); await p.sleep(250);
+		t.eq(await collapsed('The Lighthouse/Part Two'), false, 'the arrow unfolds');
+		t.eq((await opened()).length, 5, 'and opens nothing');
+		// outside binders, Folder notes has the click
+		at = await title('Plain');
+		await p.click(at.x, at.y); await p.sleep(250);
+		same(t, await notes(), ['Plain/Plain.md'], 'a folder outside binders opens its note');
+		t.eq((await opened()).length, 5, 'and no binder view');
+		// with "open on click" off, a binder's folders are folders like any other
+		await setSettings(p, { openOnClick: false });
+		at = await title('The Lighthouse/Part Two');
+		await p.click(at.x, at.y); await p.sleep(250);
+		same(t, await notes(), ['Plain/Plain.md', 'The Lighthouse/Part Two/Part Two.md'], 'with the setting off, Folder notes opens the folder’s note');
+		t.eq((await opened()).length, 5, 'and Binders opens nothing');
+	} finally {
+		await p.ev(`(async () => { app.plugins.plugins['folder-notes']?.off?.(); delete app.plugins.plugins['folder-notes']; delete ${pl}.openBinder; for (const f of ['Plain', 'The Lighthouse/Part One/Part One.md', 'The Lighthouse/Part Two/Part Two.md']) { const x = app.vault.getAbstractFileByPath(f); if (x) await app.vault.delete(x, true); } })().then(() => 1)`);
+		await setSettings(p, { openOnClick: true });
+	}
+});
+
+test('with Folder notes on, the binder in front still folds and unfolds at a click', async (p, h, t) => {
+	await rows(p);
+	await p.ev(FOLDER_NOTES);
+	try {
+		const title = (path) => p.at(`.nav-folder-title[data-path="${path}"] .nav-folder-title-content`);
+		const collapsed = (path) => p.ev(`${EXP}.fileItems[${JSON.stringify(path)}].collapsed`);
+		const shown = () => p.ev(`app.workspace.getMostRecentLeaf().view.folder?.path ?? null`);
+		let at = await title('The Lighthouse');
+		await p.click(at.x, at.y); await p.sleep(500);
+		t.eq(await shown(), 'The Lighthouse', 'the binder opens');
+		t.eq(await collapsed('The Lighthouse'), false, 'and stays open in the explorer');
+		await p.click(at.x, at.y); await p.sleep(500);
+		t.eq(await collapsed('The Lighthouse'), true, 'a click on the binder in front folds it');
+		await p.click(at.x, at.y); await p.sleep(500);
+		t.eq(await collapsed('The Lighthouse'), false, 'and another unfolds it');
+		same(t, await p.ev(`window.__notes`), [], 'Folder notes opened nothing');
+	} finally {
+		await p.ev(`(() => { app.plugins.plugins['folder-notes']?.off?.(); delete app.plugins.plugins['folder-notes']; return 1; })()`);
+	}
+});
+
 test('a click that opens a folder’s view doesn’t fold it; once its view is in front, a click folds it as any folder’s', async (p, h, t) => {
 	await rows(p);
 	const title = (path) => p.at(`.nav-folder-title[data-path="${path}"] .nav-folder-title-content`);

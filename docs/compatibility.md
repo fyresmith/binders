@@ -46,6 +46,12 @@ An update to Binders is the fix in each case.
 Longform's multi-scene projects open as binders, with both plugins on or with Longform off. Projects that hold a
 single note (`format: single`) aren't binders. See [Coming from Longform](longform.md).
 
+## Folder notes
+
+With the Folder notes plugin on, clicking a binder, or a folder inside one, in the file explorer still opens the
+binder view, on the name or anywhere on the row. Folders outside binders open their folder notes as they always do.
+With **Open binders from the file explorer** off, a binder's folders open their notes too.
+
 ## Other plugins
 
 - A card's or row's menu includes the items Obsidian's core plugins and your other plugins offer for that note, as

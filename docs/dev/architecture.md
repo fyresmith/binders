@@ -259,7 +259,7 @@ The full table (what each internal is, how it is detected, the fallback, the tes
 
 | Module | What it reaches into |
 |---|---|
-| `src/explorer.ts` | The file explorer view: `getSortedFolderItems`, `fileItems`, `requestSort`, `startRenameFile`, a folder item's `collapsed`/`toggleCollapsed`/`setCollapsed`, `tree.handleItemSelection`, the explorer's DOM, and `app.dragManager` for dragging. |
+| `src/explorer.ts` | The file explorer view: `getSortedFolderItems`, `fileItems`, `requestSort`, `startRenameFile`, a folder item's `collapsed`/`toggleCollapsed`/`setCollapsed`, `tree.handleItemSelection`, the explorer's DOM, `app.dragManager` for dragging, and `app.plugins.plugins` (whether Folder notes is running). |
 | `src/view/file-drag.ts` | `app.dragManager` in full (`dragFile`, `dragFolder`, `dragFiles`, `onDragStart`, `onDragEnd`, `ghostEl`), drag events made by hand, and a few class names (a canvas, bookmarks, tabs). |
 | `src/view/editable-embed.ts` | `app.embedRegistry.embedByExtension.md`, the embed's own methods and fields, `workspace.unsetActiveEditor`, `workspace.onQuickPreview`, Obsidian's cache of undo histories, a tab's `lastSavedData`. |
 | `src/import/desktop.ts` | Electron's `remote.dialog.showOpenDialog`, and Node's `fs` (`readFile`, `readdir`, `lstat`) and `path`, through `nodeRequire` in `src/export/desktop.ts`. Null when anything is missing: a zipped backup, through the browser's file chooser, is the way then. |

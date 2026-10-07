@@ -85,6 +85,14 @@ export function renameInExplorer(app: App, file: TAbstractFile): boolean {
 	return false;
 }
 
+/** Whether the Folder notes plugin (https://github.com/LostPaul/obsidian-folder-notes) is running. It opens a folder's
+    note at a click on the folder, which in a binder is Binders' click (see `onClickAhead`). Internal:
+    `app.plugins.plugins`; if it's missing, the plugin is taken not to be running. */
+function folderNotesRunning(app: App): boolean {
+	const plugins = (app as unknown as { plugins?: { plugins?: Record<string, unknown> } }).plugins?.plugins;
+	return !!plugins && typeof plugins === 'object' && !!plugins['folder-notes'];
+}
+
 /** Loaded file explorer views; `missing` if one is loaded but lacks what we patch. Deferred (not yet loaded) leaves
     are skipped. */
 function explorerViews(app: App): { views: ExplorerView[]; missing: boolean } {
@@ -284,7 +292,7 @@ export function installExplorer(plugin: Plugin, source: ExplorerSource, settings
 	/** The folder in a binder that a click in the file explorer is on, if the click is one that opens its view: a plain
 	    click, or a Mod-click or middle click (a new tab, as for a note). Shift and Alt clicks select, so they're left
 	    alone. */
-	const clicked = (e: MouseEvent): { f: TFolder; title: HTMLElement; newLeaf: boolean | PaneType; middle: boolean } | null => {
+	const clicked = (e: MouseEvent, unfolding = false): { f: TFolder; title: HTMLElement; newLeaf: boolean | PaneType; middle: boolean } | null => {
 		if (!settings().openOnClick || e.defaultPrevented) return null;
 		const middle = e.type === 'auxclick' && e.button === 1;
 		if (!middle && e.button !== 0) return null;
@@ -299,7 +307,8 @@ export function installExplorer(plugin: Plugin, source: ExplorerSource, settings
 		if (!(f instanceof TFolder)) return null;
 		// (on a phone the explorer is a drawer that closes when something opens: a tap on a folder inside a binder
 		// only unfolds it, so the notes in it can be reached; the binder itself opens, and its folders from there)
-		if (Platform.isPhone && !source.isBinderFolder(f)) return null;
+		// (`unfolding`: asked by `onClickAhead`, which does that unfolding itself)
+		if (!unfolding && Platform.isPhone && !source.isBinderFolder(f)) return null;
 		return source.isBinderFolder(f) || source.inBinder(f) ? { f, title, newLeaf, middle } : null;
 	};
 	/** Opens the view of the folder clicked. Heard after Obsidian's own handler, which has folded or unfolded it. */
@@ -328,6 +337,33 @@ export function installExplorer(plugin: Plugin, source: ExplorerSource, settings
 			// what else Obsidian does with a click on a row: the selection and the keyboard's place in the list
 			try { (v as ExplorerView & { tree?: { handleItemSelection?: (e: MouseEvent, item: unknown) => boolean } }).tree?.handleItemSelection?.(e, it); } catch { /* the selection stays */ }
 			openBinder(c.f, c.newLeaf);
+			return;
+		}
+	};
+	/** With the Folder notes plugin running, a click on a folder that has a note opens the note: that plugin takes the
+	    click on the document, ahead of Obsidian, and lets it go no further. In a binder the note is the binder's or the
+	    folder's own, and the click is one that opens the binder view. So such a click is taken here first, on the
+	    window, and done whole: what Obsidian does with a click on a folder's row (the selection, or else folding and
+	    unfolding; nothing for the middle button), with `onClickFirst`'s exceptions, then the view. Folders outside
+	    binders are never taken: there Folder notes works as it does. Without the explorer's internals nothing is
+	    taken, and Folder notes has the click. */
+	const onClickAhead = (e: MouseEvent) => {
+		if (!folderNotesRunning(app)) return;
+		const c = clicked(e, true);
+		if (!c) return;
+		// (a phone's tap on a folder inside a binder only unfolds it: see `clicked`)
+		const opens = !Platform.isPhone || source.isBinderFolder(c.f);
+		for (const v of explorerViews(app).views) {
+			const it: (ExplorerItem & { collapsed?: boolean; toggleCollapsed?: (animate: boolean) => unknown }) | undefined = v.fileItems[c.f.path];
+			if (it?.selfEl !== c.title || typeof it.toggleCollapsed !== 'function') continue;
+			e.stopPropagation();
+			if (c.middle) { openBinder(c.f, c.newLeaf); return; }
+			// the folder in front folds and unfolds; an open one whose view this click opens stays open
+			const front = !c.newLeaf && shown() === c.f, stays = !c.newLeaf && opens && it.collapsed === false;
+			let selected = false;
+			if (!front) try { selected = !!(v as ExplorerView & { tree?: { handleItemSelection?: (e: MouseEvent, item: unknown) => boolean } }).tree?.handleItemSelection?.(e, it); } catch { /* the selection stays */ }
+			if (front || (!stays && !selected)) try { void it.toggleCollapsed(true); } catch { /* it stays as it is */ }
+			if (!front && opens) openBinder(c.f, c.newLeaf);
 			return;
 		}
 	};
@@ -482,6 +518,8 @@ export function installExplorer(plugin: Plugin, source: ExplorerSource, settings
 
 	/** The explorer's own listeners, in a window: the main one, and any an explorer is popped out into. */
 	const listen = (doc: Document) => {
+		// (the window hears a click before the document does, whichever plugin was turned on first)
+		if (doc.defaultView) { plugin.registerDomEvent(doc.defaultView, 'click', onClickAhead, true); plugin.registerDomEvent(doc.defaultView, 'auxclick', onClickAhead, true); }
 		plugin.registerDomEvent(doc, 'click', onClickFirst, true);
 		plugin.registerDomEvent(doc, 'click', onClick);
 		plugin.registerDomEvent(doc, 'auxclick', onClick);

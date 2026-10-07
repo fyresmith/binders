@@ -57,6 +57,7 @@ The whole table was read against the code on 2026-10-02 (Obsidian 1.13.7): each 
 | `vault.getConfig('vimMode')` (already above) | `src/view/internals.ts` (`vimMode`) | Focus mode leaves Escape to Vim | Escape leaves focus | `specs-focus.mjs` (Escape) |
 | `vault.getConfig('theme')` (`moonstone` light, `obsidian` dark, `system`), and the classes `theme-light` and `theme-dark` on `<body>` (which Obsidian's stylesheet, themes and snippets hang their colors on) | `src/focus/dom.ts` (`lightTheme`), `src/focus/focus.ts` (`dark`) | Focus mode's "Dim the background": the window has `theme-dark` while focus is on, and the class it had is put back on leaving, by what the setting says the appearance is then | What `<body>` said when focus began is put back | `specs-focus.mjs` (“Dim the background”, on by default) |
 | `app.plugins.plugins.longform` (loaded plugins by id) | `src/longform.ts` (`longformRunning`) | Leaving rename and delete tracking in Longform projects to Longform while it runs, so the index note isn't written twice | Treated as not running: Binders writes renames and deletes itself (the same change Longform would make) | `specs-longform.mjs` (a stand-in plugin) |
+| `app.plugins.plugins['folder-notes']` (loaded plugins by id) | `src/explorer.ts` (`folderNotesRunning`) | With the Folder notes plugin running, taking a click that opens a binder's view ahead of it (see "The file explorer"), so the click opens the view and not the binder's or folder's note | Treated as not running: nothing is taken, and Folder notes opens the note | `specs-explorer.mjs` (a stand-in plugin; "with Folder notes on") |
 | `.mobile-navbar` (the bar of buttons Obsidian lays over the foot of a phone's screen) | `src/view/drag.ts` (`visibleBottom`), `styles.css` | A drag held near the foot of a view scrolls from the top of the bar, not from the edge of the pane under it | Without the bar, the pane's own edge | `specs-qa4-mobile.mjs`, `specs-mobile.mjs` |
 | `.popover.hover-popover` (a note preview over a link) | `src/focus/focus.ts` (`onEscape`) | Escape closes a preview before it leaves focus mode | Escape leaves focus mode with the preview open | `specs-focus.mjs` (added 2026-10-02) |
 | `window.event`, the event whose listeners are running now | `src/view/editable-embed.ts` (`currentEvent`) | Telling that the page is going (a `pagehide`) when another handler's save hears of it before Binders does, so nothing is started as the page goes on a computer | Not an event of that kind: the module's own `leaving` flag decides | none that reaches it (`specs-binders.mjs` sends `pagehide` by script, which `going()` doesn't count: it wants a trusted event) |
@@ -94,6 +95,16 @@ event and its `tasks.addPromise()` (`src/view/manuscript.ts`); `getSettingDefini
   so expanding and selecting work as before. Alt-click and Shift-click select in the explorer, so Binders ignores them;
   Mod-click doesn't select there, so it opens the binder in a new tab, as it opens a note. A touch tap on mobile arrives
   as the same `click`.
+- The Folder notes plugin (LostPaul/obsidian-folder-notes; read at 1.8.26, and tried beside Binders on Obsidian
+  1.13.7) listens for `click` and `auxclick` on the document while they're on their way down, and at a folder that has
+  a note named like it opens the note and calls `stopImmediatePropagation()`: neither Obsidian nor a listener added to
+  the document after its own hears the click. A binder's note and a folder's note are such notes. So while it runs
+  (`folderNotesRunning`), Binders also listens on the window, which hears a click before any document listener does,
+  whichever plugin was turned on first. A click that opens a binder's view is stopped there and done whole
+  (`onClickAhead`): the item's `view.tree.handleItemSelection(e, item)` or else `toggleCollapsed(true)`, which is all
+  the folder item's `onSelfClick` does (and nothing for the middle button), then the view. Clicks on folders outside
+  binders, on the chevron, with Shift or Alt, or with "open on click" off are never stopped, so Folder notes works
+  there as it does.
 - Leaves that aren't loaded yet (`leaf.isDeferred`, 1.7.2+) are skipped; Binders patches once a loaded explorer
   appears (`layout-change`).
 - The patched method also puts the “binder” tag and the label dots on the items it returns (`mark`), so rows that
