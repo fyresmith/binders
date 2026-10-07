@@ -170,7 +170,7 @@ export async function readFolderSnapshot(plugin: BindersPlugin, s: FolderSnapsho
 	let got = read.get(key);
 	if (!got) {
 		got = parseFolderSnapshot(await readExact(app, s.file.path));
-		if (read.size > 6) read.delete(read.keys().next().value as string);
+		if (read.size > 6) { const [oldest] = read.keys(); read.delete(oldest); }
 		read.set(key, got);
 	}
 	const mine = b ? rel(b, folder) : '', inside = mine === s.of ? '' : mine.slice(s.of ? s.of.length + 1 : 0) + '/';

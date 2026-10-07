@@ -1200,7 +1200,7 @@
 .is-mobile .binders-toolbar {
 	--icon-size: var(--icon-l);
 	--icon-stroke: var(--icon-l-stroke-width);
-	column-gap: var(--size-4-2);
+	gap: var(--size-2-2) var(--size-4-2);
 }
 
 /* What a finger is meant to hit is a finger across (44px, as the buttons of Obsidian's own header above are), without
@@ -2870,7 +2870,7 @@
 	flex: 1 0 auto;
 	grid-template-columns: var(--binders-lane-pad) repeat(var(--binders-lanes), var(--binders-lane-pitch)) var(--binders-lane-pad);
 	grid-template-rows: auto repeat(var(--binders-slots), auto) minmax(0, 1fr);
-	column-gap: 0;
+	gap: var(--size-4-3) 0;
 }
 
 .binders-lanes.mod-down > .binders-card {
@@ -3288,7 +3288,8 @@ body:not(.is-phone) .binders-snapshots:is(.mod-sidebar-layout, .is-plain) > .mod
 	background-color: rgba(var(--color-red-rgb), 0.2);
 	color: var(--text-muted);
 	/* (the line in the mark's color, so a whole paragraph taken out can still be read) */
-	text-decoration: line-through rgba(var(--color-red-rgb), 0.7);
+	text-decoration-line: line-through;
+	text-decoration-color: rgba(var(--color-red-rgb), 0.7);
 }
 
 .binders-snapshots-diff ins {
@@ -5430,7 +5431,8 @@ body:not(.is-phone) .binders-export .binders-export-options .setting-item.settin
 .binders-folder-snapshots-tree del {
 	background-color: rgba(var(--color-red-rgb), 0.2);
 	color: var(--text-muted);
-	text-decoration: line-through rgba(var(--color-red-rgb), 0.7);
+	text-decoration-line: line-through;
+	text-decoration-color: rgba(var(--color-red-rgb), 0.7);
 }
 
 .binders-folder-snapshots-tree ins {

@@ -305,7 +305,7 @@ export function installExplorer(plugin: Plugin, source: ExplorerSource, settings
 		const c = clicked(e);
 		if (!c || c.middle || c.newLeaf) return;
 		for (const v of explorerViews(app).views) {
-			const it = v.fileItems[c.f.path] as (ExplorerItem & { collapsed?: boolean; toggleCollapsed?: (animate: boolean) => unknown }) | undefined;
+			const it: (ExplorerItem & { collapsed?: boolean; toggleCollapsed?: (animate: boolean) => unknown }) | undefined = v.fileItems[c.f.path];
 			if (it?.selfEl !== c.title) continue;
 			// (the folder in front has the open row's mark, and Obsidian does nothing with a click on that row but put
 			// the keyboard in the explorer: here the click folds or unfolds it, as on any folder)
@@ -428,7 +428,7 @@ export function installExplorer(plugin: Plugin, source: ExplorerSource, settings
 		const timer = window.setTimeout(() => {
 			spring = null;
 			for (const v of explorerViews(app).views) {
-				const it = v.fileItems[title.dataset.path ?? ''] as (ExplorerItem & { collapsed?: boolean; setCollapsed?: (c: boolean, animate: boolean) => unknown; toggleCollapsed?: (animate: boolean) => unknown }) | undefined;
+				const it: (ExplorerItem & { collapsed?: boolean; setCollapsed?: (c: boolean, animate: boolean) => unknown; toggleCollapsed?: (animate: boolean) => unknown }) | undefined = v.fileItems[title.dataset.path ?? ''];
 				if (it?.selfEl !== title || it.collapsed !== true) continue;
 				try { if (typeof it.setCollapsed === 'function') void it.setCollapsed(false, true); else void it.toggleCollapsed?.(true); } catch { /* it stays folded */ }
 			}

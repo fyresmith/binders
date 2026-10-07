@@ -631,7 +631,7 @@ export class BinderStore extends Events implements ExplorerSource {
 	private propNote(item: TAbstractFile): TFile | null { return item instanceof TFolder ? this.folderNote(item) : item instanceof TFile ? item : null; }
 	private propOf(item: TAbstractFile, key: string): unknown {
 		const note = this.propNote(item);
-		return note ? (this.app.metadataCache.getFileCache(note)?.frontmatter as Record<string, unknown> | undefined)?.[key] : undefined;
+		return note ? this.app.metadataCache.getFileCache(note)?.frontmatter?.[key] : undefined;
 	}
 	private async setProp(item: TAbstractFile, key: string, value: unknown): Promise<void> {
 		// (a folder with no note of its own gets one only to hold a value, never to say it has none)
