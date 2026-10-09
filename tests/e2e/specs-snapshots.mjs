@@ -94,6 +94,9 @@ const COMPARE = DLG + ' .binders-snapshots-compare';
 /** The changes shown, a paragraph to a line: [-taken out-] and {+put in+} where they fall. */
 const changes = (p) => p.ev(`[...document.querySelectorAll(${j(DLG + ' .binders-snapshots-changes > p')})].map(e => [...e.childNodes].map(n => n.nodeName === 'DEL' ? '[-' + n.textContent + '-]' : n.nodeName === 'INS' ? '{+' + n.textContent + '+}' : n.textContent).join(''))`);
 /** Everything on the dialog's top line, as boxes: the note's name and its button over the list, the bar's name and controls, the button that closes it. */
+/** Where each paragraph of a pane starts, against the flush “Third paragraph” (its first letter, in pixels). */
+const indents = (p, pane) => p.ev(`(() => { const root = document.querySelector(${j(DLG + ' ' + pane)}); const first = (el) => { const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); for (let n; (n = w.nextNode());) { const i = n.textContent.search(/\\S/); if (i >= 0) { const r = document.createRange(); r.setStart(n, i); r.setEnd(n, i + 1); return r.getBoundingClientRect().left; } } return null; }; const ps = [...root.querySelectorAll('p')].map((e) => ({ text: e.textContent, x: first(e), tab: e.classList.contains('binders-tab-paragraph') })); const flush = ps.find((x) => x.text.startsWith('Third paragraph')); return ps.map((x) => ({ text: x.text.slice(0, 22), at: Math.round(x.x - flush.x), tab: x.tab })); })()`);
+const setting = (p, o) => p.ev(`(async () => { const pl = ${PL}; Object.assign(pl.settings, ${j(o)}); await pl.saveSettings(); return 1; })()`);
 const topLine = (p) => p.ev(`(() => { const d = document.querySelector(${j(DLG)}), box = (e, what) => { const r = e.getBoundingClientRect(); return { what, top: r.top, height: r.height, mid: r.top + r.height / 2, left: r.left, right: r.right }; }; return { controls: [...d.querySelectorAll('.binders-snapshots-head .clickable-icon, .binders-snapshots-head button, .binders-snapshots-bar .modal-setting-titlebar-actions > *')].map(e => box(e, e.textContent || e.getAttribute('aria-label'))), close: [...d.querySelectorAll(':scope > .modal-header-button, :scope > .modal-close-button')].filter(e => e.offsetParent).map(e => box(e, 'close')), words: [...d.querySelectorAll('.binders-snapshots-of, .binders-snapshots-bar .binders-snapshots-title')].filter(e => e.offsetParent).map(e => box(e, e.textContent)) }; })()`);
 const shownText = (p) => p.ev(`(() => { const e = document.querySelector(${j(DLG + ' .binders-snapshots-text')}); return e && e.isShown() ? e.innerText : null; })()`);
 const pick = (p, text) => press(p, DLG + ' .binders-snapshots-item', text);
@@ -1648,6 +1651,42 @@ test('what changed reads as prose: words only put in, only taken out, both; a pa
 	t.eq(j(look), j({ gaps: true, narrow: true, inside: true, selectable: true }), 'set as a note is: paragraphs apart, at a line’s width, to be selected');
 	same(t, before, await texts(p));
 	t.eq(await textOf(p, DIR + '/2026-09-12 09.15.40 Then.snapshot'), THEN, 'the snapshot is untouched');
+});
+
+test('“Show changes” sets a tab paragraph in as the text beside it does: reworded, put in, taken out or the same, each one indent in; with “Indent paragraphs” on, not set in twice; with the setting off, none marked', async (p, h, t) => {
+	const THEN = 'Plain flush paragraph one, first.\n\n\tTab paragraph reworded, first.\n\n\tCut from the draft, entirely.\n\n\tA tab paragraph the same.\n\nThird paragraph follows.\n';
+	const NOW = 'Plain flush paragraph one, changed.\n\n\tTab paragraph reworded, changed.\n\n\tWritten since, and set in too.\n\n\tA tab paragraph the same.\n\nThird paragraph follows.\n';
+	await write(p, A, NOW);
+	await seed(p, DIR, '2026-09-12 09.15.40 Then', THEN);
+	await dialog(p);
+	await pick(p, 'Then');
+	const tabbed = (x) => /^(Tab|Cut|Written|A tab)/.test(x.text);
+	const at = (x) => (tabbed(x) ? 24 : 0);
+	const beside = await indents(p, '.binders-snapshots-text');
+	t.ok(beside.length === 5 && beside.every((x) => Math.abs(x.at - at(x)) < 1), 'the text beside it: a tab paragraph one indent in, the others flush: ' + j(beside));
+	await press(p, COMPARE, 'Show changes');
+	await until(p, `!!document.querySelector(${j(DLG + ' .binders-snapshots-changes p')})`);
+	const shown = await indents(p, '.binders-snapshots-changes');
+	t.ok(shown.length === 6 && shown.every((x) => Math.abs(x.at - at(x)) < 1), 'with “Show changes”: the same indents, in every kind of paragraph: ' + j(shown));
+	t.eq(shown.filter((x) => x.tab).length, 4, 'and the four tab paragraphs are marked as such');
+	// with “Indent paragraphs” on, each paragraph is still set in once
+	await setting(p, { indentParagraphs: true });
+	try {
+		await press(p, COMPARE, 'Show changes');
+		await press(p, COMPARE, 'Show changes');
+		await until(p, `!!document.querySelector(${j(DLG + ' .binders-snapshots-changes p')})`);
+		const twice = await indents(p, '.binders-snapshots-changes');
+		t.ok(twice.length === 6 && twice.every((x) => Math.abs(x.at - at(x)) < 1), 'with “Indent paragraphs” on, still one indent each: ' + j(twice));
+	} finally { await setting(p, { indentParagraphs: false }); }
+	// with the setting off (as for a note outside a binder, where nothing is marked either): no paragraph is marked
+	await setting(p, { tabParagraphs: false });
+	try {
+		await press(p, COMPARE, 'Show changes');
+		await press(p, COMPARE, 'Show changes');
+		await until(p, `!!document.querySelector(${j(DLG + ' .binders-snapshots-changes p')})`);
+		const marked = await p.ev(`document.querySelectorAll(${j(DLG + ' .binders-snapshots-changes .binders-tab-paragraph')}).length`);
+		t.eq(marked, 0, 'with “Start a paragraph with a tab” off, nothing in the changes is marked as a tab paragraph');
+	} finally { await setting(p, { tabParagraphs: true }); }
 });
 
 // ---- a name is what the writer typed ----

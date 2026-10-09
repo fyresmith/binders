@@ -1,6 +1,7 @@
 /* Snapshots of a scene: the text rules, pure so they can be unit-tested. What a snapshot's file is called, what it
    says about itself, and how two texts compare for a reader of prose: paragraph by paragraph, and within a paragraph
    that was changed, word by word. */
+import { tabLines } from './paragraphs/text';
 
 /** The folder, at the top of a binder, that holds the snapshots of its notes. */
 export const SNAPSHOTS = 'Snapshots';
@@ -69,7 +70,9 @@ export function readSnapshot(text: string): { body: string; of: string | null; t
 export interface Piece { text: string; changed: boolean }
 /** One row of a comparison: a paragraph both have (`same`), one only the old text has (`old`), one only the new has
     (`new`). A paragraph that was reworded is an `old` row followed by a `new` row, each with its changed words marked. */
-export interface Row { kind: 'same' | 'old' | 'new'; pieces: Piece[] }
+export interface Row { kind: 'same' | 'old' | 'new'; pieces: Piece[]; /** Its paragraph begins with a tab (`tabLines`); the tab is still in `pieces`. */ tab: boolean }
+/** A paragraph as it is in its text: the line, and whether it is a paragraph begun with a tab. */
+interface Para { text: string; tab: boolean }
 
 /** The most cells the table of `table` may have: beyond it, a stretch is cut into smaller ones first (`match`). */
 const TABLE = 6e6;
@@ -157,9 +160,9 @@ const REWORDED = 0.34;
 
 /** A stretch of paragraphs that changed: which old one became which new one (the pairing with the most in common,
     in order), each such pair marked word by word; the rest are paragraphs taken out or put in, whole. */
-function changed(gone: string[], come: string[]): Row[] {
-	const a = gone.map(words), b = come.map(words), n = a.length, m = b.length;
-	const whole = (kind: 'old' | 'new', text: string): Row => ({ kind, pieces: [{ text, changed: false }] });
+function changed(gone: Para[], come: Para[]): Row[] {
+	const a = gone.map((g) => words(g.text)), b = come.map((c) => words(c.text)), n = a.length, m = b.length;
+	const whole = (kind: 'old' | 'new', x: Para): Row => ({ kind, pieces: [{ text: x.text, changed: false }], tab: x.tab });
 	if (n * m > 400) return [...gone.map((g) => whole('old', g)), ...come.map((c) => whole('new', c))];
 	const sim = a.map((x) => b.map((y) => alike(x, y)));
 	// best[i][j]: the most that a[i..] and b[j..] can have in common, pairing in order
@@ -168,7 +171,7 @@ function changed(gone: string[], come: string[]): Row[] {
 	const rows: Row[] = [];
 	for (let i = 0, j = 0; i < n || j < m;) {
 		if (i < n && j < m && sim[i][j].share >= REWORDED && best[i][j] === sim[i][j].share + best[i + 1][j + 1]) {
-			rows.push({ kind: 'old', pieces: pieces(a[i], new Set(sim[i][j].pairs.map((p) => p[0]))) }, { kind: 'new', pieces: pieces(b[j], new Set(sim[i][j].pairs.map((p) => p[1]))) });
+			rows.push({ kind: 'old', pieces: pieces(a[i], new Set(sim[i][j].pairs.map((p) => p[0]))), tab: gone[i].tab }, { kind: 'new', pieces: pieces(b[j], new Set(sim[i][j].pairs.map((p) => p[1]))), tab: come[j].tab });
 			i++; j++;
 		} else if (j >= m || (i < n && best[i][j] === best[i + 1][j])) rows.push(whole('old', gone[i++]));
 		else rows.push(whole('new', come[j++]));
@@ -176,13 +179,19 @@ function changed(gone: string[], come: string[]): Row[] {
 	return rows;
 }
 
-/** Compares two texts as prose: by paragraph (a line with text in it), then by word inside a paragraph that changed. */
+/** Compares two texts as prose: by paragraph (a line with text in it), then by word inside a paragraph that changed.
+    Each row says whether its paragraph begins with a tab, as `tabLines` says of the text it came from. A whole
+    paragraph keeps the tab in its text; a reworded one is compared by its words, which have none. Whether to show the
+    tab as an indent, or leave it as the code it is, is the caller's. */
 export function compare(before: string, after: string): Row[] {
-	const paras = (s: string) => s.replace(/\r\n?/g, '\n').split('\n').map((l) => l.trimEnd()).filter((l) => l.trim());
-	const a = paras(before), b = paras(after), pairs = common(a, b), rows: Row[] = [];
+	const paras = (s: string): Para[] => {
+		const t = s.replace(/\r\n?/g, '\n'), tabs = new Set(tabLines(t));
+		return t.split('\n').map((l, n) => ({ text: l.trimEnd(), tab: tabs.has(n) })).filter((x) => x.text.trim());
+	};
+	const a = paras(before), b = paras(after), pairs = common(a.map((x) => x.text), b.map((x) => x.text)), rows: Row[] = [];
 	const between = (i0: number, i1: number, j0: number, j1: number) => { rows.push(...changed(a.slice(i0, i1), b.slice(j0, j1))); };
 	let i = 0, j = 0;
-	for (const [x, y] of pairs) { between(i, x, j, y); rows.push({ kind: 'same', pieces: [{ text: a[x], changed: false }] }); i = x + 1; j = y + 1; }
+	for (const [x, y] of pairs) { between(i, x, j, y); rows.push({ kind: 'same', pieces: [{ text: a[x].text, changed: false }], tab: b[y].tab }); i = x + 1; j = y + 1; }
 	between(i, a.length, j, b.length);
 	return rows;
 }

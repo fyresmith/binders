@@ -200,8 +200,9 @@ export async function openSnapshot(plugin: BindersPlugin, file: TFile, scene: TF
 
 /** What changed between two texts, as prose, into `el` (a `sync-history-diff`): the later text's paragraphs with what
     was taken out struck through and what was put in marked, each where it falls; long stretches that are the same
-    fold away. `lead` says what is compared, before the key to the marks. */
-export function proseChanges(el: HTMLElement, before: string, after: string, lead: string | null = 'Since this snapshot: '): void {
+    fold away. `lead` says what is compared, before the key to the marks. `tabs`: the note is one whose paragraphs
+    begun with a tab are shown as such (as the text beside it shows them), so each is set in by the same indent. */
+export function proseChanges(el: HTMLElement, before: string, after: string, lead: string | null = 'Since this snapshot: ', tabs = false): void {
 	// since this snapshot: what was taken out, what was put in, said once in the marks themselves
 	if (lead != null) {
 		const key = el.createDiv({ cls: 'binders-snapshots-key' });
@@ -212,8 +213,11 @@ export function proseChanges(el: HTMLElement, before: string, after: string, lea
 	}
 	// the note's own paragraphs with the changes marked in them where they fall: prose, not two columns of lines
 	const view = el.createDiv({ cls: 'binders-snapshots-changes' });
-	const para = (parts: Stretch[]): HTMLElement => {
+	// (a paragraph begun with a tab is set in by the same indent as the text beside it: the class is what the
+	// stylesheet sets it by, and its tab is taken out of the words, which would otherwise stand in as a tab stop)
+	const para = (parts: Stretch[], tab: boolean): HTMLElement => {
 		const p = createEl('p');
+		if (tab) p.addClass('binders-tab-paragraph');
 		parts.forEach((x, i) => {
 			if (i) p.appendText(' ');
 			const t = x.words.join(' ');
@@ -222,6 +226,8 @@ export function proseChanges(el: HTMLElement, before: string, after: string, lea
 		return p;
 	};
 	const whole = (r: Row): string[] => [r.pieces.map((p) => p.text).join('')];
+	const mark = (r: Row): boolean => tabs && r.tab;
+	const rows = compare(before, after).map((r) => (mark(r) ? { ...r, pieces: r.pieces.map((x, i) => (i ? x : { ...x, text: x.text.replace(/^\s+/, '') })) } : r));
 	let run: HTMLElement[] = [];
 	const fold = (last: boolean) => {
 		// a long stretch that's the same folds away, a paragraph of it left on either side of a change
@@ -237,15 +243,14 @@ export function proseChanges(el: HTMLElement, before: string, after: string, lea
 		} else for (const el of run) view.appendChild(el);
 		run = [];
 	};
-	const rows = compare(before, after);
 	for (let i = 0; i < rows.length; i++) {
 		const r = rows[i], next = rows[i + 1];
-		if (r.kind === 'same') { run.push(para([{ kind: 'same', words: whole(r) }])); continue; }
+		if (r.kind === 'same') { run.push(para([{ kind: 'same', words: whole(r) }], mark(r))); continue; }
 		fold(false);
 		// a paragraph reworded comes as its old self then its new one, each in pieces (the words both have, the words
-		// only it has): here, one paragraph. One taken out followed by another put in are each a single piece.
-		if (r.kind === 'old' && next?.kind === 'new' && (r.pieces.length > 1 || next.pieces.length > 1)) { view.appendChild(para(reworded(r.pieces, next.pieces))); i++; }
-		else view.appendChild(para([{ kind: r.kind, words: whole(r) }]));
+		// only it has): here, one paragraph, set as the later text has it. One taken out followed by another put in are each a single piece.
+		if (r.kind === 'old' && next?.kind === 'new' && (r.pieces.length > 1 || next.pieces.length > 1)) { view.appendChild(para(reworded(r.pieces, next.pieces), mark(next))); i++; }
+		else view.appendChild(para([{ kind: r.kind, words: whole(r) }], mark(r)));
 	}
 	fold(true);
 }
@@ -538,7 +543,9 @@ export class SnapshotsModal extends Modal {
 			this.textEl.scrollTop = 0;
 			return;
 		}
-		proseChanges(this.diffEl, text, this.current);
+		// (as the text beside it: tab paragraphs only in a binder's note, and only with the setting on, as forRender decides)
+		const tabs = this.plugin.settings.tabParagraphs && !!this.scene && !!this.plugin.binders?.binderOf(this.scene);
+		proseChanges(this.diffEl, text, this.current, undefined, tabs);
 		this.diffEl.scrollTop = 0;
 	}
 

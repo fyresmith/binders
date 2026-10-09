@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.46.20 (2026-10-09)
+
+### Fixed
+
+- In a snapshot's Show changes, a paragraph that starts with a tab is indented as it is in the note, instead of sitting flush left.
+
 ## 0.46.19 (2026-10-09)
 
 ### Changed

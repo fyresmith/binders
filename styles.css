@@ -3273,6 +3273,12 @@ body:not(.is-phone) .binders-snapshots:is(.mod-sidebar-layout, .is-plain) > .mod
 	margin-block: 0 var(--p-spacing);
 }
 
+/* (a paragraph begun with a tab, as the text beside it sets it: the stylesheet's rule for reading view, which this
+   pane is not under) */
+.binders-snapshots-changes .binders-tab-paragraph {
+	text-indent: var(--binders-paragraph-indent);
+}
+
 .binders-snapshots-diff del,
 .binders-snapshots-diff ins {
 	border-radius: var(--radius-s);

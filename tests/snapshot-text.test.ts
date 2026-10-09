@@ -97,6 +97,13 @@ const show = (rows: Row[]) => rows.map((r) => (r.kind === 'same' ? '=' : r.kind 
 	eq(show(compare('One.\n\nGone.\n\nTwo.\n', 'One.\n\nTwo.\n')), '=One.\n-Gone.\n=Two.', 'a paragraph taken out');
 	eq(show(compare('One.\r\n\r\nTwo.\r\n', 'One.\n\nTwo.\n')), '=One.\n=Two.', 'line breaks of either kind are the same');
 	eq(show(compare('One.\n\n\n\nTwo.', 'One.\nTwo.')), '=One.\n=Two.', 'blank lines aren’t paragraphs');
+	// a paragraph begun with a tab says so, as the text it's in has it: a tab that starts a line after a blank line
+	// (the same rule as the note's own), not one that carries on a paragraph; the tab itself stays in the row
+	const tabbed = compare('Plain.\n\n\tTab one, first.\n\nTail.\n', 'Plain.\n\n\tTab one, changed.\n\n\tNew tab.\n');
+	eq(tabbed.map((r) => r.kind + (r.tab ? '*' : '')).join(' '), 'same old* new* old new*', 'which rows begin with a tab: reworded, put in and taken out alike');
+	eq(tabbed[4].pieces.map((x) => x.text).join('').startsWith('\t'), true, 'a whole paragraph keeps its tab in its text');
+	eq(tabbed[1].pieces.some((x) => /^\s/.test(x.text)), false, 'a reworded one is compared by its words, which have none');
+	eq(compare('One.\nTwo, carried on\n\tafter a break.\n', 'One.\nTwo, carried on\n\tafter a break.\n').map((r) => r.tab).join(' '), 'false false false', 'a tab that carries on a paragraph is no paragraph of its own');
 	// a paragraph reworded: the words that changed are marked, on both sides, the space after them left out
 	eq(show(compare('The boat left Mara on the jetty. It was raining. She did not wave.', 'The boat left Mara on the jetty. She did not wave.')),
 		'-The boat left Mara on the jetty. [It was raining.] She did not wave.\n+The boat left Mara on the jetty. She did not wave.', 'words taken out');
