@@ -297,7 +297,7 @@ test('a binder of 35 notes: a progress notice shows above 20 notes and every not
 	await p.ev(`(async () => { for (let i = 1; i <= 35; i++) await app.vault.process(app.vault.getAbstractFileByPath('Big/N' + String(i).padStart(2, '0') + '.md'), (t) => t + 'EDITED-' + i + '\\n'); })().then(() => 1)`);
 	await sleep(p, 600);
 	await showDialog(p, 'Big');
-	const screen = await backScreen(p);
+	const screen = await backScreen(p, 'text'); // (the progress notice and its wording are the text’s; the screen opens on “Everything”)
 	t.ok(/^35 notes get the text they had/.test(screen.will[0]), screen.will[0]);
 	await p.ev(`(() => { window.__seen = []; const o = new MutationObserver(() => { document.querySelectorAll('.notice').forEach(n => { if (!window.__seen.includes(n.textContent)) window.__seen.push(n.textContent); }); }); o.observe(document.body, { childList: true, subtree: true, characterData: true }); window.__obs = o; return 1; })()`);
 	const said = await confirmBack(p);
@@ -356,7 +356,7 @@ test('a note deleted and another renamed while the screen is open: the rest come
 	await p.ev(`(async () => { await app.vault.process(${file(A)}, (t) => t + 'LATER-A\\n'); await app.vault.process(${file(K)}, (t) => t + 'LATER-K\\n'); await app.vault.process(${file(W)}, (t) => t + 'LATER-W\\n'); })().then(() => 1)`);
 	await sleep(p, 500);
 	await showDialog(p);
-	const screen = await backScreen(p);
+	const screen = await backScreen(p, 'text'); // (the text, as the test is about it)
 	t.ok(/^3 notes get/.test(screen.will[0]), screen.will[0]);
 	const mid = await bytes(p);
 	await p.ev(`(async () => { await app.vault.delete(${file(A)}); await app.fileManager.renameFile(${file(K)}, ${j(P1 + '/The renamed keeper.md')}); })().then(() => 1)`);
@@ -396,7 +396,26 @@ test('BUG: a note with Windows line endings and a byte-order mark, open in an ed
 	await p.ev(`app.workspace.getLeaf('tab').openFile(${file(M)}, { state: { mode: 'source' } }).then(() => 1)`);
 	await sleep(p, 700);
 	await showDialog(p);
+	await backScreen(p, 'both'); // (the text and the order: the screen opens on “Everything” now)
+	const said = await confirmBack(p);
+	await sleep(p, 1500);
+	const after = await bytes(p);
+	t.eq(after[M], then[M], 'byte for byte, line endings and mark included, with the note open: ' + said);
+}, 90000);
+
+test('BUG: a note with Windows line endings and a byte-order mark, open in an editor, brought back from “Everything” (the screen’s default): byte for byte', async (p, h, t) => {
+	const M = P2 + '/Marked.md', raw = (x) => '﻿---\nstatus: draft\n---\nWindows lines.\r\nAnd a mark.\r\n' + x;
+	await p.ev(`app.vault.adapter.write(${j(M)}, ${j(raw(''))}).then(() => 1)`);
+	await until(p, `!!${file(M)}`);
+	const then = await aged(p, L, 'Draft');
+	await p.ev(`app.vault.adapter.write(${j(M)}, ${j(raw('Later line.\r\n'))}).then(() => 1)`);
+	await sleep(p, 500);
+	await p.ev(`app.workspace.getLeaf('tab').openFile(${file(M)}, { state: { mode: 'source' } }).then(() => 1)`);
+	await sleep(p, 700);
+	await showDialog(p);
 	await backScreen(p);
+	const scope = await p.ev(`document.querySelector(${j(BACK + ' select')}).value`);
+	t.eq(scope, 'all', 'the screen opens on “Everything”');
 	const said = await confirmBack(p);
 	await sleep(p, 1500);
 	const after = await bytes(p);
@@ -500,7 +519,7 @@ test('the snapshot file is deleted while the screen is open: pressing Bring back
 test('Bring back pressed twice quickly: one bring back, one snapshot taken first, bytes exact', async (p, h, t) => {
 	const then = await aged(p, L, 'Draft');
 	await work(p);
-	await showDialog(p); await backScreen(p);
+	await showDialog(p); await backScreen(p, 'text'); // (the text: this counts every new file, and “Everything” also makes notes again)
 	const files = await allFiles(p);
 	await p.ev(`(() => { const b = [...document.querySelectorAll(${j(BACK + ' .modal-button-container button')})].find(b => b.textContent === 'Bring back'); b.click(); b.click(); return 1; })()`);
 	await until(p, `!document.querySelector(${j(BACK)}) && document.querySelectorAll('.notice').length > 0`, 30000);
@@ -516,7 +535,7 @@ test('the manuscript open while the order and the text are brought back: its sec
 	await p.ev(`(() => { app.workspace.getLeavesOfType('binders-view')[0].view.setMode('manuscript'); return 1; })()`);
 	await until(p, `!!document.querySelector('.binders-manuscript .cm-content, .binders-manuscript')`, 8000);
 	await sleep(p, 800);
-	await showDialog(p); await backScreen(p);
+	await showDialog(p); await backScreen(p, 'both'); // (the order and the text: “Everything” would also put the keeper’s name back)
 	await confirmBack(p);
 	await sleep(p, 1500);
 	const after = await bytes(p);
