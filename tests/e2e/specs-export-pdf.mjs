@@ -700,3 +700,32 @@ test('Cancel, or closing the window, while a PDF prints stops the printer at onc
 		await p.ev(`(() => { window.__watch?.disconnect(); for (const e of document.querySelectorAll('webview.binders-export-printer, .binders-export-offstage')) e.remove(); return 1; })()`);
 	}
 });
+
+// ---- Step 6: the book's choices changed in its note while the window is open ----
+
+test('the Page and Style rows follow `page-size` and `book-style` changed in the binder note while the window is open', async (p, h, t) => {
+	await withAuthor(p);
+	await open(p);
+	await pick(p, 'Paperback');
+	t.ok(await laidOut(p), 'the pages are laid out');
+	const value = (key) => p.ev(`document.querySelector('${WIN} select[data-binders-key="${key}"]').value`);
+	const note = (fn) => p.ev(`app.fileManager.processFrontMatter(app.vault.getAbstractFileByPath(${j(BINDER_NOTE)}), (fm) => { ${fn} }).then(() => 1)`);
+	t.eq(await value('page'), '5x8', 'the page as it comes');
+	await note(`fm['page-size'] = '6x9';`);
+	t.ok(await until(p, `document.querySelector('${WIN} select[data-binders-key="page"]')?.value === '6x9'`, 6000), 'the size typed into the binder note: the Page row follows');
+	t.ok(await until(p, `/^\\d+ pages · 6 × 9 in$/.test(document.querySelector('${WIN} .binders-snapshots-detail').textContent)`, 60000), 'the pages are laid out on it, and the bar says so');
+	t.eq(await detail(p), `${(await pages(p)).length} pages · 6 × 9 in`, 'every page of them');
+	t.eq(await p.ev(`(() => { const s = ${FRAME}.contentDocument.querySelector('.page').getBoundingClientRect(); return Math.round(s.width / s.height * 1000); })()`), 667, 'and is 6 by 9');
+	await note(`fm['book-style'] = 'Modern';`);
+	t.ok(await until(p, `document.querySelector('${WIN} select[data-binders-key="style"]')?.value === 'Modern'`, 6000), 'the style named in the binder note: the Style row follows');
+	t.ok(await until(p, `!!${FRAME} && /Source Serif/.test(getComputedStyle(${FRAME}.contentDocument.querySelector('.page .text') ?? document.body).fontFamily)`, 60000), 'and the pages are set in it');
+	t.eq(await value('page'), '6x9', 'the page stays as it was');
+	await note(`delete fm['page-size']; delete fm['book-style'];`);
+	t.ok(await until(p, `document.querySelector('${WIN} select[data-binders-key="page"]')?.value === '5x8' && document.querySelector('${WIN} select[data-binders-key="style"]')?.value === 'Classic'`, 6000), 'both taken out of the note: the rows are as they come again');
+	// a choice made in the window is still the window's: another property of the note changing doesn't undo it
+	await choose(p, 'page', 'a5');
+	await until(p, `app.metadataCache.getCache(${j(BINDER_NOTE)})?.frontmatter?.['page-size'] === 'a5'`, 4000);
+	await note(`fm.subtitle = 'A novel';`);
+	await p.sleep(1200);
+	t.eq(await value('page'), 'a5', 'a size chosen in the window stays when something else in the note changes');
+});

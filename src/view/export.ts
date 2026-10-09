@@ -89,14 +89,29 @@ export class ExportModal extends Modal {
 		super(plugin.app);
 		const s = plugin.settings;
 		this.kind = s.exportKind;
-		let said = '', saidM = '';
-		try { const d = bookDetails(plugin, folder).details; said = d.bookStyle; saidM = d.manuscriptStyle; this.pageSize = trimSize(d.pageSize).id; } catch { /* not a binder: reading it says so */ }
-		// (a binder's own manuscript style, or the one last used in this vault)
-		this.style = plugin.styles.get(saidM || s.exportStyle, 'manuscript').name;
-		this.bookStyle = plugin.styles.get(said, 'book').name;
+		this.style = plugin.styles.get(s.exportStyle, 'manuscript').name;
+		this.bookStyle = plugin.styles.get('', 'book').name;
+		this.follow(true);
 		this.matter = s.exportMatter;
 		this.o = { ...COMPILE_DEFAULTS, ...s.compile };
 		this.path = oneNotePath(plugin, folder);
+	}
+
+	/** What the binder note said of the book's styles and its page when it was last looked at. */
+	private said = { book: '', manuscript: '', page: '' };
+	/** The book's styles and its page as the binder note has them. They are read as the window opens and each time
+	    the book is read again, and one that has changed in the note since (typed there, set in another window, come by
+	    sync) is the window's from then on. One that hasn't changed there stays as the window has it: a choice made here
+	    that couldn't be kept in the note (a Longform project's) holds for this window. */
+	private follow(first = false): void {
+		const { plugin } = this, was = this.said;
+		let d;
+		try { d = bookDetails(plugin, this.folder).details; } catch { return; } // (not a binder: reading it says so)
+		// (a binder's own manuscript style, or the one last used in this vault)
+		if (first || d.manuscriptStyle !== was.manuscript) this.style = plugin.styles.get(d.manuscriptStyle || plugin.settings.exportStyle, 'manuscript').name;
+		if (first || d.bookStyle !== was.book) this.bookStyle = plugin.styles.get(d.bookStyle, 'book').name;
+		if (first || d.pageSize !== was.page) this.pageSize = trimSize(d.pageSize).id;
+		this.said = { book: d.bookStyle, manuscript: d.manuscriptStyle, page: d.pageSize };
 	}
 
 	private get host() { return this.plugin.exportHost.desktop(this.app); }
@@ -188,6 +203,7 @@ export class ExportModal extends Modal {
 		if (turn !== this.loading) return;
 		try {
 			if (this.file) {
+				this.follow();
 				const { book, words } = await readBook(this.plugin, this.folder, this.kind !== 'manuscript' || this.matter, this.kind !== 'manuscript', this.asTyped(), this.kind === 'ebook');
 				if (turn !== this.loading) return;
 				this.book = book; this.words = words; this.quotes = this.asTyped() ? 'as typed' : '';

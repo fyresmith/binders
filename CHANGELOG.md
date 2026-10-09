@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.45.7 (2026-10-09)
+
+### Fixed
+
+- The Export window follows the page size and the style when they change in the binder's note while it is open.
+
 ## 0.45.6 (2026-10-09)
 
 ### Fixed
