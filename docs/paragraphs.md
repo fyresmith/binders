@@ -27,6 +27,10 @@ The indent is there from the moment you press Tab on an empty line, before the f
 Enter gives you at the end of such a paragraph (Obsidian carries the tab on): the cursor waits where the paragraph
 will begin.
 
+Tab on a line that already holds its tab and nothing else adds no second one. So if your habit is Enter, then
+Tab, each paragraph still starts with one tab. (Tab on a line that has text indents it once more, as anywhere in
+Obsidian.)
+
 The note keeps the tab you typed.
 
 ## Indent paragraphs

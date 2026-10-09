@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.47.0 (2026-10-09)
+
+### Changed
+
+- Tab on a line that already holds its tab and nothing else adds no second one, so Enter then Tab gives each paragraph one tab.
+
 ## 0.46.32 (2026-10-09)
 
 ### Changed

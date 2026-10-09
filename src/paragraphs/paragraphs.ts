@@ -5,6 +5,7 @@ import { language, syntaxTree, type Language } from '@codemirror/language';
 import type BindersPlugin from '../main';
 import { ahead } from './ahead';
 import { firstLine } from './first-line';
+import { noDoubleTab } from './keys';
 import { forget, proseLanguage, readable } from './language';
 import { followRenames } from './rename';
 import { TABBED, tabsForRender } from './text';
@@ -60,7 +61,7 @@ export function installParagraphs(plugin: BindersPlugin): Paragraphs {
 			// (read while ours is out, or ours would be wrapped again)
 			const lang = tabs ? proseLanguage(view.state.facet(language)) : null;
 			return [
-				lang ? Prec.highest(language.of(lang)) : [],
+				lang ? [Prec.highest(language.of(lang)), noDoubleTab] : [],
 				EditorView.editorAttributes.of({ class: [PROSE, lang ? TABS : '', indent ? INDENT : ''].filter(Boolean).join(' ') }),
 				indent ? firstLine : [],
 			];

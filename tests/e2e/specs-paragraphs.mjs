@@ -271,7 +271,7 @@ test('a tab on an empty line is the paragraph’s indent before a letter is type
 	t.eq(errors(p).length, 0, 'no errors: ' + errors(p).join(' | '));
 });
 
-test('Tab again, Backspace over a tab, Shift+Tab, Tab with the caret in the middle of a line and Tab on several lines: in no frame is a tab drawn as anything but the indent, and the note is what was typed', async (p, h, t) => {
+test('Tab on a tab, Backspace over a tab, Shift+Tab, Tab with the caret in the middle of a line and Tab on several lines: in no frame is a tab drawn as anything but the indent, and the note is what was typed', async (p, h, t) => {
 	await body(p, A, 'First paragraph.\n\n\tSecond, begun with a tab.\n\nThird.');
 	await open(p, A);
 	await p.ev(`(() => { const e = ${OWN}; e.focus(); e.setCursor(8, e.getLine(8).length); return 1; })()`);
@@ -280,9 +280,13 @@ test('Tab again, Backspace over a tab, Shift+Tab, Tab with the caret in the midd
 	await p.key('Enter'); await step();
 	isIndent(t, await caretLine(p, OWN), 'the tab Enter carried on');
 	await p.key('Tab'); await step();
-	isIndent(t, await caretLine(p, OWN), 'a second tab', 2);
+	isIndent(t, await caretLine(p, OWN), 'Tab on the line that has its tab already: still one');
 	await p.key('Backspace'); await step();
-	isIndent(t, await caretLine(p, OWN), 'Backspace over the second');
+	const gone = await caretLine(p, OWN);
+	t.eq(gone.text, '', 'Backspace takes the tab away');
+	t.ok(!/binders/.test(gone.cls) && gone.x === 0, `and the empty line is an empty line (${gone.cls}, caret at ${gone.x}px)`);
+	await p.key('Tab'); await step();
+	isIndent(t, await caretLine(p, OWN), 'Tab on the empty line');
 	await p.key('Tab', 'shift'); await step();
 	const none = await caretLine(p, OWN);
 	t.eq(none.text, '', 'Shift+Tab takes the tab away');
@@ -926,4 +930,90 @@ test('a tabbed line straight under a line of text is set in where Binders shows 
 		t.ok(strict.below && strict.in === 24, `with “Strict line breaks” on it is a line of its own still, and set in (${j(strict)})`);
 	} finally { await p.ev(`(() => { app.vault.setConfig('strictLineBreaks', ${was}); return 1; })()`); }
 	t.eq(await read(p, A), FRONT + text, 'the note on disk is as it was');
+});
+
+// ---- no double tab: Tab on a line that is one tab and nothing else does nothing ----
+
+/** Tab, text, Enter, Tab, text: two paragraphs with a tab each; and undo, a step at a time, back to the start. */
+const enterTab = async (p, t, ed, what) => {
+	const value = () => p.ev(`(${ed}).getValue()`), start = FRONT + 'First paragraph.';
+	await endOf(p, ed);
+	await p.key('Enter'); await p.key('Tab'); await p.type('One.'); await p.key('Enter'); await p.key('Tab');
+	await sleep(p, 200);
+	const l = await caretLine(p, ed);
+	t.eq(l.text, '\t', `${what}: Enter carried the tab on, and Tab added no second`);
+	t.eq(l.x, 24, `${what}: the caret is after the tab`);
+	await p.type('Two.');
+	// the caret before the tab: Tab puts it after, and adds nothing
+	await p.key('Enter'); await p.key('Home'); await p.key('Home');
+	await sleep(p, 150);
+	await p.key('Tab');
+	await sleep(p, 200);
+	const home = await caretLine(p, ed);
+	t.ok(home.text === '\t' && home.x === 24, `${what}: Tab with the caret before the tab puts it after (${j(home.text)}, ${home.x}px)`);
+	await p.type('Three.');
+	const typed = start + '\n\tOne.\n\tTwo.\n\tThree.';
+	t.eq(await value(), typed, `${what}: a tab each, never two`);
+	// a second tab where it is plainly meant: Tab on a line that has text indents it, as Obsidian has it
+	await p.key('Tab');
+	await sleep(p, 200);
+	t.eq(await value(), start + '\n\tOne.\n\tTwo.\n\t\tThree.', `${what}: Tab on a line with text still indents it`);
+	await p.key('Tab', 'shift');
+	await sleep(p, 200);
+	t.eq(await value(), typed, `${what}: and Shift+Tab takes that back`);
+	await until(p, `app.vault.adapter.read(${j(A)}).then(x => x === ${j(typed)})`, 6000);
+	t.eq(await read(p, A), typed, `${what}: on disk, exactly that`);
+	const seen = [];
+	for (let i = 0; i < 60 && (await value()) !== start; i++) { await p.ev(`(() => { (${ed}).undo(); return 1; })()`); await sleep(p, 30); seen.push(await value()); }
+	t.eq(await value(), start, `${what}: undo goes back to the note as it was, a step at a time (${seen.length} steps)`);
+	t.ok(seen.every((x) => !/\t\t/.test(x.replace('\t\tThree', ''))) && seen.length > 3, `${what}: and no step on the way has two tabs but the one that was typed`);
+};
+
+test('no double tab: Tab, text, Enter, Tab, text gives each paragraph one tab; a second can still be typed on a line with text; undo a step at a time', async (p, h, t) => {
+	await body(p, A, 'First paragraph.');
+	await open(p, A);
+	await enterTab(p, t, OWN, 'a tab of its own');
+	t.eq(errors(p).length, 0, 'no errors: ' + errors(p).join(' | '));
+});
+
+test('no double tab in a section of the manuscript', async (p, h, t) => {
+	await body(p, A, 'First paragraph.');
+	await openView(p, L + 'Part One');
+	await p.ev(`(() => { ${VIEW}.setMode('manuscript'); return 1; })()`);
+	await until(p, `!!${VIEW}.current?.scenes?.find(s => s.file.path === ${j(A)})?.live?.cm`, 8000);
+	await enterTab(p, t, SECTION, 'the manuscript');
+	t.eq(errors(p).length, 0, 'no errors: ' + errors(p).join(' | '));
+});
+
+test('no double tab is only that: Tab on a line that is one tab stays Obsidian’s under a list item, in a quote, a fenced block and the properties, on a selection, in a note outside a binder and with the setting off', async (p, h, t) => {
+	// what Obsidian does with Tab at the end of each of these lines, with our setting off, is what it must do with it on
+	const TEXT = '---\nstatus: revised\nnote: |\n\t\n---\n- an item\n\t\n\n> quote\n\t\n\n```\n\t\n```\n\nPlain.\n\n\t\n\n    \n';
+	const LINES = { 'the properties': 3, 'under a list item': 6, 'straight under a quote': 9, 'a fenced block': 12 };
+	const press = async (path, line, select = false) => {
+		await p.ev(`app.vault.modify(${file(path)}, ${j(TEXT)}).then(() => 1)`);
+		await open(p, path, 'source', true);
+		// (the text as it began, whatever the key before left in the editor)
+		await p.ev(`(() => { const e = ${OWN}; if (e.getValue() !== ${j(TEXT)}) e.setValue(${j(TEXT)}); e.focus(); ${select ? `e.setSelection({ line: ${line}, ch: 0 }, { line: ${line}, ch: 1 })` : `e.setCursor(${line}, 1)`}; return 1; })()`);
+		await sleep(p, 150);
+		await p.key('Tab');
+		await sleep(p, 250);
+		return p.ev(`${OWN}.getValue()`);
+	};
+	await p.ev(`app.vault.create('Loose tabs.md', '').then(() => 1)`);
+	for (const [what, line] of Object.entries(LINES)) {
+		await set(p, { tabParagraphs: false });
+		const plain = await press(A, line);
+		await set(p, { tabParagraphs: true });
+		t.eq(await press(A, line), plain, `${what}: Tab does what Obsidian does with it`);
+	}
+	// a writer's own line of one tab (line 17), and of four spaces (19)
+	await set(p, { tabParagraphs: false });
+	const off = await press(A, 17);
+	t.ok(off !== TEXT, 'with the setting off, Tab on a line of one tab is Obsidian’s: it adds one');
+	await set(p, { tabParagraphs: true });
+	t.eq(await press(A, 17), TEXT, 'with it on: nothing is added');
+	t.eq(await press(A, 19), TEXT, 'nor on a line of four spaces');
+	t.eq(await press(A, 17, true), off, 'on a selection it is Obsidian’s');
+	t.eq(await press('Loose tabs.md', 17), off, 'and in a note outside a binder');
+	t.eq(errors(p).length, 0, 'no errors: ' + errors(p).join(' | '));
 });
