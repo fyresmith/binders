@@ -123,8 +123,10 @@ export class ContentsPane {
 		if (book.dataset.path !== binder.folder.path) { book.dataset.path = binder.folder.path; book.firstElementChild?.setText(binder.folder.name); }
 		const want = new Set(entries.map((e) => e.path));
 		for (const [path, row] of this.rows) if (!want.has(path)) { row.el.remove(); this.rows.delete(path); }
-		// where the next row of each holder goes: after the last one put there
-		const at = new Map<HTMLElement, Element | null>([[list, book.nextElementSibling]]);
+		// where the next row of each holder goes: after the last one put there (null: first). Kept as the row put last,
+		// not the one after it: that one may be moved into another holder later in this pass (a Longform scene
+		// indented under another), and is then no place to insert before
+		const at = new Map<HTMLElement, Element | null>([[list, book]]);
 		const stack: (Row | null)[] = [];
 		this.order = [binder.folder.path];
 		for (const e of entries) {
@@ -136,7 +138,7 @@ export class ContentsPane {
 				// (made when a row first has something under it: a folder, or a Longform scene with scenes indented under it)
 				up.kids ??= up.el.createDiv({ cls: 'tree-item-children nav-folder-children', attr: { role: 'group' } });
 				holder = up.kids;
-				if (!at.has(holder)) at.set(holder, holder.firstElementChild);
+				if (!at.has(holder)) at.set(holder, null);
 			}
 			const sig = `${e.name}\n${e.label}\n${JSON.stringify(presets.find((p) => p.name === e.label) ?? null)}`;
 			let row = this.rows.get(e.path);
@@ -160,9 +162,9 @@ export class ContentsPane {
 				if (e.label) labelDot(row.self.createDiv({ cls: 'tree-item-flair-outer' }), e.label, presets);
 			}
 			if (e.folder) this.paintFold(row, e.path);
-			const next = at.get(holder) ?? null;
+			const last = at.get(holder) ?? null, next = last ? last.nextElementSibling : holder.firstElementChild;
 			if (next !== row.el) holder.insertBefore(row.el, next);
-			at.set(holder, row.el.nextElementSibling);
+			at.set(holder, row.el);
 			stack[e.depth] = row;
 			this.order.push(e.path);
 		}
