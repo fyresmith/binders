@@ -424,6 +424,9 @@ both (see "Decided"). Built in four steps; this section says what each has.
     each folder's order, and, if asked, the move of what is new since into one folder (`gather`). Every place is
     checked by `mayPlace` (in the folder, no backslash, never the binder's own "Snapshots"); one that fails makes
     the plan `unsafe`. `shape()` is what must be the same between the plan shown and the plan worked out again.
+  - *Moved out:* a note gone from the folder that is in the rest of the binder (`stateOutside` reads it; `changes()`
+    follows it by the same rule as a renamed note, `opts.outside`) is listed as moved out, with where it is, and not
+    made again: bringing back writes only inside the folder. Its text in the snapshot is still in the snapshot.
   - *The doing* (`bringBackAll`): after the same snapshot of the folder as it is, and the plan written down
     (`binder-snapshot-journal.ts`): what is new since gathered, folders made and renamed, notes renamed (through
     `fileManager.renameFile` when Obsidian updates links itself, else `vault.rename`; a swap steps round by a third

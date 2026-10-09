@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.46.22 (2026-10-09)
+
+### Fixed
+
+- Bringing back everything from a snapshot of a folder no longer makes again a note that was moved to another folder of the binder. The screen lists it under what is left as it is, with where it is now, and says if its text has changed.
+
 ## 0.46.21 (2026-10-09)
 
 ### Fixed

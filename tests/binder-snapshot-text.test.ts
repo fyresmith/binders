@@ -279,7 +279,7 @@ function carriedOut(now: Entry[], p: ReturnType<typeof plan>): Entry[] {
 {
 	const p = plan(book(), book());
 	ok(p.nothing && !p.unsafe && !p.texts.length && !p.orders.length, 'the same state: nothing to bring back');
-	eq(j(Object.values(p.left).map((l) => l.length)), j([0, 0, 0, 0, 0, 0, 0]), 'and nothing left as it is');
+	eq(j(Object.values(p.left).map((l) => l.length)), j([0, 0, 0, 0, 0, 0, 0, 0]), 'and nothing left as it is');
 }
 
 // the text: only a note that is there both times and reads differently, its text and not its properties
@@ -447,7 +447,7 @@ const paths = (list: Entry[]) => list.map((e) => e.path);
 	eq(j(a?.files.map((f) => [f.path, f.from, f.role, f.own])), j([['One/One.md', 'One/One.md', 'folder note', false], ['One/Arrival.md', 'One/Arrival.md', '', false], ['One/The keeper.md', 'One/The old keeper.md', '', false], ['Two/Lights out.md', null, '', false], ['Book.md', 'Book.md', 'binder note', true]]), 'the files written: a folder’s note, two notes (one where it will be, from where it is), one made again, and the binder note, marked as the folder’s own');
 	ok(!!a && a.files.every((f) => f.text === then.find((e) => e.path === f.path)?.text && f.expect === (f.from == null ? null : now.find((e) => e.path === f.from)?.text)), 'each with the whole file it had, properties and text, and the whole file it has now');
 	eq(j([called(a?.made ?? []), called(a?.renamed ?? []), called(a?.moved ?? []), called(p.rewritten), called(p.moved), a?.props.map((r) => r.name + ':' + r.props.join()).join('|')]), j(['Lights out', 'The keeper', 'Storm', 'Arrival,The keeper', 'Epilogue', 'Book:target|One:synopsis|Arrival:label,status']), 'and the screen has each by name: made again, renamed back, moved back, rewritten, back in the order, properties');
-	eq(j(Object.values(p.left).map((l) => l.length)), j([0, 0, 0, 0, 0, 0, 0]), 'nothing is “left as it is now” in the way the other scopes leave it');
+	eq(j(Object.values(p.left).map((l) => l.length)), j([0, 0, 0, 0, 0, 0, 0, 0]), 'nothing is “left as it is now” in the way the other scopes leave it');
 	ok(!p.texts.length, 'no text is written by itself: the files are');
 	const after = carriedOutAll(now, p);
 	eq(j(after), j(then), 'carried out: the folder is the snapshot, entry for entry, in its order');
@@ -598,4 +598,27 @@ const paths = (list: Entry[]) => list.map((e) => e.path);
 	ok(tie.rows.every((r) => !(r.then && r.now)) && tie.rows.filter((r) => r.gone).length === 2, 'a tie: neither is paired, both gone, the new one fresh');
 }
 
+// a note gone from its folder that is in the rest of the binder has moved out: it is not made again
+{
+	const then = [note('Alpha.md', P(3, ' a')), note('Beta.md', P(3, ' b'))];
+	const now = [note('Alpha.md', P(3, ' a'))];
+	const outside = [note('Part Two/Beta.md', P(3, ' b')), note('Part Two/Gamma.md', P(3, ' g'))];
+	const c = changes(then, now, { outside }), r = c.rows.find((x) => x.name === 'Beta');
+	ok(!!r && r.away === 'Part Two/Beta.md' && !r.awayChanged && r.gone, 'Beta: moved out to Part Two, its text the same');
+	ok(!changes(then, now).rows.find((x) => x.name === 'Beta')?.away, 'without the rest of the binder, nothing is away');
+	const p = planBack(c, then, now, 'all', { name: 'Part One' });
+	ok(!!p.all && !p.unsafe && p.nothing && !p.all.made.length && !p.all.files.some((f) => f.path === 'Beta.md') && !p.all.places.length, 'everything: Beta is not made again, nor moved back');
+	ok(!!p.all && p.all.away.length === 1 && p.all.away[0].name === 'Beta', 'everything: it is listed as moved out');
+	for (const scope of ['both', 'text', 'order'] as Scope[]) {
+		const q = planBack(c, then, now, scope);
+		ok(q.left.away.length === 1 && q.left.gone.length === 0, `${scope}: it is left as it is, listed as moved out, not as gone`);
+	}
+	const changed = changes(then, now, { outside: [note('Part Two/Beta.md', P(3, ' b') + 'Written since.\n')] }).rows.find((x) => x.name === 'Beta');
+	ok(!!changed?.awayChanged, 'a text that is different now is said so');
+	const other = changes(then, now, { outside: [note('Part Two/Beta.md', P(3, ' z'))] }).rows.find((x) => x.name === 'Beta');
+	ok(!!other && !other.away && other.gone, 'another text under the same name, out there: not the same note');
+	// (two that share as much of Beta as each other: a tie, and a tie pairs neither)
+	const two = changes([note('Alpha.md', P(3, ' a')), note('Beta.md', P(3, ' b'))], [note('Alpha.md', P(3, ' a'))], { outside: [note('Part Two/B1.md', P(3, ' b') + 'Edit one.\n'), note('Part Two/B2.md', P(3, ' b') + 'Edit two.\n')] });
+	ok(two.rows.every((x) => !x.away), 'two that share as much with it out there: neither is followed');
+}
 done('binder snapshot text');

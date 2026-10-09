@@ -1,8 +1,8 @@
 import { ButtonComponent, Component, MarkdownRenderer, Menu, Modal, Platform, Setting, TFile, TFolder, parseYaml, setIcon } from 'obsidian';
 import type BindersPlugin from '../main';
 import { forRender, parts } from '../scene-text';
-import { changes, planBack, type Changes, type Plan, type Row, type Scope, type Since } from '../binder-snapshot-text';
-import { backOptions, bringBackFolder, deleteFolderSnapshot, folderSnapshots, forgetInterrupted, forgetRead, hasSnapshots, interrupted, interruptedIn, isNewer, makeFromSnapshot, nameFolderSnapshot, readFolderSnapshot, remakeNote, sizeOfSnapshot, stateNow, takeFolderSnapshot, type FolderSnapshot, type Interrupted, type Read, type State } from '../binder-snapshots';
+import { changes, planBack, type Changes, type Entry, type Plan, type Row, type Scope, type Since } from '../binder-snapshot-text';
+import { backOptions, bringBackFolder, deleteFolderSnapshot, folderSnapshots, forgetInterrupted, forgetRead, hasSnapshots, interrupted, interruptedIn, stateOutside, isNewer, makeFromSnapshot, nameFolderSnapshot, readFolderSnapshot, remakeNote, sizeOfSnapshot, stateNow, takeFolderSnapshot, type FolderSnapshot, type Interrupted, type Read, type State } from '../binder-snapshots';
 import { badSnapshotName } from '../snapshot-text';
 import { bringBackText, isScene } from '../snapshots';
 import { commitAll } from './edit';
@@ -617,10 +617,10 @@ export class FolderSnapshotsModal extends Modal {
 			const cut = await interruptedIn(this.plugin, this.folder);
 			if (cut) { new InterruptedModal(this.plugin, cut, after).open(); return; }
 			await commitFields(this.plugin);
-			const now = await stateNow(this.plugin, this.folder), then = await readFolderSnapshot(this.plugin, s, this.folder);
+			const now = await stateNow(this.plugin, this.folder), then = await readFolderSnapshot(this.plugin, s, this.folder), outside = await stateOutside(this.plugin, this.folder);
 			if (then.damaged.length) throw new Error('This snapshot’s file isn’t as it was written, so nothing is brought back from it.');
 			this.now = Promise.resolve(now);
-			new BringBackModal(this.plugin, this.folder, s, then, now, after).open();
+			new BringBackModal(this.plugin, this.folder, s, then, now, outside, after).open();
 		} catch (e) { tell(e); }
 	}
 
@@ -667,11 +667,12 @@ class BringBackModal extends Modal {
 	private go: ButtonComponent;
 	private busy = false;
 
-	constructor(private plugin: BindersPlugin, private folder: TFolder, private s: FolderSnapshot, private then: State, private now: State, private done: () => void, preset?: { scope?: Scope; since?: Since }) {
+	/** `outside`: the notes of the binder that are not in the folder, as they are (where a note gone from the folder is). */
+	constructor(private plugin: BindersPlugin, private folder: TFolder, private s: FolderSnapshot, private then: State, private now: State, private outside: Entry[], private done: () => void, preset?: { scope?: Scope; since?: Since }) {
 		super(plugin.app);
 		if (preset?.scope) this.what = preset.scope;
 		if (preset?.since) this.since = preset.since;
-		this.c = changes(then.entries, now.entries, { yaml: parseYaml });
+		this.c = changes(then.entries, now.entries, { yaml: parseYaml, outside });
 		this.plan = this.work();
 	}
 
@@ -731,6 +732,12 @@ class BringBackModal extends Modal {
 		if (L.elsewhere.length) line(left, `${count(L.elsewhere.length, 'item stays', 'items stay')} in the folder ${it(L.elsewhere, 'it is', 'they are')} in now:`, `${names(L.elsewhere)}.`);
 		if (L.renamed.length) line(left, `${count(L.renamed.length, 'item keeps', 'items keep')} the name ${it(L.renamed, 'it has', 'they have')} now:`, L.renamed.slice(0, 3).map((r) => `“${r.renamed ?? ''}” (it was “${r.name}”)`).join(', ') + (L.renamed.length > 3 ? ` and ${(L.renamed.length - 3).toLocaleString()} more.` : '.'));
 		if (L.props.length) { const all = [...new Set(L.props.flatMap((r) => r.props))]; line(left, `${count(L.props.length, 'item keeps', 'items keep')} the properties ${it(L.props, 'it has', 'they have')} now:`, `${all.slice(0, 6).join(', ')}${all.length > 6 ? ` and ${all.length - 6} more` : ''}.`); }
+		// (gone from this folder and in the rest of the binder: where it is, not made again; said for every choice)
+		const away = A ? A.away : L.away;
+		if (away.length) {
+			const where = (p: string) => { const i = p.lastIndexOf('/'); return i < 0 ? 'the top of the binder' : `“${p.slice(0, i)}”`; };
+			line(left, `${count(away.length, 'item that was moved out of this folder stays where it is now', 'items that were moved out of this folder stay where they are now')}:`, `${some(away.map((r) => `“${nameOf(r.away ?? '')}” is in ${where(r.away ?? '')}${r.awayChanged ? ', and its text is different now' : ''}`))}.`);
+		}
 		if (L.fresh.length) line(left, `${count(L.fresh.length, 'item that is new since stays', 'items that are new since stay')} where ${it(L.fresh, 'it is', 'they are')}:`, `${names(L.fresh)}. Nothing is deleted.`);
 		if (A) {
 			if (A.stays.length) line(left, `${count(A.stays.length, 'item that is new since stays', 'items that are new since stay')} where ${it(A.stays, 'it is', 'they are')}:`, `${names(A.stays)}. Nothing is deleted.`);
@@ -819,12 +826,12 @@ class InterruptedModal extends Modal {
 		if (!s || !folder) return;
 		try {
 			await commitFields(plugin);
-			const now = await stateNow(plugin, folder), then = await readFolderSnapshot(plugin, s, folder);
+			const now = await stateNow(plugin, folder), then = await readFolderSnapshot(plugin, s, folder), outside = await stateOutside(plugin, folder);
 			if (then.damaged.length) throw new Error('This snapshot’s file isn’t as it was written, so nothing is brought back from it.');
-			const plan = planBack(changes(then.entries, now.entries, { words: false, yaml: parseYaml }), then.entries, now.entries, 'all', backOptions(plugin, s, folder, since));
+			const plan = planBack(changes(then.entries, now.entries, { words: false, yaml: parseYaml, outside }), then.entries, now.entries, 'all', backOptions(plugin, s, folder, since));
 			this.close();
 			if (plan.nothing && !plan.unsafe) { await forgetInterrupted(plugin, cut); say(nothing, 8000); this.done?.(); return; }
-			new BringBackModal(plugin, folder, s, then, now, () => this.done?.(), { scope: 'all', since }).open();
+			new BringBackModal(plugin, folder, s, then, now, outside, () => this.done?.(), { scope: 'all', since }).open();
 		} catch (e) { tell(e); }
 	}
 

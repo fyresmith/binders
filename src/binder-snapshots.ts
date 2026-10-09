@@ -115,6 +115,30 @@ export async function stateNow(plugin: BindersPlugin, folder: TFolder): Promise<
 	return { entries, notes: count, words };
 }
 
+/** The notes of the binder this folder is in that are not in the folder (nor in its snapshots), as they are now, each
+    with its path in the binder: where a note that is gone from the folder may have moved to. Nothing is read for the
+    binder's own folder, which has no rest. */
+export async function stateOutside(plugin: BindersPlugin, folder: TFolder): Promise<Entry[]> {
+	const { app } = plugin, store = plugin.binders, b = store.binderOf(folder);
+	if (!b || folder === b.folder) return [];
+	const base = b.folder.path.length + 1, notes: { e: Entry; f: TFile }[] = [];
+	const walk = (dir: TFolder) => {
+		for (const c of store.orderedChildren(dir) ?? []) {
+			if (c instanceof TFolder) { if (c !== folder && !store.inSnapshots(c.path)) walk(c); }
+			else if (c instanceof TFile && c.extension === 'md' && !c.path.startsWith(folder.path + '/')) notes.push({ e: { path: c.path.slice(base), kind: 'note', role: '', text: '', hash: '', size: 0 }, f: c });
+		}
+	};
+	walk(b.folder);
+	await saveOpen(app, notes.map((n) => n.f));
+	for (let i = 0; i < notes.length; i += 64) {
+		await Promise.all(notes.slice(i, i + 64).map(async ({ e, f }) => {
+			const text = await readExact(app, f.path);
+			e.text = text; e.size = text.length; e.hash = fingerprint(text);
+		}));
+	}
+	return notes.map((n) => n.e);
+}
+
 async function ensureFolder(app: App, path: string): Promise<void> {
 	let at = '';
 	for (const part of path.split('/')) {
@@ -344,8 +368,8 @@ export function backOptions(plugin: BindersPlugin, s: FolderSnapshot, folder: TF
 /** Brings a snapshot back as the folder stands this moment, with no screen first: what the screen's button does once
     the writer has read it. (For the tests, to ask the vault side directly for what the dialog never offers.) */
 export async function bringBackNow(plugin: BindersPlugin, s: FolderSnapshot, folder: TFolder, scope: Scope, since: Since = 'stay'): Promise<Back> {
-	const then = await readFolderSnapshot(plugin, s, folder), now = await stateNow(plugin, folder);
-	return bringBackFolder(plugin, s, folder, planBack(changes(then.entries, now.entries, { words: false, yaml: parseYaml }), then.entries, now.entries, scope, backOptions(plugin, s, folder, since)));
+	const then = await readFolderSnapshot(plugin, s, folder), now = await stateNow(plugin, folder), rest = await stateOutside(plugin, folder);
+	return bringBackFolder(plugin, s, folder, planBack(changes(then.entries, now.entries, { words: false, yaml: parseYaml, outside: rest }), then.entries, now.entries, scope, backOptions(plugin, s, folder, since)));
 }
 
 /** "Bring back..." a snapshot of a folder, in place: the text of its notes, the order of its items, both, or
@@ -377,8 +401,10 @@ export async function bringBackFolder(plugin: BindersPlugin, s: FolderSnapshot, 
 	if (shown.nothing) throw new Error(shown.scope === 'all' ? 'There is nothing to bring back: everything in this snapshot is there as it was.' : 'There is nothing to bring back: the notes that are there are as this snapshot has them.');
 	// (one with no name of its own, or one Binders took, is said by when it was taken: not "before … before …")
 	const kept = await takeFolderSnapshot(plugin, folder, '', `Before bringing back ${s.title && !s.auto ? s.title : `the one from ${window.moment(s.taken).format('YYYY-MM-DD HH.mm')}`}`), now = kept.state;
-	if (shown.scope === 'all') return bringBackAll(plugin, s, folder, shown, then, kept, step);
-	const plan = planBack(changes(then.entries, now.entries, { words: false, yaml: parseYaml }), then.entries, now.entries, shown.scope);
+	// (the notes of the binder outside the folder, as they are after the snapshot taken first: see `changes`)
+	const rest = await stateOutside(plugin, folder);
+	if (shown.scope === 'all') return bringBackAll(plugin, s, folder, shown, then, kept, rest, step);
+	const plan = planBack(changes(then.entries, now.entries, { words: false, yaml: parseYaml, outside: rest }), then.entries, now.entries, shown.scope);
 	if (plan.unsafe) throw outside();
 	const out: Back = { before: kept.snapshot, made: kept.made, texts: 0, moved: 0, left: [], orderLeft: false, again: 0, placed: 0, files: 0, ordered: false, gathered: 0, into: '' };
 	const nameOf = (path: string) => path.replace(/\/$/, '').replace(/^.*\//, '').replace(/\.md$/i, '');
@@ -500,10 +526,10 @@ async function putFile(plugin: BindersPlugin, file: TFile, expect: string, text:
       - then the order, where it isn't the snapshot's already (what is new since is in it too).
     "Undo last move" takes none of this back, and the moves remembered for this binder are forgotten (they are of
     items as they stood). The way back is the snapshot taken first. */
-async function bringBackAll(plugin: BindersPlugin, s: FolderSnapshot, folder: TFolder, shown: Plan, then: Read, kept: { snapshot: FolderSnapshot; made: boolean; state: State }, step?: (done: number, of: number) => void): Promise<Back> {
+async function bringBackAll(plugin: BindersPlugin, s: FolderSnapshot, folder: TFolder, shown: Plan, then: Read, kept: { snapshot: FolderSnapshot; made: boolean; state: State }, rest: Entry[], step?: (done: number, of: number) => void): Promise<Back> {
 	const { app } = plugin, store = plugin.binders, b = writable(plugin, folder), was = shown.all;
 	const opts = backOptions(plugin, s, folder, was?.since), now = kept.state;
-	const plan = planBack(changes(then.entries, now.entries, { words: false, yaml: parseYaml }), then.entries, now.entries, 'all', opts), all = plan.all;
+	const plan = planBack(changes(then.entries, now.entries, { words: false, yaml: parseYaml, outside: rest }), then.entries, now.entries, 'all', opts), all = plan.all;
 	if (plan.unsafe || !all || !was) throw outside();
 	const changed = () => new Error(`“${folder.name}” was changed after the screen said what would happen, so nothing was brought back. Look again: the screen will say what there is to do now.`);
 	if (shape(all) !== shape(was)) throw changed();

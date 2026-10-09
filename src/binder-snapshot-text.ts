@@ -180,6 +180,10 @@ export interface Row {
 	/** It has another name now (`to`), or is in another folder (`into`: that folder's path, "" for the top). */
 	renamed: string | null;
 	into: string | null;
+	/** Gone from the folder, but in the rest of the binder now: that note's path in the binder, and whether its text
+	    is different now. Such a note is not made again: it is where it is. */
+	away: string | null;
+	awayChanged: boolean;
 	/** It is at another place among the items of its folder. */
 	reordered: boolean;
 	/** The properties that are different, by name. (A folder's are its folder note's; "text" is that note's own text.) */
@@ -269,7 +273,7 @@ const SAME_NOTE = 0.5;
     Nothing in a note says which note it is, so a note is followed as git follows a file: one at the same path is the
     same note (unless its text is another's altogether and its own is found elsewhere); else one with the very same
     text; else the one that shares most of its paragraphs. A folder is followed by where its notes went. */
-export function changes(then: Entry[], now: Entry[], opts: { words?: boolean; yaml?: (text: string) => unknown } = {}): Changes {
+export function changes(then: Entry[], now: Entry[], opts: { words?: boolean; yaml?: (text: string) => unknown; outside?: Entry[] } = {}): Changes {
 	const T = then.filter((e) => !e.role), N = now.filter((e) => !e.role);
 	const nowAt = new Map(N.map((e) => [e.path, e])), pair = new Map<Entry, Entry>(), back = new Map<Entry, Entry>();
 	const join = (a: Entry, b: Entry) => { pair.set(a, b); back.set(b, a); };
@@ -345,6 +349,9 @@ export function changes(then: Entry[], now: Entry[], opts: { words?: boolean; ya
 		// what is left at the same path is the same note, written again from nothing
 		for (const a of leftT()) { const b = nowAt.get(a.path); if (b && !back.has(b) && b.kind === a.kind) join(a, b); }
 	}
+	// a note gone from the folder that is in the rest of the binder is not gone: it has moved out (never made again)
+	const away = new Map<Entry, Entry>();
+	if (opts.outside?.length) for (const [a, b] of follow(leftT(), opts.outside)) away.set(a, b);
 	// folders: the same path; else where most of what was in it is now, deepest first (so a folder's folders count)
 	const foldersT = T.filter((e) => e.kind === 'folder'), foldersN = new Set(N.filter((e) => e.kind === 'folder'));
 	for (const a of foldersT) { const b = nowAt.get(a.path); if (b && foldersN.has(b)) join(a, b); }
@@ -368,7 +375,9 @@ export function changes(then: Entry[], now: Entry[], opts: { words?: boolean; ya
 	const countWords = opts.words !== false;
 
 	const row = (a: Entry | null, b: Entry | null, depth: number): Row => {
-		const e = (a ?? b), r: Row = { then: a, now: b, kind: e.kind, depth, name: nameOf(e.path), gone: !b, fresh: !a, rewritten: false, added: 0, removed: 0, renamed: null, into: null, reordered: false, props: [], inside: 0 };
+		const e = (a ?? b), r: Row = { then: a, now: b, kind: e.kind, depth, name: nameOf(e.path), gone: !b, fresh: !a, rewritten: false, added: 0, removed: 0, renamed: null, into: null, away: null, awayChanged: false, reordered: false, props: [], inside: 0 };
+		const w = a && !b ? away.get(a) : undefined;
+		if (a && w) { r.away = w.path; r.awayChanged = w.hash !== a.hash; }
 		if (a && b) {
 			if (nameOf(a.path) !== nameOf(b.path)) r.renamed = nameOf(b.path);
 			const was = dirNow(dirOf(a.path));
@@ -424,7 +433,7 @@ export function changes(then: Entry[], now: Entry[], opts: { words?: boolean; ya
 		if (p.body.replace(/\r\n?/g, '\n') !== q.body.replace(/\r\n?/g, '\n')) own.push('text');
 	}
 	if (own.length) {
-		out.rows.unshift({ then: a, now: b, kind: 'note', depth: 0, name: nameOf((a ?? b).path), gone: false, fresh: false, rewritten: false, added: 0, removed: 0, renamed: null, into: null, reordered: false, props: own, inside: 0 });
+		out.rows.unshift({ then: a, now: b, kind: 'note', depth: 0, name: nameOf((a ?? b).path), gone: false, fresh: false, rewritten: false, added: 0, removed: 0, renamed: null, into: null, away: null, awayChanged: false, reordered: false, props: own, inside: 0 });
 		out.props++;
 	}
 	out.same = !top && !own.length;
@@ -504,6 +513,8 @@ export interface All {
 	    that are gone and can't be made again (a snapshot lists them, and keeps only notes); the items new since that
 	    stay where they are, and (`gathered`) those that go to the one folder; the folders that keep a note made for them since. */
 	made: Row[];
+	/** The items gone from the folder that are in the rest of the binder: they stay where they are, and are said so. */
+	away: Row[];
 	renamed: Row[];
 	moved: Row[];
 	named: { row: Row; as: string }[];
@@ -529,7 +540,7 @@ export interface Plan {
 	    since, in another folder, under another name, with other properties; and, when only one of the two was
 	    asked for, the notes that keep their text or the items that keep their place. (With everything coming back
 	    these are empty: what stays then is in `all`.) */
-	left: { gone: Row[]; fresh: Row[]; elsewhere: Row[]; renamed: Row[]; props: Row[]; text: Row[]; order: Row[] };
+	left: { gone: Row[]; away: Row[]; fresh: Row[]; elsewhere: Row[]; renamed: Row[]; props: Row[]; text: Row[]; order: Row[] };
 	/** Everything coming back (scope "all"), else null. */
 	all: All | null;
 	/** An item says it is somewhere other than in the folder: nothing is written on the word of such a file. */
@@ -584,14 +595,15 @@ export function unlinked(text: string): string {
     Everything ("all", see `everything` below): each note's file as it was, the items that are gone made again, the
     ones renamed or moved put back, the order. Nothing is deleted. */
 export function planBack(c: Changes, then: Entry[], now: Entry[], scope: Scope, opts: BackOptions = {}): Plan {
-	const plan: Plan = { scope, texts: [], orders: [], rewritten: [], moved: [], back: 0, away: 0, left: { gone: [], fresh: [], elsewhere: [], renamed: [], props: [], text: [], order: [] }, all: null, unsafe: false, nothing: true };
+	const plan: Plan = { scope, texts: [], orders: [], rewritten: [], moved: [], back: 0, away: 0, left: { gone: [], away: [], fresh: [], elsewhere: [], renamed: [], props: [], text: [], order: [] }, all: null, unsafe: false, nothing: true };
 	if ([...then, ...now].some((e) => !inFolder(e.path, e.kind))) { plan.unsafe = true; return plan; }
 	const own = (r: Row) => !!(r.then ?? r.now)?.role;
 	const rewritten = c.rows.filter((r) => r.kind === 'note' && !own(r) && r.rewritten && r.then?.text != null && r.now?.text != null);
 	const moved = c.rows.filter((r) => !own(r) && r.reordered && r.into == null);
 	if (scope !== 'all') for (const r of c.rows) {
 		if (own(r)) { if (r.props.length) plan.left.props.push(r); continue; }
-		if (r.gone) plan.left.gone.push(r);
+		if (r.away != null) plan.left.away.push(r);
+		else if (r.gone) plan.left.gone.push(r);
 		else if (r.fresh) plan.left.fresh.push(r);
 		if (r.into != null) plan.left.elsewhere.push(r);
 		if (r.renamed) plan.left.renamed.push(r);
@@ -652,7 +664,10 @@ export const shape = (all: All): string => JSON.stringify([all.gather, all.place
     snapshot and not kept: one that is gone can't be made again, and none is moved. */
 function everything(c: Changes, then: Entry[], now: Entry[], opts: BackOptions): All {
 	const since: Since = opts.since === 'gather' ? 'gather' : 'stay';
-	const all: All = { since, gather: null, places: [], files: [], orders: [], notes: [], made: [], renamed: [], moved: [], named: [], cannot: [], stays: [], gathered: [], ownStay: [], props: [] };
+	const all: All = { since, gather: null, places: [], files: [], orders: [], notes: [], made: [], away: [], renamed: [], moved: [], named: [], cannot: [], stays: [], gathered: [], ownStay: [], props: [] };
+	// the notes that are gone from the folder and are in the rest of the binder: they are not made again, nor written
+	const outT = new Set<Entry>();
+	for (const r of c.rows) if (r.away != null && r.then) outT.add(r.then);
 	const own = (r: Row) => !!(r.then ?? r.now)?.role;
 	const T = then.filter((e) => !e.role), N = now.filter((e) => !e.role);
 	const thenAt = new Map(T.map((e) => [e.path, e])), nowAt = new Map(N.map((e) => [e.path, e]));
@@ -708,6 +723,7 @@ function everything(c: Changes, then: Entry[], now: Entry[], opts: BackOptions):
 	const claimed = new Set(T.map((e) => low(e.path))), same = new Map<Entry, Entry>();
 	const depth = (e: Entry) => e.path.replace(/\/$/, '').split('/').length;
 	for (const e of [...T].sort((x, y) => depth(x) - depth(y))) {
+		if (outT.has(e)) continue;
 		const dir = dirOf(e.path), parent = dir ? thenAt.get(dir) : undefined, at = dir ? (parent ? finT.get(parent) ?? dir : dir) : '';
 		const want = at + leaf(e.path) + slash(e), holder = stayAt.get(low(want)), is = pair.get(e);
 		if (e.kind === 'file') {
@@ -788,6 +804,7 @@ function everything(c: Changes, then: Entry[], now: Entry[], opts: BackOptions):
 		const keeps = !own(r) && r.kind === 'folder' && !!r.then && !!r.now && !ownT.has(r.then.path) && ownN.has(r.now.path);
 		if (r.props.length && !keeps) all.props.push(r);
 		if (own(r)) continue;
+		if (r.away != null) { all.away.push(r); continue; }
 		if (r.fresh) { if (r.now && !same.has(r.now) && !off(r.now)) all.stays.push(r); continue; }
 		const to = r.then ? finT.get(r.then) : undefined;
 		if (r.gone) { if (to === undefined) all.cannot.push(r); else if (r.kind !== 'file') all.made.push(r); }

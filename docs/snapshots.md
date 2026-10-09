@@ -163,6 +163,10 @@ which their properties.
 - **Renamed and moved notes are put back through Obsidian**, so links to them follow, if "Automatically update
   internal links" is on in Obsidian's settings (if it is off, links stay as they are written, and the screen says
   so). A note's own snapshots follow it.
+- **A note moved to another folder of the binder is not made again.** Bringing back "Everything" on a folder's
+  snapshot finds a note that is gone from the folder but is still in the binder, in another folder, by the same rule
+  as a renamed note. It is listed under "Left as it is now", with where it is, and whether its text has changed.
+  Bringing back never moves it: the snapshot's text stays in the snapshot.
 - **A note is recognised after Obsidian has rewritten its links.** When a note is renamed or moved, Obsidian points
   the links in other notes at the new name, and a short note (one paragraph) changes with them. Binders compares
   notes with their link targets set aside, so such a note is still the same note. Where two notes would match

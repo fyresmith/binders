@@ -2093,3 +2093,29 @@ for (const [on, long] of [[false, false], [true, true], [true, false]]) test(`�
 	t.eq(await p.ev(`app.vault.adapter.read('Links/Alpha.md')`), original, 'its text is as it was, byte for byte');
 	t.eq(j(notes.filter((f) => /Alpha/.test(f))), j(['Links/Alpha.md']), 'no second Alpha');
 }, 200000);
+
+test('“Everything” on a snapshot of a folder: a note moved to the next folder of the binder since is not made again here; the screen says where it is, and nothing is written in the other folder', async (p, h, t) => {
+	await make(p, 'Parts', `[
+		{ path: 'Part One/Alpha.md', text: 'Alpha a.\\n\\nAlpha b.\\n\\nAlpha c.\\n' },
+		{ path: 'Part One/Beta.md', text: 'Beta a.\\n\\nBeta b.\\n\\nBeta c.\\n' },
+		{ path: 'Part Two/Gamma.md', text: 'Gamma a.\\n\\nGamma b.\\n\\nGamma c.\\n' }
+	]`);
+	await p.ev(`${PL}.snapshotsApi.takeFolder(${file('Parts/Part One')}, 'Part draft').then(() => 1)`);
+	await sleep(p, 300);
+	const before = await bytes(p);
+	await p.ev(`(async () => { await app.fileManager.renameFile(app.vault.getAbstractFileByPath('Parts/Part One/Beta.md'), 'Parts/Part Two/Beta.md'); })().then(() => 1)`);
+	await settled(p);
+	const mid = await bytes(p);
+	await showDialog(p, 'Parts/Part One');
+	await pickRow(p, 'Part draft');
+	const screen = await backScreen(p, null);
+	t.ok(!screen.will.some((l) => /Beta/.test(l)), 'the screen does not say Beta is made again: ' + j(screen.will));
+	t.ok(screen.left.some((l) => /stays where it is now/.test(l) && /“Beta” is in “Part Two”/.test(l)), 'it says where Beta is: ' + j(screen.left));
+	await confirmBack(p);
+	await settled(p);
+	const after = await bytes(p);
+	t.eq(j(Object.keys(after).filter((k) => /(^|\/)Beta\.md$/.test(k))), j(['Parts/Part Two/Beta.md']), 'Beta is in Part Two, and only there');
+	t.eq(after['Parts/Part Two/Beta.md'], mid['Parts/Part Two/Beta.md'], 'where it is, it is as it was');
+	t.eq(after['Parts/Part Two/Gamma.md'], mid['Parts/Part Two/Gamma.md'], 'the other folder’s own note is not written');
+	t.eq(after['Parts/Part One/Alpha.md'], before['Parts/Part One/Alpha.md'], 'Alpha has its text');
+}, 200000);
