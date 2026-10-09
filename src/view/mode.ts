@@ -51,6 +51,8 @@ export interface ModeContext {
 	/** Optional: what the mode is on changed (a card or row selected, the section with the cursor): the inspector
 	    follows it. */
 	selectionChanged?(): void;
+	/** Optional: opens the view's find bar (asked for from inside a section's editor); `replace`: with its replace row. */
+	find?(replace: boolean): void;
 	/** Optional: a note's text changed as the user types in the view (before it's saved), e.g. to update a word count. */
 	onTextChange?(file: TFile, text: string): void;
 }
@@ -98,6 +100,15 @@ export interface BinderMode {
 	/** Optional: takes the folder's synopsis row into the mode's own page, so it scrolls with the rest instead of
 	    staying above it. */
 	adopt?(header: HTMLElement): void;
+	/** Optional: find and replace (find-bar.ts). What was found in this mode's notes, to show in the text it draws (null:
+	    the bar has closed); `go`: bring the match the writer is on into sight. */
+	found?(state: import('./find-bar').FindState | null, go: boolean): void;
+	/** Optional: replaces one match in its section's editor (a step Undo there takes back). False if it couldn't. */
+	replaceFound?(at: import('./find-bar').At, by: string): Promise<boolean>;
+	/** Optional: where the cursor is, as a place in a note's text. */
+	foundFrom?(): { id: string; offset: number } | null;
+	/** Optional: the bar has closed: the cursor goes to the match it was on. */
+	foundClosed?(at: import('./find-bar').At | null): void;
 	// For focus mode (src/focus):
 	/** Optional: the CodeMirror editor that has the cursor (the manuscript's section being typed in), if any. */
 	editor?(): EditorView | null;

@@ -104,7 +104,7 @@ yet show after the others, by name. A new note is written into the list when som
   Obsidian's own property writer, so the rest of the note stays as it is.
 - **Note text** is never rewritten behind your back. It changes only where you type (in a note, or in the
   manuscript, which is Obsidian's own editor), or when you ask: **Split**, **Merge**, **Bring back** a snapshot,
-  **Rewrite**, and the links repointed after a merge or split when Obsidian is set to update links. Each is ordered
+  **Rewrite**, **Replace** and **Replace all** (at the matches only, after a review and a snapshot), and the links repointed after a merge or split when Obsidian is set to update links. Each is ordered
   so the text exists in two places before it leaves the first.
 - **Links in paragraphs that start with a tab** are the one exception. When the note or file they lead to is renamed
   or moved, Obsidian is set to update links and **Start a paragraph with a tab** is on, the name in the link

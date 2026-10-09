@@ -18,6 +18,7 @@ neighbours, for example the store and `snapshots.ts`, which follow each other's 
  ───────────────────────────────────────────────────────────────────────────────────
  view/BinderView.ts  ->  modes: corkboard.ts, lanes.ts, outliner.ts, manuscript.ts     what the writer sees
  focus/focus.ts      view/snapshots.ts       view/actions.ts, card.ts, edit.ts, drag.ts, ...
+ view/find-bar.ts, find-review.ts   find and replace: the bar and the review (find/replace.ts writes, find/highlight.ts marks)
  inspector/views.ts, contents-pane.ts       the sidebar: what's in hand, and the book with where you are
  ───────────────────────────────────────────────────────────────────────────────────
  binders.ts   the store: the only code that changes a binder (and its undo: undo.ts)
@@ -30,7 +31,7 @@ neighbours, for example the store and `snapshots.ts`, which follow each other's 
  pure logic, no Obsidian: model.ts  longform.ts  scene-text.ts  snapshot-text.ts  settings-data.ts
    export/model.ts  markdown.ts  typography.ts  roles.ts  book.ts  picture.ts  docx.ts  docx-parts.ts
                     style.ts  details.ts  epub.ts  epub-text.ts  epub-css.ts
-   focus/session.ts  view/labels.ts  view/outliner-data.ts  view/lanes-data.ts  view/file-drag-data.ts
+   find/search.ts  focus/session.ts  view/labels.ts  view/outliner-data.ts  view/lanes-data.ts  view/file-drag-data.ts
    view/tap-text.ts  view/words.ts  view/book-words.ts
 ```
 
@@ -181,6 +182,17 @@ cards and rows write through.
 | `src/focus/dom.ts` | Obsidian's own page and editor as far as focus mode reaches into them (the column a note's text is in, the room under its last line, where the cursor is on screen). | |
 | `styles.css` | One style sheet for the whole plugin. Focus mode's hiding of Obsidian's window is one block in it, by class name. | Use `!important`, `all:`, scrollbar styling. |
 
+### Find and replace
+
+| File | What it is | Must never |
+|---|---|---|
+| `src/find/search.ts` | Where a query stands in a note's text (`findIn`): after the properties, and not wholly inside what is guarded (where a link or embed leads, a tag, code, a comment: `shielded`); `findPlain` for text as drawn; `Edit`, `apply` and `inverse` (the changes of a replace, and the changes that take them back). Pure. | Import Obsidian, read a pattern in a query, look through properties. |
+| `src/find/replace.ts` | `replaceEdits`: makes a note's edits in the editor it is open in (one transaction, so the cursor stays and Undo there works) or in one `vault.process`, only if the note is exactly the text that was searched; false, with nothing written, if not. | Write a note that has changed since it was searched; write without being asked by Replace all or Replace. |
+| `src/find/highlight.ts` | How a match is shown: a CodeMirror decoration in an editor; in drawn text the browser's `CSS.highlights`, else a `<mark>` taken off before the next draw (`paint`). `rangesIn` finds a query in rendered text with the same guarded stretches. | Leave a mark in the page when the bar closes. |
+| `src/view/find-bar.ts` | `FindBar`: Obsidian's find bar by its own classes, over a `FindHost` (what is looked through, where the reader is, how matches are shown and gone to, what a replace all is kept in a snapshot of). Looks through the notes in order, reads an open editor's text before the disk's, replaces one (through its host) and all: the review, a snapshot, each note, then "Replaced N in M notes. Undo". | Replace without the review and a snapshot; replace in a note whose text is not what was shown; replace in a binder that is read only. |
+| `src/view/find-review.ts` | The review dialog, built from the Snapshots dialog's parts: every change in context. | Change anything: closing it replaces nothing. |
+| `src/view/BinderView.ts` (`showSearch`, `findHost`, `markBoard`), `src/view/manuscript.ts` (`found`, `goFound`, `replaceFound`), `src/focus/find.ts` | The hosts: the binder view (the manuscript's sections; the cards and rows of the boards, marked only where they are in sight) and a note in focus mode with the scenes before and after showing. | |
+
 ### Paragraphs
 
 | Module | Owns | Must never |
@@ -269,6 +281,7 @@ The full table (what each internal is, how it is detected, the fallback, the tes
 | `src/export/pdf.ts` | Electron's `<webview>` tag, its `executeJavaScript` and `printToPDF`: a book's pages printed to a PDF. |
 | `src/view/internals.ts` | `MenuItem.setSubmenu`, a menu's `items`, `select` and `dom`, `app.setting`, `vault.getConfig` (`trashOption`, `alwaysUpdateLinks`, `vimMode`, `readableLineLength`), `leaf.updateHeader`, `titleEl`, the history dialogs' class names. |
 | `src/focus/dom.ts` | The editor's `cm`, the structure of a note's page, the editor's bottom padding. |
+| `src/view/BinderView.ts` (`showSearch`), `src/view/editable-embed.ts` (`onSearch`), `src/focus/find.ts` (`hookSearch`), `src/find/highlight.ts` | A view's `showSearch(replace)` that Obsidian's search commands call, the embed's and a note tab's replaced on the instance; the classes of Obsidian's find bar; `CSS.highlights` (a web API, missing on iOS before 17.2: marks instead). |
 | `src/paragraphs/mode.ts`, `src/paragraphs/language.ts` | The state of Obsidian's Markdown mode (`indentation`, `indentationDiff`, `list`, `quote`) and its token `hmd-indented-code`; that the editor's language is a stream language. |
 | `src/longform.ts` | `app.plugins.plugins` (is Longform running). |
 | `src/inspector/scene-pane.ts`, `src/inspector/contents-pane.ts`, `styles.css` | No API: the class names of Obsidian's own sidebar views, for their look (`metadata-property`, `tree-item`, `pane-empty`). |
@@ -284,7 +297,7 @@ These are the rules the code is held to. A change that breaks one needs a new te
 1. **Binders writes few things.** A binder note's `contents`, its own properties (and a folder note's), the properties
    you edit in a view, a Longform index note's `longform.scenes`, snapshot files, the notes that scene work creates,
    the file an export makes (and never a note it read), and
-   note text only through an editor you are typing in, or a snapshot-guarded replace.
+   note text only through an editor you are typing in, or a snapshot-guarded replace (a bringing back, or a Replace all).
 2. **Apply, don't overwrite.** Changes to a list are kept as operations and applied inside `processFrontMatter` to what
    the note says then, so an outside edit made in the meantime is not lost. A write drops entries that no longer name
    anything, but if that would drop all of them, or more than half, with no rename or delete to account for it, they
@@ -310,7 +323,8 @@ These are the rules the code is held to. A change that breaks one needs a new te
 12. **Nothing is started as the page goes.** See the keystroke journey, step 4.
 13. **A property write never drops text.** `editProperties` is the one way a property is written to a scene; for the
     two kinds of note Obsidian's writer would damage, it writes the block itself.
-14. **Never block a view on the disk.** Word counts read in the background, redraws are batched, and only the rows or
+14. **A replace is made only on what was shown.** Replace all shows its changes, takes a snapshot, and changes a note only if its text is exactly what was searched (`find/replace.ts`); a note that has changed since is left and counted. What a query does not reach (properties, link targets, tags, code, comments) is left byte for byte.
+15. **Never block a view on the disk.** Word counts read in the background, redraws are batched, and only the rows or
    cards that changed are drawn.
 
 ## How the tests map onto it
@@ -326,6 +340,7 @@ These are the rules the code is held to. A change that breaks one needs a new te
 | Scrivener import | `import-scrivener` | `specs-import-scrivener` |
 | Snapshots | `snapshot-text` | `specs-snapshots` |
 | Snapshots of a folder or binder | `binder-snapshot-text` | `specs-binder-snapshots` |
+| Find and replace | `find-search` | `specs-find-replace` (and `specs-qa2-manuscript`, "find opens the view’s own bar…") |
 | Focus mode | `focus-session` | `specs-focus` |
 | Explorer patch | | `specs-explorer`, `specs-qa2-explorer`, `specs-qa4-explorer` |
 | Binder view shell | | `specs-view`, `specs-a11y`, `specs-themes` |

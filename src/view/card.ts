@@ -73,7 +73,7 @@ function heldList(ctx: ModeContext, card: HTMLElement, folder: TFolder): void {
 	if (!items.length) return;
 	const list = card.createDiv({ cls: 'binders-card-held', attr: { 'aria-hidden': 'true' } });
 	for (const c of items) {
-		const row = list.createDiv({ cls: 'binders-card-held-item' });
+		const row = list.createDiv({ cls: 'binders-card-held-item', attr: { 'data-path': c.path } });
 		if (c instanceof TFolder) setIcon(row.createSpan({ cls: 'binders-card-held-icon' }), 'lucide-folder');
 		row.createSpan({ cls: 'binders-card-held-name', text: c instanceof TFile ? c.basename : c.name });
 		const note = noteOf(ctx, c), label = note ? ctx.props(note).label : '';

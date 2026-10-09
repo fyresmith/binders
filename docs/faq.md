@@ -13,7 +13,7 @@ One thing looks different: a paragraph you started with a tab shows as a code bl
 ## Does it change my notes?
 
 It writes the properties you set through its views, and nothing else in a note unless you type there or ask for it
-(split, merge, bring back a snapshot, rewrite). The one exception is narrow and is described in
+(split, merge, bring back a snapshot, rewrite, replace). The one exception is narrow and is described in
 [How your files look](files.md#what-binders-writes-and-what-it-never-touches).
 
 ## Does it work with Obsidian Sync?

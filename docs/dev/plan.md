@@ -6,8 +6,7 @@ targets, scene operations (split, merge, duplicate, group), export (a manuscript
 view, and undo of moves all work, on desktop and in mobile emulation. Nothing is tagged yet: the version in
 `package.json` is the latest committed. Six QA rounds have been run (`tests/e2e/specs-qa*.mjs`); the findings still
 open are in `tests/e2e/open-findings.json` and [integration-qa.md](integration-qa.md). Left before 1.0: mobile QA on real
-devices (so far phones and tablets are only emulated), the remaining export steps, and find and replace across the
-manuscript. Then release (1.0).
+devices (so far phones and tablets are only emulated) and the remaining export steps. Then release (1.0).
 
 ## What it is
 
@@ -446,7 +445,9 @@ both (see "Decided"). Built in four steps; this section says what each has.
     names the "before" snapshot instead.
   - *Following a note* is `changes()`'s, unchanged: a note under three paragraphs at a path a note had is that
     note, rewritten. So short notes that swap names get their texts back, not their names.
-  - Step 4 adds thinning of `.auto` files after `takeFolderSnapshot`, and the timed ones.
+  - Step 4 adds thinning of `.auto` files after `takeFolderSnapshot`, and the timed ones. Its hook for find and replace
+    is built (2026-10-09): Replace all takes `takeFolderSnapshot(…, why)` of the binder or folder first (a note's own
+    snapshot in focus mode, where only one note is changed); what is left is thinning.
 - **Refused:** a binder in a newer format takes and changes nothing; a snapshot file in a newer format is listed
   and never opened, named or deleted; a file whose notes don't match their fingerprints is read and nothing is
   brought back or made from it.
@@ -605,7 +606,7 @@ undocumented parts, one by one, are in [internals.md](internals.md).
 
 ## Milestones
 
-**What's left before 1.0 is in [ROADMAP.md](../../ROADMAP.md)**: mobile QA to the end (on real devices), the remaining export steps, and find and replace across the manuscript.
+**What's left before 1.0 is in [ROADMAP.md](../../ROADMAP.md)**: mobile QA to the end (on real devices) and the remaining export steps.
 
 The numbers are the plan's milestones, not the versions in the CHANGELOG (those are 0.12.x now, and every commit bumps
 them: see AGENTS.md). Nothing is tagged yet.
@@ -670,6 +671,26 @@ them: see AGENTS.md). Nothing is tagged yet.
   the notes' own snapshots (they hold text only, and their times differ note by note: calling them snapshots of the
   binder would promise an order they don't have). Files that aren't notes are listed, not copied. No branching:
   "Make a binder from this snapshot" is the other ending, as a second binder.
+- **Find and replace** (2026-10-09, the maintainer, after a design round; built the same day). Behaviour in his words:
+  "ctrl+f inside a binder, search through all notes. ctrl-f inside manuscript, works across full contiguous
+  manuscript, outliner+corkboard it highlights cards. Subfolders it is scoped to subfolders, notes it is scoped to
+  that note", and "if the note has the contiguous before and after note showing it should search those too". What
+  that came to:
+  - The bar is Obsidian's own, by its classes, in the note's column over the manuscript and the width of the view on
+    the boards. Obsidian's search commands open it wherever a binder view is in front; the palette has "Find in
+    binder" and "Find and replace in binder" (no default hotkeys).
+  - Boards search a note's text only (not title or synopsis). A lit card shows its first matching line where the
+    synopsis was; the rest step back; the outliner's rows count, cards don't; Replace on boards is Replace all only.
+  - Links, tags, code and comments are not matched by a query that lies wholly inside them (a link's target, a tag
+    after its `#`, between a code's or a comment's marks); a query typed with the marks matches as written. A link's
+    shown words are prose. (Code and comments are the builder's reading of the rule, not the maintainer's words.)
+  - **Replace all** opens a review (every change in context), takes an automatic snapshot of the binder or folder (the
+    note's own in focus mode), changes only the matches, and leaves "Replaced N in M notes. Undo" in the bar. A note
+    that is not what the review showed is left and counted.
+  - Focus mode with "Show the scenes before and after" on: Binders' bar looks through the shown excerpts and the note;
+    replace is in the note only. Otherwise a note in its own tab keeps Obsidian's bar.
+  - No regular expressions and no whole-word option (the review is where "Mara" in "Maramures" is seen).
+  See `docs/dev/design.md` (the round) and `docs/find-and-replace.md`.
 - **Focus mode** (2026-10-01, the maintainer): the text and nothing else by default, with typewriter scrolling the
   only thing on; typewriter scrolling is for the last line only; the scenes before and after, the place and synopsis,
   the word counts, the goal and dimming are each an option; a session is today's words in this binder on this

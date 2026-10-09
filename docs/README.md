@@ -41,6 +41,7 @@ New here? Read [Installation](installation.md), then [Getting started](getting-s
 | [Undoing a move](undo.md) | Taking back a drag, a sort or a new folder |
 | [Paragraphs](paragraphs.md) | Paragraphs that start with a tab, and first-line indents |
 | [Focus mode](focus-mode.md) | The text and nothing else |
+| [Find and replace](find-and-replace.md) | Searching every note of a binder, and replacing with a review, a snapshot and Undo |
 
 ## Export
 

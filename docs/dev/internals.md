@@ -65,6 +65,11 @@ The whole table was read against the code on 2026-10-02 (Obsidian 1.13.7): each 
 | `.footnotes` (the block of footnotes Obsidian's renderer adds at the end of a rendered section) and `.callout` (a rendered callout), matched against the elements of a rendered section | `src/view/manuscript.ts` (`space()`, lines 813 and 815) | The rendered text of a section is spaced as its editor will be, so the page doesn't move when the editor takes over: the footnotes block is left out of the blocks counted, and a rendered callout is looked for as `.callout` | If the blocks don't line up with the note's index (a renamed class leaves an extra or an unmatched block), `space()` returns and the spacing is left to the style sheet: a blank line between blocks | `specs-qa4-manuscript.mjs` (the height test with footnotes and callouts in the sections) |
 | `.cm-content` (the editor's text), tested with `matches()` on the focused element, and `.cm-editor` (the whole editor), tested with `closest()` | `src/view/BinderView.ts` (lines 105 and 116: Mod+Z and F2 leave an editor alone; line 246: an editor's caret is left to the manuscript while a field is brought into sight), `src/view/manuscript.ts` (line 381, typing outside any editor), `src/focus/focus.ts` (lines 452 and 465: which key counts as writing, and Escape in an editor) | Telling that the focus is in a note's or a section's editor, rather than in a field | Not matched (a renamed class): Mod+Z would undo a binder move while typing in a section, F2 would rename from the wrong place, a typed key would not hide what's around the page in focus mode, and a field brought into sight would also be scrolled to when it is an editor | `specs-manuscript.mjs`, `specs-focus.mjs` (Escape and typing) |
 | `.lucide-folder-plus` (the icon of an explorer menu item, drawn by Obsidian's `setIcon`) | `src/explorer.ts` (`dropNewFolderItem`, line 114) | Recognising Obsidian's own "New folder with selection" among a selection's menu items (its title is in the app's language), to take it out where Binders adds its own | Not found: both items show | `specs-explorer.mjs` (the selection menu, and the test where the item isn't found) |
+| A view's `showSearch(replace?)`, which Obsidian's `editor:open-search` calls on the view in front (`workspace.activeLeaf.view`) when there is none on the active editor; `editor:open-search-replace` calls `workspace.activeEditor.showSearch(true)` and only when that editor is in source mode | `src/view/BinderView.ts` (`showSearch`) | Ctrl+F in a binder view (a board, the outliner, the manuscript) opens Binders' bar over every note of the folder shown | Without the method Obsidian ignores the command; the palette's "Find in binder" and "Find and replace in binder" and the view's menu call the same method | `specs-find-replace.mjs`, "Obsidian’s own search commands open Binders’ bar…" |
+| The editable embed's `showSearch(replace?)`, set on the instance in `mountEditor` | `src/view/editable-embed.ts` (`onSearch`) | Ctrl+F with the caret in a manuscript section is the view's bar, not a one-note bar inside the section | The embed keeps its own one-note bar | `specs-qa2-manuscript.mjs`, "find opens the view’s own bar…"; `specs-find-replace.mjs`, "Ctrl+F in the manuscript opens one bar…" |
+| A note's tab's `showSearch(replace?)`, set on the view while focus mode shows the scenes before and after, and taken off again (the class's own then shows) | `src/focus/find.ts` (`hookSearch`) | Binders' bar over a note in focus mode, looking through the shown excerpt of the scene before, the note and the shown excerpt of the scene after | Obsidian's own one-note bar (reading view always has it) | `specs-find-replace.mjs`, "focus mode with the scenes before and after showing…", "a note in its own tab with the scenes before and after not showing…" |
+| The classes of Obsidian's own find bar: `document-search-container`, `document-search`, `document-search-input`, `document-search-count`, `document-search-buttons`, `document-search-button`, `document-search-close-button`, `document-replace`, `document-replace-input`, `document-replace-buttons`, `mod-replace-mode`, `mod-no-match` (on the field), and `search-input-container`; in an editor a match gets `cm-highlight` and `obsidian-search-match-highlight` | `src/view/find-bar.ts`, `src/find/highlight.ts`, `styles.css` | The bar looks like Obsidian's and a theme that restyles one restyles the other; a match in an editor looks as Obsidian's own | These only style: without them the bar still works with Binders' own rules in `styles.css` | `specs-find-replace.mjs`, "Ctrl+F in the manuscript opens one bar…" (the no-match tint can be seen) |
+| `CSS.highlights` and `Highlight` (a web API, not Obsidian's; absent on iOS before 17.2) | `src/find/highlight.ts` (`registry`) | Marking matches in text a section draws, without changing the page | Each match is wrapped in a `<mark class="binders-find-mark">`, taken off before the next draw and when the bar closes | `specs-find-replace.mjs`, "drawn text without CSS highlights…" and "drawn text with CSS highlights…" |
 
 Focus mode's public API that looks like internals, and isn't: `app.keymap.pushScope()` and `popScope()`, `Scope`,
 a view's `scope`, `view.addAction()`, `view.contentEl`, `MarkdownView.getMode()`, the workspace's `editor-menu` and
@@ -395,6 +400,32 @@ is an ordinary `<iframe srcdoc>`, which is the web's and nothing of Obsidian's.
   (so the post-processor takes its classes off as well as putting them on). If `rerender` threw or did nothing, a
   reading view would show the old look until the note changes, as before. An embed or a hover preview of a
   binder's note inside another note is not made again. `specs-paragraphs.mjs` ("a reading view that is open…").
+
+## Find and replace (checked on Obsidian 1.13.7, desktop and `app.emulateMobile(true)`)
+
+- **How Obsidian opens its bar.** `editor:open-search` ("Search current file") runs `workspace.activeEditor.showSearch(false)`
+  when there is an active editor, else `workspace.activeLeaf.view.showSearch(false)` when the view in front has the
+  method. `editor:open-search-replace` only runs for an active editor in source mode, so on a board (no editor) it is
+  not offered: the palette's own "Find and replace in binder" is the way there. A manuscript section is an editor, and
+  its `showSearch` is replaced by `mountEditor` to hand over to the view's bar.
+- **Where it is drawn.** The bar is Obsidian's own markup by its own classes, in the binder view under its toolbar (in
+  the manuscript the width of a note's column, as Obsidian's is; on the boards and the outliner the width of the view,
+  `is-wide`). It is an element of ours with a `Scope` pushed on the keymap while the keyboard is in it (Enter, Shift+Enter,
+  F3, Shift+F3, Mod+G, Mod+Shift+G, Mod+Alt+Enter, Escape, Tab: all public API).
+- **The field's no-match class.** Obsidian puts `mod-no-match` on the `<input>`, and its own rule for the class reaches
+  the box around it (`.document-search-input.mod-no-match`), which the field's own background covers: Obsidian's own bar
+  shows no tint either (1.13.7). Binders gives the field the tint itself (`styles.css`).
+- **What a match is.** A note's own text from the end of its properties (`bodyStart`), never what is guarded: where a
+  link or embed leads, a tag after its `#`, inline and fenced code between its marks, a `%%` or `<!-- -->` comment between
+  its marks. A query that includes the marks reaches outside and matches as written. In drawn text the same is taken from
+  the rendered page (`a.internal-link` whose text is its target, `a.tag`, `code`, `pre`); an embed's drawn note is not
+  looked through.
+- **How a replace is made** (`src/find/replace.ts`): in the editor the note is open in (a tab, or its manuscript section)
+  as one transaction of Obsidian's `Editor.transaction`, so the cursor stays and Undo there takes it back, else in one
+  `vault.process` that does nothing unless the note says exactly what was looked through. A note's text is what the editor
+  holds if it is open in one (saved or not), else a fresh `vault.read`.
+- **iOS before 17.2** has no `CSS.highlights`: matches in text a section draws get a `<mark>` each. Nothing of ours is
+  left in the page when the bar closes (the marks are taken off before the next draw and when it closes).
 
 ## The binder view (checked on Obsidian 1.13.7)
 

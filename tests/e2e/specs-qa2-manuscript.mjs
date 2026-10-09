@@ -352,15 +352,15 @@ test('inside one section the page follows the caret: arrows and typing at the bo
 	t.ok(onScreen(c), 'and the page scrolled up to it: ' + J(c));
 });
 
-test('find opens in the section with the caret and Escape gives the caret back; the command palette returns to the section', async (p, h, t) => {
+test('find opens the view’s own bar (in the note’s column, one bar for the whole manuscript) with the caret’s section as where it starts, and Escape gives the caret back; the command palette returns to the section', async (p, h, t) => {
 	await openMs(p);
 	await clickIn(p, ARRIVAL);
 	await p.key('f', 'ctrl');
 	await p.sleep(300);
-	t.ok(await p.ev(`!!${scene(ARRIVAL)}.el.querySelector('.document-search-container') && document.activeElement.tagName === 'INPUT'`), 'the find bar is in the section, focused');
+	t.ok(await p.ev(`!${scene(ARRIVAL)}.el.querySelector('.document-search-container') && !!document.querySelector('.workspace-leaf.mod-active .binders-view > .binders-find') && document.activeElement.tagName === 'INPUT'`), 'the find bar is the view’s, not one in the section, and is focused');
 	await p.type('jetty');
-	await p.sleep(300);
-	t.eq(await p.ev(`${scene(ARRIVAL)}.el.querySelector('.document-search-count')?.textContent`), '1 / 1', 'it counts the section’s matches');
+	await p.sleep(400);
+	t.eq(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-find .document-search-count')?.textContent`), '1 / 1 in 1 note', 'it counts the matches of every note, and in how many');
 	await p.key('Escape');
 	await p.sleep(200);
 	t.eq(await focused(p), ARRIVAL, 'Escape closes it and the caret is back in the section');

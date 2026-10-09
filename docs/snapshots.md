@@ -186,6 +186,14 @@ which their properties.
   it as it is**. The first two show the same screen first. Until you answer, no other snapshot is brought back in
   that binder.
 
+### Snapshots Binders takes for you
+
+Before it does something to many notes at once, Binders takes a snapshot first, so the "before" is always there. These
+are marked **auto** in the list, and named for what they were taken before: "Before bringing back …", and "Before
+replacing “Mara” with “Maren”" ([Find and replace](find-and-replace.md)). If your newest snapshot already holds
+exactly what is there, that one serves and no other is taken. In focus mode a replace changes one note, so the
+snapshot is that note's own.
+
 ### What a snapshot of a folder does not keep
 
 - Files that aren't notes (pictures, PDFs, canvases). They are listed in the snapshot with their size, not copied.

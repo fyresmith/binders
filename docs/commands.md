@@ -58,6 +58,13 @@ Most commands only appear where they apply: with a binder view in front, or with
 | **Show snapshots of the binder** | The binder's snapshots: read, compare, bring back | A binder view, or a note of a binder |
 | **Show snapshots of notes that are gone** | Lists the snapshots left by deleted, merged-away or moved-out notes | A binder that has some |
 
+## Find and replace
+
+| Command | What it does | Where it applies |
+|---|---|---|
+| **Find in binder** | Opens the find bar over every note of the folder shown. See [Find and replace](find-and-replace.md) | A binder view in front |
+| **Find and replace in binder** | The same, with the replace row | The same, in a binder that can be changed |
+
 ## Focus mode
 
 | Command | What it does | Where it applies |

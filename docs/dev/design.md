@@ -222,6 +222,30 @@ name is "Binders" with "for Obsidian" small under it, and the mark is the plugin
   (Obsidian's own setting) and the sidebar 250 px, so the explorer and two whole cards fit. The shot is placed one CSS
   pixel to one of the app's: a card's synopsis can still be read at the 830 px a README gives the picture.
 
+**Find and replace (2026-10-09).** The maintainer: "ctrl+f inside a binder, search through all notes. ctrl-f inside
+manuscript, works across full contiguous manuscript, outliner+corkboard it highlights cards." A designer built the
+bar across a binder's notes, in the real plugin, with two forks: where the bar sits, and what "Replace all" asks first.
+He chose a bar in the note's column over the manuscript and the full width of the view on the boards, and the review
+over a one-sentence confirmation. What the round settled, and why:
+- **Obsidian's own bar, by its own classes**, so a theme that restyles one restyles the other; two differences: the
+  count says how many notes, and "Match case" stands where Obsidian has "Select all matches".
+- **The boards light, they don't switch.** Cards and rows whose note has a match stay as they are, the rest fade; a lit
+  card shows the line of its first match where its synopsis was (that is what "lit" means: it is why). The count is on
+  the outliner's row, at its end, as a tree's row says things; a card says nothing about itself that isn't the writer's.
+  A folder's card is lit for what is in it, and says which of the notes it lists matched (bold), not how many.
+- **Replace all is a review**, built from the Snapshots dialog's parts: the notes in binder order, each change where it
+  falls in its paragraph, the old struck out and the new underlined, so a link's target is seen not to change. One
+  filled button. The review is where "Mara" in "Maramures" is seen, which is why there is no whole-word option and no
+  pattern.
+- **A link's target is not text to change**, nor a tag after its `#`; a query typed with the marks reaches outside and
+  matches as written. (The maintainer: "You should have to f/r [[Mara]]".) Code and comments follow the same rule.
+- **Given up:** searching a note's title or synopsis from the bar (a property is not text, and a replace would have
+  to say it leaves those alone); a count on a card; a replace one on the boards (a card is not an editor).
+- **No generic look.** The bar, the count and the review are Obsidian's own pieces. The no-match tint Obsidian's own
+  bar doesn't show (1.13.7: its rule reaches the box, which the field covers) is shown on ours.
+- **On a phone** the bar takes its size from Obsidian's mobile rules (44 px high, full width), the way in is the view's
+  More options menu, and the review is a sheet.
+
 ## How a design round runs: narrow, then build
 
 The quality comes from three things: this page, the designer looking at the real plugin and correcting what it sees,

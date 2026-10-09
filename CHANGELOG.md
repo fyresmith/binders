@@ -3,6 +3,18 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.49.0 (2026-10-09)
+
+### Added
+
+- Ctrl+F in a binder view searches every note of the binder: as one page in the manuscript, and by lighting the matching cards and rows on the corkboard and outliner.
+- Replace one match in the manuscript, or Replace all after a review of every change, with a snapshot taken first and Undo.
+- “Find in binder” and “Find and replace in binder” in the command palette and the view’s menu.
+
+### Changed
+
+- Find leaves link targets, tags, code and comments alone unless you type them as written, such as [[Mara or #Mara.
+
 ## 0.48.3 (2026-10-09)
 
 ### Changed

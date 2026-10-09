@@ -8,6 +8,8 @@ import { visibleBottom } from './drag';
 import type { BinderMode, ModeContext, ModeFactory } from './mode';
 import { embedSupported, mountEditor, type LiveEditor } from './editable-embed';
 import { sourceOffset } from './tap-text';
+import type { At, FindState, Found } from './find-bar';
+import { paint, rangesIn, setFound, shows, unpaint } from '../find/highlight';
 
 /* The manuscript: every note in the folder, in binder order, as one scrolling page, like Scrivener's Scrivenings.
    Subfolders are headings; each note is a section with its title and its body in a live editor on that note.
@@ -279,6 +281,7 @@ class Manuscript implements BinderMode {
 	unload(): void {
 		if (this.dead) return;
 		this.ctx.owner.removeChild(this.comp); // unloads every live editor, which writes its pending typing first
+		unpaint(this);
 		this.teardown();
 		this.root.remove();
 	}
@@ -746,7 +749,7 @@ class Manuscript implements BinderMode {
 		s.mounting = (async () => {
 			try {
 				await s.saved;
-				const live = await mountEditor(this.app, host, s.file, this.comp, { onChange: (text) => this.onTyping(s, text), onCaret: (cm, pos) => this.showCaret(s, caretRect(cm, pos), 'start') });
+				const live = await mountEditor(this.app, host, s.file, this.comp, { onChange: (text) => this.onTyping(s, text), onCaret: (cm, pos) => this.showCaret(s, caretRect(cm, pos), 'start'), onSearch: this.ctx.find ? (replace) => this.ctx.find?.(replace) : undefined });
 				if (this.dead || this.byKey.get(s.file) !== s) { void live.destroy(); host.remove(); return; }
 				s.token++; // a render still in flight is stale now
 				for (const c of Array.from(s.bodyEl.children)) if (c !== host) c.remove();
@@ -755,6 +758,8 @@ class Manuscript implements BinderMode {
 				s.bodyEl.setCssStyles({ minHeight: '' });
 				s.live = live;
 				s.shown = null;
+				this.paintFound(s);
+				this.paintDrawn();
 			} catch (e) {
 				host.remove();
 				if (this.dead || this.byKey.get(s.file) !== s) return; // closed while it was opening
@@ -802,6 +807,7 @@ class Manuscript implements BinderMode {
 			s.bodyEl.appendChild(el);
 			s.bodyEl.setCssStyles({ minHeight: '' });
 			s.shown = body;
+			this.paintDrawn();
 		} finally {
 			if (token === s.token) s.rendering = false;
 		}
@@ -830,6 +836,113 @@ class Manuscript implements BinderMode {
 		const typed = [...this.typed];
 		this.typed.clear();
 		for (const [file, text] of typed) this.ctx.onTextChange?.(file, text);
+	}
+
+	// ---- find and replace (find-bar.ts) ----
+
+	private finding: FindState | null = null;
+	private drawnTimer = 0;
+
+	/** What the bar found, shown in this page's text: in a section's editor as Obsidian's bar shows a match, in a
+	    section that is drawn text by the browser's own highlights. */
+	found(state: FindState | null, go: boolean): void {
+		this.finding = state;
+		for (const s of this.scenes) this.paintFound(s);
+		this.paintDrawn();
+		if (!state) unpaint(this);
+		const at = state?.at, file = at?.found.source.file;
+		if (go && at && file) void this.goFound(file, at.found.hits[at.hit]);
+	}
+
+	private hitsOf(s: Scene): { found: Found; current: number } | null {
+		const st = this.finding, f = st?.found.find((x) => x.source.file === s.file);
+		return f ? { found: f, current: st?.at?.found === f ? st.at.hit : -1 } : null;
+	}
+
+	private paintFound(s: Scene): void {
+		const cm = s.live?.cm;
+		if (!cm || !shows(cm)) return;
+		const h = this.hitsOf(s);
+		// (only where the editor still holds the text that was looked through: typed in since, it's looked through again)
+		const fresh = h && cm.state.doc.length === h.found.text.length;
+		cm.dispatch({ effects: setFound.of(h && fresh ? h.found.hits.map((x, i) => ({ ...x, current: i === h.current })) : []) });
+	}
+
+	private paintDrawn(): void {
+		window.clearTimeout(this.drawnTimer);
+		this.drawnTimer = window.setTimeout(() => {
+			const st = this.finding;
+			if (this.dead || !st) return;
+			paint(this, this.root.ownerDocument, () => {
+				const all: Range[] = [];
+				let cur: Range | null = null;
+				for (const s of this.scenes) {
+					const h = !s.live && s.shown !== null ? this.hitsOf(s) : null, el = h ? s.bodyEl.querySelector<HTMLElement>('.binders-manuscript-rendered') : null;
+					if (!h || !el) continue;
+					const ranges = rangesIn(el, st.query, st.options);
+					all.push(...ranges);
+					if (h.current >= 0) cur = ranges[Math.min(h.current, ranges.length - 1)] ?? null;
+				}
+				return { all, current: cur };
+			});
+		}, 30);
+	}
+
+	/** Brings a match into sight: its section becomes its editor (without taking the keyboard from the bar), the match
+	    is selected there, and the page is scrolled to it. */
+	private async goFound(file: TFile, hit: { from: number; to: number }): Promise<void> {
+		const s = this.byKey.get(file) ?? (this.sync(), this.byKey.get(file));
+		if (!s || s.kind !== 'scene') return;
+		const mine = ++this.asked;
+		if (!this.near.has(s.el)) s.el.scrollIntoView({ block: 'start' });
+		const raw = this.hitsOf(s)?.found.text ?? '', start = bodyStart(raw);
+		// (the section the cursor is in is the one a phone keeps as an editor)
+		if (this.editable && !s.broken) this.caret = { file, pos: hit.to - start, anchor: hit.from - start };
+		await this.mount(s);
+		if (mine !== this.asked || this.dead) return;
+		const cm = s.live?.cm;
+		if (!cm) {
+			// no editor (a read-only binder): the drawn text's own mark is gone to
+			window.setTimeout(() => { const el = s.bodyEl; const b = el.getBoundingClientRect(), v = this.root.getBoundingClientRect(); if (b.top < v.top || b.top > v.bottom - 80) this.root.scrollTop += b.top - v.top - 40; }, 60);
+			return;
+		}
+		const len = cm.state.doc.length, from = Math.min(hit.from, len), to = Math.min(hit.to, len);
+		cm.dispatch({ selection: { anchor: from, head: to } });
+		this.paintFound(s);
+		const show = () => {
+			if (this.dead || s.live?.cm !== cm || mine !== this.asked) return;
+			const c = cm.coordsAtPos(from), r = this.root.getBoundingClientRect();
+			if (!c) return;
+			const top = r.top + this.covered(), room = visibleBottom(this.root) - top;
+			// a match out of sight is brought a third of the way down the page, where the eye is; one in sight stays put
+			if (c.top < top + 24 || c.bottom > top + room - 48) { this.root.scrollTop += c.top - (top + room / 3); this.lastTop = this.pinTop = this.root.scrollTop; }
+		};
+		show();
+		const win = this.root.win;
+		win.requestAnimationFrame(() => { show(); win.requestAnimationFrame(show); });
+	}
+
+	async replaceFound(at: At, by: string): Promise<boolean> {
+		const file = at.found.source.file, s = file ? this.byKey.get(file) : null, hit = at.found.hits[at.hit];
+		if (!s || s.kind !== 'scene' || !this.editable || !hit) return false;
+		await this.mount(s);
+		const cm = s.live?.cm;
+		if (!cm || cm.state.doc.toString() !== at.found.text) return false;
+		cm.dispatch({ changes: { from: hit.from, to: hit.to, insert: by }, selection: { anchor: hit.from + by.length }, userEvent: 'input.replace' });
+		return true;
+	}
+
+	foundFrom(): { id: string; offset: number } | null {
+		const c = this.caret, s = c ? this.byKey.get(c.file) : null;
+		if (c && s?.kind === 'scene' && s.live?.cm) { const r = s.el.getBoundingClientRect(), v = this.root.getBoundingClientRect(); if (r.bottom > v.top && r.top < v.bottom) return { id: c.file.path, offset: bodyStart(s.live.text) + Math.min(c.pos, c.anchor) }; }
+		const h = this.here();
+		return h instanceof TFile ? { id: h.path, offset: 0 } : null;
+	}
+
+	foundClosed(at: At | null): void {
+		const file = at?.found.source.file, s = file ? this.byKey.get(file) : null;
+		if (s?.kind === 'scene' && s.live?.cm && this.editable) { s.live.cm.focus(); return; }
+		this.focus();
 	}
 
 	// ---- moving around ----

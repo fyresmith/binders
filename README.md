@@ -25,6 +25,7 @@ is in that scene's own properties. Turn Binders off and your notes are still ord
   Apple Books and Kobo, a print-ready paperback PDF, the binder itself as a Scrivener project, or the whole binder
   as one note. Book styles you can change, with the real pages beside them.
 - **Import from Scrivener.** A Scrivener 3 project, or a zipped backup of one, as a new binder: you see it before it is made.
+- **Find and replace.** Search every note of a binder; replace one or all, after a review and a snapshot, with Undo.
 - **Focus mode.** The text and nothing else, with typewriter scrolling.
 - **Longform.** Longform projects open as binders, and convert to them.
 - **Phones and tablets.** The same views, by touch, on iOS and Android.
@@ -81,6 +82,13 @@ formatting work as they do in the note itself. [More](docs/manuscript.md)
 
 ![Manuscript](docs/images/manuscript-dark.png)
 
+## Find and replace
+
+Press Ctrl+F in a binder view to search every note of the binder, in binder order: in the manuscript as one page, on the
+corkboard and in the outliner by lighting the cards and rows that match. A link's target and a tag are not touched
+unless you type them, and **Replace all** shows every change in context first, takes a snapshot, and can be undone.
+[More](docs/find-and-replace.md)
+
 ## Import from Scrivener
 
 Run **Import from Scrivener...** from the command palette and choose a project, or a zipped backup of one. The
@@ -106,7 +114,7 @@ contents:
 
 Each scene is an ordinary note, and what its card shows (`synopsis`, `status`, `label`, `target`) are its
 properties. Binders writes only its own properties and the ones you edit through its views. It doesn't rewrite a
-note's text unless you type there or ask it to: split, merge, bring back a snapshot.
+note's text unless you type there or ask it to: split, merge, bring back a snapshot, replace.
 [How your files look](docs/files.md) has the whole account.
 
 ## Limitations
@@ -121,7 +129,6 @@ note's text unless you type there or ask it to: split, merge, bring back a snaps
 - **Snapshots, export styles and Obsidian Sync.** Sync carries them only with "Sync all other types" turned on.
 - **PDF on a computer.** A paperback, or a manuscript as a PDF, is made on a computer. A phone or tablet shows its
   pages.
-- **Not built yet:** find and replace across the manuscript. See the [roadmap](ROADMAP.md).
 
 The full list is in [Known limitations](docs/limitations.md).
 
@@ -149,6 +156,7 @@ dialog:
 | [Export](docs/export.md) · [Styles](docs/export-styles.md) | Manuscript, ebook, paperback, Scrivener project, one note |
 | [Import from Scrivener](docs/import-scrivener.md) | A Scrivener 3 project as a new binder |
 | [Snapshots](docs/snapshots.md) · [Focus mode](docs/focus-mode.md) | Rewriting safely, and writing with nothing else on the screen |
+| [Find and replace](docs/find-and-replace.md) | Searching the binder, and changing a word in every note |
 | [Coming from Scrivener](docs/scrivener.md) · [Coming from Longform](docs/longform.md) | Where each thing you know is |
 | [Commands](docs/commands.md) · [Settings](docs/settings.md) | Reference |
 | [Troubleshooting](docs/troubleshooting.md) · [Questions and answers](docs/faq.md) | When something isn't as you expect |

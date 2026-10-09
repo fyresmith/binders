@@ -68,9 +68,11 @@ with 1.0.
       existing one or changes the Scrivener project. Built: from the command palette, a project's folder on a
       computer or a zipped backup anywhere, shown before it is made. Every original file is kept. See
       [Import from Scrivener](docs/import-scrivener.md).
-- [ ] **Find and replace across the manuscript.** One search over every note of the binder, in binder order, with
-      replace one or replace all, from the manuscript. Never loses writing: replace all is one step to undo, and says
-      how many notes it will change before it does.
+- [x] **Find and replace across the manuscript.** One search over every note of the binder, in binder order, from
+      Ctrl+F in a binder view: the manuscript as one page, the corkboard and outliner lighting what matches, a subfolder
+      its own, focus mode with the scenes before and after shown. Replace one (manuscript), and Replace all behind a
+      review of every change, an automatic snapshot first, and Undo. A link's target, a tag, code and comments are left
+      alone unless typed. Built 2026-10-09. See [Find and replace](docs/find-and-replace.md).
 - [x] **Snapshots of a scene ("Rewrite").** **Take a snapshot** sets a scene's text aside as it is; **Rewrite** takes
       one and starts again, from the same text or a blank page; **Snapshots** lists every earlier one to read, compare
       with the note now, and bring back (the text it replaces is kept as a snapshot first). Only the text is kept, not
@@ -83,8 +85,8 @@ with 1.0.
       folder and of the binder").
   - [x] Step 2 (2026-10-09): bring back the text, and the order, of a folder or binder.
   - [x] Step 3 (2026-10-09): bring back everything (properties; notes made again, renamed and moved; never deleted).
-  - [ ] Step 4: automatic snapshots before bringing one back and before find and replace, and thinning of the
-        automatic ones only.
+  - [ ] Step 4: automatic snapshots before bringing one back and before find and replace (both built), and thinning
+        of the automatic ones only (not built).
 - [x] **Focus mode.** The text and nothing else, for a note of a binder (in the manuscript and in a note's own
       tab), in the vault's own type, with one key to leave. Typewriter scrolling is on as it comes (for the last
       line only: editing further up scrolls as ever). Everything more is an option, off as it comes: the scenes

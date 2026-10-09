@@ -5782,3 +5782,38 @@ body:not(.is-phone) .binders-snapshots .sync-history-content {
 	min-height: 44px;
 	align-items: center;
 }
+
+/* ---- Find and replace (find-bar.ts) ---- */
+.binders-find { flex: 0 0 auto; }
+.binders-find .binders-find-count-notes { color: var(--text-faint); }
+/* no match: Obsidian puts the class on the field, and its own rule for it reaches the box round the field, which the field covers */
+.binders-find input.mod-no-match,
+.binders-find input.mod-no-match:focus { background-color: color-mix(in oklch, var(--background-modifier-error) 20%, var(--background-modifier-form-field)); }
+@media (hover: hover) {
+	.binders-find input.mod-no-match:hover { background-color: color-mix(in oklch, var(--background-modifier-error) 20%, var(--background-modifier-form-field-hover, var(--background-modifier-form-field))); }
+}
+.binders-find-match { background-color: var(--text-highlight-bg); }
+::highlight(binders-find) { background-color: var(--text-highlight-bg); }
+::highlight(binders-find-current) { background-color: var(--text-selection); }
+/* where there are no highlights to draw with (iOS before 17.2): each match is a mark of its own */
+.binders-find-mark { background-color: var(--text-highlight-bg); color: inherit; border-radius: var(--radius-s); }
+.binders-find-mark.is-current { background-color: var(--text-selection); box-shadow: 0 0 0 2px var(--text-accent); }
+.binders-find-done { display: flex; align-items: center; gap: var(--size-4-2); width: 100%; max-width: var(--file-line-width); margin: 0 auto; padding: 0 var(--size-4-2); color: var(--text-muted); font-size: var(--font-ui-small); }
+.binders-card.is-find-miss, .binders-outliner-row.is-find-miss { opacity: 0.4; }
+/* a folder's card lists some of its notes: those with a match stay as they are, the rest step back */
+.binders-card-held-item.is-find-miss { opacity: 0.5; }
+.binders-card-held-item.is-find-hit .binders-card-held-name { color: var(--text-normal); font-weight: var(--font-semibold); }
+.binders-find-flair { margin-inline-start: auto; color: var(--text-faint); font-size: var(--font-ui-smaller); }
+.has-find-excerpt > .binders-card-synopsis, .has-find-excerpt .binders-outliner-synopsis { display: none; }
+.binders-find-excerpt { color: var(--text-muted); overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; }
+.binders-card .binders-find-excerpt { flex: 1 1 auto; padding: var(--size-2-1) 0; font-family: var(--font-text); font-size: var(--font-ui-small); line-height: var(--line-height-normal); -webkit-line-clamp: 4; }
+.binders-outliner-row .binders-find-excerpt { display: block; white-space: nowrap; text-overflow: ellipsis; padding: var(--size-2-1) 0; font-size: var(--font-ui-smaller); line-height: var(--line-height-tight); }
+.binders-find-review-note { display: flex; align-items: baseline; gap: var(--size-4-2); margin-top: var(--size-4-6); padding-bottom: var(--size-2-1); font-family: var(--font-interface); font-size: var(--font-ui-small); color: var(--nav-heading-color); font-weight: var(--nav-heading-weight); }
+.binders-snapshots-key + .binders-find-review-note { margin-top: var(--size-4-3); }
+.binders-find-review-in { color: var(--text-faint); font-weight: var(--font-normal); }
+.binders-find-review .binders-snapshots-changes p { margin-block: 0 var(--size-4-2); }
+/* on the boards the bar is the width of the view, under the toolbar; over the manuscript it is the width of a note's column, as Obsidian's is */
+.binders-find.is-wide .document-search, .binders-find.is-wide .document-replace, .binders-find.is-wide .binders-find-done { max-width: none; }
+.binders-find.is-wide { margin: 0; padding-inline: var(--size-4-2); border-bottom: var(--border-width) solid var(--background-modifier-border); }
+/* (under the view's toolbar, not under Obsidian's floating header: no room kept for one) */
+.is-mobile .binders-find:not(.binders-find-in-note) { padding-top: var(--size-4-3); padding-bottom: var(--size-4-3); }

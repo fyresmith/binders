@@ -1,3 +1,4 @@
+import { hookSearch } from './find';
 import { Compartment, StateEffect, type Text } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { Component, MarkdownRenderer, MarkdownView, Menu, Notice, Platform, Scope, TFile, debounce, setIcon, type Editor, type Events, type WorkspaceLeaf } from 'obsidian';
@@ -61,6 +62,8 @@ interface Active {
 	cm: EditorView | null;
 	slot: Compartment;
 	near: HTMLElement[];
+	/** Gives Obsidian's own find bar back to the note's tab (find.ts), while ours has its place. */
+	unfind?: (() => void) | null;
 	/** What the scenes before and after were last drawn for. */
 	nearKey: string;
 	nearComp: Component | null;
@@ -422,6 +425,7 @@ export class Focus {
 			on.leafEl.style.removeProperty('--binders-focus-tail');
 			on.top.remove();
 			on.corner?.remove();
+			on.unfind?.(); on.unfind = null;
 			for (const el of on.near) el.remove();
 			if (on.nearComp) on.comp.removeChild(on.nearComp);
 			if (on.cm) { try { if (on.slot.get(on.cm.state) !== undefined) on.cm.dispatch({ effects: on.slot.reconfigure([]) }); } catch { /* the editor has gone */ } }
@@ -644,6 +648,7 @@ export class Focus {
 		// (as they are: nothing to do; a note's text isn't moved for nothing)
 		if (key === on.nearKey && on.near.every((el) => el.isConnected)) return;
 		const col = want ? noteColumn(view) : null, hold = this.holder(on);
+		on.unfind?.(); on.unfind = null;
 		for (const el of on.near) el.remove();
 		on.near = [];
 		if (on.nearComp) { on.comp.removeChild(on.nearComp); on.nearComp = null; }
@@ -680,6 +685,7 @@ export class Focus {
 		col.above(here);
 		on.near.push(here);
 		if (after) { const el = make(after, 1); col.below(el); on.near.push(el); }
+		if (before || after) on.unfind = hookSearch(this.plugin, view, () => on.near);
 		hold();
 	}
 

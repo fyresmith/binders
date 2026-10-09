@@ -1,3 +1,4 @@
+import { foundExtension } from './find/highlight';
 import { Keymap, MarkdownView, Notice, Platform, Plugin, TFile, TFolder, normalizePath, type Menu, type PaneType, type TAbstractFile, type WorkspaceLeaf } from 'obsidian';
 import { BinderStore, type Binder } from './binders';
 import { BY_LABEL, BinderView, MODES, VIEW_TYPE } from './view/BinderView';
@@ -167,6 +168,15 @@ export default class BindersPlugin extends Plugin {
 		} });
 		// (an undo in the editor right after a split takes back all of it, the new note too)
 		this.registerEditorExtension(splitUndo(this));
+		this.registerEditorExtension(foundExtension);
+		for (const [id, name, replace] of [['find', 'Find in binder', false], ['find-replace', 'Find and replace in binder', true]] as const) {
+			this.addCommand({ id, name, icon: replace ? 'replace' : 'search', checkCallback: (checking) => {
+				const view = this.app.workspace.getActiveViewOfType(BinderView);
+				if (!view?.folder) return false;
+				if (!checking) view.showSearch(replace);
+				return true;
+			} });
+		}
 		// splitting a scene where the cursor is, in a note or in the manuscript (whose sections are editors on their notes)
 		for (const [id, name, titled] of [['split-scene', 'Split scene at cursor', false], ['split-scene-titled', 'Split scene with selection as title', true]] as const) {
 			this.addCommand({ id, name, icon: 'split', editorCheckCallback: (checking, editor, ctx) => {

@@ -5,7 +5,6 @@ is a bug: [open an issue](https://github.com/fyresmith/binders/issues).
 
 ## Planned, not built
 
-- Find and replace across the manuscript.
 - Bringing a whole snapshot of a folder or binder back in place.
 
 See the [roadmap](../ROADMAP.md).
@@ -119,6 +118,17 @@ the graph or in the tag list. See [Paragraphs](paragraphs.md).
 - A whole snapshot of a folder or binder can't yet be brought back in place: one note at a time, or as a copy
   (**Make a binder from this snapshot**).
 - A snapshot of a folder lists files that aren't notes (pictures, PDFs) and doesn't copy them.
+
+## Find and replace
+
+Text only: a note's properties, the binder note and the folder notes are not looked through, and no query is a pattern
+(there is no regular expression and no whole-word option). A link's target, a tag, code and a comment are left alone
+unless the query is typed with their marks (`[[Mara`, `#Mara`, a backtick, `%%`). **Replace** (one match) is only
+offered in the manuscript; on the corkboard and the outliner there is Replace all. A folder's card says which of the
+first five notes it lists have a match, not of the rest. On a computer Obsidian's own **Search and replace** key opens
+the bar only while the caret is in a manuscript section; elsewhere the command **Find and replace in binder** does.
+In a binder of a newer format, and one that can't have snapshots, nothing can be replaced. See
+[Find and replace](find-and-replace.md).
 
 ## Focus mode
 

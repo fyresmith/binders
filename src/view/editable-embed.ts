@@ -218,6 +218,9 @@ export interface MountOptions {
 	/** The editor would scroll this position (its cursor) into view: called while it measures itself, so only the page
 	    may be read and scrolled here, not the editor asked (`coordsAtPos` would make it measure again). */
 	onCaret?(cm: EditorView, pos: number): void;
+	/** Obsidian's "Search current file" (or its replace) was run with the cursor in this editor: given this, the
+	    editor's own one-note bar isn't opened, and whoever mounted it shows its own. */
+	onSearch?(replace: boolean): void;
 }
 
 /** Mounts a live editor for `file` into `container`, as a child of `parent`. Throws if the embed can't be built;
@@ -228,6 +231,7 @@ export async function mountEditor(app: App, container: HTMLElement, file: TFile,
 	const embed = create({ app, containerEl: container, state: {} }, file, '');
 	const proto = Object.getPrototypeOf(embed) as MdEmbed;
 	embed.editable = true;
+	if (opts.onSearch) (embed as unknown as { showSearch(replace?: boolean): void }).showSearch = (replace = false) => opts.onSearch?.(replace);
 
 	// 1. Native embeds ignore outside changes while they have unsaved typing, then save over them. loadFileInternal
 	//    already does Obsidian's 3-way merge when dirty, so always go through it. Must be set before load() binds it.
