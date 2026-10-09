@@ -664,3 +664,41 @@ specs.push({ name: 'export styles: a phone: the editor is a screen of its own, i
 	await clear(p);
 	same(t, before, await texts(p));
 }) });
+
+// ---- Step 6: a style's file written by Binders and by something else a moment apart ----
+
+const NAP = `await new Promise((r) => setTimeout(r, 400)); await st.settled();`;
+
+test('a style’s file changed outside a moment before a row is changed here keeps both changes: the outside one is never written over', async (p, h, t) => {
+	await outside(p, 'Classic', '---\nexport-style: 1\nbased-on: Classic\nscene-break: "#"\n---\n');
+	// another plugin, or sync, writes the file through Obsidian; a row is changed before Binders has read it again
+	const has = await p.ev(`(async () => { const st = ${styles}, f = app.vault.getAbstractFileByPath(st.path('Classic'));
+		await app.vault.modify(f, '---\\nexport-style: 1\\nbased-on: Classic\\nscene-break: "⁂"\\nmine: kept\\n---\\np { color: red; }\\n');
+		st.set(st.get('Classic', 'book'), 'margins', 'wide');
+		await st.settled(); ${NAP}
+		return st.text('Classic'); })()`);
+	t.eq(onDisk(p, 'Classic'), '---\nexport-style: 1\nbased-on: Classic\nscene-break: "⁂"\nmine: kept\nmargins: wide\n---\np { color: red; }\n', 'changed through Obsidian a moment before: the file has the outside change and the row');
+	t.eq(has, onDisk(p, 'Classic'), 'and Binders has the file as it is');
+	// the file written on the disk itself, which Obsidian hasn't noticed yet
+	writeFileSync(join(p.vaultDir, DIR, 'Classic.bookstyle'), '---\nexport-style: 1\nbased-on: Classic\nscene-break: "~"\nmargins: narrow\n---\n');
+	await p.ev(`(async () => { const st = ${styles}; st.set(st.get('Classic', 'book'), 'paragraphs', 'spaced'); st.set(st.get('Classic', 'book'), 'margins', 'wide'); await st.settled(); ${NAP} })().then(() => 1)`);
+	t.eq(onDisk(p, 'Classic'), '---\nexport-style: 1\nbased-on: Classic\nscene-break: "~"\nmargins: wide\nparagraphs: spaced\n---\n', 'changed on the disk a moment before: its lines stay, and a row changed in both is as it was set here, last');
+	t.ok(await until(p, `${styles}.text('Classic') === ${j(onDisk(p, 'Classic'))}`, 8000), 'and Binders has the file as it is');
+	// a row taken back to what the style comes with, when the file has gained a line outside: the file stays, for that line
+	await p.ev(`(async () => { const st = ${styles}, f = app.vault.getAbstractFileByPath(st.path('Classic'));
+		await app.vault.modify(f, '---\\nexport-style: 1\\nbased-on: Classic\\nmargins: wide\\n---\\n'); ${NAP}
+		await app.vault.modify(f, '---\\nexport-style: 1\\nbased-on: Classic\\nmargins: wide\\nscene-break: "#"\\n---\\n');
+		st.set(st.get('Classic', 'book'), 'margins', 'normal');
+		await st.settled(); ${NAP} })().then(() => 1)`);
+	t.eq(onDisk(p, 'Classic'), '---\nexport-style: 1\nbased-on: Classic\nscene-break: "#"\n---\n', 'the last row set back, as a line arrives from outside: the file isn’t taken away with that line in it');
+	// a file that became a newer Binders', or unreadable, a moment before: left exactly as it is
+	for (const [what, text] of [['a newer Binders’', '---\nexport-style: 2\nbased-on: Classic\nscene-break: "#"\nfuture: [1, 2]\n---\n'], ['one that can’t be read', 'scene-break: "#"\n']]) {
+		await p.ev(`(async () => { const st = ${styles}, f = app.vault.getAbstractFileByPath(st.path('Classic'));
+			await app.vault.modify(f, ${j(text)});
+			st.set(st.get('Classic', 'book'), 'margins', 'wide');
+			await st.settled(); ${NAP} })().then(() => 1)`);
+		t.eq(onDisk(p, 'Classic'), text, `the file made ${what} a moment before a row is changed: not a byte of it is written`);
+		t.ok(await until(p, `${styles}.text('Classic') === ${j(text)}`, 8000), 'and Binders has it as it is');
+		await outside(p, 'Classic', '---\nexport-style: 1\nbased-on: Classic\n---\n');
+	}
+});

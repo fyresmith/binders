@@ -14,17 +14,25 @@ import type { BookStyle } from './style';
 
    These files are the only thing written here, and only when the style editor asks: a property's line, never the
    whole file (style-file.ts). A file from a newer Binders, or one that can't be read, is never written (golden
-   rules 3 and 6). The one exception to "only the files": renaming a style follows it into the binder notes that
+   rules 3 and 6). A change is made on the file as Binders last read it, and shown at once; it is written only over
+   that very text. A file that is something else by then (another program, sync, a moment before) is not written
+   over: the change is made again on what is there, so both are kept (`flush`). The one exception to "only the files": renaming a style follows it into the binder notes that
    name it (`book-style`, `manuscript-style`: Book details' own properties). */
 
 export const STYLES_FOLDER = 'Export styles';
+
+/** A change to a style's file: its text as it is (null: no file) to its text as it is to be (null: no file). */
+type Change = (text: string | null) => string | null;
+/** A style's file waiting to be written. `base`: the file as Binders had it when the first of `changes` was made;
+    `text`: what they make of it, which is what is shown meanwhile. */
+interface Pending { base: string | null; changes: Change[]; text: string | null }
 
 export class Styles {
 	private texts = new Map<string, string>();
 	private files = new Map<string, StyleFile>();
 	private listeners = new Set<() => void>();
-	/** What is waiting to be written, by name: the file's whole text, or null for a file to take away. */
-	private pending = new Map<string, string | null>();
+	/** What is waiting to be written, by name. */
+	private pending = new Map<string, Pending>();
 	private writing: Promise<void> = Promise.resolve();
 	private reading: Promise<void> = Promise.resolve();
 	private timer = 0;
@@ -75,7 +83,7 @@ export class Styles {
 				try { now.set(name, await vault.read(f)); } catch { /* gone while it was read: the next event says so */ }
 			}
 			// (a file Binders is about to write is as Binders has it: the disk catches up, and says so)
-			for (const [name, text] of this.pending) { if (text === null) now.delete(name); else now.set(name, text); }
+			for (const [name, { text }] of this.pending) { if (text === null) now.delete(name); else now.set(name, text); }
 			let changed = now.size !== this.texts.size;
 			for (const [name, text] of now) if (this.texts.get(name) !== text) changed = true;
 			if (!changed) return;
@@ -133,42 +141,71 @@ export class Styles {
 	set(r: Resolved, key: string, value: StyleValue): void {
 		this.writable(r);
 		if (!rowsOf(r.family).some((row) => row.key === key)) return;
-		this.put(r.name, writeStyleFile(this.text(r.name), r.basedOn, { [key]: value === r.original[key] ? undefined : value }), r.builtIn);
+		// (a style of the writer's own whose file has been taken away meanwhile is gone: it isn't made again from one row)
+		this.put(r.name, (text) => (text === null && !r.builtIn ? null : writeStyleFile(text, r.basedOn, { [key]: value === r.original[key] ? undefined : value })), r.builtIn);
 	}
 	/** A built-in style as it comes: every row's line taken out of its file (CSS and anything else there stays). */
 	reset(r: Resolved): void {
 		this.writable(r);
-		const text = this.text(r.name);
-		if (text === null) return;
-		this.put(r.name, writeStyleFile(text, r.basedOn, Object.fromEntries(rowsOf(r.family).map((row): [string, undefined] => [row.key, undefined]))), r.builtIn);
+		if (this.text(r.name) === null) return;
+		this.put(r.name, (text) => (text === null ? null : writeStyleFile(text, r.basedOn, Object.fromEntries(rowsOf(r.family).map((row): [string, undefined] => [row.key, undefined])))), r.builtIn);
 	}
-	private put(name: string, text: string | null, dropEmpty = false): void {
-		if (text !== null && dropEmpty && saysNothing(text)) text = null;
+	/** A change to a style's file: `make` is handed the file's text (null: it has none) and returns what it is to be
+	    (null: no file). Made now on the text Binders has, so what is shown follows at once; and made again when it is
+	    written, if the file is no longer that text. `dropEmpty`: a file left saying nothing is taken away. */
+	private put(name: string, make: Change, dropEmpty = false): void {
+		const change: Change = (text) => { const made = make(text); return made !== null && dropEmpty && saysNothing(made) ? null : made; };
+		const was = this.pending.get(name), had = this.text(name), text = change(had);
 		const now = new Map(this.texts);
 		if (text === null) now.delete(name); else now.set(name, text);
-		this.pending.set(name, text);
+		if (was) { was.changes.push(change); was.text = text; } else this.pending.set(name, { base: had, changes: [change], text });
 		this.take(now);
 		this.writing = this.writing.then(() => this.flush()).catch((e) => { console.error('Binders: could not write an export style', e); this.later(); });
 	}
 	private async flush(): Promise<void> {
 		const { app } = this.plugin;
-		for (const [name, text] of [...this.pending]) {
-			const path = this.path(name), at = app.vault.getAbstractFileByPath(path);
+		for (const [name, p] of [...this.pending]) {
+			const path = this.path(name), at = app.vault.getAbstractFileByPath(path), changes = p.changes.splice(0), want = p.text;
+			// What the file is to be, from what it is at this moment. As Binders last had it: the text made from that.
+			// Anything else arrived from outside in between, and is never written over: the changes are made again on it,
+			// a line each (style-file.ts), so both are kept. A file that has become a newer Binders', or one that can't
+			// be read, is left exactly as it is (golden rule 6).
+			const onto = (disk: string | null): string | null => {
+				if (disk === p.base) return want;
+				const f = disk === null ? null : readStyleFile(disk);
+				return f && (f.broken || f.version > STYLE_VERSION) ? disk : changes.reduce<string | null>((text, change) => change(text), disk);
+			};
+			let made: string | null = want;
 			try {
-				if (text === null) { if (at instanceof TFile) await app.fileManager.trashFile(at); }
-				else if (at instanceof TFile) { if (await app.vault.read(at) !== text) await app.vault.modify(at, text); }
-				else {
-					if (!app.vault.getAbstractFileByPath(this.folder)) await app.vault.createFolder(this.folder);
-					await app.vault.create(path, text);
+				if (at instanceof TFile) {
+					// (read and written in one step: nothing lands between the two)
+					await app.vault.process(at, (disk) => { made = onto(disk); return made ?? disk; });
+					if (made === null) await app.fileManager.trashFile(at);
+				} else {
+					made = onto(null);
+					if (made !== null) {
+						if (!app.vault.getAbstractFileByPath(this.folder)) await app.vault.createFolder(this.folder);
+						await app.vault.create(path, made);
+					}
 				}
-			} finally { if (this.pending.get(name) === text) this.pending.delete(name); }
+				p.base = made;
+				// (not what was shown: an outside change came with it. The folder is read again)
+				if (made !== want) this.later();
+				// (changes asked for while this was written are next, on what is there now)
+				if (p.changes.length) p.text = made === want ? p.text : p.changes.reduce<string | null>((text, change) => change(text), made);
+				else this.pending.delete(name);
+			} catch (e) {
+				if (this.pending.get(name) === p) this.pending.delete(name);
+				throw e;
+			}
 		}
 	}
 
 	/** A style of the writer's own, made from another: based on it, with nothing changed yet. Returns its name. */
 	async duplicate(r: Resolved): Promise<string> {
 		const name = freeName(r.name, (n) => this.taken(n));
-		this.put(name, writeStyleFile(null, r.name, {}));
+		// (a file of that name that turned up meanwhile is someone's, and stays as it is)
+		this.put(name, (text) => text ?? writeStyleFile(null, r.name, {}));
 		await this.settled();
 		return name;
 	}
@@ -183,7 +220,7 @@ export class Styles {
 		if (problem) throw new Error(problem);
 		const name = this.taken(said) ? freeName(said, (n) => this.taken(n)) : said;
 		// (a built-in style's changes, sent under its name, come in as a style of one's own based on it)
-		this.put(name, f.basedOn ? text : writeStyleFile(text, FIRST.book, {}));
+		this.put(name, (there) => there ?? (f.basedOn ? text : writeStyleFile(text, FIRST.book, {})));
 		await this.settled();
 		return name;
 	}
@@ -201,7 +238,7 @@ export class Styles {
 		const based = this.dependents(r.name);
 		await app.fileManager.renameFile(at, this.path(name));
 		await this.reload();
-		for (const d of based) this.put(d.name, writeStyleFile(this.text(d.name), name, {}));
+		for (const d of based) this.put(d.name, (text) => (text === null ? null : writeStyleFile(text, name, {})));
 		await this.follow(r.name, name, r.family);
 		await this.settled();
 		return name;
@@ -211,8 +248,8 @@ export class Styles {
 	    is first made to stand by itself, so it stays as it is. */
 	async remove(r: Resolved): Promise<void> {
 		if (r.builtIn) throw new Error('A built-in style can’t be deleted. Reset it to take your changes away.');
-		for (const d of this.dependents(r.name)) this.put(d.name, standalone(d, this.text(d.name)));
-		this.put(r.name, null);
+		for (const d of this.dependents(r.name)) this.put(d.name, (text) => (text === null ? null : standalone(d, text)));
+		this.put(r.name, () => null);
 		await this.settled();
 		// (the binders that used it use what it was based on, as the delete dialog says)
 		await this.follow(r.name, r.basedOn, r.family);

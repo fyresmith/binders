@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.45.3 (2026-10-09)
+
+### Fixed
+
+- Changing a style no longer overwrites a change made to its file a moment before by sync or another program.
+
 ## 0.45.2 (2026-10-09)
 
 ### Fixed
