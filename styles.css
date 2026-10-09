@@ -4052,6 +4052,22 @@ body {
 	width: var(--binders-paragraph-indent);
 }
 
+/* The tab itself is as wide as the indent, whatever "Tab indent size" is: the box above is only as wide as it is
+   told, and the caret after a tab with nothing typed yet stands where the tab ends. */
+.markdown-source-view.mod-cm6 .cm-line.binders-tab-paragraph > .cm-hmd-indented-code {
+	tab-size: var(--binders-paragraph-indent);
+}
+
+/* Four spaces fill the indent as a tab does, a quarter of it each, for the same reason: in a font whose space is
+   as wide as its `ch`, so the sum can be done. (Only on a line whose indent has spaces in it, which mode.ts marks:
+   a tab is left in the font of the text.) */
+.markdown-source-view.mod-cm6 .cm-line.binders-tab-paragraph.binders-space-indent .cm-indent {
+	font-family: var(--font-monospace);
+	word-spacing: calc(var(--binders-paragraph-indent) / 4 - 1ch);
+	/* (set by the line's box, not by its own font's baseline, which would make the line a pixel taller) */
+	vertical-align: top;
+}
+
 .markdown-source-view.mod-cm6 .cm-line.binders-tab-paragraph .cm-indent::before {
 	content: none;
 }

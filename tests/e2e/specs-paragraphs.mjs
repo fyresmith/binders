@@ -186,6 +186,214 @@ test('typing, Enter, Tab, undo and an edit from outside leave exactly what was t
 	t.eq(errors(p).length, 0, 'no errors: ' + errors(p).join(' | '));
 });
 
+// ---- A2: a tab on a line with nothing after it yet ----
+
+/** Watches an editor (an expression for Obsidian's `Editor`) frame by frame, as it is painted: every line that starts
+    with a tab (or four spaces) and isn't drawn as a paragraph's indent in some frame is noted, once each. In the notes
+    these tests write, every such line is a writer's paragraph. */
+const watch = (p, ed) => p.ev(`(() => { const cm = (${ed}).cm, w = window.__tabs = { bad: [], frames: 0, on: true };
+	const f = () => { if (!w.on) return; w.frames++;
+		for (const ln of cm.contentDOM.querySelectorAll(':scope > .cm-line')) { const text = ln.textContent; if (!/^(\\t| {4})/.test(text)) continue;
+			const ind = [...ln.querySelectorAll('.cm-indent')], guide = ind.map(i => getComputedStyle(i, '::before').content), wide = ind.map(i => Math.round(i.getBoundingClientRect().width));
+			if (ln.classList.contains('binders-tab-paragraph') && guide.every(g => g === 'none' || g === 'normal') && wide.every(x => x === 24) && !/text-indent/.test(ln.getAttribute('style') || '')) continue;
+			const rec = JSON.stringify(text) + ' ' + ln.className + ' [' + (ln.getAttribute('style') || '') + '] indent ' + wide.join(',') + ' guide ' + guide.join(',');
+			if (!w.bad.includes(rec)) w.bad.push(rec); }
+		requestAnimationFrame(f); };
+	f(); return 1; })()`);
+const watched = async (p) => { await sleep(p, 120); return p.ev(`(() => { const w = window.__tabs; w.on = false; return { bad: w.bad, frames: w.frames }; })()`); };
+/** The line the caret is on in an editor: its classes, its indent as drawn, and where the caret stands (and where the
+    place one character back does), from the left edge of the text. */
+const caretLine = (p, ed) => p.ev(`(() => { const cm = (${ed}).cm, head = cm.state.selection.main.head, at = cm.domAtPos(head).node, ln = (at.nodeType === 1 ? at : at.parentElement).closest('.cm-line');
+	const left = cm.contentDOM.getBoundingClientRect().left + parseFloat(getComputedStyle(cm.contentDOM).paddingLeft || '0'), ind = [...ln.querySelectorAll('.cm-indent')];
+	const x = (pos) => Math.round((cm.coordsAtPos(pos, 1) ?? cm.coordsAtPos(pos)).left - left);
+	return { text: ln.textContent, cls: ln.className, style: ln.getAttribute('style') || '', wide: ind.map(i => Math.round(i.getBoundingClientRect().width)), guide: ind.map(i => getComputedStyle(i, '::before').content), x: x(head), back: head > cm.state.doc.lineAt(head).from ? x(head - 1) : null }; })()`);
+const isIndent = (t, l, what, tabs = 1) => {
+	t.ok(/binders-tab-paragraph/.test(l.cls), `${what}: the line is a paragraph’s (${l.cls})`);
+	t.eq(j(l.wide), j(Array(tabs).fill(24)), `${what}: the tab is as wide as the paragraph indent`);
+	t.ok(l.guide.every((g) => g === 'none' || g === 'normal'), `${what}: no guide line is drawn in it (${l.guide})`);
+	t.ok(!/text-indent/.test(l.style), `${what}: the line isn’t hung under the tab (${l.style})`);
+	t.eq(l.x, 24 * tabs, `${what}: the caret stands at the indent`);
+};
+const endOf = (p, ed) => p.ev(`(() => { const e = ${ed}; e.focus(); const l = e.lastLine(); e.setCursor(l, e.getLine(l).length); return 1; })()`);
+const OWN = 'app.workspace.activeEditor.editor', SECTION = `${VIEW}.current.scenes.find(s => s.file.path === ${j(A)}).live.editor`;
+
+/** Tab on an empty line, then a letter; Enter at the end of that paragraph, then a letter. */
+const tabThenType = async (p, t, ed, what) => {
+	await endOf(p, ed);
+	await watch(p, ed);
+	await p.key('Enter'); await p.key('Tab');
+	await sleep(p, 250);
+	const empty = await caretLine(p, ed);
+	t.eq(empty.text, '\t', `${what}: Tab on an empty line types a tab`);
+	isIndent(t, empty, `${what}, a tab and nothing after it`);
+	await p.type('W');
+	await sleep(p, 250);
+	const first = await caretLine(p, ed);
+	isIndent(t, { ...first, x: first.back }, `${what}, with its first letter`);
+	t.eq(first.back, empty.x, `${what}: the first letter starts where the caret stood (${empty.x}px, then ${first.back}px)`);
+	await p.type('ords.'); await p.key('Enter');
+	await sleep(p, 250);
+	const next = await caretLine(p, ed);
+	t.eq(next.text, '\t', `${what}: Enter at the end of the paragraph carries the tab on`);
+	isIndent(t, next, `${what}, the line Enter made`);
+	await p.type('N');
+	await sleep(p, 250);
+	const second = await caretLine(p, ed);
+	t.eq(second.back, next.x, `${what}: and its first letter starts where the caret stood (${next.x}px, then ${second.back}px)`);
+	await p.type('ext.');
+	const seen = await watched(p);
+	t.ok(seen.frames > 10, `${what}: watched as it was drawn (${seen.frames} frames)`);
+	t.eq(seen.bad.join(' | '), '', `${what}: in no frame was a tab drawn as anything but the indent`);
+};
+
+for (const source of [false, true]) {
+	const what = source ? 'source mode' : 'live preview';
+	test(`a tab on an empty line is the paragraph’s indent before a letter is typed, and so is the tab Enter carries on: no guide line, and the caret doesn’t move when the first letter comes (${what})`, async (p, h, t) => {
+		await body(p, A, 'First paragraph.');
+		await open(p, A, 'source', source);
+		await tabThenType(p, t, OWN, what);
+		const typed = FRONT + 'First paragraph.\n\tWords.\n\tNext.';
+		await until(p, `app.vault.adapter.read(${j(A)}).then(x => x === ${j(typed)})`, 6000);
+		t.eq(await read(p, A), typed, 'what is on disk is what was typed, tabs and all');
+		t.eq(errors(p).length, 0, 'no errors: ' + errors(p).join(' | '));
+	});
+}
+
+test('a tab on an empty line is the paragraph’s indent before a letter is typed, in a section of the manuscript', async (p, h, t) => {
+	await body(p, A, 'First paragraph.');
+	await openView(p, L + 'Part One');
+	await p.ev(`(() => { ${VIEW}.setMode('manuscript'); return 1; })()`);
+	await until(p, `!!${VIEW}.current?.scenes?.find(s => s.file.path === ${j(A)})?.live?.cm`, 8000);
+	await tabThenType(p, t, SECTION, 'the manuscript');
+	const typed = FRONT + 'First paragraph.\n\tWords.\n\tNext.';
+	await until(p, `app.vault.adapter.read(${j(A)}).then(x => x === ${j(typed)})`, 6000);
+	t.eq(await read(p, A), typed, 'what is on disk is what was typed, tabs and all');
+	t.eq(errors(p).length, 0, 'no errors: ' + errors(p).join(' | '));
+});
+
+test('Tab again, Backspace over a tab, Shift+Tab, Tab with the caret in the middle of a line and Tab on several lines: in no frame is a tab drawn as anything but the indent, and the note is what was typed', async (p, h, t) => {
+	await body(p, A, 'First paragraph.\n\n\tSecond, begun with a tab.\n\nThird.');
+	await open(p, A);
+	await p.ev(`(() => { const e = ${OWN}; e.focus(); e.setCursor(8, e.getLine(8).length); return 1; })()`);
+	await watch(p, OWN);
+	const text = () => p.ev(`${OWN}.getValue()`), step = () => sleep(p, 200);
+	await p.key('Enter'); await step();
+	isIndent(t, await caretLine(p, OWN), 'the tab Enter carried on');
+	await p.key('Tab'); await step();
+	isIndent(t, await caretLine(p, OWN), 'a second tab', 2);
+	await p.key('Backspace'); await step();
+	isIndent(t, await caretLine(p, OWN), 'Backspace over the second');
+	await p.key('Tab', 'shift'); await step();
+	const none = await caretLine(p, OWN);
+	t.eq(none.text, '', 'Shift+Tab takes the tab away');
+	t.ok(!/binders/.test(none.cls) && none.x === 0, `and the empty line is an empty line (${none.cls}, caret at ${none.x}px)`);
+	await p.key('Tab'); await p.type('Fourth.'); await step();
+	// the caret in the middle of a line: Obsidian's Tab indents the line
+	await p.ev(`(() => { ${OWN}.setCursor(11, 3); return 1; })()`);
+	await p.key('Tab'); await step();
+	const mid = await caretLine(p, OWN);
+	t.eq(mid.text, '\tThird.', 'Tab with the caret in a line of text indents the line');
+	t.ok(/binders-tab-paragraph/.test(mid.cls) && j(mid.wide) === '[24]', `which is a tab paragraph at once (${mid.cls}, ${mid.wide})`);
+	// several lines at once
+	await p.ev(`(() => { ${OWN}.setSelection({ line: 6, ch: 2 }, { line: 11, ch: 3 }); return 1; })()`);
+	await p.key('Tab'); await step();
+	t.eq(await text(), FRONT + '\tFirst paragraph.\n\t\n\t\tSecond, begun with a tab.\n\t\tFourth.\n\t\n\t\tThird.', 'Tab on a selection of lines indents each, the empty ones too (as Obsidian has it)');
+	await p.key('Tab', 'shift'); await step();
+	const typed = FRONT + 'First paragraph.\n\n\tSecond, begun with a tab.\n\tFourth.\n\n\tThird.';
+	t.eq(await text(), typed, 'and Shift+Tab takes one from each');
+	const seen = await watched(p);
+	t.eq(seen.bad.join(' | '), '', `in no frame was a tab drawn as anything but the indent (${seen.frames} frames)`);
+	await until(p, `app.vault.adapter.read(${j(A)}).then(x => x === ${j(typed)})`, 6000);
+	t.eq(await read(p, A), typed, 'what is on disk is what was typed');
+	t.eq(errors(p).length, 0, 'no errors: ' + errors(p).join(' | '));
+});
+
+test('four spaces fill the indent as a tab does, and a tab is the indent with Obsidian’s “Tab indent size” at 8: the caret doesn’t move when the first letter comes, and the line is as tall as any', async (p, h, t) => {
+	const was = await p.ev(`[app.vault.getConfig('useTab') ?? true, app.vault.getConfig('tabSize') ?? 4]`);
+	const config = (useTab, tabSize) => p.ev(`(() => { app.vault.setConfig('useTab', ${useTab}); app.vault.setConfig('tabSize', ${tabSize}); return 1; })()`);
+	const tall = () => p.ev(`[...document.querySelectorAll(${j(LEAF + ' .cm-content > .cm-line')})].filter(l => l.textContent.trim()).map(l => Math.round(l.getBoundingClientRect().height))`);
+	try {
+		// "Indent using tabs" off: Tab types four spaces
+		await config(false, 4);
+		await body(p, A, 'First paragraph.');
+		await open(p, A);
+		await endOf(p, OWN);
+		await watch(p, OWN);
+		await p.key('Enter'); await p.key('Tab');
+		await sleep(p, 250);
+		const empty = await caretLine(p, OWN);
+		t.eq(empty.text, '    ', 'with “Indent using tabs” off, Tab types four spaces');
+		isIndent(t, empty, 'four spaces and nothing after them');
+		await p.type('W');
+		await sleep(p, 250);
+		const first = await caretLine(p, OWN);
+		t.eq(first.back, empty.x, `the first letter starts where the caret stood (${empty.x}px, then ${first.back}px)`);
+		await p.type('ords.'); await p.key('Enter');
+		await sleep(p, 250);
+		isIndent(t, await caretLine(p, OWN), 'the spaces Enter carried on');
+		await p.type('Next.');
+		await sleep(p, 250);
+		const heights = await tall();
+		t.ok(heights.length === 3 && heights.every((x) => x === heights[0]), `a line begun with spaces is as tall as one that isn’t (${heights})`);
+		const seen = await watched(p);
+		t.eq(seen.bad.join(' | '), '', `in no frame were the spaces drawn as anything but the indent (${seen.frames} frames)`);
+		const typed = FRONT + 'First paragraph.\n    Words.\n    Next.';
+		await until(p, `app.vault.adapter.read(${j(A)}).then(x => x === ${j(typed)})`, 6000);
+		t.eq(await read(p, A), typed, 'what is on disk is what was typed, spaces and all');
+		// a tab, with tabs as wide as eight spaces (with two, Obsidian's Tab types two tabs: two indents, as before)
+		await config(true, 8);
+		await body(p, A, 'First paragraph.');
+		await open(p, K); await open(p, A);
+		await tabThenType(p, t, OWN, 'a tab eight wide');
+	} finally { await config(was[0], was[1]); }
+	t.eq(errors(p).length, 0, 'no errors: ' + errors(p).join(' | '));
+});
+
+/** Every line of white space only in the active editor (the properties' too, where they are lines), as it is drawn. */
+const blanks = (p) => p.ev(`(async () => { const cm = app.workspace.activeEditor.editor.cm, out = [];
+	for (const top of [0, 1e6, 0]) { cm.scrollDOM.scrollTop = top; await sleep(250);
+		for (const ln of cm.contentDOM.querySelectorAll(':scope > .cm-line')) { if (!ln.textContent || ln.textContent.trim()) continue; const n = cm.state.doc.lineAt(cm.posAtDOM(ln)).number, ind = [...ln.querySelectorAll('.cm-indent')];
+			out[n] = { n, text: ln.textContent, cls: ln.className.replace(/ ?cm-active/, ''), style: ln.getAttribute('style') || '', kids: [...ln.children].map(c => c.className + ' ' + Math.round(c.getBoundingClientRect().width) + ' ' + getComputedStyle(c, '::before').content).join(', '), wide: ind.map(i => Math.round(i.getBoundingClientRect().width)), guide: ind.map(i => getComputedStyle(i, '::before').content) }; } }
+	return out.filter(Boolean); })()`);
+// Lines of white space only. Ours (by line number): where a letter typed after the white space would make a tab
+// paragraph. Not ours: in the properties, less than a tab, in a fenced block, straight under a quote, and under a list
+// item (with a blank line between or without).
+const WS_FRONT = '---\nstatus: revised\nlist:\n\t\n  - a\n---\n';
+const WS = 'Plain one.\n\n\t\n\nPlain two.\n\t\nPlain three.\n\n# Heading\n\t\n\tTabbed text.\n\t\n\tMore.\n\n    \n\n\t\t\n\n   \n\n```\n\t\n```\n\n> quote\n\t\n> more\n\n- an item\n\t\n- another\n\n\t\n';
+const OURS = [9, 12, 16, 18, 21, 23];
+
+test('a line of white space only is drawn as a paragraph’s indent where a letter would make it one, and is left as Obsidian has it in the properties, a list, a quote, a fenced block, with the setting off, and outside a binder', async (p, h, t) => {
+	const LOOSE = 'Loose blanks.md';
+	await p.ev(`app.vault.modify(${file(A)}, ${j(WS_FRONT + WS)}).then(() => 1)`);
+	await p.ev(`app.vault.create(${j(LOOSE)}, ${j(WS_FRONT + WS)}).then(() => 1)`);
+	for (const source of [false, true]) {
+		const what = source ? 'source mode' : 'live preview';
+		// as Obsidian has them: the setting off
+		await set(p, { tabParagraphs: false });
+		await open(p, A, 'source', source);
+		const plain = await blanks(p);
+		t.ok(plain.length >= 11 && plain.every((l) => !/binders/.test(l.cls)), `${what}, the setting off: nothing of ours on any of them (${plain.length} lines)`);
+		await set(p, { tabParagraphs: true });
+		await until(p, `!!document.querySelector(${j(LEAF + ' .cm-line.binders-tab-paragraph')})`);
+		await sleep(p, 300);
+		const got = await blanks(p);
+		t.eq(got.length, plain.length, `${what}: the same lines are there`);
+		for (const l of got) {
+			const was = plain.find((x) => x.n === l.n);
+			if (OURS.includes(l.n)) {
+				t.ok(/binders-tab-paragraph/.test(l.cls), `${what}, line ${l.n} (${j(l.text)}): a paragraph’s indent (${l.cls})`);
+				t.ok(l.wide.length > 0 && l.wide.every((x) => x === 24) && l.guide.every((g) => g === 'none' || g === 'normal') && !/text-indent/.test(l.style), `${what}, line ${l.n}: as wide as the indent, with no guide line: ${j(l)}`);
+			} else t.eq(j(l), j(was), `${what}, line ${l.n} (${j(l.text)}): as Obsidian has it`);
+		}
+		// outside a binder
+		await open(p, LOOSE, 'source', source);
+		t.eq(j(await blanks(p)), j(plain), `${what}: in a note outside a binder every one is as Obsidian has it`);
+	}
+	t.eq(await read(p, A), WS_FRONT + WS, 'the note on disk is as it was');
+	t.eq(await read(p, LOOSE), WS_FRONT + WS, 'and the one outside a binder');
+	t.eq(errors(p).length, 0, 'no errors: ' + errors(p).join(' | '));
+});
+
 // ---- B: indent paragraphs ----
 
 const PLAIN = 'First of the scene.\n\nSecond, which follows one.\n\nThird.\n\n## A heading\n\nAfter a heading.\n\nFollows it.\n\n---\n\nAfter a rule.\n\n- an item\n\nAfter a list.\n\n![[The keeper]]\n\nAfter an embed.\n\n\tBegun with a tab.\n\nAfter a tab paragraph.\n';

@@ -1,4 +1,4 @@
-import { TAB_LINE, wrapMode, type ModeState, type Stream } from '../src/paragraphs/mode';
+import { SPACE_LINE, TAB_LINE, wrapMode, type ModeState, type Stream } from '../src/paragraphs/mode';
 import { pointedAt, repointTabLinks, tabLines, tabsForRender, untab } from '../src/paragraphs/text';
 import { DEFAULT_SETTINGS, readSettings } from '../src/settings-data';
 import { done, eq, ok } from './harness';
@@ -86,35 +86,67 @@ const same = (a: unknown, b: unknown, msg: string) => eq(JSON.stringify(a), JSON
 	eq(twice, out, 'done again, nothing changes');
 }
 
-// the mode, wrapped: with a stand-in that reads a line as Obsidian's mode does (white space first, then the rest)
+// the mode, wrapped: with a stand-in that reads a line as Obsidian's mode does (a line of white space only is a blank
+// line, at which a quote is forgotten; otherwise the white space first, then the rest)
 {
 	type S = ModeState & { indentedCode?: boolean };
-	const stream = (text: string) => { const s = { pos: 0, text, sol: () => s.pos === 0, eol: () => s.pos >= text.length }; return s; };
+	class Line { pos = 0; constructor(readonly string: string, readonly tabSize = 4, readonly indentUnit = 4) {} sol() { return this.pos === 0; } eol() { return this.pos >= this.string.length; } }
+	const stream = (text: string) => new Line(text);
+	let copies = 0;
 	const mode = {
 		startState: (): S => ({ indentation: 0, list: false, quote: 0 }),
-		token(st: Stream & { text?: string }, state: S): string | null {
-			const s = st as ReturnType<typeof stream>;
+		copyState: (state: S): S => { copies++; return { ...state }; },
+		token(st: Stream, state: S): string | null {
+			const s = st as Line;
 			if (s.sol()) {
-				const ws = /^\s*/.exec(s.text)![0];
+				if (/^\s*$/.test(s.string)) { state.quote = 0; s.pos = s.string.length; return null; }
+				const ws = /^\s*/.exec(s.string)![0];
 				state.indentation = ws.replace(/\t/g, '    ').length; state.indentationDiff = null;
 				if (ws) { s.pos = ws.length; return null; }
 			}
 			if (state.indentationDiff === null) state.indentationDiff = state.indentation;
-			s.pos = s.text.length;
+			s.pos = s.string.length;
 			return (state.indentationDiff ?? 0) >= 4 ? 'inline-code' : 'text';
 		},
 	};
-	const read = (m: typeof mode, text: string, state: S = m.startState()) => { const s = stream(text), out: (string | null)[] = []; while (!s.eol()) out.push(m.token(s, state)); return out; };
+	type M = { token: typeof mode.token; startState: typeof mode.startState; copyState?: typeof mode.copyState };
+	const read = (m: M, text: string, state: S = m.startState(), line: Stream = stream(text)) => { const out: (string | null)[] = []; while (!line.eol()) out.push(m.token(line, state)); return out; };
+	const TAB = `hmd-indented-code line-${TAB_LINE}`, SPACES = `${TAB} line-${SPACE_LINE}`;
 	same(read(mode, '\tText'), [null, 'inline-code'], 'the stand-in reads a tabbed line as code, as Obsidian does');
-	const wrapped = wrapMode<S, typeof mode>(mode)!;
+	const wrapped = wrapMode<S, M>(mode)!;
 	ok(!!wrapped, 'a mode with the state known here is wrapped');
-	same(read(wrapped, '\tText'), [`hmd-indented-code line-${TAB_LINE}`, 'text'], 'wrapped: the white space is named, the line marked, and the rest read as text');
-	same(read(wrapped, '    Text'), [`hmd-indented-code line-${TAB_LINE}`, 'text'], 'four spaces too');
+	same(read(wrapped, '\tText'), [TAB, 'text'], 'wrapped: the white space is named, the line marked, and the rest read as text');
+	same(read(wrapped, '    Text'), [SPACES, 'text'], 'four spaces too, and the line says its indent is spaces');
+	same(read(wrapped, ' \tText'), [SPACES, 'text'], 'a space and a tab: spaces');
 	same(read(wrapped, 'Text'), ['text'], 'a line with no indent is read as it was');
 	same(read(wrapped, '  Text'), [null, 'text'], 'less than a tab is left to the mode');
 	same(read(wrapped, '\tText', { indentation: 0, list: true, quote: 0 }), [null, 'inline-code'], 'in a list the indent is the list’s: left to the mode');
 	same(read(wrapped, '\tText', { indentation: 0, list: false, quote: 1 }), [null, 'inline-code'], 'in a quote too');
-	same(read(wrapped, '\t'), [null], 'a line of white space only is left');
+	// a line of white space only: Tab on an empty line, before a letter is typed
+	same(read(wrapped, '\t'), [TAB], 'a tab and nothing after it is marked as the line will be with a letter');
+	same(read(wrapped, '    '), [SPACES], 'four spaces and nothing after them');
+	same(read(wrapped, '\t\t'), [TAB], 'two tabs');
+	same(read(wrapped, '   '), [null], 'three spaces are a blank line, as they were');
+	same(read(wrapped, ' '), [null], 'one space');
+	same(read(wrapped, '\t', { indentation: 0, list: true, quote: 0 }), [null], 'under a list item a tab and nothing after it is left to the mode');
+	same(read(wrapped, '\t', { indentation: 0, list: false, quote: 1 }), [null], 'and straight under a quote, though the mode forgets the quote at that line');
+	{
+		const state: S = { indentation: 0, list: false, quote: 0, indentationDiff: 2 };
+		read(wrapped, '\t', state);
+		same(state, { indentation: 0, list: false, quote: 0, indentationDiff: 2 }, 'the mode’s state is as the mode left it: to the mode the line is blank');
+		const before = copies;
+		read(wrapped, 'Text'); read(wrapped, '\tText'); read(wrapped, '  ');
+		eq(copies, before, 'the mode is only asked about a line of white space as wide as a tab');
+	}
+	// where the mode can't be asked, the line is left as it was
+	same(read(wrapMode<S, M>({ token: mode.token, startState: mode.startState })!, '\t'), [null], 'a mode with no way to copy its state: the line is left');
+	same(read(wrapMode<S, M>({ ...mode, copyState: (state) => state })!, '\t'), [null], 'one that hands back the same state: left');
+	same(read(wrapMode<S, M>({ ...mode, copyState: () => { throw new Error('no'); } })!, '\t'), [null], 'one that throws: left');
+	{
+		const plain = { pos: 0, string: '\t', sol: () => plain.pos === 0, eol: () => plain.pos >= 1 };
+		same(read(wrapped, '\t', mode.startState(), plain), [null], 'a line that can’t be made again (no class of its own): left');
+		same(read(wrapped, '\tText', mode.startState(), { pos: 0, sol() { return this.pos === 0; }, eol() { return this.pos >= 5; }, string: '\tText' } as Stream), [TAB, 'text'], 'and a line with text is marked all the same');
+	}
 	eq(wrapMode(null), null, 'no mode: nothing');
 	eq(wrapMode({ token: () => null }), null, 'a mode with no state to look at: nothing');
 	eq(wrapMode({ token: () => null, startState: () => ({}) }), null, 'a mode whose state has other fields: nothing (the lines stay code)');

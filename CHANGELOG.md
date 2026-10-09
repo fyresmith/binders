@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.46.25 (2026-10-09)
+
+### Fixed
+
+- Tab on an empty line in a binder's note, and the tab Enter carries on, is drawn as the paragraph's indent at once: no guide line, and the cursor no longer moves sideways when the first letter is typed. Four spaces fill the indent as a tab does.
+
 ## 0.46.24 (2026-10-09)
 
 ### Changed

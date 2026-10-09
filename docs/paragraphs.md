@@ -23,6 +23,10 @@ This holds everywhere a binder's note is shown:
 - in the Snapshots window;
 - in focus mode.
 
+The indent is there from the moment you press Tab on an empty line, before the first letter, and on the new line
+Enter gives you at the end of such a paragraph (Obsidian carries the tab on): the cursor waits where the paragraph
+will begin.
+
 The note keeps the tab you typed.
 
 ## Indent paragraphs
