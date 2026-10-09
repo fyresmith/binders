@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.45.9 (2026-10-09)
+
+### Fixed
+
+- With many things to look at, the Export window's sidebar scrolls instead of running off the window.
+
 ## 0.45.8 (2026-10-09)
 
 ### Fixed

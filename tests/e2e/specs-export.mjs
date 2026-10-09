@@ -701,3 +701,24 @@ specs.push({ name: 'export: an ebook on a phone and a tablet: three kinds, its r
 	});
 	same(t, before, await texts(p));
 }) });
+
+// ---- Step 6: a book with a lot to look at ----
+
+test('a book with a lot to look at: the choices scroll, and the window stays the size it is', async (p, h, t) => {
+	await writeRaw(p, L + 'Part One/Arrival.md', 'She came ashore.\n\n' + Array.from({ length: 60 }, (_, i) => `![[missing ${i + 1}.pdf]]`).join('\n\n') + '\n');
+	await p.sleep(600);
+	await open(p);
+	t.eq(await p.ev(`document.querySelector('${WIN} .binders-export-warn-head').textContent`), '60 things to look at', 'sixty things to look at');
+	const m = await p.ev(`(() => { const w = document.querySelector('${WIN}'), s = w.querySelector('.binders-export-side'), box = (e) => { const r = e.getBoundingClientRect(); return { top: Math.round(r.top), bottom: Math.round(r.bottom) }; };
+		return { view: innerHeight, win: box(w), content: box(w.querySelector('.modal-content')), side: box(s), pane: box(w.querySelector('.binders-export-pane')), scroll: s.scrollHeight, client: s.clientHeight, overflow: getComputedStyle(s).overflowY, exportAt: box([...w.querySelectorAll('button')].find(b => b.textContent === 'Export')) }; })()`);
+	const says = JSON.stringify(m);
+	t.ok(m.win.top >= 0 && m.win.bottom <= m.view, `the window is whole on the screen (${says})`);
+	t.ok(m.content.bottom <= m.win.bottom + 1 && m.side.bottom <= m.win.bottom + 1 && m.pane.bottom <= m.win.bottom + 1, `its two panes end where it does (${says})`);
+	t.ok(m.scroll > m.client + 100 && /auto|scroll/.test(m.overflow), `the choices are longer than their pane, and scroll in it (${says})`);
+	t.ok(m.exportAt.top >= m.win.top && m.exportAt.bottom <= m.win.bottom, `Export is in reach (${says})`);
+	// the last thing to look at is reached by scrolling the choices, and the first choice by scrolling back
+	const seen = (sel, last) => p.ev(`(() => { const w = document.querySelector('${WIN}'), s = w.querySelector('.binders-export-side'), all = w.querySelectorAll(${j(sel)}), e = all[${last ? 'all.length - 1' : '0'}]; e.scrollIntoView({ block: 'nearest' }); const r = e.getBoundingClientRect(), o = s.getBoundingClientRect(); return r.height > 0 && r.top >= o.top - 1 && r.bottom <= o.bottom + 1 && o.bottom <= w.getBoundingClientRect().bottom + 1; })()`);
+	t.ok(await seen('.binders-export-warn', true), 'the last of them is reached by scrolling the choices');
+	t.ok(await p.ev(`document.querySelector('${WIN} .binders-export-side').scrollTop > 100 && document.scrollingElement.scrollTop === 0 && document.querySelector('${WIN}').scrollTop === 0`), 'which is what scrolled: not the window, nor the page');
+	t.ok(await seen('.binders-export-kinds [role="option"]', false), 'and the kinds by scrolling back');
+});

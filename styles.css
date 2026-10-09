@@ -4482,6 +4482,17 @@ body:not(.is-phone) .binders-export .binders-export-options .setting-item.settin
 	min-height: 100%;
 }
 
+/* The choices can be longer than the window is tall (a book with a lot to look at, a project with a lot to say): they
+   scroll, and the window doesn't grow. Import's window is this one too (view/import-scrivener.ts). */
+.binders-export.mod-sidebar-layout .modal-content,
+.binders-export .binders-export-side {
+	min-height: 0;
+}
+
+.binders-export .binders-export-side {
+	overflow-y: auto;
+}
+
 /* The preview: pages are paper, whatever the theme. */
 .binders-export .binders-export-preview {
 	flex: 1 1 0;
@@ -5660,15 +5671,7 @@ body:not(.is-phone) .binders-snapshots .sync-history-content {
 	display: none;
 }
 
-/* The choices can be longer than the dialog is tall (a project with a lot to say): they scroll, the dialog doesn't grow. */
-.binders-import.mod-sidebar-layout .modal-content,
-.binders-import .binders-export-side {
-	min-height: 0;
-}
-
-.binders-import .binders-export-side {
-	overflow-y: auto;
-}
+/* (The choices scroll when they are longer than the dialog is tall: Export's rule, which this dialog wears.) */
 
 /* The binder's list is what this dialog is for: wider than the Export window's contents, but never more of a narrow
    window or a tablet than the text beside it has. */
