@@ -25,6 +25,10 @@ eq(rich('{\\rtf1\\uc1 A{\\uc2\\u233??}\\u241?Z}').plain, 'AéñZ', 'Unicode fall
 eq(rich("{\\rtf1\\ansi\\ansicpg1251 \\'cf\\'f0\\'e8\\'e2\\'e5\\'f2}").plain, 'Привет', 'Cyrillic code page');
 eq(rich("{\\rtf1\\ansi\\ansicpg932 \\'82\\'a0}").plain, 'あ', 'multibyte hex escape');
 eq(rich('{\\rtf1 A{\\b bold} normal {\\i italic} {\\strike gone}.}').markdown, 'A**bold** normal *italic* ~~gone~~.\n', 'format groups restore their parent');
+// A table is written as one paragraph a row, with a rule after the first (export, docs/dev/export.md): its rows come back
+// together, as the table they are. Pipe lines with no rule among them are paragraphs, as they were.
+eq(rich('{\\rtf1 | a | b |\\par | --- | --- |\\par | 1 | 2 |\\par}').markdown, '| a | b |\n| --- | --- |\n| 1 | 2 |\n', 'table rows with a rule come back together');
+eq(rich('{\\rtf1 | a | b |\\par | c | d |\\par Then prose.}').markdown, '| a | b |\n\n| c | d |\n\nThen prose.\n', 'pipe lines with no rule are paragraphs');
 ok(rich('{\\rtf1 # not a heading\\par ---\\par **literal**}').markdown.includes('\\# not a heading'), 'literal Markdown is escaped');
 // A sentence is left as it was typed: only what Obsidian would take for markup is escaped, where it would.
 const prose = 'Mr. Smith - a 1.5 mile walk! (Yes.) No. 7 = 100% + more; snake_case, a < b > c, AT&T, 3 ~ 4, e.g. this: that.';

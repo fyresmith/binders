@@ -118,7 +118,7 @@ export function rtf(blocks: readonly Block[], ctx: RtfContext): string | null {
 					ctx.kept('A table');
 					b.rows.forEach((row, n) => {
 						mono(`| ${row.map((cell) => inline(cell)).join(' | ')} |`, li, ri);
-						if (n === 0) mono(`|${row.map(() => ' --- ').join('|')}|`, li, ri);
+						if (n === 0) mono(`|${row.map(() => '---').join('|')}|`, li, ri); // (the rule as a Markdown table is typed, so it reads back as one)
 					});
 					break;
 				}

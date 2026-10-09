@@ -117,7 +117,7 @@ const sound = (m: ReturnType<typeof made>, what: string) => ok(!m.problems.lengt
 	ok(r.includes('\\pard\\qc\\sa200 * * *') && r.includes('{\\b\\fs30 Later}'), 'a scene break, a heading');
 	ok(r.includes('\\pard\\li720\\ri720\\sa200 Quoted.') && r.includes('\\pard\\li720\\ri720\\sa200 {\\b Mind}'), 'a quotation; a callout is one with its title in bold');
 	ok(r.includes('\\pard\\li720\\fi-360\\tx720 \\u8226?\\tab one') && r.includes('\\pard\\li1440\\fi-360\\tx1440 \\u8226?\\tab deep') && r.includes('\\tx720 3.\\tab third') && r.includes('4.\\tab fourth'), 'lists, nested, numbered from where they start');
-	ok(r.includes('{\\f1\\fs20 | a | b |}') && r.includes('{\\f1\\fs20 | --- | --- |}') && r.includes('{\\f1\\fs20 let x = \\{1\\};}'), 'a table stays as Markdown; code is monospaced, as typed');
+	ok(r.includes('{\\f1\\fs20 | a | b |}') && r.includes('{\\f1\\fs20 |---|---|}') && r.includes('{\\f1\\fs20 let x = \\{1\\};}'), 'a table stays as Markdown; code is monospaced, as typed');
 	ok(/\{\\pict\\pngblip\\picw8\\pich6\\picwgoal120\\pichgoal90\n89504e47/.test(r), 'a picture is in the text');
 	ok(r.includes(`{\\fldrslt !\\u91?\\u91?Other]]}`) || r.includes('{\\fldrslt ![[Other]]}'), 'a note embedded stays as typed, and leads to its document');
 	ok(r.includes('![gone](missing.png)'), 'a picture that isn’t found stays as typed');

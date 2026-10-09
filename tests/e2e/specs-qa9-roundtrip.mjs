@@ -238,7 +238,7 @@ mdCase('4b markdown: bold, italics, bullets, numbered lists, links, wiki links a
 });
 mdCase('4c markdown: a block quote’s words come back (its marker is an indent in Scrivener, docs/import-scrivener.md)', '> A quoted line.\n', { 'block quote words': /A quoted line\./ });
 mdCase('4d markdown: a code block’s words come back (its font is not kept, docs/import-scrivener.md)', '```\nconst x = 1;\n```\n', { 'code words': /const x = 1;/ });
-mdCase('BUG: qa9 roundtrip: 4e markdown: a table comes back as a table (rows together)', '| a | b |\n|---|---|\n| 1 | 2 |\n', { 'table rows with no blank line between': /\| a \| b \|\n\|---\|---\|\n\| 1 \| 2 \|/ });
+mdCase('qa9 roundtrip: 4e markdown: a table comes back as a table (rows together)', '| a | b |\n|---|---|\n| 1 | 2 |\n', { 'table rows with no blank line between': /\| a \| b \|\n\|---\|---\|\n\| 1 \| 2 \|/ });
 mdCase('4f markdown: a picture comes back as the picture it was', '![[pic.png]]\n', { 'picture embed (renamed to Picture 1.png in Research/Attachments, as the docs say)': /!\[\[(Returned\/Research\/Attachments\/)?[Pp]ic(ture 1)?\.png\]\]/ }, { picture: true });
 
 // ---- 5. non-Latin text and odd note names ----

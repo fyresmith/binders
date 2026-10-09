@@ -89,6 +89,21 @@ function parse(data: Uint8Array): Group {
 	return root;
 }
 
+/** Rows of a Markdown table, each a paragraph of its own (export writes a table so): one line of pipes apiece, and a
+    rule among them, which is what makes a run of pipe lines a table. Those come back together, with no blank line
+    between; any other pipe lines are paragraphs, as they were. */
+function tables(text: string): string {
+	const blocks = text.split('\n\n'), out: string[] = [];
+	for (let i = 0; i < blocks.length; ) {
+		let j = i;
+		while (j < blocks.length && /^\|.*\|$/.test(blocks[j])) j++;
+		const rows = blocks.slice(i, j);
+		if (rows.length > 1 && rows.some((r) => /^\|(\s*:?-+:?\s*\|)+$/.test(r))) { out.push(rows.join('\n')); i = j; }
+		else out.push(blocks[i++]);
+	}
+	return out.join('\n\n');
+}
+
 export function readRtf(data: Uint8Array, options: RtfOptions = {}): RichText {
 	const root = parse(data), warnings = new Set<string>(), notes: string[] = [], fontPages = new Map<number, number>();
 	const warn = (s: string) => warnings.add(s);
@@ -269,7 +284,7 @@ export function readRtf(data: Uint8Array, options: RtfOptions = {}): RichText {
 	}
 	// RTF list labels can be literal paragraph prefixes. Only turn verified labels into Markdown list markers.
 	body = body.replace(/^(\s*)•\t/gm, '$1- ').replace(/^(\s*)(\d+)\\\.\t/gm, '$1$2. ');
-	body = body.replace(/\n{3,}/g, '\n\n').trimEnd();
+	body = tables(body).replace(/\n{3,}/g, '\n\n').trimEnd();
 	if (notes.length) body += '\n\n' + notes.map((n, i) => `[^${i + 1}]: ${n.replace(/\n/g, '\n    ')}`).join('\n\n');
 	return { markdown: body ? body + '\n' : '', plain: literal, warnings: [...warnings] };
 }
