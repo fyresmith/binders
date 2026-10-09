@@ -146,7 +146,7 @@ test('1 a binder comes back: every note’s words, in the same order, in the sam
 	same(t, before, await texts(p), { skip: [] });
 });
 
-test('BUG: qa9 roundtrip: 1b a paragraph begun with a tab keeps its tab', async (p, h, t) => {
+test('1b a paragraph begun with a tab keeps its tab', async (p, h, t) => {
 	await dress(p);
 	await roundTrip(p);
 	const got = await read(p, `${RET}/Part One/Arrival.md`);

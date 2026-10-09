@@ -289,6 +289,7 @@ export function planImport(project: ReadProject, o: PlanOptions): ImportPlan {
 		const kept = keepOriginal(it, filename, bytes), pictures: [string, Uint8Array][] = [];
 		try {
 			const result = readRtf(bytes, {
+				indentedAsTabs: s.tabParagraphs,
 				link: (id, label) => { const to = paths.get(id.toUpperCase()); return to ? link(to, label) : null; },
 				picture: (data, ext) => { const path = `${attachments}/Picture ${pictureNo + pictures.length + 1}.${ext}`; pictures.push([path, data]); return link(path, '', true); },
 			});

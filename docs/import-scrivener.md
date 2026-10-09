@@ -59,7 +59,7 @@ Rich text becomes Markdown. Your sentences come through as you typed them.
 
 | Kept | Not kept (it is in the original file) |
 |---|---|
-| Paragraphs, line breaks, tabs at the start of a paragraph | Fonts, sizes, colors |
+| Paragraphs, line breaks, tabs at the start of a paragraph. A paragraph that Binders exported with its tab (a first-line indent) comes back with the tab, if **Start a paragraph with a tab** is on | Fonts, sizes, colors |
 | Bold, italics, struck-through text | Underlining, highlighting, superscript and subscript (listed when a document has them) |
 | Links to web pages, and links between documents | Alignment, indents, line spacing, page breaks |
 | Footnotes, and Scrivener's inline footnotes | A table's layout: its text is kept, cell after cell |

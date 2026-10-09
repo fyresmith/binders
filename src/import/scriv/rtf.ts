@@ -9,6 +9,10 @@ export interface RichText { markdown: string; plain: string; warnings: string[] 
 export interface RtfOptions {
 	link?(uuid: string, label: string): string | null;
 	picture?(bytes: Uint8Array, extension: string): string;
+	/** A paragraph whose only paragraph formatting is a 360-twip first-line indent with no space after it is one
+	    Binders wrote for a paragraph begun with a tab (export writes it so): read back as that tab. Only asked for
+	    when "Start a paragraph with a tab" is on, so the same project reads the same way without it. */
+	indentedAsTabs?: boolean;
 }
 /** Prose as Markdown that reads back as the same prose. Only what Obsidian would take for markup is escaped, where
     it would: a full stop, a dash or a bracket in a sentence is left as it was typed, so the note's text is the
@@ -120,6 +124,10 @@ export function readRtf(data: Uint8Array, options: RtfOptions = {}): RichText {
 	};
 	const visit = (g: Group, state: State, special = false): Run[] => {
 		const kind = dest(g), out: Run[] = [], s = { ...state };
+		// the paragraph being read: where its runs start in `out`, and its first-line indent and space after
+		let para = { start: 0, fi: 0, sa: false }, fresh = false;
+		// (a paragraph ends at a \par or where its group does, whichever is first)
+		const ended = () => { if (options.indentedAsTabs && para.fi === 360 && !para.sa && out.length > para.start) out.splice(para.start, 0, { text: '\t' }); };
 		if (kind === 'fonttbl') {
 			const pages: Record<number, number> = { 0: s.ansi, 1: s.ansi, 77: 10000, 128: 932, 129: 949, 134: 936, 136: 950, 161: 1253, 162: 1254, 177: 1255, 178: 1256, 186: 1257, 204: 1251, 222: 874, 238: 1250 };
 			let font: number | undefined;
@@ -179,8 +187,10 @@ export function readRtf(data: Uint8Array, options: RtfOptions = {}): RichText {
 			if (!unicode && fallback) { const n = Math.min(fallback, text.length); text = text.slice(n); fallback -= n; }
 			if (!text) return;
 			const last = out[out.length - 1];
-			if (last && !last.raw && !last.url && last.bold === s.bold && last.italic === s.italic && last.strike === s.strike) last.text += text;
+			// (a paragraph's first text starts a run of its own, so its index in `out` is where its first character is)
+			if (last && !fresh && !last.raw && !last.url && last.bold === s.bold && last.italic === s.italic && last.strike === s.strike) last.text += text;
 			else out.push({ text, bold: s.bold, italic: s.italic, strike: s.strike });
+			fresh = false;
 		};
 		for (let i = 0; i < g.tokens.length; i++) {
 			const t = g.tokens[i];
@@ -204,7 +214,15 @@ export function readRtf(data: Uint8Array, options: RtfOptions = {}): RichText {
 			else if (word === 'cpg') s.page = n;
 			else if (word === 'deff') s.defaultFont = n;
 			else if (word === 'f' && fontPages.has(n)) s.page = fontPages.get(n);
-			else if (word === 'par' || word === 'row') append('\n\n');
+			else if (word === 'pard') { para = { start: out.length, fi: 0, sa: false }; fresh = true; }
+			else if (word === 'fi') para.fi = n ?? 0;
+			else if (word === 'sa') para.sa = n !== 0;
+			else if (word === 'par' || word === 'row') {
+				// (paragraph formatting lasts past a \par until the next \pard, as RTF has it)
+				ended();
+				append('\n\n');
+				para.start = out.length; fresh = true;
+			}
 			else if (word === 'line') append('\n');
 			else if (word === 'tab' || word === 'cell') append('\t');
 			else if (word === '~') append('\u00a0');
@@ -221,6 +239,7 @@ export function readRtf(data: Uint8Array, options: RtfOptions = {}): RichText {
 			// puts on words by hand is said)
 			else if ((['ul', 'highlight'].includes(word) && n !== 0) || word === 'super' || word === 'sub') warn('Underlining, highlighting, superscript and subscript aren’t carried over. The original file has them.');
 		}
+		ended();
 		return out;
 	};
 	const markdown = (runs: Run[]): string => {

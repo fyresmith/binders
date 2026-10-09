@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.46.17 (2026-10-09)
+
+### Fixed
+
+- A paragraph begun with a tab, exported to a Scrivener project and imported again, comes back with its tab when "Start a paragraph with a tab" is on.
+
 ## 0.46.16 (2026-10-09)
 
 ### Added

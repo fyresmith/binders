@@ -29,6 +29,12 @@ eq(rich('{\\rtf1 A{\\b bold} normal {\\i italic} {\\strike gone}.}').markdown, '
 // together, as the table they are. Pipe lines with no rule among them are paragraphs, as they were.
 eq(rich('{\\rtf1 | a | b |\\par | --- | --- |\\par | 1 | 2 |\\par}').markdown, '| a | b |\n| --- | --- |\n| 1 | 2 |\n', 'table rows with a rule come back together');
 eq(rich('{\\rtf1 | a | b |\\par | c | d |\\par Then prose.}').markdown, '| a | b |\n\n| c | d |\n\nThen prose.\n', 'pipe lines with no rule are paragraphs');
+// A paragraph begun with a tab is written with a 360-twip first-line indent and no space after (export). It reads back
+// as the tab only when "Start a paragraph with a tab" is on; any other indent, or space after, is left as it is.
+const tabbed = '{\\rtf1\\ansi Before.\\par\\pard\\fi360 It did {\\b not} wait.\\par\\pard\\sa200 Flush.\\par\\pard\\fi720 Indented.\\par\\pard\\fi360\\sa200 Spaced.\\par}';
+eq(readRtf(bytes(tabbed), { indentedAsTabs: true }).markdown, 'Before.\n\n\tIt did **not** wait.\n\nFlush.\n\nIndented.\n\nSpaced.\n', 'a 360 first-line indent reads back as a tab, when asked; others don’t');
+eq(readRtf(bytes('{\\rtf1\\ansi Before.\\par\\pard\\fi360 Last {\\b bold}}'), { indentedAsTabs: true }).markdown, 'Before.\n\n\tLast **bold**\n', 'the last paragraph of a group, with no \\par after it, is one too');
+eq(readRtf(bytes(tabbed)).markdown, 'Before.\n\nIt did **not** wait.\n\nFlush.\n\nIndented.\n\nSpaced.\n', 'without the setting, the indent is not a tab');
 ok(rich('{\\rtf1 # not a heading\\par ---\\par **literal**}').markdown.includes('\\# not a heading'), 'literal Markdown is escaped');
 // A sentence is left as it was typed: only what Obsidian would take for markup is escaped, where it would.
 const prose = 'Mr. Smith - a 1.5 mile walk! (Yes.) No. 7 = 100% + more; snake_case, a < b > c, AT&T, 3 ~ 4, e.g. this: that.';
