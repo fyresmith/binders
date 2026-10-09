@@ -1,7 +1,9 @@
 // QA round 9, Export window by touch on a phone (390 × 844) and a tablet (820 × 1180): Book details, the style editor
 // and its sliders, Contents (a row's role and Leave out), each kind's dropdown, nothing clipped (screenshots in both
 // themes, QA9_SHOTS=<dir>), and the empty binder ("Nothing to export"). Helpers come from specs-qa8-export.mjs and
-// specs-export.mjs. Tests named "qa9 export touch: …" are plain; "BUG: qa9 export touch: …" are confirmed bugs, left failing.
+// specs-export.mjs. Tests are named "qa9 export touch: …". The four confirmed bugs of this round (a Contents name, the
+// title page's title, the sliders' touch area, "Nothing to export" on a phone) are fixed, or in the slider's case
+// measured as Obsidian's own size: their tests are plain ones now.
 import { mkdirSync } from 'fs';
 import { join } from 'path';
 import { PL, VIEW, closeMenus, j, openView, texts, until, withTidy } from './view-helpers.mjs';
@@ -12,7 +14,6 @@ const L = 'The Lighthouse/';
 const SHOTS = process.env.QA9_SHOTS || '';
 const shot = async (p, name) => { if (!SHOTS) return; mkdirSync(SHOTS, { recursive: true }); const dark = await p.ev(`document.body.classList.contains('theme-dark')`); await p.sleep(300); await p.shot(join(SHOTS, `${name}-${dark ? 'dark' : 'light'}.png`)); };
 
-const bug = (name, fn, o) => { test(name, fn, o); specs[specs.length - 1].name = 'BUG: ' + specs[specs.length - 1].name; };
 const test = (name, fn, o) => specs.push({ name: 'qa9 export touch: ' + name, fn: withTidy(async (p, h, t) => {
 	await p.ev(`(async () => { app.saveLocalStorage('binders-export', null); const pl = ${PL}; pl.settings.exportKind = 'manuscript'; pl.settings.exportStyle = ''; pl.settings.exportsFolder = 'Exports'; await pl.saveData(pl.settings); })().then(() => 1)`);
 	await standIn(p, o);
@@ -24,7 +25,7 @@ const test = (name, fn, o) => specs.push({ name: 'qa9 export touch: ' + name, fn
 	}
 }) });
 
-/** The style editor's sliders, by the row names they show (their own test is the BUG one). */
+/** The style editor's sliders, by the row names they show (their own test is the one on the thumb). */
 const SLIDERS = ['Size', 'Line spacing', 'Space above'];
 const kindTap = (p, name) => tapEl(p, `[...document.querySelectorAll('${WIN} [role="option"]')].find(e => e.querySelector('.binders-snapshots-item-name').textContent === ${j(name)})`);
 const sayings = (p) => p.ev(`document.querySelector('${WIN}').innerText`);
@@ -87,7 +88,7 @@ test('a phone: the style editor opens by touch; its controls are at least 28 px 
 		await p.sleep(300);
 		const all = await boxes(p, `${WIN} .binders-style-editor button, ${WIN} .binders-style-editor select, ${WIN} .binders-style-editor input[type="range"], ${WIN} .binders-style-editor .checkbox-container, ${WIN} .binders-style-editor .clickable-icon, ${WIN} .binders-style-editor .back-button`);
 		t.ok(all.length >= 4, 'controls found: ' + all.length);
-		t.eq(JSON.stringify(all.filter(c => !SLIDERS.includes(c.name) && (c.h < 28 || c.w < 28)).map(c => `${c.name} ${c.w}×${c.h}`)), '[]', 'every style editor control but the sliders (see the BUG test) is 28 px high (44 the target)');
+		t.eq(JSON.stringify(all.filter(c => !SLIDERS.includes(c.name) && (c.h < 28 || c.w < 28)).map(c => `${c.name} ${c.w}×${c.h}`)), '[]', 'every style editor control but the sliders (see the thumb test) is 28 px high (44 the target)');
 		await shot(p, 'style-editor-phone');
 		const before = await p.ev(`(document.querySelector('${WIN} .binders-export-pane')?.innerHTML ?? '').length + '|' + getComputedStyle(document.querySelector('${WIN} .binders-export-pane .binders-export-paper') ?? document.body).fontFamily`);
 		// the typeface dropdown
@@ -292,7 +293,7 @@ test('a phone: an empty binder’s Export button is off, and the window opens wi
 		await shot(p, 'empty-phone');
 	});
 });
-bug('a phone: an empty binder says “Nothing to export” (the words are shown on a computer, but not on a phone, where the window shows Export off and nothing that says why)', async (p, h, t) => {
+test('a phone: an empty binder says “Nothing to export” (the words are shown on a computer, but not on a phone, where the window shows Export off and nothing that says why)', async (p, h, t) => {
 	await emptyBinder(p, 390, 844, async () => {
 		t.ok((await status(p)).includes('Nothing to export') || (await sayings(p)).includes('Nothing to export'), 'the window says “Nothing to export” (status line: “' + (await status(p)) + '”)');
 	});

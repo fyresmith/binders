@@ -4586,6 +4586,10 @@ body:not(.is-phone) .binders-export .binders-export-options .setting-item.settin
 	flex: 1 1 0;
 }
 
+.binders-export-phone-empty {
+	padding-top: var(--size-4-2);
+}
+
 /* A phone: the dialog's title is the book, so the bar names what is being made, and its buttons take a row. */
 .is-phone .binders-export .binders-snapshots-name {
 	display: inline;

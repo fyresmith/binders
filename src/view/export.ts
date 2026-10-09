@@ -426,6 +426,8 @@ export class ExportModal extends Modal {
 			foot.createDiv({ cls: 'binders-export-needs', text: `The notes’ text only, without properties, as one note. Exporting again replaces it; a note that’s been written in since is asked about first.${left ? ` ${left} ${left === 1 ? 'note is' : 'notes are'} left out.` : ''} Your notes aren’t changed.` });
 		}
 		if (Platform.isPhone) {
+			// (the bar says why Export is off on a computer; a phone's buttons are the foot's, so the words go just above them)
+			if (this.empty) foot.createDiv({ cls: 'binders-export-status binders-export-phone-empty', text: 'Nothing to export', attr: { role: 'status', 'aria-live': 'polite' } });
 			const row = foot.createDiv({ cls: 'binders-export-phone-row' });
 			new ButtonComponent(row).setButtonText('Preview').onClick(() => this.toPane());
 			if (this.kind === 'note') new ButtonComponent(row).setButtonText('Copy').onClick(() => void this.copy());
