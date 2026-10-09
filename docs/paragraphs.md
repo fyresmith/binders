@@ -46,10 +46,18 @@ begin.
 
 On a phone, which has no Tab key, this is the simplest way to an indented page.
 
-To start a paragraph with a tab of your own on a phone or a tablet, use the indent button in the toolbar Obsidian
-puts over the keyboard (two arrows pointing at lines of text; swipe the toolbar sideways if it isn't in sight). It
-puts one tab at the start of the line you are on, wherever in the line the cursor is, and the button beside it
-takes the tab off. Four spaces at the start of a line do the same as a tab.
+To start a paragraph with a tab of your own on a phone or a tablet, there is a command: **Start a paragraph with a
+tab**. It puts a tab at the start of the line the cursor is in, wherever in the line the cursor is, and leaves a
+line that has its tab alone, so tapping it twice does no harm. With several paragraphs selected each gets one;
+headings, lists, quotes and code are left. Put it on the toolbar Obsidian shows over the keyboard: in Obsidian's settings,
+under **Toolbar**, add it to the toolbar's commands. Its button is a paragraph mark (¶). To take a tab off,
+use Backspace.
+
+Obsidian's own indent button in that toolbar (two arrows pointing at lines of text) also puts a tab at the start
+of the line, and the button beside it takes one off. It adds a tab every time it is tapped, so on a line that has
+one already you get two. Four spaces at the start of a line do the same as a tab.
+
+The command works on a computer too, from the command palette or a hotkey of your own.
 
 ## The width of the indent
 

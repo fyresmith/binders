@@ -101,8 +101,10 @@ The keyboard's own toolbar stays. Press and hold the leave button for the menu.
 ## Paragraphs
 
 A phone has no Tab key. Turn on **Indent paragraphs** in settings for an indented page. To start a paragraph with a
-tab of your own, use the indent button in the toolbar over the keyboard (it puts a tab at the start of the line;
-the button beside it takes it off), or type four spaces. See [Paragraphs](paragraphs.md).
+tab of your own, use the command **Start a paragraph with a tab**: add it to the toolbar over the keyboard in
+Obsidian's settings, under **Toolbar**, where its button is a paragraph mark (¶). Obsidian's own indent
+button there puts a tab at the start of the line too (and another each time it is tapped), and four spaces do the
+same as a tab. See [Paragraphs](paragraphs.md).
 
 ## Export
 

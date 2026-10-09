@@ -41,6 +41,12 @@ Most commands only appear where they apply: with a binder view in front, or with
 | **Split scene at cursor** | Moves the text from the cursor on into a new note after this one | The editor of a note of a binder, or a section of the manuscript |
 | **Split scene with selection as title** | The same, naming the new note from the selected words | The same, with text selected |
 
+## Paragraphs
+
+| Command | What it does | Where it applies |
+|---|---|---|
+| **Start a paragraph with a tab** | Puts a tab at the start of the line the cursor is in, or of each paragraph in what is selected. A line that has its tab is left; so are headings, lists, quotes and code. Made for a phone, which has no Tab key. See [Paragraphs](paragraphs.md) | The editor of a note of a binder, or a section of the manuscript, with **Start a paragraph with a tab** on in settings |
+
 ## Snapshots
 
 | Command | What it does | Where it applies |

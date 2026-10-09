@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.48.0 (2026-10-09)
+
+### Added
+
+- A command, "Start a paragraph with a tab", for phones and tablets: it puts a tab at the start of the paragraph the cursor is in, and can be added to Obsidian's toolbar over the keyboard.
+
 ## 0.47.0 (2026-10-09)
 
 ### Changed

@@ -1,5 +1,5 @@
 import { SPACE_LINE, TAB_LINE, wrapMode, type ModeState, type Stream } from '../src/paragraphs/mode';
-import { pointedAt, repointTabLinks, tabLines, tabsForRender, untab } from '../src/paragraphs/text';
+import { linesToTab, pointedAt, repointTabLinks, tabLines, tabsForRender, untab } from '../src/paragraphs/text';
 import { DEFAULT_SETTINGS, readSettings } from '../src/settings-data';
 import { done, eq, ok } from './harness';
 
@@ -165,6 +165,18 @@ const same = (a: unknown, b: unknown, msg: string) => eq(JSON.stringify(a), JSON
 	eq(wrapMode({ token: () => null, startState: () => ({}) }), null, 'a mode whose state has other fields: nothing (the lines stay code)');
 	eq(wrapMode({ token: () => null, startState: () => ({ indentation: 0, list: null, quote: 0 }) }), null, 'or the fields with other values');
 	eq(wrapMode({ token: () => null, startState: () => { throw new Error('no'); } }), null, 'or one that throws');
+}
+
+// which lines the command "Start a paragraph with a tab" gives one
+{
+	const T = '---\na: b\n---\nPlain one.\n\nPlain two.\n\tHas its tab.\n    Has spaces.\n\n# Heading\n\n- item\nlazy under it\n\nAfter the list.\nAnd on.\n\n> quote\n\n```\ncode\n```\n| a | b |\n---\n   Three spaces.\n';
+	same(linesToTab(T, 0, 99), [3, 5, 15, 24], 'prose at the margin: not blank, tabbed, a heading, an item, a quote, code, a table, a rule, the properties, nor the line after a list item');
+	same(linesToTab(T, 5, 5), [5], 'one line');
+	same(linesToTab(T, 6, 6), [], 'a line that has its tab is left');
+	same(linesToTab(T, 0, 2), [], 'nothing in the properties');
+	same(linesToTab(T, 20, 20), [], 'nothing in a fenced block');
+	same(linesToTab('One.\r\nTwo.\r\n', 0, 1), [0, 1], 'Windows line endings');
+	same(linesToTab('', 0, 0), [], 'an empty text');
 }
 
 // tabs taken off paragraphs, for a note that goes outside a binder (export's "One note")

@@ -5,6 +5,7 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { PL, VIEW, file, j, openView, read, reload, until, withTidy, writeRaw } from './view-helpers.mjs';
+import { PHONE, TABLET, onDevice, tap } from './specs-qa5-manuscript.mjs';
 
 export const specs = [];
 const test = (name, fn) => specs.push({ name: 'paragraphs: ' + name, fn: withTidy(fn) });
@@ -1017,3 +1018,122 @@ test('no double tab is only that: Tab on a line that is one tab stays Obsidian�
 	t.eq(await press('Loose tabs.md', 17), off, 'and in a note outside a binder');
 	t.eq(errors(p).length, 0, 'no errors: ' + errors(p).join(' | '));
 });
+
+// ---- the command "Start a paragraph with a tab" ----
+
+const CMD = 'binders:tab-paragraph';
+const run = (p) => p.ev(`app.commands.executeCommandById(${j(CMD)})`);
+/** Is the command offered here? (What the palette and the toolbar ask.) */
+const offered = (p) => p.ev(`!!app.commands.commands[${j(CMD)}].checkCallback(true)`);
+const MIXED = 'Plain one.\n\nPlain two, with words.\n\tHas its tab.\n\n# Heading\n\n- an item\n\n> quote\n\n```\ncode\n```\n\nLast.';
+
+test('the command “Start a paragraph with a tab”: a tab at the start of the line the cursor is in, which keeps its place; a line that has one is left; over a selection, each line of prose and nothing else; one step of undo; the disk exact', async (p, h, t) => {
+	await body(p, A, MIXED);
+	await open(p, A);
+	const cmd = await p.ev(`(() => { const c = app.commands.commands[${j(CMD)}]; return c ? { name: c.name, icon: c.icon, hotkeys: (c.hotkeys || []).length } : null; })()`);
+	// (Obsidian puts the plugin's name before a command's in its list: the name given has none)
+	t.eq(j(cmd), j({ name: 'Binders: Start a paragraph with a tab', icon: 'pilcrow', hotkeys: 0 }), 'the command: its name, an icon for the toolbar, no hotkey');
+	const at = (line, ch) => p.ev(`(() => { const e = ${OWN}; e.focus(); e.setCursor(${line}, ${ch}); return 1; })()`);
+	const where = () => p.ev(`(() => { const e = ${OWN}, c = e.getCursor(); return [c.line, c.ch, e.getLine(c.line)]; })()`);
+	const value = async () => (await p.ev(`${OWN}.getValue()`)).slice(FRONT.length);
+	await at(8, 9);
+	t.ok(await offered(p), 'it is offered in a binder’s note');
+	await run(p);
+	t.eq(j(await where()), j([8, 10, '\tPlain two, with words.']), 'a tab at the start of the line; the cursor is where it was in the text');
+	await run(p);
+	t.eq(j(await where()), j([8, 10, '\tPlain two, with words.']), 'run again: the line has its tab, and nothing happens');
+	await at(6, 0); await run(p);
+	t.eq(j(await where()), j([6, 1, '\tPlain one.']), 'with the cursor at the very start of a line it ends after the tab');
+	for (const [line, what] of [[7, 'an empty line'], [11, 'a heading'], [13, 'a list item'], [15, 'a quote'], [18, 'a line of a fenced block'], [2, 'the properties']]) { await at(line, 0); const before = await value(); await run(p); t.eq(await value(), before, `on ${what}: nothing`); }
+	// over everything
+	await p.ev(`(() => { ${OWN}.undo(); ${OWN}.undo(); return 1; })()`);
+	t.eq(await value(), MIXED, 'two steps of undo take the two tabs back');
+	await p.ev(`(() => { const e = ${OWN}; e.setSelection({ line: 0, ch: 0 }, { line: e.lastLine(), ch: 2 }); return 1; })()`);
+	await run(p);
+	const all = '\tPlain one.\n\n\tPlain two, with words.\n\tHas its tab.\n\n# Heading\n\n- an item\n\n> quote\n\n```\ncode\n```\n\n\tLast.';
+	t.eq(await value(), all, 'over a selection: each line of prose gets one; blank lines, the heading, the item, the quote, the code and the properties are left');
+	await until(p, `app.vault.adapter.read(${j(A)}).then(x => x === ${j(FRONT + all)})`, 6000);
+	t.eq(await read(p, A), FRONT + all, 'on disk, exactly that');
+	await p.ev(`(() => { ${OWN}.undo(); return 1; })()`);
+	t.eq(await value(), MIXED, 'and one step of undo takes all of them back');
+	t.eq(errors(p).length, 0, 'no errors: ' + errors(p).join(' | '));
+});
+
+test('the command “Start a paragraph with a tab” is there only for a binder’s note with the setting on, and works in a section of the manuscript', async (p, h, t) => {
+	await body(p, A, 'First paragraph.\n\nSecond.');
+	await p.ev(`app.vault.create('Loose command.md', 'Loose.').then(() => 1)`);
+	await open(p, 'Loose command.md');
+	await p.ev(`(() => { ${OWN}.focus(); return 1; })()`);
+	t.ok(!(await offered(p)), 'not offered in a note outside a binder');
+	await run(p);
+	t.eq(await p.ev(`${OWN}.getValue()`), 'Loose.', 'which is as it was');
+	await open(p, A);
+	await p.ev(`(() => { ${OWN}.focus(); return 1; })()`);
+	await set(p, { tabParagraphs: false });
+	t.ok(!(await offered(p)), 'not offered with “Start a paragraph with a tab” off');
+	await run(p);
+	t.eq(await p.ev(`${OWN}.getValue()`), FRONT + 'First paragraph.\n\nSecond.', 'and run all the same it does nothing');
+	await set(p, { tabParagraphs: true });
+	t.ok(await offered(p), 'offered in a binder’s note with it on');
+	await openView(p, L + 'Part One');
+	await p.ev(`(() => { ${VIEW}.setMode('manuscript'); return 1; })()`);
+	await until(p, `!!${VIEW}.current?.scenes?.find(s => s.file.path === ${j(A)})?.live?.cm`, 8000);
+	await endOf(p, SECTION);
+	await sleep(p, 300);
+	t.ok(await offered(p), 'it is offered in a section of the manuscript');
+	await run(p);
+	t.eq(await p.ev(`(${SECTION}).getValue()`), FRONT + 'First paragraph.\n\n\tSecond.', 'the section’s paragraph has its tab');
+	const l = await caretLine(p, SECTION);
+	t.ok(/binders-tab-paragraph/.test(l.cls), 'and is drawn as a tab paragraph');
+	const typed = FRONT + 'First paragraph.\n\n\tSecond.';
+	await until(p, `app.vault.adapter.read(${j(A)}).then(x => x === ${j(typed)})`, 8000);
+	t.eq(await read(p, A), typed, 'on disk, exactly that');
+	t.eq(await read(p, K), await p.ev(`app.vault.adapter.read(${j(K)})`), 'and no other note is touched');
+	t.eq(errors(p).length, 0, 'no errors: ' + errors(p).join(' | '));
+});
+
+for (const [device, size] of [['a phone', PHONE], ['a tablet', TABLET]]) {
+	test(`${device}: the command “Start a paragraph with a tab” on Obsidian’s toolbar, tapped, puts a tab at the start of the paragraph in a tab of its own and in a section of the manuscript; the toolbar’s own Indent on a line that is one tab`, async (p, h, t) => {
+		const was = await p.ev(`JSON.stringify(app.vault.getConfig('mobileToolbarCommands') ?? null)`);
+		await body(p, A, 'First paragraph.\n\nSecond.');
+		await onDevice(p, size, async () => {
+			try {
+				await p.ev(`(() => { app.vault.setConfig('mobileToolbarCommands', [${j(CMD)}, 'editor:indent-list', 'editor:unindent-list']); return 1; })()`);
+				await sleep(p, 300);
+				await open(p, A);
+				await endOf(p, OWN);
+				await sleep(p, 600);
+				const button = () => p.ev(`(() => { const all = [...document.querySelectorAll('.mobile-toolbar-option')]; const b = all.find(e => e.querySelector('svg.lucide-pilcrow')); if (!b) return { none: all.map(e => e.querySelector('svg')?.getAttribute('class')) }; b.scrollIntoView({ inline: 'center' }); const r = b.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width }; })()`);
+				const b = await button();
+				t.ok(b.x > 0 && b.w > 0, 'the command is a button of the toolbar, with its icon: ' + j(b));
+				await tap(p, b.x, b.y);
+				t.eq(await p.ev(`${OWN}.getValue()`), FRONT + 'First paragraph.\n\n\tSecond.', 'tapped: the paragraph the cursor is in has its tab');
+				t.eq(j(await p.ev(`(() => { const c = ${OWN}.getCursor(); return [c.line, c.ch]; })()`)), j([8, 8]), 'and the cursor is where it was in the text');
+				// Obsidian's own Indent, on a line that is one tab: a command, not the Tab key, so it is Obsidian's still
+				await p.ev(`(() => { const e = ${OWN}; e.replaceRange('\\n\\t', { line: 8, ch: 8 }); e.setCursor(9, 1); return 1; })()`);
+				await sleep(p, 300);
+				const ind = await p.ev(`(() => { const b = [...document.querySelectorAll('.mobile-toolbar-option')].find(e => e.querySelector('svg.lucide-indent')); if (!b) return null; b.scrollIntoView({ inline: 'center' }); const r = b.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
+				if (ind) { await tap(p, ind.x, ind.y); console.log(`    [${device}] Obsidian’s Indent on a line that is one tab leaves: ` + j(await p.ev(`${OWN}.getLine(9)`))); }
+				await p.ev(`(() => { const e = ${OWN}; e.replaceRange('', { line: 8, ch: 8 }, { line: 9, ch: e.getLine(9).length }); return 1; })()`);
+				const typed = FRONT + 'First paragraph.\n\n\tSecond.';
+				await until(p, `app.vault.adapter.read(${j(A)}).then(x => x === ${j(typed)})`, 8000);
+				t.eq(await read(p, A), typed, 'on disk, exactly that');
+				// a section of the manuscript
+				await body(p, K, 'The keeper’s paragraph.');
+				await openView(p, L + 'Part One');
+				await p.ev(`(() => { ${VIEW}.setMode('manuscript'); return 1; })()`);
+				const KS = `${VIEW}.current.scenes.find(s => s.file.path === ${j(K)})`;
+				await until(p, `!!${VIEW}.current?.scenes?.length`, 8000);
+				await p.ev(`(async () => { const m = ${VIEW}.current, s = ${KS}; s.el.scrollIntoView({ block: 'center' }); await m.mount(s); const e = s.live.editor; e.focus(); e.setCursor(e.lastLine(), 3); return 1; })()`);
+				await sleep(p, 700);
+				const b2 = await button();
+				t.ok(b2.x > 0, 'in a section of the manuscript the toolbar has the button: ' + j(b2));
+				await tap(p, b2.x, b2.y);
+				t.eq(await p.ev(`${KS}.live.editor.getValue()`), FRONT + '\tThe keeper’s paragraph.', 'tapped: the section’s paragraph has its tab');
+				await p.ev(`${KS}.live.flush().then(() => 1)`);
+				await until(p, `app.vault.adapter.read(${j(K)}).then(x => x === ${j(FRONT + '\tThe keeper’s paragraph.')})`, 8000);
+				t.eq(await read(p, K), FRONT + '\tThe keeper’s paragraph.', 'on disk, exactly that');
+			} finally { await p.ev(`(() => { app.vault.setConfig('mobileToolbarCommands', ${was}); return 1; })()`); }
+		});
+	});
+}

@@ -50,6 +50,38 @@ export function tabLines(text: string, also: { carried?: boolean; blank?: boolea
 	return out;
 }
 
+const TABLE = /^\s*\|/;
+
+/** The lines of a text (from 0), among lines `from` to `to`, that the command "Start a paragraph with a tab" puts a
+    tab before: a line of prose that starts at the margin. Not a blank line, nor one that has its tab (or four
+    spaces) already; not a list item, a quote, a heading, a rule or a table's row; nothing in a fenced block or the
+    properties; and not the line after a list item or a quote, which a tab would make theirs. When in doubt a line
+    is left alone. */
+export function linesToTab(text: string, from: number, to: number): number[] {
+	const lines = text.split('\n'), out: number[] = [];
+	let i = 0;
+	if (/^(\uFEFF)?---\s*$/.test(lines[0] ?? '')) {
+		const end = lines.findIndex((l, n) => n > 0 && /^(---|\.\.\.)\s*$/.test(l));
+		if (end > 0) i = end + 1;
+	}
+	// (`held`: a list item or a quote is open, and a tab would make the line its text. A line straight under it
+	// carries it on and leaves it open; the first line of text after a blank line ends it, and is left as well)
+	let fence: string | null = null, held = false, blankBefore = true;
+	for (; i < lines.length && i <= to; i++) {
+		const l = lines[i].replace(/\r$/, '');
+		if (fence) { if (new RegExp(`^ {0,3}${fence[0]}{${fence.length},}\\s*$`).test(l)) { fence = null; blankBefore = true; } continue; }
+		const f = FENCE.exec(l);
+		if (f) { fence = f[1]; held = false; continue; }
+		if (!l.trim()) { blankBefore = true; continue; }
+		if (TABBED.test(l)) { blankBefore = false; continue; }
+		const theirs = LIST_ITEM.test(l) || QUOTE.test(l), rule = HEADING_OR_RULE.test(l);
+		if (!theirs && !held && !rule && !TABLE.test(l) && i >= from) out.push(i);
+		held = theirs || (held && !blankBefore && !rule);
+		blankBefore = false;
+	}
+	return out;
+}
+
 /** A text made ready for a renderer that is given a whole note at once: each paragraph begun with a tab starts with
     a mark the stylesheet sets as wide as the indent, in place of the white space Markdown would make code of. With
     `carried`, so does a tabbed line that carries on a paragraph, whose tab Markdown drops: for a renderer that gives

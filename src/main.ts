@@ -25,6 +25,7 @@ import { CONTENTS_VIEW, installContents } from './inspector/contents-pane';
 import { installInspector, showSide } from './inspector/views';
 import { placeSide } from './inspector/place';
 import type { Follow } from './inspector/follow';
+import { startWithTab } from './paragraphs/command';
 import { installParagraphs, type Paragraphs } from './paragraphs/paragraphs';
 import { isScene, leftovers } from './snapshots';
 import { FolderSnapshotsModal, showInterrupted, takeFolder } from './view/binder-snapshots';
@@ -176,6 +177,14 @@ export default class BindersPlugin extends Plugin {
 				return true;
 			} });
 		}
+		// a tab at the start of the paragraph the cursor is in: for a phone, which has no Tab key (it can be put on
+		// Obsidian's toolbar there). Only where a tab is a paragraph's: a binder's note, the setting on
+		this.addCommand({ id: 'tab-paragraph', name: 'Start a paragraph with a tab', icon: 'pilcrow', editorCheckCallback: (checking, editor, ctx) => {
+			const file = ctx.file;
+			if (!this.settings.tabParagraphs || !file || !this.binders.binderOf(file) || this.binders.isHiddenNote(file)) return false;
+			if (!checking) startWithTab(editor);
+			return true;
+		} });
 		// the word count target of the folder a binder view shows (the binder's own, on the binder)
 		this.addCommand({ id: 'set-target', name: 'Set word count target', icon: 'target', checkCallback: (checking) => {
 			const view = this.app.workspace.getActiveViewOfType(BinderView);
