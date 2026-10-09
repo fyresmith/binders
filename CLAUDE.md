@@ -14,9 +14,9 @@
   release (2026-10-07; 0.44.5, on 2026-10-06, was the first public beta), and Binders is in Obsidian's community directory
   (https://community.obsidian.md/plugins/binders). `manifest.json` names the last release; only `ship --release`
   changes it, and every release is a full one, never a draft or a pre-release (AGENTS.md).
-- **Unmerged:** nothing (2026-10-06). Snapshots of a folder and of a whole binder are at step 1 of 4 on `main`
-  (take, see, compare; 0.41.0): bringing back the text and the order, bringing back everything, and automatic
-  snapshots are still to build (`docs/dev/plan.md`).
+- **Unmerged:** nothing (2026-10-06). Snapshots of a folder and of a whole binder are at step 2 of 4 on `main`
+  (take, see, compare; bring back the text and the order): bringing back everything, and automatic
+  snapshots with thinning, are still to build (`docs/dev/plan.md`).
 - **Built:** binders in the vault and in the file explorer (order, drag to reorder, label dots), the three modes, the
   Longform integration, the scene operations (split, merge, duplicate, group, compile, undo of moves), arrange by
   label, snapshots (a note's, and a folder's or binder's), focus mode, export (EPUB, DOCX, PDF, a Scrivener project) and

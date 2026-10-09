@@ -27,7 +27,7 @@ import type { Follow } from './inspector/follow';
 import { installParagraphs, type Paragraphs } from './paragraphs/paragraphs';
 import { isScene, leftovers } from './snapshots';
 import { FolderSnapshotsModal, takeFolder } from './view/binder-snapshots';
-import { deleteFolderSnapshot, folderSnapshots, hasSnapshots, makeFromSnapshot, nameFolderSnapshot, type FolderSnapshot } from './binder-snapshots';
+import { bringBackNow, deleteFolderSnapshot, folderSnapshots, hasSnapshots, makeFromSnapshot, nameFolderSnapshot, type FolderSnapshot } from './binder-snapshots';
 import { LeftoversModal, SNAPSHOT_VIEW, SnapshotView, SnapshotsModal, folderSnapshotItems, snapshotItems, startRewrite, take } from './view/snapshots';
 
 /* The plugin: builds the store, the explorer patch, the binder view and its modes, focus mode and the settings tab;
@@ -56,6 +56,7 @@ export default class BindersPlugin extends Plugin {
 		name: (s: FolderSnapshot, _folder: TFolder, title: string) => nameFolderSnapshot(this.app, s, title),
 		remove: (s: FolderSnapshot) => deleteFolderSnapshot(this.app, s),
 		make: (s: FolderSnapshot, folder: TFolder, label: string) => makeFromSnapshot(this, s, folder, label),
+		back: (s: FolderSnapshot, folder: TFolder, scope: 'both' | 'text' | 'order' = 'both') => bringBackNow(this, s, folder, scope),
 	};
 	/** Focus mode: its commands, the button on a binder's notes, the day's words (focus/focus.ts). */
 	focus: Focus;

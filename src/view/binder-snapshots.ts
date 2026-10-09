@@ -1,13 +1,13 @@
-import { ButtonComponent, Component, MarkdownRenderer, Menu, Modal, Platform, TFile, TFolder, parseYaml, setIcon } from 'obsidian';
+import { ButtonComponent, Component, MarkdownRenderer, Menu, Modal, Platform, Setting, TFile, TFolder, parseYaml, setIcon } from 'obsidian';
 import type BindersPlugin from '../main';
 import { forRender, parts } from '../scene-text';
-import { changes, type Changes, type Row } from '../binder-snapshot-text';
-import { deleteFolderSnapshot, folderSnapshots, forgetRead, hasSnapshots, isNewer, makeFromSnapshot, nameFolderSnapshot, readFolderSnapshot, remakeNote, sizeOfSnapshot, stateNow, takeFolderSnapshot, type FolderSnapshot, type Read, type State } from '../binder-snapshots';
+import { changes, planBack, type Changes, type Plan, type Row, type Scope } from '../binder-snapshot-text';
+import { bringBackFolder, deleteFolderSnapshot, folderSnapshots, forgetRead, hasSnapshots, isNewer, makeFromSnapshot, nameFolderSnapshot, readFolderSnapshot, remakeNote, sizeOfSnapshot, stateNow, takeFolderSnapshot, type FolderSnapshot, type Read, type State } from '../binder-snapshots';
 import { badSnapshotName } from '../snapshot-text';
 import { bringBackText, isScene } from '../snapshots';
 import { commitAll } from './edit';
 import { historyLook, submenu, trashPhrase } from './internals';
-import { ask, cancelButton, confirm } from './modals';
+import { ask, buttonRow, cancelButton, confirm } from './modals';
 import { iconButton, proseChanges, say, when, whenIn, whenShort } from './snapshots';
 import { wordsIn, wordsLabel } from './words';
 
@@ -26,13 +26,18 @@ const nameOf = (path: string): string => path.replace(/\/$/, '').slice(dirOf(pat
 const called = (s: FolderSnapshot) => s.title || when(s.taken);
 const quoted = (s: FolderSnapshot) => (s.title ? `“${s.title}”` : `the snapshot from ${whenIn(s.taken)}`);
 
+/** A synopsis, a title or a cell being typed in, in any window: saved, as the views save them, so that it is in
+    whatever is read next. */
+async function commitFields(plugin: BindersPlugin): Promise<void> {
+	const docs = new Set<Document>([activeDocument]);
+	plugin.app.workspace.iterateAllLeaves((l) => { docs.add(l.view.containerEl.doc); });
+	for (const d of docs) await commitAll(d.body, true);
+}
+
 /** "Take a snapshot" of a folder: no questions. Says what it did, and how big the folder is. */
 export async function takeFolder(plugin: BindersPlugin, folder: TFolder, title = ''): Promise<void> {
 	try {
-		// a synopsis, a title or a cell being typed in, in any window: saved first, as the views save them, so it is in
-		const docs = new Set<Document>([activeDocument]);
-		plugin.app.workspace.iterateAllLeaves((l) => { docs.add(l.view.containerEl.doc); });
-		for (const d of docs) await commitAll(d.body, true);
+		await commitFields(plugin);
 		const r = await takeFolderSnapshot(plugin, folder, title);
 		if (r.made) say(`Took a snapshot of “${folder.name}”${title ? `, named “${title}”` : ''}: ${sizeOf(r.state)}.`);
 		else if (title && r.snapshot.title === title) say(`Nothing in “${folder.name}” has changed since its last snapshot, ${whenIn(r.snapshot.taken)}. That one is now named “${title}”.`, 6000);
@@ -365,6 +370,10 @@ export class FolderSnapshotsModal extends Modal {
 			if (row) {
 				const bad = !!(then as Read).damaged?.length, can = !bad && row.kind === 'note' && (row.gone || row.rewritten);
 				new ButtonComponent(el).setButtonText('Bring back').setCta().setDisabled(!can).setTooltip(bad ? 'This snapshot’s file isn’t as it was written' : !can ? 'The note already has this text' : row.gone ? 'Make this note again, with the text and properties it had' : 'Put this text in the note. A snapshot of the text there now is taken first.').onClick(() => void this.restoreNote(s, row, then));
+			} else {
+				// the whole of it: what will change is said first, on a screen of its own
+				const bad = !!(then as Read).damaged?.length, off = bad || !!c?.same;
+				new ButtonComponent(el).setButtonText('Bring back...').setCta().setDisabled(off).setTooltip(bad ? 'This snapshot’s file isn’t as it was written' : c?.same ? 'Nothing is different' : 'Choose what to bring back, and see what will change. A snapshot of everything as it is now is taken first.').onClick(() => void this.bringBack(s));
 			}
 		}
 		this.more(s);
@@ -599,6 +608,18 @@ export class FolderSnapshotsModal extends Modal {
 		return m;
 	}
 
+	/** "Bring back...": the screen that says what bringing this snapshot back will change, counted from the snapshot
+	    and from the folder as it is this moment (not as it was when the dialog drew it). */
+	private async bringBack(s: FolderSnapshot): Promise<void> {
+		try {
+			await commitFields(this.plugin);
+			const now = await stateNow(this.plugin, this.folder), then = await readFolderSnapshot(this.plugin, s, this.folder);
+			if (then.damaged.length) throw new Error('This snapshot’s file isn’t as it was written, so nothing is brought back from it.');
+			this.now = Promise.resolve(now);
+			new BringBackModal(this.plugin, this.folder, s, then, now, () => { this.now = null; this.page = 'contents'; void this.refresh(); }).open();
+		} catch (e) { tell(e); }
+	}
+
 	/** One note of a snapshot brought back: its text into the note that's there (a snapshot of that text is taken
 	    first, as a note's own "Bring back" does), or the note made again if it's gone. */
 	private async restoreNote(s: FolderSnapshot, r: Row, state: State): Promise<void> {
@@ -618,6 +639,104 @@ export class FolderSnapshotsModal extends Modal {
 			this.page = 'contents';
 			await this.reshow();
 		} catch (e) { tell(e); }
+	}
+}
+
+// ---- bringing a whole one back: what will change, said before it does ----
+
+const SCOPES: Record<Scope, string> = { both: 'The text and the order', text: 'The text of the notes', order: 'The order' };
+const isScope = (v: string): v is Scope => Object.prototype.hasOwnProperty.call(SCOPES, v);
+
+/** "Bring back..." a snapshot of a folder or of the binder: what comes back (the notes' text, the order, or both),
+    what that will change, and what is different that it leaves alone, all counted before anything is done. Its
+    button does what the screen says and nothing else (`bringBackFolder`). */
+class BringBackModal extends Modal {
+	private what: Scope = 'both';
+	private plan: Plan;
+	private readonly c: Changes;
+	private introEl: HTMLElement;
+	private planEl: HTMLElement;
+	private go: ButtonComponent;
+	private busy = false;
+
+	constructor(private plugin: BindersPlugin, private folder: TFolder, private s: FolderSnapshot, private then: State, private now: State, private done: () => void) {
+		super(plugin.app);
+		this.c = changes(then.entries, now.entries, { yaml: parseYaml });
+		this.plan = planBack(this.c, then.entries, now.entries, this.what);
+	}
+
+	onOpen(): void {
+		const { contentEl } = this;
+		this.setTitle(`Bring back ${quoted(this.s)}`);
+		this.modalEl.addClass('binders-folder-snapshots-back');
+		this.introEl = contentEl.createEl('p');
+		new Setting(contentEl).setName('Bring back').addDropdown((d) => d.addOptions(SCOPES).setValue(this.what).onChange((v) => { if (isScope(v)) { this.what = v; this.draw(); } }));
+		this.planEl = contentEl.createDiv({ cls: 'binders-folder-snapshots-plan' });
+		const row = buttonRow(this);
+		this.go = new ButtonComponent(row).setButtonText('Bring back').setCta().onClick(() => void this.run());
+		cancelButton(row, this);
+		this.draw();
+	}
+
+	onClose(): void { this.contentEl.empty(); }
+
+	private draw(): void {
+		const p = this.plan = planBack(this.c, this.then.entries, this.now.entries, this.what), el = this.planEl, s = this.s, L = p.left;
+		const what = this.what === 'both' ? 'the text and the order' : this.what === 'text' ? 'the text' : 'the order';
+		this.introEl.setText(`“${this.folder.name}” gets back ${what} it had in ${s.title ? `the snapshot from ${whenIn(s.taken)}` : 'this snapshot'}. A snapshot of it as it is now is taken first, so nothing is lost and this can be taken back.`);
+		el.empty();
+		// (an item is called what it is called now: that is the one the writer will look for)
+		const names = (list: Row[]) => { const n = list.slice(0, 3).map((r) => `“${r.renamed ?? r.name}”`).join(', '); return list.length > 3 ? `${n} and ${(list.length - 3).toLocaleString()} more` : n; };
+		const line = (ul: HTMLElement, text: string, detail = '') => { const li = ul.createEl('li'); li.createSpan({ text }); if (detail) li.createSpan({ cls: 'u-muted', text: ' ' + detail }); };
+		const it = (list: unknown[], one: string, many: string) => (list.length === 1 ? one : many);
+		const will = el.createEl('ul', { cls: 'binders-folder-snapshots-plan-will' });
+		if (p.texts.length) {
+			const words = [p.back ? `${count(p.back, 'word comes', 'words come')} back` : '', p.away ? `${p.away.toLocaleString()} written since ${p.away === 1 ? 'goes' : 'go'}` : ''].filter((x) => x).join(', ');
+			line(will, `${count(p.texts.length, 'note gets', 'notes get')} the text ${it(p.texts, 'it', 'they')} had:`, `${names(p.rewritten)}.${words ? ` ${words.charAt(0).toUpperCase()}${words.slice(1)} (kept in the snapshot taken first).` : ''}`);
+		}
+		if (p.orders.length) line(will, `${count(p.moved.length, 'item goes', 'items go')} back to where ${it(p.moved, 'it was', 'they were')} in the order:`, `${names(p.moved)}.`);
+		if (p.nothing) line(will, this.what === 'both' ? 'Nothing: the notes that are there have the text they had, in the order they had.' : this.what === 'text' ? 'Nothing: the notes that are there have the text they had.' : 'Nothing: the items that are there are in the order they had.');
+		// what is different and is not brought back, said plainly
+		const left = createEl('ul', { cls: 'binders-folder-snapshots-plan-left' });
+		if (L.text.length) line(left, `${count(L.text.length, 'note keeps', 'notes keep')} the text ${it(L.text, 'it has', 'they have')} now:`, `${names(L.text)}.`);
+		if (L.order.length) line(left, `${count(L.order.length, 'item stays', 'items stay')} where ${it(L.order, 'it is', 'they are')} in the order:`, `${names(L.order)}.`);
+		if (L.gone.length) line(left, `${count(L.gone.length, 'item that is gone isn’t', 'items that are gone aren’t')} made again:`, `${names(L.gone)}.${L.gone.some((r) => r.kind === 'note') ? ' A note can be brought back by itself: open it in the snapshot.' : ''}`);
+		if (L.elsewhere.length) line(left, `${count(L.elsewhere.length, 'item stays', 'items stay')} in the folder ${it(L.elsewhere, 'it is', 'they are')} in now:`, `${names(L.elsewhere)}.`);
+		if (L.renamed.length) line(left, `${count(L.renamed.length, 'item keeps', 'items keep')} the name ${it(L.renamed, 'it has', 'they have')} now:`, L.renamed.slice(0, 3).map((r) => `“${r.renamed ?? ''}” (it was “${r.name}”)`).join(', ') + (L.renamed.length > 3 ? ` and ${(L.renamed.length - 3).toLocaleString()} more.` : '.'));
+		if (L.props.length) { const all = [...new Set(L.props.flatMap((r) => r.props))]; line(left, `${count(L.props.length, 'item keeps', 'items keep')} the properties ${it(L.props, 'it has', 'they have')} now:`, `${all.slice(0, 6).join(', ')}${all.length > 6 ? ` and ${all.length - 6} more` : ''}.`); }
+		if (L.fresh.length) line(left, `${count(L.fresh.length, 'item that is new since stays', 'items that are new since stay')} where ${it(L.fresh, 'it is', 'they are')}:`, `${names(L.fresh)}. Nothing is deleted.`);
+		if (left.childElementCount) {
+			el.createEl('p', { cls: 'binders-folder-snapshots-plan-head', text: 'Left as it is now:' });
+			el.appendChild(left);
+		}
+		this.go.setDisabled(p.nothing || p.unsafe || this.busy);
+	}
+
+	private async run(): Promise<void> {
+		const { plugin, s, folder } = this, plan = this.plan;
+		if (this.busy || plan.nothing || plan.unsafe) return;
+		this.busy = true;
+		this.go.setDisabled(true);
+		// (said as it goes when it is long: each note is a write, or an editor's change and its save)
+		const going = plan.texts.length > 20 ? say(`Bringing back ${quoted(s)}…`, 0) : null;
+		try {
+			await commitFields(plugin);
+			const r = await bringBackFolder(plugin, s, folder, plan, (done, of) => { if (done % 10 === 0) going?.setMessage(`Bringing back ${quoted(s)}: ${done.toLocaleString()} of ${count(of, 'note')}…`); });
+			going?.hide();
+			this.close();
+			const did = [r.texts ? `the text of ${count(r.texts, 'note')}` : '', r.moved ? `the place of ${count(r.moved, 'item')} in the order` : ''].filter((x) => x);
+			let said = did.length ? `Brought back ${did.join(' and ')} from ${quoted(s)}.` : `Nothing was brought back from ${quoted(s)}.`;
+			if (r.left.length) said += ` ${count(r.left.length, 'note was', 'notes were')} left as ${r.left.length === 1 ? 'it is' : 'they are'}: ${r.left.slice(0, 3).map((l) => `“${l.name}” (${l.why})`).join(', ')}${r.left.length > 3 ? ` and ${(r.left.length - 3).toLocaleString()} more` : ''}.`;
+			if (r.orderLeft) said += ' The order was left as it is: the items changed meanwhile.';
+			if (did.length) said += ` “${folder.name}” as it was just before is kept as the snapshot ${r.before.title ? `“${r.before.title}”` : `from ${whenIn(r.before.taken)}`}.`;
+			say(said, 10000);
+			this.done();
+		} catch (e) {
+			going?.hide();
+			this.busy = false;
+			tell(e);
+			if (this.go.buttonEl.isConnected) this.draw();
+		}
 	}
 }
 

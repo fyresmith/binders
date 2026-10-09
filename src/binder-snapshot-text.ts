@@ -400,3 +400,103 @@ export function changes(then: Entry[], now: Entry[], opts: { words?: boolean; ya
 	out.same = !top && !own.length;
 	return out;
 }
+
+// ---- bringing one back: what will be written, worked out before anything is ----
+
+/** How much of a snapshot comes back: the notes' text, the order of the items, or both. (Everything else a snapshot
+    holds, properties and the notes and folders themselves, is said and left: see `Plan.left`.) */
+export type Scope = 'both' | 'text' | 'order';
+
+/** One note's text to put back. Both paths are in the folder the snapshot is of. */
+export interface TextBack {
+	/** The note as it stands (it may have another name, or be in another folder, than it had). */
+	path: string;
+	/** The note as it stood. */
+	was: string;
+	/** The text the note has now: it is replaced only while it still says this. */
+	expect: string;
+	/** The text it had. */
+	text: string;
+}
+
+/** One folder's items to put in the order they had. */
+export interface OrderBack {
+	/** The folder as it stands ("" for the folder the snapshot is of; else it ends in "/"). */
+	folder: string;
+	/** Its items as they are now, and in the order wanted: the same items. */
+	from: string[];
+	items: string[];
+}
+
+export interface Plan {
+	scope: Scope;
+	texts: TextBack[];
+	orders: OrderBack[];
+	/** The rows this is of: the notes that get their text back, and the items that go back to their place. */
+	rewritten: Row[];
+	moved: Row[];
+	/** The words that come back, and the words written since that go. */
+	back: number;
+	away: number;
+	/** What is different and stays as it is now, because this doesn't bring it back: items that are gone, new
+	    since, in another folder, under another name, with other properties; and, when only one of the two was
+	    asked for, the notes that keep their text or the items that keep their place. */
+	left: { gone: Row[]; fresh: Row[]; elsewhere: Row[]; renamed: Row[]; props: Row[]; text: Row[]; order: Row[] };
+	/** An item says it is somewhere other than in the folder: nothing is written on the word of such a file. */
+	unsafe: boolean;
+	/** There is nothing to write. */
+	nothing: boolean;
+}
+
+/** What bringing a snapshot back would write, and what it would leave: from what changed (`c`, of `then` against
+    `now`) and nothing else, so it can be shown before it is done and worked out again just before it is.
+
+    The text: every note that is there both times and reads differently gets the text it had, wherever it is now and
+    whatever it is called. The order: in each folder that is there both times, the items that were in it then and
+    are in it now go back to the order they had; an item that has come since (or come in from another folder) stays
+    after the item it follows now. Nothing is made, renamed, moved to another folder or deleted. */
+export function planBack(c: Changes, then: Entry[], now: Entry[], scope: Scope): Plan {
+	const plan: Plan = { scope, texts: [], orders: [], rewritten: [], moved: [], back: 0, away: 0, left: { gone: [], fresh: [], elsewhere: [], renamed: [], props: [], text: [], order: [] }, unsafe: false, nothing: true };
+	if ([...then, ...now].some((e) => !inFolder(e.path, e.kind))) { plan.unsafe = true; return plan; }
+	const own = (r: Row) => !!(r.then ?? r.now)?.role;
+	const rewritten = c.rows.filter((r) => r.kind === 'note' && !own(r) && r.rewritten && r.then?.text != null && r.now?.text != null);
+	const moved = c.rows.filter((r) => !own(r) && r.reordered && r.into == null);
+	for (const r of c.rows) {
+		if (own(r)) { if (r.props.length) plan.left.props.push(r); continue; }
+		if (r.gone) plan.left.gone.push(r);
+		else if (r.fresh) plan.left.fresh.push(r);
+		if (r.into != null) plan.left.elsewhere.push(r);
+		if (r.renamed) plan.left.renamed.push(r);
+		if (r.props.length) plan.left.props.push(r);
+	}
+	if (scope === 'order') plan.left.text = rewritten;
+	else {
+		plan.rewritten = rewritten;
+		for (const r of rewritten) {
+			if (!r.then || !r.now) continue;
+			plan.texts.push({ path: r.now.path, was: r.then.path, expect: parts(r.now.text ?? '').body, text: parts(r.then.text ?? '').body });
+			plan.back += r.removed; plan.away += r.added;
+		}
+	}
+	if (scope === 'text') plan.left.order = moved;
+	else {
+		plan.moved = moved;
+		// each folder as it stands: the items that were in it then, in the order they had, each followed by what
+		// follows it now and wasn't
+		const rowOf = new Map<Entry, Row>(), rank = new Map(then.map((e, i) => [e, i])), kids = new Map<string, Entry[]>();
+		for (const r of c.rows) if (r.now && !own(r)) rowOf.set(r.now, r);
+		for (const e of now) if (!e.role) kids.set(dirOf(e.path), [...(kids.get(dirOf(e.path)) ?? []), e]);
+		for (const [folder, is] of kids) {
+			const stayed: { e: Entry; at: number; tail: Entry[] }[] = [], head: Entry[] = [];
+			for (const e of is) {
+				const r = rowOf.get(e), at = r?.then && r.into == null ? rank.get(r.then) : undefined;
+				if (at !== undefined) stayed.push({ e, at, tail: [] });
+				else (stayed.length ? stayed[stayed.length - 1].tail : head).push(e);
+			}
+			const items = [...head, ...[...stayed].sort((x, y) => x.at - y.at).flatMap((s) => [s.e, ...s.tail])].map((e) => e.path), from = is.map((e) => e.path);
+			if (items.some((p, i) => p !== from[i])) plan.orders.push({ folder, from, items });
+		}
+	}
+	plan.nothing = !plan.texts.length && !plan.orders.length;
+	return plan;
+}

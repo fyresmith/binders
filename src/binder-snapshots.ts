@@ -1,9 +1,11 @@
-import { TFile, TFolder, normalizePath, type App, type TAbstractFile } from 'obsidian';
+import { TFile, TFolder, normalizePath, parseYaml, type App, type TAbstractFile } from 'obsidian';
 import type { Binder } from './binders';
 import type BindersPlugin from './main';
+import { lf, parts } from './scene-text';
 import { saveOpen } from './scenes';
-import { BINDER_SNAPSHOT_EXT, BINDER_SNAPSHOT_FORMAT, NewerSnapshot, fingerprint, inFolder, parseFolderSnapshot, readHead, writeFolderSnapshot, type Entry, type Head } from './binder-snapshot-text';
+import { BINDER_SNAPSHOT_EXT, BINDER_SNAPSHOT_FORMAT, NewerSnapshot, changes, fingerprint, inFolder, parseFolderSnapshot, planBack, readHead, writeFolderSnapshot, type Entry, type Head, type Plan, type Scope } from './binder-snapshot-text';
 import { SNAPSHOTS, readSnapshotName, snapshotName } from './snapshot-text';
+import { isScene, replaceText } from './snapshots';
 import { wordsIn } from './view/words';
 
 /* Snapshots of a folder or of a whole binder, vault side: everything in the folder as it stood, in one file.
@@ -19,7 +21,12 @@ import { wordsIn } from './view/words';
      - a snapshot file's name (naming it), or the trash (deleting it, in the view);
      - "Make a binder (or folder) from this snapshot": new notes in a new folder beside the one it is of. Nothing
        that is there is touched;
-     - a note that is gone, made again from a snapshot, under a name that's free.
+     - a note that is gone, made again from a snapshot, under a name that's free;
+     - "Bring back..." a whole snapshot (`bringBackFolder`): the text of the notes that are there, and the order of
+       the items, after a snapshot of the folder as it is. A note's text goes in through the note's own guarded
+       path (`replaceText` in snapshots.ts: its editor, or a write that refuses a note that changed), its properties
+       staying byte for byte; the order is written as a reorder is (`BinderStore.reorder`). Nothing is made, renamed,
+       moved or deleted, and no other property is written.
    A snapshot file is never changed after it's written, and one in a newer format is never renamed either. */
 
 /** One snapshot in a list: what its file's name says, without the file being read. */
@@ -131,22 +138,24 @@ export const sameState = (a: Entry[], b: Entry[]): boolean => a.length === b.len
 
 /** Takes a snapshot of a folder and everything in it, as it is now. Returns it, or the newest one if that already
     holds exactly this (nothing is kept twice in a row; given a name, an unnamed newest one that holds exactly this
-    takes the name instead). `why`: Binders is taking it unasked, before something it is about to do; it is always
-    taken. Throws if it couldn't be taken: then nothing was changed. */
+    takes the name instead). `why`: Binders is taking it unasked, before something it is about to do: its file ends
+    in ".auto" and says why, and the newest one serves when it already holds exactly this. This is the one place an
+    automatic snapshot is made (so the one place thinning them would start from). Throws if it couldn't be taken:
+    then nothing was changed. */
 export async function takeFolderSnapshot(plugin: BindersPlugin, folder: TFolder, title = '', why = ''): Promise<{ snapshot: FolderSnapshot; made: boolean; state: State }> {
 	const { app } = plugin, b = writable(plugin, folder), of = rel(b, folder), dir = dirFor(b, of);
-	// (one Binders takes itself is named for why it was taken)
-	if (why && !title) title = why.replace(/[*"\\/<>:|?]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120);
 	const state = await stateNow(plugin, folder);
 	const last = folderSnapshots(plugin, folder).find((s) => s.of === of);
-	if (last && !why) {
+	if (last) {
 		const was = await readFolderSnapshot(plugin, last, folder).catch((): null => null);
 		if (was && !was.damaged.length && sameState(was.entries, state.entries)) {
-			if (!title) return { snapshot: last, made: false, state };
+			if (!title || why) return { snapshot: last, made: false, state };
 			// a name for what the newest one already holds: that one is given it, not written again
 			if (!last.title || last.auto) { await nameFolderSnapshot(app, last, title); return { snapshot: folderSnapshots(plugin, folder).find((s) => s.taken === last.taken && s.of === of) ?? last, made: false, state }; }
 		}
 	}
+	// (one Binders takes itself is named for why it was taken)
+	if (why && !title) title = why.replace(/[*"\\/<>:|?]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120);
 	await ensureFolder(app, dir);
 	const at = (n: string) => `${dir}/${n}.${BINDER_SNAPSHOT_EXT}`;
 	const when = new Date(), name = snapshotName(when, title, (n) => !!app.vault.getAbstractFileByPath(at(n)) || !!app.vault.getAbstractFileByPath(at(n + AUTO))) + (why ? AUTO : '');
@@ -285,4 +294,102 @@ export async function remakeNote(plugin: BindersPlugin, folder: TFolder, then: E
 		await store.move(file, parent, prev ? now.filter((f) => f !== file).indexOf(prev) + 1 : 0).catch(() => { /* it stays at the end of its folder */ });
 	}
 	return file;
+}
+
+/** What bringing a snapshot back did. */
+export interface Back {
+	/** The folder as it was just before: the snapshot that holds it, and whether it was taken for this (or was the
+	    newest one already, holding exactly that). */
+	before: FolderSnapshot;
+	made: boolean;
+	/** How many notes got the text they had, and how many items went back to their place. */
+	texts: number;
+	moved: number;
+	/** The notes that were left as they are, each with why: it changed after the screen said what would happen, or
+	    it couldn't be written. */
+	left: { name: string; why: string }[];
+	/** The order was left as it is: the items changed after the screen said what would happen. */
+	orderLeft: boolean;
+}
+
+const MEANWHILE = 'changed meanwhile';
+
+/** Brings a snapshot back as the folder stands this moment, with no screen first: what the screen's button does once
+    the writer has read it. (For the tests, to ask the vault side directly for what the dialog never offers.) */
+export async function bringBackNow(plugin: BindersPlugin, s: FolderSnapshot, folder: TFolder, scope: Scope): Promise<Back> {
+	const then = await readFolderSnapshot(plugin, s, folder), now = await stateNow(plugin, folder);
+	return bringBackFolder(plugin, s, folder, planBack(changes(then.entries, now.entries, { words: false, yaml: parseYaml }), then.entries, now.entries, scope));
+}
+
+/** "Bring back..." a snapshot of a folder, in place: the text of its notes, the order of its items, or both
+    (`shown.scope`). `shown` is the plan the writer was shown and agreed to (`planBack`): only what it says is done.
+
+    Nothing is lost by it:
+      - the snapshot is read from the disk again; one that isn't as it was written, in a newer format, or that names
+        a place outside the folder brings nothing back;
+      - before anything is changed, a snapshot of the folder as it is now is taken (what is typed and unsaved is
+        saved into it first), and what will be done is worked out again from exactly what that snapshot holds;
+      - a note's text is replaced only if the note still says what that snapshot holds of it, which must be what the
+        screen was drawn from: through the editor it is open in (one change, which Undo takes back) or in one write
+        that refuses otherwise. A note that changed meanwhile is left, and named;
+      - the order is given only if the items are as the screen was drawn from, as one change "Undo last move" takes
+        back.
+    Every step can be made twice: after an interruption, bringing the same snapshot back finishes it, and bringing
+    back the one taken first puts everything as it was. `step` is told how far the notes have got. */
+export async function bringBackFolder(plugin: BindersPlugin, s: FolderSnapshot, folder: TFolder, shown: Plan, step?: (done: number, of: number) => void): Promise<Back> {
+	const { app } = plugin, store = plugin.binders;
+	writable(plugin, folder);
+	await mine(app, s);
+	forgetRead();
+	const outside = () => new Error('This snapshot names a place outside its folder, so nothing was brought back from it.');
+	const then = await readFolderSnapshot(plugin, s, folder);
+	if (then.damaged.length) throw new Error('This snapshot’s file isn’t as it was written, so nothing was brought back from it.');
+	if (shown.unsafe || then.entries.some((e) => !inFolder(e.path, e.kind))) throw outside();
+	// (nothing to do: then nothing is taken either)
+	if (shown.nothing) throw new Error('There is nothing to bring back: the notes that are there are as this snapshot has them.');
+	// (one with no name of its own, or one Binders took, is said by when it was taken: not "before … before …")
+	const kept = await takeFolderSnapshot(plugin, folder, '', `Before bringing back ${s.title && !s.auto ? s.title : `the one from ${window.moment(s.taken).format('YYYY-MM-DD HH.mm')}`}`), now = kept.state;
+	const plan = planBack(changes(then.entries, now.entries, { words: false, yaml: parseYaml }), then.entries, now.entries, shown.scope);
+	if (plan.unsafe) throw outside();
+	const out: Back = { before: kept.snapshot, made: kept.made, texts: 0, moved: 0, left: [], orderLeft: false };
+	const nameOf = (path: string) => path.replace(/\/$/, '').replace(/^.*\//, '').replace(/\.md$/i, '');
+	const at = (path: string) => app.vault.getAbstractFileByPath(`${folder.path}/${path.replace(/\/$/, '')}`);
+
+	// the text
+	const fresh = new Map(plan.texts.map((t) => [t.path, t])), nowAt = new Map(now.entries.map((e) => [e.path, e]));
+	let done = 0;
+	for (const t of shown.texts) {
+		step?.(done++, shown.texts.length);
+		const f = fresh.get(t.path), file = at(t.path);
+		if (!f) {
+			// (nothing to do for it any more: it has the text already, which is what was wanted; or it is another note now)
+			const e = nowAt.get(t.path);
+			if (!e || e.text == null || lf(parts(e.text).body) !== lf(t.text)) out.left.push({ name: nameOf(t.path), why: MEANWHILE });
+			continue;
+		}
+		if (lf(f.expect) !== lf(t.expect) || f.text !== t.text || !inFolder(f.path, 'note') || !(file instanceof TFile) || !isScene(plugin, file)) { out.left.push({ name: nameOf(t.path), why: MEANWHILE }); continue; }
+		try { await replaceText(plugin, file, f.expect, f.text); out.texts++; }
+		catch (e) { out.left.push({ name: file.basename, why: e instanceof Error && !/changed meanwhile/.test(e.message) ? e.message : MEANWHILE }); }
+	}
+	step?.(done, shown.texts.length);
+
+	// the order
+	if (shown.orders.length) {
+		const paths = (dir: TFolder) => (store.orderedChildren(dir) ?? []).map((c) => c.path.slice(folder.path.length + 1) + (c instanceof TFolder ? '/' : ''));
+		const jobs: { from: string[]; items: string[]; dir: TFolder; files: TAbstractFile[] }[] = [];
+		let ready = JSON.stringify(plan.orders) === JSON.stringify(shown.orders);
+		for (const o of ready ? plan.orders : []) {
+			const dir = o.folder ? at(o.folder) : folder, files = o.items.map(at).filter((f): f is TAbstractFile => !!f);
+			if (!(dir instanceof TFolder) || (o.folder && !inFolder(o.folder, 'folder')) || files.length !== o.items.length || files.some((f) => f.parent !== dir) || paths(dir).join('\n') !== o.from.join('\n')) { ready = false; break; }
+			jobs.push({ from: o.from, items: o.items, dir, files });
+		}
+		if (!ready) out.orderLeft = true;
+		else {
+			await store.change('Bring back the order', jobs.flatMap((j) => j.files), async () => { for (const j of jobs) await store.reorder(j.dir, j.files); });
+			await store.flush();
+			if (jobs.some((j) => paths(j.dir).join('\n') !== j.items.join('\n'))) throw new Error('The order couldn’t be checked after it was written. The folder as it was is in the snapshot taken first.');
+			out.moved = plan.moved.length;
+		}
+	}
+	return out;
 }

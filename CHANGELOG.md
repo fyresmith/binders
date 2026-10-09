@@ -3,6 +3,16 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.45.0 (2026-10-09)
+
+### Added
+
+- "Bring back..." on a snapshot of a folder or the binder puts back the text of the notes that are still there, the order of the items, or both. A screen first says what will change and what is left as it is. A snapshot of everything as it is now is taken first, so it can be taken back.
+
+### Changed
+
+- Bringing back a folder's snapshot never makes, renames, moves or deletes a note, and leaves properties as they are; a note that changes while it is being brought back is left alone and named.
+
 ## 0.44.17 (2026-10-09)
 
 ### Changed

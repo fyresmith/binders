@@ -192,6 +192,12 @@ the commands you run on it:
 - From a snapshot of a folder or the binder, "Bring back" on a note that is gone makes that note again (a new file,
   under a name that is free), and "Make a binder (or folder) from this snapshot" makes a new folder of new notes
   beside the one it is of. Neither writes to a note that is there.
+- "Bring back..." a whole snapshot of a folder or the binder writes two things and no others. The text of each note
+  that is there and reads differently is replaced by the text it had, as one note's is (its properties, a
+  byte-order mark and its name left byte for byte), after one snapshot of the whole folder as it is, which holds
+  every text replaced. And the order: the binder note's `contents` (a Longform project's `longform.scenes`),
+  written as any reorder is. No other property is written, and no note or folder is made, renamed, moved or
+  deleted.
 
 One change to a note's text is made without a command, and it is this and nothing wider. When a note or file is
 renamed or moved, "Start a paragraph with a tab" is on and Obsidian's "Automatically update internal links" is on,
@@ -315,7 +321,10 @@ The Lighthouse/
   `.snapshot` files there are the note's, `.binder-snapshot` files and folders are the folder's.
 - **Its name** is a note's snapshot's: when it was taken, local time, then its name if it has one, counted on if
   taken (`… (2)`). Naming one renames its file. One Binders took unasked ends in `.auto` before the extension, and
-  is named for why; only those may ever be thinned. Giving one a name takes the `.auto` away.
+  is named for why; only those may ever be thinned. Giving one a name takes the `.auto` away. Binders takes one
+  before it brings a snapshot back ("Before bringing back", then that snapshot's name, or `the one from
+  2026-10-05 16.20` for one with no name or one Binders took), unless the folder's newest snapshot already holds
+  exactly what is there. None is thinned yet.
 - **The file:**
 
   ```

@@ -112,7 +112,39 @@ binder holds the folder too. A snapshot taken of a subfolder alone is in that fo
   can open, compare and take notes from. Nothing in your binder changes. For a subfolder the item is **Make a
   folder from this snapshot**, and the copy goes right after the folder.
 
-Bringing a whole snapshot back in place, over the binder as it is, is not built yet.
+### Bringing a whole snapshot back
+
+With a snapshot shown, **Bring back...** puts the binder (or the folder) back as the snapshot has it, in place. It
+opens a screen first that says what will change, and changes nothing until you press **Bring back** there.
+
+| Bring back | What comes back |
+|---|---|
+| The text and the order | Both of the below |
+| The text of the notes | Every note that is still there gets the text it had. A note renamed or moved since is still that note, and gets its text under the name and in the folder it has now |
+| The order | In each folder, the items that were in it go back to the order they had. A note written since stays after the note it follows now |
+
+The screen counts the notes and items, names the first few, and lists under **Left as it is now** everything that
+is different and does not come back this way:
+
+- a note or folder that is gone is not made again (bring a note back by itself: open it in the snapshot);
+- a note that is in another folder now stays there, and a renamed one keeps its name;
+- properties (synopsis, label, status, target and the rest) stay as they are now;
+- notes written since stay where they are. Nothing is ever deleted.
+
+Nothing is lost by it:
+
+- **A snapshot of everything as it is now is taken first**, named "Before bringing back" and the snapshot's name.
+  It is in the list, a little quieter than the ones you took. To take the whole thing back, bring that one back.
+  (If your newest snapshot already holds exactly what is there, that one serves and no other is taken.)
+- What you have typed and not saved, in a note or in a field, is saved first, so it is in that snapshot.
+- A note that is open is changed in its editor: one **Undo** there takes its text back. The order is one change
+  that **Undo last move** takes back.
+- A note that changes while the screen is open, or while the notes are being written (a sync, another program),
+  is left as it is, and the notice at the end names it. The same goes for the order if items come or go meanwhile.
+- If Obsidian is closed half-way, some notes have their old text and some don't. Bring the same snapshot back
+  again to finish, or bring back the "Before bringing back" one to return to where you were.
+
+In a Longform project the order is written to Longform's list of scenes, and nothing else in its index note.
 
 ### What a snapshot of a folder does not keep
 

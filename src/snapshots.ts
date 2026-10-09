@@ -113,8 +113,10 @@ export async function takeSnapshot(plugin: BindersPlugin, scene: TFile, title = 
 }
 
 /** Puts `next` in place of a scene's text (its properties stay as they are), if the text is still `expect`. In the
-    editor the note is open in, as one change that Undo takes back; otherwise in one write. */
-async function replaceText(plugin: BindersPlugin, scene: TFile, expect: string, next: string): Promise<void> {
+    editor the note is open in, as one change that Undo takes back; otherwise in one write. Throws, and changes
+    nothing, if the note says something else. (Whoever calls this has kept the text it replaces: a snapshot of the
+    note, or of the folder it is in.) */
+export async function replaceText(plugin: BindersPlugin, scene: TFile, expect: string, next: string): Promise<void> {
 	const { app } = plugin, moved = () => new Error('The note was changed meanwhile, so it was left as it is.');
 	const inEditor = (ed: Editor): void => {
 		const text = ed.getValue(), p = parts(text);

@@ -393,8 +393,32 @@ both (see "Decided"). Built in four steps; this section says what each has.
 - **Getting something back, step 1:** one note's text (through `bringBackText`, the note's own guarded path: a
   snapshot of the note first, then its editor or a write that refuses if the note changed); a note that is gone,
   made again under a free name; and "Make a binder (folder) from this snapshot", which writes new files into a new
-  folder (its own note last, so the store finds a binder once, when it is whole). Bringing a whole snapshot back in
-  place is steps 2 and 3.
+  folder (its own note last, so the store finds a binder once, when it is whole).
+- **Getting something back, step 2: "Bring back..."** a whole snapshot in place, limited to what makes, renames,
+  moves and deletes nothing: the text of the notes that are there, the order of the items, or both.
+  - *The plan* is pure (`planBack` in `binder-snapshot-text.ts`): from `changes()`, the notes to rewrite (each with
+    the text it has now, which the write expects, and the text it had) and, for each folder that is there both
+    times, all its items in the order wanted: those that were in it in the order they had, each followed by what
+    follows it now and wasn't. Everything else that differs is in `Plan.left`, by kind, and is what step 3 takes
+    up. A plan in which any item's path is not `inFolder()` is `unsafe` and holds nothing.
+  - *The screen* (`BringBackModal`) is the design round's: the scope in a dropdown, what will change in a list,
+    and under "Left as it is now" what is different and stays (gone, another folder, another name, properties,
+    new since). It is drawn from the folder as it is when the button is pressed, not as the dialog read it.
+  - *The doing* (`bringBackFolder`): the snapshot read from the disk again (damaged, newer or unsafe: nothing);
+    a snapshot of the folder as it is, taken first (`takeFolderSnapshot` with a `why`: the one place automatic
+    ones are made; the newest one serves if it holds exactly this); the plan worked out again from what that
+    snapshot holds, and only what it shares with the plan shown is done. Each text goes through `replaceText`
+    (`snapshots.ts`, the note's own guarded path: its editor as one Undo, or a write that refuses), expecting what
+    the "before" snapshot holds. A note that changed is left and named. The order is `BinderStore.reorder` per
+    folder inside one `change()` ("Undo: bring back the order"), then `flush()`, then checked; if the items are not
+    what the screen was drawn from, the order is left and said. No note gets a snapshot of its own for this: the
+    folder's holds them all.
+  - *Not built, on purpose:* the written plan and "Finish / Put it back as it was" after an interruption (design
+    report, stage 2). With these two scopes every step can be made twice, so the same snapshot brought back again
+    finishes, and the "before" snapshot brought back undoes; step 3, which renames and moves, needs the journal.
+  - Step 3 adds a scope ("Everything") to `Scope`, takes its work from `Plan.left`, and works under the second
+    exception to golden rule 3 in AGENTS.md (properties written, notes made, renamed and moved). Step 4 adds
+    thinning of `.auto` files after `takeFolderSnapshot`, and the timed ones.
 - **Refused:** a binder in a newer format takes and changes nothing; a snapshot file in a newer format is listed
   and never opened, named or deleted; a file whose notes don't match their fingerprints is read and nothing is
   brought back or made from it.

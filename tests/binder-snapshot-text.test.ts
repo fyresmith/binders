@@ -1,4 +1,4 @@
-import { BINDER_SNAPSHOT_EXT, BINDER_SNAPSHOT_FORMAT, NewerSnapshot, changes, fingerprint, parseFolderSnapshot, readHead, writeFolderSnapshot, type Entry, type Head, type Row } from '../src/binder-snapshot-text';
+import { BINDER_SNAPSHOT_EXT, BINDER_SNAPSHOT_FORMAT, NewerSnapshot, changes, fingerprint, inFolder, parseFolderSnapshot, planBack, readHead, writeFolderSnapshot, type Entry, type Head, type Row, type Scope } from '../src/binder-snapshot-text';
 import { done, eq, ok } from './harness';
 
 const j = (x: unknown) => JSON.stringify(x);
@@ -254,6 +254,138 @@ const move = (list: Entry[], path: string, to: string, before: string | null) =>
 	const t0 = Date.now(), c = changes(many(''), many(' edited').filter((e) => !/N(100|200|301)\.md$/.test(e.path)).map((e) => (e.path.startsWith('F5/') ? { ...e, path: 'Five/' + e.path.slice(3) } : e)));
 	eq(j([c.rewritten, c.gone, c.renamed, c.fresh]), j([12, 3, 1, 0]), 'six thousand items: twelve rewritten, three gone, a folder renamed');
 	ok(Date.now() - t0 < 3000, `in good time (${Date.now() - t0} ms)`);
+}
+
+// ---- bringing one back: what will be written ----
+
+const plan = (then: Entry[], now: Entry[], scope: Scope = 'both') => planBack(changes(then, now), then, now, scope);
+const called = (rows: Row[]) => rows.map((r) => r.name).join(',');
+const dirOf = (path: string) => { const p = path.replace(/\/$/, ''), i = p.lastIndexOf('/'); return i < 0 ? '' : p.slice(0, i + 1); };
+/** A state after a plan has been carried out, as the vault side carries it out: each text in its note (its
+    properties staying), each folder's items in the order given. */
+function carriedOut(now: Entry[], p: ReturnType<typeof plan>): Entry[] {
+	const texts = new Map(p.texts.map((t) => [t.path, t])), order = new Map(p.orders.map((o) => [o.folder, o.items]));
+	const list = now.map((e) => { const t = texts.get(e.path); if (!t || e.text == null) return e; ok(e.text.endsWith(t.expect), `“${e.path}” says what was expected of it`); return note(e.path, e.text.slice(0, e.text.length - t.expect.length) + t.text, e.role); });
+	const out: Entry[] = [], walk = (dir: string) => {
+		const kids = list.filter((e) => dirOf(e.path) === dir), own = kids.filter((e) => e.role), rest = kids.filter((e) => !e.role), want = order.get(dir);
+		out.push(...own);
+		for (const e of want ? want.map((path) => rest.find((x) => x.path === path)) : rest) { if (!e) throw new Error('an item to order that isn’t there'); out.push(e); if (e.kind === 'folder') walk(e.path); }
+	};
+	walk('');
+	return out;
+}
+
+// nothing is different: nothing to write
+{
+	const p = plan(book(), book());
+	ok(p.nothing && !p.unsafe && !p.texts.length && !p.orders.length, 'the same state: nothing to bring back');
+	eq(j(Object.values(p.left).map((l) => l.length)), j([0, 0, 0, 0, 0, 0, 0]), 'and nothing left as it is');
+}
+
+// the text: only a note that is there both times and reads differently, its text and not its properties
+{
+	const then = book();
+	let now = swap(book(), 'One/Arrival.md', { text: fm('label: Red\nstatus: Done', P(5, ' (arrival)') + '\nA paragraph written since.\n') });
+	now = swap(now, 'Two/The wreck.md', { text: fm('status: Done', P(6, ' (wreck)')) });
+	const p = plan(then, now);
+	eq(j(p.texts), j([{ path: 'One/Arrival.md', was: 'One/Arrival.md', expect: P(5, ' (arrival)') + '\nA paragraph written since.\n', text: P(5, ' (arrival)') }]), 'one note’s text: the text it has (what is expected of it at the write) and the text it had, neither with its properties');
+	eq(called(p.rewritten), 'Arrival', 'said by its name');
+	eq(j([p.back, p.away]), j([0, 4]), 'and by its words: none come back, four written since go');
+	eq(called(p.left.props), 'Arrival,The wreck', 'properties that are different are left, and said: of the note whose text comes back, and of one that only has other properties');
+	ok(!p.orders.length && !p.nothing, 'no order to give');
+	ok(changes(then, carriedOut(now, p)).rewritten === 0, 'carried out, no note reads differently');
+	ok(plan(then, carriedOut(now, p)).nothing, 'and a second time there is nothing to do');
+	eq(carriedOut(now, p).find((e) => e.path === 'One/Arrival.md')?.text, fm('label: Red\nstatus: Done', P(5, ' (arrival)')), 'the note is its properties as they are now and its text as it was');
+}
+
+// exact text: a byte-order mark and the properties stay with the note; the text comes back with its own line endings
+{
+	const then = [note('A.md', '﻿---\nstatus: draft\n---\nOne.\r\nTwo.\r\n'), note('B.md', 'Same.\r\nLines.\r\n'), note('C.md', '﻿No properties.\n'), note('D.md', fm('status: x', ''))];
+	const now = [note('A.md', '﻿---\nstatus: done\n---\nOne.\r\nThree.\r\n'), note('B.md', 'Same.\nLines.\n'), note('C.md', '﻿None at all.\n'), note('D.md', fm('status: x', 'Written since.\n'))];
+	const p = plan(then, now);
+	eq(j(p.texts.map((t) => [t.path, t.expect, t.text])), j([['A.md', 'One.\r\nThree.\r\n', 'One.\r\nTwo.\r\n'], ['C.md', 'None at all.\n', 'No properties.\n'], ['D.md', 'Written since.\n', '']]), 'CR LF as it was; the mark is no part of the text; a note that was empty is emptied; one that differs only in its line endings is not written at all');
+	eq(carriedOut(now, p).find((e) => e.path === 'A.md')?.text, '﻿---\nstatus: done\n---\nOne.\r\nTwo.\r\n', 'so the file is the mark and the properties it has now, then the text it had, to the byte');
+	eq(carriedOut(now, p).find((e) => e.path === 'C.md')?.text, then[2].text, 'and a note with no properties is, byte for byte, the file it was');
+}
+
+// a note is followed: renamed or moved since, its text goes where the note is now; nothing is renamed or moved back
+{
+	const then = book();
+	let now = swap(book(), 'One/The keeper.md', { path: 'One/The old keeper.md', text: P(5, ' (keeper)') + '\nMore.\n' });
+	now = move(now, 'One/Storm.md', 'Two/Storm.md', 'Two/The wreck.md');
+	now = swap(now, 'Two/Storm.md', { text: P(4, ' (storm)').replace('Paragraph 1', 'Paragraph one') });
+	const p = plan(then, now);
+	eq(j(p.texts.map((t) => [t.path, t.was])), j([['One/The old keeper.md', 'One/The keeper.md'], ['Two/Storm.md', 'One/Storm.md']]), 'each text goes to the note as it stands, under the name and in the folder it has now');
+	eq(j([called(p.left.renamed), called(p.left.elsewhere)]), j(['The keeper', 'Storm']), 'the name and the folder are left, and said');
+	ok(!p.orders.length, 'and a note that left its folder is no change to the order of those that stayed');
+	const after = carriedOut(now, p);
+	eq(j(after.map((e) => e.path)), j(now.map((e) => e.path)), 'carried out: every item is where it was a moment ago');
+}
+
+// the order: in each folder, the items that were there go back to the order they had; what has come since follows what it follows now
+{
+	const then = book();
+	let now = move(book(), 'Epilogue.md', 'Epilogue.md', 'Prologue.md');
+	now = move(now, 'One/Arrival.md', 'One/Arrival.md', 'Two/');
+	now = move(now, 'One/The keeper.md', 'One/The keeper.md', 'One/Arrival.md');
+	now = [...now.slice(0, now.findIndex((e) => e.path === 'One/Arrival.md')), note('One/New.md', 'Written since.\n'), ...now.slice(now.findIndex((e) => e.path === 'One/Arrival.md'))];
+	now = move(now, 'Two/Lights out.md', 'One/Lights out.md', 'One/Storm.md');
+	// now: Epilogue, Prologue, One/[Lights out (from Two), Storm, The keeper, New, Arrival], Two/[The wreck]
+	const p = plan(then, now);
+	eq(j(p.orders), j([
+		{ folder: '', from: ['Epilogue.md', 'Prologue.md', 'One/', 'Two/'], items: ['Prologue.md', 'One/', 'Two/', 'Epilogue.md'] },
+		{ folder: 'One/', from: ['One/Lights out.md', 'One/Storm.md', 'One/The keeper.md', 'One/New.md', 'One/Arrival.md'], items: ['One/Lights out.md', 'One/Arrival.md', 'One/The keeper.md', 'One/New.md', 'One/Storm.md'] },
+	]), 'two folders to order, each with all its items: the new note after the one it follows now, the one that came from another folder where it is (it follows nothing that was there)');
+	ok(p.orders.every((o) => j([...o.from].sort()) === j([...o.items].sort())), 'the same items, in another order: none added, none dropped');
+	eq(j([called(p.left.fresh), called(p.left.elsewhere)]), j(['New', 'Lights out']), 'what is new and what is in another folder is said, and left');
+	const after = carriedOut(now, p);
+	eq(j(after.filter((e) => !e.role).map((e) => e.path)), j(['Prologue.md', 'One/', 'One/Lights out.md', 'One/Arrival.md', 'One/The keeper.md', 'One/New.md', 'One/Storm.md', 'Two/', 'Two/The wreck.md', 'Epilogue.md']), 'carried out: the order it had, with what has come since in it');
+	ok(plan(then, after).nothing && changes(then, after).rows.every((r) => !r.reordered), 'and a second time there is nothing to do: nothing is out of its order');
+	eq(p.moved.length, changes(then, now).rows.filter((r) => r.reordered).length, 'the items said to go back are the ones “Show changes” says moved');
+}
+
+// a folder renamed since: its items are ordered in the folder as it stands
+{
+	const then = book(), now = move(book(), 'One/Storm.md', 'One/Storm.md', 'One/Arrival.md').map((e) => (e.path === 'One/One.md' ? { ...e, path: 'Uno/Uno.md' } : e.path.startsWith('One/') ? { ...e, path: 'Uno/' + e.path.slice(4) } : e));
+	const p = plan(then, now);
+	eq(j(p.orders), j([{ folder: 'Uno/', from: ['Uno/Storm.md', 'Uno/Arrival.md', 'Uno/The keeper.md'], items: ['Uno/Arrival.md', 'Uno/The keeper.md', 'Uno/Storm.md'] }]), 'by the paths its items have now');
+	eq(called(p.left.renamed), 'One', 'and the folder keeps the name it has');
+}
+
+// one of the two: the other is left, and said
+{
+	const then = book(), now = move(swap(book(), 'Prologue.md', { text: fm('status: Draft', 'All new.\n') }), 'Epilogue.md', 'Epilogue.md', 'Prologue.md');
+	const both = plan(then, now), text = plan(then, now, 'text'), order = plan(then, now, 'order');
+	eq(j([both.texts.length, both.orders.length, text.texts.length, text.orders.length, order.texts.length, order.orders.length]), j([1, 1, 1, 0, 0, 1]), 'both, the text alone, the order alone');
+	eq(j([called(both.left.text), called(both.left.order), called(text.left.order), called(text.left.text), called(order.left.text), called(order.left.order)]), j(['', '', 'Epilogue', '', 'Prologue', '']), 'what isn’t asked for is said to stay: the place of the item that moved, the text of the note that was rewritten');
+	ok(!text.moved.length && !order.rewritten.length && !order.back && !order.away, 'and isn’t counted as coming back');
+}
+
+// what this never brings back is all said: gone, new, another folder, another name, properties (the binder's own too)
+{
+	const then = [...book(), other('map.png', 10)];
+	let now = swap(book(), 'Book.md', { text: fm('binder: 1\ntarget: 60000\ncontents:\n  - Prologue', 'About the book.\n') });
+	now = now.filter((e) => e.path !== 'Two/Lights out.md');
+	now.push(note('Coda.md', 'New since.\n'));
+	const p = plan(then, now);
+	ok(p.nothing, 'a note gone, a note new, a file gone, a target changed: nothing this can write');
+	eq(j([called(p.left.gone), called(p.left.fresh), p.left.props.map((r) => r.props.join()).join('|')]), j(['Lights out,map.png', 'Coda', 'target']), 'and each is said');
+}
+
+// a snapshot is a file anyone can have written: an item that says it is somewhere else, and nothing is planned at all
+for (const bad of ['../Out.md', '/etc/passwd.md', 'One/../../Out.md', '.obsidian/app.md', 'One\\..\\..\\Out.md', 'One//Arrival.md', 'Arrival.txt', '']) {
+	const then = [...book(), note(bad, 'Planted.\n')], now = [...swap(book(), 'Prologue.md', { text: 'Rewritten.\n' }), note(bad, 'There now.\n')];
+	const p = planBack(changes(then, now), then, now, 'both'), q = planBack(changes(then, book()), then, move(swap(book(), 'Prologue.md', { text: 'Rewritten.\n' }), 'Epilogue.md', 'Epilogue.md', 'Prologue.md'), 'both');
+	ok(p.unsafe && p.nothing && !p.texts.length && !p.orders.length, `“${bad}” in both: nothing is planned`);
+	ok(q.unsafe && q.nothing && !q.texts.length && !q.orders.length, `“${bad}” in the snapshot alone: nothing is planned, not even for the notes that are in the folder`);
+}
+ok(planBack(changes([folder('../Up/')], [folder('../Up/')]), [folder('../Up/')], [folder('../Up/')], 'order').unsafe, 'a folder that climbs out, too');
+
+// every path a plan names is a path in the folder, of an item that is there now
+{
+	const then = book(), now = move(swap(book(), 'One/The keeper.md', { path: 'One/Keeper.md', text: P(5, ' (keeper)') + '\nNow.\n' }), 'Epilogue.md', 'Epilogue.md', 'Prologue.md');
+	const p = plan(then, now), there = new Set(now.map((e) => e.path));
+	ok(p.texts.length > 0 && p.orders.length > 0 && p.texts.every((t) => there.has(t.path) && inFolder(t.path, 'note')) && p.orders.every((o) => o.items.every((x) => there.has(x) && inFolder(x, x.endsWith('/') ? 'folder' : 'note'))), 'texts and orders alike');
 }
 
 done('binder snapshot text');
