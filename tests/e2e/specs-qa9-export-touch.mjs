@@ -162,7 +162,7 @@ test('a tablet: a slider dragged by touch changes its value and shows it once', 
 }, { changes: true });
 
 // ---- 3b. Clipping on a phone: the Contents names and the title page in the preview ----
-bug('a phone: a Contents row’s name is shown whole, not cut to “The k…” by its part tag', async (p, h, t) => {
+test('a phone: a Contents row’s name is shown whole, not cut to “The k…” by its part tag', async (p, h, t) => {
 	await onMobile(p, 390, 844, async () => {
 		await open2(p);
 		await kindTap(p, 'Ebook');

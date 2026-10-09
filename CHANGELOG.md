@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.46.2 (2026-10-09)
+
+### Fixed
+
+- On a phone, a long chapter name in Export's Contents wraps onto a second line instead of being cut off by its chapter label.
+
 ## 0.46.1 (2026-10-09)
 
 ### Changed

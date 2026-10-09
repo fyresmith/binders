@@ -4984,8 +4984,11 @@ body:not(.is-phone) .binders-export .binders-export-options .setting-item.settin
 	align-items: stretch;
 }
 
+/* (a name that the role leaves no room for wraps onto a second line: a cut name is no name) */
 .is-mobile .binders-export-outline .binders-export-row > .nav-file-title-content {
 	align-self: center;
+	white-space: normal;
+	overflow-wrap: anywhere;
 }
 
 .is-mobile .binders-export-outline .binders-export-role.is-menu {
