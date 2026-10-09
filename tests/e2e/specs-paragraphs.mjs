@@ -788,3 +788,46 @@ test('“Indent paragraphs” where Binders shows a note’s text itself: focus 
 	finally { await h.run('focus'); await sleep(p, 900); }
 	t.eq(await read(p, A), FRONT + three, 'the note on disk is as it was');
 });
+
+// ---- a reading view already shown follows the settings and its note's binder, as editors do ----
+
+const shownReading = (p) => p.ev(`(() => { const r = document.querySelector(${j(LEAF + ' .markdown-reading-view')}); if (!r) return null; const second = [...r.querySelectorAll('p')].find(e => e.textContent.startsWith('Second one')); return { pre: r.querySelectorAll('pre:not(.frontmatter)').length, tab: r.querySelectorAll('p.binders-tab-paragraph').length, second: second ? getComputedStyle(second).textIndent : null }; })()`);
+const readingIs = async (p, t, want, what) => {
+	await until(p, `(() => { const r = document.querySelector(${j(LEAF + ' .markdown-reading-view')}); if (!r) return false; const s = [...r.querySelectorAll('p')].find(e => e.textContent.startsWith('Second one')); return r.querySelectorAll('pre:not(.frontmatter)').length === ${want.pre} && r.querySelectorAll('p.binders-tab-paragraph').length === ${want.tab} && !!s && getComputedStyle(s).textIndent === ${j(want.second)}; })()`, 4000);
+	t.eq(j(await shownReading(p)), j(want), what);
+};
+const READ = 'First.\n\nSecond one.\n\n\tTabbed line to watch, with *stress*.\n';
+const toMode = async (p, mode) => { await p.ev(`(async () => { const l = app.workspace.getLeaf(false), s = l.getViewState(); s.state.mode = ${j(mode)}; await l.setViewState(s); return 1; })()`); await sleep(p, 500); };
+
+test('a reading view that is open follows both settings at once, and one out of sight shows them when it comes back; nothing is written', async (p, h, t) => {
+	await body(p, A, READ);
+	await open(p, A, 'preview');
+	await readingIs(p, t, { pre: 0, tab: 1, second: '0px' }, 'to begin with: the tab line a paragraph, nothing set in');
+	await set(p, { indentParagraphs: true });
+	await readingIs(p, t, { pre: 0, tab: 1, second: '24px' }, '“Indent paragraphs” turned on: set in, without opening the note again');
+	await set(p, { indentParagraphs: false, tabParagraphs: false });
+	await readingIs(p, t, { pre: 1, tab: 0, second: '0px' }, 'both off: the code block Obsidian makes of the line is back');
+	await set(p, { tabParagraphs: true });
+	await readingIs(p, t, { pre: 0, tab: 1, second: '0px' }, 'tab paragraphs on again: a paragraph');
+	// turned while the note is being edited
+	await toMode(p, 'source');
+	await set(p, { tabParagraphs: false, indentParagraphs: true });
+	await toMode(p, 'preview');
+	await readingIs(p, t, { pre: 1, tab: 0, second: '24px' }, 'turned while editing: reading view shows the settings as they are now');
+	t.eq(await read(p, A), FRONT + READ, 'the note on disk is as it was');
+	t.eq(errors(p).length, 0, 'no errors: ' + errors(p).join(' | '));
+});
+
+test('a reading view that is open follows its note into a binder and out, and its folder made a binder', async (p, h, t) => {
+	await p.ev(`(async () => { await app.vault.createFolder('Loose folder'); await app.vault.create('Loose folder/Reads.md', ${j(READ)}); return 1; })()`);
+	await open(p, 'Loose folder/Reads.md', 'preview');
+	await readingIs(p, t, { pre: 1, tab: 0, second: '0px' }, 'outside a binder: code, as Obsidian has it');
+	await p.ev(`app.fileManager.renameFile(${file('Loose folder/Reads.md')}, ${j(L + 'Part One/Reads.md')}).then(() => 1)`);
+	await readingIs(p, t, { pre: 0, tab: 1, second: '0px' }, 'moved into a binder: a paragraph');
+	await p.ev(`app.fileManager.renameFile(${file(L + 'Part One/Reads.md')}, 'Loose folder/Reads.md').then(() => 1)`);
+	await readingIs(p, t, { pre: 1, tab: 0, second: '0px' }, 'moved out: code again');
+	await p.ev(`${PL}.binders.makeBinder(${file('Loose folder')}).then(() => 1)`);
+	await readingIs(p, t, { pre: 0, tab: 1, second: '0px' }, 'its folder made a binder: a paragraph');
+	t.eq(await read(p, 'Loose folder/Reads.md'), READ, 'the note is as it was written');
+	t.eq(errors(p).length, 0, 'no errors: ' + errors(p).join(' | '));
+});

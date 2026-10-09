@@ -1,4 +1,4 @@
-import { MarkdownRenderChild, MarkdownRenderer, editorInfoField, type MarkdownPostProcessorContext, type TFile } from 'obsidian';
+import { MarkdownRenderChild, MarkdownRenderer, MarkdownView, editorInfoField, type MarkdownPostProcessorContext, type TFile } from 'obsidian';
 import { Compartment, Prec, type EditorState, type Extension } from '@codemirror/state';
 import { EditorView, ViewPlugin } from '@codemirror/view';
 import { language, syntaxTree, type Language } from '@codemirror/language';
@@ -101,25 +101,52 @@ export function installParagraphs(plugin: BindersPlugin): Paragraphs {
 	// again, and which notes are in a binder changes without it: the binders are found after the first editors are
 	// made (a note open when Obsidian starts), a note is moved into a binder or out, a folder becomes a binder or
 	// stops being one. So every editor is asked again then.
-	const refresh = () => { for (const v of live) v.sync(); };
+	// A reading view keeps the blocks it has made until the note's text changes, so it is asked to make them again
+	// (`rerender(true)`, public API) when what it was made with is no longer what its note should have: a setting
+	// turned, the note in a binder now or out of one. `made` is what each note's blocks were last made with.
+	const made = new Map<string, string>(), asked = new WeakMap<MarkdownView, string>();
+	const reading = (path: string): string => { const s = plugin.settings; return inBinder(path) ? `${s.tabParagraphs}${s.indentParagraphs}` : ''; };
+	const reread = () => {
+		for (const leaf of plugin.app.workspace.getLeavesOfType('markdown')) {
+			const view = leaf.view;
+			if (!(view instanceof MarkdownView) || !view.file) continue;
+			const path = view.file.path, was = made.get(path), want = reading(path);
+			// (never made: nothing to make again. And asked once for this already: a view that makes nothing while it
+			// is out of sight isn't asked at every change to a binder)
+			if (was === undefined || was === want || asked.get(view) === `${path}\n${want}`) continue;
+			asked.set(view, `${path}\n${want}`);
+			try { view.previewMode?.rerender(true); } catch { /* left as it is until the note changes */ }
+		}
+	};
+	const refresh = () => { for (const v of live) v.sync(); reread(); };
 	const store = plugin.binders;
 	void store.ready.then(refresh, () => { /* nothing found: nothing to show */ });
 	void store.settled.then(refresh, () => { /* the same */ });
 	plugin.registerEvent(store.on('changed', refresh));
-	plugin.registerEvent(plugin.app.vault.on('rename', refresh));
+	plugin.registerEvent(plugin.app.vault.on('rename', (file, old) => {
+		// (what a note's blocks were made with goes with the note)
+		const was = made.get(old);
+		if (was !== undefined) { made.delete(old); made.set(file.path, was); }
+		refresh();
+	}));
+	plugin.registerEvent(plugin.app.vault.on('delete', (file) => { made.delete(file.path); }));
 
 	// Reading view, and what else Obsidian renders a note in: an embed, a hover preview, a print to PDF
 	plugin.registerMarkdownPostProcessor((el, ctx) => {
 		const s = plugin.settings;
-		if ((!s.tabParagraphs && !s.indentParagraphs) || !inBinder(ctx.sourcePath)) return;
-		el.addClass(PROSE);
-		if (s.indentParagraphs) {
-			el.addClass(INDENT);
+		made.set(ctx.sourcePath, reading(ctx.sourcePath));
+		const on = inBinder(ctx.sourcePath), tabs = on && s.tabParagraphs, indent = on && s.indentParagraphs;
+		// (a block made again may be handed over in the element it had: what was marked for a setting since turned
+		// off, or for a binder the note has left, is unmarked)
+		el.toggleClass(PROSE, tabs || indent);
+		el.toggleClass(INDENT, indent);
+		el.removeClass(EMBED);
+		if (indent) {
 			// (a block that is an embed and nothing else isn't a paragraph for the one after it to follow)
 			const p = el.querySelector(':scope > p');
 			if (p && p.querySelector(':scope > .internal-embed, :scope > img') && !Array.from(p.childNodes).some((n) => n.nodeType === Node.TEXT_NODE && n.textContent?.trim())) el.addClass(EMBED);
 		}
-		if (s.tabParagraphs) return tabParagraphs(el, ctx, plugin);
+		if (tabs) return tabParagraphs(el, ctx, plugin);
 	});
 
 	const renames = followRenames(plugin);

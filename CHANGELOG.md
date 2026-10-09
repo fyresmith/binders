@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.46.29 (2026-10-09)
+
+### Fixed
+
+- An open reading view follows both paragraph settings, and a note moved into or out of a binder, without opening the note again.
+
 ## 0.46.28 (2026-10-09)
 
 ### Fixed

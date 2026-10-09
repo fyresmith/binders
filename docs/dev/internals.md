@@ -365,7 +365,16 @@ is an ordinary `<iframe srcdoc>`, which is the web's and nothing of Obsidian's.
   have them.
 - The language is given per editor, through a `Compartment` in the one extension Obsidian is handed for every
   editor (`registerEditorExtension`), filled by a view plugin when the editor's note (`editorInfoField`, public) is in
-  a binder: an editor goes from note to note, and embeds and the manuscript's sections are editors too.
+  a binder: an editor goes from note to note, and embeds and the manuscript's sections are editors too. An editor
+  asks what it should have when it is made and when it is updated; left alone it never asks again, so every editor
+  is asked when the binders have been found (`ready`, `settled`), when the store says `changed`, and on a rename.
+- A reading view keeps the blocks it has made until the note's text changes. Public API, not an internal:
+  `MarkdownView.previewMode.rerender(true)` makes them again, and is called for a markdown tab whose note's blocks
+  were last made with other settings, or in or out of a binder, than it should have now. What is relied on and not
+  documented: that a block made again can be handed to the post-processor in the element it had, classes and all
+  (so the post-processor takes its classes off as well as putting them on). If `rerender` threw or did nothing, a
+  reading view would show the old look until the note changes, as before. An embed or a hover preview of a
+  binder's note inside another note is not made again. `specs-paragraphs.mjs` ("a reading view that is open…").
 
 ## The binder view (checked on Obsidian 1.13.7)
 
