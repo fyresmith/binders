@@ -33,6 +33,8 @@ export class Styles {
 	private listeners = new Set<() => void>();
 	/** What is waiting to be written, by name. */
 	private pending = new Map<string, Pending>();
+	/** The styles being renamed just now, old name to new: what is asked of the old name meanwhile is the new one's. */
+	private moving = new Map<string, string>();
 	private writing: Promise<void> = Promise.resolve();
 	private reading: Promise<void> = Promise.resolve();
 	private timer = 0;
@@ -114,7 +116,8 @@ export class Styles {
 
 	/** A style of a family by name; the family's first when there is no such style in it. */
 	get(name: unknown, family: Family): Resolved {
-		const r = typeof name === 'string' ? resolveStyle(name, this.files) : null;
+		// (a style on its way to another name is itself, under whichever of the two it has just now)
+		const r = typeof name === 'string' ? resolveStyle(name, this.files) ?? resolveStyle(this.moving.get(name) ?? '', this.files) : null;
 		if (r && r.family === family) return r;
 		const first = resolveStyle(FIRST[family], this.files);
 		if (!first) throw new Error('Binders has no built-in style of that kind.');
@@ -154,9 +157,13 @@ export class Styles {
 	    (null: no file). Made now on the text Binders has, so what is shown follows at once; and made again when it is
 	    written, if the file is no longer that text. `dropEmpty`: a file left saying nothing is taken away. */
 	private put(name: string, make: Change, dropEmpty = false): void {
+		// (a style being renamed is its new name already: its file is never made again under the old one)
+		const from = this.moving.has(name) ? name : null;
+		if (from) name = this.moving.get(from) ?? name;
 		const change: Change = (text) => { const made = make(text); return made !== null && dropEmpty && saysNothing(made) ? null : made; };
-		const was = this.pending.get(name), had = this.text(name), text = change(had);
+		const was = this.pending.get(name), had = this.text(name) ?? (from ? this.text(from) : null), text = change(had);
 		const now = new Map(this.texts);
+		if (from) now.delete(from);
 		if (text === null) now.delete(name); else now.set(name, text);
 		if (was) { was.changes.push(change); was.text = text; } else this.pending.set(name, { base: had, changes: [change], text });
 		this.take(now);
@@ -236,11 +243,28 @@ export class Styles {
 		const { app } = this.plugin, at = app.vault.getAbstractFileByPath(this.path(r.name));
 		if (!(at instanceof TFile)) throw new Error(`The file of “${r.name}” is gone.`);
 		const based = this.dependents(r.name);
-		await app.fileManager.renameFile(at, this.path(name));
-		await this.reload();
-		for (const d of based) this.put(d.name, (text) => (text === null ? null : writeStyleFile(text, name, {})));
-		await this.follow(r.name, name, r.family);
-		await this.settled();
+		// From here until the style is known under its new name, a row changed in the editor is still asked of the old
+		// one. It is the new one's (`put`), and written after the file has moved: the rename is one of the writes, in
+		// their order. Written under the old name it would make that file again, and there would be two styles.
+		this.moving.set(r.name, name);
+		try {
+			const moved = this.writing.then(async () => {
+				try { await app.fileManager.renameFile(at, this.path(name)); } catch (e) {
+					// (the style keeps its name: what was asked of it meanwhile is asked under that name)
+					const asked = this.pending.get(name);
+					if (asked) { this.pending.delete(name); this.pending.set(r.name, asked); }
+					this.moving.delete(r.name);
+					this.later();
+					throw e;
+				}
+			});
+			this.writing = moved.catch(() => { /* said to whoever asked for the rename */ });
+			await moved;
+			await this.reload();
+			for (const d of based) this.put(d.name, (text) => (text === null ? null : writeStyleFile(text, name, {})));
+			await this.follow(r.name, name, r.family);
+			await this.settled();
+		} finally { this.moving.delete(r.name); }
 		return name;
 	}
 

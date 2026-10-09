@@ -702,3 +702,23 @@ test('a style’s file changed outside a moment before a row is changed here kee
 		await outside(p, 'Classic', '---\nexport-style: 1\nbased-on: Classic\n---\n');
 	}
 });
+
+test('a row changed while its style is being renamed goes to the renamed style: the old file doesn’t come back', async (p, h, t) => {
+	await outside(p, 'Mine', '---\nexport-style: 1\nbased-on: Classic\nscene-break: "~"\n---\n');
+	await outside(p, 'On mine', '---\nexport-style: 1\nbased-on: Mine\n---\n');
+	// (the row is changed at the moment the file has its new name, before Binders has read the folder again; and then,
+	// in a second rename, at the moment the file is on its way)
+	const rename = (from, to, row, value, during) => p.ev(`(async () => { const st = ${styles}, fm = app.fileManager, real = fm.renameFile;
+		const change = () => st.set(st.get(${j(from)}, 'book'), ${j(row)}, ${j(value)});
+		fm.renameFile = async function (f, path) { if (f.extension !== 'bookstyle') return real.call(this, f, path); const going = real.call(this, f, path); ${during ? 'change();' : ''} await going; ${during ? '' : 'change();'} };
+		try { const name = await st.rename(st.get(${j(from)}, 'book'), ${j(to)}); await st.settled(); ${NAP} return name; } finally { delete fm.renameFile; } })()`);
+	t.eq(await rename('Mine', 'Yours', 'margins', 'wide', false), 'Yours', 'renamed');
+	t.eq(files(p).join(), 'On mine.bookstyle,Yours.bookstyle', 'a row changed as the file took its new name: there is no file under the old name');
+	t.eq(onDisk(p, 'Yours'), '---\nexport-style: 1\nbased-on: Classic\nscene-break: "~"\nmargins: wide\n---\n', 'and the renamed style has the change');
+	t.eq(await p.ev(`${styles}.list('book').map(s => s.name).join()`), 'Classic,Modern,On mine,Yours', 'the styles are the two there were');
+	t.eq(await rename('Yours', 'Theirs', 'paragraphs', 'spaced', true), 'Theirs', 'renamed again');
+	t.eq(files(p).join(), 'On mine.bookstyle,Theirs.bookstyle', 'a row changed while the file was on its way: no file under the old name');
+	t.eq(onDisk(p, 'Theirs'), '---\nexport-style: 1\nbased-on: Classic\nscene-break: "~"\nmargins: wide\nparagraphs: spaced\n---\n', 'and the renamed style has that change too');
+	t.eq(onDisk(p, 'On mine'), '---\nexport-style: 1\nbased-on: Theirs\n---\n', 'the style based on it follows both renames');
+	t.eq(await p.ev(`(() => { const s = ${styles}.get('On mine', 'book'); return [s.basedOn, s.values.margins, s.values.paragraphs, s.values['scene-break'], s.warnings.length].join(); })()`), 'Theirs,wide,spaced,~,0', 'and reads as it did, with the changes');
+});
