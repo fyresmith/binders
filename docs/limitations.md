@@ -67,6 +67,9 @@ Phone and tablet support is new and has had little testing on real devices. See 
   Properties view does the same. The note's text is never touched.
 - **Windows line breaks.** Binders leaves a note's line breaks alone unless you type in it. Obsidian itself rewrites
   a note that has Windows line breaks with its own when the note's tab is closed or given to another note.
+  A note with Windows line breaks or a byte-order mark that is open in an editor when you bring back a snapshot
+  ends the same way: every word and line is back, saved by Obsidian's editor with its own line breaks and no mark.
+  Closed, it comes back byte for byte.
 
 ## Paragraphs that start with a tab
 

@@ -222,6 +222,9 @@ The Lighthouse/Snapshots/2026-10-05 16.20.05 Draft sent to Sam.binder-snapshot
 - **With git on Windows,** add the line `*.binder-snapshot -text` to `.gitattributes`, so git doesn't rewrite the
   line endings inside them. If it already has, Binders still reads them; a note that had Windows line endings of
   its own is then marked as not matching.
+- **Windows line breaks in an open note.** Bringing back into a note that is open in an editor puts every word and line
+  back, and Obsidian's editor then saves it with its own line breaks and without a byte-order mark, as it does for
+  any note you type in. A note that is closed comes back byte for byte.
 - **Obsidian Sync's Standard plan** carries files up to 5 MB. A snapshot of a binder of about 900,000 words is
   bigger than that and stays on the device that took it.
 

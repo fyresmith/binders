@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.46.14 (2026-10-09)
+
+### Changed
+
+- The manual now says that a note with Windows line breaks or a byte-order mark, brought back while it is open in an editor, gets every word and line back and is then saved by Obsidian's editor with its own line breaks, as any note you type in is.
+
 ## 0.46.13 (2026-10-09)
 
 ### Changed
