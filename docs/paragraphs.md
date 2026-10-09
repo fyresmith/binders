@@ -37,6 +37,9 @@ printed book does, without you typing anything.
 The first paragraph of a note starts at the margin. So does a paragraph after a heading, a rule, a list, a quote or
 an embedded picture.
 
+On the empty line Enter gives you after a paragraph, the cursor waits at the indent, where the next paragraph will
+begin.
+
 On a phone, which has no Tab key, this is the way to an indented page.
 
 ## The width of the indent

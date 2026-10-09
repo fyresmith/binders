@@ -434,6 +434,53 @@ test('“Indent paragraphs”: in the editor a paragraph that follows a paragrap
 	t.eq(errors(p).length, 0, 'no errors: ' + errors(p).join(' | '));
 });
 
+test('“Indent paragraphs”: on the empty line Enter makes after a paragraph the caret waits at the indent, so the first letter doesn’t move it; not after a heading; and Tab there is the same indent, never two', async (p, h, t) => {
+	await body(p, A, '## A heading\n\nFirst paragraph.\n\nSecond.');
+	await set(p, { indentParagraphs: true });
+	await open(p, A);
+	await until(p, `!!document.querySelector(${j(LEAF + ' .cm-line.binders-indented')})`);
+	// every frame: no line is set in twice (the indent and white space of its own), and none by anything but 0 or the indent
+	await p.ev(`(() => { const cm = ${OWN}.cm, w = window.__twice = { bad: [], on: true };
+		const f = () => { if (!w.on) return; for (const ln of cm.contentDOM.querySelectorAll(':scope > .cm-line')) { const ti = getComputedStyle(ln).textIndent, own = /^\\s/.test(ln.textContent);
+			if ((ti === '0px' && !ln.classList.contains('binders-indented')) || (ti === '24px' && !own)) continue; const rec = JSON.stringify(ln.textContent) + ' ' + ln.className + ' ' + ti; if (!w.bad.includes(rec)) w.bad.push(rec); }
+			requestAnimationFrame(f); }; f(); return 1; })()`);
+	const here = async () => { await sleep(p, 250); const l = await caretLine(p, OWN); return { ...l, indent: await p.ev(`(() => { const cm = ${OWN}.cm, at = cm.domAtPos(cm.state.selection.main.head).node; return getComputedStyle((at.nodeType === 1 ? at : at.parentElement).closest('.cm-line')).textIndent; })()`) }; };
+	await endOf(p, OWN);
+	await p.key('Enter');
+	const empty = await here();
+	t.eq(empty.text, '', 'Enter at the end of a paragraph makes an empty line');
+	t.eq(empty.x, 24, 'the caret waits at the indent');
+	await p.type('T');
+	const first = await here();
+	t.eq(first.back, 24, 'and the first letter starts there');
+	await p.type('hird.'); await p.key('Enter'); await p.key('Enter');
+	t.eq((await here()).x, 24, 'after a blank line too');
+	await p.type('F');
+	t.eq((await here()).back, 24, 'where its first letter starts');
+	await p.type('ourth.'); await p.key('Enter');
+	// Tab on the empty line: the tab is the indent
+	await p.key('Tab');
+	const tab = await here();
+	t.eq(tab.text, '\t', 'Tab on the empty line types a tab');
+	t.eq(tab.x, 24, 'and the caret is where it was: one indent, not two');
+	t.eq(tab.indent, '0px', 'the line is set in by its tab alone');
+	await p.type('Fifth.');
+	t.eq((await here()).indent, '0px', 'and stays so as it is typed in');
+	// not after a heading
+	await p.ev(`(() => { const e = ${OWN}; e.setCursor(6, e.getLine(6).length); return 1; })()`);
+	await p.key('Enter');
+	t.eq((await here()).x, 0, 'on the empty line after a heading the caret is at the margin');
+	await p.type('U');
+	t.eq((await here()).back, 0, 'where a paragraph after a heading starts');
+	await sleep(p, 150);
+	const seen = await p.ev(`(() => { const w = window.__twice; w.on = false; return w.bad; })()`);
+	t.eq(seen.join(' | '), '', 'in no frame was a line set in twice');
+	const typed = FRONT + '## A heading\nU\n\nFirst paragraph.\n\nSecond.\nThird.\n\nFourth.\n\tFifth.';
+	await until(p, `app.vault.adapter.read(${j(A)}).then(x => x === ${j(typed)})`, 6000);
+	t.eq(await read(p, A), typed, 'what is on disk is what was typed: no indent is in the note but the tab');
+	t.eq(errors(p).length, 0, 'no errors: ' + errors(p).join(' | '));
+});
+
 test('“Indent paragraphs” in reading view: the same paragraphs are set in, and one begun with a tab isn’t set in twice', async (p, h, t) => {
 	await body(p, A, PLAIN);
 	await set(p, { indentParagraphs: true });

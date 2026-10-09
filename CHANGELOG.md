@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.46.26 (2026-10-09)
+
+### Fixed
+
+- With "Indent paragraphs" on, the cursor on a new line after a paragraph waits at the indent, so the first letter doesn't jump.
+
 ## 0.46.25 (2026-10-09)
 
 ### Fixed

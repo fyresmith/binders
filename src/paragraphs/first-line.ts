@@ -5,7 +5,8 @@ import { TAB_LINE } from './mode';
 
 /* "Indent paragraphs", the editor's part: a paragraph that follows a paragraph gets a class on its line, which the
    stylesheet sets in by the paragraph indent. Not the first paragraph of a note, nor one after a heading, a rule, a
-   list, a quote, code, a table or an embed on a line of its own: as a printed book has it. Nothing is in the text. */
+   list, a quote, code, a table or an embed on a line of its own: as a printed book has it. An empty line is marked
+   the same way, for the caret on it. Nothing is in the text. */
 
 /** The class of a line that gets the indent. */
 export const INDENTED = 'binders-indented';
@@ -44,8 +45,9 @@ function build(view: EditorView): DecorationSet {
 		for (let pos = from; pos <= to;) {
 			const line = doc.lineAt(pos);
 			// a paragraph that follows a paragraph (blank lines between them or not); one the writer began with white
-			// space of their own has its indent already
-			if (!/^\s/.test(line.text) && kind(line.number) === 'text') {
+			// space of their own has its indent already. And an empty line, where a paragraph would be one: nothing
+			// is in it to set in but the caret, which waits where the first letter will go (or that letter moves it)
+			if (!/^\s/.test(line.text) && (kind(line.number) === 'text' || !line.length)) {
 				let p = line.number - 1;
 				while (p >= 1 && kind(p) === 'blank') p--;
 				if (p >= 1 && kind(p) === 'text') b.add(line.from, line.from, indented);
