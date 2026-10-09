@@ -40,7 +40,12 @@ an embedded picture.
 On the empty line Enter gives you after a paragraph, the cursor waits at the indent, where the next paragraph will
 begin.
 
-On a phone, which has no Tab key, this is the way to an indented page.
+On a phone, which has no Tab key, this is the simplest way to an indented page.
+
+To start a paragraph with a tab of your own on a phone or a tablet, use the indent button in the toolbar Obsidian
+puts over the keyboard (two arrows pointing at lines of text; swipe the toolbar sideways if it isn't in sight). It
+puts one tab at the start of the line you are on, wherever in the line the cursor is, and the button beside it
+takes the tab off. Four spaces at the start of a line do the same as a tab.
 
 ## The width of the indent
 

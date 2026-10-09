@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.46.32 (2026-10-09)
+
+### Changed
+
+- The manual says how to start a paragraph with a tab on a phone: the Indent button of Obsidian's toolbar over the keyboard.
+
 ## 0.46.31 (2026-10-09)
 
 ### Fixed

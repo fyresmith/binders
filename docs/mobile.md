@@ -100,8 +100,9 @@ The keyboard's own toolbar stays. Press and hold the leave button for the menu.
 
 ## Paragraphs
 
-A phone has no Tab key. Turn on **Indent paragraphs** in settings for an indented page. See
-[Paragraphs](paragraphs.md).
+A phone has no Tab key. Turn on **Indent paragraphs** in settings for an indented page. To start a paragraph with a
+tab of your own, use the indent button in the toolbar over the keyboard (it puts a tab at the start of the line;
+the button beside it takes it off), or type four spaces. See [Paragraphs](paragraphs.md).
 
 ## Export
 
