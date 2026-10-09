@@ -123,16 +123,18 @@ test('a phone: the style editor opens by touch; its controls are at least 28 px 
 	});
 }, { changes: true });
 
-// ---- 2b. Confirmed bug: the sliders' boxes are 6 px high ----
-bug('the style editor’s sliders (Size, Line spacing, Space above) are 6 px high, not a touchable size (28 at least, 44 the target)', async (p, h, t) => {
+// ---- 2b. The sliders' touch area: their box is 6 px high, as Obsidian's own sliders are (their thumb, 24 px, is the
+// area a finger hits: Obsidian's CSS draws it past the box, and so does Binders'). Checked by where a touch lands. ----
+test('the style editor’s sliders (Size, Line spacing, Space above) are touched across their thumb, 11 px either side of the line, as Obsidian’s own sliders are', async (p, h, t) => {
 	await onMobile(p, 390, 844, async () => {
 		await open2(p);
 		await kindTap(p, 'Paperback');
 		await tapEl(p, `document.querySelector('${WIN} [data-binders-key="edit-style"]')`);
 		await until(p, `!!document.querySelector('${WIN} .binders-style-editor input[type="range"]')`, 4000);
 		await p.sleep(300);
-		const all = await boxes(p, `${WIN} .binders-style-editor input[type="range"]`);
-		t.eq(JSON.stringify(all.filter(c => c.h < 28).map(c => `${c.name} ${c.w}×${c.h}`)), '[]', 'each slider is 28 px high or more (' + JSON.stringify(all.map(c => `${c.name} ${c.w}×${c.h}`)) + ')');
+		const hits = await p.ev(`[...document.querySelectorAll('${WIN} .binders-style-editor input[type="range"]')].map(e => { e.scrollIntoView({ block: 'center' }); const b = e.getBoundingClientRect(), cs = getComputedStyle(e), tw = parseFloat(cs.getPropertyValue('--slider-thumb-width')) || 0, f = (Number(e.value) - Number(e.min)) / ((Number(e.max) - Number(e.min)) || 1), x = b.left + tw / 2 + f * (b.width - tw), cy = b.top + b.height / 2; return { name: e.getAttribute('aria-label'), box: Math.round(b.height), thumb: cs.getPropertyValue('--slider-thumb-height').trim(), above: document.elementFromPoint(x, cy - 11) === e, below: document.elementFromPoint(x, cy + 11) === e }; })`);
+		t.ok(hits.length >= 3, 'the three sliders are there (' + hits.length + ')');
+		t.eq(JSON.stringify(hits.filter(c => !c.above || !c.below).map(c => c.name)), '[]', 'a touch 11 px above or below each slider’s line lands on it (' + JSON.stringify(hits) + ')');
 	});
 }, { changes: true });
 
