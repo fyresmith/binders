@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.46.15 (2026-10-09)
+
+### Changed
+
+- Nothing a writer sees: one test of export styles now tests what Binders promises, and two round-trip findings through Scrivener are listed as open.
+
 ## 0.46.14 (2026-10-09)
 
 ### Changed
