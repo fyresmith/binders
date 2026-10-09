@@ -76,6 +76,13 @@ with 1.0.
       or in search, never counts as part of the binder, follows a scene when it's renamed or moved, and stays when
       a scene is deleted. Built 2026-10-01: plain `.snapshot` files in the binder's `Snapshots` folder (see
       `docs/dev/file-format.md`). Obsidian Sync carries them only with "Sync all other types" turned on.
+- [ ] **Snapshots of a folder and of the binder, the rest.** Taking, reading and comparing one, one note brought
+      back and a binder made from a snapshot are built (step 1, 2026-10-06; `docs/dev/plan.md`, "Snapshots of a
+      folder and of the binder").
+  - [ ] Step 2: bring back the text, and the order, of a folder or binder.
+  - [ ] Step 3: bring back everything (properties; notes made again, renamed and moved; never deleted).
+  - [ ] Step 4: automatic snapshots before bringing one back and before find and replace, and thinning of the
+        automatic ones only.
 - [x] **Focus mode.** The text and nothing else, for a note of a binder (in the manuscript and in a note's own
       tab), in the vault's own type, with one key to leave. Typewriter scrolling is on as it comes (for the last
       line only: editing further up scrolls as ever). Everything more is an option, off as it comes: the scenes

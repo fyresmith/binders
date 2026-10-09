@@ -19,6 +19,11 @@ Read this before changing anything. It is the contract every contributor, human 
    narrow as it is written here: when a note is renamed, "Start a paragraph with a tab" is on and Obsidian's own
    "Automatically update internal links" is on, the links to that note on tab-led lines in binder notes are
    rewritten, the link's target and nothing else (`src/paragraphs/rename.ts`; the maintainer's exception, 2026-10-05).
+   And a second, as narrow: "Bring back" on a snapshot of a folder or binder, after its confirmation screen and an
+   automatic snapshot of what is there now, may write notes' properties as they were in the snapshot, and make,
+   rename and move notes to match it, inside that folder only. It never deletes a note: notes written since stay
+   where they are, or are moved to one folder if the writer chooses (`src/binder-snapshots.ts`; the maintainer's
+   exception, approved 2026-10-05, worded 2026-10-08).
 4. **Native look.** Use Obsidian's CSS variables, `setIcon`, `Menu`, `Modal`, `Setting`, sentence case. No `!important`,
    no `all:`, no scrollbar styling, no inline `innerHTML`; use `createEl` or `sanitizeHTMLToDom`. The Obsidian review
    bot flags these.

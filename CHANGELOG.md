@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.44.17 (2026-10-09)
+
+### Changed
+
+- Nothing a writer sees: the contributors' rules and the roadmap now say what bringing back a whole snapshot may do, and what is left of it to build.
+
 ## 0.44.16 (2026-10-07)
 
 ### Fixed
