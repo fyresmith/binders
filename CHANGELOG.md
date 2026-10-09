@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.46.31 (2026-10-09)
+
+### Fixed
+
+- A tabbed line straight under a line of text is set in in the manuscript's text, the Snapshots window and focus mode, as it is in the editor.
+
 ## 0.46.30 (2026-10-09)
 
 ### Fixed

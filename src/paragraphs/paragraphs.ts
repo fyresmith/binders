@@ -155,7 +155,9 @@ export function installParagraphs(plugin: BindersPlugin): Paragraphs {
 	const renames = followRenames(plugin);
 	return {
 		refresh,
-		forRender: (text, path) => (plugin.settings.tabParagraphs && inBinder(path) ? tabsForRender(text) : text),
+		// (a tabbed line under a line of text is set in too, as reading view has it: `MarkdownRenderer.render` gives
+		// each line of a paragraph a line of its own whatever Obsidian's "Strict line breaks" says, which is reading view's)
+		forRender: (text, path) => (plugin.settings.tabParagraphs && inBinder(path) ? tabsForRender(text, undefined, true) : text),
 		renamesSettled: () => renames.settled(),
 		languageOf: (view) => view.state.facet(language),
 		forget: (lang) => { forget(lang); for (const v of live) v.sync(true); },

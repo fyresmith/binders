@@ -52,6 +52,11 @@ const same = (a: unknown, b: unknown, msg: string) => eq(JSON.stringify(a), JSON
 	eq(tabsForRender('\t\tTwo tabs.\n'), `${M}Two tabs.\n`, 'all of the white space');
 	const untouched = 'Plain.\n\tUnder it.\n\n```\n\tcode\n```\n\n- item\n\n\tits text\n';
 	eq(tabsForRender(untouched), untouched, 'a text with none is returned as it is');
+	// a tabbed line that carries on a paragraph: Markdown drops its tab, so where its line is a line of its own it is marked too
+	eq(tabsForRender('Plain.\n\tUnder it.\n\tAnd again.\n', M, true), `Plain.\n${M}Under it.\n${M}And again.\n`, 'asked for, a tabbed line straight under a line of text is marked');
+	eq(tabsForRender(untouched, M, true), `Plain.\n${M}Under it.\n\n\`\`\`\n\tcode\n\`\`\`\n\n- item\n\n\tits text\n`, 'and nothing in a fenced block or under a list item');
+	eq(tabsForRender('Plain.\n\t\n\tAfter.\n', M, true), `Plain.\n\t\n${M}After.\n`, 'a line of white space only is left as it is: it is what parts two paragraphs');
+	eq(tabsForRender('> quote\n\tlazy\n', M, true), '> quote\n\tlazy\n', 'a line under a quote is the quote’s');
 }
 
 // did a link mean the file that was renamed

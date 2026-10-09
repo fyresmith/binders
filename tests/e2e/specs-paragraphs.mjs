@@ -895,3 +895,35 @@ for (const [count, wide] of [[400, false], [2000, false], [400, true]]) {
 		t.eq(errors(p).length, 0, 'no errors: ' + errors(p).join(' | '));
 	});
 }
+
+// ---- a tabbed line straight under a line of text, where Binders renders a note itself ----
+
+test('a tabbed line straight under a line of text is set in where Binders shows a note’s text itself, as the editor and reading view set it, whatever Obsidian’s “Strict line breaks” says; not under a list item', async (p, h, t) => {
+	const text = 'Rendered by Binders, plain.\n\tA tabbed line under it.\n\n- an item\n\tthe item’s own text\n';
+	await body(p, A, text);
+	await p.ev(`app.vault.process(${file(L + 'The Lighthouse.md')}, (x) => x.replace('binder: 1', 'binder: 99')).then(() => 1)`);
+	await sleep(p, 600);
+	const shown = async () => {
+		await p.ev(`(async () => { app.workspace.detachLeavesOfType('binders-view'); await sleep(200); return 1; })()`);
+		await openView(p, L + 'Part One');
+		await p.ev(`(() => { ${VIEW}.setMode('manuscript'); return 1; })()`);
+		await until(p, `[...document.querySelectorAll('.binders-manuscript-rendered')].some(e => e.textContent.includes('Rendered by Binders'))`, 8000);
+		return p.ev(`(() => { const e = [...document.querySelectorAll('.binders-manuscript-rendered')].find(x => x.textContent.includes('Rendered by Binders'));
+			const x = (s) => { const w = document.createTreeWalker(e, NodeFilter.SHOW_TEXT); let n; while ((n = w.nextNode())) { const i = n.data.indexOf(s); if (i >= 0) { const r = document.createRange(); r.setStart(n, i); r.setEnd(n, i + 1); const b = r.getBoundingClientRect(); return [Math.round(b.left), Math.round(b.top)]; } } return null; };
+			const plain = x('Rendered by'), under = x('A tabbed line');
+			return { in: under[0] - plain[0], below: under[1] > plain[1] + 8, marks: e.querySelectorAll('.binders-tab').length, inList: e.querySelectorAll('li .binders-tab').length, pres: e.querySelectorAll('pre').length }; })()`);
+	};
+	const got = await shown();
+	t.ok(got.below, 'the tabbed line is a line of its own');
+	t.eq(got.in, 24, 'and is set in by the indent');
+	t.eq(got.inList, 0, 'a tabbed line under a list item is the list’s: nothing of ours in it');
+	t.eq(got.pres, 0, 'and nothing is code');
+	const was = await p.ev(`app.vault.getConfig('strictLineBreaks') ?? false`);
+	try {
+		await p.ev(`(() => { app.vault.setConfig('strictLineBreaks', true); return 1; })()`);
+		const strict = await shown();
+		// (the setting is reading view's: what is rendered here has a line for each line either way)
+		t.ok(strict.below && strict.in === 24, `with “Strict line breaks” on it is a line of its own still, and set in (${j(strict)})`);
+	} finally { await p.ev(`(() => { app.vault.setConfig('strictLineBreaks', ${was}); return 1; })()`); }
+	t.eq(await read(p, A), FRONT + text, 'the note on disk is as it was');
+});

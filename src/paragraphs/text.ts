@@ -51,10 +51,12 @@ export function tabLines(text: string, also: { carried?: boolean; blank?: boolea
 }
 
 /** A text made ready for a renderer that is given a whole note at once: each paragraph begun with a tab starts with
-    a mark the stylesheet sets as wide as the indent, in place of the white space Markdown would make code of. For
-    showing only: never written anywhere. */
-export function tabsForRender(text: string, mark = '<span class="binders-tab"></span>'): string {
-	const at = new Set(tabLines(text));
+    a mark the stylesheet sets as wide as the indent, in place of the white space Markdown would make code of. With
+    `carried`, so does a tabbed line that carries on a paragraph, whose tab Markdown drops: for a renderer that gives
+    each line of a paragraph a line of its own (`MarkdownRenderer.render` does; where lines run together a mark
+    would be a gap in the middle of one). For showing only: never written anywhere. */
+export function tabsForRender(text: string, mark = '<span class="binders-tab"></span>', carried = false): string {
+	const at = new Set(tabLines(text, { carried }));
 	if (!at.size) return text;
 	return text.split('\n').map((l, i) => (at.has(i) ? mark + l.replace(/^[ \t]+/, '') : l)).join('\n');
 }

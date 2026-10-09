@@ -381,6 +381,11 @@ is an ordinary `<iframe srcdoc>`, which is the web's and nothing of Obsidian's.
   lines are drawn as Obsidian draws them until the editor has read that far, as before. Known limit: plain words
   set in by a tab straight inside an HTML block have no node though read, and keep the paragraph look.
   `specs-paragraphs.mjs` ("a long note of tab paragraphs…", 400 and 2,000 paragraphs).
+- `MarkdownRenderer.render` (public) gives each line of a paragraph a line of its own (`<br>`) whether Obsidian's
+  "Strict line breaks" is on or off (checked on 1.13.7: the setting is reading view's). What Binders renders itself
+  counts on that: a tabbed line straight under a line of text is given its indent's mark (`tabsForRender` with
+  `carried`). If a later Obsidian ran the lines together there with the setting on, the mark would be a gap in the
+  middle of a line. `specs-paragraphs.mjs` ("a tabbed line straight under a line of text…", with the setting on too).
 - A reading view keeps the blocks it has made until the note's text changes. Public API, not an internal:
   `MarkdownView.previewMode.rerender(true)` makes them again, and is called for a markdown tab whose note's blocks
   were last made with other settings, or in or out of a binder, than it should have now. What is relied on and not
