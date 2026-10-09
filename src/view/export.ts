@@ -73,6 +73,8 @@ export class ExportModal extends Modal {
 	/** What export is doing just now, in words; null when it is doing nothing. */
 	private busy: string | null = null;
 	private cancelled = false;
+	/** What stops the export under way where it stands: a PDF being printed is one long step, out of sight. */
+	private stopping: AbortController | null = null;
 	private saved: Saved | null = null;
 	private loading = 0;
 	private stop: (() => void) | null = null;
@@ -151,7 +153,7 @@ export class ExportModal extends Modal {
 
 	onClose(): void {
 		this.loading++;
-		this.cancelled = true;
+		this.cancel();
 		window.clearTimeout(this.timer);
 		this.stop?.();
 		this.rendered.unload();
@@ -451,7 +453,7 @@ export class ExportModal extends Modal {
 		const status = (text: string) => this.actions.createSpan({ cls: 'binders-export-status', text, attr: { role: 'status', 'aria-live': 'polite' } });
 		if (this.busy) {
 			status(this.busy);
-			new ButtonComponent(this.actions).setButtonText('Cancel').onClick(() => { this.cancelled = true; });
+			new ButtonComponent(this.actions).setButtonText('Cancel').onClick(() => this.cancel());
 			if (focused) this.actions.querySelector('button')?.focus();
 			return;
 		}
@@ -542,6 +544,9 @@ export class ExportModal extends Modal {
 
 	// ---- exporting ----
 
+	/** Cancel, or the window closed: the export under way goes no further, and a PDF being printed is given up. */
+	private cancel(): void { this.cancelled = true; this.stopping?.abort(); }
+
 	private say(doing: string | null): void { this.busy = doing; this.bar(); if (Platform.isPhone) this.choices(); }
 
 	private async copy(): Promise<void> {
@@ -557,6 +562,7 @@ export class ExportModal extends Modal {
 	private async run(ask = false): Promise<void> {
 		if (this.busy) return;
 		this.cancelled = false;
+		const stopping = this.stopping = new AbortController();
 		try {
 			this.say('Reading the notes…');
 			await this.reading;
@@ -586,7 +592,7 @@ export class ExportModal extends Modal {
 			let data: Uint8Array;
 			if (pdf) {
 				const { book: whole, spec } = this.paged(book);
-				const made = await pagesPdf(this.plugin, whole, spec, { say: (doing) => this.say(doing), cancelled: () => this.cancelled });
+				const made = await pagesPdf(this.plugin, whole, spec, { say: (doing) => this.say(doing), cancelled: () => this.cancelled, stop: stopping.signal });
 				if (!made) return;
 				data = made.data;
 			} else data = kind === 'ebook' ? ebook(this.plugin, book, this.bookStyle) : manuscript(this.plugin, book, words, this.style);
@@ -607,6 +613,7 @@ export class ExportModal extends Modal {
 			const why = e instanceof Error ? e.message : String(e);
 			new Notice(`The export didn’t finish. ${why}`, 10000);
 		} finally {
+			if (this.stopping === stopping) this.stopping = null;
 			this.busy = null;
 			if (this.contentEl.isConnected) this.draw();
 		}

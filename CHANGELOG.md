@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.45.6 (2026-10-09)
+
+### Fixed
+
+- Cancelling an export, or closing the Export window, while a PDF is being printed now stops the printing at once.
+
 ## 0.45.5 (2026-10-09)
 
 ### Fixed

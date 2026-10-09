@@ -670,3 +670,33 @@ test('whether this Obsidian can print is looked at once, not each time the windo
 		await p.ev(`(() => { delete document.createElement; return 1; })()`);
 	}
 });
+
+// ---- Step 6: a PDF being printed when the writer stops it ----
+
+test('Cancel, or closing the window, while a PDF prints stops the printer at once: nothing is left running behind', async (p, h, t) => {
+	await withAuthor(p);
+	await open(p);
+	await pick(p, 'Paperback');
+	t.ok(await laidOut(p), 'the pages are laid out');
+	// (a printer that never finishes: the webview's own `printToPDF`, stood in for as the webview is made)
+	await p.ev(`(() => { window.__asked = 0; window.__watch?.disconnect(); window.__watch = new MutationObserver((ms) => { for (const m of ms) for (const n of m.addedNodes) if (n.tagName === 'WEBVIEW' && n.classList.contains('binders-export-printer')) n.printToPDF = () => { window.__asked++; return new Promise(() => {}); }; }); window.__watch.observe(document.body, { childList: true }); return 1; })()`);
+	const BEHIND = `document.querySelectorAll('webview.binders-export-printer, .binders-export-offstage').length`;
+	const printing = async (n) => { await press(p, 'Export'); return until(p, `window.__asked === ${n} && (document.querySelector('${WIN} .binders-export-status')?.textContent ?? '').startsWith('Printing')`, 60000); };
+	const said = () => p.ev(`(() => { const probe = new Notice(''), docs = new Set([document, probe.noticeEl.ownerDocument]); probe.hide(); return [...docs].flatMap(d => [...d.querySelectorAll('.notice')]).map(n => n.textContent).join('|'); })()`);
+	try {
+		t.ok(await printing(1), 'the PDF is being printed');
+		t.eq(await p.ev(BEHIND), 2, 'by a webview out of sight, from pages laid out out of sight');
+		await press(p, 'Cancel');
+		t.ok(await until(p, `${BEHIND} === 0`, 3000), 'Cancel: the printer and its pages are gone at once');
+		t.ok(await until(p, `[...document.querySelectorAll('${WIN} button')].some(b => b.textContent === 'Export')`, 3000), 'and the window offers Export again');
+		t.ok(!(await said()).includes('didn’t finish'), 'nothing is said to have gone wrong');
+		t.ok(await printing(2), 'printed again');
+		await closeAll(p);
+		t.ok(await until(p, `${BEHIND} === 0`, 3000), 'the window closed while it prints: the printer and its pages are gone at once');
+		await p.sleep(300);
+		t.ok(!(await said()).includes('didn’t finish'), 'nothing is said to have gone wrong');
+		t.ok(!existsSync(join(p.vaultDir, 'Exports', 'The Lighthouse.pdf')), 'and no file was made');
+	} finally {
+		await p.ev(`(() => { window.__watch?.disconnect(); for (const e of document.querySelectorAll('webview.binders-export-printer, .binders-export-offstage')) e.remove(); return 1; })()`);
+	}
+});

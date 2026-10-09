@@ -284,15 +284,17 @@ export async function share(data: Uint8Array, name: string, mime: string): Promi
 export const NO_PDF = 'PDF isn’t available here.';
 export const PDF_MIME = 'application/pdf';
 
-/** Pages that are laid out, printed: the PDF's bytes. */
-export function printPages(printer: Printer, book: Book, laid: Laid): Promise<Uint8Array> {
+/** Pages that are laid out, printed: the PDF's bytes. `stop`: ends the print there and then. */
+export function printPages(printer: Printer, book: Book, laid: Laid, stop?: AbortSignal): Promise<Uint8Array> {
 	const spec = laid.spec;
-	return printer.print({ title: book.title, author: book.author.trim(), language: spec.language, rtl: spec.rtl, css: fontFaceCss(spec.typeface) + spec.css + printCss(spec.geometry), body: laid.html(), pages: laid.pages.length });
+	return printer.print({ title: book.title, author: book.author.trim(), language: spec.language, rtl: spec.rtl, css: fontFaceCss(spec.typeface) + spec.css + printCss(spec.geometry), body: laid.html(), pages: laid.pages.length }, stop);
 }
 
 /** A book as a PDF: laid out as pages out of sight, exactly as the window shows them, and printed. Null if it was
-    cancelled. `say`: what is happening, in words. */
-export async function pagesPdf(plugin: BindersPlugin, book: Book, spec: PagesSpec, o: { say?: (doing: string) => void; cancelled?: () => boolean } = {}): Promise<{ data: Uint8Array; laid: Laid } | null> {
+    cancelled. `say`: what is happening, in words. `cancelled` is asked between the steps and as the pages are laid
+    out; `stop` reaches the printer too, which is one long step: stopped, it and the pages out of sight are gone at
+    once, not when the print would have ended. */
+export async function pagesPdf(plugin: BindersPlugin, book: Book, spec: PagesSpec, o: { say?: (doing: string) => void; cancelled?: () => boolean; stop?: AbortSignal } = {}): Promise<{ data: Uint8Array; laid: Laid } | null> {
 	const printer = plugin.exportHost.printer();
 	if (!printer) throw new Error(NO_PDF);
 	const holder = activeDocument.body.createDiv({ cls: 'binders-export-offstage', attr: { 'aria-hidden': 'true' } });
@@ -302,8 +304,12 @@ export async function pagesPdf(plugin: BindersPlugin, book: Book, spec: PagesSpe
 		const laid = await layPages(stage, book, spec, { tick: (n) => o.say?.(`Laying out the pages… ${n.toLocaleString()}`), cancelled: o.cancelled });
 		if (!laid || o.cancelled?.()) return null;
 		o.say?.(`Printing ${laid.pages.length.toLocaleString()} ${laid.pages.length === 1 ? 'page' : 'pages'}…`);
-		const data = await printPages(printer, book, laid);
+		const data = await printPages(printer, book, laid, o.stop);
 		return o.cancelled?.() ? null : { data, laid };
+	} catch (e) {
+		// (stopped by the writer: nothing went wrong, and nothing is said to have)
+		if (o.stop?.aborted) return null;
+		throw e;
 	} finally { stage?.close(); holder.remove(); }
 }
 

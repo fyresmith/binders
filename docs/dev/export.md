@@ -595,7 +595,11 @@ row and why under the choices; a computer that can't says "PDF isn't available h
 
 **Speed.** 150,000 words: 542 pages laid out in about 3 seconds and exported (read, laid out again, printed, saved)
 in about 5, on a machine doing nothing else. The layout yields to the window five times a second; the bar counts
-the pages, and Cancel stops an export. Pages that are finished and out of sight are not laid out again.
+the pages, and Cancel stops an export. Cancel, or closing the window, stops the printer too: the print is one long
+step in a webview out of sight (it may take five minutes before it is given up), so it is not waited out; the
+webview and the pages laid out for it are removed at once (`stop` in `pagesPdf`, an `AbortSignal` handed to
+`print`), and nothing is saved or said to have gone wrong. Pages that are finished and out of sight are not laid out
+again.
 
 **Its ceiling, as built.** Lines are broken one at a time (Chromium's), so a loose line here and there, more in a
 narrow measure. Facing pages are not forced to equal depth: a page ends short when what comes next can't be cut
