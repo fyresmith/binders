@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.48.2 (2026-10-09)
+
+### Changed
+
+- Nothing a writer will notice: 94 more tests of paragraphs begun with a tab, and the two findings still open are listed.
+
 ## 0.48.1 (2026-10-09)
 
 ### Fixed
