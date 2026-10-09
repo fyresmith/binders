@@ -5582,6 +5582,22 @@ body:not(.is-phone) .binders-export .binders-export-options .setting-item.settin
 	color: var(--text-muted);
 }
 
+/* A phone on its side (a short screen): the buttons share a row, Cancel left as on a desktop, and the screen scrolls
+   as one, the intro with the plan, so what will change is in sight. (A phone upright keeps its own layout.) */
+@media (max-height: 500px) {
+	.is-phone .binders-folder-snapshots-back .modal-button-container {
+		flex-direction: row-reverse;
+	}
+
+	.is-phone .binders-folder-snapshots-back .modal-button-container button {
+		flex: 1 1 0;
+	}
+
+	.is-phone .binders-folder-snapshots-back .modal-content {
+		overflow: visible;
+	}
+}
+
 /* A phone: a note of a snapshot says its name and what is different; where it is was on the page before. */
 .is-phone .binders-folder-snapshots-crumb-path {
 	display: none;

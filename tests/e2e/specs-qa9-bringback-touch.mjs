@@ -337,7 +337,7 @@ test('a long unbroken note name in the Bring back list runs off the right edge o
 	});
 });
 
-test('BUG: on a phone on its side (844×390) the Bring back screen shows only about 112 px of its text: what will change is scrolled out of sight until the writer scrolls the peephole', async (p, h, t) => {
+test('on a phone on its side (844×390) the Bring back screen shows only about 112 px of its text: what will change is scrolled out of sight until the writer scrolls the peephole', async (p, h, t) => {
 	await seeded(p);
 	await work(p);
 	await onMobile(p, [844, 390], async () => {
