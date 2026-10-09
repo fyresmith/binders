@@ -19,6 +19,8 @@ export interface ManuscriptDetails {
 
 /** A word count as a title page gives it: to the nearest hundred, or thousand for a book. */
 export const roundedWords = (n: number): number => (n < 20000 ? Math.max(100, Math.round(n / 100) * 100) : Math.round(n / 1000) * 1000);
+/** The count as a title page says it. A book with no words says none: "about 100 words" would be a count it hasn't. */
+export const aboutWords = (n: number): string => (n > 0 ? `about ${roundedWords(n).toLocaleString('en-US')} words` : '');
 /** The word of a title a header carries: the title in capitals, without an article in front. */
 export const keyword = (title: string): string => title.trim().replace(/^(the|a|an)\s+/i, '').toUpperCase();
 export const surname = (author: string): string => author.trim().split(/\s+/).pop() ?? '';
@@ -124,7 +126,7 @@ export function writeDocx(book: Book, style: ManuscriptStyle, details: Manuscrip
 	};
 
 	// ---- the text ----
-	const body: string[] = [], author = book.author.trim(), approx = roundedWords(details.words).toLocaleString('en-US');
+	const body: string[] = [], author = book.author.trim(), approx = aboutWords(details.words);
 	const header = style.header !== 'none';
 	// (`first`: the pages are counted from the text's first, whatever came before it)
 	const sect = (head: boolean, first = true) => `<w:sectPr>${head ? `<w:headerReference w:type="default" r:id="${doc.rel('header', 'header1.xml')}"/>` : ''}${PAGE}${first ? '<w:pgNumType w:start="1"/>' : ''}</w:sectPr>`;
@@ -133,7 +135,7 @@ export function writeDocx(book: Book, style: ManuscriptStyle, details: Manuscrip
 	if (style.titlePage) {
 		// contact details and the count at the top, the title halfway down; no header on this page
 		const contact = [author, ...details.contact].filter((l) => l.trim());
-		body.push(`<w:p><w:pPr><w:pStyle w:val="Contact"/><w:tabs><w:tab w:val="right" w:pos="9360"/></w:tabs></w:pPr><w:r>${t(contact[0] ?? '')}</w:r><w:r><w:tab/>${t(`about ${approx} words`)}</w:r></w:p>`);
+		body.push(`<w:p><w:pPr><w:pStyle w:val="Contact"/><w:tabs><w:tab w:val="right" w:pos="9360"/></w:tabs></w:pPr><w:r>${t(contact[0] ?? '')}</w:r>${approx ? `<w:r><w:tab/>${t(approx)}</w:r>` : ''}</w:p>`);
 		for (const l of contact.slice(1)) body.push(words('Contact', l));
 		body.push(words('Title', book.title));
 		if (author) body.push(words('Byline', `by ${author}`));

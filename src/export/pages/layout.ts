@@ -1,4 +1,4 @@
-import { headingLines, keyword, roundedWords, surname } from '../docx';
+import { aboutWords, headingLines, keyword, surname } from '../docx';
 import type { ManuscriptStyle } from '../docx-parts';
 import type { Book, Picture } from '../model';
 import { bookHeading, isRtl, type BookStyle } from '../style';
@@ -54,7 +54,7 @@ export function manuscriptPages(book: Book, style: ManuscriptStyle, paper: PageS
 	const titlePage = (page: HTMLElement) => {
 		const doc = page.ownerDocument, top = page.appendChild(el(doc, 'div', 'contact')), who = top.appendChild(el(doc, 'div'));
 		for (const line of [book.author, ...details.contact].filter((l) => l.trim())) who.append(el(doc, 'p', '', line), ' ');
-		top.append(el(doc, 'p', '', `about ${roundedWords(details.words).toLocaleString('en-US')} words`));
+		if (aboutWords(details.words)) top.append(el(doc, 'p', '', aboutWords(details.words)));
 		page.append(' ', el(doc, 'h1', '', book.title), ' ');
 		if (book.author.trim()) page.append(el(doc, 'p', 'by', `by ${book.author.trim()}`));
 	};

@@ -1,4 +1,4 @@
-import { headingLines, roundedWords } from '../export/docx';
+import { aboutWords, headingLines } from '../export/docx';
 import type { ManuscriptStyle } from '../export/docx-parts';
 import { contentsOf } from '../export/epub';
 import { leadSplit } from '../export/epub-text';
@@ -74,7 +74,7 @@ export function drawManuscript(el: HTMLElement, book: Book, style: ManuscriptSty
 		const page = paper.createEl('section', { cls: 'binders-export-section binders-export-titlepage' });
 		const top = page.createDiv({ cls: 'binders-export-contact' }), who = top.createDiv();
 		for (const line of [book.author, ...details.contact].filter((l) => l.trim())) who.createDiv({ text: line });
-		top.createDiv({ text: `about ${roundedWords(details.words).toLocaleString('en-US')} words` });
+		if (aboutWords(details.words)) top.createDiv({ text: aboutWords(details.words) });
 		page.createEl('h1', { cls: 'binders-export-title', text: book.title });
 		if (book.author.trim()) page.createEl('p', { cls: 'binders-export-by', text: `by ${book.author.trim()}` });
 	}

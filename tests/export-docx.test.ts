@@ -4,7 +4,7 @@ import { join, resolve as abs } from 'path';
 // @ts-expect-error a plain module, without types
 import { plan, prose, rng } from '../scripts/demo-vault/build.mjs';
 import { buildBook } from '../src/export/book';
-import { headingLines, keyword, roundedWords, surname, writeDocx } from '../src/export/docx';
+import { aboutWords, headingLines, keyword, roundedWords, surname, writeDocx } from '../src/export/docx';
 import { MANUSCRIPT_STYLES, esc } from '../src/export/docx-parts';
 import { bookWords, type Picture } from '../src/export/model';
 import { pictureOf } from '../src/export/picture';
@@ -101,6 +101,9 @@ function wordForWord(b: TestBinder, what: string): { words: number; ms: number; 
 	ok(!plain.files['word/header1.xml'] && !plain.files['word/document.xml'].includes('w:val="Title"') && plain.files['word/styles.xml'].includes('w:line="240"') && plain.files['word/document.xml'].includes('>***<'), 'the typesetter’s style: single-spaced, no title page or header, *** breaks');
 	sound(writeDocx(book, PLAIN, { contact: [], words: 1 }), 'the typesetter’s style');
 	eq([roundedWords(1474), roundedWords(40), roundedWords(84321), roundedWords(19949)].join(), '1500,100,84000,19900', 'the count is rounded');
+	eq([aboutWords(1474), aboutWords(40), aboutWords(1), aboutWords(0)].join('|'), 'about 1,500 words|about 100 words|about 100 words|', 'as a title page says it; a book with no words has no count');
+	const none = readDocx(writeDocx({ ...book, sections: [] }, MANUSCRIPT_STYLES[0], { contact: ['1 Shore Road'], words: 0, when: WHEN })).files['word/document.xml'];
+	ok(!/about [\d,]+ words/.test(none) && none.includes('1 Shore Road'), 'the title page of a book with no words: the contact details, and no count');
 	eq([keyword('The Lighthouse'), keyword('A Salt Road'), surname('Mara Lindqvist'), surname('')].join('|'), 'LIGHTHOUSE|SALT ROAD|Lindqvist|', 'the header’s words');
 	eq(headingLines({ id: 'part-2', role: 'part', number: 2, title: 'The Island', blocks: [], paths: [] }).join('|'), 'Part Two|The Island', 'a part’s heading');
 	eq(esc('a<b>&"\u0001\uD800'), 'a&lt;b&gt;&amp;&quot;', 'text is made safe for XML');

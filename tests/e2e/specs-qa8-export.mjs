@@ -633,7 +633,7 @@ bug('every note left out: the window says nothing will be exported, and the Word
 	t.ok(!!(await p.ev(`document.querySelector('${WIN} button.mod-cta')?.disabled`)), 'and Export is off, or the export says why it did not happen (UX: Export is enabled and makes a book with a title page and no chapters)');
 }, { changes: true });
 
-bug('the title page of a book with no words does not claim “about 100 words”', async (p, h, t) => {
+test('the title page of a book with no words does not claim “about 100 words”', async (p, h, t) => {
 	await mk(p, 'Hollow', []);
 	const d = docx(await make(p, 'Hollow'));
 	t.ok(!/about 100 words/.test(d.all), 'Word title page for a book of 0 words: ' + (d.all.match(/about [\d,]+ words/)?.[0] ?? 'no count'));
