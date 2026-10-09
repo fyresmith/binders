@@ -54,6 +54,9 @@ export class ExportModal extends Modal {
 	private pageSize = '';
 	/** How many pages the PDF being shown has, once they are laid out. */
 	private pages: number | null = null;
+	/** What the pages being shown say of their typeface (it doesn't hold the book's script), or nothing. It is the
+	    pages' and not the book's: it goes with the style, its typeface and the kind, none of which reads the notes again. */
+	private face = '';
 	private matter: boolean;
 	private o: CompileOptions;
 	private path: string;
@@ -255,7 +258,7 @@ export class ExportModal extends Modal {
 			const d = el.createDiv({ cls: 'modal-sidebar-list-item-details' });
 			d.createDiv({ cls: 'binders-snapshots-item-name', text: k.name });
 			d.createDiv({ cls: 'binders-snapshots-item-detail', text: detail });
-			const pick = () => { if (this.kind === k.id || this.busy) return; this.kind = k.id; this.contents = false; this.changed(true); };
+			const pick = () => { if (this.kind === k.id || this.busy) return; this.kind = k.id; this.face = ''; this.contents = false; this.changed(true); };
 			el.addEventListener('click', pick);
 			el.addEventListener('keydown', (e) => {
 				if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); return; }
@@ -343,6 +346,7 @@ export class ExportModal extends Modal {
 	/** A style was chosen: it is this binder's from now on (kept with its Book details, where they can be written). */
 	private chooseStyle(family: Family, name: string): void {
 		if (family === 'book') this.bookStyle = name; else this.style = name;
+		this.face = '';
 		void saveDetails(this.plugin, this.folder, family === 'book' ? { bookStyle: name } : { manuscriptStyle: name }).catch(() => { /* a binder that can't be written: the style holds for this window */ });
 		this.changed(this.asTyped() !== (this.quotes === 'as typed'));
 	}
@@ -394,7 +398,9 @@ export class ExportModal extends Modal {
 			}
 			// (what a style's file has that can't be read is said with the rest: its line opens the editor)
 			const styled = kind === 'scrivener' ? [] : this.plugin.styles.get(this.styleName(kind), familyOf(kind)).warnings.map((text) => ({ path: '', name: 'Style', text }));
-			const warnings = [...styled, ...(kind === 'scrivener' ? this.scriv?.warnings : this.book?.warnings) ?? []];
+			// (and a typeface that doesn't hold the book's script, while it is pages that are being made)
+			const face = this.pdf && this.face ? [{ path: this.plugin.binders.binderOf(this.folder)?.note.path ?? '', name: 'Book details', text: this.face }] : [];
+			const warnings = [...styled, ...face, ...(kind === 'scrivener' ? this.scriv?.warnings : this.book?.warnings) ?? []];
 			if (warnings.length) {
 				const head = foot.createDiv({ cls: 'binders-export-warn-head' });
 				setIcon(head.createSpan({ cls: 'binders-export-warn-icon' }), 'alert-triangle');
@@ -518,6 +524,7 @@ export class ExportModal extends Modal {
 		this.pages = null;
 		delete el.dataset.pages;
 		el.empty();
+		if (!this.pdf) this.faceSaid('');
 		if (this.kind === 'scrivener') { drawScriv(el, this.scriv, { outside: this.plugin.settings.exportOutside, open: (path) => this.openNote(path) }); return; }
 		if (this.kind !== 'note') {
 			const book = this.book;
@@ -532,7 +539,7 @@ export class ExportModal extends Modal {
 				// the very pages that are printed: laid out here as they are for the file
 				const { book: whole, spec } = this.paged(book), turn = this.loading;
 				// (a typeface that doesn't hold the book's script: said with the other things to look at)
-				if (spec.warning && !book.warnings.some((w) => w.text === spec.warning)) { book.warnings.unshift({ path: this.plugin.binders.binderOf(this.folder)?.note.path ?? '', name: 'Book details', text: spec.warning }); this.choices(); }
+				this.faceSaid(spec.warning);
 				const view = showPages(stage, whole, spec, { progress: (pages) => { if (turn === this.loading && this.stop === view.stop) this.detailEl.setText(pages == null ? this.detailEl.getText() : `Laying out the pages… ${pages.toLocaleString()}`); } });
 				this.stop = view.stop;
 				void view.laid.then((laid) => { if (!laid || this.stop !== view.stop) return; this.pages = laid.pages.length; this.previewEl.dataset.pages = String(laid.pages.length); this.previewEl.dataset.took = String(Math.round(laid.took)); this.bar(); }, (e) => { if (this.stop === view.stop) new Notice(e instanceof Error ? e.message : String(e)); });
@@ -557,6 +564,9 @@ export class ExportModal extends Modal {
 		void MarkdownRenderer.render(this.app, forRender(cut), body, '', this.rendered).then(() => { if (turn !== this.loading) body.empty(); });
 		if (cut !== text) stage.createDiv({ cls: 'binders-export-caption', text: 'The start of the note is shown. The note itself has all of it.' });
 	}
+
+	/** What the pages say of their typeface now: the things to look at follow it. */
+	private faceSaid(text: string): void { if (text === this.face) return; this.face = text; this.choices(); }
 
 	// ---- exporting ----
 

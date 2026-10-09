@@ -729,3 +729,50 @@ test('the Page and Style rows follow `page-size` and `book-style` changed in the
 	await p.sleep(1200);
 	t.eq(await value('page'), 'a5', 'a size chosen in the window stays when something else in the note changes');
 });
+
+// ---- Step 6: the typeface warning is the pages', and goes with them ----
+
+test('the typeface warning goes when it no longer holds: as another kind is chosen, and when the style’s typeface is changed', async (p, h, t) => {
+	await withAuthor(p);
+	await p.ev(`app.fileManager.processFrontMatter(app.vault.getAbstractFileByPath(${j(BINDER_NOTE)}), (fm) => { fm.language = 'ru'; }).then(() => 1)`);
+	await until(p, `app.metadataCache.getCache(${j(BINDER_NOTE)})?.frontmatter?.language === 'ru'`, 4000);
+	const WARN = 'EB Garamond has no Cyrillic letters. The pages are set in this computer’s own serif instead.';
+	const warned = `[...document.querySelectorAll('${WIN} .binders-export-warn-text')].filter(e => e.textContent === ${j(WARN)}).length`;
+	const count = () => p.ev(`document.querySelector('${WIN} .binders-export-warn-head')?.textContent ?? ''`);
+	const key = (k) => `document.querySelector('${WIN} [data-binders-key="${k}"]')`;
+	const face = async (name) => {
+		await p.ev(`(() => { ${key('edit-style')}.click(); return 1; })()`);
+		await until(p, `!!${key('style-typeface')}`, 6000);
+		await p.ev(`(() => { const s = ${key('style-typeface')}; s.value = [...s.options].find(o => o.textContent === ${j(name)}).value; s.dispatchEvent(new Event('change')); return 1; })()`);
+		await laidAgain(p);
+		await p.ev(`(() => { ${key('style-back')}.click(); return 1; })()`);
+		await until(p, `!!${key('edit-style')}`, 6000);
+	};
+	try {
+		await open(p);
+		await pick(p, 'Paperback');
+		t.ok(await laidOut(p), 'the pages are laid out');
+		t.ok(await until(p, `${warned} === 1`, 3000), 'Classic, a Russian book: the typeface has no Cyrillic, said once');
+		t.eq(await count(), '1 thing to look at', 'and counted');
+		// (looked at in the very turn the kind is chosen: before the book has been read again for it)
+		const kind = (name) => p.ev(`(() => { [...document.querySelectorAll('${WIN} [role="option"]')].find(e => e.querySelector('.binders-snapshots-item-name').textContent === ${j(name)}).click(); return ${warned}; })()`);
+		t.eq(await kind('Manuscript'), 0, 'Manuscript, a Word file with no pages of Binders’ own: the warning is gone as the kind is chosen');
+		await p.sleep(1500);
+		t.eq(await p.ev(warned), 0, 'and stays gone once the book is read again');
+		t.eq(await count(), '', 'with nothing left to look at');
+		await pick(p, 'Paperback');
+		t.ok(await laidAgain(p), 'Paperback again');
+		t.ok(await until(p, `${warned} === 1`, 3000), 'the warning is back');
+		t.eq(await kind('Ebook'), 0, 'an ebook’s typeface is its reader’s: gone as the kind is chosen');
+		await pick(p, 'Paperback');
+		t.ok(await laidAgain(p), 'Paperback once more');
+		t.ok(await until(p, `${warned} === 1`, 3000), 'the warning is back');
+		// the style's own typeface changed in the editor: the pages are laid out again, and the notes are not read again
+		await face('Source Serif');
+		t.eq(await p.ev(`/Source Serif/.test(getComputedStyle(${FRAME}.contentDocument.querySelector('.page .text')).fontFamily)`), true, 'the style’s typeface changed to Source Serif, which has the letters');
+		t.eq(await p.ev(warned), 0, 'the warning is gone');
+		t.eq(await count(), '', 'and nothing is left to look at');
+		await face('EB Garamond');
+		t.ok(await until(p, `${warned} === 1`, 3000), 'changed back: the warning is there again, once');
+	} finally { await unstyle(p); }
+});
