@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.46.21 (2026-10-09)
+
+### Fixed
+
+- Bringing back everything no longer makes a second copy of a short note that was renamed after Obsidian rewrote the links in it; the renamed note gets its name back, as longer notes already did.
+
 ## 0.46.20 (2026-10-09)
 
 ### Fixed

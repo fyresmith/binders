@@ -2068,3 +2068,28 @@ test('on a tablet, and in a narrow window: the snapshot’s name has a line of i
 	const wide = await measure(DLG);
 	t.ok(!wide.below && wide.shown, 'a wide window: the name and the buttons on one line, as before: ' + j(wide));
 }, 300000);
+
+// ---- “Everything” and the two duplicates: a note moved to another folder of the binder is not made again; a short
+// note whose links Obsidian rewrote is the note it was, renamed, and not a second one ----
+
+for (const [on, long] of [[false, false], [true, true], [true, false]]) test(`“Everything”, a note renamed and its links rewritten by Obsidian (“Automatically update internal links” ${on ? 'on' : 'off'}, ${long ? 'three paragraphs' : 'one paragraph'}): it gets its name back and its text as it was; no second note is made`, async (p, h, t) => {
+	await p.ev(`(() => { app.vault.setConfig('alwaysUpdateLinks', ${on}); return 1; })()`);
+	const pad = long ? '\\n\\nSecond paragraph that is only prose.\\n\\nThird paragraph that is only prose.\\n' : '\\n';
+	await make(p, 'Links', `[
+		{ path: 'Alpha.md', text: 'Alpha text, linked [[Beta]] and [[Sub/Gamma|the gamma]].${pad}' },
+		{ path: 'Sub/Beta.md', text: 'Beta text, back to [[Alpha]].\\n\\n# Head\\n' },
+		{ path: 'Sub/Gamma.md', text: 'Gamma text.\\n' },
+		{ path: 'Z last.md', text: 'Last text.\\n' }
+	]`);
+	const original = await p.ev(`app.vault.adapter.read('Links/Alpha.md')`);
+	await p.ev(`${PL}.snapshotsApi.takeFolder(${file('Links')}, 'Linked draft').then(() => 1)`);
+	await sleep(p, 300);
+	await p.ev(`(async () => { const f = (x) => app.vault.getAbstractFileByPath(x); const mv = ${on} ? (a, b) => app.fileManager.renameFile(a, b) : (a, b) => app.vault.rename(a, b); await mv(f('Links/Alpha.md'), 'Links/Alpha renamed.md'); await mv(f('Links/Sub/Beta.md'), 'Links/Beta moved.md'); })().then(() => 1)`);
+	await settled(p);
+	t.ok(/^done/.test(await backAll(p, 'Linked draft', 'Links')), 'Everything is brought back');
+	await settled(p);
+	const notes = (await allFiles(p)).filter((f) => f.startsWith('Links/') && f.endsWith('.md') && !/Snapshots/.test(f));
+	t.ok(notes.includes('Links/Alpha.md') && !notes.includes('Links/Alpha renamed.md'), 'the note has its name back, and there is no other with its text: ' + j(notes));
+	t.eq(await p.ev(`app.vault.adapter.read('Links/Alpha.md')`), original, 'its text is as it was, byte for byte');
+	t.eq(j(notes.filter((f) => /Alpha/.test(f))), j(['Links/Alpha.md']), 'no second Alpha');
+}, 200000);

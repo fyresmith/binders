@@ -273,12 +273,60 @@ export function changes(then: Entry[], now: Entry[], opts: { words?: boolean; ya
 	const T = then.filter((e) => !e.role), N = now.filter((e) => !e.role);
 	const nowAt = new Map(N.map((e) => [e.path, e])), pair = new Map<Entry, Entry>(), back = new Map<Entry, Entry>();
 	const join = (a: Entry, b: Entry) => { pair.set(a, b); back.set(b, a); };
-	const bodyOf = new Map<Entry, string[]>();
-	const paras = (e: Entry): string[] => { let p = bodyOf.get(e); if (!p) bodyOf.set(e, p = paragraphs(parts(e.text ?? '').body)); return p; };
+	// (a note's text with its links' targets taken out: the one Obsidian rewrites when a note it links to is renamed)
+	const bodyOf = new Map<Entry, string[]>(), keyOf = new Map<Entry, string>();
+	const key = (e: Entry): string => { let k = keyOf.get(e); if (k == null) keyOf.set(e, k = unlinked(e.text ?? '')); return k; };
+	const paras = (e: Entry): string[] => { let p = bodyOf.get(e); if (!p) bodyOf.set(e, p = paragraphs(parts(key(e)).body)); return p; };
 	const share = (a: Entry, b: Entry): number => {
 		const x = paras(a), y = new Set(paras(b));
 		if (!x.length || !y.size) return 0;
 		return x.filter((p) => y.has(p)).length / Math.max(x.length, y.size);
+	};
+	/** Pairs notes the way one that was renamed or moved is followed: the very same file first (its name for a tie); then
+	    the same but for where its links lead, or the one that shares most of its paragraphs. A looser match is made only
+	    where it is the best both ways: a tie pairs neither, when in doubt. */
+	const follow = (as: Entry[], bs: Entry[]): [Entry, Entry][] => {
+		const out: [Entry, Entry][] = [], doneA = new Set<Entry>(), taken = new Set<Entry>();
+		const text = (e: Entry): boolean => e.kind === 'note' && (e.text ?? '').trim() !== '';
+		const byHash = new Map<string, Entry[]>();
+		for (const b of bs) if (text(b) && b.hash) byHash.set(b.hash, [...(byHash.get(b.hash) ?? []), b]);
+		for (const a of as) {
+			const same = text(a) ? (byHash.get(a.hash) ?? []).filter((b) => !taken.has(b)) : [];
+			if (!same.length) continue;
+			const b = same.find((x) => nameOf(x.path) === nameOf(a.path)) ?? same[0];
+			out.push([a, b]); doneA.add(a); taken.add(b);
+		}
+		const keyed = new Map<string, Entry[]>(), has = new Map<string, Entry[]>();
+		for (const b of bs) if (text(b) && !taken.has(b)) {
+			keyed.set(key(b), [...(keyed.get(key(b)) ?? []), b]);
+			for (const p of new Set(paras(b))) has.set(p, [...(has.get(p) ?? []), b]);
+		}
+		const found: { a: Entry; b: Entry; s: number }[] = [];
+		for (const a of as) {
+			if (!text(a) || doneA.has(a)) continue;
+			// (the same but for links scores above any share of paragraphs)
+			const seen = new Set<Entry>();
+			for (const b of keyed.get(key(a)) ?? []) { found.push({ a, b, s: 2 }); seen.add(b); }
+			for (const p of new Set(paras(a))) for (const b of has.get(p) ?? []) {
+				if (seen.has(b)) continue;
+				seen.add(b);
+				const s = share(a, b);
+				if (s >= SAME_NOTE) found.push({ a, b, s });
+			}
+		}
+		// each side's best score, and how many candidates have it
+		const tops = (side: 'a' | 'b'): Map<Entry, { s: number; n: number }> => {
+			const m = new Map<Entry, { s: number; n: number }>();
+			for (const f of found) { const e = f[side], t = m.get(e); if (!t || f.s > t.s) m.set(e, { s: f.s, n: 1 }); else if (f.s === t.s) t.n++; }
+			return m;
+		};
+		const topA = tops('a'), topB = tops('b');
+		for (const f of found) {
+			if (doneA.has(f.a) || taken.has(f.b)) continue;
+			const x = topA.get(f.a), y = topB.get(f.b);
+			if (x && y && x.s === f.s && x.n === 1 && y.s === f.s && y.n === 1) { out.push([f.a, f.b]); doneA.add(f.a); taken.add(f.b); }
+		}
+		return out;
 	};
 	const notesT = T.filter((e) => e.kind !== 'folder'), notesN = N.filter((e) => e.kind !== 'folder');
 	// the same path and the same file; then the same path and mostly the same text (or too little text to tell)
@@ -293,25 +341,7 @@ export function changes(then: Entry[], now: Entry[], opts: { words?: boolean; ya
 		if (!loose || a.kind === 'file' || paras(a).length < 3 || paras(b).length < 3 || share(a, b) >= SAME_NOTE) join(a, b);
 	}
 	if (loose) {
-		// the very same file under another name or in another folder
-		const byHash = new Map<string, Entry[]>();
-		for (const b of leftN()) if (b.kind === 'note' && b.hash && (b.text ?? '').trim()) byHash.set(b.hash, [...(byHash.get(b.hash) ?? []), b]);
-		for (const a of leftT()) {
-			const same = (byHash.get(a.hash) ?? []).filter((b) => !back.has(b));
-			if (a.kind !== 'note' || !same.length) continue;
-			join(a, same.find((b) => nameOf(b.path) === nameOf(a.path)) ?? same[0]);
-		}
-		// the one that shares most of its paragraphs
-		const has = new Map<string, Entry[]>();
-		for (const b of leftN()) if (b.kind === 'note') for (const p of new Set(paras(b))) has.set(p, [...(has.get(p) ?? []), b]);
-		const found: { a: Entry; b: Entry; share: number }[] = [];
-		for (const a of leftT()) {
-			if (a.kind !== 'note') continue;
-			const seen = new Set<Entry>();
-			for (const p of new Set(paras(a))) for (const b of has.get(p) ?? []) seen.add(b);
-			for (const b of seen) { const s = share(a, b); if (s >= SAME_NOTE) found.push({ a, b, share: s }); }
-		}
-		for (const f of found.sort((x, y) => y.share - x.share)) if (!pair.has(f.a) && !back.has(f.b)) join(f.a, f.b);
+		for (const [a, b] of follow(leftT(), leftN())) join(a, b);
 		// what is left at the same path is the same note, written again from nothing
 		for (const a of leftT()) { const b = nowAt.get(a.path); if (b && !back.has(b) && b.kind === a.kind) join(a, b); }
 	}
@@ -534,8 +564,13 @@ export function mayPlace(path: string, kind: Kind, of = ''): boolean {
     the note is renamed, in every note that has one: so a note that says what it said, with only its links' targets
     different, has not been written in. (A link's own words, after "|" or in "[...]", are the writer's, and count.) */
 export function sameButLinks(a: string, b: string): boolean {
-	const plain = (s: string) => s.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n').replace(/\[\[[^\]\n|]*(\|[^\]\n]*)?\]\]/g, '[[$1]]').replace(/\]\([^)\n]*\)/g, ']()');
-	return a === b || plain(a) === plain(b);
+	return a === b || unlinked(a) === unlinked(b);
+}
+
+/** A text with its links' targets taken out, and its byte-order mark and line endings made plain: how a note is
+    compared with another when only where its links lead could differ. */
+export function unlinked(text: string): string {
+	return text.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n').replace(/\[\[[^\]\n|]*(\|[^\]\n]*)?\]\]/g, '[[$1]]').replace(/\]\([^)\n]*\)/g, ']()');
 }
 
 /** What bringing a snapshot back would write, and what it would leave: from what changed (`c`, of `then` against

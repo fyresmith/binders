@@ -572,4 +572,30 @@ const paths = (list: Entry[]) => list.map((e) => e.path);
 	ok(!!base.all && !!typed.all && shape(base.all) === shape(typed.all), 'a note written in meanwhile: the same plan (that note alone is left)');
 	ok(!!base.all && !!arrived.all && shape(base.all) !== shape(arrived.all), 'a note that arrived meanwhile: another plan');
 }
+
+// a short note renamed since, whose links Obsidian rewrote, is the same note (a long one always was)
+{
+	const then = [note('Alpha.md', 'Alpha text, linked [[Beta]] and [[Sub/Gamma|the gamma]].\n'), note('Z last.md', 'Last text.\n')];
+	const now = [note('Alpha renamed.md', 'Alpha text, linked [[Beta moved]] and [[Sub/Gamma|the gamma]].\n'), note('Z last.md', 'Last text.\n')];
+	const c = changes(then, now), r = c.rows.find((x) => x.name === 'Alpha');
+	ok(!!r && !!r.then && !!r.now && r.renamed === 'Alpha renamed' && !r.gone && !r.fresh, 'a short note renamed, its link rewritten: the same note, renamed');
+	const p = everything(then, now);
+	ok(!!p.all && !p.all.made.length && !p.all.stays.length && p.all.files.some((f) => f.path === 'Alpha.md' && f.from === 'Alpha renamed.md'), 'brought back: it has its name again, nothing made, nothing new stays');
+	// (a link’s own words are the writer’s: not the same note)
+	const words = changes([note('Alpha.md', 'See [[Beta|the beta]].\n')], [note('Alpha renamed.md', 'See [[Beta moved|the other]].\n')]);
+	ok(words.rows.every((x) => !(x.then && x.now)), 'a link’s words changed: not followed');
+}
+
+// the same file first; then the same but for links; a tie pairs neither
+{
+	// the exact copy wins over the one whose link was rewritten
+	const then = [note('A.md', 'See [[Beta]] today.\n'), note('B.md', 'See [[Gamma]] today.\n')];
+	const now = [note('C.md', 'See [[Beta moved]] today.\n'), note('D.md', 'See [[Gamma]] today.\n')];
+	const c = changes(then, now);
+	ok(c.rows.some((r) => r.name === 'B' && r.now?.path === 'D.md') && c.rows.some((r) => r.name === 'A' && r.now?.path === 'C.md'), 'the exact copy is B’s, the rewritten one is A’s');
+	// two different short notes and one candidate that is the same but for a link’s target: neither is paired
+	const tie = changes(then, [note('C.md', 'See [[Beta moved]] today.\n')]);
+	ok(tie.rows.every((r) => !(r.then && r.now)) && tie.rows.filter((r) => r.gone).length === 2, 'a tie: neither is paired, both gone, the new one fresh');
+}
+
 done('binder snapshot text');
