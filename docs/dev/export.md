@@ -405,6 +405,22 @@ are `src/export/style-rows.ts` (one table: the editor's rows, the file's propert
 is read) and `style-file.ts` (read, changed a line at a time, resolved over what it is based on); the vault's side
 is `styles.ts` (`plugin.styles`), which keeps the folder read and reads it again on every change there.
 
+A change from the editor is a function of the file's text, not a text (step 6): made at once on the text Binders
+has, so the preview follows, and written with `vault.process` only over that very text. If the file is something
+else by then (another program or sync wrote it a moment before, and the folder hasn't been read again), the change
+is made again on what is there, a line each, so both are kept; a file that has meanwhile become a newer Binders', or
+unreadable, is left as it is. A style being renamed is its new name from the moment the rename starts (`moving`),
+and the rename is one of the writes in their order: a row changed meanwhile goes to the renamed file and never makes
+the old one again. A style made to stand by itself (`standalone`: its base deleted, or a copy to share) keeps a
+line of its own that couldn't be read, as it is, or as a comment above the value written in its place.
+
+**The window and the binder note.** The styles and the page size are the binder note's (`book-style`,
+`manuscript-style`, `page-size`), read as the window opens and again each time the book is read (`follow`): one
+changed in the note while the window is open is the window's from then on; one that hasn't changed there stays as
+the window has it, so a choice that couldn't be kept (a Longform project's) holds for the window. The typeface
+warning ("EB Garamond has no Cyrillic letters…") is the pages', not the book's: it is kept apart from the warnings
+read with the notes (`face`), and goes with the kind, the style and the style's typeface.
+
 **The style editor** (`src/view/export-style-editor.ts`). "Edit this style" is the button beside the Style dropdown
 (and in the window's menu): the sidebar becomes the editor, the preview stays and follows each change 90 ms after
 the last one. A book style edited from Ebook has 8 rows (9 with "Your own" heading), a manuscript style 7; the 9
