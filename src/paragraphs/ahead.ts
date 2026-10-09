@@ -14,10 +14,10 @@ import { TABBED, tabLines } from './text';
    the same classes here, as a decoration. Only until the reading arrives: where the editor has read, the mode decides
    and this adds nothing, so the two can't disagree for longer than those frames. Nothing is in the text.
 
-   One thing the classes alone don't put right: Obsidian hangs an indented line it has no reading of under its white space,
-   with a style written on the line itself, so a paragraph's wrapped lines stand in until the reading comes. So the
-   reading is also hurried: when lines in sight aren't read, the editor is told to read as far as them before the
-   frame is drawn, for no longer than `HURRY` ms a frame (CodeMirror's `forceParsing`; left to itself it reads on in
+   One thing the classes don't put right: Obsidian hangs an indented line it has no reading of under its white space,
+   with a style written on the line itself that nothing of ours can take off without the two fighting (see `mark`),
+   so a paragraph's wrapped lines stand under its tab until the reading comes. So the reading is also hurried:
+   when lines in sight aren't read, the editor is told to read as far as them before the frame is drawn, for no longer than `HURRY` ms a frame (CodeMirror's `forceParsing`; left to itself it reads on in
    idle time, a frame or more later). Far into a long note the editor starts afresh near the page instead of reading
    all the way there, and that is done within the one frame; nearer, it may take a few. */
 
@@ -32,9 +32,11 @@ const guess = (doc: Text): Set<number> => {
 	return lines;
 };
 
-// (the style: Obsidian hangs an indented line it has no reading of under its white space, by a style on the line;
-// this one, on the same line, is the last word. Only on a line not read yet: once read, Obsidian doesn't hang it.)
-const mark = (spaces: boolean) => Decoration.line({ class: spaces ? `${TAB_LINE} ${SPACE_LINE}` : TAB_LINE, attributes: { style: 'text-indent: 0; padding-inline-start: 0' } });
+// (No style here: Obsidian hangs a line it has no reading of under its white space with an inline style, and an inline
+// style of ours beside it sets the two writing the line's style attribute against each other until the editor warns
+// "Measure loop restarted more than 5 times". So the wrapped lines of a paragraph stand under its tab for the frames
+// before it is read, as Obsidian has them, and the reading is hurried below to make those few.)
+const mark = (spaces: boolean) => Decoration.line({ class: spaces ? `${TAB_LINE} ${SPACE_LINE}` : TAB_LINE });
 const TABS = mark(false), SPACES = mark(true);
 
 /** Has the editor read this line, and as what: a tab paragraph, something else, or not yet? Told by the tree alone:
@@ -53,21 +55,22 @@ function read(state: EditorState, from: number, to: number): 'tab' | 'other' | n
 	return tab ? 'tab' : named ? 'other' : null;
 }
 
-function build(view: EditorView, on: boolean): { set: DecorationSet; unread: boolean } {
-	if (!on) return { set: Decoration.none, unread: false };
+function build(view: EditorView, on: boolean): { set: DecorationSet; unread: boolean; key: string } {
+	if (!on) return { set: Decoration.none, unread: false, key: '' };
 	const b = new RangeSetBuilder<Decoration>(), state = view.state, doc = state.doc;
 	let unread = false;
-	for (const { from, to } of view.visibleRanges) {
+	const marked: number[] = [];
+	for (const { from, to } of [view.viewport]) {
 		for (let pos = from; pos <= to;) {
 			const line = doc.lineAt(pos);
 			if (TABBED.test(line.text)) {
 				const as = read(state, line.from, line.to);
-				if (!as && guess(doc).has(line.number - 1)) { unread = true; b.add(line.from, line.from, /^\t+(\S|$)/.test(line.text) ? TABS : SPACES); }
+				if (!as && guess(doc).has(line.number - 1)) { unread = true; const tabs = /^\t+(\S|$)/.test(line.text); marked.push(tabs ? line.from : -line.from - 1); b.add(line.from, line.from, tabs ? TABS : SPACES); }
 			}
 			pos = line.to + 1;
 		}
 	}
-	return { set: b.finish(), unread };
+	return { set: b.finish(), unread, key: marked.join() };
 }
 
 /** The editor extension: `on` says whether this editor's note is one whose tab lines are paragraphs. In every
@@ -79,9 +82,12 @@ export const ahead = (on: (view: EditorView) => boolean) => ViewPlugin.fromClass
 	constructor(readonly view: EditorView) { this.look(); }
 	update(_u: ViewUpdate) { this.look(); }
 	destroy() { this.gone = true; }
+	key = '';
 	look() {
-		const { set, unread } = build(this.view, on(this.view));
-		this.decorations = set;
+		const { set, unread, key } = build(this.view, on(this.view));
+		// (the same lines marked as a moment ago: the same set, or the editor takes each update for a change in what is
+		// drawn, measures again, and an editor that is moving as it is read never settles: "Measure loop restarted")
+		if (key !== this.key) { this.decorations = set; this.key = key; }
 		if (!unread || this.waiting) return;
 		this.waiting = true;
 		// (not while the editor is in the middle of an update; before the frame is drawn)

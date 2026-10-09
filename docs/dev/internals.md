@@ -373,8 +373,10 @@ is an ordinary `<iframe srcdoc>`, which is the web's and nothing of Obsidian's.
   on an emulated phone in a note of 74,000 characters). What is relied on, none of it in the API: that a line with
   no reading has no syntax node anywhere in it, while a line the mode has read has one (its white space named, or
   something in it); that Obsidian draws such a line's tab as `cm-indent` with its guide line; and that it hangs the
-  line under its white space with a style on the line itself (which no stylesheet can take
-  off; a style from a line decoration of ours on the same line does, as measured, and only unread lines get one). So a line in sight with no node, which the text alone says is a tab paragraph (`tabLines` with `carried`
+  line under its white space with an inline style on the line (which no stylesheet can take off, and which a style of
+  ours on the same line cannot either, for the two writing the line's `style` attribute against each other made CodeMirror
+  warn "Measure loop restarted more than 5 times" on a phone: so an unread line's wrapped lines stand under its tab for
+  the frames before it is read, as Obsidian has them). So a line in sight with no node, which the text alone says is a tab paragraph (`tabLines` with `carried`
   and `blank`, the mode's rule said from the text), is given the mode's classes by a line decoration until its
   reading comes, and the reading is hurried: CodeMirror's public `forceParsing` as far as the page, at most 24 ms
   a frame, before the frame is drawn. Without any of it (the tree shaped otherwise, `forceParsing` throwing): the

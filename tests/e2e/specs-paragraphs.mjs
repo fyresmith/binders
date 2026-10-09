@@ -853,8 +853,9 @@ const record = (p) => p.ev(`(() => { window.__rec?.stop();
 		if (ind && !/^(none|normal)$/.test(getComputedStyle(ind, '::before').content)) why.push('guide line');
 		if (ind && Math.round(ind.getBoundingClientRect().width) !== 24) why.push('tab ' + Math.round(ind.getBoundingClientRect().width) + 'px');
 		if (l.querySelector('.cm-inline-code')) why.push('code');
-		if (/text-indent: ?-/.test(l.getAttribute('style') || '')) why.push('its wrapped lines hung under the tab');
-		const w = document.createTreeWalker(l, NodeFilter.SHOW_TEXT); let n, x = null; while ((n = w.nextNode())) { const i = n.data.search(/\\S/); if (i >= 0) { const g = document.createRange(); g.setStart(n, i); g.setEnd(n, i + 1); x = Math.round(g.getBoundingClientRect().left - l.getBoundingClientRect().left); break; } }
+		// (a paragraph's wrapped lines stand under its tab in the frames before it is read: Obsidian's own, left, because a style of
+		// ours against its writes the line's style attribute in a loop; the first line and its first letter are what is checked)
+		const w = document.createTreeWalker(l, NodeFilter.SHOW_TEXT); let n, x = null; while ((n = w.nextNode())) { const i = n.data.search(/\\S/); if (i >= 0) { const g = document.createRange(); g.setStart(n, i); g.setEnd(n, i + 1); x = Math.round(g.getBoundingClientRect().left - l.parentElement.getBoundingClientRect().left); break; } }
 		if (x !== null && x !== 24) why.push('first letter at ' + x + 'px');
 		const k = src + ' ' + why.join(', '); if (why.length && !R.seen.has(k)) { R.seen.add(k); R.bad.push(src + ': ' + JSON.stringify(text.slice(0, 12)) + ' ' + why.join(', ') + (l.closest('.cm-editor').classList.contains('binders-prose-tabs') ? '' : ' (an editor without its reading yet)')); } } };
 	const mo = new MutationObserver(() => { look('dom'); requestAnimationFrame(() => look('frame')); });
