@@ -178,6 +178,23 @@ export function remember(plugin: BindersPlugin, change: (m: Memory) => void): vo
 	plugin.app.saveLocalStorage(MEMORY, m);
 }
 
+/** A path in the vault was renamed or moved (a folder with what is in it, or a file): the stamps follow it, so a binder
+    moved since its last export is still the one that wrote its file, and so is the file if it moved with its shelf. */
+export function followRename(plugin: BindersPlugin, f: TAbstractFile, old: string): void {
+	const hit = (p: string | undefined) => !!p && (p === old || p.startsWith(old + '/'));
+	const to = (p: string) => f.path + p.slice(old.length);
+	const was = memory(plugin).written;
+	const moves = Object.keys(was).some((k) => hit(k.startsWith('vault:') ? k.slice(6) : k) || hit(was[k]?.from));
+	if (!moves) return;
+	remember(plugin, (m) => {
+		for (const k of Object.keys(m.written)) {
+			const s = m.written[k];
+			if (s.from && hit(s.from)) s.from = to(s.from);
+			if (k.startsWith('vault:') && hit(k.slice(6))) { delete m.written[k]; m.written['vault:' + to(k.slice(6))] = s; }
+		}
+	});
+}
+
 /** The place remembered for a kind of export of a folder, or null: then export asks. With `extension`, the place for
     a file of that ending: a manuscript remembered as a Word file and made as a PDF goes beside it, never over it. */
 export function placeFor(plugin: BindersPlugin, folder: TFolder, kind: Kind, extension?: string): string | null {

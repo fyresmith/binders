@@ -74,7 +74,7 @@ test('two binders called Draft on different shelves: the second asks before repl
 	await closeAll(p);
 });
 
-bug('a binder moved (its shelf renamed) since its last export: its own file is replaced without being asked about', async (p, h, t) => {
+test('a binder moved (its shelf renamed) since its last export: its own file is replaced without being asked about', async (p, h, t) => {
 	await standIn(p, { none: true });
 	await outDir(p);
 	await mk(p, 'Old shelf/Draft', NOTES);
@@ -126,7 +126,7 @@ test('Export is off for a book with nothing in it, and comes back when a note is
 	t.ok(await until(p, `document.querySelector('${WIN} button.mod-cta')?.disabled === false`, 6000), 'a note added: Export is on');
 });
 
-bug('a binder moved with its shelf (the default Exports folder beside it): its own file is replaced without a question', async (p, h, t) => {
+test('a binder moved with its shelf (the default Exports folder beside it): its own file is replaced without a question', async (p, h, t) => {
 	await standIn(p, { none: true });
 	await mk(p, 'Old shelf/Draft', NOTES);
 	t.eq(await go(p, 'Old shelf/Draft'), 'saved', 'saved');

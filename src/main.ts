@@ -14,6 +14,7 @@ import { ConvertModal } from './longform-convert';
 import { mergeScenes, splitScene, splitUndo } from './scenes';
 import { Focus } from './focus/focus';
 import { desktop } from './export/desktop';
+import { followRename } from './export/export';
 import { printer } from './export/pdf';
 import { ExportModal } from './view/export';
 import { exportAgain } from './view/export-again';
@@ -104,6 +105,8 @@ export default class BindersPlugin extends Plugin {
 		// (not in a card's own menu, which has these already)
 		this.registerEvent(this.app.workspace.on('file-menu', (menu, file, source) => { if (source !== ITEM_MENU) this.fileMenu(menu, file, source); }));
 		this.registerEvent(this.app.workspace.on('files-menu', (menu, files, source) => { if (source !== ITEM_MENU) this.filesMenu(menu, files, source); }));
+		// (export's stamps follow a renamed or moved folder or file: see followRename)
+		this.registerEvent(this.app.vault.on('rename', (f, old) => followRename(this, f, old)));
 		const active = () => this.app.workspace.getActiveFile();
 		this.snapshotCommands(active);
 		this.addCommand({ id: 'open-binder', name: 'Open binder', checkCallback: (checking) => {
