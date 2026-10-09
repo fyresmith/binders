@@ -376,7 +376,7 @@ test('a note deleted and another renamed while the screen is open: the rest come
 	if (auto.length) { const kept = await snapshot(p, `${SN}/${auto[0]}`); t.ok(kept.items.some((i) => i.text?.includes('LATER-K')) && !kept.items.some((i) => i.path.endsWith('Arrival.md')) , 'automatic snapshot holds the renamed note\'s latest text (A was already deleted)'); }
 }, 120000);
 
-test('BUG: reordering a Longform project that has indented scenes throws in the inspector\'s contents list (Dh.sync insertBefore)', async (p, h, t) => {
+test('qa9 bringback: reordering a Longform project that has indented scenes throws nothing in the inspector’s contents list', async (p, h, t) => {
 	const D = 'Longform demo';
 	await openView(p, D);
 	p.errors.length = 0;
