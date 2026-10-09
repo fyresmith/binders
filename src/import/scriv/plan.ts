@@ -1,6 +1,6 @@
 import type { BindersSettings } from '../../settings-data';
 import { SNAPSHOTS, SNAPSHOT_EXT, snapshotFile, snapshotName } from '../../snapshot-text';
-import { PATH_FIELD, snapshotRtf } from '../../export/scriv/parts';
+import { PALETTE_HEX, PATH_FIELD, snapshotRtf } from '../../export/scriv/parts';
 import { MAX_BYTES, MAX_FILES, TOO_BIG, utf8 } from '../source';
 import { escapeMarkdown, readRtf } from './rtf';
 import { children, readXml, value, type Element } from './xml';
@@ -226,9 +226,12 @@ export function planImport(project: ReadProject, o: PlanOptions): ImportPlan {
 
 	// ---- labels and statuses ----
 
+	// (a label in one of Obsidian's named colors is that color's shade in a project, as export writes it: a binder
+	// that went out to Scrivener comes back to the labels it had, not to a second set beside them)
+	const shade = (c: string) => key(PALETTE_HEX[c.trim().toLowerCase()] ?? c);
 	const labelNames = new Map<string, string>(), takenLabels = [...s.labels];
 	for (const [id, l] of project.labels) {
-		const same = takenLabels.find((v) => key(v.name) === key(l.name) && key(v.color) === key(l.color));
+		const same = takenLabels.find((v) => key(v.name) === key(l.name) && shade(v.color) === shade(l.color));
 		let title = same?.name ?? l.name;
 		if (!same) {
 			// (a label of this name in another color is the vault's: the project's comes in beside it, under its own name)

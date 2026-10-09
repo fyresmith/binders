@@ -114,6 +114,15 @@ const written = writeScriv({ name: 'Book', path: 'Book', labels: [], statuses: [
 const roundTrip = planImport(readProject(projectSource(scrivFiles(written, 'Book'), 'Book', async () => true)), { ...options, name: 'Book import' });
 eq(roundTrip.sceneCount, 1, 'exported sample imports');
 ok([...roundTrip.files.values()].some((b) => utf8(b).includes('Mara')), 'round-trip writing retained');
+// A vault's labels in Obsidian's named colors go out as those colors' shades: coming back they are the same labels.
+const labelled = writeScriv({ name: 'Book', path: 'Book', labels: [...DEFAULT_SETTINGS.labels, { name: 'Storm', color: '#1A2b3C' }], statuses: [], items: [{ kind: 'note', name: 'Arrival', path: 'Book/Arrival.md', text: 'Mara came ashore.', included: true, label: 'Red' }] }, { outside: true, snapshots: true, version: '0.44.16' });
+const labelPlan = planImport(readProject(projectSource(scrivFiles(labelled, 'Book'), 'Book', async () => true)), { ...options, name: 'Book labels', settings: { ...DEFAULT_SETTINGS, labels: [...DEFAULT_SETTINGS.labels, { name: 'Storm', color: '#1a2B3c' }] } });
+eq(labelPlan.labels.map((l) => l.name).join(', '), '', 'a round trip adds no label the vault has already');
+eq(labelPlan.warnings.filter((w) => /label of that name/.test(w)).length, 0, 'and warns of no color clash');
+ok(utf8(labelPlan.files.get('Book labels/Arrival.md')).includes('label: "Red"'), 'the note keeps its label by the vault’s own name');
+// (a label of the vault's name in a color that is not its own still comes in beside it)
+const clash = planImport(readProject(projectSource(scrivFiles(labelled, 'Book'), 'Book', async () => true)), { ...options, name: 'Book clash', settings: { ...DEFAULT_SETTINGS, labels: [{ name: 'Red', color: 'blue' }] } });
+ok(clash.labels.some((l) => l.name === 'Red (Book clash)') && clash.warnings.some((w) => /label of that name/.test(w)), 'a real clash of colors is still said');
 
 eq(rich("{\\rtf1\\ansi\\ansicpg1252{\\fonttbl{\\f0\\fcharset0 Roman;}{\\f1\\fcharset204 Cyrillic;}}\\f1 \\'cf\\f0 \\'e9}").plain, 'Пé', 'returning to ANSI font restores its code page');
 eq(rich("{\\rtf1\\ansi{\\fonttbl\\f0\\fcharset0 Roman;\\f1\\fcharset204 Cyrillic;}\\f1 \\'cf\\plain \\'e9}").plain, 'Пé', 'Cocoa flat font tables and plain restore encoding');
