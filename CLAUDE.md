@@ -10,12 +10,11 @@
 - **Where it came from:** planned 2026-09-30 in a session that also built and released the maintainer's first plugin,
   **Evra Timelines** (`~/Projects/evra`). Binders reuses Evra's toolchain and team workflow. Evra is a good reference
   for native-looking UI, e2e tests, the release workflow, and the lessons in AGENTS.md.
-- **Version:** 0.46.x (the number is in `package.json`; every commit bumps it). **Released:** 0.46.16 is the latest
+- **Version:** 0.48.x (the number is in `package.json`; every commit bumps it). **Released:** 0.48.3 is the latest
   release (2026-10-09; 0.44.5, on 2026-10-06, was the first public beta), and Binders is in Obsidian's community directory
   (https://community.obsidian.md/plugins/binders). `manifest.json` names the last release; only `ship --release`
   changes it, and every release is a full one, never a draft or a pre-release (AGENTS.md).
-- **Unmerged** (2026-10-09): the tile removal of 2026-10-07 (`worktree-agent-acbc3d3bb60be1a0c`), and a fix that reads a
-  Scrivener first-line indent back as a tab (`worktree-agent-a5ac0439b4a54a70c`, 038ff8c), both waiting on the
+- **Unmerged** (2026-10-09): the tile removal of 2026-10-07 (`worktree-agent-acbc3d3bb60be1a0c`), waiting on the
   maintainer; the open findings are in `tests/e2e/open-findings.json`. Snapshots of a folder and of a whole binder are at step 3 of 4 on `main`
   (take, see, compare; bring back the text and the order, or everything): automatic snapshots before find and
   replace, and thinning the automatic ones, are still to build (`docs/dev/plan.md`).
@@ -25,10 +24,11 @@
   import from Scrivener. `docs/dev/architecture.md` is the map of the code; the milestone table in
   `docs/dev/plan.md` has the history.
 - **Left before 1.0** (`ROADMAP.md`, in its order): export's checks by other hands (Word, Kindle Previewer, Apple Books, a
-  printer, Scrivener: `docs/dev/export.md`, "Not verified yet"); the rest of binder snapshots (steps 3 and 4); find and replace across the manuscript; mobile on a real device (the maintainer has none yet, so the
+  printer, Scrivener: `docs/dev/export.md`, "Not verified yet"); the rest of binder snapshots (step 4); find and replace across the manuscript; mobile on a real device (the maintainer has none yet, so the
   emulated phone and tablet tests are the standard: "emulator is king").
-- **Tests:** unit tests and about sixty e2e spec files, eight QA rounds among them. The last whole-suite run was on
-  0.43.0; 0.46.15 was run only in the seventeen spec files its work touched (346 of 347, light theme). `npm run e2e:all -- --jobs 6 --theme
+- **Tests:** unit tests and about seventy e2e spec files, ten QA rounds among them. The last whole-suite run was on
+  0.43.0; since then each batch was run only in the spec files its work touched (0.48.1: the four paragraph files, 140 of
+  140, light theme). `npm run e2e:all -- --jobs 6 --theme
   both --retry-alone` runs the suite in several Obsidians at once (about two hours); tests known to fail on purpose are
   listed in `tests/e2e/open-findings.json` and don't count. `npm run demo-vault` makes a vault of extreme binders to
   try by hand; `test-vault` is the tests' fixture and is not for hand use.

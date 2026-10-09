@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.48.3 (2026-10-09)
+
+### Changed
+
+- This release gathers the paragraph fixes, the command "Start a paragraph with a tab", and the fixes to bringing back everything.
+
 ## 0.48.2 (2026-10-09)
 
 ### Changed
