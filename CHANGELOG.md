@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.45.16 (2026-10-09)
+
+### Fixed
+
+- On a phone or tablet, the role at the end of a Contents row is large enough to tap.
+
 ## 0.45.15 (2026-10-09)
 
 ### Fixed

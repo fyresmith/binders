@@ -4975,6 +4975,25 @@ body:not(.is-phone) .binders-export .binders-export-options .setting-item.settin
 	padding-inline-start: calc(var(--size-4-3) + var(--binders-export-depth, 0) * var(--size-4-4));
 }
 
+/* A finger's row on a phone and a tablet, 44px as everywhere in Binders, and a finger's button at its end: the role
+   (the way to "Export as") is as tall as its row and at least as wide as that. A tap meant for it and a little off
+   used to fall on the row, which opens the note and closes the window. */
+.is-mobile .binders-export-outline .binders-export-row {
+	min-height: 44px;
+	padding-block: 0;
+	align-items: stretch;
+}
+
+.is-mobile .binders-export-outline .binders-export-row > .nav-file-title-content {
+	align-self: center;
+}
+
+.is-mobile .binders-export-outline .binders-export-role.is-menu {
+	align-self: stretch;
+	min-width: 44px;
+	justify-content: flex-end;
+}
+
 /* A Scrivener project's preview: the binder as Scrivener will list it, the pane's whole width. */
 .binders-export-outline.binders-export-binder {
 	flex: 1 1 auto;

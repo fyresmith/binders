@@ -940,7 +940,7 @@ for (const [name, w, h2] of [['a tablet upright (768 × 1024)', 768, 1024], ['a 
 	});
 }
 
-bug('a phone: the part at the end of a Contents row (“Chapter”, “Part 1”) is a touchable size, and a tap just beside it does not leave the Export window for the note', async (p, h, t) => {
+test('a phone: the part at the end of a Contents row (“Chapter”, “Part 1”) is a touchable size, and a tap just beside it does not leave the Export window for the note', async (p, h, t) => {
 	await onMobile(p, 390, 844, async () => {
 		await open2(p);
 		await kindTap(p, 'Ebook');
@@ -949,7 +949,16 @@ bug('a phone: the part at the end of a Contents row (“Chapter”, “Part 1”
 		await tapEl(p, `document.querySelector('${WIN} .binders-snapshots-compare')`);
 		await until(p, `!!document.querySelector('${WIN} .binders-export-outline .binders-export-row')`);
 		const tags = await p.ev(`[...document.querySelectorAll('${WIN} .binders-export-outline .binders-export-role.is-menu')].map(e => { const r = e.getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height)]; })`);
-		t.ok(tags.length > 3 && tags.every(([w, hh]) => hh >= 28 && w >= 28), 'every part is at least 28 × 28 (smallest: ' + j(tags.reduce((a, b) => (b[1] < a[1] ? b : a), tags[0])) + ')');
+		t.ok(tags.length > 3 && tags.every(([w, hh]) => hh >= 44 && w >= 44), 'every part is a finger’s size, 44 × 44 at least (smallest: ' + j(tags.reduce((a, b) => (b[1] < a[1] ? b : a), tags[0])) + ')');
+		// the row and what is in it: its name whole and in the middle, the part inside the row, nothing over anything
+		const rows = await p.ev(`[...document.querySelectorAll('${WIN} .binders-export-outline .binders-export-row')].map(r => { const b = r.getBoundingClientRect(), n = r.querySelector('.nav-file-title-content').getBoundingClientRect(), g = r.querySelector('.binders-export-role')?.getBoundingClientRect(); return { h: Math.round(b.height), mid: Math.round(Math.abs((n.top + n.bottom) / 2 - (b.top + b.bottom) / 2)), inside: !g || (g.top >= b.top - 1 && g.bottom <= b.bottom + 1 && g.right <= b.right + 1), clear: !g || n.right <= g.left + 1 }; })`);
+		t.ok(rows.every((r) => r.h >= 44 && r.h <= 60 && r.mid <= 2 && r.inside && r.clear), 'each row is a finger high, its name in the middle, its part inside it and clear of the name (' + j(rows.slice(0, 3)) + ')');
+		// a tap at the very edge of the part, where it used to miss: the menu opens, and the window is still there
+		await p.ev(`(() => { const e = document.querySelector('${WIN} .binders-export-outline .is-clickable .binders-export-role.is-menu'), r = e.getBoundingClientRect(); document.elementFromPoint(r.left + 3, r.top + 3).click(); return 1; })()`);
+		t.ok(await until(p, `!!document.querySelector('.menu')`, 3000), 'a tap at the corner of the part opens “Export as”');
+		t.ok(await p.ev(`!!document.querySelector('${WIN}')`), 'and the Export window is still open');
+		await closeMenus(p);
+		await shot(p, 'phone-contents-roles');
 	});
 });
 
