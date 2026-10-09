@@ -286,9 +286,12 @@ test('on a phone, with a long note name and 40 notes changed: the lists wrap and
 		await openView(p);
 		await wayIn(p, t);
 		await toBack(p);
+		// (this test is about the text of the notes: the screen opens on “Everything” now, so choose that scope)
+		await p.ev(`(() => { const s = document.querySelector(${j(BACK + ' select')}); s.value = 'text'; s.dispatchEvent(new Event('change')); return 1; })()`);
+		await sleep(p, 300);
 		const m = await measure(p);
 		await shot(p, 'phone-long');
-		judge(t, m, 'long', { tall: 28, skipOver: true });
+		judge(t, m, 'long', { tall: 28 });
 		const text = await p.ev(`document.querySelector(${j(BACK + ' .binders-folder-snapshots-plan')}).textContent`);
 		t.ok(/4\d notes get the text they had/.test(text) && /and \d+ more/.test(text), 'it counts them and says “and N more”: ' + text.slice(0, 200));
 		await tapOn(p, BACK + ' .modal-button-container button', 'Bring back');
@@ -321,7 +324,7 @@ test('a look at the Bring back screen on a phone, in both themes (screenshot in 
 	});
 });
 
-test('BUG: a long unbroken note name in the Bring back list runs off the right edge of the screen on a phone (clipped, with a sideways scroll)', async (p, h, t) => {
+test('a long unbroken note name in the Bring back list runs off the right edge of the screen on a phone (clipped, with a sideways scroll)', async (p, h, t) => {
 	const LONG = 'Supercalifragilisticexpialidocious'.repeat(2);
 	await seeded(p, { extra: `(async () => { const store = ${B}, f = (x) => app.vault.getAbstractFileByPath(x); await store.newScene(f(${j(P1)}), 0, ${j(LONG)}, undefined, 'Original text.\\n'); await new Promise(r => setTimeout(r, 800)); await store.snapshotsSettle(); await store.flush(); })().then(() => 1)` });
 	await work(p, `await app.vault.process(app.vault.getAbstractFileByPath(${j(P1 + '/' + LONG + '.md')}), (t) => t.replace('Original', 'REWRITTEN'));`);

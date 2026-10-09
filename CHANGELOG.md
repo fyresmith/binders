@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.46.9 (2026-10-09)
+
+### Fixed
+
+- On a phone, a long note name with no spaces now wraps in the Bring back screen instead of running off the edge.
+
 ## 0.46.8 (2026-10-09)
 
 ### Fixed

@@ -5573,6 +5573,8 @@ body:not(.is-phone) .binders-export .binders-export-options .setting-item.settin
 
 .binders-folder-snapshots-plan li {
 	margin-block: var(--size-4-1);
+	/* a note name with no spaces in it would otherwise run past the edge of a phone */
+	overflow-wrap: anywhere;
 }
 
 /* With the changes marked, an item that is the same steps back. */
