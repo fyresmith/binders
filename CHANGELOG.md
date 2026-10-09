@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.46.13 (2026-10-09)
+
+### Changed
+
+- Nothing a writer sees: a round-trip test now accepts the vault's own spelling of a status.
+
 ## 0.46.12 (2026-10-09)
 
 ### Fixed

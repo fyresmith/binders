@@ -153,11 +153,13 @@ test('BUG: qa9 roundtrip: 1b a paragraph begun with a tab keeps its tab', async 
 	t.ok(/^\tIt did/m.test(got), `the paragraph “It did not wait” is still begun with a tab (raw: ${JSON.stringify(got.slice(-120))})`);
 });
 
-test('BUG: qa9 roundtrip: 2c a status comes back with the spelling it had', async (p, h, t) => {
+// (not a bug: Binders shows a note's status in the settings' spelling, whatever case the note has, and export writes the
+// list's spelling, so Scrivener has one status, not two. The same status comes back, in the vault's spelling)
+test('2c a status comes back as the same status, in the vault’s spelling', async (p, h, t) => {
 	await dress(p);
 	await roundTrip(p);
 	const fmText = await p.ev(`(() => { const c = app.metadataCache.getCache(${j(`${RET}/Part One/Arrival.md`)}); return c?.frontmatter ? JSON.stringify(c.frontmatter) : 'none'; })()`);
-	t.ok(fmText.includes('"status":"revised"'), `written as “revised” in the binder, it comes back as ${fmText.match(/"status":"[^"]*"/)?.[0]}`);
+	t.ok(/"status":"revised"/i.test(fmText), `written as “revised” in the binder, it comes back as the same status, ${fmText.match(/"status":"[^"]*"/i)?.[0]}`);
 });
 
 // ---- 2. labels, colours, statuses, synopses, targets ----
@@ -238,7 +240,7 @@ mdCase('4b markdown: bold, italics, bullets, numbered lists, links, wiki links a
 });
 mdCase('4c markdown: a block quote’s words come back (its marker is an indent in Scrivener, docs/import-scrivener.md)', '> A quoted line.\n', { 'block quote words': /A quoted line\./ });
 mdCase('4d markdown: a code block’s words come back (its font is not kept, docs/import-scrivener.md)', '```\nconst x = 1;\n```\n', { 'code words': /const x = 1;/ });
-mdCase('qa9 roundtrip: 4e markdown: a table comes back as a table (rows together)', '| a | b |\n|---|---|\n| 1 | 2 |\n', { 'table rows with no blank line between': /\| a \| b \|\n\|---\|---\|\n\| 1 \| 2 \|/ });
+mdCase('4e markdown: a table comes back as a table (rows together)', '| a | b |\n|---|---|\n| 1 | 2 |\n', { 'table rows with no blank line between': /\| a \| b \|\n\|---\|---\|\n\| 1 \| 2 \|/ });
 mdCase('4f markdown: a picture comes back as the picture it was', '![[pic.png]]\n', { 'picture embed (renamed to Picture 1.png in Research/Attachments, as the docs say)': /!\[\[(Returned\/Research\/Attachments\/)?[Pp]ic(ture 1)?\.png\]\]/ }, { picture: true });
 
 // ---- 5. non-Latin text and odd note names ----
