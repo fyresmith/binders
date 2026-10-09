@@ -231,7 +231,7 @@ styleTest('a style deleted outside while a row is being changed does not come ba
 	})().then(() => 1)`);
 	await p.sleep(1500); await p.ev(`${ST}.settled().then(() => 1)`);
 	t.eq(onDisk(p, 'Doomed'), null, 'no file: ' + JSON.stringify(onDisk(p, 'Doomed')));
-}, true);
+});
 
 styleTest('a rename that fails (name taken) then a row change: the file keeps its name and takes the row; duplicate then edit at once', async (p, h, t) => {
 	await outside(p, 'A one', '---\nexport-style: 1\nbased-on: Classic\n---\n');

@@ -186,7 +186,13 @@ export class Styles {
 			try {
 				if (at instanceof TFile) {
 					// (read and written in one step: nothing lands between the two)
-					await app.vault.process(at, (disk) => { made = onto(disk); return made ?? disk; });
+					try { await app.vault.process(at, (disk) => { made = onto(disk); return made ?? disk; }); } catch (e) {
+						// (taken away outside while this waited: the style is gone, and is not made again; any other failure is said)
+						if (await app.vault.adapter.exists(path)) throw e;
+						if (this.pending.get(name) === p) this.pending.delete(name);
+						this.later();
+						continue;
+					}
 					if (made === null) await app.fileManager.trashFile(at);
 				} else {
 					made = onto(null);

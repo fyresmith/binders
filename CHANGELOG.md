@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.46.8 (2026-10-09)
+
+### Fixed
+
+- A style file deleted outside Binders while a change to it was waiting no longer comes back or shows an error in the console.
+
 ## 0.46.7 (2026-10-09)
 
 ### Fixed
