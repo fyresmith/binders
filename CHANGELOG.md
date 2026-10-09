@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.46.28 (2026-10-09)
+
+### Fixed
+
+- "Indent paragraphs" now works in the manuscript's sections shown as text, the Snapshots window and focus mode's scenes before and after.
+
 ## 0.46.27 (2026-10-09)
 
 ### Fixed

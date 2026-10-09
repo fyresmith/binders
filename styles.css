@@ -4111,21 +4111,24 @@ body {
 }
 
 /* In reading view, a paragraph that follows a paragraph: block by block as reading view sets them, and side by side where a note is
-   rendered in one piece. */
+   rendered in one piece (there the class is on the rendered element itself, where Binders renders, or on one inside it). */
 .markdown-rendered div.binders-prose-indent:is(.el-p, .binders-tab-paragraphs):not(.binders-embed-block) + div.el-p.binders-prose-indent > p,
-.markdown-rendered .binders-prose-indent > p + p {
+.markdown-rendered .binders-prose-indent > p + p,
+.markdown-rendered.binders-prose-indent > p + p {
 	text-indent: var(--binders-paragraph-indent);
 }
 
 .markdown-rendered div.binders-prose-indent:is(.el-p, .binders-tab-paragraphs):not(.binders-embed-block) + div.el-p.binders-prose-indent > p > *,
-.markdown-rendered .binders-prose-indent > p + p > * {
+.markdown-rendered .binders-prose-indent > p + p > *,
+.markdown-rendered.binders-prose-indent > p + p > * {
 	text-indent: 0;
 }
 
 /* (one that begins with a tab of its own isn't set in twice: the indent stands for the tab, which is the same
    measure, and the tab's mark, which is empty, takes no room) */
 .markdown-rendered div.binders-prose-indent:is(.el-p, .binders-tab-paragraphs):not(.binders-embed-block) + div.el-p.binders-prose-indent > p > .binders-tab:first-child,
-.markdown-rendered .binders-prose-indent > p + p > .binders-tab:first-child {
+.markdown-rendered .binders-prose-indent > p + p > .binders-tab:first-child,
+.markdown-rendered.binders-prose-indent > p + p > .binders-tab:first-child {
 	display: none;
 }
 

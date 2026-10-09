@@ -740,3 +740,51 @@ test('focus mode’s scene before shows its tab lines as paragraphs', async (p, 
 	} finally { await h.run('focus'); await sleep(p, 900); }
 	t.eq(await read(p, A), FRONT + RENDERED, 'the note on disk is as it was');
 });
+
+// "Indent paragraphs" where Binders renders a whole note itself (the class is on the rendered element, not above it)
+const FOLLOWS = 'Rendered by Binders, first.\n\nSecond follows.\n\n\tThird, begun with a tab.\n\nFourth follows.\n';
+/** How far in each paragraph's first letter is from the first paragraph's, where a note is rendered whole. */
+const setIn = (p, sel) => p.ev(`(() => { const e = [...document.querySelectorAll(${j(sel)})].find(x => x.textContent.includes('Rendered by Binders')); if (!e) return null;
+	const xs = [...e.querySelectorAll(':scope > p')].map(para => { const w = document.createTreeWalker(para, NodeFilter.SHOW_TEXT); let n; while ((n = w.nextNode())) { const i = n.textContent.search(/\\S/); if (i >= 0) { const r = document.createRange(); r.setStart(n, i); r.setEnd(n, i + 1); return r.getBoundingClientRect().left; } } return null; });
+	return xs.map(x => Math.round(x - xs[0])); })()`);
+const followsThere = async (p, t, sel, where, want = '[0,24,24,24]') => {
+	await set(p, { indentParagraphs: true });
+	await until(p, `(() => { const e = [...document.querySelectorAll(${j(sel)})].find(x => x.textContent.includes('Rendered by Binders')); return !!e && e.classList.contains('binders-prose-indent'); })()`, 8000);
+	t.eq(j(await setIn(p, sel)), want, `${where}, “Indent paragraphs” on: a paragraph that follows one is set in, and one begun with a tab once, not twice`);
+};
+
+test('“Indent paragraphs” where Binders shows a note’s text itself: a manuscript section shown as text', async (p, h, t) => {
+	await body(p, A, FOLLOWS);
+	await set(p, { indentParagraphs: true });
+	await p.ev(`app.vault.process(${file(L + 'The Lighthouse.md')}, (x) => x.replace('binder: 1', 'binder: 99')).then(() => 1)`);
+	await sleep(p, 600);
+	await openView(p, L + 'Part One');
+	await p.ev(`(() => { ${VIEW}.setMode('manuscript'); return 1; })()`);
+	await followsThere(p, t, '.binders-manuscript-rendered', 'the manuscript');
+	t.eq(await read(p, A), FRONT + FOLLOWS, 'the note on disk is as it was');
+});
+
+test('“Indent paragraphs” where Binders shows a note’s text itself: the snapshots dialog', async (p, h, t) => {
+	await body(p, A, FOLLOWS);
+	await set(p, { indentParagraphs: true });
+	await open(p, A);
+	await p.ev(`(() => { app.commands.executeCommandById('binders:take-snapshot'); return 1; })()`);
+	await sleep(p, 400);
+	await p.ev(`(async () => { await ${PL}.binders.snapshotsSettle(); await ${PL}.binders.flush(); return 1; })()`);
+	await p.ev(`(() => { app.commands.executeCommandById('binders:show-snapshots'); return 1; })()`);
+	try { await followsThere(p, t, '.modal.binders-snapshots .binders-snapshots-text', 'the dialog'); }
+	finally { await p.key('Escape'); await sleep(p, 300); }
+	t.eq(await read(p, A), FRONT + FOLLOWS, 'the note on disk is as it was');
+});
+
+test('“Indent paragraphs” where Binders shows a note’s text itself: focus mode’s scene before', async (p, h, t) => {
+	// (the scene before is shown by its last three paragraphs)
+	const three = 'Rendered by Binders, first.\n\n\tSecond, begun with a tab.\n\nThird follows.\n';
+	await body(p, A, three);
+	await set(p, { focusNeighbours: true, indentParagraphs: true });
+	await open(p, K);
+	await h.run('focus');
+	try { await followsThere(p, t, '.binders-focus-near-text', 'the scene before', '[0,24,24]'); }
+	finally { await h.run('focus'); await sleep(p, 900); }
+	t.eq(await read(p, A), FRONT + three, 'the note on disk is as it was');
+});
