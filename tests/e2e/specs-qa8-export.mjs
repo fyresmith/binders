@@ -622,7 +622,7 @@ test('export: false on a folder takes everything in it out of Word, the EPUB, On
 	void gone;
 }, { changes: true });
 
-bug('every note left out: the window says nothing will be exported, and the Word file is not a book of empty pages', async (p, h, t) => {
+test('every note left out: the window says nothing will be exported, and the Word file is not a book of empty pages', async (p, h, t) => {
 	await p.ev(`(async () => { for (const f of app.vault.getMarkdownFiles().filter(f => f.path.startsWith(${j(L)}) && f.path !== ${j(L + 'The Lighthouse.md')})) await app.fileManager.processFrontMatter(f, fm => { fm.export = false; }); })().then(() => 1)`);
 	await p.sleep(900);
 	await open(p);
@@ -630,13 +630,26 @@ bug('every note left out: the window says nothing will be exported, and the Word
 	t.ok(/^0 words/.test(detail), 'the bar: ' + detail);
 	const said = await p.ev(`document.querySelector('${WIN} .binders-export-paper')?.innerText ?? ''`);
 	t.ok(/Nothing here is exported/.test(said), 'the preview says nothing is exported');
-	t.ok(!!(await p.ev(`document.querySelector('${WIN} button.mod-cta')?.disabled`)), 'and Export is off, or the export says why it did not happen (UX: Export is enabled and makes a book with a title page and no chapters)');
+	t.ok(!!(await p.ev(`document.querySelector('${WIN} button.mod-cta')?.disabled`)), 'and Export is off');
+	t.eq(await status(p), 'Nothing to export', 'with the reason beside it');
+	await press(p, 'Export');
+	await p.sleep(800);
+	t.ok(!existsSync(join(p.vaultDir, 'Exports')), 'pressed all the same: no file is made');
+	await pick(p, 'Ebook');
+	await p.sleep(600);
+	t.ok(!!(await p.ev(`document.querySelector('${WIN} button.mod-cta')?.disabled`)), 'an ebook of nothing: Export is off too');
+	// a note put back in: Export is on again
+	await p.ev(`app.fileManager.processFrontMatter(${file(L + 'Prologue.md')}, fm => { delete fm.export; }).then(() => 1)`);
+	t.ok(await until(p, `document.querySelector('${WIN} button.mod-cta')?.disabled === false`, 6000), 'one note included again: Export is on');
 }, { changes: true });
 
 test('the title page of a book with no words does not claim “about 100 words”', async (p, h, t) => {
 	await mk(p, 'Hollow', []);
-	const d = docx(await make(p, 'Hollow'));
-	t.ok(!/about 100 words/.test(d.all), 'Word title page for a book of 0 words: ' + (d.all.match(/about [\d,]+ words/)?.[0] ?? 'no count'));
+	// (Export is off for a book with nothing in it, so no file can be made from the window: the title page is read
+	// where the window shows it. The Word file's own, and a manuscript PDF's, are tests/export-docx.test.ts's.)
+	await open(p, 'Hollow');
+	const page = await p.ev(`document.querySelector('${WIN} .binders-export-titlepage')?.innerText ?? ''`);
+	t.ok(/hollow/i.test(page) && !/about [\d,]+ words/.test(page), 'the title page of a book of 0 words: ' + (page.match(/about [\d,]+ words/)?.[0] ?? 'no count') + ' (' + j(page.replace(/\s+/g, ' ').trim()) + ')');
 });
 
 // ======================================================================================================================

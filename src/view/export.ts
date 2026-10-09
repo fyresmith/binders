@@ -43,6 +43,10 @@ export function pagedBook(plugin: BindersPlugin, book: Book, words: number, o: {
 }
 
 /** The family of styles a kind is set in: an ebook's and a paperback's are book styles. */
+/** A book with nothing of the writer's in it. */
+const nothing = (book: Book): boolean => !book.sections.some((s) => !s.made);
+const NOTHING = 'Nothing here is exported: the binder has no notes, or they are all left out.';
+
 const familyOf = (kind: Kind): Family => (kind === 'ebook' || kind === 'paperback' ? 'book' : 'manuscript');
 
 export class ExportModal extends Modal {
@@ -124,6 +128,9 @@ export class ExportModal extends Modal {
 	private get pdf(): boolean { return this.kind === 'paperback' || (this.kind === 'manuscript' && this.plugin.settings.exportFile === 'pdf'); }
 	/** True when a PDF is being made and can't be here (a phone, a tablet, an Obsidian without webviews). */
 	private get noPdf(): boolean { return this.pdf && !this.plugin.exportHost.printer(); }
+	/** True when the book has been read and nothing in it is exported (no note, or every one left out): there is no
+	    file to make then, only the pages Binders would put around nothing. */
+	private get empty(): boolean { return !!this.file && !!this.book && nothing(this.book); }
 	/** The file of the kind being made: a manuscript's is Word's or a PDF. */
 	private get made() { return FILES[this.pdf ? 'paperback' : this.kind === 'ebook' ? 'ebook' : 'manuscript']; }
 	/** How the pages of a PDF are laid out: the book (a manuscript's with its title page) and the style on its page. */
@@ -422,7 +429,7 @@ export class ExportModal extends Modal {
 			const row = foot.createDiv({ cls: 'binders-export-phone-row' });
 			new ButtonComponent(row).setButtonText('Preview').onClick(() => this.toPane());
 			if (this.kind === 'note') new ButtonComponent(row).setButtonText('Copy').onClick(() => void this.copy());
-			if (!this.noPdf) new ButtonComponent(row).setButtonText(this.busy ? 'Exporting…' : 'Export').setCta().setDisabled(!!this.busy).onClick(() => void this.run());
+			if (!this.noPdf) new ButtonComponent(row).setButtonText(this.busy ? 'Exporting…' : 'Export').setCta().setDisabled(!!this.busy || this.empty).onClick(() => void this.run());
 		}
 	}
 
@@ -495,7 +502,9 @@ export class ExportModal extends Modal {
 				c.addEventListener('click', flip);
 				c.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); flip(); } });
 			} else if (this.kind === 'note') new ButtonComponent(this.actions).setButtonText('Copy').setTooltip('Copy the text instead of saving it').onClick(() => void this.copy());
-			if (!this.noPdf) new ButtonComponent(this.actions).setButtonText('Export').setCta().onClick(() => void this.run());
+			// (a book with nothing in it: Export is there and off, and the bar says why)
+			if (this.empty) status('Nothing to export');
+			if (!this.noPdf) new ButtonComponent(this.actions).setButtonText('Export').setCta().setDisabled(this.empty).onClick(() => void this.run());
 		}
 		if (this.file || (this.kind === 'scrivener' && (host || saved))) {
 			const more = this.actions.createDiv({ cls: 'clickable-icon', attr: { 'aria-label': 'More', role: 'button', tabindex: '0', 'aria-haspopup': 'menu' } });
@@ -503,7 +512,7 @@ export class ExportModal extends Modal {
 			const menu = (e: MouseEvent | null) => {
 				const m = new Menu();
 				if (saved) m.addItem((i) => i.setTitle('Export').setIcon('book-check').onClick(() => void this.run()));
-				if (host && !this.noPdf) m.addItem((i) => i.setTitle('Choose where to save...').setIcon('folder-open').onClick(() => void this.run(true)));
+				if (host && !this.noPdf && !this.empty) m.addItem((i) => i.setTitle('Choose where to save...').setIcon('folder-open').onClick(() => void this.run(true)));
 				if (host) m.addItem((i) => i.setTitle('Show the Exports folder').setIcon('folder').onClick(() => void this.showExports()));
 				if (this.file && !this.editing) m.addItem((i) => i.setTitle('Edit this style').setIcon('sliders-horizontal').onClick(() => this.edit()));
 				if (this.file) m.addItem((i) => i.setTitle('Book details...').setIcon('book-open').onClick(() => this.details()));
@@ -612,6 +621,8 @@ export class ExportModal extends Modal {
 			const { book, words } = await readBook(this.plugin, this.folder, kind !== 'manuscript' || this.matter, kind !== 'manuscript', this.asTyped(), kind === 'ebook');
 			if (this.cancelled) return;
 			this.book = book; this.words = words;
+			// (every note left out since the window read them: there is no book to make)
+			if (nothing(book)) throw new Error(NOTHING);
 			this.say('Writing the file…');
 			// (a breath, so the words above are on screen before a long book is written)
 			await new Promise((r) => window.setTimeout(r, 0));
