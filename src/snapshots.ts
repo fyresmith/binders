@@ -112,30 +112,30 @@ export async function takeSnapshot(plugin: BindersPlugin, scene: TFile, title = 
 	return { snapshot: { file, taken: when.getTime(), title, body }, made: true };
 }
 
+/** The editor a note is being typed in, and how what is put into it is saved: the note in a tab of its own, being
+    edited (a reading view has no editor to undo in), else its section of a manuscript. Null for a note that is open
+    in neither. (What replaces a note's text goes through this, so that Undo there takes it back.) */
+export function editorOf(app: App, note: TFile): { editor: Editor; save: () => Promise<void> } | null {
+	for (const leaf of app.workspace.getLeavesOfType('markdown')) {
+		const v = leaf.view;
+		if (v instanceof MarkdownView && v.file === note && v.getMode() === 'source') return { editor: v.editor, save: () => saveTab(v) };
+	}
+	for (const live of liveEditors(note)) if (live.editor) return { editor: live.editor, save: () => live.flush() };
+	return null;
+}
+
 /** Puts `next` in place of a scene's text (its properties stay as they are), if the text is still `expect`. In the
     editor the note is open in, as one change that Undo takes back; otherwise in one write. Throws, and changes
     nothing, if the note says something else. (Whoever calls this has kept the text it replaces: a snapshot of the
     note, or of the folder it is in.) */
 export async function replaceText(plugin: BindersPlugin, scene: TFile, expect: string, next: string): Promise<void> {
 	const { app } = plugin, moved = () => new Error('The note was changed meanwhile, so it was left as it is.');
-	const inEditor = (ed: Editor): void => {
-		const text = ed.getValue(), p = parts(text);
+	const open = editorOf(app, scene);
+	if (open) {
+		const ed = open.editor, text = ed.getValue(), p = parts(text);
 		if (lf(p.body) !== lf(expect)) throw moved();
 		ed.replaceRange(next, ed.offsetToPos(p.front.length), ed.offsetToPos(text.length));
-	};
-	// the note in a tab of its own, being edited (a reading view has no editor to undo in: it's written below)
-	for (const leaf of app.workspace.getLeavesOfType('markdown')) {
-		const v = leaf.view;
-		if (!(v instanceof MarkdownView) || v.file !== scene || v.getMode() !== 'source') continue;
-		inEditor(v.editor);
-		await saveTab(v);
-		return;
-	}
-	// its section of a manuscript
-	for (const live of liveEditors(scene)) {
-		if (!live.editor) continue;
-		inEditor(live.editor);
-		await live.flush();
+		await open.save();
 		return;
 	}
 	let ok = false;

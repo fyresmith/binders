@@ -403,9 +403,14 @@ export function changes(then: Entry[], now: Entry[], opts: { words?: boolean; ya
 
 // ---- bringing one back: what will be written, worked out before anything is ----
 
-/** How much of a snapshot comes back: the notes' text, the order of the items, or both. (Everything else a snapshot
-    holds, properties and the notes and folders themselves, is said and left: see `Plan.left`.) */
-export type Scope = 'both' | 'text' | 'order';
+/** How much of a snapshot comes back: the notes' text, the order of the items, both, or everything ("all": each
+    note's whole file, text and properties; the notes and folders that are gone, made again; the ones renamed or
+    moved, put back; the order). */
+export type Scope = 'all' | 'both' | 'text' | 'order';
+
+/** What becomes of the items that are new since the snapshot, when everything comes back: they stay where they are,
+    or go into one folder made for them. Nothing is deleted either way. */
+export type Since = 'stay' | 'gather';
 
 /** One note's text to put back. Both paths are in the folder the snapshot is of. */
 export interface TextBack {
@@ -421,11 +426,63 @@ export interface TextBack {
 
 /** One folder's items to put in the order they had. */
 export interface OrderBack {
-	/** The folder as it stands ("" for the folder the snapshot is of; else it ends in "/"). */
+	/** The folder as it stands ("" for the folder the snapshot is of; else it ends in "/"). With everything coming
+	    back: the folder as it will be. */
 	folder: string;
-	/** Its items as they are now, and in the order wanted: the same items. */
+	/** Its items as they are now, and in the order wanted: the same items. (With everything coming back `from` is
+	    empty: the items are not all there yet, and `items` are their paths as they will be.) */
 	from: string[];
 	items: string[];
+}
+
+/** An item put where it was: made again (`from` null: a folder; a note that is made again is a `FileBack`), or
+    renamed or moved from where it is now. Paths in the folder the snapshot is of; a folder's ends in "/". */
+export interface Place { kind: Kind; role: Role; from: string | null; to: string }
+
+/** One note's whole file to put back, properties and text: the bytes the snapshot holds. */
+export interface FileBack {
+	/** Where the note will be, and where it is now (null: it is gone, and is made again). */
+	path: string;
+	from: string | null;
+	/** Its whole file now: it is replaced only while it still says this. Null for one made again. */
+	expect: string | null;
+	/** Its whole file as it was. */
+	text: string;
+	role: Role;
+	/** It is the folder's own note (a binder's binder note): written last, since the order is kept in it. */
+	own: boolean;
+}
+
+/** Everything coming back: what is made, renamed, moved and written, in paths, and the rows that say so. */
+export interface All {
+	since: Since;
+	/** The items new since that go into one folder: the folder (made if `make`), and each item's move. */
+	gather: { folder: string; make: boolean; items: Place[] } | null;
+	/** Folders made again, and items renamed or moved back: folders before what is in them. */
+	places: Place[];
+	/** Notes whose file is written as it was, or made again with it. */
+	files: FileBack[];
+	/** Each folder's items in the order they had, as paths they will have; what is new since after the item it
+	    follows now. */
+	orders: OrderBack[];
+	/** Every note of the snapshot, by the path it had, with the path it will have and the one it has now (null: it
+	    is gone). All of them are checked against the snapshot once the rest is done, since a rename changes the
+	    links in notes that were not to be written. */
+	notes: [was: string, to: string, from: string | null][];
+	/** For the screen: the items made again; those that get their name back; those that go back to their folder;
+	    those whose name can't come back because an item new since has it, each with the name it will have; the files
+	    that are gone and can't be made again (a snapshot lists them, and keeps only notes); the items new since that
+	    stay where they are, and (`gathered`) those that go to the one folder; the folders that keep a note made for them since. */
+	made: Row[];
+	renamed: Row[];
+	moved: Row[];
+	named: { row: Row; as: string }[];
+	cannot: Row[];
+	stays: Row[];
+	gathered: Row[];
+	ownStay: Row[];
+	/** The rows whose properties come back. */
+	props: Row[];
 }
 
 export interface Plan {
@@ -440,12 +497,45 @@ export interface Plan {
 	away: number;
 	/** What is different and stays as it is now, because this doesn't bring it back: items that are gone, new
 	    since, in another folder, under another name, with other properties; and, when only one of the two was
-	    asked for, the notes that keep their text or the items that keep their place. */
+	    asked for, the notes that keep their text or the items that keep their place. (With everything coming back
+	    these are empty: what stays then is in `all`.) */
 	left: { gone: Row[]; fresh: Row[]; elsewhere: Row[]; renamed: Row[]; props: Row[]; text: Row[]; order: Row[] };
+	/** Everything coming back (scope "all"), else null. */
+	all: All | null;
 	/** An item says it is somewhere other than in the folder: nothing is written on the word of such a file. */
 	unsafe: boolean;
 	/** There is nothing to write. */
 	nothing: boolean;
+}
+
+/** What a plan is worked out for, besides the two states. */
+export interface BackOptions {
+	/** Everything: what becomes of the items new since, and the name of the folder they would go to. */
+	since?: Since;
+	sinceName?: string;
+	/** The folder the snapshot is read for: its path in its binder ("" for the binder itself), and its name now. */
+	of?: string;
+	name?: string;
+}
+
+const leaf = (path: string): string => path.replace(/\/$/, '').slice(dirOf(path).length);
+const low = (s: string): string => s.toLowerCase();
+
+/** Is this a place something may be made at, or renamed or moved to, when a snapshot is brought back: in the folder
+    (`inFolder`), every step a name as a vault writes it (no backslash: that is a step on one system and a letter on
+    another), and not in the binder's own folder of snapshots, where a note would make that folder a chapter. `of`:
+    the folder's path in its binder ("" for the binder). */
+export function mayPlace(path: string, kind: Kind, of = ''): boolean {
+	if (!inFolder(path, kind) || path.includes('\\')) return false;
+	return !!of || low(path.split('/')[0].trim()) !== 'snapshots';
+}
+
+/** Are two files the same but for where their links lead? Obsidian points the links to a note at its new name when
+    the note is renamed, in every note that has one: so a note that says what it said, with only its links' targets
+    different, has not been written in. (A link's own words, after "|" or in "[...]", are the writer's, and count.) */
+export function sameButLinks(a: string, b: string): boolean {
+	const plain = (s: string) => s.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n').replace(/\[\[[^\]\n|]*(\|[^\]\n]*)?\]\]/g, '[[$1]]').replace(/\]\([^)\n]*\)/g, ']()');
+	return a === b || plain(a) === plain(b);
 }
 
 /** What bringing a snapshot back would write, and what it would leave: from what changed (`c`, of `then` against
@@ -454,14 +544,17 @@ export interface Plan {
     The text: every note that is there both times and reads differently gets the text it had, wherever it is now and
     whatever it is called. The order: in each folder that is there both times, the items that were in it then and
     are in it now go back to the order they had; an item that has come since (or come in from another folder) stays
-    after the item it follows now. Nothing is made, renamed, moved to another folder or deleted. */
-export function planBack(c: Changes, then: Entry[], now: Entry[], scope: Scope): Plan {
-	const plan: Plan = { scope, texts: [], orders: [], rewritten: [], moved: [], back: 0, away: 0, left: { gone: [], fresh: [], elsewhere: [], renamed: [], props: [], text: [], order: [] }, unsafe: false, nothing: true };
+    after the item it follows now. With those scopes nothing is made, renamed, moved to another folder or deleted.
+
+    Everything ("all", see `everything` below): each note's file as it was, the items that are gone made again, the
+    ones renamed or moved put back, the order. Nothing is deleted. */
+export function planBack(c: Changes, then: Entry[], now: Entry[], scope: Scope, opts: BackOptions = {}): Plan {
+	const plan: Plan = { scope, texts: [], orders: [], rewritten: [], moved: [], back: 0, away: 0, left: { gone: [], fresh: [], elsewhere: [], renamed: [], props: [], text: [], order: [] }, all: null, unsafe: false, nothing: true };
 	if ([...then, ...now].some((e) => !inFolder(e.path, e.kind))) { plan.unsafe = true; return plan; }
 	const own = (r: Row) => !!(r.then ?? r.now)?.role;
 	const rewritten = c.rows.filter((r) => r.kind === 'note' && !own(r) && r.rewritten && r.then?.text != null && r.now?.text != null);
 	const moved = c.rows.filter((r) => !own(r) && r.reordered && r.into == null);
-	for (const r of c.rows) {
+	if (scope !== 'all') for (const r of c.rows) {
 		if (own(r)) { if (r.props.length) plan.left.props.push(r); continue; }
 		if (r.gone) plan.left.gone.push(r);
 		else if (r.fresh) plan.left.fresh.push(r);
@@ -474,7 +567,8 @@ export function planBack(c: Changes, then: Entry[], now: Entry[], scope: Scope):
 		plan.rewritten = rewritten;
 		for (const r of rewritten) {
 			if (!r.then || !r.now) continue;
-			plan.texts.push({ path: r.now.path, was: r.then.path, expect: parts(r.now.text ?? '').body, text: parts(r.then.text ?? '').body });
+			// (everything: the note's whole file is written, not its text alone: see `all.files`)
+			if (scope !== 'all') plan.texts.push({ path: r.now.path, was: r.then.path, expect: parts(r.now.text ?? '').body, text: parts(r.then.text ?? '').body });
 			plan.back += r.removed; plan.away += r.added;
 		}
 	}
@@ -498,5 +592,174 @@ export function planBack(c: Changes, then: Entry[], now: Entry[], scope: Scope):
 		}
 	}
 	plan.nothing = !plan.texts.length && !plan.orders.length;
+	if (scope === 'all') {
+		const all = plan.all = everything(c, then, now, opts);
+		const to: [string, Kind][] = [...all.places.map((p): [string, Kind] => [p.to, p.kind]), ...all.files.map((f): [string, Kind] => [f.path, 'note'])];
+		if (all.gather) to.push([all.gather.folder, 'folder'], ...all.gather.items.map((p): [string, Kind] => [p.to, p.kind]));
+		if (to.some(([path, kind]) => !mayPlace(path, kind, opts.of))) { plan.unsafe = true; plan.all = null; plan.nothing = true; return plan; }
+		plan.nothing = !all.places.length && !all.files.length && !all.gather && !plan.orders.length;
+	}
 	return plan;
+}
+
+/** What is the same in two plans to bring everything back, whatever the notes say: what is made, renamed and moved,
+    and the order. (A note written in since the screen was drawn is left by itself; an item made, renamed or moved
+    since makes the whole plan another plan, and nothing of it is done.) */
+export const shape = (all: All): string => JSON.stringify([all.gather, all.places, all.files.filter((f) => f.from == null).map((f) => f.path), all.orders.map((o) => [o.folder, o.items])]);
+
+/** Everything coming back: where each item of the snapshot will be, and what that takes.
+
+    An item is put at the path it had. One exception, since nothing is deleted or written over: where an item new
+    since has that very name now (and stays), the item coming back keeps the name it has now, if it is in that
+    folder already, and is otherwise named by counting on ("Arrival 2"). What is new since stays in the folder it
+    is in, after the item it follows now; or (`since: 'gather'`) the notes and folders among it go into one folder
+    at the end, each under its own name, counted on where two share one. A file that isn't a note is listed in a
+    snapshot and not kept: one that is gone can't be made again, and none is moved. */
+function everything(c: Changes, then: Entry[], now: Entry[], opts: BackOptions): All {
+	const since: Since = opts.since === 'gather' ? 'gather' : 'stay';
+	const all: All = { since, gather: null, places: [], files: [], orders: [], notes: [], made: [], renamed: [], moved: [], named: [], cannot: [], stays: [], gathered: [], ownStay: [], props: [] };
+	const own = (r: Row) => !!(r.then ?? r.now)?.role;
+	const T = then.filter((e) => !e.role), N = now.filter((e) => !e.role);
+	const thenAt = new Map(T.map((e) => [e.path, e])), nowAt = new Map(N.map((e) => [e.path, e]));
+	const pair = new Map<Entry, Entry>(), back = new Map<Entry, Entry>(), rowOf = new Map<Entry, Row>();
+	for (const r of c.rows) {
+		if (own(r)) continue;
+		if (r.then && r.now) { pair.set(r.then, r.now); back.set(r.now, r.then); }
+		if (r.then) rowOf.set(r.then, r);
+		if (r.now) rowOf.set(r.now, r);
+	}
+	const slash = (e: Entry) => (e.kind === 'folder' ? '/' : '');
+	const split = (e: Entry): [string, string] => { const full = leaf(e.path), ext = e.kind === 'note' ? full.slice(full.lastIndexOf('.')) : ''; return [full.slice(0, full.length - ext.length), ext]; };
+	const fresh = N.filter((e) => !back.has(e));
+	const finT = new Map<Entry, string>(), finN = new Map<Entry, string>();
+	// where a folder as it stands will be: the place of the folder it was, or (a new one) its own
+	const dirFinal = (dir: string): string => {
+		if (!dir) return '';
+		const d = nowAt.get(dir), was = d ? back.get(d) : undefined;
+		return was ? finT.get(was) ?? was.path : d ? finN.get(d) ?? dir : dir;
+	};
+
+	// what is new since: where each will be. Those to gather are the notes and folders that aren't in a new folder
+	// themselves (a new folder goes with what is in it).
+	if (since === 'gather') {
+		const top = fresh.filter((e) => { const d = nowAt.get(dirOf(e.path)); return !d || back.has(d); });
+		const base = (opts.sinceName ?? '').replace(/[*"\\/<>:|?]/g, ' ').replace(/\s+/g, ' ').trim().replace(/^\.+/, '') || 'Since the snapshot';
+		// (a folder made for this before, by a bringing back that was interrupted or made twice, serves again)
+		const held = new Set([...T.filter((e) => !dirOf(e.path)).map((e) => low(leaf(e.path))), ...N.filter((e) => !dirOf(e.path) && !(e.kind === 'folder' && !back.has(e))).map((e) => low(leaf(e.path)))]);
+		let name = base;
+		for (let n = 2; held.has(low(name)); n++) name = `${base} ${n}`;
+		const home = name + '/', there = nowAt.get(home), go = top.filter((e) => e.kind !== 'file' && e !== there);
+		if (go.length) {
+			const taken = new Set(N.filter((e) => dirOf(e.path) === home).map((e) => low(leaf(e.path))));
+			all.gather = { folder: home, make: !there, items: [] };
+			if (there) finN.set(there, home);
+			for (const e of go) {
+				const [stem, ext] = split(e);
+				let as = stem + ext;
+				for (let n = 2; taken.has(low(as)); n++) as = `${stem} ${n}${ext}`;
+				taken.add(low(as));
+				finN.set(e, home + as + slash(e));
+				all.gather.items.push({ kind: e.kind, role: '', from: e.path, to: home + as + slash(e) });
+				const r = rowOf.get(e);
+				if (r) all.gathered.push(r);
+			}
+		}
+	}
+	// (in the order they stand: a folder before what is in it)
+	for (const e of fresh) if (!finN.has(e)) finN.set(e, dirFinal(dirOf(e.path)) + leaf(e.path) + slash(e));
+	const stayAt = new Map(fresh.map((e) => [low(finN.get(e) ?? e.path), e]));
+
+	// what was there: each at the path it had, folders before what is in them
+	const claimed = new Set(T.map((e) => low(e.path))), same = new Map<Entry, Entry>();
+	const depth = (e: Entry) => e.path.replace(/\/$/, '').split('/').length;
+	for (const e of [...T].sort((x, y) => depth(x) - depth(y))) {
+		const dir = dirOf(e.path), parent = dir ? thenAt.get(dir) : undefined, at = dir ? (parent ? finT.get(parent) ?? dir : dir) : '';
+		const want = at + leaf(e.path) + slash(e), holder = stayAt.get(low(want)), is = pair.get(e);
+		if (e.kind === 'file') {
+			// (one in a folder that was renamed is there under the folder's new name: it is the same file)
+			if (!is && holder?.kind === 'file') same.set(holder, e);
+			if (is || holder?.kind === 'file') finT.set(e, want);
+			continue;
+		}
+		let to = want;
+		if (holder) {
+			const here = is && dirFinal(dirOf(is.path)) === at ? at + leaf(is.path) + slash(e) : '';
+			if (here && !stayAt.has(low(here)) && (!claimed.has(low(here)) || low(here) === low(e.path))) to = here;
+			else {
+				const [stem, ext] = split(e);
+				for (let n = 2; stayAt.has(low(to)) || claimed.has(low(to)); n++) to = `${at}${stem} ${n}${ext}${slash(e)}`;
+			}
+			claimed.add(low(to));
+		}
+		finT.set(e, to);
+		if (is) finN.set(is, to);
+	}
+	// where an item would be if only the folders it is in were put back
+	const carried = (e: Entry): string => dirFinal(dirOf(e.path)) + leaf(e.path) + slash(e);
+	const file = (e: Entry, path: string, is: Entry | null | undefined, ownNote = false): void => {
+		if (e.text == null) return;
+		all.notes.push([e.path, path, is ? is.path : null]);
+		if (!is) all.files.push({ path, from: null, expect: null, text: e.text, role: e.role, own: ownNote });
+		else if (is.text !== e.text) all.files.push({ path, from: is.path, expect: is.text ?? '', text: e.text, role: e.role, own: ownNote });
+	};
+	const ownT = new Map(then.filter((e) => e.role).map((e) => [dirOf(e.path), e])), ownN = new Map(now.filter((e) => e.role).map((e) => [dirOf(e.path), e]));
+	for (const e of T) {
+		const to = finT.get(e), is = pair.get(e);
+		if (to === undefined) continue;
+		if (e.kind !== 'file') {
+			if (!is) { if (e.kind === 'folder') all.places.push({ kind: 'folder', role: '', from: null, to }); }
+			else if (carried(is) !== to) all.places.push({ kind: e.kind, role: '', from: is.path, to });
+		}
+		if (e.kind === 'note') file(e, to, is);
+		// a folder's own note goes with it: named like it, in it
+		const note = e.kind === 'folder' ? ownT.get(e.path) : undefined;
+		if (note) {
+			const at = to + leaf(to) + '.md', has = is ? ownN.get(is.path) : undefined;
+			if (is && has && carried(is) + leaf(has.path) !== at) all.places.push({ kind: 'note', role: 'folder note', from: has.path, to: at });
+			file(note, at, has ?? null);
+		}
+	}
+	// the folder's own note: where it is now, whatever it is called (a folder's is made again under the folder's name)
+	const mine = ownT.get(''), has = ownN.get('');
+	if (mine && has) file(mine, has.path, has, true);
+	else if (mine && mine.role === 'folder note') file(mine, opts.name ? `${opts.name}.md` : mine.path, null, true);
+
+	// the order: each folder that was there, its items in the order they had, what is new since after the item it
+	// follows now
+	const kidsT = new Map<string, Entry[]>(), kidsN = new Map<string, Entry[]>();
+	for (const e of T) kidsT.set(dirOf(e.path), [...(kidsT.get(dirOf(e.path)) ?? []), e]);
+	for (const e of N) kidsN.set(dirOf(e.path), [...(kidsN.get(dirOf(e.path)) ?? []), e]);
+	const moving = new Set((all.gather?.items ?? []).map((p) => p.from));
+	for (const dir of ['', ...T.filter((e) => e.kind === 'folder').map((e) => e.path)]) {
+		const folder = dir ? thenAt.get(dir) : undefined, at = folder ? finT.get(folder) : '', is = folder ? pair.get(folder)?.path : '';
+		if (at === undefined) continue;
+		const tails = new Map<Entry | null, string[]>();
+		let last: Entry | null = null;
+		for (const e of is === undefined ? [] : kidsN.get(is) ?? []) {
+			const was = back.get(e) ?? same.get(e);
+			if (was) { if (dirOf(was.path) === dir) last = was; }
+			else if (!moving.has(e.path)) tails.set(last, [...(tails.get(last) ?? []), finN.get(e) ?? e.path]);
+		}
+		const items = [...(tails.get(null) ?? []), ...(kidsT.get(dir) ?? []).flatMap((e) => { const to = finT.get(e); return to === undefined ? [] : [to, ...(tails.get(e) ?? [])]; })];
+		if (!dir && all.gather?.make) items.push(all.gather.folder);
+		if (items.length) all.orders.push({ folder: at, from: [], items });
+	}
+	if (all.gather) all.orders.push({ folder: all.gather.folder, from: [], items: [...(kidsN.get(all.gather.folder) ?? []).map((e) => e.path), ...all.gather.items.map((p) => p.to)] });
+
+	// what the screen says (what is in a folder that goes to the one folder goes with it)
+	const off = (e: Entry) => !!all.gather?.items.some((p) => p.from === e.path || (p.kind === 'folder' && e.path.startsWith(p.from ?? '\0')));
+	for (const r of c.rows) {
+		// a folder that had no note of its own and has one now keeps it (a note is never deleted), and so its properties
+		const keeps = !own(r) && r.kind === 'folder' && !!r.then && !!r.now && !ownT.has(r.then.path) && ownN.has(r.now.path);
+		if (r.props.length && !keeps) all.props.push(r);
+		if (own(r)) continue;
+		if (r.fresh) { if (r.now && !same.has(r.now) && !off(r.now)) all.stays.push(r); continue; }
+		const to = r.then ? finT.get(r.then) : undefined;
+		if (r.gone) { if (to === undefined) all.cannot.push(r); else if (r.kind !== 'file') all.made.push(r); }
+		if (to !== undefined && r.then && nameOf(to) !== nameOf(r.then.path)) all.named.push({ row: r, as: nameOf(to) });
+		else if (r.renamed) all.renamed.push(r);
+		if (r.into != null) all.moved.push(r);
+		if (keeps) all.ownStay.push(r);
+	}
+	return all;
 }

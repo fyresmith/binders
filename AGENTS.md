@@ -21,9 +21,11 @@ Read this before changing anything. It is the contract every contributor, human 
    rewritten, the link's target and nothing else (`src/paragraphs/rename.ts`; the maintainer's exception, 2026-10-05).
    And a second, as narrow: "Bring back" on a snapshot of a folder or binder, after its confirmation screen and an
    automatic snapshot of what is there now, may write notes' properties as they were in the snapshot, and make,
-   rename and move notes to match it, inside that folder only. It never deletes a note: notes written since stay
-   where they are, or are moved to one folder if the writer chooses (`src/binder-snapshots.ts`; the maintainer's
-   exception, approved 2026-10-05, worded 2026-10-08).
+   rename and move notes, and the folders they are in, to match it, inside that folder only. It never deletes a
+   note or a folder: what was written since stays where it is, or is moved to one folder if the writer chooses.
+   While it works it keeps its plan in one file of its own in the binder's `Snapshots` folder, so a bringing back
+   cut short can be finished or put back (`src/binder-snapshots.ts`, `src/binder-snapshot-journal.ts`; the
+   maintainer's exception, approved 2026-10-05, worded 2026-10-08, folders and the plan's file added 2026-10-09).
 4. **Native look.** Use Obsidian's CSS variables, `setIcon`, `Menu`, `Modal`, `Setting`, sentence case. No `!important`,
    no `all:`, no scrollbar styling, no inline `innerHTML`; use `createEl` or `sanitizeHTMLToDom`. The Obsidian review
    bot flags these.

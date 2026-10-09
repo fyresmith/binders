@@ -397,6 +397,15 @@ The Lighthouse/
   go with it, as its notes' snapshot folders do; nothing is written over (a clashing name is counted on). A folder
   that is deleted or leaves every binder leaves its snapshots where they were.
 - **Size.** About the size of the folder's notes: half a megabyte for a novel of 100,000 words.
+- **The plan of a bringing back** (`Snapshots/Bringing back.binder-journal`, at the top of the binder's
+  "Snapshots", one per binder). Written before "Bring back..." with "Everything" makes, renames or moves anything,
+  and written again with `finished` set when it is done; the next one is written over it. It is JSON: `journal`
+  (its format, `1`; a larger number is left as it is, and nothing is brought back in that binder until Binders is
+  updated), `of` (the folder, as a path in the binder), `snapshot` and `before` (the two snapshot files' paths),
+  `title`, `since` (`stay` or `gather`), `started`, `finished` (0 while it is under way), and `plan` (`made`,
+  `moved`, `written`: paths, for a reader). Binders only reads `of`, `snapshot`, `before`, `since` and `finished`
+  from it, looks the folder and the snapshots up in the binder itself, and never writes a note on its word. It is
+  never deleted by Binders.
 - Everything said above of `.snapshot` files holds for these: not notes, not indexed, never in the binder's order,
   counts, views or exports, never listed in the file explorer, and carried by Obsidian Sync only with "Sync all
   other types" on (and, on its Standard plan, only up to 5 MB a file).

@@ -82,7 +82,7 @@ with 1.0.
       back and a binder made from a snapshot are built (step 1, 2026-10-06; `docs/dev/plan.md`, "Snapshots of a
       folder and of the binder").
   - [x] Step 2 (2026-10-09): bring back the text, and the order, of a folder or binder.
-  - [ ] Step 3: bring back everything (properties; notes made again, renamed and moved; never deleted).
+  - [x] Step 3 (2026-10-09): bring back everything (properties; notes made again, renamed and moved; never deleted).
   - [ ] Step 4: automatic snapshots before bringing one back and before find and replace, and thinning of the
         automatic ones only.
 - [x] **Focus mode.** The text and nothing else, for a note of a binder (in the manuscript and in a note's own

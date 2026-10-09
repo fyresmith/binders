@@ -119,12 +119,13 @@ opens a screen first that says what will change, and changes nothing until you p
 
 | Bring back | What comes back |
 |---|---|
+| Everything | The folder as it stood: each note's whole file (its text and its properties, as they were written), the notes and folders that are gone made again, the ones renamed or moved put back, and the order. See "Everything", below |
 | The text and the order | Both of the below |
 | The text of the notes | Every note that is still there gets the text it had. A note renamed or moved since is still that note, and gets its text under the name and in the folder it has now |
 | The order | In each folder, the items that were in it go back to the order they had. A note written since stays after the note it follows now |
 
-The screen counts the notes and items, names the first few, and lists under **Left as it is now** everything that
-is different and does not come back this way:
+The screen opens on **Everything**. It counts the notes and items, names the first few, and lists under **Left as
+it is now** everything that is different and does not come back. With one of the other three choices, that is:
 
 - a note or folder that is gone is not made again (bring a note back by itself: open it in the snapshot);
 - a note that is in another folder now stays there, and a renamed one keeps its name;
@@ -145,6 +146,37 @@ Nothing is lost by it:
   again to finish, or bring back the "Before bringing back" one to return to where you were.
 
 In a Longform project the order is written to Longform's list of scenes, and nothing else in its index note.
+
+### Everything
+
+**Everything** puts the folder back as the snapshot has it. The screen says, by count and by name, what will be
+made again, what gets its old name back, what goes back to the folder it was in, which notes get their text and
+which their properties.
+
+- **Nothing is ever deleted.** A note or folder that is new since the snapshot stays where it is, after the item
+  it follows now. Or choose **Move it to one folder** under **What is new since**: the new notes and folders then
+  go into one folder at the end of the binder, named "Since" and the snapshot's name (two notes of one name are
+  both kept, the second counted on).
+- **A note's file comes back to the byte**: the properties as you wrote them (comments, quotes, lists on one
+  line), not written again in another form. One exception: when something new since stays in the binder, the
+  binder note's list of contents is written by Binders, as it is whenever the order changes.
+- **Renamed and moved notes are put back through Obsidian**, so links to them follow, if "Automatically update
+  internal links" is on in Obsidian's settings (if it is off, links stay as they are written, and the screen says
+  so). A note's own snapshots follow it.
+- **A name that a new note has now** stays that note's. The note coming back keeps the name it has, or is named
+  by counting on ("Arrival 2"), and the screen says which. Moving what is new to one folder frees the name.
+- **Files that aren't notes** (pictures, PDFs) are not kept in a snapshot, so one that is gone can't be made again.
+- **A note that is short** (under three paragraphs) and sits at a path a note had is taken for that note, whatever
+  it says: it gets the text it had. So two short notes that changed names with each other get their texts back.
+- **A note that changes meanwhile** (a sync, another program) is left as it is and named at the end. If an item
+  is made, renamed or moved between the screen and the button, nothing is done at all: look again.
+- **Undo:** a note that is open is changed in its editor, and one **Undo** there takes that note back. **Undo last
+  move** takes none of it back. To take the whole thing back, bring back the "Before bringing back" snapshot
+  (what was made again then stays: nothing is deleted).
+- **If Obsidian is closed half-way**, the next time it opens Binders says "Bringing back … was interrupted" and
+  offers **Finish**, **Put it back as it was** (which brings back the "Before bringing back" snapshot) and **Leave
+  it as it is**. The first two show the same screen first. Until you answer, no other snapshot is brought back in
+  that binder.
 
 ### What a snapshot of a folder does not keep
 

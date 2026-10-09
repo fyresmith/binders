@@ -3,6 +3,17 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.46.0 (2026-10-09)
+
+### Added
+
+- "Bring back..." on a snapshot of a folder or binder can now bring back everything: each note as it was with its properties, notes and folders that are gone made again, and renamed or moved ones put back. Nothing is deleted; what is new since stays where it is, or goes into one folder if you choose.
+- If Obsidian closes while a snapshot is being brought back, Binders says so the next time it opens and offers to finish or to put things back as they were.
+
+### Changed
+
+- The "Bring back..." screen now opens on "Everything"; "The text and the order" is still there.
+
 ## 0.45.22 (2026-10-09)
 
 ### Changed

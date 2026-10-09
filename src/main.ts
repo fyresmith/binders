@@ -26,7 +26,7 @@ import { placeSide } from './inspector/place';
 import type { Follow } from './inspector/follow';
 import { installParagraphs, type Paragraphs } from './paragraphs/paragraphs';
 import { isScene, leftovers } from './snapshots';
-import { FolderSnapshotsModal, takeFolder } from './view/binder-snapshots';
+import { FolderSnapshotsModal, showInterrupted, takeFolder } from './view/binder-snapshots';
 import { bringBackNow, deleteFolderSnapshot, folderSnapshots, hasSnapshots, makeFromSnapshot, nameFolderSnapshot, type FolderSnapshot } from './binder-snapshots';
 import { LeftoversModal, SNAPSHOT_VIEW, SnapshotView, SnapshotsModal, folderSnapshotItems, snapshotItems, startRewrite, take } from './view/snapshots';
 
@@ -56,7 +56,8 @@ export default class BindersPlugin extends Plugin {
 		name: (s: FolderSnapshot, _folder: TFolder, title: string) => nameFolderSnapshot(this.app, s, title),
 		remove: (s: FolderSnapshot) => deleteFolderSnapshot(this.app, s),
 		make: (s: FolderSnapshot, folder: TFolder, label: string) => makeFromSnapshot(this, s, folder, label),
-		back: (s: FolderSnapshot, folder: TFolder, scope: 'both' | 'text' | 'order' = 'both') => bringBackNow(this, s, folder, scope),
+		back: (s: FolderSnapshot, folder: TFolder, scope: 'all' | 'both' | 'text' | 'order' = 'both', since: 'stay' | 'gather' = 'stay') => bringBackNow(this, s, folder, scope, since),
+		interrupted: () => showInterrupted(this),
 	};
 	/** Focus mode: its commands, the button on a binder's notes, the day's words (focus/focus.ts). */
 	focus: Focus;
@@ -94,6 +95,8 @@ export default class BindersPlugin extends Plugin {
 		this.focus = new Focus(this);
 		this.paragraphs = installParagraphs(this);
 		this.registerView(SNAPSHOT_VIEW, (leaf) => new SnapshotView(leaf, this));
+		// a snapshot that was being brought back whole when Obsidian closed: said, once the binders are known
+		this.app.workspace.onLayoutReady(() => { void this.binders.ready.then(() => showInterrupted(this)).catch(() => { /* nothing to say */ }); });
 		this.inspect = installInspector(this);
 		installContents(this, this.inspect);
 		// (a binder view the workspace brings back in a tab not yet shown hasn't opened: it counts all the same)

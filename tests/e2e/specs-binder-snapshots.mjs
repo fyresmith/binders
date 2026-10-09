@@ -553,15 +553,18 @@ async function showDialog(p, folder = L) {
 	await until(p, `!!document.querySelector(${j(DLG)})`);
 	await drawn(p);
 }
-/** "Bring back..." on the snapshot shown (and, with a scope, that one picked): what the screen says. */
-async function backScreen(p, scope = null) {
+/** "Bring back..." on the snapshot shown, with what comes back picked ("The text and the order" unless told; the
+    screen itself opens on "Everything": null leaves it as it is): what the screen says. */
+async function backScreen(p, scope = 'both') {
 	if (!(await p.ev(`!!document.querySelector(${j(BACK)})`))) {
+		// (Obsidian's own "Updated links" notices sit over the dialog's buttons, and take the click)
+		await noNotices(p);
 		await clickIn(p, DLG + ' .modal-setting-titlebar-actions button', 'Bring back...');
 		await until(p, `!!document.querySelector(${j(BACK + ' .binders-folder-snapshots-plan ul')})`, 20000);
 	}
 	if (scope) await p.ev(`(() => { const s = document.querySelector(${j(BACK + ' select')}); s.value = ${j(scope)}; s.dispatchEvent(new Event('change')); return 1; })()`);
 	await sleep(p, 250);
-	return p.ev(`(() => { const m = document.querySelector(${j(BACK)}), li = (c) => [...m.querySelectorAll('.' + c + ' li')].map(e => e.textContent); return { title: m.querySelector('.modal-title').textContent, intro: m.querySelector('.modal-content > p').textContent, options: [...m.querySelector('select').options].map(o => o.value + '=' + o.textContent), will: li('binders-folder-snapshots-plan-will'), left: li('binders-folder-snapshots-plan-left'), head: m.querySelector('.binders-folder-snapshots-plan-head')?.textContent ?? '', buttons: [...m.querySelectorAll('.modal-button-container button')].map(b => b.textContent + (b.disabled ? ' (off)' : '')) }; })()`);
+	return p.ev(`(() => { const m = document.querySelector(${j(BACK)}), li = (c) => [...m.querySelectorAll('.' + c + ' li')].map(e => e.textContent); return { title: m.querySelector('.modal-title').textContent, intro: m.querySelector('.modal-content > p').textContent, options: [...m.querySelector('select').options].map(o => o.value + '=' + o.textContent), will: li('binders-folder-snapshots-plan-will'), left: li('binders-folder-snapshots-plan-left'), head: m.querySelector('.binders-folder-snapshots-plan-head')?.textContent ?? '', scope: m.querySelector('select').value, since: (() => { const s = m.querySelector('.binders-folder-snapshots-since'); return s && s.offsetParent ? s.querySelector('select').value + ': ' + s.querySelector('.setting-item-description').textContent : ''; })(), buttons: [...m.querySelectorAll('.modal-button-container button')].map(b => b.textContent + (b.disabled ? ' (off)' : '')) }; })()`);
 }
 /** The screen's own button; returns what was said once it is done. */
 async function confirmBack(p) {
@@ -603,7 +606,7 @@ test('“Bring back...” a whole snapshot: the screen says what will change and
 	const screen = await backScreen(p);
 	t.eq(screen.title, 'Bring back “Draft sent to Sam”', 'the screen is named for the snapshot');
 	t.ok(/^“The Lighthouse” gets back the text and the order it had in the snapshot from .+\. A snapshot of it as it is now is taken first, so nothing is lost and this can be taken back\.$/.test(screen.intro), 'it says what comes back, and that what is there is kept first: ' + screen.intro);
-	t.eq(j(screen.options), j(['both=The text and the order', 'text=The text of the notes', 'order=The order']), 'what comes back can be chosen');
+	t.eq(j(screen.options), j(['all=Everything', 'both=The text and the order', 'text=The text of the notes', 'order=The order']), 'what comes back can be chosen');
 	t.ok(screen.will.length === 2 && /^3 notes get the text they had: “Arrival”, “The old keeper”, “Marked”\. .*\(kept in the snapshot taken first\)\.$/.test(screen.will[0]) && /^3 items go back to where they were in the order: /.test(screen.will[1]), 'what will change: three notes’ text (the renamed one by the name it has now), three items’ place: ' + j(screen.will));
 	t.eq(screen.head, 'Left as it is now:', 'and what is different that it leaves');
 	t.ok(screen.left.length === 5
@@ -873,6 +876,609 @@ test('the snapshot taken first is the newest one itself when that already holds 
 	await pickRow(p, 'Draft');
 	t.eq(j((await bar(p)).buttons), j(['Bring back... (off)']), 'the binder is as the snapshot has it: “Bring back...” is off');
 });
+
+// ---- bringing a whole one back: everything ----
+// Each test changes the binder, brings a snapshot back with "Everything", and compares the vault byte for byte with
+// what it held when the snapshot was taken: every note that was there is the file it was, at the path it had. What
+// may be there besides is only what the screen said stays (the notes new since) and what Binders keeps for itself
+// (the snapshot taken first, and its written plan). Then, where it says so, the snapshot taken first is brought
+// back the same way, and the vault is compared with what it held just before.
+
+const JOURNAL = SN + '/Bringing back.binder-journal';
+const CUT = '.modal.binders-folder-snapshots-interrupted';
+const allFolders = (p) => p.ev(`app.vault.getAllLoadedFiles().filter(f => f.children && f.path !== '/').map(f => f.path).sort()`);
+/** Every note that was there is, byte for byte, the file it was, at the path it had (but the ones named). */
+function back(t, then, after, { but = [], as = 'the file the snapshot holds' } = {}) { for (const [path, hexed] of Object.entries(then)) if (!but.includes(path)) t.eq(after[path], hexed, `“${path}” is byte for byte ${as}`); }
+/** The notes that are there now and weren't. */
+const added = (then, after) => Object.keys(after).filter((k) => !(k in then)).sort();
+/** Asks the vault side for everything, with no screen: what it did, or why it wouldn't. */
+const backAll = (p, title, folder = L, since = 'stay') => p.ev(`(async () => { try { const s = ${PL}.snapshotsApi.list(${file(folder)}).find(x => x.title === ${j(title)}); const r = await ${PL}.snapshotsApi.back(s, ${file(folder)}, 'all', ${j(since)}); return 'done: ' + JSON.stringify([r.again, r.placed, r.files, r.ordered, r.gathered, r.left]); } catch (e) { return e.message; } })()`);
+const journal = (p, path = JOURNAL) => p.ev(`app.vault.adapter.exists(${j(path)}).then(ok => ok ? app.vault.adapter.read(${j(path)}).then(JSON.parse) : null)`);
+const leadsTo = (p, link, from) => p.ev(`app.metadataCache.getFirstLinkpathDest(${j(link)}, ${j(from)})?.path ?? null`);
+/** Renames and moves have settled, the order is written, and Obsidian has read the notes again. */
+const settled = async (p) => { await settle(p); await sleep(p, 700); };
+/** What Binders said itself (Obsidian says "Updated links" of its own accord). */
+const ours = (said) => said.split('|').find((x) => /^Brought back|^Nothing was brought back|so nothing was brought back/.test(x)) ?? said;
+/** The screen's second choice: what becomes of what is new since. */
+async function since(p, v) {
+	await p.ev(`(() => { const s = document.querySelector(${j(BACK + ' .binders-folder-snapshots-since select')}); s.value = ${j(v)}; s.dispatchEvent(new Event('change')); return 1; })()`);
+	return backScreen(p, null);
+}
+/** A snapshot of the binder the view shows, named, and dated before today. */
+async function draft(p, title = 'Draft', dir = SN) {
+	const first = await take(p, dir);
+	await age(p, first.files[first.files.length - 1], `2026-09-19 16.20.05 ${title}`, dir);
+}
+const LONG = (tag) => [1, 2, 3, 4].map((n) => `Paragraph ${n} of ${tag}, with enough words in it to be told from any other note.`).join('\n\n') + '\n';
+
+test('“Everything”: the screen opens on it and says, in counts and names, what will be made again, renamed, moved, rewritten and given its properties, and what is new and stays; then every note that was there is the file it was, where it was, byte for byte; links and a note’s own snapshots follow the names; nothing is deleted; and the snapshot taken first, brought back, returns every byte', async (p, h, t) => {
+	const OUT = 'Outside.md', HAND = P2 + '/By hand.md', K2 = P1 + '/The old keeper.md';
+	await writeRaw(p, HAND, '---\n# a comment the writer left\ntags: [sea, "night watch"]\nstatus: \'First draft\'\nsynopsis: >-\n  The lamp,\n  and the dark.\n---\nSee [[The keeper]] and [[Arrival|how she came]].\n');
+	await writeRaw(p, OUT, 'From outside the binder: [[The keeper]] and [[Part One/Arrival]].\n');
+	await until(p, `!!${file(HAND)} && !!${file(OUT)}`);
+	await sleep(p, 800);
+	await openView(p);
+	await p.ev(`${PL}.snapshotsApi.take(${file(K)}, 'Keeper as drafted').then(() => 1)`);
+	await until(p, `app.vault.adapter.exists(${j(SN + '/Part One/The keeper')})`, 8000);
+	await draft(p, 'Draft sent to Sam');
+	const then = await bytes(p), thenFolders = await allFolders(p);
+	// a month's work: a note rewritten, one moved to another folder, one renamed (its links and its snapshots go
+	// along), one deleted, one new, properties changed (those written by hand rewritten in Obsidian's own form), a
+	// folder given a note of its own, the binder a target, the order changed
+	await work(p);
+	await p.ev(`(async () => { const f = (x) => app.vault.getAbstractFileByPath(x); await app.fileManager.processFrontMatter(f(${j(HAND)}), (fm) => { fm.status = 'Done'; fm.tags.push('rewritten'); }); await app.vault.process(f(${j(HAND)}), (x) => x + 'A line more.\\n'); })().then(() => 1)`);
+	await settled(p);
+	const before = await bytes(p), files = await allFiles(p);
+	t.ok(textOf(before[OUT]).includes('[[The old keeper]]') && textOf(before[HAND]).includes('[[The old keeper]]') && !textOf(before[HAND]).includes('# a comment'), '(as things stand: the links followed the rename, and the properties written by hand were written again by Obsidian)');
+	t.ok(await exists(p, SN + '/Part One/The old keeper') && !(await exists(p, SN + '/Part One/The keeper')), '(and the note’s own snapshots followed it)');
+	await openDialog(p);
+	await drawn(p);
+	const screen = await backScreen(p, null);
+	t.eq(screen.scope, 'all', 'the screen opens on “Everything”');
+	t.ok(/^“The Lighthouse” goes back to the snapshot from .+: its notes as they were, with their properties, what is gone made again, and what was renamed or moved put back\. Nothing is deleted\. A snapshot of it as it is now is taken first, so nothing is lost and this can be taken back\.$/.test(screen.intro), 'it says what comes back, that nothing is deleted, and that what is there is kept first: ' + screen.intro);
+	t.ok(screen.will.length === 6
+		&& /^2 notes get the text they had: “Arrival”, “By hand”\. .*\(kept in the snapshot taken first\)\.$/.test(screen.will[0])
+		&& /^1 item that is gone is made again: “Lights out”\.$/.test(screen.will[1])
+		&& /^1 item goes back to the folder it was in: “Storm warning”\.$/.test(screen.will[2])
+		&& /^\d+ items? go(es)? back to where (it was|they were) in the order: /.test(screen.will[3])
+		&& /^1 item gets its old name back: “The old keeper” becomes “The keeper”\.$/.test(screen.will[4])
+		&& /^\d+ items get the properties they had: /.test(screen.will[5]) && /target/.test(screen.will[5]) && /status/.test(screen.will[5]) && /tags/.test(screen.will[5]), 'what will change, by count and by name: text, made again, moved back, the order, renamed back, properties: ' + j(screen.will));
+	t.eq(screen.head, 'Left as it is now:', 'and what stays');
+	t.ok(screen.left.length === 2 && /^1 item that is new since stays where it is: “The lamp room”\. Nothing is deleted\.$/.test(screen.left[0]) && /^1 folder keeps the note made for it since: “Part One”\.$/.test(screen.left[1]), 'the note that is new, and the folder’s note made since: ' + j(screen.left));
+	t.eq(screen.since, 'stay: Stays where it is, after the item it follows now.', 'what is new since has its own choice, which leaves it where it is');
+	t.eq(j(screen.buttons), j(['Bring back', 'Cancel']), 'and the two buttons');
+	same(t, before, await bytes(p));
+	t.eq(j(await allFiles(p)), j(files), 'reading the screen changes nothing');
+	const said = ours(await confirmBack(p));
+	await settled(p);
+	const after = await bytes(p);
+	// every note that was there, byte for byte, where it was: text, properties as they were written, the note outside
+	back(t, then, after, { but: [NOTE] });
+	t.ok(textOf(after[HAND]).includes('# a comment the writer left\ntags: [sea, "night watch"]\nstatus: \'First draft\''), '(the properties written by hand are the writer’s own lines again: the comment, the list on one line, the quotes)');
+	t.eq(j(added(then, after)), j([P1 + '/Part One.md', P2 + '/The lamp room.md']), 'the only notes besides are the ones the screen said stay: the new note, and the folder’s note made since');
+	for (const path of added(then, after)) t.eq(after[path], before[path], `“${path}”, new since, is untouched`);
+	t.eq(j(await allFolders(p)), j(thenFolders), 'the folders are the folders there were');
+	// the binder note: everything but the order as it was (the new note is in the order now)
+	t.eq(butOrder(after[NOTE]), butOrder(then[NOTE]), 'the binder note is as it was but for its list of contents: the target set since is gone');
+	t.eq(j([await ordered(p, L), await ordered(p, P1), await ordered(p, P2)]), j([['Prologue.md', 'Part One', 'Part Two', 'Epilogue.md'], ['Arrival.md', 'The keeper.md', 'Storm warning.md'], ['The lamp room.md', 'The wreck.md', 'Lights out.md', 'By hand.md']]), 'the order it had, with the new note where it is (it follows nothing that was there)');
+	// links, and the note's own snapshots
+	t.eq(await leadsTo(p, 'The keeper', OUT), K, 'the link from outside the binder leads to the note under the name it has again');
+	t.ok((await exists(p, SN + '/Part One/The keeper')) && !(await exists(p, SN + '/Part One/The old keeper')), 'the note’s own snapshots followed it back');
+	// what was made, and what is gone: one snapshot and the plan; no note
+	const now = await allFiles(p), made = now.filter((f) => !files.includes(f)), gone = files.filter((f) => !now.includes(f));
+	const auto = made.find((f) => / Before bringing back Draft sent to Sam\.auto\.binder-snapshot$/.test(f));
+	t.ok(!!auto && made.includes(P2 + '/Lights out.md') && made.includes(JOURNAL) && made.every((f) => [auto, JOURNAL, P2 + '/Lights out.md', K, S].includes(f) || f.startsWith(SN + '/Part One/The keeper/')), 'what is there that wasn’t: the note that was gone, the snapshot taken first and the plan (and two notes at the paths they had): ' + j(made));
+	t.ok(gone.every((f) => f === K2 || f === P2 + '/Storm warning.md' || f.startsWith(SN + '/Part One/The old keeper/')), 'nothing is gone but by its name: ' + j(gone));
+	const kept = await snapshot(p, auto);
+	for (const i of kept.items.filter((x) => x.text != null)) t.eq(hexOf(i.text), before[`${L}/${i.path}`], `“${i.path}” is in the snapshot taken first exactly as it was just before`);
+	t.ok(/^Brought back “Draft sent to Sam”: 1 item made again, 2 items put back where they were, \d+ notes as they were, the order\. Nothing was deleted\. “The Lighthouse” as it was just before is kept as the snapshot “Before bringing back Draft sent to Sam”: bring that one back to take this back \(“Undo last move” doesn’t\)\.$/.test(said), 'it says what it did, that nothing was deleted, and how to take it back: ' + said);
+	const plan = await journal(p);
+	t.ok(plan && plan.journal === 1 && plan.finished > 0 && plan.title === 'Draft sent to Sam' && j(plan.plan.made) === j(['Part Two/Lights out.md']) && j(plan.plan.moved) === j([['Part One/The old keeper.md', 'Part One/The keeper.md'], ['Part Two/Storm warning.md', 'Part One/Storm warning.md']]), 'the plan that was written down is marked as finished, and says what it was: ' + j(plan));
+	t.eq(await p.ev(`${B}.undoable(${file(L)})`), null, '“Undo last move” has nothing of this to take back');
+	// and back again: the snapshot taken first puts every byte where it was; the note made again stays
+	await drawn(p);
+	await pickRow(p, 'Before bringing back Draft sent to Sam');
+	const undo = await backScreen(p, null);
+	t.ok(undo.left.length === 1 && /^1 item that is new since stays where it is: “Lights out”\. Nothing is deleted\.$/.test(undo.left[0]), 'the snapshot taken first: the note made again is new to it, and stays: ' + j(undo));
+	const saidAgain = ours(await confirmBack(p));
+	await settled(p);
+	const again = await bytes(p);
+	back(t, before, again, { but: [NOTE], as: 'the file it was just before' });
+	t.eq(j(added(before, again)), j([P2 + '/Lights out.md']), 'and nothing was deleted: the note made again is still there');
+	t.eq(butOrder(again[NOTE]), butOrder(before[NOTE]), 'the binder note too, but for its list of contents');
+	t.ok(/^Brought back “Before bringing back Draft sent to Sam”: /.test(saidAgain), saidAgain);
+}, 180000);
+
+test('“Everything”, names: two notes that changed names with each other, a name that differs only in its capitals, and a name a new note has now (that note keeps it, and the screen says so; moved to the one folder, it frees the name); links lead where they led', async (p, h, t) => {
+	const OUT = 'Outside.md', PR = L + '/Prologue.md', OP = L + '/Opening.md';
+	await writeRaw(p, OUT, 'Links: [[Arrival]], [[The keeper]], [[Epilogue]].\n');
+	// (notes of some length: a short note at an old path is taken for the old note, rewritten, whatever it says; so
+	// two short notes that change names with each other get their texts back, not their names)
+	await writeRaw(p, PR, '---\nstatus: draft\n---\n' + LONG('the first opening'));
+	await writeRaw(p, A, '---\nstatus: revised\n---\n' + LONG('the arrival'));
+	await writeRaw(p, K, LONG('the keeper'));
+	await until(p, `!!${file(OUT)}`);
+	await sleep(p, 800);
+	await openView(p);
+	await p.ev(`${PL}.snapshotsApi.take(${file(A)}, 'Arrival as drafted').then(() => 1)`);
+	await until(p, `app.vault.adapter.exists(${j(SN + '/Part One/Arrival')})`, 8000);
+	const mine = (await p.ev(`app.vault.adapter.list(${j(SN + '/Part One/Arrival')}).then(l => l.files)`))[0], held = await hex(p, mine);
+	await draft(p);
+	const then = await bytes(p);
+	await p.ev(`(async () => { const f = (x) => app.vault.getAbstractFileByPath(x), mv = (a, b) => app.fileManager.renameFile(f(a), b);
+		await mv(${j(A)}, ${j(P1 + '/Third.md')}); await mv(${j(K)}, ${j(A)}); await mv(${j(P1 + '/Third.md')}, ${j(K)});
+		await mv(${j(E)}, ${j(L + '/epilogue.md')});
+		await mv(${j(PR)}, ${j(OP)});
+		await ${B}.newScene(f(${j(L)}), 0, 'Prologue', undefined, ${j(LONG('another opening'))});
+	})().then(() => 1)`);
+	await settled(p);
+	const before = await bytes(p);
+	t.ok(before[A] === then[K] && before[K] === then[A] && !!before[L + '/epilogue.md'] && before[OP] === then[PR], '(as things stand: the two notes have each other’s names, the capital is gone, the prologue has another name and a new note has its own)');
+	await showDialog(p);
+	const screen = await backScreen(p, null);
+	t.ok(screen.will.some((x) => /^3 items get their old names back: /.test(x) && x.includes('“The keeper” becomes “Arrival”') && x.includes('“Arrival” becomes “The keeper”') && x.includes('“epilogue” becomes “Epilogue”')), 'three names come back, each said as what becomes what: ' + j(screen.will));
+	t.ok(screen.left.some((x) => /^1 item that is new since stays where it is: “Prologue”\. Nothing is deleted\.$/.test(x)) && screen.left.some((x) => /^1 item can’t have the name it had, which an item new since has now: “Prologue” will be “Opening”\.$/.test(x)), 'the new note keeps its name, and the note that had it keeps the one it has now: both said: ' + j(screen.left));
+	const said = ours(await confirmBack(p));
+	await settled(p);
+	const after = await bytes(p);
+	back(t, then, after, { but: [NOTE, PR] });
+	t.eq(after[OP], then[PR], 'the prologue is the file it was, under the name it keeps');
+	t.eq(after[PR], before[PR], 'and the new note that has its name is untouched');
+	t.eq(j(added(then, after)), j([OP]), 'no other note is there');
+	t.ok((await allFiles(p)).includes(E) && !(await allFiles(p)).includes(L + '/epilogue.md'), 'the capital is back in the file’s name');
+	t.eq(textOf(after[OUT]), 'Links: [[Arrival]], [[The keeper]], [[Epilogue]].\n', 'the note outside the binder says what it said: its links followed each name there and back');
+	t.eq(j([await leadsTo(p, 'Arrival', OUT), await leadsTo(p, 'The keeper', OUT)]), j([A, K]), 'and they lead to the notes they led to');
+	t.eq(await hex(p, mine), held, 'the note’s own snapshot is where it was, the same file: it went with the note, and came back with it');
+	t.eq((await p.ev(`app.vault.adapter.list(${j(SN + '/Part One')}).then(l => l.folders.map(f => f.split('/').pop()).sort())`)).join(), 'Arrival', 'and no folder of snapshots is left under a name the note passed through');
+	t.ok(/^Brought back “Draft”: 3 items put back where they were/.test(said), said);
+	// the choice: what is new goes to one folder, and the old name is free
+	await drawn(p);
+	await pickRow(p, 'Draft');
+	const first = await backScreen(p, null), gather = await since(p, 'gather');
+	t.ok(first.since.startsWith('stay: ') && gather.since === 'gather: Goes into one folder at the end. Nothing is deleted.', 'the choice is there while something is new: ' + j([first.since, gather.since]));
+	t.ok(gather.will.some((x) => /^1 item that is new since goes into a new folder, “Since Draft”: “Prologue”\. Nothing is deleted\.$/.test(x)) && gather.will.some((x) => /^1 item gets its old name back: “Opening” becomes “Prologue”\.$/.test(x)) && !gather.left.length, 'moved to one folder: said, with the folder’s name; and the name it had comes back: ' + j(gather));
+	const saidGather = ours(await confirmBack(p));
+	await settled(p);
+	const moved = await bytes(p);
+	back(t, then, moved, { but: [NOTE] });
+	t.eq(j(added(then, moved)), j([L + '/Since Draft/Prologue.md']), 'the new note is in the one folder, and nothing else is new');
+	t.eq(moved[L + '/Since Draft/Prologue.md'], before[PR], 'the same file, byte for byte: nothing is deleted');
+	t.eq(j([await ordered(p, L), await ordered(p, L + '/Since Draft')]), j([['Prologue.md', 'Part One', 'Part Two', 'Epilogue.md', 'Since Draft'], ['Prologue.md']]), 'the order it had, and the one folder at the end');
+	t.eq(butOrder(moved[NOTE]), butOrder(then[NOTE]), 'the binder note as it was but for its list');
+	t.ok(/1 item that is new since moved into “Since Draft”/.test(saidGather) && /Nothing was deleted\./.test(saidGather), saidGather);
+}, 180000);
+
+test('“Everything”, folders: a folder that is gone is made again with its own note and its notes, a renamed one gets its name back and its own note follows it, a note goes back to the folder it was in; with nothing new since, the vault is file for file what it was, the binder note with the writer’s own comment among them', async (p, h, t) => {
+	await p.ev(`(async () => { const f = (x) => app.vault.getAbstractFileByPath(x); for (const [d, s] of [[${j(P1)}, 'Mara comes to the island.'], [${j(P2)}, 'The light goes out.']]) { const n = await ${B}.ensureFolderNote(f(d)); await app.fileManager.processFrontMatter(n, (fm) => { fm.synopsis = s; }); } })().then(() => 1)`);
+	await writeRaw(p, NOTE, (await read(p, NOTE)).replace('binder: 1\n', 'binder: 1\n# the order of the book, as the writer keeps it\n'));
+	await sleep(p, 900);
+	await openView(p);
+	await draft(p);
+	const then = await bytes(p), thenFolders = await allFolders(p), thenFiles = await allFiles(p), thenOrder = await contents(p);
+	t.ok(textOf(then[NOTE]).includes('# the order of the book') && thenOrder.length === 9, '(the binder note has a line written by hand)');
+	await p.ev(`(async () => { const f = (x) => app.vault.getAbstractFileByPath(x);
+		await app.vault.delete(f(${j(P2)}), true);
+		await app.fileManager.renameFile(f(${j(P1)}), ${j(L + '/Part 1')});
+		await new Promise(r => setTimeout(r, 700));
+		await ${B}.move(f(${j(L + '/Part 1/Storm warning.md')}), f(${j(L)}), 0);
+	})().then(() => 1)`);
+	await settled(p);
+	const before = await bytes(p), beforeFolders = await allFolders(p);
+	t.ok(!!before[L + '/Part 1/Part 1.md'] && !!before[L + '/Storm warning.md'] && !before[W], '(as things stand: one folder gone with all in it, one renamed with its note, a note out of its folder)');
+	await showDialog(p);
+	const screen = await backScreen(p, null);
+	t.ok(screen.will.some((x) => /^3 items that are gone are made again: “Part Two”, “The wreck”, “Lights out”\.$/.test(x)) && screen.will.some((x) => /^1 item goes back to the folder it was in: “Storm warning”\.$/.test(x)) && screen.will.some((x) => /^1 item gets its old name back: “Part 1” becomes “Part One”\.$/.test(x)), 'the folder and its notes made again, the note back in its folder, the folder’s name: ' + j(screen.will));
+	t.ok(!screen.left.length && screen.since === '', 'nothing is new since: nothing is left, and there is no choice to make: ' + j([screen.left, screen.since]));
+	const said = ours(await confirmBack(p));
+	await settled(p);
+	const after = await bytes(p);
+	back(t, then, after);
+	t.ok(textOf(after[NOTE]).includes('# the order of the book'), '(the binder note is the snapshot’s bytes: the comment is there again)');
+	t.eq(j(added(then, after)), j([]), 'no note is there that wasn’t');
+	t.eq(j(await allFolders(p)), j(thenFolders), 'the folders are the folders there were');
+	const now = await allFiles(p), made = now.filter((f) => !thenFiles.includes(f));
+	t.ok(made.length === 2 && made.includes(JOURNAL) && made.some((f) => AUTO.test(f.slice(SN.length + 1))) && thenFiles.every((f) => now.includes(f)), 'every file that was there is there; besides, only the snapshot taken first and the plan: ' + j(made));
+	t.eq(j(await contents(p)), j(thenOrder), 'and the order is the order it had');
+	t.eq(j(await ordered(p, P2)), j(['The wreck.md', 'Lights out.md']), 'the folder made again has its notes in their order');
+	t.ok(/^Brought back “Draft”: 3 items made again, 2 items put back where they were/.test(said), 'it says what it made and put back, as the screen counted them: ' + said);
+	// back again: the folder made again stays, with its notes; everything else is as it was just before
+	await drawn(p);
+	await pickRow(p, 'Before bringing back Draft');
+	await backScreen(p, null);
+	await confirmBack(p);
+	await settled(p);
+	const again = await bytes(p);
+	back(t, before, again, { but: [NOTE], as: 'the file it was just before' });
+	t.eq(j(added(before, again)), j([P2 + '/Lights out.md', P2 + '/Part Two.md', W]), 'nothing was deleted: the folder made again is still there, with its notes');
+	t.eq(j(await allFolders(p)), j([...beforeFolders, P2].sort()), 'the folders as they were just before, and that one');
+	t.eq(butOrder(again[NOTE]), butOrder(before[NOTE]), 'the binder note as it was just before, but for its list');
+}, 180000);
+
+test('“Everything”, properties and bytes: notes whose properties were written by hand (a comment, a list on one line, quotes, a folded line), with Windows line endings, with a byte-order mark; one open with unsaved typing, in an editor that Undo takes it back in: each is the snapshot’s file to the byte, not properties written again', async (p, h, t) => {
+	const H = P1 + '/By hand.md', C = P1 + '/Windows.md', M = P2 + '/Marked.md';
+	const hand = '---\n# a comment the writer left\ntags: [sea, "night watch"]   # on one line\nstatus: \'First draft\'\ntitle: "Quoted: with a colon"\nsynopsis: >-\n  Folded,\n  over two lines.\n---\nBy hand.\n';
+	const crlf = '---\r\nstatus: draft\r\nlabel: Blue\r\n---\r\nWindows lines.\r\nTwo of them.\r\n', marked = '﻿---\nstatus: draft\n---\nA mark at the front.\n';
+	for (const [path, text] of [[H, hand], [C, crlf], [M, marked]]) await writeRaw(p, path, text);
+	await until(p, `!!${file(H)} && !!${file(C)} && !!${file(M)}`);
+	await sleep(p, 800);
+	await openView(p);
+	await draft(p);
+	const then = await bytes(p), files = await allFiles(p);
+	t.eq(j([then[H], then[C], then[M]]), j([hexOf(hand), hexOf(crlf), hexOf(marked)]), '(the three notes are on the disk as they were written)');
+	// properties changed as Obsidian changes them (the whole block written again in its own form), and text
+	await p.ev(`(async () => { const f = (x) => app.vault.getAbstractFileByPath(x), pm = (x, fn) => app.fileManager.processFrontMatter(f(x), fn);
+		await pm(${j(H)}, (fm) => { fm.status = 'Done'; fm.label = 'Red'; });
+		await pm(${j(C)}, (fm) => { fm.label = 'Red'; delete fm.status; });
+		await pm(${j(M)}, (fm) => { fm.status = 'done'; });
+		await pm(${j(A)}, (fm) => { fm.status = 'final'; fm.pov = 'Mara'; });
+		await app.vault.process(f(${j(W)}), (x) => x + '\\nWritten since, in a note that is closed.\\n');
+	})().then(() => 1)`);
+	await sleep(p, 600);
+	// two of them open, each with typing that isn't saved
+	for (const path of [H, M]) await p.ev(`app.workspace.getLeaf('tab').openFile(${file(path)}, { state: { mode: 'source' } }).then(() => 1)`);
+	await sleep(p, 700);
+	const ED = (path) => `app.workspace.getLeavesOfType('markdown').find(l => l.view.file?.path === ${j(path)}).view.editor`;
+	for (const path of [H, M]) await p.ev(`(() => { const e = ${ED(path)}; e.replaceRange('\\nTYPED-AND-NOT-SAVED.', { line: e.lastLine(), ch: e.getLine(e.lastLine()).length }); return 1; })()`);
+	const mid = await bytes(p);
+	t.ok(!textOf(mid[H]).includes('TYPED') && !textOf(mid[H]).includes('# a comment') && textOf(mid[H]).includes('status: Done') && !textOf(mid[C]).includes('status'), '(as things stand: what was typed is not on the disk; the properties written by hand were written again by Obsidian)');
+	await showDialog(p);
+	const screen = await backScreen(p, null);
+	t.ok(screen.will.some((x) => /^3 notes get the text they had: /.test(x)) && screen.will.some((x) => /^4 items get the properties they had: /.test(x) && /status/.test(x) && /label/.test(x) && /pov/.test(x)) && !screen.left.length, 'the screen: three notes’ text (the two being typed in among them), four notes’ properties: ' + j(screen));
+	const said = ours(await confirmBack(p));
+	await settled(p);
+	const after = await bytes(p);
+	back(t, then, after);
+	t.eq(j([textOf(after[H]), textOf(after[C]), textOf(after[M])]), j([hand, crlf, marked]), 'the three notes are what the writer wrote, to the byte: the comment, the list on one line, the quotes, the folded line; CR LF; the mark');
+	t.eq(j(added(then, after)), j([]), 'and no note is there that wasn’t');
+	const made = (await allFiles(p)).filter((f) => !files.includes(f)), kept = await snapshot(p, made.find((f) => f.endsWith('.binder-snapshot')));
+	t.ok(kept.items.find((i) => i.path === 'Part One/By hand.md').text.endsWith('TYPED-AND-NOT-SAVED.') && kept.items.find((i) => i.path === 'Part Two/Marked.md').text.endsWith('TYPED-AND-NOT-SAVED.'), 'what was typed and not saved is in the snapshot taken first');
+	t.ok(kept.items.find((i) => i.path === 'Part One/By hand.md').text.includes('status: Done') && kept.items.find((i) => i.path === 'Part Two/The wreck.md').text.endsWith('Written since, in a note that is closed.\n'), 'with the properties and the text that were replaced');
+	t.ok(!(await p.ev(`${ED(H)}.getValue()`)).includes('TYPED') && (await p.ev(`${ED(H)}.getValue()`)) === hand, 'the editor shows the note as it was');
+	t.ok(/^Brought back “Draft”: 5 notes as they were\. Nothing was deleted\./.test(said), 'it says how many notes are as they were: ' + said);
+	// one Undo, in the editor the note is open in
+	await closeAll(p);
+	await p.ev(`(() => { ${ED(H)}.undo(); return 1; })()`);
+	await until(p, `app.vault.adapter.read(${j(H)}).then(s => s.includes('TYPED-AND-NOT-SAVED'))`, 8000);
+	const undone = await read(p, H);
+	t.ok(undone.endsWith('TYPED-AND-NOT-SAVED.') && undone.includes('status: Done') && undone.includes('label: Red'), 'one Undo in the editor: the note says again what it said, properties and text, to the last word typed: ' + j(undone));
+	const rest = await bytes(p);
+	for (const path of Object.keys(then)) if (path !== H) t.eq(rest[path], then[path], `“${path}” is not the editor’s to undo: it is as the snapshot has it`);
+	t.eq(await p.ev(`${B}.undoable(${file(L)})`), null, 'and “Undo last move” takes none of it back');
+}, 180000);
+
+test('“Everything”, with a note changed from outside after the screen was read, or after the snapshot taken first was written: that note is left as it is and named, and the rest comes back; an item that arrives meanwhile, and nothing is done at all', async (p, h, t) => {
+	await openView(p);
+	await draft(p);
+	const then = await bytes(p);
+	await p.ev(`(async () => { const f = (x) => app.vault.getAbstractFileByPath(x); for (const x of ${j([A, K, S, W])}) await app.vault.process(f(x), (t) => t + '\\nWritten since.\\n'); await app.fileManager.renameFile(f(${j(E)}), ${j(L + '/The end.md')}); })().then(() => 1)`);
+	await settled(p);
+	const before = await bytes(p);
+	await openDialog(p);
+	await drawn(p);
+	const screen = await backScreen(p, null);
+	t.ok(screen.will.some((x) => /^4 notes get the text they had: /.test(x)) && screen.will.some((x) => /^1 item gets its old name back: “The end” becomes “Epilogue”\.$/.test(x)), 'the screen: four notes, one name: ' + j(screen.will));
+	// from outside (a sync, another program), while the screen is open
+	const OUT1 = textOf(before[K]) + 'Typed on another device while the screen was open.\n';
+	await writeRaw(p, K, OUT1);
+	await sleep(p, 900);
+	// and the moment the snapshot of what is there has been written, before anything is changed
+	const OUT2 = textOf(before[S]) + 'Typed on another device between the snapshot and the write.\n';
+	await p.ev(`(() => { const v = app.vault, make = v.create; v.create = async function (path, ...rest) { const f = await make.call(this, path, ...rest); if (/\\.auto\\.binder-snapshot$/.test(path)) { delete v.create; window.bindersTestHook = 'ran'; await v.adapter.write(${j(S)}, ${j(OUT2)}); } return f; }; return 1; })()`);
+	const said = ours(await confirmBack(p));
+	t.eq(await p.ev(`(() => { const ran = window.bindersTestHook; delete window.bindersTestHook; return ran + (Object.prototype.hasOwnProperty.call(app.vault, 'create') ? ', still there' : ', gone'); })()`), 'ran, gone', '(the test’s hook ran, and is gone)');
+	await settled(p);
+	const after = await bytes(p);
+	back(t, then, after, { but: [K, S, NOTE] });
+	t.eq(textOf(after[K]), OUT1, 'the note changed while the screen was open is left, with every word typed from outside');
+	t.eq(textOf(after[S]), OUT2, 'the note changed after the snapshot was taken is left too: the write refused it');
+	t.ok(/^Brought back “Draft”: 1 item put back where it was, 2 notes as they were\. 2 items were left as they are: “The keeper” \(changed meanwhile\), “Storm warning” \(changed meanwhile\)\. Nothing was deleted\./.test(said), 'it says which were left, and why: ' + said);
+	const auto = (await list(p)).find((f) => AUTO.test(f)), kept = await snapshot(p, `${SN}/${auto}`);
+	t.eq(kept.items.find((i) => i.path === 'Part One/The keeper.md').text, OUT1, 'the snapshot taken first holds the first note as it was changed from outside');
+	t.eq(hexOf(kept.items.find((i) => i.path === 'Part One/Storm warning.md').text), before[S], 'and the second as it was when it was taken: what came after is in the note');
+	t.ok((await journal(p)).finished > 0, 'it was done as far as it could be, and its plan is marked finished');
+	// an item that arrives while the screen is open: what is to be made, renamed or moved is no longer what the screen said
+	await closeAll(p);
+	await p.ev(`(async () => { await app.vault.process(${file(A)}, (t) => t + '\\nAgain.\\n'); await app.fileManager.renameFile(${file(E)}, ${j(L + '/The end.md')}); })().then(() => 1)`);
+	await settled(p);
+	await openDialog(p);
+	await pickRow(p, 'Draft');
+	await backScreen(p, null);
+	await p.ev(`${B}.newScene(${file(L)}, 1, 'Arrived meanwhile', undefined, 'A note another device made.\\n').then(() => ${B}.flush()).then(() => 1)`);
+	await sleep(p, 500);
+	const mid = await bytes(p);
+	await noNotices(p);
+	await clickIn(p, BACK + ' .modal-button-container button', 'Bring back');
+	await until(p, `[...document.querySelectorAll('.notice')].some(n => /nothing was brought back/.test(n.textContent))`, 30000);
+	const refused = ours(await notices(p));
+	t.ok(/^“The Lighthouse” was changed after the screen said what would happen, so nothing was brought back\. Look again: the screen will say what there is to do now\.$/.test(refused), 'it says so, and why: ' + refused);
+	same(t, mid, await bytes(p));
+	t.ok((await journal(p)).finished > 0 && !(await p.ev(`!!document.querySelector(${j(CUT)})`)), 'and nothing is under way: no plan was written for it');
+}, 180000);
+
+test('“Everything” in a Longform project: a scene renamed, one deleted, one rewritten, the order changed; every note is the file it was, the index note to the byte; there is no folder to move what is new to', async (p, h, t) => {
+	const D = 'Longform demo', I = D + '/Index.md', DS = D + '/Snapshots';
+	await openView(p, D);
+	await draft(p, 'Ferry draft', DS);
+	const then = await bytes(p), thenOrder = await ordered(p, D);
+	await p.ev(`(async () => { const f = (x) => app.vault.getAbstractFileByPath(x);
+		await app.fileManager.renameFile(f(${j(D + '/Harbor.md')}), ${j(D + '/Port.md')});
+		await app.vault.delete(f(${j(D + '/Return.md')}));
+		await app.vault.process(f(${j(D + '/Island.md')}), (t) => t + 'More.\\n');
+		await ${B}.move(f(${j(D + '/Island.md')}), f(${j(D)}), 0);
+		await ${B}.newScene(f(${j(D)}), 1, 'Customs', undefined, 'A scene written since.\\n');
+	})().then(() => 1)`);
+	await settled(p);
+	const before = await bytes(p);
+	t.ok(!before[D + '/Return.md'] && !!before[D + '/Port.md'] && before[I] !== then[I], '(as things stand: a scene gone, one renamed, the index note written by Binders)');
+	await openDialog(p);
+	await drawn(p);
+	const screen = await backScreen(p, null);
+	t.ok(screen.will.some((x) => /^1 item that is gone is made again: “Return”\.$/.test(x)) && screen.will.some((x) => /^1 item gets its old name back: “Port” becomes “Harbor”\.$/.test(x)) && screen.will.some((x) => /^1 note gets the text it had: “Island”\./.test(x)), 'the screen: ' + j(screen.will));
+	t.ok(screen.left.some((x) => /^1 item that is new since stays where it is: “Customs”\. Nothing is deleted\.$/.test(x)) && screen.since === '', 'the new scene stays, and a project without folders has no folder to offer for it: ' + j([screen.left, screen.since]));
+	const said = ours(await confirmBack(p));
+	await settled(p);
+	const after = await bytes(p);
+	back(t, then, after, { but: [I] });
+	t.eq(j(added(then, after)), j([D + '/Customs.md']), 'the new scene is the only note besides');
+	t.eq(after[D + '/Customs.md'], before[D + '/Customs.md'], 'and is untouched');
+	t.eq(butOrder(after[I]), butOrder(then[I]), 'the index note: as it was but for its list of scenes');
+	t.eq(j((await ordered(p, D)).filter((x) => x !== 'Customs.md')), j(thenOrder), 'the scenes are in the order Longform had them');
+	t.eq((await list(p, DS)).filter((f) => AUTO.test(f)).length, 1, 'the snapshot taken first is in the project’s own folder of snapshots');
+	t.ok(/^Brought back “Ferry draft”: 1 item made again, 1 item put back where it was, /.test(said), said);
+	// with nothing new since: the index note is the snapshot's bytes
+	await closeAll(p);
+	await p.ev(`(async () => { const f = (x) => app.vault.getAbstractFileByPath(x); await app.vault.delete(f(${j(D + '/Customs.md')})); await ${B}.move(f(${j(D + '/Island.md')}), f(${j(D)}), 0); await app.fileManager.renameFile(f(${j(D + '/Ticket office.md')}), ${j(D + '/Tickets.md')}); })().then(() => 1)`);
+	await settled(p);
+	t.ok((await bytes(p))[I] !== then[I], '(the index note is written by Binders again)');
+	t.ok(/^done: /.test(await backAll(p, 'Ferry draft', D)), 'brought back once more');
+	await settled(p);
+	same(t, then, await bytes(p));
+	t.eq(j(await ordered(p, D)), j(thenOrder), 'and the order, with its groups, is Longform’s');
+}, 180000);
+
+test('“Everything” for one folder, from a snapshot of the whole binder: what was in the folder comes back, made again, renamed, with its properties; nothing outside the folder is touched', async (p, h, t) => {
+	const K2 = P1 + '/The old keeper.md';
+	await openView(p);
+	await draft(p, 'Draft sent to Sam');
+	const then = await bytes(p);
+	await p.ev(`(async () => { const f = (x) => app.vault.getAbstractFileByPath(x), pm = (x, fn) => app.fileManager.processFrontMatter(f(x), fn);
+		await app.fileManager.renameFile(f(${j(K)}), ${j(K2)});
+		await app.vault.delete(f(${j(S)}));
+		await app.vault.process(f(${j(A)}), (t) => t + '\\nWritten since.\\n');
+		await pm(${j(A)}, (fm) => { fm.label = 'Red'; });
+		await app.vault.process(f(${j(W)}), (t) => t + '\\nWritten since, outside the folder.\\n');
+		await pm(${j(W)}, (fm) => { fm.label = 'Blue'; });
+		await ${B}.move(f(${j(E)}), f(${j(L)}), 0);
+		await ${B}.newScene(f(${j(P2)}), 0, 'New in the other folder', undefined, 'Written since.\\n');
+	})().then(() => 1)`);
+	await settled(p);
+	const before = await bytes(p), files = await allFiles(p), order = await contents(p);
+	await openView(p, P1);
+	await openDialog(p);
+	await pickRow(p, 'Draft sent to Sam');
+	const screen = await backScreen(p, null);
+	t.ok(/^“Part One” goes back to the snapshot from /.test(screen.intro), 'the screen is about the folder: ' + screen.intro);
+	t.ok(screen.will.length === 4 && /^1 note gets the text it had: “Arrival”\./.test(screen.will[0]) && /^1 item that is gone is made again: “Storm warning”\.$/.test(screen.will[1]) && /^1 item gets its old name back: “The old keeper” becomes “The keeper”\.$/.test(screen.will[2]) && /^1 item gets the properties it had: label\.$/.test(screen.will[3]) && !screen.left.length && screen.since === '', 'and counts only what is in it: ' + j(screen));
+	const said = ours(await confirmBack(p));
+	await settled(p);
+	const after = await bytes(p);
+	for (const path of Object.keys(then)) if (path.startsWith(P1 + '/')) t.eq(after[path], then[path], `“${path}”, in the folder, is byte for byte the file it was`);
+	for (const path of Object.keys(before)) if (!path.startsWith(P1 + '/') && path !== NOTE) t.eq(after[path], before[path], `“${path}”, outside the folder, is untouched`);
+	t.eq(j(Object.keys(after).filter((x) => x.startsWith(P1 + '/')).sort()), j(Object.keys(then).filter((x) => x.startsWith(P1 + '/')).sort()), 'the folder holds the notes it held');
+	t.eq(butOrder(after[NOTE]), butOrder(before[NOTE]), 'the binder note: nothing but its list of contents (the folder’s part of the order is in it)');
+	t.eq(j(await ordered(p, P1)), j(['Arrival.md', 'The keeper.md', 'Storm warning.md']), 'the folder’s items are in the order they had');
+	t.eq(j((await contents(p)).filter((x) => !x.startsWith('Part One/'))), j(order.filter((x) => !x.startsWith('Part One/'))), 'and the rest of the binder’s order is as it was a moment ago');
+	const made = (await allFiles(p)).filter((f) => !files.includes(f));
+	t.ok(made.some((f) => f.startsWith(SN + '/Part One/') && / Before bringing back Draft sent to Sam\.auto\.binder-snapshot$/.test(f)) && made.includes(JOURNAL), 'the snapshot taken first is the folder’s own; the plan is at the top of the binder’s snapshots: ' + j(made));
+	t.eq((await journal(p)).of, 'Part One', 'and says which folder it was for');
+	t.ok(/^Brought back “Draft sent to Sam”: 1 item made again, 1 item put back where it was, 1 note as it was\. Nothing was deleted\. “Part One” as it was just before is kept as the snapshot /.test(said), said);
+}, 180000);
+
+test('“Everything”, what is new since: it stays where it is unless the writer says otherwise; moved to one folder, two notes of one name are both there, a new folder goes whole, and no file is deleted; the snapshot taken first puts each back where it was', async (p, h, t) => {
+	const N1 = P1 + '/Aside.md', N2 = P2 + '/Aside.md', F = L + '/Part Three', N3 = F + '/Coda.md', G = L + '/Since Draft';
+	await openView(p);
+	await draft(p);
+	const then = await bytes(p);
+	await p.ev(`(async () => { const f = (x) => app.vault.getAbstractFileByPath(x), s = ${B};
+		await s.newScene(f(${j(P1)}), 1, 'Aside', undefined, 'An aside in part one.\\n');
+		await s.newScene(f(${j(P2)}), 0, 'Aside', undefined, 'Another, in part two.\\n');
+		const made = await s.newFolder(f(${j(L)}), 1, 'Part Three');
+		await s.newScene(made, 0, 'Coda', undefined, 'In a folder that is new.\\n');
+		await app.vault.process(f(${j(A)}), (t) => t + '\\nWritten since.\\n');
+	})().then(() => 1)`);
+	await settled(p);
+	const before = await bytes(p), beforeOrder = await contents(p);
+	await openDialog(p);
+	await drawn(p);
+	const stay = await backScreen(p, null);
+	t.ok(stay.left.length === 1 && /^4 items that are new since stay where they are: .+ and 1 more\. Nothing is deleted\.$/.test(stay.left[0]) && /“Part Three”/.test(stay.left[0]) && /“Aside”/.test(stay.left[0]) && stay.since.startsWith('stay: '), 'left where it is, to begin with: ' + j(stay));
+	const go = await since(p, 'gather');
+	t.ok(go.will.some((x) => /^3 items that are new since go into a new folder, “Since Draft”: .+\. Nothing is deleted\.$/.test(x) && /“Part Three”/.test(x) && /“Aside”, “Aside”/.test(x)) && !go.left.length, 'the other choice: what goes, and where (what is in the new folder goes with it): ' + j(go));
+	same(t, before, await bytes(p));
+	const said = ours(await confirmBack(p));
+	await settled(p);
+	const after = await bytes(p);
+	back(t, then, after, { but: [NOTE] });
+	t.eq(j(added(then, after)), j([G + '/Aside 2.md', G + '/Aside.md', G + '/Part Three/Coda.md']), 'what was new is in the one folder: the two notes of one name side by side, the new folder whole');
+	t.eq(j([after[G + '/Aside.md'], after[G + '/Aside 2.md'], after[G + '/Part Three/Coda.md']]), j([before[N1], before[N2], before[N3]]), 'each the same file, byte for byte: nothing is deleted');
+	t.eq(j([await ordered(p, L), await ordered(p, P1), await ordered(p, P2), await ordered(p, G)]), j([['Prologue.md', 'Part One', 'Part Two', 'Epilogue.md', 'Since Draft'], ['Arrival.md', 'The keeper.md', 'Storm warning.md'], ['The wreck.md', 'Lights out.md'], ['Part Three', 'Aside.md', 'Aside 2.md']]), 'the order it had, and the one folder at the end');
+	t.ok(/^Brought back “Draft”: 2 notes as they were, (the order, )?3 items that are new since moved into “Since Draft”\. Nothing was deleted\./.test(said), 'it says what it did (the two notes: the one rewritten, and the binder note, whose order had the new items in it): ' + said);
+	// back again: each goes back where it was; the folder made for them stays, empty (nothing is deleted)
+	await drawn(p);
+	await pickRow(p, 'Before bringing back Draft');
+	const undo = await backScreen(p, null);
+	t.ok(undo.left.some((x) => /^1 item that is new since stays where it is: “Since Draft”\. Nothing is deleted\.$/.test(x)), 'the snapshot taken first: the folder made since is new to it: ' + j(undo));
+	await confirmBack(p);
+	await settled(p);
+	const again = await bytes(p);
+	back(t, before, again, { but: [NOTE], as: 'the file it was just before' });
+	t.eq(j(added(before, again)), j([]), 'no note is anywhere it wasn’t');
+	t.eq(j((await contents(p)).filter((x) => x !== 'Since Draft/')), j(beforeOrder), 'and the order is the order it was just before');
+	t.ok((await allFolders(p)).includes(G), '(the folder made for them is still there, empty)');
+}, 180000);
+
+test('“Everything” from a snapshot that can’t be trusted brings nothing back: a place outside the folder (“../”, the top of the disk, another binder, the styles folder), a place in the binder’s own folder of snapshots, a file changed by hand, a newer format; and nothing into a binder in a newer format. No note changes, nothing is made anywhere', async (p, h, t) => {
+	await openView(p);
+	await p.ev(`${PL}.snapshotsApi.takeFolder(${file(L)}, 'Real')`);
+	await until(p, `${PL}.snapshotsApi.list(${file(L)}).some(x => x.title === 'Real')`, 20000);
+	const real = (await list(p))[0], text = await exact(p, `${SN}/${real}`);
+	const crafted = {
+		'Climbs out': ['"Prologue.md"', '"../../climbed-out-of-the-vault.md"'],
+		'Top of the disk': ['"Prologue.md"', '"/tmp/binders-planted.md"'],
+		'Another binder': ['"Prologue.md"', '"../Longform demo/Planted.md"'],
+		'Styles folder': ['"Prologue.md"', '"../Export styles/Planted.md"'],
+		'Among the snapshots': ['"Prologue.md"', '"Snapshots/Planted.md"'],
+		'Deep among the snapshots': ['"Part One/Arrival.md"', '"Snapshots/Part One/Arrival/Planted.md"'],
+		'A step back': ['"Part One/Arrival.md"', '"Part One/../../Planted.md"'],
+		'A backslash': ['"Part One/Arrival.md"', '"Part One\\\\..\\\\..\\\\Planted.md"'],
+	};
+	let n = 0;
+	for (const [title, [from, to]] of Object.entries(crafted)) {
+		t.ok(text.includes(from), `(the snapshot has ${from})`);
+		await writeRaw(p, `${SN}/2020-01-0${++n} 10.00.00 ${title}.binder-snapshot`, text.replace(from, to));
+	}
+	await writeRaw(p, `${SN}/2020-02-01 10.00.00 Changed.binder-snapshot`, text.replace('The supply boat left Mara', 'The supply boat left Mary'));
+	await writeRaw(p, `${SN}/2027-01-01 10.00.00 From the future.binder-snapshot`, text.replace('binder-snapshot: 1', 'binder-snapshot: 2'));
+	await until(p, `${PL}.snapshotsApi.list(${file(L)}).length === ${n + 3}`, 8000);
+	// every note the snapshots hold is different now: there is plenty to bring back, to make and to rename
+	await p.ev(`(async () => { const f = (x) => app.vault.getAbstractFileByPath(x); for (const x of ${j([A, E])}) await app.vault.process(f(x), (t) => t + '\\nWritten since.\\n'); await app.vault.delete(f(${j(L + '/Prologue.md')})); await app.fileManager.renameFile(f(${j(K)}), ${j(P1 + '/The old keeper.md')}); await ${B}.move(f(${j(E)}), f(${j(L)}), 0); })().then(() => 1)`);
+	await settled(p);
+	const before = await bytes(p), files = await allFiles(p), folders = await allFolders(p);
+	for (const title of Object.keys(crafted)) {
+		const said = await backAll(p, title);
+		t.ok(/nothing was brought back from it\.$/.test(said) && /isn’t as it was written|outside its folder/.test(said), `“${title}”: refused (${said})`);
+	}
+	t.eq(await backAll(p, 'Among the snapshots'), 'This snapshot names a place outside its folder, so nothing was brought back from it.', 'a note in the binder’s folder of snapshots would make that folder a chapter: it is no place for one');
+	t.eq(await backAll(p, 'Changed'), 'This snapshot’s file isn’t as it was written, so nothing was brought back from it.', 'a file changed by hand: refused');
+	t.ok(/^This snapshot was made by a newer version of Binders/.test(await backAll(p, 'From the future')), 'a newer format: refused');
+	same(t, before, await bytes(p));
+	t.eq(j([await allFiles(p), await allFolders(p)]), j([files, folders]), 'no file or folder was made in the vault: not a note, not a snapshot of what is there, not a plan');
+	t.ok(!existsSync(join(dirname(p.vaultDir), 'climbed-out-of-the-vault.md')) && !existsSync('/tmp/binders-planted.md') && !existsSync(join(p.vaultDir, 'Planted.md')) && !existsSync(join(p.vaultDir, 'Longform demo', 'Planted.md')) && !existsSync(join(p.vaultDir, 'Export styles')) && !existsSync(join(p.vaultDir, SN, 'Planted.md')), 'and none outside the folder, in the other binder, in a styles folder, among the snapshots or outside the vault');
+	t.ok(/^done: /.test(await backAll(p, 'Real')), '(the snapshot as it was written does come back)');
+	await settled(p);
+	// a plan that names what isn't the binder's: nothing is done on its word
+	const mid = await bytes(p);
+	await writeRaw(p, JOURNAL, JSON.stringify({ journal: 1, of: '../Longform demo', snapshot: 'Longform demo/Index.md', before: '../../etc/passwd', title: 'Planted', since: 'gather', started: 1, finished: 0, plan: { made: ['../x.md'], moved: [['Prologue.md', '../../out.md']], written: [] } }));
+	await p.ev(`${PL}.snapshotsApi.interrupted().then(() => 1)`);
+	await until(p, `!!document.querySelector(${j(CUT)})`, 8000);
+	t.eq(j(await p.ev(`[...document.querySelectorAll(${j(CUT + ' .modal-button-container button')})].map(b => b.textContent)`)), j(['Leave it as it is']), 'a written plan that names a folder outside the binder and snapshots that aren’t its own: nothing to finish, nothing to put back');
+	await clickIn(p, CUT + ' .modal-button-container button', 'Leave it as it is');
+	await until(p, `!document.querySelector(${j(CUT)})`, 8000);
+	same(t, mid, await bytes(p));
+	t.ok((await journal(p)).finished > 0 && !existsSync(join(dirname(p.vaultDir), 'out.md')), 'the plan is marked finished, and nothing it named was touched');
+	// a plan a newer Binders wrote: left as it is, and nothing is brought back over it
+	const newer = JSON.stringify({ journal: 2, of: '', finished: 0, something: 'new' });
+	await writeRaw(p, JOURNAL, newer);
+	await p.ev(`app.vault.process(${file(A)}, (t) => t + '\\nOnce more.\\n').then(() => 1)`);
+	await sleep(p, 400);
+	const held = await bytes(p);
+	t.ok(/^A newer version of Binders has brought a snapshot back in this binder/.test(await backAll(p, 'Real')), 'a plan in a newer format: “Everything” is refused');
+	same(t, held, await bytes(p));
+	t.eq(await read(p, JOURNAL), newer, 'and the plan is as it was');
+	await p.ev(`app.vault.adapter.remove(${j(JOURNAL)}).then(() => 1)`);
+	// a binder in a newer format: nothing is written in it at all
+	await writeRaw(p, NOTE, (await read(p, NOTE)).replace('binder: 1', 'binder: 2'));
+	await until(p, `!!${B}.problem(${file(A)})`);
+	await sleep(p, 500);
+	const frozen = await bytes(p), frozenFiles = await allFiles(p);
+	t.ok(/can’t be changed/.test(await backAll(p, 'Real')), 'a binder in a newer format: refused');
+	same(t, frozen, await bytes(p));
+	t.eq(j(await allFiles(p)), j(frozenFiles), 'and no snapshot is taken in it');
+}, 180000);
+
+/** Changes the binder so that bringing "Draft" back takes two renames and more, starts bringing it back, and has
+    Obsidian stop answering at the second rename: as if it had been closed there. Returns the vault as it was when
+    the snapshot was taken, and as it was just before. */
+async function cutShort(p, t) {
+	await openView(p);
+	await draft(p);
+	const then = await bytes(p);
+	await p.ev(`(async () => { const f = (x) => app.vault.getAbstractFileByPath(x);
+		await app.fileManager.renameFile(f(${j(K)}), ${j(P1 + '/The old keeper.md')});
+		await app.fileManager.renameFile(f(${j(A)}), ${j(P1 + '/Landing.md')});
+		await app.vault.delete(f(${j(W)}));
+		await app.vault.process(f(${j(S)}), (t) => t + '\\nWritten since.\\n');
+	})().then(() => 1)`);
+	await settled(p);
+	const before = await bytes(p);
+	await showDialog(p);
+	const screen = await backScreen(p, null);
+	t.ok(screen.will.some((x) => /^2 items get their old names back: /.test(x)) && screen.will.some((x) => /^1 item that is gone is made again: “The wreck”\.$/.test(x)), '(the screen: two names, a note to make again: ' + j(screen.will) + ')');
+	await p.ev(`(() => { const fm = app.fileManager, real = fm.renameFile; let n = 0; fm.renameFile = function (...a) { if (++n === 2) { window.bindersCut = true; return new Promise(() => {}); } return real.apply(this, a); }; return 1; })()`);
+	await clickIn(p, BACK + ' .modal-button-container button', 'Bring back');
+	await until(p, `window.bindersCut === true`, 30000);
+	await sleep(p, 500);
+	const half = await bytes(p), plan = await journal(p);
+	t.ok(plan && plan.finished === 0 && plan.title === 'Draft' && plan.plan.moved.length === 2 && j(plan.plan.made) === j(['Part Two/The wreck.md']), 'the plan was written down before the first rename, and is not finished: ' + j(plan));
+	t.ok(Object.keys(half).filter((x) => x === K || x === A).length === 1 && !half[W] && half[S] === before[S], '(half done: one note has its name back, the other not; nothing is made or written yet)');
+	// Obsidian is closed, and opened again
+	await reload(p);
+	await until(p, `!!document.querySelector(${j(CUT)})`, 20000);
+	const asked = await p.ev(`(() => { const m = document.querySelector(${j(CUT)}); return { title: m.querySelector('.modal-title').textContent, text: [...m.querySelectorAll('.modal-content p')].map(e => e.textContent), buttons: [...m.querySelectorAll('.modal-button-container button')].map(b => b.textContent) }; })()`);
+	t.eq(asked.title, 'Bringing back “Draft” was interrupted', 'when Binders loads again, it says so');
+	t.ok(/^“The Lighthouse” was being put back as it stood in a snapshot when that stopped\. Some of it may be done, and some not\. Nothing was deleted, and “The Lighthouse” as it was just before is kept as the snapshot “Before bringing back Draft”\.$/.test(asked.text[0]) && /shows what will change first/.test(asked.text[1]), 'what happened, that nothing was deleted, and where what was there is: ' + j(asked.text));
+	t.eq(j(asked.buttons), j(['Finish', 'Put it back as it was', 'Leave it as it is']), 'and offers to finish it, to put it back, or to leave it');
+	same(t, half, await bytes(p));
+	return { then, before, half };
+}
+
+test('“Everything”, cut short (Obsidian closed half way): the plan was written down first, so the next time Binders loads it says so; “Finish” shows what is left to do and does it, and every note is the file the snapshot holds', async (p, h, t) => {
+	const { then } = await cutShort(p, t);
+	await clickIn(p, CUT + ' .modal-button-container button', 'Finish');
+	await until(p, `!!document.querySelector(${j(BACK + ' .binders-folder-snapshots-plan ul')})`, 20000);
+	const screen = await backScreen(p, null);
+	t.ok(screen.title === 'Bring back “Draft”' && screen.scope === 'all' && screen.will.some((x) => /^1 item gets its old name back: /.test(x)) && screen.will.some((x) => /^1 item that is gone is made again: “The wreck”\.$/.test(x)) && screen.will.some((x) => /^1 note gets the text it had: “Storm warning”\./.test(x)), 'the same screen, for the same snapshot, with what is left to do: one name, one note to make, one note’s text: ' + j(screen));
+	const said = ours(await confirmBack(p));
+	await settled(p);
+	const after = await bytes(p);
+	back(t, then, after);
+	t.eq(j(added(then, after)), j([]), 'and no note is there that wasn’t');
+	t.ok(/^Brought back “Draft”: 1 item made again, 1 item put back where it was, 2 notes as they were\./.test(said), 'it says what was left to do, and did (the two notes: the one rewritten, and the binder note): ' + said);
+	t.ok((await journal(p)).finished > 0, 'the plan is marked finished');
+	await reload(p);
+	await sleep(p, 1500);
+	t.ok(!(await p.ev(`!!document.querySelector(${j(CUT)})`)), 'and the next time Binders loads, it has nothing to say');
+}, 240000);
+
+test('“Everything”, cut short: “Put it back as it was” brings back the snapshot taken first, and every note is the file it was just before; “Leave it as it is” only stops the asking; while it is unanswered, no other snapshot is brought back over it', async (p, h, t) => {
+	const { before, half } = await cutShort(p, t);
+	// the question can wait: closed, it is asked again by "Bring back..."
+	await p.key('Escape');
+	await until(p, `!document.querySelector(${j(CUT)})`, 8000);
+	t.ok((await journal(p)).finished === 0, 'closing the question leaves the plan as it is');
+	await openView(p);
+	await openDialog(p);
+	await pickRow(p, 'Draft');
+	await clickIn(p, DLG + ' .modal-setting-titlebar-actions button', 'Bring back...');
+	await until(p, `!!document.querySelector(${j(CUT)})`, 8000);
+	t.ok(!(await p.ev(`!!document.querySelector(${j(BACK)})`)), '“Bring back...” asks it again first: nothing else is brought back over a binder that is half way');
+	same(t, half, await bytes(p));
+	await clickIn(p, CUT + ' .modal-button-container button', 'Put it back as it was');
+	await until(p, `!!document.querySelector(${j(BACK + ' .binders-folder-snapshots-plan ul')})`, 20000);
+	const screen = await backScreen(p, null);
+	t.ok(screen.title === 'Bring back “Before bringing back Draft”' && screen.scope === 'all' && screen.will.length === 1 && /^1 item gets its old name back: /.test(screen.will[0]), 'the same screen, for the snapshot taken first: the one name that had come back goes again: ' + j(screen));
+	const said = ours(await confirmBack(p));
+	await settled(p);
+	const after = await bytes(p);
+	back(t, before, after, { as: 'the file it was just before' });
+	t.eq(j(added(before, after)), j([]), 'and no note is there that wasn’t');
+	t.ok(/^Brought back “Before bringing back Draft”: 1 item put back where it was\./.test(said), said);
+	t.ok((await journal(p)).finished > 0, 'the plan is marked finished');
+	// "Leave it as it is": nothing changes but the asking
+	await closeAll(p);
+	const plan = await journal(p);
+	await writeRaw(p, JOURNAL, JSON.stringify({ ...plan, finished: 0 }));
+	await p.ev(`${PL}.snapshotsApi.interrupted().then(() => 1)`);
+	await until(p, `!!document.querySelector(${j(CUT)})`, 8000);
+	const held = await bytes(p);
+	await clickIn(p, CUT + ' .modal-button-container button', 'Leave it as it is');
+	await until(p, `!document.querySelector(${j(CUT)})`, 8000);
+	same(t, held, await bytes(p));
+	t.ok((await journal(p)).finished > 0, '“Leave it as it is” marks the plan finished and changes no note');
+	await p.ev(`${PL}.snapshotsApi.interrupted().then(() => 1)`);
+	await sleep(p, 600);
+	t.ok(!(await p.ev(`!!document.querySelector(${j(CUT)})`)), 'and it is not asked again');
+}, 240000);
 
 test('naming renames the file and changes nothing in it; deleting sends it to the trash; both from the list’s own menu too', async (p, h, t) => {
 	await openView(p);

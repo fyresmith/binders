@@ -416,9 +416,34 @@ both (see "Decided"). Built in four steps; this section says what each has.
   - *Not built, on purpose:* the written plan and "Finish / Put it back as it was" after an interruption (design
     report, stage 2). With these two scopes every step can be made twice, so the same snapshot brought back again
     finishes, and the "before" snapshot brought back undoes; step 3, which renames and moves, needs the journal.
-  - Step 3 adds a scope ("Everything") to `Scope`, takes its work from `Plan.left`, and works under the second
-    exception to golden rule 3 in AGENTS.md (properties written, notes made, renamed and moved). Step 4 adds
-    thinning of `.auto` files after `takeFolderSnapshot`, and the timed ones.
+- **Getting something back, step 3: "Everything"** (scope `all`, the screen's first choice), under the second
+  exception to golden rule 3 in AGENTS.md.
+  - *The plan* (`everything` in `binder-snapshot-text.ts`, `Plan.all`): where each item of the snapshot will be
+    (the path it had; where an item new since holds that name, the name it has now or one counted on), the folders
+    to make, the items to rename or move (`places`), the notes whose whole file is written or made (`files`),
+    each folder's order, and, if asked, the move of what is new since into one folder (`gather`). Every place is
+    checked by `mayPlace` (in the folder, no backslash, never the binder's own "Snapshots"); one that fails makes
+    the plan `unsafe`. `shape()` is what must be the same between the plan shown and the plan worked out again.
+  - *The doing* (`bringBackAll`): after the same snapshot of the folder as it is, and the plan written down
+    (`binder-snapshot-journal.ts`): what is new since gathered, folders made and renamed, notes renamed (through
+    `fileManager.renameFile` when Obsidian updates links itself, else `vault.rename`; a swap steps round by a third
+    name), then each note's file written by `putFile` (the editor it is open in, then one guarded write; read back
+    and compared to the byte), the folder's own note last, then the order where it differs. A note is written
+    only if it says what the "before" snapshot holds but for where its links lead (`sameButLinks`: the renames
+    have just changed those), and only if the screen counted it so. Nothing is deleted or written over.
+  - *Renames before texts,* because Obsidian's link update then puts the links in the folder's notes back as they
+    were; the other way round, a swap would leave them pointing at the wrong note.
+  - *The journal:* one file, `Snapshots/Bringing back.binder-journal`, marked finished at the end, never deleted.
+    A plan found unfinished when Binders loads opens "Bringing back … was interrupted": Finish, Put it back as it
+    was, Leave it as it is. The first two are an ordinary "Everything" of the same snapshot or of the "before"
+    one, through the same screen: nothing is done on the journal's word. While one is unfinished, "Bring back..."
+    in that binder asks it first.
+  - *Undo:* "Undo last move" takes none of it back, and the binder's remembered moves are dropped. The design's
+    "Undo: bring back X" item in the view's menu is not built (the view is not this ticket's): the closing notice
+    names the "before" snapshot instead.
+  - *Following a note* is `changes()`'s, unchanged: a note under three paragraphs at a path a note had is that
+    note, rewritten. So short notes that swap names get their texts back, not their names.
+  - Step 4 adds thinning of `.auto` files after `takeFolderSnapshot`, and the timed ones.
 - **Refused:** a binder in a newer format takes and changes nothing; a snapshot file in a newer format is listed
   and never opened, named or deleted; a file whose notes don't match their fingerprints is read and nothing is
   brought back or made from it.
