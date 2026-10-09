@@ -5,7 +5,7 @@ import { gfmTableFromMarkdown } from 'mdast-util-gfm-table';
 import { gfmFootnote } from 'micromark-extension-gfm-footnote';
 import { gfmStrikethrough } from 'micromark-extension-gfm-strikethrough';
 import { gfmTable } from 'micromark-extension-gfm-table';
-import { CODE, lf, parts, stripComments } from '../scene-text';
+import { CODE, lf, parts } from '../scene-text';
 import type { Block, Inline, Text } from './model';
 
 /* A note's text read for a book. Markdown is read by a real parser (micromark, with footnotes, tables and
@@ -47,13 +47,29 @@ function shownFor(target: string): string {
 	return [name, ...sub].map((s) => s.trim()).filter((s) => s).join(' > ');
 }
 
+/** A text without its comments, as `stripComments` leaves it, and without the hole one leaves in a sentence: a
+    comment between two words stood between two spaces, and a book has one there. A space on one side only stays as
+    it was (nothing is joined, nothing parted); at the start of a line the indent before it stays (a paragraph begun
+    with a tab) and the space after it goes; at the end of a line both go, unless they are the two spaces that break
+    a line. Code is left alone, as there. */
+function withoutComments(text: string): string {
+	return text.replace(new RegExp(`${CODE}|([ \\t]*)(?:%%[\\s\\S]*?%%|<!--[\\s\\S]*?-->)([ \\t]*)`, 'gm'), (m: string, ...rest: unknown[]) => {
+		const lead = rest[2], trail = rest[3], at = rest[4];
+		if (typeof lead !== 'string' || typeof trail !== 'string' || typeof at !== 'number') return m; // (code)
+		const first = at === 0 || text[at - 1] === '\n', last = at + m.length === text.length || text[at + m.length] === '\n';
+		if (first) return lead;
+		if (last) return /^ {2,}$/.test(trail) ? trail : /^ {2,}$/.test(lead) ? lead : '';
+		return lead && trail ? ' ' : lead + trail;
+	});
+}
+
 /** The text with what is Obsidian's own taken out (and kept in `held`), ready for a Markdown parser. */
 function prepare(body: string, held: Held[], warnings: Set<string>): string {
 	const hold = (h: Held) => `${OPEN}${held.push(h) - 1}${CLOSE}`;
 	const outside = (text: string, pattern: string, put: (m: string[]) => string): string =>
 		text.replace(new RegExp(`${CODE}|${pattern}`, 'gm'), (...m: string[]) => (m[1] !== undefined || m[2] !== undefined ? m[0] : put(m.slice(3))));
 	// (these two characters stand for what is held: a text that has them already loses them, and no word with them)
-	let text = stripComments(lf(body).replace(/[]/g, ''));
+	let text = withoutComments(lf(body).replace(/[]/g, ''));
 	// a highlight is its words
 	text = outside(text, '==(?=\\S)([^\\n]*?\\S)==', ([inner]) => inner);
 	// links to notes, things embedded, math

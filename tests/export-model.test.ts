@@ -39,7 +39,11 @@ const run = (text: string, at = 0): Inline[] => { const b = p(text).blocks[at]; 
 	const of = (t: string) => r.find((x) => x.kind === 'text' && x.text.includes(t)) as Extract<Inline, { kind: 'text' }>;
 	ok(of('it').i === true && of('bold').b === true && of('gone').s === true && of('code').code === true, 'italic, bold, struck, code');
 	ok(plain(r).includes(' lit ') && !plain(r).includes('=='), 'a highlight is its words');
-	eq(plain(run('a %%hidden%% b <!-- also --> c')), 'a  b  c', 'comments are left out');
+	eq(plain(run('a %%hidden%% b <!-- also --> c')), 'a b c', 'comments are left out, with one space where they stood between two words');
+	eq(plain(run('%% first %% Starts clean, and ends so. %% last %%')), 'Starts clean, and ends so.', 'a comment that begins or ends a line leaves no space there');
+	eq(plain(run('no%%gap%%here, one %%side%%only, and<!-- the --> other')), 'nohere, one only, and other', 'and no space is made or taken where there was none or one');
+	eq(plain(run('a `b %% c %% d` e %% f %% g')), 'a b %% c %% d e g', 'code keeps its comment marks and its spaces');
+	eq(plain(run('one %% two\nlines %% three')), 'one three', 'a comment over two lines');
 	eq(plain(run('`%%kept%%` and `[[not a link]]`')), '%%kept%% and [[not a link]]', 'code keeps its marks');
 }
 

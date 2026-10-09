@@ -1006,7 +1006,7 @@ test('typing in the editable manuscript an instant before Export (from the viewâ
 	t.ok(docx(await target(p)).all.includes('MANUSCRIPT-TYPED-ALPHA'), 'the words typed an instant before are in the Word file');
 }, { changes: true });
 
-bug('an inline comment taken out of a sentence leaves no double space, in Word or the EPUB', async (p, h, t) => {
+test('an inline comment taken out of a sentence leaves no double space, in Word or the EPUB', async (p, h, t) => {
 	await writeRaw(p, L + 'Prologue.md', 'Text <!-- html comment --> after, and more %% another %% words here.\n\n%% whole line %% Starts clean.\n');
 	await p.sleep(600);
 	const d = docx(await make(p, 'The Lighthouse'));
