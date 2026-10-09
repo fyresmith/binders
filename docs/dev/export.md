@@ -207,6 +207,11 @@ progress line. A failure says what and which note, and leaves no half-written fi
   checkbox: **"Save here next time without asking"**. Ticked, later exports of that kind of that binder go straight
   there, the window says "Saves to …", and unticking it (or "Choose where to save..." in the menu, or "Ask again" in
   settings) brings the dialog back. A file there that export didn't write is never replaced without asking.
+  Nor is a file export wrote for another book (step 6): two binders named alike, or the same folder name in two
+  books, share a file's name in one Exports folder, so the folder a file was exported from is kept with what is
+  remembered of it (`Stamp.from`), and the second book is asked "Replace this file" like any other. (Asking, not a
+  numbered name: it is what the window already does there. A binder renamed since is asked once, too. A Scrivener
+  project saved through the dialog is as it was: the folder is not looked at there.)
 - **On a phone or tablet** there is no save dialog: the file goes to the Exports folder, and then to the share sheet.
 
 ## Phones and tablets
@@ -420,6 +425,13 @@ changed in the note while the window is open is the window's from then on; one t
 the window has it, so a choice that couldn't be kept (a Longform project's) holds for the window. The typeface
 warning ("EB Garamond has no Cyrillic letters…") is the pages', not the book's: it is kept apart from the warnings
 read with the notes (`face`), and goes with the kind, the style and the style's typeface.
+
+**Nothing to export** (step 6). A book in which no note is exported (an empty binder, or every note left out) has
+Export there and off, with "Nothing to export" beside it in the bar; an export that finds this only when it reads the
+notes again stops and says so. "Export again" is as it was. A manuscript's title page gives no word count for a book
+of no words (`aboutWords`). A comment taken out of a line leaves one space where it stood between two, in export's
+own reader (`withoutComments` in `markdown.ts`; the shared `stripComments`, which the word counts and "One note"
+use, is unchanged). On a phone and a tablet the rows of Contents are 44 px and a row's role is as tall as its row.
 
 **The style editor** (`src/view/export-style-editor.ts`). "Edit this style" is the button beside the Style dropdown
 (and in the window's menu): the sidebar becomes the editor, the preview stays and follows each change 90 ms after

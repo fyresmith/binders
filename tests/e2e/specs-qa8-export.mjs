@@ -2,8 +2,8 @@
 // against the notes (word for word where it can be); every way of opening the window is used; awkward books (empty,
 // one note, only folders, long titles, other scripts, a Longform project, a note changed or deleted while the window
 // is open, typing not yet saved); the style files; and the whole thing by touch on an emulated phone and tablet.
-// The system's save dialog is stood in for (specs-export.mjs). Tests named "qa8 export: …" pass; "BUG: qa8 export: …" are
-// confirmed bugs (they fail now and pass once fixed).
+// The system’s save dialog is stood in for (specs-export.mjs). Tests named "qa8 export: …" pass; "BUG: qa8 export: …" were
+// confirmed bugs: all five of the round are fixed (0.44.x, step 6) and their tests are plain ones now.
 //
 //   QA8_SHOTS=<dir>  keeps pictures of the window there
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'fs';
