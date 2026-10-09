@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.45.20 (2026-10-09)
+
+### Fixed
+
+- "Export again" on a binder whose notes have all gone, or are all left out, now says there is nothing to export and leaves the earlier file as it is.
+
 ## 0.45.19 (2026-10-09)
 
 ### Changed

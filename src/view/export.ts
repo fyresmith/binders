@@ -44,8 +44,8 @@ export function pagedBook(plugin: BindersPlugin, book: Book, words: number, o: {
 
 /** The family of styles a kind is set in: an ebook's and a paperback's are book styles. */
 /** A book with nothing of the writer's in it. */
-const nothing = (book: Book): boolean => !book.sections.some((s) => !s.made);
-const NOTHING = 'Nothing here is exported: the binder has no notes, or they are all left out.';
+export const nothing = (book: Book): boolean => !book.sections.some((s) => !s.made);
+export const NOTHING = 'Nothing here is exported: the binder has no notes, or they are all left out.';
 
 const familyOf = (kind: Kind): Family => (kind === 'ebook' || kind === 'paperback' ? 'book' : 'manuscript');
 

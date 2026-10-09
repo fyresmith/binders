@@ -3,7 +3,7 @@ import { KINDS, bookDetails, ebook, fileName, lastExport, manuscript, noteLast, 
 import type BindersPlugin from '../main';
 import { oneNoteText, writeOneNote } from '../scenes';
 import { COMPILE_DEFAULTS } from '../scene-text';
-import { ExportModal, FILES, pagedBook } from './export';
+import { ExportModal, FILES, NOTHING, nothing, pagedBook } from './export';
 import { exportScriv } from './export-scriv';
 import { confirm } from './modals';
 
@@ -40,6 +40,8 @@ export async function exportAgain(plugin: BindersPlugin, folder: TFolder): Promi
 			const style = kind === 'manuscript' ? plugin.styles.get(d.manuscriptStyle || s.exportStyle, 'manuscript') : plugin.styles.get(d.bookStyle, 'book');
 			const { book, words } = await readBook(plugin, folder, kind !== 'manuscript' || s.exportMatter, kind !== 'manuscript', kind !== 'manuscript' && style.values.quotes === 'as typed', kind === 'ebook');
 			title = book.title;
+			// (every note gone or left out since: the file from before is not replaced by a book of nothing)
+			if (nothing(book)) throw new Error(NOTHING);
 			let data: Uint8Array;
 			if (pdf) {
 				const { book: whole, spec } = pagedBook(plugin, book, words, kind === 'paperback' ? { book: style.name, page: d.pageSize } : { manuscript: style.name });
