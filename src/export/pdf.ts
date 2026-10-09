@@ -35,14 +35,22 @@ const esc = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;'
 const LOAD_MS = 20000, PRINT_MS = 300000;
 const within = <T>(ms: number, what: string, p: Promise<T>): Promise<T> => Promise.race([p, new Promise<T>((_, no) => window.setTimeout(() => no(new Error(`${what} took too long.`)), ms))]);
 
-/** The way to a PDF, or null where there is none. */
-export function printer(): Printer | null {
-	if (!Platform.isDesktopApp || Platform.isMobile) return null;
+/** Whether this Obsidian's webviews can print: looked at once, with a webview made for the look and never put in the
+    page. The window asks each time it is drawn, and what an Obsidian can do doesn't change while it runs. */
+let able: boolean | null = null;
+function canPrint(): boolean {
 	try {
 		const probe = createEl('webview' as 'div') as unknown as Partial<WebviewTag>;
-		if (typeof probe.printToPDF !== 'function' || typeof probe.executeJavaScript !== 'function') return null;
-	} catch { return null; }
-	return { print };
+		return typeof probe.printToPDF === 'function' && typeof probe.executeJavaScript === 'function';
+	} catch { return false; }
+}
+
+/** The way to a PDF, or null where there is none. (A phone, or Obsidian's own emulation of one, is asked each time:
+    that can change under a running plugin.) */
+export function printer(): Printer | null {
+	if (!Platform.isDesktopApp || Platform.isMobile) return null;
+	able ??= canPrint();
+	return able ? { print } : null;
 }
 
 async function print(job: PrintJob): Promise<Uint8Array> {

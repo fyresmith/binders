@@ -642,3 +642,31 @@ test('a book’s pictures are given back when its pages are laid out again, and 
 		await closeAll(p);
 	}
 });
+
+// ---- Step 6: the way to a PDF is looked for once ----
+
+test('whether this Obsidian can print is looked at once, not each time the window is drawn', async (p, h, t) => {
+	await withAuthor(p);
+	// (every webview made in the window's document, counted: the probe is one, never put in the page)
+	await p.ev(`(() => { window.__probes = 0; const real = Document.prototype.createElement; document.createElement = function (tag, ...more) { if (String(tag).toLowerCase() === 'webview') window.__probes++; return real.call(this, tag, ...more); }; return 1; })()`);
+	try {
+		await open(p);
+		await pick(p, 'Paperback');
+		t.ok(await laidOut(p), 'a paperback’s pages are laid out');
+		await choose(p, 'page', '6x9');
+		t.ok(await laidAgain(p), 'on another page');
+		await pick(p, 'Manuscript');
+		await choose(p, 'file', 'pdf');
+		t.ok(await laidAgain(p), 'a manuscript’s, as a PDF');
+		await choose(p, 'paper', 'a4');
+		t.ok(await laidAgain(p), 'on other paper');
+		await pick(p, 'Paperback');
+		t.ok(await laidAgain(p), 'and the paperback’s again');
+		const probes = await p.ev(`window.__probes`);
+		t.ok(probes <= 1, `the window was drawn a dozen times and more, and a webview was made to look at no more than once (${probes})`);
+		t.ok(await p.ev(`typeof ${PL}.exportHost.printer()?.print === 'function'`), 'the way to a PDF is still there');
+		t.eq(await p.ev(`window.__probes`), probes, 'and asking again makes no other');
+	} finally {
+		await p.ev(`(() => { delete document.createElement; return 1; })()`);
+	}
+});
