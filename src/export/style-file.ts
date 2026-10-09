@@ -65,8 +65,9 @@ export function readStyleFile(text: string): StyleFile {
 const written = (v: StyleValue): string => (typeof v !== 'string' ? String(v) : /^[A-Za-z][A-Za-z0-9 ,.'-]*$/.test(v) && !/^(true|false|null|yes|no|on|off)$/i.test(v) && v === v.trim() ? v : JSON.stringify(v));
 
 /** A style's file with some properties set (undefined takes one out), everything else as it was. `text` null: a new
-    file. A file that has no properties to begin with is never given here (it is broken, and is left alone). */
-export function writeStyleFile(text: string | null, basedOn: string, set: Readonly<Record<string, StyleValue | undefined>>, css?: string): string {
+    file. A file that has no properties to begin with is never given here (it is broken, and is left alone).
+    `aside`: properties whose lines, as they are now, stay in the file as comments above the new one. */
+export function writeStyleFile(text: string | null, basedOn: string, set: Readonly<Record<string, StyleValue | undefined>>, css?: string, aside: readonly string[] = []): string {
 	const parts = (text === null ? null : split(text)) ?? { eol: '\n', head: [], body: '' };
 	let head = parts.head;
 	const put = (key: string, v: StyleValue | undefined, first = false) => {
@@ -75,7 +76,7 @@ export function writeStyleFile(text: string | null, basedOn: string, set: Readon
 		let end = at + 1;
 		while (at >= 0 && end < head.length && /^\s+\S/.test(head[end])) end++;
 		const line = v === undefined ? [] : [`${key}: ${written(v)}`];
-		if (at >= 0) head = [...head.slice(0, at), ...line, ...head.slice(end)];
+		if (at >= 0) head = [...head.slice(0, at), ...(aside.includes(key) ? head.slice(at, end).map((l) => `# ${l}`) : []), ...line, ...head.slice(end)];
 		else if (first) head = [...line, ...head];
 		else head = [...head, ...line];
 	};
@@ -158,11 +159,19 @@ export function listStyles(files: ReadonlyMap<string, StyleFile>): Resolved[] {
     is sent to another writer, and what a style becomes when the one it was based on is deleted. `keep`: the file it
     has now, whose own lines stay. */
 export function standalone(r: Resolved, keep: string | null): string {
-	const root = BUILT_IN.get(r.root)?.values ?? {}, set: Record<string, StyleValue | undefined> = {};
-	for (const row of rowsOf(r.family)) set[row.key] = r.values[row.key] === root[row.key] ? undefined : r.values[row.key];
+	const root = BUILT_IN.get(r.root)?.values ?? {}, set: Record<string, StyleValue | undefined> = {}, aside: string[] = [];
+	const file = keep === null ? null : readStyleFile(keep);
+	for (const row of rowsOf(r.family)) {
+		const value = r.values[row.key] === root[row.key] ? undefined : r.values[row.key];
+		// A line of its own that can't be read is the writer's, and is never taken away: it stays as it is, or, where
+		// a value has to be written in its place (the one it had from what it was based on), as a comment above it.
+		const unread = !!file?.props.has(row.key) && readValue(row, file.props.get(row.key)) === undefined;
+		if (unread && value === undefined) continue;
+		if (unread) aside.push(row.key);
+		set[row.key] = value;
+	}
 	// (CSS it had from what it was based on comes with it)
-	const own = keep === null ? '' : readStyleFile(keep).css;
-	return writeStyleFile(keep, r.root, set, r.css === own ? undefined : r.css);
+	return writeStyleFile(keep, r.root, set, r.css === (file?.css ?? '') ? undefined : r.css, aside);
 }
 
 /** A name a style's file can have, or why not. */

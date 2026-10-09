@@ -75,6 +75,17 @@ const row = (family: 'book' | 'manuscript', key: string) => rowsOf(family).find(
 	eq(alone, '---\nexport-style: 1\nbased-on: Classic\nscene-break: "~"\nmine: 1\ntype-size: 12\nheading-lettering: italic\nmargins: wide\n---\np { color: red; }\nh1 { color: blue; }\n', 'a style made to stand by itself carries every difference from the built-in one, and the CSS it had from its base');
 	const again = resolveStyle('Wider', shelf({ Wider: alone }))!;
 	eq(JSON.stringify(again.values), JSON.stringify(ww.values), 'and reads as the same style without the files it stood on');
+	// a line of the style's own that can't be read is the writer's: standing alone doesn't take it away
+	const odd = '---\nbased-on: Wide\nparagraphs: sideways\nscene-break: "~"\n---\n', under = { Classic: '---\nexport-style: 1\nbased-on: Classic\ntype-size: 12\n---\n', Wide: '---\nexport-style: 1\nbased-on: Classic\nmargins: wide\n---\n' }, oddOne = resolveStyle('Wider', shelf({ ...under, Wider: odd }))!;
+	const oddAlone = standalone(oddOne, odd);
+	ok(oddAlone.split('\n').includes('paragraphs: sideways'), `a line that couldn’t be read is still in the file of a style made to stand by itself (${JSON.stringify(oddAlone)})`);
+	eq(JSON.stringify(resolveStyle('Wider', shelf({ Wider: oddAlone }))!.values), JSON.stringify(oddOne.values), 'and the style reads as it did');
+	// (where what it is based on had a value of its own for that row, the value is written and the line kept beside it, as a comment)
+	const odd2 = '---\nbased-on: Wide\nmargins: [1, 2]\ntype-size:\n  - 9\n  - 10\n---\n', oddTwo = resolveStyle('Wider', shelf({ ...under, Wider: odd2 }))!;
+	const oddAlone2 = standalone(oddTwo, odd2), lines2 = oddAlone2.split('\n');
+	ok(lines2.includes('# margins: [1, 2]') && lines2.includes('margins: wide') && lines2.includes('# type-size:') && lines2.includes('#   - 9') && lines2.includes('#   - 10') && lines2.includes('type-size: 12'), `a line that couldn’t be read, where the base’s value has to be written: kept as a comment (${JSON.stringify(oddAlone2)})`);
+	eq(JSON.stringify(resolveStyle('Wider', shelf({ Wider: oddAlone2 }))!.values), JSON.stringify(oddTwo.values), 'and that style reads as it did too');
+	eq(resolveStyle('Wider', shelf({ Wider: oddAlone2 }))!.warnings.filter((x) => x.includes('can’t be read')).length, 0, 'with nothing left to warn of there');
 	ok(ebookCss(toBookStyle('Wide', w.values, w.css)).trim().endsWith('h1 { color: blue; }'), 'the CSS reaches the ebook, after Binders’ own rules');
 	ok(ebookCss(MODERN).includes('text-align: start') && !ebookCss(MODERN).includes('.lead {'), 'Modern as an ebook: at the left, the first words as the rest');
 }
