@@ -47,8 +47,10 @@ with 1.0.
         the format spike's projects, in the maintainer's Scrivener: `docs/dev/export.md`, "As built".
   - [x] Step 5: overruling and owning ("Export as" from Contents, the menus and an outliner column; the style editor
         and style files in a hidden `Export styles` folder; the second book style, Modern; Export again).
-  - [ ] Step 6: finish (phones and tablets by touch, both themes, a QA round; the manual's export pages were
-        written for the beta, 2026-10-06). Still to do by other hands: the Word file in Word, the ebook in Kindle
+  - [x] Step 6 (2026-10-09): finish. A QA round over every kind, on a computer and on an emulated phone and tablet
+        by touch (`tests/e2e/specs-qa8-export.mjs`), and its five bugs and the nine known from the reviews fixed
+        (0.45.1 to 0.45.16); the manual's export pages were written for the beta, 2026-10-06. The round ran in the
+        light theme, with the phone tests in dark. Still to do by other hands: the Word file in Word, the ebook in Kindle
         Previewer and Apple Books, the PDF on macOS and Windows and through a printer's checks, a project as export
         writes it in Scrivener (`docs/dev/export.md`, "Not verified yet").
   - **And out as a Scrivener project** (added 2026-10-01): a `.scriv` folder Scrivener 3 opens, for a writer who

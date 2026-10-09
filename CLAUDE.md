@@ -22,8 +22,8 @@
   label, snapshots (a note's, and a folder's or binder's), focus mode, export (EPUB, DOCX, PDF, a Scrivener project) and
   import from Scrivener. `docs/dev/architecture.md` is the map of the code; the milestone table in
   `docs/dev/plan.md` has the history.
-- **Left before 1.0** (`ROADMAP.md`, in its order): export's last step (touch, a QA round, the manual's pages); the
-  rest of binder snapshots; find and replace across the manuscript; mobile on a real device (the maintainer has none yet, so the
+- **Left before 1.0** (`ROADMAP.md`, in its order): export's checks by other hands (Word, Kindle Previewer, Apple Books, a
+  printer, Scrivener: `docs/dev/export.md`, "Not verified yet"); the rest of binder snapshots (steps 3 and 4); find and replace across the manuscript; mobile on a real device (the maintainer has none yet, so the
   emulated phone and tablet tests are the standard: "emulator is king").
 - **Tests:** unit tests and about fifty e2e spec files, six QA rounds among them. `npm run e2e:all -- --jobs 6 --theme
   both --retry-alone` runs the suite in several Obsidians at once (about two hours); tests known to fail on purpose are
