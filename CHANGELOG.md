@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.45.15 (2026-10-09)
+
+### Fixed
+
+- When two books would save a file of the same name into one Exports folder, Export now asks before replacing the other book's file.
+
 ## 0.45.14 (2026-10-09)
 
 ### Fixed

@@ -23,7 +23,7 @@ interface Shell { showItemInFolder(path: string): void; openPath(path: string): 
 interface PathLib { join(...parts: string[]): string; dirname(path: string): string; basename(path: string): string; sep: string }
 
 /** What a saved file was when export left it: enough to tell later whether it is still export's own. */
-export interface Stamp { size: number; mtime: number; /** A folder: how many files it has. */ files?: number }
+export interface Stamp { size: number; mtime: number; /** A folder: how many files it has. */ files?: number; /** The binder, or the folder of one, it was exported from (a path in the vault). */ from?: string }
 export const sameStamp = (a: Stamp | null | undefined, b: Stamp | null | undefined): boolean => !!a && !!b && a.size === b.size && a.mtime === b.mtime && (a.files ?? 0) === (b.files ?? 0);
 
 /** The computer's side of saving. */

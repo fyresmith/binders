@@ -729,7 +729,7 @@ test('a remembered place is for one kind of one binder; with its folder gone the
 import { rmSync } from 'fs';
 function rmSyncSafe(path) { try { rmSync(path, { recursive: true, force: true }); } catch { /* none */ } }
 
-bug('two binders of the same name, exported to one vault-wide Exports folder without a save dialog: the second does not silently replace the first', async (p, h, t) => {
+test('two binders of the same name, exported to one vault-wide Exports folder without a save dialog: the second does not silently replace the first', async (p, h, t) => {
 	await setting(p, { exportsFolder: 'Books/Exports' });
 	await standIn(p, { none: true });
 	await mk(p, 'Shelf A/Draft', [['One', 'First book words, ALPHA-BOOK.']]);
@@ -744,6 +744,22 @@ bug('two binders of the same name, exported to one vault-wide Exports folder wit
 	const at = join(p.vaultDir, 'Books', 'Exports', 'Draft.docx');
 	const kept = existsSync(at) ? docx(at).all : '';
 	t.ok(asked2 || (kept.includes('ALPHA-BOOK') && kept.includes('BETA-BOOK')) || (existsSync(join(p.vaultDir, 'Books', 'Exports')) && readdirSync(join(p.vaultDir, 'Books', 'Exports')).length > 1), 'the first book’s words survive: it asked, or numbered the second (file: ' + (kept.includes('ALPHA-BOOK') ? 'first book' : kept.includes('BETA-BOOK') ? 'SECOND book only' : '?') + ')');
+	// (what was chosen: the window asks, as it does of any file there that this export didn't leave)
+	t.ok(asked2, 'it asks before replacing the other book’s file');
+	const answer = (label) => p.ev(`(() => { const m = [...document.querySelectorAll('.modal')].find(m => m.textContent.includes('Replace this file')), b = m && [...m.querySelectorAll('button')].find(b => b.textContent === ${j(label)}); if (!b) return false; b.click(); return true; })()`);
+	t.ok(await answer('Cancel'), 'answered Cancel');
+	await p.sleep(800);
+	t.ok(docx(at).all.includes('ALPHA-BOOK') && !docx(at).all.includes('BETA-BOOK'), 'Cancel: the first book’s file is as it was');
+	await press(p, 'Export');
+	await until(p, `[...document.querySelectorAll('.modal')].some(m => m.textContent.includes('Replace this file'))`, 6000);
+	t.ok(await answer('Replace'), 'asked again, answered Replace');
+	t.ok(await saved(p), 'saved');
+	t.ok(docx(at).all.includes('BETA-BOOK'), 'Replace: the file is the second book’s');
+	await closeAll(p);
+	await open(p, 'Shelf B/Draft');
+	await press(p, 'Export');
+	t.ok(await saved(p), 'the second book exported again');
+	t.ok(!(await p.ev(`[...document.querySelectorAll('.modal')].some(m => m.textContent.includes('Replace this file'))`)), 'over its own file: nothing is asked');
 }, { changes: true });
 
 test('Cancel while a paperback is being made: no file, no half of one, and the window can export again', async (p, h, t) => {

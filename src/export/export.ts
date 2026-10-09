@@ -221,6 +221,12 @@ export interface SaveOptions {
 	replace(shown: string): Promise<boolean>;
 }
 
+/** Is the file there still what export left, and left from this folder? Two books of one name share a file's name
+    in one Exports folder (two binders named "Draft" on different shelves; "Part One" of two books): the second is
+    not the first's to replace without a word, any more than a file export never made. (A stamp from before the
+    folder was kept says nothing of it, and is taken as this one's.) */
+const ours = (was: Stamp | undefined, there: { size: number; mtime: number }, folder: TFolder): boolean => !!was && was.size === there.size && was.mtime === there.mtime && (was.from === undefined || was.from === folder.path);
+
 /** Saves an exported file. On a computer the system's save dialog opens in the Exports folder, unless a place is
     remembered for this kind of this binder; anywhere else (a phone, a tablet, a computer where the dialog isn't to be
     had) the file goes into the Exports folder in the vault. Null if the writer backed out. A file that export didn't
@@ -240,11 +246,11 @@ export async function save(plugin: BindersPlugin, host: Desktop | null, data: Ui
 		} else {
 			// straight there: only over a file that is still what export left
 			const there = await host.stamp(path), was = memory(plugin).written[path];
-			if (there && !(was && was.size === there.size && was.mtime === there.mtime) && !(await o.replace(host.basename(path)))) return null;
+			if (there && !ours(was, there, o.folder) && !(await o.replace(host.basename(path)))) return null;
 			await host.mkdir(host.dirname(path));
 		}
 		const stamp = await host.write(path, data);
-		remember(plugin, (m) => { delete m.written[path]; m.written[path] = stamp; });
+		remember(plugin, (m) => { delete m.written[path]; m.written[path] = { ...stamp, from: o.folder.path }; });
 		// (a remembered place follows the file: "Choose where to save" changes it)
 		if (kept !== null || placeFor(plugin, o.folder, o.kind)) setPlace(plugin, o.folder, o.kind, path);
 		return { where: 'disk', path, shown: shownPath(host, path) };
@@ -254,12 +260,12 @@ export async function save(plugin: BindersPlugin, host: Desktop | null, data: Ui
 	if (plugin.binders.binderOf(path)) throw new Error('The Exports folder is inside a binder. Choose another in Binders’ settings.');
 	if (at instanceof TFile) {
 		const was = memory(plugin).written[key];
-		if (!(was && was.size === at.stat.size && was.mtime === at.stat.mtime) && !(await o.replace(path))) return null;
+		if (!ours(was, at.stat, o.folder) && !(await o.replace(path))) return null;
 	}
 	if (!app.vault.getAbstractFileByPath(dir)) await app.vault.createFolder(dir);
 	const buffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer;
 	const made = at instanceof TFile ? (await app.vault.modifyBinary(at, buffer), at) : await app.vault.createBinary(path, buffer);
-	remember(plugin, (m) => { delete m.written[key]; m.written[key] = { size: made.stat.size, mtime: made.stat.mtime }; });
+	remember(plugin, (m) => { delete m.written[key]; m.written[key] = { size: made.stat.size, mtime: made.stat.mtime, from: o.folder.path }; });
 	return { where: 'vault', path, shown: path };
 }
 
