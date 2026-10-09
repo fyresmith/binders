@@ -368,6 +368,19 @@ is an ordinary `<iframe srcdoc>`, which is the web's and nothing of Obsidian's.
   a binder: an editor goes from note to note, and embeds and the manuscript's sections are editors too. An editor
   asks what it should have when it is made and when it is updated; left alone it never asks again, so every editor
   is asked when the binders have been found (`ready`, `settled`), when the store says `changed`, and on a rename.
+- A tab line the editor hasn't read yet (`src/paragraphs/ahead.ts`). The editor reads a note from its top in slices,
+  in idle time, so after a jump into a long note the lines in sight have no reading for some frames (about 175 ms
+  on an emulated phone in a note of 74,000 characters). What is relied on, none of it in the API: that a line with
+  no reading has no syntax node anywhere in it, while a line the mode has read has one (its white space named, or
+  something in it); that Obsidian draws such a line's tab as `cm-indent` with its guide line; and that it hangs the
+  line under its white space with a style on the line itself (which no stylesheet can take
+  off; a style from a line decoration of ours on the same line does, as measured, and only unread lines get one). So a line in sight with no node, which the text alone says is a tab paragraph (`tabLines` with `carried`
+  and `blank`, the mode's rule said from the text), is given the mode's classes by a line decoration until its
+  reading comes, and the reading is hurried: CodeMirror's public `forceParsing` as far as the page, at most 24 ms
+  a frame, before the frame is drawn. Without any of it (the tree shaped otherwise, `forceParsing` throwing): the
+  lines are drawn as Obsidian draws them until the editor has read that far, as before. Known limit: plain words
+  set in by a tab straight inside an HTML block have no node though read, and keep the paragraph look.
+  `specs-paragraphs.mjs` ("a long note of tab paragraphs…", 400 and 2,000 paragraphs).
 - A reading view keeps the blocks it has made until the note's text changes. Public API, not an internal:
   `MarkdownView.previewMode.rerender(true)` makes them again, and is called for a markdown tab whose note's blocks
   were last made with other settings, or in or out of a binder, than it should have now. What is relied on and not

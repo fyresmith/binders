@@ -21,6 +21,9 @@ declare module '@codemirror/language' {
 	/** The language an editor reads its text as: the first one given wins (public API). */
 	export const language: Facet<Language, Language | null>;
 	interface Cursor { name: string; from: number; to: number; next(): boolean }
+	/** Reads on as far as a place, for no longer than `timeout` ms, and tells the editor if that got further: true when
+	    it got there (public API). */
+	export function forceParsing(view: import('@codemirror/view').EditorView, upto?: number, timeout?: number): boolean;
 	/** The tree the editor's language has made of the text so far (public API). */
 	export function syntaxTree(state: EditorState): { length: number; cursor(): Cursor; iterate(spec: { from?: number; to?: number; enter(node: { name: string; from: number; to: number }): boolean | void }): void };
 }

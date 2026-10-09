@@ -35,6 +35,14 @@ const same = (a: unknown, b: unknown, msg: string) => eq(JSON.stringify(a), JSON
 	same(tabLines('\tOne.\r\n\tTwo.\r\n\r\n\tThree.\r\n'), [0, 1, 3], 'Windows line endings');
 	same(tabLines('\t\n\t  \n'), [], 'a line of white space only is a blank line');
 	same(tabLines(''), [], 'an empty text');
+	// what the editor's mode marks, said from the text alone (for lines it hasn't read yet)
+	const AS_MODE = { carried: true, blank: true };
+	same(tabLines('Plain.\n\tUnder it.\n\tAnd again.\n', AS_MODE), [1, 2], 'with carried-on lines: a tabbed line straight under a line of text');
+	same(tabLines('\tOne.\n\t\n\n    \n   \n', AS_MODE), [0, 1, 3], 'with blank ones: a tab, or four spaces, and nothing else; not three');
+	same(tabLines('- item\n\tits text\n\t\n\n\tand more\n> quote\n\tlazy\n', AS_MODE), [], 'still not under a list item or a quote');
+	same(tabLines('---\nlist:\n\t- a\n---\n```\n\tcode\n\t\n```\nText.\n\tUnder.\n', AS_MODE), [9], 'nor in the properties or a fenced block');
+	same(tabLines('Plain.\n\tUnder it.\n', { carried: true }), [1], 'each can be asked for alone');
+	same(tabLines('Plain.\n\t\n', { blank: true }), [1], 'the blank ones alone');
 }
 
 // made ready for a renderer that gets the whole note

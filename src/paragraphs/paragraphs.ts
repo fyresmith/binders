@@ -3,8 +3,9 @@ import { Compartment, Prec, type EditorState, type Extension } from '@codemirror
 import { EditorView, ViewPlugin } from '@codemirror/view';
 import { language, syntaxTree, type Language } from '@codemirror/language';
 import type BindersPlugin from '../main';
+import { ahead } from './ahead';
 import { firstLine } from './first-line';
-import { forget, proseLanguage } from './language';
+import { forget, proseLanguage, readable } from './language';
 import { followRenames } from './rename';
 import { TABBED, tabsForRender } from './text';
 
@@ -96,7 +97,9 @@ export function installParagraphs(plugin: BindersPlugin): Paragraphs {
 		/** What it has is to be made again whatever the settings say (a language forgotten). */
 		stale = false;
 	});
-	plugin.registerEditorExtension([slot.of([]), scope]);
+	// (and a tab line the editor hasn't read yet: only where the mode can be wrapped, or it would be marked and stay code)
+	const early = ahead((view) => plugin.settings.tabParagraphs && inBinder(fileOf(view.state)) && readable(view.state.facet(language)));
+	plugin.registerEditorExtension([slot.of([]), scope, Prec.lowest(early)]);
 	// An editor asks what it should have when it is made and whenever it is updated. Left alone it would never ask
 	// again, and which notes are in a binder changes without it: the binders are found after the first editors are
 	// made (a note open when Obsidian starts), a note is moved into a binder or out, a folder becomes a binder or

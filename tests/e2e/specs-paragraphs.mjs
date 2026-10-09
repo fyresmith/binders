@@ -831,3 +831,67 @@ test('a reading view that is open follows its note into a binder and out, and it
 	t.eq(await read(p, 'Loose folder/Reads.md'), READ, 'the note is as it was written');
 	t.eq(errors(p).length, 0, 'no errors: ' + errors(p).join(' | '));
 });
+
+// ---- a long note: a tab line is drawn right whether or not the editor has read as far as it ----
+
+/** Records, in every editor: on every change to the page, and in the frame that draws that change (a callback asked
+    for from inside the change runs after the editor's own), each line begun with a tab and text that isn't drawn as a
+    paragraph: unmarked, a guide line in it, its tab another width, set as code, or its first letter elsewhere than
+    at the indent. Lines in sight only. (QA round 10's recorder.) */
+const record = (p) => p.ev(`(() => { window.__rec?.stop();
+	const R = window.__rec = { bad: [], seen: new Set(), frames: 0, on: true };
+	const look = (src) => { if (!R.on) return; for (const l of document.querySelectorAll('.workspace-leaf .cm-content > .cm-line')) { const text = l.textContent; if (!/^\\t\\S/.test(text)) continue;
+		// (in sight: the editor keeps the line the caret is on in the page wherever the page is, and draws nothing on it there)
+		const box = l.getBoundingClientRect(), port = l.closest('.cm-scroller').getBoundingClientRect(); if (box.bottom <= port.top || box.top >= port.bottom) continue;
+		const ind = l.querySelector('.cm-indent'), why = [];
+		if (!l.classList.contains('binders-tab-paragraph')) why.push('unmarked');
+		if (ind && !/^(none|normal)$/.test(getComputedStyle(ind, '::before').content)) why.push('guide line');
+		if (ind && Math.round(ind.getBoundingClientRect().width) !== 24) why.push('tab ' + Math.round(ind.getBoundingClientRect().width) + 'px');
+		if (l.querySelector('.cm-inline-code')) why.push('code');
+		if (/text-indent: ?-/.test(l.getAttribute('style') || '')) why.push('its wrapped lines hung under the tab');
+		const w = document.createTreeWalker(l, NodeFilter.SHOW_TEXT); let n, x = null; while ((n = w.nextNode())) { const i = n.data.search(/\\S/); if (i >= 0) { const g = document.createRange(); g.setStart(n, i); g.setEnd(n, i + 1); x = Math.round(g.getBoundingClientRect().left - l.getBoundingClientRect().left); break; } }
+		if (x !== null && x !== 24) why.push('first letter at ' + x + 'px');
+		const k = src + ' ' + why.join(', '); if (why.length && !R.seen.has(k)) { R.seen.add(k); R.bad.push(src + ': ' + JSON.stringify(text.slice(0, 12)) + ' ' + why.join(', ') + (l.closest('.cm-editor').classList.contains('binders-prose-tabs') ? '' : ' (an editor without its reading yet)')); } } };
+	const mo = new MutationObserver(() => { look('dom'); requestAnimationFrame(() => look('frame')); });
+	mo.observe(document.body, { subtree: true, childList: true, attributes: true, characterData: true });
+	let raf; const loop = () => { R.frames++; look('frame'); raf = requestAnimationFrame(loop); }; raf = requestAnimationFrame(loop);
+	R.stop = () => { R.on = false; mo.disconnect(); cancelAnimationFrame(raf); };
+	return 1; })()`);
+const recorded = async (p) => { await sleep(p, 150); return p.ev(`(() => { const R = window.__rec; R.stop(); return { frames: R.frames, drawn: R.bad.filter(b => b.startsWith('frame')), all: R.bad }; })()`); };
+const SENTENCE = 'The lamp had been lit for three nights before anyone thought to ask who had lit it, and by then the boat had gone, and the sea had closed over the place where it had been.';
+const longNote = (n) => Array.from({ length: n }, (_, i) => `\t${i + 1}. ${SENTENCE} ${i % 3 ? '' : SENTENCE}`).join('\n\n') + '\n';
+const unread = (p) => p.ev(`(() => { const cm = ${OWN}.cm; return [${PL}.paragraphs.readTo(cm), cm.state.doc.length]; })()`);
+
+for (const [count, wide] of [[400, false], [2000, false], [400, true]]) {
+	test(`a long note of tab paragraphs (${count}${wide ? ', in source mode' : ''}): put back where it was left, jumped to its end and to its middle, no frame draws a tab line unmarked, with a guide line or anywhere but at the indent, though the editor has not read that far`, async (p, h, t) => {
+		const text = FRONT + longNote(count);
+		await p.ev(`app.vault.modify(${file(A)}, ${j(text)}).then(() => 1)`);
+		await body(p, K, 'Another note.\n');
+		await open(p, A, 'source', wide);
+		// the writer reads on, goes to another note and comes back: Obsidian puts the page where it was
+		await p.ev(`(() => { const s = ${OWN}.cm.scrollDOM; s.scrollTop = (s.scrollHeight - s.clientHeight) * 0.6; return 1; })()`);
+		await sleep(p, 1200);
+		await p.ev(`app.workspace.getLeaf(false).openFile(${file(K)}).then(() => 1)`);
+		await sleep(p, 600);
+		await record(p);
+		await p.ev(`(() => { app.commands.executeCommandById('app:go-back'); return 1; })()`);
+		await sleep(p, 1500);
+		const back = await recorded(p);
+		t.ok(back.frames > 5, `watched as it was drawn (${back.frames} frames)`);
+		t.eq(back.drawn.join(' | '), '', 'put back where it was left: no frame draws a tab line wrong');
+		// a fresh editor on the note, and a jump to the end before it has read that far
+		await p.ev(`(async () => { app.workspace.detachLeavesOfType('markdown'); await sleep(200); const l = app.workspace.getLeaf(false); await l.openFile(${file(A)}); await l.setViewState({ type: 'markdown', state: { file: ${j(A)}, mode: 'source', source: ${wide} } }); return 1; })()`);
+		await sleep(p, 300);
+		await record(p);
+		const [read0, all] = await unread(p);
+		await p.ev(`(() => { const cm = ${OWN}.cm; cm.dispatch({ selection: { anchor: cm.state.doc.length }, scrollIntoView: true }); return 1; })()`);
+		await sleep(p, 900);
+		await p.ev(`(() => { const cm = ${OWN}.cm; cm.scrollDOM.scrollTop = cm.scrollDOM.scrollHeight / 2; return 1; })()`);
+		await sleep(p, 900);
+		const jumped = await recorded(p);
+		t.ok(read0 < all, `the jump was made before the editor had read the note (${read0} of ${all} characters)`);
+		t.eq(jumped.drawn.join(' | '), '', 'jumped to the end and to the middle: no frame draws a tab line wrong');
+		t.eq(await read(p, A), text, 'the note on disk is as it was');
+		t.eq(errors(p).length, 0, 'no errors: ' + errors(p).join(' | '));
+	});
+}

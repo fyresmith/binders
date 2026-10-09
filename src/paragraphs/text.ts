@@ -16,8 +16,13 @@ const HEADING_OR_RULE = /^ {0,3}(#{1,6}(\s|$)|([-*_])( *\3){2,} *$)/;
     That is a tabbed line after a blank line, at the start of the text, or straight after another such line. Not one
     that carries on a paragraph (Markdown drops its tab and reads it as prose already), not one inside a fenced block,
     the properties or a comment's fence, and not one under a list item or a quote, where an indent is theirs. When in
-    doubt a line is left out. */
-export function tabLines(text: string): number[] {
+    doubt a line is left out.
+
+    With `carried`, also a tabbed line that carries on a paragraph (straight under a line of text): Markdown reads it
+    as prose and drops its tab, the editor shows it set in. With `blank`, also a line that is a tab (or four spaces)
+    and nothing else yet. Those two are what the editor's mode marks (mode.ts); this says the same from the text alone,
+    for where the mode hasn't read. */
+export function tabLines(text: string, also: { carried?: boolean; blank?: boolean } = {}): number[] {
 	const lines = text.split('\n'), out: number[] = [];
 	let i = 0;
 	// (the properties: from a first line of three dashes to the next)
@@ -31,10 +36,10 @@ export function tabLines(text: string): number[] {
 		if (fence) { if (new RegExp(`^ {0,3}${fence[0]}{${fence.length},}\\s*$`).test(l)) { fence = null; blankBefore = true; } continue; }
 		const f = FENCE.exec(l);
 		if (f) { fence = f[1]; tabBefore = false; held = false; continue; }
-		if (!l.trim()) { blankBefore = true; continue; }
+		if (!l.trim()) { if (also.blank && !held && TABBED.test(l)) out.push(i); blankBefore = true; continue; }
 		if (TABBED.test(l)) {
 			// (`held`: the last thing that wasn't tabbed or blank was a list item or a quote, and this may be its text)
-			if (!held && (blankBefore || tabBefore)) { out.push(i); tabBefore = true; } else tabBefore = false;
+			if (!held && (blankBefore || tabBefore)) { out.push(i); tabBefore = true; } else { if (also.carried && !held) out.push(i); tabBefore = false; }
 			blankBefore = false;
 			continue;
 		}

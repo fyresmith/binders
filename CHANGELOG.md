@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.46.30 (2026-10-09)
+
+### Fixed
+
+- In a long note, tab paragraphs no longer flash with a guide line and jump sideways when the page is put back where you left it or you jump far into the note.
+
 ## 0.46.29 (2026-10-09)
 
 ### Fixed

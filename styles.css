@@ -4053,8 +4053,9 @@ body {
 }
 
 /* The tab itself is as wide as the indent, whatever "Tab indent size" is: the box above is only as wide as it is
-   told, and the caret after a tab with nothing typed yet stands where the tab ends. */
-.markdown-source-view.mod-cm6 .cm-line.binders-tab-paragraph > .cm-hmd-indented-code {
+   told, and the caret after a tab with nothing typed yet stands where the tab ends. (On the line, not on the box:
+   in the first frames of an editor the tab is in no box yet.) */
+.markdown-source-view.mod-cm6 .cm-line.binders-tab-paragraph {
 	tab-size: var(--binders-paragraph-indent);
 }
 
