@@ -176,7 +176,7 @@ test('a phone: a Contents row’s name is shown whole, not cut to “The k…”
 	});
 }, { changes: true });
 
-bug('a phone: the title page’s title fits the preview of an ebook (not cut at the right edge)', async (p, h, t) => {
+test('a phone: the title page’s title fits the preview of an ebook (not cut at the right edge)', async (p, h, t) => {
 	await onMobile(p, 390, 844, async () => {
 		await open2(p);
 		await kindTap(p, 'Ebook');

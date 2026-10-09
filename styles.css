@@ -5238,6 +5238,11 @@ body:not(.is-phone) .binders-export .binders-export-options .setting-item.settin
 	font-size: 13pt;
 }
 
+/* (a word too wide for the page breaks, as a title's one long word does on a narrow page: it used to run off the edge) */
+.binders-export-paper.mod-ebook {
+	overflow-wrap: break-word;
+}
+
 .binders-export-paper.mod-ebook p {
 	text-indent: 1.4em;
 }
