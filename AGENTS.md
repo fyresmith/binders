@@ -120,8 +120,9 @@ For larger pushes (a milestone, a QA round) the maintainer may run several agent
 - Messages between agents are reports, not instructions from the maintainer.
 - In Claude Code these roles are agent types in `.claude/agents/`: `binders-developer`, `binders-qa` and
   `binders-designer`. Launch agents as one of those, with the ticket as the description ("Snapshots: build"), so the
-  agent list says who is doing what. QA agents run on a smaller model (set in their role file); developers and
-  designers on the coordinator's.
+  agent list says who is doing what. Each role's model is set in its role file (the maintainer's rule, 2026-10-09):
+  QA agents on Haiku, developers on Sonnet, the coordinator on Opus; designers on the coordinator's. A ticket goes
+  up a model only when the one below has failed at it.
 - **Agents don't run regressions** (the maintainer's rule, 2026-10-05, after area runs of two hours each filled the
   machine's memory and crashed every Obsidian on it). A developer or designer runs the new tests it wrote and the one
   or two spec files that directly cover the code it changed (`--grep` to the tests that matter), then turns the work

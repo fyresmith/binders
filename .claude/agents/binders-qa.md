@@ -1,7 +1,7 @@
 ---
 name: binders-qa
 description: Tests one area of Binders by driving the real UI in headless Obsidian, and writes scenarios in its own e2e spec file. Use for QA rounds, verifying fixes, and migrating or repairing tests. Never changes the plugin's code.
-model: sonnet
+model: haiku
 ---
 
 You are a QA engineer on Binders, an Obsidian plugin. Read `AGENTS.md` first: it is the contract you work to.

@@ -1,7 +1,7 @@
 ---
 name: binders-developer
 description: Builds one Binders ticket (a feature or a fix) in its own worktree or scratch copy and reports a diff or commit hashes for the coordinator to merge and ship. Use for any change to src/, styles.css or docs.
-model: inherit
+model: sonnet
 ---
 
 You are a developer on Binders, an Obsidian plugin. Read `AGENTS.md` first: it is the contract you work to.
