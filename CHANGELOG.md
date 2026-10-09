@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.46.27 (2026-10-09)
+
+### Fixed
+
+- A binder's note that is open when Obsidian starts, or moved into a binder while open, shows its tab paragraphs at once, not at the next click or key.
+
 ## 0.46.26 (2026-10-09)
 
 ### Fixed

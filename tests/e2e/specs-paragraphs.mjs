@@ -4,7 +4,7 @@
 // The one thing that writes is a link in a tab paragraph following a rename, and those tests compare the whole note.
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { PL, VIEW, file, j, openView, read, until, withTidy, writeRaw } from './view-helpers.mjs';
+import { PL, VIEW, file, j, openView, read, reload, until, withTidy, writeRaw } from './view-helpers.mjs';
 
 export const specs = [];
 const test = (name, fn) => specs.push({ name: 'paragraphs: ' + name, fn: withTidy(fn) });
@@ -391,6 +391,51 @@ test('a line of white space only is drawn as a paragraph’s indent where a lett
 	}
 	t.eq(await read(p, A), WS_FRONT + WS, 'the note on disk is as it was');
 	t.eq(await read(p, LOOSE), WS_FRONT + WS, 'and the one outside a binder');
+	t.eq(errors(p).length, 0, 'no errors: ' + errors(p).join(' | '));
+});
+
+// ---- A3: an editor left alone follows its note into and out of a binder (no click or key to wake it) ----
+
+/** The line that starts with this in any editor, with nothing touched: marked as a paragraph, or set as code. */
+const untouched = (p, starts) => p.ev(`(() => { const l = [...document.querySelectorAll('.workspace-leaf .cm-content > .cm-line')].find(l => l.textContent.trimStart().startsWith(${j(starts)})); return l ? { marked: l.classList.contains('binders-tab-paragraph'), code: !!l.querySelector('.cm-inline-code') } : null; })()`);
+const becomes = async (p, t, starts, prose, what) => {
+	await until(p, `(() => { const l = [...document.querySelectorAll('.workspace-leaf .cm-content > .cm-line')].find(l => l.textContent.trimStart().startsWith(${j(starts)})); return !!l && l.classList.contains('binders-tab-paragraph') === ${prose}; })()`, 4000);
+	const s = await untouched(p, starts);
+	t.ok(!!s && s.marked === prose && s.code === !prose, `${what}: ${prose ? 'a paragraph' : 'code, as Obsidian has it'}, with nothing touched (${j(s)})`);
+};
+
+test('a binder’s note that is open when Obsidian starts shows its tab paragraphs as paragraphs without a click or a key', async (p, h, t) => {
+	const text = FRONT + '\tOpen at the start, with *stress*.\n\nPlain.\n';
+	await p.ev(`app.vault.modify(${file(A)}, ${j(text)}).then(() => 1)`);
+	await open(p, A);
+	await p.ev(`(async () => { await app.workspace.saveLayout?.(); app.workspace.requestSaveLayout?.(); return 1; })()`);
+	await sleep(p, 2500);
+	await reload(p);
+	await until(p, `[...document.querySelectorAll('.workspace-leaf .cm-content > .cm-line')].some(l => l.textContent.includes('Open at the start'))`, 10000);
+	t.eq(await p.ev(`app.workspace.getLeavesOfType('markdown').map(l => l.view.file?.path).join()`), A, 'the note is open after the restart');
+	await p.ev(`${PL}.binders.settled.then(() => 1)`);
+	await becomes(p, t, 'Open at the start', true, 'after the restart');
+	t.eq(await read(p, A), text, 'the note on disk is as it was');
+});
+
+test('a note moved into a binder while it is open becomes paragraphs, and moved out code again, without a click or a key; so does a folder made a binder, and one that stops being one', async (p, h, t) => {
+	const text = '\tA line that moves.\n\nPlain.\n';
+	await p.ev(`(async () => { await app.vault.create('Moves.md', ${j(text)}); await app.vault.createFolder('Loose folder'); await app.vault.create('Loose folder/Stays.md', ${j('\tA line that stays.\n')}); return 1; })()`);
+	await open(p, 'Moves.md');
+	await becomes(p, t, 'A line that moves', false, 'outside a binder');
+	await p.ev(`app.fileManager.renameFile(${file('Moves.md')}, ${j(L + 'Part One/Moves.md')}).then(() => 1)`);
+	await becomes(p, t, 'A line that moves', true, 'moved into the binder');
+	await p.ev(`app.fileManager.renameFile(${file(L + 'Part One/Moves.md')}, 'Moved out.md').then(() => 1)`);
+	await becomes(p, t, 'A line that moves', false, 'moved out again');
+	t.eq(await read(p, 'Moved out.md'), text, 'the note is as it was written');
+	// a folder made a binder with one of its notes open, and its binder note deleted
+	await open(p, 'Loose folder/Stays.md');
+	await becomes(p, t, 'A line that stays', false, 'in a folder that is no binder');
+	await p.ev(`${PL}.binders.makeBinder(${file('Loose folder')}).then(() => 1)`);
+	await becomes(p, t, 'A line that stays', true, 'its folder made a binder');
+	await p.ev(`(async () => { const b = ${PL}.binders; await app.vault.delete(b.folderNote(${file('Loose folder')})); return 1; })()`);
+	await becomes(p, t, 'A line that stays', false, 'the binder note deleted');
+	t.eq(await read(p, 'Loose folder/Stays.md'), '\tA line that stays.\n', 'the note is as it was written');
 	t.eq(errors(p).length, 0, 'no errors: ' + errors(p).join(' | '));
 });
 

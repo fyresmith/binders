@@ -97,6 +97,16 @@ export function installParagraphs(plugin: BindersPlugin): Paragraphs {
 		stale = false;
 	});
 	plugin.registerEditorExtension([slot.of([]), scope]);
+	// An editor asks what it should have when it is made and whenever it is updated. Left alone it would never ask
+	// again, and which notes are in a binder changes without it: the binders are found after the first editors are
+	// made (a note open when Obsidian starts), a note is moved into a binder or out, a folder becomes a binder or
+	// stops being one. So every editor is asked again then.
+	const refresh = () => { for (const v of live) v.sync(); };
+	const store = plugin.binders;
+	void store.ready.then(refresh, () => { /* nothing found: nothing to show */ });
+	void store.settled.then(refresh, () => { /* the same */ });
+	plugin.registerEvent(store.on('changed', refresh));
+	plugin.registerEvent(plugin.app.vault.on('rename', refresh));
 
 	// Reading view, and what else Obsidian renders a note in: an embed, a hover preview, a print to PDF
 	plugin.registerMarkdownPostProcessor((el, ctx) => {
@@ -114,7 +124,7 @@ export function installParagraphs(plugin: BindersPlugin): Paragraphs {
 
 	const renames = followRenames(plugin);
 	return {
-		refresh: () => { for (const v of live) v.sync(); },
+		refresh,
 		forRender: (text, path) => (plugin.settings.tabParagraphs && inBinder(path) ? tabsForRender(text) : text),
 		renamesSettled: () => renames.settled(),
 		languageOf: (view) => view.state.facet(language),
