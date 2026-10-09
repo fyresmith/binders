@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.46.16 (2026-10-09)
+
+### Added
+
+- Since 0.44.16: "Bring back..." on a snapshot of a folder or the binder (the text and the order, or everything), and the last round of fixes to Export, on a computer, a phone and a tablet.
+
 ## 0.46.15 (2026-10-09)
 
 ### Changed
