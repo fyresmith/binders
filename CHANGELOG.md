@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.46.23 (2026-10-09)
+
+### Fixed
+
+- In the manuscript, a word longer than the column no longer runs off the edge of a section shown as plain text (on a phone, every section until it is tapped); it wraps there as it does in the editor.
+
 ## 0.46.22 (2026-10-09)
 
 ### Fixed

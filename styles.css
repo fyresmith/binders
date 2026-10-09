@@ -881,6 +881,8 @@
 	/* one line of text, the same wherever it's used (a heading's own em is bigger) */
 	--binders-line: calc(var(--line-height-normal) * var(--font-text-size));
 	--p-spacing: var(--binders-line);
+	/* a word longer than the column wraps, as the editor's lines do (.cm-line: overflow-wrap: anywhere) */
+	overflow-wrap: anywhere;
 }
 
 /* A heading has a blank line on either side and, as in the editor, a little room above itself. */

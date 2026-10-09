@@ -1901,3 +1901,74 @@ test('phone: a failed save refuses deletion; pending writing, an outside edit an
 	await p.sleep(600); await p.key('z', 'ctrl'); await saveAll(p);
 	t.eq(disk(p, KEEPER), kept + 'Outside words.\n', 'undo keeps the original writing and the external edit');
 }));
+
+
+// ---------------------------------------------------------------------------------------------------------------
+// A word longer than the column, in a section shown as text: it wraps there as it does in the editor, at the same
+// letters, and the section keeps its height when it is tapped (styles.css: .binders-manuscript-rendered)
+// ---------------------------------------------------------------------------------------------------------------
+
+const LONGW = 'abcdefghij'.repeat(8);
+const WRAPNOTE = 'Long/Wrap.md';
+const WRAPTEXT = `Before ${LONGW} after the word, and a few more words so the lines break.\n`;
+/** The lines of what's shown in a root (a JS expression): each line's letters, how far they go right, and the height. */
+const shape = (p, root) => p.ev(`(() => {
+	const r = ${root}; if (!r) return null;
+	const w = document.createTreeWalker(r, NodeFilter.SHOW_TEXT); let n, right = 0, top = null; const lines = [];
+	while ((n = w.nextNode())) {
+		if (!n.data.trim() || !n.parentElement.getClientRects().length) continue;
+		for (let i = 0; i < n.data.length; i++) {
+			const g = document.createRange(); g.setStart(n, i); g.setEnd(n, i + 1);
+			const q = g.getClientRects()[0]; if (!q || !q.width || !n.data[i].trim()) continue;
+			right = Math.max(right, q.right);
+			if (top === null || Math.abs(q.top - top) > 4) { lines.push(''); top = q.top; }
+			lines[lines.length - 1] += n.data[i];
+		}
+	}
+	return { lines, right: Math.round(right * 10) / 10, height: Math.round(r.getBoundingClientRect().height * 10) / 10 };
+})()`);
+/** The section as text first (measured before it becomes an editor), then as its editor: the text stays inside its
+    column, runs to as many lines as the editor, and the section is as tall. `sameLetters`: the lines also break at the
+    same letters (on a phone, where the long word is what breaks). On a computer the editor's line also takes a space
+    at its end differently (one word moves down a line; open, found 2026-10-09), which is left as it is. */
+const wrapCheck = async (p, t, label, make, sameLetters) => {
+	t.ok(!(await p.ev(`!!${sc(WRAPNOTE)}.live`)), `${label}: the section is shown as text`);
+	await until(p, `${sc(WRAPNOTE)}.shown !== null`, 4000);
+	await p.sleep(300);
+	const plain = await shape(p, `${sc(WRAPNOTE)}.bodyEl`);
+	const colRight = await p.ev(`(() => { const c = ${sc(WRAPNOTE)}.bodyEl.querySelector('.binders-manuscript-rendered'); return c ? Math.round(c.getBoundingClientRect().right * 10) / 10 : null; })()`);
+	say(label, 'text', plain, 'column right', colRight);
+	t.ok(colRight != null && plain.right <= colRight + 0.5, `${label}: the text’s right edge (${plain.right}) is inside its column (${colRight})`);
+	await make();
+	await until(p, `!!${sc(WRAPNOTE)}.live`, 4000);
+	await until(p, `!!${sc(WRAPNOTE)}.bodyEl.querySelector('.cm-line')?.getClientRects().length`, 4000);
+	await p.sleep(500);
+	const edit = await shape(p, `${sc(WRAPNOTE)}.bodyEl.querySelector('.cm-content')`);
+	say(label, 'editor', edit);
+	t.eq(plain.lines.length, edit.lines.length, `${label}: the text runs to as many lines as the editor`);
+	if (sameLetters) t.eq(j(plain.lines), j(edit.lines), `${label}: the long word breaks at the same letters as in the editor`);
+	t.ok(Math.abs(plain.height - edit.height) <= 2, `${label}: the section is as tall as the editor (${plain.height} and ${edit.height} px)`);
+};
+
+test('a word longer than the column, in a section shown as text on a phone (320 px), wraps as it does in the editor and keeps the section’s height', on(SMALL, async (p, h, t) => {
+	await binder(p, 'Long', { One: 'Opening words.\n', Wrap: WRAPTEXT });
+	await openMs(p, 'Long');
+	await wrapCheck(p, t, 'a phone', async () => {
+		await tapText(p, WRAPNOTE, 'after the word', 0);
+	}, true);
+}));
+
+test('a word longer than the column, in a section shown as text on a computer, wraps as it does in the editor and keeps the section’s height', async (p, h, t) => {
+	// fifteen short notes above it: the nearest ten get an editor, so this one is shown as text until it's scrolled to
+	const fillers = Object.fromEntries(Array.from({ length: 15 }, (_, i) => [`F${String(i + 1).padStart(2, '0')}`, `Filler line ${i + 1}.\n`]));
+	await binder(p, 'Long', { ...fillers, Wrap: WRAPTEXT });
+	await openMs(p, 'Long');
+	await wrapCheck(p, t, 'a computer', async () => {
+		await p.ev(`(() => { ${sc(WRAPNOTE)}.el.scrollIntoView({ block: 'center' }); return 1; })()`);
+		await p.sleep(600);
+		if (!(await p.ev(`!!${sc(WRAPNOTE)}.live`))) {
+			const at = await textAt(p, WRAPNOTE, 'after the word', 0);
+			await p.click(at.x + 1, at.y);
+		}
+	}, false);
+});
