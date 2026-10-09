@@ -166,7 +166,7 @@ const COMMENTS = [
 	['C', '```\n%%fenced stays%%\n```\n\nAfter fence <!-- html gone --> end.\n\nMulti %%line\nspanning%% over lines.\n'],
 ];
 const WANT_WORDS = (s) => words(s);
-bug('comments: two in a row mid-sentence leave a double space in the Word manuscript (start and end, code, link text and fences are fine)', async (p, h, t) => {
+test('comments: two in a row mid-sentence leave a double space in the Word manuscript (start and end, code, link text and fences are fine)', async (p, h, t) => {
 	await mk(p, 'Cmt', COMMENTS);
 	t.eq(await go(p, 'Cmt'), 'saved', 'saved');
 	const d = docx(join(p.vaultDir, 'Exports', 'Cmt.docx')), body = d.body.join('\n');

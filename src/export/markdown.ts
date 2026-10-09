@@ -53,7 +53,9 @@ function shownFor(target: string): string {
     with a tab) and the space after it goes; at the end of a line both go, unless they are the two spaces that break
     a line. Code is left alone, as there. */
 function withoutComments(text: string): string {
-	return text.replace(new RegExp(`${CODE}|([ \\t]*)(?:%%[\\s\\S]*?%%|<!--[\\s\\S]*?-->)([ \\t]*)`, 'gm'), (m: string, ...rest: unknown[]) => {
+	// (a run of comments, with only spaces or tabs between, is one comment: two in a row leave one space, not two)
+	const one = '(?:%%[\\s\\S]*?%%|<!--[\\s\\S]*?-->)';
+	return text.replace(new RegExp(`${CODE}|([ \\t]*)${one}(?:[ \\t]*${one})*([ \\t]*)`, 'gm'), (m: string, ...rest: unknown[]) => {
 		const lead = rest[2], trail = rest[3], at = rest[4];
 		if (typeof lead !== 'string' || typeof trail !== 'string' || typeof at !== 'number') return m; // (code)
 		const first = at === 0 || text[at - 1] === '\n', last = at + m.length === text.length || text[at + m.length] === '\n';

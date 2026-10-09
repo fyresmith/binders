@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.46.7 (2026-10-09)
+
+### Fixed
+
+- Two comments in a row inside a sentence leave one space in the exported book, not two.
+
 ## 0.46.6 (2026-10-09)
 
 ### Fixed

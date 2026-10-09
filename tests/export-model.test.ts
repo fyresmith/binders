@@ -44,6 +44,11 @@ const run = (text: string, at = 0): Inline[] => { const b = p(text).blocks[at]; 
 	eq(plain(run('no%%gap%%here, one %%side%%only, and<!-- the --> other')), 'nohere, one only, and other', 'and no space is made or taken where there was none or one');
 	eq(plain(run('a `b %% c %% d` e %% f %% g')), 'a b %% c %% d e g', 'code keeps its comment marks and its spaces');
 	eq(plain(run('one %% two\nlines %% three')), 'one three', 'a comment over two lines');
+	eq(plain(run('Two %%one%%%%two%% in a row')), 'Two in a row', 'two comments in a row are one: one space where they stood');
+	eq(plain(run('Two %%one%% %%two%% in a row')), 'Two in a row', 'two comments with a space between: still one space');
+	eq(plain(run('Two %%one%%\t<!-- two -->  in a row')), 'Two in a row', 'a comment and an HTML comment in a row, with tabs and spaces between');
+	eq(plain(run('a %%x%%%%y%% b %%p%% c')), 'a b c', 'a run of comments, then a single one: each place keeps one space');
+	eq(plain(run('`k %%a%%%%b%%` and %%c%%%%d%% e')), 'k %%a%%%%b%% and e', 'code is kept as typed, and a run beside it is one');
 	eq(plain(run('`%%kept%%` and `[[not a link]]`')), '%%kept%% and [[not a link]]', 'code keeps its marks');
 }
 
