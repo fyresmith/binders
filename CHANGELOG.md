@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.49.17 (2026-10-10)
+
+### Fixed
+
+- A scene's notes come back from a Scrivener project as they were typed: a #, a star or a [[link]] is no longer changed, and formatting put on them in Scrivener is kept. An escaped dollar sign stays escaped.
+
 ## 0.49.16 (2026-10-10)
 
 ### Fixed

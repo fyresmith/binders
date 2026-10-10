@@ -142,7 +142,7 @@ const sound = (m: ReturnType<typeof made>, what: string) => ok(!m.problems.lengt
 	ok(index.includes('<Title>Before the rewrite</Title>') && index.includes('<Title>Untitled Snapshot</Title>') && index.includes(`<Date>${scrivDate(new Date(at))}</Date>`) && index.includes(`<Date>${scrivDate(new Date(at + 1000))}</Date>`), 'the index has their names and dates; two of one moment are a second apart');
 	ok(/\.snapshots\/\d{4}-\d\d-\d\d-\d\d-\d\d-\d\d[+-]\d{4}\.rtf$/.test(names[0]) && rtfText(m.str(names[0]) ?? '').includes('Then.'), 'a snapshot’s file is named for its date, and has its text');
 	eq(m.p.snapshots, 2, 'snapshots counted');
-	ok(rtfText(m.str(`Files/Data/${id}/notes.rtf`) ?? '').includes('Ask Tom.'), 'a note’s `notes` property is the document’s notes');
+	ok(rtfText(m.str(`Files/Data/${id}/notes.rtf`) ?? '').includes('Ask *Tom*.'), 'a note’s `notes` property is the document’s notes, as typed: its marks are not read');
 	const off = made(src, { snapshots: false });
 	ok(![...off.files.keys()].some((p) => p.startsWith('Snapshots/')) && off.p.snapshots === 0, 'the switch off: no snapshots');
 }

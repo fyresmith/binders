@@ -307,6 +307,17 @@ export function planImport(project: ReadProject, o: PlanOptions): ImportPlan {
 
 	// ---- properties ----
 
+	/** A note's `notes` property. Plain notes (no bold, italic or link: what Binders' own export writes, and what a writer
+	    typed) come in as the text as typed, with no Markdown read into them, so a "#" or a star is what it is. Formatted
+	    notes, which a writer made in Scrivener, are read as Markdown like a note's text, so the formatting comes too. */
+	const notesProp = (it: ReadItem, bytes: Uint8Array): string => {
+		let read: ReturnType<typeof readRtf> | null = null;
+		try { read = readRtf(bytes); } catch { read = null; }
+		if (!read || read.formatted) return convert(it, 'notes.rtf', bytes, 'Its notes').trimEnd();
+		keepOriginal(it, 'notes.rtf', bytes);
+		for (const w of read.warnings) warn(it, w);
+		return read.plain.replace(/\n+$/, '');
+	};
 	const props = (it: ReadItem, inResearch: boolean): Record<string, unknown> => {
 		const result = Object.create(null) as Record<string, unknown>;
 		const synopsis = get(dataPath(it, 'synopsis.txt')), notes = get(dataPath(it, 'notes.rtf'));
@@ -315,7 +326,7 @@ export function planImport(project: ReadProject, o: PlanOptions): ImportPlan {
 			// lines on a card, and not worth a project)
 			try { result[s.synopsisProp] = utf8(synopsis); } catch { result[s.synopsisProp] = new TextDecoder().decode(synopsis); warn(it, 'Its synopsis has characters that can’t be read, shown as “\ufffd”.'); }
 		}
-		if (notes) result[s.notesProp] = convert(it, 'notes.rtf', notes, 'Its notes').trimEnd();
+		if (notes) { const said = notesProp(it, notes); if (said) result[s.notesProp] = said; }
 		if (labelNames.has(it.label)) result[s.labelProp] = labelNames.get(it.label);
 		if (project.statuses.has(it.status)) result[s.statusProp] = project.statuses.get(it.status);
 		if (it.target > 0) {

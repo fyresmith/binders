@@ -2,7 +2,7 @@ import { display, hexColor } from '../../view/labels';
 import { blocksText, countWords, type Picture, type Role, type Structure, type Warning } from '../model';
 import { assignRoles, guessStructure, type SourceItem } from '../roles';
 import { FORMAT, FULL_SHAPE, ITEM_SECTION_TYPES, KEYWORDS, NEUTRAL_HEX, PALETTE_HEX, PATH_FIELD, floats, scrivDate, snapshotRtf, uuid, xml } from './parts';
-import { rtf, type RtfContext } from './rtf';
+import { plainRtf, rtf, type RtfContext } from './rtf';
 import { ROOTS, compileXml, rootId, scrivx, type Doc, type Lists } from './scrivx';
 import { STYLES_XML } from './styles-xml';
 import { readText, unmarked } from './text';
@@ -178,7 +178,8 @@ export function writeScriv(src: ScrivSource, o: ScrivOptions): ScrivProject {
 		if (body) put(`${dir}content.rtf`, body);
 		// (plain UTF-8, no line break at its end, as Scrivener writes it)
 		if (it.synopsis?.trim()) put(`${dir}synopsis.txt`, it.synopsis.trim());
-		const notes = it.notes?.trim() ? toRtf(it, it.notes, false) : null;
+		// (a note's notes are the writer's words as typed: not read as Markdown, so nothing in them is marked up or lost)
+		const notes = it.notes?.trim() ? plainRtf(it.notes) : null;
 		if (notes) put(`${dir}notes.rtf`, notes);
 		if (o.snapshots && it.snapshots?.length) {
 			const sdir = `Snapshots/${id}.snapshots/`, used = new Set<string>(), index: string[] = [];

@@ -36,7 +36,7 @@ Nothing is made until you choose **Import**. Closing the dialog before that leav
 | The Draft's folders and documents | Folders and notes, in the same order |
 | A folder, or a document with documents under it, that has text of its own | A folder, with that text as its first note, named "*its name* text" |
 | Text on the Draft folder itself, or on Research | A note before that folder's others |
-| Synopsis and document notes | The note's synopsis and notes |
+| Synopsis and document notes | The note's synopsis and notes. Notes with no bold, italics or links come in as typed; notes with them keep their formatting as Markdown |
 | Labels, with their colors, and statuses | The note's label and status, and added to the lists in Binders' settings. Yours stay as they are |
 | Targets in words | The note's target, and the binder's from the draft's |
 | Targets in characters | A `scrivener-target` property |

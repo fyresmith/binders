@@ -5,7 +5,8 @@ interface Group { tokens: Token[] }
 type Token = string | Control | Group | { bytes: Uint8Array };
 interface Run { text: string; bold?: boolean; italic?: boolean; strike?: boolean; url?: string; raw?: boolean }
 interface State { bold: boolean; italic: boolean; strike: boolean; uc: number; page: number; ansi: number; defaultFont: number }
-export interface RichText { markdown: string; plain: string; warnings: string[] }
+/** `plain`: the text as typed, with no Markdown in it. `formatted`: some of it is bold, italic, struck or a link. */
+export interface RichText { markdown: string; plain: string; warnings: string[]; formatted: boolean }
 export interface RtfOptions {
 	link?(uuid: string, label: string): string | null;
 	picture?(bytes: Uint8Array, extension: string): string;
@@ -305,5 +306,6 @@ export function readRtf(data: Uint8Array, options: RtfOptions = {}): RichText {
 	body = body.replace(/^(\s*)•\t/gm, '$1- ').replace(/^(\s*)(\d+)\\\.\t/gm, '$1$2. ');
 	body = tables(body).replace(/\n{3,}/g, '\n\n').trimEnd();
 	if (notes.length) body += '\n\n' + notes.map((n, i) => `[^${i + 1}]: ${n.replace(/\n/g, '\n    ')}`).join('\n\n');
-	return { markdown: body ? body + '\n' : '', plain: literal, warnings: [...warnings] };
+	const formatted = runs.some((r) => !!(r.bold || r.italic || r.strike || r.url));
+	return { markdown: body ? body + '\n' : '', plain: literal, warnings: [...warnings], formatted };
 }

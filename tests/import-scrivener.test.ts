@@ -6,7 +6,9 @@ import { readRtf } from '../src/import/scriv/rtf';
 import { readProject } from '../src/import/scriv/project';
 import { inBinder, planImport } from '../src/import/scriv/plan';
 import { ok, eq, done } from './harness';
-import { writeScriv, scrivFiles } from '../src/export/scriv/project';
+import { writeScriv, scrivFiles, type ScrivSource } from '../src/export/scriv/project';
+import { plainRtf, rtf } from '../src/export/scriv/rtf';
+import { readText } from '../src/export/scriv/text';
 
 const enc = new TextEncoder(), bytes = (s: string) => enc.encode(s);
 const rich = (s: string) => readRtf(bytes(s));
@@ -263,4 +265,29 @@ const pathPlan = planImport(readProject(projectSource(pathFiles, 'Trail', async 
 const pathNote = utf8(pathPlan.files.get('Trail/Plain.md'));
 ok(!pathNote.includes('Part One/Plain'), 'the path field Binders wrote is not brought in, found by its id');
 ok(pathNote.includes('"Binders path": "kept"'), 'a writer’s field with the same title is kept');
+// A note's text goes out and comes back as the writer typed it: a dollar sign that is escaped stays escaped (it is not math),
+// and a note's notes are plain text both ways (a "#" or a star in them is not markup).
+const trip = (md: string): string => { const p = readText(md); return readRtf(bytes(rtf(p.blocks, { notes: p.notes, link: () => null, picture: () => null, kept: () => {} }) ?? '')).markdown; };
+eq(trip('Price \\$\\$ too.'), 'Price \\$\\$ too.\n', 'an escaped pair of dollar signs comes back as the same escapes');
+eq(trip('Costs \\$5 and \\$6, and \\$\\$ too.'), 'Costs \\$5 and \\$6, and \\$\\$ too.\n', 'escaped dollars beside a pair of them come back as escapes');
+eq(trip('A \\\\$5 with a backslash before it.'), 'A \\\\\\$5 with a backslash before it.\n', 'an escaped backslash before a dollar sign is still a backslash');
+const notesText = 'Check the #tag, *star*, a_b and [[link]] ^note-one\tTabbed \\ and {braces}.\n\nSecond “quoted” line.';
+eq(readRtf(bytes(plainRtf(notesText))).plain, notesText, 'a note’s notes read back as typed, line breaks and all');
+const notesFiles = new Map<string, Uint8Array>([
+	['Notes.scrivx', bytes(`<ScrivenerProject Version="2.0"><Binder>${item(1, 'DraftFolder', 'Draft', '', item(2, 'Text', 'Plain', '<IncludeInCompile>Yes</IncludeInCompile>'))}</Binder></ScrivenerProject>`)],
+	[`Files/Data/${id(2)}/content.rtf`, bytes('{\\rtf1 Words.}')],
+	[`Files/Data/${id(2)}/notes.rtf`, bytes(plainRtf('Check the #tag, *star* and [[link]].\nSecond line.'))],
+]);
+const notesPlan = planImport(readProject(projectSource(notesFiles, 'Notes', async () => true)), { name: 'Notes', parent: '', research: false, snapshots: false, settings: DEFAULT_SETTINGS });
+ok(utf8(notesPlan.files.get('Notes/Plain.md')).includes('"Check the #tag, *star* and [[link]].\\nSecond line."'), 'the notes come into the note’s property as typed, with no Markdown read into them');
+// The round trip: a note's notes as Binders writes them (plain), out to Scrivener and back in, byte for byte.
+const tripNotes = 'Check the #tag, a *star* and [[link]] ?';
+const tripSrc: ScrivSource = { name: 'Trip', path: 'Trip', labels: [], statuses: [], items: [{ kind: 'note', name: 'Plain', path: 'Trip/Plain.md', included: true, text: 'Words.', notes: tripNotes, children: [] }] };
+const tripBack = planImport(readProject(projectSource(scrivFiles(writeScriv(tripSrc, { outside: false, snapshots: false, version: '0.49.0' }), 'Trip'), 'Trip', async () => true)), { name: 'Trip', parent: '', research: false, snapshots: false, settings: DEFAULT_SETTINGS });
+ok(utf8(tripBack.files.get('Trip/Plain.md')).includes(JSON.stringify(tripNotes)), 'Binders → Scrivener → Binders: the notes “Check the #tag, a *star* and [[link]] ?” come back byte for byte');
+// A note a writer made in Scrivener with bold and a link keeps both: it is read as Markdown, like the text.
+const formattedNotes = new Map(notesFiles);
+formattedNotes.set(`Files/Data/${id(2)}/notes.rtf`, bytes('{\\rtf1 Ask {\\b Tom} about {\\field{\\*\\fldinst HYPERLINK "https://example.com"}{\\fldrslt the lenses}}.}'));
+const formattedPlan = planImport(readProject(projectSource(formattedNotes, 'Notes', async () => true)), { name: 'Notes', parent: '', research: false, snapshots: false, settings: DEFAULT_SETTINGS });
+ok(utf8(formattedPlan.files.get('Notes/Plain.md')).includes(JSON.stringify('Ask **Tom** about [the lenses](https://example.com).')), 'a formatted note’s bold and its link come in with it');
 done('Scrivener import');

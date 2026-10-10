@@ -25,5 +25,7 @@ export function readText(body: string): Parsed {
 		const words = said.replace(/[]/g, '').replace(/\s+/g, ' ').trim();
 		return words ? `${NOTE_OPEN}${words}${NOTE_CLOSE}` : '';
 	});
-	return parseBody(text);
+	// An escaped dollar sign is a dollar, not the start of math: it is written as its character reference, which the
+	// Markdown reader takes for the dollar sign, so a pair of them is never read as an equation. Code is left alone.
+	return parseBody(text.replace(new RegExp(`${CODE}|\\\\[\\\\$]`, 'gm'), (m) => (m === '\\$' ? '&#36;' : m)));
 }

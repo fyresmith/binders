@@ -41,7 +41,7 @@ included in compile.
 | Snapshots | Snapshots, with their names and dates |
 | A folder note's text | The folder's own text |
 | Tags | Keywords |
-| Your [notes on a note or folder](scene-notes.md) | The document's notes |
+| Your [notes on a note or folder](scene-notes.md) | The document's notes, as plain text: what you typed, with its `#`, stars and brackets as they are |
 | Your other properties | Custom metadata |
 | Part, chapter and scene | A section type each, so Scrivener's own Compile has something to work with |
 

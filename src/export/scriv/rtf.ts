@@ -49,6 +49,13 @@ function pict(p: Picture): string | null {
 /** A web address inside a field: ASCII, and nothing that ends the field early. */
 const address = (url: string): string => { let u = url; try { u = encodeURI(decodeURI(url)); } catch { /* as it is */ } return u.replace(/[\\{}"]/g, (c) => `%${c.charCodeAt(0).toString(16)}`).replace(/[^\x21-\x7e]/g, ''); };
 
+/** A note's `notes` as one RTF file, its text as typed: no Markdown is read in it, so a `#`, a star or a bracket is what
+    it is. Each line break is a `\line`, which reads back as the same line break. */
+export function plainRtf(text: string): string {
+	return '{\\rtf1\\ansi\\ansicpg1252\\uc1\\deff0\n{\\fonttbl{\\f0\\froman\\fcharset0 Times New Roman;}}\n\\f0\\fs24\n'
+		+ text.split(/\r?\n/).map(esc).join('\\line ') + '}';
+}
+
 /** A note's text as one RTF file, or null when it has none. */
 export function rtf(blocks: readonly Block[], ctx: RtfContext): string | null {
 	const written = new Set<number>();

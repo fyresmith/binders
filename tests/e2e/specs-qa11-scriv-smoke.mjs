@@ -139,7 +139,7 @@ test('1b an escaped dollar sign comes back as the same escape, alone and beside 
 });
 
 // ---- 1c. escaped dollars in a line with more of them: the same escapes come back (narrowing 1) ----
-test('BUG: 1c an escaped dollar sign beside a pair of them, and a line of four, comes back as the same escapes', async (p, h, t) => {
+test('1c an escaped dollar sign beside a pair of them, and a line of four, comes back as the same escapes', async (p, h, t) => {
 	await dress(p);
 	const src = ['Price \\$\\$ too.', 'Costs \\$5 and \\$6, and \\$\\$ too.', 'Then \\$5 and \\$6, and \\$7 more.'];
 	await putNote(p, 'Part Two/Dollars two.md', `---\n---\n${src.join('\n\n')}\n`);
@@ -208,7 +208,7 @@ test('4 the paragraph after a tab-led one is not tab-led, and the one after that
 });
 
 // ---- 5. synopses and scene notes with punctuation, emoji and YAML-hostile text come back exactly ----
-test('BUG: 5 a synopsis and a note with colons, quotes, a hash, brackets, a backslash and an emoji come back exactly', async (p, h, t) => {
+test('5 a synopsis and a note with colons, quotes, a hash, brackets, a backslash and an emoji come back exactly', async (p, h, t) => {
 	await dress(p);
 	const syn = 'Mara: "the keeper", won\u2019t say #1 [draft] \\ ok \ud83c\udf0a: 50% & <done>';
 	const notes = 'Check: "quoted" & a tab\u00a0here - yes, [[link]] ?';
@@ -221,7 +221,7 @@ test('BUG: 5 a synopsis and a note with colons, quotes, a hash, brackets, a back
 });
 
 // ---- 5b. a note's notes (its scene notes) are plain text too: marks in them are not escaped or changed ----
-test('BUG: 5b a note’s notes come back as typed: a hash, stars and an underscore are not marked up', async (p, h, t) => {
+test('5b a note’s notes come back as typed: a hash, stars and an underscore are not marked up', async (p, h, t) => {
 	await dress(p);
 	const notes = 'Check the #tag, a *star* and a_b_c, and "quoted" text.';
 	await putNote(p, 'Part Two/Notes text.md', `---\nnotes: ${j(notes)}\n---\nA paragraph of text.\n`);
