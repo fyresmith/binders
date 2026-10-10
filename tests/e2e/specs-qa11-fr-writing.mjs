@@ -384,7 +384,7 @@ test('Replace all twice, then Undo: only the second is taken back, exactly, and 
 	void original;
 });
 
-test('NIT: Replace all started twice before the first review is answered: the second run must not wipe the first one’s Undo', async (p, h, t) => {
+test('Replace all started twice before the first review is answered: the second run must not wipe the first one’s Undo', async (p, h, t) => {
 	await rawBinder(p, 'Dbl', [['1 A', 'Mara A.\n'], ['2 B', 'Mara B.\n']]);
 	await start(p, 'Dbl', 'outliner');
 	const before = vault(p);

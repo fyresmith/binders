@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.49.7 (2026-10-10)
+
+### Fixed
+
+- Ctrl+F with a selection over several lines puts it in the field, the count lines up as Obsidian's does, and a second Replace all can't start while the first is being reviewed.
+
 ## 0.49.6 (2026-10-10)
 
 ### Fixed

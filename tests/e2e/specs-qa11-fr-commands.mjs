@@ -109,7 +109,7 @@ test('the plugin switched off with the bar open takes the bar and the view away 
 // A folder renamed or deleted in the file explorer, with the bar open
 // =====================================================================================================================
 
-test('NIT: a folder renamed in the file explorer with the bar open: the bar stays open, and its count keeps the writer’s place (it says 0 / 3 after the rename)', async (p, h, t) => {
+test('a folder renamed in the file explorer with the bar open: the bar stays open, and its count keeps the writer’s place (it says 0 / 3 after the rename)', async (p, h, t) => {
 	await mixed(p);
 	await findWith(p, 'Mara');
 	const c0 = await countText(p);

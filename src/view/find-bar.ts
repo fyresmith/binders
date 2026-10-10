@@ -136,6 +136,8 @@ export class FindBar {
 			vault.on('create', again),
 			vault.on('rename', again),
 			vault.on('delete', again),
+			// (the match the writer is on keeps its place when its note is moved: a folder's rename moves every note in it)
+			vault.on('rename', (f, old) => { if (this.at && f instanceof TFile && this.at.found.source.id === old) this.at.found.source.id = f.path; again(); }),
 		];
 		this.watchingBinders = this.host.plugin.binders.on('changed', again);
 	}
@@ -154,11 +156,13 @@ export class FindBar {
 
 	/** Puts the keyboard in the bar; given text (what was selected), looks for that. */
 	focus(text?: string, replace = false): void {
-		if (text && !/\n/.test(text)) this.input.value = text;
+		// (a selection over several lines goes in with its breaks dropped, as Obsidian's bar puts it in)
+		const one = text?.replace(/\r?\n/g, '') ?? '';
+		if (one) this.input.value = one;
 		const field = replace && this.replacing && this.query ? this.by : this.input;
 		field.focus({ preventScroll: true });
 		field.select();
-		if (text) void this.search();
+		if (one) void this.search();
 	}
 
 	/** What is looked through has changed (another folder, another mode): the same query, there. */
@@ -311,8 +315,9 @@ export class FindBar {
 		const plan = this.found.filter((f) => f.source.file && !f.source.drawn);
 		if (!plan.length) return;
 		const count = plan.reduce((t, f) => t + f.hits.length, 0);
-		if (!await reviewReplace(plugin, { query, by, plan, keep, count })) { this.input.focus({ preventScroll: true }); return; }
+		// (busy while the review is open: a second replace all asked meanwhile is not started, so it can't wipe this one's Undo)
 		this.busy = true;
+		if (!await reviewReplace(plugin, { query, by, plan, keep, count })) { this.busy = false; this.input.focus({ preventScroll: true }); return; }
 		const done: Done = { query, by, notes: [], count: 0, left: [], kept: [] };
 		try {
 			const files = plan.map((f) => f.source.file).filter((f): f is TFile => !!f);

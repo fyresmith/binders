@@ -259,7 +259,7 @@ test('Ctrl+F again while the bar is open, with another text selected in the othe
 	t.ok((await countText(p))?.includes('in 2 notes'), 'and the count is of the binder again: ' + (await countText(p)));
 });
 
-test('NIT: Ctrl+F with a two-line selection: Obsidian’s bar puts the selection in its field (line breaks dropped); Binders’ leaves the field as it was', async (p, h, t) => {
+test('Ctrl+F with a two-line selection: Obsidian’s bar puts the selection in its field (line breaks dropped); Binders’ leaves the field as it was', async (p, h, t) => {
 	await setup(p);
 	const two = span(ONE, 'Mara came. Mara waved.\n\nA Storm');
 	await editor(p, ONE_PATH, two);
@@ -322,7 +322,7 @@ test('the bar looks as Obsidian’s bar in a note does: the same field and count
 	t.ok(bad.length === 0, 'differences from Obsidian’s bar: ' + (bad.join(' ; ') || 'none'));
 });
 
-test('NIT: the count is set in the bar’s own line height, as Obsidian’s count is (12 px type, 18 px line)', async (p, h, t) => {
+test('the count is set in the bar’s own line height, as Obsidian’s count is (12 px type, 18 px line)', async (p, h, t) => {
 	await setup(p);
 	await editor(p);
 	await openKey(p);

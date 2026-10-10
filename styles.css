@@ -5786,6 +5786,8 @@ body:not(.is-phone) .binders-snapshots .sync-history-content {
 /* ---- Find and replace (find-bar.ts) ---- */
 .binders-find { flex: 0 0 auto; }
 .binders-find .binders-find-count-notes { color: var(--text-faint); }
+/* (the count's line is 18 px, as Obsidian's own count is: 15.6 px, from the type's line height, put it out of line with the field) */
+.binders-find .document-search-count { line-height: 18px; }
 /* no match: Obsidian puts the class on the field, and its own rule for it reaches the box round the field, which the field covers */
 .binders-find input.mod-no-match,
 .binders-find input.mod-no-match:focus { background-color: color-mix(in oklch, var(--background-modifier-error) 20%, var(--background-modifier-form-field)); }
