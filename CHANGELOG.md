@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.49.16 (2026-10-10)
+
+### Fixed
+
+- On a phone, the export window's Preview and Export buttons stay in sight at the bottom of the window.
+
 ## 0.49.15 (2026-10-10)
 
 ### Fixed

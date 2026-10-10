@@ -428,7 +428,9 @@ export class ExportModal extends Modal {
 		if (Platform.isPhone) {
 			// (the bar says why Export is off on a computer; a phone's buttons are the foot's, so the words go just above them)
 			if (this.empty) foot.createDiv({ cls: 'binders-export-status binders-export-phone-empty', text: 'Nothing to export', attr: { role: 'status', 'aria-live': 'polite' } });
-			const row = foot.createDiv({ cls: 'binders-export-phone-row' });
+			// (outside the foot, which is only as tall as its words: a row that sticks to the window's foot needs the whole
+			// sheet around it to stick within)
+			const row = inner.createDiv({ cls: 'binders-export-phone-row' });
 			new ButtonComponent(row).setButtonText('Preview').onClick(() => this.toPane());
 			if (this.kind === 'note') new ButtonComponent(row).setButtonText('Copy').onClick(() => void this.copy());
 			if (!this.noPdf) new ButtonComponent(row).setButtonText(this.busy ? 'Exporting…' : 'Export').setCta().setDisabled(!!this.busy || this.empty).onClick(() => void this.run());

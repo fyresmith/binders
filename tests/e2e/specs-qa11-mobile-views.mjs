@@ -411,7 +411,7 @@ test('focus mode on a phone: the way out’s menu opens when the press comes as 
 // The manuscript, by finger: swept through, and typed in far from where it was typed
 // =====================================================================================================================
 
-specs.push({ name: 'NIT: qa11 mobile: on a phone the export window shows its Preview and Export buttons without a scroll (they are below the fold of the sheet at 390 × 844)', fn: withTidy(on(PHONE, async (p, h, t) => {
+specs.push({ name: 'qa11 mobile: on a phone the export window shows its Preview and Export buttons without a scroll (they are below the fold of the sheet at 390 × 844)', fn: withTidy(on(PHONE, async (p, h, t) => {
 	await binder(p, 'Novel', scenes(3, 2));
 	await openView(p, 'Novel');
 	await mode(p, 'corkboard');

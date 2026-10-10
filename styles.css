@@ -4614,6 +4614,16 @@ body:not(.is-phone) .binders-export .binders-export-options .setting-item.settin
 	flex: 1 1 0;
 }
 
+/* A phone: the sheet's choices scroll, but its buttons stay in sight at the foot of the window (the foot is the last
+   thing in the sheet, so they'd otherwise be below the fold of a 390 × 844 screen). */
+.is-phone .binders-export .binders-export-phone-row {
+	position: sticky;
+	bottom: 0;
+	padding-inline: var(--size-4-6);
+	padding-bottom: var(--size-4-3);
+	background-color: var(--background-primary);
+}
+
 .binders-export-phone-empty {
 	padding-top: var(--size-4-2);
 }
