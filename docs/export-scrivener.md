@@ -53,6 +53,7 @@ The text becomes rich text: italics, bold, headings, lists, quotations, links an
 |---|---|
 | A footnote | Scrivener's inline footnote |
 | A `%%comment%%` | Scrivener's inline annotation |
+| A block id at a line's end, `^note-one` | Kept as typed, as text. Scrivener shows it, and coming back in it is a block id again. Books leave it out |
 | A link to a note in the binder | A link to that document |
 | A paragraph you began with a tab | A first-line indent, and no tab |
 | A callout | A block quotation with its title in bold |

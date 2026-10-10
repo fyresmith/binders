@@ -27,5 +27,6 @@ export function readText(body: string): Parsed {
 	});
 	// An escaped dollar sign is a dollar, not the start of math: it is written as its character reference, which the
 	// Markdown reader takes for the dollar sign, so a pair of them is never read as an equation. Code is left alone.
-	return parseBody(text.replace(new RegExp(`${CODE}|\\\\[\\\\$]`, 'gm'), (m) => (m === '\\$' ? '&#36;' : m)));
+	// A block id (`^id` at a line's end) is kept as typed: Scrivener has it as text, and import makes it a block id again.
+	return parseBody(text.replace(new RegExp(`${CODE}|\\\\[\\\\$]`, 'gm'), (m) => (m === '\\$' ? '&#36;' : m)), { blockIds: true });
 }

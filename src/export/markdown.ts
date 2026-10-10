@@ -66,7 +66,7 @@ function withoutComments(text: string): string {
 }
 
 /** The text with what is Obsidian's own taken out (and kept in `held`), ready for a Markdown parser. */
-function prepare(body: string, held: Held[], warnings: Set<string>): string {
+function prepare(body: string, held: Held[], warnings: Set<string>, keepIds: boolean): string {
 	const hold = (h: Held) => `${OPEN}${held.push(h) - 1}${CLOSE}`;
 	const outside = (text: string, pattern: string, put: (m: string[]) => string): string =>
 		text.replace(new RegExp(`${CODE}|${pattern}`, 'gm'), (...m: string[]) => (m[1] !== undefined || m[2] !== undefined ? m[0] : put(m.slice(3))));
@@ -95,7 +95,7 @@ function prepare(body: string, held: Held[], warnings: Set<string>): string {
 		if (f) { fence = f[1]; return line; }
 		if (TAGS_ONLY.test(line)) return '';
 		if (TAG.test(line.replace(new RegExp(CODE, 'g'), ''))) warnings.add('A tag in a line of text is exported as it is typed.');
-		return line.replace(BLOCK_ID, '');
+		return keepIds ? line : line.replace(BLOCK_ID, '');
 	});
 	// (a fence left open would take the footnotes below for code)
 	if (fence && typed.length) lines.push(fence);
@@ -108,6 +108,7 @@ type Piece = Inline | { kind: 'nl' } | { kind: 'embed'; target: string } | { kin
 type Mark = Pick<Text, 'i' | 'b' | 's' | 'code' | 'href' | 'to'>;
 
 class Reader {
+	constructor(private readonly keepBlockIds: boolean) {}
 	held: Held[] = [];
 	notes: Block[][] = [];
 	warnings = new Set<string>();
@@ -116,7 +117,7 @@ class Reader {
 	private noteAt = new Map<string, number>();
 
 	read(body: string): Block[] {
-		const root = tree(prepare(body, this.held, this.warnings));
+		const root = tree(prepare(body, this.held, this.warnings, this.keepBlockIds));
 		this.collect(root);
 		const blocks = this.flow(root.children ?? []);
 		// (a footnote typed in place that is never read stood in one that nothing points at: it is that one's to say)
@@ -279,9 +280,10 @@ class Reader {
 const sameMark = (a: Text, b: Text): boolean => !a.i === !b.i && !a.b === !b.b && !a.s === !b.s && !a.code === !b.code && a.href === b.href && a.to === b.to;
 const decoded = (url: string): string => { try { return decodeURIComponent(url); } catch { return url; } };
 
-/** A note's text (without its properties: `parts` in scene-text.ts says where they end) as the book model has it. */
-export function parseBody(body: string): Parsed {
-	const r = new Reader(), blocks = r.read(body);
+/** A note's text (without its properties: `parts` in scene-text.ts says where they end) as the book model has it. A
+    block id at a line's end is left out, as a book has no use for it; `blockIds` keeps it as typed (a project does). */
+export function parseBody(body: string, options: { blockIds?: boolean } = {}): Parsed {
+	const r = new Reader(!!options.blockIds), blocks = r.read(body);
 	return { blocks, notes: r.notes, warnings: [...r.warnings] };
 }
 

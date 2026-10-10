@@ -22,8 +22,8 @@ export interface RtfOptions {
         inside a word, `<` before what could be a tag or a comment, `&` before what reads as an entity, `#` before
         a word (a tag), and `~~`, `==`, `%%` (struck, highlighted, a comment);
       at the start of a line: `#` and `>` (a heading, a quote), `-` or `+` and "1." or "1)" before a space (a list),
-        and a line of nothing but dashes, equals signs, underscores or stars (a rule, or a heading under a line);
-      at its end: `^name` (a block's id). */
+        and a line of nothing but dashes, equals signs, underscores or stars (a rule, or a heading under a line).
+    A block id at a line's end (`^name`) is not escaped: it is the block id it was when export kept it. */
 export const escapeMarkdown = (text: string): string => text
 	// (what comes before a character is asked of the text, not of the pattern: an iPhone before iOS 16.4 can't look behind)
 	.replace(/[\\*`[$]|_|<(?=[A-Za-z/!?])|&(?=#?\w+;)|#(?=[^\s#])|[~=%]/gu, (c, at: number, all: string) => {
@@ -33,8 +33,7 @@ export const escapeMarkdown = (text: string): string => text
 	})
 	.replace(/^([ \t]*)(#+(?=\s|$)|>|[-+](?=\s|$))/gm, '$1\\$2')
 	.replace(/^([ \t]*\d+)([.)])(?=\s|$)/gm, '$1\\$2')
-	.replace(/^([ \t]*)([-=_])(?=[-=_ \t]*$)/gm, '$1\\$2')
-	.replace(/(\s)\^(?=[\w-]+[ \t]*$)/gm, '$1\\^');
+	.replace(/^([ \t]*)([-=_])(?=[-=_ \t]*$)/gm, '$1\\$2');
 const dest = (g: Group): string => (g.tokens.find((t) => typeof t === 'object' && 'word' in t && t.word !== '*') as Control)?.word ?? '';
 /** Parts of a file that are not its text: tables of fonts and colors, what the program that wrote it says of
     itself, a page's header and footer, and the picture a newer one stands in for (`nonshppict`). */

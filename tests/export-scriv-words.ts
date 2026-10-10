@@ -79,7 +79,7 @@ export function noteWords(body: string, shown: (name: string) => boolean = () =>
 		.replace(/<([a-z][\w+.-]*:[^\s<>]*|[^\s<>@]+@[^\s<>]+)>/gi, '$1') // an address between angle brackets
 		.replace(/<\/?[a-zA-Z][^>\n]*>/g, ' ')                           // HTML: its text stays
 		.replace(/^[ \t]*(?:#(?=[^\s#]*[^\d\s#])[\p{L}\p{N}_/-]+[ \t]*)+$/gmu, '') // a line of tags
-		.replace(/(^|[ \t])\^[A-Za-z0-9-]+[ \t]*$/gm, '')                // a block's id
+		// (a block's id at a line's end is kept as text in a project, so it is counted here)
 		.replace(/^[ \t>]*\[![\w-]+\][+-]?/gm, '')                       // a callout's kind
 		.replace(/^([ \t>]*(?:[-*+][ \t]+)?)\d{1,9}[.)](?=[ \t]|$)/gm, '$1') // a list's number
 		.replace(/\*+|~~/g, '')                                         // emphasis

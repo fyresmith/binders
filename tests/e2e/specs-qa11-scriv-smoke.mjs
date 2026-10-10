@@ -150,7 +150,7 @@ test('1c an escaped dollar sign beside a pair of them, and a line of four, comes
 });
 
 // ---- 1d. a block id typed at a paragraph's end (Obsidian’s ^id, hidden in reading view) is kept as typed ----
-test('NIT: 1d a line that ends with a block id as typed (^note-one) keeps the id', async (p, h, t) => {
+test('1d a line that ends with a block id as typed (^note-one) keeps the id', async (p, h, t) => {
 	await dress(p);
 	const src = ['The keeper said it was late. ^note-one', 'A second line with no id.'];
 	await putNote(p, 'Part Two/Block id.md', `---\n---\n${src.join('\n\n')}\n`);

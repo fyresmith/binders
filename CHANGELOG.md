@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.49.18 (2026-10-10)
+
+### Fixed
+
+- A block id at the end of a line (^note-one) is kept in a Scrivener project and comes back as a block id.
+
 ## 0.49.17 (2026-10-10)
 
 ### Fixed

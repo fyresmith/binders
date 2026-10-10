@@ -273,6 +273,8 @@ eq(trip('Costs \\$5 and \\$6, and \\$\\$ too.'), 'Costs \\$5 and \\$6, and \\$\\
 eq(trip('A \\\\$5 with a backslash before it.'), 'A \\\\\\$5 with a backslash before it.\n', 'an escaped backslash before a dollar sign is still a backslash');
 const notesText = 'Check the #tag, *star*, a_b and [[link]] ^note-one\tTabbed \\ and {braces}.\n\nSecond “quoted” line.';
 eq(readRtf(bytes(plainRtf(notesText))).plain, notesText, 'a note’s notes read back as typed, line breaks and all');
+eq(trip('The keeper said it was late. ^note-one\n\nA second line with no id.'), 'The keeper said it was late. ^note-one\n\nA second line with no id.\n', 'a block id at a line’s end comes back as the block id it was');
+eq(rich('{\\rtf1 Said so. ^note-one}').markdown, 'Said so. ^note-one\n', 'a block id typed in Scrivener is a block id on import');
 const notesFiles = new Map<string, Uint8Array>([
 	['Notes.scrivx', bytes(`<ScrivenerProject Version="2.0"><Binder>${item(1, 'DraftFolder', 'Draft', '', item(2, 'Text', 'Plain', '<IncludeInCompile>Yes</IncludeInCompile>'))}</Binder></ScrivenerProject>`)],
 	[`Files/Data/${id(2)}/content.rtf`, bytes('{\\rtf1 Words.}')],
