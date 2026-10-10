@@ -802,6 +802,8 @@ export class BinderView extends ItemView {
 		this.drawToolbar();
 		this.current?.filterChanged?.();
 		this.current?.refresh();
+		// (what is looked through is what shows: a note the filter hides is neither counted nor replaced in)
+		this.finder?.rescope();
 	}
 
 	private showBelow(menu: Menu, e?: MouseEvent, anchor?: HTMLElement): void {

@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.49.3 (2026-10-10)
+
+### Fixed
+
+- Changing the filter while the find bar is open now limits the count and Replace all to the notes that show.
+
 ## 0.49.2 (2026-10-10)
 
 ### Fixed

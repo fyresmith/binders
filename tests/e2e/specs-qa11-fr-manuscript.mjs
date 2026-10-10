@@ -570,7 +570,7 @@ test('a filter: with it on before the search, only the notes that show are looke
 	await p.ev(`(() => { ${VIEW}.setFilter({ status: [], label: [] }); return 1; })()`);
 });
 
-bug('changing the filter while the bar is open re-looks: the count and the notes a Replace all would change are the ones that show', async (p, h, t) => {
+test('changing the filter while the bar is open re-looks: the count and the notes a Replace all would change are the ones that show', async (p, h, t) => {
 	await long(p, 8);
 	const st = await p.ev(`${PL}.settings.statuses`);
 	await p.ev(`(async () => { for (let i = 1; i <= 8; i++) await app.vault.process(app.vault.getAbstractFileByPath('Long/S0' + i + '.md'), (x) => x.replace(/^status: .*$/m, 'status: ' + (i % 2 ? ${j(st[0])} : ${j(st[1])}))); })().then(() => 1)`);
@@ -588,7 +588,7 @@ bug('changing the filter while the bar is open re-looks: the count and the notes
 	await p.ev(`(() => { ${VIEW}.setFilter({ status: [], label: [] }); return 1; })()`);
 });
 
-bug('Replace all after the filter was changed with the bar open changes only the notes that show: a note the filter hides is not written', async (p, h, t) => {
+test('Replace all after the filter was changed with the bar open changes only the notes that show: a note the filter hides is not written', async (p, h, t) => {
 	await long(p, 8);
 	const st = await p.ev(`${PL}.settings.statuses`);
 	await p.ev(`(async () => { for (let i = 1; i <= 8; i++) await app.vault.process(app.vault.getAbstractFileByPath('Long/S0' + i + '.md'), (x) => x.replace(/^status: .*$/m, 'status: ' + (i % 2 ? ${j(st[0])} : ${j(st[1])}))); })().then(() => 1)`);
