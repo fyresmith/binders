@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.49.23 (2026-10-10)
+
+### Changed
+
+- A test now checks Binders' own replace bar in the manuscript, not Obsidian's.
+
 ## 0.49.22 (2026-10-10)
 
 ### Fixed

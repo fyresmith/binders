@@ -1008,11 +1008,15 @@ test('selected text dragged to another place in its section moves there; find an
 		t.eq(body(await value(p, ARRIVAL)), 'The left Mara on the jetty with supply boat two cases and a letter she had not opened.\n', 'moved, not copied');
 		// find and replace (Mod+H) in the section with the caret
 		await clickIn(p, KEEPER);
+		// (since 0.49.0 Ctrl+H in a section opens Binders’ own bar over the whole manuscript, with its replace row; it looks
+		// through the text of the notes, not their properties, so the synopsis “tower” is not a match)
 		await p.key('h', 'ctrl'); await p.sleep(400);
-		t.ok(await p.ev(`!!${scene(KEEPER)}.el.querySelector('.document-search-container.mod-replace-mode')`), 'the replace bar is in the section');
-		await p.type('tower'); await p.sleep(200); await p.key('Tab'); await p.type('lighthouse'); await p.sleep(200);
-		const all = await p.ev(`(() => { const b = [...document.querySelectorAll('.document-replace-buttons button')].find(b => /^Replace all/.test(b.getAttribute('aria-label'))); const r = b.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
-		await p.click(all.x, all.y); await p.sleep(300);
+		t.ok(await p.ev(`!!document.querySelector('.binders-view .binders-find.mod-replace-mode')`), 'Ctrl+H in a section opens Binders’ bar with the replace row showing');
+		await p.type('tower'); await p.sleep(400); await p.key('Tab'); await p.type('lighthouse'); await p.sleep(300);
+		// “Replace” (one match), not “Replace all”
+		// (its label is “Replace” and the key on a second line: the tooltip sets it)
+		const one = await p.ev(`(() => { const b = [...document.querySelectorAll('.document-replace-buttons button')].find(b => /^Replace(\\n|$)/.test(b.getAttribute('aria-label')));const r = b.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
+		await p.click(one.x, one.y); await p.sleep(400);
 		await p.key('Escape'); await p.sleep(300);
 		t.eq(await focused(p), KEEPER, 'Escape gives the caret back');
 		// the text's own menu
@@ -1030,7 +1034,7 @@ test('selected text dragged to another place in its section moves there; find an
 		await p.sleep(2600);
 		const s = snap(p);
 		t.eq(body(s[ARRIVAL]), 'The left Mara on the jetty with supply boat two cases and a letter she had not opened.\n', 'the drag is saved');
-		t.eq(s[KEEPER], before[KEEPER].replace(/tower/g, 'lighthouse'), 'replace all (in the text, and in the synopsis it hides, as in a note)');
+		t.eq(s[KEEPER], before[KEEPER].replace('the foot of the tower', 'the foot of the lighthouse'), 'replace one: the match in the text changes, and the synopsis (a property, not searched) keeps “tower”');
 		t.eq(s[STORM], before[STORM] + '**strong**\n', 'the slash command and what was typed');
 		t.eq(changed(before, s).join(), [ARRIVAL, STORM, KEEPER].sort().join(), 'nothing else changed');
 	} finally { await p.ev(`(() => { app.internalPlugins.getPluginById('slash-command').disable(); return 1; })()`); }
