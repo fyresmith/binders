@@ -424,7 +424,7 @@ test('words to write today: “1,500” is kept and shows in focus mode; words, 
 	}
 });
 
-test('NIT: words to write today: a decimal point is taken out, so “1.5” becomes a goal of 15 words', async (p, h, t) => {
+test('words to write today: a decimal point is taken out, so “1.5” becomes a goal of 15 words', async (p, h, t) => {
 	await openSettings(p);
 	try {
 		await typeInto(p, FIELD('Words to write today'), '1.5');

@@ -164,6 +164,8 @@ eq(parseGoal('0'), 0, 'nor is none');
 eq(parseGoal('many'), null, 'words aren’t a number');
 eq(parseGoal('-5'), null, 'nor is less than none');
 eq(parseGoal('2.5k'), null, 'nor shorthand');
+eq(parseGoal('1.5'), null, 'a decimal point is not taken out: 1.5 is refused, not read as 15');
+eq(parseGoal('1_500'), 1500, 'an underscore is a separator');
 
 // the settings: typewriter scrolling is the only thing on to begin with
 {

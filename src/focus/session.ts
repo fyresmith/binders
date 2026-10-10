@@ -148,7 +148,7 @@ export function excerpt(text: string, end: boolean, paras = 3, words = 110): str
 
 /** A goal as typed: a whole number of words; '' or 0 for none; null if it isn't one. */
 export function parseGoal(typed: string): number | null {
-	const t = typed.trim().replace(/[,\s._]/g, '');
+	const t = typed.trim().replace(/[,\s_]/g, '');
 	if (!t) return 0;
 	return /^\d{1,9}$/.test(t) ? Number(t) : null;
 }
