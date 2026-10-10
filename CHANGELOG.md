@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.51.3 (2026-10-10)
+
+### Changed
+
+- The README and the list of limitations no longer say Binders is untried on macOS and Windows: it has been tested on both.
+
 ## 0.51.2 (2026-10-10)
 
 ### Added

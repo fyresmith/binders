@@ -119,8 +119,8 @@ note's text unless you type there or ask it to: split, merge, bring back a snaps
 
 ## Limitations
 
-- **Public beta.** Phone and tablet support has had little testing on real devices, and Binders has not yet been
-  tried on macOS or Windows. [What hasn't been tried](docs/limitations.md#not-yet-tried) is listed in full.
+- **Public beta.** Phone and tablet support has had little testing on real devices.
+  [What hasn't been tried](docs/limitations.md#not-yet-tried) is listed in full.
 - **Other file explorers.** Plugins that replace the file explorer, such as Notebook Navigator, don't show binder
   order. The binder view works either way.
 - **Obsidian internals.** Binder order in the file explorer and the editable manuscript rely on parts of Obsidian

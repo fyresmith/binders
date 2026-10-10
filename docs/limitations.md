@@ -11,12 +11,12 @@ See the [roadmap](../ROADMAP.md).
 
 ## Not yet tried
 
-Binders is in public beta. It is built and tested on Linux, and in Obsidian's own emulation of a phone and a tablet.
+Binders is in public beta. It is built on Linux and tested there, on macOS and Windows, and in Obsidian's own emulation of a phone and a
+tablet.
 These things have not been tried yet, and are where a beta tester is most likely to find something:
 
 - **A real phone or tablet.** iOS and Android are tested only as Obsidian emulates them on a computer. The share
   sheet, Android's back button and a device's own keyboard have not been tried.
-- **macOS and Windows.** Nothing is known to differ there, and none of it has been run there by the maintainer.
 - **A PDF anywhere but Linux.** Making the file, and the typefaces a Mac or Windows has for the scripts that the
   two typefaces inside Binders don't hold.
 - **A printer's checks.** No paperback PDF has been sent to KDP or IngramSpark, and none has been printed.
