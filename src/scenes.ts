@@ -137,8 +137,9 @@ export async function splitScene(plugin: BindersPlugin, editor: Editor, file: TF
 	delete props.alias;
 	const content = (Object.keys(props).length ? `---\n${stringifyYaml(props)}---\n` : '') + tail;
 	try {
-		const index = (store.orderedChildren(folder) ?? []).indexOf(file) + 1;
-		const made = await store.newScene(folder, index > 0 ? index : Infinity, title, undefined, content);
+		// (in a Longform project, after the scenes indented under this one, at its indent: they stay with it)
+		const after = store.afterItem(file);
+		const made = await store.newScene(folder, after.index > 0 ? after.index : Infinity, title, after.depth, content);
 		if (editor.getValue() !== text) throw new Error('This note changed while it was being split. Both notes were kept; nothing was removed.');
 		// only now, with the second half in a note of its own, does the first let go of it
 		const head = tidyHead(s.head);
@@ -232,8 +233,8 @@ async function settleSplit(plugin: BindersPlugin, s: Split, editor: Editor | nul
 		// the editor has let go of the second half: it's written down again before anything else
 		try {
 			const taken = (n: string) => n === folder.name || !!app.vault.getAbstractFileByPath(normalizePath(`${folder.path}/${n}.md`));
-			const index = (store.orderedChildren(folder) ?? []).indexOf(s.first) + 1;
-			s.made = await store.newScene(folder, index > 0 ? index : Infinity, taken(s.title) ? nextName(s.title, taken) : s.title, undefined, s.content);
+			const after = store.afterItem(s.first);
+			s.made = await store.newScene(folder, after.index > 0 ? after.index : Infinity, taken(s.title) ? nextName(s.title, taken) : s.title, after.depth, s.content);
 			s.path = s.made.path;
 		} catch (e) {
 			// it can't be: the second half goes back where it was, so it's still in a note

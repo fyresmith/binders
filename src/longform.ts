@@ -96,6 +96,18 @@ export function shownScenes(scenes: Scene[], files: string[], ignored: string[])
 	return [...listed, ...rest.map((title) => ({ title, indent: 0, raw: title }))];
 }
 
+/** Where a new scene goes right after the scene `title` as it shows: after the scenes indented under it (its group
+    stays with it, and so do they: a scene at its indent or less ends the group), at its own indent. `index` counts the
+    scenes as they show, as `move` takes it. Null if the scene isn't shown. */
+export function afterGroup(shown: Scene[], title: string): { index: number; indent: number } | null {
+	const i = shown.findIndex((s) => s.title === title);
+	if (i < 0) return null;
+	const indent = shown[i].indent;
+	let end = i + 1;
+	while (end < shown.length && shown[end].indent > indent) end++;
+	return { index: end, indent };
+}
+
 /** A change to the order waiting to be written, applied to whatever the index note says when it's written. `move` puts
     a scene at `index` among the scenes as they show; `indent` is its new indent (default: its own, or for a scene not
     listed yet, that of the scene before it). */

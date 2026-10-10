@@ -152,7 +152,7 @@ test('outliner: Alt+Right indents a scene into the group above, Alt+Left takes i
 // Split, duplicate, merge in a project
 // --------------------------------------------------------------------------------------------------------------------
 
-test('BUG: split a scene that has scenes indented under it: the new scene is listed, and the group stays with the scene it belongs to', withTidy(async (p, h, t) => {
+test('split a scene that has scenes indented under it: the new scene is listed, and the group stays with the scene it belongs to', withTidy(async (p, h, t) => {
 	await p.ev(`app.vault.process(app.vault.getAbstractFileByPath(${j(DIR + '/Harbor.md')}), x => x + '\\nThe ferry was late again.\\n').then(() => 1)`);
 	await p.sleep(300);
 	const before = await texts(p);
@@ -173,7 +173,7 @@ test('BUG: split a scene that has scenes indented under it: the new scene is lis
 	t.eq(withoutScenes(yamlOf(after[INDEX])), withoutScenes(yamlOf(before[INDEX])), 'and its other properties');
 }));
 
-test('BUG: duplicate a scene that has scenes indented under it: the copy is listed, and the group stays with the scene it belongs to', withTidy(async (p, h, t) => {
+test('duplicate a scene that has scenes indented under it: the copy is listed, and the group stays with the scene it belongs to', withTidy(async (p, h, t) => {
 	await openView(p, DIR);
 	const c = await p.at(card(`${DIR}/Harbor.md`));
 	await p.right(c.x, c.y);

@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.49.13 (2026-10-10)
+
+### Fixed
+
+- In a Longform project, splitting or duplicating a scene puts the new scene after the scenes indented under it, so they stay with the scene they belong to.
+
 ## 0.49.12 (2026-10-10)
 
 ### Fixed

@@ -9,7 +9,7 @@ import { MoveHistory, type PropChange, type Undo } from './undo';
 import { SNAPSHOTS } from './snapshot-text';
 import { followSnapshots, isOwn } from './snapshots';
 import { labelCss, readLabel } from './view/labels';
-import { applySceneOps, conversionPlan, isIgnored, isLongformIndex, longformRunning, readProject, sameScenes, sceneGroups, shownScenes, writeScenes, type Project, type Scene, type SceneOp } from './longform';
+import { afterGroup, applySceneOps, conversionPlan, isIgnored, isLongformIndex, longformRunning, readProject, sameScenes, sceneGroups, shownScenes, writeScenes, type Project, type Scene, type SceneOp } from './longform';
 
 /* The binders in the vault: finds them, keeps each one's order in step with the vault, and writes changes back.
    Views and the explorer use only this; `model.ts` does the list logic, this file does the vault.
@@ -69,6 +69,8 @@ import { applySceneOps, conversionPlan, isIgnored, isLongformIndex, longformRunn
      undo(item | path, redo?): Promise<string | null>  takes the last change back (or makes it again); all or nothing
 
    Making things
+     afterItem(item): { index, depth? }                where a new note goes right after an item (a Longform scene: after
+                                                       the scenes indented under it, at its indent)
      newScene(folder, index?, title?, depth?, content?): Promise<TFile>
                                                        creates a note in the binder at that place (default: last, empty);
                                                        Longform: `depth` is its indent (default: the scene before it's)
@@ -573,6 +575,17 @@ export class BinderStore extends Events implements ExplorerSource {
 		}).map((x) => x.f);
 	}
 
+	/** Where a new note goes right after `item` in its folder's order, and the indent it takes. In a Longform project
+	    that is after the scenes indented under `item` (its group stays with it), at its indent (see `afterGroup`). */
+	afterItem(item: TAbstractFile): { index: number; depth?: number } {
+		const s = this.at(item.path);
+		if (s?.kind === 'longform' && item instanceof TFile) {
+			const at = afterGroup(this.shownScenes(s), item.basename);
+			if (at) return { index: at.index, depth: at.indent };
+		}
+		return { index: (item.parent ? this.orderedChildren(item.parent) ?? [] : []).indexOf(item) + 1 };
+	}
+
 	depthOf(item: TAbstractFile): number | undefined {
 		const s = this.at(item.path);
 		return s?.kind === 'longform' && item instanceof TFile ? this.shownScenes(s).find((x) => x.title === item.basename)?.indent : undefined;
@@ -717,10 +730,10 @@ export class BinderStore extends Events implements ExplorerSource {
 		// (and a folder's copy can't take the name of a note in it: that note would be the copy's own)
 		const inside = item instanceof TFolder ? new Set(item.children.filter((c): c is TFile => c instanceof TFile && c.extension === 'md').map((c) => c.basename)) : null;
 		const name = nextName(base, (n) => !!vault.getAbstractFileByPath(normalizePath(`${folder.path}/${n}${ext}`)) || (ext === '.md' && n === folder.name) || !!inside?.has(n));
-		const to = normalizePath(`${folder.path}/${name}${ext}`), index = (this.orderedChildren(folder) ?? []).indexOf(item) + 1;
+		const to = normalizePath(`${folder.path}/${name}${ext}`), { index, depth } = this.afterItem(item);
 		if (item instanceof TFile) {
 			const made = await this.copyFile(item, to);
-			if (t.kind === 'longform') { this.queueScenes(t, { op: 'move', item: made.basename, index, indent: this.shownScenes(t).find((x) => x.title === item.basename)?.indent }); return made; }
+			if (t.kind === 'longform') { this.queueScenes(t, { op: 'move', item: made.basename, index, indent: depth }); return made; }
 			const rel = this.relOf(t.folder.path, made.path, false);
 			if (rel) this.queue(t, { op: 'move', item: rel, folder: this.folderRel(t, folder), index });
 			return made;

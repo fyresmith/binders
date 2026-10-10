@@ -1,4 +1,4 @@
-import { applySceneOps, conversionPlan, flatten, isIgnored, isLongformIndex, nest, readProject, sameScenes, sceneGroups, shownScenes, writeScenes, type Scene } from '../src/longform';
+import { afterGroup, applySceneOps, conversionPlan, flatten, isIgnored, isLongformIndex, nest, readProject, sameScenes, sceneGroups, shownScenes, writeScenes, type Scene } from '../src/longform';
 import { done, eq, ok } from './harness';
 
 const j = (x: unknown) => JSON.stringify(x);
@@ -118,6 +118,19 @@ const flat = (s: Scene[]) => s.map((x) => '  '.repeat(x.indent) + x.title).join(
 	eq(j(nest(applySceneOps(base, [{ op: 'remove', item: 'A' }, { op: 'restore', item: 'A', prev: null, next: 'B', indent: 0 }], files, []))), j(['A', ['B', 'C'], 'D']), 'the first scene, in one batch');
 	eq(j(nest(applySceneOps(flatten(['D', 'C', 'A', 'B']), [{ op: 'restore', item: 'C', prev: 'B', next: 'D', indent: 1 }], files, []))), j(['D', 'C', 'A', 'B']), 'a list that mentions it already is left as it is');
 	eq(j(nest(applySceneOps(gone, [{ op: 'restore', item: 'C', prev: 'B', next: 'D', indent: 1 }], ['A', 'B', 'D'], []))), j(['A', ['B'], 'D']), 'and a scene whose note isn’t there after all isn’t listed');
+}
+
+// where a new scene goes after another: after the scenes indented under it, at its indent (split and duplicate)
+{
+	const s = flatten(['Harbor', ['Ticket office', 'The crossing'], 'Island', 'Return', ['Late', ['Later']], 'End']);
+	eq(j(afterGroup(s, 'Harbor')), j({ index: 3, indent: 0 }), 'a scene with scenes under it: after the last of them');
+	eq(j(afterGroup(s, 'Ticket office')), j({ index: 2, indent: 1 }), 'a scene indented under another: after its own neighbours at that indent');
+	eq(j(afterGroup(s, 'Return')), j({ index: 7, indent: 0 }), 'a group reaching two levels deep: all of it stays with its head');
+	eq(j(afterGroup(s, 'Late')), j({ index: 7, indent: 1 }), 'a scene under one that has scenes under it: its own group only');
+	eq(j(afterGroup(s, 'Island')), j({ index: 4, indent: 0 }), 'a scene with nothing under it: right after it');
+	eq(j(afterGroup(s, 'End')), j({ index: 8, indent: 0 }), 'the last scene: the end of the list');
+	eq(j(afterGroup(s, 'Missing')), 'null', 'a scene not shown has no place');
+	eq(j(afterGroup(flatten([['A'], 'B']), 'A')), j({ index: 1, indent: 1 }), 'a list that starts indented: a scene under nothing is followed at its own indent');
 }
 
 done('longform');
