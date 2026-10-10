@@ -19,8 +19,8 @@ export interface ReadItem {
 	/** The ids of its label, status and section type in the project's lists; "" or "-1" for none. */
 	label: string; status: string; section: string;
 	target: number; targetType: string;
-	/** Custom metadata, as the field's title and its value. */
-	fields: [string, string][];
+	/** Custom metadata: the field's id (what Binders' own path is known by), its title and its value. */
+	fields: { id: string; title: string; value: string }[];
 	keywords: string[];
 	/** The file a document that isn't text is ("pdf", "png"). */
 	extension: string;
@@ -73,7 +73,7 @@ export function readProject(source: ProjectSource): ReadProject {
 			included: value(meta, 'IncludeInCompile') === 'Yes',
 			label: value(meta, 'LabelID'), status: value(meta, 'StatusID'), section: value(meta, 'SectionType'),
 			target: Number(target?.text) || 0, targetType: target?.attrs.Type ?? '',
-			fields: children(child(meta, 'CustomMetaData'), 'MetaDataItem').map((f): [string, string] => [p.fields.get(value(f, 'FieldID')) ?? value(f, 'FieldID'), value(f, 'Value')]),
+			fields: children(child(meta, 'CustomMetaData'), 'MetaDataItem').map((f) => { const fid = value(f, 'FieldID'); return { id: fid, title: p.fields.get(fid) ?? fid, value: value(f, 'Value') }; }),
 			keywords: children(child(el, 'Keywords'), 'KeywordID').map((k) => p.keywords.get(k.text) ?? k.text),
 			extension: value(meta, 'FileExtension'),
 		};

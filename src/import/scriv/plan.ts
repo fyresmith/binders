@@ -332,9 +332,10 @@ export function planImport(project: ReadProject, o: PlanOptions): ImportPlan {
 		}
 		// (by any case: Obsidian reads "Tags" as it reads "tags")
 		const reserved = new Set([...OWN, ...Object.keys(result), ...mine].map(key));
-		for (const [field, text] of it.fields) {
-			// (the path Binders' own export of a project wrote there, for itself: not the writer's)
-			if (field === PATH_FIELD) continue;
+		for (const { id, title: field, value: text } of it.fields) {
+			// (the path Binders' own export of a project wrote there, for itself: not the writer's. Found by its id: a
+			// writer's field can be called anything, and a project's title for the id is "Binders path")
+			if (id === PATH_FIELD) continue;
 			let k = field || 'Scrivener field';
 			if (reserved.has(key(k))) k = `Scrivener ${k}`;
 			const base = k;

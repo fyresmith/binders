@@ -243,7 +243,7 @@ test('6 a label and a status that are not on the vault’s lists come back as th
 });
 
 // ---- 7. a folder's own label, status and synopsis come back on its folder note ----
-test('BUG: 7 a folder’s label, status and synopsis come back on the folder note, and its text stays with it', async (p, h, t) => {
+test('7 a folder’s label, status and synopsis come back on the folder note, and its text stays with it', async (p, h, t) => {
 	await dress(p);
 	await writeRaw(p, `${L}Part One/Part One.md`, '---\nsynopsis: The first days.\nlabel: Blue\nstatus: revised\n---\nNotes for part one.\n');
 	await p.sleep(500);
@@ -327,7 +327,7 @@ test('13 a plain note’s body comes back byte for byte, apart from its final ne
 });
 
 // ---- 7b. a plain note gets no property of its own on the trip ----
-test('BUG: 7b a plain note with no properties gets none it was not given (no “Binders path”)', async (p, h, t) => {
+test('7b a plain note with no properties gets none it was not given (no “Binders path”)', async (p, h, t) => {
 	await dress(p);
 	await putNote(p, 'Part Two/Plain props.md', 'Just a paragraph.\n');
 	await p.sleep(400);

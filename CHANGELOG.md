@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.49.14 (2026-10-10)
+
+### Fixed
+
+- Importing from Scrivener no longer adds a “Binders path” property to every note, folder notes included.
+
 ## 0.49.13 (2026-10-10)
 
 ### Fixed

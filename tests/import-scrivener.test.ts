@@ -254,4 +254,13 @@ if (hurtPlan) {
 	ok(hurtPlan.files.has('Novel/Research/Lost map.md') && hurtPlan.warnings.some((w) => w.startsWith('Lost map:') && /missing/.test(w)), 'a research file that is missing leaves its note, and is said');
 }
 ok(!utf8(plan.files.get('Novel/Chapter/Chapter 3.md')).startsWith('---\n\n---') && utf8(planImport(readProject(projectSource(new Map([...files, [`Files/Data/${id(5)}/content.rtf`, bytes('{\\rtf1 ---\\par Text.}')]]), 'Novel', async () => true)), options).files.get('Novel/Snapshots 2.md')) === '\\---\n\nText.\n', 'a note with no properties has no block of them, and its text can’t be taken for one');
+// Binders' own path field is skipped by its id, not its title: a writer's field can be titled "Binders path" as well, and keeps it.
+const pathFiles = new Map<string, Uint8Array>([
+	['Trail.scrivx', bytes(`<ScrivenerProject Version="2.0"><CustomMetaDataSettings><MetaDataField ID="binderspath"><Title>Binders path</Title></MetaDataField><MetaDataField ID="mine"><Title>Binders path</Title></MetaDataField></CustomMetaDataSettings><Binder>${item(1, 'DraftFolder', 'Draft', '', item(2, 'Text', 'Plain', '<IncludeInCompile>Yes</IncludeInCompile><CustomMetaData><MetaDataItem><FieldID>binderspath</FieldID><Value>Part One/Plain</Value></MetaDataItem><MetaDataItem><FieldID>mine</FieldID><Value>kept</Value></MetaDataItem></CustomMetaData>'))}</Binder></ScrivenerProject>`)],
+	[`Files/Data/${id(2)}/content.rtf`, bytes('{\\rtf1 Plain text.}')],
+]);
+const pathPlan = planImport(readProject(projectSource(pathFiles, 'Trail', async () => true)), { name: 'Trail', parent: '', research: false, snapshots: false, settings: DEFAULT_SETTINGS });
+const pathNote = utf8(pathPlan.files.get('Trail/Plain.md'));
+ok(!pathNote.includes('Part One/Plain'), 'the path field Binders wrote is not brought in, found by its id');
+ok(pathNote.includes('"Binders path": "kept"'), 'a writer’s field with the same title is kept');
 done('Scrivener import');
