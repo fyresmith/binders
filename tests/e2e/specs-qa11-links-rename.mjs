@@ -56,7 +56,7 @@ test('every shape of link on a tab line follows: block and heading parts, embeds
 	t.eq(errors(p).length, 0, 'no errors: ' + errors(p).join(' | '));
 });
 
-test('a link written with spaces inside its brackets keeps them (the target only changes, byte for byte)', async (p, h, t) => {
+test('NIT: a link written with spaces inside its brackets keeps them (the target only changes, byte for byte)', async (p, h, t) => {
 	await put(p, A, FRONT + '\tSpaced [[ The keeper ]] and [[The keeper ]].\n');
 	await indexed(p, A);
 	await sleep(p, 500);
@@ -137,7 +137,7 @@ test('A to B to A and A to B to C, fired one after the other without waiting: th
 	t.eq(errors(p).length, 0, 'no errors: ' + errors(p).join(' | '));
 });
 
-test('BUG: a new note takes the name of the one just renamed away: the tab link goes with the note it named, not the newcomer', async (p, h, t) => {
+test('a new note takes the name of the one just renamed away: the tab link goes with the note it named, not the newcomer', async (p, h, t) => {
 	await put(p, PRO, '\tThe keeper is [[The keeper]].\n');
 	await indexed(p, PRO);
 	await sleep(p, 500);
@@ -403,7 +403,7 @@ test('with “Automatically update internal links” off and “Do not update”
 	} finally { await p.ev(`(() => { app.vault.setConfig('alwaysUpdateLinks', true); return 1; })()`); }
 });
 
-test('BUG: with “Automatically update internal links” off and “Just once” answered, the plain links are updated and so is the tab link', async (p, h, t) => {
+test('with “Automatically update internal links” off and “Just once” answered, the plain links are updated and so is the tab link', async (p, h, t) => {
 	await put(p, PRO, LINK_TEXT('The keeper'));
 	await indexed(p, PRO);
 	await sleep(p, 500);

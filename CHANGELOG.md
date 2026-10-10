@@ -3,6 +3,13 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.49.20 (2026-10-10)
+
+### Fixed
+
+- With "Automatically update internal links" off, answering Obsidian's prompt with "Just once" now also updates the links on lines that start with a tab.
+- A note created at the old name just after a rename no longer takes the links on tab-led lines that were meant for the renamed note.
+
 ## 0.49.19 (2026-10-10)
 
 ### Fixed

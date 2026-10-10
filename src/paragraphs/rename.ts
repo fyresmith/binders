@@ -12,7 +12,9 @@ import { pointedAt, repointTabLinks } from './text';
 
    It is the one place Binders rewrites a note's text that isn't being typed in (golden rule 3 names it), so it is
    narrow on purpose:
-   - only with "Start a paragraph with a tab" on, and only when Obsidian itself is set to update links;
+   - only with "Start a paragraph with a tab" on, and only where Obsidian updates links: when it is set to, or, when it
+     is set not to, for a rename whose plain links it did rewrite (the writer answered "Just once"; never "Do not
+     update", and never when there is no plain link to show it by);
    - only notes in a binder, and in them only lines that are paragraphs begun with a tab by the text's own shape
      (text.ts) and code by Obsidian's index, never a fenced block;
    - only a link that can't have meant any other file, and of it only the note it names;
@@ -24,6 +26,8 @@ import { pointedAt, repointTabLinks } from './text';
 
 /** How long Obsidian is given to finish its own update of a note before that note is left alone. */
 const WAIT = 8000;
+/** How long a rename is given to show Obsidian rewrote links, when Obsidian is not set to do it on its own. */
+const PROOF = 4000;
 /** Renames that come within this of each other are followed together. */
 const GATHER = 60;
 /** Notes looked at before the pass lets everything else have a turn. */
@@ -33,14 +37,25 @@ const sleep = (ms: number) => new Promise<void>((r) => window.setTimeout(r, ms))
 const nameOf = (path: string): string => path.slice(path.lastIndexOf('/') + 1).toLowerCase();
 
 /** A file that was renamed, and the path it had. */
-interface Renamed { file: TFile; old: string }
+interface Renamed {
+	file: TFile; old: string;
+	/** When the rename came: a file created after it is a newcomer, and not a rival for the link's name (#19). */
+	at: number;
+	/** With "Automatically update internal links" off: the links in notes' index that read the old name when the rename
+	    came. Obsidian then rewrites links only when the writer answers "Just once"; the writer's answer isn't in the
+	    API, so a link of those gone from the index is the proof that it was given. Undefined when Obsidian is set to
+	    update, which needs none. */
+	proof?: { note: TFile; link: string }[];
+}
 
 /** Starts following renames. Returns a promise of the work in hand, for whatever has to know it is done (tests). */
 export function followRenames(plugin: BindersPlugin): { settled(): Promise<void> } {
 	const { app } = plugin;
 	let chain: Promise<void> = Promise.resolve();
 	let waiting: Renamed[] = [];
-	const on = () => plugin.settings.tabParagraphs && updatesLinks(app);
+	let seen: Map<string, { note: TFile; link: string }[]> | null = null;
+	const on = () => plugin.settings.tabParagraphs;
+	const linkName = (link: string): string => nameOf(link.split('#')[0].trim().replace(/\\/g, '/')).replace(/\.md$/, '');
 
 	/** The notes in binders that Obsidian's index has a code section in: the only ones a tab paragraph can be in. */
 	const candidates = (): TFile[] => app.vault.getMarkdownFiles().filter((f) => !!plugin.binders?.binderOf(f) && !!app.metadataCache.getFileCache(f)?.sections?.some((s) => s.type === 'code'));
@@ -50,12 +65,37 @@ export function followRenames(plugin: BindersPlugin): { settled(): Promise<void>
 		return (n) => code.some(([a, b]) => n >= a && n <= b);
 	};
 
+	/** Index links by the name they use, as they are now: taken when a rename comes, before Obsidian updates any. */
+	const linksByName = (): Map<string, { note: TFile; link: string }[]> => {
+		const out = new Map<string, { note: TFile; link: string }[]>();
+		for (const note of app.vault.getMarkdownFiles()) {
+			const c = app.metadataCache.getFileCache(note);
+			for (const l of [...(c?.links ?? []), ...(c?.embeds ?? [])]) {
+				const k = linkName(l.link);
+				const list = out.get(k);
+				if (list) list.push({ note, link: l.link }); else out.set(k, [{ note, link: l.link }]);
+			}
+		}
+		return out;
+	};
+	/** Did Obsidian rewrite a link that read the renamed file's old name? (The index no longer has it in the note.) */
+	const rewritten = (r: Renamed): boolean => (r.proof ?? []).some(({ note, link }) => {
+		const c = app.metadataCache.getFileCache(note);
+		return !app.vault.getAbstractFileByPath(note.path) || ![...(c?.links ?? []), ...(c?.embeds ?? [])].some((l) => l.link === link);
+	});
+
 	/** One pass for every rename gathered: each note that could hold such a link is read once. */
 	const follow = async (batch: Renamed[]): Promise<void> => {
 		if (!on()) return;
 		// (a file renamed and then gone is nobody's link any more)
-		const renamed = batch.filter((r) => app.vault.getAbstractFileByPath(r.file.path) === r.file);
-		if (!renamed.length) return;
+		let renamed = batch.filter((r) => app.vault.getAbstractFileByPath(r.file.path) === r.file);
+		// Obsidian set not to update links: only a rename whose plain links it did rewrite ("Just once"), never one
+		// it left alone ("Do not update"), or one with nothing of the sort to show it by
+		if (renamed.some((r) => r.proof)) {
+			for (let waited = 0; waited < PROOF && renamed.some((r) => r.proof && !rewritten(r)); waited += 100) await sleep(100);
+			renamed = renamed.filter((r) => !r.proof || rewritten(r));
+		}
+		if (!renamed.length || !on()) return;
 		// Worked out once for the pass: the renames by the name a link would have used, and every file in the vault by
 		// its name. A link can only have meant a file whose path ends with what the link says, so only files of that
 		// name need asking whether the link could have meant one of them instead.
@@ -68,7 +108,8 @@ export function followRenames(plugin: BindersPlugin): { settled(): Promise<void>
 			if (!name) return null;
 			for (const key of [name, name + '.md']) {
 				for (const r of byOld.get(key) ?? []) {
-					const others = (byName.get(key) ?? []).filter((f) => f !== r.file).map((f) => f.path);
+					// (a file made after the rename was not what the link meant when it was written)
+					const others = (byName.get(key) ?? []).filter((f) => f !== r.file && f.stat.ctime < r.at - 2).map((f) => f.path);
 					if (pointedAt(link, source, r.old, others)) return r.file;
 				}
 			}
@@ -120,13 +161,16 @@ export function followRenames(plugin: BindersPlugin): { settled(): Promise<void>
 		// (a folder's rename comes as one for each file in it as well)
 		if (!(f instanceof TFile) || !on()) return;
 		const first = !waiting.length;
-		waiting.push({ file: f, old });
+		const auto = updatesLinks(app);
+		if (!auto) seen ??= linksByName();
+		waiting.push({ file: f, old, at: Date.now(), proof: !auto && seen ? (seen.get(linkName(old)) ?? []) : undefined });
 		// the first of a burst starts the wait; the rest ride with it
 		if (first) chain = chain.then(async () => {
 			// (and a moment for the index to have the files under their new names before it is asked what to call them)
 			for (let n = -1; n !== waiting.length;) { n = waiting.length; await sleep(GATHER); }
 			const batch = waiting;
 			waiting = [];
+			seen = null;
 			await follow(batch);
 		}).catch(() => { /* said above */ });
 	}));

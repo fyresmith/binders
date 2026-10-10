@@ -200,8 +200,8 @@ the commands you run on it:
   deleted.
 
 One change to a note's text is made without a command, and it is this and nothing wider. When a note or file is
-renamed or moved, "Start a paragraph with a tab" is on and Obsidian's "Automatically update internal links" is on,
-Binders rewrites the links to it that stand in paragraphs begun with a tab, in notes that are in a binder. Obsidian
+renamed or moved, "Start a paragraph with a tab" is on and Obsidian's "Automatically update internal links" is on
+(or it is off and the writer answers Obsidian's prompt with "Just once"), Binders rewrites the links to it that stand in paragraphs begun with a tab, in notes that are in a binder. Obsidian
 updates every other link itself; these it leaves, because its index reads a line begun with a tab as code and has no
 links for it (`src/paragraphs/rename.ts`).
 

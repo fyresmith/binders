@@ -17,8 +17,9 @@ Read this before changing anything. It is the contract every contributor, human 
    properties the user edits through its views. It never rewrites note bodies except through an editor the user is typing
    in, a command the user runs on the text (split, merge, bring back, rewrite), and one thing more, which is as
    narrow as it is written here: when a note is renamed, "Start a paragraph with a tab" is on and Obsidian's own
-   "Automatically update internal links" is on, the links to that note on tab-led lines in binder notes are
-   rewritten, the link's target and nothing else (`src/paragraphs/rename.ts`; the maintainer's exception, 2026-10-05).
+   "Automatically update internal links" is on (or it is off and the writer answers Obsidian's prompt with "Just
+   once"), the links to that note on tab-led lines in binder notes are rewritten, the link's target and nothing else
+   (`src/paragraphs/rename.ts`; the maintainer's exception, 2026-10-05, "Just once" added 2026-10-10).
    And a second, as narrow: "Bring back" on a snapshot of a folder or binder, after its confirmation screen and an
    automatic snapshot of what is there now, may write notes' properties as they were in the snapshot, and make,
    rename and move notes, and the folders they are in, to match it, inside that folder only. It never deletes a
