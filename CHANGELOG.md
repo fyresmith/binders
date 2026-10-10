@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.49.4 (2026-10-10)
+
+### Fixed
+
+- Replace one no longer turns the start of a note into properties; it is refused with a message, as Replace all does.
+
 ## 0.49.3 (2026-10-10)
 
 ### Fixed

@@ -457,7 +457,7 @@ test('Replace one on CRLF and byte-order-mark notes in the manuscript changes th
 	await p.sleep(2300);
 	const ctl = disk(p, 'One2/3 Ctl.md'), ctlB = disk(p, 'One2/4 CtlB.md');
 	await ask(p, 'Mara', 'Maren');
-	for (let i = 0; i < 2; i++) { await p.ev(`(async () => { await ${BAR}.replaceOne(); })().then(() => 1)`); await p.sleep(700); }
+	for (let i = 0; i < 3; i++) { await p.ev(`(async () => { await ${BAR}.replaceOne(); })().then(() => 1)`); await p.sleep(700); }
 	await saveAll(p);
 	await p.sleep(2300);
 	const a = disk(p, 'One2/1 Crlf.md'), b = disk(p, 'One2/2 Bom.md');
@@ -466,7 +466,7 @@ test('Replace one on CRLF and byte-order-mark notes in the manuscript changes th
 	t.ok(b.replace('﻿', '') === 'Maren c.\nMara d.\n', 'the second note’s first match: ' + JSON.stringify(b));
 });
 
-test('BUG: Replace one with a replacement of three dashes that closes a block at the start of a note must not turn the writer’s lines into properties (Replace all refuses exactly this)', async (p, h, t) => {
+test('Replace one with a replacement of three dashes that closes a block at the start of a note must not turn the writer’s lines into properties (Replace all refuses exactly this)', async (p, h, t) => {
 	await rawBinder(p, 'Dash', [['1 A', '---\nfoo: 1\nbar: 2\nMara\nthe rest\n']]);
 	await start(p, 'Dash', 'manuscript');
 	const before = vault(p);

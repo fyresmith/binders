@@ -276,6 +276,14 @@ export class FindBar {
 	private async replaceOne(): Promise<void> {
 		const at = this.at, by = this.by.value;
 		if (!at || !this.host.replacesOne() || this.busy || this.host.locked()) return;
+		// (a replacement that would open or close the note's properties is refused, as Replace all refuses it: the lines
+		// the writer had would become properties)
+		const h0 = at.found.hits[at.hit];
+		if (!at.found.source.drawn && h0 && parts(apply(at.found.text, [{ ...h0, text: by }])).front !== parts(at.found.text).front) {
+			this.doneEl.setText('Not replaced: the replacement would turn the start of the note into properties.');
+			this.doneEl.show();
+			return;
+		}
 		this.busy = true;
 		try {
 			const h = at.found.hits[at.hit];
