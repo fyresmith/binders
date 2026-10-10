@@ -23,7 +23,7 @@
   import from Scrivener. `docs/dev/architecture.md` is the map of the code; the milestone table in
   `docs/dev/plan.md` has the history.
 - **Left before 1.0** (`ROADMAP.md`, in its order; the maintainer's decision, 2026-10-10: every major feature is
-  built before 1.0 and nothing is held for after it): undo and redo of everything (planned, his choices pending),
+  built before 1.0 and nothing is held for after it): undo and redo of everything (decided 2026-10-10, being built),
   importing a Word file or a long note, progress over time, saved filters, an editor's changes brought back,
   revision notes, a binder from a structure, the story's timeline, and thinning the automatic snapshots. Then
   hardening: export's checks by other hands (`docs/dev/export.md`, "Not verified yet"), real devices (he has an

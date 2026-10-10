@@ -58,9 +58,11 @@ or configuration system unless the task cannot be done through the controls ther
     is told why. A deleted note is kept byte for byte for the session and put back exactly. Undoing a new note
     never removes one that has been written in. Undoing a merge never takes text out of a note changed since.
   - In memory only: nothing new is written to the vault, and nothing travels by Sync.
-  - Planned 2026-10-10, in seven steps (the history refactored, then properties, renames, creating, deleting,
-    merging, splitting). This takes in what was "Predictable recovery from merge". The plan's choices wait on the
-    maintainer: `docs/dev/plan.md`.
+  - In the view's toolbar, an Undo and a Redo button, which is how a phone reaches them.
+  - Planned and decided 2026-10-10, being built in seven steps (the history refactored, then properties, renames,
+    creating, deleting, merging, splitting). This takes in what was "Predictable recovery from merge". Decided: no
+    history across restarts; a delete can be undone for the session even when Obsidian deletes for good; the delete
+    confirmation stays; 100 steps for each binder.
 
 ### 2. Import an existing manuscript
 

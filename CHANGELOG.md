@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.51.8 (2026-10-10)
+
+### Changed
+
+- The roadmap records what was decided for undo and redo: a history for each binder, kept for the session, with buttons in the view’s toolbar.
+
 ## 0.51.7 (2026-10-10)
 
 ### Changed
