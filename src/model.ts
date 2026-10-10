@@ -26,6 +26,9 @@ export interface BinderIndex {
 	version: number;
 	/** Paths relative to the binder folder, in reading order; folders end in "/". */
 	contents: string[];
+	/** Entries YAML read as null or a boolean (a bare "- " or "- true") and no quoted entry names as well: each is the name
+	    "null" or "true" if a note of that name is there, and junk if not (the store drops it on write). */
+	doubtful: Set<string>;
 }
 
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -60,20 +63,24 @@ export function cleanPath(p: string, keepMd = false): string {
 export function readIndex(fm: Record<string, unknown>, binderNote = ''): BinderIndex {
 	checkFormat(fm);
 	const raw = Array.isArray(fm.contents) ? fm.contents : [];
-	const seen = new Set<string>(), contents: string[] = [];
+	const seen = new Set<string>(), contents: string[] = [], doubtful = new Set<string>();
 	// (a name typed by hand that YAML reads as a number, a note called "1984", or as true or null, is still that name;
 	// a name in the decomposed Unicode form, é as e and an accent, is the same name as the composed one)
-	const named = raw.filter((x): x is string | number | boolean | null => typeof x === 'string' || typeof x === 'boolean' || x === null || (typeof x === 'number' && Number.isFinite(x))).map((x) => String(x).normalize('NFC'));
+	const named = raw.filter((x): x is string | number | boolean | null => typeof x === 'string' || typeof x === 'boolean' || x === null || (typeof x === 'number' && Number.isFinite(x)))
+		.map((x) => ({ name: String(x).normalize('NFC'), guess: x === null || typeof x === 'boolean' }));
 	// A file and the note named after it ("paper.pdf" and "paper.pdf.md", notes on a PDF) are two entries: the bare
 	// one is the file's, and the note's keeps its ".md", which is otherwise dropped (see `diskList`).
-	const whole = new Set(named.map((x) => cleanPath(x, true)));
-	for (const x of named) {
+	const whole = new Set(named.map(({ name }) => cleanPath(name, true)));
+	for (const { name: x, guess } of named) {
 		const full = cleanPath(x, true), twin = /\.md$/i.test(full) && whole.has(full.slice(0, -3));
 		const p = twin ? full : cleanPath(x);
-		if (!p || seen.has(p) || p.split('/').includes('..') || p === binderNote || isFolderNote(p)) continue;
+		if (!p || p.split('/').includes('..') || p === binderNote || isFolderNote(p)) continue;
+		// a quoted name beside a bare null or true is the writer's own name, not a guess
+		if (seen.has(p)) { if (!guess) doubtful.delete(p); continue; }
 		seen.add(p); contents.push(p);
+		if (guess) doubtful.add(p);
 	}
-	return { version: FORMAT_VERSION, contents };
+	return { version: FORMAT_VERSION, contents, doubtful };
 }
 
 /** Entries typed by hand with stray spaces round a name ("  Prologue  ") are still read: an entry that names nothing as

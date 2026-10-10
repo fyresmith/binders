@@ -178,6 +178,8 @@ class State implements Binder {
 	aliases = new Set<string>();
 	/** The list as the binder note has it. */
 	base: string[] = [];
+	/** The entries of `base` that were typed as a bare null or true (see `readIndex`). */
+	doubt = new Set<string>();
 	problem: string | null = null;
 	/** Changes not yet written. */
 	ops: ListOp[] = [];
@@ -1130,7 +1132,8 @@ export class BinderStore extends Events implements ExplorerSource {
 	private read(s: State): void {
 		if (s.kind === 'longform') { s.lf = readProject(this.app.metadataCache.getFileCache(s.note)?.frontmatter) ?? s.lf; return; }
 		try {
-			s.base = readIndex(this.app.metadataCache.getFileCache(s.note)?.frontmatter ?? {}, s.note.basename).contents;
+			const idx = readIndex(this.app.metadataCache.getFileCache(s.note)?.frontmatter ?? {}, s.note.basename);
+			s.base = idx.contents; s.doubt = idx.doubtful;
 			s.problem = null;
 		} catch (e) {
 			if (!(e instanceof UnsupportedBinder)) throw e;
@@ -1476,22 +1479,23 @@ export class BinderStore extends Events implements ExplorerSource {
 		// mistake): they're kept, after the rest, so moving the note back finds its order intact.
 		const under = (p: string, x: string) => p === x || (x.endsWith('/') && p.startsWith(x));
 		const accounted = (p: string) => ops.some((o) => (o.op === 'remove' && under(p, o.item)) || (o.op === 'rename' && under(p, o.from)));
-		const next = (list: string[]) => {
-			list = settleNames(list, (p) => exists.has(p));
+		// (a bare null or true that names nothing here is junk, dropped before the count: it is not "lost" like a note's name)
+		const next = (list: string[], doubt: Set<string>) => {
+			list = settleNames(list, (p) => exists.has(p)).filter((p) => exists.has(p) || !doubt.has(p));
 			const out = applyOps(list, ops, known).filter((p) => exists.has(p));
 			const lost = list.filter((p) => !exists.has(p) && !accounted(p));
 			return lost.length && lost.length * 2 > list.length ? [...out, ...lost.filter((p) => !out.includes(p))] : out;
 		};
 		const same = (a: string[], b: string[]) => a.length === b.length && a.every((x, i) => x === b[i]);
-		if (same(next(s.base), s.base)) { this.touch(s, false); return; }
+		if (same(next(s.base, s.doubt), s.base)) { this.touch(s, false); return; }
 		const shown = this.contents(s);
 		try {
 			await this.app.fileManager.processFrontMatter(s.note, (fm: Record<string, unknown>) => {
 				if (!isBinderNote(fm)) throw new NotABinder();
 				checkFormat(fm); // refuses a newer format before anything is written
-				const list = next(readIndex(fm, s.note.basename).contents);
+				const idx = readIndex(fm, s.note.basename), list = next(idx.contents, idx.doubtful);
 				fm.contents = diskList(list);
-				s.base = list; // don't wait for the cache, so the order doesn't flicker back
+				s.base = list; s.doubt = new Set(); // written as text now, so no longer doubtful
 			});
 		} catch (e) {
 			if (e instanceof UnsupportedBinder) this.read(s);

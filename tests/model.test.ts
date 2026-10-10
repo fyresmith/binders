@@ -38,6 +38,10 @@ const j = (x: unknown) => JSON.stringify(x);
 	eq(j(readIndex({ binder: 1, contents: ['1984', true, 'no', null, 'Two'] }).contents), j(['1984', 'true', 'no', 'null', 'Two']), 'names YAML reads as true and null are kept, in place');
 	// a name typed in the other Unicode form (decomposed é) is the same name as the composed one
 		eq(j(readIndex({ binder: 1, contents: ['Cafe\u0301', 'Zed'] }).contents), j(['Caf\u00e9', 'Zed']), 'a hand-typed name is read in the composed form');
+	// a bare "- " or "- true" is doubtful: a note of that name keeps its place, and junk is dropped on write; a quoted "true"
+	// beside it is a name the writer meant, and numbers are names as they always were
+	eq(j([...readIndex({ binder: 1, contents: ['1984', true, 'no', null, 'Two'] }).doubtful]), j(['true', 'null']), 'a true or null typed by hand is doubtful');
+	eq(j([...readIndex({ binder: 1, contents: [true, 'true', null, 3.5] }).doubtful]), j(['null']), 'a quoted “true” beside a boolean one is not doubtful; a number is not doubtful');
 	eq(j(readIndex({ binder: 1 }).contents), '[]', 'no contents: empty list');
 }
 
