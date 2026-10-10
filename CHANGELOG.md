@@ -3,6 +3,16 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.49.24 (2026-10-10)
+
+### Added
+
+- Find and replace across a whole binder: Ctrl+F in a binder searches every note, in the manuscript it runs through the whole page, and on the corkboard and outliner it lights the cards. Replace all shows what will change first, takes a snapshot, and can be undone.
+
+### Fixed
+
+- Fixes from a round of testing: links on tab-led lines after a rename, Longform groups, Scrivener round trips, export and focus mode on a phone, and Left and Right arrows crossing between notes in the manuscript.
+
 ## 0.49.23 (2026-10-10)
 
 ### Changed

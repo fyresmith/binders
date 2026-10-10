@@ -10,8 +10,8 @@
 - **Where it came from:** planned 2026-09-30 in a session that also built and released the maintainer's first plugin,
   **Evra Timelines** (`~/Projects/evra`). Binders reuses Evra's toolchain and team workflow. Evra is a good reference
   for native-looking UI, e2e tests, the release workflow, and the lessons in AGENTS.md.
-- **Version:** 0.48.x (the number is in `package.json`; every commit bumps it). **Released:** 0.48.3 is the latest
-  release (2026-10-09; 0.44.5, on 2026-10-06, was the first public beta), and Binders is in Obsidian's community directory
+- **Version:** 0.49.x (the number is in `package.json`; every commit bumps it). **Released:** 0.49.24 is the latest
+  release (2026-10-10; 0.44.5, on 2026-10-06, was the first public beta), and Binders is in Obsidian's community directory
   (https://community.obsidian.md/plugins/binders). `manifest.json` names the last release; only `ship --release`
   changes it, and every release is a full one, never a draft or a pre-release (AGENTS.md).
 - **Unmerged** (2026-10-09): the tile removal of 2026-10-07 (`worktree-agent-acbc3d3bb60be1a0c`), waiting on the
@@ -20,15 +20,15 @@
   thinning the automatic ones is still to build (`docs/dev/plan.md`).
 - **Built:** binders in the vault and in the file explorer (order, drag to reorder, label dots), the three modes, the
   Longform integration, the scene operations (split, merge, duplicate, group, compile, undo of moves), arrange by
-  label, snapshots (a note's, and a folder's or binder's), find and replace across a binder (0.49.0, not released), focus mode, export (EPUB, DOCX, PDF, a Scrivener project) and
+  label, snapshots (a note's, and a folder's or binder's), find and replace across a binder (0.49.0), focus mode, export (EPUB, DOCX, PDF, a Scrivener project) and
   import from Scrivener. `docs/dev/architecture.md` is the map of the code; the milestone table in
   `docs/dev/plan.md` has the history.
 - **Left before 1.0** (`ROADMAP.md`, in its order): export's checks by other hands (Word, Kindle Previewer, Apple Books, a
   printer, Scrivener: `docs/dev/export.md`, "Not verified yet"); the rest of binder snapshots (step 4: thinning); mobile on a real device (the maintainer has none yet, so the
   emulated phone and tablet tests are the standard: "emulator is king").
 - **Tests:** unit tests and about seventy e2e spec files, ten QA rounds among them. The last whole-suite run was on
-  0.43.0; since then each batch was run only in the spec files its work touched (0.48.1: the four paragraph files, 140 of
-  140, light theme). `npm run e2e:all -- --jobs 6 --theme
+  0.43.0; since then each batch was run only in the spec files its work touched (0.49.21, before the 0.49.24 release: 22 spec files
+  covering what changed since 0.48.3, 787 passed, light theme; the two table failures are issue 31). `npm run e2e:all -- --jobs 6 --theme
   both --retry-alone` runs the suite in several Obsidians at once (about two hours); tests known to fail on purpose are
   listed in `tests/e2e/open-findings.json` and don't count. `npm run demo-vault` makes a vault of extreme binders to
   try by hand; `test-vault` is the tests' fixture and is not for hand use.
