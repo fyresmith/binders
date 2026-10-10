@@ -22,9 +22,13 @@
   label, snapshots (a note's, and a folder's or binder's), find and replace across a binder (0.49.0), focus mode, export (EPUB, DOCX, PDF, a Scrivener project) and
   import from Scrivener. `docs/dev/architecture.md` is the map of the code; the milestone table in
   `docs/dev/plan.md` has the history.
-- **Left before 1.0** (`ROADMAP.md`, in its order): export's checks by other hands (Word, Kindle Previewer, Apple Books, a
-  printer, Scrivener: `docs/dev/export.md`, "Not verified yet"); the rest of binder snapshots (step 4: thinning); mobile on a real device (the maintainer has none yet, so the
-  emulated phone and tablet tests are the standard: "emulator is king").
+- **Left before 1.0** (`ROADMAP.md`, in its order; the maintainer's decision, 2026-10-10: every major feature is
+  built before 1.0 and nothing is held for after it): undo and redo of everything (planned, his choices pending),
+  importing a Word file or a long note, progress over time, saved filters, an editor's changes brought back,
+  revision notes, a binder from a structure, the story's timeline, and thinning the automatic snapshots. Then
+  hardening: export's checks by other hands (`docs/dev/export.md`, "Not verified yet"), real devices (he has an
+  iPhone; no iPad or Android yet, and the emulated phone and tablet tests are the suite's standard), a QA round,
+  the open issues.
 - **Tests:** unit tests and about seventy e2e spec files, ten QA rounds among them. The last whole-suite run was on
   0.43.0; since then each batch was run only in the spec files its work touched (0.49.21, before the 0.49.24 release: 22 spec files
   covering what changed since 0.48.3, 787 passed, light theme; the two table failures are issue 31). `npm run e2e:all -- --jobs 6 --theme

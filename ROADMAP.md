@@ -1,6 +1,6 @@
 # Roadmap
 
-Where Binders stands: what is built and released, what is left before 1.0, and what is planned for after it.
+Where Binders stands: what is built and released, the features still to build, and the hardening that ends in 1.0.
 The [changelog](CHANGELOG.md) is the record of what shipped and when; this page is the plan. When the two
 disagree, the changelog is right and this page is behind.
 
@@ -38,35 +38,49 @@ Everything here is in the released plugin. The manual has a page for each.
 How each was designed and decided is in [docs/dev/plan.md](docs/dev/plan.md) and
 [docs/dev/export.md](docs/dev/export.md).
 
-## Left before 1.0
+## Features before 1.0
 
-In this order.
+Decided by the maintainer on 2026-10-10: every major feature is built before 1.0, and nothing is held for after
+it. Then the plugin is hardened (below) and 1.0.0 is called. In this order; the order can change, the list is the
+commitment.
 
-- [ ] **Export, checked by other hands.** The files are held to tests here; they have not all been opened where a
-      writer will open them: the Word file in Word, the ebook in Kindle Previewer and Apple Books, the PDF on
-      macOS and Windows and through a printer's checks (KDP, IngramSpark), and a project as export writes it in
-      Scrivener. The list is in [docs/dev/export.md](docs/dev/export.md), "Not verified yet".
-- [ ] **Snapshots of a folder and of the binder, the last step:** thinning the automatic snapshots, so they don't
-      pile up. Not built. (`docs/dev/plan.md`, "Snapshots of a folder and of the binder".)
-- [ ] **Phones and tablets on real devices.** The emulated phone and tablet tests are the standard for the
-      automated suite. The maintainer uses Binders on an iPhone, which has found what the emulation could not
-      (issue 32). Not yet tried: an iPad, any Android device, Android's back button, the share sheet.
-      [Not yet tried](docs/limitations.md#not-yet-tried)
-- [ ] **Open issues** in the [tracker](https://github.com/fyresmith/binders/issues), and the findings left open on
-      purpose in `tests/e2e/open-findings.json`.
-- [ ] **1.0.0.** The first stable release.
+For every one: identify a repeated writing task, show the shortest usable interaction, keep the result readable
+without Binders, and test it in a book-sized binder before widening it. No new dashboard, permanent toolbar group
+or configuration system unless the task cannot be done through the controls there are.
 
-Smaller things wanted after 1.0 are listed at the end of `docs/dev/plan.md`.
+### 1. Undo and redo of everything done through Binders
 
-## After 1.0: focused additions
+- [ ] **One history per binder.** Today only moves can be undone. The history grows to hold every change made by
+      hand through Binders: reordering and moving, every property (synopsis, label, status, target, notes, export),
+      renaming, new notes and folders, duplicating, deleting, merging and splitting. Typing in a note stays with
+      the editor's own undo.
+  - A step is undone only if the thing is still as that step left it; otherwise nothing is written and the writer
+    is told why. A deleted note is kept byte for byte for the session and put back exactly. Undoing a new note
+    never removes one that has been written in. Undoing a merge never takes text out of a note changed since.
+  - In memory only: nothing new is written to the vault, and nothing travels by Sync.
+  - Planned 2026-10-10, in seven steps (the history refactored, then properties, renames, creating, deleting,
+    merging, splitting). This takes in what was "Predictable recovery from merge". The plan's choices wait on the
+    maintainer: `docs/dev/plan.md`.
 
-Added 2026-10-05 after reviewing the implemented workflow and the existing plans. These additions do not delay 1.0.
-Priority weighs recurring writing value (40%), fit with native Obsidian and the existing views (25%), safety and
-implementation feasibility (20%), and low ongoing maintenance and UI cost (15%). These are design judgments,
-not measured user demand. Reassess after writers use the released plugin; a competitive feature list alone is
-not a reason to build something.
+### 2. Import an existing manuscript
 
-### 1. Saved manuscript subsets
+- [ ] **From Word, and from one long note.** Most writers arrive with a Word file or a single long note, not a
+      Scrivener project. Import a `.docx` as a new binder, split into chapters and scenes at its headings and scene
+      breaks, shown before it is made, as the Scrivener import is. And split a note already in the vault into
+      scenes at its headings in one go.
+  - Makes a new folder, never writes into an existing one, and keeps the original file.
+  - Ship when a novel-length Word file comes in with its words, order, italics, bold and scene breaks intact,
+    held to a word-for-word test.
+
+### 3. Progress over time
+
+- [ ] **A deadline and a history.** A target for the book with a date, and the words a day it takes to get there;
+      a record of words written each day, read as a small chart; and today's count carried between devices. Scene
+      targets and focus mode's goal for today are built; this is the book's side of them.
+  - Kept as readable data in the binder note or beside it, so it syncs as notes do.
+  - No streaks, badges or reminders.
+
+### 4. Saved filters
 
 - [ ] **Saved filters, then collections.** Work on scenes scattered across a book without moving or copying them.
       First support named filters scoped to a binder or folder: label, status, export inclusion, and selected
@@ -82,9 +96,17 @@ not a reason to build something.
   - Ship when a writer can save, reopen and edit a cross-chapter subset in all three views, with ancestors shown
     only as context and no change to the full manuscript's order. Reordering is disabled in a subset initially;
     adding scenes and changing properties must not hide pending edits or discard the caret.
-  - **Weight:** highest value, strong architectural fit, moderate complexity. This extends tools already built.
 
-### 2. A small revision queue
+### 5. An editor's changes, brought back
+
+- [ ] **A Word file returned by an editor.** Export sends a manuscript out; this brings it back. Read a `.docx`
+      with tracked changes and comments, match it to the binder's notes, and show each change against the note as it
+      is now, to take or leave one at a time. Comments are kept as revision notes (below).
+  - Never applied in bulk without a review and an automatic snapshot, as Replace all is.
+  - A change that no longer matches the note's text is shown and not applied.
+  - The hardest item here to make safe. Design first, with real edited manuscripts to test against.
+
+### 6. Revision notes tied to scenes
 
 - [ ] **Scene-linked revision tasks.** Capture “establish why Alice leaves” while drafting, then visit the affected
       scenes in manuscript order and mark the work done. Start with Markdown checkboxes and links to scenes in one
@@ -97,39 +119,49 @@ not a reason to build something.
     a task changes only its checkbox, and the queue remains readable and usable with Binders disabled.
   - Add passage anchors only if scene-level navigation proves insufficient in actual revision work. Any later
     anchor must report ambiguity or a missing passage instead of attaching a comment to the wrong words.
-  - **Weight:** high writing value, good native fit, moderate complexity in this limited form. Validate that the
-    capture and navigation save work beyond an ordinary task note before expanding it.
 
-### 3. Predictable recovery from merge
+### 7. A new binder from a structure
 
-- [ ] **Explicit recovery for merged scenes.** Make reversing a merge discoverable. Design around the original
-      text, affected files, properties, order and links. A merge needs one understandable recovery action; do not
-      promise universal Ctrl+Z across editors and vault actions. First prototype merge recovery, then decide whether
-      it belongs in the existing history UI. Split already has safe editor undo on current main; preserve that behavior.
-  - If any affected scene has been edited, moved, deleted, synced or linked differently since the operation, refuse an
-    automatic reversal and offer the preserved text for comparison or recovery. Never delete subsequent writing.
-  - Ship only with external-edit, pending-save, link, name-collision and repeated-recovery tests proving that prose
-    survives. Persistent recovery data must be bounded and readable; this is not a general vault transaction system.
-  - **Weight:** high trust value and little UI cost, but high implementation risk. Keep behind subsets and the
-    revision queue unless released users encounter restructuring problems frequently.
+- [ ] **A book's skeleton to start from, and templates for new notes.** "New binder" offers a structure (three
+      acts, a chapter and scene skeleton, a writer's own saved from a binder) with its folders, synopses and
+      targets. A folder can name a template note that its new scenes start from, properties and all.
+  - Structures are plain binders; a writer's own is saved and shared as one.
 
-### Defer or leave to Obsidian
+### 8. The story's timeline
 
-- **Branching:** do not add. Two live versions of a book need merging, and merging prose is where writing is
-  lost. A snapshot of the binder (built) is read, compared and brought back; "Make a binder from this
-  snapshot" writes it out as a second binder for the writer who wants to try another ending.
-- **Daily automatic snapshots of a binder:** later, off by default. Snapshots of a folder and of the whole binder
-  were decided and built on 2026-10-06 (`docs/dev/plan.md`, "Snapshots of a folder and of the binder"): taking,
-  reading, comparing, one note brought back and a binder made from a snapshot first; then bringing back the text
-  and the order; then everything; then the automatic ones before a bring back and before find and replace.
-- **A research browser or story-bible system:** do not add. Use ordinary links, backlinks, Properties and split
-  panes. Reconsider a small scene-to-reference navigation action only if observed writing sessions expose a gap;
-  no duplicated character, location or source database.
-- **Named writing workspaces:** leave to Obsidian's Workspaces core plugin and Binders' existing view state. Add
-  missing state restoration to those mechanisms if necessary, rather than a second workspace manager.
-- **Universal undo:** defer beyond existing split undo and proposed merge recovery. Renames, deletes and duplicates have different conflict
-  and recovery rules; one global history would add substantial state and false expectations.
+- [ ] **Story time beside manuscript order.** A scene's date, as a property, shown along a timeline: when things
+      happen against the order they are told in. Built with [Evra Timelines](https://github.com/fyresmith/evra)
+      where that plugin is installed; the property and the outliner column work without it.
 
-For every addition: identify a repeated writing task, show the shortest usable interaction, keep the result
-readable without Binders, and test it in a book-sized binder before expanding scope. No new dashboard, permanent
-toolbar group or configuration system unless the workflow cannot work through existing controls.
+### Also unfinished
+
+- [ ] **Snapshots of a folder and of the binder, the last step:** thinning the automatic snapshots, so they don't
+      pile up. (`docs/dev/plan.md`, "Snapshots of a folder and of the binder".)
+
+## Hardening, then 1.0
+
+Once the features above are built, in this order:
+
+- [ ] **Export, checked by other hands.** The Word file in Word, the ebook in Kindle Previewer and Apple Books, the
+      PDF on macOS and Windows and through a printer's checks (KDP, IngramSpark), and a project as export writes it
+      in Scrivener. The list is in [docs/dev/export.md](docs/dev/export.md), "Not verified yet".
+- [ ] **Phones and tablets on real devices.** The emulated phone and tablet tests are the standard for the
+      automated suite. The maintainer uses Binders on an iPhone, which has found what the emulation could not
+      (issue 32). Not yet tried: an iPad, any Android device, Android's back button, the share sheet.
+      [Not yet tried](docs/limitations.md#not-yet-tried)
+- [ ] **A QA round over each new feature,** and the whole suite in both themes.
+- [ ] **Open issues** in the [tracker](https://github.com/fyresmith/binders/issues), and the findings left open on
+      purpose in `tests/e2e/open-findings.json`.
+- [ ] **1.0.0.** The first stable release. The maintainer calls it.
+
+## Not building
+
+- **Branching.** Two live versions of a book need merging, and merging prose is where writing is lost. A snapshot
+  of the binder is read, compared and brought back; "Make a binder from this snapshot" writes it out as a second
+  binder for the writer who wants to try another ending.
+- **A research browser or story-bible system.** No database of characters, places or sources. Use ordinary links,
+  backlinks, Properties and split panes; saved filters cover "every scene with Alice".
+- **Named writing workspaces.** Left to Obsidian's Workspaces core plugin and Binders' own view state.
+- **Daily automatic snapshots of a binder.** Automatic snapshots are taken before a bringing back and before
+  Replace all. One a day, unasked, is not planned.
+- **A plot grid.** Dropped on 2026-10-01 for the outliner (`docs/dev/plan.md`, "Decided").

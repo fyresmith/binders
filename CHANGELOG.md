@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.51.7 (2026-10-10)
+
+### Changed
+
+- The roadmap has no “after 1.0” any more: undo and redo of everything, importing a Word file, progress over time, saved filters, an editor’s changes brought back, revision notes, a binder from a structure and the story’s timeline are all planned before 1.0, followed by hardening.
+
 ## 0.51.6 (2026-10-10)
 
 ### Changed
