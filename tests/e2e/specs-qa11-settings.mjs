@@ -322,7 +322,7 @@ test('the paragraph switches save, and are on disk after a restart, as the tab s
 	} finally { await closeSettings(p); }
 });
 
-test('BUG: “Count words as the exported book does”: turned off in the tab, it stays on: nothing is saved, and it is on again after a restart', async (p, h, t) => {
+test('“Count words as the exported book does”: turned off in the tab, it stays on: nothing is saved, and it is on again after a restart', async (p, h, t) => {
 	await openSettings(p);
 	try {
 		await setSwitch(p, 'Count words as the exported book does', false);

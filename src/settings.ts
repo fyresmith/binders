@@ -81,6 +81,7 @@ export class BindersSettingTab extends PluginSettingTab {
 		if ((FOCUS_TOGGLES as string[]).includes(key) && typeof value === 'boolean') s[key as FocusToggle] = value;
 		if ((PARAGRAPH_TOGGLES as string[]).includes(key) && typeof value === 'boolean') s[key as ParagraphToggle] = value;
 		if (key === 'sidePanes' && typeof value === 'boolean') s.sidePanes = value;
+		if (key === 'bookWords' && typeof value === 'boolean') s.bookWords = value;
 		// (what depends on it is drawn again: hiding notes can't be on without ordering)
 		if (key === 'orderExplorer') await this.changed(); else await this.save();
 	}

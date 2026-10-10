@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.49.8 (2026-10-10)
+
+### Fixed
+
+- “Count words as the exported book does” now saves when you turn it off, and stays off after a restart.
+
 ## 0.49.7 (2026-10-10)
 
 ### Fixed
