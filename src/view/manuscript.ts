@@ -1188,7 +1188,8 @@ class Manuscript implements BinderMode {
 	}
 
 	/** Keys that cross sections, so the manuscript reads as one page: ArrowDown on the last line of a section goes on
-	    into the next one, ArrowUp on the first into the previous; Page Up and Page Down move the cursor a screen, through
+	    into the next one, ArrowUp on the first into the previous; ArrowRight at the very end and ArrowLeft at the very
+	    start go on the same way; Page Up and Page Down move the cursor a screen, through
 	    as many sections as that takes; Mod+Home and Mod+End go to the start and end of the whole manuscript; F2 renames
 	    the section the cursor is in. */
 	private onKey(evt: KeyboardEvent): void {
@@ -1226,15 +1227,17 @@ class Manuscript implements BinderMode {
 			void this.focusScene(to, y < r.top ? 'start' : y > r.bottom ? 'end' : { x: c.left, y }, y < r.top || y > r.bottom ? c.left : undefined);
 			return;
 		}
-		if (evt.key !== 'ArrowDown' && evt.key !== 'ArrowUp') return;
+		if (!['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight'].includes(evt.key)) return;
 		if (evt.altKey || mod || evt.shiftKey || !sel.empty) return;
-		const down = evt.key === 'ArrowDown';
+		// Up and Down cross from the body's first or last line, keeping the column; Left and Right only from its very
+		// start or end, so they still move the caret through the text
+		const across = evt.key === 'ArrowDown' || evt.key === 'ArrowUp', down = evt.key === 'ArrowDown' || evt.key === 'ArrowRight';
 		const edge = down ? cm.state.doc.length : bodyStart(cm.state.doc.toString());
-		if (!sameLine(cm, sel.head, edge)) return;
+		if (across ? !sameLine(cm, sel.head, edge) : sel.head !== edge) return;
 		const i = this.scenes.indexOf(s), next = this.scenes[i + (down ? 1 : -1)];
 		if (!next || next.broken) return;
 		taken();
-		void this.focusScene(next, down ? 'start' : 'end', cm.coordsAtPos(sel.head)?.left);
+		void this.focusScene(next, down ? 'start' : 'end', across ? cm.coordsAtPos(sel.head)?.left : undefined);
 	}
 
 	private sceneOf(target: EventTarget | null): Scene | null {

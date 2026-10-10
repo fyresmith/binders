@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.49.21 (2026-10-10)
+
+### Fixed
+
+- In the manuscript, the Left and Right arrows now move into the next or previous note from the end or start of a note, as Up and Down already did.
+
 ## 0.49.20 (2026-10-10)
 
 ### Fixed

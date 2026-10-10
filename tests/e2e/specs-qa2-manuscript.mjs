@@ -264,8 +264,18 @@ test('the hidden properties can’t be reached from the body: Backspace, ArrowLe
 	await clickIn(p, ARRIVAL);
 	await caretTo(p, ARRIVAL, 'start');
 	t.eq((await caret(p)).from, fm, 'the caret at the start of the body');
-	await p.key('ArrowLeft'); await p.key('Backspace'); await p.key('Backspace');
+	const prologue = disk(p, PROLOGUE);
+	await p.key('Backspace'); await p.key('Backspace');
 	t.eq(await value(p, ARRIVAL), before, 'Backspace at the start removes nothing');
+	// (issue 24: ArrowLeft at the start goes on into the previous section's end, never into the properties)
+	await p.key('ArrowLeft');
+	await p.sleep(300);
+	const back = await caret(p);
+	t.ok(back && back.path === PROLOGUE && back.from === back.len, 'ArrowLeft at the start goes to the end of the previous section: ' + J(back));
+	await p.key('ArrowRight');
+	await p.sleep(300);
+	const home = await caret(p);
+	t.ok(home && home.path === ARRIVAL && home.from === fm, 'and ArrowRight comes back to the start of the body: ' + J(home));
 	await p.key('ArrowLeft', 'shift'); await p.key('ArrowUp', 'shift');
 	const c = await caret(p);
 	t.ok(c.from === fm && c.to === fm, 'Shift+arrows select nothing above the body: ' + J(c));
@@ -274,9 +284,14 @@ test('the hidden properties can’t be reached from the body: Backspace, ArrowLe
 	t.ok(all.from === fm && all.to === all.len, 'select all is the body: ' + J(all));
 	await caretTo(p, ARRIVAL, 'end'); await p.key('Delete'); await p.key('ArrowRight');
 	t.eq(await value(p, ARRIVAL), before, 'Delete at the end pulls nothing in');
-	t.eq(await focused(p), ARRIVAL, 'and ArrowRight at the end stays in the section');
+	// (issue 24: ArrowRight at the very end now goes on into the next section, as ArrowDown does on the last line)
+	const next = await p.ev(`(() => { const m = ${M}, i = m.scenes.findIndex(s => s.file.path === ${J(ARRIVAL)}); return m.scenes[i + 1]?.file.path ?? null; })()`);
+	t.ok(next && next !== ARRIVAL, 'ArrowRight at the end goes to the next section: ' + next);
+	t.eq(await focused(p), next, 'and the caret is in it');
+	t.eq(await value(p, ARRIVAL), before, 'the text is unchanged');
 	await p.sleep(2300);
 	t.eq(disk(p, ARRIVAL), before, 'nothing written');
+	t.eq(disk(p, PROLOGUE), prologue, 'nothing written to the previous section either');
 });
 
 test('wheel scrolling: the text on screen moves only by the scroll while editors mount and unmount', async (p, h, t) => {

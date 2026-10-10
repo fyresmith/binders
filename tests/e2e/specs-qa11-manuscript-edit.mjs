@@ -30,7 +30,6 @@ const wrap = (fn) => withTidy(async (p, h, t) => {
 	}
 });
 const test = (name, fn) => specs.push({ name: NS + name, fn: wrap(fn) });
-const nit = (name, fn) => specs.push({ name: 'NIT: ' + NS + name, fn: wrap(fn) });
 
 // ---- the disk and the clipboard ----
 const disk = (p, path) => readFileSync(join(p.vaultDir, path), 'utf8');
@@ -173,18 +172,42 @@ test('ArrowDown from the middle of a section’s last line goes to the next sect
 	t.eq(disk(p, N('Bravo')), 'Bravo is the second note, and its first line is a fair way longer than Alpha’s.\n', 'nor to Bravo');
 });
 
-nit('ArrowRight at a section’s end and ArrowLeft at its start go on into the next and the previous section, as the docs say “Arrow keys … on into the next note and back”', async (p, h, t) => {
-	// NIT: the code moves the caret across sections for ArrowUp and ArrowDown only (src/view/manuscript.ts onKey). An
-	// existing test (specs-qa2-manuscript.mjs, "hidden properties …") asserts that ArrowRight at a section's end stays in
-	// the section. The two disagree; the maintainer should say which is meant.
+test('ArrowRight at a section’s end and ArrowLeft at its start go on into the next and the previous section, as the docs say “Arrow keys … on into the next note and back”', async (p, h, t) => {
+	// (issue 24: Up and Down crossed already; Left and Right now cross too, from the very end or start of the body only)
 	await make(p, [['Alpha', 'Alpha end.\n'], ['Bravo', 'Bravo start.\n']]);
+	const before = Object.fromEntries(['Alpha', 'Bravo'].map((n) => [n, disk(p, N(n))]));
 	await place(p, N('Alpha'), END);
 	await p.key('ArrowRight');
 	await p.sleep(300);
 	t.eq(await focused(p), N('Bravo'), 'ArrowRight at the end of Alpha goes to Bravo');
+	const b0 = await caret(p);
+	t.ok(b0 && b0.head === fm(before.Bravo).length, 'and the caret is at the start of Bravo’s text: ' + J(b0));
 	await p.key('ArrowLeft');
 	await p.sleep(300);
 	t.eq(await focused(p), N('Alpha'), 'ArrowLeft at the start of Bravo goes back to Alpha');
+	const a0 = await caret(p);
+	t.ok(a0 && a0.head === a0.len, 'and the caret is at the end of Alpha’s text: ' + J(a0));
+	// Shift and Ctrl keep their meaning in the editor: no crossing, no selection outside the note
+	await p.key('ArrowRight', 'shift');
+	await p.sleep(200);
+	t.eq(await focused(p), N('Alpha'), 'Shift+ArrowRight at the end of Alpha stays in it');
+	await p.key('ArrowRight', 'ctrl');
+	await p.sleep(200);
+	t.eq(await focused(p), N('Alpha'), 'Ctrl+ArrowRight at the end of Alpha stays in it');
+	// the edges of the whole manuscript: nothing happens
+	await place(p, N('Alpha'), START);
+	await p.key('ArrowLeft');
+	await p.sleep(300);
+	const f0 = await caret(p);
+	t.ok(f0 && f0.path === N('Alpha') && f0.head === fm(before.Alpha).length, 'ArrowLeft at the first note’s start does nothing: ' + J(f0));
+	await place(p, N('Bravo'), END);
+	await p.key('ArrowRight');
+	await p.sleep(300);
+	const l0 = await caret(p);
+	t.ok(l0 && l0.path === N('Bravo') && l0.head === l0.len, 'ArrowRight at the last note’s end does nothing: ' + J(l0));
+	await p.sleep(2600);
+	t.eq(disk(p, N('Alpha')), before.Alpha, 'the keys wrote nothing to Alpha');
+	t.eq(disk(p, N('Bravo')), before.Bravo, 'nor to Bravo');
 });
 
 test('ArrowDown walks through two empty sections, a picture-only section and on, without sticking; typing lands in the right one', async (p, h, t) => {
