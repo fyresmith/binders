@@ -136,14 +136,15 @@ test('the corkboard’s list of cards holds only cards, and is the grid that lay
 	t.eq(j([grid.cls, grid.role, grid.display, grid.kids, grid.contents]), j(['binders-cards', 'listbox', 'grid', 4, 0]), 'the grid is the list, holds the four cards, and nothing on the board is “display: contents”');
 	const cells = grid.cards, [x0, y0, w0] = cells[0], rows = [...new Set(cells.map((c) => c[1]))];
 	t.ok(grid.cols >= 2 && cells.every((c, i) => c[0] === x0 + (i % grid.cols) * (w0 + grid.gap) && c[1] === rows[Math.floor(i / grid.cols)] && c[2] === w0) && rows.length === Math.ceil(cells.length / grid.cols) && rows[0] === y0, `the cards fill the grid’s cells in order (${grid.cols} columns): ${j(cells)}`);
-	// a folder with nothing in it: no list of nothing, and the words that say how to make a note
+	// a folder with nothing in it: no list of nothing, and no placeholder; "New" in the toolbar is the way to a note
 	await p.ev(`app.vault.createFolder('The Lighthouse/Empty').then(() => 1)`);
 	await until(p, `!!document.querySelector('.workspace-leaf.mod-active .binders-card[data-path="The Lighthouse/Empty"]')`);
 	await openView(p, 'The Lighthouse/Empty');
-	await until(p, `!!document.querySelector('.workspace-leaf.mod-active .binders-empty') && !document.querySelector('.workspace-leaf.mod-active .binders-card[data-path]')`);
+	await until(p, `app.workspace.getMostRecentLeaf().getViewState().state?.folder === 'The Lighthouse/Empty' && !document.querySelector('.workspace-leaf.mod-active .binders-card[data-path]')`);
+	await p.sleep(300);
 	ax = await axTree(p);
 	t.eq(ax.all.filter((n) => n.role === 'listbox').length, 0, 'an empty folder: there is no list with nothing in it');
-	t.eq(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-empty-text')?.textContent`), 'Use “New” above to add one.', 'and it says where a note is made');
+	t.eq(await p.ev(`document.querySelectorAll('.workspace-leaf.mod-active .binders-empty').length`), 0, 'and no placeholder element');
 	t.ok(await p.ev(`(() => { const b = document.querySelector('.workspace-leaf.mod-active .binders-new-button'); return !!b && !b.classList.contains('is-hidden') && b.getBoundingClientRect().width > 0; })()`), '“New” is there in the toolbar');
 });
 

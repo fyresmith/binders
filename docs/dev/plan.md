@@ -159,6 +159,10 @@ New (note, folder). The view runs edge to edge, as a base, a canvas or a note do
   the file explorer. The board ends with its last card. (Until 2026-10-07 a "New note" tile ended it, the next
   card's place with a plus in its middle; removed at the maintainer's word: "the ghost one ... is a bit odd". With no
   card on the board the keyboard rests on "New" in the toolbar, where it rested on the tile.)
+- An empty folder's board shows nothing: no "No notes in this folder yet" placeholder (removed 2026-10-10 at the
+  maintainer's word: "Get rid of that element"). "New" in the toolbar is the way to a first card. A board that a
+  filter has emptied still says "No notes match the filter", or the writer couldn't tell why it is empty; the outliner,
+  arrange by label and the manuscript keep their empty states.
 - **Selecting several** (decided 2026-10-05, the maintainer's request: "Shift click should allow you to multi-select
   cards", and a selection box, on a plain drag too "if that is typical behavior": it is, in Finder, Explorer and
   Scrivener's corkboard). As in a file manager and Obsidian's file explorer: a click selects one; Shift-click selects

@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.51.0 (2026-10-10)
+
+### Changed
+
+- An empty folder’s corkboard no longer shows “No notes in this folder yet”. A board that a filter has emptied still says why.
+
 ## 0.50.0 (2026-10-10)
 
 ### Changed

@@ -1097,7 +1097,7 @@ test('stacks: a card dropped on a stack’s middle goes into that folder; droppe
 // Other binders: empty, read only, Longform
 // =====================================================================================================================
 
-test('an empty binder: it says so and where a note is made, with “New” in sight in the toolbar; a note made there is the binder’s first', async (p, h, t) => {
+test('an empty binder: no placeholder, with “New” in sight in the toolbar; a note made there is the binder’s first', async (p, h, t) => {
 	await p.ev(`(async () => { await app.vault.createFolder('Blank'); await app.vault.create('Blank/Blank.md', '---\\nbinder: 1\\ncontents: []\\n---\\n'); })().then(() => 1)`);
 	await until(p, `!!${B}.binderOf(app.vault.getAbstractFileByPath('Blank'))`, 5000);
 	await onDevice(p, PHONE, async () => {
@@ -1110,7 +1110,7 @@ test('an empty binder: it says so and where a note is made, with “New” in si
 			await shot(p, `empty-${size.join('x')}`);
 			const e = await p.ev(`(() => { const R = ${R}; return { empty: R(document.querySelector('${LEAF} .binders-empty')), text: document.querySelector('${LEAF} .binders-empty')?.innerText ?? null, add: R(document.querySelector('${LEAF} .binders-new-button')), tiles: document.querySelectorAll('${LEAF} .binders-card-new').length, inner: [innerWidth, innerHeight] }; })()`), nav = await navbarTop(p);
 			say('empty', size.join('x'), j(e), nav);
-			t.ok(/No notes in this folder yet/.test(e.text ?? '') && /Tap \+ above to add one\./.test(e.text ?? ''), 'it says the binder is empty, and where a note is made: ' + j(e.text));
+			t.ok(e.empty === null && e.text === null, 'an empty binder has no placeholder: ' + j(e.text));
 			t.eq(e.tiles, 0, 'there is no “New note” tile');
 			t.ok(e.add && e.add[2] >= 32 && e.add[3] >= 32 && e.add[0] >= 0 && e.add[0] + e.add[2] <= e.inner[0] && e.add[1] >= 0 && e.add[1] + e.add[3] <= (nav ?? e.inner[1]), `${size.join('x')}: “New” (the plus) is in sight in the toolbar, a finger wide (${j(e.add)}, navigation bar at ${nav})`);
 		}

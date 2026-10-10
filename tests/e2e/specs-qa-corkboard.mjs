@@ -529,7 +529,7 @@ test('an empty binder: no card, 0 words, a filter menu that says so', withTidy(a
 	await p.ev(`(async () => { await app.vault.createFolder('Empty'); await ${B}.makeBinder(app.vault.getAbstractFileByPath('Empty')); })().then(() => 1)`);
 	await until(p, `!!${B}.binderOf('Empty')`);
 	await openView(p, 'Empty');
-	t.eq(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-empty-title')?.textContent`), 'No notes in this folder yet', 'no card, and the words that say so');
+	t.eq(await p.ev(`document.querySelectorAll('.workspace-leaf.mod-active .binders-card[data-path], .workspace-leaf.mod-active .binders-empty').length`), 0, 'no card, and no placeholder');
 	t.eq(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-word-count').textContent`), '0 words', '0 words');
 	const f = await p.at(`.workspace-leaf.mod-active .binders-filter-button`);
 	await p.click(f.x, f.y);

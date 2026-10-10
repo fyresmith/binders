@@ -340,8 +340,7 @@ for (const [dev, size] of [['phone (390 × 844)', PHONE], ['small phone (320 × 
 			await shot(p, `${tag}-1a-04-opened`);
 			S.eq((await viewState(p))?.folder, 'Novel', 'a tap on the new binder opens it');
 			S.ok(!(await drawerOpen(p)), 'and closes the drawer');
-			S.ok(await p.ev(`!!document.querySelector('${LEAF} .binders-empty')`), 'an empty binder says so');
-			S.eq(await p.ev(`document.querySelector('${LEAF} .binders-empty-title')?.textContent`), 'No notes in this folder yet', 'in these words');
+			S.ok(await p.ev(`!document.querySelector('${LEAF} .binders-empty')`), 'an empty binder has no placeholder');
 			// eight scenes from the toolbar's New, Enter after each
 			await keyboard(p, size, true);
 			for (const n of NAMES.slice(0, 8)) {

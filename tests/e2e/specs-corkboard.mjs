@@ -938,7 +938,7 @@ test('New folder (the toolbar’s New): made last, as a stack named in place, an
 	const st = await at(p, 'Part Three');
 	await p.dbl(st.x, st.t + 14);
 	await until(p, `app.workspace.getMostRecentLeaf().getViewState().state?.folder === 'The Lighthouse/Part Three'`);
-	await until(p, `!!document.querySelector('.workspace-leaf.mod-active .binders-empty')`);
+	await until(p, `app.workspace.getMostRecentLeaf().getViewState().state?.folder === 'The Lighthouse/Part Three' && !document.querySelector('.workspace-leaf.mod-active .binders-card[data-path]')`);
 	t.eq(j(await cards(p)), j([]), 'its board is empty');
 	await newNote(p, 'Afterword');
 	await until(p, `app.vault.adapter.exists('The Lighthouse/Part Three/Afterword.md')`);
@@ -1776,3 +1776,32 @@ test('on iOS every card is drawn, in sight or not; elsewhere the ones out of sig
 	try { t.eq(await how(), 'visible', 'on iOS it is drawn'); }
 	finally { await p.ev(`document.body.classList.remove('is-ios')`); }
 });
+
+// The board of an empty folder has no placeholder (New in the toolbar is the way to a first card); a board that a filter
+// has emptied still says why, or the writer couldn't tell.
+test('an empty folder’s board has no placeholder; one a filter has emptied says so', withTidy(async (p, h, t) => {
+	await p.ev(`app.vault.createFolder('The Lighthouse/Empty').then(() => 1)`);
+	await openView(p);
+	await until(p, `!!document.querySelector('${card(L + 'Empty')}')`);
+	const s = await at(p, 'Empty');
+	await p.dbl(s.x, s.t + 14);
+	await until(p, `app.workspace.getMostRecentLeaf().getViewState().state?.folder === 'The Lighthouse/Empty'`);
+	await p.sleep(400);
+	t.eq(await p.ev(`document.querySelectorAll('.workspace-leaf.mod-active .binders-card[data-path]').length`), 0, 'no card');
+	t.eq(await p.ev(`document.querySelectorAll('.workspace-leaf.mod-active .binders-empty').length`), 0, 'and no placeholder');
+	t.ok(await p.ev(`(() => { const b = document.querySelector('.workspace-leaf.mod-active .binders-new-button'); return !!b && b.getBoundingClientRect().width > 0; })()`), '“New” is in the toolbar');
+	// with a filter on (put on in the binder, kept going in), the empty board says why it is empty
+	await p.ev(`app.commands.executeCommandById('app:go-back')`);
+	await until(p, `!!document.querySelector('${card(L + 'Prologue.md')}')`);
+	const f = await p.at('.workspace-leaf.mod-active .binders-filter-button');
+	await p.click(f.x, f.y);
+	await clickMenu(p, 'Revised');
+	await closeMenus(p);
+	await until(p, `!document.querySelector('${card(L + 'Prologue.md')}')`);
+	const e = await at(p, 'Empty');
+	await p.dbl(e.x, e.t + 14);
+	await until(p, `app.workspace.getMostRecentLeaf().getViewState().state?.folder === 'The Lighthouse/Empty'`);
+	await until(p, `!!document.querySelector('.workspace-leaf.mod-active .binders-empty')`);
+	t.eq(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-empty-title').textContent`), 'No notes match the filter', 'with a filter, the board says why it is empty');
+	t.ok(!!(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-empty-text')?.textContent`)), 'and what to do');
+}));

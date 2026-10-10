@@ -262,7 +262,7 @@ test('1a. a new novel from nothing: a folder made a binder, twenty scenes from t
 	await until(p, `!!document.querySelector('${AL} .binders-view .binders-toolbar')`);
 	await p.sleep(300);
 	t.eq(await p.ev(`${VIEW}.mode`), 'corkboard', 'a click on the binder opens it as a corkboard');
-	t.eq(await p.ev(`document.querySelector('${AL} .binders-empty')?.textContent`), 'No notes in this folder yetUse “New” above to add one.', 'which says it’s empty, and what to do');
+	t.eq(await p.ev(`document.querySelector('${AL} .binders-empty')`), null, 'which says nothing about being empty: “New” in the toolbar is the way to a first card');
 	await shot(p, '1a-empty');
 
 	// eight from the toolbar's New: a title, Enter, the next

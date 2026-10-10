@@ -310,7 +310,7 @@ test('phone explorer: “New binder” makes one where the list is, its name sel
 		await p.sleep(900);
 		await shot(p, 'new-binder-empty');
 		t.eq(await headerTitle(p), 'My book', 'a tap opens it');
-		t.ok(/No notes in this folder yet/.test(await viewText(p)), 'an empty binder says so');
+		t.ok(!/No notes in this folder yet/.test(await viewText(p)), 'an empty binder has no placeholder');
 		const bar = await toolbar(p);
 		t.ok(bar.out <= 0 && bar.overlap.length === 0 && bar.kids.some((k) => /0 words/.test(k.text)), 'its toolbar fits and counts 0 words: ' + j(bar.kids.map((k) => k.text)));
 		const add = await p.at(`${LEAF} .binders-new-button`);
@@ -1379,19 +1379,6 @@ test('phone: a Longform project in the explorer and as a binder: its scenes in L
 		const items = await menuItems(p);
 		await gone(p);
 		t.ok(!items.includes('Show subfolders as stacks') && items.includes('Open binder note') && items.includes('Export...'), 'More options: no stacks, where there are no folders: ' + j(items));
-	});
-});
-
-ux('phone: an empty binder’s hint names something on the screen (“Use “New” above to add one.”: on a phone the button is a bare + with no word on it)', async (p, h, t) => {
-	await onDevice(p, PHONE, async () => {
-		await p.ev(`(async () => { await app.vault.createFolder('Empty'); await app.vault.create('Empty/Empty.md', '---\\nbinder: 1\\ncontents: []\\n---\\n'); })().then(() => 1)`);
-		await p.sleep(1000);
-		await open(p, 'Empty');
-		await shot(p, 'ux-empty-binder');
-		const hint = await p.ev(`document.querySelector('${LEAF} .binders-empty-text')?.textContent ?? ''`);
-		const named = (/“(.+?)”/.exec(hint) ?? [])[1];
-		const seen = await p.ev(`[...document.querySelectorAll('${LEAF} .binders-view *')].some(e => e.childElementCount === 0 && !e.closest('.binders-empty') && e.textContent.trim() === ${j(named ?? '')} && e.getBoundingClientRect().width > 0)`);
-		t.ok(!named || seen, `the hint says “${hint}”; something reading “${named}” shows`);
 	});
 });
 

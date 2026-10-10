@@ -446,8 +446,9 @@ class Corkboard implements BinderMode {
 		}
 		this.next = null;
 		this.paintSelection();
-		// nothing to show: the same words every mode has for that
-		const none = !this.board.querySelector('.binders-card[data-path]');
+		// nothing to show because a filter hides it: the words every mode has for that. (An empty folder says nothing:
+		// "New" in the toolbar is the way to a first card.)
+		const none = !!this.ctx.filtering() && !this.board.querySelector('.binders-card[data-path]');
 		if (none && !this.emptyEl) { this.emptyEl = emptyState(this.ctx, this.container); this.container.insertBefore(this.emptyEl, this.board); }
 		else if (none && this.emptyEl && (this.emptyEl.dataset.for ?? '') !== String(this.ctx.filtering())) { this.emptyEl.remove(); this.emptyEl = emptyState(this.ctx, this.container); this.container.insertBefore(this.emptyEl, this.board); }
 		else if (!none && this.emptyEl) { this.emptyEl.remove(); this.emptyEl = null; }
