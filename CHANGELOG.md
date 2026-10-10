@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.49.27 (2026-10-10)
+
+### Fixed
+
+- A field you are typing in on a phone is no longer scrolled out of sight when the keyboard comes up.
+
 ## 0.49.26 (2026-10-10)
 
 ### Fixed

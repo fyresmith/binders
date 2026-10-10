@@ -171,7 +171,10 @@ class Corkboard implements BinderMode {
 		// scroll position shows other notes. The card that was in the middle of the pane is put back there.
 		const box = this.container, w = box.clientWidth, was = this.width, mid = this.mid;
 		this.width = w;
-		if (!was || !w || w === was || !mid || this.drag) return;
+		// (Not while something on the board is being typed in, the folder's synopsis above the cards too: a phone's
+		// keyboard coming up makes a board that fitted the screen scroll, its scroll bar makes it narrower, and the
+		// field being typed in would be scrolled away for the card in the middle.)
+		if (!was || !w || w === was || !mid || this.drag || (typingNow(box.doc) && box.contains(a))) return;
 		let frames = 20;
 		const stop = () => { frames = 0; };
 		for (const t of ['wheel', 'pointerdown', 'keydown', 'touchstart'] as const) box.addEventListener(t, stop, { once: true, passive: true, capture: true });

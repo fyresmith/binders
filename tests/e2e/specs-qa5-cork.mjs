@@ -826,6 +826,39 @@ test('keyboard up: for a card’s synopsis and title, a stack’s name, the “N
 	}
 });
 
+test('keyboard up on a board that fitted the screen until then (a folder of three notes): the synopsis being typed stays where it is, under the toolbar', async (p, h, t) => {
+	await onDevice(p, PHONE, async () => {
+		await open(p, L + 'Part One');
+		// (the board has been scrolled before, with the keyboard up for something else: it knows which card was in its middle)
+		await keyboard(p, PHONE, true, KEYBOARD);
+		t.ok(await p.ev(`${CORK}.scrollHeight > ${CORK}.clientHeight + 40`), 'with the keyboard up the board of three cards scrolls');
+		await scrollTo(p, 'end');
+		await p.sleep(400);
+		await keyboard(p, PHONE, false);
+		await scrollTo(p, 0);
+		t.ok(await p.ev(`${CORK}.scrollHeight <= ${CORK}.clientHeight`), 'without it the board fits the screen: nothing to scroll');
+		const s = await p.at(`${LEAF} .binders-view-synopsis`);
+		await tap(p, s.x, s.y);
+		await p.sleep(300);
+		const a0 = await active(p);
+		t.eq(a0.tag, 'TEXTAREA', 'the folder’s synopsis is a field');
+		// (the keyboard takes two fifths of the screen: now the board scrolls, and with a scroll bar it is narrower)
+		await keyboard(p, PHONE, true, KEYBOARD);
+		await p.sleep(600);
+		const a1 = await active(p), floor = await p.ev(`Math.round(document.querySelector('${LEAF} .binders-toolbar').getBoundingClientRect().bottom)`);
+		say('keyboard up on a short board', j([a0.top, a1.top, floor]), await p.ev(`Math.round(${CORK}.scrollTop)`));
+		t.ok(a1.top >= floor - 1 && a1.bottom < PHONE[1] - KEYBOARD, `the field is still in sight, below the toolbar and above the keyboard: it was at ${a0.top}–${a0.bottom}, is at ${a1.top}–${a1.bottom}, the toolbar ends at ${floor}`);
+		t.eq(await p.ev(`Math.round(${CORK}.scrollTop)`), 0, 'and the board wasn’t scrolled under it');
+		await p.type('x');
+		await p.sleep(300);
+		const a2 = await active(p);
+		t.ok(a2.top >= floor - 1, `a letter typed leaves it there (${a2.top})`);
+		await p.key('Escape');
+		await p.sleep(300);
+		await keyboard(p, PHONE, false);
+	});
+});
+
 // =====================================================================================================================
 // Long press and drag
 // =====================================================================================================================
