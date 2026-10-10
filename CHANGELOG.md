@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.49.25 (2026-10-10)
+
+### Fixed
+
+- On an iPhone or iPad, cards on the corkboard could turn into empty boxes (after dragging one, most of all) and show their text only while selected. Every card is drawn now.
+
 ## 0.49.24 (2026-10-10)
 
 ### Added

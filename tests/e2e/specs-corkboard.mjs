@@ -1778,3 +1778,14 @@ test('arranged by label, the same: Shift-click selects a range (a hand not quite
 	await p.sleep(400);
 	same(t, before, await texts(p));
 }));
+
+// On an iPhone or iPad WebKit left cards that are in sight as empty boxes (it lost track of which ones were), so there
+// no card waits to be drawn. The class is Obsidian's own, put on here: the tests run in Chromium.
+test('on iOS every card is drawn, in sight or not; elsewhere the ones out of sight wait', async (p, h, t) => {
+	await openView(p);
+	const how = () => p.ev(`getComputedStyle(document.querySelector('.workspace-leaf.mod-active .binders-card[data-path]')).contentVisibility`);
+	t.eq(await how(), 'auto', 'off iOS a card out of sight waits');
+	await p.ev(`document.body.classList.add('is-ios')`);
+	try { t.eq(await how(), 'visible', 'on iOS it is drawn'); }
+	finally { await p.ev(`document.body.classList.remove('is-ios')`); }
+});

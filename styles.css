@@ -1989,6 +1989,12 @@
 	contain-intrinsic-block-size: auto calc(var(--binders-card-height, 132px) - var(--size-4-3) - var(--size-4-2));
 }
 
+/* Not on an iPhone or iPad: WebKit there loses track of which cards are in sight (after a drag, most of all) and leaves
+   them as empty boxes, drawn only while they hold the focus. Every card is laid out and painted. */
+.is-ios .binders-card[data-path] {
+	content-visibility: visible;
+}
+
 /* A labeled card: its border in the label's color, a pixel outside the card's edge and a pixel inside, as a colored
    card's is on a canvas. */
 .binders-card.has-label {
