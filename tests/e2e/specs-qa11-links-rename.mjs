@@ -56,7 +56,7 @@ test('every shape of link on a tab line follows: block and heading parts, embeds
 	t.eq(errors(p).length, 0, 'no errors: ' + errors(p).join(' | '));
 });
 
-test('NIT: a link written with spaces inside its brackets keeps them (the target only changes, byte for byte)', async (p, h, t) => {
+test('a link written with spaces inside its brackets keeps them (the target only changes, byte for byte)', async (p, h, t) => {
 	await put(p, A, FRONT + '\tSpaced [[ The keeper ]] and [[The keeper ]].\n');
 	await indexed(p, A);
 	await sleep(p, 500);

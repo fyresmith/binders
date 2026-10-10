@@ -158,8 +158,10 @@ export function repointLinks(text: string, to: (path: string, subpath: string) =
 	const re = new RegExp(CODE + '|(!?\\[\\[)([^\\]|#\\n]*?)(#[^\\]|\\n]*?)?((?:\\\\?\\|[^\\]\\n]*)?\\]\\])|(!?\\[[^\\]\\n]*\\]\\()(<[^>\\n]*>|[^)\\s]*)(\\))', 'gm');
 	return text.replace(re, (m: string, _f: string, _t: string, open: string | undefined, path: string, sub: string | undefined, close: string, mdOpen: string | undefined, target: string, mdClose: string) => {
 		if (open !== undefined) {
+			// the spaces round the name are kept as written: only the name changes (AGENTS.md, golden rule 3)
+			const lead = /^\s*/.exec(path)[0], tail = /\s*$/.exec(path.slice(lead.length))[0];
 			const next = to(path.trim(), sub ?? '');
-			return next == null ? m : `${open}${next}${sub ?? ''}${close}`;
+			return next == null ? m : `${open}${lead}${next}${tail}${sub ?? ''}${close}`;
 		}
 		if (mdOpen === undefined) return m; // code
 		const angled = target.startsWith('<'), raw = angled ? target.slice(1, -1) : target;
