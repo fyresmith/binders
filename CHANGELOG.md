@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.51.4 (2026-10-10)
+
+### Changed
+
+- The README's and the manual's pictures of the corkboard show it as it is now, without the “New note” tile.
+
 ## 0.51.3 (2026-10-10)
 
 ### Changed
