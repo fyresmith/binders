@@ -95,8 +95,7 @@ scenarios are `tests/e2e/specs-qa6-*.mjs`. Developers fixed them through the day
   (`docs/dev/development.md`, "Before a fix ships").
 - **Still open**, each listed in `tests/e2e/open-findings.json` with why, and in the README's known limitations: the
   split's undo; four kinds of content whose rendered and live heights differ; "Measure loop restarted" warnings from
-  the editor in three places; a tap in another section with the caret at a wrapped line's start; the "New note" tile
-  inside the list of cards; "Ungroup" leaving the emptied folder; comments in a properties block dropped by Obsidian's
+  the editor in three places; a tap in another section with the caret at a wrapped line's start; "Ungroup" leaving the emptied folder; comments in a properties block dropped by Obsidian's
   own writer; fast swipes through a thousand scenes on a phone. (Decided and fixed 2026-10-05: the split's undo,
   which now takes the whole split back, and "Ungroup", which now takes the emptied folder to the trash and gives it
   back on "Undo last move".)

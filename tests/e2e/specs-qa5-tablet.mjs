@@ -309,7 +309,7 @@ async function palette(p, name) {
 for (const [dev, size] of [['phone (390 × 844)', PHONE], ['small phone (320 × 568)', SMALL]]) {
 	const tag = size[0];
 
-	test(`${dev} 1a. a novel from nothing: “New binder” in the explorer’s empty space, named there, opened by a tap; twenty scenes from the tile, the toolbar’s New in each mode, each named as it’s made`, async (p, h, t) => {
+	test(`${dev} 1a. a novel from nothing: “New binder” in the explorer’s empty space, named there, opened by a tap; twenty scenes from the toolbar’s New in each mode, each named as it’s made`, async (p, h, t) => {
 		const S = softly(t);
 		await onDevice(p, size, async () => {
 			await showExplorer(p);
@@ -342,18 +342,19 @@ for (const [dev, size] of [['phone (390 × 844)', PHONE], ['small phone (320 × 
 			S.ok(!(await drawerOpen(p)), 'and closes the drawer');
 			S.ok(await p.ev(`!!document.querySelector('${LEAF} .binders-empty')`), 'an empty binder says so');
 			S.eq(await p.ev(`document.querySelector('${LEAF} .binders-empty-title')?.textContent`), 'No notes in this folder yet', 'in these words');
-			// eight scenes from the tile, Enter after each
-			await tapEl(p, `${LEAF} .binders-card-new`);
-			S.eq(await p.ev(`document.activeElement.tagName`), 'INPUT', 'a tap on “New note” opens its field');
+			// eight scenes from the toolbar's New, Enter after each
 			await keyboard(p, size, true);
 			for (const n of NAMES.slice(0, 8)) {
+				await tapEl(p, `${LEAF} .binders-new-button`);
+				await pick(p, 'New note');
+				await until(p, `document.activeElement?.matches('${LEAF} .binders-card[data-path] input')`, 3000);
 				S.eq(await p.ev(`document.activeElement.tagName + '.' + document.activeElement.className`), 'INPUT.binders-edit-field', `the field for “${n}” has the keyboard`);
 				await p.type(n);
 				await p.key('Enter');
 				await until(p, `!!app.vault.getAbstractFileByPath(${j(N + n + '.md')})`, 3000);
 				await p.sleep(350);
 			}
-			await shot(p, `${tag}-1a-05-tile-keyboard-up`);
+			await shot(p, `${tag}-1a-05-new-note-keyboard-up`);
 			await keyboard(p, size, false);
 			// a tap on the board ends it (no “Untitled” left behind)
 			const board = await rect(p, `${LEAF} .binders-corkboard`);
@@ -365,9 +366,11 @@ for (const [dev, size] of [['phone (390 × 844)', PHONE], ['small phone (320 × 
 			await tapEl(p, `${LEAF} .binders-new-button`);
 			S.eq(j(await menuItems(p)), j(['New note', 'New folder']), 'the toolbar’s New, on the corkboard');
 			await pick(p, 'New note');
-			S.eq(await p.ev(`document.activeElement.tagName + '.' + document.activeElement.className`), 'INPUT.binders-edit-field', 'New → New note opens the tile’s field');
-			for (const n of NAMES.slice(8, 12)) { await p.type(n); await p.key('Enter'); await until(p, `!!app.vault.getAbstractFileByPath(${j(N + n + '.md')})`, 3000); await p.sleep(350); }
-			await p.key('Escape');
+			S.eq(await p.ev(`document.activeElement.tagName + '.' + document.activeElement.className`), 'INPUT.binders-edit-field', 'New → New note makes a card, its title a field');
+			for (const [i, n] of NAMES.slice(8, 12).entries()) {
+				if (i) { await tapEl(p, `${LEAF} .binders-new-button`); await pick(p, 'New note'); await until(p, `document.activeElement?.matches('${LEAF} .binders-card[data-path] input')`, 3000); }
+				await p.type(n); await p.key('Enter'); await until(p, `!!app.vault.getAbstractFileByPath(${j(N + n + '.md')})`, 3000); await p.sleep(350);
+			}
 			await p.sleep(400);
 			S.eq(j(names(await list(p, NNOTE))), j(NAMES.slice(0, 12)), 'twelve notes');
 			// four in the outliner
@@ -896,7 +899,7 @@ const TABLETS = [['tablet upright (820 × 1180)', TABLET], ['tablet on its side 
 for (const [dev, size] of TABLETS) {
 	const tag = 't' + size[0];
 
-	test(`${dev} 2a. the sidebar pinned open: “New binder” from the explorer’s menu (a popover), named with the keyboard, opened by a tap with the sidebar staying; scenes from the tile; the explorer marks the folder shown, follows a folder opened in the view, and a tap on a folder there shows it`, async (p, h, t) => {
+	test(`${dev} 2a. the sidebar pinned open: “New binder” from the explorer’s menu (a popover), named with the keyboard, opened by a tap with the sidebar staying; scenes from the toolbar’s New; the explorer marks the folder shown, follows a folder opened in the view, and a tap on a folder there shows it`, async (p, h, t) => {
 		const S = softly(t);
 		await onDevice(p, size, async () => {
 			S.ok(await p.ev(`document.body.classList.contains('is-tablet')`), 'a tablet');
@@ -928,11 +931,13 @@ for (const [dev, size] of TABLETS) {
 			if (!pinned) await showExplorer(p);
 			S.ok(await p.ev(`document.querySelector(${j(explorerRow('Novel'))})?.classList.contains('is-active')`), 'the explorer marks the folder shown, as it marks the open note: ' + await p.ev(`document.querySelector(${j(explorerRow('Novel'))})?.className`));
 			// six scenes and a folder, typed on the keyboard
-			await tapEl(p, `${LEAF} .binders-card-new`);
-			for (const n of NAMES.slice(0, 6)) { await keys(p, n); await p.key('Enter'); await until(p, `!!app.vault.getAbstractFileByPath(${j(N + n + '.md')})`, 3000); await p.sleep(300); }
-			await p.key('Escape');
-			await p.sleep(300);
-			S.eq(await focusIs(p).then((x) => /binders-card-new/.test(x)), true, 'Escape leaves the keyboard on the “New note” tile: ' + await focusIs(p));
+			for (const n of NAMES.slice(0, 6)) {
+				await tapEl(p, `${LEAF} .binders-new-button`);
+				await pick(p, 'New note');
+				await until(p, `document.activeElement?.matches('${LEAF} .binders-card[data-path] input')`, 3000);
+				await keys(p, n); await p.key('Enter'); await until(p, `!!app.vault.getAbstractFileByPath(${j(N + n + '.md')})`, 3000); await p.sleep(300);
+			}
+			S.ok(/binders-card/.test(await focusIs(p)), 'Enter leaves the keyboard on the new card: ' + await focusIs(p));
 			S.eq(j(names(await list(p, NNOTE))), j(NAMES.slice(0, 6)), 'six notes, in order');
 			if (await drawerOpen(p)) S.eq(j((await explorerOrder(p, 'Novel')).map((x) => x.split('/').pop().replace(/\.md$/, ''))), j(NAMES.slice(0, 6)), 'and the explorer beside the board lists them as they’re made');
 			await tapEl(p, `${LEAF} .binders-new-button`);
@@ -1450,7 +1455,7 @@ for (const [dev, size] of [['phone (390 × 844)', PHONE], ['tablet upright (820 
 			await tap(p, o.x, o.t + o.h - 14);
 			await p.sleep(400); await flush(p);
 			S.eq((await fm(p, N + 'Two.md'))?.synopsis, 'Before and after.', 'and saved once');
-			// the "New note" tile
+			// a new note's name
 			await tapEl(p, `${LEAF} .binders-new-button`);
 			await pick(p, 'New note');
 			await p.type('Twenty');
@@ -1459,7 +1464,6 @@ for (const [dev, size] of [['phone (390 × 844)', PHONE], ['tablet upright (820 
 			await p.type(' one');
 			await p.key('Enter');
 			await until(p, `!!app.vault.getAbstractFileByPath('Novel/Twenty one.md')`, 3000);
-			await p.key('Escape');
 			await p.sleep(300);
 			S.eq(await p.ev(`app.vault.getMarkdownFiles().filter(f => /^Novel\\/Twenty/.test(f.path)).map(f => f.basename).sort().join()`), 'Twenty,Twenty one', 'and one note made, with the whole name');
 			// a row's target
@@ -1547,8 +1551,8 @@ for (const [dev, size] of [['phone (390 × 844)', PHONE], ['tablet upright (820 
 			await p.type('Half a na');
 			await away(p, true);
 			await p.sleep(500);
-			S.eq(await p.ev(`app.vault.getMarkdownFiles().filter(f => /^Novel\\/Half/.test(f.path)).map(f => f.basename).join()`), 'Half a na', 'a new note’s name: a note is made with what was typed, once');
-			S.eq(await openFields(p), 0, 'and the tile is a tile again');
+			S.eq(await p.ev(`app.vault.getMarkdownFiles().filter(f => /^Novel\\/Half/.test(f.path)).map(f => f.basename).join()`), 'Half a na', 'a new note’s name: the note has the name that was typed, and there is one of it');
+			S.eq(await openFields(p), 0, 'and no field is left open');
 			// the manuscript
 			await setMode(p, 'manuscript');
 			await tapEnd(p, `(${scene('Three')})`);
@@ -1655,7 +1659,7 @@ test('phone 3c. the drawer opened, and the mode switched, in the middle of each 
 		await p.ev(`(() => { ${VIEW}.setMode('corkboard'); return 1; })()`);
 		await p.sleep(600);
 		S.eq(count(await read(p, 'Novel/Eight.md'), 'typed, then the corkboard'), 1, 'the manuscript’s text typed just before the mode changes is in the note, once');
-		// the tile, half typed
+		// a new note's name, half typed
 		await tapEl(p, `${LEAF} .binders-new-button`);
 		await pick(p, 'New note');
 		await p.type('Half typed');
@@ -1663,7 +1667,7 @@ test('phone 3c. the drawer opened, and the mode switched, in the middle of each 
 		await p.sleep(900);
 		const made = await p.ev(`app.vault.getMarkdownFiles().filter(f => /^Novel\\/Half/.test(f.path)).map(f => f.basename).join()`);
 		log('phone: a new note’s name half typed when the mode changes makes:', j(made));
-		S.ok(made === 'Half typed' || made === '', 'a new note’s name half typed when the mode changes: one note with that name, or none (never two, never “Untitled”)');
+		S.eq(made, 'Half typed', 'a new note’s name half typed when the mode changes: one note, with that name');
 		S.eq(await p.ev(`app.vault.getMarkdownFiles().filter(f => /Untitled/.test(f.path)).length`), 0, 'no “Untitled” is left');
 		S.eq(await openFields(p) + await menus(p) + await dialogs(p), 0, 'nothing is left open');
 	});
@@ -1718,7 +1722,7 @@ test('phone 4. the README’s “Getting started” and “On phones and tablets
 		await p.ev(`(() => { document.activeElement?.blur?.(); ${VIEW}.focusMode(); return 1; })()`);
 		S.ok(await palette(p, 'New scene here'), '“New scene here” is in the palette with the binder view in front');
 		await p.sleep(600);
-		S.eq(await p.ev(`document.activeElement.tagName + ':' + (document.activeElement.value ?? '')`), 'INPUT:', 'and opens the “New note” tile to be named');
+		S.eq(await p.ev(`document.activeElement.tagName + ':' + (document.activeElement.value ?? '')`), 'INPUT:Untitled', 'and makes a note on the board, its name ready to type over');
 		await p.type('From the palette');
 		await p.key('Enter');
 		await until(p, `!!app.vault.getAbstractFileByPath(${j(L + 'From the palette.md')})`, 3000);
@@ -1860,15 +1864,14 @@ test('phone 5. one note’s menu in each mode and in the file explorer: the same
 		await tapEl(p, `${LEAF} .binders-new-button`);
 		await pick(p, 'New note');
 		await until(p, `document.activeElement?.tagName === 'INPUT'`, 3000);
-		const tileIn = await p.ev(`document.activeElement.closest('.binders-card-new')?.dataset.new ?? null`);
 		await p.type('From the board');
 		await p.key('Enter');
 		await until(p, `app.vault.getMarkdownFiles().some(f => f.basename === 'From the board')`, 3000);
 		await p.key('Escape');
 		await p.sleep(400);
 		const l1 = await list(p, NNOTE);
-		log('corkboard: with “Two” (Chapter 1) selected, New → New note made', l1.find((x) => /From the board/.test(x)), 'at', l1.findIndex((x) => /From the board/.test(x)), 'of', l1.length, '(tile:', j(tileIn), ')');
-		S.eq(tileIn, null, 'corkboard: with a card selected, the new note is named on a card of its own, not in the tile at the board’s end');
+		log('corkboard: with “Two” (Chapter 1) selected, New → New note made', l1.find((x) => /From the board/.test(x)), 'at', l1.findIndex((x) => /From the board/.test(x)), 'of', l1.length);
+		S.eq(l1[l1.findIndex((x) => /From the board/.test(x)) - 1], 'Chapter 1/Two', 'corkboard: with a card selected, the new note is made right after it');
 		await modeByTouch(p, 'Outliner');
 		const r = await see(p, ocell('Novel/Chapter 1/Two.md', 'label'));
 		await tap(p, r.x, r.y);

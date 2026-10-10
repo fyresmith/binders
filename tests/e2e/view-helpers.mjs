@@ -77,6 +77,19 @@ export async function clickMenu(p, title) {
 	if (!ok) throw new Error(`no menu item “${title}”: ` + (await menuItems(p)).join(', '));
 	await p.sleep(200);
 }
+/** A new note from "New" in the binder view's toolbar: after the card or row in hand, or last. Its title is left
+    ready to type over; with `name`, that is typed and Enter pressed. (A mouse; a touch test taps the button itself.) */
+export async function newNote(p, name = null, leaf = '.workspace-leaf.mod-active') {
+	const btn = await p.at(`${leaf} .binders-new-button`);
+	await p.click(btn.x, btn.y);
+	await until(p, `!!document.querySelector('.menu')`);
+	await clickMenu(p, 'New note');
+	await until(p, `document.activeElement?.matches('${leaf} :is(.binders-card[data-path], .binders-outliner-row) input')`);
+	if (name == null) return;
+	await p.type(name);
+	await p.key('Enter');
+}
+
 /** Hovers a menu item (opens its submenu). */
 export async function hoverMenu(p, title) {
 	const at = await p.ev(`(() => { const it = [...document.querySelectorAll('.menu .menu-item')].find(e => e.querySelector('.menu-item-title')?.textContent === ${j(title)}); if (!it) return null; const r = it.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);

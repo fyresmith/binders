@@ -1109,7 +1109,7 @@
 .binders-editable,
 .binders-group-title,
 .binders-breadcrumbs,
-.binders-card-list,
+.binders-cards,
 .binders-lanes,
 .binders-outliner-table,
 .binders-toolbar-button,
@@ -1655,16 +1655,14 @@
    out backwards. The text and its field keep a letter's width each, though they then stick out of the card.) */
 .binders-editable.is-editing,
 .binders-editable textarea.binders-edit-field,
-.binders-editable input.binders-edit-field,
-.binders-card-new input.binders-edit-field {
+.binders-editable input.binders-edit-field {
 	min-width: 1em;
 }
 
 /* The field sits exactly where the text was, so nothing jumps when editing starts. (Two classes and the element, to
    outrank Obsidian's own input styles, which would add a border and padding.) */
 .binders-editable textarea.binders-edit-field,
-.binders-editable input.binders-edit-field,
-.binders-card-new input.binders-edit-field {
+.binders-editable input.binders-edit-field {
 	display: block;
 	width: 100%;
 	height: auto;
@@ -1684,9 +1682,7 @@
 .binders-editable textarea.binders-edit-field:hover,
 .binders-editable textarea.binders-edit-field:focus,
 .binders-editable input.binders-edit-field:hover,
-.binders-editable input.binders-edit-field:focus,
-.binders-card-new input.binders-edit-field:hover,
-.binders-card-new input.binders-edit-field:focus {
+.binders-editable input.binders-edit-field:focus {
 	background: transparent;
 	border: none;
 	box-shadow: none;
@@ -1936,10 +1932,9 @@
 	gap: var(--size-4-3);
 }
 
-/* The list of cards (what a screen reader is told is a list: only the cards, without the "New note" tile after them)
-   has no box of its own: its cards are cells of the grid above, and so is the tile beside it. */
-.binders-card-list {
-	display: contents;
+/* (a Longform project's last group, when it has no scene of its own: room to drop a card there while one is dragged) */
+.binders-board.is-dragging .binders-group:last-child > .binders-cards:empty {
+	min-height: var(--binders-card-height, 132px);
 }
 
 /* A card or row just made is laid out in full while what moved is measured (see settle() in drag.ts). */
@@ -2313,86 +2308,6 @@
 .binders-drag-ghost.is-multiple > .binders-card.has-label {
 	--binders-pile-in: -1px;
 	--binders-pile-face: color-mix(in oklch, var(--binders-label) 14%, var(--bases-cards-background, var(--background-primary)));
-}
-
-/* "New note": the next card's place at the end of the board, empty, with a plus and the words in its middle. Pointed
-   at or focused it takes a card's edge and the plus makes a quarter turn (the one bit of motion); it becomes a card
-   while its title is typed. */
-.binders-card-new {
-	align-items: center;
-	justify-content: center;
-	gap: var(--size-2-3);
-	background-color: transparent;
-	--binders-outline: 0 0 0 0 transparent;
-	color: var(--text-faint);
-	font-size: var(--font-ui-small);
-	cursor: var(--cursor);
-	transition: color var(--anim-duration-fast, 140ms) ease-in-out, background-color var(--anim-duration-fast, 140ms) ease-in-out, box-shadow var(--anim-duration-fast, 140ms) ease-in-out;
-}
-
-.binders-card-new-icon {
-	display: flex;
-	--icon-size: var(--icon-m);
-	transition: transform var(--anim-duration-moderate, 300ms) var(--anim-motion-swing, cubic-bezier(0, 0.55, 0.45, 1));
-}
-
-.binders-card-new:not(.is-editing):focus-visible {
-	color: var(--text-muted);
-	--binders-outline: 0 0 0 2px var(--background-modifier-border-focus);
-}
-
-.binders-card-new:not(.is-editing):focus-visible > .binders-card-new-icon {
-	transform: rotate(90deg);
-}
-
-.binders-card-new.is-editing {
-	color: var(--text-normal);
-	align-items: stretch;
-	justify-content: flex-start;
-	background-color: var(--bases-cards-background, var(--background-primary));
-	--binders-outline: 0 0 0 2px var(--interactive-accent);
-	cursor: default;
-}
-
-.binders-card-new.is-editing input.binders-edit-field {
-	font-family: var(--font-text);
-	font-size: var(--font-ui-medium);
-	font-weight: var(--font-semibold);
-	line-height: var(--line-height-tight);
-}
-
-@media (hover: hover) {
-	.binders-card-new:not(.is-editing):not(:focus-visible):hover {
-		color: var(--text-muted);
-		background-color: var(--background-modifier-hover);
-		--binders-outline: var(--bases-cards-shadow, 0 0 0 1px var(--background-modifier-border));
-	}
-	.binders-card-new:not(.is-editing):hover > .binders-card-new-icon {
-		transform: rotate(90deg);
-	}
-	.binders-board.is-dragging .binders-card-new:not(.is-editing):hover {
-		color: var(--text-faint);
-		background-color: transparent;
-		--binders-outline: 0 0 0 0 transparent;
-	}
-}
-
-@media (prefers-reduced-motion: reduce) {
-	.binders-card-new,
-	.binders-card-new-icon {
-		transition: none;
-	}
-	.binders-card-new:not(.is-editing) > .binders-card-new-icon {
-		transform: none;
-	}
-}
-
-/* In one column (a phone, a narrow pane) it's a row a finger tall, the plus beside the words. */
-@container binders-view (width < 520px) {
-	.binders-card-new:not(.is-editing) {
-		flex-direction: row;
-		min-height: 48px;
-	}
 }
 
 /* Dragging, as Obsidian reorders its own items: the card follows the pointer, its place is held by a tinted slot, and a

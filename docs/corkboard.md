@@ -26,7 +26,7 @@ and use the breadcrumb above the board to come back out.
 | Edit the synopsis | Click a selected card's synopsis and type. Ctrl+Enter (Cmd+Enter) or clicking away keeps it; Esc leaves it as it was |
 | Rename | Press F2, or choose **Rename** in the card's menu |
 | Open the card's menu | Right-click the card, or press Shift+F10 |
-| Add a note | **New note** at the end of the board, or **New** in the toolbar |
+| Add a note | **New** in the toolbar, then **New note**: after the selected card, or last with none selected. Its name is ready to type |
 
 A folder with no synopsis gets one from **Edit synopsis** in its menu.
 

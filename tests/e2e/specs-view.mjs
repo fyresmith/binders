@@ -601,7 +601,7 @@ test('a view closed while binders were still being found stays closed: no board 
 		t.eq(j(after), j({ mode: false, drawn: false, text: 'Loading…', attached: false }), 'nothing was made in the closed view');
 		// (and a view that is open does draw once they are found)
 		await openView(p, 'The Lighthouse/Part Three');
-		t.ok(await p.ev(`!!document.querySelector('.workspace-leaf.mod-active .binders-view .binders-card-new')`), 'an open view on that folder shows its board');
+		t.ok(await p.ev(`!!document.querySelector('.workspace-leaf.mod-active .binders-view .binders-board')`), 'an open view on that folder shows its board');
 	} finally {
 		await p.ev(`(() => { window.__settle?.(); ${B}.settled = window.__settled; delete window.__closed; delete window.__closing; return 1; })()`);
 	}

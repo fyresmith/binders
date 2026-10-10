@@ -1,7 +1,7 @@
 // QA round 2 on the corkboard (src/view/corkboard.ts, edit.ts, the toolbar in BinderView.ts): the rewritten drag (ghost,
 // slot, insertion line, glide), the toolbar, focus and keyboard, narrow panes, touch, and a big board. Tests named
 // "BUG:" fail on purpose: each is a confirmed bug (see the QA report); the rest passed and pin down what is solid.
-import { B, NOTE, PL, VIEW, card, cards, closeMenus, contents, exists, file, flush, j, openView, selected, texts, same, settled, until, viewState, withTidy } from './view-helpers.mjs';
+import { B, NOTE, PL, VIEW, card, cards, closeMenus, contents, exists, file, flush, j, newNote, openView, selected, texts, same, settled, until, viewState, withTidy } from './view-helpers.mjs';
 
 export const specs = [];
 const test = (name, fn) => specs.push({ name: 'qa2 corkboard: ' + name, fn });
@@ -41,20 +41,21 @@ async function bigFolder(p, name, n) {
 
 // ---- confirmed bugs (these fail) ----
 
-test('BUG: a card dropped on the “New note” tile, when the tile has wrapped onto its own row, goes to the board’s end', withTidy(async (p, h, t) => {
-	// a fourth note in Part One fills its row of four, so the "New note" tile sits alone on the next row
+test('a card dropped below the last row, when that row is full, goes to the board’s end', withTidy(async (p, h, t) => {
+	// a fourth note in Part One fills its row of four: the board's end is below that row
 	await p.ev(`app.vault.create(${j(L + 'Part One/Fourth.md')}, 'four words are here').then(() => 1)`);
 	await p.sleep(700);
 	await openView(p, L + 'Part One');
 	// (the board lays its cards out once its pane has a width and its notes are counted: measure when it has stopped)
-	await settled(p, `${LEAF} .binders-card-new`);
-	const tile = await p.at(`${LEAF} .binders-card-new`), last = await at(p, 'Part One/Fourth.md'), e = await at(p, 'Part One/Arrival.md');
-	t.ok(tile.t > last.t + last.h - 1, `the tile is on a row of its own (${j(tile)} under ${j(last)})`);
-	await hold(p, { x: e.x, y: e.t + 12 }, { x: tile.x, y: tile.y });
+	await settled(p, `${LEAF} .binders-card[data-path$="Fourth.md"]`);
+	const last = await at(p, 'Part One/Fourth.md'), e = await at(p, 'Part One/Arrival.md');
+	t.ok(Math.abs(last.t - e.t) < 2, `the four cards are on one row (${j(e)}, ${j(last)})`);
+	const to = { x: e.x, y: last.t + last.h + 50 };
+	await hold(p, { x: e.x, y: e.t + 12 }, to);
 	const mark = await line(p);
-	await letGo(p, tile.x, tile.y);
+	await letGo(p, to.x, to.y);
 	await p.sleep(600);
-	t.eq(j(await names(p)), j(['Part One/The keeper', 'Part One/Storm warning', 'Part One/Fourth', 'Part One/Arrival']), `dropped on the tile after the last card, it is last (the line was at ${j(mark)}, the pointer at ${j({ x: tile.x, y: tile.y })})`);
+	t.eq(j(await names(p)), j(['Part One/The keeper', 'Part One/Storm warning', 'Part One/Fourth', 'Part One/Arrival']), `dropped below the last row, under the first card, it is last (the line was at ${j(mark)}, the pointer at ${j(to)})`);
 	await flush(p);
 	t.eq(j((await contents(p)).slice(1, 6)), j(['Part One/', 'Part One/The keeper', 'Part One/Storm warning', 'Part One/Fourth', 'Part One/Arrival']), 'and in the binder’s list');
 }));
@@ -148,29 +149,6 @@ test('BUG: cancelling Delete leaves the focus on the card, not on the first card
 	t.ok(await exists(p, L + 'Part Two/The wreck.md'), 'cancelled: the folder and its notes are still there');
 	t.eq(j(await selected(p)), j([L + 'Part Two']), 'the stack is still selected');
 	t.eq(await p.ev(`document.activeElement?.dataset?.path ?? null`), L + 'Part Two', 'and focused');
-}));
-
-test('BUG: Escape after a note made with Enter leaves the focus on the “New note” tile, not on the page', withTidy(async (p, h, t) => {
-	await openView(p);
-	const tile = await p.at(`${LEAF} .binders-group:last-child .binders-card-new`);
-	// a tile not used yet: Escape puts the focus back on it
-	await p.click(tile.x, tile.y);
-	await until(p, `document.activeElement?.matches('${LEAF} .binders-card-new input')`);
-	await p.key('Escape');
-	await until(p, `document.activeElement?.matches('${LEAF} .binders-card-new')`);
-	t.ok(await p.ev(`document.activeElement?.matches('${LEAF} .binders-card-new')`), 'Escape on a fresh tile: the tile has the focus');
-	await p.click(tile.x, tile.y);
-	await until(p, `document.activeElement?.matches('${LEAF} .binders-card-new input')`);
-	await p.type('Afterword');
-	await p.key('Enter');
-	await until(p, `app.vault.adapter.exists(${j(L + 'Afterword.md')})`);
-	await until(p, `document.activeElement?.matches('${LEAF} .binders-card-new input')`);
-	t.ok(await p.ev(`document.activeElement?.matches('${LEAF} .binders-card-new input')`), 'Enter offers the next title');
-	// a moment later (the new note's words are counted, its properties read: the board wants a redraw, and waits)
-	await p.sleep(1500);
-	await p.key('Escape');
-	await p.sleep(300);
-	t.ok(await p.ev(`!!document.activeElement?.closest('${LEAF} .binders-board')`), 'after Escape the focus is still on the board, not on ' + await active(p));
 }));
 
 test('BUG: a narrow pane (one column): a stack with a long name doesn’t widen the cards past the pane', withTidy(async (p, h, t) => {
@@ -435,21 +413,12 @@ test('keyboard: Down and Up go between rows by position, Left and Right through 
 	t.eq(await p.ev(`document.activeElement?.dataset?.path`), L + 'Epilogue.md', 'and keeps the focus');
 }));
 
-test('a new note typed in the last tile, after a last subfolder, is made last in the binder, and the tile offers another', withTidy(async (p, h, t) => {
+test('a new note made with no card selected, after a last subfolder, is made last in the binder', withTidy(async (p, h, t) => {
 	await p.ev(`(async () => { await app.vault.createFolder(${j(L + 'Part Three')}); await app.vault.create(${j(L + 'Part Three/Aftermath.md')}, 'a b c'); })().then(() => 1)`);
 	await p.sleep(900);
 	await openView(p);
-	await p.ev(`document.querySelector('${LEAF} .binders-group:last-child .binders-card-new').scrollIntoView({ block: 'center' })`);
-	await p.sleep(300);
-	const tile = await p.at(`${LEAF} .binders-group:last-child .binders-card-new`);
-	await p.click(tile.x, tile.y);
-	await until(p, `document.activeElement?.matches('${LEAF} .binders-card-new input')`);
-	await p.type('Coda');
-	await p.key('Enter');
+	await newNote(p, 'Coda', LEAF);
 	await until(p, `app.vault.adapter.exists(${j(L + 'Coda.md')})`);
-	await until(p, `document.activeElement?.matches('${LEAF} .binders-group:last-child .binders-card-new input')`);
-	t.ok(await p.ev(`document.activeElement?.matches('${LEAF} .binders-group:last-child .binders-card-new input')`), 'the tile is ready for the next title');
-	await p.key('Escape');
 	await flush(p);
 	t.eq(j((await contents(p)).slice(-3)), j(['Part Three/', 'Part Three/Aftermath', 'Coda']), 'Coda is after the last folder');
 }));

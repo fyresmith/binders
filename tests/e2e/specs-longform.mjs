@@ -1,7 +1,7 @@
 // Longform projects as binders (src/longform.ts, the Longform parts of src/binders.ts): detection, order and groups,
 // reordering that writes only `longform.scenes`, rename and delete tracking, "Convert to binder", and projects nested
 // in a binder, and the three views on a project. Every test that changes files checks no text was lost.
-import { VIEW, card, cards, openView } from './view-helpers.mjs';
+import { VIEW, card, cards, clickMenu, newNote, openView } from './view-helpers.mjs';
 
 export const specs = [];
 const test = (name, fn) => specs.push({ name: 'longform: ' + name, fn });
@@ -241,9 +241,9 @@ test('corkboard: scenes in Longform order, indented scenes grouped under the sce
 	t.eq(j(await cards(p)), j(SCENES.map((n) => `${DIR}/${n}.md`)), 'cards in order');
 	t.eq(j(await groupsShown(p)), j([':Harbor', 'Harbor:Ticket office,The crossing', ':Island,Return']), 'the group has the scene above it as heading');
 	t.ok(await p.ev(`document.querySelectorAll('.workspace-leaf.mod-active .binders-group.is-indented').length === 1`), 'and is indented');
-	// (a project has no folders: nothing on its board is a stack, and each group ends in its own "New note" tile)
+	// (a project has no folders: nothing on its board is a stack)
 	t.eq(await p.ev(`document.querySelectorAll('.workspace-leaf.mod-active .binders-card.is-stack').length`), 0, 'no card is a stack');
-	t.eq(await p.ev(`document.querySelectorAll('.workspace-leaf.mod-active .binders-group').length + ' groups, ' + document.querySelectorAll('.workspace-leaf.mod-active .binders-card-new').length + ' tiles'`), '3 groups, 3 tiles', 'each group has its “New note” tile');
+	t.eq(await p.ev(`document.querySelectorAll('.workspace-leaf.mod-active .binders-group').length + ' groups, ' + document.querySelectorAll('.workspace-leaf.mod-active .binders-card-new').length + ' tiles'`), '3 groups, 0 tiles', 'three groups, and no “New note” tile');
 	t.eq(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-group.is-indented .binders-group-count')?.textContent`), '2 notes · 13 words'.replace('13', String(await p.ev(`[...document.querySelectorAll('.workspace-leaf.mod-active .binders-group.is-indented .binders-card-words')].map(e => parseInt(e.textContent, 10)).reduce((a, b) => a + b, 0)`))), 'the group’s heading counts its scenes and their words');
 	t.eq(await p.ev(`document.querySelectorAll('.workspace-leaf.mod-active .binders-breadcrumbs .binders-crumb[data-path]').length`), 0, 'and there is no folder above to go out to');
 	// the toolbar's New has no folder to offer
@@ -273,32 +273,57 @@ test('corkboard: dragging a card into a group indents it; only longform.scenes c
 	t.eq(scenesBlock(split(await read(p, INDEX)).yaml).rest, scenesBlock(split(before[INDEX]).yaml).rest, 'the rest of the index note’s properties unchanged');
 	t.eq(split(await read(p, INDEX)).body, split(before[INDEX]).body, 'its text too');
 	// and out again, to the end of the top level
-	const c = await p.at(card(`${DIR}/Ticket office.md`)), end = await p.at(`.workspace-leaf.mod-active .binders-group:last-child .binders-card-new`);
-	await p.drag(c.x, c.t + 12, end.x, end.y, 16);
+	const c = await p.at(card(`${DIR}/Ticket office.md`)), end = await p.at(card(`${DIR}/Island.md`));
+	await p.drag(c.x, c.t + 12, end.l + end.w - 10, end.y, 16);
 	await p.sleep(300);
 	await flush(p);
 	t.eq(await block(p), ['    - Harbor', '    - - Return', '      - The crossing', '    - Island', '    - Ticket office'].join('\n'), 'out of the group, last');
 }));
 
+test('corkboard: a project that ends in indented scenes: a card dropped below them leaves the group, last at the top level', withTidy(async (p, h, t) => {
+	const before = await texts(p);
+	await p.ev(`app.fileManager.processFrontMatter(${file(INDEX)}, fm => { fm.longform.scenes = ['Harbor', ['Ticket office', 'The crossing', 'Island', 'Return']]; }).then(() => 1)`);
+	await openView(p, DIR);
+	await until(p, `document.querySelectorAll('.workspace-leaf.mod-active .binders-group.is-indented .binders-card[data-path]').length === 4`);
+	await p.sleep(400);
+	t.eq(j(await groupsShown(p)), j([':Harbor', 'Harbor:Ticket office,The crossing,Island,Return', ':']), 'the group, then the top level’s end, with no card of its own');
+	const end = () => p.ev(`(() => { const r = document.querySelector('.workspace-leaf.mod-active .binders-group:last-child > .binders-cards').getBoundingClientRect(); return { t: Math.round(r.top), h: Math.round(r.height) }; })()`);
+	t.eq((await end()).h, 0, 'which takes no room on the board');
+	// held over the board's end, there is a card's room to drop it in
+	const c = await p.at(card(`${DIR}/The crossing.md`));
+	await p.move(c.x, c.t + 12, 2);
+	await p.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: c.x, y: c.t + 12, button: 'left', clickCount: 1 });
+	await p.move(c.x + 30, c.t + 40, 6, { buttons: 1 });
+	await p.sleep(200);
+	const room = await end();
+	t.ok(room.h >= 100, 'while a card is carried the end has a card’s room: ' + j(room));
+	await p.move(c.x, room.t + room.h / 2, 12, { buttons: 1 });
+	await p.sleep(200);
+	t.ok(await p.ev(`document.querySelector('.binders-drop-indicator')?.classList.contains('is-active')`), 'and the line shows there');
+	await p.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: c.x, y: room.t + room.h / 2, button: 'left', clickCount: 1 });
+	await p.sleep(500);
+	await flush(p);
+	t.eq(await block(p), ['    - Harbor', '    - - Ticket office', '      - Island', '      - Return', '    - The crossing'].join('\n'), 'out of the group, last at the top level');
+	t.eq(j(await groupsShown(p)), j([':Harbor', 'Harbor:Ticket office,Island,Return', ':The crossing']), 'shown there');
+	same(t, before, await texts(p), { skip: [INDEX] });
+}));
+
 test('corkboard: a new card at the end of the project is listed once', withTidy(async (p, h, t) => {
 	await openView(p, DIR);
-	const tile = await p.at(`.workspace-leaf.mod-active .binders-group:last-child .binders-card-new`);
-	await p.click(tile.x, tile.y);
-	await p.type('Landfall');
-	await p.key('Enter');
+	await newNote(p, 'Landfall');
 	await until(p, `!!${scene('Landfall')}`);
-	await p.key('Escape');
 	await flush(p);
 	t.eq(await block(p), ['    - Harbor', '    - - Ticket office', '      - The crossing', '    - Island', '    - Return', '    - Landfall'].join('\n'), 'the new scene is last, once');
 }));
 
-test('corkboard: a new card in a group makes the scene there, in the group', withTidy(async (p, h, t) => {
+test('corkboard: New note in a group’s own menu makes the scene there, in the group', withTidy(async (p, h, t) => {
 	await openView(p, DIR);
-	const nc = await p.at(`.workspace-leaf.mod-active .binders-group.is-indented .binders-card-new`);
-	await p.click(nc.x, nc.y);
+	const hd = await p.at(`.workspace-leaf.mod-active .binders-group.is-indented .binders-group-count`);
+	await p.right(hd.x, hd.y);
+	await clickMenu(p, 'New note');
+	await until(p, `document.activeElement?.matches('.workspace-leaf.mod-active .binders-group.is-indented .binders-card[data-path] input')`);
 	await p.type('Queue');
 	await p.key('Enter');
-	await p.key('Escape');
 	t.ok(await until(p, `!!${file(DIR + '/Queue.md')}`), 'the note is made in the scene folder');
 	await flush(p);
 	t.eq(await block(p), ['    - Harbor', '    - - Ticket office', '      - The crossing', '      - Queue', '    - Island', '    - Return'].join('\n'), 'listed at the end of the group');

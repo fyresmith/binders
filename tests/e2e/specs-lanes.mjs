@@ -117,7 +117,7 @@ test('“Arrange” in the toolbar: in a grid, or by label with the lines across
 	await p.ev(`app.workspace.setActiveLeaf(app.workspace.getLeavesOfType('binders-view')[0], { focus: true })`);
 	t.ok(await p.ev(`!!app.commands.findCommand('binders:arrange-by-label')?.checkCallback(true)`), 'the command “Arrange corkboard by label” is there');
 	await h.run('arrange-by-label');
-	await until(p, `!document.querySelector('.binders-lanes') && !!document.querySelector('.binders-card-new')`);
+	await until(p, `!document.querySelector('.binders-lanes') && !!document.querySelector('.binders-board .binders-cards')`);
 	t.eq((await viewState(p)).options.arrange, 'grid', 'the command puts the cards back in their grid');
 	await h.run('arrange-by-label');
 	await until(p, `!!document.querySelector('.binders-lanes > .binders-lane')`);

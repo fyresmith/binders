@@ -1,7 +1,7 @@
 import { Keymap, Menu, Notice, TFile, TFolder, setIcon, type PaneType, type TAbstractFile } from 'obsidian';
 import { buildCard, cardKey, countLabel, crumbAt, heir, numberCards, overPane, owedFocus, typingNow, type CardHost } from './card';
 import type { Editable } from './edit';
-import { emptyState, badName, isNote, itemMenu, nameOf, noteOf, plain, removeItems, renameItem } from './actions';
+import { emptyState, isNote, itemMenu, nameOf, noteOf, plain, removeItems, renameItem } from './actions';
 import { LONG_PRESS, SelectBox, held, settle, visibleBottom } from './drag';
 import { FileDrag } from './file-drag';
 import { CARD_SIZES, movedText, type CardSize } from './lanes-data';
@@ -59,9 +59,9 @@ const GLIDE_MAX = 120;
 const GLIDE_CALM = 24;
 interface DrawnCard { el: HTMLElement; key: string; file: TAbstractFile; editors: { title: Editable; synopsis: Editable } }
 
-/** What a card, a "New note" card or a group's heading is, the same from one redraw to the next. */
+/** What a card or a group's heading is, the same from one redraw to the next. */
 const placeKey = (el: HTMLElement): string | null =>
-	el.dataset.path != null ? 'card\n' + el.dataset.path : el.dataset.new != null ? 'new\n' + el.dataset.new : el.dataset.heading != null ? 'heading\n' + el.dataset.heading : null;
+	el.dataset.path != null ? 'card\n' + el.dataset.path : el.dataset.heading != null ? 'heading\n' + el.dataset.heading : null;
 /** The mode factory plugin.modeFactories uses for the corkboard in a grid. */
 export const corkboard: ModeFactory = (container, ctx) => new Corkboard(container, ctx);
 
@@ -77,7 +77,6 @@ class Corkboard implements BinderMode {
 	private focused: string | null = null;
 	private editing = 0;
 	private dirty = false;
-	private newIn: string | null = null;
 	/** Notes made here since the filter last changed: they show though the filter would hide them (a new note has no
 	    status yet), so a note just made doesn't vanish. */
 	private made = new Set<TFile>();
@@ -166,7 +165,7 @@ class Corkboard implements BinderMode {
 	/** The board made shorter while something is typed (a phone's keyboard coming up over it): the field stays in sight. */
 	private fit = (): void => {
 		const a = this.board.doc.activeElement;
-		if ((this.editing > 0 || this.newIn) && a?.instanceOf(HTMLElement) && this.board.contains(a)) { a.scrollIntoView({ block: 'nearest' }); this.inSight(a); }
+		if (this.editing > 0 && a?.instanceOf(HTMLElement) && this.board.contains(a)) { a.scrollIntoView({ block: 'nearest' }); this.inSight(a); }
 		// Made narrower or wider (a window resized, a tablet turned): a row holds another number of cards, and the same
 		// scroll position shows other notes. The card that was in the middle of the pane is put back there.
 		const box = this.container, w = box.clientWidth, was = this.width, mid = this.mid;
@@ -222,16 +221,15 @@ class Corkboard implements BinderMode {
 	    asked for before there's a card, it's given once there is one, unless the keyboard has gone elsewhere since.) */
 	focus(): void {
 		const c = this.cardEl(this.focused) ?? this.cards()[0];
-		if (!c) {
-			// (no card to be on: the "New note" tile meanwhile, so the keyboard is never left on the page)
-			this.focusOnDraw = true;
-			this.board.querySelector<HTMLElement>('.binders-card-new')?.focus({ preventScroll: true });
-			return;
-		}
+		// (no card to be on: "New" in the toolbar meanwhile, so the keyboard is never left on the page. The board is
+		// still owed it: noted after the toolbar has it, which is outside the board)
+		if (!c) { this.focusNew(); this.focusOnDraw = true; return; }
 		this.focused ??= c.dataset.path ?? null;
 		c.focus({ preventScroll: true });
 	}
 	private focusOnDraw = false;
+	/** The keyboard on "New" in the view's toolbar (if it shows: not in a read-only binder), the way to a first card. */
+	private focusNew(): void { this.container.closest('.binders-view')?.querySelector<HTMLElement>('.binders-new-button:not(.is-hidden)')?.focus({ preventScroll: true }); }
 
 	/** Where the board is: the first card in sight and how far it's scrolled past the top (cards out of sight are
 	    stand-ins of a guessed height, so a scroll position alone wouldn't find the same place again). */
@@ -275,22 +273,22 @@ class Corkboard implements BinderMode {
 
 	create(kind: 'note' | 'folder'): void {
 		if (kind === 'folder') { void this.newFolder(); return; }
-		// after the card in hand, as a new row in the outliner goes after the row in hand; with none, in the "New note"
-		// tile at the end
+		if (this.ctx.readOnly) return;
+		// after the card in hand, as a new row in the outliner goes after the row in hand; with none, at the end
 		const at = this.focused && this.sel.has(this.focused) ? this.ctx.app.vault.getAbstractFileByPath(this.focused) : null;
 		const folder = at?.parent, sibs = folder ? this.store.orderedChildren(folder) ?? [] : [];
-		// (with the keyboard on a "New note" tile, that tile is where it's made)
-		const onTile = this.board.doc.activeElement?.closest<HTMLElement>('.binders-card-new');
-		if (onTile) { this.startNew(onTile.closest<HTMLElement>('.binders-group')); return; }
-		if (!at || !folder || !sibs.includes(at) || this.ctx.readOnly) { this.startNew(); return; }
-		// (after the last card of its group is where that group's tile is: the tile takes one name after another)
-		const group = this.cardEl(at.path)?.closest<HTMLElement>('.binders-group'), cards = group ? [...group.querySelectorAll<HTMLElement>(':scope > .binders-cards > .binders-card-list > .binders-card[data-path]')] : [];
-		if (group && cards[cards.length - 1]?.dataset.path === at.path) { this.startNew(group); return; }
-		void this.store.newScene(folder, sibs.indexOf(at) + 1, 'Untitled', this.store.depthOf(at)).then((file) => {
+		if (at && folder && sibs.includes(at)) void this.newNote(folder, sibs.indexOf(at) + 1, this.store.depthOf(at));
+		else void this.newNote(this.ctx.folder, Infinity);
+	}
+
+	/** A new note at `index` in a folder, its title ready to type over, as a new note in the file explorer is. */
+	private async newNote(folder: TFolder, index: number, depth?: number): Promise<void> {
+		try {
+			const file = await this.store.newScene(folder, index, 'Untitled', depth);
 			this.made.add(file);
 			this.ctx.made(file);
 			this.onMade(file, true);
-		}, (e) => new Notice(plain(e)));
+		} catch (e) { new Notice(plain(e)); }
 	}
 
 	selected(): TAbstractFile[] { return [...this.sel].map((p) => this.ctx.app.vault.getAbstractFileByPath(p)).filter((f): f is TAbstractFile => !!f); }
@@ -338,7 +336,12 @@ class Corkboard implements BinderMode {
 
 	newMenu(menu: Menu, sec?: HTMLElement | null): void {
 		// (in a group's own menu, at that group's end; from the toolbar, after the selected card, as in the other modes)
-		menu.addItem((i) => i.setSection('new').setTitle('New note').setIcon('file-plus').onClick(() => { if (sec) this.startNew(sec); else void this.create('note'); }));
+		menu.addItem((i) => i.setSection('new').setTitle('New note').setIcon('file-plus').onClick(() => {
+			const g = sec ? this.groups[Number(sec.dataset.group)] : null;
+			if (!g) { this.create('note'); return; }
+			const sibs = this.store.orderedChildren(g.folder) ?? [];
+			void this.newNote(g.folder, g.end ? Math.max(0, sibs.indexOf(g.end)) : Infinity, g.depth);
+		}));
 		if (!this.longform) menu.addItem((i) => i.setSection('new').setTitle('New folder').setIcon('folder-plus').onClick(() => void this.newFolder()));
 	}
 
@@ -361,15 +364,6 @@ class Corkboard implements BinderMode {
 
 	/** With "Number the cards" on, each note's card says its place among the notes that show, in the order they read. */
 	private number(): void { numberCards(this.board, this.cards(), this.numbers); }
-
-	/** Starts a new note's title in a group's "New note" card (default: the last one, the end of the folder shown). */
-	private startNew(sec?: HTMLElement | null): void {
-		const all = [...this.board.querySelectorAll<HTMLElement>('.binders-card-new')];
-		const tile = sec?.querySelector<HTMLElement>('.binders-card-new') ?? all[all.length - 1];
-		tile?.scrollIntoView({ block: 'nearest' });
-		if (tile) this.inSight(tile);
-		(tile as (HTMLElement & { binderStart?: () => void }) | undefined)?.binderStart?.();
-	}
 
 	/** A new subfolder at the end of the folder shown, named in place as a new folder in the file explorer is. */
 	private async newFolder(): Promise<void> {
@@ -416,7 +410,7 @@ class Corkboard implements BinderMode {
 
 	// ---- drawing ----
 
-	private busy(): boolean { return this.editing > 0 || !!this.drag || this.moving || !!this.newIn; }
+	private busy(): boolean { return this.editing > 0 || !!this.drag || this.moving; }
 
 	private draw(): void {
 		const scroller = this.scroller(), top = scroller.scrollTop;
@@ -452,7 +446,7 @@ class Corkboard implements BinderMode {
 		}
 		this.next = null;
 		this.paintSelection();
-		// nothing to show: the same words every mode has for that, above the "New note" tile
+		// nothing to show: the same words every mode has for that
 		const none = !this.board.querySelector('.binders-card[data-path]');
 		if (none && !this.emptyEl) { this.emptyEl = emptyState(this.ctx, this.container); this.container.insertBefore(this.emptyEl, this.board); }
 		else if (none && this.emptyEl && (this.emptyEl.dataset.for ?? '') !== String(this.ctx.filtering())) { this.emptyEl.remove(); this.emptyEl = emptyState(this.ctx, this.container); this.container.insertBefore(this.emptyEl, this.board); }
@@ -465,14 +459,10 @@ class Corkboard implements BinderMode {
 		scroller.scrollTop = top;
 		if (before) { settle(this.fresh); this.glide(before, scroller); }
 		this.fresh = [];
-		const doc = this.board.doc;
 		if (this.refocus) { this.focused = this.refocus; this.cardEl(this.refocus)?.focus({ preventScroll: true }); this.refocus = null; }
 		else if (this.focusOnDraw && this.cards().length) { if (!typingNow(this.board.doc)) this.focus(); }
 		else if (hadFocus) this.focus();
 		if (this.cards().length) this.focusOnDraw = false;
-		// (a title being typed for a new note stays in sight, whatever was drawn above it meanwhile)
-		const typing = this.board.querySelector<HTMLElement>('.binders-card-new.is-editing');
-		if (typing?.contains(doc.activeElement)) this.inSight(typing);
 	}
 
 	/** Where every card and heading is, by what it is, to glide from after a redraw. */
@@ -533,26 +523,22 @@ class Corkboard implements BinderMode {
 
 	private drawGroup(g: Group, gi: number, old: Map<string, HTMLElement>): HTMLElement {
 		const key = JSON.stringify([g.folder.path, g.end?.path, g.depth, g.head?.path]);
-		// The grid (`binders-cards`) holds the list of cards and, after it, the "New note" tile. The list is the listbox:
-		// a listbox may hold only options, so the tile, a button, is beside it and not in it. The list has no box of
-		// its own (`display: contents`), so the cards and the tile are cells of the one grid.
-		let sec = old.get(key), grid: HTMLElement, list: HTMLElement;
+		// (the grid of cards is the list a screen reader is told of: it holds the cards and nothing else)
+		let sec = old.get(key), list: HTMLElement;
 		old.delete(key);
 		if (sec) {
 			sec.querySelector(':scope > .binders-group-heading')?.remove();
-			grid = sec.querySelector<HTMLElement>(':scope > .binders-cards');
-			list = grid.querySelector<HTMLElement>(':scope > .binders-card-list');
+			list = sec.querySelector<HTMLElement>(':scope > .binders-cards');
 		} else {
 			sec = createDiv({ cls: 'binders-group' + (g.depth ? ' is-indented' : '') });
 			if (g.depth) sec.setCssProps({ '--binders-group-depth': String(g.depth) });
-			grid = sec.createDiv({ cls: 'binders-cards' });
-			list = grid.createDiv({ cls: 'binders-card-list' });
+			list = sec.createDiv({ cls: 'binders-cards' });
 		}
 		this.sections.set(key, sec);
 		sec.dataset.group = String(gi);
 		if (g.head) this.drawSceneHeading(sec, g.head, g.items);
 		const heading = sec.querySelector<HTMLElement>(':scope > .binders-group-heading');
-		if (heading) { heading.dataset.heading = key; sec.insertBefore(heading, grid); }
+		if (heading) { heading.dataset.heading = key; sec.insertBefore(heading, list); }
 		// the cards, in order, moving as few as possible
 		const want = this.shown(g).map((f) => this.drawCard(f));
 		let at = list.firstChild;
@@ -561,9 +547,6 @@ class Corkboard implements BinderMode {
 		// (a list only while it has cards: a screen reader isn't told of a list of nothing)
 		if (want.length) list.setAttrs({ role: 'listbox', 'aria-multiselectable': 'true', 'aria-label': g.folder.name });
 		else for (const a of ['role', 'aria-multiselectable', 'aria-label']) list.removeAttribute(a);
-		// then the tile, made again each time
-		while (list.nextSibling) list.nextSibling.remove();
-		if (!this.ctx.readOnly) grid.appendChild(this.drawNewCard(g));
 		return sec;
 	}
 
@@ -620,74 +603,6 @@ class Corkboard implements BinderMode {
 		this.drawn.set(f.path, { el: card, key, file: f, editors });
 		this.fresh.push(card);
 		return card;
-	}
-
-	private drawNewCard(g: Group): HTMLElement {
-		const key = `${g.folder.path}\n${g.end?.path ?? ''}`;
-		const nc = createDiv({ cls: 'binders-card binders-card-new', attr: { role: 'button', tabindex: '0', 'aria-label': `New note in ${g.folder.name}`, 'data-new': key } });
-		const idle = () => {
-			nc.empty();
-			setIcon(nc.createSpan({ cls: 'binders-card-new-icon' }), 'plus');
-			nc.createSpan({ cls: 'binders-card-new-label', text: 'New note' });
-		};
-		idle();
-		const start = () => {
-			if (nc.querySelector('input')) return;
-			nc.empty();
-			nc.addClass('is-editing');
-			this.newIn = key;
-			const input = nc.createEl('input', { cls: 'binders-edit-field', attr: { type: 'text', placeholder: 'Title', 'aria-label': `Title of the new note in ${g.folder.name}`, enterkeyhint: 'done' } });
-			let done = false;
-			const finish = async (again: boolean) => {
-				if (done) return;
-				done = true;
-				const t = input.value.trim();
-				// a name that can't be used stays in the field, as a failed rename's does, so nothing typed is lost
-				const refuse = (why: string) => { new Notice(why); done = false; input.focus(); };
-				if (!t) { this.newIn = null; nc.removeClass('is-editing'); idle(); if (this.dirty) this.draw(); return; }
-				const bad = badName(t);
-				if (bad) { refuse(bad); return; }
-				// still busy while the note is made, so no redraw takes the field away meanwhile
-				try {
-					const sibs = this.store.orderedChildren(g.folder) ?? [];
-					const file = await this.store.newScene(g.folder, g.end ? Math.max(0, sibs.indexOf(g.end)) : Infinity, t, g.depth);
-					this.made.add(file);
-					this.ctx.made(file);
-					// (unless another field has been opened meanwhile: selecting takes the focus, and would close it)
-					if (this.newIn === key && this.editing === 0) this.select([file.path], file.path);
-				} catch (e) { refuse(e instanceof Error ? e.message : String(e)); return; }
-				if (this.newIn === key) this.newIn = null;
-				// (left for another field, another tile or a folder's synopsis, which is open by now: the board is drawn
-				// again when that one is done, not now, or the redraw would take it away)
-				if (this.newIn || this.editing > 0) { this.dirty = true; return; }
-				// (left by a tap on something else: the board is drawn again once that tap has landed, not under it,
-				// where the new card would move what the finger is coming down on)
-				if (!again && this.lastPointer === 'touch') {
-					this.dirty = true;
-					window.setTimeout(() => { if (!this.busy() && this.dirty) this.draw(); }, 350);
-					return;
-				}
-				this.draw();
-				// Enter keeps the new card open for the next one; clicking away ends it
-				if (again) (this.board.querySelector<HTMLElement>(`.binders-card-new[data-new="${CSS.escape(key)}"]`) as HTMLElement & { binderStart?: () => void })?.binderStart?.();
-			};
-			input.addEventListener('keydown', (e) => {
-				e.stopPropagation();
-				if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); void finish(true); }
-				// (finishing may draw the board again, with a new card in this one's place: that's the one to focus)
-				else if (e.key === 'Escape') { e.preventDefault(); input.value = ''; void finish(false); (this.board.querySelector<HTMLElement>(`.binders-card-new[data-new="${CSS.escape(key)}"]`) ?? nc).focus(); }
-			});
-			input.addEventListener('blur', () => void finish(false));
-			for (const t of ['click', 'dblclick', 'pointerdown', 'contextmenu'] as const) input.addEventListener(t, (e) => e.stopPropagation());
-			input.focus({ preventScroll: true });
-			this.inSight(nc);
-			// (and once the cards have glided to their places: while they move, the field isn't yet where it will be)
-			window.setTimeout(() => { if (nc.isConnected && nc.contains(nc.doc.activeElement)) this.inSight(nc); }, 320);
-		};
-		(nc as HTMLElement & { binderStart?: () => void }).binderStart = start;
-		nc.addEventListener('click', (e) => { e.stopPropagation(); start(); });
-		nc.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === nc) { e.preventDefault(); e.stopPropagation(); start(); } });
-		return nc;
 	}
 
 	/** Scrolls the board just enough for this to be in sight: clear of the toolbar above and, on a phone, of the bar of
@@ -767,7 +682,7 @@ class Corkboard implements BinderMode {
 		const t = e.target as HTMLElement;
 		const card = t.closest<HTMLElement>('.binders-card[data-path]');
 		if (!card) {
-			if (!t.closest('.binders-group-heading, .binders-card-new') && !e.shiftKey && !Keymap.isModEvent(e)) { this.select([]); this.picking = false; }
+			if (!t.closest('.binders-group-heading') && !e.shiftKey && !Keymap.isModEvent(e)) { this.select([]); this.picking = false; }
 			return;
 		}
 		// a tap on a note's title opens it, as a tap on a note in the file explorer does
@@ -1035,22 +950,23 @@ class Corkboard implements BinderMode {
 		// a folder can't go into itself
 		if (d.items.some((f) => f instanceof TFolder && (g.folder === f || g.folder.path.startsWith(f.path + '/')))) return none();
 		const list = sec.querySelector<HTMLElement>(':scope > .binders-cards');
-		const slots = [...list.querySelectorAll<HTMLElement>(':scope > .binders-card-list > .binders-card[data-path]')];
+		const slots = [...list.querySelectorAll<HTMLElement>(':scope > .binders-card[data-path]')];
 		const rects = slots.map((s) => s.getBoundingClientRect());
 		const style = getComputedStyle(list), rtl = style.direction === 'rtl';
 		const oneColumn = style.gridTemplateColumns.trim().split(/\s+/).length < 2;
 		const gap = (parseFloat(oneColumn ? style.rowGap : style.columnGap) || 12) / 2;
 		// the line: `at` is the card it goes before, then where it's drawn (across a single column, else upright)
 		let at = 0, mark: { x: number; y: number; length: number };
-		const tile = list.querySelector<HTMLElement>(':scope > .binders-card-new')?.getBoundingClientRect();
 		const cardHeight = parseFloat(style.getPropertyValue('--binders-card-height')) || 132;
-		// the "New note" card on a row of its own (its group's last row is full): the pointer on that row is the group's end
-		const wrapped = !!tile && !!rects.length && !oneColumn && tile.top > rects[rects.length - 1].bottom - 1 && y > rects[rects.length - 1].bottom + gap;
-		if (!slots.length || wrapped) {
-			// an empty group, or the end of a full one: where the next card would be, as tall as a card
-			const r = tile ?? list.getBoundingClientRect();
+		const end = rects[rects.length - 1];
+		if (!slots.length) {
+			// an empty group: where its first card would be, as tall as a card
+			const r = list.getBoundingClientRect();
+			mark = oneColumn ? { x: r.left, y: r.top, length: r.width } : { x: rtl ? r.right : r.left, y: r.top, length: cardHeight };
+		} else if (!oneColumn && y > end.bottom + gap) {
+			// below the group's last row: its end, after the last card
 			at = slots.length;
-			mark = oneColumn ? { x: r.left, y: r.top - gap, length: list.getBoundingClientRect().width } : { x: rtl ? r.right + gap : r.left - gap, y: r.top, length: wrapped ? rects[rects.length - 1].height : cardHeight };
+			mark = { x: rtl ? end.left - gap : end.right + gap, y: end.top, length: end.height };
 		} else {
 			// the card nearest the pointer's height, and with it the row it's in
 			const off = (r: DOMRect) => (y < r.top ? r.top - y : y > r.bottom ? y - r.bottom : 0);
@@ -1302,8 +1218,8 @@ class Corkboard implements BinderMode {
 		let ok = false;
 		try { ok = await removeItems(this.ctx, items); } finally { this.moving = false; }
 		if (!ok) { if (this.dirty && !this.busy()) this.draw(); this.focus(); return; }
-		// no card left: the New note card, so the keyboard still has somewhere to be
-		if (!next) { this.board.querySelector<HTMLElement>('.binders-card-new')?.focus(); if (!this.busy()) this.draw(); return; }
+		// no card left: "New" in the toolbar, so the keyboard still has somewhere to be
+		if (!next) { this.focusNew(); if (!this.busy()) this.draw(); return; }
 		this.select([next]);
 		this.refocus = next;
 		if (!this.busy()) this.draw(); // else the redraw after typing focuses it

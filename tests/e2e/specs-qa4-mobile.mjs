@@ -208,11 +208,11 @@ test('phone: the toolbar fits at 390 and at 320 px in every mode, its menus are 
 		t.eq(j(await menuItems(p)), j(['New note', 'New folder']), 'the New menu');
 		t.ok(isSheet(await sheet(p)), 'a sheet too');
 		await gone(p);
-		// the board's end: the last "New note" tile is above Obsidian's floating navigation bar
+		// the board's end: the last card is above Obsidian's floating navigation bar
 		const end = await p.ev(`(() => { const s = ${CORK}; s.scrollTop = s.scrollHeight; const cs = s.querySelectorAll('.binders-card'); return Math.round(cs[cs.length - 1].getBoundingClientRect().bottom); })()`);
 		const nav = await navbarTop(p);
 		await shot(p, 'toolbar-board-end');
-		t.ok(nav != null && end <= nav, `the last tile (bottom ${end}) is above the navigation bar (top ${nav})`);
+		t.ok(nav != null && end <= nav, `the last card (bottom ${end}) is above the navigation bar (top ${nav})`);
 	});
 });
 
@@ -478,46 +478,24 @@ ux('phone corkboard: a held card shows it’s held in the dark theme too (there 
 	});
 });
 
-bug('phone corkboard: after Enter in the “New note” tile, the next title field is in sight (it’s left under the navigation bar, then below the screen)', async (p, h, t) => {
-	await onDevice(p, PHONE, async () => {
-		await open(p);
-		await p.ev(`(() => { ${CORK}.scrollTop = ${CORK}.scrollHeight; return 1; })()`);
-		await p.sleep(300);
-		const last = await p.ev(`(() => { const all = document.querySelectorAll('${LEAF} .binders-card-new'); return (${R})(all[all.length - 1]); })()`);
-		await tap(p, last[0] + last[2] / 2, last[1] + last[3] / 2);
-		t.eq(await p.ev(`document.activeElement.tagName`), 'INPUT', 'a tap on the tile opens its field');
-		const nav = await navbarTop(p), seen = [];
-		for (const name of ['Coda one', 'Coda two', 'Coda three']) {
-			await p.type(name);
-			await p.key('Enter');
-			await until(p, `!!app.vault.getAbstractFileByPath(${j(L + name + '.md')})`);
-			await p.sleep(600);
-			seen.push(await p.ev(`(() => { const a = document.activeElement, r = a.getBoundingClientRect(); return { tag: a.tagName, top: Math.round(r.top), bottom: Math.round(r.bottom) }; })()`));
-		}
-		await shot(p, 'bug-new-note-next-field');
-		t.ok(seen.every((s) => s.tag === 'INPUT'), 'the field for the next note has the focus each time: ' + j(seen));
-		t.ok(seen.every((s) => s.bottom <= nav), `and is above the navigation bar (top ${nav}) each time: ${j(seen)}`);
-	});
-});
-
-test('phone corkboard: the “New note” tile is a finger tall and names a note; the options sheet numbers and tints the cards; a folder is a stack, which a tap on its name opens', async (p, h, t) => {
+test('phone corkboard: “New” in the toolbar makes a note, named on its card; the options sheet numbers and tints the cards; a folder is a stack, which a tap on its name opens', async (p, h, t) => {
 	await onDevice(p, PHONE, async () => {
 		await p.ev(`app.fileManager.processFrontMatter(app.vault.getAbstractFileByPath(${j(L + 'Prologue.md')}), fm => { fm.label = 'Red'; }).then(() => 1)`);
 		await open(p);
-		await p.ev(`(() => { document.querySelector('${LEAF} .binders-card-new').scrollIntoView({ block: 'center' }); return 1; })()`);
+		t.eq(await p.ev(`document.querySelectorAll('${LEAF} .binders-card-new').length`), 0, 'no “New note” tile ends the board');
+		const add = await p.at(`${LEAF} .binders-new-button`);
+		t.ok(add.w >= 32 && add.h >= 32, '“New” in the toolbar is a finger wide and tall: ' + j([add.w, add.h]));
+		await tap(p, add.x, add.y);
 		await p.sleep(300);
-		const tiles = await p.ev(`[...document.querySelectorAll('${LEAF} .binders-card-new')].map(${R})`);
-		t.eq(tiles.length, 1, 'one “New note” tile ends the board');
-		t.ok(tiles.every((r) => r[3] >= 40), 'the “New note” tile is 40 px tall or more: ' + j(tiles.map((r) => r[3])));
-		await tap(p, tiles[0][0] + tiles[0][2] / 2, tiles[0][1] + tiles[0][3] / 2);
-		t.eq(await p.ev(`document.activeElement.getAttribute('enterkeyhint')`), 'done', 'its field asks the keyboard for a Done key');
+		if (!(await menuTap(p, 'New note'))) throw new Error('no “New note”');
+		await until(p, `document.activeElement?.matches('${LEAF} .binders-card[data-path] input')`);
+		t.eq(await p.ev(`document.activeElement.getAttribute('enterkeyhint')`), 'done', 'the new card’s title field asks the keyboard for a Done key');
 		await p.type('After the prologue');
 		await p.key('Enter');
 		await until(p, `!!app.vault.getAbstractFileByPath(${j(L + 'After the prologue.md')})`);
-		await p.key('Escape');
 		await p.sleep(300);
 		await flush(p);
-		t.eq(j((await contents(p)).slice(-2)), j(['Epilogue', 'After the prologue']), 'the note is made where its tile was: at the binder’s end');
+		t.eq(j((await contents(p)).slice(-2)), j(['Epilogue', 'After the prologue']), 'with no card selected the note is made at the binder’s end');
 		// the options, from the header's ⋮
 		const more = await p.at(`${LEAF} .view-actions .clickable-icon[aria-label="More options"]`);
 		const pick = async (title) => { await tap(p, more.x, more.y); await p.sleep(300); if (!(await menuTap(p, title))) throw new Error('no ' + title); await p.sleep(500); await gone(p); };

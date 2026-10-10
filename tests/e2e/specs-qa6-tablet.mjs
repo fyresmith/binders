@@ -444,8 +444,8 @@ test('keyboard only, corkboard: after a move (Alt+arrow), a delete and its dialo
 	await p.ev(`document.querySelector('${LEAF} .binders-card[data-path$="Prologue.md"]').focus()`);
 	await p.key('F10', 'shift'); await p.sleep(300);
 	await chk('menu: Set status → pick', () => pickKeys(p, 'Set status', 'Draft'));
-	await p.ev(`document.querySelector('${LEAF} .binders-card-new').focus()`);
-	await p.key('Enter'); await p.type('Fresh'); 
+	await chk('new note (the command): its name is a field', () => h.run('new-scene'));
+	await p.type('Fresh');
 	await chk('new note named, Enter', () => p.key('Enter'));
 	await chk('undo again', () => h.run('undo-move'));
 	log(out.join(' | '));
@@ -1045,7 +1045,7 @@ async function longBinder(p, n = 30) {
 const visibleNow = (p, sel) => p.ev(`(() => { const e = document.querySelector(${j(sel)}); if (!e) return null; const r = e.getBoundingClientRect(); const vv = window.visualViewport; return { top: Math.round(r.top), bottom: Math.round(r.bottom), inner: Math.round(vv ? vv.height : innerHeight), inSight: r.top >= 0 && r.bottom <= (vv ? vv.height : innerHeight) + 1 }; })()`);
 
 for (const [label, dims, kb] of [['820 × 1180', [820, 1180], 380], ['1180 × 820 on its side', [1180, 820], 300]]) {
-	test(`tablet ${label} with the keyboard docked (${kb} px): what’s being typed (the last card’s synopsis, the new note’s name, the last row’s name, the manuscript’s last section) stays above the keyboard`, async (p, h, t) => {
+	test(`tablet ${label} with the keyboard docked (${kb} px): what’s being typed (the last card’s synopsis, the last row’s name, the manuscript’s last section) stays above the keyboard`, async (p, h, t) => {
 		await onDevice(p, dims, async () => {
 			await longBinder(p);
 			await open(p, 'Long');
@@ -1065,18 +1065,6 @@ for (const [label, dims, kb] of [['820 × 1180', [820, 1180], 380], ['1180 × 82
 			const field = await visibleNow(p, `${LEAF} .binders-card[data-path="${last}"] .binders-edit-field`);
 			log(label, 'cork synopsis field', j(field));
 			t.ok(field && field.inSight, 'the card’s synopsis field is above the keyboard: ' + j(field));
-			await p.key('Escape');
-			await keyboard(false);
-			// the new note tile
-			await p.ev(`document.querySelector('${LEAF} .binders-card-new')?.scrollIntoView({ block: 'center' })`);
-			await p.sleep(300);
-			const nn = await p.at(`${LEAF} .binders-card-new`);
-			await tap(p, nn.x, nn.y);
-			await keyboard(true);
-			await p.sleep(500);
-			const nf = await visibleNow(p, `${LEAF} .binders-card-new .binders-edit-field`);
-			log(label, 'new note field', j(nf));
-			t.ok(nf && nf.inSight, 'the new note’s name field is above the keyboard: ' + j(nf));
 			await p.key('Escape');
 			await keyboard(false);
 			// the outliner: the last row's name
@@ -1108,14 +1096,11 @@ for (const [label, dims, kb] of [['820 × 1180', [820, 1180], 380], ['1180 × 82
 }
 
 const LIVE = `[...document.querySelectorAll('[aria-live]:not([aria-live="off"]), [role="status"], [role="alert"], .notice')].map((e) => e.textContent.trim()).filter(Boolean).join(' | ')`;
-a11y('corkboard: the “New note” tile is not a child of the card list (a listbox owns only options: its button is “list with 5 items” to a screen reader, and may be skipped in browse mode)', async (p, h, t) => {
+a11y('corkboard: the card list holds only cards (a listbox owns only options: anything else in it is “list with 5 items” to a screen reader, and may be skipped in browse mode)', async (p, h, t) => {
 	await open(p);
-	const roles = await p.ev(`(() => { const n = document.querySelector('${LEAF} .binders-card-new'); const box = n.closest('[role="listbox"]'); return box ? [...box.children].map((c) => c.getAttribute('role')) : null; })()`);
-	log('children of the listbox', j(roles));
-	t.ok(!roles || roles.every((r) => r === 'option' || r === 'group'), 'a listbox holds only options: ' + j(roles));
-	// (and the cards are still a list, the tile a button right after it)
-	const list = await p.ev(`(() => { const box = document.querySelector('${LEAF} .binders-card[data-path]').closest('[role="listbox"]'), n = document.querySelector('${LEAF} .binders-card-new'); return box ? { kids: [...box.children].map((c) => c.getAttribute('role')), tile: n.getAttribute('role'), next: box.nextElementSibling === n } : null; })()`);
-	t.eq(j(list), j({ kids: ['option', 'option', 'option', 'option'], tile: 'button', next: true }), 'the cards are a list of options, and the tile is a button right after it');
+	const list = await p.ev(`(() => { const box = document.querySelector('${LEAF} .binders-card[data-path]').closest('[role="listbox"]'); return box ? { kids: [...box.children].map((c) => c.getAttribute('role')), tiles: document.querySelectorAll('${LEAF} .binders-card-new').length } : null; })()`);
+	log('children of the listbox', j(list));
+	t.eq(j(list), j({ kids: ['option', 'option', 'option', 'option'], tiles: 0 }), 'the cards are a list of options and nothing else, with no “New note” tile after it');
 });
 
 a11y('moves and undo are said aloud: after Alt+arrow moves a card (or a row), or “Undo last move” takes it back, a polite live region or a notice says what happened and where (nothing does: the card is silently somewhere else in the list)', async (p, h, t) => {
@@ -1501,8 +1486,8 @@ test('tablet: a new note’s name, a card’s synopsis and an outliner row’s s
 		await open(p);
 		const turn = async () => { for (const [w, hh] of [[1180, 820], [500, 800], [820, 1180]]) { await metrics(p, w, hh); await p.sleep(500); } };
 		// 1. a new note's name
-		const nn = await p.at(`${LEAF} .binders-card-new`);
-		await tap(p, nn.x, nn.y); await p.sleep(400);
+		await h.run('new-scene'); await p.sleep(600);
+		t.ok(await p.ev(`document.activeElement?.matches('${LEAF} .binders-card[data-path] input')`), 'a new note’s card, its name a field');
 		await p.type('Night watch');
 		await turn();
 		t.ok(await p.ev(`document.activeElement?.matches('input, textarea')`), 'the name field still has the focus after turning');

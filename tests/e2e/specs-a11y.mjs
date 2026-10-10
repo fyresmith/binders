@@ -32,7 +32,7 @@ async function tabThrough(p, max = 30) {
 test('Tab reaches every control of each mode; each is named and shows a focus ring', async (p, h, t) => {
 	const want = {
 		// (the cards are one stop, as a list is: the arrows go from card to card, a folder's stack among them)
-		corkboard: ['binders-filter-button', 'binders-new-button', 'binders-mode-button', 'binders-view-synopsis', 'binders-card', 'binders-card-new'],
+		corkboard: ['binders-filter-button', 'binders-new-button', 'binders-mode-button', 'binders-view-synopsis', 'binders-card'],
 		outliner: ['binders-mode-button', 'binders-view-synopsis', 'binders-outliner-th', 'binders-outliner-row'],
 		manuscript: ['binders-mode-button', 'binders-view-synopsis', 'binders-manuscript-title'],
 	};
@@ -105,7 +105,6 @@ test('a card tells a screen reader what it is: a note’s card its name, status 
 	t.eq(j(await said('The Lighthouse/Prologue.md')), j({ role: 'option', name: 'Prologue', about: 'Status: Draft, 21 words', selected: 'false', list: 'listbox The Lighthouse' }), 'a note’s card: its name, then its status and words');
 	const stack = await said('The Lighthouse/Part One');
 	t.eq(j([stack.role, stack.name, stack.list]), j(['option', 'Part One', 'listbox The Lighthouse']), 'a folder’s stack is an option of the same list, named for the folder');
-	t.eq(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-card-new').getAttribute('aria-label')`), 'New note in The Lighthouse', 'the “New note” tile says where the note goes');
 });
 
 /** The accessibility tree as Chromium gives it to a screen reader, the nodes it leaves out skipped: each node its role,
@@ -124,45 +123,28 @@ async function axTree(p) {
 	return { all, up };
 }
 
-test('the corkboard’s list of cards holds only cards: the “New note” tile is a button after the list, not in it, in the same grid, and still where Tab goes after the cards', async (p, h, t) => {
+test('the corkboard’s list of cards holds only cards, and is the grid that lays them out; an empty folder has no list of nothing', async (p, h, t) => {
 	await openView(p, 'The Lighthouse');
 	const L = 'The Lighthouse';
 	let ax = await axTree(p);
 	const lists = ax.all.filter((n) => n.role === 'listbox' && n.name === L);
 	t.eq(lists.length, 1, 'a screen reader finds one list, named for the folder');
 	t.eq(j(lists[0].kids.map((k) => [k.role, k.name])), j([['option', 'Prologue'], ['option', 'Part One'], ['option', 'Part Two'], ['option', 'Epilogue']]), 'and it holds the four cards, each an option, and nothing else');
-	const tiles = ax.all.filter((n) => n.role === 'button' && n.name === `New note in ${L}`);
-	t.eq(tiles.length, 1, 'the “New note” tile is a button to a screen reader');
-	t.ok(!ax.up(tiles[0]).includes('listbox'), 'outside the list: ' + j(ax.up(tiles[0])));
-	// it comes right after the list, in what holds them both
-	const holder = ax.all.find((n) => n.kids.some((k) => k.id === tiles[0].id));
-	const at = holder.kids.findIndex((k) => k.id === tiles[0].id);
-	t.eq(holder.kids[at - 1]?.id, lists[0].id, 'and comes right after it');
-	// the grid is as it was: the tile is a cell like the cards, after the last of them
-	const grid = await p.ev(`(() => { const R = (e) => { const r = e.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)]; }; const cards = [...document.querySelectorAll('.workspace-leaf.mod-active .binders-card[data-path]')], tile = document.querySelector('.workspace-leaf.mod-active .binders-card-new'); const g = tile.closest('.binders-cards'), cs = getComputedStyle(g); return { cards: cards.map(R), tile: R(tile), cols: cs.gridTemplateColumns.trim().split(/\\s+/).length, gap: parseFloat(cs.columnGap), display: cs.display, after: !!(cards[cards.length - 1].compareDocumentPosition(tile) & Node.DOCUMENT_POSITION_FOLLOWING) }; })()`);
-	t.eq(grid.display, 'grid', 'the cards and the tile are laid out by one grid');
-	// (each in the cell its place in the order gives it: the cards, then the tile, row after row)
-	const cells = [...grid.cards, grid.tile], [x0, y0, w0] = cells[0], rows = [...new Set(cells.map((c) => c[1]))];
-	t.ok(grid.cols >= 2 && cells.every((c, i) => c[0] === x0 + (i % grid.cols) * (w0 + grid.gap) && c[1] === rows[Math.floor(i / grid.cols)] && c[2] === w0) && rows.length === Math.ceil(cells.length / grid.cols) && rows[0] === y0, `the cards and then the tile fill the grid’s cells in order, each as wide as a card (${grid.cols} columns): ${j(cells)}`);
-	t.ok(grid.after, 'the tile follows the last card');
-	// the keyboard: Tab from the cards goes to the tile; Enter on it asks for a name; Escape gives it up, back on the tile
-	await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-card[data-path]').focus()`);
-	await p.key('Tab');
-	t.ok(await p.ev(`document.activeElement?.classList.contains('binders-card-new')`), 'Tab from the cards goes to the tile');
-	await p.key('Enter');
-	await until(p, `document.activeElement?.matches('.binders-card-new input')`);
-	t.ok(await p.ev(`document.activeElement?.matches('.binders-card-new input')`), 'Enter on the tile asks for the new note’s name');
-	await p.key('Escape');
-	await p.sleep(200);
-	t.ok(await p.ev(`document.activeElement?.classList.contains('binders-card-new')`), 'Escape gives it up, and the keyboard is back on the tile');
-	// a folder with nothing in it: the tile alone, and no list of nothing
+	t.eq(ax.all.filter((n) => n.role === 'button' && /^New note in/.test(n.name)).length, 0, 'no “New note” tile after it');
+	// the list is the grid itself: no wrapper without a box of its own between the grid and its cards
+	const grid = await p.ev(`(() => { const R = (e) => { const r = e.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)]; }; const cards = [...document.querySelectorAll('.workspace-leaf.mod-active .binders-card[data-path]')], g = cards[0].parentElement, cs = getComputedStyle(g); return { cards: cards.map(R), cls: g.className, role: g.getAttribute('role'), kids: g.children.length, cols: cs.gridTemplateColumns.trim().split(/\\s+/).length, gap: parseFloat(cs.columnGap), display: cs.display, contents: [...document.querySelectorAll('.workspace-leaf.mod-active .binders-board *')].filter(e => getComputedStyle(e).display === 'contents').length }; })()`);
+	t.eq(j([grid.cls, grid.role, grid.display, grid.kids, grid.contents]), j(['binders-cards', 'listbox', 'grid', 4, 0]), 'the grid is the list, holds the four cards, and nothing on the board is “display: contents”');
+	const cells = grid.cards, [x0, y0, w0] = cells[0], rows = [...new Set(cells.map((c) => c[1]))];
+	t.ok(grid.cols >= 2 && cells.every((c, i) => c[0] === x0 + (i % grid.cols) * (w0 + grid.gap) && c[1] === rows[Math.floor(i / grid.cols)] && c[2] === w0) && rows.length === Math.ceil(cells.length / grid.cols) && rows[0] === y0, `the cards fill the grid’s cells in order (${grid.cols} columns): ${j(cells)}`);
+	// a folder with nothing in it: no list of nothing, and the words that say how to make a note
 	await p.ev(`app.vault.createFolder('The Lighthouse/Empty').then(() => 1)`);
 	await until(p, `!!document.querySelector('.workspace-leaf.mod-active .binders-card[data-path="The Lighthouse/Empty"]')`);
 	await openView(p, 'The Lighthouse/Empty');
-	await until(p, `!!document.querySelector('.workspace-leaf.mod-active .binders-card-new') && !document.querySelector('.workspace-leaf.mod-active .binders-card[data-path]')`);
+	await until(p, `!!document.querySelector('.workspace-leaf.mod-active .binders-empty') && !document.querySelector('.workspace-leaf.mod-active .binders-card[data-path]')`);
 	ax = await axTree(p);
-	t.eq(ax.all.filter((n) => n.role === 'button' && n.name === 'New note in Empty').length, 1, 'an empty folder: the tile is there');
-	t.eq(ax.all.filter((n) => n.role === 'listbox').length, 0, 'and there is no list with nothing in it');
+	t.eq(ax.all.filter((n) => n.role === 'listbox').length, 0, 'an empty folder: there is no list with nothing in it');
+	t.eq(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-empty-text')?.textContent`), 'Use “New” above to add one.', 'and it says where a note is made');
+	t.ok(await p.ev(`(() => { const b = document.querySelector('.workspace-leaf.mod-active .binders-new-button'); return !!b && !b.classList.contains('is-hidden') && b.getBoundingClientRect().width > 0; })()`), '“New” is there in the toolbar');
 });
 
 test('BUG: a stack tells a screen reader what it holds (“3 notes, 51 words”), as a note’s card says its words (a stack’s description leaves the count out)', async (p, h, t) => {
@@ -195,12 +177,6 @@ test('Escape leaves every inline editor, and the focus goes back to what holds i
 	await p.key('Escape');
 	t.eq(await active(), 'binders-card', 'Escape: back on its card');
 	t.ok(await p.ev(`document.activeElement.classList.contains('is-stack')`), '(the stack itself)');
-	// a new card
-	await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-card-new').focus()`);
-	await p.key('Enter');
-	t.eq(await active(), 'field', 'Enter starts a new card');
-	await p.key('Escape');
-	t.eq(await active(), 'binders-card binders-card-new', 'Escape: back on the New note button');
 	// an outliner row's title
 	await p.ev(`(() => { ${VIEW}.setMode('outliner'); return 1; })()`);
 	await p.sleep(500);
@@ -287,7 +263,7 @@ test('forced colors (Windows high contrast): what is selected and what has the k
 		await p.key('ArrowRight');
 		await p.key('ArrowLeft', 'ctrl');
 		t.ok(await outline(`${A} .binders-card.is-selected`), 'a selected card is outlined, with the keyboard or without');
-		for (const [what, sel] of [['a toolbar button', '.binders-filter-button'], ['the word count', '.binders-word-count'], ['the folder’s synopsis', '.binders-view-synopsis'], ['the “New note” tile', '.binders-card-new']]) {
+		for (const [what, sel] of [['a toolbar button', '.binders-filter-button'], ['the word count', '.binders-word-count'], ['the folder’s synopsis', '.binders-view-synopsis']]) {
 			await p.ev(`(() => { document.querySelector(${j(`${A} ${sel}`)}).focus(); return 1; })()`);
 			t.ok(await outline(), `${what} with the keyboard is outlined`);
 		}

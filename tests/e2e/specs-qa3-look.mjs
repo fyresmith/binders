@@ -342,15 +342,6 @@ test('04 corkboard: card states', async (p) => {
 	await stack('04-stack-rename');
 	await p.key('Escape'); await p.sleep(200);
 	await note(p, '04-hover', hov);
-	// "New note": pointed at, focused, typing
-	const tile = await p.at(`${LEAF} .binders-card-new`);
-	await p.move(tile.x, tile.y, 3); await p.sleep(300);
-	await zoom(p, '04-new-tile-hover', tile.l - 280, tile.t - 20, 600, 170, 2);
-	await p.click(tile.x, tile.y); await p.sleep(350);
-	await zoom(p, '04-new-tile-editing', tile.l - 280, tile.t - 20, 600, 170, 2);
-	await p.type('A new scene');
-	await zoom(p, '04-new-tile-typed', tile.l - 280, tile.t - 20, 600, 170, 2);
-	await p.key('Escape'); await p.sleep(250);
 	await note(p, '04-card', {
 		card: await css(p, card('Prologue.md'), [...BOX, 'minHeight', 'transition']),
 		title: await css(p, card('Prologue.md') + ' .binders-card-title', TYPE),
@@ -365,7 +356,6 @@ test('04 corkboard: card states', async (p) => {
 		viewSynopsis: await css(p, `${LEAF} .binders-view-synopsis`, [...TYPE, 'padding', 'margin']),
 		grid: await css(p, `${LEAF} .binders-cards`, ['gap', 'gridTemplateColumns']),
 		board: await css(p, `${LEAF} .binders-board`, ['padding', 'gap']),
-		newTile: await css(p, `${LEAF} .binders-card-new`, [...TYPE, ...BOX]),
 	});
 });
 
@@ -434,8 +424,8 @@ test('05 corkboard: mid-drag', async (p) => {
 		nativeGhost: await p.ev(`(() => { const r = [...document.styleSheets].flatMap(s => { try { return [...s.cssRules]; } catch { return []; } }).filter(r => /\\.drag-ghost|\\.drop-indicator|is-being-dragged/.test(r.selectorText || '')).map(r => r.cssText); return r.slice(0, 30); })()`),
 		cursor: await p.ev(`getComputedStyle(document.body).cursor + ' / ' + document.body.className`),
 	});
-	// over the "New note" tile: the board's end
-	const w = await p.at(`${LEAF} .binders-card-new`);
+	// past the last card: the board's end
+	const w = await p.ev(`(() => { const all = document.querySelectorAll('${LEAF} .binders-card[data-path]'), r = all[all.length - 1].getBoundingClientRect(); return { x: r.right - 10, y: r.top + r.height / 2 }; })()`);
 	await p.move(w.x, w.y, 10, { buttons: 1 }); await p.sleep(250);
 	await shot(p, '05-drag-to-end');
 	// over the binder in the breadcrumb: the way out of this folder
@@ -944,7 +934,7 @@ test('12 phone: 390×844, every mode, menus and sheets', async (p) => {
 		await tap(p, b.x, b.y); await shot(p, '12-phone-mode-menu');
 		await p.key('Escape'); await p.sleep(300);
 		await p.ev(`document.querySelectorAll('.menu').forEach(m => m.remove())`);
-		out.toolbar = await p.ev(`(() => { const r = (s) => { const e = document.querySelector('${LEAF} ' + s); if (!e) return null; const b = e.getBoundingClientRect(); return [Math.round(b.left), Math.round(b.top), Math.round(b.width), Math.round(b.height)]; }; return { bar: r('.binders-toolbar'), mode: r('.binders-mode-button'), filter: r('.binders-filter-button'), add: r('.binders-new-button'), count: r('.binders-word-count'), header: r('.view-header'), newTile: r('.binders-card-new'), chevron: null }; })()`);
+		out.toolbar = await p.ev(`(() => { const r = (s) => { const e = document.querySelector('${LEAF} ' + s); if (!e) return null; const b = e.getBoundingClientRect(); return [Math.round(b.left), Math.round(b.top), Math.round(b.width), Math.round(b.height)]; }; return { bar: r('.binders-toolbar'), mode: r('.binders-mode-button'), filter: r('.binders-filter-button'), add: r('.binders-new-button'), count: r('.binders-word-count'), header: r('.view-header'), chevron: null }; })()`);
 		await mode(p, 'outliner'); await p.sleep(500);
 		await shot(p, '12-phone-outliner');
 		out.outliner = await p.ev(`(() => { const r = (s) => { const e = document.querySelector('${LEAF} ' + s); if (!e) return null; const b = e.getBoundingClientRect(); return [Math.round(b.left), Math.round(b.top), Math.round(b.width), Math.round(b.height)]; }; return { row: r('.binders-outliner-row'), chevron: r('.binders-outliner-chevron.collapse-icon'), th: r('.binders-outliner-th[data-col="status"]'), add: r('.binders-outliner-th.mod-add'), resizer: r('.binders-outliner-resizer'), font: getComputedStyle(document.querySelector('${LEAF} .binders-outliner-name')).fontSize, synFont: getComputedStyle(document.querySelector('${LEAF} .binders-outliner-synopsis')).fontSize }; })()`);
@@ -1073,7 +1063,7 @@ test('13 motion: mode switch, reorder, fold, hover; and reduced motion', async (
 		await p.move(k.x, k.t + 22, 2); await p.sleep(700);
 		rec = await recorded(p);
 		o.hoverCard = settle(rec);
-		o.transitions = await p.ev(`(() => { const t = (s) => { const e = document.querySelector(s); return e ? getComputedStyle(e).transitionProperty + ' / ' + getComputedStyle(e).transitionDuration : null; }; return { card: t('${LEAF} .binders-card[data-path]'), stack: t('${LEAF} .binders-card.is-stack'), crumb: t('${LEAF} .binders-crumb'), progressBar: t('${LEAF} .binders-progress-bar'), toolbarButton: t('${LEAF} .binders-toolbar-button'), newTile: t('${LEAF} .binders-card-new'), editable: t('${LEAF} .binders-editable'), nativeNavItem: t('.nav-file-title'), nativeClickable: t('.clickable-icon'), reduce: matchMedia('(prefers-reduced-motion: reduce)').matches }; })()`);
+		o.transitions = await p.ev(`(() => { const t = (s) => { const e = document.querySelector(s); return e ? getComputedStyle(e).transitionProperty + ' / ' + getComputedStyle(e).transitionDuration : null; }; return { card: t('${LEAF} .binders-card[data-path]'), stack: t('${LEAF} .binders-card.is-stack'), crumb: t('${LEAF} .binders-crumb'), progressBar: t('${LEAF} .binders-progress-bar'), toolbarButton: t('${LEAF} .binders-toolbar-button'), editable: t('${LEAF} .binders-editable'), nativeNavItem: t('.nav-file-title'), nativeClickable: t('.clickable-icon'), reduce: matchMedia('(prefers-reduced-motion: reduce)').matches }; })()`);
 	};
 	await run('normal');
 	await p.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });

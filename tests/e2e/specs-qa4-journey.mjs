@@ -270,16 +270,21 @@ test('1a. a new novel from nothing: a folder made a binder, twenty scenes from t
 	await p.click(nb.x, nb.y);
 	t.eq(j(await menuItems(p)), j(['New note', 'New folder']), 'New makes notes and folders');
 	await clickMenu(p, 'New note');
-	t.ok(await p.ev(`document.activeElement.matches('.binders-card-new input')`), 'a title to type');
-	for (const name of NAMES.slice(0, 8)) { await p.type(name); await p.key('Enter'); await until(p, `app.vault.adapter.exists('Novel/${name}.md')`); await p.sleep(200); }
-	await p.key('Escape');
-	await p.sleep(200);
-	t.ok(await p.ev(`document.activeElement.matches('.binders-card-new')`), 'Escape ends it, with the focus on the New note card');
+	const titleOpen = `document.activeElement?.matches('.workspace-leaf.mod-active .binders-card[data-path] input')`;
+	await until(p, titleOpen);
+	t.ok(await p.ev(titleOpen), 'a card, its title to type');
+	for (const [i, name] of NAMES.slice(0, 8).entries()) {
+		if (i) { await p.click(nb.x, nb.y); await clickMenu(p, 'New note'); await until(p, titleOpen); }
+		await p.type(name); await p.key('Enter'); await until(p, `app.vault.adapter.exists('Novel/${name}.md')`); await p.sleep(200);
+	}
+	t.ok(await p.ev(`document.activeElement.matches('.binders-card[data-path]')`), 'Enter names it, with the focus on its card');
 	// six from the keyboard: the command, from the palette, with the binder view in front
-	await palette(p, 'New scene here');
-	t.ok(await p.ev(`document.activeElement.matches('.binders-card-new input')`), '“New scene here” from the command palette starts a card');
-	for (const name of NAMES.slice(8, 14)) { await p.type(name); await p.key('Enter'); await until(p, `app.vault.adapter.exists('Novel/${name}.md')`); await p.sleep(200); }
-	await p.key('Escape');
+	for (const [i, name] of NAMES.slice(8, 14).entries()) {
+		await palette(p, 'New scene here');
+		await until(p, titleOpen);
+		if (!i) t.ok(await p.ev(titleOpen), '“New scene here” from the command palette makes a card, its title to type');
+		await p.type(name); await p.key('Enter'); await until(p, `app.vault.adapter.exists('Novel/${name}.md')`); await p.sleep(200);
+	}
 	await p.sleep(200);
 	t.eq(j(await list(p, NNOTE)), j(NAMES.slice(0, 14)), 'fourteen, in the order they were made');
 	// six from the explorer: the folder's menu, then each new note's own

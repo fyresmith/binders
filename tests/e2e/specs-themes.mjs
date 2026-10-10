@@ -96,7 +96,6 @@ test('what Binders counts (a card’s words, a folder card’s notes, the outlin
 	t.ok(muted !== faint, 'the theme has both');
 	t.eq(await p.ev(style('.binders-card:not(.is-stack) .binders-card-words', 'color')), muted, 'a note’s card: its words');
 	t.eq(await p.ev(style('.binders-card.is-stack .binders-card-words', 'color')), muted, 'a folder’s card: what it holds');
-	t.eq(await p.ev(style('.binders-card-new', 'color')), faint, 'the “New note” tile, an empty place, stays faint until it’s pointed at');
 	await p.ev(`(() => { ${VIEW}.setMode('outliner'); return 1; })()`);
 	await until(p, `!!document.querySelector('.workspace-leaf.mod-active .binders-outliner-foot .binders-outliner-cell')`);
 	t.eq(await p.ev(style('.binders-outliner-foot .binders-outliner-cell.mod-title', 'color')), muted, 'the outliner’s last row');

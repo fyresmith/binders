@@ -169,7 +169,7 @@ line would have pushed the names down under the pointer).
 - A phone on its side with the keyboard up: Binders' toolbar steps aside while something is being typed in a short
   view, and the manuscript runs under Obsidian's header as a note does, the cursor kept clear of it.
 - Counts (a card's words, a folder card's "3 notes · 51 words", the outliner's totals) are in the theme's muted text,
-  as Obsidian's Bases cards are, not its faintest. The "New note" tile stays faint, like a placeholder.
+  as Obsidian's Bases cards are, not its faintest.
 - In a light theme a selected card's ring is its label's color mixed 35% toward the text color, so pale labels show.
 - Decided 2026-10-05, and built: "Ungroup" takes the emptied folder away, to the trash, and "Undo last move" brings
   it back (a folder whose note has text of its own stays); a folder copied by Obsidian has its folder note renamed

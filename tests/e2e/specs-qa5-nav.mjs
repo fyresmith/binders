@@ -284,7 +284,7 @@ test('phone explorer: every row’s menu is a sheet with Binders’ items where 
 	});
 });
 
-test('phone explorer: “New binder” makes one where the list is, its name selected to type over with the drawer still open; named, it’s a binder still; a tap opens an empty binder that says what to do, and its “New note” tile makes the first note', async (p, h, t) => {
+test('phone explorer: “New binder” makes one where the list is, its name selected to type over with the drawer still open; named, it’s a binder still; a tap opens an empty binder that says what to do, and “New” in its toolbar makes the first note', async (p, h, t) => {
 	await onDevice(p, PHONE, async () => {
 		await showExplorer(p, []);
 		await emptyMenu(p);
@@ -313,13 +313,15 @@ test('phone explorer: “New binder” makes one where the list is, its name sel
 		t.ok(/No notes in this folder yet/.test(await viewText(p)), 'an empty binder says so');
 		const bar = await toolbar(p);
 		t.ok(bar.out <= 0 && bar.overlap.length === 0 && bar.kids.some((k) => /0 words/.test(k.text)), 'its toolbar fits and counts 0 words: ' + j(bar.kids.map((k) => k.text)));
-		const tile = await p.at(`${LEAF} .binders-card-new`);
-		await tap(p, tile.x, tile.y);
-		t.eq(await p.ev(`document.activeElement.tagName`), 'INPUT', 'the “New note” tile opens its field');
+		const add = await p.at(`${LEAF} .binders-new-button`);
+		await tap(p, add.x, add.y);
+		await p.sleep(300);
+		t.ok(await menuTap(p, 'New note'), '“New” in the toolbar offers a new note');
+		await until(p, `document.activeElement?.matches('${LEAF} .binders-card[data-path] input')`);
+		t.eq(await p.ev(`document.activeElement.tagName`), 'INPUT', 'which is a card, its title a field');
 		await p.type('Chapter one');
 		await p.key('Enter');
 		await until(p, `!!app.vault.getAbstractFileByPath('My book/Chapter one.md')`);
-		await p.key('Escape');
 		await p.sleep(400);
 		await flush(p);
 		const note = await p.ev(`${B}.binderOf('My book').note.path`);
@@ -1380,7 +1382,7 @@ test('phone: a Longform project in the explorer and as a binder: its scenes in L
 	});
 });
 
-ux('phone: an empty binder’s hint names something on the screen (“Use “New” above to add one.”: on a phone the button is a bare + with no word on it, and the “New note” tile is right below)', async (p, h, t) => {
+ux('phone: an empty binder’s hint names something on the screen (“Use “New” above to add one.”: on a phone the button is a bare + with no word on it)', async (p, h, t) => {
 	await onDevice(p, PHONE, async () => {
 		await p.ev(`(async () => { await app.vault.createFolder('Empty'); await app.vault.create('Empty/Empty.md', '---\\nbinder: 1\\ncontents: []\\n---\\n'); })().then(() => 1)`);
 		await p.sleep(1000);

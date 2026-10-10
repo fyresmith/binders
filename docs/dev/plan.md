@@ -154,15 +154,18 @@ New (note, folder). The view runs edge to edge, as a base, a canvas or a note do
 - The synopsis of the binder or folder being viewed shows under the header, editable in place, as does a subfolder's
   synopsis on its card (one with none doesn't offer the line: "Edit synopsis" in its menu adds it). Editing writes to
   that folder's note (creating it if needed).
-- One "New note" tile ends the board: the next card's place, with a plus and the words in its middle; it becomes a
-  card while the title is typed.
+- A new note is made from "New" in the toolbar (or the board's own menu, or the command): after the selected card,
+  or last with none selected, as a card named "Untitled" with its title ready to type over, as in the outliner and
+  the file explorer. The board ends with its last card. (Until 2026-10-07 a "New note" tile ended it, the next
+  card's place with a plus in its middle; removed at the maintainer's word: "the ghost one ... is a bit odd". With no
+  card on the board the keyboard rests on "New" in the toolbar, where it rested on the tile.)
 - **Selecting several** (decided 2026-10-05, the maintainer's request: "Shift click should allow you to multi-select
   cards", and a selection box, on a plain drag too "if that is typical behavior": it is, in Finder, Explorer and
   Scrivener's corkboard). As in a file manager and Obsidian's file explorer: a click selects one; Shift-click selects
   from the anchor (the card last clicked) to this one, or with no anchor this card, which becomes it; Mod-click turns
   one over; Mod+Shift-click adds the range to what's selected. A card not yet selected is selected as it's pressed,
   with a modifier too, so a press that moves a little (which makes it a drag, with no click after) has still selected,
-  and drags the lot. Two Shift-clicks on one card don't open it. A press on empty space (not a card, the tile, a
+  and drags the lot. Two Shift-clicks on one card don't open it. A press on empty space (not a card, a
   heading, a field) that moves more than 5 px draws a **selection box** (`SelectBox` in `src/view/drag.ts`, used by the
   grid and by the board by label): plain it replaces the selection with the cards it touches, with Shift it adds
   them, with Mod it turns each over; Escape puts back what was selected; a click that doesn't move still clears the

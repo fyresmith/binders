@@ -62,7 +62,7 @@ The breadcrumb takes you back up. Cards dragged onto a name in the breadcrumb mo
 
 - **New** in the toolbar makes a **New note** or a **New folder**. With a card or row selected, the new one goes
   right after it; otherwise it goes last.
-- On the corkboard, **New note** at the end of the board adds one at the end.
+- Right-click empty space on the corkboard for the same two.
 - **New scene here** in a binder folder's right-click menu in the file explorer adds one to that folder. As a
   command, it adds a note right after the note you have open, or where the binder view would put one.
 - **New scene after this** in a note's right-click menu in the file explorer, and **New note after this** in the

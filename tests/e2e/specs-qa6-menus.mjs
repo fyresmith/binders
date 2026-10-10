@@ -825,7 +825,7 @@ test('several selected: Delete 2 items asks once, names the count, Cancel keeps 
 
 const BTN = (c) => `${LEAF} .${c}`;
 
-test('toolbar New: New note and New folder each start a card named in place; Enter keeps it, Escape leaves nothing; the list on disk follows', tidied(async (p, h, t) => {
+test('toolbar New: New note and New folder each start a card named in place; Enter names it, Escape leaves it “Untitled”; the list on disk follows', tidied(async (p, h, t) => {
 	await fresh(p);
 	const before = await BODIES(p), start = await list(p);
 	await click(p, BTN('binders-new-button'));
@@ -833,11 +833,11 @@ test('toolbar New: New note and New folder each start a card named in place; Ent
 	t.eq(j((await items(p)).map((x) => x.icon)), j(['file-plus', 'folder-plus']), 'with their icons');
 	await choose(p, 'New note');
 	await until(p, `document.activeElement?.tagName === 'INPUT'`, 3000);
-	t.ok(await p.ev(`document.activeElement.closest('.binders-card, .binders-card-new') !== null`), 'a field for the name is on the board, focused');
+	t.eq(await p.ev(`document.activeElement.closest('.binders-card[data-path]')?.dataset.path`), L + 'Untitled.md', 'a new card’s name is a field on the board, focused');
 	await p.key('Escape');
 	await p.sleep(500);
-	t.eq(j(await list(p)), j(start), 'Escape: nothing is made');
-	t.eq(await p.ev(`app.vault.getMarkdownFiles().length`), Object.keys(before).length, 'no file either');
+	t.eq(j(await list(p)), j([...start, 'Untitled']), 'Escape: the note stays under the name it was made with, last in the list');
+	t.eq(await p.ev(`app.vault.getMarkdownFiles().length`), Object.keys(before).length + 1, 'one file more');
 	await click(p, BTN('binders-new-button'));
 	await choose(p, 'New note');
 	await until(p, `document.activeElement?.tagName === 'INPUT'`, 3000);

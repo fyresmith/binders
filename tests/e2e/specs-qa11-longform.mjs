@@ -3,7 +3,7 @@
 // indent a scene, split, duplicate and merge in a project, a project with one scene or none, an index note edited from
 // outside while the binder is open, two index notes in one folder, a snapshot, nesting three deep, a list that starts
 // indented, and an index note deleted. Every test that changes a file checks that no other text was lost.
-import { VIEW, card, cards, openView, clickMenu, closeMenus, answer, until, read, texts, split, same, withTidy, j, file } from './view-helpers.mjs';
+import { VIEW, newNote, card, cards, openView, clickMenu, closeMenus, answer, until, read, texts, split, same, withTidy, j, file } from './view-helpers.mjs';
 
 export const specs = [];
 // (a test for a confirmed bug starts its name with "BUG: ", as the findings list does)
@@ -231,10 +231,7 @@ test('a project of one scene: one card, no group, nothing to move, and a new car
 	t.ok(!(await p.ev(`${B}.moveUp(${scene('Only', 'Short')})`)), 'nothing to move up');
 	await p.sleep(200);
 	const before = await texts(p);
-	const tile = await p.at(`.workspace-leaf.mod-active .binders-card-new`);
-	await p.click(tile.x, tile.y);
-	await p.type('Second');
-	await p.key('Enter');
+	await newNote(p, 'Second');
 	await p.key('Escape');
 	await waitFor(p, `!!${scene('Second', 'Short')}`);
 	await flush(p);
@@ -250,11 +247,7 @@ test('an empty project: its first card is listed, and only the scenes list is ad
 	await waitFor(p, `${B}.all().some(b => b.folder.path === 'Empty')`);
 	await openView(p, 'Empty');
 	t.eq(j(await cards(p)), '[]', 'no cards');
-	const tile = await p.at(`.workspace-leaf.mod-active .binders-card-new`);
-	t.ok(!!tile, 'a tile to make the first scene');
-	await p.click(tile.x, tile.y);
-	await p.type('First');
-	await p.key('Enter');
+	await newNote(p, 'First');
 	await p.key('Escape');
 	await waitFor(p, `!!${scene('First', 'Empty')}`);
 	await flush(p);

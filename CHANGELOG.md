@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.50.0 (2026-10-10)
+
+### Changed
+
+- The corkboard no longer ends with a “New note” tile. Make a note with “New” in the toolbar, the board’s menu or the command: it appears as “Untitled” after the selected card (or at the end), with its title ready to type over.
+
 ## 0.49.27 (2026-10-10)
 
 ### Fixed

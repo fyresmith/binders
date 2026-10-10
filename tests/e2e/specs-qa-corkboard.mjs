@@ -1,6 +1,6 @@
 // QA: the binder view and the corkboard. Scenarios named "BUG: …" fail until the bug they show is fixed; the others
 // are regressions that pass.
-import { B, NOTE, PL, VIEW, card, cards, clickMenu, closeMenus, contents, exists, file, flush, hoverMenu, j, menuItems, openView, read, reload, same, selected, split, texts, until, viewState, withTidy, writeRaw } from './view-helpers.mjs';
+import { B, NOTE, PL, VIEW, card, cards, clickMenu, closeMenus, contents, exists, file, flush, hoverMenu, j, menuItems, newNote, openView, read, reload, same, selected, split, texts, until, viewState, withTidy, writeRaw } from './view-helpers.mjs';
 import { mkdirSync } from 'fs';
 
 export const specs = [];
@@ -170,8 +170,8 @@ test('multi-select on a board, dropped at its end, keeps their order', withTidy(
 	const a = await at(p, 'Part One/Arrival.md'), k = await at(p, 'Part One/The keeper.md');
 	await p.click(k.x, k.t + 12);
 	await p.click(a.x, a.t + 12, { modifiers: 2 });
-	const end = await p.at(`.workspace-leaf.mod-active .binders-card-new`);
-	await drag(p, { x: a.x, y: a.t + 12 }, { x: end.x, y: end.y });
+	const end = await at(p, 'Part One/Storm warning.md');
+	await drag(p, { x: a.x, y: a.t + 12 }, { x: end.l + end.w - 10, y: end.y });
 	const list = await written(p, '  - Part One/Storm warning\n  - Part One/Arrival\n  - Part One/The keeper');
 	t.eq(j(list.slice(1, 5)), j(['Part One/', 'Part One/Storm warning', 'Part One/Arrival', 'Part One/The keeper']), 'both at the end, in card order');
 }));
@@ -293,8 +293,7 @@ test('synopsis being typed survives the note being deleted meanwhile (text stays
 
 test('a new card titled with a leading dot is refused (Obsidian would hide the note)', withTidy(async (p, h, t) => {
 	await openView(p);
-	const nc = await p.at(`.workspace-leaf.mod-active .binders-group:last-child .binders-card-new`);
-	await p.click(nc.x, nc.y);
+	await newNote(p);
 	await p.type('.notes');
 	await p.key('Enter');
 	await p.sleep(600);
@@ -311,24 +310,22 @@ test('a new card titled with a leading dot is refused (Obsidian would hide the n
 
 test('a new card’s title that fails to save stays in the field', withTidy(async (p, h, t) => {
 	await openView(p);
-	const nc = await p.at(`.workspace-leaf.mod-active .binders-group:last-child .binders-card-new`);
-	await p.click(nc.x, nc.y);
+	await newNote(p);
 	const long = 'A'.repeat(300);
 	await p.ev(`(() => { document.activeElement.value = ${j(long)}; return 1; })()`);
 	await p.key('Enter');
 	await p.sleep(800);
 	p.errors.length = 0;
-	const v = await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-card-new input')?.value ?? null`);
+	const v = await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-card[data-path] input')?.value ?? null`);
 	t.ok(v === long, `the title stays in the field after the error, as a rename’s does (field has ${v?.length ?? 'no'} characters)`);
 }));
 
-test('new card: a duplicate title, the folder’s own name, slashes, empty', withTidy(async (p, h, t) => {
+test('new card: named in place, a taken name, the folder’s own name and a slash are refused, and the note keeps the name it was made with', withTidy(async (p, h, t) => {
 	const before = await texts(p);
 	await openView(p, 'The Lighthouse/Part One');
 	const newCard = async (title) => {
 		await p.ev(`document.querySelectorAll('.notice').forEach(n => n.remove())`); // the last title's notice can cover the card
-		const nc = await p.at(`.workspace-leaf.mod-active .binders-group:last-child .binders-card-new`);
-		await p.click(nc.x, nc.y);
+		await newNote(p);
 		await p.type(title);
 		await p.key('Enter');
 		await p.sleep(500);
@@ -337,42 +334,22 @@ test('new card: a duplicate title, the folder’s own name, slashes, empty', wit
 		await p.ev(`document.querySelectorAll('.notice').forEach(n => n.remove())`);
 	};
 	await newCard('Arrival');
-	t.ok(await exists(p, L + 'Part One/Arrival 1.md'), 'a taken name gets a number');
+	t.ok(await exists(p, L + 'Part One/Untitled.md') && !(await exists(p, L + 'Part One/Arrival 1.md')), 'a taken name is refused: the note stays “Untitled”');
 	await newCard('Part One');
-	t.ok(await exists(p, L + 'Part One/Part One 1.md') && !(await exists(p, L + 'Part One/Part One.md')), 'the folder’s name gets a number (not the folder note)');
+	t.ok(await exists(p, L + 'Part One/Untitled 1.md') && !(await exists(p, L + 'Part One/Part One.md')), 'the folder’s name is refused (it would be the folder note)');
 	await newCard('a/b');
 	t.ok(!(await exists(p, L + 'Part One/a/b.md')) && !(await exists(p, L + 'Part One/a b.md')), 'a slash is refused');
 	p.errors.length = 0;
-	await newCard('   ');
-	t.eq((await cards(p)).length, 5, 'blank makes nothing');
+	t.eq((await cards(p)).length, 6, 'three new notes, each under the name it was made with: ' + j(await cards(p)));
 	same(t, before, await texts(p), { skip: [NOTE] });
-}));
-
-test('new card: typing the next title right after Enter loses nothing', withTidy(async (p, h, t) => {
-	await openView(p, 'The Lighthouse/Part Two');
-	const nc = await p.at(`.workspace-leaf.mod-active .binders-group:last-child .binders-card-new`);
-	await p.click(nc.x, nc.y);
-	for (const ch of 'One') await p.send('Input.insertText', { text: ch });
-	await p.key('Enter');
-	for (const ch of 'Two') await p.send('Input.insertText', { text: ch });
-	await p.sleep(20);
-	await p.key('Enter');
-	await p.sleep(800);
-	await p.key('Escape');
-	t.ok(await exists(p, L + 'Part Two/One.md'), 'One made');
-	t.ok(await exists(p, L + 'Part Two/Two.md'), 'Two made, with every letter typed: ' + j((await cards(p)).map((c) => c.split('/').pop())));
 }));
 
 test('a new card made while a filter is on stays until the filter changes', withTidy(async (p, h, t) => {
 	await openView(p, 'The Lighthouse/Part One');
 	await filterBy(p, 'Draft');
-	const nc = await p.at(`.workspace-leaf.mod-active .binders-group:last-child .binders-card-new`);
-	await p.click(nc.x, nc.y);
-	await p.type('Filtered');
-	await p.key('Enter');
+	await newNote(p, 'Filtered');
 	await until(p, `app.vault.adapter.exists('The Lighthouse/Part One/Filtered.md')`);
 	await p.sleep(400);
-	await p.key('Escape');
 	await p.shot(`${SHOTS}/new-card-filtered-${await theme(p)}.png`);
 	t.ok((await cards(p)).includes(L + 'Part One/Filtered.md'), 'the new card shows, though it has no status yet');
 	await filterBy(p, 'Revised');
@@ -548,23 +525,19 @@ test('binder note deleted while open: an empty state, nothing thrown', withTidy(
 	t.eq((await cards(p)).length, 4, 'and back when it returns');
 }));
 
-test('an empty binder: one New note card, 0 words, a filter menu that says so', withTidy(async (p, h, t) => {
+test('an empty binder: no card, 0 words, a filter menu that says so', withTidy(async (p, h, t) => {
 	await p.ev(`(async () => { await app.vault.createFolder('Empty'); await ${B}.makeBinder(app.vault.getAbstractFileByPath('Empty')); })().then(() => 1)`);
 	await until(p, `!!${B}.binderOf('Empty')`);
 	await openView(p, 'Empty');
-	t.eq(await p.ev(`document.querySelectorAll('.workspace-leaf.mod-active .binders-card-new').length`), 1, 'one New note card');
+	t.eq(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-empty-title')?.textContent`), 'No notes in this folder yet', 'no card, and the words that say so');
 	t.eq(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-word-count').textContent`), '0 words', '0 words');
 	const f = await p.at(`.workspace-leaf.mod-active .binders-filter-button`);
 	await p.click(f.x, f.y);
 	t.eq(j(await menuItems(p)), j(['No statuses or labels to filter by']), 'the filter menu');
 	await closeMenus(p);
 	await p.shot(`${SHOTS}/empty-binder-${await theme(p)}.png`);
-	const nc = await p.at(`.workspace-leaf.mod-active .binders-card-new`);
-	await p.click(nc.x, nc.y);
-	await p.type('First');
-	await p.key('Enter');
+	await newNote(p, 'First');
 	await until(p, `app.vault.adapter.exists('Empty/First.md')`);
-	await p.key('Escape');
 	await flush(p);
 	await until(p, `app.vault.adapter.read('Empty/Empty.md').then(s => s.includes('- First'))`);
 	t.ok((await read(p, 'Empty/Empty.md')).includes('- First'), 'listed');
@@ -677,10 +650,10 @@ test('look: screenshots (wide, narrow, hover, focus, selection, editing, drag, m
 	await p.ev(`app.fileManager.processFrontMatter(${file(NOTE)}, fm => { fm.target = 5000; }).then(() => 1)`);
 	await openView(p);
 	await p.shot(`${SHOTS}/wide-${th}.png`);
-	// the binder's board: a note, the two folders as stacks, a note, and one "New note" tile
+	// the binder's board: a note, the two folders as stacks, a note
 	t.eq(j(await cards(p)), j([L + 'Prologue.md', L + 'Part One', L + 'Part Two', L + 'Epilogue.md']), 'one card per item of the binder');
 	t.eq(await p.ev(`document.querySelectorAll('.workspace-leaf.mod-active .binders-card.is-stack').length`), 2, 'the folders are stacks');
-	t.eq(await p.ev(`document.querySelectorAll('.workspace-leaf.mod-active .binders-card-new').length`), 1, 'one New note tile');
+	t.eq(await p.ev(`document.querySelectorAll('.workspace-leaf.mod-active .binders-card-new').length`), 0, 'and no “New note” tile');
 	t.eq(await p.ev(`document.querySelectorAll('.workspace-leaf.mod-active .binders-group-heading, .workspace-leaf.mod-active .binders-group.is-folder').length`), 0, 'no sections, no headings');
 	const pro = await at(p, 'Prologue.md'), two = await at(p, 'Part Two');
 	await p.click(pro.x, pro.t + 12);
@@ -699,10 +672,6 @@ test('look: screenshots (wide, narrow, hover, focus, selection, editing, drag, m
 	const s = await p.at(`${card(L + 'Epilogue.md')} .binders-card-synopsis`);
 	await p.click(s.x, s.y);
 	await p.shot(`${SHOTS}/editing-${th}.png`);
-	await p.key('Escape');
-	const nc = await p.at(`.workspace-leaf.mod-active .binders-card-new`);
-	await p.click(nc.x, nc.y);
-	await p.shot(`${SHOTS}/new-card-${th}.png`);
 	await p.key('Escape');
 	// a card held beside a card (a line), then over a stack (the stack is marked), then let go outside the board
 	const w = await at(p, 'Epilogue.md'), one = await at(p, 'Part One');
@@ -769,8 +738,8 @@ test('mobile: a swipe scrolls, a tap selects then edits a synopsis, long press a
 		await p.ev(`(() => { const b = document.querySelector('.workspace-leaf.mod-active .binders-corkboard'); b.scrollTop = b.scrollHeight; return 1; })()`);
 		await p.sleep(300);
 		await p.shot(`${SHOTS}/mobile-bottom-${th}.png`);
-		const last = await p.ev(`(() => { const n = [...document.querySelectorAll('.workspace-leaf.mod-active .binders-card-new')].pop().getBoundingClientRect(), bar = document.querySelector('.mobile-navbar')?.getBoundingClientRect(); return { newBottom: Math.round(n.bottom), barTop: bar ? Math.round(bar.top) : null }; })()`);
-		t.ok(last.barTop == null || last.newBottom <= last.barTop, 'scrolled to the end, the last New note card clears the navigation bar: ' + j(last));
+		const last = await p.ev(`(() => { const n = [...document.querySelectorAll('.workspace-leaf.mod-active .binders-card[data-path]')].pop().getBoundingClientRect(), bar = document.querySelector('.mobile-navbar')?.getBoundingClientRect(); return { newBottom: Math.round(n.bottom), barTop: bar ? Math.round(bar.top) : null }; })()`);
+		t.ok(last.barTop == null || last.newBottom <= last.barTop, 'scrolled to the end, the last card clears the navigation bar: ' + j(last));
 		await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-corkboard').scrollTop = 0`);
 		await p.sleep(200);
 		// a tap on a synopsis selects the card; a second tap edits

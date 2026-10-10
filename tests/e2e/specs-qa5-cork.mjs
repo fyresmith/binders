@@ -95,11 +95,20 @@ const navbarTop = (p) => p.ev(`(() => { const b = document.querySelector('.mobil
 const scrollTo = async (p, y) => { await p.ev(`(() => { const s = ${CORK}; s.scrollTop = ${y === 'end' ? 's.scrollHeight' : y}; return 1; })()`); await p.sleep(300); };
 const active = (p) => p.ev(`(() => { const a = document.activeElement, r = a.getBoundingClientRect(); return { tag: a.tagName, cls: a.className, value: a.value ?? null, top: Math.round(r.top), bottom: Math.round(r.bottom), left: Math.round(r.left), right: Math.round(r.right), inner: [innerWidth, innerHeight] }; })()`);
 const menus = (p) => p.ev(`document.querySelectorAll('.menu').length`);
+/** A new note from “New” in the toolbar, by touch: its card's title is a field with the focus, and `name` is typed there. */
+const newByTouch = async (p, name) => {
+	const n = await p.at(`${LEAF} .binders-new-button`);
+	await tap(p, n.x, n.y);
+	if (!(await menuTap(p, 'New note'))) throw new Error('no “New note” in the sheet');
+	await until(p, `document.activeElement?.matches('${LEAF} .binders-card[data-path] input')`, 4000);
+	if ((await active(p)).tag !== 'INPUT') throw new Error('the new note’s title isn’t a field');
+	await p.type(name);
+};
 const dialogs = (p) => p.ev(`document.querySelectorAll('.modal-container').length`);
 /** What sticks out of the screen sideways, and whether the view or the board scroll sideways. */
 const sideways = (p) => p.ev(`(() => { const v = document.querySelector('${LEAF} .binders-view'), c = ${CORK}; const out = []; for (const e of v.querySelectorAll('*')) { const r = e.getBoundingClientRect(); if (!r.width || !r.height) continue; if (r.right > innerWidth + 0.5 || r.left < -0.5) out.push((e.className || e.tagName) + ' ' + Math.round(r.left) + '–' + Math.round(r.right)); } return { view: v.scrollWidth - v.clientWidth, board: c ? c.scrollWidth - c.clientWidth : 0, out: out.slice(0, 6) }; })()`);
 /** The size of everything on the board a finger is meant to hit. */
-const targets = (p) => p.ev(`(() => { const R = ${R}; const all = (sel) => [...document.querySelectorAll('${LEAF} ' + sel)].filter(e => e.getBoundingClientRect().height > 0).map(R); const min = (rs, k) => rs.length ? Math.min(...rs.map(r => r[k])) : null; const of = (sel) => { const rs = all(sel); return { n: rs.length, w: min(rs, 2), h: min(rs, 3) }; }; return { toolbar: of('.binders-toolbar-button'), count: of('.binders-word-count'), crumb: of('.binders-crumb[role="link"]'), head: of('.binders-card[data-path] .binders-card-head'), title: of('.binders-card[data-path] .binders-card-title'), synopsis: of('.binders-card-synopsis:not(.is-empty)'), stack: of('.binders-card.is-stack[data-path] .binders-card-head'), tile: of('.binders-card-new'), viewSynopsis: of('.binders-view-synopsis'), up: of('.binders-crumb-up'), more: of('.view-actions .clickable-icon') }; })()`);
+const targets = (p) => p.ev(`(() => { const R = ${R}; const all = (sel) => [...document.querySelectorAll('${LEAF} ' + sel)].filter(e => e.getBoundingClientRect().height > 0).map(R); const min = (rs, k) => rs.length ? Math.min(...rs.map(r => r[k])) : null; const of = (sel) => { const rs = all(sel); return { n: rs.length, w: min(rs, 2), h: min(rs, 3) }; }; return { toolbar: of('.binders-toolbar-button'), count: of('.binders-word-count'), crumb: of('.binders-crumb[role="link"]'), head: of('.binders-card[data-path] .binders-card-head'), title: of('.binders-card[data-path] .binders-card-title'), synopsis: of('.binders-card-synopsis:not(.is-empty)'), stack: of('.binders-card.is-stack[data-path] .binders-card-head'), viewSynopsis: of('.binders-view-synopsis'), up: of('.binders-crumb-up'), more: of('.view-actions .clickable-icon') }; })()`);
 
 // ---- menus and dialogs ----
 /** The last menu shown: where it is, and its items. On a phone Obsidian shows a menu as a sheet along the bottom. */
@@ -183,8 +192,8 @@ test('every phone size, upright and on its side: nothing sticks out or scrolls s
 			await scrollTo(p, 'end');
 			await shot(p, `size-${name}-end`);
 			const end = await p.ev(`(() => { const cs = ${CORK}.querySelectorAll('.binders-card'); return Math.round(cs[cs.length - 1].getBoundingClientRect().bottom); })()`), nav = await navbarTop(p);
-			t.ok(nav == null || end <= nav, `${name}: the last tile (bottom ${end}) is above the navigation bar (top ${nav})`);
-			t.ok(tg.toolbar.h >= 32 && tg.tile.h >= 40, `${name}: the toolbar’s buttons and the “New note” tiles are a finger tall: ${j(tg)}`);
+			t.ok(nav == null || end <= nav, `${name}: the last card (bottom ${end}) is above the navigation bar (top ${nav})`);
+			t.ok(tg.toolbar.h >= 32, `${name}: the toolbar’s buttons are a finger tall: ${j(tg)}`);
 		}
 		say(j(out));
 	});
@@ -485,7 +494,7 @@ test('stack sheet: “Delete” asks, naming the folder and how many notes go wi
 // The board's own sheet, the toolbar's New, and the view's "More options"
 // =====================================================================================================================
 
-test('“New” in the toolbar: “New note” opens the last tile’s field, in sight, with the sheet gone; what’s typed makes a note at the end; “New folder” names a folder on its stack', async (p, h, t) => {
+test('“New” in the toolbar: “New note” makes a card at the end, its title a field in sight, with the sheet gone; what’s typed names it; “New folder” names a folder on its stack', async (p, h, t) => {
 	await onDevice(p, PHONE, async () => {
 		await open(p);
 		const n = await p.at(`${LEAF} .binders-new-button`);
@@ -504,7 +513,7 @@ test('“New” in the toolbar: “New note” opens the last tile’s field, in
 		await until(p, `!!app.vault.getAbstractFileByPath(${j(L + 'Afterword.md')})`);
 		await p.sleep(500);
 		await flush(p);
-		t.eq((await contents(p)).pop(), 'Afterword', 'a tap elsewhere makes the note, at the binder’s end');
+		t.eq((await contents(p)).pop(), 'Afterword', 'a tap elsewhere names the note, at the binder’s end');
 		// New folder
 		await tap(p, n.x, n.y);
 		t.ok(await menuTap(p, 'New folder'), 'New folder');
@@ -548,7 +557,7 @@ test('the board’s own sheet (a long press on the board): “New note”, “Ne
 		t.ok(await menuTap(p, 'New note'), 'New note');
 		await p.sleep(500);
 		const a = await active(p);
-		t.eq(a.tag, 'INPUT', '“New note” opens the tile’s field');
+		t.eq(a.tag, 'INPUT', '“New note” makes a card, its title a field with the focus');
 		await p.key('Escape');
 	});
 });
@@ -582,7 +591,7 @@ test('“More options”: the three modes, the board’s options, “Export...�
 	});
 });
 
-bug('“New” in the toolbar leaves the field it opens in sight: “New note” opens the last tile’s title under the navigation bar (816–837 px down an 844 px screen whose bar starts at 760), “New folder” the folder’s name (824–844)', async (p, h, t) => {
+bug('“New” in the toolbar leaves the field it opens in sight: “New note” opened the last tile’s title under the navigation bar (816–837 px down an 844 px screen whose bar starts at 760), “New folder” the folder’s name (824–844)', async (p, h, t) => {
 	await onDevice(p, PHONE, async () => {
 		await open(p);
 		const n = await p.at(`${LEAF} .binders-new-button`), nav = await navbarTop(p), under = [];
@@ -739,17 +748,12 @@ test('typing is never lost: a synopsis being typed is saved when another card’
 	t.eq(after[L + 'Prologue.md'].split('---\n').pop(), before[L + 'Prologue.md'].split('---\n').pop(), 'Prologue’s text is unchanged');
 });
 
-test('typing is never lost: a title being typed in the “New note” tile makes its note when the mode is switched, when a card’s title is tapped, and when the tab is closed', async (p, h, t) => {
+test('typing is never lost: the name being typed for a note just made is its name when the mode is switched, when a card’s title is tapped, and when the tab is closed', async (p, h, t) => {
 	await onDevice(p, PHONE, async () => {
 		await open(p);
 		const start = async (name) => {
-			// (the tile ends the board: brought clear of the navigation bar, which floats over the board's foot)
-			await see(p, `${LEAF} .binders-card-new`);
-			const tile = await p.at(`${LEAF} .binders-card-new`);
-			await tap(p, tile.x, tile.y);
-			say('tile', name, j(tile), j(await active(p)), await p.ev(`Math.round(${CORK}.scrollTop)`));
-			if ((await active(p)).tag !== 'INPUT') throw new Error('the tile didn’t open');
-			await p.type(name);
+			await p.ev(`(() => { ${VIEW}.current.select([]); return 1; })()`);
+			await newByTouch(p, name);
 			say('typed', j(await active(p)), await p.ev(`Math.round(${CORK}.scrollTop)`));
 		};
 		const made = async (name, what) => { await until(p, `!!app.vault.getAbstractFileByPath(${j(L + name + '.md')})`, 4000); t.ok(await p.ev(`!!app.vault.getAbstractFileByPath(${j(L + name + '.md')})`), what); };
@@ -783,7 +787,7 @@ test('typing is never lost: a title being typed in the “New note” tile makes
 // Editing in place, with the keyboard up
 // =====================================================================================================================
 
-test('keyboard up: for a card’s synopsis and title, a stack’s name, the “New note” tile and the binder’s synopsis, at 390 × 844, 320 × 568 and 844 × 390, the first letter typed brings the line being typed above the keyboard', async (p, h, t) => {
+test('keyboard up: for a card’s synopsis and title, a stack’s name and the binder’s synopsis, at 390 × 844, 320 × 568 and 844 × 390, the first letter typed brings the line being typed above the keyboard', async (p, h, t) => {
 	const out = {};
 	await onDevice(p, PHONE, async () => {
 		for (const size of [PHONE, SMALL, side(PHONE)]) {
@@ -810,8 +814,6 @@ test('keyboard up: for a card’s synopsis and title, a stack’s name, the “N
 			await probe('synopsis-last', async () => { await scrollTo(p, 'end'); const f = await foot(p, 'Epilogue.md'); await tap(p, f.x, f.y); const s = await p.at(card(L + 'Epilogue.md') + ' .binders-card-synopsis'); await tap(p, s.x, s.y); });
 			await probe('rename-last', async () => { await scrollTo(p, 'end'); await cardMenu(p, 'Epilogue.md'); await menuTap(p, 'Rename'); });
 			await probe('stack-rename', async () => { await stackMenu(p, L + 'Part Two'); await menuTap(p, 'Rename'); });
-			// (on its side, Obsidian's navigation bar floats over the last tile: it can't be tapped there)
-			if (size[1] >= 500) await probe('tile-last', async () => { await scrollTo(p, 'end'); const all = await p.ev(`[...document.querySelectorAll('${LEAF} .binders-card-new')].map(${R})`); const r = all[all.length - 1]; await tap(p, r[0] + r[2] / 2, r[1] + r[3] / 2); });
 			await probe('view-synopsis', async () => { await scrollTo(p, 0); const s = await p.at(`${LEAF} .binders-view-synopsis`); await tap(p, s.x, s.y); });
 		}
 	});
@@ -1095,7 +1097,7 @@ test('stacks: a card dropped on a stack’s middle goes into that folder; droppe
 // Other binders: empty, read only, Longform
 // =====================================================================================================================
 
-test('an empty binder: it says so, and the “New note” tile is in sight under it; a note named there is the binder’s first', async (p, h, t) => {
+test('an empty binder: it says so and where a note is made, with “New” in sight in the toolbar; a note made there is the binder’s first', async (p, h, t) => {
 	await p.ev(`(async () => { await app.vault.createFolder('Blank'); await app.vault.create('Blank/Blank.md', '---\\nbinder: 1\\ncontents: []\\n---\\n'); })().then(() => 1)`);
 	await until(p, `!!${B}.binderOf(app.vault.getAbstractFileByPath('Blank'))`, 5000);
 	await onDevice(p, PHONE, async () => {
@@ -1106,20 +1108,17 @@ test('an empty binder: it says so, and the “New note” tile is in sight under
 			await openView(p, 'Blank');
 			await p.sleep(600);
 			await shot(p, `empty-${size.join('x')}`);
-			const e = await p.ev(`(() => { const R = ${R}; return { empty: R(document.querySelector('${LEAF} .binders-empty')), text: document.querySelector('${LEAF} .binders-empty')?.innerText ?? null, tile: R(document.querySelector('${LEAF} .binders-card-new')), scrolls: ${CORK}.scrollHeight - ${CORK}.clientHeight, inner: innerHeight }; })()`), nav = await navbarTop(p);
+			const e = await p.ev(`(() => { const R = ${R}; return { empty: R(document.querySelector('${LEAF} .binders-empty')), text: document.querySelector('${LEAF} .binders-empty')?.innerText ?? null, add: R(document.querySelector('${LEAF} .binders-new-button')), tiles: document.querySelectorAll('${LEAF} .binders-card-new').length, inner: [innerWidth, innerHeight] }; })()`), nav = await navbarTop(p);
 			say('empty', size.join('x'), j(e), nav);
-			t.ok(/No notes in this folder yet/.test(e.text ?? ''), 'it says the binder is empty');
-			t.ok(e.tile && e.tile[1] + e.tile[3] <= (nav ?? e.inner), `${size.join('x')}: the “New note” tile is in sight (${j(e.tile)}, navigation bar at ${nav})`);
+			t.ok(/No notes in this folder yet/.test(e.text ?? '') && /Tap \+ above to add one\./.test(e.text ?? ''), 'it says the binder is empty, and where a note is made: ' + j(e.text));
+			t.eq(e.tiles, 0, 'there is no “New note” tile');
+			t.ok(e.add && e.add[2] >= 32 && e.add[3] >= 32 && e.add[0] >= 0 && e.add[0] + e.add[2] <= e.inner[0] && e.add[1] >= 0 && e.add[1] + e.add[3] <= (nav ?? e.inner[1]), `${size.join('x')}: “New” (the plus) is in sight in the toolbar, a finger wide (${j(e.add)}, navigation bar at ${nav})`);
 		}
 		await metrics(p, ...PHONE);
 		await p.sleep(500);
-		const tile = await p.at(`${LEAF} .binders-card-new`);
-		await tap(p, tile.x, tile.y);
-		t.eq((await active(p)).tag, 'INPUT', 'a tap on the tile opens its field');
-		await p.type('First');
+		await newByTouch(p, 'First');
 		await p.key('Enter');
 		await until(p, `!!app.vault.getAbstractFileByPath('Blank/First.md')`);
-		await p.key('Escape');
 		await p.sleep(500);
 		await flush(p);
 		t.eq(j(await contents(p, 'Blank/Blank.md')), j(['First']), 'the note is the binder’s first');
@@ -1179,7 +1178,7 @@ test('a read-only binder (a newer format): it says why, has no “New”, no til
 	for (const [path, text] of Object.entries(before)) t.eq(after[path], text, `“${path}” is unchanged`);
 });
 
-test('a Longform project: scenes in its order, the indented ones under their scene; a card is dragged to reorder (only `longform.scenes` changes); a new scene is named in a tile; no folders are offered', async (p, h, t) => {
+test('a Longform project: scenes in its order, the indented ones under their scene; a card is dragged to reorder (only `longform.scenes` changes); a new scene is named on its card; no folders are offered', async (p, h, t) => {
 	const before = await texts(p);
 	await onDevice(p, PHONE, async () => {
 		await open(p, 'Longform demo');
@@ -1213,15 +1212,11 @@ test('a Longform project: scenes in its order, the indented ones under their sce
 		const idx = await read(p, LF + 'Index.md');
 		say(idx.split('---')[1]);
 		t.ok(/scenes:\n\s+- Harbor\n\s+- - Ticket office\n\s+- The crossing\n\s+- Return\n\s+- Island\n/.test(idx), 'Return is before Island in `longform.scenes`, the indents as they were: ' + idx.split('scenes:')[1].split('ignoredFiles')[0]);
-		// a new scene, in the last tile
-		await scrollTo(p, 'end');
-		const all = await p.ev(`[...document.querySelectorAll('${LEAF} .binders-card-new')].map(${R})`), r = all[all.length - 1];
-		await tap(p, r[0] + r[2] / 2, r[1] + r[3] / 2);
-		t.eq((await active(p)).tag, 'INPUT', 'the tile opens');
-		await p.type('Coda');
+		// a new scene, from "New" in the toolbar (with no card selected: at the project's end)
+		await p.ev(`(() => { ${VIEW}.current.select([]); return 1; })()`);
+		await newByTouch(p, 'Coda');
 		await p.key('Enter');
 		await until(p, `!!app.vault.getAbstractFileByPath(${j(LF + 'Coda.md')})`);
-		await p.key('Escape');
 		await p.sleep(600);
 		await flush(p);
 		t.ok(/- Island\n\s+- Coda\n/.test(await read(p, LF + 'Index.md')), 'the new scene is the project’s last');
@@ -1284,7 +1279,7 @@ ux('what a tap opens is a finger tall: a card’s title (the only part of a card
 	});
 });
 
-test('swipes that start on a title, a folder card’s name or the names on it, a synopsis, the “New note” tile or the binder’s synopsis scroll the board and open nothing; a double tap on a card’s foot opens its note', async (p, h, t) => {
+test('swipes that start on a title, a folder card’s name or the names on it, a synopsis or the binder’s synopsis scroll the board and open nothing; a double tap on a card’s foot opens its note', async (p, h, t) => {
 	await onDevice(p, PHONE, async () => {
 		// enough notes that the board scrolls a long way
 		await p.ev(`(async () => { for (let i = 1; i <= 6; i++) await ${B}.newScene(app.vault.getAbstractFileByPath('The Lighthouse'), Infinity, 'Extra ' + i); await ${B}.flush(); })().then(() => 1)`);
@@ -1306,7 +1301,6 @@ test('swipes that start on a title, a folder card’s name or the names on it, a
 		// (a folder's card with no synopsis has no line for one since 0.12.17: it names what the folder holds there)
 		await from(card(L + 'Part Two') + ' .binders-card-held', 'the names on a folder’s card');
 		await from(card(L + 'Epilogue.md') + ' .binders-card-title', 'a card’s title');
-		await from(`${LEAF} .binders-card-new`, 'the “New note” tile', true);
 		await from(`${LEAF} .binders-view-synopsis`, 'the binder’s synopsis');
 		// a selected card's synopsis: a swipe from it doesn't edit it; nor one from the names on a selected folder's card
 		for (const [path, part, what] of [['Epilogue.md', '.binders-card-synopsis', 'a selected card’s synopsis'], ['Part Two', '.binders-card-held', 'the names on a selected folder’s card']]) {
@@ -1405,7 +1399,7 @@ test('a synopsis of several lines (Enter is a new line on a phone’s keyboard) 
 	t.eq(after[L + 'Part One/Arrival.md'].split('---\n').pop(), before[L + 'Part One/Arrival.md'].split('---\n').pop(), 'the note’s text is unchanged');
 });
 
-ux('a title’s field asks the keyboard for a “Done” key, as the “New note” tile’s does (a card’s title and a folder’s name get the keyboard’s default return key)', async (p, h, t) => {
+ux('a title’s field asks the keyboard for a “Done” key (a card’s title and a folder’s name get the keyboard’s default return key)', async (p, h, t) => {
 	await onDevice(p, PHONE, async () => {
 		await open(p);
 		await cardMenu(p, 'Prologue.md');
@@ -1492,12 +1486,9 @@ test('the filter by touch: only matching cards show, stacks count “1 of 3 note
 		t.eq(j(await names()), j(['Part One', 'Part Two', 'Epilogue.md']), 'of the binder’s notes only the idea shows, beside the folders’ stacks');
 		t.eq((await sideways(p)).out.length, 0, 'nothing sticks out');
 		// a note made under the filter stays
-		const tile = await p.at(`${LEAF} .binders-card-new`);
-		await tap(p, tile.x, tile.y);
-		await p.type('Made under a filter');
+		await newByTouch(p, 'Made under a filter');
 		await p.key('Enter');
 		await until(p, `!!app.vault.getAbstractFileByPath(${j(L + 'Made under a filter.md')})`);
-		await p.key('Escape');
 		await p.sleep(600);
 		t.ok((await names()).includes('Made under a filter.md'), 'a note made under the filter stays in sight');
 		// inside a folder: its ideas
@@ -1810,14 +1801,14 @@ test('a binder of 600 notes on a phone, CPU four times slower: it opens in under
 		const after = await p.ev(`${B}.scenes(app.vault.getAbstractFileByPath(${j(SAGA)})).map(f => f.basename).indexOf(${j(c.path.split('/').pop().replace('.md', ''))})`);
 		t.ok(after < before, `the card moved up the order (${before} → ${after})`);
 		t.eq(await leftovers(p), 0, 'nothing of the drag is left');
-		// "New note" from the toolbar: with nothing selected, in the tile at the binder's end
+		// "New note" from the toolbar: with nothing selected, at the binder's end
 		await p.ev(`(() => { ${VIEW}.current.select([]); return 1; })()`);
 		const n = await p.at(`${LEAF} .binders-new-button`);
 		await tap(p, n.x, n.y);
 		await menuTap(p, 'New note');
 		await p.sleep(900);
 		const a = await active(p);
-		t.eq(a.tag, 'INPUT', '“New note” opens the last tile');
+		t.eq(a.tag, 'INPUT', '“New note” makes a card, its title a field with the focus');
 		t.ok(await p.ev(`${CORK}.scrollTop > ${CORK}.scrollHeight - ${CORK}.clientHeight - 200`), 'at the binder’s end');
 		await p.key('Escape');
 		await p.send('Emulation.setCPUThrottlingRate', { rate: 1 });
@@ -1943,7 +1934,7 @@ test('tablet, upright and on its side: the board is a grid, menus are popovers b
 			const s = await sideways(p), tg = await targets(p);
 			say(name, j(tg));
 			t.ok(s.view <= 0 && s.board <= 0 && s.out.length === 0, `${name}: nothing sticks out: ${j(s)}`);
-			t.ok(tg.toolbar.h >= 32 && tg.tile.h >= 40, `${name}: buttons and the tile are a finger tall`);
+			t.ok(tg.toolbar.h >= 32, `${name}: the toolbar’s buttons are a finger tall`);
 			const cols = await p.ev(`getComputedStyle(document.querySelector('${LEAF} .binders-cards')).gridTemplateColumns.trim().split(/\\s+/).length`);
 			t.ok(cols >= 3, `${name}: ${cols} columns`);
 			// a long press: a popover by the finger
@@ -2227,75 +2218,6 @@ ux('when the keyboard comes up over a field just opened (a synopsis in the lower
 	});
 });
 
-// (a binder's board has one tile now; a Longform project's still has one for each group of indented scenes)
-bug('with a note being named in one “New note” tile, a tap on another group’s tile opens that one (the first note is made, but the tile tapped closes again at once: the board is drawn again under it, and the tap is lost)', async (p, h, t) => {
-	const LF = 'Longform demo/';
-	await onDevice(p, PHONE, async () => {
-		await open(p, 'Longform demo');
-		const tiles = () => p.ev(`[...document.querySelectorAll('${LEAF} .binders-card-new')].map(${R})`);
-		t.ok((await tiles()).length >= 2, 'a Longform project with indented scenes has a tile for each group: ' + (await tiles()).length);
-		// (the first tile, after Harbor, near the top of the screen: the second, after the scenes indented under it, is in sight too)
-		await p.ev(`(() => { const s = ${CORK}, e = document.querySelector('${LEAF} .binders-card-new'); s.scrollTop += e.getBoundingClientRect().top - 200; return 1; })()`);
-		await p.sleep(400);
-		let ts = await tiles();
-		await tap(p, ts[0][0] + 60, ts[0][1] + 20);
-		t.eq((await active(p)).tag, 'INPUT', 'the first tile (after Harbor) opens');
-		await p.type('One');
-		ts = await tiles();
-		const nav = await navbarTop(p);
-		t.ok(ts[1][1] > 0 && ts[1][1] + 30 < nav, `the second tile is in sight too (${j(ts[1])}, navigation bar at ${nav})`);
-		await tap(p, ts[1][0] + 60, ts[1][1] + 20);
-		await until(p, `!!app.vault.getAbstractFileByPath(${j(LF + 'One.md')})`);
-		await p.sleep(800);
-		await shot(p, 'bug-second-tile');
-		t.ok(await p.ev(`!!app.vault.getAbstractFileByPath(${j(LF + 'One.md')})`), 'the first note is made');
-		const a = await p.ev(`(() => { const all = [...document.querySelectorAll('${LEAF} .binders-card-new')]; return { tag: document.activeElement.tagName, tile: all.indexOf(document.activeElement.closest('.binders-card-new')), tiles: all.length, open: document.querySelectorAll('${LEAF} .binders-card-new.is-editing').length }; })()`);
-		t.eq(j([a.tag, a.tile]), j(['INPUT', 1]), 'and the tile tapped, the one under the indented scenes, has its field open: ' + j(a));
-		await p.type('Two');
-		await p.key('Enter');
-		await until(p, `!!app.vault.getAbstractFileByPath(${j(LF + 'Two.md')})`);
-		t.ok(await p.ev(`!!app.vault.getAbstractFileByPath(${j(LF + 'Two.md')})`), 'where the second note is named');
-		await p.key('Escape');
-		await p.sleep(400);
-		await flush(p);
-		const scenes = (await read(p, LF + 'Index.md')).split('scenes:')[1].split('ignoredFiles')[0];
-		t.ok(/- Harbor\n\s+- One\n/.test(scenes) && /- The crossing\n\s+- Two\n/.test(scenes), 'each where its tile was: ' + scenes);
-	});
-});
-
-bug('with a note being named in the “New note” tile, a tap on a selected folder card’s synopsis opens that field and leaves it open (it opened and was thrown away 5 ms later, when the board is drawn again for the note just made)', async (p, h, t) => {
-	await onDevice(p, PHONE, async () => {
-		// (a folder's card has a synopsis to tap only once the folder has one: since 0.12.17 the first is added from its menu)
-		await p.ev(`(async () => { const f = await ${B}.ensureFolderNote(app.vault.getAbstractFileByPath(${j(L + 'Part Two')})); await app.fileManager.processFrontMatter(f, fm => { fm.synopsis = 'The wreck.'; }); })().then(() => 1)`);
-		await open(p);
-		await until(p, `document.querySelector(${j(STACK(L + 'Part Two') + ' .binders-card-synopsis')})?.textContent === 'The wreck.'`);
-		// the card selected first (a tap on a selected card's synopsis is what edits it)
-		const sf = await foot(p, 'Part Two');
-		await tap(p, sf.x, sf.y);
-		await p.sleep(700);
-		const tile = await p.at(`${LEAF} .binders-card-new`), nav = await navbarTop(p);
-		await tap(p, tile.x, Math.min(tile.y, nav - 16));
-		t.eq((await active(p)).tag, 'INPUT', 'the tile opens');
-		await p.type('One');
-		t.eq(j(await selected(p)), j([L + 'Part Two']), 'the folder’s card is still selected');
-		const g = await p.at(STACK(L + 'Part Two') + ' .binders-card-synopsis');
-		await tap(p, g.x, g.y);
-		await until(p, `!!app.vault.getAbstractFileByPath(${j(L + 'One.md')})`);
-		await p.sleep(800);
-		t.ok(await p.ev(`!!app.vault.getAbstractFileByPath(${j(L + 'One.md')})`), 'the note is made');
-		const a = await p.ev(`({ tag: document.activeElement.tagName, label: document.activeElement.getAttribute('aria-label') })`);
-		t.eq(j([a.tag, a.label]), j(['TEXTAREA', 'Synopsis of Part Two']), 'and the folder’s synopsis is a field with the focus: ' + j(a));
-		await p.ev(`(() => { document.activeElement.select(); return 1; })()`);
-		await p.type('The wreck and after.');
-		const pr = await foot(p, 'Prologue.md');
-		await tap(p, pr.x, pr.y);
-		await until(p, `!document.querySelector('${LEAF} .binders-edit-field')`);
-		await flush(p);
-		await until(p, `app.vault.adapter.read(${j(L + 'Part Two/Part Two.md')}).then(s => s.includes('The wreck and after.'))`);
-		t.eq(await prop(p, L + 'Part Two/Part Two.md', 'synopsis'), 'The wreck and after.', 'what’s typed there is kept in the folder’s note');
-	});
-});
-
 bug('what the board brings into view on a phone is brought above the navigation bar: a card’s title or synopsis opened from its sheet (“Rename”, “Edit synopsis”) and a copy just made (“Duplicate”) are scrolled only to the screen’s foot, under the bar', async (p, h, t) => {
 	await onDevice(p, PHONE, async () => {
 		// enough notes that the board scrolls anywhere
@@ -2340,7 +2262,7 @@ test('safe areas: on its side with a notch (47 px insets left and right, 21 px a
 		await scrollTo(p, 'end');
 		const end = await p.ev(`(() => { const cs = ${CORK}.querySelectorAll('.binders-card'); return Math.round(cs[cs.length - 1].getBoundingClientRect().bottom); })()`), nav = await navbarTop(p);
 		await shot(p, 'safe-area-landscape-end');
-		t.ok(nav == null || end <= nav, `the last tile (bottom ${end}) is above the navigation bar (top ${nav})`);
+		t.ok(nav == null || end <= nav, `the last card (bottom ${end}) is above the navigation bar (top ${nav})`);
 		// what Obsidian itself does about the right inset: recorded, to compare with the toolbar's last button
 		say('right edge: Obsidian’s content ends at', g.content[0] + g.content[2], 'the toolbar’s last button at', g.last[0] + g.last[2], 'of', g.inner);
 	});
@@ -2417,14 +2339,14 @@ test('drag: a card dropped on an empty folder’s stack goes into it; a stack dr
 		// the stack itself, onto the board's empty foot
 		await scrollTo(p, 'end');
 		f = await foot(p, 'Empty');
-		const nav = await navbarTop(p), last = await p.ev(`(() => { const all = document.querySelectorAll('${LEAF} .binders-card-new'); return (${R})(all[all.length - 1]); })()`);
+		const nav = await navbarTop(p), last = await p.ev(`(() => { const all = document.querySelectorAll('${LEAF} .binders-card[data-path]'); return (${R})(all[all.length - 1]); })()`);
 		await pressAndMove(p, f.x, f.y, f.x, Math.min(nav - 8, last[1] + last[3] + 20), 12);
 		mid = await dragState(p);
 		say('on the foot', j(mid), j(last), nav);
 		await touch(p, 'touchEnd');
 		await p.sleep(1200);
 		await flush(p);
-		t.eq(j((await contents(p)).slice(-3)), j(['Epilogue', 'Empty/', 'Empty/Prologue']), 'dropped below the tile, the folder is the binder’s last');
+		t.eq(j((await contents(p)).slice(-3)), j(['Epilogue', 'Empty/', 'Empty/Prologue']), 'dropped below the last card, the folder is the binder’s last');
 		t.eq(await leftovers(p) + await menus(p), 0, 'nothing left over');
 		// (looked at here: leaving the device tidies the folder made for this away)
 		const after = await texts(p);
