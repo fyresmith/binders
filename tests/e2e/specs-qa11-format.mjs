@@ -87,7 +87,7 @@ test('names with a space at their start or end, a trailing dot, a double dot and
 	t.eq(j(await shown(p, 'Odd')), j(want), 'order read back after a restart');
 }));
 
-test('NIT: a hand-typed list in the other form of a name (é typed as e and an accent, the file saved as one letter) still finds the file', withTidy(async (p, h, t) => {
+test('a hand-typed list in the other form of a name (é typed as e and an accent, the file saved as one letter) still finds the file', withTidy(async (p, h, t) => {
 	// a vault synced from a Mac keeps names decomposed; a writer types the composed form into the list (or the reverse)
 	const nfc = 'Café', nfd = 'Café';
 	await put(p, { 'Norm/Norm.md': bnote([nfd, 'Zed', 'Alpha']), [`Norm/${nfc}.md`]: 'c\n', 'Norm/Zed.md': 'z\n', 'Norm/Alpha.md': 'a\n' });

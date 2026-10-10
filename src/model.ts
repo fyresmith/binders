@@ -61,8 +61,9 @@ export function readIndex(fm: Record<string, unknown>, binderNote = ''): BinderI
 	checkFormat(fm);
 	const raw = Array.isArray(fm.contents) ? fm.contents : [];
 	const seen = new Set<string>(), contents: string[] = [];
-	// (a name typed by hand that YAML reads as a number, a note called "1984", or as true or null, is still that name)
-	const named = raw.filter((x): x is string | number | boolean | null => typeof x === 'string' || typeof x === 'boolean' || x === null || (typeof x === 'number' && Number.isFinite(x))).map(String);
+	// (a name typed by hand that YAML reads as a number, a note called "1984", or as true or null, is still that name;
+	// a name in the decomposed Unicode form, é as e and an accent, is the same name as the composed one)
+	const named = raw.filter((x): x is string | number | boolean | null => typeof x === 'string' || typeof x === 'boolean' || x === null || (typeof x === 'number' && Number.isFinite(x))).map((x) => String(x).normalize('NFC'));
 	// A file and the note named after it ("paper.pdf" and "paper.pdf.md", notes on a PDF) are two entries: the bare
 	// one is the file's, and the note's keeps its ".md", which is otherwise dropped (see `diskList`).
 	const whole = new Set(named.map((x) => cleanPath(x, true)));
@@ -96,9 +97,11 @@ export const nameOf = (p: string): string => p.replace(/\/$/, '').split('/').pop
 /** Orders the children of one folder in the binder. `folder` is "" for the binder's top level or ends in "/"; `children`
     are the items actually there (notes without ".md", folders with a trailing "/"). */
 export function orderChildren(contents: string[], folder: string, children: string[]): string[] {
+	// (names compare in the composed Unicode form: a name typed in the other form is still the note's)
+	const nfc = (s: string) => s.normalize('NFC'), f = nfc(folder);
+	const key = (c: string) => nfc(nameOf(c) + (c.endsWith('/') ? '/' : ''));
 	const rank = new Map<string, number>();
-	contents.forEach((p, i) => { if (parentOf(p) === folder) rank.set(nameOf(p) + (p.endsWith('/') ? '/' : ''), i); });
-	const key = (c: string) => nameOf(c) + (c.endsWith('/') ? '/' : '');
+	contents.forEach((p, i) => { if (nfc(parentOf(p)) === f) rank.set(key(p), i); });
 	return [...children].sort((a, b) => {
 		const ra = rank.get(key(a)), rb = rank.get(key(b));
 		if (ra != null && rb != null) return ra - rb;

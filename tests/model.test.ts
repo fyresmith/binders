@@ -36,6 +36,8 @@ const j = (x: unknown) => JSON.stringify(x);
 	eq(j(readIndex({ binder: 1, contents: [{ a: 1 }, ['x'], NaN, 'ok'] }).contents), j(['ok']), 'other non-strings dropped');
 	// YAML reads a note named true or null as a boolean or nothing: they are still those names
 	eq(j(readIndex({ binder: 1, contents: ['1984', true, 'no', null, 'Two'] }).contents), j(['1984', 'true', 'no', 'null', 'Two']), 'names YAML reads as true and null are kept, in place');
+	// a name typed in the other Unicode form (decomposed é) is the same name as the composed one
+		eq(j(readIndex({ binder: 1, contents: ['Cafe\u0301', 'Zed'] }).contents), j(['Caf\u00e9', 'Zed']), 'a hand-typed name is read in the composed form');
 	eq(j(readIndex({ binder: 1 }).contents), '[]', 'no contents: empty list');
 }
 
@@ -44,6 +46,9 @@ const j = (x: unknown) => JSON.stringify(x);
 	const contents = ['Prologue', 'Part One/', 'Part One/B', 'Part One/A', 'Epilogue'];
 	eq(j(orderChildren(contents, '', ['Epilogue', 'Part One/', 'Prologue', 'Appendix'])), j(['Prologue', 'Part One/', 'Epilogue', 'Appendix']), 'listed first, in list order; unlisted after');
 	eq(j(orderChildren(contents, 'Part One/', ['Part One/A', 'Part One/B', 'Part One/C'])), j(['Part One/B', 'Part One/A', 'Part One/C']), 'nested folders ordered by the list');
+	// the file on disk in the decomposed form is found by the list's composed name
+		eq(j(orderChildren(['Zed', 'Caf\u00e9'], '', ['Cafe\u0301', 'Alpha', 'Zed'])), j(['Zed', 'Cafe\u0301', 'Alpha']), 'a child in the other Unicode form is ordered by the list');
+		eq(j(orderChildren(['Lists/Caf\u00e9', 'Lists/Zed'], 'Lists/', ['Zed', 'Cafe\u0301'])), j(['Cafe\u0301', 'Zed']), 'nested: a listed child in the other form is found too');
 	eq(j(orderChildren([], '', ['Scene 10', 'Scene 2', 'scene 1'])), j(['scene 1', 'Scene 2', 'Scene 10']), 'unlisted items in natural name order');
 	eq(j(orderChildren(['X/', 'X'], '', ['X', 'X/'])), j(['X/', 'X']), 'a note and a folder with the same name are told apart');
 }

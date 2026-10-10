@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.49.10 (2026-10-10)
+
+### Fixed
+
+- A list entry typed in the other Unicode form of a name (an accent written as a separate character) now finds its note.
+
 ## 0.49.9 (2026-10-10)
 
 ### Fixed
