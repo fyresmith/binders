@@ -354,6 +354,10 @@ theme as `<name>-dark.png`: the README shows those (the maintainer's choice, 202
 `node tests/e2e/screenshots.mjs --theme dark --only corkboard,outliner,manuscript` remakes the README's. `--only`
 keeps the pictures named. Look at each picture after remaking them, and at the page beside them.
 
+`node tests/e2e/listing-shots.mjs` remakes the pictures for the listing in Obsidian's community directory
+(`screenshots/`: five of a computer, five of a phone, in the dark theme at two and three pixels to the point), from
+its own fuller version of the same book.
+
 **Where Obsidian is.** The driver runs Obsidian's `app.asar` with the Electron it ships with, and looks for them where
 the Arch Linux package puts them: `/usr/lib/electron43/electron` and `/usr/lib/obsidian/app.asar`. Anywhere else
 (another distribution, macOS, Windows), set `OBSIDIAN_ELECTRON` to the Electron binary and `OBSIDIAN_ASAR` to the
