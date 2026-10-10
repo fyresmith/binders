@@ -5,7 +5,7 @@ is a bug: [open an issue](https://github.com/fyresmith/binders/issues).
 
 ## Planned, not built
 
-- Bringing a whole snapshot of a folder or binder back in place.
+- Thinning the automatic snapshots of a folder or binder, so they don't pile up.
 
 See the [roadmap](../ROADMAP.md).
 

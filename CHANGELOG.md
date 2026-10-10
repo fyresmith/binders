@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.51.6 (2026-10-10)
+
+### Changed
+
+- Known limitations no longer lists bringing back a whole snapshot of a folder or binder as planned: it is built. What is left is thinning the automatic ones.
+
 ## 0.51.5 (2026-10-10)
 
 ### Changed
