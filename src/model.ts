@@ -61,8 +61,8 @@ export function readIndex(fm: Record<string, unknown>, binderNote = ''): BinderI
 	checkFormat(fm);
 	const raw = Array.isArray(fm.contents) ? fm.contents : [];
 	const seen = new Set<string>(), contents: string[] = [];
-	// (a name typed by hand that YAML reads as a number, a note called "1984", is still that name)
-	const named = raw.filter((x): x is string | number => typeof x === 'string' || (typeof x === 'number' && Number.isFinite(x))).map(String);
+	// (a name typed by hand that YAML reads as a number, a note called "1984", or as true or null, is still that name)
+	const named = raw.filter((x): x is string | number | boolean | null => typeof x === 'string' || typeof x === 'boolean' || x === null || (typeof x === 'number' && Number.isFinite(x))).map(String);
 	// A file and the note named after it ("paper.pdf" and "paper.pdf.md", notes on a PDF) are two entries: the bare
 	// one is the file's, and the note's keeps its ".md", which is otherwise dropped (see `diskList`).
 	const whole = new Set(named.map((x) => cleanPath(x, true)));

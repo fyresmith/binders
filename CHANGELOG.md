@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.49.9 (2026-10-10)
+
+### Fixed
+
+- A binder whose list was typed by hand keeps notes named true or null in their place.
+
 ## 0.49.8 (2026-10-10)
 
 ### Fixed

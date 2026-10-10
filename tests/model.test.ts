@@ -33,7 +33,9 @@ const j = (x: unknown) => JSON.stringify(x);
 	ok(settleNames(plain, (x) => there.has(x)) === plain, 'a list with nothing to settle is handed back as it is');
 	const idx = readIndex({ binder: 1, contents: ['Prologue', 'Prologue', 7, '../escape', 'Part One/', 'Part One/Arrival.md'] });
 	eq(j(idx.contents), j(['Prologue', '7', 'Part One/', 'Part One/Arrival']), 'duplicates and paths leaving the binder dropped; numbers read as names');
-	eq(j(readIndex({ binder: 1, contents: [true, null, { a: 1 }, ['x'], NaN, 'ok'] }).contents), j(['ok']), 'other non-strings dropped');
+	eq(j(readIndex({ binder: 1, contents: [{ a: 1 }, ['x'], NaN, 'ok'] }).contents), j(['ok']), 'other non-strings dropped');
+	// YAML reads a note named true or null as a boolean or nothing: they are still those names
+	eq(j(readIndex({ binder: 1, contents: ['1984', true, 'no', null, 'Two'] }).contents), j(['1984', 'true', 'no', 'null', 'Two']), 'names YAML reads as true and null are kept, in place');
 	eq(j(readIndex({ binder: 1 }).contents), '[]', 'no contents: empty list');
 }
 

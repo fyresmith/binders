@@ -329,7 +329,7 @@ test('a binder deleted from the explorer’s menu leaves its sibling binder in i
 	sameTexts(t, Object.fromEntries(Object.entries(before).filter(([k]) => !k.startsWith('Projects/Book/'))), after, { skip: [] });
 });
 
-bug('a binder whose list was typed by hand has the names true and null: the notes drop out of its list and lose their place, and a drag writes the list without them', async (p, h, t) => {
+test('a binder whose list was typed by hand has the names true and null: the notes drop out of its list and lose their place, and a drag writes the list without them', async (p, h, t) => {
 	// typed the way a writer might: YAML reads "true" and "null" as a boolean and nothing, and "1984" and "no" as a number and text
 	const hand = '---\nbinder: 1\ncontents:\n  - 1984\n  - true\n  - no\n  - null\n  - Two\n---\n';
 	await mk(p, { 'Lists/': '', 'Lists/Lookalike/': '', 'Lists/Lookalike/Lookalike.md': hand, 'Lists/Lookalike/1984.md': 'a', 'Lists/Lookalike/true.md': 'b', 'Lists/Lookalike/no.md': 'c', 'Lists/Lookalike/null.md': 'd', 'Lists/Lookalike/Two.md': 'e' }, 800);
