@@ -73,7 +73,8 @@ export class FindBar {
 	private done: Done | null = null;
 	private busy = false;
 	private open = true;
-	private watching: EventRef;
+	private watching: EventRef[] = [];
+	private watchingBinders: EventRef | null = null;
 	/** How long the last whole search took, in ms (for the round's measurements). */
 	took = 0;
 
@@ -127,7 +128,16 @@ export class FindBar {
 		el.addEventListener('focusin', () => { if (!this.scoped) { app.keymap.pushScope(s); this.scoped = true; } });
 		el.addEventListener('focusout', () => window.setTimeout(() => { if (this.scoped && !inBar()) { app.keymap.popScope(s); this.scoped = false; } }));
 		// (what's looked through follows the vault: a note written from outside, or typed in, is read again)
-		this.watching = app.vault.on('modify', (f) => { this.texts.delete(f.path); this.soon(); });
+		// (and a note made, renamed or deleted, or a binder whose order changed, is looked through again: a note that comes
+		// into the binder from outside is in the count and in a Replace all)
+		const again = () => this.soon(), vault = app.vault;
+		this.watching = [
+			vault.on('modify', (f) => { this.texts.delete(f.path); again(); }),
+			vault.on('create', again),
+			vault.on('rename', again),
+			vault.on('delete', again),
+		];
+		this.watchingBinders = this.host.plugin.binders.on('changed', again);
 	}
 
 	get query(): string { return this.input.value; }
@@ -371,7 +381,9 @@ export class FindBar {
 		this.open = false;
 		this.token++;
 		window.clearTimeout(this.timer);
-		this.host.plugin.app.vault.offref(this.watching);
+		const { app, binders } = this.host.plugin;
+		for (const r of this.watching) app.vault.offref(r);
+		if (this.watchingBinders) binders.offref(this.watchingBinders);
 		if (this.scoped) { this.host.plugin.app.keymap.popScope(this.scope); this.scoped = false; }
 		const at = this.at;
 		this.el.detach();

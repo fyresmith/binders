@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.49.5 (2026-10-10)
+
+### Fixed
+
+- A note added to the binder, renamed or deleted while the find bar is open is now counted and looked through.
+
 ## 0.49.4 (2026-10-10)
 
 ### Fixed

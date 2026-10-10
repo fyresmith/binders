@@ -369,7 +369,7 @@ test('a note duplicated with the bar open: the counts follow (21 in 7 notes), an
 	t.eq((await info(p)).sel, 'needle', 'selected');
 });
 
-bug('a note added to the binder (made from outside, as a sync or another app does) while the bar is open is looked through: its matches are counted and a Replace all changes it', async (p, h, t) => {
+test('a note added to the binder (made from outside, as a sync or another app does) while the bar is open is looked through: its matches are counted and a Replace all changes it', async (p, h, t) => {
 	await long(p, 6);
 	await ask(p, 'needle', 'pin');
 	t.eq((await counts(p)).total, 18, '18 to begin with');
