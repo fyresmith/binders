@@ -393,7 +393,7 @@ test('the review of thousands of changes lists every note, draws the first few h
 	t.ok(!(await doneText(p)), 'and the bar says nothing was done');
 }, 2 * MIN);
 
-test('BUG: the review lists every note, but a row past the first few hundred changes looks clickable and does nothing', async (p, h, t) => {
+test('the review lists every note, but a row past the first few hundred changes looks clickable and does nothing', async (p, h, t) => {
 	await replaceSetup(p, t);
 	await openReview(p);
 	const rowAt = (name) => p.ev(`(() => { const row = [...document.querySelectorAll('.binders-find-review-tree .binders-folder-snapshots-row')].find(r => r.querySelector('.tree-item-inner')?.textContent === ${j(name)}); const s = row?.querySelector('.tree-item-self'); if (!s) return null; const b = s.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2, clickable: s.classList.contains('is-clickable') }; })()`);
@@ -417,7 +417,7 @@ test('BUG: the review lists every note, but a row past the first few hundred cha
 	await p.key('Escape');
 }, 2 * MIN);
 
-test('NIT: the review draws every change of a note that is first in the binder, past the cap it sets for the notes after', async (p, h, t) => {
+test('the review draws every change of a note that is first in the binder, past the cap it sets for the notes after', async (p, h, t) => {
 	await replaceSetup(p, t, true);
 	const r = await openReview(p);
 	const order = await p.ev(`({ scenes: ${B}.scenes(app.vault.getAbstractFileByPath(${j(ROOT)})).slice(0, 3).map(f => f.basename), heads: [...document.querySelectorAll('${REVIEW} .binders-find-review-name')].slice(0, 3).map(e => e.textContent), contents: app.metadataCache.getFileCache(app.vault.getAbstractFileByPath(${j(ROOT + '/' + ROOT + '.md')}))?.frontmatter?.contents?.slice(0, 3) ?? null })`);

@@ -53,17 +53,20 @@ class ReviewModal extends Modal {
 			folders.set(dir, kids);
 			return kids;
 		};
+		// (a long list of changes is drawn as far as a person reads before deciding, and the rest is counted: a note past
+		// that point is not drawn, so its row is not clickable, and a note's own changes stop there too)
+		const CAP = 400;
 		let shown = 0;
 		for (const f of ask.plan) {
 			const file = f.source.file;
 			if (!file) continue;
 			const dir = (file.parent?.path ?? '').slice(root.length + 1);
+			const drawn = shown < CAP;
 			const item = into(dir).createDiv({ cls: 'tree-item binders-folder-snapshots-row' });
-			const self = item.createDiv({ cls: 'tree-item-self is-clickable', attr: { tabindex: '0', role: 'treeitem' } });
+			const self = item.createDiv({ cls: drawn ? 'tree-item-self is-clickable' : 'tree-item-self', attr: drawn ? { tabindex: '0', role: 'treeitem' } : { role: 'treeitem' } });
 			self.createDiv({ cls: 'tree-item-inner', text: f.source.name });
 			self.createDiv({ cls: 'tree-item-flair-outer' }).createSpan({ cls: 'tree-item-flair', text: f.hits.length.toLocaleString() });
-			// (a long list of changes is drawn as far as a person reads before deciding; the rest is counted)
-			if (shown > 400) continue;
+			if (!drawn) continue;
 			const head = body.createDiv({ cls: 'binders-find-review-note' });
 			head.createSpan({ cls: 'binders-find-review-name', text: f.source.name });
 			if (dir) head.createSpan({ cls: 'binders-find-review-in', text: dir.replace(/\//g, ' / ') });
@@ -73,11 +76,11 @@ class ReviewModal extends Modal {
 			self.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
 			const view = body.createDiv({ cls: 'binders-snapshots-changes' });
 			let i = 0;
-			while (i < f.hits.length) {
+			while (i < f.hits.length && shown < CAP) {
 				const text = f.text, from = text.lastIndexOf('\n', f.hits[i].from - 1) + 1, nl = text.indexOf('\n', f.hits[i].to), to = nl < 0 ? text.length : nl;
 				const p = view.createEl('p');
 				let at = from;
-				while (i < f.hits.length && f.hits[i].from < to) {
+				while (i < f.hits.length && f.hits[i].from < to && shown < CAP) {
 					const h = f.hits[i];
 					p.appendText(text.slice(at, h.from));
 					p.createEl('del', { text: text.slice(h.from, h.to) });
