@@ -1,102 +1,60 @@
-# Roadmap: what's left before 1.0
+# Roadmap
 
-Decided with the maintainer on 2026-10-01. The work under Now and Next ships before the first release. These features apply
-only to notes inside a binder; a note anywhere else in the vault is left exactly as Obsidian has it.
+Where Binders stands: what is built and released, what is left before 1.0, and what is planned for after it.
+The [changelog](CHANGELOG.md) is the record of what shipped and when; this page is the plan. When the two
+disagree, the changelog is right and this page is behind.
 
-Added 2026-10-02: nothing is released before export is built. Until then the project is brought to a release-ready
-state (code, tests and documentation).
+Binders is a **public beta** (0.x). The first beta was 0.44.5, on 2026-10-06, and it has been in Obsidian's
+[community plugin directory](https://community.obsidian.md/plugins/binders) since. 1.0.0 is the first stable
+release, and the maintainer calls it.
 
-Added 2026-10-06: export and import are built, and Binders is out as a **public beta** (0.x releases on GitHub,
-installed with BRAT or by hand: [Installation](docs/installation.md)). What a beta tester should know has not been
-tried yet is in [Known limitations](docs/limitations.md#not-yet-tried). It goes to Obsidian's community directory
-with 1.0.
+## Built and released
 
-## Now
+Everything here is in the released plugin. The manual has a page for each.
 
-- [ ] **Mobile QA, to the end.** Every mode, the file explorer, the dialogs and the settings, on phone and tablet
-      sizes, by touch: every bug found is fixed with a test, and the result is tried on a real iPhone or iPad and a
-      real Android device (so far phones are only emulated; "emulator is king": until the maintainer has a real
-      device, the emulated phone and tablet tests are the standard). Findings live in `tests/e2e/specs-qa4-mobile.mjs` and
-      `tests/e2e/specs-qa5-*.mjs`. Integration results and remaining findings: [integration QA](docs/dev/integration-qa.md).
+- **Binders in the vault and the file explorer:** order, drag to reorder, label dots, undo of moves.
+  [The file explorer](docs/file-explorer.md)
+- **The binder view, three modes:** [corkboard](docs/corkboard.md), [outliner](docs/outliner.md) and the
+  [editable manuscript](docs/manuscript.md), with the [inspector](docs/inspector.md) and the contents beside them.
+- **Labels, statuses and word count targets,** and **arrange by label** on the corkboard (2026-10-01).
+  [Labels, statuses, targets](docs/labels-statuses-targets.md)
+- **Scene tools:** split, merge, duplicate, group. [Splitting and merging](docs/splitting-and-merging.md)
+- **Snapshots of a scene** and "Rewrite" (2026-10-01), and **snapshots of a folder or the whole binder:** take,
+  read and compare; make a binder from one; bring back one note, the text and the order, or everything (2026-10-06
+  to 2026-10-09). An automatic snapshot is taken before bringing one back and before Replace all.
+  [Snapshots](docs/snapshots.md)
+- **Focus mode** (2026-10-01). [Focus mode](docs/focus-mode.md)
+- **Export** (2026-10-05 to 2026-10-09): a manuscript in standard format (Word or PDF), an ebook (EPUB), a
+  paperback (PDF), a Scrivener 3 project, one note; book styles and a style editor; Export again.
+  [Export](docs/export.md)
+- **Import from Scrivener** (2026-10-06): a Scrivener 3 project, or a zipped backup, as a new binder.
+  [Import from Scrivener](docs/import-scrivener.md)
+- **Find and replace across a binder** (0.49.0, 2026-10-09). [Find and replace](docs/find-and-replace.md)
+- **The Longform integration:** Longform projects open as binders, and convert to them.
+  [Coming from Longform](docs/longform.md)
+- **Phones and tablets:** every mode by touch, tested in Obsidian's emulation of a phone and a tablet.
+  [Phones and tablets](docs/mobile.md)
 
-## Next, in this order
+How each was designed and decided is in [docs/dev/plan.md](docs/dev/plan.md) and
+[docs/dev/export.md](docs/dev/export.md).
 
-- [x] **Arrange by label.** The corkboard's cards laid along one line per label, in binder order, as Scrivener's
-      "Arrange by Label" does: which thread each scene is on, and how the threads interleave. "Arrange" in the
-      corkboard's toolbar chooses; lines run across or down; dragging a card to another line gives it that label,
-      along the lines changes its place, and Undo takes both back. Design approved by the maintainer and built
-      (2026-10-01); see `docs/dev/plan.md`, "Arranged by label".
+## Left before 1.0
 
-- [ ] **Export.** A binder (or a folder of it) out as a book: EPUB, DOCX and PDF, with front and back matter, a
-      title page, chapters from folders, and scene breaks. **Designed and decided 2026-10-05:
-      [docs/dev/export.md](docs/dev/export.md)** (roles and styles, a style editor with the real pages beside it, five
-      kinds, built with no outside tools, PDF on a computer only, and the order it is built in, steps 0 to 6).
-  - [x] **Step 1: the book model and the manuscript** (2026-10-05). The Markdown reader and the one book model
-        every writer reads; roles from the structure Binders reads off a binder's shape (`export-as` and
-        `structure` honoured as properties); the Export window with Manuscript and One note; the Word writer in
-        standard manuscript format, held to the word-for-word test; where files go (the save dialog, remembered
-        places, the Exports folder). "Compile" is now Export's "One note", and `export: false` is what is written.
-  - [x] Step 2: the ebook (the EPUB writer, the first book style, Book details, the made pages).
-  - [x] Step 3 (2026-10-06): pages. The paginator, hyphenation, EB Garamond and Source Serif 4 inside the plugin,
-        the PDF module, **Paperback** (a book style on a trim size) and the manuscript as a PDF, and the window
-        showing the very pages that are printed. A computer makes the PDF; a phone shows the pages.
-        `docs/dev/export.md`, "Pages and PDF, as built".
-  - [x] **Step 4: the Scrivener project** (2026-10-05). The binder itself as a `.scriv` folder: the `.scrivx`, RTF
-        documents, synopses, labels, statuses, targets, snapshots, section types, held to the word-for-word test;
-        written whole or not at all, never over a project opened since; zipped on a phone. Opened so far only as
-        the format spike's projects, in the maintainer's Scrivener: `docs/dev/export.md`, "As built".
-  - [x] Step 5: overruling and owning ("Export as" from Contents, the menus and an outliner column; the style editor
-        and style files in a hidden `Export styles` folder; the second book style, Modern; Export again).
-  - [x] Step 6 (2026-10-09): finish. A QA round over every kind, on a computer and on an emulated phone and tablet
-        by touch (`tests/e2e/specs-qa8-export.mjs`), and its five bugs and the nine known from the reviews fixed
-        (0.45.1 to 0.45.16); the manual's export pages were written for the beta, 2026-10-06. The round ran in the
-        light theme, with the phone tests in dark. Still to do by other hands: the Word file in Word, the ebook in Kindle
-        Previewer and Apple Books, the PDF on macOS and Windows and through a printer's checks, a project as export
-        writes it in Scrivener (`docs/dev/export.md`, "Not verified yet").
-  - **And out as a Scrivener project** (added 2026-10-01): a `.scriv` folder Scrivener 3 opens, for a writer who
-    moves on to Scrivener or sends the book to someone who uses it. Not a book but the binder itself: folders and
-    notes in binder order as Scrivener's Draft, each note's text as rich text (headings, bold, italics, lists, links
-    and footnotes kept; what has no match in rich text stays as plain Markdown), and what a writer set here carried
-    across: synopsis, label (with its color), status, word count targets, and snapshots once those are built. One
-    way only: it writes a new project and never changes the vault (reading one is **Import**, below). Built without
-    outside tools, so it works on phones. Settled 2026-10-01: Scrivener 3's format only; a toggle in the export
-    dialog, **Include notes outside the manuscript**, puts those in Scrivener's Research folder; the maintainer has
-    Scrivener and opens each build's result in it before this ships.
-- [x] **Import from Scrivener.** A Scrivener 3 project (`.scriv`) in as a new binder: the Draft's folders and
-      documents as folders and notes in the same order, rich text as Markdown, and synopsis, label, status, targets
-      and snapshots carried across, with the same toggle for Research. Makes a new folder and never writes into an
-      existing one or changes the Scrivener project. Built: from the command palette, a project's folder on a
-      computer or a zipped backup anywhere, shown before it is made. Every original file is kept. See
-      [Import from Scrivener](docs/import-scrivener.md).
-- [x] **Find and replace across the manuscript.** One search over every note of the binder, in binder order, from
-      Ctrl+F in a binder view: the manuscript as one page, the corkboard and outliner lighting what matches, a subfolder
-      its own, focus mode with the scenes before and after shown. Replace one (manuscript), and Replace all behind a
-      review of every change, an automatic snapshot first, and Undo. A link's target, a tag, code and comments are left
-      alone unless typed. Built 2026-10-09. See [Find and replace](docs/find-and-replace.md).
-- [x] **Snapshots of a scene ("Rewrite").** **Take a snapshot** sets a scene's text aside as it is; **Rewrite** takes
-      one and starts again, from the same text or a blank page; **Snapshots** lists every earlier one to read, compare
-      with the note now, and bring back (the text it replaces is kept as a snapshot first). Only the text is kept, not
-      the synopsis, status or label. Snapshots live in one folder per binder that never shows in the file explorer
-      or in search, never counts as part of the binder, follows a scene when it's renamed or moved, and stays when
-      a scene is deleted. Built 2026-10-01: plain `.snapshot` files in the binder's `Snapshots` folder (see
-      `docs/dev/file-format.md`). Obsidian Sync carries them only with "Sync all other types" turned on.
-- [ ] **Snapshots of a folder and of the binder, the rest.** Taking, reading and comparing one, one note brought
-      back and a binder made from a snapshot are built (step 1, 2026-10-06; `docs/dev/plan.md`, "Snapshots of a
-      folder and of the binder").
-  - [x] Step 2 (2026-10-09): bring back the text, and the order, of a folder or binder.
-  - [x] Step 3 (2026-10-09): bring back everything (properties; notes made again, renamed and moved; never deleted).
-  - [ ] Step 4: automatic snapshots before bringing one back and before find and replace (both built), and thinning
-        of the automatic ones only (not built).
-- [x] **Focus mode.** The text and nothing else, for a note of a binder (in the manuscript and in a note's own
-      tab), in the vault's own type, with one key to leave. Typewriter scrolling is on as it comes (for the last
-      line only: editing further up scrolls as ever). Everything more is an option, off as it comes: the scenes
-      before and after shown in the page, the scene's place and synopsis in the margin, the word counts (hidden
-      while typing), a goal for today, and dimming the other paragraphs. Built 2026-10-01 (`src/focus/`,
-      `tests/e2e/specs-focus.mjs`); still to do on real devices: iOS and Android, and Android's back button.
+In this order.
 
-## Then
-
-- [ ] 1.0: release and directory submission (see `docs/dev/plan.md`, Milestones).
+- [ ] **Export, checked by other hands.** The files are held to tests here; they have not all been opened where a
+      writer will open them: the Word file in Word, the ebook in Kindle Previewer and Apple Books, the PDF on
+      macOS and Windows and through a printer's checks (KDP, IngramSpark), and a project as export writes it in
+      Scrivener. The list is in [docs/dev/export.md](docs/dev/export.md), "Not verified yet".
+- [ ] **Snapshots of a folder and of the binder, the last step:** thinning the automatic snapshots, so they don't
+      pile up. Not built. (`docs/dev/plan.md`, "Snapshots of a folder and of the binder".)
+- [ ] **Phones and tablets on real devices.** The emulated phone and tablet tests are the standard for the
+      automated suite. The maintainer uses Binders on an iPhone, which has found what the emulation could not
+      (issue 32). Not yet tried: an iPad, any Android device, Android's back button, the share sheet.
+      [Not yet tried](docs/limitations.md#not-yet-tried)
+- [ ] **Open issues** in the [tracker](https://github.com/fyresmith/binders/issues), and the findings left open on
+      purpose in `tests/e2e/open-findings.json`.
+- [ ] **1.0.0.** The first stable release.
 
 Smaller things wanted after 1.0 are listed at the end of `docs/dev/plan.md`.
 
@@ -158,7 +116,7 @@ not a reason to build something.
 ### Defer or leave to Obsidian
 
 - **Branching:** do not add. Two live versions of a book need merging, and merging prose is where writing is
-  lost. A snapshot of the binder (below, built) is read, compared and brought back; "Make a binder from this
+  lost. A snapshot of the binder (built) is read, compared and brought back; "Make a binder from this
   snapshot" writes it out as a second binder for the writer who wants to try another ending.
 - **Daily automatic snapshots of a binder:** later, off by default. Snapshots of a folder and of the whole binder
   were decided and built on 2026-10-06 (`docs/dev/plan.md`, "Snapshots of a folder and of the binder"): taking,

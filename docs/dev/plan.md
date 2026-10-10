@@ -613,7 +613,7 @@ undocumented parts, one by one, are in [internals.md](internals.md).
 
 ## Milestones
 
-**What's left before 1.0 is in [ROADMAP.md](../../ROADMAP.md)**: mobile QA to the end (on real devices) and the remaining export steps.
+**What's left before 1.0 is in [ROADMAP.md](../../ROADMAP.md)**: export checked by other hands, thinning the automatic snapshots, and phones and tablets on real devices.
 
 The numbers are the plan's milestones, not the versions in the CHANGELOG (those are 0.12.x now, and every commit bumps
 them: see AGENTS.md). Nothing is tagged yet.

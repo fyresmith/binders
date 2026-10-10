@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.51.5 (2026-10-10)
+
+### Changed
+
+- The roadmap now lists what is built and released apart from what is left before 1.0 and what is planned after it, and no longer says Binders reaches the community directory with 1.0: it is there now.
+
 ## 0.51.4 (2026-10-10)
 
 ### Changed
