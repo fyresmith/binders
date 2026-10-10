@@ -3,6 +3,13 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.49.1 (2026-10-10)
+
+### Fixed
+
+- Find and replace no longer changes web addresses, block ids (^id), the names and values inside HTML tags, or indented code blocks, and treats \[[Mara]] as plain text.
+- Find treats a letter and its accent as one letter however it is typed, never splits them, and finds Turkish İstanbul when Match case is off.
+
 ## 0.49.0 (2026-10-09)
 
 ### Added

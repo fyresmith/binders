@@ -8,7 +8,10 @@ import { bodyStart } from '../scene-text';
    - where a link leads: `[[Mara]]`, `[[Mara#Storm|her]]`'s "Mara#Storm", `[text](Mara.md)`'s "Mara.md", and the same
      in an embed (the note it leads to keeps its name);
    - a tag: `#Mara`'s "Mara";
-   - code (inline and fenced) and comments (`%% %%`, `<!-- -->`): not prose.
+   - code (inline, fenced, and a block indented four spaces) and comments (`%% %%`, `<!-- -->`): not prose;
+   - a bare web address (after its `https://` or `www.`), a block id (`^mara` ending a line) and the tag name and
+     quoted attribute values of a piece of HTML (`<img src="Mara.png">`): where something leads, as a link's target;
+   - a link whose first bracket is escaped (`\[[Mara]]`) is no link: its words are prose.
    A link's shown words ("her", "text") are prose and match. To find or change what is kept out, the writer types it
    as written: a query that includes the brackets, the `#`, the backticks or the comment marks reaches outside what it
    guards (the guarded stretch is what is between the marks, not the marks), so it matches. */
@@ -20,8 +23,10 @@ const literal = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /* One pass over a stretch of prose. Groups: 1 and 2 inline code (the ticks, what's between), 3 and 4 comments, 5 a
    wikilink's or embed's target, 6 a Markdown link's destination, 7 a tag (without its `#`; not after a word, so
-   `a#b` and a URL's fragment aren't tags, and not a number alone). Code spans end at a blank line, as in Markdown. */
-const INLINE = /(`+)((?:(?!\n[ \t]*\n)[\s\S])*?[^`])\1(?!`)|%%([\s\S]*?)%%|<!--([\s\S]*?)-->|\[\[([^\]|\n]*)(?:\|[^\]\n]*)?\]\]|\[[^\]\n]*\]\(([^)\n]*)\)|(?<![\p{L}\p{N}_&/\\#])#([\p{L}\p{N}_\-/]*[\p{L}_\-/][\p{L}\p{N}_\-/]*)/gu;
+   `a#b` and a URL's fragment aren't tags, and not a number alone), 8 the part of a web address after its scheme (or
+   `www.`), 9 a block id (without its `^`), 10 an HTML tag with a name and only quoted attribute values (a `<` that
+   doesn't make a whole tag is prose). Code spans end at a blank line, as in Markdown. */
+const INLINE = /(`+)((?:(?!\n[ \t]*\n)[\s\S])*?[^`])\1(?!`)|%%([\s\S]*?)%%|<!--([\s\S]*?)-->|(?<!\\)\[\[([^\]|\n]*)(?:\|[^\]\n]*)?\]\]|\[[^\]\n]*\]\(([^)\n]*)\)|(?<![\p{L}\p{N}_&/\\#])#([\p{L}\p{N}_\-/]*[\p{L}_\-/][\p{L}\p{N}_\-/]*)|(?<![\p{L}\p{N}_])(?:https?:\/\/|www\.)([^\s<>]+)|(?:^|[ \t])\^([A-Za-z0-9-]+)[ \t]*\r?$|(<\/?[A-Za-z][\w-]*(?:\s+[A-Za-z_:][\w:.-]*(?:\s*=\s*(?:"[^"]*"|'[^']*'))?)*\s*\/?>)/gmu;
 const FENCE = /^ {0,3}(`{3,}|~{3,})/;
 
 /** The stretches of a text (from `from`: its properties are skipped) that a query doesn't reach, in order, none over
@@ -40,16 +45,38 @@ export function shielded(text: string, from = 0): Hit[] {
 			else if (m[5] != null) out.push({ from: at + 2, to: at + 2 + m[5].length });
 			else if (m[6] != null) out.push({ from: end - 1 - m[6].length, to: end - 1 });
 			else if (m[7] != null) out.push({ from: at + 1, to: end });
+			else if (m[8] != null) out.push({ from: end - m[8].length, to: end });
+			else if (m[9] != null) out.push({ from: at + m[0].indexOf('^') + 1, to: at + m[0].indexOf('^') + 1 + m[9].length });
+			else if (m[10] != null) {
+				const name = /^<\/?[A-Za-z][\w-]*/.exec(m[10])?.[0] ?? '', skip = name.indexOf('<') + 1 + (name[1] === '/' ? 1 : 0);
+				out.push({ from: at + skip, to: at + name.length });
+				for (const v of m[10].matchAll(/=\s*("[^"]*"|'[^']*')/g)) out.push({ from: at + v.index + v[0].length - v[1].length + 1, to: at + v.index + v[0].length - 1 });
+			}
 		}
 	};
 	// fenced code first: its lines are the stretches between the fences, and the prose is what's around them
 	let at = from, proseFrom = from, fence: { mark: string; from: number } | null = null;
+	// a block indented four spaces (not a tab: a tab-led line is a paragraph here) is code when it starts the note or
+	// follows a blank line, and no list is open (indented lines then belong to the list item)
+	let indented: Hit | null = null, blankBefore = true, inList = false;
+	const closeIndented = (): void => { if (indented) out.push(indented); indented = null; };
 	while (at < text.length) {
 		const nl = text.indexOf('\n', at), end = nl < 0 ? text.length : nl, line = text.slice(at, end);
 		if (!fence) {
 			const m = FENCE.exec(line);
 			// (an info string after a backtick fence can't hold a backtick: then it is inline code, not a fence)
-			if (m && !(m[1][0] === '`' && line.slice(m[0].length).includes('`'))) { prose(proseFrom, at); fence = { mark: m[1], from: nl < 0 ? text.length : nl + 1 }; }
+			if (m && !(m[1][0] === '`' && line.slice(m[0].length).includes('`'))) { closeIndented(); blankBefore = false; prose(proseFrom, at); fence = { mark: m[1], from: nl < 0 ? text.length : nl + 1 }; }
+			else if (/^[ \t\r]*$/.test(line)) blankBefore = true;
+			else if (/^ {4,}\S/.test(line)) {
+				if (indented) indented.to = end;
+				else if (blankBefore && !inList) indented = { from: at, to: end };
+				blankBefore = false;
+			} else {
+				closeIndented();
+				if (/^ {0,3}(?:[-*+]|\d{1,9}[.)])(?:[ \t]|$)/.test(line)) inList = true;
+				else if (!/^[ \t]/.test(line)) inList = false;
+				blankBefore = false;
+			}
 		} else if (new RegExp(`^ {0,3}${fence.mark[0] === '`' ? '`' : '~'}{${fence.mark.length},}[ \\t]*$`).test(line.replace(/\r$/, ''))) {
 			if (at > fence.from) out.push({ from: fence.from, to: at });
 			fence = null;
@@ -57,8 +84,16 @@ export function shielded(text: string, from = 0): Hit[] {
 		}
 		at = nl < 0 ? text.length : nl + 1;
 	}
+	closeIndented();
 	if (fence) { if (text.length > fence.from) out.push({ from: fence.from, to: text.length }); } else prose(proseFrom, text.length);
-	return out.sort((a, b) => a.from - b.from);
+	out.sort((a, b) => a.from - b.from || b.to - a.to);
+	// (an indented block may hold what would be a guard of its own: overlapping stretches are one stretch)
+	const merged: Hit[] = [];
+	for (const h of out) {
+		const last = merged[merged.length - 1];
+		if (last && h.from < last.to) last.to = Math.max(last.to, h.to); else merged.push({ ...h });
+	}
+	return merged;
 }
 
 /** The places among `hits` that don't lie wholly inside a guarded stretch (both in order). */
@@ -72,10 +107,42 @@ export function outside(hits: readonly Hit[], guarded: readonly Hit[]): Hit[] {
 	return out;
 }
 
+/* Matching is done on a folded copy of the text, so that a letter is one letter however it is spelled: each letter
+   with its combining marks is a cluster, written in its composed form (NFC), and with Match case off a dotted capital
+   İ is an I (the dotless ı stays apart). A match must start and end between clusters (a bare `e` is no match in a
+   decomposed é), and its places are given back as places in the text as it is: `from[k]` is where the cluster that
+   made folded character k begins. */
+const CLUSTER = /[^\p{M}]\p{M}*|\p{M}+/gu;
+const fold = (s: string, o: FindOptions): string => {
+	const n = s.normalize('NFC');
+	return o.matchCase ? n : n.replace(/İ/g, 'I');
+};
+
 const raw = (text: string, query: string, o: FindOptions, from: number): Hit[] => {
-	const re = new RegExp(literal(query), o.matchCase ? 'g' : 'gi'), out: Hit[] = [];
-	re.lastIndex = from;
-	for (let m = re.exec(text); m; m = re.exec(text)) out.push({ from: m.index, to: m.index + m[0].length });
+	const q = fold(query, o), flags = o.matchCase ? 'g' : 'gi', out: Hit[] = [];
+	// (plain ASCII has one spelling: no folding, and the places are the text's own)
+	if (!/[^\p{ASCII}]/u.test(text.slice(from)) && !/[^\p{ASCII}]/u.test(q)) {
+		const re = new RegExp(literal(q), flags);
+		re.lastIndex = from;
+		for (let m = re.exec(text); m; m = re.exec(text)) out.push({ from: m.index, to: m.index + m[0].length });
+		return out;
+	}
+	let folded = '';
+	const origin: number[] = [], head: boolean[] = [];
+	for (const c of text.slice(from).matchAll(CLUSTER)) {
+		const f = fold(c[0], o);
+		for (let k = 0; k < f.length; k++) { origin.push(from + c.index); head.push(k === 0); }
+		folded += f;
+	}
+	origin.push(text.length);
+	head.push(true);
+	const re = new RegExp(literal(q), flags);
+	for (let m = re.exec(folded); m; m = re.exec(folded)) {
+		const a = m.index, b = a + m[0].length;
+		if (head[a] && head[b]) out.push({ from: origin[a], to: origin[b] });
+		// (a match that starts inside a cluster: the next try starts one character on, so none is skipped)
+		else re.lastIndex = a + 1;
+	}
 	return out;
 };
 

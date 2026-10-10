@@ -40,7 +40,7 @@ const swap = (text: string, q: string, by: string, opt = o) => replaceIn(text, f
 	eq(swap('see #Mara/sub, (#Mara) and #Mara.', 'Mara', 'Maren'), 'see #Mara/sub, (#Mara) and #Mara.', 'a tag with a path, in brackets, before a full stop');
 	eq(swap('#Mara and Mara', '#Mara', '#Maren'), '#Maren and Mara', 'typed with its #, it is found as written');
 	eq(swap('# Mara\n\nMara', 'Mara', 'Maren'), '# Maren\n\nMaren', 'a heading is text: its # has a space after it');
-	eq(swap('a#Mara http://x/#Mara 1 #1984 #Mara', 'Mara', 'Maren'), 'a#Maren http://x/#Maren 1 #1984 #Mara', 'not a tag after a word or a slash; a number alone is no tag');
+	eq(swap('a#Mara http://x/#Mara 1 #1984 #Mara', 'Mara', 'Maren'), 'a#Maren http://x/#Mara 1 #1984 #Mara', 'not a tag after a word; a URL’s fragment is the URL’s; a number alone is no tag');
 	eq(swap('[[Notes#Mara]] #Mara', 'Mara', 'Maren'), '[[Notes#Mara]] #Mara', 'a heading link and a tag');
 }
 
@@ -60,6 +60,75 @@ const swap = (text: string, q: string, by: string, opt = o) => replaceIn(text, f
 	eq(swap('a ` b\n\nMara ` c', 'Mara', 'Maren'), 'a ` b\n\nMaren ` c', 'a lone backtick opens nothing across a blank line');
 	eq(swap('\tIndented Mara\n\tMara again', 'Mara', 'Maren'), '\tIndented Maren\n\tMaren again', 'a tab-led line is a paragraph, not code');
 	eq(swap('x', '', 'y'), 'x', 'an empty query finds nothing');
+}
+
+// bare web addresses, block ids and HTML are where something leads
+{
+	eq(swap('See https://maraproject.org/#Mara and www.mara.example for Mara.', 'Mara', 'Maren'), 'See https://maraproject.org/#Mara and www.mara.example for Maren.', 'bare URLs');
+	eq(swap('<https://x.example/Mara> Mara', 'Mara', 'Maren'), '<https://x.example/Mara> Maren', 'an autolink');
+	eq(swap('[Mara](https://x.example/Mara) Mara', 'Mara', 'Maren'), '[Maren](https://x.example/Mara) Maren', 'a Markdown link to a URL still shows its words');
+	eq(swap('https://x.example/Mara', 'https://x.example/Mara', 'u'), 'u', 'typed with its scheme, an address is found as written');
+	eq(swap('xwww.Mara Mara', 'Mara', 'Maren'), 'xwww.Maren Maren', 'www inside a word is no address');
+	eq(swap('A line. ^mara\nMara', 'Mara', 'Maren'), 'A line. ^mara\nMaren', 'a block id at a line’s end');
+	eq(swap('A line. ^mara\r\nMara', 'Mara', 'Maren'), 'A line. ^mara\r\nMaren', 'a block id before a CRLF');
+	eq(swap('^mara\nMara', 'Mara', 'Maren'), '^mara\nMaren', 'a block id alone on its line');
+	eq(swap('x^Mara and Mara^2 and ^Mara here', 'Mara', 'Maren'), 'x^Maren and Maren^2 and ^Maren here', 'a ^ in prose, not a block id');
+	eq(swap('[[Target#^mara]] Mara', 'Mara', 'Maren'), '[[Target#^mara]] Maren', 'a link to a block id');
+	const html = 'An <img src="Mara.png" alt=\'Mara\'> and <a href="https://x.example/Mara">Mara</a> link.';
+	eq(swap(html, 'Mara', 'Maren'), 'An <img src="Mara.png" alt=\'Mara\'> and <a href="https://x.example/Mara">Maren</a> link.', 'attribute values are kept, words between tags change');
+	eq(swap('<mara>Mara</mara>', 'mara', 'x'), '<mara>x</mara>', 'a tag’s name is kept');
+	eq(swap('if a < b and Mara > c, or a<b then Mara>c', 'Mara', 'Maren'), 'if a < b and Maren > c, or a<b then Maren>c', 'a < in prose is no tag');
+	eq(swap('<span\n class="Mara">Mara</span>', 'Mara', 'Maren'), '<span\n class="Mara">Maren</span>', 'a tag over two lines');
+}
+
+// an escaped first bracket makes no link
+{
+	eq(swap('Escaped \\[[Mara]] and [[Mara]]', 'Mara', 'Maren'), 'Escaped \\[[Maren]] and [[Mara]]', 'escaped: prose; unescaped: a target');
+}
+
+// a block indented four spaces is code; a tab-led paragraph, and a list's lines, are not
+{
+	eq(swap('Mara.\n\n    Mara code\n\nMara.', 'Mara', 'Maren'), 'Maren.\n\n    Mara code\n\nMaren.', 'indented code');
+	eq(swap('    Mara code\n\n    Mara more\n\n\tMara tab\n    Mara five', 'Mara', 'M'), '    Mara code\n\n    Mara more\n\n\tM tab\n    M five', 'a blank line inside the block; a tab line is prose; a line after prose is a continuation of the paragraph');
+	eq(swap('Mara\n    Mara continues the paragraph', 'Mara', 'M'), 'M\n    M continues the paragraph', 'indented lines of a paragraph are prose');
+	eq(swap('- Mara\n\n    Mara in the item\n\nMara', 'Mara', 'M'), '- M\n\n    M in the item\n\nM', 'indented lines in a list item are prose');
+	eq(swap('- Mara\n\nMara\n\n    Mara code', 'Mara', 'M'), '- M\n\nM\n\n    Mara code', 'after the list ended, code again');
+	eq(swap('```\nMara\n```\n    Mara\n\n    `x` Mara', 'Mara', 'M'), '```\nMara\n```\n    M\n\n    `x` Mara', 'a line right after a fence, and inline code inside an indented block');
+	eq(swap('\tMara\n\n\t    Mara', 'Mara', 'M'), '\tM\n\n\t    M', 'a tab first: prose');
+	eq(shielded('    a `b` %% c\n\n    d %%').length, 1, 'overlapping guards are one');
+}
+
+// Turkish İ with Match case off; ı is its own letter
+{
+	eq(found('İstanbul, istanbul, ISTANBUL and İSTANBUL.', 'istanbul'), 'İstanbul@0 istanbul@10 ISTANBUL@20 İSTANBUL@33', 'all four');
+	eq(found('İstanbul istanbul', 'İstanbul').split(' ').length, 2, 'the dotted capital in the query');
+	eq(found('ıs is IS', 'ı'), 'ı@0', 'dotless apart');
+	eq(found('İstanbul istanbul', 'istanbul', { matchCase: true }), 'istanbul@9', 'Match case on: as it is');
+}
+
+// Unicode forms: one letter however it is spelled; places are in the text as it is
+{
+	const dec = 'café', pre = 'café';
+	const t = `${pre} and ${dec} and cafe`;
+	eq(findIn(t, pre, o).map((h) => t.slice(h.from, h.to)).join('|'), `${pre}|${dec}`, 'both spellings are found by the composed query');
+	eq(findIn(t, dec, o).length, 2, 'and by the decomposed one');
+	eq(swap(t, pre, 'X'), 'X and X and cafe', 'both replaced, others untouched');
+	eq(findIn(`${dec} at dawn`, 'e', o).length, 0, 'a base letter inside a cluster is no match');
+	eq(findIn(`${pre} at dawn`, 'e', o).length, 0, 'nor in a composed é');
+	eq(swap(`${dec} at dawn.`, 'e', 'x'), `${dec} at dawn.`, 'the text is as it was');
+	eq(swap(`${dec} at dawn.`, 'dawn', 'dusk'), `${dec} at dusk.`, 'a match after a cluster is at the right place');
+	eq(swap('ée é e', 'e', 'x'), 'éx é x', 'only bare e letters change');
+	// mixed text: every other character is left as it was, whatever the forms
+	const mixed = `ÅÅ ${dec} é ${pre} İstanbul 𝒳é 日本 ẹ́ Mara`;
+	eq(swap(mixed, 'Mara', 'Z'), mixed.replace('Mara', 'Z'), 'mixed forms: only the word is replaced');
+	eq(swap(mixed, 'café', 'C'), mixed.replace(dec, 'C').replace(pre, 'C'), 'the cluster is replaced whole');
+	eq(swap(mixed, 'Å', 'A'), mixed.replace('Å', 'A').replace('Å', 'A'), 'a ring both ways');
+	eq(swap(mixed, 'istanbul', 'T'), mixed.replace('İstanbul', 'T'), 'İ in mixed text');
+	eq(swap(mixed, 'ẹ́', 'Q'), mixed.replace('ẹ́', 'Q'), 'two marks on one letter');
+	eq(swap(mixed, '日本', 'N'), mixed.replace('日本', 'N'), 'CJK after clusters');
+	const edits = findIn(mixed, 'café', o).map((h) => ({ ...h, text: 'C' }));
+	eq(edits.length, 2, 'two café, spelled two ways');
+	eq(apply(apply(mixed, edits), inverse(mixed, edits)), mixed, 'and they take it back');
 }
 
 // the same in text as drawn, and what the writing part does
