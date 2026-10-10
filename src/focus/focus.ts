@@ -7,7 +7,7 @@ import type BindersPlugin from '../main';
 import { FOCUS_TEXT, focusToggles, type FocusToggle } from '../settings-data';
 import { saveOpen } from '../scenes';
 import { BinderView } from '../view/BinderView';
-import { GLIDE } from '../view/drag';
+import { GLIDE, Press } from '../view/drag';
 import { clearHeaderSnapshots, headerSnapshots } from '../view/snapshots';
 import { readableLineLength, submenu, vimMode } from '../view/internals';
 import { ask } from '../view/modals';
@@ -337,8 +337,11 @@ export class Focus {
 		comp.registerDomEvent(doc, 'fullscreenchange', () => { if (on.full && !doc.fullscreenElement) { on.full = false; if (this.on === on) this.leave(); } });
 		out.addEventListener('click', () => this.leave());
 		out.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.leave(); } });
-		// (its options: a right click, a long press, the menu key)
-		out.addEventListener('contextmenu', (e) => { e.preventDefault(); this.menu(out); });
+		// (its options: a right click, a press and hold under a finger, the menu key. Some phones send a finger's long press
+		// as a context menu event too: that one is left to the hold, so the menu isn't opened twice)
+		const hold = new Press<HTMLElement>({ el: out, pick: (e) => (e.pointerType === 'touch' ? { el: out, data: out } : null), canDrag: () => false, start: () => {}, move: () => {}, end: () => {}, hold: (at) => this.menu(at) });
+		comp.register(() => hold.destroy());
+		out.addEventListener('contextmenu', (e) => { e.preventDefault(); if (hold.pointer !== 'touch') this.menu(out); });
 
 		const calm = this.calm(doc);
 		const go = () => {

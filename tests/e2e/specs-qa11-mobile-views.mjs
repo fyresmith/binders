@@ -385,7 +385,7 @@ test('focus mode on a phone: typed words go to the note, a tap on the way out le
 	t.ok((await disk(p, sceneAt(1))).includes('Focus line one. '), 'the words typed in focus mode are in the note on disk');
 }));
 
-bug('focus mode on a phone: the way out’s menu (Typewriter scrolling, Leave focus mode, …) is opened by a press and hold on it, as the docs say', on(PHONE, async (p, h, t) => {
+test('focus mode on a phone: the way out’s menu (Typewriter scrolling, Leave focus mode, …) is opened by a press and hold on it, as the docs say', on(PHONE, async (p, h, t) => {
 	await binder(p, 'Novel', scenes(3, 2));
 	await focusOn(p, t);
 	const leave = await p.at('.binders-focus-leave');
