@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.49.2 (2026-10-10)
+
+### Fixed
+
+- In the find bar, Enter on a focused button presses that button, as Obsidian's own bar does.
+
 ## 0.49.1 (2026-10-10)
 
 ### Fixed

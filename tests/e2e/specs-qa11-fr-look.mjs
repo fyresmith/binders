@@ -115,7 +115,7 @@ test('Tab in the bar’s field goes where it goes in Obsidian’s bar (compared:
 	t.ok(reach(ours) === reach(theirs) && reach(oursR) === reach(theirsR), `Tab reaches a button in Binders' bar (find: ${reach(ours)}, replace: ${reach(oursR)}) as in Obsidian's (find: ${reach(theirs)}, replace: ${reach(theirsR)}); Binders: ${ours.join(' > ')} / ${oursR.join(' > ')}; Obsidian: ${theirs.join(' > ')} / ${theirsR.join(' > ')}`);
 });
 
-test('BUG: Enter on a bar button presses it: on Exit search it closes the bar (it stepped to the next match instead)', async (p, h, t) => {
+test('Enter on a bar button presses it: on Exit search it closes the bar (it stepped to the next match instead)', async (p, h, t) => {
 	const fails = [];
 	await setup(p);
 	await editor(p);
@@ -140,7 +140,7 @@ test('BUG: Enter on a bar button presses it: on Exit search it closes the bar (i
 	t.ok(fails.length === 0, fails.join(' ; ') || 'fine');
 });
 
-test('BUG: Enter on Match case turns the case on and off, as Space does (it stepped to the next match instead)', async (p, h, t) => {
+test('Enter on Match case turns the case on and off, as Space does (it stepped to the next match instead)', async (p, h, t) => {
 	await setup(p);
 	await editor(p);
 	await openKey(p);

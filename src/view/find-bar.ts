@@ -111,7 +111,8 @@ export class FindBar {
 		this.input.addEventListener('input', () => { this.done = null; this.drawDone(); window.clearTimeout(this.timer); this.timer = window.setTimeout(() => { void this.search(); }, 150); });
 		// the keys are Obsidian's bar's, and they are the bar's only while the keyboard is in it
 		const s = this.scope = new Scope(app.scope), inBar = () => el.contains(el.ownerDocument.activeElement);
-		const key = (mods: ('Mod' | 'Shift' | 'Alt')[], k: string, run: (e: KeyboardEvent) => void) => s.register(mods, k, (e): false | undefined => { if (!inBar() || e.isComposing) return undefined; e.preventDefault(); run(e); return false; });
+		// (Enter on a focused button presses that button, as it does in Obsidian's bar: the browser does it, so the key is left alone)
+		const key = (mods: ('Mod' | 'Shift' | 'Alt')[], k: string, run: (e: KeyboardEvent) => void) => s.register(mods, k, (e): false | undefined => { if (!inBar() || e.isComposing || (k === 'Enter' && e.target instanceof HTMLButtonElement)) return undefined; e.preventDefault(); run(e); return false; });
 		key([], 'Enter', () => { if (el.ownerDocument.activeElement === this.by && this.replacing && this.host.replacesOne()) void this.replaceOne(); else this.step(1); });
 		key(['Shift'], 'Enter', () => this.step(-1));
 		key([], 'F3', () => this.step(1));
