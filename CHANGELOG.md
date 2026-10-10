@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.49.19 (2026-10-10)
+
+### Fixed
+
+- Stepping through matches with Enter in a large binder no longer gets slower the further you go.
+
 ## 0.49.18 (2026-10-10)
 
 ### Fixed

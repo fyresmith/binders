@@ -279,7 +279,7 @@ test('stepping through matches 3,751 to 5,000 with Enter: each press is the next
 	t.eq(pos(await countText(p)), 1, 'one more Enter from 5,000 wraps to 1');
 }, 20 * 60000);
 
-test('BUG: each Enter takes longer than the one before: the last 250 of the first 3,000 matches take at most twice as long as the first 250', async (p, h, t) => {
+test('each Enter takes longer than the one before: the last 250 of the first 3,000 matches take at most twice as long as the first 250', async (p, h, t) => {
 	await build(p);
 	const { gaps } = await stepRun(p, t, 1, 3000, 'matches 1 to 3,000, for the slowdown');
 	const first = med(gaps.slice(0, 250)), last = med(gaps.slice(-250));

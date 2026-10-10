@@ -9,7 +9,7 @@ import type { BinderMode, ModeContext, ModeFactory } from './mode';
 import { embedSupported, mountEditor, type LiveEditor } from './editable-embed';
 import { sourceOffset } from './tap-text';
 import type { At, FindState, Found } from './find-bar';
-import { paint, rangesIn, setFound, shows, unpaint } from '../find/highlight';
+import { highlightsSupported, paint, rangesIn, setFound, shows, unpaint } from '../find/highlight';
 
 /* The manuscript: every note in the folder, in binder order, as one scrolling page, like Scrivener's Scrivenings.
    Subfolders are headings; each note is a section with its title and its body in a live editor on that note.
@@ -849,14 +849,26 @@ class Manuscript implements BinderMode {
 		this.finding = state;
 		for (const s of this.scenes) this.paintFound(s);
 		this.paintDrawn();
-		if (!state) unpaint(this);
+		if (!state) { unpaint(this); this.drawnRanges.clear(); this.byFile = null; }
 		const at = state?.at, file = at?.found.source.file;
 		if (go && at && file) void this.goFound(file, at.found.hits[at.hit]);
 	}
 
+	// (a map from file to what was found in it, made once per search: stepping asks for every section on every press)
+	private byFile: { list: Found[]; map: Map<TFile, Found> } | null = null;
+	// (where the query stands in a drawn section, kept while the section's drawn element and the search stay the same)
+	private drawnRanges = new Map<Scene, { el: HTMLElement; found: Found; query: string; options: string; ranges: Range[] }>();
+
 	private hitsOf(s: Scene): { found: Found; current: number } | null {
-		const st = this.finding, f = st?.found.find((x) => x.source.file === s.file);
-		return f ? { found: f, current: st?.at?.found === f ? st.at.hit : -1 } : null;
+		const st = this.finding;
+		if (!st) return null;
+		if (this.byFile?.list !== st.found) {
+			const map = new Map<TFile, Found>();
+			for (const x of st.found) if (x.source.file && !map.has(x.source.file)) map.set(x.source.file, x);
+			this.byFile = { list: st.found, map };
+		}
+		const f = this.byFile.map.get(s.file);
+		return f ? { found: f, current: st.at?.found === f ? st.at.hit : -1 } : null;
 	}
 
 	private paintFound(s: Scene): void {
@@ -879,7 +891,11 @@ class Manuscript implements BinderMode {
 				for (const s of this.scenes) {
 					const h = !s.live && s.shown !== null ? this.hitsOf(s) : null, el = h ? s.bodyEl.querySelector<HTMLElement>('.binders-manuscript-rendered') : null;
 					if (!h || !el) continue;
-					const ranges = rangesIn(el, st.query, st.options);
+					let ranges: Range[];
+					const options = JSON.stringify(st.options), kept = this.drawnRanges.get(s);
+					// (ranges follow the page as it changes; with marks drawn instead, the text is split and they are made again)
+					if (kept && highlightsSupported(el.ownerDocument) && kept.el === el && el.isConnected && kept.found === h.found && kept.query === st.query && kept.options === options) ranges = kept.ranges;
+					else { ranges = rangesIn(el, st.query, st.options); this.drawnRanges.set(s, { el, found: h.found, query: st.query, options, ranges }); }
 					all.push(...ranges);
 					if (h.current >= 0) cur = ranges[Math.min(h.current, ranges.length - 1)] ?? null;
 				}
