@@ -5,6 +5,7 @@
 // "qa6: …" pass; "BUG: …", "UX: …" and "A11Y: …" are confirmed findings (they fail now and pass once fixed).
 //   QA6_SHOTS=<dir> saves screenshots of the steps there.
 import { mkdirSync } from 'fs';
+import { closeFilter, chooseProperty, clickEl, pick, rowSel } from './filter-helpers.mjs';
 import { B, VIEW, closeMenus, contents, flush, j, menuItems, openView, read, reload, tidy, until, viewState } from './view-helpers.mjs';
 
 export const specs = [];
@@ -1116,10 +1117,13 @@ a11y('moves and undo are said aloud: after Alt+arrow moves a card (or a row), or
 a11y('a filter that’s on is said to a screen reader (the label on the screen says “Filter (1)”, and in a narrow pane only the button’s colour does; its `aria-label` stays “Filter”)', async (p, h, t) => {
 	await open(p);
 	await p.ev(`document.querySelector('${LEAF} .binders-filter-button').focus()`);
+	// the filter is a popover with conditions now (docs/filters.md): a status condition turns “Filter” into “Filter (1)”
 	await p.key('Enter'); await p.sleep(400);
-	log('filter menu', j(await menuItems(p)));
-	// pick the first status in the menu (a status filter turns “Filter” into “Filter (1)”)
-	for (let i = 0; i < 8; i++) { await p.key('ArrowDown'); const on = await p.ev(`document.querySelector('.menu .menu-item.selected .menu-item-title')?.textContent`); if (on && /^(Idea|Draft|Revised|Done)$/.test(on)) { await p.key('Enter'); break; } }
+	await chooseProperty(p, 0, 'Status');
+	await clickEl(p, `${rowSel(0)} .binders-filter-values`);
+	await pick(p, 'Draft');
+	await p.key('Escape');
+	await closeFilter(p);
 	await p.sleep(600);
 	await closeMenus(p);
 	const b = await p.ev(`(() => { const e = document.querySelector('${LEAF} .binders-filter-button'); return { label: e.querySelector('.text-button-label').textContent, aria: e.getAttribute('aria-label'), active: e.classList.contains('is-active'), pressed: e.getAttribute('aria-pressed') }; })()`);
@@ -1647,12 +1651,24 @@ test('keyboard only: Escape closes each toolbar menu (Filter, New, Arrange) and 
 	t.eq(j(bad), '[]', 'every toolbar menu gives the focus back');
 });
 
-test('a binder in a newer format (read only): the word count in the toolbar isn’t offered as a button (nothing happens when it is pressed)', async (p, h, t) => {
+test('a binder in a newer format (read only): the word count in the toolbar opens the Progress window, which can show but not change anything', async (p, h, t) => {
 	await p.ev(`(async () => { await app.vault.createFolder('Future'); await app.vault.create('Future/Future.md', '---\\nbinder: 99\\ncontents:\\n  - One\\n---\\n'); await app.vault.create('Future/One.md', 'one two three'); })().then(() => 1)`);
 	await p.sleep(600);
 	await open(p, 'Future');
+	const before = await p.ev(`app.vault.adapter.read('Future/Future.md')`);
 	const wc = await p.ev(`(() => { const e = document.querySelector('${LEAF} .binders-word-count'); return e ? { role: e.getAttribute('role'), tab: e.tabIndex, label: e.getAttribute('aria-label'), disabled: e.getAttribute('aria-disabled'), text: e.textContent } : null; })()`);
 	log('word count of a read-only binder', j(wc));
 	t.ok(wc, 'there is a word count');
-	t.ok(wc.role !== 'button' || wc.disabled === 'true' || wc.tab < 0, 'it is not a live button: ' + j(wc));
+	// (it is a live button: it opens the Progress window, a way to look; Longform's target is the one it can't set)
+	t.ok(wc.role === 'button' && wc.tab >= 0 && /Show progress/.test(wc.label), 'it is a button that says what it does: ' + j(wc));
+	await p.ev(`document.querySelector('${LEAF} .binders-word-count').click()`);
+	await until(p, `!!document.querySelector('.modal .binders-pot')`, 5000);
+	await p.sleep(600);
+	const win = await p.ev(`(() => { const m = document.querySelector('.modal.binders-pot'); if (!m) return null; return { text: m.textContent.slice(0, 400), edit: [...m.querySelectorAll('button')].map((b) => b.textContent).filter((x) => /deadline|plan|target/i.test(x)), form: !!m.querySelector('.binders-pot-form') }; })()`);
+	log('progress window of a read-only binder', j(win));
+	t.ok(win, 'the Progress window opens');
+	t.eq(j(win.edit), '[]', 'it offers no button to set a target, deadline or plan');
+	t.ok(!win.form, 'it has no form to change the plan');
+	await p.key('Escape'); await p.sleep(300);
+	t.eq(await p.ev(`app.vault.adapter.read('Future/Future.md')`), before, 'the binder note is untouched');
 });
