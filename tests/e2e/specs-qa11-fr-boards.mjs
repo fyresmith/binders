@@ -167,7 +167,7 @@ test('a long corkboard: the bar brings a match far down the board into sight, an
 	t.ok(!!c && c.seen, 'and it is in sight (the board was brought to it)');
 	t.ok(c?.hit, 'and it is lit');
 	t.ok(await barOpen(p), 'with the bar still open, the keyboard in it');
-	t.eq(await p.ev(`document.activeElement === ${BAR}.input || ${BARSEL}.contains(document.activeElement)`), true, 'the keyboard stays in the bar');
+	t.eq(await p.ev(`document.activeElement === ${BAR}.input || !!document.querySelector(${j(BARSEL)})?.contains(document.activeElement)`), true, 'the keyboard stays in the bar');
 });
 
 // =====================================================================================================================

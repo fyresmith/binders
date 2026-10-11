@@ -611,7 +611,7 @@ test('journey D, on a phone: import a zipped project, Replace all by touch (revi
 		await ask(p, 'Mara', 'Maren');
 		const bar = await p.ev(`(() => { const r = document.querySelector(${j(BARSEL)}).getBoundingClientRect(); return [Math.round(r.left), Math.round(r.right), innerWidth]; })()`);
 		t.ok(bar[0] >= 0 && bar[1] <= bar[2], 'the bar fits the screen: ' + j(bar));
-		await tapSel(p, `${BARSEL} button[aria-label="Replace all..."]`);
+		await tapSel(p, `${BARSEL} button[aria-label^="Replace all..."]`);
 		t.ok(await until(p, `!!document.querySelector('.modal.binders-find-review')`, 5000), 'the review is up');
 		const fits = await p.ev(`(() => { const m = document.querySelector('.modal.binders-find-review').getBoundingClientRect(); return [Math.round(m.left), Math.round(m.right), innerWidth, Math.round(m.top), Math.round(m.bottom), innerHeight]; })()`);
 		t.ok(fits[0] >= 0 && fits[1] <= fits[2] && fits[4] <= fits[5] + 1, 'the review fits the screen: ' + j(fits));
@@ -633,7 +633,7 @@ test('journey D, on a phone: import a zipped project, Replace all by touch (revi
 		// a snapshot of the binder, then bring it back after a second replace
 		await p.ev(`${PL}.snapshotsApi.takeFolder(${file(ROOT)}, 'On the phone').then(() => 1)`);
 		await ask(p, 'keeper', 'warden');
-		await tapSel(p, `${BARSEL} button[aria-label="Replace all..."]`);
+		await tapSel(p, `${BARSEL} button[aria-label^="Replace all..."]`);
 		await until(p, `!!document.querySelector('.modal.binders-find-review')`, 5000);
 		await tapSel(p, '.modal.binders-find-review button.mod-cta');
 		await p.ev(`window.__all?.then(() => 1)`);
@@ -651,7 +651,7 @@ test('journey D, on a phone: import a zipped project, Replace all by touch (revi
 		await p.ev(`(() => { app.commands.executeCommandById('binders:export'); return 1; })()`);
 		await until(p, `!!document.querySelector('${XWIN} [role="option"]')`, 6000);
 		await p.sleep(500);
-		await tapSel(p, `${XWIN} [role="option"]`, 'Ebook');
+		await tapSel(p, `${XWIN} [role="option"] .binders-snapshots-item-name`, 'Ebook');
 		await p.sleep(500);
 		await tapSel(p, `${XWIN} button`, 'Export');
 		t.ok(await until(p, `app.vault.adapter.exists('Exports/Novel.epub')`, 10000), 'the EPUB is in Exports');
