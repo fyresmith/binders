@@ -45,8 +45,8 @@ const writes = (p) => p.ev(`window.__writes`);
 async function audit(p, { root = 'The Lighthouse', note = NOTE, settle = 1000, strict = true } = {}) {
 	await flush(p); await p.sleep(settle); await flush(p);
 	const info = await p.ev(`(async () => {
-		const adapter = app.vault.adapter, out = { disk: {}, tree: {}, order: {} };
-		const walk = async (d) => { const l = await adapter.list(d); out.disk[d] = { files: l.files.map(x => x.split('/').pop()).sort(), folders: l.folders.map(x => x.split('/').pop()).sort() }; for (const f of l.folders) await walk(f); };
+		const adapter = app.vault.adapter, out = { disk: {}, tree: {}, order: {}, snapshots: {} };
+		const walk = async (d) => { const l = await adapter.list(d); out.disk[d] = { files: l.files.map(x => x.split('/').pop()).sort(), folders: l.folders.map(x => x.split('/').pop()).sort() }; const sf = app.vault.getAbstractFileByPath(d + '/Snapshots'); out.snapshots[d] = !!sf && ${B}.isSnapshotsFolder(sf); for (const f of l.folders) await walk(f); };
 		const rootF = app.vault.getAbstractFileByPath(${j(root)});
 		if (!rootF) return { gone: true };
 		await walk(${j(root)});
@@ -77,7 +77,8 @@ async function audit(p, { root = 'The Lighthouse', note = NOTE, settle = 1000, s
 		const rel = dir === root ? '' : dir.slice(root.length + 1) + '/';
 		const real = (n) => info.disk[dir]?.folders.includes(n) ? n + '/' : n;
 		const shown = info.order[dir];
-		const want = new Set([...info.disk[dir].folders, ...info.disk[dir].files.filter((n) => !hidden(dir, n))]);
+		// the binder's Snapshots folder is kept out of the explorer and the store, as the product does
+		const want = new Set([...info.disk[dir].folders.filter((n) => !(info.snapshots[dir] && n === 'Snapshots')), ...info.disk[dir].files.filter((n) => !hidden(dir, n))]);
 		if (j([...want].sort()) !== j([...shown].sort())) problems.push(`the store shows ${j(shown)} in ${dir}, the folder has ${j([...want])}`);
 		// the listed items of this folder, in the listed order, come first
 		const listed = list.filter((e) => e.startsWith(rel) && !e.slice(rel.length).replace(/\/$/, '').includes('/')).map((e) => { const n = e.slice(rel.length).replace(/\/$/, ''); return e.endsWith('/') ? (info.disk[dir].folders.includes(n) ? n : null) : info.disk[dir].files.includes(n) && info.disk[dir].files.includes(n + '.md') ? n : info.disk[dir].files.includes(n + '.md') ? n + '.md' : info.disk[dir].files.includes(n) ? n : null; }).filter(Boolean);
@@ -452,8 +453,9 @@ for (const seed of [11, 23, 42, 77]) test(`undo: forty drops across folders (see
 		const ok = await p.ev(`(async () => {
 			const r = window.__rnd, pick = (a) => a[Math.floor(r() * a.length)], v = app.vault, S = ${B};
 			const root = v.getAbstractFileByPath('The Lighthouse');
-			const notes = v.getMarkdownFiles().filter(f => f.path.startsWith('The Lighthouse/') && !S.isHiddenNote(f));
-			const dirs = [root, ...v.getAllLoadedFiles().filter(f => f.children && f.path.startsWith('The Lighthouse/'))];
+			// (the binder's Snapshots folder is not an item to drop, nor what is in it: the explorer never offers it)
+			const notes = v.getMarkdownFiles().filter(f => f.path.startsWith('The Lighthouse/') && !S.isHiddenNote(f) && !S.inSnapshots(f.path));
+			const dirs = [root, ...v.getAllLoadedFiles().filter(f => f.children && f.path.startsWith('The Lighthouse/') && !S.inSnapshots(f.path))];
 			const n = 1 + Math.floor(r() * 3), items = []; for (let guard = 0; items.length < n; guard++) { if (guard > 200) break;  const f = r() < 0.2 ? pick(dirs.filter(d => d !== root)) : pick(notes); if (!items.includes(f) && !items.some(x => x.children && f.path.startsWith(x.path + '/')) && !items.some(x => f.children && x.path.startsWith(f.path + '/'))) items.push(f); }
 			const to = pick(dirs), sibs = (S.orderedChildren(to) || []).filter(c => !items.includes(c)), anchor = r() < 0.25 ? null : pick(sibs.length ? sibs : [null]);
 			if (!items.every(f => S.canPlace(f, to))) return false;
@@ -897,8 +899,9 @@ test('cold start: in a vault of 3,000 notes a reload finds both binders, shows t
 	const settled = await p.ev(`Promise.race([app.plugins.plugins.binders.binders.settled.then(() => 'settled'), new Promise(r => setTimeout(() => r('not settled in 40 s'), 40000))])`);
 	t.eq(settled, 'settled', 'binders settled after the cache was complete');
 	p.errors.length = 0;
+	// wait for the three binders to be found (a condition, not a fixed pause: under load the search can trail `settled`)
+	for (let i = 0; i < 160; i++) { if (j(await p.ev(`${BINDERS}.map(b => b.folder.path).sort()`)) === j(['Cold', 'Cold2', 'The Lighthouse'])) break; await p.sleep(250); }
 	const secs = (Date.now() - t0) / 1000;
-	await p.sleep(1000);
 	t.eq(j(await p.ev(`${BINDERS}.map(b => b.folder.path).sort()`)), j(['Cold', 'Cold2', 'The Lighthouse']), `binders found (${secs.toFixed(1)} s after the reload started)`);
 	t.eq(j((await kids(p, 'Cold')).slice(0, 3)), j(['Scene 29.md', 'Scene 28.md', 'Scene 27.md']), 'Cold in its list’s order');
 	// the explorer shows it too
