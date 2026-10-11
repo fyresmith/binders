@@ -48,7 +48,7 @@ export interface FindHost {
 	closed(at: At | null): void;
 }
 
-interface Done { query: string; by: string; notes: { file: TFile; after: string; back: Edit[] }[]; count: number; left: string[]; kept: string[]; undone?: { back: number; left: number } }
+interface Done { query: string; by: string; notes: { file: TFile; before: string; after: string; back: Edit[] }[]; count: number; left: string[]; kept: string[]; undone?: { back: number; left: number } }
 
 const sleep = (ms: number) => new Promise<void>((r) => window.setTimeout(r, ms));
 const n = (count: number, one: string, many = one + 's') => `${count.toLocaleString()} ${count === 1 ? one : many}`;
@@ -347,7 +347,7 @@ export class FindBar {
 					// (a replacement that would open or close the note's properties would change them: not done)
 					if (parts(next).front !== parts(now).front) { done.kept.push(f.source.name); continue; }
 					if (!await replaceEdits(plugin, file, now, edits)) { done.left.push(f.source.name); continue; }
-					done.notes.push({ file, after: next, back: inverse(now, edits) });
+					done.notes.push({ file, before: now, after: next, back: inverse(now, edits) });
 					done.count += hits.length;
 				} catch { done.left.push(f.source.name); }
 			}
@@ -372,6 +372,9 @@ export class FindBar {
 			for (const x of d.notes) {
 				try {
 					const now = await this.read({ id: x.file.path, name: x.file.basename, file: x.file }, true);
+					// (a note already back as it was, say by its editor's undo or a snapshot, has nothing to put back: it is neither
+					// put back nor changed since)
+					if (now === x.before) continue;
 					if (now !== x.after || !await replaceEdits(plugin, x.file, now, x.back)) left++; else back++;
 				} catch { left++; }
 			}

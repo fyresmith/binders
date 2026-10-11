@@ -22,8 +22,12 @@ export class BoardFind {
 
 	constructor(private host: BoardFindHost) {}
 
-	/** What scrolls on the boards (the corkboard's page, the outliner's). */
-	root(): HTMLElement | null { return this.host.body()?.querySelector<HTMLElement>(':scope > .binders-outliner, :scope > .binders-corkboard') ?? null; }
+	/** What scrolls on the boards: the corkboard's page, which is the mode's own element (the lanes and the grid add their
+	    class to it), and the outliner, which is a child of it. */
+	root(): HTMLElement | null {
+		const body = this.host.body();
+		return !body ? null : body.hasClass('binders-corkboard') ? body : body.querySelector<HTMLElement>(':scope > .binders-outliner');
+	}
 
 	/** The bar is closed: nothing is looked for, and the page's scrolling is no longer watched. */
 	stop(): void { this.state = null; this.track(false); }

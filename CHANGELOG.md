@@ -70,6 +70,8 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - In a very narrow pane, such as a small window zoomed to 300%, nothing in the toolbar spills off the side.
 - Deleting many notes at once is no longer several times slower while a binder view is open.
 - The file explorer no longer slows down when many notes are deleted from a big folder.
+- On the corkboard, cards that a scroll brings into sight are now lit or stepped back for a find, as they are at the top.
+- Undo of a replace all no longer says a note changed since when it is already as it was before the replace.
 
 ## 0.51.1 (2026-10-10)
 
