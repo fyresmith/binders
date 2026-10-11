@@ -422,6 +422,85 @@ The Lighthouse/
   counts, views or exports, never listed in the file explorer, and carried by Obsidian Sync only with "Sync all
   other types" on (and, on its Standard plan, only up to 5 MB a file).
 
+## The record of a binder's writing (`binders-history: 1`)
+
+Binders keeps a record of each binder's writing: one plain-text file for each device and year, in `History` in the
+binder's `Snapshots` folder (a Longform project's, in its scene folder). It holds only numbers and names: never a
+note's text. It is not a note, is not indexed, and is never in the binder's order, counts, views or exports.
+Sync carries it only with "Sync all other types" on, like the snapshots.
+
+- **Name:** `<year> <label> <device id>.binder-history`, for example `2026 MacBook a1b2c3.binder-history`. The label is
+  how the writer named the device (settings, "This device is called"), with what a file name can't have turned into
+  spaces. The id is six hex digits, made once for a device and kept in Obsidian's local storage for the vault, on that
+  device (not in the vault, the settings or a note, so a copy of the vault on another device doesn't share it). The
+  year is the year of the record's day (below), so a night's writing after midnight on 1 January is still last year's.
+- **A device writes only its own file** and never another's. Reading adds the devices' files together.
+- **One JSON object to a line.** A file cut short loses its last line, and the rest reads without Binders. A line
+  that can't be read is passed over and kept when the file is written again; so is a line of a kind this version
+  doesn't know. A file is written to a temporary name (`….binder-history.tmp`) and moved into place.
+- **The first line is the header:** `{"binders-history":1,"device":"a1b2c3","label":"MacBook","kind":"desktop","year":2026}`.
+  `kind` is `desktop`, `phone` or `tablet`. A file whose version is newer than this Binders knows is read as far as it
+  is understood and never written (golden rule 6's manner).
+- **A day ends at four in the morning**, local time, with no setting. Days are `YYYY-MM-DD`.
+
+The other lines are of two kinds.
+
+**A day, `"t":"day"`, one for each day this device wrote on** (the last of two for a day, by `u`, stands):
+
+| Field | What it is |
+|---|---|
+| `d` | The day |
+| `u` | When the line was last written to (ms). Which of two copies of a line is the later |
+| `k` | The kind of device |
+| `n` | By note (its path in the binder, without `.md`, as it was when typed; renames below): `[added, cut, brought in, taken out]`. Added and cut are words typed and words deleted by typing; brought in and taken out are words that came or went a block at a time: a single change of more than 50 words (a paste, a cut, a chapter deleted, an import) |
+| `h` | Words added in each clock hour that had any: `{"21":120,"22":40}` |
+| `s` | Sittings: `[first minute, last minute]`, in minutes since 1970; one ends after thirty idle minutes |
+| `m` | Minutes in which something was typed |
+| `tot` | The binder as it stood when last counted that day, stamped with the time: `{"at":ms,"w":words,"n":scenes,"st":{"draft":words,"":words}}` (words by status, `""` for none) |
+
+**An event, `"t":"ev"`, one for each thing done to the binder:** `at` (ms), `d` (the day), `k` (the kind) and, by kind:
+
+| `k` | Fields | When |
+|---|---|---|
+| `made`, `gone` | `p`, `w` (words, for a note that had some), `folder` (1 for a folder), `by` | A note or folder made or taken away. `by` says what did it when Binders did: `split`, `merge`, `import`, `duplicate`, `back` |
+| `renamed`, `moved` | `from`, `to`, `folder` | A note or folder renamed (same folder) or moved. A scene's history follows its renames |
+| `in`, `out` | `p`, `w`, `folder` | A note or folder came into the binder from outside, or left it |
+| `status`, `label`, `target` | `p`, `from`, `to`, `folder` | A scene's (or, `folder`, a folder's) status, label or word count target changed. `to` and `from` are the property as written |
+| `order` | `p` (the folder; `""` is the binder) | The order of a folder's items changed. A run of changes within two seconds is one |
+| `snapshot` | `p` (`""` for the binder), `name` | A snapshot taken, with its name if it has one |
+| `back` | `p`, `name` | A snapshot brought back |
+| `export` | `name` (the kind) | An export made |
+| `import` | `n` (notes), `w` (words) | A binder made by import |
+| `split`, `merge`, `duplicate` | `p`, `n` | A scene split (into `n`), merged (`n` notes into it) or copied |
+| `replace` | `n` (notes), `w` (replacements) | Replace all |
+
+Import, split, merge, duplicate, Replace all and bringing back are Binders' own acts: each is an event and none of them
+counts as writing. Where they move words in or out, it is as brought in or taken out.
+
+**Never recorded:** any text, keystrokes or typing speed, time spent without typing, synopsis edits, anything outside a
+binder, a device's name beyond the label the writer gave it.
+
+**Two devices.** Each records only what was typed on it. Reading adds the devices' days; a day's total is the one
+stamped last; the words that no device typed (an edit in another program, a device without Binders) are the difference
+between a day's total and the day before's, less what was logged: "changed elsewhere". A note made, gone, renamed or
+moved that the other device records too (Sync brings the note across) is one event, the same thing the same day.
+
+An example file:
+
+```
+{"binders-history":1,"device":"a1b2c3","label":"MacBook","kind":"desktop","year":2026}
+{"t":"day","d":"2026-10-09","u":1791583200000,"k":"desktop","n":{"Part One/Arrival":[412,38,0,0],"Part One/The keeper":[120,0,300,0]},"h":{"9":380,"10":152},"s":[[29859540,29859612]],"m":58,"tot":{"at":1791583200000,"w":41210,"n":57,"st":{"draft":30100,"revised":9000,"":2110}}}
+{"t":"day","d":"2026-10-10","u":1791669600000,"k":"desktop","n":{"Part One/Arrival":[88,12,0,0]},"h":{"21":88},"s":[[29861375,29861395]],"m":14,"tot":{"at":1791669600000,"w":41286,"n":57,"st":{"draft":30100,"revised":9076,"":2110}}}
+{"t":"ev","at":1791583260000,"d":"2026-10-09","k":"status","p":"Part One/Arrival","from":"draft","to":"revised"}
+{"t":"ev","at":1791583300000,"d":"2026-10-09","k":"renamed","from":"Part One/Landing","to":"Part One/Arrival"}
+{"t":"ev","at":1791669700000,"d":"2026-10-10","k":"snapshot","p":"","name":"Before the rewrite"}
+```
+
+The size is about 200 to 400 bytes a day, so about 100 KB a year for a device that writes most days. Only the current
+year's file is written, every few minutes while there is something new, when the writer leaves the binder, when the app
+goes to the background and when Binders unloads; and not at all for a binder in a newer format, or while recording is
+off (settings, "Keep a record of your writing"; turning it off deletes nothing).
+
 ## Export
 
 What export reads from notes. All of it is optional, so this is still format 1. Exporting never writes to a note.

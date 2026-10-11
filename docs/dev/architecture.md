@@ -195,6 +195,22 @@ cards and rows write through.
 | `src/focus/dom.ts` | Obsidian's own page and editor as far as focus mode reaches into them (the column a note's text is in, the room under its last line, where the cursor is on screen). | |
 | `styles.css` | One style sheet for the whole plugin. Focus mode's hiding of Obsidian's window is one block in it, by class name. | Use `!important`, `all:`, scrollbar styling. |
 
+### The progress record
+
+| File | What it is | Must never |
+|---|---|---|
+| `src/progress/recorder.ts` | `Progress` (`plugin.progress`): sees what a writer does and keeps it. One CodeMirror listener on every Markdown editor counts typing; the vault's events give notes made, gone, renamed and moved (in and out of a binder); `BinderStore.editProps` gives status, label and target; `move` and `reorder` give the order; the commands (snapshot, export, import, bringing back, split, merge, duplicate, Replace all) tell it. `during(kind, work)` marks what Binders does itself, so it is an event and never writing. Writes every three minutes while there is something new, on leaving the binder, when the app goes to the background and on unload. | Throw into the editor; read or keep a note's text; write a note; do anything slower than a few map additions at a key. |
+| `src/progress/record.ts` | `BinderRecord`: one binder's files in `Snapshots/History` on disk. Reads this device's and the other devices'; writes this device's own to a temporary name and moves it into place; fails quietly and tries again. | Write another device's file; replace a file it has not read; write where `Snapshots` has the writer's own notes in it. |
+| `src/progress/ledger.ts` | One device's year in memory: the days (words by note, hours, sittings, the day's total) and events, and the file's text. Pure. | Import Obsidian. |
+| `src/progress/format.ts` | The file format and its version; parsing that survives a file cut short or edited; file names. A newer version is read as far as it is understood. Pure. | Throw on a bad line. |
+| `src/progress/merge.ts` | Adds the devices' files together into the days and events the window reads (`toHistory` gives the shape `model.ts` describes); follows renames; the binder's total is the one stamped last. Pure. | |
+| `src/progress/count.ts` | What a change in an editor does to a note's words, and the fifty-word rule (more is brought in or taken out, not written or cut). Pure. | |
+| `src/progress/day.ts` | The day, which ends at four in the morning, local time. Pure. | |
+| `src/progress/model.ts`, `stats.ts`, `text.ts` | What the window reads, and what it says of it. Pure. | |
+| `src/progress/fixture.ts`, `src/view/progress.ts`, `src/view/progress-charts.ts` | The designer's window over a made-up history. Nothing opens it yet. | |
+
+The record is in the binder's `Snapshots` folder, so it is out of the file explorer, the binder's contents, its order, its counts, exports and imports as the snapshots are; `followSnapshots` and `isOwn` (`src/snapshots.ts`) leave the history files alone, since a scene called "History" keeps its snapshots in the same folder. The format is in [file-format.md](file-format.md#the-record-of-a-binders-writing-binders-history-1).
+
 ### Find and replace
 
 | File | What it is | Must never |
@@ -357,6 +373,7 @@ These are the rules the code is held to. A change that breaks one needs a new te
 | Snapshots of a folder or binder | `binder-snapshot-text` | `specs-binder-snapshots` |
 | Find and replace | `find-search` | `specs-find-replace` (and `specs-qa2-manuscript`, "find opens the view’s own bar…") |
 | Focus mode | `focus-session` | `specs-focus` |
+| The progress record | `progress-record` | `specs-progress-record` |
 | Explorer patch | | `specs-explorer`, `specs-qa2-explorer`, `specs-qa4-explorer` |
 | Binder view shell | | `specs-view`, `specs-a11y`, `specs-themes` |
 | Corkboard and lanes | `lanes` | `specs-corkboard`, `specs-lanes`, `specs-qa-corkboard`, `specs-qa2-corkboard`, `specs-qa5-cork` |

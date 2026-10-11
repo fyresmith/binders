@@ -27,6 +27,7 @@ Read this before changing anything. It is the contract every contributor, human 
    While it works it keeps its plan in one file of its own in the binder's `Snapshots` folder, so a bringing back
    cut short can be finished or put back (`src/binder-snapshots.ts`, `src/binder-snapshot-journal.ts`; the
    maintainer's exception, approved 2026-10-05, worded 2026-10-08, folders and the plan's file added 2026-10-09).
+   And a third: Binders keeps a record of a binder's writing in the binder's `Snapshots` folder, in `History`, one plain-text file for each device and year (`src/progress/record.ts`). A device writes only its own file, and only numbers and names: the day, the words added and cut in each note, the hours, and what was done to the binder (a note made, moved or gone, a status changed, the order changed, a target or deadline set, a snapshot or an export made). Never a note's text. Nothing in it is ever written back to a note, it is never sent anywhere, and Binders deletes none of it by itself. (The maintainer's exception, 2026-10-10.)
 4. **Native look.** Use Obsidian's CSS variables, `setIcon`, `Menu`, `Modal`, `Setting`, sentence case. No `!important`,
    no `all:`, no scrollbar styling, no inline `innerHTML`; use `createEl` or `sanitizeHTMLToDom`. The Obsidian review
    bot flags these.

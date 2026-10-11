@@ -88,11 +88,14 @@ With **Show word counts** on, focus mode shows the scene's words and the words w
 
 - **Words to write today** is a goal for a day's writing in a binder. Set it in settings, or with **Set a goal for
   today...** in the menu. When it's reached the count turns the color of a target met, and nothing else happens.
-- **The words written today** are the day's net change in the binder's notes. They are counted whether you're in
-  focus or not.
-- They are kept on the device you write on, not in your notes and not in the plugin's settings. So they don't sync:
-  each device counts its own.
-- **Start counting from here**, in the menu, starts the day again.
+- **The words written today** are the words you added less the words you cut by typing in the binder, from
+  [the record of your writing](progress.md). They are counted whether you're in focus or not. A paste or a cut of more
+  than 50 words, an import, a split or a merge is not writing, and does not count.
+- A **day ends at four in the morning**, not at midnight.
+- The record is in the binder (in its `Snapshots` folder), not in your notes or in the plugin's settings. With a
+  device that shares the binder's record through Sync (**Sync all other types** on), the count is the devices' together.
+- **Start counting from here**, in the menu, counts from what the record has now, for the rest of the day.
+- With recording turned off in settings, focus mode counts this device's own, as it did.
 
 ## On a phone
 

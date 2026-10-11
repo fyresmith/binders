@@ -156,4 +156,21 @@ In a binder of a newer format, and one that can't have snapshots, nothing can be
 
 - With Vim key bindings on, Esc is Vim's: leave with the button or the command.
 - **Enter fullscreen** isn't available on phones and tablets.
-- The words written today don't sync: each device counts its own.
+- The words written today are the record's (see [The record of your writing](progress.md)): they are the devices'
+  together only where the record syncs, which with Obsidian Sync takes **Sync all other types**. Text put in by something
+  other than the editor's own typing, undo and redo (a plugin that rewrites a note, Vim's commands if Obsidian's Vim mode
+  doesn't send them as typing) is not counted as writing.
+
+## The record of your writing
+
+- It counts typing in Obsidian's own editors. Edits made in another program, or on a device without Binders, are not
+  typing, and are only known by the difference they make to the book's total.
+- Words are counted as Obsidian's status bar counts them, a few characters at a time as you type; the book's total is
+  counted as the exported book has it (**Count words as the exported book does**). The two can differ a little, most
+  in a book that embeds notes in others, and the difference shows as *changed elsewhere*.
+- With Obsidian Sync it is carried only with **Sync all other types** on. A phone that has not synced yet stamps a
+  total that is short of the other devices' words; the next day's total is true again.
+- A change of more than 50 words at once is brought in or taken out, not written or cut, whatever it was: a long
+  passage typed at once by dictation, or an autocomplete, counts as brought in.
+- It is not yet shown anywhere but in focus mode's count; the window that shows it is to come.
+- Not tried on a real phone or on Obsidian Sync.

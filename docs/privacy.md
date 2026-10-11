@@ -12,8 +12,12 @@ What it reads and writes is on your device:
   saved without asking.
 - **Outside your vault, read:** the Scrivener project, zip, Word file, text file or Markdown file you choose to import, a style's file you choose to add,
   and, to tell whether an exported file is still as export left it, that file's size and date.
-- **In Obsidian's storage for the vault, on the device:** the words written today, and the places exports are saved
-  without asking.
+- **In your vault, the record of your writing:** for each binder, in its `Snapshots` folder, in `History`, the words
+  you added and cut in each note each day, the hours, and what you did to the binder (a note made, a status changed, a
+  snapshot or an export). Numbers and names only, never the text of a note. It is never sent anywhere. You can stop
+  it in settings and delete the files at any time. See [The record of your writing](progress.md).
+- **In Obsidian's storage for the vault, on the device:** the places exports are saved without asking, and an
+  identifier and a name for this device, which go on the record's files.
 - **In the plugin's settings file:** your settings, including **Your name** and **Contact details** if you fill
   them in for a manuscript's title page. If you sync or share your vault's `.obsidian` folder, they go with it.
 

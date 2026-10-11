@@ -38,6 +38,13 @@ See [The inspector and the contents](inspector.md).
 | **Count words as the exported book does** | On | Every count in Binders is the book's: comments, a link's hidden part, web addresses and properties aren't counted. Turn it off to count as Obsidian's status bar does. See [how words are counted](labels-statuses-targets.md#how-words-are-counted) |
 
 
+## Progress
+
+| Setting | Default | What it does |
+|---|---|---|
+| **Keep a record of your writing** | On | Binders keeps a record of each binder's writing in its `Snapshots` folder, in `History`: numbers and names, never text. Turn this off to stop recording; nothing already recorded is deleted. See [The record of your writing](progress.md) |
+| **This device is called** | Mac, Windows PC, iPhone… | How this device is named in the record's files. Kept on this device, not in the settings that sync |
+
 ## Labels
 
 The labels a note can have: a name and a color each. The defaults are Red, Orange, Yellow, Green, Cyan, Blue, Purple
@@ -113,7 +120,7 @@ A few things are remembered without a setting:
 - how each binder view was left: its mode, filter, card size and outliner columns;
 - how **Export** was last set up: the kind, the switches, a manuscript's file and paper;
 - on each device by itself, the places exports are saved without asking, where each binder was last exported (for
-  **Export again**), and the words written today.
+  **Export again**), the name and identifier of this device, and the count from **Start counting from here**.
 
 A book's own details, its styles and a paperback's page size are kept in its binder note, not in settings. Import
 from Scrivener adds a project's labels and statuses to the lists above.
