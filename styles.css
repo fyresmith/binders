@@ -6440,4 +6440,524 @@ body:not(.is-phone) .binders-snapshots .sync-history-content {
 .binders-drag-ghost.mod-touch > .binders-timeline-tag {
 	top: auto;
 	bottom: calc(100% + var(--size-4-2));
+
+/* ---- Progress over time (STAGE 2 OF THE DESIGN ROUND: src/view/progress.ts) ----
+   The charts are ink on the theme's ground: the text color at a few strengths, the theme's lines for rules, and the
+   accent for one thing, where the book is now. */
+
+.binders-pot {
+	--binders-pot-ink: var(--text-normal);
+	--binders-pot-wash: color-mix(in srgb, var(--text-normal) 7%, transparent);
+	--binders-pot-rule: var(--background-modifier-border);
+}
+
+.modal.binders-pot.mod-page {
+	width: min(1120px, 94vw);
+	max-width: 94vw;
+	max-height: 90vh;
+	padding-inline: 0;
+	padding-bottom: 0;
+}
+
+.binders-pot.mod-page .modal-header {
+	padding-inline: var(--size-4-8);
+}
+
+.binders-pot.mod-page .modal-content {
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+	flex: 1;
+	margin: 0;
+}
+
+.binders-pot-body {
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+	padding: 0 var(--size-4-8) var(--size-4-8);
+	font-variant-numeric: tabular-nums;
+}
+
+.binders-pot.mod-sidebar-layout .binders-pot-body {
+	padding-top: var(--size-4-8);
+}
+
+.binders-pot.mod-sidebar-layout .binders-pot-body > .binders-pot-section:first-child {
+	margin-top: 0;
+	padding-top: 0;
+	border-top: none;
+}
+
+/* the numbers at the head: no boxes, a rule between */
+.binders-pot-head {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	margin-top: var(--size-4-2);
+}
+
+.binders-pot-figure {
+	padding: var(--size-2-1) var(--size-4-5) var(--size-2-1);
+	border-inline-start: 1px solid var(--binders-pot-rule);
+	min-width: 0;
+}
+
+.binders-pot-figure:first-child {
+	padding-inline-start: 0;
+	border-inline-start: none;
+}
+
+.binders-pot-figure-label,
+.binders-pot-figure-note {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.binders-pot-figure-value {
+	font-size: 30px;
+	line-height: 1.2;
+	font-weight: var(--font-semibold);
+	letter-spacing: -0.02em;
+	color: var(--text-normal);
+	white-space: nowrap;
+}
+
+.binders-pot-planline {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--size-2-3) var(--size-4-3);
+	margin-top: var(--size-4-4);
+	font-size: var(--font-ui-small);
+	color: var(--text-muted);
+	min-height: var(--input-height);
+}
+
+.binders-pot-planline > span:first-child,
+.binders-pot-pace {
+	color: var(--text-normal);
+}
+
+.binders-pot-scope {
+	margin-inline-start: auto;
+}
+
+.binders-pot button.binders-pot-quiet {
+	background: none;
+	box-shadow: none;
+	border: none;
+	height: auto;
+	padding: 0;
+	color: var(--text-accent);
+	font-size: var(--font-ui-small);
+	cursor: var(--cursor-link);
+}
+
+@media (hover: hover) {
+	.binders-pot button.binders-pot-quiet:hover {
+		color: var(--text-accent-hover);
+		text-decoration: underline;
+	}
+}
+
+/* the plan's fields */
+.binders-pot-form {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-end;
+	gap: var(--size-4-3) var(--size-4-6);
+	padding: var(--size-4-3) 0 var(--size-4-1);
+}
+
+.binders-pot-form.is-side {
+	flex-direction: column;
+	align-items: stretch;
+	gap: var(--size-4-2);
+	padding: 0 var(--size-4-2);
+}
+
+.binders-pot-field-name {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+	margin-bottom: var(--size-2-1);
+}
+
+.binders-pot-form.is-side .binders-pot-input {
+	width: 100%;
+}
+
+.binders-pot-weekdays {
+	display: flex;
+	gap: var(--size-2-1);
+}
+
+.binders-pot button.binders-pot-weekday {
+	width: var(--input-height);
+	height: var(--input-height);
+	padding: 0;
+	justify-content: center;
+	box-shadow: none;
+	background: none;
+	color: var(--text-faint);
+}
+
+.binders-pot button.binders-pot-weekday.is-active {
+	color: var(--text-normal);
+	background: var(--background-modifier-hover);
+}
+
+/* a part of the page: its name, a word about it, a rule over it */
+.binders-pot-section {
+	margin-top: var(--size-4-6);
+	padding-top: var(--size-4-3);
+	border-top: 1px solid var(--binders-pot-rule);
+	min-width: 0;
+}
+
+.binders-pot-section-head {
+	display: flex;
+	align-items: baseline;
+	gap: var(--size-4-3);
+	margin-bottom: var(--size-4-2);
+	min-height: 22px;
+}
+
+.binders-pot-section-name {
+	font-size: var(--font-ui-small);
+	font-weight: var(--nav-heading-weight, var(--font-medium));
+	color: var(--nav-heading-color, var(--text-normal));
+	white-space: nowrap;
+}
+
+.binders-pot-section-detail {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.binders-pot-ranges {
+	display: flex;
+	gap: var(--size-2-1);
+	margin-inline-start: auto;
+}
+
+.binders-pot button.binders-pot-range {
+	height: 24px;
+	padding: 0 var(--size-4-2);
+	font-size: var(--font-ui-smaller);
+	box-shadow: none;
+	background: none;
+	color: var(--text-muted);
+}
+
+.binders-pot button.binders-pot-range.is-active {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+.binders-pot-columns {
+	display: flex;
+	gap: var(--size-4-12);
+}
+
+.binders-pot-columns > .binders-pot-section:last-child {
+	flex: 1;
+}
+
+.binders-pot-chart {
+	line-height: 0;
+	min-width: 0;
+}
+
+/* the charts */
+.binders-chart {
+	display: block;
+	overflow: visible;
+}
+
+.binders-chart-text {
+	font-size: 11px;
+	font-family: var(--font-interface);
+	fill: var(--text-muted);
+}
+
+.binders-chart-text.is-faint { fill: var(--text-faint); }
+.binders-chart-text.is-small { font-size: 10px; }
+.binders-chart-text.is-said { fill: var(--text-normal); font-size: 12px; }
+.binders-chart-text.is-said.is-away { fill: var(--text-muted); }
+.binders-chart-text.is-mark { fill: var(--text-normal); font-size: 12px; font-style: italic; }
+
+.binders-chart-rule { stroke: var(--binders-pot-rule); stroke-width: 1; shape-rendering: crispEdges; }
+.binders-chart-rule.is-year { stroke-dasharray: 1 3; stroke: var(--text-faint); }
+.binders-chart-rule.is-target { stroke: var(--text-faint); stroke-dasharray: 1 3; }
+.binders-chart-rule.is-from { stroke: var(--text-faint); }
+.binders-chart-base { stroke: var(--text-faint); stroke-width: 1; shape-rendering: crispEdges; }
+.binders-chart-away { fill: var(--binders-pot-wash); opacity: 0.55; }
+.binders-chart-area { fill: var(--binders-pot-wash); }
+.binders-chart-line { fill: none; stroke: var(--binders-pot-ink); stroke-width: 1.75; stroke-linejoin: round; stroke-linecap: round; }
+.binders-chart-line.is-thin { stroke-width: 1.25; }
+.binders-chart-plan { fill: none; stroke: var(--text-muted); stroke-width: 1.25; stroke-dasharray: 5 4; }
+.binders-chart-projection { stroke: var(--interactive-accent); stroke-width: 1.5; stroke-dasharray: 1.5 4; stroke-linecap: round; }
+.binders-chart-estimate { fill: none; stroke: var(--text-muted); stroke-width: 1.5; stroke-dasharray: 2 4; stroke-linecap: round; stroke-linejoin: round; }
+.binders-chart-estimate-dot { fill: var(--text-muted); }
+.binders-chart-now { fill: var(--interactive-accent); stroke: var(--background-primary); stroke-width: 2; }
+.binders-chart-now.is-hover { fill: var(--binders-pot-ink); }
+.binders-chart-mark { fill: var(--background-primary); stroke: var(--binders-pot-ink); stroke-width: 1.25; }
+.binders-chart-leader { stroke: var(--text-faint); stroke-width: 1; }
+.binders-chart-hair { stroke: var(--text-muted); stroke-width: 1; shape-rendering: crispEdges; pointer-events: none; }
+.binders-chart-hit { fill: transparent; }
+.binders-chart .is-hidden { display: none; }
+
+.binders-chart-bar { fill: var(--binders-pot-ink); }
+.binders-chart-bar.is-rest { fill: color-mix(in srgb, var(--text-normal) 38%, transparent); }
+.binders-chart-bar.is-cut { fill: color-mix(in srgb, var(--text-normal) 32%, transparent); }
+.binders-chart-bar.is-block { fill: color-mix(in srgb, var(--text-normal) 32%, transparent); }
+
+.binders-chart-cell.is-none { fill: color-mix(in srgb, var(--text-normal) 6%, transparent); }
+.binders-chart-cell.is-1 { fill: color-mix(in srgb, var(--text-normal) 24%, transparent); }
+.binders-chart-cell.is-2 { fill: color-mix(in srgb, var(--text-normal) 46%, transparent); }
+.binders-chart-cell.is-3 { fill: color-mix(in srgb, var(--text-normal) 70%, transparent); }
+.binders-chart-cell.is-4 { fill: var(--text-normal); }
+.binders-chart-cell.is-cut { fill: none; stroke: var(--text-muted); stroke-width: 1; }
+
+.binders-chart-band { stroke: var(--background-primary); stroke-width: 1; }
+.binders-chart-band.is-1-of-4, .binders-chart-band.is-1-of-3, .binders-chart-band.is-1-of-2 { fill: color-mix(in srgb, var(--text-normal) 12%, var(--background-primary)); }
+.binders-chart-band.is-2-of-4, .binders-chart-band.is-2-of-3 { fill: color-mix(in srgb, var(--text-normal) 30%, var(--background-primary)); }
+.binders-chart-band.is-3-of-4 { fill: color-mix(in srgb, var(--text-normal) 54%, var(--background-primary)); }
+.binders-chart-band.is-4-of-4, .binders-chart-band.is-3-of-3, .binders-chart-band.is-2-of-2, .binders-chart-band.is-1-of-1 { fill: color-mix(in srgb, var(--text-normal) 82%, var(--background-primary)); }
+
+/* what the marks mean, under a chart */
+.binders-pot-key {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--size-2-2) var(--size-4-4);
+	margin-top: var(--size-4-2);
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+}
+
+.binders-pot-key-item {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--size-2-3);
+}
+
+.binders-pot-scale {
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
+}
+
+.binders-pot-scale > span:first-child { margin-inline-end: 3px; }
+.binders-pot-scale > span:last-child { margin-inline-start: 3px; }
+
+.binders-pot-swatch {
+	display: inline-block;
+	width: 10px;
+	height: 10px;
+	border-radius: 2px;
+	flex: none;
+}
+
+.binders-pot-swatch.is-bar { background: var(--binders-pot-ink); width: 3px; }
+.binders-pot-swatch.is-cut, .binders-pot-swatch.is-block { background: color-mix(in srgb, var(--text-normal) 32%, transparent); width: 3px; }
+.binders-pot-swatch.is-away { background: var(--binders-pot-wash); }
+.binders-pot-swatch.is-line { height: 0; width: 16px; border-top: 2px solid var(--binders-pot-ink); border-radius: 0; }
+.binders-pot-swatch.is-plan { height: 0; width: 16px; border-top: 1.5px dashed var(--text-muted); border-radius: 0; }
+.binders-pot-swatch.is-projection { height: 0; width: 16px; border-top: 2px dotted var(--interactive-accent); border-radius: 0; }
+.binders-pot-swatch.is-cell.is-1 { background: color-mix(in srgb, var(--text-normal) 24%, transparent); }
+.binders-pot-swatch.is-cell.is-2 { background: color-mix(in srgb, var(--text-normal) 46%, transparent); }
+.binders-pot-swatch.is-cell.is-3 { background: color-mix(in srgb, var(--text-normal) 70%, transparent); }
+.binders-pot-swatch.is-cell.is-4 { background: var(--text-normal); }
+.binders-pot-swatch.is-cell.is-cut { background: none; width: 10px; box-shadow: inset 0 0 0 1px var(--text-muted); }
+.binders-pot-swatch.is-band.is-1-of-4, .binders-pot-swatch.is-band.is-1-of-3, .binders-pot-swatch.is-band.is-1-of-2 { background: color-mix(in srgb, var(--text-normal) 12%, var(--background-primary)); box-shadow: inset 0 0 0 1px var(--binders-pot-rule); }
+.binders-pot-swatch.is-band.is-2-of-4, .binders-pot-swatch.is-band.is-2-of-3 { background: color-mix(in srgb, var(--text-normal) 30%, var(--background-primary)); }
+.binders-pot-swatch.is-band.is-3-of-4 { background: color-mix(in srgb, var(--text-normal) 54%, var(--background-primary)); }
+.binders-pot-swatch.is-band.is-4-of-4, .binders-pot-swatch.is-band.is-3-of-3, .binders-pot-swatch.is-band.is-2-of-2 { background: color-mix(in srgb, var(--text-normal) 82%, var(--background-primary)); }
+
+/* a small chart with what it says over it */
+.binders-pot-small + .binders-pot-small {
+	margin-top: var(--size-4-5);
+}
+
+.binders-pot-small-said {
+	font-size: var(--font-ui-small);
+	color: var(--text-normal);
+	margin-bottom: var(--size-4-2);
+}
+
+/* the parts: a name, its line, its words */
+.binders-pot-part {
+	display: grid;
+	grid-template-columns: 170px minmax(0, 1fr) 70px 200px;
+	align-items: center;
+	gap: var(--size-4-4);
+	padding: 3px 0;
+	font-size: var(--font-ui-small);
+}
+
+.binders-pot-part-name {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.binders-pot-part-words {
+	text-align: end;
+}
+
+.binders-pot-part-note,
+.binders-pot-part-more {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+}
+
+/* records and oddities: columns of a name, a number and a line */
+.binders-pot-facts {
+	columns: 190px 5;
+	column-gap: var(--size-4-8);
+}
+
+.binders-pot-factgroup {
+	break-inside: avoid;
+	margin-bottom: var(--size-4-4);
+}
+
+.binders-pot-factgroup-name {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-faint);
+	margin-bottom: var(--size-4-2);
+}
+
+.binders-pot-fact {
+	margin-bottom: var(--size-4-4);
+}
+
+.binders-pot-fact-label,
+.binders-pot-fact-note {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+}
+
+.binders-pot-fact-value {
+	font-size: var(--font-ui-large);
+	font-weight: var(--font-semibold);
+	line-height: 1.3;
+	color: var(--text-normal);
+}
+
+.binders-pot-foot {
+	margin-top: var(--size-4-6);
+	padding-top: var(--size-4-3);
+	border-top: 1px solid var(--binders-pot-rule);
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+	max-width: 70ch;
+}
+
+/* the numbers behind a chart, for a screen reader only */
+.binders-pot-table {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+}
+
+/* the two-pane frame's sidebar */
+.binders-pot-side {
+	overflow-y: auto;
+	padding: var(--size-4-3) var(--size-4-2);
+	font-variant-numeric: tabular-nums;
+}
+
+.binders-pot-tree-child {
+	padding-inline-start: var(--size-4-6);
+}
+
+.binders-pot-side-heading {
+	margin: var(--size-4-5) var(--size-4-2) var(--size-4-2);
+	font-size: var(--font-ui-smaller);
+	font-weight: var(--nav-heading-weight, var(--font-medium));
+	color: var(--nav-heading-color, var(--text-normal));
+}
+
+.binders-pot-now-row {
+	display: grid;
+	grid-template-columns: 1fr auto;
+	column-gap: var(--size-4-2);
+	padding: var(--size-2-3) var(--size-4-2);
+	font-size: var(--font-ui-small);
+}
+
+.binders-pot-now-label {
+	color: var(--text-muted);
+}
+
+.binders-pot-now-value {
+	text-align: end;
+	font-weight: var(--font-semibold);
+}
+
+.binders-pot-now-note {
+	grid-column: 1 / -1;
+	text-align: end;
+	font-size: var(--font-ui-smaller);
+	color: var(--text-faint);
+}
+
+.binders-pot-side-said {
+	margin: var(--size-4-3) var(--size-4-2);
+	font-size: var(--font-ui-small);
+	color: var(--text-muted);
+}
+
+/* a phone: one column */
+.is-phone .binders-pot-body {
+	padding-inline: var(--size-4-4);
+}
+
+.is-phone .binders-pot-head {
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	row-gap: var(--size-4-4);
+}
+
+.is-phone .binders-pot-figure:nth-child(odd) {
+	padding-inline-start: 0;
+	border-inline-start: none;
+}
+
+.is-phone .binders-pot-figure-value {
+	font-size: 26px;
+}
+
+.is-phone .binders-pot-columns {
+	display: block;
+}
+
+.is-phone .binders-pot-part {
+	grid-template-columns: 84px minmax(0, 1fr) 50px;
+	gap: var(--size-4-2);
+}
+
+.is-phone .binders-pot-facts {
+	columns: 2;
+	column-gap: var(--size-4-4);
+}
+
+.is-phone .binders-pot.mod-sidebar-layout .modal-content {
+	display: block;
+	overflow-y: auto;
+}
+
+.is-phone .binders-pot.mod-sidebar-layout .binders-pot-body,
+.is-phone .binders-pot.mod-sidebar-layout .binders-pot-side {
+	overflow: visible;
 }

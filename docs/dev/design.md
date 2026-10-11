@@ -170,6 +170,22 @@ here; that is what keeps the next round short.
   - A worktree's driver for pictures goes in `test-dist/` and imports `../tests/e2e/driver.mjs`; `node_modules` is a
     link to the project's.
 
+- Learned designing progress over time (2026-10-10; stage 2, nothing chosen yet):
+  - A chart here is ink: the text color at a few strengths (`color-mix` with `transparent`), the theme's own border
+    for rules, the accent for one mark only. It follows any theme with no palette of its own, and a number shown
+    large with a small name over it needs no box to be a figure.
+  - `createSvg` takes several classes as a list, not as one string with spaces (it throws).
+  - A plan seen on an axis from nothing is a line lying on another: a few hundred words ahead or behind can't be
+    seen at a book's scale. The plan gets a chart of its own that starts just under the book's lowest number, and
+    the book's life keeps its axis from nothing.
+  - Rows of squares a month wide say when each part was written; a small line per part to one scale was a flat
+    line for every part but the largest.
+  - A section with nothing to show yet is left out, with a sentence at the foot saying when it comes, not shown
+    empty: a book one day old is a head, one chart and what its text says of itself.
+  - A `Modal` has a `scope` of its own (its keys): a field of that name on a subclass doesn't compile.
+  - For a picture of a whole page that scrolls, grow the emulated viewport and clip to the dialog; a sidebar
+    dialog doesn't grow with it.
+
 **Rejected, don't propose again:** a colored stripe along the top of a card, pill chips, thin accent or progress
 lines, decoration for its own sake, anything on a card that isn't the writer's own (no badges for snapshots and the
 like). The maintainer's word for these was "AI generated".
