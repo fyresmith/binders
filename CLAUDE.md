@@ -39,6 +39,12 @@
   `tests/e2e/open-findings.json` and don't count. `npm run e2e:all` still runs it on this machine (about two hours).
   `npm run demo-vault` makes a vault of extreme binders to try by hand; `test-vault` is the tests' fixture and is
   not for hand use.
+- **The suite is red, on purpose for now** (2026-10-11). Its first whole run on GitHub (commit `1824f2c`): 5,592
+  passed, 268 failures (140 tests, most in both themes): mostly tests gone stale as features landed and QA round
+  11's unfinished files, with perhaps ten to twenty-five real bugs. The maintainer's decision: "We shall wait until
+  all features are done then clean out all tests and fix all the bugs." So new work keeps its own spec files green
+  and does not chase the old failures; the cleanup is one pass after the roadmap's features. Until then a release
+  is refused by the gate. Two triage agents' partial findings are in their reports of that night.
 - **How fixes ship** (learned 2026-10-02, when about a hundred patches shipped on targeted tests alone and several
   broke older tests; narrowed 2026-10-05, when area runs of two hours per agent crashed the machine): an agent runs
   its new tests and the one or two spec files that cover what it changed, and turns the work in; the whole suite
