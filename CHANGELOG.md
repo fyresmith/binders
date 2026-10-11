@@ -32,6 +32,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - Adding a revision task and ticking one are steps you can undo and redo.
 - Under a filter, a note you change so it no longer matches stays, dimmed, until you press Refresh; in the manuscript, a dashed line says how many notes are not shown between sections, with their names.
 - Saved filters: save a filter with the binder (Save as…, rename, duplicate, move, delete) and use it in every mode; a status or label renamed in settings is renamed in your saved filters too.
+- With several notes selected, a pinned property shows what they share: a list shows its common items and 'N more on some', with a menu to add each to all or remove it from those that have it; other types show Mixed, and an edit goes to all, as one step of Undo.
 
 ### Changed
 

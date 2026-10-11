@@ -2,7 +2,7 @@
 // own editors for a property's value, through the one internal (app.metadataTypeManager), and Binders' own field
 // where that is missing. Every type is drawn, edited with the mouse and keyboard, and read back for what the note
 // would hold.
-import { NOTE, VIEW, answer, clickMenu, closeMenus, j, menuItems, openView, read, until, withTidy, writeRaw } from './view-helpers.mjs';
+import { NOTE, VIEW, answer, clickMenu, closeMenus, hoverMenu, j, menuItems, openView, read, until, withTidy, writeRaw } from './view-helpers.mjs';
 
 export const specs = [];
 const test = (name, fn) => specs.push({ name: 'inspector properties: ' + name, fn: withTidy(fn) });
@@ -307,7 +307,7 @@ test('pins: a binder in a newer format shows its pins and changes nothing; a Lon
 	await open(p, 'corkboard', 'Longform demo');
 	await clickCard(p, 'Longform demo/Harbor.md');
 	t.ok(!(await p.at(fieldSel('pin'))), 'no button');
-	t.ok(/Longform project can’t pin properties/.test(await paneText(p)), 'and it says why: ' + (await paneText(p)).replace(/\n+/g, ' | ').slice(-160));
+	t.ok(/A Longform project keeps no pinned properties/.test(await paneText(p)), 'and it says why: ' + (await paneText(p)).replace(/\n+/g, ' | ').slice(-160));
 	t.eq(await read(p, 'Longform demo/Index.md'), index, 'the index note is untouched');
 });
 
@@ -544,4 +544,176 @@ test('rows: a row being edited is not drawn over; what changed meanwhile is draw
 	await until(p, `app.metadataCache.getFileCache(app.vault.getAbstractFileByPath(${j(ARRIVAL)}))?.frontmatter?.pov === 'Mara Ellis!'`, 4000);
 	t.eq((await fmOf(p, ARRIVAL)).pov, 'Mara Ellis!', 'the first note has what was typed');
 	t.ok(!(await fmOf(p, KEEPER)).pov, 'and the second has none of it');
+});
+
+
+// ---- several notes at once ----
+
+const undos = (p) => p.ev(`app.plugins.plugins.binders.binders.undos.length`);
+const shownValue = (p, key) => p.ev(`(() => { const e = document.querySelector(${j(inPane(key))}); return e ? (e.value ?? e.textContent) : null; })()`);
+const items = (p, key) => p.ev(`[...document.querySelectorAll(${j(I + ` [data-field="prop:${key}"] .multi-select-pill-content, ` + I + ` [data-field="prop:${key}"] .multi-select-item-content`)})].map(e => e.textContent)`);
+const onSome = (p, key) => p.ev(`document.querySelector(${j(I + ` [data-field="prop:${key}"] .binders-pinned-some`)})?.textContent ?? null`);
+const listOn = async (p, path, key) => (await fmOf(p, path))[key];
+/** Three scenes whose lists overlap, and the binder pinning the properties; Arrival and The keeper in hand. */
+async function several(p, { two = false } = {}) {
+	const w = (path, yaml, body) => writeRaw(p, path, `---\n${yaml}---\n${body}`);
+	await w(ARRIVAL, 'pov: Mara\ncharacters:\n  - "[[Mara]]"\n  - The master\nbeats: 3\nfinished: false\nday: 2026-03-04\n', 'The supply boat left Mara on the jetty.\n');
+	await w(KEEPER, 'pov: Harrow\ncharacters:\n  - Mara\n  - "[[Harrow]]"\n  - The master\nbeats: 3\nfinished: true\nday: 2026-03-04\n', 'The keeper did not look up.\n');
+	await w(STORM, 'characters:\n  - "[[Mara]]"\n', 'A storm warning came over the radio.\n');
+	await writeRaw(p, NOTE, (await read(p, NOTE)).replace(/inspector:\n(  - .*\n)+/, '').replace('plotlines:', `inspector:\n${['pov', 'characters', 'beats', 'finished', 'day'].map((k) => `  - ${k}`).join('\n')}\nplotlines:`));
+	await p.sleep(500);
+	await open(p);
+	await clickCard(p, ARRIVAL);
+	await clickCard(p, KEEPER, { modifiers: 2 });
+	await until(p, `document.querySelector(${j(I + ' .binders-inspector-name')})?.textContent === '2 notes selected'`, 4000);
+}
+
+test('several: a list shows what they all share and how many more some have; other types show what they agree on, or Mixed', async (p, h, t) => {
+	await several(p);
+	t.eq((await items(p, 'characters')).join(), 'Mara,The master', 'what all share (Mara and [[Mara]] are one name)');
+	t.eq(await onSome(p, 'characters'), '1 more on some', 'and one more on some');
+	t.eq(await shownValue(p, 'beats'), '3', 'a number they agree on');
+	t.eq(await shownValue(p, 'pov'), '', 'a text they do not agree on is empty…');
+	t.eq(await p.ev(`document.querySelector(${j(inPane('pov'))})?.getAttribute('placeholder')`), 'Mixed', '…and says Mixed');
+	const box = await p.ev(`(() => { const b = document.querySelector(${j(I + ' [data-field="prop:finished"] input[type="checkbox"]')}); return b && { indeterminate: b.indeterminate, attr: b.getAttribute('data-indeterminate') }; })()`);
+	t.ok(box && box.indeterminate && box.attr === 'true', 'a box they do not agree on is a mixed box: ' + JSON.stringify(box));
+	t.ok(await p.ev(`!!document.querySelector(${j(I + ' [data-field="prop:day"] input')})`), 'a date they agree on has its field');
+});
+
+test('several: adding adds to all, the × takes from all, what only some have stays in each note’s own order, and it is one undo step', async (p, h, t) => {
+	await several(p);
+	const before = { a: await read(p, ARRIVAL), k: await read(p, KEEPER) }, n0 = await undos(p);
+	await clickIn(p, inPane('characters', '.multi-select-input'));
+	await p.type('Ines');
+	await p.key('Enter');
+	await until(p, `app.metadataCache.getFileCache(app.vault.getAbstractFileByPath(${j(KEEPER)}))?.frontmatter?.characters?.includes('Ines')`, 4000);
+	t.eq(JSON.stringify(await listOn(p, ARRIVAL, 'characters')), JSON.stringify(['[[Mara]]', 'The master', 'Ines']), 'added to the first');
+	t.eq(JSON.stringify(await listOn(p, KEEPER, 'characters')), JSON.stringify(['Mara', '[[Harrow]]', 'The master', 'Ines']), 'and to the second, after what is only its own');
+	t.eq(await undos(p), n0 + 1, 'one step of the history for both notes');
+	t.eq(await onSome(p, 'characters'), '1 more on some', 'the count is as it was');
+	// the × on The master: from both
+	await p.ev(`(() => { const r = [...document.querySelectorAll(${j(I + ' [data-field="prop:characters"] .multi-select-pill')})].find(e => e.textContent.includes('The master')); r.querySelector('.multi-select-pill-remove-button').click(); return 1; })()`);
+	await until(p, `!app.metadataCache.getFileCache(app.vault.getAbstractFileByPath(${j(KEEPER)}))?.frontmatter?.characters?.includes('The master')`, 4000);
+	t.eq(JSON.stringify(await listOn(p, ARRIVAL, 'characters')), JSON.stringify(['[[Mara]]', 'Ines']), 'taken from the first');
+	t.eq(JSON.stringify(await listOn(p, KEEPER, 'characters')), JSON.stringify(['Mara', '[[Harrow]]', 'Ines']), 'and the second; what only it has stays');
+	// undo twice: the notes are as they were
+	for (let i = 0; i < 2; i++) { const at = await p.at('.binders-view .binders-undo-button'); await p.click(at.x, at.y); await p.sleep(700); }
+	t.eq(lf(await read(p, ARRIVAL)), lf(before.a), 'undone: the first note is as it was');
+	t.eq(lf(await read(p, KEEPER)), lf(before.k), 'and the second');
+});
+
+test('several: “1 more on some” has a menu for each item, to give it to all or take it from the ones that have it; its count is right while the keyboard stays in the row', async (p, h, t) => {
+	await several(p);
+	await clickIn(p, I + ' [data-field="prop:characters"] .binders-pinned-some');
+	await until(p, `!!document.querySelector('.menu .menu-item')`);
+	t.ok(/^Harrow/.test((await menuItems(p)).join()), 'the item that only some have: ' + (await menuItems(p)).join());
+	t.ok(/1 of 2/.test(await p.ev(`document.querySelector('.menu')?.innerText ?? ''`)), 'and in how many');
+	const at = await p.ev(`(() => { const it = [...document.querySelectorAll('.menu .menu-item')].find(e => e.querySelector('.menu-item-title').textContent.startsWith('Harrow')); const r = it.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
+	await p.move(at.x, at.y, 3);
+	await p.click(at.x, at.y);
+	await p.sleep(300);
+	t.eq((await menuItems(p)).slice(-2).join('|'), 'Add to all 2|Remove from the 1 that has it', 'its two choices');
+	await clickMenu(p, 'Add to all 2');
+	await until(p, `app.metadataCache.getFileCache(app.vault.getAbstractFileByPath(${j(ARRIVAL)}))?.frontmatter?.characters?.includes('Harrow')`, 4000);
+	t.eq(JSON.stringify(await listOn(p, ARRIVAL, 'characters')), JSON.stringify(['[[Mara]]', 'The master', '[[Harrow]]']), 'given to the first note, as the other note spells it');
+	t.eq(JSON.stringify(await listOn(p, KEEPER, 'characters')), JSON.stringify(['Mara', '[[Harrow]]', 'The master']), 'the second has it already: untouched');
+	t.eq(await onSome(p, 'characters'), null, 'nothing is on some any more, with no redraw needed');
+	// the keyboard stays in the row: a name typed that one note has already, then taken from all
+	await clickIn(p, inPane('characters', '.multi-select-input'));
+	await p.type('Jonas');
+	await p.key('Enter');
+	await p.sleep(500);
+	t.ok(await p.ev(`document.activeElement?.closest(${j(I + ' [data-field="prop:characters"]')}) !== null`), 'the keyboard is still in the row');
+	t.eq(await onSome(p, 'characters'), null, 'a name given to both is not on some');
+});
+
+test('several: the count of what only some have is right while the keyboard stays in the row', async (p, h, t) => {
+	await several(p);
+	t.eq(await onSome(p, 'characters'), '1 more on some', 'one on some');
+	await writeRaw(p, STORM, (await read(p, STORM)).replace('---\n', '---\npov: x\n'));
+	await clickIn(p, inPane('characters', '.multi-select-input'));
+	await p.type('Harrow');
+	await p.key('Enter');
+	await p.sleep(600);
+	t.ok(await p.ev(`document.activeElement?.closest(${j(I + ' [data-field="prop:characters"]')}) !== null`), 'the keyboard is still in the row');
+	t.eq(await onSome(p, 'characters'), null, 'Harrow is on both now: nothing is on some, said at once');
+	await p.type('Zed');
+	await p.key('Enter');
+	await p.sleep(500);
+	t.eq(await onSome(p, 'characters'), null, 'and it stays right after another');
+	// (Enter takes the value Obsidian offers under the field: Harrow as the other note spells it, a link)
+	const mine = await listOn(p, ARRIVAL, 'characters'), his = await listOn(p, KEEPER, 'characters');
+	t.ok(/Harrow/.test(mine.at(-2)) && mine.at(-1) === 'Zed' && his.at(-1) === 'Zed', 'both written: ' + JSON.stringify([mine, his]));
+});
+
+test('several: Mixed types are set on all when edited, and a mixed box is set to ticked, one undo step each', async (p, h, t) => {
+	await several(p);
+	const a0 = lf(await read(p, ARRIVAL)), n0 = await undos(p);
+	await clickIn(p, inPane('pov'));
+	await p.type('Ellis');
+	await p.key('Enter');
+	await until(p, `app.metadataCache.getFileCache(app.vault.getAbstractFileByPath(${j(KEEPER)}))?.frontmatter?.pov === 'Ellis'`, 4000);
+	t.eq((await fmOf(p, ARRIVAL)).pov, 'Ellis', 'a text typed in a Mixed field is every note’s');
+	t.eq(await undos(p), n0 + 1, 'one step');
+	await clickIn(p, inPane('finished', 'input[type="checkbox"]'));
+	await until(p, `app.metadataCache.getFileCache(app.vault.getAbstractFileByPath(${j(ARRIVAL)}))?.frontmatter?.finished === true`, 4000);
+	t.eq((await fmOf(p, KEEPER)).finished, true, 'a mixed box ticked ticks all');
+	t.eq(await undos(p), n0 + 2, 'another step');
+	// a Mixed field that is gone into and left says nothing
+	await clickIn(p, inPane('beats'));
+	await p.ev(`document.activeElement.blur()`);
+	t.eq(await undos(p), n0 + 2, 'nothing was written');
+	t.eq(split2(await read(p, ARRIVAL)).body, split2(a0).body, 'the text is as it was');
+});
+
+test('several: links to two different notes both named Mara are two people, and Mara and [[Mara]] are one', async (p, h, t) => {
+	await p.ev(`(async () => { await app.vault.createFolder('People'); await app.vault.createFolder('Places'); })().then(() => 1)`);
+	await writeRaw(p, 'People/Mara.md', 'The newcomer.\n');
+	await writeRaw(p, 'Places/Mara.md', 'A headland.\n');
+	await several(p);
+	await writeRaw(p, ARRIVAL, `---\ncharacters:\n  - "[[People/Mara]]"\n  - Harrow\nbeats: 3\n---\nText.\n`);
+	await writeRaw(p, KEEPER, `---\ncharacters:\n  - "[[Places/Mara]]"\n  - "[[Harrow]]"\nbeats: 3\n---\nText.\n`);
+	await p.sleep(800);
+	await clickCard(p, STORM);
+	await clickCard(p, ARRIVAL);
+	await clickCard(p, KEEPER, { modifiers: 2 });
+	await until(p, `document.querySelector(${j(I + ' .binders-inspector-name')})?.textContent === '2 notes selected'`, 4000);
+	await p.sleep(400);
+	t.eq((await items(p, 'characters')).join(), 'Harrow', 'only Harrow is shared: a plain name and a link to it are one');
+	t.eq(await onSome(p, 'characters'), '2 more on some', 'the two Maras are two');
+});
+
+test('folder and binder: the pinned rows show a folder’s own note’s values, and a folder note is made only by a first value', async (p, h, t) => {
+	await several(p);
+	await openView(p, 'The Lighthouse');
+	await p.ev(`(() => { ${VIEW}.setMode('corkboard'); return 1; })()`);
+	await p.sleep(500);
+	const at = await p.at(`.binders-view .binders-card[data-path="The Lighthouse/Part One"] .binders-card-footer`);
+	await p.click(at.x, at.y);
+	await until(p, `document.querySelector(${j(I + ' .binders-inspector-name')})?.textContent === 'Part One'`, 4000);
+	t.eq(await rowCount(p), 5, 'rows for a folder too');
+	const note = 'The Lighthouse/Part One/Part One.md';
+	// gone into and left: nothing is made
+	await clickIn(p, inPane('pov'));
+	await p.ev(`document.activeElement.blur()`);
+	await p.sleep(400);
+	t.ok(!(await p.ev(`!!app.vault.getAbstractFileByPath(${j(note)})`)), 'a field left as it was makes no folder note');
+	await clickIn(p, inPane('pov'));
+	await p.type('The island');
+	await p.key('Enter');
+	await until(p, `!!app.vault.getAbstractFileByPath(${j(note)})`, 4000);
+	await until(p, `app.metadataCache.getFileCache(app.vault.getAbstractFileByPath(${j(note)}))?.frontmatter?.pov === 'The island'`, 4000);
+	t.eq((await fmOf(p, note)).pov, 'The island', 'a first value makes the folder note, with the value');
+	t.eq(JSON.stringify(await rowKeys(p)), JSON.stringify(['pov', 'characters', 'beats', 'finished', 'day']), 'the rows stay');
+	// the binder itself: its own note open in a tab stands for it
+	await p.ev(`(async () => { await app.workspace.getLeaf('tab').openFile(app.vault.getAbstractFileByPath(${j(NOTE)})); })().then(() => 1)`);
+	await until(p, `document.querySelector(${j(I + ' .binders-inspector-name')})?.textContent === 'The Lighthouse'`, 4000);
+	t.eq(await rowCount(p), 5, 'rows for the binder');
+	const was = lf(await read(p, NOTE));
+	await clickIn(p, inPane('pov'));
+	await p.type('Whole book');
+	await p.key('Enter');
+	await until(p, `app.metadataCache.getFileCache(app.vault.getAbstractFileByPath(${j(NOTE)}))?.frontmatter?.pov === 'Whole book'`, 4000);
+	const now = lf(await read(p, NOTE));
+	t.ok(/^pov: Whole book$/m.test(now) && now.replace(/^pov: Whole book\n/m, '') === was, 'the binder note has the value and is otherwise as it was');
 });

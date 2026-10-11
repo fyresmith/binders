@@ -7308,3 +7308,49 @@ input.binders-filter-name {
 	opacity: 0.5;
 	cursor: not-allowed;
 }
+
+/* several notes that don't agree on a list: after what they all have, how many more some have, in muted words */
+.binders-pinned-some {
+	flex: none;
+	align-self: center;
+	padding: 0 var(--size-4-2);
+	color: var(--text-faint);
+	font-size: var(--font-ui-smaller);
+	white-space: nowrap;
+	cursor: var(--cursor);
+}
+
+.binders-pinned-some:hover {
+	color: var(--text-muted);
+}
+
+.menu .binders-pinned-count {
+	margin-inline-start: var(--size-4-3);
+	color: var(--text-faint);
+	font-size: var(--font-ui-smaller);
+}
+
+/* several notes that don't agree on a date: "Mixed" where the date field's empty mask would be, until it is gone into */
+.binders-pinned-value.is-mixed {
+	position: relative;
+}
+
+.binders-pinned-mixed {
+	position: absolute;
+	inset-block: 0;
+	inset-inline-start: 0;
+	display: flex;
+	align-items: center;
+	padding: var(--metadata-input-padding);
+	color: var(--text-faint);
+	font-size: var(--metadata-input-font-size);
+	pointer-events: none;
+}
+
+.binders-pinned-value.is-mixed:not(:focus-within) input:is([type="date"], [type="datetime-local"]) {
+	opacity: 0;
+}
+
+.binders-pinned-value.is-mixed:focus-within .binders-pinned-mixed {
+	display: none;
+}

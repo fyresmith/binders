@@ -63,3 +63,6 @@ export function pinProblem(name: string, pinned: readonly string[], s: Parameter
 	if (pinned.some((p) => same(p, n))) return `${n} is pinned already.`;
 	return null;
 }
+
+/** What a Longform project says when asked to pin: the wording revision tasks use (revision/store.ts `LONGFORM`). */
+export const LONGFORM = 'A Longform project keeps no pinned properties: its note is Longform’s, and there is nowhere in it to say which they are. “Convert to binder” makes it a binder that can.';

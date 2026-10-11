@@ -4,8 +4,11 @@ import type BindersPlugin from '../main';
 import { ask } from '../view/modals';
 import { suggestProps, text } from '../view/outliner-data';
 import { writeKeys } from '../view/props';
-import { movedPin, ownNames, PINS_PROP, pinProblem, readPins, withoutPin, withPin } from './pins';
-import { isListKind } from './property-fields';
+import { LONGFORM, movedPin, ownNames, PINS_PROP, pinProblem, readPins, withoutPin, withPin } from './pins';
+import { isListKind, listOf, type Kind } from './property-fields';
+import { changeLists, groupLists, type Group } from './mixed';
+import { submenu } from '../view/internals';
+import type { Env } from '../filter/conditions';
 import { drawValue, kindOf } from './property-widgets';
 
 /* The writer's own properties in the inspector: a binder pins a few (POV, characters, a place), and each is a row under
@@ -24,6 +27,8 @@ export interface PinnedHost {
 }
 
 const blank = (v: unknown): boolean => v == null || v === '' || (Array.isArray(v) && !v.length) || (typeof v === 'number' && isNaN(v));
+/** A list's item as a writer reads it: a link by its name. */
+const shown = (item: string): string => { const m = /^\[\[([^\]|]+)(?:\|([^\]]+))?\]\]$/.exec(item); return m ? (m[2] ?? m[1].split('/').pop() ?? m[1]) : item; };
 const same = (a: unknown, b: unknown): boolean => (blank(a) && blank(b)) || JSON.stringify(a) === JSON.stringify(b);
 
 /** The names pinned by a binder, in order. */
@@ -36,7 +41,7 @@ export function pinsOf(plugin: BindersPlugin, binder: Binder): string[] {
     binder of a newer format, and never to anything but the `inspector` property. A refusal is a notice. */
 async function changePins(plugin: BindersPlugin, binder: Binder, edit: (raw: unknown) => unknown[] | undefined): Promise<void> {
 	try {
-		if (binder.kind !== 'binder') throw new Error('A Longform project can’t pin properties. Convert it to a binder to use them.');
+		if (binder.kind !== 'binder') throw new Error(LONGFORM);
 		if (binder.problem) throw new Error(`This binder can’t be changed. ${binder.problem}`);
 		await plugin.binders.editProps(binder.note, (fm) => {
 			const next = edit(fm[PINS_PROP]);
@@ -62,7 +67,7 @@ export class PinnedRows {
 		const { plugin } = this, pins = pinsOf(plugin, binder), ro = !!binder.problem;
 		for (const key of pins) this.row(rows, binder, items, key, ro);
 		if (binder.kind !== 'binder') {
-			foot.createDiv({ cls: 'binders-inspector-none binders-inspector-hint binders-pinned-hint', text: 'A Longform project can’t pin properties. Convert it to a binder to use them.' });
+			foot.createDiv({ cls: 'binders-inspector-none binders-inspector-hint binders-pinned-hint', text: LONGFORM });
 			return;
 		}
 		if (ro) return;
@@ -128,17 +133,18 @@ export class PinnedRows {
 		value.dataset.field = `prop:${key}`;
 
 		const one = items.length === 1 ? items[0] : null, first = values[0];
-		if (!one || ro) {
-			// (several at once are changed together: the next step)
+		const srcOf = (f: TAbstractFile): string => this.host.noteOf(f)?.path ?? binder.note.path;
+		if (ro) {
 			const agree = values.every((v) => same(v, first));
 			value.createDiv({ cls: 'binders-inspector-value', text: agree ? text(first) : 'Mixed' });
-		} else {
+		} else if (one) {
 			// what is written is this item's note, as it was when the row was drawn: the pane may have turned to another
 			// item by the time a save is made, and it goes where it was opened
-			const changed = (to: unknown): void => { void this.write(one, key, to); };
-			const drawn = drawValue(app, value, first ?? null, { key, sourcePath: this.host.noteOf(one)?.path ?? binder.note.path, onChange: changed, kind: info.kind });
-			value.addEventListener('focusout', () => value.win.setTimeout(() => { if (!value.contains(value.doc.activeElement)) this.host.settled(); }, 0));
+			drawValue(app, value, first ?? null, { key, sourcePath: srcOf(one), onChange: (to) => { void this.write([{ item: one, to }], key); }, kind: info.kind });
+		} else {
+			this.several(value, items, key, info.kind, values, srcOf);
 		}
+		value.addEventListener('focusout', () => value.win.setTimeout(() => { if (!value.contains(value.doc.activeElement)) this.host.settled(); }, 0));
 		// a value that isn't what its type says: Obsidian's own mark, and its words
 		if (items.length === 1 && info.mismatch && !blank(first)) {
 			const warn = row.createDiv({ cls: 'clickable-icon metadata-property-warning-icon', attr: { 'aria-label': `Type mismatch, expected ${info.name}` } });
@@ -146,15 +152,92 @@ export class PinnedRows {
 		}
 	}
 
-	/** Writes one item's value, as one step of the undo history; nothing typed there is a value to keep, so a cleared
-	    one takes the property away. A folder with no folder note has nothing to take away: one isn't made to hold nothing. */
-	private async write(item: TAbstractFile, key: string, to: unknown): Promise<void> {
+	/** Several items in hand: one editor for them. A list shows what all of them have, with a count of what only some
+	    have; adding adds to all, the × takes from all. Any other type shows what they agree on, or "Mixed", and an edit
+	    sets all of them. One step of the undo history. What is shown is kept up to date here as the writer edits, since
+	    the pane is not drawn over a row the keyboard is in. */
+	private several(value: HTMLElement, items: TAbstractFile[], key: string, kind: Kind, values: unknown[], srcOf: (f: TAbstractFile) => string): void {
+		const app = this.plugin.app, vals = [...values], first = values[0];
+		const envs = items.map((f): Env => ({ resolve: (l) => app.metadataCache.getFirstLinkpathDest(l, srcOf(f))?.path ?? null }));
+		if (isListKind(kind)) {
+			let g = groupLists(vals, envs), more: HTMLElement | null = null;
+			const refresh = (): void => {
+				more?.remove();
+				more = g.some.length ? this.someHave(value, g, items, (item, to) => void (to ? apply(g.common, [...g.common, item]) : apply([item], []))) : null;
+			};
+			// what the list shared was `common`, and is `now`: the editor's whole list, or a menu pick (one item added to
+			// everyone, or taken from everyone)
+			const apply = async (common: string[], now: string[]): Promise<void> => {
+				const next = changeLists(vals, envs, common, now);
+				if (!next) return;
+				await this.write(items.map((item, i) => ({ item, to: next[i] ?? vals[i] })).filter((_, i) => next[i]), key);
+				next.forEach((n, i) => { if (n) vals[i] = n; });
+				g = groupLists(vals, envs);
+				refresh();
+			};
+			drawValue(app, value, g.common, { key, sourcePath: srcOf(items[0]), kind, onChange: (to) => { void apply(g.common, listOf(to)); } });
+			refresh();
+			return;
+		}
+		const agree = values.every((v) => same(v, first));
+		drawValue(app, value, agree ? first ?? null : null, {
+			key, sourcePath: srcOf(items[0]), kind,
+			// (a field left as it was found says nothing: "Mixed" isn't a value to give them all)
+			onChange: (to) => { if (agree ? same(to, first) : blank(to)) return; void this.write(items.map((item) => ({ item, to })), key); },
+		});
+		if (!agree) {
+			value.addClass('is-mixed');
+			const box = value.querySelector<HTMLInputElement>('input[type="checkbox"]');
+			if (box) { box.indeterminate = true; box.setAttr('data-indeterminate', 'true'); }
+			for (const f of Array.from(value.querySelectorAll<HTMLElement>('input, [contenteditable]'))) f.setAttr('placeholder', 'Mixed');
+			// (a date field has no placeholder, only its mask: the word stands in its place until the field is gone into)
+			if (kind === 'date' || kind === 'datetime') value.createSpan({ cls: 'binders-pinned-mixed', text: 'Mixed' });
+		}
+	}
+
+	/** After a list several notes don't agree on: how many more items some of them have, and a menu to give one to
+	    all of them or take it from all. */
+	private someHave(value: HTMLElement, g: Group, items: TAbstractFile[], pick: (item: string, to: boolean) => void): HTMLElement {
+		const box = value.querySelector<HTMLElement>('.multi-select-container') ?? value, input = box.querySelector('.multi-select-input');
+		const n = g.some.length, of = items.length;
+		const more = box.createDiv({ cls: 'binders-pinned-some', attr: { tabindex: '0', role: 'button', 'aria-haspopup': 'menu' }, text: g.common.length ? `${n} more on some` : `${n} on some` });
+		more.dataset.field = 'some';
+		if (input?.parentElement === box) box.insertBefore(more, input);
+		const open = (e: Event) => {
+			e.preventDefault(); e.stopPropagation();
+			const m = new Menu(), r = more.getBoundingClientRect();
+			for (const s of g.some) {
+				m.addItem((i) => {
+					// (the name, and said at the row's end as a tree's row says things, how many have it)
+					const title = createFragment((f) => { f.createSpan({ text: shown(s.item) }); f.createSpan({ cls: 'binders-pinned-count', text: `${s.count} of ${of}` }); });
+					i.setSection('some').setTitle(title).setIcon(s.item.startsWith('[[') ? 'lucide-link' : 'lucide-text');
+					submenu(i, (sub) => {
+						sub.addItem((x) => x.setTitle(`Add to all ${of}`).setIcon('lucide-plus').onClick(() => pick(s.item, true)));
+						sub.addItem((x) => x.setTitle(`Remove from the ${s.count} that ${s.count === 1 ? 'has' : 'have'} it`).setIcon('lucide-x').onClick(() => pick(s.item, false)));
+					}, m);
+				});
+			}
+			m.showAtPosition({ x: r.left, y: r.bottom + 2 }, more.doc);
+		};
+		more.addEventListener('click', open);
+		more.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') open(e); });
+		return more;
+	}
+
+	/** Writes what each item's value becomes, as one step of the undo history. Nothing typed there is a value to keep,
+	    so a cleared one takes the property away. A folder with no folder note has nothing to take away: one isn't made
+	    to hold nothing. */
+	private async write(changes: { item: TAbstractFile; to: unknown }[], key: string): Promise<void> {
 		try {
-			const note = this.host.noteOf(item) ?? (blank(to) ? null : await this.host.noteFor(item));
-			if (!note) return;
-			const own = this.plugin.app.metadataCache.getFileCache(note)?.frontmatter?.[key] as unknown;
-			if (same(own, to)) return;
-			await writeKeys(this.plugin, [{ file: note, patch: { [key]: blank(to) ? undefined : to } }]);
+			const writes: { file: TFile; patch: Record<string, unknown> }[] = [];
+			for (const { item, to } of changes) {
+				const note = this.host.noteOf(item) ?? (blank(to) ? null : await this.host.noteFor(item));
+				if (!note) continue;
+				const own = this.plugin.app.metadataCache.getFileCache(note)?.frontmatter?.[key] as unknown;
+				if (same(own, to)) continue;
+				writes.push({ file: note, patch: { [key]: blank(to) ? undefined : to } });
+			}
+			await writeKeys(this.plugin, writes);
 		} catch (e) { new Notice(e instanceof Error ? e.message : String(e)); }
 	}
 }

@@ -40,6 +40,18 @@ const isWidget = (w: unknown): w is Widget => !!w && typeof (w as Widget).render
 /** Is Obsidian's own set of editors there to be used? */
 export const hasWidgets = (app: App): boolean => { try { return isWidget(manager(app)?.getTypeInfo('binders-probe', '')?.expected); } catch { return false; } };
 
+/** The type a property was given, vault-wide (`.obsidian/types.json`), or null for a name no type was given: the
+    manager's `getAssignedWidget(name)`, which says the type's name. Saved filters read a property's kind through it
+    (view/internals.ts `propertyType`); this module is the one place that asks Obsidian. */
+export function assignedKind(app: App, name: string): Kind | null {
+	try {
+		const m = (app as unknown as { metadataTypeManager?: { getAssignedWidget?: (n: string) => unknown } }).metadataTypeManager;
+		if (!m || typeof m.getAssignedWidget !== 'function') return null;
+		const w = m.getAssignedWidget(name);
+		return typeof w === 'string' && w !== 'unknown' && KINDS.has(w) ? w as Kind : null;
+	} catch { return null; }
+}
+
 const KINDS = new Set<string>(Object.keys(KIND_NAMES));
 
 /** A property's type and whether this value fits it. Without Obsidian's manager, the type of the value. */
