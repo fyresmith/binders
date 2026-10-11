@@ -5652,6 +5652,14 @@ body:not(.is-phone) .binders-snapshots .sync-history-content {
 	border-top: 0;
 }
 
+/* A manuscript's choices are dropdowns with long names ("Lines like “Chapter 12” (4)"): in the narrow sidebar the
+   dropdown gives way and shows what fits, and a name stays whole. */
+.binders-import .binders-import-options .setting-item-control select {
+	min-width: 0;
+	max-width: 100%;
+	text-overflow: ellipsis;
+}
+
 /* Why the binder can't be made as it is named, under the name. It takes no room while there is nothing to say. */
 .binders-import .binders-import-why {
 	min-height: 0;

@@ -14,7 +14,7 @@ import { ImportWindow, message, n, type ImportJob } from './import-window';
    only ever read. It is offered in the command palette alone. */
 
 /** What Scrivener's import is to the shared window: its two switches, and what it says of the Trash. */
-function scrivenerJob(plugin: BindersPlugin, project: ReadProject): ImportJob {
+export function scrivenerJob(plugin: BindersPlugin, project: ReadProject): ImportJob {
 	let research = true, snapshots = true;
 	return {
 		name: project.source.name,

@@ -8,6 +8,8 @@ export interface PlannedNote {
 	/** Left out of an export: research, or a document with "Include in compile" off. */
 	out: boolean;
 	status: string;
+	/** The source heading a chapter or part was named from, exactly as the source has it (the word-for-word test reads it). */
+	heading?: string;
 }
 /** Something the writer should know about one item, as the dialog lists it: the note it is about (its path in the
     plan, "" when it is about no note), its title, and what is said. */

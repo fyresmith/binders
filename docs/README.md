@@ -16,6 +16,7 @@ New here? Read [Installation](installation.md), then [Getting started](getting-s
 |---|---|
 | [Installation](installation.md) | What you need, and the ways to install the beta |
 | [Getting started](getting-started.md) | A walkthrough, from an empty folder to a first exported file |
+| [Import a manuscript](import-manuscript.md) | A Markdown note or a text file as a new binder, split at its chapters |
 | [Import from Scrivener](import-scrivener.md) | A project or zipped backup as a new native binder |
 | [Coming from Scrivener](scrivener.md) | Scrivener's words and where each one is in Binders |
 | [Coming from Longform](longform.md) | Opening a Longform project, and converting it to a binder |

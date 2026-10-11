@@ -99,5 +99,6 @@ More in [Export](export.md).
 - [Snapshots](snapshots.md): keep a scene's text before you rewrite it.
 - [How your files look](files.md): what a binder is on disk.
 - Moving from another tool: [Coming from Scrivener](scrivener.md), [Coming from Longform](longform.md).
+- A manuscript that is one long note or a text file: [Import a manuscript](import-manuscript.md).
 
 Next: [The binder view](binder-view.md)

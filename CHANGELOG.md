@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.54.0 (2026-10-11)
+
+### Added
+
+- Import a manuscript...: makes a new binder from a long Markdown note or a text file, split where its chapters start (at headings, at lines like “Chapter 12”, at page breaks), with scene breaks, front matter and the book’s structure. A note outside a binder also has “Make a binder from this note...” in its menu. The note or file is never changed.
+
 ## 0.53.1 (2026-10-11)
 
 ### Changed

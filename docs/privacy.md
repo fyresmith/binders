@@ -10,7 +10,7 @@ What it reads and writes is on your device:
   share, each only where you choose in the system's save dialog. See [Export](export.md#where-the-file-goes).
   Exporting again to a place you chose before writes there again; **Remembered places** in settings lists the ones
   saved without asking.
-- **Outside your vault, read:** the Scrivener project or zip you choose to import, a style's file you choose to add,
+- **Outside your vault, read:** the Scrivener project, zip, text file or Markdown file you choose to import, a style's file you choose to add,
   and, to tell whether an exported file is still as export left it, that file's size and date.
 - **In Obsidian's storage for the vault, on the device:** the words written today, and the places exports are saved
   without asking.
@@ -22,6 +22,9 @@ you.
 
 The typefaces and hyphenation patterns an export uses are inside the plugin: nothing is downloaded. A PDF is made
 by Obsidian itself, on your computer.
+
+Import a manuscript reads the one file you choose (or a note of this vault) and makes a new folder in this vault,
+with a copy of a file from outside the vault in it. It doesn't change the file or the note, and sends nothing anywhere.
 
 Import from Scrivener reads the project or the zip you choose, and nothing else outside the vault. It makes a new
 folder in this vault, with the project's original files in it, and adds the project's labels and statuses to

@@ -22,6 +22,7 @@ import { exportAgain } from './view/export-again';
 import { Styles } from './export/styles';
 import { importDesktop } from './import/desktop';
 import { ImportScrivenerModal } from './view/import-scrivener';
+import { ImportManuscriptModal, importNote } from './view/import-manuscript';
 import { CONTENTS_VIEW, installContents } from './inspector/contents-pane';
 import { installInspector, showSide } from './inspector/views';
 import { placeSide } from './inspector/place';
@@ -140,6 +141,8 @@ export default class BindersPlugin extends Plugin {
 		} });
 		// a binder from a Scrivener project: offered here and nowhere else (the maintainer's choice), wherever the writer is
 		this.addCommand({ id: 'import-scrivener', name: 'Import from Scrivener...', icon: 'book-down', callback: () => new ImportScrivenerModal(this).open() });
+		// a binder from a Markdown note or a text file, split where its chapters start
+		this.addCommand({ id: 'import-manuscript', name: 'Import a manuscript...', icon: 'file-input', callback: () => new ImportManuscriptModal(this).open() });
 		// a binder from nothing: beside the note that's open if that's outside a binder, else at the top of the vault
 		this.addCommand({ id: 'new-binder', name: 'New binder', icon: 'book', callback: () => {
 			const file = active(), parent = file?.parent && !this.binders.binderOf(file) ? file.parent : this.app.vault.getRoot();
@@ -330,6 +333,10 @@ export default class BindersPlugin extends Plugin {
 		// (beside "New note" and "New folder", wherever those are offered outside a binder: the vault's own menu too)
 		if (file instanceof TFolder && !b.binderOf(file)) {
 			menu.addItem((i) => i.setSection('action-primary').setTitle('New binder').setIcon('book').onClick(() => void this.newBinder(file)));
+		}
+		// a note outside a binder, made into one: the note is the source and is left as it is
+		if (file instanceof TFile && file.extension === 'md' && !b.binderOf(file)) {
+			menu.addItem((i) => i.setSection(make).setTitle('Make a binder from this note...').setIcon('library').onClick(() => void this.tell(importNote(this, file))));
 		}
 		if (file instanceof TFolder && b.binderOf(file) && !b.problem(file)) {
 			menu.addItem((i) => i.setSection('action-primary').setTitle('New scene here').setIcon('file-plus').onClick(() => void this.newScene(file)));
