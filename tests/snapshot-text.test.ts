@@ -62,6 +62,8 @@ const at = new Date(2026, 9, 1, 14, 32, 7);
 	eq(badSnapshotName('Draft, sent to Sam (2)'), null, 'commas and brackets');
 	ok(!!badSnapshotName('a/b') && !!badSnapshotName('what?') && !!badSnapshotName('a:b') && !!badSnapshotName('a\\b') && !!badSnapshotName('"x"') && !!badSnapshotName('a|b') && !!badSnapshotName('a*') && !!badSnapshotName('<a>'), 'characters a file name can’t have');
 	ok(!!badSnapshotName('x'.repeat(121)), 'too long');
+	eq(badSnapshotName('é'.repeat(100)), null, 'a hundred accented letters fit a file name (200 bytes)');
+	ok(!!badSnapshotName('é'.repeat(120)), 'a hundred and twenty accented letters are under 120 characters but over what a file name holds in bytes');
 }
 
 // the file itself: two properties, then the text exactly

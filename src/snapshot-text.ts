@@ -44,7 +44,7 @@ export function stamp(when: Date): string {
 
 /** Why a typed name can't be a snapshot's (it becomes part of a file's name), or null. */
 export const badSnapshotName = (name: string): string | null =>
-	/[*"\\/<>:|?]/.test(name) ? 'A name can’t contain any of * " \\ / < > : | ?' : name.length > 120 ? 'That name is too long.' : null;
+	/[*"\\/<>:|?]/.test(name) ? 'A name can’t contain any of * " \\ / < > : | ?' : name.length > 120 || new TextEncoder().encode(name).length > 220 ? 'That name is too long.' : null; // (a file name is 255 bytes, not characters: less the date, ".snapshot" and a count)
 
 /** A snapshot's file as text: what it's of and when it was taken, as properties, then the note's text exactly as it
     was. The properties are always written, so a text that itself begins with a line of dashes reads back whole. */
