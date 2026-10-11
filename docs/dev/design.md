@@ -142,6 +142,34 @@ here; that is what keeps the next round short.
     choices. The buttons a phone needs go above anything that can be long.
   - A pattern with a lookbehind breaks the whole plugin on iOS before 16.4; the lint rule catches it.
 
+- Learned designing the timeline (2026-10-10; the round is under "Rounds" below):
+  - An axis that makes room for its cards has no date between two dates: a card let go between 14 and 17 June has
+    to be told which day. What a drop there means is a question for the maintainer, not for the layout.
+  - With time across and a card on each side of the line, a card's height is fixed, so its synopsis is cut (three
+    lines at the medium size); with time down the cards are the corkboard's grid and nothing is cut.
+  - A number on a card is the note's place in the manuscript: count it over every scene that shows, not over the
+    cards that happen to be drawn (a tray that is shut draws none, and the numbers after it were two short).
+  - Whether a stretch of time is "long" is judged beside the stretches around it (the two before, the two after),
+    not against the whole book: a book has weeks of daily scenes and years of yearly ones, and by one book-wide
+    measure every step of the thin years was a gap (12 marks where 3 are meant).
+  - A date that says only a year or a month covers all of it: how long until the next date is counted from its
+    last day, or "1925" then "May 1926" reads as sixteen months.
+  - On an axis not to scale a writer loses the year: every year gets a heading that stays in sight (sticky), and
+    the dates under it say day and month only.
+  - Time across, two cards deep on each side, was tried and dropped: four cards and the line need about 700 px of
+    pane, the outer card has no tie to the line, and it saved one card's width.
+  - A mode's icon is tried in the view's own menu, beside the other three: Lucide's calendars read as Obsidian's
+    daily notes there, and its `git-commit` pair as git.
+  - Cards whose places are worked out, not flowed, can be windowed on every platform (only the ones near what is
+    in sight exist): a thousand scenes open in under half a second as about thirty cards. The price is one height
+    for a card at each size, so a synopsis is cut to whole lines; `flex: none` on it, or the box grows and shows a
+    slice of the next line. Headings that must stay in sight stay in the page's own flow (`position: sticky`), with
+    only the cards placed by hand inside each date's box.
+  - The view's find bar marks cards within a screen of what is in sight and takes every card it is given to be
+    there: a windowed board keeps less than a screen's margin, or it would need its own marking.
+  - A worktree's driver for pictures goes in `test-dist/` and imports `../tests/e2e/driver.mjs`; `node_modules` is a
+    link to the project's.
+
 **Rejected, don't propose again:** a colored stripe along the top of a card, pill chips, thin accent or progress
 lines, decoration for its own sake, anything on a card that isn't the writer's own (no badges for snapshots and the
 like). The maintainer's word for these was "AI generated".
@@ -245,6 +273,28 @@ over a one-sentence confirmation. What the round settled, and why:
   bar doesn't show (1.13.7: its rule reaches the box, which the field covers) is shown on ours.
 - **On a phone** the bar takes its size from Obsidian's mobile rules (44 px high, full width), the way in is the view's
   More options menu, and the review is a sheet.
+
+**The timeline (2026-10-10).** The maintainer's other plugin, Evra Timelines, re-made as a fourth mode of the binder
+view in Binders' own look: the corkboard's card, Obsidian's menus, nothing floating. He settled two things before a
+pixel: the axis makes room for its cards (no zoom, no levels of detail, no group cards, which were the pile again),
+and it is one line of time, not a line for each label ("The point of the timeline is not to view the threads
+individually, it is first and foremost a timeline view"). Two directions were built: A, time across with a card above
+or below the line at each mark, and B, time down with each date a row of cards beside the line. He took both: "B is
+undoubtedly the best for a phone view. What if the desktop had both a and b as possible views though, toggle-able
+between?" So a phone has B only, and a computer or a tablet chooses under "Arrange", B the default.
+- **What a second book taught.** The first book (a week in June, a flashback, an epilogue) was kind to a gap rule
+  measured against the whole book. He asked for dates "scattered across months or years", and a second book (a week,
+  a month, thin years, a chunk ten years on) had a gap at every step of its thin years. The rule is now local, the
+  years are headings that stay in sight, and a vague date is measured from its end.
+- **Tried and dropped:** two cards deep on each side of the line when time runs across (it needs 700 px of pane, ties
+  the outer card to nothing, and saved one card's width); a line joining the cards in manuscript order (the number
+  on each card says it, and a line would cross cards exactly where the two orders differ); a date printed on the
+  card (the ruler and the year say it); weekdays.
+- **The icon** is Binders' own, the only one: a line with marks on both sides (Evra's mark, redrawn on Lucide's grid
+  at its stroke). Lucide's calendars read as daily notes in the view's menu and its `git-commit` pair as git.
+- **Given up for now:** dragging a card to a date (decided, and the next thing built), eras and a book's own calendar
+  (room is left: an era is a band behind the line or a mark in the dates' column, and the month names come from the
+  calendar handed in).
 
 ## How a design round runs: narrow, then build
 

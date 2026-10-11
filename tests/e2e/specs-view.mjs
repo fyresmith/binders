@@ -201,7 +201,7 @@ test('the mode menu and commands switch modes', async (p, h, t) => {
 	t.ok(await p.ev(`app.commands.findCommand('binders:show-outliner').checkCallback(true)`), 'offered in a binder view');
 	const at = await p.at(`.workspace-leaf.mod-active .binders-mode-button`);
 	await p.click(at.x, at.y);
-	t.eq(j(await menuItems(p)), j(['Corkboard', 'Outliner', 'Manuscript']), 'the mode menu');
+	t.eq(j(await menuItems(p)), j(['Corkboard', 'Outliner', 'Manuscript', 'Timeline']), 'the mode menu');
 	await clickMenu(p, 'Manuscript');
 	t.eq((await viewState(p)).mode, 'manuscript', 'switched');
 	t.eq(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-mode-button .text-button-label').textContent`), 'Manuscript', 'the button says so');

@@ -34,7 +34,7 @@ explorer** if you use one. See [Compatibility](compatibility.md).
 
 ## Does it work on my phone?
 
-Yes, on iOS and Android, with all three modes. Phone and tablet support is new and has had little testing on real
+Yes, on iOS and Android, with all four modes. Phone and tablet support is new and has had little testing on real
 devices. See [Phones and tablets](mobile.md).
 
 ## Can I have more than one binder?

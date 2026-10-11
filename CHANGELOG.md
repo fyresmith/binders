@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.64.0 (2026-10-11)
+
+### Added
+
+- Timeline, a fourth view of a binder: its scenes along story time at their story dates, each card numbered as the manuscript has it, each year named, long empty stretches drawn short, and scenes with no date in a tray. Time runs down, or across on a computer or tablet (Arrange). Dates are set from a card’s menu; dragging a card to a date comes next.
+
 ## 0.63.1 (2026-10-11)
 
 ### Changed

@@ -89,11 +89,11 @@ test('“Arrange” in the toolbar: in a grid, or by label with the lines across
 	t.ok(await p.ev(`document.querySelector('${LEAF} .binders-lanes').classList.contains('mod-down')`), 'the lines run down');
 	const ys = await p.ev(`[...document.querySelectorAll('${LEAF} .binders-card[data-path]')].map(c => Math.round(c.getBoundingClientRect().top))`);
 	t.ok(ys.every((y, i) => !i || y > ys[i - 1]), `each card a place further down (${j(ys)})`);
-	// the mode switch is as it was: three modes
+	// the mode switch is as it was: the view's modes
 	const m = await p.at(`${LEAF} .binders-mode-button`);
 	await p.click(m.x, m.y);
 	await p.sleep(250);
-	t.eq(j(await menuItems(p)), j(['Corkboard', 'Outliner', 'Manuscript']), 'the mode switch has its three modes');
+	t.eq(j(await menuItems(p)), j(['Corkboard', 'Outliner', 'Manuscript', 'Timeline']), 'the mode switch has its modes');
 	await closeMenus(p);
 	// only the corkboard has arrangements
 	await p.ev(`${VIEW}.setMode('outliner')`);

@@ -310,3 +310,39 @@ test('a screen reader is told where a card or a row moved by Alt+arrow is now, a
 	t.eq(await name(), 'Filter: 1 on', 'with one on, it says so');
 	await p.ev(`(async () => { const v = ${VIEW}; await v.leaf.setViewState({ type: 'binders-view', active: true, state: { ...v.getState(), filter: { status: [], label: [] } } }); })().then(() => 1)`);
 });
+
+// ---- the timeline ----
+import { T as TIMELINE, open as openTimeline, seed as seedDates } from './specs-timeline.mjs';
+
+test('the timeline: a list of the scenes in story time, each date a group that says how long after the last it is, each card its title, its date and its number; the ruler is drawn, not read a second time', async (p, h, t) => {
+	const L = 'The Lighthouse/';
+	await seedDates(p, { 'Prologue.md': '1986-12', 'Part One/Arrival.md': '1987-06-11', 'Part One/The keeper.md': '1987-06-11', 'Part One/Storm warning.md': '1987-06-17', 'Part Two/The wreck.md': '1987-06-19', 'Part Two/Lights out.md': '1987-06-19' });
+	for (const shape of ['down', 'across']) {
+		await openTimeline(p, shape);
+		const { all } = await axTree(p);
+		const pairs = (n) => n.kids.map((k) => [k.role, k.name]);
+		const list = all.find((n) => n.role === 'listbox' && n.name === 'The Lighthouse, in story time');
+		t.ok(!!list, `${shape}: the line is a list, named for the folder and for what orders it`);
+		t.eq(j(pairs(list)), j([['group', 'December 1986'], ['group', '11 June 1987, 5 months after the date before'], ['group', '17 June 1987'], ['group', '19 June 1987']]), `${shape}: it holds a group for each date, in time’s order; a stretch drawn short is said with the date after it`);
+		const day = all.find((n) => n.role === 'group' && n.name.startsWith('11 June 1987'));
+		t.eq(j(pairs(day)), j([['option', 'Arrival, 11 June 1987, scene 2'], ['option', 'The keeper, 11 June 1987, scene 3']]), `${shape}: a date’s group holds its cards, each saying its title, its date and its number in the manuscript`);
+		const tray = all.find((n) => n.role === 'listbox' && n.name === 'Scenes with no story date');
+		t.eq(j(tray ? pairs(tray) : null), j([['option', 'Epilogue, no date, scene 7']]), `${shape}: the tray is a list of its own`);
+		const head = all.find((n) => n.role === 'button' && n.name === 'No date: 1 scene');
+		t.ok(!!head, `${shape}: under a button that says what it holds`);
+		t.eq(await p.ev(`document.querySelector('${TIMELINE} .binders-timeline-tray-head').getAttribute('aria-expanded')`), 'true', `${shape}: and that it is open`);
+		// the years, the dates on the ruler and the gap are for the eye: what they say is in the groups' names
+		const stray = all.filter((n) => n.role === 'StaticText' && /^(5 months|1986|1987|December|Dec|11 June|11 Jun)$/.test(n.name));
+		t.eq(j(stray.map((n) => n.name)), j([]), `${shape}: the ruler’s own words are not read a second time`);
+		// where a card stands among them all, since only the cards near what is in sight exist
+		const at = await p.ev(`[...document.querySelectorAll('${TIMELINE} .binders-timeline .binders-card[data-path]')].map(c => c.getAttribute('aria-posinset') + '/' + c.getAttribute('aria-setsize')).join(' ')`);
+		t.eq(at, '1/6 2/6 3/6 4/6 5/6 6/6', `${shape}: each card says its place on the line and how many there are`);
+		t.eq(await p.ev(`document.querySelectorAll('${TIMELINE} .binders-card[tabindex="0"]').length`), 1, `${shape}: the cards are one Tab stop`);
+		t.eq(await p.ev(`document.querySelector('${TIMELINE} .binders-card[data-path="${L}Prologue.md"]').getAttribute('aria-description')`), 'Status: Draft, 21 words', `${shape}: a card’s status and words follow its name, as on the corkboard`);
+	}
+	// from the keyboard: Tab reaches the cards, an arrow moves, the focus shows
+	await p.ev(`(() => { ${VIEW}.current.focus(); return 1; })()`);
+	await p.key('ArrowRight');
+	const ring = await p.ev(`(() => { const c = document.activeElement; return [c.matches('.binders-card'), c.getAttribute('aria-selected'), getComputedStyle(c).boxShadow !== 'none' || getComputedStyle(c).outlineStyle !== 'none'].join(); })()`);
+	t.eq(ring, 'true,true,true', 'a card with the keyboard is selected and shows a ring');
+});

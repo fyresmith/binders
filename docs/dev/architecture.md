@@ -16,7 +16,7 @@ neighbours, for example the store and `snapshots.ts`, which follow each other's 
 ```
  main.ts, settings.ts                       the plugin: commands, menus, the settings tab
  ───────────────────────────────────────────────────────────────────────────────────
- view/BinderView.ts  ->  modes: corkboard.ts, lanes.ts, outliner.ts, manuscript.ts     what the writer sees
+ view/BinderView.ts  ->  modes: corkboard.ts, lanes.ts, outliner.ts, manuscript.ts, timeline.ts     what the writer sees
  focus/focus.ts      view/snapshots.ts       view/actions.ts, card.ts, edit.ts, drag.ts, ...
  view/find-bar.ts, find-review.ts   find and replace: the bar and the review (find/replace.ts writes, find/highlight.ts marks)
  inspector/views.ts, contents-pane.ts       the sidebar: what's in hand, and the book with where you are
@@ -32,6 +32,7 @@ neighbours, for example the store and `snapshots.ts`, which follow each other's 
    export/model.ts  markdown.ts  typography.ts  roles.ts  book.ts  picture.ts  docx.ts  docx-parts.ts
                     style.ts  details.ts  epub.ts  epub-text.ts  epub-css.ts
    find/search.ts  focus/session.ts  view/labels.ts  view/outliner-data.ts  view/lanes-data.ts  view/file-drag-data.ts
+   view/timeline-data.ts  time/date.ts
    view/tap-text.ts  view/words.ts  view/book-words.ts
 ```
 
@@ -47,8 +48,8 @@ Three rules hold the layers together:
    [Where the undocumented parts are](#where-the-undocumented-parts-of-obsidian-are-used), each feature-detected, with a
    fallback and a test.
 
-Not every file under `src/view/` is a view: `labels.ts`, `outliner-data.ts`, `lanes-data.ts` and `file-drag-data.ts`
-are pure and live there because they belong to one view's idea. The store, `settings-data.ts` and `scenes.ts` reach into
+Not every file under `src/view/` is a view: `labels.ts`, `outliner-data.ts`, `lanes-data.ts`, `timeline-data.ts` and
+`file-drag-data.ts` are pure and live there because they belong to one view's idea. The store, `settings-data.ts` and `scenes.ts` reach into
 `view/` for those, and for `view/modals.ts` and `view/internals.ts`; they never reach for a view itself. (Focus mode, a
 layer above, does use `BinderView`.)
 
@@ -146,6 +147,7 @@ word-for-word test (development.md) holds each writer to "no word dropped, repea
 | `src/view/corkboard.ts` | The corkboard grid. Cards in binder order, a folder as one card, drag and keyboard reorder, editing in place. | Redraw while something is being typed or dragged. |
 | `src/view/lanes.ts`, `lanes-data.ts` | The corkboard arranged by label: one line per label, the cards along them. `lanes-data.ts` is the pure model (the lines, the places, what a drop means); `lanes.ts` draws it. Not a mode of its own: `BinderView` picks it from the corkboard's `arrange` option. | |
 | `src/view/card.ts` | The index card both boards draw, and what they share: `held` (the first five notes and folders a folder's card names, under the filter's view of them), `passing` (the notes a filter lets through), `crumbAt` (the breadcrumb's crumb under a pointer, as a drop target). | |
+| `src/view/timeline.ts`, `timeline-data.ts` | The timeline: the scenes of a folder along story time, in one of two shapes (time down, time across; a narrow pane has down only), the undated in a tray. `timeline-data.ts` is the pure model on `src/time/date.ts`: the dates in order and a day's scenes in theirs (`timeline`), which stretches are drawn short (`stoodOut`: long beside the two before and the two after), the years (`yearsOf`), where each card stands across (`planAcross`), and what a drag will ask though nothing is dragged yet (`whereAcross`, `dropTargets`, `dayAfterDrop`). `timeline.ts` draws it: every card's place is worked out (`layOut`), and only the cards within about a screen and a half of what is in sight exist (`sync`); the selection and the keys go through the scenes (`order`, `spots`), not the cards. | Write a story date, or anything else, by being opened, scrolled, filtered or switched (dates are set from the item menu); flow the cards with the page's own layout, which would need them all to exist. |
 | `src/view/outliner.ts`, `outliner-columns.ts`, `outliner-data.ts` | The outliner: rows of a tree table, editing in place, sorting, folding, dragging. `outliner-columns.ts` is its header (a column's menu, sorting, resizing, reordering, which columns show) and asks the outliner only through `ColumnsHost`. `outliner-data.ts` is the pure part: which columns exist, how values sort, read and are typed. | |
 | `src/view/manuscript.ts` | The manuscript: every note as a section of one scrolling page, live editors only near the viewport (on a phone, only on the section that was tapped), caret and keyboard handling across sections, saving on every route out (switching mode, closing, quitting). | Mount an editor except through `editable-embed.ts`; leave unsaved typing behind. |
 | `src/view/editable-embed.ts` | One live editor on one note, built from Obsidian's own editable embed. Merges outside edits into unsaved typing, keeps undo history across remounts, writes pending typing before it lets go. | Be used by anything but the manuscript and snapshots (`liveEditors`); trust Obsidian's embed without `embedSupported()`. |
@@ -354,6 +356,7 @@ These are the rules the code is held to. A change that breaks one needs a new te
 | Binder view shell | | `specs-view`, `specs-a11y`, `specs-themes` |
 | Corkboard and lanes | `lanes` | `specs-corkboard`, `specs-lanes`, `specs-qa-corkboard`, `specs-qa2-corkboard`, `specs-qa5-cork` |
 | Outliner | `outliner` | `specs-outliner`, `specs-qa3-outliner`, `specs-qa5-outliner` |
+| Timeline | `timeline` | `specs-timeline`, `specs-timeline-phone` (and a case each in `specs-perf` and `specs-a11y`) |
 | Manuscript and embed | | `specs-manuscript`, `specs-qa-manuscript`, `specs-qa2-manuscript`, `specs-qa4-manuscript`, `specs-qa5-manuscript` |
 | Dragging between views | `file-drag` | `specs-card-file-drag` |
 | Phones and tablets | | `specs-mobile`, `specs-qa4-mobile`, `specs-qa5-tablet`, `specs-qa5-nav`, `specs-qa4-journey` |

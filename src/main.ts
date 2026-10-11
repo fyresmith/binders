@@ -1,11 +1,13 @@
 import { foundExtension } from './find/highlight';
-import { Keymap, MarkdownView, Notice, Platform, Plugin, TFile, TFolder, normalizePath, type Menu, type PaneType, type TAbstractFile, type WorkspaceLeaf } from 'obsidian';
+import { Keymap, MarkdownView, Notice, Platform, Plugin, TFile, TFolder, addIcon, normalizePath, type Menu, type PaneType, type TAbstractFile, type WorkspaceLeaf } from 'obsidian';
 import { BinderStore, type Binder } from './binders';
 import { BY_LABEL, BinderView, MODES, VIEW_TYPE } from './view/BinderView';
 import { ITEM_MENU } from './view/actions';
 import { openForRename } from './view/internals';
 import { corkboard } from './view/corkboard';
 import { byLabel } from './view/lanes';
+import { timelineMode } from './view/timeline';
+import { TIMELINE_ICON, TIMELINE_ICON_SVG } from './view/timeline-data';
 import { BindersSettingTab, readSettings, type BindersSettings } from './settings';
 import { dropNewFolderItem, installExplorer, renameInExplorer, type Explorer } from './explorer';
 import type { ModeFactory } from './view/mode';
@@ -84,9 +86,12 @@ export default class BindersPlugin extends Plugin {
 		[BY_LABEL]: byLabel,
 		outliner,
 		manuscript,
+		timeline: timelineMode,
 	};
 
 	async onload() {
+		// (the timeline's icon is Binders' own: Obsidian's set has none that says a line of time)
+		addIcon(TIMELINE_ICON, TIMELINE_ICON_SVG);
 		await this.loadSettings();
 		this.binders = new BinderStore(this);
 		this.styles = new Styles(this);

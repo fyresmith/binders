@@ -939,7 +939,7 @@ test('toolbar mode menu: Corkboard / Outliner / Manuscript each switch, the tick
 	await fresh(p);
 	for (const [name, cls] of [['Outliner', 'binders-outliner'], ['Manuscript', 'binders-manuscript'], ['Corkboard', 'binders-corkboard']]) {
 		await click(p, BTN('binders-mode-button'));
-		t.eq(j((await items(p)).map((x) => x.title)), j(['Corkboard', 'Outliner', 'Manuscript']), 'three modes');
+		t.eq(j((await items(p)).map((x) => x.title)), j(['Corkboard', 'Outliner', 'Manuscript', 'Timeline']), 'four modes');
 		await choose(p, name);
 		await p.sleep(name === 'Manuscript' ? 1500 : 700);
 		t.ok(await p.ev(`!!document.querySelector('${LEAF} .${cls}')`), `${name} is drawn`);

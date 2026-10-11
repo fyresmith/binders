@@ -64,4 +64,4 @@ are editors already. See [Phones and tablets](mobile.md).
   Click a section to open its note and edit it there. See [Compatibility](compatibility.md).
 - A binder made by a newer version of Binders is read only in every mode.
 
-Next: [The inspector and the contents](inspector.md)
+Next: [Timeline](timeline.md)

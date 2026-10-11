@@ -1,7 +1,7 @@
 # The Binders manual
 
 Binders turns a folder in Obsidian into a binder: its chapters and scenes keep the order you give them, and you can
-see them as a corkboard, an outliner, or one continuous manuscript you can edit. This manual covers everything it
+see them as a corkboard, an outliner, one continuous manuscript you can edit, or a timeline of the story. This manual covers everything it
 does.
 
 Binders is in public beta. Phone and tablet support is new and has had little testing on real devices: see
@@ -25,10 +25,11 @@ New here? Read [Installation](installation.md), then [Getting started](getting-s
 
 | Page | What it covers |
 |---|---|
-| [The binder view](binder-view.md) | The toolbar, the three modes, folders, the filter, the menu |
+| [The binder view](binder-view.md) | The toolbar, the four modes, folders, the filter, the menu |
 | [Corkboard](corkboard.md) | Index cards, selecting and dragging, arranging by label |
 | [Outliner](outliner.md) | Rows and columns, sorting, editing in place |
 | [Manuscript](manuscript.md) | The whole binder as one page you can write in |
+| [Timeline](timeline.md) | The scenes in the order they happen in the story, by their story dates |
 | [The inspector and the contents](inspector.md) | Two sidebar views: one scene's details, and the whole book as a list |
 
 ## Working on scenes
@@ -36,7 +37,7 @@ New here? Read [Installation](installation.md), then [Getting started](getting-s
 | Page | What it covers |
 |---|---|
 | [Labels, statuses and targets](labels-statuses-targets.md) | Colors, stages of a draft, word count targets, the filter |
-| [Story date](story-date.md) | When a scene happens in the story: setting it, sorting by it, and putting a book in story order |
+| [Story date](story-date.md) | When a scene happens in the story: setting it, sorting by it, seeing it on the timeline, and putting a book in story order |
 | [Scene notes](scene-notes.md) | Your own notes on a scene, kept out of the book |
 | [Splitting, merging and grouping](splitting-and-merging.md) | Split, merge, duplicate, folders from a selection, ungroup |
 | [Snapshots](snapshots.md) | Setting a scene's text aside before you rewrite it, and keeping the whole binder as it stood |

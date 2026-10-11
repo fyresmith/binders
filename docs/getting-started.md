@@ -95,7 +95,7 @@ More in [Export](export.md).
 
 ## Where to go next
 
-- [The binder view](binder-view.md): the three modes and the toolbar in full.
+- [The binder view](binder-view.md): the four modes and the toolbar in full.
 - [Snapshots](snapshots.md): keep a scene's text before you rewrite it.
 - [How your files look](files.md): what a binder is on disk.
 - Moving from another tool: [Coming from Scrivener](scrivener.md), [Coming from Longform](longform.md).

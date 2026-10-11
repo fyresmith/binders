@@ -89,7 +89,7 @@ shows fewer words with the setting on, so a target that was only just met can be
 
 ## The filter
 
-The **Filter** button in the binder view's toolbar shows only the notes with a given status or label, in all three
+The **Filter** button in the binder view's toolbar shows only the notes with a given status or label, in all four
 modes. See [The binder view](binder-view.md#the-filter).
 
 ## Using your own property names

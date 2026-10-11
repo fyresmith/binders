@@ -699,6 +699,14 @@ them: see AGENTS.md). Nothing is tagged yet.
 - **Outliner, not plot grid** (2026-10-01, the maintainer's request): 1.0 ships the corkboard, the outliner and the
   manuscript. The plot grid and its properties are dropped; a writer who wants plotlines can keep them as an ordinary
   property and show it as an outliner column.
+- **Timeline, a fourth view** (2026-10-10, the maintainer, after two design rounds): 1.0 ships four views, the
+  corkboard, the outliner, the manuscript and the timeline, with the story date they all read. One line of time,
+  not a line for each label ("first and foremost a timeline view"); an axis that makes room for its cards, with no
+  zoom, no levels of detail and no group cards; time down by default and on a phone, down or across on a computer
+  and a tablet, chosen under "Arrange"; numbers always on; no date printed on a card and no weekdays; the undated in
+  a tray. Built reading only: dragging a card to a date is the next step, and what a drag does is decided (it changes
+  the story date and nothing else; a gap unfolds into its days, months or years; within a day it sets `story-order`).
+  `docs/dev/design.md` has the rounds.
 - **Labels and statuses are settings**, shared by every binder in the vault, not per binder.
 - **Mobile**: a 1.0 requirement, including the editable manuscript. Tested so far only in Obsidian's emulation of
   phones and tablets; a real iPhone, iPad and Android device are still to try.

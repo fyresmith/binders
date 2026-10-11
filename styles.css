@@ -5833,3 +5833,485 @@ body:not(.is-phone) .binders-snapshots .sync-history-content {
 .binders-inspector-value.is-unread {
 	color: var(--text-muted);
 }
+
+/* ---- Timeline (timeline.ts) ----
+
+   The scenes of a folder along story time, in one of two shapes (`mod-down`, `mod-across`; a narrow pane is always
+   `mod-down mod-heads`). The cards are the corkboard's; what is the timeline's own is one line, the years and the
+   dates along it, a break where a long stretch with nothing in it is drawn short, and the tray of scenes with no
+   date. All of it is drawn in the colors of quiet text and of a border: nothing is the accent color, and nothing
+   floats. Every card is put where it stands by timeline.ts (so only the ones near what is in sight exist): the rules
+   here size the things they stand in, and never a card. */
+
+.binders-corkboard.mod-timeline {
+	--binders-timeline-line: var(--background-modifier-border-hover);
+	overflow: auto;
+}
+
+/* A card is one height here, whatever it says: its place is worked out, not flowed. (As tall as holds three lines of
+   a synopsis at the middle size; the tray's are a line shorter.) */
+.binders-timeline-board {
+	--binders-card-height: 150px;
+	--binders-card-lines: 3;
+	--binders-timeline-tray-card: 124px;
+	gap: 0;
+}
+
+.binders-timeline-board.mod-cards-small { --binders-card-height: 104px; --binders-card-lines: 1; --binders-timeline-tray-card: 104px; }
+.binders-timeline-board.mod-cards-large { --binders-card-height: 196px; --binders-card-lines: 5; --binders-timeline-tray-card: 150px; }
+
+/* (a phone: the small card, as wide as the page, has room for two lines) */
+.is-narrow .binders-timeline-board.mod-cards-small { --binders-card-height: 124px; --binders-card-lines: 2; --binders-timeline-tray-card: 124px; }
+.is-narrow .binders-timeline-board.mod-cards-small .binders-timeline-tray { --binders-card-lines: 2; }
+.is-mobile .is-narrow .binders-timeline-board.mod-cards-small { --binders-card-height: 136px; --binders-timeline-tray-card: 136px; }
+
+.binders-timeline-board.is-empty {
+	display: none;
+}
+
+.binders-timeline {
+	position: relative;
+	flex: none;
+}
+
+.mod-timeline .binders-card[data-path] {
+	position: absolute;
+	height: var(--binders-timeline-card);
+	min-height: 0;
+	content-visibility: visible;
+}
+
+/* (whole lines of its synopsis, the last ending in an ellipsis, and its foot at its foot) */
+.mod-timeline .binders-card:not(.has-editing) > .binders-card-synopsis {
+	flex: none;
+}
+
+.mod-timeline .binders-card > .binders-card-footer {
+	margin-top: auto;
+}
+
+/* (a card being written in grows to hold it, over what is under it) */
+.mod-timeline .binders-card[data-path].has-editing {
+	z-index: 2;
+	height: auto;
+	min-height: var(--binders-timeline-card);
+}
+
+.binders-timeline-date,
+.binders-timeline-gap-text {
+	font-size: var(--font-ui-smaller);
+	font-variant-numeric: tabular-nums;
+	line-height: var(--line-height-tight);
+	white-space: nowrap;
+}
+
+.binders-timeline-date {
+	color: var(--text-muted);
+}
+
+.binders-timeline-gap-text {
+	color: var(--text-faint);
+}
+
+/* The years: a writer always knows which year a date that says "14 June" is in. */
+.binders-timeline-yearname {
+	color: var(--nav-heading-color);
+	font-size: var(--font-ui-small);
+	font-weight: var(--nav-heading-weight);
+	font-variant-numeric: tabular-nums;
+	line-height: var(--line-height-tight);
+	white-space: nowrap;
+}
+
+/* -- time across: the line through the middle, a card above or below it at each mark, the years over the cards -- */
+
+.binders-corkboard.mod-timeline.mod-across > .binders-board {
+	width: max-content;
+	min-width: 100%;
+	padding-bottom: 0;
+}
+
+/* (the folder's synopsis stays in sight while the line scrolls sideways) */
+.binders-corkboard.mod-timeline.mod-across > .binders-view-synopsis-row {
+	position: sticky;
+	inset-inline-start: 0;
+	max-width: 100cqw;
+}
+
+.mod-across .binders-timeline {
+	margin-block: auto;
+}
+
+/* (a date's cards are one group to a screen reader; on the page they stand along the line) */
+.mod-across .binders-timeline-group {
+	display: contents;
+}
+
+.mod-across .binders-timeline-line,
+.mod-across .binders-timeline-span,
+.mod-across .binders-timeline-gap {
+	position: absolute;
+	top: var(--binders-timeline-y);
+	height: 2px;
+}
+
+.mod-across .binders-timeline-line {
+	background-color: var(--binders-timeline-line);
+	border-radius: 1px;
+}
+
+/* (a date with several scenes: the line under them is the date's, as far as its last card begins) */
+.mod-across .binders-timeline-span {
+	background-color: var(--text-faint);
+	border-radius: 1px;
+}
+
+.mod-across .binders-timeline-gap {
+	background-image: repeating-linear-gradient(to right, var(--binders-timeline-line) 0 4px, transparent 4px 10px);
+}
+
+.mod-across .binders-timeline-gap-text {
+	position: absolute;
+	top: var(--size-4-2);
+	left: 50%;
+	translate: -50% 0;
+}
+
+.mod-across .binders-timeline-stem {
+	position: absolute;
+	width: 1px;
+	background-color: var(--text-faint);
+}
+
+.mod-across .binders-timeline-stem.mod-above {
+	top: calc(var(--binders-timeline-y) - 14px);
+	height: 14px;
+}
+
+.mod-across .binders-timeline-stem.mod-below {
+	top: calc(var(--binders-timeline-y) + 2px);
+	height: 26px;
+}
+
+.mod-across .binders-timeline-date {
+	position: absolute;
+	top: calc(var(--binders-timeline-y) + 2px);
+	padding: var(--size-2-3) 0 0 var(--size-4-2);
+}
+
+/* (every date has its mark under the line, whichever side its first card is on) */
+.mod-across .binders-timeline-date::before {
+	content: "";
+	position: absolute;
+	inset-inline-start: 0;
+	top: 0;
+	width: 1px;
+	height: 10px;
+	background-color: var(--text-faint);
+}
+
+.mod-across .binders-timeline-yearspan {
+	position: absolute;
+	top: 0;
+	height: 16px;
+	border-inline-start: 1px solid var(--text-faint);
+}
+
+/* (a year's name stays at the pane's edge while its dates scroll under it) */
+.mod-across .binders-timeline-yearname {
+	position: sticky;
+	inset-inline-start: var(--size-4-3);
+	display: inline-block;
+	padding-inline: var(--size-4-2);
+	background-color: var(--background-primary);
+}
+
+/* -- time down: each year a heading, each date a row, its cards in rows beside the line -- */
+
+.mod-down .binders-timeline {
+	--binders-timeline-gutter: 104px;
+	--binders-timeline-year: 30px;
+	display: flex;
+	flex-direction: column;
+	flex: 1 1 0;
+	min-width: 0;
+}
+
+.mod-down .binders-timeline-yeargroup {
+	display: flex;
+	flex-direction: column;
+}
+
+.mod-down .binders-timeline-group,
+.mod-down .binders-timeline-gap,
+.mod-down .binders-timeline-yearhead {
+	display: grid;
+	grid-template-columns: var(--binders-timeline-gutter) minmax(0, 1fr);
+}
+
+.mod-down .binders-timeline-group,
+.mod-down .binders-timeline-gap {
+	position: relative;
+}
+
+.mod-down .binders-timeline-group {
+	padding-block: var(--size-2-3);
+}
+
+.mod-down .binders-timeline-group::before,
+.mod-down .binders-timeline-gap::before,
+.mod-down .binders-timeline-yearhead::before {
+	content: "";
+	position: absolute;
+	inset-block: 0;
+	inset-inline-start: var(--binders-timeline-gutter);
+	width: 2px;
+	background-color: var(--binders-timeline-line);
+}
+
+.mod-down .binders-timeline-gap {
+	align-items: center;
+	height: 44px;
+}
+
+.mod-down .binders-timeline-gap::before {
+	background-color: transparent;
+	background-image: repeating-linear-gradient(to bottom, var(--binders-timeline-line) 0 4px, transparent 4px 10px);
+}
+
+.mod-down .binders-timeline-gap-text {
+	padding-inline-end: var(--size-4-4);
+	text-align: end;
+}
+
+/* (a year stays at the top of the pane while its dates scroll, and each date under it while its cards do) */
+.mod-down .binders-timeline-yearhead {
+	position: sticky;
+	top: 0;
+	z-index: 3;
+	height: var(--binders-timeline-year);
+	pointer-events: none;
+}
+
+.mod-down .binders-timeline-yearhead > .binders-timeline-yearname {
+	display: flex;
+	align-items: flex-end;
+	justify-content: flex-end;
+	padding: 0 var(--size-4-4) var(--size-2-1) 0;
+	background-color: var(--background-primary);
+}
+
+.mod-down .binders-timeline-date {
+	position: sticky;
+	top: var(--binders-timeline-year);
+	align-self: start;
+	padding: var(--size-4-2) var(--size-4-4) var(--size-4-2) 0;
+	text-align: end;
+	font-size: var(--font-ui-small);
+}
+
+/* (the date's mark on the line) */
+.mod-down .binders-timeline-date::after {
+	content: "";
+	position: absolute;
+	inset-inline-end: -1px;
+	top: calc(var(--size-4-2) + 0.6em);
+	width: 9px;
+	height: 1px;
+	background-color: var(--text-faint);
+}
+
+.mod-down .binders-timeline-cards {
+	position: relative;
+	min-width: 0;
+	margin-inline-start: var(--size-4-4);
+}
+
+/* a phone: the line runs down the page's edge, the year over its dates and each date over its cards */
+.mod-down.mod-heads .binders-timeline {
+	--binders-timeline-gutter: 3px;
+}
+
+.mod-down.mod-heads .binders-timeline-group,
+.mod-down.mod-heads .binders-timeline-yearhead {
+	display: block;
+	padding-inline-start: var(--size-4-4);
+}
+
+.mod-down.mod-heads .binders-timeline-gap {
+	display: flex;
+	padding-inline-start: var(--size-4-4);
+}
+
+.mod-down.mod-heads .binders-timeline-yearhead {
+	/* (a little past the cards: a selected card's ring passes under it, not beside it) */
+	margin-inline-end: calc(-1 * var(--size-2-2));
+	background-color: var(--background-primary);
+}
+
+.mod-down.mod-heads .binders-timeline-yearhead > .binders-timeline-yearname {
+	justify-content: flex-start;
+	height: 100%;
+	padding-inline-end: 0;
+}
+
+.mod-down.mod-heads .binders-timeline-date {
+	z-index: 2;
+	margin-inline: calc(-1 * var(--size-2-2));
+	padding: var(--size-4-2) var(--size-2-2);
+	background-color: var(--background-primary);
+	text-align: start;
+}
+
+.mod-down.mod-heads .binders-timeline-date::after {
+	inset-inline: calc(-1 * var(--size-4-4) + var(--size-2-2) + 5px) auto;
+	width: 6px;
+}
+
+.mod-down.mod-heads .binders-timeline-cards {
+	margin-inline-start: 0;
+}
+
+/* -- the tray: the scenes with no date, under their count -- */
+
+.binders-timeline-tray {
+	--binders-card-lines: 2;
+	z-index: 4;
+	flex: none;
+	background-color: var(--background-primary);
+}
+
+.binders-timeline-board.mod-cards-small .binders-timeline-tray { --binders-card-lines: 1; }
+.binders-timeline-board.mod-cards-large .binders-timeline-tray { --binders-card-lines: 3; }
+
+.binders-timeline-tray.is-hidden {
+	display: none;
+}
+
+/* (its head stays put while its cards scroll) */
+.binders-timeline-tray-head {
+	position: sticky;
+	top: 0;
+	inset-inline-start: 0;
+	z-index: 3;
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	padding: var(--size-4-2) var(--size-4-3);
+	background-color: var(--background-primary);
+	color: var(--nav-heading-color);
+	font-size: var(--font-ui-small);
+	font-weight: var(--nav-heading-weight);
+	cursor: var(--cursor);
+}
+
+.is-mobile .binders-timeline-tray-head {
+	min-height: var(--touch-size-m, 44px);
+}
+
+.binders-timeline-tray-fold {
+	display: flex;
+	color: var(--text-faint);
+}
+
+.binders-timeline-tray-count {
+	color: var(--text-muted);
+	font-weight: var(--font-normal);
+	font-variant-numeric: tabular-nums;
+}
+
+.binders-timeline-tray-cards {
+	position: relative;
+	margin: var(--size-2-1) var(--size-4-3) var(--size-4-3);
+}
+
+/* along the foot (time across) and over the foot (a phone): it stays at the pane's foot, as wide as the pane */
+.binders-timeline-tray.mod-foot,
+.binders-timeline-tray.mod-sheet {
+	position: sticky;
+	inset-inline-start: 0;
+	bottom: 0;
+	width: var(--binders-timeline-pane, 100%);
+	margin-top: auto;
+	margin-inline: calc(-1 * var(--size-4-3));
+	border-top: var(--border-width) solid var(--background-modifier-border);
+	overflow: auto;
+}
+
+.binders-timeline-tray.mod-sheet {
+	max-height: 50vh;
+}
+
+.is-phone .mod-timeline .binders-timeline-tray.mod-sheet {
+	padding-bottom: var(--view-bottom-spacing, 0px);
+}
+
+.mod-down.is-narrow > .binders-timeline-board.has-dates {
+	padding-bottom: 0;
+}
+
+/* down a side (time down, on a computer or a tablet) */
+.mod-down:not(.is-narrow) > .binders-timeline-board.has-dates {
+	flex-direction: row;
+	align-items: flex-start;
+}
+
+.binders-timeline-tray.mod-side {
+	position: sticky;
+	top: 0;
+	width: calc(var(--binders-card-width, 210px) + 2 * var(--size-4-3) + var(--border-width));
+	max-height: calc(var(--binders-timeline-pane-height, 100vh) - 2 * var(--size-4-3));
+	margin-inline-start: var(--size-4-4);
+	border-inline-start: var(--border-width) solid var(--background-modifier-border);
+	overflow-y: auto;
+}
+
+/* -- no scene has a date yet: the line with nothing on it, and every scene in the tray, which is the page then -- */
+
+.binders-timeline-none {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-2);
+	padding-block: var(--size-4-4) var(--size-4-6);
+}
+
+.binders-timeline-none > .binders-timeline-line {
+	width: 100%;
+	height: 2px;
+	border-radius: 1px;
+	background-color: var(--binders-timeline-line);
+}
+
+.binders-timeline-none-text {
+	color: var(--text-faint);
+	font-size: var(--font-ui-small);
+}
+
+.mod-timeline > .binders-timeline-board:not(.has-dates) {
+	width: auto;
+	min-width: 0;
+	padding-bottom: var(--size-4-8);
+}
+
+.is-phone .mod-timeline > .binders-timeline-board:not(.has-dates) {
+	padding-bottom: calc(var(--size-4-8) + var(--view-bottom-spacing, 0px));
+}
+
+.mod-timeline > .binders-timeline-board:not(.has-dates) > .binders-timeline {
+	flex: none;
+	margin-block: 0;
+}
+
+.binders-timeline-board .binders-timeline-tray.mod-page {
+	--binders-card-lines: inherit;
+}
+
+.binders-timeline-tray.mod-page > .binders-timeline-tray-head {
+	position: static;
+	padding-inline: 0;
+	cursor: default;
+}
+
+.binders-timeline-tray.mod-page > .binders-timeline-tray-cards {
+	margin-inline: 0;
+}

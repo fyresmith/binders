@@ -1,11 +1,12 @@
 # The binder view
 
-The binder view is where you work on a binder as a whole. It is one view with three modes, three ways of seeing the
+The binder view is where you work on a binder as a whole. It is one view with four modes, four ways of seeing the
 notes in a binder or in one of its folders:
 
 - [Corkboard](corkboard.md): an index card for each note.
 - [Outliner](outliner.md): a row for each note, with columns you pick.
 - [Manuscript](manuscript.md): every note in order as one page you can write in.
+- [Timeline](timeline.md): a card for each scene, in the order things happen in the story.
 
 ![The binder view as a corkboard](images/corkboard.png)
 
@@ -22,7 +23,7 @@ that tab comes to the front.
 ## Switching modes
 
 Click the button at the top left of the view, which names the mode you're in, and choose another. The commands
-**Show corkboard**, **Show outliner** and **Show manuscript** do the same, and so does the view's **More options**
+**Show corkboard**, **Show outliner**, **Show manuscript** and **Show timeline** do the same, and so does the view's **More options**
 menu.
 
 Each mode keeps its place when you look at another, and when you open a note and come back.
@@ -33,13 +34,13 @@ From left to right:
 
 | Part | What it does |
 |---|---|
-| The mode button | Switches between **Corkboard**, **Outliner** and **Manuscript** |
+| The mode button | Switches between **Corkboard**, **Outliner**, **Manuscript** and **Timeline** |
 | The breadcrumb | Inside a folder, shows the way back up to the binder. Click a name to go there |
 | The word count | The words in the binder or folder shown. With a target, it reads "282 / 60,000 words" and a bar shows how far along you are. Click it to set the target |
 | **Undo** and **Redo** | Take back and make again the last change made by hand to the binder. Dimmed when there is nothing to do; the tooltip says what it would do. On a narrow pane **Redo** is in **More options** instead. See [Undo and redo](undo.md) |
-| **Arrange** | Corkboard only: lays the cards out in a grid or by label. See [Corkboard](corkboard.md#arrange-by-label) |
-| **Filter** | Shows only the notes with a given status or label, in all three modes |
-| **New** | Makes a new note or a new folder |
+| **Arrange** | On the corkboard: lays the cards out in a grid or by label. See [Corkboard](corkboard.md#arrange-by-label). On the timeline: which way time runs, down or across. See [Timeline](timeline.md#time-down-or-across) |
+| **Filter** | Shows only the notes with a given status or label, in all four modes |
+| **New** | Makes a new note or a new folder (on the timeline, a note) |
 | The focus button | Manuscript only, at the end of the toolbar: goes into [focus mode](focus-mode.md) |
 
 On a phone the buttons show their icons alone.
@@ -76,17 +77,19 @@ A new note shows with its name ready to type.
 **Filter** lists the statuses and labels in use in the binder. Tick one or more to show only the notes that have
 them. The button says how many are on ("Filter (2)"). **Clear filter** shows everything again.
 
-The filter applies to all three modes. While it is on, the word count reads as the words shown out of all of them
+The filter applies to all four modes. While it is on, the word count reads as the words shown out of all of them
 ("120 of 282 words").
 
 ## The More options menu
 
 The three dots in the view's header open a menu with:
 
-- **Corkboard**, **Outliner** and **Manuscript**, to switch modes.
+- **Corkboard**, **Outliner**, **Manuscript** and **Timeline**, to switch modes.
 - While the corkboard is showing: **In a grid**, **By label, across** and **By label, down** with the two switches
   that go with them, **Card size**, **Number the cards** and **Tint cards with their label color**.
 - While the outliner is showing: **Show synopses**, **Columns**, **Expand all** and **Collapse all**.
+- While the timeline is showing: **Time down** and **Time across**, **Card size** and **Tint cards with their label
+  color**.
 - **Undo** and **Redo** of the last change, each saying what it will take back. See [Undo and redo](undo.md).
 - **Export...**, and **Export again** once the binder has been exported. See [Export](export.md).
 - **Take a snapshot** and **Show snapshots...**, of the folder shown. The same two are behind the **Snapshots** button (a clock) in the header; a phone's header has no such button, so there they are here only. See [Snapshots](snapshots.md).

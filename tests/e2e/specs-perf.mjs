@@ -145,3 +145,54 @@ test('a 1,000-scene binder: every mode opens, and interactions stay quick', with
 	t.ok(out.manuscriptTyping.slowestEvent < LIMIT.keystroke, `typing: slowest keystroke ${out.manuscriptTyping.slowestEvent} ms (limit ${LIMIT.keystroke})`);
 	t.ok(out.manuscriptTyping.longest < LIMIT.interaction, `typing: longest task ${out.manuscriptTyping.longest} ms (limit ${LIMIT.interaction})`);
 }));
+
+// The timeline (src/view/timeline.ts) puts every card where it stands itself, so only the ones near what is in sight
+// exist: a thousand scenes open as a few dozen cards, in either shape, and the keyboard goes through all thousand.
+test('a 1,000-scene binder on the timeline: it opens in both shapes with a few dozen cards, and the keys and a long scroll stay quick', withTidy(async (p, h, t) => {
+	const out = {};
+	await makeSaga(p);
+	const saga = `app.vault.getAbstractFileByPath(${j(SAGA)})`;
+	// story dates as a book has them: a few scenes to a day in runs, a jump of years between the parts, every tenth
+	// scene not yet placed
+	await p.ev(`(async () => {
+		const scenes = ${B}.scenes(${saga});
+		for (let i = 0; i < scenes.length; i++) {
+			if (i % 10 === 9) continue;
+			const day = new Date(Date.UTC(1900 + Math.floor(i / 100) * 7, 0, 1 + Math.floor((i % 100) / 3) * 2)).toISOString().slice(0, 10);
+			await app.vault.process(scenes[i], (text) => text.replace(/^---\\n/, '---\\nstory-date: ' + day + '\\n'));
+		}
+	})().then(() => 1)`);
+	t0ok(await until(p, `${B}.scenes(${saga}).filter(f => app.metadataCache.getFileCache(f)?.frontmatter?.['story-date']).length === ${PARTS * PER * 0.9}`, 60000), 'the scenes have their story dates');
+	await p.ev(`${PL}.openBinder(${saga}).then(() => 1)`);
+	await until(p, `app.workspace.getMostRecentLeaf().getViewState().state?.folder === ${j(SAGA)}`);
+	await p.sleep(500);
+	const T = '.workspace-leaf.mod-active .mod-timeline';
+	const count = () => p.ev(`document.querySelectorAll('${T} .binders-card[data-path]').length`);
+	for (const shape of ['down', 'across']) {
+		await p.ev(`(() => { const v = ${VIEW}; v.setMode('corkboard'); v.options = { ...v.options, timelineShape: ${j(shape)} }; return 1; })()`);
+		await p.sleep(400);
+		out[shape + 'Open'] = await timed(p, `Promise.resolve(${VIEW}.setMode('timeline'))`);
+		await until(p, `!!document.querySelector('${T} .binders-card[data-path]')`);
+		out[shape + 'Cards'] = await count();
+		out[shape + 'Scenes'] = await p.ev(`${VIEW}.current.order.length`);
+		out[shape + 'Dates'] = await p.ev(`document.querySelectorAll('${T} .binders-timeline-group').length`);
+		// a long scroll: the cards that come into sight are made, the ones left behind taken away
+		out[shape + 'Scroll'] = await timed(p, `(async () => { const b = document.querySelector('${T}'); b.scrollTop += 6000; b.scrollLeft += 6000; await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))); })()`);
+		out[shape + 'CardsAfter'] = await count();
+		const at = await p.at(`${T} .binders-timeline .binders-card[data-path] .binders-card-footer`);
+		await p.click(at.x, at.y);
+		await record(p);
+		for (const k of ['ArrowRight', 'ArrowRight', 'ArrowDown', 'ArrowLeft', 'End', 'Home']) await p.key(k);
+		out[shape + 'Keys'] = await recorded(p);
+		out[shape + 'CardsEnd'] = await count();
+	}
+	console.log('    perf ' + j(out));
+	for (const shape of ['down', 'across']) {
+		t.eq(out[shape + 'Scenes'], PARTS * PER, `${shape}: a thousand scenes on the board (${out[shape + 'Scenes']})`);
+		t.ok(out[shape + 'Cards'] > 0 && out[shape + 'Cards'] < 150, `${shape}: ${out[shape + 'Cards']} cards exist as it opens`);
+		t.ok(out[shape + 'CardsAfter'] > 0 && out[shape + 'CardsAfter'] < 150 && out[shape + 'CardsEnd'] < 150, `${shape}: and no more after a long scroll (${out[shape + 'CardsAfter']}) or after going to the end and back (${out[shape + 'CardsEnd']})`);
+		t.ok(out[shape + 'Open'] < LIMIT.open, `${shape}: opens in ${out[shape + 'Open']} ms (limit ${LIMIT.open})`);
+		t.ok(out[shape + 'Scroll'] < LIMIT.interaction, `${shape}: a long scroll shows in ${out[shape + 'Scroll']} ms (limit ${LIMIT.interaction})`);
+		t.ok(out[shape + 'Keys'].slowestEvent < LIMIT.interaction, `${shape}: the slowest key takes ${out[shape + 'Keys'].slowestEvent} ms (limit ${LIMIT.interaction})`);
+	}
+}));

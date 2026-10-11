@@ -11,6 +11,7 @@ import { commitAll, commitFocused, editable, editingIn, type Editable } from './
 import { keepOpen, readableLineLength, refreshHeader, selectMenuItem } from './internals';
 import { canonical, labelDot, labelName, rank } from './labels';
 import { readArrangement, readLines, type Arrangement, type Lines } from './lanes-data';
+import { TIMELINE_ICON, TIMELINE_SHAPES, readShape } from './timeline-data';
 import { ask } from './modals';
 import { parseTarget, whyNotTarget } from './outliner-data';
 import { readProps, writeBatch, writeProps } from './props';
@@ -31,13 +32,14 @@ export const VIEW_TYPE = 'binders-view';
     scroll of the manuscript, another folder or mode): the inspector follows it. */
 export const INSPECT = 'binders:inspect';
 
-/** The three modes of the view. */
-export type ModeName = 'corkboard' | 'outliner' | 'manuscript';
+/** The four modes of the view. */
+export type ModeName = 'corkboard' | 'outliner' | 'manuscript' | 'timeline';
 /** The modes in the order the switcher and the commands list them. */
 export const MODES: readonly { id: ModeName; name: string; icon: string }[] = [
 	{ id: 'corkboard', name: 'Corkboard', icon: 'layout-grid' },
 	{ id: 'outliner', name: 'Outliner', icon: 'list-tree' },
 	{ id: 'manuscript', name: 'Manuscript', icon: 'scroll-text' },
+	{ id: 'timeline', name: 'Timeline', icon: TIMELINE_ICON },
 ];
 /** The corkboard arranged by label isn't a mode of its own: it's the board the corkboard shows while "Arrange" says
     by label (`arrange` in the view's options). This is its place among the plugin's mode factories. */
@@ -556,7 +558,7 @@ export class BinderView extends ItemView {
 		const undo = this.button(bar, 'undo-2', 'Undo', 'binders-undo-button', () => this.undoRedo(false));
 		const redo = this.button(bar, 'redo-2', 'Redo', 'binders-redo-button', () => this.undoRedo(true));
 		// (how the corkboard lays out its cards, where a base has "Sort": in a grid, or by label)
-		const arrange = this.button(bar, 'layout-grid', 'Arrange', 'binders-arrange-button', (e) => { const menu = new Menu(); this.arrangeItems(menu); this.showBelow(menu, e); });
+		const arrange = this.button(bar, 'layout-grid', 'Arrange', 'binders-arrange-button', (e) => { const menu = new Menu(); if (this.mode === 'corkboard') this.arrangeItems(menu); else this.current?.arrangeItems?.(menu); this.showBelow(menu, e); });
 		const filter = this.button(bar, 'list-filter', 'Filter', 'binders-filter-button', (e) => this.filterMenu(e));
 		const add = this.button(bar, 'plus', 'New', 'binders-new-button', (e) => this.newMenu(e));
 		this.button(bar, 'maximize-2', 'Focus mode', 'binders-focus-button', () => this.plugin.focus.toggle()).toggleClass('is-hidden', this.mode !== 'manuscript');
@@ -681,11 +683,13 @@ export class BinderView extends ItemView {
 		// (said to a screen reader too, and shown as the tooltip where the button is an icon alone)
 		ui.filter.setAttr('aria-label', on ? `Filter: ${on} on` : 'Filter');
 		// "Arrange", on the corkboard: always called that; its icon says how (and its name, to a screen reader)
-		const how = this.arranged();
-		ui.arrange.toggleClass('is-hidden', this.mode !== 'corkboard');
+		// (and on the timeline, which way time runs: not on a phone, where it runs one way)
+		const time = this.mode === 'timeline' && !Platform.isPhone ? TIMELINE_SHAPES.find((s) => s.id === readShape(this.options.timelineShape)) : null;
+		const how = time ?? this.arranged(), arranged = this.mode === 'corkboard' || !!time;
+		ui.arrange.toggleClass('is-hidden', !arranged);
 		// (said on the toolbar too: what stands before "Arrange" makes room for it on a narrow phone, styles.css)
-		ui.arrange.parentElement?.toggleClass('has-arrange', this.mode === 'corkboard');
-		ui.arrange.toggleClass('is-active', how.arrange === 'label');
+		ui.arrange.parentElement?.toggleClass('has-arrange', arranged);
+		ui.arrange.toggleClass('is-active', !time && this.arranged().arrange === 'label');
 		ui.arrange.setAttr('aria-label', `Arrange: ${how.title.charAt(0).toLowerCase()}${how.title.slice(1)}`);
 		setIcon(ui.arrange.querySelector<HTMLElement>('.text-button-icon'), how.icon);
 		const mode = MODES.find((m) => m.id === this.mode);
@@ -1056,7 +1060,7 @@ export class BinderView extends ItemView {
 			selectionChanged: () => this.inspect(),
 			find: (replace) => this.showSearch(replace),
 			option: <T>(key: string, fallback: T): T => (key in this.options ? this.options[key] : fallback) as T,
-			setOption: (key, value) => { this.options = { ...this.options, [key]: value }; this.remember(); this.app.workspace.requestSaveLayout(); },
+			setOption: (key, value) => { this.options = { ...this.options, [key]: value }; this.remember(); this.app.workspace.requestSaveLayout(); if (key === 'timelineShape') this.drawToolbar(); },
 		};
 	}
 

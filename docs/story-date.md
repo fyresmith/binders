@@ -2,7 +2,8 @@
 
 A **story date** says when a scene happens in the story, not when you wrote it. It is an ordinary property of the
 note, `story-date`, so it is in the file you can read and in Obsidian's own Properties view. An outliner column
-shows it, and sorting by it puts the book in the order things happen.
+shows it, sorting by it puts the book in the order things happen, and the [timeline](timeline.md) lays the scenes
+out along it.
 
 ## Setting one
 
@@ -10,7 +11,8 @@ Any of these sets it, for one note or for several selected together:
 
 - the **Story date** column of the [outliner](outliner.md): select a row, click the cell, type, Enter;
 - the **Story date** row of the [inspector](inspector.md);
-- **Set story date...** in the menu of a card or row (the menu is the way on a phone). **Remove story date** is there
+- **Set story date...** in the menu of a card or row, on the [timeline](timeline.md) too (the menu is the way on a
+  phone). **Remove story date** is there
   when a selected note has one.
 
 Type it the way you would say it: `14 June 1987`, `June 14, 1987`, `June 1987`, `1987`, or in ISO shape,
@@ -47,8 +49,15 @@ The calendar is the ordinary (Gregorian) one.
 ## Dates that aren't dates
 
 A value such as `sometime in spring` is left exactly as you typed it. The column shows it as it is, in muted text,
-and it sorts with the undated notes, last. Binders never rewrites it unless you set a date on that note. Looking at,
+and it sorts with the undated notes, last; on the timeline its scene waits in the tray. Binders never rewrites it
+unless you set a date on that note. Looking at,
 sorting or closing a binder writes nothing.
+
+## Seeing the book in story time
+
+The [timeline](timeline.md) is a mode of the binder view: the scenes along a line in the order they happen, each year
+named, long stretches with nothing in them drawn short, and the undated scenes in a tray. Each card keeps its number
+in the manuscript, so the two orders can be read against each other. A folder's own date isn't shown there.
 
 ## Putting a book in story order
 

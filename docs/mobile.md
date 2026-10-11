@@ -1,6 +1,6 @@
 # Phones and tablets
 
-Binders works in Obsidian on iOS and Android, with the same three modes, by touch. This page covers what touch does
+Binders works in Obsidian on iOS and Android, with the same four modes, by touch. This page covers what touch does
 differently from a mouse and a keyboard.
 
 Phone and tablet support is new and has had little testing on real devices. If something doesn't work as this page
@@ -77,6 +77,19 @@ another section and the first goes back to plain text once what you typed is sav
 
 **Typing:** with the keyboard up and little room left (a phone on its side), the toolbar steps aside while you type
 and the manuscript runs under Obsidian's header, as a note does, so more lines are left to write in.
+
+## Timeline
+
+On a phone time runs down the page, in one column: each year, then each date, over its cards. There is no **Time
+across** there, and no **Arrange** in the toolbar. A tablet has both, as a computer does.
+
+- Tap a card to select it; tap its title to open its note. Hold a card for its menu, which has **Set story date...**
+  and **Remove story date**: that is how a scene gets its date on a phone.
+- The scenes with no date are behind the **No date** row at the foot of the page, above Obsidian's bar. Tap it to
+  open the list, and again to shut it.
+- The year and the date you are in stay at the top while you scroll.
+
+See [Timeline](timeline.md).
 
 ## The inspector and the contents
 

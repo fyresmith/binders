@@ -1,4 +1,5 @@
-// The manual's and the README's pictures: The Lighthouse in each mode, arranged by label, the file explorer, the
+// The manual's and the README's pictures: The Lighthouse in each mode (the timeline in both its shapes), arranged by
+// label, the file explorer, the
 // inspector and the contents, the snapshots of a scene and of the binder, focus mode, the Export window (an ebook, a
 // paperback's pages, the style editor), a phone, and the import dialog. 1280×800, with a mouse that hovers, as a
 // desktop has. Runs in a throwaway copy of test-vault, like the e2e tests, and fills the book out a little there
@@ -151,6 +152,29 @@ try {
 	await show('manuscript');
 	await rest();
 	await shot('manuscript');
+
+	// the timeline: the same book in story time, down and across. The scenes are given story dates for these two
+	// pictures and lose them again after: the pictures that follow show the book as it was.
+	const WHEN = { 'Prologue': '1986-12', 'Part One/Arrival': '1987-06-11', 'Part One/The keeper': '1987-06-11', 'Part One/Storm warning': '1987-06-17', 'Part Two/The wreck': '1987-06-19', 'Part Two/The lamp room': '1987-06-19', 'Part Two/Lights out': '1987-06-19', 'Part Three/The inquiry': '1987-07-02', 'Part Three/What the keeper kept': '1968-03' };
+	const dated = (on) => p.ev(`(async () => { for (const [name, date] of Object.entries(${j(WHEN)})) await app.fileManager.processFrontMatter(app.vault.getAbstractFileByPath(${j(L)} + name + '.md'), (fm) => { if (${on}) fm['story-date'] = date; else delete fm['story-date']; }); await new Promise(r => setTimeout(r, 800)); })().then(() => 1)`);
+	await dated(true);
+	await p.ev(`(() => { ${V}.setOptions({ ...${V}.options, timelineShape: 'down' }); return 1; })()`);
+	await show('timeline');
+	await until(`!!document.querySelector('.mod-timeline.mod-down .binders-card[data-path]')`, 'the timeline, time down');
+	const onLine = await need(`.mod-timeline .binders-card[data-path=${j(L + 'Part One/Arrival.md')}] .binders-card-footer`, 'Arrival’s card on the timeline');
+	await p.click(onLine.x, onLine.y);
+	await rest();
+	await p.sleep(500);
+	await shot('timeline');
+	await p.ev(`(() => { app.workspace.leftSplit.collapse(); ${V}.setOptions({ ...${V}.options, timelineShape: 'across' }); return 1; })()`);
+	await until(`!!document.querySelector('.mod-timeline.mod-across .binders-card[data-path]')`, 'the timeline, time across');
+	await p.ev(`(() => { ${V}.current.select([]); document.activeElement?.blur?.(); const b = document.querySelector('.mod-timeline'); b.scrollTo(230, 0); ${V}.current.sync(); return 1; })()`);
+	await rest();
+	await p.sleep(600);
+	await shot('timeline-across');
+	await p.ev(`(() => { const v = ${V}, { timelineShape, ...others } = v.options; v.setOptions(others); app.workspace.leftSplit.expand(); return 1; })()`);
+	await dated(false);
+	await show('manuscript');
 
 	// the inspector and the contents beside the manuscript: one over the other in the right sidebar, the file explorer
 	// folded away, the cursor in a scene so both say where it is
