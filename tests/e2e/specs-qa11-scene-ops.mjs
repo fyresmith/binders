@@ -226,25 +226,27 @@ test('undo of a move whose scene was merged away since: Undo takes the merge bac
 	t.eq(await list(p), FULL, 'and the next takes the move back');
 });
 
-test('BUG: undo of a move of a scene that has since been split: the new half goes back beside its first half, not in front of another scene', async (p, h, t) => {
+test('undo of a move of a scene that has since been split: Undo takes the split back first (the new half goes to the trash, the first half whole), and the next Undo takes the move back', async (p, h, t) => {
 	await setNote(p, SW, FM + 'First half of the storm.\n\nSecond half of the storm.\n');
 	await settle(p);
 	await openAt(p, SW);
 	await run(p, 'move-up');
 	await settle(p);
+	const MOVED = ['Prologue', 'Part One/', 'Part One/Arrival', 'Part One/Storm warning', 'Part One/The keeper', 'Part Two/', 'Part Two/The wreck', 'Part Two/Lights out', 'Epilogue'];
 	await openAt(p, SW, { before: 'Second half' });
 	const r = await doSplit(p, SW);
 	const SPLIT = ['Prologue', 'Part One/', 'Part One/Arrival', 'Part One/Storm warning', 'Part One/Storm warning 2', 'Part One/The keeper', 'Part Two/', 'Part Two/The wreck', 'Part Two/Lights out', 'Epilogue'];
 	t.eq(r.made.join('|'), P1 + 'Storm warning 2.md', 'the split made “Storm warning 2” (' + r.notice + ')');
 	t.eq(await list(p), SPLIT, 'the split puts the new scene right after its first half');
+	// (the split is the last change: it is the first to be taken back, so the new half is never left behind by the move)
 	await undoMove(p);
-	const AFTER = FULL.flatMap((x) => (x === 'Part One/Storm warning' ? [x, 'Part One/Storm warning 2'] : [x]));
-	t.eq(await list(p), AFTER, 'after undo, the new half is still right after the first half, and before nothing else moved');
-	t.eq(body(await readText(p, SW)), 'First half of the storm.\n', 'the first half’s text');
-	t.eq(body(await readText(p, P1 + 'Storm warning 2.md')), 'Second half of the storm.\n', 'the second half’s text');
+	t.eq(await list(p), MOVED, 'Undo: the split is taken back, the list as the move left it');
+	t.ok(body(await readText(p, SW)).includes('Second half of the storm.'), 'the first half has its whole text again');
+	await undoMove(p);
+	t.eq(await list(p), FULL, 'and the next Undo takes the move back');
 });
 
-test('undo of a move after a copy was made of the scene beside it: the moved scene goes back beside its neighbour, and the copy stays in the list', async (p, h, t) => {
+test('undo of a move after a copy was made of the scene beside it: the first Undo takes the copy away, the next takes the move back', async (p, h, t) => {
 	await openAt(p, SW);
 	await run(p, 'move-up');
 	await settle(p);
@@ -253,13 +255,26 @@ test('undo of a move after a copy was made of the scene beside it: the moved sce
 	const copy = P1 + 'The keeper 2.md';
 	t.ok(await readText(p, copy), 'the copy is made');
 	await undoMove(p);
+	t.ok(await gone(p, copy), 'Undo takes the copy away (a copy is a change of its own now)');
+	await undoMove(p);
+	t.eq(await list(p), FULL, 'and the next takes the move back: Storm warning is back beside The keeper, nothing else in or out');
+});
+
+test('undo of a move when a copy of the scene beside it has been kept (its own change is not the one in front): the moved scene goes back beside its neighbour, and the copy stays in the list', async (p, h, t) => {
+	await openAt(p, SW);
+	await run(p, 'move-up');
+	await settle(p);
+	await board(p, P1.slice(0, -1));
+	await menuOn(p, K, 'Duplicate');
+	await p.ev(`(() => { ${B}.undos.pop(); return 1; })()`);
+	await undoMove(p);
 	const l = await list(p);
 	t.ok(l.includes('Part One/The keeper 2'), 'the copy is still in the list: ' + l.join(', '));
 	t.ok(l.indexOf('Part One/Storm warning') === l.indexOf('Part One/The keeper') + 1, 'Storm warning is back beside The keeper');
 	t.eq(l.length, FULL.length + 1, 'nothing else is in or out of the list');
 });
 
-test('BUG: redo of an undone move of a scene since split: the new half stays beside its first half, not left behind by the scene it goes in front of', async (p, h, t) => {
+test('redo of an undone move after the scene was split: the split is a new change, so there is nothing to redo, and the split stands', async (p, h, t) => {
 	await setNote(p, SW, FM + 'First half of the storm.\n\nSecond half of the storm.\n');
 	await settle(p);
 	await openAt(p, SW);
@@ -270,10 +285,12 @@ test('BUG: redo of an undone move of a scene since split: the new half stays bes
 	await openAt(p, SW, { before: 'Second half' });
 	const r = await doSplit(p, SW);
 	t.eq(r.made.length, 1, 'split (' + r.notice + ')');
+	const SPLIT = FULL.flatMap((x) => (x === 'Part One/Storm warning' ? [x, 'Part One/Storm warning 2'] : [x]));
+	t.eq(await list(p), SPLIT, 'the new half is right after the first');
+	t.eq(await p.ev(`${B}.undoable('The Lighthouse', true)`), null, 'a new change (the split) ended what could be redone');
 	await run(p, 'redo-move');
 	await settle(p);
-	const WANT = ['Prologue', 'Part One/', 'Part One/Arrival', 'Part One/Storm warning', 'Part One/Storm warning 2', 'Part One/The keeper', 'Part Two/', 'Part Two/The wreck', 'Part Two/Lights out', 'Epilogue'];
-	t.eq(await list(p), WANT, 'redo: the first half is moved up, its new half still beside it');
+	t.eq(await list(p), SPLIT, 'redo does nothing: the first half and its new half stay together');
 	t.eq(body(await readText(p, SW)), 'First half of the storm.\n', 'the first half’s text');
 	t.eq(body(await readText(p, P1 + 'Storm warning 2.md')), 'Second half of the storm.\n', 'the new half’s text');
 });
