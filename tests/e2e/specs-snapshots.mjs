@@ -173,7 +173,7 @@ test('take one with the note closed, from its card', async (p, h, t) => {
 	const before = await texts(p);
 	await cardMenu(p, A);
 	const items = await menuItems(p);
-	t.ok(items.includes('Snapshots') && !items.includes('Rewrite...') && items.indexOf('Snapshots') === items.indexOf('Set synopsis from text') + 1, 'the card’s menu has one item for them, with what else is done to the note’s text: ' + items.join(', '));
+	t.ok(items.includes('Snapshots') && !items.includes('Rewrite...') && items.indexOf('Snapshots') === items.indexOf('Add revision task...') + 1 && items.indexOf('Add revision task...') === items.indexOf('Set synopsis from text') + 1, 'the card’s menu has one item for them, with what else is done to the note’s text: ' + items.join(', '));
 	const size = await p.ev(`(() => { const r = document.querySelector('.menu').getBoundingClientRect(); return [Math.round(r.top), Math.round(r.bottom), innerHeight]; })()`);
 	t.ok(size[0] >= 0 && size[1] <= size[2], 'the menu is on the screen: ' + j(size));
 	await hoverMenu(p, 'Snapshots');

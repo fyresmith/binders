@@ -320,7 +320,6 @@ test('a look at the Bring back screen on a phone, in both themes (screenshot in 
 		judge(t, m, 'look', { tall: 28 });
 		const colours = await p.ev(`(() => { const m = document.querySelector(${j(BACK)}); const c = (e) => getComputedStyle(e).color; return { text: c(m.querySelector('.binders-folder-snapshots-plan li span')), bg: getComputedStyle(m).backgroundColor }; })()`);
 		t.ok(colours.text !== colours.bg, 'text and ground differ: ' + j(colours));
-		if (!SHOTS) await p.shot(`/tmp/claude-1000/-home-calebsmith-Projects-binder/97b4391d-ac90-485a-acbe-1f3e694ce62b/scratchpad/s/look-${dark ? 'dark' : 'light'}.png`);
 	});
 });
 
