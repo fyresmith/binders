@@ -1,4 +1,4 @@
-import { COMPILE_DEFAULTS, blockIsText, bodyStart, compile, forRender, frontFor, joinBodies, linkTargets, moved, nextName, parts, pointsAt, repointLinks, splitAt, stripComments, synopsisFrom, tidyHead, tidyTail, titleFrom, uniqueFootnotes, useYaml, type CompileItem } from '../src/scene-text';
+import { COMPILE_DEFAULTS, blockIsText, bodyStart, compile, forRender, frontFor, joinBodies, linkTargets, moved, nextName, parts, pointsAt, repointLinks, splitAt, lineIndentStart, stripComments, synopsisFrom, tidyHead, tidyTail, titleFrom, uniqueFootnotes, useYaml, type CompileItem } from '../src/scene-text';
 import { done, eq, ok } from './harness';
 
 const NOTE = '---\nsynopsis: Mara arrives.\nstatus: draft\n---\nThe boat left her on the jetty.\n\nShe had two cases.\n';
@@ -278,6 +278,14 @@ eq(repointLinks('Spaced [[ Storm warning ]], [[ Storm warning#Part |the storm]] 
 	for (const [a, b] of [['abc', 'abXc'], ['abXc', 'abc'], ['aaaa', 'aa'], ['aa', 'aaaa'], ['abc', 'xyz'], ['', 'x'], ['x', '']]) {
 		for (let p = 0; p <= a.length; p++) { const q = moved(a, b, p); ok(q >= 0 && q <= b.length, `${JSON.stringify(a)} to ${JSON.stringify(b)}, from ${p}: inside the text (${q})`); }
 	}
+}
+
+// a split with the cursor in a line's own indent starts the new note at the line, so the indent goes with its text
+{
+	eq(lineIndentStart('A.\n\n\tThe rain', 5), 4, 'after a tab: the start of the line');
+	eq(lineIndentStart('A.\n\n\tThe rain', 4), 4, 'at the start of the line: where it is');
+	eq(lineIndentStart('A.\n\n\tThe rain', 9), 9, 'after words: where it is');
+	eq(lineIndentStart('\t\tdeep', 2), 0, 'after two tabs in the first line');
 }
 
 done('scene text');

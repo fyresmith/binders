@@ -2,7 +2,7 @@ import type { Extension } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { MarkdownView, Notice, Platform, TFile, TFolder, editorInfoField, normalizePath, parseYaml, stringifyYaml, type App, type Editor, type TAbstractFile } from 'obsidian';
 import type BindersPlugin from './main';
-import { compile, frontFor, joinBodies, lf, linkTargets, nextName, parts, pointsAt, repointLinks, synopsisFrom, tidyHead, tidyTail, titleFrom, useYaml, type CompileItem, type CompileOptions } from './scene-text';
+import { compile, frontFor, joinBodies, lf, lineIndentStart, linkTargets, nextName, parts, pointsAt, repointLinks, synopsisFrom, tidyHead, tidyTail, titleFrom, useYaml, type CompileItem, type CompileOptions } from './scene-text';
 import { COMPILED_KEPT } from './settings-data';
 import { untab } from './paragraphs/text';
 import { saveEditors, saveTab } from './view/editable-embed';
@@ -126,12 +126,13 @@ export async function splitScene(plugin: BindersPlugin, editor: Editor, file: TF
 		for (let i = 0; i < 15 && !(same = lf(await app.vault.read(file)) === lf(editor.getValue())); i++) await sleep(100);
 		if (!same) { new Notice('This note is being changed somewhere else. Try again in a moment.'); return null; }
 	} catch (e) { say(e); return null; }
-	const text = editor.getValue(), offset = editor.posToOffset(editor.getCursor('from')), { front, yaml } = parts(text), raw = await app.vault.adapter.read(file.path).catch(() => text);
+	const text = editor.getValue(), cursor = editor.posToOffset(editor.getCursor('from')), offset = lineIndentStart(text, cursor), { front, yaml } = parts(text), raw = await app.vault.adapter.read(file.path).catch(() => text);
 	if (offset < front.length) { new Notice('Click in the note’s text, where the new note should begin.'); return null; }
 	const s = { head: text.slice(0, offset), tail: text.slice(offset) };
-	const tail = tidyTail(s.tail, offset > 0 && !/[\r\n]/.test(text[offset - 1]));
-	if (!tail.trim()) { new Notice('There’s nothing after that point to split off.'); return null; }
+	const cut = tidyTail(s.tail, offset > 0 && !/[\r\n]/.test(text[offset - 1]));
+	if (!cut.trim()) { new Notice('There’s nothing after that point to split off.'); return null; }
 	if (!s.head.slice(front.length).trim()) { new Notice('There’s nothing before that point: the whole note would move.'); return null; }
+	const tail = cut;
 	const taken = (n: string) => n === folder.name || !!app.vault.getAbstractFileByPath(normalizePath(`${folder.path}/${n}.md`));
 	let title = titled ? titleFrom(editor.getSelection()) : nextName(file.basename, taken);
 	if (!title) { new Notice('Select the words to name the new note with.'); return null; }

@@ -131,6 +131,13 @@ export function splitAt(text: string, offset: number): { head: string; tail: str
 
 /** The text a split leaves in the first note: as it was up to the split, ending in one line break. */
 export const tidyHead = (head: string): string => (parts(head).body.trim() ? head.replace(/\s+$/, '') + '\n' : head.replace(/[ \t]+$/, ''));
+/** Where a split at `offset` really starts: at the start of its line when only the line's own indent comes before it (a
+    cursor just after a paragraph's tab), so the indent goes with its text; else where it is. */
+export function lineIndentStart(text: string, offset: number): number {
+	const at = text.lastIndexOf('\n', offset - 1) + 1, lead = text.slice(at, offset);
+	return lead && !lead.trim() ? at : offset;
+}
+
 /** The text a split gives the new note: without the blank lines the split left at its start, nor, for a split in the
     middle of a line, the space before its first word. A line's own indent stays (an indented code block, a nested
     list item). */
