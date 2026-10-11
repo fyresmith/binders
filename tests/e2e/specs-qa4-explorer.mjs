@@ -356,7 +356,7 @@ test('drag: a note dragged from the explorer onto a note’s text inserts a link
 // Menus
 // ================================================================================================================
 
-const isOurs = (x) => ['Open binder', 'Show in binder', 'New scene here', 'New scene after this', 'Export...', 'Move up', 'Move down', 'Convert to binder', 'Make this folder a binder', 'New binder', 'New folder from selection', 'Take a snapshot', 'Rewrite...', 'Show snapshots...', 'Snapshots of notes that are gone...'].includes(x) || /^Merge \d+ notes$/.test(x);
+const isOurs = (x) => ['Open binder', 'Show in binder', 'New scene here', 'New scene after this', 'Export...', 'Move up', 'Move down', 'Convert to binder', 'Make this folder a binder', 'New binder', 'New folder from selection', 'Take a snapshot', 'Rewrite...', 'Show snapshots...', 'Snapshots of notes that are gone...', 'Split at headings...', 'Make a binder from this note...'].includes(x) || /^Merge \d+ notes$/.test(x);
 /** A menu without Binders' items (and without the separators that leaves doubled or dangling). */
 const stock = (m) => m.filter((x) => !isOurs(x)).filter((x, i, a) => !(x === '---' && (i === 0 || a[i - 1] === '---'))).filter((x, i, a) => !(x === '---' && i === a.length - 1));
 const menuIcons = (p) => p.ev(`Object.fromEntries([...document.querySelectorAll('.menu .menu-item')].map(e => [e.querySelector('.menu-item-title')?.textContent, [...(e.querySelector('.menu-item-icon svg')?.classList ?? [])].find(c => c.startsWith('lucide-')) ?? null]))`);
@@ -372,7 +372,7 @@ test('menus: Binders’ items sit in Obsidian’s own sections, with its icons, 
 	same(t, stock(folder), stock(plainFolder), 'a binder folder’s menu, less Binders’ items, is a folder’s stock menu');
 	// a note: with "Open in new tab", then a new note of its own section, then with "Make a copy"; "Delete" last
 	let i = note.indexOf('Show in binder');
-	same(t, note.slice(i - 1, i + 5), ['Open in new window', 'Show in binder', '---', 'New scene after this', '---', 'Make a copy'], 'a scene: “Show in binder” ends the opening section, “New scene after this” has the section before “Make a copy”');
+	same(t, note.slice(i - 1, i + 6), ['Open in new window', 'Show in binder', '---', 'Split at headings...', 'New scene after this', '---', 'Make a copy'], 'a scene: “Show in binder” ends the opening section, “Split at headings...” and “New scene after this” have the section before “Make a copy”');
 	i = note.indexOf('Move up');
 	same(t, [note[i + 1], note[i + 2]], ['Move down', '---'], '“Move up” and “Move down” end the section “Make a copy” is in');
 	t.ok(note.slice(note.indexOf('Make a copy'), i).every((x) => x !== '---'), 'the same section');
@@ -399,11 +399,11 @@ test('menus: what’s offered where — scenes, folders, the binder’s own note
 	const ours = async (path) => { const m = await rightClick(p, path); await closeMenu(p); if (!m) throw new Error(`no menu for ${path}`); return m.filter(isOurs); };
 	const want = {
 		[L]: ['Open binder', 'New scene here', 'Export...', 'Take a snapshot', 'Show snapshots...'], [`${L}/Part One`]: ['Open binder', 'New scene here', 'Export...', 'Take a snapshot', 'Show snapshots...', 'Move up', 'Move down'],
-		[`${L}/Prologue.md`]: ['Show in binder', 'New scene after this', 'Take a snapshot', 'Rewrite...', 'Show snapshots...', 'Move down'], [`${L}/Part One/The keeper.md`]: ['Show in binder', 'New scene after this', 'Take a snapshot', 'Rewrite...', 'Show snapshots...', 'Move up', 'Move down'],
+		[`${L}/Prologue.md`]: ['Show in binder', 'Split at headings...', 'New scene after this', 'Take a snapshot', 'Rewrite...', 'Show snapshots...', 'Move down'], [`${L}/Part One/The keeper.md`]: ['Show in binder', 'Split at headings...', 'New scene after this', 'Take a snapshot', 'Rewrite...', 'Show snapshots...', 'Move up', 'Move down'],
 		// (the binder's own note, where the quick switcher lands for a binder's name, leads to its binder)
 		[NOTE]: ['Open binder'], [`${L}/Part One/Part One.md`]: [], [`${L}/map.png`]: ['Show in binder', 'Move up'],
 		Plain: ['Make this folder a binder', 'New binder'], 'Plain/x.md': [], 'Loose.md': [],
-		[LF]: ['Open binder', 'New scene here', 'Convert to binder', 'Export...', 'Take a snapshot', 'Show snapshots...'], [`${LF}/Index.md`]: ['Open binder', 'Convert to binder'], [`${LF}/Island.md`]: ['Show in binder', 'New scene after this', 'Take a snapshot', 'Rewrite...', 'Show snapshots...', 'Move up', 'Move down'], [`${LF}/Notes on ferries.md`]: [],
+		[LF]: ['Open binder', 'New scene here', 'Convert to binder', 'Export...', 'Take a snapshot', 'Show snapshots...'], [`${LF}/Index.md`]: ['Open binder', 'Convert to binder'], [`${LF}/Island.md`]: ['Show in binder', 'Split at headings...', 'New scene after this', 'Take a snapshot', 'Rewrite...', 'Show snapshots...', 'Move up', 'Move down'], [`${LF}/Notes on ferries.md`]: [],
 		// a binder Binders can't change: it can be opened and exported, and a note's snapshots read, nothing more
 		Newer: ['Open binder', 'Export...', 'Show snapshots...'], 'Newer/Zed.md': ['Show in binder', 'Show snapshots...'], 'Newer/Sub': ['Open binder', 'Export...', 'Show snapshots...'], 'Newer/Newer.md': ['Open binder'],
 	};
@@ -655,7 +655,15 @@ const WALK = String(async function walk(seed, steps, opts) {
 		    where it would block every later undo (see the BUG test): the walk drops it and carries on. */
 		async back(redo) {
 			if (!undoable(redo)) return null;
-			try { return `${redo ? 'redo' : 'undo'} (${await B.undo(L, redo)})`; }
+			try {
+				const said = await B.undo(L, redo);
+				// An undo (or redo) of a copy, a new note or a delete takes the note away or makes it again (the changes of 0.50:
+				// the history holds them, CHANGELOG, “Undo last change now takes away a note or folder you just made”): follow it.
+				await sleep(60);
+				for (const f of [...bodies.keys()]) if (vault.getAbstractFileByPath(f.path) !== f) bodies.delete(f);
+				for (const f of vault.getMarkdownFiles()) if ((f.path.startsWith(L + '/') || f.path.startsWith(out.path + '/')) && f.path !== L + '/' + L + '.md' && !bodies.has(f) && !B.isHiddenNote(f)) bodies.set(f, await vault.adapter.read(f.path));
+				return `${redo ? 'redo' : 'undo'} (${said})`;
+			}
 			catch (e) { if (!/can’t|stay with their folder|already has|isn’t in a binder/.test(e.message)) throw e; (redo ? B.redos : B.undos).pop(); return `${redo ? 'redo' : 'undo'} refused: ${e.message}`; }
 		},
 		async group() {
@@ -763,8 +771,8 @@ const WALK = String(async function walk(seed, steps, opts) {
 for (const seed of [2, 5, 9]) {
 	test(`walk: 120 changes at random without waiting (seed ${seed}): the list, the store and the explorer agree, and no note’s text changes`, async (p, h, t) => {
 		const r = await p.ev(`(${WALK})(${seed}, 120, { every: 8, roundTrips: true })`);
-		t.ok(r.history.length > 90, `most steps did something (${r.history.length})`);
 		t.ok(!r.fails.length, `${r.fails.slice(0, 2).join('\n    ')}\n    last steps: ${r.history.slice(-8).join(' | ')}`);
+		t.ok(r.history.length > 90, `most steps did something (${r.history.length})`);
 	});
 }
 
@@ -1214,11 +1222,11 @@ testRaw('mobile: the explorer’s menus offer the same items, in the same sectio
 			return m ?? [];
 		};
 		const note = await menu(`${L}/Part One/The keeper.md`), folder = await menu(`${L}/Part One`);
-		same(t, note.filter(isOurs), ['Show in binder', 'New scene after this', 'Take a snapshot', 'Rewrite...', 'Show snapshots...', 'Move up', 'Move down'], 'a scene');
+		same(t, note.filter(isOurs), ['Show in binder', 'Split at headings...', 'New scene after this', 'Take a snapshot', 'Rewrite...', 'Show snapshots...', 'Move up', 'Move down'], 'a scene');
 		same(t, folder.filter(isOurs), ['Open binder', 'New scene here', 'Export...', 'Take a snapshot', 'Show snapshots...', 'Move up', 'Move down'], 'a folder');
-		same(t, (await menu(`${LF}/Island.md`)).filter(isOurs), ['Show in binder', 'New scene after this', 'Take a snapshot', 'Rewrite...', 'Show snapshots...', 'Move up', 'Move down'], 'a Longform scene');
+		same(t, (await menu(`${LF}/Island.md`)).filter(isOurs), ['Show in binder', 'Split at headings...', 'New scene after this', 'Take a snapshot', 'Rewrite...', 'Show snapshots...', 'Move up', 'Move down'], 'a Longform scene');
 		let i = note.indexOf('Show in binder');
-		same(t, note.slice(i, i + 5), ['Show in binder', '---', 'New scene after this', '---', 'Make a copy'], 'the same sections as on desktop');
+		same(t, note.slice(i, i + 6), ['Show in binder', '---', 'Split at headings...', 'New scene after this', '---', 'Make a copy'], 'the same sections as on desktop');
 		same(t, folder.slice(0, 3), ['Open binder', '---', 'New note'], '“Open binder” first');
 		t.eq(folder[folder.length - 1], 'Delete', '“Delete” last');
 	} finally { await reload(p, false); await tidy(p); }

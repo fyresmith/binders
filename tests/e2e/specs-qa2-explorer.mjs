@@ -285,7 +285,7 @@ test('file menus and commands: what’s offered where', withTidy(async (p, h, t)
 	const want = {
 		[L]: ['Open binder', 'New scene here'], [`${L}/Part One`]: ['Open binder', 'New scene here', 'Move up', 'Move down'], [`${L}/Prologue.md`]: ['Show in binder', 'New scene after this', 'Move down'],
 		[`${L}/Part One/The keeper.md`]: ['Show in binder', 'New scene after this', 'Move up', 'Move down'], [NOTE]: ['Open binder'], [`${L}/Part One/Part One.md`]: [], [`${L}/map.png`]: ['Show in binder', 'Move up'],
-		Plain: ['Make this folder a binder', 'New binder'], 'Plain/x.md': [], 'Loose.md': [], [LF]: ['Open binder', 'New scene here', 'Convert to binder'], [`${LF}/Index.md`]: ['Open binder', 'Convert to binder'],
+		Plain: ['Make this folder a binder', 'New binder'], 'Plain/x.md': ['Make a binder from this note...'], 'Loose.md': ['Make a binder from this note...'], [LF]: ['Open binder', 'New scene here', 'Convert to binder'], [`${LF}/Index.md`]: ['Open binder', 'Convert to binder'],
 		[`${LF}/Island.md`]: ['Show in binder', 'New scene after this', 'Move up', 'Move down'], [`${LF}/Notes on ferries.md`]: [],
 	};
 	for (const [path, items] of Object.entries(want)) same(t, await menu(path), items, `the menu of “${path}”`);

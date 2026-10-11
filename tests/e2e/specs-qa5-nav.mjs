@@ -797,9 +797,9 @@ test('phone header: “More options” in each mode is a sheet of finger-tall ro
 		const more = await p.at(MORE);
 		t.ok(more.w >= 40 && more.h >= 40, `the button is ${Math.round(more.w)} × ${Math.round(more.h)} px`);
 		const want = {
-			corkboard: ['Close', 'Pin', 'Card size', 'Tint cards with their label color', 'Number the cards', 'Corkboard', 'Outliner', 'Manuscript', 'Timeline', 'In a grid', 'By label, across', 'By label, down', 'Show notes in subfolders', 'Show unused labels', 'Export...', 'Take a snapshot', 'Show snapshots...', 'Show contents', 'Open binder note'],
-			outliner: ['Close', 'Pin', 'Show synopses', 'Columns', 'Expand all', 'Collapse all', 'Corkboard', 'Outliner', 'Manuscript', 'Timeline', 'Export...', 'Take a snapshot', 'Show snapshots...', 'Show contents', 'Open binder note'],
-			manuscript: ['Close', 'Pin', 'Corkboard', 'Outliner', 'Manuscript', 'Timeline', 'Export...', 'Take a snapshot', 'Show snapshots...', 'Show contents', 'Open binder note'],
+			corkboard: ['Close', 'Pin', 'Card size', 'Tint cards with their label color', 'Number the cards', 'Corkboard', 'Outliner', 'Manuscript', 'Timeline', 'In a grid', 'By label, across', 'By label, down', 'Show notes in subfolders', 'Show unused labels', 'Find in binder', 'Find and replace in binder', 'Export...', 'Take a snapshot', 'Show snapshots...', 'Show contents', 'Open binder note'],
+			outliner: ['Close', 'Pin', 'Show synopses', 'Columns', 'Expand all', 'Collapse all', 'Corkboard', 'Outliner', 'Manuscript', 'Timeline', 'Find in binder', 'Find and replace in binder', 'Export...', 'Take a snapshot', 'Show snapshots...', 'Show contents', 'Open binder note'],
+			manuscript: ['Close', 'Pin', 'Corkboard', 'Outliner', 'Manuscript', 'Timeline', 'Find in binder', 'Find and replace in binder', 'Export...', 'Take a snapshot', 'Show snapshots...', 'Show contents', 'Open binder note'],
 		};
 		for (const [mode, items] of Object.entries(want)) {
 			await setMode(p, mode);
@@ -859,21 +859,21 @@ test('phone header: “More options” in each mode is a sheet of finger-tall ro
 // The commands
 // =====================================================================================================================
 
-test('phone commands: the palette offers Binders’ commands where they apply and only there: nothing open, each mode, a scene, the binder note, a Longform project, a plain note, a read-only binder; after a move, “Undo last move”', async (p, h, t) => {
+test('phone commands: the palette offers Binders’ commands where they apply and only there: nothing open, each mode, a scene, the binder note, a Longform project, a plain note, a read-only binder; after a move, “Undo last change”', async (p, h, t) => {
 	await onDevice(p, PHONE, async () => {
 		await p.ev(`(async () => { await app.vault.createFolder('Plain'); await app.vault.create('Plain/A note.md', 'x'); await app.vault.create('Loose.md', 'x'); })().then(() => 1)`);
 		await p.ev(FUTURE);
 		await p.sleep(1200);
 		const offered = async () => { const list = await palette(p, 'Binders'); await closePalette(p); return list.filter((x) => /^Binders/.test(x)).map((x) => x.replace(/^Binders/, '')).sort(); };
-		// (“New binder” is offered everywhere, since a binder can be made from anywhere; so are “Import from Scrivener...”,
+		// (“New binder” is offered everywhere, since a binder can be made from anywhere; so are “Import a manuscript...” and “Import from Scrivener...”,
 		// which makes one, and the two sidebar tabs, “Show contents” and “Show inspector”, which like Obsidian's own
 		// “Show outline” open with nothing to show: the desktop's twin is “palette: with nothing open…” in specs-qa6-menus)
-		const ANYWHERE = ['New binder', 'Import from Scrivener...', 'Show contents', 'Show inspector'];
+		const ANYWHERE = ['New binder', 'Import a manuscript...', 'Import from Scrivener...', 'Show contents', 'Show inspector'];
 		const check = async (what, want) => t.eq(j(await offered()), j([...want, ...ANYWHERE].sort()), what);
 		// (“Export again” goes wherever “Export binder” does: with nothing exported yet it opens the window)
-		const EXPORT = ['Export binder', 'Export again'], VIEWS = ['Show corkboard', 'Show outliner', 'Show manuscript', ...EXPORT], ARRANGE = 'Arrange corkboard by label', FOCUS = 'Toggle focus mode', STEP = ['Go to previous scene', 'Go to next scene'];
+		const EXPORT = ['Export binder', 'Export again'], VIEWS = ['Show corkboard', 'Show outliner', 'Show manuscript', 'Show timeline', 'Find in binder', 'Find and replace in binder', ...EXPORT], ARRANGE = 'Arrange corkboard by label', FOCUS = 'Toggle focus mode', STEP = ['Go to previous scene', 'Go to next scene'];
 		// snapshots: the binder's, wherever a binder is in view; a scene's own too, where a scene is open
-		const ALL = ['Take a snapshot of the binder', 'Show snapshots of the binder'], SCENE = ['Take a snapshot', 'Rewrite', 'Show snapshots', ...ALL];
+		const ALL = ['Take a snapshot of the binder', 'Show snapshots of the binder'], SCENE = ['Take a snapshot', 'Rewrite', 'Show snapshots', 'Split at headings...', 'Start a paragraph with a tab', ...ALL];
 		await check('nothing open', []);
 		await open(p);
 		await check('a binder’s corkboard', [...VIEWS, 'New scene here', 'Set word count target', ...ALL, ARRANGE]);
@@ -900,7 +900,7 @@ test('phone commands: the palette offers Binders’ commands where they apply an
 		await check('a note in the vault’s root', []);
 		// (a binder that can't be changed can still be looked at: its snapshots are shown, none is taken)
 		await h.open('Future/One.md');
-		await check('a scene of a read-only binder', ['Open binder', ...EXPORT, 'Show snapshots', ALL[1], FOCUS]);
+		await check('a scene of a read-only binder', ['Open binder', ...EXPORT, 'Show snapshots', ALL[1], FOCUS, 'Start a paragraph with a tab']);
 		await open(p, 'Future');
 		await check('a read-only binder’s view', [...VIEWS, ALL[1], ARRANGE]);
 		// a command run from the palette by touch
@@ -918,7 +918,7 @@ test('phone commands: the palette offers Binders’ commands where they apply an
 		await flush(p);
 		t.eq(j((await contents(p)).slice(6, 8)), j(['Part Two/Lights out', 'Part Two/The wreck']), '“Move up” in the explorer moves the note');
 		t.ok(await drawerOpen(p), 'the drawer stays open for the next move');
-		t.ok((await offered()).includes('Undo last move'), 'and “Undo last move” is offered');
+		t.ok((await offered()).includes('Undo last change'), 'and “Undo last change” is offered');
 		await p.ev(`app.commands.executeCommandById('binders:undo-move')`);
 		await p.sleep(800);
 		await flush(p);
@@ -1272,7 +1272,7 @@ test('phone settings: statuses are added, renamed (asking about the notes), reor
 		// property names
 		const props = `[...${TAB}.querySelectorAll('.setting-item:not(.binders-settings-label):not(.binders-settings-status):not(.binders-settings-goal):not(.binders-settings-exports):not(.binders-settings-author):not(.binders-settings-styles) input[type="text"]')]`;
 		const fields = await p.ev(`${props}.map(i => { i.scrollIntoView({ block: 'center' }); return { v: i.value, ph: i.placeholder, r: (${R})(i) }; })`);
-		t.eq(j(fields.map((x) => [x.v, x.ph])), j([['synopsis', 'synopsis'], ['status', 'status'], ['label', 'label'], ['target', 'target'], ['notes', 'notes']]), 'five property names');
+		t.eq(j(fields.map((x) => [x.v, x.ph])), j([['synopsis', 'synopsis'], ['status', 'status'], ['label', 'label'], ['target', 'target'], ['story-date', 'story-date'], ['story-order', 'story-order'], ['notes', 'notes']]), 'seven property names');
 		t.ok(fields.every((x) => x.r[2] >= 200 && x.r[3] >= 40), 'in wide, finger-tall fields');
 		for (const [v, value, why] of [['status', 'synopsis', /“status” is the property for the status/], ['contents', 'synopsis', /Binders keeps “contents” for itself/], ['', 'synopsis', null], ['summary', 'summary', null]]) {
 			await clearNotices(p);
@@ -1311,7 +1311,7 @@ ux('phone settings: a property’s name is typed without the keyboard capitalizi
 	await onDevice(p, PHONE, async () => {
 		await openSettings(p);
 		const fields = await p.ev(`[...${TAB}.querySelectorAll('.setting-item:not(.binders-settings-label):not(.binders-settings-status):not(.binders-settings-goal):not(.binders-settings-exports):not(.binders-settings-author):not(.binders-settings-styles) input[type="text"]')].map(i => ({ value: i.value, autocapitalize: i.getAttribute('autocapitalize'), autocorrect: i.getAttribute('autocorrect') }))`);
-		t.ok(fields.length === 5 && fields.every((f) => /^(none|off)$/.test(f.autocapitalize ?? '')), 'each field turns capitals off: ' + j(fields));
+		t.ok(fields.length === 7 && fields.every((f) => /^(none|off)$/.test(f.autocapitalize ?? '')), 'each field turns capitals off: ' + j(fields));
 	});
 });
 

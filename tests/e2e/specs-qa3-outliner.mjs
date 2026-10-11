@@ -864,6 +864,8 @@ ux('Tab in a cell being edited saves it and stays in the outliner (a base moves 
 // ---------------------------------------------------------------------------------------------------------------
 
 test('keyboard: select all, extend to the end, the menu key, Delete asks and gives the focus back, deleting goes to the trash, Ctrl+Enter opens a tab', withTidy(async (p, h, t) => {
+	// (the vault's own trash, whatever this machine's system trash is: on GitHub's runner "system" means a real trash, outside the vault)
+	await p.ev(`(() => { app.vault.setConfig('trashOption', 'local'); return 1; })()`);
 	await open(p);
 	const a = await nameAt(p, 'Part One/Arrival.md');
 	await p.click(a.x, a.y);

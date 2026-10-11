@@ -57,6 +57,10 @@ async function odd(p, notes) {
 const N = (i) => `Novel/Scene ${String(i).padStart(2, '0')}.md`;
 /** A real click on a section's text (its first line, 100 px in). */
 async function clickIn(p, path, dx = 100) {
+	// (a section below the fold is scrolled to first: where a font is wider than the one these tests were written with, as on
+	// GitHub's runner, the sections above are taller than the window and a click would fall outside it)
+	const moved = await p.ev(`(() => { const m = ${M}, v = m.root.getBoundingClientRect(), r = ${scene(path)}.el.getBoundingClientRect(); if (r.top >= v.top && r.top + 40 <= v.bottom) return false; m.root.scrollTop += r.top - v.top - 20; return true; })()`);
+	if (moved) { await p.sleep(500); await settle(p); }
 	const r = await p.ev(`(() => { const e = ${scene(path)}.el.querySelector('.cm-line, p'); const r = e.getBoundingClientRect(); return { x: r.left + ${dx}, y: r.top + 10 }; })()`);
 	await p.click(r.x, r.y);
 	await p.sleep(150);
@@ -140,7 +144,10 @@ test('BUG: holding ArrowDown through several sections: the caret runs off screen
 	await p.sleep(600);
 	const c = await caret(p);
 	t.ok(onScreen(c), 'the caret is on screen after 60 lines down: ' + J(c));
-	t.ok([N(3), N(4)].includes(c.path), 'and about 60 lines down, in scene 3 or 4: ' + c.path);
+	// (“about 24 lines a scene” is for the font these tests were written with; a wider one, as on GitHub's runner, wraps more,
+	// so the sections that hold the 50th to the 70th line are worked out from the sections' own heights)
+	const want = await p.ev(`(() => { const m = ${M}, lh = parseFloat(getComputedStyle(m.scenes[0].el.querySelector('.cm-line, p')).lineHeight) || 24; let line = 0; const ok = new Set(); for (const s of m.scenes) { const n = Math.round(s.el.getBoundingClientRect().height / lh); for (const k of [50, 60, 70]) if (k >= line && k < line + n) ok.add(s.file.path); line += n; } return [...ok]; })()`);
+	t.ok(want.includes(c.path), `and about 60 lines down, in ${want.map((x) => x.replace(/^.*\//, '')).join(' or ')}: ${c.path}`);
 });
 
 test('BUG: PageDown scrolls the page but leaves the caret behind, off screen', async (p, h, t) => {
@@ -228,7 +235,8 @@ test('UX: opening a note from its title, then Back, returns to the same place', 
 	await p.ev(`app.commands.executeCommandById('app:go-back')`);
 	await p.sleep(900); await settle(p);
 	t.eq(await p.ev(`${VIEW}?.mode`), 'manuscript', 'Back shows the manuscript');
-	t.eq(await topScene(p), before, 'at the same place');
+	const now = await topScene(p);
+	t.ok(now.split('@')[0] === before.split('@')[0] && Math.abs(Number(now.split('@')[1]) - Number(before.split('@')[1])) <= 2, 'at the same place (to a pixel: another font, as on GitHub\u2019s runner, lays the page out a pixel apart): ' + now + ' for ' + before);
 });
 
 test('UX: “New scene here” with the caret in a section adds the section and keeps the manuscript open', async (p, h, t) => {
@@ -425,20 +433,22 @@ test('the section with the caret stays put when the window is resized, the line 
 	await p.sleep(200);
 	t.ok(await focused(p), 'the caret is in a section');
 	const place = () => p.ev(`(() => { const m = ${M}; const s = m.scenes.find(s => s.el.contains(document.activeElement)); return s ? s.file.basename + '@' + Math.round(s.el.getBoundingClientRect().top - m.root.getBoundingClientRect().top) : null; })()`);
+	// (it stays put, to a pixel: another font puts a section's top a pixel off after the page is laid out again, as on GitHub's runner)
+	const near = (a, b) => !!a && !!b && a.split('@')[0] === b.split('@')[0] && Math.abs(Number(a.split('@')[1]) - Number(b.split('@')[1])) <= 2;
 	const before = await place();
 	try {
 		await p.ev(`app.vault.setConfig('readableLineLength', false)`); await p.sleep(800);
-		t.eq(await place(), before, 'readable line length off');
+		t.ok(near(await place(), before), 'readable line length off' + ': ' + await place() + ' for ' + before);
 		await until(p, `${M}.page.getBoundingClientRect().width > 900`, 8000);
 		t.ok(await p.ev(`${M}.page.getBoundingClientRect().width > 900`), 'the page is as wide as the pane');
 		await p.ev(`app.vault.setConfig('readableLineLength', true)`); await p.sleep(800);
-		t.eq(await place(), before, 'and on again');
+		t.ok(near(await place(), before), 'and on again' + ': ' + await place() + ' for ' + before);
 		await p.send('Emulation.setDeviceMetricsOverride', { width: 800, height: 900, deviceScaleFactor: 1, mobile: false }); await p.sleep(900);
-		t.eq(await place(), before, 'a narrow window');
+		t.ok(near(await place(), before), 'a narrow window' + ': ' + await place() + ' for ' + before);
 		await p.send('Emulation.setDeviceMetricsOverride', { width: p.width, height: p.height, deviceScaleFactor: 1, mobile: false }); await p.sleep(900);
-		t.eq(await place(), before, 'and wide again');
+		t.ok(near(await place(), before), 'and wide again' + ': ' + await place() + ' for ' + before);
 		await p.ev(`(() => { require('electron').webFrame.setZoomLevel(2); return 1; })()`); await p.sleep(900);
-		t.eq(await place(), before, 'zoomed in');
+		t.ok(near(await place(), before), 'zoomed in' + ': ' + await place() + ' for ' + before);
 	} finally {
 		await p.ev(`(() => { require('electron').webFrame.setZoomLevel(0); app.vault.setConfig('readableLineLength', true); return 1; })()`);
 		await p.send('Emulation.setDeviceMetricsOverride', { width: p.width, height: p.height, deviceScaleFactor: 1, mobile: false });

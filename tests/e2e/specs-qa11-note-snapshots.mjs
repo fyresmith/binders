@@ -220,6 +220,9 @@ test('a note of only its properties: nothing to take, a rewrite that changes not
 	// the note's tab shut, so the bring back is the closed note’s: byte for byte
 	await p.ev(`(() => { app.workspace.getLeavesOfType('markdown').forEach(l => l.detach()); return 1; })()`);
 	await sleep(p, 300);
+	// (Obsidian itself saves a CRLF note as LF when its tab is closed, with Binders off too: the CRLF is put back, so the bring back is tested on CRLF properties)
+	await writeRaw(p, A, PROPS);
+	await sleep(p, 300);
 	await seed(p, DIR, '2026-09-12 09.15.40 First draft', DRAFT);
 	await dialog(p);
 	await pick(p, 'First draft');

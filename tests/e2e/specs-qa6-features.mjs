@@ -667,7 +667,7 @@ ok('Longform project: split, merge, duplicate and synopsis keep longform.scenes 
 	if (process.env.QA_LOG) writeFileSync(process.env.QA_LOG, JSON.stringify({ log, index: await read(p, LFI), files: Object.keys(await texts(p)).filter((k) => k.startsWith('Longform')) }, null, 1));
 	const after = await texts(p);
 	t.eq(after[LFD + 'Return.md'], undefined, 'Return merged away');
-	t.eq(j(log.map((l) => l[1]).slice(0, 3)), j(['["Harbor",["Ticket office","The crossing"],"Island","Island 2","Return"]', '["Harbor","Harbor 2",["Ticket office","The crossing"],"Island","Island 2","Return"]', '["Harbor","Harbor 2",["Ticket office","The crossing"],"Island","Island 2"]']), 'the list after a split (right after, same level), a duplicate and a merge');
+	t.eq(j(log.map((l) => l[1]).slice(0, 3)), j(['["Harbor",["Ticket office","The crossing"],"Island","Island 2","Return"]', '["Harbor",["Ticket office","The crossing"],"Harbor 2","Island","Island 2","Return"]', '["Harbor",["Ticket office","The crossing"],"Harbor 2","Island","Island 2"]']), 'the list after a split (right after, same level), a duplicate (after the scenes indented under Harbor, so they stay with it: CHANGELOG, “splitting or duplicating a scene puts the new scene after the scenes indented under it”) and a merge');
 	t.ok(after[LFD + 'Island 2.md'].includes(bodyOf(before[LFD + 'Return.md']).trim()), 'Return’s text is in the merged scene');
 	t.eq(bodyOf(after[LFI]), bodyOf(before[LFI]), 'the index note’s text is as it was');
 	t.eq(after[LFD + 'Harbor.md'], before[LFD + 'Harbor.md'], 'Harbor untouched by its duplicate');
@@ -1140,6 +1140,10 @@ ok('Undo of a move after the moved note was merged away (or split, or turned int
 		await clickMenu(p, 'Merge 2 notes'); await sleep(p, 500); await modalButton(p, 'Merge');
 		await until(p, `!app.vault.getAbstractFileByPath(${j(P1 + 'The wreck.md')})`, 5000);
 		await sleep(p, 1000);
+		// Since 0.50 the merge is a history entry of its own and Undo takes it back first (“Undid: merge 2 notes into “Arrival””).
+		// This test is about the move's entry meeting a note that is gone, so the merge's entry is let go, as it is after a restart.
+		t.eq(await p.ev(`${B}.undos.length`), 2, 'the history holds the move and the merge');
+		await p.ev(`${B}.undos.pop(); 1`);
 		const before = await texts(p);
 		await run(p, 'undo-move');
 		await sleep(p, 1200);

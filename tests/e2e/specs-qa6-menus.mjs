@@ -101,7 +101,7 @@ test('card menu, a note: the items, in sections, each with an icon where the oth
 	await context(p, CARD(L + 'Epilogue.md'));
 	const it = await items(p);
 	t.eq(j(it.filter((x) => x.section.startsWith('') && ['open', 'edit', 'props', 'structure', 'order', 'danger'].includes(x.section)).map((x) => x.title)),
-		j(['Open', 'Open in new tab', 'Open to the right', 'Open in new window', 'Rename', 'Edit synopsis', 'Set synopsis from text', 'Snapshots', 'Set status', 'Set label', 'Set target...', 'Duplicate', 'Put in a new folder', 'Include in export', 'Export as', 'Move up', 'Move to', 'Delete']), 'Binders’ items for the last note, in order');
+		j(['Open', 'Open in new tab', 'Open to the right', 'Open in new window', 'Rename', 'Edit synopsis', 'Set synopsis from text', 'Snapshots', 'Set status', 'Set label', 'Set target...', 'Set story date...', 'Duplicate', 'Split at headings...', 'Put in a new folder', 'Include in export', 'Export as', 'Move up', 'Move to', 'Delete']), 'Binders’ items for the last note, in order');
 	for (const x of it.filter((x) => ['open', 'edit', 'props', 'structure', 'order', 'danger'].includes(x.section))) t.ok(x.icon, `“${x.title}” has an icon`);
 	t.ok(it.find((x) => x.title === 'Delete').warning, 'Delete is marked as a warning');
 	t.eq(it[it.length - 1].title, 'Delete', 'Delete is last, after what Obsidian adds');
@@ -715,7 +715,7 @@ test('several selected: the items, and what each does to every one of them', tid
 	await selectTwo();
 	t.eq(j(await titles(p)).includes('Merge 2 notes'), true, 'Merge 2 notes is offered');
 	const it = await items(p);
-	t.eq(j(it.filter((x) => ['edit', 'props', 'structure', 'order', 'danger'].includes(x.section)).map((x) => x.title)), j(['Set synopsis from text', 'Take a snapshot of 2 notes', 'Set status', 'Set label', 'Set target...', 'Merge 2 notes', 'New folder from selection', 'Include in export', 'Export as', 'Move to', 'Delete 2 items']), 'Binders’ items for two notes');
+	t.eq(j(it.filter((x) => ['edit', 'props', 'structure', 'order', 'danger'].includes(x.section)).map((x) => x.title)), j(['Set synopsis from text', 'Take a snapshot of 2 notes', 'Set status', 'Set label', 'Set target...', 'Set story date...', 'Merge 2 notes', 'New folder from selection', 'Include in export', 'Export as', 'Move to', 'Delete 2 items']), 'Binders’ items for two notes');
 	for (const x of ['Rename', 'Edit synopsis', 'Duplicate', 'Open', 'Move up', 'Move down']) t.ok(!it.some((y) => y.title === x), `no “${x}” for several`);
 	await closeMenus(p);
 	// status for both
@@ -1159,7 +1159,7 @@ test('outliner add-column “+” menu: every built-in column, the notes’ prop
 	await outl(p);
 	await click(p, `${LEAF} .binders-outliner-th.mod-add`);
 	const it = await items(p);
-	t.eq(j(it.filter((x) => x.section === 'built-in').map((x) => x.title)), j(['Label', 'Status', 'Words', 'Target', 'Progress', 'Export', 'Export as', 'Notes', 'Created', 'Modified']), 'the built-in columns');
+	t.eq(j(it.filter((x) => x.section === 'built-in').map((x) => x.title)), j(['Label', 'Status', 'Words', 'Target', 'Story date', 'Progress', 'Export', 'Export as', 'Notes', 'Created', 'Modified']), 'the built-in columns');
 	t.eq(j(it.filter((x) => x.checked).map((x) => x.title)), j(['Label', 'Status', 'Words']), 'ticked: the three shown');
 	t.ok(it.some((x) => x.section === 'props'), 'and a property the notes have (plotlines)');
 	await choose(p, 'Target');
@@ -1332,7 +1332,7 @@ test('manuscript: a section title’s menu (the card’s), New note after this, 
 	};
 	await ctxTitle('Prologue');
 	const first = await items(p);
-	t.eq(j(first.filter((x) => ['open', 'edit', 'props', 'structure', 'order', 'new', 'danger'].includes(x.section)).map((x) => x.title)), j(['Open', 'Open in new tab', 'Open to the right', 'Open in new window', 'Rename', 'Set synopsis from text', 'Snapshots', 'Set status', 'Set label', 'Set target...', 'Duplicate', 'Put in a new folder', 'Include in export', 'Export as', 'Move down', 'Move to', 'New note after this', 'Delete']), 'the manuscript title’s own items');
+	t.eq(j(first.filter((x) => ['open', 'edit', 'props', 'structure', 'order', 'new', 'danger'].includes(x.section)).map((x) => x.title)), j(['Open', 'Open in new tab', 'Open to the right', 'Open in new window', 'Rename', 'Set synopsis from text', 'Snapshots', 'Set status', 'Set label', 'Set target...', 'Set story date...', 'Duplicate', 'Split at headings...', 'Put in a new folder', 'Include in export', 'Export as', 'Move down', 'Move to', 'New note after this', 'Delete']), 'the manuscript title’s own items');
 	await choose(p, 'New note after this');
 	await until(p, `document.activeElement?.closest('.binders-manuscript-scene')?.classList.contains('is-fresh') || !!document.querySelector('${LEAF} .binders-manuscript-title [contenteditable], ${LEAF} .binders-manuscript-title input, ${LEAF} .binders-edit-field')`, 4000);
 	await p.sleep(400);
@@ -1871,7 +1871,7 @@ test('palette: with nothing open, only the commands that need nothing are offere
 	t.eq(Object.values(av).filter((v) => typeof v === 'string').length, 0, 'no command throws when asked if it applies: ' + j(Object.entries(av).filter(([, v]) => typeof v === 'string')));
 	t.ok(on.includes('new-binder'), 'New binder is offered');
 	// (the same four as on a phone: “phone commands: the palette offers…” in specs-qa5-nav)
-	t.eq(j([...on].sort()), j(['import-scrivener', 'new-binder', 'show-contents', 'show-inspector']), 'what makes a binder (new, or from Scrivener) and the two sidebar tabs, and nothing else');
+	t.eq(j([...on].sort()), j(['import-manuscript', 'import-scrivener', 'new-binder', 'show-contents', 'show-inspector']), 'what makes a binder (new, or from Scrivener or a manuscript) and the two sidebar tabs, and nothing else');
 	t.ok(!on.some((x) => ['open-binder', 'show-corkboard', 'show-outliner', 'show-manuscript', 'make-binder', 'new-scene', 'set-target', 'split-scene', 'take-snapshot', 'move-up', 'move-down'].includes(x)), 'and the ones that need a note or a view are not: ' + on.join(', '));
 	const before = await p.ev(`app.vault.getRoot().children.filter(f => f.children).map(f => f.path).sort()`);
 	t.ok(await runCommand(p, 'binders:new-binder') !== undefined, 'New binder runs');

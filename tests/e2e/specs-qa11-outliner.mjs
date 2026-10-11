@@ -96,7 +96,7 @@ test('2,000 rows: typing the start of a name goes to that row, past 1,500 others
 	await make(p, 'Long', j(BIG));
 	await open(p, 'Long');
 	await clickAt(p, nameAt('Long/N0000.md'));
-	for (const ch of 'N01500') { await p.key(ch); }
+	for (const ch of 'N1500') { await p.key(ch); }
 	await p.sleep(500);
 	let f = await focus(p);
 	t.eq(f.path, 'Long/N1500.md', 'the typed start of the name is found among 2,000 rows');
@@ -130,6 +130,9 @@ test('2,000 rows in 40 folders: Collapse all and Expand all finish quickly and l
 	for (let g = 0; g < 40; g++) for (let k = 0; k < 50; k++) items.push({ path: `G${pad(g, 2)}/N${pad(k, 3)}.md`, text: 'Words.\n' });
 	await make(p, 'Groups', j(items));
 	await open(p, 'Groups');
+	// (the row is the 360th, far below the window: it is brought into sight first, or the click falls on nothing and the focus starts on the page)
+	await p.ev(`(() => { document.querySelector('${rowSel('Groups/G07/N010.md')}').scrollIntoView({ block: 'center' }); return 1; })()`);
+	await p.sleep(300);
 	await clickAt(p, nameAt('Groups/G07/N010.md'));
 	const menu = async (title) => {
 		const at = await p.at('.workspace-leaf.mod-active [aria-label="More options"]');
@@ -144,6 +147,7 @@ test('2,000 rows in 40 folders: Collapse all and Expand all finish quickly and l
 	const took = Date.now() - t0;
 	t.eq(await p.ev(`document.querySelectorAll('${R}').length`), 40, 'Collapse all leaves the 40 folders, and none of their notes');
 	t.ok(took < 1500, `Collapse all took ${took} ms`);
+	await p.sleep(500);
 	const f = await focus(p);
 	t.ok(!f.body, 'the focus is not thrown to nothing (' + JSON.stringify(f) + ')');
 	await menu('Expand all');
@@ -190,7 +194,7 @@ test('a filter: Ctrl+A selects only the rows shown; Delete counts those; Cancel 
 	t.ok(!(await exists(p, 'Filt/Alpha.md')) && !(await exists(p, 'Filt/Gamma.md')) && !(await exists(p, 'Filt/Epsilon.md')), 'the three shown are gone');
 	for (const n of ['Beta', 'Delta', 'Zeta']) t.eq(await read(p, `Filt/${n}.md`), before[n], `“${n}” (hidden by the filter) is byte for byte what it was`);
 	const c = await contents(p, 'Filt/Filt.md');
-	t.eq(j(c), j(['Beta.md', 'Delta.md', 'Zeta.md']), 'and the binder’s contents list only what is left');
+	t.eq(j(c), j(['Beta', 'Delta', 'Zeta']), 'and the binder’s contents list only what is left');
 });
 
 test('a filter: Alt+Down moves the selected row past the next row shown, and the hidden notes keep their order on disk', async (p, h, t) => {
@@ -204,8 +208,8 @@ test('a filter: Alt+Down moves the selected row past the next row shown, and the
 	t.eq(j(await rowPaths(p)), j(['Filt/Gamma.md', 'Filt/Alpha.md', 'Filt/Epsilon.md']), 'Alpha is now below Gamma, the next row shown');
 	const c = await contents(p, 'Filt/Filt.md');
 	t.eq(c.length, 6, 'all six notes are still listed');
-	t.eq(j(c.filter((x) => x.startsWith('Beta') || x.startsWith('Delta') || x.startsWith('Zeta'))), j(['Beta.md', 'Delta.md', 'Zeta.md']), 'the hidden notes keep their order');
-	t.eq(j(c), j(['Beta.md', 'Gamma.md', 'Alpha.md', 'Delta.md', 'Epsilon.md', 'Zeta.md']), 'Alpha was written after Gamma, and the rest did not move');
+	t.eq(j(c.filter((x) => x.startsWith('Beta') || x.startsWith('Delta') || x.startsWith('Zeta'))), j(['Beta', 'Delta', 'Zeta']), 'the hidden notes keep their order');
+	t.eq(j(c), j(['Beta', 'Gamma', 'Alpha', 'Delta', 'Epsilon', 'Zeta']), 'Alpha was written after Gamma, and the rest did not move');
 	for (const n of FILT_ORDER) t.ok(await exists(p, `Filt/${n}.md`), `“${n}” is still a file`);
 });
 
@@ -297,6 +301,7 @@ test('fifteen folders deep: Left and Right fold and open; Alt+Left and Alt+Right
 	const deepest = 'Deep/' + names.join('/') + '/15.md';
 	const lvl = await p.ev(`[...document.querySelectorAll('${R}')].map(r => +r.getAttribute('aria-level'))`);
 	t.ok(lvl.includes(15) && Math.max(...lvl) === 16, 'the folder at depth 15 is at level 15, its note at level 16 (levels ' + j([...new Set(lvl)].sort((a, b) => a - b)) + ')');
+	await p.ev(`(() => { document.querySelector('${rowSel(deepest)}')?.scrollIntoView({ block: 'center' }); return 1; })()`); await p.sleep(250); // (the 30th row is below the window: a click there would fall on nothing)
 	await clickAt(p, nameAt(deepest));
 	const fold = 'Deep/' + names.slice(0, 14).join('/');
 	// Left on a note goes to the folder above; Left again folds that folder, the note goes with the view
@@ -306,12 +311,13 @@ test('fifteen folders deep: Left and Right fold and open; Alt+Left and Alt+Right
 	t.eq((await rowPaths(p)).length, 29, 'Left folds the folder at depth 15: its note goes from view');
 	await p.key('ArrowRight'); await p.sleep(250);
 	t.eq((await rowPaths(p)).length, 30, 'Right opens it again');
+	await p.ev(`(() => { document.querySelector('${rowSel(deepest)}')?.scrollIntoView({ block: 'center' }); return 1; })()`); await p.sleep(250); // (the 30th row is below the window: a click there would fall on nothing)
 	await clickAt(p, nameAt(deepest));
 	await p.key('ArrowLeft', 'alt'); await p.sleep(500);
 	await flush(p);
 	const outside = 'Deep/' + names.slice(0, 14).join('/') + '/15.md';
 	t.ok(await exists(p, outside) && !(await exists(p, deepest)), 'Alt+Left takes the note out of its folder, into the one above (' + outside + ')');
-	t.ok((await contents(p, 'Deep/Deep.md')).some((x) => x.endsWith('F14/15.md')), 'the binder lists it at its new place');
+	t.ok((await contents(p, 'Deep/Deep.md')).some((x) => x.endsWith('F14/15')), 'the binder lists it at its new place');
 	t.eq(await read(p, outside), 'Level 15.\n', 'and its text is unchanged');
 	await p.key('ArrowRight', 'alt'); await p.sleep(500);
 	await flush(p);
@@ -323,9 +329,9 @@ test('fifteen folders deep: Left and Right fold and open; Alt+Left and Alt+Right
 
 test('hand-written statuses and labels that the settings don’t list show as written, sort, and are not rewritten by opening', async (p, h, t) => {
 	const src = j([
-		{ path: 'Odd/One.md', text: '---\nstatus: Revised?\nlabel: Mauve\n---\nOne.\n' },
-		{ path: 'Odd/Two.md', text: '---\nstatus: Done\nlabel: Red\n---\nTwo.\n' },
-		{ path: 'Odd/Three.md', text: '---\nstatus: 2nd draft\n---\nThree.\n' }]);
+		{ path: 'One.md', text: '---\nstatus: Revised?\nlabel: Mauve\n---\nOne.\n' },
+		{ path: 'Two.md', text: '---\nstatus: Done\nlabel: Red\n---\nTwo.\n' },
+		{ path: 'Three.md', text: '---\nstatus: 2nd draft\n---\nThree.\n' }]);
 	await make(p, 'Odd', src);
 	const before = await Promise.all(['One', 'Two', 'Three'].map((n) => read(p, `Odd/${n}.md`)));
 	await open(p, 'Odd', { columns: [{ id: 'label' }, { id: 'status' }] });

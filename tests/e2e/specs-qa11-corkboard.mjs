@@ -134,6 +134,8 @@ test('a new title typed with F2, another note of the folder renamed from outside
 	await openView(p, PART_ONE);
 	const c = await at(p, ARRIVAL);
 	await p.click(c.x, c.y);
+	// (the click was on the card's middle, its synopsis, which one click edits: Escape ends that, and the card keeps the selection and the focus)
+	await p.key('Escape');
 	await p.key('F2');
 	await until(p, `!!document.querySelector('${ACTIVE} .binders-edit-field')`);
 	await selectField(p);
@@ -154,6 +156,7 @@ test('a case-only rename by F2 (“Storm warning” to “STORM WARNING”) is s
 	const before = await contents(p);
 	const c = await at(p, STORM);
 	await p.click(c.x, c.y);
+	await p.key('Escape');
 	await p.key('F2');
 	await until(p, `!!document.querySelector('${ACTIVE} .binders-edit-field')`);
 	await selectField(p);
@@ -198,6 +201,7 @@ test('500 cards: the board opens in time, End and Alt+Up three times move the la
 	t.eq(j(base.slice(0, 3)), j([S + '/Note 001.md', S + '/Note 002.md', S + '/Note 003.md']), 'in order from the first');
 	const c = await at(p, S + '/Note 001.md');
 	await p.click(c.x, c.y);
+	await p.key('Escape'); // (the click was on the synopsis, which one click edits: Escape ends that, the card stays selected and focused)
 	await p.key('End');
 	await p.sleep(200);
 	t.eq(await p.ev(`document.activeElement?.dataset?.path ?? null`), S + '/Note 500.md', 'End goes to the last card');
@@ -242,6 +246,7 @@ test('Select all, then Alt+Down: no card can move past the last, so nothing move
 	const orderBefore = await cards(p);
 	const c = await at(p, BOARD[0]);
 	await p.click(c.x, c.y);
+	await p.key('Escape'); // (the click was on the synopsis, which one click edits: Escape ends that, the card stays selected and focused)
 	await p.key('a', 'ctrl');
 	await p.sleep(200);
 	t.eq((await selected(p)).length, 4, 'four cards are selected');
@@ -260,7 +265,7 @@ test('Enter on a folder’s card goes in; Obsidian’s own Back returns to the b
 	await p.key('Enter');
 	await until(p, `app.workspace.getMostRecentLeaf().getViewState().state?.folder === ${j(PART_ONE)}`);
 	t.eq(await p.ev(`app.workspace.getMostRecentLeaf().getViewState().state?.folder`), PART_ONE, 'Enter goes into the folder');
-	await p.ev(`(async () => { const l = app.workspace.getMostRecentLeaf(); await l.goBack(); })().then(() => 1)`);
+	await p.ev(`app.commands.executeCommandById('app:go-back')`);
 	await until(p, `app.workspace.getMostRecentLeaf().getViewState().state?.folder === 'The Lighthouse'`);
 	t.eq(j(await cards(p)), j(BOARD), 'Back shows the binder’s board');
 	await until(p, `document.activeElement?.dataset?.path === ${j(PART_ONE)}`, 2000);

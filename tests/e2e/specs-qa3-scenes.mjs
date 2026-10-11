@@ -175,7 +175,15 @@ test('split: wherever the cursor is in the text (mid-word, mid-line, a code bloc
 		const r = await splitNote(p, text, { before });
 		t.eq(r.made.join(), P1 + 'The keeper 2.md', `${name}: one new note, named by counting on`);
 		const body = split(text).body;
-		t.eq(rejoined(r), seam(body, body.indexOf(before)), `${name}: every character is in one of the two notes, in order`);
+		let got = rejoined(r);
+		if (name === 'in a code block') {
+			// (CHANGELOG, 0.50: “A split inside a code block now closes the fence in the first note and opens it again in the new one, so each half’s fences are in pairs.”)
+			const [a, b] = got.split('|'), fences = (s) => (s.match(/^```/gm) ?? []).length;
+			t.ok(a.endsWith('\n```') && b.startsWith('```\n'), `${name}: the fence is closed in the first note and opened again in the new one`);
+			t.ok(fences(a) % 2 === 0 && fences(b) % 2 === 0, `${name}: each half’s fences are in pairs`);
+			got = a.replace(/\n```$/, '') + '|' + b.replace(/^```\n/, '');
+		}
+		t.eq(got, seam(body, body.indexOf(before)), `${name}: every character is in one of the two notes, in order`);
 		t.eq(split(r.first).yaml, split(text).yaml, `${name}: the first note's properties are untouched`);
 		if (split(text).yaml) t.eq(r.second.startsWith('---\nstatus: draft\n---\n'), true, `${name}: the new note has the properties but the synopsis`);
 		else t.ok(!r.second.startsWith('---'), `${name}: no properties made up for a note without any`);
@@ -384,6 +392,8 @@ test('UX: a split re-points links to headings and blocks that moved to the new n
 // =====================================================================================================================
 
 test('merge: five notes from three folders, clicked in a jumbled order, join in binder order; Cancel changes nothing', async (p, h, t) => {
+	// (the vault's own trash, whatever this machine's system trash is: on GitHub's runner "system" means a real trash, outside the vault)
+	await p.ev(`(() => { app.vault.setConfig('trashOption', 'local'); return 1; })()`);
 	const before = await texts(p), t0 = trashed(p);
 	await openView(p);
 	const said = await mergeUI(p, [P1 + 'Arrival.md', P1 + 'Storm warning.md'], { confirm: 'Cancel' });
