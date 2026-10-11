@@ -7104,3 +7104,13 @@ body:not(.is-phone) .binders-snapshots .sync-history-content {
 .binders-empty-action {
 	margin-top: var(--size-4-2);
 }
+
+/* ---- Pinned properties in the inspector (src/inspector/pinned-props.ts) ----
+   The rows are Obsidian's own property rows, so nearly nothing is said here: only what a row of ours has that a note's hasn't. */
+.binders-pinned-key {
+	cursor: var(--cursor);
+}
+
+.binders-pinned-hint {
+	padding: var(--size-4-2) var(--size-4-1);
+}

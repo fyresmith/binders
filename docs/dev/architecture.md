@@ -318,6 +318,7 @@ The full table (what each internal is, how it is detected, the fallback, the tes
 | `src/view/BinderView.ts` (`showSearch`), `src/view/editable-embed.ts` (`onSearch`), `src/focus/find.ts` (`hookSearch`), `src/find/highlight.ts` | A view's `showSearch(replace)` that Obsidian's search commands call, the embed's and a note tab's replaced on the instance; the classes of Obsidian's find bar; `CSS.highlights` (a web API, missing on iOS before 17.2: marks instead). |
 | `src/paragraphs/mode.ts`, `src/paragraphs/language.ts` | The state of Obsidian's Markdown mode (`indentation`, `indentationDiff`, `list`, `quote`) and its token `hmd-indented-code`; that the editor's language is a stream language. |
 | `src/longform.ts` | `app.plugins.plugins` (is Longform running). |
+| `src/inspector/property-widgets.ts` | `app.metadataTypeManager.getTypeInfo` and the widgets it returns (`type`, `icon`, `name`, `render`): Obsidian's own editor for a property's type. Binders' own field (`property-fields.ts`) when they are missing. |
 | `src/inspector/scene-pane.ts`, `src/inspector/contents-pane.ts`, `styles.css` | No API: the class names of Obsidian's own sidebar views, for their look (`metadata-property`, `tree-item`, `pane-empty`). |
 | `src/view/manuscript.ts`, `src/view/drag.ts`, `src/focus/focus.ts`, `styles.css` | A few class names of Obsidian's own window, each with a fallback. |
 

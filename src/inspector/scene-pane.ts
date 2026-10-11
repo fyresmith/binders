@@ -16,6 +16,7 @@ import { FolderSnapshotsModal, takeFolder } from '../view/binder-snapshots';
 import { WordCounter } from '../view/word-counter';
 import { wordsIn, wordsLabel } from '../view/words';
 import type { Follow, Target } from './follow';
+import { PinnedRows } from './pinned-props';
 import { ROLE_NAMES, rolesOf, type Played } from './roles';
 
 /* The inspector's pane on what is in hand: a note, a folder (its data is in its folder note), the binder, or several
@@ -48,10 +49,13 @@ export class ScenePane {
 	private reading = new Map<string, boolean>();
 	/** A binder's roles, as read at one revision of the data. */
 	private roles: { at: string; of: Map<string, Played> } | null = null;
+	/** The writer's own properties, pinned by the binder (pinned-props.ts). */
+	private pinned: PinnedRows;
 
 	constructor(parent: HTMLElement, private plugin: BindersPlugin, private follow: Follow, private owner: Component) {
 		this.el = parent.createDiv({ cls: 'binders-inspector' });
 		this.words = new WordCounter(plugin, () => this.again());
+		this.pinned = new PinnedRows(plugin, { noteOf: (f) => this.noteOf(f), noteFor: (f) => this.noteFor(f), settled: () => this.editing(false) });
 		// a snapshot taken, named or deleted anywhere: this note's list is read again
 		const stale = (path: string) => { if (plugin.binders.inSnapshots(path)) { this.snaps.clear(); for (const k of this.reading.keys()) this.reading.set(k, true); this.again(); } };
 		owner.registerEvent(plugin.app.vault.on('create', (f) => stale(f.path)));
@@ -78,6 +82,11 @@ export class ScenePane {
 					// another item: what's being typed is saved first, to the note it was typed for; refused, it stays
 					await commitAll(this.el);
 					if (editingIn(this.el)) { this.stale = true; continue; }
+				}
+				// (a pinned row's editor in use: the same, and letting go of it gives what was typed to the note it was opened on)
+				if (this.pinned.busy(this.el)) {
+					if (key === this.key) { this.stale = true; continue; }
+					this.pinned.release(this.el);
 				}
 				// (the cursor moved within the same section, the page scrolled: nothing to draw)
 				const from = `${this.follow.rev}|${this.tick}`;
@@ -200,6 +209,8 @@ export class ScenePane {
 
 		// whether it's exported, and as what (the book itself is neither: it is what's exported)
 		if (!items.includes(binder.folder)) this.exporting(rows, ctx, items, pick);
+		// the writer's own properties, pinned by this binder
+		if (rows.parentElement) this.pinned.draw(rows, rows.parentElement, binder, items);
 
 		// notes on it: never part of the manuscript
 		if (one) {

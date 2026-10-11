@@ -1,3 +1,4 @@
+import { drawValue, hasWidgets, kindOf } from './inspector/property-widgets';
 import { foundExtension } from './find/highlight';
 import { Keymap, MarkdownView, Notice, Platform, Plugin, TFile, TFolder, addIcon, normalizePath, type Menu, type PaneType, type TAbstractFile, type WorkspaceLeaf } from 'obsidian';
 import { BinderStore, type Binder } from './binders';
@@ -87,6 +88,9 @@ export default class BindersPlugin extends Plugin {
 	inspect: Follow;
 	/** Each binder's revision tasks: the note they are kept in and what it says (revision/store.ts). */
 	revision: Revision;
+	/** Obsidian's own editors for a property's value, with Binders' own field when they can't be drawn
+	    (inspector/property-widgets.ts): here for the tests to draw each type through it and without it. */
+	readonly propertyEditors = { draw: drawValue, kindOf, available: hasWidgets };
 	/** Tab paragraphs and first-line indents in a binder’s notes (paragraphs/paragraphs.ts). */
 	paragraphs: Paragraphs;
 	/** The binder view's modes by id: the view mounts one into its content (see view/mode.ts). */

@@ -17,6 +17,9 @@ contents:                 # the order of everything in the binder, as paths rela
   - Epilogue
 target: 50000             # optional: a word count goal for the whole binder
 synopsis: A keeper, a newcomer, and the night the light went out.
+inspector:                # optional: the properties pinned to the inspector, in order
+  - pov
+  - characters
 ---
 Anything you like: notes on the book, links, a to-do list.
 ```
@@ -26,6 +29,7 @@ Anything you like: notes on the book, links, a to-do list.
 | `binder` | number | Format version, `1`. Binders refuses (and never rewrites) a binder note whose version is newer than it knows, and one whose value it doesn't understand (text, `0`, a fraction): such a binder is listed, read only, and says why. A bare `binder:` or `binder: true` means 1. |
 | `contents` | list of text | The binder's order. Paths use `/`, are relative to the binder folder, have no `.md`, and folders end in `/`. |
 | `target` | number | Optional word count goal for the binder, shown in the view's toolbar. |
+| `inspector` | list of text | Optional: the names of the properties the binder pins to the inspector, as rows under Label and Status, in this order (`pov`, `characters`, a place, any property of the writer's). It is view setup, not the writer's text, and no format change: a Binders that doesn't know it leaves it alone. Read tolerantly: a lone text is one name, a name once whatever its case, anything that isn't text is ignored; written without dropping what isn't understood (a number or a map in the list stays where it is) and taken away when its last name is. Never written in a binder of a newer format, nor in a Longform project's index note (a Longform project pins nothing). Binders' own names (`status`, `label`, `synopsis`, `export`, `contents`, a book's `title` and the rest) can't be pinned: they have rows or fields of their own. A property's *type* is Obsidian's (`.obsidian/types.json`), not kept here. Changing the list is not in the undo history; changing a value in a pinned row is. |
 | `synopsis`, `status`, `label` | | The binder's own card data, as for scenes (below). |
 | `revision` | link | Optional. The binder's revision note, as a link: `revision: "[[Revision]]"`. Written when the first revision task is added (see "Revision tasks", below); a writer can point it at a note they already keep. Not part of the format version: a Binders that doesn't know it leaves it as it finds it. |
 

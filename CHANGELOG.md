@@ -27,6 +27,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - Progress: Show progress opens a window on a binder's writing over time, read from its record: the book's words as they grew, every day written on, the hours and days you write in, when each part was written, and its records. A record's first two weeks are shown as they fill.
 - Filter by any property: status, label, characters, story date, target and more, with all, any or none of the conditions, in a popover like the one in Bases. A line under the toolbar says what is shown and how to get everything back.
 - Revision tasks: Add revision task notes what a scene needs while you write, with the passage you had selected, in an ordinary note named Revision in the binder: a list of checkboxes, each linked to its scene, that works with Binders off. The note is never part of the book. A pane to work through them comes next.
+- Pin your own properties (POV, characters, a place, any other) to the inspector, and edit them there with Obsidian's own property editors, for one note: each edit is one step of Undo, and it never changes the manuscript's text. A binder keeps its list of pins, and a menu on each row moves or unpins it. Editing several notes at once comes next.
 
 ### Changed
 
