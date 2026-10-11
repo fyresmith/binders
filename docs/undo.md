@@ -33,6 +33,10 @@ renamed or added since stays as it is.
 - any other property you edit in a column of the outliner;
 - **Set synopsis from text**.
 
+**Revision tasks**
+
+- **Add revision task**, and ticking a task in the Revision pane or with **Mark revision task done**. A tick is taken back only if the line is still exactly as the tick left it. An added task is taken away only if it and its quoted passage are still the last lines of the revision note and exactly as written; redo adds it again at the end. Undoing the first task leaves the note, empty, and `revision` in the binder note. Otherwise nothing is written and a notice says why. See [Revision tasks](revision-tasks.md#undo).
+
 **Renames**
 
 - a note or a folder renamed on a card, in a row, on a lane card, in the manuscript's title or a folder's heading.

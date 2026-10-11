@@ -17,6 +17,8 @@ What you type is saved when you leave the field, move to another scene, or close
 A folder can have notes too. Select the folder's card or row and type in the same place. The binder itself can have
 them as well: with nothing selected at the top of the binder, the inspector shows the binder.
 
+Something to fix in a scene, with a box to tick when it is fixed, is a [revision task](revision-tasks.md) instead: tasks are kept in one note for the whole book and visited in order.
+
 ## Seeing them for many scenes
 
 The outliner has a **Notes** column. Add it with **+** at the end of the header row. See [Outliner](outliner.md).

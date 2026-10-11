@@ -191,6 +191,38 @@ try {
 	await p.sleep(900);
 	await rest();
 	await shot('inspector');
+
+	// revision tasks: three tasks about the scenes, the Revision pane in the sidebar, and the prompt that adds one
+	await p.ev(`(async () => {
+		const b = ${PL}.binders.binderOf(app.vault.getAbstractFileByPath('The Lighthouse')), at = (n) => app.vault.getAbstractFileByPath('The Lighthouse/' + n + '.md');
+		await ${PL}.revision.add(b, at('Part One/Arrival'), 'Say why nobody meets her', 'She had been told a man would meet her.');
+		await ${PL}.revision.add(b, at('Part One/The keeper'), '“Nineteen years” is said twice in two pages');
+		await ${PL}.revision.add(b, at('Part Two/The wreck'), 'Red or white? Ask someone who has fired one');
+		await ${PL}.revision.add(b, null, 'Check every tide against the almanac');
+		const ws = app.workspace, inspector = ws.getLeavesOfType('binders-inspector')[0];
+		ws.rightSplit.expand();
+		const leaf = ws.getRightLeaf(false);
+		await leaf.setViewState({ type: 'binders-revision', active: true });
+		ws.revealLeaf(leaf);
+	})().then(() => 1)`);
+	await p.sleep(1200);
+	await shot('revision-pane');
+	await command('add-revision-task');
+	await until(`!!document.querySelector('.modal-container .prompt-input')`, 'the prompt');
+	await p.type('Who told her a man would meet her?');
+	await p.sleep(300);
+	await shot('revision-capture');
+	await p.key('Escape');
+	await p.sleep(300);
+	await p.ev(`(async () => {
+		app.workspace.getLeavesOfType('binders-revision').forEach((l) => l.detach());
+		const b = ${PL}.binders.binderOf(app.vault.getAbstractFileByPath('The Lighthouse')), note = ${PL}.revision.noteOf(b);
+		await app.fileManager.processFrontMatter(b.note, (fm) => { delete fm.revision; });
+		if (note) await app.vault.delete(note);
+		const inspector = app.workspace.getLeavesOfType('binders-inspector')[0];
+		if (inspector) app.workspace.revealLeaf(inspector);
+	})().then(() => 1)`);
+	await p.sleep(500);
 	await p.ev(`(() => { app.workspace.rightSplit.collapse(); app.workspace.leftSplit.expand(); return 1; })()`);
 	await p.sleep(600);
 

@@ -55,6 +55,7 @@ The supply boat left Mara on the jetty with two cases and a letter she had not o
 | `target` | A word count target |
 | `story-date` | When the scene happens, shown in the outliner, inspector and [timeline](timeline.md) |
 | `story-order` | The order among scenes with the same story date; see [Story date](story-date.md) |
+| `revision` | In the binder note only: a link to the binder's [revision note](revision-tasks.md), `"[[Revision]]"`, written with the first revision task. You can point it at a note of your own |
 | `notes` | Your [notes on the scene](scene-notes.md), typed in the inspector. Left out of exported books; carried as document notes in a Scrivener project |
 | `export` | `false` leaves the note out when the binder is exported. (`compile: false`, its name in earlier versions, still does, and no note is rewritten to change it) |
 | `export-as` | The part the note plays in an exported book: `part`, `chapter`, `scene`, `front matter` or `back matter` |

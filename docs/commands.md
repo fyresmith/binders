@@ -53,6 +53,16 @@ file in the vault has **Import as a binder...**: the same as **Import a manuscri
 |---|---|---|
 | **Start a paragraph with a tab** | Puts a tab at the start of the line the cursor is in, or of each paragraph in what is selected. A line that has its tab is left; so are headings, lists, quotes and code. Made for a phone, which has no Tab key. See [Paragraphs](paragraphs.md) | The editor of a note of a binder, or a section of the manuscript, with **Start a paragraph with a tab** on in settings |
 
+## Revision tasks
+
+| Command | What it does | Where it applies |
+|---|---|---|
+| **Add revision task** | Opens a prompt: type the task; the scene in hand is what it is about, with any selected words kept as its passage. Also in a card's or row's menu and the view's **More options**. No default key. See [Revision tasks](revision-tasks.md) | A binder view, or a note of a binder |
+| **Show revision tasks** | Opens the Revision pane: the unfinished tasks under their scenes in the order of the book | Anywhere |
+| **Go to next revision task**, **Go to previous revision task** | Walks the unfinished tasks in the order of the book | A binder view, or a note of a binder |
+| **Mark revision task done** | Ticks the task the walk is on | The same |
+| **Open revision note** | Opens the binder's revision note | A binder that has one |
+
 ## Snapshots
 
 | Command | What it does | Where it applies |

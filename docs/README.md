@@ -43,6 +43,7 @@ New here? Read [Installation](installation.md), then [Getting started](getting-s
 | [Labels, statuses and targets](labels-statuses-targets.md) | Colors, stages of a draft, word count targets, the filter |
 | [Story date](story-date.md) | When a scene happens in the story: setting it, sorting by it, seeing it on the timeline, and putting a book in story order |
 | [Scene notes](scene-notes.md) | Your own notes on a scene, kept out of the book |
+| [Revision tasks](revision-tasks.md) | Noting what a scene needs while you draft, and working through the unfinished tasks in the order of the book |
 | [Splitting, merging and grouping](splitting-and-merging.md) | Split, merge, duplicate, folders from a selection, ungroup |
 | [Snapshots](snapshots.md) | Setting a scene's text aside before you rewrite it, and keeping the whole binder as it stood |
 | [Progress](progress.md) | How the book has grown: its words over time, the days you wrote, each part's story, and what Binders records to show it |

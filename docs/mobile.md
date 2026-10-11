@@ -44,6 +44,10 @@ the rest. A tap on the empty board ends it.
 
 The selection box drawn on empty space is for a mouse or a pen. A finger on empty space scrolls.
 
+## Revision tasks
+
+**Add revision task...** is in a card's or row's menu and in the view's **More options**. The prompt is Obsidian's own, with the field at the bottom of the screen. **Show revision tasks** opens the Revision pane as a page of the right drawer; a tap on a box ticks the task, and a tap on a scene goes there and closes the drawer. See [Revision tasks](revision-tasks.md).
+
 ## The toolbar
 
 On a phone the toolbar's buttons are icons. **New** is a plus sign.
