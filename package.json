@@ -16,6 +16,8 @@
     "e2e": "node tests/e2e/run.mjs",
     "e2e:all": "node tests/e2e/run-all.mjs",
     "ship": "node scripts/ship.mjs",
+    "release": "node scripts/release.mjs",
+    "suite": "node scripts/suite.mjs",
     "memo": "node scripts/memo.mjs",
     "banner": "node scripts/banner/build.mjs",
     "version": "node version-bump.mjs && git add manifest.json versions.json"

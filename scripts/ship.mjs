@@ -1,43 +1,38 @@
-// Bumps the version, adds a CHANGELOG entry and commits what is staged, in one step. Every commit ships through here.
+// Commits what is staged, with its entry for the CHANGELOG. Every commit goes through here. It does not change the
+// version: that happens only at a release (`npm run release`, AGENTS.md).
 //   git add <your files>
-//   npm run ship -- <patch|minor|major> "Commit title" --added "…" --changed "…" --fixed "…" --removed "…" [--trailer "Key: value"]…
-// With --release the commit is the one to tag: manifest.json and versions.json are given the new version too. Without
-// it they stay at the last release's, because Obsidian and BRAT read manifest.json on main and look for a published
-// release of exactly that version: a manifest ahead of the releases breaks installing.
-// patch: fixes and small refinements. minor: new features or behaviour. major: breaking changes (file format, removed
-// features, settings that no longer work). See AGENTS.md.
+//   npm run ship -- "Commit title" --added "…" --changed "…" --fixed "…" --removed "…" [--trailer "Key: value"]…
+//   npm run ship -- "Commit title" --internal [--trailer …]
+// The entries go under "## Unreleased" at the top of CHANGELOG.md, in the order commits are made. --internal is for a
+// commit nothing in it is noticed by a writer (docs, tests, tooling, the roadmap, a refactor): no entry. A commit with
+// neither an entry nor --internal is refused. The title does not start with a version.
 import { execFileSync } from 'child_process';
 import { readFileSync, writeFileSync } from 'fs';
-import { installAll } from './install-to-vault.mjs';
+import { addUnreleased } from './changelog-lib.mjs';
 
-const args = process.argv.slice(2), release = args.includes('--release');
-const [bump, title, ...rest] = args.filter((a) => a !== '--release');
-if (!['patch', 'minor', 'major'].includes(bump) || !title) {
-	console.error('Usage: npm run ship -- <patch|minor|major> "Commit title" --added "…" [--changed|--fixed|--removed "…"] [--trailer "Key: value"] [--release]');
-	process.exit(1);
-}
-const SECTIONS = { added: 'Added', changed: 'Changed', fixed: 'Fixed', removed: 'Removed' };
+const USAGE = 'Usage: npm run ship -- "Commit title" (--added|--changed|--fixed|--removed "…")… | --internal  [--trailer "Key: value"]';
+const [title, ...rest] = process.argv.slice(2);
+if (!title || title.startsWith('--')) { console.error(USAGE); process.exit(1); }
+if (/^v?\d+\.\d+\.\d+\b/.test(title)) { console.error('The title does not start with a version: the version is given at a release.'); process.exit(1); }
 const notes = {}, trailers = [];
-for (let i = 0; i < rest.length; i += 2) {
+let internal = false;
+for (let i = 0; i < rest.length; i++) {
 	const k = rest[i].replace(/^--/, ''), v = rest[i + 1];
+	if (k === 'internal') { internal = true; continue; }
+	if (!['added', 'changed', 'fixed', 'removed', 'trailer'].includes(k) || !rest[i].startsWith('--')) { console.error(`Unknown option ${rest[i]}\n${USAGE}`); process.exit(1); }
 	if (!v) { console.error(`Missing text after ${rest[i]}`); process.exit(1); }
-	if (k === 'trailer') trailers.push(v);
-	else if (SECTIONS[k]) (notes[k] ||= []).push(v);
-	else { console.error(`Unknown option ${rest[i]}`); process.exit(1); }
+	if (k === 'trailer') trailers.push(v); else (notes[k] ||= []).push(v);
+	i++;
 }
-if (!Object.keys(notes).length) { console.error('Describe the change for the CHANGELOG with --added, --changed, --fixed or --removed.'); process.exit(1); }
+const entries = Object.keys(notes).length;
+if (internal && entries) { console.error('--internal means no entry for the CHANGELOG: drop it, or drop the entries.'); process.exit(1); }
+if (!internal && !entries) { console.error('Describe the change for the CHANGELOG with --added, --changed, --fixed or --removed, or say --internal (docs, tests, tooling, the roadmap, a refactor: nothing a writer notices).'); process.exit(1); }
 const git = (...a) => execFileSync('git', a, { encoding: 'utf8' }).trim();
 if (!git('diff', '--cached', '--name-only')) { console.error('Nothing is staged. Stage your changes with git add first.'); process.exit(1); }
 
-// (npm's "version" script is what writes the manifest and versions.json: it runs for a release only)
-execFileSync('npm', ['version', bump, '--no-git-tag-version', ...(release ? [] : ['--ignore-scripts'])], { stdio: 'ignore' });
-const version = JSON.parse(readFileSync('package.json', 'utf8')).version;
-installAll(); // the vaults have the manifest as it is now
-const date = new Date().toISOString().slice(0, 10);
-const entry = `## ${version} (${date})\n\n` + Object.entries(SECTIONS).filter(([k]) => notes[k]).map(([k, h]) => `### ${h}\n\n${notes[k].map((n) => `- ${n}`).join('\n')}\n`).join('\n') + '\n';
-const log = readFileSync('CHANGELOG.md', 'utf8'), at = log.indexOf('\n## ');
-writeFileSync('CHANGELOG.md', at < 0 ? log.trimEnd() + '\n\n' + entry : log.slice(0, at + 1) + entry + log.slice(at + 1));
-git('add', 'CHANGELOG.md', 'package.json', 'package-lock.json', ...(release ? ['manifest.json', 'versions.json'] : []));
-git('commit', '-q', '-m', `${version}: ${title}` + (trailers.length ? '\n\n' + trailers.join('\n') : ''));
+if (entries) {
+	writeFileSync('CHANGELOG.md', addUnreleased(readFileSync('CHANGELOG.md', 'utf8'), notes));
+	git('add', 'CHANGELOG.md');
+}
+git('commit', '-q', '-m', title + (trailers.length ? '\n\n' + trailers.join('\n') : ''));
 console.log(git('log', '--oneline', '-1'));
-if (release) console.log(`Release commit: tag it ${version} (no "v") and push the tag; the workflow publishes the release.`);

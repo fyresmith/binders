@@ -1,5 +1,7 @@
 name: Release
 
+# Runs only from a tag that `npm run release` pushed (AGENTS.md, "Releases": the maintainer calls a release). No other
+# trigger belongs here: a push to main, a green suite or a schedule never cuts a release.
 on:
   push:
     tags:
@@ -9,6 +11,7 @@ permissions:
   contents: write
   id-token: write # signs the build provenance
   attestations: write
+  actions: read # to ask whether the e2e suite passed (the gate below)
 
 jobs:
   release:
@@ -21,6 +24,13 @@ jobs:
         with:
           node-version: 20
           cache: npm
+      # the e2e suite must have passed for the commit this release was made from (its parent: the release commit changes
+      # only the version files and the changelog), unless the release was made with --skip-suite, whose reason is in the
+      # commit's message and goes into the notes
+      - name: Check the e2e suite passed for the tested commit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/release-gate.mjs "${GITHUB_REF_NAME}" "${RUNNER_TEMP}/skipped.txt"
       - run: npm ci
       - run: npm run lint
       - run: npm test
@@ -43,10 +53,10 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           flags="--latest"
-          # the notes are CHANGELOG.md from this version down to the previous release's
-          prev="$(git tag --sort=-v:refname | grep -vx "${GITHUB_REF_NAME}" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | head -1)"
-          # (with no earlier release, this version's entry alone: up to the next "## " heading)
-          awk -v v="## ${GITHUB_REF_NAME}" -v p="## ${prev}" '$0 == v || index($0, v " ") == 1 { f = 1; print; next } f && p == "## " && /^## / { exit } p != "## " && ($0 == p || index($0, p " ") == 1) { exit } f' CHANGELOG.md > notes.md
+          # the notes are this version's section of CHANGELOG.md: from its "## x.y.z" heading to the next "## "
+          awk -v v="## ${GITHUB_REF_NAME}" '/^## / { if (f) exit; if ($0 == v || index($0, v " ") == 1) f = 1 } f' CHANGELOG.md > notes.md
           [ -s notes.md ] || echo "See CHANGELOG.md for what's new." > notes.md
+          # (a release made without the suite says so, with the reason)
+          if [ -s "${RUNNER_TEMP}/skipped.txt" ]; then printf '\n> Published without the e2e suite. Reason: %s\n' "$(cat "${RUNNER_TEMP}/skipped.txt")" >> notes.md; fi
           gh release create "${GITHUB_REF_NAME}" main.js manifest.json styles.css \
             $flags --title "${GITHUB_REF_NAME}" --notes-file notes.md
