@@ -19,6 +19,18 @@ export abstract class FollowingView extends ItemView {
 		// Mod-Enter saves a synopsis or the notes, as in the binder view (Obsidian's own Mod-Enter would take it)
 		this.scope = new Scope(this.app.scope);
 		this.scope.register(['Mod'], 'Enter', () => !commitFocused());
+		// Mod+Z takes back the last change made to the binder this follows, as in the binder view, when no text is being typed
+		// (Mod+Shift+Z and Mod+Y make it again). In a field, undo stays the text's own.
+		const undo = (redo: boolean) => () => {
+			const el = this.contentEl.doc.activeElement, folder = this.follow.target.binder?.folder;
+			if (!folder || (el?.instanceOf(HTMLElement) && (el.isContentEditable || el.matches('input, textarea, .cm-content')))) return true;
+			if (!this.plugin.binders.undoable(folder, redo)) return true;
+			void this.plugin.undoMove(folder, redo);
+			return false;
+		};
+		this.scope.register(['Mod'], 'z', undo(false));
+		this.scope.register(['Mod', 'Shift'], 'z', undo(true));
+		this.scope.register(['Mod'], 'y', undo(true));
 	}
 
 	async onOpen(): Promise<void> {

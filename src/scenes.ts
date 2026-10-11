@@ -7,6 +7,7 @@ import { COMPILED_KEPT } from './settings-data';
 import { untab } from './paragraphs/text';
 import { saveEditors, saveTab } from './view/editable-embed';
 import { trashPhrase, updatesLinks } from './view/internals';
+import type { SplitHost } from './history/split';
 import type { Kept } from './history/types';
 import { confirm } from './view/modals';
 import { readNotes, writeKeys, writeNotes } from './view/props';
@@ -119,7 +120,7 @@ export async function splitScene(plugin: BindersPlugin, editor: Editor, file: TF
 		for (let i = 0; i < 15 && !(same = lf(await app.vault.read(file)) === lf(editor.getValue())); i++) await sleep(100);
 		if (!same) { new Notice('This note is being changed somewhere else. Try again in a moment.'); return null; }
 	} catch (e) { say(e); return null; }
-	const text = editor.getValue(), offset = editor.posToOffset(editor.getCursor('from')), { front, yaml } = parts(text);
+	const text = editor.getValue(), offset = editor.posToOffset(editor.getCursor('from')), { front, yaml } = parts(text), raw = await app.vault.adapter.read(file.path).catch(() => text);
 	if (offset < front.length) { new Notice('Click in the note’s text, where the new note should begin.'); return null; }
 	const s = { head: text.slice(0, offset), tail: text.slice(offset) };
 	const tail = tidyTail(s.tail, offset > 0 && !/[\r\n]/.test(text[offset - 1]));
@@ -154,8 +155,12 @@ export async function splitScene(plugin: BindersPlugin, editor: Editor, file: TF
 		const moved = linkTargets(tail);
 		const linked = moved.headings.size || moved.blocks.size ? await repoint(app, file, made, (sub) => pointsAt(sub, moved), [made]).catch((e): TFile[] => { say(e); return []; }) : [];
 		// (an undo in the editor right after this takes the whole split back: see `splitUndo`)
-		splits.push({ first: file, made, path: made.path, title, before: text, head, back: s.tail, content, moved, linked, want: 'two' });
+		const made1: Split = { first: file, made, path: made.path, title, before: text, head, back: s.tail, raw, content, moved, linked, want: 'two' };
+		splits.push(made1);
 		if (splits.length > SPLITS_KEPT) splits.shift();
+		// (and in the binder's history, where Undo last change takes it back by the same rules)
+		const binder = store.binderOf(file);
+		if (binder && !binder.problem) store.history.record({ note: binder.note, label: `Split “${file.basename}”`, steps: [{ kind: 'split', items: [made1] }] });
 		return made;
 	} catch (e) { say(e); return null; }
 }
@@ -183,6 +188,8 @@ interface Split {
 	/** The first note's whole text as its editor had it before the split, and after; and the second half as it stood
 	    in the first note. */
 	before: string; head: string; back: string;
+	/** The first note's file as it was on the disk before the split (its line endings: the editor's text has none). */
+	raw: string;
 	/** What the split wrote to the new note. */
 	content: string;
 	/** The headings and blocks that went to the new note, and the notes whose links to them were pointed there. */
@@ -221,6 +228,57 @@ export function splitUndo(plugin: BindersPlugin): Extension {
 			break;
 		}
 	});
+}
+
+/** How the binder's history takes a split back and makes it again: through the same `settleSplit`, one at a time with
+    the editor's own undo, so each split is settled by whichever asks first and the other finds it done. Asked of an
+    editor that has the note open (a tab), it is the editor's undo or redo that does it, one step in its history, as the
+    writer's Ctrl+Z would; otherwise the first note's file is written, only if it is still as the split left it. */
+export function splitHistory(plugin: BindersPlugin): SplitHost {
+	const { app } = plugin, all = (items: object[]) => items as Split[];
+	const here = (s: Split): boolean => splits.includes(s) && app.vault.getAbstractFileByPath(s.first.path) === s.first;
+	const editorOf = (s: Split): Editor | null => {
+		for (const leaf of app.workspace.getLeavesOfType('markdown')) { const v = leaf.view; if (v instanceof MarkdownView && v.file === s.first) return v.editor; }
+		return null;
+	};
+	return {
+		alive: (item, redo) => { const s = item as Split; return here(s) && !s.kept && (redo ? s.want === 'one' && !s.made : s.want === 'two' && !!s.made); },
+		async check(items, redo) {
+			for (const s of all(items)) {
+				await saveOpen(app, s.made ? [s.first, s.made] : [s.first]);
+				const cur = lf(await app.vault.read(s.first));
+				if (cur !== lf(redo ? s.before : s.head)) throw new Error(`“${s.first.basename}” has been changed since the split${redo ? ' was undone' : ''}, so it stays as it is.`);
+				if (!redo) {
+					const made = s.made;
+					if (!made || app.vault.getAbstractFileByPath(made.path) !== made || made.path !== s.path || (await app.vault.read(made)) !== s.content) throw new Error(`“${made?.basename ?? s.title}” has been changed since the split, so the split stays.`);
+				}
+			}
+		},
+		async apply(items, redo) {
+			for (const s of all(items)) {
+				const target = redo ? s.head : s.before, editor = editorOf(s);
+				let done = false;
+				if (editor && lf(editor.getValue()) === lf(redo ? s.before : s.head)) {
+					// (the editor's own undo or redo: its listener settles the split, and what it makes of the text is checked)
+					try { if (redo) editor.redo(); else editor.undo(); } catch { /* an editor that has gone: the file is written instead */ }
+					await settling;
+					done = lf(editor.getValue()) === lf(target);
+				}
+				if (!done) {
+					await app.vault.process(s.first, (cur) => (lf(cur) === lf(redo ? s.before : s.head) ? (cur.includes('\r\n') ? target.replace(/\r?\n/g, '\r\n') : target) : cur));
+					s.want = redo ? 'two' : 'one';
+					const run = () => settleSplit(plugin, s, null);
+					settling = settling.then(run, run);
+					await settling;
+				}
+				// (a note with Windows line endings goes back with them: the editor's text has none)
+				if (!redo && s.raw.includes('\r\n') && !s.raw.startsWith('\uFEFF')) {
+					await saveOpen(app, [s.first]);
+					await app.vault.process(s.first, (cur) => (lf(cur) === lf(s.raw) && cur !== s.raw ? s.raw : cur));
+				}
+			}
+		},
+	};
 }
 
 /** Brings a split's notes in line with what its first note's editor says: one note (the new one trashed, if it's

@@ -79,6 +79,17 @@ into it: their text is then in both places, never less. A note that linked to a 
 keeps its changes and its links, and a notice says how many. A merge too big to keep (32 MB) isn't remembered. Redo merges
 again, if the notes are still as the undo left them.
 
+**Splits**
+
+- **Split scene at cursor** (and with a selection as the title). **Undo last change** puts the first note back as it was
+and takes the new note to the trash; **Redo** splits again. The editor's own undo (Ctrl+Z in the note you split) still does
+the same, and the two never both act on one split: whichever comes first settles it, and the other finds it done.
+
+Both go by the same rules: the first note must still be exactly as the split left it (what you typed and haven't saved is
+saved first, and counts), and the new note exactly as the split wrote it. If either has changed, nothing is changed and a
+notice says which (the editor's own undo, in that case, leaves the new note and says the text is in both). A note with Windows
+line endings goes back with them.
+
 A property goes back to what it was, in the place it stood among the note's other properties. Nothing else in the
 note is touched.
 
@@ -112,8 +123,6 @@ every view of it: the corkboard, the outliner and the manuscript; a change made 
 
 - **Text.** Undo of text is the editor's own, in each note. Typing in a note that is open is never touched by an
   undo of a property: it is saved first, and kept.
-- **A split.** A split is undone in the note you split, with the editor's undo. See
-  [Splitting, merging and grouping](splitting-and-merging.md#undoing-a-split).
 - **Hidden files** (names that start with a dot, such as `.DS_Store`) in a deleted folder aren't kept.
 - **Renames made in Obsidian's file explorer or a tab's title.** They are not made through Binders.
 

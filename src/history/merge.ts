@@ -41,7 +41,7 @@ export class MergeHandler implements Handler<MergeStep, { changed: boolean }> {
 		if (redo) {
 			if (!same(await this.bytes(first), step.before)) throw new Error(`“${name}” has been changed since the merge was undone, so the notes are not merged again.`);
 			for (const k of step.gone) {
-				if (this.app.vault.getAbstractFileByPath(k.file.path) !== k.file || !same(await this.bytes(k.file as TFile), k.files[0].bytes)) throw new Error(`“${k.name.replace(/\.md$/, '')}” has been changed since the merge was undone, so the notes are not merged again.`);
+				if (this.app.vault.getAbstractFileByPath(k.file.path) !== k.file || !(k.file instanceof TFile) || !same(await this.bytes(k.file), k.files[0].bytes)) throw new Error(`“${k.name.replace(/\.md$/, '')}” has been changed since the merge was undone, so the notes are not merged again.`);
 			}
 			return { changed: false };
 		}

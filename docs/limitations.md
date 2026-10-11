@@ -53,8 +53,7 @@ Phone and tablet support is new and has had little testing on real devices. See 
 ## Undo and redo
 
 - **Undo last change** covers moves, a folder made around notes or ungrouped, and properties set by hand (a synopsis,
-  a status, a label, a target, notes, export settings), renames made in a view, notes and folders made by hand, copies of notes, deletes and merges. It doesn't cover a copy of a folder, or renames made in Obsidian's file explorer.
-  A split is undone in its note, with the editor's own undo.
+  a status, a label, a target, notes, export settings), renames made in a view, notes and folders made by hand, copies of notes, deletes, merges and splits (a split also by the editor's own undo). It doesn't cover a copy of a folder, or renames made in Obsidian's file explorer.
 - It remembers the last hundred changes of each binder, while Obsidian is open.
 - A property is taken back only if it is still what the change left it; one that was changed since (by another
   program, say) stays, and a notice says which.

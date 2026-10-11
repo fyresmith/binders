@@ -12,7 +12,7 @@ import type { ModeFactory } from './view/mode';
 import { outliner } from './view/outliner';
 import { manuscript } from './view/manuscript';
 import { ConvertModal } from './longform-convert';
-import { mergeScenes, splitScene, splitUndo } from './scenes';
+import { mergeScenes, splitHistory, splitScene, splitUndo } from './scenes';
 import { Focus } from './focus/focus';
 import { desktop } from './export/desktop';
 import { followRename } from './export/export';
@@ -171,6 +171,7 @@ export default class BindersPlugin extends Plugin {
 		} });
 		// (an undo in the editor right after a split takes back all of it, the new note too)
 		this.registerEditorExtension(splitUndo(this));
+		this.binders.splitHost = splitHistory(this);
 		this.registerEditorExtension(foundExtension);
 		for (const [id, name, replace] of [['find', 'Find in binder', false], ['find-replace', 'Find and replace in binder', true]] as const) {
 			this.addCommand({ id, name, icon: replace ? 'replace' : 'search', checkCallback: (checking) => {

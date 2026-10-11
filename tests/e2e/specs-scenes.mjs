@@ -986,7 +986,7 @@ test('Ctrl+Z right after “Split scene at cursor” in a note’s tab undoes th
 		await flush(p);
 		const list = await contents(p);
 		t.eq(list[list.indexOf('Part One/The keeper') + 1], 'Part One/The keeper 2', '(split: the new note is right after)');
-		t.eq(await p.ev(`${B}.undoable('The Lighthouse')`), null, 'a split is not a move: “Undo last move” has nothing to take back');
+		t.eq(await p.ev(`${B}.undoable('The Lighthouse')`), 'Split “The keeper”', 'a split is in the binder’s history: “Undo last change” offers it (and the editor’s own undo, here, does it)');
 		await p.key('z', 'ctrl');
 		t.ok(await gone(p, K2), 'Ctrl+Z: the new note is gone');
 		t.ok(await diskIs(p, K, TWO), 'and the note has its whole text again: ' + j(await read(p, K)));

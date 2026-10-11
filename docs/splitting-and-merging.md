@@ -14,8 +14,9 @@ The text from the cursor on moves into a new note right after this one.
 
 ### Undoing a split
 
-Undo in the note you split (Ctrl+Z, or Cmd+Z on macOS) takes the whole split back: the text returns and the new note
-goes to the trash. Redo splits again.
+Undo in the note you split (Ctrl+Z, or Cmd+Z on macOS), or **Undo last change** (the command, the toolbar's Undo, or
+Ctrl+Z in the binder view when you aren't typing), takes the whole split back: the text returns and the new note goes to
+the trash. Redo splits again. See [Undo and redo](undo.md).
 
 - If you have already edited, renamed or moved the new note, it stays, and a notice says the text is then in both.
 - This works only while Obsidian stays open and Binders stays on. After a restart, or once the note's own undo

@@ -100,7 +100,7 @@ These aren't commands, and work when the binder view has the keyboard:
 
 | Key | What it does |
 |---|---|
-| Ctrl+Z, Ctrl+Shift+Z (Cmd on macOS) | Undo and redo the last change, when you aren't typing |
+| Ctrl+Z, Ctrl+Shift+Z (Cmd on macOS) | Undo and redo the last change, when you aren't typing. Also in the inspector and the contents, for the binder they follow |
 | F2 | Rename |
 | Delete | Delete, after asking |
 | Shift+F10 | Open the menu |

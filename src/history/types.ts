@@ -57,7 +57,11 @@ export interface MergeStep { kind: 'merge'; first: TFile; before: ArrayBuffer; m
 /** Thrown by a step's apply when the writer says no to what was asked: nothing was changed, the entry stays. */
 export class Declined extends Error {}
 
-export type Step = OrderStep | PropsStep | RenameStep | CreateStep | RemoveStep | MergeStep;
+/** A split made by hand: the splits it made (src/scenes.ts's own records: one for a split at the cursor, several for a
+    command that splits a note in many places). */
+export interface SplitStep { kind: 'split'; items: object[] }
+
+export type Step = OrderStep | PropsStep | RenameStep | CreateStep | RemoveStep | MergeStep | SplitStep;
 export type StepKind = Step['kind'];
 
 /** One thing done by hand, in the binder whose note is `note`. `bytes`: what it keeps in memory beyond its labels

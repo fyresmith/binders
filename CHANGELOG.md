@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.63.0 (2026-10-11)
+
+### Added
+
+- Undo last change, and the toolbar’s Undo, now take back a split, and Ctrl+Z works in the inspector and the contents for the binder they follow.
+
 ## 0.62.0 (2026-10-11)
 
 ### Added
