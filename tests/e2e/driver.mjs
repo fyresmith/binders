@@ -162,6 +162,11 @@ export async function launch({ vault = VAULT, theme = 'light', width = 1440, hei
 		// all there is to find it by, so it is said: the file, the line, the value and the first frames of the stack)
 		if (d.method === 'Runtime.exceptionThrown') {
 			const x = d.params.exceptionDetails, said = x.exception?.description || x.text;
+			// (one exception is not anybody's code: V8 itself throws the string "illegal access", with no script and no frames,
+			// when a page it is tearing down is still asked something. GitHub's runners log it as Obsidian's settings open
+			// and shut (seen 2026-10-11, in six tests that open the settings; never on a developer's machine). Exactly that, and only with no
+			// frame at all, is let go: anything thrown from code has a frame)
+			if (x.exception?.type === 'string' && x.exception.value === 'illegal access' && !(x.stackTrace?.callFrames?.length) && !x.lineNumber && !x.columnNumber) return;
 			const what = x.exception && !x.exception.description ? ` [${x.exception.type}${x.exception.subtype ? ' ' + x.exception.subtype : ''}${x.exception.value !== undefined ? ': ' + JSON.stringify(x.exception.value) : ''}]` : '';
 			const where = x.exception?.description ? '' : ` at ${x.url || '(no url)'}:${x.lineNumber}:${x.columnNumber}` + (x.stackTrace?.callFrames ?? []).slice(0, 4).map((f) => ` < ${f.functionName || '(anonymous)'} ${f.url}:${f.lineNumber}`).join('');
 			errors.push('exception: ' + said + what + where);
