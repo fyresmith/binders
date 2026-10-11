@@ -5665,6 +5665,40 @@ body:not(.is-phone) .binders-snapshots .sync-history-content {
 	text-overflow: ellipsis;
 }
 
+/* Putting the preview right by hand: a row's menu button (seen on hover, on the row the keyboard is on, and always on a
+   phone), and a note's paragraphs, each with the way to start a note at it. */
+.binders-import-tree .binders-import-more {
+	margin-inline-start: auto;
+	flex: 0 0 auto;
+	opacity: 0;
+}
+
+.binders-import-tree .tree-item-self:is(:hover, :focus-visible, :focus-within, .is-active) .binders-import-more {
+	opacity: 1;
+}
+
+.is-phone .binders-import-tree .binders-import-more {
+	opacity: 1;
+}
+
+.binders-import-para .binders-import-start {
+	display: block;
+	height: auto;
+	margin: 0 0 var(--size-4-2) auto;
+	padding: var(--size-2-1) var(--size-4-2);
+	font-size: var(--font-ui-smaller);
+	opacity: 0;
+}
+
+.binders-import-para:is(:hover, :focus-within) .binders-import-start,
+.is-phone .binders-import-para .binders-import-start {
+	opacity: 1;
+}
+
+.is-phone .binders-import-para .binders-import-start {
+	min-height: var(--input-height);
+}
+
 /* Why the binder can't be made as it is named, under the name. It takes no room while there is nothing to say. */
 .binders-import .binders-import-why {
 	min-height: 0;

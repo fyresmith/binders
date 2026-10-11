@@ -44,6 +44,22 @@ On the right is the binder's list. Click a note to read it as it will be. On a p
 
 Nothing is made until you choose **Import**. Closing the dialog before that leaves the vault as it was.
 
+## Putting the list right by hand
+
+Binders' guess is not always yours. In the list on the right, each row has a menu: the button at its end (always there on a
+phone, where a long press works too), a right click, or the menu key with the row focused.
+
+- **Join with the one before**: the row goes into the note or scene before it. Its heading, if it had one, is a line
+  of that text.
+- **Make this a chapter**, **a scene** or **a part**.
+- **Rename...**: a name of your own. A note renamed from a heading starts with that heading as a line; for a folder, it is the
+  first line of its first note. Nothing is lost by a new name.
+
+And in a note's text, each paragraph after the first has **Start a note here**, which cuts the text there.
+
+What you do is kept when you change anything on the left (where chapters start, scene breaks, scene names). It is
+only kept for as long as the dialog is open, and only changes where the text is cut: no word is dropped or repeated by it.
+
 ## How chapters are found
 
 Binders tries these in order, and uses the first that finds two or more chapters. You can choose another.

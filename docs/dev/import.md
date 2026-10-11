@@ -12,7 +12,7 @@ second dialog. The manual page for writers is `docs/import-manuscript.md`. The p
 | 0 | The shared plumbing: `src/import/plan.ts`, `readZip` in `source.ts`, `markdown.ts`, `src/view/import-window.ts` over an `ImportJob` | Built |
 | 1 | A Markdown or plain text file, or a note of the vault, as a new binder | Built |
 | 2 | A Word `.docx` as a new binder (from a file, or a `.docx` of the vault from its menu or "Choose from this vault...") | Built. The reader is `src/docx/`; the importer is `src/import/docx.ts` |
-| 3 | Merge, split and rename in the preview | Not built. The dialog has the seam: `ImportJob.rows` and the plan's `Cut`s |
+| 3 | Merge, split and rename in the preview | Built: `Edits`, `actionsFor` and `applyAction` in `manuscript.ts`; `ImportJob.rowActions`, `paragraphs`, `startHere` in the dialog |
 | later | `.odt`, `.rtf`; "Split at headings..." for a note already in a binder (it changes that note: it waits for the undo history's split step) | Not built |
 
 ## The pipeline
@@ -198,3 +198,25 @@ the italics, bold and strike it had. By design it cannot return straight quotes 
 tag lines or the notes' names. A book is not compared for chapters and formatting when it has one chapter with subheadings
 (read as chapters by its subheadings), a footnote marked twice (export sets the second mark as a digit), or no chapters; and
 bold is not compared where a table's header row is (export adds it). The words are compared in every case.
+
+## Putting the preview right (`Edits`, `src/import/manuscript.ts`)
+
+The writer's changes are kept as overrides over the detector's cuts, so a changed dropdown replans without losing them:
+`Edits = { cuts: Map<unit, 'part' | 'chapter' | 'scene' | 'none'>, names: Map<key, string> }`. `applyEdits` puts them over `detect`'s
+cuts (`'none'` takes a cut away: its heading, if it was a title, is then a line of the text before it). A heading that stays a
+title leaves the text; one made a scene stays in it, so no change drops a word. A row of the plan carries `at` (the unit of its
+own cut), `start` (the first unit of its text), `key` (the cut, else minus one minus the first unit), `level` and `units` (what
+its text is, for the preview's per-paragraph "Start a note here"; `prefix` is a heading line the plan made). `actionsFor(row)`
+says what can be done to it, `applyAction` returns the new edits.
+
+- A renamed note keeps its heading as its first line (`# heading`, with `PlannedNote.heading` set); a folder's heading, when it
+  isn't the folder's name (renamed, or too long or odd to be one), is the first line of its first note. (Step 1 only said
+  so, and lost the words past a long heading's hundred characters; fixed here.)
+- A scene made after a part and before any chapter is a chapter of that part.
+- Cuts before the first chapter split the front matter.
+- The edits are keyed by unit, so they are dropped when the source is read again differently (a Word file's tracked
+  changes settled the other way).
+- The preview draws a note paragraph by paragraph (300 at most; the rest as one text) so each can have its button.
+- `tests/import-edits.test.ts` holds each action by hand, and 120 seeded runs of one to six random actions on a note and on a
+  Word file, each checked to leave every word in order, every file inside the folder, no path twice.
+

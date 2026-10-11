@@ -1,9 +1,9 @@
 import type { BindersSettings } from '../settings-data';
 import { STRUCTURES, type Structure } from '../export/model';
 import { MATTER, NUMBER } from '../export/roles';
-import { detect, type Choices, type Cut, type Found } from './detect';
+import { detect, type Choices, type Cut, type Found, type Level } from './detect';
 import { escapeMarkdown } from './markdown';
-import { inBinder, key, link, note, safeName, type ImportPlan } from './plan';
+import { inBinder, key, link, note, safeName, type ImportPlan, type PlannedNote } from './plan';
 import { MAX_BYTES, MAX_FILES, TOO_BIG } from './source';
 import type { Scan } from './text';
 
@@ -40,6 +40,47 @@ export interface ManuscriptOptions {
 	choices: Partial<Choices>;
 	/** Scenes are named by their first words, or "Scene 1", "Scene 2". */
 	scenes: 'words' | 'numbers';
+	/** What the writer has put right by hand, over what was found (it survives a change of any choice above). */
+	edits?: Edits;
+}
+
+/** The writer's changes to the plan, kept over the detector's cuts so changing a choice doesn't throw them away: a cut
+    made, changed or taken away at a unit, and a name for a row (by its key). */
+export interface Edits { cuts: Map<number, Level | 'none'>; names: Map<number, string> }
+export const noEdits = (): Edits => ({ cuts: new Map(), names: new Map() });
+export type Action = { kind: 'join' } | { kind: 'make'; level: Level } | { kind: 'rename'; name: string } | { kind: 'start'; unit: number };
+/** What can be done to a row. */
+export function actionsFor(row: PlannedNote): ('join' | Level | 'rename')[] {
+	const out: ('join' | Level | 'rename')[] = [];
+	if (row.key === undefined) return out;
+	if (row.at !== undefined && row.level) out.push('join');
+	if (row.start !== undefined || row.at !== undefined) for (const l of ['chapter', 'scene', 'part'] as const) if (row.level !== l) out.push(l);
+	out.push('rename');
+	return out;
+}
+/** The edits after an action, as a new set: none of them can drop or repeat a word, since each only moves where the text is cut. */
+export function applyAction(edits: Edits, row: PlannedNote, action: Action): Edits {
+	const next: Edits = { cuts: new Map(edits.cuts), names: new Map(edits.names) };
+	if (action.kind === 'join') { if (row.at !== undefined) next.cuts.set(row.at, 'none'); }
+	else if (action.kind === 'make') { const at = row.at ?? row.start; if (at !== undefined) next.cuts.set(at, action.level); }
+	else if (action.kind === 'start') next.cuts.set(action.unit, 'scene');
+	else if (row.key !== undefined) { if (action.name.trim()) next.names.set(row.key, action.name.trim()); else next.names.delete(row.key); }
+	return next;
+}
+/** The detector's cuts with the writer's put over them. A heading that stays a title leaves the text; one that becomes a
+    scene stays in it (a scene is named by its first words), so no change drops a word. */
+function applyEdits(found: Cut[], units: readonly { heading: number | null; text: string; raw?: string }[], edits: Edits | undefined): Cut[] {
+	if (!edits || !edits.cuts.size) return found;
+	const out = new Map(found.map((c) => [c.at, c]));
+	for (const [i, v] of edits.cuts) {
+		const u = units[i];
+		if (!u) continue;
+		if (v === 'none') { out.delete(i); continue; }
+		const old = out.get(i), titled = v !== 'scene' && (u.heading !== null || old?.by === 'title' || old?.by === 'page');
+		const marker = old?.by === 'break' && old.drop;
+		out.set(i, { at: i, level: v, by: old?.by ?? 'break', title: titled ? (old && old.by !== 'break' && old.title ? old.title : u.heading !== null ? u.text.trim() : (u.raw ?? u.text).trim()) : '', drop: titled || marker });
+	}
+	return [...out.values()].sort((a, b) => a.at - b.at);
 }
 
 const tokensOf = (s: string): string => (s.normalize('NFC').match(/[\p{L}\p{N}\p{M}]+/gu) ?? []).join(' ').toLowerCase();
@@ -70,16 +111,18 @@ export function firstWords(text: string, max = 40): string {
 	return (at > max / 2 ? cut.slice(0, at) : cut.slice(0, max)).replace(/[\s,;:–—-]+$/, '');
 }
 
-interface Scene { from: number; to: number }
-interface Chapter { title: string; heading: string | null; scenes: Scene[] }
-interface Part { title: string; heading: string; own: Scene | null; chapters: Chapter[] }
+interface Scene { from: number; to: number; at?: number }
+/** `heading`: null for one the writer made at a paragraph (named by its first words), "" for a numbered heading with no text. */
+interface Chapter { title: string; heading: string | null; scenes: Scene[]; at?: number }
+interface Part { title: string; heading: string | null; own: Scene | null; chapters: Chapter[]; at: number }
 
 export function planManuscript(read: ManuscriptRead, o: ManuscriptOptions): { plan: ImportPlan; found: Found; title: string | null } {
 	const { scan } = read, { units, text } = scan;
 	const name = safeName(o.name), root = o.parent ? `${o.parent}/${name}` : name;
 	const research = `${root}/${RESEARCH}`, researchNote = `${research}/${RESEARCH}.md`, originals = `${research}/${ORIGINALS}`, binderNote = `${root}/${name}.md`;
 	const plan: ImportPlan = { name, files: new Map(), folders: [], notes: [], warnings: [], said: [], labels: [], statuses: [], sceneCount: 0, snapshotCount: 0, trashCount: 0 };
-	const { found, cuts } = detect(units, o.choices);
+	const { found, cuts: detected } = detect(units, o.choices);
+	const cuts = applyEdits(detected, units, o.edits);
 
 	// ---- what is said ----
 	const lines = new Set<string>(), about: { path: string; name: string; text: string }[] = [];
@@ -131,20 +174,27 @@ export function planManuscript(read: ManuscriptRead, o: ManuscriptOptions): { pl
 	};
 	const has = (s: Scene): boolean => piece(s) !== '';
 
-	const makeNote = (path: string, title: string, body: string, isFolder: boolean, heading?: string) => {
+	interface Meta { at?: number; start?: number; key?: number; level?: 'part' | 'chapter' | 'scene'; units?: [number, number]; prefix?: string }
+	const makeNote = (path: string, title: string, body: string, isFolder: boolean, heading?: string, meta: Meta = {}) => {
 		put(path, note({}, body));
-		plan.notes.push({ path, title, body, folder: isFolder, depth: path.slice(root.length + 1).split('/').length - (isFolder ? 1 : 0), out: false, status: '', ...(heading !== undefined ? { heading } : {}) });
+		const row: PlannedNote = { path, title, body, folder: isFolder, depth: path.slice(root.length + 1).split('/').length - (isFolder ? 1 : 0), out: false, status: '' };
+		if (heading) row.heading = heading;
+		for (const [k, v] of Object.entries(meta)) if (v !== undefined) (row as unknown as Record<string, unknown>)[k] = v;
+		plan.notes.push(row);
 		if (!isFolder) plan.sceneCount++;
 	};
+	const renamed = (k: number): string | undefined => o.edits?.names.get(k);
+	/** What a note's own text is, in units: it is where it is cut from, trimmed of what is not text. */
+	const unitsOf = (s: Scene): [number, number] | undefined => (piece(s) ? [s.from, s.to] : undefined);
 
-	/** A chapter's or part's name from its heading, and whether the heading has to be kept in the note's text. */
-	const titled = (parent: string, heading: string | null, fallback: string, isFolder: boolean) => {
-		const wanted = heading === null ? fallback : nameOf(heading) || fallback;
+	/** A chapter's or part's name, from the writer's, else from its heading; and whether the heading is its words or has to
+	    be kept (a note starts with it as a line, a folder's first note does). */
+	const titled = (parent: string, heading: string | null, fallback: string, k: number) => {
+		const mine = renamed(k);
+		const wanted = mine ?? (heading === null ? fallback : nameOf(heading) || fallback);
 		const path = fresh(parent, wanted), made = path.split('/').pop() ?? '';
-		// (the name is the heading's words: when it isn't, a note shows the heading as its first line and a folder says so)
-		const differs = heading !== null && heading.trim() !== '' && tokensOf(made) !== tokensOf(heading);
-		if (differs && isFolder) warn(heading, `Its heading can’t be a folder’s name as it is, so the folder is called “${made}”.`);
-		return { path, made, differs: differs && !isFolder };
+		if (heading !== null && heading.trim() === '' && mine === undefined) warn(made, 'Its heading is numbered by the file and has no text, so it is named by its place.');
+		return { path, made, differs: heading !== null && heading.trim() !== '' && tokensOf(made) !== tokensOf(heading) };
 	};
 
 	// ---- the structure of the text ----
@@ -152,43 +202,47 @@ export function planManuscript(read: ManuscriptRead, o: ManuscriptOptions): { pl
 	const tops: (Part | Chapter)[] = [];
 	let front: Scene | null = null, one: Scene | null = null, scenesOnly: Chapter | null = null;
 	let part: Part | null = null, chapter: Chapter | null = null;
+	const stops = cuts.filter((c) => c.level !== 'scene');
 	if (!cuts.length) one = { from: 0, to: sentinel };
 	else {
-		if (found.signal === 'none') {
+		if (!stops.length) {
 			scenesOnly = { title: 'Chapter 1', heading: null, scenes: [{ from: 0, to: cuts[0].at }] };
 			chapter = scenesOnly;
 			tops.push(scenesOnly);
-		} else front = { from: 0, to: found.front };
+		} else front = { from: 0, to: stops[0].at };
 		cuts.forEach((cut: Cut, k) => {
+			if (front && cut.at < front.to) return;
 			const range: Scene = { from: cut.at + (cut.drop ? 1 : 0), to: cuts[k + 1]?.at ?? sentinel };
-			if (cut.level === 'part') {
-				part = { title: cut.title, heading: cut.title, own: has(range) ? range : null, chapters: [] };
+			const blank = !(cut.drop && (cut.title !== '' || cut.by === 'heading'));
+			// (a scene the writer made after a part and before any chapter is a chapter of that part: nothing is left out of the plan)
+			const level = cut.level === 'scene' && !chapter && part ? 'chapter' : cut.level;
+			if (level === 'part') {
+				part = { title: cut.title, heading: blank ? null : cut.title, own: has(range) ? range : null, chapters: [], at: cut.at };
 				tops.push(part);
 				chapter = null;
-			} else if (cut.level === 'chapter') {
-				chapter = { title: cut.title, heading: cut.title, scenes: [range] };
+			} else if (level === 'chapter') {
+				chapter = { title: cut.title, heading: blank ? null : cut.title, scenes: [range], at: cut.at };
 				(part ? part.chapters : tops).push(chapter);
-			} else if (chapter) chapter.scenes.push(range);
+			} else if (chapter) chapter.scenes.push({ ...range, at: cut.at });
 		});
 	}
 	// a chapter is the scenes that have text; one with none is one empty note
 	for (const c of [...tops, ...tops.flatMap((t) => ('chapters' in t ? t.chapters : []))]) if ('scenes' in c) { const kept = c.scenes.filter(has); c.scenes = kept.length ? kept : [c.scenes[0]]; }
 
 	// ---- the notes ----
-	let numbered = 0;
+	let numbered = 0, partNo = 0;
 	const chapterFolders = { any: false };
-	const sceneName = (s: Scene, i: number): string => {
-		if (o.scenes === 'words') {
-			for (let u = s.from; u < s.to; u++) if (units[u].words) { const w = firstWords(text.slice(units[u].start, units[u].end)); if (w) return w; break; }
-		}
-		return `Scene ${i + 1}`;
-	};
+	const sceneKey = (s: Scene): number => s.at ?? -1 - s.from;
+	const firstOf = (s: Scene): string => { for (let u = s.from; u < s.to; u++) if (units[u].words) return firstWords(text.slice(units[u].start, units[u].end)); return ''; };
+	const sceneName = (s: Scene, i: number): string => renamed(sceneKey(s)) ?? ((o.scenes === 'words' && firstOf(s)) || `Scene ${i + 1}`);
 	const emitChapter = (c: Chapter, parent: string) => {
-		const n = ++numbered, t = titled(parent, c.heading, `Chapter ${n}`, c.scenes.length > 1);
-		if (c.scenes.length === 1) {
-			const body = piece(c.scenes[0]);
+		const n = ++numbered, many = c.scenes.length > 1, k = c.at ?? -1000000;
+		const t = titled(parent, c.heading, (c !== scenesOnly && c.heading === null && firstOf(c.scenes[0])) || `Chapter ${n}`, k);
+		const head = c.heading?.trim() ? c.heading : undefined, first = c.scenes[0];
+		if (!many) {
+			const body = piece(first), prefix = t.differs && head ? `# ${head}\n\n` : '';
 			const path = `${t.path}.md`;
-			makeNote(path, t.made, t.differs && c.heading ? `# ${c.heading}\n\n${body}` : body, false, c.heading ?? undefined);
+			makeNote(path, t.made, prefix + body, false, head, { at: c.at, start: first.from, key: k, level: 'chapter', units: unitsOf(first), prefix });
 			contentsList.push(rel(path));
 			order.push(path);
 			return;
@@ -199,10 +253,12 @@ export function planManuscript(read: ManuscriptRead, o: ManuscriptOptions): { pl
 		reserve(folderNote);
 		order.push(folderNote);
 		contentsList.push(`${rel(t.path)}/`);
-		makeNote(folderNote, t.made, '', true, c.heading ?? undefined);
+		// (a heading that isn't the folder's name is the first line of its first note: a folder has no text of its own)
+		if (t.differs && head) warn(head, `Its heading can’t be a folder’s name as it is, so the folder is called “${t.made}”, and the heading is the first line of the first note in it.`);
+		makeNote(folderNote, t.made, '', true, t.differs ? undefined : head, { at: c.at, start: first.from, key: k, level: 'chapter' });
 		c.scenes.forEach((s, i) => {
-			const path = `${fresh(t.path, sceneName(s, i))}.md`;
-			makeNote(path, path.split('/').pop()?.replace(/\.md$/i, '') ?? '', piece(s), false);
+			const path = `${fresh(t.path, sceneName(s, i))}.md`, prefix = i === 0 && t.differs && head ? `# ${head}\n\n` : '';
+			makeNote(path, path.split('/').pop()?.replace(/\.md$/i, '') ?? '', prefix + piece(s), false, prefix ? head : undefined, { at: s.at, start: s.from, key: sceneKey(s), level: 'scene', units: unitsOf(s), prefix });
 			contentsList.push(rel(path));
 			order.push(path);
 		});
@@ -210,22 +266,27 @@ export function planManuscript(read: ManuscriptRead, o: ManuscriptOptions): { pl
 
 	if (one) {
 		const path = `${fresh(root, 'Manuscript')}.md`;
-		makeNote(path, 'Manuscript', piece(one), false);
+		makeNote(path, 'Manuscript', piece(one), false, undefined, { start: one.from, key: sceneKey(one), units: unitsOf(one) });
 		contentsList.push(rel(path));
 		order.push(path);
 		warn('', 'No chapters were found. Everything comes in as one note. Split it where you like with Split scene at cursor.');
-	} else if (found.signal === 'none') {
+	} else if (!stops.length) {
 		warn('', `No chapters were found. The ${cuts.length + 1} scenes are in one folder, “Chapter 1”, and you can rename or split it.`);
 	}
 
-	// front matter: a folder the book's front in, cut at the headings that name front matter
+	// front matter: a folder the book's front in, cut at the headings that name front matter, and where the writer cut it
 	if (front && front.to > front.from) {
-		const marks = [front.from, ...Array.from({ length: front.to - front.from }, (_, i) => front.from + i).filter((i) => i > front.from - 1 && units[i].heading !== null && MATTER.test(nameOf(units[i].text)))];
-		const starts = [...new Set(marks)].sort((a, b) => a - b);
-		const parts = starts.map((from, i) => ({ from, to: starts[i + 1] ?? front.to })).map((p) => {
-			const named = units[p.from].heading !== null && MATTER.test(nameOf(units[p.from].text));
-			return { scene: { from: named ? p.from + 1 : p.from, to: p.to }, title: named ? nameOf(units[p.from].text) : 'Title page', heading: named ? units[p.from].text : undefined };
-		}).filter((p) => has(p.scene) || p.heading);
+		const end = front.to;
+		const named = (i: number) => units[i].heading !== null && MATTER.test(nameOf(units[i].text));
+		const marks = new Set<number>([front.from]);
+		for (let i = front.from; i < end; i++) if (named(i)) marks.add(i);
+		for (const c of cuts) if (c.at < end) marks.add(c.at);
+		const starts = [...marks].sort((a, b) => a - b);
+		const parts = starts.map((from, i) => {
+			const cutHere = cuts.find((c) => c.at === from), heading = named(from) ? units[from].text : undefined;
+			const scene: Scene = { from: heading ? from + 1 : from, to: starts[i + 1] ?? end, at: cutHere?.at };
+			return { scene, title: heading ? nameOf(heading) : i === 0 ? 'Title page' : '', heading, at: cutHere?.at, from };
+		}).filter((q) => has(q.scene) || q.heading);
 		if (parts.length) {
 			const dir = `${root}/${FRONT}`;
 			folder(dir);
@@ -235,9 +296,10 @@ export function planManuscript(read: ManuscriptRead, o: ManuscriptOptions): { pl
 			order.push(folderNote);
 			contentsList.push(`${FRONT}/`);
 			makeNote(folderNote, FRONT, '', true);
-			for (const p of parts) {
-				const path = `${fresh(dir, p.title)}.md`;
-				makeNote(path, path.split('/').pop()?.replace(/\.md$/i, '') ?? p.title, piece(p.scene), false, p.heading);
+			for (const q of parts) {
+				const k = q.at ?? -1 - q.scene.from;
+				const path = `${fresh(dir, renamed(k) ?? (q.title || firstOf(q.scene) || 'Front matter'))}.md`;
+				makeNote(path, path.split('/').pop()?.replace(/\.md$/i, '') ?? q.title, piece(q.scene), false, q.heading, { at: q.at, start: q.scene.from, key: k, units: unitsOf(q.scene) });
 				contentsList.push(rel(path));
 				order.push(path);
 			}
@@ -247,19 +309,20 @@ export function planManuscript(read: ManuscriptRead, o: ManuscriptOptions): { pl
 	if (scenesOnly) emitChapter(scenesOnly, root);
 	else for (const t of tops) {
 		if (!('chapters' in t)) { emitChapter(t, root); continue; }
-		const n = titled(root, t.heading, 'Part', true);
+		const n = titled(root, t.heading, `Part ${++partNo}`, t.at);
+		const head = t.heading?.trim() ? t.heading : undefined;
 		folder(n.path);
 		const folderNote = `${n.path}/${n.made}.md`;
 		reserve(folderNote);
 		order.push(folderNote);
 		contentsList.push(`${rel(n.path)}/`);
-		makeNote(folderNote, n.made, '', true, t.heading);
-		if (t.own) {
-			const path = `${fresh(n.path, `${n.made} text`)}.md`;
-			makeNote(path, path.split('/').pop()?.replace(/\.md$/i, '') ?? '', piece(t.own), false);
+		makeNote(folderNote, n.made, '', true, n.differs ? undefined : head, { at: t.at, start: t.own?.from, key: t.at, level: 'part' });
+		if (t.own || (n.differs && head)) {
+			const path = `${fresh(n.path, `${n.made} text`)}.md`, prefix = n.differs && head ? `# ${head}\n\n` : '';
+			makeNote(path, path.split('/').pop()?.replace(/\.md$/i, '') ?? '', prefix + (t.own ? piece(t.own) : ''), false, prefix ? head : undefined, { start: t.own?.from, key: t.own ? -1 - t.own.from : -2000000 - t.at, units: t.own ? unitsOf(t.own) : undefined, prefix });
 			contentsList.push(rel(path));
 			order.push(path);
-			warn(t.heading, 'It has text of its own, which is the first note in its folder here.', path);
+			if (t.own) warn(t.heading ?? n.made, 'It has text of its own, which is the first note in its folder here.', path);
 		}
 		for (const c of t.chapters) emitChapter(c, n.path);
 	}

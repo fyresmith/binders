@@ -3,6 +3,16 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.60.0 (2026-10-11)
+
+### Added
+
+- In the import preview, each note or folder has a menu: join with the one before, make it a chapter, a scene or a part, rename. A paragraph has Start a note here. What you change is kept when you change the choices on the left, and no word is lost or repeated.
+
+### Fixed
+
+- Importing a note or Word file: a chapter folder whose heading is too long or odd to be its name no longer loses the end of the heading; it is the first line of the folder’s first note.
+
 ## 0.59.0 (2026-10-11)
 
 ### Added

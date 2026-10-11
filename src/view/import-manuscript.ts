@@ -1,7 +1,7 @@
 import { ButtonComponent, FuzzySuggestModal, Modal, Notice, Setting, TFile } from 'obsidian';
 import type BindersPlugin from '../main';
 import type { Choices, Role, Signal } from '../import/detect';
-import { planManuscript, type ManuscriptRead } from '../import/manuscript';
+import { actionsFor, applyAction, noEdits, planManuscript, type ManuscriptRead } from '../import/manuscript';
 import { readWord } from '../import/docx';
 import { OLDER } from '../docx/package';
 import { MAX_BYTES, zipSource } from '../import/source';
@@ -10,7 +10,7 @@ import { decodeText, scanMarkdown, scanPlain } from '../import/text';
 import { saveOpen } from '../scenes';
 import { ImportWindow, message, type ImportJob } from './import-window';
 import { scrivenerJob } from './import-scrivener';
-import { buttonRow, cancelButton } from './modals';
+import { ask, buttonRow, cancelButton } from './modals';
 
 /* "Import a manuscript": a Markdown note or a text file made into a new binder, split where its chapters, parts and
    scenes start (import/detect.ts). Two dialogs, one after the other.
@@ -39,11 +39,11 @@ const ROLES: [Role, string][] = [['part', 'Part'], ['chapter', 'Chapter'], ['sce
 /** What this import is to the shared window: where chapters start, and the rest of the rules, drawn as rows. */
 export function manuscriptJob(plugin: BindersPlugin, read: ManuscriptRead, source: 'note' | 'file', unchanged: () => Promise<boolean>): ImportJob {
 	const choices: Choices = { signal: null, roles: new Map(), breaks: 'new' };
-	let scenes: 'words' | 'numbers' = 'words', last = planManuscript(read, { name: read.name, parent: '', settings: plugin.settings, choices, scenes });
+	let scenes: 'words' | 'numbers' = 'words', edits = noEdits(), last = planManuscript(read, { name: read.name, parent: '', settings: plugin.settings, choices, scenes, edits });
 	return {
 		name: last.title ?? read.name,
 		plan: (o) => {
-			last = planManuscript(read, { name: o.name, parent: o.parent, settings: o.settings, choices, scenes });
+			last = planManuscript(read, { name: o.name, parent: o.parent, settings: o.settings, choices, scenes, edits });
 			return last.plan;
 		},
 		rows: (r) => {
@@ -81,6 +81,19 @@ export function manuscriptJob(plugin: BindersPlugin, read: ManuscriptRead, sourc
 		another: { label: 'Choose another file', row: 'Text', open: () => new ImportManuscriptModal(plugin).open() },
 		caption: 'The text comes across as it was written. A heading that a chapter or part is named from is its name, and not in the text.',
 		empty: 'This text has nothing to bring in.',
+		// putting the preview right by hand: each is a change to where the text is cut, so no word goes or comes twice
+		rowActions: (note) => actionsFor(note).map((a) => {
+			if (a === 'join') return { title: 'Join with the one before', icon: 'merge', run: () => { edits = applyAction(edits, note, { kind: 'join' }); return Promise.resolve(); } };
+			if (a === 'rename') return { title: 'Rename...', icon: 'pencil', run: () => ask(plugin.app, { title: 'Rename', placeholder: 'Name', cta: 'Rename', value: note.title }).then((name) => { if (name !== null) edits = applyAction(edits, note, { kind: 'rename', name }); }) };
+			return { title: `Make this a ${a}`, icon: a === 'part' ? 'folder' : a === 'chapter' ? 'book' : 'file-text', run: () => { edits = applyAction(edits, note, { kind: 'make', level: a }); return Promise.resolve(); } };
+		}),
+		paragraphs: (note) => {
+			if (!note.units) return null;
+			const { units, text } = read.scan, out: { unit: number; text: string }[] = note.prefix ? [{ unit: -1, text: note.prefix.trim() }] : [];
+			for (let i = note.units[0]; i < note.units[1]; i++) out.push({ unit: i, text: text.slice(units[i].start, units[i].end) });
+			return out;
+		},
+		startHere: (unit, note) => { edits = applyAction(edits, note, { kind: 'start', unit }); },
 	};
 }
 

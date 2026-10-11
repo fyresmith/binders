@@ -1,7 +1,7 @@
-import { ButtonComponent, Component, MarkdownRenderer, Modal, Notice, Platform, Setting, TFile, TFolder, setIcon } from 'obsidian';
+import { ButtonComponent, Component, MarkdownRenderer, Menu, Modal, Notice, Platform, Setting, TFile, TFolder, setIcon } from 'obsidian';
 import type BindersPlugin from '../main';
 import { exportsFolder } from '../export/export';
-import { safeName, type ImportPlan, type Said } from '../import/plan';
+import { safeName, type ImportPlan, type PlannedNote, type Said } from '../import/plan';
 import { writeImport } from '../import/vault';
 import { tabsForRender } from '../paragraphs/text';
 import { forRender } from '../scene-text';
@@ -22,6 +22,8 @@ export const n = (count: number, one: string, many = `${one}s`) => `${count.toLo
 const NOTE_SHOWN = 120000;
 /** How many things to look at the sidebar lists: the binder note lists every one. */
 const SAID_SHOWN = 40;
+/** How many paragraphs of one note get their own "Start a note here": past this the rest is drawn as one text. */
+const PARAS_SHOWN = 300;
 export const message = (e: unknown): string => (e instanceof Error ? e.message : typeof e === 'string' ? e : 'Something went wrong, and nothing more is known of it.');
 
 /** What the window gives a job to draw its own rows with. */
@@ -55,6 +57,12 @@ export interface ImportJob {
 	caption: string;
 	/** In place of a note, when the plan has none. */
 	empty: string;
+	/** What the writer can do to a row of the tree by hand (its menu). Each is run, then the plan is made again. */
+	rowActions?(note: PlannedNote): { title: string; icon: string; run(): Promise<void> }[];
+	/** A note's text as the paragraphs it is cut from, so one can be made the start of a note; null for a note that isn't. `unit` is
+	    the paragraph's number to hand to `startHere`, -1 for a line the plan made. */
+	paragraphs?(note: PlannedNote): { unit: number; text: string }[] | null;
+	startHere?(unit: number, note: PlannedNote): void;
 }
 
 /** The second dialog: the binder the source will be. */
@@ -314,6 +322,12 @@ export class ImportWindow extends Modal {
 			if (note.folder) setIcon(self.createDiv({ cls: 'tree-item-icon collapse-icon' }), 'right-triangle');
 			self.createDiv({ cls: `tree-item-inner ${note.folder ? 'nav-folder-title-content' : 'nav-file-title-content'}`, text: note.title });
 			if (status) self.createDiv({ cls: 'tree-item-flair-outer' }).createSpan({ cls: 'tree-item-flair', text: status });
+			if (this.job.rowActions?.(note).length) {
+				// (the row's menu: this button, a right click or a long press, and the menu key on the row)
+				const more = self.createDiv({ cls: 'clickable-icon binders-import-more', attr: { 'aria-label': `Change “${note.title}”`, role: 'button', tabindex: '-1' } });
+				setIcon(more, 'more-vertical');
+				more.addEventListener('click', (e) => { e.stopPropagation(); this.rowMenu(note, e); });
+			}
 			if (!note.folder) { self.setAttr('aria-selected', 'false'); continue; }
 			self.setAttr('aria-expanded', 'true');
 			into[note.depth] = row.createDiv({ cls: 'tree-item-children nav-folder-children', attr: { role: 'group' } });
@@ -330,6 +344,10 @@ export class ImportWindow extends Modal {
 			this.show(self.dataset.path ?? '');
 			if (Platform.isPhone) el.addClass('is-reading');
 		};
+		list.addEventListener('contextmenu', (e) => {
+			const self = rowOf(e.target), note = self ? plan.notes.find((x) => x.path === self.dataset.path) : undefined;
+			if (self && note && this.job.rowActions?.(note).length) { e.preventDefault(); this.rowMenu(note, e); }
+		});
 		list.addEventListener('click', (e) => { const self = rowOf(e.target); if (self) { this.stop(self); go(self); } });
 		list.addEventListener('keydown', (e) => {
 			const self = rowOf(e.target);
@@ -353,6 +371,15 @@ export class ImportWindow extends Modal {
 		// the note that was shown, if it is still in the plan under that path; else the first there is
 		const first = plan.notes.find((x) => !x.folder && x.path === this.shown) ?? plan.notes.find((x) => !x.folder);
 		this.show(first?.path ?? '');
+	}
+
+	/** A row's menu: what the writer can do to it by hand. */
+	private rowMenu(note: PlannedNote, e: MouseEvent): void {
+		const actions = this.job.rowActions?.(note) ?? [];
+		if (this.busy || !actions.length) return;
+		const menu = new Menu();
+		for (const a of actions) menu.addItem((i) => i.setTitle(a.title).setIcon(a.icon).onClick(() => { void a.run().then(() => this.replan()); }));
+		menu.showAtMouseEvent(e);
 	}
 
 	/** One row is the list's stop for Tab: the one the keyboard was last on. */
@@ -381,7 +408,21 @@ export class ImportWindow extends Modal {
 		const text = note.body, cut = text.length > NOTE_SHOWN ? text.slice(0, text.lastIndexOf('\n', NOTE_SHOWN)) : text;
 		const body = stage.createDiv({ cls: 'binders-export-note binders-import-note markdown-rendered', attr: { tabindex: '0', role: 'region', 'aria-label': `${note.title}, as it will read` } });
 		body.createDiv({ cls: 'inline-title', text: note.title });
+		const paras = this.job.paragraphs?.(note);
+		const tabs = (t: string) => forRender(this.plugin.settings.tabParagraphs ? tabsForRender(t) : t);
 		if (!text.trim()) body.createEl('p', { cls: 'binders-import-empty', text: 'This document has no text.' });
+		else if (paras?.length && this.job.startHere) {
+			// each paragraph on its own, with the way to start a note there (the first paragraph of a note is where it starts)
+			const holder = body.createDiv({ cls: 'binders-import-paras' }), first = paras.find((q) => q.unit >= 0)?.unit;
+			paras.slice(0, PARAS_SHOWN).forEach((q) => {
+				const box = holder.createDiv({ cls: 'binders-import-para' });
+				void MarkdownRenderer.render(this.app, tabs(q.text), box.createDiv({ cls: 'binders-import-para-text' }), note.path, drawn).then(() => { if (turn !== this.turn) box.empty(); });
+				if (q.unit < 0 || q.unit === first) return;
+				const b = box.createEl('button', { cls: 'binders-import-start', text: 'Start a note here', attr: { 'aria-label': 'Start a note here, at this paragraph' } });
+				b.addEventListener('click', () => { if (!this.busy) { this.job.startHere?.(q.unit, note); this.replan(); } });
+			});
+			if (paras.length > PARAS_SHOWN) void MarkdownRenderer.render(this.app, tabs(paras.slice(PARAS_SHOWN).map((q) => q.text).join('\n\n')), holder.createDiv({ cls: 'binders-import-para-rest' }), note.path, drawn).then(() => { if (turn !== this.turn) holder.empty(); });
+		}
 		// (a line begun with a tab is a paragraph in a binder: shown as one here too, where the setting says so)
 		else void MarkdownRenderer.render(this.app, forRender(this.plugin.settings.tabParagraphs ? tabsForRender(cut) : cut), body.createDiv(), note.path, drawn).then(() => { if (turn !== this.turn) body.empty(); });
 		const words = wordsIn(this.plugin, text);

@@ -10,6 +10,12 @@ export interface PlannedNote {
 	status: string;
 	/** The source heading a chapter or part was named from, exactly as the source has it (the word-for-word test reads it). */
 	heading?: string;
+	/** For the manuscript import's preview, and what the writer can do to a row by hand (docs/dev/import.md, "Putting the
+	    preview right"): the unit its own cut is at (a row that starts where a part, chapter or scene was found); the first
+	    unit of its text; a number that tells it from every other row (the cut's, else minus one minus its first unit's);
+	    what it is; the units its text is (the text itself is the source's, and the first of it may be a "# heading" line
+	    this row made: `prefix`). */
+	at?: number; start?: number; key?: number; level?: 'part' | 'chapter' | 'scene'; units?: [number, number]; prefix?: string;
 }
 /** Something the writer should know about one item, as the dialog lists it: the note it is about (its path in the
     plan, "" when it is about no note), its title, and what is said. */

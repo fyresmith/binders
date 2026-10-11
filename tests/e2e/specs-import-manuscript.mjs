@@ -95,6 +95,8 @@ const binderWords = (p, root) => p.ev(`(async () => {
 	}
 	return out;
 })()`);
+/** Only what the notes say, in the binder's order: for a binder whose names were put right by hand, and no longer the headings. */
+const bodyWords = (p, root) => p.ev(`(async () => { const out = []; for (const f of ${B}.scenes(app.vault.getAbstractFileByPath(${j(root)}))) if (!f.path.slice(${root.length + 1}).startsWith('Research/')) out.push(...((await app.vault.read(f)).replace(/^---\\n[\\s\\S]*?\\n---\\n/, '').normalize('NFC').match(/[\\p{L}\\p{N}\\p{M}]+/gu) ?? [])); return out; })()`);
 const test = (name, fn) => specs.push({ name: 'Manuscript import: ' + name, fn: withTidy(async (p, h, t) => {
 	const before = await texts(p);
 	try { await fn(p, h, t, before); } finally {
@@ -297,6 +299,87 @@ test('"Choose from this vault...": a note and a Word file are listed, and the on
 	await imported(p, 'The Salt Road');
 	t.eq(await read(p, 'Sources/Pick.md'), CLEAN, 'the note is as it was');
 	t.eq((await binderWords(p, 'The Salt Road')).join(' '), tokens(CLEAN).join(' '), 'every word is there');
+});
+
+/** The menu of a row of the tree, as a right click (and a long press, and the menu key) opens it. */
+async function rowMenu(p, title) {
+	await p.ev(`(() => { const e = [...document.querySelectorAll('${WIN} [role="treeitem"]')].find(r => r.querySelector('.tree-item-inner').textContent === ${j(title)}); if (!e) throw new Error('row missing'); const r = e.getBoundingClientRect(); e.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: r.left + 20, clientY: r.top + 5, button: 2 })); return 1; })()`);
+	await p.sleep(200);
+}
+const treeOf = async (p) => (await tree(p)).join('|');
+const CLEAN_TREE = 'Front matter/|  Title page|The jetty/|  a0 a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11|  b0 b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11|The tide|The storm';
+
+test('the preview put right by hand: a row’s menu (join, make a scene, rename), kept when a choice changes, and no word is lost or repeated', async (p, h, t) => {
+	await make(p, 'Sources/Clean.md', CLEAN);
+	await fromNote(p, 'Sources/Clean.md');
+	t.eq(await treeOf(p), CLEAN_TREE, 'the binder as found');
+	await rowMenu(p, 'The tide');
+	t.eq((await menuItems(p)).join('|'), 'Join with the one before|Make this a scene|Make this a part|Rename...', 'a chapter’s menu');
+	await closeMenus(p);
+	await rowMenu(p, 'a0 a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11');
+	t.eq((await menuItems(p)).join('|'), 'Make this a chapter|Make this a part|Rename...', 'a scene that opens a chapter has no cut of its own to join');
+	await closeMenus(p);
+	await rowMenu(p, 'The storm'); await clickMenu(p, 'Join with the one before');
+	t.eq(await treeOf(p), CLEAN_TREE.replace('|The storm', ''), 'Join with the one before: the chapter goes into the one before');
+	t.ok((await p.ev(`document.querySelector('${WIN} .binders-snapshots-detail')?.textContent`)).includes('4 notes'), 'and the bar counts again');
+	await rowMenu(p, 'The tide'); await clickMenu(p, 'Make this a scene');
+	t.ok((await tree(p)).includes('  The tide') && !(await tree(p)).includes('The tide'), 'Make this a scene: it is a scene of the chapter before');
+	await rowMenu(p, 'The jetty'); await clickMenu(p, 'Rename...');
+	await until(p, `!!document.querySelector('.modal input')`, 3000);
+	await p.ev(`(() => { const i = document.querySelector('.modal-container:last-of-type input') || [...document.querySelectorAll('.modal input')].pop(); i.value = 'Arrival'; i.dispatchEvent(new Event('input', { bubbles: true })); return 1; })()`);
+	await p.ev(`(() => { [...document.querySelectorAll('.modal button')].find(b => b.textContent === 'Rename').click(); return 1; })()`); await p.sleep(400);
+	t.ok((await tree(p)).includes('Arrival/'), 'Rename...: the name is the writer’s');
+	await choose(p, 'scenes', 'numbers');
+	t.ok((await tree(p)).includes('Arrival/') && (await tree(p)).includes('  Scene 1'), 'what was done by hand is kept when a choice changes');
+	await choose(p, 'scenes', 'words');
+	await imported(p, 'The Salt Road');
+	t.eq((await bodyWords(p, 'The Salt Road')).join(' '), tokens(CLEAN).join(' '), 'every word is there, in order, once');
+	t.ok((await read(p, 'The Salt Road/Arrival/Arrival.md')) !== undefined && !!(await exists(p, 'The Salt Road/Arrival')), 'the renamed folder is made');
+	t.ok((await p.ev(`app.vault.getMarkdownFiles().filter(f => f.path.startsWith('The Salt Road/Arrival/')).map(f => f.basename)`)).length > 2, 'with the joined and made scenes in it');
+	t.eq(await read(p, 'Sources/Clean.md'), CLEAN, 'the source is as it was');
+});
+
+test('start a note here: on a paragraph of the preview, by the keyboard and the mouse; and a row’s menu by the keyboard', async (p, h, t) => {
+	await make(p, 'Sources/Clean.md', CLEAN);
+	await fromNote(p, 'Sources/Clean.md');
+	await p.ev(`(() => { [...document.querySelectorAll('${WIN} [role="treeitem"]')].find(r => r.querySelector('.tree-item-inner').textContent === 'The tide').click(); return 1; })()`); await p.sleep(400);
+	const buttons = await p.ev(`[...document.querySelectorAll('${WIN} .binders-import-start')].length`);
+	t.eq(buttons, 0, 'a one-paragraph note has no paragraph to start a note at but its first');
+	await p.ev(`(() => { [...document.querySelectorAll('${WIN} [role="treeitem"]')].find(r => r.querySelector('.tree-item-inner').textContent === 'Title page').click(); return 1; })()`); await p.sleep(400);
+	t.eq(await p.ev(`document.querySelectorAll('${WIN} .binders-import-start').length`), 1, 'a note of two paragraphs has one');
+	await p.ev(`(() => { document.querySelector('${WIN} .binders-import-start').focus(); return 1; })()`);
+	t.ok(await p.ev(`document.activeElement.classList.contains('binders-import-start') && !!document.activeElement.getAttribute('aria-label')`), 'it can be reached by the keyboard, and has a name');
+	await p.key('Enter'); await p.sleep(500);
+	t.eq((await tree(p)).slice(0, 4).join('|'), 'Front matter/|  Title page|  By Mara|The jetty/', 'a note starts there: the front matter is two notes');
+	// the menu key: the browser fires a context menu event at the focused row
+	await p.ev(`(() => { const r = [...document.querySelectorAll('${WIN} [role="treeitem"]')].find(x => x.querySelector('.tree-item-inner').textContent === 'The storm'); r.focus(); r.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: 0, clientY: 0 })); return 1; })()`); await p.sleep(200);
+	t.ok((await menuItems(p)).includes('Rename...'), 'the focused row’s menu opens from the keyboard');
+	await closeMenus(p);
+	await imported(p, 'The Salt Road');
+	t.eq((await binderWords(p, 'The Salt Road')).join(' '), tokens(CLEAN).join(' '), 'every word is there');
+});
+
+test('a phone: a row’s own button opens its menu, a paragraph has its button, and the words are all there', async (p, h, t) => {
+	const dark = await p.ev(`document.body.classList.contains('theme-dark')`);
+	await p.send('Emulation.setDeviceMetricsOverride', { width: 320, height: 640, deviceScaleFactor: 1, mobile: true }); await reload(p, true);
+	await p.ev(`(() => { app.changeTheme(${j(dark ? 'obsidian' : 'moonstone')}); return 1; })()`);
+	try {
+		await fromFile(p, put('Edits.md', CLEAN));
+		await press(p, 'Preview'); await p.sleep(250);
+		t.ok(await p.ev(`[...document.querySelectorAll('${WIN} .binders-import-more')].every(b => b.getBoundingClientRect().width > 20 && getComputedStyle(b).opacity === '1')`), 'every row has its button, seen without hovering');
+		await p.ev(`(() => { [...document.querySelectorAll('${WIN} [role="treeitem"]')].find(r => r.querySelector('.tree-item-inner').textContent === 'The tide').querySelector('.binders-import-more').click(); return 1; })()`); await p.sleep(250);
+		t.ok((await menuItems(p)).includes('Join with the one before'), 'its button opens the row’s menu');
+		await clickMenu(p, 'Join with the one before');
+		t.ok(!(await tree(p)).includes('The tide'), 'and Join works');
+		await p.ev(`(() => { [...document.querySelectorAll('${WIN} [role="treeitem"]')].find(r => r.querySelector('.tree-item-inner').textContent === 'Title page').click(); return 1; })()`); await p.sleep(400);
+		const b = await p.ev(`(() => { const e = document.querySelector('${WIN} .binders-import-start'); const r = e.getBoundingClientRect(); return { w: r.width, h: r.height, o: getComputedStyle(e).opacity }; })()`);
+		t.ok(b.h >= 30 && b.o === '1', `a paragraph’s button is seen and big enough to touch (${JSON.stringify(b)})`);
+		await p.ev(`(() => { document.querySelector('${WIN} .binders-import-start').click(); return 1; })()`); await p.sleep(400);
+		await p.ev(`(() => { document.querySelector('${WIN} .modal-setting-back-button').click(); return 1; })()`); await p.sleep(250);
+		await p.ev(`(() => { document.querySelector('${WIN} .modal-setting-back-button')?.click(); return 1; })()`); await p.sleep(250);
+		await imported(p, 'The Salt Road');
+		t.eq((await binderWords(p, 'The Salt Road')).join(' '), tokens(CLEAN).join(' '), 'imported on a phone, every word is there');
+	} finally { await closeAll(p); await p.send('Emulation.setDeviceMetricsOverride', { width: p.width, height: p.height, deviceScaleFactor: 1, mobile: false }); await reload(p, false); }
 });
 
 test('a phone: the choices first with Import in reach, then the binder’s list, then a note, and back', async (p, h, t) => {
