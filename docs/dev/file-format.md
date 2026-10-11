@@ -27,6 +27,7 @@ Anything you like: notes on the book, links, a to-do list.
 | `contents` | list of text | The binder's order. Paths use `/`, are relative to the binder folder, have no `.md`, and folders end in `/`. |
 | `target` | number | Optional word count goal for the binder, shown in the view's toolbar. |
 | `synopsis`, `status`, `label` | | The binder's own card data, as for scenes (below). |
+| `revision` | link | Optional. The binder's revision note, as a link: `revision: "[[Revision]]"`. Written when the first revision task is added (see "Revision tasks", below); a writer can point it at a note they already keep. Not part of the format version: a Binders that doesn't know it leaves it as it finds it. |
 
 `binder` and `contents` are fixed names. The others are read under the names set in settings, as for scenes.
 
@@ -500,6 +501,61 @@ The size is about 200 to 400 bytes a day, so about 100 KB a year for a device th
 year's file is written, every few minutes while there is something new, when the writer leaves the binder, when the app
 goes to the background and when Binders unloads; and not at all for a binder in a newer format, or while recording is
 off (settings, "Keep a record of your writing"; turning it off deletes nothing).
+
+## Revision tasks
+
+A binder's revision tasks are the checkboxes of one ordinary note, each carrying the link to the scene it is about.
+Nothing about them is in the format's version: the note is a note, and the binder note names it in an optional
+property.
+
+```yaml
+revision: "[[Revision]]"   # in the binder note
+```
+
+- **Which note.** The note the link names, found as Obsidian finds any link from the binder note, so a rename or a move
+  of the note is followed by Obsidian rewriting the link, and a writer can name a note they keep already (in the
+  binder's folder or anywhere in the vault). A `revision` that names nothing, the binder note itself or a folder's
+  note means the binder has no revision note. Binders makes one only with the first task: a note called `Revision` in the
+  binder's folder (`Revision 2` if that name is taken) and `revision` in the binder note.
+- **It is not a scene.** It is not in `contents` and never shown as one: not in the order, the corkboard, the outliner,
+  the manuscript, the timeline, a count, find and replace, a snapshot of the binder or an export, and typing in it is
+  not counted in the record of the writing. In the file explorer it is listed after the binder's last item, like any
+  note the order doesn't name. The same goes wherever it is kept: if the writer moves it into a subfolder of the
+  binder, it is still not an item there.
+- **Longform projects** have none. A project's index note is Longform's, and Binders writes nothing of its own there,
+  so there is nowhere to say which note it is. (A project made a binder with "Convert to binder" has one like any
+  binder.)
+- **A binder in a newer format, or read only,** gets no revision note made or written (golden rule 6). Its note is
+  still read.
+
+### The text
+
+A task is a list item with a checkbox, anywhere in the note (a bullet, a star, a plus or a number; nested or not;
+not inside a block of code). A space between the brackets is unfinished; any other character is done, as Obsidian reads
+it. Binders writes `x`. A line that is not a well-formed task is text, and is never touched.
+
+```
+- [x] [[The keeper]]: “Nineteen years” is said twice in two pages. Keep the secretary’s
+- [ ] [[The wreck]]: Red or white? Ask someone who has fired one
+	> The flare went up at ten past two, red, and hung over the Skerry longer than it should have.
+- [ ] [[Lights out]], [[What the mate saw]]: Eleven minutes of dark or twelve? Pick one and hold to it
+- [ ] Check every tide and sunset against the almanac for June 1911
+```
+
+- **What a task is about.** The links that lead its line, one after another (`[[A]], [[B]]: …`): the scenes it is
+  about. A task about two scenes is listed under both and counted once. A link to a heading or a block names its note;
+  an alias or a path is read as Obsidian reads them; a Markdown link to a note works too. A task with no link of its own
+  takes its parent item's link, then the heading's it is under. With none it is about the book. A link in the middle of
+  the text is only a word.
+- **The passage.** Indented `>` lines under a task are a passage quoted for context. It is text: it does not follow
+  edits to the scene.
+- **What Binders writes** (golden rule 3, fourth exception; `src/revision/tasks.ts`): one item added at the note's
+  end, `- [ ] <link>: <text>`, then a tab and `> ` with the passage on one line if there is one, in the note's own line
+  ends (a blank line first, if the note does not end in a list); and the one character between one item's brackets. A
+  note that ends inside a block of code takes no task. If the line is no longer what was read, or is there twice,
+  nothing is written.
+- A split leaves the tasks on the first half. A merge points a merged-away note's tasks at the note that stays, as it
+  does any link to it (when Obsidian is set to update links).
 
 ## Export
 

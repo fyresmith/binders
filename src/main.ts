@@ -31,6 +31,8 @@ import { openSplitMany } from './view/split-many';
 import { CONTENTS_VIEW, installContents } from './inspector/contents-pane';
 import { installInspector, showSide } from './inspector/views';
 import { placeSide } from './inspector/place';
+import { Revision } from './revision/store';
+import { capture } from './revision/capture';
 import type { Follow } from './inspector/follow';
 import { startWithTab } from './paragraphs/command';
 import { installParagraphs, type Paragraphs } from './paragraphs/paragraphs';
@@ -83,6 +85,8 @@ export default class BindersPlugin extends Plugin {
 	styles: Styles;
 	/** What the inspector's panes follow: the notes and folders in hand in the tab the writer is in (inspector/follow.ts). */
 	inspect: Follow;
+	/** Each binder's revision tasks: the note they are kept in and what it says (revision/store.ts). */
+	revision: Revision;
 	/** Tab paragraphs and first-line indents in a binder’s notes (paragraphs/paragraphs.ts). */
 	paragraphs: Paragraphs;
 	/** The binder view's modes by id: the view mounts one into its content (see view/mode.ts). */
@@ -100,6 +104,7 @@ export default class BindersPlugin extends Plugin {
 		addIcon(TIMELINE_ICON, TIMELINE_ICON_SVG);
 		await this.loadSettings();
 		this.binders = new BinderStore(this);
+		this.revision = new Revision(this); // (before the record, which asks it which notes are not the binder's)
 		this.progress = new Progress(this);
 		this.progress.start();
 		this.registerEditorExtension(this.progress.extension());
@@ -205,6 +210,8 @@ export default class BindersPlugin extends Plugin {
 				return true;
 			} });
 		}
+		// a task for the revision note, about the scene in hand (no default key; revision/capture.ts)
+		this.addCommand({ id: 'add-revision-task', name: 'Add revision task', icon: 'list-plus', checkCallback: (checking) => capture(this, checking) });
 		// a note cut into several where its headings, scene breaks or a line of the writer's own are
 		this.addCommand({ id: 'split-at-headings', name: 'Split at headings...', icon: 'split', checkCallback: (checking) => {
 			const file = active();

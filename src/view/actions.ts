@@ -13,6 +13,7 @@ import type { ModeContext } from './mode';
 import { folderSnapshotItems, snapshotItems } from './snapshots'; // snapshots
 import { badName } from '../history/rename';
 import { parseTarget, whyNotTarget } from './outliner-data';
+import { capture } from '../revision/capture';
 
 /* What can be done to a note or a folder of a binder, the same on a card and in an outliner row: its menu, renaming,
    deleting, and setting its status, label and target. The views say how their own parts work (which field renames,
@@ -416,6 +417,7 @@ export function itemMenu(ctx: ModeContext, items: TAbstractFile[], h: Hooks): Me
 			if (!n) new Notice(notes.length === 1 ? 'Nothing to make a synopsis from.' : 'No note without a synopsis has text to make one from.');
 		}));
 		propItems(ctx, menu, items);
+		if (ctx.binder.kind === 'binder') menu.addItem((i) => i.setSection('edit').setTitle('Add revision task...').setIcon('list-plus').onClick(() => { capture(ctx.plugin, false, { binder: ctx.binder, items }); }));
 		structureItems(ctx, menu, items, h, short);
 		moveItems(ctx, menu, items, h, short);
 	}

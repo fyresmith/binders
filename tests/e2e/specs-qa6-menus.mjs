@@ -102,7 +102,7 @@ test('card menu, a note: the items, in sections, each with an icon where the oth
 	await context(p, CARD(L + 'Epilogue.md'));
 	const it = await items(p);
 	t.eq(j(it.filter((x) => x.section.startsWith('') && ['open', 'edit', 'props', 'structure', 'order', 'danger'].includes(x.section)).map((x) => x.title)),
-		j(['Open', 'Open in new tab', 'Open to the right', 'Open in new window', 'Rename', 'Edit synopsis', 'Set synopsis from text', 'Snapshots', 'Set status', 'Set label', 'Set target...', 'Set story date...', 'Duplicate', 'Split at headings...', 'Put in a new folder', 'Include in export', 'Export as', 'Move up', 'Move to', 'Delete']), 'Binders’ items for the last note, in order');
+		j(['Open', 'Open in new tab', 'Open to the right', 'Open in new window', 'Rename', 'Edit synopsis', 'Set synopsis from text', 'Add revision task...', 'Snapshots', 'Set status', 'Set label', 'Set target...', 'Set story date...', 'Duplicate', 'Split at headings...', 'Put in a new folder', 'Include in export', 'Export as', 'Move up', 'Move to', 'Delete']), 'Binders’ items for the last note, in order');
 	for (const x of it.filter((x) => ['open', 'edit', 'props', 'structure', 'order', 'danger'].includes(x.section))) t.ok(x.icon, `“${x.title}” has an icon`);
 	t.ok(it.find((x) => x.title === 'Delete').warning, 'Delete is marked as a warning');
 	t.eq(it[it.length - 1].title, 'Delete', 'Delete is last, after what Obsidian adds');
@@ -716,7 +716,7 @@ test('several selected: the items, and what each does to every one of them', tid
 	await selectTwo();
 	t.eq(j(await titles(p)).includes('Merge 2 notes'), true, 'Merge 2 notes is offered');
 	const it = await items(p);
-	t.eq(j(it.filter((x) => ['edit', 'props', 'structure', 'order', 'danger'].includes(x.section)).map((x) => x.title)), j(['Set synopsis from text', 'Take a snapshot of 2 notes', 'Set status', 'Set label', 'Set target...', 'Set story date...', 'Merge 2 notes', 'New folder from selection', 'Include in export', 'Export as', 'Move to', 'Delete 2 items']), 'Binders’ items for two notes');
+	t.eq(j(it.filter((x) => ['edit', 'props', 'structure', 'order', 'danger'].includes(x.section)).map((x) => x.title)), j(['Set synopsis from text', 'Add revision task...', 'Take a snapshot of 2 notes', 'Set status', 'Set label', 'Set target...', 'Set story date...', 'Merge 2 notes', 'New folder from selection', 'Include in export', 'Export as', 'Move to', 'Delete 2 items']), 'Binders’ items for two notes');
 	for (const x of ['Rename', 'Edit synopsis', 'Duplicate', 'Open', 'Move up', 'Move down']) t.ok(!it.some((y) => y.title === x), `no “${x}” for several`);
 	await closeMenus(p);
 	// status for both
@@ -1328,7 +1328,7 @@ test('manuscript: a section title’s menu (the card’s), New note after this, 
 	};
 	await ctxTitle('Prologue');
 	const first = await items(p);
-	t.eq(j(first.filter((x) => ['open', 'edit', 'props', 'structure', 'order', 'new', 'danger'].includes(x.section)).map((x) => x.title)), j(['Open', 'Open in new tab', 'Open to the right', 'Open in new window', 'Rename', 'Set synopsis from text', 'Snapshots', 'Set status', 'Set label', 'Set target...', 'Set story date...', 'Duplicate', 'Split at headings...', 'Put in a new folder', 'Include in export', 'Export as', 'Move down', 'Move to', 'New note after this', 'Delete']), 'the manuscript title’s own items');
+	t.eq(j(first.filter((x) => ['open', 'edit', 'props', 'structure', 'order', 'new', 'danger'].includes(x.section)).map((x) => x.title)), j(['Open', 'Open in new tab', 'Open to the right', 'Open in new window', 'Rename', 'Set synopsis from text', 'Add revision task...', 'Snapshots', 'Set status', 'Set label', 'Set target...', 'Set story date...', 'Duplicate', 'Split at headings...', 'Put in a new folder', 'Include in export', 'Export as', 'Move down', 'Move to', 'New note after this', 'Delete']), 'the manuscript title’s own items');
 	await choose(p, 'New note after this');
 	await until(p, `document.activeElement?.closest('.binders-manuscript-scene')?.classList.contains('is-fresh') || !!document.querySelector('${LEAF} .binders-manuscript-title [contenteditable], ${LEAF} .binders-manuscript-title input, ${LEAF} .binders-edit-field')`, 4000);
 	await p.sleep(400);

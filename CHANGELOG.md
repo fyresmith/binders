@@ -26,6 +26,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - Binders now keeps a record of each binder's writing in the binder's hidden Snapshots folder: the words written and cut in each note each day, the hours, and what was done to the binder. It holds numbers and names only, never a note's text, and never leaves your device. A Progress group in settings turns it off and names your device. A window to read it by comes next.
 - Progress: Show progress opens a window on a binder's writing over time, read from its record: the book's words as they grew, every day written on, the hours and days you write in, when each part was written, and its records. A record's first two weeks are shown as they fill.
 - Filter by any property: status, label, characters, story date, target and more, with all, any or none of the conditions, in a popover like the one in Bases. A line under the toolbar says what is shown and how to get everything back.
+- Revision tasks: Add revision task notes what a scene needs while you write, with the passage you had selected, in an ordinary note named Revision in the binder: a list of checkboxes, each linked to its scene, that works with Binders off. The note is never part of the book. A pane to work through them comes next.
 
 ### Changed
 

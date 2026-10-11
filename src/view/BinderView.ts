@@ -25,6 +25,7 @@ import { wordsLabel } from './words';
 import { FindBar, type At, type FindHost, type FindSource } from './find-bar';
 import { unpaint } from '../find/highlight';
 import { BoardFind } from './find-board';
+import { capture } from '../revision/capture';
 
 /* The binder view: one folder of a binder, shown as a corkboard, an outliner or a manuscript. The view owns the toolbar
    (breadcrumb, word count, filter, mode), the folder's synopsis and the subscriptions; the mode draws the rest (mode.ts).
@@ -361,6 +362,7 @@ export class BinderView extends ItemView {
 				const what = this.store.undoable(folder, redo);
 				if (what) menu.addItem((i) => i.setSection('binders-note').setTitle(`${redo ? 'Redo' : 'Undo'}: ${what.charAt(0).toLowerCase()}${what.slice(1)}`).setIcon(redo ? 'redo-2' : 'undo-2').onClick(() => void this.plugin.undoMove(folder, redo)));
 			}
+			menu.addItem((i) => i.setSection('binders-note').setTitle('Add revision task').setIcon('list-plus').onClick(() => { capture(this.plugin); }));
 			menu.addItem((i) => i.setSection('binders-note').setTitle('Export...').setIcon('book-up').onClick(() => new ExportModal(this.plugin, folder).open()));
 			// (the last export of it made once more, with no window: there once there has been one)
 			if (lastExport(this.plugin, folder)) menu.addItem((i) => i.setSection('binders-note').setTitle('Export again').setIcon('book-check').onClick(() => void exportAgain(this.plugin, folder)));

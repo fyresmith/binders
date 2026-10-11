@@ -39,6 +39,7 @@ import { afterGroup, applySceneOps, conversionPlan, isIgnored, isLongformIndex, 
      isBinderFolder(folder): boolean
      inBinder(item): boolean                           inside a binder (below a binder folder)
      isHiddenNote(file): boolean                       a binder note or folder note: never a scene
+     isRevisionNote(file): boolean                     a binder's revision note: never a scene (revision/store.ts)
      problem(item | path): string | null               why a binder is read only (a newer format), or null
      orderedChildren(folder, {hidden}?): TAbstractFile[] | null
                                                        a folder's items in binder order; null outside binders. Binder and
@@ -1734,12 +1735,13 @@ export class BinderStore extends Events implements ExplorerSource {
 	/** Every item in the binder a list entry can name, per folder ("" for the top), without binder and folder notes. */
 	private items(s: State): Map<string, Item[]> {
 		if (s.items) return s.items;
-		const map = new Map<string, Item[]>();
+		const map = new Map<string, Item[]>(), revision = this.plugin.revision?.noteOf(s) ?? null;
 		const walk = (f: TFolder, rel: string) => {
 			const list: Item[] = [];
 			for (const c of f.children) {
 				if (this.isHiddenNote(c)) continue;
 				if (f === s.folder && c === this.snapshotsFolder(s)) continue; // snapshots aren't items of the binder
+				if (c === revision) continue; // nor is its revision note (revision/store.ts)
 				const r = this.relOf(s.folder.path, c.path, c instanceof TFolder);
 				if (!r || (c instanceof TFile && isFolderNote(r))) continue;
 				list.push({ rel: r, file: c });
@@ -1771,6 +1773,12 @@ export class BinderStore extends Events implements ExplorerSource {
 		s.contents = null; s.items = null; s.shown = null; s.ordered = null;
 		if (emit) this.emit(s.path);
 	}
+
+	/** The binder's revision note is another note now (or none): it is not an item, and the one before it may be. */
+	revisionNoteMoved(binder: Binder): void { const s = this.states.get(binder.note); if (s) this.touch(s); }
+
+	/** Is this the revision note of the binder it is in (or was, as it goes)? Not a note of the binder's writing. */
+	isRevisionNote(file: TAbstractFile): boolean { return file instanceof TFile && !!this.plugin.revision?.is(file); }
 
 	/** Runs `fn`, then tells subscribers only if the binder's order or problem changed (e.g. not for its body text). */
 	private ifChanged(s: State, fn: () => void): void {

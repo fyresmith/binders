@@ -155,7 +155,7 @@ export class Progress {
 		const c = this.scenes.get(file);
 		if (c && c.gen === this.gen) return c.binder;
 		const store = this.plugin.binders, b = file.extension === 'md' ? store.binderOf(file) : null;
-		const binder = b && file.path.startsWith(b.folder.path + '/') && !store.isHiddenNote(file) && !store.inSnapshots(file.path) ? b : null;
+		const binder = b && file.path.startsWith(b.folder.path + '/') && !store.isHiddenNote(file) && !store.isRevisionNote(file) && !store.inSnapshots(file.path) ? b : null;
 		this.scenes.set(file, { gen: this.gen, binder });
 		return binder;
 	}
@@ -277,7 +277,7 @@ export class Progress {
 
 	private made(f: TAbstractFile): void {
 		const store = this.plugin.binders, binder = store.binderOf(f);
-		if (!binder || f === binder.folder || !this.inside(binder, f.path) || (f instanceof TFile && (f.extension !== 'md' || store.isHiddenNote(f)))) return;
+		if (!binder || f === binder.folder || !this.inside(binder, f.path) || (f instanceof TFile && (f.extension !== 'md' || store.isHiddenNote(f) || store.isRevisionNote(f)))) return;
 		if (f instanceof TFolder && store.isHiddenNote(f)) return;
 		const act = this.acts[this.acts.length - 1];
 		if (f instanceof TFolder) { this.event(f, { k: 'made', p: this.relOf(binder, f.path), folder: 1 }); return; }
@@ -293,7 +293,7 @@ export class Progress {
 	private gone(f: TAbstractFile): void {
 		const store = this.plugin.binders, binder = store.binderOf(f.path);
 		if (!binder || f === binder.folder || !this.inside(binder, f.path)) return;
-		if (f instanceof TFile && (f.extension !== 'md' || store.isHiddenNote(f))) return;
+		if (f instanceof TFile && (f.extension !== 'md' || store.isHiddenNote(f) || store.isRevisionNote(f))) return;
 		if (f instanceof TFolder) { this.event(f, { k: 'gone', p: this.relOf(binder, f.path), folder: 1 }); return; }
 		if (!(f instanceof TFile)) return;
 		const act = this.acts[this.acts.length - 1], w = this.counter.get(f) ?? 0, p = this.relOf(binder, f.path);
@@ -314,7 +314,7 @@ export class Progress {
 			if (f === b.folder || (isFolder && bp.startsWith(f.path + '/'))) continue;
 			const nowIn = this.inside(b, f.path), wasIn = this.inside(b, old);
 			if (!nowIn && !wasIn) continue;
-			if (f instanceof TFile && (f.extension !== 'md' || store.isHiddenNote(f))) continue;
+			if (f instanceof TFile && (f.extension !== 'md' || store.isHiddenNote(f) || store.isRevisionNote(f))) continue;
 			if (nowIn && wasIn) {
 				const from = this.relOf(b, old), to = this.relOf(b, f.path);
 				this.event(f, { k: moveKind(from, to), from, to, ...(isFolder ? { folder: 1 as const } : {}) });
