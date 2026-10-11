@@ -9,8 +9,9 @@ import { hasSnapshots, takeFolderSnapshot } from '../binder-snapshots';
 import type BindersPlugin from '../main';
 import { commitAll, commitFocused, editable, editingIn, type Editable } from './edit';
 import { keepOpen, readableLineLength, refreshHeader } from './internals';
-import { filterCount, isOn, noFilter, passes, readFilter, type Filter } from '../filter/filter';
-import { openFilterMenu } from './filter-menu';
+import { emptyDef, type FilterDef } from '../filter/conditions';
+import { FilterPopover } from './filter-popover';
+import { Subset } from './subset';
 import { readArrangement, readLines, type Arrangement, type Lines } from './lanes-data';
 import { TIMELINE_ICON, TIMELINE_SHAPES, readShape } from './timeline-data';
 import { ask } from './modals';
@@ -66,7 +67,7 @@ const isMode = (m: unknown): m is ModeName => MODES.some((x) => x.id === m);
 /** A mode as saved: the plot grid of earlier versions is the outliner now. */
 const readMode = (m: unknown): ModeName | null => (m === 'plotgrid' ? 'outliner' : isMode(m) ? m : null);
 
-interface BinderViewState { folder?: string; mode?: ModeName; filter?: Filter; options?: Record<string, unknown> }
+interface BinderViewState { folder?: string; mode?: ModeName; filter?: unknown; options?: Record<string, unknown> }
 
 /** Folders renamed or moved since Obsidian started, old path to new, so a tab's history (Back) still finds them. */
 const moved = new Map<string, string>();
@@ -86,7 +87,9 @@ export class BinderView extends ItemView {
 	folder: TFolder | null = null;
 	private path = '';
 	mode: ModeName = 'corkboard';
-	private filter: Filter = noFilter();
+	/** The filter on (conditions over the binder's notes) and what it needs of the vault. */
+	private subset = new Subset(this.plugin, () => (this.binder ? this.store.scenes(this.binder.folder) : []), (f) => this.words.get(f));
+	private popover: FilterPopover | null = null;
 	private options: Record<string, unknown> = {};
 	private binder: Binder | null = null;
 	private current: BinderMode | null = null;
@@ -99,7 +102,7 @@ export class BinderView extends ItemView {
 	private found = false;
 	private synopsis: Editable | null = null;
 	private relaying = false;
-	private ui: { crumbs: HTMLElement; progress: HTMLElement; count: HTMLElement; undo: HTMLElement; redo: HTMLElement; filter: HTMLElement; arrange: HTMLElement; add: HTMLElement; modeBtn: HTMLElement; notice: HTMLElement; synopsis: HTMLElement; body: HTMLElement } | null = null;
+	private ui: { scope: HTMLElement; crumbs: HTMLElement; progress: HTMLElement; count: HTMLElement; undo: HTMLElement; redo: HTMLElement; filter: HTMLElement; arrange: HTMLElement; add: HTMLElement; modeBtn: HTMLElement; notice: HTMLElement; synopsis: HTMLElement; body: HTMLElement } | null = null;
 
 	constructor(leaf: WorkspaceLeaf, private plugin: BindersPlugin) {
 		super(leaf);
@@ -142,12 +145,12 @@ export class BinderView extends ItemView {
 
 	getState(): Record<string, unknown> {
 		this.remember();
-		return { ...super.getState(), folder: this.folder?.path ?? this.path, mode: this.mode, filter: this.filter, options: this.options };
+		return { ...super.getState(), folder: this.folder?.path ?? this.path, mode: this.mode, filter: this.subset.state(), options: this.options };
 	}
 
 	/** How this view is set up now is what the binder's next view starts from (see openBinder). */
 	private remember(): void {
-		if (this.binder) this.plugin.lastView.set(this.binder.note.path, { mode: this.mode, filter: this.filter, options: this.options });
+		if (this.binder) this.plugin.lastView.set(this.binder.note.path, { mode: this.mode, filter: this.subset.state(), options: this.options });
 	}
 
 	/** Puts the keyboard in the mode (on what it was on, or at its start). */
@@ -186,9 +189,8 @@ export class BinderView extends ItemView {
 			this.path = s.folder;
 		}
 		this.mode = readMode(s.mode) ?? this.mode;
-		// (as settings spell them: a filter saved as "draft" still means Draft)
-		const st = this.plugin.settings;
-		this.filter = readFilter(s.filter, st.statuses, st.labels.map((l) => l.name)) ?? this.filter;
+		// (a filter saved by 0.51 and before, two lists of statuses and labels, is the same filter as conditions)
+		this.subset.load(s.filter);
 		if (s.options && typeof s.options === 'object') this.options = { ...s.options };
 		await super.setState(state, result);
 		this.rebuild();
@@ -332,6 +334,7 @@ export class BinderView extends ItemView {
 	async onClose(): Promise<void> {
 		await commitAll(this.contentEl);
 		this.closed = true;
+		this.popover?.close(true);
 		this.containerEl.removeClass('binders-short-manuscript');
 		this.places.clear();
 		this.leftOn.clear();
@@ -560,15 +563,17 @@ export class BinderView extends ItemView {
 		const redo = this.button(bar, 'redo-2', 'Redo', 'binders-redo-button', () => this.undoRedo(true));
 		// (how the corkboard lays out its cards, where a base has "Sort": in a grid, or by label)
 		const arrange = this.button(bar, 'layout-grid', 'Arrange', 'binders-arrange-button', (e) => { const menu = new Menu(); if (this.mode === 'corkboard') this.arrangeItems(menu); else this.current?.arrangeItems?.(menu); this.showBelow(menu, e); });
-		const filter = this.button(bar, 'list-filter', 'Filter', 'binders-filter-button', (e) => this.filterMenu(e));
+		const filter = this.button(bar, 'list-filter', 'Filter', 'binders-filter-button', () => this.filterPopover().toggle());
 		const add = this.button(bar, 'plus', 'New', 'binders-new-button', (e) => this.newMenu(e));
 		this.button(bar, 'maximize-2', 'Focus mode', 'binders-focus-button', () => this.plugin.focus.toggle()).toggleClass('is-hidden', this.mode !== 'manuscript');
-		for (const b of [filter, arrange, modeBtn, add]) b.setAttr('aria-haspopup', 'menu');
+		for (const b of [arrange, modeBtn, add]) b.setAttr('aria-haspopup', 'menu');
+		filter.setAttr('aria-haspopup', 'dialog');
 		if (this.finder) el.appendChild(this.finder.el);
+		const scope = el.createDiv({ cls: 'binders-scope is-hidden', attr: { role: 'group', 'aria-label': 'Filter' } });
 		const notice = el.createDiv({ cls: 'binders-notice' });
 		const synopsis = el.createDiv({ cls: 'binders-view-synopsis-row' });
 		const body = el.createDiv({ cls: `binders-mode binders-mode-${this.mode}` });
-		this.ui = { crumbs, progress, count, undo, redo, filter, arrange, add, modeBtn, notice, synopsis, body };
+		this.ui = { scope, crumbs, progress, count, undo, redo, filter, arrange, add, modeBtn, notice, synopsis, body };
 		this.drawToolbar();
 		const factory = this.plugin.modeFactories[this.arrangement === 'label' ? BY_LABEL : this.mode];
 		this.current = factory(body, this.context());
@@ -605,12 +610,14 @@ export class BinderView extends ItemView {
 	private refresh(): void {
 		if (this.closed) return;
 		this.resolve();
+		this.subset.invalidate();
 		this.headerSnapshots();
 		// (made again, where it was: the same folder may have become another kind of binder, or read only)
 		if (this.key() !== this.identity) { this.keepPlace(); this.rebuild(); return; }
 		if (!this.folder) return;
 		this.drawToolbar();
 		this.current?.refresh();
+		this.popover?.sync();
 	}
 
 	private button(parent: HTMLElement, icon: string, label: string, cls: string, onClick: (e: MouseEvent) => void): HTMLElement {
@@ -652,7 +659,7 @@ export class BinderView extends ItemView {
 		// word count, with the binder's target on the binder itself
 		const all = this.store.scenes(folder), n = this.words.sum(all);
 		// with a filter on, the words of the notes that pass, out of all of them
-		const filtering = isOn(this.filter) && !!this.current?.filters, shown = filtering ? this.words.sum(all.filter((f) => this.visible(f))) : null;
+		const filtering = this.subset.on() && !!this.current?.filters, shown = filtering ? this.words.sum(all.filter((f) => this.visible(f))) : null;
 		// with the target of the folder shown: the binder's own, or a subfolder's from its folder note
 		const note = this.store.folderNote(folder), goal = note ? this.props(note).target : 0;
 		const whose = folder === binder.folder ? 'the binder’s' : 'this folder’s';
@@ -678,11 +685,12 @@ export class BinderView extends ItemView {
 		}
 		// the filter, when on, says how many values it keeps; only for modes that filter
 		ui.filter.toggleClass('is-hidden', !this.current?.filters);
-		const on = filterCount(this.filter);
+		const on = this.subset.count();
 		ui.filter.toggleClass('is-active', on > 0);
 		ui.filter.querySelector('.text-button-label')?.setText(on ? `Filter (${on})` : 'Filter');
 		// (said to a screen reader too, and shown as the tooltip where the button is an icon alone)
 		ui.filter.setAttr('aria-label', on ? `Filter: ${on} on` : 'Filter');
+		this.drawScope();
 		// "Arrange", on the corkboard: always called that; its icon says how (and its name, to a screen reader)
 		// (and on the timeline, which way time runs: not on a phone, where it runs one way)
 		const time = this.mode === 'timeline' && !Platform.isPhone ? TIMELINE_SHAPES.find((s) => s.id === readShape(this.options.timelineShape)) : null;
@@ -767,20 +775,52 @@ export class BinderView extends ItemView {
 		this.showBelow(menu, e);
 	}
 
-	private filterMenu(e?: MouseEvent): void {
-		openFilterMenu({
+	private filterPopover(): FilterPopover {
+		if (this.popover?.open) return this.popover;
+		this.popover?.close(true);
+		return this.popover = new FilterPopover({
 			button: () => this.ui?.filter,
-			filter: () => this.filter,
-			setFilter: (f) => this.setFilter(f),
-			notes: () => (this.folder ? this.store.scenes(this.folder) : []).map((f) => this.props(f)),
-			statuses: () => this.plugin.settings.statuses,
+			subset: this.subset,
+			apply: (f) => this.setFilter(f),
+			count: () => this.countSaid(),
 			labels: () => this.plugin.settings.labels,
-			show: (menu, ev, anchor) => this.showBelow(menu, ev, anchor),
-		}, e);
+		});
 	}
 
-	private setFilter(filter: Filter): void {
-		this.filter = filter;
+	/** Where the filter is said: a line under the toolbar, across the view, for as long as part of the binder may be hidden.
+	    Its name (or "Filter" for one not saved), how many notes show of the folder's, and the way back to all of them. */
+	private drawScope(): void {
+		const ui = this.ui;
+		if (!ui) return;
+		const on = this.subset.on() && !!this.current?.filters;
+		ui.scope.empty();
+		ui.scope.toggleClass('is-hidden', !on);
+		if (!on) return;
+		const all = this.folder ? this.store.scenes(this.folder) : [], shown = all.filter((f) => this.visible(f)).length;
+		setIcon(ui.scope.createSpan({ cls: 'binders-scope-icon', attr: { 'aria-hidden': 'true' } }), 'list-filter');
+		const name = ui.scope.createSpan({ cls: 'binders-scope-name', text: this.subset.def.name ?? 'Filter', attr: { role: 'button', tabindex: '0', 'aria-label': `Change the filter: ${this.subset.say()}`, title: this.subset.say() } });
+		name.addEventListener('click', () => this.filterPopover().toggle());
+		name.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); name.click(); } });
+		const n = ui.scope.createSpan({ cls: 'binders-scope-count', text: `${shown} of ${all.length}` });
+		n.createSpan({ cls: 'binders-scope-unit', text: all.length === 1 ? ' note' : ' notes' });
+		ui.scope.createDiv({ cls: 'binders-scope-spacer' });
+		const whole = this.folder === this.binder?.folder ? 'Show the whole binder' : 'Show the whole folder';
+		const out = ui.scope.createDiv({ cls: 'text-icon-button binders-scope-all', attr: { role: 'button', tabindex: '0', 'aria-label': whole } });
+		setIcon(out.createSpan({ cls: 'text-button-icon' }), 'x');
+		out.createSpan({ cls: 'text-button-label', text: whole });
+		const clear = () => { this.popover?.close(); this.setFilter(emptyDef()); };
+		out.addEventListener('click', clear);
+		out.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); clear(); } });
+	}
+
+	/** "8 of 20 notes": what the filter shows, of the folder shown. */
+	private countSaid(): string {
+		const all = this.folder ? this.store.scenes(this.folder) : [];
+		return `${all.filter((f) => this.visible(f)).length} of ${all.length} ${all.length === 1 ? 'note' : 'notes'}`;
+	}
+
+	private setFilter(filter: FilterDef): void {
+		this.subset.def = filter;
 		this.remember();
 		this.madeHere.clear();
 		this.app.workspace.requestSaveLayout();
@@ -892,9 +932,9 @@ export class BinderView extends ItemView {
 	}
 
 	private visible(file: TFile): boolean {
-		if (!isOn(this.filter)) return true;
+		if (!this.subset.on()) return true;
 		if (this.madeHere.has(file)) return true;
-		return passes(this.filter, this.props(file));
+		return this.subset.matches(file);
 	}
 
 	private context(): ModeContext {
@@ -912,7 +952,8 @@ export class BinderView extends ItemView {
 			onTextChange: (f, t) => { this.words.typed(f, t); this.schedule(); },
 			visible: (f) => this.visible(f),
 			made: (f) => { this.madeHere.add(f); },
-			filtering: () => isOn(this.filter),
+			filtering: () => this.subset.on(),
+			clearFilter: () => this.setFilter(emptyDef()),
 			selectionChanged: () => this.inspect(),
 			find: (replace) => this.showSearch(replace),
 			option: <T>(key: string, fallback: T): T => (key in this.options ? this.options[key] : fallback) as T,

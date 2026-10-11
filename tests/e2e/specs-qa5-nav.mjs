@@ -603,7 +603,7 @@ test('phone navigation: a reload brings the view back on the same folder, in the
 	await onDevice(p, PHONE, async () => {
 		await open(p, L + 'Part One');
 		await setMode(p, 'outliner');
-		await p.ev(`(() => { ${VIEW}.setFilter({ status: ['Draft'], label: [] }); return 1; })()`);
+		await p.ev(`(() => { ${VIEW}.setFilter(${VIEW}.subset.read({ status: ['Draft'], label: [] })); return 1; })()`);
 		await p.sleep(500);
 		const was = j(await viewState(p));
 		await p.ev(`app.workspace.requestSaveLayout()`);
@@ -617,7 +617,7 @@ test('phone navigation: a reload brings the view back on the same folder, in the
 		t.eq(j(await p.ev(`[...document.querySelectorAll('.binders-view .binders-outliner-row[data-path]')].map(r => r.dataset.path)`)), j([L + 'Part One/The keeper.md']), 'showing only what passes the filter');
 		t.ok(/Filter \(1\)/.test(await p.ev(`document.querySelector('.binders-view .binders-filter-button').textContent`)), 'and the Filter button counts it');
 		// moved
-		await p.ev(`(() => { ${VIEW}.setFilter({ status: [], label: [] }); return 1; })()`);
+		await p.ev(`(() => { ${VIEW}.setFilter(${VIEW}.subset.read({ status: [], label: [] })); return 1; })()`);
 		await p.ev(`(async () => { await app.vault.createFolder('Books'); await app.fileManager.renameFile(app.vault.getAbstractFileByPath('The Lighthouse'), 'Books/The Lighthouse'); })().then(() => 1)`);
 		await p.sleep(1500);
 		t.eq((await viewState(p)).folder, 'Books/The Lighthouse/Part One', 'the binder moved into another folder: the view follows');
@@ -733,7 +733,7 @@ test('phone toolbar: at 320, 360, 390 and 430 px and on its side (568, 844, 932 
 			for (const folder of ['The Lighthouse', L + 'Part One']) {
 				await open(p, folder);
 				for (const filter of [false, true]) {
-					await p.ev(`(() => { ${VIEW}.setFilter({ status: ${filter ? `['Draft', 'Idea']` : '[]'}, label: [] }); return 1; })()`);
+					await p.ev(`(() => { ${VIEW}.setFilter(${VIEW}.subset.read({ status: ${filter ? `['Draft', 'Idea']` : '[]'}, label: [] })); return 1; })()`);
 					await p.sleep(400);
 					const bar = await toolbar(p), what = `${w} × ${hh}, ${folder === 'The Lighthouse' ? 'binder' : 'folder'}${filter ? ', filtered' : ''}`;
 					await shot(p, `toolbar-${w}x${hh}-${folder === 'The Lighthouse' ? 'binder' : 'folder'}${filter ? '-filter' : ''}`);
@@ -759,7 +759,7 @@ test('phone toolbar: at 320, 360, 390 and 430 px and on its side (568, 844, 932 
 					t.ok(/^View as: \S/.test(mode.name ?? '') && mode.whole && (w >= 360 || mode.tip === 'false'), `${what}: the mode button is named for a screen reader, its icon and chevron are whole${w >= 360 ? '' : ', and its name is its tooltip'}: ${JSON.stringify(mode)}`);
 					if (filter) t.ok(await p.ev(`document.querySelector('${LEAF} .binders-filter-button').classList.contains('is-active')`), `${what}: the filter button shows it’s on`);
 				}
-				await p.ev(`(() => { ${VIEW}.setFilter({ status: [], label: [] }); return 1; })()`);
+				await p.ev(`(() => { ${VIEW}.setFilter(${VIEW}.subset.read({ status: [], label: [] })); return 1; })()`);
 			}
 			const head = await p.ev(`({ header: (${R})(document.querySelector('${LEAF} .view-header')), title: (${R})(document.querySelector('${LEAF} .view-header-title')), navbar: (${R})(document.querySelector('.mobile-navbar')), bar: (${R})(document.querySelector('${LEAF} .binders-toolbar')) })`);
 			t.ok(Math.abs(head.title[0] + head.title[2] / 2 - w / 2) <= 2, `${w} × ${hh}: the header’s title is centred: ${j(head.title)}`);

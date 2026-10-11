@@ -164,3 +164,16 @@ export function configLook(form: HTMLElement): boolean {
 		return column;
 	} catch { return false; }
 }
+
+/* The type Obsidian gives a property (its Properties view: text, list, number, checkbox, date). The metadata type
+   manager isn't in the API: `app.metadataTypeManager.getAssignedWidget(name)` says the widget assigned to a property
+   name, vault-wide, or nothing for a name no type was given. The filter uses it for a property's kind; without it, or
+   for a property with no type, the kind is read from the values the notes have (filter/conditions.ts `kindFrom`). */
+export function propertyType(app: App, name: string): 'text' | 'list' | 'number' | 'checkbox' | 'date' | null {
+	try {
+		const m = (app as unknown as { metadataTypeManager?: { getAssignedWidget?: (n: string) => unknown } }).metadataTypeManager;
+		if (!m || typeof m.getAssignedWidget !== 'function') return null;
+		const w = m.getAssignedWidget(name);
+		return w === 'text' ? 'text' : w === 'multitext' || w === 'tags' || w === 'aliases' ? 'list' : w === 'number' ? 'number' : w === 'checkbox' ? 'checkbox' : w === 'date' || w === 'datetime' ? 'date' : null;
+	} catch { return null; }
+}

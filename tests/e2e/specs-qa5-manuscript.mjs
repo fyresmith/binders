@@ -12,6 +12,7 @@
 // itself listens to, can't be sent); safe-area insets are 0.
 //
 // QA5_SHOTS=<dir> saves screenshots of every step there.
+import { tapToggle } from './filter-helpers.mjs';
 import { mkdirSync, readFileSync, readdirSync, statSync } from 'fs';
 import { join, relative } from 'path';
 import { B, PL, VIEW, closeMenus, flush, j, menuItems, openView, reload, tidy, until } from './view-helpers.mjs';
@@ -1235,10 +1236,7 @@ test('phone: “New” makes a note after the section with the caret, named in p
 
 test('phone: under a filter, typing in a section that passes; “New” under the filter makes a note after it that shows though it has no status, and can be named and typed in', on(PHONE, async (p, h, t, before) => {
 	await openMs(p);
-	const f = await p.at(`${LEAF} .binders-filter-button`);
-	await tap(p, f.x, f.y, 400);
-	t.ok(await menuTap(p, 'Draft'), 'Draft, in the filter');
-	await p.sleep(600);
+	await tapToggle(p, 'Draft');
 	await gone(p);
 	await settle(p);
 	await shot(p, 'filter-draft');

@@ -3,6 +3,7 @@
 // long outliner scrolled by the wheel, modes switched with the bar open, and notes renamed, deleted or moved while it's
 // open. Tests named "qa11 fr-boards: …", and "BUG: qa11 fr-boards: …" where a bug is confirmed (they fail until fixed).
 // Golden rules 2 and 3: a replace is checked against the files on disk, byte for byte.
+import { filterToggle, clearFilter } from './filter-helpers.mjs';
 import { VIEW, card, clickMenu, closeMenus, j, openView, withTidy } from './view-helpers.mjs';
 import { LEAF, disk, saveAll, snap } from './specs-qa5-manuscript.mjs';
 import { make } from './specs-qa6-scale.mjs';
@@ -54,11 +55,9 @@ async function arrange(p, title) {
 	await clickMenu(p, title);
 	await p.sleep(900);
 }
-/** The filter: one item of its menu by title, then the menu closed. */
+/** The filter: one status or label ticked by its title in the popover (or the filter cleared), then the popover closed. */
 async function filterBy(p, title) {
-	await clickButton(p, '.binders-filter-button');
-	await clickMenu(p, title);
-	await closeMenus(p);
+	if (title === 'Clear filter') await clearFilter(p); else await filterToggle(p, title);
 	await p.sleep(500);
 }
 /** Wheel over the board by (dx, dy) pixels (a scroll, as a trackpad makes it), then a settle. */

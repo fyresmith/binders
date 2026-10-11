@@ -9,6 +9,7 @@
 // bring the caret into view when something is typed); safe areas are whatever Obsidian's variables say.
 //
 // QA5_SHOTS=<dir> saves screenshots of every step there; QA5_DATA=<dir> saves what was measured, as JSON.
+import { tapToggle } from './filter-helpers.mjs';
 import { mkdirSync, writeFileSync } from 'fs';
 import { B, PL, VIEW, closeMenus, contents, flush, j, menuItems, openView, read, reload, texts, tidy, until, viewState } from './view-helpers.mjs';
 
@@ -1172,10 +1173,7 @@ test('phone toolbar: the options sheet shows and hides columns and folds everyth
 		await flush(p);
 		c.eq(j((await contents(p)).slice(0, 2)), j(['Prologue', 'Part Three/']), 'and Enter');
 		await shot(p, 'toolbar-new-folder');
-		const fb = await p.at(`${LEAF} .binders-filter-button`);
-		await tap(p, fb.x, fb.y);
-		await menuTap(p, 'Idea');
-		await p.sleep(600);
+		await tapToggle(p, 'Idea');
 		await gone(p);
 		f.filtered = { rows: await shown(p), foot: (await layout(p)).footText, count: await p.ev(`document.querySelector('${LEAF} .binders-word-count')?.textContent`) };
 		await shot(p, 'toolbar-filtered');

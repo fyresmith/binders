@@ -1,6 +1,7 @@
 // The outliner (src/view/outliner.ts): the tree of rows, folding, selection and the keyboard, editing in place (title,
 // synopsis, target, properties), the label and status cells, columns (show, hide, move, resize, sort), dragging rows,
 // new notes and folders, the filter, read-only binders. Every test that changes files checks no text was lost.
+import { filterToggle } from './filter-helpers.mjs';
 import { B, NOTE, PL, VIEW, clickMenu, closeMenus, contents, exists, file, flush, hoverMenu, j, menuItems, openView, read, reload, same, split, texts, tidy, until, viewState, withTidy, writeRaw } from './view-helpers.mjs';
 
 export const specs = [];
@@ -582,10 +583,7 @@ test('a row’s menu is a card’s menu; Delete asks first; the filter hides row
 	await until(p, `document.querySelectorAll('${R}').length === 8`);
 	t.eq(j(await selected(p)), j(['Part One/Storm warning.md']), 'the row after it is selected');
 	// the filter
-	const f = await p.at(`.workspace-leaf.mod-active .binders-filter-button`);
-	await p.click(f.x, f.y);
-	await clickMenu(p, 'Revised');
-	await closeMenus(p);
+	await filterToggle(p, 'Revised');
 	await p.sleep(250);
 	t.eq(j(await names(p)), j(['Part One', 'Part One/Arrival.md']), 'only what passes the filter, and the folder it’s in');
 	t.eq(await p.ev(`document.querySelector('${O} .binders-outliner-foot .binders-outliner-cell').textContent`), '1 note', 'the last row counts what shows');

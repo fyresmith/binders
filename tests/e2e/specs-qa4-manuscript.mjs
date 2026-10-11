@@ -2,6 +2,7 @@
 // for everything: can a writer lose, duplicate or corrupt words here, or be thrown out of their flow?
 // Tests named “BUG: …” and “UX: …” fail on purpose until fixed; the rest record behaviour that is solid.
 // (Earlier rounds: specs-manuscript.mjs, specs-qa-manuscript.mjs, specs-qa2-manuscript.mjs. Nothing here repeats them.)
+import { filterToggle } from './filter-helpers.mjs';
 import { readFileSync, existsSync, readdirSync, statSync } from 'fs';
 import { join, relative } from 'path';
 import { VIEW, answer, clickMenu, closeMenus, hoverMenu, menuItems, openView, reload, until, withTidy } from './view-helpers.mjs';
@@ -148,7 +149,7 @@ const titleMenu = async (p, path) => { const at = await titleAt(p, path); await 
 /** What the page shows: headings and sections, in order. */
 const shown = (p) => p.ev(`${M}.entries.map(e => e.kind === 'heading' ? '# ' + e.key.name : e.file.basename).join(' | ')`);
 const countText = (p) => p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-word-count')?.textContent`);
-const setFilter = async (p, status = [], label = []) => { await p.ev(`(() => { ${VIEW}.setFilter({ status: ${J(status)}, label: ${J(label)} }); return 1; })()`); await p.sleep(400); await settle(p); };
+const setFilter = async (p, status = [], label = []) => { await p.ev(`(() => { ${VIEW}.setFilter(${VIEW}.subset.read({ status: ${J(status)}, label: ${J(label)} })); return 1; })()`); await p.sleep(400); await settle(p); };
 const write = (p, path, text) => p.ev(`app.vault.modify(app.vault.getAbstractFileByPath(${J(path)}), ${J(text)}).then(() => 1)`);
 const setProps = (p, path, props) => p.ev(`${VIEW}.setProps(app.vault.getAbstractFileByPath(${J(path)}), ${J(props)}).then(() => 1)`);
 /** Obsidian's trash in the vault (“.trash”), emptied and in use, so a test reads what it trashed itself. Returns the setting to put back. */
@@ -422,10 +423,7 @@ test('BUG: “Measure loop restarted” while scrolling up in a pane narrower th
 test('the filter, set from the toolbar, hides sections and headings with nothing left; the count says “55 of 106 words”; arrows and Mod+End keep to what shows', async (p, h, t) => {
 	await openMs(p);
 	t.eq(await countText(p), '106 words', 'the whole binder');
-	const b = await p.at('.workspace-leaf.mod-active .binders-filter-button');
-	await p.click(b.x, b.y); await p.sleep(300);
-	await clickMenu(p, 'Draft'); await p.sleep(300);
-	await closeMenus(p); await settle(p);
+	await filterToggle(p, 'Draft'); await settle(p);
 	t.eq(await shown(p), 'Prologue | # Part One | The keeper | # Part Two | The wreck', 'only the drafts, under their folders');
 	t.eq(await countText(p), '55 of 106 words', 'the count');
 	await focusEnd(p, PROLOGUE);

@@ -10,6 +10,7 @@
 // can't be started by touch.
 //
 // QA4_SHOTS=<dir> saves screenshots of every step there.
+import { tapTick, tapSel } from './filter-helpers.mjs';
 import { mkdirSync } from 'fs';
 import { B, PL, VIEW, card, closeMenus, contents, flush, j, menuItems, openView, read, reload, texts, tidy, until, viewState } from './view-helpers.mjs';
 
@@ -201,7 +202,7 @@ test('phone: the toolbar fits at 390 and at 320 px in every mode, its menus are 
 		const f = await p.at(`${LEAF} .binders-filter-button`);
 		await tap(p, f.x, f.y);
 		s = await sheet(p);
-		t.ok(isSheet(s) && (await menuItems(p)).includes('Draft'), 'the filter is a sheet with the statuses in it');
+		t.ok(isSheet(s) && await p.ev(`!!document.querySelector('.binders-filter-menu .filter-property-select')`), 'the filter is a sheet with its first condition to fill in');
 		await gone(p);
 		const n = await p.at(`${LEAF} .binders-new-button`);
 		await tap(p, n.x, n.y);
@@ -816,24 +817,22 @@ test('phone: the filter is picked by touch in a sheet that stays for the next pi
 	await onDevice(p, PHONE, async () => {
 		await open(p);
 		const f = await p.at(`${LEAF} .binders-filter-button`);
-		await tap(p, f.x, f.y);
-		await menuTap(p, 'Draft');
-		await p.sleep(500);
+		await tapTick(p, 'status', 'Draft');
 		t.eq(j((await viewState(p)).filter), j({ status: ['Draft'], label: [] }), 'a status picked');
-		t.ok((await menuItems(p)).includes('Clear filter'), 'the sheet is still there, now with “Clear filter”');
-		await menuTap(p, 'Idea');
-		await p.sleep(500);
+		t.ok(await p.ev(`!!document.querySelector('.binders-filter-menu .binders-filter-foot .text-icon-button')`), 'the sheet is still there, now with “Clear filter”');
+		await tapTick(p, 'status', 'Idea');
 		t.eq(j((await viewState(p)).filter.status), j(['Draft', 'Idea']), 'and another');
+		await tapSel(p, '.binders-filter-menu .modal-header-button');
 		await gone(p);
 		await shot(p, 'filter-on');
-		t.eq(await p.ev(`document.querySelector('${LEAF} .binders-filter-button').getAttribute('aria-label') + '|' + document.querySelector('${LEAF} .binders-filter-button').classList.contains('is-active')`), 'Filter: 2 on|true', 'the button shows the filter is on, and how many picks it has (since 0.12.93)');
+		t.eq(await p.ev(`document.querySelector('${LEAF} .binders-filter-button').getAttribute('aria-label') + '|' + document.querySelector('${LEAF} .binders-filter-button').classList.contains('is-active')`), 'Filter: 1 on|true', 'the button shows the filter is on, and how many conditions it has (since 0.12.93)');
 		t.eq(j(await p.ev(`[...document.querySelectorAll('${LEAF} .binders-card[data-path]')].map(c => c.dataset.path.split('/').pop())`)), j(['Prologue.md', 'Part One', 'Part Two', 'Epilogue.md']), 'of the binder’s own notes, only the ones that pass show (both do), beside the folders’ stacks');
 		await open(p, L + 'Part One');
 		t.eq(j(await p.ev(`[...document.querySelectorAll('${LEAF} .binders-card[data-path]')].map(c => c.dataset.path.split('/').pop())`)), j(['The keeper.md', 'Storm warning.md']), 'and inside a folder only its notes that pass (Arrival, revised, doesn’t)');
 		await open(p);
 		t.ok((await toolbar(p)).out <= 0 && (await toolbar(p)).overlap.length === 0, 'the toolbar still fits, with the longer count');
 		await tap(p, f.x, f.y);
-		await menuTap(p, 'Clear filter');
+		await tapSel(p, '.binders-filter-menu .binders-filter-foot .text-icon-button');
 		await p.sleep(500);
 		t.eq(j((await viewState(p)).filter), j({ status: [], label: [] }), '“Clear filter” takes it off');
 		t.eq(await p.ev(`document.querySelectorAll('.menu').length`), 0, 'and closes the sheet');
@@ -841,16 +840,16 @@ test('phone: the filter is picked by touch in a sheet that stays for the next pi
 	});
 });
 
-ux('phone: the filter sheet stays put between picks (after each pick it’s closed and opened again, so it slides up from the bottom of the screen every time)', async (p, h, t) => {
+ux('phone: the filter sheet stays put between picks (it is not closed and opened again, so it does not slide up from the bottom of the screen each time)', async (p, h, t) => {
 	await onDevice(p, PHONE, async () => {
 		await open(p);
-		const f = await p.at(`${LEAF} .binders-filter-button`);
-		await tap(p, f.x, f.y);
-		await menuTap(p, 'Draft');
+		await tapTick(p, 'status', 'Draft');
 		await p.sleep(900);
 		// the second pick, with the sheet's top watched every frame
-		const at = await p.ev(`(() => { const it = [...document.querySelectorAll('.menu .menu-item')].find(e => e.querySelector('.menu-item-title')?.textContent === 'Idea'); const r = it.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
-		await p.ev(`(() => { const rec = window.__qa4 = []; const t0 = performance.now(); const fn = () => { const m = [...document.querySelectorAll('.menu')].pop(); rec.push(m ? Math.round(m.getBoundingClientRect().top) : null); if (performance.now() - t0 < 900) requestAnimationFrame(fn); }; requestAnimationFrame(fn); return 1; })()`);
+		await tapSel(p, '.binders-filter-menu .binders-filter-values');
+		await until(p, `!!document.querySelector('.binders-picker')`);
+		const at = await p.ev(`(() => { const it = [...document.querySelectorAll('.binders-picker .menu-item')].find(e => e.querySelector('.menu-item-title')?.textContent === 'Idea'); const r = it.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
+		await p.ev(`(() => { const rec = window.__qa4 = []; const t0 = performance.now(); const fn = () => { const m = document.querySelector('.binders-filter-menu'); rec.push(m ? Math.round(m.getBoundingClientRect().top) : null); if (performance.now() - t0 < 900) requestAnimationFrame(fn); }; requestAnimationFrame(fn); return 1; })()`);
 		await touch(p, 'touchStart', at.x, at.y);
 		await p.sleep(40);
 		await touch(p, 'touchEnd');

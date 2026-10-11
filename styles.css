@@ -6882,3 +6882,225 @@ body:not(.is-phone) .binders-snapshots .sync-history-content {
 	margin: 0 0 var(--size-4-4);
 	color: var(--text-muted);
 }
+
+/* ---- The Filter popover and its lists (view/filter-popover.ts, view/filter-picker.ts) ---- */
+
+/* The popover is Obsidian's own Bases filter by its classes (`menu bases-toolbar-menu bases-toolbar-filter-menu`,
+   `bases-query-container`, `filter-row`, `combobox-button`): the popover, the rows and the phone's sheet are its rules.
+   What is here is what Binders has that a base hasn't: a value that is a list, and the line at the foot. */
+.binders-filter-menu .bases-toolbar-section-header {
+	cursor: default;
+}
+
+.binders-filter-menu .bases-toolbar-section-content {
+	padding: 0 var(--size-4-2) var(--size-4-1);
+}
+
+.binders-filter-menu .filter-rhs-container {
+	flex: 1 1 0;
+	min-width: 0;
+}
+
+.binders-filter-menu .filter-rhs-container > input.metadata-input {
+	width: 100%;
+	border: 0;
+	background-color: transparent;
+}
+
+.binders-filter-menu .filter-rhs-container > input[type="checkbox"] {
+	margin-inline-start: var(--size-4-2);
+}
+
+.binders-filter-menu .binders-filter-values {
+	min-width: 0;
+	background-color: transparent;
+}
+
+.binders-filter-menu .binders-filter-values .binders-label-dot {
+	margin-inline-end: var(--size-2-2);
+}
+
+.binders-filter-menu .binders-filter-none {
+	color: var(--text-muted);
+}
+
+/* (a row with no property yet is the property's box alone, as wide as the row) */
+.binders-filter-menu .filter-lhs-container:nth-last-child(2) {
+	flex: 1 1 auto;
+}
+
+/* (a row and what is said under it: the row's first word stays on the row's line) */
+.binders-filter-menu .filter-row {
+	align-items: flex-start;
+}
+
+.binders-filter-menu .filter-row > .conjunction {
+	line-height: var(--input-height);
+}
+
+.binders-filter-menu .filter-row-error.is-hidden {
+	display: none;
+}
+
+/* (a value no note has is worth saying, and nothing is wrong: the filter is waiting for such a note) */
+.binders-filter-menu .filter-row-error.binders-filter-note {
+	color: var(--text-muted);
+}
+
+.binders-filter-foot {
+	display: flex;
+	align-items: center;
+	gap: var(--size-2-2);
+	padding: var(--size-2-3) var(--size-4-2);
+	flex-wrap: wrap;
+}
+
+.binders-filter-said {
+	margin-inline-end: auto;
+	padding-inline: var(--size-2-3);
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	font-variant-numeric: tabular-nums;
+}
+
+/* A list to pick from, with a field to search it (a Bases filter's comboboxes). It is a menu by its classes. */
+.binders-picker {
+	display: flex;
+	flex-direction: column;
+	max-width: calc(100vw - var(--size-4-4));
+}
+
+.binders-picker-search {
+	flex: none;
+	padding: var(--size-2-3);
+}
+
+.binders-picker-input {
+	width: 100%;
+}
+
+.binders-picker .menu-scroll {
+	flex: 1 1 auto;
+	min-height: 0;
+}
+
+.binders-picker .menu-item.binders-picker-none {
+	color: var(--text-muted);
+	cursor: default;
+}
+
+.binders-picker-count {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	font-variant-numeric: tabular-nums;
+}
+
+/* A phone: the sheet is as tall as what is in it, as Obsidian's menus are there, and scrolls when that is too much;
+   an operator has the room its words need. */
+.is-phone .binders-filter-menu {
+	height: auto;
+	max-height: calc(100% - var(--safe-area-inset-top) - var(--size-4-12));
+}
+
+.is-phone .binders-filter-menu .menu-scroll {
+	flex: 1 1 auto;
+	min-height: 0;
+}
+
+.is-phone .binders-filter-menu .filter-row .filter-operator {
+	max-width: 60%;
+	flex: none;
+}
+
+.is-phone .binders-filter-menu .bases-toolbar-section-content {
+	padding-inline: var(--size-4-3);
+}
+
+.is-phone .binders-filter-foot {
+	padding: var(--size-4-2) var(--size-4-3) calc(var(--size-4-3) + var(--safe-area-inset-bottom));
+}
+
+/* ---- Where the filter is said (BinderView.drawScope) ---- */
+
+/* A line under the toolbar, across the view, for as long as part of the binder may be hidden. */
+.binders-scope {
+	flex: none;
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	min-height: var(--size-4-8);
+	padding-inline: var(--size-4-3) var(--size-2-3);
+	border-bottom: var(--border-width) solid var(--background-modifier-border);
+	background-color: var(--background-secondary);
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+}
+
+.binders-scope.is-hidden {
+	display: none;
+}
+
+.binders-scope-icon {
+	display: flex;
+	flex: none;
+	color: var(--text-accent);
+	--icon-size: var(--icon-xs);
+	--icon-stroke: var(--icon-xs-stroke-width);
+}
+
+.binders-scope-name {
+	flex: 0 1 auto;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: var(--text-normal);
+	font-weight: var(--font-medium);
+	cursor: var(--cursor);
+}
+
+.binders-scope-count {
+	flex: none;
+	white-space: nowrap;
+	font-variant-numeric: tabular-nums;
+}
+
+.binders-scope-spacer {
+	flex: 1 1 0;
+}
+
+.binders-scope .text-icon-button {
+	flex: none;
+	font-size: var(--font-ui-smaller);
+	--icon-size: var(--icon-xs);
+	--icon-stroke: var(--icon-xs-stroke-width);
+}
+
+/* (on a computer the way back to the whole binder is its words; on a phone, a cross, with the words for a screen reader) */
+.binders-scope-all > .text-button-icon {
+	display: none;
+}
+
+.is-phone .binders-scope {
+	min-height: var(--size-4-9);
+	padding-inline: var(--size-4-3) var(--size-2-2);
+}
+
+.is-phone .binders-scope-unit,
+.is-phone .binders-scope-all > .text-button-label {
+	display: none;
+}
+
+.is-phone .binders-scope-all > .text-button-icon {
+	display: flex;
+}
+
+.is-phone .binders-scope .text-icon-button {
+	--icon-size: var(--icon-s);
+	padding: var(--size-4-2);
+}
+
+/* The way out of a filter that shows nothing. */
+.binders-empty-action {
+	margin-top: var(--size-4-2);
+}

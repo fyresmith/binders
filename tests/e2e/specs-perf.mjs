@@ -196,3 +196,49 @@ test('a 1,000-scene binder on the timeline: it opens in both shapes with a few d
 		t.ok(out[shape + 'Keys'].slowestEvent < LIMIT.interaction, `${shape}: the slowest key takes ${out[shape + 'Keys'].slowestEvent} ms (limit ${LIMIT.interaction})`);
 	}
 }));
+
+test('a filter of three conditions with a link over 1,000 notes: matching them all is quick, a link is asked of the vault once, and putting the filter on shows in good time', withTidy(async (p, h, t) => {
+	const PILE = 'Pile';
+	await p.ev(`(async () => {
+		const a = app.vault.adapter, list = [];
+		for (const d of [${j(PILE)}, 'Cast']) { try { await a.mkdir(d); } catch (e) { /* there */ } }
+		await a.write('Cast/Mara.md', 'Mara.\\n'); await a.write('Cast/Ines.md', 'Ines.\\n');
+		const people = ['[[Mara]]', '[[Ines|the keeper]]', '[[Mara|Mara Vane]]', 'Ines'], statuses = ['Idea', 'Draft', 'Revised', 'Final'];
+		for (let i = 0; i < ${HEAP_NOTES}; i += 40) await Promise.all(Array.from({ length: Math.min(40, ${HEAP_NOTES} - i) }, (_, k) => {
+			const n = i + k, name = 'Note ' + String(n).padStart(4, '0');
+			list.push(name);
+			return a.write(${j(PILE)} + '/' + name + '.md', '---\\nstatus: ' + statuses[n % 4] + '\\ntarget: ' + (n % 7) * 400 + '\\ncharacters:\\n  - "' + people[n % 4] + '"\\n  - "' + people[(n + 1) % 4] + '"\\n---\\nA few words in a note.\\n');
+		}));
+		await a.write(${j(PILE + '/' + PILE + '.md')}, '---\\nbinder: 1\\ncontents:\\n' + list.map(c => '  - ' + c).join('\\n') + '\\n---\\n');
+	})().then(() => 1)`);
+	t0ok(await until(p, `${B}.scenes(app.vault.getAbstractFileByPath(${j(PILE)}) ?? app.vault.getRoot())?.length === ${HEAP_NOTES} && app.vault.getMarkdownFiles().filter(f => f.path.startsWith('Pile/')).every(f => app.metadataCache.getFileCache(f))`, 60000), 'the pile did not settle');
+	await p.ev(`(async () => { await ${B}.ready; await ${PL}.openBinder(app.vault.getAbstractFileByPath(${j(PILE)})); })().then(() => 1)`);
+	await until(p, `!!document.querySelector('.workspace-leaf.mod-active .binders-toolbar')`);
+	await p.ev(`${VIEW}.setMode('outliner')`);
+	await p.sleep(1500);
+	const def = `{ match: 'all', conditions: [{ property: 'status', operator: 'is', value: ['Draft', 'Revised'] }, { property: 'target', operator: '>=', value: 800 }, { property: 'characters', operator: 'contains any of', value: ['[[Mara]]'] }] }`;
+	// matching every note, three times over (what a redraw, the toolbar and the count each ask), counting what the vault is asked
+	const m = await p.ev(`(() => {
+		const v = ${VIEW}, c = app.metadataCache, orig = c.getFirstLinkpathDest.bind(c);
+		let asks = 0;
+		c.getFirstLinkpathDest = (...a) => { asks++; return orig(...a); };
+		try {
+			v.subset.def = ${def};
+			v.subset.invalidate();
+			const files = v.store.scenes(v.folder), t0 = performance.now();
+			let n = 0;
+			for (let r = 0; r < 3; r++) { n = 0; for (const f of files) if (v.subset.matches(f)) n++; }
+			return { ms: Math.round(performance.now() - t0), asks, passing: n, of: files.length };
+		} finally { c.getFirstLinkpathDest = orig; v.subset.def = { match: 'all', conditions: [] }; v.subset.invalidate(); }
+	})()`);
+	console.log('    · filter perf:', j(m));
+	t.eq(m.of, HEAP_NOTES, 'a thousand notes');
+	t.ok(m.passing > 50 && m.passing < HEAP_NOTES / 2, `some of them pass: ${m.passing}`);
+	t.ok(m.ms < 600, `three passes over a thousand notes with three conditions take ${m.ms} ms (limit 600)`);
+	t.ok(m.asks <= 6, `a link is asked of the vault once, not once a note: ${m.asks} asks for ${m.of * 3 * 2} links`);
+	// putting the filter on: the page draws what passes
+	const put = await timed(p, `(async () => { ${VIEW}.setFilter(${def}); })()`);
+	t.ok(put < LIMIT.open, `putting the filter on shows in ${put} ms (limit ${LIMIT.open})`);
+	t.ok((await p.ev(`document.querySelectorAll('.workspace-leaf.mod-active .binders-outliner-row[data-path]').length`)) > 0, 'and the rows are those that pass');
+	await p.ev(`(() => { ${VIEW}.setFilter({ match: 'all', conditions: [] }); return 1; })()`);
+}));

@@ -457,6 +457,26 @@ is an ordinary `<iframe srcdoc>`, which is the web's and nothing of Obsidian's.
 - In the e2e harness, `activeDocument` can be another of Obsidian's windows, so menus opened without a position open
   there; the harness focuses the main window before each test, click and right-click.
 
+## The Filter popover (checked on Obsidian 1.13.7, desktop and `app.emulateMobile(true)`)
+
+- **Bases' classes.** The popover (`src/view/filter-popover.ts`) is made of our own elements under the classes of
+  Obsidian's Bases filter, which are not in the API: `menu bases-toolbar-menu bases-toolbar-filter-menu` >
+  `menu-scroll` > `bases-toolbar-section` > `bases-query-container` > `filter-group` > `filter-row` (`conjunction`,
+  `filter-statement` > `filter-expression metadata-property` > `filter-lhs-container`, `combobox-button
+  filter-property-select`, `combobox-button filter-operator`, `filter-rhs-container metadata-property-value`,
+  `filter-row-actions`; `filter-row-error` under it), with `menu-grabber` and a `modal-header` first, which only a phone
+  shows. They only style: Obsidian's rules make it a popover under its button on a computer and a sheet on a phone. A
+  list to pick from (`src/view/filter-picker.ts`) is a plain `menu` with `menu-item`s and a search field of our own.
+  Without Bases' rules (an Obsidian without Bases) the popover is a menu-looking box of rows.
+- **A property's type.** `src/view/internals.ts` `propertyType()` asks `app.metadataTypeManager.getAssignedWidget(name)`,
+  the type the writer gave a property in Obsidian's Properties view (`text`, `multitext`, `tags`, `aliases`, `number`,
+  `checkbox`, `date`, `datetime`), to choose the operators and the value control for a condition on it. It is feature
+  detected and wrapped; without it, or for a property with no type, the kind is read from the values the notes hold
+  (`kindFrom`). Tested in `tests/e2e/specs-filters.mjs` ("a property's kind is the type Obsidian gives it").
+- **Escape and its menus.** A menu opened from the popover (an operator's) takes Escape before the document's listeners
+  see it: by then the menu is gone, and the popover would shut too. The popover counts the menus opened from it
+  (`onHide`) rather than look for one, and its picker counts itself in the same way.
+
 ## The inspector and the contents (checked on Obsidian 1.13.7, desktop and `app.emulateMobile(true)`)
 
 No undocumented API. The two sidebar views are drawn with the class names Obsidian's own sidebar views use, so that

@@ -1,6 +1,7 @@
 // The binder view (src/view/BinderView.ts): opening it, its state, the breadcrumb, modes, word count, filter, the
 // folder's synopsis, read-only newer-format binders, and following renames. Every test that changes files checks no
 // text was lost.
+import { tick, clearFilter, closeFilter, openFilter, chooseProperty, clickEl, pickerItems, pick, rowSel } from './filter-helpers.mjs';
 import { B, NOTE, PL, VIEW, card, cards, clickMenu, closeMenus, contents, exists, file, j, menuItems, openView, read, reload, same, selected, split, texts, settled, until, viewState, withTidy, writeRaw } from './view-helpers.mjs';
 
 export const specs = [];
@@ -89,7 +90,7 @@ test('a tab saved on the plot grid of an earlier version opens as the outliner',
 test('state (folder, mode, filter, options) comes back after a reload', async (p, h, t) => {
 	await openView(p, 'The Lighthouse/Part One');
 	await p.ev(`(() => { const v = ${VIEW}; v.setMode('outliner'); return 1; })()`);
-	await p.ev(`(() => { const v = ${VIEW}; v.filter = { status: ['draft'], label: [] }; v.options = { cardSize: 'large', numbers: true }; app.workspace.requestSaveLayout(); return 1; })()`);
+	await p.ev(`(() => { const v = ${VIEW}; v.subset.load({ status: ['draft'], label: [] }); v.options = { cardSize: 'large', numbers: true }; app.workspace.requestSaveLayout(); return 1; })()`);
 	await p.ev(`app.workspace.requestSaveLayout.run().then(() => 1)`);
 	await p.sleep(300);
 	await reload(p);
@@ -386,11 +387,14 @@ test('the folder’s synopsis: edited in place, into its folder note or the bind
 
 test('filter by status and label', async (p, h, t) => {
 	await openView(p);
-	const at = await p.at(`.workspace-leaf.mod-active .binders-filter-button`);
-	await p.click(at.x, at.y);
-	const items = await menuItems(p);
-	t.eq(j(items.slice(0, 4)), j(['Status', 'Idea', 'Draft', 'Revised']), 'the statuses in use, in the order settings have them: ' + items.join(', '));
-	await clickMenu(p, 'Draft');
+	await openFilter(p);
+	await chooseProperty(p, 0, 'Status');
+	await clickEl(p, `${rowSel(0)} .binders-filter-values`);
+	const items = (await pickerItems(p)).map((i) => i.title);
+	t.eq(j(items.slice(0, 3)), j(['Idea', 'Draft', 'Revised']), 'the statuses in use, in the order settings have them: ' + items.join(', '));
+	await pick(p, 'Draft');
+	await p.key('Escape');
+	await closeFilter(p);
 	t.eq(j(await cards(p)), j(['The Lighthouse/Prologue.md', 'The Lighthouse/Part One', 'The Lighthouse/Part Two']), 'only the drafts among the notes (Epilogue is an idea); folders stay, as the way to theirs');
 	t.eq(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-filter-button .text-button-label').textContent`), 'Filter (1)', 'the button says a filter is on');
 	t.eq(j((await viewState(p)).filter.status), j(['Draft']), 'kept in the view’s state');
@@ -401,11 +405,10 @@ test('filter by status and label', async (p, h, t) => {
 	await until(p, `document.querySelectorAll('.workspace-leaf.mod-active .binders-card[data-path]').length === 1`);
 	t.eq(j(await cards(p)), j(['The Lighthouse/Part One/The keeper.md']), 'in Part One, only its draft');
 	t.eq(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-filter-button .text-button-label').textContent`), 'Filter (1)', 'the filter is still on there');
-	await p.click(at.x, at.y);
-	await clickMenu(p, 'Idea');
+	await tick(p, 'status', 'Idea');
+	await closeFilter(p);
 	t.eq(j(await cards(p)), j(['The Lighthouse/Part One/The keeper.md', 'The Lighthouse/Part One/Storm warning.md']), 'drafts or ideas');
-	await p.click(at.x, at.y);
-	await clickMenu(p, 'Clear filter');
+	await clearFilter(p);
 	t.eq(j(await cards(p)), j(PART_ONE_CARDS), 'all again');
 	// (up by the breadcrumb: Back would return to the board as it was left, filter and all)
 	const up = await p.at(`.workspace-leaf.mod-active .binders-crumb[role="link"]`);
@@ -702,16 +705,12 @@ test('the manuscript shows the notes that pass the filter, under the folders tha
 	const titles = () => p.ev(`[...document.querySelectorAll('.workspace-leaf.mod-active .binders-manuscript-title, .workspace-leaf.mod-active .binders-manuscript-heading')].map(e => e.textContent)`);
 	await until(p, `document.querySelectorAll('.workspace-leaf.mod-active .binders-manuscript-title').length === 7`);
 	t.ok(await p.ev(`!document.querySelector('.workspace-leaf.mod-active .binders-filter-button').classList.contains('is-hidden')`), 'the manuscript has the Filter button too');
-	const f = await p.at('.workspace-leaf.mod-active .binders-filter-button');
-	await p.click(f.x, f.y);
-	await clickMenu(p, 'Revised');
-	await closeMenus(p);
+	await tick(p, 'status', 'Revised');
+	await closeFilter(p);
 	await until(p, `document.querySelectorAll('.workspace-leaf.mod-active .binders-manuscript-title').length === 1`);
 	t.eq(j(await titles()), j(['Part One', 'Arrival']), 'only the revised note, under its folder');
 	t.eq(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-word-count').textContent`), '18 of 106 words', 'the count says how much of the folder shows');
-	await p.click(f.x, f.y);
-	await clickMenu(p, 'Clear filter');
-	await closeMenus(p);
+	await clearFilter(p);
 	await until(p, `document.querySelectorAll('.workspace-leaf.mod-active .binders-manuscript-title').length === 7`);
 	t.eq((await titles()).length, 9, 'cleared: everything is back');
 	same(t, before, await texts(p));

@@ -1084,7 +1084,7 @@ test('with a filter on, a line’s count adds up the notes its folder cards say 
 	t.eq(j(before.cards), j(['Part One: 3 notes · 51 words', 'Part Two: 2 notes · 28 words']), 'with no filter, the folders’ cards count all their notes');
 	await filter(['Red']);
 	const on = await look();
-	t.eq(j(on.cards), j(['Part One: 1 of 3 notes · 18 words', 'Part Two: 0 of 2 notes · 0 words']), 'filtered to Red, they count the notes that pass');
+	t.eq(j(on.cards), j(['Part One: 1 of 3 notes · 18 words']), 'filtered to Red, they count the notes that pass (Part Two, with none, is not there)');
 	t.eq(on.count, '1', 'and the line they’re on counts the same notes');
 	t.ok(/^No label: 1 note, 18 words/.test(on.said ?? ''), 'which is what a screen reader hears: ' + on.said);
 	await filter([]);

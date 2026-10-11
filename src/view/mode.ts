@@ -47,6 +47,8 @@ export interface ModeContext {
 	made(file: TFile): void;
 	/** Is a filter on (so some notes may be hidden)? */
 	filtering(): boolean;
+	/** Takes the filter off, so all the notes show (the empty state's way out). Without it, the state has no button. */
+	clearFilter?(): void;
 	/** A per-view option (kept with the view in the workspace, so it survives a reload). */
 	option<T>(key: string, fallback: T): T;
 	setOption(key: string, value: unknown): void;

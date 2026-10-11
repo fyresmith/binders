@@ -2,6 +2,7 @@
 // gone into; dragging (within a folder, onto a stack, out to a folder in the breadcrumb, several at once, by touch),
 // editing a synopsis (also while the note changes on disk), new cards, rename, delete, status and label, the keyboard,
 // and mobile. Every test that changes files checks no text was lost.
+import { tick, clearFilter, closeFilter } from './filter-helpers.mjs';
 import { B, NOTE, VIEW, card, cards, clickMenu, closeMenus, contents, exists, file, flush, hoverMenu, j, menuItems, newNote, openView, read, reload, same, selected, split, texts, until, viewState, withTidy, writeRaw } from './view-helpers.mjs';
 
 export const specs = [];
@@ -1146,14 +1147,12 @@ test('a stack’s menu: “Edit synopsis” edits the folder’s synopsis on its
 	t.eq(j(await cards(p)), j([L + 'Prologue.md', L + 'Part Two', L + 'Epilogue.md']), 'nor the board');
 }));
 
-test('a filter hides the notes that don’t pass, on the board and in the folders gone into; the folders stay', withTidy(async (p, h, t) => {
+test('a filter hides the notes that don’t pass, on the board and in the folders gone into; a folder with none that pass goes too', withTidy(async (p, h, t) => {
 	await openView(p);
-	const f = await p.at('.workspace-leaf.mod-active .binders-filter-button');
-	await p.click(f.x, f.y);
-	await clickMenu(p, 'Revised');
-	await closeMenus(p);
+	await tick(p, 'status', 'Revised');
+	await closeFilter(p);
 	await until(p, `!document.querySelector('${card(L + 'Prologue.md')}')`);
-	t.eq(j(await cards(p)), j([L + 'Part One', L + 'Part Two']), 'the notes the filter hides are off the board; the folders stay');
+	t.eq(j(await cards(p)), j([L + 'Part One']), 'the notes the filter hides are off the board, and so is the folder none of whose notes pass (Part Two)');
 	const s = await at(p, 'Part One');
 	await p.dbl(s.x, s.t + 14);
 	await until(p, `app.workspace.getMostRecentLeaf().getViewState().state?.folder === 'The Lighthouse/Part One'`);
@@ -1172,17 +1171,13 @@ test('BUG: with a filter put on, a stack counts the notes that show (“1 of 3 n
 	const count = () => p.ev(`document.querySelector('${card(L + 'Part One')} .binders-card-words').textContent`);
 	t.eq(await count(), '3 notes · 51 words', 'all of them, with no filter');
 	// Filter → Revised, from the toolbar
-	const f = await p.at('.workspace-leaf.mod-active .binders-filter-button');
-	await p.click(f.x, f.y);
-	await clickMenu(p, 'Revised');
-	await closeMenus(p);
+	await tick(p, 'status', 'Revised');
+	await closeFilter(p);
 	await until(p, `!document.querySelector('${card(L + 'Prologue.md')}')`);
 	await until(p, `/ of /.test(document.querySelector('${card(L + 'Part One')} .binders-card-words').textContent)`);
 	t.eq(await count(), '1 of 3 notes · 18 words', 'only Arrival is revised');
 	// and cleared again
-	await p.click(f.x, f.y);
-	await clickMenu(p, 'Clear filter');
-	await closeMenus(p);
+	await clearFilter(p);
 	await until(p, `!!document.querySelector('${card(L + 'Prologue.md')}')`);
 	await until(p, `!/ of /.test(document.querySelector('${card(L + 'Part One')} .binders-card-words').textContent)`);
 	t.eq(await count(), '3 notes · 51 words', 'cleared: all of them again');
@@ -1790,17 +1785,10 @@ test('an empty folder’s board has no placeholder; one a filter has emptied say
 	t.eq(await p.ev(`document.querySelectorAll('.workspace-leaf.mod-active .binders-card[data-path]').length`), 0, 'no card');
 	t.eq(await p.ev(`document.querySelectorAll('.workspace-leaf.mod-active .binders-empty').length`), 0, 'and no placeholder');
 	t.ok(await p.ev(`(() => { const b = document.querySelector('.workspace-leaf.mod-active .binders-new-button'); return !!b && b.getBoundingClientRect().width > 0; })()`), '“New” is in the toolbar');
-	// with a filter on (put on in the binder, kept going in), the empty board says why it is empty
-	await p.ev(`app.commands.executeCommandById('app:go-back')`);
-	await until(p, `!!document.querySelector('${card(L + 'Prologue.md')}')`);
-	const f = await p.at('.workspace-leaf.mod-active .binders-filter-button');
-	await p.click(f.x, f.y);
-	await clickMenu(p, 'Revised');
-	await closeMenus(p);
-	await until(p, `!document.querySelector('${card(L + 'Prologue.md')}')`);
-	const e = await at(p, 'Empty');
-	await p.dbl(e.x, e.t + 14);
-	await until(p, `app.workspace.getMostRecentLeaf().getViewState().state?.folder === 'The Lighthouse/Empty'`);
+	// with a filter on (a folder none of whose notes pass is not on the board: it is put on in the folder itself), the empty
+	// board says why it is empty
+	await tick(p, 'status', 'Revised');
+	await closeFilter(p);
 	await until(p, `!!document.querySelector('.workspace-leaf.mod-active .binders-empty')`);
 	t.eq(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-empty-title').textContent`), 'No notes match the filter', 'with a filter, the board says why it is empty');
 	t.ok(!!(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-empty-text')?.textContent`)), 'and what to do');

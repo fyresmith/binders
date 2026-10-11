@@ -4,6 +4,7 @@
 // basics; this file goes after the edges: how drops look frame by frame, focus after every action, locales, narrow
 // panes, long binders, touch.
 //   BINDERS_QA_SHOTS=<dir>   also saves screenshots of the states looked at (light and dark with --theme both)
+import { filterToggle } from './filter-helpers.mjs';
 import { inflateSync } from 'zlib';
 import { mkdirSync } from 'fs';
 import { B, NOTE, VIEW, clickMenu, closeMenus, contents, exists, flush, j, menuItems, openView, read, reload, same, split, texts, until, viewState, withTidy } from './view-helpers.mjs';
@@ -1023,10 +1024,7 @@ test('folding: folders in folders keep their own state; totals add up through ev
 	t.ok(shown.includes('Part One/Chapter A') && !shown.includes('Part One/Chapter A/Deep'), 'the inner folder kept its own fold');
 	t.eq(await active(p), 'row:Part One', 'the folder just toggled has the focus');
 	// with a filter on, a folded folder still shows for what's in it
-	const f = await p.at(`.workspace-leaf.mod-active .binders-filter-button`);
-	await p.click(f.x, f.y);
-	await clickMenu(p, 'Revised');
-	await closeMenus(p);
+	await filterToggle(p, 'Revised');
 	await p.sleep(300);
 	t.eq(j(await names(p)), j(['Part One', 'Part One/Arrival.md', 'Part One/Chapter A']), 'filtered: the revised notes, and the folders they’re in (one of them folded)');
 	t.eq((await foot(p))[0], '2 notes', 'the last row counts the notes that pass, in sight or folded away');
@@ -1036,10 +1034,7 @@ test('folding: folders in folders keep their own state; totals add up through ev
 
 bug('with a filter on, a folder’s words still count the notes that are hidden, so the rows add up to more than the total under them', async (p, h, t) => {
 	await open(p);
-	const f = await p.at(`.workspace-leaf.mod-active .binders-filter-button`);
-	await p.click(f.x, f.y);
-	await clickMenu(p, 'Revised');
-	await closeMenus(p);
+	await filterToggle(p, 'Revised');
 	await p.sleep(300);
 	t.eq(j(await names(p)), j(['Part One', 'Part One/Arrival.md']), 'only Arrival passes, in Part One');
 	const total = (await foot(p))[3], folder = await cellText(p, 'Part One', 'words');

@@ -8,6 +8,7 @@
 // Since 2026-10-01 the corkboard shows one folder at a time: a subfolder is one card, a stack, gone into with a
 // double-click and left by the breadcrumb. What these journeys did among a folder's cards is done on that folder's
 // board (`into`, `upTo`), and what was a heading's (its synopsis, its menu, its count) is the stack's.
+import { filterToggle, clearFilter, openFilter, closeFilter, chooseProperty, clickEl, pickerItems, pick, rowSel } from './filter-helpers.mjs';
 import { B, PL, VIEW, answer, card, clickMenu, closeMenus, contents, exists, flush, hoverMenu, j, menuItems, openView, read, reload, same, split, texts, until, withTidy as tidyAfter } from './view-helpers.mjs';
 
 export const specs = [];
@@ -895,13 +896,15 @@ test('2b. more of the day: a scene duplicated, deleted (asked first) and put bac
 
 	// a filter: only the drafts, in every mode, with every count saying so
 	const DRAFTS = ['Prologue.md', 'Part One/The keeper.md', 'Part One/The keeper 2.md', 'Part Two/The wreck.md'].map((n) => L + n);
-	let f = await toolbar(p, 'binders-filter-button');
-	await p.click(f.x, f.y);
-	t.eq(j(await menuItems(p)), j(['Status', 'Idea', 'Draft', 'Revised']), 'the filter offers the statuses the notes have');
-	await clickMenu(p, 'Draft');
+	await openFilter(p);
+	await chooseProperty(p, 0, 'Status');
+	await clickEl(p, `${rowSel(0)} .binders-filter-values`);
+	t.eq(j((await pickerItems(p)).map((i) => i.title).slice(0, 3)), j(['Idea', 'Draft', 'Revised']), 'the filter offers the statuses the notes have');
+	await pick(p, 'Draft');
 	await p.sleep(300);
-	t.ok((await menuItems(p)).includes('Clear filter'), 'the menu stays open for another pick, and can clear the filter');
-	await closeMenus(p);
+	await p.key('Escape');
+	t.ok(await p.ev(`!!document.querySelector('.binders-filter-menu .binders-filter-foot .text-icon-button')`), 'the popover stays open for another pick, and can clear the filter');
+	await closeFilter(p);
 	t.eq(j(await cardsIn(p)), j([L + 'Prologue.md', L + 'Part One', L + 'Part Two']), 'of the binder’s own notes only the draft shows, beside the folders’ stacks');
 	await into(p, L + 'Part One');
 	t.eq(j(await cardsIn(p)), j(DRAFTS.slice(1, 3)), 'inside a folder, only its drafts show');
@@ -920,9 +923,7 @@ test('2b. more of the day: a scene duplicated, deleted (asked first) and put bac
 	t.eq(split(await read(p, L + 'Part One/The keeper.md')).body, split(before[L + 'Part One/The keeper.md']).body.trimEnd() + ' She waited some more.\n', 'what was typed under the filter is in its note');
 	// every other count with the filter on (the toolbar's, right after a change of mode, is the BUG test below)
 	await countsAgree(p, h, t, 'The Lighthouse', 'with the filter on', DRAFTS, false);
-	f = await toolbar(p, 'binders-filter-button');
-	await p.click(f.x, f.y);
-	await clickMenu(p, 'Clear filter');
+	await clearFilter(p);
 	await p.sleep(400);
 	await countsAgree(p, h, t, 'The Lighthouse', 'with the filter off');
 	await agree(p, h, t, 'The Lighthouse', 'at the end');
@@ -1242,11 +1243,7 @@ test('4c. a reload in the middle of it all: the view comes back in its mode, wit
 	await drag(p, grip, { x: grip.x + 60, y: grip.y });
 	const chev = await p.at(orow(L + 'Part Two') + ' .binders-outliner-chevron');
 	await p.click(chev.x, chev.y);
-	const f = await toolbar(p, 'binders-filter-button');
-	await p.click(f.x, f.y);
-	await clickMenu(p, 'Draft');
-	await p.sleep(300);
-	await closeMenus(p);
+	await filterToggle(p, 'Draft');
 	const th = await p.at(`${AL} .binders-outliner-th[data-col="words"]`);
 	await p.click(th.x, th.y);
 	await p.sleep(300);
@@ -1576,7 +1573,7 @@ test('6. a big book, 300 scenes in 30 folders: every mode opens quickly, a drag 
 const bug = (name, fn) => specs.push({ name: 'BUG: ' + name, fn: wrap(fn) });
 const ux = (name, fn) => specs.push({ name: 'UX: ' + name, fn: wrap(fn) });
 const A = L + 'Part One/Arrival.md', K = L + 'Part One/The keeper.md';
-const filterBy = async (p, what) => { const f = await toolbar(p, 'binders-filter-button'); await p.click(f.x, f.y); await clickMenu(p, what); await p.sleep(300); await closeMenus(p); };
+const filterBy = filterToggle;
 const backButton = async (p) => { const b = await p.at('.mod-root .workspace-leaf.mod-active .view-header-nav-buttons button:first-child'); await p.click(b.x, b.y); await p.sleep(900); };
 
 // ---- writing lost, doubled or put in the wrong place ----

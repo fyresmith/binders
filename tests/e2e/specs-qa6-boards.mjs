@@ -103,17 +103,17 @@ test('a folder’s card under a filter names the notes that pass and every folde
 	await until(p, `app.metadataCache.getFileCache(${file(P1 + '/The keeper.md')})?.frontmatter?.label === 'Blue'`);
 	await setView(p, { filter: { status: [], label: ['Red'] } });
 	let s = await heldOf(p, P1);
-	t.eq(j(s.names), j(['Arrival', 'Sub']), 'the red note and the folder');
+	t.eq(j(s.names), j(['Arrival']), 'the red note (and not Sub, an empty folder: it has none that pass)');
 	t.ok(/^1 of 3 notes/.test(s.words), 'it counts what passes out of all: ' + s.words);
 	t.ok(/1 of 3 notes/.test(s.desc), 'and says so aloud');
 	// a note starts to pass
 	await prop(p, P1 + '/The keeper.md', 'label', 'Red');
 	await until(p, `document.querySelector('${ACTIVE} .binders-card[data-path="${P1}"] .binders-card-words')?.textContent.startsWith('2 of 3')`);
-	t.eq(j((await heldOf(p, P1)).names), j(['Arrival', 'The keeper', 'Sub']), 'a note that now passes is named, in its place');
+	t.eq(j((await heldOf(p, P1)).names), j(['Arrival', 'The keeper']), 'a note that now passes is named, in its place');
 	// and one stops
 	await prop(p, P1 + '/Arrival.md', 'label', 'Green');
 	await until(p, `document.querySelector('${ACTIVE} .binders-card[data-path="${P1}"] .binders-card-words')?.textContent.startsWith('1 of 3')`);
-	t.eq(j((await heldOf(p, P1)).names), j(['The keeper', 'Sub']), 'a note that stops passing goes');
+	t.eq(j((await heldOf(p, P1)).names), j(['The keeper']), 'a note that stops passing goes');
 	// the filter lifted
 	await setView(p, { filter: { status: [], label: [] } });
 	s = await heldOf(p, P1);
@@ -121,8 +121,7 @@ test('a folder’s card under a filter names the notes that pass and every folde
 	t.ok(s.words.startsWith('3 notes'), 'counted all');
 	// a filter that passes nothing in the folder
 	await setView(p, { filter: { status: [], label: ['Pink'] } });
-	s = await heldOf(p, P1);
-	t.eq(j(s.names), j(['Sub']), 'a folder that holds nothing that passes still names its folders');
+	t.eq(await heldOf(p, P1), null, 'a folder that holds nothing that passes is not on the board');
 	await setView(p, { filter: { status: [], label: [] } });
 }));
 
@@ -350,7 +349,7 @@ test('BUG: arranged by label with a filter on, a line’s count adds up the note
 		cards: [...document.querySelectorAll('${ACTIVE} .binders-lanes .binders-card.is-stack')].map(c => c.dataset.path.split('/').pop() + ': ' + c.querySelector('.binders-card-words').textContent),
 		head: [...document.querySelectorAll('${ACTIVE} .binders-lane-head[data-lane="0"]')].map(h => h.getAttribute('aria-label')),
 		count: document.querySelector('${ACTIVE} .binders-lane-head[data-lane="0"] .binders-lane-count')?.textContent ?? null })`);
-	t.eq(j(s.cards), j(['Part One: 1 of 3 notes · 18 words', 'Part Two: 0 of 2 notes · 0 words']), 'what the folder cards say');
+	t.eq(j(s.cards), j(['Part One: 1 of 3 notes · 18 words']), 'what the folder cards say (Part Two, with none that pass, is not there)');
 	t.eq(s.count, '1', 'the “No label” line counts what those cards show (' + j(s) + ')');
 	await setView(p, { filter: { status: [], label: [] } });
 }));

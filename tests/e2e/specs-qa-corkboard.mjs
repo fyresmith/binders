@@ -1,5 +1,6 @@
 // QA: the binder view and the corkboard. Scenarios named "BUG: …" fail until the bug they show is fixed; the others
 // are regressions that pass.
+import { filterToggle as filterBy, openFilter, chooseProperty, clickEl, pickerItems, rowSel } from './filter-helpers.mjs';
 import { B, NOTE, PL, VIEW, card, cards, clickMenu, closeMenus, contents, exists, file, flush, hoverMenu, j, menuItems, newNote, openView, read, reload, same, selected, split, texts, until, viewState, withTidy, writeRaw } from './view-helpers.mjs';
 import { mkdirSync } from 'fs';
 
@@ -17,12 +18,6 @@ async function written(p, want) {
 	await flush(p);
 	await until(p, `app.vault.adapter.read(${j(NOTE)}).then(s => s.includes(${j(want)}))`);
 	return contents(p);
-}
-async function filterBy(p, title) {
-	const b = await p.at(`.workspace-leaf.mod-active .binders-filter-button`);
-	await p.click(b.x, b.y);
-	await clickMenu(p, title);
-	await closeMenus(p); // the filter's menu stays open for another pick
 }
 
 // ---- order ----
@@ -531,9 +526,11 @@ test('an empty binder: no card, 0 words, a filter menu that says so', withTidy(a
 	await openView(p, 'Empty');
 	t.eq(await p.ev(`document.querySelectorAll('.workspace-leaf.mod-active .binders-card[data-path], .workspace-leaf.mod-active .binders-empty').length`), 0, 'no card, and no placeholder');
 	t.eq(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-word-count').textContent`), '0 words', '0 words');
-	const f = await p.at(`.workspace-leaf.mod-active .binders-filter-button`);
-	await p.click(f.x, f.y);
-	t.eq(j(await menuItems(p)), j(['No statuses or labels to filter by']), 'the filter menu');
+	await openFilter(p);
+	await chooseProperty(p, 0, 'Status');
+	await clickEl(p, `${rowSel(0)} .binders-filter-values`);
+	t.eq(j((await pickerItems(p)).map((i) => i.title)), j(['No status']), 'the filter’s list of statuses: only “No status”, there being none');
+	await closeMenus(p);
 	await closeMenus(p);
 	await p.shot(`${SHOTS}/empty-binder-${await theme(p)}.png`);
 	await newNote(p, 'First');

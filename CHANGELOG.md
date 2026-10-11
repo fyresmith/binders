@@ -25,11 +25,13 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - Shift story dates... in the menu of every board when more than one dated note is selected: later or earlier, by days, months or years, keeping the space between them, as one undo step.
 - Binders now keeps a record of each binder's writing in the binder's hidden Snapshots folder: the words written and cut in each note each day, the hours, and what was done to the binder. It holds numbers and names only, never a note's text, and never leaves your device. A Progress group in settings turns it off and names your device. A window to read it by comes next.
 - Progress: Show progress opens a window on a binder's writing over time, read from its record: the book's words as they grew, every day written on, the hours and days you write in, when each part was written, and its records. A record's first two weeks are shown as they fill.
+- Filter by any property: status, label, characters, story date, target and more, with all, any or none of the conditions, in a popover like the one in Bases. A line under the toolbar says what is shown and how to get everything back.
 
 ### Changed
 
 - The commands are renamed Undo last change and Redo last change, and each binder remembers its last 100 changes, where 50 were shared by all.
 - Focus mode's words written today now come from that record, so they are the same on every device that shares the binder; a day ends at four in the morning instead of midnight; and a paste or an import no longer counts as written.
+- Under a filter, a folder with nothing that matches is hidden on the corkboard as it is in the outliner and manuscript, a folder's card counts and lists only what matches, and the timeline's numbers stay the book's.
 
 ### Fixed
 
@@ -38,6 +40,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - A split with the cursor just after a paragraph’s tab now keeps the tab with its paragraph in the new note.
 - A split inside a code block now closes the fence in the first note and opens it again in the new one, so each half’s fences are in pairs.
 - A note with Windows (CR LF) line endings keeps them when Binders writes a property to it.
+- A filter that left a board with the same cards, as in an empty folder, now shows that nothing matches.
 
 ## 0.51.1 (2026-10-10)
 

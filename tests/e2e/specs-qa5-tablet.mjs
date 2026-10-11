@@ -10,6 +10,7 @@
 // name and left by the way up in the toolbar. What these journeys did among a chapter's cards is done on that chapter's
 // board (`intoStack`, `upOut`), a card goes into a chapter by being dropped on its stack, and what was a heading's menu
 // is the stack's.
+import { tapToggle, tapClear } from './filter-helpers.mjs';
 import { mkdirSync } from 'fs';
 import { B, PL, VIEW, card, closeMenus, contents, flush, j, menuItems, openView, read, reload, split, texts, tidy, until, viewState } from './view-helpers.mjs';
 
@@ -827,9 +828,7 @@ for (const [dev, size] of [['phone (390 × 844)', PHONE], ['small phone (320 × 
 			// the filter, in each mode
 			const drafts = await p.ev(`${B}.scenes(app.vault.getAbstractFileByPath('Novel')).filter(f => app.metadataCache.getFileCache(f)?.frontmatter?.status === 'Draft').map(f => f.basename)`);
 			const draftsIn = (folder) => p.ev(`${B}.scenes(app.vault.getAbstractFileByPath('Novel')).filter(f => f.parent.path === ${j(folder)} && app.metadataCache.getFileCache(f)?.frontmatter?.status === 'Draft').map(f => f.basename)`);
-			await tapEl(p, `${LEAF} .binders-filter-button`);
-			await pick(p, 'Draft');
-			await backdropTap(p);
+			await tapToggle(p, 'Draft');
 			await gone(p);
 			await shot(p, `${tag}-1d-05-filtered`);
 			S.eq(j((await cardsIn(p)).map((x) => x.split('/').pop().replace(/\.md$/, ''))), j(await draftsIn('Novel/Chapter 1')), 'corkboard, inside a chapter: only its drafts show');
@@ -841,8 +840,7 @@ for (const [dev, size] of [['phone (390 × 844)', PHONE], ['small phone (320 × 
 			await modeByTouch(p, 'Manuscript');
 			S.eq(j(await sectionsIn(p)), j(drafts), 'manuscript: the filter holds');
 			await shot(p, `${tag}-1d-06-filtered-manuscript`);
-			await tapEl(p, `${LEAF} .binders-filter-button`);
-			await pick(p, 'Clear filter');
+			await tapClear(p);
 			await p.sleep(500);
 			S.eq((await sectionsIn(p)).length, 21, 'cleared: every note shows again');
 			// export as one note, from the view's own menu (“Export...” opens on the kind last made: one note)

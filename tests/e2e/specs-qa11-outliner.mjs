@@ -4,6 +4,7 @@
 // folders deep; hand-written statuses and labels that Binders' settings don't list; a column's width kept across hide
 // and show. Tests named "qa11 outliner: …" pass; "BUG: qa11 outliner: …" are confirmed bugs (they fail until fixed).
 // Golden rule 2: every test that moves or deletes a note checks the files on disk.
+import { filterToggle as filterBy, clearFilter } from './filter-helpers.mjs';
 import { VIEW, B, clickMenu, closeMenus, contents, exists, flush, j, openView, read, split, until, viewState, withTidy, answer, file } from './view-helpers.mjs';
 import { make } from './specs-qa6-scale.mjs';
 
@@ -44,22 +45,6 @@ async function clickAt(p, sel) {
 const nameAt = (path) => `${rowSel(path)} .binders-outliner-name`;
 /** Waits until the rows are the ones wanted (a redraw after a change of files or sort). */
 const rowsAre = (p, want) => until(p, `[...document.querySelectorAll('${R}')].map(r => r.dataset.path).join('|') === ${j(want.join('|'))}`, 4000);
-/** Adds a status or a label to a filter (the view's filter button), then closes its menu. */
-async function filterBy(p, title) {
-	const at = await p.at('.workspace-leaf.mod-active .binders-filter-button');
-	await p.click(at.x, at.y);
-	await clickMenu(p, title);
-	await closeMenus(p);
-	await p.sleep(300);
-}
-/** Clears the status and label filter (its menu's "Clear filter"). */
-async function clearFilter(p) {
-	const at = await p.at('.workspace-leaf.mod-active .binders-filter-button');
-	await p.click(at.x, at.y);
-	await clickMenu(p, 'Clear filter');
-	await closeMenus(p);
-	await p.sleep(300);
-}
 const note = (dir, name, status, body) => ({ path: `${dir}/${name}.md`, text: `---\nstatus: ${status}\n---\n${body}\n` });
 const bodyOf = (words) => Array.from({ length: words }, (_, i) => 'w' + i).join(' ');
 const pathsOf = (root, names) => names.map((n) => `${root}/${n}.md`);

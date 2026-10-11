@@ -141,9 +141,9 @@ test('the view writes nothing: opened in both shapes, scrolled, filtered, select
 	await p.key('ArrowRight');
 	await p.ev(`(() => { const b = document.querySelector('${T}'); b.scrollTop = 400; return 1; })()`);
 	await p.sleep(200);
-	await p.ev(`(() => { ${VIEW}.setFilter({ status: ['Draft'], label: [] }); return 1; })()`);
+	await p.ev(`(() => { ${VIEW}.setFilter({ match: 'all', conditions: [{ property: 'status', operator: 'is', value: ['Draft'] }] }); return 1; })()`);
 	await p.sleep(400);
-	await p.ev(`(() => { ${VIEW}.setFilter({ status: [], label: [] }); return 1; })()`);
+	await p.ev(`(() => { ${VIEW}.setFilter({ match: 'all', conditions: [] }); return 1; })()`);
 	await p.sleep(300);
 	await open(p, 'across');
 	await p.ev(`(() => { const b = document.querySelector('${T}'); b.scrollLeft = 500; return 1; })()`);
@@ -286,16 +286,16 @@ test('the filter, the empty states and a book with no dates', async (p, h, t) =>
 	await p.sleep(400);
 	s = await look(p);
 	t.eq(s.line.length, 6, 'given dates, the scenes are on the line (the view drew again by itself)');
-	await p.ev(`(() => { ${VIEW}.setFilter({ status: ['Draft'], label: [] }); return 1; })()`);
+	await p.ev(`(() => { ${VIEW}.setFilter({ match: 'all', conditions: [{ property: 'status', operator: 'is', value: ['Draft'] }] }); return 1; })()`);
 	await p.sleep(400);
 	s = await look(p);
-	t.eq(j(s.line), j(['1 Prologue', '2 The keeper', '3 The wreck']), 'a filter shows the scenes that pass, numbered among those that show');
+	t.eq(j(s.line), j(['1 Prologue', '3 The keeper', '5 The wreck']), 'a filter shows the scenes that pass, numbered as in the book');
 	t.eq(j(s.dates), j(['December', '11 June', '19 June']), 'and only their dates');
 	t.eq(s.count, null, 'the tray is gone with nothing in it');
-	await p.ev(`(() => { ${VIEW}.setFilter({ status: ['Done'], label: [] }); return 1; })()`);
+	await p.ev(`(() => { ${VIEW}.setFilter({ match: 'all', conditions: [{ property: 'status', operator: 'is', value: ['Done'] }] }); return 1; })()`);
 	await p.sleep(400);
 	t.eq(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-empty-title')?.textContent`), 'No notes match the filter', 'a filter that hides everything says so');
-	await p.ev(`(() => { ${VIEW}.setFilter({ status: [], label: [] }); return 1; })()`);
+	await p.ev(`(() => { ${VIEW}.setFilter({ match: 'all', conditions: [] }); return 1; })()`);
 	await p.sleep(300);
 	// an empty folder
 	await p.ev(`(async () => { await app.vault.createFolder('The Lighthouse/Part Nine'); })().then(() => 1)`);

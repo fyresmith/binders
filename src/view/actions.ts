@@ -1,6 +1,6 @@
 import { openSplitMany } from './split-many';
 import { exportAsItems } from './export-as';
-import { Menu, Notice, Platform, TFile, TFolder, type TAbstractFile } from 'obsidian';
+import { Menu, Notice, Platform, TFile, TFolder, setIcon, type TAbstractFile } from 'obsidian';
 import { datedNotes, readStory, setStoryDate, writeKeys } from './props';
 import { shiftDialog } from './shift-dates';
 import { parseStoryDate, whyNotStoryDate, type StoryDate } from '../time/date';
@@ -210,7 +210,17 @@ export async function askStoryDate(ctx: ModeContext, items: TAbstractFile[]): Pr
 export function emptyState(ctx: ModeContext, parent: HTMLElement): HTMLElement {
 	const box = parent.createDiv({ cls: 'binders-empty' }), filtering = ctx.filtering();
 	box.createDiv({ cls: 'binders-empty-title', text: filtering ? 'No notes match the filter' : 'No notes in this folder yet' });
-	if (filtering) box.createDiv({ cls: 'binders-empty-text', text: 'Choose “Filter” above to change it, or clear it.' });
+	if (filtering) {
+		box.createDiv({ cls: 'binders-empty-text', text: 'Choose “Filter” above to change it, or show everything.' });
+		if (ctx.clearFilter) {
+			const whole = ctx.folder === ctx.binder?.folder ? 'Show the whole binder' : 'Show the whole folder';
+			const b = box.createDiv({ cls: 'text-icon-button binders-empty-action', attr: { role: 'button', tabindex: '0' } });
+			setIcon(b.createSpan({ cls: 'text-button-icon' }), 'x');
+			b.createSpan({ cls: 'text-button-label', text: whole });
+			b.addEventListener('click', () => ctx.clearFilter?.());
+			b.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ctx.clearFilter?.(); } });
+		}
+	}
 	// (on a phone "New" is a plus sign with no word beside it)
 	else if (!ctx.readOnly) box.createDiv({ cls: 'binders-empty-text', text: Platform.isPhone ? 'Tap + above to add one.' : 'Use “New” above to add one.' });
 	return box;

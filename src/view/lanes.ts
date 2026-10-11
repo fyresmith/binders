@@ -302,7 +302,13 @@ class ByLabel implements BinderMode {
 	}
 
 	private shown(run: Run<TFolder, TAbstractFile>): TAbstractFile[] {
-		return run.items.filter((f) => !(f instanceof TFile) || this.made.has(f) || this.ctx.visible(f));
+		return run.items.filter((f) => this.isShown(f));
+	}
+
+	/** A note shows if it passes the filter (or was made here); under a filter a folder shows only if something in it does, as on the corkboard. */
+	private isShown(f: TAbstractFile): boolean {
+		if (f instanceof TFile) return this.made.has(f) || this.ctx.visible(f);
+		return !(f instanceof TFolder) || !this.ctx.filtering() || this.ctx.store.scenes(f).some((n) => this.made.has(n) || this.ctx.visible(n));
 	}
 
 	private labelOf(f: TAbstractFile): string { const n = noteOf(this.ctx, f); return n ? this.ctx.props(n).label : ''; }
@@ -999,7 +1005,7 @@ class ByLabel implements BinderMode {
 	private async stepPast(f: TAbstractFile, delta: number): Promise<boolean> {
 		const folder = f.parent;
 		if (!folder) return false;
-		const shown = this.children(folder).filter((x) => !(x instanceof TFile) || this.made.has(x) || this.ctx.visible(x));
+		const shown = this.children(folder).filter((x) => this.isShown(x));
 		const at = shown.indexOf(f), next = shown[at + (delta < 0 ? -1 : 1)];
 		if (at < 0 || !next) return false;
 		const sibs = (this.store.orderedChildren(folder) ?? []).filter((x) => x !== f);
@@ -1063,7 +1069,7 @@ class ByLabel implements BinderMode {
 	/** The menu of a card (or of the cards selected with it). */
 	private cardMenu(card: HTMLElement): Menu {
 		const items = this.targets(card), one = items.length === 1 ? items[0] : null;
-		const sibs = one?.parent ? this.children(one.parent).filter((x) => !(x instanceof TFile) || this.made.has(x) || this.ctx.visible(x)) : [], i = one ? sibs.indexOf(one) : -1;
+		const sibs = one?.parent ? this.children(one.parent).filter((x) => this.isShown(x)) : [], i = one ? sibs.indexOf(one) : -1;
 		return itemMenu(this.ctx, items, {
 			pick: () => { this.picking = true; },
 			rename: (f) => this.editors.get(f.path)?.title.edit(),

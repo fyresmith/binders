@@ -549,7 +549,7 @@ test('a filter: with it on before the search, only the notes that show are looke
 	await p.sleep(1500);
 	await saveAll(p);
 	const before2 = snap(p);
-	await p.ev(`(() => { ${VIEW}.setFilter({ status: [${j(st[0])}], label: [] }); return 1; })()`);
+	await p.ev(`(() => { ${VIEW}.setFilter(${VIEW}.subset.read({ status: [${j(st[0])}], label: [] })); return 1; })()`);
 	await settle(p);
 	await p.sleep(800);
 	const shown = await p.ev(`${M}.scenes.map((s) => s.file.path)`);
@@ -567,7 +567,7 @@ test('a filter: with it on before the search, only the notes that show are looke
 	for (const f of hidden) t.eq(disk(p, f), before2[f], `${f}, filtered out, is untouched`);
 	for (const f of shown) t.eq(offsets(p, f).length, 0, `${f} has no needle left`);
 	void before;
-	await p.ev(`(() => { ${VIEW}.setFilter({ status: [], label: [] }); return 1; })()`);
+	await p.ev(`(() => { ${VIEW}.setFilter(${VIEW}.subset.read({ status: [], label: [] })); return 1; })()`);
 });
 
 test('changing the filter while the bar is open re-looks: the count and the notes a Replace all would change are the ones that show', async (p, h, t) => {
@@ -577,7 +577,7 @@ test('changing the filter while the bar is open re-looks: the count and the note
 	await p.sleep(1500);
 	await ask(p, 'needle', 'pin');
 	t.eq((await counts(p)).notes, 8, '8 notes before the filter');
-	await p.ev(`(() => { ${VIEW}.setFilter({ status: [${j(st[0])}], label: [] }); return 1; })()`);
+	await p.ev(`(() => { ${VIEW}.setFilter(${VIEW}.subset.read({ status: [${j(st[0])}], label: [] })); return 1; })()`);
 	await settle(p);
 	await p.sleep(1500);
 	const planned = await p.ev(`${BAR}.found.map((f) => f.source.file.path)`);
@@ -585,7 +585,7 @@ test('changing the filter while the bar is open re-looks: the count and the note
 	t.eq(shown.length, 4, 'the page shows 4 notes');
 	t.eq(j(planned), j(shown), 'the bar looks through exactly the notes that show (it still has ' + planned.length + ')');
 	t.eq((await counts(p))?.notes, 4, 'the count says 4 notes: ' + (await countText(p)));
-	await p.ev(`(() => { ${VIEW}.setFilter({ status: [], label: [] }); return 1; })()`);
+	await p.ev(`(() => { ${VIEW}.setFilter(${VIEW}.subset.read({ status: [], label: [] })); return 1; })()`);
 });
 
 test('Replace all after the filter was changed with the bar open changes only the notes that show: a note the filter hides is not written', async (p, h, t) => {
@@ -596,7 +596,7 @@ test('Replace all after the filter was changed with the bar open changes only th
 	await saveAll(p);
 	const hidden = [2, 4, 6, 8].map((i) => path(i)), before = Object.fromEntries(hidden.map((f) => [f, disk(p, f)]));
 	await ask(p, 'needle', 'pin');
-	await p.ev(`(() => { ${VIEW}.setFilter({ status: [${j(st[0])}], label: [] }); return 1; })()`);
+	await p.ev(`(() => { ${VIEW}.setFilter(${VIEW}.subset.read({ status: [${j(st[0])}], label: [] })); return 1; })()`);
 	await settle(p);
 	await p.sleep(1500);
 	await p.ev(`(() => { window.__all = ${BAR}.replaceAll(); return 1; })()`);
@@ -607,7 +607,7 @@ test('Replace all after the filter was changed with the bar open changes only th
 	await p.sleep(800);
 	await saveAll(p); await p.sleep(1800);
 	for (const f of hidden) t.eq(disk(p, f), before[f], `${f}, hidden by the filter, is untouched`);
-	await p.ev(`(() => { ${VIEW}.setFilter({ status: [], label: [] }); return 1; })()`);
+	await p.ev(`(() => { ${VIEW}.setFilter(${VIEW}.subset.read({ status: [], label: [] })); return 1; })()`);
 });
 
 test('"Indent paragraphs" and tab-led paragraphs on: the matches in a tab-led paragraph are found, ringed in sight, and Replace all keeps every tab and byte of the notes around the words', async (p, h, t) => {

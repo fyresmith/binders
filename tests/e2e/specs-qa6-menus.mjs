@@ -5,6 +5,7 @@
 // and the view, where the focus and the selection end up, and nothing logged (the runner fails a test that logs).
 // "qa6 menus: ..." pass; "BUG: qa6 menus: ..." are confirmed bugs (they fail now and pass once fixed); "UX: ..." are
 // wished behaviour. The inventory of every item is in the push folder's findings/qa6-menus-inventory.md.
+import { filterToggle, clearFilter, tick, tapTick, tapSel, closeFilter, openFilter, chooseProperty, clickEl, pickerItems, pick, rows, rowSel, POP } from './filter-helpers.mjs';
 import { B, PL, VIEW, answer, card, closeMenus, contents, exists, file, flush, j, openView, read, reload, split, texts, tidy, until, viewState } from './view-helpers.mjs';
 
 export const specs = [];
@@ -870,36 +871,31 @@ test('toolbar Filter: status and label items tick and stay open, the button coun
 	await fresh(p);
 	await p.ev(`(async () => { for (const [f, s, l] of [['Prologue.md','Draft','Red'],['Epilogue.md','Idea',''],['Part One/Arrival.md','Draft','Red']]) { const x = app.vault.getAbstractFileByPath(${j(L)} + f); await ${B}.setProps(x, { status: s, ...(l ? { label: l } : {}) }); } })().then(() => 1)`);
 	await p.sleep(700);
-	await click(p, BTN('binders-filter-button'));
-	let it = await items(p);
-	t.eq(j(it.map((x) => x.title)), j(['Status', 'Idea', 'Draft', 'Label', 'Red', 'No label']), 'statuses and labels in use, a heading each, “No label” for the unlabelled: ' + j(it.map((x) => x.title)));
-	t.ok(it[0].label && it[3].label, 'the two headings are labels');
-	await choose(p, 'Draft');
+	await openFilter(p);
+	await chooseProperty(p, 0, 'Status');
+	await clickEl(p, `${rowSel(0)} .binders-filter-values`);
+	let it = await pickerItems(p);
+	t.eq(j(it.map((x) => x.title)), j(['Idea', 'Draft', 'No status']), 'the statuses in use, and “No status” for the notes that have none: ' + j(it.map((x) => x.title)));
+	await pick(p, 'Draft');
 	await p.sleep(600);
 	t.eq(j(await cardsOf(p)), j([L + 'Prologue.md', L + 'Part One', L + 'Part Two']), 'the Draft note, and the two stacks that have a Draft inside');
-	t.ok(await p.ev(`!!document.querySelector('.menu')`), 'the menu is open again for the next pick');
-	it = await items(p);
+	t.ok(await p.ev(`!!document.querySelector('.binders-picker')`), 'the list is open for the next pick');
+	it = await pickerItems(p);
 	t.ok(it.find((x) => x.title === 'Draft').checked, 'Draft is ticked');
-	t.ok(it.some((x) => x.title === 'Clear filter'), '“Clear filter” appears');
-	t.eq((await viewState(p)).filter.status[0], 'Draft', 'the filter is in the view’s state');
-	await choose(p, 'Idea');
+	t.eq(j((await viewState(p)).filter.status), j(['Draft']), 'the filter is in the view’s state');
+	await pick(p, 'Idea');
 	await p.sleep(600);
 	t.eq((await cardsOf(p)).length, 4, 'Idea too: Epilogue joins');
 	await closeMenus(p);
-	t.ok(await p.ev(`/2|·|\\d/.test(document.querySelector('${BTN('binders-filter-button')}').textContent)`), 'the Filter button counts what’s picked: ' + (await p.ev(`document.querySelector('${BTN('binders-filter-button')}').textContent`)));
-	await click(p, BTN('binders-filter-button'));
-	await choose(p, 'Clear filter');
+	t.ok(await p.ev(`document.querySelector('${BTN('binders-filter-button')}').textContent.includes('(1)')`), 'the Filter button counts the condition: ' + (await p.ev(`document.querySelector('${BTN('binders-filter-button')}').textContent`)));
+	await clearFilter(p);
 	await p.sleep(600);
 	t.eq((await cardsOf(p)).length, 4, 'Clear filter shows every card again');
-
 	t.eq(j((await viewState(p)).filter), j({ status: [], label: [] }), 'and the state is empty');
 	// a filter nothing passes: the board says so, and says how to change it
-	await click(p, BTN('binders-filter-button'));
-	await choose(p, 'Idea');
-	await p.sleep(500);
-	await choose(p, 'Red');
-	await p.sleep(500);
-	await closeMenus(p);
+	await tick(p, 'status', 'Idea');
+	await tick(p, 'label', 'Red');
+	await closeFilter(p);
 	t.ok(await p.ev(`/No notes match the filter/.test(document.querySelector('${LEAF} .binders-empty-title')?.textContent ?? '')`) || (await cardsOf(p)).length > 0, 'if nothing passes, the board says so: ' + (await p.ev(`document.querySelector('${LEAF} .binders-empty')?.textContent ?? null`)));
 }));
 
@@ -2113,16 +2109,12 @@ test('keyboard: every toolbar button opens its menu with Enter and Space; arrows
 	await p.key('Enter');
 	await p.sleep(800);
 	t.ok(await exists2(p, L + 'By keyboard.md'), 'New > New note chosen with the keyboard makes the note');
-	// the filter menu: Enter ticks and the menu stays, the marked item carried on
+	// the filter popover: Enter opens a list, Enter picks from it, and the list stays for the next pick
 	await p.ev(`document.querySelector('${BTN('binders-filter-button')}').focus()`);
 	await p.key('Enter'); await p.sleep(300);
-	await p.key('ArrowDown'); await p.key('ArrowDown');
-	const m1 = await selectedItem(p);
-	await p.key('Enter');
-	await p.sleep(500);
-	t.ok(await p.ev(`!!document.querySelector('.menu')`), 'Enter on a filter item keeps the menu open');
-	log('filter: marked before', m1, 'after', await selectedItem(p));
-	t.eq(await selectedItem(p), m1, 'and the same item is still marked');
+	await p.key('Enter'); await p.sleep(250);
+	await p.key('Enter'); await p.sleep(500);
+	t.eq(j((await rows(p)).map((r) => r.property)), j(['Status']), 'Enter opens the property list and picks its first item');
 	await p.key('Escape');
 	await p.sleep(300);
 	t.eq(await p.ev(`document.activeElement === document.querySelector('${BTN('binders-filter-button')}')`), true, 'Escape returns to the Filter button: ' + (await focusIs(p)));
@@ -2381,15 +2373,13 @@ test('phone: the toolbar’s New, Arrange, mode and Filter menus, by tap: Filter
 		await p.sleep(600);
 		await tapEl(p, BTN('binders-filter-button'));
 		t.ok(Boolean(await sheetOf(p)), 'Filter: a sheet');
-		await tapMenu(p, 'Draft');
-		await p.sleep(500);
-		t.eq(await p.ev(`document.querySelectorAll('.menu').length`), 1, 'ticking Draft leaves the sheet where it is (not closed and reopened)');
-		await tapMenu(p, 'Idea');
-		await p.sleep(500);
-		t.eq(await p.ev(`document.querySelectorAll('.menu').length`), 1, 'and again');
+		await tapTick(p, 'status', 'Draft');
+		t.eq(await p.ev(`document.querySelectorAll('.binders-filter-menu').length`), 1, 'ticking Draft leaves the sheet where it is');
+		await tapTick(p, 'status', 'Idea');
+		t.eq(await p.ev(`document.querySelectorAll('.binders-filter-menu').length`), 1, 'and again');
 		const shown = await cardsOf(p);
 		t.ok(shown.includes(L + 'Prologue.md') && shown.includes(L + 'Epilogue.md') && !shown.includes(L + 'Phone scene.md'), 'the board shows the notes that pass: ' + j(shown));
-		await tapMenu(p, 'Clear filter');
+		await tapSel(p, `${POP} .binders-filter-foot .text-icon-button`);
 		await p.sleep(500);
 		await gone2(p);
 		t.ok((await cardsOf(p)).includes(L + 'Phone scene.md'), 'Clear filter shows every card again');
@@ -2606,10 +2596,7 @@ ux('consistency: Rename in a folder heading’s menu has the icon and the sectio
 
 test('filter on: a card’s Move up / Move down go past the notes that are shown, New note still shows its note, Clear filter restores', tidied(async (p, h, t) => {
 	await fresh(p);
-	await click(p, BTN('binders-filter-button'));
-	await choose(p, 'Idea');
-	await p.sleep(500);
-	await closeMenus(p);
+	await filterToggle(p, 'Idea');
 	t.eq(j(await cardsOf(p)), j([L + 'Part One', L + 'Part Two', L + 'Epilogue.md']), 'Prologue (a draft) is hidden');
 	await context(p, CARD(L + 'Epilogue.md'));
 	const it = await titles(p);
@@ -2634,8 +2621,7 @@ test('filter on: a card’s Move up / Move down go past the notes that are shown
 	await p.sleep(700);
 	t.ok(!(await cardsOf(p)).includes(L + 'Epilogue.md') || true, 'a note whose status no longer matches: ' + ((await cardsOf(p)).includes(L + 'Epilogue.md') ? 'stays until the next redraw' : 'goes'));
 	t.ok(await p.ev(`document.activeElement !== null`), 'focus: ' + (await focusIs(p)));
-	await click(p, BTN('binders-filter-button'));
-	await choose(p, 'Clear filter');
+	await clearFilter(p);
 	await p.sleep(500);
 	t.ok((await cardsOf(p)).includes(L + 'Prologue.md'), 'Clear filter brings Prologue back');
 }));
@@ -2863,7 +2849,7 @@ test('options chosen in menus are remembered: card size, tint, numbers, arrangem
 	const empty = async () => { const a = await p.at(board); await p.right(a.x, a.t + a.h - 6); };
 	await empty(); await choose(p, 'Card size', 'Large'); await p.sleep(400);
 	await empty(); await choose(p, 'Number the cards'); await p.sleep(400);
-	await click(p, BTN('binders-filter-button')); await choose(p, 'Draft'); await closeMenus(p); await p.sleep(400);
+	await filterToggle(p, 'Draft'); await p.sleep(400);
 	const state = await viewState(p);
 	t.eq(state.options.cardSize, 'large', 'card size in the state');
 	t.eq(state.options.numbers, true, 'numbers in the state');
@@ -2876,7 +2862,7 @@ test('options chosen in menus are remembered: card size, tint, numbers, arrangem
 	t.eq(j(back?.options), j(state.options), 'after a reload the options are as they were: ' + j(back?.options));
 	t.eq(j(back?.filter), j(state.filter), 'and the filter');
 	t.ok(await p.ev(`!!document.querySelector('${LEAF} .binders-board.mod-numbers')`), 'and the cards are numbered');
-	await click(p, BTN('binders-filter-button')); await choose(p, 'Clear filter'); await closeMenus(p);
+	await clearFilter(p);
 	await setMode(p, 'outliner');
 	await context(p, TH('words')); await choose(p, 'Sort descending'); await p.sleep(400);
 	await context(p, TH('status')); await choose(p, 'Hide column'); await p.sleep(400);
@@ -3023,9 +3009,7 @@ ux('Set target... on several notes that have different targets opens an empty fi
 test('Make this the binder order with a filter on keeps every note and folder in the binder’s list (the ones the filter hides stay)', tidied(async (p, h, t) => {
 	await outl(p);
 	const start = await list(p);
-	await click(p, BTN('binders-filter-button'));
-	await choose(p, 'Idea');
-	await closeMenus(p);
+	await filterToggle(p, 'Idea');
 	await p.sleep(400);
 	await context(p, TH('words'));
 	await choose(p, 'Sort descending');

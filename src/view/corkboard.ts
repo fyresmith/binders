@@ -394,7 +394,12 @@ class Corkboard implements BinderMode {
 	}
 
 	private shown(g: Group): TAbstractFile[] { return g.items.filter((f) => this.isShown(f)); }
-	private isShown(f: TAbstractFile): boolean { return !(f instanceof TFile) || this.made.has(f) || this.ctx.visible(f); }
+	/** A note shows if it passes the filter (or was made here); under a filter a folder shows only if something in it does
+	    (the outliner and the manuscript do the same). */
+	private isShown(f: TAbstractFile): boolean {
+		if (f instanceof TFile) return this.made.has(f) || this.ctx.visible(f);
+		return !(f instanceof TFolder) || !this.ctx.filtering() || this.ctx.store.scenes(f).some((n) => this.made.has(n) || this.ctx.visible(n));
+	}
 
 	filterChanged(): void { this.made.clear(); }
 
@@ -405,7 +410,7 @@ class Corkboard implements BinderMode {
 	private signature(): string {
 		const card = (f: TAbstractFile) => cardKey(this.ctx, f);
 		const groups = this.model();
-		return JSON.stringify([this.ctx.readOnly, this.presets, this.labelStyle, groups.map((g) => [g.folder.path, g.end?.path, g.depth, g.head?.path, this.shown(g).map(card)])]);
+		return JSON.stringify([this.ctx.readOnly, this.presets, this.labelStyle, this.ctx.filtering(), groups.map((g) => [g.folder.path, g.end?.path, g.depth, g.head?.path, this.shown(g).map(card)])]);
 	}
 
 	// ---- drawing ----

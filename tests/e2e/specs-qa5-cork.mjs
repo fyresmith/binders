@@ -13,6 +13,7 @@
 // board; what was a heading's menu is the stack's.
 //
 // QA5_SHOTS=<dir> saves screenshots of every step there.
+import { tapSel, tapTick, tapDone, tapToggle, tapClear } from './filter-helpers.mjs';
 import { mkdirSync } from 'fs';
 import { B, PL, VIEW, card, closeMenus, contents, flush, j, menuItems, openView, read, reload, texts, tidy, until, viewState, writeRaw } from './view-helpers.mjs';
 
@@ -1473,14 +1474,13 @@ test('the filter by touch: only matching cards show, stacks count “1 of 3 note
 		await open(p);
 		const names = () => p.ev(`[...document.querySelectorAll('${LEAF} .binders-card[data-path]')].map(c => c.dataset.path.split('/').pop())`);
 		const counts = () => p.ev(`[...document.querySelectorAll('${LEAF} .binders-card.is-stack .binders-card-words')].map(e => e.textContent)`);
-		const f = await p.at(`${LEAF} .binders-filter-button`);
-		await tap(p, f.x, f.y);
+		await tapSel(p, `${LEAF} .binders-filter-button`);
 		await shot(p, 'filter-sheet');
 		const s = await sheet(p);
 		t.ok(isSheet(s) && s.itemHeights.every((x) => x >= 40), 'the filter is a sheet with rows a finger tall');
-		t.ok(await menuTap(p, 'Idea'), 'Idea');
-		await p.sleep(600);
+		await tapTick(p, 'status', 'Idea');
 		t.ok(await menus(p) > 0, 'the sheet stays open, for another value');
+		await tapDone(p);
 		await gone(p);
 		await shot(p, 'filter-idea');
 		t.eq(j(await names()), j(['Part One', 'Part Two', 'Epilogue.md']), 'of the binder’s notes only the idea shows, beside the folders’ stacks');
@@ -1498,21 +1498,18 @@ test('the filter by touch: only matching cards show, stacks count “1 of 3 note
 		// (on a board drawn with the filter on; that a stack follows a filter set while it shows is the BUG test below)
 		t.eq(j(await counts()), j(['1 of 3 notes · 16 words', '1 of 2 notes · 11 words']), 'the stacks count what would show in them');
 		// a second value: Red and Idea is Epilogue alone
-		await tap(p, f.x, f.y);
-		t.ok(await menuTap(p, 'Red'), 'Red');
-		await p.sleep(700);
+		await tapTick(p, 'label', 'Red');
+		await tapDone(p);
 		await gone(p);
-		t.eq(j(await names()), j(['Part One', 'Part Two', 'Epilogue.md']), 'a status and a label together (the note made before the filter changed is held to it now)');
+		t.eq(j(await names()), j(['Epilogue.md']), 'a status and a label together (the note made before the filter changed is held to it now; the folders have none that pass)');
 		// a folder where nothing matches says so
 		await open(p, L + 'Part One');
 		await shot(p, 'filter-nothing');
 		const none = await p.ev(`({ text: document.querySelector('${LEAF} .binders-empty')?.innerText ?? null, cards: document.querySelectorAll('${LEAF} .binders-card[data-path]').length, button: document.querySelector('${LEAF} .binders-filter-button').classList.contains('is-active') })`);
 		say('nothing matches', j(none));
 		t.ok(/No notes match the filter/.test(none.text ?? '') && none.cards === 0, 'a folder none of whose notes pass says so: ' + j(none));
-		const f2 = await p.at(`${LEAF} .binders-filter-button`);
-		await tap(p, f2.x, f2.y);
-		t.ok(await menuTap(p, 'Clear filter'), 'Clear filter');
-		await p.sleep(700);
+		await tapClear(p);
+		await p.sleep(400);
 		t.eq(await p.ev(`document.querySelectorAll('${LEAF} .binders-card[data-path]').length`), 3, 'everything is back');
 		t.eq(await menus(p), 0, 'and the sheet is closed');
 	});
@@ -1523,10 +1520,7 @@ bug7('a filter set (or changed, or cleared) while the board shows: each folder�
 		await open(p);
 		const counts = () => p.ev(`[...document.querySelectorAll('${LEAF} .binders-card.is-stack .binders-card-words')].map(e => e.textContent)`);
 		t.eq(j(await counts()), j(['3 notes · 51 words', '2 notes · 28 words']), 'with no filter: every note');
-		const f = await p.at(`${LEAF} .binders-filter-button`);
-		await tap(p, f.x, f.y);
-		t.ok(await menuTap(p, 'Idea'), 'Idea');
-		await p.sleep(600);
+		await tapToggle(p, 'Idea');
 		await gone(p);
 		await p.sleep(600);
 		const stale = await counts();
@@ -1536,9 +1530,8 @@ bug7('a filter set (or changed, or cleared) while the board shows: each folder�
 		t.eq(j(await counts()), j(['1 of 3 notes · 16 words', '1 of 2 notes · 11 words']), 'a board drawn with the filter on counts the ideas');
 		t.eq(j(stale), j(['1 of 3 notes · 16 words', '1 of 2 notes · 11 words']), 'and so do the stacks that were showing when the filter was set');
 		// and cleared
-		await tap(p, f.x, f.y);
-		t.ok(await menuTap(p, 'Clear filter'), 'Clear filter');
-		await p.sleep(900);
+		await tapClear(p);
+		await p.sleep(500);
 		await gone(p);
 		t.eq(j(await counts()), j(['3 notes · 51 words', '2 notes · 28 words']), 'the filter cleared, every note again');
 	});
@@ -2272,10 +2265,7 @@ test('the board comes back as it was left after Obsidian restarts on the phone: 
 	await onDevice(p, PHONE, async () => {
 		await open(p);
 		await setOptions(p, { numbers: true, cardSize: 'small' });
-		const f = await p.at(`${LEAF} .binders-filter-button`);
-		await tap(p, f.x, f.y);
-		await menuTap(p, 'Idea');
-		await p.sleep(600);
+		await tapToggle(p, 'Idea');
 		await gone(p);
 		await p.ev(`app.workspace.requestSaveLayout()`);
 		await p.sleep(3500);

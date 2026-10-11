@@ -428,7 +428,8 @@ class Timeline implements BinderMode {
 		const { groups, undated } = timeline(scenes, (f) => places.get(f) ?? null);
 		this.groups = groups;
 		this.undated = undated;
-		this.numbers = new Map(scenes.map((f, i) => [f.path, i + 1]));
+		// (the book's numbers, not the count of those that show: under a filter a scene keeps its place in the manuscript)
+		this.numbers = new Map(this.store.scenes(this.ctx.folder).map((f, i) => [f.path, i + 1]));
 		this.order = [...groups.flatMap((g) => g.items), ...undated].map((f) => f.path);
 		this.groupAt = new Map(groups.flatMap((g, i) => g.items.map((f) => [f.path, i] as [string, number])));
 		// (a stretch that was unfolded for a drop is shut if the dates around it have gone)

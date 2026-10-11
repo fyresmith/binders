@@ -5,6 +5,7 @@
 //
 // In Obsidian 1.13 the settings dialog is a window of its own (a BrowserWindow titled "Settings - …"): its DOM is
 // reached through the tab's containerEl, and real keys and pointer events are sent to it through Electron.
+import { tick, tapTick, clearFilter, closeFilter, openFilter as openPopover, chooseProperty, clickEl, pickerItems, rowSel } from './filter-helpers.mjs';
 import { B, NOTE, PL, VIEW, answer, card, cards, clickMenu, closeMenus, exists, file, hoverMenu, j, menuItems, openView, read, reload, same, texts, until, viewState, withTidy } from './view-helpers.mjs';
 
 export const specs = [];
@@ -86,7 +87,13 @@ const dots = (p) => p.ev(`Object.fromEntries([...document.querySelectorAll('${EX
 const setMode = async (p, mode) => { await p.ev(`(() => { ${VIEW}.setMode(${j(mode)}); return 1; })()`); await p.sleep(500); };
 const outlinerCells = (p, col) => p.ev(`Object.fromEntries([...document.querySelectorAll('.workspace-leaf.mod-active .binders-outliner-row')].map(r => [r.dataset.path.slice(${L.length}), (r.querySelector('[data-col="${col}"] input, [data-col="${col}"] textarea')?.value ?? r.querySelector('[data-col="${col}"]')?.textContent ?? null)]))`);
 const filterButton = '.workspace-leaf.mod-active .binders-filter-button';
-const openFilter = async (p) => { const f = await p.at(filterButton); await p.click(f.x, f.y); await p.sleep(300); };
+/** The popover's list of one property's values: its titles. Leaves the list open. */
+const filterValues = async (p, property) => {
+	await openPopover(p);
+	await chooseProperty(p, 0, property);
+	await clickEl(p, `${rowSel(0)} .binders-filter-values`);
+	return (await pickerItems(p)).map((i) => i.title);
+};
 const short = (list) => list.map((x) => x.split('/').pop().replace('.md', ''));
 const toolbar = (p) => p.ev(`(() => { const v = document.querySelector('.workspace-leaf.mod-active .binders-view'), pr = v.querySelector('.binders-toolbar .binders-progress'), c = v.querySelector('.binders-word-count'); return { count: c.textContent, hidden: pr.classList.contains('is-hidden'), complete: pr.classList.contains('is-complete'), width: pr.querySelector('.binders-progress-bar').style.width }; })()`);
 const foot = (p, path) => p.ev(`(() => { const c = document.querySelector(${j(card(L + path))}); return c ? { text: c.querySelector('.binders-card-words')?.textContent ?? null, pct: c.style.getPropertyValue('--binders-card-progress'), target: c.classList.contains('has-target'), done: c.classList.contains('is-complete') } : null; })()`);
@@ -292,10 +299,9 @@ test('what a label is: a preset in any case, a theme color by name, #abc or #AAB
 	t.eq(j((await menuItems(p)).slice(-9)), j(['Red', 'Blue', 'Twin', 'Mara', 'Cyan', 'Nobody', 'Custom color...', 'No label', 'Edit labels...']), 'the label menu');
 	t.eq(j((await checked(p)).filter((x) => x !== 'Include in export')), j(['Red']), '“RED” ticks Red');
 	await closeMenus(p);
-	await openFilter(p);
-	const items = await menuItems(p);
-	t.eq(j(items.slice(items.indexOf('Label'))), j(['Label', 'Red', 'Twin', 'Mara', 'Cyan', 'Custom color', 'Nobody', 'No label']), 'the filter lists them as settings order them, then the rest');
-	await closeMenus(p);
+	const items = await filterValues(p, 'Label');
+	t.eq(j(items), j(['Red', 'Twin', 'Mara', 'Cyan', 'Custom color', 'Nobody', 'No label']), 'the filter lists them as settings order them, then the rest');
+	await clearFilter(p);
 	await setMode(p, 'outliner');
 	const cells = await outlinerCells(p, 'label');
 	t.eq(j([cells['Prologue.md'], cells['Part One/Arrival.md'], cells['Part One/The keeper.md'], cells['Part One/Storm warning.md'], cells['Part Two/The wreck.md'], cells['Part Two/Lights out.md'], cells['Epilogue.md']]), j(['Red', 'Cyan', 'Custom color', 'Twin', 'Mara', 'Nobody', '']), 'the outliner names them the same way');
@@ -488,17 +494,13 @@ test('filter: status and label together, kept across modes and in the view’s s
 	await setFm(p, L + 'Part One/The keeper.md', { label: 'Red' });
 	await setFm(p, L + 'Part One/Arrival.md', { label: 'Red' });
 	await openView(p, L + 'Part One');
-	await openFilter(p);
-	await clickMenu(p, 'Draft');
-	await p.sleep(350);
-	t.ok((await p.ev(`document.querySelectorAll('.menu').length`)) === 1, 'the menu is there again for the next pick');
-	await clickMenu(p, 'Idea');
-	await p.sleep(350);
+	await tick(p, 'status', 'Draft');
+	t.ok(await p.ev(`!!document.querySelector('.binders-filter-menu')`), 'the popover stays for the next pick');
+	await tick(p, 'status', 'Idea');
 	t.eq(j(short(await cards(p))), j(['The keeper', 'Storm warning']), 'two statuses: either');
-	await clickMenu(p, 'Red');
-	await p.sleep(350);
+	await tick(p, 'label', 'Red');
 	t.eq(j(short(await cards(p))), j(['The keeper']), 'and a label: both (Arrival is red, but revised)');
-	t.eq(await p.ev(`document.querySelector('${filterButton}').innerText`), 'Filter (3)', 'the button counts what’s picked');
+	t.eq(await p.ev(`document.querySelector('${filterButton}').innerText`), 'Filter (2)', 'the button counts the conditions');
 	t.eq(j((await viewState(p)).filter), j({ status: ['Draft', 'Idea'], label: ['Red'] }), 'in the view’s state');
 	await p.key('Escape');
 	await p.sleep(200);
@@ -517,9 +519,7 @@ test('filter: status and label together, kept across modes and in the view’s s
 	await until(p, `!!app.vault.getAbstractFileByPath(${j(L + 'Part One/Fresh.md')})`);
 	await p.sleep(400);
 	t.ok(short(await cards(p)).includes('Fresh'), 'a note just made shows though the filter would hide it');
-	await openFilter(p);
-	await clickMenu(p, 'Clear filter');
-	await p.sleep(300);
+	await clearFilter(p);
 	t.eq(j(short(await cards(p)).sort()), j(['Arrival', 'Fresh', 'Storm warning', 'The keeper']), 'cleared: every card');
 	t.eq(short(await cards(p)).length, 4, 'four of them');
 	t.eq(await p.ev(`document.querySelectorAll('.menu').length`), 0, 'and the menu closes');
@@ -553,13 +553,10 @@ test('phone: the filter and the target dialog work by touch; the settings have r
 	await onPhone(p, async () => {
 		await openView(p);
 		await p.sleep(400);
-		const f = await p.at(filterButton);
-		await tap(p, f.x, f.y);
-		const d = await itemAt(p, 'Draft');
-		t.ok(d, 'the filter opens as a sheet');
-		await tap(p, d.x, d.y);
-		await p.sleep(600);
+		await tapTick(p, 'status', 'Draft');
+		t.ok(await p.ev(`!!document.querySelector('.binders-filter-menu')`), 'the filter opens as a sheet');
 		t.eq(j((await viewState(p)).filter), j({ status: ['Draft'], label: [] }), 'a status picked by touch');
+		await closeFilter(p);
 		await closeMenus(p);
 		const c = await p.at(card(L + 'Prologue.md'));
 		await hold(p, c.x, c.y);
@@ -862,47 +859,54 @@ ux('targets: a folder’s target shows on the corkboard, on its stack', async (p
 	t.eq((await foot(p, 'Part Two')).text, '2 notes · 28 words', 'a folder without a target says its words alone');
 });
 
-ux('filter: the menu stays where it is after a pick', async (p, h, t) => {
+ux('filter: the popover stays where it is while values are picked', async (p, h, t) => {
 	await openView(p);
-	await openFilter(p);
-	const left = () => p.ev(`Math.round(document.querySelector('.menu').getBoundingClientRect().left)`);
+	await openPopover(p);
+	const left = () => p.ev(`Math.round(document.querySelector('.binders-filter-menu').getBoundingClientRect().left)`);
 	const before = await left();
-	await clickMenu(p, 'Revised');
-	await p.sleep(350);
+	await tick(p, 'status', 'Revised');
 	const after = await left();
-	t.eq(after, before, 'the reopened menu is where the first was (it jumps left as the button grows to “Filter (1)”)');
+	t.eq(after, before, 'the popover is where it was (it would jump left as the button grows to “Filter (1)”)');
+	await closeFilter(p);
 });
 
-ux('filter: by keyboard, the menu keeps its place after a pick', async (p, h, t) => {
+ux('filter: by keyboard, the list keeps its place after a pick', async (p, h, t) => {
 	await openView(p);
 	await p.ev(`document.querySelector('${filterButton}').focus()`);
 	await p.key('Enter');
 	await p.sleep(300);
-	const sel = () => p.ev(`document.querySelector('.menu .menu-item.selected')?.textContent ?? null`);
-	for (let i = 0; i < 6 && (await sel()) !== 'Draft'; i++) await p.key('ArrowDown');
-	t.eq(await sel(), 'Draft', 'the arrows reach Draft');
+	await p.key('Enter');
+	await p.sleep(200);
+	await p.type('Status');
+	await p.key('Enter');
+	await p.sleep(300);
+	await p.ev(`document.querySelector('.binders-filter-menu .binders-filter-values').focus()`);
+	await p.key('Enter');
+	await p.sleep(300);
+	const sel = () => p.ev(`document.querySelector('.binders-picker .menu-item.selected')?.textContent ?? null`);
+	for (let i = 0; i < 6 && !/^Draft/.test((await sel()) ?? ''); i++) await p.key('ArrowDown');
+	t.ok(/^Draft/.test((await sel()) ?? ''), 'the arrows reach Draft');
 	await p.key('Enter');
 	await p.sleep(400);
 	t.eq(j((await viewState(p)).filter.status), j(['Draft']), 'Enter picks it');
-	t.eq(await sel(), 'Draft', 'and Draft is still the item selected, to go on from (nothing is: the next arrow starts from the top)');
+	t.ok(/^Draft/.test((await sel()) ?? ''), 'and Draft is still the item selected, to go on from');
+	await closeFilter(p);
 });
 
 ux('filter: a value no note has any more can still be unticked, and an empty board says why', async (p, h, t) => {
 	// (in a folder of notes alone: on a board with folders, their stacks stay whatever the filter)
 	await setFm(p, L + 'Part Two/The wreck.md', { status: 'Proofed' });
 	await openView(p, L + 'Part Two');
-	await openFilter(p);
-	await clickMenu(p, 'Proofed');
-	await p.sleep(300);
-	await closeMenus(p);
+	await tick(p, 'status', 'Proofed');
+	await closeFilter(p);
 	t.eq(j(short(await cards(p))), j(['The wreck']), 'filtered to the one proofed note');
 	await setFm(p, L + 'Part Two/The wreck.md', { status: 'Done' });
 	await until(p, `document.querySelectorAll('.workspace-leaf.mod-active .binders-card[data-path]').length === 0`);
 	const said = await p.ev(`/filter|no notes|nothing/i.test(document.querySelector('.workspace-leaf.mod-active .binders-mode').innerText)`);
-	await openFilter(p);
-	const items = await menuItems(p);
-	await closeMenus(p);
-	t.ok(items.includes('Proofed'), 'the menu still lists “Proofed”, ticked, to take it off (it doesn’t: only “Clear filter” can)');
+	const items = await filterValues(p, 'Status');
+	const ticked = await p.ev(`[...document.querySelectorAll('.binders-picker .menu-item')].filter(e => e.getAttribute('aria-selected') === 'true').map(e => e.textContent)`);
+	await closeFilter(p);
+	t.ok(items.includes('Proofed') && j(ticked).includes('Proofed'), 'the list still has “Proofed”, ticked, to take it off: ' + j(items));
 	t.ok(said, 'and the empty board says the filter hides every note');
 });
 
@@ -912,31 +916,24 @@ ux('filter: a value no note has any more can still be unticked, and an empty boa
 bug('filter: stacks count what’s shown, as the toolbar does', async (p, h, t) => {
 	await openView(p);
 	await until(p, `/words/.test(document.querySelector(${j(card(L + 'Part Two'))})?.querySelector('.binders-card-words')?.textContent ?? '')`);
-	await openFilter(p);
-	await clickMenu(p, 'Revised');
-	await p.sleep(300);
-	await closeMenus(p);
-	// (only Arrival, in Part One, is revised: none of the binder's own notes shows, its folders do)
-	t.eq(j(short(await cards(p))), j(['Part One', 'Part Two']), 'no note of the binder’s own shown; the folders stay');
+	await tick(p, 'status', 'Revised');
+	await closeFilter(p);
+	// (only Arrival, in Part One, is revised: none of the binder's own notes shows, and Part Two has none to show)
+	t.eq(j(short(await cards(p))), j(['Part One']), 'no note of the binder’s own shown; the folder with none that pass goes too');
 	t.eq(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-word-count').textContent`), '18 of 106 words', 'the toolbar counts what the filter leaves');
 	await p.sleep(600);
-	const count = (await foot(p, 'Part Two')).text;
-	t.ok(!/^2 notes/.test(count), `Part Two, with none of its notes shown, doesn’t say “${count}” as if they were`);
-	t.eq(count.split(' · ')[0], '0 of 2 notes', 'it says none of its two shows');
+	t.eq(await foot(p, 'Part Two'), null, 'Part Two, with none of its notes shown, is not on the board');
 	t.eq((await foot(p, 'Part One')).text, '1 of 3 notes · 18 words', 'Part One: the one that shows, and its words');
 	// and back to the whole count when the filter is cleared
-	await openFilter(p);
-	await clickMenu(p, 'Clear filter');
-	await p.sleep(600);
+	await clearFilter(p);
+	await p.sleep(400);
 	t.eq((await foot(p, 'Part Two')).text, '2 notes · 28 words', 'cleared: every note counted again');
 });
 
 test('filter: it goes along into a folder, and a board opened with a filter on counts its stacks by it', async (p, h, t) => {
 	await openView(p);
-	await openFilter(p);
-	await clickMenu(p, 'Revised');
-	await p.sleep(300);
-	await closeMenus(p);
+	await tick(p, 'status', 'Revised');
+	await closeFilter(p);
 	// inside Part One (the filter is the view's, and goes along): the one note
 	await p.ev(`${VIEW}.navigate(${file('The Lighthouse/Part One')})`);
 	await until(p, `document.querySelectorAll('.workspace-leaf.mod-active .binders-card[data-path]').length === 1`);
@@ -944,19 +941,18 @@ test('filter: it goes along into a folder, and a board opened with a filter on c
 	t.eq(j((await viewState(p)).filter.status), j(['Revised']), 'the filter is still on');
 	// back on the binder's board, drawn afresh with the filter on: the stacks say what shows
 	await p.ev(`${VIEW}.navigate(${file('The Lighthouse')})`);
-	await until(p, `document.querySelectorAll('.workspace-leaf.mod-active .binders-card.is-stack').length === 2`);
+	await until(p, `document.querySelectorAll('.workspace-leaf.mod-active .binders-card.is-stack').length === 1`);
 	await until(p, `/of/.test(document.querySelector(${j(card(L + 'Part One'))})?.querySelector('.binders-card-words')?.textContent ?? '')`);
 	t.eq((await foot(p, 'Part One')).text, '1 of 3 notes · 18 words', 'Part One: the one that shows, and its words');
-	t.eq((await foot(p, 'Part Two')).text.split(' · ')[0], '0 of 2 notes', 'Part Two: none of its two');
+	t.eq(await foot(p, 'Part Two'), null, 'Part Two: none of its notes shows, so it is not on the board');
 });
 
 ux('filter: one entry for one color, however its hex is written', async (p, h, t) => {
 	await setFm(p, L + 'Prologue.md', { label: '#abc' });
 	await setFm(p, L + 'Epilogue.md', { label: '#AABBCC' });
 	await openView(p);
-	await openFilter(p);
-	const items = await menuItems(p);
-	await closeMenus(p);
+	const items = await filterValues(p, 'Label');
+	await clearFilter(p);
 	t.eq(items.filter((x) => x === 'Custom color').length, 1, 'the same color is one “Custom color”, not two alike');
 });
 
