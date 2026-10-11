@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.51.9 (2026-10-11)
+
+### Changed
+
+- The roadmap’s timeline is now a fourth view of every binder, re-implemented from Evra Timelines, with what was decided about it.
+
 ## 0.51.8 (2026-10-10)
 
 ### Changed

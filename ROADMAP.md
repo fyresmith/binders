@@ -129,11 +129,20 @@ or configuration system unless the task cannot be done through the controls ther
       targets. A folder can name a template note that its new scenes start from, properties and all.
   - Structures are plain binders; a writer's own is saved and shared as one.
 
-### 8. The story's timeline
+### 8. The timeline, a fourth view
 
-- [ ] **Story time beside manuscript order.** A scene's date, as a property, shown along a timeline: when things
-      happen against the order they are told in. Built with [Evra Timelines](https://github.com/fyresmith/evra)
-      where that plugin is installed; the property and the outliner column work without it.
+- [ ] **Scenes along story time.** A fourth mode of the binder view, beside the corkboard, the outliner and the
+      manuscript: one line of time with the binder's scenes along it, each placed by a date property on its own
+      note (`story-date`), each showing its number in the manuscript, so when things happen reads against the order
+      they are told in. Dragging a card sets its date, as one step of Undo. Scenes with no date wait in a tray.
+  - Re-implemented from [Evra Timelines](https://github.com/fyresmith/evra) in Binders' own look, on its cards,
+    menus and history; Evra's calendar code is carried over, so a book can have a calendar of its own. Evra itself
+    stays as it is, for worldbuilders.
+  - Decided 2026-10-10: one timeline, not a line for each label; an axis that makes room for its cards, with long
+    empty stretches drawn short, and no zoom. Cut from Evra: events that aren't notes, sides, lifespans, pins,
+    saved views, the minimap, embeds, group cards.
+  - In steps: the property with an outliner column and an inspector row; a design round; the view, read-only;
+    dragging; a book's own calendar; eras. This changes "1.0 ships three views" (`docs/dev/plan.md`, "Decided").
 
 ### Also unfinished
 
