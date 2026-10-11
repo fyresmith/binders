@@ -32,7 +32,7 @@ import { wordsLabel } from './words';
 export const outliner: ModeFactory = (container, ctx) => new Outliner(container, ctx);
 
 /** What this view keeps in the workspace (with the tab): its columns once changed, sorting, folded folders. */
-interface Prefs { columns?: unknown; synopsis?: unknown; sort?: unknown; collapsed?: unknown }
+interface Prefs { columns?: unknown; synopsis?: unknown; sort?: unknown; collapsed?: unknown; widths?: unknown }
 interface Drawn { el: HTMLElement; key: string; item: TAbstractFile; title: Editable; synopsis: Editable | null; target: Editable | null; fields: Map<string, Editable> }
 interface Place { folder: TFolder; anchor: TAbstractFile | null; depth?: number; hint: string; into: HTMLElement | null; line: { left: number; right: number; y: number } | null }
 
@@ -95,13 +95,24 @@ class Outliner implements BinderMode {
 	private get prefs(): Prefs { const p = this.ctx.option<unknown>('outliner', null); return p && typeof p === 'object' ? p : {}; }
 	private setPrefs(patch: Prefs): void { this.ctx.setOption('outliner', { ...this.prefs, ...patch }); }
 	private columns(): ColumnSpec[] { return readColumns(this.prefs.columns) ?? readColumns(this.settings.outlinerColumns) ?? []; }
+	/** The widths of columns that are hidden, by id, kept until they are shown again. */
+	private hiddenWidths(): Record<string, number> {
+		const w = this.prefs.widths;
+		if (!w || typeof w !== 'object') return {};
+		return Object.fromEntries(Object.entries(w).filter((e): e is [string, number] => typeof e[1] === 'number'));
+	}
 	private get synopses(): boolean { return this.prefs.synopsis !== false; }
 	private get sort(): Sort { return readSort(this.prefs.sort); }
 	private get collapsed(): Set<string> { const c = this.prefs.collapsed; return new Set(Array.isArray(c) ? c.filter((x): x is string => typeof x === 'string') : []); }
 
 	/** New columns for this outliner, and what the next one opened starts with. */
 	private setColumns(cols: ColumnSpec[]): void {
-		this.setPrefs({ columns: cols, ...(this.sort && this.sort.id !== TITLE && !cols.some((c) => c.id === this.sort?.id) ? { sort: null } : {}) });
+		// (a column that is hidden keeps its width for when it is shown again; a column shown again takes it back)
+		const widths: Record<string, number> = { ...this.hiddenWidths() };
+		for (const c of this.columns()) if (c.width != null && !cols.some((n) => n.id === c.id)) widths[c.id] = c.width;
+		cols = cols.map((c) => (c.width == null && widths[c.id] != null ? { ...c, width: widths[c.id] } : c));
+		for (const c of cols) delete widths[c.id];
+		this.setPrefs({ columns: cols, widths, ...(this.sort && this.sort.id !== TITLE && !cols.some((c) => c.id === this.sort?.id) ? { sort: null } : {}) });
 		this.settings.outlinerColumns = cols.map((c) => ({ ...c }));
 		void this.ctx.plugin.saveData(this.settings);
 		this.draw();
@@ -894,7 +905,8 @@ class Outliner implements BinderMode {
 				this.select(order.slice(Math.min(a, b), Math.max(a, b) + 1), to.dataset.path, this.anchor ?? row.dataset.path);
 			} else this.select([to.dataset.path]);
 			to.focus({ preventScroll: true });
-			to.scrollIntoView({ block: 'nearest' });
+			// (the first row sits under the sticky header, so "in sight" for it is the top of the view: Home goes there)
+			if (to === rows[0]) this.root.scrollTop = 0; else to.scrollIntoView({ block: 'nearest' });
 		};
 		// Alt with an arrow moves the row (with the rows selected along with it): up and down among its folder's, left
 		// out of its folder, right into the folder above it

@@ -75,6 +75,8 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - In the Progress window, holding the pointer over a chart no longer raises an error behind the scenes; the charts are still named for a screen reader.
 - Corkboard arranged by label: after you delete every note, the keyboard goes to the New button instead of being dropped on the page.
 - Undoing a group, an ungroup or a new folder no longer trashes a note that was moved into that folder at the same moment: the folder stays, with the note in it.
+- In the outliner, a hidden column keeps its width for when it is shown again.
+- In the outliner, Home takes the view to the top, not just the first row into sight.
 
 ## 0.51.1 (2026-10-10)
 
