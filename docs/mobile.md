@@ -113,6 +113,8 @@ The [inspector and the contents](inspector.md) are pages of the right drawer, pu
 Swipe in from the right edge, or run **Show inspector**.
 
 - The inspector is on the section you last tapped.
+- Your pinned properties are there too: on a phone a list goes under its name, as wide as the drawer; on a tablet it
+  stays beside it. A tap on a link in one is Obsidian's, not the pane beside the writing.
 - A tap on a row of the contents closes the drawer on a phone and takes the manuscript there.
 
 ## The file explorer

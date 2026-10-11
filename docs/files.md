@@ -23,9 +23,15 @@ contents:
   - Epilogue
 target: 50000
 synopsis: A keeper, a newcomer, and the night the light went out.
+inspector:
+  - pov
+  - characters
 ---
 Anything you like: notes on the book, links, a to-do list.
 ```
+
+`inspector` is optional: the properties pinned to the [inspector](inspector.md#your-own-properties), by name, in order. A
+Binders that doesn't know it leaves it alone, and so do edits Binders doesn't understand in the list.
 
 Folders end in `/`. Notes are written without `.md`. The text under the properties is yours. It changes only
 through the editing and recovery actions described [below](#what-binders-writes-and-what-it-never-touches).
@@ -103,12 +109,12 @@ yet show after the others, by name. A new note is written into the list when som
 
 ## What Binders writes, and what it never touches
 
-- **In a binder note:** `binder`, `contents`, and `synopsis`, `status`, `label`, `target` and `notes` for the binder
+- **In a binder note:** `binder`, `contents`, `inspector` (the properties you pin), and `synopsis`, `status`, `label`, `target` and `notes` for the binder
   itself, and the book's details above. Binders makes the note when you make a binder.
 - **In a folder note:** `synopsis`, `status`, `label`, `target`, `notes`, `story-date`, `export` and `export-as`. It is made the
   first time you give a folder one of them.
 - **In your notes:** only the properties you change through its views (`synopsis`, `status`, `label`, `target`,
-  `notes`, `story-date`, `story-order`, `export`, `export-as`, and any property you edit in an outliner cell). They are written through
+  `notes`, `story-date`, `story-order`, `export`, `export-as`, and any property you edit in an outliner cell or a pinned row of the inspector). They are written through
   Obsidian's own property writer, so the rest of the note stays as it is. Bringing back **Everything** from a folder
   or binder snapshot can also restore the whole properties block as it was, after a review and a snapshot of now.
 - **Note text** is never rewritten behind your back. It changes only where you type (in a note, or in the

@@ -469,10 +469,11 @@ is an ordinary `<iframe srcdoc>`, which is the web's and nothing of Obsidian's.
   shows. They only style: Obsidian's rules make it a popover under its button on a computer and a sheet on a phone. A
   list to pick from (`src/view/filter-picker.ts`) is a plain `menu` with `menu-item`s and a search field of our own.
   Without Bases' rules (an Obsidian without Bases) the popover is a menu-looking box of rows.
-- **A property's type.** `propertyType()` in `src/view/internals.ts` asks the inspector's `kindOf` (`src/inspector/property-widgets.ts`, the one
-  place that touches `app.metadataTypeManager`) for the type the writer gave the property in Obsidian's Properties view, or
-  the type of the values the vault has for it, to choose a condition's operators and value control. Without the manager, the
-  kind is read from the values the notes hold (`kindFrom`). Tested in `tests/e2e/specs-filters.mjs`.
+- **A property's type.** `src/inspector/property-widgets.ts` `assignedKind()` is the one place that asks `app.metadataTypeManager.getAssignedWidget(name)` (`src/view/internals.ts` `propertyType()` only turns its answer into the filter's five kinds, and the inspector's `kindOf` uses `getTypeInfo` of the same manager),
+  the type the writer gave a property in Obsidian's Properties view (`text`, `multitext`, `tags`, `aliases`, `number`,
+  `checkbox`, `date`, `datetime`), to choose the operators and the value control for a condition on it. It is feature
+  detected and wrapped; without it, or for a property with no type, the kind is read from the values the notes hold
+  (`kindFrom`). Tested in `tests/e2e/specs-filters.mjs` ("a property's kind is the type Obsidian gives it").
 - **Escape and its menus.** A menu opened from the popover (an operator's) takes Escape before the document's listeners
   see it: by then the menu is gone, and the popover would shut too. The popover counts the menus opened from it
   (`onHide`) rather than look for one, and its picker counts itself in the same way.

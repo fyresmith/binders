@@ -44,10 +44,49 @@ The inspector follows the tab you're writing in. It shows:
 | **Notes** | Your own notes on the scene. See [Scene notes](scene-notes.md) |
 | **Snapshots** | A note's snapshots, newest first, with a camera to take one; for a folder, the folder's own, and with nothing selected the binder's. Click a row to open the Snapshots window on it. See [Snapshots](snapshots.md) |
 
+### Your own properties
+
+A binder can pin a few of your own properties under Label and Status: a point of view, the characters in a scene, a
+place, a subplot, or any other property of your notes. Pin one with **Pin property** under the rows: the menu lists
+the properties your binder's notes already have, and **Other property...** asks for a name. Binders' own properties
+(status, label, synopsis, export and the rest) are refused, since the inspector has them already. There is no limit.
+
+- **Each is edited with Obsidian's own editor for its type**, the one the note's Properties view draws: text, a list,
+  a number, a box, a date, a date and time, tags. A list shows its items with a small × and offers the values you
+  already use; typing `[[` in a text or list offers your notes. A value that isn't of its property's type is shown as
+  it is, with Obsidian's mark. If those editors are ever missing from an Obsidian, Binders draws plainer fields that
+  read and write the same values. **Changing a property's type** stays in Obsidian's own Properties view.
+- **They follow the scene** you are on, and are the same properties the outliner's columns and the note's own
+  Properties show, so an edit in any one shows in the others at once. Clearing a value takes the property away.
+- **A row's name opens its menu**: the type, **Move up**, **Move down** and **Unpin**. Which properties are pinned,
+  and their order, belong to the binder: they are kept in the binder note (`inspector`, see
+  [How your files look](files.md)), not in the undo history. A Longform project can't pin, since Binders writes
+  nothing in a project's own note; **Convert to binder** makes it a binder that can. A binder from a newer version
+  of Binders shows its pins and can't change them.
+- **For a folder, or the binder itself,** the rows show the values in its folder note (or binder note). Binders makes
+  the folder note the first time you give a folder a value.
+- **A link opens beside your writing.** A plain click on a link in a row opens the note in a pane next to the one
+  you are in, and the next link opens in the same pane, so a character's note can be read next to her scenes. Ctrl or
+  Cmd and click, and the link's right-click menu, are Obsidian's own. The inspector and the contents stay on the
+  scene while you read a note that isn't in any binder; a note of another binder takes them. Whether pointing at a
+  link shows a preview follows Obsidian's **Page preview** setting for properties (Ctrl, or Cmd, held by default).
+  On a phone a tap on a link is Obsidian's.
+- **When a note is renamed,** the links to it in these properties follow if Obsidian updates links; otherwise they are
+  left, as they are anywhere else.
+- **Each edit is one step of undo**, and never touches the text of the note.
+
 ### Several at once
 
 With several cards or rows selected the inspector shows what they share, and "Mixed" where they differ. A label,
-status, target, story date or **Export as** set there goes to all of them.
+status, target, story date or **Export as** set there goes to all of them. The **Include in export** box shows as
+mixed when they differ.
+
+For your own pinned properties, a list shows the items all of them have, and after them "1 more on some" (or "3 on
+some"): the items only some have, with a menu on each to **Add to all** or **Remove from** the notes that have it.
+Adding an item adds it to all of them and the × takes an item from all of them; what only some have stays in each
+note's own order. Other types show "Mixed" where they differ, and what you set goes to all. It is one step of undo.
+Items are compared as links are: `Mara` and `[[Mara]]` are the same name, and links to two different notes both named
+Mara are two people.
 
 ### What you type is kept
 

@@ -52,6 +52,12 @@ Rows can't be dragged while the outliner is sorted.
 - **With several rows selected**, the change is made to all of them.
 - **Ticks** (the Export column, and yes/no properties) change with a click.
 
+A property column uses the property's type from Obsidian's Properties view: a list is split at commas and a list of
+one stays a list, a number must be a number (a word typed there is refused, not turned into text), a date is written
+like `2026-03-04`, a yes/no property has its box even where a note has no value yet, and links (`[[Mara]]`) are drawn as
+links: a click on one opens the note beside the outliner, a click beside it edits. The same properties can be pinned in
+the [inspector](inspector.md#your-own-properties).
+
 Typing into a property column on a folder's row keeps the value in the folder's own note, which Binders makes if the
 folder has none. See [How your files look](files.md#folder-notes).
 
