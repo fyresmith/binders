@@ -628,9 +628,13 @@ test('binders: a move still waiting to be written is written when Obsidian quits
 	const LFI = 'Longform demo/Index.md';
 	const quit = () => p.ev(`(async () => { const ps = []; app.workspace.trigger('quit', { addPromise: (x) => ps.push(x) }); await Promise.all(ps); return ps.length; })()`);
 	await flush(p);
-	t.eq(await quit(), 0, 'nothing waiting: the quit isn’t held up');
+	// (Obsidian's own saves after the start may still be asked for: wait for them to settle first)
+	let n = await quit();
+	for (let i = 0; n && i < 40; i++) { await p.sleep(100); n = await quit(); }
+	t.eq(n, 0, 'nothing waiting: the quit isn’t held up');
 	await p.ev(`${B}.moveDown(${file('The Lighthouse/Prologue.md')}).then(() => 1)`);
-	t.eq(await quit(), 1, 'a move waiting: the quit waits for its write');
+	// (the recorder asks as well, for its record of the move: at least one promise)
+	t.ok((await quit()) >= 1, 'a move waiting: the quit waits for its write');
 	t.eq(j((await contents(p)).slice(0, 5)), j(['Part One/', 'Part One/Arrival', 'Part One/The keeper', 'Part One/Storm warning', 'Prologue']), 'and the binder note on disk has the move, read back at once');
 	await p.ev(`${B}.moveUp(${file('The Lighthouse/Prologue.md')}).then(() => 1)`);
 	await p.ev(`(() => { window.dispatchEvent(new Event('pagehide')); return 1; })()`);

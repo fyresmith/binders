@@ -45,11 +45,13 @@ export const withTidy = (fn) => async (p, h, t) => { try { await clearSelection(
 
 /** Makes notes, folders (a path ending in "/") and other files (text "BIN:") and waits for the cache. */
 export const mk = (p, files, wait = 500) => p.ev(`(async () => { for (const [path, text] of ${j(Object.entries(files))}) { const dir = path.split('/').slice(0, -1).join('/'); if (dir && !app.vault.getAbstractFileByPath(dir)) await app.vault.createFolder(dir); if (path.endsWith('/')) continue; if (text === 'BIN:') await app.vault.createBinary(path, new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]).buffer); else await app.vault.create(path, text); } await new Promise(r => setTimeout(r, ${wait})); })().then(() => 1)`);
-/** The sidebar explorer's rows under a folder ('' for all), top to bottom, with the given folders expanded. */
+/** The sidebar explorer's rows under a folder ('' for all), top to bottom, with the given folders expanded. A binder's
+    `Snapshots` folder (where its progress record is kept, made by the first thing recorded) is left out: it is there
+    or not as writing goes on, whatever the sort order does. */
 export async function rows(p, under = L, expand = FOLDERS) {
 	await p.ev(`(() => { app.workspace.leftSplit.expand(); const v = ${EXP}; app.workspace.revealLeaf(v.leaf); for (const f of ${j(expand)}) v.fileItems[f]?.setCollapsed(false); return 1; })()`);
 	await p.sleep(400);
-	return p.ev(`[...${EXP}.containerEl.querySelectorAll('.tree-item-self[data-path]')].map(e => e.dataset.path).filter(x => ${j(under)} === '' || x.startsWith(${j(under + '/')}))`);
+	return p.ev(`[...${EXP}.containerEl.querySelectorAll('.tree-item-self[data-path]')].map(e => e.dataset.path).filter(x => (${j(under)} === '' || x.startsWith(${j(under + '/')})) && !/\\/Snapshots$/.test(x))`);
 }
 const sel = (path) => `.tree-item-self[data-path="${path.replace(/["\\]/g, '\\$&')}"]`;
 /** A row of the sidebar explorer: its centre and edges, and where its name starts. */
@@ -402,7 +404,7 @@ test('menus: what’s offered where — scenes, folders, the binder’s own note
 		[`${L}/Prologue.md`]: ['Show in binder', 'Split at headings...', 'New scene after this', 'Take a snapshot', 'Rewrite...', 'Show snapshots...', 'Move down'], [`${L}/Part One/The keeper.md`]: ['Show in binder', 'Split at headings...', 'New scene after this', 'Take a snapshot', 'Rewrite...', 'Show snapshots...', 'Move up', 'Move down'],
 		// (the binder's own note, where the quick switcher lands for a binder's name, leads to its binder)
 		[NOTE]: ['Open binder'], [`${L}/Part One/Part One.md`]: [], [`${L}/map.png`]: ['Show in binder', 'Move up'],
-		Plain: ['Make this folder a binder', 'New binder'], 'Plain/x.md': [], 'Loose.md': [],
+		Plain: ['Make this folder a binder', 'New binder'], 'Plain/x.md': ['Make a binder from this note...'], 'Loose.md': ['Make a binder from this note...'],
 		[LF]: ['Open binder', 'New scene here', 'Convert to binder', 'Export...', 'Take a snapshot', 'Show snapshots...'], [`${LF}/Index.md`]: ['Open binder', 'Convert to binder'], [`${LF}/Island.md`]: ['Show in binder', 'Split at headings...', 'New scene after this', 'Take a snapshot', 'Rewrite...', 'Show snapshots...', 'Move up', 'Move down'], [`${LF}/Notes on ferries.md`]: [],
 		// a binder Binders can't change: it can be opened and exported, and a note's snapshots read, nothing more
 		Newer: ['Open binder', 'Export...', 'Show snapshots...'], 'Newer/Zed.md': ['Show in binder', 'Show snapshots...'], 'Newer/Sub': ['Open binder', 'Export...', 'Show snapshots...'], 'Newer/Newer.md': ['Open binder'],
@@ -799,8 +801,13 @@ test('lifecycle: disabled and enabled eight times, Binders leaves nothing behind
 	await rows(p);
 	const dom = () => p.ev(`({ icons: document.querySelectorAll('.binders-folder-tag').length, dots: document.querySelectorAll('.binders-explorer-label').length, lines: document.querySelectorAll('.binders-explorer-drop').length, anything: document.querySelectorAll('[class*="binders"], [style*="--binders"]').length, styles: [...document.querySelectorAll('style')].filter(s => /binders-/.test(s.textContent)).length, stockMethod: /sortOrder/.test(Object.getPrototypeOf(${EXP}).getSortedFolderItems.toString()), commands: Object.keys(app.commands.commands).filter(k => k.startsWith('binders:')).length })`);
 	/** How often the explorer sorts a folder, and how often the store says "changed", for one move. */
-	const work = () => p.ev(`(async () => { const v = ${EXP}, o = Object.getPrototypeOf(v).getSortedFolderItems; let n = 0, ch = 0; v.getSortedFolderItems = function (f) { n++; return o.call(this, f); }; const ref = ${B}.on('changed', () => ch++); await ${B}.moveDown(${file(`${L}/Prologue.md`)}); await new Promise(r => setTimeout(r, 1200)); delete v.getSortedFolderItems; ${B}.offref(ref); await ${B}.moveUp(${file(`${L}/Prologue.md`)}); await ${B}.flush(); return [n, ch]; })()`);
-	const on0 = { dom: await dom(), listeners: await listeners(p), handlers: await handlers(p), work: await work() };
+	// (the record's own folders, Snapshots and its History, are sorted too once they exist: not counted, as they are not the binder's)
+	const work = () => p.ev(`(async () => { const v = ${EXP}, o = Object.getPrototypeOf(v).getSortedFolderItems; let n = 0, ch = 0; v.getSortedFolderItems = function (f) { if (!/(^|\\/)Snapshots(\\/|$)/.test(f.path)) n++; return o.call(this, f); }; const ref = ${B}.on('changed', () => ch++); await ${B}.moveDown(${file(`${L}/Prologue.md`)}); await ${B}.flush(); await new Promise(r => setTimeout(r, 1200)); delete v.getSortedFolderItems; ${B}.offref(ref); await ${B}.moveUp(${file(`${L}/Prologue.md`)}); await ${B}.flush(); return [n, ch]; })()`);
+	// (a first move right after the label change still has the explorer catching up: measured after that has settled)
+	// (the first moves after the record's folders appear are sorted more than later ones: measured until two in a row agree)
+	let w = await work(), w2 = null;
+	for (let i = 0; i < 5; i++) { w2 = await work(); if (JSON.stringify(w2) === JSON.stringify(w)) break; w = w2; }
+	const on0 = { dom: await dom(), listeners: await listeners(p), handlers: await handlers(p), work: w2 };
 	same(t, [on0.dom.icons, on0.dom.dots, on0.dom.stockMethod], [2, 1, false], 'on: two binder icons, one dot, the explorer patched');
 	let off0;
 	for (let i = 0; i < 8; i++) {
@@ -828,7 +835,10 @@ test('lifecycle: disabled and enabled eight times, Binders leaves nothing behind
 	await rows(p);
 	same(t, short(await rows(p)), IN_ORDER, 'on again: binder order');
 	const on8 = { dom: await dom(), listeners: await listeners(p), handlers: await handlers(p), work: await work() };
-	same(t, on8, on0, 'after eight rounds: the same elements, listeners, handlers, and the same work for one move');
+	// (the work for one move is not compared for equality: the record's first write can land in its window, so the start can count more; a leak would make the end count more)
+	const { work: w8, ...rest8 } = on8, { work: w0, ...rest0 } = on0;
+	same(t, rest8, rest0, 'after eight rounds: the same elements, listeners and handlers');
+	t.ok(w8[0] <= w0[0] && w8[1] === w0[1], `after eight rounds: no more work for one move than at the start (${j(w8)} against ${j(w0)})`);
 });
 
 test('lifecycle: the explorer closed (a move made meanwhile), opened in the right sidebar, dragged in there, and back on the left', async (p, h, t) => {
