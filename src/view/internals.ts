@@ -1,3 +1,4 @@
+import { kindOf } from '../inspector/property-widgets';
 import { Menu, type App, type ItemView, type MenuItem, type TFile, type WorkspaceLeaf } from 'obsidian';
 
 /* Obsidian internals the binder view uses, each feature-detected with a fallback (see docs/dev/internals.md).
@@ -165,15 +166,11 @@ export function configLook(form: HTMLElement): boolean {
 	} catch { return false; }
 }
 
-/* The type Obsidian gives a property (its Properties view: text, list, number, checkbox, date). The metadata type
-   manager isn't in the API: `app.metadataTypeManager.getAssignedWidget(name)` says the widget assigned to a property
-   name, vault-wide, or nothing for a name no type was given. The filter uses it for a property's kind; without it, or
-   for a property with no type, the kind is read from the values the notes have (filter/conditions.ts `kindFrom`). */
+/* The type Obsidian gives a property (its Properties view): asked through the inspector's `kindOf`
+   (src/inspector/property-widgets.ts), the one place that touches `app.metadataTypeManager`. For a property with no type
+   assigned it says the type of the values the vault has for it. Without the manager (or for "unknown"), null: the filter
+   then reads the kind from the values the binder's notes hold (filter/conditions.ts `kindFrom`). */
 export function propertyType(app: App, name: string): 'text' | 'list' | 'number' | 'checkbox' | 'date' | null {
-	try {
-		const m = (app as unknown as { metadataTypeManager?: { getAssignedWidget?: (n: string) => unknown } }).metadataTypeManager;
-		if (!m || typeof m.getAssignedWidget !== 'function') return null;
-		const w = m.getAssignedWidget(name);
-		return w === 'text' ? 'text' : w === 'multitext' || w === 'tags' || w === 'aliases' ? 'list' : w === 'number' ? 'number' : w === 'checkbox' ? 'checkbox' : w === 'date' || w === 'datetime' ? 'date' : null;
-	} catch { return null; }
+	const k = kindOf(app, name, undefined).kind;
+	return k === 'text' ? 'text' : k === 'multitext' || k === 'tags' || k === 'aliases' ? 'list' : k === 'number' ? 'number' : k === 'checkbox' ? 'checkbox' : k === 'date' || k === 'datetime' ? 'date' : null;
 }
