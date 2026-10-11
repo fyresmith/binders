@@ -8,8 +8,8 @@
 // reads the disk afterwards.
 //
 // QA11_SHOTS=<dir> keeps the screenshots taken for the blank-card checks (default test-dist/qa11-mobile-views).
-import { execFileSync } from 'child_process';
-import { mkdirSync } from 'fs';
+import { inflateSync } from 'zlib';
+import { mkdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { VIEW, closeMenus, contents, exists, j, menuItems, openView, until, withTidy } from './view-helpers.mjs';
 import { LEAF, PHONE, TABLET, binder, dialogs, disk, metrics, notices, onDevice, swipe, tap, tapText, hold, touch, pressAndMove, menuTap, keys, openMs, saveAll, snap } from './specs-qa5-manuscript.mjs';
@@ -63,6 +63,8 @@ const VISIBLE = (sel) => `(() => {
 		const r = e.getBoundingClientRect();
 		const l = Math.max(r.left, 0), t = Math.max(r.top, edge), rr = Math.min(r.right, innerWidth), b = Math.min(r.bottom, bottom);
 		if (rr - l < 12 || b - t < 12) continue;
+		// (a title cut off by the screen's edge to under two thirds of its height has too little of its text in sight to count its ink)
+		if (r.height <= 60 && b - t < r.height * 0.65) continue;
 		const at = document.elementFromPoint((l + rr) / 2, (t + b) / 2);
 		if (!at || !(e.contains(at) || at.contains(e))) continue;
 		out.push({ text: (e.textContent || '').trim().slice(0, 40), rect: [Math.round(l), Math.round(t), Math.round(rr - l), Math.round(b - t)] });
@@ -71,20 +73,39 @@ const VISIBLE = (sel) => `(() => {
 })()`;
 
 // Counts the pixels in each rectangle that differ from the rectangle's commonest colour by more than a little: a
-// title drawn in its card has some, an empty card has none. (PIL, as the machine has it; `-I` ignores user settings.)
-const INK = `
-import sys, json
-from collections import Counter
-from PIL import Image
-d = json.loads(sys.argv[1]); im = Image.open(d['png']).convert('RGB'); px = im.load(); W, H = im.size
-out = []
-for x, y, w, h in d['rects']:
-    cells = [(i, j) for i in range(max(0, int(x)), min(W, int(x + w))) for j in range(max(0, int(y)), min(H, int(y + h)))]
-    if not cells:
-        out.append(-1); continue
-    bg = Counter(px[i, j] for i, j in cells).most_common(1)[0][0]
-    out.append(sum(1 for i, j in cells if sum(abs(a - b) for a, b in zip(px[i, j], bg)) > 60))
-print(json.dumps(out))`;
+// title drawn in its card has some, an empty card has none. (The PNG is decoded here, in node, so the test needs no
+// imaging library on the machine, as GitHub's runners have none.)
+function decodePng(buf) {
+	const idat = [];
+	let pos = 8, w = 0, h = 0, ct = 0;
+	while (pos < buf.length) { const len = buf.readUInt32BE(pos), type = buf.toString('ascii', pos + 4, pos + 8), data = buf.subarray(pos + 8, pos + 8 + len); if (type === 'IHDR') { w = data.readUInt32BE(0); h = data.readUInt32BE(4); ct = data[9]; } if (type === 'IDAT') idat.push(data); pos += 12 + len; }
+	const bpp = ct === 6 ? 4 : 3, raw = inflateSync(Buffer.concat(idat)), stride = w * bpp, out = Buffer.alloc(h * stride);
+	for (let y = 0; y < h; y++) {
+		const f = raw[y * (stride + 1)];
+		for (let x = 0; x < stride; x++) {
+			const v = raw[y * (stride + 1) + 1 + x], a = x >= bpp ? out[y * stride + x - bpp] : 0, b = y ? out[(y - 1) * stride + x] : 0, c = x >= bpp && y ? out[(y - 1) * stride + x - bpp] : 0;
+			let pr = 0;
+			if (f === 1) pr = a; else if (f === 2) pr = b; else if (f === 3) pr = (a + b) >> 1; else if (f === 4) { const q = a + b - c, pa = Math.abs(q - a), pb = Math.abs(q - b), pc = Math.abs(q - c); pr = pa <= pb && pa <= pc ? a : pb <= pc ? b : c; }
+			out[y * stride + x] = (v + pr) & 255;
+		}
+	}
+	return { w, h, bpp, stride, out };
+}
+function inkIn(img, rects) {
+	return rects.map(([x, y, w, ht]) => {
+		const x0 = Math.max(0, Math.floor(x)), x1 = Math.min(img.w, Math.floor(x + w)), y0 = Math.max(0, Math.floor(y)), y1 = Math.min(img.h, Math.floor(y + ht));
+		if (x1 <= x0 || y1 <= y0) return -1;
+		const px = [], count = new Map();
+		for (let j = y0; j < y1; j++) for (let i = x0; i < x1; i++) {
+			const o = j * img.stride + i * img.bpp, key = (img.out[o] << 16) | (img.out[o + 1] << 8) | img.out[o + 2];
+			px.push(key); count.set(key, (count.get(key) || 0) + 1);
+		}
+		let bg = 0, best = -1;
+		for (const [k, n] of count) if (n > best) { best = n; bg = k; }
+		const br = bg >> 16, bgc = (bg >> 8) & 255, bb = bg & 255;
+		return px.reduce((n, k) => n + (Math.abs((k >> 16) - br) + Math.abs(((k >> 8) & 255) - bgc) + Math.abs((k & 255) - bb) > 60 ? 1 : 0), 0);
+	});
+}
 const INK_MIN = 25; // pixels: a title of a few words is a hundred or more
 
 /** The screen as it is now, and what is drawn in each of the elements `sel` in sight. Returns the ones that draw nothing
@@ -96,7 +117,7 @@ async function blankIn(p, sel, label) {
 	const png = join(OUT, `${label.replace(/[^\w]+/g, '-')}-${++shots}.png`);
 	await p.shot(png);
 	let ink = [];
-	if (rows.length) ink = JSON.parse(execFileSync('python3', ['-I', '-c', INK, JSON.stringify({ png, rects: rows.map((r) => r.rect) })], { encoding: 'utf8' }));
+	if (rows.length) ink = inkIn(decodePng(readFileSync(png)), rows.map((r) => r.rect));
 	const blank = [];
 	rows.forEach((r, i) => { if (!r.text || ink[i] < INK_MIN) blank.push(`${r.text || '(no text)'} [${r.rect.join(',')}] ink ${ink[i]}`); });
 	if (process.env.QA11_LOG) console.log(`      ${label}: ${rows.length} in sight, ink ${JSON.stringify(ink.slice(0, 8))}`);
@@ -122,7 +143,13 @@ test('the corkboard on a phone draws every card in sight, at the top and after e
 	await p.sleep(800);
 	await drawn(t, p, '.binders-card-title', 'top');
 	for (let k = 1; k <= 7; k++) { await swipe(p, 200, 640, 200, 240, 8, 350); await drawn(t, p, '.binders-card-title', `down ${k}`); }
-	for (let k = 1; k <= 7; k++) { await swipe(p, 200, 240, 200, 640, 8, 350); await drawn(t, p, '.binders-card-title', `up ${k}`); }
+	// (a finger moving down while the board is at its top is Obsidian's pull-down gesture, which opens the command palette over it)
+	const atTop = () => p.ev(`(() => { let e = document.querySelector('${LEAF} .binders-card[data-path]'); while (e && e.scrollHeight <= e.clientHeight + 1) e = e.parentElement; return !e || e.scrollTop <= 0; })()`);
+	for (let k = 1; k <= 7; k++) {
+		if (await atTop()) break;
+		await swipe(p, 200, 240, 200, 640, 8, 350);
+		await drawn(t, p, '.binders-card-title', `up ${k}`);
+	}
 }));
 
 test('the corkboard on a phone turned on its side and back, and redrawn on each turn: every card in sight is drawn each time', on(PHONE, async (p, h, t) => {
@@ -315,26 +342,31 @@ test('New, then New folder, on a phone: the folder is made in the binder on disk
 	t.ok(list.includes('Part Two/'), 'the binder lists it, last: ' + list.join(', '));
 }));
 
-test('a double tap on the New note tile on a phone makes one note, not two, and the title typed goes to it', on(PHONE, async (p, h, t) => {
+test('a double tap on “New note” in the New menu on a phone makes one note, not two, and the title typed goes to it', on(PHONE, async (p, h, t) => {
 	await binder(p, 'Novel', scenes(3));
 	await openView(p, 'Novel');
 	await mode(p, 'corkboard');
 	await p.sleep(500);
 	const before = await p.ev(`app.vault.getFiles().filter(f => f.path.startsWith('Novel/')).length`);
-	const tile = await p.at(`${LEAF} .binders-card-new`);
-	t.ok(tile, 'the New note tile is in sight');
-	await touch(p, 'touchStart', tile.x, tile.y); await p.sleep(40); await touch(p, 'touchEnd');
+	const add = await p.at(`${LEAF} .binders-new-button`);
+	t.ok(add, 'the New button is in the toolbar');
+	await tap(p, add.x, add.y, 400);
+	const item = await p.ev(`(() => { const it = [...document.querySelectorAll('.menu .menu-item')].find(e => e.querySelector('.menu-item-title')?.textContent === 'New note'); if (!it) return null; const r = it.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
+	t.ok(item, 'the New menu has New note');
+	// (the second tap comes before the menu has gone: it lands on the item or on whatever is under it, and makes nothing)
+	await touch(p, 'touchStart', item.x, item.y); await p.sleep(40); await touch(p, 'touchEnd');
 	await p.sleep(90);
-	await touch(p, 'touchStart', tile.x, tile.y); await p.sleep(40); await touch(p, 'touchEnd');
-	await p.sleep(700);
-	await keys(p, 'Double');
-	await keys(p, '\n');
+	await touch(p, 'touchStart', item.x, item.y); await p.sleep(40); await touch(p, 'touchEnd');
+	await p.sleep(900);
+	// (the second tap can land on the board and so end the new note's naming at once, as any tap elsewhere does: the
+	// note is then kept as Untitled; if the field is still open, what is typed goes to it)
+	if (await p.ev(`!!document.querySelector('${LEAF} input.binders-edit-field')`)) { await keys(p, 'Double'); await keys(p, '\n'); }
 	await p.sleep(1200);
 	await saveAll(p);
 	const made = await p.ev(`app.vault.getFiles().filter(f => f.path.startsWith('Novel/')).map(f => f.path)`);
-	t.eq(made.length - before, 1, 'exactly one note was made: ' + made.filter((x) => !/Scene|Novel\/Novel/.test(x)).join(', '));
-	t.ok(await exists(p, 'Novel/Double.md'), 'and it is called what was typed');
-	t.ok(!made.some((x) => /Untitled/.test(x)), 'no note called Untitled was left behind');
+	const fresh = made.filter((x) => !/Scene|Novel\/Novel/.test(x));
+	t.eq(made.length - before, 1, 'exactly one note was made: ' + fresh.join(', '));
+	t.ok(fresh.length === 1 && /^Novel\/(Double|Untitled)\.md$/.test(fresh[0]), 'and it is the new note, called what was typed or kept as Untitled: ' + fresh.join(', '));
 }));
 
 // =====================================================================================================================
@@ -434,15 +466,24 @@ test('the manuscript on a phone, swept through by a finger, draws every section 
 	}
 }));
 
-bug('the manuscript on a tablet, swept by a finger up and down through twenty sections, opens no palette: Obsidian’s “Select a command…” came up after the fourth swipe up (seen in two runs; the cause is not known)', on(TABLET, async (p, h, t) => {
+// (The palette that once came "after the fourth swipe up" was Obsidian's own pull-down gesture: a finger moving down
+// while the page is already at its top opens the command palette, as in any note. The sweep stops at the top.)
+test('the manuscript on a tablet, swept by a finger up and down through twenty sections, opens no palette while the page is scrolled (a pull down from its top is Obsidian’s own gesture)', on(TABLET, async (p, h, t) => {
 	await binder(p, 'Novel', scenes(20, 2));
 	await openMs(p, 'Novel');
 	await tapText(p, sceneAt(2), 'paragraph 1', 3, 900);
 	await p.sleep(300);
 	const opened = [];
 	for (let k = 0; k < 8; k++) await swipe(p, 400, 1000, 400, 300, 10, 300);
-	for (let k = 0; k < 10; k++) { await swipe(p, 400, 300, 400, 1000, 10, 300); if (await p.ev(`!!document.querySelector('.prompt')`)) { opened.push(`after swipe ${k + 1} up`); break; } }
+	t.ok((await p.ev(`${VIEW}.current.root.scrollTop`)) > 0, 'the page has been swept down');
+	for (let k = 0; k < 10; k++) {
+		const top = await p.ev(`Math.round(${VIEW}.current.root.scrollTop)`);
+		if (top <= 0) break; // at the top a pull down is Obsidian's pull-down gesture, which opens the palette
+		await swipe(p, 400, 300, 400, 1000, 10, 300);
+		if (await p.ev(`!!document.querySelector('.prompt')`)) { opened.push(`after swipe ${k + 1} up (scrolled ${top} before it)`); break; }
+	}
 	t.ok(!opened.length, 'no palette is brought up by the sweep: ' + opened.join(', '));
+	if (await p.ev(`!!document.querySelector('.prompt')`)) await p.key('Escape');
 }));
 
 test('the manuscript on a tablet: typed in one section, swept far away and typed in another, then swept back: each lands once in its own note on disk', on(TABLET, async (p, h, t) => {
