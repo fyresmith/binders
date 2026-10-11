@@ -1,4 +1,4 @@
-import { Menu, Notice, setIcon, type TAbstractFile, type TFile } from 'obsidian';
+import { Menu, Notice, Platform, getLinkpath, setIcon, type TAbstractFile, type TFile, type WorkspaceLeaf } from 'obsidian';
 import type { Binder } from '../binders';
 import type BindersPlugin from '../main';
 import { ask } from '../view/modals';
@@ -51,7 +51,32 @@ async function changePins(plugin: BindersPlugin, binder: Binder, edit: (raw: unk
 }
 
 export class PinnedRows {
+	/** The pane beside the writing that a link last opened in: the next one opens there too. */
+	private side: WorkspaceLeaf | null = null;
+
 	constructor(private plugin: BindersPlugin, private host: PinnedHost) {}
+
+	/** A plain click on a link in a row: the note opens in a pane beside the writing, the same pane each time, and
+	    the keyboard stays where it was. With a modifier (a new tab, a window), a middle or right click, or on a phone,
+	    the click is Obsidian's, and so is the link's own menu. */
+	private toSide(e: MouseEvent, sourcePath: string): void {
+		const link = (e.target as HTMLElement | null)?.closest?.('.internal-link');
+		if (!link || e.button !== 0 || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || Platform.isPhone) return;
+		const to = link.getAttribute('data-href');
+		if (!to) return;
+		e.preventDefault(); e.stopPropagation();
+		const ws = this.plugin.app.workspace;
+		void (async () => {
+			let leaf = this.side;
+			if (!leaf || !leaf.view?.containerEl.isConnected) {
+				// (beside the tab the writer is in, never a sidebar's)
+				const from = ws.getMostRecentLeaf(ws.rootSplit);
+				leaf = this.side = from ? ws.createLeafBySplit(from, 'vertical') : ws.getLeaf('split');
+			}
+			const file = this.plugin.app.metadataCache.getFirstLinkpathDest(getLinkpath(to), sourcePath);
+			if (file) await leaf.openFile(file, { active: false }); else await ws.openLinkText(to, sourcePath, false);
+		})();
+	}
 
 	/** Is one of the rows' editors in use (the keyboard in it)? Then the pane doesn't draw over it. */
 	busy(root: HTMLElement): boolean {
@@ -145,6 +170,8 @@ export class PinnedRows {
 			this.several(value, items, key, info.kind, values, srcOf);
 		}
 		value.addEventListener('focusout', () => value.win.setTimeout(() => { if (!value.contains(value.doc.activeElement)) this.host.settled(); }, 0));
+		// (before Obsidian's own: a link in a row is read beside the writing)
+		value.addEventListener('click', (e) => this.toSide(e, srcOf(items[0])), true);
 		// a value that isn't what its type says: Obsidian's own mark, and its words
 		if (items.length === 1 && info.mismatch && !blank(first)) {
 			const warn = row.createDiv({ cls: 'clickable-icon metadata-property-warning-icon', attr: { 'aria-label': `Type mismatch, expected ${info.name}` } });

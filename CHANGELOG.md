@@ -33,12 +33,14 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - Under a filter, a note you change so it no longer matches stays, dimmed, until you press Refresh; in the manuscript, a dashed line says how many notes are not shown between sections, with their names.
 - Saved filters: save a filter with the binder (Save as…, rename, duplicate, move, delete) and use it in every mode; a status or label renamed in settings is renamed in your saved filters too.
 - With several notes selected, a pinned property shows what they share: a list shows its common items and 'N more on some', with a menu to add each to all or remove it from those that have it; other types show Mixed, and an edit goes to all, as one step of Undo.
+- A plain click on a link in a pinned property opens the note in a pane beside your writing.
 
 ### Changed
 
 - The commands are renamed Undo last change and Redo last change, and each binder remembers its last 100 changes, where 50 were shared by all.
 - Focus mode's words written today now come from that record, so they are the same on every device that shares the binder; a day ends at four in the morning instead of midnight; and a paste or an import no longer counts as written.
 - Under a filter, a folder with nothing that matches is hidden on the corkboard as it is in the outliner and manuscript, a folder's card counts and lists only what matches, and the timeline's numbers stay the book's.
+- The inspector and contents stay on the scene while you read a note that isn't in a binder in another tab.
 
 ### Fixed
 

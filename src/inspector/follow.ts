@@ -38,7 +38,7 @@ export class Follow extends Events {
 	constructor(private plugin: BindersPlugin) {
 		super();
 		const { workspace: ws, metadataCache, vault } = plugin.app, soon = () => this.soon(), changed = () => { this.rev++; this.soon(); };
-		plugin.registerEvent(ws.on('active-leaf-change', (leaf) => { if (leaf && this.inMain(leaf)) this.host = leaf; soon(); }));
+		plugin.registerEvent(ws.on('active-leaf-change', (leaf) => { if (leaf && this.inMain(leaf) && this.takes(leaf)) this.host = leaf; soon(); }));
 		plugin.registerEvent(ws.on('layout-change', soon));
 		plugin.registerEvent(ws.on('file-open', soon));
 		plugin.registerEvent((ws as unknown as { on(name: string, cb: () => void): EventRef }).on(INSPECT, soon));
@@ -54,6 +54,18 @@ export class Follow extends Events {
 	private inMain(leaf: WorkspaceLeaf): boolean {
 		const ws = this.plugin.app.workspace, root = leaf.getRoot();
 		return root !== ws.leftSplit && root !== ws.rightSplit;
+	}
+
+	/** Does a tab the writer has gone to take the panes with it? A note that isn't in a binder doesn't, while the tab
+	    they were on is still open on a binder's thing (a binder view, a note of a binder): a character's note read
+	    beside the writing leaves the panes on the scene. A note of another binder does take them, and so does any
+	    other tab (a graph, a settings page) and the tab they were on being the one that moved on. */
+	private takes(leaf: WorkspaceLeaf): boolean {
+		const was = this.host, view = leaf.view, file = view instanceof FileView ? view.file : null;
+		if (!(file instanceof TFile) || !was || was === leaf || !was.view?.containerEl.isConnected) return true;
+		if (this.plugin.binders.binderOf(file)) return true;
+		const on = was.view, wasFile = on instanceof FileView ? on.file : null;
+		return !(on instanceof BinderView || (wasFile instanceof TFile && !!this.plugin.binders.binderOf(wasFile)));
 	}
 
 	/** What it was on when last looked. */

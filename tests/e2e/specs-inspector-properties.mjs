@@ -734,3 +734,103 @@ test('include in export: a mixed selection shows a box Obsidian’s stylesheet d
 	await clickCard(p, ARRIVAL);
 	t.eq(await p.ev(`document.querySelector(${j(fieldSel('export'))}).getAttribute('data-indeterminate')`), null, 'one note: not mixed');
 });
+
+
+// ---- links ----
+
+const C = '.workspace-leaf-content[data-type="binders-contents"] .binders-contents-book';
+const nameOf = (p) => p.ev(`document.querySelector(${j(I + ' .binders-inspector-name')})?.textContent ?? document.querySelector(${j(I + ' .pane-empty')})?.textContent ?? null`);
+const bookOf = (p) => p.ev(`document.querySelector(${j(C)})?.textContent ?? null`);
+const mdLeaves = (p) => p.ev(`app.workspace.getLeavesOfType('markdown').map(l => l.view.file?.path)`);
+/** The inspector and the contents, both in the right sidebar. */
+async function both(p) {
+	await p.ev(`(async () => {
+		const ws = app.workspace;
+		for (const t of ['binders-inspector', 'binders-contents']) ws.detachLeavesOfType(t);
+		const a = ws.getRightLeaf(false); await a.setViewState({ type: 'binders-contents', active: true });
+		const b = ws.getRightLeaf(true); await b.setViewState({ type: 'binders-inspector', active: true }); ws.revealLeaf(b);
+		const main = ws.getMostRecentLeaf(ws.rootSplit); if (main) ws.setActiveLeaf(main, { focus: true });
+	})().then(() => 1)`);
+	await p.sleep(500);
+}
+async function linked(p) {
+	const w = (path, yaml, body) => writeRaw(p, path, `---\n${yaml}---\n${body}`);
+	await writeRaw(p, 'Mara.md', '---\nrole: the newcomer\n---\nMara Ellis, who came on the supply boat.\n');
+	await writeRaw(p, 'Harrow.md', 'Harrow keeps the light.\n');
+	await w(ARRIVAL, 'pov: "[[Mara]]"\ncharacters:\n  - "[[Mara]]"\n  - "[[Harrow]]"\n  - The master\n', 'The supply boat left Mara on the jetty.\n');
+	await writeRaw(p, NOTE, (await read(p, NOTE)).replace(/inspector:\n(  - .*\n)+/, '').replace('plotlines:', 'inspector:\n  - pov\n  - characters\nplotlines:'));
+	await p.sleep(600);
+	await open(p);
+	await both(p);
+	await clickCard(p, ARRIVAL);
+	await until(p, `document.querySelector(${j(I + ' .binders-inspector-name')})?.textContent === 'Arrival'`, 4000);
+}
+const link = (key, i = 0) => `${I} [data-field="prop:${key}"] .internal-link:nth-of-type(${i + 1})`;
+
+test('links: a plain click opens the note beside the writing, in the same pane each time; a modifier is Obsidian’s', async (p, h, t) => {
+	await linked(p);
+	t.eq((await mdLeaves(p)).length, 0, 'no note is open');
+	let at = await p.at(`${I} [data-field="prop:pov"] .internal-link`);
+	await p.click(at.x, at.y);
+	await until(p, `app.workspace.getLeavesOfType('markdown').length === 1`, 4000);
+	t.eq(JSON.stringify(await mdLeaves(p)), JSON.stringify(['Mara.md']), 'the note opened');
+	t.ok(await p.ev(`app.workspace.getLeavesOfType('markdown')[0].getRoot() === app.workspace.rootSplit`), 'in the main area, beside the binder view');
+	t.ok(await p.ev(`app.workspace.getLeavesOfType('binders-view').length === 1`), 'the binder view is still there');
+	at = await p.at(`${I} [data-field="prop:characters"] .internal-link`, 1);
+	await p.click(at.x, at.y);
+	await until(p, `app.workspace.getLeavesOfType('markdown')[0]?.view.file?.path === 'Harrow.md'`, 4000);
+	t.eq(JSON.stringify(await mdLeaves(p)), JSON.stringify(['Harrow.md']), 'the next link opened in the same pane');
+	// Mod-click: Obsidian’s own, a new tab
+	at = await p.at(`${I} [data-field="prop:pov"] .internal-link`);
+	await p.click(at.x, at.y, { modifiers: 2 });
+	await until(p, `app.workspace.getLeavesOfType('markdown').length === 2`, 4000);
+	t.eq((await mdLeaves(p)).sort().join(), 'Harrow.md,Mara.md', 'a mod-click opens another tab and leaves the side pane alone');
+});
+
+test('links: the inspector and the contents stay on the scene while a note outside any binder is read; a note of another binder takes them', async (p, h, t) => {
+	await linked(p);
+	t.eq(await bookOf(p), 'The Lighthouse', 'the contents are on the book');
+	const at = await p.at(`${I} [data-field="prop:pov"] .internal-link`);
+	await p.click(at.x, at.y);
+	await until(p, `app.workspace.getLeavesOfType('markdown').length === 1`, 4000);
+	// the writer goes into the note beside
+	await p.ev(`(() => { const l = app.workspace.getLeavesOfType('markdown')[0]; app.workspace.setActiveLeaf(l, { focus: true }); return 1; })()`);
+	await p.sleep(800);
+	t.eq(await nameOf(p), 'Arrival', 'the inspector is still on the scene');
+	t.eq(await bookOf(p), 'The Lighthouse', 'and the contents on the book');
+	t.ok(await p.ev(`app.workspace.getMostRecentLeaf()?.view.file?.path === 'Mara.md'`), 'with the note beside the one in use');
+	// a note of another binder takes both
+	await p.ev(`(async () => { const l = app.workspace.getLeavesOfType('markdown')[0]; await l.openFile(app.vault.getAbstractFileByPath('Longform demo/Harbor.md')); app.workspace.setActiveLeaf(l, { focus: true }); })().then(() => 1)`);
+	await until(p, `document.querySelector(${j(C)})?.textContent === 'Longform demo'`, 4000);
+	t.eq(await bookOf(p), 'Longform demo', 'a note of another binder takes the contents');
+	t.eq(await nameOf(p), 'Harbor', 'and the inspector');
+});
+
+test('links: the tab the panes follow moving on to a note of no binder lets go of the scene', async (p, h, t) => {
+	await linked(p);
+	await p.ev(`(async () => { const l = app.workspace.getLeavesOfType('binders-view')[0]; await l.setViewState({ type: 'markdown', state: { file: 'Mara.md' }, active: true }); app.workspace.setActiveLeaf(l, { focus: true }); })().then(() => 1)`);
+	await until(p, `document.querySelector(${j(I + ' .pane-empty')})?.textContent === 'This note isn’t in a binder.'`, 4000);
+	t.eq(await nameOf(p), 'This note isn’t in a binder.', 'in the tab itself the writer has left the book: the inspector says so');
+});
+
+test('links: a note renamed, the links to it in a list and in a text follow when Obsidian updates links, and the rows show the new name', async (p, h, t) => {
+	await linked(p);
+	await p.ev(`app.vault.setConfig('alwaysUpdateLinks', true)`);
+	await p.ev(`(() => { const f = app.vault.getAbstractFileByPath('Mara.md'); void app.fileManager.renameFile(f, 'Mara Ellis.md'); return 1; })()`);
+	await until(p, `app.vault.adapter.read(${j(ARRIVAL)}).then(s => s.includes('Mara Ellis'))`, 5000);
+	const on = lf(await read(p, ARRIVAL));
+	t.ok(/pov: "?\[\[Mara Ellis(\|Mara)?\]\]"?/.test(on), 'the text property: ' + on.split('\n').slice(1, 3).join(' / '));
+	t.ok(/- "?\[\[Mara Ellis(\|Mara)?\]\]"?/.test(on), 'the list item');
+	t.ok(/The master/.test(on) && /Harrow/.test(on), 'the rest of the list');
+	await until(p, `document.querySelector(${j(I + ' [data-field="prop:pov"] .internal-link')})?.getAttribute('data-href')?.includes('Mara Ellis')`, 4000);
+	t.ok(await p.ev(`document.querySelector(${j(I + ' [data-field="prop:pov"] .internal-link')})?.getAttribute('data-href')?.includes('Mara Ellis')`), 'the row follows');
+	// off: the links are left, and the rows still show them
+	await p.ev(`app.vault.setConfig('alwaysUpdateLinks', false)`);
+	await p.ev(`(() => { const f = app.vault.getAbstractFileByPath('Harrow.md'); void app.fileManager.renameFile(f, 'Harrow Vane.md'); return 1; })()`);
+	await until(p, `[...document.querySelectorAll('.modal')].some(m => /Update links/.test(m.innerText))`, 8000);
+	t.ok(await answer(p, 'Do not update'), 'Obsidian asked, and it was told not to');
+	await p.sleep(1000);
+	const off = lf(await read(p, ARRIVAL));
+	t.ok(/\[\[Harrow\]\]/.test(off), 'with Obsidian not updating links, the link is as it was: ' + off.split('\n').slice(3, 6).join(' / '));
+	t.ok(await p.ev(`[...document.querySelectorAll(${j(I + ' [data-field="prop:characters"] .internal-link')})].some(e => e.textContent === 'Harrow')`), 'and the row shows it');
+});
