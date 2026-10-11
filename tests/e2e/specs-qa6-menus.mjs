@@ -946,9 +946,9 @@ test('toolbar mode menu: Corkboard / Outliner / Manuscript each switch, the tick
 	}
 }));
 
-test('toolbar word count: click or Enter asks for the binder’s target; Escape leaves it; a number sets it in the binder note; empty takes it away', tidied(async (p, h, t) => {
+test('Set word count target asks for the binder’s target (a click on the toolbar’s count opens the progress window); Escape leaves it; a number sets it in the binder note; empty takes it away', tidied(async (p, h, t) => {
 	await fresh(p);
-	await click(p, BTN('binders-word-count'));
+	await p.ev(`app.commands.executeCommandById('binders:set-target')`);
 	await until(p, `!!document.querySelector('.modal')`);
 	let d = await dialog(p);
 	t.eq(d.title, 'Word count target for the binder', 'title');
@@ -956,8 +956,7 @@ test('toolbar word count: click or Enter asks for the binder’s target; Escape 
 	await p.sleep(300);
 	await noDialog(p, t, 'Escape closes');
 	t.ok(!(await fm(p, NOTE_PATH)).target, 'nothing set');
-	await p.ev(`document.querySelector('${BTN('binders-word-count')}').focus()`);
-	await p.key('Enter');
+	await p.ev(`app.commands.executeCommandById('binders:set-target')`);
 	await until(p, `!!document.querySelector('.modal')`);
 	await p.type('80,000');
 	await p.key('Enter');
@@ -965,10 +964,9 @@ test('toolbar word count: click or Enter asks for the binder’s target; Escape 
 	t.eq((await fm(p, NOTE_PATH)).target, 80000, 'the binder note has the target');
 	t.ok(await p.ev(`/80,000/.test(document.querySelector('${BTN('binders-word-count')}').textContent + document.querySelector('${BTN('binders-word-count')}').getAttribute('aria-label'))`), 'the toolbar says so');
 	t.ok(await p.ev(`document.activeElement === document.querySelector('${BTN('binders-word-count')}')`) || true, 'focus afterwards: ' + (await focusIs(p)));
-	await p.ev(`document.querySelector('${BTN('binders-word-count')}').focus()`);
-	await p.key(' ');
+	await p.ev(`app.commands.executeCommandById('binders:set-target')`);
 	await until(p, `!!document.querySelector('.modal')`);
-	t.eq((await dialog(p)).input, '80000', 'Space opens it again with the target');
+	t.eq((await dialog(p)).input, '80000', 'it opens again with the target');
 	await p.key('a', 'ctrl');
 	await p.key('Backspace');
 	await p.key('Enter');
@@ -2651,7 +2649,9 @@ test('a binder that can’t be changed: the card, row and title menus open and r
 	await closeMenus(p);
 	await click(p, BTN('binders-word-count'));
 	await p.sleep(300);
-	t.eq(await dialog(p), null, 'the word count opens no target dialog');
+	t.ok(!/Word count target/.test((await dialog(p))?.title ?? ''), 'the word count opens no target dialog (it opens the progress window)');
+	await p.key('Escape');
+	await p.sleep(300);
 	await click(p, `${LEAF} .view-action[aria-label="More options"]`);
 	const more = await titles(p);
 	log('RO more options:', j(more));
@@ -2718,7 +2718,7 @@ const needsHover = async (p, t) => { if ((await p.pointer()) === 'mouse') return
 test('hover: the tooltips (word count, the outliner’s “Columns” plus, Focus mode, the note header’s Snapshots and More options) read plainly, in sentence case', tidied(async (p, h, t) => {
 	if (await needsHover(p, t)) return;
 	await fresh(p);
-	t.eq(await p.hover(`${LEAF} .binders-word-count`), 'Words in this folder. Set the binder’s target', 'word count says what it counts and what a click does');
+	t.eq(await p.hover(`${LEAF} .binders-word-count`), 'Words in this folder. Show progress', 'word count says what it counts and what a click does');
 	await p.move(5, 5, 3);
 	await setMode(p, 'outliner');
 	t.eq(await p.hover(`${LEAF} .binders-outliner-th.mod-add`), 'Columns', 'the plus in the outliner’s header');

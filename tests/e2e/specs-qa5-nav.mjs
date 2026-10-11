@@ -940,11 +940,10 @@ ux('phone commands: “New binder” is a command (with nothing open the palette
 // Dialogs
 // =====================================================================================================================
 
-test('phone dialogs: the word count opens “Set target”; Done on the keyboard sets it, closes the dialog, and the toolbar shows it; an emptied field takes it away', async (p, h, t) => {
+test('phone dialogs: “Set word count target” opens its dialog; Done on the keyboard sets it, closes the dialog, and the toolbar shows it; an emptied field takes it away', async (p, h, t) => {
 	await onDevice(p, PHONE, async () => {
 		await open(p);
-		const c = await p.at(`${LEAF} .binders-word-count`);
-		await tap(p, c.x, c.y);
+		await p.ev(`app.commands.executeCommandById('binders:set-target')`);
 		await until(p, `!!document.querySelector('.modal .binders-ask input')`);
 		await p.sleep(400);
 		let d = await dialog(p);
@@ -966,7 +965,7 @@ test('phone dialogs: the word count opens “Set target”; Done on the keyboard
 		await until(p, `/80,000/.test(document.querySelector('${LEAF} .binders-word-count').textContent)`);
 		const bar = await toolbar(p);
 		t.ok(bar.out <= 0 && bar.overlap.length === 0 && bar.kids.some((k) => k.text === '106 / 80,000 words'), 'the toolbar shows it and still fits: ' + j(bar.kids.map((k) => k.text)));
-		await tap(p, c.x, c.y);
+		await p.ev(`app.commands.executeCommandById('binders:set-target')`);
 		await until(p, `!!document.querySelector('.modal .binders-ask input')`);
 		await p.sleep(400);
 		t.eq((await dialog(p)).fields[0].value, '80000', 'opened again, the field has the target');
@@ -983,10 +982,9 @@ bug('phone dialogs: after Done on the keyboard in “Set target”, the word cou
 		await open(p);
 		const c = await p.at(`${LEAF} .binders-word-count`);
 		await tap(p, c.x, c.y);
-		await until(p, `!!document.querySelector('.modal .binders-ask input')`);
+		await until(p, `!!document.querySelector('.modal.binders-pot')`);
 		await p.sleep(400);
-		await p.type('80000');
-		await p.key('Enter');
+		await p.key('Escape');
 		await until(p, `document.querySelectorAll('.modal-container').length === 0`);
 		await p.sleep(700);
 		await shot(p, 'bug-count-focus-ring');
@@ -1344,7 +1342,9 @@ test('phone: a binder in a newer format says it’s read only in every mode, at 
 		const c = await p.at(`${LEAF} .binders-word-count`);
 		await tap(p, c.x, c.y);
 		await p.sleep(600);
-		t.eq(await dialogs(p), 0, 'a tap on the count asks for no target');
+		t.ok(!(await p.ev(`!!document.querySelector('.modal .binders-ask input')`)), 'a tap on the count asks for no target (it opens the progress window)');
+		await p.key('Escape');
+		await p.sleep(300);
 		const one = await p.at(card('Future/One.md'));
 		await hold(p, one.x, one.t + one.h - 16);
 		const items = await menuItems(p);

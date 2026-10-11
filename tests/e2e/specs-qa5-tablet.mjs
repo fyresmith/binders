@@ -600,8 +600,7 @@ for (const [dev, size] of [['phone (390 × 844)', PHONE], ['small phone (320 × 
 			await agree(p, S, NNOTE, NAMES, 'after the chapters are made');
 			// --- targets ---
 			await setMode(p, 'corkboard');
-			const count = await p.at(`${LEAF} .binders-word-count`);
-			if (count) { await tap(p, count.x, count.y); } else { S.ok(await palette(p, 'Set word count target'), 'no count in the toolbar at this width: “Set word count target” is in the command palette'); }
+			S.ok(await palette(p, 'Set word count target'), '“Set word count target” is in the command palette (a tap on the count opens the progress window)');
 			await until(p, `!!document.querySelector('.modal .binders-ask input')`);
 			await p.sleep(300);
 			S.eq(await dialogTitle(p), 'Word count target for the binder', 'the binder’s target is asked for');

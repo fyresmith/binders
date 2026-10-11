@@ -1197,11 +1197,10 @@ test('phone: “New” makes a note after the section with the caret, named in p
 	const WATCH = L + 'Part One/Night watch.md';
 	t.eq((await caret(p))?.path, WATCH, 'Enter: typing goes into the new note');
 	// the count's dialog
-	const cnt = await p.at(`${LEAF} .binders-word-count`);
-	await tap(p, cnt.x, cnt.y, 500);
+	await p.ev(`app.commands.executeCommandById('binders:set-target')`);
 	await until(p, `!!document.querySelector('.modal .binders-ask input')`);
 	await p.sleep(400);
-	t.eq(await p.ev(`document.activeElement.tagName`), 'INPUT', 'a tap on the count asks for the target, its field focused');
+	t.eq(await p.ev(`document.activeElement.tagName`), 'INPUT', 'the target command asks for the target, its field focused');
 	await p.type('200');
 	await dialogTap(p, 'Set target');
 	await until(p, `/\\/ 200/.test(document.querySelector('${LEAF} .binders-word-count').textContent)`, 3000);
@@ -1268,8 +1267,7 @@ bug('phone: with the caret at the start of a wrapped line, the toolbar’s dialo
 	await tapText(p, PROLOGUE, 'forty', 0); // (a section is its editor once tapped)
 	const w = await wrapOf(p, PROLOGUE);
 	await tap(p, w.x + 1, w.y, 700);
-	const cnt = await p.at(`${LEAF} .binders-word-count`);
-	await tap(p, cnt.x, cnt.y, 500);
+	await p.ev(`app.commands.executeCommandById('binders:set-target')`);
 	await until(p, `!!document.querySelector('.modal .binders-ask input')`);
 	await p.sleep(500);
 	const inDialog = await p.ev(`document.activeElement.tagName`);

@@ -35,6 +35,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - With several notes selected, a pinned property shows what they share: a list shows its common items and 'N more on some', with a menu to add each to all or remove it from those that have it; other types show Mixed, and an edit goes to all, as one step of Undo.
 - A plain click on a link in a pinned property opens the note in a pane beside your writing.
 - Deadlines in Progress: set a date and the days you write on beside a word count target. The window says how the book stands (on pace, behind, ahead, passed, reached) and what a day has to be to get there, draws the plan, and a deadline that came stays on the book's life.
+- With a deadline set, a tick on the toolbar's progress bar shows where the plan has the book today, and the word count's tooltip says the day's share.
 
 ### Changed
 
@@ -43,6 +44,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - Under a filter, a folder with nothing that matches is hidden on the corkboard as it is in the outliner and manuscript, a folder's card counts and lists only what matches, and the timeline's numbers stay the book's.
 - The inspector and contents stay on the scene while you read a note that isn't in a binder in another tab.
 - In the outliner, property columns read what you type by the property's type (a word in a number is refused, a list of one stays a list, a date must be a date), yes/no properties show a box even where a note has no value, and links are drawn as links that open beside the outliner.
+- A click on the toolbar's word count opens the Progress window, where the target is set beside a deadline, instead of asking for the target; Set word count target and Set target... still ask.
 
 ### Fixed
 

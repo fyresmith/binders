@@ -1145,8 +1145,7 @@ test('tablet: a menu, a dialog and a drawer left open while the tablet is turned
 		}
 		await gone(p);
 		// 2. a dialog with text typed in it
-		const wc = await p.at(`${LEAF} .binders-word-count`);
-		await tap(p, wc.x, wc.y);
+		await p.ev(`app.commands.executeCommandById('binders:set-target')`);
 		await p.sleep(700);
 		const input = await p.ev(`document.querySelector('.modal input')?.tagName`);
 		if (input) {

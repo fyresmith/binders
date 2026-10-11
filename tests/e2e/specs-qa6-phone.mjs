@@ -359,9 +359,9 @@ test('a session by thumb: a folder made in the drawer becomes a binder; scenes n
 	await p.ev(`${B}.flush().then(() => 1)`);
 	const opening = (await read('Story/Opening.md')) ?? '';
 	t.ok(/label: Red/i.test(opening) && /status: .*draft/i.test(opening), 'the note has them: ' + j(opening));
-	// a target, by the word count
-	const wc = await p.at(`${LEAF} .binders-word-count`);
-	await tap(p, wc.x, wc.y, 700);
+	// a target, by the command (a tap on the count opens the progress window)
+	await p.ev(`app.commands.executeCommandById('binders:set-target')`);
+	await p.sleep(700);
 	await keyboard(p, PHONE, true);
 	await p.type('2000');
 	await dialogTapByText(p, 'Set target');

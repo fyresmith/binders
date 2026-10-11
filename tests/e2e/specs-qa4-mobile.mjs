@@ -217,14 +217,19 @@ test('phone: the toolbar fits at 390 and at 320 px in every mode, its menus are 
 	});
 });
 
-ux('phone: the word count, which sets the target when tapped, is as tall as the toolbar’s buttons (it is 21 px; they are 32)', async (p, h, t) => {
+ux('phone: the word count, which opens the progress window when tapped, is as tall as the toolbar’s buttons (it is 21 px; they are 32)', async (p, h, t) => {
 	await onDevice(p, PHONE, async () => {
 		await open(p);
 		const c = await p.at(`${LEAF} .binders-word-count`), b = await p.at(`${LEAF} .binders-filter-button`);
-		await tap(p, c.x, c.y);
+		await p.ev(`app.commands.executeCommandById('binders:set-target')`);
 		await until(p, `!!document.querySelector('.modal .binders-ask input')`);
-		t.eq((await dialog(p))?.title, 'Word count target for the binder', 'a tap on the count asks for the target');
+		t.eq((await dialog(p))?.title, 'Word count target for the binder', 'the command asks for the target');
 		await closeDialog(p);
+		await tap(p, c.x, c.y);
+		await until(p, `!!document.querySelector('.modal.binders-pot')`);
+		t.ok(true, 'a tap on the count opens the progress window');
+		await p.key('Escape');
+		await p.sleep(300);
 		t.ok(c.h >= b.h, `the count’s tap target is ${Math.round(c.h)} px tall; the buttons beside it are ${Math.round(b.h)}`);
 	});
 });

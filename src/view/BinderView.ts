@@ -21,6 +21,10 @@ import { readProps, writeBatch, writeProps } from './props';
 import type { BinderMode, ModeContext, SceneProps } from './mode';
 import type { EditorView } from '@codemirror/view';
 import { PROGRESS_ICON, ProgressModal } from './progress';
+import { recordDay } from '../progress/day';
+import { DAYS_PROP, DEADLINE_PROP, planFrom, readDeadline, readWritingDays, offDays } from '../progress/plan';
+import { num, type Plan } from '../progress/model';
+import { plannedAt, rows as progressRows, sayBy, share } from '../progress/stats';
 import { WordCounter } from './word-counter';
 import { wordsLabel } from './words';
 import { FindBar, type At, type FindHost, type FindSource } from './find-bar';
@@ -558,10 +562,13 @@ export class BinderView extends ItemView {
 		bar.createDiv({ cls: 'binders-toolbar-spacer' });
 		const progress = bar.createDiv({ cls: 'binders-progress is-hidden', attr: { role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': '100' } });
 		progress.createDiv({ cls: 'binders-progress-bar' });
-		// (a click on the count sets the target of the folder shown: the binder's own, on the binder)
+		// (where the plan to the deadline has the book today: a tick on the bar)
+		progress.createDiv({ cls: 'binders-progress-plan is-hidden' });
+		// (a click on the count opens the Progress window, where the target and the deadline are set; a Longform
+		// project has no deadline, so there it still sets the target)
 		const count = bar.createDiv({ cls: 'binders-word-count', attr: { role: 'button', tabindex: '0' } });
-		count.addEventListener('click', () => void this.setTarget());
-		count.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); void this.setTarget(); } });
+		count.addEventListener('click', () => this.countClicked());
+		count.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.countClicked(); } });
 		// (undo and redo of what was done by hand to the binder, as icons: a phone has no Ctrl+Z. See drawUndo.)
 		const undo = this.button(bar, 'undo-2', 'Undo', 'binders-undo-button', () => this.undoRedo(false));
 		const redo = this.button(bar, 'redo-2', 'Redo', 'binders-redo-button', () => this.undoRedo(true));
@@ -674,10 +681,9 @@ export class BinderView extends ItemView {
 		// with the target of the folder shown: the binder's own, or a subfolder's from its folder note
 		const note = this.store.folderNote(folder), goal = note ? this.props(note).target : 0;
 		const whose = folder === binder.folder ? 'the binder’s' : 'this folder’s';
-		ui.count.toggleClass('is-clickable', !this.readOnly);
-		// (a button only where pressing it does something: a read-only binder's count is words to read)
-		if (this.readOnly) { ui.count.removeAttribute('role'); ui.count.removeAttribute('tabindex'); }
-		else ui.count.setAttrs({ role: 'button', tabindex: '0' });
+		ui.count.toggleClass('is-clickable', true);
+		ui.count.setAttrs({ role: 'button', tabindex: '0' });
+		const longform = binder.kind === 'longform', plan = longform ? null : this.planNow(folder, goal, n);
 		if (n != null) {
 			// (the number, then " words" on its own, so that a phone too narrow for both keeps the number)
 			const said = shown != null ? `${shown.toLocaleString()} of ${wordsLabel(n)}` : goal ? `${n.toLocaleString()} / ${wordsLabel(goal)}` : wordsLabel(n), cut = said.lastIndexOf(' ');
@@ -685,13 +691,16 @@ export class BinderView extends ItemView {
 			ui.count.appendText(said.slice(0, cut));
 			ui.count.createSpan({ cls: 'binders-word-count-unit', text: said.slice(cut) });
 			const what = shown != null ? 'Words in the notes that pass the filter' : goal ? `${Math.floor((n / goal) * 100)}% of ${whose} target` : 'Words in this folder';
-			ui.count.setAttr('aria-label', this.readOnly ? what : `${what}. ${goal ? 'Change' : 'Set'} ${whose} target`);
+			ui.count.setAttr('aria-label', longform ? (this.readOnly ? what : `${what}. ${goal ? 'Change' : 'Set'} ${whose} target`) : `${what}.${plan?.said ? ' ' + plan.said + '.' : ''} Show progress`);
 			ui.count.toggleClass('is-complete', !!goal && n >= goal);
 			// and how far along that is, as a bar
 			const pct = goal ? Math.min(100, Math.floor((n / goal) * 100)) : 0;
 			ui.progress.toggleClass('is-hidden', !goal);
 			ui.progress.toggleClass('is-complete', !!goal && n >= goal);
 			ui.progress.setAttrs({ 'aria-valuenow': String(pct), 'aria-label': 'Progress to the target' });
+			const tick = ui.progress.querySelector<HTMLElement>('.binders-progress-plan'), at = plan?.tick;
+			tick?.toggleClass('is-hidden', at == null);
+			if (at != null) { tick?.setCssStyles({ left: `${at}%` }); ui.progress.setAttr('aria-valuetext', `${pct}% of the target. The plan has the book at ${Math.round(at)}%`); } else ui.progress.removeAttribute('aria-valuetext');
 			ui.progress.querySelector<HTMLElement>('.binders-progress-bar')?.setCssStyles({ width: `${pct}%` });
 		}
 		// the filter, when on, says how many values it keeps; only for modes that filter
@@ -1078,6 +1087,46 @@ export class BinderView extends ItemView {
 			option: <T>(key: string, fallback: T): T => (key in this.options ? this.options[key] : fallback) as T,
 			setOption: (key, value) => { this.options = { ...this.options, [key]: value }; this.remember(); this.app.workspace.requestSaveLayout(); if (key === 'timelineShape') this.drawToolbar(); },
 		};
+	}
+
+	/** A click on the count: the Progress window of the folder shown (a Longform project, which has no deadline, still asks
+	    for the target). */
+	private countClicked(): void {
+		const folder = this.folder, binder = this.binder;
+		if (!folder || !binder) return;
+		// (on a phone or tablet the dialog gives the focus back to the count as it closes: no focus ring nobody asked for)
+		if (Platform.isMobile) this.ui?.count.blur();
+		if (binder.kind === 'longform') { void this.setTarget(); return; }
+		const rel = folder === binder.folder ? '' : folder.path.slice(binder.folder.path.length + 1);
+		new ProgressModal(this.plugin, binder.folder, { scope: rel.includes('/') ? '' : rel }).open();
+	}
+
+	/** The plan of the folder shown, for the bar's tick and the count's tooltip: what a day is to be and where the plan
+	    has the book today. The tick needs the record (read in a moment, and the toolbar drawn again); the words a day
+	    don't. Null without a target and a deadline, or once the target is reached or the date has passed. */
+	private planCache: { key: string; tick: number | null } | null = null;
+	private planNow(folder: TFolder, goal: number, words: number | null): { said: string; tick: number | null } | null {
+		const binder = this.binder, note = this.store.folderNote(folder), fm = note ? this.app.metadataCache.getFileCache(note)?.frontmatter : undefined;
+		const deadline = readDeadline(fm?.[DEADLINE_PROP]);
+		if (!binder || !goal || !deadline || words == null || words >= goal) return null;
+		const today = recordDay(Date.now()), days = readWritingDays(fm?.[DAYS_PROP]), t = num(today);
+		if (num(deadline) < t) return null;
+		const scope = folder === binder.folder ? '' : folder.path.slice(binder.folder.path.length + 1);
+		const basic: Plan = { target: goal, deadline, off: offDays(days), from: today, fromTotal: words };
+		const { needed } = share(basic, words, scope === '' ? this.plugin.progress.today(binder.folder) : 0, today);
+		const key = JSON.stringify([binder.folder.path, scope, goal, deadline, days, today]);
+		if (this.planCache?.key !== key) {
+			this.planCache = { key, tick: null };
+			void this.plugin.progress.keptHistory(binder.folder).then((h) => {
+				if (this.planCache?.key !== key) return;
+				// (no record yet: asked again at the next draw, not remembered as having none)
+				if (!h || !h.days.length) { this.planCache = null; return; }
+				const rs = progressRows(h, today, scope), p = planFrom(h, rs, scope, { target: goal, deadline, days }, today);
+				this.planCache = { key, tick: p ? Math.max(0, Math.min(100, (plannedAt(p, t) / goal) * 100)) : null };
+				this.drawToolbar();
+			}, () => { /* no record: no tick */ });
+		}
+		return { said: `${needed.toLocaleString('en-US')} a day to ${sayBy(num(deadline), t)}`, tick: this.planCache.tick };
 	}
 
 	/** Asks for the word count target of the folder shown, and keeps it in its note (the binder's note, on the binder; a

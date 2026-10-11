@@ -7386,7 +7386,7 @@ input.binders-filter-name {
 }
 
 .binders-pot-form {
-	padding: var(--size-4-1) var(--size-4-4);
+	padding: var(--size-4-2) var(--size-4-4);
 	border: 1px solid var(--background-modifier-border);
 	border-radius: var(--radius-m);
 }
@@ -7400,13 +7400,20 @@ input.binders-filter-name {
 }
 
 .binders-pot-weekdays {
-	display: flex;
-	flex-wrap: wrap;
+	display: grid;
+	grid-template-columns: repeat(7, var(--input-height));
 	gap: var(--size-2-2);
 }
 
+/* (on a phone the setting's control is the width of the row, and a button in it is as wide as it) */
+.is-mobile .binders-pot-weekdays {
+	grid-template-columns: repeat(7, minmax(0, 1fr));
+	width: 100%;
+}
+
 .binders-pot button.binders-pot-weekday {
-	width: var(--input-height);
+	width: auto;
+	min-width: 0;
 	height: var(--input-height);
 	padding: 0;
 	justify-content: center;

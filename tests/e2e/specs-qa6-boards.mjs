@@ -828,8 +828,7 @@ test('UX: by label, the keyboard gets from the toolbar to the cards in a few Tab
 
 test('UX: a word count target that is too big is told so (it says “a whole number of words” of 99999999999, which is one)', async (p, h, t) => {
 	await openView(p);
-	const w = await p.at(`${ACTIVE} .binders-word-count`);
-	await p.click(w.x, w.y);
+	await p.ev(`app.commands.executeCommandById('binders:set-target')`);
 	await until(p, `document.querySelector('.modal input')`);
 	await p.key('a', 'ctrl');
 	await p.type('99999999999');
@@ -1129,7 +1128,7 @@ const LEAVES = [
 	['clicks the mode button', async (p) => { const b = await p.at(`${ACTIVE} .binders-toolbar-button`); await p.click(b.x, b.y); }],
 	['opens the command palette', async (p) => { await p.ev(`app.commands.executeCommandById('command-palette:open')`); }],
 	['clicks a note in the file explorer', async (p) => { await p.ev(`app.workspace.getLeaf('split').openFile(${file(L + 'Epilogue.md')}).then(() => 1)`); }],
-	['clicks the word count (the target dialog)', async (p) => { const b = await p.at(`${ACTIVE} .binders-word-count`); await p.click(b.x, b.y); }],
+	['clicks the word count (the progress window)', async (p) => { const b = await p.at(`${ACTIVE} .binders-word-count`); await p.click(b.x, b.y); }],
 	['closes the pane', async (p) => { await p.ev(`app.workspace.getLeavesOfType('binders-view')[0].detach()`); }],
 ];
 for (const kind of ['corkboard', 'outliner', 'by label']) {

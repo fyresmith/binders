@@ -551,10 +551,9 @@ test('1b. chapters: scenes grouped into three folders by “New folder from sele
 	await upTo(p);
 	t.eq((await cardsIn(p)).length, 5, 'the breadcrumb leads back out');
 	// the binder's own target: a click on the toolbar's word count
-	const wc = await toolbar(p, 'binders-word-count');
-	await p.click(wc.x, wc.y);
+	await p.ev(`app.commands.executeCommandById('binders:set-target')`);
 	await until(p, `!!document.querySelector('.modal .binders-ask input')`);
-	t.ok(/^Word count target for the binder/.test(await modal(p)), 'the word count asks for the binder’s target');
+	t.ok(/^Word count target for the binder/.test(await modal(p)), 'the target command asks for the binder’s target');
 	await p.type('80,000');
 	await p.key('Enter');
 	await until(p, `app.metadataCache.getFileCache(app.vault.getAbstractFileByPath('Novel/Novel.md'))?.frontmatter?.target === 80000`);
