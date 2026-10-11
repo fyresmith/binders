@@ -45,13 +45,17 @@ export const answer = (p, button) => p.ev(`(async () => {
 	return false;
 })()`);
 export const flush = (p) => p.ev(`${B}.flush().then(() => 1)`);
-/** Removes folders and notes a test made (the runner restores the rest), then writes anything pending. */
+/** Removes folders and notes a test made (the runner restores the rest), then writes anything pending. Obsidian's
+    "File system operation timed out" (a slow disk, as on GitHub's runners) is let go: the test has passed by now, and the
+    runner puts the vault back before the next test anyway. Any other error, and a flush that never ends (the runner's
+    limit fails that test), still fail the test. */
 export async function tidy(p) {
 	await p.ev(`(async () => {
+		const slow = (e) => /File system operation timed out/i.test(String(e?.message ?? e));
 		const keep = new Set(['The Lighthouse', 'The Lighthouse/Part One', 'The Lighthouse/Part Two', 'Longform demo']);
 		const extra = app.vault.getAllLoadedFiles().filter(f => f.children && f.path !== '/' && !keep.has(f.path));
-		for (const f of extra.sort((a, b) => b.path.length - a.path.length)) if (app.vault.getAbstractFileByPath(f.path)) await app.vault.delete(f, true);
-		await ${B}.flush();
+		try { for (const f of extra.sort((a, b) => b.path.length - a.path.length)) if (app.vault.getAbstractFileByPath(f.path)) await app.vault.delete(f, true); } catch (e) { if (!slow(e)) throw e; }
+		try { await ${B}.flush(); } catch (e) { if (!slow(e)) throw e; }
 	})().then(() => 1)`);
 	await p.sleep(100);
 }

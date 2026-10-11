@@ -24,7 +24,9 @@ mkdirSync(shots, { recursive: true });
 
 // the pristine test vault, so each test starts from the same notes
 const pristine = new Map();
-const walk = (dir) => { for (const f of readdirSync(dir)) { const p = join(dir, f); if (f === '.obsidian') continue; if (statSync(p).isDirectory()) walk(p); else if (/\.md$/.test(f)) pristine.set(relative(VAULT, p), readFileSync(p, 'utf8')); } };
+// (every file of any kind is listed, and every folder: the reset takes away whatever else a test left)
+const pristineFiles = new Set(), pristineDirs = new Set();
+const walk = (dir) => { for (const f of readdirSync(dir)) { const p = join(dir, f); if (f === '.obsidian') continue; if (statSync(p).isDirectory()) { pristineDirs.add(relative(VAULT, p)); walk(p); } else { pristineFiles.add(relative(VAULT, p)); if (/\.md$/.test(f)) pristine.set(relative(VAULT, p), readFileSync(p, 'utf8')); } } };
 walk(VAULT);
 
 const specFiles = arg('specs', '') ? arg('specs').split(',') : readdirSync('tests/e2e').filter((f) => /^specs.*\.mjs$/.test(f)).map((f) => 'tests/e2e/' + f);
@@ -111,6 +113,9 @@ function helpers(p) {
 		    mobile layout, and focus the main window. */
 		async reset() {
 			await p.focusMain();
+			// a test that failed or timed out in its own wait may leave deletes running: the vault is quiet when its count of
+			// files and folders is the same three times, a moment apart (ten seconds at most, then on regardless)
+			await p.ev(`(async () => { let last = -1, same = 0; for (let i = 0; i < 100 && same < 2; i++) { const n = app.vault.getAllLoadedFiles().length; same = n === last ? same + 1 : 0; last = n; await new Promise(r => setTimeout(r, 100)); } return 1; })()`);
 			config ??= await p.ev(`JSON.stringify(app.vault.config ?? {})`);
 			// the window and its sidebars as a fresh Obsidian has them: a test that opened the right sidebar (or failed
 			// before it could give the window its size back) would narrow the pane of every test after it
@@ -142,7 +147,7 @@ function helpers(p) {
 				try { if (await app.vault.adapter.exists('.trash')) await app.vault.adapter.rmdir('.trash', true); } catch { /* no trash in the vault: nothing to clear */ }
 				// folders a test made and left (the notes in them are put right below; an extra folder would show in the
 				// next test's binder)
-				const own = new Set(['The Lighthouse', 'The Lighthouse/Part One', 'The Lighthouse/Part Two', 'Longform demo']);
+				const own = new Set(${JSON.stringify([...pristineDirs])});
 				for (const f of app.vault.getAllLoadedFiles().filter(f => f.children && f.path !== '/' && !own.has(f.path)).sort((a, b) => b.path.length - a.path.length)) if (app.vault.getAbstractFileByPath(f.path)) await app.vault.delete(f, true);
 				// (and no record of the binders' writing kept in memory: the files went with the folders)
 				app.plugins.plugins.binders?.progress?.forget();
@@ -154,8 +159,10 @@ function helpers(p) {
 					const f = app.vault.getAbstractFileByPath(path);
 					if (f) await app.vault.modify(f, text); else { const dir = path.split('/').slice(0, -1).join('/'); if (dir && !app.vault.getAbstractFileByPath(dir)) await app.vault.createFolder(dir); await app.vault.create(path, text); }
 				}
-				const keep = new Set(files.map(f => f[0]));
-				for (const f of app.vault.getFiles()) if (!keep.has(f.path) && f.extension === 'md') await app.vault.delete(f);
+				// (and any file the pristine vault hasn't, of whatever kind: a picture a test saved would sit in the next
+				// test's vault; Obsidian doesn't list .obsidian, and the trash is cleared above)
+				const keep = new Set(${JSON.stringify([...pristineFiles])});
+				for (const f of app.vault.getFiles()) if (!keep.has(f.path)) await app.vault.delete(f);
 				// (and nothing remembered on this device about where exports are saved)
 				app.saveLocalStorage('binders-export', null);
 				// every setting back to its default: with no saved data, loadSettings() takes the defaults
