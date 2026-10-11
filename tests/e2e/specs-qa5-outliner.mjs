@@ -1082,7 +1082,7 @@ test('phone headers: a tap opens the column’s menu as a sheet; sorting shows i
 		f.plusMenu = { items: await items(p), sheet: await sheet(p) };
 		await shot(p, 'head-plus-sheet');
 		c.ok(isSheet(f.plusMenu.sheet), '“+” opens the columns as a sheet');
-		c.eq(j(f.plusMenu.items), j(['Label', 'Status ✓', 'Words ✓', 'Target', 'Progress', 'Export', 'Export as', 'Notes', 'Created', 'Modified', 'plotlines', 'Other property...']), 'the ones showing ticked, then the notes’ own properties');
+		c.eq(j(f.plusMenu.items), j(['Label', 'Status ✓', 'Words ✓', 'Target', 'Story date', 'Progress', 'Export', 'Export as', 'Notes', 'Created', 'Modified', 'plotlines', 'Other property...']), 'the ones showing ticked, then the notes’ own properties');
 		await menuTap(p, 'Progress');
 		await p.sleep(600);
 		c.eq(j([await cols(), await menus(p)]), j([['title', 'status', 'words', 'progress'], 0]), 'a pick adds the column and closes the sheet');
@@ -1508,7 +1508,7 @@ test('phone, CPU four times slower, a binder of 600 notes in 40 folders three de
 		f.foldMs = await fold();
 		f.rowsFolded = await p.ev(`document.querySelectorAll('${LEAF} .binders-outliner-row').length`);
 		f.unfoldMs = await fold();
-		f.collapseAll = await timed(`(async () => { const o = ${VIEW}.current; o.setCollapsed(o.folders(o.ctx.folder).map(f => f.path)); })()`);
+		f.collapseAll = await timed(`(async () => { const o = ${VIEW}.current; o.setCollapsed(o.model.folders(o.ctx.folder).map(f => f.path)); })()`);
 		await p.sleep(500);
 		f.rowsCollapsed = await p.ev(`document.querySelectorAll('${LEAF} .binders-outliner-row').length`);
 		await shot(p, 'big-collapsed');

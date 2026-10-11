@@ -228,8 +228,8 @@ test('the manuscript: the last line of the section being written is held; anywhe
 	t.ok(g && held(g), `the last line of the section with the cursor is brought to the line: ${j(g)}`);
 	for (let i = 0; i < 3; i++) {
 		await press(p, '\n\nAnother paragraph at the end of the second scene, long enough to wrap on to a second line of the page.');
-		await p.sleep(500);
-		g = await atMs(p);
+		// (the page glides to the line; under load that takes longer than a fixed wait, so wait for it, up to 3 s)
+		for (let k = 0; k < 20; k++) { g = await atMs(p); if (held(g)) break; await p.sleep(150); }
 		t.ok(held(g), `typing on at the section’s end, paragraph ${i + 1}: ${j(g)}`);
 	}
 	t.eq(g.file, N(2), 'in that section');
