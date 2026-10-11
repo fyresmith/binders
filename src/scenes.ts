@@ -7,6 +7,7 @@ import { COMPILED_KEPT } from './settings-data';
 import { untab } from './paragraphs/text';
 import { saveEditors, saveTab } from './view/editable-embed';
 import { trashPhrase, updatesLinks } from './view/internals';
+import type { Kept } from './history/types';
 import { confirm } from './view/modals';
 import { readNotes, writeKeys, writeNotes } from './view/props';
 
@@ -287,6 +288,11 @@ export async function mergeScenes(plugin: BindersPlugin, files: TFile[]): Promis
 	try {
 		await saveOpen(app, files);
 		const paths = files.map((f) => f.path);
+		// what "Undo" needs to bring the notes back, kept before anything is changed: the first note's whole file, and
+		// each note that goes, byte for byte, with its place (null: too big to keep, and the merge isn't remembered)
+		const binder = store.binderOf(first), firstBefore = await app.vault.adapter.readBinary(first.path);
+		const keeps: (Kept | null)[] | null = binder && !binder.problem ? await Promise.all(rest.map((f): Promise<Kept | null> => store.keep(f, store.history.limits.bytes).catch((): null => null))) : null;
+		const links: { file: TFile; before: string; after: string }[] = [];
 		const texts = await Promise.all(rest.map((f) => app.vault.read(f)));
 		const bodies = texts.map((t) => parts(t).body);
 		await app.vault.process(first, (cur) => {
@@ -321,9 +327,16 @@ export async function mergeScenes(plugin: BindersPlugin, files: TFile[]): Promis
 				if (note === first) for (let k = 0; k < bodies.length; k++) bodies[k] = rewrite(bodies[k]);
 				const k = rest.indexOf(note);
 				if (k >= 0 && texts[k] === before) texts[k] = after;
+				// (the notes the merge doesn't touch otherwise: what it wrote to them, to put back)
+				if (note !== first && k < 0) { const l = links.find((x) => x.file === note); if (l) l.after = after; else links.push({ file: note, before, after }); }
 			}).catch(say);
 			await safeToRemove(f, i);
 			await app.fileManager.trashFile(f);
+		}
+		if (binder && keeps && keeps.every((k) => !!k)) {
+			const kept = keeps.filter((k): k is NonNullable<typeof k> => !!k), merged = await app.vault.adapter.readBinary(first.path);
+			const bytes = firstBefore.byteLength + merged.byteLength + kept.reduce((n, k) => n + k.files.reduce((m, x) => m + x.bytes.byteLength, 0), 0);
+			if (bytes <= store.history.limits.bytes) store.history.record({ note: binder.note, label: `Merge ${files.length} notes into “${first.basename}”`, bytes, steps: [{ kind: 'merge', first, before: firstBefore, merged, gone: kept, links }] });
 		}
 		return first;
 	} catch (e) { say(e); return null; }

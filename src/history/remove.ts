@@ -30,19 +30,39 @@ export class RemoveHandler implements Handler<RemoveStep> {
 
 	async check(step: RemoveStep, redo: boolean): Promise<void> {
 		if (redo) return;
-		const { vault } = this.app;
-		for (const k of step.trees) {
-			const label = k.name.replace(/\.md$/, ''), parent = k.pos ? this.order.folderOf(k.pos) : null;
-			if (!parent) throw new Error(`“${label}” can’t be brought back: the folder it was in is gone.`);
-			const dest = normalizePath(`${parent.path}/${k.name}`);
-			if (vault.getAbstractFileByPath(dest) || await vault.adapter.exists(dest)) throw new Error(`“${label}” can’t be brought back: there is another “${label}” here now. Rename it first.`);
-			// a note named like its folder would become the folder's note, and leave the binder
-			if (!k.isFolder && /\.md$/i.test(k.name) && label === parent.name) throw new Error(`“${label}” can’t go back into “${parent.name}”: it would become the folder’s note. Rename it first.`);
-		}
+		for (const k of step.trees) await this.checkKept(k);
+	}
+
+	/** Can this be brought back: its folder is there and nothing is where it goes. Throws, with why, if not. */
+	async checkKept(k: Kept): Promise<void> {
+		const { vault } = this.app, label = k.name.replace(/\.md$/, ''), parent = k.pos ? this.order.folderOf(k.pos) : null;
+		if (!parent) throw new Error(`“${label}” can’t be brought back: the folder it was in is gone.`);
+		const dest = normalizePath(`${parent.path}/${k.name}`);
+		if (vault.getAbstractFileByPath(dest) || await vault.adapter.exists(dest)) throw new Error(`“${label}” can’t be brought back: there is another “${label}” here now. Rename it first.`);
+		// a note named like its folder would become the folder's note, and leave the binder
+		if (!k.isFolder && /\.md$/i.test(k.name) && label === parent.name) throw new Error(`“${label}” can’t go back into “${parent.name}”: it would become the folder’s note. Rename it first.`);
+	}
+
+	/** Makes what was kept again, where it stood, and points what else is remembered of it at the new objects. */
+	async bringBack(k: Kept): Promise<TAbstractFile | null> {
+		const { vault } = this.app, parent = k.pos ? this.order.folderOf(k.pos) : null;
+		if (!parent) return null;
+		const dest = normalizePath(`${parent.path}/${k.name}`);
+		let made: TAbstractFile | null;
+		if (k.isFolder) {
+			await vault.createFolder(dest);
+			for (const f of [...k.folders].sort((a, b) => a.length - b.length)) { try { await vault.createFolder(`${dest}/${f}`); } catch { /* there already */ } }
+			for (const f of k.files) await vault.createBinary(`${dest}/${f.rel}`, f.bytes);
+			made = vault.getAbstractFileByPath(dest);
+		} else made = await vault.createBinary(dest, k.files[0].bytes);
+		if (!made) return null;
+		// (what else is remembered of these items is about them, not about their copies in the trash)
+		for (const o of [...k.objects]) { const now = vault.getAbstractFileByPath(o.rel ? `${dest}/${o.rel}` : dest); if (now) this.host.repoint(o.item, now); }
+		await this.host.reinstate(made, k);
+		return made;
 	}
 
 	async apply(step: RemoveStep, redo: boolean): Promise<void> {
-		const { vault } = this.app;
 		if (redo) {
 			for (const k of step.trees) {
 				if (!this.exists(k)) continue;
@@ -55,22 +75,7 @@ export class RemoveHandler implements Handler<RemoveStep> {
 			step.restored = false;
 			return;
 		}
-		for (const k of step.trees) {
-			const parent = k.pos ? this.order.folderOf(k.pos) : null;
-			if (!parent) continue;
-			const dest = normalizePath(`${parent.path}/${k.name}`);
-			let made: TAbstractFile | null;
-			if (k.isFolder) {
-				await vault.createFolder(dest);
-				for (const f of [...k.folders].sort((a, b) => a.length - b.length)) { try { await vault.createFolder(`${dest}/${f}`); } catch { /* there already */ } }
-				for (const f of k.files) await vault.createBinary(`${dest}/${f.rel}`, f.bytes);
-				made = vault.getAbstractFileByPath(dest);
-			} else made = await vault.createBinary(dest, k.files[0].bytes);
-			if (!made) continue;
-			// (what else is remembered of these items is about them, not about their copies in the trash)
-			for (const o of [...k.objects]) { const now = vault.getAbstractFileByPath(o.rel ? `${dest}/${o.rel}` : dest); if (now) this.host.repoint(o.item, now); }
-			await this.host.reinstate(made, k);
-		}
+		for (const k of step.trees) await this.bringBack(k);
 		step.restored = true;
 	}
 

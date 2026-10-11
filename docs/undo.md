@@ -66,6 +66,19 @@ what is there now.
 Binders keeps 100 changes of a binder and 32 MB of deleted files in all, the oldest dropped first. A delete bigger than
 32 MB goes ahead and isn't kept: the notice says so, and the file is in the trash if Obsidian sends it there.
 
+**Merges**
+
+- **Merge notes** (from a card, a row or the manuscript): Undo makes the notes that were merged away again, from what
+was kept in memory, byte for byte and in their places; it reads them back; and only then does it put the first note back
+to its whole file as it was before the merge. Links that the merge pointed at the first note are pointed back, in each note
+that still has what the merge wrote.
+
+The first note is put back only if it is still exactly the merged text (what you typed and haven't saved is saved first, and
+counts). If it has changed, nothing is taken out of it, and a dialog offers to **bring back** the notes that were merged
+into it: their text is then in both places, never less. A note that linked to a merged-away note and has changed since
+keeps its changes and its links, and a notice says how many. A merge too big to keep (32 MB) isn't remembered. Redo merges
+again, if the notes are still as the undo left them.
+
 A property goes back to what it was, in the place it stood among the note's other properties. Nothing else in the
 note is touched.
 
@@ -101,7 +114,6 @@ every view of it: the corkboard, the outliner and the manuscript; a change made 
   undo of a property: it is saved first, and kept.
 - **A split.** A split is undone in the note you split, with the editor's undo. See
   [Splitting, merging and grouping](splitting-and-merging.md#undoing-a-split).
-- **Merges.** Merged-away notes are in the trash.
 - **Hidden files** (names that start with a dot, such as `.DS_Store`) in a deleted folder aren't kept.
 - **Renames made in Obsidian's file explorer or a tab's title.** They are not made through Binders.
 

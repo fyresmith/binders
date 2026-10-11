@@ -49,7 +49,15 @@ export interface Kept {
 /** A delete made by hand. `restored`: it has been undone, and what was kept is back. */
 export interface RemoveStep { kind: 'remove'; trees: Kept[]; restored?: boolean }
 
-export type Step = OrderStep | PropsStep | RenameStep | CreateStep | RemoveStep;
+/** A merge made by hand: the first note's whole file before and after, the notes merged into it, and the notes whose links
+    the merge rewrote (their text before and after). `restored`: undone. `partial`: undone by bringing the merged-away notes
+    back and leaving the first note's text, because it had been changed; it is not made again. */
+export interface MergeStep { kind: 'merge'; first: TFile; before: ArrayBuffer; merged: ArrayBuffer; gone: Kept[]; links: { file: TFile; before: string; after: string }[]; restored?: boolean; partial?: boolean }
+
+/** Thrown by a step's apply when the writer says no to what was asked: nothing was changed, the entry stays. */
+export class Declined extends Error {}
+
+export type Step = OrderStep | PropsStep | RenameStep | CreateStep | RemoveStep | MergeStep;
 export type StepKind = Step['kind'];
 
 /** One thing done by hand, in the binder whose note is `note`. `bytes`: what it keeps in memory beyond its labels

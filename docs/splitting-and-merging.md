@@ -97,6 +97,6 @@ you delete goes to the trash, as Obsidian's **Deleted files** setting says. A de
 |---|---|
 | A split | Undo in the note you split (Ctrl+Z) |
 | A move, a new folder from a selection, an ungroup | **Undo last change**. See [Undo and redo](undo.md) |
-| A merge, a duplicate, a delete, a rename | Not undone by Binders. Merged-away and deleted notes are in the trash |
+| A merge, a duplicate of a note, a delete, a rename | **Undo last change**. See [Undo and redo](undo.md). A copy of a folder isn't undone |
 
 Next: [Snapshots](snapshots.md)

@@ -209,7 +209,7 @@ test('merge of two scenes whose paragraphs start with tabs, the first ending wit
 
 // ---- undo and redo of moves, after the other operations ----
 
-test('undo of a move whose scene was merged away since: nothing comes back, the rest keeps its order, and the merged-away scene stays gone', async (p, h, t) => {
+test('undo of a move whose scene was merged away since: Undo takes the merge back first (the scene returns where the move left it), and the next Undo takes the move back', async (p, h, t) => {
 	await openAt(p, SW);
 	await run(p, 'move-up');
 	await settle(p);
@@ -220,8 +220,10 @@ test('undo of a move whose scene was merged away since: nothing comes back, the 
 	const merged = FULL.filter((x) => x !== 'Part One/Storm warning');
 	t.eq(await list(p), merged, 'merged: Storm warning went to the trash');
 	await undoMove(p);
-	t.eq(await list(p), merged, 'Undo last move brings nothing back');
-	t.ok(await gone(p, SW), 'Storm warning is still gone');
+	t.eq(await list(p), moved, 'Undo last change takes the merge back: Storm warning is back where the move left it');
+	t.ok(!(await gone(p, SW)), 'Storm warning is back');
+	await undoMove(p);
+	t.eq(await list(p), FULL, 'and the next takes the move back');
 });
 
 test('BUG: undo of a move of a scene that has since been split: the new half goes back beside its first half, not in front of another scene', async (p, h, t) => {
@@ -292,7 +294,7 @@ test('the first and the last scene of the binder: moved and moved back by Undo l
 	t.eq(await list(p), FULL, 'Undo last move: Epilogue is last again');
 });
 
-test('undo of a move, after a merge of other scenes: the merge isn’t taken back, the move is', async (p, h, t) => {
+test('undo of a move, after a merge of other scenes: Undo takes the merge back, and the next takes the move back', async (p, h, t) => {
 	await openAt(p, SW);
 	await run(p, 'move-up');
 	await settle(p);
@@ -302,8 +304,9 @@ test('undo of a move, after a merge of other scenes: the merge isn’t taken bac
 	const merged = FULL.filter((x) => x !== 'Part One/The keeper');
 	t.eq(await list(p), ['Prologue', 'Part One/', 'Part One/Arrival', 'Part One/Storm warning', 'Part Two/', 'Part Two/The wreck', 'Part Two/Lights out', 'Epilogue'], 'merged: The keeper went to the trash, Storm warning kept its place');
 	await undoMove(p);
-	t.eq(await list(p), merged, 'Undo last move takes back the move before the merge, and only the list is as the merge left it');
-	t.ok(await gone(p, K), 'The keeper is still gone');
+	t.ok(!(await gone(p, K)), 'Undo last change takes the merge back: The keeper is back');
+	await undoMove(p);
+	t.eq(await list(p), FULL, 'and the next takes the move back');
 });
 
 // ---- export as one note ----

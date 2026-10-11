@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.62.0 (2026-10-11)
+
+### Added
+
+- Undo last change now takes back a merge: the merged-away notes come back byte for byte and the first note returns to what it was, only if it hasn’t been changed since. If it has, its text stays and the merged notes can be brought back beside it.
+
 ## 0.61.0 (2026-10-11)
 
 ### Added

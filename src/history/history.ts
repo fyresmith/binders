@@ -1,6 +1,6 @@
 import type { TAbstractFile, TFile, TFolder } from 'obsidian';
 import { UnsupportedBinder } from '../model';
-import type { Entry, Handler, Handlers, Scope, Step } from './types';
+import { Declined, type Entry, type Handler, type Handlers, type Scope, type Step } from './types';
 
 /* The history of what was done by hand to binders, in memory: the entries, newest last, those taken back to be made
    again, and the one way of taking an entry back or making it again. It knows nothing of the vault: each kind of step
@@ -126,7 +126,11 @@ export class History {
 				throw e;
 			}
 			u.failed = false;
-			for (let k = 0; k < steps.length; k++) await this.handler(steps[k]).apply(steps[k], redo, plans[k]);
+			try { for (let k = 0; k < steps.length; k++) await this.handler(steps[k]).apply(steps[k], redo, plans[k]); } catch (e) {
+				// (the writer said no to a question: nothing was changed, and the entry stays as it was)
+				if (e instanceof Declined) return null;
+				throw e;
+			}
 			from.splice(from.indexOf(u), 1);
 			to.push(u);
 			this.onChange();
