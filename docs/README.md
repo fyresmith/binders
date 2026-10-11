@@ -33,6 +33,7 @@ New here? Read [Installation](installation.md), then [Getting started](getting-s
 | [Corkboard](corkboard.md) | Index cards, selecting and dragging, arranging by label |
 | [Outliner](outliner.md) | Rows and columns, sorting, editing in place |
 | [Manuscript](manuscript.md) | The whole binder as one page you can write in |
+| [Filters](filters.md) | Show only the notes that match conditions on any property, and save the filter with the binder |
 | [Timeline](timeline.md) | The scenes in the order they happen in the story, by their story dates |
 | [The inspector and the contents](inspector.md) | Two sidebar views: one scene's details, and the whole book as a list |
 

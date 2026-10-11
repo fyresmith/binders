@@ -39,7 +39,7 @@ From left to right:
 | The word count | The words in the binder or folder shown. With a target, it reads "282 / 60,000 words" and a bar shows how far along you are. Click it to set the target |
 | **Undo** and **Redo** | Take back and make again the last change made by hand to the binder. Dimmed when there is nothing to do; the tooltip says what it would do. On a narrow pane **Redo** is in **More options** instead. See [Undo and redo](undo.md) |
 | **Arrange** | On the corkboard: lays the cards out in a grid or by label. See [Corkboard](corkboard.md#arrange-by-label). On the timeline: which way time runs, down or across. See [Timeline](timeline.md#time-down-or-across) |
-| **Filter** | Shows only the notes with a given status or label, in all four modes |
+| **Filter** | Shows only the notes that match conditions on any property, in all four modes ([Filters](filters.md)) |
 | **New** | Makes a new note or a new folder (on the timeline, a note) |
 | The focus button | Manuscript only, at the end of the toolbar: goes into [focus mode](focus-mode.md) |
 
@@ -75,8 +75,9 @@ A new note shows with its name ready to type.
 
 ## The filter
 
-**Filter** lists the statuses and labels in use in the binder. Tick one or more to show only the notes that have
-them. The button says how many are on ("Filter (2)"). **Clear filter** shows everything again.
+**Filter** opens a popover of conditions: a property, an operator and values, as Obsidian's Bases does it, and the filter
+can be saved with the binder. The button says how many conditions are on ("Filter (2)"), and a line under the toolbar says
+what is shown. **Clear filter** (or **Show the whole binder**) shows everything again. All of it is in [Filters](filters.md).
 
 The filter applies to all four modes. While it is on, the word count reads as the words shown out of all of them
 ("120 of 282 words").

@@ -99,6 +99,12 @@ Right-click empty space on the board for:
 - **Tint cards with their label color**: on as it comes. A labeled card has its border and, faintly, its face in
   that color, as a colored card on a canvas. Turn it off for the border alone.
 
+## Under a filter
+
+With a [filter](filters.md) on, a folder's card says how many of its notes show ("1 of 3 notes") and names only those; a folder
+with none that match is not on the board. A note that stops matching stays, dimmed, until you press **Refresh** in the line
+under the toolbar.
+
 ## Keyboard
 
 | Key | What it does |

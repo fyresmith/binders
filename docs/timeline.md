@@ -117,8 +117,8 @@ As on the corkboard:
 
 **New** in the toolbar makes a note at the end of the folder shown. It has no date, so it appears in the tray.
 
-**Filter** works here as in the other modes: only the scenes with the statuses and labels you tick are shown, and the
-numbers count the scenes that show. [Find](find-and-replace.md) lights the cards whose notes have a match.
+**Filter** works here as in the other modes ([Filters](filters.md)): only the scenes that match are shown, and the
+numbers are the scenes' places in the book, as without a filter. [Find](find-and-replace.md) lights the cards whose notes have a match.
 
 **Card size** and **Tint cards with their label color**, in **More options**, are the corkboard's own settings and
 are shared with it. A card here is one height at each size, so a long synopsis ends in an ellipsis.

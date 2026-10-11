@@ -17,6 +17,15 @@ contents:                 # the order of everything in the binder, as paths rela
   - Epilogue
 target: 50000             # optional: a word count goal for the whole binder
 synopsis: A keeper, a newcomer, and the night the light went out.
+filters:                  # optional: saved filters (see the table)
+  - name: Mara, not yet revised
+    conditions:
+      - property: characters
+        operator: contains any of
+        value: "[[Mara]]"
+      - property: status
+        operator: is not
+        value: Revised
 inspector:                # optional: the properties pinned to the inspector, in order
   - pov
   - characters
@@ -29,6 +38,7 @@ Anything you like: notes on the book, links, a to-do list.
 | `binder` | number | Format version, `1`. Binders refuses (and never rewrites) a binder note whose version is newer than it knows, and one whose value it doesn't understand (text, `0`, a fraction): such a binder is listed, read only, and says why. A bare `binder:` or `binder: true` means 1. |
 | `contents` | list of text | The binder's order. Paths use `/`, are relative to the binder folder, have no `.md`, and folders end in `/`. |
 | `target` | number | Optional word count goal for the binder, shown in the view's toolbar. |
+| `filters` | list of maps | Optional: the binder's saved filters, in the order the popover lists them. Each has a `name` (unique, compared as text is), `conditions` (a flat list of `property`, `operator`, `value`: `file.name`, `file.folder`, `file.words`, `file.ctime`, `file.mtime` are the file's own; operators are Bases' words, `>=` and `≥` both read; one value plain, several a list) and, only when not "all", `match: any` or `none`. A condition that isn't whole is skipped, so a half-made row filters nothing. Room is left for nested groups: a condition we can't read is kept where it is. No format change: a Binders that doesn't know it leaves it alone. Read tolerantly (an entry without a name, or that isn't a map, is passed over); written by editing the list as the note has it, so entries, keys and conditions Binders doesn't understand are never dropped. Never written in a binder of a newer format, nor in a Longform project's index note. Save, rename, duplicate, delete and move are each one step in the undo history; changes to a saved filter's conditions are not. `inspector`, `revision` and the rest are never touched by it, and it is never touched by them. |
 | `inspector` | list of text | Optional: the names of the properties the binder pins to the inspector, as rows under Label and Status, in this order (`pov`, `characters`, a place, any property of the writer's). It is view setup, not the writer's text, and no format change: a Binders that doesn't know it leaves it alone. Read tolerantly: a lone text is one name, a name once whatever its case, anything that isn't text is ignored; written without dropping what isn't understood (a number or a map in the list stays where it is) and taken away when its last name is. Never written in a binder of a newer format, nor in a Longform project's index note (a Longform project pins nothing). Binders' own names (`status`, `label`, `synopsis`, `export`, `contents`, a book's `title` and the rest) can't be pinned: they have rows or fields of their own. A property's *type* is Obsidian's (`.obsidian/types.json`), not kept here. Changing the list is not in the undo history; changing a value in a pinned row is. |
 | `synopsis`, `status`, `label` | | The binder's own card data, as for scenes (below). |
 | `revision` | link | Optional. The binder's revision note, as a link: `revision: "[[Revision]]"`. Written when the first revision task is added (see "Revision tasks", below); a writer can point it at a note they already keep. Not part of the format version: a Binders that doesn't know it leaves it as it finds it. |

@@ -85,7 +85,7 @@ This order replaces the earlier flat list; it is a priority order, not a deliver
       order on the timeline. Make the active scope and its count clear, with one action to return to the whole book.
 
 Reuse the existing Filter control. Store definitions as readable binder metadata. A filter never moves or copies
-notes, changes export inclusion or silently becomes the binder's order. Initially disable reordering in a subset.
+notes, changes export inclusion or silently becomes the binder's order. Reordering in a subset works as it did under the old filter (the maintainer's decision).
 When an edit stops matching the filter, keep pending writing and the caret safe before the scene leaves the view.
 
 Complete when a writer can save, reopen and edit a cross-chapter subset without changing the full manuscript's

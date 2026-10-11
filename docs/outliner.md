@@ -69,6 +69,11 @@ selecting and [a card's menu](corkboard.md#a-cards-menu) for the menu.
 
 Drag a row between two rows, onto a folder, or below everything.
 
+## Under a filter
+
+With a [filter](filters.md) on, the rows are the notes that match, under the folders that have any; a folder's words count what
+shows. A note that stops matching stays, dimmed, until you press **Refresh** in the line under the toolbar.
+
 ## Keyboard
 
 | Key | What it does |

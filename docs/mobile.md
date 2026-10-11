@@ -57,6 +57,12 @@ On a phone the toolbar's buttons are icons. **New** is a plus sign.
   there.
 - **Undo:** an **Undo** button, an arrow icon, is in the toolbar in every mode; it is dimmed when there is nothing to take back, and touching it takes back the last change. After you delete something, a notice with an **Undo** button stays for eight seconds. A phone has no room for **Redo** beside the toolbar's **Undo**: it is in the view's **More options** menu, which also says what each will do.
 
+## Filters
+
+**Filter** opens a sheet from the foot of the screen: tap a property, an operator and the values; **Done** shuts it. The line
+under the toolbar says what is shown, with a cross to show the whole binder and **Refresh** where a note no longer matches.
+See [Filters](filters.md).
+
 ## Corkboard
 
 **Arrange by label:** on a phone the cards are small and the lines run across, their names down the left edge.

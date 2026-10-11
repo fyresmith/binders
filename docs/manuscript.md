@@ -45,6 +45,13 @@ Because each section is the note's own editor, commands for the open note apply 
 Ctrl+F (Cmd+F on macOS) searches across the manuscript shown, including sections outside the screen. **Find and
 replace in binder** also works here, with a review and a snapshot before replacing across notes. See [Find and replace](find-and-replace.md).
 
+## Under a filter
+
+With a [filter](filters.md) on, the page is the sections that match. A dashed line, "2 notes not shown", stands where notes
+lie between two sections shown (hover it for their names). A section you change so it no longer matches stays, with
+"No longer matches the filter" under its title, and nothing you are typing moves, until you press **Refresh** in the line
+under the toolbar or change the conditions.
+
 ## Long binders
 
 Long binders stay quick. Only the sections near the screen are live editors; the rest show as rendered text until
