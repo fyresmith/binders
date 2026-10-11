@@ -403,24 +403,29 @@ test('closed vault: the whole binder folder moved into another folder and rename
 	t.eq(j(await shown(p, 'Box/Renamed')), j(['Z.md', 'M.md', 'A.md']), 'order still kept');
 }));
 
-test('NIT: the binder note edited on the disk while the view is open: cards follow, a broken edit keeps the last good order on screen, and mending it brings the new order', withTidy(async (p, h, t) => {
+test('the binder note edited on the disk while the view is open: cards follow a good edit; a broken edit makes the folder not a binder (the view says so, nothing is written); mending it brings the binder back with its order', withTidy(async (p, h, t) => {
 	await put(p, { 'Live/Live.md': bnote(['C', 'B', 'A']), 'Live/A.md': 'a\n', 'Live/B.md': 'b\n', 'Live/C.md': 'c\n' });
 	await settle(p);
 	await openView(p, 'Live');
 	const order = async () => (await cards(p)).map((x) => x.split('/').pop());
+	const said = () => p.ev(`(document.querySelector('.workspace-leaf.mod-active .binders-view')?.innerText || 'no view').slice(0, 300)`);
 	t.eq(j(await order()), j(['C.md', 'B.md', 'A.md']), 'start');
 	await writeRaw(p, 'Live/Live.md', bnote(['A', 'C', 'B']));
 	await until(p, `document.querySelector('.workspace-leaf.mod-active .binders-card[data-path]')?.dataset.path === 'Live/A.md'`, 4000);
 	t.eq(j(await order()), j(['A.md', 'C.md', 'B.md']), 'follows an outside edit');
-	await writeRaw(p, 'Live/Live.md', '---\nbinder: 1\ncontents: [A, C\n  - B\n---\nx\n');
+	const broken = '---\nbinder: 1\ncontents: [A, C\n  - B\n---\nx\n';
+	await writeRaw(p, 'Live/Live.md', broken);
 	await p.sleep(1500);
-	const o2 = await order();
-	const vt = await p.ev(`(document.querySelector('.workspace-leaf.mod-active .binders-view')?.innerText || 'no view').slice(0, 200)`);
-	t.eq(j([...o2].sort()), j(['A.md', 'B.md', 'C.md']), 'the three cards stay while the YAML is broken: ' + j(o2) + ' view says: ' + vt);
+	t.eq(j(await order()), j([]), 'no cards while the YAML is broken: the folder is not in a binder');
+	const vt = await said();
+	t.ok(/isn.t in a binder/i.test(vt), 'and the view says the folder isn’t in a binder: ' + vt);
+	await p.sleep(1500);
+	t.eq(await read(p, 'Live/Live.md'), broken, 'nothing was written to the binder note while it is broken');
 	await writeRaw(p, 'Live/Live.md', bnote(['B', 'A', 'C']));
 	await until(p, `document.querySelector('.workspace-leaf.mod-active .binders-card[data-path]')?.dataset.path === 'Live/B.md'`, 4000);
-	t.eq(j(await order()), j(['B.md', 'A.md', 'C.md']), 'mended');
-	t.eq(await read(p, 'Live/Live.md'), bnote(['B', 'A', 'C']), 'and nothing was written over the edits');
+	t.eq(j(await order()), j(['B.md', 'A.md', 'C.md']), 'mended: the binder is back with its order');
+	t.eq(await read(p, 'Live/Live.md'), bnote(['B', 'A', 'C']), 'and nothing was written over the edits, byte for byte');
+	t.eq(j(await contents(p, 'Live/Live.md')), j(['B', 'A', 'C']), 'contents is exactly the mended list');
 }));
 
 test('the binder note deleted and made again within a moment, and a note renamed to the binder note\'s name by hand, leave the list and every note', withTidy(async (p, h, t) => {

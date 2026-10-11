@@ -67,16 +67,21 @@ properties (a note beginning with a line between two rules, made to read like pr
 saying how many. In a note's section of the manuscript, **Ctrl+Z** also takes the change back there. Taking the
 snapshot back is the other way, and goes further: **Show snapshots of the binder**, then **Bring back**.
 
+**Replace** (one match) takes no snapshot. It changes that one place and nothing else, as typing would, so **Undo** in
+the editor (Ctrl+Z) takes it back. A snapshot for each single replace would only pile up.
+
 A replace is never made in a binder that can't be changed (one made by a newer Binders), or one that can't have
-snapshots: there is no replace row, and the bar says why. **Replace** (one match) is only offered in the manuscript,
+snapshots: there is no replace row, and the bar says why. **Replace** (one match) is only offered in the manuscript and in focus mode,
 where each match is in an editor; the boards offer Replace all only.
 
 ## In focus mode
 
 With **Show the scenes before and after** on, **Ctrl+F** in a note in focus mode (in the manuscript, or in a tab of its
 own) is Binders' bar over the shown part of the scene before, the note, and the shown part of the scene after. A match in a
-neighbour is marked and scrolled to, but nothing is replaced there: the replace is made in the note only, and takes that
-note's own snapshot, not the folder's. With those off, a note in its own tab keeps Obsidian's own bar.
+neighbour is marked and scrolled to, but nothing is replaced there: the replace is made in the note only. **Replace
+all** there takes that note's own snapshot, not the folder's. **Replace** (one match) takes none: it changes that one
+place in the note's editor, and **Ctrl+Z** there takes it back. With those off, a note in its own tab keeps Obsidian's
+own bar.
 
 ## On a phone or a tablet
 

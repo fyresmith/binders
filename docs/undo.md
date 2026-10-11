@@ -144,7 +144,7 @@ they follow.
   undo of a property: it is saved first, and kept.
 - **Hidden files** (names that start with a dot, such as `.DS_Store`) in a deleted folder aren't kept.
 - **Renames made in Obsidian's file explorer or a tab's title.** They are not made through Binders.
-- **Replace all** has its own **Undo** in the find bar and an automatic snapshot.
+- **Replace all** has its own **Undo** in the find bar and an automatic snapshot. Replacing one match takes no snapshot; Undo in the editor takes it back.
 - **Bringing back a snapshot** is recovered through the snapshot taken before it. Bringing back only the order
   is a change in this history; **Everything** clears the binder's history.
 - **Import, converting from Longform and Book details** are not in this history.

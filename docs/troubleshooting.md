@@ -24,6 +24,13 @@ Its note was made by a newer version of Binders (it says which format), or its `
 Binders doesn't understand. Binders leaves such a binder exactly as it is. Update Binders if the format is newer;
 don't lower its number by hand. If the property was mistyped in a format-1 binder, correct it to `binder: 1`.
 
+## A binder's view says the folder isn't in a binder
+
+If you edited the binder note by hand (or another app did) and its properties no longer read as YAML (an unclosed
+bracket, a stray colon), the folder is not a binder until you mend them. The view says so, the file explorer shows the
+folder in name order, and Binders writes nothing to the note meanwhile. Turn off **Hide binder and folder notes** to see
+the note in the file explorer, correct its properties, and the binder comes back with its order.
+
 ## A command in the manual isn't in my plugin
 
 The manual follows `main`, including work not yet released. Obsidian and BRAT install the published release.

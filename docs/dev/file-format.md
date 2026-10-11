@@ -256,6 +256,11 @@ it: a note that opens with a rule, a paragraph and another rule has no propertie
 and editor do, and Binders uses the one rule everywhere: merge, split, export, synopsis from text, snapshots, the
 manuscript and focus mode. A byte-order mark at the start of a file is kept.
 
+A binder note whose properties can't be read (the YAML doesn't parse) has no properties, so the folder is not in a
+binder until it is mended: the binder view says the folder isn't in a binder, the file explorer lists it in Obsidian's
+own order, and nothing is written to the note meanwhile. Mending the YAML brings the binder back with the order the
+note holds (the view follows an edit made on the disk, in another app or by hand).
+
 Setting a property goes through Obsidian, which writes the whole properties block again in its own form: comments in
 the block are dropped, and values are written as YAML reads them (`0123` becomes `123`, `1.0` becomes `1`). Obsidian's
 own Properties view does the same. The note's text is never touched.

@@ -32,7 +32,7 @@ Obsidian, BRAT or a release download gives you the published plugin; its documen
 - **Import from Scrivener.** A Scrivener 3 project, or a zipped backup of one, as a new binder: you see it before it is made.
 - **Import a manuscript.** A Word file, a Markdown note or a text file as a new binder, split at its chapters,
   with a preview you can put right before anything is made. The source stays as it is.
-- **Find and replace.** Search every note of a binder; replace one or all, after a review and a snapshot, with Undo.
+- **Find and replace.** Search every note of a binder; replace one match (taken back with Undo in the editor), or replace all after a review and a snapshot, with Undo.
 - **Focus mode.** The text and nothing else, with typewriter scrolling.
 - **Longform.** Longform projects open as binders, and convert to them.
 - **Phones and tablets.** The same views, by touch, on iOS and Android.
@@ -107,7 +107,7 @@ and folders, shown before they are made. Join, rename or split them in the previ
 
 Press Ctrl+F in a binder view to search every note of the binder, in binder order: in the manuscript as one page, on the
 corkboard and timeline, and in the outliner, by lighting the cards and rows that match. A link's target and a tag are not touched
-unless you type them, and **Replace all** shows every change in context first, takes a snapshot, and can be undone.
+unless you type them, and **Replace all** shows every change in context first, takes a snapshot, and can be undone; **Replace** changes one match, and the editor's Undo takes it back.
 [More](docs/find-and-replace.md)
 
 ## Import from Scrivener

@@ -332,8 +332,9 @@ test('Replace one on a match in a scene before or after changes nothing: the not
 	t.eq(await p.ev(`${NV}.bindersFind()?.by.value ?? null`), 'begins', 'the replacement is still in the field (nothing was done with it)');
 });
 
-test('BUG candidate: Replace one in focus takes a snapshot of the note first, as Replace all does (README: "replace one or all, after a review and a snapshot")', async (p, h, t) => {
-	await binder(p, 'Walk4', { '1 One': 'Opening.\n', '2 Two': 'Start. Mara here.\n', '3 Three': 'End.\n' });
+test('Replace one in focus takes no snapshot (the editor’s Undo takes it back); Replace all, after its review, takes one', async (p, h, t) => {
+	await binder(p, 'Walk4', { '1 One': 'Opening.\n', '2 Two': 'Start. Mara here, and Mara there.\n', '3 Three': 'End.\n' });
+	const before = vault(p);
 	await focusOn(p, 'Walk4/2 Two.md');
 	await caretTo(p, 0);
 	await replaceWith(p, 'Mara', 'Maren');
@@ -342,9 +343,22 @@ test('BUG candidate: Replace one in focus takes a snapshot of the note first, as
 	await p.key('Enter');
 	await p.sleep(700);
 	await save(p);
-	t.eq(disk(p, 'Walk4/2 Two.md'), 'Start. Maren here.\n', 'the match was replaced');
-	const s = await snapsOf(p, '2 Two');
-	t.eq(s.length, 1, 'and the note’s own snapshot was taken before it: ' + (s.join(', ') || 'none'));
+	onlyThese(t, before, vault(p), { 'Walk4/2 Two.md': 'Start. Maren here, and Mara there.\n' });
+	t.eq(j(await snapsOf(p, '2 Two')), '[]', 'Replace one: the text changed in that one place, and no snapshot was made');
+	await backToNote(p);
+	await p.key('z', 'ctrl');
+	await p.sleep(500);
+	await save(p);
+	t.eq(disk(p, 'Walk4/2 Two.md'), before['Walk4/2 Two.md'], 'the editor’s Undo puts it back, byte for byte');
+	t.eq(j(await snapsOf(p, '2 Two')), '[]', 'still no snapshot');
+	await p.ev(`(() => { window.__all = ${NV}.bindersFind().replaceAll(); return 1; })()`);
+	await until(p, `!!document.querySelector('.modal.binders-find-review')`, 5000);
+	await p.ev(`document.querySelector('.modal.binders-find-review button.mod-cta').click()`);
+	await p.ev(`window.__all.then(() => 1)`);
+	await p.sleep(600);
+	await save(p);
+	t.eq(disk(p, 'Walk4/2 Two.md'), 'Start. Maren here, and Maren there.\n', 'Replace all made its change');
+	t.eq((await snapsOf(p, '2 Two')).length, 1, 'and took one snapshot of the note');
 });
 
 test('Replace all in focus: the review counts only the note’s own places (not the scenes before and after), names the note, and changes nothing else', async (p, h, t) => {

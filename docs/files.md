@@ -39,6 +39,10 @@ through the editing and recovery actions described [below](#what-binders-writes-
 The binder note is hidden in the file explorer. Open it with **Open binder note** in the binder view's **More
 options** menu, or turn off **Hide binder and folder notes** in settings.
 
+If you edit the binder note by hand and its properties stop reading as YAML, the folder is not a binder until you mend
+them: the view says so, and Binders writes nothing to the note. Mending them brings the binder back with its order. See
+[Troubleshooting](troubleshooting.md).
+
 ## A scene
 
 Each scene is an ordinary note. What the cards and the outliner show are its properties.
@@ -119,7 +123,7 @@ yet show after the others, by name. A new note is written into the list when som
   or binder snapshot can also restore the whole properties block as it was, after a review and a snapshot of now.
 - **Note text** is never rewritten behind your back. It changes only where you type (in a note, or in the
   manuscript, which is Obsidian's own editor), or when you ask: **Split**, **Merge**, **Bring back** a snapshot,
-  **Rewrite**, **Replace** and **Replace all** (at the matches only, after a review and a snapshot), and the links repointed after a merge or split when Obsidian is set to update links. Each is ordered
+  **Rewrite**, **Replace** (one match, taken back with Undo in the editor) and **Replace all** (at the matches only, after a review and a snapshot), and the links repointed after a merge or split when Obsidian is set to update links. Each is ordered
   so the text exists in two places before it leaves the first.
 - **Links in paragraphs that start with a tab** are the one exception. When the note or file they lead to is renamed
   or moved, Obsidian is set to update links (or you answer its prompt with **Just once**) and **Start a paragraph
