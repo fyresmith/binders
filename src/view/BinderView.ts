@@ -9,7 +9,8 @@ import { hasSnapshots, takeFolderSnapshot } from '../binder-snapshots';
 import type BindersPlugin from '../main';
 import { commitAll, commitFocused, editable, editingIn, type Editable } from './edit';
 import { keepOpen, readableLineLength, refreshHeader } from './internals';
-import { emptyDef, type FilterDef } from '../filter/conditions';
+import { emptyDef, readDefs, writeDef, type FilterDef } from '../filter/conditions';
+import { editFilters, type FilterEdit } from '../filter/saved';
 import { FilterPopover } from './filter-popover';
 import { Subset } from './subset';
 import { readArrangement, readLines, type Arrangement, type Lines } from './lanes-data';
@@ -619,6 +620,7 @@ export class BinderView extends ItemView {
 		if (this.closed) return;
 		this.resolve();
 		this.subset.invalidate();
+		this.followSaved();
 		this.headerSnapshots();
 		// (made again, where it was: the same folder may have become another kind of binder, or read only)
 		if (this.key() !== this.identity) { this.keepPlace(); this.rebuild(); return; }
@@ -793,6 +795,9 @@ export class BinderView extends ItemView {
 			apply: (f) => this.setFilter(f),
 			count: () => this.countSaid(),
 			labels: () => this.plugin.settings.labels,
+			saved: () => this.savedList(),
+			edit: (label, op) => this.editSaved(label, op),
+			canSave: () => (this.binder ? this.store.whyNoFilters(this.binder) : 'Open a binder to save a filter.'),
 		});
 	}
 
@@ -829,6 +834,67 @@ export class BinderView extends ItemView {
 		const clear = () => { this.popover?.close(); this.setFilter(emptyDef()); };
 		out.addEventListener('click', clear);
 		out.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); clear(); } });
+	}
+
+	// ---- saved filters (the binder note's `filters`) ----
+
+	/** What the saved filters are: as the binder note says, or as an edit just made will have it (the note is written, and
+	    Obsidian reads it back, a moment later). */
+	private savedNow: { list: FilterDef[]; until: number } | null = null;
+	private savedList(): FilterDef[] {
+		if (this.savedNow && this.savedNow.until > Date.now()) return this.savedNow.list;
+		return this.binder ? this.store.savedFilters(this.binder) : [];
+	}
+	private saving: { timer: number; busy: number; until: number } = { timer: 0, busy: 0, until: 0 };
+	/** Saves, renames, duplicates, deletes or moves a saved filter: one step of "Undo". The filter that is on follows. */
+	private editSaved(label: string, op: FilterEdit): void {
+		const binder = this.binder;
+		if (!binder || this.readOnly) return;
+		const list = this.savedList();
+		this.savedNow = { list: readDefs(editFilters(list.map((d) => writeDef(d)), op)), until: Date.now() + 3000 };
+		const on = this.subset.def;
+		if (op.kind === 'save') this.subset.def = { ...on, name: op.def.name?.trim() };
+		else if (on.name && on.name.toLowerCase() === op.name.toLowerCase()) {
+			if (op.kind === 'rename') this.subset.def = { ...on, name: op.to.trim() };
+			else if (op.kind === 'delete') this.subset.def = { match: on.match, conditions: on.conditions };
+		}
+		this.remember();
+		this.app.workspace.requestSaveLayout();
+		this.drawToolbar();
+		this.saving.busy++;
+		void this.store.editFilters(binder, label, op).catch((e) => new Notice(e instanceof Error ? e.message : String(e))).finally(() => { this.saving.busy--; this.saving.until = Date.now() + 1500; this.popover?.sync(); });
+	}
+	/** The conditions of the saved filter that is on were changed: they are written as they are changed (a moment after the last
+	    change), as a change to a view of a base is. */
+	private saveConditions(def: FilterDef): void {
+		const binder = this.binder, name = def.name;
+		if (!binder || !name || this.readOnly || this.store.whyNoFilters(binder)) return;
+		const now = this.savedList(), at = now.findIndex((d) => (d.name ?? '').toLowerCase() === name.toLowerCase());
+		if (at < 0 || JSON.stringify([now[at].match, now[at].conditions]) === JSON.stringify([def.match, def.conditions])) return;
+		this.savedNow = { list: now.map((d, i) => (i === at ? { ...d, match: def.match, conditions: def.conditions } : d)), until: Date.now() + 3000 };
+		window.clearTimeout(this.saving.timer);
+		this.saving.busy++;
+		this.saving.timer = window.setTimeout(() => {
+			void this.store.updateFilter(binder, name, def).catch((e) => new Notice(e instanceof Error ? e.message : String(e))).finally(() => { this.saving.busy--; this.saving.until = Date.now() + 1500; });
+		}, 300);
+	}
+	/** The saved filter that is on, changed by hand in the note or by a sync, is followed; one deleted there is kept as a filter
+	    not saved, and the writer is told. (Not while this view is itself writing it.) */
+	private followSaved(): void {
+		const name = this.subset.def.name;
+		if (!name || !this.binder || this.saving.busy > 0 || Date.now() < this.saving.until) return;
+		// (a binder note not read yet says nothing of its filters: that is not "deleted")
+		if (this.binder.kind !== 'binder' || this.binder.problem || !this.app.metadataCache.getFileCache(this.binder.note)) return;
+		this.savedNow = null;
+		const list = this.store.savedFilters(this.binder);
+		const mine = list.find((d) => (d.name ?? '').toLowerCase() === name.toLowerCase());
+		const on = this.subset.def;
+		if (!mine) {
+			new Notice(`The filter “${name}” was deleted elsewhere. It stays on, as a filter that is not saved.`);
+			this.setFilter({ match: on.match, conditions: on.conditions }, true);
+		} else if (JSON.stringify([mine.name, mine.match, mine.conditions]) !== JSON.stringify([on.name, on.match, on.conditions])) {
+			this.setFilter({ ...mine, conditions: mine.conditions.map((c) => ({ ...c })) }, true);
+		}
 	}
 
 	/** The note being typed in here, if any (a section of the manuscript with the caret in it): it never leaves the page under it. */
@@ -868,10 +934,11 @@ export class BinderView extends ItemView {
 		return `${all.filter((f) => this.visible(f)).length} of ${all.length} ${all.length === 1 ? 'note' : 'notes'}`;
 	}
 
-	private setFilter(filter: FilterDef): void {
+	private setFilter(filter: FilterDef, quiet = false): void {
 		// (changing the conditions is asking for the page afresh: what no longer matches goes, but the section being typed in)
 		if (this.subset.set(filter)) this.subset.letGo(this.typingIn());
 		this.remember();
+		if (!quiet) this.saveConditions(filter);
 		this.madeHere.clear();
 		this.app.workspace.requestSaveLayout();
 		this.drawToolbar();

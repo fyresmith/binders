@@ -1,4 +1,5 @@
 import { Menu, Platform, setIcon } from 'obsidian';
+import { uniqueName, type FilterEdit } from '../filter/saved';
 import { MATCHES, OPERATORS, atom, emptyDef, linkOf, operatorOf, problem, same, textOf, valuesOf, type Atom, type Condition, type FilterDef, type Kind, type Match } from '../filter/conditions';
 import { parseStoryDate, writeStoryDate } from '../time/date';
 import { openPicker, pickerBusy, type PickItem } from './filter-picker';
@@ -20,6 +21,12 @@ export interface FilterHost {
 	/** "8 of 20 notes". */
 	count(): string;
 	labels(): LabelPreset[];
+	/** The binder's saved filters. */
+	saved(): FilterDef[];
+	/** Saves, renames, duplicates, deletes or moves a saved filter (the view writes the binder note and follows the change). */
+	edit(label: string, op: FilterEdit): void;
+	/** Why a filter can't be saved here (a Longform project, a newer format), in words, or null. */
+	canSave(): string | null;
 }
 
 const WORD: Record<Match, string> = { all: 'and', any: 'or', none: 'nor' };
@@ -57,6 +64,9 @@ export class FilterPopover {
 	private scroll: HTMLElement | null = null;
 	private off: (() => void)[] = [];
 	private pending: { fire(): void } | null = null;
+	/** Naming a filter to save (in the foot), or renaming a saved one (its name, in the list). */
+	private naming = false;
+	private renaming: string | null = null;
 	constructor(private host: FilterHost) {}
 
 	get open(): boolean { return !!this.el?.isConnected; }
@@ -67,6 +77,8 @@ export class FilterPopover {
 	close(quiet = false): void {
 		if (!quiet) this.pending?.fire();
 		for (const f of this.off.splice(0)) f();
+		this.naming = false;
+		this.renaming = null;
 		this.el?.remove();
 		this.el = null;
 		const button = this.host.button();
@@ -97,7 +109,7 @@ export class FilterPopover {
 		if (!Platform.isPhone) this.place();
 		// a press outside closes it; one in a list it opened (a property's, a value's) doesn't
 		const down = (e: MouseEvent | TouchEvent) => { const t = e.target; if (!(t instanceof Node) || el.contains(t) || button.contains(t)) return; if (t.instanceOf(Element) && t.closest('.menu, .suggestion-container, .modal-container')) return; if (pickerBusy() || menuBusy()) return; this.close(); };
-		const key = (e: KeyboardEvent) => { if (e.key === 'Escape' && !pickerBusy() && !menuBusy()) { e.preventDefault(); e.stopPropagation(); this.close(); } };
+		const key = (e: KeyboardEvent) => { if (e.key === 'Escape' && !pickerBusy() && !menuBusy()) { e.preventDefault(); e.stopPropagation(); if (this.naming || this.renaming != null) { this.naming = false; this.renaming = null; this.draw(); } else this.close(); } };
 		doc.addEventListener('mousedown', down, true);
 		doc.addEventListener('touchstart', down, true);
 		doc.addEventListener('keydown', key, true);
@@ -133,8 +145,10 @@ export class FilterPopover {
 		const top = box.scrollTop;
 		box.empty();
 		const host = this.host, sub = host.subset, f = sub.def;
+		const saved = host.saved();
+		if (saved.length) this.savedList(box, saved, f);
 		const sec = box.createDiv({ cls: 'bases-toolbar-section' });
-		sec.createDiv({ cls: 'bases-toolbar-section-header' }).createSpan({ text: 'Show notes where' });
+		sec.createDiv({ cls: 'bases-toolbar-section-header' }).createSpan({ text: f.name ?? (saved.length ? 'Not saved' : 'Show notes where') });
 		const content = sec.createDiv({ cls: 'bases-toolbar-section-content' });
 		const group = content.createDiv({ cls: 'bases-query-container' }).createDiv({ cls: 'filter-group' });
 		const set = (next: FilterDef, redraw = true) => { host.apply(next); if (redraw) this.draw(); };
@@ -152,12 +166,99 @@ export class FilterPopover {
 		add.addEventListener('click', () => { set({ ...sub.def, conditions: [...sub.def.conditions, { property: '', operator: 'is' }] }); this.scroll?.querySelectorAll<HTMLElement>('.filter-property-select')[sub.def.conditions.length - 1]?.focus(); });
 		// ---- what it comes to ----
 		const foot = box.createDiv({ cls: 'bases-toolbar-section binders-filter-foot' });
-		const said = foot.createDiv({ cls: 'binders-filter-said', text: sub.on() ? host.count() : 'Nothing is filtered' });
-		said.setAttrs({ role: 'status', 'aria-live': 'polite' });
-		if (sub.on() || f.conditions.length) textButton(foot, 'x', 'Clear filter').addEventListener('click', () => { this.pending?.fire(); host.apply(emptyDef()); this.close(); });
+		if (this.naming) this.nameField(foot, saved);
+		else {
+			const said = foot.createDiv({ cls: 'binders-filter-said', text: sub.on() ? host.count() : 'Nothing is filtered' });
+			said.setAttrs({ role: 'status', 'aria-live': 'polite' });
+			if (!f.name && sub.on()) {
+				const cant = host.canSave(), b = textButton(foot, 'bookmark-plus', 'Save as…');
+				if (cant) { b.addClass('is-disabled'); b.setAttrs({ 'aria-label': cant, 'aria-disabled': 'true', title: cant }); }
+				else b.addEventListener('click', () => { this.pending?.fire(); this.naming = true; this.draw(); });
+			}
+			if (sub.on() || f.conditions.length) textButton(foot, 'x', f.name ? 'Show all notes' : 'Clear filter').addEventListener('click', () => { this.pending?.fire(); host.apply(emptyDef()); this.close(); });
+		}
 		box.scrollTop = top;
 		if (mark) this.refocus(mark);
 		if (!Platform.isPhone && this.el) window.requestAnimationFrame(() => this.place());
+	}
+
+	/** The saved filters: a tick on the one that is on, "More options" for each. Choosing one puts it on; the one on, taken off
+	    its tick, goes off. */
+	private savedList(box: HTMLElement, saved: FilterDef[], f: FilterDef): void {
+		const host = this.host;
+		const sec = box.createDiv({ cls: 'bases-toolbar-section' });
+		const h = sec.createDiv({ cls: 'bases-toolbar-section-header' });
+		h.createSpan({ text: 'Saved filters' });
+		h.createSpan({ cls: 'flair', text: String(saved.length) });
+		const items = sec.createDiv({ cls: 'bases-toolbar-items' }).createDiv({ cls: 'suggestion-group' });
+		for (const s of saved) {
+			const on = !!f.name && f.name.toLowerCase() === (s.name ?? '').toLowerCase(), name = s.name ?? '';
+			const row = items.createDiv({ cls: 'bases-toolbar-menu-item' + (on ? ' mod-active' : ''), attr: { role: 'button', tabindex: '0', 'aria-pressed': String(on) } });
+			const info = row.createDiv({ cls: 'bases-toolbar-menu-item-info' });
+			const tick = info.createDiv({ cls: 'bases-toolbar-menu-item-info-icon binders-filter-tick' });
+			if (on) setIcon(tick, 'check');
+			if (this.renaming === name) {
+				const input = info.createEl('input', { type: 'text', cls: 'binders-filter-name', value: name, attr: { 'aria-label': 'Name of the filter' } });
+				let done = false;
+				const commit = () => {
+					if (done) return;
+					done = true;
+					const now = input.value.trim();
+					this.renaming = null;
+					if (now && now !== name && !saved.some((x) => x !== s && (x.name ?? '').toLowerCase() === now.toLowerCase())) host.edit(`Rename the filter “${name}” to “${now}”`, { kind: 'rename', name, to: now });
+					this.draw();
+				};
+				input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); commit(); } });
+				input.addEventListener('blur', commit);
+				window.setTimeout(() => { input.focus(); input.select(); });
+			} else {
+				info.createDiv({ cls: 'bases-toolbar-menu-item-name', text: name });
+				const choose = () => { this.pending?.fire(); host.apply(on ? emptyDef() : { ...s, conditions: s.conditions.map((c) => ({ ...c })) }); if (on) this.draw(); else this.close(); };
+				row.addEventListener('click', choose);
+				row.addEventListener('keydown', (e) => { if (e.target === row && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); choose(); } });
+			}
+			const more = row.createDiv({ cls: 'clickable-icon bases-toolbar-menu-action-icon', attr: { 'aria-label': `More options for ${name}`, role: 'button', tabindex: '0' } });
+			setIcon(more, 'more-horizontal');
+			const menu = (e: Event) => {
+				e.stopPropagation();
+				const m = new Menu(), at = saved.indexOf(s);
+				m.addItem((i) => i.setTitle('Rename').setIcon('pencil').onClick(() => { this.renaming = name; this.draw(); }));
+				m.addItem((i) => i.setTitle('Duplicate').setIcon('copy').onClick(() => { host.edit(`Duplicate the filter “${name}”`, { kind: 'duplicate', name, to: uniqueName(name, saved.map((x) => x.name ?? '')) }); this.draw(); }));
+				if (at > 0) m.addItem((i) => i.setTitle('Move up').setIcon('arrow-up').onClick(() => { host.edit(`Move the filter “${name}” up`, { kind: 'move', name, by: -1 }); this.draw(); }));
+				if (at < saved.length - 1) m.addItem((i) => i.setTitle('Move down').setIcon('arrow-down').onClick(() => { host.edit(`Move the filter “${name}” down`, { kind: 'move', name, by: 1 }); this.draw(); }));
+				m.addSeparator();
+				m.addItem((i) => { i.setTitle('Delete').setIcon('trash-2').onClick(() => { host.edit(`Delete the filter “${name}”`, { kind: 'delete', name }); this.draw(); }); (i as unknown as { setWarning?: (w: boolean) => void }).setWarning?.(true); });
+				below(m, more);
+			};
+			more.addEventListener('click', menu);
+			more.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); menu(e); } });
+		}
+	}
+
+	/** The name to save the filter under, in the foot. */
+	private nameField(foot: HTMLElement, saved: FilterDef[]): void {
+		const host = this.host;
+		const input = foot.createEl('input', { type: 'text', cls: 'binders-filter-name', placeholder: 'Name', attr: { 'aria-label': 'Name of the filter' } });
+		const save = foot.createEl('button', { cls: 'mod-cta', text: 'Save' });
+		const commit = () => {
+			const name = input.value.trim();
+			if (!name) { input.focus(); return; }
+			if (saved.some((x) => (x.name ?? '').toLowerCase() === name.toLowerCase())) {
+				input.addClass('mod-error');
+				input.setAttr('aria-invalid', 'true');
+				foot.querySelector('.binders-filter-said')?.remove();
+				foot.createDiv({ cls: 'binders-filter-said mod-error', text: 'There is a filter of that name', attr: { role: 'alert' } });
+				return;
+			}
+			this.naming = false;
+			const def = { ...host.subset.def, name };
+			host.edit(`Save the filter “${name}”`, { kind: 'save', def });
+			host.apply(def);
+			this.draw();
+		};
+		input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); commit(); } });
+		save.addEventListener('click', commit);
+		window.setTimeout(() => input.focus());
 	}
 
 	/** Which control had the keyboard, to give it back after a redraw. */

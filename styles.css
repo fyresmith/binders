@@ -7277,3 +7277,34 @@ body:not(.is-phone) .binders-snapshots .sync-history-content {
 	font-size: var(--font-ui-smaller);
 	font-style: italic;
 }
+
+/* ---- Saved filters in the popover ---- */
+
+.binders-filter-menu .bases-toolbar-items .suggestion-group {
+	padding-top: 0;
+}
+
+.binders-filter-menu .bases-toolbar-menu-item {
+	cursor: var(--cursor);
+}
+
+.binders-filter-menu .binders-filter-tick {
+	width: var(--icon-s);
+	flex: none;
+}
+
+input.binders-filter-name {
+	flex: 1 1 auto;
+	min-width: 0;
+	height: var(--input-height);
+}
+
+.binders-filter-said.mod-error {
+	flex-basis: 100%;
+	color: var(--text-error);
+}
+
+.binders-filter-foot .text-icon-button.is-disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}

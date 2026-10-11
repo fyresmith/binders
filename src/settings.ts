@@ -4,6 +4,8 @@ import { DEFAULT_SETTINGS, FOCUS_TEXT, FOCUS_TOGGLES, focusToggles, PARAGRAPH_TE
 import { parseGoal } from './focus/session';
 import { COMPILE_PROP, EXPORT_PROP } from './scenes';
 import { DEFAULT_LABELS, DEFAULT_STATUSES, PALETTE, colorCss, display, freeName, hexColor } from './view/labels';
+import { renameValue } from './filter/saved';
+import { readProperties } from './properties';
 import { confirm } from './view/modals';
 import { KINDS, forgetPlaces, places } from './export/export';
 
@@ -110,7 +112,7 @@ export class BindersSettingTab extends PluginSettingTab {
 		const { app, plugin } = this, prop = kind === 'label' ? this.s.labelProp : this.s.statusProp;
 		const has = (v: unknown) => typeof v === 'string' && v.trim().toLowerCase() === old.toLowerCase();
 		const notes = app.vault.getMarkdownFiles().filter((f) => plugin.binders.binderOf(f) && has(app.metadataCache.getFileCache(f)?.frontmatter?.[prop]));
-		if (!notes.length) return;
+		if (!notes.length) { await this.renameInFilters(kind, old, now); return; }
 		const ok = await confirm(app, {
 			title: `Rename the ${kind} in your notes`,
 			text: `${notes.length === 1 ? 'One note has' : `${notes.length} notes have`} the ${kind} “${old}”. Change it to “${now}” there too? Otherwise ${notes.length === 1 ? 'it keeps' : 'they keep'} “${old}”, which is no longer in this list.`,
@@ -120,6 +122,21 @@ export class BindersSettingTab extends PluginSettingTab {
 		let failed = 0;
 		for (const f of notes) { try { await plugin.binders.setProps(f, { [prop]: now }); } catch { failed++; } }
 		if (failed) new Notice(`${failed} ${failed === 1 ? 'note' : 'notes'} couldn’t be changed.`);
+		await this.renameInFilters(kind, old, now);
+	}
+
+	/** The saved filters of every binder that name the old status or label take the new name, in the same pass as the notes (a filter
+	    kept with the old name would show nothing). Only their conditions' values are written, in the binder note's `filters`. */
+	private async renameInFilters(kind: 'label' | 'status', old: string, now: string): Promise<void> {
+		const { plugin } = this;
+		for (const b of plugin.binders.all()) {
+			if (b.kind !== 'binder' || b.problem) continue;
+			try {
+				const raw = (await readProperties(this.app, b.note)).filters;
+				const out = renameValue(raw, { status: this.s.statusProp, label: this.s.labelProp }, kind, old, now);
+				if (out) await plugin.binders.setProps(b.note, { filters: out });
+			} catch { /* the binder note can't be written: its filters keep the old name */ }
+		}
 	}
 
 	/** A name typed into a list's row: taken when the field is left (or Enter), put back by Escape. */

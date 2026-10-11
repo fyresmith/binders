@@ -5,6 +5,8 @@ import { applyOps, checkFormat, diskList, FORMAT_VERSION, isBinderNote, isFolder
 import { editProperties, readProperties } from './properties';
 import { nextName, parts } from './scene-text';
 import { COMPILE_PROP, EXPORT_PROP, saveOpen } from './scenes';
+import { editFilters, type FilterEdit } from './filter/saved';
+import { readDefs, type FilterDef } from './filter/conditions';
 import { History } from './history/history';
 import { OrderHandler } from './history/order';
 import { PropsHandler } from './history/props';
@@ -731,6 +733,40 @@ export class BinderStore extends Events implements ExplorerSource {
 			if (changes.length && binder && !binder.problem) this.history.record({ note: binder.note, label, steps: [{ kind: 'props', changes, what }] });
 			if (failed) throw failed;
 		})());
+	}
+
+	// ---- saved filters (the binder note's `filters`; filter/saved.ts) ----
+
+	/** A binder's saved filters, as its note says now (none for a Longform project, which keeps none). */
+	savedFilters(binder: Binder): FilterDef[] {
+		return binder.kind === 'binder' ? readDefs(this.app.metadataCache.getFileCache(binder.note)?.frontmatter?.filters) : [];
+	}
+	/** Why filters can't be saved in this binder, in words, or null. */
+	whyNoFilters(binder: Binder): string | null {
+		return binder.kind !== 'binder' ? 'A Longform project keeps no filters: convert it to a binder to save one.' : binder.problem ? 'This binder was made by a newer version of Binders: it is read only.' : null;
+	}
+	/** What `filters` should hold after an edit: from what the disk says now, never from what was read before. */
+	private async filtersPatch(binder: Binder, op: FilterEdit): Promise<Record<string, unknown>> {
+		const why = this.whyNoFilters(binder);
+		if (why) throw new Error(why);
+		const list = editFilters((await readProperties(this.app, binder.note)).filters, op);
+		return { filters: list.length ? list : undefined };
+	}
+	/** Saves, renames, duplicates, deletes or moves a saved filter as the writer did by hand: only the binder note's `filters`
+	    is written (its other properties, `contents` and the rest, are never touched), as one change that "Undo" takes back.
+	    Resolves false if nothing changed. */
+	async editFilters(binder: Binder, label: string, op: FilterEdit): Promise<boolean> {
+		const patch = await this.filtersPatch(binder, op);
+		if (sameValue((await readProperties(this.app, binder.note)).filters, patch.filters)) return false;
+		await this.setByHand(label, [{ note: binder.note, patch }], { filters: 'the saved filters' });
+		return true;
+	}
+	/** Writes the conditions of a saved filter changed in the popover: what is written as it is changed is not a step of its
+	    own to take back (a step for each pick would bury the writer's own). */
+	async updateFilter(binder: Binder, name: string, def: FilterDef): Promise<void> {
+		const patch = await this.filtersPatch(binder, { kind: 'update', name, def });
+		if (sameValue((await readProperties(this.app, binder.note)).filters, patch.filters)) return;
+		await this.setProps(binder.note, patch);
 	}
 
 	/** Gives a note or folder a new name, as the writer did by hand: one change that "Undo" takes back. Throws, with why,

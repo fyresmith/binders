@@ -1,4 +1,5 @@
-import type { App, TFile } from 'obsidian';
+import type { App, TFile, TFolder } from 'obsidian';
+import type { Binder } from '../binders';
 import type BindersPlugin from '../main';
 import { COMPILE_PROP, EXPORT_PROP } from '../scenes';
 import { readState, writeState, type StateProps } from '../filter/filter';
@@ -212,4 +213,12 @@ export class Subset {
 		for (const f of FILE) out.push({ ...f, own: true, values: f.id === 'file.folder' ? inUse(f.id, 'text') : [] });
 		return out;
 	}
+}
+
+/** A seam for what comes next (export of a subset, a read-through of synopses): the notes of a folder that pass a filter, in
+    manuscript order. `words` is what a note's `file.words` condition reads (none known: such a condition then fails). */
+export function subsetOf(plugin: BindersPlugin, binder: Binder, folder: TFolder, filter: FilterDef, words: (f: TFile) => number | null = () => null): TFile[] {
+	const s = new Subset(plugin, () => plugin.binders.scenes(binder.folder), words);
+	s.def = filter;
+	return plugin.binders.scenes(folder).filter((f) => s.matches(f));
 }
