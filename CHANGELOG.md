@@ -77,6 +77,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - Undoing a group, an ungroup or a new folder no longer trashes a note that was moved into that folder at the same moment: the folder stays, with the note in it.
 - In the outliner, a hidden column keeps its width for when it is shown again.
 - In the outliner, Home takes the view to the top, not just the first row into sight.
+- Undoing a split, and snapshots following a moved note, no longer trash a file that arrives in the emptied folder at the same moment.
 
 ## 0.51.1 (2026-10-10)
 

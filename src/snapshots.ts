@@ -1,4 +1,5 @@
 import { MarkdownView, TFile, TFolder, normalizePath, type App, type Editor } from 'obsidian';
+import { removeEmptyFolder } from './folder-remove';
 import type { Binder } from './binders';
 import type BindersPlugin from './main';
 import { frontFor, lf, parts } from './scene-text';
@@ -214,7 +215,7 @@ export async function followSnapshots(app: App, from: string, to: string, what: 
 	for (const c of mine) {
 		if (c instanceof TFolder) {
 			// (a folder of the same name there already: what's in this one goes in beside what's in that)
-			if (app.vault.getAbstractFileByPath(`${dest}/${c.name}`)) { await followSnapshots(app, c.path, `${dest}/${c.name}`, 'note'); await followSnapshots(app, c.path, `${dest}/${c.name}`, 'folder'); if (!c.children.length) await app.fileManager.trashFile(c).catch(() => { /* it stays, empty */ }); }
+			if (app.vault.getAbstractFileByPath(`${dest}/${c.name}`)) { await followSnapshots(app, c.path, `${dest}/${c.name}`, 'note'); await followSnapshots(app, c.path, `${dest}/${c.name}`, 'folder'); if (!c.children.length) await removeEmptyFolder(app, c); /* (never with what arrives in that moment: it stays, if anything does) */ }
 			else await app.vault.rename(c, `${dest}/${c.name}`);
 		} else if (c instanceof TFile) {
 			let name = c.basename;
@@ -223,7 +224,7 @@ export async function followSnapshots(app: App, from: string, to: string, what: 
 		}
 	}
 	// (the folder they left, if it's empty now, goes: it held nothing else)
-	if (!old.children.length) await app.fileManager.trashFile(old).catch(() => { /* it stays, empty */ });
+	if (!old.children.length) await removeEmptyFolder(app, old);
 	return true;
 }
 

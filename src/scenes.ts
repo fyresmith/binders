@@ -1,4 +1,5 @@
 import type { Extension } from '@codemirror/state';
+import { removeEmptyFolder } from './folder-remove';
 import { EditorView } from '@codemirror/view';
 import { MarkdownView, Notice, Platform, TFile, TFolder, editorInfoField, normalizePath, parseYaml, stringifyYaml, type App, type Editor, type TAbstractFile } from 'obsidian';
 import type BindersPlugin from './main';
@@ -381,7 +382,7 @@ async function settleSplit(plugin: BindersPlugin, s: Split, editor: Editor | nul
 		for (const { n, file } of present) { await app.fileManager.trashFile(file); n.made = null; }
 		// (the folder the split made for them goes too, if nothing else is in it)
 		const into = s.folder?.made;
-		if (into && app.vault.getAbstractFileByPath(into.path) === into && !(store.orderedChildren(into) ?? []).length) await app.fileManager.trashFile(into).catch((): void => undefined);
+		if (into && app.vault.getAbstractFileByPath(into.path) === into && !(store.orderedChildren(into) ?? []).length) await removeEmptyFolder(app, into);
 		if (s.folder) s.folder.made = null;
 	} catch (e) { say(e); }
 }
