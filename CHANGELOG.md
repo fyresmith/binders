@@ -31,6 +31,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - Importing a note or Word file: a chapter folder whose heading is too long or odd to be its name no longer loses the end of the heading; it is the first line of the folder’s first note.
 - Undoing a split no longer drops a byte-order mark from the note.
 - A split with the cursor just after a paragraph’s tab now keeps the tab with its paragraph in the new note.
+- A split inside a code block now closes the fence in the first note and opens it again in the new one, so each half’s fences are in pairs.
 
 ## 0.51.1 (2026-10-10)
 

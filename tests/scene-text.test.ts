@@ -1,4 +1,4 @@
-import { COMPILE_DEFAULTS, blockIsText, bodyStart, compile, forRender, frontFor, joinBodies, linkTargets, moved, nextName, parts, pointsAt, repointLinks, splitAt, lineIndentStart, stripComments, synopsisFrom, tidyHead, tidyTail, titleFrom, uniqueFootnotes, useYaml, type CompileItem } from '../src/scene-text';
+import { COMPILE_DEFAULTS, blockIsText, bodyStart, compile, forRender, frontFor, joinBodies, linkTargets, moved, nextName, parts, pointsAt, repointLinks, splitAt, openFence, lineIndentStart, stripComments, synopsisFrom, tidyHead, tidyTail, titleFrom, uniqueFootnotes, useYaml, type CompileItem } from '../src/scene-text';
 import { done, eq, ok } from './harness';
 
 const NOTE = '---\nsynopsis: Mara arrives.\nstatus: draft\n---\nThe boat left her on the jetty.\n\nShe had two cases.\n';
@@ -278,6 +278,18 @@ eq(repointLinks('Spaced [[ Storm warning ]], [[ Storm warning#Part |the storm]] 
 	for (const [a, b] of [['abc', 'abXc'], ['abXc', 'abc'], ['aaaa', 'aa'], ['aa', 'aaaa'], ['abc', 'xyz'], ['', 'x'], ['x', '']]) {
 		for (let p = 0; p <= a.length; p++) { const q = moved(a, b, p); ok(q >= 0 && q <= b.length, `${JSON.stringify(a)} to ${JSON.stringify(b)}, from ${p}: inside the text (${q})`); }
 	}
+}
+
+// a split inside a fenced code block closes the fence in the first half and opens it again in the second
+{
+	eq(openFence('Intro.\n\n```\nline one\n'), '```', 'inside a backtick fence');
+	eq(openFence('~~~~\ncode\n'), '~~~~', 'a longer tilde fence');
+	eq(openFence('```\ncode\n```\nafter\n'), null, 'a closed fence is no fence');
+	eq(openFence('```\ncode\n~~~\nmore\n'), '```', 'the other kind of fence does not close it');
+	eq(openFence('````\n```\nstill code\n'), '````', 'a shorter fence does not close it');
+	eq(openFence('Some `inline` and ```not a fence``` here\n'), null, 'inline code is not a fence');
+	eq(openFence('```js\r\ncode\r\n'), '```', 'with an info string and Windows line breaks');
+	eq(openFence('    ```\nindented code\n'), null, 'four spaces make it indented code, not a fence');
 }
 
 // a split with the cursor in a line's own indent starts the new note at the line, so the indent goes with its text

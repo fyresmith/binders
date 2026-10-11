@@ -2,7 +2,7 @@ import type { Extension } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { MarkdownView, Notice, Platform, TFile, TFolder, editorInfoField, normalizePath, parseYaml, stringifyYaml, type App, type Editor, type TAbstractFile } from 'obsidian';
 import type BindersPlugin from './main';
-import { compile, frontFor, joinBodies, lf, lineIndentStart, linkTargets, nextName, parts, pointsAt, repointLinks, synopsisFrom, tidyHead, tidyTail, titleFrom, useYaml, type CompileItem, type CompileOptions } from './scene-text';
+import { compile, frontFor, joinBodies, lf, lineIndentStart, linkTargets, openFence, nextName, parts, pointsAt, repointLinks, synopsisFrom, tidyHead, tidyTail, titleFrom, useYaml, type CompileItem, type CompileOptions } from './scene-text';
 import { COMPILED_KEPT } from './settings-data';
 import { untab } from './paragraphs/text';
 import { saveEditors, saveTab } from './view/editable-embed';
@@ -132,7 +132,8 @@ export async function splitScene(plugin: BindersPlugin, editor: Editor, file: TF
 	const cut = tidyTail(s.tail, offset > 0 && !/[\r\n]/.test(text[offset - 1]));
 	if (!cut.trim()) { new Notice('There’s nothing after that point to split off.'); return null; }
 	if (!s.head.slice(front.length).trim()) { new Notice('There’s nothing before that point: the whole note would move.'); return null; }
-	const tail = cut;
+	// (a split inside a code block closes the fence in the first note and opens it again in the new one)
+	const fence = openFence(s.head.slice(front.length)), tail = fence ? `${fence}\n${cut}` : cut;
 	const taken = (n: string) => n === folder.name || !!app.vault.getAbstractFileByPath(normalizePath(`${folder.path}/${n}.md`));
 	let title = titled ? titleFrom(editor.getSelection()) : nextName(file.basename, taken);
 	if (!title) { new Notice('Select the words to name the new note with.'); return null; }
@@ -151,7 +152,7 @@ export async function splitScene(plugin: BindersPlugin, editor: Editor, file: TF
 		const made = await store.newScene(folder, after.index > 0 ? after.index : Infinity, title, after.depth, content);
 		if (editor.getValue() !== text) throw new Error('This note changed while it was being split. Both notes were kept; nothing was removed.');
 		// only now, with the second half in a note of its own, does the first let go of it
-		const head = tidyHead(s.head);
+		const head = tidyHead(s.head) + (fence ? `${fence}\n` : '');
 		let k = 0;
 		while (k < head.length && k < text.length && head[k] === text[k]) k++;
 		editor.replaceRange(head.slice(k), editor.offsetToPos(k), editor.offsetToPos(text.length));

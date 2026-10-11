@@ -131,6 +131,19 @@ export function splitAt(text: string, offset: number): { head: string; tail: str
 
 /** The text a split leaves in the first note: as it was up to the split, ending in one line break. */
 export const tidyHead = (head: string): string => (parts(head).body.trim() ? head.replace(/\s+$/, '') + '\n' : head.replace(/[ \t]+$/, ''));
+/** The fence (``` or ~~~, as long as it was opened) that a text ends inside, or null. A split inside a code block closes
+    it in the first note and opens it again in the new one, so each half keeps its fences in pairs. */
+export function openFence(text: string): string | null {
+	let open: { ch: string; n: number } | null = null;
+	for (const line of text.split('\n')) {
+		const m = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(line.replace(/\r$/, ''));
+		if (!m) continue;
+		const ch = m[1][0], n = m[1].length;
+		if (!open) { if (ch === '`' && m[2].includes('`')) continue; open = { ch, n }; } else if (ch === open.ch && n >= open.n && !m[2].trim()) open = null;
+	}
+	return open ? open.ch.repeat(open.n) : null;
+}
+
 /** Where a split at `offset` really starts: at the start of its line when only the line's own indent comes before it (a
     cursor just after a paragraph's tab), so the indent goes with its text; else where it is. */
 export function lineIndentStart(text: string, offset: number): number {
