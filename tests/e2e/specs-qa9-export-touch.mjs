@@ -153,6 +153,8 @@ test('a tablet: a slider dragged by touch changes its value and shows it once', 
 			const v0 = await p.ev(`document.querySelector(${j(sel)}).value`);
 			const page0 = await p.ev(`(document.querySelector('${WIN} .binders-export-pane')?.innerHTML ?? '')`);
 			await dragSlider(p, sel, 0.1, 0.9);
+			// (the preview is drawn a moment after the value moves: wait for it, as long as a loaded machine takes)
+			await until(p, `(document.querySelector('${WIN} .binders-export-pane')?.innerHTML ?? '') !== ${j(page0)}`, 4000);
 			const page1 = await p.ev(`(document.querySelector('${WIN} .binders-export-pane')?.innerHTML ?? '')`);
 			t.ok(page0 !== page1, key + ': the preview beside the editor changes when the slider moves');
 			const v1 = await p.ev(`document.querySelector(${j(sel)}).value`);

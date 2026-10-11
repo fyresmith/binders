@@ -1865,7 +1865,7 @@ test('palette: with nothing open, only the commands that need nothing are offere
 	t.eq(Object.values(av).filter((v) => typeof v === 'string').length, 0, 'no command throws when asked if it applies: ' + j(Object.entries(av).filter(([, v]) => typeof v === 'string')));
 	t.ok(on.includes('new-binder'), 'New binder is offered');
 	// (the same four as on a phone: “phone commands: the palette offers…” in specs-qa5-nav)
-	t.eq(j([...on].sort()), j(['import-manuscript', 'import-scrivener', 'new-binder', 'show-contents', 'show-inspector']), 'what makes a binder (new, or from Scrivener or a manuscript) and the two sidebar tabs, and nothing else');
+	t.eq(j([...on].sort()), j(['import-manuscript', 'import-scrivener', 'new-binder', 'show-contents', 'show-inspector', 'show-revision']), 'what makes a binder (new, or from Scrivener or a manuscript) and the three sidebar tabs, and nothing else');
 	t.ok(!on.some((x) => ['open-binder', 'show-corkboard', 'show-outliner', 'show-manuscript', 'make-binder', 'new-scene', 'set-target', 'split-scene', 'take-snapshot', 'move-up', 'move-down'].includes(x)), 'and the ones that need a note or a view are not: ' + on.join(', '));
 	const before = await p.ev(`app.vault.getRoot().children.filter(f => f.children).map(f => f.path).sort()`);
 	t.ok(await runCommand(p, 'binders:new-binder') !== undefined, 'New binder runs');
@@ -2030,6 +2030,7 @@ test('keyboard: a card’s menu from the keyboard (the Menu key, Shift+F10): arr
 	await fresh(p);
 	await foot(p, CARD(L + 'Epilogue.md'));
 	t.ok((await focusIs(p)).includes('binders-card'), 'a card has the focus');
+	await p.move(3, 3, 2); // (the pointer left on the card would be under the menu's items, and hovering one opens its submenu)
 	await p.key('ContextMenu');
 	await p.sleep(300);
 	t.ok(await p.ev(`!!document.querySelector('.menu')`), 'the Menu key opens the card’s menu');
