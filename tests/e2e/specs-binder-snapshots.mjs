@@ -325,11 +325,14 @@ test('a stretch that is the same folds to a line that opens; a folder in which n
 	const got = await tree(p);
 	t.eq(j(got), j(['(2 items the same)', 'Part Two | 8 notes', '(4 notes the same)', 'Extra 3 | +1 word', '(3 notes the same)', 'Epilogue | 6']), 'what is the same, on either side of what changed, is a line each; one item alone that is the same is shown: ' + j(got));
 	await clickIn(p, DLG + ' .binders-folder-snapshots-folded', '4 notes the same');
+	await until(p, `[...document.querySelectorAll(${j(DLG + ' .binders-folder-snapshots-tree .tree-item-inner')})].some((e) => e.textContent === 'Extra 2')`);
 	t.eq(j((await tree(p)).slice(2, 7).map((x) => x.split(' | ')[0])), j(['The wreck', 'Lights out', 'Extra 1', 'Extra 2', 'Extra 3']), 'a click opens the line into its notes');
 	await clickIn(p, DLG + ' .binders-folder-snapshots-folded', '2 items the same');
+	await until(p, `[...document.querySelectorAll(${j(DLG + ' .binders-folder-snapshots-tree .tree-item-inner')})].some((e) => e.textContent === 'Prologue')`);
 	t.eq(j((await tree(p)).slice(0, 3).map((x) => x.split(' | ')[0])), j(['Prologue', 'Part One', 'Part Two']), 'the other line opens into a note and a folder, and the folder, in which nothing changed, is shut');
 	t.eq(await p.ev(`[...document.querySelectorAll(${j(DLG + ' .tree-item-self')})].find(e => e.textContent.startsWith('Part One')).getAttribute('aria-expanded')`), 'false', 'and says it is shut');
 	await treeRow(p, 'Part One');
+	await until(p, `[...document.querySelectorAll(${j(DLG + ' .binders-folder-snapshots-tree .tree-item-inner')})].some((e) => e.textContent === 'Arrival')`);
 	t.eq(j((await tree(p)).slice(2, 5).map((x) => x.split(' | ')[0])), j(['Arrival', 'The keeper', 'Storm warning']), 'a click opens it');
 });
 
@@ -886,7 +889,7 @@ test('the snapshot taken first is the newest one itself when that already holds 
 
 const JOURNAL = SN + '/Bringing back.binder-journal';
 const CUT = '.modal.binders-folder-snapshots-interrupted';
-const allFolders = (p) => p.ev(`app.vault.getAllLoadedFiles().filter(f => f.children && f.path !== '/').map(f => f.path).sort()`);
+const allFolders = (p) => p.ev(`app.vault.getAllLoadedFiles().filter(f => f.children && f.path !== '/' && !f.path.endsWith('/Snapshots/History')).map(f => f.path).sort()`);
 /** Every note that was there is, byte for byte, the file it was, at the path it had (but the ones named). */
 function back(t, then, after, { but = [], as = 'the file the snapshot holds' } = {}) { for (const [path, hexed] of Object.entries(then)) if (!but.includes(path)) t.eq(after[path], hexed, `“${path}” is byte for byte ${as}`); }
 /** The notes that are there now and weren't. */
@@ -1076,7 +1079,7 @@ test('“Everything”, folders: a folder that is gone is made again with its ow
 	t.ok(textOf(after[NOTE]).includes('# the order of the book'), '(the binder note is the snapshot’s bytes: the comment is there again)');
 	t.eq(j(added(then, after)), j([]), 'no note is there that wasn’t');
 	t.eq(j(await allFolders(p)), j(thenFolders), 'the folders are the folders there were');
-	const now = await allFiles(p), made = now.filter((f) => !thenFiles.includes(f));
+	const now = await allFiles(p), made = now.filter((f) => !thenFiles.includes(f) && !f.startsWith(SN + '/History/'));
 	t.ok(made.length === 2 && made.includes(JOURNAL) && made.some((f) => AUTO.test(f.slice(SN.length + 1))) && thenFiles.every((f) => now.includes(f)), 'every file that was there is there; besides, only the snapshot taken first and the plan: ' + j(made));
 	t.eq(j(await contents(p)), j(thenOrder), 'and the order is the order it had');
 	t.eq(j(await ordered(p, P2)), j(['The wreck.md', 'Lights out.md']), 'the folder made again has its notes in their order');

@@ -673,7 +673,7 @@ test('a note dropped on the middle of a stack goes into that folder, at its end;
 	t.eq(j(await cards(p)), j(BOARD.slice(0, 3)), 'its card is off this board');
 	t.eq(await p.ev(`document.querySelector('${card(L + 'Part Two')} .binders-card-words').textContent`), '3 notes · 34 words', 'and the stack counts it');
 	// undone
-	t.eq(await undo(p), 'Binders: Undo last move', 'there is a move to undo');
+	t.eq(await undo(p), 'Binders: Undo last change', 'there is a move to undo');
 	await until(p, `app.vault.adapter.exists('The Lighthouse/Epilogue.md')`);
 	await flush(p);
 	t.ok(!(await exists(p, L + 'Part Two/Epilogue.md')), 'undone: the note is out of Part Two');
@@ -683,7 +683,7 @@ test('a note dropped on the middle of a stack goes into that folder, at its end;
 	await until(p, `document.querySelectorAll('.workspace-leaf.mod-active .binders-card[data-path]').length === 4`);
 	t.eq(j(await cards(p)), j(BOARD), 'the board shows it where it was');
 	// and done again
-	t.eq(await undo(p, true), 'Binders: Redo last move', 'and to redo');
+	t.eq(await undo(p, true), 'Binders: Redo last change', 'and to redo');
 	await until(p, `app.vault.adapter.exists('The Lighthouse/Part Two/Epilogue.md')`);
 	await flush(p);
 	t.eq(j((await contents(p)).slice(-2)), j(['Part Two/Lights out', 'Part Two/Epilogue']), 'redone: last in Part Two again');

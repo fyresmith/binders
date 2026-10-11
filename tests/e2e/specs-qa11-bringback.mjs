@@ -137,7 +137,7 @@ test('notes deleted since, a folder deleted with notes in it, and a note made si
 		{ path: 'Keep.md', text: 'Keep text.\\n' },
 		{ path: 'Doomed/Inside one.md', text: 'Inside one text.\\n\\nSecond.\\n\\nThird.\\n' },
 		{ path: 'Doomed/Inside two.md', text: 'Inside two text.\\n' },
-		{ path: 'Lone.md', text: 'Lone original text.\\n\\nIts second paragraph.\\n\\nIts third.\\n' }
+		{ path: 'Lone.md', text: 'Lone original text.\\n\\nThe old second paragraph.\\n\\nThe old third.\\n' }
 	]`);
 	await snap(p, 'Gone', 'Gone draft');
 	const before = await everything(p);
