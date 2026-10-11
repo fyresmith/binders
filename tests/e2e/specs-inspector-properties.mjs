@@ -717,3 +717,20 @@ test('folder and binder: the pinned rows show a folder’s own note’s values, 
 	const now = lf(await read(p, NOTE));
 	t.ok(/^pov: Whole book$/m.test(now) && now.replace(/^pov: Whole book\n/m, '') === was, 'the binder note has the value and is otherwise as it was');
 });
+
+// ---- the pane's own “Include in export” box with several notes ----
+
+test('include in export: a mixed selection shows a box Obsidian’s stylesheet draws as mixed', async (p, h, t) => {
+	await writeRaw(p, KEEPER, (await read(p, KEEPER)).replace(/^---\n/, '---\nexport: false\n'));
+	await p.sleep(400);
+	await open(p);
+	await clickCard(p, ARRIVAL);
+	await clickCard(p, KEEPER, { modifiers: 2 });
+	await until(p, `document.querySelector(${j(I + ' .binders-inspector-name')})?.textContent === '2 notes selected'`, 4000);
+	const box = await p.ev(`(() => { const b = document.querySelector(${j(fieldSel('export'))}); return b && { indeterminate: b.indeterminate, attr: b.getAttribute('data-indeterminate'), checked: b.checked }; })()`);
+	t.ok(box && box.indeterminate === true, 'the box is indeterminate for the browser: ' + JSON.stringify(box));
+	t.eq(box?.attr, 'true', 'and for Obsidian’s stylesheet, which draws data-indeterminate');
+	// a note set the same: not mixed
+	await clickCard(p, ARRIVAL);
+	t.eq(await p.ev(`document.querySelector(${j(fieldSel('export'))}).getAttribute('data-indeterminate')`), null, 'one note: not mixed');
+});

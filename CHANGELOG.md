@@ -48,6 +48,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - A split inside a code block now closes the fence in the first note and opens it again in the new one, so each half’s fences are in pairs.
 - A note with Windows (CR LF) line endings keeps them when Binders writes a property to it.
 - A filter that left a board with the same cards, as in an empty folder, now shows that nothing matches.
+- The Include in export box in the inspector is now drawn as mixed when the selected notes differ.
 
 ## 0.51.1 (2026-10-10)
 

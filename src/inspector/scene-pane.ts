@@ -251,6 +251,8 @@ export class ScenePane {
 		box.dataset.field = 'export';
 		box.checked = inc === items.length;
 		box.indeterminate = inc > 0 && inc < items.length;
+		// (Obsidian's stylesheet draws a mixed box from this attribute, not from the DOM's own flag)
+		if (box.indeterminate) box.setAttr('data-indeterminate', 'true');
 		box.disabled = ro;
 		box.addEventListener('change', () => void setExported(ctx, items, box.checked));
 
