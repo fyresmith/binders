@@ -20,8 +20,9 @@ import type { BinderMode, ModeContext, SceneProps } from './mode';
 import type { EditorView } from '@codemirror/view';
 import { WordCounter } from './word-counter';
 import { wordsLabel } from './words';
-import { FindBar, type At, type FindHost, type FindSource, type FindState, type Found } from './find-bar';
+import { FindBar, type At, type FindHost, type FindSource } from './find-bar';
 import { unpaint } from '../find/highlight';
+import { BoardFind } from './find-board';
 
 /* The binder view: one folder of a binder, shown as a corkboard, an outliner or a manuscript. The view owns the toolbar
    (breadcrumb, word count, filter, mode), the folder's synopsis and the subscriptions; the mode draws the rest (mode.ts).
@@ -584,7 +585,7 @@ export class BinderView extends ItemView {
 		this.wantFocus = false;
 		this.entered();
 		this.inspect();
-		this.watchBoard();
+		this.board.watch();
 		if (this.finder) { this.finder.el.toggleClass('is-wide', this.mode !== 'manuscript'); this.finder.rescope(); }
 	}
 
@@ -815,10 +816,8 @@ export class BinderView extends ItemView {
 	// ---- find and replace (find-bar.ts) ----
 
 	private finder: FindBar | null = null;
-	private finding: FindState | null = null;
-	private boardWatch: MutationObserver | null = null;
-	private boardRaf = 0;
-	private boardScroll: HTMLElement | null = null;
+	/** The marks on the boards for what the bar found (find-board.ts). */
+	private board = new BoardFind({ body: () => this.ui?.body ?? null, manuscript: () => this.mode === 'manuscript' });
 
 	/** Obsidian's own "Search current file" calls this on the view in front (and a section's editor hands its own over):
 	    the bar opens under the toolbar, over everything the view shows. `replace`: with its replace row. (This is a
@@ -828,7 +827,7 @@ export class BinderView extends ItemView {
 		const sel = this.contentEl.win.getSelection()?.toString() ?? '', cm = this.current?.editor?.();
 		const picked = cm ? cm.state.sliceDoc(cm.state.selection.main.from, cm.state.selection.main.to) : sel;
 		if (!this.finder) {
-			this.finder = new FindBar(this.findHost(), replace, () => { this.finder = null; this.finding = null; this.contentEl.removeClass('is-finding'); this.watchScroll(null); });
+			this.finder = new FindBar(this.findHost(), replace, () => { this.finder = null; this.board.stop(); this.contentEl.removeClass('is-finding'); });
 			this.ui.notice.before(this.finder.el);
 		} else if (replace && !this.finder.isReplacing) this.finder.setReplacing(true);
 		this.finder.el.toggleClass('is-wide', this.mode !== 'manuscript');
@@ -861,10 +860,10 @@ export class BinderView extends ItemView {
 				return first ? { id: first.path, offset: 0 } : null;
 			},
 			show: (state, go) => {
-				this.finding = state;
+				this.board.state = state;
 				if (!board()) { this.current?.found?.(state, go); return; }
-				this.markBoard();
-				this.watchScroll(state ? this.boardRoot() : null);
+				this.board.mark();
+				this.board.track(!!state);
 				const file = state?.at?.found.source.file;
 				if (go && file && this.current?.reveal) {
 					const doc = this.contentEl.doc, had = doc.activeElement as HTMLElement | null, inBar = !!had && !!this.finder?.el.contains(had);
@@ -884,106 +883,10 @@ export class BinderView extends ItemView {
 			replaceOne: (at: At, by: string) => this.current?.replaceFound?.(at, by) ?? Promise.resolve(false),
 			closed: (at) => {
 				unpaint(this);
-				this.markBoard();
+				this.board.mark();
 				if (!board() && this.current?.foundClosed) this.current.foundClosed(at); else this.current?.focus?.();
 			},
 		};
-	}
-
-	/** What scrolls on the boards (the corkboard's page, the outliner's). */
-	private boardRoot(): HTMLElement | null { return this.ui?.body.querySelector<HTMLElement>(':scope > .binders-outliner, :scope > .binders-corkboard') ?? null; }
-
-	/** The rows in sight are marked again as the page scrolls (only those: a row far off is marked as it comes near). */
-	private watchScroll(root: HTMLElement | null): void {
-		if (root === this.boardScroll) return;
-		this.boardScroll?.removeEventListener('scroll', this.onBoardScroll);
-		this.boardScroll = root;
-		root?.addEventListener('scroll', this.onBoardScroll, { passive: true });
-	}
-
-	private onBoardScroll = (): void => {
-		if (this.boardRaf || !this.finding) return;
-		const body = this.ui?.body;
-		if (body) this.boardRaf = body.win.requestAnimationFrame(() => { this.boardRaf = 0; this.markBoard(); });
-	};
-
-	/** The boards and the outliner: a card or row whose note has a match stays as it is, with the line the first match
-	    is in where its synopsis was; the rest step back. A folder's card or row stands for what is in it (and its card
-	    marks which of the notes it lists have a match). Only what is in sight, and a screen either side of it, is
-	    marked: five thousand rows are not worth drawing at once. */
-	private markBoard(): void {
-		const body = this.ui?.body, st = this.finding, on = !!st && this.mode !== 'manuscript' && !!st.query;
-		if (!body) return;
-		if (!on) {
-			for (const el of Array.from(body.querySelectorAll<HTMLElement>('.is-find-hit, .is-find-miss, .has-find-excerpt'))) { el.removeClasses(['is-find-hit', 'is-find-miss', 'has-find-excerpt']); el.querySelector('.binders-find-flair')?.remove(); el.querySelector('.binders-find-excerpt')?.remove(); }
-			body.removeClass('is-finding');
-			return;
-		}
-		// how many matches in each note, and in each folder above it
-		const by = new Map<string, Found>(), totals = new Map<string, number>();
-		for (const f of st.found) {
-			const file = f.source.file;
-			if (!file) continue;
-			by.set(file.path, f);
-			for (let t: TAbstractFile | null = file; t; t = t.parent) totals.set(t.path, (totals.get(t.path) ?? 0) + f.hits.length);
-		}
-		const band = (this.boardRoot() ?? body).getBoundingClientRect();
-		const all = Array.from(body.querySelectorAll<HTMLElement>('.binders-card[data-path], .binders-outliner-row[data-path]'));
-		// (the ones in sight, found by halving: cards and rows lie in the order they are read, so asking each one where it is
-		// would make the page lay itself out again after every one marked)
-		const lo = band.top - band.height, hi = band.bottom + band.height;
-		const first = (test: (el: HTMLElement) => boolean): number => { let a = 0, z = all.length; while (a < z) { const m = (a + z) >> 1; if (test(all[m])) z = m; else a = m + 1; } return a; };
-		const from = first((el) => el.getBoundingClientRect().bottom >= lo), to = first((el) => el.getBoundingClientRect().top > hi);
-		for (const el of all.slice(from, to)) {
-			const path = el.dataset.path ?? '', c = totals.get(path) ?? 0;
-			el.toggleClass('is-find-hit', c > 0);
-			el.toggleClass('is-find-miss', c === 0);
-			// a row says how many at its end, as a tree's row does (a card says nothing about itself that isn't the writer's)
-			const title = el.hasClass('binders-outliner-row') ? el.querySelector<HTMLElement>('.binders-outliner-cell') : null;
-			let flair = el.querySelector<HTMLElement>('.binders-find-flair');
-			if (c > 0 && title) {
-				flair ??= title.createSpan({ cls: 'binders-find-flair' });
-				if (flair.textContent !== c.toLocaleString()) flair.setText(c.toLocaleString());
-			} else flair?.remove();
-			// a folder's card lists some of its notes by name: the ones with a match say so
-			for (const item of Array.from(el.querySelectorAll<HTMLElement>('.binders-card-held-item[data-path]'))) {
-				const n = totals.get(item.dataset.path ?? '') ?? 0;
-				item.toggleClass('is-find-hit', n > 0);
-				item.toggleClass('is-find-miss', n === 0);
-			}
-			// a note's card or row shows the line the first match is in, where its synopsis is: why it is lit
-			const own = by.get(path), syn = el.querySelector<HTMLElement>('.binders-card-synopsis, .binders-outliner-synopsis');
-			let ex = el.querySelector<HTMLElement>('.binders-find-excerpt');
-			if (own && syn) {
-				const h = own.hits[0], t = own.text, key = `${st.query}\n${h.from}\n${t.length}`;
-				if (ex?.dataset.key !== key) {
-					ex?.remove();
-					ex = createDiv({ cls: 'binders-find-excerpt', attr: { 'data-key': key } });
-					const line = t.lastIndexOf('\n', h.from - 1) + 1, nl = t.indexOf('\n', h.to), end = Math.min(nl < 0 ? t.length : nl, h.to + 200);
-					// (a row has one line for it: it starts at the match, so that's in sight at any width)
-					let from = Math.max(line, h.from - (el.hasClass('binders-outliner-row') ? 0 : 48));
-					if (from > line) { const sp = t.indexOf(' ', from); if (sp >= 0 && sp < h.from) from = sp + 1; ex.appendText('… '); }
-					ex.appendText(t.slice(from, h.from));
-					ex.createSpan({ cls: 'search-result-file-matched-text', text: t.slice(h.from, h.to) });
-					ex.appendText(t.slice(h.to, end));
-					syn.after(ex);
-				}
-				el.addClass('has-find-excerpt');
-			} else { ex?.remove(); el.removeClass('has-find-excerpt'); }
-		}
-		body.addClass('is-finding');
-	}
-
-	/** The boards draw their cards again as the binder changes: what's marked is marked again after. */
-	private watchBoard(): void {
-		this.boardWatch?.disconnect();
-		const body = this.ui?.body;
-		if (!body) return;
-		this.boardWatch = new MutationObserver(() => {
-			if (!this.finding || this.mode === 'manuscript' || this.boardRaf) return;
-			this.boardRaf = body.win.requestAnimationFrame(() => { this.boardRaf = 0; this.markBoard(); });
-		});
-		this.boardWatch.observe(body, { childList: true, subtree: true });
 	}
 
 	private visible(file: TFile): boolean {

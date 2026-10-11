@@ -34,7 +34,8 @@ import type { Follow } from './inspector/follow';
 import { startWithTab } from './paragraphs/command';
 import { installParagraphs, type Paragraphs } from './paragraphs/paragraphs';
 import { isScene, leftovers } from './snapshots';
-import { FolderSnapshotsModal, showInterrupted, takeFolder } from './view/binder-snapshots';
+import { FolderSnapshotsModal, takeFolder } from './view/binder-snapshots';
+import { showInterrupted } from './view/bring-back';
 import { bringBackNow, deleteFolderSnapshot, folderSnapshots, hasSnapshots, makeFromSnapshot, nameFolderSnapshot, type FolderSnapshot } from './binder-snapshots';
 import { LeftoversModal, SNAPSHOT_VIEW, SnapshotView, SnapshotsModal, folderSnapshotItems, snapshotItems, startRewrite, take } from './view/snapshots';
 

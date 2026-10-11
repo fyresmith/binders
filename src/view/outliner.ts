@@ -1,20 +1,20 @@
-import { playedIn, type Played } from '../inspector/roles';
 import { exportAsItems, saidRole } from './export-as';
 import { Keymap, Menu, Notice, Platform, TFile, TFolder, setIcon, type EventRef, type TAbstractFile } from 'obsidian';
-import { isExported, emptyState, isNote, plain, itemMenu, labelItems, nameOf, noteOf, removeItems, renameItem, setAll, setExported, statusItems } from './actions';
+import { isExported, emptyState, plain, itemMenu, labelItems, nameOf, noteOf, removeItems, renameItem, setAll, setExported, statusItems } from './actions';
 import { movedText } from './lanes-data';
 import { GLIDE_QUICK, Press, glide, held, places, settle, visibleBottom } from './drag';
 import { FileDrag } from './file-drag';
 import { editable, type Editable } from './edit';
 import { readNotes, writeKeys, writeNotes } from './props';
 import { submenu } from './internals';
-import { labelDot, labelName, rank } from './labels';
+import { labelDot, labelName } from './labels';
 import type { BinderMode, ModeContext, ModeFactory, SceneProps } from './mode';
 import { OutlinerColumns, showUnder } from './outliner-columns';
 import { watchSize } from './windows';
-import { readStory, setStoryDate, storyPlace } from './props';
-import { compareStoryDates, compareStoryPlaces, parseStoryDate, showStoryDate, storyKey, whyNotStoryDate, type StoryDate, type StoryPlace } from '../time/date';
-import { TITLE, builtIn, columnName, columnWidth, compareValues, parseTarget, parseTyped, progress, propOf, readColumns, readSort, text, whyNotTarget, type ColumnSpec, type Sort } from './outliner-data';
+import { setStoryDate } from './props';
+import { parseStoryDate, showStoryDate, whyNotStoryDate } from '../time/date';
+import { TITLE, builtIn, columnName, columnWidth, parseTarget, parseTyped, progress, readColumns, readSort, text, whyNotTarget, type ColumnSpec, type Sort } from './outliner-data';
+import { OutlinerModel, type Row } from './outliner-model';
 import { wordsLabel } from './words';
 
 /* The outliner: the folder's notes and subfolders as rows of a tree, in binder order, with a column for each thing
@@ -30,11 +30,9 @@ export const outliner: ModeFactory = (container, ctx) => new Outliner(container,
 
 /** What this view keeps in the workspace (with the tab): its columns once changed, sorting, folded folders. */
 interface Prefs { columns?: unknown; synopsis?: unknown; sort?: unknown; collapsed?: unknown }
-interface Row { item: TFile | TFolder; depth: number }
 interface Drawn { el: HTMLElement; key: string; item: TAbstractFile; title: Editable; synopsis: Editable | null; target: Editable | null; fields: Map<string, Editable> }
 interface Place { folder: TFolder; anchor: TAbstractFile | null; depth?: number; hint: string; into: HTMLElement | null; line: { left: number; right: number; y: number } | null }
 
-const NO_PROPS: SceneProps = { synopsis: '', status: '', label: '', target: 0 };
 const EDGE = 48; // px from the outliner's edge where dragging scrolls it
 const date = (ms: number) => new Date(ms).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 
@@ -77,7 +75,12 @@ class Outliner implements BinderMode {
 	private moves: ((path: string) => string)[] = [];
 	private moved: EventRef | null = null;
 
-	constructor(private container: HTMLElement, private ctx: ModeContext) {}
+	/** The rows and what the columns hold (outliner-model.ts). */
+	private model: OutlinerModel;
+
+	constructor(private container: HTMLElement, private ctx: ModeContext) {
+		this.model = new OutlinerModel(ctx, { sort: () => this.sort, collapsed: () => this.collapsed });
+	}
 
 	private get store() { return this.ctx.store; }
 	private get ro(): boolean { return this.ctx.readOnly; }
@@ -272,7 +275,7 @@ class Outliner implements BinderMode {
 		if (this.canKeepSort) menu.addItem((i) => i.setSection('view').setTitle('Make this the binder order').setIcon('list-checks').onClick(() => void this.keepSort()));
 		if (this.rowsShown.some((r) => r.item instanceof TFolder)) {
 			menu.addItem((i) => i.setSection('view').setTitle('Expand all').setIcon('chevrons-up-down').onClick(() => this.setCollapsed([])));
-			menu.addItem((i) => i.setSection('view').setTitle('Collapse all').setIcon('chevrons-down-up').onClick(() => this.setCollapsed(this.folders(this.ctx.folder).map((f) => f.path))));
+			menu.addItem((i) => i.setSection('view').setTitle('Collapse all').setIcon('chevrons-down-up').onClick(() => this.setCollapsed(this.model.folders(this.ctx.folder).map((f) => f.path))));
 		}
 	}
 
@@ -283,30 +286,6 @@ class Outliner implements BinderMode {
 
 	// ---- the model ----
 
-	private children(folder: TFolder): (TFile | TFolder)[] {
-		return (this.store.orderedChildren(folder) ?? []).filter((f): f is TFile | TFolder => f instanceof TFolder || isNote(f));
-	}
-
-	/** Every subfolder under a folder, at any depth. */
-	private folders(folder: TFolder): TFolder[] {
-		const out: TFolder[] = [];
-		const walk = (f: TFolder) => { for (const c of this.children(f)) if (c instanceof TFolder) { out.push(c); walk(c); } };
-		if (!this.longform) walk(folder);
-		return out;
-	}
-
-	/** Items in the order the sort puts them (each folder's own items among themselves); binder order without one. */
-	private sorted<T extends TAbstractFile>(list: T[]): T[] {
-		const sort = this.sort;
-		if (!sort) return list;
-		// (story time: by date, then by time or `story-order` within a day; undated last whichever way it runs)
-		if (sort.id === 'storydate') {
-			const at = list.map((f, i) => ({ f, i, p: this.storyPlace(f) }));
-			return at.sort((a, b) => (a.p && b.p ? compareStoryPlaces(a.p, b.p) * sort.dir : a.p ? -1 : b.p ? 1 : 0) || a.i - b.i).map((x) => x.f);
-		}
-		return list.map((f, i) => ({ f, i, v: this.sortValue(f, sort.id) })).sort((a, b) => compareValues(a.v, b.v, sort.dir) || a.i - b.i).map((x) => x.f);
-	}
-
 	/** Can the order on screen be written down as the binder's? (Not a Longform project's: sorted, it shows without its
 	    indents, and writing that down would lose them.) */
 	private get canKeepSort(): boolean { return !!this.sort && !this.longform && !this.ctx.readOnly; }
@@ -316,7 +295,7 @@ class Outliner implements BinderMode {
 	private async keepSort(): Promise<void> {
 		const sort = this.sort;
 		if (!sort || !this.canKeepSort) return;
-		const folders = [this.ctx.folder, ...this.folders(this.ctx.folder)];
+		const folders = [this.ctx.folder, ...this.model.folders(this.ctx.folder)];
 		// (everything in view, in the order it shows: undoing puts each back beside the neighbour it had)
 		const all = folders.flatMap((f) => this.store.orderedChildren(f) ?? []);
 		if (!all.length) return;
@@ -324,7 +303,7 @@ class Outliner implements BinderMode {
 			await this.store.change(`Sort by ${columnName(sort.id).toLowerCase()}`, all, async () => {
 				for (const folder of folders) {
 					// (anything that isn't a note or a folder keeps its place after them)
-					const all = this.store.orderedChildren(folder) ?? [], notes = this.children(folder), want = [...this.sorted(notes), ...all.filter((f) => !(notes as TAbstractFile[]).includes(f))];
+					const all = this.store.orderedChildren(folder) ?? [], notes = this.model.children(folder), want = [...this.model.sorted(notes), ...all.filter((f) => !(notes as TAbstractFile[]).includes(f))];
 					if (want.every((f, i) => f === all[i])) continue;
 					// (in one step: a move apiece walks the whole list once for each note)
 					await this.store.reorder(folder, want);
@@ -332,102 +311,6 @@ class Outliner implements BinderMode {
 			});
 		} catch (e) { new Notice(plain(e)); return; }
 		this.setSort(null);
-	}
-
-	private rows(): Row[] {
-		const out: Row[] = [], sort = this.sort, collapsed = this.collapsed, filtering = this.ctx.filtering();
-		const sorted = <T extends TAbstractFile>(list: T[]): T[] => this.sorted(list);
-		if (this.longform) {
-			// one flat folder; scenes are indented as in Longform (sorted, they're one list)
-			const scenes = this.store.groups(this.ctx.folder).flatMap((g) => g.files.map((f) => ({ f, depth: g.depth }))).filter((s) => this.ctx.visible(s.f));
-			if (!sort) return scenes.map((s) => ({ item: s.f, depth: s.depth }));
-			return sorted(scenes.map((s) => s.f)).map((f) => ({ item: f, depth: 0 }));
-		}
-		const walk = (folder: TFolder, depth: number) => {
-			for (const c of sorted(this.children(folder))) {
-				if (c instanceof TFolder) {
-					// with a filter on, a folder shows for the notes in it that pass
-					if (filtering && !this.store.scenes(c).some((f) => this.ctx.visible(f))) continue;
-					out.push({ item: c, depth });
-					if (!collapsed.has(c.path)) walk(c, depth + 1);
-				} else if (this.ctx.visible(c)) out.push({ item: c, depth });
-			}
-		};
-		walk(this.ctx.folder, 0);
-		return out;
-	}
-
-	private props(item: TAbstractFile): SceneProps { const n = noteOf(this.ctx, item); return n ? this.ctx.props(n) : NO_PROPS; }
-	private frontmatter(item: TAbstractFile): Record<string, unknown> { const n = noteOf(this.ctx, item); return (n && this.ctx.app.metadataCache.getFileCache(n)?.frontmatter) || {}; }
-
-	/** The part an item plays in the book (inspector/roles.ts: worked out once for the binder, until something changes). */
-	private played(item: TAbstractFile): Played | null { return playedIn(this.ctx.plugin, this.ctx.binder).get(item.path) ?? null; }
-	/** Does the item itself say it is left out of an export (not a folder above it)? */
-	private leftOut(item: TAbstractFile): boolean { const fm = this.frontmatter(item); return fm.export === false || fm.compile === false; }
-
-	/** Words in a note, or in every note of a folder; null until they're all counted. */
-	private words(item: TAbstractFile): number | null {
-		if (item instanceof TFile) return this.ctx.words(item);
-		if (!(item instanceof TFolder)) return null;
-		let n = 0;
-		for (const f of this.scenesIn(item)) { const w = this.ctx.words(f); if (w == null) return null; n += w; }
-		return n;
-	}
-
-	/** The notes in a folder that show: all of them, or with a filter on, the ones that pass (so a folder's row adds
-	    up what's under it on screen, as the last row does). */
-	private scenesIn(folder: TFolder): TFile[] {
-		const all = this.store.scenes(folder);
-		return this.ctx.filtering() ? all.filter((f) => this.ctx.visible(f)) : all;
-	}
-
-	/** An item's target: its own, or for a folder without one, its notes' targets together (`own` false). */
-	private target(item: TAbstractFile): { n: number; own: boolean } {
-		const own = this.props(item).target;
-		if (own > 0 || !(item instanceof TFolder)) return { n: own, own: true };
-		return { n: this.scenesIn(item).reduce((a, f) => a + this.ctx.props(f).target, 0), own: false };
-	}
-
-	/** An item's story date as its property holds it. A folder without a date of its own takes the earliest of its notes'
-	    (`own` false): it is placed there, and not written. */
-	private story(item: TAbstractFile): { raw: unknown; date: StoryDate | null; own: boolean } {
-		const here = readStory(this.ctx.plugin, noteOf(this.ctx, item));
-		if (here.raw !== undefined || !(item instanceof TFolder)) return { ...here, own: true };
-		let first: StoryDate | null = null;
-		for (const f of this.scenesIn(item)) { const d = readStory(this.ctx.plugin, f).date; if (d && (!first || compareStoryDates(d, first) < 0)) first = d; }
-		return { raw: undefined, date: first, own: false };
-	}
-
-	/** Where an item is in story time: its date and order, a folder's by its earliest note when it has none. */
-	private storyPlace(item: TAbstractFile): StoryPlace | null {
-		const own = storyPlace(this.ctx.plugin, noteOf(this.ctx, item));
-		if (own || !(item instanceof TFolder)) return own;
-		const d = this.story(item).date;
-		return d ? { date: d, order: null } : null;
-	}
-
-	/** The property a column shows: a property's own column, or the notes (under the name settings give them). */
-	private propFor(id: string): string | null { return id === 'notes' ? this.settings.notesProp : propOf(id); }
-
-	private sortValue(item: TAbstractFile, id: string): unknown {
-		const p = this.props(item);
-		switch (id) {
-			case TITLE: return nameOf(item);
-			// in the order settings list them, then by name
-			case 'label': return p.label ? String(rank(p.label, this.settings.labels.map((l) => l.name))).padStart(4, '0') + labelName(p.label, this.settings.labels) : '';
-			case 'status': return p.status ? String(rank(p.status, this.settings.statuses)).padStart(4, '0') + p.status : '';
-			case 'words': return this.words(item);
-			case 'target': return this.target(item).n || null;
-			case 'progress': return progress(this.words(item), this.target(item).n);
-			case 'created': return item instanceof TFile ? item.stat.ctime : null;
-			case 'modified': return item instanceof TFile ? item.stat.mtime : null;
-			// (a note that has none, or something that isn't a date, comes last whichever way the column runs)
-			case 'storydate': { const d = this.story(item).date; return d ? storyKey(d) : null; }
-			case 'export': return isExported(this.ctx.plugin, item);
-			case 'role': return saidRole(this.played(item)).text;
-		}
-		const prop = this.propFor(id), v = prop ? this.frontmatter(item)[prop] : null;
-		return Array.isArray(v) ? text(v) : v;
 	}
 
 	/** The pane changing size while something is typed (a phone's keyboard coming up over it): the field stays in sight. */
@@ -473,7 +356,7 @@ class Outliner implements BinderMode {
 	}
 
 	private draw(): void {
-		const cols = this.columns(), rows = this.rows(), ro = this.ro, sort = this.sort, synopses = this.synopses, collapsed = this.collapsed;
+		const cols = this.columns(), rows = this.model.rows(), ro = this.ro, sort = this.sort, synopses = this.synopses, collapsed = this.collapsed;
 		const active = this.root.doc.activeElement;
 		const hadFocus = this.root.contains(active) && !active?.matches('input, textarea');
 		// a cell that has the focus (or its tick) keeps it through the redraw its own change brings
@@ -507,7 +390,7 @@ class Outliner implements BinderMode {
 		let at: ChildNode | null = this.body.firstChild;
 		for (const r of rows) {
 			const path = r.item.path, open = r.item instanceof TFolder && !collapsed.has(path);
-			const key = shared + JSON.stringify([path, r.depth, open, r.item instanceof TFolder && this.children(r.item).some((f) => this.isShown(f)), this.props(r.item), cols.map((c) => this.cellKey(r.item, c.id))]);
+			const key = shared + JSON.stringify([path, r.depth, open, r.item instanceof TFolder && this.model.children(r.item).some((f) => this.isShown(f)), this.model.props(r.item), cols.map((c) => this.model.cellKey(r.item, c.id))]);
 			const hit = this.drawn.get(path);
 			const row = hit && hit.key === key && hit.item === r.item && !drawn.has(path) ? hit : this.drawRow(r, cols, open, key);
 			drawn.set(path, row);
@@ -560,31 +443,14 @@ class Outliner implements BinderMode {
 		}
 	}
 
-	/** What a cell shows, for telling whether its row needs drawing again. */
-	private cellKey(item: TAbstractFile, id: string): unknown {
-		switch (id) {
-			case 'label': case 'status': return null; // in the row's props
-			case 'words': return this.words(item);
-			case 'target': return this.target(item);
-			case 'progress': return [this.words(item), this.target(item).n];
-			case 'created': return item instanceof TFile ? item.stat.ctime : null;
-			case 'modified': return item instanceof TFile ? item.stat.mtime : null;
-			case 'storydate': { const s = this.story(item); return [s.raw ?? null, s.own, s.date ? storyKey(s.date) : null]; }
-			case 'export': return [isExported(this.ctx.plugin, item), this.leftOut(item)];
-			case 'role': { const p = this.played(item); return p ? `${p.role}|${p.said ?? ''}` : null; }
-		}
-		const prop = this.propFor(id);
-		return prop ? this.frontmatter(item)[prop] ?? null : null;
-	}
-
 	private drawRow(r: Row, cols: ColumnSpec[], open: boolean, key: string): Drawn {
-		const item = r.item, folder = item instanceof TFolder, path = item.path, ro = this.ro, p = this.props(item);
+		const item = r.item, folder = item instanceof TFolder, path = item.path, ro = this.ro, p = this.model.props(item);
 		const el = createDiv({ cls: 'binders-outliner-row' + (folder ? ' is-folder' : ''), attr: { role: 'row', tabindex: '-1', 'data-path': path, 'aria-level': String(r.depth + 1), 'aria-selected': 'false', 'aria-label': nameOf(item) } });
 		if (folder) el.setAttr('aria-expanded', String(open));
 		el.setCssProps({ '--binders-ol-depth': String(r.depth) });
 		const cell = el.createDiv({ cls: 'binders-outliner-cell mod-title', attr: { role: 'gridcell', 'data-col': TITLE } });
 		const twisty = cell.createDiv({ cls: 'binders-outliner-chevron' + (folder ? ' collapse-icon' : ''), attr: { 'aria-hidden': 'true' } });
-		if (folder) { setIcon(twisty, 'right-triangle'); twisty.toggleClass('is-collapsed', !open); twisty.toggleClass('is-empty', !this.children(item).some((f) => this.isShown(f))); }
+		if (folder) { setIcon(twisty, 'right-triangle'); twisty.toggleClass('is-collapsed', !open); twisty.toggleClass('is-empty', !this.model.children(item).some((f) => this.isShown(f))); }
 		const main = cell.createDiv({ cls: 'binders-outliner-main' });
 		const title = editable(main, {
 			cls: 'binders-outliner-name', value: nameOf(item), placeholder: 'Title', label: 'Rename', singleLine: true, clickToEdit: false, readOnly: ro,
@@ -633,12 +499,12 @@ class Outliner implements BinderMode {
 				if (p.status) td.createSpan({ cls: 'binders-chip', text: p.status });
 				return null;
 			case 'words': {
-				const n = this.words(item);
+				const n = this.model.words(item);
 				if (n != null) td.createSpan({ cls: 'binders-outliner-value', text: n.toLocaleString(), attr: { 'aria-label': wordsLabel(n) } });
 				return null;
 			}
 			case 'target': {
-				const t = this.target(item);
+				const t = this.model.target(item);
 				td.toggleClass('is-total', !t.own);
 				// a folder without a target of its own shows its notes' targets together, until it's given one
 				return editable(td, {
@@ -655,7 +521,7 @@ class Outliner implements BinderMode {
 				});
 			}
 			case 'progress': {
-				const done = progress(this.words(item), this.target(item).n);
+				const done = progress(this.model.words(item), this.model.target(item).n);
 				if (done == null) return null;
 				const pct = Math.floor(done * 100);
 				const bar = td.createDiv({ cls: 'binders-progress' + (done >= 1 ? ' is-complete' : ''), attr: { role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(pct), 'aria-label': `${pct}% of its target` } });
@@ -664,7 +530,7 @@ class Outliner implements BinderMode {
 				return null;
 			}
 			case 'storydate': {
-				const s = this.story(item), said = s.raw === undefined || s.raw === null ? '' : text(s.raw);
+				const s = this.model.story(item), said = s.raw === undefined || s.raw === null ? '' : text(s.raw);
 				td.toggleClass('is-total', !s.own);
 				const field = editable(td, {
 					// (shown in words; typed as it is written, so a time is never lost to editing)
@@ -685,7 +551,7 @@ class Outliner implements BinderMode {
 			}
 			case 'role': {
 				// what it is in the book: said by hand, or (fainter) what the binder's shape makes it
-				const r = saidRole(this.played(item));
+				const r = saidRole(this.model.played(item));
 				if (!ro && !this.longform) td.addClass('is-menu');
 				if (r.text) td.createSpan({ cls: `binders-outliner-value binders-outliner-role${r.auto ? ' is-auto' : ''}`, text: r.text, attr: { 'aria-label': r.auto ? `${r.text}, automatic` : r.text } });
 				return null;
@@ -694,7 +560,7 @@ class Outliner implements BinderMode {
 				// ticked unless this note, or a folder it's in, is left out; a folder's tick is for everything in it
 				const box = td.createEl('input', { type: 'checkbox', attr: { 'aria-label': `Include ${nameOf(item)} in export`, tabindex: '-1' } });
 				box.checked = isExported(this.ctx.plugin, item);
-				box.disabled = ro || (!box.checked && !this.leftOut(item));
+				box.disabled = ro || (!box.checked && !this.model.leftOut(item));
 				box.addEventListener('click', (e) => e.stopPropagation());
 				box.addEventListener('change', () => void setExported(this.ctx, [item], box.checked));
 				this.tickByCell(td, box);
@@ -704,9 +570,9 @@ class Outliner implements BinderMode {
 				if (item instanceof TFile) td.createSpan({ cls: 'binders-outliner-value', text: date(id === 'created' ? item.stat.ctime : item.stat.mtime) });
 				return null;
 		}
-		const prop = this.propFor(id);
+		const prop = this.model.propFor(id);
 		if (!prop) return null;
-		const v = this.frontmatter(item)[prop];
+		const v = this.model.frontmatter(item)[prop];
 		const write = async (value: unknown, all = false) => {
 			if (this.ro) throw new Error('This binder is read only.');
 			const writes: { file: TFile; patch: Record<string, unknown> }[] = [];
@@ -752,12 +618,12 @@ class Outliner implements BinderMode {
 	/** The last row: how many notes show, and the columns that add up. */
 	private drawFoot(cols: ColumnSpec[], rows: Row[]): void {
 		this.foot.empty();
-		const scenes = this.scenesIn(this.ctx.folder);
+		const scenes = this.model.scenesIn(this.ctx.folder);
 		const title = this.foot.createDiv({ cls: 'binders-outliner-cell mod-title', attr: { role: 'gridcell' } });
 		title.createSpan({ text: rows.length ? `${scenes.length.toLocaleString()} ${scenes.length === 1 ? 'note' : 'notes'}` : '' });
 		let words: number | null = 0;
 		for (const f of scenes) { const w = this.ctx.words(f); if (w == null) { words = null; break; } words += w; }
-		const own = this.props(this.ctx.folder).target, target = own > 0 ? own : scenes.reduce((a, f) => a + this.ctx.props(f).target, 0);
+		const own = this.model.props(this.ctx.folder).target, target = own > 0 ? own : scenes.reduce((a, f) => a + this.ctx.props(f).target, 0);
 		cols.forEach((c, i) => {
 			const td = this.foot.createDiv({ cls: 'binders-outliner-cell', attr: { role: 'gridcell' } });
 			td.setCssStyles({ width: `var(--binders-ol-c${i})` });
@@ -939,7 +805,7 @@ class Outliner implements BinderMode {
 
 	private rowMenu(row: HTMLElement): Menu {
 		const items = this.targets(row), one = items.length === 1 ? items[0] : null;
-		const sibs = one?.parent && !this.sort ? this.children(one.parent).filter((f) => this.isShown(f)) : [], i = one ? sibs.indexOf(one) : -1;
+		const sibs = one?.parent && !this.sort ? this.model.children(one.parent).filter((f) => this.isShown(f)) : [], i = one ? sibs.indexOf(one) : -1;
 		return itemMenu(this.ctx, items, {
 			pick: () => { this.picking = true; },
 			rename: (f) => this.drawn.get(f.path)?.title.edit(),
@@ -1147,7 +1013,7 @@ class Outliner implements BinderMode {
 		// (said to a screen reader: where they are now among the rows that show in their folder)
 		const first = items[0], folder = first?.parent;
 		if (!first || !folder) return;
-		const shown: TAbstractFile[] = this.children(folder).filter((f) => this.isShown(f));
+		const shown: TAbstractFile[] = this.model.children(folder).filter((f) => this.isShown(f));
 		this.live.setText(movedText(items.map(nameOf), shown.indexOf(first) + 1, shown.length, folder === this.ctx.folder ? '' : folder.name));
 	}
 	private live: HTMLElement;
@@ -1157,7 +1023,7 @@ class Outliner implements BinderMode {
 	private async step(item: TAbstractFile, delta: number): Promise<void> {
 		const folder = item.parent;
 		if (!folder) return;
-		const shown: TAbstractFile[] = this.children(folder).filter((f) => this.isShown(f)), picked = this.block(item);
+		const shown: TAbstractFile[] = this.model.children(folder).filter((f) => this.isShown(f)), picked = this.block(item);
 		const items = shown.filter((f) => picked.includes(f));
 		if (!items.length) return;
 		const first = shown.indexOf(items[0]), last = shown.indexOf(items[items.length - 1]);

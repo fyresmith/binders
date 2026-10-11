@@ -1,3 +1,6 @@
+import { compareStoryDates, compareStoryPlaces, type StoryDate, type StoryPlace } from '../time/date';
+import { rank } from './labels';
+
 /* The outliner's columns and what they hold: which there are, how they're kept, how values sort, read and are typed.
    Pure, so it can be unit-tested. */
 
@@ -165,4 +168,65 @@ export function suggestProps(all: readonly Record<string, unknown>[], skip: read
 		}
 	}
 	return [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([k]) => k);
+}
+
+// ---- the rows: sorting, folding and adding up (the outliner's model, outliner-model.ts, supplies the values) ----
+
+/** A label's or status's sort key: in the order settings list them (a value they don't list after them all), then by `name`. */
+export const rankedKey = (value: string, order: readonly string[], name: string): string => (value ? String(rank(value, order)).padStart(4, '0') + name : '');
+
+/** Items in the order a sort puts them, ties in the order they came; the list itself without a sort. `valueOf` is an item's
+    value in a column; `placeOf`, for the story-time sort, where it is in story time (by date, then by time or `story-order`
+    within a day; undated last whichever way it runs). */
+export function sortItems<T>(list: T[], sort: Sort, valueOf: (item: T, id: string) => unknown, placeOf: (item: T) => StoryPlace | null): T[] {
+	if (!sort) return list;
+	if (sort.id === 'storydate') {
+		const at = list.map((f, i) => ({ f, i, p: placeOf(f) }));
+		return at.sort((a, b) => (a.p && b.p ? compareStoryPlaces(a.p, b.p) * sort.dir : a.p ? -1 : b.p ? 1 : 0) || a.i - b.i).map((x) => x.f);
+	}
+	return list.map((f, i) => ({ f, i, v: valueOf(f, sort.id) })).sort((a, b) => compareValues(a.v, b.v, sort.dir) || a.i - b.i).map((x) => x.f);
+}
+
+/** The words of a folder: those of its notes added up, or null as soon as one of them isn't counted yet (the rest are not
+    asked for). */
+export function addWords<T>(notes: Iterable<T>, words: (note: T) => number | null): number | null {
+	let n = 0;
+	for (const f of notes) { const w = words(f); if (w == null) return null; n += w; }
+	return n;
+}
+
+/** The earliest of some story dates (a folder without a date of its own is placed at its first note's), or null. */
+export function earliest(dates: Iterable<StoryDate | null>): StoryDate | null {
+	let first: StoryDate | null = null;
+	for (const d of dates) if (d && (!first || compareStoryDates(d, first) < 0)) first = d;
+	return first;
+}
+
+/** How a folder's rows are walked: its items, whether one is a folder, whether a note shows, and (under a filter) whether a
+    folder has any note that shows. */
+export interface RowTree<I, F extends I> {
+	children(folder: F): I[];
+	isFolder(item: I): item is F;
+	pathOf(item: I): string;
+	shows(note: I): boolean;
+	holdsShown(folder: F): boolean;
+	/** The order the sort puts a folder's items in. */
+	order(items: I[]): I[];
+}
+
+/** The rows of the tree under `root`, depth first: a folder's row and then, unless it's folded, what's in it. With a filter
+    on, a folder shows for the notes in it that pass, and a folder with none has no row. */
+export function flattenRows<I, F extends I>(root: F, tree: RowTree<I, F>, collapsed: ReadonlySet<string>, filtering: boolean): { item: I; depth: number }[] {
+	const out: { item: I; depth: number }[] = [];
+	const walk = (folder: F, depth: number) => {
+		for (const c of tree.order(tree.children(folder))) {
+			if (tree.isFolder(c)) {
+				if (filtering && !tree.holdsShown(c)) continue;
+				out.push({ item: c, depth });
+				if (!collapsed.has(tree.pathOf(c))) walk(c, depth + 1);
+			} else if (tree.shows(c)) out.push({ item: c, depth });
+		}
+	};
+	walk(root, 0);
+	return out;
 }
