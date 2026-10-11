@@ -85,6 +85,11 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - Go to next revision task now goes on when the walk has gone to a task in a note outside the binder, instead of the commands disappearing.
 - A snapshots window you have opened a line in no longer shuts it again when Binders writes its progress record.
 - Deleting notes, and redrawing a big binder, is faster: a binder of 5,000 notes in 200 folders no longer re-reads its whole list for every folder.
+- On a phone, a toolbar too narrow for the text no longer pushes a button off the screen: the progress bar, the view's name and then the word count give way first.
+- The outliner's Words and Target columns are now wide enough for a seven-digit number.
+- In a very narrow pane the manuscript toolbar no longer overflows (the Synopses button gives way).
+- A snapshot's name is no longer cut short while there is room, and wraps in a narrow dialog.
+- The find bar's field now uses the same typeface as Obsidian's own search field.
 
 ## 0.51.1 (2026-10-10)
 

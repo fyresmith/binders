@@ -16,8 +16,8 @@ export interface BuiltIn { id: string; name: string; icon: string; width: number
 export const BUILT_IN: readonly BuiltIn[] = [
 	{ id: 'label', name: 'Label', icon: 'palette', width: 120, about: 'The note’s label, in its color' },
 	{ id: 'status', name: 'Status', icon: 'circle-dot', width: 110, about: 'The note’s status' },
-	{ id: 'words', name: 'Words', icon: 'whole-word', width: 80, numeric: true, about: 'Words in the note; for a folder, in every note in it' },
-	{ id: 'target', name: 'Target', icon: 'target', width: 80, numeric: true, about: 'The note’s word count target; for a folder without one, its notes’ targets together' },
+	{ id: 'words', name: 'Words', icon: 'whole-word', width: 96, numeric: true, about: 'Words in the note; for a folder, in every note in it' },
+	{ id: 'target', name: 'Target', icon: 'target', width: 96, numeric: true, about: 'The note’s word count target; for a folder without one, its notes’ targets together' },
 	{ id: 'storydate', name: 'Story date', icon: 'calendar', width: 130, about: 'When the note happens in the story; the binder can be put in this order' },
 	{ id: 'progress', name: 'Progress', icon: 'loader', width: 120, numeric: true, about: 'How far along its target the note is' },
 	{ id: 'export', name: 'Export', icon: 'book-up', width: 76, about: 'Whether the note is included when the binder is exported' },

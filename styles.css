@@ -1393,8 +1393,11 @@
 /* How far along the binder's target is: a bar before the count, drawn as Obsidian draws its own progress bars (a
    <progress> in a note, a download in settings): a track in the secondary background with a hairline, filled in the
    accent color. */
+/* (the bar is the first thing to give way when the toolbar is short of room, down to a stub, before the view's name
+   is squeezed to a fragment of a letter: the count beside it says the same in numbers) */
 .binders-progress {
-	flex: none;
+	flex: 0 10 auto;
+	min-width: var(--size-4-4);
 	width: 56px;
 	height: var(--size-2-3);
 	border-radius: var(--radius-s);
@@ -3042,6 +3045,10 @@
 	}
 	/* (and Undo, the fifth button, which a sliver has no room for: it is in More options) */
 	.binders-toolbar-button.binders-undo-button {
+		display: none;
+	}
+	/* (and the manuscript's Synopses button, the sixth with Focus mode beside it: it is in the view's options too) */
+	.binders-toolbar-button.binders-synopses-button {
 		display: none;
 	}
 }
@@ -5532,9 +5539,10 @@ body:not(.is-phone) .binders-export .binders-export-options .setting-item.settin
 	background-color: var(--background-modifier-hover);
 }
 
-/* A book's snapshot says more after its name than a note's: the name keeps its room, and the rest gives way. */
+/* A book's snapshot says more after its name than a note's: the name keeps its room, and the rest gives way (the date
+   and size down to nothing, if need be, before the name is cut, in whatever font the interface is set in). */
 .binders-folder-snapshots .binders-snapshots-name {
-	flex-shrink: 1;
+	flex-shrink: 0.001;
 	min-width: 6em;
 }
 
@@ -5653,8 +5661,12 @@ body:not(.is-phone) .binders-snapshots .sync-history-content {
 		padding-inline-end: calc(var(--binders-snapshots-control) + var(--size-4-1));
 	}
 
+	/* (and a name longer than that line, in a font wider than expected or a name that goes on, wraps there rather than
+	   end in an ellipsis: the name is what the snapshot is called) */
 	body:not(.is-phone) .binders-snapshots .binders-snapshots-bar .binders-snapshots-name {
 		flex: 1 0 100%;
+		white-space: normal;
+		overflow-wrap: anywhere;
 	}
 
 	body:not(.is-phone) .binders-snapshots .binders-snapshots-bar .modal-setting-titlebar-actions {
@@ -5819,7 +5831,9 @@ body:not(.is-phone) .binders-snapshots .sync-history-content {
 }
 
 /* ---- Find and replace (find-bar.ts) ---- */
-.binders-find { flex: 0 0 auto; }
+/* (set in the stack Obsidian's own bar has: it sits in the editor, whose text font it inherits; in the binder view the
+   bar would otherwise have the interface font, which is one name longer in the stack and not the writer's text font) */
+.binders-find { flex: 0 0 auto; font-family: var(--font-text); }
 .binders-find .binders-find-count-notes { color: var(--text-faint); }
 /* (the count's line is 18 px, as Obsidian's own count is: 15.6 px, from the type's line height, put it out of line with the field) */
 .binders-find .document-search-count { line-height: 18px; }
@@ -7506,6 +7520,16 @@ input.binders-filter-name {
 	.is-mobile .binders-toolbar > .binders-word-count {
 		padding-inline: 0;
 		margin-inline: calc(-1 * var(--size-2-2));
+	}
+}
+
+/* (and when the type is wider than the room was drawn for, a larger text size or a wider interface font: the view's
+   name gives way first, as in a wider pane (it shrinks to its icon and chevron), and only then the count, which
+   shrinks, never below a finger, and ends in an ellipsis, so that no button is pushed off the screen or onto
+   another. The shrink factor is nearly nothing so that the count is whole whenever the name can take the strain.) */
+@container binders-view (width < 600px) {
+	.is-mobile .binders-toolbar > .binders-word-count {
+		flex: 0 0.0001 auto;
 	}
 }
 
