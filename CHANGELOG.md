@@ -61,6 +61,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - Go to next revision task, Go to previous revision task and Mark revision task done are no longer offered when no binder is open.
 - The binder view's toolbar now fits on a phone, with Undo and a word count target set.
 - A label's color name (for example "Orange") shows whole in settings on a phone.
+- A binder's progress record is never listed as one of its items, even when its Snapshots folder holds a note.
 
 ## 0.51.1 (2026-10-10)
 

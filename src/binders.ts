@@ -20,6 +20,8 @@ import { itemName, nameProblem, pathWith, RenameHandler } from './history/rename
 import { sameValue } from './history/values';
 import type { Entry, Kept, PropChange } from './history/types';
 import { SNAPSHOTS } from './snapshot-text';
+import { isRecordFile } from './progress/format';
+import { historyDir } from './progress/record';
 import { followSnapshots, isOwn } from './snapshots';
 import { labelCss, readLabel } from './view/labels';
 import { afterGroup, applySceneOps, conversionPlan, isIgnored, isLongformIndex, longformRunning, readProject, sameScenes, sceneGroups, shownScenes, writeScenes, type Project, type Scene, type SceneOp } from './longform';
@@ -1776,7 +1778,8 @@ export class BinderStore extends Events implements ExplorerSource {
 		const walk = (f: TFolder, rel: string) => {
 			const list: Item[] = [];
 			for (const c of f.children) {
-				if (this.isHiddenNote(c)) continue;
+				if (this.isHiddenNote(c) || isRecordFile(c)) continue; // (the record of writing is never an item: docs/progress.md)
+				if (c instanceof TFolder && c.path === historyDir(s.folder)) continue;
 				if (f === s.folder && c === this.snapshotsFolder(s)) continue; // snapshots aren't items of the binder
 				if (c === revision) continue; // nor is its revision note (revision/store.ts)
 				const r = this.relOf(s.folder.path, c.path, c instanceof TFolder);
