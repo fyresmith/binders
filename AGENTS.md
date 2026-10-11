@@ -39,56 +39,82 @@ Read this before changing anything. It is the contract every contributor, human 
 
 ## Versioning (x.y.z)
 
-**Every commit bumps the version.** The maintainer's rule (2026-10-05): the number says what kind of change it was.
+**The version changes only at a release** (the maintainer's rule, 2026-10-10; it replaced "every commit bumps"). It is
+standard [semantic versioning](https://semver.org), and `npm run release` works the number out; nobody picks it by hand
+except for `--as 1.0.0`. Commits never touch `package.json`'s version, and `manifest.json` still always names a
+published release (below).
 
-| Part | `ship` word | When | Examples |
-|---|---|---|---|
-| **x** | `major` | A major version, or a new feature: something a writer couldn't do before | export, import from Scrivener, find and replace, a new view |
-| **y** | `minor` | A change in behavior: something that already existed now acts differently | Ungroup trashing the folder it empties, a setting's default changing, a setting or command renamed or removed, a format change |
-| **z** | `patch` | A bug fix, and everything a writer won't notice | a fix, a style tweak, a test, docs, a refactor |
+| Change | Number | When |
+|---|---|---|
+| **Added** | minor (0.y.0) | Something a writer couldn't do before: a feature, a command, a column, a setting |
+| **Changed** | minor | Something that already existed now acts differently, or goes: a default, a rename, a removal, a format change |
+| **Fixed** | patch (0.0.z) | A bug fix |
+| a breaking change | major (x.0.0) | From 1.0.0 on only, and only when given (`npm run release -- --breaking`): never inferred |
 
-How to choose:
-
-- Ask what a writer would say. "I can do something new" is x. "That works differently now" is y. "That's fixed", or
-  nothing at all, is z.
-- A fix that changes behavior is still z when the old behavior was a bug: wrong by the docs, or by what anyone would
-  expect. It is y when the old behavior was documented or decided and the maintainer has changed his mind.
-- A new option or a small addition inside a feature that exists (a column, a menu item, a setting) is y, not x. x is
-  for a feature that gets its own heading in the README.
-- One commit, one bump, by the largest thing in it. A feature built over several commits takes x on the commit that
-  first makes it usable; the rest are y or z.
-- Bumping a part sets the parts after it to zero (`ship` does this).
-- **Until the first release, x stays 0** and a new feature takes y: 1.0.0 is the first stable release, and the
-  maintainer calls it. From 1.0.0 on, the table applies as written.
-- An agent proposes the bump in its report, with the one-line reason; the coordinator decides it when shipping.
+- A release is worked out from its Unreleased entries (see "Committing"): any Added, Changed or Removed entry makes it
+  a minor release; only Fixed entries make it a patch. **Before 1.0.0 nothing is major**: 0.y.0 is where features
+  and changes go, and 1.0.0 is the first stable release, which the maintainer calls (`npm run release -- --as 1.0.0`).
+- From 1.0.0: Added, Changed and Removed are minor and Fixed is a patch, unless the maintainer says the release breaks
+  something that worked (`--breaking`, a major version).
+- A fix that changes behavior is Fixed when the old behavior was a bug (wrong by the docs, or by what anyone would
+  expect). It is Changed when the old behavior was documented or decided and the maintainer has changed his mind.
+- A new option or small addition inside a feature that exists is Added. Docs, tests, tooling, the roadmap and
+  refactors are not entries at all: `--internal`.
+- An agent reports the kind of change and the changelog line for its ticket (Added, Changed, Fixed or Removed, or
+  internal), not a number.
 
 ## Committing: always through `npm run ship`
 
 ```bash
 git add <the files you changed>
-npm run ship -- patch "Short title in sentence case" --fixed "What changed, for users, in one sentence."
+npm run ship -- "Short title in sentence case" --fixed "What changed, for users, in one sentence."
+npm run ship -- "Docs: what the limits are" --internal
 ```
 
-- `ship` bumps the version in `package.json`, writes a dated CHANGELOG entry
-  (sections: `--added`, `--changed`, `--fixed`, `--removed`; repeat as needed), and commits what you staged.
+- `ship` commits what you staged and records the entry under `## Unreleased` at the top of `CHANGELOG.md`
+  (`--added`, `--changed`, `--fixed`, `--removed`; repeat as needed). It does not bump the version, and the title
+  does not start with one.
+- A commit with nothing a writer would notice (docs, tests, tooling, the roadmap, a refactor) says `--internal` and
+  gets no entry. `ship` refuses a commit with neither an entry nor `--internal`.
 - Add attribution trailers with `--trailer "Co-Authored-By: …"` if your setup asks for them.
 - One logical change per commit. Don't mix a fix with a refactor.
 - Before shipping: `npm run check` (build, lint, unit tests) must pass, plus the new tests and the one or two spec
-  files that directly cover what changed. Wider runs are the test runner's (see "Working as a team of agents").
-- Pushing: the coordinator pushes `main` after each shipped commit or small batch. Tagging: only when the
-  maintainer asks. A tag `x.y.z` (no `v`) triggers the release workflow.
+  files that directly cover what changed. The rest of the suite runs on GitHub for every push to `main` (see "Tests").
+- Pushing: the coordinator pushes `main` after each shipped commit or small batch. Tagging: never by hand; a tag is
+  made only by `npm run release`.
+
+### Releases
+
+- **A release is the maintainer's call** (his rule, 2026-10-10: "releases should not be triggered wantonly under this
+  framework. Only if I issue it. Goal would be to run that at the end of the day or whatever."). `npm run release` is run
+  only when the maintainer asks for a release, in his own words, in that session: never by an agent on its own
+  judgment, never automatically after a suite passes, never on a schedule, and no workflow cuts a release from a push
+  to `main` or from a green suite (`release.yml` runs only from a tag that `npm run release` pushed). Agents and the
+  coordinator ship commits and push `main`; the rhythm is that work ships through the day, the suite runs on GitHub
+  for each push, and the maintainer asks for one release at the end of the day, or when he chooses.
+- `npm run release` refuses unless: it is on `main`, the tree is clean, `main` is pushed, `npm run check` passes,
+  there is at least one Unreleased entry, and the e2e workflow has **succeeded for exactly this commit** (asked of
+  GitHub). With no run, or one still going, it says so and offers `--wait`. `--skip-suite "reason"` is for an
+  emergency: a loud warning, and the reason goes into the release commit's message and the release notes. Nothing
+  else skips the suite.
+- It works out the version (above), prints it and the notes, and asks "Release x.y.z? Only the maintainer calls a
+  release." `--yes` answers it, and is only for the coordinator acting on the maintainer's explicit request.
+- Then it turns `## Unreleased` into `## x.y.z (date)`, writes the version into `package.json`,
+  `package-lock.json`, `manifest.json` and `versions.json`, commits "Release x.y.z", tags `x.y.z` (no `v`) and pushes
+  the commit and the tag together. The tag runs the Release workflow, which first checks that the e2e suite passed for
+  the tag commit's parent (the release commit changes only the version files and the changelog, so the suite that ran
+  on the parent covers it), then publishes a full release as the latest (never a draft or a pre-release: to Obsidian
+  those are no release at all) with the version's section of `CHANGELOG.md` as its notes.
 - **`manifest.json` always names a published release** (the maintainer's rule, 2026-10-06: Obsidian and BRAT read
   it on `main` and look for a release of exactly that version, so a manifest ahead of the releases breaks
-  installing). `ship` leaves `manifest.json` and `versions.json` alone. A release is one commit shipped with
-  `--release`, which writes the new version into both; that commit is tagged with its version and the tag pushed
-  with it, and the workflow publishes it as the latest release (never a draft or a
-  pre-release: to Obsidian those are no release at all). Never edit the manifest's version
-  by hand, and never push a `--release` commit without its tag.
+  installing). Only `npm run release` writes it. Never edit the manifest's version by hand, and never push a release
+  commit without its tag.
 
 ## CHANGELOG style
 
 - Write for users, not developers: what they'll notice, in plain sentences.
-- Newest first. `ship` adds entries; edit an entry only to fix it.
+- `## Unreleased` is at the top; `ship` adds to it in the order commits are made, and a release turns it into one
+  section for the version, grouped Added, Changed, Fixed, Removed. Edit an entry only to fix it.
 
 ## Tests
 
@@ -96,6 +122,8 @@ npm run ship -- patch "Short title in sentence case" --fixed "What changed, for 
 |---|---|
 | `npm test` | Unit tests (`tests/*.test.ts`), pure code only |
 | `npm run e2e` | End-to-end in real headless Obsidian (`tests/e2e/specs*.mjs`); `--grep`, `--theme both`, `--repeat n`, `--specs` |
+| `npm run e2e:all` | The whole suite shared over several Obsidians on this machine (`--jobs`, `--shard 3/10`, `--retry-alone`): for those who want it locally |
+| `npm run suite` | The whole suite on GitHub Actions for `main`'s tip: starts it, or reports the run already there; `-- --wait` follows it and prints the verdict (exit 0 or 1) |
 | `npm run check` | Build + lint + unit tests |
 
 - New behavior gets tests: pure logic in unit tests, anything the user sees or any vault change in e2e.
@@ -106,11 +134,12 @@ npm run ship -- patch "Short title in sentence case" --fixed "What changed, for 
 
 For larger pushes (a milestone, a QA round) the maintainer may run several agents at once. The pattern that worked on Evra:
 
-- **Coordinator** (the main session): splits work, reviews every diff, merges, runs the suites, ships each fix with its
-  own version bump, pushes when asked. Only the coordinator commits to `main`.
+- **Coordinator** (the main session): splits work, reviews every diff, merges, ships each fix with its own changelog
+  entry, pushes `main` and reads the suite's verdict. Only the coordinator commits to `main`. It does not make
+  releases on its own: that is the maintainer's call ("Releases" above).
 - **Developer agents**: each works in its own git worktree (`.claude/worktrees/…`, ignored by git) and **owns a
   disjoint set of files**, agreed up front (for example: one owns `src/view/**` and `styles.css`, another everything
-  else). They commit on their worktree branch, one commit per fix, *without* version bumps or CHANGELOG edits, rebase on
+  else). They commit on their worktree branch, one commit per fix, *without* CHANGELOG edits (the version is not theirs to touch either), rebase on
   `main` before reporting, and report commit hashes. The coordinator cherry-picks and ships each one.
 - **QA agents**: each owns an area and writes scenarios in its own `tests/e2e/specs-<area>.mjs`. They never edit
   `src/`, never build, install or use git. They verify every bug twice before reporting, and report: title, exact
@@ -130,11 +159,12 @@ For larger pushes (a milestone, a QA round) the maintainer may run several agent
   machine's memory and crashed every Obsidian on it). A developer or designer runs the new tests it wrote and the one
   or two spec files that directly cover the code it changed (`--grep` to the tests that matter), then turns the work
   in. No "every spec that might be affected", no whole-suite runs.
-- **One test runner, at the end of the session.** When the last ticket is merged, the coordinator launches one
-  `binders-qa` agent ("Suite: run") whose whole job is the full e2e suite in both themes on `main`
-  (`npm run e2e:all -- --jobs 6 --theme both --retry-alone`), with nothing else using the machine. It reports what
-  failed, sorted into regressions (with the commit, by `git bisect run`), tests that fail only under load, and the
-  open findings. Regressions go back to the agent that owns the area.
+- **The suite runs on GitHub, for every commit on `main`** (the maintainer's decision, 2026-10-10: the local run took
+  two hours and crashed the machine). A push starts `.github/workflows/e2e.yml`: the whole suite in both themes over
+  20 runners, one verdict in the run's summary. `npm run suite -- --wait` asks for it and prints the verdict (the
+  real failures, the ones that passed again alone, the open findings); there is no more "Suite: run" agent. A
+  regression is found with `git bisect run` (docs/dev/development.md) and goes back to the agent that owns the area.
+  Agents still run only their own spec files locally.
 
 ### Progress memos
 
@@ -165,8 +195,9 @@ without interrupting anyone (and without an agent spending its time answering "h
 - Memos live in `.claude/memos/`, which git ignores: they are a working surface, not a record. The record is the
   final report, the CHANGELOG and the commits.
 - **A ticket ends in one commit** (or a few, one per logical change), made by the coordinator with `npm run ship`
-  when the work is finished and verified, not along the way: so finish your report with the bump you'd give it, a
-  title, and the CHANGELOG lines for users.
+  when the work is finished and verified, not along the way: so finish your report with the kind of change (Added,
+  Changed, Fixed, Removed, or internal), a title, and the CHANGELOG line for users. Not a version number: that is
+  worked out at a release, which only the maintainer calls.
 
 ## Style
 

@@ -30,7 +30,7 @@ and `manifest.json`, which are copied as they are.
 **One way in.** Every build that succeeds (`npm run build`, each rebuild of `npm run dev`, and so `npm run check`) ends
 by copying `main.js`, `manifest.json` and `styles.css` into `test-vault` and, if it has been made, `demo-vault`, and
 turning the plugin on there (`installAll` in `scripts/install-to-vault.mjs`, called from `esbuild.config.mjs`). Neither
-vault can run an older build than the one just made (`npm run ship` copies the bumped `manifest.json` the same way). For any other vault, by hand:
+vault can run an older build than the one just made (`npm run release` copies the new `manifest.json` the same way). For any other vault, by hand:
 `npm run install-vault -- /path/to/a/throwaway/vault`. Never a real vault.
 
 **Opening either vault by hand.** Obsidian starts a vault it hasn't seen in Restricted mode, with community plugins
@@ -121,7 +121,8 @@ commonest sentences come round), and `node scripts/demo-vault/sample.mjs` a page
 | `npm run check` | Build, lint (the same rules as Obsidian's review bot) and unit tests |
 | `npm test` | Unit tests only: bundles each `tests/*.test.ts` for Node and runs it |
 | `npm run e2e` | End-to-end tests in real, headless Obsidian |
-| `npm run e2e:all` | The same, shared out over several Obsidians at once (`--jobs`) |
+| `npm run e2e:all` | The same, shared out over several Obsidians at once (`--jobs`), or one share of the files (`--shard 3/10`) |
+| `npm run suite` | The same on GitHub Actions: starts the workflow for `main`, or reports the run already there; `-- --wait` follows it and prints the verdict |
 
 ### Unit tests
 
@@ -321,6 +322,10 @@ npm run e2e:all -- --jobs 3 --hover --out /tmp/e2e   # a hovering mouse; logs so
   stops; `--reap --shots dir` does it for a run made with `npm run e2e` alone (its default folder is
   `test-dist/e2e-failures`). Each process is checked against its command line first, so a process id that has since
   gone to something else is left alone, and nothing is ever killed by name. It ends a run that is still going, too.
+- **`--shard 3/10`** runs only the third of ten shares of the files (the GitHub workflow's use, "The suite on GitHub"),
+  weighing files by `tests/e2e/timings.json` (`--timings file` for another); a shard also leaves `shard.json` beside
+  the logs, which `tests/e2e/verdict.mjs` merges. `BINDERS_NO_SANDBOX=1` starts Obsidian with `--no-sandbox` (as root
+  it always does).
 - `--jobs` is how many Obsidians the machine can take without the tests slowing each other into failures: about one
   per two cores, fewer if anything else is running. `--theme`, `--grep`, `--repeat` and `--specs` mean what they do for
   `npm run e2e`; `BINDERS_TEST_VAULT` is passed on.
@@ -408,7 +413,7 @@ OBSIDIAN_ELECTRON=~/.cache/binders-e2e/obsidian-1.13.4/obsidian \
   before 1.13) lacked two things, focus mode on a phone didn't give the header back, and two tablet tests ended
   Obsidian. The maintainer raised the floor instead of carrying a second, untested path.
 - When `minAppVersion` changes, change it in `manifest.json` only: `version-bump.mjs` writes it into `versions.json`
-  for the next version `ship` makes, and the versions already there keep the floor they were made with.
+  for the next release, and the versions already there keep the floor they were made with.
 
 The tests copy `test-vault` as it is on disk, so anything left there by hand comes along (and can fail tests that
 count notes): it is the tests' fixture, not a vault to try things in (that is `demo-vault`). To run against the
@@ -451,7 +456,10 @@ still puts back what it changes; the runner is there for the one that fails befo
 
 | Script | Run as | What it does |
 |---|---|---|
-| `ship.mjs` | `npm run ship -- patch "Title" --fixed "…"` | Bumps the version, writes the CHANGELOG entry and commits what is staged. Every commit goes through it (see [AGENTS.md](../../AGENTS.md)) |
+| `ship.mjs` | `npm run ship -- "Title" --fixed "…"` (or `--internal`) | Commits what is staged and records its entry under Unreleased in the CHANGELOG; no version change. Every commit goes through it (see [AGENTS.md](../../AGENTS.md)) |
+| `release.mjs` | `npm run release` | The maintainer's call. Works out the version, turns Unreleased into it, tags and pushes ("Releasing") |
+| `suite.mjs` | `npm run suite` | Starts the e2e workflow on GitHub for main, or reports the run; `-- --wait` prints the verdict |
+| `migrate-changelog.mjs` | once | Folds the per-commit changelog sections into Unreleased ("Releasing") |
 | `memo.mjs` | `npm run memo` | Progress memos for a team of agents: write one, list them all, read one (AGENTS.md, "Progress memos") |
 | `install-to-vault.mjs` | by every build; `npm run install-vault -- <vault>` | Copies the build into a vault and turns the plugin on there |
 | `make-demo-vault.mjs`, `demo-vault/` | `npm run demo-vault` | Makes or updates `demo-vault/` (above) |
@@ -461,7 +469,7 @@ still puts back what it changes; the runner is there for the one that fails befo
 | `source-serif-fonts.mjs` | `node scripts/source-serif-fonts.mjs` (`--check`) | Fetches the four Source Serif 4 files and their licence in `src/export/fonts/` from Adobe's release at one commit and checks each against its SHA-256. They are carried unmodified: never subset, convert or recompress them (see "Fonts" in [export.md](export.md)) |
 | `subset-fonts.py` | `python3 scripts/subset-fonts.py <folder of .ttf>` | Cuts EB Garamond's static files down to what `src/export/fonts/eb-garamond-*.woff2` hold. EB Garamond only: a typeface whose licence reserves its name can't be cut down |
 
-`esbuild.config.mjs` (the build) and `version-bump.mjs` (called by `npm version`, so by `ship`) are at the top of the
+`esbuild.config.mjs` (the build) and `version-bump.mjs` (called by `npm version`, so by `release`) are at the top of the
 project. The e2e tools are in `tests/e2e/`: `driver.mjs`, `run.mjs`, `run-all.mjs`, `screenshots.mjs`.
 
 ## What CI checks, and what it doesn't
@@ -470,15 +478,58 @@ project. The e2e tools are in `tests/e2e/`: `driver.mjs`, `run.mjs`, `run-all.mj
 tests) and `npm run build` (the type check and the bundle). The release workflow runs the same three before it builds
 a release.
 
-**CI does not run the end-to-end tests.** They need a real Obsidian (its `app.asar` and the Electron it ships with),
-which isn't in the repository and isn't an npm package, so a green check on GitHub says the code compiles, passes the
-review bot's lint rules and its pure logic is right. It says nothing about the explorer patch, the views, the
-manuscript's editors, anything on a phone, or whether writing is safe: all of that is only in the e2e suite, which is
-run on a developer's machine. Before a release, run it there (`npm run e2e:all -- --theme both`) and read its summary.
+**`ci.yml` does not run the end-to-end tests** (it is the fast check: lint, unit tests, build). A green check there says
+the code compiles, passes the review bot's lint rules and its pure logic is right, and nothing about the explorer
+patch, the views, the manuscript's editors, anything on a phone, or whether writing is safe. The e2e workflow does that.
+
+## The suite on GitHub
+
+`.github/workflows/e2e.yml` runs the whole e2e suite, in both themes, on GitHub Actions (the maintainer's decision,
+2026-10-10: locally it took two hours with six Obsidians and crashed the machine when agents ran it). It runs on every
+push to `main` (a newer commit cancels the run of an older one) and by hand (`workflow_dispatch`, with optional `grep`,
+`specs` and `themes` inputs; such a narrowed run is titled "E2E narrowed …" and never counts as the suite).
+
+```bash
+npm run suite                  # starts the workflow for main's tip, or reports the run already there
+npm run suite -- --wait        # follows it, prints the verdict (the real failures first); exit 0 or 1
+npm run suite -- --again       # starts another run even if there is one
+npm run suite -- --timings     # after a finished run: saves the times it measured as tests/e2e/timings.json
+```
+
+It needs the `gh` CLI, signed in. The pieces:
+
+- **A matrix of shards.** `SHARDS` (10) shards per theme, so 20 jobs at once (what a free account runs), each a fresh
+  `ubuntu-latest` runner: check out, Node 22, `scripts/cloud-setup.sh` (`npm ci`; Obsidian fetched and unpacked, kept
+  in `actions/cache` under the Obsidian version `OBSIDIAN_VERSION` set at the top of the workflow; Electron's libraries
+  through `sudo apt-get` when `ldd` finds some missing; EPUBCheck, on the runner's Java), Poppler for the PDF tests,
+  `npm run build` (which also installs the plugin into `test-vault`), then
+  `run-all.mjs --jobs 2 --theme <t> --shard i/10 --retry-alone`. Obsidian runs with `--no-sandbox` there
+  (`BINDERS_NO_SANDBOX=1`: Ubuntu 24.04 stops a user making the namespace Electron's sandbox needs).
+- **Two Obsidians per runner.** A runner has 4 cores; the local runner's own note is "about one per two cores", and
+  tests that time frames and race typing fail when Obsidians crowd each other. `JOBS` in the workflow is the knob.
+- **The split.** `run-all.mjs --shard 3/10` shares the spec files out with the same heaviest-first rule as `--jobs`
+  (`groups` in `run-all-lib.mjs`), weighing each file by its time in `tests/e2e/timings.json` (a file with no time
+  counts as the average test's time per test). Every shard computes the whole split and takes its own part, so
+  together they cover each file exactly once (unit-tested in `tests/shards.test.ts`, and checked again by the verdict).
+  **Refreshing the times:** a finished whole run leaves `timings.json` in its `suite-verdict` artifact; `npm run suite
+  -- --timings` saves it as `tests/e2e/timings.json`, and the coordinator commits it now and then (when files or
+  tests have been added). A stale file only makes the shards uneven.
+- **Results.** Each shard uploads `test-dist/e2e-all` (the logs, `results.json`, `shard.json`, failure screenshots in
+  `shots/` and `shots-alone/`) as the artifact `shard-<theme>-<i>`, for 14 days.
+- **One verdict.** The last job (`verdict`) downloads every shard's artifact and runs `tests/e2e/verdict.mjs` over
+  them, by the rules `run-all.mjs` has for one machine: an open finding (`open-findings.json`) doesn't count; a
+  failure is retried alone on the shard that saw it (`--retry-alone`) and counts only if it fails alone too; a shard
+  that left no results, stopped early, ran other code than it started with, or left tests unrun is a problem, and so
+  is a spec file no shard was given. The summary (real failures, failures that passed alone, open findings, open
+  findings that now pass) is on the run's page (`$GITHUB_STEP_SUMMARY`) and in the artifact `suite-verdict`
+  (`verdict.json`, `timings.json`). The workflow fails only for a real failure or a problem.
+- **Reading a failure.** The run's page has the verdict; the shard's artifact has its job log, screenshot and
+  messages. `git bisect run` (below) finds the commit as before.
 
 ## Versions and commits
 
-Every commit goes through `npm run ship`, which bumps the version and writes the CHANGELOG. See [AGENTS.md](../../AGENTS.md).
+Every commit goes through `npm run ship`, which records it under Unreleased in the CHANGELOG; only a release changes the
+version. See [AGENTS.md](../../AGENTS.md).
 
 ### Before a fix ships
 
@@ -488,8 +539,8 @@ broke older tests nobody had run:
 - **A fix runs the spec files that directly cover what it changed** (one or two, in both themes:
   `npm run e2e -- --theme both --specs …`), not only the test it added, and not every file that might be affected:
   on 2026-10-05 area runs of twenty-five files per agent took two hours each and ran the machine out of memory.
-- **The whole suite runs once, at the end of a session**, by one dedicated test runner with the machine to itself:
-  `npm run e2e:all -- --jobs 6 --theme both --retry-alone`. Agents building tickets don't run it.
+- **The whole suite runs on GitHub, for every push to `main`** (above): `npm run suite -- --wait` for its verdict.
+  Agents building tickets don't run it locally; `npm run e2e:all` is there for whoever wants it on their own machine.
 - **A failure on `main` is found with `git bisect run`, before anyone guesses** which change caused it.
 
 A script for `git bisect run` builds the commit, runs the one failing test and turns its summary into an exit status
@@ -516,18 +567,50 @@ exactly one test matches.
 
 ## Releasing
 
-`manifest.json` on `main` always names a published release: Obsidian and BRAT read it there and look for a release
-of exactly that version. So `npm run ship` leaves `manifest.json` and `versions.json` alone, and a release is made in
-one go:
+**A release is the maintainer's call** ("releases should not be triggered wantonly under this framework. Only if I
+issue it. Goal would be to run that at the end of the day or whatever", 2026-10-10). `npm run release` is run when he
+asks, in the session; no agent, workflow or schedule runs it (AGENTS.md, "Releases"). The rhythm: commits ship through
+the day with `npm run ship` (entries under `## Unreleased`), the suite runs on GitHub for each push, and at the end of
+the day he asks for one release.
 
-1. Make sure `main` is green (`npm run check`, e2e) and pushed.
-2. Ship the release commit with `--release`: `npm run ship -- patch "…" --changed "…" --release`. It bumps the
-   version as any commit does and writes it into `manifest.json` and `versions.json` as well.
-3. Tag that commit with its version and push both together: `git tag x.y.z && git push origin main x.y.z` (no `v`;
-   the workflow checks the tag against `manifest.json`).
-4. The **Release** workflow checks and builds the plugin, attests `main.js`, `manifest.json` and `styles.css`, and
-   publishes a release whose notes are the CHANGELOG since the previous tag. Every release, a `0.x` beta too, is a full release published as the latest: Obsidian's directory and GitHub's
-   "latest release" pass over drafts and pre-releases. Check `gh release list` shows it as Latest with its three files.
+`manifest.json` on `main` always names a published release: Obsidian and BRAT read it there and look for a release
+of exactly that version. So only a release writes it, and `npm run release` does it in one go:
+
+```bash
+npm run release                      # checks, shows the version and the notes, asks "Release x.y.z? Only the maintainer calls a release."
+npm run release -- --wait            # if the suite is not finished (or not started) for this commit, wait for it
+npm run release -- --yes             # no question: the coordinator, acting on the maintainer's explicit request
+npm run release -- --as 1.0.0        # a version by hand (that is how 1.0.0 is called)
+npm run release -- --breaking        # from 1.0.0 on: a major version (never inferred)
+npm run release -- --skip-suite "the reason"   # an emergency; see below
+```
+
+1. **It refuses** unless: on `main`; the tree clean; `main` pushed; `npm run check` passes; at least one entry under
+   Unreleased; and the e2e workflow has succeeded for exactly this commit (`gh run list --workflow e2e.yml --commit`,
+   a run titled "E2E suite"). With no run, or one still going, it says so and offers `--wait`.
+2. **The version** is worked out from the Unreleased entries by semantic versioning. Before 1.0.0: any Added, Changed
+   or Removed entry is 0.y.0 and only Fixed is a patch. From 1.0.0: a breaking change is major and only when given
+   (`--breaking`), Added, Changed and Removed are minor, only Fixed is a patch.
+3. **It writes**: `## Unreleased` becomes `## x.y.z (date)` (every entry since the last release, grouped Added, Changed,
+   Fixed, Removed, in the order made); the version goes into `package.json`, `package-lock.json`, `manifest.json` and
+   `versions.json` (`version-bump.mjs`, through `npm version`); the commit is "Release x.y.z"; the tag is `x.y.z` (no
+   `v`); the commit and the tag are pushed together (`git push --atomic`).
+4. **The Release workflow** (`release.yml`, started only by that tag) first runs `scripts/release-gate.mjs`: the suite
+   must have passed for the tag commit's **parent** (the commit the suite ran on: the release commit changes only the
+   version files and the changelog, which the gate checks too, so the suite's result covers it). Then it checks and
+   builds the plugin, attests `main.js`, `manifest.json` and `styles.css`, and publishes a full release as the latest,
+   never a draft or a pre-release (Obsidian's directory and GitHub's "latest release" pass over those). Its notes are
+   the version's own section of `CHANGELOG.md`. Check `gh release list` shows it as Latest with its three files.
+5. **`--skip-suite "reason"`** is for an emergency. It prints a loud warning, writes `Skipped the suite: reason` in the
+   release commit's message, and the gate lets that release through and adds the reason to the release notes.
+
+### The one-time migration (2026-10-10)
+
+From 0.52.0 the version moves only at a release, and the last release is 0.51.1. `node scripts/migrate-changelog.mjs`
+(`--dry-run` first) folds every changelog section above 0.51.1 into one `## Unreleased`, leaves out the entries that are
+plainly internal (it prints each, to check by eye), and sets `package.json` and `package-lock.json` back to 0.51.1, so
+the next release is worked out from there (0.52.0). It is idempotent. `--fold-released` also folds the per-commit
+sections between older releases under each release's heading; `git checkout CHANGELOG.md` undoes it.
 
 ## Submitting to the community plugin directory
 
