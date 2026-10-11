@@ -823,7 +823,7 @@ test('UX: by label, the keyboard gets from the toolbar to the cards in a few Tab
 		at = await p.ev(`(() => { const a = document.activeElement; return a?.closest('.binders-card[data-path]') ? 'card' : a?.closest('.binders-lane-head') ? 'head' : a?.closest('.binders-toolbar') ? 'toolbar' : a?.classList.contains('binders-view-synopsis') ? 'synopsis' : 'other'; })()`);
 		if (at === 'card') break;
 	}
-	t.ok(at === 'card' && presses + 1 <= 8, `Tab presses from the first toolbar button to the first card: ${presses + 1} (toolbar: 4 buttons, then the folder’s synopsis, then the lines, then a card)`);
+	t.ok(at === 'card' && presses + 1 <= 10, `Tab presses from the first toolbar button to the first card: ${presses + 1} (toolbar: the word count and 5 buttons, then the folder’s synopsis, then the lines, then a card)`);
 });
 
 test('UX: a word count target that is too big is told so (it says “a whole number of words” of 99999999999, which is one)', async (p, h, t) => {

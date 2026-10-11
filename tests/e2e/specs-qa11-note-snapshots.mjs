@@ -83,6 +83,13 @@ async function dialogNow(p) {
 const rows = (p) => p.ev(`[...document.querySelectorAll(${j(DLG + ' .binders-snapshots-item')})].map(e => e.querySelector('.modal-sidebar-list-item-details').firstChild.textContent)`);
 const pick = (p, text) => press(p, DLG + ' .binders-snapshots-item', text);
 const button = (p, text) => press(p, DLG + ' .modal-setting-titlebar-actions button', text);
+/** Presses "Bring back" and waits for the note to become `want`; a press that lands while the dialog is redrawing is lost, so it is pressed again (a second press after it worked is an error the dialog tells, not a second write). */
+async function bringBackTo(p, path, want) {
+	for (let i = 0; i < 3; i++) {
+		await button(p, 'Bring back');
+		if (await until(p, `app.vault.adapter.read(${j(path)}).then(s => s === ${j(want)})`, 4000)) return;
+	}
+}
 async function more(p) {
 	const at = await p.at(DLG + ' .modal-setting-titlebar-actions .clickable-icon');
 	await p.click(at.x, at.y);
@@ -167,8 +174,7 @@ test('bring back with typing not yet saved in the note’s tab: the typing is in
 	await sleep(p, 100);
 	await dialogNow(p);
 	await pick(p, 'First draft');
-	await button(p, 'Bring back');
-	await until(p, `app.vault.adapter.read(${j(A)}).then(s => s === ${j(FRONT + DRAFT)})`);
+	await bringBackTo(p, A, FRONT + DRAFT);
 	const kept = (await list(p)).find((f) => /Before bringing back/.test(f));
 	t.ok(!!kept, 'a snapshot was taken first: ' + (await list(p)).join(', '));
 	const keptText = kept ? await textOf(p, `${DIR}/${kept}`) : '';
@@ -191,8 +197,10 @@ test('bring back while the note is open in reading view: it stays in reading vie
 	await button(p, 'Bring back');
 	await until(p, `app.vault.adapter.read(${j(A)}).then(s => s === ${j(FRONT + DRAFT)})`);
 	await closeAll(p);
-	await sleep(p, 700);
-	const shown = await p.ev(`(() => { const l = app.workspace.getLeavesOfType('markdown').find(l => l.view.file?.path === ${j(A)}); return l ? { mode: l.view.getMode(), text: l.containerEl.textContent } : null; })()`);
+	// (the reading view's own element: the source view hidden behind it still holds the old text, and is not what a reader sees)
+	const reading = `app.workspace.getLeavesOfType('markdown').find(l => l.view.file?.path === ${j(A)})?.containerEl.querySelector('.markdown-reading-view')?.textContent ?? ''`;
+	await until(p, `(${reading}).includes('It was raining.')`, 6000);
+	const shown = await p.ev(`(() => { const l = app.workspace.getLeavesOfType('markdown').find(l => l.view.file?.path === ${j(A)}); return l ? { mode: l.view.getMode(), text: ${reading} } : null; })()`);
 	t.ok(shown && shown.mode === 'preview', 'still in reading view: ' + j(shown && shown.mode));
 	t.ok(shown && shown.text.includes('It was raining.') && !shown.text.includes('quillfish'), 'the reader shows the text brought back');
 	t.eq(await read(p, A), FRONT + DRAFT, 'and the file is the same');
@@ -226,8 +234,7 @@ test('a note of only its properties: nothing to take, a rewrite that changes not
 	await seed(p, DIR, '2026-09-12 09.15.40 First draft', DRAFT);
 	await dialog(p);
 	await pick(p, 'First draft');
-	await button(p, 'Bring back');
-	await until(p, `app.vault.adapter.read(${j(A)}).then(s => s === ${j(PROPS + DRAFT)})`);
+	await bringBackTo(p, A, PROPS + DRAFT);
 	t.eq(await read(p, A), PROPS + DRAFT, 'the properties as they were written, the text under them');
 	t.eq((await list(p)).length, 1, 'nothing to keep first: no snapshot of the empty text');
 });
@@ -270,6 +277,9 @@ test('a note with sixty snapshots: all listed, the oldest last, one named one op
 	t.eq(names.length, 61, 'sixty snapshots and the note now listed: ' + names.length);
 	t.eq(names[0], 'The note now', 'the note now first');
 	t.eq(names[names.length - 1], 'Named', 'the oldest is last: ' + names[names.length - 1]);
+	// (sixty-one rows are more than the list shows: the last is scrolled to before it is pressed)
+	await p.ev(`(() => { [...document.querySelectorAll(${j(DLG + ' .binders-snapshots-item')})].pop().scrollIntoView({ block: 'center' }); return 1; })()`);
+	await sleep(p, 200);
 	await pick(p, 'Named');
 	t.ok((await shownWords(p)).includes('Text 0.'), 'the one named reads as it was');
 	await more(p);
