@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.58.0 (2026-10-11)
+
+### Added
+
+- Undo last change now takes away a note or folder you just made, or a copy of a note, only while it is still exactly as it was made, and redo makes it again.
+
 ## 0.57.0 (2026-10-11)
 
 ### Added

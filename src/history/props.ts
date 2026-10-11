@@ -35,6 +35,8 @@ export class PropsHandler implements Handler<PropsStep> {
 		}
 	}
 
+	repoint(step: PropsStep, from: TAbstractFile, to: TAbstractFile): void { for (const c of step.changes) if (c.file === from) c.file = to; }
+
 	async apply(step: PropsStep, redo: boolean): Promise<void> {
 		// (a property brought back goes where it stood: the ones that stood first first)
 		const changes = redo ? this.here(step) : [...this.here(step)].sort((a, b) => (a.at ?? Infinity) - (b.at ?? Infinity));

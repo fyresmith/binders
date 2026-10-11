@@ -73,13 +73,19 @@ export class History {
 	}
 
 	private handler(s: Step): Handler<Step, unknown> { return this.handlers[s.kind]; }
-	private alive(e: Entry): boolean { return e.steps.some((s) => this.handler(s).alive(s)); }
+	private alive(e: Entry, redo: boolean): boolean { return e.steps.some((s) => this.handler(s).alive(s, redo)); }
+
+	/** Every entry that names an item names its new self: a note made again after an undo is another object, and the
+	    entries about it (its synopsis, its name) are still about it. */
+	repoint(from: TAbstractFile, to: TAbstractFile): void {
+		for (const e of [...this.undos, ...this.redos]) for (const s of e.steps) { const h = this.handler(s); h.repoint?.(s, from, to); }
+	}
 
 	/** What "Undo" (or "Redo") would take back in this binder, or null. */
 	undoable(item: TAbstractFile | string, redo = false): string | null {
 		const s = this.scope.binderOf(item), stack = redo ? this.redos : this.undos;
 		// (a change whose items have all been deleted since has nothing to take back: it isn't offered)
-		for (let i = stack.length - 1; i >= 0; i--) if (stack[i].note === s?.note && this.alive(stack[i])) return stack[i].label;
+		for (let i = stack.length - 1; i >= 0; i--) if (stack[i].note === s?.note && this.alive(stack[i], redo)) return stack[i].label;
 		return null;
 	}
 
@@ -108,7 +114,7 @@ export class History {
 			if (i < 0) return null;
 			const u = from[i];
 			// (steps are made again in the order they were done, and taken back in the reverse; one with nothing there is passed over)
-			const steps = (redo ? [...u.steps] : [...u.steps].reverse()).filter((st) => this.handler(st).alive(st));
+			const steps = (redo ? [...u.steps] : [...u.steps].reverse()).filter((st) => this.handler(st).alive(st, redo));
 			// (everything it was about has been deleted since: nothing to take back, so the entry before it is the one)
 			if (!steps.length) { from.splice(i, 1); continue; }
 			const plans: unknown[] = [];

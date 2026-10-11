@@ -8,6 +8,7 @@ import { COMPILE_PROP, EXPORT_PROP, saveOpen } from './scenes';
 import { History } from './history/history';
 import { OrderHandler } from './history/order';
 import { PropsHandler } from './history/props';
+import { CreateHandler } from './history/create';
 import { itemName, nameProblem, pathWith, RenameHandler } from './history/rename';
 import { sameValue } from './history/values';
 import type { Entry, PropChange } from './history/types';
@@ -250,7 +251,7 @@ export class BinderStore extends Events implements ExplorerSource {
 		};
 		this.history.onChange = () => { this.trigger('history'); };
 		this.order = new OrderHandler(this.app, host, this.history);
-		this.history.handlers = { order: this.order, props: new PropsHandler(this.app, host), rename: new RenameHandler(this.app, { binderFolderOf: (item) => this.binderOf(item)?.folder ?? null, settle: host.settle }) };
+		this.history.handlers = { order: this.order, props: new PropsHandler(this.app, host), create: new CreateHandler(this.app, { settle: host.settle, folderNote: (f) => this.folderNote(f), orderedChildren: host.orderedChildren, takeAway: host.takeAway, bringBack: host.bringBack, repoint: (a, c) => this.history.repoint(a, c) }, this.order), rename: new RenameHandler(this.app, { binderFolderOf: (item) => this.binderOf(item)?.folder ?? null, settle: host.settle }) };
 		let done: () => void = () => {}, settle: () => void = () => {};
 		this.ready = new Promise((r) => { done = r; });
 		this.settled = new Promise((r) => { settle = r; });
@@ -734,8 +735,37 @@ export class BinderStore extends Events implements ExplorerSource {
 		if (clash && to.toLowerCase() !== item.path.toLowerCase()) throw new Error(`“${name}” already exists here.`);
 		await this.history.track((async () => {
 			await this.app.fileManager.renameFile(item, to);
+			// (the name typed for a note or folder just made is part of making it: one change)
+			const top = binder ? [...this.history.undos].reverse().find((e) => e.note === binder.note) : null, first = top?.steps[0];
+			if (top && top.steps.length === 1 && first?.kind === 'create' && first.file === item && !first.undone) { top.label = `New ${item instanceof TFolder ? 'folder' : 'note'} “${name}”`; return; }
 			if (binder) this.history.record({ note: binder.note, label: `Rename “${was}” to “${name}”`, steps: [{ kind: 'rename', file: item, before: was, after: name }] });
 		})());
+	}
+
+	/** The same as `newScene`, for a note the writer made by hand: one change that "Undo" takes away. */
+	newSceneByHand(folder: TFolder, index = Infinity, title = 'Untitled', depth?: number, content = ''): Promise<TFile> {
+		return this.history.track((async () => {
+			const file = await this.newScene(folder, index, title, depth, content);
+			await this.recordCreate(file, `New note “${file.basename}”`);
+			return file;
+		})());
+	}
+
+	/** The same as `newFolder`, for a folder the writer made by hand. */
+	newFolderByHand(folder: TFolder, index = Infinity, title = 'Untitled'): Promise<TFolder> {
+		return this.history.track((async () => {
+			const made = await this.newFolder(folder, index, title);
+			await this.recordCreate(made, `New folder “${made.name}”`);
+			return made;
+		})());
+	}
+
+	/** Remembers a note or folder just made by hand, where it stands and (a note) what it holds. */
+	private async recordCreate(item: TFile | TFolder, label: string): Promise<void> {
+		const binder = this.binderOf(item);
+		if (!binder || binder.problem) return;
+		const bytes = item instanceof TFile ? await this.app.vault.adapter.readBinary(item.path) : null;
+		this.history.record({ note: binder.note, label, bytes: bytes?.byteLength ?? 0, steps: [{ kind: 'create', file: item, name: item.name, pos: this.order.posOf(item), bytes }] });
 	}
 
 	/** What "Undo" (or "Redo") would take back in this binder, or null. */
@@ -790,7 +820,9 @@ export class BinderStore extends Events implements ExplorerSource {
 
 	/** A copy of a note or a folder (with everything in it, in its order), right after it, named by counting on:
 	    "Scene" gives "Scene 2". */
-	async duplicate(item: TAbstractFile): Promise<TAbstractFile> {
+	/** A copy of a note or folder, after it, as one change that "Undo" takes away (a note's; a folder's copy isn't kept). */
+	duplicate(item: TAbstractFile): Promise<TAbstractFile> { return this.history.track(this.copyOf(item)); }
+	private async copyOf(item: TAbstractFile): Promise<TAbstractFile> {
 		const folder = item.parent;
 		if (!folder) throw new Error('That can’t be copied.');
 		const t = this.writable(folder), { vault } = this.app;
@@ -803,9 +835,12 @@ export class BinderStore extends Events implements ExplorerSource {
 		const to = normalizePath(`${folder.path}/${name}${ext}`), { index, depth } = this.afterItem(item);
 		if (item instanceof TFile) {
 			const made = await this.copyFile(item, to);
-			if (t.kind === 'longform') { this.queueScenes(t, { op: 'move', item: made.basename, index, indent: depth }); return made; }
-			const rel = this.relOf(t.folder.path, made.path, false);
-			if (rel) this.queue(t, { op: 'move', item: rel, folder: this.folderRel(t, folder), index });
+			if (t.kind === 'longform') this.queueScenes(t, { op: 'move', item: made.basename, index, indent: depth });
+			else {
+				const rel = this.relOf(t.folder.path, made.path, false);
+				if (rel) this.queue(t, { op: 'move', item: rel, folder: this.folderRel(t, folder), index });
+			}
+			await this.recordCreate(made, `Duplicate “${item.basename}”`);
 			return made;
 		}
 		if (!(item instanceof TFolder) || t.kind === 'longform') throw new Error('That can’t be copied.');

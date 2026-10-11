@@ -431,7 +431,7 @@ export default class BindersPlugin extends Plugin {
 	}
 
 	private async newScene(folder: TFolder, index?: number) {
-		const file = await this.tell(this.binders.newScene(folder, index));
+		const file = await this.tell(this.binders.newSceneByHand(folder, index));
 		if (!(file instanceof TFile)) return;
 		// in a binder view on that folder, the new note shows there, ready to be named: the view isn't left for the note
 		// (the view in front: with the file explorer in use, a phone's drawer say, no view is "active")

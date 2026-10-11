@@ -42,7 +42,7 @@ export class OrderHandler implements Handler<OrderStep, OrderPlan> {
 	}
 
 	/** The folder a remembered place is in, if it's still there (by name, if it was deleted and made again). */
-	private folderOf(pos: Pos): TFolder | null {
+	folderOf(pos: Pos): TFolder | null {
 		const { vault } = this.app;
 		if (vault.getAbstractFileByPath(pos.parent.path) === pos.parent) return pos.parent;
 		const again = vault.getAbstractFileByPath(pos.path);
@@ -51,6 +51,22 @@ export class OrderHandler implements Handler<OrderStep, OrderPlan> {
 
 	/** Puts an item back at a remembered place: before the neighbour that followed it, or after the one before it, or
 	    last, whichever is still there. */
+	/** Puts an item back at a remembered place (a note made again). */
+	restore(item: TAbstractFile, pos: Pos): Promise<void> { return this.putBack(item, pos, new Map()); }
+
+	/** Names the new item in a place where it names the old. */
+	repointPos(pos: Pos, from: TAbstractFile, to: TAbstractFile): void {
+		if (pos.next === from) pos.next = to;
+		if (pos.prev === from) pos.prev = to;
+		if (pos.parent === from && to instanceof TFolder) { pos.parent = to; pos.path = to.path; }
+	}
+
+	repoint(step: OrderStep, from: TAbstractFile, to: TAbstractFile): void {
+		for (const x of step.items) { if (x.file === from) x.file = to; this.repointPos(x.before, from, to); this.repointPos(x.after, from, to); }
+		if (step.made) { if (step.made.folder === from && to instanceof TFolder) step.made.folder = to; this.repointPos(step.made.pos, from, to); }
+		if (step.removed) { if (step.removed.folder === from && to instanceof TFolder) step.removed.folder = to; this.repointPos(step.removed.pos, from, to); }
+	}
+
 	private async putBack(item: TAbstractFile, pos: Pos, run: Map<TAbstractFile | string, TAbstractFile>): Promise<void> {
 		const parent = this.folderOf(pos);
 		if (!parent) return;

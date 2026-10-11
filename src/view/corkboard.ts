@@ -284,7 +284,7 @@ class Corkboard implements BinderMode {
 	/** A new note at `index` in a folder, its title ready to type over, as a new note in the file explorer is. */
 	private async newNote(folder: TFolder, index: number, depth?: number): Promise<void> {
 		try {
-			const file = await this.store.newScene(folder, index, 'Untitled', depth);
+			const file = await this.store.newSceneByHand(folder, index, 'Untitled', depth);
 			this.made.add(file);
 			this.ctx.made(file);
 			this.onMade(file, true);
@@ -368,7 +368,7 @@ class Corkboard implements BinderMode {
 	/** A new subfolder at the end of the folder shown, named in place as a new folder in the file explorer is. */
 	private async newFolder(): Promise<void> {
 		try {
-			const folder = await this.store.newFolder(this.ctx.folder);
+			const folder = await this.store.newFolderByHand(this.ctx.folder);
 			this.onMade(folder, true);
 		} catch (e) { new Notice(plain(e)); }
 	}

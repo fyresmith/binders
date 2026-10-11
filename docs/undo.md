@@ -39,6 +39,17 @@ as they are both ways). A rename is taken back only if the item still has the na
 is free: if you renamed it again, in the file explorer say, or another note has the old name now, nothing is renamed and
 a notice says so. Renames made in Obsidian's own file explorer are not in the history.
 
+**New notes, new folders and copies**
+
+- a note or folder made with **New** or **New note after this**, and a copy of a note (**Duplicate**). The name you type
+  for a new note is part of making it: one **Undo** takes the note away.
+
+Undo takes a new note away (to the trash) only if it is still exactly as it was made: if you typed in it, or set a
+synopsis, status or anything else on it from outside, nothing is taken and a notice says the note "has been written in
+since it was made, so it stays". A folder goes only while nothing is in it but its folder note with no text. **Redo**
+makes the note again from what was kept in memory, byte for byte, in the place it had. A copy of a **folder** isn't in
+the history: delete it from the trash or the menu.
+
 A property goes back to what it was, in the place it stood among the note's other properties. Nothing else in the
 note is touched.
 
@@ -74,7 +85,7 @@ every view of it: the corkboard, the outliner and the manuscript; a change made 
   undo of a property: it is saved first, and kept.
 - **A split.** A split is undone in the note you split, with the editor's undo. See
   [Splitting, merging and grouping](splitting-and-merging.md#undoing-a-split).
-- **Deletes, merges and duplicates.** Deleted and merged-away notes are in the trash.
+- **Deletes and merges.** Deleted and merged-away notes are in the trash.
 - **Renames made in Obsidian's file explorer or a tab's title.** They are not made through Binders.
 
 ## Limits

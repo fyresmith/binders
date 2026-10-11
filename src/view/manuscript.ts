@@ -402,7 +402,7 @@ class Manuscript implements BinderMode {
 		const inBinder = !!f?.parent && this.ctx.app.vault.getAbstractFileByPath(f.path) === f && (f.parent === this.ctx.folder || f.parent.path.startsWith(this.ctx.folder.path + '/'));
 		const folder = inBinder && f?.parent ? f.parent : this.ctx.folder;
 		const index = inBinder && f ? (this.ctx.store.orderedChildren(folder) ?? []).indexOf(f) + 1 : Infinity;
-		void this.ctx.store.newScene(folder, index || Infinity).then((file) => { this.ctx.made(file); this.anchored(() => this.sync()); this.reveal(file, true); }, (e) => new Notice(plain(e)));
+		void this.ctx.store.newSceneByHand(folder, index || Infinity).then((file) => { this.ctx.made(file); this.anchored(() => this.sync()); this.reveal(file, true); }, (e) => new Notice(plain(e)));
 	}
 
 	/** The page was scrolled far from the section with the cursor (more than a screen and a half past it): its editor
@@ -1333,7 +1333,7 @@ class Manuscript implements BinderMode {
 			},
 			more: (menu) => {
 				if (this.ctx.readOnly || !folder || i < 0) return;
-				menu.addItem((x) => x.setSection('new').setTitle('New note after this').setIcon('file-plus').onClick(() => { tell(store.newScene(folder, i + 1).then((file) => { this.ctx.made(file); this.anchored(() => this.sync()); this.reveal(file, true); })); }));
+				menu.addItem((x) => x.setSection('new').setTitle('New note after this').setIcon('file-plus').onClick(() => { tell(store.newSceneByHand(folder, i + 1).then((file) => { this.ctx.made(file); this.anchored(() => this.sync()); this.reveal(file, true); })); }));
 			},
 			made: (f, rename) => { this.anchored(() => this.sync()); this.reveal(f, rename && f instanceof TFolder); },
 		});

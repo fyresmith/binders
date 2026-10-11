@@ -255,7 +255,7 @@ class ByLabel implements BinderMode {
 		if (this.ctx.readOnly) return;
 		if (kind === 'folder') {
 			if (this.longform) return;
-			void this.store.newFolder(this.ctx.folder).then((f) => this.onMade(f, true), (e) => new Notice(plain(e)));
+			void this.store.newFolderByHand(this.ctx.folder).then((f) => this.onMade(f, true), (e) => new Notice(plain(e)));
 			return;
 		}
 		// after the card in hand, as a new row in the outliner goes after the row in hand; with none, at the end
@@ -1037,7 +1037,7 @@ class ByLabel implements BinderMode {
 	/** A new note at `index` in a folder, with a label if a line asked for it, its title ready to type. */
 	private async newNote(folder: TFolder, index: number, label: string, depth?: number): Promise<void> {
 		try {
-			const file = await this.store.newScene(folder, index, 'Untitled', depth);
+			const file = await this.store.newSceneByHand(folder, index, 'Untitled', depth);
 			this.made.add(file);
 			this.ctx.made(file);
 			if (label) {

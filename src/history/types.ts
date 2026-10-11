@@ -31,7 +31,12 @@ export interface PropsStep { kind: 'props'; changes: PropChange[]; what?: Record
 /** A rename: the item and its name before and after (a note's without ".md"). */
 export interface RenameStep { kind: 'rename'; file: TAbstractFile; before: string; after: string }
 
-export type Step = OrderStep | PropsStep | RenameStep;
+/** A note or folder made by hand. `pos`: where it stands (and, taken away, where it stood). `bytes`: what a note held when
+    it was made (checked before it is taken away, and what it is made again from). `kept`: a folder's note, when taken
+    away. `undone`: it has been taken away, and is the one to be made again. */
+export interface CreateStep { kind: 'create'; file: TAbstractFile; name: string; pos: Pos | null; bytes: ArrayBuffer | null; kept?: { note: ArrayBuffer | null }; undone?: boolean }
+
+export type Step = OrderStep | PropsStep | RenameStep | CreateStep;
 export type StepKind = Step['kind'];
 
 /** One thing done by hand, in the binder whose note is `note`. `bytes`: what it keeps in memory beyond its labels
@@ -43,9 +48,11 @@ export interface Entry { failed?: boolean; note: TFile; label: string; at: numbe
     to `apply`. Nothing is applied unless every step of the entry has passed its check. */
 export interface Handler<S extends Step, P = void> {
 	/** Is any of what the step is about still there? A step with nothing there is passed over. */
-	alive(step: S): boolean;
+	alive(step: S, redo?: boolean): boolean;
 	check(step: S, redo: boolean): Promise<P>;
 	apply(step: S, redo: boolean, plan: P): Promise<void>;
+	/** Names the new item wherever the step names the old one (an item made again is another object). */
+	repoint?(step: S, from: TAbstractFile, to: TAbstractFile): void;
 }
 
 /** The handlers, one for each kind of step. */

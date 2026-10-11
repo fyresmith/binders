@@ -1210,7 +1210,7 @@ class Outliner implements BinderMode {
 			if (this.longform) depth = this.rowsShown.find((r) => r.item === at)?.depth;
 		}
 		try {
-			const made = kind === 'note' ? await this.store.newScene(folder, index, 'Untitled', depth) : await this.store.newFolder(folder, index);
+			const made = kind === 'note' ? await this.store.newSceneByHand(folder, index, 'Untitled', depth) : await this.store.newFolderByHand(folder, index);
 			if (made instanceof TFile) this.ctx.made(made);
 			this.select([made.path]);
 			this.renameNext = made.path;

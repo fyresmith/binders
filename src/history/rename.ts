@@ -53,6 +53,8 @@ export class RenameHandler implements Handler<RenameStep> {
 		if (f instanceof TFile) await this.host.settle([f]);
 	}
 
+	repoint(step: RenameStep, from: TAbstractFile, to: TAbstractFile): void { if (step.file === from) step.file = to; }
+
 	async apply(step: RenameStep, redo: boolean): Promise<void> {
 		await this.app.fileManager.renameFile(step.file, pathWith(step.file, redo ? step.after : step.before));
 	}
