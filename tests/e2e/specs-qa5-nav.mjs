@@ -797,9 +797,9 @@ test('phone header: “More options” in each mode is a sheet of finger-tall ro
 		const more = await p.at(MORE);
 		t.ok(more.w >= 40 && more.h >= 40, `the button is ${Math.round(more.w)} × ${Math.round(more.h)} px`);
 		const want = {
-			corkboard: ['Close', 'Pin', 'Card size', 'Tint cards with their label color', 'Number the cards', 'Corkboard', 'Outliner', 'Manuscript', 'Timeline', 'In a grid', 'By label, across', 'By label, down', 'Show notes in subfolders', 'Show unused labels', 'Find in binder', 'Find and replace in binder', 'Export...', 'Take a snapshot', 'Show snapshots...', 'Show progress', 'Show contents', 'Open binder note'],
-			outliner: ['Close', 'Pin', 'Show synopses', 'Columns', 'Expand all', 'Collapse all', 'Corkboard', 'Outliner', 'Manuscript', 'Timeline', 'Find in binder', 'Find and replace in binder', 'Export...', 'Take a snapshot', 'Show snapshots...', 'Show progress', 'Show contents', 'Open binder note'],
-			manuscript: ['Close', 'Pin', 'Corkboard', 'Outliner', 'Manuscript', 'Timeline', 'Find in binder', 'Find and replace in binder', 'Export...', 'Take a snapshot', 'Show snapshots...', 'Show progress', 'Show contents', 'Open binder note'],
+			corkboard: ['Close', 'Pin', 'Card size', 'Tint cards with their label color', 'Number the cards', 'Corkboard', 'Outliner', 'Manuscript', 'Timeline', 'In a grid', 'By label, across', 'By label, down', 'Show notes in subfolders', 'Show unused labels', 'Find in binder', 'Find and replace in binder', 'Add revision task', 'Export...', 'Take a snapshot', 'Show snapshots...', 'Show progress', 'Show contents', 'Open binder note'],
+			outliner: ['Close', 'Pin', 'Show synopses', 'Columns', 'Expand all', 'Collapse all', 'Corkboard', 'Outliner', 'Manuscript', 'Timeline', 'Find in binder', 'Find and replace in binder', 'Add revision task', 'Export...', 'Take a snapshot', 'Show snapshots...', 'Show progress', 'Show contents', 'Open binder note'],
+			manuscript: ['Close', 'Pin', 'Corkboard', 'Outliner', 'Manuscript', 'Timeline', 'Find in binder', 'Find and replace in binder', 'Add revision task', 'Export...', 'Take a snapshot', 'Show snapshots...', 'Show progress', 'Show contents', 'Open binder note'],
 		};
 		for (const [mode, items] of Object.entries(want)) {
 			await setMode(p, mode);
@@ -866,43 +866,46 @@ test('phone commands: the palette offers Binders’ commands where they apply an
 		await p.sleep(1200);
 		const offered = async () => { const list = await palette(p, 'Binders'); await closePalette(p); return list.filter((x) => /^Binders/.test(x)).map((x) => x.replace(/^Binders/, '')).sort(); };
 		// (“New binder” is offered everywhere, since a binder can be made from anywhere; so are “Import a manuscript...” and “Import from Scrivener...”,
-		// which makes one, and the two sidebar tabs, “Show contents” and “Show inspector”, which like Obsidian's own
+		// which makes one, and the three sidebar tabs, “Show contents”, “Show inspector” and “Show revision tasks”, which like Obsidian's own
 		// “Show outline” open with nothing to show: the desktop's twin is “palette: with nothing open…” in specs-qa6-menus)
-		const ANYWHERE = ['New binder', 'Import a manuscript...', 'Import from Scrivener...', 'Show contents', 'Show inspector'];
+		const ANYWHERE = ['New binder', 'Import a manuscript...', 'Import from Scrivener...', 'Show contents', 'Show inspector', 'Show revision tasks'];
 		const check = async (what, want) => t.eq(j(await offered()), j([...want, ...ANYWHERE].sort()), what);
 		// (“Export again” goes wherever “Export binder” does: with nothing exported yet it opens the window)
+		// (the revision note's and the progress record's: wherever a binder is in view or a scene of one is open; the three
+		// that walk the tasks too: a plain note has none of them)
+		const WALK = ['Go to next revision task', 'Go to previous revision task', 'Mark revision task done'], REVISE = ['Add revision task', ...WALK, 'Show progress'];
 		const EXPORT = ['Export binder', 'Export again'], VIEWS = ['Show corkboard', 'Show outliner', 'Show manuscript', 'Show timeline', 'Find in binder', 'Find and replace in binder', ...EXPORT], ARRANGE = 'Arrange corkboard by label', FOCUS = 'Toggle focus mode', STEP = ['Go to previous scene', 'Go to next scene'];
 		// snapshots: the binder's, wherever a binder is in view; a scene's own too, where a scene is open
 		const ALL = ['Take a snapshot of the binder', 'Show snapshots of the binder'], SCENE = ['Take a snapshot', 'Rewrite', 'Show snapshots', 'Split at headings...', 'Start a paragraph with a tab', ...ALL];
 		await check('nothing open', []);
 		await open(p);
-		await check('a binder’s corkboard', [...VIEWS, 'New scene here', 'Set word count target', ...ALL, ARRANGE]);
+		await check('a binder’s corkboard', [...VIEWS, ...REVISE, 'New scene here', 'Set word count target', ...ALL, ARRANGE]);
 		await setMode(p, 'outliner');
-		await check('its outliner', [...VIEWS, 'New scene here', 'Set word count target', ...ALL]);
+		await check('its outliner', [...VIEWS, ...REVISE, 'New scene here', 'Set word count target', ...ALL]);
 		await setMode(p, 'manuscript');
-		await check('its manuscript, no caret in it', [...VIEWS, 'New scene here', 'Set word count target', ...ALL, FOCUS]);
+		await check('its manuscript, no caret in it', [...VIEWS, ...REVISE, 'New scene here', 'Set word count target', ...ALL, FOCUS]);
 		await setMode(p, 'corkboard');
 		await h.open(L + 'Part One/Arrival.md');
-		await check('a scene, first in its folder', ['Open binder', ...EXPORT, 'New scene here', 'Split scene at cursor', 'Move down', ...SCENE, FOCUS, ...STEP]);
+		await check('a scene, first in its folder', ['Open binder', ...EXPORT, ...REVISE, 'New scene here', 'Split scene at cursor', 'Move down', ...SCENE, FOCUS, ...STEP]);
 		await h.open(L + 'Part One/Storm warning.md');
-		await check('a scene, last in its folder', ['Open binder', ...EXPORT, 'New scene here', 'Split scene at cursor', 'Move up', ...SCENE, FOCUS, ...STEP]);
+		await check('a scene, last in its folder', ['Open binder', ...EXPORT, ...REVISE, 'New scene here', 'Split scene at cursor', 'Move up', ...SCENE, FOCUS, ...STEP]);
 		await h.open(L + 'The Lighthouse.md');
-		await check('the binder note', ['Open binder', ...EXPORT, 'New scene here', ...ALL]);
+		await check('the binder note', ['Open binder', ...EXPORT, ...REVISE, 'New scene here', ...ALL]);
 		await h.open('Longform demo/Index.md');
-		await check('a Longform project’s index', ['Open binder', ...EXPORT, 'New scene here', 'Convert to binder', ...ALL]);
+		await check('a Longform project’s index', ['Open binder', ...EXPORT, ...REVISE, 'New scene here', 'Convert to binder', ...ALL]);
 		await h.open('Longform demo/Harbor.md');
-		await check('a Longform scene', ['Open binder', ...EXPORT, 'New scene here', 'Convert to binder', 'Split scene at cursor', 'Move down', ...SCENE, FOCUS, 'Go to next scene']);
+		await check('a Longform scene', ['Open binder', ...EXPORT, ...REVISE, 'New scene here', 'Convert to binder', 'Split scene at cursor', 'Move down', ...SCENE, FOCUS, 'Go to next scene']);
 		await open(p, 'Longform demo');
-		await check('a Longform project’s view', [...VIEWS, 'New scene here', 'Set word count target', 'Convert to binder', ...ALL, ARRANGE]);
+		await check('a Longform project’s view', [...VIEWS, ...REVISE, 'New scene here', 'Set word count target', 'Convert to binder', ...ALL, ARRANGE]);
 		await h.open('Plain/A note.md');
 		await check('a note in a plain folder', ['Make this folder a binder']);
 		await h.open('Loose.md');
 		await check('a note in the vault’s root', []);
 		// (a binder that can't be changed can still be looked at: its snapshots are shown, none is taken)
 		await h.open('Future/One.md');
-		await check('a scene of a read-only binder', ['Open binder', ...EXPORT, 'Show snapshots', ALL[1], FOCUS, 'Start a paragraph with a tab']);
+		await check('a scene of a read-only binder', ['Open binder', ...EXPORT, ...REVISE, 'Show snapshots', ALL[1], FOCUS, 'Start a paragraph with a tab']);
 		await open(p, 'Future');
-		await check('a read-only binder’s view', [...VIEWS, ALL[1], ARRANGE]);
+		await check('a read-only binder’s view', [...VIEWS, ...REVISE, ALL[1], ARRANGE]);
 		// a command run from the palette by touch
 		await open(p);
 		await palette(p, 'Show outliner');
@@ -961,6 +964,8 @@ test('phone dialogs: “Set word count target” opens its dialog; Done on the k
 		await p.key('Enter');
 		await until(p, `document.querySelectorAll('.modal-container').length === 0`);
 		await flush(p);
+		// (the dialog closes before the note is written: wait for the write rather than read it at once)
+		for (let i = 0; i < 20 && (await prop(p, L + 'The Lighthouse.md', 'target')) !== '80000'; i++) await p.sleep(250);
 		t.eq(await prop(p, L + 'The Lighthouse.md', 'target'), '80000', 'Enter sets it');
 		await until(p, `/80,000/.test(document.querySelector('${LEAF} .binders-word-count').textContent)`);
 		const bar = await toolbar(p);
@@ -1127,13 +1132,13 @@ test('phone settings: the switches work by touch and “Hide binder and folder n
 		t.ok(await p.ev(`[...document.querySelectorAll('.modal.mod-settings .vertical-tab-nav-item')].some(e => e.textContent === 'Binders')`), 'Binders is in the settings’ list');
 		await openSettings(p);
 		await shot(p, 'settings-top');
-		t.eq(j(await p.ev(`[...${TAB}.querySelectorAll('.setting-item-heading')].map(e => e.textContent)`)), j(['File explorer', 'Paragraphs', 'Sidebar', 'Word counts', 'Labels', 'Statuses', 'Focus mode', 'Export', 'Property names']), 'its nine parts');
+		t.eq(j(await p.ev(`[...${TAB}.querySelectorAll('.setting-item-heading')].map(e => e.textContent)`)), j(['File explorer', 'Paragraphs', 'Sidebar', 'Word counts', 'Progress', 'Labels', 'Statuses', 'Focus mode', 'Export', 'Property names']), 'its ten parts');
 		t.eq(j(await p.ev(`['exports', 'places', 'author', 'contact'].map(c => ${TAB}.querySelector('.binders-settings-' + c + ' .setting-item-name')?.textContent ?? null)`)), j(['Exports folder', 'Remembered places', 'Your name', 'Contact details']), 'Export’s four rows');
 		t.ok(await p.ev(`${TAB}.scrollWidth <= ${TAB}.clientWidth + 1`), 'nothing wider than the screen');
 		const toggles = () => p.ev(`[...${TAB}.querySelectorAll('.checkbox-container')].slice(0, 4).map(e => { e.scrollIntoView({ block: 'nearest' }); return (${R})(e); })`);
 		const flags = () => p.ev(`(({ orderExplorer, openOnClick, hideBinderNotes, explorerLabels }) => [orderExplorer, openOnClick, hideBinderNotes, explorerLabels].join())(${PL}.settings)`);
 		let tg = await toggles();
-		t.eq(await p.ev(`${TAB}.querySelectorAll('.checkbox-container').length`), 14, 'four explorer switches, two for paragraphs, one for the sidebar, one for word counts and six focus switches');
+		t.eq(await p.ev(`${TAB}.querySelectorAll('.checkbox-container').length`), 15, 'four explorer switches, two for paragraphs, one for the sidebar, one for word counts, one for the progress record and six focus switches');
 		t.ok(tg.length === 4 && tg.every((r) => r[2] >= 44 && r[3] >= 28), 'four explorer switches, each a finger wide: ' + j(tg));
 		await tap(p, tg[0][0] + tg[0][2] / 2, tg[0][1] + tg[0][3] / 2);
 		await p.sleep(700);
@@ -1268,7 +1273,7 @@ test('phone settings: statuses are added, renamed (asking about the notes), reor
 		await p.sleep(700);
 		t.eq(await statuses(), 'Idea,Revised,Done,Proofread', 'and its ✕ deletes it');
 		// property names
-		const props = `[...${TAB}.querySelectorAll('.setting-item:not(.binders-settings-label):not(.binders-settings-status):not(.binders-settings-goal):not(.binders-settings-exports):not(.binders-settings-author):not(.binders-settings-styles) input[type="text"]')]`;
+		const props = `[...${TAB}.querySelectorAll('.setting-item:not(.binders-settings-label):not(.binders-settings-status):not(.binders-settings-goal):not(.binders-settings-exports):not(.binders-settings-author):not(.binders-settings-styles):not(.binders-settings-device) input[type="text"]')]`;
 		const fields = await p.ev(`${props}.map(i => { i.scrollIntoView({ block: 'center' }); return { v: i.value, ph: i.placeholder, r: (${R})(i) }; })`);
 		t.eq(j(fields.map((x) => [x.v, x.ph])), j([['synopsis', 'synopsis'], ['status', 'status'], ['label', 'label'], ['target', 'target'], ['story-date', 'story-date'], ['story-order', 'story-order'], ['notes', 'notes']]), 'seven property names');
 		t.ok(fields.every((x) => x.r[2] >= 200 && x.r[3] >= 40), 'in wide, finger-tall fields');
@@ -1308,7 +1313,7 @@ bug('phone settings: a label’s color menu shows the color’s name whole (the 
 ux('phone settings: a property’s name is typed without the keyboard capitalizing or correcting it (the fields have no `autocapitalize="none"`: “summary” comes out “Summary” on a phone, which is another property)', async (p, h, t) => {
 	await onDevice(p, PHONE, async () => {
 		await openSettings(p);
-		const fields = await p.ev(`[...${TAB}.querySelectorAll('.setting-item:not(.binders-settings-label):not(.binders-settings-status):not(.binders-settings-goal):not(.binders-settings-exports):not(.binders-settings-author):not(.binders-settings-styles) input[type="text"]')].map(i => ({ value: i.value, autocapitalize: i.getAttribute('autocapitalize'), autocorrect: i.getAttribute('autocorrect') }))`);
+		const fields = await p.ev(`[...${TAB}.querySelectorAll('.setting-item:not(.binders-settings-label):not(.binders-settings-status):not(.binders-settings-goal):not(.binders-settings-exports):not(.binders-settings-author):not(.binders-settings-styles):not(.binders-settings-device) input[type="text"]')].map(i => ({ value: i.value, autocapitalize: i.getAttribute('autocapitalize'), autocorrect: i.getAttribute('autocorrect') }))`);
 		t.ok(fields.length === 7 && fields.every((f) => /^(none|off)$/.test(f.autocapitalize ?? '')), 'each field turns capitals off: ' + j(fields));
 	});
 });
