@@ -41,7 +41,7 @@ class CaptureModal extends SuggestModal<About> {
 	}
 	onChooseSuggestion(a: About): void {
 		const text = this.inputEl.value;
-		void this.plugin.revision.add(this.binder, a.items, text, a.passage).then(() => { new Notice('Revision task added.', 2500); }, (e) => {
+		void this.plugin.revision.add(this.binder, a.items, text, a.passage).then(() => { this.plugin.revision.tell('Revision task added.', 2500); }, (e) => {
 			// (what was typed isn't lost with the prompt: it is said, to be copied)
 			new Notice(`The task couldn’t be added: ${e instanceof Error ? e.message : String(e)}\n\n${text}`, 0);
 		});

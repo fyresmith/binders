@@ -1,11 +1,12 @@
-import { Events, TFile, TFolder, normalizePath, type TAbstractFile } from 'obsidian';
+import { Events, Notice, TFile, TFolder, normalizePath, type TAbstractFile } from 'obsidian';
 import type { Binder } from '../binders';
 import { checkFormat, isBinderNote } from '../model';
 import type BindersPlugin from '../main';
 import { editProperties } from '../properties';
 import { saveOpen } from '../scenes';
 import { isScene } from '../snapshots';
-import { append, parse, taskLines, type Task } from './tasks';
+import { append, parse, setDone, taskLines, type Task } from './tasks';
+import { Walk } from './walk';
 
 /* A binder's revision tasks: where its revision note is, what the note says now, which scene each task is about and
    where that scene comes in the manuscript. The note is the truth: it is read again whenever it changes (typed in,
@@ -62,8 +63,12 @@ export class Revision extends Events {
 	    never) rewritten is still the binder's. */
 	private seen = new Map<TFile, { raw: string; file: TFile | null }>();
 
+	/** The walk through the unfinished tasks (walk.ts). */
+	readonly walk: Walk;
+
 	constructor(private plugin: BindersPlugin) {
 		super();
+		this.walk = new Walk(plugin, this);
 		const { vault, metadataCache } = plugin.app;
 		plugin.registerEvent(vault.on('modify', (f) => { if (f instanceof TFile && this.texts.has(f.path)) void this.load(f); }));
 		plugin.registerEvent(vault.on('rename', (f, old) => {
@@ -165,7 +170,7 @@ export class Revision extends Events {
 	// ---- reading ----
 
 	/** Every item of the binder and where it comes in the manuscript. */
-	private order(binder: Binder): Map<string, number> {
+	order(binder: Binder): Map<string, number> {
 		const store = this.plugin.binders, at = new Map<string, number>();
 		let n = 0;
 		const walk = (f: TFolder) => { for (const c of store.orderedChildren(f) ?? []) { at.set(c.path, n++); if (c instanceof TFolder) walk(c); } };
@@ -277,5 +282,38 @@ export class Revision extends Events {
 		} finally { this.making.delete(path); }
 		this.trigger('changed');
 		return { note: made, added: body, made: true };
+	}
+
+	/** Ticks (or clears) one task's box: the one character between its brackets, and nothing else (golden rule 3, the
+	    fourth exception). What was typed in the note's own tab is saved first. Refused, and said, if the line is no
+	    longer what was read. Returns the line as it is now, or null if nothing was written. */
+	async tick(binder: Binder, task: Task, done: boolean): Promise<string | null> {
+		const note = this.noteOf(binder);
+		if (!note || binder.kind !== 'binder' || binder.problem) { this.tell(binder.problem ? `This binder can’t be changed. ${binder.problem}` : 'There is no revision note to tick a task in.'); return null; }
+		await saveOpen(this.plugin.app, [note]);
+		let line: string | null = null;
+		const now = await this.plugin.app.vault.process(note, (was) => {
+			const next = setDone(was, task, done);
+			if (next === null) return was;
+			const lines = was.split('\n'), at = lines[task.line] === task.raw ? task.line : lines.indexOf(task.raw);
+			line = next.split('\n')[at] ?? null;
+			return next;
+		});
+		this.texts.set(note.path, now);
+		if (line === null) this.tell(`That task has changed in “${note.basename}”. Nothing was written.`);
+		this.trigger('changed');
+		return line;
+	}
+
+	/** Says something about the tasks: in the Revision pane's foot if the pane is in sight (a notice would cover its
+	    buttons), else as a notice. */
+	tell(text: string, ms = 5000): void {
+		if (this.paneShown()) this.trigger('said', text);
+		else new Notice(text, ms);
+	}
+
+	/** Is the Revision pane in sight? */
+	paneShown(): boolean {
+		return this.plugin.app.workspace.getLeavesOfType('binders-revision').some((l) => l.view.containerEl.isShown() && l.view.containerEl.offsetWidth > 0);
 	}
 }

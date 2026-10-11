@@ -6,6 +6,7 @@ import { readProps } from '../view/props';
 import { WordCounter } from '../view/word-counter';
 import { wordsLabel } from '../view/words';
 import type { Follow, Target } from './follow';
+import { goToItem } from './go';
 import { FollowingView, showSide } from './views';
 
 /* The contents of a binder, a view in the sidebar: the whole book as one list in reading order, with where the
@@ -258,24 +259,12 @@ export class ContentsPane {
 
 	/** Goes to an item: in the binder view the writer is in, if there is one; else it opens. */
 	private async go(path: string, newLeaf: ReturnType<typeof Keymap.isModEvent>): Promise<void> {
-		const plugin = this.plugin, ws = plugin.app.workspace, binder = this.binder, view = this.target?.binder === binder ? this.target?.view : null;
+		const plugin = this.plugin, ws = plugin.app.workspace, binder = this.binder, view = this.target?.binder === binder ? this.target?.view ?? null : null;
 		const item = plugin.app.vault.getAbstractFileByPath(path);
 		if (!binder || !item) return;
-		if (newLeaf || !view || !view.folder) {
-			if (item instanceof TFile) await ws.getLeaf(newLeaf || false).openFile(item);
-			else if (item instanceof TFolder) await plugin.openBinder(item, newLeaf);
-			return;
-		}
-		// a board shows one folder: the one the item is in. The manuscript and the outliner show everything under
-		// theirs: only an item outside it takes them up to the binder.
-		const folder = view.folder, inside = item === folder || item.path.startsWith(folder.path + '/');
-		const board = view.mode === 'corkboard' && view.arrangement !== 'label';
-		const want = board ? (item instanceof TFolder ? item : item.parent ?? binder.folder) : inside ? folder : binder.folder;
-		if (want !== folder) await view.navigate(want);
-		ws.setActiveLeaf(view.leaf, { focus: true });
-		if (item !== want) view.revealItem(item);
 		// (on a phone the drawer these are in covers the view: it gets out of the way of what was gone to)
-		if (Platform.isPhone) { const root = ws.getLeavesOfType(CONTENTS_VIEW).find((l) => l.view.containerEl.contains(this.el))?.getRoot(); (root === ws.leftSplit ? ws.leftSplit : ws.rightSplit).collapse(); }
+		const leave = () => { if (Platform.isPhone) { const root = ws.getLeavesOfType(CONTENTS_VIEW).find((l) => l.view.containerEl.contains(this.el))?.getRoot(); (root === ws.leftSplit ? ws.leftSplit : ws.rightSplit).collapse(); } };
+		await goToItem(plugin, binder, view, item, newLeaf, leave);
 	}
 
 	/** The book's length under the list, in words. */

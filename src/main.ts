@@ -34,6 +34,7 @@ import { installInspector, showSide } from './inspector/views';
 import { placeSide } from './inspector/place';
 import { Revision } from './revision/store';
 import { capture } from './revision/capture';
+import { installRevision } from './inspector/revision-pane';
 import type { Follow } from './inspector/follow';
 import { startWithTab } from './paragraphs/command';
 import { installParagraphs, type Paragraphs } from './paragraphs/paragraphs';
@@ -126,6 +127,7 @@ export default class BindersPlugin extends Plugin {
 		this.app.workspace.onLayoutReady(() => { void this.binders.ready.then(() => showInterrupted(this)).catch(() => { /* nothing to say */ }); });
 		this.inspect = installInspector(this);
 		installContents(this, this.inspect);
+		installRevision(this, this.inspect);
 		// (a binder view the workspace brings back in a tab not yet shown hasn't opened: it counts all the same)
 		placeSide(this);
 		// (not in a card's own menu, which has these already)
