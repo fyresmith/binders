@@ -1211,7 +1211,8 @@ test('Ungroup takes the emptied folder away with its folder note, to the trash; 
 		await clickMenu(p, 'Ungroup');
 		t.ok(await gone(p, L + 'Part Two'), 'the folder is gone once its notes are out');
 		t.eq(await listIs(p, UNGROUPED), j(UNGROUPED), 'its notes stand where it stood, in order, and it is off the list');
-		t.eq(await read(p, '.trash/Part Two/Part Two.md'), FOLDER_NOTE, 'the folder and its note are in the trash, whole');
+		// (the folder itself is removed empty, never with whatever may have arrived in it; its note goes to the trash)
+		t.eq(await read(p, '.trash/Part Two.md'), FOLDER_NOTE, 'the folder note is in the trash, whole');
 		t.ok(!(await cards(p)).includes(L + 'Part Two'), 'no empty stack is left on the board');
 		same(t, before, await texts(p), { skip: [NOTE, P2NOTE], moved: OUT });
 		// undo: the folder, its note and its notes

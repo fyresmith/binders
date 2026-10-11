@@ -2,6 +2,7 @@ import { Events, FileSystemAdapter, Notice, TFile, TFolder, normalizePath, parse
 import type { ExplorerSource } from './explorer';
 import type BindersPlugin from './main';
 import { applyOps, checkFormat, diskList, FORMAT_VERSION, isBinderNote, isFolderNote, nameOf, orderChildren, parentOf, readIndex, relPath, removeFrom, settleNames, stepIndex, UnsupportedBinder, type ListOp } from './model';
+import { removeEmptyFolder } from './folder-remove';
 import { editProperties, readProperties } from './properties';
 import { nextName, parts } from './scene-text';
 import { COMPILE_PROP, EXPORT_PROP, saveOpen } from './scenes';
@@ -1152,9 +1153,8 @@ export class BinderStore extends Events implements ExplorerSource {
 		const note = this.folderNote(folder);
 		if (folder.children.some((c) => c !== note)) return null;
 		try {
-			// (what a file manager leaves in every folder it shows isn't anyone's)
 			const disk = await vault.adapter.list(folder.path);
-			if (disk.folders.length || disk.files.some((p) => p !== note?.path && !/(^|\/)\.DS_Store$/.test(p))) return null;
+			if (disk.folders.length || disk.files.some((p) => p !== note?.path)) return null;
 		} catch { return null; }
 		let bytes: ArrayBuffer | null = null;
 		if (note) {
@@ -1165,8 +1165,14 @@ export class BinderStore extends Events implements ExplorerSource {
 		}
 		// (asked again: a file may have arrived in it while its note was read)
 		if (vault.getAbstractFileByPath(folder.path) !== folder || folder.children.some((c) => c !== note)) return null;
-		await fileManager.trashFile(folder);
-		return { note: bytes };
+		// The folder note goes where "Deleted files" says (its text is kept in `bytes` and the history); then the folder,
+		// which holds nothing, is removed without ever taking anything with it: a file that arrived in this moment
+		// makes the removal fail, and then the note is put back and the folder stays (src/folder-remove.ts).
+		const notePath = note?.path;
+		if (note) await fileManager.trashFile(note);
+		if (await removeEmptyFolder(this.app, folder)) return { note: bytes };
+		if (notePath && bytes && !vault.getAbstractFileByPath(notePath)) await vault.createBinary(notePath, bytes).catch((): void => undefined);
+		return null;
 	}
 
 	/** Makes a folder that `takeAway` trashed again, at `index` among `parent`'s items, with its folder note as it was

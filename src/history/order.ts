@@ -1,4 +1,5 @@
 import { TFile, TFolder, normalizePath, type App, type TAbstractFile } from 'obsidian';
+import { removeEmptyFolder } from '../folder-remove';
 import type { Binder } from '../binders';
 import type { History } from './history';
 import { sameValue } from './values';
@@ -188,7 +189,8 @@ export class OrderHandler implements Handler<OrderStep, OrderPlan> {
 		if (!redo && step.made && vault.getAbstractFileByPath(step.made.folder.path) === step.made.folder) {
 			// (the name it has now, typed since it was made, is the one it's made again with)
 			step.made.name = step.made.folder.name;
-			if (!step.made.folder.children.length) await this.app.fileManager.trashFile(step.made.folder);
+			// (never recursively: a note that arrives in that moment makes the removal fail, and the folder stays)
+			if (!step.made.folder.children.length) await removeEmptyFolder(this.app, step.made.folder);
 		}
 		if (again) {
 			// (with its note as it is now: what was changed in it since goes with it, to come back with it)
