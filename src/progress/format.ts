@@ -47,7 +47,7 @@ export interface ParsedFile {
 	header: Header | null;
 	days: DayLine[];
 	events: EventLine[];
-	/** Lines that are JSON but of a kind this version doesn't know: kept as they are when the file is written. */
+	/** Lines of a kind this version doesn't know, or that can't be read (up to a length): kept as they are when the file is written. */
 	other: string[];
 	/** Lines that couldn't be read at all (a file cut short, or edited). */
 	skipped: number;
@@ -59,6 +59,9 @@ const num = (v: unknown): number | null => (typeof v === 'number' && isFinite(v)
 const whole = (v: unknown): number | null => { const n = num(v); return n === null ? null : Math.max(0, Math.round(n)); };
 const text = (v: unknown): v is string => typeof v === 'string';
 const obj = (v: unknown): Record<string, unknown> | null => (v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : null);
+/** A line that can't be read is kept (and written again with the rest) if it is no longer than this: Binders deletes
+    none of the record by itself, and a hand-edited line is the writer's. */
+const KEEP = 4000;
 const MARK = String.fromCharCode(0xFEFF);
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const kind = (v: unknown): Kind => (KINDS as unknown[]).includes(v) ? v as Kind : 'desktop';
@@ -100,7 +103,7 @@ export function parseFile(raw: string): ParsedFile {
 		if (!line.trim()) continue;
 		let o: Record<string, unknown> | null = null;
 		try { o = obj(JSON.parse(line)); } catch { /* skipped below */ }
-		if (!o) { out.skipped++; first = false; continue; }
+		if (!o) { out.skipped++; if (line.length <= KEEP) out.other.push(line); first = false; continue; }
 		if (first && 'binders-history' in o) {
 			first = false;
 			const v = whole(o['binders-history']);
@@ -110,7 +113,8 @@ export function parseFile(raw: string): ParsedFile {
 			continue;
 		}
 		first = false;
-		if (o.t === 'day') { const d = readDay(o); if (d) out.days.push(d); else out.skipped++; } else if (o.t === 'ev') { const e = readEvent(o); if (e) out.events.push(e); else out.skipped++; } else out.other.push(line);
+		const bad = () => { out.skipped++; if (line.length <= KEEP) out.other.push(line); };
+		if (o.t === 'day') { const d = readDay(o); if (d) out.days.push(d); else bad(); } else if (o.t === 'ev') { const e = readEvent(o); if (e) out.events.push(e); else bad(); } else out.other.push(line);
 	}
 	return out;
 }
@@ -134,3 +138,9 @@ export function parseName(name: string): { year: number; label: string; id: stri
 	const m = /^(\d{4}) (.+) ([0-9a-f]{4,})\.binder-history$/.exec(name);
 	return m ? { year: Number(m[1]), label: m[2], id: m[3] } : null;
 }
+
+/** The folder a path in a binder is in ('' for the binder itself). */
+export const parentOf = (path: string): string => path.slice(0, Math.max(0, path.lastIndexOf('/')));
+
+/** A path changed to another: a rename if it stayed in the same folder, else a move. */
+export const moveKind = (from: string, to: string): 'renamed' | 'moved' => (parentOf(from) === parentOf(to) ? 'renamed' : 'moved');

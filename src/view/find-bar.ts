@@ -352,6 +352,7 @@ export class FindBar {
 				} catch { done.left.push(f.source.name); }
 			}
 		} finally { this.busy = false; }
+		if (done.notes.length) plugin.progress.event(done.notes[0].file, { k: 'replace', p: '', n: done.notes.length, w: done.count });
 		this.texts.clear();
 		await this.search(true);
 		this.done = done;

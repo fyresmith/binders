@@ -1,6 +1,6 @@
-import { BLOCK, changeWords, type Doc } from '../src/progress/count';
+import { BLOCK, changeWords, frontOf, transactionWords, type Doc } from '../src/progress/count';
 import { recordDay, hourOf } from '../src/progress/day';
-import { FORMAT, fileName, parseFile, parseName } from '../src/progress/format';
+import { FORMAT, fileName, moveKind, parseFile, parseName } from '../src/progress/format';
 import { Ledger, type Device } from '../src/progress/ledger';
 import { merge, toHistory, statusOn, type Source } from '../src/progress/merge';
 import { done, eq, ok } from './harness';
@@ -59,6 +59,29 @@ eq(BLOCK, 50, 'a block is more than fifty words');
 	const g = edit('a b c ' + text, 6, text.length, text);
 	eq(`${g.added} ${g.cut} ${g.block}`, '0 0 0', 'the same words put back over themselves');
 }
+
+// ---- a transaction is counted whole ----
+{
+	// a paragraph dragged elsewhere in the note: taken out here, put in there; no writing
+	const para = Array(30).fill('keeper').join(' ');
+	const before = para + ' middle ' + 'end', after = 'middle ' + para + ' end';
+	const w = transactionWords(doc(before), doc(after), [{ fromA: 0, toA: para.length + 1, fromB: 0, toB: 0 }, { fromA: para.length + 8, toA: para.length + 8, fromB: 7, toB: 7 + para.length + 1 }]);
+	eq(`${w.added} ${w.cut} ${w.block}`, '0 0 0', 'text moved within a note is neither added nor cut');
+	// words in the properties are not writing
+	const note = '---\nsynopsis: one two three\nstatus: draft\n---\nBody text';
+	const front = frontOf(doc(note));
+	eq(note.slice(front), 'Body text', 'the text starts after the properties');
+	const p = transactionWords(doc(note), doc(note.replace('one two three', 'one two three four five')), [{ fromA: 22, toA: 22, fromB: 22, toB: 27 }], front);
+	eq(`${p.added} ${p.cut} ${p.block}`, '0 0 0', 'a change in the properties counts for nothing');
+	eq(frontOf(doc('No properties here')), 0, 'a note with none starts at its first character');
+}
+
+// ---- a rename stays in its folder, a move leaves it ----
+eq(moveKind('Gull', 'Gull calls'), 'renamed', 'a note at the top of the binder renamed');
+eq(moveKind('Part One/Gull', 'Part One/Calls'), 'renamed', 'a note in a folder renamed');
+eq(moveKind('Part One/Gull', 'Part Two/Gull'), 'moved', 'a note in another folder is moved');
+eq(moveKind('Gull', 'Part Two/Gull'), 'moved', 'a note from the top into a folder');
+eq(moveKind('Part One/Gull', 'Gull'), 'moved', 'and out of it');
 
 // ---- file names ----
 eq(fileName(2026, 'MacBook', 'a1b2'), '2026 MacBook a1b2.binder-history', 'a file is named for the year, the device’s label and its id');
@@ -307,6 +330,32 @@ const file = (d: Device, f: (l: Ledger) => void, year = 2026): Source => { const
 		file(dev('b002'), (l) => { l.typed(t(2026, 10, 1, 9, 10), 'Two', 1, 0); l.typed(t(2026, 10, 1, 14, 0), 'Two', 1, 0); }),
 	]);
 	eq(m.days[0].sittings.length, 2, 'overlapping sittings join, a separate one stays');
+}
+
+// ---- what Sync delivers is not recorded twice ----
+{
+	const m = merge([
+		file(A, (l) => { l.event({ at: t(2026, 10, 1, 9), k: 'made', p: 'One' }); l.event({ at: t(2026, 10, 1, 9, 5), k: 'snapshot', p: '', name: 'Draft' }); }),
+		file(dev('b002'), (l) => { l.event({ at: t(2026, 10, 1, 9, 40), k: 'made', p: 'One' }); l.event({ at: t(2026, 10, 1, 9, 6), k: 'snapshot', p: '', name: 'Draft' }); }),
+	]);
+	eq(m.events.filter((e) => e.k === 'made').length, 1, 'a note made on one device and arriving on another is one made');
+	eq(m.events.filter((e) => e.k === 'snapshot').length, 2, 'a snapshot is each device’s own act');
+}
+
+// ---- words counted before the file is read are added to it ----
+{
+	const old = new Ledger(A, 2026); old.typed(t(2026, 5, 1, 9), 'One', 10, 1); old.event({ at: t(2026, 5, 1, 9), k: 'made', p: 'One' });
+	const file1 = parseFile(old.serialize());
+	const live = new Ledger(A, 2026);
+	live.typed(t(2026, 5, 1, 10), 'One', 5, 0);
+	live.absorb(file1);
+	eq(JSON.stringify(live.get('2026-05-01')?.n.One), JSON.stringify([15, 1, 0, 0]), 'typing before the read and the file’s day are added');
+	eq(live.lines().events.length, 1, 'with its events');
+	live.absorb(file1, true);
+	eq(JSON.stringify(live.get('2026-05-01')?.n.One), JSON.stringify([15, 1, 0, 0]), 'a copy of the same file is not added in again');
+	const newer = parseFile(JSON.stringify({ 'binders-history': 9, device: 'a1b2', label: 'x', kind: 'desktop', year: 2026 }) + '\n');
+	const l2 = new Ledger(A, 2026); l2.typed(t(2026, 5, 1), 'One', 1, 0); l2.absorb(newer);
+	ok(l2.locked && !l2.dirty, 'a newer file read late locks the ledger and nothing is written');
 }
 
 done('progress record');

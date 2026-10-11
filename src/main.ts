@@ -16,6 +16,7 @@ import { manuscript } from './view/manuscript';
 import { ConvertModal } from './longform-convert';
 import { mergeScenes, splitHistory, splitScene, splitUndo } from './scenes';
 import { Focus } from './focus/focus';
+import { Progress } from './progress/recorder';
 import { desktop } from './export/desktop';
 import { followRename } from './export/export';
 import { printer } from './export/pdf';
@@ -66,6 +67,8 @@ export default class BindersPlugin extends Plugin {
 		back: (s: FolderSnapshot, folder: TFolder, scope: 'all' | 'both' | 'text' | 'order' = 'both', since: 'stay' | 'gather' = 'stay') => bringBackNow(this, s, folder, scope, since),
 		interrupted: () => showInterrupted(this),
 	};
+	/** The record of a binder's writing (progress/recorder.ts). */
+	progress: Progress;
 	/** Focus mode: its commands, the button on a binder's notes, the day's words (focus/focus.ts). */
 	focus: Focus;
 	/** Export's way to the computer's save dialog and disk (export/desktop.ts): null from it means there is none, and
@@ -95,6 +98,9 @@ export default class BindersPlugin extends Plugin {
 		addIcon(TIMELINE_ICON, TIMELINE_ICON_SVG);
 		await this.loadSettings();
 		this.binders = new BinderStore(this);
+		this.progress = new Progress(this);
+		this.progress.start();
+		this.registerEditorExtension(this.progress.extension());
 		this.styles = new Styles(this);
 		this.addSettingTab(new BindersSettingTab(this.app, this));
 		// (the last argument: the folder the binder view in front shows, which the explorer marks as it marks the open note)

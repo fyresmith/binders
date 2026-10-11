@@ -463,6 +463,7 @@ export class ImportWindow extends Modal {
 			await this.plugin.saveSettings();
 			this.close();
 			await this.plugin.openBinder(folder);
+			this.plugin.progress.event(folder, { k: 'import', n: plan.sceneCount, w: plan.notes.reduce((n, x) => n + this.plugin.progress.words(x.body), 0) });
 			this.done(plan, folder);
 		} catch (e) {
 			// (what was made before it stopped is plain files in the new folder, and the message says where)

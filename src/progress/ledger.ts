@@ -1,5 +1,5 @@
 import { hourOf, recordDay } from './day';
-import { serialize, type Count, type DayLine, type EventLine, type Kind, type ParsedFile, type Total } from './format';
+import { FORMAT, serialize, type Count, type DayLine, type EventLine, type Kind, type ParsedFile, type Total } from './format';
 
 /* One device's record of one binder for one year, in memory: the days and events as they are added, and the file's
    text when it is time to write it. Pure. A ledger made over a file of a newer format never changes and is never
@@ -19,11 +19,11 @@ export class Ledger {
 	/** The last minute typing was counted in, for each day: a minute is counted once. */
 	private lastMinute = new Map<string, number>();
 	/** Not to be written: a newer format wrote the file. */
-	readonly locked: boolean;
+	locked: boolean;
 	/** Something is new since the file was read or written. */
 	dirty = false;
 
-	constructor(readonly device: Device, readonly year: number, parsed?: ParsedFile) {
+	constructor(public device: Device, readonly year: number, parsed?: ParsedFile) {
 		this.locked = !!parsed?.newer;
 		if (!parsed) return;
 		// (one line a day: should a hand-edited file have two for a day, the later is the one)
@@ -96,6 +96,34 @@ export class Ledger {
 	serialize(): string {
 		const { days, events } = this.lines();
 		return serialize({ device: this.device.id, label: this.device.label, kind: this.device.kind, year: this.year }, days, events, this.other);
+	}
+
+	/** A file of this device's year that was read after typing began (the read takes a moment): its days are added to
+	    the ones counted since, as they were before. `copy`: another copy of a file already taken in (a Sync conflict
+	    copy, or the same file under an old label): a day it shares with what is here is not added but the later of
+	    the two is kept. */
+	absorb(p: ParsedFile, copy = false): void {
+		if (p.newer) { this.locked = true; this.dirty = false; return; }
+		for (const d of p.days) {
+			const mine = this.days.get(d.d);
+			if (!mine) { this.days.set(d.d, d); continue; }
+			if (copy) { if (d.u > mine.u) this.days.set(d.d, d); continue; }
+			for (const [path, c] of Object.entries(d.n)) { const n = this.count(mine, path); for (let i = 0; i < 4; i++) n[i] += c[i]; }
+			for (const [h, w] of Object.entries(d.h)) mine.h[h] = (mine.h[h] ?? 0) + w;
+			mine.m += d.m;
+			mine.s = [...d.s, ...mine.s].sort((a, b) => a[0] - b[0]);
+			if (d.tot && (!mine.tot || d.tot.at > mine.tot.at)) mine.tot = d.tot;
+			mine.u = Math.max(mine.u, d.u);
+		}
+		const seen = new Set(this.events.map((e) => JSON.stringify(e)));
+		this.events = [...p.events.filter((e) => !seen.has(JSON.stringify(e))), ...this.events];
+		this.other = [...new Set([...p.other, ...this.other])];
+	}
+
+	/** What a reader of the file would get from it (the merge takes devices' files in this shape). */
+	toParsed(): ParsedFile {
+		const { days, events } = this.lines();
+		return { version: FORMAT, header: { 'binders-history': FORMAT, device: this.device.id, label: this.device.label, kind: this.device.kind, year: this.year }, days, events, other: this.other, skipped: 0, newer: false };
 	}
 
 	/** Written: nothing is new now. */

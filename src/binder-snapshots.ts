@@ -198,6 +198,7 @@ export async function takeFolderSnapshot(plugin: BindersPlugin, folder: TFolder,
 	const file = await app.vault.create(at(name), text);
 	// read back from the disk: it is there, whole, before anyone is told it was taken
 	if (await readExact(app, file.path) !== text) throw new Error('The snapshot couldn’t be checked, so it doesn’t count. Nothing else was changed.');
+	plugin.progress.event(folder, { k: 'snapshot', p: of, name: title });
 	return { snapshot: { file, taken: when.getTime(), title, auto: !!why, of }, made: true, state };
 }
 
@@ -271,7 +272,11 @@ function free(app: App, dir: string, name: string, ext = ''): string {
     binder; a folder's is a folder of the same binder, right after the one it is of, in the order it had.
     The folder's own note is written last, so a binder's copy becomes a binder once, when it is whole, and not a
     binder that the store looks at again for every note that arrives. `step` is told how far it has got. */
-export async function makeFromSnapshot(plugin: BindersPlugin, s: FolderSnapshot, folder: TFolder, label: string, step?: (done: number, of: number) => void): Promise<TFolder> {
+export function makeFromSnapshot(plugin: BindersPlugin, s: FolderSnapshot, folder: TFolder, label: string, step?: (done: number, of: number) => void): Promise<TFolder> {
+	// (the notes it makes have words that came a block at a time)
+	return plugin.progress.during('duplicate', () => makeFromSnapshotNow(plugin, s, folder, label, step));
+}
+async function makeFromSnapshotNow(plugin: BindersPlugin, s: FolderSnapshot, folder: TFolder, label: string, step?: (done: number, of: number) => void): Promise<TFolder> {
 	const { app } = plugin, store = plugin.binders, state = await readFolderSnapshot(plugin, s, folder);
 	if (state.damaged.length) throw new Error('This snapshot’s file isn’t as it was written, so nothing was made from it.');
 	const parent = folder.parent?.path ?? '', safe = label.replace(/[*"\\/<>:|?]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -390,6 +395,11 @@ export async function bringBackNow(plugin: BindersPlugin, s: FolderSnapshot, fol
     finishes it, and bringing back the one taken first puts everything as it was. Everything is `bringBackAll`,
     below, which writes its plan down first. `step` is told how far it has got. */
 export async function bringBackFolder(plugin: BindersPlugin, s: FolderSnapshot, folder: TFolder, shown: Plan, step?: (done: number, of: number) => void): Promise<Back> {
+	const back = await plugin.progress.during('back', () => bringBackFolderNow(plugin, s, folder, shown, step));
+	plugin.progress.event(folder, { k: 'back', p: plugin.progress.rel(folder), name: s.title });
+	return back;
+}
+async function bringBackFolderNow(plugin: BindersPlugin, s: FolderSnapshot, folder: TFolder, shown: Plan, step?: (done: number, of: number) => void): Promise<Back> {
 	const { app } = plugin, store = plugin.binders;
 	writable(plugin, folder);
 	await mine(app, s);

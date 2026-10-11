@@ -1,5 +1,5 @@
-import { countWords } from '../view/words';
 import { bodyStart } from '../scene-text';
+import { countWords } from '../view/words';
 
 /* The record's word counting: what a change typed in an editor adds to a note's words or takes from them, and
    whether it was typing or a block of text arriving or going. Pure (CodeMirror's document is read through the two
@@ -30,14 +30,30 @@ function whole(doc: Doc, from: number, to: number): string {
 	return doc.sliceString(a, b);
 }
 
-/** What one change did to the words: typing (added or cut) up to `BLOCK` words, over that a block brought in (+) or
-    taken out (−). */
-export function changeWords(before: Doc, after: Doc, c: Change): Counted {
-	const delta = countWords(whole(after, c.fromB, c.toB)) - countWords(whole(before, c.fromA, c.toA));
+/** Typing up to `BLOCK` words (a net gain is added, a net loss cut); over that, a block brought in (+) or taken out (−). */
+function classify(delta: number): Counted {
 	if (Math.abs(delta) > BLOCK) return { added: 0, cut: 0, block: delta };
 	return { added: Math.max(0, delta), cut: Math.max(0, -delta), block: 0 };
 }
 
-/** Is a change wholly inside a note's properties? It is no writing. (`head`: the text from the start of the note, as
-    far as properties could reach.) */
-export const inProperties = (head: string, to: number): boolean => to <= bodyStart(head);
+const changeDelta = (before: Doc, after: Doc, c: Change): number => countWords(whole(after, c.fromB, c.toB)) - countWords(whole(before, c.fromA, c.toA));
+
+/** What one change did to the words: typing (added or cut) up to `BLOCK` words, over that a block brought in (+) or
+    taken out (−). */
+export function changeWords(before: Doc, after: Doc, c: Change): Counted { return classify(changeDelta(before, after, c)); }
+
+/** What a transaction did: all its changes together, as one (a piece of text dragged to another place is a change
+    that takes it out and one that puts it in, and is no writing). `front`: where the note's text starts in `before`;
+    a change that ends before it is in the properties and counts for nothing. */
+export function transactionWords(before: Doc, after: Doc, changes: Change[], front = 0): Counted {
+	let delta = 0;
+	for (const c of changes) if (c.toA > front || c.fromA === c.toA && c.fromA > front) delta += changeDelta(before, after, c);
+	return classify(delta);
+}
+
+/** Where a note's text starts, after its properties (0 if it has none), read from the start of its document. */
+export function frontOf(doc: Doc): number {
+	if (doc.sliceString(0, 3) !== '---') return 0;
+	const n = bodyStart(doc.sliceString(0, 1500));
+	return n || bodyStart(doc.sliceString(0, 40000));
+}

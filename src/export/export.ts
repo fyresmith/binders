@@ -213,6 +213,7 @@ export function lastExport(plugin: BindersPlugin, folder: TFolder): Last | null 
 /** An export was made: it is the one "Export again" repeats. */
 export function noteLast(plugin: BindersPlugin, folder: TFolder, kind: string, saved: Pick<Saved, 'where' | 'path'>): void {
 	remember(plugin, (m) => { m.last[folder.path] = { kind, where: saved.where, path: saved.path }; });
+	plugin.progress.event(folder, { k: 'export', name: kind });
 }
 
 /** Every place remembered on this device, as the settings tab lists them: the folder, the kind, the path. */

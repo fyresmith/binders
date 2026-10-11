@@ -116,6 +116,11 @@ function fingerprint(text: string): string {
     binder. With `titled`, the selected text names it (and stays, as its first words). The new note takes this one's
     properties, except its synopsis, which describes the whole and stays with the first half. */
 export async function splitScene(plugin: BindersPlugin, editor: Editor, file: TFile, titled: boolean): Promise<TFile | null> {
+	const made = await plugin.progress.during('split', () => splitSceneNow(plugin, editor, file, titled));
+	if (made) plugin.progress.event(file, { k: 'split', p: plugin.progress.rel(file), n: 2 });
+	return made;
+}
+async function splitSceneNow(plugin: BindersPlugin, editor: Editor, file: TFile, titled: boolean): Promise<TFile | null> {
 	const { app, binders: store, settings } = plugin, folder = file.parent;
 	if (!folder || !store.binderOf(file) || store.isHiddenNote(file)) return null;
 	// typing elsewhere that isn't saved yet (the manuscript, another tab) is written down first, and this editor must
@@ -389,6 +394,11 @@ async function settleSplit(plugin: BindersPlugin, s: Split, editor: Editor | nul
     as one change, which Undo takes back only if every new note is still what was written. `planned`: the note's text as the
     dialog read it, which must still be what is there. */
 export async function splitMany(plugin: BindersPlugin, file: TFile, planned: string, pieces: { title: string; text: string }[], o: { folder: boolean }): Promise<TFile[] | null> {
+	const made = await plugin.progress.during('split', () => splitManyNow(plugin, file, planned, pieces, o));
+	if (made) plugin.progress.event(file, { k: 'split', p: plugin.progress.rel(file), n: made.length + 1 });
+	return made;
+}
+async function splitManyNow(plugin: BindersPlugin, file: TFile, planned: string, pieces: { title: string; text: string }[], o: { folder: boolean }): Promise<TFile[] | null> {
 	const { app, binders: store, settings } = plugin, folder = file.parent;
 	if (!folder || !store.binderOf(file) || store.isHiddenNote(file) || store.problem(file)) { say('This note can’t be split here: it isn’t a note of a binder that can be changed.'); return null; }
 	if (pieces.length < 2) { say('There’s nothing to split: choose where the notes start.'); return null; }
@@ -469,6 +479,11 @@ export async function splitMany(plugin: BindersPlugin, file: TFile, planned: str
     synopses too; everything else is the first note's. The others go to the trash, once the merged text is safely
     written. Asks first. */
 export async function mergeScenes(plugin: BindersPlugin, files: TFile[]): Promise<TFile | null> {
+	const made = await plugin.progress.during('merge', () => mergeScenesNow(plugin, files));
+	if (made) plugin.progress.event(made, { k: 'merge', p: plugin.progress.rel(made), n: files.length });
+	return made;
+}
+async function mergeScenesNow(plugin: BindersPlugin, files: TFile[]): Promise<TFile | null> {
 	const { app, binders: store, settings } = plugin, [first, ...rest] = files;
 	if (!first || !rest.length || !files.every((f) => isNote(f) && !store.isHiddenNote(f))) return null;
 	// links to the notes that go: where they'll lead, or that they'll lead nowhere, is said before the writer says yes

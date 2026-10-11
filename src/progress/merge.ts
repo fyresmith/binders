@@ -43,6 +43,7 @@ export interface DeviceInfo { id: string; label: string; kind: Kind; first: stri
 export interface Merged { days: MergedDay[]; events: MergedEvent[]; devices: DeviceInfo[] }
 
 const MAX_CHAIN = 64;
+const SHARED = new Set(['made', 'gone', 'renamed', 'moved', 'in', 'out']);
 
 /** Joins sittings that overlap. */
 function union(list: Sitting[]): Sitting[] {
@@ -59,7 +60,9 @@ export function merge(sources: Source[]): Merged {
 	const seen = new Set<string>(), events: MergedEvent[] = [];
 	for (const s of sources) {
 		for (const e of s.file.events) {
-			const key = JSON.stringify(e);
+			// (a note made, gone, renamed or moved arrives on every other device through Sync, which records it there too:
+			// the same thing the same day, by whichever device, is one)
+			const key = SHARED.has(e.k) ? `${e.k}|${e.d}|${e.p ?? ''}|${e.from ?? ''}|${e.to ?? ''}|${e.folder ?? ''}` : JSON.stringify(e);
 			if (seen.has(key)) continue;
 			seen.add(key);
 			events.push({ ...e, device: s.device });

@@ -543,6 +543,7 @@ export class BinderStore extends Events implements ExplorerSource {
 		}
 		const rel = this.relOf(t.folder.path, item.path, item instanceof TFolder);
 		if (rel) this.queue(t, { op: 'move', item: rel, folder: this.folderRel(t, folder), index });
+		this.plugin.progress?.ordered(folder);
 	}
 
 	/** Whether `move` could put this item somewhere in this folder's order (the file explorer asks while dragging). */
@@ -622,6 +623,7 @@ export class BinderStore extends Events implements ExplorerSource {
 		if (t.kind === 'longform') { for (let i = 0; i < mine.length; i++) await this.move(mine[i], folder, i); return; }
 		const rels = mine.map((f) => this.relOf(t.folder.path, f.path, f instanceof TFolder)).filter((r): r is string => !!r);
 		this.queue(t, { op: 'order', folder: this.folderRel(t, folder), items: rels });
+		this.plugin.progress?.ordered(folder);
 	}
 
 	moveUp(item: TAbstractFile): Promise<boolean> { return this.step(item, -1); }
@@ -867,7 +869,11 @@ export class BinderStore extends Events implements ExplorerSource {
 	async editProps(file: TFile, edit: (fm: Record<string, unknown>) => void): Promise<void> {
 		const s = this.at(file.path);
 		if (s && s.note === file && s.problem) throw new UnsupportedBinder(s.problem);
-		await editProperties(this.app, file, edit);
+		// (status, label and target are told to the record of the binder's writing, as they were and are now)
+		const progress = this.plugin.progress;
+		let was: Record<string, string> | undefined, now: Record<string, string> | undefined;
+		await editProperties(this.app, file, progress && s ? (fm) => { was = progress.pick(fm); edit(fm); now = progress.pick(fm); } : edit);
+		progress?.propsChanged(file, was, now);
 	}
 
 	async newScene(folder: TFolder, index = Infinity, title = 'Untitled', depth?: number, content = ''): Promise<TFile> {
@@ -900,7 +906,9 @@ export class BinderStore extends Events implements ExplorerSource {
 	/** A copy of a note or a folder (with everything in it, in its order), right after it, named by counting on:
 	    "Scene" gives "Scene 2". */
 	/** A copy of a note or folder, after it, as one change that "Undo" takes away (a note's; a folder's copy isn't kept). */
-	duplicate(item: TAbstractFile): Promise<TAbstractFile> { return this.history.track(this.copyOf(item)); }
+	duplicate(item: TAbstractFile): Promise<TAbstractFile> {
+		return this.history.track(this.plugin.progress.during('duplicate', () => this.copyOf(item)).then((made) => { this.plugin.progress.event(made, { k: 'duplicate', p: this.plugin.progress.rel(made), n: 1 }); return made; }));
+	}
 	private async copyOf(item: TAbstractFile): Promise<TAbstractFile> {
 		const folder = item.parent;
 		if (!folder) throw new Error('That can’t be copied.');

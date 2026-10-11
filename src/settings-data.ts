@@ -84,6 +84,9 @@ export interface BindersSettings {
 	/** Word counts: a note's words as the exported book has them (comments out, a link's shown words only: the rule
 	    is in docs/dev/plan.md), or, off, as Obsidian's status bar counts them. */
 	bookWords: boolean;
+	/** The record of a binder's writing (src/progress/): kept in the binder's Snapshots folder, in History. Off stops
+	    recording; nothing already recorded is deleted. */
+	recordProgress: boolean;
 }
 
 /** What a new vault starts with. */
@@ -94,7 +97,7 @@ export const DEFAULT_SETTINGS: BindersSettings = {
 	exportsFolder: 'Exports', stylesFolder: 'Export styles', authorName: '', contact: '', exportKind: 'manuscript', exportFile: 'docx', exportPaper: 'letter', exportStyle: '', exportMatter: false, exportOutside: true, exportSnapshots: true,
 	tabParagraphs: true, indentParagraphs: false, sidePanes: true,
 	focusTypewriter: true, focusPlace: false, focusNumbers: false, focusDim: true, focusDark: true, focusNeighbours: false, focusGoal: 0, focusFullscreen: false,
-	bookWords: true,
+	bookWords: true, recordProgress: true,
 };
 
 /** Focus mode's options that are on or off. */
@@ -117,6 +120,9 @@ export const FOCUS_TEXT: Record<FocusToggle | 'focusGoal', readonly [string, str
 
 /** The word counts' one switch, as the settings tab says it. */
 export const WORDS_TEXT: readonly [string, string] = ['Count words as the exported book does', 'Comments, the hidden part of a link and a note’s properties aren’t counted, so a card, a target and the toolbar say what an export of the binder says. Turn this off to count as Obsidian’s status bar does.'];
+
+/** The record of a binder's writing: its switch and where it is kept, as the settings tab says them. */
+export const RECORD_TEXT: readonly [string, string] = ['Keep a record of your writing', 'Binders keeps a record of each binder’s writing in its Snapshots folder, in History: one plain-text file for each device and year, with the words added and cut in each note, the hours, and what you did to the binder. It holds no text from your notes and is never sent anywhere. Turn this off to stop recording; nothing already recorded is deleted. To sync it with Obsidian Sync, turn on “Sync all other types”.'];
 
 /** The sidebar's one switch, as the settings tab says it. */
 export const SIDE_TEXT: readonly [string, string] = ['Show the inspector and contents with a binder', 'Opening a binder puts the inspector and the contents among the right sidebar’s tabs, if they aren’t there. Turn this off to open them yourself, and to keep them closed once you close them.'];
@@ -172,6 +178,7 @@ export function readSettings(data: unknown): BindersSettings {
 	for (const k of PARAGRAPH_TOGGLES) if (typeof d[k] === 'boolean') s[k] = d[k];
 	if (typeof d.sidePanes === 'boolean') s.sidePanes = d.sidePanes;
 	if (typeof d.bookWords === 'boolean') s.bookWords = d.bookWords;
+	if (typeof d.recordProgress === 'boolean') s.recordProgress = d.recordProgress;
 	if (typeof d.focusGoal === 'number' && Number.isInteger(d.focusGoal) && d.focusGoal > 0) s.focusGoal = d.focusGoal;
 	if (typeof d.exportsFolder === 'string' && d.exportsFolder.trim()) s.exportsFolder = d.exportsFolder.trim();
 	if (typeof d.stylesFolder === 'string' && d.stylesFolder.trim() && !/[\\/]/.test(d.stylesFolder.trim())) s.stylesFolder = d.stylesFolder.trim();

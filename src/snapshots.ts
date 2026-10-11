@@ -4,6 +4,7 @@ import type BindersPlugin from './main';
 import { frontFor, lf, parts } from './scene-text';
 import { saveOpen } from './scenes';
 import { BINDER_SNAPSHOT_EXT } from './binder-snapshot-text';
+import { EXT as HISTORY_EXT } from './progress/format';
 import { SNAPSHOTS, SNAPSHOT_EXT, readSnapshot, readSnapshotName, snapshotFile, snapshotName } from './snapshot-text';
 import { liveEditors, saveTab } from './view/editable-embed';
 
@@ -109,6 +110,7 @@ export async function takeSnapshot(plugin: BindersPlugin, scene: TFile, title = 
 	const file = await app.vault.create(`${dir}/${name}.${SNAPSHOT_EXT}`, snapshotFile(scene.path.slice(b.folder.path.length + 1).replace(/\.md$/i, ''), when, body));
 	// read back from the disk: the text is in the snapshot, whole, before anything is done to the note
 	if (readSnapshot(await app.vault.adapter.read(file.path)).body !== body) throw new Error('The snapshot couldn’t be checked, so nothing was changed.');
+	plugin.progress.event(scene, { k: 'snapshot', p: plugin.progress.rel(scene), name: title });
 	return { snapshot: { file, taken: when.getTime(), title, body }, made: true };
 }
 
@@ -136,6 +138,7 @@ export async function replaceText(plugin: BindersPlugin, scene: TFile, expect: s
 		if (lf(p.body) !== lf(expect)) throw moved();
 		ed.replaceRange(next, ed.offsetToPos(p.front.length), ed.offsetToPos(text.length));
 		await open.save();
+		plugin.progress.block(scene, plugin.progress.words(next) - plugin.progress.words(expect));
 		return;
 	}
 	let ok = false;
@@ -146,6 +149,7 @@ export async function replaceText(plugin: BindersPlugin, scene: TFile, expect: s
 		return (next ? frontFor(p.front) : p.front) + next;
 	});
 	if (!ok) throw moved();
+	plugin.progress.block(scene, plugin.progress.words(next) - plugin.progress.words(expect));
 }
 
 /** "Rewrite": a snapshot of the text as it is; with `blank`, the note is then emptied to start again. Null if the
@@ -161,7 +165,9 @@ export async function rewrite(plugin: BindersPlugin, scene: TFile, blank: boolea
     word), then the snapshot's text takes its place. */
 export async function bringBack(plugin: BindersPlugin, scene: TFile, s: Snapshot): Promise<{ kept: Snapshot | null }> {
 	// (from the disk, not from a list drawn a while ago)
-	return bringBackText(plugin, scene, readSnapshot(await plugin.app.vault.adapter.read(s.file.path)).body);
+	const out = await bringBackText(plugin, scene, readSnapshot(await plugin.app.vault.adapter.read(s.file.path)).body);
+	plugin.progress.event(scene, { k: 'back', p: plugin.progress.rel(scene), name: s.title });
+	return out;
 }
 
 /** Puts a text a note once had in its place (a snapshot's, or the note's in a snapshot of its folder), keeping what is
@@ -188,7 +194,7 @@ export async function nameSnapshot(app: App, s: Snapshot, title: string): Promis
 /** Is this, in a folder of snapshots, the note's or the folder's of that name? A note's are its snapshot files. A
     folder's are the folders in it (those of the notes in the folder) and the folder's own snapshots, which are files
     of another kind (binder-snapshots.ts). */
-export const isOwn = (c: unknown, what: 'note' | 'folder'): boolean => (c instanceof TFile && c.extension === BINDER_SNAPSHOT_EXT ? what === 'folder' : what === 'note' ? c instanceof TFile : c instanceof TFolder);
+export const isOwn = (c: unknown, what: 'note' | 'folder'): boolean => (c instanceof TFile && c.extension === HISTORY_EXT ? false : c instanceof TFile && c.extension === BINDER_SNAPSHOT_EXT ? what === 'folder' : what === 'note' ? c instanceof TFile : c instanceof TFolder);
 
 /** Moves snapshots from one folder to another: a note renamed or moved takes its snapshots along (the files in its
     folder of them), and so does a folder (the folders in its own: those of the notes in it). A note and a folder can

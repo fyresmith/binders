@@ -18,6 +18,7 @@ export async function replaceEdits(plugin: BindersPlugin, file: TFile, text: str
 		if (ed.getValue() !== text) return false;
 		ed.transaction({ changes: edits.map((e) => ({ from: ed.offsetToPos(e.from), to: ed.offsetToPos(e.to), text: e.text })) });
 		await open.save();
+		plugin.progress.block(file, plugin.progress.words(apply(text, edits)) - plugin.progress.words(text));
 		return true;
 	}
 	let ok = false;
@@ -28,5 +29,6 @@ export async function replaceEdits(plugin: BindersPlugin, file: TFile, text: str
 		ok = true;
 		return cur.slice(0, mark) + apply(text, edits);
 	});
+	if (ok) plugin.progress.block(file, plugin.progress.words(apply(text, edits)) - plugin.progress.words(text));
 	return ok;
 }

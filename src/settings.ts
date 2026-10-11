@@ -1,6 +1,6 @@
 import { Notice, Platform, PluginSettingTab, Setting, TextComponent, type App, type SettingDefinition, type SettingDefinitionItem } from 'obsidian';
 import type BindersPlugin from './main';
-import { DEFAULT_SETTINGS, FOCUS_TEXT, FOCUS_TOGGLES, focusToggles, PARAGRAPH_TEXT, PARAGRAPH_TOGGLES, PROPS, SIDE_TEXT, TEXT, TOGGLES, WORDS_TEXT, type BindersSettings, type FocusToggle, type ParagraphToggle, type Prop, type Toggle } from './settings-data';
+import { DEFAULT_SETTINGS, FOCUS_TEXT, FOCUS_TOGGLES, focusToggles, PARAGRAPH_TEXT, PARAGRAPH_TOGGLES, PROPS, SIDE_TEXT, TEXT, TOGGLES, WORDS_TEXT, RECORD_TEXT, type BindersSettings, type FocusToggle, type ParagraphToggle, type Prop, type Toggle } from './settings-data';
 import { parseGoal } from './focus/session';
 import { COMPILE_PROP, EXPORT_PROP } from './scenes';
 import { DEFAULT_LABELS, DEFAULT_STATUSES, PALETTE, colorCss, display, freeName, hexColor } from './view/labels';
@@ -43,6 +43,10 @@ export class BindersSettingTab extends PluginSettingTab {
 			{ type: 'group', heading: 'Paragraphs', items: PARAGRAPH_TOGGLES.map((k): SettingDefinition => ({ name: PARAGRAPH_TEXT[k][0], desc: PARAGRAPH_TEXT[k][1], control: { type: 'toggle', key: k } })) },
 			{ type: 'group', heading: 'Sidebar', items: [{ name: SIDE_TEXT[0], desc: SIDE_TEXT[1], control: { type: 'toggle', key: 'sidePanes' } }] },
 			{ type: 'group', heading: 'Word counts', items: [{ name: WORDS_TEXT[0], desc: WORDS_TEXT[1], control: { type: 'toggle', key: 'bookWords' } }] },
+			{ type: 'group', heading: 'Progress', items: [
+				{ name: RECORD_TEXT[0], desc: RECORD_TEXT[1], control: { type: 'toggle', key: 'recordProgress' } },
+				{ name: 'This device is called', desc: 'How this device is named in the record’s files, so you can tell your devices apart.', render: (setting) => { this.deviceRow(setting); } },
+			] },
 			{
 				type: 'list', heading: 'Labels', cls: 'binders-settings-labels',
 				emptyState: 'No labels. A note’s label then shows in the color it names, if it names one.',
@@ -170,6 +174,16 @@ export class BindersSettingTab extends PluginSettingTab {
 				t.setValue(shown());
 				void this.save();
 			});
+		});
+	}
+
+	/** The name this device goes by in the record's files: kept on this device, not in the settings that sync. */
+	private deviceRow(setting: Setting): void {
+		setting.settingEl.addClass('binders-settings-device');
+		setting.addText((t) => {
+			const progress = this.plugin.progress;
+			t.setPlaceholder(progress.defaultLabel()).setValue(progress.device().label);
+			this.field(t.inputEl, () => t.getValue() !== progress.device().label, () => { t.setValue(progress.device().label); }, () => { progress.setLabel(t.getValue()); t.setValue(progress.device().label); });
 		});
 	}
 
