@@ -93,6 +93,11 @@ export interface BinderMode {
 	create?(kind: 'note' | 'folder'): void;
 	/** Optional: the mode's own items for the view's "More options" menu (e.g. the corkboard's card size and numbers). */
 	menu?(menu: Menu): void;
+	/** Optional (the manuscript): is the page showing each note's synopsis where its text would be? */
+	showsSynopses?(): boolean;
+	/** Optional (the manuscript): shows the synopses (or the text again); with none said, the other of the two. Resolves
+	    once the page is as asked, or has stayed as it was because something typed could not be saved. */
+	showSynopses?(on?: boolean): Promise<void>;
 	/** Optional: the mode's own items for the toolbar's "Arrange" menu, after the arrangements themselves (the
 	    corkboard by label: which way its lines run, and what's on them). */
 	arrangeItems?(menu: Menu): void;

@@ -36,6 +36,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - A plain click on a link in a pinned property opens the note in a pane beside your writing.
 - Deadlines in Progress: set a date and the days you write on beside a word count target. The window says how the book stands (on pace, behind, ahead, passed, reached) and what a day has to be to get there, draws the plan, and a deadline that came stays on the book's life.
 - With a deadline set, a tick on the toolbar's progress bar shows where the plan has the book today, and the word count's tooltip says the day's share.
+- The manuscript can show each note's synopsis in place of its text ("Synopses" in the toolbar, "Show synopses" in More options): read the book's outline down the page, change a summary where it stands, and click a title to go back to that scene's text.
 
 ### Changed
 

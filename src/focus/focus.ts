@@ -320,6 +320,13 @@ export class Focus {
 		if (this.busy) return;
 		if (this.on) this.leave(true);
 		if (!this.eligible(leaf)) return;
+		// the manuscript showing synopses shows the text first (there is none to write in otherwise); if it cannot (a synopsis
+		// being typed that could not be saved), focus mode does not begin over it
+		if (leaf.view instanceof BinderView && leaf.view.synopsesShown) {
+			const bv = leaf.view;
+			void bv.showSynopses(false).then(() => { if (!this.on && !bv.synopsesShown && this.eligible(leaf)) this.enter(leaf); });
+			return;
+		}
 		const view = leaf.view, doc = view.containerEl.doc, leafEl = view.containerEl.closest<HTMLElement>('.workspace-leaf');
 		if (!leafEl) return;
 		const app = this.plugin.app, comp = new Component(), vim = vimMode(app);

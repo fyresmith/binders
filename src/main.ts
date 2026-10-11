@@ -158,6 +158,13 @@ export default class BindersPlugin extends Plugin {
 			if (!checking) view.arrange(view.arrangement === 'label' ? 'grid' : 'label');
 			return true;
 		} });
+		// the manuscript's page of synopses where the text would be, and back
+		this.addCommand({ id: 'show-synopses', name: 'Show synopses', icon: 'text', checkCallback: (checking) => {
+			const view = this.app.workspace.getActiveViewOfType(BinderView);
+			if (!view?.folder || view.mode !== 'manuscript' || this.focus?.on) return false;
+			if (!checking) void view.showSynopses();
+			return true;
+		} });
 		this.addCommand({ id: 'make-binder', name: 'Make this folder a binder', checkCallback: (checking) => {
 			const folder = active()?.parent;
 			if (!folder || folder.isRoot() || this.binders.binderOf(folder)) return false;

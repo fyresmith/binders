@@ -7493,3 +7493,91 @@ input.binders-filter-name {
 		margin-inline: calc(-1 * var(--size-2-2));
 	}
 }
+
+/* ---- The manuscript showing synopses (the read-through): each note's synopsis where its text would be ---- */
+
+.binders-synopses-button.is-active {
+	color: var(--text-accent);
+}
+
+/* A note's title is a line of the outline here, in the page's own type, and goes to its text as a folder's heading goes
+   into its folder; the rule that parts two sections of text is gone. */
+.binders-manuscript.is-synopses .binders-manuscript-break {
+	margin-block: var(--size-4-5) 0;
+}
+
+.binders-manuscript.is-synopses .binders-manuscript-break::after {
+	content: none;
+}
+
+.binders-manuscript.is-synopses .binders-manuscript-title {
+	color: var(--text-normal);
+	font-family: var(--font-text);
+	font-size: var(--font-text-size);
+	font-weight: var(--font-semibold);
+	line-height: var(--line-height-normal);
+	white-space: normal;
+	overflow-wrap: anywhere;
+	cursor: var(--cursor-link);
+}
+
+@media (hover: hover) {
+	.binders-manuscript.is-synopses .binders-manuscript-title:not(.is-renaming):hover {
+		color: var(--text-accent);
+	}
+}
+
+.binders-manuscript.is-synopses .binders-manuscript-heading.markdown-rendered > :is(h1, h2, h3, h4, h5, h6) {
+	margin-bottom: var(--size-2-1);
+}
+
+.binders-manuscript-synopsis {
+	padding: var(--size-2-1) var(--size-2-2);
+	margin-inline: calc(-1 * var(--size-2-2));
+	color: var(--text-normal);
+	font-family: var(--font-text);
+	font-size: var(--font-text-size);
+	line-height: var(--line-height-normal);
+}
+
+/* (a folder's is said a step back: it is about what follows, not one of the scenes) */
+.binders-manuscript-heading > .binders-manuscript-synopsis {
+	color: var(--text-muted);
+}
+
+.binders-manuscript-synopsis.is-empty {
+	color: var(--text-faint);
+}
+
+/* the binder's own synopsis, the page's first lines, is read whole here */
+.binders-manuscript.is-synopses .binders-view-synopsis:not(.is-editing) {
+	display: block;
+}
+
+@media (hover: hover) {
+	.binders-manuscript-synopsis.is-editable:not(.is-editing):hover {
+		background-color: transparent;
+	}
+}
+
+/* (a read-only binder's empty synopsis says nothing and takes no room) */
+.binders-manuscript-synopsis:empty {
+	display: none;
+}
+
+/* the button keeps its icon until its name also fits, as Arrange does */
+@container binders-view (width < 680px) {
+	.binders-synopses-button .text-button-label {
+		display: none;
+	}
+}
+
+/* (the line that says notes are left out, before a folder's heading: Obsidian takes the top margin off a rendered
+   block's first child) */
+.binders-manuscript-heading.markdown-rendered > .binders-manuscript-gap.is-before {
+	margin-top: var(--size-4-4);
+}
+
+.binders-manuscript.is-synopses .binders-manuscript-title {
+	line-height: var(--line-height-tight);
+}

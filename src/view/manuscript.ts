@@ -9,6 +9,7 @@ import { visibleBottom } from './drag';
 import type { BinderMode, ModeContext, ModeFactory } from './mode';
 import { embedSupported, mountEditor, type LiveEditor } from './editable-embed';
 import { sourceOffset } from './tap-text';
+import { clearLine, drawLine, typing, type Line } from './manuscript-synopses';
 import type { At, FindState, Found } from './find-bar';
 import { highlightsSupported, paint, rangesIn, setFound, shows, unpaint } from '../find/highlight';
 
@@ -38,6 +39,8 @@ interface Heading {
 	textEl: HTMLElement;
 	depth: number;
 	renaming?: boolean;
+	/** Its synopsis, while the page shows synopses. */
+	synopsis?: Line | null;
 }
 
 interface Scene {
@@ -60,6 +63,8 @@ interface Scene {
 	renaming: boolean;
 	/** The last unmount's save; a remount waits for it so it doesn't load the old text. */
 	saved: Promise<void>;
+	/** Its synopsis, while the page shows synopses. */
+	synopsis?: Line | null;
 }
 
 type Entry = Heading | Scene;
@@ -118,6 +123,14 @@ class Manuscript implements BinderMode {
 	/** Where in its note's text (from, to; counted from where the text starts) each block of a section's plain text
 	    is from, when that could be told (see space). */
 	private spans = new WeakMap<Element, [number, number]>();
+	/** The page shows each note's synopsis where its text would be (the Synopses switch): the same page, order and
+	    filter; no section has an editor, and nothing drawn from a synopsis writes into a note's text. */
+	private outline = false;
+	/** What the last call to `showSynopses` asked for (the page follows it, a switch at a time), and the switch under way. */
+	private shows = false;
+	private switching: Promise<void> | null = null;
+	/** Counts the switches: a mount or a render started under one is not the page's any more under the next. */
+	private epoch = 0;
 
 	constructor(container: HTMLElement, private ctx: ModeContext) {
 		this.app = ctx.app;
@@ -130,6 +143,8 @@ class Manuscript implements BinderMode {
 		const { ctx } = this;
 		this.editable = !ctx.readOnly && embedSupported(this.app, ctx.binder.note);
 		this.root.toggleClass('is-readonly', !this.editable);
+		this.outline = this.shows = ctx.option<string>('manuscriptShow', 'text') === 'synopses';
+		this.root.toggleClass('is-synopses', this.outline);
 		// (a read-only binder says so above, once)
 		if (!this.editable && !ctx.readOnly) this.notice('The manuscript can’t edit notes in this version of Obsidian, so it’s read only. Click a section to open its note.');
 		ctx.owner.addChild(this.comp);
@@ -146,6 +161,7 @@ class Manuscript implements BinderMode {
 			if (this.pin && Math.abs(this.root.scrollTop - this.pinTop) > 1) this.pin = null;
 			this.scrolledAt = performance.now(); if (this.root.offsetParent) this.lastTop = this.root.scrollTop; this.leaveBehind(); this.ctx.selectionChanged?.(); }, { passive: true });
 		c.registerDomEvent(this.root, 'click', (e) => this.onClick(e));
+		c.registerDomEvent(this.root, 'keydown', (e) => this.onWalk(e));
 		c.registerDomEvent(this.root, 'auxclick', (e) => { const s = this.sceneOf(e.target); if (e.button === 1 && s?.titleEl.contains(e.target as Node) && !s.renaming) { e.preventDefault(); void this.ctx.openFile(s.file, 'tab'); } });
 		c.registerDomEvent(this.list, 'contextmenu', (e) => this.onMenu(e));
 		// the caret's place is remembered as it moves, for coming back to
@@ -162,6 +178,7 @@ class Manuscript implements BinderMode {
 				frame = this.root.win.requestAnimationFrame(() => {
 					const at = this.sceneOf(this.root.ownerDocument.activeElement), cm = at?.live?.cm;
 					if (at && cm?.hasFocus) this.follow(at, cm);
+					this.fieldIntoView();
 				});
 			};
 			vv.addEventListener('resize', seen);
@@ -198,11 +215,18 @@ class Manuscript implements BinderMode {
 		});
 		// the cursor put somewhere by hand (or taken away by hand) isn't one that was left behind
 		c.registerDomEvent(this.root, 'focusout', () => { if (!this.leaving) this.left = null; });
-		c.registerDomEvent(this.root, 'focusin', () => { this.left = null; });
+		c.registerDomEvent(this.root, 'focusin', (e) => {
+			this.left = null;
+			// (with synopses showing, the note whose title or synopsis was last in hand is where "New" goes after, and where the
+			// text is entered again; a place in its text it never had)
+			const s = this.outline ? this.sceneOf(e.target) : null;
+			if (s && this.caret?.file !== s.file) this.caret = { file: s.file, pos: 0, anchor: 0 };
+		});
 		c.registerDomEvent(this.root.ownerDocument, 'keydown', (e) => this.onStrayKey(e), { capture: true });
 		c.registerEvent(vault.on('modify', (f) => this.onModify(f)));
 		// Quitting doesn't unload views or embeds, and Obsidian's own quit handler only saves real views: save ours
-		c.registerEvent(workspace.on('quit', (tasks) => { for (const s of this.scenes) if (s.live?.dirty) tasks.addPromise(s.live.flush()); }));
+		// (a section whose editor has just gone, in a switch to synopses, is still writing its last words: that is waited for too)
+		c.registerEvent(workspace.on('quit', (tasks) => { for (const s of this.scenes) { if (s.live?.dirty) tasks.addPromise(s.live.flush()); else tasks.addPromise(s.saved); } }));
 		// Phones can be suspended without a quit event; don't leave their last words on a timer.
 		const save = () => { void this.save().catch((e) => console.error('Binders: saving failed', e)); };
 		c.registerDomEvent(this.root.ownerDocument, 'visibilitychange', () => { if (this.root.ownerDocument.hidden) save(); });
@@ -244,6 +268,8 @@ class Manuscript implements BinderMode {
 			if (items.some((it) => it.target === this.root)) {
 				// showing again: back where it was (the browser drops a hidden scroller's position)
 				if (Math.abs(this.root.scrollTop - this.lastTop) > 1) this.root.scrollTop = this.lastTop;
+				// (the page made shorter, a keyboard coming up over it: what is being typed in stays in sight)
+				this.fieldIntoView();
 				items = items.filter((it) => it.target !== this.root);
 				if (!items.length) return;
 			}
@@ -289,7 +315,7 @@ class Manuscript implements BinderMode {
 	/** The caret goes back where it last was here, or to the start of the first section in sight. (Not on a phone or
 	    tablet: there a caret brings up the keyboard.) */
 	focus(): void {
-		if (!this.editable || Platform.isMobile || this.requested) return;
+		if (!this.editable || Platform.isMobile || this.requested || this.outline) return;
 		// never by scrolling: the page is where the reader left it, and the caret goes to what's in sight
 		const view = this.root.getBoundingClientRect(), seen = (x: Scene) => { const r = x.bodyEl.getBoundingClientRect(); return r.bottom > view.top + 8 && r.top < view.bottom - 8; };
 		const was = this.caret && this.byKey.get(this.caret.file);
@@ -354,7 +380,7 @@ class Manuscript implements BinderMode {
 		if (e.kind === 'heading') { if (fresh && !this.ctx.readOnly) this.renameHeading(e); return; }
 		if (e.kind !== 'scene') return;
 		// (the cursor where it was in that section, if it was there before; else at its start)
-		if (fresh && this.editable) this.rename(e); else if (this.editable && !Platform.isMobile) void this.focusScene(e, this.caret?.file === e.file ? 'caret' : 'start');
+		if (fresh && (this.editable || this.outline)) this.rename(e); else if (this.editable && !Platform.isMobile && !this.outline) void this.focusScene(e, this.caret?.file === e.file ? 'caret' : 'start');
 	}
 
 	async save(files?: TFile[]): Promise<void> {
@@ -385,9 +411,96 @@ class Manuscript implements BinderMode {
 	stepScene(delta: number, checking: boolean): boolean {
 		const at = this.sceneOf(this.root.ownerDocument.activeElement) ?? (this.caret ? this.byKey.get(this.caret.file) : null);
 		const i = at?.kind === 'scene' ? this.scenes.indexOf(at) : -1, to = i < 0 ? null : this.scenes[i + delta];
-		if (!this.editable || !to || to.broken) return false;
+		if (!this.editable || !to || to.broken || this.outline) return false;
 		if (!checking) void this.focusScene(to, delta > 0 ? 'start' : 'end');
 		return true;
+	}
+
+	/** Is the page showing synopses (the toolbar's button and the menu follow it)? */
+	showsSynopses(): boolean { return this.outline; }
+
+	menu(menu: Menu): void {
+		menu.addItem((i) => i.setSection('view').setTitle('Show synopses').setIcon('text').setChecked(this.shows).onClick(() => { void this.showSynopses(); }));
+	}
+
+	/** Shows the synopses where the text was (`on`; with none given, the other of the two than the page is asked to
+	    show), or the text again. One switch at a time: a second is made when the first is done. Resolves once the page
+	    is as asked, or has stayed as it was because something typed could not be saved. */
+	showSynopses(on = !this.shows, at?: Scene): Promise<void> {
+		if (this.dead) return Promise.resolve();
+		this.shows = on;
+		const run = (this.switching ?? Promise.resolve()).then(() => this.switchTo(on, at));
+		const mine: Promise<void> = this.switching = run.catch((e) => { console.error('Binders: switching the manuscript failed', e); }).finally(() => { if (this.switching === mine) this.switching = null; });
+		return mine;
+	}
+
+	/** The switch: the section that was at the top of the page (or the one given) stays where it is. Going to
+	    synopses, every editor's typing is written first, and the page stays on the text if it cannot be (nothing typed is
+	    ever left in an editor that is then taken away). Going back, every synopsis being typed in is saved first, and
+	    the page stays on synopses if one cannot be saved. */
+	private async switchTo(on: boolean, at?: Scene): Promise<void> {
+		if (this.dead) return;
+		if (on === this.outline) { this.shows = on; return; }
+		if (on) {
+			let failed = false;
+			try { await this.save(); } catch (e) { failed = true; console.error('Binders: saving failed', e); }
+			if (this.dead) return;
+			if (failed || this.scenes.some((s) => s.live?.dirty) || !(await this.onDisk())) {
+				this.shows = false;
+				new Notice('What was typed could not be saved, so the manuscript is staying on the text.');
+				return;
+			}
+		} else {
+			await Promise.all(this.entries.map((e) => e.synopsis?.ed.commit()));
+			if (this.dead) return;
+			if (this.entries.some(typing)) { this.shows = true; return; }
+		}
+		const doc = this.root.ownerDocument, a = at?.el ?? this.anchor(), top = () => (a ? a.getBoundingClientRect().top - this.root.getBoundingClientRect().top : 0), was = top();
+		this.epoch++;
+		if (on) {
+			this.keepCaret(doc.activeElement);
+			this.left = null; this.strays = [];
+			for (const s of this.scenes) {
+				s.token++;
+				// (what is pending was written above, and anything typed since is written as the editor goes; a remount
+				// waits for that, and so does a quit)
+				if (s.live) { const live = s.live; s.live = null; s.saved = live.destroy(); }
+				if (s.renderComp) { this.comp.removeChild(s.renderComp); s.renderComp = null; }
+				s.bodyEl.empty();
+				s.bodyEl.setCssStyles({ minHeight: '' });
+				s.shown = null; s.rendering = false;
+			}
+		} else {
+			for (const e of this.entries) {
+				clearLine(e);
+				if (e.kind === 'scene') { e.bodyEl.empty(); e.bodyEl.setCssStyles({ minHeight: `${Math.min(4000, 24 + Math.ceil(e.file.stat.size / 80) * 26)}px` }); }
+			}
+		}
+		this.outline = on;
+		this.root.toggleClass('is-synopses', on);
+		this.ctx.setOption('manuscriptShow', on ? 'synopses' : 'text');
+		this.sync();
+		if (a?.isConnected) { this.root.scrollTop += top() - was; this.hold(a); }
+		if (on || Platform.isMobile || !this.editable) return;
+		// back in the text: the cursor in the section gone to, or where it was
+		if (at) void this.focusScene(at, this.caret?.file === at.file ? 'caret' : 'start', undefined, false); else this.focus();
+	}
+
+	/** Is what every editor holds what its note holds on disk? (A write that failed once is not asked for again by
+	    Obsidian, and the editor no longer calls it unsaved: only the disk says whether the words are safe.) */
+	private async onDisk(): Promise<boolean> {
+		const same = (a: string, b: string) => a.replace(/\r\n?/g, '\n') === b.replace(/\r\n?/g, '\n');
+		for (const s of this.scenes) {
+			const live = s.live;
+			if (!live) continue;
+			try { if (!same(await this.app.vault.adapter.read(s.file.path), live.text)) return false; } catch { return false; }
+		}
+		return true;
+	}
+
+	/** A note's or a folder's synopsis on the page (see manuscript-synopses.ts). */
+	private drawSynopsis(e: Entry): void {
+		drawLine(this.ctx, e, e.kind === 'scene' ? e.bodyEl : e.el, e.kind === 'heading' ? e.textEl : null, () => { if (this.outline && !this.dead) this.drawSynopsis(e); });
 	}
 
 	newMenu(menu: Menu): void {
@@ -418,6 +531,12 @@ class Manuscript implements BinderMode {
 	private letGo(cm: EditorView | null | undefined): void {
 		const m = cm?.state.selection.main;
 		if (cm && m?.empty && m.assoc) cm.dispatch({ selection: { anchor: m.head } });
+	}
+
+	/** A synopsis being typed in, with synopses showing, is kept in sight (above a keyboard that has come up). */
+	private fieldIntoView(): void {
+		const f = this.root.ownerDocument.activeElement;
+		if (this.outline && f?.instanceOf(HTMLTextAreaElement) && f.closest('.binders-manuscript-synopsis')) f.scrollIntoView({ block: 'nearest' });
 	}
 
 	private leaveBehind(): void {
@@ -501,7 +620,7 @@ class Manuscript implements BinderMode {
 	    would do nothing, or the wrong thing) and given to the section's editor once the cursor is back in it. */
 	private onStrayKey(e: KeyboardEvent): void {
 		const doc = this.root.ownerDocument;
-		if ((!this.left && this.coming == null) || doc.activeElement !== doc.body || ['Shift', 'Control', 'Alt', 'Meta', 'Escape', 'Tab', 'CapsLock'].includes(e.key) || /^F\d+$/.test(e.key) || e.isComposing) return;
+		if (this.outline || (!this.left && this.coming == null) || doc.activeElement !== doc.body || ['Shift', 'Control', 'Alt', 'Meta', 'Escape', 'Tab', 'CapsLock'].includes(e.key) || /^F\d+$/.test(e.key) || e.isComposing) return;
 		// (only for the binder view that's in use, not one in another pane)
 		if ((this.app.workspace.getMostRecentLeaf()?.view as unknown) !== this.ctx.owner || doc.querySelector('.modal-container, .menu, .suggestion-container, .prompt')) return;
 		const here = this.left ? this.byKey.get(this.left) : null;
@@ -532,10 +651,10 @@ class Manuscript implements BinderMode {
 		// with a filter on, only the notes that pass or have passed (the context says which stay), under the folders that have any;
 		// a section being typed in stays whatever its status has become
 		const filtering = this.ctx.filtering();
-		const shown = (f: TFile) => { if (!filtering || this.ctx.visible(f)) return true; const e = this.byKey.get(f); return e?.kind === 'scene' && this.busy(e); };
+		const shown = (f: TFile) => { if (!filtering || this.ctx.visible(f)) return true; const e = this.byKey.get(f); return e?.kind === 'scene' && (this.busy(e) || typing(e)); };
 		const walk = (f: TFolder, depth: number) => {
 			for (const c of this.ctx.store.orderedChildren(f) ?? []) {
-				if (c instanceof TFolder) { if (filtering && !this.ctx.store.scenes(c).some(shown)) continue; out.push({ key: c, depth: depth + 1 }); walk(c, depth + 1); }
+				if (c instanceof TFolder) { const h = this.byKey.get(c); if (filtering && !this.ctx.store.scenes(c).some(shown) && !(h && typing(h))) continue; out.push({ key: c, depth: depth + 1 }); walk(c, depth + 1); }
 				else if (c instanceof TFile && c.extension === 'md' && shown(c)) out.push({ key: c, depth });
 			}
 		};
@@ -562,6 +681,7 @@ class Manuscript implements BinderMode {
 		this.entries = next;
 		this.scenes = next.filter((e): e is Scene => e.kind === 'scene');
 		this.order(next);
+		if (this.outline) for (const e of next) this.drawSynopsis(e);
 		markManuscript(this.ctx, next);
 		// (said again when the reason changes: nothing here, or nothing that passes the filter)
 		const why = String(this.ctx.filtering());
@@ -591,7 +711,8 @@ class Manuscript implements BinderMode {
 		this.comp.registerDomEvent(el, 'click', (e) => { if (!h.renaming && (e.target as HTMLElement).closest('h1, h2, h3, h4, h5, h6')) { e.stopPropagation(); go(e); } });
 		this.comp.registerDomEvent(el, 'auxclick', (e) => { if (e.button === 1) { e.preventDefault(); this.ctx.navigate(folder, 'tab'); } });
 		this.comp.registerDomEvent(el, 'keydown', (e) => {
-			if (h.renaming) return;
+			// (its synopsis, under it, has its own keys)
+			if (h.renaming || (e.target as HTMLElement).closest('.binders-manuscript-synopsis')) return;
 			if (e.key === 'Enter') { e.preventDefault(); go(e); }
 			else if (e.key === 'F2' && !this.ctx.readOnly) { e.preventDefault(); this.renameHeading(h); }
 		});
@@ -601,6 +722,7 @@ class Manuscript implements BinderMode {
 			const menu = new Menu(), note = this.ctx.store.folderNote(folder);
 			menu.addItem((i) => i.setSection('open').setTitle('Open').setIcon('layout-grid').onClick(() => this.ctx.navigate(folder)));
 			menu.addItem((i) => i.setSection('open').setTitle('Open in new tab').setIcon('file-plus').onClick(() => this.ctx.navigate(folder, 'tab')));
+			if (this.outline && h.synopsis && !this.ctx.readOnly) menu.addItem((i) => i.setSection('edit').setTitle('Edit synopsis').setIcon('text').onClick(() => h.synopsis?.ed.edit()));
 			if (note) menu.addItem((i) => i.setSection('open').setTitle('Open folder note').setIcon('file-text').onClick(() => void this.ctx.openFile(note, false)));
 			if (!this.ctx.readOnly && this.ctx.binder.kind !== 'longform') menu.addItem((i) => i.setSection('edit').setTitle('Rename').setIcon('pencil-line').onClick(() => this.renameHeading(h)));
 			menu.showAtMouseEvent(e);
@@ -654,8 +776,10 @@ class Manuscript implements BinderMode {
 		if (h.renaming) return; // (a name being typed stays as typed)
 		if (h.depth !== depth) {
 			h.depth = depth;
-			h.el.empty();
-			h.textEl = h.el.createEl(`h${Math.min(depth, 6)}` as 'h1', { attr: { tabindex: '0', role: 'link' } });
+			// (its text only: what else is in the heading, a synopsis being typed in among it, stays as it is)
+			const next = createEl(`h${Math.min(depth, 6)}` as 'h1', { attr: { tabindex: '0', role: 'link' } });
+			if (h.textEl === h.el) h.el.prepend(next); else h.textEl.replaceWith(next);
+			h.textEl = next;
 			h.el.dataset.depth = String(depth);
 			// (a heading to a screen reader, so the book can be walked heading by heading: the element inside is a
 			// link, which is all its own role says)
@@ -670,12 +794,13 @@ class Manuscript implements BinderMode {
 		const titleEl = head.createDiv({ cls: 'binders-manuscript-title', text: file.basename, attr: { tabindex: '0', role: 'link' } });
 		const bodyEl = el.createDiv({ cls: 'binders-manuscript-body' });
 		// a guess at its height until it's rendered, so the page is about the right length from the start
-		bodyEl.setCssStyles({ minHeight: `${Math.min(4000, 24 + Math.ceil(file.stat.size / 80) * 26)}px` });
+		if (!this.outline) bodyEl.setCssStyles({ minHeight: `${Math.min(4000, 24 + Math.ceil(file.stat.size / 80) * 26)}px` });
 		const s: Scene = { kind: 'scene', key: file, file, el, titleEl, bodyEl, live: null, mounting: null, shown: null, rendering: false, renderComp: null, token: 0, broken: false, renaming: false, saved: Promise.resolve() };
 		this.comp.registerDomEvent(titleEl, 'keydown', (e) => {
 			if (s.renaming) return;
-			if (e.key === 'Enter') { e.preventDefault(); void this.ctx.openFile(file, Keymap.isModEvent(e)); }
-			else if (e.key === 'F2' && this.editable) { e.preventDefault(); e.stopPropagation(); this.rename(s); }
+			// (with synopses showing, Enter goes to the text, as a click does, and Mod+Enter opens the note)
+			if (e.key === 'Enter') { e.preventDefault(); if (this.outline && !Keymap.isModEvent(e)) void this.showSynopses(false, s); else void this.ctx.openFile(file, Keymap.isModEvent(e)); }
+			else if (e.key === 'F2' && (this.editable || this.outline) && !this.ctx.readOnly) { e.preventDefault(); e.stopPropagation(); this.rename(s); }
 		});
 		this.io.observe(el);
 		this.ro.observe(el);
@@ -719,7 +844,7 @@ class Manuscript implements BinderMode {
 	/** One step towards: rendered placeholders near the viewport, live editors on the closest few. Mounts one editor
 	    per frame so scrolling stays smooth. */
 	private pump(): void {
-		if (this.dead) return;
+		if (this.dead || this.outline) return;
 		const top = this.root.getBoundingClientRect(), mid = (top.top + top.bottom) / 2;
 		const dist = (s: Scene) => { const r = s.el.getBoundingClientRect(); return r.bottom < top.top ? top.top - r.bottom : r.top > top.bottom ? r.top - top.bottom : Math.abs((r.top + r.bottom) / 2 - mid) / 1e4; };
 		const near = this.scenes.filter((s) => this.near.has(s.el)).map((s) => [s, dist(s)] as const).sort((a, b) => a[1] - b[1]).map((x) => x[0]);
@@ -744,14 +869,17 @@ class Manuscript implements BinderMode {
 	}
 
 	private mount(s: Scene): Promise<void> {
-		if (s.live || !this.editable || s.broken) return Promise.resolve();
+		if (s.live || !this.editable || s.broken || this.outline) return Promise.resolve();
 		if (s.mounting !== null) return s.mounting;
 		const host = s.bodyEl.createDiv({ cls: 'binders-manuscript-editor is-mounting' });
+		// (a switch to synopses and back while it is made leaves it with a section whose body is not the one it was made for)
+		const epoch = this.epoch;
 		s.mounting = (async () => {
 			try {
 				await s.saved;
+				if (epoch !== this.epoch) { host.remove(); return; }
 				const live = await mountEditor(this.app, host, s.file, this.comp, { onChange: (text) => this.onTyping(s, text), onCaret: (cm, pos) => this.showCaret(s, caretRect(cm, pos), 'start'), onSearch: this.ctx.find ? (replace) => this.ctx.find?.(replace) : undefined });
-				if (this.dead || this.byKey.get(s.file) !== s) { void live.destroy(); host.remove(); return; }
+				if (this.dead || epoch !== this.epoch || this.byKey.get(s.file) !== s) { s.saved = live.destroy(); host.remove(); return; }
 				s.token++; // a render still in flight is stale now
 				for (const c of Array.from(s.bodyEl.children)) if (c !== host) c.remove();
 				if (s.renderComp) { this.comp.removeChild(s.renderComp); s.renderComp = null; }
@@ -768,6 +896,7 @@ class Manuscript implements BinderMode {
 				s.broken = true;
 			} finally {
 				s.mounting = null;
+				if (epoch !== this.epoch) this.schedule();
 			}
 		})();
 		return s.mounting;
@@ -791,7 +920,7 @@ class Manuscript implements BinderMode {
 		s.rendering = true;
 		try {
 			const raw = text ?? await this.app.vault.cachedRead(s.file);
-			const stale = () => token !== s.token || !!s.live || s.mounting !== null || this.dead;
+			const stale = () => token !== s.token || !!s.live || s.mounting !== null || this.dead || this.outline;
 			if (stale()) return;
 			const body = raw.slice(bodyStart(raw));
 			const comp = new Component();
@@ -848,6 +977,9 @@ class Manuscript implements BinderMode {
 	    section that is drawn text by the browser's own highlights. */
 	found(state: FindState | null, go: boolean): void {
 		this.finding = state;
+		// (the bar looks through the notes' text: with synopses showing, the page goes back to the text, and the match is
+		// shown there once it has)
+		if (state && this.shows) { void this.showSynopses(false).then(() => { if (this.finding === state && !this.shows) this.found(state, go); }); return; }
 		for (const s of this.scenes) this.paintFound(s);
 		this.paintDrawn();
 		if (!state) { unpaint(this); this.drawnRanges.clear(); this.byFile = null; }
@@ -967,6 +1099,8 @@ class Manuscript implements BinderMode {
 	/** Puts the cursor in a section: at the start of its body, at its end, at a place in its text, or at a point on
 	    screen. `x` keeps the column when arrowing between sections. The page scrolls so the cursor shows (`show`). */
 	private async focusScene(s: Scene, where: 'start' | 'end' | 'caret' | number | { x: number; y: number }, x?: number, show = true): Promise<void> {
+		// (with synopses showing there is no text to put it in)
+		if (this.outline) return;
 		// a section whose editor has gone (an Obsidian update changing how embeds behave) gets a new one
 		if (s.live && !s.live.cm && !s.live.editor) this.unmount(s);
 		// (a point on a section that's still plain text: which letter is there is read now, while it's drawn)
@@ -1241,6 +1375,20 @@ class Manuscript implements BinderMode {
 		void this.focusScene(next, down ? 'start' : 'end', across ? cm.coordsAtPos(sel.head)?.left : undefined);
 	}
 
+	/** With synopses showing, Up and Down walk the page's stops (titles, headings, synopses, the lines that say notes are
+	    left out), as Tab does, one at a time. Not out of a field being typed in, where they are the caret's. */
+	private onWalk(evt: KeyboardEvent): void {
+		if (!this.outline || evt.defaultPrevented || evt.isComposing || evt.altKey || evt.ctrlKey || evt.metaKey || evt.shiftKey) return;
+		if (evt.key !== 'ArrowDown' && evt.key !== 'ArrowUp') return;
+		const here = evt.target;
+		if (!(here instanceof HTMLElement) || here.closest('textarea, input, [contenteditable="true"], [contenteditable="plaintext-only"]')) return;
+		const stops = Array.from(this.list.querySelectorAll<HTMLElement>('.binders-manuscript-title, .binders-manuscript-heading > :is(h1, h2, h3, h4, h5, h6), .binders-manuscript-synopsis[tabindex], .binders-manuscript-gap'));
+		const at = stops.indexOf(here), to = stops[at + (evt.key === 'ArrowDown' ? 1 : -1)];
+		if (at < 0 || !to) return;
+		evt.preventDefault();
+		to.focus();
+	}
+
 	private sceneOf(target: EventTarget | null): Scene | null {
 		const el = target instanceof Node ? (target.instanceOf(HTMLElement) ? target : target.parentElement)?.closest('.binders-manuscript-scene') : null;
 		return el ? this.scenes.find((s) => s.el === el) ?? null : null;
@@ -1249,6 +1397,15 @@ class Manuscript implements BinderMode {
 	private onClick(evt: MouseEvent): void {
 		if (evt.defaultPrevented || evt.button !== 0) return;
 		const target = evt.target as HTMLElement, s = this.sceneOf(target);
+		if (s?.titleEl.contains(target) && this.outline) {
+			// with synopses showing, a title goes to its text, as a folder's heading goes into its folder; with Mod held it
+			// opens the note
+			if (s.renaming) return;
+			const pane = Keymap.isModEvent(evt);
+			if (pane) void this.ctx.openFile(s.file, pane); else void this.showSynopses(false, s);
+			return;
+		}
+		if (this.outline) return;
 		if (s?.titleEl.contains(target)) {
 			// a section's title is its note's name: a click edits it in place, as a note's own title is edited; with Mod
 			// held it opens the note, as a link does
@@ -1324,7 +1481,7 @@ class Manuscript implements BinderMode {
 		const step = (anchor: TAbstractFile | null) => () => { if (folder) tell(store.put([s.file], folder, anchor)); };
 		const menu = itemMenu(this.ctx, [s.file], {
 			rename: () => this.rename(s),
-			synopsis: null,
+			synopsis: this.outline && s.synopsis ? () => s.synopsis?.ed.edit() : null,
 			up: prev ? step(prev) : null,
 			down: next ? step(rest[rest.indexOf(next) + 1] ?? null) : null,
 			// (the keyboard carries on in the section after the one that went, or before it)
@@ -1376,7 +1533,7 @@ class Manuscript implements BinderMode {
 			const name = (el.textContent ?? '').replace(/\s+/g, ' ').trim();
 			el.setText(s.file.basename);
 			// (Escape, or nothing changed: back to the text if that's where the rename was started from, else on the title)
-			if (!commit || !name || name === old || this.dead) { if (!leaving && !this.dead) { if (this.caret?.file === s.file) void this.focusScene(s, 'caret', undefined, false); else el.focus(); } return; }
+			if (!commit || !name || name === old || this.dead) { if (!leaving && !this.dead) { if (this.caret?.file === s.file && !this.outline) void this.focusScene(s, 'caret', undefined, false); else el.focus(); } return; }
 			const to = normalizePath(`${s.file.parent?.path ?? ''}/${name}.${s.file.extension}`);
 			const clash = this.app.vault.getAbstractFileByPath(to), same = to.toLowerCase() === s.file.path.toLowerCase();
 			const why = badName(name) ?? (name === s.file.parent?.name ? 'A note can’t have its folder’s name: it would become the folder’s note.' : clash && !same ? `There’s already a note called “${name}” here.` : null);
@@ -1388,7 +1545,8 @@ class Manuscript implements BinderMode {
 			}
 			try { await this.ctx.store.rename(s.file, name); } catch (e) { new Notice(plain(e)); }
 			el.setText(s.file.basename);
-			if (!leaving && !this.dead) void this.focusScene(s, this.caret?.file === s.file ? 'caret' : 'start', undefined, this.caret?.file !== s.file);
+			// (with synopses showing the title keeps the keyboard: there is no text to put it in)
+			if (!leaving && !this.dead) { if (this.outline) el.focus(); else void this.focusScene(s, this.caret?.file === s.file ? 'caret' : 'start', undefined, this.caret?.file !== s.file); }
 		};
 		const key = (e: KeyboardEvent) => {
 			e.stopPropagation();

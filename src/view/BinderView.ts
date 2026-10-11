@@ -162,6 +162,17 @@ export class BinderView extends ItemView {
 	/** Puts the keyboard in the mode (on what it was on, or at its start). */
 	focusMode(): void { this.current?.focus?.(); }
 
+	/** Is the manuscript showing each note's synopsis where its text would be? */
+	get synopsesShown(): boolean { return this.current?.showsSynopses?.() ?? false; }
+
+	/** Shows the synopses in the manuscript, or its text again (with none said, the other of the two). Not while focus
+	    mode is on: it is the text. */
+	async showSynopses(on?: boolean): Promise<void> {
+		if (this.mode !== 'manuscript' || !this.current?.showSynopses) return;
+		if ((on ?? !this.synopsesShown) && this.plugin.focus?.on) return;
+		await this.current.showSynopses(on);
+	}
+
 	// ---- for focus mode (src/focus) ----
 
 	/** The note the mode is on (the manuscript's section with the cursor): focus mode says where that is. */
@@ -576,6 +587,9 @@ export class BinderView extends ItemView {
 		const arrange = this.button(bar, 'layout-grid', 'Arrange', 'binders-arrange-button', (e) => { const menu = new Menu(); if (this.mode === 'corkboard') this.arrangeItems(menu); else this.current?.arrangeItems?.(menu); this.showBelow(menu, e); });
 		const filter = this.button(bar, 'list-filter', 'Filter', 'binders-filter-button', () => this.filterPopover().toggle());
 		const add = this.button(bar, 'plus', 'New', 'binders-new-button', (e) => this.newMenu(e));
+		// (the manuscript's other display: each note's synopsis where its text would be, and back. Not on a phone, whose
+		// bar has no room for it: there it is in "More options" and the command)
+		if (!Platform.isPhone) this.button(bar, 'text', 'Synopses', 'binders-synopses-button', () => { void this.showSynopses(); }).toggleClass('is-hidden', this.mode !== 'manuscript');
 		this.button(bar, 'maximize-2', 'Focus mode', 'binders-focus-button', () => this.plugin.focus.toggle()).toggleClass('is-hidden', this.mode !== 'manuscript');
 		for (const b of [arrange, modeBtn, add]) b.setAttr('aria-haspopup', 'menu');
 		filter.setAttr('aria-haspopup', 'dialog');
@@ -721,6 +735,7 @@ export class BinderView extends ItemView {
 		ui.arrange.toggleClass('is-active', !time && this.arranged().arrange === 'label');
 		ui.arrange.setAttr('aria-label', `Arrange: ${how.title.charAt(0).toLowerCase()}${how.title.slice(1)}`);
 		setIcon(ui.arrange.querySelector<HTMLElement>('.text-button-icon'), how.icon);
+		{ const b = this.contentEl.querySelector<HTMLElement>('.binders-synopses-button'), on = this.synopsesShown; b?.toggleClass('is-active', on); b?.setAttr('aria-pressed', String(on)); }
 		const mode = MODES.find((m) => m.id === this.mode);
 		setIcon(ui.modeBtn.querySelector<HTMLElement>('.text-button-icon'), mode.icon);
 		ui.modeBtn.querySelector('.text-button-label')?.setText(mode.name);
@@ -993,6 +1008,8 @@ export class BinderView extends ItemView {
 	    method Obsidian looks for by name on whatever view is in front: docs/dev/internals.md, "Find and replace".) */
 	showSearch(replace = false): void {
 		if (!this.folder || !this.ui) return;
+		// (the bar looks through the notes' text: a manuscript showing synopses shows it again)
+		if (this.synopsesShown) void this.showSynopses(false);
 		const sel = this.contentEl.win.getSelection()?.toString() ?? '', cm = this.current?.editor?.();
 		const picked = cm ? cm.state.sliceDoc(cm.state.selection.main.from, cm.state.selection.main.to) : sel;
 		if (!this.finder) {
@@ -1085,7 +1102,7 @@ export class BinderView extends ItemView {
 			selectionChanged: () => this.inspect(),
 			find: (replace) => this.showSearch(replace),
 			option: <T>(key: string, fallback: T): T => (key in this.options ? this.options[key] : fallback) as T,
-			setOption: (key, value) => { this.options = { ...this.options, [key]: value }; this.remember(); this.app.workspace.requestSaveLayout(); if (key === 'timelineShape') this.drawToolbar(); },
+			setOption: (key, value) => { this.options = { ...this.options, [key]: value }; this.remember(); this.app.workspace.requestSaveLayout(); if (key === 'timelineShape' || key === 'manuscriptShow') this.drawToolbar(); },
 		};
 	}
 
