@@ -160,7 +160,7 @@ export class ProgressModal extends Modal {
 		const note = this.plugin.binders.folderNote(this.binderFolder), fm = note ? this.app.metadataCache.getFileCache(note)?.frontmatter : undefined;
 		const target = note ? readProps(this.plugin, note).target : 0, deadline = readDeadline(fm?.[DEADLINE_PROP]), days = readWritingDays(fm?.[DAYS_PROP]);
 		const line = parent.createDiv({ cls: 'binders-pot-planline binders-pot-paceline' });
-		const said = line.createSpan({ cls: 'binders-pot-said', attr: { 'data-binders-plan': 'said' } });
+		const said = line.createSpan({ cls: 'binders-pot-pacetext' });
 		if (target && deadline) {
 			const t = num(this.today), plan: Plan = { target, deadline, off: offDays(days), from: this.today, fromTotal: words }, sh = share(plan, words, 0, this.today);
 			said.setText(num(deadline) < t ? `${sayDay(num(deadline))} has passed.` : `${fmt(target)} words by ${sayDay(num(deadline))}${days.length < 7 ? `, writing ${saidDays(days)}` : ''}: ${fmt(sh.needed)} a day. How the book stands against it shows once there is a record.`);
@@ -411,7 +411,7 @@ export class ProgressModal extends Modal {
 	/** How the book stands against its deadline, in a sentence (no color for any of it), and the way to change it. */
 	private paceLine(parent: HTMLElement, plan: Plan | null, p: Pace | null, deadline: string | null, target: number): void {
 		const binder = this.binder, longform = binder?.kind === 'longform', locked = !!binder?.problem, line = parent.createDiv({ cls: 'binders-pot-planline binders-pot-paceline' });
-		const said = line.createSpan({ cls: 'binders-pot-said', attr: { 'data-binders-plan': 'said' } });
+		const said = line.createSpan({ cls: 'binders-pot-pacetext' });
 		if (plan && p) { said.createSpan({ cls: `binders-pot-pace is-${p.state}`, text: p.said }); if (p.then) said.appendText(' ' + p.then); }
 		else if (longform) said.appendText('A Longform project can’t have a deadline. Convert it to a binder to use one.');
 		else if (deadline && !target) said.setText('A deadline needs a target. Set both in the plan.');

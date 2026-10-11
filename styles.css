@@ -6527,7 +6527,8 @@ body:not(.is-phone) .binders-snapshots .sync-history-content {
 	min-height: var(--input-height);
 }
 
-.binders-pot-said {
+.binders-pot-said,
+.binders-pot-pacetext {
 	flex: 1 1 240px;
 }
 

@@ -102,7 +102,7 @@ async function show(p, folder = L) {
 	await until(p, `!!document.querySelector('${WIN} .binders-chart-life, ${WIN} .binders-pot-nothing')`, 6000);
 	await p.sleep(300);
 }
-const paceText = (p) => p.ev(`(() => { const e = document.querySelector('${WIN} .binders-pot-paceline .binders-pot-said'); return { said: e?.querySelector('.binders-pot-pace')?.textContent ?? '', state: [...(e?.querySelector('.binders-pot-pace')?.classList ?? [])].find(c => /^is-/.test(c)) ?? '', all: e?.textContent ?? '', button: document.querySelector('${WIN} .binders-pot-paceline button')?.textContent ?? null }; })()`);
+const paceText = (p) => p.ev(`(() => { const e = document.querySelector('${WIN} .binders-pot-paceline .binders-pot-pacetext'); return { said: e?.querySelector('.binders-pot-pace')?.textContent ?? '', state: [...(e?.querySelector('.binders-pot-pace')?.classList ?? [])].find(c => /^is-/.test(c)) ?? '', all: e?.textContent ?? '', button: document.querySelector('${WIN} .binders-pot-paceline button')?.textContent ?? null }; })()`);
 const figures = (p) => p.ev(`[...document.querySelectorAll('${WIN} .binders-pot-figure')].map(f => ({ label: f.querySelector('.binders-pot-figure-label').textContent, value: f.querySelector('.binders-pot-figure-value').textContent, note: f.querySelector('.binders-pot-figure-note').textContent }))`);
 const sections = (p) => p.ev(`[...document.querySelectorAll('${WIN} section.binders-pot-section')].map(s => s.getAttribute('aria-label'))`);
 const colorOf = (p, sel) => p.ev(`getComputedStyle(document.querySelector('${WIN} ${sel}')).color`);
@@ -174,14 +174,14 @@ test('a binder with no record: the small dialog still sets the plan, and says th
 	const before = await props(p);
 	await show(p);
 	t.ok(await p.ev(`!!document.querySelector('${WIN} .binders-pot-nothing')`), 'no record: the small dialog');
-	t.eq(await p.ev(`document.querySelector('${WIN} .binders-pot-paceline .binders-pot-said').textContent`), 'No deadline is set.', 'it says no deadline is set');
+	t.eq(await p.ev(`document.querySelector('${WIN} .binders-pot-paceline .binders-pot-pacetext').textContent`), 'No deadline is set.', 'it says no deadline is set');
 	await clickIn(p, 'Set a deadline');
 	await p.sleep(150);
 	await typeInto(p, 'form-target', fmt(W + 4000));
 	await typeInto(p, 'form-deadline', due);
 	await clickIn(p, 'Save');
 	await until(p, `/a day\\./.test(document.querySelector('${WIN} .binders-pot-paceline')?.textContent ?? '')`, 6000);
-	const said = await p.ev(`document.querySelector('${WIN} .binders-pot-paceline .binders-pot-said').textContent`);
+	const said = await p.ev(`document.querySelector('${WIN} .binders-pot-paceline .binders-pot-pacetext').textContent`);
 	t.ok(new RegExp(`^${fmt(W + 4000)} words by ${+due.slice(8)} ${MONTHS[+due.slice(5, 7) - 1]} ${due.slice(0, 4)}: \\d+ a day\\.`).test(said), `it says the share without a record: “${said}”`);
 	t.eq(j(await props(p)), j({ ...before, target: W + 4000, deadline: due }), 'and the note has the target and the deadline');
 	await shot(p, 'no-record');
@@ -356,7 +356,7 @@ test('words that came at once move the plan, and the window says it; recording o
 	await p.ev(`(async () => { ${PL}.settings.recordProgress = false; await ${PL}.saveSettings(); })().then(() => 1)`);
 	await show(p);
 	t.ok(await p.ev(`!!document.querySelector('${WIN} .binders-pot-paceline')`) && /gets there by|On pace|ahead|behind/.test((await paceText(p)).all), `recording off: the plan still says how the book stands: “${(await paceText(p)).all}”`);
-	t.ok(/Recording is off/.test(await p.ev(`document.querySelector('${WIN} .binders-pot-said:not([data-binders-plan])')?.textContent ?? ''`)), 'and says it is off');
+	t.ok(/Recording is off/.test(await p.ev(`document.querySelector('${WIN} .binders-pot-said')?.textContent ?? ''`)), 'and says it is off');
 	await shut(p);
 	t.eq(p.errors.filter((e) => /binders/i.test(e)).length, 0, 'with no error');
 });
