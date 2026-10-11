@@ -825,7 +825,8 @@ test('a cover that is a missing file, an SVG or a WebP: the ebook is still made,
 /** Every control of the window that is on screen: its name, its box, and whether the thing at its centre is itself
     (nothing over it) once it is scrolled into view. */
 const controls = (p) => p.ev(`(() => [...document.querySelectorAll('${WIN} button, ${WIN} .clickable-icon, ${WIN} select.dropdown:not(.is-measuring), ${WIN} input[type="text"], ${WIN} [role="option"], ${WIN} .checkbox-container, ${WIN} .text-icon-button')].filter(e => e.getBoundingClientRect().width && !e.closest('[aria-hidden="true"]')).map(e => {
-	e.scrollIntoView({ block: 'nearest' });
+	// (centred: the phone's Export row sticks to the foot of the window and would cover a control scrolled to its edge)
+	e.scrollIntoView({ block: 'center' });
 	const r = e.getBoundingClientRect(), at = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
 	return { name: ((e.getAttribute('aria-label') || e.textContent || e.dataset.bindersKey || e.tagName).split('\\n')[0]).slice(0, 28), w: Math.round(r.width), h: Math.round(r.height), reach: !!at && (at === e || e.contains(at) || at.contains(e)), inside: r.left >= -1 && r.right <= innerWidth + 1, toggle: e.classList.contains('checkbox-container') };
 }))()`);
@@ -952,7 +953,8 @@ test('a phone: the part at the end of a Contents row (“Chapter”, “Part 1�
 		t.ok(tags.length > 3 && tags.every(([w, hh]) => hh >= 44 && w >= 44), 'every part is a finger’s size, 44 × 44 at least (smallest: ' + j(tags.reduce((a, b) => (b[1] < a[1] ? b : a), tags[0])) + ')');
 		// the row and what is in it: its name whole and in the middle, the part inside the row, nothing over anything
 		const rows = await p.ev(`[...document.querySelectorAll('${WIN} .binders-export-outline .binders-export-row')].map(r => { const b = r.getBoundingClientRect(), n = r.querySelector('.nav-file-title-content').getBoundingClientRect(), g = r.querySelector('.binders-export-role')?.getBoundingClientRect(); return { h: Math.round(b.height), mid: Math.round(Math.abs((n.top + n.bottom) / 2 - (b.top + b.bottom) / 2)), inside: !g || (g.top >= b.top - 1 && g.bottom <= b.bottom + 1 && g.right <= b.right + 1), clear: !g || n.right <= g.left + 1 }; })`);
-		t.ok(rows.every((r) => r.h >= 44 && r.h <= 60 && r.mid <= 2 && r.inside && r.clear), 'each row is a finger high, its name in the middle, its part inside it and clear of the name (' + j(rows.slice(0, 3)) + ')');
+		const badRows = rows.filter((r) => !(r.h >= 44 && r.h <= 60 && r.mid <= 2 && r.inside && r.clear));
+		t.ok(badRows.length === 0, 'each row is a finger high, its name in the middle, its part inside it and clear of the name (' + j(badRows.length ? badRows : rows.slice(0, 3)) + ')');
 		// a tap at the very edge of the part, where it used to miss: the menu opens, and the window is still there
 		await p.ev(`(() => { const e = document.querySelector('${WIN} .binders-export-outline .is-clickable .binders-export-role.is-menu'), r = e.getBoundingClientRect(); document.elementFromPoint(r.left + 3, r.top + 3).click(); return 1; })()`);
 		t.ok(await until(p, `!!document.querySelector('.menu')`, 3000), 'a tap at the corner of the part opens “Export as”');

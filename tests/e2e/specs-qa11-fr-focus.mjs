@@ -351,7 +351,8 @@ test('Replace all keeps the tab of a tab paragraph and the indented paragraphs a
 	await p.ev(`(() => { window.__all = ${NV}.bindersFind().replaceAll(); return 1; })()`);
 	await until(p, `!!document.querySelector('.modal.binders-find-review')`, 5000);
 	const rv = await p.ev(`document.querySelector('.modal.binders-find-review')?.textContent ?? ''`); console.log('REVIEW2', JSON.stringify(rv.slice(0, 400)));
-	t.ok(/4 places in 1 note/.test(rv), 'the review counts four places in the note');
+	// (the note has three Mara: the plain line, the tab-led one and the tab line; the one in the next note is not counted)
+	t.ok(/3 places in 1 note/.test(rv), 'the review counts three places in the note');
 	await p.ev(`document.querySelector('.modal.binders-find-review button.mod-cta').click()`);
 	await p.ev(`window.__all.then(() => 1)`);
 	await p.sleep(600);
