@@ -45,6 +45,30 @@ Because each section is the note's own editor, commands for the open note apply 
 Ctrl+F (Cmd+F on macOS) searches across the manuscript shown, including sections outside the screen. **Find and
 replace in binder** also works here, with a review and a snapshot before replacing across notes. See [Find and replace](find-and-replace.md).
 
+## Synopses
+
+![The manuscript showing synopses](images/manuscript-synopses.png)
+
+The **Synopses** button in the toolbar (or **Show synopses** in More options, or the command of that name) shows each
+note's synopsis on the page where its text was: read the outline of the book down one page. A folder stays a heading
+with its synopsis under it, in softer type; a note is its title in bold and its synopsis. A note with none says
+"Add a synopsis".
+
+- **Click a synopsis** to change it where it stands. It is the same field a card has: Ctrl+Enter (Cmd+Enter on macOS)
+  or leaving it saves, Escape drops the change. It is saved as the note's synopsis property and is one step of Undo
+  ("Edit synopsis of ..."). The note's text is never written from here. A folder's synopsis is kept in its folder note,
+  which is made when you save one.
+- **Click a note's title** to see the text again with that title where it is and the cursor in that section. Ctrl-click
+  (Cmd-click) opens the note in its own tab instead. To rename a note here, press F2 on its title or use its menu.
+- **Tab** walks the titles and synopses; so do the Up and Down arrows. Enter on a synopsis edits it; Enter on a title
+  goes to its text.
+- The find bar and focus mode need the text: opening either shows it again.
+- **New** makes the note after the one in hand with its title ready to type over, and its line says "Add a synopsis".
+- A [filter](filters.md) applies as it does to the text. In a binder made by a newer version of Binders, or one that is
+  read only, synopses are shown and none is offered to add.
+
+The choice is kept with the tab, and it is off to begin with. Nothing here is part of [export](export.md).
+
 ## Under a filter
 
 With a [filter](filters.md) on, the page is the sections that match. A dashed line, "2 notes not shown", stands where notes
@@ -63,7 +87,7 @@ line, not as a list at the foot.
 
 ## On a phone
 
-On a phone a section is rendered text until you tap it. The tap puts the caret on the letter under your finger and
+On a phone the toolbar has no Synopses button; **Show synopses** is in More options, and the command works. A tap on a note's title brings back its text. A section is rendered text until you tap it. The tap puts the caret on the letter under your finger and
 opens the keyboard, and the section is its editor for as long as you're in it. Tap another section and the first
 goes back to rendered text once what you typed is saved. On a tablet, as on a computer, the sections near the screen
 are editors already. See [Phones and tablets](mobile.md).

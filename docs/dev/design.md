@@ -197,7 +197,7 @@ here; that is what keeps the next round short.
     broken; so does a row of three week-wide cells stretched across the page.
   - A label that didn't fit on a chart is said under it, with its date. Dropping it silently was the stage-2 fault.
 
-- Learned designing the synopsis read-through (2026-10-11; one direction built, nothing chosen yet):
+- Learned designing the synopsis read-through (2026-10-11; the maintainer chose direction A, built as the manuscript's Synopses switch):
   - A page of the book that is read looks like a note in reading view: the folders as its headings, a note's title a
     line in the text's own type and weight, its synopsis a paragraph. No rule, box or column of its own.
   - The outliner already is the title with the synopsis under it, as a table. A second reading of the same thing has
@@ -206,6 +206,8 @@ here; that is what keeps the next round short.
     heading in the manuscript (the filter's "notes not shown") sat tight against what was above it.
   - A phone's manuscript toolbar is full with a filter on (the count, Undo, Filter, New, Focus mode): one more
     button pushes the last off the edge. A switch of display goes in "More options" there.
+  - A switch that takes editors away has to prove the typing is on disk first (the disk, not the editor's own word: a
+    failed write is not asked for again), and must not trust a mount still in flight: count the switches.
 **Rejected, don't propose again:** a colored stripe along the top of a card, pill chips, thin accent or progress
 lines, decoration for its own sake, anything on a card that isn't the writer's own (no badges for snapshots and the
 like). The maintainer's word for these was "AI generated".

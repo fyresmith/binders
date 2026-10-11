@@ -152,6 +152,13 @@ try {
 	await show('manuscript');
 	await rest();
 	await shot('manuscript');
+	// the same page showing each note's synopsis (the Synopses button), and back
+	await p.ev(`(async () => { await ${V}.showSynopses(true); return 1; })()`);
+	await p.sleep(800);
+	await rest();
+	await shot('manuscript-synopses');
+	await p.ev(`(async () => { await ${V}.showSynopses(false); return 1; })()`);
+	await p.sleep(800);
 
 	// the timeline: the same book in story time, down and across. The scenes are given story dates for these two
 	// pictures and lose them again after: the pictures that follow show the book as it was.
