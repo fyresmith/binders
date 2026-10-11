@@ -64,7 +64,7 @@ test('changing a saved filter changes it at once, in the note; another can be ch
 	await tide(p);
 	await twoRows(p);
 	await saveAs(p, 'First');
-	await clickEl(p, `${POP} .binders-filter-foot .text-icon-button`);
+	await clickEl(p, `${POP} .binders-filter-clear`);
 	await p.sleep(400);
 	await filterBy(p, { status: ['Final'] });
 	await saveAs(p, 'first');

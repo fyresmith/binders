@@ -51,8 +51,8 @@ function combo(parent: HTMLElement, label: string, placeholder: string, icon: st
 	b.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); b.click(); } });
 	return b;
 }
-function textButton(parent: HTMLElement, icon: string, label: string): HTMLElement {
-	const b = parent.createDiv({ cls: 'text-icon-button', attr: { role: 'button', tabindex: '0' } });
+function textButton(parent: HTMLElement, icon: string, label: string, cls = ''): HTMLElement {
+	const b = parent.createDiv({ cls: ['text-icon-button', cls].filter(Boolean), attr: { role: 'button', tabindex: '0' } });
 	setIcon(b.createSpan({ cls: 'text-button-icon' }), icon);
 	b.createSpan({ cls: 'text-button-label', text: label });
 	b.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); b.click(); } });
@@ -175,7 +175,7 @@ export class FilterPopover {
 				if (cant) { b.addClass('is-disabled'); b.setAttrs({ 'aria-label': cant, 'aria-disabled': 'true', title: cant }); }
 				else b.addEventListener('click', () => { this.pending?.fire(); this.naming = true; this.draw(); });
 			}
-			if (sub.on() || f.conditions.length) textButton(foot, 'x', f.name ? 'Show all notes' : 'Clear filter').addEventListener('click', () => { this.pending?.fire(); host.apply(emptyDef()); this.close(); });
+			if (sub.on() || f.conditions.length) textButton(foot, 'x', f.name ? 'Show all notes' : 'Clear filter', 'binders-filter-clear').addEventListener('click', () => { this.pending?.fire(); host.apply(emptyDef()); this.close(); });
 		}
 		box.scrollTop = top;
 		if (mark) this.refocus(mark);

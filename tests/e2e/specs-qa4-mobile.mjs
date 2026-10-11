@@ -832,7 +832,7 @@ test('phone: the filter is picked by touch in a sheet that stays for the next pi
 		await open(p);
 		t.ok((await toolbar(p)).out <= 0 && (await toolbar(p)).overlap.length === 0, 'the toolbar still fits, with the longer count');
 		await tap(p, f.x, f.y);
-		await tapSel(p, '.binders-filter-menu .binders-filter-foot .text-icon-button');
+		await tapSel(p, '.binders-filter-menu .binders-filter-clear');
 		await p.sleep(500);
 		t.eq(j((await viewState(p)).filter), j({ status: [], label: [] }), '“Clear filter” takes it off');
 		t.eq(await p.ev(`document.querySelectorAll('.menu').length`), 0, 'and closes the sheet');

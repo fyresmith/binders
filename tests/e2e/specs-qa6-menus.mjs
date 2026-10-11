@@ -2379,7 +2379,7 @@ test('phone: the toolbar’s New, Arrange, mode and Filter menus, by tap: Filter
 		t.eq(await p.ev(`document.querySelectorAll('.binders-filter-menu').length`), 1, 'and again');
 		const shown = await cardsOf(p);
 		t.ok(shown.includes(L + 'Prologue.md') && shown.includes(L + 'Epilogue.md') && !shown.includes(L + 'Phone scene.md'), 'the board shows the notes that pass: ' + j(shown));
-		await tapSel(p, `${POP} .binders-filter-foot .text-icon-button`);
+		await tapSel(p, `${POP} .binders-filter-clear`);
 		await p.sleep(500);
 		await gone2(p);
 		t.ok((await cardsOf(p)).includes(L + 'Phone scene.md'), 'Clear filter shows every card again');

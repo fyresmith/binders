@@ -92,7 +92,7 @@ export async function addRow(p, { property, operator = null, values = null, text
 /** Clears the filter ("Clear filter" in the popover), which also closes it. */
 export async function clearFilter(p) {
 	await openFilter(p);
-	if (await p.at(`${POP} .binders-filter-foot .text-icon-button`)) await click(p, `${POP} .binders-filter-foot .text-icon-button`);
+	if (await p.at(`${POP} .binders-filter-clear`)) await click(p, `${POP} .binders-filter-clear`);
 	await p.sleep(300);
 	await closeFilter(p);
 	await closeMenus(p);
@@ -175,6 +175,6 @@ export async function tapToggle(p, title) {
 /** "Clear filter", by touch: opens the popover if it is shut, taps it, and it shuts. */
 export async function tapClear(p) {
 	if (!(await p.ev(`!!document.querySelector('${POP}')`))) { await tapSel(p, BUTTON); await until(p, `!!document.querySelector('${POP} .filter-row')`); }
-	await tapSel(p, `${POP} .binders-filter-foot .text-icon-button`);
+	await tapSel(p, `${POP} .binders-filter-clear`);
 	await p.sleep(400);
 }
