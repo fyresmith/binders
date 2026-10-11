@@ -317,3 +317,17 @@ test('a property’s kind is the type Obsidian gives it, and otherwise what its 
 	await closeFilter(p);
 	await p.ev(`app.metadataTypeManager.setType('stars', 'text')`);
 });
+
+test('the manuscript says where notes were left out: “2 notes not shown” between sections that are not neighbours, with their names', async (p, h, t) => {
+	await tide(p, 'manuscript');
+	await filterBy(p, { status: ['Draft'] });
+	await p.sleep(600);
+	const gaps = await p.ev(`[...document.querySelectorAll('${LEAF} .binders-manuscript-gap')].map(g => ({ text: g.textContent, title: g.title, aria: g.getAttribute('aria-label'), role: g.getAttribute('role'), tab: g.tabIndex, end: g.classList.contains('is-after') }))`);
+	t.eq(j(gaps.map((g) => g.text)), j(['1 note not shown', '2 notes not shown', '1 note not shown']), 'one for Storm, one for Wreck and Lights, one for the Epilogue at the end: ' + j(gaps));
+	t.eq(gaps[1].title, 'Wreck, Lights', 'the names are in its tooltip');
+	t.eq(gaps[1].aria, '2 notes not shown: Wreck, Lights', 'and said to a screen reader');
+	t.ok(gaps.every((g) => g.role === 'note' && g.tab === 0), 'each can be reached with Tab');
+	t.eq(gaps.map((g) => g.end).join(), 'false,false,true', 'the last is after the last section');
+	await clearFilter(p);
+	t.eq(await p.ev(`document.querySelectorAll('${LEAF} .binders-manuscript-gap').length`), 0, 'with no filter there are none');
+});

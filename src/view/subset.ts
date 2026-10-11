@@ -58,12 +58,39 @@ export class Subset {
 		const s = this.plugin.settings;
 		return readState(saved, s.statuses, s.labels.map((l) => l.name), this.props);
 	}
-	/** Takes a view's saved filter. False if there was none (the filter is as it was). */
+	/** Takes a view's saved filter. False if there was none (the filter is as it was). What is remembered about the filter
+	    (`seen`) is let go only if its conditions are not the same: a change of mode sets the state again and is no change. */
 	load(saved: unknown): boolean {
 		const def = this.read(saved);
 		if (!def) return false;
-		this.def = def;
+		this.set(def);
 		return true;
+	}
+	/** Puts a filter on; true if its conditions are not what they were (then the notes remembered are forgotten). */
+	set(def: FilterDef): boolean {
+		const changed = JSON.stringify([def.match, def.conditions]) !== JSON.stringify([this.def.match, this.def.conditions]);
+		this.def = def;
+		if (changed) this.seen.clear();
+		return changed;
+	}
+
+	// ---- what stays until a refresh ----
+
+	/** Notes that have passed the filter since it was put on. One that stops passing (its status set, a word too many) stays
+	    where it is, said to match no longer, until the writer refreshes or changes the conditions: nothing leaves the page
+	    by itself. */
+	private seen = new Set<TFile>();
+	/** Does the note show: it passes, or it has and no longer does. */
+	shows(file: TFile): boolean {
+		if (this.matches(file)) { this.seen.add(file); return true; }
+		return this.seen.has(file);
+	}
+	/** Shown only because it used to pass. */
+	stale(file: TFile): boolean { return this.seen.has(file) && !this.matches(file); }
+	/** Lets go of the notes that no longer match, but the one being written in. */
+	letGo(keep?: TFile | null): void {
+		this.seen.clear();
+		if (keep) this.seen.add(keep);
 	}
 	/** The filter as it goes in a view's state. */
 	state(): unknown { return writeState(this.def, this.props); }

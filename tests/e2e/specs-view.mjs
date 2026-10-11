@@ -702,7 +702,7 @@ test('the manuscript shows the notes that pass the filter, under the folders tha
 	const before = await texts(p);
 	await openView(p);
 	await h.run('show-manuscript');
-	const titles = () => p.ev(`[...document.querySelectorAll('.workspace-leaf.mod-active .binders-manuscript-title, .workspace-leaf.mod-active .binders-manuscript-heading')].map(e => e.textContent)`);
+	const titles = () => p.ev(`[...document.querySelectorAll('.workspace-leaf.mod-active .binders-manuscript-title, .workspace-leaf.mod-active .binders-manuscript-heading')].map(e => { const c = e.cloneNode(true); c.querySelectorAll('.binders-manuscript-gap').forEach(g => g.remove()); return c.textContent; })`);
 	await until(p, `document.querySelectorAll('.workspace-leaf.mod-active .binders-manuscript-title').length === 7`);
 	t.ok(await p.ev(`!document.querySelector('.workspace-leaf.mod-active .binders-filter-button').classList.contains('is-hidden')`), 'the manuscript has the Filter button too');
 	await tick(p, 'status', 'Revised');

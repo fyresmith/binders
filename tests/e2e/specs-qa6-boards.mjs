@@ -113,7 +113,10 @@ test('a folder’s card under a filter names the notes that pass and every folde
 	// and one stops
 	await prop(p, P1 + '/Arrival.md', 'label', 'Green');
 	await until(p, `document.querySelector('${ACTIVE} .binders-card[data-path="${P1}"] .binders-card-words')?.textContent.startsWith('1 of 3')`);
-	t.eq(j((await heldOf(p, P1)).names), j(['The keeper']), 'a note that stops passing goes');
+	t.eq(j((await heldOf(p, P1)).names), j(['Arrival', 'The keeper']), 'a note that stops passing stays (dimmed) until the writer refreshes');
+	await p.ev(`${VIEW}.refreshSubset()`);
+	await until(p, `document.querySelector('${ACTIVE} .binders-card[data-path="${P1}"] .binders-card-words')?.textContent.startsWith('1 of 3')`);
+	t.eq(j((await heldOf(p, P1)).names), j(['The keeper']), 'and goes at the refresh');
 	// the filter lifted
 	await setView(p, { filter: { status: [], label: [] } });
 	s = await heldOf(p, P1);
@@ -510,8 +513,9 @@ const expected = (p, folder, filter, flat = false) => p.ev(`(() => {
 		for (const c of ${flat ? 'notesIn' : 'kids'}(app.vault.getAbstractFileByPath(${j(folder)}))) {
 			if (c.children) {
 				const all = notesIn(c), shown = filter.status.length || filter.label.length ? all.filter(passes) : all;
+				if ((filter.status.length || filter.label.length) && !shown.length) continue; // (a folder none of whose notes pass is not on the board)
 				let w = 0; for (const f of shown) w += await words(f);
-				out.push({ path: c.path, held: kids(c).filter(x => x.children || !(filter.status.length || filter.label.length) || passes(x)).slice(0, 5).map(x => x.children ? x.name : x.basename), count: shown.length === all.length ? all.length + (all.length === 1 ? ' note' : ' notes') : shown.length + ' of ' + all.length + ' notes', words: w, num: '' });
+				out.push({ path: c.path, held: kids(c).filter(x => (x.children ? !(filter.status.length || filter.label.length) || notesIn(x).some(passes) : !(filter.status.length || filter.label.length) || passes(x))).slice(0, 5).map(x => x.children ? x.name : x.basename), count: shown.length === all.length ? all.length + (all.length === 1 ? ' note' : ' notes') : shown.length + ' of ' + all.length + ' notes', words: w, num: '' });
 			} else if (passes(c) || !(filter.status.length || filter.label.length)) out.push({ path: c.path, words: await words(c), num: String(++n) });
 		}
 		return out;
@@ -595,6 +599,7 @@ test('a run of 60 changes made elsewhere (renames, moves, deletes, new notes, la
 		await p.sleep(700);
 		for (const [name, options] of arrangements) {
 			await setView(p, { filter }, { linesFlat: false, ...options });
+			await p.ev(`${VIEW}.refreshSubset()`); // (a note that stopped matching stays till a refresh: the oracle is the vault as it is now)
 			await p.sleep(250);
 			const want = await expected(p, 'The Lighthouse', filter, !!options.linesFlat);
 			const got = await shownOn(p);
@@ -602,6 +607,7 @@ test('a run of 60 changes made elsewhere (renames, moves, deletes, new notes, la
 			catch (e) { throw new Error(e.message + '\n  seed ' + seed + ', changes so far:\n  ' + log.join('\n  ')); }
 		}
 		await setView(p, { mode: 'outliner', filter });
+		await p.ev(`${VIEW}.refreshSubset()`);
 		await p.sleep(400);
 		try { t.eq(j(await rowsOn(p)), j(await expectedRows(p, filter)), `${say}, the outliner, filter ${j(filter)}: its rows, their depth and words`); }
 		catch (e) { throw new Error(e.message + '\n  seed ' + seed + ', changes so far:\n  ' + log.join('\n  ')); }

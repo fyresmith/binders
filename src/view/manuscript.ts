@@ -2,6 +2,7 @@ import { Component, Keymap, MarkdownRenderer, Menu, Notice, Platform, TFile, TFo
 import type { EditorView } from '@codemirror/view';
 import { caretRect } from '../focus/dom';
 import { bodyStart, forRender, moved } from '../scene-text';
+import { markManuscript } from './manuscript-filter';
 import { badName, emptyState, itemMenu, plain, removeItems, renameItem } from './actions';
 import { vimMode } from './internals';
 import { visibleBottom } from './drag';
@@ -172,9 +173,8 @@ class Manuscript implements BinderMode {
 		c.registerDomEvent(this.root, 'focusout', (e) => {
 			const s = this.sceneOf(e.target), to = e.relatedTarget;
 			if (!s?.live || (to instanceof Node && s.bodyEl.contains(to))) return;
-			// (and under a filter, a section that no longer passes it goes once it's saved and left)
-			const left = () => window.setTimeout(() => { if (!this.dead && this.ctx.filtering()) this.refresh(); });
-			if (s.live.dirty) void s.live.flush().then(left, (err) => console.error('Binders: saving failed', err)); else left();
+			// (under a filter a section that no longer passes it stays: it goes when the writer refreshes)
+			if (s.live.dirty) void s.live.flush().catch((err) => console.error('Binders: saving failed', err));
 		});
 		// Text dragged from one section into another moves, as it does within a section (each section is an editor of
 		// its own, and an editor only takes its text back out when the drop is in itself: left alone, the words would
@@ -529,8 +529,8 @@ class Manuscript implements BinderMode {
 	/** Headings and scenes of the folder, depth first, in binder order. */
 	private wanted(): { key: TFile | TFolder; depth: number }[] {
 		const out: { key: TFile | TFolder; depth: number }[] = [];
-		// with a filter on, only the notes that pass, under the folders that have any; a section being typed in stays
-		// whatever its status has become, till the typing is saved and the cursor has left it
+		// with a filter on, only the notes that pass or have passed (the context says which stay), under the folders that have any;
+		// a section being typed in stays whatever its status has become
 		const filtering = this.ctx.filtering();
 		const shown = (f: TFile) => { if (!filtering || this.ctx.visible(f)) return true; const e = this.byKey.get(f); return e?.kind === 'scene' && this.busy(e); };
 		const walk = (f: TFolder, depth: number) => {
@@ -562,6 +562,7 @@ class Manuscript implements BinderMode {
 		this.entries = next;
 		this.scenes = next.filter((e): e is Scene => e.kind === 'scene');
 		this.order(next);
+		markManuscript(this.ctx, next);
 		// (said again when the reason changes: nothing here, or nothing that passes the filter)
 		const why = String(this.ctx.filtering());
 		if (this.emptyEl && (next.length || this.emptyEl.dataset.for !== why)) { this.emptyEl.remove(); this.emptyEl = null; }

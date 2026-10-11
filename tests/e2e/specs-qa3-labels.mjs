@@ -5,7 +5,7 @@
 //
 // In Obsidian 1.13 the settings dialog is a window of its own (a BrowserWindow titled "Settings - …"): its DOM is
 // reached through the tab's containerEl, and real keys and pointer events are sent to it through Electron.
-import { tick, tapTick, clearFilter, closeFilter, openFilter as openPopover, chooseProperty, clickEl, pickerItems, rowSel } from './filter-helpers.mjs';
+import { tick, tapTick, tapDone, clearFilter, closeFilter, openFilter as openPopover, chooseProperty, clickEl, pickerItems, rowSel } from './filter-helpers.mjs';
 import { B, NOTE, PL, VIEW, answer, card, cards, clickMenu, closeMenus, exists, file, hoverMenu, j, menuItems, openView, read, reload, same, texts, until, viewState, withTidy } from './view-helpers.mjs';
 
 export const specs = [];
@@ -556,7 +556,7 @@ test('phone: the filter and the target dialog work by touch; the settings have r
 		await tapTick(p, 'status', 'Draft');
 		t.ok(await p.ev(`!!document.querySelector('.binders-filter-menu')`), 'the filter opens as a sheet');
 		t.eq(j((await viewState(p)).filter), j({ status: ['Draft'], label: [] }), 'a status picked by touch');
-		await closeFilter(p);
+		await tapDone(p);
 		await closeMenus(p);
 		const c = await p.at(card(L + 'Prologue.md'));
 		await hold(p, c.x, c.y);
@@ -565,7 +565,7 @@ test('phone: the filter and the target dialog work by touch; the settings have r
 		await tap(p, st.x, st.y);
 		await until(p, `!!document.querySelector('.modal .binders-ask input')`);
 		await p.sleep(600);
-		t.eq(await p.ev(`document.querySelectorAll('.menu').length`), 0, 'the sheet is gone when the dialog opens');
+		t.eq(await p.ev(`document.querySelectorAll('.menu').length`), 0, 'the sheet is gone when the dialog opens: ' + await p.ev(`[...document.querySelectorAll('.menu')].map(m => m.className + ' | ' + m.textContent.slice(0, 60)).join(' || ')`));
 		const b = await p.ev(`[...document.querySelectorAll('.modal button')].map(b => Math.round(b.getBoundingClientRect().height))`);
 		t.ok(b.every((x) => x >= 40), 'its buttons are big enough for a finger: ' + j(b));
 		await p.ev(`document.querySelectorAll('.modal-close-button').forEach(b => b.click())`);
@@ -901,6 +901,8 @@ ux('filter: a value no note has any more can still be unticked, and an empty boa
 	await closeFilter(p);
 	t.eq(j(short(await cards(p))), j(['The wreck']), 'filtered to the one proofed note');
 	await setFm(p, L + 'Part Two/The wreck.md', { status: 'Done' });
+	await p.sleep(600);
+	await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-scope-refresh').click()`); // (it stays, dimmed, until the writer refreshes)
 	await until(p, `document.querySelectorAll('.workspace-leaf.mod-active .binders-card[data-path]').length === 0`);
 	const said = await p.ev(`/filter|no notes|nothing/i.test(document.querySelector('.workspace-leaf.mod-active .binders-mode').innerText)`);
 	const items = await filterValues(p, 'Status');

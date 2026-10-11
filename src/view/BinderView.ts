@@ -336,6 +336,7 @@ export class BinderView extends ItemView {
 		await commitAll(this.contentEl);
 		this.closed = true;
 		this.popover?.close(true);
+		this.staleWatch?.disconnect();
 		this.containerEl.removeClass('binders-short-manuscript');
 		this.places.clear();
 		this.leftOn.clear();
@@ -580,6 +581,11 @@ export class BinderView extends ItemView {
 		const factory = this.plugin.modeFactories[this.arrangement === 'label' ? BY_LABEL : this.mode];
 		this.current = factory(body, this.context());
 		this.current.render();
+		// (the boards draw their cards again as the binder changes: what no longer matches is marked again after)
+		this.staleWatch?.disconnect();
+		this.staleWatch = new MutationObserver(() => { if (this.subset.on()) this.markStale(); });
+		this.staleWatch.observe(body, { childList: true, subtree: true });
+		this.markStale();
 		if (this.current.adopt) { synopsis.addClass('is-adopted'); this.current.adopt(synopsis); }
 		filter.toggleClass('is-hidden', !this.current.filters);
 		add.toggleClass('is-hidden', !this.current.newMenu || this.readOnly);
@@ -620,6 +626,7 @@ export class BinderView extends ItemView {
 		this.drawToolbar();
 		this.current?.refresh();
 		this.popover?.sync();
+		this.markStale();
 	}
 
 	private button(parent: HTMLElement, icon: string, label: string, cls: string, onClick: (e: MouseEvent) => void): HTMLElement {
@@ -805,6 +812,15 @@ export class BinderView extends ItemView {
 		name.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); name.click(); } });
 		const n = ui.scope.createSpan({ cls: 'binders-scope-count', text: `${shown} of ${all.length}` });
 		n.createSpan({ cls: 'binders-scope-unit', text: all.length === 1 ? ' note' : ' notes' });
+		const stale = all.filter((f) => this.isStale(f)).length;
+		if (stale) {
+			ui.scope.createSpan({ cls: 'binders-scope-stale', text: `${stale} no longer ${stale === 1 ? 'matches' : 'match'}` });
+			const r = ui.scope.createDiv({ cls: 'text-icon-button binders-scope-refresh', attr: { role: 'button', tabindex: '0', 'aria-label': 'Hide the notes that no longer match' } });
+			setIcon(r.createSpan({ cls: 'text-button-icon' }), 'refresh-cw');
+			r.createSpan({ cls: 'text-button-label', text: 'Refresh' });
+			r.addEventListener('click', () => this.refreshSubset());
+			r.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.refreshSubset(); } });
+		}
 		ui.scope.createDiv({ cls: 'binders-scope-spacer' });
 		const whole = this.folder === this.binder?.folder ? 'Show the whole binder' : 'Show the whole folder';
 		const out = ui.scope.createDiv({ cls: 'text-icon-button binders-scope-all', attr: { role: 'button', tabindex: '0', 'aria-label': whole } });
@@ -815,6 +831,37 @@ export class BinderView extends ItemView {
 		out.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); clear(); } });
 	}
 
+	/** The note being typed in here, if any (a section of the manuscript with the caret in it): it never leaves the page under it. */
+	private typingIn(): TFile | null {
+		const el = this.contentEl.doc.activeElement, typing = !!el?.instanceOf(HTMLElement) && this.contentEl.contains(el) && el.matches('.cm-content, input, textarea, [contenteditable="true"]');
+		const on = typing ? this.current?.current?.() : null;
+		return on instanceof TFile ? on : null;
+	}
+	private isStale(file: TFile): boolean { return this.subset.on() && !this.madeHere.has(file) && this.subset.stale(file); }
+	/** "Refresh": lets go of the notes that no longer match (but the one being typed in) and draws again. */
+	private refreshSubset(): void {
+		this.subset.letGo(this.typingIn());
+		this.drawToolbar();
+		this.current?.refresh();
+		this.finder?.rescope();
+		this.markStale();
+	}
+	/** Cards and rows of notes that no longer match are said to be so (the manuscript says it itself): a step back, and nothing
+	    written on them. */
+	private staleRaf = 0;
+	private staleWatch: MutationObserver | null = null;
+	private markStale(): void {
+		const body = this.ui?.body;
+		if (!body || this.staleRaf) return;
+		this.staleRaf = body.win.requestAnimationFrame(() => {
+			this.staleRaf = 0;
+			for (const el of body.querySelectorAll<HTMLElement>('.binders-card[data-path], .binders-outliner-row[data-path]')) {
+				const f = this.app.vault.getAbstractFileByPath(el.dataset.path ?? '');
+				el.toggleClass('is-unmatched', f instanceof TFile && this.isStale(f));
+			}
+		});
+	}
+
 	/** "8 of 20 notes": what the filter shows, of the folder shown. */
 	private countSaid(): string {
 		const all = this.folder ? this.store.scenes(this.folder) : [];
@@ -822,13 +869,15 @@ export class BinderView extends ItemView {
 	}
 
 	private setFilter(filter: FilterDef): void {
-		this.subset.def = filter;
+		// (changing the conditions is asking for the page afresh: what no longer matches goes, but the section being typed in)
+		if (this.subset.set(filter)) this.subset.letGo(this.typingIn());
 		this.remember();
 		this.madeHere.clear();
 		this.app.workspace.requestSaveLayout();
 		this.drawToolbar();
 		this.current?.filterChanged?.();
 		this.current?.refresh();
+		this.markStale();
 		// (what is looked through is what shows: a note the filter hides is neither counted nor replaced in)
 		this.finder?.rescope();
 	}
@@ -936,7 +985,7 @@ export class BinderView extends ItemView {
 	private visible(file: TFile): boolean {
 		if (!this.subset.on()) return true;
 		if (this.madeHere.has(file)) return true;
-		return this.subset.matches(file);
+		return this.subset.shows(file);
 	}
 
 	private context(): ModeContext {
@@ -955,6 +1004,7 @@ export class BinderView extends ItemView {
 			visible: (f) => this.visible(f),
 			made: (f) => { this.madeHere.add(f); },
 			filtering: () => this.subset.on(),
+			stale: (f) => this.isStale(f),
 			clearFilter: () => this.setFilter(emptyDef()),
 			selectionChanged: () => this.inspect(),
 			find: (replace) => this.showSearch(replace),

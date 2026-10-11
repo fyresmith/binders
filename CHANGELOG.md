@@ -30,6 +30,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - Pin your own properties (POV, characters, a place, any other) to the inspector, and edit them there with Obsidian's own property editors, for one note: each edit is one step of Undo, and it never changes the manuscript's text. A binder keeps its list of pins, and a menu on each row moves or unpins it. Editing several notes at once comes next.
 - The Revision pane lists your unfinished revision tasks under their scenes in the order of the book. Tick one to mark it done, click to go to the scene, or step through them with the next and previous commands.
 - Adding a revision task and ticking one are steps you can undo and redo.
+- Under a filter, a note you change so it no longer matches stays, dimmed, until you press Refresh; in the manuscript, a dashed line says how many notes are not shown between sections, with their names.
 
 ### Changed
 

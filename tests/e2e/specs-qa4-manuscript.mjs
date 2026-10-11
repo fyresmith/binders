@@ -435,8 +435,9 @@ test('the filter, set from the toolbar, hides sections and headings with nothing
 	t.eq(await countText(p), '58 of 109 words', 'the count follows typing');
 	await setFilter(p, ['Done']);
 	await p.ev(`document.activeElement.blur()`); await p.sleep(2600);
-	await p.ev(`(() => { ${VIEW}.refresh(); return 1; })()`); await p.sleep(400);
-	t.eq(await shown(p), '', 'a filter nothing passes hides everything');
+	t.eq(await shown(p), '# Part Two | The wreck', 'the section that was being typed in stays when the conditions change');
+	await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-scope-refresh').click()`); await p.sleep(600);
+	t.eq(await shown(p), '', 'a filter nothing passes hides everything, once refreshed');
 	t.ok(/No notes match the filter/.test(await p.ev(`document.querySelector('.binders-manuscript .binders-empty')?.textContent ?? ''`)), 'and says so');
 	t.eq(await countText(p), '0 of 109 words', 'the count');
 	t.ok(disk(p, ORDER[4]).endsWith('below the light.\n one two three'), 'what was typed (at the very end, after Mod+End) is on disk');
@@ -485,7 +486,7 @@ test('BUG: “New note after this” (and “New note”) under a filter makes a
 	t.eq(await p.ev(`app.workspace.getMostRecentLeaf().view.getViewType()`), 'binders-view', 'and the manuscript is still there');
 });
 
-test('UX: a section that no longer passes the filter goes once its typing is saved and the caret has left it', async (p, h, t) => {
+test('a section that no longer passes the filter stays, even once its typing is saved and the caret has left it, until the writer refreshes', async (p, h, t) => {
 	await openMs(p);
 	await setFilter(p, ['Draft']);
 	await focusEnd(p, KEEPER);
@@ -495,7 +496,10 @@ test('UX: a section that no longer passes the filter goes once its typing is sav
 	await clickIn(p, PROLOGUE); // and left
 	await p.sleep(1500);
 	await clearNotices(p);
-	t.eq(await shown(p), 'Prologue | # Part Two | The wreck', 'only what passes the filter shows');
+	t.eq(await shown(p), 'Prologue | # Part One | The keeper | # Part Two | The wreck', 'nothing leaves the page by itself');
+	await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-scope-refresh').click()`);
+	await p.sleep(900);
+	t.eq(await shown(p), 'Prologue | # Part Two | The wreck', 'Refresh: only what passes the filter shows');
 	t.eq(await countText(p), '38 of 107 words', 'and the count is of what shows');
 });
 

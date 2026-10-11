@@ -7230,3 +7230,50 @@ body:not(.is-phone) .binders-snapshots .sync-history-content {
 	color: var(--text-faint);
 	font-size: var(--font-ui-smaller);
 }
+
+/* ---- A note that no longer matches the filter stays until a refresh ---- */
+
+.binders-scope-stale {
+	flex: none;
+	color: var(--text-normal);
+	white-space: nowrap;
+	font-variant-numeric: tabular-nums;
+}
+
+.is-phone .binders-scope-refresh > .text-button-label {
+	display: none;
+}
+
+/* (a step back, as a card the find bar hasn't lit is; nothing is written on it) */
+.binders-card.is-unmatched,
+.binders-outliner-row.is-unmatched {
+	opacity: 0.5;
+}
+
+/* The manuscript under a filter: where notes of the book lie between two sections shown, a line says how many. In the
+   interface's type, not the page's: it is the view speaking, not the book. */
+.binders-manuscript-gap {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-3);
+	margin-block: var(--size-4-4);
+	color: var(--text-faint);
+	font-family: var(--font-interface);
+	font-size: var(--font-ui-smaller);
+	line-height: var(--line-height-tight);
+}
+
+.binders-manuscript-gap::before,
+.binders-manuscript-gap::after {
+	content: "";
+	flex: 1 1 0;
+	border-top: var(--border-width) dashed var(--background-modifier-border);
+}
+
+.binders-manuscript-unmatched {
+	margin-bottom: var(--size-4-2);
+	color: var(--text-muted);
+	font-family: var(--font-interface);
+	font-size: var(--font-ui-smaller);
+	font-style: italic;
+}
