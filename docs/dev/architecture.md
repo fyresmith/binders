@@ -21,7 +21,7 @@ neighbours, for example the store and `snapshots.ts`, which follow each other's 
  view/find-bar.ts, find-review.ts   find and replace: the bar and the review (find/replace.ts writes, find/highlight.ts marks)
  inspector/views.ts, contents-pane.ts       the sidebar: what's in hand, and the book with where you are
  ───────────────────────────────────────────────────────────────────────────────────
- binders.ts   the store: the only code that changes a binder (and its undo: undo.ts)
+ binders.ts   the store: the only code that changes a binder (and its undo: history/)
  scenes.ts    splitting, merging, one note of many   snapshots.ts    taking and bringing back
  export/export.ts   a binder read as a book, made into a file, saved        view/export.ts   the Export window
  ───────────────────────────────────────────────────────────────────────────────────
@@ -70,7 +70,7 @@ Each entry says what the module owns and what it must never do.
 |---|---|---|
 | `src/model.ts` | The binder note as data: `readIndex` (parse `contents`), `orderChildren`, and the operations on the list: `renameIn`, `relocate`, `removeFrom`, `moveTo`, `applyOps` (a batch of `ListOp`s). `FORMAT_VERSION` and `checkFormat`, which refuses a newer binder. Pure. | Import Obsidian, or normalise a newer format. |
 | `src/binders.ts` | `BinderStore`, as `plugin.binders`. Finds binders (a note with `binder` in its properties; a Longform index note), keeps one `State` per binder (the list as the note has it, plus changes not yet written), follows the vault's `rename`, `delete` and `create` events and the metadata cache's `changed`, answers "what is in this folder, in what order", and does every change: `put`/`move`, `reorder` (a folder's items given a new order in one step and one write), `moveUp`/`moveDown`, `newScene`, `newFolder`, `duplicate`, `group`/`ungroup`, `makeBinder`, `convertToBinder`, `setProps`/`editProps`, `label`. Emits `changed` (batched) to anyone showing a binder. The file explains its API at the top. | Write anything but the binder note's `contents` (or a Longform index note's `longform.scenes`) and the properties a view's edit asks for; write a binder whose format is newer (`problem`); apply a change to a stale copy of the note (see [Invariants](#invariants-that-keep-writing-safe)). |
-| `src/undo.ts` | `MoveHistory`: for each change made by hand (a drop, Move up, a sort kept, a label given by a drop) where each item was before and after, kept in memory (50 changes), and taking it back or doing it again by asking the store to move the files and write the order. Reached through `MoveHost`, a small interface the store implements. | Touch the vault itself, or undo part of a change: it moves nothing unless everything can move. |
+| `src/history/` | The history of what was done by hand to binders, in memory (`docs/dev/plan.md`, "Undo and redo"). `history.ts`: the entries (100 a binder, 32 MB in all) and the one way of taking an entry back or making it again: every step's check, then every apply, a refusal said once and then dropped. `types.ts`: `Entry`, `Step`, `Handler`. `order.ts`: a change to a binder's order (a drop, Move up, a sort kept, a label given by a drop): where each item was before and after, put back beside the neighbours it had; it reaches the store through `MoveHost`. `props.ts`: properties given by hand. Pure parts (`history.ts`, `values.ts`) are unit-tested. | Touch the vault itself except through the store, or undo part of an entry: nothing is changed unless every step can be. |
 | `src/properties.ts` | `editProperties`: the one way a property is written to a scene. Goes through Obsidian's own writer, except for the two kinds of note that writer would damage: a note that opens with a `---` block that is text (the properties are added as a new block above it) and a note that starts with a byte-order mark (its block is rewritten in place). | Call `processFrontMatter` on a scene anywhere else. |
 | `src/longform.ts` | Longform projects as data: reading `longform` properties, flattening and nesting `scenes`, the shown order, groups, the plan for "Convert to binder". Pure, except `longformRunning` (see internals). | Write anything but `longform.scenes`; keep any other key of `longform` out of what it hands back to be written. |
 | `src/longform-convert.ts` | The "Convert to binder" dialog. | Convert without saying first what will happen. |
@@ -308,8 +308,9 @@ These are the rules the code is held to. A change that breaks one needs a new te
    somewhere safe, read it back, and only then let the first copy go.
 5. **Nothing waits in a buffer at the end.** The store flushes pending writes when the plugin unloads; the manuscript
    writes pending typing on every route out; a new editor waits for the previous one's write.
-6. **Moves are all or nothing.** Undo moves nothing unless every item can go back, and refuses with the reason if a
-   place was taken or a folder is gone.
+6. **Undo is all or nothing.** Undo changes nothing unless every step of the entry can be taken back (`History.undo`
+   runs every step's `check` before any `apply`), and refuses with the reason if a place was taken, a folder is gone, or
+   a value was changed since.
 7. **Degrade, don't break.** Every undocumented API is detected; when one is missing the feature falls back (alphabetical
    explorer, read-only manuscript, no typewriter line) and says so once.
 8. **Leave nothing behind.** Focus mode changes no state of Obsidian's; unloading removes the explorer patch, the icons

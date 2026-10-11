@@ -564,8 +564,7 @@ async function bringBackAll(plugin: BindersPlugin, s: FolderSnapshot, folder: TF
 	if (await readJournal(app, snaps) === 'newer') throw new Error('A newer version of Binders has brought a snapshot back in this binder, and its plan is still there. Update Binders to bring one back here.');
 	await writeJournal(app, snaps, { journal: JOURNAL_FORMAT, of: opts.of ?? '', snapshot: s.file.path, before: kept.snapshot.file.path, title: s.title, since: all.since, started: Date.now(), finished: 0, plan: { made: [...all.places.filter((p) => p.from == null).map((p) => p.to), ...all.files.filter((f) => f.from == null).map((f) => f.path)], moved: [...(all.gather?.items ?? []), ...all.places].filter((p) => p.from != null).map((p) => [p.from ?? '', p.to]), written: all.files.filter((f) => f.from != null).map((f) => f.path) } });
 	// (the moves remembered are of the items as they stood: taking one back now would not be taking this back)
-	store.undos = store.undos.filter((u) => u.note !== b.note);
-	store.redos = store.redos.filter((u) => u.note !== b.note);
+	store.history.forget(b.note);
 
 	// renaming and moving
 	const links = updatesLinks(app);

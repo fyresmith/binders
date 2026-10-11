@@ -463,11 +463,55 @@ both (see "Decided"). Built in four steps; this section says what each has.
 - Removed: "Take a snapshot of every note..." and its command's name. The command's id, `take-snapshots`, is now
   "Take a snapshot of the binder". The per-note snapshots it made stay what they are: each note's own.
 
-### Undo of moves
+### Undo and redo (designed 2026-10-10)
+
+Undo of moves (below) grows into one history of what a writer does by hand to a binder. It is built in steps, one commit
+each; this section is the design and what the maintainer decided. Each step adds a kind; the code is `src/history/`.
+
+**The model.** One history per binder (`Entry.note` is the binder's note), in memory. An entry is one thing done by hand,
+and is made of steps. A step has a kind and each kind has a handler (`src/history/types.ts`): `alive` (is anything it is
+about still there), `check` (look at the vault as it is, throw the sentence the writer is told if it can't be taken
+back), `apply`. Undoing an entry runs every step's check first, then every apply, the steps in reverse; redoing runs them
+forward. Nothing is written unless every step passes: architecture rule 6, for every kind. A refusal is said once and
+the entry stays; asked again with nothing changed, it is dropped and the one before is taken (`History.undo`).
+
+**Kinds.** `order` (as before: tolerant, an item goes back beside the neighbours it had), `props` (exact: every
+property must still be what the step left, read from the disk), then `rename`, `create`, `remove`, `merge`, `split` in
+the steps that follow. Order is tolerant and every other kind is exact: a step is taken back only if the thing is still as
+the step left it, and otherwise nothing is written and the writer is told why.
+
+**Decided by the maintainer, 2026-10-10:**
+
+1. No history across restarts: memory only, cleared when the plugin unloads. Nothing new is written to the vault.
+2. A delete is undoable for the session even when Obsidian is set to delete permanently, from bytes kept in memory.
+   Nothing is kept on disk.
+3. The delete confirmation stays.
+4. One history per binder, following the writer across the views of that binder (tabs, modes, the inspector, the
+   explorer).
+5. Depth: 100 entries per binder and 32 MB of kept bytes in all, the oldest dropped first (it was 50, shared).
+6. The commands are "Undo last change" and "Redo last change"; the ids `undo-move` and `redo-move` stay, so hotkeys do.
+7. Undo and redo are buttons in the binder view's toolbar, in every mode ("for mobile's sake": a phone has no Ctrl+Z).
+   Icons, `undo-2` and `redo-2`, whose tooltip says what will be undone ("Undo: rename “Arrival”"), dimmed and not hidden
+   when there is nothing. Where the toolbar can't hold both on the narrowest phones, Undo stays and Redo is in More
+   options.
+
+Not decided, left out: an eight-second notice with an Undo button after a delete or a merge.
+
+**Stays out of the history:** typing (the editor's own undo), Replace all (its own Undo and a snapshot), bringing back a
+snapshot (the snapshot before it is the recovery), Book details, Longform convert, import, renames made in Obsidian's own
+file explorer, and making a folder a binder. Merge joins; split is a bridge to the editor's undo. Bringing back
+"Everything" from a binder snapshot still clears that binder's history.
+
+**Steps.** 0: the refactor (`undo.ts` into `src/history/{history,types,order,props}.ts`, entries made of steps, the
+cap per binder), no change in behavior. 1: properties, and the toolbar buttons. 2: rename. 3: create and duplicate.
+4: delete. 5: merge. 6: split.
+
+### Undo of moves (the first version)
 
 - `BinderStore.put()` is what a drop does (corkboard, outliner, explorer) and `change()` wraps it, and "Move up" and
   "Move down", with a snapshot of the order and of the folder each moved item was in. `undo()` moves the files back
-  and writes the order back (a `set` op); redo is the same the other way. The last 50 changes are kept, in memory.
+  and writes the order back (a `set` op); redo is the same the other way. The last 50 changes are kept, in memory
+  (now `src/history/order.ts`; it was `src/undo.ts`).
 - "Undo last move" and "Redo last move" (commands), and Mod+Z, Mod+Shift+Z or Mod+Y in the binder view when no text
   is being typed. Text undo stays the editor's own.
 - A change may carry a property it gave its items as well (`BinderStore.label()`: a card dragged to another label's

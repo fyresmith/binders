@@ -5,7 +5,10 @@ import { applyOps, checkFormat, diskList, FORMAT_VERSION, isBinderNote, isFolder
 import { editProperties } from './properties';
 import { nextName, parts } from './scene-text';
 import { COMPILE_PROP, EXPORT_PROP, saveOpen } from './scenes';
-import { MoveHistory, type PropChange, type Undo } from './undo';
+import { History } from './history/history';
+import { OrderHandler } from './history/order';
+import { PropsHandler } from './history/props';
+import type { Entry, PropChange } from './history/types';
 import { SNAPSHOTS } from './snapshot-text';
 import { followSnapshots, isOwn } from './snapshots';
 import { labelCss, readLabel } from './view/labels';
@@ -232,14 +235,17 @@ export class BinderStore extends Events implements ExplorerSource {
 	constructor(private plugin: BindersPlugin) {
 		super();
 		this.app = plugin.app;
-		this.history = new MoveHistory(this.app, {
-			binderOf: (item) => this.binderOf(item), all: () => this.all(),
-			orderedChildren: (folder) => this.orderedChildren(folder), depthOf: (item) => this.depthOf(item),
-			move: (item, folder, index, depth) => this.move(item, folder, index, depth),
-			newFolder: (folder, index, title) => this.newFolder(folder, index, title),
-			setProp: (item, key, value) => this.setProp(item, key, value),
-			takeAway: (folder) => this.takeAway(folder), bringBack: (parent, index, name, note) => this.bringBack(parent, index, name, note),
-		});
+		this.history = new History({ binderOf: (item) => this.binderOf(item), all: () => this.all() });
+		const host = {
+			binderOf: (item: TAbstractFile | string) => this.binderOf(item), all: () => this.all(),
+			orderedChildren: (folder: TFolder) => this.orderedChildren(folder), depthOf: (item: TAbstractFile) => this.depthOf(item),
+			move: (item: TAbstractFile, folder: TFolder, index: number, depth?: number) => this.move(item, folder, index, depth),
+			newFolder: (folder: TFolder, index?: number, title?: string) => this.newFolder(folder, index, title),
+			setProp: (item: TAbstractFile, key: string, value: unknown) => this.setProp(item, key, value),
+			takeAway: (folder: TFolder) => this.takeAway(folder), bringBack: (parent: TFolder, index: number, name: string, note: ArrayBuffer | null) => this.bringBack(parent, index, name, note),
+		};
+		this.order = new OrderHandler(this.app, host, this.history);
+		this.history.handlers = { order: this.order, props: new PropsHandler(this.app, host) };
 		let done: () => void = () => {}, settle: () => void = () => {};
 		this.ready = new Promise((r) => { done = r; });
 		this.settled = new Promise((r) => { settle = r; });
@@ -654,21 +660,22 @@ export class BinderStore extends Events implements ExplorerSource {
 		if (note) await this.setProps(note, { [key]: value });
 	}
 
-	// ---- undo (see undo.ts) ----
+	// ---- undo (see history/) ----
 
-	/** Changes made by hand to binders' orders, and taking them back. */
-	private history: MoveHistory;
+	/** What was done by hand to binders, and taking it back (history/). */
+	readonly history: History;
+	private order: OrderHandler;
 	/** (the history's two stacks, as the store has always had them: the tests empty and read them here) */
-	get undos(): Undo[] { return this.history.undos; }
-	set undos(list: Undo[]) { this.history.undos = list; }
-	get redos(): Undo[] { return this.history.redos; }
-	set redos(list: Undo[]) { this.history.redos = list; }
+	get undos(): Entry[] { return this.history.undos; }
+	set undos(list: Entry[]) { this.history.undos = list; }
+	get redos(): Entry[] { return this.history.redos; }
+	set redos(list: Entry[]) { this.history.redos = list; }
 
 	/** Runs a change to a binder's order made by hand, remembering where each of `items` (in the order they show) was,
 	    so "Undo" can put them back. `label` says what it was ("Move “Arrival”"). `made`: a folder the change made to
 	    hold them, which undoing it takes away again. `emptied`: a folder the change moves everything out of, which
 	    goes to the trash once nothing but its folder note is left in it, and which undoing the change makes again. */
-	change<T>(label: string, items: TAbstractFile[], fn: () => Promise<T>, made?: (out: T) => TFolder | null, props?: PropChange[], emptied?: TFolder): Promise<T> { return this.history.change(label, items, fn, made, props, emptied); }
+	change<T>(label: string, items: TAbstractFile[], fn: () => Promise<T>, made?: (out: T) => TFolder | null, props?: PropChange[], emptied?: TFolder): Promise<T> { return this.order.change(label, items, fn, made, props, emptied); }
 
 	/** What "Undo" (or "Redo") would take back in this binder, or null. */
 	undoable(item: TAbstractFile | string, redo = false): string | null { return this.history.undoable(item, redo); }
