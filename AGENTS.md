@@ -36,6 +36,13 @@ Read this before changing anything. It is the contract every contributor, human 
    module named for it, is feature-detected, has a fallback, is listed in `docs/dev/internals.md`, and has an e2e test.
 6. **Refuse newer formats.** Never normalise and rewrite a binder note whose `binder` version is newer than
    `FORMAT_VERSION`.
+7. **Your own worktree, your own branch.** Nobody works in the main checkout (`~/Projects/binder`), which is the
+   maintainer's: no editing, switching branches, staging, committing, building or testing there. Every agent and every
+   coordinator works in its own worktree on its own branch, made from `origin/main`, and nobody commits on `main` itself:
+   a coordinator puts its work on `main` by a fast-forward push. The maintainer's words, 2026-10-10: "I always want
+   agents working off of branches and not the raw main." and "Even coordinators should have their own worktree." (See
+   "Worktrees and branches".) The one commit made on `main` itself is a release's, by `npm run release`, when the
+   maintainer calls one ("Releases").
 
 ## Versioning (x.y.z)
 
@@ -80,8 +87,9 @@ npm run ship -- "Docs: what the limits are" --internal
 - One logical change per commit. Don't mix a fix with a refactor.
 - Before shipping: `npm run check` (build, lint, unit tests) must pass, plus the new tests and the one or two spec
   files that directly cover what changed. The rest of the suite runs on GitHub for every push to `main` (see "Tests").
-- Pushing: the coordinator pushes `main` after each shipped commit or small batch. Tagging: never by hand; a tag is
-  made only by `npm run release`.
+- Pushing: a coordinator puts its branch on `main` after each shipped commit or small batch, once `npm run check`
+  passes: `git push origin HEAD:main`, which must be a fast-forward (never forced; see "Worktrees and branches").
+  Tagging: never by hand; a tag is made only by `npm run release`.
 
 ### Releases
 
@@ -90,7 +98,7 @@ npm run ship -- "Docs: what the limits are" --internal
   only when the maintainer asks for a release, in his own words, in that session: never by an agent on its own
   judgment, never automatically after a suite passes, never on a schedule, and no workflow cuts a release from a push
   to `main` or from a green suite (`release.yml` runs only from a tag that `npm run release` pushed). Agents and the
-  coordinator ship commits and push `main`; the rhythm is that work ships through the day, the suite runs on GitHub
+  coordinator ship commits and put them on `main`; the rhythm is that work ships through the day, the suite runs on GitHub
   for each push, and the maintainer asks for one release at the end of the day, or when he chooses.
 - `npm run release` refuses unless: it is on `main`, the tree is clean, `main` is pushed, `npm run check` passes,
   there is at least one Unreleased entry, and the e2e workflow has **succeeded for exactly this commit** (asked of
@@ -134,13 +142,15 @@ npm run ship -- "Docs: what the limits are" --internal
 
 For larger pushes (a milestone, a QA round) the maintainer may run several agents at once. The pattern that worked on Evra:
 
-- **Coordinator** (the main session): splits work, reviews every diff, merges, ships each fix with its own changelog
-  entry, pushes `main` and reads the suite's verdict. Only the coordinator commits to `main`. It does not make
-  releases on its own: that is the maintainer's call ("Releases" above).
-- **Developer agents**: each works in its own git worktree (`.claude/worktrees/…`, ignored by git) and **owns a
-  disjoint set of files**, agreed up front (for example: one owns `src/view/**` and `styles.css`, another everything
-  else). They commit on their worktree branch, one commit per fix, *without* CHANGELOG edits (the version is not theirs to touch either), rebase on
-  `main` before reporting, and report commit hashes. The coordinator cherry-picks and ships each one.
+- **Coordinator** (the main session, in its own worktree on its own branch): splits work, reviews every diff, merges,
+  ships each fix with its own changelog entry, puts the work on `main` and reads the suite's verdict. Only a coordinator
+  puts work on `main`, and only from its own branch. It does not make releases on its own: that is the maintainer's
+  call ("Releases" above).
+- **Developer agents**: each works in its own git worktree (`.claude/worktrees/…`, ignored by git) on its own branch,
+  and **owns a disjoint set of files**, agreed up front (for example: one owns `src/view/**` and `styles.css`, another
+  everything else). They commit on their worktree branch, one commit per fix, *without* CHANGELOG edits (the version is
+  not theirs to touch either), rebase on `origin/main` before reporting, and report commit hashes. The coordinator
+  cherry-picks and ships each one.
 - **QA agents**: each owns an area and writes scenarios in its own `tests/e2e/specs-<area>.mjs`. They never edit
   `src/`, never build, install or use git. They verify every bug twice before reporting, and report: title, exact
   repro, expected vs actual, `file:line`, and a suggested fix. Failing tests for confirmed bugs stay in their spec file.
@@ -165,6 +175,30 @@ For larger pushes (a milestone, a QA round) the maintainer may run several agent
   real failures, the ones that passed again alone, the open findings); there is no more "Suite: run" agent. A
   regression is found with `git bisect run` (docs/dev/development.md) and goes back to the agent that owns the area.
   Agents still run only their own spec files locally.
+
+### Worktrees and branches
+
+The maintainer's rule, 2026-10-10: "I always want agents working off of branches and not the raw main." and "Even
+coordinators should have their own worktree." The main checkout (`~/Projects/binder`) is his.
+
+- **Everyone has a worktree.** Developer, QA and designer agents, and each coordinator, work in a worktree of their own
+  under `.claude/worktrees/<name>`, on a branch of their own made from the current `origin/main`:
+  `git fetch origin`, then `git worktree add .claude/worktrees/<name> -b <branch> origin/main`. In Claude Code a session
+  uses `EnterWorktree`, and an agent `isolation: "worktree"`.
+- **Dependencies.** A new worktree has no `node_modules`. Link the main checkout's, from the worktree's root:
+  `ln -s ../../../node_modules node_modules`. Git shows that link as untracked (the `.gitignore` entry does not cover a
+  link), so never `git add -A` or `git add .`: stage the files you changed by name.
+- **Agents' work reaches `main` through a coordinator.** An agent commits on its branch, rebases on `origin/main` and
+  reports the commit hashes. The coordinator cherry-picks them onto its own branch and ships them there.
+- **A coordinator puts its work on `main`.** After `npm run ship` on its branch (see "Committing"):
+  `git fetch origin`; `git rebase origin/main` if `origin/main` has moved; `npm run check`; `git push origin HEAD:main`.
+  That push succeeds only as a fast-forward. Never force it. If it is refused, someone else got there first: fetch,
+  rebase, check and push again. This is what lets two coordinators work at once.
+- **A worktree is its owner's.** Don't work in, clean up or delete another's. When a ticket is done and its commits are
+  on `main`, its owner (or the coordinator who shipped it) may remove the worktree (`git worktree remove`) and delete
+  its branch. A branch somebody else made is left alone unless the maintainer says so.
+- **Memos** are written from a worktree by the main checkout's script, run by its path (see "Progress memos"): the one
+  thing an agent writes in the main checkout.
 
 ### Progress memos
 

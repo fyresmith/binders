@@ -71,13 +71,18 @@
 
 ## Working with the maintainer
 
+- **Worktrees and branches** (2026-10-10): nobody works in the main checkout (`~/Projects/binder`) but the maintainer,
+  and nobody commits on `main` itself. Every agent and every coordinator has its own worktree on its own branch, and a
+  coordinator puts its work on `main` by a fast-forward push. "I always want agents working off of branches and not the
+  raw main." "Even coordinators should have their own worktree." AGENTS.md, rule 7 and "Worktrees and branches".
 - Every commit goes through `npm run ship`, which records what changed for writers under `## Unreleased`
   (`--added`, `--changed`, `--fixed`, `--removed`), or `--internal` for what they won't notice. It does not bump
   the version.
 - **A release is his call, each time** ("releases should not be triggered wantonly ... Only if I issue it",
   2026-10-10): never run `npm run release` unless he asks for a release in that session.
 - Commit attribution trailers, if your setup provides them, go through `--trailer`.
-- Push `main` to `origin` after each shipped commit or small batch, once `npm run check` passes (the maintainer's
-  rule, 2026-10-05). Never tag by hand. Ask before force-pushing, creating remotes, or anything else outward-facing.
+- Put each shipped commit or small batch on `main` once `npm run check` passes (the maintainer's rule, 2026-10-05):
+  from the coordinator's own branch, `git push origin HEAD:main`, a fast-forward only (2026-10-10; AGENTS.md, "Worktrees
+  and branches"). Never tag by hand. Ask before force-pushing, creating remotes, or anything else outward-facing.
 - Never touch the maintainer's real vaults (e.g. anything under `~/Documents/Vaults`). Test only in `test-vault/`.
 - Keep replies short and lead with the result.

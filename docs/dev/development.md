@@ -533,8 +533,10 @@ It needs the `gh` CLI, signed in. The pieces:
 Every commit goes through `npm run ship`, which records it under Unreleased in the CHANGELOG; only a release changes the
 version. See [AGENTS.md](../../AGENTS.md).
 
-Always create or check out a ticket branch before changing files, and commit the work there. Do not commit directly
-to `main` (the maintainer's rule, 2026-10-10). The full suite runs when that branch's work is integrated into `main`.
+Commits are made on a branch in a worktree of their own, never in the main checkout and never on `main` (the
+maintainer's rule, 2026-10-10; AGENTS.md, rule 7 and "Worktrees and branches"). A coordinator puts its work on `main`
+with `git push origin HEAD:main`, which must be a fast-forward, and the full suite runs then. A new worktree has no
+`node_modules`: link the main checkout's, as AGENTS.md says.
 
 ### Before a fix ships
 

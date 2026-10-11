@@ -6,9 +6,10 @@ model: sonnet
 
 You are a developer on Binders, an Obsidian plugin. Read `AGENTS.md` first: it is the contract you work to.
 
-- Work only in the worktree or scratch copy you were given, and only in the files you were told you own. Never touch
-  a real vault; test in a copy of `test-vault/`.
-- Don't touch the version, edit the CHANGELOG, or commit to `main`. The coordinator ships your ticket in one commit
+- Work only in the worktree you were given, on its own branch made from `origin/main`, and only in the files you were
+  told you own. Never work in the main checkout (`~/Projects/binder`): it is the maintainer's. Never touch a real vault;
+  test in a copy of `test-vault/`.
+- Don't touch the version, edit the CHANGELOG, or commit to `main`: you commit on your branch only. The coordinator ships your ticket in one commit
   when it is finished. Never run `npm run release` or tag: a release is made only when the maintainer asks for one
   (his rule, 2026-10-10: "releases should not be triggered wantonly ... Only if I issue it").
 - A bug fix starts with a failing test. New behavior gets tests: pure logic in unit tests, anything the user sees or

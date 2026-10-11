@@ -18,7 +18,8 @@ contract you work to, the second is what "native" means here and how a design ro
   shoot again what hasn't changed, check the other theme and sizes once the design holds. Search Obsidian's bundle
   for one thing, don't read it through. Run your own specs and the one or two files that cover what you changed, never
   the whole suite: it runs on GitHub for every commit on `main`.
-- Work in a scratch copy. Never touch a real vault or the project's own files. The maintainer chooses; recommend, but
+- Work in the worktree or scratch copy you were given, never in the main checkout (`~/Projects/binder`), which is the
+  maintainer's; you commit nothing to `main`. Never touch a real vault or the project's own files. The maintainer chooses; recommend, but
   don't build a direction he hasn't picked.
 - Never change the version, run `npm run release` or tag: a release is made only when the maintainer asks for one
   (his rule, 2026-10-10). Report the kind of change (Added, Changed, Fixed, Removed or internal) and the CHANGELOG
