@@ -229,6 +229,10 @@ the sample projects there, zipped, for a real Scrivener to open: nothing here ca
 `test-vault`, and drives it over the Chrome DevTools protocol. The runner resets every note between tests, and fails a
 test on any console error.
 
+The throwaway profiles and vault copies go in `~/.cache/binders-e2e` (a folder on the disk: `/tmp` is kept in memory on
+many systems, and several Obsidians' worth filled it); on a CI runner, in the temporary folder. `BINDERS_E2E_TMP` names
+another place.
+
 ```bash
 npm run build                        # also installs the build into test-vault
 npm run e2e -- --theme both          # light and dark
@@ -462,6 +466,7 @@ still puts back what it changes; the runner is there for the one that fails befo
 | `release.mjs` | `npm run release` | The maintainer's call. Works out the version, turns Unreleased into it, tags and pushes ("Releasing") |
 | `suite.mjs` | `npm run suite` | Starts the e2e workflow on GitHub for main, or reports the run; `-- --wait` prints the verdict |
 | `migrate-changelog.mjs` | once | Folds the per-commit changelog sections into Unreleased ("Releasing") |
+| `e2e-slot.sh` | `bash scripts/e2e-slot.sh --specs …` | `npm run e2e` behind four machine-wide slots, for when several agents test at once (AGENTS.md) |
 | `memo.mjs` | `npm run memo` | Progress memos for a team of agents: write one, list them all, read one (AGENTS.md, "Progress memos") |
 | `install-to-vault.mjs` | by every build; `npm run install-vault -- <vault>` | Copies the build into a vault and turns the plugin on there |
 | `make-demo-vault.mjs`, `demo-vault/` | `npm run demo-vault` | Makes or updates `demo-vault/` (above) |

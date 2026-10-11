@@ -2,7 +2,7 @@
 // Obsidian runs with its own throwaway profile and a throwaway copy of test-vault, so nothing real is touched.
 import { execFileSync, spawn } from 'child_process';
 import { appendFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readlinkSync, rmSync, writeFileSync } from 'fs';
-import { tmpdir } from 'os';
+import { homedir, tmpdir } from 'os';
 import { basename, dirname, join, resolve } from 'path';
 
 const ELECTRON = process.env.OBSIDIAN_ELECTRON || '/usr/lib/electron43/electron';
@@ -111,9 +111,19 @@ export const VAULT = process.env.BINDERS_TEST_VAULT || 'test-vault';
 const HOVER = process.env.BINDERS_HOVER === '1';
 const POINTER = '--blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4';
 
+// Where each Obsidian's throwaway profile and vault copy go. On a developer's machine that is a folder on the disk
+// (`~/.cache/binders-e2e`), not the system's temporary folder: on many Linux systems `/tmp` is kept in memory, and
+// several Obsidians' profiles and vaults at once took gigabytes of it (the maintainer's decision, 2026-10-11). On a CI
+// runner, which is thrown away, the temporary folder is fine. BINDERS_E2E_TMP names another place.
+function scratch() {
+	const dir = process.env.BINDERS_E2E_TMP || (process.env.CI ? tmpdir() : join(homedir(), '.cache', 'binders-e2e'));
+	mkdirSync(dir, { recursive: true });
+	return dir;
+}
+
 export async function launch({ vault = VAULT, theme = 'light', width = 1440, height = 900, hover = HOVER } = {}) {
 	if (!existsSync(ELECTRON) || !existsSync(ASAR)) throw new Error(`Obsidian not found. Set OBSIDIAN_ELECTRON and OBSIDIAN_ASAR (looked for ${ELECTRON} and ${ASAR}).`);
-	const work = mkdtempSync(join(tmpdir(), 'binders-e2e-'));
+	const work = mkdtempSync(join(scratch(), 'binders-e2e-'));
 	const vaultDir = join(work, 'vault');
 	cpSync(vault, vaultDir, { recursive: true });
 	rmSync(join(vaultDir, '.obsidian/workspace.json'), { force: true });

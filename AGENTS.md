@@ -177,6 +177,10 @@ For larger pushes (a milestone, a QA round) the maintainer may run several agent
   machine's memory and crashed every Obsidian on it). A developer or designer runs the new tests it wrote and the one
   or two spec files that directly cover the code it changed (`--grep` to the tests that matter), then turns the work
   in. No "every spec that might be affected", no whole-suite runs.
+- **Several agents at once run Obsidian through the limiter** (the maintainer's cap, 2026-10-11, after six Obsidians at
+  once made the machine lag): `bash <the project>/scripts/e2e-slot.sh --specs … --grep …` in place of `npm run e2e`.
+  It is `npm run e2e` behind four machine-wide slots (`BINDERS_E2E_SLOTS`), and may wait for one before it starts. Run
+  it in the foreground with a long time limit; don't start runs in the background and hand back while they go.
 - **The suite runs on GitHub, for every commit on `main`** (the maintainer's decision, 2026-10-10: the local run took
   two hours and crashed the machine). A push starts `.github/workflows/e2e.yml`: the whole suite in both themes over
   20 runners, one verdict in the run's summary. `npm run suite -- --wait` asks for it and prints the verdict (the
