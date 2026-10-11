@@ -379,7 +379,8 @@ test('BUG: Vim mode: a normal-mode key pressed after scrolling far is typed into
 	try {
 		await novel(p);
 		await clickIn(p, N(2));
-		await keys(p, 'ihello '); await p.key('Escape'); await p.sleep(300);
+		// (Vim's keys are taken up a moment after the editor is there, later on a loaded machine: tried until it takes)
+		for (let i = 0; i < 6 && !(await value(p, N(2))).includes('hello '); i++) { await p.sleep(400); await keys(p, 'ihello '); await p.key('Escape'); await p.sleep(300); }
 		t.ok((await value(p, N(2))).includes('hello '), 'Vim is on: “i”, text, Escape');
 		const before = await value(p, N(2));
 		await wheel(p, 240, 24); await p.sleep(300);

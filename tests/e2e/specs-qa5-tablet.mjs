@@ -730,16 +730,16 @@ for (const [dev, size] of [['phone (390 × 844)', PHONE], ['small phone (320 × 
 			// every one taken back, in turn, from the command palette (the only way on a phone), then made again
 			await clearNotices(p);
 			for (let i = history.length - 2; i >= 0; i--) {
-				S.ok(await palette(p, 'Undo last move'), `“Undo last move” is in the palette (${history.length - 1 - i})`);
+				S.ok(await palette(p, 'Undo last change'), `“Undo last change” is in the palette (${history.length - 1 - i})`);
 				await p.sleep(700);
 				if (i === history.length - 2) { S.ok(/^Undid: /.test(await notices(p)), 'it says what it undid: ' + await notices(p)); await shot(p, `${tag}-1c-03-undid`); }
 				S.eq(j(await list(p, NNOTE)), history[i], `undo ${history.length - 1 - i} puts the order back as it was`);
 			}
 			S.ok(await exists(p, 'Novel/Nineteen.md') && !(await exists(p, 'Novel/Chapter 3/Nineteen.md')), 'the note dragged into Chapter 3 is back out of it');
-			S.ok(!(await palette(p, 'Undo last move')), 'with nothing left to undo, the command isn’t offered');
+			S.ok(!(await palette(p, 'Undo last change')), 'with nothing left to undo, the command isn’t offered');
 			await agree(p, S, NNOTE, NAMES, 'everything undone');
 			for (let i = 1; i < history.length; i++) {
-				S.ok(await palette(p, 'Redo last move'), `“Redo last move” is in the palette (${i})`);
+				S.ok(await palette(p, 'Redo last change'), `“Redo last change” is in the palette (${i})`);
 				await p.sleep(700);
 				S.eq(j(await list(p, NNOTE)), history[i], `redo ${i} makes the move again`);
 			}
@@ -2122,14 +2122,13 @@ test('phone 7. seams: a chapter renamed in the file explorer while a scene in it
 		await dragCard(p, 'Novel/Act One/Five.md', 'Novel/Act One/Six.md');
 		const moved = await list(p, NNOTE);
 		S.eq(j(moved.slice(5, 7)), j(['Act One/Six', 'Act One/Five']), 'Five dragged after Six');
-		await cardMenu(p, 'Novel/Act One/Five.md');
-		await pick(p, 'Delete');
-		await until(p, `!!document.querySelector('.modal .modal-button-container')`, 3000);
-		await dialogTap(p, 'Delete');
+		// (deleted behind the binder's back: a delete made in the view is itself a change that Undo takes back first,
+		// so this is the way to have a move whose note is gone)
+		await p.ev(`app.vault.delete(app.vault.getAbstractFileByPath('Novel/Act One/Five.md')).then(() => 1)`);
 		await until(p, `!app.vault.getAbstractFileByPath('Novel/Act One/Five.md')`, 3000);
 		await p.sleep(500);
 		await clearNotices(p);
-		const offered = await palette(p, 'Undo last move');
+		const offered = await palette(p, 'Undo last change');
 		await p.sleep(700);
 		log('undo after the moved note was deleted: offered', offered, '· says:', j(await notices(p)), '· order now:', j((await list(p, NNOTE)).slice(0, 7)));
 		S.eq(j((await list(p, NNOTE)).filter((x) => x.startsWith('Act One/') && x !== 'Act One/')), j(['One', 'Two', 'Three', 'Four', 'Six'].map((n) => 'Act One/' + n)), 'undoing a move whose note is gone leaves the others as they are');
@@ -2141,7 +2140,7 @@ test('phone 7. seams: a chapter renamed in the file explorer while a scene in it
 		log('a chapter’s stack menu:', j(own2(await menuItems(p))));
 		await pick(p, 'Duplicate');
 		await p.sleep(1500);
-		const dup = await p.ev(`app.vault.getAllLoadedFiles().filter(f => f.children && f.parent?.path === 'Novel' && !['Act One', 'Chapter 2', 'Chapter 3'].includes(f.name)).map(f => f.path)`);
+		const dup = await p.ev(`app.vault.getAllLoadedFiles().filter(f => f.children && f.parent?.path === 'Novel' && !['Act One', 'Chapter 2', 'Chapter 3', 'Snapshots'].includes(f.name)).map(f => f.path)`);
 		log('a duplicated “Chapter 2” is called', j(dup));
 		S.eq(dup.length, 1, 'Duplicate on a chapter’s stack makes a copy of the chapter: ' + j(dup));
 		if (dup.length) {
@@ -2161,7 +2160,7 @@ test('phone 7. seams: a chapter renamed in the file explorer while a scene in it
 		log('after Ungroup:', j(l3.slice(-10)), 'folder note:', await exists(p, 'Novel/Chapter 3/Chapter 3.md'));
 		S.eq(j(l3.filter((x) => NAMES.slice(12, 18).includes(x))), j(NAMES.slice(12, 18)), 'Ungroup takes the six notes out, in order');
 		S.ok(/Notes on chapter three, written by hand\./.test(await read(p, 'Novel/Chapter 3/Chapter 3.md').catch(() => '')), 'and the folder’s own note keeps its text');
-		S.ok(await palette(p, 'Undo last move'), 'Ungroup can be undone');
+		S.ok(await palette(p, 'Undo last change'), 'Ungroup can be undone');
 		await p.sleep(900);
 		S.eq(j((await list(p, NNOTE)).filter((x) => x.startsWith('Chapter 3/') && x !== 'Chapter 3/')), j(NAMES.slice(12, 18).map((n) => 'Chapter 3/' + n)), 'which puts them back in it, in order');
 		// the chapter deleted from its stack: asked, with the number of notes; all of it in the trash
@@ -2440,7 +2439,7 @@ ux('“Undo last move” isn’t offered when there’s nothing it can take back
 		await p.ev(`app.vault.delete(app.vault.getAbstractFileByPath(${j(L + 'Part One/Arrival.md')})).then(() => 1)`);
 		await p.sleep(600);
 		await clearNotices(p);
-		offered = await palette(p, 'Undo last move');
+		offered = await palette(p, 'Undo last change');
 		await p.sleep(600);
 		said = await notices(p);
 	});

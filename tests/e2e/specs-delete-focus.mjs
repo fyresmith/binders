@@ -3,7 +3,7 @@
 // today so that the maintainer can say whether the differences are wanted. They pass on what is; none is a bug report.
 //   - delete two notes that are not next to each other: the one after the last of them is selected and has the keyboard
 //   - delete every note: the corkboard gives the keyboard to the toolbar's New button, the outliner keeps it on itself,
-//     and the corkboard arranged by label leaves it on the page's body (the same code, minus its `focusNew`)
+//     and the corkboard arranged by label gives it to the New button too (it was dropped on the page's body once)
 import { VIEW, answer, exists, flush, j, openView, until, withTidy } from './view-helpers.mjs';
 import { make } from './specs-qa6-scale.mjs';
 
@@ -21,10 +21,10 @@ const VIEWS = {
 	outliner: { item: (path) => `${LEAF} .binders-outliner-row[data-path="${path}"] .binders-outliner-name`, selected: `${LEAF} .binders-outliner-row.is-selected`, all: `${LEAF} .binders-outliner-row[data-path]` },
 };
 
-/** Where it ends up today (the lanes give it to nothing: the page's body has it, so a key goes nowhere until the writer clicks). */
+/** Where it ends up today. */
 const THEN = {
 	corkboard: { re: /binders-new-button/, what: 'on the toolbar’s New button' },
-	'by label': { re: /obsidian-app/, what: 'on the page’s body, which is nowhere' },
+	'by label': { re: /binders-new-button/, what: 'on the toolbar’s New button' },
 	outliner: { re: /binders-outliner/, what: 'on the outliner itself' },
 };
 
