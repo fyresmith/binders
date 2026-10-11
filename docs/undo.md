@@ -155,6 +155,7 @@ they follow.
   It is not kept when Obsidian closes.
 - Undo refuses, and changes nothing, if a place has been taken or a folder is gone since, or a property was changed
   since.
+- A change whose note has gone (deleted outside the binder, say) can't be taken back: it is passed over and dropped, and the change before it is undone instead. With nothing but such changes left, Undo isn't offered.
 - Undoing a kept sort of thousands of notes is slow.
 - For screen readers, "Undo last change" isn't announced.
 

@@ -1178,6 +1178,25 @@ test('undo: a drag in the file explorer is taken back by “Undo last move” (w
 	t.eq(j(await contents(p)), j(LIST.filter((x) => x !== 'Part Two/The wreck')), 'the rest in order, no entry for the note that’s gone');
 });
 
+test('“Undo last change” when the newest change’s note is gone: it is passed over and dropped from the history, the one before is undone with “Undid: …” (nothing names the skipped one); with only that change left the command is not offered', async (p, h, t) => {
+	await h.open(L + 'Prologue.md');
+	await clearUndo(p);
+	await put(p, [L + 'Prologue.md'], 'The Lighthouse', L + 'Epilogue.md'); await settle(p);
+	await put(p, [P2 + 'Lights out.md'], L + 'Part One', P1 + 'Arrival.md'); await settle(p);
+	t.eq(await p.ev(`${B}.undos.length`), 2, 'two changes in the history');
+	await p.ev(`app.vault.delete(${file(P1 + 'Lights out.md')}).then(() => 1)`); await settle(p);
+	await clearNotices(p);
+	t.eq(await undoable(p), 'Move “Prologue”', 'Undo would take back the older move: the newer one’s note is gone');
+	await run(p, 'undo-move'); await settle(p);
+	t.eq(j(await contents(p)), j(LIST.filter((x) => x !== 'Part Two/Lights out')), 'the older move is undone (Prologue back first)');
+	t.eq(await notices(p), 'Undid: move “Prologue”', 'the notice says what was undone, and nothing of the skipped change');
+	t.eq(await p.ev(`${B}.undos.length`), 0, 'the dead entry is gone from the history, and so is the one undone');
+	// only a dead entry left: the command is not offered
+	await put(p, [P2 + 'The wreck.md'], L + 'Part One', P1 + 'Arrival.md'); await settle(p);
+	await p.ev(`app.vault.delete(${file(P1 + 'The wreck.md')}).then(() => 1)`); await settle(p);
+	t.eq(await p.ev(`!!app.commands.findCommand('binders:undo-move').checkCallback(true)`), false, 'with only a dead entry the command is not offered');
+});
+
 test('BUG: undoing a move doesn’t lose the place of a note renamed or made since', async (p, h, t) => {
 	await put(p, [L + 'Epilogue.md'], 'The Lighthouse', L + 'Prologue.md'); await settle(p);
 	await p.ev(`app.fileManager.renameFile(${file(P1 + 'Arrival.md')}, ${j(P1 + 'Landing.md')}).then(() => 1)`); await settle(p);

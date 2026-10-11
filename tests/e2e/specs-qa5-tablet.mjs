@@ -2431,7 +2431,7 @@ ux('phone: the card selected on the corkboard is still where the view is after a
 	t.ok(/Sixteen/.test(top), `the manuscript shows “Sixteen” (it shows: ${top})`);
 });
 
-ux('“Undo last move” isn’t offered when there’s nothing it can take back (after the note that was moved is deleted the command is still there, does nothing and says nothing)', async (p, h, t) => {
+ux('“Undo last move” isn’t offered when there’s nothing it can take back (after the only note that was moved is deleted, its entry is dead and the command is not in the palette; with an older change before it, the dead one is passed over and that is undone)', async (p, h, t) => {
 	let offered = null, said = '';
 	await onDevice(p, PHONE, async () => {
 		await open(p, L + 'Part One');
@@ -2443,7 +2443,8 @@ ux('“Undo last move” isn’t offered when there’s nothing it can take back
 		await p.sleep(600);
 		said = await notices(p);
 	});
-	t.ok(!offered || !!said, `offered: ${offered}; it says: “${said}”`);
+	t.ok(!offered, `not offered: ${offered}`);
+	t.eq(said, '', 'and nothing is said');
 });
 
 // =====================================================================================================================
