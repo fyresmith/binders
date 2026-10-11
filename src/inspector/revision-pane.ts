@@ -184,7 +184,8 @@ export function installRevision(plugin: BindersPlugin, follow: Follow): void {
 	rev.walk.start();
 	plugin.registerView(REVISION_VIEW, (leaf) => new RevisionView(leaf, plugin, follow, rev));
 	plugin.addCommand({ id: 'show-revision', name: 'Show revision tasks', icon: REVISION_ICON, callback: () => void showSide(plugin, REVISION_VIEW) });
-	const here = (): boolean => !!rev.walk.where().binder;
+	// (only in a binder's view or note: where().binder also remembers the last binder, which is not what is in hand)
+	const here = (): boolean => !!plugin.inspect.target.binder;
 	plugin.addCommand({ id: 'next-revision-task', name: 'Go to next revision task', icon: 'arrow-down', checkCallback: (checking) => { if (!here()) return false; if (!checking) void rev.walk.step(1); return true; } });
 	plugin.addCommand({ id: 'previous-revision-task', name: 'Go to previous revision task', icon: 'arrow-up', checkCallback: (checking) => { if (!here()) return false; if (!checking) void rev.walk.step(-1); return true; } });
 	plugin.addCommand({ id: 'finish-revision-task', name: 'Mark revision task done', icon: 'check', checkCallback: (checking) => { if (!here()) return false; if (!checking) void rev.walk.finish(); return true; } });

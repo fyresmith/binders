@@ -58,6 +58,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - On a phone, a pinned list in the inspector goes under its name so it has the drawer's full width.
 - The properties the Progress window and revision tasks keep (deadline, writing-days, revision) are no longer offered as rows to pin in the inspector.
 - The command 'Start a paragraph with a tab' now leaves math blocks and comments as they are.
+- Go to next revision task, Go to previous revision task and Mark revision task done are no longer offered when no binder is open.
 
 ## 0.51.1 (2026-10-10)
 
