@@ -43,7 +43,7 @@ const SETTINGS = { synopsisProp: 'synopsis', statusProp: 'status', labelProp: 'l
 // what can't be pinned
 {
 	const own = ownNames(SETTINGS);
-	for (const n of ['status', 'Label', 'SYNOPSIS', 'target', 'story-date', 'story-order', 'notes', 'export', 'compile', 'export-as', 'binder', 'contents', 'longform', 'inspector', 'title', 'author', 'structure', 'language', 'cover', 'copyright', 'title-page', 'contents-page', 'page-size', 'manuscript-style', 'book-style']) ok(own.has(n.toLowerCase()), `${n} is Binders' own`);
+	for (const n of ['status', 'Label', 'SYNOPSIS', 'target', 'story-date', 'story-order', 'notes', 'export', 'compile', 'export-as', 'binder', 'contents', 'longform', 'inspector', 'title', 'author', 'structure', 'language', 'cover', 'copyright', 'title-page', 'contents-page', 'page-size', 'manuscript-style', 'book-style', 'deadline', 'Writing-days', 'revision', 'filters']) ok(own.has(n.toLowerCase()), `${n} is Binders' own`);
 	for (const n of ['pov', 'characters', 'location', 'subplot', 'tags', 'aliases']) ok(!own.has(n), `${n} is the writer's`);
 	eq(pinProblem('status', [], SETTINGS) !== null, true, 'a name of Binders’ own is refused');
 	ok(/Status/.test(pinProblem(' Status ', [], SETTINGS) ?? ''), 'and the refusal names it');

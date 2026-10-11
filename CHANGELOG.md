@@ -56,6 +56,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - A filter that left a board with the same cards, as in an empty folder, now shows that nothing matches.
 - The Include in export box in the inspector is now drawn as mixed when the selected notes differ.
 - On a phone, a pinned list in the inspector goes under its name so it has the drawer's full width.
+- The properties the Progress window and revision tasks keep (deadline, writing-days, revision) are no longer offered as rows to pin in the inspector.
 
 ## 0.51.1 (2026-10-10)
 
