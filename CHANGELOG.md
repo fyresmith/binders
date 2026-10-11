@@ -52,6 +52,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - A note with Windows (CR LF) line endings keeps them when Binders writes a property to it.
 - A filter that left a board with the same cards, as in an empty folder, now shows that nothing matches.
 - The Include in export box in the inspector is now drawn as mixed when the selected notes differ.
+- On a phone, a pinned list in the inspector goes under its name so it has the drawer's full width.
 
 ## 0.51.1 (2026-10-10)
 

@@ -7354,3 +7354,20 @@ input.binders-filter-name {
 .binders-pinned-value.is-mixed:focus-within .binders-pinned-mixed {
 	display: none;
 }
+
+/* On a phone the drawer leaves about 100px beside a name: a list goes under its name, as wide as the drawer */
+.is-phone .binders-pinned:is([data-property-type="multitext"], [data-property-type="tags"], [data-property-type="aliases"]) {
+	flex-direction: column;
+	align-items: stretch;
+}
+
+.is-phone .binders-pinned:is([data-property-type="multitext"], [data-property-type="tags"], [data-property-type="aliases"]) .metadata-property-key {
+	width: 100%;
+	max-width: none;
+}
+
+.is-phone .binders-pinned:is([data-property-type="multitext"], [data-property-type="tags"], [data-property-type="aliases"]) .metadata-property-value {
+	width: 100%;
+	max-width: none;
+	padding-inline-start: var(--size-4-6);
+}
