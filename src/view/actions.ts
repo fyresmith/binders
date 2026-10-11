@@ -1,7 +1,8 @@
 import { openSplitMany } from './split-many';
 import { exportAsItems } from './export-as';
 import { Menu, Notice, Platform, TFile, TFolder, type TAbstractFile } from 'obsidian';
-import { readStory, setStoryDate, writeKeys } from './props';
+import { datedNotes, readStory, setStoryDate, writeKeys } from './props';
+import { shiftDialog } from './shift-dates';
 import { parseStoryDate, whyNotStoryDate, type StoryDate } from '../time/date';
 import { COMPILE_PROP, EXPORT_PROP, isExported, isNote, mergeScenes, saveOpen, synopsisFromText } from '../scenes';
 import { ExportModal } from './export';
@@ -222,6 +223,9 @@ export function propItems(ctx: ModeContext, menu: Menu, items: TAbstractFile[]):
 	menu.addItem((i) => i.setSection('props').setTitle('Set target...').setIcon('target').onClick(() => void askTarget(ctx, items)));
 	menu.addItem((i) => i.setSection('props').setTitle('Set story date...').setIcon('calendar').onClick(() => void askStoryDate(ctx, items)));
 	if (items.some((f) => readStory(ctx.plugin, noteOf(ctx, f)).raw !== undefined)) menu.addItem((i) => i.setSection('props').setTitle('Remove story date').setIcon('calendar-x').onClick(() => void setStory(ctx, items, null)));
+	// (Shift story dates: with more than one dated note, move them together)
+	const dated = datedNotes(ctx.plugin, items.map((f) => noteOf(ctx, f)));
+	if (dated.length > 1) menu.addItem((i) => i.setSection('props').setTitle('Shift story dates...').setIcon('calendar-range').onClick(() => void shiftDialog(ctx, dated)));
 }
 
 const tell = async <T>(p: Promise<T>): Promise<T | null> => { try { return await p; } catch (e) { new Notice(e instanceof Error ? e.message : String(e)); return null; } };

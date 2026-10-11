@@ -22,6 +22,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - Importing a long Markdown note: footnotes and links written out at its foot now go to the notes that mark them, instead of staying together in the last note.
 - Split at headings...: cut a note of a binder into several where its headings, scene breaks or a line of your own are, after showing the notes it will make. It is one change in the history, and Undo takes it back.
 - On the timeline you can drag a card to give it another story date: onto a date, into a gap between two dates, before the first or after the last (a dialog asks), onto the tray to take the date away, or among a day’s cards to put them in another order. Alt and the arrow keys do the same from the keyboard. On a phone, press and hold to lift a card.
+- Shift story dates... in the menu of every board when more than one dated note is selected: later or earlier, by days, months or years, keeping the space between them, as one undo step.
 
 ### Changed
 
