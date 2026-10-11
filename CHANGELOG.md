@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.55.0 (2026-10-11)
+
+### Added
+
+- Import a manuscript... reads a Word (.docx) file, from your device or already in your vault (Import as a binder... in its menu), and splits it into a binder at its chapters. Tracked changes come in accepted and are said, footnotes come in place, and an older .doc or a password-locked file is refused in plain words. Google Docs, Pages, Atticus, Vellum and the rest come in through their Word export.
+
 ## 0.54.0 (2026-10-11)
 
 ### Added

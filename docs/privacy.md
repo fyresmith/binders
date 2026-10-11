@@ -23,7 +23,7 @@ you.
 The typefaces and hyphenation patterns an export uses are inside the plugin: nothing is downloaded. A PDF is made
 by Obsidian itself, on your computer.
 
-Import a manuscript reads the one file you choose (or a note of this vault) and makes a new folder in this vault,
+Import a manuscript reads the one file you choose (or a note or Word file of this vault) and makes a new folder in this vault,
 with a copy of a file from outside the vault in it. It doesn't change the file or the note, and sends nothing anywhere.
 
 Import from Scrivener reads the project or the zip you choose, and nothing else outside the vault. It makes a new

@@ -2,6 +2,8 @@ import { ButtonComponent, FuzzySuggestModal, Modal, Notice, Setting, TFile } fro
 import type BindersPlugin from '../main';
 import type { Choices, Role, Signal } from '../import/detect';
 import { planManuscript, type ManuscriptRead } from '../import/manuscript';
+import { readWord } from '../import/docx';
+import { OLDER } from '../docx/package';
 import { MAX_BYTES, zipSource } from '../import/source';
 import { readProject } from '../import/scriv/project';
 import { decodeText, scanMarkdown, scanPlain } from '../import/text';
@@ -22,8 +24,9 @@ import { buttonRow, cancelButton } from './modals';
 
 /** The most a file may be, in bytes: it is held whole while it is read and planned. */
 const MAX_FILE = 64 * 1024 * 1024;
-/** Word and the like, not yet: said with what to do meanwhile. */
-const LATER = /\.(docx?|dotx|odt|rtf|pages|epub|pdf|mobi|azw3?|wpd)$/i;
+/** Other formats, not yet: said with what to do meanwhile. */
+const LATER = /\.(odt|rtf|pages|epub|pdf|mobi|azw3?|wpd)$/i;
+const WORD = /\.(docx|docm|dotx)$/i;
 
 const SIGNALS: Record<Signal, (count: number) => string> = {
 	headings: (c) => `Headings (${c})`,
@@ -34,7 +37,7 @@ const SIGNALS: Record<Signal, (count: number) => string> = {
 const ROLES: [Role, string][] = [['part', 'Part'], ['chapter', 'Chapter'], ['scene', 'Scene'], ['text', 'Keep in the text']];
 
 /** What this import is to the shared window: where chapters start, and the rest of the rules, drawn as rows. */
-function manuscriptJob(plugin: BindersPlugin, read: ManuscriptRead, source: 'note' | 'file', unchanged: () => Promise<boolean>): ImportJob {
+export function manuscriptJob(plugin: BindersPlugin, read: ManuscriptRead, source: 'note' | 'file', unchanged: () => Promise<boolean>): ImportJob {
 	const choices: Choices = { signal: null, roles: new Map(), breaks: 'new' };
 	let scenes: 'words' | 'numbers' = 'words', last = planManuscript(read, { name: read.name, parent: '', settings: plugin.settings, choices, scenes });
 	return {
@@ -74,7 +77,7 @@ function manuscriptJob(plugin: BindersPlugin, read: ManuscriptRead, source: 'not
 		needs: () => `The ${source} itself isn’t changed.`,
 		unchanged,
 		checking: `Checking the ${source}…`,
-		changed: 'The note has changed since it was read. Choose it again.',
+		changed: `The ${source} has changed since it was read. Choose it again.`,
 		another: { label: 'Choose another file', row: 'Text', open: () => new ImportManuscriptModal(plugin).open() },
 		caption: 'The text comes across as it was written. A heading that a chapter or part is named from is its name, and not in the text.',
 		empty: 'This text has nothing to bring in.',
@@ -85,9 +88,9 @@ function manuscriptJob(plugin: BindersPlugin, read: ManuscriptRead, source: 'not
 class NotePicker extends FuzzySuggestModal<TFile> {
 	constructor(private plugin: BindersPlugin, private choose: (f: TFile) => void) {
 		super(plugin.app);
-		this.setPlaceholder('Choose a note');
+		this.setPlaceholder('Choose a note or a .docx file');
 	}
-	getItems(): TFile[] { return this.app.vault.getMarkdownFiles().filter((f) => !this.plugin.binders.binderOf(f)); }
+	getItems(): TFile[] { return [...this.app.vault.getMarkdownFiles().filter((f) => !this.plugin.binders.binderOf(f)), ...this.app.vault.getFiles().filter((f) => f.extension === 'docx')]; }
 	getItemText(f: TFile): string { return f.path.replace(/\.md$/i, ''); }
 	onChooseItem(f: TFile): void { this.choose(f); }
 }
@@ -108,6 +111,18 @@ export async function importNote(plugin: BindersPlugin, file: TFile): Promise<vo
 	new ImportWindow(plugin, manuscriptJob(plugin, read, 'note', unchanged)).open();
 }
 
+/** A Word file of this vault read for import, and its second dialog opened on it. The file is only read. */
+export async function importDocx(plugin: BindersPlugin, file: TFile): Promise<void> {
+	const { app } = plugin;
+	const stat = { mtime: file.stat.mtime, size: file.stat.size };
+	if (file.stat.size > MAX_FILE) throw new Error('This file is larger than import can hold (64 MB).');
+	const bytes = new Uint8Array(await app.vault.readBinary(file));
+	await new Promise((r) => window.setTimeout(r, 0));
+	const read = readWord(bytes, file.name, { path: file.path }, { tabs: plugin.settings.tabParagraphs });
+	const unchanged = () => Promise.resolve(app.vault.getAbstractFileByPath(file.path) === file && file.stat.mtime === stat.mtime && file.stat.size === stat.size);
+	new ImportWindow(plugin, manuscriptJob(plugin, read, 'file', unchanged)).open();
+}
+
 /** The first dialog: which text. */
 export class ImportManuscriptModal extends Modal {
 	private said!: HTMLElement;
@@ -119,13 +134,13 @@ export class ImportManuscriptModal extends Modal {
 	onOpen(): void {
 		this.setTitle('Import a manuscript');
 		this.modalEl.addClass('binders-import');
-		this.contentEl.createEl('p', { text: 'Makes a new binder in this vault from a Markdown note or a text file, split where its chapters start. The file itself isn’t changed.' });
+		this.contentEl.createEl('p', { text: 'Makes a new binder in this vault from a .docx file, a Markdown note or a text file, split where its chapters start. The file itself isn’t changed.' });
 		this.contentEl.createEl('p', { cls: 'binders-import-how', text: 'A Scrivener backup, zipped, is imported as a Scrivener project.' });
 		this.said = this.contentEl.createDiv({ cls: 'binders-ask-error binders-import-said', attr: { role: 'status', 'aria-live': 'polite' } });
 		const row = buttonRow(this);
 		const file = new ButtonComponent(row).setButtonText('Choose a file...').setCta().onClick(() => this.file());
 		this.buttons.push(file);
-		if (this.app.vault.getMarkdownFiles().some((f) => !this.plugin.binders.binderOf(f))) this.buttons.push(new ButtonComponent(row).setButtonText('Choose from this vault...').onClick(() => this.vault()));
+		if (this.app.vault.getFiles().some((f) => (f.extension === 'md' && !this.plugin.binders.binderOf(f)) || f.extension === 'docx')) this.buttons.push(new ButtonComponent(row).setButtonText('Choose from this vault...').onClick(() => this.vault()));
 		cancelButton(row, this);
 	}
 
@@ -142,7 +157,7 @@ export class ImportManuscriptModal extends Modal {
 	/** A file from the device, through the browser's own chooser. */
 	private file(): void {
 		if (this.busy) return;
-		const input = this.contentEl.createEl('input', { type: 'file', attr: { accept: '.md,.markdown,.txt,.text,.zip,text/plain,text/markdown,application/zip', hidden: '' } });
+		const input = this.contentEl.createEl('input', { type: 'file', attr: { accept: '.md,.markdown,.txt,.text,.docx,.zip,text/plain,text/markdown,application/zip,application/vnd.openxmlformats-officedocument.wordprocessingml.document', hidden: '' } });
 		input.addEventListener('change', () => {
 			const file = input.files?.[0];
 			input.remove();
@@ -157,12 +172,12 @@ export class ImportManuscriptModal extends Modal {
 	}
 
 	private async note(file: TFile): Promise<void> {
-		this.say('Reading the note…');
+		this.say('Reading the file…');
 		try {
 			await new Promise((r) => window.setTimeout(r, 0));
 			if (!this.contentEl.isConnected) return;
+			if (file.extension === 'docx') await importDocx(this.plugin, file); else await importNote(this.plugin, file);
 			this.close();
-			await importNote(this.plugin, file);
 		} catch (e) { if (this.contentEl.isConnected) this.say(null, message(e)); else new Notice(message(e), 10000); }
 	}
 
@@ -172,11 +187,17 @@ export class ImportManuscriptModal extends Modal {
 		this.say('Reading the file…');
 		try {
 			await new Promise((r) => window.setTimeout(r, 0));
-			if (LATER.test(file.name)) throw new Error('This kind of file can’t be imported yet. In the program that made it, save it as plain text (.txt), and choose that.');
+			if (LATER.test(file.name)) throw new Error('This kind of file can’t be imported yet. In the program that made it, save it as a Word file (.docx), and choose that.');
 			if (file.size > MAX_FILE) throw new Error('This file is larger than import can hold (64 MB).');
 			const bytes = new Uint8Array(await file.arrayBuffer());
 			if (!this.contentEl.isConnected) return;
-			// a zip is a Scrivener backup, the one kind of zip there is to read here
+			if (WORD.test(file.name)) {
+				const read = readWord(bytes, file.name, { bytes }, { tabs: this.plugin.settings.tabParagraphs });
+				this.close();
+				new ImportWindow(this.plugin, manuscriptJob(this.plugin, read, 'file', () => Promise.resolve(true))).open();
+				return;
+			}
+			// any other zip is a Scrivener backup, the one other kind there is to read here
 			if (bytes[0] === 0x50 && bytes[1] === 0x4b) {
 				if (file.size > MAX_BYTES) throw new Error('This backup is larger than the 256 MB import limit.');
 				const project = readProject(zipSource(bytes, file.name));
@@ -184,7 +205,7 @@ export class ImportManuscriptModal extends Modal {
 				new ImportWindow(this.plugin, scrivenerJob(this.plugin, project)).open();
 				return;
 			}
-			if (bytes[0] === 0xd0 && bytes[1] === 0xcf) throw new Error('This is an older Word file, or one locked with a password. Save it from Word as plain text (.txt), and choose that.');
+			if (bytes[0] === 0xd0 && bytes[1] === 0xcf) throw new Error(OLDER);
 			const { text, said } = decodeText(bytes);
 			if (!text.trim()) throw new Error('This file has no text.');
 			const markdown = /\.(md|markdown)$/i.test(file.name);

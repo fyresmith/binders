@@ -142,7 +142,7 @@ export function planManuscript(read: ManuscriptRead, o: ManuscriptOptions): { pl
 		const wanted = heading === null ? fallback : nameOf(heading) || fallback;
 		const path = fresh(parent, wanted), made = path.split('/').pop() ?? '';
 		// (the name is the heading's words: when it isn't, a note shows the heading as its first line and a folder says so)
-		const differs = heading !== null && tokensOf(made) !== tokensOf(heading);
+		const differs = heading !== null && heading.trim() !== '' && tokensOf(made) !== tokensOf(heading);
 		if (differs && isFolder) warn(heading, `Its heading can’t be a folder’s name as it is, so the folder is called “${made}”.`);
 		return { path, made, differs: differs && !isFolder };
 	};

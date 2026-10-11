@@ -127,7 +127,7 @@ const isCaps = (t: string): boolean => /\p{L}/u.test(t) && t === t.toUpperCase()
     more lines that read as chapters with fewer than 30 words between them (a contents page typed by hand). */
 function contents(units: readonly Unit[]): Set<number> {
 	const out = new Set<number>(units.flatMap((u, i) => (u.toc ? [i] : [])));
-	const lines = units.flatMap((u, i) => (reads(u) && reads(u) !== 'bare' ? [i] : []));
+	const lines = units.flatMap((u, i) => (!u.toc && reads(u) && reads(u) !== 'bare' ? [i] : []));
 	let run: number[] = [];
 	const flush = () => { if (run.length >= 3) for (const i of run) out.add(i); run = []; };
 	for (const i of lines) {
@@ -176,9 +176,22 @@ export function detect(units: readonly Unit[], choose: Partial<Choices> = {}): {
 	}
 	for (const l of byLevel.keys()) if (!roles.has(l)) roles.set(l, 'text');
 	for (const [l, r] of choices.roles) if (byLevel.has(l)) roles.set(l, r);
+	// a part and its chapters at one level (as Binders' own export writes them): "Part One", or "Book 2", with nothing under
+	// it but the next heading, among chapters that aren't named so, is a part
+	const partAt = new Set<number>();
+	const same = heads.filter((h) => h !== book && roles.get(units[h].heading ?? 6) === 'chapter');
+	if (same.some((h) => !PARTLIKE.test(units[h].text.trim()))) {
+		same.forEach((h, k) => {
+			const next = same[k + 1];
+			let between = 0;
+			for (let j = h + 1; j < (next ?? h + 1); j++) between += units[j].words;
+			if (next !== undefined && next === heads[heads.indexOf(h) + 1] && between === 0 && new RegExp(`^(?:part|book|act)\\s+${NUMBER}\\b`, 'i').test(units[h].text.trim())) partAt.add(h);
+		});
+	}
 	const headCuts: Cut[] = heads.flatMap((i): Cut[] => {
-		const role = i === book ? 'text' : roles.get(units[i].heading ?? 6) ?? 'text';
-		return role === 'text' ? [] : [{ at: i, level: role, title: units[i].text.trim(), by: 'heading', drop: true }];
+		const role = i === book ? 'text' : partAt.has(i) && !choices.roles.has(units[i].heading ?? 6) ? 'part' : roles.get(units[i].heading ?? 6) ?? 'text';
+		// (a heading that starts a scene stays in the scene's text: a scene's name is its first words, and its heading is words of the book)
+		return role === 'text' ? [] : [{ at: i, level: role, title: units[i].text.trim(), by: 'heading', drop: role !== 'scene' }];
 	});
 
 	// ---- R2: lines that read as titles ----

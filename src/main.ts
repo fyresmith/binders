@@ -22,7 +22,7 @@ import { exportAgain } from './view/export-again';
 import { Styles } from './export/styles';
 import { importDesktop } from './import/desktop';
 import { ImportScrivenerModal } from './view/import-scrivener';
-import { ImportManuscriptModal, importNote } from './view/import-manuscript';
+import { ImportManuscriptModal, importDocx, importNote } from './view/import-manuscript';
 import { CONTENTS_VIEW, installContents } from './inspector/contents-pane';
 import { installInspector, showSide } from './inspector/views';
 import { placeSide } from './inspector/place';
@@ -337,6 +337,10 @@ export default class BindersPlugin extends Plugin {
 		// a note outside a binder, made into one: the note is the source and is left as it is
 		if (file instanceof TFile && file.extension === 'md' && !b.binderOf(file)) {
 			menu.addItem((i) => i.setSection(make).setTitle('Make a binder from this note...').setIcon('library').onClick(() => void this.tell(importNote(this, file))));
+		}
+		// a Word file of the vault, made into a binder: the file is the source and is left as it is
+		if (file instanceof TFile && file.extension === 'docx') {
+			menu.addItem((i) => i.setSection(make).setTitle('Import as a binder...').setIcon('library').onClick(() => void this.tell(importDocx(this, file))));
 		}
 		if (file instanceof TFolder && b.binderOf(file) && !b.problem(file)) {
 			menu.addItem((i) => i.setSection('action-primary').setTitle('New scene here').setIcon('file-plus').onClick(() => void this.newScene(file)));

@@ -17,6 +17,19 @@ const CLEAN = `# The Salt Road\n\nBy Mara.\n\n## The jetty\n\n${para('a')}\n\nSe
 const LINES = `Chapter 1\n\n${para('e')}\n\nChapter 2\n\n${para('f')}\n\nChapter 3\n\n${para('g')}\n`;
 const FLAT = `${para('h')}\n\n${para('i')}\n\n${para('k')}\n`;
 
+// a Word file written by hand (a zip of XML): three chapters under heading styles, a tracked change, a footnote
+const W = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
+const wr = (t) => `<w:r><w:t xml:space="preserve">${t}</w:t></w:r>`, wp = (t, style) => `<w:p>${style ? `<w:pPr><w:pStyle w:val="${style}"/></w:pPr>` : ''}${t.startsWith('<') ? t : wr(t)}</w:p>`;
+const DOCX_BODY = [wp('The Tide Book', 'Title'), wp('One', 'Heading1'), wp(words(60, 'wa')), wp(`${wr('Kept ')}<w:del w:id="1" w:author="Ann" w:date="2026-10-01T10:00:00Z"><w:r><w:delText>cut </w:delText></w:r></w:del><w:ins w:id="2" w:author="Ann" w:date="2026-10-01T10:00:00Z">${wr('added ')}</w:ins>${wr('end')}<w:r><w:footnoteReference w:id="1"/></w:r>`), wp('Two', 'Heading1'), wp(words(60, 'wb')), wp('Three', 'Heading1'), wp(words(60, 'wc'))].join('');
+const DOCX_WORDS = ['The Tide Book', 'One', words(60, 'wa'), 'Kept added end', 'A footnote of words.', 'Two', words(60, 'wb'), 'Three', words(60, 'wc')].join(' ');
+const docxBytes = () => zipSync({
+	'[Content_Types].xml': enc.encode('<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="xml" ContentType="application/xml"/></Types>'),
+	'_rels/.rels': enc.encode('<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="r1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>'),
+	'word/document.xml': enc.encode(`<w:document ${W}><w:body>${DOCX_BODY}</w:body></w:document>`),
+	'word/_rels/document.xml.rels': enc.encode('<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="s" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/><Relationship Id="f" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footnotes" Target="footnotes.xml"/></Relationships>'),
+	'word/styles.xml': enc.encode(`<w:styles ${W}><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style><w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:pPr><w:outlineLvl w:val="0"/></w:pPr></w:style><w:style w:type="paragraph" w:styleId="Title"><w:name w:val="Title"/></w:style></w:styles>`),
+	'word/footnotes.xml': enc.encode(`<w:footnotes ${W}><w:footnote w:type="separator" w:id="-1"><w:p><w:r><w:separator/></w:r></w:p></w:footnote><w:footnote w:id="1"><w:p><w:r><w:footnoteRef/></w:r>${wr(' A footnote of words.')}</w:p></w:footnote></w:footnotes>`),
+});
 const press = async (p, label) => {
 	const ok = await p.ev(`(() => { const b = [...document.querySelectorAll('${WIN} button')].filter(b => b.textContent === ${j(label)} && b.getBoundingClientRect().width).pop(); if (!b || b.disabled) return false; b.click(); return true; })()`);
 	if (!ok) throw new Error(`no enabled import button “${label}”`);
@@ -205,7 +218,7 @@ test('cancel writes nothing, and the source is as it was', async (p, h, t, befor
 	same(t, { ...before, 'Sources/Clean.md': CLEAN }, await texts(p));
 });
 
-test('the first dialog: a Scrivener backup goes on to the Scrivener import, and a Word file is said to be too early', async (p, h, t) => {
+test('the first dialog: a Scrivener backup goes on to the Scrivener import, and what can’t be read is said', async (p, h, t) => {
 	await make(p, 'Sources/Some.md', FLAT);
 	const scrivx = '<ScrivenerProject Version="2.0"><Binder><BinderItem UUID="11111111-1111-1111-1111-000000000001" Type="DraftFolder"><Title>Draft</Title><MetaData><IncludeInCompile>Yes</IncludeInCompile></MetaData><Children><BinderItem UUID="11111111-1111-1111-1111-000000000002" Type="Text"><Title>Only</Title><MetaData><IncludeInCompile>Yes</IncludeInCompile></MetaData></BinderItem></Children></BinderItem></Binder></ScrivenerProject>';
 	const zip = put('Tiny.zip', zipSync({ 'Tiny.scriv/Tiny.scrivx': enc.encode(scrivx), 'Tiny.scriv/Files/Data/11111111-1111-1111-1111-000000000002/content.rtf': enc.encode('{\\rtf1 Words.}') }));
@@ -213,13 +226,77 @@ test('the first dialog: a Scrivener backup goes on to the Scrivener import, and 
 	t.eq(await p.ev(`document.querySelector('${WIN} .modal-title')?.textContent`), 'Import “Tiny”', 'the Scrivener import’s dialog opens on it');
 	t.eq(await p.ev(`document.querySelectorAll('${WIN} [data-binders-key="research"]').length`), 0, 'with no manuscript choices in it');
 	await closeAll(p);
-	await fromFile(p, put('Book.docx', 'PK'), { fails: true });
-	t.ok((await said(p)).includes('can’t be imported yet'), 'a Word file is said to be too early, with what to do');
+	await fromFile(p, put('Book.odt', 'PK'), { fails: true });
+	t.ok((await said(p)).includes('can’t be imported yet'), 'a kind of file that isn’t read yet is said so, with what to do');
+	await closeAll(p);
+	await fromFile(p, put('Old.doc', Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1])), { fails: true });
+	t.ok((await said(p)).includes('older Word file (.doc), or one locked with a password'), 'an older Word file, or a locked one, is refused by its first bytes, in plain words');
+	await closeAll(p);
+	await fromFile(p, put('Broken.docx', Buffer.from('PK nonsense')), { fails: true });
+	t.ok((await said(p)).length > 10, 'a damaged Word file is refused, and the first dialog stays');
 	t.ok(await p.ev(`!!document.querySelector('${WIN} [data-binders-key]') === false`), 'and the first dialog stays');
 	await closeAll(p);
 	await fromFile(p, put('Empty.txt', '  \n'), { fails: true });
 	t.ok((await said(p)).includes('has no text'), 'a file with nothing in it is said to have none');
 	t.eq(await p.ev(`[...document.querySelectorAll('${WIN} button')].map(b => b.textContent + (b.classList.contains('mod-cta') ? '*' : '')).join('|')`), 'Choose a file...*|Choose from this vault...|Cancel', 'its buttons: the one it is for filled, Cancel last');
+});
+
+test('a Word file from the device: chapters by its heading styles, tracked changes accepted and said, the footnote in place, the file kept as it was', async (p, h, t, before) => {
+	const bytes = docxBytes(), a = put('Tide.docx', Buffer.from(bytes));
+	await fromFile(p, a);
+	t.eq((await tree(p)).join('|'), 'Front matter/|  Title page|One|Two|Three|Research/', 'the binder as it will be: the title in the front matter, a note for each chapter');
+	t.eq(await p.ev(`document.querySelector('${WIN} [data-binders-key="signal"]').value`), 'headings', 'found by its heading styles');
+	t.ok((await things(p)).some((x) => /1 tracked change|2 tracked changes/.test(x) && /accepted/.test(x)), 'tracked changes are said to be accepted');
+	await imported(p, 'Tide');
+	const one = await read(p, 'Tide/One.md');
+	t.ok(one.includes('Kept added end^[A footnote of words.]') && !one.includes('cut'), 'the accepted text, the footnote in place');
+	t.eq(await read(p, 'Tide/Two.md'), `${words(60, 'wb')}\n`, 'a chapter’s note is its text');
+	t.eq(Buffer.from(await p.ev(`app.vault.adapter.readBinary('Tide/Research/Originals/Tide.docx').then(b => [...new Uint8Array(b)])`)).compare(Buffer.from(bytes)), 0, 'the Word file is kept, byte for byte, in Research/Originals');
+	t.ok(/structure: "every note a chapter"/.test(await read(p, 'Tide/Tide.md')), 'every note a chapter');
+	t.eq((await binderWords(p, 'Tide')).join(' '), tokens(DOCX_WORDS).join(' '), 'every word is there, in order, footnote words after');
+	t.eq(readFileSync(a).compare(Buffer.from(bytes)), 0, 'the file on the disk is as it was');
+});
+
+test('a Word file already in the vault: "Import as a binder..." in its menu, the file left as it is and linked', async (p, h, t) => {
+	const bytes = docxBytes();
+	await p.ev(`(async () => { app.vault.setConfig('showUnsupportedFiles', true); await app.vault.createFolder('Sources'); await app.vault.createBinary('Sources/Draft.docx', new Uint8Array(${j([...bytes])}).buffer); })().then(() => 1)`);
+	await p.sleep(400);
+	await menuOn(p, 'Sources/Draft.docx');
+	t.ok((await menuItems(p)).includes('Import as a binder...'), 'a .docx has the item in its menu');
+	await clickMenu(p, 'Import as a binder...');
+	await until(p, `!!document.querySelector('${WIN} [data-binders-key="name"]')`, 15000);
+	t.eq(await p.ev(`document.querySelector('${WIN} [data-binders-key="name"]').value`), 'Draft', 'named for the file');
+	t.eq((await tree(p)).join('|'), 'Front matter/|  Title page|One|Two|Three', 'the same binder, with no original copied');
+	await imported(p, 'Draft');
+	t.ok((await read(p, 'Draft/Draft.md')).includes('Made from [[Sources/Draft.docx|Draft]]. That note is unchanged.'.replace('note', 'note')), 'the binder note links the file');
+	t.ok(!(await exists(p, 'Draft/Research')), 'the file in the vault is not copied');
+	t.eq(Buffer.from(await p.ev(`app.vault.adapter.readBinary('Sources/Draft.docx').then(b => [...new Uint8Array(b)])`)).compare(Buffer.from(bytes)), 0, 'and the file is byte for byte as it was');
+	await p.ev(`(() => { app.vault.setConfig('showUnsupportedFiles', false); return 1; })()`);
+});
+
+test('"Choose from this vault...": a note and a Word file are listed, and the one picked is the one imported', async (p, h, t) => {
+	await make(p, 'Sources/Pick.md', CLEAN);
+	await p.ev(`app.vault.createBinary('Sources/Pick.docx', new Uint8Array(${j([...docxBytes()])}).buffer).then(() => 1)`);
+	await p.ev(`(() => { app.commands.executeCommandById('binders:import-manuscript'); return 1; })()`);
+	await until(p, `!!document.querySelector('${WIN}')`);
+	await press(p, 'Choose from this vault...');
+	await until(p, `!!document.querySelector('.prompt .suggestion-item')`, 5000);
+	t.eq(await p.ev(`[...document.querySelectorAll('.prompt .suggestion-item')].map(e => e.textContent).filter(x => x.startsWith('Sources/')).sort().join('|')`), 'Sources/Pick|Sources/Pick.docx', 'the vault’s notes outside a binder and its Word files are listed');
+	await p.ev(`(() => { [...document.querySelectorAll('.prompt .suggestion-item')].find(e => e.textContent === 'Sources/Pick.docx').click(); return 1; })()`);
+	await until(p, `!!document.querySelector('${WIN} [data-binders-key="name"]')`, 15000);
+	t.eq(await p.ev(`document.querySelector('${WIN} [data-binders-key="name"]').value`), 'Pick', 'the Word file picked is the one read');
+	t.eq((await tree(p)).join('|'), 'Front matter/|  Title page|One|Two|Three', 'its chapters');
+	await closeAll(p);
+	await p.ev(`(() => { app.commands.executeCommandById('binders:import-manuscript'); return 1; })()`);
+	await until(p, `!!document.querySelector('${WIN}')`);
+	await press(p, 'Choose from this vault...');
+	await until(p, `!!document.querySelector('.prompt .suggestion-item')`, 5000);
+	await p.ev(`(() => { [...document.querySelectorAll('.prompt .suggestion-item')].find(e => e.textContent === 'Sources/Pick').click(); return 1; })()`);
+	await until(p, `!!document.querySelector('${WIN} [data-binders-key="name"]')`, 15000);
+	t.eq(await p.ev(`document.querySelector('${WIN} [data-binders-key="signal"]').value`), 'headings', 'and the note picked is the note read');
+	await imported(p, 'The Salt Road');
+	t.eq(await read(p, 'Sources/Pick.md'), CLEAN, 'the note is as it was');
+	t.eq((await binderWords(p, 'The Salt Road')).join(' '), tokens(CLEAN).join(' '), 'every word is there');
 });
 
 test('a phone: the choices first with Import in reach, then the binder’s list, then a note, and back', async (p, h, t) => {

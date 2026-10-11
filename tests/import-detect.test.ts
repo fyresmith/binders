@@ -47,6 +47,13 @@ const book = (level: number, names: string[]): Unit[] => names.flatMap((n) => [h
 	eq(levels(p.cuts), 'chapter,chapter', 'R1: a part level made text leaves its chapters');
 }
 
+{
+	// a part and its chapters at one level, as Binders' own export writes them: Part One, with nothing under it but the next heading
+	const r = detect([head(1, 'Part One'), head(1, 'Arrival'), prose(250), head(1, 'Leaving'), prose(250), head(1, 'Part Two'), head(1, 'Home'), prose(250)]);
+	eq(levels(r.cuts), 'part,chapter,chapter,part,chapter', 'R1: a Part heading with only the next heading under it, beside chapters at its level, is a part');
+	eq(levels(detect([head(1, 'Part One'), prose(250), head(1, 'Part Two'), prose(250)]).cuts), 'chapter,chapter', 'R1: but parts with text, and nothing else, are chapters');
+}
+
 // ---- R2: lines that read as titles ----
 {
 	const lines = ['Chapter 1', 'CHAPTER TWO', 'Chapter 3: The storm', 'chapter four', 'Chapter XII.', 'Prologue', 'Epilogue'];

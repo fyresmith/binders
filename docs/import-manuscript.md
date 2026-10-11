@@ -1,20 +1,28 @@
 # Import a manuscript
 
-Makes a new binder in your vault from a long Markdown note or a text file. Binders finds where each chapter starts,
+Makes a new binder in your vault from a Word file, a long Markdown note or a text file. Binders finds where each chapter starts,
 and makes a note of each (a folder, if the chapter has scenes). The note or file itself is only read: nothing in it
 is changed.
 
-This page is for text. For a Scrivener project, see [Import from Scrivener](import-scrivener.md). A Word file can't
-be imported yet: in Word, save it as plain text (`.txt`) and import that.
+For a Scrivener project, see [Import from Scrivener](import-scrivener.md).
+
+**Other programs come in through Word.** Google Docs (File, Download, Microsoft Word), Pages (File, Export To, Word),
+Atticus, Vellum, Dabble, Novelcrafter, LibreOffice and the rest all save a `.docx`: choose that. Google Docs'
+"Download as Markdown" works too. `.odt` and `.rtf` files, and Pages and Scrivener's own files, aren't read yet:
+save them as Word first.
 
 ## Importing
 
 There are two ways in.
 
 - **A file.** Open the command palette and run **Import a manuscript...**, then **Choose a file...** and pick a
-  `.md`, `.markdown` or `.txt` file. This works on a phone and a tablet too.
+  `.docx`, `.md`, `.markdown` or `.txt` file. This works on a phone and a tablet too.
+- **A Word file already in your vault.** Right-click it in the file explorer and choose **Import as a binder...**. (Obsidian
+  shows a `.docx` in the explorer only with **Detect all file extensions** on, in its Files and links settings. On a
+  phone, run **Import a manuscript...** and **Choose from this vault...**, which lists Word files too.)
 - **A note in your vault.** Right-click a note that isn't in a binder, in the file explorer, and choose **Make a
-  binder from this note...**. Or run **Import a manuscript...** and choose **Choose from this vault...**.
+  binder from this note...**. Or run **Import a manuscript...** and choose **Choose from this vault...**, which lists the notes outside binders and
+  the Word files.
 
 A zipped Scrivener backup chosen in the first dialog goes on to the [Scrivener import](import-scrivener.md).
 
@@ -75,6 +83,40 @@ list before importing.
   to its name, so it isn't a second copy of the writing in the binder), and nothing in **Research** is exported. A
   note of this vault is not copied: the binder's note links to it.
 
+## A Word file
+
+Binders reads a `.docx` itself, on any device, with nothing sent anywhere, and finds the chapters the same ways as
+for any text.
+
+- **Headings.** A paragraph is a heading by its style's built-in name (`Heading 1`, even in a Word that calls it
+  something else in your language) or by its outline level. A `Title` or `Subtitle` is the book's title, not a chapter.
+- **Page breaks, centered and bold lines.** A file written with no heading styles, with **CHAPTER TWELVE** centered
+  and bold after page breaks, is read by those. So is a file that has `Chapter 12` lines in plain style.
+- **Scene breaks.** A paragraph in a `Scene Break` style, a line of `***` or `#`, or an empty paragraph where they are
+  rare.
+- **A table of contents** (Word's, or a typed list) is not taken for chapters: it stays in the front matter.
+- **A first-line indent** set by a style is layout and is dropped. A tab you typed at the start of a paragraph is kept
+  if **Start a paragraph with a tab** is on, and dropped, with a line in the things to look at, if it is off. A file
+  Binders exported comes back with its tab paragraphs.
+
+What comes across: every word, in order; paragraphs; italics, bold and struck-through text; web links; footnotes
+(in place, as `^[...]`); bulleted and numbered lists; quotations. Underlined text is read as italics when the file has no
+italics at all (the manuscript way, and how Binders' Courier style writes them).
+
+What doesn't, each said in the things to look at:
+
+- **Tracked changes** come in as accepted, and are counted: "This file has 214 tracked changes. They are brought in as
+  accepted." Look at the file in Word first if you want to accept some and reject others.
+- **Comments** in the margin aren't brought in (the words they are on are). A later version will bring them in.
+- **Tables** come in as their text, cell after cell.
+- **Text boxes** come in once, where the box is.
+- **Headers and footers, pictures, fonts, sizes, colors, alignment, line spacing** and page layout aren't brought in.
+  The Word file itself is kept in **Research/Originals**.
+- **Endnotes** come in as footnotes.
+
+A file from older Word (`.doc`) or one locked with a password is refused, in words: save it as `.docx` with no
+password, and choose that.
+
 ## The text
 
 Every word comes across, in order, and nothing is added. The heading a chapter is named from is its name and not in
@@ -102,7 +144,7 @@ the text; a mark between scenes that becomes a new note is not in it either.
 
 ## Limits
 
-- Markdown and plain text only, up to 64 MB.
+- Word (`.docx`), Markdown and plain text only. A file can be up to 64 MB, and a Word file up to 256 MB unpacked, with 64 MB for its text and 500,000 paragraphs.
 - Import always makes a new binder. It never writes into a folder that exists, never changes the note or file it was
   made from, and importing twice makes two. There is no undo for a whole import: delete the folder.
 - Setext headings (a line underlined with `===`), centered text in HTML, and chapters found by what a chapter
