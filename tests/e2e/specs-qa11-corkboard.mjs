@@ -92,6 +92,8 @@ test('a synopsis with YAML-hostile text, a colon and a new line is saved exactly
 	await p.type(typed);
 	await p.key('Enter', 'ctrl');
 	await until(p, `app.metadataCache.getFileCache(${file(ARRIVAL)})?.frontmatter?.synopsis === ${j(typed)}`);
+	// (the card follows the file a moment later, when the board redraws: wait for it, not for the file alone)
+	await until(p, `document.querySelector('${card(ARRIVAL)} .binders-card-synopsis')?.textContent === ${j(typed)}`);
 	const s = await synopsisOf(p, ARRIVAL);
 	t.eq(s.file, typed, 'the file’s synopsis is exactly what was typed');
 	t.eq(s.card, typed, 'the card shows it as typed, the line break and all');
@@ -124,6 +126,8 @@ test('a synopsis typed while the same note’s synopsis changes in another pane:
 	const e = await p.ev(`(() => { const r = document.querySelector('${ACTIVE} .binders-board').getBoundingClientRect(); return { x: r.right - 24, y: r.bottom - 12 }; })()`);
 	await p.click(e.x, e.y);
 	await until(p, `app.metadataCache.getFileCache(${file(ARRIVAL)})?.frontmatter?.synopsis === 'Typed by the writer.'`);
+	// (the card follows the file a moment later, when the board redraws: wait for it, not for the file alone)
+	await until(p, `document.querySelector('${card(ARRIVAL)} .binders-card-synopsis')?.textContent === 'Typed by the writer.'`);
 	const s = await synopsisOf(p, ARRIVAL);
 	t.eq(s.file, 'Typed by the writer.', 'the typed synopsis is what the file holds');
 	t.eq(s.card, 'Typed by the writer.', 'and what the card shows');

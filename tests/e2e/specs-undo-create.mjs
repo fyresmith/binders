@@ -11,7 +11,9 @@ const P1 = L + 'Part One/';
 const ARR = P1 + 'Arrival.md', NEW = P1 + 'Untitled.md';
 const sleep = (p, ms) => p.sleep(ms);
 
-const reset = (p) => p.ev(`(() => { ${B}.undos = []; ${B}.redos = []; ${B}.history.onChange(); return 1; })()`);
+// The runner puts back the notes of the test vault, but not a picture another test left in a folder: the test vault has
+// none, so every one is taken away here, or the binder would write it into its list and the lists would not match.
+const reset = (p) => p.ev(`(async () => { for (const f of app.vault.getFiles().filter(f => f.extension !== 'md')) await app.vault.delete(f, true); ${B}.undos = []; ${B}.redos = []; ${B}.history.onChange(); return 1; })().then(() => 1)`);
 const scene = (p, folder = P1.slice(0, -1), index = 1, title = 'Untitled') => p.ev(`${B}.newSceneByHand(${file(folder)}, ${index}, ${j(title)}).then(f => f.path, e => 'refused: ' + e.message)`);
 const back = (p, redo = false, at = 'The Lighthouse') => p.ev(`${B}.undo(${file(at)}, ${redo}).then(x => x, e => 'refused: ' + e.message)`);
 const labels = async (p) => j(await p.ev(`${B}.undos.map(u => u.label)`));
