@@ -217,8 +217,9 @@ export default class BindersPlugin extends Plugin {
 			if (!checking) void exportAgain(this, folder);
 			return true;
 			} });
-		// a move made by hand (a drag, Move up) taken back, or made again: for the binder in view, or the open note's
-		for (const [id, name, redo] of [['undo-move', 'Undo last move', false], ['redo-move', 'Redo last move', true]] as const) {
+		// something done by hand to a binder (a drag, Move up, a property set) taken back, or made again: for the binder in
+		// view, or the open note's. (The ids are from when it was moves alone: hotkeys are kept to them.)
+		for (const [id, name, redo] of [['undo-move', 'Undo last change', false], ['redo-move', 'Redo last change', true]] as const) {
 			this.addCommand({ id, name, icon: redo ? 'redo-2' : 'undo-2', checkCallback: (checking) => {
 				// the binder in view, or the open note's, and that binder only: with nothing to undo there, a move made in
 				// another binder, out of sight, isn't the one taken back. With neither (the file explorer has the focus,
@@ -439,7 +440,7 @@ export default class BindersPlugin extends Plugin {
 		await openForRename(this.app.workspace.getLeaf(false), file);
 	}
 
-	/** Takes back the last move made by hand in the binder `at` is in (or makes it again), and says which. */
+	/** Takes back the last change made by hand in the binder `at` is in (or makes it again), and says which. */
 	async undoMove(at: TAbstractFile, redo = false): Promise<boolean> {
 		const what = await this.tell(this.binders.undo(at, redo));
 		if (what) new Notice(`${redo ? 'Redid' : 'Undid'}: ${what.charAt(0).toLowerCase()}${what.slice(1)}`, 2500);

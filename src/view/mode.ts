@@ -32,6 +32,8 @@ export interface ModeContext {
 	props(file: TFile): SceneProps;
 	/** Writes card data; only the given keys change. An empty string or list removes the property. */
 	setProps(file: TFile, patch: Partial<SceneProps>): Promise<void>;
+	/** The same for several notes at once: one change for "Undo" to take back, not one for each. */
+	setPropsMany(writes: { file: TFile; patch: Partial<SceneProps> }[]): Promise<void>;
 	/** Opens a note in a tab, as clicking a link would (`newLeaf` for a new tab). */
 	openFile(file: TFile, newLeaf?: boolean | PaneType): Promise<void>;
 	/** Shows another folder in this view (breadcrumbs, a folder's card); `newLeaf` opens it in a new tab instead. */

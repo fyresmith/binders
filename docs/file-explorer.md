@@ -35,7 +35,7 @@ Turn off **Open binders from the file explorer** in settings if you'd rather a c
 - **Several together** arrive in the order they show in.
 - A drop that can't be made, such as onto a folder that already has a note of that name, says why.
 
-A drag here can be taken back with **Undo last move**. See [Undoing a move](undo.md).
+A drag here can be taken back with **Undo last change**. See [Undo and redo](undo.md).
 
 ## Menus
 

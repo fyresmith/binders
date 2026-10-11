@@ -36,8 +36,8 @@ Most commands only appear where they apply: with a binder view in front, or with
 | **New scene here** | Makes a note after the open one, or, in a binder view, where the view would put one | A note of a binder, or a binder view |
 | **Move up** | Moves the open note one place up in its folder | A note of a binder that isn't first |
 | **Move down** | Moves the open note one place down in its folder | A note of a binder that isn't last |
-| **Undo last move** | Takes back the last move made by hand. See [Undoing a move](undo.md) | When there is a move to undo |
-| **Redo last move** | Makes it again | When there is a move to redo |
+| **Undo last change** | Takes back the last change made by hand to the binder: a move, a property set. See [Undo and redo](undo.md) | When there is a change to undo |
+| **Redo last change** | Makes it again | When there is a change to redo |
 | **Split scene at cursor** | Moves the text from the cursor on into a new note after this one | The editor of a note of a binder, or a section of the manuscript |
 | **Split scene with selection as title** | The same, naming the new note from the selected words | The same, with text selected |
 
@@ -97,7 +97,7 @@ These aren't commands, and work when the binder view has the keyboard:
 
 | Key | What it does |
 |---|---|
-| Ctrl+Z, Ctrl+Shift+Z (Cmd on macOS) | Undo and redo the last move, when you aren't typing |
+| Ctrl+Z, Ctrl+Shift+Z (Cmd on macOS) | Undo and redo the last change, when you aren't typing |
 | F2 | Rename |
 | Delete | Delete, after asking |
 | Shift+F10 | Open the menu |

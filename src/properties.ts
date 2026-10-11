@@ -42,3 +42,13 @@ export async function editProperties(app: App, file: TFile, edit: (fm: Record<st
 	}
 	await app.fileManager.processFrontMatter(file, edit);
 }
+
+/** A note's properties as the disk has them now, not as Obsidian's cache last read them (the cache is a moment behind a
+    write, and a check that a value is what it was left must not be fooled by that). Empty if there are none, or they can't be read. */
+export async function readProperties(app: App, file: TFile): Promise<Record<string, unknown>> {
+	try {
+		const yaml = parts(await app.vault.adapter.read(file.path)).yaml;
+		const v: unknown = yaml.trim() ? parseYaml(yaml) : null;
+		return v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : {};
+	} catch { return {}; }
+}

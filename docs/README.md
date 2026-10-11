@@ -38,7 +38,7 @@ New here? Read [Installation](installation.md), then [Getting started](getting-s
 | [Scene notes](scene-notes.md) | Your own notes on a scene, kept out of the book |
 | [Splitting, merging and grouping](splitting-and-merging.md) | Split, merge, duplicate, folders from a selection, ungroup |
 | [Snapshots](snapshots.md) | Setting a scene's text aside before you rewrite it, and keeping the whole binder as it stood |
-| [Undoing a move](undo.md) | Taking back a drag, a sort or a new folder |
+| [Undo and redo](undo.md) | Taking back a drag, a sort, a new folder or a property you set |
 | [Paragraphs](paragraphs.md) | Paragraphs that start with a tab, and first-line indents |
 | [Focus mode](focus-mode.md) | The text and nothing else |
 | [Find and replace](find-and-replace.md) | Searching every note of a binder, and replacing with a review, a snapshot and Undo |

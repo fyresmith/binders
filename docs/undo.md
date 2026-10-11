@@ -1,9 +1,11 @@
-# Undoing a move
+# Undo and redo
 
-**Undo last move** and **Redo last move** take back, or make again, a change to a binder's order. They are separate
-from the editor's undo, which is for text.
+**Undo last change** and **Redo last change** take back, or make again, what you did by hand to a binder: a move, and
+a property you set. They are separate from the editor's undo, which is for text.
 
 ## What can be undone
+
+**Order**
 
 - a drag, on the corkboard, in the outliner or in the file explorer;
 - **Move up**, **Move down** and **Move to**;
@@ -15,11 +17,29 @@ from the editor's undo, which is for text.
 Each note goes back beside the neighbours it had, to the folder it was in, and to the label it had. Whatever you
 renamed or added since stays as it is.
 
+**Properties**
+
+- a synopsis, typed on a card, in a row, in the inspector or in a folder's header;
+- a status, a label or a word count target, from the menus, the inspector or the outliner (set for five notes at
+  once, it is one change);
+- the notes kept on a note;
+- **Include in export** and **Export as**;
+- any other property you edit in a column of the outliner;
+- **Set synopsis from text**.
+
+A property goes back to what it was, in the place it stood among the note's other properties. Nothing else in the
+note is touched.
+
+Unlike a move, a property is taken back only if it is still what your change left it. If the note was changed since
+(by another program, or by Sync), nothing is written, and a notice says which property: "The synopsis of “Arrival”
+has been changed since, so it stays as it is." Ask again with nothing changed and the change is given up, and the
+one before it is taken back instead.
+
 ## How to undo
 
 | Where | How |
 |---|---|
-| Anywhere | Run **Undo last move** or **Redo last move** from the command palette |
+| Anywhere | Run **Undo last change** or **Redo last change** from the command palette |
 | In the binder view, when you aren't typing | Ctrl+Z and Ctrl+Shift+Z (Cmd on macOS) |
 | In the binder view's **More options** menu | **Undo** and **Redo**, each saying what it will take back |
 
@@ -32,21 +52,24 @@ Undo works on one binder at a time:
 1. the binder in front, or the one the open note is in;
 2. with neither, the binder that was changed last.
 
-A move made in another binder, out of sight, is not the one taken back.
+A change made in another binder, out of sight, is not the one taken back. The history of a binder is the same in
+every view of it: the corkboard, the outliner and the manuscript; a change made in the inspector is part of it.
 
 ## What it doesn't cover
 
-- **Text.** Undo of text is the editor's own, in each note.
+- **Text.** Undo of text is the editor's own, in each note. Typing in a note that is open is never touched by an
+  undo of a property: it is saved first, and kept.
 - **A split.** A split is undone in the note you split, with the editor's undo. See
   [Splitting, merging and grouping](splitting-and-merging.md#undoing-a-split).
 - **Renames, deletes, merges and duplicates.** Deleted and merged-away notes are in the trash.
 
 ## Limits
 
-- Undo remembers the last fifty changes, of all binders together, while Obsidian is open. It is not kept when
-  Obsidian closes.
-- Undo refuses, and moves nothing, if a place has been taken or a folder is gone since.
+- Undo remembers the last hundred changes of each binder, while Obsidian is open. It is not kept when Obsidian
+  closes.
+- Undo refuses, and changes nothing, if a place has been taken or a folder is gone since, or a property was changed
+  since.
 - Undoing a kept sort of thousands of notes is slow.
-- For screen readers, "Undo last move" isn't announced.
+- For screen readers, "Undo last change" isn't announced.
 
 Next: [Paragraphs](paragraphs.md)

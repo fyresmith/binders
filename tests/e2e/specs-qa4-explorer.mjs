@@ -436,22 +436,23 @@ test('undo: with a rename, a new note, a delete and an outside edit of the binde
 	t.eq(await ord(p), 'Part One | Part One/Arrival.md | Part One/Storm warning.md | Part One/New one.md | Part Two | Part Two/Prologue.md | Part Two/The lamp.md | Part Two/Epilogue.md | Part Two/Lights out.md', 'redo moves the three again, under the names they have now');
 });
 
-test('undo: sixty moves, fifty undos (the limit) each giving back the order before, fifty redos', async (p, h, t) => {
+test('undo: 110 moves, a hundred undos (the limit) each giving back the order before, a hundred redos', async (p, h, t) => {
 	const states = [await ord(p)], items = ['Prologue.md', 'Epilogue.md', 'Part One', 'Part Two'];
-	for (let i = 0; i < 60; i++) {
+	for (let i = 0; i < 110; i++) {
 		const sibs = await p.ev(`${B}.orderedChildren(${file(L)}).map(f => f.name)`), it = items[i % 4];
 		await put(p, [`${L}/${it}`], L, `${L}/${sibs[(sibs.indexOf(it) + 2) % 4]}`);
 		states.push(await ord(p));
 	}
-	t.eq(states.filter((s, i) => i && s !== states[i - 1]).length, 60, 'sixty moves that each changed the order');
+	const lastList = await listOnDisk(p);
+	t.eq(states.filter((s, i) => i && s !== states[i - 1]).length, 110, '110 moves that each changed the order');
 	let n = 0; const bad = [];
-	for (; n < 62 && (await undo(p, 30)); n++) if ((await ord(p)) !== states[59 - n]) bad.push(n + 1);
-	t.eq(n, 50, 'fifty can be undone');
+	for (; n < 112 && (await undo(p, 30)); n++) if ((await ord(p)) !== states[109 - n]) bad.push(n + 1);
+	t.eq(n, 100, 'a hundred can be undone');
 	same(t, bad, [], 'each undo gave back the order before that move');
-	let m = 0; for (; m < 62 && (await redo(p, 30)); m++);
-	t.eq(m, 50, 'and redone');
-	t.eq(await ord(p), states[60], 'back at the last order');
-	same(t, await listOnDisk(p), ['Part One/', 'Part One/Arrival', 'Part One/The keeper', 'Part One/Storm warning', 'Part Two/', 'Part Two/The wreck', 'Part Two/Lights out', 'Epilogue', 'Prologue'], 'the list on disk');
+	let m = 0; for (; m < 112 && (await redo(p, 30)); m++);
+	t.eq(m, 100, 'and redone');
+	t.eq(await ord(p), states[110], 'back at the last order');
+	same(t, await listOnDisk(p), lastList, 'the list on disk');
 });
 
 test('undo: two binders’ moves interleaved are undone per binder; a new move drops what could be redone', async (p, h, t) => {

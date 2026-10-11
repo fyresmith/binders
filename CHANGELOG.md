@@ -3,6 +3,16 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.52.0 (2026-10-11)
+
+### Added
+
+- Undo last change and Redo last change now take back and redo the properties you set by hand (a synopsis, status, label, target, notes, export settings, an outliner cell), several notes at once as one change.
+
+### Changed
+
+- The commands are renamed Undo last change and Redo last change, and each binder remembers its last 100 changes, where 50 were shared by all.
+
 ## 0.51.11 (2026-10-11)
 
 ### Changed

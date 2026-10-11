@@ -8,7 +8,7 @@ import { commitAll, editable, editingIn } from '../view/edit';
 import { labelDot, labelName } from '../view/labels';
 import type { ModeContext } from '../view/mode';
 import { parseTarget, whyNotTarget } from '../view/outliner-data';
-import { readNotes, readProps, writeExportAs, writeNotes, writeProps } from '../view/props';
+import { readNotes, readProps, writeBatch, writeExportAs, writeNotes, writeProps } from '../view/props';
 import { SnapshotsModal, take, whenShort } from '../view/snapshots';
 import { folderSnapshots, hasSnapshots } from '../binder-snapshots';
 import { FolderSnapshotsModal, takeFolder } from '../view/binder-snapshots';
@@ -99,6 +99,7 @@ export class ScenePane {
 			app: plugin.app, plugin, store: plugin.binders, binder, folder: binder.folder, owner: this.owner, readOnly: ro,
 			props: (f) => readProps(plugin, f),
 			setProps: async (f, p) => { if (ro) throw new Error('This binder is read only.'); await writeProps(plugin, f, p); },
+			setPropsMany: async (w) => { if (ro) throw new Error('This binder is read only.'); await writeBatch(plugin, w); },
 			openFile: async (f, newLeaf) => { await saveOpen(plugin.app, [f]); await plugin.app.workspace.getLeaf(newLeaf || false).openFile(f); },
 			navigate: (f, newLeaf) => void plugin.openBinder(f, newLeaf),
 			words: (f) => this.words.get(f),

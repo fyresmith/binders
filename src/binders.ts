@@ -2,12 +2,13 @@ import { Events, FileSystemAdapter, Notice, TFile, TFolder, normalizePath, parse
 import type { ExplorerSource } from './explorer';
 import type BindersPlugin from './main';
 import { applyOps, checkFormat, diskList, FORMAT_VERSION, isBinderNote, isFolderNote, nameOf, orderChildren, parentOf, readIndex, relPath, removeFrom, settleNames, stepIndex, UnsupportedBinder, type ListOp } from './model';
-import { editProperties } from './properties';
+import { editProperties, readProperties } from './properties';
 import { nextName, parts } from './scene-text';
 import { COMPILE_PROP, EXPORT_PROP, saveOpen } from './scenes';
 import { History } from './history/history';
 import { OrderHandler } from './history/order';
 import { PropsHandler } from './history/props';
+import { sameValue } from './history/values';
 import type { Entry, PropChange } from './history/types';
 import { SNAPSHOTS } from './snapshot-text';
 import { followSnapshots, isOwn } from './snapshots';
@@ -241,8 +242,10 @@ export class BinderStore extends Events implements ExplorerSource {
 			orderedChildren: (folder: TFolder) => this.orderedChildren(folder), depthOf: (item: TAbstractFile) => this.depthOf(item),
 			move: (item: TAbstractFile, folder: TFolder, index: number, depth?: number) => this.move(item, folder, index, depth),
 			newFolder: (folder: TFolder, index?: number, title?: string) => this.newFolder(folder, index, title),
-			setProp: (item: TAbstractFile, key: string, value: unknown) => this.setProp(item, key, value),
+			setProp: (item: TAbstractFile, key: string, value: unknown, at?: number) => this.setProp(item, key, value, at),
 			takeAway: (folder: TFolder) => this.takeAway(folder), bringBack: (parent: TFolder, index: number, name: string, note: ArrayBuffer | null) => this.bringBack(parent, index, name, note),
+			readProp: (item: TAbstractFile, key: string) => this.readProp(item, key),
+			settle: (files: TFile[]) => saveOpen(this.app, files),
 		};
 		this.order = new OrderHandler(this.app, host, this.history);
 		this.history.handlers = { order: this.order, props: new PropsHandler(this.app, host) };
@@ -633,10 +636,11 @@ export class BinderStore extends Events implements ExplorerSource {
 	    note (made if need be). With `to`, the items are put there too, as `put` does. One change that "Undo" takes back
 	    whole, the property and the places; `label` says what it was. Only that property is written, through
 	    editProperties: a note's text is never touched. */
-	label(items: TAbstractFile[], key: string, value: unknown, label: string, to?: { folder: TFolder; anchor: TAbstractFile | null; depth?: number }): Promise<void> {
+	async label(items: TAbstractFile[], key: string, value: unknown, label: string, to?: { folder: TFolder; anchor: TAbstractFile | null; depth?: number }): Promise<void> {
 		const first = items[0]?.parent;
 		if (first) this.writable(first);
-		const props: PropChange[] = items.map((file) => ({ file, key, before: this.propOf(file, key), after: value }));
+		// (as the disk has them: the cache is a moment behind a write, and a value taken back must be the one that was there)
+		const props: PropChange[] = await Promise.all(items.map(async (file) => ({ file, key, before: await this.readProp(file, key), after: value, at: await this.propAt(file, key) })));
 		return this.change(label, items, async () => {
 			if (to) for (const f of items) {
 				if (f === to.anchor) continue;
@@ -650,14 +654,29 @@ export class BinderStore extends Events implements ExplorerSource {
 
 	/** The note an item's properties are in: the note itself, or a folder's folder note (null if it has none). */
 	private propNote(item: TAbstractFile): TFile | null { return item instanceof TFolder ? this.folderNote(item) : item instanceof TFile ? item : null; }
-	private propOf(item: TAbstractFile, key: string): unknown {
+	/** An item's property as the disk has it now (undefined for none, or for a folder with no note). */
+	private async readProp(item: TAbstractFile, key: string): Promise<unknown> {
 		const note = this.propNote(item);
-		return note ? this.app.metadataCache.getFileCache(note)?.frontmatter?.[key] : undefined;
+		return note ? (await readProperties(this.app, note))[key] : undefined;
 	}
-	private async setProp(item: TAbstractFile, key: string, value: unknown): Promise<void> {
+	/** Where a property stands among an item's, on the disk (undefined if it isn't there). */
+	private async propAt(item: TAbstractFile, key: string): Promise<number | undefined> {
+		const note = this.propNote(item), at = note ? Object.keys(await readProperties(this.app, note)).indexOf(key) : -1;
+		return at < 0 ? undefined : at;
+	}
+	/** `at`: where a property that isn't there goes among the others (undefined: last). */
+	private async setProp(item: TAbstractFile, key: string, value: unknown, at?: number): Promise<void> {
 		// (a folder with no note of its own gets one only to hold a value, never to say it has none)
 		const note = item instanceof TFolder && value !== undefined ? await this.ensureFolderNote(item) : this.propNote(item);
-		if (note) await this.setProps(note, { [key]: value });
+		if (!note) return;
+		if (value === undefined || at === undefined) { await this.setProps(note, { [key]: value }); return; }
+		await this.editProps(note, (fm) => {
+			if (key in fm) { fm[key] = value; return; }
+			const all = Object.entries(fm);
+			all.splice(Math.min(at, all.length), 0, [key, value]);
+			for (const k of Object.keys(fm)) delete fm[k];
+			for (const [k, v] of all) fm[k] = v;
+		});
 	}
 
 	// ---- undo (see history/) ----
@@ -675,7 +694,29 @@ export class BinderStore extends Events implements ExplorerSource {
 	    so "Undo" can put them back. `label` says what it was ("Move “Arrival”"). `made`: a folder the change made to
 	    hold them, which undoing it takes away again. `emptied`: a folder the change moves everything out of, which
 	    goes to the trash once nothing but its folder note is left in it, and which undoing the change makes again. */
-	change<T>(label: string, items: TAbstractFile[], fn: () => Promise<T>, made?: (out: T) => TFolder | null, props?: PropChange[], emptied?: TFolder): Promise<T> { return this.order.change(label, items, fn, made, props, emptied); }
+	change<T>(label: string, items: TAbstractFile[], fn: () => Promise<T>, made?: (out: T) => TFolder | null, props?: PropChange[], emptied?: TFolder): Promise<T> { return this.history.track(this.order.change(label, items, fn, made, props, emptied)); }
+
+	/** Sets properties of notes (a folder's are in its folder note) as the writer did by hand, as one change that "Undo"
+	    takes back whole: `label` says what it was ("Set status of “Arrival”"), `what` names each property for a refusal
+	    ("the status"). Only these properties are written, through editProperties: a note's text is never touched. What
+	    each had before and has after is read from the disk, and undoing it writes the old value back only if the note
+	    still has the one it was given. A change that changed nothing isn't recorded. */
+	setByHand(label: string, writes: { note: TFile; patch: Record<string, unknown> }[], what?: Record<string, string>): Promise<void> {
+		return this.history.track((async () => {
+			// (a note that is gone is the write's to refuse, with the message it always had)
+			for (const w of writes) if (w.note.parent && this.binderOf(w.note)) this.writable(w.note.parent);
+			const before = await Promise.all(writes.map((w) => readProperties(this.app, w.note)));
+			// (a change that failed half-way is still one to take back, as far as it got)
+			let failed: unknown = null;
+			try { for (const w of writes) await this.setProps(w.note, w.patch); } catch (e) { failed = e; }
+			const after = await Promise.all(writes.map((w) => readProperties(this.app, w.note)));
+			const changes: PropChange[] = [];
+			writes.forEach((w, i) => { for (const key of Object.keys(w.patch)) if (!sameValue(before[i][key], after[i][key])) changes.push({ file: w.note, key, before: before[i][key], after: after[i][key], at: key in before[i] ? Object.keys(before[i]).indexOf(key) : undefined }); });
+			const binder = writes.map((w) => this.binderOf(w.note)).find((b) => !!b);
+			if (changes.length && binder && !binder.problem) this.history.record({ note: binder.note, label, steps: [{ kind: 'props', changes, what }] });
+			if (failed) throw failed;
+		})());
+	}
 
 	/** What "Undo" (or "Redo") would take back in this binder, or null. */
 	undoable(item: TAbstractFile | string, redo = false): string | null { return this.history.undoable(item, redo); }

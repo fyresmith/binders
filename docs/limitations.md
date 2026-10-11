@@ -50,13 +50,18 @@ Phone and tablet support is new and has had little testing on real devices. See 
   any others.
 - If the note changes in the moment it is being split, both notes keep the text and a notice says so.
 
-## Undoing a move
+## Undo and redo
 
-- **Undo last move** covers moves, and a folder made around notes or ungrouped. It doesn't cover renames, deletes,
-  merges or duplicates. A split is undone in its note, with the editor's own undo.
-- It remembers the last fifty changes, of all binders together, while Obsidian is open.
+- **Undo last change** covers moves, a folder made around notes or ungrouped, and properties set by hand (a synopsis,
+  a status, a label, a target, notes, export settings). It doesn't yet cover renames, deletes, merges or duplicates.
+  A split is undone in its note, with the editor's own undo.
+- It remembers the last hundred changes of each binder, while Obsidian is open.
+- A property is taken back only if it is still what the change left it; one that was changed since (by another
+  program, say) stays, and a notice says which.
+- A note with Windows line endings (`\r\n`) comes back with its text byte for byte, but Obsidian writes the lines of
+  a changed properties block with its own line breaks, as it does for any property you change.
 - Undoing a kept sort of thousands of notes is slow.
-- For screen readers, "Undo last move" isn't announced.
+- For screen readers, "Undo last change" isn't announced.
 
 ## Properties
 

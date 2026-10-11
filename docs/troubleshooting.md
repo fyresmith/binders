@@ -99,7 +99,7 @@ counting from here** in focus mode's menu starts the day again.
 Press Esc. If a menu or a dialog is open, Esc closes that first. With Vim key bindings on, Esc is Vim's: move the
 pointer and click the button at the top right, or run **Toggle focus mode**.
 
-## Undo last move doesn't do anything
+## Undo last change doesn't do anything
 
 It works on the binder in front, or the one the open note is in. It doesn't undo renames, deletes, merges or text.
-Its history is kept only while Obsidian is open. See [Undoing a move](undo.md).
+Its history is kept only while Obsidian is open. See [Undo and redo](undo.md).

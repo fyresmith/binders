@@ -13,7 +13,7 @@ import { canonical, labelDot, labelName, rank } from './labels';
 import { readArrangement, readLines, type Arrangement, type Lines } from './lanes-data';
 import { ask } from './modals';
 import { parseTarget, whyNotTarget } from './outliner-data';
-import { readProps, writeProps } from './props';
+import { readProps, writeBatch, writeProps } from './props';
 import type { BinderMode, ModeContext, SceneProps } from './mode';
 import type { EditorView } from '@codemirror/view';
 import { WordCounter } from './word-counter';
@@ -822,6 +822,11 @@ export class BinderView extends ItemView {
 		await writeProps(this.plugin, file, patch);
 	}
 
+	async setPropsMany(writes: { file: TFile; patch: Partial<SceneProps> }[]): Promise<void> {
+		if (this.readOnly) throw new Error('This binder is read only.');
+		await writeBatch(this.plugin, writes);
+	}
+
 	/** Notes made in this view since the filter last changed: they show though it would hide them. */
 	private madeHere = new Set<TFile>();
 
@@ -1013,6 +1018,7 @@ export class BinderView extends ItemView {
 			readOnly: this.readOnly,
 			props: (f) => this.props(f),
 			setProps: (f, p) => this.setProps(f, p),
+			setPropsMany: (w) => this.setPropsMany(w),
 			// (what's typed into it here and not saved yet is written first: the note opens with it)
 			openFile: async (f, newLeaf) => { await this.current?.save?.([f]); await this.app.workspace.getLeaf(newLeaf || false).openFile(f); },
 			navigate: (f, newLeaf) => void this.navigate(f, newLeaf),

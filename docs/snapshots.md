@@ -139,7 +139,7 @@ Nothing is lost by it:
   (If your newest snapshot already holds exactly what is there, that one serves and no other is taken.)
 - What you have typed and not saved, in a note or in a field, is saved first, so it is in that snapshot.
 - A note that is open is changed in its editor: one **Undo** there takes its text back. The order is one change
-  that **Undo last move** takes back.
+  that **Undo last change** takes back.
 - A note that changes while the screen is open, or while the notes are being written (a sync, another program),
   is left as it is, and the notice at the end names it. The same goes for the order if items come or go meanwhile.
 - If Obsidian is closed half-way, some notes have their old text and some don't. Bring the same snapshot back
@@ -254,4 +254,4 @@ The Lighthouse/Snapshots/2026-10-05 16.20.05 Draft sent to Sam.binder-snapshot
   no longer match. It can be read, and nothing is brought back or made from it.
 - A Longform project has snapshots of the whole project, not of a part of it.
 
-Next: [Undoing a move](undo.md)
+Next: [Undo and redo](undo.md)

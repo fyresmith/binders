@@ -6,7 +6,7 @@ import { movedText } from './lanes-data';
 import { GLIDE_QUICK, Press, glide, held, places, settle, visibleBottom } from './drag';
 import { FileDrag } from './file-drag';
 import { editable, type Editable } from './edit';
-import { readNotes, writeNotes } from './props';
+import { readNotes, writeKeys, writeNotes } from './props';
 import { submenu } from './internals';
 import { labelDot, labelName, rank } from './labels';
 import type { BinderMode, ModeContext, ModeFactory, SceneProps } from './mode';
@@ -661,10 +661,12 @@ class Outliner implements BinderMode {
 		const v = this.frontmatter(item)[prop];
 		const write = async (value: unknown, all = false) => {
 			if (this.ro) throw new Error('This binder is read only.');
+			const writes: { file: TFile; patch: Record<string, unknown> }[] = [];
 			for (const it of all ? this.withSelection(item) : [item]) {
 				const note = it instanceof TFolder ? await this.store.ensureFolderNote(it) : noteOf(this.ctx, it);
-				if (note) await this.store.setProps(note, { [prop]: value });
+				if (note) writes.push({ file: note, patch: { [prop]: value } });
 			}
+			await writeKeys(this.ctx.plugin, writes);
 		};
 		if (typeof v === 'boolean') {
 			const box = td.createEl('input', { type: 'checkbox', attr: { 'aria-label': prop, tabindex: '-1' } });

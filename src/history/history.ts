@@ -7,7 +7,7 @@ import type { Entry, Handler, Handlers, Scope, Step } from './types';
    has a handler (types.ts) that does. Per binder it keeps the last `entries`, and in all `bytes` of what entries hold,
    dropping the oldest first. */
 
-export const LIMITS = { entries: 50, bytes: 32 * 1024 * 1024 };
+export const LIMITS = { entries: 100, bytes: 32 * 1024 * 1024 };
 
 
 
@@ -23,7 +23,20 @@ export class History {
 	/** Called when the entries change (a button showing what "Undo" would take back). */
 	onChange: () => void = () => {};
 
+	/** What is being done and not yet recorded, and the undo or redo running: a new one waits for them, so that asked
+	    twice in a row, or just after a field was left, each takes the one before it. */
+	private pending: Promise<unknown>[] = [];
+	private chain: Promise<unknown> = Promise.resolve();
+
 	constructor(private scope: Scope) {}
+
+	/** Notes that something is being done by hand and will be recorded when it is: `undo` waits for it. */
+	track<T>(work: Promise<T>): Promise<T> {
+		const done = work.then(() => {}, () => {});
+		this.pending.push(done);
+		void done.then(() => { this.pending = this.pending.filter((x) => x !== done); });
+		return work;
+	}
 
 	/** Remembers what was done, and forgets what was taken back and not made again. */
 	record(entry: Omit<Entry, 'at' | 'bytes'> & { bytes?: number }): Entry {
@@ -79,7 +92,13 @@ export class History {
 
 	/** Takes back the last thing done by hand in this binder (or, with `redo`, makes it again). Nothing is changed
 	    unless every step can be; then the entry stays to be undone later. Returns what was undone, or null. */
-	async undo(item: TAbstractFile | string, redo = false): Promise<string | null> {
+	undo(item: TAbstractFile | string, redo = false): Promise<string | null> {
+		const run = this.chain.then(() => Promise.all(this.pending)).then(() => this.run(item, redo));
+		this.chain = run.then(() => {}, () => {});
+		return run;
+	}
+
+	private async run(item: TAbstractFile | string, redo: boolean): Promise<string | null> {
 		const s = this.scope.binderOf(item), from = redo ? this.redos : this.undos, to = redo ? this.undos : this.redos;
 		if (!s) return null;
 		if (s.problem) throw new UnsupportedBinder(s.problem);

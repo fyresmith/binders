@@ -1096,15 +1096,15 @@ test('undo: Mod+Z does nothing to the order while a menu or a dialog is open, a 
 	t.eq((await contents(p))[0], 'Epilogue', 'the move stands');
 });
 
-test('undo: sixty moves keep the last fifty; each binder has its own; a Longform reorder goes back with its indent; one press undoes once with two views open; after the plugin reloads there’s nothing to undo', async (p, h, t) => {
-	for (let i = 0; i < 60; i++) await p.ev(`${B}.${i % 2 ? 'moveUp' : 'moveDown'}(${file(P1 + 'Arrival.md')})`);
+test('undo: 110 moves keep the last hundred; each binder has its own; a Longform reorder goes back with its indent; one press undoes once with two views open; after the plugin reloads there’s nothing to undo', async (p, h, t) => {
+	for (let i = 0; i < 110; i++) await p.ev(`${B}.${i % 2 ? 'moveUp' : 'moveDown'}(${file(P1 + 'Arrival.md')})`);
 	await settle(p);
-	t.eq(await p.ev(`${B}.undos.length`), 50, 'fifty kept');
+	t.eq(await p.ev(`${B}.undos.length`), 100, 'a hundred kept');
 	let n = 0;
-	while ((await undo(p)) && n < 70) n++;
+	while ((await undo(p)) && n < 120) n++;
 	await settle(p);
-	t.eq(n, 50, 'fifty undone');
-	t.eq(j(await contents(p)), j(LIST), 'back where the fifty began (an even count: where it all began)');
+	t.eq(n, 100, 'a hundred undone');
+	t.eq(j(await contents(p)), j(LIST), 'back where the hundred began (an even count: where it all began)');
 	// two binders
 	await clearUndo(p);
 	const lf = split(await read(p, LF + 'Index.md')).yaml;

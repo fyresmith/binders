@@ -1,5 +1,6 @@
 import { exportAsItems } from './export-as';
 import { Menu, Notice, Platform, TFile, TFolder, normalizePath, type TAbstractFile } from 'obsidian';
+import { writeKeys } from './props';
 import { COMPILE_PROP, EXPORT_PROP, isExported, isNote, mergeScenes, saveOpen, synopsisFromText } from '../scenes';
 import { ExportModal } from './export';
 import { fitItemMenu, openPluginSettings, submenu, trashPhrase } from './internals';
@@ -86,11 +87,13 @@ export async function removeItems(ctx: ModeContext, items: TAbstractFile[]): Pro
 export async function setAll(ctx: ModeContext, items: TAbstractFile[], patch: { status?: string; label?: string; target?: number }): Promise<void> {
 	try {
 		// (a folder with no folder note has nothing to take away: one isn't made to hold nothing)
-		const clears = Object.values(patch).every((v) => !v);
+		const clears = Object.values(patch).every((v) => !v), writes: { file: TFile; patch: typeof patch }[] = [];
 		for (const f of items) {
 			const note = f instanceof TFolder ? (clears ? ctx.store.folderNote(f) : await ctx.store.ensureFolderNote(f)) : noteOf(ctx, f);
-			if (note) await ctx.setProps(note, patch);
+			if (note) writes.push({ file: note, patch });
 		}
+		// (one change for all of them: one "Undo" takes the status of five cards back)
+		await ctx.setPropsMany(writes);
 	} catch (e) { new Notice(e instanceof Error ? e.message : String(e)); }
 }
 
@@ -247,10 +250,12 @@ function structureItems(ctx: ModeContext, menu: Menu, items: TAbstractFile[], h:
 export async function setExported(ctx: ModeContext, items: TAbstractFile[], include: boolean): Promise<void> {
 	await tell((async () => {
 		if (ctx.readOnly) throw new Error('This binder is read only.');
+		const writes: { file: TFile; patch: Record<string, unknown> }[] = [];
 		for (const f of items) {
 			const note = f instanceof TFolder ? (include ? ctx.store.folderNote(f) : await ctx.store.ensureFolderNote(f)) : noteOf(ctx, f);
-			if (note) await ctx.store.setProps(note, include ? { [EXPORT_PROP]: undefined, [COMPILE_PROP]: undefined } : { [EXPORT_PROP]: false });
+			if (note) writes.push({ file: note, patch: include ? { [EXPORT_PROP]: undefined, [COMPILE_PROP]: undefined } : { [EXPORT_PROP]: false } });
 		}
+		await writeKeys(ctx.plugin, writes);
 	})());
 }
 

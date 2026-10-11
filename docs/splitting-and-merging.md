@@ -68,7 +68,7 @@ This isn't offered in a Longform project, which has no folders.
 **Ungroup** in a folder's menu moves what the folder holds out to where the folder stood. The emptied folder goes to
 the trash with its synopsis, label and target.
 
-- **Undo last move** brings the folder back with all of them and puts its notes back inside, in order.
+- **Undo last change** brings the folder back with all of them and puts its notes back inside, in order.
 - A folder stays if something is still in it: text you wrote in its folder note, say, or a file Obsidian doesn't
   list. A notice says so.
 
@@ -96,7 +96,7 @@ you delete goes to the trash, as Obsidian's **Deleted files** setting says. A de
 | Change | How to undo it |
 |---|---|
 | A split | Undo in the note you split (Ctrl+Z) |
-| A move, a new folder from a selection, an ungroup | **Undo last move**. See [Undoing a move](undo.md) |
+| A move, a new folder from a selection, an ungroup | **Undo last change**. See [Undo and redo](undo.md) |
 | A merge, a duplicate, a delete, a rename | Not undone by Binders. Merged-away and deleted notes are in the trash |
 
 Next: [Snapshots](snapshots.md)

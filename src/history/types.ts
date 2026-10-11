@@ -13,7 +13,7 @@ export interface Removed { folder: TFolder; name: string; pos: Pos; note: ArrayB
 
 /** A property a change by hand gave an item (a card dragged to another label's line): what it had (as written; undefined
     for none) and what it has now. A folder's is in its folder note. */
-export interface PropChange { file: TAbstractFile; key: string; before: unknown; after: unknown }
+export interface PropChange { file: TAbstractFile; key: string; before: unknown; after: unknown; /** where the key stood among the note's properties before (for a property that wasn't taken away, nothing): so taking a property away and bringing it back leaves the note byte for byte */ at?: number }
 
 /** A change to a binder's order: what it moved, from where to where, a folder it made to move them into, and a folder
     it emptied. `still`: nothing moved. */

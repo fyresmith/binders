@@ -86,7 +86,7 @@ The three dots in the view's header open a menu with:
 - While the corkboard is showing: **In a grid**, **By label, across** and **By label, down** with the two switches
   that go with them, **Card size**, **Number the cards** and **Tint cards with their label color**.
 - While the outliner is showing: **Show synopses**, **Columns**, **Expand all** and **Collapse all**.
-- **Undo** and **Redo** of the last move, each saying what it will take back. See [Undoing a move](undo.md).
+- **Undo** and **Redo** of the last change, each saying what it will take back. See [Undo and redo](undo.md).
 - **Export...**, and **Export again** once the binder has been exported. See [Export](export.md).
 - **Take a snapshot** and **Show snapshots...**, of the folder shown. The same two are behind the **Snapshots** button (a clock) in the header; a phone's header has no such button, so there they are here only. See [Snapshots](snapshots.md).
 - **Show contents**, which opens the [contents](inspector.md#the-contents) in the sidebar.

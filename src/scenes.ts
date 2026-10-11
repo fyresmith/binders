@@ -8,7 +8,7 @@ import { untab } from './paragraphs/text';
 import { saveEditors, saveTab } from './view/editable-embed';
 import { trashPhrase, updatesLinks } from './view/internals';
 import { confirm } from './view/modals';
-import { readNotes, writeNotes } from './view/props';
+import { readNotes, writeKeys, writeNotes } from './view/props';
 
 /* Working on scenes as a writer does in Scrivener: splitting one in two where the cursor is, merging several into one,
    giving one a synopsis from its opening lines, and a binder's text made into a single note (export's "One note"). The text rules are in
@@ -332,8 +332,8 @@ export async function mergeScenes(plugin: BindersPlugin, files: TFile[]): Promis
 /** Gives notes a synopsis from their opening lines (Scrivener's "set synopsis from main text"). One note with a
     synopsis already is asked about; several at once only fill the ones without. Returns how many were set. */
 export async function synopsisFromText(plugin: BindersPlugin, files: TFile[]): Promise<number> {
-	const { app, binders: store, settings } = plugin;
-	let n = 0;
+	const { app, settings } = plugin;
+	const writes: { file: TFile; patch: Record<string, unknown> }[] = [];
 	try {
 		await saveOpen(app, files);
 		for (const f of files) {
@@ -341,11 +341,12 @@ export async function synopsisFromText(plugin: BindersPlugin, files: TFile[]): P
 			const now: unknown = app.metadataCache.getFileCache(f)?.frontmatter?.[settings.synopsisProp], has = typeof now === 'string' && !!now.trim();
 			if (!next || next === now) continue;
 			if (has && (files.length > 1 || !(await confirm(app, { title: 'Replace the synopsis', text: `“${f.basename}” already has a synopsis. Replace it with the note’s opening lines?`, cta: 'Replace' })))) continue;
-			await store.setProps(f, { [settings.synopsisProp]: next });
-			n++;
+			writes.push({ file: f, patch: { [settings.synopsisProp]: next } });
 		}
-	} catch (e) { say(e); }
-	return n;
+		// (one change for all of them: one "Undo" takes the synopses back)
+		await writeKeys(plugin, writes, writes.length === 1 ? `Set synopsis of “${writes[0].file.basename}” from its text` : `Set synopsis of ${writes.length} notes from their text`);
+	} catch (e) { say(e); return 0; }
+	return writes.length;
 }
 
 /** Is a note or folder in an export? Not if it says `export: false` (or `compile: false`) itself, or a folder above

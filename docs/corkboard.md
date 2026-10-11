@@ -59,7 +59,7 @@ card's menu selects several. See [Phones and tablets](mobile.md).
 - **Move up**, **Move down** and **Move to** in a card's menu do the same without dragging. **Move to** lists every
   folder of the binder.
 
-A move can be taken back: see [Undoing a move](undo.md).
+A move can be taken back: see [Undo and redo](undo.md).
 
 You can also drag a card out of the view and use it as a note anywhere Obsidian takes one: onto the file explorer to
 move it, into an open note to link it, onto a canvas, a tab or the bookmarks. This isn't available on a phone.
@@ -152,7 +152,7 @@ The command **Arrange corkboard by label** goes from the grid to the lines (the 
 - Do both at once and it does both.
 - Several selected cards go together. Shift-click, Ctrl-click and a box drawn on empty space select them, as in the
   grid.
-- **Undo last move** takes the label and the place back as one change.
+- **Undo last change** takes the label and the place back as one change.
 
 ### A line's menu
 

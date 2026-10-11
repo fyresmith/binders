@@ -160,6 +160,23 @@ async function main(): Promise<void> {
 	eq(h.undos.filter((e) => e.bytes).length, 1, 'but nothing else that holds bytes does');
 }
 
+// asked twice at once: one after the other; and an undo waits for what is being done and not yet recorded
+{
+	const { h, step } = make();
+	h.record({ note: binderA.note, label: 'A one', steps: [step('a1')] });
+	h.record({ note: binderA.note, label: 'A two', steps: [step('a2')] });
+	const both = await Promise.all([h.undo(binderA.folder), h.undo(binderA.folder)]);
+	eq(both.join(','), 'A two,A one', 'two at once take one each, newest first');
+	let release: () => void = () => {};
+	const slow = new Promise<void>((r) => { release = r; });
+	void h.track(slow.then(() => { h.record({ note: binderA.note, label: 'late', steps: [step('l')] }); }));
+	const asked = h.undo(binderA.folder);
+	release();
+	eq(await asked, 'late', 'it waits for the change under way, and takes that one');
+	void h.track(Promise.reject(new Error('a write that failed')).catch(() => {}));
+	eq(await h.undo(binderA.folder), null, 'a change that failed does not hold it up');
+}
+
 // forgetting a binder
 {
 	const { h, step } = make();
