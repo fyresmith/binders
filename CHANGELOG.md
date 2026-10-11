@@ -29,6 +29,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - Revision tasks: Add revision task notes what a scene needs while you write, with the passage you had selected, in an ordinary note named Revision in the binder: a list of checkboxes, each linked to its scene, that works with Binders off. The note is never part of the book. A pane to work through them comes next.
 - Pin your own properties (POV, characters, a place, any other) to the inspector, and edit them there with Obsidian's own property editors, for one note: each edit is one step of Undo, and it never changes the manuscript's text. A binder keeps its list of pins, and a menu on each row moves or unpins it. Editing several notes at once comes next.
 - The Revision pane lists your unfinished revision tasks under their scenes in the order of the book. Tick one to mark it done, click to go to the scene, or step through them with the next and previous commands.
+- Adding a revision task and ticking one are steps you can undo and redo.
 
 ### Changed
 

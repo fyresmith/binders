@@ -61,7 +61,14 @@ export class Declined extends Error {}
     command that splits a note in many places). */
 export interface SplitStep { kind: 'split'; items: object[] }
 
-export type Step = OrderStep | PropsStep | RenameStep | CreateStep | RemoveStep | MergeStep | SplitStep;
+/** A revision task added, or one ticked (revision/store.ts; golden rule 3, the fourth exception). `tick`: the line
+    before and after, and the box set. `add`: the task's lines as made, the text appended to the note, and whether the
+    note was made for it. Each is taken back only if the line is still exactly as it was left. */
+export type RevisionStep =
+	| { kind: 'revision'; op: 'tick'; binder: TFile; note: TFile; line: number; before: string; after: string; markAt: number; done: boolean }
+	| { kind: 'revision'; op: 'add'; binder: TFile; note: TFile; lines: string; added: string; made: boolean };
+
+export type Step = OrderStep | PropsStep | RenameStep | CreateStep | RemoveStep | MergeStep | SplitStep | RevisionStep;
 export type StepKind = Step['kind'];
 
 /** One thing done by hand, in the binder whose note is `note`. `bytes`: what it keeps in memory beyond its labels

@@ -29,7 +29,9 @@ export const LONGFORM = 'A Longform project keeps no revision tasks: its note is
 /** What adding a task wrote, for whoever has to take it back. */
 export interface Added {
 	note: TFile;
-	/** The text appended to the note, exactly as written (a blank line first, if the note didn't end in a list). */
+	/** The task as it was made (the item and its passage), and the text appended to the note, exactly as written (a
+	    blank line first, if the note didn't end in a list). */
+	lines: string;
 	added: string;
 	/** The note was made for this task (and the binder note was given `revision`). */
 	made: boolean;
@@ -241,8 +243,17 @@ export class Revision extends Events {
 			const f = a instanceof TFolder ? await store.ensureFolderNote(a) : a;
 			if (f instanceof TFile && !targets.includes(f)) targets.push(f);
 		}
+		const done = await this.put(binder, (source) => taskLines(targets.map((f) => app.fileManager.generateMarkdownLink(f, source)).join(', '), text, passage));
+		// (one step in the binder's history: taken back only if the line is still the last and as written; history/revision.ts)
+		store.history.record({ note: binder.note, label: 'Add revision task', steps: [{ kind: 'revision', op: 'add', binder: binder.note, note: done.note, lines: done.lines, added: done.added, made: done.made }] });
+		return done;
+	}
+
+	/** Puts the lines `lines(source)` makes at the end of the binder's revision note (made if there is none yet).
+	    What the history makes again too: no step is recorded here. */
+	async put(binder: Binder, lines: (source: string) => string): Promise<Added> {
+		const { app } = this.plugin;
 		const existing = this.noteOf(binder);
-		const lines = (source: string) => taskLines(targets.map((f) => app.fileManager.generateMarkdownLink(f, source)).join(', '), text, passage);
 		if (existing) {
 			// (typing in the note's own tab is on the disk before the task goes under it)
 			await saveOpen(app, [existing]);
@@ -257,12 +268,12 @@ export class Revision extends Events {
 			if (blocked) throw new Error(`“${existing.basename}” ends inside a block of code, so a task added there would not be one. Nothing was written.`);
 			this.texts.set(existing.path, now);
 			this.trigger('changed');
-			return { note: existing, added, made: false };
+			return { note: existing, lines: task, added, made: false };
 		}
 		// the first task: the note is made with it in, then named in the binder note; if that can't be, the note goes
 		let path = normalizePath(`${binder.folder.path}/${NAME}.md`);
 		for (let n = 2; app.vault.getAbstractFileByPath(path); n++) path = normalizePath(`${binder.folder.path}/${NAME} ${n}.md`);
-		const body = append('', lines(path)) ?? '';
+		const task = lines(path), body = append('', task) ?? '';
 		this.making.add(path);
 		let made: TFile | null = null;
 		try {
@@ -281,7 +292,27 @@ export class Revision extends Events {
 			throw e;
 		} finally { this.making.delete(path); }
 		this.trigger('changed');
-		return { note: made, added: body, made: true };
+		return { note: made, lines: task, added: body, made: true };
+	}
+
+	/** Takes away what `put` added, only if it is still at the note's end and byte for byte as it was written (the
+	    item and its quoted passage). The one place Binders removes anything from a revision note (golden rule 3, the
+	    fourth exception). Nothing else goes: a note made for the task stays, empty, and so does `revision`. Returns
+	    whether it did; nothing is written if not. */
+	async takeOut(binder: Binder, note: TFile, added: string): Promise<boolean> {
+		const { app } = this.plugin;
+		if (binder.kind !== 'binder' || binder.problem) return false;
+		await saveOpen(app, [note]);
+		if (app.vault.getAbstractFileByPath(note.path) !== note) return false;
+		let ok = false;
+		const now = await app.vault.process(note, (was) => {
+			if (!added || !was.endsWith(added)) return was;
+			ok = true;
+			return was.slice(0, was.length - added.length);
+		});
+		this.texts.set(note.path, now);
+		this.trigger('changed');
+		return ok;
 	}
 
 	/** Ticks (or clears) one task's box: the one character between its brackets, and nothing else (golden rule 3, the
@@ -290,19 +321,35 @@ export class Revision extends Events {
 	async tick(binder: Binder, task: Task, done: boolean): Promise<string | null> {
 		const note = this.noteOf(binder);
 		if (!note || binder.kind !== 'binder' || binder.problem) { this.tell(binder.problem ? `This binder can’t be changed. ${binder.problem}` : 'There is no revision note to tick a task in.'); return null; }
+		const wrote = await this.tickLine(note, task, done);
+		if (!wrote) { this.tell(`That task has changed in “${note.basename}”. Nothing was written.`); return null; }
+		// (one step in the binder's history: taken back only if the line is still as this left it; history/revision.ts)
+		this.plugin.binders.history.record({ note: binder.note, label: done ? 'Mark revision task done' : 'Mark revision task not done', steps: [{ kind: 'revision', op: 'tick', binder: binder.note, note, line: wrote.line, before: task.raw, after: wrote.raw, markAt: task.markAt, done }] });
+		return wrote.raw;
+	}
+
+	/** The write itself, with no notice and no history: the box of the line `task` names set to `done`, if that line is
+	    still as it was read (or is, word for word, the only one like it). The line as it is now, and where; null if
+	    nothing was written. */
+	async tickLine(note: TFile, task: Pick<Task, 'line' | 'raw' | 'markAt'>, done: boolean): Promise<{ line: number; raw: string } | null> {
 		await saveOpen(this.plugin.app, [note]);
-		let line: string | null = null;
+		let wrote: { line: number; raw: string } | null = null;
 		const now = await this.plugin.app.vault.process(note, (was) => {
 			const next = setDone(was, task, done);
 			if (next === null) return was;
 			const lines = was.split('\n'), at = lines[task.line] === task.raw ? task.line : lines.indexOf(task.raw);
-			line = next.split('\n')[at] ?? null;
+			wrote = { line: at, raw: next.split('\n')[at] };
 			return next;
 		});
 		this.texts.set(note.path, now);
-		if (line === null) this.tell(`That task has changed in “${note.basename}”. Nothing was written.`);
 		this.trigger('changed');
-		return line;
+		return wrote;
+	}
+
+	/** The revision note's text as the disk has it, with what is typed in its own tab saved first. */
+	async diskText(note: TFile): Promise<string> {
+		await saveOpen(this.plugin.app, [note]);
+		return this.plugin.app.vault.read(note);
 	}
 
 	/** Says something about the tasks: in the Revision pane's foot if the pane is in sight (a notice would cover its

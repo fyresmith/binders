@@ -8,6 +8,7 @@ import { COMPILE_PROP, EXPORT_PROP, saveOpen } from './scenes';
 import { History } from './history/history';
 import { OrderHandler } from './history/order';
 import { PropsHandler } from './history/props';
+import { RevisionHandler } from './history/revision';
 import { CreateHandler } from './history/create';
 import { MergeHandler } from './history/merge';
 import { SplitHandler, type SplitHost } from './history/split';
@@ -257,7 +258,7 @@ export class BinderStore extends Events implements ExplorerSource {
 		this.history.onChange = () => { this.trigger('history'); };
 		this.order = new OrderHandler(this.app, host, this.history);
 		const removal = new RemoveHandler(this.app, { keep: (item, room) => this.keep(item, room), reinstate: (made, tree) => this.reinstate(made, tree), settle: host.settle, repoint: (a, c) => this.history.repoint(a, c), room: () => this.history.limits.bytes }, this.order);
-		this.history.handlers = { order: this.order, props: new PropsHandler(this.app, host), split: new SplitHandler(() => this.splitHost), remove: removal, merge: new MergeHandler(this.app, { settle: host.settle, offer: (title, text, cta) => confirm(this.app, { title, text, cta }), say: (text) => { new Notice(text, 10000); }, repoint: (a, c) => this.history.repoint(a, c) }, removal), create: new CreateHandler(this.app, { settle: host.settle, folderNote: (f) => this.folderNote(f), orderedChildren: host.orderedChildren, takeAway: host.takeAway, bringBack: host.bringBack, repoint: (a, c) => this.history.repoint(a, c) }, this.order), rename: new RenameHandler(this.app, { binderFolderOf: (item) => this.binderOf(item)?.folder ?? null, settle: host.settle }) };
+		this.history.handlers = { order: this.order, props: new PropsHandler(this.app, host), split: new SplitHandler(() => this.splitHost), remove: removal, merge: new MergeHandler(this.app, { settle: host.settle, offer: (title, text, cta) => confirm(this.app, { title, text, cta }), say: (text) => { new Notice(text, 10000); }, repoint: (a, c) => this.history.repoint(a, c) }, removal), create: new CreateHandler(this.app, { settle: host.settle, folderNote: (f) => this.folderNote(f), orderedChildren: host.orderedChildren, takeAway: host.takeAway, bringBack: host.bringBack, repoint: (a, c) => this.history.repoint(a, c) }, this.order), rename: new RenameHandler(this.app, { binderFolderOf: (item) => this.binderOf(item)?.folder ?? null, settle: host.settle }), revision: new RevisionHandler(this.app, { revision: () => this.plugin.revision, binderOf: (note) => this.binderOf(note) }) };
 		let done: () => void = () => {}, settle: () => void = () => {};
 		this.ready = new Promise((r) => { done = r; });
 		this.settled = new Promise((r) => { settle = r; });
