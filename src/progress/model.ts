@@ -1,7 +1,7 @@
 /* Progress over time: what a binder's history is, as the dashboard reads it. Pure (no Obsidian).
 
-   STAGE 2 OF THE DESIGN ROUND: nothing records yet. The history shown comes from `fixture.ts`; the shape here is
-   the shape the record is proposed to have once merged from the devices' files (the round's report says how). */
+   The record (record.ts) keeps it in the devices' files; merge.ts adds those together into this shape (`toHistory`).
+   Until the window is put over the record, `fixture.ts` still makes a history for it to draw. */
 
 /** One day of a binder, every device's writing added together. */
 export interface Day {
@@ -20,6 +20,9 @@ export interface Day {
 	moves: number;
 	/** The binder's words at the day's end, by status ('' for none). */
 	status: Record<string, number>;
+	/** From the record (absent in the stage-2 fixture): the binder's words and scenes as stamped last that day, and the
+	    words its total changed by that no device typed (null where there is no earlier stamp to tell from). */
+	total?: number; scenes?: number; elsewhere?: number | null;
 }
 
 /** Something that happened on a day, that the writer named or did: said on the chart in their own words. */
