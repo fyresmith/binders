@@ -2,6 +2,7 @@ import type { BindersSettings } from '../settings-data';
 import { STRUCTURES, type Structure } from '../export/model';
 import { MATTER, NUMBER } from '../export/roles';
 import { detect, type Choices, type Cut, type Found, type Level } from './detect';
+import { moveDefinitions } from './definitions';
 import { PICTURE_MARK, escapeMarkdown } from './markdown';
 import { inBinder, key, link, note, safeName, type ImportPlan, type PlannedNote } from './plan';
 import { MAX_BYTES, MAX_FILES, TOO_BIG } from './source';
@@ -109,9 +110,9 @@ export function nameOf(raw: string): string {
 /** The first words of a text, for a scene's name: about forty characters, at a word's end. */
 export function firstWords(text: string, max = 40): string {
 	const t = nameOf(text).replace(/^[#>\-+\s]+/, '');
-	if (t.length <= max) return t.replace(/[\s,;:–—-]+$/, '');
+	if (t.length <= max) return t.replace(/[\s,;:–—.-]+$/, '');
 	const cut = t.slice(0, max + 1), at = cut.lastIndexOf(' ');
-	return (at > max / 2 ? cut.slice(0, at) : cut.slice(0, max)).replace(/[\s,;:–—-]+$/, '');
+	return (at > max / 2 ? cut.slice(0, at) : cut.slice(0, max)).replace(/[\s,;:–—.-]+$/, '');
 }
 
 interface Scene { from: number; to: number; at?: number }
@@ -138,8 +139,6 @@ export function planManuscript(read: ManuscriptRead, o: ManuscriptOptions): { pl
 	};
 	for (const s of scan.said) warn('', s);
 	if (scan.skipped) warn('', 'The note’s properties, the block at its top, aren’t brought in. The original keeps them.');
-	if (/^\[\^[^\]\s]+\]:/m.test(text)) warn('', 'This text has footnotes written out at its foot. They stay together at the foot of the last note, and a note that marks one no longer finds it. Move each beside the note that marks it.');
-	if (/^ {0,3}\[[^\]\n]+\]:[ \t]+\S/m.test(text)) warn('', 'This text has links defined at its foot. They stay at the foot of the last note, and a link that uses one in an earlier note no longer finds it.');
 	if (/\[\[#[^\]]/.test(text)) warn('', 'A link to a heading of this text, such as [[#Chapter 1]], finds no heading now that the headings are names.');
 
 	// ---- the files to make ----
@@ -346,6 +345,14 @@ export function planManuscript(read: ManuscriptRead, o: ManuscriptOptions): { pl
 			if (t.own) warn(t.heading ?? n.made, 'It has text of its own, which is the first note in its folder here.', path);
 		}
 		for (const c of t.chapters) emitChapter(c, n.path);
+	}
+	// footnotes and links written out at the foot of the text go to the notes that mark them (the one rewrite, definitions.ts)
+	if (/^(?:\[\^[^\]\s]+\]:| {0,3}\[[^\]\n]+\]:[ \t]+\S)/m.test(text)) {
+		const rowsOf = plan.notes.filter((n) => !n.folder && n.path !== binderNote && !n.path.startsWith(`${research}/`));
+		const moved = moveDefinitions(rowsOf.map((n) => n.body));
+		let changed = 0;
+		rowsOf.forEach((n, i) => { if (moved[i] !== n.body) { n.body = moved[i]; plan.files.set(n.path, enc.encode(note({}, moved[i]))); changed++; } });
+		if (changed) warn('', 'Footnotes and links written out at the foot of the text were put with the notes that mark them: each is at the foot of every note that has its mark.');
 	}
 	const hasParts = tops.some((t) => 'chapters' in t);
 	const structure: Structure = hasParts ? (chapterFolders.any ? 'parts-chapters' : 'parts') : chapterFolders.any ? 'chapters' : 'notes';

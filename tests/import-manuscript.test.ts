@@ -193,7 +193,8 @@ const sourceMd = (t: string) => noteWords(t.replace(/^---\n[\s\S]*?\n---\n/, '')
 	const unclosed = make(md(`## One\n\n\`\`\`\n${prose(50, 'a')}\n`));
 	eq(unclosed.found.signal, 'none', 'markdown: an unclosed fence runs to the end');
 	const definitions = make(md(`## One\n\nText[^1] ${prose(100, 'a')}\n\n## Two\n\n${prose(100, 'b')}\n\n[^1]: A note.\n`)).plan;
-	ok(definitions.said.some((s) => /footnotes written out/.test(s.text)), 'markdown: footnotes at the foot are said');
+	ok(definitions.said.some((s) => /put with the notes that mark them/.test(s.text)) && definitions.notes.find((n) => n.title === 'One')?.body.includes('[^1]: A note.'), 'markdown: a footnote at the foot goes to the note that marks it, and it is said');
+	eq(firstDifference(sourceMd(`## One\n\nText[^1] ${prose(100, 'a')}\n\n## Two\n\n${prose(100, 'b')}\n\n[^1]: A note.\n`), planned(definitions)), null, 'markdown: with every word there (a footnote’s read at its mark)');
 	const bom = scanMarkdown(decodeText(new Uint8Array([0xef, 0xbb, 0xbf, ...enc.encode('## A\n\nx\n\n## B\n\ny\n')])).text);
 	eq(bom.units[0].text, 'A', 'markdown: a byte-order mark does not hide the first heading');
 }

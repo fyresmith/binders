@@ -19,6 +19,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - Undo last change now takes back a merge: the merged-away notes come back byte for byte and the first note returns to what it was, only if it hasn’t been changed since. If it has, its text stays and the merged notes can be brought back beside it.
 - Undo last change, and the toolbar’s Undo, now take back a split, and Ctrl+Z works in the inspector and the contents for the binder they follow.
 - Timeline, a fourth view of a binder: its scenes along story time at their story dates, each card numbered as the manuscript has it, each year named, long empty stretches drawn short, and scenes with no date in a tray. Time runs down, or across on a computer or tablet (Arrange). Dates are set from a card’s menu; dragging a card to a date comes next.
+- Importing a long Markdown note: footnotes and links written out at its foot now go to the notes that mark them, instead of staying together in the last note.
 
 ### Changed
 

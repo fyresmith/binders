@@ -161,8 +161,7 @@ the text; a mark between scenes that becomes a new note is not in it either.
   keeps it if **Start a paragraph with a tab** is on in settings, and loses it, said, if it is off.
 - **Encoding.** A byte-order mark and Windows line endings are no part of the writing. A file that isn't UTF-8 is read
   as Windows-1252, and the dialog says so.
-- **Footnotes and links written out at the foot** of a long note stay at its foot, in the last note. Move each beside the note that marks it. The dialog says when there are any. A link to a heading of the old text
-  (`[[#Chapter 1]]`) no longer finds one.
+- **Footnotes and links written out at the foot** of a long note go to the notes that mark them: each is written at the foot of every note that has its mark (one that nothing marks stays where it was), so a footnote in chapter two is still a footnote there. A link to a heading of the old text (`[[#Chapter 1]]`) no longer finds one.
 
 ## When something is wrong
 
