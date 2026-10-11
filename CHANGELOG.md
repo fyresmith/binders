@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.53.1 (2026-10-11)
+
+### Changed
+
+- Nothing you will notice: the parts of Import from Scrivener that other imports will share are set apart.
+
 ## 0.53.0 (2026-10-11)
 
 ### Added

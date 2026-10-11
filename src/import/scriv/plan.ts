@@ -2,7 +2,9 @@ import type { BindersSettings } from '../../settings-data';
 import { SNAPSHOTS, SNAPSHOT_EXT, snapshotFile, snapshotName } from '../../snapshot-text';
 import { PALETTE_HEX, PATH_FIELD, snapshotRtf } from '../../export/scriv/parts';
 import { MAX_BYTES, MAX_FILES, TOO_BIG, utf8 } from '../source';
-import { escapeMarkdown, readRtf } from './rtf';
+import { escapeMarkdown } from '../markdown';
+import { inBinder, key, link, note, safeName, type ImportPlan, type PlannedNote, type Said } from '../plan';
+import { readRtf } from './rtf';
 import { children, readXml, value, type Element } from './xml';
 import type { ReadItem, ReadProject } from './project';
 
@@ -27,60 +29,9 @@ const RESEARCH = 'Research', ORIGINALS = 'Originals', ATTACHMENTS = 'Attachments
 /** Property names import may not hand to a custom field: they are Binders' own, or Obsidian's. */
 const OWN = ['binder', 'contents', 'export', 'export-as', 'snapshot-of', 'taken', 'tags'];
 
-/** A row of what will be made, in the binder's order: a note, or a folder (whose `path` is its folder note's). */
-export interface PlannedNote {
-	path: string; title: string; body: string; folder: boolean; depth: number;
-	/** Left out of an export: research, or a document with "Include in compile" off. */
-	out: boolean;
-	status: string;
-}
-/** Something the writer should know about one item, as the dialog lists it: the note it is about (its path in the
-    plan, "" when it is about no note), its title, and what is said. */
-export interface Said { path: string; name: string; text: string }
-export interface ImportPlan {
-	name: string;
-	/** Every file to make, by its path in the vault. The binder note is among them, and is written last. */
-	files: Map<string, Uint8Array>;
-	/** Every folder to make, a folder before what is in it. */
-	folders: string[];
-	notes: PlannedNote[];
-	/** What is said, as lines for the binder note ("Arrival: ..."), and by item for the dialog. */
-	warnings: string[];
-	said: Said[];
-	/** Labels and statuses the project has and the vault's settings don't. */
-	labels: { name: string; color: string }[];
-	statuses: string[];
-	sceneCount: number; snapshotCount: number; trashCount: number;
-}
+export type { ImportPlan, PlannedNote, Said };
+export { inBinder, safeName };
 export interface PlanOptions { name: string; parent: string; research: boolean; snapshots: boolean; settings: BindersSettings }
-
-/** A title as a file's name on any system: no character a path or a link reads, no dot or space at either end, not
-    one of the names Windows keeps for itself, a hundred characters at most. Never empty. */
-export function safeName(name: string): string {
-	const cleaned = [...name.normalize('NFC')].map((c) => (c.charCodeAt(0) < 32 ? ' ' : c)).join('').replace(/[*"\\/<>:|?#[\]^]/g, ' ').replace(/\s+/g, ' ').replace(/^[. ]+|[. ]+$/g, '');
-	const safe = [...cleaned].slice(0, 100).join('').replace(/[. ]+$/, '') || 'Untitled';
-	return /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$/i.test(safe) ? `Original ${safe}` : safe;
-}
-
-/** Two names that are one file on a disk that doesn't tell upper case from lower, or one way of writing "é" from another. */
-const key = (s: string) => s.normalize('NFC').toLowerCase();
-
-/** Is this a place import may write: the binder's folder, or under it by steps that are each a name a vault on any
-    system holds (not empty, not led by a dot, not ended by a dot or a space, no backslash)? Every path is made from
-    names passed through `safeName`, so this is never false; it is asked all the same before a path is planned and
-    again before it is written, because a path that climbed out would be a note written over someone's writing. */
-export function inBinder(root: string, path: string): boolean {
-	if (path === root) return true;
-	return path.startsWith(root + '/') && path.slice(root.length + 1).split('/').every((step) => step !== '' && !/^\.|[. ]$|\\/.test(step));
-}
-
-/** A note as Obsidian would write it: a name as it is where YAML takes it so, a list as lines, and no block of
-    properties at all for a note that has none. A value is written quoted, as JSON, which YAML reads as it is. */
-function note(props: Record<string, unknown>, body: string): string {
-	const name = (k: string) => (/^[A-Za-z][\w-]*$/.test(k) && !/^(true|false|null|yes|no|on|off|y|n)$/i.test(k) ? k : JSON.stringify(k));
-	const lines = Object.entries(props).map(([k, v]) => `${name(k)}:${Array.isArray(v) ? (v.length ? v.map((x) => `\n  - ${JSON.stringify(x)}`).join('') : ' []') : ` ${JSON.stringify(v)}`}`);
-	return lines.length ? `---\n${lines.join('\n')}\n---\n${body}` : body;
-}
 
 /** Whether a rich text file has any text, kept by the file's own bytes: a project is planned again each time a
     choice changes, and this is asked of every document each time. One that can't be read has text: its note says
@@ -94,13 +45,6 @@ function written(bytes: Uint8Array | undefined): boolean {
 		WRITTEN.set(bytes, has);
 	}
 	return has;
-}
-
-/** A link to a file of the plan, by its whole path so it can't be taken for another of the same name. A path a
-    wikilink can't hold (`#`, `|`, `^`, a bracket) is a Markdown link instead. */
-function link(path: string, label: string, image = false): string {
-	if (/[#[\]|^]/.test(path)) return `${image ? '!' : ''}[${escapeMarkdown(label)}](${path.split('/').map(encodeURIComponent).join('/').replace(/[()]/g, (c) => (c === '(' ? '%28' : '%29'))})`;
-	return `${image ? '!' : ''}[[${image ? path : `${path.replace(/\.md$/i, '')}|${label.replace(/[|\]\r\n]/g, ' ')}`}]]`;
 }
 
 export function planImport(project: ReadProject, o: PlanOptions): ImportPlan {

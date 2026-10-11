@@ -42,11 +42,27 @@ export interface ProjectSource {
 	unchanged(): Promise<boolean>;
 }
 
-/** A zipped backup read. Its directory is walked first, by hand: how many files it holds and how large they are
-    unpacked is known, and held to the limits, before anything is unpacked. What is then unpacked is checked against
-    it, file by file. */
-export function zipSource(data: Uint8Array, name: string): ProjectSource {
-	if (data.length > MAX_BYTES) throw new Error(TOO_BIG);
+/** What a zip's refusals say, since the zip is a Scrivener backup to one import and a manuscript to another. */
+export interface ZipWording {
+	tooBig: string; split: string; twin: string; link: string;
+	damaged: (path: string) => string;
+}
+/** The words of a Scrivener backup. */
+export const BACKUP_WORDING: ZipWording = {
+	tooBig: TOO_BIG,
+	split: 'This backup is split over several files, or too large to read here.',
+	twin: 'This backup has two files of the same name, which can’t be told apart.',
+	link: 'This backup holds a link to a file elsewhere, which import won’t follow.',
+	damaged: (path) => `“${path}” is damaged in the backup. Make a new backup in Scrivener, and choose that.`,
+};
+
+/** A zip read, to its files by their paths. Its directory is walked first, by hand: how many files it holds and how
+    large they are unpacked is known, and held to the limits, before anything is unpacked. What is then unpacked is
+    checked against it, file by file. `filter`: the files to unpack (by name); the rest are never inflated, though
+    the directory is checked whole. */
+export function readZip(data: Uint8Array, o: { words: ZipWording; filter?: (name: string) => boolean }): Map<string, Uint8Array> {
+	const { words } = o;
+	if (data.length > MAX_BYTES) throw new Error(words.tooBig);
 	const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
 	// the end record, then the central directory it points at: a file's own header can leave its size out
 	let end = -1;
@@ -55,7 +71,7 @@ export function zipSource(data: Uint8Array, name: string): ProjectSource {
 	}
 	if (end < 0) throw new Error('This isn’t a zip file, or it has been cut short.');
 	const count = view.getUint16(end + 10, true), size = view.getUint32(end + 12, true), start = view.getUint32(end + 16, true);
-	if (view.getUint16(end + 4, true) || view.getUint16(end + 6, true) || count !== view.getUint16(end + 8, true) || count > MAX_FILES || count === 65535 || start + size !== end) throw new Error('This backup is split over several files, or too large to read here.');
+	if (view.getUint16(end + 4, true) || view.getUint16(end + 6, true) || count !== view.getUint16(end + 8, true) || count > MAX_FILES || count === 65535 || start + size !== end) throw new Error(words.split);
 	let at = start, expanded = 0;
 	const names = new Set<string>(), stamps = new Map<string, { size: number; crc: number }>();
 	for (let i = 0; i < count; i++) {
@@ -63,30 +79,37 @@ export function zipSource(data: Uint8Array, name: string): ProjectSource {
 		const length = view.getUint16(at + 28, true), extra = view.getUint16(at + 30, true), comment = view.getUint16(at + 32, true), next = at + 46 + length + extra + comment;
 		if (next > end || view.getUint16(at + 8, true) & 1) throw new Error('This zip file is damaged, or locked with a password.');
 		const raw = utf8(data.subarray(at + 46, at + 46 + length)), key = safePath(raw).normalize('NFC').toLowerCase();
-		if (names.has(key)) throw new Error('This backup has two files of the same name, which can’t be told apart.');
+		if (names.has(key)) throw new Error(words.twin);
 		names.add(key);
 		stamps.set(raw, { size: view.getUint32(at + 24, true), crc: view.getUint32(at + 16, true) });
 		// (a link, by its Unix mode: what it points at is not the project's)
-		if (((view.getUint32(at + 38, true) >>> 16) & 0xf000) === 0xa000) throw new Error('This backup holds a link to a file elsewhere, which import won’t follow.');
+		if (((view.getUint32(at + 38, true) >>> 16) & 0xf000) === 0xa000) throw new Error(words.link);
 		expanded += view.getUint32(at + 24, true);
-		if (expanded > MAX_BYTES) throw new Error(TOO_BIG);
+		if (expanded > MAX_BYTES) throw new Error(words.tooBig);
 		at = next;
 	}
 	if (at !== end) throw new Error('This zip file is damaged.');
 	const files = new Map<string, Uint8Array>();
-	let actual = 0, entries = 0;
-	for (const [path, bytes] of Object.entries(unzipSync(data))) {
+	let actual = 0, entries = 0, turned = 0;
+	const want = o.filter;
+	const unpacked = unzipSync(data, { filter: (f) => { const yes = !want || f.name.endsWith('/') || want(f.name); if (!yes) turned++; return yes; } });
+	for (const [path, bytes] of Object.entries(unpacked)) {
 		entries++;
 		safePath(path);
 		const expected = stamps.get(path);
-		if (!expected || bytes.length !== expected.size || crc32(bytes) !== expected.crc) throw new Error(`“${path}” is damaged in the backup. Make a new backup in Scrivener, and choose that.`);
+		if (!expected || bytes.length !== expected.size || crc32(bytes) !== expected.crc) throw new Error(words.damaged(path));
 		if (path.endsWith('/')) continue;
 		actual += bytes.length;
-		if (actual > MAX_BYTES || files.size >= MAX_FILES) throw new Error(TOO_BIG);
+		if (actual > MAX_BYTES || files.size >= MAX_FILES) throw new Error(words.tooBig);
 		files.set(path, bytes);
 	}
-	if (entries !== stamps.size) throw new Error('This zip file is damaged.');
-	return projectSource(files, name, () => Promise.resolve(true));
+	if (entries + turned !== stamps.size) throw new Error('This zip file is damaged.');
+	return files;
+}
+
+/** A zipped Scrivener backup read. */
+export function zipSource(data: Uint8Array, name: string): ProjectSource {
+	return projectSource(readZip(data, { words: BACKUP_WORDING }), name, () => Promise.resolve(true));
 }
 
 /** A project from a set of files: the one `.scrivx` among them says where it is (a backup holds the project's

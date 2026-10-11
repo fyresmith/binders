@@ -39,10 +39,10 @@ export function readStructure(v: unknown): Structure | null {
 	return null;
 }
 
-const MATTER_FOLDER = /^(front|back)[ -]?matter$/i;
+export const MATTER_FOLDER = /^(front|back)[ -]?matter$/i;
 /** Names that make a note at the book's start or end front or back matter. */
-const MATTER = /^(dedication|epigraph|acknowledge?ments|about the author|also by\b.*|copyright|title page)$/i;
-const PARTLIKE = /^(part|book|act)\b/i;
+export const MATTER = /^(dedication|epigraph|acknowledge?ments|about the author|also by\b.*|copyright|title page)$/i;
+export const PARTLIKE = /^(part|book|act)\b/i;
 
 /** A folder that counts toward the guess: one with a note to export somewhere in it (a folder of pictures has none). */
 const holds = (it: SourceItem): boolean => it.kind === 'folder' && it.included && !MATTER_FOLDER.test(it.name.trim()) && (it.children ?? []).some((c) => c.included && (c.kind === 'note' || holds(c)));
@@ -106,7 +106,7 @@ export function assignRoles(items: readonly SourceItem[], structure: Structure):
 
 /** A number as a name may spell it: figures, Roman numerals, or words up to ninety-nine. */
 const SPELLED = Array.from({ length: 99 }, (_, i) => numberWords(i + 1).toLowerCase().replace('-', '[- ]')).reverse().join('|');
-const BARE = `(?:\\d+|${SPELLED})`, NUMBER = `(?:\\d+|[ivxlcdm]+|${SPELLED})`;
+export const BARE = `(?:\\d+|${SPELLED})`, NUMBER = `(?:\\d+|[ivxlcdm]+|${SPELLED})`;
 // (a Roman numeral counts only after "Chapter" or "Part": alone, "Mix" and "Lid" are names)
 const ONLY_NUMBER = new RegExp(`^(?:(?:chapter|part|book|act)\\s+${NUMBER}|${BARE})$`, 'i');
 const NUMBERED = new RegExp(`^(?:chapter|part|book|act)\\s+${NUMBER}\\s*[-–—:.]\\s*`, 'i');

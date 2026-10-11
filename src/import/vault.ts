@@ -1,8 +1,8 @@
 import { TFile, TFolder, type Vault } from 'obsidian';
 import { equalBytes, utf8 } from './source';
-import { inBinder, type ImportPlan } from './scriv/plan';
+import { inBinder, type ImportPlan } from './plan';
 
-/* A plan written into the vault (scriv/plan.ts makes it; this is the only part of import that writes).
+/* A plan written into the vault (scriv/plan.ts and manuscript.ts make it; this is the only part of import that writes).
      - It only ever creates: a folder that wasn't there, and files in it. Nothing that exists is opened for writing,
        and `createFolder` refuses a folder that is there already, even one that arrived after the dialog looked.
      - The binder note is the last file written. Until it is, the folder is plain files and no binder: an import
