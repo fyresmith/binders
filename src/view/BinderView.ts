@@ -8,8 +8,9 @@ import { headerFolderSnapshots } from './binder-snapshots';
 import { hasSnapshots, takeFolderSnapshot } from '../binder-snapshots';
 import type BindersPlugin from '../main';
 import { commitAll, commitFocused, editable, editingIn, type Editable } from './edit';
-import { keepOpen, readableLineLength, refreshHeader, selectMenuItem } from './internals';
-import { canonical, labelDot, labelName, rank } from './labels';
+import { keepOpen, readableLineLength, refreshHeader } from './internals';
+import { filterCount, isOn, noFilter, passes, readFilter, type Filter } from '../filter/filter';
+import { openFilterMenu } from './filter-menu';
 import { readArrangement, readLines, type Arrangement, type Lines } from './lanes-data';
 import { TIMELINE_ICON, TIMELINE_SHAPES, readShape } from './timeline-data';
 import { ask } from './modals';
@@ -63,10 +64,7 @@ const isMode = (m: unknown): m is ModeName => MODES.some((x) => x.id === m);
 /** A mode as saved: the plot grid of earlier versions is the outliner now. */
 const readMode = (m: unknown): ModeName | null => (m === 'plotgrid' ? 'outliner' : isMode(m) ? m : null);
 
-interface Filter { status: string[]; label: string[] }
 interface BinderViewState { folder?: string; mode?: ModeName; filter?: Filter; options?: Record<string, unknown> }
-
-const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
 
 /** Folders renamed or moved since Obsidian started, old path to new, so a tab's history (Back) still finds them. */
 const moved = new Map<string, string>();
@@ -86,7 +84,7 @@ export class BinderView extends ItemView {
 	folder: TFolder | null = null;
 	private path = '';
 	mode: ModeName = 'corkboard';
-	private filter: Filter = { status: [], label: [] };
+	private filter: Filter = noFilter();
 	private options: Record<string, unknown> = {};
 	private binder: Binder | null = null;
 	private current: BinderMode | null = null;
@@ -188,7 +186,7 @@ export class BinderView extends ItemView {
 		this.mode = readMode(s.mode) ?? this.mode;
 		// (as settings spell them: a filter saved as "draft" still means Draft)
 		const st = this.plugin.settings;
-		if (s.filter && typeof s.filter === 'object') this.filter = { status: strings(s.filter.status).map((x) => canonical(x, st.statuses)), label: strings(s.filter.label).map((x) => canonical(x, st.labels.map((l) => l.name))) };
+		this.filter = readFilter(s.filter, st.statuses, st.labels.map((l) => l.name)) ?? this.filter;
 		if (s.options && typeof s.options === 'object') this.options = { ...s.options };
 		await super.setState(state, result);
 		this.rebuild();
@@ -651,7 +649,7 @@ export class BinderView extends ItemView {
 		// word count, with the binder's target on the binder itself
 		const all = this.store.scenes(folder), n = this.words.sum(all);
 		// with a filter on, the words of the notes that pass, out of all of them
-		const filtering = this.filter.status.length + this.filter.label.length > 0 && !!this.current?.filters, shown = filtering ? this.words.sum(all.filter((f) => this.visible(f))) : null;
+		const filtering = isOn(this.filter) && !!this.current?.filters, shown = filtering ? this.words.sum(all.filter((f) => this.visible(f))) : null;
 		// with the target of the folder shown: the binder's own, or a subfolder's from its folder note
 		const note = this.store.folderNote(folder), goal = note ? this.props(note).target : 0;
 		const whose = folder === binder.folder ? 'the binder’s' : 'this folder’s';
@@ -677,7 +675,7 @@ export class BinderView extends ItemView {
 		}
 		// the filter, when on, says how many values it keeps; only for modes that filter
 		ui.filter.toggleClass('is-hidden', !this.current?.filters);
-		const on = this.filter.status.length + this.filter.label.length;
+		const on = filterCount(this.filter);
 		ui.filter.toggleClass('is-active', on > 0);
 		ui.filter.querySelector('.text-button-label')?.setText(on ? `Filter (${on})` : 'Filter');
 		// (said to a screen reader too, and shown as the tooltip where the button is an icon alone)
@@ -766,61 +764,16 @@ export class BinderView extends ItemView {
 		this.showBelow(menu, e);
 	}
 
-	private filterMenu(e?: MouseEvent, where?: { x: number; y: number; width: number }, picked?: string): void {
-		const r = this.ui?.filter.getBoundingClientRect(), at = where ?? (r ? { x: r.left, y: r.bottom + 4, width: r.width } : undefined);
-		const scenes = this.folder ? this.store.scenes(this.folder) : [];
-		const statuses = new Set<string>(), labels = new Set<string>();
-		let noStatus = false, noLabel = false;
-		for (const f of scenes) {
-			const p = this.props(f);
-			if (p.status) statuses.add(p.status); else noStatus = true;
-			if (p.label) labels.add(p.label); else noLabel = true;
-		}
-		// what's being filtered by is always listed, though no note has it any more: else it couldn't be taken off
-		for (const v of this.filter.status) { if (v) statuses.add(v); else noStatus = true; }
-		for (const v of this.filter.label) { if (v) labels.add(v); else noLabel = true; }
-		// in the order settings list them, then the others as they come
-		const st = this.plugin.settings, byRank = (values: Set<string>, order: string[]) => new Set([...values].map((v, i) => ({ v, i, r: rank(v, order) })).sort((a, b) => a.r - b.r || a.i - b.i).map((x) => x.v));
-		const menu = new Menu();
-		// On a phone or tablet the menu is a sheet from the foot of the screen: it stays where it is while things are
-		// ticked in it (opened again after each pick, it would slide in again each time).
-		const sheet = Platform.isMobile;
-		const flip = (kind: keyof Filter, v: string): boolean => {
-			const list = this.filter[kind], on = !list.includes(v);
-			this.setFilter({ ...this.filter, [kind]: on ? [...list, v] : list.filter((x) => x !== v) });
-			return on;
-		};
-		const toggle = (kind: keyof Filter, v: string, title: string) => {
-			flip(kind, v);
-			// the menu stays for the next pick (a menu closes when an item is chosen: it's opened again, where it was:
-			// the button grows as it counts what's picked, and the menu mustn't follow it about)
-			// (and the keyboard carries on from the item just picked)
-			window.setTimeout(() => { if (this.ui?.filter.isConnected) this.filterMenu(undefined, at, title); }, 0);
-		};
-		const group = (kind: keyof Filter, title: string, values: Set<string>, none: boolean, noneTitle: string) => {
-			if (!values.size) return;
-			menu.addItem((i) => i.setSection(kind).setTitle(title).setIsLabel(true));
-			for (const v of values) {
-				menu.addItem((i) => {
-					const t = createFragment();
-					// a status shows as it's written, as on the cards; a label by its color's name
-					if (kind === 'label') { labelDot(t, v, this.plugin.settings.labels); t.appendText(labelName(v, this.plugin.settings.labels)); } else t.appendText(v);
-					i.setSection(kind).setTitle(t).setChecked(this.filter[kind].includes(v)).onClick(() => toggle(kind, v, kind === 'label' ? labelName(v, this.plugin.settings.labels) : v));
-					if (sheet) keepOpen(i, () => flip(kind, v));
-				});
-			}
-			if (none) menu.addItem((i) => { i.setSection(kind).setTitle(noneTitle).setChecked(this.filter[kind].includes('')).onClick(() => toggle(kind, '', noneTitle)); if (sheet) keepOpen(i, () => flip(kind, '')); });
-		};
-		group('status', 'Status', byRank(statuses, st.statuses), noStatus, 'No status');
-		group('label', 'Label', byRank(labels, st.labels.map((l) => l.name)), noLabel, 'No label');
-		if (!statuses.size && !labels.size) menu.addItem((i) => i.setTitle('No statuses or labels to filter by').setIsLabel(true));
-		// (on a sheet that stays open, always: there may be something to clear by the time it's wanted)
-		if (this.filter.status.length || this.filter.label.length || (sheet && (statuses.size || labels.size))) {
-			menu.addItem((i) => i.setSection('clear').setTitle('Clear filter').setIcon('x').onClick(() => this.setFilter({ status: [], label: [] })));
-		}
-		if (at && this.ui) menu.showAtPosition({ ...at, overlap: true, left: false }, this.ui.filter.doc);
-		else this.showBelow(menu, e, this.ui?.filter);
-		if (picked !== undefined) selectMenuItem(menu, picked);
+	private filterMenu(e?: MouseEvent): void {
+		openFilterMenu({
+			button: () => this.ui?.filter,
+			filter: () => this.filter,
+			setFilter: (f) => this.setFilter(f),
+			notes: () => (this.folder ? this.store.scenes(this.folder) : []).map((f) => this.props(f)),
+			statuses: () => this.plugin.settings.statuses,
+			labels: () => this.plugin.settings.labels,
+			show: (menu, ev, anchor) => this.showBelow(menu, ev, anchor),
+		}, e);
 	}
 
 	private setFilter(filter: Filter): void {
@@ -1034,11 +987,9 @@ export class BinderView extends ItemView {
 	}
 
 	private visible(file: TFile): boolean {
-		const { status, label } = this.filter;
-		if (!status.length && !label.length) return true;
+		if (!isOn(this.filter)) return true;
 		if (this.madeHere.has(file)) return true;
-		const p = this.props(file);
-		return (!status.length || status.includes(p.status)) && (!label.length || label.includes(p.label));
+		return passes(this.filter, this.props(file));
 	}
 
 	private context(): ModeContext {
@@ -1056,7 +1007,7 @@ export class BinderView extends ItemView {
 			onTextChange: (f, t) => { this.words.typed(f, t); this.schedule(); },
 			visible: (f) => this.visible(f),
 			made: (f) => { this.madeHere.add(f); },
-			filtering: () => this.filter.status.length + this.filter.label.length > 0,
+			filtering: () => isOn(this.filter),
 			selectionChanged: () => this.inspect(),
 			find: (replace) => this.showSearch(replace),
 			option: <T>(key: string, fallback: T): T => (key in this.options ? this.options[key] : fallback) as T,

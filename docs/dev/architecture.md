@@ -33,7 +33,7 @@ neighbours, for example the store and `snapshots.ts`, which follow each other's 
    export/model.ts  markdown.ts  typography.ts  roles.ts  book.ts  picture.ts  docx.ts  docx-parts.ts
                     style.ts  details.ts  epub.ts  epub-text.ts  epub-css.ts
    find/search.ts  focus/session.ts  view/labels.ts  view/outliner-data.ts  view/lanes-data.ts  view/file-drag-data.ts
-   view/timeline-data.ts  time/date.ts
+   view/timeline-data.ts  time/date.ts  filter/filter.ts
    docx/  import/{doc,docx,detect,text,manuscript,plan}.ts  import/scriv/
    view/tap-text.ts  view/words.ts  view/book-words.ts
 ```
@@ -159,6 +159,8 @@ word-for-word test (development.md) holds each writer to "no word dropped, repea
 | `src/view/drag.ts` | A press that may become a drag (mouse, pen, or a finger's long press), and the glide after a redraw. Reads the pointer only. | Decide what a drag does. |
 | `src/view/file-drag.ts`, `file-drag-data.ts` | A card or row dragged out of the view becomes a file drag Obsidian understands (a canvas, a tab, bookmarks, the explorer). `file-drag-data.ts` holds the pure geometry. | Do anything while the pointer is inside the view. |
 | `src/view/edit.ts` | Text edited in place (a title, a synopsis, a cell). What's typed stays in the field until it is saved; a failed save keeps it. | Drop typed text. |
+| `src/filter/filter.ts` | The filter of a binder view: its type (the saved shape), reading a saved one, whether a note's status and label pass, ticking a value, what the menu lists. Pure, over plain data. | Know about notes, views or menus. |
+| `src/view/filter-menu.ts` | The toolbar's Filter menu, over a small host (the button, the filter now, `setFilter`, the folder's notes' status and label, settings' lists). | Keep the filter: the view does. |
 | `src/view/labels.ts` | Labels and statuses: the palette, colors, reading what notes and settings hold. Pure. | |
 | `src/view/words.ts` | Word counts as Obsidian's status bar counts them (`countWords`), and `wordsIn`: a text's words by the way the setting "Count words as the exported book does" says. Pure. | |
 | `src/view/book-words.ts` | A note's words as the exported book has them: export's own reader and `countWords`, with a light path for lines of plain prose so a count stays fast (`docs/dev/plan.md`, "What a word of the book is"). Pure. | Decide what a word is, or what is in the book: that is `src/export/`'s. |
