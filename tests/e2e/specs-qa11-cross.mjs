@@ -709,4 +709,5 @@ nit('the bar’s Undo after the notes were already put back some other way does 
 	await p.sleep(1200);
 	const said = (await doneText(p)) ?? '';
 	t.ok(!/changed since/.test(said), 'the bar says nothing about “changed since” when the text is what Undo would have made it: ' + said);
+	t.eq(said, 'Nothing to put back.', 'and says so in those words, not “Put back in 0 notes.”');
 });

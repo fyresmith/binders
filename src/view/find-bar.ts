@@ -312,7 +312,9 @@ export class FindBar {
 		el.toggle(!!d);
 		if (!d) return;
 		if (d.undone) {
-			el.createSpan({ text: `Put back in ${n(d.undone.back, 'note')}.${d.undone.left ? ` ${n(d.undone.left, 'note was', 'notes were')} changed since, and left as ${d.undone.left === 1 ? 'it is' : 'they are'}.` : ''}` });
+			// (none put back: every note was already as it was, or the ones that weren't are the writer's now)
+			const { back, left } = d.undone, said = back ? `Put back in ${n(back, 'note')}.` : left ? 'Nothing was put back.' : 'Nothing to put back.';
+			el.createSpan({ text: `${said}${d.undone.left ? ` ${n(d.undone.left, 'note was', 'notes were')} changed since, and left as ${d.undone.left === 1 ? 'it is' : 'they are'}.` : ''}` });
 			return;
 		}
 		el.createSpan({ text: `${d.by ? 'Replaced' : 'Removed'} ${d.count.toLocaleString()} in ${n(d.notes.length, 'note')}.${d.left.length ? ` ${n(d.left.length, 'note was', 'notes were')} changed meanwhile, and left as ${d.left.length === 1 ? 'it is' : 'they are'}.` : ''}${d.kept.length ? ` ${n(d.kept.length, 'note was', 'notes were')} left as ${d.kept.length === 1 ? 'it is' : 'they are'}: the replacement would have turned the start of ${d.kept.length === 1 ? 'it' : 'them'} into properties.` : ''}` });

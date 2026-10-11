@@ -47,6 +47,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - In the outliner, property columns read what you type by the property's type (a word in a number is refused, a list of one stays a list, a date must be a date), yes/no properties show a box even where a note has no value, and links are drawn as links that open beside the outliner.
 - A click on the toolbar's word count opens the Progress window, where the target is set beside a deadline, instead of asking for the target; Set word count target and Set target... still ask.
 - With the find bar open, Next and Previous now go from where you last clicked or tapped in the text, not from the bar's last match.
+- After a replace all, Undo says “Nothing to put back.” when every note is already as it was.
 
 ### Fixed
 
