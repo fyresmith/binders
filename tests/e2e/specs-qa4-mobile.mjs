@@ -742,7 +742,10 @@ test('phone manuscript: a tap puts the caret in that section, typing lands there
 		for (let i = 0; i < 3; i++) await swipe(p, 200, 650, 200, 250, 8);
 		t.ok(await p.ev(`${MAN}.scrollTop`) > 400, 'swipes scroll the page');
 		await until(p, `app.vault.adapter.read(${j(L + 'Part One/The keeper.md')}).then(x => /unsaved/.test(x))`, 6000);
-		t.ok(/He met her at the\*\*ZZQ unsaved\*\* foot of the tower/.test(await read(p, L + 'Part One/The keeper.md')), 'what was typed is in the note: ' + (await read(p, L + 'Part One/The keeper.md')).trim().split('\n').pop());
+		// which word the tap lands next to depends on the font's widths, so this checks what was typed, not where: take the
+		// typed bits and the bold marks out and the sentence is as it was
+		const kept = await read(p, L + 'Part One/The keeper.md');
+		t.eq(kept.replace(/\*\*/g, '').replace('ZZQ', '').replace(' unsaved', '').trim(), before[L + 'Part One/The keeper.md'].trim(), 'what was typed is in the note, and nothing else changed: ' + kept.trim().split('\n').pop());
 		// the page's end clears the navigation bar
 		await p.ev(`(() => { document.activeElement.blur(); ${MAN}.scrollTop = ${MAN}.scrollHeight; return 1; })()`);
 		await p.sleep(700);
@@ -782,6 +785,7 @@ test('phone manuscript: a tap on a title renames the note, its menu has the note
 		await flush(p);
 		t.eq((await contents(p))[0], 'Opening', 'in the same place in the binder');
 		// split Arrival where the caret is, from the command palette
+		const arrival0 = await read(p, L + 'Part One/Arrival.md');
 		const line = await p.ev(`(() => { const r = (${scene('Arrival')}).querySelector('.cm-line, .binders-manuscript-rendered p').getBoundingClientRect(); return { x: r.left + 150, y: r.top + 12 }; })()`);
 		await tap(p, line.x, line.y);
 		await p.sleep(400);
@@ -797,14 +801,17 @@ test('phone manuscript: a tap on a title renames the note, its menu has the note
 		await p.sleep(600);
 		await shot(p, 'manuscript-split');
 		t.eq(j(await p.ev(`[...document.querySelectorAll('${LEAF} .binders-manuscript-title')].map(e => e.textContent).slice(0, 4)`)), j(['Opening', 'Arrival', 'Arrival 2', 'The keeper']), 'the section is split in two, in place');
+		// the split's second half is made, then its text is written: wait until the two halves hold all of Arrival's text
+		const bodyOf = (s) => s.split('---\n').pop().replace(/\s+/g, '');
+		const whole = bodyOf(arrival0);
+		await until(p, `Promise.all([${j(L + 'Part One/Arrival.md')}, ${j(L + 'Part One/Arrival 2.md')}].map(f => app.vault.adapter.read(f))).then(([a, b]) => [a, b].map(s => s.split('---\\n').pop()).join('').replace(/\\s+/g, '') === ${j(whole)})`, 6000);
 		const a = await read(p, L + 'Part One/Arrival.md'), b2 = await read(p, L + 'Part One/Arrival 2.md');
-		t.ok((a.split('---\n').pop() + b2.split('---\n').pop()).replace(/\s+/g, ' ').includes('The supply boat left Mara on the jetty with two cases and a letter she had not opened.'.replace(/\s+/g, ' ')) || (a + b2).replace(/\s+/g, '').includes('ThesupplyboatleftMaraonthejettywithtwocasesandalettershehadnotopened.'), 'no text is lost between the two');
-		// the filter
+		t.eq(bodyOf(a) + bodyOf(b2), whole, 'no text is lost between the two');
+		// the filter: Idea, ticked in the Filter popover (which Done shuts)
 		await p.ev(`document.activeElement.blur()`);
-		const f = await p.at(`${LEAF} .binders-filter-button`);
-		await tap(p, f.x, f.y);
-		t.ok(await menuTap(p, 'Idea'), 'Idea, in the filter');
-		await p.sleep(700);
+		await tapTick(p, 'status', 'Idea');
+		t.eq(j((await viewState(p)).filter), j({ status: ['Idea'], label: [] }), 'Idea, picked in the filter');
+		await tapSel(p, '.binders-filter-menu .modal-header-button');
 		await gone(p);
 		await p.sleep(500);
 		await shot(p, 'manuscript-filtered');
