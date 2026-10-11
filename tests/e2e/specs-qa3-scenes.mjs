@@ -640,14 +640,25 @@ test('duplicate: a folder with a folder inside, both folders’ notes, an image 
 	await settle(p);
 	await p.ev(`${B}.move(${file(L + 'Big/Scene 299.md')}, ${file(L + 'Big')}, 0).then(() => 1)`);
 	await settle(p);
+	// (what copying 300 plain notes costs on this machine, outside any binder: the duplicate is judged against it)
+	const plain = await p.ev(`(async () => {
+		await app.vault.createFolder('Plain from'); await app.vault.createFolder('Plain to');
+		for (let i = 0; i < 300; i++) await app.vault.create('Plain from/Scene ' + String(i).padStart(3, '0') + '.md', 'Body ' + i + '\\n');
+		const t0 = performance.now();
+		for (const f of app.vault.getFolderByPath('Plain from').children) await app.vault.copy(f, 'Plain to/' + f.name);
+		return Math.round(performance.now() - t0);
+	})()`);
 	const t0 = Date.now();
 	t.eq(await dup(p, L + 'Big'), L + 'Big 2', 'a folder of 300 notes');
 	const ms = Date.now() - t0;
+	console.log(`    qa3 duplicate: 300 notes in ${ms} ms, a plain copy of 300 notes in ${plain} ms`);
 	await settle(p); await p.sleep(600);
 	const big = (await contents(p)).filter((x) => x.startsWith('Big 2/'));
 	t.eq(big.length, 301, 'all listed');
 	t.eq(j(big.slice(0, 3)), j(['Big 2/', 'Big 2/Scene 299', 'Big 2/Scene 000']), 'in the original’s order');
-	t.ok(ms < 2000, `copied in ${ms} ms`);
+	// (not a number of milliseconds: the machine decides that. Judged against copying the same notes with nothing of
+	// Binders in it, in the same run; the 20 s is only a backstop)
+	t.ok(ms < 5 * plain + 1000 && ms < 20000, `copied in ${ms} ms; plain copies of 300 notes took ${plain} ms (limit: five times as long, and a second)`);
 });
 
 test('BUG: duplicating a folder that holds a note named like the copy (“Part Two 2” in “Part Two”) copies everything', async (p, h, t) => {

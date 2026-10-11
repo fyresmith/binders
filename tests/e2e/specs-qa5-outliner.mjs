@@ -11,6 +11,7 @@
 // QA5_SHOTS=<dir> saves screenshots of every step there; QA5_DATA=<dir> saves what was measured, as JSON.
 import { tapToggle } from './filter-helpers.mjs';
 import { mkdirSync, writeFileSync } from 'fs';
+import { scaled, slowness } from './machine-speed.mjs';
 import { B, PL, VIEW, closeMenus, contents, flush, j, menuItems, openView, read, reload, texts, tidy, until, viewState } from './view-helpers.mjs';
 
 export const specs = [];
@@ -1474,10 +1475,12 @@ test('phone, CPU four times slower, a binder of 600 notes in 40 folders three de
 	t.ok(await until(p, ready, 90000), 'the big binder is made');
 	const S = rowIn('Saga/');
 	const timed = (expr) => p.ev(`(async () => { const t = performance.now(); await (${expr}); await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 0)))); return Math.round(performance.now() - t); })()`);
+	let k = 1; // how much slower than the reference machine this one is (tests/e2e/machine-speed.mjs): the limits below scale by it
 	await onDevice(p, PHONE, async () => {
 		t.ok(await until(p, ready, 90000), 'and found again on the phone');
 		await openView(p, 'Saga');
 		await p.sleep(1500);
+		k = await slowness(p);
 		await p.send('Emulation.setCPUThrottlingRate', { rate: 4 });
 		f.opens = await timed(`(async () => { ${VIEW}.setMode('outliner'); })()`);
 		await until(p, `document.querySelectorAll('${LEAF} .binders-outliner-row').length >= ${N}`, 30000);
@@ -1496,7 +1499,7 @@ test('phone, CPU four times slower, a binder of 600 notes in 40 folders three de
 			await p.sleep(400);
 			const run = { scroll: await frameStats(p), scrolled: await p.ev(`${OUT}.scrollTop`) };
 			if (!best || run.scroll.p95 < best.scroll.p95) best = run;
-			if (run.scroll.median <= 20 && run.scroll.p95 <= 50 && run.scrolled > 1000) break;
+			if (run.scroll.median <= scaled(20, k) && run.scroll.p95 <= scaled(50, k) && run.scrolled > 1000) break;
 		}
 		f.scroll = best.scroll;
 		f.scrolled = best.scrolled;
@@ -1541,14 +1544,14 @@ test('phone, CPU four times slower, a binder of 600 notes in 40 folders three de
 	dump('big', f);
 	// (the machine is shared: generous margins over what a quiet run measures — 480, 17/23, 190, 190, 23, 18/29 ms)
 	t.eq(f.rows, N + PARTS + PARTS * CH, 'every row is there');
-	t.ok(f.opens < 2000, `opens in ${f.opens} ms`);
-	t.ok(f.scroll.median <= 20 && f.scroll.p95 <= 50 && f.scrolled > 1000, 'swipes scroll: ' + j(f.scroll));
+	t.ok(f.opens < scaled(2000, k), `opens in ${f.opens} ms (limit ${scaled(2000, k)}, machine ×${k.toFixed(2)})`);
+	t.ok(f.scroll.median <= scaled(20, k) && f.scroll.p95 <= scaled(50, k) && f.scrolled > 1000, `swipes scroll (limits ${scaled(20, k)}/${scaled(50, k)}): ` + j(f.scroll));
 	t.eq(f.headStays, 0, 'with the header in place');
-	t.ok(f.foldMs >= 0 && f.foldMs < 500 && f.unfoldMs < 500 && f.rowsFolded === f.rows - 63, `a folder of 63 rows folds in ${f.foldMs} ms and unfolds in ${f.unfoldMs}`);
-	t.ok(f.collapseAll < 800 && f.expandAll < 1500 && f.rowsCollapsed === PARTS, `everything folds in ${f.collapseAll} ms and unfolds in ${f.expandAll}`);
-	t.ok(f.selectMs < 100, `a tap selects in ${f.selectMs} ms`);
-	t.ok(f.dragGhost && f.drag.median <= 25 && f.drag.p95 <= 60, 'a drag follows the finger: ' + j(f.drag));
-	t.ok(f.autoscroll.scroll < 2600 && f.autoscroll.frames.median <= 40, 'and scrolls at the header’s edge: ' + j(f.autoscroll));
+	t.ok(f.foldMs >= 0 && f.foldMs < scaled(500, k) && f.unfoldMs < scaled(500, k) && f.rowsFolded === f.rows - 63, `a folder of 63 rows folds in ${f.foldMs} ms and unfolds in ${f.unfoldMs} (limit ${scaled(500, k)})`);
+	t.ok(f.collapseAll < scaled(800, k) && f.expandAll < scaled(1500, k) && f.rowsCollapsed === PARTS, `everything folds in ${f.collapseAll} ms and unfolds in ${f.expandAll} (limits ${scaled(800, k)}, ${scaled(1500, k)})`);
+	t.ok(f.selectMs < scaled(100, k), `a tap selects in ${f.selectMs} ms (limit ${scaled(100, k)})`);
+	t.ok(f.dragGhost && f.drag.median <= scaled(25, k) && f.drag.p95 <= scaled(60, k), `a drag follows the finger (limits ${scaled(25, k)}/${scaled(60, k)}): ` + j(f.drag));
+	t.ok(f.autoscroll.scroll < 2600 && f.autoscroll.frames.median <= scaled(40, k), 'and scrolls at the header’s edge: ' + j(f.autoscroll));
 });
 
 // =====================================================================================================================

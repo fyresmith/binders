@@ -60,6 +60,14 @@ export async function make(p, root, itemsSrc, { order = null, binderNote = true,
 const timed = (p, expr) => p.ev(`(async () => { const t = performance.now(); await (${expr}); await new Promise(r => requestAnimationFrame(() => setTimeout(r, 0))); return Math.round(performance.now() - t); })()`);
 const heap = (p) => p.ev(`performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : -1`);
 const dom = (p) => p.ev(`document.getElementsByTagName('*').length`);
+/** Waits until Obsidian has stopped reading notes for its index: nothing has changed in the metadata cache for a
+    second. Files written from outside are read again after they are first listed, and a note deleted in the middle of
+    that is logged by Obsidian as a read that failed (ENOENT), which the runner counts as an error. */
+const quiet = (p, ms = 1000, timeout = 60000) => p.ev(`new Promise((resolve) => {
+	let last = Date.now();
+	const bump = () => { last = Date.now(); }, refs = ['changed', 'resolved'].map((e) => app.metadataCache.on(e, bump));
+	const t0 = Date.now(), iv = setInterval(() => { if (Date.now() - last > ${ms} || Date.now() - t0 > ${timeout}) { clearInterval(iv); refs.forEach((r) => app.metadataCache.offref(r)); resolve(1); } }, 100);
+})`);
 
 /** Opens the view on a folder in the mode and options given; returns ms until the first card/row/editor is there. */
 async function show(p, folder, mode, options = {}) {
@@ -690,11 +698,14 @@ perf('(diagnosis) deleting a whole binder of 2,000 notes in 80 folders: with Bin
 	const items = `Array.from({ length: 2000 }, (_, i) => ({ path: 'Part ' + String(Math.floor(i / 25)).padStart(3, '0') + '/Scene ' + String(i).padStart(4, '0') + '.md', text: 'x' + i + '\\n' }))`;
 	const del = () => p.ev(`(async () => { const t = performance.now(); await app.vault.delete(app.vault.getAbstractFileByPath('Parts'), true); return Math.round(performance.now() - t); })()`);
 	await make(p, 'Parts', items);
+	await quiet(p);
 	out.on = await del();
 	await p.sleep(500);
 	await p.ev(`app.plugins.disablePlugin('binders').then(() => 1)`);
 	await make(p, 'Parts', items, { settle: false, binderNote: false });
-	await p.sleep(500);
+	// (until Obsidian has read the notes it was told of: deleted in the middle of that, it logs a read that failed)
+	await until(p, `app.vault.getMarkdownFiles().filter(f => f.path.startsWith('Parts/')).length >= 2000 && app.vault.getMarkdownFiles().filter(f => f.path.startsWith('Parts/')).every(f => app.metadataCache.getFileCache(f))`, 120000);
+	await quiet(p);
 	out.off = await del();
 	await p.ev(`app.plugins.enablePlugin('binders').then(() => 1)`);
 	say('delete a binder of 2,000 notes in 80 folders (ms)', out);
@@ -702,23 +713,48 @@ perf('(diagnosis) deleting a whole binder of 2,000 notes in 80 folders: with Bin
 });
 
 perf('(diagnosis) deleting one folder of 25 notes inside a binder of 5,000 notes in 200 folders, by what is open', async (p, h, t) => {
-	const out = {};
+	const out = {}, drew = {};
 	await make(p, 'Parts', `Array.from({ length: 5000 }, (_, i) => ({ path: 'Part ' + String(Math.floor(i / 25)).padStart(3, '0') + '/Scene ' + String(i).padStart(4, '0') + '.md', text: 'x' + i + '\\n' }))`);
+	await quiet(p);
 	let k = 0;
-	const del = () => p.ev(`(async () => { const t = performance.now(); await app.vault.delete(app.vault.getAbstractFileByPath('Parts/Part ${pad(k++, 3)}'), true); await new Promise(r => setTimeout(r, 400)); return Math.round(performance.now() - t); })()`);
-	const burst = async () => { const r = []; for (let i = 0; i < 4; i++) r.push(await del()); return r; };
-	out.noView = await burst();
-	await show(p, 'Parts', 'corkboard'); out.corkboard = await burst();
-	await show(p, 'Parts', 'outliner'); out.outliner = await burst();
-	await show(p, 'Parts', 'manuscript'); out.manuscript = await burst();
-	say('delete a 25-note folder (ms each, incl. 400 ms wait)', out);
+	// Each run of deletes is timed, and so is the time the open view spends drawing in it (its `refresh`, counted by
+	// wrapping it): how the drawing compares with the time it took is the same on a fast machine and a slow one.
+	const del = (n, wait, after = 600) => p.ev(`(async () => {
+		const view = app.workspace.getLeavesOfType('binders-view')[0]?.view, base = view?.refresh, spent = { calls: 0, ms: 0 };
+		if (view) view.refresh = function (...a) { const t0 = performance.now(); try { return base.apply(this, a); } finally { spent.calls++; spent.ms += performance.now() - t0; } };
+		const t = performance.now();
+		try {
+			for (let i = 0; i < ${n}; i++) { await app.vault.delete(app.vault.getAbstractFileByPath('Parts/Part ' + String(${k} + i).padStart(3, '0')), true); if (${wait}) await new Promise(r => setTimeout(r, ${wait})); }
+			await new Promise(r => setTimeout(r, ${after}));
+		} finally { if (view) view.refresh = base; }
+		return { ms: Math.round(performance.now() - t), calls: spent.calls, drew: Math.round(spent.ms) };
+	})()`).then((r) => { k += n; return r; });
+	const burst = async (mode) => { const r = []; for (let i = 0; i < 4; i++) r.push(await del(1, 0)); drew[mode] = r; return r.map((x) => x.ms); };
+	out.noView = await burst('noView');
+	await show(p, 'Parts', 'corkboard'); out.corkboard = await burst('corkboard');
+	await show(p, 'Parts', 'outliner'); out.outliner = await burst('outliner');
+	// twelve folders one after another with no pause: 300 notes gone in a rush, as when a writer deletes a selection
+	const rush = await del(12, 0, 4000);
+	await show(p, 'Parts', 'manuscript'); out.manuscript = await burst('manuscript');
+	say('delete a 25-note folder (ms each, incl. 600 ms wait)', out);
+	say('and the redraws in each: calls/ms drawing', Object.fromEntries(Object.entries(drew).map(([m, r]) => [m, r.map((x) => x.calls + '/' + x.drew)])));
+	say('twelve folders in a rush, outliner open: ms, redraws, ms drawing', rush);
 	// (the list is written before the binder is cleared away: deleted under a write, Obsidian logs the note it can't read)
-	await flush(p); await p.sleep(300);
+	await flush(p); await quiet(p);
 	const list = await onDisk(p, 'Parts');
-	t.eq(list.length, 5200 - 16 * 26, 'the binder note lists what is left: 184 folders and their 4,600 notes');
+	t.eq(list.length, 5200 - 28 * 26, 'the binder note lists what is left: 172 folders and their 4,300 notes');
 	t.eq(dupes(list), 0, 'none twice');
-	t.eq(list[0], 'Part 016/', 'the sixteen folders deleted are gone from it, the rest in order');
-	for (const [mode, ms] of Object.entries(out)) t.ok(Math.max(...ms) < 400 + 1500, `${mode}: deleting a folder of 25 notes took ${Math.max(...ms) - 400} ms at most (limit 1500)`);
+	t.eq(list[0], 'Part 028/', 'the twenty-eight folders deleted are gone from it, the rest in order');
+	// What a view may cost is counted, not timed (a slow machine, or a throttled one, takes longer at everything). A
+	// folder deleted draws the view about once. A rush of 300 notes gone must not draw after each: drawn again only after
+	// waiting three times as long as the last drawing took (BinderView.schedule), it draws a few times, and the drawing
+	// is under half of the time. (At the old flat 80 ms, a redraw of 5,000 rows every 80 ms was nearly all of it.) The
+	// times at the end are only a backstop for something that hangs.
+	for (const mode of ['corkboard', 'outliner', 'manuscript']) t.ok(Math.max(...drew[mode].map((x) => x.calls)) <= 3, `${mode}: a folder of 25 notes deleted draws the view ${drew[mode].map((x) => x.calls).join(', ')} times`);
+	t.ok(rush.calls <= 5, `a rush of 300 notes deleted drew the outliner ${rush.calls} times (limit 5)`);
+	t.ok(rush.drew <= 0.5 * rush.ms, `and the drawing took ${rush.drew} ms of the ${rush.ms} ms (limit: half)`);
+	for (const mode of ['corkboard', 'outliner', 'manuscript']) t.ok(Math.max(...out[mode]) < 600 + 8000, `${mode}: deleting a folder of 25 notes took ${Math.max(...out[mode]) - 600} ms at most (backstop 8000)`);
+	t.ok(rush.ms < 30000, `the rush took ${rush.ms} ms (backstop 30000)`);
 });
 
 /** What the page is blocked for after one note is changed from outside (a sync, an editor in another tab): the

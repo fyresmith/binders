@@ -7,6 +7,7 @@
 //
 // QA6_SHOTS=<dir> saves screenshots of the steps there.
 import { mkdirSync } from 'fs';
+import { scaled, slowness } from './machine-speed.mjs';
 import { PL, LEAF, PHONE, SMALL, BIG, land, KEYBOARD, metrics, onDevice, keyboard, tap, hold, swipe, touch, pressAndMove, binder, openMs, settle, tapText, caret, seen, keys, saveAll, snap, rect, sc, M, VIEW, B, j, until, openView, compose, menuTap, titleMenu, dialogTap } from './specs-qa5-manuscript.mjs';
 
 export const specs = [];
@@ -76,8 +77,10 @@ perf('a flat binder of 1,000 short scenes, CPU four times slower: every mode ope
 	// (the best of three swipes: another process on the machine can cost a whole run some frames, and what's measured is the page)
 	const scroll = async (ms, p95 = 1e9) => { let best = null; for (let k = 0; k < 3; k++) { await frames(ms); await swipes(); const st = await stats(); if (!best || st.median < best.median || (st.median === best.median && st.p95 < best.p95)) best = st; if (best.median <= 20 && best.p95 <= p95) break; } return best; };
 	const out = {};
+	let k = 1; // how much slower than the reference machine this one is (tests/e2e/machine-speed.mjs): the limits below scale by it
 	await onDevice(p, PHONE, async () => {
 		t.ok(await until(p, ready, 90000), 'and found again on the phone');
+		k = await slowness(p);
 		await p.send('Emulation.setCPUThrottlingRate', { rate: 4 });
 		out.corkboardOpens = await timed(`${PL}.openBinder(app.vault.getAbstractFileByPath('Saga'))`);
 		await until(p, `document.querySelectorAll('${LEAF} .binders-card[data-path]').length >= ${N}`, 60000);
@@ -88,13 +91,13 @@ perf('a flat binder of 1,000 short scenes, CPU four times slower: every mode ope
 		out.outlinerScroll = await scroll(2600);
 		out.manuscriptOpens = await timed(`(async () => { ${VIEW}.setMode('manuscript'); })()`);
 		await until(p, `!!document.querySelector('${LEAF} .binders-manuscript .binders-manuscript-rendered')`, 60000); await p.sleep(1500);
-		out.manuscriptScroll = await scroll(2800, 50);
+		out.manuscriptScroll = await scroll(2800, scaled(50, k));
 		await p.send('Emulation.setCPUThrottlingRate', { rate: 1 });
 	});
 	console.log('    qa6 phone speed, 1,000 scenes (ms, CPU ×4): ' + j(out));
-	for (const k of ['corkboardOpens', 'outlinerOpens', 'manuscriptOpens']) t.ok(out[k] < 2000, `${k}: ${out[k]} ms`);
-	for (const k of ['corkboardScroll', 'outlinerScroll']) t.ok(out[k].median <= 20, `${k}: ${j(out[k])}`); // (the board's 95th percentile moves with the load of the machine)
-	t.ok(out.manuscriptScroll.median <= 20 && out.manuscriptScroll.p95 <= 50, `manuscriptScroll: ${j(out.manuscriptScroll)}`);
+	for (const m of ['corkboardOpens', 'outlinerOpens', 'manuscriptOpens']) t.ok(out[m] < scaled(2000, k), `${m}: ${out[m]} ms (limit ${scaled(2000, k)}, machine ×${k.toFixed(2)})`);
+	for (const m of ['corkboardScroll', 'outlinerScroll']) t.ok(out[m].median <= scaled(20, k), `${m} (limit ${scaled(20, k)}): ${j(out[m])}`); // (the board's 95th percentile moves with the load of the machine)
+	t.ok(out.manuscriptScroll.median <= scaled(20, k) && out.manuscriptScroll.p95 <= scaled(50, k), `manuscriptScroll (limits ${scaled(20, k)}/${scaled(50, k)}): ${j(out.manuscriptScroll)}`);
 });
 
 // =====================================================================================================================

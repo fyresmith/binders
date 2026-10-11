@@ -3,6 +3,7 @@
 // Tests named “BUG: …” and “UX: …” fail on purpose until fixed; the rest record behaviour that is solid.
 // (Earlier rounds: specs-manuscript.mjs, specs-qa-manuscript.mjs, specs-qa2-manuscript.mjs. Nothing here repeats them.)
 import { filterToggle } from './filter-helpers.mjs';
+import { scaled, slowness } from './machine-speed.mjs';
 import { readFileSync, existsSync, readdirSync, statSync } from 'fs';
 import { join, relative } from 'path';
 import { PHONE, TABLET, metrics, onDevice } from './specs-qa5-manuscript.mjs';
@@ -1207,12 +1208,13 @@ test('300 scenes: wheel through the whole page without a slow frame, memory and 
 	const heap = async () => { await p.send('HeapProfiler.collectGarbage'); await p.sleep(200); return p.ev(`Math.round(performance.memory.usedJSHeapSize / 1e6)`); };
 	const stats = () => p.ev(`(() => { const m = ${M}; return { live: m.scenes.filter(s => s.live).length, editors: document.querySelectorAll('.binders-manuscript .cm-editor').length, children: m.comp._children.length, nodes: m.root.querySelectorAll('*').length }; })()`);
 	try {
+		const k = await slowness(p); // how much slower than the reference machine this one is: the frame and typing limits scale by it
 		await openMs(p, 'Big');
 		t.eq(await p.ev(`${M}.scenes.length`), 300, 'all the scenes');
 		await p.ev(`(() => { window.__f = []; window.__run = true; let last = performance.now(); const tick = (now) => { window.__f.push(now - last); last = now; if (window.__run) requestAnimationFrame(tick); }; requestAnimationFrame(tick); return 1; })()`);
 		for (let n = 0; n < 1500; n += 10) { await wheel(p, 400, 10, 16); if (await p.ev(`(() => { const m = ${M}; return m.root.scrollTop + m.root.clientHeight >= m.root.scrollHeight - 5; })()`)) break; }
 		const f = await p.ev(`(() => { window.__run = false; const f = window.__f.slice(2).sort((a, b) => a - b); return { frames: f.length, p95: f[Math.floor(f.length * 0.95)], max: f[f.length - 1] }; })()`);
-		t.ok(f.frames > 500 && f.p95 < 34 && f.max < 100, 'frames while wheeling to the end: ' + J(f));
+		t.ok(f.frames > 500 && f.p95 < scaled(34, k) && f.max < scaled(100, k), `frames while wheeling to the end (limits ${scaled(34, k)}/${scaled(100, k)}, machine ×${k.toFixed(2)}): ` + J(f));
 		await p.sleep(1500); await settle(p);
 		const s1 = await stats(), h1 = await heap();
 		t.ok(s1.live <= 11 && s1.editors === s1.live, 'only the editors near the window are alive: ' + J(s1));
@@ -1228,7 +1230,7 @@ test('300 scenes: wheel through the whole page without a slow frame, memory and 
 		await keys(p, ' the quick brown fox', 20);
 		const typed = Date.now() - t0;
 		t.ok((await value(p, BIG(250))).endsWith(' the quick brown fox\n'), 'typed far down');
-		t.ok(typed < 20 * 60, `20 keys 20 ms apart took ${typed} ms`);
+		t.ok(typed < scaled(20 * 60, k), `20 keys 20 ms apart took ${typed} ms (limit ${scaled(20 * 60, k)})`);
 		await pageKey(p, 'Home', 2); await keys(p, 'HOME ');
 		await p.sleep(500);
 		t.eq((await caret(p))?.path, BIG(0), 'Mod+Home goes to the first scene');

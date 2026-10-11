@@ -15,6 +15,7 @@
 // QA5_SHOTS=<dir> saves screenshots of every step there.
 import { tapSel, tapTick, tapDone, tapToggle, tapClear } from './filter-helpers.mjs';
 import { mkdirSync } from 'fs';
+import { scaled, slowness } from './machine-speed.mjs';
 import { B, PL, VIEW, card, closeMenus, contents, flush, j, menuItems, openView, read, reload, texts, tidy, until, viewState, writeRaw } from './view-helpers.mjs';
 
 export const specs = [];
@@ -1742,8 +1743,10 @@ test('a binder of 600 notes on a phone, CPU four times slower: it opens in under
 	await makeSaga(p);
 	t.ok(await until(p, sagaReady, 90000), 'the big binder is made');
 	const out = {};
+	let k = 1; // how much slower than the reference machine this one is (tests/e2e/machine-speed.mjs): the limits below scale by it
 	await onDevice(p, PHONE, async () => {
 		t.ok(await until(p, sagaReady, 90000), 'and found again on the phone');
+		k = await slowness(p);
 		await p.send('Emulation.setCPUThrottlingRate', { rate: 4 });
 		out.opens = await p.ev(`(async () => { const t = performance.now(); await ${PL}.openBinder(app.vault.getAbstractFileByPath(${j(SAGA)})); await new Promise(r => requestAnimationFrame(() => setTimeout(r, 0))); return Math.round(performance.now() - t); })()`);
 		await until(p, `document.querySelectorAll('${LEAF} .binders-card[data-path]').length === ${PARTS * PER}`, 30000);
@@ -1811,11 +1814,11 @@ test('a binder of 600 notes on a phone, CPU four times slower: it opens in under
 		await p.send('Emulation.setCPUThrottlingRate', { rate: 1 });
 	});
 	console.log('    qa5 cork speed (ms, CPU ×4, 600 notes): ' + j(out));
-	t.ok(out.opens < 3000, `opens in ${out.opens} ms`);
-	t.ok(out.scroll.median <= 20 && out.scroll.p95 <= 60, 'scrolling: ' + j(out.scroll));
-	t.ok(out.drag.median <= 20 && out.drag.p95 <= 60, 'dragging: ' + j(out.drag));
-	t.ok(out.tapToSelect != null && out.tapToSelect < 300, `a tap shows as selected in ${out.tapToSelect} ms`);
-	t.ok(out.drop < 3000, `a drop is done in ${out.drop} ms`);
+	t.ok(out.opens < scaled(3000, k), `opens in ${out.opens} ms (limit ${scaled(3000, k)}, machine ×${k.toFixed(2)})`);
+	t.ok(out.scroll.median <= scaled(20, k) && out.scroll.p95 <= scaled(60, k), `scrolling (limits ${scaled(20, k)}/${scaled(60, k)}): ` + j(out.scroll));
+	t.ok(out.drag.median <= scaled(25, k) && out.drag.p95 <= scaled(60, k), `dragging (limits ${scaled(25, k)}/${scaled(60, k)}): ` + j(out.drag));
+	t.ok(out.tapToSelect != null && out.tapToSelect < scaled(300, k), `a tap shows as selected in ${out.tapToSelect} ms (limit ${scaled(300, k)})`);
+	t.ok(out.drop < scaled(3000, k), `a drop is done in ${out.drop} ms (limit ${scaled(3000, k)})`);
 });
 
 ux('a card carried to the edge of a long board gets there: the board scrolls 14 px a frame at most (about 840 px a second), so the far end of a 600-note binder is over a minute away, the finger held still', async (p, h, t) => {
