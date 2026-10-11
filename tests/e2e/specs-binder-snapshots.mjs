@@ -336,6 +336,24 @@ test('a stretch that is the same folds to a line that opens; a folder in which n
 	t.eq(j((await tree(p)).slice(2, 5).map((x) => x.split(' | ')[0])), j(['Arrival', 'The keeper', 'Storm warning']), 'a click opens it');
 });
 
+test('a file of the progress record written while the dialog is open does not draw it again: a line that was opened stays open', async (p, h, t) => {
+	await p.ev(`(async () => { for (let i = 1; i <= 6; i++) await ${B}.newScene(${file(P2)}, Infinity, 'Extra ' + i, undefined, 'Text ' + i + '.\\n'); await ${B}.flush(); })().then(() => 1)`);
+	await openView(p);
+	const first = await take(p);
+	await age(p, first.files[0], '2026-09-19 16.20.05');
+	await p.ev(`app.vault.process(${file(P2 + '/Extra 3.md')}, (t) => t + 'More.\\n').then(() => 1)`);
+	await sleep(p, 300);
+	await openDialog(p);
+	await drawn(p);
+	await clickIn(p, DLG + ' .binders-folder-snapshots-folded', '4 notes the same');
+	await until(p, `[...document.querySelectorAll(${j(DLG + ' .binders-folder-snapshots-tree .tree-item-inner')})].some((e) => e.textContent === 'Extra 2')`);
+	const open = j((await tree(p)).map((x) => x.split(' | ')[0]));
+	// (another device's record arrives, or this one's is written late: it is no snapshot, and the list is the same)
+	await p.ev(`(async () => { const d = 'The Lighthouse/Snapshots/History'; if (!app.vault.getAbstractFileByPath(d)) await app.vault.createFolder(d); await app.vault.create(d + '/2026 Other device 0a1b.binder-history', 'binders-history 1\\n'); })().then(() => 1)`);
+	await sleep(p, 900);
+	t.eq(j((await tree(p)).map((x) => x.split(' | ')[0])), open, 'the line stays open');
+});
+
 test('one note of a snapshot opens as a note’s snapshot does, with the same comparison; “Read” is the binder as it stood, top to bottom; “Compare with” sets it against another snapshot', async (p, h, t) => {
 	await openView(p);
 	const first = await take(p);

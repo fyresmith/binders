@@ -1780,6 +1780,8 @@ export class BinderStore extends Events implements ExplorerSource {
 	/** Every item in the binder a list entry can name, per folder ("" for the top), without binder and folder notes. */
 	private items(s: State): Map<string, Item[]> {
 		if (s.items) return s.items;
+		// (a binder whose note was deleted has no folder, for a deleted file has no parent: it holds nothing)
+		if (!s.dir && !s.note.parent) return new Map<string, Item[]>();
 		const map = new Map<string, Item[]>(), revision = this.plugin.revision?.noteOf(s) ?? null;
 		const walk = (f: TFolder, rel: string) => {
 			const list: Item[] = [];

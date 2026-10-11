@@ -6,6 +6,7 @@ import { deleteFolderSnapshot, folderSnapshots, forgetRead, hasSnapshots, interr
 import { badSnapshotName } from '../snapshot-text';
 import { bringBackText, isScene } from '../snapshots';
 import { historyLook, submenu, trashPhrase } from './internals';
+import { isRecordFile } from '../progress/format';
 import { ask, cancelButton, confirm } from './modals';
 import { iconButton, proseChanges, say, when, whenIn, whenShort } from './snapshots';
 import { wordsIn, wordsLabel } from './words';
@@ -148,7 +149,9 @@ export class FolderSnapshotsModal extends Modal {
 		this.drawn.load();
 		// the list follows the vault while the dialog is open; "now" is read again after anything in the folder changes
 		const { vault } = this.app, store = this.plugin.binders;
-		const seen = (path: string) => { if (store.inSnapshots(path)) this.soon(); else if (path.startsWith(this.folder.path + '/')) this.now = null; };
+		// (the progress record, in Snapshots/History, is no snapshot: its files drawing the list again would shut what was opened)
+		const inRecord = (path: string) => isRecordFile(path) || path.endsWith('/Snapshots/History');
+		const seen = (path: string) => { if (store.inSnapshots(path)) { if (!inRecord(path)) this.soon(); } else if (path.startsWith(this.folder.path + '/')) this.now = null; };
 		this.rendered.registerEvent(vault.on('create', (f) => seen(f.path)));
 		this.rendered.registerEvent(vault.on('delete', (f) => seen(f.path)));
 		this.rendered.registerEvent(vault.on('modify', (f) => { if (!store.inSnapshots(f.path) && f.path.startsWith(this.folder.path + '/')) this.now = null; }));
