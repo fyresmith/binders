@@ -30,10 +30,12 @@ on:
 
 run-name: ${{ github.event_name == 'workflow_dispatch' && (inputs.grep != '' || inputs.specs != '' || inputs.themes != 'both') && format('E2E narrowed {0} {1} {2}', inputs.grep, inputs.specs, inputs.themes) || 'E2E suite' }}
 
-# A newer commit on main ends the run of an older one (a narrowed run by hand is its own group, and ends nothing else)
+# A run that has started is left to finish, so there is always a verdict: a newer commit on main waits its turn, and
+# of the commits waiting only the newest is run (GitHub keeps one). A narrowed run by hand is its own group.
+# (It ended the older run at first; with work shipping every half hour, no run ever finished.)
 concurrency:
   group: e2e-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && (inputs.grep != '' || inputs.specs != '' || inputs.themes != 'both') && 'narrowed' || 'whole' }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: read
