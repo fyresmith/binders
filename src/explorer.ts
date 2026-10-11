@@ -205,12 +205,19 @@ export function installExplorer(plugin: Plugin, source: ExplorerSource, settings
 	const ended = (row: HTMLElement) => row.toggleClass(ENDED, !!row.querySelector(':scope > .binders-folder-tag, :scope > .binders-explorer-label'));
 
 	/** A labeled item's color, as a dot after its name (and none on anything else). */
+	// (what each row was last given, so the explorer sorting a folder of thousands again for every note deleted from it
+	// doesn't search every row for its dot again)
+	const dotted = new WeakMap<HTMLElement, { color: string | null; el: HTMLElement | null }>();
 	const dot = (it: ExplorerItem) => {
 		if (!it.selfEl) return;
 		const color = loaded && settings().explorerLabels ? source.labelColor(it.file) : null;
+		const last = dotted.get(it.selfEl);
+		if (last && last.color === color && (!color || last.el?.parentElement === it.selfEl)) return;
+		dotted.set(it.selfEl, { color, el: null });
 		let el = it.selfEl.querySelector<HTMLElement>(':scope > .binders-explorer-label');
 		if (!color) { el?.remove(); ended(it.selfEl); return; }
 		el ??= createDiv({ cls: 'binders-explorer-label', attr: { 'aria-hidden': 'true' } });
+		dotted.set(it.selfEl, { color, el });
 		// (before a binder's tag, at the row's end)
 		if (!el.parentElement) it.selfEl.insertBefore(el, it.selfEl.querySelector(':scope > .binders-folder-tag'));
 		el.setCssProps({ '--binders-label': color });

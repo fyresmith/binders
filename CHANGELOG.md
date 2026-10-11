@@ -68,6 +68,8 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - Quitting Obsidian no longer waits on the progress record when nothing is waiting to be written.
 - On a touch device, in a pane narrower than about 300 px, the toolbar no longer overflows: Undo is left out there, and is still in More options.
 - In a very narrow pane, such as a small window zoomed to 300%, nothing in the toolbar spills off the side.
+- Deleting many notes at once is no longer several times slower while a binder view is open.
+- The file explorer no longer slows down when many notes are deleted from a big folder.
 
 ## 0.51.1 (2026-10-10)
 

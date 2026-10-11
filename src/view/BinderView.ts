@@ -102,6 +102,9 @@ export class BinderView extends ItemView {
 	private words: WordCounter;
 	private identity = '';
 	private timer = 0;
+	/** How long the last scheduled redraw took, and when it ended (see `schedule`). */
+	private drewFor = 0;
+	private drewAt = -Infinity;
 	private reveal: string | null = null;
 	/** Binders have been looked for with the metadata cache complete (until then, a folder not found yet may still be
 	    found: the view says it's loading, not that the folder isn't in a binder). */
@@ -510,7 +513,17 @@ export class BinderView extends ItemView {
 	/** Changes throttled to one redraw per frame or so: typing in a note changes its word count often. */
 	private schedule(): void {
 		if (this.timer || this.closed) return;
-		this.timer = window.setTimeout(() => { this.timer = 0; this.refresh(); }, 80);
+		// Changes that keep arriving (a hundred notes deleted one after another) must not keep the page drawing: right
+		// after a redraw, the next waits three times as long as that one took, so drawing is a quarter of the time
+		// at most. A lone change still waits 80 ms.
+		const slow = Math.min(this.drewFor * 3, 2000), wait = performance.now() - this.drewAt < Math.max(300, slow) ? Math.max(80, slow) : 80;
+		this.timer = window.setTimeout(() => {
+			this.timer = 0;
+			const t0 = performance.now();
+			this.refresh();
+			this.drewAt = performance.now();
+			this.drewFor = this.drewAt - t0;
+		}, wait);
 	}
 
 	private resolve(): void {
