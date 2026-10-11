@@ -3,6 +3,7 @@ import { recordDay, hourOf } from '../src/progress/day';
 import { FORMAT, fileName, moveKind, parseFile, parseName } from '../src/progress/format';
 import { Ledger, type Device } from '../src/progress/ledger';
 import { merge, toHistory, statusOn, type Source } from '../src/progress/merge';
+import { readSettings } from '../src/settings-data';
 import { done, eq, ok } from './harness';
 
 const doc = (s: string): Doc => ({ length: s.length, sliceString: (a, b) => s.slice(a, b) });
@@ -357,5 +358,10 @@ const file = (d: Device, f: (l: Ledger) => void, year = 2026): Source => { const
 	const l2 = new Ledger(A, 2026); l2.typed(t(2026, 5, 1), 'One', 1, 0); l2.absorb(newer);
 	ok(l2.locked && !l2.dirty, 'a newer file read late locks the ledger and nothing is written');
 }
+
+// ---- the switch: on to begin with, and turned off it stays off ----
+eq(readSettings({}).recordProgress, true, 'recording is on to begin with');
+eq(readSettings({ recordProgress: false }).recordProgress, false, 'turned off, it stays off');
+eq(readSettings({ recordProgress: 'no' }).recordProgress, true, 'a value that is not a switch is the default');
 
 done('progress record');

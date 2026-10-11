@@ -88,7 +88,7 @@ export class Progress {
 	    the device is a new one, with a file of its own, and the old file stays as a record of the old one. */
 	device(): Device {
 		if (this.override) return this.override;
-		if (this.who) return this.who;
+		if (this.who) { this.who.kind = this.kind(); return this.who; }
 		const app = this.plugin.app;
 		let id: unknown = app.loadLocalStorage(DEVICE_ID), label: unknown = app.loadLocalStorage(DEVICE_LABEL);
 		if (typeof id !== 'string' || !/^[0-9a-f]{6}$/.test(id)) {
@@ -102,8 +102,16 @@ export class Progress {
 
 	/** For a test: this device as another (an id, a label, a kind), not kept. */
 	setDevice(d: { id: string; label?: string; kind?: Kind } | null): void {
+		for (const r of this.records.values()) r.dead = true;
 		this.override = d ? { id: d.id, label: d.label ?? d.id, kind: d.kind && KINDS.includes(d.kind) ? d.kind : 'desktop' } : null;
 		this.records.clear();
+	}
+
+	/** Forgets everything counted and not yet read again (for the tests: each starts from a vault with no record). */
+	forget(): void {
+		for (const r of this.records.values()) r.dead = true;
+		this.records.clear(); this.needStamp.clear(); this.waiting.length = 0; this.acts.length = 0; this.lastBinder = null;
+		window.clearTimeout(this.timer); this.timer = 0;
 	}
 
 	/** The writer names this device: the files are written under the new name from now on. An empty name is the default. */
@@ -119,16 +127,21 @@ export class Progress {
 	// ---- what is recorded ----
 
 	/** Is a binder recorded: the switch is on and it is not one that can't be changed (a newer format). */
-	recording(binder: Binder | null): binder is Binder { return !!binder && this.plugin.settings.recordProgress && !binder.problem; }
+	recording(binder: Binder | null): boolean { return !!binder && this.plugin.settings.recordProgress && !binder.problem; }
 
 	/** The record of a binder, or null where nothing is recorded (see `recording`; a Snapshots folder with notes of the
 	    writer's own in it is not ours to fill). */
 	recordOf(binder: Binder | null): BinderRecord | null {
-		if (!this.recording(binder)) return null;
+		if (!binder || !this.recording(binder)) return null;
 		let r = this.records.get(binder.folder);
 		if (!r) { r = new BinderRecord(this.plugin.app, binder.folder, () => this.device()); this.records.set(binder.folder, r); this.begin(r); }
-		const there = this.plugin.app.vault.getAbstractFileByPath(`${binder.folder.path}/${SNAPSHOTS}`);
-		r.blocked = there && (!(there instanceof TFolder) || !this.plugin.binders.snapshotsFolder(binder)) ? `“${SNAPSHOTS}” in “${binder.folder.name}” is not a folder of snapshots` : null;
+		// (looked at again every few seconds, not at every key)
+		const now = performance.now();
+		if (now - r.checked > 3000) {
+			r.checked = now;
+			const there = this.plugin.app.vault.getAbstractFileByPath(`${binder.folder.path}/${SNAPSHOTS}`);
+			r.blocked = there && (!(there instanceof TFolder) || !this.plugin.binders.snapshotsFolder(binder)) ? `“${SNAPSHOTS}” in “${binder.folder.name}” is not a folder of snapshots` : null;
+		}
 		return r;
 	}
 
@@ -381,7 +394,7 @@ export class Progress {
 		try {
 			for (const [folder, r] of [...this.records]) {
 				const binder = this.plugin.binders.all().find((b) => b.folder === folder) ?? null;
-				if (!this.recording(binder)) continue;
+				if (!binder || !this.recording(binder)) continue;
 				if (this.needStamp.has(folder) && !r.blocked) {
 					if (this.stamp(binder, r)) { this.needStamp.delete(folder); this.stampTries = 0; } else if (!final && ++this.stampTries < 20) this.wake();
 				}

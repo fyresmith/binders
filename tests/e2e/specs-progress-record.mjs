@@ -79,6 +79,7 @@ const start = (p) => p.ev(`(async () => {
 const stop = (p) => p.ev(`(async () => {
 	const pl = ${PL};
 	pl.focus?.leave(true);
+	try { await app.vault.adapter.remove('Outside.md'); } catch { /* none */ }
 	pl.settings.recordProgress = true; await pl.saveSettings();
 	pl.progress.failWrites = false;
 	pl.progress.setDevice(null);
@@ -338,6 +339,10 @@ test('the folder is out of the explorer, the binder’s contents, search and an 
 	})()`).then(JSON.parse);
 	t.ok(!shown.kids.includes('Snapshots') && !shown.scenes.some((s) => s.includes('Snapshots')), 'the binder does not list it');
 	t.ok(shown.hist && shown.inSnaps, 'it is a part of the folder of snapshots');
+	await p.ev(`(async () => { const x = app.workspace.getLeavesOfType('file-explorer')[0]; x?.view.revealInFolder(${file(PROLOGUE)}); return 1; })()`);
+	await p.sleep(600);
+	const rows = await p.ev(`[...document.querySelectorAll('.nav-folder-title, .nav-file-title')].map(e => e.dataset.path).filter(Boolean)`);
+	t.ok(rows.some((r) => r === PROLOGUE) && !rows.some((r) => /Snapshots|History|binder-history/.test(r)), 'the file explorer shows the binder and not the record: ' + j(rows.filter((r) => r.startsWith(L))));
 	// a snapshot of the folder and bringing it back leave the record as it is
 	const before = await files(p);
 	await p.ev(`(async () => { const api = ${PL}.snapshotsApi, f = ${file(L)}; await api.takeFolder(f, 'Before'); })().then(() => 1)`);
@@ -500,4 +505,150 @@ test('an import is an event in the binder it makes', async (p, h, t) => {
 	t.ok(imp && imp.n >= 2 && imp.w >= 100, 'an import event with its notes and words: ' + j(imp));
 	t.ok(days(lines).every((d) => Object.values(d.n).every((c) => c[0] === 0 && c[1] === 0)), 'and nothing was typed');
 	await p.ev(`(async () => { const a = app.vault.adapter; if (await a.exists('Tide Book')) await a.rmdir('Tide Book', true); })().then(() => 1)`);
+});
+
+// ---- what shows, and when it is written ----
+
+test('focus mode’s words today are the record’s, the devices added together; “Start counting from here” counts from what the record has', async (p, h, t) => {
+	await p.ev(`(async () => { Object.assign(${PL}.settings, { focusNumbers: true, focusTypewriter: true, focusDim: false, focusDark: false, focusNeighbours: false, focusPlace: false, focusFullscreen: false, focusGoal: 0 }); await ${PL}.saveSettings(); })().then(() => 1)`);
+	await openNote(p, KEEPER);
+	await caretEnd(p);
+	await press(p, ' One two.');
+	await write(p);
+	const day = days(await mine(p))[0].d;
+	const other = [
+		{ 'binders-history': 1, device: OTHER, label: 'Phone', kind: 'phone', year: Number(day.slice(0, 4)) },
+		{ t: 'day', d: day, u: Date.now() + 1000, k: 'phone', n: { 'Part Two/The wreck': [10, 0, 0, 0] }, h: {}, s: [], m: 1 },
+	].map((x) => JSON.stringify(x)).join('\n') + '\n';
+	await p.ev(`app.vault.adapter.write(${j(`${HIST}/${day.slice(0, 4)} Phone ${OTHER}.binder-history`)}, ${j(other)}).then(() => 1)`);
+	await p.sleep(1500);
+	await h.run('focus');
+	await until(p, `document.body.classList.contains('binders-focus') && !document.body.classList.contains('binders-focus-pre')`);
+	await p.sleep(600);
+	await p.move(900, 420); await p.move(940, 450); await p.sleep(400);
+	t.eq(await p.ev(`document.querySelector('.binders-focus-session')?.textContent`), '12 today', 'two words typed here and ten on the phone');
+	const c = await p.at('.binders-focus-corner');
+	await p.click(c.x, c.y);
+	await clickMenu(p, 'Start counting from here');
+	await p.sleep(300);
+	t.eq(await p.ev(`document.querySelector('.binders-focus-session')?.textContent`), '0 today', 'counting started again');
+	await caretEnd(p);
+	await press(p, ' Three.');
+	await p.sleep(500);
+	t.eq(await p.ev(`document.querySelector('.binders-focus-session')?.textContent`), '1 today', 'and goes on from there');
+	await h.run('focus');
+	await until(p, `!document.body.classList.contains('binders-focus') && !${F}.busy`);
+});
+
+test('what no device typed is the difference between the totals and what was logged', async (p, h, t) => {
+	await openNote(p, KEEPER);
+	await caretEnd(p);
+	await press(p, ' Today one two.');
+	await write(p);
+	const mineDay = days(await mine(p))[0], total = mineDay.tot.w;
+	const yest = new Date(Date.now() - 36 * 3600e3), pad = (n) => String(n).padStart(2, '0');
+	const day = `${yest.getFullYear()}-${pad(yest.getMonth() + 1)}-${pad(yest.getDate())}`;
+	// the day before: another device stamped a total that is short of today's by 100 and logged nothing
+	const other = [
+		{ 'binders-history': 1, device: OTHER, label: 'Phone', kind: 'phone', year: yest.getFullYear() },
+		{ t: 'day', d: day, u: 5, k: 'phone', n: {}, h: {}, s: [], m: 0, tot: { at: 5, w: total - 103, n: 7, st: {} } },
+	].map((x) => JSON.stringify(x)).join('\n') + '\n';
+	await p.ev(`app.vault.adapter.write(${j(`${HIST}/${yest.getFullYear()} Phone ${OTHER}.binder-history`)}, ${j(other)}).then(() => 1)`);
+	await p.sleep(1500);
+	const m = await p.ev(`${P}.read(${file(L)}).then((m) => JSON.stringify(m.days.map(d => ({ day: d.day, total: d.total, elsewhere: d.elsewhere, added: d.added }))))`).then(JSON.parse);
+	const today = m[m.length - 1];
+	t.eq(today.total, total, 'the day’s total');
+	t.eq(today.elsewhere, 100, 'a hundred and three words more than the day before, three of them typed here and the rest not');
+	t.eq(m.length, 2, 'two days, yesterday first');
+});
+
+test('the app going to the background writes the day', async (p, h, t) => {
+	await openNote(p, KEEPER);
+	await caretEnd(p);
+	await press(p, ' Background words.');
+	t.eq(Object.keys(await files(p)).length, 0, 'nothing is written yet: it waits a few minutes');
+	await p.ev(`(() => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => true }); document.dispatchEvent(new Event('visibilitychange')); return 1; })()`);
+	await p.sleep(1500);
+	await p.ev(`(() => { delete document.hidden; return 1; })()`);
+	t.eq(j((await counts(p))[rel(KEEPER)]), j([2, 0, 0, 0]), 'the day is in the file');
+});
+
+test('leaving the binder for another note writes the day', async (p, h, t) => {
+	await openNote(p, KEEPER);
+	await caretEnd(p);
+	await press(p, ' Leaving words.');
+	t.eq(Object.keys(await files(p)).length, 0, 'nothing is written yet');
+	await p.ev(`(async () => { await app.workspace.getLeaf(false).openFile(await app.vault.create('Outside.md', 'Not in a binder.')); })().then(() => 1)`);
+	await p.sleep(2500);
+	t.eq(j((await counts(p))[rel(KEEPER)]), j([2, 0, 0, 0]), 'the day is in the file');
+});
+
+test('a Longform project is recorded in its own Snapshots folder, and its index note is not typing', async (p, h, t) => {
+	const LF = 'Longform demo', dir = `${LF}/Snapshots/History`;
+	const open = async (path) => {
+		await p.ev(`(async () => { await ${PL}.binders.settled; const l = app.workspace.getLeaf(false); await l.openFile(app.vault.getAbstractFileByPath(${j(path)})); app.workspace.setActiveLeaf(l, { focus: true }); })().then(() => 1)`);
+		await until(p, `${VIEWOF}.file?.path === ${j(path)} && !!document.querySelector('.workspace-leaf.mod-active .cm-content')`);
+		await p.sleep(350);
+	};
+	await open(`${LF}/Harbor.md`);
+	await caretEnd(p);
+	await press(p, ' Pier mooring.');
+	await open(`${LF}/Index.md`);
+	await caretEnd(p);
+	await press(p, ' Index typing words.');
+	await write(p);
+	const names = await p.ev(`(async () => { const a = app.vault.adapter; return (await a.exists(${j(dir)})) ? (await a.list(${j(dir)})).files.map(f => f.split('/').pop()) : []; })()`);
+	t.eq(names.length, 1, 'a record in the project’s own folder: ' + j(names));
+	const lines = parse(await p.ev(`app.vault.adapter.read(${j(dir + '/' + names[0])})`));
+	const n = days(lines)[0]?.n ?? {};
+	t.eq(j(n.Harbor), j([2, 0, 0, 0]), 'a scene’s words are counted');
+	t.eq(Object.keys(n).join(), 'Harbor', 'and the index note’s typing is not');
+	await p.ev(`(async () => { const a = app.vault.adapter; if (await a.exists(${j(LF + '/Snapshots')})) await a.rmdir(${j(LF + '/Snapshots')}, true); })().then(() => 1)`);
+});
+
+test('settings: a “Progress” group says a record is kept, where, and that it holds no text, with a switch; this device can be named', async (p, h, t) => {
+	const TAB = `app.setting.activeTab.containerEl`;
+	await p.ev(`(() => { ${P}.setDevice(null); app.setting.open(); app.setting.openTabById('binders'); return 1; })()`);
+	await until(p, `[...${TAB}.querySelectorAll('.setting-item-heading, .setting-group .setting-item-name')].some(e => e.textContent === 'Progress')`);
+	const row = (name) => `[...${TAB}.querySelectorAll('.setting-item')].find(e => e.querySelector('.setting-item-name')?.textContent === ${j(name)})`;
+	const desc = await p.ev(`${row('Keep a record of your writing')}.querySelector('.setting-item-description').textContent`);
+	t.ok(/Snapshots folder, in History/.test(desc) && /holds no text/.test(desc) && /never sent anywhere/.test(desc) && /nothing already recorded is deleted/.test(desc), 'it says where, that it holds no text, and what turning it off does: ' + desc);
+	t.eq(await p.ev(`${row('Keep a record of your writing')}.querySelector('.checkbox-container').classList.contains('is-enabled')`), true, 'recording is on');
+	await p.ev(`(() => { ${row('Keep a record of your writing')}.querySelector('.checkbox-container').click(); return 1; })()`);
+	await p.sleep(400);
+	t.eq(await p.ev(`${PL}.settings.recordProgress`), false, 'the switch turns it off');
+	await p.ev(`(() => { ${row('Keep a record of your writing')}.querySelector('.checkbox-container').click(); return 1; })()`);
+	await p.sleep(400);
+	t.eq(await p.ev(`${PL}.settings.recordProgress`), true, 'and on');
+	await p.ev(`(() => { const el = ${row('This device is called')}.querySelector('input[type="text"]'); el.focus(); el.value = 'Writing desk'; el.dispatchEvent(new Event('input', { bubbles: true })); el.blur(); el.dispatchEvent(new FocusEvent('blur')); return 1; })()`);
+	await p.sleep(500);
+	t.eq(await p.ev(`${PL}.progress.device().label`), 'Writing desk', 'a name typed there is the device’s');
+	await p.ev(`(() => { app.setting.close(); ${PL}.progress.setLabel(''); return 1; })()`);
+});
+
+test('a phone or tablet: the device is not a computer, and going to the background writes the day', async (p, h, t) => {
+	const { reload } = await import('./view-helpers.mjs');
+	try {
+		await reload(p, true);
+		await p.ev(`(async () => { const pl = ${PL}; pl.settings.recordProgress = true; await pl.saveSettings(); pl.progress.setDevice(null); app.saveLocalStorage('binders-focus-hinted', true); })().then(() => 1)`);
+		const kind = await p.ev(`${PL}.progress.device().kind`);
+		t.ok(kind === 'phone' || kind === 'tablet', 'emulated as a phone or tablet, the device is one: ' + kind);
+		await openNote(p, KEEPER);
+		await caretEnd(p);
+		await press(p, ' Phone words here.');
+		await p.ev(`(() => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => true }); document.dispatchEvent(new Event('visibilitychange')); return 1; })()`);
+		await p.sleep(1800);
+		await p.ev(`(() => { delete document.hidden; return 1; })()`);
+		const all = await files(p), name = Object.keys(all)[0];
+		t.ok(name, 'the day is in a file');
+		const lines = parse(all[name]);
+		t.eq(lines[0].kind, kind, 'whose header says so');
+		t.eq(days(lines)[0].k, kind, 'and so does the day');
+		t.eq(days(lines)[0].n[rel(KEEPER)][0], 3, 'with the words typed');
+		const m = await p.ev(`${P}.read(${file(L)}).then((m) => m.days[0].phone)`);
+		t.eq(m, 3, 'which read back are words added on a phone');
+	} finally {
+		await p.ev(`(async () => { const a = app.vault.adapter; if (await a.exists(${j(L + '/Snapshots')})) await a.rmdir(${j(L + '/Snapshots')}, true); })().then(() => 1)`).catch(() => {});
+		await reload(p, false);
+	}
 });

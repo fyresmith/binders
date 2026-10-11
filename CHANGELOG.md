@@ -23,10 +23,12 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - Split at headings...: cut a note of a binder into several where its headings, scene breaks or a line of your own are, after showing the notes it will make. It is one change in the history, and Undo takes it back.
 - On the timeline you can drag a card to give it another story date: onto a date, into a gap between two dates, before the first or after the last (a dialog asks), onto the tray to take the date away, or among a day’s cards to put them in another order. Alt and the arrow keys do the same from the keyboard. On a phone, press and hold to lift a card.
 - Shift story dates... in the menu of every board when more than one dated note is selected: later or earlier, by days, months or years, keeping the space between them, as one undo step.
+- Binders now keeps a record of each binder's writing in the binder's hidden Snapshots folder: the words written and cut in each note each day, the hours, and what was done to the binder. It holds numbers and names only, never a note's text, and never leaves your device. A Progress group in settings turns it off and names your device. A window to read it by comes next.
 
 ### Changed
 
 - The commands are renamed Undo last change and Redo last change, and each binder remembers its last 100 changes, where 50 were shared by all.
+- Focus mode's words written today now come from that record, so they are the same on every device that shares the binder; a day ends at four in the morning instead of midnight; and a paste or an import no longer counts as written.
 
 ### Fixed
 

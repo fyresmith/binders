@@ -33,6 +33,10 @@ export class BinderRecord {
 	private ok = false;
 	/** Why nothing is written for this binder (the Snapshots folder is somebody's chapters), or null. */
 	blocked: string | null = null;
+	/** When `blocked` was last worked out (performance.now()). */
+	checked = -Infinity;
+	/** Forgotten (a test starting over): it writes nothing more. */
+	dead = false;
 	/** The writes that failed since one worked. */
 	failures = 0;
 
@@ -152,7 +156,7 @@ export class BinderRecord {
 	/** Writes what is new. True if there was nothing to write or all of it was; false if some could not be (it is
 	    kept, and the next call tries again). Never throws. */
 	async flush(): Promise<boolean> {
-		if (this.blocked || !this.dirty) return true;
+		if (this.dead || this.blocked || !this.dirty) return true;
 		try { await this.load(); } catch { this.failures++; return false; }
 		let all = true;
 		for (const l of this.ledgers.values()) {
@@ -168,7 +172,9 @@ export class BinderRecord {
 		const a = this.app.vault.adapter, d = this.who(), name = fileName(l.year, d.label, d.id), path = `${this.dir}/${name}`, tmp = path + '.tmp';
 		const text = l.serialize();
 		await this.ensureDir();
+		if (this.dead) return;
 		await this.rename(l, name);
+		if (this.dead) return;
 		await a.write(tmp, text);
 		// whole, or not put in place
 		if ((await a.stat(tmp))?.size !== new TextEncoder().encode(text).length) throw new Error('short write');

@@ -144,6 +144,8 @@ function helpers(p) {
 				// next test's binder)
 				const own = new Set(['The Lighthouse', 'The Lighthouse/Part One', 'The Lighthouse/Part Two', 'Longform demo']);
 				for (const f of app.vault.getAllLoadedFiles().filter(f => f.children && f.path !== '/' && !own.has(f.path)).sort((a, b) => b.path.length - a.path.length)) if (app.vault.getAbstractFileByPath(f.path)) await app.vault.delete(f, true);
+				// (and no record of the binders' writing kept in memory: the files went with the folders)
+				app.plugins.plugins.binders?.progress?.forget();
 				// (a binder opens as its view was last left: each test starts with none remembered)
 				app.plugins.plugins.binders?.lastView?.clear();
 				await new Promise(r => setTimeout(r, 150));

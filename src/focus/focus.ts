@@ -16,6 +16,7 @@ import { watchSize } from '../view/windows';
 import { WordCounter } from '../view/word-counter';
 import { wordsIn } from '../view/words';
 import { caretRect, editorDoc, editorView, lightTheme, noteColumn, panesAbove, tailRoom } from './dom';
+import { recordDay } from '../progress/day';
 import { Session, atEnd, bodyStart, dayOf, excerpt, parseGoal } from './session';
 
 /* Focus mode: a quiet way to write a note of a binder, in a tab or in the manuscript. It is a state of the view that's
@@ -38,7 +39,7 @@ const FADE = 140;
 /** On each split and tab group the tab in focus is in (see `path`). */
 const PATH = 'binders-focus-path';
 /** Kept in the vault's local storage, on this device: the day's words, and that the way out has been said once. */
-const SESSION = 'binders-session', RULE = 'binders-session-rule', HINTED = 'binders-focus-hinted';
+const SESSION = 'binders-session', RULE = 'binders-session-rule', BASE = 'binders-session-base', HINTED = 'binders-focus-hinted';
 /** A short fingerprint of a text, whatever its line breaks (an editor has one kind, a file may have the other). */
 function fingerprint(text: string): number {
 	let h = 5381;
@@ -706,6 +707,25 @@ export class Focus {
 
 	private store(): void { this.plugin.app.saveLocalStorage(SESSION, this.session.toJSON()); }
 
+	/** The words written today in a binder: the record's, the devices added together (a day ends at four in the morning,
+	    on every device). Where the binder isn't recorded, this device's own count of the notes. */
+	private dayWords(binder: Binder): number {
+		const progress = this.plugin.progress;
+		if (!progress.recording(binder)) return this.session.words(binder.folder.path);
+		const base: unknown = this.plugin.app.loadLocalStorage(BASE), mine = base && typeof base === 'object' ? base as { day?: string; at?: Record<string, number> } : {};
+		const from = mine.day === recordDay(Date.now()) ? mine.at?.[binder.folder.path] ?? 0 : 0;
+		return Math.max(0, progress.today(binder.folder) - from);
+	}
+
+	/** "Start counting from here": today's words in this binder are counted from what the record has now. */
+	private startAgain(binder: Binder): void {
+		const progress = this.plugin.progress, day = recordDay(Date.now()), base: unknown = this.plugin.app.loadLocalStorage(BASE);
+		const mine = base && typeof base === 'object' ? base as { day?: string; at?: Record<string, number> } : {};
+		const at = mine.day === day ? { ...mine.at } : {};
+		at[binder.folder.path] = progress.today(binder.folder);
+		this.plugin.app.saveLocalStorage(BASE, { day, at });
+	}
+
 	/** The way of counting the day's notes were last counted by ("Count words as the exported book does", on or off). */
 	private rule: boolean;
 
@@ -849,7 +869,7 @@ export class Focus {
 			const scene = on.corner.createSpan({ cls: 'binders-focus-count binders-focus-scene' });
 			if (n != null) scene.setText(target ? `${n.toLocaleString()} / ${target.toLocaleString()} words` : `${n.toLocaleString()} ${n === 1 ? 'word' : 'words'}`);
 			scene.toggleClass('is-complete', !!target && n != null && n >= target);
-			const day = this.session.words(binder.folder.path), goal = s.focusGoal;
+			const day = this.dayWords(binder), goal = s.focusGoal;
 			const sess = on.corner.createSpan({ cls: 'binders-focus-count binders-focus-session', text: goal ? `${day.toLocaleString()} / ${goal.toLocaleString()} today` : `${day.toLocaleString()} today` });
 			const reached = !!goal && day >= goal;
 			sess.toggleClass('is-complete', reached);
@@ -879,7 +899,7 @@ export class Focus {
 		for (const k of focusToggles(Platform.isMobile)) menu.addItem((i) => i.setSection('options').setTitle(FOCUS_TEXT[k][0]).setChecked(s[k]).onClick(() => void this.set(k, !s[k])));
 		if (s.focusNumbers) {
 			menu.addItem((i) => i.setSection('session').setTitle(s.focusGoal ? 'Change today’s goal...' : 'Set a goal for today...').setIcon('target').onClick(() => void this.askGoal()));
-			menu.addItem((i) => i.setSection('session').setTitle('Start counting from here').setIcon('rotate-ccw').onClick(() => { this.session.reset(binder.folder.path); this.store(); this.drawNow(); }));
+			menu.addItem((i) => i.setSection('session').setTitle('Start counting from here').setIcon('rotate-ccw').onClick(() => { this.session.reset(binder.folder.path); this.startAgain(binder); this.store(); this.drawNow(); }));
 		}
 		for (const d of [-1, 1]) {
 			if (!this.step(d, true)) continue;
