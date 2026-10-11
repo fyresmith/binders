@@ -1081,9 +1081,18 @@ class Manuscript implements BinderMode {
 		return true;
 	}
 
-	foundFrom(): { id: string; offset: number } | null {
+	foundCaret(): { id: string; offset: number } | null {
+		// (an editor with the keyboard in it says where the caret is itself: a click or a tap moves it before the view is told)
+		const at = this.sceneOf(this.root.ownerDocument.activeElement), live = at?.live?.cm;
+		if (at && live?.hasFocus) return { id: at.file.path, offset: live.state.selection.main.from };
 		const c = this.caret, s = c ? this.byKey.get(c.file) : null;
 		if (c && s?.kind === 'scene' && s.live?.cm) { const r = s.el.getBoundingClientRect(), v = this.root.getBoundingClientRect(); if (r.bottom > v.top && r.top < v.bottom) return { id: c.file.path, offset: bodyStart(s.live.text) + Math.min(c.pos, c.anchor) }; }
+		return null;
+	}
+
+	foundFrom(): { id: string; offset: number } | null {
+		const c = this.foundCaret();
+		if (c) return c;
 		const h = this.here();
 		return h instanceof TFile ? { id: h.path, offset: 0 } : null;
 	}

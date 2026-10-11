@@ -139,6 +139,30 @@ test('stepping goes from the scene before, through the note, to the scene after,
 	t.eq(await inFocus(p), true, 'and focus stays on (the bar takes the Escape only while it is open)');
 });
 
+test('a click in the note with the bar open, then Next or Previous: the match after (or before) where the writer clicked, not the bar’s last match', async (p, h, t) => {
+	await binder(p, 'Walk6', WALK);
+	await focusOn(p, 'Walk6/2 Two.md');
+	await caretTo(p, 0);
+	await find(p, 'Mara');
+	const at = async () => { const s = await state(p); return `${where(s)} (${await count(p)})`; };
+	const press = async (name) => { const a = await p.at(`.binders-find-in-note button[aria-label^="${name}"]`); await p.click(a.x, a.y); await p.sleep(350); };
+	t.eq(await at(), 'note:0 (2 / 4 in 3 notes)', 'the bar starts on the first match at the caret');
+	await press('Next');
+	t.eq(await at(), 'note:1 (3 / 4 in 3 notes)', 'Next goes on to the second match in the note');
+	// a click back at the start of the note, then Next: the first match after it, not on from the second
+	await caretTo(p, 0);
+	await press('Next');
+	t.eq(await at(), 'note:0 (2 / 4 in 3 notes)', 'the caret put at the start, Next goes to the first match after it');
+	// the caret at the end, then Previous: the last match before it
+	await caretEnd(p);
+	await press('Previous');
+	t.eq(await at(), 'note:1 (3 / 4 in 3 notes)', 'the caret put at the end, Previous goes to the last match before it');
+	await press('Next');
+	t.eq(await at(), 'after:0 (4 / 4 in 3 notes)', 'and Next from there goes on to the scene after, as before');
+	await press('Next');
+	t.eq(await at(), 'before:0 (1 / 4 in 3 notes)', 'and wraps to the scene before');
+});
+
 test('the first scene in a binder shows only the scene after, and Ctrl+F looks through the note and that', async (p, h, t) => {
 	await binder(p, 'Firsts', { '1 First': 'Mara opens.\n', '2 Second': 'Mara again.\n', '3 Third': 'End.\n' });
 	await focusOn(p, 'Firsts/1 First.md');

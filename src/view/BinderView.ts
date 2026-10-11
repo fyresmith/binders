@@ -1058,6 +1058,7 @@ export class BinderView extends ItemView {
 				const first = c instanceof TFolder ? this.store.scenes(c)[0] : c;
 				return first ? { id: first.path, offset: 0 } : null;
 			},
+			caret: () => (board() ? null : this.current?.foundCaret?.() ?? null),
 			show: (state, go) => {
 				this.board.state = state;
 				if (!board()) { this.current?.found?.(state, go); return; }

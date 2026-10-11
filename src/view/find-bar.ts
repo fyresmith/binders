@@ -33,6 +33,8 @@ export interface FindHost {
 	sources(): FindSource[];
 	/** Where the reader is: stepping starts from the first match at or after it. */
 	here(): { id: string; offset: number } | null;
+	/** Where the writer's caret is in the text, when there is a caret (an editor): null on the boards, which have none. */
+	caret?(): { id: string; offset: number } | null;
 	/** Shows what was found; `go`: and brings the one the writer is on into sight. */
 	show(state: FindState | null, go: boolean): void;
 	/** What a replace all is kept in a snapshot of first (the binder, a folder of it, or the one note), and how it is
@@ -71,6 +73,8 @@ export class FindBar {
 	private timer = 0;
 	private texts = new Map<string, { mtime: number; text: string }>();
 	private done: Done | null = null;
+	/** The caret as the bar last left it: one that has since moved elsewhere (a click, a tap) is where Next goes on from. */
+	private seen: string | null = null;
 	private busy = false;
 	private open = true;
 	private watching: EventRef[] = [];
@@ -213,6 +217,33 @@ export class FindBar {
 		} else this.at = this.pick(start);
 		this.draw();
 		this.host.show(this.state, !keep || !!from);
+		this.seen = this.caretKey();
+	}
+
+	private caretKey(): string | null { const c = this.host.caret?.(); return c ? `${c.id}:${c.offset}` : null; }
+
+	/** The caret, if the writer has moved it since the bar placed it (not by the bar's own reveal, which selects the match). */
+	private moved(): { id: string; offset: number } | null {
+		const c = this.host.caret?.(), at = this.at;
+		if (!c || this.caretKey() === this.seen) return null;
+		const hit = at?.found.hits[at.hit];
+		if (at && hit && at.found.source.id === c.id && c.offset >= hit.from && c.offset <= hit.to) return null;
+		return c;
+	}
+
+	/** The last match before a place (the last of all, with none before it). */
+	private pickBefore(start: { id: string; offset: number }): At | null {
+		const found = this.found;
+		if (!found.length) return null;
+		const order = this.host.sources().map((s) => s.id), i = order.indexOf(start.id);
+		for (let k = found.length - 1; k >= 0; k--) {
+			const f = found[k], j = order.indexOf(f.source.id);
+			if (j > i) continue;
+			if (j < i) return { found: f, hit: f.hits.length - 1 };
+			for (let h = f.hits.length - 1; h >= 0; h--) if (f.hits[h].from < start.offset) return { found: f, hit: h };
+		}
+		const last = found[found.length - 1];
+		return { found: last, hit: last.hits.length - 1 };
 	}
 
 	/** The first match at or after a place (the first of all, past the end or with no place). */
@@ -234,7 +265,9 @@ export class FindBar {
 	step(d: number): void {
 		const found = this.found;
 		if (!found.length) return;
-		if (!this.at) this.at = { found: found[0], hit: 0 };
+		const from = this.host.steps() === 'matches' ? this.moved() : null;
+		if (from) this.at = (d < 0 ? this.pickBefore(from) : this.pick(from)) ?? this.at;
+		else if (!this.at) this.at = { found: found[0], hit: 0 };
 		else {
 			let i = found.indexOf(this.at.found), h = this.at.hit + d;
 			if (this.host.steps() === 'notes') {
@@ -250,6 +283,7 @@ export class FindBar {
 		}
 		this.draw();
 		this.host.show(this.state, true);
+		this.seen = this.caretKey();
 	}
 
 	private count(found: Found[], at: At | null, running = false): void {

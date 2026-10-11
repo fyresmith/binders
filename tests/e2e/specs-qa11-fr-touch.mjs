@@ -6,7 +6,7 @@
 // What specs-find-replace.mjs already covers (the phone's first way in, one Next, one Replace all, Undo, the tablet's
 // review fitting) is not repeated here. Every test that writes reads the disk afterwards, byte for byte.
 import { PL, VIEW, file, j, openView, until, withTidy } from './view-helpers.mjs';
-import { LEAF, PHONE, SMALL, TABLET, binder, caret, disk, land, metrics, onDevice, saveAll, settle, snap, swipe, tap, tapText } from './specs-qa5-manuscript.mjs';
+import { LEAF, PHONE, SMALL, TABLET, binder, caret, disk, land, metrics, onDevice, saveAll, settle, snap, swipe, tap, tapText, textAt } from './specs-qa5-manuscript.mjs';
 
 export const specs = [];
 const test = (name, fn) => specs.push({ name: 'qa11 find touch: ' + name, fn: withTidy(async (p, h, t) => { try { await fn(p, h, t); } finally { await closeAll(p); } }) });
@@ -421,6 +421,55 @@ test('phone: a tap in the text with the bar open, then Next: the next match is t
 	log('after the tap in “Only”, Next went to', await countText(p));
 	t.eq(got, '6', 'Next goes to “Mara here” (the sixth), the first match after the tap, not on from the last match (2)');
 }));
+
+/** A click of the mouse just before the character `off` into `needle` in a note's section (a computer). */
+async function clickText(p, path, needle, off = 0) {
+	const at = await textAt(p, path, needle, off);
+	if (!at) throw new Error(`“${needle}” isn’t shown in ${path}`);
+	await p.click(at.x + 1, at.y);
+	await p.sleep(500);
+}
+const press = async (p, name) => { await p.click(...Object.values(await p.at(`${BARSEL} button[aria-label^="${name}"]`))); await p.sleep(400); };
+const nth = async (p) => (await countText(p)).split(' ')[0];
+
+test('computer: a click in the text with the bar open, then Next: the next match is the first after where the writer clicked', async (p, h, t) => {
+	await mixed(p);
+	await ask(p, 'Mara');
+	await clickText(p, 'Find/2 Two.md', 'Only', 2);
+	t.ok(await p.ev(`!!${BAR}`), 'the bar is still open after the click');
+	await press(p, 'Next');
+	t.eq(await nth(p), '6', 'Next goes to “Mara here” (the sixth), the first match after the click');
+	await press(p, 'Next');
+	t.eq(await nth(p), '7', 'and the next Next goes on from there, one at a time');
+	await press(p, 'Next');
+	t.eq(await nth(p), '1', 'and wraps round to the first');
+	t.eq(await total(p), 7, 'the count is still of seven');
+});
+
+test('computer: a click in the text with the bar open, then Previous: the last match before where the writer clicked', async (p, h, t) => {
+	await mixed(p);
+	await ask(p, 'Mara');
+	await clickText(p, 'Find/2 Two.md', 'Only', 2);
+	await press(p, 'Previous');
+	t.eq(await nth(p), '5', 'Previous goes to “says Mara.” (the fifth), the last match before the click');
+	await press(p, 'Previous');
+	t.eq(await nth(p), '4', 'and the next Previous goes back from there');
+	await clickText(p, 'Find/1 One.md', 'The last', 0);
+	await press(p, 'Previous');
+	t.eq(await nth(p), '4', 'a click at the start of the last line and Previous: the match before it (“Maramures”)');
+});
+
+test('computer: Next and Previous with no click since go on from the match as before, wrapping at both ends', async (p, h, t) => {
+	await mixed(p);
+	await ask(p, 'Mara');
+	t.eq(await nth(p), '1', 'the first match to begin with');
+	await press(p, 'Previous');
+	t.eq(await nth(p), '7', 'Previous wraps to the last');
+	await press(p, 'Next');
+	t.eq(await nth(p), '1', 'Next wraps to the first');
+	await press(p, 'Next');
+	t.eq(await nth(p), '2', 'and goes on, one at a time');
+});
 
 test('tablet: the review’s list of notes, tapped by a finger, brings that note’s head to the top of the list, and the review stays in the window', on(TABLET, async (p, h, t) => {
 	await many(p);

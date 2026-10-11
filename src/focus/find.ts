@@ -32,6 +32,7 @@ export function hookSearch(plugin: BindersPlugin, view: MarkdownView, near: () =
 			return out;
 		},
 		here: () => { const c = cm(), f = view.file; return c && f ? { id: f.path, offset: c.state.selection.main.from } : null; },
+		caret: () => { const c = cm(), f = view.file; return c && f ? { id: f.path, offset: c.state.selection.main.from } : null; },
 		show: (state, go) => {
 			const c = cm(), mine = state?.found.find((x) => x.source.file === view.file);
 			if (c && shows(c)) c.dispatch({ effects: setFound.of(mine && c.state.doc.length === mine.text.length ? mine.hits.map((h, i) => ({ ...h, current: state?.at?.found === mine && state.at.hit === i })) : []) });

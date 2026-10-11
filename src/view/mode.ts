@@ -118,6 +118,8 @@ export interface BinderMode {
 	replaceFound?(at: import('./find-bar').At, by: string): Promise<boolean>;
 	/** Optional: where the cursor is, as a place in a note's text. */
 	foundFrom?(): { id: string; offset: number } | null;
+	/** The writer's caret in a section that is an editor, if it is in sight (null: none, so nothing to go on from). */
+	foundCaret?(): { id: string; offset: number } | null;
 	/** Optional: the bar has closed: the cursor goes to the match it was on. */
 	foundClosed?(at: import('./find-bar').At | null): void;
 	// For focus mode (src/focus):
