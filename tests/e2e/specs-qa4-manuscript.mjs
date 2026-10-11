@@ -5,6 +5,7 @@
 import { filterToggle } from './filter-helpers.mjs';
 import { readFileSync, existsSync, readdirSync, statSync } from 'fs';
 import { join, relative } from 'path';
+import { PHONE, TABLET, metrics, onDevice } from './specs-qa5-manuscript.mjs';
 import { VIEW, answer, clickMenu, closeMenus, hoverMenu, menuItems, openView, reload, until, withTidy } from './view-helpers.mjs';
 
 export const specs = [];
@@ -704,6 +705,8 @@ const KINDS = {
 	'callout without a title': mid('> [!warning]\n> Just a warning.'),
 	'table': mid('| a | b |\n|---|---|\n| 1 | 2 |\n| 3 | 4 |'),
 	'table wider than the page': mid('| ' + Array.from({ length: 24 }, (_, i) => `Column number ${i}`).join(' | ') + ' |\n|' + '---|'.repeat(24) + '\n| ' + Array.from({ length: 24 }, (_, i) => `value ${i} of the row`).join(' | ') + ' |'),
+	'table with a long cell': mid('| Name | Notes |\n|---|---|\n| Mara | ' + para.repeat(5) + ' |\n| Tom | short |'),
+	'table, four columns, two long cells': mid('| One | Two | Three | Four |\n|---|---|---|---|\n| a | ' + para.repeat(2) + ' | c | d |\n| e | f | ' + para.repeat(3) + ' | h |'),
 	'table first': '| a | b |\n|---|---|\n| 1 | 2 |\n\nAfter.\n',
 	'table last': 'Before.\n\n| a | b |\n|---|---|\n| 1 | 2 |\n',
 	'code block, 3 lines': mid('```js\nconst a = 1;\n```'),
@@ -764,7 +767,7 @@ const KINDS = {
 	'dialogue': '— Where is he?\n— Gone.\n\n"Quoted," she said.\n',
 };
 /** The kinds whose rendered text was as tall as its editor (within 2 px) in round 4: they must stay so. */
-const SPACED = ['paragraphs', 'nested list', 'ordered list', 'task list', 'list with long items', 'block quote', 'nested quote', 'callout', 'callout folded', 'callout without a title', 'table', 'table last', 'code block, 3 lines', 'mermaid', 'embed of a missing note', 'math, inline', 'heading between blank lines', 'heading last', 'rule', 'rule of stars', 'comment, inline', 'HTML div', 'HTML details', 'empty note', 'only properties', 'only properties, no line break', 'very long paragraph', 'right-to-left', 'soft line breaks', 'hard line breaks', 'no final line break', 'tags, links, bold', 'list then paragraph then list', 'quote first', 'callout last', 'dialogue'];
+const SPACED = ['paragraphs', 'nested list', 'ordered list', 'task list', 'list with long items', 'block quote', 'nested quote', 'callout', 'callout folded', 'callout without a title', 'table', 'table wider than the page', 'table with a long cell', 'table, four columns, two long cells', 'table last', 'code block, 3 lines', 'mermaid', 'embed of a missing note', 'math, inline', 'heading between blank lines', 'heading last', 'rule', 'rule of stars', 'comment, inline', 'HTML div', 'HTML details', 'empty note', 'only properties', 'only properties, no line break', 'very long paragraph', 'right-to-left', 'soft line breaks', 'hard line breaks', 'no final line break', 'tags, links, bold', 'list then paragraph then list', 'quote first', 'callout last', 'dialogue'];
 const PNG = 'iVBORw0KGgoAAAANSUhEUgAAACgAAAAeCAIAAADRv8uKAAAAKElEQVR4nO3NMQEAAAjDMMC/52ECvlRA00nqo3m5AgAAAAAAAAAAOy0zGgM5yaNm+gAAAABJRU5ErkJggg==';
 let heights = null;
 /** Every kind's height as an editor and as rendered text, in a window tall enough to draw them all in full (an editor
@@ -827,7 +830,7 @@ test('footnotes in a section that is plain text are drawn as its editor draws th
 	t.eq(disk(p, 'Odd/01 Notes.md'), NOTE.replace('first', 'Xfirst'), 'what’s typed is in the note, and nothing else changed');
 });
 
-test('rendered text is as tall as its editor (nothing moves when a section turns live) for 36 kinds of Markdown: lists, quotes, callouts, tables, rules, long and right-to-left paragraphs…', async (p, h, t) => {
+test('rendered text is as tall as its editor (nothing moves when a section turns live) for 38 kinds of Markdown: lists, quotes, callouts, tables, rules, long and right-to-left paragraphs…', async (p, h, t) => {
 	const hs = await measureKinds(p, t);
 	const off = SPACED.filter((n) => Math.abs(hs[n].jump) > 2).map((n) => `${n}: ${hs[n].jump > 0 ? '+' : ''}${hs[n].jump} px`);
 	t.eq(off.join(', '), '', 'kinds that move the page by more than 2 px');
@@ -838,6 +841,59 @@ test('BUG: rendered text and its editor differ in height, so the page moves when
 	const off = Object.keys(KINDS).filter((n) => Math.abs(hs[n].jump) > 2).map((n) => `${n}: ${hs[n].jump > 0 ? '+' : ''}${hs[n].jump} px`);
 	t.eq(off.join(', '), '', `${off.length} of ${Object.keys(KINDS).length} kinds move the page by more than 2 px (rendered height less editor height)`);
 });
+
+/** Tables of several shapes in one binder, at a window width: [rendered, live] heights of each section. */
+async function measureTables(p, width, tables, device = false) {
+	const names = Object.keys(tables), notes = {};
+	names.forEach((n, i) => { notes[String(i + 1).padStart(2, '0') + ' ' + n] = tables[n]; });
+	let live, rendered;
+	try {
+		await odd(p, notes, false);
+		// (a tall window, so an editor draws all of it; on a device it is Obsidian's mobile mode at this width)
+		await (device ? metrics(p, width, 12000) : p.send('Emulation.setDeviceMetricsOverride', { width, height: 12000, deviceScaleFactor: 1, mobile: false }));
+		await openView(p, 'Odd');
+		await p.ev(`(() => { ${VIEW}.setMode('manuscript'); const m = ${M}; m.liveMax = 200; document.activeElement.blur(); return 1; })()`);
+		await p.sleep(1000);
+		if (device) {
+			// (on a phone a section is plain text until it is tapped, so one at a time: drawn, measured, then made its editor)
+			const r = await p.ev(`(async () => { const m = ${M}, wait = (ms) => new Promise(r => setTimeout(r, ms)), out = []; for (const s of m.scenes) { s.el.scrollIntoView({ block: 'center' }); await wait(150); m.editable = false; if (s.live) m.unmount(s); for (let i = 0; i < 40 && s.shown === null; i++) await wait(50); await wait(250); const r = s.bodyEl.getBoundingClientRect().height; m.editable = true; await m.mount(s); s.live?.editor.focus(); await wait(600); out.push([!!s.live, s.bodyEl.getBoundingClientRect().height, r]); } return out; })()`);
+			live = r.map((x) => [x[0], x[1]]); rendered = r.map((x) => [true, x[2]]);
+		} else {
+			for (let i = 0; i < 100; i++) { if (await p.ev(`${M}.scenes.every(s => s.live && !s.mounting)`)) break; await p.sleep(200); }
+			await p.sleep(2500);
+			await p.ev(`document.activeElement.blur()`);
+			await p.sleep(500);
+			live = await p.ev(`${M}.scenes.map(s => [!!s.live, s.bodyEl.getBoundingClientRect().height])`);
+			await p.ev(`(() => { const m = ${M}; m.editable = false; for (const s of m.scenes) if (s.live) m.unmount(s); return 1; })()`);
+			await p.sleep(3500);
+			rendered = await p.ev(`${M}.scenes.map(s => [s.shown !== null, s.bodyEl.getBoundingClientRect().height])`);
+		}
+	} finally {
+		if (!device) await desktop(p);
+		await p.sleep(300);
+		await p.ev(`(async () => { app.workspace.getLeavesOfType('binders-view').forEach(l => l.detach()); return 1; })()`);
+	}
+	return names.map((n, i) => ({ n, ok: live[i][0] && rendered[i][0], live: live[i][1], rendered: rendered[i][1] }));
+}
+const TABLES = {
+	'many short columns': KINDS['table wider than the page'],
+	'long cell': KINDS['table with a long cell'],
+	'four columns, two long cells': KINDS['table, four columns, two long cells'],
+	'narrow table': KINDS['table'],
+};
+for (const [label, size] of [['computer', [1000]], ['tablet', TABLET], ['phone', PHONE]]) {
+	test(`a table in a section that is plain text is as tall as its editor, on a ${label} (${size[0]} px wide): many short columns, a long cell, four columns with two long ones, a narrow table`, async (p, h, t) => {
+		const run = async () => {
+			const off = [];
+			for (const x of await measureTables(p, size[0], TABLES, size.length > 1)) {
+				if (!x.ok) off.push(`${x.n}: not drawn both ways`);
+				else if (Math.abs(x.rendered - x.live) > 2) off.push(`${x.n}: ${Math.round(x.rendered)} px rendered, ${Math.round(x.live)} px in its editor`);
+			}
+			t.eq(off.join('; '), '', 'tables that move the page when their section turns live');
+		};
+		if (size.length > 1) await onDevice(p, size, run); else await run();
+	});
+}
 
 // ================================================================================================================
 // 5. Splitting and merging from inside the manuscript

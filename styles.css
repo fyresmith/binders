@@ -881,8 +881,14 @@
 	/* one line of text, the same wherever it's used (a heading's own em is bigger) */
 	--binders-line: calc(var(--line-height-normal) * var(--font-text-size));
 	--p-spacing: var(--binders-line);
+	/* the room the editor's table widget keeps around a table for its drag handles (.cm-table-widget padding) */
+	--binders-table-room: var(--size-4-4);
 	/* a word longer than the column wraps, as the editor's lines do (.cm-line: overflow-wrap: anywhere) */
 	overflow-wrap: anywhere;
+}
+
+.is-mobile .binders-manuscript-rendered {
+	--binders-table-room: var(--size-4-6);
 }
 
 /* A heading has a blank line on either side and, as in the editor, a little room above itself. */
@@ -904,23 +910,32 @@
 .binders-manuscript-rendered > table {
 	display: block;
 	width: max-content;
-	max-width: 100%;
+	/* (as the editor's widget is: it pulls 16px out into the margin and keeps its handles' room as padding, so the table
+	   inside is as wide as the column less what that room has over 16px, which is none on a computer and 16px on a phone,
+	   and the whole width, handles' room too, is what a swipe scrolls) */
+	box-sizing: border-box;
+	margin-inline: calc(-1 * var(--size-4-4));
+	padding-inline: var(--binders-table-room);
+	max-width: calc(100% + 2 * var(--size-4-4));
 	overflow-x: auto;
+	/* a cell breaks only between words, as in the editor's table widget (.cm-table-widget: overflow-wrap: normal).
+	   The section's "anywhere" lets a cell shrink to one letter, so every row wrapped to more lines than the editor's. */
+	overflow-wrap: normal;
 }
 
 /* The editor's table has its handles' room around it. */
 .binders-manuscript-rendered > table,
 .binders-manuscript-rendered > table:first-child,
 .binders-manuscript-rendered > table:last-child {
-	margin-block: calc(var(--binders-line) + var(--size-4-4));
+	margin-block: calc(var(--binders-line) + var(--binders-table-room));
 }
 
 .binders-manuscript-rendered > table:first-child {
-	margin-top: var(--size-4-4);
+	margin-top: var(--binders-table-room);
 }
 
 .binders-manuscript-rendered > table:last-child {
-	margin-bottom: var(--size-4-4);
+	margin-bottom: var(--binders-table-room);
 }
 
 /* A code block: its lines at the code's size, and a line each for the fences the editor shows. */
@@ -1048,7 +1063,7 @@
 
 /* (the room the editor gives a table's handles, and the line a rule stands in the middle of) */
 .binders-manuscript .binders-manuscript-rendered.is-spaced.is-spaced > table {
-	margin-block: calc(var(--binders-gap, 1) * var(--binders-line) + var(--size-4-4)) var(--size-4-4);
+	margin-block: calc(var(--binders-gap, 1) * var(--binders-line) + var(--binders-table-room)) var(--binders-table-room);
 }
 
 .binders-manuscript .binders-manuscript-rendered.is-spaced.is-spaced > hr {
@@ -1057,16 +1072,16 @@
 
 /* (a table that opens the note: the editor keeps a line of the table's own source above it) */
 .binders-manuscript .binders-manuscript-rendered.is-spaced.is-spaced > table:first-child {
-	margin-top: calc(var(--binders-gap, 0) * var(--binders-line) + var(--size-4-4) + var(--line-height-normal) * var(--code-size));
+	margin-top: calc(var(--binders-gap, 0) * var(--binders-line) + var(--binders-table-room) + var(--line-height-normal) * var(--code-size));
 }
 
 /* (margins between blocks collapse into the larger: what follows a table or a rule carries that one's room too) */
 .binders-manuscript .binders-manuscript-rendered.is-spaced.is-spaced > table + * {
-	margin-top: calc(var(--binders-gap, 1) * var(--binders-line) + var(--size-4-4));
+	margin-top: calc(var(--binders-gap, 1) * var(--binders-line) + var(--binders-table-room));
 }
 
 .binders-manuscript .binders-manuscript-rendered.is-spaced.is-spaced > table + table {
-	margin-top: calc(var(--binders-gap, 1) * var(--binders-line) + 2 * var(--size-4-4));
+	margin-top: calc(var(--binders-gap, 1) * var(--binders-line) + 2 * var(--binders-table-room));
 }
 
 .binders-manuscript .binders-manuscript-rendered.is-spaced.is-spaced > hr + * {
