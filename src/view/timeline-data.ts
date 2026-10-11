@@ -1,4 +1,4 @@
-import { GREGORIAN, compareStoryDates, compareStoryPlaces, type Calendar, type StoryDate, type StoryPlace } from '../time/date';
+import { GREGORIAN, compareStoryDates, compareStoryPlaces, showStoryDate, type Calendar, type StoryDate, type StoryPlace } from '../time/date';
 
 /* The timeline's model (pure: no Obsidian, no DOM). Scenes with a story date (src/time/date.ts) are grouped by that
    date and the groups stand in time's order; within a date, in the order that module gives a day. The axis is not to
@@ -151,13 +151,16 @@ export interface AcrossPlan {
 	cards: { x: number; side: Side }[][];
 	/** The shortened stretches: where each begins, before the group at `before`. */
 	gaps: { x: number; before: number }[];
+	/** The room made for the drop targets of a stretch, when one is unfolded (while a card is carried): where it begins
+	    along the line, and how wide it is. */
+	opening?: { x: number; width: number; before: number };
 	width: number;
 }
 
 /** Time across, cards on both sides of the line: each card begins at its own mark, on whichever side is free first, so
     cards on opposite sides pass each other and a date with many scenes takes more of the line. No card overlaps
     another, every date's mark is past the one before, and nothing straddles a shortened stretch. */
-export function planAcross(counts: readonly number[], gapBefore: readonly boolean[], card: number, between: number, gapWidth: number): AcrossPlan {
+export function planAcross(counts: readonly number[], gapBefore: readonly boolean[], card: number, between: number, gapWidth: number, opening?: { before: number; width: number }): AcrossPlan {
 	const step = Math.round((card + between) / 2);
 	const free: Record<Side, number> = { above: 0, below: 0 };
 	const plan: AcrossPlan = { groups: [], cards: [], gaps: [], width: 0 };
@@ -168,6 +171,12 @@ export function planAcross(counts: readonly number[], gapBefore: readonly boolea
 			const at = Math.max(free.above, free.below, 0);
 			plan.gaps.push({ x: at, before: gi });
 			start = free.above = free.below = at + gapWidth + between;
+		}
+		// (a stretch unfolded for a drop: room for its targets, past the break if it has one)
+		if (opening && opening.before === gi) {
+			const at = Math.max(free.above, free.below, 0);
+			plan.opening = { x: at, width: opening.width, before: gi };
+			start = free.above = free.below = at + opening.width + between;
 		}
 		if (!Number.isFinite(start)) start = 0;
 		const cards: AcrossPlan['cards'][number] = [];
@@ -242,4 +251,83 @@ export function dayAfterDrop<T>(rest: readonly { item: T; place: StoryPlace }[],
 	const order = [...wanted].sort((a, b) => compareStoryPlaces({ date: a.place.date, order: numbers.get(a.item) ?? null }, { date: b.place.date, order: numbers.get(b.item) ?? null }, cal)).map((w) => w.item);
 	const carried = new Set(moved.map((m) => m.item));
 	return { numbers, order, held: order.filter((item, n) => carried.has(item) && wanted[n].item !== item) };
+}
+
+// ---- dragging: what a gap shows while a card is carried over it, where among a day's cards a drop falls, and what it writes ----
+
+/** The most drop targets a gap unfolds into at once. */
+export const MOST_TARGETS = 60;
+
+/** What `dropTargets` says, for drawing: all of them, but for a gap of so many years that they wouldn't fit (a book that
+    reaches back a thousand years), only the round ones: every tenth year, then every hundredth, then every thousandth.
+    `step` is 1 when nothing is left out. (The years between are one "Set story date..." away.) */
+export function unfoldTargets(before: StoryDate, after: StoryDate, cal: Calendar = GREGORIAN): { unit: 'y' | 'm' | 'd'; step: number; dates: StoryDate[] } {
+	const all = dropTargets(before, after, cal);
+	if (all.dates.length <= MOST_TARGETS) return { ...all, step: 1 };
+	for (const step of [10, 100, 1000]) {
+		const dates = all.dates.filter((x) => x.y % step === 0);
+		if (dates.length && dates.length <= MOST_TARGETS) return { unit: all.unit, step, dates };
+	}
+	return { unit: all.unit, step: 1000, dates: all.dates.filter((x) => x.y % 1000 === 0).slice(0, MOST_TARGETS) };
+}
+
+/** Where a drop at (px, py) falls among the cards of a row of them, by reading order: how many cards come before it.
+    `rects`: the cards in order, in any one frame. In a column (`single`: one card to a row) the middle of a card
+    divides before from after, up and down; in rows of several it is the middle across, and a point below a row is after
+    all of it. */
+export function slotAt(rects: readonly { x: number; y: number; w: number; h: number }[], px: number, py: number, single: boolean): number {
+	let n = 0;
+	for (const r of rects) {
+		if (single ? py > r.y + r.h / 2 : py > r.y + r.h || (py >= r.y && px > r.x + r.w / 2)) n++; else break;
+	}
+	return n;
+}
+
+/** What the tag by the pointer says of a drop on a date: the date, and where in its day the card will stand
+    (`place` of `of`; 0 for a day with no other scene), and that its own time holds it there. */
+export function dropWords(date: StoryDate, place: number, of: number, held: boolean, cal: Calendar = GREGORIAN): string {
+	return showStoryDate(date, cal) + (of > 0 ? `, ${place} of ${of}` : '') + (held ? ' (its time keeps it there)' : '');
+}
+
+/** What to write to one scene: its new date (absent: left as it is), and its `story-order` (a number to write; null to
+    take it away; absent: left as it is). */
+export interface DropWrite { date?: StoryDate; order?: number | null }
+
+/** What a drop of cards on a date writes, and how the day then stands. `target`: the date dropped on (a time in it is
+    ignored); `rest`: the other scenes of that date in the order they stand; `moved`: the cards carried, in order, with
+    the place each has now (null from the tray); `at`: how many of `rest` come before them; `manuscript`: a scene's place
+    in the manuscript, which settles a tie.
+    A card takes the date at the exactness the target says. A time typed on it is kept when the target is a day, and
+    dropped (it cannot be held) when the target is a month or a year; it is never made up.
+    Cards that come from another date change that date and nothing else: they stand in the day where its order puts them
+    (`at` is not asked), and a `story-order` they had goes, since it was for another day. Cards that are already on the
+    date are being put in another place in it, `at`: their place is the scenes' `story-order`, and nothing is numbered when
+    the day would stand as asked without (the manuscript's order, or the order already there, does it); otherwise every
+    scene of the day is numbered 1, 2, 3 in the order asked for, and only the numbers that change are written.
+    `place`: where the first of the cards stands in the day afterwards, from 1. */
+export function planDrop<T>(o: { target: StoryDate; rest: readonly { item: T; place: StoryPlace }[]; moved: readonly { item: T; place: StoryPlace | null }[]; at: number; manuscript: (item: T) => number; cal?: Calendar }): { writes: Map<T, DropWrite>; order: T[]; held: T[]; numbered: boolean; place: number } {
+	const cal = o.cal ?? GREGORIAN, target = dayOf(o.target), carried = new Set(o.moved.map((m) => m.item));
+	const rest = o.rest.filter((r) => !carried.has(r.item));
+	const placed = o.moved.map((m) => {
+		const date: StoryDate = target.d != null && m.place?.date.minutes != null ? { ...target, minutes: m.place.date.minutes, ...(m.place.date.seconds != null ? { seconds: m.place.date.seconds } : {}) } : target;
+		const changed = !m.place || compareStoryDates(m.place.date, date, cal) !== 0;
+		return { item: m.item, was: m.place, date, changed, place: { date, order: changed ? null : m.place?.order ?? null } };
+	});
+	// how the day stands if only the dates are written and nobody is numbered
+	const bare = [...rest, ...placed.map((m) => ({ item: m.item, place: m.place }))].sort((a, b) => compareStoryPlaces(a.place, b.place, cal) || o.manuscript(a.item) - o.manuscript(b.item)).map((x) => x.item);
+	const writes = new Map<T, DropWrite>();
+	const put = (item: T, w: DropWrite) => writes.set(item, { ...writes.get(item), ...w });
+	const first = (order: readonly T[]) => order.findIndex((x) => carried.has(x)) + 1;
+	// (from another date: the date is written, and the order it had goes; where it stands is not the drop's to say)
+	if (placed.some((m) => m.changed)) {
+		for (const m of placed) if (m.changed) put(m.item, { date: m.date, ...(m.was?.order != null ? { order: null } : {}) });
+		return { writes, order: bare, held: [], numbered: false, place: first(bare) };
+	}
+	const after = dayAfterDrop(rest, placed.map((m) => ({ item: m.item, place: m.place })), o.at, cal);
+	const numbered = bare.some((x, i) => x !== after.order[i]);
+	if (numbered) {
+		const was = new Map<T, number | null>([...rest.map((r) => [r.item, r.place.order] as [T, number | null]), ...placed.map((m) => [m.item, m.was?.order ?? null] as [T, number | null])]);
+		for (const [item, n] of after.numbers) if (was.get(item) !== n) put(item, { order: n });
+	}
+	return { writes, order: after.order, held: after.held, numbered, place: first(after.order) };
 }

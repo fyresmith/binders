@@ -1,5 +1,5 @@
 import { parseStoryDate, writeStoryDate, type StoryDate, type StoryPlace } from '../src/time/date';
-import { around, columnsFor, dateKey, dateText, dayAfterDrop, dayOf, dropTargets, gapText, planAcross, readShape, span, stepsOf, stoodOut, timeline, whereAcross, yearText, yearsOf } from '../src/view/timeline-data';
+import { around, columnsFor, dateKey, dateText, dayAfterDrop, dayOf, dropTargets, dropWords, gapText, planAcross, planDrop, readShape, slotAt, span, stepsOf, stoodOut, timeline, unfoldTargets, whereAcross, yearText, yearsOf } from '../src/view/timeline-data';
 import { done, eq, ok } from './harness';
 
 const j = (x: unknown) => JSON.stringify(x);
@@ -174,6 +174,109 @@ const dates = (list: string[]): Scene[] => list.map((x, i) => [`s${i + 1}`, x]);
 	const timed = dayAfterDrop(rest, [{ item: 'night', place: p('1987-06-19T21:30') }], 0);
 	eq(j(timed.order), j(['a', 'b', 'c', 'night']), 'a card with a time stands where its time puts it');
 	eq(j(timed.held), j(['night']), 'and is said to be held there');
+}
+
+// time across: room made for a gap that is unfolded, while a card is carried over it
+{
+	const W = 210, B = 12, G = 84;
+	const shut = planAcross([1, 1, 1], [false, false, false], W, B, G);
+	const open = planAcross([1, 1, 1], [false, false, false], W, B, G, { before: 2, width: 300 });
+	eq(j(open.groups.slice(0, 2)), j(shut.groups.slice(0, 2)), 'what is before the opening does not move');
+	ok(!!open.opening, 'the opening is said');
+	ok((open.opening?.x ?? 0) >= shut.groups[1].x + W, 'it begins after the cards before it');
+	eq(open.groups[2].x - (open.opening?.x ?? 0), 300 + B, 'the date after it begins past it');
+	ok(open.cards.flat().every((c) => c.x + W <= (open.opening?.x ?? 0) || c.x >= (open.opening?.x ?? 0) + 300), 'no card stands in it');
+	const both = planAcross([1, 1, 1], [false, false, true], W, B, G, { before: 2, width: 300 });
+	ok((both.opening?.x ?? 0) >= both.gaps[0].x + G, 'a shortened stretch that is unfolded: the opening is after its break');
+	eq(shut.opening, undefined, 'none unless asked');
+}
+
+// what a gap unfolds into on screen: all of it, or for a very long gap, the round years
+{
+	const u = (a: string, b: string) => { const r = unfoldTargets(d(a), d(b)); return j([r.unit, r.step, r.dates.length, r.dates.length ? iso(r.dates[0]) : '', r.dates.length ? iso(r.dates[r.dates.length - 1]) : '']); };
+	eq(u('1987-06-14', '1987-06-17'), j(['d', 1, 2, '1987-06-15', '1987-06-16']), 'a short gap unfolds as it is');
+	eq(u('1928-04', '1938-09-12'), j(['y', 1, 9, '1929', '1937']), 'ten years: every year');
+	eq(u('1500', '1600'), j(['y', 10, 9, '1510', '1590']), 'a hundred years: every tenth');
+	eq(u('0100', '1300'), j(['y', 100, 11, '0200', '1200']), 'a thousand years: every hundredth');
+	eq(u('1000', '1000-02'), j(['d', 1, 0, '', '']), 'a year that touches its month: no targets');
+	ok(unfoldTargets(d('-0500'), d('2000')).dates.length <= 60, 'never more than sixty to draw');
+}
+
+// where a drop at a point among a row of cards falls
+{
+	// two columns of 100 by 50, 10 apart: a b / c d
+	const r = [{ x: 0, y: 0, w: 100, h: 50 }, { x: 110, y: 0, w: 100, h: 50 }, { x: 0, y: 60, w: 100, h: 50 }, { x: 110, y: 60, w: 100, h: 50 }];
+	eq(slotAt(r, 10, 20, false), 0, 'the left half of the first card: before it');
+	eq(slotAt(r, 90, 20, false), 1, 'the right half: after it');
+	eq(slotAt(r, 130, 20, false), 1, 'the left half of the second: between');
+	eq(slotAt(r, 300, 20, false), 2, 'past the end of the first row: after both');
+	eq(slotAt(r, 10, 80, false), 2, 'the second row, left');
+	eq(slotAt(r, 205, 80, false), 4, 'past the last card');
+	eq(slotAt(r, 5, 55, false), 2, 'between the rows: before the next row’s first card');
+	const col = [{ x: 0, y: 0, w: 100, h: 50 }, { x: 0, y: 60, w: 100, h: 50 }];
+	eq(slotAt(col, 50, 10, true), 0, 'a column: the upper half is before');
+	eq(slotAt(col, 50, 40, true), 1, 'the lower half is after');
+	eq(slotAt([], 5, 5, false), 0, 'an empty row');
+}
+
+// what a drop writes
+{
+	const p = (date: string, order: number | null = null): StoryPlace => ({ date: d(date), order });
+	const n = (...names: string[]) => (x: string) => names.indexOf(x);
+	const w = (r: ReturnType<typeof planDrop<string>>) => j([...r.writes].map(([k, v]) => [k, v.date ? iso(v.date) : null, v.order === undefined ? 'same' : v.order]));
+	// onto a day that has scenes, from another day: the date alone is written, wherever among them it was let go
+	const rest = [{ item: 'a', place: p('1987-06-19') }, { item: 'b', place: p('1987-06-19') }];
+	const end = planDrop({ target: d('1987-06-19'), rest, moved: [{ item: 'x', place: p('1987-06-11') }], at: 2, manuscript: n('a', 'b', 'x') });
+	eq(w(end), j([['x', '1987-06-19', 'same']]), 'a card dropped on a day takes the date alone');
+	eq(j(end.order), j(['a', 'b', 'x']), 'and stands where the day’s order puts it');
+	eq(end.place, 3, 'which is said');
+	eq(end.numbered, false, 'nobody is numbered');
+	const mid = planDrop({ target: d('1987-06-19'), rest, moved: [{ item: 'x', place: p('1987-06-11') }], at: 1, manuscript: n('a', 'x', 'b') });
+	eq(w(mid), j([['x', '1987-06-19', 'same']]), 'let go between two, the neighbours are still not written to');
+	eq(j(mid.order), j(['a', 'x', 'b']), 'it stands by the manuscript’s order among them');
+	// a card that had a story-order loses it when it changes day and needs none
+	const lost = planDrop({ target: d('1987-06-19'), rest, moved: [{ item: 'x', place: p('1987-06-11', 4) }], at: 2, manuscript: n('a', 'b', 'x') });
+	eq(w(lost), j([['x', '1987-06-19', null]]), 'its own order goes with the old day');
+	// reordering inside a day
+	const day = [{ item: 'a', place: p('1987-06-19') }, { item: 'b', place: p('1987-06-19') }, { item: 'c', place: p('1987-06-19') }];
+	const re = planDrop({ target: d('1987-06-19'), rest: day.slice(1), moved: [day[0]], at: 2, manuscript: n('a', 'b', 'c') });
+	eq(j(re.order), j(['b', 'c', 'a']), 'a card moved to the end of its day');
+	eq(w(re), j([['b', null, 1], ['c', null, 2], ['a', null, 3]]), 'the day is numbered, the date is not touched');
+	const same = planDrop({ target: d('1987-06-19'), rest: day.slice(1), moved: [day[0]], at: 0, manuscript: n('a', 'b', 'c') });
+	eq(w(same), j([]), 'put back where it was: nothing to write');
+	// numbered days: renumbered only where a number changes
+	const nums = [{ item: 'a', place: p('1987-06-19', 1) }, { item: 'b', place: p('1987-06-19', 2) }, { item: 'c', place: p('1987-06-19', 3) }];
+	const swap = planDrop({ target: d('1987-06-19'), rest: [nums[0], nums[2]], moved: [nums[1]], at: 0, manuscript: n('a', 'b', 'c') });
+	eq(w(swap), j([['b', null, 1], ['a', null, 2]]), 'only the scenes whose number changes are written');
+	// a typed time is kept, and holds the card
+	const timed = planDrop({ target: d('1987-06-19'), rest: [{ item: 'a', place: p('1987-06-19') }], moved: [{ item: 'x', place: p('1987-06-11T21:30') }], at: 0, manuscript: n('a', 'x') });
+	eq(j(timed.order), j(['a', 'x']), 'a timed card stands after the untimed');
+	eq(w(timed), j([['x', '1987-06-19T21:30', 'same']]), 'it keeps its time on the new day');
+	const held = planDrop({ target: d('1987-06-19'), rest: [{ item: 'a', place: p('1987-06-19') }], moved: [{ item: 'x', place: p('1987-06-19T21:30') }], at: 0, manuscript: n('a', 'x') });
+	eq(j(held.order), j(['a', 'x']), 'put before an untimed scene on its own day, a timed card still stands after it');
+	eq(j(held.held), j(['x']), 'and is said to be held there');
+	eq(w(held), j([]), 'nothing is written: its time is never rewritten, and it stands there anyway');
+	// month and year targets: the card takes the date as that precision says, losing a time it cannot hold
+	const month = planDrop({ target: d('1987-06'), rest: [], moved: [{ item: 'x', place: p('1987-06-11T21:30') }], at: 0, manuscript: n('x') });
+	eq(w(month), j([['x', '1987-06', 'same']]), 'dropped on a month: the month');
+	// several cards
+	const two = planDrop({ target: d('1987-06-19'), rest: [], moved: [{ item: 'x', place: p('1987-06-11') }, { item: 'y', place: p('1987-06-12') }], at: 0, manuscript: n('x', 'y') });
+	eq(w(two), j([['x', '1987-06-19', 'same'], ['y', '1987-06-19', 'same']]), 'several cards all take the date');
+	// from the tray
+	const tray = planDrop({ target: d('1987-06-19'), rest, moved: [{ item: 'x', place: null }], at: 2, manuscript: n('a', 'b', 'x') });
+	eq(w(tray), j([['x', '1987-06-19', 'same']]), 'a card from the tray takes the date');
+	// the same date as it already has, put before its neighbour
+	const stay = planDrop({ target: d('1987-06-19'), rest: [{ item: 'a', place: p('1987-06-19') }], moved: [{ item: 'x', place: p('1987-06-19') }], at: 0, manuscript: n('a', 'x') });
+	eq(w(stay), j([['x', null, 1], ['a', null, 2]]), 'a card put before its neighbour on its own day writes only orders');
+}
+
+// the tag's words
+{
+	eq(dropWords(d('1987-06-19'), 0, 0, false), '19 June 1987', 'a day with nobody in it');
+	eq(dropWords(d('1987-06-19'), 2, 3, false), '19 June 1987, 2 of 3', 'a place in a day');
+	eq(dropWords(d('1987-06'), 1, 2, false), 'June 1987, 1 of 2', 'a month');
+	eq(dropWords(d('1931'), 0, 0, false), '1931', 'a year');
+	eq(dropWords(d('1987-06-19'), 3, 3, true), '19 June 1987, 3 of 3 (its time keeps it there)', 'a card held by its time says so');
 }
 
 done('timeline');
