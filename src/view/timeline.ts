@@ -1,13 +1,15 @@
 import { Keymap, Menu, Notice, TFile, setIcon, type PaneType, type TAbstractFile } from 'obsidian';
-import { emptyState, itemMenu, plain, removeItems, renameItem } from './actions';
-import { buildCard, cardKey, owedFocus, typingNow, type CardEditors, type CardHost } from './card';
-import { Press, SelectBox, visibleBottom } from './drag';
+import { emptyState, itemMenu, plain, removeItems, renameItem, setStory } from './actions';
+import { buildCard, cardKey, overPane, owedFocus, typingNow, type CardEditors, type CardHost } from './card';
+import { Press, SelectBox, held as heldFor, visibleBottom } from './drag';
+import { FileDrag } from './file-drag';
 import { submenu } from './internals';
-import { display } from './labels';
+import { display, paintLabel } from './labels';
 import { CARD_SIZES, readSize, type CardSize } from './lanes-data';
-import { readStory } from './props';
-import { showStoryDate, writeStoryDate, type StoryDate, type StoryPlace } from '../time/date';
-import { TIMELINE_SHAPES, columnsFor, dateText, gapText, planAcross, readShape, timeline, yearText, yearsOf, type AcrossPlan, type Group, type Shape } from './timeline-data';
+import { ask } from './modals';
+import { readStory, setStoryPlaces, type StoryWrite } from './props';
+import { parseStoryDate, showStoryDate, whyNotStoryDate, writeStoryDate, type StoryDate, type StoryPlace } from '../time/date';
+import { TIMELINE_SHAPES, columnsFor, dateKey, dateText, dropWords, gapText, planAcross, planDrop, readShape, slotAt, timeline, unfoldTargets, whereAcross, yearText, yearsOf, type AcrossPlan, type Group, type Shape } from './timeline-data';
 import { watchSize } from './windows';
 import type { BinderMode, ModeContext, ModeFactory } from './mode';
 
@@ -24,9 +26,12 @@ import type { BinderMode, ModeContext, ModeFactory } from './mode';
                strip over the cards; the tray along the foot.
    In a narrow pane (a phone) time runs down in one column, each date over its cards, and there is no other shape.
 
-   Reading only: this view writes nothing by being opened, scrolled, filtered or switched. A date is set from a
-   card's menu ("Set story date…", actions.ts). Dragging a card to another date is not built: where a drag would be
-   read is marked DRAG below, and what it needs to know is answered in timeline-data.ts.
+   This view writes nothing by being opened, scrolled, filtered or switched. A date is set from a card's menu ("Set
+   story date…", actions.ts) or by dragging a card (`startDrag` and what follows it): onto a date, which it takes at
+   the exactness that date has; onto the gap between two dates, which unfolds, while the card is over it, into the
+   dates in it (`unfoldTargets`); before the first date or after the last, where a dialog asks; onto the tray, which
+   takes the date away; and, among the cards of a day, to a place in its order. Only `story-date` and `story-order`
+   are ever written, and a drag is one step for Undo. What a drop writes is worked out in timeline-data.ts (`planDrop`).
 
    Every card has a place worked out here, not flowed by the page, so only the cards near what is in sight exist
    (`sync`): a binder of a thousand scenes draws a few dozen. The keyboard and the selection go through the scenes
@@ -58,7 +63,47 @@ interface Spot {
 	side: string;
 }
 interface Drawn { el: HTMLElement; key: string; editors: CardEditors }
-interface Row { el: HTMLElement; items: TFile[]; date: StoryDate }
+/** A date's row: `box` is the date's group on the page, `el` what its cards are laid out in. */
+interface Row { el: HTMLElement; box: HTMLElement; items: TFile[]; date: StoryDate }
+
+/** What the pointer is over while cards are carried: a date's cards (`group`, by its place among the dates); the stretch
+    before a date (`between`: before the date at `i`, 1 to the last), which unfolds; a place in an unfolded stretch
+    (`target`, with its date); `open`, the unfolded stretch itself between its targets; before the first date or after
+    the last (`edge`: `i` is 0, or the number of dates); the tray; the line with no date on it yet (`bare`). */
+type Where = { kind: 'group' | 'between' | 'open' | 'edge'; i: number } | { kind: 'target'; date: StoryDate; el: HTMLElement } | { kind: 'tray' } | { kind: 'bare' };
+/** What a drop would do: give the cards a date (and a place among the day's), take their dates away, or ask for one. */
+type Drop = { kind: 'date'; date: StoryDate; at: number; row?: HTMLElement } | { kind: 'tray' } | { kind: 'ask'; near: StoryDate | null; words: string };
+/** The cards in hand. */
+interface Carry {
+	files: TFile[];
+	paths: Set<string>;
+	ghost: HTMLElement;
+	/** The line that shows a place among a day's cards (the drop indicator the boards use). */
+	mark: HTMLElement;
+	tag: HTMLElement;
+	touch: boolean;
+	x: number; y: number;
+	/** Where in the card it was taken hold of, so it stays under the pointer there. */
+	ox: number; oy: number;
+	raf: number;
+	edge: number;
+	/** Outside the view the card is a file, and the drag Obsidian's (file-drag.ts). Null where it can't be handed one. */
+	file: FileDrag | null;
+	drop: Drop | null;
+	/** The timer of a stretch about to unfold, and what is lit now. */
+	dwell: number;
+	dwellFor: number;
+	lit: HTMLElement | null;
+	said: string;
+}
+
+/** How near a date's mark a point along the line is still that date (time across), and how long a pointer rests on the
+    boundary between two dates before it unfolds (ms). */
+const NEAR = 40, DWELL = 150;
+/** Time down: the width of the strip at a date's top and foot that is the boundary with its neighbour. */
+const EDGE = 8;
+/** The room a drop target takes in an unfolded stretch (time across), and the most of them in a column. */
+const CHIP_W = 76, CHIP_H = 28, CHIP_GAP = 6, MOST_ROWS = 6;
 
 export const timelineMode: ModeFactory = (container, ctx) => new Timeline(container, ctx);
 
@@ -93,6 +138,13 @@ class Timeline implements BinderMode {
 	private rows: Row[] = [];
 	private plan: AcrossPlan | null = null;
 	private press: Press<HTMLElement>;
+	/** The cards being carried, if any; the stretch between two dates that is unfolded for them (the date it is before,
+	    by its place among the dates); and each scene's date's place among the dates. */
+	private carry: Carry | null = null;
+	private opening: number | null = null;
+	private groupAt = new Map<string, number>();
+	/** Time down: how many cards stand side by side in a date's row. */
+	private cols = 1;
 	private box: SelectBox | null = null;
 	private boxFrom: { focused: string | null; anchor: string | null } = { focused: null, anchor: null };
 	/** The card a press has already selected: the click that ends that press selects nothing more. */
@@ -186,12 +238,17 @@ class Timeline implements BinderMode {
 				if (this.sel.has(path)) return;
 				if (e.shiftKey || Keymap.isModEvent(e)) { this.clickSelect(path, e); this.pressed = path; } else this.select([path]);
 			},
-			// DRAG: nothing is carried yet. A drag that sets a story date begins here (`canDrag`, `start`, `move`, `end`),
-			// and a card carried out of the view is a file (file-drag.ts), as on the boards.
-			canDrag: () => false,
-			start: () => { /* DRAG */ },
-			move: () => { /* DRAG */ },
-			end: () => { /* DRAG */ },
+			// (a drag sets a story date; carried out of the view the cards are files, file-drag.ts, as on the boards)
+			canDrag: () => !this.ctx.readOnly,
+			start: (card, x, y) => this.startDrag(card, x, y),
+			move: (x, y) => this.dragTo(x, y),
+			end: (drop, x, y) => {
+				// (let go outside the view: whatever is there takes the cards as files, or nothing does)
+				const file = this.carry?.file;
+				if (file?.out) { this.endDrag(false, drop && file.drop(x, y)); return; }
+				if (drop) this.dragTo(x, y);
+				this.endDrag(drop);
+			},
 			hold: (card, x, y) => {
 				const path = card.dataset.path ?? '';
 				if (!this.sel.has(path)) this.select([path]);
@@ -209,6 +266,7 @@ class Timeline implements BinderMode {
 
 	unload(): void {
 		this.press?.destroy();
+		if (this.carry) this.endDrag(false, false, true);
 		if (this.raf) this.container.win.cancelAnimationFrame(this.raf);
 		for (const f of this.cleanup) f();
 		this.cleanup = [];
@@ -372,6 +430,9 @@ class Timeline implements BinderMode {
 		this.undated = undated;
 		this.numbers = new Map(scenes.map((f, i) => [f.path, i + 1]));
 		this.order = [...groups.flatMap((g) => g.items), ...undated].map((f) => f.path);
+		this.groupAt = new Map(groups.flatMap((g, i) => g.items.map((f) => [f.path, i] as [string, number])));
+		// (a stretch that was unfolded for a drop is shut if the dates around it have gone)
+		if (this.opening != null && (!this.carry || this.opening < 1 || this.opening >= groups.length)) this.opening = null;
 		this.board.toggleClass('has-dates', groups.length > 0);
 		this.board.toggleClass('is-empty', !scenes.length);
 
@@ -411,18 +472,44 @@ class Timeline implements BinderMode {
 	private said(g: Group<TFile>): string { return showStoryDate(g.date) + (g.gap == null ? '' : `, ${gapText(g.gap)} after the date before`); }
 
 	/** A stretch drawn short: a break in the line that says how long it was. (Said aloud with the date after it.) */
-	private gap(into: HTMLElement, g: Group<TFile>, before: Group<TFile>): HTMLElement {
-		// DRAG: carried over, a gap unfolds into the dates in it (`dropTargets` of the two dates it says here)
-		const br = into.createDiv({ cls: 'binders-timeline-gap', attr: { 'aria-hidden': 'true', 'data-after': String(writeStoryDate(before.date)), 'data-before': String(writeStoryDate(g.date)) } });
+	private gap(into: HTMLElement, g: Group<TFile>, before: Group<TFile>, index: number): HTMLElement {
+		// (carried over, it unfolds into the dates in it: the two dates it says here, and its place among the dates)
+		const br = into.createDiv({ cls: 'binders-timeline-gap', attr: { 'aria-hidden': 'true', 'data-after': String(writeStoryDate(before.date)), 'data-before': String(writeStoryDate(g.date)), 'data-index': String(index) } });
 		br.createSpan({ cls: 'binders-timeline-gap-text', text: gapText(g.gap ?? 0) });
 		return br;
+	}
+
+	/** The dates a stretch is unfolded into while cards are carried over it: one place to drop on for each, in time's
+	    order. `rows`: how many to a column (time across), which says how wide the room is. */
+	private unfold(into: HTMLElement, gi: number, across = false): HTMLElement {
+		const groups = this.groups, t = unfoldTargets(groups[gi - 1].date, groups[gi].date), rows = across ? this.unfoldRows(gi) : 0;
+		const el = into.createDiv({ cls: 'binders-timeline-unfold', attr: { 'aria-hidden': 'true', 'data-index': String(gi) } });
+		for (const date of t.dates) {
+			// (a day says its day and month; a month its month and year; a year its year)
+			const text = t.unit === 'd' ? dateText(date, { short: true }) : t.unit === 'm' ? dateText(date, { short: true, year: true }) : yearText(date.y);
+			el.createDiv({ cls: 'binders-timeline-target', text, attr: { 'data-date': String(writeStoryDate(date)) } });
+		}
+		if (rows) el.setCssProps({ '--binders-unfold-rows': String(rows), '--binders-unfold-cols': String(Math.ceil(t.dates.length / rows)) });
+		return el;
+	}
+
+	/** Time across: how many targets stand in a column of the unfolded stretch, and (below) how wide that makes it. */
+	private unfoldRows(gi: number): number { return Math.min(MOST_ROWS, unfoldTargets(this.groups[gi - 1].date, this.groups[gi].date).dates.length); }
+	private unfoldWidth(gi: number): number {
+		const n = unfoldTargets(this.groups[gi - 1].date, this.groups[gi].date).dates.length, cols = Math.ceil(n / Math.max(1, this.unfoldRows(gi)));
+		return cols * CHIP_W + Math.max(0, cols - 1) * CHIP_GAP + 2 * CHIP_GAP;
+	}
+
+	/** Is there anything between the dates before and at `gi` to drop on (are they more than a day apart)? */
+	private roomBetween(gi: number): boolean {
+		return gi > 0 && gi < this.groups.length && unfoldTargets(this.groups[gi - 1].date, this.groups[gi].date).dates.length > 0;
 	}
 
 	/** Time across: the line through the middle with the dates on it, each card on a short stem above or below; the
 	    years in a strip over the cards, each staying in sight while its dates scroll. */
 	private drawAcross(): void {
 		const groups = this.groups, w = this.css('--binders-card-width', 210), h = this.css('--binders-card-height', 150);
-		const plan = this.plan = planAcross(groups.map((g) => g.items.length), groups.map((g) => g.gap != null), w, BETWEEN, GAP);
+		const open = this.opening, plan = this.plan = planAcross(groups.map((g) => g.items.length), groups.map((g) => g.gap != null), w, BETWEEN, GAP, open != null ? { before: open, width: this.unfoldWidth(open) } : undefined);
 		const y = YEARS + h + STEM; // the line
 		const el = this.line, hidden = { 'aria-hidden': 'true' };
 		el.setCssProps({ width: `${plan.width}px`, height: `${y + 2 + RULER + h}px`, '--binders-timeline-y': `${y}px` });
@@ -433,10 +520,12 @@ class Timeline implements BinderMode {
 		for (const gap of plan.gaps) {
 			solid(gap.x);
 			gapAt.set(gap.before, gap.x);
-			this.gap(el, groups[gap.before], groups[gap.before - 1]).setCssProps({ left: `${gap.x}px`, width: `${GAP}px` });
+			this.gap(el, groups[gap.before], groups[gap.before - 1], gap.before).setCssProps({ left: `${gap.x}px`, width: `${GAP}px` });
 			from = gap.x + GAP;
 		}
 		solid(plan.width);
+		// (a stretch unfolded for the cards being carried: its targets stand around the line)
+		if (plan.opening) this.unfold(el, plan.opening.before, true).setCssProps({ left: `${plan.opening.x}px`, width: `${plan.opening.width}px`, top: `${y - this.unfoldRows(plan.opening.before) * (CHIP_H + CHIP_GAP) / 2}px` });
 		// the years: each from its first date to the next year's (or to the break before it)
 		const years = yearsOf(groups);
 		years.forEach((year, i) => {
@@ -452,7 +541,8 @@ class Timeline implements BinderMode {
 			if (at.to > at.x) el.createDiv({ cls: 'binders-timeline-span', attr: hidden }).setCssProps({ left: `${at.x + INSET}px`, width: `${at.to - at.x}px` });
 			for (const p of plan.cards[gi]) el.createDiv({ cls: `binders-timeline-stem mod-${p.side}`, attr: hidden }).setCssProps({ left: `${p.x + INSET}px` });
 			// (the date's cards are its group, to a screen reader; on the page they stand along the line)
-			this.rows.push({ el: el.createDiv({ cls: 'binders-timeline-group', attr: { role: 'group', 'aria-label': this.said(g), 'data-date': String(writeStoryDate(g.date)) } }), items: g.items, date: g.date });
+			const box = el.createDiv({ cls: 'binders-timeline-group', attr: { role: 'group', 'aria-label': this.said(g), 'data-date': String(writeStoryDate(g.date)) } });
+			this.rows.push({ el: box, box, items: g.items, date: g.date });
 		});
 	}
 
@@ -462,14 +552,18 @@ class Timeline implements BinderMode {
 		let year: HTMLElement = this.line;
 		this.groups.forEach((g, gi) => {
 			if (g.newYear) {
-				if (g.gap != null) this.gap(this.line, g, this.groups[gi - 1]);
+				if (g.gap != null) this.gap(this.line, g, this.groups[gi - 1], gi);
+				if (this.opening === gi) this.unfold(this.line, gi);
 				year = this.line.createDiv({ cls: 'binders-timeline-yeargroup' });
 				year.createDiv({ cls: 'binders-timeline-yearhead', attr: { 'aria-hidden': 'true' } }).createSpan({ cls: 'binders-timeline-yearname', text: yearText(g.date.y) });
-			} else if (g.gap != null) this.gap(year, g, this.groups[gi - 1]);
+			} else {
+				if (g.gap != null) this.gap(year, g, this.groups[gi - 1], gi);
+				if (this.opening === gi) this.unfold(year, gi);
+			}
 			const row = year.createDiv({ cls: 'binders-timeline-group', attr: { role: 'group', 'aria-label': this.said(g), 'data-date': String(writeStoryDate(g.date)) } });
 			// (the year is over it: a date says its day and month, and a date that is only a year says so)
 			row.createDiv({ cls: 'binders-timeline-date', text: g.date.m == null ? `In ${yearText(g.date.y)}` : dateText(g.date), attr: { 'aria-hidden': 'true' } });
-			this.rows.push({ el: row.createDiv({ cls: 'binders-timeline-cards' }), items: g.items, date: g.date });
+			this.rows.push({ el: row.createDiv({ cls: 'binders-timeline-cards' }), box: row, items: g.items, date: g.date });
 		});
 	}
 
@@ -487,9 +581,11 @@ class Timeline implements BinderMode {
 		tray.empty();
 		this.trayCards = null;
 		tray.className = `binders-timeline-tray mod-${kind}`;
-		tray.toggleClass('is-hidden', !undated.length);
+		// (while cards are carried the tray is there to be dropped on, empty or not: a drop on it takes the date away)
+		const shown = undated.length > 0 || !!this.carry;
+		tray.toggleClass('is-hidden', !shown);
 		tray.toggleClass('is-open', open);
-		if (!undated.length) return;
+		if (!shown) return;
 		const head = tray.createDiv({ cls: 'binders-timeline-tray-head', attr: { role: 'button', tabindex: '0', 'aria-expanded': String(open), 'aria-label': `No date: ${undated.length} ${undated.length === 1 ? 'scene' : 'scenes'}` } });
 		// (with no date anywhere the tray is the page, and has nothing to fold into)
 		if (kind !== 'page') {
@@ -500,7 +596,6 @@ class Timeline implements BinderMode {
 		} else for (const a of ['role', 'tabindex', 'aria-expanded']) head.removeAttribute(a);
 		head.createSpan({ cls: 'binders-timeline-tray-name', text: 'No date' });
 		head.createSpan({ cls: 'binders-timeline-tray-count', text: String(undated.length) });
-		// DRAG: a card let go on the tray loses its date; one carried out of it onto the line gets one
 		if (open) this.trayCards = tray.createDiv({ cls: 'binders-timeline-tray-cards', attr: { role: 'listbox', 'aria-multiselectable': 'true', 'aria-label': 'Scenes with no story date' } });
 	}
 
@@ -521,7 +616,7 @@ class Timeline implements BinderMode {
 		} else if (this.rows.length) {
 			// (every date's cards have the same room across: measured once, then each row given its height, then where
 			// each row came to stand is read in one go)
-			const width = this.rows[0].el.clientWidth, cols = this.narrow ? 1 : columnsFor(width, w, BETWEEN), cw = (width - (cols - 1) * BETWEEN) / cols;
+			const width = this.rows[0].el.clientWidth, cols = this.cols = this.narrow ? 1 : columnsFor(width, w, BETWEEN), cw = (width - (cols - 1) * BETWEEN) / cols;
 			for (const row of this.rows) { const n = Math.ceil(row.items.length / cols); row.el.setCssProps({ height: `${n * h + (n - 1) * BETWEEN}px` }); }
 			const base = this.line.getBoundingClientRect();
 			for (const row of this.rows) {
@@ -570,10 +665,11 @@ class Timeline implements BinderMode {
 			const from = s.tray ? cards : line, view = s.tray ? own : page;
 			if (!from) continue;
 			const l = from.left + s.ax, t = from.top + s.ay;
-			if ((l < view.right && l + s.w > view.left && t < view.bottom && t + s.h > view.top) || path === held) want.add(path);
+			if ((l < view.right && l + s.w > view.left && t < view.bottom && t + s.h > view.top) || path === held || this.carry?.paths.has(path)) want.add(path);
 		}
 		for (const [path, d] of this.cards) {
-			if (want.has(path) || d.el.querySelector('.is-editing')) continue;
+			// (the cards in hand stay, wherever the page goes; so does the one being written in)
+			if (want.has(path) || d.el.querySelector('.is-editing') || this.carry?.paths.has(path)) continue;
 			d.el.remove();
 			this.cards.delete(path);
 		}
@@ -602,6 +698,7 @@ class Timeline implements BinderMode {
 		// (a windowed list says where each of its options stands, and how many there are)
 		el.setAttrs({ 'aria-posinset': String(s.pos), 'aria-setsize': String(s.of) });
 		el.dataset.pos = String(s.pos);
+		el.toggleClass('is-dragging', !!this.carry?.paths.has(path));
 		el.toggleClass('mod-above', s.side === 'above');
 		el.toggleClass('mod-below', s.side === 'below');
 		el.setCssProps({ left: `${s.x}px`, top: `${s.y}px`, width: `${s.w}px`, '--binders-timeline-card': `${s.h}px` });
@@ -758,6 +855,319 @@ class Timeline implements BinderMode {
 		this.cardMenu(path).showAtPosition({ x: r.left + 16, y: r.top + 28 }, card.doc);
 	}
 
+	// ---- dragging: cards carried to a date, to a place among a day's cards, or to the tray ----
+
+	private startDrag(card: HTMLElement, x: number, y: number): void {
+		const path = card.dataset.path ?? '';
+		if (!this.sel.has(path)) this.select([path]);
+		const files = this.targets(path);
+		if (!files.length || this.carry) return;
+		const doc = this.board.doc, r = card.getBoundingClientRect(), touch = this.press.pointer === 'touch';
+		// the card itself follows the pointer, held where it was taken, as an item being reordered does in Obsidian
+		const ghost = doc.body.createDiv({ cls: 'drag-reorder-ghost binders-drag-ghost mod-lanes', attr: { 'aria-hidden': 'true' } });
+		const copy = card.cloneNode(true) as HTMLElement;
+		for (const a of ['tabindex', 'data-path', 'role', 'aria-selected', 'id', 'style']) copy.removeAttribute(a);
+		copy.removeClasses(['is-selected', 'is-lifted', 'is-landing', 'is-dropped', 'is-dragging']);
+		copy.addClass('mod-dragged-item');
+		copy.setCssStyles({ width: `${r.width}px`, height: `${r.height}px` });
+		copy.setCssProps({ '--binders-card-lines': getComputedStyle(card).getPropertyValue('--binders-card-lines') });
+		paintLabel(copy, card.dataset.label ?? '', this.ctx.plugin.settings.labels);
+		ghost.appendChild(copy);
+		if (files.length > 1) {
+			ghost.addClass('is-multiple');
+			ghost.createSpan({ cls: 'binders-drag-count', text: String(files.length) });
+		}
+		// what a drop would do, said beside the card (above it for a finger, which would cover it)
+		const tag = ghost.createDiv({ cls: 'binders-timeline-tag is-hidden' });
+		ghost.toggleClass('mod-touch', touch);
+		// the line that shows a place among a day's cards: over everything
+		const mark = doc.body.createDiv({ cls: 'binders-drop-indicator' });
+		// (a finger covers the card it holds: the card is carried above it)
+		const lift = touch ? 72 : 0;
+		const c: Carry = { files, paths: new Set(files.map((f) => f.path)), ghost, mark, tag, touch, x, y, ox: x - r.left, oy: y - r.top + lift, raf: 0, edge: 0, file: null, drop: null, dwell: 0, dwellFor: -1, lit: null, said: '' };
+		this.carry = c;
+		for (const p of c.paths) this.cardEl(p)?.addClass('is-dragging');
+		this.board.addClass('is-dragging');
+		doc.body.addClass('is-grabbing');
+		c.file = FileDrag.begin(this.ctx.app, { source: card, items: files, carried: ghost, morph: true, notes: (f) => this.store.scenes(f) });
+		// the tray, to be dropped on, even where it has nothing in it
+		if (!this.undated.length) { this.drawTray(); this.layOut(); this.sync(); }
+		const win = this.board.win;
+		const tick = () => {
+			if (this.carry !== c) return;
+			if (!c.file?.out) this.autoscroll();
+			c.raf = win.requestAnimationFrame(tick);
+		};
+		c.raf = win.requestAnimationFrame(tick);
+	}
+
+	private dragTo(x: number, y: number): void {
+		const c = this.carry;
+		if (!c) return;
+		c.x = x; c.y = y;
+		c.ghost.setCssStyles({ transform: `translate(${x - c.ox}px, ${y - c.oy}px)` });
+		// outside the view the cards are files, and Obsidian's to place: the board shows nowhere of its own to drop them
+		this.aim(c.file?.move(x, y) ? null : this.locate(x, y));
+	}
+
+	/** Dragging near an edge of the pane scrolls it: gently at first, faster the nearer the edge and the longer held. */
+	private autoscroll(): void {
+		const c = this.carry, s = this.container;
+		if (!c || c.drop?.kind === 'tray') return;
+		const r = s.getBoundingClientRect(), edge = 48, bottom = visibleBottom(s);
+		const by = (v: number) => Math.sign(v) * Math.max(1, 14 * Math.min(1, Math.abs(v) / edge) ** 2) * heldFor(c.edge);
+		const v = c.y < r.top + edge ? -(r.top + edge - c.y) : c.y > bottom - edge ? c.y - (bottom - edge) : 0;
+		const h = c.x < r.left + edge ? -(r.left + edge - c.x) : c.x > r.right - edge ? c.x - (r.right - edge) : 0;
+		if (!v && !h) { c.edge = 0; return; }
+		c.edge ||= performance.now();
+		const top = s.scrollTop, left = s.scrollLeft;
+		if (v) s.scrollTop += by(v);
+		if (h) s.scrollLeft += by(h);
+		// (what is under the pointer is something else now)
+		if (s.scrollTop !== top || s.scrollLeft !== left) { this.sync(); this.aim(this.locate(c.x, c.y)); }
+	}
+
+	/** What the pointer is over: a date's cards, the boundary between two dates, a place in a stretch unfolded for the
+	    cards, before the first date or after the last, the tray. Null off the board. */
+	private locate(x: number, y: number): Where | null {
+		const c = this.carry;
+		if (!c || !overPane(this.container, x, y)) return null;
+		const el = this.board.doc.elementFromPoint(x, y), inside = (r: DOMRect) => x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+		const target = el?.closest<HTMLElement>('.binders-timeline-target');
+		if (target) { const date = parseStoryDate(target.dataset.date ?? ''); return date ? { kind: 'target', date, el: target } : null; }
+		const unfold = el?.closest<HTMLElement>('.binders-timeline-unfold');
+		if (unfold) return { kind: 'open', i: Number(unfold.dataset.index) };
+		if (el?.closest('.binders-timeline-none')) return { kind: 'bare' };
+		if (!this.tray.hasClass('is-hidden') && inside(this.tray.getBoundingClientRect())) return { kind: 'tray' };
+		const n = this.groups.length;
+		if (!n) return null;
+		// (a card, not one of those in hand: its date)
+		const path = el?.closest<HTMLElement>(CARD)?.dataset.path, gi = path && !c.paths.has(path) ? this.groupAt.get(path) : undefined;
+		if (gi != null) return { kind: 'group', i: gi };
+		const gap = el?.closest<HTMLElement>('.binders-timeline-gap');
+		if (gap) return { kind: 'between', i: Number(gap.dataset.index) };
+		if (this.layout === 'across') {
+			const plan = this.plan;
+			if (!plan) return null;
+			const lx = x - this.line.getBoundingClientRect().left;
+			if (lx < plan.groups[0].x) return { kind: 'edge', i: 0 };
+			const w = whereAcross(plan, lx, NEAR);
+			if ('group' in w) return { kind: 'group', i: w.group };
+			const i = w.before;
+			return this.boundary(i, i <= 0 ? 0 : i >= n ? n - 1 : Math.abs(lx - plan.groups[i - 1].to) < Math.abs(lx - plan.groups[i].x) ? i - 1 : i);
+		}
+		// time down: the date whose row it is in, found among the rows (they stand in order down the page)
+		const box = (i: number) => this.rows[i].box.getBoundingClientRect();
+		let lo = 0, hi = n - 1, found = n;
+		while (lo <= hi) { const mid = (lo + hi) >> 1; if (box(mid).bottom > y) { found = mid; hi = mid - 1; } else lo = mid + 1; }
+		if (found >= n) return { kind: 'edge', i: n };
+		const r = box(found);
+		if (y < r.top) {
+			if (found === 0) return y < this.board.getBoundingClientRect().top ? null : { kind: 'edge', i: 0 };
+			return this.boundary(found, y - box(found - 1).bottom < r.top - y ? found - 1 : found);
+		}
+		// (the top and foot of a row are its boundaries with the rows beside it, where there is room between them)
+		if (found > 0 && y < r.top + EDGE && this.roomBetween(found)) return { kind: 'between', i: found };
+		if (found < n - 1 && y > r.bottom - EDGE && this.roomBetween(found + 1)) return { kind: 'between', i: found + 1 };
+		return { kind: 'group', i: found };
+	}
+
+	/** The stretch before the date at `i`: its boundary, if there is anything between the two dates to drop on; else the
+	    nearer of the dates. Before the first and after the last are edges. */
+	private boundary(i: number, nearest: number): Where {
+		const n = this.groups.length;
+		if (i <= 0) return { kind: 'edge', i: 0 };
+		if (i >= n) return { kind: 'edge', i: n };
+		return this.roomBetween(i) ? { kind: 'between', i } : { kind: 'group', i: nearest };
+	}
+
+	/** Shuts or unfolds the stretch under the pointer, works out what a drop would do, and shows it. A stretch unfolds
+	    once the pointer has rested on its boundary a moment (so passing over it doesn't make the page jump about), and
+	    shuts as the pointer leaves it. */
+	private aim(where: Where | null, again = false): void {
+		const c = this.carry;
+		if (!c) return;
+		const want = where?.kind === 'between' || where?.kind === 'open' ? where.i : where?.kind === 'target' ? this.opening : null;
+		if (this.opening != null && want !== this.opening && !again) {
+			// (the page moves back as it shuts: what is under the pointer is looked at again)
+			this.setOpen(null);
+			this.aim(c.file?.out ? null : this.locate(c.x, c.y), true);
+			return;
+		}
+		if (want == null || want === this.opening) { window.clearTimeout(c.dwell); c.dwell = 0; c.dwellFor = -1; } else if (c.dwellFor !== want) {
+			window.clearTimeout(c.dwell);
+			c.dwellFor = want;
+			c.dwell = window.setTimeout(() => {
+				c.dwell = 0; c.dwellFor = -1;
+				if (this.carry !== c || c.file?.out) return;
+				this.setOpen(want);
+				this.aim(this.locate(c.x, c.y), true);
+			}, DWELL);
+		}
+		c.drop = this.decide(where);
+		this.showDrop(c.drop);
+	}
+
+	/** Unfolds the stretch before the date at `i` (null: none). The line is drawn again with room for its targets. */
+	private setOpen(i: number | null): void {
+		if (this.opening === i) return;
+		this.opening = i;
+		this.draw();
+	}
+
+	private decide(where: Where | null): Drop | null {
+		const c = this.carry;
+		if (!c || !where) return null;
+		const groups = this.groups;
+		switch (where.kind) {
+			case 'tray': return { kind: 'tray' };
+			case 'target': return { kind: 'date', date: where.date, at: 0, row: where.el };
+			case 'group': return { kind: 'date', date: groups[where.i].date, at: this.slot(where.i, c.x, c.y), row: this.rows[where.i]?.box };
+			case 'edge': { const near = groups[where.i === 0 ? 0 : groups.length - 1].date; return { kind: 'ask', near, words: `${where.i === 0 ? 'Before' : 'After'} ${showStoryDate(near)}...` }; }
+			case 'bare': return { kind: 'ask', near: null, words: 'Set story date...' };
+			default: return null; // (a boundary that isn't unfolded yet: nothing to drop on)
+		}
+	}
+
+	/** Where among a date's other cards (those not in hand) a drop at (x, y) falls: how many come before it. */
+	private slot(gi: number, x: number, y: number): number {
+		const c = this.carry, rect = this.line.getBoundingClientRect();
+		const spots = this.groups[gi].items.filter((f) => !c?.paths.has(f.path)).map((f) => this.spots.get(f.path)).filter((s): s is Spot => !!s);
+		const rects = spots.map((s) => ({ x: s.ax, y: s.ay, w: s.w, h: s.h })), lx = x - rect.left, ly = y - rect.top;
+		// (time across: along the line, the middle of a card divides before from after; else by reading order)
+		if (this.layout === 'across') return rects.filter((r) => lx > r.x + r.w / 2).length;
+		return slotAt(rects, lx, ly, this.cols === 1);
+	}
+
+	/** The other scenes of a date, as they stand, without those in hand. */
+	private restOf(date: StoryDate, files: readonly TFile[]): { item: TFile; place: StoryPlace }[] {
+		const key = dateKey(date), skip = new Set(files);
+		return (this.groups.find((g) => g.key === key)?.items ?? []).filter((f) => !skip.has(f)).flatMap((f) => { const place = this.placeOf(f); return place ? [{ item: f, place }] : []; });
+	}
+
+	/** What cards put at `at` among a date's others write, and how the day stands after. */
+	private planFor(date: StoryDate, at: number, files: readonly TFile[]) {
+		return planDrop({ target: date, rest: this.restOf(date, files), moved: files.map((f) => ({ item: f, place: this.placeOf(f) })), at, manuscript: (f) => this.numbers.get(f.path) ?? 0 });
+	}
+
+	/** Lights what a drop would land on, and says in the tag by the card what it would do. */
+	private showDrop(drop: Drop | null): void {
+		const c = this.carry;
+		if (!c) return;
+		const lit = drop?.kind === 'date' ? drop.row ?? null : drop?.kind === 'tray' ? this.tray : null;
+		if (c.lit !== lit) { c.lit?.removeClass('is-drop-target'); lit?.addClass('is-drop-target'); c.lit = lit; }
+		let words = '';
+		c.mark.removeClass('is-active');
+		if (drop?.kind === 'date') {
+			const rest = this.restOf(drop.date, c.files), plan = this.planFor(drop.date, drop.at, c.files);
+			words = rest.length ? dropWords(drop.date, plan.place, rest.length + c.files.length, plan.held.length > 0) : dropWords(drop.date, 0, 0, plan.held.length > 0);
+			// (cards from another date stand where the day's order puts them; only within a day is a place chosen)
+			const key = dateKey(drop.date);
+			if (rest.length && c.files.every((f) => { const pl = this.placeOf(f); return !!pl && dateKey(pl.date) === key; })) this.markAt(drop.at, rest.map((r) => r.item));
+		} else if (drop?.kind === 'tray') words = 'No story date';
+		else if (drop?.kind === 'ask') words = drop.words;
+		if (words !== c.said) { c.said = words; c.tag.setText(words); c.tag.toggleClass('is-hidden', !words); }
+	}
+
+	/** The line that shows where among a date's cards the ones in hand would stand. */
+	private markAt(at: number, rest: readonly TFile[]): void {
+		const c = this.carry;
+		if (!c) return;
+		const spots = rest.map((f) => this.spots.get(f.path)).filter((s): s is Spot => !!s);
+		if (!spots.length) return;
+		const next = spots[at] ?? null, prev = spots[at - 1] ?? null, line = this.line.getBoundingClientRect(), view = this.container.getBoundingClientRect(), across = this.layout === 'across';
+		const column = !across && this.cols === 1;
+		let box: { left: number; top: number; width?: number; height?: number };
+		if (column) {
+			const s = next ?? prev ?? spots[0];
+			box = { left: line.left + s.ax, top: line.top + (next ? s.ay - BETWEEN / 2 : s.ay + s.h + BETWEEN / 2) - 1, width: s.w };
+		} else if (next && (!prev || across || next.ay === prev.ay)) box = { left: line.left + next.ax - BETWEEN / 2 - 1, top: line.top + next.ay, height: next.h };
+		else if (prev) box = { left: line.left + prev.ax + prev.w + BETWEEN / 2 - 1, top: line.top + prev.ay, height: prev.h };
+		else return;
+		const inView = box.left >= view.left && box.left <= view.right && box.top >= view.top && box.top <= view.bottom;
+		c.mark.toggleClass('is-vertical', !column);
+		c.mark.toggleClass('is-active', inView);
+		c.mark.setCssStyles({ left: `${box.left}px`, top: `${box.top}px`, width: box.width ? `${box.width}px` : '', height: box.height ? `${box.height}px` : '' });
+	}
+
+	/** Ends a drag. A drop writes the dates (and places among a day's cards) as one change; otherwise (cancelled, let go
+	    outside the board or on nothing) nothing is written. `quiet`: the board is going away. `taken`: let go outside the
+	    view, where something took the cards as files. */
+	private endDrag(drop: boolean, taken = false, quiet = false): void {
+		const c = this.carry;
+		if (!c) return;
+		c.file?.end();
+		this.board.win.cancelAnimationFrame(c.raf);
+		window.clearTimeout(c.dwell);
+		c.lit?.removeClass('is-drop-target');
+		c.mark.remove();
+		c.ghost.remove();
+		this.board.removeClass('is-dragging');
+		this.board.doc.body.removeClass('is-grabbing');
+		const to = drop && !quiet ? c.drop : null;
+		this.carry = null;
+		this.opening = null;
+		for (const p of c.paths) this.cardEl(p)?.removeClass('is-dragging');
+		if (quiet) return;
+		// (taken as files: nothing comes back to the board from there)
+		if (taken) { window.setTimeout(() => { if (this.board.isConnected) this.draw(); }, 200); return; }
+		// (the page as it was: what was unfolded is shut, and the tray that was only there to be dropped on is gone)
+		this.draw();
+		if (to) void this.commit(to, c.files);
+	}
+
+	/** Writes what a drop (or Alt and an arrow) says, as one change that "Undo" takes back; says why on a notice when it
+	    can't. */
+	private async commit(to: Drop, files: TFile[]): Promise<void> {
+		try {
+			if (this.ctx.readOnly) throw new Error('This binder is read only.');
+			// (a note that went while it was in hand: nothing is written)
+			if (files.some((f) => this.ctx.app.vault.getAbstractFileByPath(f.path) !== f)) throw new Error('A note was removed while it was being moved, so nothing was changed.');
+			const subject = files.length === 1 ? `“${files[0].basename}”` : `${files.length} scenes`;
+			if (to.kind === 'tray') {
+				const dated = files.filter((f) => this.placeOf(f));
+				if (dated.length) await setStoryPlaces(this.ctx.plugin, dated.map((file): StoryWrite => ({ file, date: null })), `Remove story date of ${subject}`);
+			} else if (to.kind === 'date') {
+				const plan = this.planFor(to.date, to.at, files);
+				// (a neighbour that went meanwhile isn't written to)
+				const changes: StoryWrite[] = [...plan.writes].filter(([f]) => this.ctx.app.vault.getAbstractFileByPath(f.path) === f).map(([file, w]) => ({ file, date: w.date, order: w.order }));
+				if (changes.length) await setStoryPlaces(this.ctx.plugin, changes, changes.some((w) => w.date) ? `Set story date of ${subject}` : `Reorder ${subject} in its day`);
+			} else {
+				const typed = await ask(this.ctx.app, { title: 'Story date', placeholder: '14 June 1987, June 1987 or 1987', cta: 'Set story date', value: to.near ? String(writeStoryDate(to.near)) : '', check: (v) => whyNotStoryDate(v) });
+				const date = typed ? parseStoryDate(typed) : null;
+				if (date) await setStory(this.ctx, files, date);
+			}
+		} catch (e) { new Notice(plain(e)); }
+	}
+
+	/** Alt and an arrow: Left and Right take the cards to the date before or after (a date that has scenes, or a place in
+	    the stretch between two that has none), Up and Down one place earlier or later among the day's. */
+	private nudge(path: string, key: string): void {
+		const files = this.targets(path), at = this.groupAt.get(path);
+		if (this.ctx.readOnly) { new Notice('This binder is read only.'); return; }
+		if (at == null || files.some((f) => !this.groupAt.has(f.path))) return;
+		if (key === 'ArrowLeft' || key === 'ArrowRight') {
+			const back = key === 'ArrowLeft', groups = this.groups;
+			// the dates in time's order, those that have scenes and those in the stretches between them
+			const stops: { date: StoryDate; group: number | null }[] = [];
+			groups.forEach((g, i) => {
+				if (i) for (const date of unfoldTargets(groups[i - 1].date, g.date).dates) stops.push({ date, group: null });
+				stops.push({ date: g.date, group: i });
+			});
+			const here = stops.findIndex((s) => s.group === at), to = stops[here + (back ? -1 : 1)];
+			if (!to) return;
+			// (to a date that has scenes: before them going on, after them coming back)
+			void this.commit({ kind: 'date', date: to.date, at: back && to.group != null ? this.restOf(to.date, files).length : 0 }, files);
+			return;
+		}
+		// within the day: the cards of one date, one place on or back
+		const g = this.groups[at], up = key === 'ArrowUp';
+		if (files.some((f) => this.groupAt.get(f.path) !== at)) return;
+		const chosen = new Set(files), first = g.items.findIndex((f) => chosen.has(f));
+		const base = g.items.slice(0, first).filter((f) => !chosen.has(f)).length;
+		void this.commit({ kind: 'date', date: g.date, at: Math.max(0, base + (up ? -1 : 1)) }, files);
+	}
+
 	// ---- keys: through the scenes in story order, whether their cards exist yet or not ----
 
 	/** The scene an arrow goes to. Along time (Left and Right; with time across, the line's way), the one before or
@@ -796,8 +1206,8 @@ class Timeline implements BinderMode {
 			this.paintSelection();
 		};
 		if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
-			// DRAG: with Alt, an arrow would move the card a date (the boards move a card in the order with it)
-			if (!e.altKey) go(this.beside(path, e.key));
+			// (with Alt, an arrow moves the cards: to a date, or a place in their day)
+			if (e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) { e.preventDefault(); this.nudge(path, e.key); } else if (!e.altKey) go(this.beside(path, e.key));
 			return;
 		}
 		if (mod && e.key.toLowerCase() === 'a' && !e.shiftKey && !e.altKey) { e.preventDefault(); this.select([...this.order], path, this.order[0]); return; }

@@ -25,6 +25,9 @@ renamed or added since stays as it is.
   once, it is one change);
 - a story date, set, changed or removed from the outliner, the inspector or the menu (for five notes at once, one
   change); undone, a month is still a month and a note that had none has none;
+- a card dragged on the [timeline](timeline.md#dragging) to a date, or a day's scenes put in another order (their
+  `story-order`), and **Shift story dates...**: one change each, however many notes. Undo puts back every property it
+  wrote, and refuses, changing nothing, if one has been changed since;
 - the notes kept on a note;
 - **Include in export** and **Export as**;
 - any other property you edit in a column of the outliner;

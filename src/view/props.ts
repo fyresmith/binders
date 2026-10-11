@@ -8,6 +8,7 @@ import { canonical, readLabel } from './labels';
 import { readTarget } from './outliner-data';
 import type { SceneProps } from './mode';
 import { readStoryDate, readStoryOrder, writeStoryDate, type StoryDate, type StoryPlace } from '../time/date';
+import { shiftDate, shiftWords, type ShiftUnit } from '../time/shift';
 
 /* A note's card data, read and written under the property names in settings: the one way, for the binder view and
    for the inspector beside it. */
@@ -139,4 +140,44 @@ export async function setStoryDate(plugin: BindersPlugin, items: readonly TAbstr
 		writes.push({ file: note, patch });
 	}
 	await writeKeys(plugin, writes);
+}
+
+/** What a drag on the timeline writes to notes: a date (null takes it away, property and `story-order` too; absent:
+    left as it is) and a `story-order` (a number; null takes it away; absent: left as it is). */
+export interface StoryWrite { file: TFile; date?: StoryDate | null; order?: number | null }
+
+/** Writes story dates and orders of notes as one change that "Undo" takes back, `label` saying what it was. Only what
+    differs from what a note has is written, and a note is never touched for a date it already has in some other shape
+    (`14 June 1987` typed by hand stays). Nothing else in a note changes. */
+export async function setStoryPlaces(plugin: BindersPlugin, changes: readonly StoryWrite[], label?: string): Promise<void> {
+	const key = plugin.settings.storyDateProp, order = plugin.settings.storyOrderProp, writes: { file: TFile; patch: Record<string, unknown> }[] = [];
+	for (const c of changes) {
+		const fm = plugin.app.metadataCache.getFileCache(c.file)?.frontmatter ?? {}, patch: Record<string, unknown> = {};
+		if (c.date === null) { if (key in fm) patch[key] = undefined; if (order in fm) patch[order] = undefined; }
+		else {
+			if (c.date) { const was = readStoryDate(fm[key]); if (!was || JSON.stringify(was) !== JSON.stringify(c.date)) patch[key] = writeStoryDate(c.date); }
+			if (c.order === null ? order in fm : c.order !== undefined && readStoryOrder(fm[order]) !== c.order) patch[order] = c.order ?? undefined;
+		}
+		if (Object.keys(patch).length) writes.push({ file: c.file, patch });
+	}
+	await writeKeys(plugin, writes, label);
+}
+
+/** The scenes among these notes that have a story date (a date that is one), in the order given. */
+export function datedNotes(plugin: BindersPlugin, notes: readonly (TFile | null)[]): TFile[] {
+	return notes.filter((f): f is TFile => !!f && !!readStory(plugin, f).date);
+}
+
+/** Moves the story dates of notes by `by` days, months or years (negative: earlier), keeping the space between them, as
+    one change that "Undo" takes back. A scene's `story-order` goes with it. A date too rough to be moved by the unit (a
+    month, by days) stays as it is, and the count of those is given back. */
+export async function shiftStoryDates(plugin: BindersPlugin, notes: readonly TFile[], by: number, unit: ShiftUnit): Promise<{ moved: number; kept: number }> {
+	const changes: StoryWrite[] = [];
+	let kept = 0;
+	for (const f of notes) {
+		const date = readStory(plugin, f).date, next = date ? shiftDate(date, by, unit) : null;
+		if (next) changes.push({ file: f, date: next }); else kept++;
+	}
+	if (by) await setStoryPlaces(plugin, changes, `Shift story dates of ${changes.length === 1 ? `“${changes[0].file.basename}”` : `${changes.length} items`} ${shiftWords(Math.abs(by), unit, by < 0 ? 'earlier' : 'later')}`);
+	return { moved: by ? changes.length : 0, kept };
 }

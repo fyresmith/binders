@@ -85,7 +85,12 @@ On a phone time runs down the page, in one column: each year, then each date, ov
 across** there, and no **Arrange** in the toolbar. A tablet has both, as a computer does.
 
 - Tap a card to select it; tap its title to open its note. Hold a card for its menu, which has **Set story date...**
-  and **Remove story date**: that is how a scene gets its date on a phone.
+  and **Remove story date**: that is the main way a scene gets its date on a phone.
+- Press and hold a card, then move your finger, to lift it and carry it: onto another date's cards, or onto a
+  boundary between two dates (rest there a moment and the stretch unfolds into the days, months or years in it), or
+  onto the **No date** row to take its date away. A tag above the card says the date it would get. A swipe still
+  scrolls the page, and a touch that is cancelled writes nothing. **Shift story dates...** is in the menu when more
+  than one dated scene is selected (**Select more** in the menu).
 - The scenes with no date are behind the **No date** row at the foot of the page, above Obsidian's bar. Tap it to
   open the list, and again to shut it.
 - The year and the date you are in stay at the top while you scroll.

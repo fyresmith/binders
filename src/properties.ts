@@ -2,18 +2,21 @@ import { parseYaml, stringifyYaml, type App, type TFile } from 'obsidian';
 import { blockIsText, parts } from './scene-text';
 
 /* Writing properties to a note: the one road for it. Obsidian's own `processFrontMatter` is taken for every note but
-   two kinds, which it gets wrong (measured; the tests are in tests/e2e/specs-scenes.mjs):
+   three kinds, which it gets wrong (measured; the tests are in tests/e2e/specs-scenes.mjs):
      - a note that opens with a block that isn't properties: a rule, a paragraph, and another rule; a list between
        two rules; YAML that can't be read. `processFrontMatter` takes any such block for properties (it cuts with
        `getFrontMatterInfo`, which only looks for the two rules) and then writes the new properties over the paragraph,
        or writes nothing and says nothing, or throws. To Binders that block is the writer's text (scene-text.ts,
        `parts`), so the properties are written as a block of their own above it;
      - a note that starts with a byte-order mark: `processFrontMatter` finds no properties after the mark, and writes a
-       second block above it, so the properties the note had turn into text.
-   For those two the block is written here, in one `vault.process`, and not a byte of the note's text is dropped. */
+       second block above it, so the properties the note had turn into text;
+     - a note whose properties are set off with CR LF line breaks (or, with none, whose text has them):
+       `processFrontMatter` writes its block with LF, and the note ends up with both kinds.
+   For those the block is written here, in one `vault.process`, and not a byte of the note's text is dropped. */
 
 const MARK = String.fromCharCode(0xFEFF);
-const ownRoad = (text: string): boolean => text.startsWith(MARK) || blockIsText(text);
+const crlf = (text: string): boolean => text.startsWith('---\r\n') || (!text.startsWith('---') && !text.startsWith(MARK) && text.includes('\r\n'));
+const ownRoad = (text: string): boolean => text.startsWith(MARK) || blockIsText(text) || crlf(text);
 
 /** Changes a note's properties: `edit` is handed them as they are and changes them in place, as with
     `processFrontMatter`. It may throw to refuse, and then nothing is written. */

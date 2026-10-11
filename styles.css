@@ -6345,3 +6345,99 @@ body:not(.is-phone) .binders-snapshots .sync-history-content {
 	color: var(--text-muted);
 	font-size: var(--font-ui-smaller);
 }
+
+/* -- dragging a card to a date (timeline.ts) --
+   What the cards in hand are over is lit as the boards light a line they would join (a faint band, not the accent
+   color); a stretch between two dates unfolds, while they are over it, into a place to drop for each date in it; the
+   tag by the card says the date it would get. */
+
+.binders-timeline-group.is-drop-target,
+.binders-timeline-tray.is-drop-target,
+.binders-timeline-tray.is-drop-target .binders-timeline-tray-head {
+	background-color: var(--background-modifier-hover);
+}
+
+/* (the tray when it is only there to be dropped on) */
+.binders-timeline-tray-cards:empty {
+	min-height: var(--size-4-8);
+}
+
+.binders-timeline-unfold {
+	position: relative;
+	display: flex;
+	flex-wrap: wrap;
+	align-content: flex-start;
+	gap: var(--size-2-3);
+	padding: var(--size-4-2) var(--size-4-3);
+	box-sizing: border-box;
+}
+
+.binders-timeline-target {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 76px;
+	height: 28px;
+	padding-inline: var(--size-4-2);
+	border: var(--border-width) dashed var(--background-modifier-border-hover);
+	border-radius: var(--radius-s);
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+.binders-timeline-target.is-drop-target {
+	border-style: solid;
+	background-color: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+/* time down: the stretch's targets stand beside the line like a row of cards, after its gutter */
+.mod-down .binders-timeline-unfold {
+	margin-inline-start: var(--binders-timeline-gutter);
+	padding-inline-start: var(--size-4-4);
+}
+
+.mod-down .binders-timeline-unfold::before {
+	content: "";
+	position: absolute;
+	inset-block: 0;
+	inset-inline-start: 0;
+	width: 2px;
+	background-color: var(--binders-timeline-line);
+}
+
+/* time across: a column-major field of targets either side of the line */
+.mod-across .binders-timeline-unfold {
+	position: absolute;
+	display: grid;
+	grid-template-rows: repeat(var(--binders-unfold-rows, 1), 28px);
+	grid-template-columns: repeat(var(--binders-unfold-cols, 1), 76px);
+	grid-auto-flow: column;
+	gap: var(--size-2-3);
+	padding: var(--size-2-3);
+}
+
+/* the tag by the card in hand: the date it would get, and its place in the day */
+.binders-timeline-tag {
+	position: absolute;
+	top: calc(100% + var(--size-4-2));
+	inset-inline-start: 0;
+	padding: var(--size-2-2) var(--size-4-2);
+	border-radius: var(--radius-s);
+	background-color: var(--background-modifier-message);
+	color: var(--text-on-accent);
+	font-size: var(--font-ui-smaller);
+	white-space: nowrap;
+}
+
+.binders-timeline-tag.is-hidden {
+	display: none;
+}
+
+/* (a finger would cover it: the card is carried above the finger, and the tag over the card) */
+.binders-drag-ghost.mod-touch > .binders-timeline-tag {
+	top: auto;
+	bottom: calc(100% + var(--size-4-2));
+}

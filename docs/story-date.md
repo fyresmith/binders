@@ -13,7 +13,10 @@ Any of these sets it, for one note or for several selected together:
 - the **Story date** row of the [inspector](inspector.md);
 - **Set story date...** in the menu of a card or row, on the [timeline](timeline.md) too (the menu is the way on a
   phone). **Remove story date** is there
-  when a selected note has one.
+  when a selected note has one;
+- dragging a card on the [timeline](timeline.md#dragging): onto a date, into a gap, onto the tray;
+- **Shift story dates...**, when more than one dated note is selected, moves them earlier or later by days, months or
+  years, keeping the space between them.
 
 Type it the way you would say it: `14 June 1987`, `June 14, 1987`, `June 1987`, `1987`, or in ISO shape,
 `1987-06-14`. A year before 0 takes a minus: `-30`. Typing nothing takes the date away, and the property with it.
@@ -68,8 +71,9 @@ view, as one change **Undo last change** takes back. The notes themselves aren't
 
 ## Undo
 
-Setting, changing or removing a story date is one step, however many notes it covers, and undoing it puts the file
-back as it was: a month stays a month, and a note that had no date has none again. See [Undo and redo](undo.md).
+Setting, changing or removing a story date is one step, however many notes it covers, and a drag on the timeline or
+a shift is one step too; undoing it puts the file back as it was: a month stays a month, and a note that had no date
+has none again. See [Undo and redo](undo.md).
 
 ## A different property
 

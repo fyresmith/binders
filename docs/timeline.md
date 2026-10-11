@@ -52,9 +52,56 @@ Right-click a card and choose **Set story date...**, then type the date the way 
 tray. Each is one step for **Undo** in the toolbar. The outliner's **Story date** column and the inspector's row do
 the same; see [Story date](story-date.md#setting-one).
 
-You can't yet drag a card to another date.
+You can also drag a card; see below.
 
 Looking at the timeline changes nothing: opening it, scrolling, filtering and switching its shape write to no note.
+
+## Dragging
+
+Drag a card to give it another story date. A drag changes the story date and nothing else: never the card's place in
+the manuscript, its folder or its label, and its number stays. The whole drag is one step for **Undo**.
+
+- **Onto another date's cards.** The card takes that date, as exactly as that date says it: a day, a month or a year.
+  A tag by the card says the date and where the card will stand in it ("17 June 1987, 1 of 2"). Cards that come from
+  another date stand in the day where its order puts them, as the manuscript has them, and nothing else is written.
+- **Between two dates.** Rest the card on the boundary between two rows, or on a gap drawn short, and the stretch
+  unfolds into a place to drop for each date in it: the missing days for a gap of days, the months for a gap of
+  months, the years for a gap of years. A drop on `1931` writes `1931`; on `March 1987`, `1987-03`. A very long gap
+  offers every tenth year, then every hundredth, and at most sixty places; any other year is one **Set story date...**
+  away. The stretch folds again when the card leaves it.
+- **Before the first date or after the last.** A dialog opens, **Story date**, with the nearest date in it: change
+  it, or cancel. Nothing is written until you answer.
+- **The tray.** A card from the tray dropped on the line gets that date; a card dropped on the tray (it shows while a
+  card is carried, even when empty) loses its date and its place in a day.
+- **Several cards** carried together all take the date dropped on. To move a run of scenes and keep the space
+  between them, use **Shift story dates...** (below).
+- **Within a day.** Drop a card among the cards of its own day to put it in another place: the day's scenes are
+  numbered 1, 2, 3 in the order you left them, in `story-order`, as one step; only the numbers that change are
+  written, and nothing else is touched. A scene with a typed time (`1987-06-14T21:30`) stands by it, after the day's
+  untimed scenes, and its time is never rewritten: if a card can't stand where you hold it because of its own time or a
+  neighbour's, the tag says "(its time keeps it there)". A card that moves to another day keeps its time of day when
+  the new date is a day, and loses it on a month or a year (it can't hold one).
+- **Escape**, letting go outside the pane, on the boundary before it has unfolded, or on nothing writes nothing.
+- A card carried out of the view over the file explorer, a tab or another note is a file there, as on the other
+  boards.
+
+On a phone or tablet, press and hold a card to lift it; the tag is carried above your finger. A swipe still scrolls.
+**Set story date...** in the card's menu remains the main road on a phone.
+
+### The keys
+
+With a card focused, **Alt+Left** and **Alt+Right** take it (and the cards selected with it) to the date before or
+after, stepping through the days, months or years of a gap as well as the dates that have scenes. **Alt+Up** and
+**Alt+Down** put it one place earlier or later among its day's cards. Each is one step.
+
+### Shift story dates
+
+Select more than one scene, right-click, and choose **Shift story dates...** (the item is in the menu of every board
+when more than one selected note has a date). Choose Later or Earlier, a number, and Days, Months or Years. All the
+selected dated scenes move by that much, keeping the space between them, as one step. A typed time goes along. A
+scene dated only to a month moves by months or years, one dated only to a year by years: a date that can't be moved by
+what you chose stays as it is, and a notice says how many. A day that the new month hasn't got (31 January, a month
+on) becomes its last. Scenes with no date are left alone, and a scene's `story-order` goes with it.
 
 ## Selecting and opening
 
@@ -78,7 +125,6 @@ are shared with it. A card here is one height at each size, so a long synopsis e
 
 ## Limits
 
-- Cards can't be dragged to set a date, and can't be dragged out of the view as files.
 - The calendar is the ordinary (Gregorian) one.
 - The timeline has no zoom: it is always as long as its cards need.
 - In a [Longform project](longform.md) it shows the project's scenes, each read from its own note.

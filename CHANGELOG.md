@@ -21,6 +21,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - Timeline, a fourth view of a binder: its scenes along story time at their story dates, each card numbered as the manuscript has it, each year named, long empty stretches drawn short, and scenes with no date in a tray. Time runs down, or across on a computer or tablet (Arrange). Dates are set from a card’s menu; dragging a card to a date comes next.
 - Importing a long Markdown note: footnotes and links written out at its foot now go to the notes that mark them, instead of staying together in the last note.
 - Split at headings...: cut a note of a binder into several where its headings, scene breaks or a line of your own are, after showing the notes it will make. It is one change in the history, and Undo takes it back.
+- On the timeline you can drag a card to give it another story date: onto a date, into a gap between two dates, before the first or after the last (a dialog asks), onto the tray to take the date away, or among a day’s cards to put them in another order. Alt and the arrow keys do the same from the keyboard. On a phone, press and hold to lift a card.
 
 ### Changed
 
@@ -32,6 +33,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - Undoing a split no longer drops a byte-order mark from the note.
 - A split with the cursor just after a paragraph’s tab now keeps the tab with its paragraph in the new note.
 - A split inside a code block now closes the fence in the first note and opens it again in the new one, so each half’s fences are in pairs.
+- A note with Windows (CR LF) line endings keeps them when Binders writes a property to it.
 
 ## 0.51.1 (2026-10-10)
 

@@ -1,6 +1,8 @@
 // Themes: the binder view follows the theme's variables and Obsidian's appearance settings (accent color, radii, the
 // editor's readable line length), in light and dark (run with --theme both).
 import { VIEW, j, openView, until } from './view-helpers.mjs';
+import { open, seed } from './specs-timeline.mjs';
+import { ARRIVAL, DATES, carry, lift, mouse } from './specs-timeline-drag.mjs';
 
 export const specs = [];
 const test = (name, fn) => specs.push({ name: 'themes: ' + name, fn });
@@ -126,4 +128,30 @@ test('a selected card’s ring is in its label’s color and can be seen on the 
 	t.eq(j(low), '[]', 'every ring reaches 3:1 on the page: ' + j(out));
 	if (dark) t.ok(Object.values(out).every((v) => v.same), 'in a dark theme the ring is the label’s own color: ' + j(out));
 	else t.ok(Object.values(out).every((v) => !v.same && v.ring > v.label), 'in a light theme it’s the label’s color taken toward the text’s: ' + j(out));
+});
+
+test('the timeline is drawn from the theme: the dates, and, while a card is carried, the lit date, the unfolded places and the tag', async (p, h, t) => {
+	await p.ev(`(() => { const s = document.head.createEl('style', { attr: { id: 'binders-theme-probe' } }); s.textContent = 'body { --background-modifier-border-hover: rgb(200, 30, 40); --text-muted: rgb(10, 120, 60); --background-modifier-hover: rgb(240, 230, 10); --background-modifier-message: rgb(20, 30, 200); --text-on-accent: rgb(250, 250, 250); }'; return 1; })()`);
+	try {
+		await seed(p, DATES);
+		await open(p, 'down');
+		const T_ = '.workspace-leaf.mod-active .mod-timeline';
+		const color = (sel, prop) => p.ev(`getComputedStyle(document.querySelector(${j(T_ + ' ' + sel)})).${prop}`);
+		t.eq(await color('.binders-timeline-date', 'color'), 'rgb(10, 120, 60)', 'a date is in the theme’s muted text');
+		t.eq(await color('.binders-timeline-group', 'backgroundColor'), 'rgba(0, 0, 0, 0)', 'a date’s row is not tinted at rest');
+		await lift(p, ARRIVAL);
+		const row = await p.at(`${T_} .binders-timeline-group[data-date="1987-06-17"]`);
+		await carry(p, row.x + 120, row.y, 100);
+		t.eq(await color('.binders-timeline-group[data-date="1987-06-17"]', 'backgroundColor'), 'rgb(240, 230, 10)', 'the date the card is over is lit in the theme’s hover color');
+		t.eq(await p.ev(`getComputedStyle(document.querySelector('.binders-drag-ghost .binders-timeline-tag')).backgroundColor`), 'rgb(20, 30, 200)', 'the tag is in the theme’s message color');
+		t.eq(await p.ev(`getComputedStyle(document.querySelector('.binders-drag-ghost .binders-timeline-tag')).color`), 'rgb(250, 250, 250)', 'and its words in the color for text on it');
+		const g = await p.at(`${T_} .binders-timeline-group[data-date="1987-06-11"]`);
+		await carry(p, g.x + 100, g.t + g.h - 3, 500);
+		t.eq(await color('.binders-timeline-target', 'color'), 'rgb(10, 120, 60)', 'an unfolded place is in the muted text');
+		t.eq(await color('.binders-timeline-target', 'borderTopColor'), 'rgb(200, 30, 40)', 'with the theme’s hover border');
+		await p.key('Escape');
+		await mouse(p, 'mouseReleased', g.x, g.y);
+	} finally {
+		await p.ev(`(() => { document.getElementById('binders-theme-probe')?.remove(); return 1; })()`);
+	}
 });
