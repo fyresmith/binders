@@ -116,12 +116,14 @@ const targets = (p) => p.ev(`(() => { const R = ${R}; const all = (sel) => [...d
 const sheet = (p) => p.ev(`(() => { const m = [...document.querySelectorAll('.menu')].pop(); if (!m) return null; const r = m.getBoundingClientRect(); return { left: Math.round(r.left), width: Math.round(r.width), top: Math.round(r.top), bottom: Math.round(r.bottom), inner: [innerWidth, innerHeight], itemHeights: [...m.querySelectorAll('.menu-item:not(.is-label)')].map(i => Math.round(i.getBoundingClientRect().height)) }; })()`);
 const isSheet = (s) => !!s && s.left === 0 && s.width === s.inner[0] && s.bottom === s.inner[1];
 /** Taps the menu item with this title (in the last menu shown), scrolled into view first. False if there's none. */
-async function menuTap(p, title) {
+async function menuTap(p, title, at = 0.5) {
 	const find = `[...document.querySelectorAll('.menu .menu-item')].filter(e => (e.querySelector('.menu-item-title')?.textContent ?? '') === ${j(title)}).pop()`;
 	if (!(await p.ev(`(() => { const it = ${find}; if (!it) return false; it.scrollIntoView({ block: 'center' }); return true; })()`))) return false;
-	await p.sleep(250);
-	const at = await p.ev(`(() => { const r = (${find}).getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
-	await tap(p, at.x, at.y);
+	// (the tap goes where the item is once it has stopped moving: a menu opens with a short animation, and on a loaded
+	// machine a tap aimed at its first place lands on the item beside it)
+	await p.ev(`new Promise((done) => { let last = '', still = 0, n = 0; const step = () => { const r = (${find})?.getBoundingClientRect(); const k = r ? [r.x, r.y, r.width, r.height].join() : ''; still = k === last ? still + 1 : 0; last = k; if (still >= 3 || ++n > 40) return done(1); setTimeout(step, 50); }; step(); })`);
+	const pt = await p.ev(`(() => { const r = (${find}).getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height * ${at} }; })()`);
+	await tap(p, pt.x, pt.y);
 	return true;
 }
 /** Closes any menu left open, and forgets its elements. */
@@ -509,7 +511,8 @@ test('“New” in the toolbar: “New note” makes a card at the end, its titl
 		t.eq(await menus(p), 0, 'the sheet is gone');
 		t.eq(a.tag, 'INPUT', 'a title field has the focus');
 		await p.type('Afterword');
-		const pr = await p.at(`${LEAF} .binders-toolbar-spacer`);
+		// (a tap on another card: the toolbar's spacer has no width once its buttons fill a phone's bar)
+		const pr = await foot(p, 'Prologue.md');
 		await tap(p, pr.x, pr.y);
 		await until(p, `!!app.vault.getAbstractFileByPath(${j(L + 'Afterword.md')})`);
 		await p.sleep(500);
@@ -1537,7 +1540,7 @@ bug7('a filter set (or changed, or cleared) while the board shows: each folder�
 	});
 });
 
-test('a drop made by touch is taken back with “Undo last move” from the command palette, and made again with “Redo last move”', async (p, h, t) => {
+test('a drop made by touch is taken back with “Undo last change” from the command palette, and made again with “Redo last change”', async (p, h, t) => {
 	await onDevice(p, PHONE, async () => {
 		await open(p);
 		const order = await contents(p);
@@ -1559,13 +1562,13 @@ test('a drop made by touch is taken back with “Undo last move” from the comm
 			await tap(p, first.x, first.y);
 			await p.sleep(900);
 		};
-		await run('Undo last move');
+		await run('Undo last change');
 		await flush(p);
-		t.eq(j(await contents(p)), j(order), '“Undo last move” puts the note back in its folder, in its place');
+		t.eq(j(await contents(p)), j(order), '“Undo last change” puts the note back in its folder, in its place');
 		t.ok(await p.ev(`!!app.vault.getAbstractFileByPath(${j(L + 'Prologue.md')})`), 'the file too');
-		await run('Redo last move');
+		await run('Redo last change');
 		await flush(p);
-		t.eq((await contents(p))[4], 'Part One/Prologue', '“Redo last move” makes the move again');
+		t.eq((await contents(p))[4], 'Part One/Prologue', '“Redo last change” makes the move again');
 		t.ok(await p.ev(`!!app.vault.getAbstractFileByPath(${j(L + 'Part One/Prologue.md')})`), 'the file too');
 		// and from the view's own menu, where a phone has it (the notice that says what was redone lies over the button)
 		await p.ev(`(() => { document.querySelectorAll('.notice').forEach(n => n.remove()); return 1; })()`);
@@ -1798,8 +1801,9 @@ test('a binder of 600 notes on a phone, CPU four times slower: it opens in under
 		await p.ev(`(() => { ${VIEW}.current.select([]); return 1; })()`);
 		const n = await p.at(`${LEAF} .binders-new-button`);
 		await tap(p, n.x, n.y);
-		await menuTap(p, 'New note');
-		await p.sleep(900);
+		t.ok(await menuTap(p, 'New note'), 'New note');
+		// (the field is waited for, not timed: on a loaded machine the sheet and the new card take longer)
+		await until(p, `document.activeElement?.matches('${LEAF} .binders-card[data-path] input')`, 8000);
 		const a = await active(p);
 		t.eq(a.tag, 'INPUT', '“New note” makes a card, its title a field with the focus');
 		t.ok(await p.ev(`${CORK}.scrollTop > ${CORK}.scrollHeight - ${CORK}.clientHeight - 200`), 'at the binder’s end');
@@ -1938,10 +1942,11 @@ test('tablet, upright and on its side: the board is a grid, menus are popovers b
 			t.ok(m && !isSheet(m) && m.width < 400 && m.top >= 0 && m.bottom <= m.inner[1], `${name}: a card’s menu is a popover on the screen: ${j([m.left, m.top, m.width, m.bottom])}`);
 			t.ok(Math.abs(m.left - f.x) < 320, `${name}: by the finger`);
 			t.ok(m.itemHeights.every((x) => x >= 28), `${name}: its rows are as tall as Obsidian’s there: ${Math.min(...m.itemHeights)}`);
-			t.ok(await menuTap(p, 'Set status'), 'Set status');
+			// (a tap a third of the way down a row: at its middle, a tablet in landscape opened “Set label” here)
+			t.ok(await menuTap(p, 'Set status', 0.3), 'Set status');
 			await p.sleep(400);
 			await shot(p, `tablet-${name}-submenu`);
-			t.ok(await menuTap(p, 'Done'), 'Done, in the submenu');
+			t.ok(await menuTap(p, 'Done', 0.3), 'Done, in the submenu');
 			await p.sleep(600);
 			await flush(p);
 			t.eq(await prop(p, L + 'Part One/Arrival.md', 'status'), 'Done', `${name}: a status is picked`);

@@ -1265,7 +1265,7 @@ const WALK = `async (seed, steps, burst) => {
 	const bag = Object.entries({ put: 6, put2: 2, step: 3, rename: 3, duplicate: 2, group: 2, ungroup: 2, undo: 3, redo: 2, newScene: 1, removeEmpty: 1 }).flatMap(([k, w]) => Array(w).fill(k));
 	for (let i = 0; i < steps; i++) {
 		const n = burst ? 1 + Math.floor(rand() * 3) : 1, running = [];
-		for (let k = 0; k < n; k++) { let o; try { o = ops[pick(bag)](); } catch (e) { errors.push('threw at once: ' + e.message); } if (o) { history.push(o[0]); running.push(Promise.resolve(o[1]).catch(e => { history.push('  (refused: ' + e.message + ')'); })); } }
+		for (let k = 0; k < n; k++) { let o; try { o = ops[pick(bag)](); } catch (e) { errors.push('threw at once: ' + e.message); } if (o) { history.push('[' + i + '.' + k + '/' + n + '] ' + o[0]); running.push(Promise.resolve(o[1]).catch(e => { history.push('  (refused: ' + e.message + ')'); })); } }
 		await Promise.all(running);
 		if (rand() < 0.15) await sleep(Math.floor(rand() * 400));
 	}
@@ -1286,7 +1286,17 @@ const WALK = `async (seed, steps, burst) => {
 	for (const [k, v] of Object.entries(before)) if (k.startsWith(ROOT + '/') && k !== NOTE && !have.has(v)) fails.push('the text of “' + k + '” is nowhere any more');
 	for (const [k, v] of Object.entries(now)) if (!known.has(v)) fails.push('a note has text no note had: ' + k);
 	for (const k of Object.keys(before)) if (!k.startsWith(ROOT + '/') && (await vault.adapter.read(k)) !== before[k]) fails.push('a note outside the binder changed: ' + k);
-	return { fails, history };
+	// On a loss: every file the vault holds, hidden folders and the trash too, with sizes, and where the missing text's
+	// first 40 characters appear, if anywhere (so a note that moved somewhere the check doesn't look shows up).
+	let listing = null;
+	if (fails.some((f) => f.startsWith('the text of'))) {
+		const files = {}; const crawl = async (dir) => { const l = await vault.adapter.list(dir); for (const f of l.files) files[f] = (await vault.adapter.read(f).catch(() => '')); for (const d of l.folders) await crawl(d); };
+		await crawl('/').catch(() => {});
+		const sizes = Object.entries(files).filter(([k]) => !k.startsWith('.obsidian/') && !k.startsWith('.git/')).map(([k, v]) => k + ' (' + v.length + ')');
+		const lost = Object.entries(before).filter(([k, v]) => k.startsWith(ROOT + '/') && k !== NOTE && !have.has(v)).map(([k, v]) => ({ was: k, text: v.slice(0, 40), foundIn: Object.entries(files).filter(([, w]) => w.includes(v.slice(0, 40))).map(([k2]) => k2) }));
+		listing = { lost, files: sizes };
+	}
+	return { fails, history, listing };
 }`;
 
 for (const [seed, burst] of [[1, false], [2, false], [5, false], [3, true], [4, true]]) {
@@ -1294,6 +1304,6 @@ for (const [seed, burst] of [[1, false], [2, false], [5, false], [3, true], [4, 
 		const r = await p.ev(`(${WALK})(${seed}, 40, ${burst})`);
 		// (a note renamed while Obsidian was reading it logs a missing file: Obsidian's own, and harmless)
 		for (let i = p.errors.length - 1; i >= 0; i--) if (/ENOENT/.test(p.errors[i])) p.errors.splice(i, 1);
-		t.ok(!r.fails.length, `${r.fails.slice(0, 2).join('\n    ')}\n    last steps: ${r.history.slice(-8).join(' | ')}`);
+		t.ok(!r.fails.length, `${r.fails.slice(0, 2).join('\n    ')}\n    last steps: ${r.history.slice(-8).join(' | ')}${r.listing ? `\n    whole sequence:\n      ${r.history.join('\n      ')}\n    where the missing text is: ${JSON.stringify(r.listing.lost)}\n    files: ${r.listing.files.join(' ; ')}` : ''}`);
 	});
 }
