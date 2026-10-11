@@ -3519,6 +3519,36 @@ body.binders-focus .workspace .mod-root .workspace-tabs.mod-stacked .workspace-t
 	--no-tooltip: false;
 }
 
+/* Undo and Redo: icons, at any width, each saying what it would take back when pointed at. With nothing to take back
+   they're dimmed, not hidden, so the toolbar doesn't move as the history fills and empties. */
+.binders-undo-button .text-button-label,
+.binders-redo-button .text-button-label {
+	display: none;
+}
+
+.binders-toolbar-button.binders-undo-button,
+.binders-toolbar-button.binders-redo-button {
+	--no-tooltip: false;
+}
+
+/* (a phone, or a pane as narrow as one, has room for one of them: Undo stays, being the one wanted in a hurry, and Redo is
+   in More options, where it shows as soon as there is something to make again. The view's name and the count keep their room.) */
+@container binders-view (width < 440px) {
+	.binders-toolbar-button.binders-redo-button {
+		display: none;
+	}
+}
+
+.binders-toolbar-button.is-disabled {
+	color: var(--text-faint);
+	cursor: default;
+}
+
+.binders-toolbar-button.is-disabled:hover {
+	color: var(--text-faint);
+	background-color: transparent;
+}
+
 /* said to a screen reader, not shown */
 .binders-focus-live {
 	position: absolute;

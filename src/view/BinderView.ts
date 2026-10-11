@@ -97,7 +97,7 @@ export class BinderView extends ItemView {
 	private found = false;
 	private synopsis: Editable | null = null;
 	private relaying = false;
-	private ui: { crumbs: HTMLElement; progress: HTMLElement; count: HTMLElement; filter: HTMLElement; arrange: HTMLElement; add: HTMLElement; modeBtn: HTMLElement; notice: HTMLElement; synopsis: HTMLElement; body: HTMLElement } | null = null;
+	private ui: { crumbs: HTMLElement; progress: HTMLElement; count: HTMLElement; undo: HTMLElement; redo: HTMLElement; filter: HTMLElement; arrange: HTMLElement; add: HTMLElement; modeBtn: HTMLElement; notice: HTMLElement; synopsis: HTMLElement; body: HTMLElement } | null = null;
 
 	constructor(leaf: WorkspaceLeaf, private plugin: BindersPlugin) {
 		super(leaf);
@@ -304,6 +304,8 @@ export class BinderView extends ItemView {
 			if (!p || !this.binder || f === p || f.startsWith(p + '/')) this.schedule();
 		});
 		this.register(() => this.store.offref(ref));
+		const hist = this.store.on('history', () => this.drawUndo());
+		this.register(() => this.store.offref(hist));
 		this.registerEvent(metadataCache.on('changed', (file) => {
 			const f = this.folder;
 			if (f && (file.path.startsWith(f.path + '/') || file === this.binder?.note)) this.schedule();
@@ -550,6 +552,9 @@ export class BinderView extends ItemView {
 		const count = bar.createDiv({ cls: 'binders-word-count', attr: { role: 'button', tabindex: '0' } });
 		count.addEventListener('click', () => void this.setTarget());
 		count.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); void this.setTarget(); } });
+		// (undo and redo of what was done by hand to the binder, as icons: a phone has no Ctrl+Z. See drawUndo.)
+		const undo = this.button(bar, 'undo-2', 'Undo', 'binders-undo-button', () => this.undoRedo(false));
+		const redo = this.button(bar, 'redo-2', 'Redo', 'binders-redo-button', () => this.undoRedo(true));
 		// (how the corkboard lays out its cards, where a base has "Sort": in a grid, or by label)
 		const arrange = this.button(bar, 'layout-grid', 'Arrange', 'binders-arrange-button', (e) => { const menu = new Menu(); this.arrangeItems(menu); this.showBelow(menu, e); });
 		const filter = this.button(bar, 'list-filter', 'Filter', 'binders-filter-button', (e) => this.filterMenu(e));
@@ -560,7 +565,7 @@ export class BinderView extends ItemView {
 		const notice = el.createDiv({ cls: 'binders-notice' });
 		const synopsis = el.createDiv({ cls: 'binders-view-synopsis-row' });
 		const body = el.createDiv({ cls: `binders-mode binders-mode-${this.mode}` });
-		this.ui = { crumbs, progress, count, filter, arrange, add, modeBtn, notice, synopsis, body };
+		this.ui = { crumbs, progress, count, undo, redo, filter, arrange, add, modeBtn, notice, synopsis, body };
 		this.drawToolbar();
 		const factory = this.plugin.modeFactories[this.arrangement === 'label' ? BY_LABEL : this.mode];
 		this.current = factory(body, this.context());
@@ -687,6 +692,7 @@ export class BinderView extends ItemView {
 		setIcon(ui.modeBtn.querySelector<HTMLElement>('.text-button-icon'), mode.icon);
 		ui.modeBtn.querySelector('.text-button-label')?.setText(mode.name);
 		ui.modeBtn.setAttr('aria-label', `View as: ${mode.name}`);
+		this.drawUndo();
 		// a newer-format binder: say why nothing can change
 		ui.notice.empty();
 		ui.notice.toggleClass('is-shown', this.readOnly);
@@ -695,6 +701,25 @@ export class BinderView extends ItemView {
 			ui.notice.createSpan({ text: `Read only. ${binder.problem}` });
 		}
 		this.drawSynopsis();
+	}
+
+	/** The Undo and Redo buttons: each says what it would take back ("Undo: rename “Arrival”"), and is dimmed, not
+	    hidden, when there is nothing. Redrawn whenever the history changes. */
+	private drawUndo(): void {
+		const ui = this.ui, folder = this.folder;
+		if (!ui || !folder) return;
+		for (const redo of [false, true]) {
+			const b = redo ? ui.redo : ui.undo, what = this.readOnly ? null : this.store.undoable(folder, redo), word = redo ? 'Redo' : 'Undo';
+			b.toggleClass('is-disabled', !what);
+			b.setAttr('aria-disabled', what ? 'false' : 'true');
+			b.setAttr('aria-label', what ? `${word}: ${what.charAt(0).toLowerCase()}${what.slice(1)}` : `Nothing to ${word.toLowerCase()}`);
+		}
+	}
+
+	/** Takes back (or makes again) the last change made by hand here: the buttons' and the keys' one way. */
+	private undoRedo(redo: boolean): void {
+		const folder = this.folder;
+		if (folder && !this.readOnly && this.store.undoable(folder, redo)) void this.plugin.undoMove(folder, redo);
 	}
 
 	/** The folder's own synopsis (its folder note, or the binder note), edited in place. */

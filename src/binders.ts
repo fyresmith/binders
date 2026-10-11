@@ -247,6 +247,7 @@ export class BinderStore extends Events implements ExplorerSource {
 			readProp: (item: TAbstractFile, key: string) => this.readProp(item, key),
 			settle: (files: TFile[]) => saveOpen(this.app, files),
 		};
+		this.history.onChange = () => { this.trigger('history'); };
 		this.order = new OrderHandler(this.app, host, this.history);
 		this.history.handlers = { order: this.order, props: new PropsHandler(this.app, host) };
 		let done: () => void = () => {}, settle: () => void = () => {};
@@ -316,6 +317,7 @@ export class BinderStore extends Events implements ExplorerSource {
 	// ---- the public API (see the top of the file) ----
 
 	on(name: 'changed', callback: (binderPath: string) => unknown, ctx?: unknown): EventRef;
+	on(name: 'history', callback: () => unknown, ctx?: unknown): EventRef;
 	on(name: string, callback: (...data: never[]) => unknown, ctx?: unknown): EventRef {
 		return super.on(name, callback, ctx);
 	}

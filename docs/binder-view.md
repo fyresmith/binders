@@ -36,6 +36,7 @@ From left to right:
 | The mode button | Switches between **Corkboard**, **Outliner** and **Manuscript** |
 | The breadcrumb | Inside a folder, shows the way back up to the binder. Click a name to go there |
 | The word count | The words in the binder or folder shown. With a target, it reads "282 / 60,000 words" and a bar shows how far along you are. Click it to set the target |
+| **Undo** and **Redo** | Take back and make again the last change made by hand to the binder. Dimmed when there is nothing to do; the tooltip says what it would do. On a narrow pane **Redo** is in **More options** instead. See [Undo and redo](undo.md) |
 | **Arrange** | Corkboard only: lays the cards out in a grid or by label. See [Corkboard](corkboard.md#arrange-by-label) |
 | **Filter** | Shows only the notes with a given status or label, in all three modes |
 | **New** | Makes a new note or a new folder |

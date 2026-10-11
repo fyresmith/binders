@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.53.0 (2026-10-11)
+
+### Added
+
+- Undo and Redo buttons in the binder view’s toolbar, dimmed when there is nothing to take back, for phones that have no Ctrl+Z. On a phone Undo is in the toolbar and Redo is in More options.
+
 ## 0.52.0 (2026-10-11)
 
 ### Added

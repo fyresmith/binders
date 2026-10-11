@@ -40,6 +40,7 @@ one before it is taken back instead.
 | Where | How |
 |---|---|
 | Anywhere | Run **Undo last change** or **Redo last change** from the command palette |
+| In the binder view's toolbar | The **Undo** and **Redo** arrows, dimmed when there is nothing to take back; hold the pointer over one to read what it will do. On a phone, or in a pane narrower than about 440 px, only **Undo** is there: **Redo** is in **More options** |
 | In the binder view, when you aren't typing | Ctrl+Z and Ctrl+Shift+Z (Cmd on macOS) |
 | In the binder view's **More options** menu | **Undo** and **Redo**, each saying what it will take back |
 

@@ -50,7 +50,7 @@ On a phone the toolbar's buttons are icons. **New** is a plus sign.
 - **Targets:** in a pane narrower than 360 px the word count in the toolbar is its number alone. Tap it to set the
   target. In an even narrower one it goes, and **Set word count target** in the command palette sets a target
   there.
-- **Undo:** **Undo** and **Redo** of the last move are in the view's **More options** menu.
+- **Undo:** an **Undo** button, an arrow icon, is in the toolbar in every mode; it is dimmed when there is nothing to take back, and touching it takes back the last change. A phone has no room for **Redo** beside it: it is in the view's **More options** menu, which also says what each will do.
 
 ## Corkboard
 
