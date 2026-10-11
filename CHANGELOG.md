@@ -59,6 +59,8 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - The properties the Progress window and revision tasks keep (deadline, writing-days, revision) are no longer offered as rows to pin in the inspector.
 - The command 'Start a paragraph with a tab' now leaves math blocks and comments as they are.
 - Go to next revision task, Go to previous revision task and Mark revision task done are no longer offered when no binder is open.
+- The binder view's toolbar now fits on a phone, with Undo and a word count target set.
+- A label's color name (for example "Orange") shows whole in settings on a phone.
 
 ## 0.51.1 (2026-10-10)
 

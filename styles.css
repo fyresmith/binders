@@ -1780,7 +1780,7 @@
 /* (a label's color in settings shows its name whole on a phone too) */
 @media (min-width: 360px) {
 	.is-phone .binders-settings-label select.dropdown {
-		min-width: 6.6em;
+		min-width: 7em;
 	}
 }
 
@@ -7462,4 +7462,22 @@ input.binders-filter-name {
 
 .binders-pot-form input[type="date"] {
 	height: var(--input-height);
+}
+
+/* The phone toolbar's room (Undo made it five buttons and the count wider than a narrow phone is: at 320px it stuck
+   out 43px, at 390px 11px, with a target set). The count gives up its own side padding, the empty spacer the gaps
+   it would take on both sides, and the toolbar's ends a little margin (a phone on its side, 568px, with a filter on
+   and the progress bar, was 3px over too); nothing is hidden, and every button keeps its
+   finger-wide box. */
+@container binders-view (width < 600px) {
+	.is-mobile .binders-toolbar {
+		padding-inline: var(--size-2-2);
+	}
+	.is-mobile .binders-toolbar > .binders-toolbar-spacer {
+		margin-inline: calc(-1 * var(--size-2-2));
+	}
+	.is-mobile .binders-toolbar > .binders-word-count {
+		padding-inline: 0;
+		margin-inline: calc(-1 * var(--size-2-2));
+	}
 }
