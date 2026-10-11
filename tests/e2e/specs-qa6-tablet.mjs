@@ -819,10 +819,12 @@ for (const [label, css] of THEMES) {
 	});
 }
 
-for (const [label, [w, hh, dsf]] of [['zoom 200% (a 720 × 450 window)', [720, 450, 2]], ['zoom 300% (a 480 × 300 window)', [480, 300, 3]]]) {
-	test(`appearance: ${label}: every mode is usable (nothing sideways, the toolbar in reach)`, async (p, h, t) => {
+// (and again with every letter 8% wider, as the runner's interface font is against this machine's, and a writer's own font can be)
+for (const wide of [false, true]) for (const [label, [w, hh, dsf]] of [['zoom 200% (a 720 × 450 window)', [720, 450, 2]], ['zoom 300% (a 480 × 300 window)', [480, 300, 3]]]) {
+	test(`appearance: ${label}${wide ? ', with wider type' : ''}: every mode is usable (nothing sideways, the toolbar in reach)`, async (p, h, t) => {
 		await open(p);
 		try {
+			if (wide) await p.ev(`(() => { const s = document.createElement('style'); s.id = 'qa6-wide-type'; s.textContent = 'body { letter-spacing: 0.08em; }'; document.head.appendChild(s); return 1; })()`);
 			await p.send('Emulation.setDeviceMetricsOverride', { width: w, height: hh, deviceScaleFactor: dsf, mobile: false });
 			await p.sleep(900);
 			for (const mode of ['corkboard', 'outliner', 'manuscript']) {
@@ -835,7 +837,7 @@ for (const [label, [w, hh, dsf]] of [['zoom 200% (a 720 × 450 window)', [720, 4
 				t.eq(j(f.outside), '[]', `${mode}: toolbar items stay in the view`);
 				t.eq(j(looks), '[]', `${mode}: nothing clipped or overlapping`);
 			}
-		} finally { await p.send('Emulation.setDeviceMetricsOverride', { width: p.width, height: p.height, deviceScaleFactor: 1, mobile: false }); }
+		} finally { await p.ev(`document.getElementById('qa6-wide-type')?.remove()`); await p.send('Emulation.setDeviceMetricsOverride', { width: p.width, height: p.height, deviceScaleFactor: 1, mobile: false }); }
 	});
 }
 

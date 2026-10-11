@@ -2046,12 +2046,15 @@ test('on a phone: the button is in the header; the list is a sheet with a button
 	});
 }, 300000);
 
-test('on a tablet, and in a narrow window: the snapshot’s name has a line of its own over the buttons, in a folder’s dialog and in a note’s, so it can be read', async (p, h, t) => {
+// (twice: the second with every letter 8% wider, as the runner's interface font is against this machine's, and a writer's own font can be)
+const widen = (p) => p.ev(`(() => { if (!document.getElementById('bs-wide-type')) { const s = document.createElement('style'); s.id = 'bs-wide-type'; s.textContent = 'body { letter-spacing: 0.08em; }'; document.head.appendChild(s); } return 1; })()`);
+for (const wider of [false, true]) test('on a tablet, and in a narrow window: the snapshot’s name has a line of its own over the buttons, in a folder’s dialog and in a note’s, so it can be read' + (wider ? ', with wider type' : ''), async (p, h, t) => {
 	await seeded(p);
 	await p.ev(`app.vault.process(${file(W)}, (t) => t + 'More.\\n').then(() => 1)`);
 	await sleep(p, 200);
 	const measure = (dlg) => p.ev(`(() => { const d = document.querySelector(${j(dlg)}), n = d.querySelector('.binders-snapshots-name'), a = d.querySelector('.modal-setting-titlebar-actions'), c = d.querySelector('.modal-close-button, .modal-header-button'); const nr = n.getBoundingClientRect(), ar = a.getBoundingClientRect(), cr = c ? c.getBoundingClientRect() : { left: 1e9, bottom: -1 }; const kids = [...a.children].map(e => e.getBoundingClientRect()); return { name: n.textContent, shown: n.scrollWidth <= n.clientWidth + 1, width: Math.round(nr.width), below: ar.top >= nr.bottom - 1, closeClear: kids.every(k => k.right <= cr.left + 1 || k.top >= cr.bottom - 1), inside: kids.every(k => k.left >= d.getBoundingClientRect().left && k.right <= d.getBoundingClientRect().right + 1) }; })()`);
 	await onMobile(p, [820, 1180], async () => {
+		if (wider) await widen(p);
 		t.ok(await p.ev(`document.body.classList.contains('is-tablet')`), 'a tablet');
 		await openView(p);
 		await p.ev(`(() => { ${PL}.snapshotsApi.show(${file(L)}); return 1; })()`);
@@ -2065,6 +2068,7 @@ test('on a tablet, and in a narrow window: the snapshot’s name has a line of i
 		await sleep(p, 400);
 	});
 	// a narrow window on the desktop: the same rule, by the dialog's own width
+	if (wider) await widen(p);
 	await p.send('Emulation.setDeviceMetricsOverride', { width: 760, height: 800, deviceScaleFactor: 1, mobile: false });
 	await sleep(p, 400);
 	await openView(p);

@@ -31,6 +31,10 @@ const tap = async (p, x, y) => { await touch(p, 'touchStart', x, y); await p.sle
 const hold = async (p, x, y, ms = 700) => { await touch(p, 'touchStart', x, y); await p.sleep(ms); await touch(p, 'touchEnd'); await p.sleep(550); };
 const swipe = async (p, x0, y0, x1, y1, steps = 10) => { await touch(p, 'touchStart', x0, y0); for (let i = 1; i <= steps; i++) { await touch(p, 'touchMove', x0 + (x1 - x0) * i / steps, y0 + (y1 - y0) * i / steps); await p.sleep(16); } await touch(p, 'touchEnd'); await p.sleep(500); };
 
+// Every letter 8% wider, as the runner's interface font is against this machine's (and a writer's own font can be): the
+// layouts that have to hold with any font run a second time with it.
+const widen = (p) => p.ev(`(() => { const s = document.createElement('style'); s.id = 'qa5-wide-type'; s.textContent = 'body { letter-spacing: 0.08em; }'; document.head.appendChild(s); return 1; })()`);
+
 // ---- the device ----
 const metrics = (p, width, height, mobile = true) => p.send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile });
 const NOISE = /ERR_|net::|DevTools|favicon|Failed to load resource|Electron Security Warning/;
@@ -723,8 +727,9 @@ test('phone: “Show in binder” in a scene’s “More options” opens the bi
 // The toolbar and the header
 // =====================================================================================================================
 
-test('phone toolbar: at 320, 360, 390 and 430 px and on its side (568, 844, 932 px), on a binder with a target and in a folder, with and without a filter: nothing overlaps or sticks out, buttons keep their size, the count shows at the root (as its number alone below 360 px) and from 440 px in a folder, the bar from 440, the buttons’ words from 540; the header’s title is centred', async (p, h, t) => {
+const phoneToolbar = (wide) => async (p, h, t) => {
 	await onDevice(p, PHONE, async () => {
+		if (wide) await widen(p);
 		await p.ev(`app.fileManager.processFrontMatter(app.vault.getAbstractFileByPath(${j(L + 'The Lighthouse.md')}), fm => { fm.target = 50000; }).then(() => 1)`);
 		await open(p);
 		for (const [w, hh] of [[320, 568], [360, 740], [390, 844], [430, 932], [568, 320], [844, 390], [932, 430]]) {
@@ -740,6 +745,7 @@ test('phone toolbar: at 320, 360, 390 and 430 px and on its side (568, 844, 932 
 					const has = (c) => bar.kids.find((k) => k.cls === 'binders-' + c);
 					t.ok(bar.out <= 0 && bar.overlap.length === 0, `${what}: nothing sticks out or overlaps: ${j(bar.kids.map((k) => [k.cls, k.l, k.r]))}`);
 					t.ok(bar.kids.every((k) => k.l >= 0 && k.r <= w), `${what}: everything is on the screen`);
+					t.ok(has('undo-button') && has('undo-button').w >= 44, `${what}: Undo is there, a finger wide`);
 					t.ok(['mode-button', 'filter-button', 'new-button'].every((c) => has(c) && has(c).h >= 32 && has(c).w >= 32), `${what}: the three buttons are there, 32 px or more each way`);
 					// (since 0.12.101 the count on the binder's own board is never hidden: below 360 px it's its number alone; in a
 					// folder, where the way up needs the room, it still goes below 440)
@@ -748,7 +754,12 @@ test('phone toolbar: at 320, 360, 390 and 430 px and on its side (568, 844, 932 
 					if (wc) {
 						const words = await p.ev(`getComputedStyle(document.querySelector('${LEAF} .binders-word-count-unit') ?? document.body).display !== 'none'`), shown = await p.ev(`document.querySelector('${LEAF} .binders-word-count').innerText.trim()`);
 						t.eq(words, w >= 360, `${what}: the word “words” ${w >= 360 ? 'is' : 'is not'} shown`);
-						t.ok(wc.cut <= 0 && wc.r <= w && wc.l >= 0, `${what}: the count is whole and on the screen: ${shown}`);
+						// (when the type is wider than this machine's, as the runner's font is, the count is what gives way: it ends in an ellipsis
+					// rather than push a button off the screen. Below 360 px that can cut its number; from 360 px the number stays whole and
+					// only the word after it is cut; from 440 px the whole count shows. Its whole text is its label, and what a tap opens)
+					const numberWhole = await p.ev(`(() => { const c = document.querySelector('${LEAF} .binders-word-count'), r = document.createRange(); r.selectNodeContents(c.firstChild); return r.getBoundingClientRect().right <= c.getBoundingClientRect().right + 0.5; })()`);
+					const need = wide || w < 360 ? 'a finger wide at least' : w < 440 ? 'at least its number, whole' : 'whole';
+					t.ok((wide || w < 360 || (w < 440 ? numberWhole : wc.cut <= 0)) && wc.r <= w && wc.l >= 0 && wc.w >= 44, `${what}: the count is ${need} and on the screen: ${shown}`);
 						t.ok(w >= 360 ? (filter ? / of /.test(shown) : folder === 'The Lighthouse' ? /106 \/ 50,000 words/.test(shown) : /51 words/.test(shown)) : (filter ? /^\d+ of \d+$/.test(shown) : /^106 \/ 50,000$/.test(shown)), `${what}: and right: ${shown}`);
 					}
 					t.eq(!!has('progress'), w >= 440 && folder === 'The Lighthouse', `${what}: the progress bar shows from 440 px, where there’s a target`);
@@ -772,7 +783,11 @@ test('phone toolbar: at 320, 360, 390 and 430 px and on its side (568, 844, 932 
 			t.ok(head.navbar[0] >= 0 && head.navbar[0] + head.navbar[2] <= w && head.navbar[1] + head.navbar[3] <= hh, `${w} × ${hh}: the navigation bar is on the screen`);
 		}
 	});
-});
+};
+test('phone toolbar: at 320, 360, 390 and 430 px and on its side (568, 844, 932 px), on a binder with a target and in a folder, with and without a filter: nothing overlaps or sticks out, buttons keep their size, the count shows at the root (as its number alone below 360 px) and from 440 px in a folder, the bar from 440, the buttons’ words from 540; the header’s title is centred', phoneToolbar(false));
+// (the runner's interface font is wider than this machine's, and a writer's own font or text size can be: the same layout
+// with every letter 8% wider, where the count is what gives way first and nothing is pushed off the screen)
+test('phone toolbar: with wider type, nothing overlaps or sticks out and Undo stays', phoneToolbar(true));
 
 test('tablet header: the Snapshots button stays beside “More options” (a phone has it in the sheet only), and opens the two snapshot items', async (p, h, t) => {
 	await onDevice(p, TABLET, async () => {
@@ -799,7 +814,7 @@ test('phone header: “More options” in each mode is a sheet of finger-tall ro
 		const want = {
 			corkboard: ['Close', 'Pin', 'Card size', 'Tint cards with their label color', 'Number the cards', 'Corkboard', 'Outliner', 'Manuscript', 'Timeline', 'In a grid', 'By label, across', 'By label, down', 'Show notes in subfolders', 'Show unused labels', 'Find in binder', 'Find and replace in binder', 'Add revision task', 'Export...', 'Take a snapshot', 'Show snapshots...', 'Show progress', 'Show contents', 'Open binder note'],
 			outliner: ['Close', 'Pin', 'Show synopses', 'Columns', 'Expand all', 'Collapse all', 'Corkboard', 'Outliner', 'Manuscript', 'Timeline', 'Find in binder', 'Find and replace in binder', 'Add revision task', 'Export...', 'Take a snapshot', 'Show snapshots...', 'Show progress', 'Show contents', 'Open binder note'],
-			manuscript: ['Close', 'Pin', 'Corkboard', 'Outliner', 'Manuscript', 'Timeline', 'Find in binder', 'Find and replace in binder', 'Add revision task', 'Export...', 'Take a snapshot', 'Show snapshots...', 'Show progress', 'Show contents', 'Open binder note'],
+			manuscript: ['Close', 'Pin', 'Show synopses', 'Corkboard', 'Outliner', 'Manuscript', 'Timeline', 'Find in binder', 'Find and replace in binder', 'Add revision task', 'Export...', 'Take a snapshot', 'Show snapshots...', 'Show progress', 'Show contents', 'Open binder note'],
 		};
 		for (const [mode, items] of Object.entries(want)) {
 			await setMode(p, mode);
@@ -883,7 +898,7 @@ test('phone commands: the palette offers Binders’ commands where they apply an
 		await setMode(p, 'outliner');
 		await check('its outliner', [...VIEWS, ...REVISE, 'New scene here', 'Set word count target', ...ALL]);
 		await setMode(p, 'manuscript');
-		await check('its manuscript, no caret in it', [...VIEWS, ...REVISE, 'New scene here', 'Set word count target', ...ALL, FOCUS]);
+		await check('its manuscript, no caret in it', [...VIEWS, ...REVISE, 'New scene here', 'Set word count target', ...ALL, FOCUS, 'Show synopses']);
 		await setMode(p, 'corkboard');
 		await h.open(L + 'Part One/Arrival.md');
 		await check('a scene, first in its folder', ['Open binder', ...EXPORT, ...REVISE, 'New scene here', 'Split scene at cursor', 'Move down', ...SCENE, FOCUS, ...STEP]);

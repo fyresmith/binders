@@ -192,9 +192,10 @@ const leftovers = (p) => p.ev(`document.querySelectorAll('.binders-outliner-ghos
 const SIZES = { '320x568': [320, 568], '360x640': [360, 640], '390x844': [390, 844], '430x932': [430, 932], '568x320': [568, 320], '640x360': [640, 360], '844x390': [844, 390], '932x430': [932, 430] };
 const resetView = (p) => p.ev(`(() => { const v = ${VIEW}; if (v) v.options = { ...v.options, outliner: undefined }; return 1; })()`);
 
-test('every phone size, upright and on its side: nothing sticks out of the view, the header stays put, every column and “+” can be reached, rows, headers and fold targets are a finger tall, and the totals clear the navigation bar', async (p, h, t) => {
+const everyPhoneSize = (wide) => async (p, h, t) => {
 	const c = soft(t), all = {};
 	await onDevice(p, PHONE, async () => {
+		if (wide) await p.ev(`(() => { const s = document.createElement('style'); s.id = 'qa5-wide-type'; s.textContent = 'body { letter-spacing: 0.08em; }'; document.head.appendChild(s); return 1; })()`);
 		for (const [name, [w, hh]] of Object.entries(SIZES)) {
 			await metrics(p, w, hh);
 			await p.sleep(500);
@@ -210,8 +211,10 @@ test('every phone size, upright and on its side: nothing sticks out of the view,
 			c.ok(a.rows.every((r) => r.rect[3] >= 40), `${name}: every row is 40 px tall or more: ${j(a.rows.map((r) => r.rect[3]))}`);
 			c.ok(a.rows.filter((r) => /Part/.test(r.name.text) && !r.path.endsWith('.md')).every((r) => r.chevron[2] >= 40 && r.chevron[3] >= 40), `${name}: folders fold from 40 px targets`);
 			c.ok(a.rows.every((r) => !r.syn || r.syn.lines <= 3), `${name}: a synopsis takes three lines at most`);
-			// (at 320 px the title column is 110 px, the least it can be: a name inside a folder has 56 px of it, and ends in an ellipsis)
-			c.ok(a.rows.every((r) => !r.name.clipped || (w < 360 && r.level > 1 && r.name.rect[2] >= 50)), `${name}: no name here is cut short${w < 360 ? ' but inside a folder, where 50 px or more of it show' : ''}: ${j(a.rows.filter((r) => r.name.clipped).map((r) => [r.name.text, r.level, r.name.rect[2]]))} (title column ${a.title[2]} px)`);
+			// (at 320 px the title column is 110 px, the least it can be: a name inside a folder has 56 px of it, and ends in an ellipsis;
+			// under 420 px a name inside a folder can be longer than the room a font wider than this machine's leaves it, and ends
+			// in an ellipsis too)
+			c.ok(a.rows.every((r) => !r.name.clipped || (w < 420 && r.level > 1 && r.name.rect[2] >= 50)), `${name}: no name here is cut short${w < 420 ? ' but inside a folder, where 50 px or more of it show' : ''}: ${j(a.rows.filter((r) => r.name.clipped).map((r) => [r.name.text, r.level, r.name.rect[2]]))} (title column ${a.title[2]} px)`);
 			c.eq(a.rowFont, '14px', `${name}: text the size of a base’s table`);
 			// down: the header stays
 			await scrollTo(p, null, 140);
@@ -247,7 +250,11 @@ test('every phone size, upright and on its side: nothing sticks out of the view,
 	});
 	dump('layout-phone', all);
 	c.done();
-});
+};
+test('every phone size, upright and on its side: nothing sticks out of the view, the header stays put, every column and “+” can be reached, rows, headers and fold targets are a finger tall, and the totals clear the navigation bar', everyPhoneSize(false));
+// (the runner's interface font is wider than this machine's, and a writer's own font can be: the same sizes with every
+// letter 8% wider; what gives way is a name, which ends in an ellipsis)
+test('every phone size, upright and on its side, with wider type: nothing sticks out, every column and “+” can be reached, rows, headers and fold targets are a finger tall', everyPhoneSize(true));
 
 test('tablet, upright and on its side: the title is pinned, there’s no navigation bar to clear, menus are popovers by the finger, a row drags, renames and opens beside a note in a split pane', async (p, h, t) => {
 	const c = soft(t), f = {};
@@ -1309,11 +1316,12 @@ const DEEP = [
 ];
 const BOOK = 'Book the first, in which a very long folder name is given to see what becomes of it';
 
-test('phone, five folders deep with long and right-to-left names: names end in an ellipsis on one line, a synopsis in three, an indentation guide for each level, right-to-left names start at the tree; nothing sticks out, at 320, 390 and on its side, and with the whole interface right to left', async (p, h, t) => {
+const fiveDeep = (wide) => async (p, h, t) => {
 	const c = soft(t), f = {};
 	await makeBinder(p, 'Deep', DEEP);
 	const D = rowIn('Deep/');
 	await onDevice(p, PHONE, async () => {
+		if (wide) await p.ev(`(() => { const s = document.createElement('style'); s.id = 'qa5-wide-type'; s.textContent = 'body { letter-spacing: 0.08em; }'; document.head.appendChild(s); return 1; })()`);
 		for (const [name, [w, hh]] of Object.entries({ '320x568': [320, 568], '390x844': [390, 844], '844x390': [844, 390] })) {
 			await metrics(p, w, hh);
 			await p.sleep(500);
@@ -1354,7 +1362,9 @@ test('phone, five folders deep with long and right-to-left names: names end in a
 	});
 	dump('deep', f);
 	c.done();
-});
+};
+test('phone, five folders deep with long and right-to-left names: names end in an ellipsis on one line, a synopsis in three, an indentation guide for each level, right-to-left names start at the tree; nothing sticks out, at 320, 390 and on its side, and with the whole interface right to left', fiveDeep(false));
+test('phone, five folders deep with long and right-to-left names, with wider type: every name on one line, nothing sticks out, and a target of a million and a half fits its cell', fiveDeep(true));
 
 test('phone, light or dark, and with large text: labels, statuses, targets, a selected row, a held row and a drag look as they should (screenshots), text at 22 px grows the rows’ text, and nothing sticks out at 390 or 320', async (p, h, t) => {
 	const c = soft(t), f = {};
