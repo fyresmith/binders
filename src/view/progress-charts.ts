@@ -9,8 +9,20 @@ type Attrs = Record<string, string | number>;
 const svg = <K extends keyof SVGElementTagNameMap>(parent: SVGElement | HTMLElement, tag: K, cls: string, attr: Attrs = {}): SVGElementTagNameMap[K] => {
 	const strs: Record<string, string> = {};
 	for (const [k, v] of Object.entries(attr)) strs[k] = typeof v === 'number' ? String(Math.round(v * 100) / 100) : v;
-	return parent.createSvg(tag, { cls: cls ? cls.split(' ').filter(Boolean) : undefined, attr: strs });
+	// (a chart's name is not an `aria-label`: Obsidian makes a tooltip of every one under the pointer, and its tooltip
+	// code calls `isShown()`, which an SVG element doesn't have, so a pointer resting on a chart threw. The name is a
+	// `desc` inside the picture, pointed at by `aria-labelledby`: said by a screen reader, never a tooltip)
+	const name = tag === 'svg' ? strs['aria-label'] : undefined;
+	if (name !== undefined) delete strs['aria-label'];
+	const made = parent.createSvg(tag, { cls: cls ? cls.split(' ').filter(Boolean) : undefined, attr: strs });
+	if (name !== undefined) {
+		const id = `binders-chart-name-${++named}`;
+		made.createSvg('desc', { attr: { id } }).textContent = name;
+		made.setAttribute('aria-labelledby', id);
+	}
+	return made;
 };
+let named = 0;
 const label = (parent: SVGElement, cls: string, x: number, y: number, text: string, anchor: 'start' | 'middle' | 'end' = 'start'): SVGTextElement => {
 	const t = svg(parent, 'text', `binders-chart-text ${cls}`, { x, y, 'text-anchor': anchor });
 	t.textContent = text;

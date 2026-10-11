@@ -95,7 +95,7 @@ test('three years on two devices: every part of the page, a table behind each ch
 	const charts = await p.ev(`document.querySelectorAll('${WIN} svg.binders-chart[role="img"]').length`);
 	t.ok(tables.length >= charts && charts >= 5, `each of the ${charts} charts has a table behind it (${tables.length} tables)`);
 	t.ok(tables.every((x) => x[1] > 0), 'and no table is empty: ' + tables.map((x) => `${x[0]} ${x[1]}`).join('; '));
-	t.ok(await p.ev(`[...document.querySelectorAll('${WIN} svg.binders-chart[role="img"]')].every(s => (s.getAttribute('aria-label') ?? '').length > 10)`), 'every chart is named for a screen reader');
+	t.ok(await p.ev(`[...document.querySelectorAll('${WIN} svg.binders-chart[role="img"]')].every(s => !s.hasAttribute('aria-label') && (document.getElementById(s.getAttribute('aria-labelledby'))?.textContent ?? '').length > 10)`), 'every chart is named for a screen reader');
 	// what the record says, in the records
 	const facts_ = await facts(p);
 	for (const name of ['Longest day', 'Best month', 'Longest time away', 'Days written on', 'Time typing', 'Written on a phone or tablet', 'Brought in at once', 'Times the order changed', 'To read it through']) t.ok(name in facts_, `“${name}” is said`);
