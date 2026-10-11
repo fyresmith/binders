@@ -215,9 +215,12 @@ class ByLabel implements BinderMode {
 	/** Which line's head is the heads' one Tab stop (the arrow keys go between them). */
 	private headStop = 0;
 
+	/** The keyboard on "New" in the view's toolbar (if it shows), the way to a first card. */
+	private focusNew(): void { this.container.closest('.binders-view')?.querySelector<HTMLElement>('.binders-new-button:not(.is-hidden)')?.focus({ preventScroll: true }); }
+
 	focus(): void {
 		const c = this.cardEl(this.focused) ?? this.cards()[0];
-		if (!c) { this.focusOnDraw = true; return; }
+		if (!c) { this.focusNew(); this.focusOnDraw = true; return; }
 		this.focused ??= c.dataset.path ?? null;
 		c.focus({ preventScroll: true });
 	}
@@ -1034,7 +1037,8 @@ class ByLabel implements BinderMode {
 		let ok = false;
 		try { ok = await removeItems(this.ctx, items); } finally { this.moving = false; }
 		if (!ok) { if (this.dirty && !this.busy()) this.draw(); this.focus(); return; }
-		if (!next) { if (!this.busy()) this.draw(); return; }
+		// no card left: "New" in the toolbar, as the plain corkboard does, so the keyboard isn't left on the page
+		if (!next) { this.focusNew(); if (!this.busy()) this.draw(); return; }
 		this.select([next]);
 		this.refocus = next;
 		if (!this.busy()) this.draw();

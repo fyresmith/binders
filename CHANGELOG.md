@@ -73,6 +73,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - On the corkboard, cards that a scroll brings into sight are now lit or stepped back for a find, as they are at the top.
 - Undo of a replace all no longer says a note changed since when it is already as it was before the replace.
 - In the Progress window, holding the pointer over a chart no longer raises an error behind the scenes; the charts are still named for a screen reader.
+- Corkboard arranged by label: after you delete every note, the keyboard goes to the New button instead of being dropped on the page.
 
 ## 0.51.1 (2026-10-10)
 
