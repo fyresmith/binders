@@ -1,3 +1,4 @@
+import { openSplitMany } from './split-many';
 import { exportAsItems } from './export-as';
 import { Menu, Notice, Platform, TFile, TFolder, type TAbstractFile } from 'obsidian';
 import { readStory, setStoryDate, writeKeys } from './props';
@@ -255,6 +256,7 @@ function structureItems(ctx: ModeContext, menu: Menu, items: TAbstractFile[], h:
 		const kept = await mergeScenes(ctx.plugin, store.inOrder(notes).filter(isNote));
 		if (kept) h.made?.(kept, false);
 	}));
+	if (one && isNote(one) && !ctx.binder.problem) menu.addItem((i) => i.setSection('structure').setTitle('Split at headings...').setIcon('split').onClick(() => void tell(openSplitMany(ctx.plugin, one))));
 	if (!short && canGroup(ctx, items)) groupItem(ctx, menu, items, h, 'structure');
 	if (one instanceof TFolder) menu.addItem((i) => i.setSection('structure').setTitle('Export...').setIcon('book-up').onClick(() => new ExportModal(ctx.plugin, one).open()));
 	if (one instanceof TFolder && (store.orderedChildren(one) ?? []).length) menu.addItem((i) => i.setSection('structure').setTitle('Ungroup').setIcon('folder-output').onClick(() => void tell(store.ungroup(one))));

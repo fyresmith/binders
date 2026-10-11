@@ -85,6 +85,11 @@ again, if the notes are still as the undo left them.
 and takes the new note to the trash; **Redo** splits again. The editor's own undo (Ctrl+Z in the note you split) still does
 the same, and the two never both act on one split: whichever comes first settles it, and the other finds it done.
 
+- **Split at headings...** is one change, "Split “Draft” into 12 notes". Undo puts the note back as it was and takes every new
+note to the trash (and the folder made for them, if nothing else is in it); Redo makes them all again, the same. It is
+refused, with nothing changed, unless every one of the new notes is still exactly what the split wrote, and it names the one
+that changed, and says that a snapshot from before the split is among the note's snapshots.
+
 Both go by the same rules: the first note must still be exactly as the split left it (what you typed and haven't saved is
 saved first, and counts), and the new note exactly as the split wrote it. If either has changed, nothing is changed and a
 notice says which (the editor's own undo, in that case, leaves the new note and says the text is in both). A note with Windows

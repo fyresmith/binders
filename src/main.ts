@@ -25,6 +25,7 @@ import { Styles } from './export/styles';
 import { importDesktop } from './import/desktop';
 import { ImportScrivenerModal } from './view/import-scrivener';
 import { ImportManuscriptModal, importDocx, importNote } from './view/import-manuscript';
+import { openSplitMany } from './view/split-many';
 import { CONTENTS_VIEW, installContents } from './inspector/contents-pane';
 import { installInspector, showSide } from './inspector/views';
 import { placeSide } from './inspector/place';
@@ -196,6 +197,13 @@ export default class BindersPlugin extends Plugin {
 				return true;
 			} });
 		}
+		// a note cut into several where its headings, scene breaks or a line of the writer's own are
+		this.addCommand({ id: 'split-at-headings', name: 'Split at headings...', icon: 'split', checkCallback: (checking) => {
+			const file = active();
+			if (!file?.parent || !this.binders.binderOf(file) || this.binders.isHiddenNote(file) || this.binders.problem(file) || !(this.binders.orderedChildren(file.parent) ?? []).includes(file)) return false;
+			if (!checking) void this.tell(openSplitMany(this, file));
+			return true;
+		} });
 		// a tab at the start of the paragraph the cursor is in: for a phone, which has no Tab key (it can be put on
 		// Obsidian's toolbar there). Only where a tab is a paragraph's: a binder's note, the setting on
 		this.addCommand({ id: 'tab-paragraph', name: 'Start a paragraph with a tab', icon: 'pilcrow', editorCheckCallback: (checking, editor, ctx) => {
@@ -356,6 +364,7 @@ export default class BindersPlugin extends Plugin {
 		const folder = file.parent;
 		if (file instanceof TFile && folder && b.binderOf(file) && !b.isHiddenNote(file) && (b.orderedChildren(folder) ?? []).includes(file)) {
 			menu.addItem((i) => i.setSection('open').setTitle('Show in binder').setIcon('book').onClick((e) => void this.openBinder(folder, Keymap.isModEvent(e), file)));
+			if (file.extension === 'md' && !b.problem(file)) menu.addItem((i) => i.setSection(make).setTitle('Split at headings...').setIcon('split').onClick(() => void this.tell(openSplitMany(this, file))));
 			if (file.extension === 'md' && !b.problem(file)) menu.addItem((i) => i.setSection(make).setTitle('New scene after this').setIcon('file-plus').onClick(() => void this.newScene(folder, (b.orderedChildren(folder) ?? []).indexOf(file) + 1)));
 		}
 		// snapshots: a note's, in its own menu and in the file explorer as on its card; a folder's notes, all at once

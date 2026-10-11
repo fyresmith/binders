@@ -42,6 +42,7 @@ A note outside a binder also has **Make a binder from this note...** in its menu
 | **Undo last change** | Takes back the last change made by hand to the binder: a move, a property set. See [Undo and redo](undo.md) | When there is a change to undo |
 | **Redo last change** | Makes it again | When there is a change to redo |
 | **Split scene at cursor** | Moves the text from the cursor on into a new note after this one | The editor of a note of a binder, or a section of the manuscript |
+| **Split at headings...** | Cuts the note into several where its headings, scene breaks or a line of your own are, after showing the notes it will make. See [Splitting and merging](splitting-and-merging.md#split-at-headings) | A note of a binder (also in its menu) |
 | **Split scene with selection as title** | The same, naming the new note from the selected words | The same, with text selected |
 
 ## Paragraphs

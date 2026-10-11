@@ -12,6 +12,32 @@ The text from the cursor on moves into a new note right after this one.
 
 **Split scene with selection as title** does the same and names the new note from the words you have selected.
 
+## Split at headings
+
+For a long note that holds several: a note of a binder cut into many at once.
+
+1. Open the note (or find it in the file explorer, or its card), and run **Split at headings...** from the command palette,
+   or from the note's menu.
+2. **Split at**: a heading level (**Heading 2 (12)** says how many notes it makes), **Scene breaks** (a line that is only a
+   mark, such as `***`), or **A line of your own**: a note starts at each line that is exactly what you type.
+3. The list shows the notes it will make, in order. The note itself stays as the first. Change a name by typing in it: a
+   heading is the name to start with, else the note's first words.
+4. **Put them in a folder named for this note** is on when the note is at the top of its binder: the new notes go in a new
+   folder, "*name* notes". A Longform project has no folders, so no switch: the new notes follow the note, after the scenes
+   indented under it.
+5. **Take the headings out of the text**, off to start with: the line that starts a note is its name and not in its text.
+6. **Split into 12 notes.**
+
+The notes joined are the note's text, byte for byte, unless you took the headings out. The first keeps the note's properties
+as they were; each new note has them too, except the synopsis and the note's other names. A footnote or a link written out at
+the foot of the note goes to the notes that mark it. Links from other notes to a heading that moved follow it. A copy of the
+note is taken first, as a snapshot named "Before splitting".
+
+Undo last change takes the whole split back, as one change ("Split “Draft” into 12 notes"): the note as it was, byte for byte,
+and the new notes to the trash. It does so only if every new note is still exactly what was written; if you have changed one,
+nothing is changed, and it says which, and that the snapshot is among the note's snapshots. The note's own undo (Ctrl+Z in it)
+does the same while it stays open. If the note changed between the list being made and the button, nothing is split.
+
 ### Undoing a split
 
 Undo in the note you split (Ctrl+Z, or Cmd+Z on macOS), or **Undo last change** (the command, the toolbar's Undo, or

@@ -82,9 +82,7 @@ pages with two or more; a signal the writer chooses with none is `none`.
   `.md` or `.markdown` gets `.original` after its name so it isn't a second note of the binder (a decision the plan didn't
   make: Obsidian would list it as a scene, and the binder's word count would count it twice). A note of the vault is linked, not copied.
 - **Said** (`plan.said`, and in the binder note's "Import notes"): encoding, a skipped properties block, footnotes and links
-  written out at the foot (they stay at the foot of the last note: moving each to the note that marks it is the same rewrite as
-  "Split at headings...", and isn't done), links to a heading, no chapters found, doubtful chapters, a folder whose name isn't its heading,
-  tabs dropped.
+  written out at the foot (moved to the pieces that mark them: `definitions.ts`, below),
 
 ## Tests
 
@@ -249,4 +247,14 @@ Of 84 files (28 binders in three styles), 24 are not compared for chapters and f
 | **No chapters** (Empty binder: 3) | Nothing to compare | |
 
 Bold is not compared for a book with a table either: export bolds the header row, and the import writes a table as paragraphs.
+
+## Definitions at the foot (`src/import/definitions.ts`)
+
+`moveDefinitions(pieces)` is the one rewrite a split or an import makes beyond cutting. A footnote (`[^1]: …`, with its indented
+lines) or a link (`[label]: url`) written out at the foot of a long text goes to the piece or pieces whose text marks it
+(`[^1]`, `[label]`, `[words][label]`), and is taken from where it was unless that piece marks it too. One that no piece marks
+stays; one that is already in the only piece that marks it is not touched, so a text with nothing to move comes back as it
+came. Of two definitions of one label, the first counts. It is used by the import of a Markdown note (a pass over the notes
+made) and by "Split at headings..." (`src/split-text.ts`). A footnote's words are the same wherever it is written, which the
+word-for-word oracle (`noteWords`) reads at the mark: held by `tests/split-text.test.ts`.
 
