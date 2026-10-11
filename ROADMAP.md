@@ -73,6 +73,11 @@ or configuration system unless the task cannot be done through the controls ther
   - Makes a new folder, never writes into an existing one, and keeps the original file.
   - Ship when a novel-length Word file comes in with its words, order, italics, bold and scene breaks intact,
     held to a word-for-word test.
+  - Planned and decided 2026-10-10, being built: a Markdown or text file, or a long note, first; then Word
+    (which is also how a book comes from Google Docs, Pages, Atticus and Vellum); `.odt` and `.rtf` after. Chapters
+    are found from headings, lines like "Chapter 12", or page breaks, and the writer chooses before anything is
+    made. Tracked changes come in accepted; comments are kept as comments. "Split at headings" for a note already
+    in a binder follows undo's split step.
 
 ### 3. Progress over time
 
