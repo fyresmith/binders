@@ -1,165 +1,32 @@
 # Changelog
 
-All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
-counts as a patch, minor or major change. Entries are added by `npm run ship`.
+All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for when a number changes. Commits add entries under Unreleased (`npm run ship`); `npm run release` turns them into a version.
 
-## 0.64.0 (2026-10-11)
-
-### Added
-
-- Timeline, a fourth view of a binder: its scenes along story time at their story dates, each card numbered as the manuscript has it, each year named, long empty stretches drawn short, and scenes with no date in a tray. Time runs down, or across on a computer or tablet (Arrange). Dates are set from a card’s menu; dragging a card to a date comes next.
-
-## 0.63.1 (2026-10-11)
-
-### Changed
-
-- Known limitations notes that a link written with its folder comes back in Obsidian’s shortest form after a rename is undone.
-
-## 0.63.0 (2026-10-11)
-
-### Added
-
-- Undo last change, and the toolbar’s Undo, now take back a split, and Ctrl+Z works in the inspector and the contents for the binder they follow.
-
-## 0.62.0 (2026-10-11)
-
-### Added
-
-- Undo last change now takes back a merge: the merged-away notes come back byte for byte and the first note returns to what it was, only if it hasn’t been changed since. If it has, its text stays and the merged notes can be brought back beside it.
-
-## 0.61.0 (2026-10-11)
-
-### Added
-
-- Importing a Word file: comments come in as Obsidian comments (with a switch), tracked changes can be accepted or rejected, underlined text can be made italic, PNG and JPEG pictures are kept in Research/Attachments, and a heading Word numbers by itself is named by its place.
-
-## 0.60.0 (2026-10-11)
-
-### Added
-
-- In the import preview, each note or folder has a menu: join with the one before, make it a chapter, a scene or a part, rename. A paragraph has Start a note here. What you change is kept when you change the choices on the left, and no word is lost or repeated.
-
-### Fixed
-
-- Importing a note or Word file: a chapter folder whose heading is too long or odd to be its name no longer loses the end of the heading; it is the first line of the folder’s first note.
-
-## 0.59.0 (2026-10-11)
-
-### Added
-
-- Undo last change now brings back deleted notes and folders, byte for byte, even when Obsidian deletes for good, until Obsidian is closed. A notice after a delete has an Undo button.
-
-## 0.58.0 (2026-10-11)
-
-### Added
-
-- Undo last change now takes away a note or folder you just made, or a copy of a note, only while it is still exactly as it was made, and redo makes it again.
-
-## 0.57.0 (2026-10-11)
-
-### Added
-
-- Undo last change now takes back renames made on a card, in a row or in the manuscript, updating links the way the rename did.
-
-## 0.56.0 (2026-10-11)
-
-### Added
-
-- Story date: a scene’s story-date property says when it happens in the story. Set it in the outliner’s new Story date column, the inspector, or Set story date... in a note’s menu, typed as 14 June 1987, June 1987, 1987 or 1987-06-14. Sort the outliner by it, and Make this the binder order puts a book in story order. A second property, story-order, orders scenes within a day.
-
-## 0.55.0 (2026-10-11)
-
-### Added
-
-- Import a manuscript... reads a Word (.docx) file, from your device or already in your vault (Import as a binder... in its menu), and splits it into a binder at its chapters. Tracked changes come in accepted and are said, footnotes come in place, and an older .doc or a password-locked file is refused in plain words. Google Docs, Pages, Atticus, Vellum and the rest come in through their Word export.
-
-## 0.54.0 (2026-10-11)
-
-### Added
-
-- Import a manuscript...: makes a new binder from a long Markdown note or a text file, split where its chapters start (at headings, at lines like “Chapter 12”, at page breaks), with scene breaks, front matter and the book’s structure. A note outside a binder also has “Make a binder from this note...” in its menu. The note or file is never changed.
-
-## 0.53.1 (2026-10-11)
-
-### Changed
-
-- Nothing you will notice: the parts of Import from Scrivener that other imports will share are set apart.
-
-## 0.53.0 (2026-10-11)
-
-### Added
-
-- Undo and Redo buttons in the binder view’s toolbar, dimmed when there is nothing to take back, for phones that have no Ctrl+Z. On a phone Undo is in the toolbar and Redo is in More options.
-
-## 0.52.0 (2026-10-11)
+## Unreleased
 
 ### Added
 
 - Undo last change and Redo last change now take back and redo the properties you set by hand (a synopsis, status, label, target, notes, export settings, an outliner cell), several notes at once as one change.
+- Undo and Redo buttons in the binder view’s toolbar, dimmed when there is nothing to take back, for phones that have no Ctrl+Z. On a phone Undo is in the toolbar and Redo is in More options.
+- Import a manuscript...: makes a new binder from a long Markdown note or a text file, split where its chapters start (at headings, at lines like “Chapter 12”, at page breaks), with scene breaks, front matter and the book’s structure. A note outside a binder also has “Make a binder from this note...” in its menu. The note or file is never changed.
+- Import a manuscript... reads a Word (.docx) file, from your device or already in your vault (Import as a binder... in its menu), and splits it into a binder at its chapters. Tracked changes come in accepted and are said, footnotes come in place, and an older .doc or a password-locked file is refused in plain words. Google Docs, Pages, Atticus, Vellum and the rest come in through their Word export.
+- Story date: a scene’s story-date property says when it happens in the story. Set it in the outliner’s new Story date column, the inspector, or Set story date... in a note’s menu, typed as 14 June 1987, June 1987, 1987 or 1987-06-14. Sort the outliner by it, and Make this the binder order puts a book in story order. A second property, story-order, orders scenes within a day.
+- Undo last change now takes back renames made on a card, in a row or in the manuscript, updating links the way the rename did.
+- Undo last change now takes away a note or folder you just made, or a copy of a note, only while it is still exactly as it was made, and redo makes it again.
+- Undo last change now brings back deleted notes and folders, byte for byte, even when Obsidian deletes for good, until Obsidian is closed. A notice after a delete has an Undo button.
+- In the import preview, each note or folder has a menu: join with the one before, make it a chapter, a scene or a part, rename. A paragraph has Start a note here. What you change is kept when you change the choices on the left, and no word is lost or repeated.
+- Importing a Word file: comments come in as Obsidian comments (with a switch), tracked changes can be accepted or rejected, underlined text can be made italic, PNG and JPEG pictures are kept in Research/Attachments, and a heading Word numbers by itself is named by its place.
+- Undo last change now takes back a merge: the merged-away notes come back byte for byte and the first note returns to what it was, only if it hasn’t been changed since. If it has, its text stays and the merged notes can be brought back beside it.
+- Undo last change, and the toolbar’s Undo, now take back a split, and Ctrl+Z works in the inspector and the contents for the binder they follow.
+- Timeline, a fourth view of a binder: its scenes along story time at their story dates, each card numbered as the manuscript has it, each year named, long empty stretches drawn short, and scenes with no date in a tray. Time runs down, or across on a computer or tablet (Arrange). Dates are set from a card’s menu; dragging a card to a date comes next.
 
 ### Changed
 
 - The commands are renamed Undo last change and Redo last change, and each binder remembers its last 100 changes, where 50 were shared by all.
 
-## 0.51.11 (2026-10-11)
+### Fixed
 
-### Changed
-
-- Nothing you will notice: the code that undoes moves is rearranged to make room for undoing more.
-
-## 0.51.10 (2026-10-11)
-
-### Changed
-
-- The roadmap records what was decided for importing a manuscript: Markdown and text first, then Word.
-
-## 0.51.9 (2026-10-11)
-
-### Changed
-
-- The roadmap’s timeline is now a fourth view of every binder, re-implemented from Evra Timelines, with what was decided about it.
-
-## 0.51.8 (2026-10-10)
-
-### Changed
-
-- The roadmap records what was decided for undo and redo: a history for each binder, kept for the session, with buttons in the view’s toolbar.
-
-## 0.51.7 (2026-10-10)
-
-### Changed
-
-- The roadmap has no “after 1.0” any more: undo and redo of everything, importing a Word file, progress over time, saved filters, an editor’s changes brought back, revision notes, a binder from a structure and the story’s timeline are all planned before 1.0, followed by hardening.
-
-## 0.51.6 (2026-10-10)
-
-### Changed
-
-- Known limitations no longer lists bringing back a whole snapshot of a folder or binder as planned: it is built. What is left is thinning the automatic ones.
-
-## 0.51.5 (2026-10-10)
-
-### Changed
-
-- The roadmap now lists what is built and released apart from what is left before 1.0 and what is planned after it, and no longer says Binders reaches the community directory with 1.0: it is there now.
-
-## 0.51.4 (2026-10-10)
-
-### Changed
-
-- The README's and the manual's pictures of the corkboard show it as it is now, without the “New note” tile.
-
-## 0.51.3 (2026-10-10)
-
-### Changed
-
-- The README and the list of limitations no longer say Binders is untried on macOS and Windows: it has been tested on both.
-
-## 0.51.2 (2026-10-10)
-
-### Added
-
-- Ten pictures of Binders on a computer and a phone, in the screenshots folder, for its listing in the community directory.
+- Importing a note or Word file: a chapter folder whose heading is too long or odd to be its name no longer loses the end of the heading; it is the first line of the folder’s first note.
 
 ## 0.51.1 (2026-10-10)
 
