@@ -465,7 +465,7 @@ test('card menu, Delete: asks first (Cancel and Escape keep it), then the note g
 // ================================================================================================================
 
 const SNAP_DIR = L + 'Snapshots/';
-const snapshotFiles = (p) => p.ev(`app.vault.adapter.exists(${j(SNAP_DIR.slice(0, -1))}).then(async ok => { if (!ok) return []; const out = []; const walk = async (d) => { const l = await app.vault.adapter.list(d); out.push(...l.files); for (const f of l.folders) await walk(f); }; await walk(${j(SNAP_DIR.slice(0, -1))}); return out; })`);
+const snapshotFiles = (p) => p.ev(`app.vault.adapter.exists(${j(SNAP_DIR.slice(0, -1))}).then(async ok => { if (!ok) return []; const out = []; const walk = async (d) => { const l = await app.vault.adapter.list(d); out.push(...l.files.filter(f => !/\\.binder-history(\\.tmp)?$/.test(f))); for (const f of l.folders) await walk(f); }; await walk(${j(SNAP_DIR.slice(0, -1))}); return out; })`);
 
 test('card menu, Snapshots: Take a snapshot, Rewrite..., Show snapshots... each do their one thing, nothing in the note is lost', tidied(async (p, h, t) => {
 	await fresh(p);

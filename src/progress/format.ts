@@ -144,3 +144,11 @@ export const parentOf = (path: string): string => path.slice(0, Math.max(0, path
 
 /** A path changed to another: a rename if it stayed in the same folder, else a move. */
 export const moveKind = (from: string, to: string): 'renamed' | 'moved' => (parentOf(from) === parentOf(to) ? 'renamed' : 'moved');
+
+/** Is this file (or a name) one of the record's: a history file, or the temporary name one is written under? The one
+    test every listing of a binder's Snapshots folder asks first, so that the record is never taken for a snapshot, a
+    snapshot's file or a thing to move or tidy. */
+export const isRecordFile = (f: unknown): boolean => {
+	const name = typeof f === 'string' ? f : f && typeof f === 'object' && typeof (f as { name?: unknown }).name === 'string' ? (f as { name: string }).name : '';
+	return name.endsWith('.' + EXT) || name.endsWith('.' + EXT + '.tmp');
+};

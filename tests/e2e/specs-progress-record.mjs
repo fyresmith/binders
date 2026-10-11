@@ -652,3 +652,52 @@ test('a phone or tablet: the device is not a computer, and going to the backgrou
 		await reload(p, false);
 	}
 });
+
+test('the record is never a snapshot: after a session of typing, the snapshot counts, lists and bringing back\'s plan show what they showed before recording began; nothing that tidies snapshots touches a history file', async (p, h, t) => {
+	await p.ev(`(async () => { ${PL}.settings.recordProgress = false; await ${PL}.saveSettings(); })().then(() => 1)`);
+	await p.ev(`(async () => { const api = ${PL}.snapshotsApi; await api.take(${file(KEEPER)}, 'one'); await api.takeFolder(${file(L)}, 'Draft'); await api.takeFolder(${file(L + '/Part One')}, 'Opening'); })().then(() => 1)`);
+	await p.sleep(500);
+	const measure = async () => {
+		const o = await p.ev(`(async () => {
+			const api = ${PL}.snapshotsApi, L = ${file(L)}, P1 = ${file(L + '/Part One')};
+			const titles = (f) => api.list(f).map((s) => s.title + '|' + s.of).sort();
+			return JSON.stringify({ has: [api.has(L), api.has(P1), api.has(${file(L + '/Part Two')})], binder: titles(L), part: titles(P1), binders: ${PL}.binders.all().length });
+		})()`);
+		await openNote(p, KEEPER);
+		await p.ev(`(() => { app.commands.executeCommandById('binders:show-snapshots'); return 1; })()`);
+		await until(p, `!!document.querySelector('.modal')`);
+		await p.sleep(700);
+		const rows = await p.ev(`document.querySelectorAll('.modal [role="option"]').length`);
+		for (let i = 0; i < 3 && await p.ev(`!!document.querySelector('.modal-container')`); i++) { await p.key('Escape'); await p.sleep(250); }
+		return j([o, rows]);
+	};
+	const before = await measure();
+	t.ok(JSON.parse(before)[1] >= 1, 'the note’s snapshot list has its snapshot to count: ' + before);
+	await p.ev(`(async () => { ${PL}.settings.recordProgress = true; await ${PL}.saveSettings(); })().then(() => 1)`);
+	await openNote(p, KEEPER);
+	await caretEnd(p);
+	await press(p, ' Recorded words now.');
+	await write(p);
+	const names = Object.keys(await files(p));
+	t.ok(names.length === 1, 'the record is on disk: ' + j(names));
+	const after = await measure();
+	t.eq(after, before, 'what the snapshot lists, counts and the plan of bringing back show is unchanged');
+	// a scene called History keeps its snapshots in the record's folder; renaming and deleting its snapshots leave the record whole
+	const record = (await files(p))[names[0]];
+	await p.ev(`(async () => { const f = await ${B}.newSceneByHand(${file(L)}, Infinity, 'History'); await ${PL}.snapshotsApi.take(f, 'in the same folder'); })().then(() => 1)`);
+	await p.sleep(500);
+	await p.ev(`${B}.rename(${file(L + '/History.md')}, 'Chronicle').then(() => 1)`);
+	await p.sleep(700);
+	await p.ev(`${B}.snapshotsSettle().then(() => 1)`);
+	await p.ev(`(async () => { const f = ${file(L + '/Chronicle.md')}; await ${B}.remove([f]); })().then(() => 1)`);
+	await p.sleep(700);
+	const still = await p.ev(`(async () => { const a = app.vault.adapter, d = ${j(HIST)}; return (await a.exists(d)) ? (await a.list(d)).files.map(f => f.split('/').pop()) : []; })()`);
+	t.ok(still.includes(names[0]), 'the record is still in History after the scene that shares its folder was renamed: ' + j(still));
+	t.ok(still.every((n) => /\.binder-history$/.test(n)), 'and no snapshot went into it: ' + j(still));
+	const text = await p.ev(`app.vault.adapter.read(${j(HIST + '/' + names[0])})`);
+	t.ok(text.startsWith(record.split('\n')[0]) && text.length >= record.length, 'and the record was not changed but by being added to');
+	// bringing the binder's snapshot back (its plan is made over a tree with the record in it) leaves the record
+	await p.ev(`(async () => { const api = ${PL}.snapshotsApi, f = ${file(L)}, s = api.list(f).find((x) => x.title === 'Draft'); await api.back(s, f, 'all').catch(() => {}); })().then(() => 1)`);
+	await p.sleep(1000);
+	t.ok((await files(p))[names[0]]?.startsWith(record.split('\n')[0]), 'bringing a snapshot of the binder back leaves the record where it is');
+});

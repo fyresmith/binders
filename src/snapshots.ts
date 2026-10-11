@@ -4,7 +4,7 @@ import type BindersPlugin from './main';
 import { frontFor, lf, parts } from './scene-text';
 import { saveOpen } from './scenes';
 import { BINDER_SNAPSHOT_EXT } from './binder-snapshot-text';
-import { EXT as HISTORY_EXT } from './progress/format';
+import { isRecordFile } from './progress/format';
 import { SNAPSHOTS, SNAPSHOT_EXT, readSnapshot, readSnapshotName, snapshotFile, snapshotName } from './snapshot-text';
 import { liveEditors, saveTab } from './view/editable-embed';
 
@@ -35,7 +35,7 @@ export interface Snapshot {
 	body: string;
 }
 
-const isSnapshot = (f: unknown): f is TFile => f instanceof TFile && f.extension === SNAPSHOT_EXT;
+const isSnapshot = (f: unknown): f is TFile => f instanceof TFile && !isRecordFile(f) && f.extension === SNAPSHOT_EXT;
 
 /** Is this a scene of a binder: a note in its order (not its binder or folder note, nor one a Longform project
     leaves out)? Only scenes have snapshots. */
@@ -194,7 +194,7 @@ export async function nameSnapshot(app: App, s: Snapshot, title: string): Promis
 /** Is this, in a folder of snapshots, the note's or the folder's of that name? A note's are its snapshot files. A
     folder's are the folders in it (those of the notes in the folder) and the folder's own snapshots, which are files
     of another kind (binder-snapshots.ts). */
-export const isOwn = (c: unknown, what: 'note' | 'folder'): boolean => (c instanceof TFile && c.extension === HISTORY_EXT ? false : c instanceof TFile && c.extension === BINDER_SNAPSHOT_EXT ? what === 'folder' : what === 'note' ? c instanceof TFile : c instanceof TFolder);
+export const isOwn = (c: unknown, what: 'note' | 'folder'): boolean => (isRecordFile(c) ? false : c instanceof TFile && c.extension === BINDER_SNAPSHOT_EXT ? what === 'folder' : what === 'note' ? c instanceof TFile : c instanceof TFolder);
 
 /** Moves snapshots from one folder to another: a note renamed or moved takes its snapshots along (the files in its
     folder of them), and so does a folder (the folders in its own: those of the notes in it). A note and a folder can

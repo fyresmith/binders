@@ -4,6 +4,7 @@ import type BindersPlugin from './main';
 import { lf, parts } from './scene-text';
 import { saveOpen } from './scenes';
 import { JOURNAL_FORMAT, closeJournal, readJournal, writeJournal, type Journal } from './binder-snapshot-journal';
+import { isRecordFile } from './progress/format';
 import { BINDER_SNAPSHOT_EXT, BINDER_SNAPSHOT_FORMAT, NewerSnapshot, changes, fingerprint, inFolder, mayPlace, parseFolderSnapshot, planBack, readHead, sameButLinks, shape, writeFolderSnapshot, type BackOptions, type Entry, type Head, type Place, type Plan, type Scope, type Since } from './binder-snapshot-text';
 import { isLongformIndex } from './longform';
 import { checkFormat, isBinderNote } from './model';
@@ -56,7 +57,7 @@ export interface State { entries: Entry[]; notes: number; words: number }
 export interface Read extends State { head: Head; damaged: string[] }
 
 const AUTO = '.auto';
-const isFolderSnapshot = (f: unknown): f is TFile => f instanceof TFile && f.extension === BINDER_SNAPSHOT_EXT;
+const isFolderSnapshot = (f: unknown): f is TFile => f instanceof TFile && !isRecordFile(f) && f.extension === BINDER_SNAPSHOT_EXT;
 const rel = (b: Binder, folder: TFolder): string => (folder === b.folder ? '' : folder.path.slice(b.folder.path.length + 1));
 const dirFor = (b: Binder, of: string): string => normalizePath(`${b.folder.path}/${SNAPSHOTS}${of ? '/' + of : ''}`);
 

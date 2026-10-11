@@ -1,6 +1,6 @@
 import { BLOCK, changeWords, frontOf, transactionWords, type Doc } from '../src/progress/count';
 import { recordDay, hourOf } from '../src/progress/day';
-import { FORMAT, fileName, moveKind, parseFile, parseName } from '../src/progress/format';
+import { FORMAT, fileName, isRecordFile, moveKind, parseFile, parseName } from '../src/progress/format';
 import { Ledger, type Device } from '../src/progress/ledger';
 import { merge, toHistory, statusOn, type Source } from '../src/progress/merge';
 import { readSettings } from '../src/settings-data';
@@ -83,6 +83,11 @@ eq(moveKind('Part One/Gull', 'Part One/Calls'), 'renamed', 'a note in a folder r
 eq(moveKind('Part One/Gull', 'Part Two/Gull'), 'moved', 'a note in another folder is moved');
 eq(moveKind('Gull', 'Part Two/Gull'), 'moved', 'a note from the top into a folder');
 eq(moveKind('Part One/Gull', 'Gull'), 'moved', 'and out of it');
+
+// ---- the record is told from a snapshot by its name ----
+ok(isRecordFile('2026 Mac a1b2c3.binder-history') && isRecordFile('2026 Mac a1b2c3.binder-history.tmp'), 'a history file, and its temporary name');
+ok(isRecordFile({ name: 'x.binder-history' }), 'a file object by its name');
+ok(!isRecordFile('2026-10-10 09.00.00.snapshot') && !isRecordFile('x.binder-snapshot') && !isRecordFile(null) && !isRecordFile('Bringing back.binder-journal'), 'a snapshot, a folder snapshot, the journal and nothing are not');
 
 // ---- file names ----
 eq(fileName(2026, 'MacBook', 'a1b2'), '2026 MacBook a1b2.binder-history', 'a file is named for the year, the device’s label and its id');
