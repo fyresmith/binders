@@ -62,6 +62,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - The binder view's toolbar now fits on a phone, with Undo and a word count target set.
 - A label's color name (for example "Orange") shows whole in settings on a phone.
 - A binder's progress record is never listed as one of its items, even when its Snapshots folder holds a note.
+- Bring back no longer writes over a note you made since at the path of a deleted note, when both have three or more paragraphs and share none: the old note is made again beside it.
 
 ## 0.51.1 (2026-10-10)
 

@@ -621,4 +621,14 @@ const paths = (list: Entry[]) => list.map((e) => e.path);
 	const two = changes([note('Alpha.md', P(3, ' a')), note('Beta.md', P(3, ' b'))], [note('Alpha.md', P(3, ' a'))], { outside: [note('Part Two/B1.md', P(3, ' b') + 'Edit one.\n'), note('Part Two/B2.md', P(3, ' b') + 'Edit two.\n')] });
 	ok(two.rows.every((x) => !x.away), 'two that share as much with it out there: neither is followed');
 }
+// a note of some length made since at the path of a deleted one is a new note, not the old one rewritten (nothing over-written)
+{
+	const then = [folder('Doomed/'), note('Doomed/Inside one.md', P(3, ' (the old one)')), note('Doomed/Inside two.md', P(1, ' two'))];
+	const now = [folder('Doomed/'), note('Doomed/Inside one.md', P(3, ' (made since)'))];
+	const rows = changes(then, now).rows.filter((x) => x.name === 'Inside one');
+	ok(rows.some((x) => x.gone) && rows.some((x) => x.fresh) && rows.every((x) => !x.rewritten), 'the old note is gone and the new one is new, not the old one rewritten');
+	const p = everything(then, now);
+	ok(!!p.all?.files.some((f) => f.path === 'Doomed/Inside one 2.md') && !p.all?.files.some((f) => f.path === 'Doomed/Inside one.md'), 'it is made again under a free name, and nothing is written over the one that is there');
+}
+
 done('binder snapshot text');

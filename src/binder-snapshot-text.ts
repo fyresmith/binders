@@ -346,8 +346,9 @@ export function changes(then: Entry[], now: Entry[], opts: { words?: boolean; ya
 	}
 	if (loose) {
 		for (const [a, b] of follow(leftT(), leftN())) join(a, b);
-		// what is left at the same path is the same note, written again from nothing
-		for (const a of leftT()) { const b = nowAt.get(a.path); if (b && !back.has(b) && b.kind === a.kind) join(a, b); }
+		// what is left at the same path is the same note, written again from nothing (a note of some length that shares
+		// nothing with it is a new one: it is never written over)
+		for (const a of leftT()) { const b = nowAt.get(a.path); if (b && !back.has(b) && b.kind === a.kind && (a.kind === 'file' || paras(a).length < 3 || paras(b).length < 3)) join(a, b); }
 	}
 	// a note gone from the folder that is in the rest of the binder is not gone: it has moved out (never made again)
 	const away = new Map<Entry, Entry>();
