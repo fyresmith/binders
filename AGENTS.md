@@ -100,6 +100,12 @@ npm run ship -- "Docs: what the limits are" --internal
   to `main` or from a green suite (`release.yml` runs only from a tag that `npm run release` pushed). Agents and the
   coordinator ship commits and put them on `main`; the rhythm is that work ships through the day, the suite runs on GitHub
   for each push, and the maintainer asks for one release at the end of the day, or when he chooses.
+- **A release is run from `main`, and everything is merged to `main` first** (the maintainer's rule, 2026-10-10:
+  "Main should always be where releases are run from. Everything should be merged to main at the end."). So before a
+  release: every finished ticket's work is on `main` (no shipped work left stranded on a coordinator's or an agent's
+  branch; work that is not finished stays on its branch and is named as left out), the main checkout is on `main` and
+  level with `origin/main`, and the release is run there. It is the one time anything is committed in the main
+  checkout, and it is the maintainer's command.
 - `npm run release` refuses unless: it is on `main`, the tree is clean, `main` is pushed, `npm run check` passes,
   there is at least one Unreleased entry, and the e2e workflow has **succeeded for exactly this commit** (asked of
   GitHub). With no run, or one still going, it says so and offers `--wait`. `--skip-suite "reason"` is for an
