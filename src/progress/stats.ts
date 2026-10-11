@@ -90,12 +90,14 @@ export function alike(values: number[]): boolean {
 	return max <= 0 || (mid > 0 && max <= mid * 1.25);
 }
 
-// ---- the plan (the deadline step's: nothing shows it yet) ----
+// ---- the plan: a deadline, and where the book stands against it ----
 
 export interface Pace {
 	state: 'ahead' | 'on' | 'behind' | 'reached' | 'passed';
 	/** Words a writing day from here to get there, and how many of those days are left (today counts if it is one). */
 	needed: number; daysLeft: number;
+	/** Is today a day the plan doesn't write on? Then today has no share. */
+	todayOff: boolean;
 	/** Where the plan has the book at the end of today, and how far the book is from that (ahead is positive). */
 	planned: number; ahead: number;
 	/** What is written today, toward `needed`. */
@@ -104,34 +106,60 @@ export interface Pace {
 	said: string; then: string;
 }
 
-/** Where a plan has the book at the end of day `n`: a straight line over the days that are written on. */
+/** Where a plan has the book at the end of day `n`: a straight line over the days that are written on, from the
+    start of the day it began (`from`, with `fromTotal` words) to its deadline. */
 export function plannedAt(p: Plan, n: number): number {
 	const from = num(p.from), to = num(p.deadline);
-	if (n <= from) return p.fromTotal;
+	if (n < from) return p.fromTotal;
 	if (n >= to) return p.target;
 	let all = 0, done = 0;
-	for (let d = from + 1; d <= to; d++) { if (p.off.includes(weekday(d))) continue; all++; if (d <= n) done++; }
+	for (let d = from; d <= to; d++) { if (p.off.includes(weekday(d))) continue; all++; if (d <= n) done++; }
+	// (no day to write on between the two: all of it is due at once)
 	return all ? p.fromTotal + ((p.target - p.fromTotal) * done) / all : p.target;
+}
+
+/** What is left for each writing day from the start of today to the deadline: today's share, and how many days
+    share it. `written`: typed today (less cut), which doesn't change today's share. */
+export function share(p: Plan, total: number, written: number, today: string): { needed: number; daysLeft: number; todayOff: boolean } {
+	const t = num(today), to = num(p.deadline);
+	let daysLeft = 0;
+	for (let d = t; d <= to; d++) if (!p.off.includes(weekday(d))) daysLeft++;
+	const left = Math.max(0, p.target - (total - written));
+	return { needed: daysLeft ? Math.ceil(left / daysLeft) : left, daysLeft, todayOff: p.off.includes(weekday(t)) };
+}
+
+/** "tomorrow", "10 November", "10 November 2027": a date in a sentence, with its year only when it isn't this year's. */
+export function sayBy(n: number, t: number): string {
+	if (n === t) return 'today';
+	if (n === t + 1) return 'tomorrow';
+	return sayDay(n, { year: new Date(n * 864e5).getUTCFullYear() !== new Date(t * 864e5).getUTCFullYear() });
 }
 
 export function pace(rs: Row[], p: Plan, today: string): Pace {
 	const t = num(today), to = num(p.deadline), lastRow = rs[rs.length - 1], total = lastRow?.total ?? 0;
 	const written = lastRow && lastRow.n === t ? net(lastRow) : 0;
-	let daysLeft = 0;
-	for (let d = t; d <= to; d++) if (!p.off.includes(weekday(d))) daysLeft++;
-	const left = Math.max(0, p.target - (total - Math.max(0, written)));
-	const needed = daysLeft ? Math.ceil(left / daysLeft) : left;
+	const { needed, daysLeft, todayOff } = share(p, total, written, today);
 	const planned = Math.round(plannedAt(p, t)), ahead = total - planned;
-	const by = sayDay(to, { year: new Date(to * 864e5).getUTCFullYear() !== new Date(t * 864e5).getUTCFullYear() });
+	const base = { needed, daysLeft, todayOff, planned, ahead, today: written };
 	if (total >= p.target) {
-		const k = rs.find((r) => r.total >= p.target), early = k ? to - k.n : 0;
-		return { state: 'reached', needed: 0, daysLeft, planned, ahead, today: written, said: `Reached on ${sayDay(k?.n ?? t, { year: false })}${early > 0 ? `, ${count(early, 'day')} early` : ''}.`, then: '' };
+		// the day it was reached: the first of the last run of days at or above the target
+		let k: Row | undefined;
+		for (let i = rs.length - 1; i >= 0 && rs[i].total >= p.target; i--) k = rs[i];
+		const early = k ? to - k.n : 0, year = k !== undefined && new Date(k.n * 864e5).getUTCFullYear() !== new Date(t * 864e5).getUTCFullYear();
+		const said = k && k.n === t ? 'Reached today' : `Reached on ${sayDay(k?.n ?? t, { year })}`;
+		// (a book that was past the target before the plan began wasn't early for it)
+		return { ...base, state: 'reached', needed: 0, said: `${said}${early > 0 && k && k.n >= num(p.from) ? `, ${count(early, 'day')} early` : ''}.`, then: '' };
 	}
-	if (t > to) return { state: 'passed', needed: 0, daysLeft: 0, planned, ahead, today: written, said: `${sayDay(to)} passed at ${fmt(total)} of ${fmt(p.target)}.`, then: 'Set a new date to plan from here.' };
-	const perDay = Math.max(1, (p.target - p.fromTotal) / Math.max(1, daysLeft + 1)), daysOff = Math.round(Math.abs(ahead) / Math.max(1, needed || perDay));
-	const state = Math.abs(ahead) < Math.max(needed, 1) * 2 ? 'on' : ahead > 0 ? 'ahead' : 'behind';
-	const said = state === 'on' ? 'On pace.' : state === 'ahead' ? `${fmt(ahead)} words ahead of the plan, about ${count(Math.max(1, daysOff), 'day')}.` : `${fmt(-ahead)} words behind the plan.`;
-	return { state, needed, daysLeft, planned, ahead, today: written, said, then: `${fmt(needed)} a day gets there by ${by}.` };
+	if (t > to) return { ...base, state: 'passed', needed: 0, daysLeft: 0, said: `${sayDay(to, { year: new Date(to * 864e5).getUTCFullYear() !== new Date(t * 864e5).getUTCFullYear() })} passed at ${fmt(total)} of ${fmt(p.target)}.`, then: '' };
+	const by = sayBy(to, t);
+	if (!daysLeft) return { ...base, state: 'behind', said: `${count(Math.max(1, p.target - total), 'word')} still to write.`, then: `No writing day is left before ${by}.` };
+	// (how far is "on pace", and what a day is in "about 3 days": the plan's own share, which a book far behind doesn't change)
+	let planDays = 0;
+	for (let d = num(p.from); d <= to; d++) if (!p.off.includes(weekday(d))) planDays++;
+	const perDay = Math.max(1, (p.target - p.fromTotal) / Math.max(1, planDays)), daysOff = Math.max(1, Math.round(Math.abs(ahead) / perDay));
+	const state = Math.abs(ahead) < perDay * 2 ? 'on' : ahead > 0 ? 'ahead' : 'behind';
+	const said = state === 'on' ? 'On pace.' : state === 'ahead' ? `${fmt(ahead)} words ahead, about ${count(daysOff, 'day')}.` : `${count(-ahead, 'word')} behind the plan.`;
+	return { ...base, state, said, then: `${fmt(needed)} a day gets there by ${by}.` };
 }
 
 /** When the book reaches `target` at the pace of the last `window` days, said no finer than a third of a month:

@@ -15,6 +15,7 @@ import { BinderRecord } from './record';
 import { toHistory } from './merge';
 import type { Merged } from './merge';
 import type { History } from './model';
+import { DEADLINE_PROP, readDeadline } from './plan';
 
 /* The recorder: sees what a writer does to a binder and keeps it in the binder's record (record.ts; the format is
    docs/dev/file-format.md's). It writes only numbers and names, never a note's text, and nothing it does can stop or
@@ -227,6 +228,7 @@ export class Progress {
 			if (!binder) { if (typeof item !== 'string' && this.waiting.length < 50) this.waiting.push({ item, e: { ...e, at }, until: Date.now() + 30_000 }); return; }
 			const r = this.recordOf(binder);
 			if (!r || r.blocked) return;
+			this.kept.delete(binder.folder);
 			r.ledgerAt(recordDay(at)).event({ ...e, at, ...(this.acts.length && e.by === undefined && ['made', 'gone'].includes(e.k) ? { by: this.acts[this.acts.length - 1] } : {}) });
 			this.touched(binder);
 		} catch { /* a record that can't be kept never stops what is being done */ }
@@ -247,7 +249,7 @@ export class Progress {
 	/** The properties that matter to the record, of a note's properties as they are. */
 	pick(fm: Record<string, unknown>): Record<string, string> {
 		const s = this.plugin.settings, text = (v: unknown): string => (typeof v === 'string' ? v : typeof v === 'number' || typeof v === 'boolean' ? String(v) : '');
-		return { status: text(fm[s.statusProp]), label: text(fm[s.labelProp]), target: text(fm[s.targetProp]) };
+		return { status: text(fm[s.statusProp]), label: text(fm[s.labelProp]), target: text(fm[s.targetProp]), deadline: readDeadline(fm[DEADLINE_PROP]) ?? '' };
 	}
 
 	/** A note's status, label or target was changed (through `editProps`). */
@@ -258,7 +260,41 @@ export class Progress {
 		const store = this.plugin.binders, hidden = store.isHiddenNote(file);
 		// (a folder's are in its folder note: the event is about the folder)
 		const p = hidden ? (file === binder.note ? '' : this.relOf(binder, file.parent?.path ?? '')) : this.relOf(binder, file.path);
-		for (const k of ['status', 'label', 'target'] as const) if (before[k] !== after[k]) this.event(file, { k, p, from: before[k], to: after[k], ...(hidden ? { folder: 1 as const } : {}) });
+		for (const k of ['status', 'label', 'target', 'deadline'] as const) if (before[k] !== after[k]) this.event(file, { k, p, from: before[k], to: after[k], ...(k === 'deadline' && Number(after.target) > 0 ? { n: Number(after.target) } : {}), ...(hidden ? { folder: 1 as const } : {}) });
+		this.planSeen.set(file.path, `${after.target}|${after.deadline}`);
+	}
+
+	/** What a folder note's target and deadline were when last looked at, by path: a change made in the note's own
+	    properties (not through Binders) is an event too, found by comparing. */
+	private planSeen = new Map<string, string>();
+	/** Properties just written through Binders: the watcher is not to tell them a second time. */
+	expect(file: TFile, p: Record<string, string>): void { this.planSeen.set(file.path, `${p.target}|${p.deadline}`); }
+	private seeded = new WeakSet<TFolder>();
+
+	private seedPlans(): void {
+		const store = this.plugin.binders, vault = this.plugin.app.vault;
+		for (const b of store.all()) {
+			if (this.seeded.has(b.folder)) continue;
+			this.seeded.add(b.folder);
+			for (const f of vault.getMarkdownFiles()) if (f.path.startsWith(b.folder.path + '/') && store.isHiddenNote(f)) { const p = this.pickOf(f); if (p) this.planSeen.set(f.path, `${p.target}|${p.deadline}`); }
+		}
+	}
+
+	private pickOf(file: TFile): Record<string, string> | null {
+		const fm = this.plugin.app.metadataCache.getFileCache(file)?.frontmatter;
+		return fm ? this.pick(fm) : null;
+	}
+
+	/** A note's properties changed in Obsidian: a target or a deadline that moved is told, as if it had been set here. */
+	private planWatch(file: TFile): void {
+		const store = this.plugin.binders;
+		if (!this.ready || !store.isHiddenNote(file) || !store.binderOf(file)) return;
+		this.seedPlans();
+		const now = this.pickOf(file) ?? { target: '', deadline: '' }, key = `${now.target}|${now.deadline}`, was = this.planSeen.get(file.path);
+		this.planSeen.set(file.path, key);
+		if (was === undefined || was === key) return;
+		const [target = '', deadline = ''] = was.split('|');
+		this.propsChanged(file, { status: '', label: '', target, deadline }, { status: '', label: '', target: now.target, deadline: now.deadline });
 	}
 
 	/** The order of a folder's items changed (a drag, a move, a sort): one event for a run of them. */
@@ -353,6 +389,17 @@ export class Progress {
 		return m ? toHistory(m, this.plugin.settings.statuses) : null;
 	}
 
+	/** The record as a history, kept for a few seconds for what asks often (the toolbar's plan): dropped when
+	    anything is recorded or another device's file arrives. */
+	private kept = new Map<TFolder, { at: number; h: History | null }>();
+	async keptHistory(folder: TFolder): Promise<History | null> {
+		const had = this.kept.get(folder);
+		if (had && Date.now() - had.at < 20_000) return had.h;
+		const h = await this.history(folder);
+		this.kept.set(folder, { at: Date.now(), h });
+		return h;
+	}
+
 	// ---- writing ----
 
 	private wake(): void {
@@ -362,7 +409,7 @@ export class Progress {
 
 	/** Run when a binder's record has been read, or another device's file has arrived: what shows the record draws again. */
 	readonly listeners = new Set<() => void>();
-	private changed(): void { for (const f of this.listeners) { try { f(); } catch { /* one listener's trouble is its own */ } } }
+	private changed(): void { this.kept.clear(); for (const f of this.listeners) { try { f(); } catch { /* one listener's trouble is its own */ } } }
 
 	private schedule(): void {
 		if (this.timer) return;
@@ -428,6 +475,8 @@ export class Progress {
 			for (const w of list) { if (plugin.binders.binderOf(w.item)) this.event(w.item, w.e); else this.waiting.push(w); }
 		}));
 		plugin.registerEvent(plugin.binders.on('changed', bump));
+		plugin.registerEvent(app.metadataCache.on('changed', (f) => { if (f instanceof TFile) this.planWatch(f); }));
+		plugin.registerEvent(plugin.binders.on('changed', () => { if (this.ready) this.seedPlans(); }));
 		ws.onLayoutReady(() => {
 			// (Obsidian makes an event for every file it finds as it starts: those are not things done)
 			this.ready = true;

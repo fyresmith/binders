@@ -33,6 +33,7 @@ export interface DayLine { t: 'day'; d: string; u: number; k: Kind; n: Record<st
       status, label   p, from, to
       order           p (the folder, '' for the binder)
       target          p, from, to (words, as text)
+      deadline        p, from, to (a date, YYYY-MM-DD, or '' for none), n (the target then)
       snapshot        p ('' for the binder), name
       export          name (the kind)
       import          n (notes), w (words)

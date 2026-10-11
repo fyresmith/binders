@@ -124,7 +124,8 @@ export function drawLife(el: HTMLElement, o: LifeOptions): string[] {
 
 	// the plan: where it began to the date, and the number it is for
 	if (plan) {
-		const to = num(plan.deadline), from = Math.max(num(plan.from), x0);
+		// (the plan begins at the start of its first day, with the words the book had then)
+		const to = num(plan.deadline), from = Math.max(num(plan.from) - 1, x0);
 		svg(root, 'line', 'binders-chart-rule is-target', { x1: x(Math.max(x0, num(plan.from))), x2: W, y1: y(plan.target), y2: y(plan.target) });
 		label(root, 'is-muted', W - padR, y(plan.target) - 5, `${fmt(plan.target)} by ${sayDay(to, { short: true, year: false })}`, 'end');
 		let d = `M${x(from)},${y(plannedAt(plan, from))}`;

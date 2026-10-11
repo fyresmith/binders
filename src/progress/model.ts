@@ -28,7 +28,11 @@ export interface Day {
 }
 
 /** Something that happened on a day, that the writer named or did: said on the chart in their own words. */
-export interface Mark { day: string; kind: 'snapshot' | 'export' | 'import'; what: string }
+export interface Mark { day: string; kind: 'snapshot' | 'export' | 'import' | 'deadline'; what: string }
+
+/** A target or a deadline set (or taken away: `to` is ''), on a day: where a plan began. `scope`: the folder it is of
+    ('' for the binder), as a path in the binder. */
+export interface PlanEvent { day: string; kind: 'target' | 'deadline'; scope: string; from: string; to: string; /** the target then, with a deadline */ words?: number }
 
 export interface History {
 	/** The days that have anything, oldest first. */
@@ -40,6 +44,8 @@ export interface History {
 	statuses: string[];
 	/** How many times the order was changed, on any day (a day with no writing has no `Day` to say it on). */
 	orders?: number;
+	/** Targets and deadlines set, oldest first. */
+	plans?: PlanEvent[];
 }
 
 /** The plan to a deadline: a number of words by a date, the weekdays not written on (0 is Sunday), and where the

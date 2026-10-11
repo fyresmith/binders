@@ -910,7 +910,7 @@ export class BinderStore extends Events implements ExplorerSource {
 		// (status, label and target are told to the record of the binder's writing, as they were and are now)
 		const progress = this.plugin.progress;
 		let was: Record<string, string> | undefined, now: Record<string, string> | undefined;
-		await editProperties(this.app, file, progress && s ? (fm) => { was = progress.pick(fm); edit(fm); now = progress.pick(fm); } : edit);
+		await editProperties(this.app, file, progress && s ? (fm) => { was = progress.pick(fm); edit(fm); now = progress.pick(fm); progress.expect(file, now); } : edit);
 		progress?.propsChanged(file, was, now);
 	}
 
