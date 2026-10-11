@@ -1,18 +1,21 @@
 # Binders: plan
 
-Status: feature-complete except what is in [ROADMAP.md](../../ROADMAP.md), and in QA. The explorer, binder store, corkboard
-(in a grid, or arranged by label), outliner, editable manuscript, Longform integration, labels and statuses, word count
-targets, scene operations (split, merge, duplicate, group), export (a manuscript, ebook, Scrivener project and one note), Scrivener import, snapshots, focus mode, dragging a card out of the
-view, and undo of moves all work, on desktop and in mobile emulation. Nothing is tagged yet: the version in
-`package.json` is the latest committed. Six QA rounds have been run (`tests/e2e/specs-qa*.mjs`); the findings still
-open are in `tests/e2e/open-findings.json` and [integration-qa.md](integration-qa.md). Left before 1.0: mobile QA on real
-devices (so far phones and tablets are only emulated) and the remaining export steps. Then release (1.0).
+Status, 2026-10-10: public beta, with the remaining features and hardening before 1.0 in
+[ROADMAP.md](../../ROADMAP.md). The published release is 0.51.1. This plan describes `main`, including the enhanced
+undo history, manuscript import, story date and the timeline that are not yet released. Versions change only at a
+maintainer-called release; see [AGENTS.md](../../AGENTS.md).
+
+The explorer, binder store, four view modes, Longform integration, labels and statuses, targets, scene operations,
+all five export kinds, import, snapshots, find and replace, focus mode and undo are implemented. Automated e2e runs
+cover desktop and mobile emulation; the maintainer also uses an iPhone. iPad and Android hardware validation remains.
+Current open findings are in `tests/e2e/open-findings.json`; [integration-qa.md](integration-qa.md) records the earlier
+October 1–2 rounds, not the current release verdict.
 
 ## What it is
 
 Binders makes folders behave like a writer's binder. A **binder** is a folder whose notes and subfolders have an order
 you choose, not alphabetical. Obsidian's own file explorer shows them in that order. Clicking a binder (or a folder inside
-one) opens the **binder view**, which switches between three ways of seeing the same notes:
+one) opens the **binder view**, which switches between four ways of seeing the same notes:
 
 - **Corkboard**: one index card per note (title, synopsis, status, label color), in order, grouped by subfolder. Drag
   cards to reorder or move them between folders.
@@ -20,6 +23,8 @@ one) opens the **binder view**, which switches between three ways of seeing the 
   progress, export, dates, any note property), sortable, editable in place.
 - **Manuscript**: every note in the binder, in order, as one continuous, editable document, with the subfolders as
   headings and a break between notes. Typing edits the real notes.
+- **Timeline**: the scenes below the current folder along story time, with the undated in a tray. It reads story
+  dates; dates are edited through the item menu, outliner or inspector. Dragging to change dates is still planned.
 
 It should feel like part of Obsidian: the same icons, fonts, colors, spacing, menus, keyboard behavior and themes.
 
@@ -110,11 +115,12 @@ See [file-format.md](file-format.md) for the full specification.
   - It works in an explorer popped out into its own window.
 - **Labels**: a dot in its label's color after each labeled note and folder in a binder (a setting, on by default).
 - **Commands** (all in `src/main.ts` except focus mode's, in `src/focus/focus.ts`): "Open binder", "Show corkboard", "Show
-  outliner", "Show manuscript", "Arrange corkboard by label", "Make this folder a binder", "New binder", "New scene
+  outliner", "Show manuscript", "Show timeline", "Arrange corkboard by label", "Make this folder a binder", "New binder", "New scene
   here", "Convert to binder" (Longform), "Split scene at cursor", "Split scene with selection as title", "Set word
-  count target", "Export binder", "Undo last move", "Redo last move", "Move up", "Move down", "Take a snapshot",
+  count target", "Export binder", "Export again", "Undo last change", "Redo last change", "Move up", "Move down", "Take a snapshot",
   "Rewrite", "Show snapshots", "Take a snapshot of the binder", "Show snapshots of the binder", "Show snapshots of notes that are
-  gone", "Toggle focus mode", "Go to previous scene", "Go to next scene". None has a default hotkey.
+  gone", "Toggle focus mode", "Go to previous scene", "Go to next scene", "Find in binder", "Find and replace in binder",
+  "Import a manuscript", "Import from Scrivener", "Show inspector", "Show contents". None has a default hotkey.
 - **File menu** (a note's or folder's right-click menu): "Open binder", "Show in binder", "Make this folder a binder", "New
   binder", "New scene here", "New scene after this", "Export...", "Convert to binder", the snapshot items, "Move up",
   "Move down", each only where it applies. Several items selected: "New folder from selection", "Merge N notes".
@@ -124,10 +130,11 @@ See [file-format.md](file-format.md) for the full specification.
 ## The binder view
 
 One view type (`binders-view`) per binder or subfolder. Its toolbar is laid out and sized as a base's is (Obsidian's
-own model for a view of notes): the view switcher on the left (Corkboard · Outliner · Manuscript), then, inside a
+own model for a view of notes): the view switcher on the left (Corkboard · Outliner · Manuscript · Timeline), then, inside a
 subfolder, the breadcrumb (Binder › Part One); on the right the word count (with a bar for the target of the folder
-shown: the binder's, or a subfolder's from its folder note), the filter by status/label (corkboard and outliner), and
-New (note, folder). The view runs edge to edge, as a base, a canvas or a note does.
+shown: the binder's, or a subfolder's from its folder note), undo and redo, the filter by status/label (all four
+modes), and New (note, folder; note only on the timeline). Arrange chooses grid or label lanes on the corkboard,
+and down or across on the timeline. The view runs edge to edge, as a base, a canvas or a note does.
 
 - A view saved in the `plotgrid` mode by an earlier version opens as the outliner.
 - Each mode keeps its place (scroll, selection, caret) per folder when another mode is shown, and in the tab's
@@ -326,7 +333,7 @@ twice before it exists once.
   checked before the others go to the trash. Asks first.
 - **Duplicate** (a note, or a folder with everything in it, in order), **New folder from selection** / **Put in a
   new folder**, **Ungroup** (a folder's items move out, to where it stood; the folder, left with nothing but its
-  folder note, goes to the trash with that note, and "Undo last move" makes it again with the note byte for byte. A
+  folder note, goes to the trash with that note, and "Undo last change" makes it again with the note byte for byte. A
   folder that still holds something stays: a file Obsidian doesn't list, or a folder note with text under its
   properties, which is writing and is never trashed unasked; a notice says so), **Set synopsis from text** (the
   note's first paragraph).
@@ -447,7 +454,7 @@ both (see "Decided"). Built in four steps; this section says what each has.
     was, Leave it as it is. The first two are an ordinary "Everything" of the same snapshot or of the "before"
     one, through the same screen: nothing is done on the journal's word. While one is unfinished, "Bring back..."
     in that binder asks it first.
-  - *Undo:* "Undo last move" takes none of it back, and the binder's remembered moves are dropped. The design's
+  - *Undo:* "Undo last change" takes none of it back, and the binder's remembered changes are dropped. The design's
     "Undo: bring back X" item in the view's menu is not built (the view is not this ticket's): the closing notice
     names the "before" snapshot instead.
   - *Following a note* is `changes()`'s, unchanged: a note under three paragraphs at a path a note had is that
@@ -495,7 +502,8 @@ the step left it, and otherwise nothing is written and the writer is told why.
    when there is nothing. Where the toolbar can't hold both on the narrowest phones, Undo stays and Redo is in More
    options.
 
-Not decided, left out: an eight-second notice with an Undo button after a delete or a merge.
+A delete shows an eight-second notice with an Undo button when the entry fits in history (`view/actions.ts`).
+A similar notice after a merge is left out.
 
 **Stays out of the history:** typing (the editor's own undo), Replace all (its own Undo and a snapshot), bringing back a
 snapshot (the snapshot before it is the recovery), Book details, Longform convert, import, renames made in Obsidian's own
@@ -507,6 +515,9 @@ cap per binder), no change in behavior. 1: properties, and the toolbar buttons. 
 4: delete. 5: merge. 6: split.
 
 ### Undo of moves (the first version)
+
+The historical implementation below was superseded by the shared change history above. Its command names and
+50-entry limit describe that first version.
 
 - `BinderStore.put()` is what a drop does (corkboard, outliner, explorer) and `change()` wraps it, and "Move up" and
   "Move down", with a snapshot of the order and of the folder each moved item was in. `undo()` moves the files back
@@ -531,7 +542,7 @@ explorer is, so everything that takes a note takes it: the file explorer (moved)
 it; a folder as the notes in it), a tab (the note opened) and the bookmarks. Inside the view the drag is the view's own.
 `src/view/file-drag.ts` (geometry in `file-drag-data.ts`), listed in `docs/dev/internals.md`. Not on a phone, and not in a
 window of its own: there the drag stays inside the view. A move to a folder in a binder through the file explorer is
-one change that "Undo last move" takes back; a move out of the binder isn't recorded.
+one change that "Undo last change" takes back; a move out of the binder isn't recorded.
 
 ### Focus mode
 
@@ -659,10 +670,12 @@ undocumented parts, one by one, are in [internals.md](internals.md).
 
 **What's left before 1.0 is in [ROADMAP.md](../../ROADMAP.md)**: the features still to build (decided 2026-10-10: all of them come before 1.0), then hardening.
 
-The numbers are the plan's milestones, not the versions in the CHANGELOG (those are 0.12.x now, and every commit bumps
-them: see AGENTS.md). Nothing is tagged yet.
+The table records the original milestones and their status at the October 2 hardening round. These numbers are
+planning labels, not today's release versions. Export, find and replace, the public beta and later work have since
+shipped or been built; use [ROADMAP.md](../../ROADMAP.md) for current status and [CHANGELOG.md](../../CHANGELOG.md)
+for published releases. Commits no longer bump a version.
 
-| Version | Scope | Status |
+| Milestone | Scope | Status at that round |
 |---|---|---|
 | 0.1 | Scaffold: build, lint, tests, e2e harness, release workflow, docs, binder index model | Done |
 | 0.2 | Binders in the vault: detection, index cache, rename/move/delete tracking, commands to make a binder and add scenes | Done |
@@ -696,20 +709,21 @@ them: see AGENTS.md). Nothing is tagged yet.
 
 - **Folder data**: binders and subfolders each have a note (the binder note, and folder notes named like the folder),
   hidden in the explorer by default. Their synopsis is edited in the binder view.
-- **Outliner, not plot grid** (2026-10-01, the maintainer's request): 1.0 ships the corkboard, the outliner and the
-  manuscript. The plot grid and its properties are dropped; a writer who wants plotlines can keep them as an ordinary
-  property and show it as an outliner column.
+- **Outliner, not plot grid** (2026-10-01, the maintainer's request): the original three-view scope was corkboard,
+  outliner and manuscript, extended by the timeline below. The plot grid and its properties are dropped; a writer
+  who wants plotlines can keep them as an ordinary property and show it as an outliner column.
 - **Timeline, a fourth view** (2026-10-10, the maintainer, after two design rounds): 1.0 ships four views, the
   corkboard, the outliner, the manuscript and the timeline, with the story date they all read. One line of time,
   not a line for each label ("first and foremost a timeline view"); an axis that makes room for its cards, with no
   zoom, no levels of detail and no group cards; time down by default and on a phone, down or across on a computer
   and a tablet, chosen under "Arrange"; numbers always on; no date printed on a card and no weekdays; the undated in
-  a tray. Built reading only: dragging a card to a date is the next step, and what a drag does is decided (it changes
+  a tray. Displaying story time, card editing and date menus are built; dragging a card to a date is the next step,
+  and what a drag does is decided (it changes
   the story date and nothing else; a gap unfolds into its days, months or years; within a day it sets `story-order`).
   `docs/dev/design.md` has the rounds.
 - **Labels and statuses are settings**, shared by every binder in the vault, not per binder.
-- **Mobile**: a 1.0 requirement, including the editable manuscript. Tested so far only in Obsidian's emulation of
-  phones and tablets; a real iPhone, iPad and Android device are still to try.
+- **Mobile**: a 1.0 requirement, including the editable manuscript. Automated coverage uses Obsidian's emulation
+  of phones and tablets; the maintainer now uses an iPhone. iPad and Android hardware checks remain.
 - **Corkboard folders** (2026-10-02, the maintainer): a folder is one card of the same size and edge as a note's, with
   a folder glyph and the names of the first things it holds, not a drawn stack of cards.
 - **Arrange by label** (2026-10-01, approved after a prototype): an arrangement of the corkboard, not a mode.
@@ -725,8 +739,9 @@ them: see AGENTS.md). Nothing is tagged yet.
   or binder may write notes' properties as they were and make, rename and move notes, only there and only after a
   screen that says what will change (written into golden rule 3 when that step is built). Notes written since the
   snapshot stay where they are by default, with the choice of moving them to one folder; never deleted. Automatic
-  snapshots at 1.0 only before bringing one back and before find and replace; daily ones later, off by default;
-  only automatic ones are ever thinned. "Take a snapshot of every note..." is removed, and its old batches stay as
+  snapshots at 1.0 only before bringing one back and before find and replace. Daily snapshots were considered
+  here, then left out in the current roadmap; no automatic snapshots are thinned yet. "Take a snapshot of every
+  note..." is removed, and its old batches stay as
   the notes' own snapshots (they hold text only, and their times differ note by note: calling them snapshots of the
   binder would promise an order they don't have). Files that aren't notes are listed, not copied. No branching:
   "Make a binder from this snapshot" is the other ending, as a second binder.
@@ -756,9 +771,8 @@ them: see AGENTS.md). Nothing is tagged yet.
   device; the numbers hide while typing and return on a pause; focus mode doesn't take the OS full screen. Changed the same day: dimming is on by default, and "Enter
   fullscreen" is an option, off by default.
 
-- **No release before export is built** (2026-10-02, the maintainer). Nothing is tagged, and the directory submission
-  waits. Until then the project is brought to a release-ready state: the code, the tests and the documentation, each
-  checked against the others.
+- **No release before export is built** (2026-10-02, the maintainer). This was the gate for the first public beta;
+  export was completed and the first public beta, 0.44.4, released on October 6. Directory submission no longer waits on that gate.
 - **A phone's manuscript section is its editor only when tapped** (2026-10-05, the maintainer): making an editor
   costs a phone a frame or more, and swiping through a long manuscript made one after another for text that was only
   being read. Tablets and desktops keep editors on the sections near the screen.
@@ -776,9 +790,9 @@ them: see AGENTS.md). Nothing is tagged yet.
     remember the place afterwards; the folder can be changed in Binders' settings.
   - **A new line is a new paragraph** in every export.
   - A hand-made `.scriv` is opened in the maintainer's Scrivener before anything else is built.
-- **Mobile: "emulator is king"** (2026-10-02, the maintainer). He has no phone or tablet to try it on yet, so
-  Obsidian's emulation of both, run in the e2e suite, is the standard for what works on mobile. A real iPhone, iPad and
-  Android device are still to try when there is one, and the README says so.
+- **Mobile: "emulator is king"** (2026-10-02, the maintainer). This set emulation as the standard for the automated
+  mobile suite when no hardware was available. The maintainer now uses an iPhone; the manual distinguishes that
+  evidence from iPad and Android emulation.
 - **The inspector and the contents** (2026-10-05, the maintainer, from two directions built): two sidebar views, not
   one view with both in it. Both tabs are put among the right sidebar's whenever a binder view opens (or comes
   back with the workspace), if they aren't anywhere already: the sidebar isn't opened, nothing is brought to the

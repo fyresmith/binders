@@ -23,8 +23,8 @@ all other types** turned on in Obsidian's Sync settings, on each device.
 
 ## Does it work with git, iCloud, Dropbox or Syncthing?
 
-Yes. They carry every file, snapshots included. Everything Binders keeps in the vault is plain text, so it reads
-well in a diff.
+Yes. They carry every file, snapshots included. Your notes, binder order, snapshots and styles are plain text,
+so they read well in a diff. Exported books and original files kept by import may be binary files.
 
 ## Does it work with other file explorer plugins?
 
@@ -66,6 +66,17 @@ No. Longform projects open as binders as they are. Convert when you want folders
 Yes. Run **Import from Scrivener...** from the command palette: it makes a new binder from a Scrivener 3 project, or
 a zipped backup of one, and shows it to you first. See [Import from Scrivener](import-scrivener.md). To go the other way, see
 [Scrivener project](export-scrivener.md).
+
+## Can I bring in a Word manuscript or a long note?
+
+Yes. **Import a manuscript...** reads Word `.docx`, Markdown and plain text, shows how it will split chapters and
+scenes, and makes a new binder when you choose **Import**. The source stays as it was. See [Import a manuscript](import-manuscript.md).
+
+## Can I undo a deletion or a property change?
+
+Yes, during the session, with **Undo last change** or the toolbar's **Undo** button. History is per binder, limited
+to 100 changes and 32 MB of kept bytes across binders, and cleared when the plugin unloads. Typing keeps the editor's
+own undo. See [Undo and redo](undo.md).
 
 ## Can I make a PDF for print?
 

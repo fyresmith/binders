@@ -1,8 +1,12 @@
 # The Binders manual
 
 Binders turns a folder in Obsidian into a binder: its chapters and scenes keep the order you give them, and you can
-see them as a corkboard, an outliner, one continuous manuscript you can edit, or a timeline of the story. This manual covers everything it
-does.
+see them as a corkboard, an outliner, one continuous manuscript you can edit, or a timeline of the story.
+
+This manual follows the code on `main`, including features not yet released. The
+[Unreleased entries](../CHANGELOG.md#unreleased) list what is coming in the next release. If you installed a
+published release, read the manual in that release's tag for the features it has. Obsidian and BRAT install
+published releases, not the latest source code.
 
 Binders is in public beta. Phone and tablet support is new and has had little testing on real devices: see
 [Known limitations](limitations.md#not-yet-tried) for what hasn't been tried yet. If something goes wrong,
@@ -41,7 +45,7 @@ New here? Read [Installation](installation.md), then [Getting started](getting-s
 | [Scene notes](scene-notes.md) | Your own notes on a scene, kept out of the book |
 | [Splitting, merging and grouping](splitting-and-merging.md) | Split, merge, duplicate, folders from a selection, ungroup |
 | [Snapshots](snapshots.md) | Setting a scene's text aside before you rewrite it, and keeping the whole binder as it stood |
-| [Undo and redo](undo.md) | Taking back a drag, a sort, a new folder or a property you set |
+| [Undo and redo](undo.md) | Taking back moves, properties, renames, new notes, deletes, merges and splits |
 | [Paragraphs](paragraphs.md) | Paragraphs that start with a tab, and first-line indents |
 | [Focus mode](focus-mode.md) | The text and nothing else |
 | [Find and replace](find-and-replace.md) | Searching every note of a binder, and replacing with a review, a snapshot and Undo |

@@ -63,7 +63,8 @@ The breadcrumb takes you back up. Cards dragged onto a name in the breadcrumb mo
 ## Adding notes and folders
 
 - **New** in the toolbar makes a **New note** or a **New folder**. With a card or row selected, the new one goes
-  right after it; otherwise it goes last.
+  right after it; otherwise it goes last. On the timeline it makes a note at the end of the binder order, with no
+  story date, so it appears in the undated tray.
 - Right-click empty space on the corkboard for the same two.
 - **New scene here** in a binder folder's right-click menu in the file explorer adds one to that folder. As a
   command, it adds a note right after the note you have open, or where the binder view would put one.

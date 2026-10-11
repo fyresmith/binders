@@ -13,6 +13,9 @@ a Mac) in a binder view: the same key as in a note, and the same bar.
   end, and a folder's row adds up what is in it. **Next** and **Previous** go to the next lit card or row.
 - **In a folder** the search is that folder's. In a note in a tab of its own it is Obsidian's own bar, as ever.
 
+The [timeline](timeline.md) has the same search bar as the corkboard: matching scenes are lit, and a card shows
+its first match while the bar is open. Searching doesn't change any scene's story date or the binder order.
+
 The bar counts as Obsidian's does (`3 / 12`) and says how many notes they are in. On the boards it says only how many
 (`12 in 4 notes`): the card or row selected is the one you are on.
 

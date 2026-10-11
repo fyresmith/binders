@@ -35,7 +35,7 @@ An update to Binders is the fix in each case.
 - **Obsidian Sync** carries your notes, the binder note and folder notes as it carries any note. It carries
   snapshots (`.snapshot` and `.binder-snapshot` files) and export styles (`.bookstyle` files) only with **Sync all
   other types** on, in Obsidian's Sync settings, on each device.
-  See [Snapshots](snapshots.md#three-things-to-know).
+  See [Snapshots](snapshots.md#things-to-know).
 - **Tools that copy every file** (iCloud, Syncthing, Dropbox, git) carry everything, snapshots included, without
   any setting.
 - **Settings** sync with the plugin's settings, if you sync those. The places exports are saved without asking, and

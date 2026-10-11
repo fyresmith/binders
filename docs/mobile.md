@@ -3,8 +3,9 @@
 Binders works in Obsidian on iOS and Android, with the same four modes, by touch. This page covers what touch does
 differently from a mouse and a keyboard.
 
-Phone and tablet support is new and has had little testing on real devices. If something doesn't work as this page
-says, [open an issue](https://github.com/fyresmith/binders/issues) and say which device.
+Phone and tablet support is new. The maintainer uses an iPhone; iPad and Android coverage is still through desktop
+emulation. See [Known limitations](limitations.md#not-yet-tried). If something doesn't work as this page says,
+[open an issue](https://github.com/fyresmith/binders/issues) and say which device.
 
 ![The corkboard on a phone](images/mobile.png)
 
@@ -132,10 +133,12 @@ same as a tab. See [Paragraphs](paragraphs.md).
 
 ## Import
 
+**Import a manuscript...** takes a Word (`.docx`), Markdown or text file through the device's file chooser. **Choose
+from this vault...** also lists notes outside binders and Word files already in the vault. The choices come first;
+**Preview** shows the proposed binder before you import. See [Import a manuscript](import-manuscript.md).
+
 **Import from Scrivener...** takes a zipped backup of a project on a phone or tablet. See
 [Import from Scrivener](import-scrivener.md).
-
-See [Export](export.md).
 
 ## Snapshots
 

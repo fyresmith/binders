@@ -21,8 +21,13 @@ They're hidden in the file explorer while **Hide binder and folder notes** is on
 ## A binder says it is read only, or that it can't be changed
 
 Its note was made by a newer version of Binders (it says which format), or its `binder` property holds something
-Binders doesn't understand. Binders leaves such a binder exactly as it is. Update Binders, or fix the property by
-hand: it should read `binder: 1`.
+Binders doesn't understand. Binders leaves such a binder exactly as it is. Update Binders if the format is newer;
+don't lower its number by hand. If the property was mistyped in a format-1 binder, correct it to `binder: 1`.
+
+## A command in the manual isn't in my plugin
+
+The manual follows `main`, including work not yet released. Obsidian and BRAT install the published release.
+Check the [changelog](../CHANGELOG.md) and use the manual at that release's tag, or wait for the next release.
 
 ## A note isn't where I put it
 
@@ -65,8 +70,20 @@ Turn off **Show the inspector and contents with a binder** in settings. Closed, 
 
 ## My snapshots aren't on my other device
 
-Obsidian Sync carries `.snapshot` files only with **Sync all other types** turned on in Obsidian's Sync settings,
-on each device. See [Snapshots](snapshots.md#three-things-to-know).
+Obsidian Sync carries `.snapshot`, `.binder-snapshot` and restore-plan files only with **Sync all other types**
+turned on in Obsidian's Sync settings, on each device. See [Snapshots](snapshots.md#things-to-know).
+
+## Bringing back a snapshot was interrupted
+
+Binders offers **Finish**, **Put it back as it was**, or **Leave it as it is** when it next opens. The first two show
+the review screen again. Keep the binder's `Snapshots` folder, including `Bringing back.binder-journal`, intact.
+See [Snapshots](snapshots.md#everything).
+
+## Import won't read my manuscript
+
+Use Word `.docx`, Markdown or plain text. An older Word `.doc`, a native Pages file, `.odt` or `.rtf` needs exporting
+to one of those formats first. Remove a Word file's password before importing. The dialog says when a file is
+damaged or over the size limit. See [Import a manuscript](import-manuscript.md#limits).
 
 ## I can't see my exported file in Obsidian
 

@@ -1,7 +1,8 @@
 # Undo and redo
 
-**Undo last change** and **Redo last change** take back, or make again, what you did by hand to a binder: a move, and
-a property you set. They are separate from the editor's undo, which is for text.
+**Undo last change** and **Redo last change** take back, or make again, what you did by hand to a binder: moves,
+properties, renames, new notes and folders, copies of notes, deletes, merges and splits. They are separate from
+the editor's undo for typing; a split can be taken back either way.
 
 ## What can be undone
 
@@ -48,7 +49,7 @@ Undo takes a new note away (to the trash) only if it is still exactly as it was 
 synopsis, status or anything else on it from outside, nothing is taken and a notice says the note "has been written in
 since it was made, so it stays". A folder goes only while nothing is in it but its folder note with no text. **Redo**
 makes the note again from what was kept in memory, byte for byte, in the place it had. A copy of a **folder** isn't in
-the history: delete it from the trash or the menu.
+the history: delete the copy through its menu if you no longer want it.
 
 **Deletes**
 
@@ -56,14 +57,15 @@ the history: delete it from the trash or the menu.
   once. The confirmation stays; after it a notice says "Deleted “Arrival”." with an **Undo** button for eight seconds,
   which is the way back on a phone.
 
-A deleted item is kept in memory for as long as Obsidian stays open, byte for byte, so Undo brings it back even when
+A deleted item is kept in memory while its entry remains in the session history, byte for byte, so Undo brings it back even when
 Obsidian is set to delete files for good: nothing is written to your vault to keep it, and nothing is kept once Obsidian
 is closed. It comes back where it was in the binder, with the notes of a folder in their order, and a note you have
 typed in and not saved is saved first. If something has the same name there now, or the folder it was in is gone,
 nothing is brought back and a notice says so (rename the other one, then ask again). **Redo** deletes it again, from
 what is there now.
 
-Binders keeps 100 changes of a binder and 32 MB of deleted files in all, the oldest dropped first. A delete bigger than
+Binders keeps 100 changes of a binder and 32 MB of kept file bytes in all, shared by deletes, merges and other
+changes that keep copies of files. The oldest are dropped first. A delete bigger than
 32 MB goes ahead and isn't kept: the notice says so, and the file is in the trash if Obsidian sends it there.
 
 **Merges**
@@ -96,7 +98,8 @@ notice says which (the editor's own undo, in that case, leaves the new note and 
 line endings goes back with them.
 
 A property goes back to what it was, in the place it stood among the note's other properties. Nothing else in the
-note is touched.
+note's text is touched. Obsidian can rewrite the properties block's formatting; see
+[Known limitations](limitations.md#properties).
 
 Unlike a move, a property is taken back only if it is still what your change left it. If the note was changed since
 (by another program, or by Sync), nothing is written, and a notice says which property: "The synopsis of “Arrival”
@@ -122,7 +125,9 @@ Undo works on one binder at a time:
 2. with neither, the binder that was changed last.
 
 A change made in another binder, out of sight, is not the one taken back. The history of a binder is the same in
-every view of it: the corkboard, the outliner and the manuscript; a change made in the inspector is part of it.
+every view of it: the corkboard, the outliner, the manuscript and the timeline; a change made in the inspector is
+part of it. Ctrl+Z and Ctrl+Shift+Z also work in the inspector and contents when you aren't typing, for the binder
+they follow.
 
 ## What it doesn't cover
 
@@ -130,10 +135,14 @@ every view of it: the corkboard, the outliner and the manuscript; a change made 
   undo of a property: it is saved first, and kept.
 - **Hidden files** (names that start with a dot, such as `.DS_Store`) in a deleted folder aren't kept.
 - **Renames made in Obsidian's file explorer or a tab's title.** They are not made through Binders.
+- **Replace all** has its own **Undo** in the find bar and an automatic snapshot.
+- **Bringing back a snapshot** is recovered through the snapshot taken before it. Bringing back only the order
+  is a change in this history; **Everything** clears the binder's history.
+- **Import, converting from Longform and Book details** are not in this history.
 
 ## Limits
 
-- Undo remembers the last hundred changes of each binder, and 32 MB of deleted files in all, while Obsidian is open.
+- Undo remembers the last hundred changes of each binder, and 32 MB of kept file bytes in all, while Obsidian is open.
   It is not kept when Obsidian closes.
 - Undo refuses, and changes nothing, if a place has been taken or a folder is gone since, or a property was changed
   since.

@@ -10,12 +10,16 @@ What it reads and writes is on your device:
   share, each only where you choose in the system's save dialog. See [Export](export.md#where-the-file-goes).
   Exporting again to a place you chose before writes there again; **Remembered places** in settings lists the ones
   saved without asking.
-- **Outside your vault, read:** the Scrivener project, zip, text file or Markdown file you choose to import, a style's file you choose to add,
+- **Outside your vault, read:** the Scrivener project, zip, Word file, text file or Markdown file you choose to import, a style's file you choose to add,
   and, to tell whether an exported file is still as export left it, that file's size and date.
 - **In Obsidian's storage for the vault, on the device:** the words written today, and the places exports are saved
   without asking.
 - **In the plugin's settings file:** your settings, including **Your name** and **Contact details** if you fill
   them in for a manuscript's title page. If you sync or share your vault's `.obsidian` folder, they go with it.
+
+Undo history, including the text of notes deleted during the session, is kept in memory. It is cleared when the
+plugin unloads. An interrupted whole-folder restore keeps its recovery plan in the binder's `Snapshots` folder;
+see [Snapshots](snapshots.md#everything).
 
 On a phone or tablet, an exported file is handed to the system's share sheet. Where it goes from there is up to
 you.

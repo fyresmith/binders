@@ -5,6 +5,10 @@ Binders needs Obsidian 1.13.4 or later. It works on a computer, a phone and a ta
 Binders is in public beta. It is in Obsidian's [community plugin directory](https://community.obsidian.md/plugins/binders), which is the easiest way to
 install it.
 
+Obsidian, BRAT and release downloads install published releases. This manual follows `main`, which can have
+features not yet released: see [Unreleased](../CHANGELOG.md#unreleased). To read the manual for your installed
+version, open that version's tag in the repository.
+
 ## From Obsidian
 
 1. Open **Settings → Community plugins**. If community plugins are off, turn them on.
@@ -48,6 +52,10 @@ npm run build
 
 Then copy `main.js`, `manifest.json` and `styles.css` into the plugin folder as above. The
 [development notes](dev/development.md) have the details.
+
+A build from `main` includes its unreleased changes. The manifest still names the last published release, so
+its version alone doesn't identify which source commit you built. For development and testing, use `test-vault`
+or a throwaway vault, as the development notes describe.
 
 ## Updating
 

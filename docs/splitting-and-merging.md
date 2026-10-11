@@ -45,8 +45,9 @@ Ctrl+Z in the binder view when you aren't typing), takes the whole split back: t
 the trash. Redo splits again. See [Undo and redo](undo.md).
 
 - If you have already edited, renamed or moved the new note, it stays, and a notice says the text is then in both.
-- This works only while Obsidian stays open and Binders stays on. After a restart, or once the note's own undo
-  history is gone, the split is two notes like any others. You can [merge](#merge-scenes) them back.
+- This works only while Obsidian stays open and Binders stays on. The editor and the binder keep their own undo
+  histories: if one no longer has the split, the other may still have it. After a restart neither does, and the
+  split is two notes like any others. You can [merge](#merge-scenes) them back.
 - If the note changes in the moment it is being split, both notes keep the text and a notice says so.
 
 ## Merge scenes
@@ -62,6 +63,10 @@ merged note has been checked to hold all their text.
 If a source note changes during the merge, or the merged note no longer holds its text, that source and the
 remaining notes stay in place. A notice explains why. The text already joined into the first note stays there,
 so you can compare the copies before deciding what to keep.
+
+**Undo last change** brings the merged-away notes back and restores the first note only if it hasn't changed
+since. If it has, a dialog offers to bring the other notes back beside it, keeping the writing in both places.
+See [Undo and redo](undo.md).
 
 ## Links after a split or a merge
 
@@ -122,7 +127,7 @@ you delete goes to the trash, as Obsidian's **Deleted files** setting says. A de
 
 | Change | How to undo it |
 |---|---|
-| A split | Undo in the note you split (Ctrl+Z) |
+| A split | Undo in the note you split (Ctrl+Z), or **Undo last change** |
 | A move, a new folder from a selection, an ungroup | **Undo last change**. See [Undo and redo](undo.md) |
 | A merge, a duplicate of a note, a delete, a rename | **Undo last change**. See [Undo and redo](undo.md). A copy of a folder isn't undone |
 

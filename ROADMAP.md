@@ -1,6 +1,7 @@
 # Roadmap
 
-Where Binders stands: what is built and released, the features still to build, and the hardening that ends in 1.0.
+Where Binders stands: what is released, what is implemented on `main`, what is still to build, and the hardening
+that ends in 1.0.
 The [changelog](CHANGELOG.md) is the record of what shipped and when; this page is the plan. When the two
 disagree, the changelog is right and this page is behind.
 
@@ -10,7 +11,8 @@ release, and the maintainer calls it.
 
 ## Built and released
 
-Everything here is in the released plugin. The manual has a page for each.
+The published release named by `manifest.json` is 0.51.1. Everything in this section is in that release.
+Changes after it are under [Unreleased](CHANGELOG.md#unreleased), not installed by Obsidian or BRAT yet.
 
 - **Binders in the vault and the file explorer:** order, drag to reorder, label dots, undo of moves.
   [The file explorer](docs/file-explorer.md)
@@ -38,11 +40,27 @@ Everything here is in the released plugin. The manual has a page for each.
 How each was designed and decided is in [docs/dev/plan.md](docs/dev/plan.md) and
 [docs/dev/export.md](docs/dev/export.md).
 
+## Implemented, not yet released
+
+These are on `main` and covered by the manual, but are not in 0.51.1:
+
+- **Undo and redo of properties, renames, new notes and folders, copies of notes, deletes, merges and splits,**
+  with one history of 100 changes per binder and toolbar buttons for touch. [Undo and redo](docs/undo.md)
+- **Import a manuscript:** Word, Markdown and plain text as a new binder; chapters and scenes shown first, with
+  joining, splitting, renaming and roles in the preview. Word comments, tracked changes and underlining have
+  explicit import choices; PNG and JPEG pictures are kept. [Import a manuscript](docs/import-manuscript.md)
+- **Split at headings...:** cut a note of a binder into several where its headings, scene breaks or a line of your
+  own are, after a preview; one change in the history. [Splitting and merging](docs/splitting-and-merging.md#split-at-headings)
+- **Story date:** a scene property, an outliner column, an inspector row and menus; sort by story time and keep
+  it as the binder order. [Story date](docs/story-date.md)
+- **Timeline:** a fourth view, with time down or across and undated scenes in a tray. It shows story time and
+  lets you edit cards and set dates through menus; dragging to set dates is still to build. [Timeline](docs/timeline.md)
+
 ## Features before 1.0
 
 Decided by the maintainer on 2026-10-10: every major feature is built before 1.0, and nothing is held for after
 it. Then the plugin is hardened (below) and 1.0.0 is called. In this order; the order can change, the list is the
-commitment.
+commitment. Checked items are implemented on `main`; release status is listed above.
 
 For every one: identify a repeated writing task, show the shortest usable interaction, keep the result readable
 without Binders, and test it in a book-sized binder before widening it. No new dashboard, permanent toolbar group
@@ -50,7 +68,7 @@ or configuration system unless the task cannot be done through the controls ther
 
 ### 1. Undo and redo of everything done through Binders
 
-- [ ] **One history per binder.** Today only moves can be undone. The history grows to hold every change made by
+- [x] **One history per binder.** The history holds changes made by
       hand through Binders: reordering and moving, every property (synopsis, label, status, target, notes, export),
       renaming, new notes and folders, duplicating, deleting, merging and splitting. Typing in a note stays with
       the editor's own undo.
@@ -59,25 +77,27 @@ or configuration system unless the task cannot be done through the controls ther
     never removes one that has been written in. Undoing a merge never takes text out of a note changed since.
   - In memory only: nothing new is written to the vault, and nothing travels by Sync.
   - In the view's toolbar, an Undo and a Redo button, which is how a phone reaches them.
-  - Planned and decided 2026-10-10, being built in seven steps (the history refactored, then properties, renames,
+  - Planned, decided and implemented 2026-10-10 in seven steps (the history refactored, then properties, renames,
     creating, deleting, merging, splitting). This takes in what was "Predictable recovery from merge". Decided: no
     history across restarts; a delete can be undone for the session even when Obsidian deletes for good; the delete
     confirmation stays; 100 steps for each binder.
 
 ### 2. Import an existing manuscript
 
-- [ ] **From Word, and from one long note.** Most writers arrive with a Word file or a single long note, not a
+- [x] **From Word, and from one long note.** Most writers arrive with a Word file or a single long note, not a
       Scrivener project. Import a `.docx` as a new binder, split into chapters and scenes at its headings and scene
-      breaks, shown before it is made, as the Scrivener import is. And split a note already in the vault into
-      scenes at its headings in one go.
+      breaks, shown before it is made, as the Scrivener import is. A long note already in the vault can also be
+      imported into a new binder, with the original left as it is.
   - Makes a new folder, never writes into an existing one, and keeps the original file.
   - Ship when a novel-length Word file comes in with its words, order, italics, bold and scene breaks intact,
     held to a word-for-word test.
-  - Planned and decided 2026-10-10, being built: a Markdown or text file, or a long note, first; then Word
-    (which is also how a book comes from Google Docs, Pages, Atticus and Vellum); `.odt` and `.rtf` after. Chapters
-    are found from headings, lines like "Chapter 12", or page breaks, and the writer chooses before anything is
-    made. Tracked changes come in accepted; comments are kept as comments. "Split at headings" for a note already
-    in a binder follows undo's split step.
+  - Planned, decided and implemented 2026-10-10: Markdown and text first, then Word, then choices for tracked
+    changes, comments, underlining and pictures, and editing the preview. Chapters are found from headings, lines
+    like "Chapter 12", or page breaks, and the writer chooses before anything is made. Tracked changes start
+    accepted, with Reject all as a choice; comments are kept as comments unless switched off.
+  - "Split at headings..." for a note already in a binder is built too (one change in the history, Undo takes it
+    back). Still to build: `.odt` and `.rtf`. Real files from other
+    word processors are part of the hardening below.
 
 ### 3. Progress over time
 
@@ -93,14 +113,14 @@ or configuration system unless the task cannot be done through the controls ther
       First support named filters scoped to a binder or folder: label, status, export inclusion, and selected
       existing properties, including list membership and missing values. Combine conditions with AND; allow several
       accepted values within a condition. Example: scenes whose `characters` contains Alice and whose status is Draft.
-      Reuse the current Filter control, three views, and native property names and types; no new view or query language.
+      Reuse the current Filter control, existing views, and native property names and types; no new view or query language.
       Scene order always follows the manuscript. Show the active subset and its count, with one action to return to
       the full manuscript. An empty result explains the filter and offers to clear it.
   - Start with saved filters. Add manually picked collections only after use establishes that property filters
     cannot serve a recurring task. Example: five scenes selected for a critique session, with no shared property.
   - Store definitions as readable binder metadata; follow renamed files in manual collections and show missing
     members rather than silently substituting notes. Explain that saved subsets do not change export inclusion.
-  - Ship when a writer can save, reopen and edit a cross-chapter subset in all three views, with ancestors shown
+  - Ship when a writer can save, reopen and edit a cross-chapter subset in the binder's views, with ancestors shown
     only as context and no change to the full manuscript's order. Reordering is disabled in a subset initially;
     adding scenes and changing properties must not hide pending edits or discard the caret.
 
@@ -146,8 +166,9 @@ or configuration system unless the task cannot be done through the controls ther
   - Decided 2026-10-10: one timeline, not a line for each label; an axis that makes room for its cards, with long
     empty stretches drawn short, and no zoom. Cut from Evra: events that aren't notes, sides, lifespans, pins,
     saved views, the minimap, embeds, group cards.
-  - In steps: the property with an outliner column and an inspector row; a design round; the view, read-only;
-    dragging; a book's own calendar; eras. This changes "1.0 ships three views" (`docs/dev/plan.md`, "Decided").
+  - Implemented 2026-10-10: the property, outliner column and inspector row; the design rounds; and the view in
+    both shapes, with editing and date menus but no dragging. Still to build: dragging to set dates, a book's own
+    calendar and eras. This changes "1.0 ships three views" (`docs/dev/plan.md`, "Decided").
 
 ### Also unfinished
 

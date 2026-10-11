@@ -144,7 +144,7 @@ event and its `tasks.addPromise()` (`src/view/manuscript.ts`); `getSettingDefini
   (a newer-format binder, a binder or folder note, a folder into itself), the drag is Obsidian's own.
   One exception: a folder dragged out of a binder view (`draggable.source === 'binders'`) onto its own row, or a row
   inside it, is refused with the reason, since Obsidian says nothing there.
-- A drop goes through `store.put()`, one change that "Undo last move" takes back.
+- A drop goes through `store.put()`, one change that "Undo last change" takes back.
 - Escape cancels a drag in Chromium itself, which then sends `dragend` and no `drop`; nothing can test that in the
   harness, where drags are made of mouse events.
 - On the corkboard a drag is pointer events, not HTML drag and drop; it only borrows the look: Obsidian's reordering
@@ -184,7 +184,7 @@ event and its `tasks.addPromise()` (`src/view/manuscript.ts`); `getSettingDefini
   shows, with nothing to see change.
 - Not done: a window of its own (the drag manager's listeners are in the main window; there the drag stays a card
   drag), a phone (nothing is beside the view to drop on), and a move out of the binder isn't recorded for "Undo last
-  move" unless the file explorer placed it in a binder.
+  change" unless the file explorer placed it in a binder.
 
 ## The editable embed (checked on Obsidian 1.13.7, desktop and `app.emulateMobile(true)`)
 
@@ -449,9 +449,9 @@ is an ordinary `<iframe srcdoc>`, which is the web's and nothing of Obsidian's.
   last, even while a binder view has the focus. The view claims Mod-Enter in its own `scope` while a synopsis is being
   typed. Likewise F2 is Obsidian's "Rename file": the view's `scope` claims it and passes it on to the focused card,
   outliner row or manuscript section, which it renames.
-- Mod+Z, Mod+Shift+Z and Mod+Y are registered in the view's `scope` for "Undo last move" and "Redo last move". They
+- Mod+Z, Mod+Shift+Z and Mod+Y are registered in the view's `scope` for "Undo last change" and "Redo last change". They
   do nothing (and the key goes on to whoever wants it) while the focus is in an input, a text area, something
-  editable or an editor (`.cm-content`), or when the binder has no move to undo.
+  editable or an editor (`.cm-content`), or when the binder has no change to undo or redo.
 - A view's `getEphemeralState()` and `setEphemeralState()` (public API) carry `place`: where the mode was scrolled
   to and what was selected, so Back returns there. Switching modes keeps a place per mode and folder in the view.
 - In the e2e harness, `activeDocument` can be another of Obsidian's windows, so menus opened without a position open

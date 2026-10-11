@@ -78,7 +78,7 @@ body { --binders-paragraph-indent: 2em; }
   note's backlinks or in the graph, and a `#tag` there isn't in the tag list.
 - **Links in it do follow a rename.** When a note or a file is renamed or moved, Binders updates the links to it in
   such paragraphs, as Obsidian does for every other link. This happens only when Obsidian's **Automatically update
-  internal links** is on, and only in a binder's notes. A link that could have meant another file of the same name
+  internal links** is on, or you answer Obsidian's prompt with **Just once**, and only in a binder's notes. A link that could have meant another file of the same name
   is left as it is. This is the one change Binders makes to a note's text that you didn't ask for one by one; see
   [How your files look](files.md#what-binders-writes-and-what-it-never-touches).
 - **A real indented code block** in a binder's note is shown as text. Use a fenced block (three backticks) for

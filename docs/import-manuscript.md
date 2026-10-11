@@ -6,14 +6,14 @@ is changed.
 
 For a Scrivener project, see [Import from Scrivener](import-scrivener.md).
 
-**Other programs come in through Word.** Google Docs (File, Download, Microsoft Word), Pages (File, Export To, Word),
-Atticus, Vellum, Dabble, Novelcrafter, LibreOffice and the rest all save a `.docx`: choose that. Google Docs'
-"Download as Markdown" works too. `.odt` and `.rtf` files, and Pages and Scrivener's own files, aren't read yet:
-save them as Word first.
+**Other programs come in through Word, Markdown or text.** Choose a `.docx`, `.md` or `.txt` export from the program
+you wrote in. For Google Docs, use File, Download, Microsoft Word or Markdown; for Pages, File, Export To, Word.
+Native Pages files, `.odt` and `.rtf` aren't read: export one of the supported formats first. Scrivener projects
+have their own [import](import-scrivener.md).
 
 ## Importing
 
-There are two ways in.
+There are three ways in.
 
 - **A file.** Open the command palette and run **Import a manuscript...**, then **Choose a file...** and pick a
   `.docx`, `.md`, `.markdown` or `.txt` file. This works on a phone and a tablet too.
@@ -94,7 +94,8 @@ list before importing.
 - **Names.** A chapter is named by its heading. "Chapter 12: The storm" is named "Chapter 12 - The storm", which
   export strips the number from. A heading in capitals is put in title case. A heading that can't be a file's name
   (it has a `?` or a `:`) is named without the characters, and a chapter note then starts with the heading as it
-  was, as a `#` line. A folder can't, so it is listed with the things to look at.
+  was, as a `#` line. For a chapter or part that becomes a folder, that heading starts its first scene instead.
+  The dialog lists changed headings among the things to look at.
 - **A file from outside the vault** is kept as it was in **Research/Originals** (a `.md` file gets `.original` added
   to its name, so it isn't a second copy of the writing in the binder), and nothing in **Research** is exported. A
   note of this vault is not copied: the binder's note links to it.
@@ -152,21 +153,22 @@ password, and choose that.
 Every word comes across, in order, and nothing is added. The heading a chapter is named from is its name and not in
 the text; a mark between scenes that becomes a new note is not in it either.
 
-- **Markdown** is cut where the chapters are, so the notes joined are the text, byte for byte, apart from those
-  headings. Italics, bold, links, footnotes, tabs at the start of a paragraph, comments and code are as written.
+- **Markdown** is cut where the chapters are, keeping its text apart from those headings and scene-break marks,
+  with encoding and line endings normalised as below. Italics, bold, links, footnotes, tabs at the start of a
+  paragraph, comments and code are as written.
   The note's properties (the block at its top) aren't brought in, and the dialog says so.
 - **Plain text** is made into Markdown that reads as it did: a blank line between paragraphs; a paragraph that was
   hard-wrapped at about seventy characters is joined into one line; characters Markdown would take for markup
   (`*`, `_`, `[`, a `#` at a line's start) get a backslash, which Obsidian hides. A paragraph that began with a tab
   keeps it if **Start a paragraph with a tab** is on in settings, and loses it, said, if it is off.
-- **Encoding.** A byte-order mark and Windows line endings are no part of the writing. A file that isn't UTF-8 is read
-  as Windows-1252, and the dialog says so.
+- **Encoding.** UTF-8 and UTF-16 with a byte-order mark are read; a file that isn't UTF-8 and has no UTF-16 mark is
+  read as Windows-1252, and the dialog says so. The mark is removed and line endings become ordinary newlines.
 - **Footnotes and links written out at the foot** of a long note go to the notes that mark them: each is written at the foot of every note that has its mark (one that nothing marks stays where it was), so a footnote in chapter two is still a footnote there. A link to a heading of the old text (`[[#Chapter 1]]`) no longer finds one.
 
 ## When something is wrong
 
-- **A file that can't be read** is said in the first dialog: a file that isn't text, one with nothing in it, a Word or
-  Pages file, or one over 64 MB.
+- **A file that can't be read** is said in the first dialog: an unsupported or empty file, a damaged or locked Word
+  file, or one over the limits below. Older Word (`.doc`) and native Pages files need exporting first.
 - **A note that changed** after it was read: import says so and stops. Choose it again.
 - **Cancel, or a write that fails** partway: the notes already made stay as plain notes, and the message says
   where. The folder is not a binder, because the binder's own note is written last. Nothing is deleted for you.

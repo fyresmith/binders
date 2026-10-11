@@ -11,12 +11,13 @@ See the [roadmap](../ROADMAP.md).
 
 ## Not yet tried
 
-Binders is in public beta. It is built on Linux and tested there, on macOS and Windows, and in Obsidian's own emulation of a phone and a
-tablet.
+Binders is in public beta. It is built on Linux and tested there, on macOS and Windows, and in Obsidian's own
+emulation of a phone and a tablet. The maintainer also uses it on an iPhone; that has found bugs emulation missed.
 These things have not been tried yet, and are where a beta tester is most likely to find something:
 
-- **A real phone or tablet.** iOS and Android are tested only as Obsidian emulates them on a computer. The share
-  sheet, Android's back button and a device's own keyboard have not been tried.
+- **An iPad or Android device.** Automated touch tests use desktop emulation. Real iPad and Android keyboards,
+  app suspension, Android's back button and their share sheets have not been tried. iPhone use is not a completed
+  check of every feature on iOS.
 - **A PDF anywhere but Linux.** Making the file, and the typefaces a Mac or Windows has for the scripts that the
   two typefaces inside Binders don't hold.
 - **A printer's checks.** No paperback PDF has been sent to KDP or IngramSpark, and none has been printed.
@@ -29,6 +30,9 @@ These things have not been tried yet, and are where a beta tester is most likely
   Scrivener for Windows or iOS.
 - **Import from Scrivener** has been checked against projects written by hand and by Binders' own export, and one
   written by Scrivener on a Mac. None from Scrivener for Windows.
+- **Importing real Word manuscripts.** Tests use generated fixtures, Binders' exports and a LibreOffice-generated
+  file. Representative manuscripts saved by hand in Word, Google Docs, Pages and other writing tools still need
+  checking against their own plain-text exports. See [Import: tests and samples](dev/import.md#the-word-reader-srcdocx-srcimportdocxts).
 
 If you try one of these, [say how it went](https://github.com/fyresmith/binders/issues), whether it worked or not.
 
@@ -59,7 +63,8 @@ Phone and tablet support is new and has had little testing on real devices. See 
   program, say) stays, and a notice says which.
 - A note with Windows line endings (`\r\n`) comes back with its text byte for byte, but Obsidian writes the lines of
   a changed properties block with its own line breaks, as it does for any property you change.
-- A delete is kept in memory until Obsidian closes (up to 32 MB in all, even when Obsidian deletes for good): it can't be undone after a restart, and a delete over 32 MB isn't kept.
+- A delete can be kept in memory even when Obsidian deletes for good. The history's 100-entry and shared 32 MB
+  limits can drop it before the session ends; it can't be undone after a restart, and a delete over 32 MB isn't kept.
 - A link written with its folder in it (`[[Part One/Arrival]]`) is rewritten by a rename, and again by its undo, in Obsidian's shortest form (`[[Arrival]]`), so such a link isn't spelled as it was after an undo.
 - Undoing a rename updates links as Obsidian does: if it was set not to update links (or you declined), the links stay as they are, in both directions.
 - Undoing a kept sort of thousands of notes is slow.
@@ -122,9 +127,19 @@ the graph or in the tag list. See [Paragraphs](paragraphs.md).
 - Obsidian Sync carries snapshots only with **Sync all other types** on.
 - Obsidian's "Move file to..." list shows the `Snapshots` folders.
 - A note's snapshot keeps its text, not its properties. A folder's or a binder's keeps both, and the order.
-- A whole snapshot of a folder or binder can't yet be brought back in place: one note at a time, or as a copy
-  (**Make a binder from this snapshot**).
+- **Bring back...** restores a whole folder or binder in place, after a review and a snapshot of what is there
+  now. **Everything** can restore text, properties, names, folders and order, but never deletes what was written
+  since. It clears that binder's undo history; bring back the automatic "Before bringing back" snapshot to take
+  the whole operation back. See [Snapshots](snapshots.md#everything).
 - A snapshot of a folder lists files that aren't notes (pictures, PDFs) and doesn't copy them.
+
+## Timeline
+
+- Dates can be set through a card's menu, the outliner or the inspector. Cards can't yet be dragged to set dates,
+  or dragged out of the timeline as files.
+- The calendar is Gregorian. There are no custom calendars, eras or zoom controls yet.
+
+See [Timeline](timeline.md).
 
 ## Find and replace
 

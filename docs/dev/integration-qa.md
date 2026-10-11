@@ -1,5 +1,11 @@
 # Integration QA, October 2026
 
+This is the historical report of the October 1–2 integration and hardening rounds. Its versions, test counts and
+open findings describe those runs, and some behaviours below have since changed. For current implementation use
+[architecture.md](architecture.md), for remaining work [ROADMAP.md](../../ROADMAP.md), and for active findings
+`tests/e2e/open-findings.json`. The whole suite now runs on GitHub for each push to `main`; see
+[development.md](development.md#the-suite-on-github).
+
 Arrange by label, snapshots and focus mode are integrated on `main`. The card-to-explorer drag prototype remains in
 its handoff for the next design round, as requested by the maintainer. Mobile QA remains open until the plugin is
 tried on real iOS and Android devices; desktop emulation cannot verify their keyboards, app suspension or back button.

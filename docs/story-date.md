@@ -40,9 +40,10 @@ A month stays a month and a year stays a year: Binders never makes a date more e
 A **time**, `1987-06-14T21:30`, is read and kept, and orders scenes within one day. Binders shows only the day, and
 editing the cell shows the time, so it isn't lost.
 
-Scenes on the same day are ordered by their time, or by a whole number in a second property, `story-order` (1 for the
-first). Binders will set it when you drag a scene within a day, and takes it away when a scene's date changes. Scenes with
-neither stay in the binder's order.
+Scenes are ordered by date and time, then by a whole number in a second property, `story-order` (1 for the first),
+among scenes with exactly the same date and time. Scenes with no time come before timed scenes on that day;
+without a story order they stay in the binder's order. You can set `story-order` in Obsidian's Properties view.
+Binders takes it away when a scene's date changes. Dragging scenes to set their dates or story order is still planned.
 
 The calendar is the ordinary (Gregorian) one.
 

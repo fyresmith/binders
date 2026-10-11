@@ -138,8 +138,9 @@ Nothing is lost by it:
   It is in the list, a little quieter than the ones you took. To take the whole thing back, bring that one back.
   (If your newest snapshot already holds exactly what is there, that one serves and no other is taken.)
 - What you have typed and not saved, in a note or in a field, is saved first, so it is in that snapshot.
-- A note that is open is changed in its editor: one **Undo** there takes its text back. The order is one change
-  that **Undo last change** takes back.
+- With **The text of the notes** or **The text and the order**, a note that is open is changed in its editor: one
+  **Undo** there takes its text back. With **The order** or **The text and the order**, the order is one change
+  that **Undo last change** takes back. **Everything** has its own recovery, below.
 - A note that changes while the screen is open, or while the notes are being written (a sync, another program),
   is left as it is, and the notice at the end names it. The same goes for the order if items come or go meanwhile.
 - If Obsidian is closed half-way, some notes have their old text and some don't. Bring the same snapshot back
@@ -178,8 +179,8 @@ which their properties.
   it says: it gets the text it had. So two short notes that changed names with each other get their texts back.
 - **A note that changes meanwhile** (a sync, another program) is left as it is and named at the end. If an item
   is made, renamed or moved between the screen and the button, nothing is done at all: look again.
-- **Undo:** a note that is open is changed in its editor, and one **Undo** there takes that note back. **Undo last
-  move** takes none of it back. To take the whole thing back, bring back the "Before bringing back" snapshot
+- **Undo:** a note that is open is changed in its editor, and one **Undo** there takes that note's text back. **Undo last
+  change** takes none of it back, and this binder's undo history is cleared. To take the whole thing back, bring back the "Before bringing back" snapshot
   (what was made again then stays: nothing is deleted).
 - **If Obsidian is closed half-way**, the next time it opens Binders says "Bringing back … was interrupted" and
   offers **Finish**, **Put it back as it was** (which brings back the "Before bringing back" snapshot) and **Leave
@@ -220,13 +221,15 @@ The Lighthouse/Snapshots/2026-10-05 16.20.05 Draft sent to Sam.binder-snapshot
 
 - A `.binder-snapshot` file is the whole folder in one file, in order: each note under a line that says which it
   is, exactly as it was. A snapshot of a 100,000-word novel is about half a megabyte.
+- Bringing back **Everything** keeps its recovery plan in `Bringing back.binder-journal` in this folder. It lets an interrupted
+  restore offer **Finish** or **Put it back as it was** when Binders next opens. Keep it with the snapshots.
 - They follow the note or folder when you rename or move it.
 - They're kept out of your way: never in a binder's order, word counts or exports, and never listed in the file
   explorer.
 - Not being notes, they are not in search, the quick switcher, backlinks, the graph or tags.
 - A [Scrivener project](export-scrivener.md) is the one export that carries them, as Scrivener's own snapshots.
 
-## Three things to know
+## Things to know
 
 - **Obsidian Sync skips snapshots unless you turn on "Sync all other types"** in Obsidian's Sync settings, on each
   device. Until you do, snapshots stay on the device that took them. Tools that copy every file in the vault

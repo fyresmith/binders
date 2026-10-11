@@ -14,7 +14,8 @@ second dialog. The manual page for writers is `docs/import-manuscript.md`. The p
 | 2 | A Word `.docx` as a new binder (from a file, or a `.docx` of the vault from its menu or "Choose from this vault...") | Built. The reader is `src/docx/`; the importer is `src/import/docx.ts` |
 | 4 | What Word files carry: comments, Reject all, underline, pictures, numbered headings | Built (`settle` options, `src/import/docx.ts` `wordRead`, rows in `manuscriptJob`) |
 | 3 | Merge, split and rename in the preview | Built: `Edits`, `actionsFor` and `applyAction` in `manuscript.ts`; `ImportJob.rowActions`, `paragraphs`, `startHere` in the dialog |
-| later | `.odt`, `.rtf`; "Split at headings..." for a note already in a binder (it changes that note: it waits for the undo history's split step) | Not built |
+| 5 | "Split at headings..." for a note already in a binder (`src/split-text.ts`; one change in the history) | Built |
+| later | `.odt`, `.rtf` | Not built |
 
 ## The pipeline
 
@@ -29,7 +30,7 @@ bytes ── decodeText ── scanMarkdown / scanPlain ── Unit[] ── det
   - `scanMarkdown` finds units in the text itself. A unit is a heading (ATX only, outside fences, `$$`, `%%` and
     `<!--` blocks), a mark on a line of its own between blank lines, an opaque block, or a paragraph (lines up to a blank
     line or a heading). Each unit has its offsets, so a piece is `text.slice(first.start, last.end)`: **the writer's
-    own bytes**. A note's properties are skipped (`Scan.skipped`).
+    own text after decoding and newline normalisation**. A note's properties are skipped (`Scan.skipped`).
   - `scanPlain` first makes the text into Markdown (paragraphs with one blank line between; a hard-wrapped paragraph
     joined when most lines of the multi-line paragraphs are near the longest; `escapeMarkdown` on the rest; a mark
     becomes `***`; a leading tab kept only with "Start a paragraph with a tab" on; a title directly over its text split
@@ -76,7 +77,8 @@ pages with two or more; a signal the writer chooses with none is `none`.
   have; `parts` or `parts-chapters` with parts. The guess (`guessStructure`) is never relied on.
 - **Names:** `nameOf` strips marks, writes "Chapter 12: X" as "Chapter 12 - X" (export's `titleFrom` strips a number only when a
   separator follows), and puts capitals in title case. A note whose name differs from its heading by more than case and
-  punctuation (compared by words) begins with `# the heading`. A folder can't: it is listed. `PlannedNote.heading` is the
+  punctuation (compared by words) begins with `# the heading`. A folder's changed heading begins its first scene
+  instead, and is listed among the things to look at. `PlannedNote.heading` is the
   exact source heading.
 - **Originals:** a file from the device goes to `Research/Originals/<name>`, with `Research` an `export: false` folder. A
   `.md` or `.markdown` gets `.original` after its name so it isn't a second note of the binder (a decision the plan didn't
@@ -96,7 +98,8 @@ pages with two or more; a signal the writer chooses with none is `none`.
 - `tests/import-source.test.ts`: `readZip`'s filter and wording, the exports the detector needs.
 - `tests/e2e/specs-import-manuscript.mjs`: the real dialogs. A note from its menu (the binder shown before anything is made, the source
   note byte for byte after, the words in order from the files Obsidian wrote), lines, nothing, a name taken, a CRLF file and one with a
-  byte-order mark through the browser's file chooser, Windows-1252, cancel, a Scrivener zip passed on, a Word file refused, a phone.
+  byte-order mark through the browser's file chooser, Windows-1252, cancel, a Scrivener zip passed on, damaged and
+  locked Word files refused, Word import and its choices, preview edits, and phones.
 
 ## The Word reader (`src/docx/`, `src/import/docx.ts`)
 
@@ -111,7 +114,8 @@ it, so `detect` and `planManuscript` are the same for Word and for Markdown, and
 
 - **The package** (`package.ts`): a zip whose directory is walked by hand before anything is inflated (`readZip`, the same
   limits: 256 MB unpacked, 20,000 parts); the main part is found through `_rels/.rels`, never by its name; media
-  (`word/media`, embeddings, images) is never inflated; a part named with a climbing path is refused; `word/document.xml`
+  is not inflated while reading the document; supported pictures are loaded on demand when planned. A part named
+  with a climbing path is refused; `word/document.xml`
   may be 64 MB. A file beginning `D0 CF 11 E0` (an older `.doc`, or any password-locked Office file, which is that
   container) is refused with a sentence; anything else not a zip is "not a Word file".
 - **XML** (`xml.ts`): a stream of events from a sticky regular expression. No tree. A DOCTYPE, an entity declaration, an
@@ -127,9 +131,9 @@ it, so `detect` and `planManuscript` are the same for Word and for Markdown, and
   (`w:txbxContent`, whose paragraphs are read once: `mc:Fallback` is skipped), a section's end (the next paragraph starts a
   page).
 - **Revisions** (`read.ts` keeps every one, `settle.ts` resolves): `w:ins`, `w:del`, `w:moveFrom`, `w:moveTo`, and a paragraph
-  mark's. Import calls `settle(file, 'final')`: deletions and moved-from text are gone, a deleted paragraph mark joins the
-  paragraph to the next. `'original'` is the other settling, for a later "An editor's changes".
-- **Said and not brought in:** comments (their anchors are read and dropped), headers and footers, pictures, tables'
+  mark's. Import starts with `settle(file, 'final')`: deletions and moved-from text are gone, a deleted paragraph mark joins the
+  paragraph to the next. The dialog's **Reject all** chooses `'original'` instead.
+- **Said and not brought in:** headers and footers, unsupported pictures, tables'
   layout, endnotes' kind (they come as footnotes), fonts, sizes, colors, alignment other than centered (which only
   informs the detector), line spacing.
 
@@ -153,8 +157,8 @@ written from the file format's specification and the tests' own fixtures.
    id, we are told; the fixture has the id `berschrift1` with the name `heading 1`).
 2. That Word writes a text box twice (`mc:Choice` and `mc:Fallback`) with the same words, and that skipping the fallback
    reads it once.
-3. That a heading Word numbers automatically ("Chapter 1" from a list, not typed) may hold no text. Such a heading is read as an empty
-   paragraph: no chapter starts there, and no word is lost (it has none). Not done: naming it "Chapter N" by count.
+3. That a heading Word numbers automatically ("Chapter 1" from a list, not typed) may hold no text. The reader now
+   recognises its numbering and names it "Chapter N" by count, with synthetic fixtures; real files still need checking.
 4. That Word's table-of-contents field is `TOC` in its instruction, and that a content control's gallery is "Table of
    Contents" (these are in the specification, and LibreOffice writes the first).
 5. That Google Docs, Pages, Atticus, Vellum, Dabble and Novelcrafter write a `.docx` this reader reads as Word's does:

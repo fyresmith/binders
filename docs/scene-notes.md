@@ -39,6 +39,7 @@ notes: Check the tide times. Does she already know the keeper's name?
 - **Export:** left out of a manuscript, an ebook and One note. A [Scrivener project](export-scrivener.md) carries
   them across as each document's notes, which Scrivener doesn't compile either.
 - **Merge:** when notes are merged, their scene notes are joined as their synopses are.
-- **Snapshots:** a snapshot keeps a scene's text only, not its notes.
+- **Snapshots:** a snapshot of one scene keeps its text only, not its notes. A snapshot of a folder or binder
+  keeps properties too, including scene notes; **Everything** brings them back.
 
 Next: [Splitting, merging and grouping](splitting-and-merging.md)

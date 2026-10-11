@@ -13,22 +13,23 @@
   for native-looking UI, e2e tests, the release workflow, and the lessons in AGENTS.md.
 - **Version:** changes only at a release (`npm run release`; the maintainer's rule, 2026-10-10: standard semantic
   versioning, and a release only when he asks for one). **Released:** 0.51.1 is the latest release (2026-10-10;
-  0.44.5, on 2026-10-06, was the first public beta), and Binders is in Obsidian's community directory
-  (https://community.obsidian.md/plugins/binders). What has shipped on `main` since is under `## Unreleased` in
+  0.44.4, on 2026-10-06, was the first public beta), and Binders is in Obsidian's community directory
+  (https://community.obsidian.md/plugins/binders). What has been implemented on `main` since is under `## Unreleased` in
   `CHANGELOG.md`. `manifest.json` names the last release; only `npm run release` changes it, and every release is
   a full one, never a draft or a pre-release (AGENTS.md).
 - **Open:** the findings in `tests/e2e/open-findings.json`. Snapshots of a folder and of a whole binder are at step 3 of 4 on `main`
   (take, see, compare; bring back the text and the order, or everything; an automatic one before Replace all):
   thinning the automatic ones is still to build (`docs/dev/plan.md`).
-- **Built:** binders in the vault and in the file explorer (order, drag to reorder, label dots), the three modes, the
-  Longform integration, the scene operations (split, merge, duplicate, group, compile, undo of moves), arrange by
+- **Built:** binders in the vault and in the file explorer (order, drag to reorder, label dots), the four modes, the
+  Longform integration, the scene operations (split, merge, duplicate, group), shared undo and redo of changes, arrange by
   label, snapshots (a note's, and a folder's or binder's), find and replace across a binder (0.49.0), focus mode, export (EPUB, DOCX, PDF, a Scrivener project) and
-  import from Scrivener. `docs/dev/architecture.md` is the map of the code; the milestone table in
+  import from Scrivener and from Word, Markdown or text, with an editable preview, and "Split at headings...". Story dates and the timeline's
+  display, card editing and date menus are built; dragging to set dates is not. These latest additions are on
+  `main`, not yet in 0.51.1. `docs/dev/architecture.md` is the map of the code; the milestone table in
   `docs/dev/plan.md` has the history.
 - **Left before 1.0** (`ROADMAP.md`, in its order; the maintainer's decision, 2026-10-10: every major feature is
-  built before 1.0 and nothing is held for after it): undo and redo of everything (decided 2026-10-10, being built),
-  importing a Word file or a long note, progress over time, saved filters, an editor's changes brought back,
-  revision notes, a binder from a structure, the story's timeline, and thinning the automatic snapshots. Then
+  built before 1.0 and nothing is held for after it): further import formats (`.odt`, `.rtf`), progress over time, saved filters, an editor's changes brought back, revision notes, a binder from
+  a structure, timeline dragging, custom calendars and eras, and thinning the automatic snapshots. Then
   hardening: export's checks by other hands (`docs/dev/export.md`, "Not verified yet"), real devices (he has an
   iPhone; no iPad or Android yet, and the emulated phone and tablet tests are the suite's standard), a QA round,
   the open issues.

@@ -42,6 +42,9 @@ Because each section is the note's own editor, commands for the open note apply 
 - **Take a snapshot**, **Rewrite** and **Show snapshots**. See [Snapshots](snapshots.md).
 - **Toggle focus mode**, and the button at the end of the toolbar. See [Focus mode](focus-mode.md).
 
+Ctrl+F (Cmd+F on macOS) searches across the manuscript shown, including sections outside the screen. **Find and
+replace in binder** also works here, with a review and a snapshot before replacing across notes. See [Find and replace](find-and-replace.md).
+
 ## Long binders
 
 Long binders stay quick. Only the sections near the screen are live editors; the rest show as rendered text until

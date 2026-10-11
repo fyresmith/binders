@@ -15,10 +15,11 @@ Most commands only appear where they apply: with a binder view in front, or with
 | **Import a manuscript...** | Makes a new binder from a Word file, a Markdown note or a text file, split where its chapters start, and shows it first. A zipped Scrivener backup chosen there goes to the Scrivener import. See [Import a manuscript](import-manuscript.md) | Anywhere |
 | **New binder** | Makes a new folder that is a binder, beside the open note if that's outside a binder, else at the top of the vault | Anywhere |
 | **Make this folder a binder** | Turns the open note's folder into a binder | A note in a folder that isn't in a binder |
-
-A note outside a binder also has **Make a binder from this note...** in its menu in the file explorer, and a Word file in the vault has **Import as a binder...**: the same as **Import a manuscript...**, with that file chosen.
 | **Open binder** | Opens the binder view on the folder of the open note, with the note's card selected | A note of a binder |
 | **Convert to binder** | Turns a Longform project into a binder. See [Coming from Longform](longform.md) | A note or view of a Longform project |
+
+A note outside a binder also has **Make a binder from this note...** in its menu in the file explorer, and a Word
+file in the vault has **Import as a binder...**: the same as **Import a manuscript...**, with that file chosen.
 
 ## The binder view
 
@@ -27,6 +28,7 @@ A note outside a binder also has **Make a binder from this note...** in its menu
 | **Show corkboard** | Switches the binder view to the corkboard | A binder view in front |
 | **Show outliner** | Switches it to the outliner | A binder view in front |
 | **Show manuscript** | Switches it to the manuscript | A binder view in front |
+| **Show timeline** | Switches it to the timeline of story dates | A binder view in front |
 | **Arrange corkboard by label** | Goes from the grid to the lines by label (as they last ran) and back | The corkboard |
 | **Set word count target** | Sets the target of the folder the binder view shows (the binder's own, on the binder) | A binder view in front |
 | **Show inspector** | Shows the inspector in the sidebar | Anywhere |
@@ -39,7 +41,7 @@ A note outside a binder also has **Make a binder from this note...** in its menu
 | **New scene here** | Makes a note after the open one, or, in a binder view, where the view would put one | A note of a binder, or a binder view |
 | **Move up** | Moves the open note one place up in its folder | A note of a binder that isn't first |
 | **Move down** | Moves the open note one place down in its folder | A note of a binder that isn't last |
-| **Undo last change** | Takes back the last change made by hand to the binder: a move, a property set. See [Undo and redo](undo.md) | When there is a change to undo |
+| **Undo last change** | Takes back the last change made by hand to the binder: a move, property, rename, new note, delete, merge or split. See [Undo and redo](undo.md) | When there is a change to undo |
 | **Redo last change** | Makes it again | When there is a change to redo |
 | **Split scene at cursor** | Moves the text from the cursor on into a new note after this one | The editor of a note of a binder, or a section of the manuscript |
 | **Split at headings...** | Cuts the note into several where its headings, scene breaks or a line of your own are, after showing the notes it will make. See [Splitting and merging](splitting-and-merging.md#split-at-headings) | A note of a binder (also in its menu) |
@@ -91,6 +93,7 @@ Some things are in menus only:
 - **Merge 3 notes** (or however many), **Duplicate**, **New folder from selection**, **Ungroup**, **Set status**, **Set label**, **Set
   target...** and **Delete** are in the right-click menu of a card or a row. See [a card's menu](corkboard.md#a-cards-menu).
 - **Export as**, **Include in export** and **Move to** are there too.
+- **Set story date...** and **Remove story date** are in a card's or row's menu, on the timeline too. See [Story date](story-date.md).
 - **Show in binder** and **New scene after this** are in a note's right-click menu in the file explorer.
 - A style's **Duplicate**, **Save a copy to share...** and the rest are in the [style editor](export-styles.md)'s menu.
 - Focus mode's options are in its own menu and in settings.
@@ -107,4 +110,4 @@ These aren't commands, and work when the binder view has the keyboard:
 | Shift+F10 | Open the menu |
 
 Each mode's page has its full list: [Corkboard](corkboard.md#keyboard), [Outliner](outliner.md#keyboard),
-[Manuscript](manuscript.md#moving-around).
+[Manuscript](manuscript.md#moving-around) and [Timeline](timeline.md#selecting-and-opening).

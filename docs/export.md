@@ -150,7 +150,7 @@ the vault. A book's own details, its styles and a paperback's page size are kept
 
 - A PDF is made on a computer only.
 - Pictures in formats other than PNG, JPEG and GIF are not exported.
-- Export doesn't change your notes, and an exported file isn't read back in. A Scrivener project is the one thing
-  that comes back: see [Import from Scrivener](import-scrivener.md).
+- Export doesn't change your notes. A Word manuscript can be [imported as a new binder](import-manuscript.md),
+  and a Scrivener project has its own [import](import-scrivener.md). Neither merges changes into the original binder.
 
 Next: [Book details and structure](book-details.md)

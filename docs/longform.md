@@ -9,7 +9,7 @@ turns a project into a binder.
 Binders shows Longform's multi-scene projects as binders, in Longform's own format. Click the project's folder in
 the file explorer and the binder view opens on it.
 
-- The corkboard, the outliner and the manuscript all work on it.
+- The corkboard, the outliner, the manuscript and the timeline all work on it.
 - Labels, statuses, targets, synopses, snapshots, focus mode and export work too.
 - Reordering writes only `longform.scenes` in the project's index note, as Longform does. Nothing else in the note
   changes.

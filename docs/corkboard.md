@@ -75,6 +75,7 @@ Right-click a card, or several selected together. The menu has:
 | **Edit synopsis** | Starts editing the synopsis on the card |
 | **Set synopsis from text** | Fills the synopsis from the note's opening lines |
 | **Set status**, **Set label**, **Set target...** | See [Labels, statuses and targets](labels-statuses-targets.md) |
+| **Set story date...**, **Remove story date** | When the scene happens in the story. See [Story date](story-date.md) |
 | **Duplicate**, **Merge 3 notes**, **New folder from selection** (or **Put in a new folder**), **Ungroup** | See [Splitting, merging and grouping](splitting-and-merging.md) |
 | **Export...** | On a folder: opens [Export](export.md) for that folder |
 | **Include in export** | Ticked as it comes. Untick it to leave the note or folder out of every export |
@@ -112,7 +113,7 @@ Right-click empty space on the board for:
 | Esc | Go back to one selected card |
 | Ctrl+arrow keys (Cmd on macOS) | Move the focus without changing the selection |
 | Space | Add the focused card to the selection, or take it out |
-| Ctrl+Z, Ctrl+Shift+Z (Cmd on macOS) | Undo and redo the last move |
+| Ctrl+Z, Ctrl+Shift+Z (Cmd on macOS) | Undo and redo the last change, when you aren't typing |
 
 ## Arrange by label
 

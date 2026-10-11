@@ -26,7 +26,7 @@ The inspector follows the tab you're writing in. It shows:
 
 - in the manuscript, the section the cursor is in (once that has scrolled out of sight, the section at the top of
   the page);
-- on the corkboard or in the outliner, the selected card or row;
+- on the corkboard or timeline, or in the outliner, the selected card or row;
 - with nothing selected, the folder the view shows, or the binder itself;
 - a note of a binder open in a tab of its own.
 
@@ -62,7 +62,7 @@ write.
 
 | To | Do this |
 |---|---|
-| Go to a scene | Click its row. In the manuscript the page scrolls to that section; on the corkboard its folder opens and its card is selected; in the outliner its row is selected. With only a note open, the note opens |
+| Go to a scene | Click its row. In the manuscript the page scrolls to that section; on the corkboard its folder opens and its card is selected; in the outliner its row is selected; on the timeline its card is selected and brought into sight. With only a note open, the note opens |
 | Open it in a new tab | Ctrl-click (Cmd-click on macOS) |
 | Fold a folder | Click its arrow |
 | Use the keyboard | The arrow keys, Home, End and Enter work as in the file explorer |

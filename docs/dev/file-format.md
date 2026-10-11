@@ -68,11 +68,12 @@ row.
 - Reading drops one `.md` from an entry. A note whose own name ends in `.md` (`notes.md.md`) is written with its full
   name, so it reads back as itself.
 - The binder note and folder notes never appear in `contents` or as scenes in the binder views.
-- A binder note inside a binder (a nested binder) is an ordinary note in 1.0, or the folder note if it's named like its
+- A binder note inside a binder (a nested binder) is an ordinary note in format 1, or the folder note if it's named like its
   folder.
 - If a folder has several binder notes, the one named like the folder is the binder note; otherwise the first by name.
 - The vault's top level can't be a binder.
-- Binders writes only `contents` (and its own properties above) in the binder note, and never changes the rest of it.
+- Ordinary ordering writes only `contents` (and the properties the writer edits) in the binder note. Restoring
+  **Everything** from a snapshot can restore the whole file, after review and a snapshot of now (below).
 - A name keeps its own spaces, at its start and end too (`" Lead"`, `"Trail "`): a file can be named so, and an entry
   with them taken off would no longer name it. An entry typed by hand with stray spaces round a name (`  Prologue  `)
   that names nothing as it stands, but names an item once they are off, is taken for that item.
@@ -91,12 +92,14 @@ row.
   They're applied to what the binder note says at that moment, so edits made to it meanwhile are kept.
 - A note made beside one it's named after ("Arrival 1" next to "Arrival", as Obsidian's "Make a copy" does) goes
   right after that one, if that one is in the list.
-- "Undo last move" writes the list back as it was before the move, and moves the items back to the folders they
-  were in. It refuses if a place has been taken or a folder is gone. Undo history is kept in memory (the last 50
-  moves), not in any file.
+- "Undo last change" on a move writes the list back as it was before the move, and moves the items back to the
+  folders they were in. It refuses if a place has been taken or a folder is gone. History is kept in memory:
+  100 entries per binder, with 32 MB of kept bytes shared across binders. It is cleared when the plugin unloads.
+  Property edits, renames, creation, note duplication, deletion, merge and split also use this history; see
+  [Undo and redo](../undo.md) and `src/history/`.
 - "Ungroup" moves a folder's items out to where it stood. If nothing is then left in the folder but its folder note
   (in the vault and on the disk), the folder goes to the trash with that note, as Obsidian's "Deleted files" setting
-  says. The note's bytes are kept in memory with the move, and "Undo last move" makes the folder again, writes the
+  says. The note's bytes are kept in memory with the move, and "Undo last change" makes the folder again, writes the
   note back byte for byte, and puts the items back inside in their order; it refuses, moving nothing, if a file has
   the folder's name now or one of the items would become its folder note. A folder that still holds anything stays:
   a file Obsidian doesn't list, or a folder note with text under its properties (a notice says so).
@@ -119,7 +122,7 @@ row.
 ## Scene properties
 
 Each note in a binder can have these properties. They are ordinary Obsidian properties. The names of the first four,
-of `story-date` and of `notes` can be changed in settings; `export` and `export-as` are fixed.
+of `story-date`, `story-order` and of `notes` can be changed in settings; `export` and `export-as` are fixed.
 
 | Property | Type | Used for |
 |---|---|---|
@@ -129,7 +132,7 @@ of `story-date` and of `notes` can be changed in settings; `export` and `export-
 | `target` | number | A word count target for the note: progress on its card, and the outliner's Target and Progress columns. A whole number above zero and up to a billion; text such as `"1,500"`, `"1 500"` or `"1.500"` is read as 1500; anything else (`1.5`, `lots`, `0`) is no target |
 | `story-date` | text or number | When the scene happens in the story (the name can be changed in settings). ISO text: `1987-06-14` a day, `1987-06` a month (placed at its start), `1987` a year (YAML reads a number; so does the reader), a year padded to four digits (`0412-10-14`) and with a minus before year 0 (`-0030-02-01`). A time (`1987-06-14T21:30`, seconds allowed) is read and kept and orders scenes within a day; the finest thing shown or set is a day. Months are numbers. Reading is forgiving (`14 June 1987` is read too); writing is exact: a four-digit year is the number, any other year alone is padded text (`"0412"`, `"-0030"`), and a day or a month is plain text. A value that isn't a date (`sometime in spring`) is left exactly as typed, shown as it is, sorted with the undated notes, and never rewritten unless a date is set on that note; clearing removes the property. Gregorian for now: `src/time/date.ts` takes a `Calendar`, so a book's own can be passed in. A folder's is in its folder note. See `docs/story-date.md` |
 | `story-order` | number | A scene's place among the scenes of the same `story-date` (the name can be changed in settings): `1` is first. A whole number, or text that is one; anything else is ignored and left as typed. It means something only among scenes whose date is the same exact value (a month-only date orders among the same month-only value). Order of a story-date sort: by date (a time is part of the date), then `story-order` (those without one after those with), then the binder's order; so on a day, scenes with no time come first, then the timed ones by time. Binders removes it in the same write (and undo step) that changes or clears a scene's `story-date`, since the number belonged to the old day; setting the same date again leaves it. No column or inspector row of its own. |
-| `notes` | text | The writer's own notes on the note: not manuscript text, and never exported. Typed in the inspector or the outliner's Notes column, as plain text of as many lines as are typed (YAML writes them as a block). A folder's are in its folder note, the binder's in the binder note. Clearing them removes the property. The Scrivener project export (docs/dev/export.md) is to carry them as the document's notes |
+| `notes` | text | The writer's own notes on the note: left out of exported books. Typed in the inspector or the outliner's Notes column, as plain text of as many lines as are typed (YAML writes them as a block). A folder's are in its folder note, the binder's in the binder note. Clearing them removes the property. The Scrivener project export carries them as the document's notes |
 | `export` | checkbox | `false` leaves the note out of every export. Missing, or anything else, means included; turning it back on removes the property |
 | `compile` | checkbox | The name `export` had before export was built. `false` is read as `export: false`, for good. Binders never writes it, and never rewrites a note to change one into the other: a note keeps it until "Include in export" is turned on for it, which removes both |
 | `export-as` | text | The note's role in an exported book, when the structure's own answer isn't wanted: `part`, `chapter`, `scene`, `front matter` or `back matter`. See "Export" |
@@ -194,12 +197,19 @@ the commands you run on it:
 - From a snapshot of a folder or the binder, "Bring back" on a note that is gone makes that note again (a new file,
   under a name that is free), and "Make a binder (or folder) from this snapshot" makes a new folder of new notes
   beside the one it is of. Neither writes to a note that is there.
-- "Bring back..." a whole snapshot of a folder or the binder writes two things and no others. The text of each note
+- "Bring back..." with "The text of the notes", "The order" or "The text and the order" writes only the chosen
+  text and order. The text of each note
   that is there and reads differently is replaced by the text it had, as one note's is (its properties, a
   byte-order mark and its name left byte for byte), after one snapshot of the whole folder as it is, which holds
   every text replaced. And the order: the binder note's `contents` (a Longform project's `longform.scenes`),
   written as any reorder is. No other property is written, and no note or folder is made, renamed, moved or
   deleted.
+- "Bring back..." with "Everything" can restore whole note files (properties included), make missing notes and
+  folders, and put names, locations and order back inside the snapshot's folder. It takes a snapshot of now first,
+  reviews the changes with the writer and records the recovery plan in `Snapshots/Bringing back.binder-journal`
+  before applying them. Notes or folders written since stay, or move to one folder if chosen; nothing is deleted.
+  It clears the binder's session undo history. See [Snapshots](../snapshots.md#everything) for matching, concurrent
+  changes, occupied names and interrupted recovery.
 
 One change to a note's text is made without a command, and it is this and nothing wider. When a note or file is
 renamed or moved, "Start a paragraph with a tab" is on and Obsidian's "Automatically update internal links" is on
@@ -450,8 +460,7 @@ in Scrivener, which it never compiles), and every other property of a note (cust
 | `book-style` | text | The book style chosen for this binder, by name (`Classic`, `Modern`, or a style of the writer's own: see "Export styles"). Written when one is chosen; a name that is no style is read as Classic |
 | `manuscript-style` | text | The manuscript style chosen for this binder, likewise. Without it, the one last used in the vault |
 | `structure` | text | Which rule gives folders and notes their roles: `chapters and scenes` (folders are chapters, notes are scenes), `parts and chapters` (folders are parts, notes are chapters), `parts, chapters and scenes`, or `every note a chapter`. Without it Binders reads the rule off the binder's shape: no folders, every note a chapter; folders one deep, parts and chapters if every top folder's name starts with "Part", "Book" or "Act", else chapters and scenes; deeper, parts, chapters and scenes. A Longform project is every note a chapter |
-
-Not read yet, and kept for the step that builds it: `page-size`.
+| `page-size` | text | The paperback trim size chosen in the Export window, by its id in `src/export/pages/geometry.ts` (`a5`, for example). An unrecognised id falls back to the default size, 5 × 8 inches |
 
 **What isn't in any note:**
 

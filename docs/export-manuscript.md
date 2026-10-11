@@ -1,4 +1,4 @@
-# Manuscript (Word)
+# Manuscript (Word or PDF)
 
 A manuscript is a Word file (.docx), or a PDF, in standard manuscript format, the form agents and editors ask for.
 Choose **Manuscript** in the [Export window](export.md).

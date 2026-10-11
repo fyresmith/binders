@@ -52,11 +52,14 @@ Run **Import from Scrivener...** from the command palette to bring a project in 
 - **Starting a paragraph with Tab works**, and shows as an indented paragraph. See [Paragraphs](paragraphs.md).
 - **Splits and tabs are Obsidian's.** To see two things at once, open a note to the right, or a second binder view
   in another tab or pane.
+- **Find and replace across the manuscript.** Ctrl+F searches the binder; Replace all has a review, a snapshot
+  and Undo. See [Find and replace](find-and-replace.md).
+- **Story time.** Give scenes a [story date](story-date.md) and see them on the [timeline](timeline.md), with their
+  manuscript numbers beside them.
 
 ## Not there yet
 
 - **Collections** and saved searches. The **Filter** by label and status is the nearest thing.
-- **Find and replace across the manuscript.** Ctrl+F in a binder view, with Replace all behind a review and a snapshot. See [Find and replace](find-and-replace.md).
 
 ## Working with someone who uses Scrivener
 

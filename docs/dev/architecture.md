@@ -24,6 +24,7 @@ neighbours, for example the store and `snapshots.ts`, which follow each other's 
  binders.ts   the store: the only code that changes a binder (and its undo: history/)
  scenes.ts    splitting, merging, one note of many   snapshots.ts    taking and bringing back
  export/export.ts   a binder read as a book, made into a file, saved        view/export.ts   the Export window
+ import/vault.ts    an import plan written to a new folder                view/import-window.ts   the Import window
  ───────────────────────────────────────────────────────────────────────────────────
  explorer.ts  patches Obsidian's file explorer (asks the store through `ExplorerSource`)
  view/editable-embed.ts   the live editors of the manuscript
@@ -33,6 +34,7 @@ neighbours, for example the store and `snapshots.ts`, which follow each other's 
                     style.ts  details.ts  epub.ts  epub-text.ts  epub-css.ts
    find/search.ts  focus/session.ts  view/labels.ts  view/outliner-data.ts  view/lanes-data.ts  view/file-drag-data.ts
    view/timeline-data.ts  time/date.ts
+   docx/  import/{doc,docx,detect,text,manuscript,plan}.ts  import/scriv/
    view/tap-text.ts  view/words.ts  view/book-words.ts
 ```
 
@@ -127,7 +129,7 @@ word-for-word test (development.md) holds each writer to "no word dropped, repea
 | `src/import/vault.ts` | A plan written into the vault (`writeImport`): only new files in a new folder, checked to be inside it, read back, and the binder note last, so an import that stops is plain notes and no binder. | Write to a file that exists; delete anything, even after a failure. |
 | `src/import/desktop.ts` | Choosing a project's folder on a computer and reading it: Electron's dialog and Node's `fs`, read only (golden rule 5). `importDesktop()` is null when anything is missing. Reached through `plugin.importHost`, so a test can stand in for the dialog. | Write; follow a link out of the project. |
 | `src/view/import-window.ts` | The second dialog of every import, over an `ImportJob`: the Export window's layout (its classes) with the choices, the binder as a tree, a note as it will read, and Import. | Know what kind of import it is. |
-| `src/view/import-scrivener.ts`, `import-manuscript.ts` | "Import from Scrivener" and "Import a manuscript": each a small dialog to choose the source and a job for the window. The manuscript one is also reached from a note's menu (`importNote`). | Be offered anywhere but the command palette; write to the vault itself (`writeImport` does). |
+| `src/view/import-scrivener.ts`, `import-manuscript.ts` | "Import from Scrivener" and "Import a manuscript": each a small dialog to choose the source and a job for the window. The manuscript one is also reached from a note's menu (`importNote`) or a Word file's menu. | Write to the vault itself (`writeImport` does); change the source file or note. |
 | `src/export/desktop.ts` | The save dialog and the disk, on a computer: Electron's and Node's, asked for only when used (golden rule 5). `writeFolder` writes a folder of files (a Scrivener project) whole or not at all. `desktop()` is null when anything is missing. Reached through `plugin.exportHost`, so a test can stand in for the dialog. | Be imported for anything but saving an export; throw when something isn't there. |
 | `src/export/style-rows.ts` | What a style is made of, one row each: the property a `.bookstyle` file has for it, what the editor calls it, the values it takes (`GROUPS`, `readValue`); a style as its values and back (`toBookStyle`, `toManuscriptStyle`); the built-in styles by name (`BUILT_IN`). Pure. | Let the editor, the file and the check drift apart: they are this one table. |
 | `src/export/style-file.ts` | A style's file: `readStyleFile`, `writeStyleFile` (a line at a time; everything else in the file stays), `resolveStyle` (the file's differences over what it is based on, with what couldn't be read), `listStyles`, `standalone`. Pure. | Parse a file and write it out again; use a newer or a broken file. |

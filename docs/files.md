@@ -1,6 +1,6 @@
 # How your files look
 
-Everything Binders keeps is plain Markdown in your vault. A binder is a folder plus one note that holds its order,
+Your writing stays in plain Markdown in your vault. A binder is a folder plus one note that holds its order,
 and everything about a scene is in that scene's own properties. Turn Binders off and your notes are still ordinary
 notes.
 
@@ -27,8 +27,8 @@ synopsis: A keeper, a newcomer, and the night the light went out.
 Anything you like: notes on the book, links, a to-do list.
 ```
 
-Folders end in `/`. Notes are written without `.md`. The text under the properties is yours: Binders never changes
-it.
+Folders end in `/`. Notes are written without `.md`. The text under the properties is yours. It changes only
+through the editing and recovery actions described [below](#what-binders-writes-and-what-it-never-touches).
 
 The binder note is hidden in the file explorer. Open it with **Open binder note** in the binder view's **More
 options** menu, or turn off **Hide binder and folder notes** in settings.
@@ -53,18 +53,21 @@ The supply boat left Mara on the jetty with two cases and a letter she had not o
 | `status` | The note's status, such as Draft |
 | `label` | The name of a label from settings, one of the theme's colors (`blue`), or a color of its own (`#7c3aed`) |
 | `target` | A word count target |
-| `notes` | Your [notes on the scene](scene-notes.md), typed in the inspector. Never exported |
+| `story-date` | When the scene happens, shown in the outliner, inspector and [timeline](timeline.md) |
+| `story-order` | The order among scenes with the same story date; see [Story date](story-date.md) |
+| `notes` | Your [notes on the scene](scene-notes.md), typed in the inspector. Left out of exported books; carried as document notes in a Scrivener project |
 | `export` | `false` leaves the note out when the binder is exported. (`compile: false`, its name in earlier versions, still does, and no note is rewritten to change it) |
 | `export-as` | The part the note plays in an exported book: `part`, `chapter`, `scene`, `front matter` or `back matter` |
 
-The first five can be kept under other names, if your notes already use them. See
+Synopsis, status, label, target, notes, story date and story order can be kept under other names, if your notes
+already use them. See
 [Settings](settings.md#property-names).
 
 ## Folder notes
 
 A subfolder can have a **folder note** named like it, `Part One/Part One.md`, for its own synopsis, status, label,
-target and notes, and for `export` and `export-as`. Binders creates it the first time you give the folder one of
-these.
+target, notes and story date, and for `export` and `export-as`. Binders creates it the first time you give the folder
+one of these.
 
 A folder note is not a scene. It never shows on the corkboard, in the outliner or in the manuscript. It is hidden in
 the file explorer with the binder note. When you rename the folder, its folder note is renamed to match.
@@ -81,12 +84,16 @@ paperback's page in the Export window. One you clear is taken out of the note.
 - **Snapshots** are `.snapshot` files in a `Snapshots` folder in the binder, one folder per note, and one
   `.binder-snapshot` file for each snapshot of a folder or of the binder. See
   [Snapshots](snapshots.md#where-snapshots-are-kept).
+- **A restore in progress** keeps its recovery plan in `Bringing back.binder-journal` in that same `Snapshots`
+  folder. Keep it with your snapshots until the restore is finished or put back.
 - **Exported files** go where the save dialog says on a computer, otherwise into the `Exports` folder beside the
   binder. See [Export](export.md#where-the-file-goes).
 - **Export styles** of your own, and your changes to a built-in one, are `.bookstyle` files in an `Export styles`
   folder at the top of the vault. See [Styles](export-styles.md#a-styles-file).
 - **An imported Scrivener project** is a new binder with a `Research` folder in it, which holds the project's
   original files. See [Import from Scrivener](import-scrivener.md).
+- **An imported manuscript** keeps an outside source file in `Research/Originals`, and supported Word pictures in
+  `Research/Attachments`. A source note already in the vault is linked instead. See [Import a manuscript](import-manuscript.md).
 
 ## Keeping the order up to date
 
@@ -97,17 +104,19 @@ yet show after the others, by name. A new note is written into the list when som
 
 - **In a binder note:** `binder`, `contents`, and `synopsis`, `status`, `label`, `target` and `notes` for the binder
   itself, and the book's details above. Binders makes the note when you make a binder.
-- **In a folder note:** `synopsis`, `status`, `label`, `target`, `notes`, `export` and `export-as`. It is made the
+- **In a folder note:** `synopsis`, `status`, `label`, `target`, `notes`, `story-date`, `export` and `export-as`. It is made the
   first time you give a folder one of them.
 - **In your notes:** only the properties you change through its views (`synopsis`, `status`, `label`, `target`,
-  `notes`, `export`, `export-as`, and any property you edit in an outliner cell). They are written through
-  Obsidian's own property writer, so the rest of the note stays as it is.
+  `notes`, `story-date`, `story-order`, `export`, `export-as`, and any property you edit in an outliner cell). They are written through
+  Obsidian's own property writer, so the rest of the note stays as it is. Bringing back **Everything** from a folder
+  or binder snapshot can also restore the whole properties block as it was, after a review and a snapshot of now.
 - **Note text** is never rewritten behind your back. It changes only where you type (in a note, or in the
   manuscript, which is Obsidian's own editor), or when you ask: **Split**, **Merge**, **Bring back** a snapshot,
   **Rewrite**, **Replace** and **Replace all** (at the matches only, after a review and a snapshot), and the links repointed after a merge or split when Obsidian is set to update links. Each is ordered
   so the text exists in two places before it leaves the first.
 - **Links in paragraphs that start with a tab** are the one exception. When the note or file they lead to is renamed
-  or moved, Obsidian is set to update links and **Start a paragraph with a tab** is on, the name in the link
+  or moved, Obsidian is set to update links (or you answer its prompt with **Just once**) and **Start a paragraph
+  with a tab** is on, the name in the link
   changes, as Obsidian changes it in every other link, and nothing else in the note does. Obsidian doesn't do this
   itself, because it reads such a line as code. This is the one change to a note's text you didn't ask for one by
   one. See [Paragraphs](paragraphs.md).
@@ -116,8 +125,9 @@ yet show after the others, by name. A new note is written into the list when som
   the notes and files of a binder you import or make from a snapshot, each in a new folder of its own.
 - **Files moved or renamed:** only when you move or rename them (dragging in a view or in the file explorer,
   renaming in a view, grouping), and a folder note or a note's snapshots, which follow when you rename the folder
-  or the note.
-- **Files moved to the trash:** only when you delete, merge or ungroup, and a split you undo.
+  or the note. Bringing back **Everything** from a folder or binder snapshot can also make, rename and move notes
+  and folders inside that folder, after its confirmation and a snapshot of now. It never deletes anything.
+- **Files moved to the trash:** when you delete, merge or ungroup, undo creating or duplicating something, or undo a split.
 - **A binder from a newer version of Binders** is left exactly as it is, and says why when you try to change it.
 - **Nothing is sent anywhere.** See [Privacy](privacy.md).
 

@@ -68,7 +68,7 @@ printers ask for at that page count.
 ## Hyphenation
 
 Where a style justifies its lines, words are broken at the ends of lines as a printed book breaks them. Binders
-carries hyphenation patterns for seven languages:
+carries hyphenation patterns for six languages, with two forms of English:
 
 - English, British and American (American for a book in American or Canadian English, British for any other);
 - German, in the reformed spelling;
