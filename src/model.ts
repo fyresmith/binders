@@ -101,14 +101,32 @@ export const parentOf = (p: string): string => { const q = p.replace(/\/$/, '');
 /** The last name in a path of the list, without a trailing "/". */
 export const nameOf = (p: string): string => p.replace(/\/$/, '').split('/').pop() || '';
 
+/** Each folder's entries of a list and their places in it, worked out once for a list: asked for every folder of a big
+    binder one after another (a redraw does), reading the whole list for each folder was 200 passes over 5,200 entries.
+    Kept by the array itself: a list that is changed is a new array (never written into once it has been used). */
+const ranks = new WeakMap<string[], Map<string, Map<string, number>>>();
+function ranksOf(contents: string[]): Map<string, Map<string, number>> {
+	const kept = ranks.get(contents);
+	if (kept) return kept;
+	// (names compare in the composed Unicode form: a name typed in the other form is still the note's)
+	const nfc = (s: string) => s.normalize('NFC');
+	const made = new Map<string, Map<string, number>>();
+	contents.forEach((p, i) => {
+		const f = nfc(parentOf(p));
+		let m = made.get(f);
+		if (!m) made.set(f, m = new Map<string, number>());
+		m.set(nfc(nameOf(p) + (p.endsWith('/') ? '/' : '')), i);
+	});
+	ranks.set(contents, made);
+	return made;
+}
+
 /** Orders the children of one folder in the binder. `folder` is "" for the binder's top level or ends in "/"; `children`
     are the items actually there (notes without ".md", folders with a trailing "/"). */
 export function orderChildren(contents: string[], folder: string, children: string[]): string[] {
-	// (names compare in the composed Unicode form: a name typed in the other form is still the note's)
-	const nfc = (s: string) => s.normalize('NFC'), f = nfc(folder);
+	const nfc = (s: string) => s.normalize('NFC');
 	const key = (c: string) => nfc(nameOf(c) + (c.endsWith('/') ? '/' : ''));
-	const rank = new Map<string, number>();
-	contents.forEach((p, i) => { if (nfc(parentOf(p)) === f) rank.set(key(p), i); });
+	const rank = ranksOf(contents).get(nfc(folder)) ?? new Map<string, number>();
 	return [...children].sort((a, b) => {
 		const ra = rank.get(key(a)), rb = rank.get(key(b));
 		if (ra != null && rb != null) return ra - rb;

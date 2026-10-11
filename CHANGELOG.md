@@ -84,6 +84,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - In the manuscript, a table wider than the page no longer makes the page jump when you click into its section.
 - Go to next revision task now goes on when the walk has gone to a task in a note outside the binder, instead of the commands disappearing.
 - A snapshots window you have opened a line in no longer shuts it again when Binders writes its progress record.
+- Deleting notes, and redrawing a big binder, is faster: a binder of 5,000 notes in 200 folders no longer re-reads its whole list for every folder.
 
 ## 0.51.1 (2026-10-10)
 

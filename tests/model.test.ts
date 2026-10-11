@@ -199,4 +199,20 @@ const j = (x: unknown) => JSON.stringify(x);
 	eq(stepIndex(s, 'z', 1), null, 'not there');
 }
 
+// ordering the folders of a big binder one after another costs the list once, not once for each folder (a redraw asks
+// for all 200 folders of a 5,000-note binder, and was 200 passes over 5,200 entries). Measured against the same
+// run's first call, so a slow machine proves nothing either way.
+{
+	const contents: string[] = [], kids: string[][] = [];
+	for (let d = 0; d < 200; d++) { contents.push(`Part ${d}/`); kids.push([]); for (let n = 0; n < 25; n++) { contents.push(`Part ${d}/Scene ${n}`); kids[d].push(`Part ${d}/Scene ${24 - n}`); } }
+	const first = (() => { const t0 = performance.now(); orderChildren(contents, 'Part 0/', kids[0]); return performance.now() - t0; })();
+	const t0 = performance.now();
+	for (let d = 1; d < 200; d++) orderChildren(contents, `Part ${d}/`, kids[d]);
+	const rest = performance.now() - t0;
+	ok(rest < 40 * first + 5, `199 more folders of the same list took ${rest.toFixed(1)} ms, the first took ${first.toFixed(1)} ms (limit: 40 times as long)`);
+	eq(j(orderChildren(contents, 'Part 7/', kids[7])), j(Array.from({ length: 25 }, (_, n) => `Part 7/Scene ${n}`)), 'and the order is still the list’s');
+	const again = contents.slice(); again.reverse();
+	eq(j(orderChildren(again, 'Part 7/', kids[7])), j(Array.from({ length: 25 }, (_, n) => `Part 7/Scene ${24 - n}`)), 'a different list is read again');
+}
+
 done('model');
