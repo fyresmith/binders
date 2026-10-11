@@ -65,6 +65,8 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - Bring back no longer writes over a note you made since at the path of a deleted note, when both have three or more paragraphs and share none: the old note is made again beside it.
 - A snapshot name that fits in 120 characters but is too long for a file name (accented or other multi-byte letters) is now refused in plain words instead of showing a raw error.
 - Quitting Obsidian no longer waits on the progress record when nothing is waiting to be written.
+- On a touch device, in a pane narrower than about 300 px, the toolbar no longer overflows: Undo is left out there, and is still in More options.
+- In a very narrow pane, such as a small window zoomed to 300%, nothing in the toolbar spills off the side.
 
 ## 0.51.1 (2026-10-10)
 

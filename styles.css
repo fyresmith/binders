@@ -3025,6 +3025,10 @@
 	.binders-toolbar > .binders-word-count {
 		display: none;
 	}
+	/* (and Undo, the fifth button, which a sliver has no room for: it is in More options) */
+	.binders-toolbar-button.binders-undo-button {
+		display: none;
+	}
 }
 
 /* ---- Snapshots ---- */
@@ -3540,6 +3544,14 @@ body.binders-focus .workspace .mod-root .workspace-tabs.mod-stacked .workspace-t
    in More options, where it shows as soon as there is something to make again. The view's name and the count keep their room.) */
 @container binders-view (width < 440px) {
 	.binders-toolbar-button.binders-redo-button {
+		display: none;
+	}
+}
+
+/* (and in a pane under 300px with fingers to hit, five buttons a finger wide overflow the toolbar: Undo gives way too, and
+   is in More options with Redo) */
+@container binders-view (width < 300px) {
+	.is-mobile .binders-toolbar-button.binders-undo-button {
 		display: none;
 	}
 }

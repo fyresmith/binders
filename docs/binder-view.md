@@ -37,7 +37,7 @@ From left to right:
 | The mode button | Switches between **Corkboard**, **Outliner**, **Manuscript** and **Timeline** |
 | The breadcrumb | Inside a folder, shows the way back up to the binder. Click a name to go there |
 | The word count | The words in the binder or folder shown. With a target, it reads "282 / 60,000 words" and a bar shows how far along you are. A tick on the bar is where the plan to the book's [deadline](progress.md#a-deadline) has it today, and the count's tooltip says "204 a day to 18 December". Click it to open the [progress window](progress.md), where the target and the deadline are set (a Longform project has no deadline: there a click still sets the target) |
-| **Undo** and **Redo** | Take back and make again the last change made by hand to the binder. Dimmed when there is nothing to do; the tooltip says what it would do. On a narrow pane **Redo** is in **More options** instead. See [Undo and redo](undo.md) |
+| **Undo** and **Redo** | Take back and make again the last change made by hand to the binder. Dimmed when there is nothing to do; the tooltip says what it would do. On a narrow pane **Redo** is in **More options** instead, and on a touch screen in a pane under about 300 px so is **Undo**. See [Undo and redo](undo.md) |
 | **Arrange** | On the corkboard: lays the cards out in a grid or by label. See [Corkboard](corkboard.md#arrange-by-label). On the timeline: which way time runs, down or across. See [Timeline](timeline.md#time-down-or-across) |
 | **Filter** | Shows only the notes that match conditions on any property, in all four modes ([Filters](filters.md)) |
 | **New** | Makes a new note or a new folder (on the timeline, a note) |
