@@ -134,7 +134,8 @@ const AUTO = /^\d{4}-\d\d-\d\d \d\d\.\d\d\.\d\d Before bringing back .+\.auto\.b
 const bytes = (p) => p.ev(`(async () => { const o = {}; for (const f of app.vault.getMarkdownFiles()) o[f.path] = [...new Uint8Array(await app.vault.adapter.readBinary(f.path))].map(x => x.toString(16).padStart(2, '0')).join(''); return o; })()`);
 const hexOf = (text) => Buffer.from(text, 'utf8').toString('hex');
 const textOf = (hexed) => Buffer.from(hexed, 'hex').toString('utf8');
-const allFiles = (p) => p.ev(`app.vault.getFiles().map(f => f.path).sort()`);
+// (without the progress record in the binder's Snapshots/History: it is kept by itself as the work is done, and is no snapshot)
+const allFiles = (p) => p.ev(`app.vault.getFiles().map(f => f.path).filter(x => !x.includes('/Snapshots/History/')).sort()`);
 /** A binder note without its list of contents (a Longform index without its scenes): what a reorder must not touch. */
 const butOrder = (hexed) => textOf(hexed).replace(/^( *)(contents|scenes):\n(?:\1 +.*\n|\1- .*\n)*/m, '');
 const ordered = (p, folder) => p.ev(`${B}.orderedChildren(${file(folder)}).map(f => f.name)`);
@@ -151,6 +152,8 @@ async function backScreen(p, scope = null) {
 		await clickIn(p, DLG + ' .modal-setting-titlebar-actions button', 'Bring back...');
 		await until(p, `!!document.querySelector(${j(BACK + ' .binders-folder-snapshots-plan ul')})`, 20000);
 	}
+	if (scope) await until(p, `!!document.querySelector(${j(BACK + ' select')})`, 20000);
+	if (scope && !(await p.ev(`!!document.querySelector(${j(BACK + ' select')})`))) throw new Error('the Bring back screen is not there: ' + (await p.ev(`[...document.querySelectorAll('.modal')].map(m => m.className + ' | ' + m.textContent.slice(0, 120)).join(' ## ') + ' || notices: ' + [...document.querySelectorAll('.notice')].map(n => n.textContent).join(' // ')`)));
 	if (scope) await p.ev(`(() => { const s = document.querySelector(${j(BACK + ' select')}); s.value = ${j(scope)}; s.dispatchEvent(new Event('change')); return 1; })()`);
 	await sleep(p, 250);
 	return p.ev(`(() => { const m = document.querySelector(${j(BACK)}), li = (c) => [...m.querySelectorAll('.' + c + ' li')].map(e => e.textContent); return { title: m.querySelector('.modal-title').textContent, intro: m.querySelector('.modal-content > p').textContent, options: [...m.querySelector('select').options].map(o => o.value + '=' + o.textContent), will: li('binders-folder-snapshots-plan-will'), left: li('binders-folder-snapshots-plan-left'), head: m.querySelector('.binders-folder-snapshots-plan-head')?.textContent ?? '', buttons: [...m.querySelectorAll('.modal-button-container button')].map(b => b.textContent + (b.disabled ? ' (off)' : '')) }; })()`);
@@ -178,6 +181,8 @@ async function aged(p, dir, name, D = SN) {
 }
 
 test('scopes, Escape and Cancel: Escape and Cancel change nothing and take no snapshot; “text” leaves the order, “order” leaves the text; the snapshot taken first returns every byte; twice in a row does nothing the second time', async (p, h, t) => {
+	// (the progress record writes its file in the Snapshots folder as work is done, and the open dialog redraws its list for each file made or moved there: not what is tried here)
+	await p.ev(`(async () => { ${PL}.settings.recordProgress = false; await ${PL}.saveSettings(); })().then(() => 1)`);
 	const then = await aged(p, L, 'Draft');
 	await work(p);
 	const before = await bytes(p), files = await allFiles(p), order = await contents(p);
@@ -188,6 +193,7 @@ test('scopes, Escape and Cancel: Escape and Cancel change nothing and take no sn
 	same(t, before, await bytes(p)); t.eq(j(await allFiles(p)), j(files), 'Escape: no file made, none changed');
 	await backScreen(p);
 	await clickIn(p, BACK + ' .modal-button-container button', 'Cancel');
+	await until(p, `!document.querySelector(${j(BACK)})`);
 	same(t, before, await bytes(p)); t.eq(j(await allFiles(p)), j(files), 'Cancel: no file made, none changed');
 	// the text alone
 	await backScreen(p, 'text');

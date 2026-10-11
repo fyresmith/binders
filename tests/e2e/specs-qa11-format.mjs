@@ -368,12 +368,17 @@ test('closed vault: a binder folder renamed, a folder replaced, a stale folder n
 	const uno = await shown(p, 'Off/Uno');
 	t.ok(uno.includes('A.md') && uno.includes('B.md') && uno.includes('One.md'), 'Uno shows its old-named folder note as a scene, and loses nothing: ' + j(uno));
 	t.eq(await mtime(p, 'Off/Off.md'), m, 'binder note not written at startup');
-	for (const [f, x] of Object.entries(disk)) t.eq(await read(p, f), x, f + ' unchanged by startup');
+	// the record of writing is the plugin's own file: a day's line is added at startup, so it is checked for what
+	// it had (every line still there), not for the same bytes
+	const kept = (x, now) => x.split('\n').filter(Boolean).every((l) => now.split('\n').includes(l));
+	for (const [f, x] of Object.entries(disk)) if (!f.includes('/Snapshots/History/')) t.eq(await read(p, f), x, f + ' unchanged by startup');
+	for (const [f, x] of Object.entries(disk)) if (f.includes('/Snapshots/History/')) t.ok(kept(x, await read(p, f)), f + ' keeps every line it had');
 	// a change now: the first write
 	await p.ev(`${B}.moveDown(${file('Off/Top.md')}).then(() => 1)`);
 	await settle(p);
 	const after = await snap();
-	for (const [f, x] of Object.entries(disk)) if (f !== 'Off/Off.md') t.eq(after[f], x, f + ' unchanged by the write');
+	for (const [f, x] of Object.entries(disk)) if (f !== 'Off/Off.md' && !f.includes('/Snapshots/History/')) t.eq(after[f], x, f + ' unchanged by the write');
+	for (const [f, x] of Object.entries(disk)) if (f.includes('/Snapshots/History/')) t.ok(kept(x, after[f] ?? ''), f + ' keeps every line it had after the write');
 	t.ok(/synopsis: keep me/.test(after['Off/Off.md']), 'the binder note keeps its other property');
 	t.eq(split(after['Off/Off.md']).body, "the note's own text\n", 'and its text');
 }));
@@ -437,7 +442,11 @@ test('a case-only rename of the binder folder and of a subfolder with its folder
 	await settle(p);
 	await p.ev(`app.fileManager.renameFile(${file('Case/sub')}, 'Case/SUB').then(() => 1, (e) => String(e))`);
 	await settle(p);
-	t.eq(j((await dir(p, 'Case')).sort()), j(['Case.md', 'SUB', 'Z.md']), 'folder renamed');
+	// (the binder's Snapshots folder appears once anything is recorded: it holds only the record)
+	const listed = (await dir(p, 'Case')).filter((x) => x !== 'Snapshots');
+	t.eq(j(listed.sort()), j(['Case.md', 'SUB', 'Z.md']), 'folder renamed');
+	const snaps = await p.ev(`app.vault.adapter.list('Case/Snapshots').then(l => [...l.files, ...l.folders].map(x => x.split('/').pop()).sort(), () => null)`);
+	t.ok(snaps === null || j(snaps) === j(['History']), 'the Snapshots folder holds only the record: ' + j(snaps));
 	t.ok(await exists(p, 'Case/SUB/SUB.md'), 'folder note followed in case: ' + j(await dir(p, 'Case/SUB')));
 	t.eq(j(await contents(p, 'Case/Case.md')), j(['SUB/', 'SUB/B', 'SUB/A', 'Z']), 'list followed');
 	await p.ev(`app.fileManager.renameFile(${file('Case')}, 'CASE').then(() => 1, (e) => String(e))`);

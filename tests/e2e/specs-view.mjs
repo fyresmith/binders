@@ -330,8 +330,8 @@ test('word count, and the binder’s target', withTidy(async (p, h, t) => {
 
 test('the toolbar is laid out as a base’s: the view first, the way up only inside a subfolder, the target as a bar', withTidy(async (p, h, t) => {
 	await openView(p);
-	const order = () => p.ev(`[...document.querySelector('.workspace-leaf.mod-active .binders-toolbar').children].filter(e => e.getBoundingClientRect().width > 0 && !e.classList.contains('binders-toolbar-spacer')).map(e => e.className.split(' ').find(c => /^binders-(mode|arrange|filter|new)-button$|^binders-(breadcrumbs|progress|word-count)$/.test(c)))`);
-	t.eq(j(await order()), j(['binders-mode-button', 'binders-word-count', 'binders-arrange-button', 'binders-filter-button', 'binders-new-button']), 'on the binder itself: the view, the count, Arrange, Filter, New');
+	const order = () => p.ev(`[...document.querySelector('.workspace-leaf.mod-active .binders-toolbar').children].filter(e => e.getBoundingClientRect().width > 0 && !e.classList.contains('binders-toolbar-spacer')).map(e => e.className.split(' ').find(c => /^binders-(mode|arrange|filter|new)-button$|^binders-(undo|redo)-button$|^binders-(breadcrumbs|progress|word-count)$/.test(c)))`);
+	t.eq(j(await order()), j(['binders-mode-button', 'binders-word-count', 'binders-undo-button', 'binders-redo-button', 'binders-arrange-button', 'binders-filter-button', 'binders-new-button']), 'on the binder itself: the view, the count, Undo, Redo, Arrange, Filter, New');
 	const bar = await p.ev(`(() => { const b = document.querySelector('.workspace-leaf.mod-active .binders-toolbar').getBoundingClientRect(), v = document.querySelector('.workspace-leaf.mod-active .view-content').getBoundingClientRect(); return { left: b.left - v.left, right: v.right - b.right, top: b.top - v.top }; })()`);
 	t.eq(j(bar), j({ left: 0, right: 0, top: 0 }), 'edge to edge under the header, as a base’s toolbar is');
 	await p.ev(`app.fileManager.processFrontMatter(${file(NOTE)}, fm => { fm.target = 212; }).then(() => 1)`);
@@ -340,7 +340,7 @@ test('the toolbar is laid out as a base’s: the view first, the way up only ins
 	const fill = await p.ev(`(() => { const b = document.querySelector('.workspace-leaf.mod-active .binders-progress'), f = b.firstElementChild; f.getAnimations().forEach(a => a.finish()); return f.getBoundingClientRect().width / b.getBoundingClientRect().width; })()`);
 	t.ok(Math.abs(fill - 0.5) < 0.05, 'and is half full: ' + fill);
 	await openView(p, 'The Lighthouse/Part One');
-	t.eq(j(await order()), j(['binders-mode-button', 'binders-breadcrumbs', 'binders-word-count', 'binders-arrange-button', 'binders-filter-button', 'binders-new-button']), 'in a subfolder: the way up too');
+	t.eq(j(await order()), j(['binders-mode-button', 'binders-breadcrumbs', 'binders-word-count', 'binders-undo-button', 'binders-redo-button', 'binders-arrange-button', 'binders-filter-button', 'binders-new-button']), 'in a subfolder: the way up too');
 	t.eq(j(await crumbs(p)), j(['The Lighthouse', 'Part One']), 'the binder, then the folder');
 }));
 
@@ -507,7 +507,7 @@ const TOOLBAR = `(() => {
 		whole: [b.querySelector('.text-button-icon:not(.mod-aux)'), b.querySelector('.mod-aux')].every(e => { const r = box(e); return r.w >= 12 && r.l >= br.l - 0.5 && r.r <= br.r + 0.5; }),
 		button: Math.round(br.w), out: Math.round(Math.max(0, ...kids.map(k => k.r)) - bar.getBoundingClientRect().right), overlap: kids.filter((k, i) => i && k.l < kids[i - 1].r - 0.5).map(k => k.cls),
 		count: shown(count) ? { text: count.innerText.trim(), cut: count.scrollWidth - count.clientWidth } : null,
-		up: shown(up) ? { text: up.textContent, w: Math.round(box(up).w), cut: up.scrollWidth - up.clientWidth } : null,
+		up: shown(up) ? { text: up.textContent, w: Math.round(box(up).w), min: Math.round(parseFloat(getComputedStyle(up).minWidth)), cut: up.scrollWidth - up.clientWidth } : null,
 	};
 })()`;
 async function modeButtonAt(p, t, where, setWidth) {
@@ -533,11 +533,11 @@ async function modeButtonAt(p, t, where, setWidth) {
 				if (bar.count) t.ok(bar.count.cut <= 0 && /^\d+( words)?$/.test(bar.count.text) && / words$/.test(bar.count.text) === w >= 360, `${what}: the count is whole: ${j(bar.count)}`);
 				if (w < 360) t.ok(bar.button <= (where === 'a phone' ? 76 : 52), `${what}: the button takes its icon and chevron’s room and no more: ${bar.button} px`);
 				// (without the name the way up is never cut to less than a few letters; and it has the room the name took: more at 359 px,
-				// without the name, than at 360 px with it)
+				// without the name, than at 360 px with it; unless the toolbar's buttons, Undo among them, already leave it only its least, 3em)
 				if (folder !== 'The Lighthouse') {
-					t.ok(bar.up && bar.up.text === 'The Lighthouse' && (w >= 360 || bar.up.w >= 40), `${what}: the way up is there: ${j(bar.up)}`);
+					t.ok(bar.up && bar.up.text === 'The Lighthouse' && (w >= 360 || bar.up.w >= Math.min(40, bar.up.min)), `${what}: the way up is there: ${j(bar.up)}`);
 					ups[`${folder} ${mode} ${w}`] = bar.up.w;
-					if (w === 360) t.ok(ups[`${folder} ${mode} 359`] > bar.up.w || bar.up.cut <= 0, `${what}: the way up had more room at 359 px, without the mode’s name (${ups[`${folder} ${mode} 359`]} px), than it has here with it (${bar.up.w} px)`);
+					if (w === 360) t.ok(ups[`${folder} ${mode} 359`] > bar.up.w || bar.up.cut <= 0 || bar.up.w <= bar.up.min, `${what}: the way up had more room at 359 px, without the mode’s name (${ups[`${folder} ${mode} 359`]} px), than it has here with it (${bar.up.w} px; its least is ${bar.up.min} px)`);
 				}
 			}
 		}
@@ -722,8 +722,10 @@ test('what is still in a field when Obsidian quits is written first: a card’s 
 	const quit = () => p.ev(`(async () => { const ps = []; app.workspace.trigger('quit', { addPromise: (x) => ps.push(x), add: (fn) => ps.push(Promise.resolve().then(fn)) }); await Promise.all(ps); return ps.length; })()`);
 	const fmOf = async (path) => split(await read(p, path)).yaml;
 	await openView(p);
-	// (a view with nothing in a field asks the quit to wait for nothing)
-	t.eq(await quit(), 0, 'nothing being typed: the quit isn’t held up');
+	// (a view with nothing in a field asks the quit to wait for nothing; the progress record asks it to wait once, to write its day,
+	// and that is the one there is with nothing typed)
+	const RECORD = 1;
+	t.eq(await quit(), RECORD, 'nothing being typed: the view doesn’t hold the quit up, only the progress record’s own write');
 	// a card's synopsis: the card selected, then its synopsis clicked
 	const c = await p.at(card(L + 'Epilogue.md'));
 	await p.click(c.x, c.t + c.h - 12);
@@ -731,7 +733,7 @@ test('what is still in a field when Obsidian quits is written first: a card’s 
 	await p.click(s.x, s.y);
 	t.eq(await p.ev(`document.activeElement.tagName`), 'TEXTAREA', 'a card’s synopsis is being typed in');
 	await p.type(' Typed late.');
-	t.eq(await quit(), 1, 'the quit is asked to wait, once');
+	t.eq(await quit(), RECORD + 1, 'the quit is asked to wait, once more');
 	t.ok(/^synopsis: .*Typed late\.$/m.test(await fmOf(L + 'Epilogue.md')), 'and the synopsis is in the note by the time it’s done: ' + (await fmOf(L + 'Epilogue.md')));
 	t.eq(split(await read(p, L + 'Epilogue.md')).body, split(before[L + 'Epilogue.md']).body, 'whose text is as it was');
 	await p.key('Escape');

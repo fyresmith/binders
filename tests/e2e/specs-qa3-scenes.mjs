@@ -36,7 +36,8 @@ const run = (p, id) => p.ev(`(() => { app.commands.executeCommandById('binders:$
 const notices = (p) => p.ev(`(() => { const probe = new Notice(''), docs = new Set([document, probe.noticeEl.ownerDocument]); probe.hide(); return [...docs].flatMap(d => [...d.querySelectorAll('.notice')]).map(n => n.textContent).filter(x => x).join('|'); })()`);
 const clearNotices = (p) => p.ev(`(() => { const probe = new Notice(''), docs = new Set([document, probe.noticeEl.ownerDocument]); probe.hide(); for (const d of docs) d.querySelectorAll('.notice').forEach(n => n.remove()); return 1; })()`);
 const fm = (p, path) => p.ev(`JSON.stringify(app.metadataCache.getFileCache(${file(path)})?.frontmatter ?? null)`).then(JSON.parse);
-const files = (p) => p.ev(`app.vault.getFiles().map(f => f.path).sort()`);
+// (the binder's record of its writing, in its Snapshots folder's History, is the plugin's own file: never a note, never listed)
+const files = (p) => p.ev(`app.vault.getFiles().map(f => f.path).filter(x => !x.includes('/Snapshots/History/')).sort()`);
 const settle = async (p) => { await p.sleep(150); await flush(p); await p.sleep(500); };
 /** Writes a note (making it if need be) and waits for the cache. */
 const setNote = async (p, path, text) => { await p.ev(`(async () => { const f = app.vault.getAbstractFileByPath(${j(path)}); if (f) await app.vault.modify(f, ${j(text)}); else await app.vault.create(${j(path)}, ${j(text)}); })().then(() => 1)`); await p.sleep(350); };
@@ -1241,7 +1242,7 @@ const WALK = `async (seed, steps, burst) => {
 	let x = seed >>> 0; const rand = () => { x = (x + 0x6D2B79F5) >>> 0; let t = x; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 	const pick = (a) => a[Math.floor(rand() * a.length)], sleep = (ms) => new Promise(r => setTimeout(r, ms));
 	const root = () => vault.getAbstractFileByPath(ROOT);
-	const all = () => vault.getAllLoadedFiles().filter(f => f.path.startsWith(ROOT + '/') && !store.isHiddenNote(f));
+	const all = () => vault.getAllLoadedFiles().filter(f => f.path.startsWith(ROOT + '/') && !f.path.includes('/Snapshots/History') && !store.isHiddenNote(f));
 	const folders = () => [root(), ...all().filter(f => f.children)];
 	const depth = (f) => f.path.split('/').length;
 	const before = {}; for (const f of vault.getMarkdownFiles()) before[f.path] = await vault.adapter.read(f.path);
