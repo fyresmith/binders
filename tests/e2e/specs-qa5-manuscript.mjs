@@ -47,7 +47,9 @@ export function snap(p) {
 }
 /** The vault is what it was, byte for byte, but for `changes` (path → the whole text expected; null: gone). */
 export function sameBut(t, before, after, changes = {}) {
+	// The progress record (`Snapshots/History`) is Binders' own, written as the writer types; it holds numbers, never text.
 	for (const k of new Set([...Object.keys(before), ...Object.keys(after), ...Object.keys(changes)])) {
+		if (/\/Snapshots\/History\//.test(k) && !(k in changes)) continue;
 		if (k in changes) { if (changes[k] === null) t.ok(!(k in after), `“${k}” is gone`); else t.eq(after[k], changes[k], `“${k}” on disk`); }
 		else t.eq(after[k], before[k], `“${k}” is unchanged on disk`);
 	}
@@ -1305,9 +1307,13 @@ ux('phone: a task list (4 px taller rendered), and at 320 px a quote (a whole li
 // =====================================================================================================================
 
 const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+const cols = Array.from({ length: 30 }, (_, k) => String.fromCharCode(65 + (k % 26)) + (k >= 26 ? 'x' : ''));
+const row = (c) => '| ' + c.join(' | ') + ' |';
 const MIXED = {
 	Para: 'A long paragraph. ' + 'The sea kept on at the rocks below and nobody came up the stair that night or the next. '.repeat(6).trim() + '\n',
-	Table: 'Before the table.\n\n| Day | Weather at the light | Ships seen from the gallery | Notes kept by the keeper |\n| --- | --- | --- | --- |\n| Monday | Fog from the south-west | Two trawlers and a collier | Nothing to report at all |\n| Tuesday | Clear | None | Lamp trimmed |\n\nAfter the table.\n',
+	// Thirty columns: a word wraps anywhere in a section shown as text (since 0.46.23), so a table is wider than a small
+	// phone only when even its narrowest columns (a letter and the cell's padding) don't fit.
+	Table: `Before the table.\n\n${row(cols)}\n${row(cols.map(() => '---'))}\n${row(cols.map((c, k) => k))}\n${row(cols.map((c, k) => k * 2))}\n\nAfter the table.\n`,
 	Code: 'Before the code.\n\n```js\nconst light = keeper.climb(stairs).then((lamp) => lamp.trim()).then((lamp) => lamp.light()).catch(() => console.log("dark"));\n```\n\nAfter the code.\n',
 	Callout: '> [!note] A note\n> The callout’s text, long enough to wrap on a phone’s screen at least once or twice.\n\nAfter the callout.\n',
 	Tasks: '- [ ] Trim the lamp\n- [x] Wind the clock\n- [ ] Write the log\n',

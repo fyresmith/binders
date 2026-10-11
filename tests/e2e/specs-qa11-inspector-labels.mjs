@@ -17,6 +17,8 @@ const PROLOGUE = L + 'Prologue.md', ARRIVAL = P1 + 'Arrival.md', KEEPER = P1 + '
 const WRECK = P2 + 'The wreck.md', LIGHTS = P2 + 'Lights out.md';
 const LEAF = '.workspace-leaf.mod-active';
 const CORK = `${LEAF} .binders-view`;
+// (the binder view whether or not it is the active leaf: the inspector, once typed in, is)
+const VIEWCARD = '.workspace-leaf-content[data-type="binders-view"]';
 // the lines of a board arranged by label: "No label" is 0, then the eight labels in settings order
 const LINE = { Blue: 6 };
 const DEFAULTS = `{ labels: [['Red','red'],['Orange','orange'],['Yellow','yellow'],['Green','green'],['Cyan','cyan'],['Blue','blue'],['Purple','purple'],['Pink','pink']].map(([name, color]) => ({ name, color })), statuses: ['Idea','Draft','Revised','Done'], explorerLabels: true, hideBinderNotes: true, orderExplorer: true, openOnClick: true, synopsisProp: 'synopsis', statusProp: 'status', labelProp: 'label', targetProp: 'target' }`;
@@ -49,7 +51,7 @@ async function side(p) {
 }
 /** The binder view on a folder, in a mode (arranged by label when `arrange` is given). */
 async function board(p, folder, mode = 'corkboard', arrange = null) {
-	await openView(p, folder);
+	await openView(p, folder.replace(/\/$/, ""));
 	await p.ev(`(async () => { const v = ${VIEW}; await v.leaf.setViewState({ type: 'binders-view', active: true, state: { ...v.getState(), mode: ${j(mode)}, options: ${j(arrange ? { arrange } : {})} } }); })().then(() => 1)`);
 	await until(p, `!!document.querySelector('${CORK} .binders-card[data-path]') || !!document.querySelector('${LEAF} .binders-lanes')`);
 	await p.sleep(400);
@@ -148,12 +150,13 @@ test('a status renamed in settings: the folder note and every note that had it c
 	await setFm(p, WRECK, { status: 'Draft' });
 	await openSettings(p);
 	await typeName(p, 'status', 1, 'Drafting');
-	const asked = await p.ev(`[...document.querySelectorAll('.modal')].map(m => m.textContent).join(' | ')`);
-	// (the folder note, The keeper, The wreck and Prologue: four in the binder, Prologue's "draft" in lower case too)
-	t.ok(/4 notes have the status “Draft”/.test(asked), 'the question counts the four: ' + asked.slice(0, 200));
+	await until(p, `[...new Set([document, app.setting?.activeTab?.containerEl?.ownerDocument].filter(Boolean))].flatMap(d => [...d.querySelectorAll('.modal')]).some(m => m.textContent.includes('have the status'))`, 4000);
+	const asked = await p.ev(`[...new Set([document, app.setting?.activeTab?.containerEl?.ownerDocument].filter(Boolean))].flatMap(d => [...d.querySelectorAll('.modal')]).map(m => m.textContent).join(' | ')`);
+	// (the folder note, The keeper, The wreck, Prologue and the Longform demo's Island: five in the vault's binders, "draft" in lower case too)
+	t.ok(/5 notes have the status “Draft”/.test(asked), 'the question counts the five: ' + asked.slice(0, 200));
 	t.ok(await answer(p, 'Change them'), 'answered yes');
 	await closeSettings(p);
-	const want = { [note]: 'Drafting', [KEEPER]: 'Drafting', [WRECK]: 'Drafting', [PROLOGUE]: 'Drafting', [ARRIVAL]: 'revised', [STORM]: 'idea' };
+	const want = { [note]: 'Drafting', [KEEPER]: 'Drafting', [WRECK]: 'Drafting', [PROLOGUE]: 'Drafting', 'Longform demo/Island.md': 'Drafting', [ARRIVAL]: 'revised', [STORM]: 'idea' };
 	for (const [path, s] of Object.entries(want)) t.eq((await fm(p, path)).status, s, `“${path}” has ${s}`);
 });
 
@@ -193,7 +196,7 @@ test('a synopsis full of YAML’s punctuation is written as typed, read back the
 	await p.sleep(400);
 	t.eq((await fm(p, ARRIVAL)).synopsis, typed, 'the note’s synopsis is exactly what was typed');
 	t.eq(await sharedBody(p, ARRIVAL), before, 'the body is byte for byte what it was');
-	t.ok((await p.ev(`document.querySelector(${j(CORK + ' .binders-card[data-path="' + ARRIVAL + '"] .binders-card-synopsis')})?.textContent ?? ''`)).includes('“Mara” arrives'), 'the card shows it');
+	t.ok((await p.ev(`document.querySelector(${j(VIEWCARD + ' .binders-card[data-path="' + ARRIVAL + '"] .binders-card-synopsis')})?.textContent ?? ''`)).includes(typed), 'the card shows it as typed');
 });
 
 test('a synopsis with a line break is kept as two lines in the note, and both lines reach the card', async (p, h, t) => {
@@ -206,7 +209,7 @@ test('a synopsis with a line break is kept as two lines in the note, and both li
 	await p.key('Enter', 'ctrl');
 	await p.sleep(400);
 	t.eq((await fm(p, STORM)).synopsis, 'First line\nsecond line', 'the note has the two lines');
-	t.ok((await p.ev(`document.querySelector(${j(CORK + ' .binders-card[data-path="' + STORM + '"]')})?.textContent ?? ''`)).includes('second line'), 'the card shows the second line');
+	t.ok((await p.ev(`document.querySelector(${j(VIEWCARD + ' .binders-card[data-path="' + STORM + '"]')})?.textContent ?? ''`)).includes('second line'), 'the card shows the second line');
 });
 
 test('statuses that YAML would read as something else (null, a date, yes, a tag, a colon and a comma) are written and shown as text', async (p, h, t) => {
@@ -239,12 +242,12 @@ test('several notes with different labels: the inspector says Mixed, and a label
 	await field(p, 'label');
 	t.ok((await menuItems(p)).includes('No label'), 'Mixed offers No label, as a status does');
 	await clickMenu(p, 'Green');
-	await p.sleep(400);
+	await until(p, `[${j(ARRIVAL)}, ${j(KEEPER)}, ${j(STORM)}].every(f => app.metadataCache.getFileCache(app.vault.getAbstractFileByPath(f))?.frontmatter?.label === 'Green')`, 4000);
 	for (const path of [ARRIVAL, KEEPER, STORM]) t.eq((await fm(p, path)).label, 'Green', `${path.split('/').pop()} is Green`);
 	t.eq(await fieldText(p, 'label'), 'Green', 'and the inspector says Green for all');
 	await field(p, 'label');
 	await clickMenu(p, 'No label');
-	await p.sleep(400);
+	await until(p, `[${j(ARRIVAL)}, ${j(KEEPER)}, ${j(STORM)}].every(f => !app.metadataCache.getFileCache(app.vault.getAbstractFileByPath(f))?.frontmatter?.label)`, 4000);
 	for (const path of [ARRIVAL, KEEPER, STORM]) t.eq((await fm(p, path)).label ?? null, null, `${path.split('/').pop()} has no label`);
 });
 
@@ -312,7 +315,7 @@ for (const [device, width, height] of [['a phone', 390, 844], ['a tablet', 820, 
 	test(`${device}: the inspector’s status and label menus, by touch, write the note and the pane shows the choice`, async (p, h, t) => {
 		await onDevice(p, width, height, async () => {
 			await p.ev(`(() => { for (const t of ['binders-inspector', 'binders-contents']) app.workspace.detachLeavesOfType(t); return 1; })()`);
-			await openView(p, P1);
+			await openView(p, P1.replace(/\/$/, ""));
 			await p.ev(`(() => { ${VIEW}.setMode('corkboard'); return 1; })()`);
 			await until(p, `!!document.querySelector('${CORK} .binders-card[data-path]')`);
 			await p.sleep(300);
@@ -321,6 +324,9 @@ for (const [device, width, height] of [['a phone', 390, 844], ['a tablet', 820, 
 			await tap(p, at.x, at.y);
 			await p.ev(`app.commands.executeCommandById('binders:show-inspector'); 1`);
 			t.ok(await onItem(p, 'Arrival'), device + ': the inspector shows Arrival: ' + (await paneName(p)));
+			// (the sidebar slides in as a drawer on a phone: tapped only once it has come to rest on screen)
+			t.ok(await until(p, `(() => { const r = document.querySelector(${j(fieldSel('status'))})?.getBoundingClientRect(); return !!r && r.left >= 0 && r.right <= innerWidth; })()`, 4000), device + ': the drawer is on screen');
+			await p.sleep(300);
 			const st = await p.at(fieldSel('status'));
 			t.ok(!!st, device + ': the status row is on screen');
 			await tap(p, st.x, st.y);
