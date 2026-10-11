@@ -156,8 +156,9 @@ export const statusOn = (m: Merged, path: string, day: string): string => propOn
 /** The merged record as the window reads it. `statuses`: the draft's statuses in their order (else as first seen). */
 export function toHistory(m: Merged, statuses?: string[]): History {
 	const moves = new Map<string, number>(), marks: Mark[] = [], seen: string[] = [];
+	let orders = 0;
 	for (const e of m.events) {
-		if (e.k === 'order') moves.set(e.d, (moves.get(e.d) ?? 0) + 1);
+		if (e.k === 'order') { moves.set(e.d, (moves.get(e.d) ?? 0) + 1); orders++; }
 		else if (e.k === 'snapshot' && e.name) marks.push({ day: e.d, kind: 'snapshot', what: e.name });
 		else if (e.k === 'export') marks.push({ day: e.d, kind: 'export', what: e.name ?? '' });
 		else if (e.k === 'import') marks.push({ day: e.d, kind: 'import', what: `${e.n ?? 0} ${e.n === 1 ? 'note' : 'notes'}` });
@@ -166,7 +167,7 @@ export function toHistory(m: Merged, statuses?: string[]): History {
 		const notes: Day['notes'] = {};
 		for (const [p, c] of Object.entries(d.notes)) notes[p] = [c[0], c[1], c[2] - c[3]];
 		for (const s of Object.keys(d.status)) if (s && !seen.includes(s)) seen.push(s);
-		return { day: d.day, notes, minutes: d.minutes, hours: d.hours, phone: d.phone, moves: moves.get(d.day) ?? 0, status: d.status, total: d.total, scenes: d.scenes, elsewhere: d.elsewhere };
+		return { day: d.day, notes, minutes: d.minutes, hours: d.hours, phone: d.phone, moves: moves.get(d.day) ?? 0, status: d.status, total: d.total, scenes: d.scenes, elsewhere: d.elsewhere, sittings: d.sittings };
 	});
-	return { days, estimate: [], marks, statuses: statuses ?? seen };
+	return { days, estimate: [], marks, statuses: statuses ?? seen, orders };
 }

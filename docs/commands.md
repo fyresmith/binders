@@ -79,6 +79,12 @@ file in the vault has **Import as a binder...**: the same as **Import a manuscri
 | **Go to previous scene** | Moves to the scene before, in the binder's order | A note of a binder, or the manuscript, in focus mode or out of it |
 | **Go to next scene** | Moves to the scene after | The same |
 
+## Progress
+
+| Command | What it does | Where it applies |
+|---|---|---|
+| **Show progress** | Opens the progress window for the binder: its words over time, the days written on, when each part was written, and its records. See [Progress](progress.md) | A binder view, or a note of a binder |
+
 ## Export
 
 | Command | What it does | Where it applies |

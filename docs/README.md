@@ -45,6 +45,7 @@ New here? Read [Installation](installation.md), then [Getting started](getting-s
 | [Scene notes](scene-notes.md) | Your own notes on a scene, kept out of the book |
 | [Splitting, merging and grouping](splitting-and-merging.md) | Split, merge, duplicate, folders from a selection, ungroup |
 | [Snapshots](snapshots.md) | Setting a scene's text aside before you rewrite it, and keeping the whole binder as it stood |
+| [Progress](progress.md) | How the book has grown: its words over time, the days you wrote, each part's story, and what Binders records to show it |
 | [Undo and redo](undo.md) | Taking back moves, properties, renames, new notes, deletes, merges and splits |
 | [Paragraphs](paragraphs.md) | Paragraphs that start with a tab, and first-line indents |
 | [Focus mode](focus-mode.md) | The text and nothing else |

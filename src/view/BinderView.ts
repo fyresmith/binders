@@ -18,6 +18,7 @@ import { parseTarget, whyNotTarget } from './outliner-data';
 import { readProps, writeBatch, writeProps } from './props';
 import type { BinderMode, ModeContext, SceneProps } from './mode';
 import type { EditorView } from '@codemirror/view';
+import { PROGRESS_ICON, ProgressModal } from './progress';
 import { WordCounter } from './word-counter';
 import { wordsLabel } from './words';
 import { FindBar, type At, type FindHost, type FindSource } from './find-bar';
@@ -361,6 +362,7 @@ export class BinderView extends ItemView {
 			// (the last export of it made once more, with no window: there once there has been one)
 			if (lastExport(this.plugin, folder)) menu.addItem((i) => i.setSection('binders-note').setTitle('Export again').setIcon('book-check').onClick(() => void exportAgain(this.plugin, folder)));
 			folderSnapshotItems(this.plugin, menu, folder, 'binders-note', this.readOnly);
+			menu.addItem((i) => i.setSection('binders-note').setTitle('Show progress').setIcon(PROGRESS_ICON).onClick(() => new ProgressModal(this.plugin, folder).open()));
 			// (the whole book as a list in the sidebar, with where this view is)
 			menu.addItem((i) => i.setSection('binders-note').setTitle('Show contents').setIcon('book-open').onClick(() => this.plugin.showContents()));
 			if (note) menu.addItem((i) => i.setSection('binders-note').setTitle(binder ? 'Open binder note' : 'Open folder note').setIcon('file-text').onClick((e) => void this.app.workspace.getLeaf(Keymap.isModEvent(e)).openFile(note)));

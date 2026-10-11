@@ -21,6 +21,7 @@ import { desktop } from './export/desktop';
 import { followRename } from './export/export';
 import { printer } from './export/pdf';
 import { ExportModal } from './view/export';
+import { PROGRESS_ICON, ProgressModal } from './view/progress';
 import { exportAgain } from './view/export-again';
 import { Styles } from './export/styles';
 import { importDesktop } from './import/desktop';
@@ -224,6 +225,14 @@ export default class BindersPlugin extends Plugin {
 			const view = this.app.workspace.getActiveViewOfType(BinderView);
 			if (!view?.folder || view.readOnly) return false;
 			if (!checking) void view.setTarget();
+			return true;
+		} });
+		// a binder's writing over time, read from its record (view/progress.ts)
+		this.addCommand({ id: 'show-progress', name: 'Show progress', icon: PROGRESS_ICON, checkCallback: (checking) => {
+			const view = this.app.workspace.getActiveViewOfType(BinderView), file = active();
+			const folder = view?.folder ?? (file && this.binders.binderOf(file)?.folder) ?? null;
+			if (!folder) return false;
+			if (!checking) new ProgressModal(this, folder).open();
 			return true;
 		} });
 		this.addCommand({ id: 'export', name: 'Export binder', icon: 'book-up', checkCallback: (checking) => {

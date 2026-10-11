@@ -1,7 +1,7 @@
 // The manual's and the README's pictures: The Lighthouse in each mode (the timeline in both its shapes), arranged by
 // label, the file explorer, the
 // inspector and the contents, the snapshots of a scene and of the binder, focus mode, the Export window (an ebook, a
-// paperback's pages, the style editor), a phone, and the import dialog. 1280×800, with a mouse that hovers, as a
+// paperback's pages, the style editor), a phone, the progress window (three years, and a record's first days), and the import dialog. 1280×800, with a mouse that hovers, as a
 // desktop has. Runs in a throwaway copy of test-vault, like the e2e tests, and fills the book out a little there
 // first (storylines as labels, synopses, a third part), so the pictures show what a book in progress looks like.
 //   npm run build && node tests/e2e/screenshots.mjs [outdir] [--theme dark] [--only corkboard,outliner]
@@ -321,6 +321,32 @@ try {
 	await until(`!!(window.app && app.workspace?.layoutReady && app.plugins?.plugins?.binders?.explorer && !app.isMobile)`, 'Obsidian came back as a computer', 20000);
 	await p.ev(`(async () => { await ${PL}.binders.settled; app.changeTheme(${j(theme === 'dark' ? 'obsidian' : 'moonstone')}); })().then(() => 1)`);
 	await p.sleep(800);
+
+	// progress: the book's writing over three years, and a record three days old. The scenes are filled out to a
+	// novel's length first (text after what each has, so the pictures before this one are as they were), and the
+	// record is written as real history files that the plugin reads (progress-history.mjs).
+	{
+		const { lastDays, novel, plant, recordToday, scenesOf } = await import('./progress-history.mjs');
+		const { rng } = await import('../../scripts/demo-vault/core.mjs'), { text, writer } = await import('../../scripts/demo-vault/prose.mjs'), { EN } = await import('../../scripts/demo-vault/stock/en.mjs');
+		const world = { person: 3, cast: ['Mara:she', 'Harrow:he'], places: ['on the jetty', 'in the lamp room', 'at the foot of the stair'], things: ['the log', 'the lamp', 'a coil of rope'] };
+		const more = (await scenesOf(p, 'The Lighthouse')).map((s, i) => ({ path: `${L}${s.rel}.md`, text: text(writer(EN, world, rng('progress ' + s.rel)).scene({ pov: 'Mara', others: ['Harrow'], words: 1600 + ((i * 977) % 2900) })).split('\n\n').slice(1).join('\n\n') }));
+		await p.ev(`(async () => { for (const m of ${j(more)}) { const f = app.vault.getAbstractFileByPath(m.path); if (f) await app.vault.process(f, (t) => t.replace(/\\s*$/, '') + '\\n\\n' + m.text + '\\n'); } await new Promise(r => setTimeout(r, 1500)); await ${PL}.binders.settled; })().then(() => 1)`);
+		const WINP = '.modal.binders-pot';
+		const progress = async (files, name) => {
+			await plant(p, 'The Lighthouse', files);
+			await p.ev(`(async () => { await ${PL}.openBinder(app.vault.getAbstractFileByPath('The Lighthouse')); app.commands.executeCommandById('binders:show-progress'); })().then(() => 1)`);
+			await until(`!!document.querySelector('${WINP} .binders-chart-life')`, 'the progress window');
+			await p.sleep(1500);
+			await noNotices();
+			await rest();
+			await shot(name);
+			await p.key('Escape');
+			await p.sleep(400);
+		};
+		await progress(novel(await scenesOf(p, 'The Lighthouse'), recordToday()).files, 'progress');
+		await progress(lastDays(await scenesOf(p, 'The Lighthouse'), recordToday(), 3).files, 'progress-first-days');
+		await p.ev(`(async () => { const a = app.vault.adapter, pl = ${PL}; pl.progress.forget(); if (await a.exists('The Lighthouse/Snapshots/History')) await a.rmdir('The Lighthouse/Snapshots/History', true); pl.progress.setDevice(null); pl.progress.forget(); })().then(() => 1)`);
+	}
 
 	// importing from Scrivener: the book as a Scrivener project (Binders' own export of it, zipped into the vault and
 	// taken out of it), chosen as a writer chooses a backup, in a vault that doesn't have the book yet

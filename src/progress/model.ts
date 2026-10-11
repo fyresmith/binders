@@ -1,7 +1,7 @@
 /* Progress over time: what a binder's history is, as the dashboard reads it. Pure (no Obsidian).
 
-   The record (record.ts) keeps it in the devices' files; merge.ts adds those together into this shape (`toHistory`).
-   Until the window is put over the record, `fixture.ts` still makes a history for it to draw. */
+   The record (record.ts) keeps it in the devices' files; merge.ts adds those together into this shape (`toHistory`),
+   and stats.ts works out from it what the window says. */
 
 /** One day of a binder, every device's writing added together. */
 export interface Day {
@@ -10,7 +10,7 @@ export interface Day {
 	/** Words typed and words taken out by typing, by note (its path in the binder, without `.md`), and words that
 	    came or went a block at a time (a paste, an import, a chapter deleted): [added, cut, block]. */
 	notes: Record<string, [number, number, number]>;
-	/** Minutes spent writing. */
+	/** Minutes something was typed in. */
 	minutes: number;
 	/** Words added in each hour of the day (0 to 23) that had any. */
 	hours: Record<number, number>;
@@ -20,9 +20,11 @@ export interface Day {
 	moves: number;
 	/** The binder's words at the day's end, by status ('' for none). */
 	status: Record<string, number>;
-	/** From the record (absent in the stage-2 fixture): the binder's words and scenes as stamped last that day, and the
-	    words its total changed by that no device typed (null where there is no earlier stamp to tell from). */
+	/** The binder's words and scenes as stamped last that day (a day nothing stamped has none), and the words its total
+	    changed by that no device typed (null where there is no earlier stamp to tell from). */
 	total?: number; scenes?: number; elsewhere?: number | null;
+	/** The sittings: the first and last minute of each (minutes since 1970). */
+	sittings?: [number, number][];
 }
 
 /** Something that happened on a day, that the writer named or did: said on the chart in their own words. */
@@ -36,6 +38,8 @@ export interface History {
 	marks: Mark[];
 	/** The statuses in the order a draft goes through them. */
 	statuses: string[];
+	/** How many times the order was changed, on any day (a day with no writing has no `Day` to say it on). */
+	orders?: number;
 }
 
 /** The plan to a deadline: a number of words by a date, the weekdays not written on (0 is Sunday), and where the

@@ -170,7 +170,7 @@ here; that is what keeps the next round short.
   - A worktree's driver for pictures goes in `test-dist/` and imports `../tests/e2e/driver.mjs`; `node_modules` is a
     link to the project's.
 
-- Learned designing progress over time (2026-10-10; stage 2, nothing chosen yet):
+- Learned designing progress over time (2026-10-10 and 11; the round is under "Rounds" below):
   - A chart here is ink: the text color at a few strengths (`color-mix` with `transparent`), the theme's own border
     for rules, the accent for one mark only. It follows any theme with no palette of its own, and a number shown
     large with a small name over it needs no box to be a figure.
@@ -185,6 +185,17 @@ here; that is what keeps the next round short.
   - A `Modal` has a `scope` of its own (its keys): a field of that name on a subclass doesn't compile.
   - For a picture of a whole page that scrolls, grow the emulated viewport and clip to the dialog; a sidebar
     dialog doesn't grow with it.
+  - Two blocks of a stylesheet joined by hand can lose the brace between them, and every rule after it is then
+    nested under the one left open: nothing reports it, the page just has no styles. `tests/styles.test.ts` counts.
+  - A table told to be one pixel wide is as wide as what is in it, and widens a page that scrolls: a table behind a
+    chart goes in a one-pixel box that clips it.
+  - A record usually begins on a book that is already there. An axis from nothing then shows three days of writing
+    as a flat line at the top: start it just under the book, say how many words the book had when the record began,
+    and claim nothing about how the book began.
+  - What a view shows before it has enough to show is designed, not left: fourteen squares that fill, with a
+    sentence saying what they become and in how many days. A year of empty squares with one corner filled looks
+    broken; so does a row of three week-wide cells stretched across the page.
+  - A label that didn't fit on a chart is said under it, with its date. Dropping it silently was the stage-2 fault.
 
 **Rejected, don't propose again:** a colored stripe along the top of a card, pill chips, thin accent or progress
 lines, decoration for its own sake, anything on a card that isn't the writer's own (no badges for snapshots and the
@@ -311,6 +322,26 @@ between?" So a phone has B only, and a computer or a tablet chooses under "Arran
 - **Given up for now:** dragging a card to a date (decided, and the next thing built), eras and a book's own calendar
   (room is left: an era is a band behind the line or a mark in the dates' column, and the month names come from the
   calendar handed in).
+
+**Progress over time (2026-10-10 and 11).** The maintainer: "Let's do an extremely impressive progress over time...
+A modal view scoped to binder where you can see an extremely impressive dashboard of tons of cool and even random
+stats across the life of the binder." Two frames were built over the same hand-drawn charts: A, one page that
+scrolls, and B, Obsidian's two-pane dialog with the folders, the deadline and today in its sidebar. He chose A ("I
+like design A. Take design recs."), with B's range buttons over the book's life, and a record of the binder's
+writing was approved and built first (`docs/progress.md`).
+- **Ink, not a palette.** Every mark is the theme's text color at a strength, the theme's border for rules, and the
+  accent once, for where the book is now. Numbers are large with a small name over them and no box round them.
+- **The chart says what happened**, in words where it happened: the best thirty days, a time away, the deepest cut,
+  and the writer's own names for snapshots and exports.
+- **Never a bad day.** A day that ended shorter is an outline, a time away is a band and a number of days, and the
+  longest run is a record that was set, not a count to keep up. No streak as a headline, no badges, no reminders.
+- **Only what the record can say.** "Written" is typing; a paste is brought in; words nobody typed are "changed
+  elsewhere"; time is the minutes typed in. Dropped for that reason or for needing a word list per language: names
+  used most, the overused word, how a book older than its record began and what it took to write.
+- **The first days are designed** (above), and a part of the page with nothing to say is left out.
+- **Given up for now:** the deadline and its plan (the next step: the chart, the pace and its wording are built and
+  tested in `stats.ts` and `drawLife`, and nothing shows them), a past worked out from snapshots and file dates
+  (`estimate` in the model, drawn as a broken line, always empty), the toolbar's count opening the window.
 
 ## How a design round runs: narrow, then build
 

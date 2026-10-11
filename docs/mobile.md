@@ -145,6 +145,11 @@ from this vault...** also lists notes outside binders and Word files already in 
 **Import from Scrivener...** takes a zipped backup of a project on a phone or tablet. See
 [Import from Scrivener](import-scrivener.md).
 
+## Progress
+
+- **Show progress** is in the binder view's **More options** menu. The window is one column: the numbers two to a
+  row, the calendar in half years, and each part's row without the month it grew most in. See [Progress](progress.md#on-a-phone).
+
 ## Snapshots
 
 After **Rewrite...** from a blank page, the old text is under **Snapshots** instead of opening beside the note.

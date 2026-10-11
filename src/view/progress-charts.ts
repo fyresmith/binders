@@ -19,7 +19,8 @@ const label = (parent: SVGElement, cls: string, x: number, y: number, text: stri
 
 /** A table of what a chart shows, out of sight, for a screen reader. */
 export function table(parent: HTMLElement, caption: string, head: string[], body: string[][]): void {
-	const t = parent.createEl('table', { cls: 'binders-pot-table' });
+	// (in a box of one pixel: a table takes the width of what is in it whatever it is told, and would widen the page)
+	const t = parent.createDiv({ cls: 'binders-pot-table' }).createEl('table');
 	t.createEl('caption', { text: caption });
 	const tr = t.createEl('thead').createEl('tr');
 	for (const h of head) tr.createEl('th', { text: h, attr: { scope: 'col' } });
@@ -49,6 +50,8 @@ export interface LifeOptions {
 	height: number;
 	/** The first day shown (a range chosen), or 0 for all of it. */
 	from: number;
+	/** The words there were before the first day (a book older than its record). */
+	base?: number;
 	/** Told the day under the pointer, or null when it leaves. */
 	hover?: (row: Row | null) => void;
 	/** The axis starts just under the lowest number shown, not at nothing: for a close look at a plan. */
@@ -57,22 +60,23 @@ export interface LifeOptions {
 
 /** The book's life: its words over time as a line, the plan to a deadline and the pace beyond today, what happened
     said where it happened, and under it, on the same days, what was written and what was cut. */
-export function drawLife(el: HTMLElement, o: LifeOptions): void {
+export function drawLife(el: HTMLElement, o: LifeOptions): string[] {
 	el.empty();
+	const unsaid: string[] = [];
 	const { width: W, height: H, today } = o;
 	const narrow = W < 520;
 	const est = o.estimate.map((e) => ({ n: num(e.day), total: e.total }));
 	const all = o.rows, first = all[0]?.n ?? today;
 	const rows = o.from ? all.filter((r) => r.n >= o.from) : all;
 	const plan = o.plan && num(o.plan.deadline) >= (o.from || 0) ? o.plan : null;
-	let x0 = o.from || (est.length ? est[0].n : first), x1 = Math.max(today, plan ? num(plan.deadline) : today);
-	if (x1 - x0 < 13) x0 = x1 - 13; // (a book a day old is a week or two of axis, not one point)
+	let x0 = o.from || (est.length ? est[0].n : first - 1), x1 = Math.max(today, plan ? num(plan.deadline) : today);
+	if (x1 - x0 < 14) x1 = x0 + 14; // (a record a day old is its first two weeks, to be filled: not one point)
 	const BAR = narrow ? 44 : 60, DOWN = narrow ? 14 : 20, FOOT = 20, TOP = 18, padL = 0, padR = plan ? 4 : 10;
 	const plotH = H - BAR - DOWN - FOOT - TOP - 14, base = TOP + plotH, barBase = base + 14 + BAR;
 	const maxTotal = Math.max(1, ...rows.map((r) => r.total), ...est.map((e) => e.total), plan ? plan.target : 0);
 	let lo = 0, { top, ticks } = axis(maxTotal * 1.04);
 	if (o.floor) {
-		const min = Math.min(...rows.map((r) => r.total), plan ? plan.fromTotal : Infinity), a = axis((maxTotal - min) * 1.15), step = a.ticks[0];
+		const min = Math.min(...rows.map((r) => r.total), plan ? plan.fromTotal : Infinity, !o.from && o.base !== undefined ? o.base : Infinity), a = axis((maxTotal - min) * 1.15), step = a.ticks[0];
 		lo = Math.max(0, Math.floor((min - step * 0.25) / step) * step);
 		top = maxTotal + (maxTotal - lo) * 0.1;
 		ticks = [];
@@ -113,9 +117,9 @@ export function drawLife(el: HTMLElement, o: LifeOptions): void {
 			if (k % every === 0 && x(n) < W - 24) label(root, 'is-faint', x(n) + 4, H - 5, d.getUTCMonth() === 0 ? String(d.getUTCFullYear()) : monthName(d.getUTCMonth(), true));
 		}
 	} else {
-		label(root, 'is-faint', 0, H - 5, sayDay(x0, { year: false, short: true }));
-		for (let n = x0 + 5; n <= x1 - 3; n++) if (weekday(n) === 1) label(root, 'is-faint', x(n), H - 5, sayDay(n, { year: false, short: true }), 'middle');
-		label(root, 'is-faint', x(today), H - 5, 'Today', today === x1 ? 'end' : 'middle');
+		if (x(today) - x(first) > 70 || first !== today) label(root, 'is-faint', x(first), H - 5, sayDay(first, { year: false, short: true }), 'middle');
+		for (let n = first + 3; n <= x1 - 1; n++) if (weekday(n) === 1 && Math.abs(n - today) > 2) label(root, 'is-faint', x(n), H - 5, sayDay(n, { year: false, short: true }), 'middle');
+		if (today === first || x(today) - x(first) > 70) label(root, 'is-faint', x(today), H - 5, 'Today', today === x1 ? 'end' : 'middle');
 	}
 
 	// the plan: where it began to the date, and the number it is for
@@ -146,7 +150,7 @@ export function drawLife(el: HTMLElement, o: LifeOptions): void {
 		const start = est.length && est[est.length - 1].n >= x0 ? est[est.length - 1] : null;
 		const pts: [number, number][] = [];
 		if (start) pts.push([x(start.n), y(start.total)]);
-		else if (rows[0].n > x0 || !o.from) pts.push([x(rows[0].n - (o.from ? 0 : 1)), y(o.from ? rows[0].total : 0)]);
+		else if (!o.from || rows[0].n === all[0].n) pts.push([x(rows[0].n - 1), y(o.base ?? 0)]);
 		for (const r of rows) pts.push([x(r.n), y(r.total)]);
 		const line = pts.map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join('');
 		if (!o.floor) svg(root, 'path', 'binders-chart-area', { d: `${line}L${pts[pts.length - 1][0].toFixed(1)},${base}L${pts[0][0].toFixed(1)},${base}Z` });
@@ -165,7 +169,7 @@ export function drawLife(el: HTMLElement, o: LifeOptions): void {
 	for (const r of rows) {
 		const k = Math.floor((r.n - x0) / per);
 		const b = bins[k] ?? (bins[k] = { n: x0 + k * per, up: 0, down: 0, inn: 0 });
-		b.up += r.added; b.down += r.cut + Math.max(0, -r.block); b.inn += Math.max(0, r.block);
+		b.up += r.added; b.down += r.cut + Math.max(0, -r.block) + Math.max(0, -r.elsewhere); b.inn += Math.max(0, r.block) + Math.max(0, r.elsewhere);
 	}
 	const maxUp = Math.max(1, ...bins.filter(Boolean).map((b) => b.up + b.inn)), bw = Math.min(7, Math.max(1.5, x(x0 + per) - x(x0) - 1));
 	svg(root, 'line', 'binders-chart-base', { x1: 0, x2: W, y1: barBase, y2: barBase });
@@ -176,7 +180,7 @@ export function drawLife(el: HTMLElement, o: LifeOptions): void {
 		if (inn > 0.4) svg(root, 'rect', 'binders-chart-bar is-block', { x: bx, y: barBase - up - inn, width: bw, height: inn });
 		if (down > 0.4) svg(root, 'rect', 'binders-chart-bar is-cut', { x: bx, y: barBase + 1, width: bw, height: down });
 	}
-	label(root, 'is-faint', 0, barBase - BAR + 2, `Written each ${per === 1 ? 'day' : per === 7 ? 'week' : per === 14 ? 'two weeks' : per === 30 ? 'thirty days' : per + ' days'}`);
+	label(root, 'is-faint', span < 40 ? W - padR : 0, barBase - BAR + 2, `Written each ${per === 1 ? 'day' : per === 7 ? 'week' : per === 14 ? 'two weeks' : per === 30 ? 'thirty days' : per + ' days'}`, span < 40 ? 'end' : 'start');
 
 	// what happened, said where it happened; a label that would sit on another is left out (the first given wins)
 	const taken: [number, number, number, number][] = [];
@@ -197,9 +201,11 @@ export function drawLife(el: HTMLElement, o: LifeOptions): void {
 		for (const c of [...o.chapters].sort((a, b) => (a.kind === 'away' ? 0 : 1) - (b.kind === 'away' ? 0 : 1))) {
 			if (c.to < x0) continue;
 			const mid = (Math.max(c.from, x0) + c.to) / 2;
-			if (c.kind === 'burst') { if (!say('is-said', x(c.from) - 8, y(totalAt(mid)) + 4, c.said, 'end')) say('is-said', x(c.to) + 8, y(totalAt(mid)) + 4, c.said, 'start'); }
-			else if (c.kind === 'cut') { if (!say('is-said', x(c.to), y(totalAt(c.to)) + 18, c.said, 'middle')) say('is-said', x(c.to) + 8, y(totalAt(c.to)) + 18, c.said, 'start'); }
-			else if (x(c.to) - x(Math.max(x0, c.from)) > c.said.length * 6.2 + 8) say('is-said is-away', x(mid), y(totalAt(mid)) - 10, c.said, 'middle');
+			let placed: boolean;
+			if (c.kind === 'burst') placed = say('is-said', x(c.from) - 8, y(totalAt(mid)) + 4, c.said, 'end') || say('is-said', x(c.to) + 8, y(totalAt(mid)) + 4, c.said, 'start');
+			else if (c.kind === 'cut') placed = say('is-said', x(c.to), y(totalAt(c.to)) + 18, c.said, 'middle') || say('is-said', x(c.to) + 8, y(totalAt(c.to)) + 18, c.said, 'start');
+			else placed = x(c.to) - x(Math.max(x0, c.from)) > c.said.length * 6.2 + 8 && say('is-said is-away', x(mid), y(totalAt(mid)) - 10, c.said, 'middle');
+			if (!placed) unsaid.push(`${c.said}, to ${sayDay(c.to, { short: true })}`);
 		}
 		// the writer's own words: a snapshot they named, a draft they sent
 		for (const m of o.marks) {
@@ -233,37 +239,76 @@ export function drawLife(el: HTMLElement, o: LifeOptions): void {
 		hit.addEventListener('mousemove', move);
 		hit.addEventListener('mouseleave', () => { shown(false); o.hover?.(null); });
 	}
+	return unsaid;
 }
 
-/** Every day of the book's life as a square, a year to a block, a week to a column: darker for more written, an
-    outline for a day that ended with fewer words than it began. */
-export function drawCalendar(el: HTMLElement, rows: Row[], width: number): void {
+/** Every day of the record as a square, a year to a block, a week to a column: darker for more written, an outline
+    for a day that ended with fewer words than it began. `halves`: half a year to a block, for a narrow page, so a
+    square is big enough to tell from its neighbours. */
+export function drawCalendar(el: HTMLElement, rows: Row[], width: number, halves = false): void {
 	el.empty();
 	if (!rows.length) return;
-	const LEFT = 34, gap = width < 520 ? 1 : 2, cell = Math.max(4, Math.min(12, Math.floor((width - LEFT) / 53) - gap)), step = cell + gap;
+	const y0 = new Date(rows[0].n * 864e5).getUTCFullYear(), y1 = new Date(rows[rows.length - 1].n * 864e5).getUTCFullYear();
+	// a record of a few weeks in one year is those weeks, larger: not a year of squares with a corner filled
+	const col = (n: number): number => { const jan1 = Date.UTC(new Date(n * 864e5).getUTCFullYear(), 0, 1) / 864e5; return Math.floor((n - jan1 + weekday(jan1)) / 7); };
+	const few = y0 === y1 && col(rows[rows.length - 1].n) - col(rows[0].n) < 20 ? { from: col(rows[0].n), to: Math.max(col(rows[rows.length - 1].n), col(rows[0].n) + 5) } : null;
+	// (on a narrow page the year is over its block, not beside it: the squares have the whole width)
+	const LEFT = halves ? 0 : 34, HEAD = halves ? 36 : 22, gap = few ? 3 : 2, cols = few ? few.to - few.from + 1 : halves ? 27 : 54, cell = Math.max(4, Math.min(few ? 20 : 12, Math.floor((width - LEFT) / cols) - gap)), step = cell + gap;
 	const nets = rows.map((r) => r.added - r.cut).filter((v) => v > 0).sort((a, b) => a - b);
 	const q = (p: number): number => nets[Math.min(nets.length - 1, Math.floor(nets.length * p))] ?? 0;
 	const cuts = [q(0.3), q(0.6), q(0.85)];
 	const byDay = new Map(rows.map((r) => [r.n, r]));
-	const y0 = new Date(rows[0].n * 864e5).getUTCFullYear(), y1 = new Date(rows[rows.length - 1].n * 864e5).getUTCFullYear();
-	const yearH = 7 * step + 22, H = (y1 - y0 + 1) * yearH;
-	const root = svg(el, 'svg', 'binders-chart binders-chart-calendar', { width: LEFT + 53 * step, height: H, viewBox: `0 0 ${LEFT + 53 * step} ${H}`, role: 'img', 'aria-label': 'Every day of the binder’s life: the more written on a day, the darker its square' });
+	// the blocks: a year, or its two halves, leaving out a half the record has no day in
+	const blocks: { yr: number; from: number; to: number }[] = [];
 	for (let yr = y0; yr <= y1; yr++) {
-		const top = (yr - y0) * yearH + 14, jan1 = Date.UTC(yr, 0, 1) / 864e5, lead = weekday(jan1), days = (Date.UTC(yr + 1, 0, 1) - Date.UTC(yr, 0, 1)) / 864e5;
-		label(root, 'is-muted', 0, top + 9, String(yr));
+		const jan1 = Date.UTC(yr, 0, 1) / 864e5, lead = weekday(jan1);
+		for (const [from, to] of few ? [[few.from, few.to]] : halves ? [[0, 26], [27, 53]] : [[0, 53]]) {
+			const a = jan1 + from * 7 - lead, b = jan1 + (to + 1) * 7 - lead - 1;
+			if (rows[0].n <= b && rows[rows.length - 1].n >= a) blocks.push({ yr, from, to });
+		}
+	}
+	const blockH = 7 * step + HEAD, H = blocks.length * blockH;
+	const root = svg(el, 'svg', 'binders-chart binders-chart-calendar', { width: LEFT + cols * step, height: H, viewBox: `0 0 ${LEFT + cols * step} ${H}`, role: 'img', 'aria-label': 'Every day of the record: the more written on a day, the darker its square' });
+	blocks.forEach((bl, k) => {
+		const { yr } = bl, top = k * blockH + HEAD - 8, jan1 = Date.UTC(yr, 0, 1) / 864e5, lead = weekday(jan1), days = (Date.UTC(yr + 1, 0, 1) - Date.UTC(yr, 0, 1)) / 864e5;
+		if (halves) label(root, 'is-muted', 0, top - 18, String(yr));
+		else if (bl.from === 0 || blocks[k - 1]?.yr !== yr) label(root, 'is-muted', 0, top + 9, String(yr));
+		let lastLabel = -100;
 		for (let m = 0; m < 12; m++) {
 			const n = Date.UTC(yr, m, 1) / 864e5, col = Math.floor((n - jan1 + lead) / 7);
-			label(root, 'is-faint is-small', LEFT + col * step, top - 4, cell < 7 ? monthName(m)[0] : monthName(m, true));
+			if (col < bl.from || col > bl.to) continue;
+			const lx = LEFT + (col - bl.from) * step;
+			if (lx - lastLabel < 24) continue;
+			if (few && lx === LEFT && new Date(rows[0].n * 864e5).getUTCMonth() !== m) continue;
+			label(root, 'is-faint is-small', lx, top - 4, cell < 7 ? monthName(m)[0] : monthName(m, true));
+			lastLabel = lx;
 		}
 		for (let i = 0; i < days; i++) {
-			const n = jan1 + i, r = byDay.get(n);
-			if (!r) continue;
-			const net = r.added - r.cut, col = Math.floor((i + lead) / 7), row = (i + lead) % 7;
+			const n = jan1 + i, r = byDay.get(n), col = Math.floor((i + lead) / 7), row = (i + lead) % 7;
+			if (!r || col < bl.from || col > bl.to) continue;
+			const net = r.added - r.cut;
 			const cls = !(r.added || r.cut) ? 'is-none' : net <= 0 ? 'is-cut' : net >= cuts[2] ? 'is-4' : net >= cuts[1] ? 'is-3' : net >= cuts[0] ? 'is-2' : 'is-1';
 			const inset = cls === 'is-cut' ? 0.5 : 0;
-			const c = svg(root, 'rect', `binders-chart-cell ${cls}`, { x: LEFT + col * step + inset, y: top + row * step + inset, width: cell - inset * 2, height: cell - inset * 2, rx: cell > 7 ? 2 : 1 });
+			const c = svg(root, 'rect', `binders-chart-cell ${cls}`, { x: LEFT + (col - bl.from) * step + inset, y: top + row * step + inset, width: cell - inset * 2, height: cell - inset * 2, rx: cell > 7 ? 2 : 1 });
 			if (r.added || r.cut) svg(c, 'title', '').textContent = `${sayDay(n, { weekday: true })}: ${fmt(r.added)} written${r.cut ? `, ${fmt(r.cut)} cut` : ''}`;
 		}
+	});
+}
+
+/** A record's first two weeks, a square a day from its first: the days written on filled, the days to come an
+    outline, each with its weekday over it and its words under. What the calendar is before there is a calendar. */
+export function drawFirstDays(el: HTMLElement, rows: Row[], today: number, width: number, days: number): void {
+	el.empty();
+	if (!rows.length) return;
+	const step = Math.min(64, width / days), cell = Math.min(28, step - 6), H = cell + 40, first = rows[0].n;
+	const byDay = new Map(rows.map((r) => [r.n, r]));
+	const root = svg(el, 'svg', 'binders-chart binders-chart-first', { width, height: H, viewBox: `0 0 ${width} ${H}`, role: 'img', 'aria-label': `The record’s first ${days} days` });
+	for (let i = 0; i < days; i++) {
+		const n = first + i, r = byDay.get(n), cx = i * step + cell / 2, net = r ? r.added - r.cut : 0;
+		const cls = n > today ? 'is-coming' : !r || !(r.added || r.cut) ? 'is-none' : net <= 0 ? 'is-cut' : 'is-3', inset = cls === 'is-cut' || cls === 'is-coming' ? 0.5 : 0;
+		label(root, `is-small ${n === today ? 'is-muted' : 'is-faint'}`, cx, 10, n === today && step >= 40 ? 'Today' : 'SMTWTFS'[weekday(n)], 'middle');
+		svg(root, 'rect', `binders-chart-cell ${cls}`, { x: i * step + inset, y: 16 + inset, width: cell - inset * 2, height: cell - inset * 2, rx: 3 });
+		if (r && (r.added || r.cut)) label(root, 'is-small is-muted', cx, 16 + cell + 14, (net > 0 ? '' : net < 0 ? '−' : '') + fmt(Math.abs(net)), 'middle');
 	}
 }
 
@@ -285,7 +330,7 @@ export function drawBars(el: HTMLElement, values: number[], names: (string | nul
     shrank, as the calendar says it. With no cells, the years over the rows. `starts`: the day each square begins. */
 export function drawStrip(el: HTMLElement, cells: { net: number; moved: boolean }[] | null, cuts: number[], width: number, height: number, starts: number[]): void {
 	el.empty();
-	const n = starts.length, step = width / Math.max(1, n), gap = step > 6 ? 2 : 1, w = Math.max(1, step - gap);
+	const n = starts.length, step = Math.min(18, width / Math.max(1, n)), gap = step > 6 ? 2 : 1, w = Math.max(1, step - gap);
 	const root = svg(el, 'svg', 'binders-chart binders-chart-strip', { width, height, viewBox: `0 0 ${width} ${height}`, 'aria-hidden': 'true' });
 	if (!cells) {
 		let last = -100;
@@ -296,20 +341,6 @@ export function drawStrip(el: HTMLElement, cells: { net: number; moved: boolean 
 		const cls = !c.moved ? 'is-none' : c.net <= 0 ? 'is-cut' : c.net >= cuts[2] ? 'is-4' : c.net >= cuts[1] ? 'is-3' : c.net >= cuts[0] ? 'is-2' : 'is-1', inset = cls === 'is-cut' ? 0.5 : 0;
 		svg(root, 'rect', `binders-chart-cell ${cls}`, { x: i * step + inset, y: inset, width: w - inset * 2, height: height - inset * 2, rx: w > 7 ? 2 : 1 });
 	});
-}
-
-/** One part's words over time, small, on the same days as the others and to the same scale. */
-export function drawSpark(el: HTMLElement, totals: number[], max: number, width: number, height: number): void {
-	el.empty();
-	const root = svg(el, 'svg', 'binders-chart binders-chart-spark', { width, height, viewBox: `0 0 ${width} ${height}`, 'aria-hidden': 'true' });
-	const n = totals.length, step = Math.max(1, Math.floor(n / width));
-	const x = (i: number): number => (i / Math.max(1, n - 1)) * width, y = (v: number): number => height - 1 - (v / Math.max(1, max)) * (height - 3);
-	let d = '';
-	for (let i = 0; i < n; i += step) d += `${d ? 'L' : 'M'}${x(i).toFixed(1)},${y(totals[i]).toFixed(1)}`;
-	d += `L${width},${y(totals[n - 1]).toFixed(1)}`;
-	svg(root, 'path', 'binders-chart-area', { d: `${d}L${width},${height - 1}L0,${height - 1}Z` });
-	svg(root, 'path', 'binders-chart-line is-thin', { d });
-	svg(root, 'line', 'binders-chart-base', { x1: 0, x2: width, y1: height - 0.5, y2: height - 0.5 });
 }
 
 /** The book's words by status over time, one band a status, the furthest along darkest and at the foot. */

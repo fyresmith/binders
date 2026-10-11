@@ -24,6 +24,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - On the timeline you can drag a card to give it another story date: onto a date, into a gap between two dates, before the first or after the last (a dialog asks), onto the tray to take the date away, or among a day’s cards to put them in another order. Alt and the arrow keys do the same from the keyboard. On a phone, press and hold to lift a card.
 - Shift story dates... in the menu of every board when more than one dated note is selected: later or earlier, by days, months or years, keeping the space between them, as one undo step.
 - Binders now keeps a record of each binder's writing in the binder's hidden Snapshots folder: the words written and cut in each note each day, the hours, and what was done to the binder. It holds numbers and names only, never a note's text, and never leaves your device. A Progress group in settings turns it off and names your device. A window to read it by comes next.
+- Progress: Show progress opens a window on a binder's writing over time, read from its record: the book's words as they grew, every day written on, the hours and days you write in, when each part was written, and its records. A record's first two weeks are shown as they fill.
 
 ### Changed
 

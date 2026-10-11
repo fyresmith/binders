@@ -94,6 +94,7 @@ The three dots in the view's header open a menu with:
 - **Undo** and **Redo** of the last change, each saying what it will take back. See [Undo and redo](undo.md).
 - **Export...**, and **Export again** once the binder has been exported. See [Export](export.md).
 - **Take a snapshot** and **Show snapshots...**, of the folder shown. The same two are behind the **Snapshots** button (a clock) in the header; a phone's header has no such button, so there they are here only. See [Snapshots](snapshots.md).
+- **Show progress**, which opens the binder's [progress](progress.md): how it has grown, and when.
 - **Show contents**, which opens the [contents](inspector.md#the-contents) in the sidebar.
 - **Open binder note**, or **Open folder note** inside a folder. This is how you reach the note that holds a
   binder's or folder's own data while it is hidden in the file explorer.

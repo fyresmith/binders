@@ -6440,8 +6440,9 @@ body:not(.is-phone) .binders-snapshots .sync-history-content {
 .binders-drag-ghost.mod-touch > .binders-timeline-tag {
 	top: auto;
 	bottom: calc(100% + var(--size-4-2));
+}
 
-/* ---- Progress over time (STAGE 2 OF THE DESIGN ROUND: src/view/progress.ts) ----
+/* ---- Progress (src/view/progress.ts, progress-charts.ts) ----
    The charts are ink on the theme's ground: the text color at a few strengths, the theme's lines for rules, and the
    accent for one thing, where the book is now. */
 
@@ -6477,16 +6478,6 @@ body:not(.is-phone) .binders-snapshots .sync-history-content {
 	overflow-y: auto;
 	padding: 0 var(--size-4-8) var(--size-4-8);
 	font-variant-numeric: tabular-nums;
-}
-
-.binders-pot.mod-sidebar-layout .binders-pot-body {
-	padding-top: var(--size-4-8);
-}
-
-.binders-pot.mod-sidebar-layout .binders-pot-body > .binders-pot-section:first-child {
-	margin-top: 0;
-	padding-top: 0;
-	border-top: none;
 }
 
 /* the numbers at the head: no boxes, a rule between */
@@ -6536,9 +6527,8 @@ body:not(.is-phone) .binders-snapshots .sync-history-content {
 	min-height: var(--input-height);
 }
 
-.binders-pot-planline > span:first-child,
-.binders-pot-pace {
-	color: var(--text-normal);
+.binders-pot-said {
+	flex: 1 1 240px;
 }
 
 .binders-pot-scope {
@@ -6563,54 +6553,9 @@ body:not(.is-phone) .binders-snapshots .sync-history-content {
 	}
 }
 
-/* the plan's fields */
-.binders-pot-form {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: flex-end;
-	gap: var(--size-4-3) var(--size-4-6);
-	padding: var(--size-4-3) 0 var(--size-4-1);
-}
-
-.binders-pot-form.is-side {
-	flex-direction: column;
-	align-items: stretch;
-	gap: var(--size-4-2);
-	padding: 0 var(--size-4-2);
-}
-
-.binders-pot-field-name {
-	font-size: var(--font-ui-smaller);
-	color: var(--text-muted);
-	margin-bottom: var(--size-2-1);
-}
-
-.binders-pot-form.is-side .binders-pot-input {
-	width: 100%;
-}
-
-.binders-pot-weekdays {
-	display: flex;
-	gap: var(--size-2-1);
-}
-
-.binders-pot button.binders-pot-weekday {
-	width: var(--input-height);
-	height: var(--input-height);
-	padding: 0;
-	justify-content: center;
-	box-shadow: none;
-	background: none;
-	color: var(--text-faint);
-}
-
-.binders-pot button.binders-pot-weekday.is-active {
-	color: var(--text-normal);
-	background: var(--background-modifier-hover);
-}
-
 /* a part of the page: its name, a word about it, a rule over it */
 .binders-pot-section {
+	position: relative;
 	margin-top: var(--size-4-6);
 	padding-top: var(--size-4-3);
 	border-top: 1px solid var(--binders-pot-rule);
@@ -6626,6 +6571,8 @@ body:not(.is-phone) .binders-snapshots .sync-history-content {
 }
 
 .binders-pot-section-name {
+	margin: 0;
+	line-height: inherit;
 	font-size: var(--font-ui-small);
 	font-weight: var(--nav-heading-weight, var(--font-medium));
 	color: var(--nav-heading-color, var(--text-normal));
@@ -6724,6 +6671,7 @@ body:not(.is-phone) .binders-snapshots .sync-history-content {
 .binders-chart-cell.is-3 { fill: color-mix(in srgb, var(--text-normal) 70%, transparent); }
 .binders-chart-cell.is-4 { fill: var(--text-normal); }
 .binders-chart-cell.is-cut { fill: none; stroke: var(--text-muted); stroke-width: 1; }
+.binders-chart-cell.is-coming { fill: none; stroke: var(--binders-pot-rule); stroke-width: 1; stroke-dasharray: 2 2; }
 
 .binders-chart-band { stroke: var(--background-primary); stroke-width: 1; }
 .binders-chart-band.is-1-of-4, .binders-chart-band.is-1-of-3, .binders-chart-band.is-1-of-2 { fill: color-mix(in srgb, var(--text-normal) 12%, var(--background-primary)); }
@@ -6782,6 +6730,10 @@ body:not(.is-phone) .binders-snapshots .sync-history-content {
 .binders-pot-swatch.is-band.is-4-of-4, .binders-pot-swatch.is-band.is-3-of-3, .binders-pot-swatch.is-band.is-2-of-2 { background: color-mix(in srgb, var(--text-normal) 82%, var(--background-primary)); }
 
 /* a small chart with what it says over it */
+.binders-pot-small {
+	position: relative;
+}
+
 .binders-pot-small + .binders-pot-small {
 	margin-top: var(--size-4-5);
 }
@@ -6835,8 +6787,12 @@ body:not(.is-phone) .binders-snapshots .sync-history-content {
 	margin-bottom: var(--size-4-2);
 }
 
+.binders-pot-factgroup dl {
+	margin: 0;
+}
+
 .binders-pot-fact {
-	margin-bottom: var(--size-4-4);
+	margin: 0 0 var(--size-4-4);
 }
 
 .binders-pot-fact-label,
@@ -6864,59 +6820,13 @@ body:not(.is-phone) .binders-snapshots .sync-history-content {
 /* the numbers behind a chart, for a screen reader only */
 .binders-pot-table {
 	position: absolute;
+	top: 0;
+	left: 0;
 	width: 1px;
 	height: 1px;
 	overflow: hidden;
 	clip-path: inset(50%);
 	white-space: nowrap;
-}
-
-/* the two-pane frame's sidebar */
-.binders-pot-side {
-	overflow-y: auto;
-	padding: var(--size-4-3) var(--size-4-2);
-	font-variant-numeric: tabular-nums;
-}
-
-.binders-pot-tree-child {
-	padding-inline-start: var(--size-4-6);
-}
-
-.binders-pot-side-heading {
-	margin: var(--size-4-5) var(--size-4-2) var(--size-4-2);
-	font-size: var(--font-ui-smaller);
-	font-weight: var(--nav-heading-weight, var(--font-medium));
-	color: var(--nav-heading-color, var(--text-normal));
-}
-
-.binders-pot-now-row {
-	display: grid;
-	grid-template-columns: 1fr auto;
-	column-gap: var(--size-4-2);
-	padding: var(--size-2-3) var(--size-4-2);
-	font-size: var(--font-ui-small);
-}
-
-.binders-pot-now-label {
-	color: var(--text-muted);
-}
-
-.binders-pot-now-value {
-	text-align: end;
-	font-weight: var(--font-semibold);
-}
-
-.binders-pot-now-note {
-	grid-column: 1 / -1;
-	text-align: end;
-	font-size: var(--font-ui-smaller);
-	color: var(--text-faint);
-}
-
-.binders-pot-side-said {
-	margin: var(--size-4-3) var(--size-4-2);
-	font-size: var(--font-ui-small);
-	color: var(--text-muted);
 }
 
 /* a phone: one column */
@@ -6952,12 +6862,23 @@ body:not(.is-phone) .binders-snapshots .sync-history-content {
 	column-gap: var(--size-4-4);
 }
 
-.is-phone .binders-pot.mod-sidebar-layout .modal-content {
-	display: block;
-	overflow-y: auto;
+
+/* what a chart had no room to say on itself, and what a part of the page will show when there is more */
+.binders-pot-unsaid,
+.binders-pot-coming {
+	margin-top: var(--size-4-2);
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+	max-width: 70ch;
 }
 
-.is-phone .binders-pot.mod-sidebar-layout .binders-pot-body,
-.is-phone .binders-pot.mod-sidebar-layout .binders-pot-side {
-	overflow: visible;
+.binders-pot-body:focus-visible {
+	outline: none;
+	box-shadow: inset 0 0 0 2px var(--background-modifier-border-focus);
+}
+
+/* no record to show: Obsidian's small dialog */
+.binders-pot-nothing {
+	margin: 0 0 var(--size-4-4);
+	color: var(--text-muted);
 }

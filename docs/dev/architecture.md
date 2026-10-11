@@ -207,8 +207,11 @@ cards and rows write through.
 | `src/progress/merge.ts` | Adds the devices' files together into the days and events the window reads (`toHistory` gives the shape `model.ts` describes); follows renames; the binder's total is the one stamped last. Pure. | |
 | `src/progress/count.ts` | What a change in an editor does to a note's words, and the fifty-word rule (more is brought in or taken out, not written or cut). Pure. | |
 | `src/progress/day.ts` | The day, which ends at four in the morning, local time. Pure. | |
-| `src/progress/model.ts`, `stats.ts`, `text.ts` | What the window reads, and what it says of it. Pure. | |
-| `src/progress/fixture.ts`, `src/view/progress.ts`, `src/view/progress-charts.ts` | The designer's window over a made-up history. Nothing opens it yet. | |
+| `src/progress/model.ts` | The shape the window reads (`History`: days, marks, statuses), and days as numbers. Pure. | |
+| `src/progress/stats.ts` | Everything the window says, from a history: a row for every calendar day (the binder's totals as stamped, a folder's counted back from its words now), the story on the chart (away, the best thirty days, the deepest cut), the records, the hours and weekdays, the parts, the statuses; and the plan to a deadline, which nothing shows yet. Pure. | Say of a book what only a record that saw it begin can say (`baseOf`). |
+| `src/progress/text.ts` | What the text says of itself today: reading time, scenes, sentences, speech. Pure. | Guess at names. |
+| `src/view/progress.ts` | `ProgressModal`: the window. Reads the record through `plugin.progress.read` (a binder not recorded now through a `BinderRecord` of its own, to show what was kept before), draws again when the record changes or a note is written, and decides what shows: a small dialog with the reason when there is no record, the first two weeks, then each part of the page when it has something to say. | Write anything: a note, a property, the record. |
+| `src/view/progress-charts.ts` | The charts, by hand as SVG in classes the stylesheet colors from the theme: the book's life, the calendar, the first days, the bars, a part's row of squares, the statuses; and the table behind each. | Import a chart library; hold state. |
 
 The record is in the binder's `Snapshots` folder, so it is out of the file explorer, the binder's contents, its order, its counts, exports and imports as the snapshots are; `followSnapshots` and `isOwn` (`src/snapshots.ts`) leave the history files alone, since a scene called "History" keeps its snapshots in the same folder. The format is in [file-format.md](file-format.md#the-record-of-a-binders-writing-binders-history-1).
 
@@ -376,6 +379,7 @@ These are the rules the code is held to. A change that breaks one needs a new te
 | Find and replace | `find-search` | `specs-find-replace` (and `specs-qa2-manuscript`, "find opens the view’s own bar…") |
 | Focus mode | `focus-session` | `specs-focus` |
 | The progress record | `progress-record` | `specs-progress-record` |
+| The progress window | `progress-stats`, `styles` | `specs-progress-window` (its records are made by `tests/e2e/progress-history.mjs`, as real history files) |
 | Explorer patch | | `specs-explorer`, `specs-qa2-explorer`, `specs-qa4-explorer` |
 | Binder view shell | | `specs-view`, `specs-a11y`, `specs-themes` |
 | Corkboard and lanes | `lanes` | `specs-corkboard`, `specs-lanes`, `specs-qa-corkboard`, `specs-qa2-corkboard`, `specs-qa5-cork` |

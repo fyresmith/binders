@@ -1,278 +1,362 @@
-import { Modal, Platform, TFolder, setIcon, type TFile } from 'obsidian';
+import { ButtonComponent, Component, Modal, TFile, TFolder } from 'obsidian';
 import type BindersPlugin from '../main';
-import { fixture, type FixtureKind } from '../progress/fixture';
-import { count, dayStr, fmt, monthName, num, sayDay, type History, type Plan } from '../progress/model';
-import { chapters, facts, hourSaid, hourShape, pace, parts, projected, rows as rowsOf, statusSeries, weekdayShape, type Fact, type Row } from '../progress/stats';
+import { recordDay } from '../progress/day';
+import { toHistory, type Merged } from '../progress/merge';
+import { count, fmt, monthName, num, sayDay, type History } from '../progress/model';
+import { BinderRecord } from '../progress/record';
+import { FIRST_DAYS, alike, baseOf, chapters, facts, hourSaid, hourShape, parts, rows as rowsOf, stage, statusSeries, weekdayShape, type Fact, type Row } from '../progress/stats';
 import { textFacts, type SceneText } from '../progress/text';
-import { drawBars, drawCalendar, drawLife, drawStatus, drawStrip, table } from './progress-charts';
+import { buttonRow } from './modals';
+import { drawBars, drawCalendar, drawFirstDays, drawLife, drawStatus, drawStrip, table } from './progress-charts';
 import { readProps } from './props';
 import { watchSize } from './windows';
-import { wordsIn } from './words';
+import { WordCounter } from './word-counter';
 
-/* Progress over time: a binder's writing life in one window. STAGE 2 OF THE DESIGN ROUND: two frames for the same
-   charts, to choose between, over a made-up history (progress/fixture.ts). Nothing is recorded and nothing is
-   written: a deadline set here lasts as long as the window.
+/* Progress: a binder's writing life in one page that scrolls, read from the record (progress/record.ts). It only
+   reads: opening it writes nothing, to a note or to the record.
 
-   'page': one page that scrolls, the book's life first. 'window': Obsidian's two-pane dialog (File recovery, our
-   Export), with the folders, the plan and today in its sidebar. */
+   What shows depends on how much there is to say. A record under two weeks old shows its first days as they fill;
+   after that the calendar, the hours, the parts and the statuses appear, each when it has something to say, and a
+   part with nothing to show is left out, not shown empty. A binder with no record at all is one of Obsidian's small
+   dialogs, with the reason. The design round is in docs/dev/design.md. */
 
-export type ProgressLayout = 'page' | 'window';
 export interface ProgressOptions {
-	layout?: ProgressLayout;
-	fixture?: FixtureKind;
-	/** The day it is (YYYY-MM-DD), for pictures that don't change with the calendar. */
+	/** The day it is (YYYY-MM-DD), for pictures and tests that don't change with the calendar. */
 	today?: string;
-	/** A plan to show as it opens: one the book is keeping to, one it is behind, one whose date has passed. */
-	demo?: 'on' | 'behind' | 'passed' | null;
+	/** The folder to show, as a path in the binder ('' for the binder). */
 	scope?: string;
 }
 
-const RANGES: [string, number][] = [['All', 0], ['Year', 365], ['90 days', 90]];
-const LETTERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+/** The command's icon and the menu item's. */
+export const PROGRESS_ICON = 'lucide-line-chart';
+
+const RANGES: [string, string, number][] = [['all', 'All', 0], ['year', 'Year', 365], ['90', '90 days', 90]];
+const LETTERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'], WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+/** How many parts are listed before "Show all". */
+const PARTS_SHOWN = 16;
 
 export class ProgressModal extends Modal {
-	private layout: ProgressLayout;
-	private today: string;
+	private fixedDay: string | null;
 	private history: History | null = null;
-	private texts: SceneText[] = [];
-	private plan: Plan | null = null;
+	/** Why there is nothing to add to (recording is off, the binder can't be changed), said over a record that is shown. */
+	private stopped = '';
+	private texts: SceneText[] | null = null;
 	private within: string;
 	private range = 0;
-	private editing = false;
-	private body!: HTMLElement;
-	private side: HTMLElement | null = null;
+	private allParts = false;
+	private body: HTMLElement | null = null;
 	private stop: (() => void) | null = null;
 	private width = 0;
 	private timer = 0;
+	private life = new Component();
+	private counter: WordCounter;
+	private reading = 0;
+	private open_ = false;
 
-	constructor(private plugin: BindersPlugin, private folder: TFolder, private o: ProgressOptions = {}) {
+	constructor(private plugin: BindersPlugin, private folder: TFolder, o: ProgressOptions = {}) {
 		super(plugin.app);
-		this.layout = o.layout ?? 'page';
-		const d = new Date();
-		this.today = o.today ?? dayStr(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 864e5);
+		this.fixedDay = o.today ?? null;
 		this.within = o.scope ?? '';
+		this.counter = new WordCounter(plugin, () => this.later(120, !this.body));
 	}
 
-	private get binderFolder(): TFolder { return this.plugin.binders.binderOf(this.folder)?.folder ?? this.folder; }
+	private get today(): string { return this.fixedDay ?? recordDay(Date.now()); }
+	private get binder() { return this.plugin.binders.binderOf(this.folder); }
+	private get binderFolder(): TFolder { return this.binder?.folder ?? this.folder; }
 	private get scopeFolder(): TFolder {
 		const f = this.within ? this.app.vault.getAbstractFileByPath(`${this.binderFolder.path}/${this.within}`) : null;
 		return f instanceof TFolder ? f : this.binderFolder;
 	}
 
 	onOpen(): void {
-		const { modalEl, contentEl } = this, page = this.layout === 'page';
-		modalEl.addClass('binders-pot', page ? 'mod-page' : 'mod-sidebar-layout');
-		this.setTitle(page ? this.binderFolder.name : 'Progress');
-		if (page) this.body = contentEl.createDiv({ cls: 'binders-pot-body' });
-		else {
-			modalEl.addClass('binders-snapshots');
-			// (a phone has one column: what the sidebar holds comes first, then the charts)
-			this.side = contentEl.createDiv({ cls: Platform.isPhone ? 'binders-pot-side' : 'modal-sidebar mod-history binders-pot-side' });
-			const pane = contentEl.createDiv({ cls: 'sync-history-content-container binders-snapshots-pane binders-pot-pane' });
-			this.body = pane.createDiv({ cls: 'sync-history-content binders-pot-body' });
-		}
-		this.body.createDiv({ cls: 'pane-empty', text: 'Reading the binder…' });
+		const { plugin } = this, root = this.binderFolder.path + '/';
+		this.open_ = true;
+		this.modalEl.addClass('binders-pot');
+		this.setTitle(this.binderFolder.name);
+		this.life.load();
+		// what is typed in a note beside it, and another device's file arriving, show without closing it
+		const changed = (): void => this.later(700, true);
+		plugin.progress.listeners.add(changed);
+		this.life.register(() => plugin.progress.listeners.delete(changed));
+		this.life.registerEvent(this.app.vault.on('modify', (f) => { if (f instanceof TFile && f.extension === 'md' && f.path.startsWith(root)) { this.texts = null; changed(); } }));
 		void this.load();
 	}
 
 	onClose(): void {
+		this.open_ = false;
 		this.stop?.();
+		this.life.unload();
 		window.clearTimeout(this.timer);
 		this.contentEl.empty();
 	}
 
-	/** Reads the binder's notes (their words, and their text for what it says of itself) and makes the history. */
+	/** Draws again in a moment (`read`: the record is read again first). */
+	private again = false;
+	private later(ms: number, read = false): void {
+		this.again ||= read;
+		window.clearTimeout(this.timer);
+		this.timer = window.setTimeout(() => { const r = this.again; this.again = false; if (r) void this.load(); else this.draw(); }, ms);
+	}
+
+	/** Reads the record. A binder that isn't recorded now may still have one from before: it is read and shown. */
 	private async load(): Promise<void> {
-		const { plugin } = this, root = this.binderFolder;
-		const files: TFile[] = plugin.binders.scenes(root);
-		const texts: SceneText[] = [];
-		for (const f of files) {
+		const { plugin } = this, binder = this.binder, go = ++this.reading;
+		let merged: Merged | null = null, why = '';
+		this.stopped = '';
+		if (binder) {
+			const live = plugin.progress.recordOf(binder);
+			if (live?.blocked) why = `${live.blocked}, so Binders keeps no record of this binder there. Its record is kept in a binder’s Snapshots folder, and a folder of your own is left alone.`;
+			else if (live) merged = await plugin.progress.read(binder.folder);
+			else {
+				try { merged = await new BinderRecord(this.app, binder.folder, () => plugin.progress.device()).readAll(); } catch { merged = null; }
+				this.stopped = binder.problem ? 'This binder can’t be changed by this version of Binders, so its writing is not being recorded.' : 'Recording is off, so nothing is being added.';
+				why = binder.problem ? `${binder.problem} Its writing is not recorded.` : 'Binders isn’t keeping a record of your writing, so there is nothing to show. Turn on “Keep a record of your writing” in settings to begin.';
+			}
+		}
+		if (go !== this.reading || !this.open_) return;
+		this.history = merged ? toHistory(merged, plugin.settings.statuses) : null;
+		if (!this.history?.days.length) { this.nothing(why); return; }
+		if (!this.body) {
+			this.contentEl.empty();
+			this.modalEl.addClass('mod-page');
+			this.body = this.contentEl.createDiv({ cls: 'binders-pot-body', attr: { tabindex: '0', role: 'region', 'aria-label': `Progress of ${this.binderFolder.name}` } });
+			const body = this.body;
+			this.stop = watchSize(this.app, body, () => { if (Math.abs(body.clientWidth - this.width) > 2) this.draw(); });
+		}
+		this.draw();
+		if (!this.texts) void this.read();
+	}
+
+	/** Nothing to show: one of Obsidian's small dialogs, a sentence and a button. */
+	private nothing(why: string): void {
+		const { contentEl } = this, binder = this.binder;
+		this.stop?.();
+		this.body = null;
+		this.modalEl.removeClass('mod-page');
+		contentEl.empty();
+		this.modalEl.querySelectorAll('.modal-button-container').forEach((e) => e.remove());
+		this.setTitle('Progress');
+		const words = this.counter.sum(this.plugin.binders.scenes(this.binderFolder));
+		const off = !this.plugin.settings.recordProgress;
+		contentEl.createEl('p', { cls: 'binders-pot-nothing', text: why || `The record of “${this.binderFolder.name}” begins with the first words you type in it.${words ? ` It has ${count(words, 'word')} today.` : ''}` });
+		const row = buttonRow(this);
+		if (off && binder && !binder.problem) new ButtonComponent(row).setButtonText('Open settings').setCta().onClick(() => { this.close(); const s = (this.app as unknown as { setting?: { open(): void; openTabById(id: string): void } }).setting; s?.open(); s?.openTabById(this.plugin.manifest.id); });
+		else new ButtonComponent(row).setButtonText('Close').onClick(() => this.close());
+	}
+
+	/** The notes' text, for what it says of itself: read after the record is drawn, so the window never waits on it. */
+	private async read(): Promise<void> {
+		const root = this.binderFolder, go = this.reading, out: SceneText[] = [];
+		for (const f of this.plugin.binders.scenes(root)) {
 			const text = await this.app.vault.cachedRead(f), body = text.replace(/^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/, '');
-			texts.push({ name: f.path.slice(root.path.length + 1).replace(/\.md$/, ''), text: body, words: wordsIn(plugin, text) });
+			out.push({ name: f.path.slice(root.path.length + 1).replace(/\.md$/, ''), text: body, words: this.plugin.progress.words(text) });
 		}
-		// (a book begun today has today's words: the fixture's, not the test binder's)
-		this.texts = this.o.fixture === 'new' ? texts.slice(0, 1).map((t) => { const text = t.text.split(/\s+/).slice(0, 412).join(' '); return { ...t, text, words: 412 }; }) : texts;
-		this.history = fixture(this.o.fixture ?? 'novel', texts.map((t) => ({ path: t.name, words: t.words })), this.today, plugin.settings.statuses);
-		const note = plugin.binders.folderNote(root), target = note ? readProps(plugin, note).target : 0;
-		const rs = rowsOf(this.history, this.today), total = rs[rs.length - 1]?.total ?? 0, t = num(this.today);
-		if (this.o.demo) {
-			// a plan begun sixty days ago: for 'on', its date is where the last sixty days' pace arrives
-			const from = t - 60, was = rs.find((r) => r.n >= from)?.total ?? 0, goal = target > total ? target : Math.ceil((total * 1.1) / 5000) * 5000;
-			const days = Math.round((60 * (goal - was)) / Math.max(1, total - was));
-			const to = this.o.demo === 'on' ? from + Math.round(days * 0.97) : this.o.demo === 'behind' ? from + Math.round(60 + (days - 60) * 0.42) : t - 9;
-			this.plan = { target: goal, deadline: dayStr(to), off: [], from: dayStr(from), fromTotal: was };
-		}
-		this.stop = watchSize(this.app, this.body, () => { if (Math.abs(this.body.clientWidth - this.width) > 2) this.draw(); });
+		if (go !== this.reading || !this.open_) return;
+		this.texts = out;
 		this.draw();
 	}
 
 	// ---- what is shown ----
 
-	private rows(): Row[] { return this.history ? rowsOf(this.history, this.today, this.within) : []; }
-	private scenesIn(): SceneText[] { return this.texts.filter((s) => !this.within || s.name.startsWith(this.within + '/')); }
+	/** The words under a folder of the binder as counted now, or undefined until every note is counted. */
+	private wordsNow(folder: TFolder): number | undefined { return this.counter.sum(this.plugin.binders.scenes(folder)) ?? undefined; }
 
 	private draw(): void {
-		const h = this.history;
-		if (!h) return;
-		const { body } = this, rs = this.rows(), t = num(this.today), page = this.layout === 'page';
-		const keep = body.scrollTop;
+		const h = this.history, body = this.body;
+		if (!h || !body || !this.open_) return;
+		const t = num(this.today), scope = this.within;
+		const rs = rowsOf(h, this.today, scope, this.fixedDay ? undefined : this.wordsNow(this.scopeFolder));
+		const keep = body.scrollTop, held = body.querySelector<HTMLElement>(':focus')?.dataset.bindersKey;
 		body.empty();
 		this.width = body.clientWidth;
 		const style = getComputedStyle(body), W = Math.max(240, Math.floor(this.width - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)));
-		const narrow = W < 560;
-		const plan = this.within ? null : this.plan, p = plan ? pace(rs, plan, this.today) : null;
-		const total = rs[rs.length - 1]?.total ?? 0, young = rs.length < 14;
-		if (this.side) this.drawSide(rs, p);
+		const narrow = W < 560, first = stage(rs) !== 'full', base = baseOf(rs), began = rs[0]?.n ?? t;
+		const written = rs.filter((r) => r.added || r.cut);
 
 		// ---- the few numbers a writer acts on ----
-		if (page) {
-			const head = body.createDiv({ cls: 'binders-pot-head' });
-			for (const f of this.now(rs, p)) this.figure(head, f[0], f[1], f[2]);
-			const line = body.createDiv({ cls: 'binders-pot-planline' });
-			if (this.within) line.createSpan({ text: `${this.within.split('/').pop() ?? ''}, in ${this.binderFolder.name}.` });
-			else if (plan && p) { line.createSpan({ cls: `binders-pot-pace is-${p.state}`, text: p.said }); if (p.then) line.createSpan({ text: ' ' + p.then }); } else line.createSpan({ text: young && !h.estimate.length ? (rs.length <= 1 ? 'Recording began today. The days fill in here as you write.' : 'The days fill in here as you write.') : 'No deadline is set.' });
-			if (!this.within) {
-				const b = line.createEl('button', { cls: 'binders-pot-quiet', text: plan ? (p?.state === 'passed' ? 'Set a new date' : 'Change the plan') : 'Set a deadline' });
-				b.addEventListener('click', () => { this.editing = !this.editing; this.draw(); });
-			}
-			this.scopePicker(line);
-			if (this.editing && !this.within) this.planForm(body.createDiv({ cls: 'binders-pot-form' }), total);
-		}
+		const head = body.createDiv({ cls: 'binders-pot-head' });
+		for (const f of this.now(rs)) this.figure(head, f[0], f[1], f[2]);
+		const line = body.createDiv({ cls: 'binders-pot-planline' });
+		const said = line.createSpan({ cls: 'binders-pot-said' });
+		const whose = scope ? `${scope.split('/').pop() ?? ''}, in ${this.binderFolder.name}. ` : '';
+		const since = rs.length <= 1 ? 'The record began today' : first ? `The record is ${count(rs.length, 'day')} old` : `Recorded since ${sayDay(began)}`;
+		said.setText(`${whose}${since}.${base > 50 ? ` ${scope ? 'This folder' : 'The book'} had ${fmt(base)} words when it began.` : ''}${this.stopped ? ' ' + this.stopped : ''}`);
+		this.scopePicker(line);
 
-		// ---- the plan, close up: the days since it began and the days to its date ----
-		if (plan && p && p.state !== 'passed' && p.state !== 'reached') {
-			const s = this.section(body, 'The plan', `${fmt(plan.target)} words by ${sayDay(num(plan.deadline))}${plan.off.length ? `, ${this.offSaid(plan.off)} off` : ''}`);
-			const chart = s.createDiv({ cls: 'binders-pot-chart' });
-			drawLife(chart, { rows: rs, estimate: [], plan, projection: projected(rs, plan.target), chapters: [], marks: [], today: t, width: W, height: narrow ? 250 : 300, from: num(plan.from) - 3, floor: true });
-			const proj = projected(rs, plan.target), foot = s.createDiv({ cls: 'binders-pot-key' });
-			this.key(foot, 'is-line', 'The book');
-			this.key(foot, 'is-plan', 'The plan');
-			if (proj) this.key(foot, 'is-projection', `The last 30 days’ pace: there in ${proj.said}`);
-		}
-
-		// ---- the book's life ----
+		// ---- its life ----
 		{
-			const first = h.estimate.length ? num(h.estimate[0].day) : rs[0]?.n ?? t;
-			const s = this.section(body, this.within ? 'This folder’s life' : 'The book’s life', '');
+			const s = this.section(body, scope ? 'This folder’s life' : 'The book’s life', '');
 			const readout = s.querySelector<HTMLElement>('.binders-pot-section-detail');
-			const rest = young && !h.estimate.length ? (rs.length <= 1 ? 'Day one' : `${count(rs.length, 'day')} so far`) : `Since ${sayDay(first)}: ${count(t - first + 1, 'day')}`;
+			const rest = rs.length <= 1 ? 'Day one' : `${count(rs.length, 'day')}, ${fmt(written.length)} written on`;
 			readout?.setText(rest);
-			if (!page && !young) {
-				const seg = s.querySelector<HTMLElement>('.binders-pot-section-head')?.createDiv({ cls: 'binders-pot-ranges' });
-				for (const [name, days] of RANGES) {
-					const b = seg?.createEl('button', { cls: `text-icon-button binders-pot-range${this.range === days ? ' is-active' : ''}`, text: name, attr: { 'aria-pressed': String(this.range === days) } });
+			readout?.setAttr('aria-live', 'off');
+			const ranges = RANGES.filter(([, , days]) => !days || rs.length > days + 10);
+			if (this.range && !ranges.some((r) => r[2] === this.range)) this.range = 0;
+			if (ranges.length > 1) {
+				const seg = s.querySelector<HTMLElement>('.binders-pot-section-head')?.createDiv({ cls: 'binders-pot-ranges', attr: { role: 'group', 'aria-label': 'How much of the record the chart shows' } });
+				for (const [key, name, days] of ranges) {
+					const b = seg?.createEl('button', { cls: `text-icon-button binders-pot-range${this.range === days ? ' is-active' : ''}`, text: name, attr: { 'aria-pressed': String(this.range === days), 'data-binders-key': `range-${key}` } });
 					b?.addEventListener('click', () => { this.range = days; this.draw(); });
 				}
 			}
-			const chart = s.createDiv({ cls: 'binders-pot-chart' });
-			const from = this.range ? t - this.range : 0;
-			drawLife(chart, {
-				rows: rs, estimate: this.within ? [] : h.estimate, plan, projection: plan ? projected(rs, plan.target) : null, chapters: chapters(rs), marks: this.within ? [] : h.marks, today: t, width: W, height: young && !h.estimate.length ? 230 : narrow ? 260 : 340, from,
-				hover: (r) => readout?.setText(r ? `${sayDay(r.n, { weekday: !narrow, short: narrow })}: ${fmt(r.total)} words${r.added ? `, ${fmt(r.added)} written` : ''}${r.cut ? `, ${fmt(r.cut)} cut` : ''}${r.block ? `, ${fmt(Math.abs(r.block))} ${r.block > 0 ? 'brought in' : 'taken out'} at once` : ''}` : rest),
+			const from = this.range ? t - this.range : 0, shown = from ? rs.filter((r) => r.n >= from) : rs;
+			// a book much larger than what the record has seen of it: the axis starts just under it, or the days are a flat line
+			const lo = Math.min(from ? shown[0]?.total ?? 0 : base, ...shown.map((r) => r.total)), hi = Math.max(1, ...shown.map((r) => r.total));
+			const story = chapters(rs), chart = s.createDiv({ cls: 'binders-pot-chart' });
+			const unsaid = drawLife(chart, {
+				rows: rs, estimate: [], plan: null, projection: null, chapters: story, marks: scope ? [] : h.marks, today: t, width: W, height: first ? (narrow ? 220 : 250) : narrow ? 260 : 340, from, base, floor: (hi - lo) / hi < 0.3 && lo > 0,
+				hover: (r) => readout?.setText(r ? `${sayDay(r.n, { weekday: !narrow, short: narrow })}: ${fmt(r.total)} words${r.added ? `, ${fmt(r.added)} written` : ''}${r.cut ? `, ${fmt(r.cut)} cut` : ''}${r.block ? `, ${fmt(Math.abs(r.block))} ${r.block > 0 ? 'brought in' : 'taken out'} at once` : ''}${r.elsewhere ? `, ${fmt(Math.abs(r.elsewhere))} ${r.elsewhere > 0 ? 'more' : 'fewer'} from elsewhere` : ''}` : rest),
 			});
 			const key = s.createDiv({ cls: 'binders-pot-key' });
-			if (!young) { this.key(key, 'is-bar', 'Written'); if (rs.some((r) => r.cut > 0)) this.key(key, 'is-cut', 'Cut'); if (rs.some((r) => r.block > 0)) this.key(key, 'is-block', 'Brought in at once'); if (chapters(rs).some((c) => c.kind === 'away')) this.key(key, 'is-away', 'Away'); }
-			// the same numbers, a month to a row, for a screen reader
-			const months = new Map<string, { total: number; added: number; cut: number }>();
-			for (const r of rs) { const d = new Date(r.n * 864e5), k = `${monthName(d.getUTCMonth())} ${d.getUTCFullYear()}`, m = months.get(k) ?? { total: 0, added: 0, cut: 0 }; m.total = r.total; m.added += r.added; m.cut += r.cut; months.set(k, m); }
-			table(s, 'The binder’s words, month by month', ['Month', 'Words at its end', 'Written', 'Cut'], [...months].map(([k, m]) => [k, fmt(m.total), fmt(m.added), fmt(m.cut)]));
+			this.key(key, 'is-bar', 'Written');
+			if (shown.some((r) => r.cut > 0 || r.block < 0 || r.elsewhere < 0)) this.key(key, 'is-cut', 'Cut or taken out');
+			if (shown.some((r) => r.block > 0 || r.elsewhere > 0)) this.key(key, 'is-block', 'Brought in, or changed elsewhere');
+			if (story.some((c) => c.kind === 'away')) this.key(key, 'is-away', 'Away');
+			if (unsaid.length) s.createDiv({ cls: 'binders-pot-unsaid', text: `Also: ${unsaid.join('; ')}.` });
+			if (first) table(s, `${scope ? 'This folder' : 'The binder'}’s words, day by day`, ['Day', 'Words at its end', 'Written', 'Cut', 'Brought in or taken out', 'Changed elsewhere'], rs.map((r) => [sayDay(r.n), fmt(r.total), fmt(r.added), fmt(r.cut), fmt(r.block), fmt(r.elsewhere)]));
+			else table(s, `${scope ? 'This folder' : 'The binder'}’s words, month by month`, ['Month', 'Words at its end', 'Written', 'Cut', 'Brought in or taken out', 'Changed elsewhere', 'Days written on'], this.months(rs).map(([k, m]) => [k, fmt(m.total), fmt(m.added), fmt(m.cut), fmt(m.block), fmt(m.elsewhere), fmt(m.days)]));
+		}
+
+		// ---- the first days: what the calendar is before there is one ----
+		if (first) {
+			const left = FIRST_DAYS - rs.length;
+			const s = this.section(body, 'The first two weeks', `${count(written.length, 'day')} written on`);
+			drawFirstDays(s.createDiv({ cls: 'binders-pot-chart' }), rs, t, Math.min(W, 14 * 64), FIRST_DAYS);
+			s.createDiv({ cls: 'binders-pot-coming', text: `In ${count(left, 'day')} this becomes a calendar of every day, and the hours you write in, the days of the week and each part’s story appear beside it.` });
 		}
 
 		// ---- every day, and when in the day and the week ----
-		if (!young) {
+		if (!first) {
+			const hours = hourShape(h, scope), wd = weekdayShape(rs);
+			const showHours = written.length >= 5 && hours.some((v) => v > 0), showDays = rs.length >= 28 && !alike(wd), beside = (showHours || showDays) && !narrow;
 			const wrap = body.createDiv({ cls: 'binders-pot-columns' });
-			const cal = this.section(wrap, 'Every day', `${fmt(rs.filter((r) => r.added || r.cut).length)} written on`);
-			const hours = hourShape(h, this.within), wd = weekdayShape(rs);
-			const calW = narrow ? W : Math.min(W - 300, 53 * 14 + 34);
-			drawCalendar(cal.createDiv({ cls: 'binders-pot-chart' }), rs, calW);
+			const cal = this.section(wrap, 'Every day', `${fmt(written.length)} written on`);
+			const calW = narrow ? W : beside ? Math.min(W - 300, 54 * 14 + 34) : Math.min(W, 54 * 14 + 34);
+			drawCalendar(cal.createDiv({ cls: 'binders-pot-chart' }), rs, calW, narrow);
 			const ck = cal.createDiv({ cls: 'binders-pot-key' });
 			const scale = ck.createSpan({ cls: 'binders-pot-scale' });
 			scale.createSpan({ text: 'Less' });
 			for (const c of ['is-1', 'is-2', 'is-3', 'is-4']) scale.createSpan({ cls: `binders-pot-swatch is-cell ${c}` });
 			scale.createSpan({ text: 'More' });
-			this.key(ck, 'is-cell is-cut', 'Ended with fewer words');
-			const when = this.section(wrap, 'When', '');
-			const sideW = narrow ? W : Math.max(220, W - calW - 48);
-			const hourBox = when.createDiv({ cls: 'binders-pot-small' });
-			hourBox.createDiv({ cls: 'binders-pot-small-said', text: hourSaid(hours) });
-			drawBars(hourBox.createDiv({ cls: 'binders-pot-chart' }), hours, hours.map((_, i) => (i === 0 ? '12 am' : i === 6 ? '6' : i === 12 ? 'noon' : i === 18 ? '6' : null)), sideW, 78, 'Words written in each hour of the day');
-			table(hourBox, 'Words written in each hour of the day', ['Hour', 'Words'], hours.map((v, i) => [`${i}:00`, fmt(v)]));
-			const best = wd.indexOf(Math.max(...wd)), wdBox = when.createDiv({ cls: 'binders-pot-small' });
-			const order = [1, 2, 3, 4, 5, 6, 0], names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-			wdBox.createDiv({ cls: 'binders-pot-small-said', text: `${names[best]}s most: ${fmt(wd[best])} words` });
-			drawBars(wdBox.createDiv({ cls: 'binders-pot-chart' }), order.map((d) => wd[d]), order.map((d) => LETTERS[d]), sideW, 78, 'Words written on each day of the week');
-			table(wdBox, 'Words written on each day of the week', ['Day', 'Words'], order.map((d) => [names[d], fmt(wd[d])]));
+			if (rs.some((r) => (r.added || r.cut) && r.added <= r.cut)) this.key(ck, 'is-cell is-cut', 'Ended with fewer words');
+			table(cal, 'Days written on, month by month', ['Month', 'Days written on', 'Written', 'Cut'], this.months(rs).map(([k, m]) => [k, fmt(m.days), fmt(m.added), fmt(m.cut)]));
+			if (showHours || showDays) {
+				const when = this.section(wrap, 'When', '');
+				const sideW = narrow ? W : Math.max(220, W - calW - 48);
+				if (showHours) {
+					const box = when.createDiv({ cls: 'binders-pot-small' });
+					box.createDiv({ cls: 'binders-pot-small-said', text: hourSaid(hours) });
+					drawBars(box.createDiv({ cls: 'binders-pot-chart' }), hours, hours.map((_, i) => (i === 0 ? '12 am' : i === 6 ? '6' : i === 12 ? 'noon' : i === 18 ? '6' : null)), sideW, 78, 'Words added in each hour of the day');
+					table(box, 'Words added in each hour of the day', ['Hour', 'Words'], hours.map((v, i) => [`${i}:00`, fmt(v)]));
+				}
+				if (showDays) {
+					const best = wd.indexOf(Math.max(...wd)), box = when.createDiv({ cls: 'binders-pot-small' }), order = [1, 2, 3, 4, 5, 6, 0];
+					box.createDiv({ cls: 'binders-pot-small-said', text: `${WEEKDAYS[best]}s most: ${fmt(wd[best])} words` });
+					drawBars(box.createDiv({ cls: 'binders-pot-chart' }), order.map((d) => wd[d]), order.map((d) => LETTERS[d]), sideW, 78, 'Words written on each day of the week');
+					table(box, 'Words written on each day of the week', ['Day', 'Words'], order.map((d) => [WEEKDAYS[d], fmt(wd[d])]));
+				}
+			}
 		}
 
-		// ---- the parts, and the statuses ----
-		const names = this.topItems();
-		if (!young && names.length > 1) {
-			const s = this.section(body, 'The parts', 'when each was written');
-			const list = parts(h, rs, names, this.within).filter((x) => x.now > 0 || x.totals.some((v) => v > 0));
-			const grid = s.createDiv({ cls: 'binders-pot-parts' });
-			const stripW = Math.max(80, narrow ? W - 150 : W - 470);
-			// a square a month (a week, in a book's first months): how much the part grew in it
-			const per = rs.length > 200 ? 0 : 7, starts: number[] = [];
-			rs.forEach((r, i) => { const d = new Date(r.n * 864e5); if (i === 0 || (per ? i % per === 0 : d.getUTCDate() === 1)) starts.push(i); });
-			const months = list.map((x) => starts.map((a, k) => { const b = (starts[k + 1] ?? rs.length) - 1, before = a ? x.totals[a - 1] : 0; let moved = false; for (let i = a; i <= b && !moved; i++) moved = x.totals[i] !== (i ? x.totals[i - 1] : 0); return { net: x.totals[b] - before, moved }; }));
-			const grown = months.flat().map((m) => m.net).filter((v) => v > 0).sort((a, b) => a - b), q = (f: number): number => grown[Math.min(grown.length - 1, Math.floor(grown.length * f))] ?? 0;
-			const head = grid.createDiv({ cls: 'binders-pot-part is-axis' });
-			head.createDiv();
-			drawStrip(head.createDiv({ cls: 'binders-pot-chart' }), null, [], stripW, 14, starts.map((a) => rs[a].n));
-			for (const [k, part] of list.slice(0, 14).entries()) {
-				const row = grid.createDiv({ cls: 'binders-pot-part' });
-				row.createDiv({ cls: 'binders-pot-part-name', text: part.name });
-				drawStrip(row.createDiv({ cls: 'binders-pot-chart' }), months[k], [q(0.3), q(0.6), q(0.85)], stripW, 16, starts.map((a) => rs[a].n));
-				row.createDiv({ cls: 'binders-pot-part-words', text: fmt(part.now) });
-				if (!narrow) row.createDiv({ cls: 'binders-pot-part-note', text: part.grewMost ? `most of it in ${part.grewMost}` : '' });
+		// ---- the parts ----
+		const items = (this.plugin.binders.orderedChildren(this.scopeFolder) ?? []);
+		if (!first && items.length > 1) {
+			const nowBy: Record<string, number> = {}, names: string[] = [];
+			for (const c of items) { const name = c instanceof TFolder ? c.name : c.name.replace(/\.md$/, ''), w = c instanceof TFolder ? this.wordsNow(c) : c instanceof TFile ? this.counter.get(c) ?? undefined : undefined; names.push(name); if (w !== undefined) nowBy[name] = w; }
+			const list = parts(h, rs, names, scope, nowBy).filter((x) => x.now > 0 || x.totals.some((v) => v > 0));
+			if (list.length > 1) {
+				const s = this.section(body, items.some((c) => c instanceof TFolder) ? 'The parts' : 'The scenes', 'when each was written');
+				const grid = s.createDiv({ cls: 'binders-pot-parts' });
+				const stripW = Math.max(80, narrow ? W - 150 : W - 470);
+				// a square a month (a week, in a record's first months): how much the part grew in it
+				const per = rs.length > 200 ? 0 : 7, starts: number[] = [];
+				rs.forEach((r, i) => { const d = new Date(r.n * 864e5); if (i === 0 || (per ? i % per === 0 : d.getUTCDate() === 1)) starts.push(i); });
+				const months = list.map((x) => starts.map((a, k) => { const b = (starts[k + 1] ?? rs.length) - 1, before = a ? x.totals[a - 1] : x.totals[0]; let moved = false; for (let i = Math.max(1, a); i <= b && !moved; i++) moved = x.totals[i] !== x.totals[i - 1]; return { net: x.totals[b] - before, moved }; }));
+				const grown = months.flat().map((m) => m.net).filter((v) => v > 0).sort((a, b) => a - b), q = (f: number): number => grown[Math.min(grown.length - 1, Math.floor(grown.length * f))] ?? 0;
+				const axis = grid.createDiv({ cls: 'binders-pot-part is-axis' });
+				axis.createDiv();
+				drawStrip(axis.createDiv({ cls: 'binders-pot-chart' }), null, [], stripW, 14, starts.map((a) => rs[a].n));
+				const some = this.allParts ? list : list.slice(0, PARTS_SHOWN);
+				some.forEach((part, k) => {
+					const row = grid.createDiv({ cls: 'binders-pot-part' });
+					row.createDiv({ cls: 'binders-pot-part-name', text: part.name });
+					drawStrip(row.createDiv({ cls: 'binders-pot-chart' }), months[k], [q(0.3), q(0.6), q(0.85)], stripW, 16, starts.map((a) => rs[a].n));
+					row.createDiv({ cls: 'binders-pot-part-words', text: fmt(part.now) });
+					if (!narrow) row.createDiv({ cls: 'binders-pot-part-note', text: part.grewMost ? `most of it in ${part.grewMost}` : '' });
+				});
+				if (list.length > PARTS_SHOWN) {
+					const b = s.createEl('button', { cls: 'binders-pot-quiet', text: this.allParts ? `Show the first ${PARTS_SHOWN}` : `Show all ${list.length}`, attr: { 'data-binders-key': 'all-parts', 'aria-expanded': String(this.allParts) } });
+					b.addEventListener('click', () => { this.allParts = !this.allParts; this.draw(); });
+				}
+				table(s, 'When each was written', ['Name', 'Words now', 'Grew most in'], list.map((x) => [x.name, fmt(x.now), x.grewMost]));
 			}
-			if (list.length > 14) grid.createDiv({ cls: 'binders-pot-part-more', text: `and ${count(list.length - 14, 'other')}` });
-			table(s, 'The parts', ['Part', 'Words', 'Grew most in'], list.map((x) => [x.name, fmt(x.now), x.grewMost]));
 		}
-		if (!young && !this.within) {
+
+		// ---- through the statuses ----
+		if (!first && !scope) {
 			const series = statusSeries(h, rs);
 			if (series.length > 1) {
 				const s = this.section(body, 'Through the statuses', 'the book’s words by the status of their scene');
 				drawStatus(s.createDiv({ cls: 'binders-pot-chart' }), series, rs, W, narrow ? 120 : 150);
 				const key = s.createDiv({ cls: 'binders-pot-key' });
 				series.forEach((st, i) => this.key(key, `is-band is-${Math.min(4, i + 1)}-of-${Math.min(4, series.length)}`, `${st.status || 'No status'} ${fmt(st.totals[st.totals.length - 1])}`));
+				// (a row a month: the words in each status at its end)
+				const ends = rs.map((r, i) => i).filter((i) => i === rs.length - 1 || new Date(rs[i + 1].n * 864e5).getUTCDate() === 1);
+				table(s, 'The binder’s words by status, at the end of each month', ['Month', ...series.map((x) => x.status || 'No status')], ends.map((i) => { const d = new Date(rs[i].n * 864e5); return [`${monthName(d.getUTCMonth())} ${d.getUTCFullYear()}`, ...series.map((x) => fmt(x.totals[i]))]; }));
 			}
 		}
 
 		// ---- records and oddities: each a name, a number and a line ----
-		// (three days of record say nothing of a book three years old: its text does)
-		const all: Fact[] = [...(young && h.estimate.length ? [] : facts(h, rs, this.within)), ...textFacts(this.scenesIn())];
-		const groups = [...new Set(all.map((f) => f.group))];
-		const s = this.section(body, young ? 'The book so far' : 'Records and oddities', '');
-		const grid = s.createDiv({ cls: 'binders-pot-facts' });
-		for (const g of groups) {
-			const col = grid.createDiv({ cls: 'binders-pot-factgroup' });
-			col.createDiv({ cls: 'binders-pot-factgroup-name', text: g });
-			for (const f of all.filter((x) => x.group === g)) {
-				const row = col.createDiv({ cls: 'binders-pot-fact' });
-				row.createDiv({ cls: 'binders-pot-fact-label', text: f.label });
-				row.createDiv({ cls: 'binders-pot-fact-value', text: f.value });
-				if (f.note) row.createDiv({ cls: 'binders-pot-fact-note', text: f.note });
+		const scenes = this.texts?.filter((x) => !scope || x.name.startsWith(scope + '/')) ?? [];
+		const all: Fact[] = [...facts(h, rs, scope), ...textFacts(scenes)];
+		if (all.length) {
+			const s = this.section(body, first ? 'So far' : 'Records and oddities', '');
+			const grid = s.createDiv({ cls: 'binders-pot-facts' });
+			for (const g of [...new Set(all.map((f) => f.group))]) {
+				const col = grid.createDiv({ cls: 'binders-pot-factgroup', attr: { role: 'group', 'aria-label': g } });
+				col.createDiv({ cls: 'binders-pot-factgroup-name', text: g });
+				const dl = col.createEl('dl');
+				for (const f of all.filter((x) => x.group === g)) {
+					dl.createEl('dt', { cls: 'binders-pot-fact-label', text: f.label });
+					const dd = dl.createEl('dd', { cls: 'binders-pot-fact' });
+					dd.createDiv({ cls: 'binders-pot-fact-value', text: f.value });
+					if (f.note) dd.createDiv({ cls: 'binders-pot-fact-note', text: f.note });
+				}
 			}
 		}
-		if (h.estimate.length) body.createDiv({ cls: 'binders-pot-foot', text: `Binders has recorded this binder since ${sayDay(num(h.estimate[h.estimate.length - 1].day) + 1)}. What came before is worked out from its snapshots and from when each note was made and last changed, so the days and hours of that time aren’t known.${young ? ' The calendar, the hours of the day and each part’s story appear here once there are two weeks of writing to show.' : ''}` });
-		else if (young) body.createDiv({ cls: 'binders-pot-foot', text: 'The calendar, the hours of the day and each part’s story appear here once there are two weeks of writing to show. The record is kept in this binder’s Snapshots folder, on your devices and nowhere else.' });
+		body.createDiv({ cls: 'binders-pot-foot', text: 'The record is kept in this binder’s Snapshots folder, in History: on your devices, and nowhere else. Written and cut are what you type; a paste or a scene deleted moves the total and is not a day’s writing.' });
 		body.scrollTop = keep;
+		if (held) body.querySelector<HTMLElement>(`[data-binders-key="${held}"]`)?.focus();
+	}
+
+	/** The rows a month at a time: [its name, what it came to]. */
+	private months(rs: Row[]): [string, { total: number; added: number; cut: number; block: number; elsewhere: number; days: number }][] {
+		const out = new Map<string, { total: number; added: number; cut: number; block: number; elsewhere: number; days: number }>();
+		for (const r of rs) {
+			const d = new Date(r.n * 864e5), k = `${monthName(d.getUTCMonth())} ${d.getUTCFullYear()}`, m = out.get(k) ?? { total: 0, added: 0, cut: 0, block: 0, elsewhere: 0, days: 0 };
+			m.total = r.total; m.added += r.added; m.cut += r.cut; m.block += r.block; m.elsewhere += r.elsewhere; if (r.added || r.cut) m.days++;
+			out.set(k, m);
+		}
+		return [...out];
 	}
 
 	/** The numbers at the head: [what, the number, a line under it]. */
-	private now(rs: Row[], p: ReturnType<typeof pace> | null): [string, string, string][] {
-		const t = num(this.today), last = rs[rs.length - 1], total = last?.total ?? 0, plan = this.within ? null : this.plan;
+	private now(rs: Row[]): [string, string, string][] {
+		const t = num(this.today), last = rs[rs.length - 1], total = last?.total ?? 0;
 		const today = last && last.n === t ? last.added - last.cut : 0;
 		const week = rs.filter((r) => r.n > t - 7), wrote = [...rs].reverse().find((r) => r.added || r.cut);
-		const note = this.plugin.binders.folderNote(this.scopeFolder), target = plan?.target ?? (note ? readProps(this.plugin, note).target : 0);
+		const note = this.plugin.binders.folderNote(this.scopeFolder), target = note ? readProps(this.plugin, note).target : 0;
 		const out: [string, string, string][] = [];
-		out.push(['Today', fmt(today), p && p.needed && p.state !== 'passed' ? `of ${fmt(p.needed)} for the plan` : today ? (today === 1 ? 'word' : 'words') : wrote ? `last written on ${sayDay(wrote.n, { weekday: t - wrote.n < 7, year: false })}` : 'words']);
-		out.push(['Seven days', fmt(week.reduce((a, r) => a + r.added - r.cut, 0)), `${count(week.filter((r) => r.added || r.cut).length, 'day')} written on`]);
-		out.push([this.within ? 'This folder' : 'The book', fmt(total), target ? `of ${fmt(target)}: ${Math.floor((total / target) * 100)}%` : `${count(this.scenesIn().filter((x) => x.words > 0).length, 'scene')}`]);
-		if (plan && p) out.push(p.state === 'reached' || p.state === 'passed' ? [sayDay(num(plan.deadline), { year: false }), p.state === 'reached' ? 'Reached' : 'Passed', `${fmt(plan.target)} words`] : [sayDay(num(plan.deadline), { year: false }), `${fmt(p.needed)} a day`, `${count(p.daysLeft, 'writing day')} left`]);
-		else if (rs.length >= 14) { const back = rs[Math.max(0, rs.length - 31)]; out.push(['Thirty days', fmt(total - back.total), `${fmt(Math.round((total - back.total) / 30))} a day`]); }
+		out.push(['Today', fmt(today), today ? (Math.abs(today) === 1 ? 'word' : 'words') : wrote ? `last written on ${sayDay(wrote.n, { weekday: t - wrote.n < 7, year: false })}` : 'words']);
+		if (rs.length > 1) out.push(['Seven days', fmt(week.reduce((a, r) => a + r.added - r.cut, 0)), `${count(week.filter((r) => r.added || r.cut).length, 'day')} written on`]);
+		out.push([this.within ? 'This folder' : 'The book', fmt(total), target ? `of ${fmt(target)}: ${Math.floor((total / target) * 100)}%` : this.within ? 'words' : last && rs.length ? this.scenesSaid() : 'words']);
+		if (rs.length >= 30) { const month = rs.slice(-30), sum = month.reduce((a, r) => a + r.added - r.cut, 0); out.push(['Thirty days', fmt(sum), `${fmt(Math.round(sum / 30))} a day`]); }
 		return out;
+	}
+
+	private scenesSaid(): string {
+		const n = [...(this.history?.days ?? [])].reverse().find((d) => d.scenes !== undefined)?.scenes;
+		return n ? count(n, 'scene') : 'words';
 	}
 
 	private figure(parent: HTMLElement, label: string, value: string, note: string): void {
@@ -283,9 +367,9 @@ export class ProgressModal extends Modal {
 	}
 
 	private section(parent: HTMLElement, name: string, detail: string): HTMLElement {
-		const s = parent.createDiv({ cls: 'binders-pot-section' });
+		const s = parent.createEl('section', { cls: 'binders-pot-section', attr: { 'aria-label': name } });
 		const head = s.createDiv({ cls: 'binders-pot-section-head' });
-		head.createDiv({ cls: 'binders-pot-section-name', text: name });
+		head.createEl('h3', { cls: 'binders-pot-section-name', text: name });
 		head.createDiv({ cls: 'binders-pot-section-detail', text: detail });
 		return s;
 	}
@@ -296,92 +380,14 @@ export class ProgressModal extends Modal {
 		k.createSpan({ text });
 	}
 
-	private offSaid(off: number[]): string {
-		const s = [...off].sort().join(',');
-		return s === '0,6' ? 'weekends' : off.map((d) => ['Sundays', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'Fridays', 'Saturdays'][d]).join(', ');
-	}
-
-	/** The folders at the top of what is shown, in the binder's order. */
-	private topItems(): string[] {
-		return (this.plugin.binders.orderedChildren(this.scopeFolder) ?? []).map((c) => (c instanceof TFolder ? c.name : c.name.replace(/\.md$/, '')));
-	}
-
-	/** The whole book or one of its folders: a dropdown, as Obsidian's settings have. */
+	/** The whole binder or one of its folders: a dropdown, as Obsidian's settings have. */
 	private scopePicker(parent: HTMLElement): void {
 		const folders = (this.plugin.binders.orderedChildren(this.binderFolder) ?? []).filter((c): c is TFolder => c instanceof TFolder);
 		if (!folders.length) return;
-		const sel = parent.createEl('select', { cls: 'dropdown binders-pot-scope', attr: { 'aria-label': 'Show the whole binder or one folder' } });
+		const sel = parent.createEl('select', { cls: 'dropdown binders-pot-scope', attr: { 'aria-label': 'Show the whole binder or one folder', 'data-binders-key': 'scope' } });
 		sel.createEl('option', { text: 'The whole binder', value: '' });
 		for (const f of folders) sel.createEl('option', { text: f.name, value: f.name });
 		sel.value = this.within;
-		sel.addEventListener('change', () => { this.within = sel.value; this.draw(); });
-	}
-
-	/** The plan's three choices. Changes apply as they are made, as in Obsidian's settings. */
-	private planForm(parent: HTMLElement, total: number): void {
-		const t = num(this.today), plan = this.plan;
-		const set = (patch: Partial<Plan>): void => {
-			const base: Plan = this.plan ?? { target: Math.ceil((total * 1.1) / 5000) * 5000 || 50000, deadline: dayStr(t + 90), off: [], from: this.today, fromTotal: total };
-			this.plan = { ...base, ...patch };
-			window.clearTimeout(this.timer);
-			this.timer = window.setTimeout(() => this.draw(), 350);
-		};
-		const field = (name: string): HTMLElement => { const f = parent.createDiv({ cls: 'binders-pot-field' }); f.createDiv({ cls: 'binders-pot-field-name', text: name }); return f; };
-		const words = field('Words').createEl('input', { type: 'text', cls: 'binders-pot-input', attr: { inputmode: 'numeric', placeholder: 'Such as 80,000', 'aria-label': 'Word count target' } });
-		words.value = plan ? fmt(plan.target) : '';
-		words.addEventListener('change', () => { const n = parseInt(words.value.replace(/[^\d]/g, ''), 10); if (n > 0) set({ target: n }); });
-		const by = field('By').createEl('input', { type: 'date', cls: 'binders-pot-input', attr: { 'aria-label': 'Deadline' } });
-		by.value = plan?.deadline ?? '';
-		by.addEventListener('change', () => { if (by.value) set({ deadline: by.value }); });
-		const daysEl = field('Writing days').createDiv({ cls: 'binders-pot-weekdays', attr: { role: 'group', 'aria-label': 'Writing days' } });
-		const full = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-		for (const d of [1, 2, 3, 4, 5, 6, 0]) {
-			const on = !(plan?.off ?? []).includes(d);
-			const b = daysEl.createEl('button', { cls: `text-icon-button binders-pot-weekday${on ? ' is-active' : ''}`, text: LETTERS[d], attr: { 'aria-label': full[d], 'aria-pressed': String(on) } });
-			b.addEventListener('click', () => { const off = new Set(this.plan?.off ?? []); if (off.has(d)) off.delete(d); else if (off.size < 6) off.add(d); set({ off: [...off] }); window.clearTimeout(this.timer); this.draw(); });
-		}
-		if (plan) {
-			const clear = parent.createEl('button', { cls: 'binders-pot-quiet', text: 'Remove the deadline' });
-			clear.addEventListener('click', () => { this.plan = null; this.editing = false; this.draw(); });
-		}
-	}
-
-	/** The two-pane window's sidebar: what to look at, the plan, and how today stands. */
-	private drawSide(rs: Row[], p: ReturnType<typeof pace> | null): void {
-		const side = this.side;
-		if (!side) return;
-		const keep = document.activeElement && side.contains(document.activeElement);
-		if (keep) return; // (a field being typed in is left alone; the next draw brings it up to date)
-		side.empty();
-		const total = this.history ? rowsOf(this.history, this.today).slice(-1)[0]?.total ?? 0 : 0;
-		const tree = side.createDiv({ cls: 'binders-pot-tree' });
-		const item = (name: string, scope: string, words: number, icon: string, depth: number): void => {
-			const row = tree.createDiv({ cls: 'tree-item' }), self = row.createDiv({ cls: `tree-item-self is-clickable${this.within === scope ? ' is-active' : ''}${depth ? ' binders-pot-tree-child' : ''}`, attr: { role: 'button', tabindex: '0', 'aria-current': String(this.within === scope) } });
-			setIcon(self.createDiv({ cls: 'tree-item-icon' }), icon);
-			self.createDiv({ cls: 'tree-item-inner', text: name });
-			self.createDiv({ cls: 'tree-item-flair-outer' }).createSpan({ cls: 'tree-item-flair', text: fmt(words) });
-			const go = (): void => { this.within = scope; this.draw(); };
-			self.addEventListener('click', go);
-			self.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
-		};
-		const wordsUnder = (scope: string): number => this.texts.filter((s) => !scope || s.name.startsWith(scope + '/')).reduce((a, s) => a + s.words, 0);
-		item(this.binderFolder.name, '', total, 'lucide-book', 0);
-		for (const c of this.plugin.binders.orderedChildren(this.binderFolder) ?? []) if (c instanceof TFolder) item(c.name, c.name, wordsUnder(c.name), 'lucide-folder', 1);
-
-		if (!this.within) {
-			side.createDiv({ cls: 'binders-pot-side-heading', text: 'Deadline' });
-			this.planForm(side.createDiv({ cls: 'binders-pot-form is-side' }), total);
-		}
-		side.createDiv({ cls: 'binders-pot-side-heading', text: 'Now' });
-		const list = side.createDiv({ cls: 'binders-pot-now' });
-		for (const [label, value, note] of this.now(rs, p)) {
-			const row = list.createDiv({ cls: 'binders-pot-now-row' });
-			row.createDiv({ cls: 'binders-pot-now-label', text: label });
-			row.createDiv({ cls: 'binders-pot-now-value', text: value });
-			row.createDiv({ cls: 'binders-pot-now-note', text: note });
-		}
-		if (p) { const said = side.createDiv({ cls: 'binders-pot-side-said' }); said.createSpan({ cls: `binders-pot-pace is-${p.state}`, text: p.said }); if (p.then) said.createSpan({ text: ' ' + p.then }); }
+		sel.addEventListener('change', () => { this.within = sel.value; this.range = 0; this.allParts = false; this.draw(); });
 	}
 }
-
-export const openProgress = (plugin: BindersPlugin, folder: TFolder, o: ProgressOptions = {}): void => { new ProgressModal(plugin, folder, o).open(); };
