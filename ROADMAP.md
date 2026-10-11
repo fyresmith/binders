@@ -176,6 +176,51 @@ ends at 4 in the morning; each device records only what was typed on it, and edi
 elsewhere. Complete when the record survives sync and restarts, distinguishes drafting from revision, and can be
 inspected by hand. No streak as a headline, no badges, no reminders.
 
+### 9. More import formats
+
+- [ ] Add `.odt` and `.rtf` to the existing import preview and safe new-folder writer.
+
+Word, Markdown, text and splitting existing notes are already built. Each added format keeps the original file,
+shows what cannot be carried, and is held to word-for-word tests of order, formatting and scene boundaries.
+Complete with representative manuscripts from the programs that write the format, compared with independent text
+exports. Existing Word import needs the same real-file validation during hardening.
+
+### 10. Retain automatic snapshots without piling up
+
+- [ ] Finish snapshot retention: thin older automatic snapshots of a folder or binder according to a clear rule.
+
+Snapshots the writer took or named stay. Never thin an unknown newer format or a snapshot needed by an unfinished
+restore. Complete when the retention rule is visible, tested against interrupted restores and sync, and never removes
+the only recovery for work still in progress. Daily unasked snapshots remain outside the plan.
+
+### 11. Export a selection or saved subset
+
+- [ ] Export selected scenes or a saved filter for critique or an arc review, without changing permanent export
+      inclusion. Keep existing whole-binder and folder exports.
+
+Choose scope explicitly in the Export window and show exactly what will go out, in manuscript order. Resolve how
+chapter headings and numbering work in excerpts during design. Complete when preview and output agree, excluded
+scenes stay excluded unless explicitly chosen, notes stay untouched, and temporary scope cannot leak into the next export.
+
+### 12. Named export presets
+
+- [ ] Remember recurring combinations of scope, format and style, such as a submission manuscript or critique excerpt,
+      without duplicating the style editor or changing the book's stored defaults just by choosing a preset.
+
+Keep definitions readable, show their resolved contents before export, and report renamed or missing filters and
+styles. Device-specific save paths remain on their device. Complete when presets reopen predictably, can be changed
+or removed through native menus, and never export a different scope silently.
+
+### 13. An editor's changes, brought back
+
+- [ ] Read a returned Word manuscript with tracked changes and comments, match it to the binder's scenes, and show
+      each change against the writing now, to accept or reject. Comments can become revision tasks.
+
+Build after revision tasks and scoped export. Design first with real edited manuscripts. Missing, ambiguous or
+outdated matches are shown and not applied. Applying changes requires review and an automatic snapshot; bulk
+application is an explicit choice. Complete when edits preserve everything written since export and recovery is
+proved through conflicts, unsaved writing, undo and interruptions. This is the hardest feature here to make safe.
+
 ## Hardening, then 1.0
 
 Targeted validation belongs to every feature above. The final round tests how they work together:
