@@ -64,6 +64,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - A binder's progress record is never listed as one of its items, even when its Snapshots folder holds a note.
 - Bring back no longer writes over a note you made since at the path of a deleted note, when both have three or more paragraphs and share none: the old note is made again beside it.
 - A snapshot name that fits in 120 characters but is too long for a file name (accented or other multi-byte letters) is now refused in plain words instead of showing a raw error.
+- Quitting Obsidian no longer waits on the progress record when nothing is waiting to be written.
 
 ## 0.51.1 (2026-10-10)
 

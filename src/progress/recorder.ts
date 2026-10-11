@@ -494,7 +494,8 @@ export class Progress {
 		// a phone puts the app away, a window is closed, Obsidian quits
 		plugin.registerDomEvent(document, 'visibilitychange', () => { if (document.hidden) void this.flush(true); });
 		plugin.registerDomEvent(window, 'pagehide', () => { void this.flush(true); });
-		plugin.registerEvent(ws.on('quit', (tasks) => { tasks.addPromise(this.flush(true)); }));
+		// (Obsidian holds the quit for every promise it is given: only when something is waiting)
+		plugin.registerEvent(ws.on('quit', (tasks) => { if (this.needStamp.size || [...this.records.values()].some((r) => r.dirty)) tasks.addPromise(this.flush(true)); }));
 		plugin.register(() => { window.clearTimeout(this.timer); window.clearTimeout(this.stampTimer); void this.flush(true); });
 	}
 }
