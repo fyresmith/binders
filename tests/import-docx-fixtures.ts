@@ -38,7 +38,7 @@ export const STYLES = `${XML}<w:styles ${NS}><w:style w:type="paragraph" w:defau
 
 export const NUMBERING = `${XML}<w:numbering ${NS}><w:abstractNum w:abstractNumId="0"><w:lvl w:ilvl="0"><w:numFmt w:val="bullet"/></w:lvl></w:abstractNum><w:abstractNum w:abstractNumId="1"><w:lvl w:ilvl="0"><w:numFmt w:val="decimal"/></w:lvl></w:abstractNum><w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num><w:num w:numId="2"><w:abstractNumId w:val="1"/></w:num></w:numbering>`;
 
-export interface Opts { styles?: string; footnotes?: string; endnotes?: string; numbering?: string; producer?: string; extra?: Record<string, string>; rels?: string; mainPath?: string }
+export interface Opts { styles?: string; footnotes?: string; endnotes?: string; comments?: string; numbering?: string; producer?: string; extra?: Record<string, string | Uint8Array>; rels?: string; mainPath?: string }
 /** A .docx: the body (paragraphs, tables) in a package with the styles and parts given. */
 export function docx(body: string, o: Opts = {}): Uint8Array {
 	const main = o.mainPath ?? 'word/document.xml', dir = main.slice(0, main.lastIndexOf('/') + 1), file = main.slice(main.lastIndexOf('/') + 1);
@@ -46,16 +46,19 @@ export function docx(body: string, o: Opts = {}): Uint8Array {
 		'[Content_Types].xml': `${XML}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="xml" ContentType="application/xml"/><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/></Types>`,
 		'_rels/.rels': `${XML}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="${main}"/></Relationships>`,
 		[main]: `${XML}<w:document ${NS}><w:body>${body}<w:sectPr/></w:body></w:document>`,
-		[`${dir}_rels/${file}.rels`]: `${XML}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdS" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>${o.numbering ?? NUMBERING ? '<Relationship Id="rIdN" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/>' : ''}${o.footnotes ? '<Relationship Id="rIdF" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footnotes" Target="footnotes.xml"/>' : ''}${o.endnotes ? '<Relationship Id="rIdE" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/endnotes" Target="endnotes.xml"/>' : ''}<Relationship Id="rIdL" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="https://example.com/a?b=1&amp;c=2" TargetMode="External"/>${o.rels ?? ''}</Relationships>`,
+		[`${dir}_rels/${file}.rels`]: `${XML}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdS" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>${o.numbering ?? NUMBERING ? '<Relationship Id="rIdN" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/>' : ''}${o.footnotes ? '<Relationship Id="rIdF" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footnotes" Target="footnotes.xml"/>' : ''}${o.comments ? '<Relationship Id="rIdC" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments" Target="comments.xml"/>' : ''}${o.endnotes ? '<Relationship Id="rIdE" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/endnotes" Target="endnotes.xml"/>' : ''}<Relationship Id="rIdL" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="https://example.com/a?b=1&amp;c=2" TargetMode="External"/>${o.rels ?? ''}</Relationships>`,
 		[`${dir}styles.xml`]: o.styles ?? STYLES,
 		[`${dir}numbering.xml`]: o.numbering ?? NUMBERING,
 		'docProps/app.xml': `${XML}<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>${o.producer ?? 'Test writer'}</Application></Properties>`,
 	};
 	if (o.footnotes) parts[`${dir}footnotes.xml`] = `${XML}<w:footnotes ${NS}><w:footnote w:type="separator" w:id="-1"><w:p><w:r><w:separator/></w:r></w:p></w:footnote><w:footnote w:type="continuationSeparator" w:id="0"><w:p><w:r><w:continuationSeparator/></w:r></w:p></w:footnote>${o.footnotes}</w:footnotes>`;
 	if (o.endnotes) parts[`${dir}endnotes.xml`] = `${XML}<w:endnotes ${NS}>${o.endnotes}</w:endnotes>`;
-	for (const [k, v] of Object.entries(o.extra ?? {})) parts[k] = v;
-	return zipSync(Object.fromEntries(Object.entries(parts).map(([k, v]) => [k, strToU8(v)])));
+	if (o.comments) parts[`${dir}comments.xml`] = `${XML}<w:comments ${NS}>${o.comments}</w:comments>`;
+	const bytes: Record<string, Uint8Array> = Object.fromEntries(Object.entries(parts).map(([k, v]) => [k, strToU8(v)]));
+	for (const [k, v] of Object.entries(o.extra ?? {})) bytes[k] = typeof v === 'string' ? strToU8(v) : v;
+	return zipSync(bytes, { level: 0 });
 }
+export const comment = (id: number, author: string, text: string): string => `<w:comment w:id="${id}" w:author="${author}" w:date="2026-10-01T10:00:00Z"><w:p>${r(text)}</w:p></w:comment>`;
 export const footnote = (id: number, text: string): string => `<w:footnote w:id="${id}"><w:p><w:r><w:footnoteRef/></w:r>${r(` ${text}`)}</w:p></w:footnote>`;
 export const mark = (id: number): string => `<w:r><w:rPr><w:rStyle w:val="FootnoteReference"/></w:rPr><w:footnoteReference w:id="${id}"/></w:r>`;
 export const ins = (inner: string, who = 'Ann', id = 1): string => `<w:ins w:id="${id}" w:author="${who}" w:date="2026-10-01T10:00:00Z">${inner}</w:ins>`;

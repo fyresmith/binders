@@ -12,6 +12,7 @@ second dialog. The manual page for writers is `docs/import-manuscript.md`. The p
 | 0 | The shared plumbing: `src/import/plan.ts`, `readZip` in `source.ts`, `markdown.ts`, `src/view/import-window.ts` over an `ImportJob` | Built |
 | 1 | A Markdown or plain text file, or a note of the vault, as a new binder | Built |
 | 2 | A Word `.docx` as a new binder (from a file, or a `.docx` of the vault from its menu or "Choose from this vault...") | Built. The reader is `src/docx/`; the importer is `src/import/docx.ts` |
+| 4 | What Word files carry: comments, Reject all, underline, pictures, numbered headings | Built (`settle` options, `src/import/docx.ts` `wordRead`, rows in `manuscriptJob`) |
 | 3 | Merge, split and rename in the preview | Built: `Edits`, `actionsFor` and `applyAction` in `manuscript.ts`; `ImportJob.rowActions`, `paragraphs`, `startHere` in the dialog |
 | later | `.odt`, `.rtf`; "Split at headings..." for a note already in a binder (it changes that note: it waits for the undo history's split step) | Not built |
 
@@ -183,12 +184,28 @@ the trusted oracle (the importer's words must equal that file's), in `tests/fixt
 9. A Scrivener "Compile to .docx".
 10. A password-locked `.docx`, and an old `.doc`.
 11. One novel-length manuscript, kept out of the repository, to be read through a folder named by `BINDERS_IMPORT_SAMPLES`
-    (the variable is not read yet: it is for the step that wants it).
+    (any of the files above can go in the same folder).
 
-**What a file with a feature this version doesn't do does today** (it loses no words either way): tracked changes are accepted
-(the plan's "Reject all" row is not built); comments are not brought in, their anchored words are; underline is italics
-only if the file has none; a table is its text cell by cell; a picture is left out and said (its alt text, if any, is not
-kept); a text box once.
+**Step 4 (what a file carries).** `settle(file, as, { underline, comments })`:
+- *Comments*: `read.ts` reads `comments.xml` (`DocxFile.comments`: id to author and text) and keeps the range anchors; `settle`
+  puts a `{ kind: 'comment' }` run where a range ends, written `%%Author: text%%` (`%%` inside is `% %`). Off, none, said. In a
+  heading they are dropped and said. The word oracle (`docxWords(bytes, { comments: true })`) puts the same words at the same
+  place.
+- *Tracked changes*: `'final'` or `'original'`, chosen in the dialog (`WordRead.reread`). A choice that changes the paragraphs
+  lets go of the edits made by hand (they are keyed by unit).
+- *Underline*: italic when the file has no italics, or when the writer says so; otherwise plain.
+- *Pictures*: `a:blip r:embed` (and `v:imagedata`) give a picture run its relationship; `settle` keeps PNG and JPEG
+  (`SourceDoc.pictures`, bytes only through `load()`, which inflates that one part, up to 32 MB); the text carries
+  `![[binders-import-picture-N]]`, and `planManuscript` asks for the bytes the first time a note embeds a picture, puts them in
+  `Research/Attachments/Picture N.png|jpg` and writes the embed with the whole path. A picture in a heading is dropped, said.
+- *Numbered headings*: a style's `numPr` (or a paragraph's own) with a heading and no text is a heading unit with no words;
+  the plan names it "Chapter N" by count and says so.
+- *Tables*: their text, cell after cell, and a sentence. A Markdown table was weighed and not done: a cell may hold several
+  paragraphs and a cut may fall inside a table, and a table made of units can't be cut safely.
+
+**Samples.** `BINDERS_IMPORT_SAMPLES=<folder>` makes `tests/import-docx.test.ts` read every `.docx` in the folder: the plan's
+words must equal `docxWords` (comments on), and the words of a `.txt` of the same name where there is one (as a set when the file
+has footnotes, since a program's "save as text" puts them where it likes). Unset, it says in capitals that it was skipped.
 
 ## Round trip (`tests/import-roundtrip.test.ts`)
 
@@ -219,4 +236,17 @@ says what can be done to it, `applyAction` returns the new edits.
 - The preview draws a note paragraph by paragraph (300 at most; the rest as one text) so each can have its button.
 - `tests/import-edits.test.ts` holds each action by hand, and 120 seeded runs of one to six random actions on a note and on a
   Word file, each checked to leave every word in order, every file inside the folder, no path twice.
+
+### What the round trip does not compare, and what would close each
+
+Of 84 files (28 binders in three styles), 24 are not compared for chapters and formatting; their words always are.
+
+| Kind (files) | Why | Closed by |
+|---|---|---|
+| A book with **one chapter** (every row, One note, A folder called Snapshots: 12) | The file has one Heading 1, and the detector wants a level at least twice: it reads the subheadings as chapters, or finds none. The importer can't know it is a one-chapter book | Importer: trust Heading 1 as the chapter level when `docProps/app.xml` says Binders. Or export: stamp the sections (a custom property or a bookmark per section) so the importer reads what the file says it is |
+| A **footnote marked twice** (What Markdown becomes: 3) | Export writes the second mark as its number, plain text | Export: a second `footnoteReference`, or a cross-reference field, instead of a digit. The importer can't tell a digit from a number the writer typed |
+| **Chapter titles that differ** (Five thousand notes, Sixty labels, Odd names: 9) | "Chapter One Hundred": `roles.ts` spells numbers only to ninety-nine, so `titleFrom` doesn't strip it (the importer reads it right, as a heading); and `Hash # and caret ^`, whose characters a file name can't hold (a note's text begins with the heading, so nothing is lost) | The first: `src/export/roles.ts` could spell larger numbers (that file is shared by export and the detector). The second: not closable, a file name's limit |
+| **No chapters** (Empty binder: 3) | Nothing to compare | |
+
+Bold is not compared for a book with a table either: export bolds the header row, and the import writes a table as paragraphs.
 

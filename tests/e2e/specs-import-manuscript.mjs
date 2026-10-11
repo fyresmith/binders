@@ -301,6 +301,68 @@ test('"Choose from this vault...": a note and a Word file are listed, and the on
 	t.eq((await binderWords(p, 'The Salt Road')).join(' '), tokens(CLEAN).join(' '), 'every word is there');
 });
 
+// a richer Word file: a comment, a tracked change, italics and underlining, and a PNG
+const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3, 4]);
+const docxRich = () => {
+	const body = [wp('The Tide Book', 'Title'), wp('One', 'Heading1'),
+		wp(`<w:commentRangeStart w:id="0"/>${wr('Words with a comment')}<w:commentRangeEnd w:id="0"/>${wr(' and ')}<w:r><w:rPr><w:i/></w:rPr><w:t>italics</w:t></w:r>${wr(' and ')}<w:r><w:rPr><w:u w:val="single"/></w:rPr><w:t>underlined</w:t></w:r>${wr(' and ')}<w:del w:id="1" w:author="Ann" w:date="2026-10-01T10:00:00Z"><w:r><w:delText>cut</w:delText></w:r></w:del><w:ins w:id="2" w:author="Ann" w:date="2026-10-01T10:00:00Z">${wr('added')}</w:ins>${wr('.')}`),
+		`<w:p><w:r><w:drawing><a:graphic xmlns:a="a"><a:graphicData><a:blip xmlns:a="a" r:embed="rIdP"/></a:graphicData></a:graphic></w:drawing></w:r></w:p>`,
+		wp(words(60, 'wa')), wp('Two', 'Heading1'), wp(words(60, 'wb'))].join('');
+	return zipSync({
+		'[Content_Types].xml': enc.encode('<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="xml" ContentType="application/xml"/></Types>'),
+		'_rels/.rels': enc.encode('<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="r1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>'),
+		'word/document.xml': enc.encode(`<w:document ${W}><w:body>${body}</w:body></w:document>`),
+		'word/_rels/document.xml.rels': enc.encode('<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="s" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/><Relationship Id="c" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments" Target="comments.xml"/><Relationship Id="rIdP" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image1.png"/></Relationships>'),
+		'word/styles.xml': enc.encode(`<w:styles ${W}><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style><w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:pPr><w:outlineLvl w:val="0"/></w:pPr></w:style><w:style w:type="paragraph" w:styleId="Title"><w:name w:val="Title"/></w:style></w:styles>`),
+		'word/comments.xml': enc.encode(`<w:comments ${W}><w:comment w:id="0" w:author="Ann" w:date="2026-10-01T10:00:00Z"><w:p>${wr('Check this.')}</w:p></w:comment></w:comments>`),
+		'word/media/image1.png': new Uint8Array(PNG),
+	});
+};
+const rowKeys = (p) => p.ev(`[...document.querySelectorAll('${WIN} [data-binders-key]')].map(e => e.dataset.bindersKey).filter(k => ['revisions','comments','underline'].includes(k)).join('|')`);
+const noteText = async (p, name) => { await p.ev(`(() => { [...document.querySelectorAll('${WIN} [role="treeitem"]')].find(r => r.querySelector('.tree-item-inner').textContent === ${j(name)}).click(); return 1; })()`); await p.sleep(400); return shown(p); };
+
+test('what a Word file carries: rows for tracked changes, comments and underlining only when it has them, each changing the note as it will read; a picture kept', async (p, h, t) => {
+	await fromFile(p, put('Plain.docx', Buffer.from(docxBytes())));
+	t.eq(await rowKeys(p), 'revisions', 'a file with tracked changes only has that row');
+	await closeAll(p);
+	await fromFile(p, put('Rich.docx', Buffer.from(docxRich())));
+	t.eq(await rowKeys(p), 'revisions|comments|underline', 'a file with all three has all three rows');
+	t.eq((await options(p, 'revisions')).join('|'), 'Accept all|Reject all', 'Accept all, or Reject all');
+	t.eq((await options(p, 'underline')).join('|'), 'Leave plain|Make italic', 'Leave plain, or Make italic');
+	let one = await noteText(p, 'One');
+	t.ok(one.includes('Words with a comment') && one.includes('added') && !one.includes('cut'), 'accepted, with the comment hidden in the preview as Obsidian hides one');
+	t.ok((await things(p)).some((x) => /1 comment in its margin/.test(x) && /Obsidian comments/.test(x)) && (await things(p)).some((x) => /2 tracked changes/.test(x)) && (await things(p)).some((x) => /1 picture is kept/.test(x)), 'what the file carries is said');
+	await choose(p, 'revisions', 'original');
+	one = await noteText(p, 'One');
+	t.ok(one.includes('cut') && !one.includes('added'), 'Reject all: the deleted words are back, the inserted are gone');
+	await p.ev(`(() => { const t = document.querySelector('${WIN} [data-binders-key="comments"]'); t.click(); return 1; })()`); await p.sleep(400);
+	t.ok((await things(p)).some((x) => /left out/.test(x) && /comment/.test(x)), 'Comments off: they are left out, and said');
+	await p.ev(`(() => { document.querySelector('${WIN} [data-binders-key="comments"]').click(); return 1; })()`); await p.sleep(400);
+	await choose(p, 'revisions', 'final');
+	await choose(p, 'underline', 'italic');
+	await imported(p, 'Rich');
+	const one2 = await read(p, 'Rich/One.md');
+	t.ok(one2.startsWith('Words with a comment%%Ann: Check this.%% and *italics* and *underlined* and added.'), 'the note: the comment at the end of its range, italics, underlining made italic, the change accepted');
+	t.ok(one2.includes('![[Rich/Research/Attachments/Picture 1.png]]'), 'the picture is embedded where it stood');
+	t.eq(Buffer.from(await p.ev(`app.vault.adapter.readBinary('Rich/Research/Attachments/Picture 1.png').then(b => [...new Uint8Array(b)])`)).compare(PNG), 0, 'and is in Research/Attachments, byte for byte');
+	t.ok(/export: false/.test(await read(p, 'Rich/Research/Research.md')), 'where no export takes it');
+});
+
+test('a phone: the Word rows are in reach and each works', async (p, h, t) => {
+	const dark = await p.ev(`document.body.classList.contains('theme-dark')`);
+	await p.send('Emulation.setDeviceMetricsOverride', { width: 320, height: 640, deviceScaleFactor: 1, mobile: true }); await reload(p, true);
+	await p.ev(`(() => { app.changeTheme(${j(dark ? 'obsidian' : 'moonstone')}); return 1; })()`);
+	try {
+		await fromFile(p, put('RichPhone.docx', Buffer.from(docxRich())));
+		t.eq(await rowKeys(p), 'revisions|comments|underline', 'the three rows are there');
+		t.ok(await p.ev(`['revisions','comments','underline'].every(k => { const e = document.querySelector('${WIN} [data-binders-key="' + k + '"]'); const r = e.getBoundingClientRect(); return r.width > 30 && r.height >= 24; })`), 'each is big enough to touch');
+		await choose(p, 'revisions', 'original');
+		t.ok((await things(p)).some((x) => /2 tracked changes/.test(x) && /left out, as if rejected/.test(x)), 'Reject all works on a phone');
+		await imported(p, 'RichPhone');
+		t.ok((await read(p, 'RichPhone/One.md')).includes('cut') && (await exists(p, 'RichPhone/Research/Attachments/Picture 1.png')), 'and imports, with its picture');
+	} finally { await closeAll(p); await p.send('Emulation.setDeviceMetricsOverride', { width: p.width, height: p.height, deviceScaleFactor: 1, mobile: false }); await reload(p, false); }
+});
+
 /** The menu of a row of the tree, as a right click (and a long press, and the menu key) opens it. */
 async function rowMenu(p, title) {
 	await p.ev(`(() => { const e = [...document.querySelectorAll('${WIN} [role="treeitem"]')].find(r => r.querySelector('.tree-item-inner').textContent === ${j(title)}); if (!e) throw new Error('row missing'); const r = e.getBoundingClientRect(); e.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: r.left + 20, clientY: r.top + 5, button: 2 })); return 1; })()`);

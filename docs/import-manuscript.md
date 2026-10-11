@@ -116,17 +116,31 @@ for any text.
   Binders exported comes back with its tab paragraphs.
 
 What comes across: every word, in order; paragraphs; italics, bold and struck-through text; web links; footnotes
-(in place, as `^[...]`); bulleted and numbered lists; quotations. Underlined text is read as italics when the file has no
-italics at all (the manuscript way, and how Binders' Courier style writes them).
+(in place, as `^[...]`); bulleted and numbered lists; quotations; PNG and JPEG pictures. Three things have a choice in the
+dialog, each shown only when the file has any:
 
-What doesn't, each said in the things to look at:
+- **Tracked changes: Accept all / Reject all.** Accepted to start with, and counted: "This file has 214 tracked changes. They
+  are brought in as accepted." **Reject all** brings the file back as it was before them. It is all or none: to take some, do
+  that in Word first. Choosing again lets go of what you put right by hand in the list.
+- **Comments**, on to start with: each comment in the margin is an Obsidian comment, `%%Ann: Check this.%%`, at the end of
+  the words it is on. Obsidian hides it in reading view. Off, they are left out, and said. A comment on a heading isn't
+  brought in, since a heading is a name.
+- **Underlined text: Leave plain / Make italic**, when the file has underlining and italics both. A file with underlining and
+  no italics at all reads its underlining as italics, the manuscript way (and how Binders' Courier style writes them),
+  and says so.
 
-- **Tracked changes** come in as accepted, and are counted: "This file has 214 tracked changes. They are brought in as
-  accepted." Look at the file in Word first if you want to accept some and reject others.
-- **Comments** in the margin aren't brought in (the words they are on are). A later version will bring them in.
-- **Tables** come in as their text, cell after cell.
+A heading the file numbers by itself ("Chapter 1" from a list), with no text of its own, starts a chapter all the same: it
+is named "Chapter 1", "Chapter 2" by its place, and said.
+
+**Pictures.** A PNG or JPEG is kept as a file in **Research/Attachments**, byte for byte, and embedded in the note where it
+stood. Pictures of another kind are counted and said, and not brought in.
+
+What doesn't come across, each said in the things to look at:
+
+- **Tables** come in as their text, cell after cell, with a sentence saying so: their layout isn't kept. (A Markdown table
+  would be neater to read but a table's cells can hold several paragraphs, and a chapter may start inside one.)
 - **Text boxes** come in once, where the box is.
-- **Headers and footers, pictures, fonts, sizes, colors, alignment, line spacing** and page layout aren't brought in.
+- **Headers and footers, fonts, sizes, colors, alignment, line spacing** and page layout aren't brought in.
   The Word file itself is kept in **Research/Originals**.
 - **Endnotes** come in as footnotes.
 

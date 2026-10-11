@@ -8,7 +8,10 @@ export type Run =
 	| { kind: 'br' }
 	/** A footnote's mark: `note` is its index in `SourceDoc.notes`. */
 	| { kind: 'note'; note: number }
-	| { kind: 'picture' };
+	/** A picture kept: `index` is its place in `SourceDoc.pictures`. */
+	| { kind: 'picture'; index: number }
+	/** A comment from the margin, at the end of the words it is on: who wrote it, and what. */
+	| { kind: 'comment'; text: string };
 
 export interface Para {
 	runs: Run[];
@@ -25,6 +28,8 @@ export interface Para {
 	leadTab: boolean;
 	toc: boolean;
 	inTable: boolean;
+	/** The file numbers it (a heading may then have no text). */
+	numbered: boolean;
 }
 
 export interface SourceDoc {
@@ -32,6 +37,9 @@ export interface SourceDoc {
 	paras: Para[];
 	/** Footnotes, in the order of their marks (endnotes among them: said). */
 	notes: Para[][];
-	found: { revisions: number; comments: number; underlined: boolean; headers: boolean; textBoxes: number; tables: number; pictures: number; endnotes: number };
+	/** The pictures that are kept (PNG and JPEG): their bytes are inflated when asked for, and only then. */
+	pictures: { ext: string; load(): Uint8Array | null }[];
+	/** `underlined`: underlining is read as italics. `hasUnderline`, `hasItalic`: the file has some. */
+	found: { revisions: number; comments: number; underlined: boolean; hasUnderline: boolean; hasItalic: boolean; headers: boolean; textBoxes: number; tables: number; pictures: number; otherPictures: number; endnotes: number };
 	said: string[];
 }

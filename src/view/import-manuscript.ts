@@ -37,8 +37,12 @@ const SIGNALS: Record<Signal, (count: number) => string> = {
 const ROLES: [Role, string][] = [['part', 'Part'], ['chapter', 'Chapter'], ['scene', 'Scene'], ['text', 'Keep in the text']];
 
 /** What this import is to the shared window: where chapters start, and the rest of the rules, drawn as rows. */
-export function manuscriptJob(plugin: BindersPlugin, read: ManuscriptRead, source: 'note' | 'file', unchanged: () => Promise<boolean>): ImportJob {
+export function manuscriptJob(plugin: BindersPlugin, first: ManuscriptRead, source: 'note' | 'file', unchanged: () => Promise<boolean>): ImportJob {
+	let read = first;
 	const choices: Choices = { signal: null, roles: new Map(), breaks: 'new' };
+	// what a Word file carries, chosen: the file is read again, and what was put right by hand (by unit) is let go
+	const word = { revisions: 'final' as 'final' | 'original', comments: true, underline: 'plain' as 'plain' | 'italic' };
+	const again = (): void => { read = first.reread?.(word) ?? read; edits = noEdits(); };
 	let scenes: 'words' | 'numbers' = 'words', edits = noEdits(), last = planManuscript(read, { name: read.name, parent: '', settings: plugin.settings, choices, scenes, edits });
 	return {
 		name: last.title ?? read.name,
@@ -73,6 +77,11 @@ export function manuscriptJob(plugin: BindersPlugin, read: ManuscriptRead, sourc
 			if (found.breaks || found.levels.some((l) => l.role === 'scene')) {
 				dropdown('scenes', 'Name scenes', [['words', 'By their first words'], ['numbers', 'Scene 1, Scene 2']], scenes, (v) => { scenes = v as 'words' | 'numbers'; });
 			}
+			// what only a Word file has, each shown only when this one does
+			const w = first.word;
+			if (w?.revisions) dropdown('revisions', 'Tracked changes', [['final', 'Accept all'], ['original', 'Reject all']], word.revisions, (v) => { const was = word.revisions; word.revisions = v as 'final' | 'original'; try { again(); } catch (e) { word.revisions = was; new Notice(message(e)); } });
+			if (w?.comments) r.toggle('comments', 'Comments', word.comments, (v) => { word.comments = v; again(); });
+			if (w?.hasUnderline && w.hasItalic) dropdown('underline', 'Underlined text', [['plain', 'Leave plain'], ['italic', 'Make italic']], word.underline, (v) => { word.underline = v as 'plain' | 'italic'; again(); });
 		},
 		needs: () => `The ${source} itself isn’t changed.`,
 		unchanged,

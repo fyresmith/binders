@@ -45,7 +45,7 @@ function styled(blocks: readonly Block[]): string[] {
 }
 
 let checked = 0;
-const ambiguous: string[] = [];
+const ambiguous: { label: string; why: 'no chapters' | 'a footnote marked twice' | 'chapters read differently' }[] = [];
 /** A footnote marked twice: export sets the second mark as its number, a digit that is text in the file. */
 const markedTwice = (items: readonly SourceItem[]): boolean => items.some((it) => (it.kind === 'note' && [...(it.text ?? '').matchAll(/\[\^([^\]\s]+)\](?!:)/g)].some((m, i, all) => all.findIndex((x) => x[1] === m[1]) !== i)) || markedTwice(it.children ?? []));
 /** A table: export bolds its header row, which is formatting the book didn't have, and import writes a table as paragraphs. */
@@ -55,7 +55,7 @@ function trip(b: TestBinder, what: string, strict = false): { ms: number } {
 	for (const style of MANUSCRIPT_STYLES) {
 		const label = `${what}, ${style.name}`;
 		const book = buildBook(b.items, { title: b.name, author: 'A Writer', matter: false }, b.resolve);
-		if (!book.sections.length) { ambiguous.push(label); continue; }
+		if (!book.sections.length) { ambiguous.push({ label, why: 'no chapters' }); continue; }
 		const bytes = writeDocx(book, style, { contact: [], words: bookWords(book), when: WHEN });
 		const t0 = Date.now();
 		const { plan } = planManuscript(readWord(bytes, `${b.name}.docx`, { bytes }, { tabs: true }), { name: 'Back', parent: '', settings, choices: {}, scenes: 'words' });
@@ -70,7 +70,8 @@ function trip(b: TestBinder, what: string, strict = false): { ms: number } {
 		const sections = book.sections.filter((s) => (s.role === 'part' || s.role === 'chapter') && !s.made);
 		const heads = plan.notes.slice(1).filter((n) => n.heading !== undefined && !/^Front matter/.test(n.path.slice('Back/'.length)));
 		const same = heads.map((n) => titleFrom(n.title)).join('|') === sections.map((s) => s.title).join('|') && heads.length === sections.length;
-		if (!strict && (!same || markedTwice(b.items) || !sections.length)) { ambiguous.push(label); continue; }
+		if (process.env.BINDERS_ROUNDTRIP_LIST && !same && style === MANUSCRIPT_STYLES[0]) console.log(`## ${label}\n  sections: ${JSON.stringify(sections.map((x) => [x.role, x.title]).slice(0, 6))} (${sections.length})\n  heads: ${JSON.stringify(heads.map((h) => h.title).slice(0, 6))} (${heads.length})\n  first difference: ${JSON.stringify(sections.map((x, i) => [x.title, titleFrom(heads[i]?.title ?? '')]).find((x) => x[0] !== x[1]))}`);
+		if (!strict && (!same || markedTwice(b.items) || !sections.length)) { ambiguous.push({ label, why: markedTwice(b.items) ? 'a footnote marked twice' : !sections.length ? 'no chapters' : 'chapters read differently' }); continue; }
 		// 2. the words that went in: the book's own, without the headings export made, the title page, or a chapter's number
 		const rows = plan.notes.slice(1).filter((n) => !n.folder && !/^Front matter\//.test(n.path.slice('Back/'.length)));
 		const text: string[] = [], source = sourceWords(b.items, book.structure, b.embedded);
@@ -98,7 +99,9 @@ function trip(b: TestBinder, what: string, strict = false): { ms: number } {
 	const demo = bindersOf(demoPlan({}) as Files);
 	for (const b of demo) trip(b, `demo vault, ${b.name}`);
 	ok(checked > 40, `${checked} files made and read back`);
-	console.log(`  round trip: ${checked} files; chapters and formatting not compared for ${ambiguous.length} (one chapter read by its subheadings, a footnote marked twice, or no chapters)`);
+	const by = (why: string) => ambiguous.filter((a) => a.why === why).length;
+	console.log(`  round trip: ${checked} files; chapters and formatting not compared for ${ambiguous.length}: no chapters ${by('no chapters')}, a footnote marked twice ${by('a footnote marked twice')}, chapters read differently ${by('chapters read differently')}; the words are compared in all`);
+	if (process.env.BINDERS_ROUNDTRIP_LIST) console.log(ambiguous.map((a) => `${a.why}: ${a.label}`).join('\n'));
 }
 
 // ---- 150,000 words, in time ----

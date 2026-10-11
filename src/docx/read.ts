@@ -17,7 +17,8 @@ export type DocxRun = (
 	| { kind: 'tab' }
 	| { kind: 'br'; page: boolean }
 	| { kind: 'note'; id: number; end: boolean }
-	| { kind: 'picture' }
+	/** `rid`: the relationship of the picture's file, once the reader has met it. */
+	| { kind: 'picture'; rid?: string }
 ) & { rev?: Rev };
 export type DocxMark = { kind: 'comment-start' | 'comment-end'; id: string };
 export interface DocxPara {
@@ -36,6 +37,8 @@ export interface DocxPara {
 	toc: boolean;
 	inTable: boolean;
 	textBox: boolean;
+	/** Its style numbers it, or it has a list of its own. */
+	numbered: boolean;
 }
 export interface DocxFile {
 	/** The program that wrote it, from the file's own account ("Microsoft Office Word", "LibreOffice", "Binders"). */
@@ -43,6 +46,10 @@ export interface DocxFile {
 	paras: DocxPara[];
 	/** Footnotes and endnotes by their id in the file. */
 	notes: Map<number, DocxPara[]>;
+	/** The comments in the margin, by their id: who and what. */
+	comments: Map<string, { author: string; text: string }>;
+	/** A picture's file by the relationship that names it, inflated now: PNG, JPEG or another kind, with its ending. */
+	picture(rid: string): { ext: string; load(): Uint8Array | null } | null;
 	found: { inserted: number; deleted: number; comments: number; underlined: number; italic: number; headers: boolean; textBoxes: number; tables: number; pictures: number; endnotes: number };
 }
 
@@ -106,20 +113,20 @@ function body(xml: string, c: Ctx, into: Map<number, DocxPara[]> | null): DocxPa
 			else if (name === 'w:txbxContent') textBox--;
 			else if (name === 'w:sdt') sdts.pop();
 			else if (name === 'w:fldSimple') fields.pop();
-			else if (name === 'w:footnote' || name === 'w:endnote') note = -1;
+			else if (name === 'w:footnote' || name === 'w:endnote' || name === 'w:comment') note = -1;
 			continue;
 		}
 		const { name, attrs: a } = e;
 		path.push(name);
 		if (skip) { if (name === 'mc:Fallback') skip++; continue; }
 		if (name === 'mc:Fallback') { skip = 1; continue; }
-		if (name === 'w:footnote' || name === 'w:endnote') {
+		if (name === 'w:footnote' || name === 'w:endnote' || name === 'w:comment') {
 			const kind = a['w:type'];
 			note = kind === 'separator' || kind === 'continuationSeparator' || kind === 'continuationNotice' ? -1 : int(a['w:id']);
 			if (into && note >= 0 && !into.has(note)) into.set(note, []);
 			continue;
 		}
-		if (into && note < 0 && name !== 'w:footnotes' && name !== 'w:endnotes') { if (name === 'w:p') { stack.push({ p: blank(c), tocAtStart: false }); } continue; }
+		if (into && note < 0 && name !== 'w:footnotes' && name !== 'w:endnotes' && name !== 'w:comments') { if (name === 'w:p') { stack.push({ p: blank(c), tocAtStart: false }); } continue; }
 		const t = top();
 		switch (name) {
 			case 'w:p': stack.push({ p: { ...blank(c), inTable: tbl > 0, textBox: textBox > 0, pageBefore: nextPage }, tocAtStart: tocNow() }); nextPage = false; break;
@@ -146,6 +153,7 @@ function body(xml: string, c: Ctx, into: Map<number, DocxPara[]> | null): DocxPa
 			case 'w:noBreakHyphen': add('-'); break;
 			case 'w:footnoteReference': case 'w:endnoteReference': if (t) { push({ kind: 'note', id: int(a['w:id']), end: name === 'w:endnoteReference' }); if (name === 'w:endnoteReference') c.found.endnotes++; } break;
 			case 'w:drawing': case 'w:pict': if (t && !path.includes('w:txbxContent')) { push({ kind: 'picture' }); c.found.pictures++; } break;
+			case 'a:blip': case 'v:imagedata': { const last = t?.p.runs[t.p.runs.length - 1], rid = a['r:embed'] ?? a['r:id']; if (last && 'kind' in last && last.kind === 'picture' && !last.rid && rid) last.rid = rid; break; }
 			case 'w:t': case 'w:delText': collecting = 't'; break;
 			default: break;
 		}
@@ -175,7 +183,7 @@ function body(xml: string, c: Ctx, into: Map<number, DocxPara[]> | null): DocxPa
 
 /** A paragraph before its own properties are read: the fields filled in later, from its style. */
 function blank(_c: Ctx): DocxPara {
-	return { style: '', outline: null, align: null, pageBefore: false, indent: { first: 0, left: 0, right: 0 }, list: null, runs: [], toc: false, inTable: false, textBox: false };
+	return { style: '', outline: null, align: null, pageBefore: false, indent: { first: 0, left: 0, right: 0 }, list: null, runs: [], toc: false, inTable: false, textBox: false, numbered: false };
 }
 
 /** Styles' words applied to a paragraph: its style's name instead of its id, and what the style gives where the paragraph says nothing. */
@@ -191,6 +199,7 @@ function styled(paras: DocxPara[], c: Ctx): void {
 		if (!direct.directInd) p.indent = { first: st.first ?? 0, left: st.left ?? 0, right: st.right ?? 0 };
 		delete direct.directInd;
 		if (p.list) p.list.ordered = c.numbering.ordered(p.list.id, p.list.level);
+		p.numbered = !!p.list || st.numbered === true;
 	}
 }
 
@@ -220,5 +229,22 @@ export function readDocx(bytes: Uint8Array): DocxFile {
 	found.headers = pkg.names.some((n) => /^word\/(header|footer)\d*\.xml$/i.test(n));
 	const app = part('docProps/app.xml') ?? '';
 	const producer = /<Application>([^<]*)<\/Application>/.exec(app)?.[1] ?? '';
-	return { producer, paras, notes, found };
+	// the comments in the margin: who wrote each, and their words (a comment of several paragraphs is one line)
+	const comments = new Map<string, { author: string; text: string }>();
+	const commentsXml = byType('/comments') ?? part(`${dir}comments.xml`);
+	if (commentsXml) {
+		const map = new Map<number, DocxPara[]>(), authors = new Map<string, string>();
+		body(commentsXml, c, map);
+		for (const e of events(commentsXml)) if (e.t === 'open' && e.name === 'w:comment') authors.set(e.attrs['w:id'] ?? '', e.attrs['w:author'] ?? '');
+		for (const [id, list] of map) {
+			const text = list.map((q) => q.runs.map((r) => (!('id' in r && /^comment/.test(r.kind)) && (r as DocxRun).kind === 'text' ? (r as Extract<DocxRun, { kind: 'text' }>).text : '')).join('')).join(' ').replace(/\s+/g, ' ').trim();
+			comments.set(String(id), { author: authors.get(String(id)) ?? '', text });
+		}
+	}
+	const picture: DocxFile['picture'] = (rid) => {
+		const rel = pkg.rels.get(rid);
+		if (!rel || rel.external || !/^word\/media\//i.test(rel.target)) return null;
+		return { ext: (/\.([A-Za-z0-9]+)$/.exec(rel.target)?.[1] ?? '').toLowerCase(), load: () => pkg.media(rel.target) };
+	};
+	return { producer, paras, notes, comments, picture, found };
 }

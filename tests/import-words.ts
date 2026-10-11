@@ -12,9 +12,10 @@ const settled = (xml: string): string => xml
 	.replace(/<w:(del|moveFrom)\b[^>]*>[\s\S]*?<\/w:\1>/g, '')
 	.replace(/<w:instrText[^>]*>[\s\S]*?<\/w:instrText>/g, '');
 /** The text of some XML with each note mark as `\uE000id\uE001`. */
-const flat = (xml: string, mark: string): string => [...settled(xml).matchAll(/<w:t(?:\s[^>]*)?>([^<]*)<\/w:t>|<w:(footnote|endnote)Reference w:id="(\d+)"\/>|<w:(?:br|tab)\b[^>]*\/>|<\/w:p>/g)].map((m) => (m[1] !== undefined ? unxml(m[1]) : m[2] ? `\uE000${m[2] === 'endnote' ? `e${m[3]}` : m[3]}\uE001` : ' ')).join('').replace(mark, '');
+const flat = (xml: string, mark: string): string => [...settled(xml).matchAll(/<w:t(?:\s[^>]*)?>([^<]*)<\/w:t>|<w:(footnote|endnote)Reference w:id="(\d+)"\/>|<w:commentRangeEnd w:id="(\d+)"\/>|<w:(?:br|tab)\b[^>]*\/>|<\/w:p>/g)].map((m) => (m[1] !== undefined ? unxml(m[1]) : m[2] ? `\uE000${m[2] === 'endnote' ? `e${m[3]}` : m[3]}\uE001` : m[4] ? `\uE002${m[4]}\uE003` : ' ')).join('').replace(mark, '');
 
-export function docxWords(bytes: Uint8Array): Words {
+/** `comments`: the words of each comment in the margin come where its range ends, its author's first (the way import keeps them). */
+export function docxWords(bytes: Uint8Array, o: { comments?: boolean } = {}): Words {
 	const raw = unzipSync(bytes), read = (name: string) => (raw[name] ? strFromU8(raw[name]) : '');
 	const text = flat(read('word/document.xml'), '');
 	const notes = new Map<string, string>();
@@ -24,8 +25,12 @@ export function docxWords(bytes: Uint8Array): Words {
 			notes.set(key === 'endnote' ? `e${m[2]}` : m[2], flat(m[3], ''));
 		}
 	}
+	const said = new Map<string, string>();
+	for (const m of read('word/comments.xml').matchAll(/<w:comment w:id="(\d+)"(?: [^>]*?w:author="([^"]*)")?[^>]*>([\s\S]*?)<\/w:comment>/g)) said.set(m[1], `${unxml(m[2] ?? '')} ${flat(m[3], '')}`);
 	const body: string[] = [], out: string[] = [], seen = new Set<string>();
-	for (const piece of text.split(/(\uE000[^\uE001]*\uE001)/)) {
+	for (const piece of text.split(/(\uE000[^\uE001]*\uE001|\uE002[^\uE003]*\uE003)/)) {
+		const c = /^\uE002([^\uE003]*)\uE003$/.exec(piece);
+		if (c) { if (o.comments) for (const w of tokens(said.get(c[1]) ?? '')) body.push(w); continue; }
 		const m = /^\uE000([^\uE001]*)\uE001$/.exec(piece);
 		if (!m) { for (const w of tokens(piece)) body.push(w); continue; }
 		if (!seen.has(m[1])) { seen.add(m[1]); for (const w of tokens(notes.get(m[1]) ?? '')) out.push(w); }
@@ -43,7 +48,7 @@ export function plannedWords(plan: ImportPlan): Words {
 	for (const n of plan.notes.slice(1)) {
 		if (n.heading) for (const w of tokens(n.heading)) body.push(w);
 		const text = n.heading && n.body.startsWith(`# ${n.heading}\n\n`) ? n.body.slice(n.heading.length + 4) : n.body;
-		const w = noteWords(text);
+		const w = noteWords(text, (name) => /\/Research\/Attachments\//.test(name));
 		for (const x of w.body) body.push(x);
 		for (const x of w.notes) notes.push(x);
 	}

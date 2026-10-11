@@ -1,3 +1,4 @@
+import { unzipSync } from 'fflate';
 import { MAX_BYTES, readZip, safePath, type ZipWording } from '../import/source';
 import { events } from './xml';
 
@@ -7,6 +8,8 @@ import { events } from './xml';
    locked one (Office's own container, not a zip) is refused in plain words. Pure. */
 
 export const OLDER = 'This is an older Word file (.doc), or one locked with a password. In Word, save it as .docx with no password, then choose that.';
+/** The most one picture may be, unpacked. */
+export const MAX_MEDIA = 32 * 1024 * 1024;
 /** The most one part of the file may be, unpacked. */
 export const MAX_PART = 64 * 1024 * 1024;
 
@@ -25,8 +28,10 @@ export interface Package {
 	main: string;
 	/** The main document's relationships, by id. */
 	rels: ReadonlyMap<string, Rel>;
-	/** Every part name in the zip, media included. */
+	/** Every part name in the zip that was inflated. */
 	names: string[];
+	/** One part inflated on request (a picture, when the plan needs it), or null. Held to a size. */
+	media(name: string): Uint8Array | null;
 }
 
 function relsOf(xml: string, base: string): Map<string, Rel> {
@@ -69,7 +74,11 @@ export function readPackage(data: Uint8Array): Package {
 	if (bytes.length > MAX_PART || bytes.length > MAX_BYTES) throw new Error('This Word file’s text is larger than import can hold (64 MB).');
 	const relName = `${main.slice(0, main.lastIndexOf('/') + 1)}_rels/${main.slice(main.lastIndexOf('/') + 1)}.rels`;
 	const rels = parts.has(relName) ? relsOf(text(parts.get(relName) ?? new Uint8Array()), main) : new Map<string, Rel>();
-	return { parts, main, rels, names };
+	const media = (name: string): Uint8Array | null => {
+		const got = unzipSync(data, { filter: (f) => f.name === name && f.originalSize <= MAX_MEDIA })[name];
+		return got ?? null;
+	};
+	return { parts, main, rels, names, media };
 }
 
 export const partText = (p: Package, name: string): string | null => { const b = p.parts.get(name); return b ? text(b) : null; };

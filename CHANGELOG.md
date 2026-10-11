@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.61.0 (2026-10-11)
+
+### Added
+
+- Importing a Word file: comments come in as Obsidian comments (with a switch), tracked changes can be accepted or rejected, underlined text can be made italic, PNG and JPEG pictures are kept in Research/Attachments, and a heading Word numbers by itself is named by its place.
+
 ## 0.60.0 (2026-10-11)
 
 ### Added

@@ -2,7 +2,7 @@ import type { BindersSettings } from '../settings-data';
 import { STRUCTURES, type Structure } from '../export/model';
 import { MATTER, NUMBER } from '../export/roles';
 import { detect, type Choices, type Cut, type Found, type Level } from './detect';
-import { escapeMarkdown } from './markdown';
+import { PICTURE_MARK, escapeMarkdown } from './markdown';
 import { inBinder, key, link, note, safeName, type ImportPlan, type PlannedNote } from './plan';
 import { MAX_BYTES, MAX_FILES, TOO_BIG } from './source';
 import type { Scan } from './text';
@@ -22,7 +22,7 @@ import type { Scan } from './text';
    The source is never changed. */
 
 const enc = new TextEncoder();
-const RESEARCH = 'Research', ORIGINALS = 'Originals', FRONT = 'Front matter';
+const RESEARCH = 'Research', ORIGINALS = 'Originals', ATTACHMENTS = 'Attachments', FRONT = 'Front matter';
 
 export interface ManuscriptRead {
 	/** The book's name as the file or note has it, without its ending. */
@@ -32,6 +32,9 @@ export interface ManuscriptRead {
 	/** Where the text came from: a file chosen from the device (its bytes are kept), or a note of this vault (its path). */
 	origin: { bytes: Uint8Array } | { path: string };
 	scan: Scan;
+	/** For a Word file: what it carries that the writer may choose about (src/import/docx.ts), and a way to read it again with other choices. */
+	word?: { revisions: number; comments: number; hasUnderline: boolean; hasItalic: boolean };
+	reread?: (choices: Partial<{ revisions: 'final' | 'original'; comments: boolean; underline: 'plain' | 'italic' }>) => ManuscriptRead;
 }
 export interface ManuscriptOptions {
 	name: string;
@@ -119,6 +122,7 @@ interface Part { title: string; heading: string | null; own: Scene | null; chapt
 export function planManuscript(read: ManuscriptRead, o: ManuscriptOptions): { plan: ImportPlan; found: Found; title: string | null } {
 	const { scan } = read, { units, text } = scan;
 	const name = safeName(o.name), root = o.parent ? `${o.parent}/${name}` : name;
+	const attachments = `${root}/${RESEARCH}/${ATTACHMENTS}`;
 	const research = `${root}/${RESEARCH}`, researchNote = `${research}/${RESEARCH}.md`, originals = `${research}/${ORIGINALS}`, binderNote = `${root}/${name}.md`;
 	const plan: ImportPlan = { name, files: new Map(), folders: [], notes: [], warnings: [], said: [], labels: [], statuses: [], sceneCount: 0, snapshotCount: 0, trashCount: 0 };
 	const { found, cuts: detected } = detect(units, o.choices);
@@ -166,11 +170,28 @@ export function planManuscript(read: ManuscriptRead, o: ManuscriptOptions): { pl
 	const rel = (path: string) => path.slice(root.length + 1).replace(/\.md$/i, '');
 	const contentsList: string[] = [], order: string[] = [];
 
+	/** A kept picture, put in the binder's Research/Attachments once, and the text that embeds it. Its bytes are inflated when a plan first needs them. */
+	const placed = new Map<number, string>(), loaded = new WeakMap<object, Uint8Array | null>();
+	const embed = (index: number): string => {
+		const pic = scan.pictures?.[index];
+		if (!pic) return '';
+		let path = placed.get(index);
+		if (!path) {
+			if (!loaded.has(pic)) { try { loaded.set(pic, pic.load()); } catch { loaded.set(pic, null); } }
+			const bytes = loaded.get(pic);
+			if (!bytes) { warn('', 'A picture in the file couldn’t be read, and isn’t brought in.'); return ''; }
+			path = `${attachments}/Picture ${index + 1}.${pic.ext === 'jpeg' ? 'jpg' : pic.ext}`;
+			put(path, bytes);
+			placed.set(index, path);
+		}
+		return link(path, '', true);
+	};
 	/** The text of units [from, to), as it stands in the source: its own bytes, from the first unit to the last. */
 	const piece = (s: Scene): string => {
 		if (s.from >= s.to) return '';
-		const body = text.slice(units[s.from].start, units[s.to - 1].end).trim() ? text.slice(units[s.from].start, units[s.to - 1].end).replace(/\s+$/, '') : '';
-		return body ? `${body}\n` : '';
+		const raw = text.slice(units[s.from].start, units[s.to - 1].end);
+		const body = raw.trim() ? raw.replace(/\s+$/, '').replace(new RegExp(`!\\[\\[${PICTURE_MARK}(\\d+)\\]\\]`, 'g'), (_m, i: string) => embed(Number(i))) : '';
+		return body.trim() ? `${body}\n` : '';
 	};
 	const has = (s: Scene): boolean => piece(s) !== '';
 
@@ -330,12 +351,15 @@ export function planManuscript(read: ManuscriptRead, o: ManuscriptOptions): { pl
 	const structure: Structure = hasParts ? (chapterFolders.any ? 'parts-chapters' : 'parts') : chapterFolders.any ? 'chapters' : 'notes';
 
 	// ---- the original, and the binder note ----
-	if ('bytes' in read.origin) {
+	if ('bytes' in read.origin || placed.size) {
 		folder(research);
-		folder(originals);
-		// (a note kept under its own ending would be a note of the binder, its writing twice: the ending is changed, the bytes are not)
-		const file = safeName(read.file).replace(/\.(md|markdown)$/i, '$&.original');
-		put(`${originals}/${file}`, read.origin.bytes);
+		if (placed.size) folder(attachments);
+		if ('bytes' in read.origin) {
+			folder(originals);
+			// (a note kept under its own ending would be a note of the binder, its writing twice: the ending is changed, the bytes are not)
+			const file = safeName(read.file).replace(/\.(md|markdown)$/i, '$&.original');
+			put(`${originals}/${file}`, read.origin.bytes);
+		}
 		put(researchNote, note({ export: false }, ''));
 		plan.notes.push({ path: researchNote, title: RESEARCH, body: '', folder: true, depth: 1, out: true, status: '' });
 		order.push(researchNote);

@@ -18,6 +18,8 @@ export interface Scan {
 	said: string[];
 	/** The text before the first unit: a note's properties, which are not part of the manuscript. */
 	skipped: string;
+	/** Pictures the text has by their mark (`PICTURE_MARK` and an index): their bytes are inflated when asked for. */
+	pictures?: { ext: string; load(): Uint8Array | null }[];
 }
 
 /** A file's bytes as text: by its byte-order mark if it has one, else UTF-8, else Windows-1252 (and said). Line

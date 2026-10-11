@@ -12,7 +12,8 @@ import type { ImportPlan } from '../src/import/plan';
 import { runsToMarkdown } from '../src/import/markdown';
 import { firstDifference, tokens } from './export-words';
 import { docxWords, plannedWords } from './import-words';
-import { NS, STYLES, br, del, docx, esc, footnote, ins, mark, p, r, words } from './import-docx-fixtures';
+import { NS, STYLES, br, comment, del, docx, esc, footnote, ins, mark, p, r, words } from './import-docx-fixtures';
+import { readdirSync } from 'fs';
 import { ok, eq, done } from './harness';
 
 /* The Word import (src/docx/, src/import/docx.ts) on files written by hand: the reader, each way a file can say where
@@ -201,7 +202,7 @@ const body = (seed: string, n = 120) => p(words(n, seed));
 	ok(cp.notes.find((n) => n.title === 'One')?.body.includes('Commented words.') && cp.said.some((s) => /comment/.test(s.text)), 'comments: the commented words stay, the comment is not brought in, and said');
 	same(comments, cp, 'comments');
 	const picture = docx([H('One'), `<w:p><w:r><w:drawing><a:blip xmlns:a="x" r:embed="rIdX"/></w:drawing></w:r>${r('Under a picture.')}</w:p>`, H('Two'), body('b')].join(''));
-	ok(make(picture).plan.said.some((s) => /Pictures/.test(s.text)), 'pictures: said, and the words stay');
+	ok(make(picture).plan.said.some((s) => /other than PNG or JPEG/.test(s.text)), 'pictures: one with no file behind it is said, and the words stay');
 	same(picture, make(picture).plan, 'picture');
 	const headers = docx(H('One') + body('a') + H('Two') + body('b'), { extra: { 'word/header1.xml': `<w:hdr ${NS}>${p('Running head words')}</w:hdr>` } });
 	ok(make(headers).plan.said.some((s) => /Headers and footers/.test(s.text)), 'headers: said, not brought in');
@@ -225,6 +226,90 @@ const body = (seed: string, n = 120) => p(words(n, seed));
 	ok(firstDifference(want.body, plannedWords(dropped).body) !== null, 'oracle: notices a dropped paragraph');
 	const swapped = { ...plan, notes: [plan.notes[0], rowsOf[1], rowsOf[0], ...rowsOf.slice(2)] } as ImportPlan;
 	ok(firstDifference(want.body, plannedWords(swapped).body) !== null, 'oracle: notices two swapped chapters');
+}
+
+// ---- step 4: what a Word file carries ----
+{
+	// comments: kept as Obsidian comments at the end of their range, with a switch
+	const bytes = docx([H('One'), `<w:p>${r('Before ')}<w:commentRangeStart w:id="0"/>${r('the commented words')}<w:commentRangeEnd w:id="0"/>${r(' after.')}</w:p>`, body('a'), H('Two'), body('b')].join(''), { comments: comment(0, 'Ann', 'Check this: %% twice.') });
+	const on = read(bytes), off = on.reread?.({ comments: false }) ?? on;
+	eq(on.word?.comments, 1, 'comments: counted, for the row that is shown only when a file has any');
+	const onPlan = planManuscript(on, { name: 'Book', parent: '', settings, choices: {}, scenes: 'words' }).plan;
+	ok(onPlan.notes.find((n) => n.title === 'One')?.body.startsWith('Before the commented words%%Ann: Check this: % % twice.%% after.'), 'comments: at the end of their range, by who wrote them');
+	const d = firstDifference(docxWords(bytes, { comments: true }).body, plannedWords(onPlan).body);
+	ok(!d, `comments: every word, the comment's among them, in order${d ? ` (${d})` : ''}`);
+	const offPlan = planManuscript(off, { name: 'Book', parent: '', settings, choices: {}, scenes: 'words' }).plan;
+	ok(!offPlan.notes.some((n) => n.body.includes('%%')) && offPlan.said.some((s) => /comment.*left out/.test(s.text)), 'comments: off, they are left out and said');
+	same(bytes, offPlan, 'comments off');
+	eq(read(docx(H('One') + body('a') + H('Two') + body('b'))).word?.comments, 0, 'comments: none, no row');
+
+	// tracked changes: accept all, or reject all
+	const rev = docx([H('One'), p(`${r('Kept ')}${del('deleted words ')}${ins(r('inserted words '))}${r('end.')}`), H('Two'), body('b')].join(''));
+	const inRead = read(rev), orig = inRead.reread?.({ revisions: 'original' });
+	eq(inRead.word?.revisions, 2, 'changes: counted for the row');
+	const body1 = (rd: typeof inRead) => planManuscript(rd, { name: 'Book', parent: '', settings, choices: {}, scenes: 'words' }).plan.notes.find((n) => n.title === 'One')?.body;
+	eq(body1(inRead), 'Kept inserted words end.\n', 'changes: accept all');
+	eq(body1(orig ?? inRead), 'Kept deleted words end.\n', 'changes: reject all');
+
+	// underline: with italics in the file, a choice; with none, italics
+	const both = docx([H('One'), p(`${r('i', '<w:i/>')}${r(' under', '<w:u w:val="single"/>')}${r(' end.')}`), H('Two'), body('b')].join(''));
+	const bothRead = read(both);
+	ok(bothRead.word?.hasUnderline && bothRead.word.hasItalic, 'underline: a file with both has the row');
+	eq(planManuscript(bothRead, { name: 'Book', parent: '', settings, choices: {}, scenes: 'words' }).plan.notes.find((n) => n.title === 'One')?.body, '*i* under end.\n', 'underline: left plain');
+	eq(planManuscript(bothRead.reread?.({ underline: 'italic' }) ?? bothRead, { name: 'Book', parent: '', settings, choices: {}, scenes: 'words' }).plan.notes.find((n) => n.title === 'One')?.body, '*i* *under* end.\n'.replace('*i* *under*', '*i under*'), 'underline: made italic');
+
+	// pictures: PNG and JPEG are kept where they stood, others counted; nothing is inflated that the plan doesn't need
+	const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]), jpg = new Uint8Array([0xff, 0xd8, 0xff, 9, 9]), gif = new Uint8Array([0x47, 0x49, 0x46, 7]);
+	const pic = (rid: string) => `<w:p><w:r><w:drawing><wp:inline xmlns:wp="x"><a:graphic xmlns:a="a"><a:graphicData><pic:pic xmlns:pic="p"><pic:blipFill><a:blip r:embed="${rid}"/></pic:blipFill></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`;
+	const rels = ['A:image1.png', 'B:image2.jpeg', 'C:image3.gif'].map((x) => `<Relationship Id="rId${x[0]}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${x.slice(2)}"/>`).join('');
+	const withPics = docx([H('One'), body('a'), pic('rIdA'), p('Between.'), pic('rIdB'), pic('rIdC'), H('Two'), body('b')].join(''), { rels, extra: { 'word/media/image1.png': png, 'word/media/image2.jpeg': jpg, 'word/media/image3.gif': gif } });
+	const pp = make(withPics).plan;
+	eq([...pp.files.keys()].filter((f) => f.includes('/Attachments/')).sort().join('|'), 'Book/Research/Attachments/Picture 1.png|Book/Research/Attachments/Picture 2.jpg', 'pictures: PNG and JPEG are in Research/Attachments');
+	eq(Array.from(pp.files.get('Book/Research/Attachments/Picture 1.png') ?? []).join(), Array.from(png).join(), 'pictures: byte for byte');
+	ok(pp.notes.find((n) => n.title === 'One')?.body.includes('![[Book/Research/Attachments/Picture 1.png]]\n\nBetween.\n\n![[Book/Research/Attachments/Picture 2.jpg]]'), 'pictures: embedded where they stood');
+	ok(pp.said.some((s) => /1 picture of a kind other than PNG or JPEG/.test(s.text)) && pp.said.some((s) => /2 pictures are kept/.test(s.text)), 'pictures: the others are counted and said');
+	ok(pp.files.has('Book/Research/Research.md') && (new TextDecoder().decode(pp.files.get('Book/Book.md')).includes('Research/')), 'pictures: Research exists for them, left out of exports');
+	same(withPics, pp, 'pictures');
+	// (media a plan never asks for is never inflated: garbage where its bytes should be is no matter)
+	const bad = docx([H('One'), body('a'), H('Two'), body('b')].join(''), { extra: { 'word/media/never.png': png } });
+	const at = new TextDecoder('latin1').decode(bad).indexOf('never.png');
+	ok(at > 0 && make(bad).plan.notes.length > 1, 'pictures: a media file nothing refers to is not read');
+	const orig2 = read(docx([H('One'), body('a'), pic('rIdA'), H('Two'), body('b')].join(''), { rels, extra: { 'word/media/image1.png': png } }));
+	let loaded = 0;
+	const spy = { ...orig2, scan: { ...orig2.scan, pictures: orig2.scan.pictures?.map((q) => ({ ...q, load: () => { loaded++; return q.load(); } })) } };
+	planManuscript(spy, { name: 'Book', parent: '', settings, choices: {}, scenes: 'words' });
+	ok(loaded >= 1, 'pictures: inflated when a plan needs them');
+
+	// a heading the file numbers has no text: named by its place, and said
+	const numbered = STYLES.replace('</w:styles>', '<w:style w:type="paragraph" w:styleId="NumHead"><w:name w:val="heading 1"/><w:pPr><w:numPr><w:numId w:val="2"/></w:numPr><w:outlineLvl w:val="0"/></w:pPr></w:style></w:styles>');
+	const nb = docx(['<w:p><w:pPr><w:pStyle w:val="NumHead"/></w:pPr></w:p>', body('a'), '<w:p><w:pPr><w:pStyle w:val="NumHead"/></w:pPr></w:p>', body('b'), '<w:p><w:pPr><w:pStyle w:val="NumHead"/></w:pPr></w:p>', body('c')].join(''), { styles: numbered });
+	const np = make(nb).plan;
+	eq(rows(np), 'Chapter 1\nChapter 2\nChapter 3', 'numbered headings: with no text, named by their place');
+	ok(np.said.some((s) => /numbered by the file and has no text/.test(s.text)), 'numbered headings: said');
+	same(nb, np, 'numbered headings');
+}
+
+// ---- files the maintainer has made (BINDERS_IMPORT_SAMPLES=<folder>) ----
+{
+	const dir = process.env.BINDERS_IMPORT_SAMPLES;
+	if (!dir) console.log('SKIPPED: BINDERS_IMPORT_SAMPLES IS NOT SET, SO NO FILE FROM A REAL WORD PROCESSOR WAS READ');
+	else {
+		let n = 0;
+		for (const f of readdirSync(dir).filter((x) => /\.docx$/i.test(x))) {
+			const bytes = new Uint8Array(readFileSync(`${dir}/${f}`)), plan = make(bytes).plan;
+			const d = firstDifference(docxWords(bytes, { comments: true }).body, plannedWords(plan).body);
+			ok(!d, `sample ${f}: every word, in order${d ? ` (${d})` : ''}`);
+			const txt = `${dir}/${f.replace(/\.docx$/i, '.txt')}`;
+			if (existsSync(txt)) {
+				// (a program's own "save as text" puts footnotes where it likes: the words are compared as a set when the file has notes)
+				const want = tokens(readFileSync(txt, 'utf8')), got = [...plannedWords(plan).body, ...plannedWords(plan).notes];
+				const key = (l: string[]) => (docxWords(bytes).notes.length ? [...l].sort() : l).join(' ');
+				ok(key(want) === key(got), `sample ${f}: the words of its own .txt`);
+			}
+			n++;
+		}
+		console.log(`  samples: ${n} files read from ${dir}`);
+	}
 }
 
 // ---- refused, plainly ----
