@@ -78,7 +78,9 @@ async function audit(p, { root = 'The Lighthouse', note = NOTE, settle = 1000, s
 		const real = (n) => info.disk[dir]?.folders.includes(n) ? n + '/' : n;
 		const shown = info.order[dir];
 		// the binder's Snapshots folder is kept out of the explorer and the store, as the product does
-		const want = new Set([...info.disk[dir].folders.filter((n) => !(info.snapshots[dir] && n === 'Snapshots')), ...info.disk[dir].files.filter((n) => !hidden(dir, n))]);
+		// what the store leaves out (binders.ts items()): the binder's own History folder, and a record file wherever it is
+		// (format.ts isRecordFile: a `.binder-history` file, or its `.tmp`); any other History folder is an ordinary item
+		const want = new Set([...info.disk[dir].folders.filter((n) => !(info.snapshots[dir] && n === 'Snapshots') && dir + '/' + n !== root + '/Snapshots/History'), ...info.disk[dir].files.filter((n) => !hidden(dir, n) && !/\.binder-history(\.tmp)?$/.test(n))]);
 		if (j([...want].sort()) !== j([...shown].sort())) problems.push(`the store shows ${j(shown)} in ${dir}, the folder has ${j([...want])}`);
 		// the listed items of this folder, in the listed order, come first
 		const listed = list.filter((e) => e.startsWith(rel) && !e.slice(rel.length).replace(/\/$/, '').includes('/')).map((e) => { const n = e.slice(rel.length).replace(/\/$/, ''); return e.endsWith('/') ? (info.disk[dir].folders.includes(n) ? n : null) : info.disk[dir].files.includes(n) && info.disk[dir].files.includes(n + '.md') ? n : info.disk[dir].files.includes(n + '.md') ? n + '.md' : info.disk[dir].files.includes(n) ? n : null; }).filter(Boolean);
@@ -1541,8 +1543,11 @@ const undoFuzz = (p, { seed, n }) => p.ev(`(async () => {
 	for (let i = 0; i < n; i++) {
 		const r = rnd(), ns = notes();
 		try {
-			if (r < 0.45 && ns.length) {
-				const f = pick(ns), to = pick(dirs()), sibs = (S.orderedChildren(to) || []).filter(c => c !== f), anchor = rnd() < 0.3 ? null : pick(sibs.length ? sibs : [null]);
+			// (a drop is Binders' own move, so as in the forty drops it never takes or gives the binder's Snapshots folder;
+			// renames and outside moves, which Obsidian's explorer allows, may)
+			const movable = ns.filter(x => !S.inSnapshots(x.path)), targets = dirs().filter(x => !S.inSnapshots(x.path));
+			if (r < 0.45 && movable.length) {
+				const f = pick(movable), to = pick(targets), sibs = (S.orderedChildren(to) || []).filter(c => c !== f), anchor = rnd() < 0.3 ? null : pick(sibs.length ? sibs : [null]);
 				if (S.canPlace(f, to)) { await S.put([f], to, anchor); log.push('drop ' + f.name + ' -> ' + to.path); }
 			} else if (r < 0.58 && ns.length) { const f = pick(ns); await fm.renameFile(f, f.parent.path + '/Q' + (k++) + '.md'); log.push('rename ' + f.name); }
 			else if (r < 0.68 && ns.length > 5) { const f = pick(ns); log.push('delete ' + f.name); await v.delete(f); }
