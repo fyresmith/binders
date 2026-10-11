@@ -60,6 +60,7 @@ Phone and tablet support is new and has had little testing on real devices. See 
 - A note with Windows line endings (`\r\n`) comes back with its text byte for byte, but Obsidian writes the lines of
   a changed properties block with its own line breaks, as it does for any property you change.
 - A delete is kept in memory until Obsidian closes (up to 32 MB in all, even when Obsidian deletes for good): it can't be undone after a restart, and a delete over 32 MB isn't kept.
+- A link written with its folder in it (`[[Part One/Arrival]]`) is rewritten by a rename, and again by its undo, in Obsidian's shortest form (`[[Arrival]]`), so such a link isn't spelled as it was after an undo.
 - Undoing a rename updates links as Obsidian does: if it was set not to update links (or you declined), the links stay as they are, in both directions.
 - Undoing a kept sort of thousands of notes is slow.
 - For screen readers, "Undo last change" isn't announced.

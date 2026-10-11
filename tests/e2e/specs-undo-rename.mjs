@@ -1,7 +1,7 @@
 // Undo and redo of renames made by hand (a card, a row, a lane card, a manuscript title, a folder's heading). Never lose
 // writing: every test reads bytes off the disk. A rename is taken back only if the item still has the name the rename gave
 // it and the old name is free; otherwise nothing is renamed and the writer is told why.
-import { B, NOTE, VIEW, contents, file, j, openView, read, until, withTidy, writeRaw } from './view-helpers.mjs';
+import { B, NOTE, PL, VIEW, answer, contents, file, j, openView, read, until, withTidy, writeRaw } from './view-helpers.mjs';
 
 export const specs = [];
 const test = (name, fn) => specs.push({ name: 'undo rename: ' + name, fn: withTidy(fn) });
@@ -171,4 +171,69 @@ test('Undo takes back a rename made on a card with F2', async (p, h, t) => {
 	t.eq(await labels(p), j(['Rename “Arrival” to “Landing”']), 'remembered');
 	await back(p); await settle(p);
 	t.eq(await read(p, ARR), text, 'undone: the note is back, as it was');
+});
+
+// ---- links, with Obsidian set to update them, or to ask ----
+
+const PRO = L + 'Prologue.md', K = P1 + 'The keeper.md', WARDEN = P1 + 'Warden.md';
+const LINK_TEXT = (k) => `Plain [[${k}]].\n\n\tTab [[${k}]] and [[${k}|k]].\n`;
+const tabsSettled = async (p) => { await sleep(p, 300); await p.ev(`${PL}.paragraphs.renamesSettled().then(() => 1)`); await sleep(p, 300); };
+/** Runs `go` (an expression that returns a promise), answering Obsidian's own question ("Update links?") with `button`. */
+const asking = async (p, go, button) => {
+	await p.ev(`(() => { window.__done = false; window.__out = undefined; ${go}.then((x) => { window.__out = x; window.__done = true; }, (e) => { window.__out = 'refused: ' + e.message; window.__done = true; }); return 1; })()`);
+	const asked = button ? await answer(p, button) : null;
+	await until(p, `window.__done === true`, 8000);
+	await tabsSettled(p);
+	return { asked, out: await p.ev(`window.__out`) };
+};
+const setLinks = (p, on) => p.ev(`(() => { app.vault.setConfig('alwaysUpdateLinks', ${on}); return 1; })()`);
+const indexedLinks = async (p) => { await until(p, `(app.metadataCache.getFileCache(${file(PRO)})?.links || []).length > 0`, 6000); await sleep(p, 600); };
+
+test('with “Automatically update internal links” on, a tab-led link follows the rename and the undo, the note byte for byte as it was', async (p, h, t) => {
+	await openView(p); await reset(p);
+	await setLinks(p, true);
+	await writeRaw(p, PRO, LINK_TEXT('The keeper'));
+	await indexedLinks(p);
+	await rename(p, K, 'Warden');
+	await tabsSettled(p);
+	t.eq(await read(p, PRO), LINK_TEXT('Warden'), 'the plain and the tab link follow the rename: ' + j(await read(p, PRO)));
+	await back(p);
+	await tabsSettled(p);
+	t.eq(await read(p, PRO), LINK_TEXT('The keeper'), 'and the undo: byte for byte as it was');
+});
+
+test('with it off and “Do not update” answered to Obsidian, both ways: no note’s text changes anywhere', async (p, h, t) => {
+	await openView(p); await reset(p);
+	await setLinks(p, false);
+	try {
+		await writeRaw(p, PRO, LINK_TEXT('The keeper'));
+		await indexedLinks(p);
+		const before = await read(p, PRO);
+		const r = await asking(p, `${B}.rename(${file(K)}, 'Warden')`, 'Do not update');
+		t.ok(r.asked, 'Obsidian asked at the rename');
+		t.eq(await read(p, PRO), before, 'no link changed');
+		const u = await asking(p, `${B}.undo(${file('The Lighthouse')})`, 'Do not update');
+		t.eq(u.out, 'Rename “The keeper” to “Warden”', 'undone');
+		// (nothing links to the new name, so Obsidian has nothing to ask about at the undo)
+		t.eq(await read(p, PRO), before, 'still no link changed');
+		t.ok(await there(p, K) && !(await there(p, WARDEN)), 'the note has its name back');
+	} finally { await setLinks(p, true); }
+});
+
+test('with it off and “Just once” answered both ways: the links follow the rename and the undo, the note byte for byte as it was', async (p, h, t) => {
+	await openView(p); await reset(p);
+	await setLinks(p, false);
+	try {
+		await writeRaw(p, PRO, LINK_TEXT('The keeper'));
+		await indexedLinks(p);
+		const before = await read(p, PRO);
+		const r = await asking(p, `${B}.rename(${file(K)}, 'Warden')`, 'Just once');
+		t.ok(r.asked, 'Obsidian asked at the rename');
+		await sleep(p, 1000);
+		t.ok((await read(p, PRO)).includes('Plain [[Warden]]'), 'the links followed: ' + j(await read(p, PRO)));
+		const u = await asking(p, `${B}.undo(${file('The Lighthouse')})`, 'Just once');
+		t.eq(u.out, 'Rename “The keeper” to “Warden”', 'undone');
+		await sleep(p, 1000);
+		t.eq(await read(p, PRO), before, 'and back: byte for byte as it was');
+	} finally { await setLinks(p, true); }
 });

@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.63.1 (2026-10-11)
+
+### Changed
+
+- Known limitations notes that a link written with its folder comes back in Obsidian’s shortest form after a rename is undone.
+
 ## 0.63.0 (2026-10-11)
 
 ### Added
