@@ -213,9 +213,10 @@ export function drawLife(el: HTMLElement, o: LifeOptions): string[] {
 			const n = num(m.day);
 			if (n < x0 || n > today) continue;
 			const py = y(totalAt(n)), up = 30;
-			for (const [dy, anchor] of [[up, 'end'], [up + 16, 'end'], [up, 'start'], [up + 32, 'end']] as const) {
+			// (above the line, and where the book is at the top of the chart and there is no room above, under it)
+			for (const [dy, anchor] of [[up, 'end'], [up + 16, 'end'], [up, 'start'], [up + 32, 'end'], [-16, 'end'], [-16, 'start'], [-32, 'end']] as const) {
 				if (!say('is-mark', x(n) + (anchor === 'end' ? 3 : -3), py - dy - 4, m.what, anchor)) continue;
-				svg(root, 'line', 'binders-chart-leader', { x1: x(n), x2: x(n), y1: py - 5, y2: py - dy });
+				if (dy > 0) svg(root, 'line', 'binders-chart-leader', { x1: x(n), x2: x(n), y1: py - 5, y2: py - dy });
 				svg(root, 'circle', 'binders-chart-mark', { cx: x(n), cy: py, r: 2.5 });
 				break;
 			}

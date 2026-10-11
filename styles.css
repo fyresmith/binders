@@ -7371,3 +7371,87 @@ input.binders-filter-name {
 	max-width: none;
 	padding-inline-start: var(--size-4-6);
 }
+
+/* a deadline: how the book stands against it (a sentence: no color changes with how it stands), and the form */
+.binders-pot-paceline {
+	margin-top: var(--size-4-3);
+}
+
+.binders-pot-pace {
+	color: var(--text-normal);
+}
+
+.binders-pot-formwrap {
+	margin-top: var(--size-4-2);
+}
+
+.binders-pot-form {
+	padding: var(--size-4-1) var(--size-4-4);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+}
+
+.binders-pot-form .setting-item:first-child {
+	border-top: none;
+}
+
+.binders-pot-form .setting-item input[type="text"][inputmode] {
+	width: 140px;
+}
+
+.binders-pot-weekdays {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--size-2-2);
+}
+
+.binders-pot button.binders-pot-weekday {
+	width: var(--input-height);
+	height: var(--input-height);
+	padding: 0;
+	justify-content: center;
+	color: var(--text-muted);
+}
+
+.binders-pot button.binders-pot-weekday.is-active {
+	background-color: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+.binders-pot-form-problem {
+	min-height: var(--size-4-2);
+	padding: var(--size-4-1) 0;
+	font-size: var(--font-ui-small);
+	color: var(--text-muted);
+}
+
+.binders-pot-form-problem:empty {
+	display: none;
+}
+
+.binders-pot-form .binders-pot-form-buttons {
+	border-top: none;
+	justify-content: flex-end;
+}
+
+/* where the plan to the deadline has the book today: a tick across the bar */
+.binders-progress {
+	position: relative;
+}
+
+.binders-progress-plan {
+	position: absolute;
+	inset-block: 0;
+	width: var(--border-width);
+	box-sizing: content-box;
+	padding-inline: 0.5px;
+	background-color: var(--text-normal);
+}
+
+.binders-progress-plan.is-hidden {
+	display: none;
+}
+
+.binders-pot-form input[type="date"] {
+	height: var(--input-height);
+}

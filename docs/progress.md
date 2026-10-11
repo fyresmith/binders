@@ -35,6 +35,44 @@ folder's.
 
 A part of the page with nothing to say is left out. No streaks, no badges, and nothing here ever reminds you to write.
 
+## A deadline
+
+![The progress window with a deadline: the plan close up, and how the book stands against it](images/progress-deadline.png)
+
+A book's word count target can have a date. **Set a deadline**, under the numbers at the head, asks for the target, the
+day, and the days of the week you write on, and the window then says how the book stands:
+
+- **On pace.** The book is within two days' share of the plan.
+- **5,301 words behind the plan. 445 a day gets there by 10 November.** Or **3,000 words ahead, about 15 days.** The
+  words are the same color whatever they say: being behind is a fact, not an alarm.
+- **10 November passed at 91,200 of 100,000.** **Set a new date** begins a new plan. The old date stays on the book's
+  life as a mark.
+- **Reached on 3 January, 28 days early.**
+
+**The plan** is a straight line over the days you write on, from the day the deadline (or the target) was set to its
+date, and it is drawn close up under the numbers with the book's own line, and a dotted line where the last thirty days'
+pace arrives. Each morning what a day has to be is worked out again from what is left, so a day missed is spread over
+the days that remain and nothing is owed. **Today** says how much of that day's share it is (**of 204 for the plan**,
+or **a day off in the plan** on a day you don't write on), and the last number at the head is the share and the writing
+days left.
+
+- **The properties.** A deadline is two optional properties of the binder's note: `deadline` (a date) and
+  `writing-days` (a list of weekday names; none is every day). You can type them in Obsidian's own properties: the
+  plan then begins that day. A folder can have the same two in its folder note: choose the folder at the top right
+  and **Set a deadline** is for it. See [the binder format](dev/file-format.md#the-binder-note).
+- **Undo.** Setting, changing and removing a deadline are each one change that **Undo** takes back, with the target
+  and the writing days it wrote with it.
+- **Words that came at once** (a paste, an import, a chapter brought in) move the book's total, so they move the
+  plan: what is left is smaller. The window counts them as brought in, not as writing.
+- **No record** (nothing typed yet, or recording off): the dialog that says so still sets the plan and says what a day
+  has to be; how the book stands against it shows once there is a record. A plan whose deadline the record never saw set
+  begins at the record's first day.
+- **Not offered** in a Longform project (the index note is Longform's: convert it to a binder first) or in a binder
+  that this version of Binders can't change. A deadline already in such a binder is still read.
+- **The toolbar.** The bar beside the word count has a tick where the plan has the book today, and the count's
+  tooltip says "204 a day to 18 December". Clicking the count opens this window (it used to ask for the target:
+  **Set word count target** in the command palette, and **Set target...** in the menus, still do).
+
 ## The first days
 
 ![A record three days old: the first two weeks as squares that fill](images/progress-first-days.png)
@@ -91,7 +129,7 @@ For each day you write, on each device:
 - the binder's **total** at the end of the day, its number of scenes, and its words in each status.
 
 And, with the time it happened, **what you did to the binder**: a note made, deleted, renamed or moved; a status or
-label changed, from and to; a word count target set; the order changed; a snapshot taken (with its name) or brought
+label changed, from and to; a word count target or a deadline set; the order changed; a snapshot taken (with its name) or brought
 back; an export made (with its kind); an import; a split, a merge, a copy; a Replace all.
 
 Import, split, merge, copy, Replace all and bringing back a snapshot are Binders' own acts. Each is recorded, and none

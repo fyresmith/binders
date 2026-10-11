@@ -159,7 +159,8 @@ export function toHistory(m: Merged, statuses?: string[]): History {
 	let orders = 0;
 	const plans: PlanEvent[] = [];
 	for (const e of m.events) {
-		if ((e.k === 'deadline' || e.k === 'target') && e.path !== undefined) plans.push({ day: e.d, kind: e.k, scope: e.path, from: e.from ?? '', to: e.to ?? '', ...(e.n ? { words: e.n } : {}) });
+		// (an empty `p` is not written: no path is the binder's own)
+		if (e.k === 'deadline' || e.k === 'target') plans.push({ day: e.d, kind: e.k, scope: e.path ?? e.p ?? '', from: e.from ?? '', to: e.to ?? '', ...(e.n ? { words: e.n } : {}) });
 		if (e.k === 'order') { moves.set(e.d, (moves.get(e.d) ?? 0) + 1); orders++; }
 		else if (e.k === 'snapshot' && e.name) marks.push({ day: e.d, kind: 'snapshot', what: e.name });
 		else if (e.k === 'export') marks.push({ day: e.d, kind: 'export', what: e.name ?? '' });

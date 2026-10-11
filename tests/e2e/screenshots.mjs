@@ -377,6 +377,16 @@ try {
 		};
 		await progress(novel(await scenesOf(p, 'The Lighthouse'), recordToday()).files, 'progress');
 		await progress(lastDays(await scenesOf(p, 'The Lighthouse'), recordToday(), 3).files, 'progress-first-days');
+		// a deadline: the plan close up, and how the book stands against it (the target and the date are the binder note's own properties)
+		{
+			const files = novel(await scenesOf(p, 'The Lighthouse'), recordToday()).files, today = recordToday(), words = (await scenesOf(p, 'The Lighthouse')).reduce((a, x) => a + x.words, 0);
+			const day = (n) => new Date(Date.UTC(+today.slice(0, 4), +today.slice(5, 7) - 1, +today.slice(8, 10) + n)).toISOString().slice(0, 10), target = Math.ceil((words + 9000) / 1000) * 1000;
+			const desk = Object.keys(files).find((k) => k.startsWith(today.slice(0, 4) + ' ') && !/ bbbbbb\./.test(k));
+			if (desk) files[desk] += j({ t: 'ev', at: new Date(day(-45) + 'T12:00:00').getTime(), d: day(-45), k: 'deadline', to: day(60), n: target }) + '\n';
+			await p.ev(`(async () => { await app.fileManager.processFrontMatter(app.vault.getAbstractFileByPath('The Lighthouse/The Lighthouse.md'), (fm) => { fm.target = ${target}; fm.deadline = ${j(day(60))}; }); await new Promise((r) => setTimeout(r, 600)); })().then(() => 1)`);
+			await progress(files, 'progress-deadline');
+			await p.ev(`(async () => { await app.fileManager.processFrontMatter(app.vault.getAbstractFileByPath('The Lighthouse/The Lighthouse.md'), (fm) => { delete fm.target; delete fm.deadline; }); await new Promise((r) => setTimeout(r, 600)); })().then(() => 1)`);
+		}
 		await p.ev(`(async () => { const a = app.vault.adapter, pl = ${PL}; pl.progress.forget(); if (await a.exists('The Lighthouse/Snapshots/History')) await a.rmdir('The Lighthouse/Snapshots/History', true); pl.progress.setDevice(null); pl.progress.forget(); })().then(() => 1)`);
 	}
 

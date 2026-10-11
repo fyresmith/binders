@@ -171,6 +171,10 @@ eq(saidDays([2]), 'Tuesday', 'one');
 	eq(planFrom(none, rs(none), '', { ...o, deadline: null }, plus(D, 3)), null, 'no deadline, no plan');
 	eq(planFrom(none, rs(none), '', { ...o, target: 0 }, plus(D, 3)), null, 'no target, no plan');
 	eq(planFrom(none, [], '', o, plus(D, 3)), null, 'no record, no plan to draw');
+	// an event as the file has it: an empty path and an empty date are not written
+	const bare = h([{ t: 'ev', at: num(plus(D, 2)) * 864e5, d: plus(D, 2), k: 'deadline', to: plus(D, 9), n: 10000 }]);
+	p = planFrom(bare, rs(bare), '', o, plus(D, 3));
+	eq(p?.from, plus(D, 2), 'an event with no path is the binder’s own');
 	// the old deadline stays on the book's life as a mark unless it was changed before its day
 	const marked = h([ev(D, 'deadline', '', '', plus(D, 2), 5000), ev(plus(D, 3), 'deadline', '', plus(D, 2), plus(D, 20), 8000)]);
 	eq(marked.marks.filter((m) => m.kind === 'deadline').map((m) => [m.day, m.what]), [[plus(D, 2), '5,000 words due'], [plus(D, 20), '8,000 words due']], 'a deadline that came is a mark; the live one is one too, for when it comes');

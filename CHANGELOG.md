@@ -34,6 +34,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - Saved filters: save a filter with the binder (Save as…, rename, duplicate, move, delete) and use it in every mode; a status or label renamed in settings is renamed in your saved filters too.
 - With several notes selected, a pinned property shows what they share: a list shows its common items and 'N more on some', with a menu to add each to all or remove it from those that have it; other types show Mixed, and an edit goes to all, as one step of Undo.
 - A plain click on a link in a pinned property opens the note in a pane beside your writing.
+- Deadlines in Progress: set a date and the days you write on beside a word count target. The window says how the book stands (on pace, behind, ahead, passed, reached) and what a day has to be to get there, draws the plan, and a deadline that came stays on the book's life.
 
 ### Changed
 

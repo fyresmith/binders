@@ -23,6 +23,8 @@ renamed or added since stays as it is.
 - a synopsis, typed on a card, in a row, in the inspector or in a folder's header;
 - a status, a label or a word count target, from the menus, the inspector or the outliner (set for five notes at
   once, it is one change);
+- a deadline, set in the progress window with its target and writing days, changed, or removed: one change each,
+  taking back every property it wrote (the target, the deadline and the writing days);
 - a story date, set, changed or removed from the outliner, the inspector or the menu (for five notes at once, one
   change); undone, a month is still a month and a note that had none has none;
 - a card dragged on the [timeline](timeline.md#dragging) to a date, or a day's scenes put in another order (their

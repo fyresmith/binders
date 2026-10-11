@@ -111,7 +111,7 @@ export class Progress {
 	/** Forgets everything counted and not yet read again (for the tests: each starts from a vault with no record). */
 	forget(): void {
 		for (const r of this.records.values()) r.dead = true;
-		this.records.clear(); this.needStamp.clear(); this.waiting.length = 0; this.acts.length = 0; this.lastBinder = null;
+		this.records.clear(); this.kept.clear(); this.needStamp.clear(); this.waiting.length = 0; this.acts.length = 0; this.lastBinder = null;
 		window.clearTimeout(this.timer); this.timer = 0;
 	}
 

@@ -1,14 +1,17 @@
-import { ButtonComponent, Component, Modal, TFile, TFolder } from 'obsidian';
+import { ButtonComponent, Component, Modal, Notice, Setting, TFile, TFolder } from 'obsidian';
 import type BindersPlugin from '../main';
 import { recordDay } from '../progress/day';
 import { toHistory, type Merged } from '../progress/merge';
 import { count, fmt, monthName, num, sayDay, type History } from '../progress/model';
+import { DAYS_PROP, DEADLINE_PROP, WEEK, offDays, planFrom, planProblem, readDeadline, readWritingDays, saidDays, writeWritingDays } from '../progress/plan';
 import { BinderRecord } from '../progress/record';
-import { FIRST_DAYS, alike, baseOf, chapters, facts, hourSaid, hourShape, parts, rows as rowsOf, stage, statusSeries, weekdayShape, type Fact, type Row } from '../progress/stats';
+import { FIRST_DAYS, alike, baseOf, chapters, facts, hourSaid, hourShape, pace, parts, plannedAt, projected, rows as rowsOf, share, stage, statusSeries, weekdayShape, type Fact, type Pace, type Row } from '../progress/stats';
 import { textFacts, type SceneText } from '../progress/text';
 import { buttonRow } from './modals';
 import { drawBars, drawCalendar, drawFirstDays, drawLife, drawStatus, drawStrip, table } from './progress-charts';
-import { readProps } from './props';
+import type { Plan } from '../progress/model';
+import { parseTarget, whyNotTarget } from './outliner-data';
+import { readProps, writeKeys } from './props';
 import { watchSize } from './windows';
 import { WordCounter } from './word-counter';
 
@@ -52,6 +55,10 @@ export class ProgressModal extends Modal {
 	private counter: WordCounter;
 	private reading = 0;
 	private open_ = false;
+	/** The plan's form is open, and what is typed in it (kept while the page is drawn again under it). */
+	private editing = false;
+	private why = '';
+	private draft: { target: string; deadline: string; days: number[]; problem: string } | null = null;
 
 	constructor(private plugin: BindersPlugin, private folder: TFolder, o: ProgressOptions = {}) {
 		super(plugin.app);
@@ -79,6 +86,7 @@ export class ProgressModal extends Modal {
 		plugin.progress.listeners.add(changed);
 		this.life.register(() => plugin.progress.listeners.delete(changed));
 		this.life.registerEvent(this.app.vault.on('modify', (f) => { if (f instanceof TFile && f.extension === 'md' && f.path.startsWith(root)) { this.texts = null; changed(); } }));
+		this.life.registerEvent(this.app.metadataCache.on('changed', (f) => { if (f.path.startsWith(root)) this.later(150, false); }));
 		void this.load();
 	}
 
@@ -115,6 +123,7 @@ export class ProgressModal extends Modal {
 		}
 		if (go !== this.reading || !this.open_) return;
 		this.history = merged ? toHistory(merged, plugin.settings.statuses) : null;
+		this.why = why;
 		if (!this.history?.days.length) { this.nothing(why); return; }
 		if (!this.body) {
 			this.contentEl.empty();
@@ -139,10 +148,30 @@ export class ProgressModal extends Modal {
 		const words = this.counter.sum(this.plugin.binders.scenes(this.binderFolder));
 		const off = !this.plugin.settings.recordProgress;
 		contentEl.createEl('p', { cls: 'binders-pot-nothing', text: why || `The record of “${this.binderFolder.name}” begins with the first words you type in it.${words ? ` It has ${count(words, 'word')} today.` : ''}` });
+		if (binder && !binder.problem && binder.kind !== 'longform' && !this.within) this.planWithoutRecord(contentEl, words ?? 0);
 		const row = buttonRow(this);
 		if (off && binder && !binder.problem) new ButtonComponent(row).setButtonText('Open settings').setCta().onClick(() => { this.close(); const s = (this.app as unknown as { setting?: { open(): void; openTabById(id: string): void } }).setting; s?.open(); s?.openTabById(this.plugin.manifest.id); });
 		else new ButtonComponent(row).setButtonText('Close').onClick(() => this.close());
 	}
+
+	/** A binder with no record has no window to show, but its plan can still be set and said: the words a day need only the
+	    words it has and the dates. */
+	private planWithoutRecord(parent: HTMLElement, words: number): void {
+		const note = this.plugin.binders.folderNote(this.binderFolder), fm = note ? this.app.metadataCache.getFileCache(note)?.frontmatter : undefined;
+		const target = note ? readProps(this.plugin, note).target : 0, deadline = readDeadline(fm?.[DEADLINE_PROP]), days = readWritingDays(fm?.[DAYS_PROP]);
+		const line = parent.createDiv({ cls: 'binders-pot-planline binders-pot-paceline' });
+		const said = line.createSpan({ cls: 'binders-pot-said', attr: { 'data-binders-plan': 'said' } });
+		if (target && deadline) {
+			const t = num(this.today), plan: Plan = { target, deadline, off: offDays(days), from: this.today, fromTotal: words }, sh = share(plan, words, 0, this.today);
+			said.setText(num(deadline) < t ? `${sayDay(num(deadline))} has passed.` : `${fmt(target)} words by ${sayDay(num(deadline))}${days.length < 7 ? `, writing ${saidDays(days)}` : ''}: ${fmt(sh.needed)} a day. How the book stands against it shows once there is a record.`);
+		} else said.setText('No deadline is set.');
+		const b = line.createEl('button', { cls: 'binders-pot-quiet', text: deadline ? 'Change the plan' : 'Set a deadline', attr: { 'data-binders-key': 'plan', 'aria-expanded': String(this.editing) } });
+		b.addEventListener('click', () => { this.editing = !this.editing; this.draft = null; this.refresh(); if (this.editing) this.contentEl.querySelector<HTMLElement>('[data-binders-key="form-target"]')?.focus(); });
+		if (this.editing) this.planForm(parent.createDiv({ cls: 'binders-pot-formwrap' }), { target, deadline, days }, words, !!deadline);
+	}
+
+	/** Draws what is on show again: the page, or the dialog that says there is no record. */
+	private refresh(): void { if (this.body) this.draw(); else this.nothing(this.why); }
 
 	/** The notes' text, for what it says of itself: read after the record is drawn, so the window never waits on it. */
 	private async read(): Promise<void> {
@@ -172,16 +201,38 @@ export class ProgressModal extends Modal {
 		const style = getComputedStyle(body), W = Math.max(240, Math.floor(this.width - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)));
 		const narrow = W < 560, first = stage(rs) !== 'full', base = baseOf(rs), began = rs[0]?.n ?? t;
 		const written = rs.filter((r) => r.added || r.cut);
+		// the plan: the target and the deadline of the folder shown, in its note
+		const note = this.plugin.binders.folderNote(this.scopeFolder), fm = note ? this.app.metadataCache.getFileCache(note)?.frontmatter : undefined;
+		const target = note ? readProps(this.plugin, note).target : 0, deadline = readDeadline(fm?.[DEADLINE_PROP]), days = readWritingDays(fm?.[DAYS_PROP]);
+		const plan = planFrom(h, rs, scope, { target, deadline, days }, this.today), p = plan ? pace(rs, plan, this.today) : null;
+		const live = !!plan && !!p && p.state !== 'passed' && p.state !== 'reached';
 
 		// ---- the few numbers a writer acts on ----
 		const head = body.createDiv({ cls: 'binders-pot-head' });
-		for (const f of this.now(rs)) this.figure(head, f[0], f[1], f[2]);
+		for (const f of this.now(rs, plan, p, target)) this.figure(head, f[0], f[1], f[2]);
+		this.paceLine(body, plan, p, deadline, target);
+		if (this.editing) this.planForm(body.createDiv({ cls: 'binders-pot-formwrap' }), { target, deadline, days }, rs[rs.length - 1]?.total ?? 0, !!plan);
 		const line = body.createDiv({ cls: 'binders-pot-planline' });
 		const said = line.createSpan({ cls: 'binders-pot-said' });
 		const whose = scope ? `${scope.split('/').pop() ?? ''}, in ${this.binderFolder.name}. ` : '';
 		const since = rs.length <= 1 ? 'The record began today' : first ? `The record is ${count(rs.length, 'day')} old` : `Recorded since ${sayDay(began)}`;
 		said.setText(`${whose}${since}.${base > 50 ? ` ${scope ? 'This folder' : 'The book'} had ${fmt(base)} words when it began.` : ''}${this.stopped ? ' ' + this.stopped : ''}`);
 		this.scopePicker(line);
+
+		// ---- the plan, close up: the days since it began and the days to its date ----
+		if (plan && p && live) {
+			const s = this.section(body, 'The plan', `${fmt(plan.target)} words by ${sayDay(num(plan.deadline))}${days.length < 7 ? `, writing ${saidDays(days)}` : ''}`);
+			const proj = projected(rs, plan.target);
+			drawLife(s.createDiv({ cls: 'binders-pot-chart' }), { rows: rs, estimate: [], plan, projection: proj, chapters: [], marks: [], today: t, width: W, height: narrow ? 250 : 300, from: num(plan.from) - 3, floor: true });
+			const foot = s.createDiv({ cls: 'binders-pot-key' });
+			this.key(foot, 'is-line', 'The book');
+			this.key(foot, 'is-plan', 'The plan');
+			if (proj) this.key(foot, 'is-projection', `The last 30 days’ pace: there in ${proj.said}`);
+			// (a row a week: where the plan has the book, and where it was)
+			const weeks: string[][] = [];
+			for (let n = num(plan.from); n <= num(plan.deadline) && weeks.length < 120; n += 7) weeks.push([sayDay(n), fmt(plannedAt(plan, n)), rs.find((r) => r.n === n) ? fmt(rs.find((r) => r.n === n)?.total ?? 0) : '']);
+			table(s, 'The plan, week by week', ['Week of', 'The plan has', 'The book had'], weeks);
+		}
 
 		// ---- its life ----
 		{
@@ -204,7 +255,7 @@ export class ProgressModal extends Modal {
 			const lo = Math.min(from ? shown[0]?.total ?? 0 : base, ...shown.map((r) => r.total)), hi = Math.max(1, ...shown.map((r) => r.total));
 			const story = chapters(rs), chart = s.createDiv({ cls: 'binders-pot-chart' });
 			const unsaid = drawLife(chart, {
-				rows: rs, estimate: [], plan: null, projection: null, chapters: story, marks: scope ? [] : h.marks, today: t, width: W, height: first ? (narrow ? 220 : 250) : narrow ? 260 : 340, from, base, floor: (hi - lo) / hi < 0.3 && lo > 0,
+				rows: rs, estimate: [], plan: live && plan && num(plan.deadline) - t <= 400 ? plan : null, projection: live && plan && num(plan.deadline) - t <= 400 ? projected(rs, plan.target) : null, chapters: story, marks: scope ? [] : h.marks, today: t, width: W, height: first ? (narrow ? 220 : 250) : narrow ? 260 : 340, from, base, floor: (hi - lo) / hi < 0.3 && lo > 0,
 				hover: (r) => readout?.setText(r ? `${sayDay(r.n, { weekday: !narrow, short: narrow })}: ${fmt(r.total)} words${r.added ? `, ${fmt(r.added)} written` : ''}${r.cut ? `, ${fmt(r.cut)} cut` : ''}${r.block ? `, ${fmt(Math.abs(r.block))} ${r.block > 0 ? 'brought in' : 'taken out'} at once` : ''}${r.elsewhere ? `, ${fmt(Math.abs(r.elsewhere))} ${r.elsewhere > 0 ? 'more' : 'fewer'} from elsewhere` : ''}` : rest),
 			});
 			const key = s.createDiv({ cls: 'binders-pot-key' });
@@ -340,18 +391,81 @@ export class ProgressModal extends Modal {
 		return [...out];
 	}
 
-	/** The numbers at the head: [what, the number, a line under it]. */
-	private now(rs: Row[]): [string, string, string][] {
+	/** The numbers at the head: [what, the number, a line under it]. With a deadline, the last says what a day is to be. */
+	private now(rs: Row[], plan: Plan | null, p: Pace | null, target: number): [string, string, string][] {
 		const t = num(this.today), last = rs[rs.length - 1], total = last?.total ?? 0;
 		const today = last && last.n === t ? last.added - last.cut : 0;
 		const week = rs.filter((r) => r.n > t - 7), wrote = [...rs].reverse().find((r) => r.added || r.cut);
-		const note = this.plugin.binders.folderNote(this.scopeFolder), target = note ? readProps(this.plugin, note).target : 0;
 		const out: [string, string, string][] = [];
-		out.push(['Today', fmt(today), today ? (Math.abs(today) === 1 ? 'word' : 'words') : wrote ? `last written on ${sayDay(wrote.n, { weekday: t - wrote.n < 7, year: false })}` : 'words']);
+		const toward = p && p.state !== 'passed' && p.state !== 'reached' ? (p.todayOff ? 'a day off in the plan' : `of ${fmt(p.needed)} for the plan`) : '';
+		out.push(['Today', fmt(today), toward || (today ? (Math.abs(today) === 1 ? 'word' : 'words') : wrote ? `last written on ${sayDay(wrote.n, { weekday: t - wrote.n < 7, year: false })}` : 'words')]);
 		if (rs.length > 1) out.push(['Seven days', fmt(week.reduce((a, r) => a + r.added - r.cut, 0)), `${count(week.filter((r) => r.added || r.cut).length, 'day')} written on`]);
 		out.push([this.within ? 'This folder' : 'The book', fmt(total), target ? `of ${fmt(target)}: ${Math.floor((total / target) * 100)}%` : this.within ? 'words' : last && rs.length ? this.scenesSaid() : 'words']);
-		if (rs.length >= 30) { const month = rs.slice(-30), sum = month.reduce((a, r) => a + r.added - r.cut, 0); out.push(['Thirty days', fmt(sum), `${fmt(Math.round(sum / 30))} a day`]); }
+		if (plan && p) {
+			const to = num(plan.deadline), by = sayDay(to, { year: new Date(to * 864e5).getUTCFullYear() !== new Date(t * 864e5).getUTCFullYear() });
+			out.push(p.state === 'reached' || p.state === 'passed' ? [by, p.state === 'reached' ? 'Reached' : 'Passed', `${fmt(plan.target)} words`] : [by, `${fmt(p.needed)} a day`, `${count(p.daysLeft, 'writing day')} left`]);
+		} else if (rs.length >= 30) { const month = rs.slice(-30), sum = month.reduce((a, r) => a + r.added - r.cut, 0); out.push(['Thirty days', fmt(sum), `${fmt(Math.round(sum / 30))} a day`]); }
 		return out;
+	}
+
+	/** How the book stands against its deadline, in a sentence (no color for any of it), and the way to change it. */
+	private paceLine(parent: HTMLElement, plan: Plan | null, p: Pace | null, deadline: string | null, target: number): void {
+		const binder = this.binder, longform = binder?.kind === 'longform', locked = !!binder?.problem, line = parent.createDiv({ cls: 'binders-pot-planline binders-pot-paceline' });
+		const said = line.createSpan({ cls: 'binders-pot-said', attr: { 'data-binders-plan': 'said' } });
+		if (plan && p) { said.createSpan({ cls: `binders-pot-pace is-${p.state}`, text: p.said }); if (p.then) said.appendText(' ' + p.then); }
+		else if (longform) said.appendText('A Longform project can’t have a deadline. Convert it to a binder to use one.');
+		else if (deadline && !target) said.setText('A deadline needs a target. Set both in the plan.');
+		else said.setText(locked ? 'No deadline is set. This binder can’t be changed by this version of Binders.' : 'No deadline is set.');
+		if (longform || locked) return;
+		const b = line.createEl('button', { cls: 'binders-pot-quiet', text: p?.state === 'passed' ? 'Set a new date' : plan || deadline ? 'Change the plan' : 'Set a deadline', attr: { 'data-binders-key': 'plan', 'aria-expanded': String(this.editing) } });
+		b.addEventListener('click', () => { this.editing = !this.editing; this.draft = null; this.refresh(); if (this.editing) this.contentEl.querySelector<HTMLElement>('[data-binders-key="form-target"]')?.focus(); });
+	}
+
+	/** The plan's form: the words, the day and the days written on, set together as one change that Undo takes back. */
+	private planForm(parent: HTMLElement, cur: { target: number; deadline: string | null; days: number[] }, total: number, has: boolean): void {
+		const d = this.draft ??= { target: cur.target ? String(cur.target) : '', deadline: cur.deadline ?? '', days: [...cur.days], problem: '' };
+		const form = parent.createDiv({ cls: 'binders-pot-form', attr: { role: 'group', 'aria-label': has ? 'Change the plan' : 'Set a deadline' } });
+		new Setting(form).setName('Word count target').setDesc(this.within ? 'The words this folder is to have.' : 'The words the book is to have.').addText((t) => {
+			t.setPlaceholder('Such as 80,000').setValue(d.target).onChange((v) => { d.target = v; });
+			t.inputEl.setAttrs({ inputmode: 'numeric', 'data-binders-key': 'form-target', 'aria-label': 'Word count target' });
+		});
+		new Setting(form).setName('Deadline').setDesc('The day the words are to be written by.').addText((t) => {
+			t.inputEl.type = 'date';
+			t.setValue(d.deadline).onChange((v) => { d.deadline = v; });
+			t.inputEl.setAttrs({ 'data-binders-key': 'form-deadline', 'aria-label': 'Deadline' });
+		});
+		const row = new Setting(form).setName('Writing days').setDesc('The days of the week that are written on. The plan shares the words among them.');
+		const group = row.controlEl.createDiv({ cls: 'binders-pot-weekdays', attr: { role: 'group', 'aria-label': 'Writing days' } });
+		for (const day of WEEK) {
+			const full = new Date(Date.UTC(2026, 9, 11 + day)).toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' }), on = d.days.includes(day);
+			const b = group.createEl('button', { cls: `text-icon-button binders-pot-weekday${on ? ' is-active' : ''}`, text: LETTERS[day], attr: { 'aria-label': full, 'aria-pressed': String(on), 'data-binders-key': `form-day-${day}` } });
+			b.addEventListener('click', () => { d.days = d.days.includes(day) ? d.days.filter((x) => x !== day) : [...d.days, day]; b.toggleClass('is-active', d.days.includes(day)); b.setAttr('aria-pressed', String(d.days.includes(day))); });
+		}
+		const problem = form.createDiv({ cls: 'binders-pot-form-problem', text: d.problem, attr: { role: 'status', 'aria-live': 'polite' } });
+		const label = has ? 'Change the plan' : 'Set a deadline';
+		const buttons = new Setting(form).setClass('binders-pot-form-buttons');
+		buttons.addButton((b) => b.setButtonText('Save').setCta().onClick(() => void this.savePlan(d, total, problem, label)));
+		buttons.addButton((b) => b.setButtonText('Cancel').onClick(() => { this.editing = false; this.draft = null; this.refresh(); }));
+		if (cur.deadline) buttons.addButton((b) => b.setButtonText('Remove the deadline').onClick(() => void this.writePlan({ [DEADLINE_PROP]: undefined, [DAYS_PROP]: undefined }, 'Remove the deadline')));
+	}
+
+	private async savePlan(d: { target: string; deadline: string; days: number[]; problem: string }, total: number, problem: HTMLElement, label: string): Promise<void> {
+		const n = parseTarget(d.target) ?? -1, why = n < 0 ? whyNotTarget(d.target) : planProblem({ target: n, deadline: d.deadline, days: d.days, total }, this.today);
+		d.problem = why ?? '';
+		problem.setText(d.problem);
+		if (why) return;
+		await this.writePlan({ [this.plugin.settings.targetProp]: n, [DEADLINE_PROP]: d.deadline, [DAYS_PROP]: writeWritingDays(d.days) }, label);
+	}
+
+	/** Writes the target, the deadline and the writing days of the folder shown to its note, as one change. */
+	private async writePlan(patch: Record<string, unknown>, label: string): Promise<void> {
+		const store = this.plugin.binders, folder = this.scopeFolder;
+		try {
+			const note = store.folderNote(folder) ?? await store.ensureFolderNote(folder);
+			await writeKeys(this.plugin, [{ file: note, patch }], `${label} of “${folder === this.binderFolder ? this.binderFolder.name : folder.name}”`);
+			this.editing = false; this.draft = null;
+			this.later(150, true);
+		} catch (e) { new Notice(e instanceof Error ? e.message : String(e)); }
 	}
 
 	private scenesSaid(): string {
@@ -388,6 +502,6 @@ export class ProgressModal extends Modal {
 		sel.createEl('option', { text: 'The whole binder', value: '' });
 		for (const f of folders) sel.createEl('option', { text: f.name, value: f.name });
 		sel.value = this.within;
-		sel.addEventListener('change', () => { this.within = sel.value; this.range = 0; this.allParts = false; this.draw(); });
+		sel.addEventListener('change', () => { this.within = sel.value; this.range = 0; this.allParts = false; this.editing = false; this.draft = null; this.draw(); });
 	}
 }
