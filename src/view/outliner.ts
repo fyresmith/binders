@@ -12,6 +12,8 @@ import { labelDot, labelName, rank } from './labels';
 import type { BinderMode, ModeContext, ModeFactory, SceneProps } from './mode';
 import { OutlinerColumns, showUnder } from './outliner-columns';
 import { watchSize } from './windows';
+import { readStory, setStoryDate, storyPlace } from './props';
+import { compareStoryDates, compareStoryPlaces, parseStoryDate, showStoryDate, storyKey, whyNotStoryDate, type StoryDate, type StoryPlace } from '../time/date';
 import { TITLE, builtIn, columnName, columnWidth, compareValues, parseTarget, parseTyped, progress, propOf, readColumns, readSort, text, whyNotTarget, type ColumnSpec, type Sort } from './outliner-data';
 import { wordsLabel } from './words';
 
@@ -297,6 +299,11 @@ class Outliner implements BinderMode {
 	private sorted<T extends TAbstractFile>(list: T[]): T[] {
 		const sort = this.sort;
 		if (!sort) return list;
+		// (story time: by date, then by time or `story-order` within a day; undated last whichever way it runs)
+		if (sort.id === 'storydate') {
+			const at = list.map((f, i) => ({ f, i, p: this.storyPlace(f) }));
+			return at.sort((a, b) => (a.p && b.p ? compareStoryPlaces(a.p, b.p) * sort.dir : a.p ? -1 : b.p ? 1 : 0) || a.i - b.i).map((x) => x.f);
+		}
 		return list.map((f, i) => ({ f, i, v: this.sortValue(f, sort.id) })).sort((a, b) => compareValues(a.v, b.v, sort.dir) || a.i - b.i).map((x) => x.f);
 	}
 
@@ -381,6 +388,24 @@ class Outliner implements BinderMode {
 		return { n: this.scenesIn(item).reduce((a, f) => a + this.ctx.props(f).target, 0), own: false };
 	}
 
+	/** An item's story date as its property holds it. A folder without a date of its own takes the earliest of its notes'
+	    (`own` false): it is placed there, and not written. */
+	private story(item: TAbstractFile): { raw: unknown; date: StoryDate | null; own: boolean } {
+		const here = readStory(this.ctx.plugin, noteOf(this.ctx, item));
+		if (here.raw !== undefined || !(item instanceof TFolder)) return { ...here, own: true };
+		let first: StoryDate | null = null;
+		for (const f of this.scenesIn(item)) { const d = readStory(this.ctx.plugin, f).date; if (d && (!first || compareStoryDates(d, first) < 0)) first = d; }
+		return { raw: undefined, date: first, own: false };
+	}
+
+	/** Where an item is in story time: its date and order, a folder's by its earliest note when it has none. */
+	private storyPlace(item: TAbstractFile): StoryPlace | null {
+		const own = storyPlace(this.ctx.plugin, noteOf(this.ctx, item));
+		if (own || !(item instanceof TFolder)) return own;
+		const d = this.story(item).date;
+		return d ? { date: d, order: null } : null;
+	}
+
 	/** The property a column shows: a property's own column, or the notes (under the name settings give them). */
 	private propFor(id: string): string | null { return id === 'notes' ? this.settings.notesProp : propOf(id); }
 
@@ -396,6 +421,8 @@ class Outliner implements BinderMode {
 			case 'progress': return progress(this.words(item), this.target(item).n);
 			case 'created': return item instanceof TFile ? item.stat.ctime : null;
 			case 'modified': return item instanceof TFile ? item.stat.mtime : null;
+			// (a note that has none, or something that isn't a date, comes last whichever way the column runs)
+			case 'storydate': { const d = this.story(item).date; return d ? storyKey(d) : null; }
 			case 'export': return isExported(this.ctx.plugin, item);
 			case 'role': return saidRole(this.played(item)).text;
 		}
@@ -542,6 +569,7 @@ class Outliner implements BinderMode {
 			case 'progress': return [this.words(item), this.target(item).n];
 			case 'created': return item instanceof TFile ? item.stat.ctime : null;
 			case 'modified': return item instanceof TFile ? item.stat.mtime : null;
+			case 'storydate': { const s = this.story(item); return [s.raw ?? null, s.own, s.date ? storyKey(s.date) : null]; }
 			case 'export': return [isExported(this.ctx.plugin, item), this.leftOut(item)];
 			case 'role': { const p = this.played(item); return p ? `${p.role}|${p.said ?? ''}` : null; }
 		}
@@ -634,6 +662,26 @@ class Outliner implements BinderMode {
 				bar.createDiv({ cls: 'binders-progress-bar' }).setCssStyles({ width: `${pct}%` });
 				td.createSpan({ cls: 'binders-outliner-percent', text: `${pct}%` });
 				return null;
+			}
+			case 'storydate': {
+				const s = this.story(item), said = s.raw === undefined || s.raw === null ? '' : text(s.raw);
+				td.toggleClass('is-total', !s.own);
+				const field = editable(td, {
+					// (shown in words; typed as it is written, so a time is never lost to editing)
+					cls: 'binders-outliner-field', value: s.date && s.own ? showStoryDate(s.date) : said, editValue: said, placeholder: !s.own && s.date ? showStoryDate(s.date) : '', label: `Story date of ${nameOf(item)}`,
+					singleLine: true, allowEmpty: true, readOnly: ro, shouldEdit: () => this.sel.has(item.path),
+					save: async (typed) => {
+						const why = whyNotStoryDate(typed);
+						if (why) throw new Error(why);
+						if (this.ro) throw new Error('This binder is read only.');
+						// for every selected row, as a label or a status picked in one is
+						await setStoryDate(this.ctx.plugin, this.withSelection(item), parseStoryDate(typed));
+					},
+					onEditing: (on) => this.onEditing(on, row),
+				});
+				// (not a date: left as it was typed, and shown so)
+				field.el.toggleClass('is-unread', !!said && !s.date);
+				return field;
 			}
 			case 'role': {
 				// what it is in the book: said by hand, or (fainter) what the binder's shape makes it

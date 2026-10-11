@@ -96,6 +96,8 @@ The properties that hold each of these, if your notes already use other names.
 | **Status** | `status` | A note's status, such as draft or revised |
 | **Label** | `label` | A note's label |
 | **Target** | `target` | A word count target: a note's own, a folder's, or the binder's |
+| **Story date** | `story-date` | When a scene happens in the story. See [Story date](story-date.md) |
+| **Story order** | `story-order` | A scene's place among the scenes of the same story date |
 | **Notes** | `notes` | Your notes on a note or folder. They are never exported |
 
 Each needs a name of its own. Binders keeps a few names for itself, which can't be used here: `binder`, `contents`,

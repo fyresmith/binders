@@ -5788,3 +5788,9 @@ body:not(.is-phone) .binders-snapshots .sync-history-content {
 .binders-find.is-wide { margin: 0; padding-inline: var(--size-4-2); border-bottom: var(--border-width) solid var(--background-modifier-border); }
 /* (under the view's toolbar, not under Obsidian's floating header: no room kept for one) */
 .is-mobile .binders-find:not(.binders-find-in-note) { padding-top: var(--size-4-3); padding-bottom: var(--size-4-3); }
+
+/* (a story date that isn't a date: shown as it was typed, and left alone) */
+.binders-outliner-field.is-unread,
+.binders-inspector-value.is-unread {
+	color: var(--text-muted);
+}

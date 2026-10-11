@@ -252,6 +252,7 @@ Without `--specs`, every `tests/e2e/specs*.mjs` runs:
 | `specs-card-file-drag.mjs` | A card or an outliner row dragged out of the view as a file: each place that takes one, the refusals, Escape, a tablet, the fallback |
 | `specs-labels.mjs` | Labels, statuses and targets: the lists in settings, what a card offers and shows, label dots in the explorer |
 | `specs-outliner.mjs` | The outliner: rows, folding, keyboard, editing in place, columns, sorting, dragging |
+| `specs-story-date.mjs` | The story date: set from the outliner column, the inspector and the menu, one note or several; cleared; sorted both ways with undated notes last; kept as the binder order, undoably; a non-date left as typed; the file's bytes through set, undo and redo, a byte-order mark, Windows line breaks, an outside edit, typing not yet saved, a Longform project, a read-only binder, a phone |
 | `specs-manuscript.mjs` | The manuscript and the editable embed: every test that types checks the disk |
 | `specs-background.mjs` | The app going to the background: what is being typed is written at that moment, and a slow save loses nothing |
 | `specs-scenes.mjs` | Split, merge, synopsis from text, duplicate, group and ungroup, export as one note, undo and redo of a move |

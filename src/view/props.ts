@@ -7,6 +7,7 @@ import type BindersPlugin from '../main';
 import { canonical, readLabel } from './labels';
 import { readTarget } from './outliner-data';
 import type { SceneProps } from './mode';
+import { readStoryDate, readStoryOrder, writeStoryDate, type StoryDate, type StoryPlace } from '../time/date';
 
 /* A note's card data, read and written under the property names in settings: the one way, for the binder view and
    for the inspector beside it. */
@@ -29,7 +30,7 @@ export function readProps(plugin: BindersPlugin, file: TFile): SceneProps {
 /** What a property is called to the writer, in a sentence about changing it ("the synopsis of “Arrival”"). */
 function noun(plugin: BindersPlugin, key: string): string {
 	const s = plugin.settings;
-	return key === s.synopsisProp ? 'synopsis' : key === s.statusProp ? 'status' : key === s.labelProp ? 'label' : key === s.targetProp ? 'word count target' : key === s.notesProp ? 'notes'
+	return key === s.synopsisProp ? 'synopsis' : key === s.statusProp ? 'status' : key === s.labelProp ? 'label' : key === s.targetProp ? 'word count target' : key === s.storyDateProp ? 'story date' : key === s.storyOrderProp ? 'story order' : key === s.notesProp ? 'notes'
 		: key === EXPORT_AS ? '“Export as”' : key === EXPORT_PROP || key === COMPILE_PROP ? 'export setting' : `“${key}” property`;
 }
 
@@ -41,7 +42,8 @@ function describe(plugin: BindersPlugin, writes: { file: TFile; patch: Record<st
 	const what = Object.fromEntries(keys.map((k) => [k, noun(plugin, k)]));
 	const values = writes.flatMap((w) => Object.entries(w.patch));
 	if (keys.every((k) => k === EXPORT_PROP || k === COMPILE_PROP)) return { label: values.some(([, v]) => v === false) ? `Leave ${subject} out of export` : `Include ${subject} in export`, what };
-	const nouns = [...new Set(Object.values(what))];
+	// (a date's order goes with it: one thing changed, said once)
+	const nouns = [...new Set(Object.entries(what).filter(([k]) => k !== plugin.settings.storyOrderProp || !keys.includes(plugin.settings.storyDateProp)).map(([, v]) => v))];
 	const verb = values.every(([, v]) => v === undefined) ? 'Clear' : keys.every((k) => k === plugin.settings.synopsisProp || k === plugin.settings.notesProp) ? 'Edit' : 'Set';
 	return { label: nouns.length === 1 ? `${verb} ${nouns[0]} of ${subject}` : `Change ${nouns.join(' and ')} of ${subject}`, what };
 }
@@ -103,6 +105,38 @@ export async function writeExportAs(plugin: BindersPlugin, items: readonly TAbst
 			if (include && (fm[EXPORT_PROP] === false || fm[COMPILE_PROP] === false)) { patch[EXPORT_PROP] = undefined; patch[COMPILE_PROP] = undefined; }
 		}
 		if (Object.keys(patch).some((k) => (patch[k] === undefined ? k in fm : fm[k] !== patch[k]))) writes.push({ file: note, patch });
+	}
+	await writeKeys(plugin, writes);
+}
+
+/** A note's story date as its property holds it: the value as it stands (undefined for none), and the date it is, or
+    null when it isn't one ("sometime in spring": left as typed, shown as it is). The one way it is read. */
+export function readStory(plugin: BindersPlugin, file: TFile | null): { raw: unknown; date: StoryDate | null; order: number | null } {
+	const fm = file ? plugin.app.metadataCache.getFileCache(file)?.frontmatter : undefined, raw: unknown = fm?.[plugin.settings.storyDateProp];
+	return { raw, date: readStoryDate(raw), order: readStoryOrder(fm?.[plugin.settings.storyOrderProp]) };
+}
+
+/** A note's place in story time (its date and order), or null without a date. */
+export function storyPlace(plugin: BindersPlugin, file: TFile | null): StoryPlace | null {
+	const s = readStory(plugin, file);
+	return s.date ? { date: s.date, order: s.order } : null;
+}
+
+/** Sets the story date of notes and folders (a folder's is in its folder note, made if need be), or with null takes it
+    away, property and all: one change that "Undo" takes back, however many items. A note that already has exactly the
+    value is not written. Nothing else in a note changes. */
+export async function setStoryDate(plugin: BindersPlugin, items: readonly TAbstractFile[], value: StoryDate | null): Promise<void> {
+	const store = plugin.binders, key = plugin.settings.storyDateProp, order = plugin.settings.storyOrderProp, write = value ? writeStoryDate(value) : undefined, writes: { file: TFile; patch: Record<string, unknown> }[] = [];
+	for (const f of items) {
+		// (a folder with no folder note has nothing to take away: one isn't made to hold nothing)
+		const note = f instanceof TFolder ? (value ? await store.ensureFolderNote(f) : store.folderNote(f)) : f instanceof TFile ? f : null;
+		if (!note) continue;
+		const fm = plugin.app.metadataCache.getFileCache(note)?.frontmatter ?? {};
+		if (write === undefined ? !(key in fm) : fm[key] === write) continue;
+		const patch: Record<string, unknown> = { [key]: write }, was = readStoryDate(fm[key]), same = !!(was && value && JSON.stringify(was) === JSON.stringify(value));
+		// (`story-order` belonged to the day the scene was on: another date, or none, takes it away; the same date keeps it)
+		if (!same && order in fm) patch[order] = undefined;
+		writes.push({ file: note, patch });
 	}
 	await writeKeys(plugin, writes);
 }

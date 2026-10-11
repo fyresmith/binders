@@ -128,7 +128,7 @@ const DEFAULTS_SWITCHES = {
 	'Typewriter scrolling': true, 'Show the scenes before and after': false, 'Show where you are': false, 'Show word counts': false,
 	'Dim other paragraphs': true, 'Dim the background': true, 'Enter fullscreen': false,
 };
-const DEFAULT_TEXT = { 'Exports folder': 'Exports', 'Your name': '', 'Styles folder': 'Export styles', 'Words to write today': '', 'Synopsis': 'synopsis', 'Status': 'status', 'Label': 'label', 'Target': 'target', 'Notes': 'notes' };
+const DEFAULT_TEXT = { 'Exports folder': 'Exports', 'Your name': '', 'Styles folder': 'Export styles', 'Words to write today': '', 'Synopsis': 'synopsis', 'Status': 'status', 'Label': 'label', 'Target': 'target', 'Story date': 'story-date', 'Story order': 'story-order', 'Notes': 'notes' };
 const GROUPS = ['File explorer', 'Paragraphs', 'Sidebar', 'Word counts', 'Labels', 'Statuses', 'Focus mode', 'Export', 'Property names'];
 
 test('a fresh vault: every control shows the default the docs give, in the order the docs list them', async (p, h, t) => {

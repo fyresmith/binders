@@ -19,6 +19,7 @@ The title comes first, with the synopsis under it. The other columns are yours t
 | **Export** | Whether the note is included when the binder is exported |
 | **Export as** | The part the note plays in the book: a chapter, a scene, front matter. Click it on a selected row for its menu. See [Book details and structure](book-details.md#overruling-it) |
 | **Notes** | Your [notes on the scene](scene-notes.md), which are never exported |
+| **Story date** | When the note happens in the story, in words (`14 June 1987`). Type it in words or as `1987-06-14`; nothing typed takes it away. Sorted by story time, with undated notes last whichever way it runs, and something that isn't a date is shown as typed, muted. A folder without a date of its own shows its earliest note's, faint. See [Story date](story-date.md) |
 | **Created**, **Modified** | When the note was created and last changed |
 | Any property | A property of your notes, such as a POV or a date |
 

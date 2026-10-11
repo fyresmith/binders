@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.56.0 (2026-10-11)
+
+### Added
+
+- Story date: a scene’s story-date property says when it happens in the story. Set it in the outliner’s new Story date column, the inspector, or Set story date... in a note’s menu, typed as 14 June 1987, June 1987, 1987 or 1987-06-14. Sort the outliner by it, and Make this the binder order puts a book in story order. A second property, story-order, orders scenes within a day.
+
 ## 0.55.0 (2026-10-11)
 
 ### Added

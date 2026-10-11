@@ -38,6 +38,7 @@ The inspector follows the tab you're writing in. It shows:
 | **Label** | The same menu a card has. See [Labels, statuses and targets](labels-statuses-targets.md) |
 | **Status** | The same menu a card has |
 | **Target** | The word count target. Click to type a number |
+| **Story date** | When the scene happens in the story. Click to type it in words or as `1987-06-14`; nothing typed takes it away. Not shown for the binder itself. See [Story date](story-date.md) |
 | **Include in export** | Untick to leave the note or folder out of every export |
 | **Export as** | The part the note or folder plays in an exported book: **Part**, **Chapter**, **Scene**, **Front matter** or **Back matter**. Until you choose one it shows the part export gives it by its place, marked "auto". **Automatic** in the menu goes back to that. A folder can't be a scene. See [Book details and structure](book-details.md) |
 | **Notes** | Your own notes on the scene. See [Scene notes](scene-notes.md) |
@@ -46,7 +47,7 @@ The inspector follows the tab you're writing in. It shows:
 ### Several at once
 
 With several cards or rows selected the inspector shows what they share, and "Mixed" where they differ. A label,
-status, target or **Export as** set there goes to all of them.
+status, target, story date or **Export as** set there goes to all of them.
 
 ### What you type is kept
 

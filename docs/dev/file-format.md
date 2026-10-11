@@ -118,8 +118,8 @@ row.
 
 ## Scene properties
 
-Each note in a binder can have these properties. They are ordinary Obsidian properties. The names of the first four
-and of `notes` can be changed in settings; `export` and `export-as` are fixed.
+Each note in a binder can have these properties. They are ordinary Obsidian properties. The names of the first four,
+of `story-date` and of `notes` can be changed in settings; `export` and `export-as` are fixed.
 
 | Property | Type | Used for |
 |---|---|---|
@@ -127,6 +127,8 @@ and of `notes` can be changed in settings; `export` and `export-as` are fixed.
 | `status` | text | A chip on the card, a column in the outliner, and a filter. Settings list the statuses offered (Idea, Draft, Revised, Done to start with); any other text works too |
 | `label` | text | The note's color: the border and tint of its card, a dot in the outliner and in the file explorer, and a filter. See below |
 | `target` | number | A word count target for the note: progress on its card, and the outliner's Target and Progress columns. A whole number above zero and up to a billion; text such as `"1,500"`, `"1 500"` or `"1.500"` is read as 1500; anything else (`1.5`, `lots`, `0`) is no target |
+| `story-date` | text or number | When the scene happens in the story (the name can be changed in settings). ISO text: `1987-06-14` a day, `1987-06` a month (placed at its start), `1987` a year (YAML reads a number; so does the reader), a year padded to four digits (`0412-10-14`) and with a minus before year 0 (`-0030-02-01`). A time (`1987-06-14T21:30`, seconds allowed) is read and kept and orders scenes within a day; the finest thing shown or set is a day. Months are numbers. Reading is forgiving (`14 June 1987` is read too); writing is exact: a four-digit year is the number, any other year alone is padded text (`"0412"`, `"-0030"`), and a day or a month is plain text. A value that isn't a date (`sometime in spring`) is left exactly as typed, shown as it is, sorted with the undated notes, and never rewritten unless a date is set on that note; clearing removes the property. Gregorian for now: `src/time/date.ts` takes a `Calendar`, so a book's own can be passed in. A folder's is in its folder note. See `docs/story-date.md` |
+| `story-order` | number | A scene's place among the scenes of the same `story-date` (the name can be changed in settings): `1` is first. A whole number, or text that is one; anything else is ignored and left as typed. It means something only among scenes whose date is the same exact value (a month-only date orders among the same month-only value). Order of a story-date sort: by date (a time is part of the date), then `story-order` (those without one after those with), then the binder's order; so on a day, scenes with no time come first, then the timed ones by time. Binders removes it in the same write (and undo step) that changes or clears a scene's `story-date`, since the number belonged to the old day; setting the same date again leaves it. No column or inspector row of its own. |
 | `notes` | text | The writer's own notes on the note: not manuscript text, and never exported. Typed in the inspector or the outliner's Notes column, as plain text of as many lines as are typed (YAML writes them as a block). A folder's are in its folder note, the binder's in the binder note. Clearing them removes the property. The Scrivener project export (docs/dev/export.md) is to carry them as the document's notes |
 | `export` | checkbox | `false` leaves the note out of every export. Missing, or anything else, means included; turning it back on removes the property |
 | `compile` | checkbox | The name `export` had before export was built. `false` is read as `export: false`, for good. Binders never writes it, and never rewrites a note to change one into the other: a note keeps it until "Include in export" is turned on for it, which removes both |

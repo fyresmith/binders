@@ -7,8 +7,9 @@ import { labelItems, setAll, setExported, statusItems } from '../view/actions';
 import { commitAll, editable, editingIn } from '../view/edit';
 import { labelDot, labelName } from '../view/labels';
 import type { ModeContext } from '../view/mode';
-import { parseTarget, whyNotTarget } from '../view/outliner-data';
-import { readNotes, readProps, writeBatch, writeExportAs, writeNotes, writeProps } from '../view/props';
+import { parseTarget, text, whyNotTarget } from '../view/outliner-data';
+import { parseStoryDate, showStoryDate, whyNotStoryDate } from '../time/date';
+import { readNotes, readProps, readStory, setStoryDate, writeBatch, writeExportAs, writeNotes, writeProps } from '../view/props';
 import { SnapshotsModal, take, whenShort } from '../view/snapshots';
 import { folderSnapshots, hasSnapshots } from '../binder-snapshots';
 import { FolderSnapshotsModal, takeFolder } from '../view/binder-snapshots';
@@ -177,6 +178,25 @@ export class ScenePane {
 			},
 			onEditing: (on) => this.editing(on),
 		}).el.dataset.field = 'target';
+
+		// when it happens in the story (the book itself doesn't: it is the whole of it)
+		if (!items.includes(binder.folder)) {
+			const stories = items.map((f) => readStory(plugin, this.noteOf(f))), said = stories.map((s) => (s.raw == null ? '' : text(s.raw))), agree = said.every((v) => v === said[0]);
+			const when = editable(this.row(rows, 'calendar', 'Story date'), {
+				// (shown in words; typed as it is written, so a time is never lost to editing)
+				cls: 'binders-inspector-value', value: agree ? (stories[0].date ? showStoryDate(stories[0].date) : said[0]) : '', editValue: agree ? said[0] : '', placeholder: agree ? 'No story date' : 'Mixed', singleLine: true, allowEmpty: true, readOnly: ro, focusable: true, label: 'Story date',
+				save: async (typed) => {
+					const why = whyNotStoryDate(typed);
+					if (why) throw new Error(why);
+					if (ro) throw new Error('This binder is read only.');
+					await setStoryDate(plugin, items, parseStoryDate(typed));
+				},
+				onEditing: (on) => this.editing(on),
+			});
+			when.el.dataset.field = 'story-date';
+			// (not a date: left as it was typed, and shown so)
+			when.el.toggleClass('is-unread', agree && !!said[0] && !stories[0].date);
+		}
 
 		// whether it's exported, and as what (the book itself is neither: it is what's exported)
 		if (!items.includes(binder.folder)) this.exporting(rows, ctx, items, pick);

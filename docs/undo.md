@@ -22,6 +22,8 @@ renamed or added since stays as it is.
 - a synopsis, typed on a card, in a row, in the inspector or in a folder's header;
 - a status, a label or a word count target, from the menus, the inspector or the outliner (set for five notes at
   once, it is one change);
+- a story date, set, changed or removed from the outliner, the inspector or the menu (for five notes at once, one
+  change); undone, a month is still a month and a note that had none has none;
 - the notes kept on a note;
 - **Include in export** and **Export as**;
 - any other property you edit in a column of the outliner;

@@ -20,6 +20,10 @@ export interface BindersSettings {
 	statusProp: string;
 	labelProp: string;
 	targetProp: string;
+	/** The property that holds when a scene happens in the story (src/time/date.ts). */
+	storyDateProp: string;
+	/** The property that holds a scene's place among the scenes of its story date. */
+	storyOrderProp: string;
 	/** The property that holds the writer's notes on a note or folder (never exported). */
 	notesProp: string;
 	/** The labels a note can have, in the order menus list them: a name and a color each. */
@@ -85,7 +89,7 @@ export interface BindersSettings {
 /** What a new vault starts with. */
 export const DEFAULT_SETTINGS: BindersSettings = {
 	orderExplorer: true, openOnClick: true, hideBinderNotes: true, explorerLabels: true,
-	synopsisProp: 'synopsis', statusProp: 'status', labelProp: 'label', targetProp: 'target', notesProp: 'notes',
+	synopsisProp: 'synopsis', statusProp: 'status', labelProp: 'label', targetProp: 'target', storyDateProp: 'story-date', storyOrderProp: 'story-order', notesProp: 'notes',
 	labels: DEFAULT_LABELS, statuses: DEFAULT_STATUSES, outlinerColumns: DEFAULT_COLUMNS, compile: COMPILE_DEFAULTS, compiled: {}, compiledTo: {},
 	exportsFolder: 'Exports', stylesFolder: 'Export styles', authorName: '', contact: '', exportKind: 'manuscript', exportFile: 'docx', exportPaper: 'letter', exportStyle: '', exportMatter: false, exportOutside: true, exportSnapshots: true,
 	tabParagraphs: true, indentParagraphs: false, sidePanes: true,
@@ -128,10 +132,10 @@ export const PARAGRAPH_TEXT: Record<ParagraphToggle, readonly [string, string]> 
 /** The file explorer’s four switches. */
 export type Toggle = 'orderExplorer' | 'openOnClick' | 'hideBinderNotes' | 'explorerLabels';
 /** The five property names settings can change. */
-export type Prop = 'synopsisProp' | 'statusProp' | 'labelProp' | 'targetProp' | 'notesProp';
+export type Prop = 'synopsisProp' | 'statusProp' | 'labelProp' | 'targetProp' | 'storyDateProp' | 'storyOrderProp' | 'notesProp';
 /** Both in the order the settings tab lists them. */
 export const TOGGLES: Toggle[] = ['orderExplorer', 'openOnClick', 'hideBinderNotes', 'explorerLabels'];
-export const PROPS: Prop[] = ['synopsisProp', 'statusProp', 'labelProp', 'targetProp', 'notesProp'];
+export const PROPS: Prop[] = ['synopsisProp', 'statusProp', 'labelProp', 'targetProp', 'storyDateProp', 'storyOrderProp', 'notesProp'];
 
 /** Their names and descriptions in the settings tab. */
 export const TEXT: Record<Toggle | Prop, readonly [string, string]> = {
@@ -143,6 +147,8 @@ export const TEXT: Record<Toggle | Prop, readonly [string, string]> = {
 	statusProp: ['Status', 'The property that holds a note’s status, such as draft or revised.'],
 	labelProp: ['Label', 'The property that holds a note’s label.'],
 	targetProp: ['Target', 'The property that holds a word count target: a note’s own, a folder’s, or the binder’s.'],
+	storyDateProp: ['Story date', 'The property that holds when a scene happens in the story, such as 1987-06-14, 1987-06 or 1987.'],
+	storyOrderProp: ['Story order', 'The property that holds a scene’s place among the scenes of the same story date: 1 for the first. Binders sets it when you drag a scene within a day, and takes it away when a scene’s date changes.'],
 	notesProp: ['Notes', 'The property that holds your notes on a note or folder. They are never exported.'],
 };
 

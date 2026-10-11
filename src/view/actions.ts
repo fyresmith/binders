@@ -1,6 +1,7 @@
 import { exportAsItems } from './export-as';
 import { Menu, Notice, Platform, TFile, TFolder, normalizePath, type TAbstractFile } from 'obsidian';
-import { writeKeys } from './props';
+import { readStory, setStoryDate, writeKeys } from './props';
+import { parseStoryDate, whyNotStoryDate, type StoryDate } from '../time/date';
 import { COMPILE_PROP, EXPORT_PROP, isExported, isNote, mergeScenes, saveOpen, synopsisFromText } from '../scenes';
 import { ExportModal } from './export';
 import { fitItemMenu, openPluginSettings, submenu, trashPhrase } from './internals';
@@ -186,6 +187,24 @@ export async function askTarget(ctx: ModeContext, items: TAbstractFile[]): Promi
 	if (n != null) await setAll(ctx, items, { target: n });
 }
 
+/** Sets or (null) takes away the story date of the items, as one change that "Undo" takes back; says why on a notice
+    when it can't. */
+export async function setStory(ctx: ModeContext, items: TAbstractFile[], value: StoryDate | null): Promise<void> {
+	try {
+		if (ctx.readOnly) throw new Error('This binder is read only.');
+		await setStoryDate(ctx.plugin, items, value);
+	} catch (e) { new Notice(e instanceof Error ? e.message : String(e)); }
+}
+
+/** Asks for a story date for the items, in words or in ISO shape; nothing typed takes it away. */
+export async function askStoryDate(ctx: ModeContext, items: TAbstractFile[]): Promise<void> {
+	// (what they all have is in the field, as it is written; dates that differ leave it empty)
+	const was = items.map((f) => readStory(ctx.plugin, noteOf(ctx, f)).raw), mixed = was.some((v) => v !== was[0]), now = mixed || was[0] == null ? '' : typeof was[0] === 'string' || typeof was[0] === 'number' ? String(was[0]) : '';
+	const typed = await ask(ctx.app, { title: 'Story date', placeholder: '14 June 1987, June 1987 or 1987', cta: 'Set story date', value: now, allowEmpty: true, check: (v) => whyNotStoryDate(v) });
+	if (typed == null || (mixed && !typed.trim())) return;
+	await setStory(ctx, items, parseStoryDate(typed));
+}
+
 /** What every mode shows for a folder with nothing to show: the same words, in the same place. */
 export function emptyState(ctx: ModeContext, parent: HTMLElement): HTMLElement {
 	const box = parent.createDiv({ cls: 'binders-empty' }), filtering = ctx.filtering();
@@ -201,6 +220,8 @@ export function propItems(ctx: ModeContext, menu: Menu, items: TAbstractFile[]):
 	menu.addItem((i) => { i.setSection('props').setTitle('Set status').setIcon('circle-dot'); submenu(i, (m) => statusItems(ctx, m, items), menu); });
 	menu.addItem((i) => { i.setSection('props').setTitle('Set label').setIcon('palette'); submenu(i, (m) => labelItems(ctx, m, items), menu); });
 	menu.addItem((i) => i.setSection('props').setTitle('Set target...').setIcon('target').onClick(() => void askTarget(ctx, items)));
+	menu.addItem((i) => i.setSection('props').setTitle('Set story date...').setIcon('calendar').onClick(() => void askStoryDate(ctx, items)));
+	if (items.some((f) => readStory(ctx.plugin, noteOf(ctx, f)).raw !== undefined)) menu.addItem((i) => i.setSection('props').setTitle('Remove story date').setIcon('calendar-x').onClick(() => void setStory(ctx, items, null)));
 }
 
 const tell = async <T>(p: Promise<T>): Promise<T | null> => { try { return await p; } catch (e) { new Notice(e instanceof Error ? e.message : String(e)); return null; } };
