@@ -50,6 +50,22 @@ since it was made, so it stays". A folder goes only while nothing is in it but i
 makes the note again from what was kept in memory, byte for byte, in the place it had. A copy of a **folder** isn't in
 the history: delete it from the trash or the menu.
 
+**Deletes**
+
+- a note or a folder (and everything in it) deleted from a card, a row, a lane card or the manuscript, or several at
+  once. The confirmation stays; after it a notice says "Deleted “Arrival”." with an **Undo** button for eight seconds,
+  which is the way back on a phone.
+
+A deleted item is kept in memory for as long as Obsidian stays open, byte for byte, so Undo brings it back even when
+Obsidian is set to delete files for good: nothing is written to your vault to keep it, and nothing is kept once Obsidian
+is closed. It comes back where it was in the binder, with the notes of a folder in their order, and a note you have
+typed in and not saved is saved first. If something has the same name there now, or the folder it was in is gone,
+nothing is brought back and a notice says so (rename the other one, then ask again). **Redo** deletes it again, from
+what is there now.
+
+Binders keeps 100 changes of a binder and 32 MB of deleted files in all, the oldest dropped first. A delete bigger than
+32 MB goes ahead and isn't kept: the notice says so, and the file is in the trash if Obsidian sends it there.
+
 A property goes back to what it was, in the place it stood among the note's other properties. Nothing else in the
 note is touched.
 
@@ -85,13 +101,14 @@ every view of it: the corkboard, the outliner and the manuscript; a change made 
   undo of a property: it is saved first, and kept.
 - **A split.** A split is undone in the note you split, with the editor's undo. See
   [Splitting, merging and grouping](splitting-and-merging.md#undoing-a-split).
-- **Deletes and merges.** Deleted and merged-away notes are in the trash.
+- **Merges.** Merged-away notes are in the trash.
+- **Hidden files** (names that start with a dot, such as `.DS_Store`) in a deleted folder aren't kept.
 - **Renames made in Obsidian's file explorer or a tab's title.** They are not made through Binders.
 
 ## Limits
 
-- Undo remembers the last hundred changes of each binder, while Obsidian is open. It is not kept when Obsidian
-  closes.
+- Undo remembers the last hundred changes of each binder, and 32 MB of deleted files in all, while Obsidian is open.
+  It is not kept when Obsidian closes.
 - Undo refuses, and changes nothing, if a place has been taken or a folder is gone since, or a property was changed
   since.
 - Undoing a kept sort of thousands of notes is slow.

@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.59.0 (2026-10-11)
+
+### Added
+
+- Undo last change now brings back deleted notes and folders, byte for byte, even when Obsidian deletes for good, until Obsidian is closed. A notice after a delete has an Undo button.
+
 ## 0.58.0 (2026-10-11)
 
 ### Added

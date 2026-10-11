@@ -36,7 +36,20 @@ export interface RenameStep { kind: 'rename'; file: TAbstractFile; before: strin
     away. `undone`: it has been taken away, and is the one to be made again. */
 export interface CreateStep { kind: 'create'; file: TAbstractFile; name: string; pos: Pos | null; bytes: ArrayBuffer | null; kept?: { note: ArrayBuffer | null }; undone?: boolean }
 
-export type Step = OrderStep | PropsStep | RenameStep | CreateStep;
+/** What a delete keeps of one item that went: where it stood, its name, and what was in it byte for byte (a note: one
+    file with no `rel`; a folder: its folders and files by their path in it), the objects it was (so entries about them can
+    be pointed at their new selves), and, in a binder, its place in the list with the order of what was in it. */
+export interface Kept {
+	file: TAbstractFile; name: string; pos: Pos | null; isFolder: boolean;
+	folders: string[]; files: { rel: string; bytes: ArrayBuffer }[];
+	objects: { rel: string; item: TAbstractFile }[];
+	rel: string | null; inner: string[];
+}
+
+/** A delete made by hand. `restored`: it has been undone, and what was kept is back. */
+export interface RemoveStep { kind: 'remove'; trees: Kept[]; restored?: boolean }
+
+export type Step = OrderStep | PropsStep | RenameStep | CreateStep | RemoveStep;
 export type StepKind = Step['kind'];
 
 /** One thing done by hand, in the binder whose note is `note`. `bytes`: what it keeps in memory beyond its labels

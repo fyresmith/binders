@@ -66,9 +66,20 @@ export async function removeItems(ctx: ModeContext, items: TAbstractFile[]): Pro
 		new Notice(`Nothing was deleted because saving failed. ${e instanceof Error ? e.message : String(e)}`);
 		return false;
 	}
-	for (const f of items) {
-		try { await ctx.app.fileManager.trashFile(f); } catch (e) { new Notice(e instanceof Error ? e.message : String(e)); break; }
-	}
+	try {
+		const { recorded } = await ctx.store.remove(items);
+		const what = items.length === 1 ? `“${nameOf(items[0])}”` : `${items.length} items`;
+		// (undo is one touch away: a phone has no Ctrl+Z, and this is the moment it is wanted)
+		if (recorded) {
+			const folder = ctx.binder.folder;
+			let n: Notice | null = null;
+			const frag = createFragment((f) => {
+				f.createSpan({ text: `Deleted ${what}.` });
+				f.createEl('button', { text: 'Undo', cls: 'binders-notice-undo' }).addEventListener('click', () => { n?.hide(); void ctx.plugin.undoMove(folder, false); });
+			});
+			n = new Notice(frag, 8000);
+		} else if (ctx.binder && !ctx.binder.problem) new Notice(`Deleted ${what}. It is too big to be kept for Undo.`, 6000);
+	} catch (e) { new Notice(e instanceof Error ? e.message : String(e)); }
 	return true;
 }
 

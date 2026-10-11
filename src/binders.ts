@@ -9,9 +9,10 @@ import { History } from './history/history';
 import { OrderHandler } from './history/order';
 import { PropsHandler } from './history/props';
 import { CreateHandler } from './history/create';
+import { RemoveHandler } from './history/remove';
 import { itemName, nameProblem, pathWith, RenameHandler } from './history/rename';
 import { sameValue } from './history/values';
-import type { Entry, PropChange } from './history/types';
+import type { Entry, Kept, PropChange } from './history/types';
 import { SNAPSHOTS } from './snapshot-text';
 import { followSnapshots, isOwn } from './snapshots';
 import { labelCss, readLabel } from './view/labels';
@@ -251,7 +252,7 @@ export class BinderStore extends Events implements ExplorerSource {
 		};
 		this.history.onChange = () => { this.trigger('history'); };
 		this.order = new OrderHandler(this.app, host, this.history);
-		this.history.handlers = { order: this.order, props: new PropsHandler(this.app, host), create: new CreateHandler(this.app, { settle: host.settle, folderNote: (f) => this.folderNote(f), orderedChildren: host.orderedChildren, takeAway: host.takeAway, bringBack: host.bringBack, repoint: (a, c) => this.history.repoint(a, c) }, this.order), rename: new RenameHandler(this.app, { binderFolderOf: (item) => this.binderOf(item)?.folder ?? null, settle: host.settle }) };
+		this.history.handlers = { order: this.order, props: new PropsHandler(this.app, host), remove: new RemoveHandler(this.app, { keep: (item, room) => this.keep(item, room), reinstate: (made, tree) => this.reinstate(made, tree), settle: host.settle, repoint: (a, c) => this.history.repoint(a, c), room: () => this.history.limits.bytes }, this.order), create: new CreateHandler(this.app, { settle: host.settle, folderNote: (f) => this.folderNote(f), orderedChildren: host.orderedChildren, takeAway: host.takeAway, bringBack: host.bringBack, repoint: (a, c) => this.history.repoint(a, c) }, this.order), rename: new RenameHandler(this.app, { binderFolderOf: (item) => this.binderOf(item)?.folder ?? null, settle: host.settle }) };
 		let done: () => void = () => {}, settle: () => void = () => {};
 		this.ready = new Promise((r) => { done = r; });
 		this.settled = new Promise((r) => { settle = r; });
@@ -740,6 +741,78 @@ export class BinderStore extends Events implements ExplorerSource {
 			if (top && top.steps.length === 1 && first?.kind === 'create' && first.file === item && !first.undone) { top.label = `New ${item instanceof TFolder ? 'folder' : 'note'} “${name}”`; return; }
 			if (binder) this.history.record({ note: binder.note, label: `Rename “${was}” to “${name}”`, steps: [{ kind: 'rename', file: item, before: was, after: name }] });
 		})());
+	}
+
+	/** Deletes notes and folders as the writer did by hand (the confirmation is the view's): each goes to the trash as
+	    Obsidian is set to, and is kept byte for byte in memory so that "Undo" brings it back, even if Obsidian deletes for
+	    good. One change for all of them. Too big to keep (32 MB), it is deleted and not remembered: `recorded` says. */
+	remove(items: TAbstractFile[]): Promise<{ recorded: boolean }> {
+		return this.history.track((async () => {
+			const tops = items.filter((f) => !items.some((o) => o !== f && o instanceof TFolder && f.path.startsWith(o.path + '/')));
+			const binder = tops.map((f) => this.binderOf(f)).find((b) => !!b);
+			// (what's typed and not saved yet goes with the note)
+			await saveOpen(this.app, tops.flatMap((f) => (f instanceof TFolder ? this.scenes(f) : f instanceof TFile ? [f] : [])));
+			let trees: Kept[] | null = binder && !binder.problem ? [] : null, room = this.history.limits.bytes, total = 0, failure: unknown = null;
+			for (const f of tops) {
+				let k: Kept | null = null;
+				if (trees) { try { k = await this.keep(f, room); } catch { k = null; } if (k) { const n = k.files.reduce((a, x) => a + x.bytes.byteLength, 0); room -= n; total += n; } else trees = null; }
+				try { await this.app.fileManager.trashFile(f); } catch (e) { failure = e; break; }
+				if (k && trees) trees.push(k);
+			}
+			const named = tops.length === 1 ? itemName(tops[0]) : '';
+			const recorded = !!(trees?.length && binder);
+			if (recorded && binder && trees) this.history.record({ note: binder.note, label: tops.length === 1 ? `Delete “${named}”` : `Delete ${tops.length} items`, bytes: total, steps: [{ kind: 'remove', trees }] });
+			if (failure) throw failure;
+			return { recorded };
+		})());
+	}
+
+	/** An item as it is now, kept: where it stands, and what is in it byte for byte. Null if it holds more than `room`. */
+	private async keep(item: TAbstractFile, room: number): Promise<Kept | null> {
+		const { vault } = this.app, { adapter } = vault, folders: string[] = [], files: Kept['files'] = [], objects: Kept['objects'] = [{ rel: '', item }];
+		let left = room;
+		const take = async (path: string, rel: string): Promise<boolean> => {
+			const size = (await adapter.stat(path))?.size ?? 0;
+			if (size > left) return false;
+			left -= size;
+			files.push({ rel, bytes: await adapter.readBinary(path) });
+			const o = vault.getAbstractFileByPath(path);
+			if (o && rel) objects.push({ rel, item: o });
+			return true;
+		};
+		// (a hidden file or folder, such as .DS_Store, isn't kept or brought back)
+		const walk = async (path: string, base: string): Promise<boolean> => {
+			const l = await adapter.list(path);
+			for (const f of l.folders) {
+				const name = f.split('/').pop() ?? '', rel = base ? `${base}/${name}` : name;
+				if (name.startsWith('.')) continue;
+				folders.push(rel);
+				const o = vault.getAbstractFileByPath(f);
+				if (o) objects.push({ rel, item: o });
+				if (!(await walk(f, rel))) return false;
+			}
+			for (const f of l.files) {
+				const name = f.split('/').pop() ?? '';
+				if (name.startsWith('.')) continue;
+				if (!(await take(f, base ? `${base}/${name}` : name))) return false;
+			}
+			return true;
+		};
+		if (item instanceof TFolder) { if (!(await walk(item.path, ''))) return null; } else if (!(await take(item.path, ''))) return null;
+		const s = this.at(item.path), listed = !!s && s.kind === 'binder' && !s.problem;
+		const rel = listed ? this.relOf(s.folder.path, item.path, item instanceof TFolder) : null;
+		return { file: item, name: item.name, pos: this.order.posOf(item), isFolder: item instanceof TFolder, folders, files, objects, rel, inner: listed && rel && item instanceof TFolder ? this.contents(s).filter((p) => p !== rel && p.startsWith(rel)) : [] };
+	}
+
+	/** A thing brought back is put in the list where it stood, and a folder's own notes in the order they had. */
+	private async reinstate(made: TAbstractFile, tree: Kept): Promise<void> {
+		const s = this.at(made.path);
+		if (s && !s.problem && s.kind === 'binder' && made instanceof TFolder && tree.rel) {
+			// (the notes in it come back in the order they had: a new file is listed nowhere until something writes the list)
+			const now = this.relOf(s.folder.path, made.path, true);
+			if (now) this.queue(s, { op: 'append', item: now, inner: tree.inner.map((p) => now + p.slice(tree.rel?.length ?? 0)) });
+		}
+		if (tree.pos) await this.order.restore(made, tree.pos);
 	}
 
 	/** The same as `newScene`, for a note the writer made by hand: one change that "Undo" takes away. */

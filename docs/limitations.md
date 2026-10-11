@@ -53,13 +53,14 @@ Phone and tablet support is new and has had little testing on real devices. See 
 ## Undo and redo
 
 - **Undo last change** covers moves, a folder made around notes or ungrouped, and properties set by hand (a synopsis,
-  a status, a label, a target, notes, export settings) renames made in a view, and notes and folders made by hand and copies of notes. It doesn't yet cover deletes or merges, copies of folders, or renames made in Obsidian's file explorer.
+  a status, a label, a target, notes, export settings) renames made in a view, and notes and folders made by hand and copies of notes, and deletes. It doesn't yet cover merges, copies of folders, or renames made in Obsidian's file explorer.
   A split is undone in its note, with the editor's own undo.
 - It remembers the last hundred changes of each binder, while Obsidian is open.
 - A property is taken back only if it is still what the change left it; one that was changed since (by another
   program, say) stays, and a notice says which.
 - A note with Windows line endings (`\r\n`) comes back with its text byte for byte, but Obsidian writes the lines of
   a changed properties block with its own line breaks, as it does for any property you change.
+- A delete is kept in memory until Obsidian closes (up to 32 MB in all, even when Obsidian deletes for good): it can't be undone after a restart, and a delete over 32 MB isn't kept.
 - Undoing a rename updates links as Obsidian does: if it was set not to update links (or you declined), the links stay as they are, in both directions.
 - Undoing a kept sort of thousands of notes is slow.
 - For screen readers, "Undo last change" isn't announced.
