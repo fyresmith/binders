@@ -929,7 +929,8 @@ bad('Split and Duplicate name “Scene 01” as “Scene 2”: the zero in the n
 });
 
 // ================= more snapshot following =================
-const allSnapshotTexts = (p) => p.ev(`(async () => { const out = {}; const walk = async (d) => { const l = await app.vault.adapter.list(d); for (const f of l.files) out[f] = (await app.vault.adapter.read(f)).replace(/^---\\n[\\s\\S]*?\\n---\\n/, ''); for (const s of l.folders) await walk(s); }; if (await app.vault.adapter.exists(${j(SN)})) await walk(${j(SN)}); return out; })()`);
+const allSnapshotTexts = (p) => p.ev(`(async () => { const out = {}; const walk = async (d) => { const l = await app.vault.adapter.list(d); for (const f of l.files) out[f] = (await app.vault.adapter.read(f)).replace(/^---\\n[\\s\\S]*?\\n---\\n/, ''); for (const s of l.folders) if (s !== ${j(SN + '/History')}) await walk(s); }; if (await app.vault.adapter.exists(${j(SN)})) await walk(${j(SN)}); return out; })()`);
+// (History holds the progress record, not snapshots: it is not counted here)
 ok('a note renamed to the name of a deleted note whose snapshots are still there: both sets are kept, under the name, and nothing is overwritten', async (p, h, t) => {
 	const X = L + 'Part One/Storm warning.md', Y = L + 'Part One/Arrival.md';
 	await take(p, X, TXT('Storm')); await take(p, Y, TXT('Arrival'));

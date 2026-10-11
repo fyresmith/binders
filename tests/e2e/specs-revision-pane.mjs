@@ -23,6 +23,8 @@ const SEED = TASKS;
 async function seeded(p, text = SEED) {
 	await p.ev(`app.vault.create('Elsewhere note.md', 'A note outside the binder.').then(() => 1)`);
 	await seed(p, text);
+	// the pane shows the binder the binder view has open: a test starts with one open, as a writer's session does
+	await openView(p, L);
 	await until(p, `${R}.list(${BN}).groups.length > 0`);
 }
 async function showPane(p) {
