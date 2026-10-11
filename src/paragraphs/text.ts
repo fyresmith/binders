@@ -66,12 +66,16 @@ export function linesToTab(text: string, from: number, to: number): number[] {
 	}
 	// (`held`: a list item or a quote is open, and a tab would make the line its text. A line straight under it
 	// carries it on and leaves it open; the first line of text after a blank line ends it, and is left as well)
-	let fence: string | null = null, held = false, blankBefore = true;
+	let fence: string | null = null, block: string | null = null, held = false, blankBefore = true;
 	for (; i < lines.length && i <= to; i++) {
 		const l = lines[i].replace(/\r$/, '');
 		if (fence) { if (new RegExp(`^ {0,3}${fence[0]}{${fence.length},}\\s*$`).test(l)) { fence = null; blankBefore = true; } continue; }
+		// (a math block or a comment, which a tab would change: its lines are left alone to its closing mark)
+		if (block) { if (l.includes(block)) { block = null; blankBefore = true; } continue; }
 		const f = FENCE.exec(l);
 		if (f) { fence = f[1]; held = false; continue; }
+		const m = /^\s*(\$\$|%%)/.exec(l);
+		if (m) { if (!l.slice(l.indexOf(m[1]) + 2).includes(m[1])) block = m[1]; held = false; continue; }
 		if (!l.trim()) { blankBefore = true; continue; }
 		if (TABBED.test(l)) { blankBefore = false; continue; }
 		const theirs = LIST_ITEM.test(l) || QUOTE.test(l), rule = HEADING_OR_RULE.test(l);

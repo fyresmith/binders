@@ -177,6 +177,7 @@ const same = (a: unknown, b: unknown, msg: string) => eq(JSON.stringify(a), JSON
 	same(linesToTab(T, 20, 20), [], 'nothing in a fenced block');
 	same(linesToTab('One.\r\nTwo.\r\n', 0, 1), [0, 1], 'Windows line endings');
 	same(linesToTab('', 0, 0), [], 'an empty text');
+	same(linesToTab('One.\n\n$$\nx = y\n$$\n\n%%\nA note.\n%%\n\n$$z$$\n\nTwo.\n', 0, 99), [0, 12], 'nothing in a math block or a comment');
 }
 
 // tabs taken off paragraphs, for a note that goes outside a binder (export's "One note")
