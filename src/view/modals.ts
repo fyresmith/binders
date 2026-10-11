@@ -8,7 +8,7 @@ import { PALETTE, display, hexColor, type LabelPreset } from './labels';
     of the screen, its title has the full width (there's no ✕ to make room for), and its buttons are a column with
     Cancel last. Returns the row its buttons go in, at the foot of the dialog. */
 export function buttonRow(m: Modal): HTMLElement {
-	m.containerEl.addClass('mod-confirmation');
+	m.containerEl.addClass('mod-confirmation', 'binders-dialog');
 	return m.modalEl.createDiv({ cls: 'modal-button-container' });
 }
 

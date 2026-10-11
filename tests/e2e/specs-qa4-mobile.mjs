@@ -26,6 +26,8 @@ const PHONE = [390, 844], SMALL = [320, 568], TABLET = [820, 1180];
 const KEYBOARD = 336, KEYBOARD_SMALL = 260;
 const SHOTS = process.env.QA4_SHOTS || '';
 if (SHOTS) mkdirSync(SHOTS, { recursive: true });
+const log = (...a) => { if (process.env.QA4_LOG) console.log('   ', ...a); };
+const shotT = async (p, name) => shot(p, `${name}-${(await p.ev(`document.body.classList.contains('theme-dark')`)) ? 'dark' : 'light'}`);
 const shot = async (p, name) => { if (SHOTS) await p.shot(`${SHOTS}/${name}.png`); };
 
 // ---- touch ----
@@ -974,26 +976,47 @@ test('small phone (320 px): every dialog fits the screen, with its buttons a fin
 	});
 });
 
-bug('small phone (320 px): a dialog’s title can be read whole (“Word count target for the binder” and “Export “The Lighthouse”” are cut off under the ✕, with no ellipsis)', async (p, h, t) => {
+// (GitHub's fonts are wider than this machine's: a letter-spacing on the title stands in for them, so the test fails here too)
+const WIDE = `(() => { const s = document.createElement('style'); s.id = 'qa4-wide-titles'; s.textContent = '.modal-title { letter-spacing: 0.08em; }'; document.head.appendChild(s); return 1; })()`;
+const NARROW = `(() => { document.getElementById('qa4-wide-titles')?.remove(); return 1; })()`;
+const titleLook = (p) => p.ev(`(() => { const t = [...document.querySelectorAll('.modal-container')].pop()?.querySelector('.modal-title'); if (!t) return null; const s = getComputedStyle(t); return { whiteSpace: s.whiteSpace, overflow: s.overflow, textOverflow: s.textOverflow, maxWidth: s.maxWidth, height: Math.round(t.getBoundingClientRect().height) }; })()`);
+
+ux('small phone (320 px): a dialog’s title wraps onto a second line, clear of the ✕, instead of being cut off', async (p, h, t) => {
 	await onDevice(p, SMALL, async () => {
 		await open(p);
-		const cut = {};
-		await p.ev(`app.commands.executeCommandById('binders:set-target')`);
-		await until(p, `!!document.querySelector('.modal .binders-ask input')`);
-		await p.sleep(400);
-		await shot(p, 'bug-dialog-title-cut');
-		let d = await dialog(p);
-		cut.target = [d.titleCut, d.titleUnderClose];
-		await closeDialog(p);
-		await p.ev(`(app.plugins.plugins.binders.settings.exportKind = 'note', app.commands.executeCommandById('binders:export'))`);
-		await until(p, `!!document.querySelector('.modal .binders-export-path')`);
-		await p.sleep(400);
-		await shot(p, 'bug-dialog-title-cut-compile');
-		d = await dialog(p);
-		cut.export = [d.titleCut, d.titleUnderClose];
-		t.eq(d.title, 'Export “The Lighthouse”', 'the Export window’s title');
-		await closeDialog(p);
-		t.ok(cut.target.every((x) => x <= 0) && cut.export.every((x) => x <= 0), `px of each title [cut off, under the ✕]: ${j(cut)}`);
+		await p.ev(WIDE);
+		try {
+			const cut = {};
+			await p.ev(`app.commands.executeCommandById('binders:set-target')`);
+			await until(p, `!!document.querySelector('.modal .binders-ask input')`);
+			await p.sleep(400);
+			await shotT(p, 'dialog-title-target');
+			let d = await dialog(p);
+			log('target title', j(await titleLook(p)));
+			cut.target = [d.titleCut, d.titleUnderClose];
+			await closeDialog(p);
+			await p.ev(`(app.plugins.plugins.binders.settings.exportKind = 'note', app.commands.executeCommandById('binders:export'))`);
+			await until(p, `!!document.querySelector('.modal .binders-export-path')`);
+			await p.sleep(400);
+			await shotT(p, 'dialog-title-export');
+			d = await dialog(p);
+			log('export title', j(await titleLook(p)));
+			cut.export = [d.titleCut, d.titleUnderClose];
+			t.eq(d.title, 'Export “The Lighthouse”', 'the Export window’s title');
+			await closeDialog(p);
+			// (the others, for the screenshots: Progress and a folder's snapshots, in their own words)
+			for (const [id, name, ready] of [['show-progress', 'progress', '.modal .binders-pot'], ['show-binder-snapshots', 'snapshots', '.modal .binders-snapshots-bar']]) {
+				await p.ev(`app.commands.executeCommandById('binders:${id}')`);
+				await until(p, `!!document.querySelector(${j(ready)})`, 6000).catch(() => {});
+				await p.sleep(500);
+				await shotT(p, 'dialog-title-' + name);
+				d = await dialog(p);
+				cut[name] = d ? [d.titleCut, d.titleUnderClose] : null;
+				log(name, 'title', d?.title, j(await titleLook(p)));
+				await closeDialog(p);
+			}
+			t.ok(Object.values(cut).every((x) => x && x.every((n) => n <= 0)), `px of each title [cut off, under the ✕]: ${j(cut)}`);
+		} finally { await p.ev(NARROW); }
 	});
 });
 

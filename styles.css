@@ -7581,3 +7581,19 @@ input.binders-filter-name {
 .binders-manuscript.is-synopses .binders-manuscript-title {
 	line-height: var(--line-height-tight);
 }
+
+/* A dialog's title on a phone. Obsidian keeps it to one line and cuts it off (an ellipsis at 70vw, which still runs
+   under the ✕ at the top right on a narrow screen); in Binders' own dialogs it wraps onto a second line instead.
+   `binders-dialog` is on the small dialogs (modals.ts), which have no ✕; the others are marked by what they are, and
+   keep the room the ✕ takes on both sides of the centered title. */
+.is-phone .binders-dialog .modal-title,
+.is-phone .modal:is(.binders-snapshots, .binders-pot, .binders-import, .binders-book-details, .binders-revision-capture, .binders-split-many, .binders-folder-snapshots-back, .binders-folder-snapshots-interrupted, .binders-leftovers) .modal-title {
+	white-space: normal;
+	overflow: visible;
+	overflow-wrap: anywhere;
+	text-overflow: clip;
+}
+
+.is-phone .modal:is(.binders-snapshots, .binders-pot, .binders-import, .binders-book-details, .binders-revision-capture, .binders-split-many, .binders-folder-snapshots-back, .binders-folder-snapshots-interrupted, .binders-leftovers) .modal-title {
+	max-width: calc(100% - var(--size-4-18) * 2);
+}

@@ -80,6 +80,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - In the outliner, a hidden column keeps its width for when it is shown again.
 - In the outliner, Home takes the view to the top, not just the first row into sight.
 - Undoing a split, and snapshots following a moved note, no longer trash a file that arrives in the emptied folder at the same moment.
+- On a small phone, a dialog's long title now wraps instead of being cut off under the close button.
 
 ## 0.51.1 (2026-10-10)
 
