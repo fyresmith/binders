@@ -151,12 +151,15 @@ test('a tablet: a slider dragged by touch changes its value and shows it once', 
 		for (const key of sliders.slice(0, 2)) {
 			const sel = `${WIN} .binders-style-editor input[data-binders-key="${key}"]`;
 			const v0 = await p.ev(`document.querySelector(${j(sel)}).value`);
-			const page0 = await p.ev(`(document.querySelector('${WIN} .binders-export-pane')?.innerHTML ?? '')`);
+			// (the pages are in the preview's frame, not in the pane's own markup: they are told apart by how the text on them is set; this small book is a page to a scene whatever the size)
+			const sig = `(() => { const pv = document.querySelector('${WIN} .binders-export-preview'), d = document.querySelector('${WIN} iframe.binders-export-frame')?.contentDocument; if (!pv?.dataset.pages || !d) return ''; const pg = [...d.querySelectorAll('.page')]; const st = (e) => { if (!e) return '-'; const c = getComputedStyle(e); return [c.fontSize, c.lineHeight, c.marginTop, c.paddingTop].join(' '); }, tx = pg.map((x) => x.querySelector('.text')).filter((x) => x?.firstElementChild); return pg.length + '|' + tx.slice(0, 4).map((x) => st(x) + '/' + st(x.firstElementChild) + '/' + st(x.lastElementChild)).join(','); })()`;
+			await until(p, sig, 20000);
+			const page0 = await p.ev(sig);
 			await dragSlider(p, sel, 0.1, 0.9);
-			// (the preview is drawn a moment after the value moves: wait for it, as long as a loaded machine takes)
-			await until(p, `(document.querySelector('${WIN} .binders-export-pane')?.innerHTML ?? '') !== ${j(page0)}`, 4000);
-			const page1 = await p.ev(`(document.querySelector('${WIN} .binders-export-pane')?.innerHTML ?? '')`);
-			t.ok(page0 !== page1, key + ': the preview beside the editor changes when the slider moves');
+			// (the pages are laid out again a moment after the value moves: wait for them, as long as a loaded machine takes)
+			await until(p, `(() => { const s = ${sig}; return s && s !== ${j(page0)}; })()`, 20000);
+			const page1 = await p.ev(sig);
+			t.ok(!!page1 && page0 !== page1, key + ': the preview beside the editor changes when the slider moves (20 s allowed; the slider went from ' + v0 + ' to ' + await p.ev(`document.querySelector(${j(sel)}).value`) + ', the pages fell ' + page0 + ' then ' + page1 + ')');
 			const v1 = await p.ev(`document.querySelector(${j(sel)}).value`);
 			t.ok(v0 !== v1, `${key}: dragged from ${v0} to ${v1}`);
 			const row = await p.ev(`(() => { const s = document.querySelector(${j(sel)}); const row = s.closest('.input-row'); return { shown: row ? row.querySelectorAll('.slider-value').length : -1, texts: row ? [...row.querySelectorAll('.slider-value')].map(e => e.textContent) : [], aria: s.getAttribute('aria-valuetext') }; })()`);

@@ -155,7 +155,7 @@ function checkPdf(t, at, shown, o = {}) {
 		const bag = (text) => (o.others ? [...words(text).join('')].sort().join('') : words(text).sort().join(' '));
 		const differ = shown.map((s, i) => [bag(`${s.head}\n${s.text}\n${s.notes}\n${s.folio}`), bag(printed[i] ?? '')]).findIndex(([a, b]) => a !== b);
 		let why = '';
-		if (differ >= 0) { const a = words(`${shown[differ].head}\n${shown[differ].text}\n${shown[differ].notes}\n${shown[differ].folio}`), b = words(printed[differ] ?? ''), left = [...a]; const extra = []; for (const w of b) { const i = left.indexOf(w); if (i < 0) extra.push(w); else left.splice(i, 1); } why = `page ${differ + 1}: only in the window “${left.slice(0, 12).join(' ')}”, only in the PDF “${extra.slice(0, 12).join(' ')}”`; }
+		if (differ >= 0) { const a = words(`${shown[differ].head}\n${shown[differ].text}\n${shown[differ].notes}\n${shown[differ].folio}`), b = words(printed[differ] ?? ''), left = [...a]; const extra = []; for (const w of b) { const i = left.indexOf(w); if (i < 0) extra.push(w); else left.splice(i, 1); } why = `page ${differ + 1}: only in the window “${left.slice(0, 12).join(' ')}”, only in the PDF “${extra.slice(0, 12).join(' ')}”${/[\u2E80-\u2FDF]/.test(printed[differ] ?? '') ? `; the PDF holds Kangxi radicals there (a font's own letter for a character, as Chromium writes it into the PDF; old Poppler prints it as it is): ${[...printed[differ]].filter((c) => /[\u2E80-\u2FDF]/.test(c)).map((c) => 'U+' + c.codePointAt(0).toString(16)).join(' ')}` : ''}`; }
 		t.eq(why, '', `${o.name ? `${o.name}: ` : ''}each printed page holds the words of the window’s page`);
 	}
 }

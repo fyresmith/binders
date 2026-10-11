@@ -381,8 +381,13 @@ test('BUG: Vim mode: a normal-mode key pressed after scrolling far is typed into
 		await novel(p);
 		await clickIn(p, N(2));
 		// (Vim's keys are taken up a moment after the editor is there, later on a loaded machine: tried until it takes)
-		for (let i = 0; i < 6 && !(await value(p, N(2))).includes('hello '); i++) { await p.sleep(400); await keys(p, 'ihello '); await p.key('Escape'); await p.sleep(300); }
-		t.ok((await value(p, N(2))).includes('hello '), 'Vim is on: “i”, text, Escape');
+		// (and the caret in the section each time: on a loaded machine the section may not have its editor, or its focus, yet)
+		for (let i = 0; i < 12 && !(await value(p, N(2)) ?? '').includes('hello '); i++) {
+			await p.sleep(400);
+			if (!(await value(p, N(2))) || await focused(p) !== N(2)) { await clickIn(p, N(2)); continue; }
+			await keys(p, 'ihello '); await p.key('Escape'); await p.sleep(300);
+		}
+		t.ok(((await value(p, N(2))) ?? '').includes('hello '), 'Vim is on: “i”, text, Escape (focus: ' + await active(p) + '; the section’s text ends: ' + JSON.stringify(((await value(p, N(2))) ?? 'no editor').slice(-40)) + ')');
 		const before = await value(p, N(2));
 		await wheel(p, 240, 24); await p.sleep(300);
 		t.eq((await st(p)).left, N(2), 'the caret was left behind');

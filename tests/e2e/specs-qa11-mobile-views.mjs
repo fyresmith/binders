@@ -12,7 +12,7 @@ import { inflateSync } from 'zlib';
 import { mkdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { VIEW, closeMenus, contents, exists, j, menuItems, openView, until, withTidy } from './view-helpers.mjs';
-import { LEAF, PHONE, TABLET, binder, dialogs, disk, metrics, notices, onDevice, swipe, tap, tapText, hold, touch, pressAndMove, menuTap, keys, openMs, saveAll, snap } from './specs-qa5-manuscript.mjs';
+import { LEAF, PHONE, TABLET, binder, dialogs, disk, metrics, notices, onDevice, swipe, tap, tapText, hold, touch, menuTap, keys, openMs, saveAll, snap } from './specs-qa5-manuscript.mjs';
 
 export const specs = [];
 const test = (name, fn) => specs.push({ name: 'qa11 mobile: ' + name, fn: withTidy(fn) });
@@ -271,7 +271,11 @@ test('a card dragged on a phone is taken back from More options as “Undo: …�
 	const original = await contents(p, NOVEL);
 	const from = await p.at(`${LEAF} .binders-card[data-path="${sceneAt(5)}"]`), to = await p.at(`${LEAF} .binders-card[data-path="${sceneAt(1)}"]`);
 	t.ok(from && to, 'both cards are in sight');
-	await pressAndMove(p, from.x, from.y, to.x - 30, to.y, 12);
+	// (held until the card is lifted, not for a fixed time: on a slow machine the page may take the press late, and a finger that moves before the card is lifted is a swipe)
+	await touch(p, 'touchStart', from.x, from.y);
+	t.ok(await until(p, `!!document.querySelector('${LEAF} .binders-card[data-path="${sceneAt(5)}"].is-lifted')`, 8000), 'the card is lifted by the press');
+	for (let i = 1; i <= 12; i++) { await touch(p, 'touchMove', from.x + (to.x - 30 - from.x) * i / 12, from.y + (to.y - from.y) * i / 12); await p.sleep(20); }
+	await p.sleep(200);
 	await touch(p, 'touchEnd');
 	await p.sleep(1000);
 	const moved = await contents(p, NOVEL);
