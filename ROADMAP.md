@@ -1,204 +1,208 @@
 # Roadmap
 
-Where Binders stands: what is released, what is implemented on `main`, what is still to build, and the hardening
-that ends in 1.0.
-The [changelog](CHANGELOG.md) is the record of what shipped and when; this page is the plan. When the two
-disagree, the changelog is right and this page is behind.
+The path from a first draft to a finished novel in Obsidian: what is released, what is built on `main`, and what
+comes next. Updated 2026-10-10 after the novel-writing workflow review.
 
-Binders is a **public beta** (0.x). The first beta was 0.44.5, on 2026-10-06, and it has been in Obsidian's
-[community plugin directory](https://community.obsidian.md/plugins/binders) since. 1.0.0 is the first stable
-release, and the maintainer calls it.
+Binders is a **public beta** (0.x). The [changelog](CHANGELOG.md) records releases; `manifest.json` names the published
+plugin. Work under **Unreleased** is implemented on `main` but is not yet installed through Obsidian or BRAT.
+The remaining major features below come before 1.0, followed by hardening (the maintainer's decision, 2026-10-10).
+1.0.0 is the first stable release, and the maintainer calls it.
+
+## Principles for every addition
+
+- **Start with a repeated writing task.** Show the shortest useful interaction and test it in a novel-sized binder.
+- **Keep writing in ordinary files.** Notes, links, properties, checkboxes and readable metadata remain useful with
+  Binders disabled. Manual edits stay supported; no hidden task or character database.
+- **Use Obsidian's design language.** Extend the current views, Filter control, inspector, menus and commands.
+  Follow familiar Properties, Bases filter and template conventions. A new pane needs a task the existing ones
+  cannot serve; no permanent dashboard or new query language.
+- **Protect the manuscript.** Changing a view or scope never changes scene order or export inclusion. Writes have
+  undo or reviewed recovery, and tests cover unsaved writing, external edits, renames and restart boundaries.
+- **Keep context optional.** A writer can use linked characters, locations and subplots without adopting a fixed
+  scene schema or a prescribed story structure. Keyboard and touch are part of each feature's first scope.
+
+Detailed interactions still go through the design rounds in [docs/dev/design.md](docs/dev/design.md). The
+[plan](docs/dev/plan.md) records earlier decisions; [architecture](docs/dev/architecture.md) maps the code.
 
 ## Built and released
 
-The published release named by `manifest.json` is 0.51.1. Everything in this section is in that release.
-Changes after it are under [Unreleased](CHANGELOG.md#unreleased), not installed by Obsidian or BRAT yet.
+The published release at this review is **0.51.1**. These are its foundations:
 
-- **Binders in the vault and the file explorer:** order, drag to reorder, label dots, undo of moves.
-  [The file explorer](docs/file-explorer.md)
-- **The binder view, three modes:** [corkboard](docs/corkboard.md), [outliner](docs/outliner.md) and the
-  [editable manuscript](docs/manuscript.md), with the [inspector](docs/inspector.md) and the contents beside them.
-- **Labels, statuses and word count targets,** and **arrange by label** on the corkboard (2026-10-01).
-  [Labels, statuses, targets](docs/labels-statuses-targets.md)
-- **Scene tools:** split, merge, duplicate, group. [Splitting and merging](docs/splitting-and-merging.md)
-- **Snapshots of a scene** and "Rewrite" (2026-10-01), and **snapshots of a folder or the whole binder:** take,
-  read and compare; make a binder from one; bring back one note, the text and the order, or everything (2026-10-06
-  to 2026-10-09). An automatic snapshot is taken before bringing one back and before Replace all.
-  [Snapshots](docs/snapshots.md)
-- **Focus mode** (2026-10-01). [Focus mode](docs/focus-mode.md)
-- **Export** (2026-10-05 to 2026-10-09): a manuscript in standard format (Word or PDF), an ebook (EPUB), a
-  paperback (PDF), a Scrivener 3 project, one note; book styles and a style editor; Export again.
-  [Export](docs/export.md)
-- **Import from Scrivener** (2026-10-06): a Scrivener 3 project, or a zipped backup, as a new binder.
-  [Import from Scrivener](docs/import-scrivener.md)
-- **Find and replace across a binder** (0.49.0, 2026-10-09). [Find and replace](docs/find-and-replace.md)
-- **The Longform integration:** Longform projects open as binders, and convert to them.
-  [Coming from Longform](docs/longform.md)
-- **Phones and tablets:** every mode by touch, tested in Obsidian's emulation of a phone and a tablet.
-  [Phones and tablets](docs/mobile.md)
+- **Ordered folders and the native file explorer:** binder order, drag to reorder, label dots and undo of moves.
+  [File explorer](docs/file-explorer.md)
+- **Three binder modes:** [corkboard](docs/corkboard.md), [outliner](docs/outliner.md) and
+  [editable manuscript](docs/manuscript.md), with the [inspector and contents](docs/inspector.md).
+- **Labels, statuses, word count targets and arrange by label.** [Labels, statuses, targets](docs/labels-statuses-targets.md)
+- **Scene operations:** split, merge, duplicate, group and ungroup. [Scene tools](docs/splitting-and-merging.md)
+- **Snapshots of a scene, folder or binder:** read, compare, copy and bring back text, properties, names and order.
+  Automatic snapshots before restoring and Replace all. [Snapshots](docs/snapshots.md)
+- **Focus mode and find and replace across a binder.** [Focus mode](docs/focus-mode.md) · [Find and replace](docs/find-and-replace.md)
+- **All five export kinds:** manuscript (Word or PDF), ebook, paperback, Scrivener project and one note;
+  editable styles and Export again. [Export](docs/export.md)
+- **Scrivener import, Longform integration and mobile support.**
+  [Import from Scrivener](docs/import-scrivener.md) · [Longform](docs/longform.md) · [Phones and tablets](docs/mobile.md)
 
-How each was designed and decided is in [docs/dev/plan.md](docs/dev/plan.md) and
-[docs/dev/export.md](docs/dev/export.md).
+## Implemented on main, not yet released
 
-## Implemented, not yet released
+Checked items mean implemented, not a completed release or real-device validation. See
+[Unreleased](CHANGELOG.md#unreleased) for the changes that will ship together.
 
-These are on `main` and covered by the manual, but are not in 0.51.1:
-
-- **Undo and redo of properties, renames, new notes and folders, copies of notes, deletes, merges and splits,**
-  with one history of 100 changes per binder and toolbar buttons for touch. [Undo and redo](docs/undo.md)
-- **Import a manuscript:** Word, Markdown and plain text as a new binder; chapters and scenes shown first, with
-  joining, splitting, renaming and roles in the preview. Word comments, tracked changes and underlining have
-  explicit import choices; PNG and JPEG pictures are kept. [Import a manuscript](docs/import-manuscript.md)
-- **Split at headings...:** cut a note of a binder into several where its headings, scene breaks or a line of your
-  own are, after a preview; one change in the history. [Splitting and merging](docs/splitting-and-merging.md#split-at-headings)
-- **Story date:** a scene property, an outliner column, an inspector row and menus; sort by story time and keep
-  it as the binder order. [Story date](docs/story-date.md)
-- **Timeline:** a fourth view, with time down or across and undated scenes in a tray. It shows story time and
-  lets you edit cards and set dates through menus; dragging to set dates is still to build. [Timeline](docs/timeline.md)
+- [x] **Shared undo and redo of changes:** moves, properties, renames, creation, note duplication, deletion,
+      merges and splits; toolbar controls, 100 changes per binder and 32 MB of kept bytes across binders.
+      Memory only, cleared when the plugin unloads. Text keeps the editor's own undo. [Undo and redo](docs/undo.md)
+- [x] **Import a manuscript:** Word, Markdown and plain text as a new binder, with chapters, scenes and an editable
+      preview. Word comments, tracked changes and underlining have choices; PNG and JPEG pictures are kept.
+      The source stays as it is. [Import a manuscript](docs/import-manuscript.md)
+- [x] **Split at headings:** split an existing binder note at headings, scene breaks or a chosen line, after a
+      preview, as one change in undo history. Markdown import also places reference footnotes and links with the
+      notes that use them. [Split at headings](docs/splitting-and-merging.md#split-at-headings)
+- [x] **Story date:** a scene property, outliner column, inspector row and menus, with story-order sorting.
+      [Story date](docs/story-date.md)
+- [x] **Timeline display:** a fourth mode with time down or across, manuscript numbers and an undated tray;
+      card editing and date menus. Dragging to set dates, custom calendars and eras remain below.
+      [Timeline](docs/timeline.md)
 
 ## Features before 1.0
 
-Decided by the maintainer on 2026-10-10: every major feature is built before 1.0, and nothing is held for after
-it. Then the plugin is hardened (below) and 1.0.0 is called. In this order; the order can change, the list is the
-commitment. Checked items are implemented on `main`; release status is listed above.
+Build in the order below, starting with revision. The first three features work together: choose a character's
+scenes, keep their context close, and work through what needs changing. Later work depends on those foundations.
+This order replaces the earlier flat list; it is a priority order, not a delivery schedule.
 
-For every one: identify a repeated writing task, show the shortest usable interaction, keep the result readable
-without Binders, and test it in a book-sized binder before widening it. No new dashboard, permanent toolbar group
-or configuration system unless the task cannot be done through the controls there are.
+| Order | Work | What it makes easier |
+|---|---|---|
+| 1 | Saved filters, revision tasks, pinned inspector properties | Revise an arc across the whole book without losing context |
+| 2 | Synopsis read-through, structural summaries, templates, timeline editing | Plan the book and inspect how it holds together |
+| 3 | Drafting and revision progress, more import formats, snapshot retention | Sustain work and keep recovery manageable |
+| 4 | Scoped exports, export presets, returned editor changes | Share work and bring reviewed edits back safely |
 
-### 1. Undo and redo of everything done through Binders
+### 1. Saved filters and editable subsets
 
-- [x] **One history per binder.** The history holds changes made by
-      hand through Binders: reordering and moving, every property (synopsis, label, status, target, notes, export),
-      renaming, new notes and folders, duplicating, deleting, merging and splitting. Typing in a note stays with
-      the editor's own undo.
-  - A step is undone only if the thing is still as that step left it; otherwise nothing is written and the writer
-    is told why. A deleted note is kept byte for byte for the session and put back exactly. Undoing a new note
-    never removes one that has been written in. Undoing a merge never takes text out of a note changed since.
-  - In memory only: nothing new is written to the vault, and nothing travels by Sync.
-  - In the view's toolbar, an Undo and a Redo button, which is how a phone reaches them.
-  - Planned, decided and implemented 2026-10-10 in seven steps (the history refactored, then properties, renames,
-    creating, deleting, merging, splitting). This takes in what was "Predictable recovery from merge". Decided: no
-    history across restarts; a delete can be undone for the session even when Obsidian deletes for good; the delete
-    confirmation stays; 100 steps for each binder.
+- [ ] Save named filters scoped to a binder or folder, using label, status, export inclusion and ordinary scene
+      properties. Support list membership, missing values, AND conditions and several accepted values within one
+      condition. Example: `characters` contains `[[Alice]]` and status is Draft.
+- [ ] Read and edit the matching scenes as one manuscript, in binder order; use the same subset in the other
+      modes, with ancestors shown only as context. Keep each mode's own ordering conventions, including story
+      order on the timeline. Make the active scope and its count clear, with one action to return to the whole book.
 
-### 2. Import an existing manuscript
+Reuse the existing Filter control. Store definitions as readable binder metadata. A filter never moves or copies
+notes, changes export inclusion or silently becomes the binder's order. Initially disable reordering in a subset.
+When an edit stops matching the filter, keep pending writing and the caret safe before the scene leaves the view.
 
-- [x] **From Word, and from one long note.** Most writers arrive with a Word file or a single long note, not a
-      Scrivener project. Import a `.docx` as a new binder, split into chapters and scenes at its headings and scene
-      breaks, shown before it is made, as the Scrivener import is. A long note already in the vault can also be
-      imported into a new binder, with the original left as it is.
-  - Makes a new folder, never writes into an existing one, and keeps the original file.
-  - Ship when a novel-length Word file comes in with its words, order, italics, bold and scene breaks intact,
-    held to a word-for-word test.
-  - Planned, decided and implemented 2026-10-10: Markdown and text first, then Word, then choices for tracked
-    changes, comments, underlining and pictures, and editing the preview. Chapters are found from headings, lines
-    like "Chapter 12", or page breaks, and the writer chooses before anything is made. Tracked changes start
-    accepted, with Reject all as a choice; comments are kept as comments unless switched off.
-  - "Split at headings..." for a note already in a binder is built too (one change in the history, Undo takes it
-    back). Still to build: `.odt` and `.rtf`. Real files from other
-    word processors are part of the hardening below.
+Complete when a writer can save, reopen and edit a cross-chapter subset without changing the full manuscript's
+order, and empty results explain the scope and offer to clear it. Add manually picked collections only after use
+shows a repeated task filters cannot serve; missing or renamed members must remain identifiable.
 
-### 3. Progress over time
+### 2. Revision tasks tied to scenes
 
-- [ ] **A deadline and a history.** A target for the book with a date, and the words a day it takes to get there;
-      a record of words written each day, read as a small chart; and today's count carried between devices. Scene
-      targets and focus mode's goal for today are built; this is the book's side of them.
-  - Kept as readable data in the binder note or beside it, so it syncs as notes do.
-  - No streaks, badges or reminders.
+- [ ] Capture a task such as “establish why Alice leaves” while drafting, then visit unfinished tasks in manuscript
+      order and mark them done. Offer an unresolved count and next/previous navigation in an optional native pane.
 
-### 4. Saved filters
+Keep Markdown checkboxes and scene links in one ordinary revision note per binder. A quoted passage can give
+context, but does not promise to follow edits. Obsidian handles link renames; a missing scene stays an unresolved
+link. Manual edits to the revision note remain supported.
 
-- [ ] **Saved filters, then collections.** Work on scenes scattered across a book without moving or copying them.
-      First support named filters scoped to a binder or folder: label, status, export inclusion, and selected
-      existing properties, including list membership and missing values. Combine conditions with AND; allow several
-      accepted values within a condition. Example: scenes whose `characters` contains Alice and whose status is Draft.
-      Reuse the current Filter control, existing views, and native property names and types; no new view or query language.
-      Scene order always follows the manuscript. Show the active subset and its count, with one action to return to
-      the full manuscript. An empty result explains the filter and offers to clear it.
-  - Start with saved filters. Add manually picked collections only after use establishes that property filters
-    cannot serve a recurring task. Example: five scenes selected for a critique session, with no shared property.
-  - Store definitions as readable binder metadata; follow renamed files in manual collections and show missing
-    members rather than silently substituting notes. Explain that saved subsets do not change export inclusion.
-  - Ship when a writer can save, reopen and edit a cross-chapter subset in the binder's views, with ancestors shown
-    only as context and no change to the full manuscript's order. Reordering is disabled in a subset initially;
-    adding scenes and changing properties must not hide pending edits or discard the caret.
+Complete when capture preserves pending writing, navigation opens the correct scene, completion changes only
+the chosen checkbox, and the queue works as Markdown with Binders disabled. Passage anchors come only if scene
+navigation proves insufficient; ambiguous or missing passages must be reported, never guessed.
 
-### 5. An editor's changes, brought back
+### 3. Custom properties in the inspector
 
-- [ ] **A Word file returned by an editor.** Export sends a manuscript out; this brings it back. Read a `.docx`
-      with tracked changes and comments, match it to the binder's notes, and show each change against the note as it
-      is now, to take or leave one at a time. Comments are kept as revision notes (below).
-  - Never applied in bulk without a review and an automatic snapshot, as Replace all is.
-  - A change that no longer matches the note's text is shown and not applied.
-  - The hardest item here to make safe. Design first, with real edited manuscripts to test against.
+- [ ] Let a binder pin a few existing properties beside synopsis and status: POV, characters, location, subplot,
+      or the writer's own fields. Preserve Obsidian's property types and support links to ordinary reference notes.
 
-### 6. Revision notes tied to scenes
+Use the existing inspector and native editing controls, with normal hover previews and opening to the side.
+Keep the same properties editable in the outliner and Obsidian's Properties view. No required character fields or
+separate story-bible store. A writer can review Alice's scenes through a saved filter while reading her note beside them.
 
-- [ ] **Scene-linked revision tasks.** Capture “establish why Alice leaves” while drafting, then visit the affected
-      scenes in manuscript order and mark the work done. Start with Markdown checkboxes and links to scenes in one
-      ordinary revision note per binder. Offer a capture command, an unresolved count and next/previous navigation
-      through an optional native pane. Manual edits to that note remain supported. No separate task database,
-      scheduler, priorities, assignments or notifications.
-  - A task may include a quoted passage for context. The quote is a reference, not a promise that a text range will
-    follow edits. File renames use Obsidian's link handling; a missing scene remains visible as an unresolved link.
-  - Ship when capture does not interrupt or lose pending writing, navigation opens the correct scene, completing
-    a task changes only its checkbox, and the queue remains readable and usable with Binders disabled.
-  - Add passage anchors only if scene-level navigation proves insufficient in actual revision work. Any later
-    anchor must report ambiguity or a missing passage instead of attaching a comment to the wrong words.
+Complete when pinned fields follow scene selection, bulk edits handle mixed values, linked notes follow renames,
+and every edit goes through the shared undo history without changing manuscript text.
 
-### 7. A new binder from a structure
+### 4. A continuous synopsis read-through
 
-- [ ] **A book's skeleton to start from, and templates for new notes.** "New binder" offers a structure (three
-      acts, a chapter and scene skeleton, a writer's own saved from a binder) with its folders, synopses and
-      targets. A folder can name a template note that its new scenes start from, properties and all.
-  - Structures are plain binders; a writer's own is saved and shared as one.
+- [ ] Read chapter headings and scene synopses as one outline, edit synopses in place, and open the underlying prose.
+      Apply it to the whole book or a saved subset.
 
-### 8. The timeline, a fourth view
+Make this a display option in an existing view, sharing its order, navigation and selection. An empty synopsis is
+an invitation to write one, not generated text. Complete when a writer can review the structure continuously,
+change a summary and return to the corresponding scene without writing into its body or changing the book's order.
 
-- [ ] **Scenes along story time.** A fourth mode of the binder view, beside the corkboard, the outliner and the
-      manuscript: one line of time with the binder's scenes along it, each placed by a date property on its own
-      note (`story-date`), each showing its number in the manuscript, so when things happen reads against the order
-      they are told in. Dragging a card sets its date, as one step of Undo. Scenes with no date wait in a tray.
-  - Re-implemented from [Evra Timelines](https://github.com/fyresmith/evra) in Binders' own look, on its cards,
-    menus and history; Evra's calendar code is carried over, so a book can have a calendar of its own. Evra itself
-    stays as it is, for worldbuilders.
-  - Decided 2026-10-10: one timeline, not a line for each label; an axis that makes room for its cards, with long
-    empty stretches drawn short, and no zoom. Cut from Evra: events that aren't notes, sides, lifespans, pins,
-    saved views, the minimap, embeds, group cards.
-  - Implemented 2026-10-10: the property, outliner column and inspector row; the design rounds; and the view in
-    both shapes, with editing and date menus but no dragging. Still to build: dragging to set dates, a book's own
-    calendar and eras. This changes "1.0 ships three views" (`docs/dev/plan.md`, "Decided").
+### 5. Structural summaries in the outliner
 
-### Also unfinished
+- [ ] Show chapter lengths, words by POV, scenes by status and unresolved revision counts through column summaries
+      or a modest optional overview. Respect the current folder and filter, and make the counted scope explicit.
 
-- [ ] **Snapshots of a folder and of the binder, the last step:** thinning the automatic snapshots, so they don't
-      pile up. (`docs/dev/plan.md`, "Snapshots of a folder and of the binder".)
+Use the writer's properties and revision tasks. Measurements are descriptive: the writer decides whether a long
+chapter or an uneven POV balance is a problem. Complete when a summary can take the writer to the relevant scenes,
+agrees with the underlying counts, and stays useful in a novel-sized binder without a permanent dashboard.
+
+### 6. Binder structures and scene templates
+
+- [ ] Offer optional structures in New binder: a chapter-and-scene skeleton, three acts, or the writer's own saved
+      binder, with its folders, synopses and targets. Let a folder choose a template note for new scenes.
+
+Structures are plain binders, saved and shared as such. Templates are ordinary notes with properties and optional
+planning prompts; follow Obsidian's template conventions. Complete when a structure or template can be inspected
+and edited without Binders, a new scene keeps the template's text and types, and creating it is safely undoable.
+
+### 7. Finish the timeline
+
+- [ ] Drag a scene to set its story date, and within a date to set story order, as one undo step. A drop changes
+      story time, never manuscript order. Gaps unfold to let the writer choose days, months or years.
+- [ ] Support a book's own calendar and eras, using the calendar work from
+      [Evra Timelines](https://github.com/fyresmith/evra), in Binders' own cards, menus and history.
+
+Keep the decisions of 2026-10-10: one line of time, room for the cards, long empty stretches drawn short, no zoom,
+numbers always on, down on phones and down or across on larger panes. Complete when dates, precision and within-date
+order survive dragging, undo, external edits and switching shapes; undated scenes remain reachable by touch and keyboard.
+
+### 8. Progress for drafting and revision
+
+- [ ] **A record of the binder's writing.** One plain-text file for each device and year in the binder's
+      `Snapshots/History`, merged when read: the words written and cut in each note each day, the hours and
+      sittings, and what was done to the binder (a note made or gone, a status changed, a snapshot or export
+      made). Numbers and names only, never a note's text. Being built.
+- [ ] **Progress, a window on the book's life:** today and the last seven days, the book against its target, its
+      words over time with what happened said on the chart, every day written on, when in the day and week, each
+      part's growth, statuses over time, and its records. Designed and chosen 2026-10-10; built over the record.
+- [ ] **A deadline:** a date beside the target, the words a day it takes recalculated each morning, and whether
+      the book is on pace, said plainly. The toolbar's count opens the window and marks where the plan stands today.
+- [ ] **An estimated past for a book that already exists,** worked out from its snapshots and file dates and drawn
+      as an estimate.
+- [ ] Track scenes reviewed or revision tasks completed alongside words, so a revision that shortens the book can
+      still show useful progress. Make the measure explicit and optional.
+
+Decided 2026-10-10: a change of more than 50 words at once is brought in or taken out, not written or cut; a day
+ends at 4 in the morning; each device records only what was typed on it, and edits made elsewhere show as changed
+elsewhere. Complete when the record survives sync and restarts, distinguishes drafting from revision, and can be
+inspected by hand. No streak as a headline, no badges, no reminders.
 
 ## Hardening, then 1.0
 
-Once the features above are built, in this order:
+Targeted validation belongs to every feature above. The final round tests how they work together:
 
-- [ ] **Export, checked by other hands.** The Word file in Word, the ebook in Kindle Previewer and Apple Books, the
-      PDF on macOS and Windows and through a printer's checks (KDP, IngramSpark), and a project as export writes it
-      in Scrivener. The list is in [docs/dev/export.md](docs/dev/export.md), "Not verified yet".
-- [ ] **Phones and tablets on real devices.** The emulated phone and tablet tests are the standard for the
-      automated suite. The maintainer uses Binders on an iPhone, which has found what the emulation could not
-      (issue 32). Not yet tried: an iPad, any Android device, Android's back button, the share sheet.
-      [Not yet tried](docs/limitations.md#not-yet-tried)
-- [ ] **A QA round over each new feature,** and the whole suite in both themes.
-- [ ] **Open issues** in the [tracker](https://github.com/fyresmith/binders/issues), and the findings left open on
-      purpose in `tests/e2e/open-findings.json`.
-- [ ] **1.0.0.** The first stable release. The maintainer calls it.
+- [ ] **A whole novel workflow:** start or import a book, draft, revise a character arc, finish revision tasks,
+      compare and restore snapshots, share an excerpt, review returned edits and export the finished book.
+- [ ] **Formats checked by other hands:** real imports from Word and other writing tools; exported Word in Word,
+      EPUB in Kindle Previewer and Apple Books, PDF on macOS and Windows and through printer checks (KDP,
+      IngramSpark), and exported projects in Scrivener. See [export validation](docs/dev/export.md).
+- [ ] **Phones and tablets on real devices:** keep emulated phone and tablet coverage, and complete hardware checks
+      on iPhone, iPad and Android, including keyboards, suspension, back navigation and sharing. The maintainer's
+      iPhone use has already found bugs emulation missed. [Known limitations](docs/limitations.md#not-yet-tried)
+- [ ] **Scale, accessibility and native design:** a novel-sized binder, keyboard and touch, screen readers, both
+      themes and representative community themes; compare interactions with Obsidian's own controls.
+- [ ] **A QA round and the full suite:** targeted tests locally; the whole suite on GitHub when work reaches `main`.
+      Resolve [open issues](https://github.com/fyresmith/binders/issues) and review `tests/e2e/open-findings.json`.
+- [ ] **1.0.0:** the first stable release, called by the maintainer after the features and hardening are complete.
 
 ## Not building
 
-- **Branching.** Two live versions of a book need merging, and merging prose is where writing is lost. A snapshot
-  of the binder is read, compared and brought back; "Make a binder from this snapshot" writes it out as a second
-  binder for the writer who wants to try another ending.
-- **A research browser or story-bible system.** No database of characters, places or sources. Use ordinary links,
-  backlinks, Properties and split panes; saved filters cover "every scene with Alice".
-- **Named writing workspaces.** Left to Obsidian's Workspaces core plugin and Binders' own view state.
-- **Daily automatic snapshots of a binder.** Automatic snapshots are taken before a bringing back and before
-  Replace all. One a day, unasked, is not planned.
-- **A plot grid.** Dropped on 2026-10-01 for the outliner (`docs/dev/plan.md`, "Decided").
+- **Live manuscript branches and prose merging.** Use readable, comparable snapshots and Make a binder from this
+  snapshot for an alternative ending.
+- **A research browser or story-bible database.** Use ordinary notes, links, backlinks, Properties and split panes;
+  pinned fields and saved filters bring that context into writing.
+- **Named writing workspaces.** Leave these to Obsidian's Workspaces core plugin and Binders' view state.
+- **A separate task manager.** Revision tasks stay checkboxes and scene links; no scheduler, assignments or notifications.
+- **Daily automatic binder snapshots.** Keep automatic snapshots before recovery and Replace all; use explicit
+  snapshots for other milestones.
+- **A plot grid or a worldbuilding suite.** The outliner replaced the plot grid. The timeline stays about scenes;
+  events that aren't notes, lifespans, sides, pins, minimaps and extra timeline views remain in Evra's scope.
