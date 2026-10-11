@@ -158,7 +158,14 @@ export async function launch({ vault = VAULT, theme = 'light', width = 1440, hei
 		st.ws.close();
 	}
 	const { ws, send: raw, state: link } = await connect(page.webSocketDebuggerUrl, (d) => {
-		if (d.method === 'Runtime.exceptionThrown') errors.push('exception: ' + (d.params.exceptionDetails.exception?.description || d.params.exceptionDetails.text));
+		// (an exception with no description comes as the bare word "Uncaught": then where it was thrown, and what was thrown, is
+		// all there is to find it by, so it is said: the file, the line, the value and the first frames of the stack)
+		if (d.method === 'Runtime.exceptionThrown') {
+			const x = d.params.exceptionDetails, said = x.exception?.description || x.text;
+			const what = x.exception && !x.exception.description ? ` [${x.exception.type}${x.exception.subtype ? ' ' + x.exception.subtype : ''}${x.exception.value !== undefined ? ': ' + JSON.stringify(x.exception.value) : ''}]` : '';
+			const where = x.exception?.description ? '' : ` at ${x.url || '(no url)'}:${x.lineNumber}:${x.columnNumber}` + (x.stackTrace?.callFrames ?? []).slice(0, 4).map((f) => ` < ${f.functionName || '(anonymous)'} ${f.url}:${f.lineNumber}`).join('');
+			errors.push('exception: ' + said + what + where);
+		}
 		if (d.method === 'Runtime.consoleAPICalled' && (d.params.type === 'error' || d.params.type === 'warning' || d.params.type === 'assert')) errors.push(`console.${d.params.type}: ` + d.params.args.map((a) => a.value ?? a.description).join(' '));
 	});
 	// Touch emulation swaps the mouse for a finger (no hover, a coarse pointer), which is what a phone test wants. Turning
