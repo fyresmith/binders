@@ -5,6 +5,10 @@
 #
 #   sh scripts/cloud-setup.sh          # then: . ./.cloud-env  (or copy its two lines into the environment)
 #
+# GitHub Actions runs it too (.github/workflows/e2e.yml): not as root, so the libraries go in with sudo; the workflow
+# restores a cache of $TOOLS/obsidian-$OBSIDIAN_VERSION first, and this then fetches nothing. SKIP_NPM_CI=1 leaves out
+# `npm ci` for a caller that has done it.
+#
 # Proven in a Claude Code cloud sandbox on 2026-10-06 (Ubuntu, running as root, no display): no libraries were missing,
 # and the one thing that had to change was --no-sandbox, which tests/e2e/driver.mjs now passes when run as root.
 set -e
@@ -12,7 +16,7 @@ OBSIDIAN_VERSION="${OBSIDIAN_VERSION:-1.13.7}"
 TOOLS="${BINDERS_E2E_HOME:-$HOME/.cache/binders-e2e}"
 DIR="$TOOLS/obsidian-$OBSIDIAN_VERSION"
 
-npm ci
+[ -n "$SKIP_NPM_CI" ] || npm ci
 
 if [ ! -x "$DIR/obsidian" ]; then
 	mkdir -p "$TOOLS"
@@ -29,11 +33,16 @@ fi
 MISSING=$(ldd "$DIR/obsidian" 2>/dev/null | awk '/not found/ { print $1 }' | tr '\n' ' ')
 if [ -n "$MISSING" ]; then
 	echo "Obsidian's Electron is missing libraries: $MISSING"
-	if command -v apt-get >/dev/null 2>&1 && [ "$(id -u)" = 0 ]; then
-		apt-get update -qq && apt-get install -y -qq libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libgbm1 libgtk-3-0 libasound2t64 libxkbcommon0 libxcomposite1 libxdamage1 libxrandr2 || echo "Install them by hand (the names above are Ubuntu 24.04's)."
+	# (as root, or through sudo: a runner has sudo, and a sandbox is root)
+	SUDO=""
+	[ "$(id -u)" != 0 ] && command -v sudo >/dev/null 2>&1 && SUDO="sudo"
+	if command -v apt-get >/dev/null 2>&1 && { [ "$(id -u)" = 0 ] || [ -n "$SUDO" ]; }; then
+		$SUDO apt-get update -qq && $SUDO apt-get install -y -qq libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libgbm1 libgtk-3-0 libasound2t64 libxkbcommon0 libxcomposite1 libxdamage1 libxrandr2 || echo "Install them by hand (the names above are Ubuntu 24.04's)."
 	else
 		echo "Install them (on Ubuntu 24.04: libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libgbm1 libgtk-3-0 libasound2t64 libxkbcommon0 libxcomposite1 libxdamage1 libxrandr2)."
 	fi
+	STILL=$(ldd "$DIR/obsidian" 2>/dev/null | awk '/not found/ { print $1 }' | tr '\n' ' ')
+	[ -z "$STILL" ] || echo "Still missing: $STILL"
 fi
 
 # EPUBCheck for the export tests (uses the system's Java if there is one).

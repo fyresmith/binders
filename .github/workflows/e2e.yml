@@ -1,0 +1,168 @@
+name: E2E
+
+# The whole end-to-end suite (real, headless Obsidian), in both themes, shared out over runners of its own: a matrix of
+# SHARDS shards per theme, each `run-all.mjs --shard i/n` on a fresh ubuntu-latest, and one last job that merges what
+# they found into a single verdict (tests/e2e/verdict.mjs). docs/dev/development.md, "The suite on GitHub".
+#   npm run suite              starts it for main's tip (or reports the run already there)
+#   npm run suite -- --wait    follows it and prints the verdict: exit 0 or 1
+# `npm run release` asks GitHub whether a run of exactly this workflow, titled "E2E suite", succeeded for the commit it
+# would release; a narrowed run (a grep, some spec files, one theme) is titled "E2E narrowed" and never counts.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      grep:
+        description: Only tests whose name matches this (a pattern). Leave empty for the whole suite
+        required: false
+        default: ""
+      specs:
+        description: Only these spec files (comma separated, e.g. tests/e2e/specs-corkboard.mjs). Leave empty for all
+        required: false
+        default: ""
+      themes:
+        description: Which themes
+        required: false
+        type: choice
+        default: both
+        options: [both, light, dark]
+
+run-name: ${{ github.event_name == 'workflow_dispatch' && (inputs.grep != '' || inputs.specs != '' || inputs.themes != 'both') && format('E2E narrowed {0} {1} {2}', inputs.grep, inputs.specs, inputs.themes) || 'E2E suite' }}
+
+# A newer commit on main ends the run of an older one (a narrowed run by hand is its own group, and ends nothing else)
+concurrency:
+  group: e2e-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && (inputs.grep != '' || inputs.specs != '' || inputs.themes != 'both') && 'narrowed' || 'whole' }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # (20 jobs run at once on a free account: 10 shards x 2 themes. Obsidians per runner: a runner has 4 cores, and the
+  # local runner's rule is one Obsidian per two cores.)
+  SHARDS: 10
+  OBSIDIAN_VERSION: "1.13.7"
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      shards: ${{ steps.plan.outputs.shards }}
+      themes: ${{ steps.plan.outputs.themes }}
+      narrowed: ${{ steps.plan.outputs.narrowed }}
+    steps:
+      - id: plan
+        env:
+          GREP: ${{ inputs.grep }}
+          SPECS: ${{ inputs.specs }}
+          THEMES: ${{ inputs.themes }}
+        run: |
+          themes="light,dark"
+          case "$THEMES" in light) themes="light" ;; dark) themes="dark" ;; esac
+          narrowed=false
+          shards="$SHARDS"
+          # a few tests need one shard, not ten runners that set up for nothing
+          if [ -n "$GREP$SPECS" ] || [ "$themes" != "light,dark" ]; then narrowed=true; fi
+          if [ -n "$GREP$SPECS" ]; then shards=1; fi
+          matrix="$(jq -cn --argjson n "$shards" --arg themes "$themes" '{include: [($themes | split(",")[]) as $t | range(1; $n + 1) as $i | {theme: $t, shard: $i, shards: $n}]}')"
+          { echo "matrix=$matrix"; echo "shards=$shards"; echo "themes=$themes"; echo "narrowed=$narrowed"; } >> "$GITHUB_OUTPUT"
+          echo "$matrix"
+
+  shard:
+    name: ${{ matrix.theme }} ${{ matrix.shard }}/${{ matrix.shards }}
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    env:
+      # Ubuntu 24.04 forbids the user namespace Electron's sandbox needs (see tests/e2e/driver.mjs)
+      BINDERS_NO_SANDBOX: "1"
+      # Obsidians at once in this runner (4 cores, 16 GB): tune from the first runs' timings
+      JOBS: 2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Restore Obsidian
+        id: obsidian
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.cache/binders-e2e/obsidian-${{ env.OBSIDIAN_VERSION }}
+          key: obsidian-${{ env.OBSIDIAN_VERSION }}-${{ runner.os }}-${{ runner.arch }}
+      # npm ci, Obsidian (fetched only on a cache miss), Electron's libraries (through sudo), EPUBCheck (Java is on the
+      # runner); writes .cloud-env, which says where Obsidian is
+      - name: Set up the tools
+        run: sh scripts/cloud-setup.sh
+      - name: Save Obsidian
+        if: steps.obsidian.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.cache/binders-e2e/obsidian-${{ env.OBSIDIAN_VERSION }}
+          key: obsidian-${{ env.OBSIDIAN_VERSION }}-${{ runner.os }}-${{ runner.arch }}
+      # the PDF export tests read their PDFs back with Poppler's pdftotext, pdffonts and pdfinfo
+      - name: Poppler
+        run: command -v pdftotext >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils; }
+      - name: Environment
+        run: sed -E 's/^export //; s/"//g' .cloud-env >> "$GITHUB_ENV"
+      - name: Build and install into the test vault
+        run: |
+          npm run build
+          npm run install-vault
+      # not a failure of the job: the verdict job decides, by the rules of run-all.mjs, over every shard together
+      - name: Tests
+        continue-on-error: true
+        env:
+          GREP: ${{ inputs.grep }}
+          SPECS: ${{ inputs.specs }}
+        run: |
+          args=()
+          [ -z "$GREP" ] || args+=(--grep "$GREP")
+          [ -z "$SPECS" ] || args+=(--specs "$SPECS")
+          node tests/e2e/run-all.mjs --jobs "$JOBS" --theme "${{ matrix.theme }}" --shard "${{ matrix.shard }}/${{ matrix.shards }}" --retry-alone --out test-dist/e2e-all "${args[@]}"
+      - name: Keep the results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: shard-${{ matrix.theme }}-${{ matrix.shard }}
+          path: |
+            test-dist/e2e-all
+            !test-dist/e2e-all/shots/started.jsonl
+          retention-days: 14
+          if-no-files-found: warn
+
+  verdict:
+    needs: [plan, shard]
+    # (not when the run was cancelled, as a newer commit does)
+    if: ${{ !cancelled() && needs.plan.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Fetch every shard's results
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          pattern: shard-*
+          path: shards
+      - name: Verdict
+        run: node tests/e2e/verdict.mjs shards --shards "${{ needs.plan.outputs.shards }}" --themes "${{ needs.plan.outputs.themes }}" ${{ needs.plan.outputs.narrowed == 'true' && '--narrowed' || '' }} --summary "$GITHUB_STEP_SUMMARY" --json verdict.json --timings timings.json
+      # (timings.json: what each file took, to commit as tests/e2e/timings.json now and then, so the shards stay even)
+      - name: Keep the verdict
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: suite-verdict
+          path: |
+            verdict.json
+            timings.json
+          retention-days: 90
+          if-no-files-found: ignore

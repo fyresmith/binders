@@ -8,6 +8,9 @@
 // reads the spec files when it starts, each Obsidian takes the built plugin when it is launched, and each retry reads
 // the spec files again. If any of that changed meanwhile, the summary says so and nothing is retried.
 //   npm run e2e:all -- --reap                    end what an earlier run left behind (after a kill -9, say), and stop
+//   npm run e2e:all -- --shard 3/10             only the third tenth of the tests, shared out by the files' recorded times
+//                                                (GitHub Actions runs every shard on a runner of its own: .github/workflows/e2e.yml)
+//   --timings file                               the recorded times to weigh by (default tests/e2e/timings.json)
 // One log per job (job-1.log …), failure screenshots in shots/, and at the end one summary of them all (also in
 // summary.txt). It fails (exit 1) only for failures that aren't listed in open-findings.json; with --retry-alone, only
 // for those that fail alone too. Ctrl-C stops every job and closes every Obsidian.
@@ -18,13 +21,16 @@ import { join } from 'path';
 import { pathToFileURL } from 'url';
 import { VAULT, reap, record } from './driver.mjs';
 import { groups, moved, parser, plural } from './run-all-lib.mjs';
+import { parseShard, shardOf } from './shard-lib.mjs';
 
 const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i > 0 ? process.argv[i + 1] : d; };
 const flag = (k) => process.argv.includes('--' + k);
 const jobs = Math.max(1, Number(arg('jobs', '4')) || 1);
 const theme = arg('theme', 'light'), themes = theme === 'both' ? ['light', 'dark'] : [theme];
 const grep = arg('grep', ''), repeat = Number(arg('repeat', '1')), out = arg('out', 'test-dist/e2e-all');
-const OPEN = 'tests/e2e/open-findings.json', TIMES = join(out, 'timings.json');
+const OPEN = 'tests/e2e/open-findings.json', TIMES = join(out, 'timings.json'), RECORDED = 'tests/e2e/timings.json';
+let shard = null;
+try { shard = arg('shard', '') ? parseShard(arg('shard')) : null; } catch (e) { console.error(e.message); process.exit(2); }
 mkdirSync(join(out, 'shots'), { recursive: true });
 
 // Every job writes down the Obsidians it starts in one file (driver.mjs), and this runner itself is there too: what
@@ -48,10 +54,16 @@ for (const f of files) {
 	if (names.length) counted.push({ file: f, n: names.length });
 }
 if (!counted.length) { console.error('No tests to run.'); process.exit(2); }
-// How long each file took last time, when there is a last time (and the whole file runs): a truer weight than its count
-const times = !grep && existsSync(TIMES) ? JSON.parse(readFileSync(TIMES, 'utf8')) : {};
+// How long each file took last time, when there is a last time (and the whole file runs): a truer weight than its count.
+// A shard reads only the recorded file in the repository, so that every shard makes the same split.
+const timesFile = arg('timings', '') || (!shard && existsSync(TIMES) ? TIMES : RECORDED);
+const times = !grep && existsSync(timesFile) ? JSON.parse(readFileSync(timesFile, 'utf8')) : {};
 const known = counted.filter((c) => times[c.file]), per = known.length ? known.reduce((a, c) => a + times[c.file], 0) / known.reduce((a, c) => a + c.n, 0) : 1;
-const bins = groups(counted.map((c) => ({ ...c, weight: times[c.file] ?? c.n * per })), jobs);
+const weighed = counted.map((c) => ({ ...c, weight: times[c.file] ?? c.n * per }));
+// (the files of every shard, to say in shard.json what this one was given: the verdict checks that the shards together cover every file once)
+const mine = shard ? shardOf(weighed, shard) : weighed.map((c) => c.file);
+const share = weighed.filter((c) => mine.includes(c.file));
+const bins = groups(share, jobs);
 // What is being run: the commit, every script and list the tests are made of, and the built plugin in the vault that
 // each Obsidian copies. Looked at again before anything is retried: a retry of other code than was run proves nothing.
 function checkout() {
@@ -65,7 +77,7 @@ function checkout() {
 }
 const ran = checkout();
 let shifted = [];
-const total = counted.reduce((a, c) => a + c.n, 0) * themes.length * repeat;
+const total = share.reduce((a, c) => a + c.n, 0) * themes.length * repeat;
 const open = new Set(existsSync(OPEN) ? JSON.parse(readFileSync(OPEN, 'utf8')).map((f) => f.name) : []);
 
 const t0 = Date.now(), mins = () => Math.max(1, Math.round((Date.now() - t0) / 60000));
@@ -96,8 +108,9 @@ for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.on(signal, async (
 	process.exit(130);
 });
 
+if (!share.length) { console.log(`Nothing for shard ${arg('shard')}: fewer files than shards.`); process.exit(report()); }
 const limit = arg('timeout', '') ? ['--timeout', arg('timeout')] : [];
-console.log(`${plural(total, 'test')} in ${plural(counted.length, 'file')}, over ${plural(bins.length, 'job')}${themes.length > 1 ? ', light then dark' : ''}. Logs in ${out}.`);
+console.log(`${shard ? `Shard ${arg('shard')}: ` : ''}${plural(total, 'test')} in ${plural(share.length, 'file')}, over ${plural(bins.length, 'job')}${themes.length > 1 ? ', light then dark' : ''}. Logs in ${out}.`);
 bins.forEach((b, i) => console.log(`  job ${i + 1}: ${plural(b.n, 'test')}${themes.length * repeat > 1 ? ' a pass' : ''}  ${b.files.map((f) => f.replace(/^tests\/e2e\/specs-?|\.mjs$/g, '') || 'specs').join(' ')}`));
 const tick = setInterval(() => console.log(`  ${mins()} min: ${results.length} of ${total} done, ${results.filter((r) => r.mark === '✗').length} failed`), 120000);
 await Promise.all(bins.map(async (b, i) => {
@@ -150,10 +163,12 @@ function report() {
 	console.log(text);
 	writeFileSync(join(out, 'summary.txt'), text.trimStart() + '\n');
 	writeFileSync(join(out, 'results.json'), JSON.stringify(results.map(({ name, theme, round, mark, err, ms, job, file }) => ({ name, theme, round, mark, err, ms, job, file })), null, '\t'));
+	// what this run was and found, for the verdict that merges every shard's (tests/e2e/verdict.mjs)
+	writeFileSync(join(out, 'shard.json'), JSON.stringify({ commit: ran.HEAD ?? null, shard: shard ? arg('shard') : null, themes, grep, repeat, files: share.map((c) => c.file), total, minutes: mins(), stopped: stopping, early, shifted, builds: [...builds], results: results.map(({ name, theme, round, mark, err, ms, job, file }) => ({ name, theme, round, mark, err, ms, job, file })), alone: alone.map(({ name, theme, file, alone: how, aloneErr }) => ({ name, theme, file, alone: how, aloneErr })) }, null, '\t'));
 	// what each file took, for balancing the next run (a pass of one theme; only from whole, finished runs)
-	if (!grep && !stopping && !early.length) {
+	if (!grep && !shard && !stopping && !early.length) {
 		const took = { ...times };
-		for (const c of counted) took[c.file] = Math.round(results.filter((r) => r.file === c.file).reduce((a, r) => a + r.ms, 0) / (themes.length * repeat));
+		for (const c of share) took[c.file] = Math.round(results.filter((r) => r.file === c.file).reduce((a, r) => a + r.ms, 0) / (themes.length * repeat));
 		writeFileSync(TIMES, JSON.stringify(took, null, '\t'));
 	}
 	const real = alone.length ? alone.filter((r) => r.alone === 'failed').length : failed.length;
