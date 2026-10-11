@@ -13,8 +13,11 @@ import { OutlinerColumns, showUnder } from './outliner-columns';
 import { watchSize } from './windows';
 import { setStoryDate } from './props';
 import { parseStoryDate, showStoryDate, whyNotStoryDate } from '../time/date';
-import { TITLE, builtIn, columnName, columnWidth, parseTarget, parseTyped, progress, readColumns, readSort, text, whyNotTarget, type ColumnSpec, type Sort } from './outliner-data';
+import { TITLE, builtIn, columnName, columnWidth, parseTarget, progress, readColumns, readSort, text, whyNotTarget, type ColumnSpec, type Sort } from './outliner-data';
 import { OutlinerModel, type Row } from './outliner-model';
+import { cellParts, readTyped } from './outliner-typed';
+import { kindOf } from '../inspector/property-widgets';
+import { openBeside, plainClick } from '../inspector/side';
 import { wordsLabel } from './words';
 
 /* The outliner: the folder's notes and subfolders as rows of a tree, in binder order, with a column for each thing
@@ -582,9 +585,11 @@ class Outliner implements BinderMode {
 			}
 			await writeKeys(this.ctx.plugin, writes);
 		};
-		if (typeof v === 'boolean') {
+		// the property's type is Obsidian's (its Properties view): a box for a checkbox, and typing is read by the type
+		const kind = kindOf(this.ctx.app, prop, v).kind;
+		if (typeof v === 'boolean' || (kind === 'checkbox' && (v == null || v === ''))) {
 			const box = td.createEl('input', { type: 'checkbox', attr: { 'aria-label': prop, tabindex: '-1' } });
-			box.checked = v;
+			box.checked = v === true;
 			box.disabled = ro;
 			box.addEventListener('click', (e) => e.stopPropagation());
 			box.addEventListener('change', () => { void write(box.checked).catch((e) => new Notice(plain(e))); });
@@ -607,10 +612,26 @@ class Outliner implements BinderMode {
 				onEditing: (on) => this.onEditing(on, row),
 			});
 		}
+		const parts = cellParts(v), linked = parts.some((x) => x.href);
+		const source = noteOf(this.ctx, item)?.path ?? this.ctx.binder.note.path;
 		return editable(td, {
 			cls: 'binders-outliner-field', value: text(v), placeholder: '', label: `${prop} of ${nameOf(item)}`, singleLine: true, allowEmpty: true, readOnly: ro,
 			shouldEdit: () => this.sel.has(item.path),
-			save: (typed) => write(parseTyped(typed, v), true),
+			// links are drawn as links: a click on one opens the note, and a click beside it edits
+			render: linked ? (el) => {
+				parts.forEach((x, i) => {
+					if (i) el.appendText(', ');
+					if (!x.href) { el.appendText(x.text); return; }
+					const a = el.createEl('a', { cls: 'internal-link', text: x.text, attr: { 'data-href': x.href, href: x.href } });
+					a.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); if (plainClick(e)) void openBeside(this.ctx.app, x.href ?? '', source); else void this.ctx.app.workspace.openLinkText(x.href ?? '', source, Keymap.isModEvent(e)); });
+				});
+				return true;
+			} : undefined,
+			save: async (typed) => {
+				const r = readTyped(typed, kind);
+				if ('error' in r) throw new Error(r.error);
+				await write(r.value, true);
+			},
 			onEditing: (on) => this.onEditing(on, row),
 		});
 	}

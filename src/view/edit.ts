@@ -25,6 +25,8 @@ export interface EditableOptions {
 	numeric?: boolean;
 	/** A single line emptied is saved as empty (a cell's value taken away); otherwise that's leaving it as it was. */
 	allowEmpty?: boolean;
+	/** Draws what is shown when it isn't plain text (a link as a link): given the element, true if it drew. */
+	render?(el: HTMLElement): boolean;
 	save(text: string): Promise<void>;
 	/** Editing started (true) or ended (false), whether saved or not. */
 	onEditing?(editing: boolean): void;
@@ -72,6 +74,7 @@ export function editable(parent: HTMLElement, o: EditableOptions): Editable {
 	const show = (text: string) => {
 		el.empty();
 		el.toggleClass('is-empty', !text);
+		if (text && o.render?.(el)) return;
 		el.setText(text || (o.readOnly ? '' : o.placeholder));
 	};
 	show(o.value);

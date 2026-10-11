@@ -834,3 +834,68 @@ test('links: a note renamed, the links to it in a list and in a text follow when
 	t.ok(/\[\[Harrow\]\]/.test(off), 'with Obsidian not updating links, the link is as it was: ' + off.split('\n').slice(3, 6).join(' / '));
 	t.ok(await p.ev(`[...document.querySelectorAll(${j(I + ' [data-field="prop:characters"] .internal-link')})].some(e => e.textContent === 'Harrow')`), 'and the row shows it');
 });
+
+
+// ---- the outliner's property cells ----
+
+const OL = '.binders-view .binders-outliner';
+const cellSel = (path, col) => `${OL} .binders-outliner-row[data-path=${j(path)}] [data-col="${col}"]`;
+async function outliner(p, cols) {
+	await open(p);
+	await p.ev(`(() => { const v = ${VIEW}; v.options = { ...v.options, outliner: { columns: ${j(cols.map((c) => ({ id: 'prop:' + c })))} } }; v.setMode('outliner'); return 1; })()`);
+	await until(p, `!!document.querySelector('.binders-outliner-row')`);
+	await p.sleep(400);
+}
+async function selectRow(p, path) {
+	const n = await p.at(`${OL} .binders-outliner-row[data-path=${j(path)}] .binders-outliner-name`);
+	await p.click(n.x, n.y);
+	await p.sleep(250);
+}
+/** Types into a cell of a selected row, and presses Enter. */
+async function typeCell(p, path, col, text, right = false) {
+	await selectRow(p, path);
+	const c = await p.at(cellSel(path, col));
+	await p.click(right ? c.x + c.w / 2 - 6 : c.x - c.w / 2 + 12, c.y);
+	await until(p, `document.activeElement?.matches('.binders-outliner-row [data-col="${col}"] input')`, 3000);
+	await p.ev(`document.activeElement.select?.()`).catch(async () => { throw new Error('not a field: ' + await p.ev(`document.activeElement?.outerHTML?.slice(0, 200)`)); });
+	await p.type(text);
+	await p.key('Enter');
+	await p.sleep(500);
+}
+
+test('outliner: property cells draw links as links, read typing by the property’s type, and show a box for a checkbox', async (p, h, t) => {
+	await writeRaw(p, 'Mara.md', 'Mara Ellis.\n');
+	await writeRaw(p, ARRIVAL, '---\npov: "[[Mara]]"\ncharacters:\n  - "[[Mara]]"\n  - The master\nbeats: 3\n---\nThe supply boat left Mara on the jetty.\n');
+	await writeRaw(p, KEEPER, '---\nbeats: 5\nfinished: true\n---\nThe keeper did not look up.\n');
+	await p.sleep(600);
+	const body = split2(await read(p, ARRIVAL)).body;
+	await outliner(p, ['pov', 'characters', 'beats', 'finished']);
+	// links as links
+	t.eq(await p.ev(`document.querySelector(${j(cellSel(ARRIVAL, 'prop:pov') + ' a.internal-link')})?.textContent`), 'Mara', 'a link is drawn as one, by its name');
+	t.eq(await p.ev(`document.querySelector(${j(cellSel(ARRIVAL, 'prop:characters'))})?.textContent`), 'Mara, The master', 'a list: the link by its name, the text as it is');
+	t.eq(await p.ev(`document.querySelectorAll(${j(cellSel(ARRIVAL, 'prop:characters') + ' a.internal-link')}).length`), 1, 'one of them a link');
+	// typing read by type: a word in a number is refused and nothing is written
+	await typeCell(p, ARRIVAL, 'prop:beats', 'twelve');
+	t.eq((await fmOf(p, ARRIVAL)).beats, 3, 'a word typed in a number leaves the number');
+	const said = await p.ev(`(() => { const probe = new Notice(''), docs = new Set([document, probe.noticeEl.ownerDocument]); probe.hide(); return [...docs].flatMap(d => [...d.querySelectorAll('.notice')].map(n => n.textContent)).join(' | '); })()`);
+	t.ok(said.includes('isn’t a number'), 'and says so: ' + said);
+	await p.key('Escape');
+	await typeCell(p, ARRIVAL, 'prop:beats', '7');
+	t.eq((await fmOf(p, ARRIVAL)).beats, 7, 'a number typed is a number');
+	// a list typed is a list, even a list of one
+	await typeCell(p, ARRIVAL, 'prop:characters', 'Mara, Ines', true);
+	t.eq(JSON.stringify((await fmOf(p, ARRIVAL)).characters), JSON.stringify(['Mara', 'Ines']), 'a list is split at commas');
+	// a checkbox property: a box even where the note has none yet
+	const box = await p.at(cellSel(ARRIVAL, 'prop:finished') + ' input[type="checkbox"]');
+	t.ok(!!box, 'a note with no value for a checkbox property has its box');
+	await p.click(box.x, box.y);
+	await until(p, `app.metadataCache.getFileCache(app.vault.getAbstractFileByPath(${j(ARRIVAL)}))?.frontmatter?.finished === true`, 4000);
+	t.eq((await fmOf(p, ARRIVAL)).finished, true, 'ticked: true');
+	t.eq(split2(await read(p, ARRIVAL)).body, body, 'the note’s text is untouched');
+	// (last: the note opens beside, and the outliner is narrower for it)
+	const at = await p.at(cellSel(ARRIVAL, 'prop:pov') + ' a.internal-link');
+	await p.click(at.x, at.y);
+	await until(p, `app.workspace.getLeavesOfType('markdown').some(l => l.view.file?.path === 'Mara.md')`, 4000);
+	await p.sleep(1200);
+	t.ok(!(await p.ev(`!!document.activeElement?.matches('.binders-outliner-row input')`)), 'a click on a link opens the note and does not start editing');
+});

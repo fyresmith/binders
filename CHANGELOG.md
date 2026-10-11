@@ -41,6 +41,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - Focus mode's words written today now come from that record, so they are the same on every device that shares the binder; a day ends at four in the morning instead of midnight; and a paste or an import no longer counts as written.
 - Under a filter, a folder with nothing that matches is hidden on the corkboard as it is in the outliner and manuscript, a folder's card counts and lists only what matches, and the timeline's numbers stay the book's.
 - The inspector and contents stay on the scene while you read a note that isn't in a binder in another tab.
+- In the outliner, property columns read what you type by the property's type (a word in a number is refused, a list of one stays a list, a date must be a date), yes/no properties show a box even where a note has no value, and links are drawn as links that open beside the outliner.
 
 ### Fixed
 
