@@ -141,6 +141,9 @@ test('settings: labels and statuses reorder by their drag handles (real pointer)
 	await sdrag(p, popout, a.x, a.y, b.x, b.y + 8);
 	t.eq(j((await labels(p)).map((l) => l.name)), j(['Orange', 'Yellow', 'Green', 'Red', 'Cyan', 'Blue', 'Purple', 'Pink']), 'Red dragged below Green');
 	t.eq(j((await saved(p)).labels.map((l) => l.name).slice(0, 4)), j(['Orange', 'Yellow', 'Green', 'Red']), 'and saved');
+	// (the statuses are below the Progress heading now, past the window's foot: bring them in view first)
+	await p.ev(`(() => { ${TAB}.querySelector('.binders-settings-status').scrollIntoView({ block: 'center' }); return 1; })()`);
+	await p.sleep(200);
 	const c = await sat(p, '.binders-settings-status .mod-drag-handle', 3), d = await sat(p, '.binders-settings-status .mod-drag-handle', 0);
 	await sdrag(p, popout, c.x, c.y, d.x, d.y - 8);
 	t.eq(j(await p.ev(`${PL}.settings.statuses`)), j(['Done', 'Idea', 'Draft', 'Revised']), 'Done dragged to the top');
@@ -249,6 +252,8 @@ test('settings: every toggle applies at once; a label property of another name i
 	t.ok((await rows()).includes('The Lighthouse.md'), '“Hide binder and folder notes” off: the binder note shows at once');
 	await toggle(2);
 	await toggle(0);
+	// (the explorer re-sorts after the toggle: wait for it, not for a fixed time)
+	for (let i = 0; i < 40 && (await rows()).filter((r) => r && !r.includes('/'))[0] === 'Prologue.md•'; i++) await p.sleep(150);
 	const byName = (await rows()).filter((r) => r && !r.includes('/') && !['Longform demo', 'The Lighthouse'].includes(r));
 	t.eq(j(byName.filter((r) => r !== 'The Lighthouse.md')), j(['Part One', 'Part Two', 'Epilogue.md', 'Prologue.md•']), '“Order binders” off: by name at once');
 	await toggle(0);
@@ -560,6 +565,9 @@ test('phone: the filter and the target dialog work by touch; the settings have r
 		await closeMenus(p);
 		const c = await p.at(card(L + 'Prologue.md'));
 		await hold(p, c.x, c.y);
+		// (the sheet scrolls, and with the menu's longer list "Set target..." starts below the screen's foot: scroll to it as a finger would)
+		await p.ev(`(() => { const it = [...document.querySelectorAll('.menu .menu-item')].find(e => e.querySelector('.menu-item-title')?.textContent === 'Set target...'); it?.scrollIntoView({ block: 'center' }); return 1; })()`);
+		await p.sleep(300);
 		const st = await itemAt(p, 'Set target...');
 		t.ok(st, 'a held card opens its menu');
 		await tap(p, st.x, st.y);

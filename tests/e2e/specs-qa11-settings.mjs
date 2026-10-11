@@ -129,7 +129,7 @@ const DEFAULTS_SWITCHES = {
 	'Dim other paragraphs': true, 'Dim the background': true, 'Enter fullscreen': false,
 };
 const DEFAULT_TEXT = { 'Exports folder': 'Exports', 'Your name': '', 'Styles folder': 'Export styles', 'Words to write today': '', 'Synopsis': 'synopsis', 'Status': 'status', 'Label': 'label', 'Target': 'target', 'Story date': 'story-date', 'Story order': 'story-order', 'Notes': 'notes' };
-const GROUPS = ['File explorer', 'Paragraphs', 'Sidebar', 'Word counts', 'Labels', 'Statuses', 'Focus mode', 'Export', 'Property names'];
+const GROUPS = ['File explorer', 'Paragraphs', 'Sidebar', 'Word counts', 'Progress', 'Labels', 'Statuses', 'Focus mode', 'Export', 'Property names'];
 
 test('a fresh vault: every control shows the default the docs give, in the order the docs list them', async (p, h, t) => {
 	await openSettings(p);
@@ -171,7 +171,7 @@ test('the tab’s words: sentence case, no “please”, a full stop at each sen
 			return out;
 		})()`);
 		// a word that starts a sentence, or a file path, or one of Obsidian's own names, may be capitalized
-		const KEPT = new Set(['Obsidian', 'Sync', 'Custom', 'Manuscript', 'Ebook', 'Paperback', 'Scrivener', 'Red', 'Orange', 'Yellow', 'Green', 'Cyan', 'Blue', 'Purple', 'Pink', 'Label', 'Status', 'Target', 'Notes', 'Synopsis', 'Export', 'Exports', 'Idea', 'Draft', 'Revised', 'Done', 'None', 'Books/Exports']);
+		const KEPT = new Set(['Obsidian', 'Sync', 'Custom', 'Manuscript', 'Ebook', 'Paperback', 'Scrivener', 'Red', 'Orange', 'Yellow', 'Green', 'Cyan', 'Blue', 'Purple', 'Pink', 'Label', 'Status', 'Target', 'Notes', 'Synopsis', 'Export', 'Exports', 'Idea', 'Draft', 'Revised', 'Done', 'None', 'Books/Exports', 'Snapshots', 'History']);
 		const bad = [];
 		for (const [kind, s] of texts) {
 			if (/please/i.test(s)) bad.push(`${kind} “${s}” says please`);
