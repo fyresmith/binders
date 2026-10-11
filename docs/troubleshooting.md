@@ -101,5 +101,5 @@ pointer and click the button at the top right, or run **Toggle focus mode**.
 
 ## Undo last change doesn't do anything
 
-It works on the binder in front, or the one the open note is in. It doesn't undo renames, deletes, merges or text.
+It works on the binder in front, or the one the open note is in. It doesn't undo deletes, merges, renames made in the file explorer, or text.
 Its history is kept only while Obsidian is open. See [Undo and redo](undo.md).

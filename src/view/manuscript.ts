@@ -1385,7 +1385,7 @@ class Manuscript implements BinderMode {
 				if (!leaving) this.rename(s, name);
 				return;
 			}
-			try { await this.app.fileManager.renameFile(s.file, to); } catch (e) { new Notice(plain(e)); }
+			try { await this.ctx.store.rename(s.file, name); } catch (e) { new Notice(plain(e)); }
 			el.setText(s.file.basename);
 			if (!leaving && !this.dead) void this.focusScene(s, this.caret?.file === s.file ? 'caret' : 'start', undefined, this.caret?.file !== s.file);
 		};

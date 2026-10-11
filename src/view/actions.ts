@@ -1,5 +1,5 @@
 import { exportAsItems } from './export-as';
-import { Menu, Notice, Platform, TFile, TFolder, normalizePath, type TAbstractFile } from 'obsidian';
+import { Menu, Notice, Platform, TFile, TFolder, type TAbstractFile } from 'obsidian';
 import { readStory, setStoryDate, writeKeys } from './props';
 import { parseStoryDate, whyNotStoryDate, type StoryDate } from '../time/date';
 import { COMPILE_PROP, EXPORT_PROP, isExported, isNote, mergeScenes, saveOpen, synopsisFromText } from '../scenes';
@@ -9,7 +9,7 @@ import { hexColor, labelCss, labelDot, labelName, presetOf } from './labels';
 import { ask, confirm, pickColor } from './modals';
 import type { ModeContext } from './mode';
 import { folderSnapshotItems, snapshotItems } from './snapshots'; // snapshots
-import { SNAPSHOTS } from '../snapshot-text'; // snapshots
+import { badName } from '../history/rename';
 import { parseTarget, whyNotTarget } from './outliner-data';
 
 /* What can be done to a note or a folder of a binder, the same on a card and in an outliner row: its menu, renaming,
@@ -20,10 +20,7 @@ import { parseTarget, whyNotTarget } from './outliner-data';
     items stay out of it). */
 export const ITEM_MENU = 'binders-card';
 
-/** Why a typed name can't be a file's name, or null: characters Obsidian refuses or that break links, and a leading dot,
-    which makes a hidden file Obsidian doesn't show. */
-export const badName = (name: string): string | null =>
-	/[*"\\/<>:|?]/.test(name) ? 'A name can’t contain any of * " \\ / < > : | ?' : name.startsWith('.') ? 'A name can’t start with a dot.' : name.length > 200 ? 'That name is too long.' : null;
+export { badName };
 
 export { isNote };
 /** An item's name as it shows: a note's without ".md", a folder's as it is. (Not `nameOf` in model.ts, which reads the
@@ -35,18 +32,9 @@ export function noteOf(ctx: ModeContext, f: TAbstractFile): TFile | null {
 	return f instanceof TFolder ? ctx.store.folderNote(f) : f instanceof TFile ? f : null;
 }
 
-/** Renames a note or folder where it is. Throws, with why, when the name can't be used. */
+/** Renames a note or folder where it is, as one change that Undo takes back. Throws, with why, when the name can't be used. */
 export async function renameItem(ctx: ModeContext, f: TAbstractFile, name: string): Promise<void> {
-	const bad = badName(name);
-	if (bad) throw new Error(bad);
-	// a note named like its folder, or a folder named like a note in it, would make that note the folder note
-	if (isNote(f) && name === f.parent?.name) throw new Error('A note can’t have its folder’s name: it would become the folder’s note.');
-	if (f instanceof TFolder && name === SNAPSHOTS && f.parent === ctx.binder.folder) throw new Error(`“${SNAPSHOTS}” is where the binder keeps its snapshots. Choose another name.`); // snapshots
-	if (f instanceof TFolder && f.children.some((c) => isNote(c) && c.basename === name)) throw new Error(`“${f.name}” already has a note called “${name}”, which would become its folder note.`);
-	const to = normalizePath(`${f.parent?.path ?? ''}/${name}${f instanceof TFile ? '.' + f.extension : ''}`);
-	if (to === f.path) return;
-	if (ctx.app.vault.getAbstractFileByPath(to) && to.toLowerCase() !== f.path.toLowerCase()) throw new Error(`“${name}” already exists here.`);
-	try { await ctx.app.fileManager.renameFile(f, to); } catch (e) { throw new Error(plain(e)); }
+	try { await ctx.store.rename(f, name); } catch (e) { throw new Error(plain(e)); }
 }
 
 /** A file system's error as a person would say it: without its code and the paths on this computer. */

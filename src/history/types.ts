@@ -28,7 +28,10 @@ export interface OrderStep {
 /** Properties given to items by hand. `what` names them for the writer ("the synopsis"), by key. */
 export interface PropsStep { kind: 'props'; changes: PropChange[]; what?: Record<string, string> }
 
-export type Step = OrderStep | PropsStep;
+/** A rename: the item and its name before and after (a note's without ".md"). */
+export interface RenameStep { kind: 'rename'; file: TAbstractFile; before: string; after: string }
+
+export type Step = OrderStep | PropsStep | RenameStep;
 export type StepKind = Step['kind'];
 
 /** One thing done by hand, in the binder whose note is `note`. `bytes`: what it keeps in memory beyond its labels

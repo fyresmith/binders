@@ -3,6 +3,12 @@
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for what
 counts as a patch, minor or major change. Entries are added by `npm run ship`.
 
+## 0.57.0 (2026-10-11)
+
+### Added
+
+- Undo last change now takes back renames made on a card, in a row or in the manuscript, updating links the way the rename did.
+
 ## 0.56.0 (2026-10-11)
 
 ### Added

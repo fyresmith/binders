@@ -8,6 +8,7 @@ import { COMPILE_PROP, EXPORT_PROP, saveOpen } from './scenes';
 import { History } from './history/history';
 import { OrderHandler } from './history/order';
 import { PropsHandler } from './history/props';
+import { itemName, nameProblem, pathWith, RenameHandler } from './history/rename';
 import { sameValue } from './history/values';
 import type { Entry, PropChange } from './history/types';
 import { SNAPSHOTS } from './snapshot-text';
@@ -249,7 +250,7 @@ export class BinderStore extends Events implements ExplorerSource {
 		};
 		this.history.onChange = () => { this.trigger('history'); };
 		this.order = new OrderHandler(this.app, host, this.history);
-		this.history.handlers = { order: this.order, props: new PropsHandler(this.app, host) };
+		this.history.handlers = { order: this.order, props: new PropsHandler(this.app, host), rename: new RenameHandler(this.app, { binderFolderOf: (item) => this.binderOf(item)?.folder ?? null, settle: host.settle }) };
 		let done: () => void = () => {}, settle: () => void = () => {};
 		this.ready = new Promise((r) => { done = r; });
 		this.settled = new Promise((r) => { settle = r; });
@@ -717,6 +718,23 @@ export class BinderStore extends Events implements ExplorerSource {
 			const binder = writes.map((w) => this.binderOf(w.note)).find((b) => !!b);
 			if (changes.length && binder && !binder.problem) this.history.record({ note: binder.note, label, steps: [{ kind: 'props', changes, what }] });
 			if (failed) throw failed;
+		})());
+	}
+
+	/** Gives a note or folder a new name, as the writer did by hand: one change that "Undo" takes back. Throws, with why,
+	    when the name can't be used. Goes by `fileManager.renameFile`, so links, snapshots and a folder's note follow. */
+	async rename(item: TAbstractFile, name: string): Promise<void> {
+		const binder = this.binderOf(item);
+		if (binder?.problem) throw new UnsupportedBinder(binder.problem);
+		const was = itemName(item), why = nameProblem(item, name, binder?.folder ?? null);
+		if (why) throw new Error(why);
+		const to = pathWith(item, name);
+		if (to === item.path) return;
+		const clash = this.app.vault.getAbstractFileByPath(to);
+		if (clash && to.toLowerCase() !== item.path.toLowerCase()) throw new Error(`“${name}” already exists here.`);
+		await this.history.track((async () => {
+			await this.app.fileManager.renameFile(item, to);
+			if (binder) this.history.record({ note: binder.note, label: `Rename “${was}” to “${name}”`, steps: [{ kind: 'rename', file: item, before: was, after: name }] });
 		})());
 	}
 

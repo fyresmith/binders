@@ -29,6 +29,16 @@ renamed or added since stays as it is.
 - any other property you edit in a column of the outliner;
 - **Set synopsis from text**.
 
+**Renames**
+
+- a note or a folder renamed on a card, in a row, on a lane card, in the manuscript's title or a folder's heading.
+
+Undo gives the note its old name again, the way the rename did it, so the links to it that Obsidian updated for the
+rename are updated back (if "Automatically update internal links" is on; if it is off, or you declined, the links stay
+as they are both ways). A rename is taken back only if the item still has the name the rename gave it and the old name
+is free: if you renamed it again, in the file explorer say, or another note has the old name now, nothing is renamed and
+a notice says so. Renames made in Obsidian's own file explorer are not in the history.
+
 A property goes back to what it was, in the place it stood among the note's other properties. Nothing else in the
 note is touched.
 
@@ -64,7 +74,8 @@ every view of it: the corkboard, the outliner and the manuscript; a change made 
   undo of a property: it is saved first, and kept.
 - **A split.** A split is undone in the note you split, with the editor's undo. See
   [Splitting, merging and grouping](splitting-and-merging.md#undoing-a-split).
-- **Renames, deletes, merges and duplicates.** Deleted and merged-away notes are in the trash.
+- **Deletes, merges and duplicates.** Deleted and merged-away notes are in the trash.
+- **Renames made in Obsidian's file explorer or a tab's title.** They are not made through Binders.
 
 ## Limits
 
