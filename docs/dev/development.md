@@ -229,6 +229,10 @@ the sample projects there, zipped, for a real Scrivener to open: nothing here ca
 `test-vault`, and drives it over the Chrome DevTools protocol. The runner resets every note between tests, and fails a
 test on any console error.
 
+Each test is of a tier (below, "The tiers and the quarantine"): a failure of the look tier is printed and listed apart,
+and doesn't fail the run. A test that only needs an action offered asks `offers(p, title)` (`menu-routes.mjs`), not
+which row it is.
+
 The throwaway profiles and vault copies go in `~/.cache/binders-e2e` (a folder on the disk: `/tmp` is kept in memory on
 many systems, and several Obsidians' worth filled it); on a CI runner, in the temporary folder. `BINDERS_E2E_TMP` names
 another place.
@@ -524,12 +528,22 @@ It needs the `gh` CLI, signed in. The pieces:
 - **Results.** Each shard uploads `test-dist/e2e-all` (the logs, `results.json`, `shard.json`, failure screenshots in
   `shots/` and `shots-alone/`) as the artifact `shard-<theme>-<i>`, for 14 days.
 - **One verdict.** The last job (`verdict`) downloads every shard's artifact and runs `tests/e2e/verdict.mjs` over
-  them, by the rules `run-all.mjs` has for one machine: an open finding (`open-findings.json`) doesn't count; a
-  failure is retried alone on the shard that saw it (`--retry-alone`) and counts only if it fails alone too; a shard
-  that left no results, stopped early, ran other code than it started with, or left tests unrun is a problem, and so
-  is a spec file no shard was given. The summary (real failures, failures that passed alone, open findings, open
-  findings that now pass) is on the run's page (`$GITHUB_STEP_SUMMARY`) and in the artifact `suite-verdict`
-  (`verdict.json`, `timings.json`). The workflow fails only for a real failure or a problem.
+  them, by the rules `run-all.mjs` has for one machine: an open finding (`open-findings.json`) doesn't count, nor
+  does a test the quarantine holds (`quarantine.json`, until its date); a failure is retried alone on the shard that
+  saw it (`--retry-alone`) and counts only if it fails alone too, and only if it is of the core tier (a look
+  failure is listed apart: below); a shard that left no results, stopped early, ran other code than it started
+  with, or left tests unrun is a problem, and so is a spec file no shard was given, or a quarantine entry with no
+  owner or date. The summary (real failures, look failures, failures that passed alone, open findings, quarantined
+  tests, quarantine entries whose date has passed, and listed tests that now pass) is on the run's page
+  (`$GITHUB_STEP_SUMMARY`) and in the artifact `suite-verdict` (`verdict.json`, `timings.json`). The workflow fails
+  only for a real failure or a problem, so a release (which asks for a green workflow) needs the core tier green.
+- **The tiers and the quarantine** (ROADMAP.md, "A suite that can be trusted"; `tests/e2e/tiers-lib.mjs`, tested in
+  `tests/tiers.test.ts`). Every test is core unless it says it is look: `tier: 'look'` on the test, `export const
+  tier = 'look'` for a whole file (`specs-qa3-look.mjs`, `specs-themes.mjs`), or its name in `tests/e2e/tiers.json`,
+  where the 329 tests that check only presentation or speed were listed when the tiers began (2026-10-12). A name in
+  `tiers.json` that no test has any more is said at the start of `run-all.mjs`: that test has become core, and the
+  list wants mending. `quarantine.json` is a list of `{ name, file, owner, until, why }` for tests that fail for a
+  reason of the machine; AGENTS.md ("Tests") has the rules for both.
 - **Reading a failure.** The run's page has the verdict; the shard's artifact has its job log, screenshot and
   messages. `git bisect run` (below) finds the commit as before.
 

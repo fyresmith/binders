@@ -158,6 +158,22 @@ npm run ship -- "Docs: what the limits are" --internal
   - **reports the search**: what was searched for, the files that had hits, and what was done in each.
   The coordinator does not ship such a ticket without that list, and runs the same search itself before pushing.
 - Keep e2e tests independent: each starts from the pristine `test-vault` (the runner resets it).
+- **Two tiers** (ROADMAP.md, "A suite that can be trusted"; `tests/e2e/tiers-lib.mjs`). A test is **core** unless it
+  says otherwise, and a release needs every core test green: writing never lost, undo, outside edits, the file format,
+  each feature's main path. A test that checks only how something looks or how fast it feels (pixel sizes, what is in
+  sight, where a menu opens, colours, the exact rows of a list, frame times) is **look**: its failure is reported in
+  the verdict and does not block. Mark a new one with `tier: 'look'` beside its name and fn, or a whole file with
+  `export const tier = 'look'`; the tests written before the tiers are listed in `tests/e2e/tiers.json`. Don't mix
+  the two in one test: a look check inside a core test blocks a release for a pixel.
+- **A quarantine, not living with red.** A test that fails for a reason of the machine (a font, a slow runner), not of
+  Binders, goes in `tests/e2e/quarantine.json` with `name`, `file`, `owner`, `until` (a date, at most two weeks
+  out) and `why`. Until that date it is reported and does not block; after it, it counts again, and the verdict says
+  so. Its owner mends it (or removes it, with the reason in the commit) by then. A bug of Binders is never
+  quarantined: it goes in `open-findings.json`.
+- **Tests ask what a writer would**: "is this action offered, and does it work", not "is it the fourth row" or "is the
+  header 40 px tall". A test that needs an action goes through the shared helpers (`tests/e2e/menu-routes.mjs`:
+  `offers`, `expand`, `throughDrawers`) rather than a row's position, so moving a row is one edit there and no test
+  breaks. New tests are written that way; old ones are moved to it as they break.
 
 ## Working as a team of agents
 

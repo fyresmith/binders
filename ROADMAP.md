@@ -244,21 +244,26 @@ Targeted validation belongs to every feature above. The final round tests how th
 
 The suite is not being rebuilt (the maintainer's decision, 2026-10-12). Its foundation stays: real Obsidian, a
 pristine vault for each test, the whole suite on GitHub for every push, a release refused without a pass. What changes
-is narrower, so that a red run always means something new. In this order, starting after the next release:
+is narrower, so that a red run always means something new. Begun the same day, at the maintainer's word, rather than
+after the next release; the rules are in AGENTS.md ("Tests") and docs/dev/development.md ("The suite on GitHub"):
 
-- [ ] **Two tiers.** A core tier that a release needs green: writing never lost, undo, external edits, the file
+- [x] **Two tiers.** A core tier that a release needs green: writing never lost, undo, external edits, the file
       format, and each feature's main path. A look tier that reports and does not block: pixel sizes, where a menu
-      opens, exact lists of rows. Most red runs so far came from the second kind.
-- [ ] **A quarantine instead of living with red.** A test that fails for a reason of the machine (a font, a slow
+      opens, exact lists of rows. Most red runs so far came from the second kind. Built (2026-10-12): every test was
+      read and 329 of 3,240 are look (`tests/e2e/tiers.json`, `tests/e2e/tiers-lib.mjs`).
+- [x] **A quarantine instead of living with red.** A test that fails for a reason of the machine (a font, a slow
       runner) is listed with an owner and a date, as `tests/e2e/open-findings.json` lists known bugs, and is mended or
-      removed by that date.
-- [ ] **Tests ask what a writer would.** "Is this action offered, and does it work", not "is it the fourth row" or
+      removed by that date. Built (2026-10-12): `tests/e2e/quarantine.json`; the verdict says an entry whose date
+      has passed, and an entry with no owner or date is a problem.
+- [x] **Tests ask what a writer would.** "Is this action offered, and does it work", not "is it the fourth row" or
       "is the header 40 px tall". New tests are written that way; old ones are moved as they break, through shared
-      helpers (`tests/e2e/menu-routes.mjs` is the pattern).
+      helpers (`tests/e2e/menu-routes.mjs` is the pattern; `offers` asks whether an action is in a menu). The rule is
+      in AGENTS.md; moving the old tests goes on as they break.
 - [ ] **A cull.** The QA rounds (qa4 to qa11) walk many of the same journeys. Merge the near-duplicates: a shorter
       run, and less to break.
-- [ ] **What the suite cannot give.** A short checklist run by hand on the maintainer's iPhone before each release,
-      and what beta users report, weighed above a green run.
+- [x] **What the suite cannot give.** A short checklist run by hand on the maintainer's iPhone before each release,
+      and what beta users report, weighed above a green run. The checklist is `docs/dev/phone-checklist.md`, and
+      `npm run release` names it before it asks.
 
 ## Not building
 
