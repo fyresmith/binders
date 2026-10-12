@@ -39,7 +39,11 @@
   `tests/e2e/open-findings.json` and don't count. `npm run e2e:all` still runs it on this machine (about two hours).
   `npm run demo-vault` makes a vault of extreme binders to try by hand; `test-vault` is the tests' fixture and is
   not for hand use.
-- **The suite is red, on purpose for now** (2026-10-11). Its first whole run on GitHub (commit `1824f2c`): 5,592
+- **A suite that can be trusted** (2026-10-12, the maintainer's word; ROADMAP.md): tests are in two tiers. Only the
+  core tier blocks a release; a look failure (pixels, what is in sight, frame times) is reported apart. A test that
+  fails for a reason of the machine goes in `tests/e2e/quarantine.json` with an owner and a date. Rules in AGENTS.md
+  ("Tests"); the iPhone checklist before a release is `docs/dev/phone-checklist.md`.
+- **The suite was red, on purpose** (2026-10-11; by 2026-10-12 down to about ten failing tests). Its first whole run on GitHub (commit `1824f2c`): 5,592
   passed, 268 failures (140 tests, most in both themes): mostly tests gone stale as features landed and QA round
   11's unfinished files, with perhaps ten to twenty-five real bugs. The maintainer's decision: "We shall wait until
   all features are done then clean out all tests and fix all the bugs." So new work keeps its own spec files green
