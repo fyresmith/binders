@@ -227,7 +227,10 @@ the sample projects there, zipped, for a real Scrivener to open: nothing here ca
 
 `tests/e2e/driver.mjs` starts Obsidian (Electron) headless with a throwaway profile and a throwaway copy of
 `test-vault`, and drives it over the Chrome DevTools protocol. The runner resets every note between tests, and fails a
-test on any console error.
+test on an exception, or on an error or a warning that Binders' own code logs (its stack has `plugin:binders` in it, or
+its text starts "Binders:"). What Obsidian, CodeMirror or Electron log (a note indexed after the test renamed it,
+CodeMirror's "Measure loop restarted") is printed under the test and doesn't fail it. `p.errors` still holds every
+message, each marked `ours`, for the tests that are about the console.
 
 Each test is of a tier (below, "The tiers and the quarantine"): a failure of the look tier is printed and listed apart,
 and doesn't fail the run. A test that only needs an action offered asks `offers(p, title)` (`menu-routes.mjs`), not
