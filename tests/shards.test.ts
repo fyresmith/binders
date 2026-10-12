@@ -33,7 +33,7 @@ type F = { file: string; n: number; weight: number };
 
 // the verdict
 {
-	type R = { name: string; theme: string; mark: string; err: string; ms: number; file: string };
+	type R = { name: string; theme: string; mark: string; err: string; ms: number; file: string; tier?: string };
 	const r = (name: string, mark: string, file = 'tests/e2e/specs-a.mjs', theme = 'light', err = ''): R => ({ name, theme, mark, err, ms: 1000, file });
 	const shard = (n: number, theme: string, results: R[], extra: Record<string, unknown> = {}) => ({ commit: 'abc1234567', shard: `${n}/2`, themes: [theme], files: [...new Set(results.map((x) => x.file))], total: results.length, minutes: 5, early: [], shifted: [], results, alone: [], ...extra });
 	const expected = [{ theme: 'light', shard: '1/2' }, { theme: 'light', shard: '2/2' }];
@@ -80,6 +80,30 @@ type F = { file: string; n: number; weight: number };
 	// a narrowed run checks no files
 	v = verdict([green[0]], { expected: [expected[0]], specFiles: null });
 	ok(v.ok, 'a narrowed run');
+
+	// the look tier: reported, never blocking; an older shard's result with no tier is core
+	const lookRow = { ...r('pixels', '✗', 'tests/e2e/specs-a.mjs', 'light', '43 px'), tier: 'look' };
+	v = verdict([shard(1, 'light', [lookRow, r('a', '✓')]), green[1]], { expected, specFiles });
+	ok(v.ok, 'a look failure does not fail the run');
+	eq(j(v.look.map((x: R) => x.name)), j(['pixels']), 'it is listed as look');
+	ok(/1 look failure \(not blocking\)/.test(describe(v)) && /Look, reported and not blocking \(1\)/.test(describe(v)), 'and said apart');
+	v = verdict([shard(1, 'light', [{ ...r('core', '✗'), tier: 'core' }, r('untiered', '✗')]), green[1]], { expected, specFiles });
+	eq(v.real.length, 2, 'a core failure, and one with no tier, are real');
+	const lookAlone = [{ name: 'pixels', theme: 'light', file: 'tests/e2e/specs-a.mjs', alone: 'passed', aloneErr: '' }];
+	v = verdict([shard(1, 'light', [lookRow], { alone: lookAlone }), green[1]], { expected, specFiles });
+	ok(v.ok && v.load.length === 1 && !v.look.length, 'a look failure that passed alone was the load');
+
+	// the quarantine: held until its date, then it counts again
+	const held = { active: new Set(['flaky']), ended: [{ name: 'over', owner: 'Caleb', until: '2026-10-01' }], bad: [] };
+	v = verdict([shard(1, 'light', [r('flaky', '○', 'tests/e2e/specs-a.mjs', 'light', 'font'), r('known', '○')]), green[1]], { expected, specFiles, open: ['known'], quarantine: held });
+	ok(v.ok, 'a quarantined failure does not fail the run');
+	eq(j(v.held.map((x: R) => x.name)), j(['flaky']), 'it is listed as quarantined');
+	eq(j(v.open.map((x: R) => x.name)), j(['known']), 'apart from the open findings');
+	ok(/Quarantine ended: mend or remove these/.test(describe(v)) && /over \(Caleb, until 2026-10-01\)/.test(describe(v)), 'an ended entry is said, with its owner');
+	v = verdict([shard(1, 'light', [r('flaky', '✓')]), green[1]], { expected, specFiles, quarantine: held });
+	eq(j(v.fixed.map((x: R) => x.name)), j(['flaky']), 'a quarantined test that passes is said');
+	v = verdict(green, { expected, specFiles, quarantine: { active: new Set(), ended: [], bad: ['Quarantine entry 1 has no owner.'] } });
+	ok(!v.ok && v.problems.includes('Quarantine entry 1 has no owner.'), 'an entry that cannot be held is a problem');
 }
 
 // timings
