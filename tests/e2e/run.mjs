@@ -81,8 +81,13 @@ for (let round = 1; round <= repeat; round++) {
 					});
 					await p.sleep(80);
 				})(), limit, 'the test');
-				const bad = p.errors.filter((e) => !/ERR_|net::|DevTools|favicon|Failed to load resource|Electron Security Warning/.test(e));
-				if (bad.length) throw new Fail('errors logged: ' + bad.slice(0, 3).join(' ; '));
+				// An exception fails the test, and so does an error or a warning logged by Binders' own code. What Obsidian,
+				// CodeMirror or Electron log (a file indexed after a test renamed it, "Measure loop restarted") is theirs: it is
+				// said here and doesn't fail it. A test that is about the console still reads every message in p.errors.
+				const noise = /ERR_|net::|DevTools|favicon|Failed to load resource|Electron Security Warning/;
+				const said = p.errors.filter((e) => !noise.test(e)), blocking = said.filter((e) => e.ours || /^exception: /.test(e));
+				if (said.length > blocking.length) console.log(`    · logged by Obsidian or CodeMirror, not failing: ${said.filter((e) => !blocking.includes(e)).slice(0, 2).map((e) => String(e).split('\n')[0].slice(0, 160)).join(' ; ')}`);
+				if (blocking.length) throw new Fail('errors logged: ' + blocking.slice(0, 3).join(' ; '));
 			} catch (e) {
 				stuck = e instanceof TimedOut;
 				err = stuck ? `timed out: ${e.message} (--timeout <seconds>, or a timeout in ms on the test, gives it longer)` : e instanceof Fail ? e.message : 'crashed: ' + (e.stack || e).toString().split('\n').slice(0, 3).join(' | ');

@@ -145,7 +145,13 @@ export async function launch({ vault = VAULT, theme = 'light', width = 1440, hei
 		proc.once('error', (e) => { clearTimeout(timeout); reject(e); });
 		proc.once('exit', () => { clearTimeout(timeout); reject(new Error('Obsidian exited before exposing its debugging port')); });
 	});
+	// What the page logs as wrong, as text (as the tests read it), each marked `ours` when Binders' own code is in its stack
+	// (Obsidian runs a plugin's code as "plugin:binders"): the runner fails a test on an exception, or on an error or a
+	// warning of Binders' own; one of Obsidian's, CodeMirror's or Electron's is said and doesn't fail it (run.mjs).
 	const errors = [];
+	const OURS = /plugin:binders/;
+	// (and Binders' own messages start "Binders:", which says it even when the stack has lost the plugin's frame)
+	const logged = (text, frames) => Object.assign(new String(text), { ours: OURS.test(text) || /^console\.\w+: Binders:/.test(text) || (frames ?? []).some((f) => OURS.test(f.url ?? '')) });
 	const targets = async () => {
 		for (let i = 0; i < 80; i++) { try { const l = await (await fetch(`http://127.0.0.1:${port}/json`)).json(); if (l.length) return l; } catch { /* starting */ } await sleep(250); }
 		throw new Error('Obsidian did not start');
@@ -169,9 +175,9 @@ export async function launch({ vault = VAULT, theme = 'light', width = 1440, hei
 			if (x.exception?.type === 'string' && x.exception.value === 'illegal access' && !(x.stackTrace?.callFrames?.length) && !x.lineNumber && !x.columnNumber) return;
 			const what = x.exception && !x.exception.description ? ` [${x.exception.type}${x.exception.subtype ? ' ' + x.exception.subtype : ''}${x.exception.value !== undefined ? ': ' + JSON.stringify(x.exception.value) : ''}]` : '';
 			const where = x.exception?.description ? '' : ` at ${x.url || '(no url)'}:${x.lineNumber}:${x.columnNumber}` + (x.stackTrace?.callFrames ?? []).slice(0, 4).map((f) => ` < ${f.functionName || '(anonymous)'} ${f.url}:${f.lineNumber}`).join('');
-			errors.push('exception: ' + said + what + where);
+			errors.push(logged('exception: ' + said + what + where, x.stackTrace?.callFrames));
 		}
-		if (d.method === 'Runtime.consoleAPICalled' && (d.params.type === 'error' || d.params.type === 'warning' || d.params.type === 'assert')) errors.push(`console.${d.params.type}: ` + d.params.args.map((a) => a.value ?? a.description).join(' '));
+		if (d.method === 'Runtime.consoleAPICalled' && (d.params.type === 'error' || d.params.type === 'warning' || d.params.type === 'assert')) errors.push(logged(`console.${d.params.type}: ` + d.params.args.map((a) => a.value ?? a.description).join(' '), d.params.stackTrace?.callFrames));
 	});
 	// Touch emulation swaps the mouse for a finger (no hover, a coarse pointer), which is what a phone test wants. Turning
 	// it off doesn't bring the mouse back: Chromium falls back to what it found on the machine, which is nothing. Sending
