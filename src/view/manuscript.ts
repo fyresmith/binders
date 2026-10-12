@@ -1136,7 +1136,7 @@ class Manuscript implements BinderMode {
 			}
 			const sel = cm.state.selection.main;
 			this.caret = { file: s.file, pos: sel.head - start, anchor: sel.anchor - start };
-			if (show) { this.showCaret(s, cm.coordsAtPos(sel.head), 'start', true); this.follow(s, cm, 'start'); } // (all the way at once: the editor is already there, and a section far from the window is let go of)
+			if (show) { this.showCaret(s, cm.coordsAtPos(sel.head), 'start'); this.follow(s, cm, 'start'); }
 			return;
 		}
 		let pos = where === 'start' ? start : where === 'end' ? doc.length : typeof where === 'number' ? clamp(where) : clamp(this.spotted(spot, doc.sliceString(start), start) ?? cm.posAtCoords(where, false));
@@ -1159,7 +1159,7 @@ class Manuscript implements BinderMode {
 		}
 		if (!show) return;
 		const fallback = where === 'end' ? 'end' : 'start';
-		// (once the editor has measured itself, and in turns if it's a long way: the page isn't moved while it measures)
+		// (once the editor has measured itself, and not before as well: a page moved while it measures makes it measure again)
 		this.follow(s, cm, fallback);
 	}
 
@@ -1283,28 +1283,21 @@ class Manuscript implements BinderMode {
 	}
 
 	/** The page follows the cursor: once the editor has drawn, it's scrolled so the cursor is in sight. */
-	private follow(s: Scene, cm: EditorView, fallback: 'start' | 'end' = 'start', left = 12, again = false): void {
+	private follow(s: Scene, cm: EditorView, fallback: 'start' | 'end' = 'start'): void {
 		// on the next frame, once the editor has measured itself: scrolling the page while it measures makes it start
 		// over ("Measure loop restarted"), since what it draws depends on which part of it is in the window
 		const win = this.root.win;
 		win.cancelAnimationFrame(this.following);
-		win.clearTimeout(this.followLater);
-		const turn = () => {
-			this.following = win.requestAnimationFrame(() => {
-				if (this.dead || s.live?.cm !== cm || !cm.hasFocus) return;
-				// (a long way is gone in turns, each after the editor has had time to draw what it moved to: see showCaret)
-				// (the last turn goes the rest of the way at once: a cursor is never left out of sight, whatever the distance)
-				if (this.showCaret(s, cm.coordsAtPos(cm.state.selection.main.head), fallback, left <= 0)) this.follow(s, cm, fallback, left - 1, true);
-			});
-		};
-		if (again) this.followLater = win.setTimeout(turn, 120); else turn();
+		this.following = win.requestAnimationFrame(() => {
+			if (this.dead || s.live?.cm !== cm || !cm.hasFocus) return;
+			this.showCaret(s, cm.coordsAtPos(cm.state.selection.main.head), fallback);
+		});
 	}
 	private following = 0;
-	private followLater = 0;
 
 	/** Scrolls the page so the cursor is in sight, a couple of lines clear of the edge. CodeMirror does this for an
 	    editor that's on screen; one that's wholly off it isn't measured, and its cursor would stay out of sight. */
-	private showCaret(s: Scene, c: { top: number; bottom: number } | null, fallback: 'start' | 'end', whole = false): boolean {
+	private showCaret(s: Scene, c: { top: number; bottom: number } | null, fallback: 'start' | 'end'): void {
 		const r = this.root.getBoundingClientRect(), body = s.bodyEl.getBoundingClientRect();
 		// (what can be seen of the page: on a phone the keyboard may lie over its foot without making it any shorter,
 		// and while the view is short the page runs up under Obsidian's header, as a note's does)
@@ -1314,14 +1307,9 @@ class Manuscript implements BinderMode {
 		// focus mode's typewriter scrolling: with the cursor on the last line of its section, that line is held at one
 		// height and the page moves under it (here, where the manuscript moves its page anyway); anywhere else, as below
 		const cm = s.live?.cm, held = cm ? this.ctx.plugin.focus?.line(this.root, cm) : null;
-		if (held != null) { this.ctx.plugin.focus.glide(this.root, top - held); return false; }
-		// (a long way is gone in turns of a window's height, not at once: jumping over an editor that hasn't measured
-		// what lies between makes it measure, move and measure again past CodeMirror's limit of five, "Measure loop
-		// restarted". `follow` asks again until the cursor is where it belongs.)
-		const far = view.bottom - view.top, want = top < view.top + pad ? top - (view.top + pad) : bottom > view.bottom - pad ? bottom - (view.bottom - pad) : 0;
-		const by = whole ? want : Math.max(-far, Math.min(far, want));
-		if (by) this.root.scrollTop += by;
-		return Math.abs(want - by) >= 1;
+		if (held != null) { this.ctx.plugin.focus.glide(this.root, top - held); return; }
+		if (top < view.top + pad) this.root.scrollTop -= view.top + pad - top;
+		else if (bottom > view.bottom - pad) this.root.scrollTop += bottom - (view.bottom - pad);
 	}
 
 	/** How much of the page's top is under something drawn over it (Obsidian's floating header on a phone, while the
