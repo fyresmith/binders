@@ -40,15 +40,15 @@
   `npm run demo-vault` makes a vault of extreme binders to try by hand; `test-vault` is the tests' fixture and is
   not for hand use.
 - **A suite that can be trusted** (2026-10-12, the maintainer's word; ROADMAP.md): tests are in two tiers. Only the
-  core tier blocks a release; a look failure (pixels, what is in sight, frame times) is reported apart. A test that
+  core tier blocks a release; a look failure (pixels, what is in sight, frame times) is reported apart. Speed budgets
+  are look, not core (his decision, 2026-10-12). A test that
   fails for a reason of the machine goes in `tests/e2e/quarantine.json` with an owner and a date. Rules in AGENTS.md
   ("Tests"); the iPhone checklist before a release is `docs/dev/phone-checklist.md`.
-- **The suite was red, on purpose** (2026-10-11; by 2026-10-12 down to about ten failing tests). Its first whole run on GitHub (commit `1824f2c`): 5,592
-  passed, 268 failures (140 tests, most in both themes): mostly tests gone stale as features landed and QA round
-  11's unfinished files, with perhaps ten to twenty-five real bugs. The maintainer's decision: "We shall wait until
-  all features are done then clean out all tests and fix all the bugs." So new work keeps its own spec files green
-  and does not chase the old failures; the cleanup is one pass after the roadmap's features. Until then a release
-  is refused by the gate. Two triage agents' partial findings are in their reports of that night.
+- **The suite was red, on purpose** (2026-10-11). Its first whole run on GitHub (commit `1824f2c`): 5,592 passed, 268
+  failures (140 tests), mostly tests gone stale as features landed. The plan then was to wait until every feature was
+  built; on 2026-10-12 the maintainer had the cleanup start at once instead, as the tiers and the quarantine above. By
+  that day about ten tests failed. A failing core test now blocks a release, as before; a look one does not.
+  `tests/e2e/triage-2026-10-11.md` has the triage of that first run.
 - **How fixes ship** (learned 2026-10-02, when about a hundred patches shipped on targeted tests alone and several
   broke older tests; narrowed 2026-10-05, when area runs of two hours per agent crashed the machine): an agent runs
   its new tests and the one or two spec files that cover what it changed, and turns the work in; the whole suite
