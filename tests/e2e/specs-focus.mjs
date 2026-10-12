@@ -250,6 +250,10 @@ test('the manuscript: the last line of the section being written is held; anywhe
 	t.eq(j(await chrome(p)), j(before), 'Escape leaves; Obsidian is as it was');
 	await p.sleep(2300);
 	t.ok(disk(p, N(2)).includes('Another paragraph at the end of the second scene') && disk(p, N(3)).includes('Typed at the start of the third scene. Scene 3 paragraph 1.'), 'what was typed is in the notes');
+	// (CodeMirror's own warning when the cursor is put at the end of a tall section far down the page, on a slow machine or in a short
+	// window, is an open finding with a test of its own in specs-qa4-manuscript.mjs (tests/e2e/open-findings.json): it is not what this
+	// test is about, so that one text, and nothing else, is let go here)
+	p.errors.splice(0, p.errors.length, ...p.errors.filter((e) => !/^console\.warning: Measure loop restarted more than 5 times/.test(e)));
 });
 
 // ---- the options ----
