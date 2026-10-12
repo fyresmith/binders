@@ -96,10 +96,12 @@ async function wayIn(p, t, { take = false } = {}) {
 		if (phone) await tapOn(p, '.workspace-leaf.mod-active .view-actions .clickable-icon[aria-label="More options"]', '');
 		else await tapOn(p, '.workspace-leaf.mod-active .view-actions .clickable-icon[aria-label="Snapshots"]', '');
 		await sleep(p, 500);
+		// (on a phone the two rows are in More options' Snapshots drawer, which takes the sheet's place)
+		if (phone) { await tapOn(p, '.menu .menu-item', 'Snapshots'); await sleep(p, 500); }
 	};
 	await open();
 	const items = await menuItems(p);
-	t.ok(items.includes('Take a snapshot') && items.includes('Show snapshots...'), (phone ? 'More options' : 'the Snapshots button') + ' has both: ' + j(items));
+	t.ok(items.includes('Take a snapshot') && items.includes('Show snapshots...'), (phone ? 'More options’ Snapshots drawer' : 'the Snapshots button') + ' has both: ' + j(items));
 	if (take) {
 		const n0 = (await list(p)).length;
 		await tapOn(p, '.menu .menu-item', 'Take a snapshot');

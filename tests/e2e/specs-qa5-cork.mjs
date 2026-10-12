@@ -1088,7 +1088,10 @@ test('stacks: a card dropped on a stack’s middle goes into that folder; droppe
 		await cardMenu(p, 'Part One');
 		const items = await menuItems(p);
 		say('stack sheet', j(items));
-		for (const x of ['Open', 'Rename', 'Edit synopsis', 'Set status', 'Duplicate', 'Ungroup', 'Export...', 'Delete']) t.ok(items.includes(x), `“${x}” is in a stack’s sheet`);
+		for (const x of ['Open', 'Rename', 'Edit synopsis', 'Set status', 'Move', 'Export...', 'More', 'Delete']) t.ok(items.includes(x), `“${x}” is in a stack’s sheet`);
+		// (Duplicate is under More and Ungroup under Move now: found by opening the drawers)
+		const all = await menuItemsAllTouch(p, tap);
+		for (const x of ['Duplicate', 'Ungroup']) t.ok(all.includes(x), `“${x}” is in a stack’s sheet, in its drawer: ${j(all)}`);
 		t.ok(await menuTap(p, 'Rename'), 'Rename');
 		await p.sleep(400);
 		t.eq((await active(p)).tag, 'INPUT', 'a stack is renamed on its card');

@@ -565,11 +565,16 @@ test('phone: the filter and the target dialog work by touch; the settings have r
 		await closeMenus(p);
 		const c = await p.at(card(L + 'Prologue.md'));
 		await hold(p, c.x, c.y);
-		// (the sheet scrolls, and with the menu's longer list "Set target..." starts below the screen's foot: scroll to it as a finger would)
-		await p.ev(`(() => { const it = [...document.querySelectorAll('.menu .menu-item')].find(e => e.querySelector('.menu-item-title')?.textContent === 'Set target...'); it?.scrollIntoView({ block: 'center' }); return 1; })()`);
+		// ("Set target..." is in the More drawer now, which takes the sheet's place on a phone)
+		t.ok(await itemAt(p, 'More'), 'a held card opens its menu, with More');
+		// (the sheet scrolls: bring the row into sight, as a finger would)
+		await p.ev(`(() => { const it = [...document.querySelectorAll('.menu .menu-item')].find(e => e.querySelector('.menu-item-title')?.textContent === 'More'); it?.scrollIntoView({ block: 'center' }); return 1; })()`);
 		await p.sleep(300);
+		const mr = await itemAt(p, 'More');
+		await tap(p, mr.x, mr.y);
+		await p.sleep(450);
 		const st = await itemAt(p, 'Set target...');
-		t.ok(st, 'a held card opens its menu');
+		t.ok(st, 'and More has Set target...');
 		await tap(p, st.x, st.y);
 		await until(p, `!!document.querySelector('.modal .binders-ask input')`);
 		await p.sleep(600);

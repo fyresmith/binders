@@ -11,6 +11,7 @@
 import { inflateSync } from 'zlib';
 import { mkdirSync, readFileSync } from 'fs';
 import { join } from 'path';
+import { menuItemsAllTouch } from './menu-routes.mjs';
 import { VIEW, closeMenus, contents, exists, j, menuItems, openView, until, withTidy } from './view-helpers.mjs';
 import { LEAF, PHONE, TABLET, binder, dialogs, disk, metrics, notices, onDevice, swipe, tap, tapText, hold, touch, menuTap, keys, openMs, saveAll, snap } from './specs-qa5-manuscript.mjs';
 
@@ -192,15 +193,16 @@ test('the corkboard after the app is sent to the background and brought back, an
 // The blank title: the tablet's three modes, switched from the More options menu
 // =====================================================================================================================
 
-test('the tablet switches mode from More options (corkboard, outliner, manuscript, and back): each mode draws every title in sight', on(TABLET, async (p, h, t) => {
+test('the tablet switches mode from the toolbar’s mode button (corkboard, outliner, manuscript, and back): each mode draws every title in sight', on(TABLET, async (p, h, t) => {
 	await binder(p, 'Novel', scenes(14, 2));
 	await openView(p, 'Novel');
 	await mode(p, 'corkboard');
 	await until(p, `document.querySelectorAll('${LEAF} .binders-card[data-path]').length >= 14`, 8000);
 	const steps = [['Outliner', '.binders-outliner-cell.mod-title'], ['Manuscript', '.binders-manuscript-title'], ['Corkboard', '.binders-card-title'], ['Outliner', '.binders-outliner-cell.mod-title']];
 	for (const [name, sel] of steps) {
-		await more(p);
-		t.ok(await menuTap(p, name), `“${name}” is in More options`);
+		const b = await p.at(`${LEAF} .binders-mode-button`);
+		await tap(p, b.x, b.y, 400);
+		t.ok(await menuTap(p, name), `“${name}” is in the toolbar’s mode menu`);
 		await p.sleep(900);
 		t.ok(await p.ev(`${VIEW}.mode === ${j(name.toLowerCase())}`), `the view is on ${name}`);
 		await drawn(t, p, sel, name);
@@ -211,14 +213,15 @@ test('the tablet switches mode from More options (corkboard, outliner, manuscrip
 // More options: what it holds, and what each item does (phone)
 // =====================================================================================================================
 
-test('the view’s More options on a phone lists the modes, Find, Undo or Redo, Export..., Show contents and Open binder note, in that order; Show contents and Open binder note do what they say', on(PHONE, async (p, h, t) => {
+test('the view’s More options on a phone lists Find, Export..., Show contents and Open binder note, in that order, and not the modes (the toolbar’s); Show contents and Open binder note do what they say', on(PHONE, async (p, h, t) => {
 	await binder(p, 'Novel', scenes(4));
 	await openView(p, 'Novel');
 	await mode(p, 'corkboard');
 	await more(p);
 	const items = await menuItems(p);
-	const want = ['Corkboard', 'Outliner', 'Manuscript', 'Find in binder', 'Export...', 'Show contents', 'Open binder note'];
+	const want = ['Find in binder', 'Export...', 'Show contents', 'Open binder note'];
 	t.ok(inOrder(items, want), `the items, in order: ${items.join(', ')}`);
+	t.ok(!items.some((x) => ['Corkboard', 'Outliner', 'Manuscript', 'Timeline'].includes(x)), `the modes are not in it: ${items.join(', ')}`);
 	await menuTap(p, 'Show contents');
 	await p.sleep(900);
 	t.ok(await p.ev(`!!document.querySelector('.binders-contents')`), 'Show contents opens the contents in the drawer');
@@ -237,8 +240,8 @@ test('More options, on a phone, has Take a snapshot and Show snapshots..., and b
 	await p.sleep(300);
 	const before = snap(p);
 	await more(p);
-	const items = await menuItems(p);
-	t.ok(items.includes('Take a snapshot') && items.includes('Show snapshots...'), 'the snapshot items are there: ' + items.join(', '));
+	const items = await menuItemsAllTouch(p, tap); // (they are in the Snapshots drawer)
+	t.ok(items.includes('Snapshots') && items.includes('Take a snapshot') && items.includes('Show snapshots...'), 'the Snapshots drawer, and the snapshot items in it: ' + items.join(', '));
 	t.ok(await menuTap(p, 'Take a snapshot'), 'Take a snapshot is tapped');
 	await p.sleep(1200);
 	const taken = await p.ev(`app.vault.getFiles().filter(f => f.path.startsWith('Novel/Snapshots/')).map(f => f.path)`);

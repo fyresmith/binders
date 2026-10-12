@@ -1177,7 +1177,7 @@ test('phone: a folder’s heading: a tap goes into the folder, its menu renames 
 // The toolbar and the folder's synopsis
 // =====================================================================================================================
 
-test('phone: “New” makes a note after the section with the caret, named in place; the word count follows the typing and opens the target dialog; the synopsis at the top of the page is typed in place; “More options” has the modes and Export', on(PHONE, async (p, h, t, before) => {
+test('phone: “New” makes a note after the section with the caret, named in place; the word count follows the typing and opens the target dialog; the synopsis at the top of the page is typed in place; “More options” has Export and no modes (they are the toolbar’s)', on(PHONE, async (p, h, t, before) => {
 	await openMs(p);
 	const count = () => p.ev(`document.querySelector('${LEAF} .binders-word-count').textContent`);
 	t.eq(await count(), '106 words', 'the count');
@@ -1228,7 +1228,9 @@ test('phone: “New” makes a note after the section with the caret, named in p
 	await tap(p, more.x, more.y, 500);
 	const items = await menuItems(p);
 	await shot(p, 'more-options');
-	for (const x of ['Corkboard', 'Outliner', 'Manuscript', 'Export...', 'Open binder note']) t.ok(items.includes(x), `“${x}” is in More options: ${j(items)}`);
+	for (const x of ['Export...', 'Open binder note']) t.ok(items.includes(x), `“${x}” is in More options: ${j(items)}`);
+	t.ok(!items.some((x) => ['Corkboard', 'Outliner', 'Manuscript', 'Timeline'].includes(x)), `the modes are not in More options, they are the toolbar’s: ${j(items)}`);
+	t.ok(!!(await p.at(`${LEAF} .binders-mode-button`)), 'the mode button is in the toolbar');
 	await gone(p);
 	await saveAll(p);
 	const after = snap(p);

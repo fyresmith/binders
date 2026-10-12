@@ -1979,7 +1979,8 @@ test('phone 6. a Longform project: every mode shows it in Longform’s order wit
 		S.eq(j(await menuItems(p)), j(['New note']), 'New has no “New folder” in a Longform project');
 		await gone(p);
 		await cardMenu(p, LF + 'Harbor.md');
-		S.ok(!(await menuItems(p)).includes('Put in a new folder'), 'nor has a card’s menu “Put in a new folder”');
+		const lfAll = await menuItemsAllTouch(p, tap); // (it would be in the Move drawer)
+		S.ok(!lfAll.includes('Put in a new folder') && lfAll.includes('Move'), 'nor has a card’s menu “Put in a new folder” (Move has up and down only): ' + j(lfAll));
 		await gone(p);
 		await modeByTouch(p, 'Outliner');
 		S.eq(j(base(await rowsIn(p))), j(ORDER), 'the outliner: the same');

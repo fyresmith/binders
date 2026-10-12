@@ -12,7 +12,7 @@
 import { tapToggle } from './filter-helpers.mjs';
 import { mkdirSync, writeFileSync } from 'fs';
 import { scaled, slowness } from './machine-speed.mjs';
-import { throughDrawers } from './menu-routes.mjs';
+import { menuItemsAllTouch, throughDrawers } from './menu-routes.mjs';
 import { B, PL, VIEW, closeMenus, contents, flush, j, menuItems, openView, read, reload, texts, tidy, until, viewState } from './view-helpers.mjs';
 
 export const specs = [];
@@ -710,7 +710,8 @@ test('phone, a note’s menu: a held row lifts, then its menu is a sheet; Rename
 		await shot(p, 'menu-note');
 		c.ok(isSheet(f.sheet) && f.sheet.itemHeights.every((x) => x >= 44), 'let go, its menu is a sheet with rows a finger tall');
 		for (const x of ['Open', 'Open in new tab', 'Rename', 'Edit synopsis', 'Set status', 'Set label', 'Move', 'Snapshots', 'Export as', 'More', 'Delete']) c.ok(f.items.includes(x), `“${x}” is in it`);
-		c.ok(!f.items.includes('Open to the right') && !f.items.includes('Move up'), 'without “Open to the right” (a phone) or “Move up” (it’s the first in its folder)');
+		f.all = await menuItemsAllTouch(p, tap); // (Move up and down are in the Move drawer)
+		c.ok(!f.all.includes('Open to the right') && !f.all.includes('Move up') && f.all.includes('Move down'), 'without “Open to the right” (a phone) or “Move up” (it’s the first in its folder), and with “Move down”: ' + j(f.all));
 		c.eq(f.items[f.items.length - 1], 'Delete', 'Delete last');
 		c.eq(j([await selected(p), await activeFile(p)]), j([[L + A], null]), 'the row is selected and nothing opened');
 		await menuTap(p, 'Rename');
@@ -1056,7 +1057,8 @@ test('phone headers: a tap opens the column’s menu as a sheet; sorting shows i
 		c.eq(j([await menus(p), await activeFile(p)]), j([0, null]), 'letting go opens nothing');
 		await scrollTo(p, 0, 0);
 		await rowMenu(p, 'Part One/The keeper.md');
-		c.ok(!(await items(p)).includes('Move up') && !(await items(p)).includes('Move down'), 'a row’s menu has no Move up or Move down while sorted');
+		const sortedAll = await menuItemsAllTouch(p, tap); // (up and down would be in the Move drawer)
+		c.ok(!sortedAll.includes('Move up') && !sortedAll.includes('Move down'), 'a row’s menu has no Move up or Move down while sorted: ' + j(sortedAll));
 		await gone(p);
 		x = await p.at(th('title'));
 		await tap(p, x.x, x.y);
@@ -1146,7 +1148,10 @@ test('phone toolbar: the options sheet shows and hides columns and folds everyth
 		f.more = { items: await items(p), sheet: await sheet(p) };
 		await shot(p, 'toolbar-more');
 		c.ok(isSheet(f.more.sheet), 'the options are a sheet');
-		for (const x of ['Show synopses ✓', 'Columns', 'Expand all', 'Collapse all', 'Outliner ✓', 'Export...', 'Open binder note']) c.ok(f.more.items.includes(x), `“${x}” is in it`);
+		for (const x of ['Show synopses ✓', 'Columns', 'Expand all', 'Collapse all', 'Export...', 'Open binder note']) c.ok(f.more.items.includes(x), `“${x}” is in it`);
+		// (the modes are the toolbar's now, not More options': the mode button is on the phone's toolbar)
+		c.ok(!f.more.items.some((x) => /^(Corkboard|Outliner|Manuscript|Timeline)/.test(x)), 'the modes are not in it: they are the toolbar’s');
+		c.ok(!!(await p.at(`${LEAF} .binders-mode-button`)), 'the mode button is in the phone’s toolbar');
 		await menuTap(p, 'Columns');
 		await p.sleep(500);
 		await shot(p, 'toolbar-columns-sub');
@@ -1281,7 +1286,8 @@ test('phone: an empty binder says so and takes a first note; a binder in a newer
 		c.eq(j(await items(p)), j(['New note']), 'New has no folder');
 		await gone(p);
 		await rowMenu(p, 'Island.md', LF);
-		c.ok(!(await items(p)).includes('Put in a new folder') && (await items(p)).includes('Move up'), 'nor has a row’s menu');
+		const lfAll = await menuItemsAllTouch(p, tap); // (Move up is in the Move drawer now; the drawers are opened by tap)
+		c.ok(!lfAll.includes('Put in a new folder') && lfAll.includes('Move up'), 'nor has a row’s menu (Move has up and down, no new folder): ' + j(lfAll));
 		await gone(p);
 		const g2 = await grip(p, 'Island.md', LF), cr = await rect(p, LF('The crossing.md'));
 		await pressAndMove(p, g2.x, g2.y, g2.x + 30, cr[1] + cr[3] - 5);

@@ -81,7 +81,7 @@ test('menus and modes from the keyboard: the mode menu, the commands, a card’s
 	await p.key('F10', 'shift');
 	await p.sleep(200);
 	const items = await p.ev(`[...document.querySelectorAll('.menu .menu-item-title')].map(e => e.textContent)`);
-	t.ok(['Open', 'Rename', 'Edit synopsis', 'Ungroup', 'Delete'].every((x) => items.includes(x)), 'Shift+F10 opens the folder’s menu: ' + items.join(', '));
+	t.ok(['Open', 'Rename', 'Edit synopsis', 'Set status', 'Set label', 'Move', 'Snapshots', 'Export as', 'More', 'Delete'].every((x) => items.includes(x)), 'Shift+F10 opens the folder’s menu: ' + items.join(', '));
 	await p.key('Escape');
 	await p.sleep(200);
 	t.eq(await p.ev(`document.activeElement?.dataset?.path`), 'The Lighthouse/Part One', 'Escape: back on the stack');

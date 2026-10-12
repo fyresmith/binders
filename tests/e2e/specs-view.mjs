@@ -2,7 +2,7 @@
 // folder's synopsis, read-only newer-format binders, and following renames. Every test that changes files checks no
 // text was lost.
 import { tick, clearFilter, closeFilter, openFilter, chooseProperty, clickEl, pickerItems, pick, rowSel } from './filter-helpers.mjs';
-import { B, NOTE, PL, VIEW, card, cards, clickMenu, closeMenus, contents, exists, file, j, menuItems, openView, read, reload, same, selected, split, texts, settled, until, viewState, withTidy, writeRaw } from './view-helpers.mjs';
+import { B, NOTE, PL, VIEW, card, cards, clickMenu, closeMenus, contents, exists, file, j, menuItems, menuItemsAll, openView, read, reload, same, selected, split, texts, settled, until, viewState, withTidy, writeRaw } from './view-helpers.mjs';
 
 export const specs = [];
 const test = (name, fn) => specs.push({ name: 'view: ' + name, fn });
@@ -210,11 +210,12 @@ test('the mode menu and commands switch modes', async (p, h, t) => {
 	await p.sleep(200);
 	t.eq((await viewState(p)).mode, 'corkboard', 'the command switches back');
 	t.eq((await cards(p)).length, 4, 'the corkboard is drawn again');
-	// the pane's "More options" menu has them too
+	// the pane's "More options" menu has the corkboard's options, in its Cards drawer; the modes are the toolbar's
 	const more = await p.at(`.workspace-leaf.mod-active .view-action[aria-label="More options"]`);
 	await p.click(more.x, more.y);
-	const items = await menuItems(p);
-	t.ok(['Corkboard', 'Outliner', 'Manuscript', 'Card size', 'Tint cards with their label color', 'Number the cards'].every((x) => items.includes(x)), 'More options lists the modes and the corkboard’s options: ' + items.join(', '));
+	const items = await menuItemsAll(p);
+	t.ok(['Cards', 'Small', 'Medium', 'Large', 'Tint cards with their label color', 'Number the cards'].every((x) => items.includes(x)), 'More options has the Cards drawer, with the card sizes and the corkboard’s options: ' + items.join(', '));
+	t.ok(!['Corkboard', 'Outliner', 'Manuscript', 'Timeline'].some((x) => items.includes(x)), 'and not the modes, which are the toolbar’s: ' + items.join(', '));
 	await closeMenus(p);
 });
 
