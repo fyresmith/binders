@@ -5,9 +5,9 @@
 // the drawers work by keyboard, by pointer, by tap on a tablet and a phone (nested sheets), without Obsidian's
 // submenu, with forty folders under Move; that nothing the old menus had is lost; and that the modes and Arrange
 // (not in More options now) are in the toolbar on a phone 320 px wide. Heights are logged for the record.
-import { OLD_ITEM_TITLES, OLD_PANE_TITLES } from './menu-routes.mjs';
+import { OLD_ITEM_TITLES, OLD_PANE_TITLES, offers } from './menu-routes.mjs';
 import { PHONE, SMALL, TABLET_WIDE, touch, choose, context, drawer, items, longPress, onDevice, reachable, sheetOf, tapEl, tapMenu, titles } from './specs-qa6-menus.mjs';
-import { B, PL, VIEW, closeMenus, flush, j, openView, tidy, until } from './view-helpers.mjs';
+import { B, PL, VIEW, closeMenus, exists, flush, j, openView, tidy, until } from './view-helpers.mjs';
 
 export const specs = [];
 const test = (name, fn) => specs.push({ name: 'menu groups: ' + name, fn: async (p, h, t) => { try { await fn(p, h, t); } finally { await closeMenus(p).catch(() => {}); await tidy(p).catch(() => {}); } } });
@@ -39,6 +39,21 @@ const moreOptions = async (p) => {
 /** Opens a drawer of the menu on screen and gives its titles; the menu is closed after. */
 const drawerOf = async (p, reopen, name) => { await reopen(); const d = await drawer(p, name); await closeMenus(p); return names(d); };
 const geometry = (p) => p.ev(`(() => [...document.querySelectorAll('.menu')].map(m => { const r = m.getBoundingClientRect(), sc = m.querySelector('.menu-scroll') ?? m; return { top: Math.round(r.top), bottom: Math.round(r.bottom), left: Math.round(r.left), right: Math.round(r.right), height: Math.round(r.height), scrolls: sc.scrollHeight > sc.clientHeight + 1 || m.scrollHeight > m.clientHeight + 1, inner: [innerWidth, innerHeight] }; }))()`);
+
+// ================================================================================================================
+// asked as a writer would: is it offered, and does it work (wherever the menu keeps it)
+// ================================================================================================================
+
+test('a writer’s question: a note’s menu offers Rename, Duplicate and Set target..., and Duplicate makes the copy beside it', async (p, h, t) => {
+	await fresh(p, 'The Lighthouse/Part One');
+	const at = () => context(p, CARD(L + 'Part One/The keeper.md'));
+	await at();
+	for (const title of ['Rename', 'Duplicate', 'Set target...', 'Take a snapshot']) t.ok(await offers(p, title), `${title} is offered`);
+	t.ok(!(await offers(p, 'Plot grid')), 'what isn’t there is not offered');
+	await choose(p, 'Duplicate');
+	await until(p, `!!app.vault.getAbstractFileByPath(${j(L + 'Part One/The keeper 2.md')})`, 5000);
+	t.ok(await exists(p, L + 'Part One/The keeper 2.md'), 'the copy is on disk, beside the note');
+});
 
 // ================================================================================================================
 // the top level and each drawer, for each kind
