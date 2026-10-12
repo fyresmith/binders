@@ -153,8 +153,8 @@ npm run ship -- "Docs: what the limits are" --internal
   - **updates each one to say what is true now**, keeping what it was really checking, and renames a test whose name
     is no longer true. A test is never loosened or deleted to make it pass; one that no longer has a point is
     removed with the reason in the commit;
-  - **runs the tests it touched**, narrowed with `--grep`, in both themes. This is not a regression run: it is the
-    tests the change is known to have made stale;
+  - **runs the tests it touched**, narrowed with `--grep`, with `--theme both` (each runs in the themes it is meant
+    for: below). This is not a regression run: it is the tests the change is known to have made stale;
   - **reports the search**: what was searched for, the files that had hits, and what was done in each.
   The coordinator does not ship such a ticket without that list, and runs the same search itself before pushing.
 - Keep e2e tests independent: each starts from the pristine `test-vault` (the runner resets it).
@@ -165,6 +165,10 @@ npm run ship -- "Docs: what the limits are" --internal
   decision, 2026-10-12) is **look**: its failure is reported in the verdict and does not block. Mark a new one with `tier: 'look'` beside its name and fn, or a whole file with
   `export const tier = 'look'`; the tests written before the tiers are listed in `tests/e2e/tiers.json`. Don't mix
   the two in one test: a look check inside a core test blocks a release for a pixel.
+- **A core test runs in the light theme only; a look test in both** (the maintainer's decision, 2026-10-12: what a core
+  test checks is the same in either theme, and a second run was only a second chance to flake). A test or a file
+  about a theme says which it runs in (`themes: ['dark']`; `export const themes` for a file). `--all-themes` runs
+  every test in every theme asked, for a change to how something looks in one of them.
 - **A quarantine, not living with red.** A test that fails for a reason of the machine (a font, a slow runner), not of
   Binders, goes in `tests/e2e/quarantine.json` with `name`, `file`, `owner`, `until` (a date, at most two weeks
   out) and `why`. Until that date it is reported and does not block; after it, it counts again, and the verdict says

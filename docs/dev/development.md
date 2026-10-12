@@ -512,12 +512,13 @@ npm run suite -- --timings     # after a finished run: saves the times it measur
 
 It needs the `gh` CLI, signed in. The pieces:
 
-- **A matrix of shards.** `SHARDS` (10) shards per theme, so 20 jobs at once (what a free account runs), each a fresh
+- **A matrix of shards.** `SHARDS_LIGHT` (16) and `SHARDS_DARK` (4) shards, so 20 jobs at once (what a free account
+  runs; a core test runs in the light theme only and a look test in both, so light has most of the work), each a fresh
   `ubuntu-latest` runner: check out, Node 22, `scripts/cloud-setup.sh` (`npm ci`; Obsidian fetched and unpacked, kept
   in `actions/cache` under the Obsidian version `OBSIDIAN_VERSION` set at the top of the workflow; Electron's libraries
   through `sudo apt-get` when `ldd` finds some missing; EPUBCheck, on the runner's Java), Poppler for the PDF tests,
   `npm run build` (which also installs the plugin into `test-vault`), then
-  `run-all.mjs --jobs 2 --theme <t> --shard i/10 --retry-alone`. Obsidian runs with `--no-sandbox` there
+  `run-all.mjs --jobs 2 --theme <t> --shard i/n --retry-alone`. Obsidian runs with `--no-sandbox` there
   (`BINDERS_NO_SANDBOX=1`: Ubuntu 24.04 stops a user making the namespace Electron's sandbox needs).
 - **Two Obsidians per runner.** A runner has 4 cores; the local runner's own note is "about one per two cores", and
   tests that time frames and race typing fail when Obsidians crowd each other. `JOBS` in the workflow is the knob.
@@ -540,6 +541,11 @@ It needs the `gh` CLI, signed in. The pieces:
   tests, quarantine entries whose date has passed, and listed tests that now pass) is on the run's page
   (`$GITHUB_STEP_SUMMARY`) and in the artifact `suite-verdict` (`verdict.json`, `timings.json`). The workflow fails
   only for a real failure or a problem, so a release (which asks for a green workflow) needs the core tier green.
+- **Themes.** A core test runs in the light theme only, a look test in both, and a test or file about a theme in the
+  ones it names (`themes`; `specs-qa11-paragraphs-dark.mjs` runs in the dark one only). Each shard records the files
+  its theme has tests for (`wanted` in `shard.json`), and the verdict checks that every one of those, and no other, was
+  given to exactly one shard of that theme. `--all-themes` (on `run.mjs` and `run-all.mjs`) runs everything in every
+  theme asked.
 - **The tiers and the quarantine** (ROADMAP.md, "A suite that can be trusted"; `tests/e2e/tiers-lib.mjs`, tested in
   `tests/tiers.test.ts`). Every test is core unless it says it is look: `tier: 'look'` on the test, `export const
   tier = 'look'` for a whole file (`specs-qa3-look.mjs`, `specs-themes.mjs`), or its name in `tests/e2e/tiers.json`,

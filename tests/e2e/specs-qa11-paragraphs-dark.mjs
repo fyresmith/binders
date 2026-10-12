@@ -10,6 +10,8 @@ import { join } from 'path';
 import { PL, VIEW, file, j, until, withTidy, openView } from './view-helpers.mjs';
 import { ARRIVAL, L, LEAF, PHONE, onDevice, tap } from './specs-qa5-manuscript.mjs';
 
+// (written for the dark theme: it runs in that one only, whatever its tests' tier; tiers-lib.mjs)
+export const themes = ['dark'];
 export const specs = [];
 const test = (name, fn) => specs.push({ name, fn: withTidy(async (p, h, t) => { try { await fn(p, h, t); } finally { await restore(p); } }) });
 

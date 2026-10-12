@@ -8,6 +8,9 @@
 // `export const tier = 'look'`. The tests written before the tiers were sorted once, by reading each (2026-10-12): those
 // of the look tier are listed by name in tests/e2e/tiers.json, under their file. A name there that no test has any more
 // is said (`unlisted`): a renamed test falls back to core, never the other way.
+// Which themes a test runs in: a core test in the light one only (what it checks is the same in both, and a second run
+// is only a second chance to flake); a look test in both. A test or a file that is about a theme says so with
+// `themes: [...]` (`export const themes` for a file): specs-qa11-paragraphs-dark.mjs runs in the dark one only.
 // The quarantine (tests/e2e/quarantine.json) is for a test that fails for a reason of the machine (a font, a slow
 // runner), not of Binders: listed with an owner and a date, it is reported and does not block until that date. After
 // it, it counts again as it would. A bug of Binders is not quarantined: it goes in open-findings.json.
@@ -22,11 +25,21 @@ export function tierOf(spec, fileTier, listed = false) {
 	return t;
 }
 
-/** Each spec with its tier written on it (`{ ...spec, tier }`), from one spec file's module; `look`, the names
-    tiers.json lists for that file. */
+export const THEMES = ['light', 'dark'];
+
+/** The themes a spec runs in: its own `themes`, else its file's, else both for look and light for core. Anything else
+    is refused. */
+export function themesOf(spec, tier, fileThemes) {
+	const t = spec?.themes ?? fileThemes ?? (tier === 'look' ? THEMES : ['light']);
+	if (!Array.isArray(t) || !t.length || t.some((x) => !THEMES.includes(x))) throw new Error(`"${spec?.name}": themes ${JSON.stringify(t)} are not some of ${THEMES.join(', ')}`);
+	return t;
+}
+
+/** Each spec with its tier and its themes written on it (`{ ...spec, tier, themes }`), from one spec file's module;
+    `look`, the names tiers.json lists for that file. */
 export function tiered(mod, look = []) {
 	const listed = new Set(look);
-	return (mod.specs ?? []).map((s) => ({ ...s, tier: tierOf(s, mod.tier, listed.has(s.name)) }));
+	return (mod.specs ?? []).map((s) => { const tier = tierOf(s, mod.tier, listed.has(s.name)); return { ...s, tier, themes: themesOf(s, tier, mod.themes) }; });
 }
 
 /** The names tiers.json lists (`{ file: [names] }`) that no test of that file has (`names`: `{ file: [names] }` of the

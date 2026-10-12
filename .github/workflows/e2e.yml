@@ -1,7 +1,7 @@
 name: E2E
 
 # The whole end-to-end suite (real, headless Obsidian), in both themes, shared out over runners of its own: a matrix of
-# SHARDS shards per theme, each `run-all.mjs --shard i/n` on a fresh ubuntu-latest, and one last job that merges what
+# SHARDS_LIGHT and SHARDS_DARK shards, each `run-all.mjs --shard i/n` on a fresh ubuntu-latest, and one last job that merges what
 # they found into a single verdict (tests/e2e/verdict.mjs). docs/dev/development.md, "The suite on GitHub".
 #   npm run suite              starts it for main's tip (or reports the run already there)
 #   npm run suite -- --wait    follows it and prints the verdict: exit 0 or 1
@@ -41,9 +41,11 @@ permissions:
   contents: read
 
 env:
-  # (20 jobs run at once on a free account: 10 shards x 2 themes. Obsidians per runner: a runner has 4 cores, and the
-  # local runner's rule is one Obsidian per two cores.)
-  SHARDS: 10
+  # (20 jobs run at once on a free account. A core test runs in the light theme only and a look test in both
+  # (tests/e2e/tiers-lib.mjs), so the light theme has most of the work: 16 shards for it, 4 for the dark. Obsidians per
+  # runner: a runner has 4 cores, and the local runner's rule is one Obsidian per two cores.)
+  SHARDS_LIGHT: 16
+  SHARDS_DARK: 4
   OBSIDIAN_VERSION: "1.13.7"
 
 jobs:
@@ -64,11 +66,12 @@ jobs:
           themes="light,dark"
           case "$THEMES" in light) themes="light" ;; dark) themes="dark" ;; esac
           narrowed=false
-          shards="$SHARDS"
-          # a few tests need one shard, not ten runners that set up for nothing
+          light="$SHARDS_LIGHT"; dark="$SHARDS_DARK"
+          # a few tests need one shard, not sixteen runners that set up for nothing
           if [ -n "$GREP$SPECS" ] || [ "$themes" != "light,dark" ]; then narrowed=true; fi
-          if [ -n "$GREP$SPECS" ]; then shards=1; fi
-          matrix="$(jq -cn --argjson n "$shards" --arg themes "$themes" '{include: [($themes | split(",")[]) as $t | range(1; $n + 1) as $i | {theme: $t, shard: $i, shards: $n}]}')"
+          if [ -n "$GREP$SPECS" ]; then light=1; dark=1; fi
+          shards="light:$light,dark:$dark"
+          matrix="$(jq -cn --argjson l "$light" --argjson d "$dark" --arg themes "$themes" '{include: [($themes | split(",")[]) as $t | (if $t == "dark" then $d else $l end) as $n | range(1; $n + 1) as $i | {theme: $t, shard: $i, shards: $n}]}')"
           { echo "matrix=$matrix"; echo "shards=$shards"; echo "themes=$themes"; echo "narrowed=$narrowed"; } >> "$GITHUB_OUTPUT"
           echo "$matrix"
 
