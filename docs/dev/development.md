@@ -537,22 +537,25 @@ It needs the `gh` CLI, signed in. The pieces:
 - **One verdict.** The last job (`verdict`) downloads every shard's artifact and runs `tests/e2e/verdict.mjs` over
   them, by the rules `run-all.mjs` has for one machine: an open finding (`open-findings.json`) doesn't count, nor
   does a test the quarantine holds (`quarantine.json`, until its date); a failure is retried alone on the shard that
-  saw it (`--retry-alone`) and counts only if it fails alone too, and only if it is of the core tier (a look
-  failure is listed apart: below); a shard that left no results, stopped early, ran other code than it started
+  saw it (`--retry-alone`) and counts only if it fails alone too, and only if it is of the guard or core tier (a
+  look failure is listed apart: below); a shard that left no results, stopped early, ran other code than it started
   with, or left tests unrun is a problem, and so is a spec file no shard was given, or a quarantine entry with no
-  owner or date. The summary (real failures, look failures, failures that passed alone, open findings, quarantined
+  owner or date. The summary (guard failures, core failures, look failures, failures that passed alone, open findings, quarantined
   tests, quarantine entries whose date has passed, and listed tests that now pass) is on the run's page
   (`$GITHUB_STEP_SUMMARY`) and in the artifact `suite-verdict` (`verdict.json`, `timings.json`). The workflow fails
-  only for a real failure or a problem, so a release (which asks for a green workflow) needs the core tier green.
-- **Themes.** A core test runs in the light theme only, a look test in both, and a test or file about a theme in the
+  only for a real failure of the guard tier or a problem, so a release (which asks for a green workflow) needs the
+  guard tier green; with core failures it passes "with N core failures to fix", and lists them first. A narrowed run
+  (someone checking their own tests) fails for any core failure too.
+- **Themes.** A guard or core test runs in the light theme only, a look test in both, and a test or file about a theme in the
   ones it names (`themes`; `specs-qa11-paragraphs-dark.mjs` runs in the dark one only). Each shard records the files
   its theme has tests for (`wanted` in `shard.json`), and the verdict checks that every one of those, and no other, was
   given to exactly one shard of that theme. `--all-themes` (on `run.mjs` and `run-all.mjs`) runs everything in every
   theme asked.
 - **The tiers and the quarantine** (ROADMAP.md, "A suite that can be trusted"; `tests/e2e/tiers-lib.mjs`, tested in
-  `tests/tiers.test.ts`). Every test is core unless it says it is look: `tier: 'look'` on the test, `export const
-  tier = 'look'` for a whole file (`specs-qa3-look.mjs`, `specs-themes.mjs`), or its name in `tests/e2e/tiers.json`,
-  where the 329 tests that check only presentation or speed were listed when the tiers began (2026-10-12). A name in
+  `tests/tiers.test.ts`). Every test is core unless it says otherwise: `tier: 'guard'` or `tier: 'look'` on the test,
+  `export const tier` for a whole file (`specs-qa3-look.mjs`, `specs-themes.mjs` are look), or its name in
+  `tests/e2e/tiers.json` (`{ guard: { file: [names] }, look: { file: [names] } }`), where the tests that keep the
+  writing safe and the 329 that check only presentation or speed were listed when the tiers began (2026-10-12). A name in
   `tiers.json` that no test has any more is said at the start of `run-all.mjs`: that test has become core, and the
   list wants mending. `quarantine.json` is a list of `{ name, file, owner, until, why }` for tests that fail for a
   reason of the machine; AGENTS.md ("Tests") has the rules for both.

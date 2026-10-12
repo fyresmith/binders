@@ -34,8 +34,9 @@ export function timingsFrom(shards, before = {}) {
 
 /** One verdict out of every shard's shard.json, by the rules run-all.mjs has for one machine: a failure that is an open
     finding or quarantined doesn't count (its mark is already ○); a failure that passed again alone was the load; one of
-    the look tier (`tier` on its result; none is core) is reported as look and doesn't count; only a core one that failed
-    alone too (or could not be tried again) is real. A shard that is missing, stopped early, ran other code than it
+    the look tier (`tier` on its result; none is core) is reported as look and doesn't count; a core or guard one that
+    failed alone too (or could not be tried again) is real. Only a real failure of the guard tier holds the commit
+    back (`ok`, what a release asks): a real core failure is listed first, to fix, and `clean` says there are none. A shard that is missing, stopped early, ran other code than it
     started with, or left tests unrun is a problem, and so is a spec file that no shard was given or two were.
     `expected`: the `{ theme, shard }` pairs that should be there; `specFiles`: every spec file there is (leave out for
     a narrowed run, which shares only some). `quarantine`: what tiers-lib's `quarantine` made of the list (`active`,
@@ -79,18 +80,23 @@ export function verdict(shards, { open = [], expected = [], specFiles = null, qu
 	}
 	const commits = new Set(shards.map((s) => s.commit).filter(Boolean));
 	if (commits.size > 1) problems.push(`The shards ran different commits: ${[...commits].map((c) => c.slice(0, 7)).join(', ')}.`);
-	return { ok: !real.length && !problems.length, real, look, load, open: still, held: kept, fixed, ended: quarantine?.ended ?? [], problems, passed, shards: shards.length, minutes, commit: [...commits][0] ?? null };
+	const guard = real.filter((r) => r.tier === 'guard');
+	return { ok: !guard.length && !problems.length, clean: !real.length && !problems.length, real, guard, look, load, open: still, held: kept, fixed, ended: quarantine?.ended ?? [], problems, passed, shards: shards.length, minutes, commit: [...commits][0] ?? null };
 }
 
 /** The verdict as text to read: Markdown for a job's summary page (`markdown`), plain for a terminal. */
 export function describe(v, { markdown = false } = {}) {
 	const h = (t) => (markdown ? `### ${t}` : t), code = (t) => (markdown ? '```\n' + t + '\n```' : t.replace(/^/gm, '      ')), bullet = markdown ? '- ' : '  ';
-	const lines = [markdown ? `## E2E suite: ${v.ok ? 'passed' : 'failed'}` : `E2E suite: ${v.ok ? 'passed' : 'FAILED'}`, ''];
+	const guard = v.guard ?? v.real, core = v.real.filter((r) => !guard.includes(r));
+	const verdictWord = !v.ok ? (markdown ? 'failed' : 'FAILED') : core.length ? `passed: nothing that guards the writing failed, and ${plural(core.length, 'core failure')} to fix` : 'passed';
+	const lines = [markdown ? `## E2E suite: ${verdictWord}` : `E2E suite: ${verdictWord}`, ''];
 	const look = v.look ?? [], held = v.held ?? [], ended = v.ended ?? [];
-	lines.push(`${plural(v.passed, 'test')} passed, ${plural(v.real.length, 'real failure')}, ${plural(look.length, 'look failure')} (not blocking), ${plural(v.load.length, 'failure')} that passed again alone, ${plural(v.open.length, 'open finding')}, ${plural(held.length, 'quarantined failure')}; ${plural(v.shards, 'shard')}, the slowest ${v.minutes} min${v.commit ? `, at ${v.commit.slice(0, 7)}` : ''}.`);
+	lines.push(`${plural(v.passed, 'test')} passed, ${plural(guard.length, 'guard failure')} (they hold a release), ${plural(core.length, 'core failure')}, ${plural(look.length, 'look failure')}, ${plural(v.load.length, 'failure')} that passed again alone, ${plural(v.open.length, 'open finding')}, ${plural(held.length, 'quarantined failure')}; ${plural(v.shards, 'shard')}, the slowest ${v.minutes} min${v.commit ? `, at ${v.commit.slice(0, 7)}` : ''}.`);
 	const entry = (r, more = '') => `${bullet}${r.name} [${r.theme}]\n${code(`${r.file ?? '?'}${r.shard ? `, shard ${r.shard}` : ''}\n${r.err}${more}`)}`;
 	if (v.problems.length) lines.push('', h(`Problems (${v.problems.length})`), ...v.problems.map((p) => bullet + p));
-	if (v.real.length) lines.push('', h(`Real failures (${v.real.length})`), ...v.real.map((r) => entry(r, r.aloneErr ? `\nalone: ${r.aloneErr}` : r.retried ? '' : '\n(not tried again alone)')));
+	const why = (r) => (r.aloneErr ? `\nalone: ${r.aloneErr}` : r.retried ? '' : '\n(not tried again alone)');
+	if (guard.length) lines.push('', h(`Guard failures: a release waits on these (${guard.length})`), ...guard.map((r) => entry(r, why(r))));
+	if (core.length) lines.push('', h(`Core failures: to fix, not holding a release (${core.length})`), ...core.map((r) => entry(r, why(r))));
 	if (look.length) lines.push('', h(`Look, reported and not blocking (${look.length})`), ...look.map((r) => entry(r)));
 	if (v.load.length) lines.push('', h(`Failed under load, passed alone (${v.load.length})`), ...v.load.map((r) => entry(r)));
 	if (v.open.length) lines.push('', h(`Open findings, failing as listed (${v.open.length})`), ...v.open.map((r) => `${bullet}${r.name} [${r.theme}]`));

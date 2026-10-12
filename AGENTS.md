@@ -158,14 +158,22 @@ npm run ship -- "Docs: what the limits are" --internal
   - **reports the search**: what was searched for, the files that had hits, and what was done in each.
   The coordinator does not ship such a ticket without that list, and runs the same search itself before pushing.
 - Keep e2e tests independent: each starts from the pristine `test-vault` (the runner resets it).
-- **Two tiers** (ROADMAP.md, "A suite that can be trusted"; `tests/e2e/tiers-lib.mjs`). A test is **core** unless it
-  says otherwise, and a release needs every core test green: writing never lost, undo, outside edits, the file format,
-  each feature's main path. A test that checks only how something looks or how fast it feels (pixel sizes, what is in
-  sight, where a menu opens, colours, the exact rows of a list, frame times and other speed budgets: the maintainer's
-  decision, 2026-10-12) is **look**: its failure is reported in the verdict and does not block. Mark a new one with `tier: 'look'` beside its name and fn, or a whole file with
-  `export const tier = 'look'`; the tests written before the tiers are listed in `tests/e2e/tiers.json`. Don't mix
-  the two in one test: a look check inside a core test blocks a release for a pixel.
-- **A core test runs in the light theme only; a look test in both** (the maintainer's decision, 2026-10-12: what a core
+- **Three tiers** (ROADMAP.md, "A suite that can be trusted"; `tests/e2e/tiers-lib.mjs`; the maintainer's decisions,
+  2026-10-12).
+  - **guard**: a release waits on these. A test is guard when it checks a writer's work is safe: text typed or pasted
+    reaches the note once and whole, undo and redo, outside edits kept, the files Binders writes (properties, the
+    order, Longform's list, newer formats refused), renames, moves, merges and splits that keep every word and the
+    order, snapshots taken and brought back, import, replace.
+  - **core**: everything else a writer would call broken, each feature's main path, menus, the keyboard. Every test is
+    core unless it says otherwise. A core failure is listed first in the verdict, as work to do, and doesn't hold a
+    release: the run passes "with N core failures to fix".
+  - **look**: how it looks or how fast it feels (pixel sizes, what is in sight, where a menu opens, colours, the exact
+    rows of a list, frame times and other speed budgets), reported apart.
+  Mark a new test with `tier: 'guard'` or `tier: 'look'` beside its name and fn, or a whole file with `export const
+  tier`; the tests written before the tiers are listed in `tests/e2e/tiers.json`. A test that writes or reads the
+  writer's notes is guard: say so when you write it, or it won't hold a release. Don't mix look checks into a guard or
+  core test.
+- **A guard or core test runs in the light theme only; a look test in both** (the maintainer's decision, 2026-10-12: what a core
   test checks is the same in either theme, and a second run was only a second chance to flake). A test or a file
   about a theme says which it runs in (`themes: ['dark']`; `export const themes` for a file). `--all-themes` runs
   every test in every theme asked, for a change to how something looks in one of them.

@@ -17,7 +17,7 @@ import { join, relative } from 'path';
 import { pathToFileURL } from 'url';
 import { launch, VAULT } from './driver.mjs';
 import { TimedOut, limitOf, withLimit } from './run-all-lib.mjs';
-import { quarantine, tiered, today } from './tiers-lib.mjs';
+import { listedFor, quarantine, tiered, today } from './tiers-lib.mjs';
 
 const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i > 0 ? process.argv[i + 1] : d; };
 const themes = arg('theme', 'light') === 'both' ? ['light', 'dark'] : [arg('theme', 'light')];
@@ -37,7 +37,7 @@ walk(VAULT);
 const specFiles = arg('specs', '') ? arg('specs').split(',') : readdirSync('tests/e2e').filter((f) => /^specs.*\.mjs$/.test(f)).map((f) => 'tests/e2e/' + f);
 const specs = [];
 const LOOK = 'tests/e2e/tiers.json', looks = existsSync(LOOK) ? JSON.parse(readFileSync(LOOK, 'utf8')) : {};
-for (const f of specFiles) specs.push(...tiered(await import(pathToFileURL(f).href), looks[f] ?? looks[f.replace(/^\.\//, '')]));
+for (const f of specFiles) specs.push(...tiered(await import(pathToFileURL(f).href), listedFor(looks, f.replace(/^\.\//, ''))));
 
 // Findings still open, by the test's name: scenarios kept failing on purpose until what they show is fixed or decided.
 // One of them failing doesn't fail the run; one of them passing is said at the end, so the list stays true.

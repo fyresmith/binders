@@ -252,6 +252,8 @@ after the next release; the rules are in AGENTS.md ("Tests") and docs/dev/develo
       opens, exact lists of rows. Most red runs so far came from the second kind. Built (2026-10-12): every test was
       read and 329 of 3,240 are look (`tests/e2e/tiers.json`, `tests/e2e/tiers-lib.mjs`). Speed budgets (frame
       times, "opens quickly") are look too: a slow runner is not a broken book (the maintainer's decision, 2026-10-12).
+      Then narrowed (his decision, the same day): a release waits only on a third tier, **guard**, the tests that keep
+      a writer's work safe (`guard` in `tests/e2e/tiers.json`); a core failure is listed first as work to do.
 - [x] **A quarantine instead of living with red.** A test that fails for a reason of the machine (a font, a slow
       runner) is listed with an owner and a date, as `tests/e2e/open-findings.json` lists known bugs, and is mended or
       removed by that date. Built (2026-10-12): `tests/e2e/quarantine.json`; the verdict says an entry whose date
