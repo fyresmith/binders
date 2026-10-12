@@ -992,23 +992,6 @@ for (const [label, dims] of [['768 × 1024', [768, 1024]], ['820 × 1180', [820,
 	});
 }
 
-test('PROBE manuscript keyboard', async (p, h, t) => {
-	await open(p);
-	await setMode(p, 'manuscript');
-	await until(p, `!!document.querySelector('${LEAF} .binders-manuscript-scene .cm-content')`);
-	await p.ev(`document.querySelector('${LEAF} .binders-manuscript-title').focus()`);
-	log('title', await focusIs(p));
-	await p.key('Tab'); await p.sleep(300); log('Tab from the first title →', await focusIs(p));
-	await p.key('Escape'); await p.sleep(300); log('Escape in the editor →', await focusIs(p));
-	await p.key('Tab', 'shift'); await p.sleep(300); log('Shift+Tab →', await focusIs(p));
-	await p.ev(`document.querySelectorAll('${LEAF} .binders-manuscript-title')[1].focus()`);
-	await p.key('F10', 'shift'); await p.sleep(400); log('menu', await menus(p), j(await menuItems(p)).slice(0, 120));
-	await p.key('Escape'); await p.sleep(300); log('Escape from the title menu →', await focusIs(p));
-	await p.key('F2'); await p.sleep(300); log('F2 on a title →', await focusIs(p));
-	await p.key('Escape'); await p.sleep(300); log('Escape →', await focusIs(p));
-	await p.key('Enter'); await p.sleep(600); log('Enter on a title →', await focusIs(p), await p.ev(`app.workspace.getMostRecentLeaf()?.view?.getViewType()`));
-});
-
 const explorerRow = (path) => `.nav-files-container .tree-item-self[data-path="${path}"]`;
 for (const [label, dims] of [['820 × 1180', [820, 1180]], ['1024 × 768 on its side', [1024, 768]]]) {
 	test(`tablet ${label}, explorer pinned: a note held and dragged in the file explorer by touch moves in the binder’s order (or is refused cleanly), a drop on a folder moves it in, and what the view shows follows`, async (p, h, t) => {

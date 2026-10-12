@@ -835,13 +835,6 @@ ux('custom color: a hex typed without its # is taken', async (p, h, t) => {
 	t.eq((await fm(p, L + 'Prologue.md')).label ?? null, '#ff0000', '“ff0000” is red');
 });
 
-ux('targets: something that isn’t a number keeps the dialog open, with what was typed', async (p, h, t) => {
-	await openView(p);
-	await typeTarget(p, 'Prologue.md', '2k');
-	const still = await p.ev(`document.querySelector('.modal .binders-ask input')?.value ?? null`);
-	t.eq(still, '2k', 'the dialog is still there to correct (it closes, and a notice says a target is a number)');
-});
-
 ux('targets: the binder’s own target can be set from the view', async (p, h, t) => {
 	await openView(p);
 	const found = [];

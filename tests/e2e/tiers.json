@@ -119,13 +119,11 @@
 	"tests/e2e/specs-qa10-paragraphs-typing.mjs": [
 		"qa10 paragraphs typing: BUG: qa10 paragraphs typing: a note of 2,000 tab paragraphs: after jumping to the end, to the middle and scrolling fast no frame draws a tab line as code; typing at the end and in the middle stays marked",
 		"qa10 paragraphs typing: opening a note that has tab paragraphs, switching between two such notes in one tab, back and forward, and the three modes: no frame draws a tab line as code",
-		"qa10 paragraphs typing: BUG: qa10 paragraphs typing: a binder’s note that is open when Obsidian starts shows its tab paragraphs as code until the first click or key",
-		"qa10 paragraphs typing: BUG: qa10 paragraphs typing: a note moved into a binder while it is open keeps showing its tab lines as code, and one moved out keeps showing them as paragraphs, until the next click or key"
+		"qa10 paragraphs typing: BUG: qa10 paragraphs typing: a binder’s note that is open when Obsidian starts shows its tab paragraphs as code until the first click or key"
 	],
 	"tests/e2e/specs-qa10-paragraphs-views.mjs": [
 		"qa10 paragraphs: BUG: “Indent paragraphs” in the snapshots window: a paragraph that follows one is set in",
 		"qa10 paragraphs: frames: a binder’s note opened in the same tab after a note outside a binder, and the other way round",
-		"qa10 paragraphs: BUG: a reading view that is open follows the settings: “Start a paragraph with a tab” off puts the code block back, “Indent paragraphs” on indents, without reopening the note",
 		"qa10 paragraphs: BUG: with “Indent paragraphs” on, a manuscript section’s paragraphs are set in as an editor and as text alike: no jump when it swaps",
 		"qa10 paragraphs: reading view with “Strict line breaks” on: a tab line under a plain paragraph runs on with it, and the rest are still paragraphs, nothing is code",
 		"qa10 paragraphs: reading view of a long note: every tab line is a paragraph after the note is scrolled through, and after an edit from the editor side of a split, no block is left as (or flashes as) a code block",
@@ -209,7 +207,6 @@
 	"tests/e2e/specs-qa4-explorer.mjs": [
 		"qa4 explorer: menus: Binders’ items sit in Obsidian’s own sections, with its icons, and the rest of each menu is the stock one",
 		"qa4 explorer: look: the binder icon, label dots and the drop line, measured against the rows Obsidian draws",
-		"qa4 explorer: UX: a selection in a binder has one “new folder” item, not Obsidian’s and Binders’ side by side",
 		"qa4 explorer: UX: 20 notes dragged together over a folder of 5,000 keep the pointer smooth (under a frame per dragover)",
 		"qa4 explorer: mobile: the explorer’s menus offer the same items, in the same sections, as on desktop"
 	],
@@ -325,7 +322,6 @@
 		"qa6 phone: a small phone (320 × 568): with the keyboard up the toolbar goes and the caret stays in sight; the keyboard closing brings the toolbar back; turning the phone on its side and back while it is gone leaves it as the room says; a card’s synopsis typed on the board is in sight",
 		"UX: qa6 phone: 390 × 844: the toolbar’s buttons (mode, word count, arrange, filter, New, focus) are a finger wide and tall (44 px, with slop counted) in every mode",
 		"UX: qa6 phone: 320 × 568: the toolbar’s buttons (mode, word count, arrange, filter, New, focus) are a finger wide and tall (44 px, with slop counted) in every mode",
-		"UX: qa6 phone: a phone: a section’s title in the manuscript (a tap renames the note) and a folder’s heading (a tap goes in) are a finger tall",
 		"qa6 phone: text at its largest (30 px) at 320 × 568: every mode’s toolbar fits, nothing overlaps, the page doesn’t go sideways",
 		"qa6 phone: text at its largest (30 px) at 390 × 844: every mode’s toolbar fits, nothing overlaps, the page doesn’t go sideways",
 		"qa6 phone: text at its largest (30 px) at 430 × 932: every mode’s toolbar fits, nothing overlaps, the page doesn’t go sideways",

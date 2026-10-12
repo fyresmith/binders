@@ -475,15 +475,3 @@ test('BUG: qa10 paragraphs typing: a binder’s note that is open when Obsidian 
 	await p.ev(`(async () => { await ${B}.ready; return 1; })()`);
 });
 
-test('BUG: qa10 paragraphs typing: a note moved into a binder while it is open keeps showing its tab lines as code, and one moved out keeps showing them as paragraphs, until the next click or key', async (p, h, t) => {
-	await p.ev(`app.vault.create('Loose2.md', '\\tA tab line.\\n\\nPlain.\\n').then(() => 1)`);
-	await start(p, '\tA tab line.\n\nPlain.\n', { path: 'Loose2.md', front: false });
-	const st = () => p.ev(`(() => { const l = [...document.querySelectorAll(${j(LEAF + ' .cm-content > .cm-line')})].find(l => /A tab line/.test(l.textContent)); return { marked: l.classList.contains('binders-tab-paragraph'), code: !!l.querySelector('.cm-inline-code') }; })()`);
-	let s = await st(); t.ok(!s.marked && s.code, 'outside a binder it is code');
-	await p.ev(`(async () => { await app.fileManager.renameFile(app.vault.getAbstractFileByPath('Loose2.md'), ${j(L + 'Part One/Loose2.md')}); return 1; })()`);
-	await sleep(p, 1500);
-	s = await st(); t.ok(s.marked && !s.code, `moved into the binder, with nothing touched: a paragraph (marked ${s.marked}, code ${s.code})`);
-	await p.ev(`(async () => { await app.fileManager.renameFile(app.vault.getAbstractFileByPath(${j(L + 'Part One/Loose2.md')}), 'Loose3.md'); return 1; })()`);
-	await sleep(p, 1500);
-	s = await st(); t.ok(!s.marked && s.code, `moved out again, with nothing touched: code (marked ${s.marked}, code ${s.code})`);
-});

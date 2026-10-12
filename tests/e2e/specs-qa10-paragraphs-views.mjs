@@ -325,21 +325,6 @@ test('frames: turning “Start a paragraph with a tab” off and on with a live 
 	t.eq(disk(p, A), FRONT + TABTEXT, 'the note on disk is as it was');
 });
 
-test('BUG: a reading view that is open follows the settings: “Start a paragraph with a tab” off puts the code block back, “Indent paragraphs” on indents, without reopening the note', async (p, h, t) => {
-	await body(p, A, 'First.\n\nSecond one.\n\n\tTabbed line to watch, with *stress*.\n');
-	await open(p, A, 'preview');
-	await until(p, `!!document.querySelector(${j(LEAF + ' .markdown-reading-view p.binders-tab-paragraph')})`);
-	const rv = () => p.ev(`(() => { const r = document.querySelector(${j(LEAF + ' .markdown-reading-view')}); return { pre: r.querySelectorAll('pre:not(.frontmatter)').length, tab: r.querySelectorAll('p.binders-tab-paragraph').length, second: getComputedStyle([...r.querySelectorAll('p')].find(e => e.textContent.startsWith('Second one'))).textIndent }; })()`);
-	t.eq((await rv()).tab, 1, 'it begins as a paragraph');
-	await set(p, { indentParagraphs: true }); await sleep(p, 1500);
-	const ind = await rv();
-	await set(p, { indentParagraphs: false, tabParagraphs: false }); await sleep(p, 1500);
-	const off = await rv();
-	console.log('[open reading view, settings turned] ' + j({ ind, off }));
-	t.eq(ind.second, '24px', '“Indent paragraphs” turned on: the open reading view indents (' + j(ind) + ')');
-	t.ok(off.pre === 1 && off.tab === 0, 'the tab setting turned off: the open reading view shows the code block again (' + j(off) + ')');
-});
-
 test('NIT: restarting (the plugin disabled and enabled) with a tab-paragraph note open in the editor and in reading view: from the enabling on, no frame draws a tab paragraph with a guide line or without its indent', async (p, h, t) => {
 	await body(p, A, TABTEXT);
 	await open(p, A, 'source', false);

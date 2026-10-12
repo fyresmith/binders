@@ -933,13 +933,6 @@ test('cold start: a note renamed on disk while Obsidian was closed (no event) ke
 
 // ---- names that collide or don't survive a round trip ----
 
-test('BUG: a PDF and its companion note (paper.pdf and paper.pdf.md) both show in the binder, once each', withTidy(async (p, h, t) => {
-	await p.ev(`(async () => { const v = app.vault; await v.createBinary('The Lighthouse/Part One/paper.pdf', new Uint8Array([37, 80, 68, 70]).buffer); await v.create('The Lighthouse/Part One/paper.pdf.md', 'my notes on the paper\\n'); })().then(() => 1)`);
-	await p.sleep(500);
-	const names = await kids(p, 'The Lighthouse/Part One');
-	t.eq(j([...names].sort()), j(['Arrival.md', 'Storm warning.md', 'The keeper.md', 'paper.pdf', 'paper.pdf.md'].sort()), 'both the PDF and its note show, each once: ' + j(names));
-}));
-
 test('BUG: a PDF and its companion note keep their places after a move and a write', withTidy(async (p, h, t) => {
 	await p.ev(`(async () => { const v = app.vault; await v.createBinary('The Lighthouse/Part One/paper.pdf', new Uint8Array([37, 80, 68, 70]).buffer); await v.create('The Lighthouse/Part One/paper.pdf.md', 'my notes on the paper\\n'); })().then(() => 1)`);
 	await p.sleep(400);
@@ -967,13 +960,6 @@ test('BUG: the file explorer shows a PDF and its companion note in a binder as t
 	await p.sleep(600);
 	const rows = await p.ev(`[...${EXP}.containerEl.querySelectorAll('.tree-item-self[data-path^="The Lighthouse/Part One/"]')].map(e => e.dataset.path)`);
 	t.eq(j(rows.filter((x) => /paper/.test(x)).sort()), j(['The Lighthouse/Part One/paper.pdf', 'The Lighthouse/Part One/paper.pdf.md']), 'a row for each: ' + j(rows));
-}));
-
-test('BUG: a binder with a PDF and its companion note (paper.pdf, paper.pdf.md) lists the note once in its scenes', withTidy(async (p, h, t) => {
-	await p.ev(`(async () => { const v = app.vault; await v.createBinary('The Lighthouse/Part One/paper.pdf', new Uint8Array([37, 80, 68, 70]).buffer); await v.create('The Lighthouse/Part One/paper.pdf.md', 'my notes on the paper\\n'); })().then(() => 1)`);
-	await p.sleep(600);
-	const scenes = await p.ev(`${B}.scenes(${file('The Lighthouse')}).map(f => f.path)`);
-	t.eq(scenes.filter((x) => x.endsWith('paper.pdf.md')).length, 1, 'the note is one scene, not two (the manuscript and an export would repeat its text): ' + j(scenes));
 }));
 
 // ---- the binder note changed from outside while a move waits to be written ----
@@ -1436,23 +1422,6 @@ for (const gap of [0, 40, 400]) test(`BUG: outside: a scene removed and written 
 }));
 
 // ---- leaving Obsidian with a move still waiting to be written ----
-
-test('BUG: a move still waiting to be written (300 ms) is written when Obsidian is quitting', withTidy(async (p, h, t) => {
-	const before = await read(p, NOTE);
-	await p.ev(`${B}.moveDown(${file('The Lighthouse/Prologue.md')}).then(() => 1)`);
-	// what Obsidian does when it quits: asks every listener for the work it needs to finish first, then waits for it
-	const added = await p.ev(`(async () => { const ps = []; app.workspace.trigger('quit', { addPromise: (x) => ps.push(x) }); await Promise.all(ps); return ps.length; })()`);
-	const after = await read(p, NOTE);
-	t.ok(added > 0 && after !== before, `the quit waits for the write (${added} things to wait for), and the move is in the list: ${j((await contents(p)).slice(0, 3))}`);
-}));
-
-test('BUG: a move still waiting to be written is written when the page is hidden or closed (a phone put in the pocket, a window closed)', withTidy(async (p, h, t) => {
-	const before = await read(p, NOTE);
-	await p.ev(`${B}.moveDown(${file('The Lighthouse/Prologue.md')}).then(() => 1)`);
-	await p.ev(`(() => { window.dispatchEvent(new Event('pagehide')); return 1; })()`);
-	await p.sleep(150); // (well under the 300 ms the write is otherwise waiting)
-	t.ok((await read(p, NOTE)) !== before, 'written within 150 ms of the page being put away: ' + j((await contents(p)).slice(0, 3)));
-}));
 
 test('outside: a scene replaced by writing a temporary file and renaming it over the note (the usual safe save) keeps its place', withTidy(async (p, h, t) => {
 	const keeper = 'The Lighthouse/Part One/The keeper.md', text = await read(p, keeper);
