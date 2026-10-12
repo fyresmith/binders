@@ -11,11 +11,11 @@ Any of these sets it, for one note or for several selected together:
 
 - the **Story date** column of the [outliner](outliner.md): select a row, click the cell, type, Enter;
 - the **Story date** row of the [inspector](inspector.md);
-- **Set story date...** in the menu of a card or row, on the [timeline](timeline.md) too (the menu is the way on a
-  phone). **Remove story date** is there
+- **More › Set story date...** in the menu of a card or row, on the [timeline](timeline.md) too (the menu is the way on a
+  phone). **More › Remove story date** is there
   when a selected note has one;
 - dragging a card on the [timeline](timeline.md#dragging): onto a date, into a gap, onto the tray;
-- **Shift story dates...**, when more than one dated note is selected, moves them earlier or later by days, months or
+- **More › Shift story dates...**, when more than one dated note is selected, moves them earlier or later by days, months or
   years, keeping the space between them.
 
 Type it the way you would say it: `14 June 1987`, `June 14, 1987`, `June 1987`, `1987`, or in ISO shape,

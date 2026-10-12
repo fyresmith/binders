@@ -80,7 +80,7 @@ An ebook and a paperback include them, each on a page of its own. A manuscript l
 
 **Export as** is in four places, and they are one setting:
 
-- a card's or a row's right-click menu, beside **Include in export**;
+- a card's or a row's right-click menu, where **Leave out** is **Include in export** unticked;
 - the outliner's **Export as** column;
 - the [inspector](inspector.md);
 - a row of **Contents** in the Export window: click the part at the row's end.

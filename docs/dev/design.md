@@ -208,6 +208,32 @@ here; that is what keeps the next round short.
     button pushes the last off the edge. A switch of display goes in "More options" there.
   - A switch that takes editors away has to prove the typing is on disk first (the disk, not the editor's own word: a
     failed write is not asked for again), and must not trust a mount still in flight: count the switches.
+
+- Learned grouping the menus (2026-10-11; built as the card menu's grouping A and More options' grouping B, the maintainer's choice):
+  - What a menu can hold, measured: a tablet's row is about 30 px and a separator 11, and a card's menu may be the
+    screen less 64 px, so about 20 rows at 1024 × 768. A phone's sheet is 60% of the screen (Obsidian's rule): ten
+    rows at 390 × 844, seven at 320 × 568, each 45 px with 17 between groups. Obsidian's own rows in a card's menu
+    are six on a tablet and a phone and eight on a computer, before any other plugin's.
+  - A menu taller than its box by less than a row is worse than a long one: by touch, a tap scrolls it by what it is
+    over and lands on the row below ("Set label" opened "Set target..."). Make it fit; don't let it scroll a little.
+  - Obsidian's own menus fold by kind, one level deep: the editor's "Format", "Paragraph" and "Insert", a file's
+    "Copy path". A `Menu` can fold a whole section itself (`setSectionSubmenu`, undocumented), and a view's "More
+    options" has sections of its own in a fixed order (close, pane, open, action, find, info, view, system, danger).
+  - On a phone a submenu takes the sheet's place, with its name and a way back at its head, and a third level works
+    the same way. A row that comes and goes ("Remove story date", "Export again") belongs inside a drawer, so the
+    top level is the same length every time.
+  - To see every menu on every screen in one Obsidian, ask for it with the event (`contextmenu` on the card) and
+    crop to the menu at the screen's full height: seven menus on six screens are two minutes.
+  - Built (the choice and its edges): a card's menu is the rows done all day and four drawers ("Move", "Snapshots",
+    "Export as", "More") on every screen, with "Delete" last; "More options" has "Cards", "Snapshots" and, once there
+    is an export, "Export", and leaves the four modes and "Arrange" to the toolbar. A drawer the length of a binder's
+    folders ("Move" with forty of them) is Obsidian's own submenu, which on a tablet is as tall as the window and
+    placed at its row, so its foot is off the screen: `submenu()` gives it the clamp the card menu has. In this
+    emulation a tap that has to scroll a long Obsidian menu first lands on another row (Obsidian's own, 60 rows: a tap
+    on the 40th hit the 17th), so the folders are last, where the rows of a short binder are in sight.
+  - Tests find a row by its title wherever it is: `tests/e2e/menu-routes.mjs` opens the drawer first (one map of
+    title to drawer), and the helpers `choose`, `clickMenu` and the `menuTap`s go through it.
+
 **Rejected, don't propose again:** a colored stripe along the top of a card, pill chips, thin accent or progress
 lines, decoration for its own sake, anything on a card that isn't the writer's own (no badges for snapshots and the
 like). The maintainer's word for these was "AI generated".

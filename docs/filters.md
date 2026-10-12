@@ -62,7 +62,7 @@ their places.
 
 A filter you will use again can be saved with the binder: **Save as…** at the foot of the popover, and a name. Saved filters
 are listed at the top of the popover; choose one to put it on (choose it again to take it off), and use its ⋯ menu to
-**Rename**, **Duplicate**, **Move up**, **Move down** or **Delete**. Each of those is one step of **Undo**.
+**Rename**, **Duplicate**, **Move up**, **Move down** or **Delete** (the last four under **More** and **Move** in the menu). Each of those is one step of **Undo**.
 
 - Changing the conditions of a saved filter changes it at once, as in Bases. To try a variant, duplicate it first.
 - A filter belongs to the binder and applies to whichever folder you are in. Add a *Folder is …* condition to pin it.

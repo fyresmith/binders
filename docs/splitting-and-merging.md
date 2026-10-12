@@ -17,7 +17,7 @@ The text from the cursor on moves into a new note right after this one.
 For a long note that holds several: a note of a binder cut into many at once.
 
 1. Open the note (or find it in the file explorer, or its card), and run **Split at headings...** from the command palette,
-   or from the note's menu.
+   or from the note's menu (**More › Split at headings...**).
 2. **Split at**: a heading level (**Heading 2 (12)** says how many notes it makes), **Scene breaks** (a line that is only a
    mark, such as `***`), or **A line of your own**: a note starts at each line that is exactly what you type.
 3. The list shows the notes it will make, in order. The note itself stays as the first. Change a name by typing in it: a
@@ -80,13 +80,13 @@ If the setting is off, the merge says how many links will stop working before yo
 
 ## Duplicate
 
-**Duplicate** in a card's or row's menu makes a copy right after the original, named by counting on:
+**More › Duplicate** in a card's or row's menu makes a copy right after the original, named by counting on:
 "Arrival" gives "Arrival 2". A folder is copied with everything in it, in its order. What you have typed and not yet saved is copied too.
 
 ## Group: put scenes in a folder
 
 1. Select the notes or folders. They must be in the same folder.
-2. Right-click and choose **New folder from selection**. (With one item selected, the menu says **Put in a new
+2. Right-click and choose **Move › New folder from selection**. (With one item selected, the menu says **Put in a new
    folder**.)
 3. Type the folder's name.
 
@@ -97,7 +97,7 @@ This isn't offered in a Longform project, which has no folders.
 
 ## Ungroup: take a folder away
 
-**Ungroup** in a folder's menu moves what the folder holds out to where the folder stood. The emptied folder goes to
+**Move › Ungroup** in a folder's menu moves what the folder holds out to where the folder stood. The emptied folder goes to
 the trash with its synopsis, label and target.
 
 - **Undo last change** brings the folder back with all of them and puts its notes back inside, in order.
@@ -106,16 +106,17 @@ the trash with its synopsis, label and target.
 
 ## Set synopsis from text
 
-**Set synopsis from text** in a card's or row's menu fills a note's synopsis from its opening lines.
+**More › Set synopsis from text** in a card's or row's menu fills a note's synopsis from its opening lines.
 
 - For one note that already has a synopsis, it asks before replacing it.
 - With several notes selected, it fills only the ones that have none.
 
 ## Moving without dragging
 
-**Move up**, **Move down** and **Move to** in a card's or row's menu move a note or folder one place, or to any
-folder of the binder. **Move up** and **Move down** are commands too, and are in a note's right-click menu in the
-file explorer. On a tablet the three are under **Move** in the menu: see [Phones and tablets](mobile.md).
+**Move › Move up**, **Move › Move down** and a folder under **Move** in a card's or row's menu move a note or folder one
+place, or to any folder of the binder (the folders are last in the drawer). **Move up** and **Move down** are commands too,
+and are in a note's right-click menu in the file explorer. The drawer is the same on a computer, a tablet and a phone: see
+[Phones and tablets](mobile.md).
 
 ## Deleting
 

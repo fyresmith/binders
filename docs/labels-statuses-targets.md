@@ -52,7 +52,7 @@ status is no longer in the list keeps it and shows it as it's written.
 
 A target is a word count to reach, for a note, a folder or the whole binder.
 
-- **A note or folder:** right-click its card or row and choose **Set target...**, or use the **Target** field in the
+- **A note or folder:** right-click its card or row and choose **More › Set target...**, or use the **Target** field in the
   inspector. Type a number, such as 1,500. Clear the field to take the target away.
 - **The folder you're in:** the command **Set word count target** sets the target of the folder shown (the binder's
   own, on the binder). Clicking the word count in the toolbar opens the [progress window](progress.md#a-deadline)

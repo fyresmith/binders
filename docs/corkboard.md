@@ -56,8 +56,8 @@ card's menu selects several. See [Phones and tablets](mobile.md).
 - **Drag onto a folder's card** to move it into that folder.
 - **Drag onto a folder in the breadcrumb** to move it out to that folder.
 - Several selected cards move together.
-- **Move up**, **Move down** and **Move to** in a card's menu do the same without dragging. **Move to** lists every
-  folder of the binder.
+- **Move › Move up**, **Move › Move down** and a folder under **Move** in a card's menu do the same without dragging.
+  **Move** lists every folder of the binder, last.
 
 A move can be taken back: see [Undo and redo](undo.md).
 
@@ -66,38 +66,39 @@ move it, into an open note to link it, onto a canvas, a tab or the bookmarks. Th
 
 ## A card's menu
 
-Right-click a card, or several selected together. The menu has:
+Right-click a card, or several selected together. The same menu opens on a computer, a tablet and a phone (a held
+card, by touch). What you do all day is a row; the rest is in four drawers, each opening beside its row (on a phone,
+in the sheet's place, with its name at the head to tap to go back):
 
 | Item | What it does |
 |---|---|
 | **Open**, **Open in new tab**, **Open to the right** | Opens the note. For a folder, **Open** goes into it, and **Open folder note** opens its note if it has one |
 | **Rename** | Renames the note or folder in place |
 | **Edit synopsis** | Starts editing the synopsis on the card |
-| **Set synopsis from text** | Fills the synopsis from the note's opening lines |
-| **Set status**, **Set label**, **Set target...** | See [Labels, statuses and targets](labels-statuses-targets.md) |
-| **Set story date...**, **Remove story date** | When the scene happens in the story. See [Story date](story-date.md) |
-| **Duplicate**, **Merge 3 notes**, **New folder from selection** (or **Put in a new folder**), **Ungroup** | See [Splitting, merging and grouping](splitting-and-merging.md) |
+| **Set status**, **Set label** | See [Labels, statuses and targets](labels-statuses-targets.md) |
+| **Merge 3 notes** | With several notes selected: joins them. See [Splitting, merging and grouping](splitting-and-merging.md) |
+| **Move** | **Move up**, **Move down**; **Put in a new folder** (with several selected, **New folder from selection**) and, on a folder, **Ungroup**; then every folder of the binder, to move the note or folder to the end of it |
+| **Snapshots** | **Take a snapshot**, **Rewrite...**, **Show snapshots...** (a folder has the first and the last). See [Snapshots](snapshots.md) |
 | **Export...** | On a folder: opens [Export](export.md) for that folder |
-| **Include in export** | Ticked as it comes. Untick it to leave the note or folder out of every export |
-| **Export as** | The part it plays in an exported book: **Automatic**, **Part**, **Chapter**, **Scene**, **Front matter**, **Back matter** or **Leave out**. See [Book details and structure](book-details.md#overruling-it) |
-| **Move up**, **Move down**, **Move to** | Moves it one place, or to another folder of the binder |
-| **Snapshots** | **Take a snapshot**, **Rewrite...**, **Show snapshots...**. See [Snapshots](snapshots.md) |
+| **Export as** | The part it plays in an exported book: **Automatic**, **Part**, **Chapter**, **Scene**, **Front matter**, **Back matter**, or **Leave out**, which takes it out of every export (it was **Include in export**, ticked as it came). See [Book details and structure](book-details.md#overruling-it) |
+| **More** | **Set target...** (see [Labels, statuses and targets](labels-statuses-targets.md)); **Set story date...**, **Remove story date** and, with two dated notes selected, **Shift story dates...** (see [Story date](story-date.md)); **Set synopsis from text**, which fills the synopsis from the note's opening lines; **Add revision task...**; **Duplicate**; **Split at headings...** |
 | **Delete** | Asks first, then moves the note or folder to the trash, as Obsidian's own settings say to |
 
-After these come the items Obsidian and your other plugins offer for that note: bookmark it, reveal it in the file
-explorer, and so on.
-
-On a tablet the menu is shorter, with the moves under one **Move**: see [Phones and tablets](mobile.md).
+Between the drawers and **Delete** come the items Obsidian and your other plugins offer for that note: bookmark it,
+reveal it in the file explorer, and so on. In a Longform project there is no **Export as**: a row, **Include in
+export**, stands in its place, and **Move** has only **Move up** and **Move down**. In a binder that can't be changed
+the menu offers only the **Open** rows and **Show snapshots...**.
 
 ## The board's own menu
 
 Right-click empty space on the board for:
 
 - **New note** and **New folder**.
-- **Card size**: small, medium or large.
-- **Number the cards**: shows each note's place in the order.
-- **Tint cards with their label color**: on as it comes. A labeled card has its border and, faintly, its face in
-  that color, as a colored card on a canvas. Turn it off for the border alone.
+- **Cards**, a drawer with how the cards look (the same drawer is in the view's **More options**):
+  - **Small**, **Medium** or **Large**, the one in use ticked.
+  - **Tint cards with their label color**: on as it comes. A labeled card has its border and, faintly, its face in
+    that color, as a colored card on a canvas. Turn it off for the border alone.
+  - **Number the cards**: shows each note's place in the order.
 
 ## Under a filter
 

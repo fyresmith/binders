@@ -18,7 +18,7 @@ The three things below are in several places:
 
 - the **Snapshots** button (a clock) in the header of any note of a binder;
 - a note's own **More options** menu, and its right-click menu in the file explorer;
-- under **Snapshots** in the menu of a card, an outliner row or a manuscript title;
+- under **Snapshots** in the menu of a card, an outliner row or a manuscript title (a folder's has **Take a snapshot** and **Show snapshots...** there too);
 - the command palette: **Take a snapshot**, **Rewrite** and **Show snapshots**;
 - the [inspector](inspector.md), which lists a note's snapshots and has a camera to take one.
 
@@ -29,7 +29,7 @@ In the manuscript, the commands apply to the section the cursor is in.
 **Take a snapshot** keeps the text as it is on screen now. It asks nothing. If nothing has changed since the last
 snapshot, it says so and takes none.
 
-- **Several notes:** select their cards or rows and choose **Take a snapshot of 3 notes** (or however many) to take one of each.
+- **Several notes:** select their cards or rows and choose **Take a snapshot of 3 notes** (or however many) to take one of each. It is a row of the menu, not in a drawer.
 - **A whole folder or binder:** that is a snapshot of its own kind, which keeps the order and the properties too.
   See [below](#snapshots-of-a-folder-or-the-binder).
 
@@ -64,15 +64,15 @@ With no snapshots yet, the window says what a snapshot is and offers to take the
 
 A binder view has the same **Snapshots** button (the clock) in its header as a note has. It is for the folder the
 view shows: the binder, or the subfolder you are in. On a phone the header has no room for it: **Take a snapshot** and
-**Show snapshots...** are under **More options**.
+**Show snapshots...** are under **More options › Snapshots**.
 
 - **Take a snapshot** asks nothing and says what it took: "Took a snapshot of “The Lighthouse”: 7 notes · 5,204
   words." What you have typed and not yet saved goes in. If nothing at all has changed since the last one, it says
   so and takes none.
 - **Show snapshots...** opens the folder's snapshots.
 
-The same two are in a folder's menu (its card, its outliner row, the file explorer), in the binder view's **More
-options**, and in the [inspector](inspector.md), which lists a folder's snapshots when a folder is selected and the
+The same two are in a folder's menu (its card or outliner row, under **Snapshots**; the file explorer), in the binder view's **More
+options › Snapshots**, and in the [inspector](inspector.md), which lists a folder's snapshots when a folder is selected and the
 binder's when nothing is. Two commands work from a binder view or from any note of the binder: **Take a snapshot of
 the binder** and **Show snapshots of the binder**.
 
@@ -203,7 +203,7 @@ snapshot is that note's own. Replacing one match takes no snapshot: the editor's
 ## Snapshots of notes that are gone
 
 When a note is deleted, merged away or moved out of the binder, its snapshots stay. The binder view's **More
-options** menu lists **Snapshots of notes that are gone...**, and there is a command, **Show snapshots of notes that
+options › Snapshots** lists **Snapshots of notes that are gone...**, and there is a command, **Show snapshots of notes that
 are gone**.
 
 For each, **Show** opens its snapshots, and **Give to a note...** hands them to a note of the binder.

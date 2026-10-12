@@ -23,8 +23,7 @@ that tab comes to the front.
 ## Switching modes
 
 Click the button at the top left of the view, which names the mode you're in, and choose another. The commands
-**Show corkboard**, **Show outliner**, **Show manuscript** and **Show timeline** do the same, and so does the view's **More options**
-menu.
+**Show corkboard**, **Show outliner**, **Show manuscript** and **Show timeline** do the same.
 
 Each mode keeps its place when you look at another, and when you open a note and come back.
 
@@ -84,22 +83,27 @@ The filter applies to all four modes. While it is on, the word count reads as th
 
 ## The More options menu
 
-The three dots in the view's header open a menu with:
+The three dots in the view's header open a menu with, after Obsidian's **Split right** and **Split down**:
 
-- **Corkboard**, **Outliner**, **Manuscript** and **Timeline**, to switch modes.
-- While the corkboard is showing: **In a grid**, **By label, across** and **By label, down** with the two switches
-  that go with them, **Card size**, **Number the cards** and **Tint cards with their label color**.
-- While the outliner is showing: **Show synopses**, **Columns**, **Expand all** and **Collapse all**.
-- While the timeline is showing: **Time down** and **Time across**, **Card size** and **Tint cards with their label
-  color**.
+- **Find in binder** and **Find and replace in binder**. See [Find and replace](find-and-replace.md).
+- What the mode shows. On the corkboard and the timeline, a drawer, **Cards**: **Small**, **Medium** or **Large**,
+  **Tint cards with their label color**, and on the corkboard **Number the cards**. On the outliner: **Show synopses**,
+  **Columns**, **Expand all** and **Collapse all** (and, while it is sorted, **Binder order** and **Make this the binder
+  order**). On the manuscript: **Show synopses**.
 - **Undo** and **Redo** of the last change, each saying what it will take back. See [Undo and redo](undo.md).
-- **Export...**, and **Export again** once the binder has been exported. See [Export](export.md).
-- **Take a snapshot** and **Show snapshots...**, of the folder shown. The same two are behind the **Snapshots** button (a clock) in the header; a phone's header has no such button, so there they are here only. See [Snapshots](snapshots.md).
+- **Add revision task**. See [Revision tasks](revision-tasks.md).
+- **Snapshots**, a drawer: **Take a snapshot** and **Show snapshots...** of the folder shown, and **Snapshots of notes
+  that are gone...** when there are any. The first two are behind the **Snapshots** button (a clock) in the header too; a
+  phone's header has no such button, so there they are here only. See [Snapshots](snapshots.md).
+- **Export...**, which becomes a drawer, **Export**, with **Export...** and **Export again** once the binder has been
+  exported. See [Export](export.md).
 - **Show progress**, which opens the binder's [progress](progress.md): how it has grown, and when.
 - **Show contents**, which opens the [contents](inspector.md#the-contents) in the sidebar.
 - **Open binder note**, or **Open folder note** inside a folder. This is how you reach the note that holds a
   binder's or folder's own data while it is hidden in the file explorer.
-- **Snapshots of notes that are gone...**, when there are any. See [Snapshots](snapshots.md).
+
+The four modes and **Arrange** are not here: they are the buttons at the left and right of the toolbar, on every screen.
+A phone 320 px wide has both.
 
 ## Limits
 

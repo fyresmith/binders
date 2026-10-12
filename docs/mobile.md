@@ -25,16 +25,15 @@ A selected row or folder card with no synopsis offers **Add a synopsis**. On a n
 
 On a phone menus open as Obsidian's own sheets. On a tablet they open beside your finger.
 
-**On a tablet** a card's, row's or title's menu is shorter, so that all of it fits on the screen with the tablet on
-its side. Nothing is missing from it:
+A card's, row's or title's menu is the same on a computer, a tablet and a phone. What you do all day is a row (**Open**,
+**Rename**, **Edit synopsis**, **Set status**, **Set label**), and the rest is in four drawers: **Move** (up, down, a new
+folder, the folders of the binder), **Snapshots**, **Export as** (where **Leave out** is **Include in export** unticked)
+and **More** (**Set target...**, the story date, **Set synopsis from text**, **Add revision task...**, **Duplicate**,
+**Split at headings...**). On a tablet a drawer opens beside its row. On a phone it takes the sheet's place, with its name
+and an arrow at the head: tap the name to go back. Obsidian's own items and **Delete** follow the drawers, so on a phone
+they are a flick down the sheet.
 
-| On a computer or a phone | On a tablet |
-|---|---|
-| **Move up**, **Move down**, **Move to** | **Move**, then **Move up**, **Move down** or a folder of the binder |
-| **Put in a new folder**, **New folder from selection** | **Move**, then the same words, at the foot of the list |
-| **Include in export** | **Export as**, then **Leave out**. **Automatic**, or what the note is, puts it back in |
-
-In a Longform project, which has no **Export as**, **Include in export** stays where it is.
+In a Longform project, which has no **Export as**, **Include in export** is a row in its place.
 
 ## Selecting several
 
@@ -96,11 +95,11 @@ On a phone time runs down the page, in one column: each year, then each date, ov
 across** there, and no **Arrange** in the toolbar. A tablet has both, as a computer does.
 
 - Tap a card to select it; tap its title to open its note. Hold a card for its menu, which has **Set story date...**
-  and **Remove story date**: that is the main way a scene gets its date on a phone.
+  and **Remove story date** under **More**: that is the main way a scene gets its date on a phone.
 - Press and hold a card, then move your finger, to lift it and carry it: onto another date's cards, or onto a
   boundary between two dates (rest there a moment and the stretch unfolds into the days, months or years in it), or
   onto the **No date** row to take its date away. A tag above the card says the date it would get. A swipe still
-  scrolls the page, and a touch that is cancelled writes nothing. **Shift story dates...** is in the menu when more
+  scrolls the page, and a touch that is cancelled writes nothing. **Shift story dates...** is under **More** when more
   than one dated scene is selected (**Select more** in the menu).
 - The scenes with no date are behind the **No date** row at the foot of the page, above Obsidian's bar. Tap it to
   open the list, and again to shut it.
@@ -147,7 +146,7 @@ same as a tab. See [Paragraphs](paragraphs.md).
 - A PDF (a paperback, or a manuscript as a PDF) is made on a computer. On a phone or tablet you can look at its
   pages and choose its style and page, and there is no **Export**.
 - **Edit this style** opens the style editor in place of the choices. On a phone, **Preview** shows the book in it.
-- **Export again** is in the binder view's **More options** menu once the binder has been exported.
+- **Export again** is in the binder view's **More options** menu once the binder has been exported, under **Export**.
 
 ## Import
 

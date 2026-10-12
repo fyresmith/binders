@@ -53,7 +53,7 @@ No. If your notes already keep a synopsis or a status under another name, set th
 
 ## Can I keep research in a binder?
 
-Yes. Put it in a folder at the top of the binder and turn off **Include in export** on the folder. It stays in the
+Yes. Put it in a folder at the top of the binder and choose **Export as › Leave out** on the folder (its menu). It stays in the
 binder's order and out of every exported book. See [Export](export.md#leaving-a-note-out).
 
 ## I use Longform. Do I have to convert?

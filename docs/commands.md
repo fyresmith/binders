@@ -112,10 +112,11 @@ file in the vault has **Import as a binder...**: the same as **Import a manuscri
 
 Some things are in menus only:
 
-- **Merge 3 notes** (or however many), **Duplicate**, **New folder from selection**, **Ungroup**, **Set status**, **Set label**, **Set
-  target...** and **Delete** are in the right-click menu of a card or a row. See [a card's menu](corkboard.md#a-cards-menu).
-- **Export as**, **Include in export** and **Move to** are there too.
-- **Set story date...** and **Remove story date** are in a card's or row's menu, on the timeline too. See [Story date](story-date.md).
+- **Merge 3 notes** (or however many), **Set status**, **Set label** and **Delete** are rows of the right-click menu of a card
+  or a row. **Duplicate**, **Set target...**, **Set story date...**, **Remove story date**, **Shift story dates...** and
+  **Set synopsis from text** are under **More**; **Move up**, **Move down**, **Put in a new folder**, **New folder from
+  selection**, **Ungroup** and the folders to move to are under **Move**; **Leave out** (it was **Include in export**) is
+  under **Export as**. See [a card's menu](corkboard.md#a-cards-menu) and [Story date](story-date.md).
 - **Show in binder** and **New scene after this** are in a note's right-click menu in the file explorer.
 - A style's **Duplicate**, **Save a copy to share...** and the rest are in the [style editor](export-styles.md)'s menu.
 - Focus mode's options are in its own menu and in settings.

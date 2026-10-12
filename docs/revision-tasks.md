@@ -12,7 +12,7 @@ scheduler, no assignment and no reminder: a task is a line of text with a box.
 
 Run **Add revision task** from the command palette. It has no default key: bind one under **Settings → Hotkeys**
 if you will use it a lot. It is also in the binder view's **More options** and in the menu of a card or row
-(**Add revision task...**).
+(**More › Add revision task...**).
 
 A prompt opens with one field. Type the task. Under it is what the task is about:
 
@@ -29,7 +29,7 @@ Adding a task changes nothing in the scene. What you were typing, your cursor, y
 stay where they are, and when the prompt closes the keyboard is back in the page. It works the same in the
 manuscript, in a note's own tab and in focus mode.
 
-With several notes selected on a board or in the outliner, **Add revision task...** is one task about all of them. It
+With several notes selected on a board or in the outliner, **More › Add revision task...** is one task about all of them. It
 is listed under each and counted once. On a folder it is about the folder, through its folder note.
 
 A binder in a newer format than this Binders knows, and a [Longform](longform.md) project, take no tasks, and say so.

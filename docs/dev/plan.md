@@ -139,12 +139,14 @@ and down or across on the timeline. The view runs edge to edge, as a base, a can
 - A view saved in the `plotgrid` mode by an earlier version opens as the outliner.
 - Each mode keeps its place (scroll, selection, caret) per folder when another mode is shown, and in the tab's
   history, so Back returns to it.
-- The corkboard and the outliner share one item menu and its actions (`src/view/actions.ts`): open, rename, edit
-  synopsis, "Set synopsis from text", "Set status", "Set label", "Set target...", "Move to" (every folder of the binder), "Duplicate", "Merge N notes",
-  "New folder from selection" / "Put in a new folder", "Ungroup", "Include in export", "Move up", "Move down",
-  what Obsidian and other plugins add (`file-menu`, source `binders-card`), and "Delete". On a tablet it is the
-  short menu (`shortMenu`), which has to fit on an 820 px screen without scrolling: "Move up", "Move down", "Move
-  to" and the new folder are under one "Move", and "Include in export" is "Leave out" under "Export as".
+- Every mode shares one item menu and its actions (`src/view/actions.ts`, `itemMenu`), the same on every screen
+  (2026-10-11): the rows done all day (open, "Rename", "Edit synopsis", "Set status", "Set label", "Merge N notes"),
+  four drawers, "Move" (up, down, a new folder, "Ungroup", the binder's folders last), "Snapshots", "Export as"
+  ("Leave out" is the old "Include in export") and "More" ("Set target...", the story date, "Set synopsis from
+  text", "Add revision task...", "Duplicate", "Split at headings..."), then what Obsidian and other plugins add
+  (`file-menu`, source `binders-card`), and "Delete" last. It has to fit 1024 × 768 with room, so that nothing
+  scrolls. The view's "More options" is grouped the same way (`BinderView.onPaneMenu`; "Cards", "Snapshots",
+  "Export"), without the modes and "Arrange", which are the toolbar's.
 
 ### Corkboard
 

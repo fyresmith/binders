@@ -9,10 +9,10 @@ the editor's undo for typing; a split can be taken back either way.
 **Order**
 
 - a drag, on the corkboard, in the outliner or in the file explorer;
-- **Move up**, **Move down** and **Move to**;
+- **Move up**, **Move down** and a folder to move to (all under **Move** in a card's menu);
 - a sort kept as the binder's order (**Make this the binder order**);
-- a folder made around notes (**New folder from selection**);
-- a folder taken away (**Ungroup**): the folder comes back with its synopsis, label and target;
+- a folder made around notes (**Move › New folder from selection**);
+- a folder taken away (**Move › Ungroup**): the folder comes back with its synopsis, label and target;
 - a card dragged to another label's line on the corkboard.
 
 Each note goes back beside the neighbours it had, to the folder it was in, and to the label it had. Whatever you
@@ -28,12 +28,12 @@ renamed or added since stays as it is.
 - a story date, set, changed or removed from the outliner, the inspector or the menu (for five notes at once, one
   change); undone, a month is still a month and a note that had none has none;
 - a card dragged on the [timeline](timeline.md#dragging) to a date, or a day's scenes put in another order (their
-  `story-order`), and **Shift story dates...**: one change each, however many notes. Undo puts back every property it
+  `story-order`), and **More › Shift story dates...**: one change each, however many notes. Undo puts back every property it
   wrote, and refuses, changing nothing, if one has been changed since;
 - the notes kept on a note;
-- **Include in export** and **Export as**;
+- **Export as** (**Leave out** is what **Include in export** was);
 - any other property you edit in a column of the outliner;
-- **Set synopsis from text**.
+- **More › Set synopsis from text**.
 
 **Revision tasks**
 
@@ -51,7 +51,7 @@ a notice says so. Renames made in Obsidian's own file explorer are not in the hi
 
 **New notes, new folders and copies**
 
-- a note or folder made with **New** or **New note after this**, and a copy of a note (**Duplicate**). The name you type
+- a note or folder made with **New** or **New note after this**, and a copy of a note (**More › Duplicate**). The name you type
   for a new note is part of making it: one **Undo** takes the note away.
 
 Undo takes a new note away (to the trash) only if it is still exactly as it was made: if you typed in it, or set a
@@ -96,7 +96,7 @@ again, if the notes are still as the undo left them.
 and takes the new note to the trash; **Redo** splits again. The editor's own undo (Ctrl+Z in the note you split) still does
 the same, and the two never both act on one split: whichever comes first settles it, and the other finds it done.
 
-- **Split at headings...** is one change, "Split “Draft” into 12 notes". Undo puts the note back as it was and takes every new
+- **More › Split at headings...** is one change, "Split “Draft” into 12 notes". Undo puts the note back as it was and takes every new
 note to the trash (and the folder made for them, if nothing else is in it); Redo makes them all again, the same. It is
 refused, with nothing changed, unless every one of the new notes is still exactly what the split wrote, and it names the one
 that changed, and says that a snapshot from before the split is among the note's snapshots.

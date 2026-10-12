@@ -50,7 +50,7 @@ same order, and each follows the other.
 To group scenes into a chapter or a part:
 
 1. Click the first card, then Shift-click the last, to select them.
-2. Right-click one and choose **New folder from selection**.
+2. Right-click one and choose **Move › New folder from selection**.
 3. Type the folder's name, such as "Part One".
 
 The folder is now one card on the board. Double-click it to go inside, and use the breadcrumb above the board to
@@ -76,7 +76,7 @@ Back on the corkboard, right-click a card:
 
 - **Set status** marks how far along a scene is: Idea, Draft, Revised, Done.
 - **Set label** gives it a color: a point of view, a storyline, whatever you want colors to mean.
-- **Set target...** gives it a word count to reach.
+- **More › Set target...** gives it a word count to reach.
 
 More in [Labels, statuses and targets](labels-statuses-targets.md).
 

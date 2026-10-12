@@ -23,7 +23,7 @@ the vault is open on a computer.
 
 ## Opening the Export window
 
-- In the binder view, open **More options** (the three dots) and choose **Export...**.
+- In the binder view, open **More options** (the three dots) and choose **Export...** (once the binder has been exported, it is under **Export**).
 - In the file explorer, right-click a binder, or a folder in one, and choose **Export...**.
 - On the corkboard or in the outliner, right-click a folder and choose **Export...**.
 - From the command palette, run **Export binder**.
@@ -33,7 +33,7 @@ Export works on the binder, or on the folder you opened it from: export one part
 ## Export again
 
 Once a binder has been exported, **Export again** makes the same kind once more, in the same place, without opening
-the window. It is in the binder view's **More options** menu and in the command palette.
+the window. It is in the binder view's **More options** menu, under **Export**, and in the command palette.
 
 - It uses the choices as they stand now: the binder's style, its Book details, what the window was last set to.
 - It asks one thing, and only when it must: whether to replace a file that is no longer the one the last export
@@ -115,7 +115,7 @@ out takes everything in it along.
 
 You'll find **Include in export** in:
 
-- a card's or row's right-click menu (on a tablet, **Leave out** under **Export as**: see [Phones and tablets](mobile.md));
+- a card's or row's right-click menu, as **Leave out** under **Export as** (a Longform project's notes have **Include in export** as a row);
 - the outliner's **Export** column;
 - the [inspector](inspector.md).
 

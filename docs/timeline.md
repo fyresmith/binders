@@ -32,8 +32,8 @@ The timeline shows scenes only. A folder's own story date doesn't make a card.
 
 ## Time down, or across
 
-**Arrange** in the toolbar chooses which way time runs. The same two choices are in the view's **More options** menu
-and in the menu you get by right-clicking the board's empty ground.
+**Arrange** in the toolbar chooses which way time runs. The same two choices are in the menu you get by right-clicking the
+board's empty ground (they are not in **More options**).
 
 - **Time down** is how it opens: each date is a row, its name beside the line and its cards beside that, as many to a
   row as fit. The tray is down the right side.
@@ -47,8 +47,8 @@ The choice is kept with the view. A pane narrower than 520 px, and a phone, has 
 
 ## Giving a scene a date
 
-Right-click a card and choose **Set story date...**, then type the date the way you would say it: `14 June 1987`,
-`June 1987`, `1987`. With several cards selected, all of them get it. **Remove story date** sends a card back to the
+Right-click a card and choose **More › Set story date...**, then type the date the way you would say it: `14 June 1987`,
+`June 1987`, `1987`. With several cards selected, all of them get it. **More › Remove story date** sends a card back to the
 tray. Each is one step for **Undo** in the toolbar. The outliner's **Story date** column and the inspector's row do
 the same; see [Story date](story-date.md#setting-one).
 
@@ -86,7 +86,7 @@ the manuscript, its folder or its label, and its number stays. The whole drag is
   boards.
 
 On a phone or tablet, press and hold a card to lift it; the tag is carried above your finger. A swipe still scrolls.
-**Set story date...** in the card's menu remains the main road on a phone.
+**More › Set story date...** in the card's menu remains the main road on a phone.
 
 ### The keys
 
@@ -96,7 +96,7 @@ after, stepping through the days, months or years of a gap as well as the dates 
 
 ### Shift story dates
 
-Select more than one scene, right-click, and choose **Shift story dates...** (the item is in the menu of every board
+Select more than one scene, right-click, and choose **More › Shift story dates...** (the item is in the menu of every board
 when more than one selected note has a date). Choose Later or Earlier, a number, and Days, Months or Years. All the
 selected dated scenes move by that much, keeping the space between them, as one step. A typed time goes along. A
 scene dated only to a month moves by months or years, one dated only to a year by years: a date that can't be moved by
@@ -120,7 +120,7 @@ As on the corkboard:
 **Filter** works here as in the other modes ([Filters](filters.md)): only the scenes that match are shown, and the
 numbers are the scenes' places in the book, as without a filter. [Find](find-and-replace.md) lights the cards whose notes have a match.
 
-**Card size** and **Tint cards with their label color**, in **More options**, are the corkboard's own settings and
+**Cards** (the size, and **Tint cards with their label color**), in **More options**, are the corkboard's own settings and
 are shared with it. A card here is one height at each size, so a long synopsis ends in an ellipsis.
 
 ## Limits

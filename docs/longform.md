@@ -20,7 +20,7 @@ Both plugins can be on at once. Longform still sees the project, and the order i
 ### What is different while it is still a Longform project
 
 - **No folders.** A Longform project is one flat folder, so **New folder**, **New folder from selection**,
-  **Ungroup** and **Move to** aren't offered.
+  **Ungroup** and the folders under **Move** aren't offered (**Move** has only **Move up** and **Move down**). There is no **Export as**: **Include in export** is a row of the menu in its place.
 - **The order is Longform's.** It is kept in `longform.scenes`, not in a list of Binders' own.
 - **Only the scenes.** Notes that Longform ignores (`ignoredFiles`) and subfolders aren't part of the project here
   either.

@@ -71,7 +71,7 @@ days left.
   that this version of Binders can't change. A deadline already in such a binder is still read.
 - **The toolbar.** The bar beside the word count has a tick where the plan has the book today, and the count's
   tooltip says "204 a day to 18 December". Clicking the count opens this window (it used to ask for the target:
-  **Set word count target** in the command palette, and **Set target...** in the menus, still do).
+  **Set word count target** in the command palette, and **More › Set target...** in the menus, still do).
 
 ## The first days
 

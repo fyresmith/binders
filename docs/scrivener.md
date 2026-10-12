@@ -30,8 +30,8 @@ Run **Import from Scrivener...** from the command palette to bring a project in 
 | Split at Selection | **Split scene at cursor** | [Splitting, merging and grouping](splitting-and-merging.md) |
 | Split with Selection as Title | **Split scene with selection as title** | |
 | Merge | **Merge 3 notes** | |
-| Group, Ungroup | **New folder from selection**, **Ungroup** | |
-| Include in Compile | **Include in export** | [Export](export.md) |
+| Group, Ungroup | **Move › New folder from selection**, **Move › Ungroup** | |
+| Include in Compile | **Export as › Leave out** (**Include in export** in a Longform project) | [Export](export.md) |
 | Compile | **Export** | [Export](export.md) |
 | Compile formats | **Styles**, with an editor | [Styles](export-styles.md) |
 | Section types | **Export as**: part, chapter, scene, front matter, back matter | [Book details and structure](book-details.md) |
