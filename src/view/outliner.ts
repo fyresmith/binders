@@ -112,7 +112,8 @@ class Outliner implements BinderMode {
 		for (const c of this.columns()) if (c.width != null && !cols.some((n) => n.id === c.id)) widths[c.id] = c.width;
 		cols = cols.map((c) => (c.width == null && widths[c.id] != null ? { ...c, width: widths[c.id] } : c));
 		for (const c of cols) delete widths[c.id];
-		this.setPrefs({ columns: cols, widths, ...(this.sort && this.sort.id !== TITLE && !cols.some((c) => c.id === this.sort?.id) ? { sort: null } : {}) });
+		// (none kept: no key, so a view that never hid a sized column saves no more than it did before)
+		this.setPrefs({ columns: cols, widths: Object.keys(widths).length ? widths : undefined, ...(this.sort && this.sort.id !== TITLE && !cols.some((c) => c.id === this.sort?.id) ? { sort: null } : {}) });
 		this.settings.outlinerColumns = cols.map((c) => ({ ...c }));
 		void this.ctx.plugin.saveData(this.settings);
 		this.draw();
