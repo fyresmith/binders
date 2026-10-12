@@ -12,8 +12,9 @@
 //                                                (GitHub Actions runs every shard on a runner of its own: .github/workflows/e2e.yml)
 //   --timings file                               the recorded times to weigh by (default tests/e2e/timings.json)
 // One log per job (job-1.log …), failure screenshots in shots/, and at the end one summary of them all (also in
-// summary.txt). It fails (exit 1) only for failures that aren't listed in open-findings.json; with --retry-alone, only
-// for those that fail alone too. Ctrl-C stops every job and closes every Obsidian.
+// summary.txt). It fails (exit 1) only for failures of the core tier that aren't listed in open-findings.json or held by
+// quarantine.json; with --retry-alone, only for those that fail alone too. A failure of the look tier is reported apart
+// and doesn't fail it (tiers-lib.mjs). Ctrl-C stops every job and closes every Obsidian.
 import { execFileSync, spawn } from 'child_process';
 import { createHash } from 'crypto';
 import { createWriteStream, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'fs';
@@ -22,6 +23,7 @@ import { pathToFileURL } from 'url';
 import { VAULT, reap, record } from './driver.mjs';
 import { groups, moved, parser, plural } from './run-all-lib.mjs';
 import { parseShard, shardOf } from './shard-lib.mjs';
+import { quarantine, tiered, today } from './tiers-lib.mjs';
 
 const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i > 0 ? process.argv[i + 1] : d; };
 const flag = (k) => process.argv.includes('--' + k);
@@ -45,10 +47,11 @@ record({}, STARTED);
 
 // What there is to run: every spec file's tests, counted by importing it (as run.mjs does), not by reading its text
 const files = arg('specs', '') ? arg('specs').split(',') : readdirSync('tests/e2e').filter((f) => /^specs.*\.mjs$/.test(f)).map((f) => 'tests/e2e/' + f);
-const re = grep ? new RegExp(grep, 'i') : null, fileOf = new Map(), counted = [];
+const re = grep ? new RegExp(grep, 'i') : null, fileOf = new Map(), tierOf = new Map(), counted = [];
 for (const f of files) {
 	let specs;
-	try { specs = (await import(pathToFileURL(f).href)).specs; } catch (e) { console.error(`${f} doesn't load: ${e.message}`); process.exit(2); }
+	try { specs = tiered(await import(pathToFileURL(f).href)); } catch (e) { console.error(`${f} doesn't load: ${e.message}`); process.exit(2); }
+	for (const s of specs) if (!tierOf.has(s.name)) tierOf.set(s.name, s.tier);
 	const names = specs.map((s) => s.name).filter((n) => !re || re.test(n));
 	for (const n of names) if (!fileOf.has(n)) fileOf.set(n, f);
 	if (names.length) counted.push({ file: f, n: names.length });
@@ -79,6 +82,9 @@ const ran = checkout();
 let shifted = [];
 const total = share.reduce((a, c) => a + c.n, 0) * themes.length * repeat;
 const open = new Set(existsSync(OPEN) ? JSON.parse(readFileSync(OPEN, 'utf8')).map((f) => f.name) : []);
+const QUARANTINE = 'tests/e2e/quarantine.json';
+const held = quarantine(existsSync(QUARANTINE) ? JSON.parse(readFileSync(QUARANTINE, 'utf8')) : [], today());
+for (const name of held.active) open.add(name);
 
 const t0 = Date.now(), mins = () => Math.max(1, Math.round((Date.now() - t0) / 60000));
 const running = new Set(), results = [], ended = [], alone = [];
@@ -115,8 +121,8 @@ bins.forEach((b, i) => console.log(`  job ${i + 1}: ${plural(b.n, 'test')}${them
 const tick = setInterval(() => console.log(`  ${mins()} min: ${results.length} of ${total} done, ${results.filter((r) => r.mark === '✗').length} failed`), 120000);
 await Promise.all(bins.map(async (b, i) => {
 	const r = await run(['--theme', theme, '--specs', b.files.join(','), '--shots', join(out, 'shots'), ...(grep ? ['--grep', grep] : []), ...(repeat > 1 ? ['--repeat', String(repeat)] : []), ...limit], join(out, `job-${i + 1}.log`), (res) => {
-		results.push({ ...res, job: i + 1, file: fileOf.get(res.name) });
-		if (res.mark === '✗') console.log(`✗ ${res.title}  (job ${i + 1})\n    ${res.err}`);
+		results.push({ ...res, job: i + 1, file: fileOf.get(res.name), tier: tierOf.get(res.name) ?? 'core' });
+		if (res.mark === '✗') console.log(`✗ ${res.title}  (job ${i + 1}${tierOf.get(res.name) === 'look' ? ', look' : ''})\n    ${res.err}`);
 	});
 	ended[i] = r;
 	if (!stopping) console.log(`  job ${i + 1} ${r.finished ? 'done' : `stopped early (${r.signal ?? 'exit ' + r.code}): see ${join(out, `job-${i + 1}.log`)}`} after ${mins()} min`);
@@ -147,30 +153,40 @@ process.exit(report());
 /** Prints and saves the summary of every job; returns the exit code. */
 function report() {
 	const passed = results.filter((r) => r.mark === '✓'), failed = results.filter((r) => r.mark === '✗'), still = results.filter((r) => r.mark === '○');
+	const isLook = (r) => r.tier === 'look';
 	const fixed = passed.filter((r) => open.has(r.name)), early = ended.map((r, i) => (r && !r.finished ? i + 1 : 0)).filter(Boolean);
-	const lines = [`\n${passed.length} passed, ${failed.length} failed${still.length ? `, ${plural(still.length, 'open finding')} (${OPEN})` : ''}, in ${mins()} min over ${plural(bins.length, 'job')}${builds.size ? ` (${[...builds].join('; ')})` : ''}`];
+	const lines = [`\n${passed.length} passed, ${failed.length} failed${failed.some(isLook) ? ` (${failed.filter(isLook).length} of them look, which doesn't block)` : ''}${still.length ? `, ${plural(still.length, 'open finding')} or quarantined` : ''}, in ${mins()} min over ${plural(bins.length, 'job')}${builds.size ? ` (${[...builds].join('; ')})` : ''}`];
 	if (ran.HEAD) lines[0] += `, at ${ran.HEAD.slice(0, 7)}`;
 	if (shifted.length) lines.push(`The checkout moved during the run (${shifted.join(', ')}): parts of it were of different code${flag('retry-alone') ? ', and nothing was retried' : ''}. Run it again from a checkout that stays put.`);
 	if (results.length < total) lines.push(`${plural(total - results.length, 'test')} didn't run${stopping ? ': stopped' : early.length ? `: job ${early.join(', ')} stopped early (see ${early.length > 1 ? 'their logs' : 'its log'})` : ''}`);
 	const entry = (r, more = '') => `  ${r.title}\n      ${r.file ?? '?'}, job ${r.job}${more}\n      ${r.err}`;
+	const looks = [];
 	if (alone.length) {
-		const real = alone.filter((r) => r.alone === 'failed'), load = alone.filter((r) => r.alone === 'passed');
+		const real = alone.filter((r) => r.alone === 'failed' && !isLook(r)), load = alone.filter((r) => r.alone === 'passed');
+		looks.push(...alone.filter((r) => r.alone === 'failed' && isLook(r)));
 		if (real.length) lines.push(`\nFails alone too (${real.length})`, ...real.map((r) => entry(r, r.aloneErr && r.aloneErr !== r.err ? `\n      alone: ${r.aloneErr}` : '')));
 		if (load.length) lines.push(`\nPassed alone (load) (${load.length})`, ...load.map((r) => entry(r)));
-	} else if (failed.length) lines.push(`\nFailed (${failed.length})`, ...failed.map((r) => entry(r)));
+	} else {
+		looks.push(...failed.filter(isLook));
+		const real = failed.filter((r) => !isLook(r));
+		if (real.length) lines.push(`\nFailed (${real.length})`, ...real.map((r) => entry(r)));
+	}
+	if (looks.length) lines.push(`\nLook, reported and not blocking (${looks.length})`, ...looks.map((r) => entry(r)));
+	if (held.ended.length) lines.push(`\nQuarantine ended: mend or remove these, they count again (${QUARANTINE})`, ...held.ended.map((q) => `  ${q.name} (${q.owner}, until ${q.until})`));
+	for (const b of held.bad) lines.push(b);
 	if (fixed.length) lines.push(`\nListed as open, and passing: take them off the list if that's for good`, ...fixed.map((r) => '  ' + r.title));
 	const text = lines.join('\n');
 	console.log(text);
 	writeFileSync(join(out, 'summary.txt'), text.trimStart() + '\n');
-	writeFileSync(join(out, 'results.json'), JSON.stringify(results.map(({ name, theme, round, mark, err, ms, job, file }) => ({ name, theme, round, mark, err, ms, job, file })), null, '\t'));
+	writeFileSync(join(out, 'results.json'), JSON.stringify(results.map(({ name, theme, round, mark, err, ms, job, file, tier }) => ({ name, theme, round, mark, err, ms, job, file, tier })), null, '\t'));
 	// what this run was and found, for the verdict that merges every shard's (tests/e2e/verdict.mjs)
-	writeFileSync(join(out, 'shard.json'), JSON.stringify({ commit: ran.HEAD ?? null, shard: shard ? arg('shard') : null, themes, grep, repeat, files: share.map((c) => c.file), total, minutes: mins(), stopped: stopping, early, shifted, builds: [...builds], results: results.map(({ name, theme, round, mark, err, ms, job, file }) => ({ name, theme, round, mark, err, ms, job, file })), alone: alone.map(({ name, theme, file, alone: how, aloneErr }) => ({ name, theme, file, alone: how, aloneErr })) }, null, '\t'));
+	writeFileSync(join(out, 'shard.json'), JSON.stringify({ commit: ran.HEAD ?? null, shard: shard ? arg('shard') : null, themes, grep, repeat, files: share.map((c) => c.file), total, minutes: mins(), stopped: stopping, early, shifted, builds: [...builds], results: results.map(({ name, theme, round, mark, err, ms, job, file, tier }) => ({ name, theme, round, mark, err, ms, job, file, tier })), alone: alone.map(({ name, theme, file, tier, alone: how, aloneErr }) => ({ name, theme, file, tier, alone: how, aloneErr })) }, null, '\t'));
 	// what each file took, for balancing the next run (a pass of one theme; only from whole, finished runs)
 	if (!grep && !shard && !stopping && !early.length) {
 		const took = { ...times };
 		for (const c of share) took[c.file] = Math.round(results.filter((r) => r.file === c.file).reduce((a, r) => a + r.ms, 0) / (themes.length * repeat));
 		writeFileSync(TIMES, JSON.stringify(took, null, '\t'));
 	}
-	const real = alone.length ? alone.filter((r) => r.alone === 'failed').length : failed.length;
+	const real = alone.length ? alone.filter((r) => r.alone === 'failed' && !isLook(r)).length : failed.filter((r) => !isLook(r)).length;
 	return real || early.length || shifted.length || (stopping ? 1 : 0) ? 1 : 0;
 }
