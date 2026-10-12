@@ -269,8 +269,14 @@ test('a card dragged on a phone is taken back from More options as “Undo: …�
 	await until(p, `document.querySelectorAll('${LEAF} .binders-card[data-path]').length >= 5`, 8000);
 	await p.sleep(500);
 	const original = await contents(p, NOVEL);
-	const from = await p.at(`${LEAF} .binders-card[data-path="${sceneAt(5)}"]`), to = await p.at(`${LEAF} .binders-card[data-path="${sceneAt(1)}"]`);
-	t.ok(from && to, 'both cards are in sight');
+	// (the last card may be below the fold when the type is wider, as on a runner: both are scrolled into the middle of the view, where a finger can reach them, before they are measured)
+	const first = `${LEAF} .binders-card[data-path="${sceneAt(1)}"]`, last = `${LEAF} .binders-card[data-path="${sceneAt(5)}"]`;
+	await p.ev(`document.querySelector('${last}')?.scrollIntoView({ block: 'end' })`);
+	await p.sleep(300);
+	const from = await p.at(last), to = await p.at(first);
+	const view = await p.ev(`({ h: innerHeight, top: document.elementFromPoint(${from?.x ?? 0}, ${from?.y ?? 0})?.closest('.binders-card')?.dataset.path ?? null, first: document.querySelector('${first}')?.getBoundingClientRect().top })`);
+	t.ok(from && to && to.y > 0 && from.y < view.h, `both cards are in sight (view ${view.h} high, last card at ${Math.round(from?.y)}, first at ${Math.round(to?.y)})`);
+	t.eq(view.top, sceneAt(5), 'a finger on the last card’s middle touches that card');
 	// (held until the card is lifted, not for a fixed time: on a slow machine the page may take the press late, and a finger that moves before the card is lifted is a swipe)
 	await touch(p, 'touchStart', from.x, from.y);
 	t.ok(await until(p, `!!document.querySelector('${LEAF} .binders-card[data-path="${sceneAt(5)}"].is-lifted')`, 8000), 'the card is lifted by the press');
