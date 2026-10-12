@@ -67,3 +67,22 @@ export function verdictOf(id, dir) {
 		return JSON.parse(readFileSync(`${dir}/verdict.json`, 'utf8'));
 	} catch { return null; }
 }
+
+/** "Known, not now" in one step (`npm run suite -- --accept`): the failures of a verdict (`real` and `look`) whose
+    name has `pattern` in it (any case), added to the open findings `open` (`[{ name, file, why }]`) with `why` and
+    the day. One test only, unless `all`: a pattern that matches several says them and adds nothing, so a word too short
+    can't wave a dozen tests through. Returns `{ list, added, matched, error }`; `list` is `open` with the new ones. */
+export function accept(open, verdict, pattern, why, { all = false, day = new Date().toISOString().slice(0, 10) } = {}) {
+	const out = { list: open, added: [], matched: [], error: '' };
+	if (!pattern?.trim() || !why?.trim()) { out.error = 'Say which test and why: npm run suite -- --accept "<part of its name>" "<why it can wait>"'; return out; }
+	const failed = [...(verdict?.real ?? []), ...(verdict?.look ?? [])], p = pattern.toLowerCase();
+	const byName = new Map();
+	for (const r of failed) if (r.name.toLowerCase().includes(p) && !byName.has(r.name)) byName.set(r.name, r.file ?? '');
+	out.matched = [...byName.keys()];
+	if (!byName.size) { out.error = `No failure of that run has "${pattern}" in its name.`; return out; }
+	if (byName.size > 1 && !all) { out.error = `${byName.size} failures have "${pattern}" in their names; say more of one, or --all for every one:\n${out.matched.map((n) => '  ' + n).join('\n')}`; return out; }
+	const have = new Set(open.map((f) => f.name));
+	for (const [name, file] of byName) if (!have.has(name)) out.added.push({ name, file, why: `Accepted ${day}: ${why.trim()}` });
+	out.list = [...open, ...out.added];
+	return out;
+}

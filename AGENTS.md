@@ -139,7 +139,7 @@ npm run ship -- "Docs: what the limits are" --internal
 | `npm test` | Unit tests (`tests/*.test.ts`), pure code only |
 | `npm run e2e` | End-to-end in real headless Obsidian (`tests/e2e/specs*.mjs`); `--grep`, `--theme both`, `--repeat n`, `--specs` |
 | `npm run e2e:all` | The whole suite shared over several Obsidians on this machine (`--jobs`, `--shard 3/10`, `--retry-alone`): for those who want it locally |
-| `npm run suite` | The whole suite on GitHub Actions for `main`'s tip: starts it, or reports the run already there; `-- --wait` follows it and prints the verdict (exit 0 or 1) |
+| `npm run suite` | The whole suite on GitHub Actions for `main`'s tip: starts it, or reports the run already there; `-- --wait` follows it and prints the verdict (exit 0 or 1); `-- --accept "<part of a name>" "<why>"` lists a failure of it as an open finding |
 | `npm run check` | Build + lint + unit tests |
 
 - New behavior gets tests: pure logic in unit tests, anything the user sees or any vault change in e2e.

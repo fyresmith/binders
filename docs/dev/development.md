@@ -508,6 +508,9 @@ npm run suite                  # starts the workflow for main's tip, or reports 
 npm run suite -- --wait        # follows it, prints the verdict (the real failures first); exit 0 or 1
 npm run suite -- --again       # starts another run even if there is one
 npm run suite -- --timings     # after a finished run: saves the times it measured as tests/e2e/timings.json
+npm run suite -- --accept "big book" "a slow runner; mended in the journey's rewrite"
+                               # after a finished run: lists that failing test in open-findings.json (one test, or
+                               # --all for every failure the words match), with the reason and the day; then commit it
 ```
 
 It needs the `gh` CLI, signed in. The pieces:
