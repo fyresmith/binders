@@ -13,7 +13,9 @@ contract you work to, the second is what "native" means here and how a design ro
 - Work in stages and stop at the end of each one you were asked for: **questions** (directions in words, a
   recommendation, questions with defaults; no pixels); **the real thing, by eye** (the one or two directions the
   maintainer wants to see, built in the plugin and corrected from screenshots until they are right, then laid side by
-  side on `options.html`); and, once he has picked, **finish once** (edge cases, tests, docs, proof shots).
+  side on `options.html`); and, once he has picked, **finish once** (edge cases, tests, docs, proof shots). Finishing
+  includes the old tests: every test that pinned what the design changed is found by search and updated (`AGENTS.md`,
+  "Tests"; the maintainer's rule, 2026-10-12).
 - Look as often as the design needs, but cheaply: crop to what changed, put states side by side in one picture, don't
   shoot again what hasn't changed, check the other theme and sizes once the design holds. Search Obsidian's bundle
   for one thing, don't read it through. Run your own specs and the one or two files that cover what you changed, never

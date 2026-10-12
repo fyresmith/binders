@@ -144,6 +144,19 @@ npm run ship -- "Docs: what the limits are" --internal
 
 - New behavior gets tests: pure logic in unit tests, anything the user sees or any vault change in e2e.
 - A bug fix starts with a failing test.
+- **A change to what exists updates the tests that describe it, in the same ticket** (the maintainer's rule,
+  2026-10-12, after the regrouped menus shipped with eight spec files still looking for rows where they used to be,
+  and the suite went from 12 failing tests to 25). When a ticket moves, renames, removes or changes something a writer
+  already has (a menu's rows, a command's name, a default, where a control is, what a view saves), whoever builds it:
+  - **finds every test that pins the old behavior by searching, not by running**: the old titles, class names,
+    selectors, property names and helper calls, across all of `tests/` (`grep -rn`), and reads each hit;
+  - **updates each one to say what is true now**, keeping what it was really checking, and renames a test whose name
+    is no longer true. A test is never loosened or deleted to make it pass; one that no longer has a point is
+    removed with the reason in the commit;
+  - **runs the tests it touched**, narrowed with `--grep`, in both themes. This is not a regression run: it is the
+    tests the change is known to have made stale;
+  - **reports the search**: what was searched for, the files that had hits, and what was done in each.
+  The coordinator does not ship such a ticket without that list, and runs the same search itself before pushing.
 - Keep e2e tests independent: each starts from the pristine `test-vault` (the runner resets it).
 
 ## Working as a team of agents
@@ -176,7 +189,8 @@ For larger pushes (a milestone, a QA round) the maintainer may run several agent
 - **Agents don't run regressions** (the maintainer's rule, 2026-10-05, after area runs of two hours each filled the
   machine's memory and crashed every Obsidian on it). A developer or designer runs the new tests it wrote and the one
   or two spec files that directly cover the code it changed (`--grep` to the tests that matter), then turns the work
-  in. No "every spec that might be affected", no whole-suite runs.
+  in. No "every spec that might be affected", no whole-suite runs. The tests a change to existing behavior has made
+  stale are part of the ticket, found by search and run narrowed ("Tests" above): that is not a regression run.
 - **Several agents at once run Obsidian through the limiter** (the maintainer's cap, 2026-10-11, after six Obsidians at
   once made the machine lag): `bash <the project>/scripts/e2e-slot.sh --specs … --grep …` in place of `npm run e2e`.
   It is `npm run e2e` behind four machine-wide slots (`BINDERS_E2E_SLOTS`), and may wait for one before it starts. Run

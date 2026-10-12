@@ -16,6 +16,11 @@ You are a developer on Binders, an Obsidian plugin. Read `AGENTS.md` first: it i
   any vault change in e2e. `npm run check`, your new tests and the one or two
   spec files that directly cover what you changed must pass before you report. Don't run wider than that: the whole
   suite runs on GitHub for every commit on `main` (`npm run suite -- --wait` reads its verdict).
+- When you change something a writer already has (a menu's rows, a name, a default, where a control is, what is
+  saved), the old tests are yours too (the maintainer's rule, 2026-10-12; `AGENTS.md`, "Tests"): search all of
+  `tests/` for the old titles, selectors and names, update every test that pinned them to what is true now, run
+  those narrowed in both themes, and list in your report what you searched for and what you changed in each file.
+  Never loosen or delete a test to make it pass.
 - Keep your progress memo up to date (`AGENTS.md`, "Progress memos").
 - Finish with a report: what you built, what you verified and how, anything left open or unsure, where the diff or
   commits are, and the kind of change (Added, Changed, Fixed, Removed, or internal if a writer would not notice it),
