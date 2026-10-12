@@ -22,6 +22,14 @@ export const TOGGLE = '\u0000include in export';
 /** Every row title on screen, in every open menu. */
 export const onScreen = (p) => p.ev(`[...document.querySelectorAll('.menu .menu-item-title')].map(e => e.textContent)`);
 
+/** Whether the menu on screen offers `title`: as a row of its own, or in a drawer it shows. What a writer asks ("is
+    Duplicate there?"), not where it is: a test that only needs the action offered asks this, and keeps passing when
+    the rows are moved, renamed into a drawer or reordered (ROADMAP.md, "Tests ask what a writer would"). */
+export async function offers(p, title) {
+	const shown = await onScreen(p);
+	return shown.includes(title) || (!!DRAWER_OF[title] && shown.includes(DRAWER_OF[title]));
+}
+
 /** The path to a row from the menu on screen: its title with the drawers it is in put before it. A path that is
     already reachable (its first title is on screen) is returned as it is. */
 export async function expand(p, path) {
