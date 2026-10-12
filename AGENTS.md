@@ -161,8 +161,8 @@ npm run ship -- "Docs: what the limits are" --internal
 - **Two tiers** (ROADMAP.md, "A suite that can be trusted"; `tests/e2e/tiers-lib.mjs`). A test is **core** unless it
   says otherwise, and a release needs every core test green: writing never lost, undo, outside edits, the file format,
   each feature's main path. A test that checks only how something looks or how fast it feels (pixel sizes, what is in
-  sight, where a menu opens, colours, the exact rows of a list, frame times) is **look**: its failure is reported in
-  the verdict and does not block. Mark a new one with `tier: 'look'` beside its name and fn, or a whole file with
+  sight, where a menu opens, colours, the exact rows of a list, frame times and other speed budgets: the maintainer's
+  decision, 2026-10-12) is **look**: its failure is reported in the verdict and does not block. Mark a new one with `tier: 'look'` beside its name and fn, or a whole file with
   `export const tier = 'look'`; the tests written before the tiers are listed in `tests/e2e/tiers.json`. Don't mix
   the two in one test: a look check inside a core test blocks a release for a pixel.
 - **A quarantine, not living with red.** A test that fails for a reason of the machine (a font, a slow runner), not of
