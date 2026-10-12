@@ -273,7 +273,8 @@ test('a card dragged on a phone is taken back from More options as “Undo: …�
 	await p.sleep(500);
 	const original = await contents(p, NOVEL);
 	// (the last card may be below the fold when the type is wider, as on a runner: both are scrolled into the middle of the view, where a finger can reach them, before they are measured)
-	const first = `${LEAF} .binders-card[data-path="${sceneAt(1)}"]`, last = `${LEAF} .binders-card[data-path="${sceneAt(5)}"]`;
+	// (dropped before the card two above it, which is in sight with it whatever the type: by then the first card may be under the header, where a drop does nothing)
+	const first = `${LEAF} .binders-card[data-path="${sceneAt(3)}"]`, last = `${LEAF} .binders-card[data-path="${sceneAt(5)}"]`;
 	await p.ev(`document.querySelector('${last}')?.scrollIntoView({ block: 'end' })`);
 	await p.sleep(300);
 	const from = await p.at(last), to = await p.at(first);
