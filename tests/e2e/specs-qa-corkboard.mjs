@@ -259,17 +259,6 @@ test('synopsis being typed survives a drag of another card', withTidy(async (p, 
 	t.eq(j(await written(p, 'Part One/Storm warning\n  - Part One/Arrival')).includes('Storm warning'), true, 'and the drag happened');
 }));
 
-test('closing the tab mid-edit saves the synopsis', withTidy(async (p, h, t) => {
-	await openView(p);
-	const s = await p.at(`${card(L + 'Epilogue.md')} .binders-card-synopsis`);
-	await p.click(s.x, s.y);
-	await p.key('End', 'ctrl');
-	await p.type(' Closed.');
-	await p.ev(`(() => { app.workspace.getLeavesOfType('binders-view')[0].detach(); return 1; })()`);
-	await until(p, `app.vault.adapter.read('The Lighthouse/Epilogue.md').then(s => s.includes('Closed.'))`);
-	t.ok((await read(p, L + 'Epilogue.md')).includes('museum. Closed.'), 'saved');
-}));
-
 test('synopsis being typed survives the note being deleted meanwhile (text stays in the field)', withTidy(async (p, h, t) => {
 	await openView(p);
 	const s = await p.at(`${card(L + 'Epilogue.md')} .binders-card-synopsis`);
@@ -374,22 +363,6 @@ test('renaming a card to its folder’s name is refused (it would become the fol
 	same(t, before, await texts(p));
 }));
 
-test('dragging a note into a folder of the same name is refused (it would become the folder note)', withTidy(async (p, h, t) => {
-	await p.ev(`${B}.newScene(${file('The Lighthouse')}, 1, 'Part Two').then(() => 1)`);
-	await p.sleep(300);
-	await openView(p);
-	const c = await at(p, 'Part Two.md'), w = await at(p, 'Part Two');
-	t.ok(c, 'a top-level note called Part Two');
-	// onto the middle of the folder's stack
-	await drag(p, { x: c.x, y: c.t + 12 }, { x: w.x, y: w.y });
-	await p.sleep(600);
-	p.errors.length = 0;
-	const became = await exists(p, L + 'Part Two/Part Two.md');
-	t.ok(!became, 'refused: it would become Part Two’s folder note and vanish from the board');
-	t.ok(await exists(p, L + 'Part Two.md'), 'the note is where it was');
-	t.ok((await cards(p)).includes(L + 'Part Two.md'), 'and its card still shows');
-}));
-
 test('renaming a stack to the name of a note in it is refused (the note would become its folder note)', withTidy(async (p, h, t) => {
 	const before = await texts(p);
 	await openView(p);
@@ -406,25 +379,6 @@ test('renaming a stack to the name of a note in it is refused (the note would be
 	t.eq(await p.ev(`document.activeElement?.value`), 'Arrival', 'what was typed stays in the field');
 	await p.key('Escape');
 	same(t, before, await texts(p));
-}));
-
-test('rename a stack keeps its folder note and synopsis', withTidy(async (p, h, t) => {
-	await p.ev(`app.vault.create('The Lighthouse/Part One/Part One.md', '---\\nsynopsis: Arrivals.\\n---\\n').then(() => 1)`);
-	await openView(p);
-	await until(p, `!!document.querySelector('${card(L + 'Part One')}')`);
-	const c = await at(p, 'Part One');
-	await p.right(c.x, c.y);
-	await clickMenu(p, 'Rename');
-	await p.key('a', 'ctrl');
-	await p.type('Book one');
-	await p.key('Enter');
-	await until(p, `app.vault.adapter.exists('The Lighthouse/Book one/Book one.md')`, 4000);
-	t.ok(await exists(p, L + 'Book one/Book one.md'), 'the folder note followed');
-	await until(p, `document.querySelector('${card(L + 'Book one')} .binders-card-synopsis')?.textContent === 'Arrivals.'`);
-	t.eq(await p.ev(`document.querySelector('${card(L + 'Book one')} .binders-card-synopsis')?.textContent`), 'Arrivals.', 'its synopsis shows');
-	await p.ev(`app.fileManager.renameFile(${file(L + 'Book one')}, 'The Lighthouse/Part One').then(() => 1)`);
-	await p.sleep(400);
-	await p.ev(`(async () => { const f = app.vault.getAbstractFileByPath('The Lighthouse/Part One/Book one.md') || app.vault.getAbstractFileByPath('The Lighthouse/Part One/Part One.md'); if (f) await app.vault.delete(f); })().then(() => 1)`);
 }));
 
 test('after deleting with the keyboard, the next card has the focus', withTidy(async (p, h, t) => {

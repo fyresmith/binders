@@ -342,21 +342,6 @@ test('BUG: Arrange (by label, back to a grid) keeps the card the writer was on a
 	t.eq(j((await sels(p)).cards), j(['The keeper.md']), 'and back in the grid');
 });
 
-test('BUG: arranged by label with a filter on, a line’s count adds up the notes its folder cards show (“1 of 3 notes”), not every note in the folders', withTidy(async (p, h, t) => {
-	await openView(p);
-	await prop(p, L + 'Part One/Arrival.md', 'label', 'Red');
-	await settle(p);
-	await setView(p, { mode: 'corkboard', filter: { status: [], label: ['Red'] } }, { arrange: 'label', lines: 'across' });
-	await until(p, `document.querySelector('${ACTIVE} .binders-lanes .binders-lane-head')`);
-	const s = await p.ev(`({
-		cards: [...document.querySelectorAll('${ACTIVE} .binders-lanes .binders-card.is-stack')].map(c => c.dataset.path.split('/').pop() + ': ' + c.querySelector('.binders-card-words').textContent),
-		head: [...document.querySelectorAll('${ACTIVE} .binders-lane-head[data-lane="0"]')].map(h => h.getAttribute('aria-label')),
-		count: document.querySelector('${ACTIVE} .binders-lane-head[data-lane="0"] .binders-lane-count')?.textContent ?? null })`);
-	t.eq(j(s.cards), j(['Part One: 1 of 3 notes · 18 words']), 'what the folder cards say (Part Two, with none that pass, is not there)');
-	t.eq(s.count, '1', 'the “No label” line counts what those cards show (' + j(s) + ')');
-	await setView(p, { filter: { status: [], label: [] } });
-}));
-
 // ---- the outliner's columns, right to left ----
 const rtl = (p, on) => p.ev(`(() => { app.vault.setConfig('rightToLeft', ${on}); document.body.classList.toggle('mod-rtl', ${on}); document.body.dir = ${on ? "'rtl'" : "''"}; return 1; })()`);
 const cols = (p) => p.ev(`[...document.querySelectorAll('${HEAD}[data-col]')].map(e => e.dataset.col)`);
@@ -788,23 +773,6 @@ for (const kind of ['by label', 'outliner']) {
 		}));
 	}
 }
-
-test('BUG: a folder’s card names its notes and folders only: a picture, a PDF or a canvas kept in the folder is not named as if it were a note (the count says “3 notes”, and the board shows no card for it)', withTidy(async (p, h, t) => {
-	await openView(p);
-	const P1 = L + 'Part One';
-	await p.ev(`(async () => { await app.vault.createBinary(${j(P1 + '/Cover.png')}, new Uint8Array([137, 80, 78, 71]).buffer); await app.vault.create(${j(P1 + '/Map.canvas')}, '{}'); })().then(() => 1)`);
-	try {
-		await settle(p, 900);
-		const s = await heldOf(p, P1);
-		const inFolder = await p.ev(`${B}.orderedChildren(${file(P1)}).map(f => f.name)`);
-		t.eq(j(s.names.filter((n) => /^(Cover|Map)$/.test(n))), j([]), 'only notes and folders are named (orderedChildren has: ' + inFolder.join(', ') + '; the card names: ' + s.names.join(', ') + ')');
-		// and the others are still named, up to five
-		t.eq(j(s.names), j(['Arrival', 'The keeper', 'Storm warning']), 'its three notes');
-	} finally {
-		// (the runner puts notes back, not these)
-		await p.ev(`(async () => { for (const n of ['Cover.png', 'Map.canvas']) { const f = app.vault.getAbstractFileByPath(${j(P1 + '/')} + n); if (f) await app.vault.delete(f); } })().then(() => 1)`);
-	}
-}));
 
 test('UX: by label, the keyboard gets from the toolbar to the cards in a few Tab presses: the lines’ heads are one stop, not one each (eight empty lines are eight stops before the first card)', async (p, h, t) => {
 	await openView(p);

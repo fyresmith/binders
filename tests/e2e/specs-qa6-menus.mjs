@@ -346,18 +346,6 @@ test('card menu, New status... and Custom color... and Set target...: each dialo
 	await noDialog(p, t, 'no dialog is left');
 }));
 
-ux('New status... with nothing typed says why, as New label... does (it closes without a word)', tidied(async (p, h, t) => {
-	await fresh(p);
-	await onCard(p, L + 'Epilogue.md', 'Set status', 'New status...');
-	await until(p, `!!document.querySelector('.modal')`);
-	await p.key('Enter');
-	await p.sleep(300);
-	const d = await dialog(p);
-	t.ok(d && d.error, 'the dialog stays and says a status needs a name: ' + j(d));
-	await p.key('Escape'); // (it stays open, as it should: closed here, so the next test starts with none)
-	await p.sleep(200);
-}));
-
 // ================================================================================================================
 // the corkboard: structure items of a note's card
 // ================================================================================================================

@@ -292,12 +292,6 @@ const emptyBinder = async (p, w, h2, fn) => {
 };
 const exportOff = (p) => p.ev(`(() => { const b = [...document.querySelectorAll('${WIN} button')].filter(b => b.textContent === 'Export' && b.getBoundingClientRect().width).pop(); return b ? !!b.disabled : null; })()`);
 
-test('a phone: an empty binder’s Export button is off, and the window opens without a broken page', async (p, h, t) => {
-	await emptyBinder(p, 390, 844, async () => {
-		t.eq(await exportOff(p), true, 'Export is there and off');
-		await shot(p, 'empty-phone');
-	});
-});
 test('a phone: an empty binder says “Nothing to export” (the words are shown on a computer, but not on a phone, where the window shows Export off and nothing that says why)', async (p, h, t) => {
 	await emptyBinder(p, 390, 844, async () => {
 		t.ok((await status(p)).includes('Nothing to export') || (await sayings(p)).includes('Nothing to export'), 'the window says “Nothing to export” (status line: “' + (await status(p)) + '”)');

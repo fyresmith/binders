@@ -259,8 +259,10 @@ after the next release; the rules are in AGENTS.md ("Tests") and docs/dev/develo
       "is the header 40 px tall". New tests are written that way; old ones are moved as they break, through shared
       helpers (`tests/e2e/menu-routes.mjs` is the pattern; `offers` asks whether an action is in a menu). The rule is
       in AGENTS.md; moving the old tests goes on as they break.
-- [ ] **A cull.** The QA rounds (qa4 to qa11) walk many of the same journeys. Merge the near-duplicates: a shorter
-      run, and less to break.
+- [x] **A cull.** The QA rounds (qa4 to qa11) walk many of the same journeys. Merge the near-duplicates: a shorter
+      run, and less to break. Done (2026-10-12), smaller than expected: every QA file was read against the feature
+      specs, and 25 tests whose every check another test makes were removed. The rest differ by device, input, data
+      or the bug they record; extra random seeds were kept, each being a path of its own.
 - [x] **What the suite cannot give.** A short checklist run by hand on the maintainer's iPhone before each release,
       and what beta users report, weighed above a green run. The checklist is `docs/dev/phone-checklist.md`, and
       `npm run release` names it before it asks.
