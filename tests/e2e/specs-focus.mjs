@@ -225,6 +225,8 @@ test('the manuscript: the last line of the section being written is held; anywhe
 	t.eq(j(await chrome(p)), j(['0x0', '0x0', '0x0', '0x0', '0x0']), 'with everything around it out of sight');
 	t.eq(j(await pieces(p)), j({ way: true, place: false, numbers: false, before: false, here: false, after: false, title: false, properties: false, toolbar: false, dim: true }), 'its toolbar too: the page and the way out');
 	let g = await atMs(p);
+	// (the page glides to the line, and in turns from far away; on a loaded machine that takes longer than a fixed wait)
+	for (let k = 0; k < 20 && !(g && held(g)); k++) { await p.sleep(150); g = await atMs(p); }
 	t.ok(g && held(g), `the last line of the section with the cursor is brought to the line: ${j(g)}`);
 	for (let i = 0; i < 3; i++) {
 		await press(p, '\n\nAnother paragraph at the end of the second scene, long enough to wrap on to a second line of the page.');

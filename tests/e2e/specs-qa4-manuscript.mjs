@@ -426,6 +426,20 @@ test('BUG: “Measure loop restarted” while scrolling up in a pane narrower th
 	} finally { await desktop(p); await p.sleep(300); }
 });
 
+test('BUG: “Measure loop restarted” when the caret is put at the end of a section far below, in a short window', async (p, h, t) => {
+	try {
+		// 700 px high: a section is taller than the window, and its end is more than a window away from where the page is
+		await p.send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 700, deviceScaleFactor: 1, mobile: false }); await p.sleep(400);
+		await novel(p, 5, 14);
+		p.errors.length = 0;
+		await p.ev(`(async () => { const m = ${M}; await m.focusScene(m.scenes.find(s => s.file.path === ${J(N(2))}), 'end'); })().then(() => 1)`);
+		for (let k = 0; k < 20 && !onScreen(await caret(p)); k++) await p.sleep(150); // (the page goes there in turns)
+		await p.sleep(600);
+		t.ok(onScreen(await caret(p)), 'the caret is in sight at the end of the section: ' + J(await caret(p)));
+		t.eq(measureLoops(p), 0, 'warnings while the page went to the end of a section');
+	} finally { await desktop(p); await p.sleep(300); }
+});
+
 // ================================================================================================================
 // 2. The filter
 // ================================================================================================================
