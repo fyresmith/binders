@@ -1,0 +1,421 @@
+{
+	"tests/e2e/specs-a11y.mjs": [
+		"keyboard: forced colors (Windows high contrast): what is selected and what has the keyboard are outlined, since the mode takes every box-shadow ring away"
+	],
+	"tests/e2e/specs-binder-snapshots.mjs": [
+		"binder snapshots: on a tablet, and in a narrow window: the snapshot’s name has a line of its own over the buttons, in a folder’s dialog and in a note’s, so it can be read",
+		"binder snapshots: on a tablet, and in a narrow window: the snapshot’s name has a line of its own over the buttons, in a folder’s dialog and in a note’s, so it can be read, with wider type"
+	],
+	"tests/e2e/specs-corkboard.mjs": [
+		"corkboard: editing the synopsis of a card half out of sight scrolls the card into view",
+		"corkboard: a dragged card follows the pointer, a slot holds its place, and a line shows where it goes (a row’s end too)",
+		"corkboard: several cards dragged at once say how many, and the stack they would go into is tinted",
+		"corkboard: the window made narrower and wider again (fewer cards to a row, then more): the card that was in the middle of the board is still in sight",
+		"corkboard: on iOS every card is drawn, in sight or not; elsewhere the ones out of sight wait"
+	],
+	"tests/e2e/specs-explorer.mjs": [
+		"explorer: a binder folder says “binder” at the end of its row, as a canvas says “canvas”; no other folder does",
+		"explorer: a row with “binder” or a label’s dot at its end keeps its name a little clear of it; a row with neither, or with what it had taken away, has no such gap",
+		"explorer: the folder a binder view shows has the open row’s look in the explorer, as an open note has; it follows the view"
+	],
+	"tests/e2e/specs-export-pdf.mjs": [
+		"export pdf: the window’s pages: facing on a wide window (the first alone on the right), white in both themes, the frame named"
+	],
+	"tests/e2e/specs-export-styles.mjs": [
+		"export styles: from Paperback, each of the editor’s sliders shows its value once, in words, where Obsidian’s own slider has it, and it follows the slider",
+		"export styles: where Obsidian has no “Configure view” look, the editor is laid out by Binders’ own rules"
+	],
+	"tests/e2e/specs-export.mjs": [
+		"export: a choice’s name is never squeezed: “Your name” is whole beside its field",
+		"export: a book with a lot to look at: the choices scroll, and the window stays the size it is"
+	],
+	"tests/e2e/specs-find-replace.mjs": [
+		"find and replace: the outliner marks only the rows in sight (and a screen either side), and marks the rest as they come into sight"
+	],
+	"tests/e2e/specs-focus.mjs": [
+		"focus: typewriter scrolling: typing or clicking above the last line doesn’t move the page; nothing happens in a note too short to scroll; off, the editor scrolls as it does",
+		"focus: the scenes before and after, turned on and off in the middle of a long note, don’t move its text; the scene after stands under the last line as in the manuscript",
+		"focus: “Dim the background”, on by default: in focus the whole window is a deep charcoal with light text on it, in a light theme too; leaving, closing the tab and turning the plugin off each put every color back exactly; off, the page is the theme’s",
+		"focus: “Dim other paragraphs” is significant: while typing, every paragraph but the one being written is at three tenths of its strength, on the charcoal and on the theme’s own page; the pointer moving brings them back",
+		"focus: “Dim the background” in the manuscript: the page and the space around it are the charcoal, section titles readable, the other sections step back as far while typing; all as it was after leaving",
+		"focus: “Dim the background” on a phone: the page, the strip along the top and the room under the text are the charcoal; all as it was after leaving"
+	],
+	"tests/e2e/specs-hover.mjs": [
+		"driver: hover() rests the pointer on an element and returns its tooltip; rules behind (hover: hover) apply"
+	],
+	"tests/e2e/specs-inspector-properties.mjs": [
+		"inspector properties: include in export: a mixed selection shows a box Obsidian’s stylesheet draws as mixed"
+	],
+	"tests/e2e/specs-inspector.mjs": [
+		"inspector: “auto” after a role nobody wrote: the role beside it is never cut short for it, in a pane too narrow for both; a role that was written is cut as any value is"
+	],
+	"tests/e2e/specs-lanes.mjs": [
+		"lanes: reduced motion: a dropped card is on its line at once, nothing glides",
+		"lanes: lines across run the full length of the pane: at any width, after a resize, and to the end of a board that scrolls sideways",
+		"lanes: lines down run the full height of the pane: at any height, after a resize, and to the foot of a board that scrolls",
+		"lanes: a line starts at the pane’s edge: a piece of it runs from the edge to its head, across and down; hovering the board shows no tooltip",
+		"lanes: a line’s head: its name and its count in one shape of the line’s color, joined to the line; its menu, the keyboard and its name as before",
+		"lanes: a board of 1,000 cards by label opens and redraws quickly (and 300)",
+		"lanes: lines across: a card being written in grows to hold it and stands over the cards around it, from its name to its synopsis and out again; it is a card’s height again when the writing stops",
+		"lanes: by label, a folder card’s synopsis is whole lines ending in an ellipsis, at every card size and on a phone: never a slice of a line"
+	],
+	"tests/e2e/specs-menu-groups.mjs": [
+		"menu groups: a note: the rows, then Move, Snapshots, Export as and More; Obsidian’s items after them and Delete last",
+		"menu groups: a note with a story date: More also has Remove story date; two dated notes selected also Shift story dates...",
+		"menu groups: a folder: Open, Rename, Edit synopsis, Set status, Set label, Move, Snapshots, Export..., Export as, More; its two snapshot rows are in Snapshots",
+		"menu groups: several notes: status, label and Merge as rows, a snapshot of them as one row, Move, Export as and More",
+		"menu groups: an outliner row, a manuscript title and a timeline card have the card’s menu",
+		"menu groups: a Longform project’s note: no Export as (a row for Include in export), Move has only up and down, More has no revision task",
+		"menu groups: More options: Find, the mode’s own rows, then Cards, undo and redo, the book’s rows and drawers; no modes and no Arrange",
+		"menu groups: More options at its longest: Undo and Redo rows, Export again in Export, Snapshots of notes that are gone... in Snapshots",
+		"menu groups: forty folders under Move on a tablet and a phone: the drawer is inside the screen and scrolls, and its last row can be scrolled to",
+		"menu groups: the longest menus at 1024 × 768 and 1180 × 820: a note’s menu and each drawer, More options with everything; inside the screen, nothing to scroll",
+		"menu groups: the outliner while sorted: More options also has Binder order and Make this the binder order; a row’s Move has no up or down; every menu fits at 1024 × 768 and 1180 × 820"
+	],
+	"tests/e2e/specs-mobile.mjs": [
+		"mobile: a small phone: while something is typed in with the keyboard up, the toolbar gives its line to the page; it’s there whenever nothing is being edited",
+		"mobile: a phone on its side: while something is typed in with the keyboard up, the toolbar gives its line to the page; it’s there whenever nothing is being edited",
+		"mobile: a small phone on its side: while something is typed in with the keyboard up, the toolbar gives its line to the page; it’s there whenever nothing is being edited",
+		"mobile: a phone held upright: with the keyboard up there’s room, and the toolbar stays",
+		"mobile: a small phone on its side, typing in the manuscript with the keyboard up: the header slides off the top as a note’s does, the line being typed is clear of it and above the editing toolbar, and it is back when the typing stops; on a bigger phone on its side it stays",
+		"mobile: a small phone on its side, the manuscript being typed in with the header slid away: another mode shown then has the header back, and starts below it; the manuscript shown again is as it was before the typing"
+	],
+	"tests/e2e/specs-outliner.mjs": [
+		"outliner: screenshots: light and dark",
+		"outliner: a phone: a flat binder’s columns are all in sight; with folders in folders the title takes the room and the last column is whole out of sight, a swipe away, never cut through"
+	],
+	"tests/e2e/specs-paragraphs.mjs": [
+		"paragraphs: “Indent paragraphs” is off to begin with: no line is indented"
+	],
+	"tests/e2e/specs-perf.mjs": [
+		"perf: a 1,000-scene binder on the timeline: it opens in both shapes with a few dozen cards, and the keys and a long scroll stay quick",
+		"perf: a filter of three conditions with a link over 1,000 notes: matching them all is quick, a link is asked of the vault once, and putting the filter on shows in good time"
+	],
+	"tests/e2e/specs-progress-deadline.mjs": [
+		"progress deadline: the toolbar at 320 px: a deadline adds nothing to what sticks out, and the tick is where it fits",
+		"progress deadline: the toolbar at 390 px: a deadline adds nothing to what sticks out, and the tick is where it fits",
+		"progress deadline: the toolbar at a computer’s px: a deadline adds nothing to what sticks out, and the tick is where it fits"
+	],
+	"tests/e2e/specs-progress-window.mjs": [
+		"progress window: the charts are in the theme’s own colors, and nothing is wider than the page",
+		"progress window: three years, two devices, a 300-note book: the charts are drawn within 1500 ms of asking"
+	],
+	"tests/e2e/specs-qa-corkboard.mjs": [
+		"qa corkboard: look: screenshots (wide, narrow, hover, focus, selection, editing, drag, menus)"
+	],
+	"tests/e2e/specs-qa10-paragraphs-touch.mjs": [
+		"qa10 paragraphs touch: BUG: a tab line straight under a plain line is indented in the editor and in reading view but flush left in the manuscript’s plain text on a phone, so it jumps when the section is tapped",
+		"qa10 paragraphs touch: BUG: the manuscript’s plain text on a phone cuts off a word longer than the column (80 letters, no hyphen) at the edge of the screen; the editor wraps it",
+		"qa10 paragraphs touch: BUG: a phone: with “Indent paragraphs” on, the manuscript’s plain text (every section until it is tapped) sets in no paragraph, and the tapped section jumps",
+		"qa10 paragraphs touch: BUG: a small phone: with “Indent paragraphs” on, the manuscript’s plain text (every section until it is tapped) sets in no paragraph, and the tapped section jumps",
+		"qa10 paragraphs touch: BUG: a phone: with “Indent paragraphs” on, the Snapshots sheet sets in no paragraph (the editor and reading view do)",
+		"qa10 paragraphs touch: a phone: the keyboard coming up and going and the device turning, with a tab note open in its tab and in the manuscript: no frame draws a tab line as code or with a guide line, or moves it sideways; wrapped lines stay at the margin",
+		"qa10 paragraphs touch: a small phone: the keyboard coming up and going and the device turning, with a tab note open in its tab and in the manuscript: no frame draws a tab line as code or with a guide line, or moves it sideways; wrapped lines stay at the margin",
+		"qa10 paragraphs touch: a tablet: the keyboard coming up and going and the device turning, with a tab note open in its tab and in the manuscript: no frame draws a tab line as code or with a guide line, or moves it sideways; wrapped lines stay at the margin",
+		"qa10 paragraphs touch: BUG (known, being fixed): phone: the toolbar’s Indent on an empty line draws a guide line in the tab, 36 px wide, until a letter is typed, and the tab changes width then",
+		"qa10 paragraphs touch: BUG: a phone: a long note put where it was left (scroll restored on opening it again), or jumped into, draws its tab lines without the class and with a guide line for the first frames",
+		"qa10 paragraphs touch: a phone: reading view and an embed of a note with tab paragraphs and a fenced code block: tab lines are paragraphs, the fenced block is the only code, no sideways scroller, and the page does not scroll sideways"
+	],
+	"tests/e2e/specs-qa10-paragraphs-typing.mjs": [
+		"qa10 paragraphs typing: BUG: qa10 paragraphs typing: a note of 2,000 tab paragraphs: after jumping to the end, to the middle and scrolling fast no frame draws a tab line as code; typing at the end and in the middle stays marked",
+		"qa10 paragraphs typing: opening a note that has tab paragraphs, switching between two such notes in one tab, back and forward, and the three modes: no frame draws a tab line as code",
+		"qa10 paragraphs typing: BUG: qa10 paragraphs typing: a binder’s note that is open when Obsidian starts shows its tab paragraphs as code until the first click or key",
+		"qa10 paragraphs typing: BUG: qa10 paragraphs typing: a note moved into a binder while it is open keeps showing its tab lines as code, and one moved out keeps showing them as paragraphs, until the next click or key"
+	],
+	"tests/e2e/specs-qa10-paragraphs-views.mjs": [
+		"qa10 paragraphs: BUG: “Indent paragraphs” in the snapshots window: a paragraph that follows one is set in",
+		"qa10 paragraphs: frames: a binder’s note opened in the same tab after a note outside a binder, and the other way round",
+		"qa10 paragraphs: BUG: a reading view that is open follows the settings: “Start a paragraph with a tab” off puts the code block back, “Indent paragraphs” on indents, without reopening the note",
+		"qa10 paragraphs: BUG: with “Indent paragraphs” on, a manuscript section’s paragraphs are set in as an editor and as text alike: no jump when it swaps",
+		"qa10 paragraphs: reading view with “Strict line breaks” on: a tab line under a plain paragraph runs on with it, and the rest are still paragraphs, nothing is code",
+		"qa10 paragraphs: reading view of a long note: every tab line is a paragraph after the note is scrolled through, and after an edit from the editor side of a split, no block is left as (or flashes as) a code block",
+		"qa10 paragraphs: reading view: a tab line straight under a quote’s line stays where Obsidian has it (in the quote, as the docs say), and the editor and reading view agree",
+		"qa10 paragraphs: BUG: a setting turned while a note’s reading view is out of sight: coming back to it (switching to editing and back, or to another note and back) shows the note as the settings say now",
+		"qa10 paragraphs: NIT: the snapshots window’s “Show changes” sets a tab paragraph in like the text beside it does"
+	],
+	"tests/e2e/specs-qa11-corkboard.mjs": [
+		"qa11 corkboard: a narrow pane (about 300 px): every card lies inside the pane, and the board doesn’t scroll sideways",
+		"qa11 corkboard: a 4,000-character synopsis stays inside its card and the board: the card’s row doesn’t grow sideways, and the next card is where it was"
+	],
+	"tests/e2e/specs-qa11-fr-big.mjs": [
+		"qa11 fr big: each Enter takes longer than the one before: the last 250 of the first 3,000 matches take at most twice as long as the first 250"
+	],
+	"tests/e2e/specs-qa11-fr-look.mjs": [
+		"qa11 find look: the bar looks as Obsidian’s bar in a note does: the same field and count type, row and button heights, icon size and spacing",
+		"qa11 find look: the count is set in the bar’s own line height, as Obsidian’s count is (12 px type, 18 px line)",
+		"qa11 find look: the bar’s buttons have Obsidian’s tooltips: a name and its key, shown on hover; Next says F3 and Previous says Shift + F3",
+		"qa11 find look: no match: the field takes a tint of its own (not the field’s colour), in this theme; a match takes the field back",
+		"qa11 find look: keyboard focus: the field and each button show a focus ring, as Obsidian’s do (the button only when the keyboard reached it)",
+		"qa11 find look: NIT: the field is set in the same type stack as Obsidian’s field (compared, names spelled out in code points)",
+		"qa11 find look: the bar’s styles: no !important and no “all” in any rule of the bar (what the review bot flags)",
+		"qa11 find look: at 400 px wide: the bar, its replace row, the review and the line after a Replace all are all in the window, nothing clipped or scrolled sideways",
+		"qa11 find look: the tint and the focus ring are drawn in the theme the run is in (the field’s tint differs from its plain colour in this theme)"
+	],
+	"tests/e2e/specs-qa11-fr-manuscript.mjs": [
+		"qa11 fr manuscript: closing the bar with sections out of sight, then scrolling to them by hand: no section comes up with a highlight, a ring or a mark in it; and while the bar is open a section scrolled to by hand shows its matches"
+	],
+	"tests/e2e/specs-qa11-fr-touch.mjs": [
+		"qa11 find touch: phone: with the keyboard up over the bar (Replace with in use), the bar and its buttons are above the keyboard, and the match Next goes to is in sight above it",
+		"qa11 find touch: phone 320 × 568: with the replace row, every button and field of the bar is in the window and none is drawn over another",
+		"qa11 find touch: tablet: the review’s list of notes, tapped by a finger, brings that note’s head to the top of the list, and the review stays in the window"
+	],
+	"tests/e2e/specs-qa11-mobile-views.mjs": [
+		"qa11 mobile: the corkboard on a phone draws every card in sight, at the top and after each swipe down and back up through forty cards",
+		"qa11 mobile: the corkboard on a phone turned on its side and back, and redrawn on each turn: every card in sight is drawn each time",
+		"qa11 mobile: the corkboard after the app is sent to the background and brought back, and after the file drawer is opened and shut: every card in sight is drawn",
+		"qa11 mobile: on a phone the export window shows its Preview and Export buttons without a scroll (they are below the fold of the sheet at 390 × 844)",
+		"qa11 mobile: the manuscript on a phone, swept through by a finger, draws every section in sight (titles and text) at each step"
+	],
+	"tests/e2e/specs-qa11-settings.mjs": [
+		"qa11 settings: the tab’s words: sentence case, no “please”, a full stop at each sentence’s end, and no shouting"
+	],
+	"tests/e2e/specs-qa2-corkboard.mjs": [
+		"qa2 corkboard: BUG: a narrow pane (one column): a stack with a long name doesn’t widen the cards past the pane",
+		"qa2 corkboard: BUG: the toolbar’s word count isn’t squeezed away by a long breadcrumb, and the folder shown stays readable",
+		"qa2 corkboard: a board of 330 cards (notes, and six folders of ten among them): opens and redraws quickly, and scrolls through without a long frame"
+	],
+	"tests/e2e/specs-qa2-manuscript.mjs": [
+		"qa2-manuscript: BUG: switching to another tab and back scrolls the manuscript to the end",
+		"qa2-manuscript: BUG: PageDown scrolls the page but leaves the caret behind, off screen",
+		"qa2-manuscript: BUG: a section’s text is 12 px narrower than the page (a scrollbar gutter), so lines wrap differently from the rendered text and from a note",
+		"qa2-manuscript: BUG: a section with a table gets its own horizontal scrollbar",
+		"qa2-manuscript: BUG: a section changes height when its editor replaces the rendered text (headings, tables, code, rules, callouts, empty notes), so the text under it jumps",
+		"qa2-manuscript: BUG: switching to the corkboard and back keeps the place in the manuscript",
+		"qa2-manuscript: wheel scrolling: the text on screen moves only by the scroll while editors mount and unmount",
+		"qa2-manuscript: the section with the caret stays put when the window is resized, the line length setting changes, or the app is zoomed"
+	],
+	"tests/e2e/specs-qa3-labels.mjs": [
+		"labels qa3: tint: title and synopsis read on every theme color (contrast ≥ 4.5), tinted or not",
+		"BUG: labels: settings: the color probe of a label row is unseen, and there’s one of it however often the list is redrawn",
+		"BUG: labels: tint: a labeled stack keeps its stack edges",
+		"BUG: labels: explorer: a name cut short doesn’t run into its dot",
+		"UX: labels: filter: the popover stays where it is while values are picked",
+		"UX: labels: tint: the word count on a tinted card reads as well as text must (4.5:1), as on a plain one",
+		"UX: labels: phone: in the settings, a label’s color list shows the color’s name"
+	],
+	"tests/e2e/specs-qa3-outliner.mjs": [
+		"BUG: outliner: a row dropped into another folder jumps to its place instead of gliding there (rows moved within a folder glide)",
+		"BUG: outliner: while a drag scrolls the outliner, the insertion line is painted a frame behind the rows (14–20 px off the row’s edge)",
+		"UX: outliner: over the column headers, with rows scrolled under them, a drag offers no place it can’t show (no hint without a line)",
+		"qa3 outliner: a 500 px pane: the columns scroll sideways under the title, which stays; the header stays when scrolling down",
+		"UX: outliner: in a pane as narrow as a sidebar (256 px) the pinned title leaves room to see the other columns",
+		"qa3 outliner: look: one row height for folders, a hairline between rows, Obsidian’s colors for selection; screenshots of each state",
+		"BUG: outliner: the keyboard’s focus ring is hidden under the title column: only the part over the other columns shows",
+		"BUG: outliner: a long title wraps over several lines instead of ending in an ellipsis (as a property’s text does: “white-space: pre-wrap” wins)",
+		"BUG: outliner: the “+” that shows and hides columns has no tooltip (“--no-tooltip” on the table reaches everything in it)",
+		"BUG: outliner: a title in a right-to-left script sits at the far end of the title column, away from the tree it belongs to",
+		"UX: outliner: phone: a folder folds from a target a finger can hit (its chevron is 18 × 19 px, and a tap just beside it opens the folder instead)"
+	],
+	"tests/e2e/specs-qa4-explorer.mjs": [
+		"qa4 explorer: menus: Binders’ items sit in Obsidian’s own sections, with its icons, and the rest of each menu is the stock one",
+		"qa4 explorer: look: the binder icon, label dots and the drop line, measured against the rows Obsidian draws",
+		"qa4 explorer: UX: a selection in a binder has one “new folder” item, not Obsidian’s and Binders’ side by side",
+		"qa4 explorer: UX: 20 notes dragged together over a folder of 5,000 keep the pointer smooth (under a frame per dragover)",
+		"qa4 explorer: mobile: the explorer’s menus offer the same items, in the same sections, as on desktop"
+	],
+	"tests/e2e/specs-qa4-manuscript.mjs": [
+		"qa4-manuscript: BUG: “Measure loop restarted” while scrolling up in a pane narrower than the page (sidebar open, or a split)",
+		"qa4-manuscript: BUG: “Measure loop restarted” when the caret is put at the end of a section far below, in a short window",
+		"qa4-manuscript: rendered text is as tall as its editor (nothing moves when a section turns live) for 38 kinds of Markdown: lists, quotes, callouts, tables, rules, long and right-to-left paragraphs…",
+		"qa4-manuscript: BUG: rendered text and its editor differ in height, so the page moves when a section turns live: blank lines, headings right before text, footnotes, comments, code, math, images, embeds…",
+		"qa4-manuscript: a table in a section that is plain text is as tall as its editor, on a computer (1000 px wide): many short columns, a long cell, four columns with two long ones, a narrow table",
+		"qa4-manuscript: a table in a section that is plain text is as tall as its editor, on a tablet (820 px wide): many short columns, a long cell, four columns with two long ones, a narrow table",
+		"qa4-manuscript: a table in a section that is plain text is as tall as its editor, on a phone (390 px wide): many short columns, a long cell, four columns with two long ones, a narrow table"
+	],
+	"tests/e2e/specs-qa4-mobile.mjs": [
+		"qa4 mobile: phone: the toolbar fits at 390 and at 320 px in every mode, its menus are sheets, its buttons as big as a base’s, and the last card clears the navigation bar",
+		"UX: qa4 mobile: phone corkboard: a held card shows it’s held in the dark theme too (there it only changes its 1 px ring from #333 to #3f3f3f; its shadow is black on black)",
+		"UX: qa4 mobile: phone: the filter sheet stays put between picks (it is not closed and opened again, so it does not slide up from the bottom of the screen each time)",
+		"qa4 mobile: small phone (320 px): every dialog fits the screen, with its buttons a finger tall and reachable, also with the keyboard up; the Export window scrolls to its buttons",
+		"UX: qa4 mobile: small phone (320 px): a dialog’s title wraps onto a second line, clear of the ✕, instead of being cut off",
+		"UX: qa4 mobile: phone: Binders’ dialogs look like Obsidian’s own there: a sheet along the bottom (`mod-confirmation`), the action above and Cancel last, a deletion’s button filled (`mod-destructive`)",
+		"qa4 mobile: small phone (320 px): in the settings, a label’s name, color, well, delete and drag handle all fit and can be hit; statuses and property names too",
+		"UX: qa4 mobile: phone: in the settings a status is one row (its name, then delete and the drag handle beside it); it takes two, the icons alone on the second, 112 px in all",
+		"qa4 mobile: phone: turned on its side and back, and with text at 22 px, every mode still fits and nothing overlaps",
+		"qa4 mobile: phone, CPU four times slower, a binder of 300 notes: every mode opens in under 2 s, swipes scroll at 20 ms a frame, a drag follows the finger, a key is on screen in 200 ms"
+	],
+	"tests/e2e/specs-qa5-cork.mjs": [
+		"qa5 cork: every phone size, upright and on its side: nothing sticks out or scrolls sideways, the board’s end clears the navigation bar, and every control is a finger tall",
+		"BUG: qa5 cork: “New” in the toolbar leaves the field it opens in sight: “New note” opened the last tile’s title under the navigation bar (816–837 px down an 844 px screen whose bar starts at 760), “New folder” the folder’s name (824–844)",
+		"qa5 cork: keyboard up: for a card’s synopsis and title, a stack’s name and the binder’s synopsis, at 390 × 844, 320 × 568 and 844 × 390, the first letter typed brings the line being typed above the keyboard",
+		"qa5 cork: keyboard up on a board that fitted the screen until then (a folder of three notes): the synopsis being typed stays where it is, under the toolbar",
+		"qa5 cork: a binder opened by a tap in the file explorer shows no keyboard focus ring on its first card, nor after the mode is switched by touch",
+		"UX: qa5 cork: what a tap opens is a finger tall: a card’s title (the only part of a card that opens its note) is 21 px, a stack’s name (the only part that opens its folder) the same, a breadcrumb 23 px; a card in a base opens wherever it’s tapped",
+		"qa5 cork: awkward names (very long, unbroken, Hebrew, Arabic), a long status, a big target: at 320, 390 and 430 px nothing runs out of its card or the screen, in light and dark, with text at 16 and 24 px",
+		"qa5 cork: dark: the board, a selected card, a tinted label, a card’s sheet and a carried card are all drawn (screenshots), and a selected card differs from its neighbours",
+		"UX: qa5 cork: on a phone the line that shows where a carried card will land can be seen: it’s drawn over the carried card, which is as wide as the column and seen through (it was drawn under the card, all of it)",
+		"UX: qa5 cork: a card carried to the edge of a long board gets there: the board scrolls 14 px a frame at most (about 840 px a second), so the far end of a 600-note binder is over a minute away, the finger held still",
+		"UX: qa5 cork: when the keyboard comes up over a field just opened (a synopsis in the lower half of the screen), the board scrolls it into sight, with a little room under it (nothing scrolls: the field stays under the keyboard until a letter is typed, and then sits with its foot 3 px under the keyboard’s edge)",
+		"BUG: qa5 cork: what the board brings into view on a phone is brought above the navigation bar: a card’s title or synopsis opened from its sheet (“Rename”, “Edit synopsis”) and a copy just made (“Duplicate”) are scrolled only to the screen’s foot, under the bar",
+		"qa5 cork: safe areas: on its side with a notch (47 px insets left and right, 21 px at the foot), the toolbar and the cards keep inside the area Obsidian’s own view header keeps to, and the board’s end still clears the navigation bar",
+		"qa5 cork: on its side with the keyboard up (190 px of screen left), the “Set target” and “New status” dialogs keep what’s typed in their field in sight"
+	],
+	"tests/e2e/specs-qa5-manuscript.mjs": [
+		"UX: qa5 manuscript: phone: when the keyboard comes up after a tap low on the screen, the caret is brought above it, as in a note (it stays under the keyboard until something is typed)",
+		"BUG: qa5 manuscript: small phone with the keyboard up, or on its side: the view itself doesn’t scroll (the page can’t be shorter than its own padding, 50vh + 8 px, so it sticks out of its pane; the pane scrolls, the toolbar goes with it, and the caret’s line is under the editing toolbar)",
+		"BUG: qa5 manuscript: small phone: typing a long name into a title doesn’t push the page sideways (the title grows past the screen’s edge and the whole page scrolls left with the caret: the text’s first letters are cut off until the rename ends)",
+		"UX: qa5 manuscript: phone: a task list (4 px taller rendered), and at 320 px a quote (a whole line taller: it wraps once more rendered), are as tall rendered as in their editor, so the page doesn’t move when the section turns live",
+		"qa5 manuscript: phone, 390 and 320 px: paragraphs, callouts, lists, quotes, rules, links, embeds and right-to-left text are as tall rendered as in their editor (nothing moves when a section turns live); nothing but a table is wider than the page",
+		"qa5 manuscript: small phone: a table wider than the screen scrolls inside itself by a swipe, and the page never goes sideways",
+		"qa5 manuscript: phone, CPU four times slower, 300 notes: swipes through the manuscript stay at 20 ms a frame, no editor is made by swiping, memory stays flat over three passes, and typing far down lands once",
+		"qa5 manuscript: phone, tablet, upright and on their sides, light or dark: a section’s text is set exactly as a note’s is (the same left edge, width, size, line height and color); with “Readable line length” off it’s as wide as a note is then; at 22 px text everything still fits",
+		"qa5 manuscript: tablet, upright and on its side: the page keeps a readable line; menus are popovers; with the keyboard up the caret typed at the end of the page stays in sight; the title’s menu has “Open to the right”, which opens the note beside the manuscript with what was typed",
+		"UX: qa5 manuscript: small phone: with the keyboard up there’s room for five lines of text (the header and Binders’ toolbar stay above the page, 163 px in all: at 320 × 568 the text is left 93 px, under four lines; a note’s text runs under its floating header)",
+		"qa5 manuscript: a word longer than the column, in a section shown as text on a phone (320 px), wraps as it does in the editor and keeps the section’s height",
+		"qa5 manuscript: a word longer than the column, in a section shown as text on a computer, wraps as it does in the editor and keeps the section’s height"
+	],
+	"tests/e2e/specs-qa5-nav.mjs": [
+		"BUG: qa5 nav: phone: “Show in binder” and “Open binder” on a binder’s last note show its card (the board stops with the card under the floating navigation bar and partly below the screen: it’s scrolled to the nearest edge, which the bar covers)",
+		"qa5 nav: phone toolbar: at 320, 360, 390 and 430 px and on its side (568, 844, 932 px), on a binder with a target and in a folder, with and without a filter: nothing overlaps or sticks out, buttons keep their size, the count shows at the root (as its number alone below 360 px) and from 440 px in a folder, the bar from 440, the buttons’ words from 540; the header’s title is centred",
+		"qa5 nav: phone toolbar: with wider type, nothing overlaps or sticks out and Undo stays",
+		"BUG: qa5 nav: phone dialogs: after Done on the keyboard in “Set target”, the word count has no focus ring (the dialog hands the focus back to it, and coming from a text field it shows `:focus-visible`: a box around the count nobody asked for)",
+		"BUG: qa5 nav: phone settings: a label’s color menu shows the color’s name whole (the menu is 90 px wide whatever it says: “Orange” reads “Orang”, “Custom” “Custo”, while Obsidian has measured that they need 98 px and more)",
+		"qa5 nav: phone explorer, light and dark, and with text at 22 px: the folder shown is marked with Obsidian’s own tint, dots keep their label’s color and sit in the middle of their rows with the tags, and nothing is cut",
+		"BUG: qa6: nav: phone: “Show in binder” and “Open binder” on a binder’s last note show its row when the binder was last left as an outliner (the row is selected but the rows aren’t scrolled: it’s below the screen, 836–914 px of 844; the corkboard looks again once it has settled, the outliner asks once, before it’s laid out)"
+	],
+	"tests/e2e/specs-qa5-outliner.mjs": [
+		"qa5 outliner: every phone size, upright and on its side: nothing sticks out of the view, the header stays put, every column and “+” can be reached, rows, headers and fold targets are a finger tall, and the totals clear the navigation bar",
+		"qa5 outliner: every phone size, upright and on its side, with wider type: nothing sticks out, every column and “+” can be reached, rows, headers and fold targets are a finger tall",
+		"qa5 outliner: phone, five folders deep with long and right-to-left names: names end in an ellipsis on one line, a synopsis in three, an indentation guide for each level, right-to-left names start at the tree; nothing sticks out, at 320, 390 and on its side, and with the whole interface right to left",
+		"qa5 outliner: phone, five folders deep with long and right-to-left names, with wider type: every name on one line, nothing sticks out, and a target of a million and a half fits its cell",
+		"qa5 outliner: phone, light or dark, and with large text: labels, statuses, targets, a selected row, a held row and a drag look as they should (screenshots), text at 22 px grows the rows’ text, and nothing sticks out at 390 or 320",
+		"BUG: qa5 outliner: phone: a new note’s name field shows above the navigation bar (made last in the binder, its row is scrolled only to the screen’s edge: the field opens under the bar, 802–820 px on a screen whose bar is at 760–812)",
+		"BUG: qa5 outliner: phone: “Edit synopsis” on a row whose synopsis isn’t showing brings its field into sight (with synopses hidden, the rows grow back and the row is looked for while they’re still gliding from their old places: the field ends up below the screen)",
+		"BUG: qa5 outliner: phone and tablet: the drag ghost can be seen while a row is dragged: above the finger, centered on it, as Obsidian puts its own on mobile (it hangs 5 px right of and below the finger, under the hand, and runs off the right edge of the screen)",
+		"UX: qa5 outliner: phone: a column added from “+” is scrolled into sight (it’s added past the right edge of the screen: nothing seems to happen)",
+		"UX: qa5 outliner: phone: the title column takes the room a phone has (it’s 180 px whatever the width, beside a 120 px Label column that is mostly empty: five folders down a name has 78 px, about ten letters, and the word counts are off the screen at 390 px)",
+		"UX: qa5 outliner: phone: with the keyboard up, the field just opened is in sight before anything is typed (Obsidian shortens the app by --keyboard-height; a synopsis opened in the lower half of the screen stays under the keyboard until a letter is typed) [emulated: check on a device]",
+		"UX: qa5 outliner: phone: a name or a target typed and entered leaves no keyboard focus ring on the row or the cell (after Enter the row has a 2 px ring, the cell an accent box, as if the arrow keys were in use)",
+		"UX: qa5 outliner: phone: the Export tick is a target a finger can hit (the box is 18 × 18 px in a cell 76 px wide; a tap in the cell beside the box does nothing)",
+		"BUG: qa7: outliner: phone, with text at 22 px (a larger text size in Obsidian’s settings): every column’s header still reads whole (“Words”, in the 64 px column a phone gives it, is cut to “Wor…”; the numbers under it fit)"
+	],
+	"tests/e2e/specs-qa5-tablet.mjs": [
+		"BUG: qa5 journey: phone: a new note’s name is typed in sight, above the floating navigation bar, wherever it’s asked for: “New” in the corkboard’s toolbar, in the manuscript, and (at 320 px) in the outliner (the field is scrolled just into the scroller, whose last 84 px are under the bar)",
+		"BUG: qa5 journey: phone: what a change of mode goes to is in sight: the card selected on the corkboard is a row above the navigation bar in the outliner, and a section that starts on screen in the manuscript (the row is left under the bar, and the section’s title on the screen’s last line, under the bar too: both are scrolled “nearest”, to the scroller’s very edge)"
+	],
+	"tests/e2e/specs-qa6-boards.mjs": [
+		"qa6 boards: a folder’s card on a small card: a synopsis added gives the room to the synopsis (the names go), taken away gives it back; a large card has both",
+		"qa6 boards: a long name (a note’s, a folder’s, and the names a folder’s card holds) and a big target and count stay inside their cards on every board and size, and the grid doesn’t scroll sideways"
+	],
+	"tests/e2e/specs-qa6-features.mjs": [
+		"BUG: qa6 features: focus: with Obsidian’s stacked tabs on, focus mode leaves the other tabs’ strips (names and close buttons) on the page, and the page is not the window’s width",
+		"qa6 features: phone 320x568: Export, Rewrite, the binder’s snapshots and a note’s open inside the screen, with nothing wider than it, and every button at least 32 px tall",
+		"qa6 features: phone 390x844: Export, Rewrite, the binder’s snapshots and a note’s open inside the screen, with nothing wider than it, and every button at least 32 px tall"
+	],
+	"tests/e2e/specs-qa6-menus.mjs": [
+		"qa6 menus: card menu, a note: the rows and the four drawers, in sections, each with an icon where the others have one",
+		"qa6 menus: consistency: an action offered on several surfaces has one icon, and (where it has a section of its own) one section; every title is sentence case with “...” for a dialog",
+		"UX: qa6 menus: consistency: the three snapshot items read the same on a card, in the explorer, in More options and in the note header",
+		"UX: qa6 menus: consistency: putting several explorer items in a folder is one item, not two with different names",
+		"UX: qa6 menus: consistency: Rename in a folder heading’s menu has the icon and the section the card’s Rename has",
+		"qa6 menus: hover: the tooltips (word count, the outliner’s “Columns” plus, Focus mode, the note header’s Snapshots and More options) read plainly, in sentence case",
+		"qa6 menus: hover: hover-only states (the empty synopsis shows on a hovered card, rows and headers tint, the word count and a toolbar button light up)",
+		"qa6 menus: 320 px phone, with the keyboard up: a dialog with a field (Set target, New status) keeps its buttons in reach, and the Filter sheet fits the shorter screen",
+		"qa6 menus: 390 px phone, with the keyboard up: a dialog with a field (Set target, New status) keeps its buttons in reach, and the Filter sheet fits the shorter screen",
+		"qa6 menus: 430 px phone, with the keyboard up: a dialog with a field (Set target, New status) keeps its buttons in reach, and the Filter sheet fits the shorter screen",
+		"qa6 menus: tablet: every menu and submenu opens inside the screen (toolbar menus under their buttons, a card’s submenus beside it), in each mode",
+		"qa6 menus: tablet on its side: every menu and submenu opens inside the screen (toolbar menus under their buttons, a card’s submenus beside it), in each mode"
+	],
+	"tests/e2e/specs-qa6-phone.mjs": [
+		"UX: qa6 phone: on its side (844 × 390) with the keyboard up, the page has room for at least three lines of text and the caret is in sight above the editing toolbar",
+		"UX: qa6 phone: on its side (667 × 375) with the keyboard up, the page has room for at least three lines of text and the caret is in sight above the editing toolbar",
+		"UX: qa6 phone: on its side (932 × 430) with the keyboard up, the page has room for at least three lines of text and the caret is in sight above the editing toolbar",
+		"PERF: qa6 phone: a flat binder of 1,000 short scenes, CPU four times slower: every mode opens in under 2 s, and swiping through the manuscript is as smooth as through the board (95 of 100 frames under 50 ms)",
+		"BUG: qa6 phone: a small phone on its side (568 × 320) with no keyboard up has the toolbar (the mode, the way up out of a folder, New): it goes only while the keyboard is up",
+		"qa6 phone: a small phone (320 × 568): with the keyboard up the toolbar goes and the caret stays in sight; the keyboard closing brings the toolbar back; turning the phone on its side and back while it is gone leaves it as the room says; a card’s synopsis typed on the board is in sight",
+		"UX: qa6 phone: 390 × 844: the toolbar’s buttons (mode, word count, arrange, filter, New, focus) are a finger wide and tall (44 px, with slop counted) in every mode",
+		"UX: qa6 phone: 320 × 568: the toolbar’s buttons (mode, word count, arrange, filter, New, focus) are a finger wide and tall (44 px, with slop counted) in every mode",
+		"UX: qa6 phone: a phone: a section’s title in the manuscript (a tap renames the note) and a folder’s heading (a tap goes in) are a finger tall",
+		"qa6 phone: text at its largest (30 px) at 320 × 568: every mode’s toolbar fits, nothing overlaps, the page doesn’t go sideways",
+		"qa6 phone: text at its largest (30 px) at 390 × 844: every mode’s toolbar fits, nothing overlaps, the page doesn’t go sideways",
+		"qa6 phone: text at its largest (30 px) at 430 × 932: every mode’s toolbar fits, nothing overlaps, the page doesn’t go sideways",
+		"qa6 phone: text at its largest (30 px) at 640 × 360: every mode’s toolbar fits, nothing overlaps, the page doesn’t go sideways",
+		"UX: qa6 phone: a phone on its side (568 × 320) with text at its largest (30 px): the toolbar fits the screen (the New button is cut off: 29 px sideways)"
+	],
+	"tests/e2e/specs-qa6-scale.mjs": [
+		"PERF: qa6 scale: 5,000-character synopses and 250-character titles (as long as a file name can be): cards stay in their grid, rows in their lines, nothing runs off the page",
+		"PERF: qa6 scale: mode switches, ten rounds on a binder of 1,000 notes: the heap and the page’s node count stop growing",
+		"PERF: qa6 scale: the manuscript of 1,000 notes keeps few editors alive and few nodes, however far it is scrolled",
+		"PERF: qa6 scale: (diagnosis) trashing 500 of 2,000 notes in a loop with no binder view open, then with the outliner open",
+		"PERF: qa6 scale: (diagnosis) deleting a whole binder of 2,000 notes in 80 folders: with Binders on, and with it off"
+	],
+	"tests/e2e/specs-qa6-tablet.mjs": [
+		"qa6: tablet 768 × 1024 upright: each mode fits, the toolbar doesn't overlap, menus are popovers, targets are a finger wide",
+		"qa6: tablet 768 × 1024 on its side: each mode fits, the toolbar doesn't overlap, menus are popovers, targets are a finger wide",
+		"qa6: tablet 820 × 1180 upright: each mode fits, the toolbar doesn't overlap, menus are popovers, targets are a finger wide",
+		"qa6: tablet 820 × 1180 on its side: each mode fits, the toolbar doesn't overlap, menus are popovers, targets are a finger wide",
+		"qa6: tablet 1024 × 1366 upright: each mode fits, the toolbar doesn't overlap, menus are popovers, targets are a finger wide",
+		"qa6: tablet 1024 × 1366 on its side: each mode fits, the toolbar doesn't overlap, menus are popovers, targets are a finger wide",
+		"qa6: tablet 768 × 1024: with the file explorer pinned beside the view every mode still fits (toolbar, rows, cards); unpinned it goes away and the view takes the room back",
+		"qa6: tablet 1024 × 768: with the file explorer pinned beside the view every mode still fits (toolbar, rows, cards); unpinned it goes away and the view takes the room back",
+		"qa6: tablet 820 × 1180: with the file explorer pinned beside the view every mode still fits (toolbar, rows, cards); unpinned it goes away and the view takes the room back",
+		"qa6: hover: every icon-only control names itself in a tooltip (desktop, and in a narrow pane where the toolbar is icons only)",
+		"A11Y: qa6: manuscript: the “Focus mode” button, which is an icon with no label, says what it is when pointed at (every other icon-only button of the toolbar does; this one’s tooltip is turned off by `.binders-toolbar-button { --no-tooltip: true }` and only the narrow-pane rule turns it back on)",
+		"qa6: contrast: titles, synopses, chips, the toolbar and the outliner’s headers and values reach 4.5:1 (the faint counts and placeholders are the findings below and Obsidian’s own convention)",
+		"A11Y: qa6: contrast: the counts Binders prints (a card’s words, a folder card’s notes and words, the outliner’s total row) are in muted text, 4.5:1 or better (they’re in the faintest text: 2.3:1 in the light theme, 3.0:1 in the dark)",
+		"A11Y: qa6: contrast: the ring of a selected labeled card is seen against the board: the ring that is drawn (the label, taken 35% toward the text color in a light theme, since 0.12.66) reaches 3:1 on the page for every default label",
+		"qa6: contrast: every focus ring Binders draws (toolbar, cards, rows, headers, titles) is as strong as the ring on Obsidian’s own icon buttons (Obsidian’s own is 1.9:1 in light, 2.3:1 in dark: a theme matter, not Binders’)",
+		"A11Y: qa6: forced colors (Windows high contrast): a focused or selected card, a focused row and a focused toolbar button still show a ring (the rings are box-shadows, which forced colors removes; there is no `@media (forced-colors: active)` rule giving them an outline)",
+		"qa6: reduced motion: with “reduce motion” on, nothing of Binders’ moves, spins or scales over time (a 0.14 s fade of a card’s edge is left: it moves nothing)",
+		"qa6: appearance: font 12: each mode shows nothing clipped or overlapping, in the toolbar, cards and rows",
+		"qa6: appearance: font 30: each mode shows nothing clipped or overlapping, in the toolbar, cards and rows",
+		"qa6: appearance: right to left, font 16: each mode shows nothing clipped or overlapping, in the toolbar, cards and rows",
+		"qa6: appearance: right to left, font 30: each mode shows nothing clipped or overlapping, in the toolbar, cards and rows",
+		"qa6: appearance: interface text 1.5 times larger (a theme’s --font-ui sizes): each mode shows nothing clipped or overlapping",
+		"qa6: appearance: a compact theme (small interface text, tight spacing, square corners): each mode shows nothing clipped or overlapping",
+		"qa6: appearance: a roomy theme with round corners, thick borders and a wide serif: each mode shows nothing clipped or overlapping",
+		"qa6: appearance: a theme with translucent panes (no solid page behind): each mode shows nothing clipped or overlapping",
+		"qa6: appearance: zoom 200% (a 720 × 450 window): every mode is usable (nothing sideways, the toolbar in reach)",
+		"qa6: appearance: zoom 300% (a 480 × 300 window): every mode is usable (nothing sideways, the toolbar in reach)",
+		"qa6: appearance: zoom 200% (a 720 × 450 window), with wider type: every mode is usable (nothing sideways, the toolbar in reach)",
+		"qa6: appearance: zoom 300% (a 480 × 300 window), with wider type: every mode is usable (nothing sideways, the toolbar in reach)",
+		"qa6: tablet 820 × 1180 with the keyboard docked (380 px): what’s being typed (the last card’s synopsis, the last row’s name, the manuscript’s last section) stays above the keyboard",
+		"qa6: tablet 1180 × 820 on its side with the keyboard docked (300 px): what’s being typed (the last card’s synopsis, the last row’s name, the manuscript’s last section) stays above the keyboard",
+		"qa6: tablet: with a docked keyboard on a small tablet on its side (a 380 px window) typing in the manuscript leaves room for six lines of text (the toolbar steps aside on a phone only, `Platform.isPhone` at BinderView.ts:238: below about 330 px it would be worth doing on a tablet too, where five lines or fewer are left)",
+		"qa6: tablet 768 × 1024: the dialogs (set target, export, delete, convert a note to a folder’s “Put in a new folder” name) are boxes on the screen with every button in reach, and the text in them fits",
+		"qa6: tablet 1024 × 768: the dialogs (set target, export, delete, convert a note to a folder’s “Put in a new folder” name) are boxes on the screen with every button in reach, and the text in them fits",
+		"qa6: tablet 1024 × 1366: the dialogs (set target, export, delete, convert a note to a folder’s “Put in a new folder” name) are boxes on the screen with every button in reach, and the text in them fits",
+		"UX: qa6: tablet 820 × 1180, three binders side by side (273 px each): in each narrow pane the toolbar’s mode button and buttons are whole, a finger wide, and not squashed (the mode button is the way to the other modes)",
+		"UX: qa6: tablet 1180 × 820, four binders (295 px each): in each narrow pane the toolbar’s mode button and buttons are whole, a finger wide, and not squashed (the mode button is the way to the other modes)",
+		"UX: qa6: tablet 768 × 1024, four binders (192 px each): in each narrow pane the toolbar’s mode button and buttons are whole, a finger wide, and not squashed (the mode button is the way to the other modes)",
+		"qa6: tablet 768 × 1024: every menu of the view (mode, filter, new, arrange, columns, a column, “More options”, a card’s, a row’s, an empty board’s) is a popover on the screen, near what opened it, and all of its items are in sight or scroll",
+		"qa6: tablet 1024 × 768: every menu of the view (mode, filter, new, arrange, columns, a column, “More options”, a card’s, a row’s, an empty board’s) is a popover on the screen, near what opened it, and all of its items are in sight or scroll",
+		"qa6: tablet: a menu opened from a cell near the bottom of the screen (Status) stays on the screen, to within the few pixels Obsidian’s own menus keep"
+	],
+	"tests/e2e/specs-qa8-export.mjs": [
+		"qa8 export: Obsidian’s interface text one and a half times larger (a theme’s font variables raised): the window’s names are not cut off and Export can be pressed"
+	],
+	"tests/e2e/specs-qa9-bringback-touch.mjs": [
+		"qa9 bringback touch: a look at the Bring back screen on a phone, in both themes (screenshot in QA9_SHOTS)",
+		"qa9 bringback touch: a long unbroken note name in the Bring back list runs off the right edge of the screen on a phone (clipped, with a sideways scroll)",
+		"qa9 bringback touch: on a phone on its side (844×390) the Bring back screen shows only about 112 px of its text: what will change is scrolled out of sight until the writer scrolls the peephole"
+	],
+	"tests/e2e/specs-qa9-bringback.mjs": [
+		"qa9 bringback: the screen in the dark theme (and light): nothing clipped, text readable"
+	],
+	"tests/e2e/specs-qa9-export-fixes.mjs": [
+		"qa9 export fixes: Import’s window in a short viewport with a long list of things to look at: the sidebar scrolls and Import stays reachable"
+	],
+	"tests/e2e/specs-qa9-export-touch.mjs": [
+		"qa9 export touch: the style editor’s sliders (Size, Line spacing, Space above) are touched across their thumb, 11 px either side of the line, as Obsidian’s own sliders are",
+		"qa9 export touch: a phone: a Contents row’s name is shown whole, not cut to “The k…” by its part tag",
+		"qa9 export touch: a phone: the title page’s title fits the preview of an ebook (not cut at the right edge)",
+		"qa9 export touch: phone: every control is inside the screen and no name is cut off, for each kind",
+		"qa9 export touch: tablet: every control is inside the screen and no name is cut off, for each kind"
+	],
+	"tests/e2e/specs-snapshots.mjs": [
+		"snapshots: without Obsidian’s classes the dialog lays itself out the same way (the fallback look)",
+		"snapshots: the dialog’s top line: its controls are one height on one centre, with the button that closes it; a long name gives way to them",
+		"snapshots: in the list, when a snapshot was taken reads at a glance: today, yesterday, a weekday, then a date"
+	],
+	"tests/e2e/specs-story-date.mjs": [
+		"story date: screenshots: the column and the inspector"
+	],
+	"tests/e2e/specs-view.mjs": [
+		"view: the toolbar is laid out as a base’s: the view first, the way up only inside a subfolder, the target as a bar",
+		"view: a narrow pane: folder names win over the counts",
+		"view: under 360 px the mode button is its icon alone, named in its tooltip and to a screen reader; from 360 px it says its name: a narrow pane",
+		"view: under 360 px the mode button is its icon alone, named in its tooltip and to a screen reader; from 360 px it says its name: a phone",
+		"view: in a window of its own, the board by label follows the window’s size: narrowed, its cards are small; so does a board moved there from the main window"
+	]
+}
