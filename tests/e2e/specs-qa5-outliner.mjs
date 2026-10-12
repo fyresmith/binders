@@ -215,8 +215,9 @@ const everyPhoneSize = (wide) => async (p, h, t) => {
 			c.ok(a.rows.every((r) => !r.syn || r.syn.lines <= 3), `${name}: a synopsis takes three lines at most`);
 			// (at 320 px the title column is 110 px, the least it can be: a name inside a folder has 56 px of it, and ends in an ellipsis;
 			// under 420 px a name inside a folder can be longer than the room a font wider than this machine's leaves it, and ends
-			// in an ellipsis too)
-			c.ok(a.rows.every((r) => !r.name.clipped || (w < 420 && r.level > 1 && r.name.rect[2] >= 50)), `${name}: no name here is cut short${w < 420 ? ' but inside a folder, where 50 px or more of it show' : ''}: ${j(a.rows.filter((r) => r.name.clipped).map((r) => [r.name.text, r.level, r.name.rect[2]]))} (title column ${a.title[2]} px)`);
+			// in an ellipsis too; and at 320 px, where the title column is 110 px whatever the font, a name at the first level has
+			// 72 px, which a wider font fills with "Part One" and a little more)
+			c.ok(a.rows.every((r) => !r.name.clipped || (w < 420 && (r.level > 1 || w < 360) && r.name.rect[2] >= 50)), `${name}: no name here is cut short${w < 420 ? ' but inside a folder, where 50 px or more of it show' : ''}: ${j(a.rows.filter((r) => r.name.clipped).map((r) => [r.name.text, r.level, r.name.rect[2]]))} (title column ${a.title[2]} px)`);
 			c.eq(a.rowFont, '14px', `${name}: text the size of a base’s table`);
 			// down: the header stays
 			await scrollTo(p, null, 140);
