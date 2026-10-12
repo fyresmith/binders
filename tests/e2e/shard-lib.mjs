@@ -28,13 +28,17 @@ export function timingsFrom(shards, before = {}) {
 }
 
 /** One verdict out of every shard's shard.json, by the rules run-all.mjs has for one machine: a failure that is an open
-    finding doesn't count (its mark is already ○); a failure that passed again alone was the load; only one that failed
+    finding or quarantined doesn't count (its mark is already ○); a failure that passed again alone was the load; one of
+    the look tier (`tier` on its result; none is core) is reported as look and doesn't count; only a core one that failed
     alone too (or could not be tried again) is real. A shard that is missing, stopped early, ran other code than it
     started with, or left tests unrun is a problem, and so is a spec file that no shard was given or two were.
     `expected`: the `{ theme, shard }` pairs that should be there; `specFiles`: every spec file there is (leave out for
-    a narrowed run, which shares only some). Returns `{ ok, real, load, open, fixed, problems, passed, ... }`. */
-export function verdict(shards, { open = [], expected = [], specFiles = null } = {}) {
-	const openNames = new Set(open), real = [], load = [], still = [], fixed = [], problems = [];
+    a narrowed run, which shares only some). `quarantine`: what tiers-lib's `quarantine` made of the list (`active`,
+    `ended`, `bad`); an entry that can't be held is a problem. Returns `{ ok, real, look, load, open, held, fixed,
+    ended, problems, passed, ... }`. */
+export function verdict(shards, { open = [], expected = [], specFiles = null, quarantine = null } = {}) {
+	const held = quarantine?.active ?? new Set(), openNames = new Set([...open, ...held]);
+	const real = [], look = [], load = [], still = [], kept = [], fixed = [], problems = [...(quarantine?.bad ?? [])];
 	let passed = 0, minutes = 0;
 	const id = (s) => `${s.shard ?? 'whole'} ${(s.themes ?? []).join('+')}`;
 	const key = (name, theme) => `${theme} ${name}`;
@@ -47,10 +51,10 @@ export function verdict(shards, { open = [], expected = [], specFiles = null } =
 		const retried = new Map((s.alone ?? []).map((a) => [key(a.name, a.theme), a]));
 		for (const r of results) {
 			if (r.mark === '✓') { passed++; if (openNames.has(r.name)) fixed.push({ ...r, shard: s.shard }); continue; }
-			if (r.mark === '○') { still.push({ ...r, shard: s.shard }); continue; }
+			if (r.mark === '○') { (held.has(r.name) ? kept : still).push({ ...r, shard: s.shard }); continue; }
 			const a = retried.get(key(r.name, r.theme)), row = { ...r, shard: s.shard };
 			if (a?.alone === 'passed') load.push(row);
-			else real.push({ ...row, aloneErr: a?.aloneErr && a.aloneErr !== r.err ? a.aloneErr : '', retried: !!a });
+			else (r.tier === 'look' ? look : real).push({ ...row, aloneErr: a?.aloneErr && a.aloneErr !== r.err ? a.aloneErr : '', retried: !!a });
 		}
 		if ((s.total ?? 0) > results.length) problems.push(`Shard ${id(s)}: ${s.total - results.length} of ${s.total} tests did not run${(s.early ?? []).length ? ` (job ${s.early.join(', ')} stopped early)` : ''}.`);
 		else if ((s.early ?? []).length) problems.push(`Shard ${id(s)}: job ${s.early.join(', ')} stopped early.`);
@@ -67,19 +71,23 @@ export function verdict(shards, { open = [], expected = [], specFiles = null } =
 	}
 	const commits = new Set(shards.map((s) => s.commit).filter(Boolean));
 	if (commits.size > 1) problems.push(`The shards ran different commits: ${[...commits].map((c) => c.slice(0, 7)).join(', ')}.`);
-	return { ok: !real.length && !problems.length, real, load, open: still, fixed, problems, passed, shards: shards.length, minutes, commit: [...commits][0] ?? null };
+	return { ok: !real.length && !problems.length, real, look, load, open: still, held: kept, fixed, ended: quarantine?.ended ?? [], problems, passed, shards: shards.length, minutes, commit: [...commits][0] ?? null };
 }
 
 /** The verdict as text to read: Markdown for a job's summary page (`markdown`), plain for a terminal. */
 export function describe(v, { markdown = false } = {}) {
 	const h = (t) => (markdown ? `### ${t}` : t), code = (t) => (markdown ? '```\n' + t + '\n```' : t.replace(/^/gm, '      ')), bullet = markdown ? '- ' : '  ';
 	const lines = [markdown ? `## E2E suite: ${v.ok ? 'passed' : 'failed'}` : `E2E suite: ${v.ok ? 'passed' : 'FAILED'}`, ''];
-	lines.push(`${plural(v.passed, 'test')} passed, ${plural(v.real.length, 'real failure')}, ${plural(v.load.length, 'failure')} that passed again alone, ${plural(v.open.length, 'open finding')}; ${plural(v.shards, 'shard')}, the slowest ${v.minutes} min${v.commit ? `, at ${v.commit.slice(0, 7)}` : ''}.`);
+	const look = v.look ?? [], held = v.held ?? [], ended = v.ended ?? [];
+	lines.push(`${plural(v.passed, 'test')} passed, ${plural(v.real.length, 'real failure')}, ${plural(look.length, 'look failure')} (not blocking), ${plural(v.load.length, 'failure')} that passed again alone, ${plural(v.open.length, 'open finding')}, ${plural(held.length, 'quarantined failure')}; ${plural(v.shards, 'shard')}, the slowest ${v.minutes} min${v.commit ? `, at ${v.commit.slice(0, 7)}` : ''}.`);
 	const entry = (r, more = '') => `${bullet}${r.name} [${r.theme}]\n${code(`${r.file ?? '?'}${r.shard ? `, shard ${r.shard}` : ''}\n${r.err}${more}`)}`;
 	if (v.problems.length) lines.push('', h(`Problems (${v.problems.length})`), ...v.problems.map((p) => bullet + p));
 	if (v.real.length) lines.push('', h(`Real failures (${v.real.length})`), ...v.real.map((r) => entry(r, r.aloneErr ? `\nalone: ${r.aloneErr}` : r.retried ? '' : '\n(not tried again alone)')));
+	if (look.length) lines.push('', h(`Look, reported and not blocking (${look.length})`), ...look.map((r) => entry(r)));
 	if (v.load.length) lines.push('', h(`Failed under load, passed alone (${v.load.length})`), ...v.load.map((r) => entry(r)));
 	if (v.open.length) lines.push('', h(`Open findings, failing as listed (${v.open.length})`), ...v.open.map((r) => `${bullet}${r.name} [${r.theme}]`));
-	if (v.fixed.length) lines.push('', h('Listed as open, and passing: take them off the list if that is for good'), ...v.fixed.map((r) => `${bullet}${r.name} [${r.theme}]`));
+	if (held.length) lines.push('', h(`Quarantined, failing until their dates (${held.length})`), ...held.map((r) => `${bullet}${r.name} [${r.theme}]`));
+	if (ended.length) lines.push('', h(`Quarantine ended: mend or remove these, they count again (${ended.length})`), ...ended.map((q) => `${bullet}${q.name} (${q.owner}, until ${q.until})`));
+	if (v.fixed.length) lines.push('', h('Listed as open or quarantined, and passing: take them off the list if that is for good'), ...v.fixed.map((r) => `${bullet}${r.name} [${r.theme}]`));
 	return lines.join('\n') + '\n';
 }

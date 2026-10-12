@@ -5,10 +5,12 @@
 //   node tests/e2e/verdict.mjs shards --shards 1 --themes light --narrowed   (a run of some tests: files aren't checked)
 //   --summary file   appends the Markdown (the job summary: $GITHUB_STEP_SUMMARY)     --json file   verdict.json
 //   --timings file   writes the times of the files this run took, to commit as tests/e2e/timings.json
-// Exits 1 unless the commit passed: no real failure and no problem.
+// Exits 1 unless the commit passed: no real failure (of the core tier) and no problem. Look failures and quarantined
+// tests are reported apart (tiers-lib.mjs).
 import { appendFileSync, existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { describe, timingsFrom, verdict } from './shard-lib.mjs';
+import { quarantine, today } from './tiers-lib.mjs';
 
 const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i > 0 ? process.argv[i + 1] : d; };
 const dir = process.argv[2];
@@ -25,7 +27,9 @@ const narrowed = process.argv.includes('--narrowed');
 const specFiles = narrowed ? null : readdirSync('tests/e2e').filter((f) => /^specs.*\.mjs$/.test(f)).map((f) => 'tests/e2e/' + f);
 const open = existsSync('tests/e2e/open-findings.json') ? JSON.parse(readFileSync('tests/e2e/open-findings.json', 'utf8')).map((f) => f.name) : [];
 
-const v = verdict(shards, { open, expected, specFiles });
+const QUARANTINE = 'tests/e2e/quarantine.json';
+const held = quarantine(existsSync(QUARANTINE) ? JSON.parse(readFileSync(QUARANTINE, 'utf8')) : [], today());
+const v = verdict(shards, { open, expected, specFiles, quarantine: held });
 console.log(describe(v));
 if (arg('summary', '')) appendFileSync(arg('summary'), describe(v, { markdown: true }));
 if (arg('json', '')) writeFileSync(arg('json'), JSON.stringify({ ...v, text: describe(v) }, null, '\t'));

@@ -8,12 +8,14 @@
 //   npm run e2e -- --hover          a mouse that hovers (see docs/dev/development.md); also BINDERS_HOVER=1
 //   npm run e2e -- --timeout 1200   how long one test may take, in seconds (default 600); a test's own `timeout` (ms,
 //                                   beside its name and fn) wins. A test over its limit fails, and its Obsidian is replaced.
-// Tests listed in open-findings.json are known to fail (see there): they're reported, and don't fail the run.
+// Tests listed in open-findings.json are known to fail (see there), and so are those quarantine.json holds: they're
+// reported, and don't fail the run. Nor does a failure of the look tier (tiers-lib.mjs): it is reported, as look.
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync } from 'fs';
 import { join, relative } from 'path';
 import { pathToFileURL } from 'url';
 import { launch, VAULT } from './driver.mjs';
 import { TimedOut, limitOf, withLimit } from './run-all-lib.mjs';
+import { quarantine, tiered, today } from './tiers-lib.mjs';
 
 const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i > 0 ? process.argv[i + 1] : d; };
 const themes = arg('theme', 'light') === 'both' ? ['light', 'dark'] : [arg('theme', 'light')];
@@ -31,12 +33,16 @@ walk(VAULT);
 
 const specFiles = arg('specs', '') ? arg('specs').split(',') : readdirSync('tests/e2e').filter((f) => /^specs.*\.mjs$/.test(f)).map((f) => 'tests/e2e/' + f);
 const specs = [];
-for (const f of specFiles) specs.push(...(await import(pathToFileURL(f).href)).specs);
+for (const f of specFiles) specs.push(...tiered(await import(pathToFileURL(f).href)));
 
 // Findings still open, by the test's name: scenarios kept failing on purpose until what they show is fixed or decided.
 // One of them failing doesn't fail the run; one of them passing is said at the end, so the list stays true.
 const OPEN = 'tests/e2e/open-findings.json';
 const open = new Set(existsSync(OPEN) ? JSON.parse(readFileSync(OPEN, 'utf8')).map((f) => f.name) : []);
+// (and the quarantine's, until their dates: tests that fail for a reason of the machine)
+const QUARANTINE = 'tests/e2e/quarantine.json';
+const held = quarantine(existsSync(QUARANTINE) ? JSON.parse(readFileSync(QUARANTINE, 'utf8')) : [], today());
+for (const b of held.bad) console.log(b);
 
 class Fail extends Error {}
 const results = [];
@@ -82,8 +88,8 @@ for (let round = 1; round <= repeat; round++) {
 				// (the picture too is asked of a page that may never answer)
 				await withLimit(p.shot(join(shots, name.replace(/[^\w]+/g, '_') + '.png')), 10000, 'the screenshot').catch(() => {});
 			}
-			const known = open.has(s.name);
-			results.push({ name, ok: !err, err, known, ms: Date.now() - t0 });
+			const known = open.has(s.name) || held.active.has(s.name);
+			results.push({ name, ok: !err, err, known, look: s.tier === 'look', ms: Date.now() - t0 });
 			console.log(`${err ? (known ? '○' : '✗') : '✓'} ${name} ${err ? '\n    ' + err : ''} (${Date.now() - t0}ms)`);
 			// Obsidian ended under that test (a crash, or the machine out of memory): the test has failed, and the rest
 			// run in a new one. Four in a row, and it isn't going to start.
@@ -100,9 +106,12 @@ for (let round = 1; round <= repeat; round++) {
 	}
 }
 const failed = results.filter((r) => !r.ok && !r.known), still = results.filter((r) => !r.ok && r.known), fixed = results.filter((r) => r.ok && r.known);
-console.log(`\n${results.length - failed.length - still.length} passed, ${failed.length} failed${still.length ? `, ${still.length} open findings (${OPEN})` : ''}`);
-if (fixed.length) console.log(`\nListed as open, and passing: take them off the list if that's for good\n${fixed.map((r) => '  ' + r.name).join('\n')}`);
-process.exit(failed.length ? 1 : 0);
+const look = failed.filter((r) => r.look);
+// (run-all.mjs reads the first line: "n passed, n failed" stays as it was, the look failures counted among the failed)
+console.log(`\n${results.length - failed.length - still.length} passed, ${failed.length} failed${look.length ? ` (${look.length} of them look, which doesn't block)` : ''}${still.length ? `, ${still.length} open findings or quarantined` : ''}`);
+if (look.length) console.log(`\nLook failures, reported and not blocking\n${look.map((r) => '  ' + r.name).join('\n')}`);
+if (fixed.length) console.log(`\nListed as open or quarantined, and passing: take them off the list if that's for good\n${fixed.map((r) => '  ' + r.name).join('\n')}`);
+process.exit(failed.length > look.length ? 1 : 0);
 
 function helpers(p) {
 	// Obsidian's own settings (the vault's config) as this Obsidian started with them, read before its first test
