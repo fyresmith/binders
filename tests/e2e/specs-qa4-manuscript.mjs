@@ -83,7 +83,7 @@ async function odd(p, notes, open = true) {
 }
 /** A real click on a section's text (its first line, dx px in). */
 async function clickIn(p, path, dx = 100) {
-	const r = await p.ev(`(() => { const e = ${scene(path)}.el.querySelector('.cm-line, p'); const r = e.getBoundingClientRect(); return { x: r.left + ${dx}, y: r.top + 10 }; })()`);
+	const r = await p.ev(`(() => { const e = ${scene(path)}.el.querySelector('.cm-line, p'); const v = ${M}.root.getBoundingClientRect(); if (e.getBoundingClientRect().bottom > v.bottom - 20 || e.getBoundingClientRect().top < v.top) e.scrollIntoView({ block: 'center' }); const r = e.getBoundingClientRect(); return { x: r.left + ${dx}, y: r.top + 10 }; })()`);
 	await p.click(r.x, r.y);
 	await p.sleep(150);
 }
@@ -380,6 +380,8 @@ test('BUG: Vim mode: a normal-mode key pressed after scrolling far is typed into
 	await p.ev(`(() => { app.vault.setConfig('vimMode', true); return 1; })()`);
 	try {
 		await novel(p);
+		// (a short window, as a runner with other fonts has once the text is taller: the second section's first line is below the fold, and a click there lands on nothing)
+		await p.send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 820, deviceScaleFactor: 1, mobile: false }); await p.sleep(400);
 		await clickIn(p, N(2));
 		// (Vim's keys are taken up a moment after the editor is there, later on a loaded machine: tried until it takes)
 		// (and the caret in the section each time: on a loaded machine the section may not have its editor, or its focus, yet)
@@ -397,7 +399,7 @@ test('BUG: Vim mode: a normal-mode key pressed after scrolling far is typed into
 		t.eq(await focused(p), N(2), 'the key brought the caret back');
 		t.eq((await value(p, N(2))).length - before.length, 0, '“j” moved the caret; no character was typed');
 		await p.sleep(2400);
-	} finally { await p.ev(`(() => { app.vault.setConfig('vimMode', false); return 1; })()`); }
+	} finally { await p.ev(`(() => { app.vault.setConfig('vimMode', false); return 1; })()`); await desktop(p); }
 });
 
 test('UX: Ctrl+Z as the first key after scrolling far, once the section has gone back to plain text, undoes', async (p, h, t) => {
