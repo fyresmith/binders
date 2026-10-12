@@ -3,8 +3,9 @@ import { emptyState, isNote, itemMenu, nameOf, noteOf, plain, removeItems, renam
 import { buildCard, cardKey, crumbAt, heir, numberCards, overPane, owedFocus, passing, sumWords, typingNow, type CardEditors, type CardHost } from './card';
 import { Press, SelectBox, glide, held, places, settle, visibleBottom } from './drag';
 import { FileDrag } from './file-drag';
-import { openPluginSettings, submenu } from './internals';
-import { display, labelDot, labelName, paintLabel, presetOf } from './labels';
+import { openPluginSettings } from './internals';
+import { cardsDrawer } from './menu-groups';
+import { labelDot, labelName, paintLabel, presetOf } from './labels';
 import { CARD_SIZES, announceText, beside, changeText, flatRuns, insertAt, laneAt, laneList, laneOf, lanePitch, readLines, readSize, resolveDrop, type CardSize, type Lines, type Run, type Stop } from './lanes-data';
 import { newLabel } from './modals';
 import { watchSize } from './windows';
@@ -277,12 +278,11 @@ class ByLabel implements BinderMode {
 
 	/** How the cards show, as on the grid (the same options, kept under the same names). */
 	menu(menu: Menu): void {
-		menu.addItem((i) => {
-			i.setSection('view').setTitle('Card size').setIcon('scaling');
-			submenu(i, (m) => { for (const size of CARD_SIZES) m.addItem((x) => x.setTitle(display(size)).setChecked(this.size === size).onClick(() => this.set('cardSize', size))); }, menu);
-		});
-		menu.addItem((i) => i.setSection('view').setTitle('Tint cards with their label color').setIcon('paint-bucket').setChecked(this.tint).onClick(() => this.set('labelStyle', this.tint ? 'stripe' : 'tint')));
-		menu.addItem((i) => i.setSection('view').setTitle('Number the cards').setIcon('list-ordered').setChecked(this.numbers).onClick(() => this.set('numbers', !this.numbers)));
+		// one drawer, "Cards": the size, then how the cards are drawn
+		cardsDrawer(menu, this.size, (size) => this.set('cardSize', size), [
+			{ title: 'Tint cards with their label color', icon: 'paint-bucket', on: this.tint, flip: () => this.set('labelStyle', this.tint ? 'stripe' : 'tint') },
+			{ title: 'Number the cards', icon: 'list-ordered', on: this.numbers, flip: () => this.set('numbers', !this.numbers) },
+		]);
 	}
 
 	newMenu(menu: Menu): void {

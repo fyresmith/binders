@@ -3,8 +3,8 @@ import { emptyState, itemMenu, plain, removeItems, renameItem, setStory } from '
 import { buildCard, cardKey, overPane, owedFocus, typingNow, type CardEditors, type CardHost } from './card';
 import { Press, SelectBox, held as heldFor, visibleBottom } from './drag';
 import { FileDrag } from './file-drag';
-import { submenu } from './internals';
-import { display, paintLabel } from './labels';
+import { cardsDrawer } from './menu-groups';
+import { paintLabel } from './labels';
 import { CARD_SIZES, readSize, type CardSize } from './lanes-data';
 import { ask } from './modals';
 import { readStory, setStoryPlaces, type StoryWrite } from './props';
@@ -361,12 +361,10 @@ class Timeline implements BinderMode {
 
 	/** How the cards show, as on the corkboard (the same options, kept under the same names). */
 	menu(menu: Menu): void {
-		if (!this.narrow) this.arrangeItems(menu);
-		menu.addItem((i) => {
-			i.setSection('view').setTitle('Card size').setIcon('scaling');
-			submenu(i, (m) => { for (const size of CARD_SIZES) m.addItem((x) => x.setTitle(display(size)).setChecked(this.size === size).onClick(() => this.set('cardSize', size))); }, menu);
-		});
-		menu.addItem((i) => i.setSection('view').setTitle('Tint cards with their label color').setIcon('paint-bucket').setChecked(this.tint).onClick(() => this.set('labelStyle', this.tint ? 'stripe' : 'tint')));
+		// one drawer, "Cards": the size and the tint ("Arrange" is the toolbar's)
+		cardsDrawer(menu, this.size, (size) => this.set('cardSize', size), [
+			{ title: 'Tint cards with their label color', icon: 'paint-bucket', on: this.tint, flip: () => this.set('labelStyle', this.tint ? 'stripe' : 'tint') },
+		]);
 	}
 
 	newMenu(menu: Menu): void {
@@ -834,6 +832,8 @@ class Timeline implements BinderMode {
 	/** The board's own menu (a right-click on its ground): how it shows, as the view's menu has it, and a new note. */
 	private boardMenu(): Menu {
 		const menu = new Menu();
+		// (the two ways time runs are the toolbar's in the view's menu; here, on the board, they are still at hand)
+		if (!this.narrow) this.arrangeItems(menu);
 		this.menu(menu);
 		if (!this.ctx.readOnly) this.newMenu(menu);
 		return menu;

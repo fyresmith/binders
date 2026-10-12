@@ -48,6 +48,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - A click on the toolbar's word count opens the Progress window, where the target is set beside a deadline, instead of asking for the target; Set word count target and Set target... still ask.
 - With the find bar open, Next and Previous now go from where you last clicked or tapped in the text, not from the bar's last match.
 - After a replace all, Undo says “Nothing to put back.” when every note is already as it was.
+- A note's or folder's menu is shorter and the same on every screen: Open, Rename, Edit synopsis, Set status and Set label stay as rows, and the rest is one row further in under Move, Snapshots, Export as and More (the target, the story date, Set synopsis from text, Add revision task, Duplicate, Split at headings). The view's More options is grouped the same way, with card size, tint and numbers under Cards; the four views and Arrange are in the toolbar. Include in export is now Export as > Leave out.
 
 ### Fixed
 

@@ -8,7 +8,7 @@ import { headerFolderSnapshots } from './binder-snapshots';
 import { hasSnapshots, takeFolderSnapshot } from '../binder-snapshots';
 import type BindersPlugin from '../main';
 import { commitAll, commitFocused, editable, editingIn, type Editable } from './edit';
-import { keepOpen, readableLineLength, refreshHeader } from './internals';
+import { keepOpen, readableLineLength, refreshHeader, submenu } from './internals';
 import { emptyDef, readDefs, writeDef, type FilterDef } from '../filter/conditions';
 import { editFilters, type FilterEdit } from '../filter/saved';
 import { FilterPopover } from './filter-popover';
@@ -366,27 +366,33 @@ export class BinderView extends ItemView {
 		this.current = null;
 	}
 
+	/* "More options", grouped so that it fits a tablet on its side. Finding is in Obsidian's own "find" section, where a
+	   note's "Find..." is; what a mode shows is in "view" (the mode's own menu: "Cards" and the like); then undo and
+	   redo, the book's rows and drawers ("Snapshots", "Export"), and the note behind the folder. The four modes and
+	   "Arrange" are not here: the toolbar under the header has them, on every screen (docs/dev/design.md). */
 	onPaneMenu(menu: Menu, source: string): void {
-		if (source === 'more-options' && this.folder) {
-			// the modes, then how this one shows (a section each), then the note behind the folder
-			for (const m of MODES) menu.addItem((i) => i.setSection('binders-mode').setTitle(m.name).setIcon(m.icon).setChecked(this.mode === m.id).onClick(() => this.setMode(m.id)));
-			if (this.mode === 'corkboard') this.arrangeItems(menu);
+		const folder = this.folder;
+		if (source === 'more-options' && folder) {
+			menu.addItem((i) => i.setSection('find').setTitle('Find in binder').setIcon('search').onClick(() => this.showSearch(false)));
+			if (!this.readOnly) menu.addItem((i) => i.setSection('find').setTitle('Find and replace in binder').setIcon('replace').onClick(() => this.showSearch(true)));
 			this.current?.menu?.(menu);
-			const note = this.store.folderNote(this.folder), binder = this.store.binderOf(this.folder)?.folder === this.folder;
-			const folder = this.folder;
-			// (the bar's way in on a phone, where there is no Ctrl+F)
-			menu.addItem((i) => i.setSection('binders-find').setTitle('Find in binder').setIcon('search').onClick(() => this.showSearch(false)));
-			if (!this.readOnly) menu.addItem((i) => i.setSection('binders-find').setTitle('Find and replace in binder').setIcon('replace').onClick(() => this.showSearch(true)));
 			// (a move taken back or made again: on a phone there's no Ctrl+Z to do it with)
 			for (const redo of [false, true]) {
 				const what = this.store.undoable(folder, redo);
-				if (what) menu.addItem((i) => i.setSection('binders-note').setTitle(`${redo ? 'Redo' : 'Undo'}: ${what.charAt(0).toLowerCase()}${what.slice(1)}`).setIcon(redo ? 'redo-2' : 'undo-2').onClick(() => void this.plugin.undoMove(folder, redo)));
+				if (what) menu.addItem((i) => i.setSection('binders-undo').setTitle(`${redo ? 'Redo' : 'Undo'}: ${what.charAt(0).toLowerCase()}${what.slice(1)}`).setIcon(redo ? 'redo-2' : 'undo-2').onClick(() => void this.plugin.undoMove(folder, redo)));
 			}
-			menu.addItem((i) => i.setSection('binders-note').setTitle('Add revision task').setIcon('list-plus').onClick(() => { capture(this.plugin); }));
-			menu.addItem((i) => i.setSection('binders-note').setTitle('Export...').setIcon('book-up').onClick(() => new ExportModal(this.plugin, folder).open()));
-			// (the last export of it made once more, with no window: there once there has been one)
-			if (lastExport(this.plugin, folder)) menu.addItem((i) => i.setSection('binders-note').setTitle('Export again').setIcon('book-check').onClick(() => void exportAgain(this.plugin, folder)));
-			folderSnapshotItems(this.plugin, menu, folder, 'binders-note', this.readOnly);
+			menu.addItem((i) => i.setSection('binders-book').setTitle('Add revision task').setIcon('list-plus').onClick(() => { capture(this.plugin); }));
+			if (hasSnapshots(this.plugin, folder)) menu.addItem((i) => { i.setSection('binders-book').setTitle('Snapshots').setIcon('history'); submenu(i, (m) => folderSnapshotItems(this.plugin, m, folder, 'snapshots', this.readOnly), menu); });
+			// (with no export made yet there is one thing to do: a row, not a drawer of one; "Export again" is the last one made once more, with no window)
+			if (lastExport(this.plugin, folder)) menu.addItem((i) => {
+				i.setSection('binders-book').setTitle('Export').setIcon('book-up');
+				submenu(i, (m) => {
+					m.addItem((x) => x.setTitle('Export...').setIcon('book-up').onClick(() => new ExportModal(this.plugin, folder).open()));
+					m.addItem((x) => x.setTitle('Export again').setIcon('book-check').onClick(() => void exportAgain(this.plugin, folder)));
+				}, menu);
+			});
+			else menu.addItem((i) => i.setSection('binders-book').setTitle('Export...').setIcon('book-up').onClick(() => new ExportModal(this.plugin, folder).open()));
+			const note = this.store.folderNote(folder), binder = this.store.binderOf(folder)?.folder === folder;
 			menu.addItem((i) => i.setSection('binders-note').setTitle('Show progress').setIcon(PROGRESS_ICON).onClick(() => new ProgressModal(this.plugin, folder).open()));
 			// (the whole book as a list in the sidebar, with where this view is)
 			menu.addItem((i) => i.setSection('binders-note').setTitle('Show contents').setIcon('book-open').onClick(() => this.plugin.showContents()));

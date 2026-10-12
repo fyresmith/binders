@@ -5,8 +5,7 @@ import { emptyState, isNote, itemMenu, nameOf, noteOf, plain, removeItems, renam
 import { LONG_PRESS, SelectBox, held, settle, visibleBottom } from './drag';
 import { FileDrag } from './file-drag';
 import { CARD_SIZES, movedText, type CardSize } from './lanes-data';
-import { submenu } from './internals';
-import { display } from './labels';
+import { cardsDrawer } from './menu-groups';
 import { watchSize } from './windows';
 import type { BinderMode, ModeContext, ModeFactory } from './mode';
 
@@ -314,24 +313,12 @@ class Corkboard implements BinderMode {
 	}
 
 	menu(menu: Menu): void {
-		menu.addItem((i) => {
-			i.setSection('view').setTitle('Card size').setIcon('scaling');
-			submenu(i, (m) => {
-				for (const size of CARD_SIZES) m.addItem((x) => x.setTitle(display(size)).setChecked(this.cardSize === size).onClick(() => {
-					this.ctx.setOption('cardSize', size);
-					this.applyCardSize();
-				}));
-			}, menu);
-		});
-		menu.addItem((i) => i.setSection('view').setTitle('Tint cards with their label color').setIcon('paint-bucket').setChecked(this.labelStyle === 'tint').onClick(() => {
-			this.ctx.setOption('labelStyle', this.labelStyle === 'tint' ? 'stripe' : 'tint');
-			this.applyCardSize();
-		}));
-		// (Scrivener's "card numbers": each note's place in the order, to talk about and to count by)
-		menu.addItem((i) => i.setSection('view').setTitle('Number the cards').setIcon('list-ordered').setChecked(this.numbers).onClick(() => {
-			this.ctx.setOption('numbers', !this.numbers);
-			this.applyCardSize();
-		}));
+		// one drawer, "Cards": the size, then how the cards are drawn (the numbers are Scrivener's "card numbers": each
+		// note's place in the order, to talk about and to count by)
+		cardsDrawer(menu, this.cardSize, (size) => { this.ctx.setOption('cardSize', size); this.applyCardSize(); }, [
+			{ title: 'Tint cards with their label color', icon: 'paint-bucket', on: this.labelStyle === 'tint', flip: () => { this.ctx.setOption('labelStyle', this.labelStyle === 'tint' ? 'stripe' : 'tint'); this.applyCardSize(); } },
+			{ title: 'Number the cards', icon: 'list-ordered', on: this.numbers, flip: () => { this.ctx.setOption('numbers', !this.numbers); this.applyCardSize(); } },
+		]);
 	}
 
 	newMenu(menu: Menu, sec?: HTMLElement | null): void {

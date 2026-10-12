@@ -1,5 +1,5 @@
 import { assignedKind } from '../inspector/property-widgets';
-import { Menu, type App, type ItemView, type MenuItem, type TFile, type WorkspaceLeaf } from 'obsidian';
+import { Menu, Platform, type App, type ItemView, type MenuItem, type TFile, type WorkspaceLeaf } from 'obsidian';
 
 /* Obsidian internals the binder view uses, each feature-detected with a fallback (see docs/dev/internals.md).
 
@@ -34,6 +34,9 @@ export function submenu(item: MenuItem, build: (menu: Menu) => void, root?: Menu
 		try {
 			const sub = item.setSubmenu();
 			if (sub && typeof sub.addItem === 'function') {
+				// a long drawer (forty folders under "Move") is Obsidian's own submenu as tall as the window and placed
+				// at its row, so on a tablet its foot is off the screen: it gets the clamp the card menu has
+				if (!Platform.isPhone) fitItemMenu(sub);
 				// choosing something in the submenu closes the menu it came from as well: Obsidian does that for a
 				// click, but not for Enter, nor on a phone, where the first menu would stay over whatever opens next
 				if (root) {

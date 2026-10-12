@@ -14,6 +14,7 @@ import { folderSnapshotItems, snapshotItems } from './snapshots'; // snapshots
 import { badName } from '../history/rename';
 import { parseTarget, whyNotTarget } from './outliner-data';
 import { capture } from '../revision/capture';
+import { hasSnapshots } from '../binder-snapshots';
 
 /* What can be done to a note or a folder of a binder, the same on a card and in an outliner row: its menu, renaming,
    deleting, and setting its status, label and target. The views say how their own parts work (which field renames,
@@ -227,26 +228,7 @@ export function emptyState(ctx: ModeContext, parent: HTMLElement): HTMLElement {
 	return box;
 }
 
-/** "Set status", "Set label" and "Set target" for a menu. */
-export function propItems(ctx: ModeContext, menu: Menu, items: TAbstractFile[]): void {
-	menu.addItem((i) => { i.setSection('props').setTitle('Set status').setIcon('circle-dot'); submenu(i, (m) => statusItems(ctx, m, items), menu); });
-	menu.addItem((i) => { i.setSection('props').setTitle('Set label').setIcon('palette'); submenu(i, (m) => labelItems(ctx, m, items), menu); });
-	menu.addItem((i) => i.setSection('props').setTitle('Set target...').setIcon('target').onClick(() => void askTarget(ctx, items)));
-	menu.addItem((i) => i.setSection('props').setTitle('Set story date...').setIcon('calendar').onClick(() => void askStoryDate(ctx, items)));
-	if (items.some((f) => readStory(ctx.plugin, noteOf(ctx, f)).raw !== undefined)) menu.addItem((i) => i.setSection('props').setTitle('Remove story date').setIcon('calendar-x').onClick(() => void setStory(ctx, items, null)));
-	// (Shift story dates: with more than one dated note, move them together)
-	const dated = datedNotes(ctx.plugin, items.map((f) => noteOf(ctx, f)));
-	if (dated.length > 1) menu.addItem((i) => i.setSection('props').setTitle('Shift story dates...').setIcon('calendar-range').onClick(() => void shiftDialog(ctx, dated)));
-}
-
 const tell = async <T>(p: Promise<T>): Promise<T | null> => { try { return await p; } catch (e) { new Notice(e instanceof Error ? e.message : String(e)); return null; } };
-
-/** Whether the item menu is the short one: on a tablet, where it opens beside the finger and has to fit on the
-    screen as it is (a menu that scrolls under a finger takes the tap for the item next to the one meant). What is
-    one tap in the long menu and has a submenu to go in goes there: moving, under "Move"; and "Include in export",
-    which "Leave out" under "Export as" already is. A phone's sheet scrolls as Obsidian's own do, and a computer has
-    the room: theirs is the long one. */
-export const shortMenu = (): boolean => Platform.isMobile && !Platform.isPhone;
 
 /** Whether the items can go in a new folder together (siblings only: a folder goes where the first of them is). */
 const canGroup = (ctx: ModeContext, items: TAbstractFile[]): boolean => ctx.binder.kind !== 'longform' && items.every((f) => f.parent === items[0].parent);
@@ -254,32 +236,6 @@ const canGroup = (ctx: ModeContext, items: TAbstractFile[]): boolean => ctx.bind
 /** "Put in a new folder", for the menu or for "Move". */
 function groupItem(ctx: ModeContext, menu: Menu, items: TAbstractFile[], h: Hooks, section: string): void {
 	menu.addItem((i) => i.setSection(section).setTitle(items.length > 1 ? 'New folder from selection' : 'Put in a new folder').setIcon('folder-plus').onClick(async () => { const made = await tell(ctx.store.group(items)); if (made) h.made?.(made, true); }));
-}
-
-/** Copying, grouping, merging, and whether it's exported: what changes the binder's shape. */
-function structureItems(ctx: ModeContext, menu: Menu, items: TAbstractFile[], h: Hooks, short: boolean): void {
-	const one = items.length === 1 ? items[0] : null, longform = ctx.binder.kind === 'longform', store = ctx.store;
-	if (one) menu.addItem((i) => i.setSection('structure').setTitle('Duplicate').setIcon('copy').onClick(async () => {
-		// (what's typed and not saved yet is copied too)
-		await tell(saveOpen(ctx.app, one instanceof TFolder ? store.scenes(one) : isNote(one) ? [one] : []));
-		const made = await tell(store.duplicate(one));
-		if (made) h.made?.(made, false);
-	}));
-	const notes = items.filter(isNote);
-	if (notes.length > 1 && notes.length === items.length) menu.addItem((i) => i.setSection('structure').setTitle(`Merge ${notes.length} notes`).setIcon('merge').onClick(async () => {
-		// in reading order, however they're selected or sorted on screen
-		const kept = await mergeScenes(ctx.plugin, store.inOrder(notes).filter(isNote));
-		if (kept) h.made?.(kept, false);
-	}));
-	if (one && isNote(one) && !ctx.binder.problem) menu.addItem((i) => i.setSection('structure').setTitle('Split at headings...').setIcon('split').onClick(() => void tell(openSplitMany(ctx.plugin, one))));
-	if (!short && canGroup(ctx, items)) groupItem(ctx, menu, items, h, 'structure');
-	if (one instanceof TFolder) menu.addItem((i) => i.setSection('structure').setTitle('Export...').setIcon('book-up').onClick(() => new ExportModal(ctx.plugin, one).open()));
-	if (one instanceof TFolder && (store.orderedChildren(one) ?? []).length) menu.addItem((i) => i.setSection('structure').setTitle('Ungroup').setIcon('folder-output').onClick(() => void tell(store.ungroup(one))));
-	const on = items.every((f) => { const n = noteOf(ctx, f); const fm = n ? ctx.app.metadataCache.getFileCache(n)?.frontmatter : null; return !fm || (fm[EXPORT_PROP] !== false && fm[COMPILE_PROP] !== false); });
-	// (the short menu leaves it to "Leave out" under "Export as"; a Longform project's notes have no "Export as")
-	if (!short || longform) menu.addItem((i) => i.setSection('structure').setTitle('Include in export').setIcon('book-check').setChecked(on).onClick(() => void setExported(ctx, items, !on)));
-	// the part it plays in the book, overruled by hand (a Longform project's note is Longform's: its scenes are chapters)
-	if (!longform) menu.addItem((i) => { i.setSection('structure').setTitle('Export as').setIcon('book-open'); submenu(i, (m) => exportAsItems(ctx.plugin, m, ctx.binder, items, { readOnly: ctx.readOnly }), menu); });
 }
 
 /** Leaves items out of exports (`export: false`), or puts them back in: the property goes, and so does
@@ -371,63 +327,94 @@ function targetItems(ctx: ModeContext, m: Menu, items: TAbstractFile[], folders:
 	}
 }
 
-/** "Move up", "Move down" and "Move to": the last a way to another folder that needs no dragging (across a long
-    binder, by touch, or from a board that shows one folder). In the short menu they are one item, "Move", with "Put
-    in a new folder" (a move too) at its foot. */
-function moveItems(ctx: ModeContext, menu: Menu, items: TAbstractFile[], h: Hooks, short: boolean): void {
-	const folders = moveTargets(ctx);
-	if (!short) {
-		stepItems(menu, items, h, 'order');
-		if (folders.length) menu.addItem((i) => { i.setSection('order').setTitle('Move to').setIcon('folder-input'); submenu(i, (m) => targetItems(ctx, m, items, folders), menu); });
-		return;
-	}
-	const steps = items.length === 1 && !!(h.up || h.down), group = canGroup(ctx, items);
-	if (!steps && !folders.length && !group) return;
-	menu.addItem((i) => {
-		i.setSection('structure').setTitle('Move').setIcon('move');
-		submenu(i, (m) => {
-			stepItems(m, items, h, 'order');
-			targetItems(ctx, m, items, folders, 'to');
-			if (group) groupItem(ctx, m, items, h, 'new');
-		}, menu);
-	});
-}
-
+/* The menu of one item, or of several selected together: the same on every screen. A row for what is done many times
+   an hour (open, rename, the synopsis, status, label, delete); a drawer, named for what is in it, for the rest, one
+   level deep as Obsidian's own editor menu has "Format" and "Insert". Four drawers: "Move", "Snapshots", "Export as"
+   and "More". What Obsidian and other plugins add stays after Binders' own, and "Delete" is last, as in the file
+   explorer. Nothing is left out: the less used actions are one row further in (docs/dev/design.md, 2026-10-11). */
 /** The menu of one item, or of several selected together. */
 export function itemMenu(ctx: ModeContext, items: TAbstractFile[], h: Hooks): Menu {
-	const menu = new Menu(), ro = ctx.readOnly, one = items.length === 1 ? items[0] : null, short = shortMenu();
+	const menu = new Menu(), ro = ctx.readOnly, one = items.length === 1 ? items[0] : null, store = ctx.store, plugin = ctx.plugin;
+	const longform = ctx.binder.kind === 'longform', notes = items.filter(isNote), G = 'groups';
 	const pick = h.pick;
 	if (Platform.isMobile && pick) menu.addItem((i) => i.setSection('open').setTitle('Select more').setIcon('list-checks').onClick(() => pick()));
 	if (one instanceof TFolder) {
 		menu.addItem((i) => i.setSection('open').setTitle('Open').setIcon('layout-grid').onClick(() => ctx.navigate(one)));
 		menu.addItem((i) => i.setSection('open').setTitle('Open in new tab').setIcon('file-plus').onClick(() => ctx.navigate(one, 'tab')));
-		const note = ctx.store.folderNote(one);
+		const note = store.folderNote(one);
 		if (note) menu.addItem((i) => i.setSection('open').setTitle('Open folder note').setIcon('file-text').onClick(() => void ctx.openFile(note, false)));
 	} else if (one instanceof TFile) {
 		menu.addItem((i) => i.setSection('open').setTitle('Open').setIcon('file').onClick(() => void ctx.openFile(one, false)));
 		menu.addItem((i) => i.setSection('open').setTitle('Open in new tab').setIcon('file-plus').onClick(() => void ctx.openFile(one, 'tab')));
 		if (!Platform.isPhone) menu.addItem((i) => i.setSection('open').setTitle('Open to the right').setIcon('separator-vertical').onClick(() => void ctx.openFile(one, 'split')));
 	}
+	const folderSnaps = one instanceof TFolder && hasSnapshots(plugin, one);
 	if (!ro) {
+		// ---- the rows: what is done to a note all day ----
 		if (one && h.rename) menu.addItem((i) => i.setSection('edit').setTitle('Rename').setIcon('pencil-line').onClick(() => h.rename?.(one)));
 		if (one && h.synopsis) menu.addItem((i) => i.setSection('edit').setTitle('Edit synopsis').setIcon('text').onClick(() => h.synopsis?.(one)));
-		const notes = items.filter(isNote);
-		if (notes.length) menu.addItem((i) => i.setSection('edit').setTitle('Set synopsis from text').setIcon('wand-sparkles').onClick(async () => {
-			const n = await synopsisFromText(ctx.plugin, notes);
-			if (!n) new Notice(notes.length === 1 ? 'Nothing to make a synopsis from.' : 'No note without a synopsis has text to make one from.');
+		menu.addItem((i) => { i.setSection('edit').setTitle('Set status').setIcon('circle-dot'); submenu(i, (m) => statusItems(ctx, m, items), menu); });
+		menu.addItem((i) => { i.setSection('edit').setTitle('Set label').setIcon('palette'); submenu(i, (m) => labelItems(ctx, m, items), menu); });
+		// (what several notes are selected for)
+		if (notes.length > 1 && notes.length === items.length) menu.addItem((i) => i.setSection('edit').setTitle(`Merge ${notes.length} notes`).setIcon('merge').onClick(async () => {
+			const kept = await mergeScenes(plugin, store.inOrder(notes).filter(isNote));
+			if (kept) h.made?.(kept, false);
 		}));
-		propItems(ctx, menu, items);
-		if (ctx.binder.kind === 'binder') menu.addItem((i) => i.setSection('edit').setTitle('Add revision task...').setIcon('list-plus').onClick(() => { capture(ctx.plugin, false, { binder: ctx.binder, items }); }));
-		structureItems(ctx, menu, items, h, short);
-		moveItems(ctx, menu, items, h, short);
+
+		// ---- the drawers ----
+		// Move: a place up or down, a new folder round it (and out of one), another folder of the binder
+		const folders = moveTargets(ctx), steps = !!one && !!(h.up || h.down), group = canGroup(ctx, items);
+		const ungroup = one instanceof TFolder && !!(store.orderedChildren(one) ?? []).length ? one : null;
+		if (steps || folders.length || group || ungroup) menu.addItem((i) => {
+			i.setSection(G).setTitle('Move').setIcon('move');
+			submenu(i, (m) => {
+				stepItems(m, items, h, 'order');
+				if (group) groupItem(ctx, m, items, h, 'new');
+				if (ungroup) m.addItem((x) => x.setSection('new').setTitle('Ungroup').setIcon('folder-output').onClick(() => void tell(store.ungroup(ungroup))));
+				// (last: a binder can have more folders than a screen has rows)
+				targetItems(ctx, m, items, folders, 'to');
+			}, menu);
+		});
+		const exportAs = (m: Menu, section: string, root: Menu) => {
+			if (one instanceof TFolder) m.addItem((i) => i.setSection(section).setTitle('Export...').setIcon('book-up').onClick(() => new ExportModal(plugin, one).open()));
+			// (a Longform project's notes play no part by hand: only in or out)
+			if (longform) {
+				const on = items.every((f) => { const n = noteOf(ctx, f); const fm = n ? ctx.app.metadataCache.getFileCache(n)?.frontmatter : null; return !fm || (fm[EXPORT_PROP] !== false && fm[COMPILE_PROP] !== false); });
+				m.addItem((i) => i.setSection(section).setTitle('Include in export').setIcon('book-check').setChecked(on).onClick(() => void setExported(ctx, items, !on)));
+			} else m.addItem((i) => { i.setSection(section).setTitle('Export as').setIcon('book-open'); submenu(i, (s) => exportAsItems(plugin, s, ctx.binder, items, { readOnly: ctx.readOnly }), root); });
+		};
+		const snapshots = (m: Menu, section: string) => {
+			if (!(one instanceof TFolder)) { snapshotItems(plugin, m, items, section, ro, true); return; }
+			if (folderSnaps) m.addItem((i) => { i.setSection(section).setTitle('Snapshots').setIcon('history'); submenu(i, (s) => folderSnapshotItems(plugin, s, one, 'snapshots', ro), menu); });
+		};
+		const more = (m: Menu) => {
+			m.addItem((i) => i.setSection('props').setTitle('Set target...').setIcon('target').onClick(() => void askTarget(ctx, items)));
+			m.addItem((i) => i.setSection('props').setTitle('Set story date...').setIcon('calendar').onClick(() => void askStoryDate(ctx, items)));
+			if (items.some((f) => readStory(plugin, noteOf(ctx, f)).raw !== undefined)) m.addItem((i) => i.setSection('props').setTitle('Remove story date').setIcon('calendar-x').onClick(() => void setStory(ctx, items, null)));
+			const dated = datedNotes(plugin, items.map((f) => noteOf(ctx, f)));
+			if (dated.length > 1) m.addItem((i) => i.setSection('props').setTitle('Shift story dates...').setIcon('calendar-range').onClick(() => void shiftDialog(ctx, dated)));
+			if (notes.length) m.addItem((i) => i.setSection('text').setTitle('Set synopsis from text').setIcon('wand-sparkles').onClick(async () => {
+				const n = await synopsisFromText(plugin, notes);
+				if (!n) new Notice(notes.length === 1 ? 'Nothing to make a synopsis from.' : 'No note without a synopsis has text to make one from.');
+			}));
+			if (ctx.binder.kind === 'binder') m.addItem((i) => i.setSection('text').setTitle('Add revision task...').setIcon('list-plus').onClick(() => { capture(plugin, false, { binder: ctx.binder, items }); }));
+			if (one) m.addItem((i) => i.setSection('shape').setTitle('Duplicate').setIcon('copy').onClick(async () => {
+				await tell(saveOpen(ctx.app, one instanceof TFolder ? store.scenes(one) : isNote(one) ? [one] : []));
+				const made = await tell(store.duplicate(one));
+				if (made) h.made?.(made, false);
+			}));
+			if (one && isNote(one) && !ctx.binder.problem) m.addItem((i) => i.setSection('shape').setTitle('Split at headings...').setIcon('split').onClick(() => void tell(openSplitMany(plugin, one))));
+		};
+		snapshots(menu, G);
+		exportAs(menu, G, menu);
+		menu.addItem((i) => { i.setSection(G).setTitle('More').setIcon('more-horizontal'); submenu(i, more, menu); });
+	} else {
+		// a binder that can't be changed: only the reading
+		snapshotItems(plugin, menu, items, 'edit', ro, true);
+		if (one instanceof TFolder) folderSnapshotItems(plugin, menu, one, 'edit', ro);
 	}
-	// snapshots: a note's earlier texts (taken, started again from, looked through); a folder's notes, all at once
-	snapshotItems(ctx.plugin, menu, items, 'edit', ro, true);
-	if (one instanceof TFolder) folderSnapshotItems(ctx.plugin, menu, one, 'structure', ro);
 	h.more?.(menu);
 	otherItems(ctx, menu, items);
-	// last, after what Obsidian and other plugins add, as in the file explorer's own menu (a menu's sections come in
-	// the order they're first used)
 	if (!ro && h.remove) menu.addItem((i) => i.setSection('danger').setTitle(one ? 'Delete' : `Delete ${items.length} items`).setIcon('trash-2').setWarning(true).onClick(() => h.remove?.(items)));
 	if (!Platform.isPhone) fitItemMenu(menu);
 	return menu;
