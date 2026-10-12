@@ -91,6 +91,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - In a very narrow pane the manuscript toolbar no longer overflows (the Synopses button gives way).
 - A snapshot's name is no longer cut short while there is room, and wraps in a narrow dialog.
 - The find bar's field now uses the same typeface as Obsidian's own search field.
+- In the outliner, the Words header and a large target such as 1,500,000 are no longer cut short when the interface font is wide: the Words and Target columns are a little wider.
 
 ## 0.51.1 (2026-10-10)
 

@@ -11,7 +11,7 @@ const j = (x: unknown) => JSON.stringify(x);
 	eq(columnName('progress'), 'Progress', 'a built-in column’s name');
 	eq(columnName('prop:Point of view'), 'Point of view', 'a property column is named by its property');
 	eq(columnName('title'), 'Title', 'the title');
-	eq(columnWidth({ id: 'words' }), 96, 'a built-in column’s own width');
+	eq(columnWidth({ id: 'words' }), 112, 'a built-in column’s own width');
 	eq(columnWidth({ id: 'prop:x' }), 140, 'a property column’s');
 	eq(columnWidth({ id: 'words', width: 5 }), 48, 'never too narrow to grab');
 	eq(clampWidth(9999), 640, 'nor absurdly wide');

@@ -343,7 +343,7 @@ class Outliner implements BinderMode {
 	    been given a width: the room goes to the title) */
 	private widthOf(c: ColumnSpec): number {
 		if (this.compact(c)) return 44;
-		if (c.width == null && Platform.isPhone && this.root.clientWidth < 520) { if (c.id === 'status') return 88; if (c.id === 'words') return Math.max(64, Math.ceil(parseFloat(getComputedStyle(this.root).fontSize) * 4.5)); }
+		if (c.width == null && Platform.isPhone && this.root.clientWidth < 520) { if (c.id === 'status') return 88; if (c.id === 'words') return Math.max(72, Math.ceil(parseFloat(getComputedStyle(this.root).fontSize) * 5.5)); }
 		return columnWidth(c);
 	}
 
