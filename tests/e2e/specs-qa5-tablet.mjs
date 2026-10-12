@@ -1093,8 +1093,10 @@ for (const [dev, size] of TABLETS) {
 			S.ok((await menuItems(p)).includes('Revised'), 'Enter in the status cell opens the statuses: ' + j(await menuItems(p)));
 			await gone(p);
 			await p.key('Escape');
-			// Tab: where does it go?
-			await tap(p, r2.x, r2.y);
+			// Tab: where does it go? (the rows have moved since the first tap, and a tap on a note's name opens the note:
+			// find its synopsis again)
+			const r3 = await p.at(orow(N + 'Two.md') + ' .binders-outliner-synopsis') ?? await p.at(orow(N + 'Two.md'));
+			await tap(p, r3.x, r3.y);
 			await p.key('Tab');
 			log(`${tag}: outliner, Tab from a row goes to`, await focusIs(p));
 			await p.key('F2');
