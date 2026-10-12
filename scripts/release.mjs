@@ -74,6 +74,8 @@ if (skip) {
 const date = new Date().toISOString().slice(0, 10);
 const text = applyRelease(log, next.version, date);
 console.log(`\nVersion ${last} -> ${next.version}: ${next.kind}, ${next.why}.\n\n${notesOf(text, next.version)}`);
+// (what the suite cannot give: ROADMAP.md, "A suite that can be trusted")
+console.log('\nBefore you answer: the phone checklist, by hand on the iPhone (docs/dev/phone-checklist.md).');
 if (!flag('yes')) {
 	if (!process.stdin.isTTY) fail("Not a terminal, so nobody to ask. (--yes is for the coordinator acting on the maintainer's explicit request.)");
 	const rl = createInterface({ input: process.stdin, output: process.stdout });
