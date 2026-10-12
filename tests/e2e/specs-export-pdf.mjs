@@ -133,6 +133,22 @@ test('a paperback: the kind and its choices, the pages in the window, and a PDF 
 	same(t, before, await texts(p));
 });
 
+/** Characters in `a` and not in `b` (as many times over as the difference), by code point, for when a test of other alphabets fails on a letter the PDF's text lacks. */
+function diffChars(a, b) {
+	const n = new Map();
+	for (const c of b.normalize('NFKC')) n.set(c, (n.get(c) ?? 0) + 1);
+	const out = [];
+	for (const c of a.normalize('NFKC')) { if (/\s/.test(c)) continue; if (n.get(c)) n.set(c, n.get(c) - 1); else out.push(`${c} U+${c.codePointAt(0).toString(16)}`); }
+	return out.slice(0, 12).join(', ') || 'none';
+}
+const shownText = (s) => `${s.head}\n${s.text}\n${s.notes}\n${s.folio}`;
+/** The PDF's text around the first place it stops matching the window's (with the spaces and line breaks taken out of both). */
+function around(printed, shown) {
+	const a = [...printed.normalize('NFKC').replace(/\s+/g, '')], b = [...shown.normalize('NFKC').replace(/\s+/g, '')];
+	let i = 0; while (i < a.length && i < b.length && a[i] === b[i]) i++;
+	return `${a.slice(Math.max(0, i - 8), i + 8).join('')} (window: ${b.slice(Math.max(0, i - 8), i + 8).join('')})`;
+}
+
 /** The PDF read back and held against the window's pages: as many, each with the same words, every font in it. */
 function checkPdf(t, at, shown, o = {}) {
 	if (!TOOLS.info) loud(t, 'pdfinfo'); else {
@@ -155,7 +171,7 @@ function checkPdf(t, at, shown, o = {}) {
 		const bag = (text) => (o.others ? [...words(text).join('')].sort().join('') : words(text).sort().join(' '));
 		const differ = shown.map((s, i) => [bag(`${s.head}\n${s.text}\n${s.notes}\n${s.folio}`), bag(printed[i] ?? '')]).findIndex(([a, b]) => a !== b);
 		let why = '';
-		if (differ >= 0) { const a = words(`${shown[differ].head}\n${shown[differ].text}\n${shown[differ].notes}\n${shown[differ].folio}`), b = words(printed[differ] ?? ''), left = [...a]; const extra = []; for (const w of b) { const i = left.indexOf(w); if (i < 0) extra.push(w); else left.splice(i, 1); } why = `page ${differ + 1}: only in the window “${left.slice(0, 12).join(' ')}”, only in the PDF “${extra.slice(0, 12).join(' ')}”${/[\u2E80-\u2FDF]/.test(printed[differ] ?? '') ? `; the PDF holds Kangxi radicals there (a font's own letter for a character, as Chromium writes it into the PDF; old Poppler prints it as it is): ${[...printed[differ]].filter((c) => /[\u2E80-\u2FDF]/.test(c)).map((c) => 'U+' + c.codePointAt(0).toString(16)).join(' ')}` : ''}`; }
+		if (differ >= 0) { const a = words(`${shown[differ].head}\n${shown[differ].text}\n${shown[differ].notes}\n${shown[differ].folio}`), b = words(printed[differ] ?? ''), left = [...a]; const extra = []; for (const w of b) { const i = left.indexOf(w); if (i < 0) extra.push(w); else left.splice(i, 1); } why = `page ${differ + 1}: only in the window “${left.slice(0, 12).join(' ')}”, only in the PDF “${extra.slice(0, 12).join(' ')}”${o.others ? `; characters by code point (window minus PDF: ${diffChars(shownText(shown[differ]), printed[differ] ?? '')}; PDF minus window: ${diffChars(printed[differ] ?? '', shownText(shown[differ]))}); the page's text around the first loss: ${JSON.stringify(around(printed[differ] ?? '', shownText(shown[differ])))}; the PDF's fonts: ${[...new Set(pdfFonts(at).map((x) => `${x.name} ${x.type}`))].join(', ')}; the previous and next pages hold the character: ${[-1, 1].map((d) => (printed[differ + d] ?? '').includes('雨')).join('/')}` : ''}${/[\u2E80-\u2FDF]/.test(printed[differ] ?? '') ? `; the PDF holds Kangxi radicals there (a font's own letter for a character, as Chromium writes it into the PDF; old Poppler prints it as it is): ${[...printed[differ]].filter((c) => /[\u2E80-\u2FDF]/.test(c)).map((c) => 'U+' + c.codePointAt(0).toString(16)).join(' ')}` : ''}`; }
 		t.eq(why, '', `${o.name ? `${o.name}: ` : ''}each printed page holds the words of the window’s page`);
 	}
 }

@@ -110,6 +110,11 @@ jobs:
       # the PDF export tests read their PDFs back with Poppler's pdftotext, pdffonts and pdfinfo
       - name: Poppler
         run: command -v pdftotext >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils; }
+      # the demo vault's Chinese and Japanese books are set in the computer's own CJK font; the runner's default is a
+      # different one than the one the tests were written against (Noto Sans CJK), and a character went missing from
+      # its PDF text (export pdf, "Other Alphabets", page 11), so the runner gets the same font
+      - name: CJK fonts
+        run: fc-list :lang=zh-cn | grep -qi "noto sans cjk" || { sudo apt-get update -qq && sudo apt-get install -y -qq fonts-noto-cjk && fc-cache -f; }
       - name: Environment
         run: sed -E 's/^export //; s/"//g' .cloud-env >> "$GITHUB_ENV"
       - name: Build and install into the test vault
