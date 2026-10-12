@@ -1,6 +1,6 @@
 // The suite's two tiers and its quarantine (tests/e2e/tiers-lib.mjs).
 // @ts-expect-error a plain script, with no types
-import { quarantine, tierOf, tiered, today } from './e2e/tiers-lib.mjs';
+import { quarantine, tierOf, tiered, today, unlisted } from './e2e/tiers-lib.mjs';
 import { done, eq, ok } from './harness';
 
 const j = (x: unknown) => JSON.stringify(x);
@@ -20,6 +20,14 @@ const throws = (f: () => unknown) => { try { f(); return ''; } catch (e) { retur
 	eq(specs[0].fn, fn, 'the test itself is kept');
 	eq(specs[1].timeout, 5, 'and what else it says');
 	eq(tiered({}).length, 0, 'a module with no specs');
+	// tiers.json: a listed name is look, unless the test says otherwise; a file's own tier is under both
+	const listed = tiered({ specs: [{ name: 'p', fn }, { name: 'q', fn }, { name: 'r', fn, tier: 'core' }] }, ['q', 'r']);
+	eq(j(listed.map((s: { tier: string }) => s.tier)), j(['core', 'look', 'core']), 'listed: look; not listed: core; its own word wins');
+	eq(tierOf({ name: 'a' }, 'core', true), 'look', 'listed wins over the file');
+	// a name listed that no test has: said, so a renamed test is seen to have become core
+	const gone = unlisted({ 'a.mjs': ['p', 'renamed'], 'b.mjs': ['x'] }, { 'a.mjs': ['p', 'q'] });
+	eq(j(gone), j([{ file: 'a.mjs', name: 'renamed' }]), 'a stale name is found; a file not loaded is not looked at');
+	eq(unlisted({}, { 'a.mjs': ['p'] }).length, 0, 'nothing listed');
 }
 
 // the quarantine

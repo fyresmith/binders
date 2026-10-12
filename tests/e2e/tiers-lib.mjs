@@ -4,25 +4,41 @@
 //         path: anything a writer would call broken. Every test is core unless it says otherwise.
 //   look: how it looks and how fast it feels: pixel sizes, what is in sight, where a menu opens, colours, the exact rows
 //         of a list, frame times. A failure is reported and does not block: it is a thing to look at, not a broken build.
-// A test says it is look with `tier: 'look'` beside its name and fn (the `look(...)` of its spec file), or its whole file
-// does with `export const tier = 'look'`.
+// A test says it is look with `tier: 'look'` beside its name and fn, or its whole file does with
+// `export const tier = 'look'`. The tests written before the tiers were sorted once, by reading each (2026-10-12): those
+// of the look tier are listed by name in tests/e2e/tiers.json, under their file. A name there that no test has any more
+// is said (`unlisted`): a renamed test falls back to core, never the other way.
 // The quarantine (tests/e2e/quarantine.json) is for a test that fails for a reason of the machine (a font, a slow
 // runner), not of Binders: listed with an owner and a date, it is reported and does not block until that date. After
 // it, it counts again as it would. A bug of Binders is not quarantined: it goes in open-findings.json.
 
 export const TIERS = ['core', 'look'];
 
-/** A spec's tier: its own, else its file's, else core. Anything that isn't a tier is refused, so a typo can't hide a
-    test from the gate. */
-export function tierOf(spec, fileTier) {
-	const t = spec?.tier ?? fileTier ?? 'core';
+/** A spec's tier: its own, else tiers.json's (`listed`, true when its name is there), else its file's, else core.
+    Anything that isn't a tier is refused, so a typo can't hide a test from the gate. */
+export function tierOf(spec, fileTier, listed = false) {
+	const t = spec?.tier ?? (listed ? 'look' : null) ?? fileTier ?? 'core';
 	if (!TIERS.includes(t)) throw new Error(`"${spec?.name}": the tier "${t}" is not one of ${TIERS.join(', ')}`);
 	return t;
 }
 
-/** Each spec with its tier written on it (`{ ...spec, tier }`), from one spec file's module. */
-export function tiered(mod) {
-	return (mod.specs ?? []).map((s) => ({ ...s, tier: tierOf(s, mod.tier) }));
+/** Each spec with its tier written on it (`{ ...spec, tier }`), from one spec file's module; `look`, the names
+    tiers.json lists for that file. */
+export function tiered(mod, look = []) {
+	const listed = new Set(look);
+	return (mod.specs ?? []).map((s) => ({ ...s, tier: tierOf(s, mod.tier, listed.has(s.name)) }));
+}
+
+/** The names tiers.json lists (`{ file: [names] }`) that no test of that file has (`names`: `{ file: [names] }` of the
+    files that were loaded; a file not loaded is not looked at): `[{ file, name }]`. */
+export function unlisted(map, names) {
+	const out = [];
+	for (const [file, list] of Object.entries(map ?? {})) {
+		if (!names[file]) continue;
+		const have = new Set(names[file]);
+		for (const name of list) if (!have.has(name)) out.push({ file, name });
+	}
+	return out;
 }
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;

@@ -33,7 +33,8 @@ walk(VAULT);
 
 const specFiles = arg('specs', '') ? arg('specs').split(',') : readdirSync('tests/e2e').filter((f) => /^specs.*\.mjs$/.test(f)).map((f) => 'tests/e2e/' + f);
 const specs = [];
-for (const f of specFiles) specs.push(...tiered(await import(pathToFileURL(f).href)));
+const LOOK = 'tests/e2e/tiers.json', looks = existsSync(LOOK) ? JSON.parse(readFileSync(LOOK, 'utf8')) : {};
+for (const f of specFiles) specs.push(...tiered(await import(pathToFileURL(f).href), looks[f] ?? looks[f.replace(/^\.\//, '')]));
 
 // Findings still open, by the test's name: scenarios kept failing on purpose until what they show is fixed or decided.
 // One of them failing doesn't fail the run; one of them passing is said at the end, so the list stays true.
