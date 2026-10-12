@@ -4,7 +4,7 @@
 // asserts the file's bytes: the body unchanged, undo and redo exact, a byte-order mark, Windows line breaks, an edit from
 // outside, typing not yet saved, a Longform project, a read-only binder, a phone.
 import { mkdirSync } from 'fs';
-import { B, NOTE, PL, VIEW, answer, clickMenu, closeMenus, contents, flush, j, menuItems, openView, read, reload, split, texts, tidy, until, withTidy, writeRaw } from './view-helpers.mjs';
+import { B, NOTE, PL, VIEW, answer, clickMenu, closeMenus, contents, flush, j, menuItems, openView, read, reload, split, texts, tidy, until, withTidy, writeRaw, menuItemsAll } from './view-helpers.mjs';
 
 export const specs = [];
 const test = (name, fn) => specs.push({ name: 'story date: ' + name, fn: withTidy(fn) });
@@ -282,7 +282,7 @@ test('“Set story date...” and “Remove story date” in the item menu: for 
 	await p.ev(`(() => { ${B}.undos = []; ${B}.redos = []; return 1; })()`);
 	await select(p, ARRIVAL);
 	await menuOf(p, ARRIVAL);
-	let items = await menuItems(p);
+	let items = await menuItemsAll(p);
 	t.ok(items.includes('Set story date...'), 'a note’s menu has it: ' + items.join(', '));
 	t.ok(!items.includes('Remove story date'), 'but not Remove, with none to remove');
 	await clickMenu(p, 'Set story date...');
@@ -306,7 +306,7 @@ test('“Set story date...” and “Remove story date” in the item menu: for 
 	// several at once
 	await select(p, ARRIVAL, KEEPER, STORM);
 	await menuOf(p, STORM);
-	items = await menuItems(p);
+	items = await menuItemsAll(p);
 	t.ok(items.includes('Set story date...') && items.includes('Remove story date'), 'several: Set, and Remove since one has a date');
 	await clickMenu(p, 'Set story date...');
 	await until(p, `!!document.querySelector('.modal input[type="text"]')`);
@@ -325,7 +325,7 @@ test('“Set story date...” and “Remove story date” in the item menu: for 
 	// remove
 	await select(p, KEEPER);
 	await menuOf(p, KEEPER);
-	t.ok((await menuItems(p)).includes('Remove story date'), 'a note with a date has Remove');
+	t.ok((await menuItemsAll(p)).includes('Remove story date'), 'a note with a date has Remove');
 	await clickMenu(p, 'Remove story date');
 	await p.sleep(500);
 	await flush(p);
@@ -341,7 +341,7 @@ test('a folder can have a date of its own, in its folder note, made only when on
 	await open(p);
 	await select(p, 'Part Two');
 	await menuOf(p, 'Part Two');
-	t.ok(!(await menuItems(p)).includes('Remove story date'), 'no Remove: it has none');
+	t.ok(!(await menuItemsAll(p)).includes('Remove story date'), 'no Remove: it has none');
 	await closeMenus(p);
 	t.eq(await p.ev(`app.vault.adapter.exists(${j(note)})`), false, 'no folder note to begin with');
 	await type(p, 'Part Two', '5 May 2005');
@@ -580,7 +580,9 @@ test('a phone: a held row’s menu has “Set story date...”, a tap in a finge
 		await touch(p, 'touchEnd');
 		await p.sleep(600);
 		const items = await menuItems(p);
-		t.ok(items.includes('Set story date...'), 'the held row’s menu has it: ' + items.join(', '));
+		t.ok(items.includes('More'), 'the held row’s menu has it, under More: ' + items.join(', '));
+		// (its drawer first: a tap on More opens it, in the sheet's place on a phone)
+		{ const m = await p.ev(`(() => { const it = [...document.querySelectorAll('.menu .menu-item')].find(e => e.querySelector('.menu-item-title')?.textContent === 'More'); if (!it) return null; it.scrollIntoView({ block: 'center' }); const r = it.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`); await p.sleep(250); const m2 = await p.ev(`(() => { const it = [...document.querySelectorAll('.menu .menu-item')].find(e => e.querySelector('.menu-item-title')?.textContent === 'More'); const r = it.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`); await tap(p, m2.x, m2.y); await p.sleep(450); void m; }
 		const find = `[...document.querySelectorAll('.menu .menu-item')].filter(e => e.querySelector('.menu-item-title')?.textContent === 'Set story date...').pop()`;
 		await p.ev(`${find}.scrollIntoView({ block: 'center' })`);
 		await p.sleep(250);

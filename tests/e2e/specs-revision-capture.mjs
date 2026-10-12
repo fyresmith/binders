@@ -3,7 +3,7 @@
 // focus mode, from a card and a row, with the revision note itself open and typed in, refused where it can't be done,
 // and on a phone and a tablet by touch.
 import { mkdirSync } from 'fs';
-import { B, NOTE, PL, VIEW, card, clickMenu, exists, file, flush, j, menuItems, openView, read, reload, split, texts, tidy, until, withTidy } from './view-helpers.mjs';
+import { B, NOTE, PL, VIEW, card, clickMenu, exists, file, flush, j, menuItems, openView, read, reload, split, texts, tidy, until, withTidy, menuItemsAll } from './view-helpers.mjs';
 import { BN, L, REV, listing, seed } from './specs-revision.mjs';
 
 export const specs = [];
@@ -132,7 +132,7 @@ test('from a card and a row: one task about all that are selected, a folder by i
 	await p.click(a.x, a.t + 12);
 	await p.click(k.x, k.t + 12, { modifiers: 2 });
 	await p.right(k.x, k.y);
-	const offered = await menuItems(p);
+	const offered = await menuItemsAll(p);
 	t.ok(offered.includes('Add revision task...'), 'the menu of a selection offers it: ' + offered.join(', '));
 	await clickMenu(p, 'Add revision task...');
 	await until(p, `!!document.querySelector(${j(PROMPT)})`);
@@ -246,7 +246,9 @@ for (const [name, size, shotName] of [['a phone', [390, 844], 'phone'], ['a tabl
 			await touch(p, 'touchEnd');
 			await p.sleep(600);
 			const items = await menuItems(p);
-			t.ok(items.includes('Add revision task...'), 'the held card’s menu has it: ' + items.join(', '));
+			t.ok(items.includes('More'), 'the held card’s menu has it, under More: ' + items.join(', '));
+			// (its drawer first: a tap on More opens it, in the sheet's place on a phone)
+			{ const m = await p.ev(`(() => { const it = [...document.querySelectorAll('.menu .menu-item')].find(e => e.querySelector('.menu-item-title')?.textContent === 'More'); if (!it) return null; it.scrollIntoView({ block: 'center' }); const r = it.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`); await p.sleep(250); const m2 = await p.ev(`(() => { const it = [...document.querySelectorAll('.menu .menu-item')].find(e => e.querySelector('.menu-item-title')?.textContent === 'More'); const r = it.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`); await tap(p, m2.x, m2.y); await p.sleep(450); void m; }
 			const find = `[...document.querySelectorAll('.menu .menu-item')].filter((e) => e.querySelector('.menu-item-title')?.textContent === 'Add revision task...').pop()`;
 			await p.ev(`${find}.scrollIntoView({ block: 'center' })`);
 			await p.sleep(250);

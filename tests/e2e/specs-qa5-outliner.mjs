@@ -12,6 +12,7 @@
 import { tapToggle } from './filter-helpers.mjs';
 import { mkdirSync, writeFileSync } from 'fs';
 import { scaled, slowness } from './machine-speed.mjs';
+import { throughDrawers } from './menu-routes.mjs';
 import { B, PL, VIEW, closeMenus, contents, flush, j, menuItems, openView, read, reload, texts, tidy, until, viewState } from './view-helpers.mjs';
 
 export const specs = [];
@@ -115,7 +116,8 @@ const menus = (p) => p.ev(`document.querySelectorAll('.menu').length`);
 /** The last menu's items, with a tick on the ones that are checked. */
 const items = (p) => p.ev(`(() => { const m = [...document.querySelectorAll('.menu')].pop(); return m ? [...m.querySelectorAll('.menu-item')].filter(i => i.querySelector('.menu-item-title')).map(i => i.querySelector('.menu-item-title').textContent + (i.querySelector('.menu-item-icon.mod-checked svg, .mod-selected svg') || i.classList.contains('mod-checked') || i.querySelector('.menu-item-icon.mod-toggle svg') ? ' ✓' : '')) : []; })()`);
 /** Taps the menu item with this title (in the last menu shown), scrolled into view first. False if there's none. */
-async function menuTap(p, title) {
+async function menuTap(p, title, ...rest) { return throughDrawers(p, title, (t) => menuTapOne(p, t, ...rest)); }
+async function menuTapOne(p, title) {
 	const find = `[...document.querySelectorAll('.menu .menu-item')].filter(e => (e.querySelector('.menu-item-title')?.textContent ?? '') === ${j(title)}).pop()`;
 	if (!(await p.ev(`(() => { const it = ${find}; if (!it) return false; it.scrollIntoView({ block: 'center' }); return true; })()`))) return false;
 	await p.sleep(250);
@@ -706,7 +708,7 @@ test('phone, a note’s menu: a held row lifts, then its menu is a sheet; Rename
 		f.sheet = await sheet(p);
 		await shot(p, 'menu-note');
 		c.ok(isSheet(f.sheet) && f.sheet.itemHeights.every((x) => x >= 44), 'let go, its menu is a sheet with rows a finger tall');
-		for (const x of ['Open', 'Open in new tab', 'Rename', 'Edit synopsis', 'Set synopsis from text', 'Set status', 'Set label', 'Set target...', 'Duplicate', 'Put in a new folder', 'Include in export ✓', 'Move down', 'Delete']) c.ok(f.items.includes(x), `“${x}” is in it`);
+		for (const x of ['Open', 'Open in new tab', 'Rename', 'Edit synopsis', 'Set status', 'Set label', 'Move', 'Snapshots', 'Export as', 'More', 'Delete']) c.ok(f.items.includes(x), `“${x}” is in it`);
 		c.ok(!f.items.includes('Open to the right') && !f.items.includes('Move up'), 'without “Open to the right” (a phone) or “Move up” (it’s the first in its folder)');
 		c.eq(f.items[f.items.length - 1], 'Delete', 'Delete last');
 		c.eq(j([await selected(p), await activeFile(p)]), j([[L + A], null]), 'the row is selected and nothing opened');
@@ -758,14 +760,22 @@ test('phone, a note’s menu: a held row lifts, then its menu is a sheet; Rename
 		await flush(p);
 		c.eq(await prop(p, L + N, 'export'), 'false', 'Include in export, unticked, leaves the note out');
 		await rowMenu(p, N);
-		c.ok((await items(p)).includes('Include in export'), 'and shows unticked the next time');
+		await menuTap(p, 'Export as');
+		await p.sleep(400);
+		c.ok((await items(p)).some((x) => x.startsWith('Leave out') && x.endsWith('✓')), 'and shows Leave out ticked the next time: ' + j(await items(p)));
+		await gone(p);
+		await rowMenu(p, N);
 		await menuTap(p, 'Move down');
 		await p.sleep(700);
 		await flush(p);
 		c.eq(j((await contents(p)).slice(2, 4)), j(['Part One/The keeper', 'Part One/Landing']), 'Move down');
 		c.eq(j([await selected(p), await menus(p)]), j([[L + N], 0]), 'the row still selected, the sheet gone');
 		await rowMenu(p, N);
+		await menuTap(p, 'Move');
+		await p.sleep(400);
 		c.ok((await items(p)).includes('Move up'), 'now it can move up');
+		await gone(p);
+		await rowMenu(p, N);
 		await menuTap(p, 'Duplicate');
 		await p.sleep(1000);
 		await flush(p);
@@ -821,7 +831,7 @@ test('phone, a folder’s menu: Rename takes its notes along, Export... opens th
 		await rowMenu(p, 'Part One');
 		f.items = await items(p);
 		await shot(p, 'menu-folder');
-		for (const x of ['Open', 'Rename', 'Edit synopsis', 'Set status', 'Set label', 'Set target...', 'Duplicate', 'Put in a new folder', 'Export...', 'Ungroup', 'Include in export ✓', 'Move up', 'Move down', 'Delete']) c.ok(f.items.includes(x), `“${x}” is in it`);
+		for (const x of ['Open', 'Rename', 'Edit synopsis', 'Set status', 'Set label', 'Move', 'Snapshots', 'Export...', 'Export as', 'More', 'Delete']) c.ok(f.items.includes(x), `“${x}” is in it`);
 		c.ok(!f.items.includes('Set synopsis from text'), 'a folder has no text to take a synopsis from');
 		await menuTap(p, 'Rename');
 		await p.sleep(500);

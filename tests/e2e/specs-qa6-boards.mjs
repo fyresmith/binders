@@ -1,7 +1,7 @@
 // QA round 6, the boards: the corkboard (grid and arranged by label), the outliner and the view shell, with the
 // folder card that names what it holds (0.12.17), the outliner's column code (0.12.14) and what both boards share
 // (0.12.16: cardKey, sumWords, numberCards, overPane). Tests named "BUG: …" or "UX: …" fail until what they show is fixed.
-import { B, NOTE, VIEW, card, cards, clickMenu, closeMenus, contents, exists, file, flush, j, menuItems, openView, read, reload, same, selected, split, texts, until, viewState, withTidy, writeRaw } from './view-helpers.mjs';
+import { B, NOTE, VIEW, card, cards, clickMenu, closeMenus, hoverMenu, contents, exists, file, flush, j, menuItems, openView, read, reload, same, selected, split, texts, until, viewState, withTidy, writeRaw, menuItemsAll } from './view-helpers.mjs';
 
 export const specs = [];
 const test = (name, fn) => specs.push({ name: 'qa6 boards: ' + name, fn });
@@ -648,13 +648,7 @@ test('BUG: “Move to” (a card’s menu) into another folder leaves the keyboa
 	const near = (x) => x === 'Part One/The keeper.md';
 	t.ok(near(seen.corkboard) && near(seen.outliner), 'where the keyboard is after: ' + j(seen));
 });
-const hoverMenuItem = async (p, title) => {
-	const pos = await p.ev(`(() => { const it = [...document.querySelectorAll('.menu .menu-item')].find(e => e.querySelector('.menu-item-title')?.textContent === ${j(title)}); if (!it) return null; const r = it.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
-	if (!pos) throw new Error('no menu item ' + title);
-	await p.move(pos.x, pos.y, 3);
-	await p.click(pos.x, pos.y);
-	await p.sleep(300);
-};
+const hoverMenuItem = (p, title) => hoverMenu(p, title);
 
 // ---- the keyboard after each thing a card’s or a row’s menu does (the keyboard user never loses their place) ----
 /** Where the keyboard is after an action, by what it holds: a path, or `view` (somewhere in the view, not on an item) or `outside`. */
@@ -682,8 +676,8 @@ for (const kind of ['corkboard', 'outliner']) {
 			t.eq(await keyboardAt(p), a.path, 'the keyboard starts on the item');
 			await p.key('ContextMenu');
 			await p.sleep(300);
-			const items = await menuItems(p);
-			if (!items.includes(a.pick[0])) { await closeMenus(p); t.ok(true, `(no “${a.pick[0]}” in this menu: ${items.join(', ')})`); return; }
+			const items = await menuItemsAll(p);
+			if (!items.includes(a.pick[0]) && !(a.pick[0] === 'Include in export' && items.includes('Leave out'))) { await closeMenus(p); t.ok(true, `(no “${a.pick[0]}” in this menu: ${items.join(', ')})`); return; }
 			if (a.pick.length > 1) { await hoverMenuItem(p, a.pick[0]); await clickMenu(p, a.pick[1]); } else await clickMenu(p, a.pick[0]);
 			await p.sleep(900);
 			let at = await keyboardAt(p);

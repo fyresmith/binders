@@ -1025,7 +1025,8 @@ test('3. finishing: every scene marked Done at once; two left out of the export 
 	await into(p, L + 'Part One');
 	const k = await p.at(card(L + 'Part One/The keeper.md'));
 	await p.right(k.x, k.y);
-	t.ok(await p.ev(`!![...document.querySelectorAll('.menu .menu-item')].find(e => e.querySelector('.menu-item-title')?.textContent === 'Include in export')?.querySelector('.mod-checked, .mod-selected, .menu-item-icon.mod-selected')`), '“Include in export” is ticked on a note that’s in');
+	await hoverMenu(p, 'Export as');
+	t.ok(await p.ev(`(() => { const it = [...document.querySelectorAll('.menu .menu-item')].find(e => e.querySelector('.menu-item-title')?.textContent === 'Leave out'); return !!it && !it.matches('.mod-checked, .is-checked') && !it.querySelector('.mod-checked'); })()`), '“Leave out” (under Export as) is not ticked on a note that’s in');
 	await clickMenu(p, 'Include in export');
 	await until(p, `app.metadataCache.getFileCache(app.vault.getAbstractFileByPath(${j(L + 'Part One/The keeper.md')}))?.frontmatter?.export === false`);
 	await upTo(p);

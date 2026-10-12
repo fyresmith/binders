@@ -7,7 +7,7 @@ import { scaled, slowness } from './machine-speed.mjs';
 import { readFileSync, existsSync, readdirSync, statSync } from 'fs';
 import { join, relative } from 'path';
 import { PHONE, TABLET, metrics, onDevice } from './specs-qa5-manuscript.mjs';
-import { VIEW, answer, clickMenu, closeMenus, hoverMenu, menuItems, openView, reload, until, withTidy } from './view-helpers.mjs';
+import { VIEW, answer, clickMenu, closeMenus, hoverMenu, menuItems, openView, reload, until, withTidy, menuItemsAll } from './view-helpers.mjs';
 
 export const specs = [];
 /** Every test tidies up after itself: menus and dialogs closed, the folders it made deleted. */
@@ -1177,7 +1177,7 @@ test('a Longform project as a manuscript: typing, a title renamed in place and â
 	await keys(p, 'Renamed scene'); await p.key('Enter'); await p.sleep(900);
 	t.eq(await focused(p), `${L}/Renamed scene.md`, 'renamed; the caret is in its text');
 	await titleMenu(p, `${L}/Renamed scene.md`);
-	t.ok(!(await menuItems(p)).includes('Put in a new folder'), 'no folders in a Longform project');
+	t.ok(!(await menuItemsAll(p)).includes('Put in a new folder'), 'no folders in a Longform project');
 	await clickMenu(p, 'New note after this'); await p.sleep(800);
 	await keys(p, 'Brand new'); await p.key('Enter'); await p.sleep(800);
 	await keys(p, 'Body of the new scene');

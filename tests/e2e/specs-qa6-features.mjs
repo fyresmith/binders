@@ -3,7 +3,7 @@
 // bytes on disk. "qa6 features: …" tests pass; "BUG: …" tests are confirmed bugs and fail until fixed.
 import { writeFileSync } from 'fs';
 import { onDevice, tap as touchTap } from './specs-qa5-manuscript.mjs';
-import { B, NOTE, PL, card, clickMenu, closeMenus, exists, file, flush, hoverMenu, j, menuItems, openView, read, same, texts, until, withTidy, writeRaw } from './view-helpers.mjs';
+import { B, NOTE, PL, card, clickMenu, closeMenus, exists, file, flush, hoverMenu, j, menuItems, openView, read, same, texts, until, withTidy, writeRaw, menuItemsAll } from './view-helpers.mjs';
 
 export const specs = [];
 const add = (kind, name, fn) => specs.push({ name: `${kind}qa6 features: ${name}`, fn: withTidy(async (p, h, t) => { try { await fn(p, h, t); } finally { await closeAll(p); } }) });
@@ -648,7 +648,7 @@ ok('Longform project: split, merge, duplicate and synopsis keep longform.scenes 
 	await p.ev(`app.workspace.getLeavesOfType('markdown').forEach(l => l.detach())`);
 	// duplicate Harbor
 	await cardMenuIn(p, 'Longform demo', LFD + 'Harbor.md');
-	if ((await menuItems(p)).includes('Duplicate')) { await clickMenu(p, 'Duplicate'); await sleep(p, 1200); }
+	if ((await menuItemsAll(p)).includes('Duplicate')) { await clickMenu(p, 'Duplicate'); await sleep(p, 1200); }
 	log.push(['after duplicate', JSON.stringify(await lfScenes(p)), (await exists(p, LFD + 'Harbor 2.md')) ? 'copy made' : 'no copy']);
 	await closeAll(p);
 	// merge Island 2 and Return

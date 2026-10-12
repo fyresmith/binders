@@ -572,7 +572,7 @@ test('a row’s menu is a card’s menu; Delete asks first; the filter hides row
 	const k = await nameAt(p, 'Part One/The keeper.md');
 	await p.right(k.x, k.y);
 	const items = await menuItems(p);
-	const own = ['Open', 'Open in new tab', 'Open to the right', 'Rename', 'Edit synopsis', 'Set status', 'Set label', 'Set target...', 'Move up', 'Move down', 'Delete'];
+	const own = ['Open', 'Open in new tab', 'Open to the right', 'Rename', 'Edit synopsis', 'Set status', 'Set label', 'Move', 'Snapshots', 'Export as', 'More', 'Delete'];
 	t.eq(j(items.filter((x) => own.includes(x))), j(own), 'the row’s menu: ' + items.join(', '));
 	t.eq(j(await selected(p)), j(['Part One/The keeper.md']), 'a right-click selects the row');
 	await clickMenu(p, 'Delete');

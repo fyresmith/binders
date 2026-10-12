@@ -15,6 +15,7 @@
 import { tapToggle } from './filter-helpers.mjs';
 import { mkdirSync, readFileSync, readdirSync, statSync } from 'fs';
 import { join, relative } from 'path';
+import { menuItemsAllTouch, throughDrawers } from './menu-routes.mjs';
 import { B, PL, VIEW, closeMenus, flush, j, menuItems, openView, reload, tidy, until } from './view-helpers.mjs';
 
 export const specs = [];
@@ -182,7 +183,8 @@ export async function compose(p, word, commit = word) {
 export const sheet = (p) => p.ev(`(() => { const m = [...document.querySelectorAll('.menu')].pop(); if (!m) return null; const r = m.getBoundingClientRect(); return { left: Math.round(r.left), width: Math.round(r.width), bottom: Math.round(r.bottom), inner: [innerWidth, innerHeight], itemHeights: [...m.querySelectorAll('.menu-item:not(.is-label)')].map(i => Math.round(i.getBoundingClientRect().height)) }; })()`);
 export const isSheet = (s) => !!s && s.left === 0 && s.width === s.inner[0] && s.bottom === s.inner[1];
 /** Taps the menu item with this title (in the last menu shown), scrolled into view first. False if there's none. */
-export async function menuTap(p, title) {
+export async function menuTap(p, title, ...rest) { return throughDrawers(p, title, (t) => menuTapOne(p, t, ...rest)); }
+async function menuTapOne(p, title) {
 	const find = `[...document.querySelectorAll('.menu .menu-item')].filter(e => (e.querySelector('.menu-item-title')?.textContent ?? '') === ${j(title)}).pop()`;
 	if (!(await p.ev(`(() => { const it = ${find}; if (!it) return false; it.scrollIntoView({ block: 'center' }); return true; })()`))) return false;
 	await p.sleep(250);
@@ -1053,11 +1055,11 @@ ux('phone: a title being renamed asks the keyboard for a “done” key and capi
 test('phone: a title’s menu: its items; “New note after this” names a note and types in it; “Move up”; “Set target...”; “Put in a new folder” names the folder; “Delete” asks first', on(PHONE, async (p, h, t, before) => {
 	await openMs(p);
 	await titleMenu(p, KEEPER);
-	const items = await menuItems(p);
+	const items = await menuItemsAllTouch(p, tap);
 	await shot(p, 'title-menu');
 	say('title menu:', items);
 	t.ok(isSheet(await sheet(p)), 'the menu is a sheet');
-	for (const x of ['Open', 'Open in new tab', 'Rename', 'Set synopsis from text', 'Set status', 'Set label', 'Set target...', 'Duplicate', 'Put in a new folder', 'Include in export', 'Move up', 'Move down', 'New note after this', 'Delete']) t.ok(items.includes(x), `“${x}” is in it`);
+	for (const x of ['Open', 'Open in new tab', 'Rename', 'Set synopsis from text', 'Set status', 'Set label', 'Set target...', 'Duplicate', 'Put in a new folder', 'Leave out', 'Move up', 'Move down', 'New note after this', 'Delete']) t.ok(items.includes(x), `“${x}” is in it`);
 	t.ok(!items.includes('Open to the right') && !items.includes('Edit synopsis'), 'and nothing that can’t be done here');
 	t.ok((await sheet(p)).itemHeights.every((x) => x >= 40), 'its rows are a finger tall');
 	// New note after this

@@ -2,7 +2,7 @@
 // the folder as it stood, in one ".binder-snapshot" file under "Snapshots/<the folder's path>". Golden rule 2 lives
 // here: every test that changes a note checks, byte for byte, that what it replaced is kept and that no other note
 // changed; and every test that only looks checks that nothing changed at all.
-import { B, NOTE, PL, card, clickMenu, closeMenus, contents, exists, file, hoverMenu, j, menuItems, openView, read, reload, same, texts, until, withTidy, writeRaw } from './view-helpers.mjs';
+import { B, NOTE, PL, card, clickMenu, closeMenus, contents, exists, file, hoverMenu, j, menuItems, openView, read, reload, same, texts, until, withTidy, writeRaw, menuItemsAll } from './view-helpers.mjs';
 import { make } from './specs-qa6-scale.mjs';
 import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -1805,7 +1805,7 @@ test('the commands and the menus: “Take a snapshot of the binder” and “Sho
 	await openView(p);
 	const c = await p.at(card(P1) + ' .binders-card-footer');
 	await p.right(c.x, c.y);
-	const items = await menuItems(p);
+	const items = await menuItemsAll(p);
 	t.ok(items.includes('Take a snapshot') && items.includes('Show snapshots...') && !items.some((i) => /every note/.test(i)), 'a folder’s card: the two items, and no “every note”: ' + j(items));
 	await clickMenu(p, 'Take a snapshot');
 	await until(p, `app.vault.adapter.exists(${j(SN + '/Part One')})`, 15000);

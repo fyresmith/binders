@@ -3,7 +3,7 @@
 // what a test does through it that writes (a card's "Set story date...", its undo) is Binders' own menu, and what the
 // view does by being opened, scrolled, filtered and switched is checked against the files' bytes and times.
 import { mkdirSync } from 'fs';
-import { B, PL, VIEW, clickMenu, closeMenus, flush, j, menuItems, openView, read, texts, until, withTidy } from './view-helpers.mjs';
+import { B, PL, VIEW, clickMenu, closeMenus, flush, j, menuItems, openView, read, texts, until, withTidy, menuItemsAll } from './view-helpers.mjs';
 
 export const specs = [];
 const test = (name, fn) => specs.push({ name: 'timeline: ' + name, fn: withTidy(fn) });
@@ -79,7 +79,7 @@ test('opens from the view’s switcher; time runs down by default: the years, th
 	await shot(p, 'down');
 });
 
-test('“Arrange” in the toolbar chooses which way time runs, as do More options and the board’s own menu; the choice is kept with the view', async (p, h, t) => {
+test('“Arrange” in the toolbar chooses which way time runs, as does the board’s own menu; the choice is kept with the view', async (p, h, t) => {
 	await seed(p, DATES);
 	await open(p);
 	const A = '.workspace-leaf.mod-active .binders-arrange-button';
@@ -104,11 +104,11 @@ test('“Arrange” in the toolbar chooses which way time runs, as do More optio
 	t.eq(await p.ev(`document.querySelector('${A}').getAttribute('aria-label')`), 'Arrange: time across', 'the toolbar’s button says so');
 	t.eq(await p.ev(`${VIEW}.getState().options.timelineShape`), 'across', 'the choice is in the view’s state, so it comes back with the workspace');
 	await shot(p, 'across');
-	// the same two in More options, and on the board's ground
+	// the same two on the board's ground (More options has Cards only: Arrange is the toolbar's)
 	const more = await p.at('.workspace-leaf.mod-active .view-actions .clickable-icon[aria-label="More options"]');
 	await p.click(more.x, more.y);
 	let items = await menuItems(p);
-	t.ok(items.includes('Time down') && items.includes('Time across') && items.includes('Card size'), 'More options has them, with how the cards show: ' + items.join(', '));
+	t.ok(!items.includes('Time down') && !items.includes('Time across') && items.includes('Cards'), 'More options has how the cards show, under Cards, and not the two (the toolbar’s Arrange has them): ' + items.join(', '));
 	await closeMenus(p);
 	const ground = await p.ev(`(() => { const b = document.querySelector('${T}').getBoundingClientRect(); return { x: Math.round(b.right - 40), y: Math.round(b.top + 60) }; })()`);
 	await p.right(ground.x, ground.y);
@@ -217,7 +217,7 @@ test('a card’s menu sets and removes its story date; the view draws again each
 	const body = await read(p, L + EPILOGUE);
 	let at = await p.at(`${cardSel(EPILOGUE)} .binders-card-footer`);
 	await p.right(at.x, at.y);
-	let items = await menuItems(p);
+	let items = await menuItemsAll(p);
 	t.ok(items.includes('Set story date...') && !items.includes('Remove story date'), 'an undated card’s menu sets a date: ' + items.join(', '));
 	t.ok(!items.includes('Move up') && !items.includes('Move down'), 'and has no Move up or Move down: a card’s place here is its date');
 	await clickMenu(p, 'Set story date...');

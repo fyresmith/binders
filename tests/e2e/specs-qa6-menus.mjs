@@ -6,6 +6,7 @@
 // "qa6 menus: ..." pass; "BUG: qa6 menus: ..." are confirmed bugs (they fail now and pass once fixed); "UX: ..." are
 // wished behaviour. The inventory of every item is in the push folder's findings/qa6-menus-inventory.md.
 import { filterToggle, clearFilter, tick, tapTick, tapSel, closeFilter, openFilter, chooseProperty, clickEl, pickerItems, pick, rows, rowSel, POP } from './filter-helpers.mjs';
+import { expand, real } from './menu-routes.mjs';
 import { B, PL, VIEW, answer, card, closeMenus, contents, exists, file, flush, j, openView, read, reload, split, texts, tidy, until, viewState } from './view-helpers.mjs';
 
 export const specs = [];
@@ -30,13 +31,24 @@ export const titles = async (p, i = 0) => (await items(p, i))?.map((x) => x.titl
 const itemAt = (title, sub = false) => `(() => { const ms = [...document.querySelectorAll('.menu')], m = ${sub ? 'ms[ms.length - 1]' : 'ms[0]'}; const it = m && [...m.querySelectorAll('.menu-item')].find(e => e.querySelector('.menu-item-title')?.textContent === ${j(title)}); if (!it) return null; it.scrollIntoView({ block: 'nearest' }); const r = it.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`;
 /** Chooses an item as a person does: with the pointer, going through a submenu by hovering its parent. */
 export async function choose(p, ...path) {
+	// (a row in a drawer: the drawer first)
+	path = await expand(p, path);
 	for (let i = 0; i < path.length; i++) {
+		path[i] = await real(p, path[i]);
 		const at = await p.ev(itemAt(path[i], i > 0));
 		if (!at) throw new Error(`no menu item “${path[i]}”: ` + ((await titles(p, i > 0 ? 1 : 0)) ?? []).join(', '));
 		await p.move(at.x, at.y, 3);
 		if (i < path.length - 1) await p.sleep(450);
 		else { await p.click(at.x, at.y); await p.sleep(250); }
 	}
+}
+/** Opens a drawer of the menu on screen (by resting the pointer on its row) and gives its items. */
+export async function drawer(p, name) {
+	const at = await p.ev(itemAt(name));
+	if (!at) throw new Error(`no drawer “${name}”: ` + ((await titles(p)) ?? []).join(', '));
+	await p.move(at.x, at.y, 3);
+	await p.sleep(500);
+	return items(p, 1);
 }
 /** Right-clicks the middle of an element (scrolled into view first). */
 export async function context(p, sel, dx = 0, dy = 0) {
@@ -97,21 +109,36 @@ const fresh = async (p) => { await openView(p); await p.sleep(300); };
 // the corkboard: a note's card, each item
 // ================================================================================================================
 
-test('card menu, a note: the items, in sections, each with an icon where the others have one', tidied(async (p, h, t) => {
+test('card menu, a note: the rows and the four drawers, in sections, each with an icon where the others have one', tidied(async (p, h, t) => {
 	await fresh(p);
 	await context(p, CARD(L + 'Epilogue.md'));
 	const it = await items(p);
-	t.eq(j(it.filter((x) => x.section.startsWith('') && ['open', 'edit', 'props', 'structure', 'order', 'danger'].includes(x.section)).map((x) => x.title)),
-		j(['Open', 'Open in new tab', 'Open to the right', 'Open in new window', 'Rename', 'Edit synopsis', 'Set synopsis from text', 'Add revision task...', 'Snapshots', 'Set status', 'Set label', 'Set target...', 'Set story date...', 'Duplicate', 'Split at headings...', 'Put in a new folder', 'Include in export', 'Export as', 'Move up', 'Move to', 'Delete']), 'Binders’ items for the last note, in order');
-	for (const x of it.filter((x) => ['open', 'edit', 'props', 'structure', 'order', 'danger'].includes(x.section))) t.ok(x.icon, `“${x.title}” has an icon`);
+	const BINDERS = ['open', 'edit', 'groups', 'danger'];
+	t.eq(j(it.filter((x) => BINDERS.includes(x.section)).map((x) => x.title)),
+		j(['Open', 'Open in new tab', 'Open to the right', 'Open in new window', 'Rename', 'Edit synopsis', 'Set status', 'Set label', 'Move', 'Snapshots', 'Export as', 'More', 'Delete']), 'Binders’ rows for the last note, in order: the rows, then the four drawers');
+	for (const x of it.filter((x) => BINDERS.includes(x.section))) t.ok(x.icon, `“${x.title}” has an icon`);
 	t.ok(it.find((x) => x.title === 'Delete').warning, 'Delete is marked as a warning');
 	t.eq(it[it.length - 1].title, 'Delete', 'Delete is last, after what Obsidian adds');
-	t.ok(!it.some((x) => x.title === 'Move down'), 'no “Move down” on the last note');
-	t.ok(it.find((x) => x.title === 'Move to').sub && it.find((x) => x.title === 'Snapshots').sub, 'submenus are marked');
+	t.ok(['Move', 'Snapshots', 'Export as', 'More', 'Set status', 'Set label'].every((n) => it.find((x) => x.title === n)?.sub), 'the drawers and the choices are marked as submenus');
+	t.ok(!['Duplicate', 'Move down', 'Move to', 'Include in export', 'Set target...'].some((n) => it.some((x) => x.title === n)), 'what is in a drawer is not on the top level');
+	// the drawers: what is in each (the last note has nowhere to go down)
+	t.eq(j((await drawer(p, 'Move')).map((x) => x.title)), j(['Move up', 'Put in a new folder', 'The Lighthouse', 'Part One', 'Part Two']), '“Move”: up, a new folder round it, then the binder’s folders last');
+	await closeMenus(p);
+	await context(p, CARD(L + 'Epilogue.md'));
+	t.eq(j((await drawer(p, 'Snapshots')).map((x) => x.title)), j(['Take a snapshot', 'Rewrite...', 'Show snapshots...']), '“Snapshots”');
+	await closeMenus(p);
+	await context(p, CARD(L + 'Epilogue.md'));
+	const exp = (await drawer(p, 'Export as')).map((x) => x.title);
+	t.ok(exp.includes('Leave out') && exp[0].startsWith('Automatic'), '“Export as”: automatic, the roles and “Leave out” (which is “Include in export” unticked): ' + j(exp));
+	await closeMenus(p);
+	await context(p, CARD(L + 'Epilogue.md'));
+	const more = await drawer(p, 'More');
+	t.eq(j(more.map((x) => x.title)), j(['Set target...', 'Set story date...', 'Set synopsis from text', 'Add revision task...', 'Duplicate', 'Split at headings...']), '“More”: the target and the story date, the synopsis from text and a revision task, a copy and a split');
+	for (const x of more) t.ok(x.icon, `“${x.title}” has an icon`);
 	await closeMenus(p);
 	await context(p, CARD(L + 'Prologue.md'));
-	const first = await titles(p);
-	t.ok(!first.includes('Move up') && first.includes('Move down'), 'the first note has “Move down” and no “Move up”');
+	const first = await drawer(p, 'Move');
+	t.ok(!first.some((x) => x.title === 'Move up') && first.some((x) => x.title === 'Move down'), 'the first note has “Move down” and no “Move up”');
 }));
 
 test('card menu, Open / Open in new tab / Open to the right', tidied(async (p, h, t) => {
@@ -354,8 +381,8 @@ test('card menu, Duplicate / Put in a new folder / Include in export: the vault,
 	await p.sleep(500);
 	t.eq((await fm(p, L + 'Epilogue.md'))?.export, false, 'export: false is written');
 	await context(p, CARD(L + 'Epilogue.md'));
-	const inc = (await items(p)).find((x) => x.title === 'Include in export');
-	t.ok(!inc.checked, 'and the item is no longer ticked');
+	const inc = (await drawer(p, 'Export as')).find((x) => x.title === 'Leave out');
+	t.ok(inc.checked, 'and “Leave out” is ticked');
 	await choose(p, 'Include in export');
 	await p.sleep(500);
 	t.ok(!('export' in ((await fm(p, L + 'Epilogue.md')) ?? {})) && !('compile' in ((await fm(p, L + 'Epilogue.md')) ?? {})), 'turning it back on takes the property away');
@@ -405,15 +432,12 @@ test('card menu, Move to: every folder, the disabled ones, the note lands at the
 	await fresh(p);
 	const before = await BODIES(p);
 	await context(p, CARD(L + 'Epilogue.md'));
-	const at = await p.ev(itemAt('Move to'));
-	await p.move(at.x, at.y, 3);
-	await p.sleep(500);
-	const sub = await items(p, 1);
-	t.eq(j(sub.map((x) => x.title)), j(['The Lighthouse', 'Part One', 'Part Two']), 'the binder and each folder in it, nested');
+	const sub = (await drawer(p, 'Move')).slice(-3);
+	t.eq(j(sub.map((x) => x.title)), j(['The Lighthouse', 'Part One', 'Part Two']), 'under “Move”, last: the binder and each folder in it, nested');
 	t.ok(sub[0].disabled && sub[0].checked, 'where it is now is ticked and disabled');
 	t.eq(j(sub.map((x) => x.icon)), j(['book', 'folder-open', 'folder-open']), 'the binder has the book icon, each folder the folder icon');
 	await closeMenus(p);
-	await onCard(p, L + 'Epilogue.md', 'Move to', 'Part One');
+	await onCard(p, L + 'Epilogue.md', 'Move', 'Part One');
 	await p.sleep(900);
 	const l = await list(p);
 	t.eq(j(l), j(['Prologue', 'Part One/', 'Part One/Arrival', 'Part One/The keeper', 'Part One/Storm warning', 'Part One/Epilogue', 'Part Two/', 'Part Two/The wreck', 'Part Two/Lights out']), 'Epilogue is the last of Part One');
@@ -424,10 +448,7 @@ test('card menu, Move to: every folder, the disabled ones, the note lands at the
 	t.ok(await exists2(p, L + 'Epilogue.md'), 'Undo puts the file back');
 	// a folder can't go into itself
 	await context(p, CARD(L + 'Part One'));
-	const at2 = await p.ev(itemAt('Move to'));
-	await p.move(at2.x, at2.y, 3);
-	await p.sleep(500);
-	const sub2 = await items(p, 1);
+	const sub2 = (await drawer(p, 'Move')).slice(-3);
 	t.eq(j(sub2.map((x) => x.disabled)), j([true, true, false]), 'Part One: not into the binder where it is, nor into itself');
 }));
 
@@ -716,7 +737,12 @@ test('several selected: the items, and what each does to every one of them', tid
 	await selectTwo();
 	t.eq(j(await titles(p)).includes('Merge 2 notes'), true, 'Merge 2 notes is offered');
 	const it = await items(p);
-	t.eq(j(it.filter((x) => ['edit', 'props', 'structure', 'order', 'danger'].includes(x.section)).map((x) => x.title)), j(['Set synopsis from text', 'Add revision task...', 'Take a snapshot of 2 notes', 'Set status', 'Set label', 'Set target...', 'Set story date...', 'Merge 2 notes', 'New folder from selection', 'Include in export', 'Export as', 'Move to', 'Delete 2 items']), 'Binders’ items for two notes');
+	t.eq(j(it.filter((x) => ['edit', 'groups', 'danger'].includes(x.section)).map((x) => x.title)), j(['Set status', 'Set label', 'Merge 2 notes', 'Move', 'Take a snapshot of 2 notes', 'Export as', 'More', 'Delete 2 items']), 'Binders’ rows for two notes: status and label, the merge they are most often selected for, then the drawers (the snapshot is one row)');
+	t.eq(j((await drawer(p, 'Move')).map((x) => x.title)), j(['New folder from selection', 'The Lighthouse', 'Part One', 'Part Two']), '“Move” for several: a folder round them, then the binder’s folders (no up and down)');
+	await closeMenus(p);
+	await selectTwo();
+	t.eq(j((await drawer(p, 'More')).map((x) => x.title)), j(['Set target...', 'Set story date...', 'Set synopsis from text', 'Add revision task...']), '“More” for several: no copy, no split');
+	await closeMenus(p);
 	for (const x of ['Rename', 'Edit synopsis', 'Duplicate', 'Open', 'Move up', 'Move down']) t.ok(!it.some((y) => y.title === x), `no “${x}” for several`);
 	await closeMenus(p);
 	// status for both
@@ -746,7 +772,7 @@ test('several selected: the items, and what each does to every one of them', tid
 	await p.sleep(900);
 	t.eq((await snapshotFiles(p)).length, 2, 'a snapshot of each');
 	// Move to
-	await choose2(p, selectTwo, 'Move to', 'Part Two');
+	await choose2(p, selectTwo, 'Move', 'Part Two');
 	await p.sleep(900);
 	const l = await list(p);
 	t.eq(j(l.slice(-4)), j(['Part Two/The wreck', 'Part Two/Lights out', 'Part Two/Prologue', 'Part Two/Epilogue']), 'both end up last in Part Two, in their order: ' + j(l));
@@ -974,13 +1000,14 @@ test('Set word count target asks for the binder’s target (a click on the toolb
 	t.ok(!(await fm(p, NOTE_PATH)).target, 'empty takes the target away');
 }));
 
-test('board menu (right-click on empty space): New note, New folder, Card size, Tint, Number the cards; each changes the board and is remembered', tidied(async (p, h, t) => {
+test('board menu (right-click on empty space): New note, New folder, Cards (size, tint, numbers); each changes the board and is remembered', tidied(async (p, h, t) => {
 	await fresh(p);
 	const board = `${LEAF} .binders-corkboard`;
 	const empty = async () => { const a = await p.at(board); await p.right(a.x, a.t + a.h - 6 - a.y + a.y); };
 	await empty();
 	let it = await items(p);
-	t.eq(j(it.map((x) => x.title)), j(['New note', 'New folder', 'Card size', 'Tint cards with their label color', 'Number the cards']), 'the items: ' + j(it.map((x) => x.title)));
+	t.eq(j(it.map((x) => x.title)), j(['New note', 'New folder', 'Cards']), 'the items: ' + j(it.map((x) => x.title)));
+	t.eq(j((await drawer(p, 'Cards')).map((x) => x.title)), j(['Small', 'Medium', 'Large', 'Tint cards with their label color', 'Number the cards']), '“Cards”: the sizes, then how they are drawn');
 	t.eq(j(it.slice(0, 2).map((x) => x.icon)), j(['file-plus', 'folder-plus']), 'same icons as the toolbar’s New');
 	await closeMenus(p);
 	// Card size
@@ -998,18 +1025,17 @@ test('board menu (right-click on empty space): New note, New folder, Card size, 
 	t.ok(w2 < w0, `Small is narrower (${w2})`);
 	t.eq((await viewState(p)).options.cardSize, 'small', 'kept in the view’s state');
 	await empty();
-	await p.move((await p.ev(itemAt('Card size'))).x, (await p.ev(itemAt('Card size'))).y, 3);
-	await p.sleep(500);
-	t.eq(j((await items(p, 1)).filter((x) => x.checked).map((x) => x.title)), j(['Small']), 'Small is the ticked size');
+	t.eq(j((await drawer(p, 'Cards')).filter((x) => x.checked && ['Small', 'Medium', 'Large'].includes(x.title)).map((x) => x.title)), j(['Small']), 'Small is the ticked size');
 	await closeMenus(p);
 	// Tint and numbers
-	const tint0 = (await items((await empty(), p)))?.find?.((x) => x.title.startsWith('Tint'))?.checked;
+	await empty();
+	const tint0 = (await drawer(p, 'Cards')).find((x) => x.title.startsWith('Tint'))?.checked;
 	await closeMenus(p);
 	await empty();
 	await choose(p, 'Tint cards with their label color');
 	await p.sleep(400);
 	await empty();
-	t.ok((await items(p)).find((x) => x.title.startsWith('Tint')).checked !== tint0, 'Tint flips its tick');
+	t.ok((await drawer(p, 'Cards')).find((x) => x.title.startsWith('Tint')).checked !== tint0, 'Tint flips its tick');
 	await closeMenus(p);
 	t.ok(!(await p.ev(`!!document.querySelector('${LEAF} .binders-board.mod-numbers')`)), 'no numbers yet');
 	await empty();
@@ -1017,7 +1043,7 @@ test('board menu (right-click on empty space): New note, New folder, Card size, 
 	await p.sleep(500);
 	t.ok(await p.ev(`!!document.querySelector('${LEAF} .binders-board.mod-numbers')`), 'the cards are numbered');
 	await empty();
-	t.ok((await items(p)).find((x) => x.title === 'Number the cards').checked, 'ticked');
+	t.ok((await drawer(p, 'Cards')).find((x) => x.title === 'Number the cards').checked, 'ticked');
 	await closeMenus(p);
 	// New note from the board menu
 	await empty();
@@ -1044,7 +1070,7 @@ test('outliner row menu: the card’s items, each working on the row (rename, st
 	const path = L + 'Epilogue.md';
 	await context(p, ROW(path));
 	const first = await titles(p);
-	t.ok(['Open', 'Rename', 'Edit synopsis', 'Set status', 'Set label', 'Set target...', 'Duplicate', 'Put in a new folder', 'Include in export', 'Move up', 'Delete'].every((x) => first.includes(x)), 'the same items as a card: ' + first.join(', '));
+	t.ok(['Open', 'Rename', 'Edit synopsis', 'Set status', 'Set label', 'Move', 'Snapshots', 'Export as', 'More', 'Delete'].every((x) => first.includes(x)), 'the same rows and drawers as a card: ' + first.join(', '));
 	await choose(p, 'Rename');
 	await until(p, `!!document.querySelector('${ROW(path)} .binders-edit-field')`);
 	await p.type('Afterword');
@@ -1326,7 +1352,7 @@ test('manuscript: a section title’s menu (the card’s), New note after this, 
 	};
 	await ctxTitle('Prologue');
 	const first = await items(p);
-	t.eq(j(first.filter((x) => ['open', 'edit', 'props', 'structure', 'order', 'new', 'danger'].includes(x.section)).map((x) => x.title)), j(['Open', 'Open in new tab', 'Open to the right', 'Open in new window', 'Rename', 'Set synopsis from text', 'Add revision task...', 'Snapshots', 'Set status', 'Set label', 'Set target...', 'Set story date...', 'Duplicate', 'Split at headings...', 'Put in a new folder', 'Include in export', 'Export as', 'Move down', 'Move to', 'New note after this', 'Delete']), 'the manuscript title’s own items');
+	t.eq(j(first.filter((x) => ['open', 'edit', 'groups', 'new', 'danger'].includes(x.section)).map((x) => x.title)), j(['Open', 'Open in new tab', 'Open to the right', 'Open in new window', 'Rename', 'Set status', 'Set label', 'Move', 'Snapshots', 'Export as', 'More', 'New note after this', 'Delete']), 'the manuscript title’s own items');
 	await choose(p, 'New note after this');
 	await until(p, `document.activeElement?.closest('.binders-manuscript-scene')?.classList.contains('is-fresh') || !!document.querySelector('${LEAF} .binders-manuscript-title [contenteditable], ${LEAF} .binders-manuscript-title input, ${LEAF} .binders-edit-field')`, 4000);
 	await p.sleep(400);
@@ -2152,12 +2178,12 @@ test('keyboard: the outliner’s row and header menus and the manuscript title: 
 // a phone and a tablet (Obsidian's mobile mode with touch, as in specs-qa5-tablet.mjs): menus are sheets and popovers
 // ================================================================================================================
 
-const PHONE = [390, 844], SMALL = [320, 568], BIG_PHONE = [430, 932], TABLET = [820, 1180], TABLET_WIDE = [1180, 820];
-const touch = (p, type, x, y) => p.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' || type === 'touchCancel' ? [] : [{ x, y }] });
-const tap = async (p, x, y) => { await touch(p, 'touchStart', x, y); await p.sleep(40); await touch(p, 'touchEnd'); await p.sleep(450); };
-const metrics = (p, width, height, mobile = true) => p.send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile });
+export const PHONE = [390, 844], SMALL = [320, 568], BIG_PHONE = [430, 932], TABLET = [820, 1180], TABLET_WIDE = [1180, 820];
+export const touch = (p, type, x, y) => p.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' || type === 'touchCancel' ? [] : [{ x, y }] });
+export const tap = async (p, x, y) => { await touch(p, 'touchStart', x, y); await p.sleep(40); await touch(p, 'touchEnd'); await p.sleep(450); };
+export const metrics = (p, width, height, mobile = true) => p.send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile });
 const NOISE = /ERR_|net::|DevTools|favicon|Failed to load resource|Electron Security Warning/;
-async function onDevice(p, [width, height], fn) {
+export async function onDevice(p, [width, height], fn) {
 	const dark = await p.ev(`document.body.classList.contains('theme-dark')`);
 	const theme = () => p.ev(`(() => { app.changeTheme(${j(dark ? 'obsidian' : 'moonstone')}); return 1; })()`);
 	await metrics(p, width, height);
@@ -2183,7 +2209,7 @@ async function onDevice(p, [width, height], fn) {
 	if (logged.length) throw new Error('errors logged on the device: ' + logged.slice(0, 3).join(' ; '));
 }
 /** A menu as a long press asks for it (the emulation sends no `contextmenu` for a held touch): the event, on the element. */
-const longPress = async (p, sel) => {
+export const longPress = async (p, sel) => {
 	await p.ev(`document.querySelector(${j(sel)})?.scrollIntoView({ block: 'center' })`);
 	await p.sleep(250);
 	const a = await p.at(sel);
@@ -2200,7 +2226,7 @@ const longPress = async (p, sel) => {
 	}
 	if (!(await p.ev(`document.querySelectorAll('.menu').length`))) throw new Error('no menu after the long press on ' + sel);
 };
-const tapEl = async (p, sel, i = 0) => {
+export const tapEl = async (p, sel, i = 0) => {
 	await p.ev(`document.querySelectorAll(${j(sel)})[${i}]?.scrollIntoView({ block: 'center' })`);
 	await p.sleep(250);
 	const a = await p.at(sel, i);
@@ -2208,8 +2234,10 @@ const tapEl = async (p, sel, i = 0) => {
 	await tap(p, a.x, a.y);
 };
 /** Taps menu items one after another, a submenu's parent first. */
-const tapMenu = async (p, ...path) => {
-	for (const title of path) {
+export const tapMenu = async (p, ...path) => {
+	path = await expand(p, path);
+	for (let title of path) {
+		title = await real(p, title);
 		// (brought into view first, and measured once the menu has stopped scrolling: a menu taller than the screen scrolls)
 		const found = await p.ev(`(() => { const it = [...document.querySelectorAll('.menu .menu-item')].filter(e => e.querySelector('.menu-item-title')?.textContent === ${j(title)}).pop(); if (!it) return null; it.scrollIntoView({ block: 'center' }); return true; })()`);
 		if (!found) throw new Error(`no menu item “${title}”: ` + ((await titles(p, 0)) ?? []).join(', '));
@@ -2221,9 +2249,9 @@ const tapMenu = async (p, ...path) => {
 		await p.sleep(300);
 	}
 };
-const sheetOf = (p) => p.ev(`(() => { const ms = [...document.querySelectorAll('.menu')], m = ms[ms.length - 1]; if (!m) return null; const r = m.getBoundingClientRect(); return { left: Math.round(r.left), top: Math.round(r.top), right: Math.round(r.right), bottom: Math.round(r.bottom), width: Math.round(r.width), inner: [innerWidth, innerHeight] }; })()`);
-const reachable = (s) => s && s.left >= 0 && s.right <= s.inner[0] + 1 && s.top >= 0 && s.bottom <= s.inner[1] + 1;
-const gone2 = async (p) => { await p.ev(`(() => { document.querySelectorAll('.menu, .menu-backdrop').forEach(m => m.remove()); return 1; })()`); await p.sleep(250); };
+export const sheetOf = (p) => p.ev(`(() => { const ms = [...document.querySelectorAll('.menu')], m = ms[ms.length - 1]; if (!m) return null; const r = m.getBoundingClientRect(); return { left: Math.round(r.left), top: Math.round(r.top), right: Math.round(r.right), bottom: Math.round(r.bottom), width: Math.round(r.width), inner: [innerWidth, innerHeight] }; })()`);
+export const reachable = (s) => s && s.left >= 0 && s.right <= s.inner[0] + 1 && s.top >= 0 && s.bottom <= s.inner[1] + 1;
+export const gone2 = async (p) => { await p.ev(`(() => { document.querySelectorAll('.menu, .menu-backdrop').forEach(m => m.remove()); return 1; })()`); await p.sleep(250); };
 const dialogTap = async (p, text) => {
 	await p.sleep(500);
 	const at = await p.ev(`(() => { const m = [...document.querySelectorAll('.modal')].pop(); const b = m && [...m.querySelectorAll('button')].find(b => b.textContent === ${j(text)}); if (!b) return null; b.scrollIntoView({ block: 'center' }); const r = b.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
@@ -2243,11 +2271,9 @@ for (const [name, size] of [['phone', PHONE], ['small phone', SMALL], ['tablet',
 			log(name + ' card menu:', names.join(' | '));
 			t.ok(names.includes('Select more'), 'Select more is offered by touch');
 			t.eq(names.includes('Open to the right'), !phone, 'Open to the right only off a phone');
-			for (const x of ['Open', 'Rename', 'Set status', 'Set label', 'Set target...', 'Duplicate', 'Export as', phone ? 'Move to' : 'Move', 'Delete']) t.ok(names.includes(x), `${x} is there`);
-			// a tablet's menu is the short one: moving is under “Move”, and “Include in export” is “Leave out” under “Export as”
-			const LONG = ['Move up', 'Move down', 'Move to', 'Put in a new folder', 'Include in export'];
-			if (phone) t.ok(['Move down', 'Put in a new folder', 'Include in export'].every((x) => names.includes(x)), 'a phone’s sheet has the long menu’s items');
-			else t.eq(j(names.filter((x) => LONG.includes(x))), j([]), 'a tablet’s menu has one “Move” for the items that move, and no “Include in export”');
+			for (const x of ['Open', 'Rename', 'Set status', 'Set label', 'Move', 'Snapshots', 'Export as', 'More', 'Delete']) t.ok(names.includes(x), `${x} is there`);
+			// the same menu on every screen: moving, the target and the copy are in their drawers, and “Include in export” is “Leave out” under “Export as”
+			t.eq(j(names.filter((x) => ['Move up', 'Move down', 'Move to', 'Put in a new folder', 'Include in export', 'Set target...', 'Duplicate'].includes(x))), j([]), 'the rows that are in a drawer are not on the top level');
 			const s = await sheetOf(p);
 			log(name + ' menu box:', j(s));
 			if (phone) t.ok(s.left === 0 && s.width === s.inner[0] && s.bottom === s.inner[1], 'on a phone the menu is a sheet from the foot of the screen');
@@ -2291,7 +2317,7 @@ for (const [name, size] of [['phone', PHONE], ['small phone', SMALL], ['tablet',
 			await longPress(p, CARD(L + 'Epilogue.md'));
 			const multi = await titles(p);
 			t.ok(multi.includes('Merge 2 notes') && multi.includes('Delete 2 items'), 'and the menu is the several-notes one: ' + j(multi));
-			if (!phone) t.ok(multi.includes('Move') && !multi.includes('New folder from selection'), 'with “Move” for several too: ' + j(multi));
+			t.ok(multi.includes('Move') && !multi.includes('New folder from selection'), 'with “Move” for several too: ' + j(multi));
 			await gone2(p);
 			if (phone) return;
 			// the short menu's “Move”: up and down, the binder's folders, a new folder; each by a tap
@@ -2301,7 +2327,7 @@ for (const [name, size] of [['phone', PHONE], ['small phone', SMALL], ['tablet',
 			const order = await list(p);
 			await longPress(p, CARD(L + 'Epilogue.md'));
 			await tapMenu(p, 'Move');
-			t.eq(j(await titles(p, 1)), j(['Move up', 'The Lighthouse', 'Part One', 'Part Two', 'Put in a new folder']), '“Move” on the last note: up, the folders, a new folder');
+			t.eq(j(await titles(p, 1)), j(['Move up', 'Put in a new folder', 'The Lighthouse', 'Part One', 'Part Two']), '“Move” on the last note: up, a new folder, the folders');
 			t.ok(reachable(await sheetOf(p)), 'its submenu is on the screen');
 			await tapMenu(p, 'Move up');
 			await p.sleep(500);
@@ -2598,8 +2624,10 @@ test('filter on: a card’s Move up / Move down go past the notes that are shown
 	await filterToggle(p, 'Idea');
 	t.eq(j(await cardsOf(p)), j([L + 'Part One', L + 'Part Two', L + 'Epilogue.md']), 'Prologue (a draft) is hidden');
 	await context(p, CARD(L + 'Epilogue.md'));
-	const it = await titles(p);
+	const it = (await drawer(p, 'Move')).map((x) => x.title);
 	t.ok(it.includes('Move up') && !it.includes('Move down'), 'Epilogue: Move up, no Move down');
+	await closeMenus(p);
+	await context(p, CARD(L + 'Epilogue.md'));
 	await choose(p, 'Move up');
 	await p.sleep(700);
 	t.eq(j((await list(p)).filter((x) => !x.includes('/') || x.endsWith('/'))), j(['Prologue', 'Part One/', 'Epilogue', 'Part Two/']), 'it goes above Part Two, and Prologue stays where it was: ' + j(await list(p)));
@@ -2678,7 +2706,7 @@ test('a Longform project: the views’ menus leave out what a flat project can�
 	const card = await titles(p);
 	log('Longform card menu:', j(card));
 	t.ok(!card.some((x) => ['Put in a new folder', 'Move to', 'Ungroup', 'Export...'].includes(x)), 'no folder items on a Longform note');
-	t.ok(['Open', 'Rename', 'Set status', 'Duplicate', 'Move down', 'Delete'].every((x) => card.includes(x)), 'the rest are there');
+	t.ok(['Open', 'Rename', 'Set status', 'Move', 'More', 'Delete'].every((x) => card.includes(x)), 'the rest are there');
 	await closeMenus(p);
 	await click(p, BTN('binders-new-button'));
 	t.eq(j(await titles(p)), j(['New note']), 'New offers New note only');
@@ -2923,10 +2951,7 @@ test('Move to: a folder into a folder (nested, indented), a note out to the bind
 	const l = await list(p);
 	t.ok(l.includes('Part One/Part Two/') && l.includes('Part One/Part Two/The wreck'), 'Part Two is inside Part One now: ' + j(l));
 	await context(p, CARD(L + 'Part One'));
-	const at = await p.ev(itemAt('Move to'));
-	await p.move(at.x, at.y, 3);
-	await p.sleep(500);
-	const sub = await items(p, 1);
+	const sub = (await drawer(p, 'Move')).slice(-3);
 	t.eq(j(sub.map((x) => x.title)), j(['The Lighthouse', 'Part One', 'Part Two']), 'the nested folders are listed: ' + j(sub.map((x) => x.title)));
 	t.eq(j(sub.map((x) => x.disabled)), j([true, true, true]), 'Part One can go nowhere: it is where it is, in itself, and in what’s inside it');
 	await closeMenus(p);
@@ -2958,7 +2983,7 @@ test('outliner: several rows from different folders: New folder from selection i
 	log('rows from two folders:', j(it));
 	t.ok(!it.includes('New folder from selection'), 'no “New folder from selection” for notes in different folders');
 	t.ok(it.includes('Merge 2 notes'), 'Merge 2 notes is offered');
-	t.ok(it.includes('Move to') && it.includes('Set status'), 'and Move to, Set status');
+	t.ok(it.includes('Move') && it.includes('Set status'), 'and Move, Set status');
 	await closeMenus(p);
 }));
 

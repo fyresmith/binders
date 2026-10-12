@@ -1,4 +1,5 @@
 // Helpers for the binder view specs (specs-view.mjs, specs-corkboard.mjs).
+import { expand, real } from './menu-routes.mjs';
 export const j = (x) => JSON.stringify(x);
 export const PL = `app.plugins.plugins.binders`;
 export const B = `${PL}.binders`;
@@ -75,8 +76,29 @@ export const selected = (p) => p.ev(`[...document.querySelectorAll('.workspace-l
 export const card = (path) => `.workspace-leaf.mod-active .binders-card[data-path="${path}"]`;
 /** Titles of the visible menu's items. */
 export const menuItems = (p) => p.ev(`[...document.querySelectorAll('.menu .menu-item-title')].map(e => e.textContent)`);
-/** Clicks the visible menu item with this title (in the last menu shown, e.g. a submenu). */
+/** Every title a menu on screen offers, drawers included (Move, Snapshots, Export as, More, Cards, Export): each drawer is
+    opened by the pointer, so this is for a computer's menu. For asking "is this action offered?" of a grouped menu. */
+export async function menuItemsAll(p) {
+	const out = new Set(await menuItems(p));
+	const drawers = await p.ev(`[...document.querySelectorAll('.menu .menu-item.has-submenu')].map(e => e.querySelector('.menu-item-title')?.textContent).filter(t => ${j(['Move', 'Snapshots', 'Export as', 'More', 'Cards', 'Export'])}.includes(t))`);
+	for (const d of drawers) {
+		const at = await p.ev(`(() => { const it = [...document.querySelectorAll('.menu .menu-item')].find(e => e.querySelector('.menu-item-title')?.textContent === ${j(d)}); if (!it) return null; const r = it.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
+		if (!at) continue;
+		await p.move(at.x, at.y, 3);
+		await p.sleep(450);
+		for (const t of await menuItems(p)) out.add(t);
+	}
+	// (the drawers are shut again: the pointer rests on a plain row of the first menu, as the menu was found)
+	const rest = await p.ev(`(() => { const m = document.querySelector('.menu'); const it = m && [...m.querySelectorAll('.menu-item:not(.has-submenu):not(.is-label)')][0]; if (!it) return null; const r = it.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
+	if (rest && drawers.length) { await p.move(rest.x, rest.y, 3); await p.sleep(350); }
+	return [...out];
+}
+/** Clicks the visible menu item with this title (in the last menu shown, e.g. a submenu). A row in a drawer (menu-routes.mjs)
+    is found by opening the drawer first. */
 export async function clickMenu(p, title) {
+	const path = await expand(p, [title]);
+	for (let i = 0; i < path.length - 1; i++) await hoverMenu(p, await real(p, path[i]));
+	title = await real(p, path[path.length - 1]);
 	const ok = await p.ev(`(() => { const all = [...document.querySelectorAll('.menu .menu-item')].filter(e => e.querySelector('.menu-item-title')?.textContent === ${j(title)}); const it = all[all.length - 1]; if (!it) return false; it.click(); return true; })()`);
 	if (!ok) throw new Error(`no menu item “${title}”: ` + (await menuItems(p)).join(', '));
 	await p.sleep(200);
@@ -94,8 +116,13 @@ export async function newNote(p, name = null, leaf = '.workspace-leaf.mod-active
 	await p.key('Enter');
 }
 
-/** Hovers a menu item (opens its submenu). */
+/** Hovers a menu item (opens its submenu); a row that is in a drawer, or a drawer that was renamed ("Move to" is "Move"),
+    is found through menu-routes.mjs. */
 export async function hoverMenu(p, title) {
+	const path = await expand(p, [title]);
+	for (const t of path) await hoverOne(p, await real(p, t));
+}
+async function hoverOne(p, title) {
 	const at = await p.ev(`(() => { const it = [...document.querySelectorAll('.menu .menu-item')].find(e => e.querySelector('.menu-item-title')?.textContent === ${j(title)}); if (!it) return null; const r = it.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
 	if (!at) throw new Error(`no menu item “${title}”`);
 	await p.move(at.x, at.y, 3);

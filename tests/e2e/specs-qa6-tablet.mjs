@@ -6,6 +6,7 @@
 //   QA6_SHOTS=<dir> saves screenshots of the steps there.
 import { mkdirSync } from 'fs';
 import { closeFilter, chooseProperty, clickEl, pick, rowSel } from './filter-helpers.mjs';
+import { throughDrawers } from './menu-routes.mjs';
 import { B, VIEW, closeMenus, contents, flush, j, menuItems, openView, read, reload, tidy, until, viewState } from './view-helpers.mjs';
 
 export const specs = [];
@@ -260,7 +261,8 @@ for (const [label, size] of TABLETS) for (const [orient, dims] of [['upright', s
 }
 
 
-async function menuTap(p, title) {
+async function menuTap(p, title, ...rest) { return throughDrawers(p, title, (t) => menuTapOne(p, t, ...rest)); }
+async function menuTapOne(p, title) {
 	const find = `[...document.querySelectorAll('.menu .menu-item')].filter(e => (e.querySelector('.menu-item-title')?.textContent ?? '') === ${j(title)}).pop()`;
 	if (!(await p.ev(`(() => { const it = ${find}; if (!it) return false; it.scrollIntoView({ block: 'center' }); return true; })()`))) return false;
 	await p.sleep(250);

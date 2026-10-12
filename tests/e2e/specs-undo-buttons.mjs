@@ -1,6 +1,6 @@
 // The toolbar's Undo and Redo buttons: in every mode, dimmed (not hidden) when there is nothing to take back, saying what
 // they would, and working with a click or a tap.
-import { B, VIEW, card, clickMenu, closeMenus, file, j, menuItems, openView, read, until, withTidy } from './view-helpers.mjs';
+import { B, VIEW, card, clickMenu, closeMenus, file, j, menuItems, openView, read, until, withTidy, menuItemsAll } from './view-helpers.mjs';
 
 export const specs = [];
 const test = (name, fn) => specs.push({ name: 'undo buttons: ' + name, fn: withTidy(fn) });
@@ -52,7 +52,7 @@ test('“Include in export” from a card’s menu is one change the toolbar’s
 	const at = await p.at(card(ARR));
 	await p.right(at.x, at.y);
 	await until(p, `!!document.querySelector('.menu')`);
-	t.ok((await menuItems(p)).includes('Include in export'), 'the menu has it');
+	t.ok((await menuItemsAll(p)).includes('Leave out'), 'the menu has it: Leave out, under Export as');
 	await clickMenu(p, 'Include in export');
 	await sleep(p, 500);
 	t.ok(/export: false/.test(await read(p, ARR)), 'the note is left out of export');

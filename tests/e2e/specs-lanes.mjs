@@ -103,7 +103,7 @@ test('“Arrange” in the toolbar: in a grid, or by label with the lines across
 	await until(p, `!!document.querySelector('${LEAF} .binders-lanes > .binders-lane')`);
 	t.ok(await p.ev(`document.querySelector('${LEAF} .binders-lanes').classList.contains('mod-down') && !document.querySelector('${btn}').classList.contains('is-hidden')`), 'back on the corkboard, it’s as it was left');
 	// the same items in More options
-	t.ok(await p.ev(`(() => { const items = []; const menu = { addItem(cb) { const it = { setSection() { return it; }, setTitle(x) { items.push(typeof x === 'string' ? x : x.textContent); return it; }, setIcon() { return it; }, setChecked() { return it; }, onClick() { return it; }, setIsLabel() { return it; }, setSubmenu() { return menu; }, setWarning() { return it; }, setDisabled() { return it; } }; cb(it); return menu; }, addSeparator() { return menu; } }; ${VIEW}.onPaneMenu(menu, 'more-options'); return ${j(ARRANGE)}.every(x => items.includes(x)); })()`), '“More options” has them too');
+	t.ok(await p.ev(`(() => { const items = []; const menu = { addItem(cb) { const it = { setSection() { return it; }, setTitle(x) { items.push(typeof x === 'string' ? x : x.textContent); return it; }, setIcon() { return it; }, setChecked() { return it; }, onClick() { return it; }, setIsLabel() { return it; }, setSubmenu() { return menu; }, setWarning() { return it; }, setDisabled() { return it; } }; cb(it); return menu; }, addSeparator() { return menu; } }; ${VIEW}.onPaneMenu(menu, 'more-options'); return ${j(ARRANGE)}.every(x => !items.includes(x)); })()`), '“More options” does not have them: they are the toolbar’s');
 	await flush(p);
 	await p.ev(`app.workspace.requestSaveLayout.run?.() ?? app.workspace.saveLayout?.()`).catch(() => {});
 	await p.sleep(600);
@@ -214,17 +214,17 @@ test('the “Arrange” menu’s switches: flipped by label the menu stays open,
 	same(t, before, await texts(p));
 });
 
-test('the “Arrange” menu is the same list in “More options” and in the board’s own menu; a Longform project has no notes in subfolders to show', async (p, h, t) => {
+test('the “Arrange” menu is the toolbar’s and the board’s own menu’s, and not in “More options”; a Longform project has no notes in subfolders to show', async (p, h, t) => {
 	await openView(p);
 	// (what the view adds to the pane's menu, read off a stand-in for it)
 	const more = () => p.ev(`(() => { const items = []; const menu = { addItem(cb) { const it = { setSection() { return it; }, setTitle(x) { items.push(typeof x === 'string' ? x : x.textContent); return it; }, setIcon() { return it; }, setChecked() { return it; }, onClick() { return it; }, setIsLabel() { return it; }, setSubmenu() { return menu; }, setWarning() { return it; }, setDisabled() { return it; } }; cb(it); return menu; }, addSeparator() { return menu; } }; ${VIEW}.onPaneMenu(menu, 'more-options'); return items; })()`);
 	// (anything about arranging, so an item of the old menu left behind would show)
 	const part = (items) => items.filter((x) => ARRANGE.includes(x) || /^(by label|lines |in a )/i.test(x));
-	t.eq(j(part(await more())), j(ARRANGE), 'in the grid, “More options” has the menu’s items, in its order');
+	t.eq(j(part(await more())), j([]), 'in the grid, “More options” has none of the menu’s items: the toolbar has them');
 	await p.ev(`${VIEW}.arrange('label', 'down')`);
 	await boardIs(p, 'down');
 	await p.sleep(300);
-	t.eq(j(part(await more())), j(ARRANGE), 'and by label, the same');
+	t.eq(j(part(await more())), j([]), 'and by label, the same');
 	// the board's own menu (a right-click where there's no card)
 	await p.ev(`(() => { const g = document.querySelector('${LEAF} .binders-lanes'), r = g.getBoundingClientRect(); g.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: r.left + 200, clientY: r.top + 8 })); return 1; })()`);
 	await p.sleep(250);

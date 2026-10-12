@@ -3,7 +3,7 @@
 // editing a synopsis (also while the note changes on disk), new cards, rename, delete, status and label, the keyboard,
 // and mobile. Every test that changes files checks no text was lost.
 import { tick, clearFilter, closeFilter } from './filter-helpers.mjs';
-import { B, NOTE, VIEW, card, cards, clickMenu, closeMenus, contents, exists, file, flush, hoverMenu, j, menuItems, newNote, openView, read, reload, same, selected, split, texts, until, viewState, withTidy, writeRaw } from './view-helpers.mjs';
+import { B, NOTE, VIEW, card, cards, clickMenu, closeMenus, contents, exists, file, flush, hoverMenu, j, menuItems, newNote, openView, read, reload, same, selected, split, texts, until, viewState, withTidy, writeRaw, menuItemsAll } from './view-helpers.mjs';
 
 export const specs = [];
 const test = (name, fn) => specs.push({ name: 'corkboard: ' + name, fn });
@@ -619,7 +619,7 @@ test('Rename in a stack’s menu (or F2) renames the folder on its card; its fol
 	await until(p, `document.querySelector('${card(L + 'Part One')} .binders-card-synopsis')?.textContent === 'Arrivals.'`);
 	const st = await at(p, 'Part One');
 	await p.right(st.x, st.t + 14);
-	const items = await menuItems(p);
+	const items = await menuItemsAll(p);
 	t.ok(['Open', 'Rename', 'Edit synopsis', 'Set status', 'Set label', 'Set target...', 'Duplicate', 'Ungroup', 'Delete'].every((x) => items.includes(x)), 'a stack’s menu is the folder’s: ' + items.join(', '));
 	await clickMenu(p, 'Rename');
 	t.ok(await p.ev(`document.activeElement.matches('${card(L + 'Part One')} .binders-card-title input')`), 'the stack’s name is a field');
@@ -991,8 +991,8 @@ test('card size, from the board’s own menu, is kept with the view', withTidy(a
 	const board = { r: box.r, t: box.b - 80 };
 	await p.right(board.r - 30, board.t + 40);
 	const items = await menuItems(p);
-	t.eq(j(items), j(['New note', 'New folder', 'Card size', 'Tint cards with their label color', 'Number the cards']), 'the board’s menu');
-	await hoverMenu(p, 'Card size');
+	t.eq(j(items), j(['New note', 'New folder', 'Cards']), 'the board’s menu');
+	await hoverMenu(p, 'Cards');
 	await clickMenu(p, 'Large');
 	await p.sleep(200);
 	t.ok(await p.ev(`document.querySelector('.workspace-leaf.mod-active .binders-board').classList.contains('mod-cards-large')`), 'the board shows large cards');
@@ -1013,7 +1013,7 @@ test('a card’s menu has what other plugins add for its note, and not Binders�
 	try {
 		const c = await at(p, 'Part One/The keeper.md');
 		await p.right(c.x, c.y);
-		let items = await menuItems(p);
+		let items = await menuItemsAll(p);
 		t.ok(items.includes('Plugin item: The Lighthouse/Part One/The keeper.md from binders-card'), 'another plugin’s item for the note: ' + items.join(', '));
 		t.eq(items.filter((x) => x === 'Move up').length, 1, '“Move up” once (the card’s own)');
 		t.ok(!items.includes('New scene here') && !items.includes('Open binder'), 'none of Binders’ items for the file explorer');
@@ -1023,7 +1023,7 @@ test('a card’s menu has what other plugins add for its note, and not Binders�
 		await p.click(a.x, a.t + 12);
 		await p.click(c.x, c.t + 12, { modifiers: 2 });
 		await p.right(c.x, c.y);
-		items = await menuItems(p);
+		items = await menuItemsAll(p);
 		t.ok(items.includes('Plugin item: 2 files from binders-card'), 'and for a selection: ' + items.join(', '));
 		await closeMenus(p);
 	} finally { await p.ev(`(() => { app.workspace.offref(window.__ref); app.workspace.offref(window.__refs); return 1; })()`); }
@@ -1297,9 +1297,10 @@ test('“Move to” in a card’s menu lists the binder’s folders as they nest
 	const before = await contents(p), texts0 = await texts(p);
 	const c = await p.at(card(L + 'Part One/Arrival.md'));
 	await p.right(c.x, c.y);
-	t.ok((await menuItems(p)).includes('Move to'), 'a card’s menu has “Move to”, under Move up and Move down');
-	await hoverMenu(p, 'Move to');
-	const items = await p.ev(`[...document.querySelectorAll('.menu')].pop() ? [...[...document.querySelectorAll('.menu')].pop().querySelectorAll('.menu-item')].map(e => [e.querySelector('.menu-item-title')?.textContent, e.classList.contains('is-disabled'), getComputedStyle(e.querySelector('.binders-menu-indent')).width]) : []`);
+	t.ok((await menuItemsAll(p)).includes('Move'), 'a card’s menu has “Move”: up, down, a new folder, then the binder’s folders');
+	await hoverMenu(p, 'Move');
+	const allItems = await p.ev(`[...document.querySelectorAll('.menu')].pop() ? [...[...document.querySelectorAll('.menu')].pop().querySelectorAll('.menu-item')].map(e => [e.querySelector('.menu-item-title')?.textContent, e.classList.contains('is-disabled'), e.querySelector('.binders-menu-indent') ? getComputedStyle(e.querySelector('.binders-menu-indent')).width : '0px']) : []`);
+	const items = allItems.slice(-4);
 	t.eq(JSON.stringify(items.map((x) => x[0])), JSON.stringify(['The Lighthouse', 'Part One', 'Flashback', 'Part Two']), 'every folder of the binder, in binder order');
 	t.ok(items[1][1] && !items[0][1] && !items[2][1] && !items[3][1], 'the folder it is in is there but can’t be picked: ' + JSON.stringify(items));
 	t.ok(parseFloat(items[2][2]) > parseFloat(items[1][2]) && parseFloat(items[1][2]) > parseFloat(items[0][2]), 'each set in by its depth');
@@ -1319,8 +1320,8 @@ test('“Move to” in a card’s menu lists the binder’s folders as they nest
 	await openView(p, 'The Lighthouse');
 	const s = await p.at(card(L + 'Part One'));
 	await p.right(s.x, s.t + 12);
-	await hoverMenu(p, 'Move to');
-	const forFolder = await p.ev(`[...[...document.querySelectorAll('.menu')].pop().querySelectorAll('.menu-item')].map(e => [e.querySelector('.menu-item-title')?.textContent, e.classList.contains('is-disabled')])`);
+	await hoverMenu(p, 'Move');
+	const forFolder = (await p.ev(`[...[...document.querySelectorAll('.menu')].pop().querySelectorAll('.menu-item')].map(e => [e.querySelector('.menu-item-title')?.textContent, e.classList.contains('is-disabled')])`)).slice(-4);
 	t.eq(JSON.stringify(forFolder), JSON.stringify([['The Lighthouse', true], ['Part One', true], ['Flashback', true], ['Part Two', false]]), 'a folder isn’t offered itself, what’s inside it, or where it already is');
 	await p.key('Escape'); await p.key('Escape');
 }));

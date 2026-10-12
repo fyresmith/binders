@@ -6,7 +6,7 @@
 // happy paths; these go round the edges.
 import { chmodSync, existsSync, readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
-import { B, NOTE, PL, VIEW, card, clickMenu, closeMenus, contents, exists, file, flush, j, menuItems, openView, read, reload, same, split, texts, tidy, until, writeRaw } from './view-helpers.mjs';
+import { B, NOTE, PL, VIEW, card, clickMenu, closeMenus, contents, exists, file, flush, j, menuItems, openView, read, reload, same, split, texts, tidy, until, writeRaw, menuItemsAll } from './view-helpers.mjs';
 
 export const specs = [];
 
@@ -825,7 +825,7 @@ test('synopsis from text: with the synopsis kept under another property; several
 	const hd = await p.at(card(L + 'Part One'));
 	await p.right(hd.x, hd.y);
 	t.ok((await menuItems(p)).includes('Edit synopsis'), 'a folder’s menu has its synopsis to edit');
-	t.ok(!(await menuItems(p)).includes('Set synopsis from text'), 'a folder has no text to take one from');
+	t.ok(!(await menuItemsAll(p)).includes('Set synopsis from text'), 'a folder has no text to take one from');
 	await closeMenus(p);
 	// typing a moment before
 	await openAt(p, L + 'Prologue.md', { before: 'The light', newLeaf: 'split' });

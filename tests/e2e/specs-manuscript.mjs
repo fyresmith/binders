@@ -3,6 +3,8 @@
 // Until the binder view shell mounts it, these tests mount the mode in a plain leaf with a ModeContext built in-page.
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
+import { menuItemsAll } from './view-helpers.mjs';
+import { expand, real } from './menu-routes.mjs';
 
 export const specs = [];
 const test = (name, fn) => specs.push({ name: 'manuscript: ' + name, fn });
@@ -639,11 +641,12 @@ test('a section’s title is its note’s name: a click renames it in place, Mod
 	const at = await p.ev(`(() => { const r = ${M}.scenes[${idx(f)}].titleEl.getBoundingClientRect(); return { x: r.x + 10, y: r.y + r.height / 2 }; })()`);
 	const at2 = await p.ev(`(() => { const r = ${M}.scenes[${idx(f)}].titleEl.getBoundingClientRect(); return { x: r.x + 10, y: r.y + r.height / 2 }; })()`);
 	await p.right(at2.x, at2.y);
-	const items = await p.ev(`[...document.querySelectorAll('.menu .menu-item-title')].map(e => e.textContent)`);
+	const top = await p.ev(`[...document.querySelectorAll('.menu .menu-item-title')].map(e => e.textContent)`);
+	const items = [...top, ...(await menuItemsAll(p)).filter((x) => !top.includes(x))];
 	// the menu a card has for the same note: open it, rename it, set its status and label, move it, delete it (last)
-	t.eq(items.slice(0, 3).join('|'), 'Open|Open in new tab|Open to the right', 'menu: ' + items.join('|'));
-	for (const x of ['Rename', 'Set status', 'Set label', 'Duplicate', 'Move up', 'New note after this']) t.ok(items.includes(x), `the menu has “${x}”`);
-	t.eq(items[items.length - 1], 'Delete', 'Delete comes last');
+	t.eq(top.slice(0, 3).join('|'), 'Open|Open in new tab|Open to the right', 'menu: ' + top.join('|'));
+	for (const x of ['Rename', 'Set status', 'Set label', 'Duplicate', 'Move up', 'New note after this']) t.ok(items.includes(x), `the menu has “${x}” (Duplicate and Move up in their drawers)`);
+	t.eq(top[top.length - 1], 'Delete', 'Delete comes last');
 	t.ok(!items.includes('Move down'), 'the last section can’t move down');
 	await p.key('Escape');
 	await p.sleep(150);
@@ -869,8 +872,12 @@ test('a section’s menu: “New note after this” adds a section with its titl
 		await p.sleep(200);
 		const at = await p.ev(`(() => { const r = ${M}.scenes.find(s => s.file.path === ${J(path)}).titleEl.getBoundingClientRect(); return { x: r.x + 10, y: r.y + r.height / 2 }; })()`);
 		await p.right(at.x, at.y);
-		await p.ev(`(() => { [...document.querySelectorAll('.menu .menu-item')].find(e => e.querySelector('.menu-item-title')?.textContent === ${J(title)}).click(); return 1; })()`);
-		await p.sleep(400);
+		const path2 = await expand(p, [title]);
+		for (let i = 0; i < path2.length; i++) {
+			const t2 = await real(p, path2[i]);
+			await p.ev(`(() => { [...document.querySelectorAll('.menu .menu-item')].filter(e => e.querySelector('.menu-item-title')?.textContent === ${J(t2)}).pop().click(); return 1; })()`);
+			await p.sleep(i < path2.length - 1 ? 450 : 400);
+		}
 	};
 	await menuOn(f, 'New note after this');
 	const names = () => p.ev(`${M}.scenes.map(s => s.file.path)`);

@@ -9,6 +9,7 @@
 //
 // QA5_SHOTS=<dir> saves screenshots of every step there; QA5_LOG=1 prints what each scenario measured.
 import { mkdirSync } from 'fs';
+import { throughDrawers } from './menu-routes.mjs';
 import { B, PL, VIEW, card, closeMenus, contents, flush, j, menuItems, openView, read, reload, texts, tidy, until, viewState } from './view-helpers.mjs';
 
 export const specs = [];
@@ -96,7 +97,8 @@ const navbarTop = (p) => p.ev(`(() => { const b = document.querySelector('.mobil
 const sheet = (p) => p.ev(`(() => { const m = [...document.querySelectorAll('.menu')].pop(); if (!m) return null; const r = m.getBoundingClientRect(); return { left: Math.round(r.left), top: Math.round(r.top), width: Math.round(r.width), bottom: Math.round(r.bottom), inner: [innerWidth, innerHeight], itemHeights: [...m.querySelectorAll('.menu-item:not(.is-label)')].map(i => Math.round(i.getBoundingClientRect().height)) }; })()`);
 const isSheet = (s) => !!s && s.left === 0 && s.width === s.inner[0] && s.bottom === s.inner[1];
 const menus = (p) => p.ev(`document.querySelectorAll('.menu').length`);
-async function menuTap(p, title) {
+async function menuTap(p, title, ...rest) { return throughDrawers(p, title, (t) => menuTapOne(p, t, ...rest)); }
+async function menuTapOne(p, title) {
 	const find = `[...document.querySelectorAll('.menu .menu-item')].filter(e => (e.querySelector('.menu-item-title')?.textContent ?? '') === ${j(title)}).pop()`;
 	if (!(await p.ev(`(() => { const it = ${find}; if (!it) return false; it.scrollIntoView({ block: 'center' }); return true; })()`))) return false;
 	await p.sleep(250);
@@ -806,15 +808,15 @@ test('tablet header: the Snapshots button stays beside “More options” (a pho
 	});
 });
 
-test('phone header: “More options” in each mode is a sheet of finger-tall rows: the mode’s own options, the three modes with the current one ticked, “Export...” and the binder’s note; a folder without a note of its own offers none', async (p, h, t) => {
+test('phone header: “More options” in each mode is a sheet of finger-tall rows: Find, the mode’s own options (Cards), the Snapshots drawer, “Export...” and the binder’s note (the modes and Arrange are the toolbar’s); a folder without a note of its own offers none', async (p, h, t) => {
 	await onDevice(p, PHONE, async () => {
 		await open(p);
 		const more = await p.at(MORE);
 		t.ok(more.w >= 40 && more.h >= 40, `the button is ${Math.round(more.w)} × ${Math.round(more.h)} px`);
 		const want = {
-			corkboard: ['Close', 'Pin', 'Card size', 'Tint cards with their label color', 'Number the cards', 'Corkboard', 'Outliner', 'Manuscript', 'Timeline', 'In a grid', 'By label, across', 'By label, down', 'Show notes in subfolders', 'Show unused labels', 'Find in binder', 'Find and replace in binder', 'Add revision task', 'Export...', 'Take a snapshot', 'Show snapshots...', 'Show progress', 'Show contents', 'Open binder note'],
-			outliner: ['Close', 'Pin', 'Show synopses', 'Columns', 'Expand all', 'Collapse all', 'Corkboard', 'Outliner', 'Manuscript', 'Timeline', 'Find in binder', 'Find and replace in binder', 'Add revision task', 'Export...', 'Take a snapshot', 'Show snapshots...', 'Show progress', 'Show contents', 'Open binder note'],
-			manuscript: ['Close', 'Pin', 'Show synopses', 'Corkboard', 'Outliner', 'Manuscript', 'Timeline', 'Find in binder', 'Find and replace in binder', 'Add revision task', 'Export...', 'Take a snapshot', 'Show snapshots...', 'Show progress', 'Show contents', 'Open binder note'],
+			corkboard: ['Close', 'Pin', 'Find in binder', 'Find and replace in binder', 'Cards', 'Add revision task', 'Snapshots', 'Export...', 'Show progress', 'Show contents', 'Open binder note'],
+			outliner: ['Close', 'Pin', 'Find in binder', 'Find and replace in binder', 'Show synopses', 'Columns', 'Expand all', 'Collapse all', 'Add revision task', 'Snapshots', 'Export...', 'Show progress', 'Show contents', 'Open binder note'],
+			manuscript: ['Close', 'Pin', 'Find in binder', 'Find and replace in binder', 'Show synopses', 'Add revision task', 'Snapshots', 'Export...', 'Show progress', 'Show contents', 'Open binder note'],
 		};
 		for (const [mode, items] of Object.entries(want)) {
 			await setMode(p, mode);
@@ -824,15 +826,15 @@ test('phone header: “More options” in each mode is a sheet of finger-tall ro
 			const s = await sheet(p);
 			t.eq(j(await menuItems(p)), j(items), mode + ': its items');
 			t.ok(isSheet(s) && s.itemHeights.every((x) => x >= 44), mode + ': a sheet, each row 44 px or more');
-			t.eq(await p.ev(`[...document.querySelectorAll('.menu .menu-item')].filter(i => i.querySelector('.menu-item-icon.mod-checked, .mod-selected, .menu-item-icon.mod-toggle svg') || i.classList.contains('mod-selected') || i.classList.contains('is-checked')).map(i => i.querySelector('.menu-item-title').textContent).filter(x => ['Corkboard', 'Outliner', 'Manuscript'].includes(x)).join()`), mode[0].toUpperCase() + mode.slice(1), mode + ': ticked among the modes');
+			t.eq(j((await menuItems(p)).filter((x) => ['Corkboard', 'Outliner', 'Manuscript', 'Timeline'].includes(x))), '[]', mode + ': no modes in the sheet (the toolbar’s button has them)');
 			await gone(p);
 		}
-		// a mode picked there
-		await tap(p, more.x, more.y);
+		// a mode picked from the toolbar's button (the sheet has no modes any more)
+		await tap(p, (await p.at(`${LEAF} .binders-mode-button`)).x, (await p.at(`${LEAF} .binders-mode-button`)).y);
 		await p.sleep(500);
 		t.ok(await menuTap(p, 'Corkboard'), 'Corkboard');
 		await until(p, `${VIEW}.mode === 'corkboard'`);
-		t.eq(j([(await viewState(p)).mode, await menus(p)]), j(['corkboard', 0]), 'a mode picked in the sheet switches to it and closes the sheet');
+		t.eq(j([(await viewState(p)).mode, await menus(p)]), j(['corkboard', 0]), 'a mode picked in the toolbar’s menu switches to it and closes the sheet');
 		// snapshots from there: one tap (a phone's header has no Snapshots button of its own)
 		await tap(p, more.x, more.y);
 		await p.sleep(500);

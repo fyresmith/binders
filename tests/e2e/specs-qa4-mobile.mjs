@@ -12,6 +12,7 @@
 // QA4_SHOTS=<dir> saves screenshots of every step there.
 import { tapTick, tapSel } from './filter-helpers.mjs';
 import { mkdirSync } from 'fs';
+import { throughDrawers } from './menu-routes.mjs';
 import { B, PL, VIEW, card, closeMenus, contents, flush, j, menuItems, openView, read, reload, texts, tidy, until, viewState } from './view-helpers.mjs';
 
 export const specs = [];
@@ -103,7 +104,8 @@ const navbarTop = (p) => p.ev(`(() => { const b = document.querySelector('.mobil
 const sheet = (p) => p.ev(`(() => { const m = [...document.querySelectorAll('.menu')].pop(); if (!m) return null; const r = m.getBoundingClientRect(); return { left: Math.round(r.left), width: Math.round(r.width), bottom: Math.round(r.bottom), inner: [innerWidth, innerHeight], itemHeights: [...m.querySelectorAll('.menu-item:not(.is-label)')].map(i => Math.round(i.getBoundingClientRect().height)) }; })()`);
 const isSheet = (s) => !!s && s.left === 0 && s.width === s.inner[0] && s.bottom === s.inner[1];
 /** Taps the menu item with this title (in the last menu shown), scrolled into view first. False if there's none. */
-async function menuTap(p, title) {
+async function menuTap(p, title, ...rest) { return throughDrawers(p, title, (t) => menuTapOne(p, t, ...rest)); }
+async function menuTapOne(p, title) {
 	const find = `[...document.querySelectorAll('.menu .menu-item')].filter(e => (e.querySelector('.menu-item-title')?.textContent ?? '') === ${j(title)}).pop()`;
 	if (!(await p.ev(`(() => { const it = ${find}; if (!it) return false; it.scrollIntoView({ block: 'center' }); return true; })()`))) return false;
 	await p.sleep(250);
@@ -344,7 +346,7 @@ test('phone corkboard: a long press opens the card’s menu as a sheet; a status
 		await shot(p, 'cork-card-menu');
 		const items = await menuItems(p);
 		t.ok(isSheet(await sheet(p)), 'letting go opens its menu as a sheet');
-		for (const x of ['Open', 'Rename', 'Edit synopsis', 'Set status', 'Set label', 'Set target...', 'Duplicate', 'Delete']) t.ok(items.includes(x), `“${x}” is in it`);
+		for (const x of ['Open', 'Rename', 'Edit synopsis', 'Set status', 'Set label', 'Move', 'More', 'Delete']) t.ok(items.includes(x), `“${x}” is in it`);
 		t.ok(!items.includes('Open to the right'), 'no “Open to the right” on a phone');
 		t.eq(j(await selected(p)), j([L + 'Part One/Arrival.md']), 'the card is selected');
 		t.eq(await p.ev(`app.workspace.getActiveFile()?.path ?? null`), null, 'and nothing opened');
@@ -511,7 +513,7 @@ test('phone corkboard: “New” in the toolbar makes a note, named on its card;
 		await p.sleep(300);
 		await shot(p, 'cork-options-sheet');
 		t.ok(isSheet(await sheet(p)), 'the options are a sheet');
-		for (const x of ['Card size', 'Tint cards with their label color', 'Number the cards', 'Outliner', 'Open binder note']) t.ok((await menuItems(p)).includes(x), `“${x}” is in it`);
+		for (const x of ['Cards', 'Find in binder', 'Open binder note']) t.ok((await menuItems(p)).includes(x), `“${x}” is in it`);
 		t.ok(!(await menuItems(p)).includes('Show subfolders as stacks'), 'and no “Show subfolders as stacks”: a folder is always one');
 		await gone(p);
 		await pick('Number the cards');

@@ -12,6 +12,7 @@
 // is the stack's.
 import { tapToggle, tapClear } from './filter-helpers.mjs';
 import { mkdirSync } from 'fs';
+import { menuItemsAllTouch, throughDrawers } from './menu-routes.mjs';
 import { B, PL, VIEW, card, closeMenus, contents, flush, j, menuItems, openView, read, reload, split, texts, tidy, until, viewState } from './view-helpers.mjs';
 
 export const specs = [];
@@ -119,7 +120,8 @@ async function tapEl(p, sel, i = 0) {
 }
 const sheet = (p) => p.ev(`(() => { const m = [...document.querySelectorAll('.menu')].pop(); if (!m) return null; const r = m.getBoundingClientRect(); return { left: Math.round(r.left), top: Math.round(r.top), width: Math.round(r.width), bottom: Math.round(r.bottom), inner: [innerWidth, innerHeight] }; })()`);
 const isSheet = (s) => !!s && s.left === 0 && s.width === s.inner[0] && s.bottom === s.inner[1];
-async function menuTap(p, title) {
+async function menuTap(p, title, ...rest) { return throughDrawers(p, title, (t) => menuTapOne(p, t, ...rest)); }
+async function menuTapOne(p, title) {
 	const find = `[...document.querySelectorAll('.menu .menu-item')].filter(e => (e.querySelector('.menu-item-title')?.textContent ?? '') === ${j(title)}).pop()`;
 	if (!(await p.ev(`(() => { const it = ${find}; if (!it) return false; it.scrollIntoView({ block: 'center' }); return true; })()`))) return false;
 	await p.sleep(250);
@@ -537,7 +539,7 @@ for (const [dev, size] of [['phone (390 × 844)', PHONE], ['small phone (320 × 
 			for (const n of ['One', 'Two', 'Three', 'Four']) S.eq(await body(p, N + n + '.md'), TEXT(n), `“${n}” has its text, byte for byte`);
 			// --- chapters ---
 			await cardMenu(p, N + 'One.md');
-			S.ok((await menuItems(p)).includes('Put in a new folder'), '“Put in a new folder” is in a card’s menu');
+			S.ok((await menuItemsAllTouch(p, tap)).includes('Put in a new folder'), '“Put in a new folder” is in a card’s menu');
 			await pick(p, 'Put in a new folder');
 			await until(p, `document.activeElement?.tagName === 'INPUT'`, 3000);
 			const nf = await p.ev(`({ tag: document.activeElement.tagName, value: document.activeElement.value ?? null, sel: (document.activeElement.selectionEnd ?? 0) - (document.activeElement.selectionStart ?? 0), stack: !!document.activeElement.closest('.binders-card.is-stack') })`);
@@ -577,7 +579,7 @@ for (const [dev, size] of [['phone (390 × 844)', PHONE], ['small phone (320 × 
 			// Chapter 3 in the outliner: a row's menu, then rows dragged onto the folder
 			await modeByTouch(p, 'Outliner');
 			await rowMenu(p, N + 'Thirteen.md');
-			S.ok((await menuItems(p)).includes('Put in a new folder'), '“Put in a new folder” is in a row’s menu, in the same words');
+			S.ok((await menuItemsAllTouch(p, tap)).includes('Put in a new folder'), '“Put in a new folder” is in a row’s menu, in the same words');
 			await pick(p, 'Put in a new folder');
 			await until(p, `document.activeElement?.tagName === 'INPUT'`, 3000);
 			const nr = await p.ev(`({ tag: document.activeElement.tagName, value: document.activeElement.value ?? null, row: document.activeElement.closest('.binders-outliner-row')?.dataset.path ?? null })`);
@@ -609,7 +611,7 @@ for (const [dev, size] of [['phone (390 × 844)', PHONE], ['small phone (320 × 
 			await flush(p);
 			S.eq((await fm(p, NNOTE))?.target, 60000, 'the binder’s target is in the binder note');
 			await stackMenu(p, 'Novel/Chapter 1');
-			S.ok((await menuItems(p)).includes('Set target...') && (await menuItems(p)).includes('Rename'), 'a chapter’s stack has a menu, with “Rename” and “Set target...”: ' + j(await menuItems(p)));
+			S.ok((await menuItemsAllTouch(p, tap)).includes('Set target...') && (await menuItemsAllTouch(p, tap)).includes('Rename'), 'a chapter’s stack has a menu, with “Rename” and “Set target...”: ' + j(await menuItemsAllTouch(p, tap)));
 			await pick(p, 'Set target...');
 			await until(p, `!!document.querySelector('.modal .binders-ask input')`);
 			await p.type('9000');
@@ -703,7 +705,7 @@ for (const [dev, size] of [['phone (390 × 844)', PHONE], ['small phone (320 × 
 			await modeByTouch(p, 'Corkboard');
 			await intoStack(p, 'Novel/Chapter 2');
 			await cardMenu(p, 'Novel/Chapter 2/Seven.md');
-			S.ok((await menuItems(p)).includes('Move down') && !(await menuItems(p)).includes('Move up'), 'the first card of a chapter has “Move down” and no “Move up”: ' + j((await menuItems(p)).filter((x) => /Move/.test(x))));
+			S.ok((await menuItemsAllTouch(p, tap)).includes('Move down') && !(await menuItemsAllTouch(p, tap)).includes('Move up'), 'the first card of a chapter has “Move down” and no “Move up”: ' + j((await menuItemsAllTouch(p, tap)).filter((x) => /Move/.test(x))));
 			await pick(p, 'Move down');
 			await step('corkboard: Seven moved down', C(2, 'Eight', 'Seven', 'Nine', 'Ten', 'Eleven', 'Twelve'));
 			await upOut(p);
@@ -713,7 +715,7 @@ for (const [dev, size] of [['phone (390 × 844)', PHONE], ['small phone (320 × 
 			await step('outliner: Nine moved up', C(2, 'Eight', 'Nine', 'Seven', 'Ten', 'Eleven', 'Twelve'));
 			await modeByTouch(p, 'Manuscript');
 			await titleMenu(p, 'Ten');
-			S.ok((await menuItems(p)).includes('Move down') && (await menuItems(p)).includes('Move up'), 'a manuscript title’s menu has both: ' + j((await menuItems(p)).filter((x) => /Move/.test(x))));
+			S.ok((await menuItemsAllTouch(p, tap)).includes('Move down') && (await menuItemsAllTouch(p, tap)).includes('Move up'), 'a manuscript title’s menu has both: ' + j((await menuItemsAllTouch(p, tap)).filter((x) => /Move/.test(x))));
 			await pick(p, 'Move down');
 			await step('manuscript: Ten moved down', C(2, 'Eight', 'Nine', 'Seven', 'Eleven', 'Ten', 'Twelve'));
 			S.eq(j((await sectionsIn(p)).slice(6, 12)), j(['Eight', 'Nine', 'Seven', 'Eleven', 'Ten', 'Twelve']), 'and the page follows at once');
@@ -1810,7 +1812,7 @@ ux('phone: several cards (or rows) can be selected by touch, so “Merge notes�
 		const a = await see(p, card(L + 'Part One/Arrival.md')), b = await p.at(card(L + 'Part One/The keeper.md'));
 		await tap(p, a.x, a.t + a.h - 14);
 		await hold(p, b.x, b.t + b.h - 14);
-		const items = await menuItems(p);
+		const items = await menuItemsAllTouch(p, tap);
 		await shot(p, 'ux-no-multi-select');
 		await gone(p);
 		// (whatever the way is: a held card joining the selection, or an item that starts selecting)
@@ -1833,13 +1835,13 @@ test('phone 5. one note’s menu in each mode and in the file explorer: the same
 		// (one note, on its chapter's board, and in that chapter's outliner and manuscript)
 		await intoStack(p, 'Novel/Chapter 1');
 		await cardMenu(p, 'Novel/Chapter 1/Two.md');
-		menu.card = own(await menuItems(p)); await gone(p);
+		menu.card = own(await menuItemsAllTouch(p, tap)); await gone(p);
 		await modeByTouch(p, 'Outliner');
 		await rowMenu(p, 'Novel/Chapter 1/Two.md');
-		menu.row = own(await menuItems(p)); await gone(p);
+		menu.row = own(await menuItemsAllTouch(p, tap)); await gone(p);
 		await modeByTouch(p, 'Manuscript');
 		await titleMenu(p, 'Two');
-		menu.title = own(await menuItems(p)); await gone(p);
+		menu.title = own(await menuItemsAllTouch(p, tap)); await gone(p);
 		await showExplorer(p, ['Novel', 'Novel/Chapter 1']);
 		await explorerMenu(p, 'Novel/Chapter 1/Two.md');
 		menu.explorer = own(await menuItems(p)); await gone(p);
@@ -1849,7 +1851,7 @@ test('phone 5. one note’s menu in each mode and in the file explorer: the same
 		S.eq(j(menu.row), j(menu.card), 'a row’s menu is its card’s, item for item');
 		const common = menu.card.filter((x) => menu.title.includes(x));
 		S.eq(j(menu.title.filter((x) => menu.card.includes(x))), j(common), 'what a manuscript title’s menu shares with them is in the same order');
-		for (const x of ['Open', 'Rename', 'Set status', 'Set label', 'Set target...', 'Duplicate', 'Put in a new folder', 'Include in export', 'Move up', 'Move down', 'Delete']) S.ok(menu.title.includes(x) && menu.card.includes(x), `“${x}” is in all three`);
+		for (const x of ['Open', 'Rename', 'Set status', 'Set label', 'Set target...', 'Duplicate', 'Put in a new folder', 'Leave out', 'Move up', 'Move down', 'Delete']) S.ok(menu.title.includes(x) && menu.card.includes(x), `“${x}” is in all three`);
 		S.eq(j(menu.card.filter((x) => !menu.title.includes(x))), j(['Select more', 'Edit synopsis']), 'only “Select more” (a card or a row is selected, a section isn’t) and “Edit synopsis” (it shows none) are missing from the manuscript’s');
 		S.eq(j(menu.title.filter((x) => !menu.card.includes(x))), j(['New note after this']), 'and only “New note after this” is the manuscript’s alone');
 		for (const x of ['Move up', 'Move down']) S.ok(menu.explorer.includes(x), `the explorer’s has “${x}” in the same words`);

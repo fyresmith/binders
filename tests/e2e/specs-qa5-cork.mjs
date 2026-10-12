@@ -16,6 +16,7 @@
 import { tapSel, tapTick, tapDone, tapToggle, tapClear } from './filter-helpers.mjs';
 import { mkdirSync } from 'fs';
 import { scaled, slowness } from './machine-speed.mjs';
+import { menuItemsAllTouch, throughDrawers } from './menu-routes.mjs';
 import { B, PL, VIEW, card, closeMenus, contents, flush, j, menuItems, openView, read, reload, texts, tidy, until, viewState, writeRaw } from './view-helpers.mjs';
 
 export const specs = [];
@@ -117,7 +118,8 @@ const targets = (p) => p.ev(`(() => { const R = ${R}; const all = (sel) => [...d
 const sheet = (p) => p.ev(`(() => { const m = [...document.querySelectorAll('.menu')].pop(); if (!m) return null; const r = m.getBoundingClientRect(); return { left: Math.round(r.left), width: Math.round(r.width), top: Math.round(r.top), bottom: Math.round(r.bottom), inner: [innerWidth, innerHeight], itemHeights: [...m.querySelectorAll('.menu-item:not(.is-label)')].map(i => Math.round(i.getBoundingClientRect().height)) }; })()`);
 const isSheet = (s) => !!s && s.left === 0 && s.width === s.inner[0] && s.bottom === s.inner[1];
 /** Taps the menu item with this title (in the last menu shown), scrolled into view first. False if there's none. */
-async function menuTap(p, title, at = 0.5) {
+async function menuTap(p, title, ...rest) { return throughDrawers(p, title, (t) => menuTapOne(p, t, ...rest)); }
+async function menuTapOne(p, title, at = 0.5) {
 	const find = `[...document.querySelectorAll('.menu .menu-item')].filter(e => (e.querySelector('.menu-item-title')?.textContent ?? '') === ${j(title)}).pop()`;
 	if (!(await p.ev(`(() => { const it = ${find}; if (!it) return false; it.scrollIntoView({ block: 'center' }); return true; })()`))) return false;
 	// (the tap goes where the item is once it has stopped moving: a menu opens with a short animation, and on a loaded
@@ -274,14 +276,17 @@ test('card sheet: “Duplicate”, “Move down”, “Move up”, “Include in
 		t.eq(j((await contents(p)).slice(2, 4)), j(['Part One/Arrival', 'Part One/Arrival 2']), 'Move up');
 		// the first card of a folder has no "Move up", the last no "Move down"
 		await cardMenu(p, 'Part One/Arrival.md');
+		await menuTap(p, 'Move'); await p.sleep(400);
 		t.ok(!(await menuItems(p)).includes('Move up') && (await menuItems(p)).includes('Move down'), 'the first card of a folder has “Move down” only');
 		await gone(p);
 		await cardMenu(p, 'Part One/Storm warning.md');
+		await menuTap(p, 'Move'); await p.sleep(400);
 		t.ok((await menuItems(p)).includes('Move up') && !(await menuItems(p)).includes('Move down'), 'its last card “Move up” only');
 		await gone(p);
 		// (the rest on the binder's own board)
 		await open(p);
 		await cardMenu(p, 'Prologue.md');
+		await menuTap(p, 'Move'); await p.sleep(400);
 		t.ok(!(await menuItems(p)).includes('Move up') && (await menuItems(p)).includes('Move down'), 'the first card has “Move down” only');
 		await gone(p);
 		// Include in export
@@ -367,10 +372,10 @@ test('stack sheet: every item is there; “Rename” names the folder on its car
 		const P1 = L + 'Part One';
 		await stackMenu(p, P1);
 		await shot(p, 'sheet-stack');
-		const items = await menuItems(p);
+		const items = await menuItemsAllTouch(p, tap);
 		say('stack items', j(items));
 		t.ok(isSheet(await sheet(p)), 'a stack’s menu is a sheet');
-		for (const x of ['Open', 'Open in new tab', 'Rename', 'Edit synopsis', 'Set status', 'Set label', 'Set target...', 'Duplicate', 'Put in a new folder', 'Export...', 'Ungroup', 'Include in export', 'Move down', 'Delete']) t.ok(items.includes(x), `“${x}” is in it`);
+		for (const x of ['Open', 'Open in new tab', 'Rename', 'Edit synopsis', 'Set status', 'Set label', 'Set target...', 'Duplicate', 'Put in a new folder', 'Export...', 'Ungroup', 'Leave out', 'Move down', 'Delete']) t.ok(items.includes(x), `“${x}” is in it`);
 		t.ok(items.includes('Move up'), '“Move up” too (Prologue is above it)');
 		// Rename
 		t.ok(await menuTap(p, 'Rename'), 'Rename');
@@ -545,7 +550,7 @@ test('the board’s own sheet (a long press on the board): “New note”, “Ne
 		await boardMenu(p);
 		await shot(p, 'sheet-board');
 		const items = await menuItems(p);
-		t.eq(j(items), j(['New note', 'New folder', 'Card size', 'Tint cards with their label color', 'Number the cards']), 'the board’s menu');
+		t.eq(j(items), j(['New note', 'New folder', 'Cards']), 'the board’s menu: New note, New folder and the Cards drawer (size, tint, numbers)');
 		t.ok(isSheet(await sheet(p)), 'a sheet');
 		t.ok(await menuTap(p, 'Number the cards'), 'Number the cards');
 		await p.sleep(500);
@@ -567,13 +572,14 @@ test('the board’s own sheet (a long press on the board): “New note”, “Ne
 	});
 });
 
-test('“More options”: the three modes, the board’s options, “Export...” and “Open binder note” are there; a mode picked switches; “Open binder note” opens it', async (p, h, t) => {
+test('“More options”: Find, the board’s options (Cards), “Snapshots”, “Export...” and “Open binder note” are there; a mode picked from the toolbar switches; “Open binder note” opens it', async (p, h, t) => {
 	await onDevice(p, PHONE, async () => {
 		await open(p);
 		await moreMenu(p);
 		const items = await menuItems(p);
 		say('more', j(items));
-		for (const x of ['Corkboard', 'Outliner', 'Manuscript', 'Card size', 'Tint cards with their label color', 'Number the cards', 'Export...', 'Open binder note']) t.ok(items.includes(x), `“${x}” is in it`);
+		for (const x of ['Find in binder', 'Cards', 'Snapshots', 'Export...', 'Open binder note']) t.ok(items.includes(x), `“${x}” is in it`);
+		t.ok(!['Corkboard', 'Outliner', 'Manuscript', 'Card size'].some((x) => items.includes(x)), 'and no modes (the toolbar’s) and no loose “Card size” (it is under Cards)');
 		t.ok(!items.includes('Show subfolders as stacks'), 'and no “Show subfolders as stacks” (a folder is always a stack)');
 		// (“Export...” opens the window on the kind last used: one note, as a writer who made one last time)
 		await p.ev(`(() => { app.plugins.plugins.binders.settings.exportKind = 'note'; return 1; })()`);
@@ -582,11 +588,13 @@ test('“More options”: the three modes, the board’s options, “Export...�
 		await p.sleep(400);
 		t.eq((await dialog(p)).menus, 0, 'Export opens with no sheet over it');
 		await closeDialog(p);
-		await moreMenu(p);
+		// (the modes are the toolbar's button: a mode picked from it switches)
+		const modeBtn = async () => { const b = await p.at(`${LEAF} .binders-mode-button`); await tap(p, b.x, b.y); };
+		await modeBtn();
 		t.ok(await menuTap(p, 'Outliner'), 'Outliner');
 		await until(p, `!!document.querySelector('${LEAF} .binders-mode-outliner')`);
 		t.eq((await viewState(p)).mode, 'outliner', 'a mode picked switches to it');
-		await moreMenu(p);
+		await modeBtn();
 		t.ok(await menuTap(p, 'Corkboard'), 'Corkboard');
 		await until(p, `!!document.querySelector('${LEAF} .binders-mode-corkboard')`);
 		await moreMenu(p);
@@ -1008,7 +1016,7 @@ test('drag: several cards selected (with “Select more” in a card’s sheet) 
 		// the sheet of several: what it offers
 		const c = await foot(p, 'Part One/Arrival.md');
 		await hold(p, c.x, c.y);
-		const items = await menuItems(p);
+		const items = await menuItemsAllTouch(p, tap);
 		await shot(p, 'sheet-several');
 		say('several sheet', j(items));
 		for (const x of ['Set status', 'Set label', 'Set target...', 'Merge 2 notes', 'New folder from selection', 'Delete 2 items']) t.ok(items.includes(x), `“${x}” is in the sheet of two cards`);
@@ -1152,7 +1160,7 @@ test('a read-only binder (a newer format): it says why, has no “New”, no til
 		t.eq(await p.ev(`document.querySelectorAll('${LEAF} .binders-edit-field').length`), 0, 'a tap on a selected card’s synopsis opens no field');
 		// the sheet
 		await cardMenu(p, 'Prologue.md');
-		const items = await menuItems(p);
+		const items = await menuItemsAllTouch(p, tap);
 		await shot(p, 'read-only-sheet');
 		say('read-only sheet', j(items));
 		for (const x of ['Rename', 'Edit synopsis', 'Set status', 'Set label', 'Set target...', 'Duplicate', 'Put in a new folder', 'Include in export', 'Move down']) t.ok(!items.includes(x), `no “${x}” in a read-only binder’s sheet`);
@@ -1176,7 +1184,7 @@ test('a read-only binder (a newer format): it says why, has no “New”, no til
 		t.eq(await leftovers(p), 0, 'and nothing is left over');
 		// the board's own sheet: how it shows, nothing to make
 		await boardMenu(p);
-		t.eq(j(await menuItems(p)), j(['Card size', 'Tint cards with their label color', 'Number the cards']), 'the board’s sheet has only how it shows');
+		t.eq(j(await menuItems(p)), j(['Cards']), 'the board’s sheet has only how it shows, in one drawer');
 		await gone(p);
 	});
 	const after = await texts(p);
@@ -1199,7 +1207,7 @@ test('a Longform project: scenes in its order, the indented ones under their sce
 		t.ok(!(await menuItems(p)).includes('Show subfolders as stacks'), 'and no stacks');
 		await gone(p);
 		await cardMenu(p, 'Harbor.md', LF);
-		const items = await menuItems(p);
+		const items = await menuItemsAllTouch(p, tap);
 		say('longform sheet', j(items));
 		t.ok(!items.includes('Put in a new folder') && items.includes('Duplicate') && items.includes('Rename'), 'a scene’s sheet has no folders');
 		await gone(p);

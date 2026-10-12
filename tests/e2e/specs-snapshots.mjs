@@ -2,7 +2,7 @@
 // set aside in "Snapshots/<its path>/<when> <name>.snapshot", to read, compare and bring back. Golden rule 2 lives here
 // too: every test that replaces a note's text checks, byte for byte, that the text it replaced is in a snapshot, that
 // the note's properties are what they were, and that no other note changed.
-import { B, NOTE, PL, VIEW, card, clickMenu, closeMenus, hoverMenu, contents, exists, file, flush, j, menuItems, openView, read, reload, same, texts, until, withTidy, writeRaw } from './view-helpers.mjs';
+import { B, NOTE, PL, VIEW, card, clickMenu, closeMenus, hoverMenu, contents, exists, file, flush, j, menuItems, openView, read, reload, same, texts, until, withTidy, writeRaw, menuItemsAll } from './view-helpers.mjs';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
@@ -173,7 +173,7 @@ test('take one with the note closed, from its card', async (p, h, t) => {
 	const before = await texts(p);
 	await cardMenu(p, A);
 	const items = await menuItems(p);
-	t.ok(items.includes('Snapshots') && !items.includes('Rewrite...') && items.indexOf('Snapshots') === items.indexOf('Add revision task...') + 1 && items.indexOf('Add revision task...') === items.indexOf('Set synopsis from text') + 1, 'the card’s menu has one item for them, with what else is done to the note’s text: ' + items.join(', '));
+	t.ok(items.includes('Snapshots') && !items.includes('Rewrite...') && items.indexOf('Snapshots') === items.indexOf('Export as') - 1, 'the card’s menu has one drawer for them, before “Export as”: ' + items.join(', '));
 	const size = await p.ev(`(() => { const r = document.querySelector('.menu').getBoundingClientRect(); return [Math.round(r.top), Math.round(r.bottom), innerHeight]; })()`);
 	t.ok(size[0] >= 0 && size[1] <= size[2], 'the menu is on the screen: ' + j(size));
 	await hoverMenu(p, 'Snapshots');
@@ -879,7 +879,7 @@ test('a deleted note’s snapshots stay, are listed as a gone note’s, and can 
 	const dots = await p.at(MORE);
 	await p.click(dots.x, dots.y);
 	await sleep(p, 250);
-	t.ok((await menuItems(p)).includes('Snapshots of notes that are gone...'), 'the binder’s menu offers them: ' + (await menuItems(p)).join(', '));
+	t.ok((await menuItemsAll(p)).includes('Snapshots of notes that are gone...'), 'the binder’s menu offers them, under Snapshots: ' + (await menuItemsAll(p)).join(', '));
 	await clickMenu(p, 'Snapshots of notes that are gone...');
 	await until(p, `!!document.querySelector('.modal.binders-leftovers .setting-item')`);
 	const listed = await p.ev(`[...document.querySelectorAll('.modal.binders-leftovers .setting-item')].map(s => s.querySelector('.setting-item-name').textContent + ': ' + s.querySelector('.setting-item-description').textContent)`);

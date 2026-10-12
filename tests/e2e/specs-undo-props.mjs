@@ -1,7 +1,7 @@
 // Undo and redo of properties set by hand (a synopsis, a status, a label, a target, notes, export settings), and the
 // toolbar's Undo and Redo buttons. Never lose writing: every test reads bytes off the disk. A property is taken back only
 // if it is still what the change left it; otherwise nothing is written and the writer is told which.
-import { B, NOTE, VIEW, card, clickMenu, closeMenus, file, j, menuItems, openView, read, until, withTidy, writeRaw } from './view-helpers.mjs';
+import { B, NOTE, VIEW, card, clickMenu, closeMenus, file, j, menuItems, openView, read, until, withTidy, writeRaw, menuItemsAll } from './view-helpers.mjs';
 
 export const specs = [];
 const test = (name, fn) => specs.push({ name: 'undo props: ' + name, fn: withTidy(fn) });
@@ -204,7 +204,7 @@ test('“Include in export” from a card’s menu is one change that Undo takes
 	const at = await p.at(card(ARR));
 	await p.right(at.x, at.y);
 	await until(p, `!!document.querySelector('.menu')`);
-	t.ok((await menuItems(p)).includes('Include in export'), 'the menu has it');
+	t.ok((await menuItemsAll(p)).includes('Leave out'), 'the menu has it: Leave out, under Export as');
 	await clickMenu(p, 'Include in export');
 	await sleep(p, 500);
 	t.ok(/export: false/.test(await read(p, ARR)), 'the note is left out of export');

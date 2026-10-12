@@ -81,7 +81,7 @@ test('a phone: a tap on a card selects it, a tap on its title opens its note, an
 		t.ok(await p.ev(`document.querySelector(${j(cardSel(PROLOGUE))}).classList.contains('is-selected')`), 'and it shows');
 		await hold(p, at.x, at.y);
 		const items = await menuItems(p);
-		t.ok(items.includes('Set story date...') && items.includes('Remove story date') && items.includes('Select more'), 'held still, its menu: ' + items.join(', '));
+		t.ok(items.includes('More') && items.includes('Select more'), 'held still, its menu has Select more and More (where Set story date... and Remove story date are): ' + items.join(', '));
 		await closeMenus(p);
 		await p.sleep(300);
 		at = await p.at(`${cardSel(ARRIVAL)} .binders-card-title`);

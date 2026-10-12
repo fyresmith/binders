@@ -21,7 +21,7 @@ const again = async (p) => { await openView(p, 'The Lighthouse'); await run(p, '
 const told = (p, text, ms = 10000) => until(p, `(() => { const probe = new Notice(''), docs = new Set([document, probe.noticeEl.ownerDocument]); probe.hide(); return [...docs].flatMap(d => [...d.querySelectorAll('.notice')]).some(n => n.textContent.includes(${j(text)})); })()`, ms);
 const modalButton = (label) => `[...document.querySelectorAll('.modal-container:last-of-type button')].find(b => b.textContent === ${j(label)})`;
 const viewMenu = (p) => p.ev(`(() => {
-	const items = [], menu = new Proxy({}, { get: (o, k) => k === 'addItem' ? (cb) => { const s = {}, it = new Proxy({}, { get: (x, m) => m === 's' ? s : (v) => { if (m === 'setTitle') s.t = v; return it; } }); cb(it); items.push(s); return menu; } : () => menu });
+	const items = [], menu = new Proxy({}, { get: (o, k) => k === 'addItem' ? (cb) => { const s = {}, it = new Proxy({}, { get: (x, m) => m === 's' ? s : m === 'setSubmenu' ? () => menu : (v) => { if (m === 'setTitle') s.t = v; return it; } }); cb(it); items.push(s); return menu; } : () => menu });
 	${VIEW}.onPaneMenu(menu, 'more-options');
 	return items.map(i => i.t);
 })()`);

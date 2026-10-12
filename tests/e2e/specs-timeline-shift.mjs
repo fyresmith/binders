@@ -1,6 +1,6 @@
 // "Shift story dates..." (src/view/shift-dates.ts, src/time/shift.ts): the menu item that moves the story dates of
 // several selected scenes together. Each test sets its own dates in the throwaway vault.
-import { VIEW, clickMenu, flush, j, menuItems, texts, until, withTidy } from './view-helpers.mjs';
+import { VIEW, clickMenu, closeMenus, flush, j, menuItems, texts, until, withTidy, menuItemsAll } from './view-helpers.mjs';
 import { T, open, seed } from './specs-timeline.mjs';
 import { ARRIVAL, DATES, EPILOGUE, KEEPER, L, PROLOGUE, STORM, WRECK, cardSel, clearHistory, placed, press, props, settledAs, steps, undoBtn } from './specs-timeline-drag.mjs';
 
@@ -17,15 +17,15 @@ test('“Shift story dates...” is in the menu when more than one dated scene i
 	// one card: not there
 	let a = await p.at(`${cardSel(ARRIVAL)} .binders-card-footer`);
 	await p.right(a.x, a.y);
-	t.ok(!(await menuItems(p)).includes('Shift story dates...'), 'with one scene selected there is no such item');
-	await p.key('Escape');
+	t.ok(!(await menuItemsAll(p)).includes('Shift story dates...'), 'with one scene selected there is no such item');
+	await closeMenus(p);
 	// two dated and one without a date: the two are shifted
 	const w = await p.at(`${cardSel(WRECK)} .binders-card-footer`);
 	await p.click(w.x, w.y, { modifiers: 2 });
 	const e = await p.at(`${cardSel(EPILOGUE)} .binders-card-footer`);
 	await p.click(e.x, e.y, { modifiers: 2 });
 	await p.right(w.x, w.y);
-	t.ok((await menuItems(p)).includes('Shift story dates...'), 'with several selected it is: ' + (await menuItems(p)).join(', '));
+	t.ok((await menuItemsAll(p)).includes('Shift story dates...'), 'with several selected it is: ' + (await menuItemsAll(p)).join(', '));
 	await clickMenu(p, 'Shift story dates...');
 	await until(p, `!!document.querySelector('.modal input')`);
 	t.eq(await p.ev(`document.querySelector('.modal-title')?.textContent`), 'Shift story dates', 'a dialog asks how far');
@@ -76,7 +76,7 @@ test('“Shift story dates...” is in the menu when more than one dated scene i
 		await p.click(x.x, x.y);
 		await p.click(y.x, y.y, { modifiers: 2 });
 		await p.right(y.x, y.y);
-		t.ok((await menuItems(p)).includes('Shift story dates...'), `in the ${mode}'s menu: ` + (await menuItems(p)).join(', '));
+		t.ok((await menuItemsAll(p)).includes('Shift story dates...'), `in the ${mode}'s menu: ` + (await menuItemsAll(p)).join(', '));
 		await p.key('Escape');
 	}
 });
