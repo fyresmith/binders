@@ -51,12 +51,13 @@ type F = { file: string; n: number; weight: number };
 
 	// failed under load, passed alone: not real; failed alone too: real; not retried: real
 	const alone = [{ name: 'load', theme: 'light', file: 'tests/e2e/specs-a.mjs', alone: 'passed', aloneErr: '' }, { name: 'real', theme: 'light', file: 'tests/e2e/specs-a.mjs', alone: 'failed', aloneErr: 'still wrong' }];
-	v = verdict([shard(1, 'light', [r('load', '✗', 'tests/e2e/specs-a.mjs', 'light', 'slow'), r('real', '✗', 'tests/e2e/specs-a.mjs', 'light', 'wrong'), r('never', '✗', 'tests/e2e/specs-a.mjs', 'light', 'wrong too')], { alone }), green[1]], { expected, specFiles });
-	ok(!v.ok, 'a real failure fails the run');
+	const guardRow = (name: string, err: string) => ({ ...r(name, '✗', 'tests/e2e/specs-a.mjs', 'light', err), tier: 'guard' });
+	v = verdict([shard(1, 'light', [r('load', '✗', 'tests/e2e/specs-a.mjs', 'light', 'slow'), guardRow('real', 'wrong'), guardRow('never', 'wrong too')], { alone }), green[1]], { expected, specFiles });
+	ok(!v.ok, 'a real failure of the guard tier fails the run');
 	eq(j(v.load.map((x: R) => x.name)), j(['load']), 'passed alone: the load');
 	eq(j(v.real.map((x: R) => x.name)), j(['real', 'never']), 'failed alone too, or not tried again: real');
 	eq(v.real[0].aloneErr, 'still wrong', 'its message when alone');
-	ok(/Real failures \(2\)/.test(describe(v)) && /Failed under load, passed alone \(1\)/.test(describe(v)), 'the text sorts them');
+	ok(/Guard failures: a release waits on these \(2\)/.test(describe(v)) && /Failed under load, passed alone \(1\)/.test(describe(v)), 'the text sorts them');
 	ok(/^## E2E suite: failed/.test(describe(v, { markdown: true })), 'and the Markdown says it');
 	ok(/not tried again alone/.test(describe(v)), 'one never retried says so');
 	// the same name in the other theme is another test
@@ -92,9 +93,13 @@ type F = { file: string; n: number; weight: number };
 	v = verdict([shard(1, 'light', [lookRow, r('a', '✓')]), green[1]], { expected, specFiles });
 	ok(v.ok, 'a look failure does not fail the run');
 	eq(j(v.look.map((x: R) => x.name)), j(['pixels']), 'it is listed as look');
-	ok(/1 look failure \(not blocking\)/.test(describe(v)) && /Look, reported and not blocking \(1\)/.test(describe(v)), 'and said apart');
+	ok(/1 look failure/.test(describe(v)) && /Look, reported and not blocking \(1\)/.test(describe(v)), 'and said apart');
 	v = verdict([shard(1, 'light', [{ ...r('core', '✗'), tier: 'core' }, r('untiered', '✗')]), green[1]], { expected, specFiles });
 	eq(v.real.length, 2, 'a core failure, and one with no tier, are real');
+	ok(v.ok && !v.clean, 'but they hold nothing back: the run passes, and is not clean');
+	ok(/^E2E suite: passed: nothing that guards the writing failed, and 2 core failures to fix/.test(describe(v)) && /Core failures: to fix, not holding a release \(2\)/.test(describe(v)), 'the title says so, and lists them');
+	v = verdict([shard(1, 'light', [{ ...r('typed', '✗'), tier: 'guard' }, { ...r('core', '✗'), tier: 'core' }]), green[1]], { expected, specFiles });
+	ok(!v.ok && v.guard.length === 1 && v.real.length === 2, 'a guard failure holds it back, beside a core one');
 	const lookAlone = [{ name: 'pixels', theme: 'light', file: 'tests/e2e/specs-a.mjs', alone: 'passed', aloneErr: '' }];
 	v = verdict([shard(1, 'light', [lookRow], { alone: lookAlone }), green[1]], { expected, specFiles });
 	ok(v.ok && v.load.length === 1 && !v.look.length, 'a look failure that passed alone was the load');

@@ -39,15 +39,16 @@
   `tests/e2e/open-findings.json` and don't count. `npm run e2e:all` still runs it on this machine (about two hours).
   `npm run demo-vault` makes a vault of extreme binders to try by hand; `test-vault` is the tests' fixture and is
   not for hand use.
-- **A suite that can be trusted** (2026-10-12, the maintainer's word; ROADMAP.md): tests are in two tiers. Only the
-  core tier blocks a release; a look failure (pixels, what is in sight, frame times) is reported apart. Speed budgets
+- **A suite that can be trusted** (2026-10-12, the maintainer's word; ROADMAP.md): tests are in three tiers. Only the
+  guard tier (the tests that keep a writer's work safe) holds a release; a core failure is listed first as work to
+  do; a look failure (pixels, what is in sight, frame times) is reported apart. Speed budgets
   are look, not core (his decision, 2026-10-12). A test that
   fails for a reason of the machine goes in `tests/e2e/quarantine.json` with an owner and a date. Rules in AGENTS.md
   ("Tests"); the iPhone checklist before a release is `docs/dev/phone-checklist.md`.
 - **The suite was red, on purpose** (2026-10-11). Its first whole run on GitHub (commit `1824f2c`): 5,592 passed, 268
   failures (140 tests), mostly tests gone stale as features landed. The plan then was to wait until every feature was
   built; on 2026-10-12 the maintainer had the cleanup start at once instead, as the tiers and the quarantine above. By
-  that day about ten tests failed. A failing core test now blocks a release, as before; a look one does not.
+  that day about ten tests failed. Now only a failing guard test holds a release.
   `tests/e2e/triage-2026-10-11.md` has the triage of that first run.
 - **How fixes ship** (learned 2026-10-02, when about a hundred patches shipped on targeted tests alone and several
   broke older tests; narrowed 2026-10-05, when area runs of two hours per agent crashed the machine): an agent runs

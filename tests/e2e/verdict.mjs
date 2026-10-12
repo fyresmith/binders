@@ -41,4 +41,6 @@ if (arg('timings', '') && !narrowed && !v.problems.length) {
 	const before = existsSync('tests/e2e/timings.json') ? JSON.parse(readFileSync('tests/e2e/timings.json', 'utf8')) : {};
 	writeFileSync(arg('timings'), JSON.stringify(timingsFrom(shards, before), null, '\t') + '\n');
 }
-process.exit(v.ok ? 0 : 1);
+// (a whole run passes when nothing of the guard tier failed: what a release asks. A narrowed run is someone checking
+// their own tests, so any core failure fails it too)
+process.exit((narrowed ? v.clean : v.ok) ? 0 : 1);

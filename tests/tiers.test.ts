@@ -1,6 +1,6 @@
 // The suite's two tiers and its quarantine (tests/e2e/tiers-lib.mjs).
 // @ts-expect-error a plain script, with no types
-import { quarantine, themesOf, tierOf, tiered, today, unlisted } from './e2e/tiers-lib.mjs';
+import { listedFor, lists, quarantine, themesOf, tierOf, tiered, today, unlisted } from './e2e/tiers-lib.mjs';
 import { done, eq, ok } from './harness';
 
 const j = (x: unknown) => JSON.stringify(x);
@@ -12,7 +12,7 @@ const throws = (f: () => unknown) => { try { f(); return ''; } catch (e) { retur
 	eq(tierOf({ name: 'a' }, 'look'), 'look', 'its file says look');
 	eq(tierOf({ name: 'a', tier: 'core' }, 'look'), 'core', 'its own wins over its file');
 	eq(tierOf({ name: 'a', tier: 'look' }), 'look', 'its own');
-	ok(/"a": the tier "loook" is not one of core, look/.test(throws(() => tierOf({ name: 'a', tier: 'loook' }))), 'a typo is refused, not taken for look or core');
+	ok(/"a": the tier "loook" is not one of guard, core, look/.test(throws(() => tierOf({ name: 'a', tier: 'loook' }))), 'a typo is refused, not taken for look or core');
 	ok(!!throws(() => tierOf({ name: 'a' }, 'cosmetic')), 'and a file\'s typo too');
 	const fn = () => 1;
 	const specs = tiered({ tier: 'look', specs: [{ name: 'x', fn }, { name: 'y', fn, tier: 'core', timeout: 5 }] });
@@ -26,8 +26,21 @@ const throws = (f: () => unknown) => { try { f(); return ''; } catch (e) { retur
 	eq(tierOf({ name: 'a' }, 'core', true), 'look', 'listed wins over the file');
 	// a name listed that no test has: said, so a renamed test is seen to have become core
 	const gone = unlisted({ 'a.mjs': ['p', 'renamed'], 'b.mjs': ['x'] }, { 'a.mjs': ['p', 'q'] });
-	eq(j(gone), j([{ file: 'a.mjs', name: 'renamed' }]), 'a stale name is found; a file not loaded is not looked at');
+	eq(j(gone), j([{ file: 'a.mjs', name: 'renamed', tier: 'look' }]), 'a stale name is found; a file not loaded is not looked at');
 	eq(unlisted({}, { 'a.mjs': ['p'] }).length, 0, 'nothing listed');
+}
+
+// guard: what a release waits on, listed by name or said by the test
+{
+	const fn = () => 1;
+	const map = { guard: { 'a.mjs': ['typed text reaches the disk'] }, look: { 'a.mjs': ['the ring is blue'], 'b.mjs': ['x'] } };
+	eq(j(listedFor(map, 'a.mjs')), j({ 'typed text reaches the disk': 'guard', 'the ring is blue': 'look' }), 'each name with the tier it is listed under');
+	const t = tiered({ specs: [{ name: 'typed text reaches the disk', fn }, { name: 'the ring is blue', fn }, { name: 'a menu', fn }, { name: 'said', fn, tier: 'guard' }] }, listedFor(map, 'a.mjs'));
+	eq(j(t.map((s: { tier: string }) => s.tier)), j(['guard', 'look', 'core', 'guard']), 'guard, look, core by default, and a test\'s own word');
+	eq(j(t[0].themes), j(['light']), 'a guard test runs in the light theme, as core does');
+	eq(j(Object.keys(lists({ 'a.mjs': ['x'] }))), j(['look']), 'the first shape of tiers.json (file: look names) is still read');
+	const gone = unlisted(map, { 'a.mjs': ['the ring is blue'] });
+	eq(j(gone), j([{ file: 'a.mjs', name: 'typed text reaches the disk', tier: 'guard' }]), 'a guard name no test has is said, with its tier');
 }
 
 // the themes a test runs in: core in light, look in both, unless it or its file says
