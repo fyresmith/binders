@@ -446,6 +446,15 @@
 	text-align: right;
 }
 
+/* A phone's narrow pane: a number's column (the words) keeps less beside its text, so that its header reads whole in a
+   font wider than this one without the column taking room from the title. */
+@container binders-view (width < 520px) {
+	.is-phone .binders-outliner-th.mod-numeric,
+	.is-phone .binders-outliner-cell.mod-numeric {
+		padding-inline: calc(var(--size-2-1) * 1.5);
+	}
+}
+
 /* A pane as narrow as a sidebar: the title gives the other columns room, and scrolls away with them. */
 @container binders-view (width < 420px) {
 	.binders-outliner {
