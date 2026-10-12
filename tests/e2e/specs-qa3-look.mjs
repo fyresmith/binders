@@ -5,6 +5,8 @@
 import { mkdirSync, writeFileSync } from 'fs';
 import { withTidy, VIEW, PL, B, j, openView, until, reload, closeMenus, clickMenu, hoverMenu } from './view-helpers.mjs';
 
+// (the look tier: it records how things look, for a person to see; tiers-lib.mjs)
+export const tier = 'look';
 export const specs = [];
 // (each test tidies up the folders it made: the runner only puts the notes back)
 const test = (name, fn) => specs.push({ name: 'qa3 look: ' + name, fn: withTidy(fn) });

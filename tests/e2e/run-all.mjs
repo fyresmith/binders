@@ -23,7 +23,7 @@ import { pathToFileURL } from 'url';
 import { VAULT, reap, record } from './driver.mjs';
 import { groups, moved, parser, plural } from './run-all-lib.mjs';
 import { parseShard, shardOf } from './shard-lib.mjs';
-import { quarantine, tiered, today } from './tiers-lib.mjs';
+import { quarantine, tiered, today, unlisted } from './tiers-lib.mjs';
 
 const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i > 0 ? process.argv[i + 1] : d; };
 const flag = (k) => process.argv.includes('--' + k);
@@ -47,16 +47,21 @@ record({}, STARTED);
 
 // What there is to run: every spec file's tests, counted by importing it (as run.mjs does), not by reading its text
 const files = arg('specs', '') ? arg('specs').split(',') : readdirSync('tests/e2e').filter((f) => /^specs.*\.mjs$/.test(f)).map((f) => 'tests/e2e/' + f);
-const re = grep ? new RegExp(grep, 'i') : null, fileOf = new Map(), tierOf = new Map(), counted = [];
+const re = grep ? new RegExp(grep, 'i') : null, fileOf = new Map(), tierOf = new Map(), counted = [], namesOf = {};
+const LOOK = 'tests/e2e/tiers.json', looks = existsSync(LOOK) ? JSON.parse(readFileSync(LOOK, 'utf8')) : {};
 for (const f of files) {
 	let specs;
-	try { specs = tiered(await import(pathToFileURL(f).href)); } catch (e) { console.error(`${f} doesn't load: ${e.message}`); process.exit(2); }
+	try { specs = tiered(await import(pathToFileURL(f).href), looks[f]); } catch (e) { console.error(`${f} doesn't load: ${e.message}`); process.exit(2); }
+	namesOf[f] = specs.map((s) => s.name);
 	for (const s of specs) if (!tierOf.has(s.name)) tierOf.set(s.name, s.tier);
 	const names = specs.map((s) => s.name).filter((n) => !re || re.test(n));
 	for (const n of names) if (!fileOf.has(n)) fileOf.set(n, f);
 	if (names.length) counted.push({ file: f, n: names.length });
 }
 if (!counted.length) { console.error('No tests to run.'); process.exit(2); }
+// (a name in tiers.json that no test has: renamed, so that test is core now; say it, so the list is mended)
+const gone = unlisted(looks, namesOf);
+if (gone.length) console.log(`${LOOK} lists ${plural(gone.length, 'name')} no test has (renamed? each is core until listed again):\n${gone.map((g) => `  ${g.file}: ${g.name}`).join('\n')}`);
 // How long each file took last time, when there is a last time (and the whole file runs): a truer weight than its count.
 // A shard reads only the recorded file in the repository, so that every shard makes the same split.
 const timesFile = arg('timings', '') || (!shard && existsSync(TIMES) ? TIMES : RECORDED);

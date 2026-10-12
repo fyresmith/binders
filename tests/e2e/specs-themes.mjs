@@ -4,6 +4,8 @@ import { VIEW, j, openView, until } from './view-helpers.mjs';
 import { open, seed } from './specs-timeline.mjs';
 import { ARRIVAL, DATES, carry, lift, mouse } from './specs-timeline-drag.mjs';
 
+// (the look tier: it records how things look, for a person to see; tiers-lib.mjs)
+export const tier = 'look';
 export const specs = [];
 const test = (name, fn) => specs.push({ name: 'themes: ' + name, fn });
 
