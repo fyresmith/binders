@@ -77,6 +77,12 @@ type F = { file: string; n: number; weight: number };
 	ok(v.problems.some((p: string) => /different commits/.test(p)), 'shards of different commits');
 	v = verdict(green, { expected: [...expected, { theme: 'dark', shard: '1/2' }], specFiles });
 	ok(!v.ok, 'a theme that never ran is a problem');
+	// a theme covers the files its shards worked out it has tests for (the dark theme: only those with look tests)
+	const darkShard = { ...shard(1, 'dark', [r('d', '✓', 'tests/e2e/specs-a.mjs', 'dark')]), shard: '1/1', wanted: ['tests/e2e/specs-a.mjs'] };
+	v = verdict([...green, darkShard], { expected: [...expected, { theme: 'dark', shard: '1/1' }], specFiles });
+	ok(v.ok, 'the dark theme is not asked for a file it has no test for');
+	v = verdict([...green, { ...darkShard, wanted: specFiles }], { expected: [...expected, { theme: 'dark', shard: '1/1' }], specFiles });
+	ok(v.problems.some((p: string) => /In dark, no shard was given: tests\/e2e\/specs-b\.mjs/.test(p)), 'but is for one it has');
 	// a narrowed run checks no files
 	v = verdict([green[0]], { expected: [expected[0]], specFiles: null });
 	ok(v.ok, 'a narrowed run');
@@ -111,6 +117,10 @@ type F = { file: string; n: number; weight: number };
 	const a = { themes: ['light'], results: [{ file: 'f1', ms: 1000 }, { file: 'f1', ms: 500 }, { file: 'f2', ms: 700 }] };
 	const b = { themes: ['dark'], results: [{ file: 'f1', ms: 1700 }] };
 	eq(j(timingsFrom([a, b], { f0: 5, f2: 1 })), j({ f0: 5, f1: 1600, f2: 350 }), 'the mean of the themes, over what was there before, sorted');
+	// a shard that says how many tests each file has: the mean of its runs, times that (a core test runs in one theme)
+	const c = { themes: ['light'], counts: { f1: 4 }, results: [{ file: 'f1', ms: 1000 }, { file: 'f1', ms: 3000 }] };
+	const d = { themes: ['dark'], counts: { f1: 4 }, results: [{ file: 'f1', ms: 2000 }] };
+	eq(j(timingsFrom([c, d])), j({ f1: 8000 }), 'three runs of a file of four tests, 2 s each: 8 s a pass');
 }
 
 done('shards');

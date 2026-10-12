@@ -18,12 +18,17 @@ export function shardOf(files, { index, count }) {
 	return groups(files, count)[index]?.files ?? [];
 }
 
-/** What each file took, one pass of one theme, from the shards' results: `{ file: ms }`, merged over `before`. */
+/** What each file took, one pass of the whole file in one theme, from the shards' results: `{ file: ms }`, merged over
+    `before`. A shard that says how many tests each file has (`counts`) is read as its runs' mean times that count (a
+    core test runs in one theme, a look test in two); an older shard, as the sum over its themes. */
 export function timingsFrom(shards, before = {}) {
-	const themes = new Set(shards.flatMap((s) => s.themes ?? [])).size || 1, sum = {};
-	for (const s of shards) for (const r of s.results ?? []) if (r.file) sum[r.file] = (sum[r.file] ?? 0) + r.ms;
+	const themes = new Set(shards.flatMap((s) => s.themes ?? [])).size || 1, sum = {}, runs = {}, counts = {};
+	for (const s of shards) {
+		Object.assign(counts, s.counts ?? {});
+		for (const r of s.results ?? []) if (r.file) { sum[r.file] = (sum[r.file] ?? 0) + r.ms; runs[r.file] = (runs[r.file] ?? 0) + 1; }
+	}
 	const took = { ...before };
-	for (const [f, ms] of Object.entries(sum)) took[f] = Math.round(ms / themes);
+	for (const [f, ms] of Object.entries(sum)) took[f] = Math.round(counts[f] ? (ms / runs[f]) * counts[f] : ms / themes);
 	return Object.fromEntries(Object.entries(took).sort(([a], [b]) => a.localeCompare(b)));
 }
 
@@ -62,9 +67,12 @@ export function verdict(shards, { open = [], expected = [], specFiles = null, qu
 	}
 	if (specFiles) {
 		for (const theme of new Set(shards.flatMap((s) => s.themes ?? []))) {
-			const seen = new Map();
-			for (const s of shards.filter((x) => (x.themes ?? []).includes(theme))) for (const f of s.files ?? []) seen.set(f, (seen.get(f) ?? 0) + 1);
-			const none = specFiles.filter((f) => !seen.has(f)), twice = [...seen].filter(([, n]) => n > 1).map(([f]) => f);
+			const seen = new Map(), mine = shards.filter((x) => (x.themes ?? []).includes(theme));
+			for (const s of mine) for (const f of s.files ?? []) seen.set(f, (seen.get(f) ?? 0) + 1);
+			// (the files a theme has tests for, as its shards worked them out: in the dark theme only those with a look test
+			// or a test meant for it; a shard too old to say means every spec file)
+			const wanted = mine.find((s) => Array.isArray(s.wanted))?.wanted ?? specFiles;
+			const none = wanted.filter((f) => !seen.has(f)), twice = [...seen].filter(([, n]) => n > 1).map(([f]) => f);
 			if (none.length) problems.push(`In ${theme}, no shard was given: ${none.join(', ')}.`);
 			if (twice.length) problems.push(`In ${theme}, more than one shard was given: ${twice.join(', ')}.`);
 		}

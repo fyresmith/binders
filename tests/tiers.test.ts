@@ -1,6 +1,6 @@
 // The suite's two tiers and its quarantine (tests/e2e/tiers-lib.mjs).
 // @ts-expect-error a plain script, with no types
-import { quarantine, tierOf, tiered, today, unlisted } from './e2e/tiers-lib.mjs';
+import { quarantine, themesOf, tierOf, tiered, today, unlisted } from './e2e/tiers-lib.mjs';
 import { done, eq, ok } from './harness';
 
 const j = (x: unknown) => JSON.stringify(x);
@@ -28,6 +28,19 @@ const throws = (f: () => unknown) => { try { f(); return ''; } catch (e) { retur
 	const gone = unlisted({ 'a.mjs': ['p', 'renamed'], 'b.mjs': ['x'] }, { 'a.mjs': ['p', 'q'] });
 	eq(j(gone), j([{ file: 'a.mjs', name: 'renamed' }]), 'a stale name is found; a file not loaded is not looked at');
 	eq(unlisted({}, { 'a.mjs': ['p'] }).length, 0, 'nothing listed');
+}
+
+// the themes a test runs in: core in light, look in both, unless it or its file says
+{
+	eq(j(themesOf({ name: 'a' }, 'core')), j(['light']), 'core: light only');
+	eq(j(themesOf({ name: 'a' }, 'look')), j(['light', 'dark']), 'look: both');
+	eq(j(themesOf({ name: 'a' }, 'core', ['dark'])), j(['dark']), 'a file meant for the dark theme');
+	eq(j(themesOf({ name: 'a', themes: ['light', 'dark'] }, 'core', ['dark'])), j(['light', 'dark']), 'its own word wins');
+	ok(!!throws(() => themesOf({ name: 'a', themes: ['dusk'] }, 'core')) && !!throws(() => themesOf({ name: 'a', themes: [] }, 'core')), 'no theme, or one that isn\'t, is refused');
+	const fn = () => 1;
+	const t = tiered({ themes: ['dark'], specs: [{ name: 'x', fn }] });
+	eq(j(t[0].themes), j(['dark']), 'tiered writes the themes on');
+	eq(j(tiered({ specs: [{ name: 'p', fn }] }, ['p'])[0].themes), j(['light', 'dark']), 'a listed look test runs in both');
 }
 
 // the quarantine

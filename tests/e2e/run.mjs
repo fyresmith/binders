@@ -2,6 +2,8 @@
 //   npm run e2e                     all tests, light theme
 //   npm run e2e -- --theme dark     or: --theme both
 //   npm run e2e -- --grep order     only tests whose name matches
+//   npm run e2e -- --all-themes     every test in every theme asked for (a core test runs in the light theme only, a look
+//                                   test in both: tiers-lib.mjs)
 //   npm run e2e -- --repeat 3       run everything several times
 //   npm run e2e -- --specs a.mjs,b.mjs    only these spec files (default: every tests/e2e/specs*.mjs)
 //   npm run e2e -- --shots dir      where failure screenshots go (default test-dist/e2e-failures)
@@ -21,6 +23,7 @@ const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i > 0 ?
 const themes = arg('theme', 'light') === 'both' ? ['light', 'dark'] : [arg('theme', 'light')];
 const grep = arg('grep', '') ? new RegExp(arg('grep'), 'i') : null;
 const repeat = Number(arg('repeat', '1'));
+const allThemes = process.argv.includes('--all-themes');
 const shots = arg('shots', 'test-dist/e2e-failures');
 mkdirSync(shots, { recursive: true });
 
@@ -64,6 +67,7 @@ for (let round = 1; round <= repeat; round++) {
 		console.log(`Obsidian ${p.running.obsidian}, Electron ${p.running.electron}${repeat > 1 ? ` [${theme} #${round}]` : themes.length > 1 ? ` [${theme}]` : ''}`);
 		for (const s of specs) {
 			if (grep && !grep.test(s.name)) continue;
+			if (!allThemes && !s.themes.includes(theme)) continue;
 			const name = `${s.name} [${theme}${repeat > 1 ? ' #' + round : ''}]`;
 			const t0 = Date.now();
 			p.errors.length = 0;
