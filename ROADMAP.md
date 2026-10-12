@@ -237,7 +237,28 @@ Targeted validation belongs to every feature above. The final round tests how th
       themes and representative community themes; compare interactions with Obsidian's own controls.
 - [ ] **A QA round and the full suite:** targeted tests locally; the whole suite on GitHub when work reaches `main`.
       Resolve [open issues](https://github.com/fyresmith/binders/issues) and review `tests/e2e/open-findings.json`.
+- [ ] **A suite that can be trusted:** see below.
 - [ ] **1.0.0:** the first stable release, called by the maintainer after the features and hardening are complete.
+
+### A suite that can be trusted
+
+The suite is not being rebuilt (the maintainer's decision, 2026-10-12). Its foundation stays: real Obsidian, a
+pristine vault for each test, the whole suite on GitHub for every push, a release refused without a pass. What changes
+is narrower, so that a red run always means something new. In this order, starting after the next release:
+
+- [ ] **Two tiers.** A core tier that a release needs green: writing never lost, undo, external edits, the file
+      format, and each feature's main path. A look tier that reports and does not block: pixel sizes, where a menu
+      opens, exact lists of rows. Most red runs so far came from the second kind.
+- [ ] **A quarantine instead of living with red.** A test that fails for a reason of the machine (a font, a slow
+      runner) is listed with an owner and a date, as `tests/e2e/open-findings.json` lists known bugs, and is mended or
+      removed by that date.
+- [ ] **Tests ask what a writer would.** "Is this action offered, and does it work", not "is it the fourth row" or
+      "is the header 40 px tall". New tests are written that way; old ones are moved as they break, through shared
+      helpers (`tests/e2e/menu-routes.mjs` is the pattern).
+- [ ] **A cull.** The QA rounds (qa4 to qa11) walk many of the same journeys. Merge the near-duplicates: a shorter
+      run, and less to break.
+- [ ] **What the suite cannot give.** A short checklist run by hand on the maintainer's iPhone before each release,
+      and what beta users report, weighed above a green run.
 
 ## Not building
 
