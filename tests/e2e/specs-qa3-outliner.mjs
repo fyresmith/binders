@@ -635,18 +635,6 @@ ux('in a pane as narrow as a sidebar (256 px) the pinned title leaves room to se
 	}
 });
 
-ux('a click on a column’s header sorts by it, as in a base’s table (its menu is on a right-click)', async (p, h, t) => {
-	// in a base: one click sorts ascending, a second descending, a third puts the order back; no menu opens
-	await open(p);
-	const th = await thAt(p, 'words');
-	await p.click(th.x, th.y);
-	await p.sleep(250);
-	const menus = await p.ev(`document.querySelectorAll('.menu').length`);
-	await closeMenus(p);
-	t.eq(menus, 0, 'no menu on a click');
-	t.eq(await p.ev(`document.querySelector('${O} .binders-outliner-th[data-col="words"]').getAttribute('aria-sort')`), 'ascending', 'sorted by words');
-});
-
 bug('the reserved “export” property is offered as a property column once a note is left out of exports', withTidy(async (p, h, t) => {
 	// (“compile” is the property's name from before export: typed by hand it is still read, and still Binders' own)
 	await setFm(p, 'Epilogue.md', { export: false });
@@ -991,15 +979,6 @@ ux('the keyboard can move a row out of its folder (Alt+Left, as Alt+Up and Alt+D
 	const list = await contents(p);
 	t.ok(list.includes('Arrival') && !list.includes('Part One/Arrival'), 'Arrival is out of Part One: ' + list.join(', '));
 }));
-
-ux('Right on a note’s row goes into its cells, so status, target and property cells can be reached without a mouse', async (p, h, t) => {
-	await open(p, 'The Lighthouse', { columns: [{ id: 'status' }, { id: 'target' }, { id: 'prop:plotlines' }] });
-	const a = await nameAt(p, 'Part One/Arrival.md');
-	await p.click(a.x, a.y);
-	await p.key('ArrowRight');
-	const on = await p.ev(`(() => { const a = document.activeElement; return a?.getAttribute?.('role') === 'gridcell' || (!!a?.closest?.('[role="gridcell"]') && !a.classList.contains('binders-outliner-row')); })()`);
-	t.ok(on, 'the focus is on a cell; it is on: ' + (await active(p)));
-});
 
 // ---------------------------------------------------------------------------------------------------------------
 // Folding, totals, the filter

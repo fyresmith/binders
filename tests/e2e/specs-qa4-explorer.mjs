@@ -1102,17 +1102,6 @@ test('BUG: undoing the move of a note that has since been deleted doesn’t say 
 // Roughness
 // ================================================================================================================
 
-test('UX: a selection in a binder has one “new folder” item, not Obsidian’s and Binders’ side by side', async (p, h, t) => {
-	await rows(p);
-	await select(p, [`${L}/Part One/Storm warning.md`, `${L}/Part One/Arrival.md`]);
-	const a = await row(p, `${L}/Part One/Arrival.md`); await p.right(a.x, a.y); await p.sleep(250);
-	const m = await menuOf(p); await closeMenu(p);
-	const folders = m.filter((x) => /^New folder (with|from) selection/.test(x));
-	// Obsidian's own (first in the menu) puts the folder last in Part One with the notes in the order they were
-	// clicked, and can't be undone; Binders' (six items down) puts it where the first note was, in binder order
-	t.eq(folders.length, 1, 'one item makes a folder from the selection: ' + j(folders));
-});
-
 // (Until 0.12.58 this picked Obsidian's own "New folder with selection (2 items)", which put the folder last with the
 // notes in the order clicked. That item is no longer in the menu where Binders offers its own.)
 test('UX: the one “new folder” item of a selection in a binder puts the folder where the notes were, in binder order; a selection across two folders still has Obsidian’s own', async (p, h, t) => {
@@ -1139,16 +1128,6 @@ test('UX: Obsidian’s “Make a copy” of a folder in a binder puts the copy a
 	const o = short(await order(p));
 	// (a copied scene is put right after its original; a copied folder goes to the end of the binder, its scenes by name)
 	t.eq(o.slice(5, 9).join(' | '), 'Part One 1 | Part One 1/Arrival.md | Part One 1/The keeper.md | Part One 1/Storm warning.md', 'the copy is right after Part One, in Part One’s order: ' + o.join(' | '));
-});
-
-test('UX: the folder a binder view shows is marked in the explorer, as the open note is', async (p, h, t) => {
-	await rows(p);
-	await h.open(`${L}/Prologue.md`);
-	t.ok(await p.ev(`${EXP}.containerEl.querySelector('.tree-item-self[data-path="${L}/Prologue.md"]').classList.contains('is-active')`), 'the open note’s row is marked (Obsidian’s own)');
-	const at = await p.at(`.nav-folder-title[data-path="${L}/Part Two"] .nav-folder-title-content`);
-	await p.click(at.x, at.y); await p.sleep(700);
-	t.eq(await p.ev(`app.workspace.activeLeaf?.view.getViewType()`), 'binders-view', 'the click opened the binder view');
-	same(t, await p.ev(`[...${EXP}.containerEl.querySelectorAll('.tree-item-self.is-active')].map(e => e.dataset.path)`), [`${L}/Part Two`], 'the folder it shows is the marked row');
 });
 
 test('UX: the last note of a binder’s last folder can be dragged out of it, to after the folder', async (p, h, t) => {

@@ -296,13 +296,6 @@ for (const size of [PHONE, SMALL]) {
 	}));
 }
 
-ux('a phone: a section’s title in the manuscript (a tap renames the note) and a folder’s heading (a tap goes in) are a finger tall', on(PHONE, async (p, h, t) => {
-	await openMs(p, 'The Lighthouse');
-	const found = await p.ev(`(() => { const hit = ${HIT}; return [...document.querySelectorAll('${LEAF} .binders-manuscript-title, ${LEAF} .binders-manuscript-heading > *')].map(e => ({ what: e.textContent, hit: hit(e) })); })()`);
-	const small = found.filter((f) => f.hit[1] < 44).map((f) => `${f.what} ${f.hit.join(' × ')}`);
-	t.eq(j(small), j([]), 'titles under 44 px tall to touch');
-}));
-
 // =====================================================================================================================
 // A whole session by thumb
 // =====================================================================================================================

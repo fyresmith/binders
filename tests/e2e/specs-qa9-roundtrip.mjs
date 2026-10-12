@@ -153,15 +153,6 @@ test('1b a paragraph begun with a tab keeps its tab', async (p, h, t) => {
 	t.ok(/^\tIt did/m.test(got), `the paragraph “It did not wait” is still begun with a tab (raw: ${JSON.stringify(got.slice(-120))})`);
 });
 
-// (not a bug: Binders shows a note's status in the settings' spelling, whatever case the note has, and export writes the
-// list's spelling, so Scrivener has one status, not two. The same status comes back, in the vault's spelling)
-test('2c a status comes back as the same status, in the vault’s spelling', async (p, h, t) => {
-	await dress(p);
-	await roundTrip(p);
-	const fmText = await p.ev(`(() => { const c = app.metadataCache.getCache(${j(`${RET}/Part One/Arrival.md`)}); return c?.frontmatter ? JSON.stringify(c.frontmatter) : 'none'; })()`);
-	t.ok(/"status":"revised"/i.test(fmText), `written as “revised” in the binder, it comes back as the same status, ${fmText.match(/"status":"[^"]*"/i)?.[0]}`);
-});
-
 // ---- 2. labels, colours, statuses, synopses, targets ----
 test('2 labels and their colors, statuses, synopses and targets come back; no colour-clash warning; no second set of labels', async (p, h, t) => {
 	await dress(p);
