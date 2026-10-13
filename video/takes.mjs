@@ -21,13 +21,27 @@ export async function session(p, book = 'small') {
 	mkdirSync(dir, { recursive: true });
 	const acts = [];
 	let frames = 0, surface = 'desk';
+	let seen_ = '';
+	/** A picture of the window; the same picture twice is kept once. */
 	const shot = async () => {
 		const r = await p.send('Page.captureScreenshot', { format: 'jpeg', quality: 92 });
+		if (r.result.data === seen_) return frames - 1;
+		seen_ = r.result.data;
 		writeFileSync(join(dir, `f${String(frames).padStart(4, '0')}.jpg`), Buffer.from(r.result.data, 'base64'));
 		return frames++;
 	};
-	/** The window, again and again, for `ms` after something was done: [picture, milliseconds after]. */
-	const burst = async (ms = 520) => { const from = Date.now(), out = []; do { const dt = Date.now() - from; out.push([await shot(), dt]); } while (Date.now() - from < ms); return out; };
+	// The app's own animations (a menu opening, cards making room, a window coming up) last a fifth of a second or so:
+	// a picture takes a twentieth. So the app is slowed to SLOW of its speed while it is photographed, and each
+	// picture's time is counted in the app's time, not the clock's: a picture for every frame of the film, and more.
+	const SLOW = 0.15;
+	const slowed = async () => { await p.send('Animation.enable'); await p.send('Animation.setPlaybackRate', { playbackRate: SLOW }); };
+	/** The window, again and again, after something was done, until `ms` of the app's time has passed (and long enough
+	    by the clock for what the app does in its own time, a file read or a page laid out): [picture, milliseconds after]. */
+	const burst = async (ms = 520) => {
+		const from = Date.now(), out = [], real = Math.max(ms, 320 / SLOW);
+		do { const dt = Date.now() - from, f = await shot(); if (!out.length || out[out.length - 1][0] !== f) out.push([f, Math.round(dt * SLOW)]); } while (Date.now() - from < real);
+		return out;
+	};
 	const box = async (expr, what) => {
 		const b = await p.ev(`(() => { const e = ${expr}; if (!e) return null; const r = e.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, l: r.left, t: r.top, w: r.width, h: r.height }; })()`);
 		if (!b) throw new Error(`the take found no ${what}`);
@@ -108,6 +122,7 @@ export async function session(p, book = 'small') {
 		for (const f of [${j(L)} + '/Part One', ${j(L)} + '/Part Two']) ex.fileItems[f]?.setCollapsed(true);
 	})().then(() => 1)`);
 	await p.sleep(1000);
+	await slowed();
 	await p.move(700, 600, 2);
 	acts.push({ surface, name: 'start', kind: 'still', hover: await shot() });
 
@@ -161,6 +176,7 @@ export async function session(p, book = 'small') {
 	await p.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 1 });
 	await p.ev(`(async () => { const pl = app.plugins.plugins.binders; await pl.binders.settled; app.changeTheme('obsidian'); app.workspace.leftSplit?.collapse?.(); await pl.openBinder(app.vault.getAbstractFileByPath(${j(L)} + '/Part Two')); ${V}.setMode('corkboard'); })().then(() => 1)`);
 	await p.sleep(2500);
+	await slowed();
 	surface = 'phone';
 	acts.push({ surface, name: 'phone-start', kind: 'still', hover: await shot() });
 	await tap('phone-card', await box(`document.querySelector('.binders-card[data-path$="The wreck.md"] .binders-card-footer')`, 'The wreck on the phone'));
@@ -180,6 +196,7 @@ export async function session(p, book = 'small') {
 	await p.ev(`(async () => { const pl = app.plugins.plugins.binders; await pl.binders.settled; app.changeTheme('obsidian'); app.workspace.leftSplit.expand(); await pl.openBinder(app.vault.getAbstractFileByPath(${j(L)})); ${V}.setMode('manuscript'); app.commands.executeCommandById('binders:show-revision'); const st = document.createElement('style'); st.textContent = '.tooltip { display: none; }'; document.head.append(st); })().then(() => 1)`);
 	await p.sleep(2600);
 	await p.ev(`(() => { document.querySelectorAll('.notice').forEach((n) => n.remove()); return 1; })()`);
+	await slowed();
 	surface = 'desk';
 	await p.move(760, 560, 2);
 	acts.push({ surface, name: 'desk-again', kind: 'still', hover: await shot() });

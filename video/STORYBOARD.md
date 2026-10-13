@@ -45,6 +45,9 @@ changes but by the pointer, the keys or a finger.
 
 ## Second by second
 
+The captions in this table are the nine the storyboard was reviewed with. The film as shot has eleven, reworded so
+that no line is left half said; their words, places and times are `CAPTIONS` in `src/direction.mjs`.
+
 | s | What happens on screen | The hand | Caption |
 |---|---|---|---|
 | 0 | The file explorer, large: a plain folder, The Lighthouse. Its rows by name: Part One, Part Two, Epilogue, Prologue. 0.6 the pointer comes in from the right. | To the folder's row. | **0.73 S** in: **Obsidian sorts your novel by name.** |
