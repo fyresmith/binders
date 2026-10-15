@@ -889,13 +889,13 @@ test('phone commands: the palette offers Binders’ commands where they apply an
 		// “Show outline” open with nothing to show: the desktop's twin is “palette: with nothing open…” in specs-qa6-menus)
 		const ANYWHERE = ['New binder', 'Import a manuscript...', 'Import from Scrivener...', 'Show contents', 'Show inspector', 'Show revision tasks'];
 		const check = async (what, want) => t.eq(j(await offered()), j([...want, ...ANYWHERE].sort()), what);
-		// (“Export again” goes wherever “Export binder” does: with nothing exported yet it opens the window)
+		// (“Export again” and “Export with...” go wherever “Export binder” does: with nothing exported yet the first opens the window)
 		// (the revision note's and the progress record's: wherever a binder is in view or a scene of one is open; the three
 		// that walk the tasks too: a plain note has none of them)
 		const WALK = ['Go to next revision task', 'Go to previous revision task', 'Mark revision task done'], REVISE = ['Add revision task', ...WALK, 'Show progress'];
 		// (the book's calendar: wherever a binder that can be changed is in view, or a scene of one is open; a Longform project keeps none)
 		const CAL = 'Edit calendar...';
-		const EXPORT = ['Export binder', 'Export again'], VIEWS = ['Show corkboard', 'Show outliner', 'Show manuscript', 'Show timeline', 'Find in binder', 'Find and replace in binder', ...EXPORT], ARRANGE = 'Arrange corkboard by label', FOCUS = 'Toggle focus mode', STEP = ['Go to previous scene', 'Go to next scene'];
+		const EXPORT = ['Export binder', 'Export again', 'Export with...'], VIEWS = ['Show corkboard', 'Show outliner', 'Show manuscript', 'Show timeline', 'Find in binder', 'Find and replace in binder', ...EXPORT], ARRANGE = 'Arrange corkboard by label', FOCUS = 'Toggle focus mode', STEP = ['Go to previous scene', 'Go to next scene'];
 		// snapshots: the binder's, wherever a binder is in view; a scene's own too, where a scene is open
 		const ALL = ['Take a snapshot of the binder', 'Show snapshots of the binder'], SCENE = ['Take a snapshot', 'Rewrite', 'Show snapshots', 'Split at headings...', 'Start a paragraph with a tab', ...ALL];
 		await check('nothing open', []);

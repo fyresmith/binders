@@ -190,9 +190,8 @@ test('a phone: the title page’s title fits the preview of an ebook (not cut at
 		await kindTap(p, 'Ebook');
 		await tapEl(p, button('Preview'));
 		await until(p, `!!document.querySelector('${WIN} .binders-export-pane .binders-export-paper')`, 4000);
-		// (Contents is open beside the preview on a phone: the page is narrower then, and that is what is measured)
-		await tapEl(p, `document.querySelector('${WIN} .binders-snapshots-compare')`);
-		await until(p, `!!document.querySelector('${WIN} .binders-export-outline .binders-export-row')`, 4000);
+		// (on a phone Contents, with its boxes, takes the pane's whole width in place of the page: the page is measured as
+		// it shows, on its own)
 		await p.sleep(400);
 		const title = await p.ev(`(() => { const pr = document.querySelector('${WIN} .binders-export-paper').getBoundingClientRect(); const els = [...document.querySelectorAll('${WIN} .binders-export-paper *')].filter(e => e.childElementCount === 0 && /lighthouse/i.test(e.textContent) && e.getBoundingClientRect().width).map(e => { const g = document.createRange(); g.selectNodeContents(e); const r = g.getBoundingClientRect(); return { t: e.textContent.slice(0, 24), right: Math.round(r.right), left: Math.round(r.left), box: Math.round(e.getBoundingClientRect().right) }; }); return { paperRight: Math.round(pr.right), paperLeft: Math.round(pr.left), els }; })()`);
 		t.ok(title.els.length > 0 && title.els.every((e) => e.right <= title.paperRight + 1), 'the title is inside the page (' + JSON.stringify(title) + ')');
