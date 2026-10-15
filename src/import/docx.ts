@@ -1,4 +1,5 @@
 import { readDocx, type DocxFile } from '../docx/read';
+import { readOdt } from './odt';
 import { readRtfDocument } from './rtf-doc';
 import { settle } from '../docx/settle';
 import { isMarker, unit, wordCount, type Unit } from './detect';
@@ -99,7 +100,7 @@ export interface WordOptions {
     file from the device) or the file's path (one already in the vault). It can be read again with other choices. */
 export function wordRead(file: DocxFile, name: string, origin: ManuscriptRead['origin'], o: WordOptions): ManuscriptRead {
 	const doc = settle(file, o.revisions, { underline: o.underline, comments: o.comments });
-	if (!doc.paras.some((p) => p.runs.some((r) => r.kind === 'text' && r.text.trim()))) { const kind = documentKind(name); throw new Error(`This ${kind === 'rtf' ? 'rich text' : 'Word'} file has no text in it.`); }
+	if (!doc.paras.some((p) => p.runs.some((r) => r.kind === 'text' && r.text.trim()))) { const kind = documentKind(name); throw new Error(`This ${kind === 'odt' ? 'OpenDocument' : kind === 'rtf' ? 'rich text' : 'Word'} file has no text in it.`); }
 	const f = doc.found;
 	return {
 		name: name.replace(/\.[^.]+$/, '') || name, file: name, origin, scan: docToScan(doc, o),
@@ -108,17 +109,20 @@ export function wordRead(file: DocxFile, name: string, origin: ManuscriptRead['o
 	};
 }
 
-/** The word processors' files import reads, by their names: Word and rich text. */
-export const DOCUMENT = /\.(docx|docm|dotx|rtf)$/i;
+/** The word processors' files import reads, by their names: Word, OpenDocument (and its template and flat file),
+    and rich text. */
+export const DOCUMENT = /\.(docx|docm|dotx|odt|ott|fodt|rtf)$/i;
 /** What the file is, by its name and, for rich text, its first bytes too (a `.doc` that is really rich text). */
-export function documentKind(name: string, bytes?: Uint8Array): 'word' | 'rtf' | null {
+export function documentKind(name: string, bytes?: Uint8Array): 'word' | 'odt' | 'rtf' | null {
+	if (/\.(odt|ott|fodt)$/i.test(name)) return 'odt';
 	if (/\.rtf$/i.test(name) || (bytes && bytes[0] === 0x7b && bytes[1] === 0x5c && bytes[2] === 0x72 && bytes[3] === 0x74 && bytes[4] === 0x66)) return 'rtf';
 	return /\.(docx|docm|dotx)$/i.test(name) ? 'word' : null;
 }
 
-/** A Word or rich text file, read: each into the same document, so what comes after is one. */
+/** A Word, OpenDocument or rich text file, read: each into the same document, so what comes after is one. */
 export function readDocument(bytes: Uint8Array, file: string, origin: ManuscriptRead['origin'], o: { tabs: boolean } & Partial<WordOptions>): ManuscriptRead {
-	const doc = documentKind(file, bytes) === 'rtf' ? readRtfDocument(bytes) : readDocx(bytes);
+	const kind = documentKind(file, bytes);
+	const doc = kind === 'odt' ? readOdt(bytes) : kind === 'rtf' ? readRtfDocument(bytes) : readDocx(bytes);
 	return wordRead(doc, file, origin, { revisions: 'final', comments: true, underline: 'plain', ...o });
 }
 
