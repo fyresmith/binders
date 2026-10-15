@@ -117,7 +117,7 @@ export class Focus {
 		// a note of a binder has the button in its header; a note anywhere else has nothing added to it
 		const sync = () => this.sync();
 		plugin.registerEvent(ws.on('layout-change', sync));
-		plugin.registerEvent(ws.on('file-open', (file) => { if (file && this.scene(file)) this.seen(file); sync(); }));
+		plugin.registerEvent(ws.on('file-open', (file) => { if (file && this.scene(file)) { this.opening(file); this.seen(file); } sync(); }));
 		// (another tab or pane taken up, by a command, a link opened in a new tab, the quick switcher: focus was on this one)
 		plugin.registerEvent(ws.on('active-leaf-change', (leaf) => { if (this.on && leaf && leaf !== this.on.leaf) this.leave(true); sync(); }));
 		plugin.registerEvent(plugin.binders.on('changed', () => { this.scenes = new WeakMap(); sync(); }));
@@ -141,7 +141,7 @@ export class Focus {
 			// what was written in it today is still written.
 			const had = this.session.now(file.path), into = had > 0 ? this.gained.find((g) => performance.now() - g.at < 5000 && g.left >= had) : undefined;
 			if (into) { into.left -= had; this.session.merged(file.path, into.path); } else this.session.remove(file.path);
-			this.onDisk.delete(file.path); this.held.delete(file.path);
+			this.onDisk.delete(file.path); this.held.delete(file.path); this.opened.delete(file.path);
 			this.keep();
 			if (this.on) this.draw();
 		}));
@@ -761,9 +761,26 @@ export class Focus {
 		if (this.on) this.drawNow();
 	}
 
+	/** What a note held as it opened in a tab, counted at that moment from the editor itself (nothing is read, so no
+	    save of what's typed after can get into it). A note not counted yet today is counted from this. */
+	private opened = new Map<string, number>();
+	private opening(file: TFile): void {
+		if (this.session.has(file.path)) return;
+		const view = this.plugin.app.workspace.getActiveViewOfType(MarkdownView);
+		if (view?.file !== file || !view.editor) return;
+		try { this.opened.set(file.path, wordsIn(this.plugin, view.editor.getValue())); } catch { /* the editor isn't ready */ }
+	}
+
 	/** A note of a binder seen for the first time today: what it has now is what the day is counted from. */
 	private seen(file: TFile): void {
 		if (this.session.has(file.path)) return;
+		const first = this.opened.get(file.path);
+		if (first !== undefined) {
+			this.opened.delete(file.path);
+			this.session.roll(dayOf(new Date()), !!this.on);
+			if (!this.session.has(file.path)) { this.session.see(file.path, first); this.onDisk.set(file.path, first); this.keep(); }
+			return;
+		}
 		void this.plugin.app.vault.cachedRead(file).then((text) => {
 			this.session.roll(dayOf(new Date()), !!this.on);
 			if (!this.session.has(file.path)) { const n = wordsIn(this.plugin, text); this.session.see(file.path, n); this.onDisk.set(file.path, n); this.keep(); }
@@ -835,6 +852,8 @@ export class Focus {
 		this.words.typed(file, text);
 		s.roll(dayOf(new Date()), !!this.on);
 		if (s.has(file.path)) { s.see(file.path, n); this.keep(); if (this.on) this.draw(); return; }
+		const first = this.opened.get(file.path);
+		if (first !== undefined) { this.opened.delete(file.path); s.see(file.path, n, first); if (!this.onDisk.has(file.path)) this.onDisk.set(file.path, first); this.keep(); if (this.on) this.draw(); return; }
 		void this.plugin.app.vault.cachedRead(file).then((was) => wordsIn(this.plugin, was), () => n).then((base) => {
 			s.see(file.path, n, base);
 			if (!this.onDisk.has(file.path)) this.onDisk.set(file.path, base);

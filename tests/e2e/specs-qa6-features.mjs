@@ -1154,6 +1154,18 @@ ok('Undo of a move after the moved note was merged away (or split, or turned int
 		t.ok(/can’t|couldn’t|nothing/i.test(await notices(p)) || true, 'it said something: ' + await notices(p));
 	} finally { await p.ev(`(async () => { app.vault.setConfig('trashOption', ${j(trash ?? 'system')}); if (await app.vault.adapter.exists('.trash')) await app.vault.adapter.rmdir('.trash', true); })().then(() => 1)`); }
 });
+fok('the day’s words when the first read of a note is slow and the typing is saved before it comes back: the base is what the note held when it opened', async (p, h, t) => {
+	// A slow runner: Binders' own read of the note answers only after the typing has been saved to disk.
+	await p.ev(`(() => { const v = app.vault, c = v.cachedRead; window.__cr = c; v.cachedRead = async function (f) { if (f.path === ${j(A)}) await new Promise((r) => setTimeout(r, 2500)); return c.apply(this, arguments); }; return 1; })()`);
+	try {
+		await openFocusNote(p, A);
+		await caretEnd(p);
+		await keys(p, TEN.repeat(2));
+		await p.ev(`(async () => { await app.workspace.getMostRecentLeaf().view.save(); })().then(() => 1)`);
+		await sleep(p, 3500);
+		t.eq(await words(p), 20, 'twenty words typed, though the note was on disk with them before the read came back');
+	} finally { await p.ev(`(() => { if (window.__cr) app.vault.cachedRead = window.__cr; delete window.__cr; return 1; })()`); }
+});
 fbad('the day’s words after merging two notes that were both written in today: the words are the same words, not minus the note that went to the trash', async (p, h, t) => {
 	const trash = await p.ev(`app.vault.getConfig('trashOption') ?? null`);
 	await p.ev(`(() => { app.vault.setConfig('trashOption', 'local'); return 1; })()`);

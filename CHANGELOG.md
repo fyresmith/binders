@@ -30,6 +30,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - Rich text import now brings in the text of text boxes, such as captions in frames.
 - Word import no longer brings in text that one person inserted and another deleted, when Reject all is chosen.
 - A damaged Word, OpenDocument or zipped Scrivener file is now refused with a plain message instead of “invalid distance”.
+- The day's word count in focus mode no longer comes out too low when a slow read of a note finishes after your typing has been saved.
 
 ## 0.52.0 (2026-10-12)
 
