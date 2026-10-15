@@ -1,9 +1,9 @@
 import { escapeMarkdown } from '../markdown';
 /* Independent RTF reader. A group owns its formatting and code page; fields and pictures are destinations,
    not paragraphs. Unrepresentable formatting is reported and its original is kept by the import plan. */
-interface Control { word: string; n?: number }
-interface Group { tokens: Token[] }
-type Token = string | Control | Group | { bytes: Uint8Array };
+export interface Control { word: string; n?: number }
+export interface Group { tokens: Token[] }
+export type Token = string | Control | Group | { bytes: Uint8Array };
 interface Run { text: string; bold?: boolean; italic?: boolean; strike?: boolean; url?: string; raw?: boolean }
 interface State { bold: boolean; italic: boolean; strike: boolean; uc: number; page: number; ansi: number; defaultFont: number }
 /** `plain`: the text as typed, with no Markdown in it. `formatted`: some of it is bold, italic, struck or a link. */
@@ -16,7 +16,7 @@ export interface RtfOptions {
 	    when "Start a paragraph with a tab" is on, so the same project reads the same way without it. */
 	indentedAsTabs?: boolean;
 }
-const dest = (g: Group): string => (g.tokens.find((t) => typeof t === 'object' && 'word' in t && t.word !== '*') as Control)?.word ?? '';
+export const dest = (g: Group): string => (g.tokens.find((t) => typeof t === 'object' && 'word' in t && t.word !== '*') as Control)?.word ?? '';
 /** Parts of a file that are not its text: tables of fonts and colors, what the program that wrote it says of
     itself, a page's header and footer, and the picture a newer one stands in for (`nonshppict`). */
 const SKIP = new Set(['nonshppict', 'fonttbl', 'colortbl', 'stylesheet', 'info', 'listtable', 'listoverridetable', 'generator', 'header', 'headerl', 'headerr', 'footer', 'footerl', 'footerr', 'filetbl', 'revtbl', 'rsidtbl', 'xmlnstbl', 'themedata', 'colorschememapping', 'datafield', 'latentstyles']);
@@ -27,7 +27,7 @@ const CUT = 'the file is cut short', DAMAGED = 'the file is damaged';
 /** A control word: its letters, a number if it has one, and the one space that ends it. */
 const WORD = /([a-z]+)(-?\d+)? ?/iy;
 
-function parse(data: Uint8Array): Group {
+export function parse(data: Uint8Array): Group {
 	if (data.length > 32 * 1024 * 1024) throw new Error('the file is larger than 32 MB');
 	let s = '';
 	for (let i = 0; i < data.length; i += 8192) s += String.fromCharCode(...data.subarray(i, i + 8192));
@@ -90,20 +90,26 @@ function tables(text: string): string {
 	return out.join('\n\n');
 }
 
+/** Bytes in a code page, as RTF names them (`\ansicpg`, a font's charset). */
+export function decodePage(bytes: Uint8Array, page: number, warn: (s: string) => void): string {
+	const label = page === 65001 ? 'utf-8' : page === 932 ? 'shift_jis' : page === 936 ? 'gbk' : page === 949 ? 'euc-kr' : page === 950 ? 'big5' : page === 10000 ? 'macintosh' : `windows-${page}`;
+	try { return new TextDecoder(label, { fatal: true }).decode(bytes); } catch {
+		// A code page this can't read (DOS's, a font's own), or bytes that aren't in it: the words are plain letters
+		// in every one of them, so they are kept, and the writer is told the accents may not be.
+		if (bytes.some((b) => b > 127)) warn('Some characters were written in a way that can’t be read here, and may be wrong. The original file has them.');
+		return new TextDecoder('windows-1252').decode(bytes);
+	}
+}
+
+/** The code page of each font in a font table (`\fcharset`, `\cpg`), the document's own where it says none. */
+export const CHARSETS: Record<number, number> = { 77: 10000, 128: 932, 129: 949, 134: 936, 136: 950, 161: 1253, 162: 1254, 177: 1255, 178: 1256, 186: 1257, 204: 1251, 222: 874, 238: 1250 };
+
 export function readRtf(data: Uint8Array, options: RtfOptions = {}): RichText {
 	const root = parse(data), warnings = new Set<string>(), notes: string[] = [], fontPages = new Map<number, number>();
 	const warn = (s: string) => warnings.add(s);
 	const plain = (runs: Run[]) => runs.map((r) => r.text).join('');
 	let fallback = 0;
-	const decode = (bytes: Uint8Array, page: number): string => {
-		const label = page === 65001 ? 'utf-8' : page === 932 ? 'shift_jis' : page === 936 ? 'gbk' : page === 949 ? 'euc-kr' : page === 950 ? 'big5' : page === 10000 ? 'macintosh' : `windows-${page}`;
-		try { return new TextDecoder(label, { fatal: true }).decode(bytes); } catch {
-			// A code page this can't read (DOS's, a font's own), or bytes that aren't in it: the words are plain letters
-			// in every one of them, so they are kept, and the writer is told the accents may not be.
-			if (bytes.some((b) => b > 127)) warn('Some characters were written in a way that can’t be read here, and may be wrong. The original file has them.');
-			return new TextDecoder('windows-1252').decode(bytes);
-		}
-	};
+	const decode = (bytes: Uint8Array, page: number): string => decodePage(bytes, page, warn);
 	const visit = (g: Group, state: State, special = false): Run[] => {
 		const kind = dest(g), out: Run[] = [], s = { ...state };
 		// the paragraph being read: where its runs start in `out`, and its first-line indent and space after
