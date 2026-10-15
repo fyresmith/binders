@@ -134,7 +134,7 @@ change a summary and return to the corresponding scene without writing into its 
 
 ### 5. Structural summaries in the outliner
 
-- [ ] Show chapter lengths, words by POV, scenes by status and unresolved revision counts through column summaries
+- [x] Show chapter lengths, words by POV, scenes by status and unresolved revision counts through column summaries
       or a modest optional overview. Respect the current folder and filter, and make the counted scope explicit.
 
 Use the writer's properties and revision tasks. Measurements are descriptive: the writer decides whether a long
