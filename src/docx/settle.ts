@@ -89,7 +89,7 @@ export function settle(file: DocxFile, as: 'final' | 'original', o: SettleOption
 	if (carry.length) paras.push(convert(file.paras[file.paras.length - 1], carry, false));
 
 	const revisions = file.found.inserted + file.found.deleted, comments = file.comments.size ? Math.max(file.found.comments, 0) : file.found.comments;
-	const said: string[] = [];
+	const said: string[] = [...(file.said ?? [])];
 	if (revisions) said.push(`This file has ${revisions.toLocaleString()} tracked ${revisions === 1 ? 'change' : 'changes'}. ${as === 'final' ? 'They are brought in as accepted.' : 'They are left out, as if rejected.'}`);
 	if (comments) said.push(`This file has ${comments.toLocaleString()} ${comments === 1 ? 'comment' : 'comments'} in its margin. ${withComments ? 'They are kept as Obsidian comments, at the end of the words they are on.' : 'They are left out.'}`);
 	if (file.found.tables) said.push('A table comes in as its text, cell after cell: its layout isn’t kept.');

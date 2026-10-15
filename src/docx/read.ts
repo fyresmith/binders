@@ -54,6 +54,8 @@ export interface DocxFile {
 	comments: Map<string, { author: string; text: string }>;
 	/** A picture's file by the relationship that names it, inflated now: PNG, JPEG or another kind, with its ending. */
 	picture(rid: string): { ext: string; load(): Uint8Array | null } | null;
+	/** What the reader had to say of the file itself (characters it couldn't read), in a writer's words. */
+	said?: string[];
 	found: { inserted: number; deleted: number; comments: number; underlined: number; italic: number; headers: boolean; textBoxes: number; tables: number; pictures: number; endnotes: number; /** Places with hidden text, which is left out. */ hidden: number };
 }
 
