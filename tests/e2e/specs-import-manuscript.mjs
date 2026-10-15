@@ -97,7 +97,7 @@ const binderWords = (p, root) => p.ev(`(async () => {
 })()`);
 /** Only what the notes say, in the binder's order: for a binder whose names were put right by hand, and no longer the headings. */
 const bodyWords = (p, root) => p.ev(`(async () => { const out = []; for (const f of ${B}.scenes(app.vault.getAbstractFileByPath(${j(root)}))) if (!f.path.slice(${root.length + 1}).startsWith('Research/')) out.push(...((await app.vault.read(f)).replace(/^---\\n[\\s\\S]*?\\n---\\n/, '').normalize('NFC').match(/[\\p{L}\\p{N}\\p{M}]+/gu) ?? [])); return out; })()`);
-const test = (name, fn) => specs.push({ name: 'Manuscript import: ' + name, fn: withTidy(async (p, h, t) => {
+const test = (name, fn, opts = {}) => specs.push({ ...opts, name: 'Manuscript import: ' + name, fn: withTidy(async (p, h, t) => {
 	const before = await texts(p);
 	try { await fn(p, h, t, before); } finally {
 		await p.ev(`(() => { document.querySelectorAll('.notice').forEach(n => n.remove()); return 1; })()`);
@@ -444,6 +444,48 @@ test('a phone: a row’s own button opens its menu, a paragraph has its button, 
 		t.eq((await binderWords(p, 'The Salt Road')).join(' '), tokens(CLEAN).join(' '), 'imported on a phone, every word is there');
 	} finally { await closeAll(p); await p.send('Emulation.setDeviceMetricsOverride', { width: p.width, height: p.height, deviceScaleFactor: 1, mobile: false }); await reload(p, false); }
 });
+
+const GAP = `# The Gap\n\n## Part one\n\n${para('p1')}\n\n${para('p2')}\n\n${para('p3')}\n\n${para('p4')}\n\n## Part two\n\n${para('p5')}\n`;
+test('the way to start a note at a paragraph takes no room until it is shown: the gap between paragraphs is the reading one; it is shown on hover, on keyboard focus, and on a phone', async (p, h, t) => {
+	const boxes = `[...document.querySelectorAll('${WIN} .binders-import-para')]`;
+	await make(p, 'Sources/Gap.md', GAP);
+	await fromNote(p, 'Sources/Gap.md');
+	await p.ev(`(() => { [...document.querySelectorAll('${WIN} [role="treeitem"]')].find(r => r.querySelector('.tree-item-inner').textContent === 'Part one').click(); return 1; })()`); await p.sleep(400);
+	t.ok(await p.ev(`${boxes}.length`) === 4, 'four paragraphs are shown, one box each');
+	// with no mouse on the preview: the gap between two paragraphs is the margin a paragraph has, and no button is in it
+	await p.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 1, y: 1 }); await p.sleep(150);
+	const gaps = await p.ev(`(() => { const ts = ${boxes}.map((b) => b.querySelector('.binders-import-para-text')); return ts.slice(1).map((b, i) => { const a = ts[i]; return { gap: Math.round((b.getBoundingClientRect().top - a.getBoundingClientRect().bottom) * 10) / 10, want: parseFloat(getComputedStyle(a.querySelector('p')).marginBottom) }; }); })()`);
+	t.ok(gaps.length === 3 && gaps.every((g) => Math.abs(g.gap - g.want) <= 1), `the gap between paragraphs is the reading one, with no hover (${JSON.stringify(gaps)})`);
+	const hidden = await p.ev(`[...document.querySelectorAll('${WIN} .binders-import-start')].map((b) => b.getBoundingClientRect().height)`);
+	t.ok(hidden.length === 3 && hidden.every((h) => h < 1), `the buttons take no height with no hover (${JSON.stringify(hidden)})`);
+	// on hover: the paragraph's button is shown in the margin under it, over no text; and the text does not move for it
+	const tops = () => p.ev(`${boxes}.map((b) => b.querySelector('.binders-import-para-text').getBoundingClientRect().top)`);
+	const topsBefore = await tops();
+	const at = await p.ev(`(() => { const r = ${boxes}[1].getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
+	await p.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: at.x, y: at.y }); await p.sleep(200);
+	const topsAfter = await tops();
+	t.ok(JSON.stringify(topsAfter) === JSON.stringify(topsBefore), `hovering a paragraph moves no paragraph (${JSON.stringify([topsBefore, topsAfter])})`);
+	const onHover = await p.ev(`(() => { const bs = ${boxes}; const b = bs[1].querySelector('.binders-import-start'); const r = b.getBoundingClientRect(); const own = bs[1].querySelector('.binders-import-para-text').getBoundingClientRect(), next = bs[2].querySelector('.binders-import-para-text').getBoundingClientRect(); const over = [...document.querySelectorAll('${WIN} .binders-import-para-text')].some((x) => { const q = x.getBoundingClientRect(); return !(r.right <= q.left || r.left >= q.right || r.bottom <= q.top || r.top >= q.bottom); }); return { h: r.height, o: getComputedStyle(b).opacity, inMargin: r.top >= own.bottom - 0.5 && r.bottom <= next.top + 0.5, over, top: r.top, bottom: r.bottom, ownBottom: own.bottom, nextTop: next.top }; })()`);
+	t.ok(onHover.h >= 12 && onHover.o === '1' && onHover.inMargin && !onHover.over, `on hover the paragraph’s button is shown in the margin, over no text (${JSON.stringify(onHover)})`);
+	await p.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 1, y: 1 }); await p.sleep(150);
+	// by the keyboard: the button takes focus and is shown
+	await p.ev(`(() => { ${boxes}[1].querySelector('.binders-import-start').focus(); return 1; })()`); await p.sleep(150);
+	const onFocus = await p.ev(`(() => { const b = ${boxes}[1].querySelector('.binders-import-start'); const r = b.getBoundingClientRect(); return { h: r.height, o: getComputedStyle(b).opacity, focused: document.activeElement === b }; })()`);
+	t.ok(onFocus.focused && onFocus.h >= 12 && onFocus.o === '1', `on keyboard focus the button is shown (${JSON.stringify(onFocus)})`);
+	await p.ev(`(() => { document.activeElement?.blur(); return 1; })()`); await p.sleep(100);
+	await closeAll(p);
+	// a phone has no hover: its buttons are shown and big enough to touch
+	const dark = await p.ev(`document.body.classList.contains('theme-dark')`);
+	await p.send('Emulation.setDeviceMetricsOverride', { width: 320, height: 640, deviceScaleFactor: 1, mobile: true }); await reload(p, true);
+	await p.ev(`(() => { app.changeTheme(${j(dark ? 'obsidian' : 'moonstone')}); return 1; })()`);
+	try {
+		await fromFile(p, put('Gap.md', GAP));
+		await press(p, 'Preview'); await p.sleep(250);
+		await p.ev(`(() => { [...document.querySelectorAll('${WIN} [role="treeitem"]')].find(r => r.querySelector('.tree-item-inner').textContent === 'Part one').click(); return 1; })()`); await p.sleep(400);
+		const phone = await p.ev(`[...document.querySelectorAll('${WIN} .binders-import-start')].map((b) => ({ h: b.getBoundingClientRect().height, o: getComputedStyle(b).opacity }))`);
+		t.ok(phone.length === 3 && phone.every((b) => b.h >= 30 && b.o === '1'), `on a phone every paragraph’s button is shown, and big enough to touch (${JSON.stringify(phone)})`);
+	} finally { await closeAll(p); await p.send('Emulation.setDeviceMetricsOverride', { width: p.width, height: p.height, deviceScaleFactor: 1, mobile: false }); await reload(p, false); }
+}, { tier: 'look', themes: ['light', 'dark'] });
 
 test('a phone: the choices first with Import in reach, then the binder’s list, then a note, and back', async (p, h, t) => {
 	const dark = await p.ev(`document.body.classList.contains('theme-dark')`);

@@ -22,6 +22,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - Hidden text in a Word file is no longer brought in as ordinary text: it is left out, and the import says how many places had it.
 - A Word file's continuous section breaks no longer start a page, and a section break on an empty line of its own (as LibreOffice writes one) is no longer taken for a scene break.
 - A story date that isn't in the calendar is refused with the reason ("February has 28 days in 2001.").
+- The import preview no longer leaves a gap under each paragraph for the “Start a note here” button: it shows on hover or keyboard focus, in the space between paragraphs, without moving the text, and is always shown on phones and tablets.
 
 ## 0.52.0 (2026-10-12)
 

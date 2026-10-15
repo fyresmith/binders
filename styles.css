@@ -5832,17 +5832,42 @@ body:not(.is-phone) .binders-snapshots .sync-history-content {
 	opacity: 1;
 }
 
+/* The way to start a note at a paragraph takes no room until it is shown, and showing it never moves the text. Out of the
+   flow, it sits at the paragraph's bottom right, in the margin between it and the next paragraph (the button is no taller
+   than that margin, so it covers neither text). On hover or keyboard focus it is shown there. On a phone or a tablet
+   (no hover) it is in the flow and always shown, since there is nothing to hover. It stays in the tab order throughout. */
+.binders-import-para {
+	position: relative;
+}
+
 .binders-import-para .binders-import-start {
+	position: absolute;
+	top: 100%;
+	right: 0;
 	display: block;
-	height: auto;
-	margin: 0 0 var(--size-4-2) auto;
-	padding: var(--size-2-1) var(--size-4-2);
+	height: 0;
+	margin: 0;
+	padding: 0 var(--size-4-2);
+	overflow: hidden;
 	font-size: var(--font-ui-smaller);
+	line-height: 1;
 	opacity: 0;
 }
 
-.binders-import-para:is(:hover, :focus-within) .binders-import-start,
-.is-phone .binders-import-para .binders-import-start {
+.binders-import-para:is(:hover, :focus-within) .binders-import-start {
+	height: var(--size-4-4);
+	background: var(--background-primary);
+	opacity: 1;
+}
+
+.is-phone .binders-import-para .binders-import-start,
+.is-mobile .binders-import-para .binders-import-start {
+	position: static;
+	height: auto;
+	margin: 0 0 var(--size-4-2) auto;
+	padding: var(--size-2-1) var(--size-4-2);
+	line-height: normal;
+	overflow: visible;
 	opacity: 1;
 }
 
