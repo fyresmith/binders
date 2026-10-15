@@ -1,4 +1,4 @@
-import { GREGORIAN, readStoryDate, type StoryDate } from '../time/date';
+import { GREGORIAN, exampleDates, readStoryDate, type Calendar, type StoryDate } from '../time/date';
 
 /* The conditions of a filter, and how a note is matched against them. Pure: no Obsidian, no DOM. A note's properties are
    plain data given by `read`, and the two things only the vault knows (which note a link names, and what kind of value a
@@ -71,12 +71,13 @@ export function boolOf(v: unknown): boolean | null {
 	return null;
 }
 
-/** A date as the days it covers: `[first, last]`, counted from 1970-01-01. A year or a month covers all of itself; a time
-    of day is dropped. Null for anything that is not a story date (in any of the shapes `src/time/date.ts` reads). */
-export function daysOf(v: unknown): [number, number] | null {
-	const d: StoryDate | null = readStoryDate(v);
+/** A date as the days it covers: `[first, last]`, counted as the binder's calendar counts them (the ordinary one from
+    1970-01-01). A year or a month covers all of itself; a time of day is dropped. Null for anything that is not a story
+    date in that calendar (in any of the shapes `src/time/date.ts` reads). */
+export function daysOf(v: unknown, cal: Calendar = GREGORIAN): [number, number] | null {
+	const d: StoryDate | null = readStoryDate(v, cal);
 	if (!d) return null;
-	const cal = GREGORIAN;
+	if (!cal.monthsIn(d.y)) return [cal.toDay(d.y, 1, 1), cal.toDay(d.y, 1, 1) + Math.round(cal.yearLength) - 1];
 	if (d.m == null) return [cal.toDay(d.y, 1, 1), cal.toDay(d.y, cal.monthsIn(d.y), cal.daysIn(d.y, cal.monthsIn(d.y)))];
 	if (d.d == null) return [cal.toDay(d.y, d.m, 1), cal.toDay(d.y, d.m, cal.daysIn(d.y, d.m))];
 	const day = cal.toDay(d.y, d.m, d.d);
@@ -88,28 +89,28 @@ export const valuesOf = (c: Condition): unknown[] => (Array.isArray(c.value) ? c
 
 /** What is wrong with a condition, in words for the row's error line; null if it is whole, or only not finished (nothing
     picked yet is not an error). */
-export function problem(c: Condition, kind: Kind): string | null {
+export function problem(c: Condition, kind: Kind, cal: Calendar = GREGORIAN): string | null {
 	if (!c.property) return null;
 	const op = operatorOf(kind, c.operator);
 	if (!op) return `“${String(c.operator)}” doesn’t apply to this property.`;
 	if (!op.takes) return null;
 	const vs = valuesOf(c).filter((v) => !isEmpty(v));
 	if (kind === 'number' && vs.some((v) => numberOf(v) == null)) return 'That isn’t a number.';
-	if (kind === 'date' && vs.some((v) => !daysOf(v))) return 'That isn’t a date. Try 14 June 1987, June 1987 or 1987.';
+	if (kind === 'date' && vs.some((v) => !daysOf(v, cal))) return `That isn’t a date. Try ${exampleDates(cal)}.`;
 	if (kind === 'checkbox' && valuesOf(c).some((v) => boolOf(v) == null)) return 'Choose checked or unchecked.';
 	return null;
 }
 
 /** Is the condition whole enough to mean something? One that isn't is left out of the matching, as Bases leaves out a row
     it can't read: it never empties the page by being half made. */
-export function complete(c: Condition, kind: Kind): boolean {
+export function complete(c: Condition, kind: Kind, cal: Calendar = GREGORIAN): boolean {
 	const op = operatorOf(kind, c.operator);
 	if (!c.property || !op) return false;
 	if (!op.takes) return true;
 	const vs = valuesOf(c);
 	if (kind === 'checkbox') return boolOf(vs[0]) != null;
 	if (kind === 'number') return numberOf(vs[0]) != null;
-	if (kind === 'date') return !!daysOf(vs[0]);
+	if (kind === 'date') return !!daysOf(vs[0], cal);
 	// ("is" may name the empty value: "status is Draft or nothing")
 	return vs.length > 0 && (op.id === 'is' || op.id === 'is not' || vs.some((v) => !isEmpty(v)));
 }
@@ -128,7 +129,7 @@ export function passes(c: Condition, kind: Kind, value: unknown, env: Env): bool
 		return op.id === '=' ? a === b : op.id === '!=' ? a !== b : op.id === '<' ? a < b : op.id === '<=' ? a <= b : op.id === '>' ? a > b : a >= b;
 	}
 	if (kind === 'date') {
-		const a = daysOf(value), b = daysOf(vs[0]);
+		const a = daysOf(value, env.cal), b = daysOf(vs[0], env.cal);
 		if (!a || !b) return op.id === 'not on' && !!b;
 		const on = a[0] <= b[1] && a[1] >= b[0];
 		return op.id === 'on' ? on : op.id === 'not on' ? !on : op.id === 'before' ? a[1] < b[0] : op.id === 'on or before' ? a[0] <= b[1] : op.id === 'after' ? a[0] > b[1] : a[1] >= b[0];
@@ -148,14 +149,14 @@ export function passes(c: Condition, kind: Kind, value: unknown, env: Env): bool
 }
 
 /** The conditions that count: the whole ones. */
-export const wholeRows = (f: FilterDef, kindOf: (property: string) => Kind): Condition[] => f.conditions.filter((c) => complete(c, kindOf(c.property)));
+export const wholeRows = (f: FilterDef, kindOf: (property: string) => Kind, cal: Calendar = GREGORIAN): Condition[] => f.conditions.filter((c) => complete(c, kindOf(c.property), cal));
 /** Is the filter on: has it a condition that means something? */
-export const active = (f: FilterDef, kindOf: (property: string) => Kind): boolean => f.conditions.some((c) => complete(c, kindOf(c.property)));
+export const active = (f: FilterDef, kindOf: (property: string) => Kind, cal: Calendar = GREGORIAN): boolean => f.conditions.some((c) => complete(c, kindOf(c.property), cal));
 
 /** Does a note pass the filter? `read` gives a property's value, `kindOf` its kind. A filter with no whole condition passes
     everything. */
 export function matches(f: FilterDef, read: (property: string) => unknown, kindOf: (property: string) => Kind, env: Env): boolean {
-	const rows = wholeRows(f, kindOf);
+	const rows = wholeRows(f, kindOf, env.cal);
 	if (!rows.length) return true;
 	const test = (c: Condition) => passes(c, kindOf(c.property), read(c.property), env);
 	return f.match === 'any' ? rows.some(test) : f.match === 'none' ? !rows.some(test) : rows.every(test);
@@ -163,13 +164,13 @@ export function matches(f: FilterDef, read: (property: string) => unknown, kindO
 
 /** The kind of a property, inferred from the values it has in the binder's notes (when Obsidian has no type for it): every
     value a list, a number, a checkbox or a date makes it that; anything else, or a mix, is text. */
-export function kindFrom(values: unknown[]): Kind {
+export function kindFrom(values: unknown[], cal: Calendar = GREGORIAN): Kind {
 	const got = values.filter((v) => !isEmpty(v));
 	if (!got.length) return 'text';
 	if (got.every((v) => Array.isArray(v))) return 'list';
 	if (got.every((v) => typeof v === 'boolean')) return 'checkbox';
 	if (got.every((v) => typeof v === 'number')) return 'number';
-	if (got.every((v) => typeof v === 'string' && !/^\s*-?\d+\s*$/.test(v) && !!daysOf(v))) return 'date';
+	if (got.every((v) => typeof v === 'string' && !/^\s*-?\d+\s*$/.test(v) && !!daysOf(v, cal))) return 'date';
 	if (got.some((v) => Array.isArray(v))) return 'list';
 	return 'text';
 }

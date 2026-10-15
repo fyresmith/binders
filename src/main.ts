@@ -23,6 +23,7 @@ import { followRename } from './export/export';
 import { printer } from './export/pdf';
 import { ExportModal } from './view/export';
 import { PROGRESS_ICON, ProgressModal } from './view/progress';
+import { CalendarModal } from './view/calendar-modal';
 import { exportAgain } from './view/export-again';
 import { Styles } from './export/styles';
 import { importDesktop } from './import/desktop';
@@ -254,6 +255,15 @@ export default class BindersPlugin extends Plugin {
 			const folder = view?.folder ?? (file && this.binders.binderOf(file)?.folder) ?? null;
 			if (!folder) return false;
 			if (!checking) new ProgressModal(this, folder).open();
+			return true;
+		} });
+		// the book's own calendar and its eras, kept in the binder note (view/calendar-modal.ts)
+		this.addCommand({ id: 'edit-calendar', name: 'Edit calendar...', icon: 'calendar-range', checkCallback: (checking) => {
+			const view = this.app.workspace.getActiveViewOfType(BinderView), file = active();
+			const binder = view?.folder ? this.binders.binderOf(view.folder) : file ? this.binders.binderOf(file) : null;
+			// (a Longform project keeps no calendar; a binder of a newer format can't be changed)
+			if (!binder || binder.kind !== 'binder' || binder.problem) return false;
+			if (!checking) new CalendarModal(this, binder).open();
 			return true;
 		} });
 		this.addCommand({ id: 'export', name: 'Export binder', icon: 'book-up', checkCallback: (checking) => {

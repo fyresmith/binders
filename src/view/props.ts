@@ -7,7 +7,7 @@ import type BindersPlugin from '../main';
 import { canonical, readLabel } from './labels';
 import { readTarget } from './outliner-data';
 import type { SceneProps } from './mode';
-import { readStoryDate, readStoryOrder, writeStoryDate, type StoryDate, type StoryPlace } from '../time/date';
+import { readStoryDate, readStoryOrder, writeStoryDate, type Calendar, type StoryDate, type StoryPlace } from '../time/date';
 import { shiftDate, shiftWords, type ShiftUnit } from '../time/shift';
 
 /* A note's card data, read and written under the property names in settings: the one way, for the binder view and
@@ -114,8 +114,16 @@ export async function writeExportAs(plugin: BindersPlugin, items: readonly TAbst
     null when it isn't one ("sometime in spring": left as typed, shown as it is). The one way it is read. */
 export function readStory(plugin: BindersPlugin, file: TFile | null): { raw: unknown; date: StoryDate | null; order: number | null } {
 	const fm = file ? plugin.app.metadataCache.getFileCache(file)?.frontmatter : undefined, raw: unknown = fm?.[plugin.settings.storyDateProp];
-	return { raw, date: readStoryDate(raw), order: readStoryOrder(fm?.[plugin.settings.storyOrderProp]) };
+	return { raw, date: readStoryDate(raw, plugin.binders.calendarOf(file)), order: readStoryOrder(fm?.[plugin.settings.storyOrderProp]) };
 }
+
+/** Refuses to write story dates in a binder whose calendar can't be read (they would be written in another one). */
+function mustReadCalendar(plugin: BindersPlugin, items: readonly (TAbstractFile | null)[]): void {
+	for (const f of items) { const why = f ? plugin.binders.calendarProblem(f) : null; if (why) throw new Error(why); }
+}
+
+/** The calendar an item's story date is in (its binder's). */
+export const calendarFor = (plugin: BindersPlugin, item: TAbstractFile | null): Calendar => plugin.binders.calendarOf(item);
 
 /** A note's place in story time (its date and order), or null without a date. */
 export function storyPlace(plugin: BindersPlugin, file: TFile | null): StoryPlace | null {
@@ -127,6 +135,7 @@ export function storyPlace(plugin: BindersPlugin, file: TFile | null): StoryPlac
     away, property and all: one change that "Undo" takes back, however many items. A note that already has exactly the
     value is not written. Nothing else in a note changes. */
 export async function setStoryDate(plugin: BindersPlugin, items: readonly TAbstractFile[], value: StoryDate | null): Promise<void> {
+	mustReadCalendar(plugin, items);
 	const store = plugin.binders, key = plugin.settings.storyDateProp, order = plugin.settings.storyOrderProp, write = value ? writeStoryDate(value) : undefined, writes: { file: TFile; patch: Record<string, unknown> }[] = [];
 	for (const f of items) {
 		// (a folder with no folder note has nothing to take away: one isn't made to hold nothing)
@@ -134,7 +143,7 @@ export async function setStoryDate(plugin: BindersPlugin, items: readonly TAbstr
 		if (!note) continue;
 		const fm = plugin.app.metadataCache.getFileCache(note)?.frontmatter ?? {};
 		if (write === undefined ? !(key in fm) : fm[key] === write) continue;
-		const patch: Record<string, unknown> = { [key]: write }, was = readStoryDate(fm[key]), same = !!(was && value && JSON.stringify(was) === JSON.stringify(value));
+		const patch: Record<string, unknown> = { [key]: write }, was = readStoryDate(fm[key], store.calendarOf(note)), same = !!(was && value && JSON.stringify(was) === JSON.stringify(value));
 		// (`story-order` belonged to the day the scene was on: another date, or none, takes it away; the same date keeps it)
 		if (!same && order in fm) patch[order] = undefined;
 		writes.push({ file: note, patch });
@@ -150,12 +159,13 @@ export interface StoryWrite { file: TFile; date?: StoryDate | null; order?: numb
     differs from what a note has is written, and a note is never touched for a date it already has in some other shape
     (`14 June 1987` typed by hand stays). Nothing else in a note changes. */
 export async function setStoryPlaces(plugin: BindersPlugin, changes: readonly StoryWrite[], label?: string): Promise<void> {
+	mustReadCalendar(plugin, changes.map((c) => c.file));
 	const key = plugin.settings.storyDateProp, order = plugin.settings.storyOrderProp, writes: { file: TFile; patch: Record<string, unknown> }[] = [];
 	for (const c of changes) {
 		const fm = plugin.app.metadataCache.getFileCache(c.file)?.frontmatter ?? {}, patch: Record<string, unknown> = {};
 		if (c.date === null) { if (key in fm) patch[key] = undefined; if (order in fm) patch[order] = undefined; }
 		else {
-			if (c.date) { const was = readStoryDate(fm[key]); if (!was || JSON.stringify(was) !== JSON.stringify(c.date)) patch[key] = writeStoryDate(c.date); }
+			if (c.date) { const was = readStoryDate(fm[key], plugin.binders.calendarOf(c.file)); if (!was || JSON.stringify(was) !== JSON.stringify(c.date)) patch[key] = writeStoryDate(c.date); }
 			if (c.order === null ? order in fm : c.order !== undefined && readStoryOrder(fm[order]) !== c.order) patch[order] = c.order ?? undefined;
 		}
 		if (Object.keys(patch).length) writes.push({ file: c.file, patch });
@@ -172,10 +182,11 @@ export function datedNotes(plugin: BindersPlugin, notes: readonly (TFile | null)
     one change that "Undo" takes back. A scene's `story-order` goes with it. A date too rough to be moved by the unit (a
     month, by days) stays as it is, and the count of those is given back. */
 export async function shiftStoryDates(plugin: BindersPlugin, notes: readonly TFile[], by: number, unit: ShiftUnit): Promise<{ moved: number; kept: number }> {
+	mustReadCalendar(plugin, notes);
 	const changes: StoryWrite[] = [];
 	let kept = 0;
 	for (const f of notes) {
-		const date = readStory(plugin, f).date, next = date ? shiftDate(date, by, unit) : null;
+		const date = readStory(plugin, f).date, next = date ? shiftDate(date, by, unit, plugin.binders.calendarOf(f)) : null;
 		if (next) changes.push({ file: f, date: next }); else kept++;
 	}
 	if (by) await setStoryPlaces(plugin, changes, `Shift story dates of ${changes.length === 1 ? `“${changes[0].file.basename}”` : `${changes.length} items`} ${shiftWords(Math.abs(by), unit, by < 0 ? 'earlier' : 'later')}`);

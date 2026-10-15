@@ -261,6 +261,18 @@ here; that is what keeps the next round short.
     headings in bold and scene breaks that aren't there.
   - In the import preview, each paragraph's "Start a note here" keeps its height when hidden: with no mouse that
     hovers (headless, a phone) there is a blank line's gap under every paragraph. Left for the maintainer, 2026-10-15.
+- Learned designing a book's calendar and eras (2026-10-15; the round is under "Rounds" below):
+  - `src/time/date.ts` already took a `Calendar` everywhere and wrote months as numbers: a book's own calendar is a
+    second `Calendar` plus the store's `calendarOf`, not a new date format. Every place that showed a date had only to
+    be handed the binder's calendar.
+  - A list of things with a name and a number (months and their days) reads in the binder note as `- Thaw: 30`, the
+    way a writer would write it by hand; read `{ name, days }` too.
+  - Keep a calendar's edits off a scene's text: a month renamed or an era moved changes how dates read, never what
+    they say. Anything that would change what a written date means is said in the dialog before Save, by name.
+  - A month of one day is a festival: it reads as its name alone ("Midsummer 802"), with no flag for it.
+  - Short month names ("Jun") are the ordinary calendar's: a book's own month cut to three letters is a different word.
+  - A `Menu`'s rows can't be reached from a script by building one and calling `onPaneMenu`: click the view's own
+    "More options" button and the row by its title.
 
 **Rejected, don't propose again:** a colored stripe along the top of a card, pill chips, thin accent or progress
 lines, decoration for its own sake, anything on a card that isn't the writer's own (no badges for snapshots and the
@@ -384,9 +396,8 @@ between?" So a phone has B only, and a computer or a tablet chooses under "Arran
   card (the ruler and the year say it); weekdays.
 - **The icon** is Binders' own, the only one: a line with marks on both sides (Evra's mark, redrawn on Lucide's grid
   at its stroke). Lucide's calendars read as daily notes in the view's menu and its `git-commit` pair as git.
-- **Given up for now:** dragging a card to a date (decided, and the next thing built), eras and a book's own calendar
-  (room is left: an era is a band behind the line or a mark in the dates' column, and the month names come from the
-  calendar handed in).
+- **Given up for now:** dragging a card to a date (decided, and built next), eras and a book's own calendar (built
+  2026-10-15: below).
 
 **Progress over time (2026-10-10 and 11).** The maintainer: "Let's do an extremely impressive progress over time...
 A modal view scoped to binder where you can see an extremely impressive dashboard of tons of cool and even random
@@ -416,6 +427,25 @@ formats, Word included; hidden text left out and said, Word's reader too; `.fodt
 words; the first dialog names the formats. No `options.html`: the window was shown with a real `.odt` and a
 TextEdit-shaped `.rtf` in it. Left for him: whether a Title-styled paragraph names the binder (it doesn't, for Word
 either), and the preview's gap under each paragraph.
+
+**A book's own calendar and eras (2026-10-15).** ROADMAP §7: "a book's own calendar and eras, using the calendar work
+from Evra Timelines". Settled before a pixel, by the designer's defaults, which the maintainer kept: the calendar is in
+the binder note as two readable properties (`calendar`, `eras`); a `story-date` keeps its ISO shape, the year on the
+book's one count and the month by its number, so renaming a month or an era, or moving an era, rewrites no note; an era
+begins with a year; weekdays are left out (nothing shows one); a calendar shared by a series is for later. Two ways to
+show an era were built: A, a heading over its years that stays in sight, the years under it saying the era's year;
+and B, a rule across the page where an era begins, the years carrying its short name ("802 AL"). He chose A.
+- **The dialog** is Configure view's form, as the Export style editor is: "Start from" with Evra's presets, the months
+  as rows of a name and a length (moved by a handle: a drag, its menu by touch, Alt with an arrow in the name), leap
+  rules, eras. Under it, always: how a date is typed and how it is written, and what saving does to the book's dates,
+  by name. One filled button; one Undo step.
+- **Moving months** changes what a written number means. "Move their dates with their months" is offered when it
+  matters and is off until ticked; ticked, it writes those dates in the same step as the calendar.
+- **A refusal says why** ("Frost has 30 days.", "The Age of Lamps has 802 years"), in the ordinary calendar too.
+- **A calendar Binders can't read** is said over the timeline, and no story date is written in the book until it is
+  put right: a date written then would be in a calendar the writer didn't mean.
+- **Given up:** B; a date written with its era (`12 LQ`) or its month's name, which would need notes rewritten when
+  an era or a month is renamed; an era that starts on a day; weekdays; a calendar note shared by several binders.
 
 ## How a design round runs: narrow, then build
 

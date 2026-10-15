@@ -137,7 +137,7 @@ const read = (v: unknown) => j(readStoryDate(v));
 	eq(j(parseStoryDate('1987-06-14')), j({ y: 1987, m: 6, d: 14 }), 'typed in ISO');
 	eq(whyNotStoryDate('14 June 1987'), null, 'a date has no fault');
 	eq(whyNotStoryDate('sometime in spring'), 'That isn’t a date. Try 14 June 1987, June 1987 or 1987.', 'a non-date says what to type');
-	ok(/February/.test(whyNotStoryDate('30 February 2001') ?? '') || /isn’t a date/.test(whyNotStoryDate('30 February 2001') ?? ''), 'a day that is not in the month is refused');
+	eq(whyNotStoryDate('30 February 2001'), 'February has 28 days in 2001.', 'a day that is not in the month is refused, and says why');
 	eq(GREGORIAN.monthsIn(1987), 12, 'twelve months');
 	eq(GREGORIAN.daysIn(1987, 2), 28, 'February');
 	eq(GREGORIAN.daysIn(1988, 2), 29, 'a leap February');
@@ -146,7 +146,7 @@ const read = (v: unknown) => j(readStoryDate(v));
 
 // a calendar of its own can be passed in
 {
-	const cal = { monthsIn: () => 2, daysIn: () => 10, monthName: (m: number) => (m === 1 ? 'Thaw' : 'Frost'), toDay: (y: number, m: number, d: number) => y * 20 + (m - 1) * 10 + d - 1 };
+	const cal = { monthsIn: () => 2, daysIn: () => 10, monthName: (m: number) => (m === 1 ? 'Thaw' : 'Frost'), toDay: (y: number, m: number, d: number) => y * 20 + (m - 1) * 10 + d - 1, yearLength: 20, monthLength: 10, eras: [], yearName: (y: number) => String(y) };
 	eq(j(readStoryDate('0001-02-10', cal)), j({ y: 1, m: 2, d: 10 }), 'its 10th day of the second month');
 	eq(read('0001-02-10'), j({ y: 1, m: 2, d: 10 }), 'is also Gregorian’s (in the second month)');
 	eq(readStoryDate('0001-03-01', cal), null, 'but it has no third month');

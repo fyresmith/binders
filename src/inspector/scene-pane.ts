@@ -8,7 +8,7 @@ import { commitAll, editable, editingIn } from '../view/edit';
 import { labelDot, labelName } from '../view/labels';
 import type { ModeContext } from '../view/mode';
 import { parseTarget, text, whyNotTarget } from '../view/outliner-data';
-import { parseStoryDate, showStoryDate, whyNotStoryDate } from '../time/date';
+import { GREGORIAN, parseStoryDate, showStoryDate, whyNotStoryDate } from '../time/date';
 import { readNotes, readProps, readStory, setStoryDate, writeBatch, writeExportAs, writeNotes, writeProps } from '../view/props';
 import { SnapshotsModal, take, whenShort } from '../view/snapshots';
 import { folderSnapshots, hasSnapshots } from '../binder-snapshots';
@@ -190,15 +190,17 @@ export class ScenePane {
 
 		// when it happens in the story (the book itself doesn't: it is the whole of it)
 		if (!items.includes(binder.folder)) {
-			const stories = items.map((f) => readStory(plugin, this.noteOf(f))), said = stories.map((s) => (s.raw == null ? '' : text(s.raw))), agree = said.every((v) => v === said[0]);
+			const stories = items.map((f) => readStory(plugin, this.noteOf(f))), said = stories.map((s) => (s.raw == null ? '' : text(s.raw))), agree = said.every((v) => v === said[0]), cal = plugin.binders.calendarOf(binder);
+			// (in a book's own calendar a date is edited in the book's words too: "14 Frost 412", not 0412-10-14)
+			const editing = agree && cal !== GREGORIAN && stories[0].date ? showStoryDate(stories[0].date, cal) : agree ? said[0] : '';
 			const when = editable(this.row(rows, 'calendar', 'Story date'), {
 				// (shown in words; typed as it is written, so a time is never lost to editing)
-				cls: 'binders-inspector-value', value: agree ? (stories[0].date ? showStoryDate(stories[0].date) : said[0]) : '', editValue: agree ? said[0] : '', placeholder: agree ? 'No story date' : 'Mixed', singleLine: true, allowEmpty: true, readOnly: ro, focusable: true, label: 'Story date',
+				cls: 'binders-inspector-value', value: agree ? (stories[0].date ? showStoryDate(stories[0].date, cal) : said[0]) : '', editValue: editing, placeholder: agree ? 'No story date' : 'Mixed', singleLine: true, allowEmpty: true, readOnly: ro, focusable: true, label: 'Story date',
 				save: async (typed) => {
-					const why = whyNotStoryDate(typed);
+					const why = whyNotStoryDate(typed, cal);
 					if (why) throw new Error(why);
 					if (ro) throw new Error('This binder is read only.');
-					await setStoryDate(plugin, items, parseStoryDate(typed));
+					await setStoryDate(plugin, items, parseStoryDate(typed, cal));
 				},
 				onEditing: (on) => this.editing(on),
 			});

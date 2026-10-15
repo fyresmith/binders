@@ -94,6 +94,7 @@ test('the column shows a date in words and takes one typed in any shape; the fil
 	await p.sleep(250);
 	await type(p, EPILOGUE, '30 February 2001');
 	t.eq(await raw(p, EPILOGUE), keep, 'a day the month hasn’t got is refused too');
+	t.ok((await notices(p)).some((x) => x.includes('February has 28 days in 2001.')), 'saying why: ' + j(await notices(p)));
 	await p.key('Escape');
 	// nothing typed takes the property away, whole
 	await type(p, EPILOGUE, '');

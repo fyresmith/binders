@@ -11,7 +11,9 @@ const MAX_YEAR = 9999;
 
 /** The date a day number falls on in a calendar (the inverse of `toDay`). */
 function fromDay(cal: Calendar, day: number): { y: number; m: number; d: number } {
-	let y = Math.floor(day / 365.2425) + 1970;
+	// (a first guess from the calendar's own year, counted from its year 0, then put right: a book's own calendar counts
+	// its days from its year 0, the ordinary one from 1970)
+	let y = Math.floor((day - cal.toDay(0, 1, 1)) / cal.yearLength);
 	while (cal.toDay(y, 1, 1) > day) y--;
 	while (cal.toDay(y + 1, 1, 1) <= day) y++;
 	let m = 1;

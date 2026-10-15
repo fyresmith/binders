@@ -33,6 +33,31 @@ Anything you like: notes on the book, links, a to-do list.
 `inspector` is optional: the properties pinned to the [inspector](inspector.md#your-own-properties), by name, in order. A
 Binders that doesn't know it leaves it alone, and so do edits Binders doesn't understand in the list.
 
+`calendar` and `eras` are optional: the book's own [calendar](story-date.md#a-books-own-calendar), written so that you
+can read it:
+
+```yaml
+calendar:
+  months:
+    - Thaw: 30
+    - Midsummer: 1
+    - Frost: 30
+  leap:
+    - month: Midsummer
+      days: 1
+      every: 4
+eras:
+  - name: Before the Drowning
+    abbr: BD
+    counts: down
+  - name: The Age of Lamps
+    abbr: AL
+    from: 1
+```
+
+Without them a book's dates are in the ordinary calendar. A scene's `story-date` is written as always (`0802-11-14`),
+its month by its number in this list.
+
 Folders end in `/`. Notes are written without `.md`. The text under the properties is yours. It changes only
 through the editing and recovery actions described [below](#what-binders-writes-and-what-it-never-touches).
 
@@ -113,7 +138,7 @@ yet show after the others, by name. A new note is written into the list when som
 
 ## What Binders writes, and what it never touches
 
-- **In a binder note:** `binder`, `contents`, `inspector` (the properties you pin), and `synopsis`, `status`, `label`, `target` and `notes` for the binder
+- **In a binder note:** `binder`, `contents`, `inspector` (the properties you pin), `calendar` and `eras` (when you save the Calendar dialog), and `synopsis`, `status`, `label`, `target` and `notes` for the binder
   itself, and the book's details above. Binders makes the note when you make a binder.
 - **In a folder note:** `synopsis`, `status`, `label`, `target`, `notes`, `story-date`, `export` and `export-as`. It is made the
   first time you give a folder one of them.

@@ -20,8 +20,8 @@ Any of these sets it, for one note or for several selected together:
 
 Type it the way you would say it: `14 June 1987`, `June 14, 1987`, `June 1987`, `1987`, or in ISO shape,
 `1987-06-14`. A year before 0 takes a minus: `-30`. Typing nothing takes the date away, and the property with it.
-What isn't a date, or a day the month hasn't got (`30 February`), is refused with a notice, and what you typed stays in
-the field.
+What isn't a date, or a day the month hasn't got (`30 February`), is refused with a notice that says why, and what you
+typed stays in the field.
 
 A folder can have a date too, kept in its folder note. Without one, a folder shows its earliest note's date, faint,
 and sorts by it.
@@ -46,9 +46,46 @@ editing the cell shows the time, so it isn't lost.
 Scenes are ordered by date and time, then by a whole number in a second property, `story-order` (1 for the first),
 among scenes with exactly the same date and time. Scenes with no time come before timed scenes on that day;
 without a story order they stay in the binder's order. You can set `story-order` in Obsidian's Properties view.
-Binders takes it away when a scene's date changes. Dragging scenes to set their dates or story order is still planned.
+Binders takes it away when a scene's date changes. Dragging a scene on the timeline sets its date or its place in a day.
 
-The calendar is the ordinary (Gregorian) one.
+Without a calendar of its own (below), a book's dates are in the ordinary calendar.
+
+## A book's own calendar
+
+A book can have its own months, leap days and eras: **Calendar...** in the timeline's **More options**, or the command
+**Edit calendar...**. They are kept in the binder note (see [How your files look](files.md)), and every place that
+shows or takes a story date uses them: the outliner, the inspector, **Set story date...**, the timeline, **Shift
+story dates...** and filters.
+
+- **Start from** offers ready-made calendars: the ordinary one, twelve months of 30 days, thirteen moons of 28 days,
+  four seasons, and years only. Change the months from there: a name and a length each, moved by dragging the handle
+  at the row's start (or with its menu, or Alt+Up and Alt+Down in the name).
+- **Leap days**: "Add 1 day to Midsummer every 4 years, except every 100, unless every 400."
+- **Eras** each have a name, a short name ("AL" by default, from the name's initials) and the year they begin. Their
+  years count up from 1, or down to the next era, as BC does: an era that counts down can begin "from the start of
+  time".
+
+Type a date in the book's words: `14 Frost 802`, `Frost 802`, `802`, `14 Frost 12 LQ`, `LQ 12`, `30 BD`. It is
+written in the same shape as any story date, the year on the book's one count and the month as its number in the
+book's calendar:
+
+| You typed | In the note | Shown |
+|---|---|---|
+| `14 Frost 802` | `story-date: 0802-11-14` | 14 Frost 802 AL |
+| `14 Frost 12 LQ` | `story-date: 0814-11-14` | 14 Frost 12 LQ |
+| `Midsummer 802` | `story-date: 0802-07` | Midsummer 802 AL |
+| `30 BD` | `story-date: "-0029"` | 30 BD |
+
+So a renamed month or era, or an era that begins in another year, changes no note: it only changes how dates read.
+The dialog says, before anything is saved, how many dates would read differently and which notes would have a date
+the new calendar hasn't got (they keep their dates as written, and wait in the timeline's tray). When months are
+moved, **Move their dates with their months** (not ticked until you tick it) writes the dates in those months so they
+keep their months, in the same step: one **Undo** takes the calendar and the dates back together. Saving the
+calendar is one step for **Undo** too.
+
+A date that isn't in the calendar is refused, and the notice says why: "Frost has 30 days.", "This book's calendar has
+no month “Brumaire”.", "The Age of Lamps has 802 years: 900 AL isn't in it." In the ordinary calendar too: "February
+has 28 days in 2001."
 
 ## Dates that aren't dates
 

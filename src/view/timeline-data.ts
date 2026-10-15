@@ -41,24 +41,27 @@ export function span(d: StoryDate, cal: Calendar = GREGORIAN): [number, number] 
 }
 
 /** A year as it is written for a reader (a minus sign before year 0). */
-export const yearText = (y: number): string => (y < 0 ? `−${-y}` : String(y));
+export const yearText = (y: number, cal: Calendar = GREGORIAN): string => cal.yearName(y);
 
 /** A date in the ruler's words: "14 June", "June", "1987"; `short`: "14 Jun"; `year`: with its year ("14 June 1987").
     A date that is only a year is always its year. */
 export function dateText(d: StoryDate, opts: { short?: boolean; year?: boolean } = {}, cal: Calendar = GREGORIAN): string {
-	if (d.m == null) return yearText(d.y);
-	const name = cal.monthName(d.m), month = opts.short ? name.slice(0, 3) : name;
-	return [d.d == null ? '' : String(d.d), month, opts.year ? yearText(d.y) : ''].filter(Boolean).join(' ');
+	if (d.m == null) return yearText(d.y, cal);
+	// (a month of one day is its name alone; a short name is cut only where it saves something: "Midwinter", not "Mid")
+	const name = cal.monthName(d.m), month = opts.short && cal === GREGORIAN ? name.slice(0, 3) : name;
+	return [d.d == null || cal.single?.(d.m) ? '' : String(d.d), month, opts.year ? yearText(d.y, cal) : ''].filter(Boolean).join(' ');
 }
 
 /** How long a stretch was, in the largest unit that says it in a small number: "13 days", "6 months", "18 years". */
-export function gapText(days: number): string {
+export function gapText(days: number, cal: Calendar = GREGORIAN): string {
 	const say = (n: number, unit: string) => `${n} ${unit}${n === 1 ? '' : 's'}`;
-	if (days < 14) return say(days, 'day');
-	if (days < 60) return say(Math.round(days / 7), 'week');
-	const months = Math.round(days / 30.44);
-	if (months < 24 && months !== 12) return say(months, 'month');
-	return say(Math.round(days / 365.25), 'year');
+	// (a book's own calendar has no weeks to speak of, and maybe no months: days, then its months, then its years)
+	const own = cal !== GREGORIAN && cal.monthName(1) !== 'January', hasMonths = cal.monthsIn(0) > 1;
+	if (days < 14 || (own && days < 2 * cal.monthLength && hasMonths) || (own && !hasMonths && days < cal.yearLength)) return say(days, 'day');
+	if (!own && days < 60) return say(Math.round(days / 7), 'week');
+	const perYear = cal.monthsIn(0), months = Math.round(days / cal.monthLength);
+	if (hasMonths && months < 2 * perYear && months !== perYear) return say(months, 'month');
+	return say(Math.round(days / cal.yearLength), 'year');
 }
 
 export interface Group<T> {
@@ -217,7 +220,7 @@ export function whereAcross(plan: AcrossPlan, x: number, near: number): { group:
 export function dropTargets(before: StoryDate, after: StoryDate, cal: Calendar = GREGORIAN): { unit: 'y' | 'm' | 'd'; dates: StoryDate[] } {
 	const from = span(before, cal)[1], to = span(after, cal)[0], days = to - from - 1;
 	if (days <= 0) return { unit: 'd', dates: [] };
-	if (days >= 730) {
+	if (days >= 2 * cal.yearLength) {
 		const dates: StoryDate[] = [];
 		for (let y = before.y + 1; y < after.y; y++) dates.push({ y });
 		if (dates.length) return { unit: 'y', dates };
@@ -225,7 +228,7 @@ export function dropTargets(before: StoryDate, after: StoryDate, cal: Calendar =
 	// the month the earlier date ends in, and the one the later begins in
 	const b = { y: before.y, m: before.m ?? cal.monthsIn(before.y) }, a = { y: after.y, m: after.m ?? 1 };
 	const next = (at: { y: number; m: number }) => (at.m < cal.monthsIn(at.y) ? { y: at.y, m: at.m + 1 } : { y: at.y + 1, m: 1 });
-	if (days >= 60) {
+	if (days >= 2 * cal.monthLength && cal.monthsIn(before.y) > 1) {
 		const dates: StoryDate[] = [];
 		for (let at = next(b); at.y < a.y || (at.y === a.y && at.m < a.m); at = next(at)) dates.push(at);
 		if (dates.length) return { unit: 'm', dates };

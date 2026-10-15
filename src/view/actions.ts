@@ -3,7 +3,7 @@ import { exportAsItems } from './export-as';
 import { Menu, Notice, Platform, TFile, TFolder, setIcon, type TAbstractFile } from 'obsidian';
 import { datedNotes, readStory, setStoryDate, writeKeys } from './props';
 import { shiftDialog } from './shift-dates';
-import { parseStoryDate, whyNotStoryDate, type StoryDate } from '../time/date';
+import { GREGORIAN, exampleDates, parseStoryDate, showStoryDate, whyNotStoryDate, type StoryDate } from '../time/date';
 import { COMPILE_PROP, EXPORT_PROP, isExported, isNote, mergeScenes, saveOpen, synopsisFromText } from '../scenes';
 import { ExportModal } from './export';
 import { fitItemMenu, openPluginSettings, submenu, trashPhrase } from './internals';
@@ -202,10 +202,12 @@ export async function setStory(ctx: ModeContext, items: TAbstractFile[], value: 
 /** Asks for a story date for the items, in words or in ISO shape; nothing typed takes it away. */
 export async function askStoryDate(ctx: ModeContext, items: TAbstractFile[]): Promise<void> {
 	// (what they all have is in the field, as it is written; dates that differ leave it empty)
-	const was = items.map((f) => readStory(ctx.plugin, noteOf(ctx, f)).raw), mixed = was.some((v) => v !== was[0]), now = mixed || was[0] == null ? '' : typeof was[0] === 'string' || typeof was[0] === 'number' ? String(was[0]) : '';
-	const typed = await ask(ctx.app, { title: 'Story date', placeholder: '14 June 1987, June 1987 or 1987', cta: 'Set story date', value: now, allowEmpty: true, check: (v) => whyNotStoryDate(v) });
+	// (in a book's own calendar the field says it in the book's words, "14 Frost 412", not as it is written, 0412-10-14)
+	const cal = ctx.store.calendarOf(ctx.binder), stories = items.map((f) => readStory(ctx.plugin, noteOf(ctx, f))), was = stories.map((s) => s.raw), mixed = was.some((v) => v !== was[0]);
+	const now = mixed || was[0] == null ? '' : cal !== GREGORIAN && stories[0].date ? showStoryDate(stories[0].date, cal) : typeof was[0] === 'string' || typeof was[0] === 'number' ? String(was[0]) : '';
+	const typed = await ask(ctx.app, { title: 'Story date', placeholder: exampleDates(cal), cta: 'Set story date', value: now, allowEmpty: true, check: (v) => whyNotStoryDate(v, cal) });
 	if (typed == null || (mixed && !typed.trim())) return;
-	await setStory(ctx, items, parseStoryDate(typed));
+	await setStory(ctx, items, parseStoryDate(typed, cal));
 }
 
 /** What every mode shows for a folder with nothing to show: the same words, in the same place. */

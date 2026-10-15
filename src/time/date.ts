@@ -22,7 +22,23 @@ export interface Calendar {
 	monthName(m: number): string;
 	/** The day's number, counted from one fixed day, for a date that exists in this calendar. */
 	toDay(y: number, m: number, d: number): number;
+	/** How many days a year and a month have, on average: to say how long a stretch was. */
+	yearLength: number;
+	monthLength: number;
+	/** Is this month a single day (a festival: "Midwinter 412", not "1 Midwinter 412")? */
+	single?(m: number): boolean;
+	/** The book's eras, in order (none for most books). */
+	eras: readonly Era[];
+	/** A year as a reader is shown it: "1987", "−30", or in an era, "12 R". */
+	yearName(y: number): string;
+	/** The year on the book's count for a year typed with an era in it ("12 R"), and the text without it; null when the
+	    text names no era, NaN when it names a year the era hasn't got. */
+	yearFrom?(text: string): { y: number; rest: string; why?: string } | null;
 }
+
+/** A named stretch of the book's years: from its first year (null: from the start of time) to the next era's. Its years
+    count up from 1, or (`down`) down to 1 in its last year, as "BC" does. */
+export interface Era { name: string; abbr: string; from: number | null; down: boolean }
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const leap = (y: number): boolean => y % 4 === 0 && (y % 100 !== 0 || y % 400 === 0);
@@ -33,6 +49,10 @@ export const GREGORIAN: Calendar = {
 	monthsIn: () => 12,
 	daysIn: (y, m) => (m === 2 ? (leap(y) ? 29 : 28) : m === 4 || m === 6 || m === 9 || m === 11 ? 30 : 31),
 	monthName: (m) => MONTHS[m - 1] ?? '',
+	yearLength: 365.2425,
+	monthLength: 30.436875,
+	eras: [],
+	yearName: (y) => (y < 0 ? `−${-y}` : String(y)),
 	toDay(y, m, d) {
 		// (days from civil: the era is 400 years, which has a whole number of weeks)
 		const yy = m <= 2 ? y - 1 : y, era = Math.floor(yy / 400), yoe = yy - era * 400;
@@ -71,8 +91,9 @@ const num = (s: string | undefined): number | undefined => (s == null ? undefine
 
 /** A month named in a date in words: its whole name, or the start of it from three letters ("Sept"). */
 function monthNamed(word: string, y: number, cal: Calendar): number | null {
-	const w = word.toLowerCase().replace(/\.$/, '');
+	const w = word.toLowerCase().replace(/\.$/, '').trim();
 	if (w.length < 3) return null;
+	for (let m = 1; m <= cal.monthsIn(y); m++) if (cal.monthName(m).toLowerCase() === w) return m;
 	for (let m = 1; m <= cal.monthsIn(y); m++) if (cal.monthName(m).toLowerCase().startsWith(w)) return m;
 	return null;
 }
@@ -81,17 +102,21 @@ function monthNamed(word: string, y: number, cal: Calendar): number | null {
 function inWords(typed: string, cal: Calendar): StoryDate | null {
 	const t = typed.replace(/−/g, '-').replace(/,/g, ' ').replace(/\s+/g, ' ').trim();
 	const ord = '(?:st|nd|rd|th)?';
-	let m = new RegExp(`^(\\d{1,2})${ord} (?:of )?([A-Za-z]+\\.?) (-?\\d{1,4})$`, 'i').exec(t);
+	// (a month's name may be several words, and in any letters: "Long Night Moon", "Ærn")
+	let m = new RegExp(`^(\\d{1,2})${ord} (?:of )?(\\p{L}[\\p{L} .'’-]*?) (-?\\d{1,4})$`, 'iu').exec(t);
 	if (m) { const y = Number(m[3]), mo = monthNamed(m[2], y, cal); return mo ? make(y, mo, Number(m[1]), cal) : null; }
-	m = new RegExp(`^([A-Za-z]+\\.?) (\\d{1,2})${ord} (-?\\d{1,4})$`, 'i').exec(t);
+	m = new RegExp(`^(\\p{L}[\\p{L} .'’-]*?) (\\d{1,2})${ord} (-?\\d{1,4})$`, 'iu').exec(t);
 	if (m) { const y = Number(m[3]), mo = monthNamed(m[1], y, cal); return mo ? make(y, mo, Number(m[2]), cal) : null; }
-	m = /^([A-Za-z]+\.?) (-?\d{1,4})$/.exec(t);
+	m = /^(\p{L}[\p{L} .'’-]*?) (-?\d{1,4})$/u.exec(t);
 	if (m) { const y = Number(m[2]), mo = monthNamed(m[1], y, cal); return mo ? make(y, mo, undefined, cal) : null; }
 	return null;
 }
 
 /** A date from text, in ISO shape or in words; null for anything else. */
 export function parseStoryDate(text: string, cal: Calendar = GREGORIAN): StoryDate | null {
+	// (a year in an era, "14 Frost 12 R", is the book's year in place of the era's: "14 Frost 1210")
+	const era = cal.yearFrom?.(text.replace(/,/g, ' '));
+	if (era) return Number.isNaN(era.y) ? null : parseStoryDate(era.rest ? `${era.rest} ${era.y}` : String(era.y), { ...cal, yearFrom: undefined });
 	const t = text.replace(/−/g, '-').trim();
 	if (YEAR.test(t)) return make(Number(t), undefined, undefined, cal);
 	const iso = ISO.exec(t);
@@ -145,14 +170,52 @@ export function compareStoryDates(a: StoryDate, b: StoryDate, cal: Calendar = GR
 
 /** A date in words: "14 June 1987", "June 1987", "1987". A time isn't shown. */
 export function showStoryDate(d: StoryDate, cal: Calendar = GREGORIAN): string {
-	const year = d.y < 0 ? `−${-d.y}` : String(d.y);
-	return d.m == null ? year : d.d == null ? `${cal.monthName(d.m)} ${year}` : `${d.d} ${cal.monthName(d.m)} ${year}`;
+	const year = cal.yearName(d.y);
+	return d.m == null ? year : d.d == null || cal.single?.(d.m) ? `${cal.monthName(d.m)} ${year}` : `${d.d} ${cal.monthName(d.m)} ${year}`;
 }
 
-/** Why what's typed can't be a story date, in words for the writer; null if it can (or is empty, which takes the date
-    away). */
+/** What a writer is shown as an example of a date in this calendar, for a field's placeholder and a refusal. */
+export function exampleDates(cal: Calendar = GREGORIAN, y = 1987): string {
+	if (cal === GREGORIAN || (!cal.eras.length && cal.monthName(6) === 'June' && cal.monthsIn(y) === 12)) return '14 June 1987, June 1987 or 1987';
+	const at = cal.eras.length ? eraExample(cal) : y, month = cal.monthsIn(at) ? Math.min(cal.monthsIn(at), 3) : 0;
+	const year = cal.yearName(at);
+	if (!month) return year;
+	return `${Math.min(14, cal.daysIn(at, month))} ${cal.monthName(month)} ${year}, ${cal.monthName(month)} ${year} or ${year}`;
+}
+function eraExample(cal: Calendar): number { const e = cal.eras[cal.eras.length - 1]; return (e.from ?? 0) + 11; }
+
+/** Why what's typed can't be a story date, in words for the writer: what is wrong with it if that can be told (a day
+    the month hasn't got, a month the calendar hasn't got, a year an era hasn't got), and how a date is typed; null if
+    it is one (or is empty, which takes the date away). */
 export function whyNotStoryDate(typed: string, cal: Calendar = GREGORIAN): string | null {
-	return !typed.trim() || parseStoryDate(typed, cal) ? null : 'That isn’t a date. Try 14 June 1987, June 1987 or 1987.';
+	if (!typed.trim() || parseStoryDate(typed, cal)) return null;
+	const why = whatIsWrong(typed, cal);
+	return why ?? `That isn’t a date. Try ${exampleDates(cal)}.`;
+}
+
+/** What is wrong with a date that has a date's shape. */
+function whatIsWrong(typed: string, cal: Calendar): string | null {
+	const era = cal.yearFrom?.(typed.replace(/,/g, ' '));
+	if (era) return Number.isNaN(era.y) ? era.why ?? null : whatIsWrong(era.rest ? `${era.rest} ${era.y}` : String(era.y), { ...cal, yearFrom: undefined });
+	const own = cal !== GREGORIAN, months = cal.monthsIn(0);
+	const day = (y: number, m: number, d: number): string | null => {
+		if (d >= 1 && d <= cal.daysIn(y, m)) return null;
+		// (a month whose length changes with the year, February, says which year it means)
+		const n = cal.daysIn(y, m), varies = [-3, -2, -1, 1, 2, 3].some((k) => cal.daysIn(y + k, m) !== n);
+		return `${cal.monthName(m)} has ${n} ${n === 1 ? 'day' : 'days'}${varies ? ` in ${cal.yearName(y)}` : ''}.`;
+	};
+	const month = (m: number): string | null => (m >= 1 && m <= months ? null : !months ? 'This book’s calendar counts years only: type a year.' : `${own ? 'This book’s calendar' : 'A year'} has ${months} months.`);
+	const t = typed.replace(/−/g, '-').trim(), iso = ISO.exec(t);
+	if (iso) { const y = Number(iso[1]), m = num(iso[2]), d = num(iso[3]); return (m != null ? month(m) : null) ?? (m != null && d != null ? day(y, m, d) : null); }
+	const w = typed.replace(/−/g, '-').replace(/,/g, ' ').replace(/\s+/g, ' ').trim(), ord = '(?:st|nd|rd|th)?';
+	const named = (name: string, y: number): string | null => (monthNamed(name, y, cal) ? null : !months ? 'This book’s calendar counts years only: type a year.' : own ? `This book’s calendar has no month “${name}”.` : null);
+	let m = new RegExp(`^(\\d{1,2})${ord} (?:of )?(\\p{L}[\\p{L} .'’-]*?) (-?\\d{1,4})$`, 'iu').exec(w);
+	if (m) { const y = Number(m[3]), mo = monthNamed(m[2], y, cal); return mo ? day(y, mo, Number(m[1])) : named(m[2], y); }
+	m = new RegExp(`^(\\p{L}[\\p{L} .'’-]*?) (\\d{1,2})${ord} (-?\\d{1,4})$`, 'iu').exec(w);
+	if (m) { const y = Number(m[3]), mo = monthNamed(m[1], y, cal); return mo ? day(y, mo, Number(m[2])) : named(m[1], y); }
+	m = /^(\p{L}[\p{L} .'’-]*?) (-?\d{1,4})$/u.exec(w);
+	if (m) return named(m[1], Number(m[2]));
+	return null;
 }
 
 /** A scene's place among the scenes of its day, from `story-order`: a whole number, or text that is one. Anything else

@@ -143,7 +143,7 @@ export class OutlinerModel {
 			case 'created': return item instanceof TFile ? item.stat.ctime : null;
 			case 'modified': return item instanceof TFile ? item.stat.mtime : null;
 			// (a note that has none, or something that isn't a date, comes last whichever way the column runs)
-			case 'storydate': { const d = this.story(item).date; return d ? storyKey(d) : null; }
+			case 'storydate': { const d = this.story(item).date; return d ? storyKey(d, this.ctx.store.calendarOf(this.ctx.binder)) : null; }
 			case 'export': return isExported(this.ctx.plugin, item);
 			case 'revision': return this.revision(item) || null;
 			case 'role': return saidRole(this.played(item)).text;
@@ -161,7 +161,7 @@ export class OutlinerModel {
 			case 'progress': return [this.words(item), this.target(item).n];
 			case 'created': return item instanceof TFile ? item.stat.ctime : null;
 			case 'modified': return item instanceof TFile ? item.stat.mtime : null;
-			case 'storydate': { const s = this.story(item); return [s.raw ?? null, s.own, s.date ? storyKey(s.date) : null]; }
+			case 'storydate': { const s = this.story(item); return [s.raw ?? null, s.own, s.date ? storyKey(s.date, this.ctx.store.calendarOf(this.ctx.binder)) : null]; }
 			case 'export': return [isExported(this.ctx.plugin, item), this.leftOut(item)];
 			case 'revision': return this.revision(item);
 			case 'role': { const p = this.played(item); return p ? `${p.role}|${p.said ?? ''}` : null; }

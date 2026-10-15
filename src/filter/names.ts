@@ -1,10 +1,12 @@
+import type { Calendar } from '../time/date';
 /* What a value names: the link identity rule, in one small pure place (the filter and the inspector both use it).
    A link names the note it points at, whatever it shows (`[[Harrow|the keeper]]` is `[[Harrow]]`); plain `Mara` is the same
    name as `[[Mara]]`, in any case and either Unicode form; links to two different notes that are both named Mara are two
    people. `Env.resolve` is the vault's answer to "which note does this link point at" (its path, or null). */
 
 /** What the vault knows that the conditions can't: the note a link names (its path), or null if it names none. */
-export interface Env { resolve(link: string): string | null }
+/** What matching needs from where it runs: how a link resolves, and the calendar the binder's story dates are in. */
+export interface Env { resolve(link: string): string | null; cal?: Calendar }
 
 /** Text as it is compared: trimmed, in one Unicode form, without case. */
 export const fold = (s: string): string => s.normalize('NFC').trim().toLowerCase();

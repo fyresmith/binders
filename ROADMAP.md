@@ -154,7 +154,7 @@ and edited without Binders, a new scene keeps the template's text and types, and
 
 - [x] Drag a scene to set its story date, and within a date to set story order, as one undo step. A drop changes
       story time, never manuscript order. Gaps unfold to let the writer choose days, months or years.
-- [ ] Support a book's own calendar and eras, using the calendar work from
+- [x] Support a book's own calendar and eras, using the calendar work from
       [Evra Timelines](https://github.com/fyresmith/evra), in Binders' own cards, menus and history.
 
 Keep the decisions of 2026-10-10: one line of time, room for the cards, long empty stretches drawn short, no zoom,

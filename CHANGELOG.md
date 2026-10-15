@@ -8,6 +8,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 
 - The outliner's last row stays in sight and can summarize each column (sum, average, median, range, earliest, latest, or each value with its notes and words; choosing a value shows those notes), and a new Revision column counts each scene's unfinished revision tasks.
 - Import a manuscript reads OpenDocument (.odt, .ott, .fodt) and rich text (.rtf) files, from LibreOffice, Word, TextEdit and Scrivener, with the same preview and choices as a Word file.
+- A book can have its own calendar: months of any names and lengths, leap days, and eras that count up or down. Set it with "Calendar..." on the timeline or the "Edit calendar..." command. Story dates are typed, shown, sorted, filtered, shifted and dragged in it everywhere, and changing it rewrites no note unless you ask.
 
 ### Changed
 
@@ -17,6 +18,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 
 - Hidden text in a Word file is no longer brought in as ordinary text: it is left out, and the import says how many places had it.
 - A Word file's continuous section breaks no longer start a page, and a section break on an empty line of its own (as LibreOffice writes one) is no longer taken for a scene break.
+- A story date that isn't in the calendar is refused with the reason ("February has 28 days in 2001.").
 
 ## 0.52.0 (2026-10-12)
 

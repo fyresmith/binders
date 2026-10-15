@@ -7,8 +7,10 @@ import { cardsDrawer } from './menu-groups';
 import { paintLabel } from './labels';
 import { CARD_SIZES, readSize, type CardSize } from './lanes-data';
 import { ask } from './modals';
+import { eraOf } from '../time/calendar';
+import { CalendarModal } from './calendar-modal';
 import { readStory, setStoryPlaces, type StoryWrite } from './props';
-import { parseStoryDate, showStoryDate, whyNotStoryDate, writeStoryDate, type StoryDate, type StoryPlace } from '../time/date';
+import { GREGORIAN, exampleDates, parseStoryDate, showStoryDate, whyNotStoryDate, writeStoryDate, type Calendar, type StoryDate, type StoryPlace } from '../time/date';
 import { TIMELINE_SHAPES, columnsFor, dateKey, dateText, dropWords, gapText, planAcross, planDrop, readShape, slotAt, timeline, unfoldTargets, whereAcross, yearText, yearsOf, type AcrossPlan, type Group, type Shape } from './timeline-data';
 import { watchSize } from './windows';
 import type { BinderMode, ModeContext, ModeFactory } from './mode';
@@ -42,7 +44,9 @@ const NARROW = 520;
 const CARD = '.binders-card[data-path]';
 /** In pixels: between two cards; (time across) a card's stem, the dates' strip under the line, a stem's and a date's
     place in from a card's edge, a shortened stretch, the years' strip over the cards. */
-const BETWEEN = 12, STEM = 14, RULER = 26, INSET = 12, GAP = 84, YEARS = 24;
+/** What the years before a book's first era are headed (an era that counts up has no year to give them). */
+const BEFORE_ERAS = 'Before the first era';
+const BETWEEN = 12, STEM = 14, RULER = 26, INSET = 12, GAP = 84, YEARS = 24, ERAS = 24;
 /** How far past what is in sight cards are kept, in screens: with it, about a screen and a half each way from the
     middle of the pane. (Less than one: the view's find bar marks the cards within a screen of what is in sight, and
     takes it that every card it is given is.) */
@@ -108,6 +112,8 @@ const CHIP_W = 76, CHIP_H = 28, CHIP_GAP = 6, MOST_ROWS = 6;
 export const timelineMode: ModeFactory = (container, ctx) => new Timeline(container, ctx);
 
 class Timeline implements BinderMode {
+	/** The calendar this binder's dates are in. */
+	private get cal(): Calendar { return this.ctx.store.calendarOf(this.ctx.binder); }
 	readonly filters = true;
 	private board: HTMLElement;
 	private line: HTMLElement;
@@ -151,6 +157,7 @@ class Timeline implements BinderMode {
 	private pressed: string | null = null;
 	private raf = 0;
 	private cleanup: (() => void)[] = [];
+	private problemEl: HTMLElement | null = null;
 
 	constructor(private container: HTMLElement, private ctx: ModeContext) {}
 
@@ -160,6 +167,12 @@ class Timeline implements BinderMode {
 	private get size(): CardSize { return readSize(this.ctx.option<unknown>('cardSize', null), this.narrow ? 'small' : 'medium'); }
 	private get tint(): boolean { return this.ctx.option<unknown>('labelStyle', 'tint') !== 'stripe'; }
 	/** Is the tray of scenes without a date open? (Shut on a phone until asked for: it lies over the foot of the page.) */
+	/** The era each date is in, by its index among the book's eras (-1: in none). */
+	private eraIndex(g: Group<TFile>): number { return eraOf(this.cal.eras, g.date.y)?.index ?? -1; }
+	/** Does the page show eras (the book has some, and a date is in one)? */
+	private get hasEras(): boolean { return this.cal.eras.length > 0 && this.groups.some((g) => this.eraIndex(g) >= 0); }
+	/** Time across: how far down the years' strip is (under the eras' strip, when there is one). */
+	private get yearsTop(): number { return this.hasEras ? YEARS + ERAS : YEARS; }
 	private get trayOpen(): boolean { return this.ctx.option<unknown>('timelineTray', !this.narrow) === true; }
 	/** How the page is laid out: across; or down, with the dates in a strip beside the cards or (a phone) over them. */
 	private get layout(): 'across' | 'strip' | 'heads' { return this.narrow ? 'heads' : this.shape === 'across' ? 'across' : 'strip'; }
@@ -365,6 +378,8 @@ class Timeline implements BinderMode {
 		cardsDrawer(menu, this.size, (size) => this.set('cardSize', size), [
 			{ title: 'Tint cards with their label color', icon: 'paint-bucket', on: this.tint, flip: () => this.set('labelStyle', this.tint ? 'stripe' : 'tint') },
 		]);
+		// the book's own calendar and its eras (a Longform project keeps no calendar)
+		if (this.ctx.binder.kind === 'binder') menu.addItem((i) => i.setSection('view').setTitle('Calendar...').setIcon('calendar-range').onClick(() => new CalendarModal(this.ctx.plugin, this.ctx.binder).open()));
 	}
 
 	newMenu(menu: Menu): void {
@@ -383,9 +398,15 @@ class Timeline implements BinderMode {
 	}
 
 	/** Everything a redraw would show, so a refresh that changes nothing visible draws nothing. */
+	/** The binder note's calendar and eras as they stand: another calendar is another drawing. */
+	private calendarKey(): unknown {
+		const fm = this.ctx.binder.kind === 'binder' ? this.ctx.app.metadataCache.getFileCache(this.ctx.binder.note)?.frontmatter : undefined;
+		return [fm?.calendar ?? null, fm?.eras ?? null];
+	}
+
 	private signature(): string {
 		const s = this.ctx.plugin.settings;
-		return JSON.stringify([this.ctx.readOnly, s.labels, s.storyDateProp, s.storyOrderProp, this.tint, this.layout, this.size, this.trayOpen, this.ctx.filtering(),
+		return JSON.stringify([this.ctx.readOnly, s.labels, s.storyDateProp, s.storyOrderProp, this.tint, this.layout, this.size, this.trayOpen, this.ctx.filtering(), this.calendarKey(),
 			this.scenes().map((f) => { const st = readStory(this.ctx.plugin, f); return [cardKey(this.ctx, f), st.raw, st.order]; })]);
 	}
 
@@ -423,7 +444,7 @@ class Timeline implements BinderMode {
 		this.board.addClass('mod-numbers');
 
 		const scenes = this.scenes(), places = new Map(scenes.map((f) => [f, this.placeOf(f)]));
-		const { groups, undated } = timeline(scenes, (f) => places.get(f) ?? null);
+		const { groups, undated } = timeline(scenes, (f) => places.get(f) ?? null, this.cal);
 		this.groups = groups;
 		this.undated = undated;
 		// (the book's numbers, not the count of those that show: under a filter a scene keeps its place in the manuscript)
@@ -451,6 +472,12 @@ class Timeline implements BinderMode {
 		this.drawTray();
 		this.layOut();
 
+		// a calendar the binder note has and Binders can't read: said over the board, and no date is written (props.ts)
+		const problem = this.store.calendarProblem(this.ctx.binder);
+		this.problemEl?.remove();
+		this.problemEl = problem ? createDiv({ cls: 'binders-timeline-problem', text: problem, attr: { role: 'status' } }) : null;
+		if (this.problemEl) this.container.insertBefore(this.problemEl, this.board);
+
 		// nothing to show: the same words every mode has for that
 		this.emptyEl?.remove();
 		this.emptyEl = scenes.length ? null : emptyState(this.ctx, this.container);
@@ -468,24 +495,24 @@ class Timeline implements BinderMode {
 	}
 
 	/** What a date is called aloud, and after a stretch drawn short, how long that was. */
-	private said(g: Group<TFile>): string { return showStoryDate(g.date) + (g.gap == null ? '' : `, ${gapText(g.gap)} after the date before`); }
+	private said(g: Group<TFile>): string { return showStoryDate(g.date, this.cal) + (g.gap == null ? '' : `, ${gapText(g.gap, this.cal)} after the date before`); }
 
 	/** A stretch drawn short: a break in the line that says how long it was. (Said aloud with the date after it.) */
 	private gap(into: HTMLElement, g: Group<TFile>, before: Group<TFile>, index: number): HTMLElement {
 		// (carried over, it unfolds into the dates in it: the two dates it says here, and its place among the dates)
 		const br = into.createDiv({ cls: 'binders-timeline-gap', attr: { 'aria-hidden': 'true', 'data-after': String(writeStoryDate(before.date)), 'data-before': String(writeStoryDate(g.date)), 'data-index': String(index) } });
-		br.createSpan({ cls: 'binders-timeline-gap-text', text: gapText(g.gap ?? 0) });
+		br.createSpan({ cls: 'binders-timeline-gap-text', text: gapText(g.gap ?? 0, this.cal) });
 		return br;
 	}
 
 	/** The dates a stretch is unfolded into while cards are carried over it: one place to drop on for each, in time's
 	    order. `rows`: how many to a column (time across), which says how wide the room is. */
 	private unfold(into: HTMLElement, gi: number, across = false): HTMLElement {
-		const groups = this.groups, t = unfoldTargets(groups[gi - 1].date, groups[gi].date), rows = across ? this.unfoldRows(gi) : 0;
+		const groups = this.groups, t = unfoldTargets(groups[gi - 1].date, groups[gi].date, this.cal), rows = across ? this.unfoldRows(gi) : 0;
 		const el = into.createDiv({ cls: 'binders-timeline-unfold', attr: { 'aria-hidden': 'true', 'data-index': String(gi) } });
 		for (const date of t.dates) {
 			// (a day says its day and month; a month its month and year; a year its year)
-			const text = t.unit === 'd' ? dateText(date, { short: true }) : t.unit === 'm' ? dateText(date, { short: true, year: true }) : yearText(date.y);
+			const text = t.unit === 'd' ? dateText(date, { short: true }, this.cal) : t.unit === 'm' ? dateText(date, { short: true, year: true }, this.cal) : yearText(date.y, this.cal);
 			el.createDiv({ cls: 'binders-timeline-target', text, attr: { 'data-date': String(writeStoryDate(date)) } });
 		}
 		if (rows) el.setCssProps({ '--binders-unfold-rows': String(rows), '--binders-unfold-cols': String(Math.ceil(t.dates.length / rows)) });
@@ -493,15 +520,15 @@ class Timeline implements BinderMode {
 	}
 
 	/** Time across: how many targets stand in a column of the unfolded stretch, and (below) how wide that makes it. */
-	private unfoldRows(gi: number): number { return Math.min(MOST_ROWS, unfoldTargets(this.groups[gi - 1].date, this.groups[gi].date).dates.length); }
+	private unfoldRows(gi: number): number { return Math.min(MOST_ROWS, unfoldTargets(this.groups[gi - 1].date, this.groups[gi].date, this.cal).dates.length); }
 	private unfoldWidth(gi: number): number {
-		const n = unfoldTargets(this.groups[gi - 1].date, this.groups[gi].date).dates.length, cols = Math.ceil(n / Math.max(1, this.unfoldRows(gi)));
+		const n = unfoldTargets(this.groups[gi - 1].date, this.groups[gi].date, this.cal).dates.length, cols = Math.ceil(n / Math.max(1, this.unfoldRows(gi)));
 		return cols * CHIP_W + Math.max(0, cols - 1) * CHIP_GAP + 2 * CHIP_GAP;
 	}
 
 	/** Is there anything between the dates before and at `gi` to drop on (are they more than a day apart)? */
 	private roomBetween(gi: number): boolean {
-		return gi > 0 && gi < this.groups.length && unfoldTargets(this.groups[gi - 1].date, this.groups[gi].date).dates.length > 0;
+		return gi > 0 && gi < this.groups.length && unfoldTargets(this.groups[gi - 1].date, this.groups[gi].date, this.cal).dates.length > 0;
 	}
 
 	/** Time across: the line through the middle with the dates on it, each card on a short stem above or below; the
@@ -509,7 +536,7 @@ class Timeline implements BinderMode {
 	private drawAcross(): void {
 		const groups = this.groups, w = this.css('--binders-card-width', 210), h = this.css('--binders-card-height', 150);
 		const open = this.opening, plan = this.plan = planAcross(groups.map((g) => g.items.length), groups.map((g) => g.gap != null), w, BETWEEN, GAP, open != null ? { before: open, width: this.unfoldWidth(open) } : undefined);
-		const y = YEARS + h + STEM; // the line
+		const y = this.yearsTop + h + STEM; // the line
 		const el = this.line, hidden = { 'aria-hidden': 'true' };
 		el.setCssProps({ width: `${plan.width}px`, height: `${y + 2 + RULER + h}px`, '--binders-timeline-y': `${y}px` });
 		// the line, in the stretches that are drawn as they are; each shortened stretch is a break in it
@@ -527,15 +554,28 @@ class Timeline implements BinderMode {
 		if (plan.opening) this.unfold(el, plan.opening.before, true).setCssProps({ left: `${plan.opening.x}px`, width: `${plan.opening.width}px`, top: `${y - this.unfoldRows(plan.opening.before) * (CHIP_H + CHIP_GAP) / 2}px` });
 		// the years: each from its first date to the next year's (or to the break before it)
 		const years = yearsOf(groups);
+		el.toggleClass('has-eras', this.hasEras);
+		if (this.hasEras) {
+			// the eras, over the years: each from its first date to the next era's
+			const starts = groups.map((g, gi) => gi).filter((gi) => gi === 0 || this.eraIndex(groups[gi]) !== this.eraIndex(groups[gi - 1]));
+			starts.forEach((from, k) => {
+				const e = this.cal.eras[this.eraIndex(groups[from])], next = starts[k + 1];
+				const x = plan.groups[from].x, to = next != null ? (gapAt.get(next) ?? plan.groups[next].x) - BETWEEN : plan.width;
+				const span = el.createDiv({ cls: 'binders-timeline-eraspan', attr: hidden });
+				span.setCssProps({ left: `${x}px`, width: `${Math.max(0, to - x)}px` });
+				span.createSpan({ cls: 'binders-timeline-eraname', text: e ? e.name : BEFORE_ERAS });
+			});
+		}
 		years.forEach((year, i) => {
 			const next = years[i + 1], to = next ? (gapAt.get(next.from) ?? plan.groups[next.from].x) - BETWEEN : plan.width;
 			const span = el.createDiv({ cls: 'binders-timeline-yearspan', attr: hidden });
+			if (this.hasEras) span.setCssProps({ top: `${ERAS}px` });
 			span.setCssProps({ left: `${plan.groups[year.from].x}px`, width: `${Math.max(0, to - plan.groups[year.from].x)}px` });
-			span.createSpan({ cls: 'binders-timeline-yearname', text: yearText(year.y) });
+			span.createSpan({ cls: 'binders-timeline-yearname', text: this.yearLabel(year.y) });
 		});
 		groups.forEach((g, gi) => {
 			const at = plan.groups[gi];
-			el.createDiv({ cls: 'binders-timeline-date', text: dateText(g.date, { short: true }), attr: hidden }).setCssProps({ left: `${at.x + INSET}px` });
+			el.createDiv({ cls: 'binders-timeline-date', text: dateText(g.date, { short: true }, this.cal), attr: hidden }).setCssProps({ left: `${at.x + INSET}px` });
 			// (a date with several scenes: its mark runs along the line as far as its last card begins)
 			if (at.to > at.x) el.createDiv({ cls: 'binders-timeline-span', attr: hidden }).setCssProps({ left: `${at.x + INSET}px`, width: `${at.to - at.x}px` });
 			for (const p of plan.cards[gi]) el.createDiv({ cls: `binders-timeline-stem mod-${p.side}`, attr: hidden }).setCssProps({ left: `${p.x + INSET}px` });
@@ -548,22 +588,39 @@ class Timeline implements BinderMode {
 	/** Time down: each year a heading that stays in sight while its dates scroll; each date a row, its name beside the
 	    line (or over its cards) and its cards in rows after it. */
 	private drawDown(): void {
-		let year: HTMLElement = this.line;
+		let year: HTMLElement = this.line, era: HTMLElement = this.line;
+		const eras = this.hasEras;
+		this.line.toggleClass('has-eras', eras);
 		this.groups.forEach((g, gi) => {
-			if (g.newYear) {
+			const newEra = eras && (gi === 0 || this.eraIndex(g) !== this.eraIndex(this.groups[gi - 1])), e = this.cal.eras[this.eraIndex(g)];
+			if (newEra) {
 				if (g.gap != null) this.gap(this.line, g, this.groups[gi - 1], gi);
 				if (this.opening === gi) this.unfold(this.line, gi);
-				year = this.line.createDiv({ cls: 'binders-timeline-yeargroup' });
-				year.createDiv({ cls: 'binders-timeline-yearhead', attr: { 'aria-hidden': 'true' } }).createSpan({ cls: 'binders-timeline-yearname', text: yearText(g.date.y) });
+				// (an era is a heading over its years, and stays in sight while they scroll, as a year does over its dates)
+				era = this.line.createDiv({ cls: 'binders-timeline-eragroup' });
+				const head = era.createDiv({ cls: 'binders-timeline-erahead', attr: { 'aria-hidden': 'true' } });
+				head.createSpan({ cls: 'binders-timeline-eraname', text: e ? e.name : BEFORE_ERAS });
+			}
+			if (g.newYear) {
+				if (!newEra && g.gap != null) this.gap(era, g, this.groups[gi - 1], gi);
+				if (!newEra && this.opening === gi) this.unfold(era, gi);
+				year = era.createDiv({ cls: 'binders-timeline-yeargroup' });
+				year.createDiv({ cls: 'binders-timeline-yearhead', attr: { 'aria-hidden': 'true' } }).createSpan({ cls: 'binders-timeline-yearname', text: this.yearLabel(g.date.y) });
 			} else {
 				if (g.gap != null) this.gap(year, g, this.groups[gi - 1], gi);
 				if (this.opening === gi) this.unfold(year, gi);
 			}
 			const row = year.createDiv({ cls: 'binders-timeline-group', attr: { role: 'group', 'aria-label': this.said(g), 'data-date': String(writeStoryDate(g.date)) } });
 			// (the year is over it: a date says its day and month, and a date that is only a year says so)
-			row.createDiv({ cls: 'binders-timeline-date', text: g.date.m == null ? `In ${yearText(g.date.y)}` : dateText(g.date), attr: { 'aria-hidden': 'true' } });
+			row.createDiv({ cls: 'binders-timeline-date', text: g.date.m == null ? `In ${yearText(g.date.y, this.cal)}` : dateText(g.date, {}, this.cal), attr: { 'aria-hidden': 'true' } });
 			this.rows.push({ el: row.createDiv({ cls: 'binders-timeline-cards' }), box: row, items: g.items, date: g.date });
 		});
+	}
+
+	/** A year's heading: under an era's heading, the era's year alone ("12"); otherwise as dates say it ("12 R"). */
+	private yearLabel(y: number): string {
+		if (this.hasEras) { const e = eraOf(this.cal.eras, y); if (e) return String(e.n); }
+		return yearText(y, this.cal);
 	}
 
 	/** No scene has a date yet: the line with nothing on it, and what to do about that. The scenes are all in the tray,
@@ -607,9 +664,9 @@ class Timeline implements BinderMode {
 			spots.set(file.path, { file, n: this.numbers.get(file.path) ?? 0, pos: ++pos, of, date, parent, tray, side: at.side ?? '', ...at });
 		};
 		if (this.plan) {
-			const y = YEARS + h + STEM;
+			const y = this.yearsTop + h + STEM;
 			this.rows.forEach((row, gi) => row.items.forEach((f, i) => {
-				const p = (this.plan).cards[gi][i], top = p.side === 'above' ? YEARS : y + 2 + RULER;
+				const p = (this.plan).cards[gi][i], top = p.side === 'above' ? this.yearsTop : y + 2 + RULER;
 				put(f, row.date, row.el, false, dated, { x: p.x, y: top, ax: p.x, ay: top, w, h, side: p.side });
 			}));
 		} else if (this.rows.length) {
@@ -688,7 +745,7 @@ class Timeline implements BinderMode {
 			const { el, editors } = buildCard(this.host, s.file);
 			el.querySelector(':scope > .binders-card-head > .binders-card-number')?.setText(String(s.n));
 			// (its date and its number are part of its name here: where it stands is what this board is about)
-			el.setAttr('aria-label', `${s.file.basename}, ${s.date ? showStoryDate(s.date) : 'no date'}, scene ${s.n}`);
+			el.setAttr('aria-label', `${s.file.basename}, ${s.date ? showStoryDate(s.date, this.cal) : 'no date'}, scene ${s.n}`);
 			d = { el, key, editors };
 			this.cards.set(path, d);
 			if (had) window.setTimeout(() => { if (this.cards.get(path)?.el === el && !typingNow(el.doc)) el.focus({ preventScroll: true }); }, 0);
@@ -935,7 +992,7 @@ class Timeline implements BinderMode {
 		if (!c || !overPane(this.container, x, y)) return null;
 		const el = this.board.doc.elementFromPoint(x, y), inside = (r: DOMRect) => x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
 		const target = el?.closest<HTMLElement>('.binders-timeline-target');
-		if (target) { const date = parseStoryDate(target.dataset.date ?? ''); return date ? { kind: 'target', date, el: target } : null; }
+		if (target) { const date = parseStoryDate(target.dataset.date ?? '', this.cal); return date ? { kind: 'target', date, el: target } : null; }
 		const unfold = el?.closest<HTMLElement>('.binders-timeline-unfold');
 		if (unfold) return { kind: 'open', i: Number(unfold.dataset.index) };
 		if (el?.closest('.binders-timeline-none')) return { kind: 'bare' };
@@ -1024,7 +1081,7 @@ class Timeline implements BinderMode {
 			case 'tray': return { kind: 'tray' };
 			case 'target': return { kind: 'date', date: where.date, at: 0, row: where.el };
 			case 'group': return { kind: 'date', date: groups[where.i].date, at: this.slot(where.i, c.x, c.y), row: this.rows[where.i]?.box };
-			case 'edge': { const near = groups[where.i === 0 ? 0 : groups.length - 1].date; return { kind: 'ask', near, words: `${where.i === 0 ? 'Before' : 'After'} ${showStoryDate(near)}...` }; }
+			case 'edge': { const near = groups[where.i === 0 ? 0 : groups.length - 1].date; return { kind: 'ask', near, words: `${where.i === 0 ? 'Before' : 'After'} ${showStoryDate(near, this.cal)}...` }; }
 			case 'bare': return { kind: 'ask', near: null, words: 'Set story date...' };
 			default: return null; // (a boundary that isn't unfolded yet: nothing to drop on)
 		}
@@ -1048,7 +1105,7 @@ class Timeline implements BinderMode {
 
 	/** What cards put at `at` among a date's others write, and how the day stands after. */
 	private planFor(date: StoryDate, at: number, files: readonly TFile[]) {
-		return planDrop({ target: date, rest: this.restOf(date, files), moved: files.map((f) => ({ item: f, place: this.placeOf(f) })), at, manuscript: (f) => this.numbers.get(f.path) ?? 0 });
+		return planDrop({ target: date, rest: this.restOf(date, files), moved: files.map((f) => ({ item: f, place: this.placeOf(f) })), at, manuscript: (f) => this.numbers.get(f.path) ?? 0, cal: this.cal });
 	}
 
 	/** Lights what a drop would land on, and says in the tag by the card what it would do. */
@@ -1061,7 +1118,7 @@ class Timeline implements BinderMode {
 		c.mark.removeClass('is-active');
 		if (drop?.kind === 'date') {
 			const rest = this.restOf(drop.date, c.files), plan = this.planFor(drop.date, drop.at, c.files);
-			words = rest.length ? dropWords(drop.date, plan.place, rest.length + c.files.length, plan.held.length > 0) : dropWords(drop.date, 0, 0, plan.held.length > 0);
+			words = rest.length ? dropWords(drop.date, plan.place, rest.length + c.files.length, plan.held.length > 0, this.cal) : dropWords(drop.date, 0, 0, plan.held.length > 0, this.cal);
 			// (cards from another date stand where the day's order puts them; only within a day is a place chosen)
 			const key = dateKey(drop.date);
 			if (rest.length && c.files.every((f) => { const pl = this.placeOf(f); return !!pl && dateKey(pl.date) === key; })) this.markAt(drop.at, rest.map((r) => r.item));
@@ -1134,8 +1191,8 @@ class Timeline implements BinderMode {
 				const changes: StoryWrite[] = [...plan.writes].filter(([f]) => this.ctx.app.vault.getAbstractFileByPath(f.path) === f).map(([file, w]) => ({ file, date: w.date, order: w.order }));
 				if (changes.length) await setStoryPlaces(this.ctx.plugin, changes, changes.some((w) => w.date) ? `Set story date of ${subject}` : `Reorder ${subject} in its day`);
 			} else {
-				const typed = await ask(this.ctx.app, { title: 'Story date', placeholder: '14 June 1987, June 1987 or 1987', cta: 'Set story date', value: to.near ? String(writeStoryDate(to.near)) : '', check: (v) => whyNotStoryDate(v) });
-				const date = typed ? parseStoryDate(typed) : null;
+				const typed = await ask(this.ctx.app, { title: 'Story date', placeholder: exampleDates(this.cal), cta: 'Set story date', value: to.near ? (this.cal === GREGORIAN ? String(writeStoryDate(to.near)) : showStoryDate(to.near, this.cal)) : '', check: (v) => whyNotStoryDate(v, this.cal) });
+				const date = typed ? parseStoryDate(typed, this.cal) : null;
 				if (date) await setStory(this.ctx, files, date);
 			}
 		} catch (e) { new Notice(plain(e)); }
@@ -1152,7 +1209,7 @@ class Timeline implements BinderMode {
 			// the dates in time's order, those that have scenes and those in the stretches between them
 			const stops: { date: StoryDate; group: number | null }[] = [];
 			groups.forEach((g, i) => {
-				if (i) for (const date of unfoldTargets(groups[i - 1].date, g.date).dates) stops.push({ date, group: null });
+				if (i) for (const date of unfoldTargets(groups[i - 1].date, g.date, this.cal).dates) stops.push({ date, group: null });
 				stops.push({ date: g.date, group: i });
 			});
 			const here = stops.findIndex((s) => s.group === at), to = stops[here + (back ? -1 : 1)];

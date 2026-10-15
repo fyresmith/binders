@@ -137,7 +137,7 @@ the graph or in the tag list. See [Paragraphs](paragraphs.md).
 
 - Dates can be set through a card's menu, the outliner or the inspector. Cards can't yet be dragged to set dates,
   or dragged out of the timeline as files.
-- The calendar is Gregorian. There are no custom calendars, eras or zoom controls yet.
+- A book's own calendar has no weekdays, and an era begins with a year, not on a day. There are no zoom controls.
 
 See [Timeline](timeline.md).
 

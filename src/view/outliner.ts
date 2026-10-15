@@ -12,7 +12,7 @@ import type { BinderMode, ModeContext, ModeFactory, SceneProps } from './mode';
 import { OutlinerColumns, showUnder } from './outliner-columns';
 import { watchSize } from './windows';
 import { setStoryDate } from './props';
-import { parseStoryDate, readStoryDate, showStoryDate, whyNotStoryDate } from '../time/date';
+import { GREGORIAN, parseStoryDate, readStoryDate, showStoryDate, whyNotStoryDate } from '../time/date';
 import { TITLE, addWords, builtIn, columnName, columnWidth, parseTarget, progress, propOf, readColumns, readSort, text, whyNotTarget, type ColumnSpec, type Sort } from './outliner-data';
 import { checkSummary, countSummary, dateSummary, keepAs, numberSummary, offered, summaryOf, type SumKind, type Tally, type Tallied } from './outliner-summary';
 import { boolOf, daysOf, isEmpty, numberOf, type Condition } from '../filter/conditions';
@@ -352,6 +352,18 @@ class Outliner implements BinderMode {
 	private widthOf(c: ColumnSpec): number {
 		if (this.compact(c)) return 44;
 		if (c.width == null && Platform.isPhone && this.root.clientWidth < 520) { if (c.id === 'status') return 88; if (c.id === 'words') return Math.max(64, Math.ceil(parseFloat(getComputedStyle(this.root).fontSize) * 4.5)); }
+		// (a book's own calendar may have long month names and an era after the year: the column is as wide as its longest
+		// date, "30 Deepnight 802 AL", up to twice the ordinary width; a width the writer set is theirs)
+		if (c.width == null && c.id === 'storydate') {
+			const cal = this.ctx.store.calendarOf(this.ctx.binder);
+			if (cal !== GREGORIAN) {
+				let longest = 4;
+				for (let m = 1; m <= cal.monthsIn(0); m++) longest = Math.max(longest, cal.monthName(m).length + 3);
+				const year = Math.max(4, ...cal.eras.map((e) => `9999 ${e.abbr}`.length));
+				const em = parseFloat(getComputedStyle(this.root).fontSize) || 16;
+				return Math.min(2 * columnWidth(c), Math.max(columnWidth(c), Math.ceil((longest + 1 + year) * em * 0.56 + 24)));
+			}
+		}
 		return columnWidth(c);
 	}
 
@@ -553,18 +565,18 @@ class Outliner implements BinderMode {
 				return null;
 			}
 			case 'storydate': {
-				const s = this.model.story(item), said = s.raw === undefined || s.raw === null ? '' : text(s.raw);
+				const s = this.model.story(item), said = s.raw === undefined || s.raw === null ? '' : text(s.raw), cal = this.ctx.store.calendarOf(this.ctx.binder);
 				td.toggleClass('is-total', !s.own);
 				const field = editable(td, {
 					// (shown in words; typed as it is written, so a time is never lost to editing)
-					cls: 'binders-outliner-field', value: s.date && s.own ? showStoryDate(s.date) : said, editValue: said, placeholder: !s.own && s.date ? showStoryDate(s.date) : '', label: `Story date of ${nameOf(item)}`,
+					cls: 'binders-outliner-field', value: s.date && s.own ? showStoryDate(s.date, cal) : said, editValue: s.date && s.own && cal !== GREGORIAN ? showStoryDate(s.date, cal) : said, placeholder: !s.own && s.date ? showStoryDate(s.date, cal) : '', label: `Story date of ${nameOf(item)}`,
 					singleLine: true, allowEmpty: true, readOnly: ro, shouldEdit: () => this.sel.has(item.path),
 					save: async (typed) => {
-						const why = whyNotStoryDate(typed);
+						const why = whyNotStoryDate(typed, cal);
 						if (why) throw new Error(why);
 						if (this.ro) throw new Error('This binder is read only.');
 						// for every selected row, as a label or a status picked in one is
-						await setStoryDate(this.ctx.plugin, this.withSelection(item), parseStoryDate(typed));
+						await setStoryDate(this.ctx.plugin, this.withSelection(item), parseStoryDate(typed, cal));
 					},
 					onEditing: (on) => this.onEditing(on, row),
 				});
@@ -763,8 +775,10 @@ class Outliner implements BinderMode {
 				return dateSummary(fn, ms, (x) => x, (x) => date(x), (a, b) => (b - a) / 864e5);
 			}
 			const prop = id === 'storydate' ? this.settings.storyDateProp : propOf(id) ?? '';
-			const ds = files.map((f) => { const raw = fm(f, prop), d = readStoryDate(raw), days = daysOf(raw); return d && days ? { d, days } : null; });
-			return dateSummary(fn, ds, (x) => x.days[0], (x) => showStoryDate(x.d), (a, b) => b.days[1] - a.days[0] + 1);
+			// (a story date, or any date property of the binder's notes, is in the book's calendar)
+			const cal = this.ctx.store.calendarOf(this.ctx.binder);
+			const ds = files.map((f) => { const raw = fm(f, prop), d = readStoryDate(raw, cal), days = daysOf(raw, cal); return d && days ? { d, days } : null; });
+			return dateSummary(fn, ds, (x) => x.days[0], (x) => showStoryDate(x.d, cal), (a, b) => b.days[1] - a.days[0] + 1);
 		}
 		if (kind === 'checkbox') {
 			const prop = propOf(id);

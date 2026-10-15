@@ -123,9 +123,25 @@ numbers are the scenes' places in the book, as without a filter. [Find](find-and
 **Cards** (the size, and **Tint cards with their label color**), in **More options**, are the corkboard's own settings and
 are shared with it. A card here is one height at each size, so a long synopsis ends in an ellipsis.
 
+## A book's own calendar and eras
+
+A book can have a calendar of its own: months of any names and lengths, leap days, and eras. Choose **Calendar...** in
+**More options** on the timeline, or run **Edit calendar...**. See [Story date](story-date.md#a-books-own-calendar) for
+how dates are typed and written in it.
+
+- **Eras** are headings over their years. An era's name stays at the top of the pane while its years scroll, as a
+  year's does over its dates, and the years under it say the era's year: "The Age of Lamps", then "802", then "14
+  Frost". With time across, the eras are a strip over the years. Everywhere else a date says its era: "14 Frost 802
+  AL".
+- **Gaps** are said in the book's months and years ("4 months", "841 years"), and a gap unfolds into the book's own
+  days, months or years when a card is carried over it. A month of one day, a festival, reads as its name alone:
+  "Midsummer".
+- If the binder note's calendar can't be read, the timeline says so over the board, and no story date can be set in
+  the book until it is put right: it would be written in a calendar the book doesn't mean.
+
 ## Limits
 
-- The calendar is the ordinary (Gregorian) one.
+- Weekdays aren't shown, in either calendar.
 - The timeline has no zoom: it is always as long as its cards need.
 - In a [Longform project](longform.md) it shows the project's scenes, each read from its own note.
 - On a phone or tablet, see [Phones and tablets](mobile.md#timeline).

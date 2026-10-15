@@ -7,6 +7,7 @@ import { active, atom, emptyDef, kindFrom, linkOf, matches, same, say, wholeRows
 import { propertyType } from './internals';
 import { rank } from './labels';
 import { readProps } from './props';
+import { GREGORIAN, type Calendar } from '../time/date';
 
 /* The subset of a binder a view shows: its filter (conditions.ts) over the notes of the binder, with what the filter
    needs from the vault, which its pure module asks for: a note's value for a property, the kind of a property, the note
@@ -97,14 +98,14 @@ export class Subset {
 	state(): unknown { return writeState(this.def, this.props); }
 
 	/** Does the filter mean anything: has it a whole condition? (A row just added, with nothing picked, hides nothing.) */
-	on(): boolean { return active(this.def, this.kindOf); }
+	on(): boolean { return active(this.def, this.kindOf, this.cal); }
 	/** How many conditions count. */
-	count(): number { return wholeRows(this.def, this.kindOf).length; }
+	count(): number { return wholeRows(this.def, this.kindOf, this.cal).length; }
 
 	/** The filter in a few words, for a tooltip: "status is Draft, characters contains any of Mara". */
 	say(): string {
 		const word = this.def.match === 'any' ? ' or ' : this.def.match === 'none' ? ', nor ' : ', ';
-		return (this.def.match === 'none' ? 'Not: ' : '') + wholeRows(this.def, this.kindOf).map((c) => say(c, (p) => this.title(p), this.kindOf(c.property))).join(word);
+		return (this.def.match === 'none' ? 'Not: ' : '') + wholeRows(this.def, this.kindOf, this.cal).map((c) => say(c, (p) => this.title(p), this.kindOf(c.property))).join(word);
 	}
 	/** What a property is called to the writer. */
 	title(property: string): string {
@@ -114,13 +115,18 @@ export class Subset {
 
 	// ---- matching ----
 
-	readonly env: Env = {
+	/** The calendar the notes' story dates are in (their binder's). */
+	private get cal(): Calendar { const f = this.files()[0]; return f ? this.plugin.binders.calendarOf(f) : GREGORIAN; }
+
+	readonly env: Env = ((sub: Subset): Env => ({
+		// (asked as the notes are matched: the binder note's calendar may have changed since the filter was put on)
+		get cal(): Calendar { return sub.cal; },
 		resolve: (link) => {
-			let hit = this.links.get(link);
-			if (hit === undefined) { hit = this.app.metadataCache.getFirstLinkpathDest(link, '')?.path ?? null; this.links.set(link, hit); }
+			let hit = sub.links.get(link);
+			if (hit === undefined) { hit = sub.app.metadataCache.getFirstLinkpathDest(link, '')?.path ?? null; sub.links.set(link, hit); }
 			return hit;
 		},
-	};
+	}))(this);
 
 	/** The kind of a property: Binders' own and the file's are known; another is what Obsidian's type for it says, else what
 	    the notes hold. */
@@ -130,7 +136,7 @@ export class Subset {
 		const s = this.plugin.settings;
 		k = property === s.targetProp ? 'number' : property === s.storyDateProp ? 'date' : property === EXPORT_PROP ? 'checkbox' : property === s.statusProp || property === s.labelProp ? 'text' : FILE.find((f) => f.id === property)?.kind;
 		if (!k) {
-			k = propertyType(this.app, property) ?? kindFrom(this.files().map((f) => this.raw(f, property)));
+			k = propertyType(this.app, property) ?? kindFrom(this.files().map((f) => this.raw(f, property)), this.cal);
 			// (a property Obsidian types as text but whose notes hold lists, or the reverse, is read as the notes have it)
 			if (k === 'text' && this.files().some((f) => Array.isArray(this.raw(f, property)))) k = 'list';
 		}

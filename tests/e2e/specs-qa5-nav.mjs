@@ -891,23 +891,25 @@ test('phone commands: the palette offers Binders’ commands where they apply an
 		// (the revision note's and the progress record's: wherever a binder is in view or a scene of one is open; the three
 		// that walk the tasks too: a plain note has none of them)
 		const WALK = ['Go to next revision task', 'Go to previous revision task', 'Mark revision task done'], REVISE = ['Add revision task', ...WALK, 'Show progress'];
+		// (the book's calendar: wherever a binder that can be changed is in view, or a scene of one is open; a Longform project keeps none)
+		const CAL = 'Edit calendar...';
 		const EXPORT = ['Export binder', 'Export again'], VIEWS = ['Show corkboard', 'Show outliner', 'Show manuscript', 'Show timeline', 'Find in binder', 'Find and replace in binder', ...EXPORT], ARRANGE = 'Arrange corkboard by label', FOCUS = 'Toggle focus mode', STEP = ['Go to previous scene', 'Go to next scene'];
 		// snapshots: the binder's, wherever a binder is in view; a scene's own too, where a scene is open
 		const ALL = ['Take a snapshot of the binder', 'Show snapshots of the binder'], SCENE = ['Take a snapshot', 'Rewrite', 'Show snapshots', 'Split at headings...', 'Start a paragraph with a tab', ...ALL];
 		await check('nothing open', []);
 		await open(p);
-		await check('a binder’s corkboard', [...VIEWS, ...REVISE, 'New scene here', 'Set word count target', ...ALL, ARRANGE]);
+		await check('a binder’s corkboard', [...VIEWS, ...REVISE, CAL, 'New scene here', 'Set word count target', ...ALL, ARRANGE]);
 		await setMode(p, 'outliner');
-		await check('its outliner', [...VIEWS, ...REVISE, 'New scene here', 'Set word count target', ...ALL]);
+		await check('its outliner', [...VIEWS, ...REVISE, CAL, 'New scene here', 'Set word count target', ...ALL]);
 		await setMode(p, 'manuscript');
-		await check('its manuscript, no caret in it', [...VIEWS, ...REVISE, 'New scene here', 'Set word count target', ...ALL, FOCUS, 'Show synopses']);
+		await check('its manuscript, no caret in it', [...VIEWS, ...REVISE, CAL, 'New scene here', 'Set word count target', ...ALL, FOCUS, 'Show synopses']);
 		await setMode(p, 'corkboard');
 		await h.open(L + 'Part One/Arrival.md');
-		await check('a scene, first in its folder', ['Open binder', ...EXPORT, ...REVISE, 'New scene here', 'Split scene at cursor', 'Move down', ...SCENE, FOCUS, ...STEP]);
+		await check('a scene, first in its folder', ['Open binder', ...EXPORT, ...REVISE, CAL, 'New scene here', 'Split scene at cursor', 'Move down', ...SCENE, FOCUS, ...STEP]);
 		await h.open(L + 'Part One/Storm warning.md');
-		await check('a scene, last in its folder', ['Open binder', ...EXPORT, ...REVISE, 'New scene here', 'Split scene at cursor', 'Move up', ...SCENE, FOCUS, ...STEP]);
+		await check('a scene, last in its folder', ['Open binder', ...EXPORT, ...REVISE, CAL, 'New scene here', 'Split scene at cursor', 'Move up', ...SCENE, FOCUS, ...STEP]);
 		await h.open(L + 'The Lighthouse.md');
-		await check('the binder note', ['Open binder', ...EXPORT, ...REVISE, 'New scene here', ...ALL]);
+		await check('the binder note', ['Open binder', ...EXPORT, ...REVISE, CAL, 'New scene here', ...ALL]);
 		await h.open('Longform demo/Index.md');
 		await check('a Longform project’s index', ['Open binder', ...EXPORT, ...REVISE, 'New scene here', 'Convert to binder', ...ALL]);
 		await h.open('Longform demo/Harbor.md');

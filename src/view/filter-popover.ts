@@ -323,7 +323,7 @@ export class FilterPopover {
 				return missing.length ? `No note here has ${missing.join(' or ')} ${kind === 'list' ? 'in' : 'as'} its ${field.title.toLowerCase()}` : null;
 			};
 			const say = () => {
-				const now = sub.def.conditions[i] ?? c, bad = !known ? `No note here has a “${c.property}” property` : problem(now, kind), text = bad ?? gone(now);
+				const now = sub.def.conditions[i] ?? c, bad = !known ? `No note here has a “${c.property}” property` : problem(now, kind, sub.env.cal), text = bad ?? gone(now);
 				why.setText(text ?? '');
 				why.toggleClass('is-hidden', !text);
 				ex.toggleClass('mod-error', !!bad);
@@ -361,13 +361,13 @@ export class FilterPopover {
 			timer = window.setTimeout(fire, 250);
 			// (the error follows the key at once; the page does after a moment)
 			const probe = { ...c, value: value() };
-			rhs.closest('.filter-statement')?.querySelector('.filter-row-error')?.setText(problem(probe, kind) ?? '');
+			rhs.closest('.filter-statement')?.querySelector('.filter-row-error')?.setText(problem(probe, kind, this.host.subset.env.cal) ?? '');
 		});
 		input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); fire(); } });
 		input.addEventListener('blur', () => {
 			if (timer) fire();
 			// a date typed in words is kept as the date it is, in the shape a note keeps it
-			if (kind === 'date' && input.value.trim()) { const d = parseStoryDate(input.value); if (d) { const w = writeStoryDate(d); input.value = String(w); change({ value: w }, false); say(); } }
+			if (kind === 'date' && input.value.trim()) { const d = parseStoryDate(input.value, this.host.subset.env.cal); if (d) { const w = writeStoryDate(d); input.value = String(w); change({ value: w }, false); say(); } }
 		});
 	}
 

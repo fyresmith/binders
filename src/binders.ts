@@ -1,3 +1,5 @@
+import { GREGORIAN, type Calendar } from './time/date';
+import { calendarFrom, readCalendarDef } from './time/calendar';
 import { Events, FileSystemAdapter, Notice, TFile, TFolder, normalizePath, parseYaml, stringifyYaml, type App, type EventRef, type TAbstractFile } from 'obsidian';
 import type { ExplorerSource } from './explorer';
 import type BindersPlugin from './main';
@@ -736,6 +738,27 @@ export class BinderStore extends Events implements ExplorerSource {
 			if (changes.length && binder && !binder.problem) this.history.record({ note: binder.note, label, steps: [{ kind: 'props', changes, what }] });
 			if (failed) throw failed;
 		})());
+	}
+
+	// ---- the book's calendar (the binder note's `calendar` and `eras`; time/calendar.ts) ----
+
+	/** The calendar a binder's story dates are in: its own, or the ordinary one (a Longform project has the ordinary one). */
+	calendarOf(item: TAbstractFile | Binder | null): Calendar {
+		const binder = !item ? null : 'kind' in item && 'note' in item ? item : this.binderOf(item);
+		if (!binder || binder.kind !== 'binder') return GREGORIAN;
+		const fm = this.app.metadataCache.getFileCache(binder.note)?.frontmatter;
+		return calendarFrom(fm?.calendar, fm?.eras);
+	}
+
+	/** Why a binder's story dates can't be written: its `calendar` or `eras` can't be read (dates would be written in a
+	    calendar the writer didn't mean), in words; null when they can. */
+	calendarProblem(item: TAbstractFile | Binder | null): string | null {
+		const binder = !item ? null : 'kind' in item && 'note' in item ? item : this.binderOf(item);
+		if (!binder || binder.kind !== 'binder') return null;
+		const fm = this.app.metadataCache.getFileCache(binder.note)?.frontmatter;
+		if (fm?.calendar == null && fm?.eras == null) return null;
+		const { problems } = readCalendarDef(fm?.calendar, fm?.eras);
+		return problems.length ? `${problems[0]} Story dates can’t be set until it is put right in the binder note.` : null;
 	}
 
 	// ---- saved filters (the binder note's `filters`; filter/saved.ts) ----
