@@ -181,13 +181,14 @@ written from the file format's specification and the tests' own fixtures.
 8. That a `w:sectPr` in a paragraph's properties ends a section, whose `w:type` says how that section began (and so
    whether the paragraph after the previous one starts a page). LibreOffice writes it so; Word is not checked.
 9. **OpenDocument from anything but LibreOffice**: Word's "Save as .odt", Google Docs' "Download, OpenDocument",
-   Calligra and Collabora. Each is said to write `text:h` and the usual prefixes; none is checked.
+   Calligra and Collabora. Each is said to write `text:h` and the usual prefixes. Since 2026-10-15 read and checked for OpenOffice.org, NeoOffice, StarOffice, eZ Components and "MicrosoftOffice" (Word's own `.odt`) files found in public repositories (see "Real files" below); Google Docs, AbiWord and Calligra are still not.
 10. **Rich text from anything but LibreOffice.** Word's ("Save as Rich Text Format": its style sheet with `\outlinelevel`,
     `\deleted` and `\revised`, comments as `\atnauthor` and `\annotation`, a deleted paragraph mark inside the group
     that deletes it); TextEdit's (Cocoa's: no style sheet, `\cocoartf`, chapters only by their lines; the test file is
     shaped by hand after what it is said to write, not written by TextEdit, and whether a typed tab is `\tab` or the
-    character is not known); Scrivener's "Compile to RTF"; Pages' "Export To, RTF"; Google Docs' "Download, Rich Text".
-    And a picture TextEdit keeps in an `.rtfd` (a folder, which import refuses in words).
+    character is not known; since 2026-10-15 633 real TextEdit files have been read, so Cocoa's `\tab` and `\cocoartf` are
+    no longer a guess, though none was a manuscript with chapters); Scrivener's "Compile to RTF"; Pages' "Export To, RTF";
+    Google Docs' "Download, Rich Text". And a picture TextEdit keeps in an `.rtfd` (a folder, which import refuses in words).
 
 **Files the maintainer needs to make**, each saved beside a plain-text copy made by the same program's own "Save as text",
 the trusted oracle (the importer's words must equal that file's), in `tests/fixtures/import/`:
@@ -306,6 +307,46 @@ words read by `docxWords`, which shares no code with the readers. Every format m
 with footnotes and comments, and the binder the Word import makes of that `.docx`. LibreOffice's own "save as text" is
 no oracle: it prints tracked deletions as text and a footnote's number against the word it follows. The words the e2e
 test expects (`*.words.json`) are held to the plan by the same test. Made with LibreOffice 26.8 on Linux.
+
+**Real files, read 2026-10-15.** About 2,700 files written by other programs and found in public places (and 460 damaged copies of some) were read through
+`readDocument` and `planManuscript` (the window's own path, with `tabs` on), by a script kept outside the repository, and held
+to what an independent program printed: LibreOffice headless `--convert-to txt` for `.odt`, `.fodt`, `.rtf` and `.docx`
+(its words in order against the plan's body words; it prints a tracked deletion as text, a list's number, a footnote's
+number against its word, a field's result and a comment's author, so a difference there is its own, and each one was read),
+and, for `.docx`, `docxWords` (which shares no code with the readers) as well. The files are untrusted data, kept in a
+folder of their own and read by the parsers only. Only the small ones with a clear licence could be copied here, and none
+was needed: every bug found is a hand-built test in the file for its reader.
+
+| Source (licence) | Files | What they are | Result |
+|---|---|---|---|
+| LibreOffice core, `sw/qa/extras/{rtfimport,rtfexport,odfimport,odfexport,ooxmlexport}/data` (MPL 2.0) | 982: 529 `.rtf`, 340 `.odt`, 110 `.fodt`, 3 `.ott` | Bug-report files, many by LibreOffice, others saved by Word, WordPad, OpenOffice and StarOffice, many deliberately odd | No crash or hang; 541 of 785 with a text oracle agree word for word, 243 differ for the oracle's reasons or the file's (frames, fields, numbering, tracked deletions), each read. 195 refused, plainly (hold only text boxes or shapes, a password, a damaged file) |
+| Apache Tika `test-documents` (Apache 2.0) | 60 `.rtf`, 15 `.odt`, `.docx` | Word, WordPad (`Msftedit`), Evernote's HTML-to-RTF, WPTools, NeoOffice, OpenOffice.org, "MicrosoftOffice" (Word's own `.odt`), WPS Office | As above; damaged files refused |
+| Apache POI `test-data/document` (Apache 2.0) | about 200 `.docx` | Word (Windows and Mac, 2007 to 2016), Outlook, LibreOffice, fuzz cases | 226 of 235 read `.docx` agree with `docxWords` (the rest: a text box's place, a comment's place, a path the oracle does not follow); the fuzz cases are refused plainly |
+| pandoc `test/` (GPL 2) | `.docx`, `.rtf` | Word's tracked changes, notes, comments, text boxes; pandoc's own RTF | As above |
+| GitHub, found by file name or by `\cocoartf` (each repository's own licence; only read, not copied) | 183 `.rtf`, 45 `.fodt`, 14 `.odt` chosen from 1,319 | 633 of the `.rtf` are TextEdit's (Cocoa RTF); 98 WordPad or Word `Msftedit`, 45 Aspose.Words, 15 `Riched20`, 3 Scrivener's own `content.rtf`; `.fodt` of LibreOffice, StarOffice, OpenOffice.org and eZ Components; `.odt` of OpenOffice and LibreOffice | None crashed; 170 of 240 with an oracle agree exactly, the rest differ as above (numbers, fields, hidden text, text between `<!--` and `-->` which the test oracle takes for a comment). All 1,319 were read: none crashed, 84 were refused (HTML saved as `.odt`, spreadsheets, a password) |
+| Project Gutenberg's HTML for five novels (public domain), saved by LibreOffice as `.odt`, `.rtf` and `.docx` | 15: Pride and Prejudice (132,000 words), Frankenstein (78,500), Dracula (166,800), Moby Dick (222,600), War and Peace (576,600) | Long manuscripts, with footnotes, comments, tables and pictures | Every word and its order equal the oracle's in all fifteen; 0.1 to 1.1 s and at most 362 MB resident for the 4.4 MB `.rtf` of War and Peace; chapters and parts found from the headings (Moby Dick: 148 notes, War and Peace: 389) |
+| Those files, truncated, with bytes changed, braces dropped or numbers made huge | 460 | Mutated copies | No crash, no hang (the slowest took 0.13 s); every refusal is in plain words |
+
+Bugs this found, each now fixed with a test of its own in the reader's file: a paragraph in an OpenDocument file that held a
+shape (LibreOffice's empty paragraph inside the shape ended the paragraph it stood in, and its words after the shape were
+lost); the text boxes of a rich text file (they are inside the shape's instructions, which were skipped, so a caption in a
+frame was lost); a link whose result begins `\*\cs12` (LibreOffice writes it, and the link's words were skipped as an
+ignorable destination, a whole table of contents lost); a rich text file with a closing brace with no opening one (read
+as far as it goes, then refused as damaged: now read to the end, and said), with a NUL after the last brace, or with
+`{\rtf` and no version number; a Word insertion that another change then deleted or moved away (it came into the final text and
+was missing from the original); and the zip library's own words ("invalid distance") shown for a damaged compressed file.
+
+Left as it is: the order of a text box's words among the paragraph's (after it, as a Word text box is read), a code page chosen from a font's *name* ("Arial Cyr", which LibreOffice
+guesses and Word does not), a symbol font's characters, numbering as a number or letter (not text), and a heading
+that is a roman numeral and a title in plain text (Chesterton's *Outline of Sanity* as pasted into WordPad: no chapters
+found, one note; chapter detection is not this reader's).
+
+Not verified by any file found: **Google Docs'** "Download, OpenDocument" and "Download, Rich Text" (and a `.docx` with its
+suggestions), **AbiWord**'s and **Calligra**'s own `.odt`, **Pages**' export, **Scrivener's "Compile to RTF"** (the three
+Scrivener files were its project files' `content.rtf`), **Word's own "Save as Rich Text Format"** with tracked changes, comments and
+footnotes (the Tika `testRTFVarious.rtf` and `testComment.rtf` are Word's and agree, but have few of each), **TextEdit with a
+picture** (`.rtfd`, a folder), and a long manuscript written by Word, Pages or Scrivener themselves rather than saved by
+LibreOffice from HTML. Those are the files in "Files the maintainer needs to make" (items 12 to 14).
 
 **Samples.** `BINDERS_IMPORT_SAMPLES=<folder>` makes `tests/import-docx.test.ts` read every `.docx` in the folder: the plan's
 words must equal `docxWords` (comments on), and the words of a `.txt` of the same name where there is one (as a set when the file
