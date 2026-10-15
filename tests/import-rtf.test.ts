@@ -146,8 +146,14 @@ function same(plan: ImportPlan, want: string, notes: string, what: string): void
 	// Evernote and some clipboards end the file with a NUL after the last brace; Word and LibreOffice read it all the same
 	same(make(new Uint8Array([...rtf(good), 0])), want, '', 'a NUL after the last brace');
 	same(make(new Uint8Array([...rtf(good), 13, 10, 0, 0])), want, '', 'a line end and NULs after the last brace');
-	// a "}" that closes the document early would drop what follows: refused, as before
-	eq(throws(() => readRtfDocument(strToU8('{\\rtf1\\ansi Hello}\\par more words}'))), 'This rich text file can’t be read: the file is damaged.', 'text after the last brace is still refused');
+	// a "}" with no "{" closes the document early (LibreOffice's and Word's readers skip it; the words after it are the writer's):
+	// every word is kept, and it is said
+	const stray = strToU8(new TextDecoder().decode(rtf(P('Before the brace.') + '}' + P('After the brace.'))));
+	const strayPlan = make(stray);
+	same(strayPlan, 'Before the brace. After the brace.', '', 'a closing brace with no opening one in the middle');
+	ok(strayPlan.said.some((s) => /closing brace/.test(s.text)), 'a closing brace with no opening one is said');
+	// but not a file that is cut short
+	eq(throws(() => readRtfDocument(strToU8('{\\rtf1\\ansi Hello'))), 'This rich text file can’t be read: the file is cut short.', 'a file with its last brace missing is still cut short');
 	// some programs write no version number, "{\rtf\ansi" (LibreOffice and Word read it)
 	const bare = strToU8(new TextDecoder().decode(rtf(good)).replace('{\\rtf1', '{\\rtf'));
 	same(make(bare), want, '', 'a header with no version number');

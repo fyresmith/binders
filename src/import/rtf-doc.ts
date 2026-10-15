@@ -23,7 +23,7 @@ const HEADERS = /^(header|footer)[lrf]?$/;
 
 export function readRtfDocument(data: Uint8Array): DocxFile {
 	let root: Group;
-	try { root = parse(data); } catch (e) { throw new Error(`This rich text file can’t be read: ${e instanceof Error ? e.message : String(e)}.`); }
+	try { root = parse(data, { lenient: true }); } catch (e) { throw new Error(`This rich text file can’t be read: ${e instanceof Error ? e.message : String(e)}.`); }
 	const found: DocxFile['found'] = { inserted: 0, deleted: 0, comments: 0, underlined: 0, italic: 0, headers: false, textBoxes: 0, tables: 0, pictures: 0, endnotes: 0, hidden: 0 };
 	const warnings = new Set<string>(), warn = (s: string) => warnings.add(s);
 	const styles = new Map<number, Style>(), fontPages = new Map<number, number>();
@@ -262,6 +262,7 @@ export function readRtfDocument(data: Uint8Array): DocxFile {
 			}
 		}
 	};
+	if (root.stray) warn(`This file has ${root.stray === 1 ? 'a closing brace' : `${root.stray} closing braces`} with no opening one, which some programs write. All its words are brought in, but a note or a style may have come loose from its place.`);
 	visit(root, { b: false, i: false, s: false, u: false, v: false, fs: 24, del: false, ins: false, page: 1252, uc: 1 });
 	if (cur) end(null);
 	if (!producer) producer = styles.size ? 'Rich text' : '';

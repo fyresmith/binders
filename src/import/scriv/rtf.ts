@@ -2,7 +2,8 @@ import { escapeMarkdown } from '../markdown';
 /* Independent RTF reader. A group owns its formatting and code page; fields and pictures are destinations,
    not paragraphs. Unrepresentable formatting is reported and its original is kept by the import plan. */
 export interface Control { word: string; n?: number }
-export interface Group { tokens: Token[] }
+/** `stray`: closing braces with no opening one (set on the root, for a reader that goes on past them). */
+export interface Group { tokens: Token[]; stray?: number }
 export type Token = string | Control | Group | { bytes: Uint8Array };
 interface Run { text: string; bold?: boolean; italic?: boolean; strike?: boolean; url?: string; raw?: boolean }
 interface State { bold: boolean; italic: boolean; strike: boolean; uc: number; page: number; ansi: number; defaultFont: number }
@@ -27,26 +28,32 @@ const CUT = 'the file is cut short', DAMAGED = 'the file is damaged';
 /** A control word: its letters, a number if it has one, and the one space that ends it. */
 const WORD = /([a-z]+)(-?\d+)? ?/iy;
 
-export function parse(data: Uint8Array): Group {
+/** `lenient`: a closing brace with no opening one is skipped and counted (Word and LibreOffice read such a file), not refused. */
+export function parse(data: Uint8Array, o: { lenient?: boolean } = {}): Group {
 	if (data.length > 32 * 1024 * 1024) throw new Error('the file is larger than 32 MB');
 	let s = '';
 	for (let i = 0; i < data.length; i += 8192) s += String.fromCharCode(...data.subarray(i, i + 8192));
 	// (some programs write no version number, "{\rtf\ansi"; and a NUL after the last brace, which is no part of the file)
 	if (!/^\{\\rtf(?![a-z])/i.test(s)) throw new Error('the file isn’t rich text');
-	let at = 0, count = 0;
+	let at = 0, count = 0, closed = false, stray = 0;
 	const group = (depth: number): Group => {
 		if (depth > 100 || ++count > 500_000) throw new Error('the file is nested too deeply to read');
 		at++;
 		const tokens: Token[] = [];
 		while (at < s.length) {
 			const c = s[at++];
-			if (c === '}') return { tokens };
+			if (c === '}') {
+				if (depth || !o.lenient) return { tokens };
+				if (closed) stray++;
+				closed = true; continue;
+			}
 			if (c === '{') { at--; tokens.push(group(depth + 1)); continue; }
 			if (c === '\r' || c === '\n') continue;
 			if (c !== '\\') {
 				let text = c;
 				while (at < s.length && !/[{}\\\r\n]/.test(s[at])) text += s[at++];
-				tokens.push(text); continue;
+				if (!closed || text.trim()) tokens.push(text);
+				continue;
 			}
 			const next = s[at++];
 			if (!next) throw new Error(CUT);
@@ -69,10 +76,12 @@ export function parse(data: Uint8Array): Group {
 				tokens.push({ bytes: data.slice(at, at + n) }); at += n;
 			} else tokens.push({ word, n });
 		}
+		if (closed) return { tokens };
 		throw new Error(CUT);
 	};
 	const root = group(0);
 	if ([...s.slice(at)].some((ch) => ch > ' ')) throw new Error(DAMAGED);
+	if (stray) root.stray = stray;
 	return root;
 }
 
