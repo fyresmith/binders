@@ -273,6 +273,17 @@ here; that is what keeps the next round short.
   - Short month names ("Jun") are the ordinary calendar's: a book's own month cut to three letters is a different word.
   - A `Menu`'s rows can't be reached from a script by building one and calling `onPaneMenu`: click the view's own
     "More options" button and the row by its title.
+- Learned designing the book's exports (2026-10-15; direction A of "Export: Scrivener-grade depth"):
+  - Obsidian's `Modal` keeps a field of its own named `selection` (it sets it as the dialog opens): a subclass's
+    `selection` is overwritten, and read back as something with no `length`. Name such a field otherwise (`picked`).
+  - In a dialog Obsidian takes the line and the padding off the first `setting-item` of any container
+    (`.modal:not(.mod-settings) .setting-item…:first-child`): rows drawn in a box of their own lose the line above
+    them. Draw them among the dialog's own rows, before a mark, and take them away when they are drawn again.
+  - A list of a book's named outputs is the sidebar's own list (`modal-sidebar-list-item`), its name over a line of
+    what it makes ("Word · Standard manuscript · Part Two"): no icon, no tag. Its menu is the row's own (right-click)
+    and a drawer, "This export", in the bar's More menu.
+  - Beside a page on a phone, a list with a box at each row's start leaves a name a letter wide: there it takes the
+    pane's whole width.
 
 - Learned designing binder templates (2026-10-15; the round is under "Rounds" below):
   - The binder note already has a `structure` property (export's rule for parts, chapters and scenes): what a new
@@ -471,6 +482,16 @@ scenes and Three acts, a prompt being a synopsis; a folder's `template` is inher
 used by notes made by hand in Binders only; `{{title}}` is filled with the name typed; Templater's commands are copied,
 never run, and its write on creation is part of making the note; a new binder is one change Undo takes away while it
 is as made. Given up: B's preview, a row in the Inspector or a line on a card for a folder's template.
+
+**A book's exports (2026-10-15).** The maintainer: "expand the export to handle scrivener level workflows. Right now
+the export feels just a bit flimsy and non-capable compared to Scriveners deep and weighty export system." Research of
+Compile first, then stage 1's questions: he took every recommendation and direction A ("I agree with A. Take all your
+recs."), saw it built ("I like this. Run it."). Direction C, roles and styles, was kept: the weight comes from many
+ready outputs, a clear part of the book, front and back matter per output and a store-ready book's details, not from
+Compile's types, layouts and designer. Named exports per binder in the binder note (`exports`, beside `filters`),
+each naming a vault-wide style; what goes out (whole, folder, saved filter, the selected cards never kept) with its
+numbering; boxes in Contents for front and back matter per export; publishing details in Book details, with the ISBN
+per export. Left for later: "Export all", chapter openings and running heads, an outline and a proof copy.
 
 ## How a design round runs: narrow, then build
 
