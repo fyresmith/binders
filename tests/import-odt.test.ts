@@ -190,6 +190,15 @@ function same(bytes: Uint8Array, plan: ImportPlan, what: string, o: { original?:
 	same(bytes, plan, 'lists and the rest');
 }
 
+// ---- a shape anchored in a paragraph holds an empty paragraph of its own (found in a file LibreOffice wrote) ----
+{
+	const shape = '<draw:custom-shape text:anchor-type="paragraph" draw:name="Shape1"><text:p/><draw:enhanced-geometry draw:type="rectangle"/></draw:custom-shape>';
+	const bytes = odt([H('One'), P(`${shape}He heard soft steps behind him.`), P(`Before ${shape} and after the shape.`), body('a'), H('Two'), body('b')].join(''));
+	const text = read(bytes).scan.text;
+	ok(text.includes('He heard soft steps behind him.') && text.includes('Before') && text.includes('and after the shape.'), 'an empty paragraph inside a paragraph (a shape\'s) doesn\'t end the paragraph it stands in: its words are kept');
+	same(bytes, make(bytes), 'a shape in a paragraph');
+}
+
 // ---- numbered headings with no words of their own ----
 {
 	const styles = STYLES.replace('</office:styles>', '<text:outline-style style:name="Outline"><text:outline-level-style text:level="1" style:num-prefix="Chapter " style:num-format="1"/></text:outline-style></office:styles>');

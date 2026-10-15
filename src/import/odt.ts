@@ -308,8 +308,9 @@ export function readOdt(data: Uint8Array): DocxFile {
 				else if (listDepth > 0) { const st = listStyle.find(Boolean) ?? first(chain('paragraph', o.style), 'list') ?? ''; o.p.list = { id: 1, level: listDepth - 1, ordered: !!lists.get(st)?.get(listDepth - 1) }; o.p.numbered = true; }
 				if (deleting) o.into = deleting;
 				else if (annotation) o.into = annotation.paras;
+				// (an empty one is closed by the event that follows it, like any other: popping it here as well would end
+				// the paragraph it stands in, a shape's, and lose the words after)
 				stack.push(o);
-				if (e.empty) { stack.pop(); const outer = top(); if (outer && outer.into === o.into) outer.after.push(o.p); else o.into.push(o.p); }
 				break;
 			}
 			case 'text:span': spans.push(a['text:style-name'] ?? ''); break;

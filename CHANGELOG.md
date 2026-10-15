@@ -25,6 +25,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - The import preview no longer leaves a gap under each paragraph for the “Start a note here” button: it shows on hover or keyboard focus, in the space between paragraphs, without moving the text, and is always shown on phones and tablets.
 - Rich text files that end in a stray NUL character, or that give no version number, now import instead of being refused.
 - A rich text file with a stray closing brace is now read to the end, and the import says so, instead of refusing it as damaged.
+- OpenDocument import no longer loses the words after a shape anchored in a paragraph.
 
 ## 0.52.0 (2026-10-12)
 
