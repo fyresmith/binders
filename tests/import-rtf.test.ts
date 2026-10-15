@@ -166,6 +166,16 @@ function same(plan: ImportPlan, want: string, notes: string, what: string): void
 	same(make(bytes), ['One', 'See Sehenswürdigkeiten und mehr for more.', words(120, 'a')].join(' '), '', 'a link whose result begins with \\*\\cs');
 }
 
+// ---- a text box is a shape whose text is inside the shape's instructions (LibreOffice and Word both write it so) ----
+{
+	const box = (t: string) => `{\\shp{\\*\\shpinst\\shpleft100\\shptop200{\\sp{\\sn shapeType}{\\sv 202}}{\\sp{\\sn fFilled}{\\sv 0}}{\\shptxt\\pard\\plain ${t}\\par}}}`;
+	const group = `{\\shpgrp{\\*\\shpinst{\\sp{\\sn groupLeft}{\\sv 288}}${box('Inside a group.')}}}`;
+	const bytes = rtf([H('One'), P(`Before ${box('A caption in a box.')}and after.`), P(`Then ${group}done.`), body('a')].join(''));
+	const plan = make(bytes);
+	same(plan, ['One', 'Before and after.', 'A caption in a box.', 'Then done.', 'Inside a group.', words(120, 'a')].join(' '), '', 'text boxes inside a shape\'s instructions: their words come in once, after the paragraph, and none of the shape\'s own numbers');
+	ok(plan.said.some((s) => /text box/i.test(s.text)), 'text boxes inside a shape\'s instructions are said');
+}
+
 // ---- refused, plainly ----
 {
 	eq(throws(() => readRtfDocument(strToU8('Just some text'))), 'This rich text file can’t be read: the file isn’t rich text.', 'refused: not rich text');

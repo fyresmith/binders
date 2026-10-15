@@ -34,7 +34,7 @@ export function readRtfDocument(data: Uint8Array): DocxFile {
 	let author = '', comment = 0, noteId = 0, toc = false, nextPage = false;
 
 	// where paragraphs go (the book, a footnote, a comment), the one being read, and its paragraph formatting
-	let target: DocxPara[] = [], cur: DocxPara | null = null, pp = fresh();
+	let target: DocxPara[] = [], cur: DocxPara | null = null, pp = fresh(), after: DocxPara[] = [];
 	const main = target;
 	const open = (): DocxPara => (cur ??= { style: '', outline: null, align: null, pageBefore: false, indent: { first: 0, left: 0, right: 0 }, list: null, runs: [], toc: false, inTable: false, textBox: false, numbered: false });
 	const styleOf = (n: number): { name: string; outline: number | null; align: string | null; pageBefore: boolean } => {
@@ -72,6 +72,8 @@ export function readRtfDocument(data: Uint8Array): DocxFile {
 		if (p.inTable && !target[target.length - 1]?.inTable) found.tables++;
 		if (c?.del || c?.ins) { p.markRev = c.del ? REV.del : REV.ins; if (c.del) found.deleted++; else found.inserted++; }
 		target.push(p);
+		// (a text box the paragraph held comes after it, as it does in an OpenDocument file)
+		if (after.length) { target.push(...after); after = []; }
 	};
 	const push = (r: DocxRun | DocxMark) => { open().runs.push(r); };
 	const text = (t: string, c: Char): void => {
@@ -96,11 +98,25 @@ export function readRtfDocument(data: Uint8Array): DocxFile {
 	const plainText = (g: Group): string => g.tokens.map((t) => (typeof t === 'string' ? t : typeof t === 'object' && 'tokens' in t ? plainText(t) : '')).join('');
 	/** A destination read into paragraphs of its own (a footnote, a comment), with the book's paragraph put back after. */
 	const aside = (g: Group, c: Char, into: DocxPara[]) => {
-		const was = { target, cur, pp: { ...pp }, nextPage, toc };
-		target = into; cur = null; pp = fresh(); nextPage = false; toc = false;
+		const was = { target, cur, pp: { ...pp }, nextPage, toc, after };
+		target = into; cur = null; pp = fresh(); nextPage = false; toc = false; after = [];
 		visit(g, { ...c }, true);
 		if (cur) end(null);
-		({ target, cur, nextPage, toc } = was); pp = was.pp;
+		({ target, cur, nextPage, toc, after } = was); pp = was.pp;
+	};
+	/** A shape's instructions (`\shp`, `\shpgrp`, `\*\shpinst`) hold numbers and names of its own that are no words;
+	    the text of a text box is the one thing in them that is. Found at any depth (a box in a group), read once. */
+	const shapes = (g: Group, c: Char): void => {
+		for (const t of g.tokens) {
+			if (typeof t !== 'object' || !('tokens' in t)) continue;
+			const k = dest(t);
+			if (k === 'shptxt') {
+				const box: DocxPara[] = [];
+				found.textBoxes++;
+				aside(t, c, box);
+				if (cur && cur.runs.length) after.push(...box); else target.push(...box);
+			} else if (k === 'shp' || k === 'shpgrp' || k === 'shpinst') shapes(t, c);
+		}
 	};
 
 	/** `own`: the group's own words are read as text, not as the destination it names (a footnote's, read into its note). */
@@ -189,6 +205,7 @@ export function readRtfDocument(data: Uint8Array): DocxFile {
 			if (ud) visit({ tokens: ud.tokens.filter((t) => !(typeof t === 'object' && 'word' in t && (t.word === 'ud' || t.word === '*'))) }, c);
 			return;
 		}
+		if (kind === 'shp' || kind === 'shpgrp' || kind === 'shpinst') { shapes(g, c); return; }
 		if (SKIP.has(kind)) return;
 		// a part a reader that doesn't know it is told to pass over (`\*`), unless it is one known to hold text
 		// (`\*` opens the group: LibreOffice writes `\*\cs12` further in, inside a link's result, and that is no destination)

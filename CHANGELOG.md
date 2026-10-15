@@ -27,6 +27,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - A rich text file with a stray closing brace is now read to the end, and the import says so, instead of refusing it as damaged.
 - OpenDocument import no longer loses the words after a shape anchored in a paragraph.
 - Rich text import no longer loses the words of some links, as LibreOffice writes them: a whole table of contents could vanish.
+- Rich text import now brings in the text of text boxes, such as captions in frames.
 
 ## 0.52.0 (2026-10-12)
 
