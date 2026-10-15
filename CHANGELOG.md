@@ -7,6 +7,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 ### Added
 
 - The outliner's last row stays in sight and can summarize each column (sum, average, median, range, earliest, latest, or each value with its notes and words; choosing a value shows those notes), and a new Revision column counts each scene's unfinished revision tasks.
+- Import a manuscript reads OpenDocument (.odt, .ott, .fodt) and rich text (.rtf) files, from LibreOffice, Word, TextEdit and Scrivener, with the same preview and choices as a Word file.
 
 ### Changed
 

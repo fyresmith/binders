@@ -248,6 +248,20 @@ here; that is what keeps the next round short.
   - An offer that shows on hover ("Summarize") is drawn by the style sheet (`content: attr(...)`), so it is not text
     of the row: tests and screen readers read the cells as they were.
 
+- Learned adding OpenDocument and rich text to the import (2026-10-15; the round is under "Rounds" below):
+  - A new file format for a dialog that exists is a reader into the model the dialog already reads (Word's `DocxFile`),
+    not a dialog of its own: the rows, the things to look at, Accept all and Reject all then come for nothing, and
+    the screenshots show nothing new. Stage 2 is then a check that the real files read right, not a choice of looks.
+  - LibreOffice is on this machine (`soffice --headless --convert-to`): a document written by hand as a flat `.fodt`
+    and saved by LibreOffice as `.odt`, `.rtf` and `.docx` is LibreOffice's own writing, and its `.docx` read by the
+    Word oracle is an oracle for the rest. Its "save as text" is not one: it prints tracked deletions as text, and a
+    footnote's number against the word before it.
+  - LibreOffice's rich text names heading styles but writes no `\outlinelevel`, and repeats a style's bold on every
+    run; its `.docx` writes a section's end as an empty paragraph of its own. A reader that trusts either reads
+    headings in bold and scene breaks that aren't there.
+  - In the import preview, each paragraph's "Start a note here" keeps its height when hidden: with no mouse that
+    hovers (headless, a phone) there is a blank line's gap under every paragraph. Left for the maintainer, 2026-10-15.
+
 **Rejected, don't propose again:** a colored stripe along the top of a card, pill chips, thin accent or progress
 lines, decoration for its own sake, anything on a card that isn't the writer's own (no badges for snapshots and the
 like). The maintainer's word for these was "AI generated".
@@ -393,6 +407,15 @@ writing was approved and built first (`docs/progress.md`).
 - **Given up for now:** the deadline and its plan (the next step: the chart, the pace and its wording are built and
   tested in `stats.ts` and `drawLife`, and nothing shows them), a past worked out from snapshots and file dates
   (`estimate` in the model, drawn as a broken line, always empty), the toolbar's count opening the window.
+
+**More import formats (2026-10-15).** ROADMAP item 9: `.odt` and `.rtf` in "Import a manuscript". One direction was
+worth building (A, "Word's twin": both formats get everything a Word file has, in the same window), and the maintainer
+took it with every default proposed: LibreOffice's files made here and the rest listed as not verified; no `.rtfd` (said
+in words, with what to do); a line set larger than the book's text is a sign of a heading, as bold is, in all three
+formats, Word included; hidden text left out and said, Word's reader too; `.fodt` and `.ott` read, `.odm` refused in
+words; the first dialog names the formats. No `options.html`: the window was shown with a real `.odt` and a
+TextEdit-shaped `.rtf` in it. Left for him: whether a Title-styled paragraph names the binder (it doesn't, for Word
+either), and the preview's gap under each paragraph.
 
 ## How a design round runs: narrow, then build
 

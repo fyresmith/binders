@@ -9,8 +9,8 @@ export default tseslint.config(
     languageOptions: { parser: tseslint.parser, parserOptions: { project: "./tsconfig.json" } },
     rules: {
       // a setting named inside a sentence keeps its capital: "Show the Exports folder" (the maintainer's exception, 2026-10-06)
-      // (and a product's name is a name: "Import from Scrivener")
-      "obsidianmd/ui/sentence-case": ["warn", { enforceCamelCaseLower: true, ignoreRegex: ["^Show the Exports folder$"], ignoreWords: ["Scrivener"] }],
+      // (and a product's name is a name: "Import from Scrivener", "a Word, OpenDocument or rich text file")
+      "obsidianmd/ui/sentence-case": ["warn", { enforceCamelCaseLower: true, ignoreRegex: ["^Show the Exports folder$"], ignoreWords: ["Scrivener", "Word", "OpenDocument"] }],
     },
   }
 );

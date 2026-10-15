@@ -2,8 +2,9 @@ import { ButtonComponent, FuzzySuggestModal, Modal, Notice, Setting, TFile } fro
 import type BindersPlugin from '../main';
 import type { Choices, Role, Signal } from '../import/detect';
 import { actionsFor, applyAction, noEdits, planManuscript, type ManuscriptRead } from '../import/manuscript';
-import { readWord } from '../import/docx';
+import { DOCUMENT, documentKind, readDocument } from '../import/docx';
 import { OLDER } from '../docx/package';
+import { MASTER } from '../import/odt';
 import { MAX_BYTES, zipSource } from '../import/source';
 import { readProject } from '../import/scriv/project';
 import { decodeText, scanMarkdown, scanPlain } from '../import/text';
@@ -12,8 +13,8 @@ import { ImportWindow, message, type ImportJob } from './import-window';
 import { scrivenerJob } from './import-scrivener';
 import { ask, buttonRow, cancelButton } from './modals';
 
-/* "Import a manuscript": a Markdown note or a text file made into a new binder, split where its chapters, parts and
-   scenes start (import/detect.ts). Two dialogs, one after the other.
+/* "Import a manuscript": a Word, OpenDocument or rich text file, a Markdown note or a text file made into a new binder,
+   split where its chapters, parts and scenes start (import/detect.ts). Two dialogs, one after the other.
      - First one of Obsidian's small ones (here), to choose the text: a file from the device, through the browser's
        own chooser (the one way there is on a phone), or a note of this vault. A zipped Scrivener backup chosen here
        goes on to the Scrivener import.
@@ -25,8 +26,11 @@ import { ask, buttonRow, cancelButton } from './modals';
 /** The most a file may be, in bytes: it is held whole while it is read and planned. */
 const MAX_FILE = 64 * 1024 * 1024;
 /** Other formats, not yet: said with what to do meanwhile. */
-const LATER = /\.(odt|rtf|pages|epub|pdf|mobi|azw3?|wpd)$/i;
-const WORD = /\.(docx|docm|dotx)$/i;
+const LATER = /\.(pages|epub|pdf|mobi|azw3?|wpd|odm)$/i;
+/** A TextEdit document with pictures is a folder, which a file chooser can't give: said with what to do. */
+const RTFD = 'This is a TextEdit document with pictures in it (.rtfd), which can’t be imported. In TextEdit, choose File, Duplicate, then File, Save, and save the copy as Rich Text Document (.rtf, which leaves the pictures out) or Word 2007 Document (.docx), and choose that.';
+/** The word processors' files of the vault import reads. */
+const isDocument = (f: TFile): boolean => DOCUMENT.test(f.name);
 
 const SIGNALS: Record<Signal, (count: number) => string> = {
 	headings: (c) => `Headings (${c})`,
@@ -110,9 +114,9 @@ export function manuscriptJob(plugin: BindersPlugin, first: ManuscriptRead, sour
 class NotePicker extends FuzzySuggestModal<TFile> {
 	constructor(private plugin: BindersPlugin, private choose: (f: TFile) => void) {
 		super(plugin.app);
-		this.setPlaceholder('Choose a note or a .docx file');
+		this.setPlaceholder('Choose a note or a document');
 	}
-	getItems(): TFile[] { return [...this.app.vault.getMarkdownFiles().filter((f) => !this.plugin.binders.binderOf(f)), ...this.app.vault.getFiles().filter((f) => f.extension === 'docx')]; }
+	getItems(): TFile[] { return [...this.app.vault.getMarkdownFiles().filter((f) => !this.plugin.binders.binderOf(f)), ...this.app.vault.getFiles().filter(isDocument)]; }
 	getItemText(f: TFile): string { return f.path.replace(/\.md$/i, ''); }
 	onChooseItem(f: TFile): void { this.choose(f); }
 }
@@ -133,14 +137,15 @@ export async function importNote(plugin: BindersPlugin, file: TFile): Promise<vo
 	new ImportWindow(plugin, manuscriptJob(plugin, read, 'note', unchanged)).open();
 }
 
-/** A Word file of this vault read for import, and its second dialog opened on it. The file is only read. */
+/** A Word, OpenDocument or rich text file of this vault read for import, and its second dialog opened on it. The file is
+    only read. */
 export async function importDocx(plugin: BindersPlugin, file: TFile): Promise<void> {
 	const { app } = plugin;
 	const stat = { mtime: file.stat.mtime, size: file.stat.size };
 	if (file.stat.size > MAX_FILE) throw new Error('This file is larger than import can hold (64 MB).');
 	const bytes = new Uint8Array(await app.vault.readBinary(file));
 	await new Promise((r) => window.setTimeout(r, 0));
-	const read = readWord(bytes, file.name, { path: file.path }, { tabs: plugin.settings.tabParagraphs });
+	const read = readDocument(bytes, file.name, { path: file.path }, { tabs: plugin.settings.tabParagraphs });
 	const unchanged = () => Promise.resolve(app.vault.getAbstractFileByPath(file.path) === file && file.stat.mtime === stat.mtime && file.stat.size === stat.size);
 	new ImportWindow(plugin, manuscriptJob(plugin, read, 'file', unchanged)).open();
 }
@@ -156,13 +161,13 @@ export class ImportManuscriptModal extends Modal {
 	onOpen(): void {
 		this.setTitle('Import a manuscript');
 		this.modalEl.addClass('binders-import');
-		this.contentEl.createEl('p', { text: 'Makes a new binder in this vault from a .docx file, a Markdown note or a text file, split where its chapters start. The file itself isn’t changed.' });
+		this.contentEl.createEl('p', { text: 'Makes a new binder in this vault from a Word, OpenDocument or rich text file, a Markdown note or a text file, split where its chapters start. The file itself isn’t changed.' });
 		this.contentEl.createEl('p', { cls: 'binders-import-how', text: 'A Scrivener backup, zipped, is imported as a Scrivener project.' });
 		this.said = this.contentEl.createDiv({ cls: 'binders-ask-error binders-import-said', attr: { role: 'status', 'aria-live': 'polite' } });
 		const row = buttonRow(this);
 		const file = new ButtonComponent(row).setButtonText('Choose a file...').setCta().onClick(() => this.file());
 		this.buttons.push(file);
-		if (this.app.vault.getFiles().some((f) => (f.extension === 'md' && !this.plugin.binders.binderOf(f)) || f.extension === 'docx')) this.buttons.push(new ButtonComponent(row).setButtonText('Choose from this vault...').onClick(() => this.vault()));
+		if (this.app.vault.getFiles().some((f) => (f.extension === 'md' && !this.plugin.binders.binderOf(f)) || isDocument(f))) this.buttons.push(new ButtonComponent(row).setButtonText('Choose from this vault...').onClick(() => this.vault()));
 		cancelButton(row, this);
 	}
 
@@ -179,7 +184,7 @@ export class ImportManuscriptModal extends Modal {
 	/** A file from the device, through the browser's own chooser. */
 	private file(): void {
 		if (this.busy) return;
-		const input = this.contentEl.createEl('input', { type: 'file', attr: { accept: '.md,.markdown,.txt,.text,.docx,.zip,text/plain,text/markdown,application/zip,application/vnd.openxmlformats-officedocument.wordprocessingml.document', hidden: '' } });
+		const input = this.contentEl.createEl('input', { type: 'file', attr: { accept: '.md,.markdown,.txt,.text,.docx,.odt,.ott,.fodt,.rtf,.zip,text/plain,text/markdown,text/rtf,application/rtf,application/zip,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.oasis.opendocument.text,application/vnd.oasis.opendocument.text-template,application/vnd.oasis.opendocument.text-flat-xml', hidden: '' } });
 		input.addEventListener('change', () => {
 			const file = input.files?.[0];
 			input.remove();
@@ -198,7 +203,7 @@ export class ImportManuscriptModal extends Modal {
 		try {
 			await new Promise((r) => window.setTimeout(r, 0));
 			if (!this.contentEl.isConnected) return;
-			if (file.extension === 'docx') await importDocx(this.plugin, file); else await importNote(this.plugin, file);
+			if (isDocument(file)) await importDocx(this.plugin, file); else await importNote(this.plugin, file);
 			this.close();
 		} catch (e) { if (this.contentEl.isConnected) this.say(null, message(e)); else new Notice(message(e), 10000); }
 	}
@@ -209,12 +214,14 @@ export class ImportManuscriptModal extends Modal {
 		this.say('Reading the file…');
 		try {
 			await new Promise((r) => window.setTimeout(r, 0));
+			if (/\.rtfd$/i.test(file.name)) throw new Error(RTFD);
+			if (/\.odm$/i.test(file.name)) throw new Error(MASTER);
 			if (LATER.test(file.name)) throw new Error('This kind of file can’t be imported yet. In the program that made it, save it as a Word file (.docx), and choose that.');
 			if (file.size > MAX_FILE) throw new Error('This file is larger than import can hold (64 MB).');
 			const bytes = new Uint8Array(await file.arrayBuffer());
 			if (!this.contentEl.isConnected) return;
-			if (WORD.test(file.name)) {
-				const read = readWord(bytes, file.name, { bytes }, { tabs: this.plugin.settings.tabParagraphs });
+			if (documentKind(file.name, bytes)) {
+				const read = readDocument(bytes, file.name, { bytes }, { tabs: this.plugin.settings.tabParagraphs });
 				this.close();
 				new ImportWindow(this.plugin, manuscriptJob(this.plugin, read, 'file', () => Promise.resolve(true))).open();
 				return;

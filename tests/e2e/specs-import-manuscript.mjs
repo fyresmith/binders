@@ -228,7 +228,8 @@ test('the first dialog: a Scrivener backup goes on to the Scrivener import, and 
 	t.eq(await p.ev(`document.querySelector('${WIN} .modal-title')?.textContent`), 'Import “Tiny”', 'the Scrivener import’s dialog opens on it');
 	t.eq(await p.ev(`document.querySelectorAll('${WIN} [data-binders-key="research"]').length`), 0, 'with no manuscript choices in it');
 	await closeAll(p);
-	await fromFile(p, put('Book.odt', 'PK'), { fails: true });
+	// (.odt and .rtf are read since 2026-10-15: specs-import-formats.mjs; native Pages files still aren't)
+	await fromFile(p, put('Book.pages', 'PK'), { fails: true });
 	t.ok((await said(p)).includes('can’t be imported yet'), 'a kind of file that isn’t read yet is said so, with what to do');
 	await closeAll(p);
 	await fromFile(p, put('Old.doc', Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1])), { fails: true });

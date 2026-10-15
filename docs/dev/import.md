@@ -15,7 +15,7 @@ second dialog. The manual page for writers is `docs/import-manuscript.md`. The p
 | 4 | What Word files carry: comments, Reject all, underline, pictures, numbered headings | Built (`settle` options, `src/import/docx.ts` `wordRead`, rows in `manuscriptJob`) |
 | 3 | Merge, split and rename in the preview | Built: `Edits`, `actionsFor` and `applyAction` in `manuscript.ts`; `ImportJob.rowActions`, `paragraphs`, `startHere` in the dialog |
 | 5 | "Split at headings..." for a note already in a binder (`src/split-text.ts`; one change in the history) | Built |
-| later | `.odt`, `.rtf` | Not built |
+| 6 | OpenDocument (`.odt`, `.ott`, `.fodt`) and rich text (`.rtf`) as a new binder, everything a Word file has (2026-10-15) | Built: `src/import/odt.ts` and `src/import/rtf-doc.ts`, each into the Word reader's `DocxFile`, so `settle`, `docToScan` and the window are Word's (below) |
 
 ## The pipeline
 
@@ -180,6 +180,14 @@ written from the file format's specification and the tests' own fixtures.
    read back as tab paragraphs).
 8. That a `w:sectPr` in a paragraph's properties ends a section, whose `w:type` says how that section began (and so
    whether the paragraph after the previous one starts a page). LibreOffice writes it so; Word is not checked.
+9. **OpenDocument from anything but LibreOffice**: Word's "Save as .odt", Google Docs' "Download, OpenDocument",
+   Calligra and Collabora. Each is said to write `text:h` and the usual prefixes; none is checked.
+10. **Rich text from anything but LibreOffice.** Word's ("Save as Rich Text Format": its style sheet with `\outlinelevel`,
+    `\deleted` and `\revised`, comments as `\atnauthor` and `\annotation`, a deleted paragraph mark inside the group
+    that deletes it); TextEdit's (Cocoa's: no style sheet, `\cocoartf`, chapters only by their lines; the test file is
+    shaped by hand after what it is said to write, not written by TextEdit, and whether a typed tab is `\tab` or the
+    character is not known); Scrivener's "Compile to RTF"; Pages' "Export To, RTF"; Google Docs' "Download, Rich Text".
+    And a picture TextEdit keeps in an `.rtfd` (a folder, which import refuses in words).
 
 **Files the maintainer needs to make**, each saved beside a plain-text copy made by the same program's own "Save as text",
 the trusted oracle (the importer's words must equal that file's), in `tests/fixtures/import/`:
@@ -197,6 +205,13 @@ the trusted oracle (the importer's words must equal that file's), in `tests/fixt
 10. A password-locked `.docx`, and an old `.doc`.
 11. One novel-length manuscript, kept out of the repository, to be read through a folder named by `BINDERS_IMPORT_SAMPLES`
     (any of the files above can go in the same folder).
+12. Word, the first and third files above saved as Rich Text Format, and as OpenDocument (.odt).
+13. TextEdit, a chapter or two typed with "Chapter One" lines and an italic word, saved as Rich Text Document; and the
+    same with a picture, which TextEdit saves as `.rtfd` (to check the refusal's words).
+14. A Scrivener "Compile to RTF", and Google Docs' "Download, OpenDocument" and "Download, Rich Text".
+    For 12 to 14, a `.docx` of the same name saved by the same program is the oracle: `tests/import-libreoffice.test.ts`
+    reads every `.odt`, `.fodt` and `.rtf` in `BINDERS_IMPORT_SAMPLES` against it (or against a `.txt` of the same name,
+    as a set of words, where there is no `.docx`).
 
 **Step 4 (what a file carries).** `settle(file, as, { underline, comments })`:
 - *Comments*: `read.ts` reads `comments.xml` (`DocxFile.comments`: id to author and text) and keeps the range anchors; `settle`
@@ -214,6 +229,83 @@ the trusted oracle (the importer's words must equal that file's), in `tests/fixt
   the plan names it "Chapter N" by count and says so.
 - *Tables*: their text, cell after cell, and a sentence. A Markdown table was weighed and not done: a cell may hold several
   paragraphs and a cut may fall inside a table, and a table made of units can't be cut safely.
+
+## OpenDocument and rich text (`src/import/odt.ts`, `src/import/rtf-doc.ts`)
+
+```
+.odt/.ott/.fodt ── readOdt ─────────┐
+                                    ├──▶ DocxFile ── settle ──▶ SourceDoc ── docToScan ──▶ (as for Word)
+.rtf ── parse (scriv/rtf.ts) ── readRtfDocument ┘
+```
+
+`readDocument` (`src/import/docx.ts`) picks the reader by the file's name (`documentKind`; a file that begins `{\rtf` is
+rich text whatever it is called, as Word's "Save as .doc" of rich text is). The dialog's rows, the things to look at and
+every later step are Word's; only "This … file has no text in it" names the kind.
+
+**OpenDocument** (`odt.ts`). A zip (`readZip`'s limits; only `mimetype`, `content.xml`, `styles.xml`, `meta.xml` and the
+manifest are inflated; a picture when the plan asks), or one XML file (`.fodt`, pictures in it as base64). Read with the
+Word reader's XML events.
+- **Refused in words:** a manifest with `encryption-data` (locked), a master document (`.odm`, or its mimetype: its
+  chapters are other files), a mimetype that isn't text (a spreadsheet).
+- **Styles**: `styles.xml`'s and `content.xml`'s automatic ones, one map; a paragraph's chain is followed through
+  `style:parent-style-name` to the default style. The *name* a paragraph is given is its first named (not automatic)
+  style's, made Word's: `Heading_20_1` (or its display name) is `heading 1`, "Text body" and "Standard" are `normal`,
+  "Quotations" is `quote`, "Contents N" is `toc N`. Bold, italic, underline and strike come from the span's chain and the
+  paragraph's *automatic* styles only: a heading style's bold is its look, as in Word, and is not written into the name.
+  Size and hidden (`text:display="none"`) come from the whole chain; a size in `%` is taken of what is under it.
+- **Headings**: `text:h` (its `text:outline-level`, 1 when it has none), or a paragraph whose style has
+  `style:default-outline-level`. The outline's own numbering (`text:outline-style` with a `num-format`) makes a heading
+  `numbered`; the `text:number` LibreOffice writes into a heading or list item is never words.
+- **Spaces** are XML's: a run of white space is one space, a paragraph's lead none, `text:s` its count, `text:tab` and
+  `text:line-break` themselves. `text:soft-page-break` is where the layout last broke a page: ignored. A page break is
+  `fo:break-before` (or `-after`) in the chain, or an automatic style that changes the master page.
+- **Tracked changes**: the list at the top (`text:tracked-changes`) is read first: a deletion's paragraphs are kept by id,
+  an insertion is marked in the text by `text:change-start` and `-end`. A run inside an insertion is `ins`; a paragraph
+  that closes inside one has its mark inserted. At a deletion's point (`text:change`) its first paragraph's runs are
+  put in place as `del`, and each further one starts a paragraph of its own after a mark that is `del`, so Reject all
+  puts the paragraphs back as they were and Accept all joins them. Format changes are not changes of the words.
+- **Notes and comments**: `text:note` (its citation is not words; an endnote is counted), `office:annotation` with its
+  `dc:creator`, at its `office:annotation-end` when it has one, else where it stands.
+- **The rest**: lists (`text:list`, the level by nesting, ordered by the list style's level), tables (counted), text boxes
+  (counted; a paragraph in a frame comes after the paragraph the frame stands in), indexes (`text:table-of-content` and
+  the others: the body's paragraphs are `toc`, the `*-source` templates aren't read), `draw:frame` (a picture by
+  `xlink:href` into `Pictures/`, or in base64; an object or chart is a picture of another kind; frames nest),
+  `text:hidden-text` and `text:hidden-paragraph` (counted, left out), sections (read through).
+
+**Rich text** (`rtf-doc.ts`). The tokenizer and code pages are the Scrivener import's (`parse`, `decodePage`, `CHARSETS`,
+exported from `src/import/scriv/rtf.ts`, which is unchanged); this walks the groups as a whole document.
+- **Styles**: the style sheet's paragraph styles by number, with their names (lower case: Word and LibreOffice write
+  `heading 1`), `\outlinelevel`, alignment, `\pagebb`, `\sbasedon`, bold and italic. Word and LibreOffice also write a
+  style's bold or italics on every run of its paragraphs: those are the style's look and are taken off. TextEdit writes
+  no style sheet; its paragraphs have no style and are read by their lines.
+- **Paragraphs**: properties last from `\pard` to the next (a group's own are put back after a footnote or a comment),
+  and a paragraph is what they are at its `\par` (or `\cell`). `\fi`, `\li`, `\ri`, `\qc`/`\qr`/`\qj`, `\pagebb`,
+  `\intbl`, `\ls`/`\ilvl` and the label written before an item (`\listtext`, `\pntext`: never words; it says bullet
+  or number). `\page` is a page break; `\sect` starts a page unless `\sbknone` or `\sbkcol` follows. A tab in the
+  text as itself (not `\tab`) is a tab.
+- **Characters**: `\b`, `\i`, `\strike`, the `\ul` family (not counted inside a link: a link's underlining is its look),
+  `\v` (hidden), `\fs`, `\plain`, `\u` with `\uc`, code pages by `\ansicpg`, `\mac`, a font's `\fcharset` or `\cpg`.
+- **Revisions**: `\revised` text is inserted, `\deleted` deleted, and the paragraph mark is what the characters are at
+  its `\par` (Word writes a deleted mark inside the group that deletes it).
+- **Destinations**: `\footnote` (`\ftnalt` an endnote), Word's comment (`\atnauthor`, then `\annotation`, at the end of
+  the range where Word writes it), fields (`HYPERLINK` a link; `TOC` makes its result's paragraphs `toc`; any other is
+  what it shows), `\pict` (PNG and JPEG kept; a metafile counted), `\shppict` read and `\nonshppict` not (one picture,
+  two ways), `\upr`'s Unicode half, headers and footers counted. Any other `\*` destination is passed over.
+- **Limits**: the tokenizer's (32 MB, 500,000 groups, 100 deep), each said as "This rich text file can't be read: …".
+
+**Tests.** `tests/import-odt.test.ts` and `tests/import-rtf.test.ts` (files written by hand, each way a program writes
+one, with the words held to an oracle of their own: for OpenDocument a reader of `content.xml` by regular expressions,
+for rich text the strings it was written from); `tests/import-libreoffice.test.ts` (below);
+`tests/e2e/specs-import-formats.mjs` (an `.odt` and a TextEdit-shaped `.rtf` through the real dialogs, every word in the
+notes made, the original kept byte for byte, Reject all, the explorer's menu and "Choose from this vault...", what is
+refused).
+
+**LibreOffice's own files** (`tests/fixtures/import/libreoffice/`). Two books written by hand as flat OpenDocument
+(`make.mjs`) and saved by LibreOffice (`convert.sh`) as `.odt`, `.fodt`, `.rtf` and the `.docx` that is the oracle: its
+words read by `docxWords`, which shares no code with the readers. Every format must give the oracle's words in order,
+with footnotes and comments, and the binder the Word import makes of that `.docx`. LibreOffice's own "save as text" is
+no oracle: it prints tracked deletions as text and a footnote's number against the word it follows. The words the e2e
+test expects (`*.words.json`) are held to the plan by the same test. Made with LibreOffice 26.8 on Linux.
 
 **Samples.** `BINDERS_IMPORT_SAMPLES=<folder>` makes `tests/import-docx.test.ts` read every `.docx` in the folder: the plan's
 words must equal `docxWords` (comments on), and the words of a `.txt` of the same name where there is one (as a set when the file

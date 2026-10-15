@@ -1,28 +1,30 @@
 # Import a manuscript
 
-Makes a new binder in your vault from a Word file, a long Markdown note or a text file. Binders finds where each chapter starts,
+Makes a new binder in your vault from a Word, OpenDocument or rich text file, a long Markdown note or a text file. Binders finds where each chapter starts,
 and makes a note of each (a folder, if the chapter has scenes). The note or file itself is only read: nothing in it
 is changed.
 
 For a Scrivener project, see [Import from Scrivener](import-scrivener.md).
 
-**Other programs come in through Word, Markdown or text.** Choose a `.docx`, `.md` or `.txt` export from the program
-you wrote in. For Google Docs, use File, Download, Microsoft Word or Markdown; for Pages, File, Export To, Word.
-Native Pages files, `.odt` and `.rtf` aren't read: export one of the supported formats first. Scrivener projects
-have their own [import](import-scrivener.md).
+**Other programs come in through one of these.** Choose a `.docx`, `.odt`, `.rtf`, `.md` or `.txt` from the program
+you wrote in. LibreOffice's own `.odt` (and its templates, `.ott`, and flat files, `.fodt`) and rich text from Word,
+LibreOffice, TextEdit or Scrivener's "Compile" are read as they are. For Google Docs, use File, Download, Microsoft Word
+or OpenDocument; for Pages, File, Export To, Word. Native Pages files aren't read: export one of these first. Scrivener
+projects have their own [import](import-scrivener.md).
 
 ## Importing
 
 There are three ways in.
 
 - **A file.** Open the command palette and run **Import a manuscript...**, then **Choose a file...** and pick a
-  `.docx`, `.md`, `.markdown` or `.txt` file. This works on a phone and a tablet too.
-- **A Word file already in your vault.** Right-click it in the file explorer and choose **Import as a binder...**. (Obsidian
-  shows a `.docx` in the explorer only with **Detect all file extensions** on, in its Files and links settings. On a
-  phone, run **Import a manuscript...** and **Choose from this vault...**, which lists Word files too.)
+  `.docx`, `.odt`, `.ott`, `.fodt`, `.rtf`, `.md`, `.markdown` or `.txt` file. This works on a phone and a tablet too.
+- **A Word, OpenDocument or rich text file already in your vault.** Right-click it in the file explorer and choose
+  **Import as a binder...**. (Obsidian shows these files in the explorer only with **Detect all file extensions** on, in
+  its Files and links settings. On a phone, run **Import a manuscript...** and **Choose from this vault...**, which lists
+  them too.)
 - **A note in your vault.** Right-click a note that isn't in a binder, in the file explorer, and choose **Make a
   binder from this note...**. Or run **Import a manuscript...** and choose **Choose from this vault...**, which lists the notes outside binders and
-  the Word files.
+  the Word, OpenDocument and rich text files.
 
 A zipped Scrivener backup chosen in the first dialog goes on to the [Scrivener import](import-scrivener.md).
 
@@ -74,8 +76,9 @@ Binders tries these in order, and uses the first that finds two or more chapters
    after a page break (a form feed, in a text file). A typed list of contents isn't taken for chapters.
 3. **Page breaks.** A short centered, bold, capital or larger line after a page break (in a text file, a form feed).
 
-In a Word file, a line set larger than the book's text (a fifth larger, and at least 2 points) counts as bold does: it
-is a sign of a chapter's title, beside a page break or words like "Chapter 12", and never starts a chapter by itself.
+In a Word, OpenDocument or rich text file, a line set larger than the book's text (a fifth larger, and at least 2
+points) counts as bold does: it is a sign of a chapter's title, beside a page break or words like "Chapter 12", and never
+starts a chapter by itself.
 
 If there are none, the whole text comes in as **one note**, and the dialog says so. Binders never cuts by length:
 split it where you like with **Split scene at cursor**.
@@ -153,6 +156,26 @@ What doesn't come across, each said in the things to look at:
 A file from older Word (`.doc`) or one locked with a password is refused, in words: save it as `.docx` with no
 password, and choose that.
 
+## An OpenDocument or rich text file
+
+Binders reads these itself too, on any device, and treats them as it treats a Word file: the same choices in the dialog
+(**Tracked changes**, **Comments**, **Underlined text**, each only when the file has any), the same things to look at,
+and the original kept in **Research/Originals**.
+
+- **OpenDocument** (`.odt`, `.ott`, `.fodt`; LibreOffice's, and the format of Collabora and Calligra). Chapters are found
+  by Heading styles, or by an outline level a style of your own has. Footnotes and endnotes, comments, tracked changes
+  (insertions and deletions, Accept all or Reject all), lists, quotations, links, PNG and JPEG pictures come across;
+  hidden text, charts and other objects, and pictures of other kinds are said and left out. A heading the outline
+  numbers ("Chapter 1" written by LibreOffice, not typed) is named by its place if it has no words of its own; its
+  number is never words of the text. A **master document** (`.odm`) holds its chapters as other files and is refused:
+  in LibreOffice, choose File, Export, and save it as one `.odt`.
+- **Rich text** (`.rtf`). From Word or LibreOffice, chapters are found by their Heading styles, as in a Word file, with
+  footnotes, comments, tracked changes, lists, links and PNG and JPEG pictures. TextEdit writes no styles: its chapters
+  are found by their lines ("Chapter One", centered, bold or larger) and its scene breaks by their marks. A file
+  TextEdit saved with pictures is an **`.rtfd`**, a folder, which can't be chosen: in TextEdit, choose File, Duplicate,
+  then save the copy as Rich Text Document (which leaves the pictures out) or as Word 2007 Document, and choose that.
+  A rich text file can be up to 32 MB.
+
 ## The text
 
 Every word comes across, in order, and nothing is added. The heading a chapter is named from is its name and not in
@@ -173,14 +196,17 @@ the text; a mark between scenes that becomes a new note is not in it either.
 ## When something is wrong
 
 - **A file that can't be read** is said in the first dialog: an unsupported or empty file, a damaged or locked Word
-  file, or one over the limits below. Older Word (`.doc`) and native Pages files need exporting first.
+  or OpenDocument file, a master document, a TextEdit `.rtfd`, or one over the limits below. Older Word (`.doc`) and
+  native Pages files need exporting first.
 - **A note that changed** after it was read: import says so and stops. Choose it again.
 - **Cancel, or a write that fails** partway: the notes already made stay as plain notes, and the message says
   where. The folder is not a binder, because the binder's own note is written last. Nothing is deleted for you.
 
 ## Limits
 
-- Word (`.docx`), Markdown and plain text only. A file can be up to 64 MB, and a Word file up to 256 MB unpacked, with 64 MB for its text and 500,000 paragraphs.
+- Word (`.docx`), OpenDocument (`.odt`, `.ott`, `.fodt`), rich text (`.rtf`), Markdown and plain text only. A file can
+  be up to 64 MB (a rich text file 32 MB), and a Word or OpenDocument file up to 256 MB unpacked, with 64 MB for its
+  text and 500,000 paragraphs.
 - Import always makes a new binder. It never writes into a folder that exists, never changes the note or file it was
   made from, and importing twice makes two. There is no undo for a whole import: delete the folder.
 - Setext headings (a line underlined with `===`), centered text in HTML, and chapters found by what a chapter
