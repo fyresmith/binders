@@ -1,7 +1,7 @@
 # Roadmap
 
 The path from a first draft to a finished novel in Obsidian: what is released, what is built on `main`, and what
-comes next. Updated 2026-10-10 after the novel-writing workflow review.
+comes next. Updated 2026-10-15: what 0.52.0 released is checked off.
 
 Binders is a **public beta** (0.x). The [changelog](CHANGELOG.md) records releases; `manifest.json` names the published
 plugin. Work under **Unreleased** is implemented on `main` but is not yet installed through Obsidian or BRAT.
@@ -26,7 +26,7 @@ Detailed interactions still go through the design rounds in [docs/dev/design.md]
 
 ## Built and released
 
-The published release at this review is **0.51.1**. These are its foundations:
+The published release at this review is **0.52.0** (2026-10-12). Its foundations, from 0.51.1 and before:
 
 - **Ordered folders and the native file explorer:** binder order, drag to reorder, label dots and undo of moves.
   [File explorer](docs/file-explorer.md)
@@ -42,31 +42,37 @@ The published release at this review is **0.51.1**. These are its foundations:
 - **Scrivener import, Longform integration and mobile support.**
   [Import from Scrivener](docs/import-scrivener.md) · [Longform](docs/longform.md) · [Phones and tablets](docs/mobile.md)
 
+Added in 0.52.0:
+
+- **Shared undo and redo of changes:** moves, properties, renames, creation, note duplication, deletion,
+  merges and splits; toolbar controls, 100 changes per binder and 32 MB of kept bytes across binders.
+  Memory only, cleared when the plugin unloads. Text keeps the editor's own undo. [Undo and redo](docs/undo.md)
+- **Import a manuscript:** Word, Markdown and plain text as a new binder, with chapters, scenes and an editable
+  preview. Word comments, tracked changes and underlining have choices; PNG and JPEG pictures are kept.
+  The source stays as it is. [Import a manuscript](docs/import-manuscript.md)
+- **Split at headings:** split an existing binder note at headings, scene breaks or a chosen line, after a
+  preview, as one change in undo history. [Split at headings](docs/splitting-and-merging.md#split-at-headings)
+- **Story date and the timeline:** a fourth mode with time down or across, manuscript numbers, an undated tray,
+  card editing, date menus, dragging to set dates and Shift story dates. [Story date](docs/story-date.md) ·
+  [Timeline](docs/timeline.md)
+- **Filters and saved filters** on any property, in every mode. [Filters](docs/filters.md)
+- **Revision tasks** in an ordinary Revision note, with the Revision pane. [Revision tasks](docs/revision-tasks.md)
+- **Pinned properties in the inspector,** editable for one note or several. [Inspector](docs/inspector.md)
+- **Synopses in the manuscript:** read and edit the book's outline down the page. [Manuscript](docs/manuscript.md)
+- **Progress:** the record of a binder's writing, the Progress window and deadlines. [Progress](docs/progress.md)
+
 ## Implemented on main, not yet released
 
-Checked items mean implemented, not a completed release or real-device validation. See
-[Unreleased](CHANGELOG.md#unreleased) for the changes that will ship together.
-
-- [x] **Shared undo and redo of changes:** moves, properties, renames, creation, note duplication, deletion,
-      merges and splits; toolbar controls, 100 changes per binder and 32 MB of kept bytes across binders.
-      Memory only, cleared when the plugin unloads. Text keeps the editor's own undo. [Undo and redo](docs/undo.md)
-- [x] **Import a manuscript:** Word, Markdown and plain text as a new binder, with chapters, scenes and an editable
-      preview. Word comments, tracked changes and underlining have choices; PNG and JPEG pictures are kept.
-      The source stays as it is. [Import a manuscript](docs/import-manuscript.md)
-- [x] **Split at headings:** split an existing binder note at headings, scene breaks or a chosen line, after a
-      preview, as one change in undo history. Markdown import also places reference footnotes and links with the
-      notes that use them. [Split at headings](docs/splitting-and-merging.md#split-at-headings)
-- [x] **Story date:** a scene property, outliner column, inspector row and menus, with story-order sorting.
-      [Story date](docs/story-date.md)
-- [x] **Timeline display:** a fourth mode with time down or across, manuscript numbers and an undated tray;
-      card editing and date menus. Dragging to set dates, custom calendars and eras remain below.
-      [Timeline](docs/timeline.md)
+Nothing yet: everything built is in 0.52.0. See [Unreleased](CHANGELOG.md#unreleased) for changes that will ship
+together once there are any.
 
 ## Features before 1.0
 
-Build in the order below, starting with revision. The first three features work together: choose a character's
-scenes, keep their context close, and work through what needs changing. Later work depends on those foundations.
-This order replaces the earlier flat list; it is a priority order, not a delivery schedule.
+Build in the order below. The first three features work together: choose a character's scenes, keep their
+context close, and work through what needs changing. Later work depends on those foundations. This order replaces
+the earlier flat list; it is a priority order, not a delivery schedule. Saved filters, revision tasks, pinned
+properties, the synopsis read-through, timeline dragging and the first three parts of progress shipped in 0.52.0;
+structural summaries come next.
 
 | Order | Work | What it makes easier |
 |---|---|---|
@@ -77,10 +83,10 @@ This order replaces the earlier flat list; it is a priority order, not a deliver
 
 ### 1. Saved filters and editable subsets
 
-- [ ] Save named filters scoped to a binder or folder, using label, status, export inclusion and ordinary scene
+- [x] Save named filters scoped to a binder or folder, using label, status, export inclusion and ordinary scene
       properties. Support list membership, missing values, AND conditions and several accepted values within one
       condition. Example: `characters` contains `[[Alice]]` and status is Draft.
-- [ ] Read and edit the matching scenes as one manuscript, in binder order; use the same subset in the other
+- [x] Read and edit the matching scenes as one manuscript, in binder order; use the same subset in the other
       modes, with ancestors shown only as context. Keep each mode's own ordering conventions, including story
       order on the timeline. Make the active scope and its count clear, with one action to return to the whole book.
 
@@ -94,7 +100,7 @@ shows a repeated task filters cannot serve; missing or renamed members must rema
 
 ### 2. Revision tasks tied to scenes
 
-- [ ] Capture a task such as “establish why Alice leaves” while drafting, then visit unfinished tasks in manuscript
+- [x] Capture a task such as “establish why Alice leaves” while drafting, then visit unfinished tasks in manuscript
       order and mark them done. Offer an unresolved count and next/previous navigation in an optional native pane.
 
 Keep Markdown checkboxes and scene links in one ordinary revision note per binder. A quoted passage can give
@@ -107,7 +113,7 @@ navigation proves insufficient; ambiguous or missing passages must be reported, 
 
 ### 3. Custom properties in the inspector
 
-- [ ] Let a binder pin a few existing properties beside synopsis and status: POV, characters, location, subplot,
+- [x] Let a binder pin a few existing properties beside synopsis and status: POV, characters, location, subplot,
       or the writer's own fields. Preserve Obsidian's property types and support links to ordinary reference notes.
 
 Use the existing inspector and native editing controls, with normal hover previews and opening to the side.
@@ -119,7 +125,7 @@ and every edit goes through the shared undo history without changing manuscript 
 
 ### 4. A continuous synopsis read-through
 
-- [ ] Read chapter headings and scene synopses as one outline, edit synopses in place, and open the underlying prose.
+- [x] Read chapter headings and scene synopses as one outline, edit synopses in place, and open the underlying prose.
       Apply it to the whole book or a saved subset.
 
 Make this a display option in an existing view, sharing its order, navigation and selection. An empty synopsis is
@@ -146,7 +152,7 @@ and edited without Binders, a new scene keeps the template's text and types, and
 
 ### 7. Finish the timeline
 
-- [ ] Drag a scene to set its story date, and within a date to set story order, as one undo step. A drop changes
+- [x] Drag a scene to set its story date, and within a date to set story order, as one undo step. A drop changes
       story time, never manuscript order. Gaps unfold to let the writer choose days, months or years.
 - [ ] Support a book's own calendar and eras, using the calendar work from
       [Evra Timelines](https://github.com/fyresmith/evra), in Binders' own cards, menus and history.
@@ -157,14 +163,14 @@ order survive dragging, undo, external edits and switching shapes; undated scene
 
 ### 8. Progress for drafting and revision
 
-- [ ] **A record of the binder's writing.** One plain-text file for each device and year in the binder's
+- [x] **A record of the binder's writing.** One plain-text file for each device and year in the binder's
       `Snapshots/History`, merged when read: the words written and cut in each note each day, the hours and
       sittings, and what was done to the binder (a note made or gone, a status changed, a snapshot or export
-      made). Numbers and names only, never a note's text. Being built.
-- [ ] **Progress, a window on the book's life:** today and the last seven days, the book against its target, its
+      made). Numbers and names only, never a note's text. Released in 0.52.0.
+- [x] **Progress, a window on the book's life:** today and the last seven days, the book against its target, its
       words over time with what happened said on the chart, every day written on, when in the day and week, each
-      part's growth, statuses over time, and its records. Designed and chosen 2026-10-10; built over the record.
-- [ ] **A deadline:** a date beside the target, the words a day it takes recalculated each morning, and whether
+      part's growth, statuses over time, and its records. Released in 0.52.0.
+- [x] **A deadline:** a date beside the target, the words a day it takes recalculated each morning, and whether
       the book is on pace, said plainly. The toolbar's count opens the window and marks where the plan stands today.
 - [ ] **An estimated past for a book that already exists,** worked out from its snapshots and file dates and drawn
       as an estimate.
