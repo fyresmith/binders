@@ -1566,7 +1566,7 @@ for (const [label, dims] of [['768 × 1024', [768, 1024]], ['1024 × 768', [1024
 			await setMode(p, 'outliner');
 			await check('columns (+)', () => tapSel('.binders-outliner-th.mod-add'));
 			await check('a column', () => tapSel('.binders-outliner-th[data-col="status"]'));
-			await check('a row’s', async () => { const c = await p.at(`${LEAF} .binders-outliner-row[data-path$="Epilogue.md"] .binders-outliner-name`); await hold(p, c.x, c.y); });
+			await check('a row’s', async () => { await p.ev(`document.querySelector('${LEAF} .binders-outliner-row[data-path$="Epilogue.md"]')?.scrollIntoView({ block: 'nearest' })`); await p.sleep(300); /* (the last row stays in sight over the rows: the row held is brought up above it) */ const c = await p.at(`${LEAF} .binders-outliner-row[data-path$="Epilogue.md"] .binders-outliner-name`); await hold(p, c.x, c.y); });
 			await check('a status cell', async () => { const c = await p.at(`${LEAF} .binders-outliner-row[data-path$="Epilogue.md"] .binders-outliner-cell[data-col="status"]`); await tap(p, c.x, c.y); await p.sleep(300); if (!(await menus(p))) await tap(p, c.x, c.y); });
 			await gone(p);
 			t.eq(j(bad), '[]', 'every menu is a popover on screen');

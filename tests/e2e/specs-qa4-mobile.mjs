@@ -663,7 +663,9 @@ test('small phone outliner (320 px): the title isn’t pinned and scrolls with t
 		await p.ev(`(() => { ${OUT}.scrollLeft = 0; ${OUT}.scrollTop = 0; return 1; })()`);
 		await p.sleep(300);
 		const e = await p.at(`${row('Part One/Arrival.md')} .binders-outliner-synopsis`), first = await p.at(row('Prologue.md'));
-		await pressAndMove(p, e.x, e.y, e.x, first.t + 6);
+		// (the totals row stays in sight over the rows, as a base's summaries do: the row is held by the part of it above that)
+		const foot = await p.at(`${LEAF} .binders-outliner-foot`);
+		await pressAndMove(p, e.x, Math.min(e.y, foot.t - 6), e.x, first.t + 6);
 		await shot(p, 'outliner-320-drag');
 		t.ok(await p.ev(`document.querySelectorAll('.drag-ghost').length`) >= 1, 'a held row, moved, is dragged');
 		await touch(p, 'touchEnd');

@@ -142,10 +142,6 @@ class Outliner implements BinderMode {
 		this.head = this.table.createDiv({ cls: 'binders-outliner-head', attr: { role: 'row' } });
 		this.body = this.table.createDiv({ cls: 'binders-outliner-body', attr: { role: 'rowgroup' } });
 		this.foot = this.table.createDiv({ cls: 'binders-outliner-foot', attr: { role: 'row' } });
-		// a summary's menu: what it shows, or for "By value" the values to choose from
-		const summary = (e: Event) => { const td = (e.target as HTMLElement).closest<HTMLElement>('.binders-outliner-summary.is-menu'); if (!td) return; e.stopPropagation(); this.summaryMenu(td); };
-		this.foot.addEventListener('click', summary);
-		this.foot.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); summary(e); } });
 		this.cols = new OutlinerColumns({
 			ctx: this.ctx, root: this.root, table: this.table, head: this.head,
 			columns: () => this.columns(), setColumns: (cols) => this.setColumns(cols),
@@ -914,6 +910,10 @@ class Outliner implements BinderMode {
 		if (this.press.noClick) return;
 		const t = e.target as HTMLElement;
 		if (t.closest('.binders-outliner-head')) return;
+		// a summary's menu: what it shows, or for "By value" the values to choose from (handled here, not by a listener of the
+		// foot's own: a finger near the rows' end would be moved onto a row that listens, and miss the row it is on)
+		const sum = t.closest<HTMLElement>('.binders-outliner-foot .binders-outliner-summary.is-menu');
+		if (sum) { this.summaryMenu(sum); return; }
 		const row = this.rowOf(e);
 		// the space below the rows: nothing selected, and the keyboard stays here (an arrow key goes back to the rows)
 		if (!row) { if (!e.shiftKey && !Keymap.isModEvent(e) && !t.closest('.binders-empty, .binders-view-synopsis-row')) { this.select([]); this.root.focus({ preventScroll: true }); } return; }
@@ -1049,6 +1049,9 @@ class Outliner implements BinderMode {
 
 	private onKey(e: KeyboardEvent): void {
 		if (e.isComposing) return;
+		// a summary in the last row: Enter or Space opens its menu
+		const sum = (e.target as HTMLElement).closest<HTMLElement>('.binders-outliner-foot .binders-outliner-summary.is-menu');
+		if (sum) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.summaryMenu(sum); } return; }
 		// nothing in it has the focus (a click below the rows): an arrow goes back to the rows
 		if (e.target === this.root) {
 			const rows = this.rowEls(), up = e.key === 'ArrowUp' || e.key === 'End' || e.key === 'PageUp';

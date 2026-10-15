@@ -106,7 +106,7 @@ const layout = (p) => p.ev(`(() => { const R = ${R}; const o = ${OUT}; const lea
 	const ths = [...head.querySelectorAll('.binders-outliner-th')].map(e => ({ col: e.dataset.col ?? '+', rect: R(e), pos: getComputedStyle(e).position, clipped: clip(e.querySelector('.binders-outliner-th-name')) }));
 	const rows = [...o.querySelectorAll('.binders-outliner-row')].map(r => { const n = r.querySelector('.binders-outliner-name'), s = r.querySelector('.binders-outliner-synopsis'); return { path: r.dataset.path, rect: R(r), level: +r.getAttribute('aria-level'), name: { rect: R(n), clipped: clip(n), text: n.textContent }, syn: s && s.getBoundingClientRect().height ? { rect: R(s), clipped: s.scrollHeight > s.clientHeight + 1, lines: Math.round(s.getBoundingClientRect().height / parseFloat(getComputedStyle(s).lineHeight)) } : null, chevron: R(r.querySelector('.binders-outliner-chevron')), cells: [...r.querySelectorAll('.binders-outliner-cell[data-col]:not(.mod-title)')].map(c => ({ col: c.dataset.col, rect: R(c), text: c.textContent, clipped: [...c.querySelectorAll('.binders-outliner-value, .binders-chip, .binders-outliner-field')].some(clip) })) }; });
 	const f = o.querySelector('.binders-outliner-foot');
-	return { inner: [innerWidth, innerHeight], body: document.body.className.split(' ').filter(c => /^is-|^mod-|^theme-/.test(c)).join(' '), view: R(view), out: R(o), scroll: { w: o.scrollWidth, cw: o.clientWidth, h: o.scrollHeight, ch: o.clientHeight, left: o.scrollLeft, top: o.scrollTop }, viewOut: view.scrollWidth - view.clientWidth, titlePos: getComputedStyle(o.querySelector('.binders-outliner-row .mod-title')).position, title: R(o.querySelector('.binders-outliner-row .mod-title')), head: R(head), ths, rows, foot: R(f), footText: [...f.querySelectorAll('.binders-outliner-cell')].map(c => c.textContent), nav: (() => { const b = document.querySelector('.mobile-navbar')?.getBoundingClientRect(); return b && b.height ? [Math.round(b.top), Math.round(b.bottom)] : null; })(), font: getComputedStyle(o).fontSize, rowFont: getComputedStyle(o.querySelector('.binders-outliner-name')).fontSize, synFont: getComputedStyle(o.querySelector('.binders-outliner-synopsis') ?? o).fontSize, headFont: getComputedStyle(head).fontSize }; })()`);
+	return { inner: [innerWidth, innerHeight], body: document.body.className.split(' ').filter(c => /^is-|^mod-|^theme-/.test(c)).join(' '), view: R(view), out: R(o), scroll: { w: o.scrollWidth, cw: o.clientWidth, h: o.scrollHeight, ch: o.clientHeight, left: o.scrollLeft, top: o.scrollTop }, viewOut: view.scrollWidth - view.clientWidth, titlePos: getComputedStyle(o.querySelector('.binders-outliner-row .mod-title')).position, title: R(o.querySelector('.binders-outliner-row .mod-title')), head: R(head), ths, rows, foot: R(f), footRow: R(f.querySelector('.binders-outliner-cell')), footText: [...f.querySelectorAll('.binders-outliner-cell')].map(c => c.textContent), nav: (() => { const b = document.querySelector('.mobile-navbar')?.getBoundingClientRect(); return b && b.height ? [Math.round(b.top), Math.round(b.bottom)] : null; })(), font: getComputedStyle(o).fontSize, rowFont: getComputedStyle(o.querySelector('.binders-outliner-name')).fontSize, synFont: getComputedStyle(o.querySelector('.binders-outliner-synopsis') ?? o).fontSize, headFont: getComputedStyle(head).fontSize }; })()`);
 
 // ---- menus and dialogs ----
 /** The last menu shown: where it is, and its items. On a phone Obsidian shows a menu as a sheet along the bottom. */
@@ -234,7 +234,9 @@ const everyPhoneSize = (wide) => async (p, h, t) => {
 			await scrollTo(p, 0, 99999);
 			const e = await layout(p);
 			await shot(p, `layout-${name}-end`);
-			c.ok(e.nav && e.foot[1] + e.foot[3] <= e.nav[0], `${name}: the totals row (${j(e.foot)}) is above the navigation bar (${j(e.nav)})`);
+			// (the last row's box reaches under the bar, as a base's does; what it shows, its cells, is above it)
+			c.ok(e.nav && e.footRow[1] + e.footRow[3] <= e.nav[0], `${name}: the totals row (${j(e.footRow)}) is above the navigation bar (${j(e.nav)})`);
+			c.ok(e.foot[1] + e.foot[3] >= e.nav[0] && e.footRow[3] < 60, `${name}: its box reaches under the bar, and the row itself is one row tall: ${j(e.foot)}`);
 			c.ok(/^7 notes$/.test(e.footText[0]) && e.footText.includes('106'), `${name}: and adds up: ${j(e.footText)}`);
 			// every column there is
 			await open(p, 'The Lighthouse', ALL);
@@ -1002,9 +1004,12 @@ test('small phone (320 px), the columns scrolled across: a row held by its word 
 		// (qa6: with the Label column a color alone the columns end sooner: 190 px across is past their end at 320 px)
 		const across = await p.ev(`${OUT}.scrollLeft`);
 		const w = await p.at(cell('Part One/Arrival.md', 'words'));
+		// (the totals row stays in sight over the rows, as a base's summaries do: the row is held by the part of its cell above it)
+		const foot = await rect(p, `${LEAF} .binders-outliner-foot`), holdY = Math.min(w.y, foot[1] - 6);
+		c.ok(holdY > w.t, 'and some of the cell is above the totals row: ' + j([w.t, foot[1]]));
 		c.ok(w.l >= 0 && w.l + w.w <= 320, 'the word counts are in sight');
 		const pr = await rect(p, row('Prologue.md'));
-		await pressAndMove(p, w.x, w.y, w.x, pr[1] + 6);
+		await pressAndMove(p, w.x, holdY, w.x, pr[1] + 6);
 		f.mid = await dragState(p);
 		await shot(p, 'drag-320-scrolled');
 		c.eq(f.mid.hint, 'Move before “Prologue”', 'held by its word count, a row drags');
@@ -1202,7 +1207,7 @@ test('phone toolbar: the options sheet shows and hides columns and folds everyth
 		f.filtered = { rows: await shown(p), foot: (await layout(p)).footText, count: await p.ev(`document.querySelector('${LEAF} .binders-word-count')?.textContent`) };
 		await shot(p, 'toolbar-filtered');
 		c.eq(j(f.filtered.rows), j(['Part One', 'Part One/Storm warning.md', 'Part Two', 'Part Two/Lights out.md', 'Epilogue.md'].map((q) => L + q)), 'the filter leaves the notes that pass, and their folders');
-		c.eq(j([f.filtered.foot[0], f.filtered.foot.includes('33'), f.filtered.count]), j(['3 notes', true, '33 of 106 words']), 'and the totals count them');
+		c.eq(j([f.filtered.foot[0], f.filtered.foot.includes('33'), f.filtered.count]), j(['3 notes shown', true, '33 of 106 words']), 'and the totals count them, and say they are what shows');
 	});
 	dump('toolbar', f);
 	c.done();
