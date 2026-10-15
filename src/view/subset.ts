@@ -3,7 +3,7 @@ import type { Binder } from '../binders';
 import type BindersPlugin from '../main';
 import { COMPILE_PROP, EXPORT_PROP } from '../scenes';
 import { readState, writeState, type StateProps } from '../filter/filter';
-import { active, atom, emptyDef, kindFrom, linkOf, matches, same, say, wholeRows, type Atom, type Env, type FilterDef, type Kind } from '../filter/conditions';
+import { atom, complete, emptyDef, kindFrom, linkOf, matches, same, say, type Atom, type Condition, type Env, type FilterDef, type Kind } from '../filter/conditions';
 import { propertyType } from './internals';
 import { rank } from './labels';
 import { readProps } from './props';
@@ -98,14 +98,16 @@ export class Subset {
 	state(): unknown { return writeState(this.def, this.props); }
 
 	/** Does the filter mean anything: has it a whole condition? (A row just added, with nothing picked, hides nothing.) */
-	on(): boolean { return active(this.def, this.kindOf, this.cal); }
+	on(): boolean { return this.whole().length > 0; }
 	/** How many conditions count. */
-	count(): number { return wholeRows(this.def, this.kindOf, this.cal).length; }
+	count(): number { return this.whole().length; }
+	/** The conditions that count, the whole ones. */
+	private whole(): Condition[] { return this.def.conditions.filter((c) => complete(c, this.kindOf(c.property), this.calFor(c.property))); }
 
 	/** The filter in a few words, for a tooltip: "status is Draft, characters contains any of Mara". */
 	say(): string {
 		const word = this.def.match === 'any' ? ' or ' : this.def.match === 'none' ? ', nor ' : ', ';
-		return (this.def.match === 'none' ? 'Not: ' : '') + wholeRows(this.def, this.kindOf, this.cal).map((c) => say(c, (p) => this.title(p), this.kindOf(c.property))).join(word);
+		return (this.def.match === 'none' ? 'Not: ' : '') + this.whole().map((c) => say(c, (p) => this.title(p), this.kindOf(c.property))).join(word);
 	}
 	/** What a property is called to the writer. */
 	title(property: string): string {
@@ -117,6 +119,9 @@ export class Subset {
 
 	/** The calendar the notes' story dates are in (their binder's). */
 	private get cal(): Calendar { const f = this.files()[0]; return f ? this.plugin.binders.calendarOf(f) : GREGORIAN; }
+	/** The calendar a condition on this property is read in. Asked for a date only, so a filter with no date condition
+	    (and a view with no binder to ask about) never reads the binder's notes. */
+	private calFor(property: string): Calendar { return this.kindOf(property) === 'date' ? this.cal : GREGORIAN; }
 
 	readonly env: Env = ((sub: Subset): Env => ({
 		// (asked as the notes are matched: the binder note's calendar may have changed since the filter was put on)

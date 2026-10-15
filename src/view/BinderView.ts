@@ -96,7 +96,7 @@ export class BinderView extends ItemView {
 	private path = '';
 	mode: ModeName = 'corkboard';
 	/** The filter on (conditions over the binder's notes) and what it needs of the vault. */
-	private subset = new Subset(this.plugin, () => (this.binder ? this.store.scenes(this.binder.folder) : []), (f) => this.words.get(f));
+	private subset = new Subset(this.plugin, () => (this.binder?.folder ? this.store.scenes(this.binder.folder) : []), (f) => this.words.get(f));
 	private popover: FilterPopover | null = null;
 	private options: Record<string, unknown> = {};
 	private binder: Binder | null = null;
