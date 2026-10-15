@@ -167,7 +167,10 @@ function helpers(p) {
 				// folders a test made and left (the notes in them are put right below; an extra folder would show in the
 				// next test's binder)
 				const own = new Set(${JSON.stringify([...pristineDirs])});
-				for (const f of app.vault.getAllLoadedFiles().filter(f => f.children && f.path !== '/' && !own.has(f.path)).sort((a, b) => b.path.length - a.path.length)) if (app.vault.getAbstractFileByPath(f.path)) await app.vault.delete(f, true);
+				for (const f of app.vault.getAllLoadedFiles().filter(f => f.children && f.path !== '/' && !own.has(f.path)).sort((a, b) => b.path.length - a.path.length)) if (app.vault.getAbstractFileByPath(f.path)) {
+					// (a delete a test started may have taken it off the disk already, before Obsidian's list caught up)
+					try { await app.vault.delete(f, true); } catch (e) { if (!/ENOENT/.test(String(e))) throw e; }
+				}
 				// (and no record of the binders' writing kept in memory: the files went with the folders)
 				app.plugins.plugins.binders?.progress?.forget();
 				// (a binder opens as its view was last left: each test starts with none remembered)
@@ -181,7 +184,7 @@ function helpers(p) {
 				// (and any file the pristine vault hasn't, of whatever kind: a picture a test saved would sit in the next
 				// test's vault; Obsidian doesn't list .obsidian, and the trash is cleared above)
 				const keep = new Set(${JSON.stringify([...pristineFiles])});
-				for (const f of app.vault.getFiles()) if (!keep.has(f.path)) await app.vault.delete(f);
+				for (const f of app.vault.getFiles()) if (!keep.has(f.path)) { try { await app.vault.delete(f); } catch (e) { if (!/ENOENT/.test(String(e))) throw e; } }
 				// (and nothing remembered on this device about where exports are saved)
 				app.saveLocalStorage('binders-export', null);
 				// every setting back to its default: with no saved data, loadSettings() takes the defaults
