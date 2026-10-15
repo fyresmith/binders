@@ -5,6 +5,7 @@ import { AbsoluteFill, Composition, Series } from 'remotion';
 import { Book, BOOK_LENGTH } from './Book';
 import { End, END_LENGTH, Framed, FRAMED_LENGTH, Orbit, ORBIT_LENGTH, Plain, PLAIN_LENGTH } from './Close';
 import { Film, FILM_LENGTH } from './Film';
+import { Gif, GIFS } from './Gif';
 import { C, H, W } from './kit';
 
 const FPS = 60;
@@ -20,4 +21,5 @@ const Classic: React.FC = () => (
 export const Root: React.FC = () => (<>
 	<Composition id="Preview" component={Film} width={W} height={H} fps={FPS} durationInFrames={Math.round(FILM_LENGTH * FPS)} />
 	<Composition id="Classic" component={Classic} width={W} height={H} fps={FPS} durationInFrames={Math.round(total * FPS)} />
+	{Object.entries(GIFS).map(([id, g]) => <Composition key={id} id={id} component={Gif} width={g.out[0]} height={g.out[1]} fps={30} durationInFrames={Math.round(g.length * 30)} defaultProps={g} />)}
 </>);

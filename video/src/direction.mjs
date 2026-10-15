@@ -103,9 +103,9 @@ function keyTimes(text, at, end, seed) {
 }
 
 /** Everything the film needs, worked out once from the take. */
-export function direct(takes) {
+export function direct(takes, CUES_ = CUES, start = [720, 430]) {
 	const acts = Object.fromEntries(takes.acts.map((a) => [a.name, a]));
-	const cues = CUES.map((c, i) => ({ ...c, i, act: acts[c.a] })).filter((c) => c.act);
+	const cues = CUES_.map((c, i) => ({ ...c, i, act: acts[c.a] })).filter((c) => c.act);
 	const warnings = [], sounds = [];
 	const sound = (t, name, gain = 1, rate = 1) => sounds.push({ t, name, gain, rate });
 
@@ -114,7 +114,7 @@ export function direct(takes) {
 	// is busy until `free`.
 	const hand = (surface) => {
 		const finger = surface === 'phone', legs = [];
-		let px = finger ? 250 : 720, py = finger ? 370 : 430, free = finger ? PHONE.in + 0.1 : 0.3;
+		let px = finger ? 250 : start[0], py = finger ? 370 : start[1], free = finger ? PHONE.in + 0.1 : 0.3;
 		for (const c of cues) {
 			const a = c.act;
 			if (a.surface !== surface) continue;

@@ -62,6 +62,12 @@ here; that is what keeps the next round short.
   `getSectionInfo` (the source lines) tells them apart, and `MarkdownRenderer.render` doesn't give a post-processor
   that: what Binders renders itself has to be put right in the text it hands over.
 - Scratch files go in the worktree's `test-dist/`, not the session's shared scratchpad: other agents clear it.
+- Moving pictures for the README (2026-10-15): community.obsidian.md shows the README's images straight from
+  `raw.githubusercontent.com`, and GitHub links them there too (no proxy), which serves a real WebP as `image/webp`;
+  so an animated WebP plays on both, at about a third of a GIF's size. A clip is cut from a take
+  (`video/gif-plates.mjs`, in the listing's book) by `video/src/Gif.tsx`, and `video/gif-loop.py` encodes it so its last frame
+  is its first; not from the finished film: the film's
+  captions are burned in.
 - Learned designing export (2026-10-05; `.claude/handoff/export-design/DESIGN.md` has the research, so it isn't
   done again):
   - A big dialog with choices and a preview is Obsidian's two-pane dialog (File recovery, our Snapshots): the list
