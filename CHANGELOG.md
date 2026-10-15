@@ -2,6 +2,12 @@
 
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for when a number changes. Commits add entries under Unreleased (`npm run ship`); `npm run release` turns them into a version.
 
+## Unreleased
+
+### Fixed
+
+- Obsidian's plugin review no longer reports warnings for Binders' code.
+
 ## 0.53.1 (2026-10-15)
 
 ### Fixed
