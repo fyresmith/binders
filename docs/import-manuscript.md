@@ -30,8 +30,9 @@ A zipped Scrivener backup chosen in the first dialog goes on to the [Scrivener i
 
 The second dialog shows the binder as it will be. On the left:
 
-- **Name**: the new binder's. It starts as the book's title, if the text has one at its top (a single `#` heading), else
-  the file's name. A name that is taken is refused as you type it.
+- **Name**: the new binder's. It starts as the book's title, if the text has one: in a Word, OpenDocument or rich text
+  file, its first paragraph in the Title style (up to 80 characters; a longer line keeps the file's name), in a Markdown
+  note, a single `#` heading at the very top. Else it is the file's name. A name that is taken is refused as you type it.
 - **Create in**: the folder to make it in.
 - **Chapters start at**: how Binders found the chapters, with how many each way finds. A way that finds nothing
   can't be chosen.
@@ -112,7 +113,7 @@ Binders reads a `.docx` itself, on any device, with nothing sent anywhere, and f
 for any text.
 
 - **Headings.** A paragraph is a heading by its style's built-in name (`Heading 1`, even in a Word that calls it
-  something else in your language) or by its outline level. A `Title` or `Subtitle` is the book's title, not a chapter.
+  something else in your language) or by its outline level. A `Title` or `Subtitle` is the book's title, not a chapter. The Title style is read by its built-in name (`Title`, which Word and LibreOffice write in English whatever the program's language), not its id. The first Title paragraph with words in it is the one that names the binder. (Not yet checked against a real German Word file: docs/dev/import.md lists the files the maintainer needs.)
 - **Page breaks, centered and bold lines.** A file written with no heading styles, with **CHAPTER TWELVE** centered
   and bold after page breaks, is read by those. So is a file that has `Chapter 12` lines in plain style.
 - **Scene breaks.** A paragraph in a `Scene Break` style, a line of `***` or `#`, or an empty paragraph where they are

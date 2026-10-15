@@ -147,4 +147,12 @@ function same(plan: ImportPlan, want: string, notes: string, what: string): void
 	ok(read(rtf([H('One'), body('a')].join('')), { file: 'Book.doc' }).scan.text.startsWith('# One'), 'a ".doc" that is really rich text (Word saves one so) is read as rich text');
 }
 
+// ---- the binder's name a file gives itself: its Title-styled paragraph, else the file's name ----
+{
+	eq(read(rtf([P('The Salt Road', 3), H('One'), body('a')].join(''))).name, 'The Salt Road', 'title (rtf): the style sheet’s Title names the binder');
+	ok(read(rtf([P('The Salt Road', 3), H('One'), body('a')].join(''))).titled === true, 'title (rtf): and the name is marked as the file’s own');
+	eq(read(rtf([H('One'), body('a')].join(''))).name, 'Book', 'title (rtf): with no Title, the file’s name is kept');
+	eq(read(rtf([P('The Salt Road', 3), body('a')].join(''))).name, 'The Salt Road','title (rtf): a file’s name does not matter when it has a Title');
+	eq(read(rtf([H('The Salt Road', 1), body('a')].join(''))).name, 'Book', 'title (rtf): a heading is not the Title');
+}
 done('import rtf');

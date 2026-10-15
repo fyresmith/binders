@@ -13,6 +13,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 ### Changed
 
 - Import a manuscript takes a short line set larger than the book's text as a sign of a chapter's title, as it takes a bold one.
+- Importing a Word, OpenDocument or rich text file suggests the new binder's name from its Title paragraph, when it has one, rather than the file's name.
 
 ### Fixed
 

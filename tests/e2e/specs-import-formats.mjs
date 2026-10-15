@@ -73,18 +73,19 @@ test('LibreOffice’s .odt from the device: the binder shown is the one made, ev
 	await fromFile(p, at);
 	t.eq((await tree(p)).join('|'), 'Front matter/|  Title page|The jetty/|  Mara came down to the jetty before the|  By noon the wind had come round to the|The tide|The storm/|  It broke a little after midnight. The|  In the morning the jetty was gone. Not|Research/', 'the binder as it will be: chapters by the Heading 1 style, scenes at the scene-break style');
 	t.eq(await value(p, 'signal'), 'headings', 'found by its headings');
+	t.eq(await value(p, 'name'), 'The Salt Road', 'named for the Title-styled paragraph, not the file');
 	t.eq(await value(p, 'revisions'), 'final', 'tracked changes are offered, accepted to start with');
 	t.ok(await p.ev(`!!document.querySelector('${WIN} [data-binders-key="comments"]')`), 'comments are offered');
 	const said_ = (await things(p)).join(' | ');
 	t.ok(/2 tracked changes\. They are brought in as accepted/.test(said_) && /1 comment/.test(said_) && /1 picture is kept/.test(said_), 'what it holds is said: ' + said_);
-	await imported(p, 'salt-road');
-	t.eq((await bodyWords(p, 'salt-road')).join(' '), expected('salt-road.odt.words.json').join(' '), 'every word is in the notes, in order');
-	const jetty = await read(p, 'salt-road/The jetty/By noon the wind had come round to the.md');
+	await imported(p, 'The Salt Road');
+	t.eq((await bodyWords(p, 'The Salt Road')).join(' '), expected('salt-road.odt.words.json').join(' '), 'every word is in the notes, in order');
+	const jetty = await read(p, 'The Salt Road/The jetty/By noon the wind had come round to the.md');
 	t.ok(jetty.includes('mending nets%%Ann: Is she alone here? Check against chapter 3.%% in the lee'), 'the comment is an Obsidian comment, at the end of the words it is on');
-	t.ok((await read(p, 'salt-road/The jetty/Mara came down to the jetty before the.md')).includes('every morning^[Corran had had no ferry since 1931.] since'), 'the footnote is in place');
-	t.ok((await read(p, 'salt-road/The tide.md')).includes('spring tides many times before') && !(await read(p, 'salt-road/The tide.md')).includes('and so fast'), 'tracked changes are accepted: inserted words in, deleted words out');
-	t.eq((await bytesOf(p, 'salt-road/Research/Originals/salt-road.odt')).compare(bytes), 0, 'the .odt is kept, byte for byte, in Research/Originals');
-	t.ok(await p.ev(`app.vault.getFiles().some(f => f.path.startsWith('salt-road/Research/Attachments/') && f.extension === 'png')`), 'the picture is kept in Research/Attachments');
+	t.ok((await read(p, 'The Salt Road/The jetty/Mara came down to the jetty before the.md')).includes('every morning^[Corran had had no ferry since 1931.] since'), 'the footnote is in place');
+	t.ok((await read(p, 'The Salt Road/The tide.md')).includes('spring tides many times before') && !(await read(p, 'The Salt Road/The tide.md')).includes('and so fast'), 'tracked changes are accepted: inserted words in, deleted words out');
+	t.eq((await bytesOf(p, 'The Salt Road/Research/Originals/salt-road.odt')).compare(bytes), 0, 'the .odt is kept, byte for byte, in Research/Originals');
+	t.ok(await p.ev(`app.vault.getFiles().some(f => f.path.startsWith('The Salt Road/Research/Attachments/') && f.extension === 'png')`), 'the picture is kept in Research/Attachments');
 	t.eq(readFileSync(at).compare(bytes), 0, 'the file on the disk is as it was');
 	same(t, before, await texts(p), { skip: [] });
 }, 'guard');
@@ -93,8 +94,8 @@ test('an .odt with Reject all: the notes made hold the words as they were before
 	await fromFile(p, put('salt-road.odt', fixture('salt-road.odt')));
 	await choose(p, 'revisions', 'original');
 	t.ok((await things(p)).some((x) => /They are left out, as if rejected/.test(x)), 'and that is said');
-	await imported(p, 'salt-road');
-	const tide = await read(p, 'salt-road/The tide.md');
+	await imported(p, 'The Salt Road');
+	const tide = await read(p, 'The Salt Road/The tide.md');
 	t.ok(tide.includes('spring tides before, and storm tides') && tide.includes('so *smoothly*, and so fast, as if'), 'the deleted words are back where they were, the inserted ones gone');
 }, 'guard');
 
@@ -104,6 +105,7 @@ test('a rich text file shaped as TextEdit writes it: chapters by their “Chapte
 	t.eq(await value(p, 'signal'), 'titles', 'found by its lines like “Chapter 12”');
 	t.eq((await tree(p)).join('|'), 'Front matter/|  Title page|Chapter One/|  Mara came down to the jetty before the|  By noon the wind had come round to the|Chapter Two|Chapter Three/|  It broke a little after midnight. The|  In the morning the jetty was gone. Not|Research/', 'the binder as it will be');
 	t.ok(!(await p.ev(`!!document.querySelector('${WIN} [data-binders-key="revisions"], ${WIN} [data-binders-key="comments"]')`)), 'no rows for what the file doesn’t have');
+	t.eq(await value(p, 'name'), 'salt-road-textedit', 'named for the file: TextEdit’s has no Title-styled paragraph');
 	await imported(p, 'salt-road-textedit');
 	t.eq((await bodyWords(p, 'salt-road-textedit')).join(' '), expected('salt-road-textedit.rtf.words.json').join(' '), 'every word is in the notes, in order');
 	t.ok((await read(p, 'salt-road-textedit/Chapter Two.md')).startsWith('\tThe water rose all afternoon.'), 'a paragraph begun with a tab keeps it');
@@ -123,9 +125,9 @@ test('an .odt and an .rtf already in the vault: "Import as a binder..." in their
 	await menuOn(p, 'Sources/Draft.odt');
 	await clickMenu(p, 'Import as a binder...');
 	await until(p, `!!document.querySelector('${WIN} [data-binders-key="name"]')`, 15000);
-	t.eq(await value(p, 'name'), 'Draft', 'named for the file');
-	await imported(p, 'Draft');
-	t.ok((await read(p, 'Draft/Draft.md')).includes('Made from [[Sources/Draft.odt|Draft]].'), 'the binder note links the file');
+	t.eq(await value(p, 'name'), 'The Salt Road', 'named for the Title, not the file name');
+	await imported(p, 'The Salt Road');
+	t.ok((await read(p, 'The Salt Road/The Salt Road.md')).includes('Made from [[Sources/Draft.odt|Draft]].'), 'the binder note links the file by its name');
 	t.ok(!(await exists(p, 'Draft/Research/Originals')), 'the file in the vault is not copied');
 	t.eq((await bytesOf(p, 'Sources/Draft.odt')).compare(odt), 0, 'and the file is byte for byte as it was');
 	await p.ev(`(() => { app.commands.executeCommandById('binders:import-manuscript'); return 1; })()`);
@@ -135,7 +137,7 @@ test('an .odt and an .rtf already in the vault: "Import as a binder..." in their
 	t.eq(await p.ev(`[...document.querySelectorAll('.prompt .suggestion-item')].map(e => e.textContent).filter(x => x.startsWith('Sources/')).sort().join('|')`), 'Sources/Draft.odt|Sources/Other.rtf', 'the vault’s OpenDocument and rich text files are listed');
 	await p.ev(`(() => { [...document.querySelectorAll('.prompt .suggestion-item')].find(e => e.textContent === 'Sources/Other.rtf').click(); return 1; })()`);
 	await until(p, `!!document.querySelector('${WIN} [data-binders-key="name"]')`, 15000);
-	t.eq(await value(p, 'name'), 'Other', 'the file picked is the one read');
+	t.eq(await value(p, 'name'), 'The Salt Road 2', 'the file picked is the one read: its Title, and the next free name since Draft’s binder took the first');
 	t.eq(await value(p, 'signal'), 'headings', 'LibreOffice’s rich text: chapters by the style sheet’s headings');
 	await closeAll(p);
 	t.eq((await bytesOf(p, 'Sources/Other.rtf')).compare(rtf), 0, 'the .rtf is as it was');

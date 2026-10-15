@@ -250,13 +250,13 @@ test('a Word file from the device: chapters by its heading styles, tracked chang
 	t.eq((await tree(p)).join('|'), 'Front matter/|  Title page|One|Two|Three|Research/', 'the binder as it will be: the title in the front matter, a note for each chapter');
 	t.eq(await p.ev(`document.querySelector('${WIN} [data-binders-key="signal"]').value`), 'headings', 'found by its heading styles');
 	t.ok((await things(p)).some((x) => /1 tracked change|2 tracked changes/.test(x) && /accepted/.test(x)), 'tracked changes are said to be accepted');
-	await imported(p, 'Tide');
-	const one = await read(p, 'Tide/One.md');
+	await imported(p, 'The Tide Book');
+	const one = await read(p, 'The Tide Book/One.md');
 	t.ok(one.includes('Kept added end^[A footnote of words.]') && !one.includes('cut'), 'the accepted text, the footnote in place');
-	t.eq(await read(p, 'Tide/Two.md'), `${words(60, 'wb')}\n`, 'a chapter’s note is its text');
-	t.eq(Buffer.from(await p.ev(`app.vault.adapter.readBinary('Tide/Research/Originals/Tide.docx').then(b => [...new Uint8Array(b)])`)).compare(Buffer.from(bytes)), 0, 'the Word file is kept, byte for byte, in Research/Originals');
-	t.ok(/structure: "every note a chapter"/.test(await read(p, 'Tide/Tide.md')), 'every note a chapter');
-	t.eq((await binderWords(p, 'Tide')).join(' '), tokens(DOCX_WORDS).join(' '), 'every word is there, in order, footnote words after');
+	t.eq(await read(p, 'The Tide Book/Two.md'), `${words(60, 'wb')}\n`, 'a chapter’s note is its text');
+	t.eq(Buffer.from(await p.ev(`app.vault.adapter.readBinary('The Tide Book/Research/Originals/Tide.docx').then(b => [...new Uint8Array(b)])`)).compare(Buffer.from(bytes)), 0, 'the Word file is kept, byte for byte, in Research/Originals');
+	t.ok(/structure: "every note a chapter"/.test(await read(p, 'The Tide Book/The Tide Book.md')), 'every note a chapter');
+	t.eq((await binderWords(p, 'The Tide Book')).join(' '), tokens(DOCX_WORDS).join(' '), 'every word is there, in order, footnote words after');
 	t.eq(readFileSync(a).compare(Buffer.from(bytes)), 0, 'the file on the disk is as it was');
 });
 
@@ -268,11 +268,11 @@ test('a Word file already in the vault: "Import as a binder..." in its menu, the
 	t.ok((await menuItems(p)).includes('Import as a binder...'), 'a .docx has the item in its menu');
 	await clickMenu(p, 'Import as a binder...');
 	await until(p, `!!document.querySelector('${WIN} [data-binders-key="name"]')`, 15000);
-	t.eq(await p.ev(`document.querySelector('${WIN} [data-binders-key="name"]').value`), 'Draft', 'named for the file');
+	t.eq(await p.ev(`document.querySelector('${WIN} [data-binders-key="name"]').value`), 'The Tide Book', 'named for the Title, not the file name');
 	t.eq((await tree(p)).join('|'), 'Front matter/|  Title page|One|Two|Three', 'the same binder, with no original copied');
-	await imported(p, 'Draft');
-	t.ok((await read(p, 'Draft/Draft.md')).includes('Made from [[Sources/Draft.docx|Draft]]. That note is unchanged.'.replace('note', 'note')), 'the binder note links the file');
-	t.ok(!(await exists(p, 'Draft/Research')), 'the file in the vault is not copied');
+	await imported(p, 'The Tide Book');
+	t.ok((await read(p, 'The Tide Book/The Tide Book.md')).includes('Made from [[Sources/Draft.docx|Draft]]. That note is unchanged.'.replace('note', 'note')), 'the binder note links the file');
+	t.ok(!(await exists(p, 'The Tide Book/Research')), 'the file in the vault is not copied');
 	t.eq(Buffer.from(await p.ev(`app.vault.adapter.readBinary('Sources/Draft.docx').then(b => [...new Uint8Array(b)])`)).compare(Buffer.from(bytes)), 0, 'and the file is byte for byte as it was');
 	await p.ev(`(() => { app.vault.setConfig('showUnsupportedFiles', false); return 1; })()`);
 });
@@ -287,7 +287,7 @@ test('"Choose from this vault...": a note and a Word file are listed, and the on
 	t.eq(await p.ev(`[...document.querySelectorAll('.prompt .suggestion-item')].map(e => e.textContent).filter(x => x.startsWith('Sources/')).sort().join('|')`), 'Sources/Pick|Sources/Pick.docx', 'the vault’s notes outside a binder and its Word files are listed');
 	await p.ev(`(() => { [...document.querySelectorAll('.prompt .suggestion-item')].find(e => e.textContent === 'Sources/Pick.docx').click(); return 1; })()`);
 	await until(p, `!!document.querySelector('${WIN} [data-binders-key="name"]')`, 15000);
-	t.eq(await p.ev(`document.querySelector('${WIN} [data-binders-key="name"]').value`), 'Pick', 'the Word file picked is the one read');
+	t.eq(await p.ev(`document.querySelector('${WIN} [data-binders-key="name"]').value`), 'The Tide Book', 'the Word file picked is the one read: its Title');
 	t.eq((await tree(p)).join('|'), 'Front matter/|  Title page|One|Two|Three', 'its chapters');
 	await closeAll(p);
 	await p.ev(`(() => { app.commands.executeCommandById('binders:import-manuscript'); return 1; })()`);
@@ -341,12 +341,12 @@ test('what a Word file carries: rows for tracked changes, comments and underlini
 	await p.ev(`(() => { document.querySelector('${WIN} [data-binders-key="comments"]').click(); return 1; })()`); await p.sleep(400);
 	await choose(p, 'revisions', 'final');
 	await choose(p, 'underline', 'italic');
-	await imported(p, 'Rich');
-	const one2 = await read(p, 'Rich/One.md');
+	await imported(p, 'The Tide Book');
+	const one2 = await read(p, 'The Tide Book/One.md');
 	t.ok(one2.startsWith('Words with a comment%%Ann: Check this.%% and *italics* and *underlined* and added.'), 'the note: the comment at the end of its range, italics, underlining made italic, the change accepted');
-	t.ok(one2.includes('![[Rich/Research/Attachments/Picture 1.png]]'), 'the picture is embedded where it stood');
-	t.eq(Buffer.from(await p.ev(`app.vault.adapter.readBinary('Rich/Research/Attachments/Picture 1.png').then(b => [...new Uint8Array(b)])`)).compare(PNG), 0, 'and is in Research/Attachments, byte for byte');
-	t.ok(/export: false/.test(await read(p, 'Rich/Research/Research.md')), 'where no export takes it');
+	t.ok(one2.includes('![[The Tide Book/Research/Attachments/Picture 1.png]]'), 'the picture is embedded where it stood');
+	t.eq(Buffer.from(await p.ev(`app.vault.adapter.readBinary('The Tide Book/Research/Attachments/Picture 1.png').then(b => [...new Uint8Array(b)])`)).compare(PNG), 0, 'and is in Research/Attachments, byte for byte');
+	t.ok(/export: false/.test(await read(p, 'The Tide Book/Research/Research.md')), 'where no export takes it');
 });
 
 test('a phone: the Word rows are in reach and each works', async (p, h, t) => {
@@ -359,8 +359,8 @@ test('a phone: the Word rows are in reach and each works', async (p, h, t) => {
 		t.ok(await p.ev(`['revisions','comments','underline'].every(k => { const e = document.querySelector('${WIN} [data-binders-key="' + k + '"]'); const r = e.getBoundingClientRect(); return r.width > 30 && r.height >= 24; })`), 'each is big enough to touch');
 		await choose(p, 'revisions', 'original');
 		t.ok((await things(p)).some((x) => /2 tracked changes/.test(x) && /left out, as if rejected/.test(x)), 'Reject all works on a phone');
-		await imported(p, 'RichPhone');
-		t.ok((await read(p, 'RichPhone/One.md')).includes('cut') && (await exists(p, 'RichPhone/Research/Attachments/Picture 1.png')), 'and imports, with its picture');
+		await imported(p, 'The Tide Book');
+		t.ok((await read(p, 'The Tide Book/One.md')).includes('cut') && (await exists(p, 'The Tide Book/Research/Attachments/Picture 1.png')), 'and imports, with its picture');
 	} finally { await closeAll(p); await p.send('Emulation.setDeviceMetricsOverride', { width: p.width, height: p.height, deviceScaleFactor: 1, mobile: false }); await reload(p, false); }
 });
 

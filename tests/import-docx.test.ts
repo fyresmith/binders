@@ -400,4 +400,26 @@ const body = (seed: string, n = 120) => p(words(n, seed));
 		} catch (e) { console.log(`SKIPPED: soffice COULD NOT CONVERT (${e instanceof Error ? e.message : String(e)})`); }
 	}
 }
+// ---- the binder's name a file gives itself: its Title-styled paragraph (titleOf), else the file's name ----
+{
+	const named = (bytes: Uint8Array) => read(bytes);
+	const TITLED = docx([p('The Salt Road', { style: 'Title' }), p('By Mara.'), p('One', { style: 'Heading1' }), body('a')].join(''));
+	eq(named(TITLED).name, 'The Salt Road', 'title: the Title-styled paragraph names the binder');
+	ok(named(TITLED).titled === true, 'title: and the name is marked as the file’s own');
+	eq(named(docx([p('One', { style: 'Heading1' }), body('a')].join(''))).name, 'Book', 'title: with no Title-styled paragraph, the file’s name is kept');
+	ok(!named(docx([p('One', { style: 'Heading1' }), body('a')].join(''))).titled, 'title: and it is not marked as the file’s');
+	eq(named(docx([p('The Salt Road: A Novel?', { style: 'Title' }), body('a')].join(''))).name, 'The Salt Road A Novel', 'title: made safe as a folder’s name');
+	eq(named(docx([p('', { style: 'Title' }), p('The Salt Road', { style: 'Title' }), body('a')].join(''))).name, 'The Salt Road', 'title: an empty Title paragraph is passed over');
+	eq(named(docx([p('First', { style: 'Title' }), p('Second', { style: 'Title' }), body('a')].join(''))).name, 'First', 'title: only the first Title paragraph is asked');
+	const long = 'The Salt Road and everything that happened on it while the storms kept coming in off the sea for a whole year';
+	eq(named(docx([p(long, { style: 'Title' }), p('Short', { style: 'Title' }), body('a')].join(''))).name, 'Book', 'title: a Title too long to be a name is a line, and the file’s name is kept');
+	eq(named(docx([p(long.slice(0, 80), { style: 'Title' }), body('a')].join(''))).name, long.slice(0, 80), 'title: up to eighty characters is a name');
+	const localised = STYLES.replace('w:styleId="Title"', 'w:styleId="Titel"');
+	eq(named(docx([p('Der Salzweg', { style: 'Titel' }), body('a')].join(''), { styles: localised })).name, 'Der Salzweg', 'title: a German Word’s id is its own, and the built-in name still reads it');
+	// a lone first heading the detector takes for the book, as it does with no Title above it
+	const chapters = [p('Part One', { style: 'Heading1' }), body('a'), p('One', { style: 'Heading2' }), body('b'), p('Two', { style: 'Heading2' }), body('c'), p('Three', { style: 'Heading2' }), body('d')].join('');
+	const pl = (bytes: Uint8Array) => planManuscript(read(bytes), { name: 'Book', parent: '', settings, choices: {}, scenes: 'words' });
+	eq(pl(docx(chapters)).title, 'Part One', 'title: a lone first heading is the book’s name when the file has no Title');
+	eq(pl(docx(p('The Salt Road', { style: 'Title' }) + chapters)).title, 'The Salt Road', 'title: the Title paragraph is the name over that heading');
+}
 done('import docx');

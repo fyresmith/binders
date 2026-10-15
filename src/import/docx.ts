@@ -6,6 +6,7 @@ import { isMarker, unit, wordCount, type Unit } from './detect';
 import type { Para, SourceDoc } from './doc';
 import type { ManuscriptRead } from './manuscript';
 import { runsToMarkdown } from './markdown';
+import { safeName } from './plan';
 
 /* A Word file as the text the manuscript import cuts: its paragraphs written as Markdown, one after another with a
    blank line between (list items under one another), and a unit for each paragraph in the detector's terms (a
@@ -86,6 +87,20 @@ export function docToScan(doc: SourceDoc, o: { tabs: boolean }): ManuscriptRead[
 	return { text: text + '\n', units, said, skipped: '', pictures: doc.pictures };
 }
 
+/** The longest a title can be and still be a binder's name: a line of a title, not a sentence. */
+export const TITLE_MAX = 80;
+
+/** The name a file gives itself: its first paragraph in the Title style that has words in it, made safe as a folder's
+    name (the words kept as they are, not title-cased). Null when there is none, or it is longer than TITLE_MAX: the
+    file's name is then kept. The style is read by its built-in name, which Word, LibreOffice and TextEdit write in
+    English whatever the program's language (a German Word's id for it is "Titel"). */
+export function titleOf(paras: Para[]): string | null {
+	const p = paras.find((q) => q.style === 'title' && q.runs.some((r) => r.kind === 'text' && r.text.trim()));
+	if (!p) return null;
+	const t = p.runs.map((r) => (r.kind === 'text' ? r.text : r.kind === 'br' ? ' ' : '')).join('').replace(/\s+/g, ' ').trim();
+	return t && [...t].length <= TITLE_MAX ? safeName(t) : null;
+}
+
 /** What the writer chooses about a Word file, and what it is read with. */
 export interface WordOptions {
 	tabs: boolean;
@@ -101,9 +116,9 @@ export interface WordOptions {
 export function wordRead(file: DocxFile, name: string, origin: ManuscriptRead['origin'], o: WordOptions): ManuscriptRead {
 	const doc = settle(file, o.revisions, { underline: o.underline, comments: o.comments });
 	if (!doc.paras.some((p) => p.runs.some((r) => r.kind === 'text' && r.text.trim()))) { const kind = documentKind(name); throw new Error(`This ${kind === 'odt' ? 'OpenDocument' : kind === 'rtf' ? 'rich text' : 'Word'} file has no text in it.`); }
-	const f = doc.found;
+	const f = doc.found, title = titleOf(doc.paras);
 	return {
-		name: name.replace(/\.[^.]+$/, '') || name, file: name, origin, scan: docToScan(doc, o),
+		name: title ?? (name.replace(/\.[^.]+$/, '') || name), titled: title !== null, file: name, origin, scan: docToScan(doc, o),
 		word: { revisions: f.revisions, comments: f.comments, hasUnderline: f.hasUnderline, hasItalic: f.hasItalic },
 		reread: (choices) => wordRead(file, name, origin, { ...o, ...choices }),
 	};

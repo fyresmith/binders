@@ -248,4 +248,12 @@ function same(bytes: Uint8Array, plan: ImportPlan, what: string, o: { original?:
 	ok(read(odt([H('One'), body('a')].join('')), { file: 'Book.ott' }).scan.text.startsWith('# One'), 'a template is read by its name');
 }
 
+// ---- the binder's name a file gives itself: its Title-styled paragraph, else the file's name ----
+{
+	eq(read(odt([P('The Salt Road', 'Title'), H('One'), body('a')].join(''))).name, 'The Salt Road', 'title (odt): the Title style names the binder');
+	ok(read(odt([P('The Salt Road', 'Title'), H('One'), body('a')].join(''))).titled === true, 'title (odt): and the name is marked as the file’s own');
+	eq(read(odt([H('One'), body('a')].join(''))).name, 'Book', 'title (odt): with no Title, the file’s name is kept');
+	eq(read(odt([P('The Salt Road: A Novel', 'Title'), body('a')].join(''))).name, 'The Salt Road A Novel', 'title (odt): made safe as a folder’s name');
+	eq(read(odt([P('The Salt Road', 'Title_20_Book'), body('a')].join(''))).name, 'Book', 'title (odt): a style of another name is not the Title');
+}
 done('import odt');

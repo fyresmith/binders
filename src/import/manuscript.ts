@@ -26,8 +26,10 @@ const enc = new TextEncoder();
 const RESEARCH = 'Research', ORIGINALS = 'Originals', ATTACHMENTS = 'Attachments', FRONT = 'Front matter';
 
 export interface ManuscriptRead {
-	/** The book's name as the file or note has it, without its ending. */
+	/** The book's name as the file or note has it, without its ending: a Word, OpenDocument or rich text file's is its
+	    Title-styled paragraph when it has one (`titled`), which a heading the detector takes for the book does not replace. */
 	name: string;
+	titled?: boolean;
 	/** The file's name, with its ending. */
 	file: string;
 	/** Where the text came from: a file chosen from the device (its bytes are kept), or a note of this vault (its path). */
@@ -375,7 +377,7 @@ export function planManuscript(read: ManuscriptRead, o: ManuscriptOptions): { pl
 	if (found.doubtful) warn('', 'These may not be chapters. Look at the list.');
 	plan.warnings = [...lines];
 	plan.said = about;
-	const from = 'bytes' in read.origin ? `Imported from “${escapeMarkdown(read.file)}”. The file is kept as it was in ${RESEARCH}/${ORIGINALS}.` : `Made from ${link(read.origin.path, read.name)}. That note is unchanged.`;
+	const from = 'bytes' in read.origin ? `Imported from “${escapeMarkdown(read.file)}”. The file is kept as it was in ${RESEARCH}/${ORIGINALS}.` : `Made from ${link(read.origin.path, read.file.replace(/\.[^.]+$/, '') || read.name)}. That note is unchanged.`;
 	const report = `${from}\n\n${plan.warnings.length ? `## Import notes\n\n${plan.warnings.map((w) => `- ${escapeMarkdown(w)}`).join('\n')}\n` : ''}`;
 	makeNote(binderNote, name, '', true);
 	plan.files.delete(binderNote);
@@ -384,6 +386,6 @@ export function planManuscript(read: ManuscriptRead, o: ManuscriptOptions): { pl
 	const sequence = new Map([...new Set([binderNote, ...order])].map((p, i) => [p, i]));
 	plan.notes.sort((a, b) => (sequence.get(a.path) ?? Infinity) - (sequence.get(b.path) ?? Infinity));
 	plan.folders = [...folders].sort((a, b) => a.split('/').length - b.split('/').length);
-	const book = found.book === null ? null : nameOf(units[found.book].text);
+	const book = read.titled ? read.name : found.book === null ? null : nameOf(units[found.book].text);
 	return { plan, found, title: book };
 }
