@@ -75,8 +75,8 @@ export function readPackage(data: Uint8Array): Package {
 	const relName = `${main.slice(0, main.lastIndexOf('/') + 1)}_rels/${main.slice(main.lastIndexOf('/') + 1)}.rels`;
 	const rels = parts.has(relName) ? relsOf(text(parts.get(relName) ?? new Uint8Array()), main) : new Map<string, Rel>();
 	const media = (name: string): Uint8Array | null => {
-		const got = unzipSync(data, { filter: (f) => f.name === name && f.originalSize <= MAX_MEDIA })[name];
-		return got ?? null;
+		// (a picture whose stream is broken is a picture left out, not the whole file refused)
+		try { return unzipSync(data, { filter: (f) => f.name === name && f.originalSize <= MAX_MEDIA })[name] ?? null; } catch { return null; }
 	};
 	return { parts, main, rels, names, media };
 }

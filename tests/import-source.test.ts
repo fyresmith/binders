@@ -27,6 +27,13 @@ says(() => readZip(zipSync({ '../x': enc.encode('x') }), { words }), 'A file in 
 const hurt = zipSync({ 'a.txt': enc.encode('writing') }, { level: 0 });
 hurt[new DataView(hurt.buffer).getUint16(26, true) + 30] ^= 1;
 says(() => readZip(hurt, { words }), 'DAMAGED a.txt', 'a file that fails its check is said in the words given');
+// a deflated file whose stream is broken: the zip library's own words ("invalid distance") are no writer's
+{
+	const text = enc.encode('the quick brown fox jumps over the lazy dog. '.repeat(200));
+	const broken = zipSync({ 'a.txt': text }), at = new DataView(broken.buffer).getUint16(26, true) + 30;
+	for (let i = 0; i < 12; i++) broken[at + 2 + i] = 0xff;
+	says(() => readZip(broken, { words }), 'This zip file is damaged.', 'a file whose compressed stream is broken is said as damaged');
+}
 eq(readZip(hurt, { words, filter: () => false }).size, 0, 'a filter that wants nothing gets nothing, and a file it turned down is not looked at');
 
 eq(inBinder('A', 'A/b/c.md'), true, 'a path under the binder');

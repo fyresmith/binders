@@ -73,7 +73,7 @@ export function readOdt(data: Uint8Array): DocxFile {
 		content = text('content.xml');
 		if (!content) throw new Error('This zip file isn’t an OpenDocument text: it has no document in it.');
 		stylesXml = text('styles.xml'); meta = text('meta.xml');
-		media = (path) => unzipSync(data, { filter: (f) => f.name === path && f.originalSize <= MAX_MEDIA })[path] ?? null;
+		media = (path) => { try { return unzipSync(data, { filter: (f) => f.name === path && f.originalSize <= MAX_MEDIA })[path] ?? null; } catch { return null; } };
 	}
 
 	const found: DocxFile['found'] = { inserted: 0, deleted: 0, comments: 0, underlined: 0, italic: 0, headers: false, textBoxes: 0, tables: 0, pictures: 0, endnotes: 0, hidden: 0 };

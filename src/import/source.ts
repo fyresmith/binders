@@ -92,7 +92,9 @@ export function readZip(data: Uint8Array, o: { words: ZipWording; filter?: (name
 	const files = new Map<string, Uint8Array>();
 	let actual = 0, entries = 0, turned = 0;
 	const want = o.filter;
-	const unpacked = unzipSync(data, { filter: (f) => { const yes = !want || f.name.endsWith('/') || want(f.name); if (!yes) turned++; return yes; } });
+	let unpacked: ReturnType<typeof unzipSync>;
+	// (the zip library's own words, "invalid distance", are no writer's)
+	try { unpacked = unzipSync(data, { filter: (f) => { const yes = !want || f.name.endsWith('/') || want(f.name); if (!yes) turned++; return yes; } }); } catch { throw new Error('This zip file is damaged.'); }
 	for (const [path, bytes] of Object.entries(unpacked)) {
 		entries++;
 		safePath(path);

@@ -29,6 +29,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - Rich text import no longer loses the words of some links, as LibreOffice writes them: a whole table of contents could vanish.
 - Rich text import now brings in the text of text boxes, such as captions in frames.
 - Word import no longer brings in text that one person inserted and another deleted, when Reject all is chosen.
+- A damaged Word, OpenDocument or zipped Scrivener file is now refused with a plain message instead of “invalid distance”.
 
 ## 0.52.0 (2026-10-12)
 
