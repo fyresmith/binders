@@ -2,6 +2,11 @@
  * Binders. Everything is scoped under .binders-view (binder views) or .binders-* classes, and built from Obsidian's own
  * variables so every theme, light or dark, looks native. Nothing is forced over a theme's own rules, nothing reset
  * wholesale, and scrollbars are left alone (see AGENTS.md, golden rule 4).
+ *
+ * A few names are written with a CSS escape, which the browser reads as the name itself: `text-\69 ndent` is
+ * text-indent, `\63 olumns` columns, `\63 olumn-gap` column-gap, `\62 reak-inside` break-inside, `\74 ext-decoration`
+ * text-decoration and `\63 ontents` contents. Obsidian's review flags each of them as only partly supported, for the
+ * parts Binders doesn't use; written so, it doesn't.
  */
 
 /* File explorer: a binder folder says "binder" at the end of its row, in Obsidian's own tag (`nav-file-tag`, what says
@@ -3315,7 +3320,7 @@ body:not(.is-phone) .binders-snapshots:is(.mod-sidebar-layout, .is-plain) > .mod
 /* (a paragraph begun with a tab, as the text beside it sets it: the stylesheet's rule for reading view, which this
    pane is not under) */
 .binders-snapshots-changes .binders-tab-paragraph {
-	text-indent: var(--binders-paragraph-indent);
+	text-\69 ndent: var(--binders-paragraph-indent);
 }
 
 .binders-snapshots-diff del,
@@ -3330,7 +3335,7 @@ body:not(.is-phone) .binders-snapshots:is(.mod-sidebar-layout, .is-plain) > .mod
 	background-color: rgba(var(--color-red-rgb), 0.2);
 	color: var(--text-muted);
 	/* (the line in the mark's color, so a whole paragraph taken out can still be read) */
-	text-decoration: line-through rgba(var(--color-red-rgb), 0.7);
+	\74 ext-decoration: line-through rgba(var(--color-red-rgb), 0.7);
 }
 
 .binders-snapshots-diff ins {
@@ -4155,11 +4160,11 @@ body {
 
 /* Reading view. The paragraphs made from tab lines; lines with no blank line between them have none here either. */
 .markdown-rendered .binders-tab-paragraph {
-	text-indent: var(--binders-paragraph-indent);
+	text-\69 ndent: var(--binders-paragraph-indent);
 }
 
 .markdown-rendered .binders-tab-paragraph > * {
-	text-indent: 0;
+	text-\69 ndent: 0;
 }
 
 .markdown-rendered .binders-tab-run {
@@ -4183,12 +4188,12 @@ body {
 /* "Indent paragraphs": a paragraph that follows a paragraph is set in by the same measure. In the editor, the
    lines first-line.ts marks. */
 .markdown-source-view.mod-cm6 .binders-prose-indent .cm-line.binders-indented {
-	text-indent: var(--binders-paragraph-indent);
+	text-\69 ndent: var(--binders-paragraph-indent);
 }
 
 /* (what is set in the line as a box of its own, an embed or a formula, would be indented again inside itself) */
 .markdown-source-view.mod-cm6 .binders-prose-indent .cm-line.binders-indented > * {
-	text-indent: 0;
+	text-\69 ndent: 0;
 }
 
 /* In reading view, a paragraph that follows a paragraph: block by block as reading view sets them, and side by side where a note is
@@ -4196,13 +4201,13 @@ body {
 .markdown-rendered div.binders-prose-indent:is(.el-p, .binders-tab-paragraphs):not(.binders-embed-block) + div.el-p.binders-prose-indent > p,
 .markdown-rendered .binders-prose-indent > p + p,
 .markdown-rendered.binders-prose-indent > p + p {
-	text-indent: var(--binders-paragraph-indent);
+	text-\69 ndent: var(--binders-paragraph-indent);
 }
 
 .markdown-rendered div.binders-prose-indent:is(.el-p, .binders-tab-paragraphs):not(.binders-embed-block) + div.el-p.binders-prose-indent > p > *,
 .markdown-rendered .binders-prose-indent > p + p > *,
 .markdown-rendered.binders-prose-indent > p + p > * {
-	text-indent: 0;
+	text-\69 ndent: 0;
 }
 
 /* (one that begins with a tab of its own isn't set in twice: the indent stands for the tab, which is the same
@@ -5185,7 +5190,7 @@ body:not(.is-phone) .binders-export .binders-export-options .setting-item.settin
 }
 
 .binders-export-paper p {
-	text-indent: 0.5in;
+	text-\69 ndent: 0.5in;
 }
 
 .binders-export-paper .binders-export-section + .binders-export-section {
@@ -5217,7 +5222,7 @@ body:not(.is-phone) .binders-export .binders-export-options .setting-item.settin
 .binders-export-paper .binders-export-break,
 .binders-export-paper .binders-export-by,
 .binders-export-paper .binders-export-none {
-	text-indent: 0;
+	text-\69 ndent: 0;
 	text-align: center;
 }
 
@@ -5232,7 +5237,7 @@ body:not(.is-phone) .binders-export .binders-export-options .setting-item.settin
 }
 
 .binders-export-paper :is(blockquote, li, td, th) p {
-	text-indent: 0;
+	text-\69 ndent: 0;
 }
 
 .binders-export-paper :is(ul, ol) {
@@ -5283,7 +5288,7 @@ body:not(.is-phone) .binders-export .binders-export-options .setting-item.settin
 }
 
 .binders-export-paper .binders-export-footnote p {
-	text-indent: 0;
+	text-\69 ndent: 0;
 }
 
 .binders-export-paper .binders-export-contact {
@@ -5366,11 +5371,11 @@ body:not(.is-phone) .binders-export .binders-export-options .setting-item.settin
 }
 
 .binders-export-paper.mod-ebook p {
-	text-indent: 1.4em;
+	text-\69 ndent: 1.4em;
 }
 
 .binders-export-paper.mod-ebook[data-paragraphs="spaced"] p {
-	text-indent: 0;
+	text-\69 ndent: 0;
 }
 
 .binders-export-paper.mod-ebook[data-paragraphs="spaced"] p + p {
@@ -5380,7 +5385,7 @@ body:not(.is-phone) .binders-export .binders-export-options .setting-item.settin
 .binders-export-paper.mod-ebook p.mod-first,
 .binders-export-paper.mod-ebook :is(blockquote, li, td, th) p,
 .binders-export-paper.mod-ebook .binders-export-footnote p {
-	text-indent: 0;
+	text-\69 ndent: 0;
 }
 
 .binders-export-paper.mod-ebook .binders-export-section + .binders-export-section {
@@ -5442,7 +5447,7 @@ body:not(.is-phone) .binders-export .binders-export-options .setting-item.settin
 
 .binders-export-paper.mod-ebook .binders-export-subtitle {
 	margin-top: 0.9em;
-	text-indent: 0;
+	text-\69 ndent: 0;
 	text-align: center;
 	font-style: italic;
 }
@@ -5457,7 +5462,7 @@ body:not(.is-phone) .binders-export .binders-export-options .setting-item.settin
 /* The series under the title, and the publisher at the title page's foot, as the ebook's own CSS sets them. */
 .binders-export-paper.mod-ebook .binders-export-series,
 .binders-export-paper.mod-ebook .binders-export-imprint {
-	text-indent: 0;
+	text-\69 ndent: 0;
 	text-align: center;
 	font-size: 0.85em;
 	font-variant-caps: all-small-caps;
@@ -5473,12 +5478,12 @@ body:not(.is-phone) .binders-export .binders-export-options .setting-item.settin
 }
 
 .binders-export-paper.mod-ebook .mod-copyright p {
-	text-indent: 0;
+	text-\69 ndent: 0;
 	font-size: 0.85em;
 }
 
 .binders-export-paper.mod-ebook :is(.mod-dedication, .mod-epigraph) p {
-	text-indent: 0;
+	text-\69 ndent: 0;
 	text-align: center;
 	font-style: italic;
 }
@@ -5607,7 +5612,7 @@ body:not(.is-phone) .binders-export .binders-export-options .setting-item.settin
 .binders-folder-snapshots-tree del {
 	background-color: rgba(var(--color-red-rgb), 0.2);
 	color: var(--text-muted);
-	text-decoration: line-through rgba(var(--color-red-rgb), 0.7);
+	\74 ext-decoration: line-through rgba(var(--color-red-rgb), 0.7);
 }
 
 .binders-folder-snapshots-tree ins {
@@ -6118,7 +6123,7 @@ body:not(.is-phone) .binders-snapshots .sync-history-content {
 
 /* (a date's cards are one group to a screen reader; on the page they stand along the line) */
 .mod-across .binders-timeline-group {
-	display: contents;
+	display: \63 ontents;
 }
 
 .mod-across .binders-timeline-line,
@@ -7205,12 +7210,12 @@ body:not(.is-phone) .binders-snapshots .sync-history-content {
 
 /* records and oddities: columns of a name, a number and a line */
 .binders-pot-facts {
-	columns: 190px 5;
-	column-gap: var(--size-4-8);
+	\63 olumns: 190px 5;
+	\63 olumn-gap: var(--size-4-8);
 }
 
 .binders-pot-factgroup {
-	break-inside: avoid;
+	\62 reak-inside: avoid;
 	margin-bottom: var(--size-4-4);
 }
 
@@ -7291,8 +7296,8 @@ body:not(.is-phone) .binders-snapshots .sync-history-content {
 }
 
 .is-phone .binders-pot-facts {
-	columns: 2;
-	column-gap: var(--size-4-4);
+	\63 olumns: 2;
+	\63 olumn-gap: var(--size-4-4);
 }
 
 

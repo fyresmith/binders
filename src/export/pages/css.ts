@@ -1,6 +1,7 @@
 import type { ManuscriptStyle } from '../docx-parts';
 import type { BookStyle } from '../style';
 import type { Geometry } from './geometry';
+import { BREAK_AFTER, TEXT_INDENT } from '../css-names';
 
 /* A style as the stylesheet of its pages: the same rules for the pages in the window and the pages that are
    printed, so one is the other. Every vertical measure is a whole number of lines (or half a line, twice), so the
@@ -19,7 +20,7 @@ function core(g: Geometry, o: { family: string; step: number; noteSize: number; 
 		`.block { height: ${n(g.block)}; position: relative; }`,
 		`.text { display: flow-root; text-align: ${o.justified ? 'justify' : 'start'}; hyphens: ${o.justified ? 'manual' : 'none'}; }`,
 		'p, h1, h2, h3, h4, pre, table, figure { margin: 0; }',
-		'p.first, p.cont, p.li, p.fig { text-indent: 0; }',
+		`p.first, p.cont, p.li, p.fig { ${TEXT_INDENT}: 0; }`,
 		`.cut { text-align-last: ${last}; }`,
 		// a finished page's lines are fast (pages/dom.ts): each ends at its break, and none is broken anywhere else
 		'.pin { white-space: nowrap; } .pin.just { text-align-last: justify; } .fill { display: inline-block; width: 100%; height: 0; }',
@@ -27,7 +28,7 @@ function core(g: Geometry, o: { family: string; step: number; noteSize: number; 
 		`.q { margin-inline-end: ${n(o.step)}; }`,
 		`.sp-a { margin-top: ${n(g.lead / 2)}; } .sp-b { margin-bottom: ${n(g.lead / 2)}; }`,
 		'p.li { position: relative; }',
-		`.mk { position: absolute; inset-inline-start: ${n(-o.step)}; width: ${n(o.step - g.size * 0.4)}; text-align: end; text-indent: 0; }`,
+		`.mk { position: absolute; inset-inline-start: ${n(-o.step)}; width: ${n(o.step - g.size * 0.4)}; text-align: end; ${TEXT_INDENT}: 0; }`,
 		`h2, h3, h4 { font-size: 1em; line-height: ${n(g.lead)}; padding-top: ${n(g.lead)}; text-align: start; hyphens: none; }`,
 		'h3, h4 { font-style: italic; font-weight: 400; }',
 		`pre { white-space: pre-wrap; font: ${n(g.size * 0.8)}/${n(g.lead)} "Courier New", "Courier Prime", Cousine, "Liberation Mono", monospace; text-align: start; }`,
@@ -40,7 +41,7 @@ function core(g: Geometry, o: { family: string; step: number; noteSize: number; 
 		`.notes { position: absolute; left: 0; right: 0; bottom: 0; font-size: ${n(o.noteSize)}; line-height: ${n(o.noteLead)}; text-align: ${o.justified ? 'justify' : 'start'}; hyphens: ${o.justified ? 'manual' : 'none'}; }`,
 		`.notes.has { padding-top: ${n(o.noteLead)}; }`,
 		`.notes.has::before { content: ""; display: block; width: ${n(Math.min(72, g.width * 0.12))}; border-top: 0.5pt solid #000; margin-bottom: ${n(o.noteLead / 2)}; }`,
-		'.note p { text-indent: 0; } .note .n { font-variant-numeric: lining-nums; margin-inline-end: 0.25em; }',
+		`.note p { ${TEXT_INDENT}: 0; } .note .n { font-variant-numeric: lining-nums; margin-inline-end: 0.25em; }`,
 		'.head, .folio { position: absolute; left: 0; right: 0; }',
 		'[dir="rtl"] .page, .page[dir="rtl"] { direction: rtl; }',
 	];
@@ -59,13 +60,13 @@ export function bookCss(s: BookStyle, g: Geometry, family: string): string {
 	const rules = [
 		...core(g, { family, step: g.lead * 1.4, noteSize, noteLead, justified }),
 		'.page { font-variant-numeric: oldstyle-nums; }',
-		`p { text-indent: ${spaced ? '0' : n(g.lead)}; }`,
+		`p { ${TEXT_INDENT}: ${spaced ? '0' : n(g.lead)}; }`,
 		spaced ? `p + p { margin-top: ${n(g.lead / 2)}; } p + p.cont:first-child { margin-top: 0; }` : '',
 		s['first-words'] === 'small capitals' ? '.lead { font-variant-caps: all-small-caps; letter-spacing: 0.06em; }' : '',
 		`h1 { font-size: ${n(g.size * hs)}; line-height: ${n(hl)}; font-weight: 400; font-variant-numeric: lining-nums; ${LETTERING[s['heading-lettering']] ?? ''} text-align: ${left ? 'start' : 'center'}; hyphens: none; padding: ${n(g.sink)} 0 ${n((hs > 2 ? 2 : 3) * g.lead)}; }`,
 		'h1 .hl { display: block; }',
 		`h1 .hl1 { ${hs > 1.2 ? 'font-size: 0.62em; letter-spacing: 0; text-transform: none; font-variant-caps: normal; font-style: italic;' : ''} }`,
-		`p.break { text-indent: 0; text-align: center; padding: ${n(mark ? g.lead : 0)} 0; height: ${n(g.lead)}; font-size: ${n(Math.max(6, g.size - 2))}; line-height: ${n(g.lead)}; box-sizing: content-box; word-spacing: 0.6em; }`,
+		`p.break { ${TEXT_INDENT}: 0; text-align: center; padding: ${n(mark ? g.lead : 0)} 0; height: ${n(g.lead)}; font-size: ${n(Math.max(6, g.size - 2))}; line-height: ${n(g.lead)}; box-sizing: content-box; word-spacing: 0.6em; }`,
 		`.head { top: ${n(g.top - 27)}; padding: 0 ${n(g.outside)} 0 ${n(g.inside)}; font-size: ${n(small)}; line-height: 12pt; display: flex; gap: 1.6em; justify-content: center; align-items: baseline; }`,
 		`.folio { top: ${n(g.top + g.block + 16)}; padding: 0 ${n(g.outside)} 0 ${n(g.inside)}; font-size: ${n(fig)}; line-height: 12pt; text-align: center; }`,
 		`.spine-right :is(.head, .folio) { padding-left: ${n(g.outside)}; padding-right: ${n(g.inside)}; }`,
@@ -74,16 +75,16 @@ export function bookCss(s: BookStyle, g: Geometry, family: string): string {
 		top ? '.head.outside { justify-content: flex-start; flex-direction: row-reverse; } .spine-right .head.outside { flex-direction: row; }' : '',
 		`.page.title-page .text, .page.part .text { text-align: ${left ? 'start' : 'center'}; hyphens: none; }`,
 		`.page.title-page h1 { font-size: ${n(Math.max(22, g.size * 2.1))}; line-height: 1.25; letter-spacing: ${left ? '0' : '0.04em'}; font-variant-caps: normal; text-transform: none; font-style: normal; padding: ${n(Math.round(g.lines * 0.22) * g.lead)} 0 0; }`,
-		`.page.title-page p { text-indent: 0; margin-top: ${n(g.lead)}; } .page.title-page p.subtitle { font-style: italic; }`,
+		`.page.title-page p { ${TEXT_INDENT}: 0; margin-top: ${n(g.lead)}; } .page.title-page p.subtitle { font-style: italic; }`,
 		`.page.title-page p.author { margin-top: ${n(2 * g.lead)}; ${left ? '' : 'font-variant-caps: all-small-caps; letter-spacing: 0.16em;'} }`,
 		`.page.title-page p.series { font-size: ${n(small)}; font-variant-caps: all-small-caps; letter-spacing: 0.12em; }`,
 		`.page.title-page p.imprint { position: absolute; left: 0; right: 0; bottom: 0; margin: 0; font-size: ${n(small)}; ${left ? '' : 'font-variant-caps: all-small-caps; letter-spacing: 0.16em;'} }`,
 		`.page.part h1 { padding-top: ${n(Math.round(g.lines * 0.3) * g.lead)}; }`,
 		`.page.copyright .text { position: absolute; left: 0; right: 0; bottom: 0; text-align: start; hyphens: none; font-size: ${n(noteSize)}; line-height: 12pt; }`,
-		'.page.copyright p { text-indent: 0; margin-top: 6pt; }',
+		`.page.copyright p { ${TEXT_INDENT}: 0; margin-top: 6pt; }`,
 		`.page:is(.dedication, .epigraph) .text { text-align: center; font-style: italic; hyphens: none; padding-top: ${n(Math.round(g.lines * 0.22) * g.lead)}; }`,
-		'.page:is(.dedication, .epigraph) p { text-indent: 0; }',
-		`p.toc { display: flex; gap: 1em; text-indent: 0; text-align: start; hyphens: none; } p.toc .n { margin-inline-start: auto; min-width: 2.2em; text-align: end; font-variant-numeric: lining-nums; }`,
+		`.page:is(.dedication, .epigraph) p { ${TEXT_INDENT}: 0; }`,
+		`p.toc { display: flex; gap: 1em; ${TEXT_INDENT}: 0; text-align: start; hyphens: none; } p.toc .n { margin-inline-start: auto; min-width: 2.2em; text-align: end; font-variant-numeric: lining-nums; }`,
 		`p.toc.under { margin-inline-start: ${n(g.lead)}; } p.toc.top { margin-top: ${n(g.lead / 2)}; }`,
 	];
 	return `${rules.filter((r) => r).join('\n')}\n${s.css?.trim() ? `${s.css.trim()}\n` : ''}`;
@@ -94,21 +95,21 @@ export function manuscriptCss(s: ManuscriptStyle, g: Geometry): string {
 	const family = s.typeface === 'Courier New' ? '"Courier New", "Courier Prime", Cousine, "Liberation Mono", monospace' : '"Times New Roman", Tinos, "Liberation Serif", Times, serif';
 	return [
 		...core(g, { family, step: 36, noteSize: 12, noteLead: g.lead, justified: false }),
-		'p { text-indent: 36pt; }',
+		`p { ${TEXT_INDENT}: 36pt; }`,
 		s.italics === 'underlined' ? 'em { font-style: normal; text-decoration: underline; }' : '',
 		`h1 { font-size: 1em; font-weight: 400; text-align: center; padding: ${n(g.sink)} 0 ${n(g.lead)}; }`,
 		'h1 .hl { display: block; }',
-		`p.break { text-indent: 0; text-align: center; }`,
+		`p.break { ${TEXT_INDENT}: 0; text-align: center; }`,
 		`.head { top: 36pt; padding: 0 72pt; line-height: 12pt; text-align: end; }`,
 		'.folio { display: none; }',
-		`.page.title-page .contact { display: flex; justify-content: space-between; line-height: 14pt; } .page.title-page p { text-indent: 0; }`,
+		`.page.title-page .contact { display: flex; justify-content: space-between; line-height: 14pt; } .page.title-page p { ${TEXT_INDENT}: 0; }`,
 		`.page.title-page h1 { text-transform: uppercase; padding: ${n(Math.round(g.lines * 0.36) * g.lead)} 0 0; }`,
 		'.page.title-page p.by { text-align: center; }',
-		`p.toc { display: flex; gap: 1em; text-indent: 0; } p.toc .n { margin-inline-start: auto; }`,
+		`p.toc { display: flex; gap: 1em; ${TEXT_INDENT}: 0; } p.toc .n { margin-inline-start: auto; }`,
 	].filter((r) => r).join('\n') + '\n';
 }
 
 /** The page's own size, for the printer: one box to a sheet, nothing asked of the browser's own paging. */
-export const printCss = (g: Geometry): string => `@page { size: ${n(g.width)} ${n(g.height)}; margin: 0; }\nhtml, body { margin: 0; padding: 0; background: #fff; }\n.page { break-after: page; }\n`;
+export const printCss = (g: Geometry): string => `@page { size: ${n(g.width)} ${n(g.height)}; margin: 0; }\nhtml, body { margin: 0; padding: 0; background: #fff; }\n.page { ${BREAK_AFTER}: page; }\n`;
 
 export { str as cssString };

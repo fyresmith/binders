@@ -1,4 +1,5 @@
-import { Notice, Platform, PluginSettingTab, Setting, TextComponent, type App, type SettingDefinition, type SettingDefinitionItem } from 'obsidian';
+import { Notice, Platform, PluginSettingTab, Setting, TextComponent, type App } from 'obsidian';
+import type { SettingRow, SettingSection } from './setting-definitions';
 import type BindersPlugin from './main';
 import { DEFAULT_SETTINGS, FOCUS_TEXT, FOCUS_TOGGLES, focusToggles, PARAGRAPH_TEXT, PARAGRAPH_TOGGLES, PROPS, SIDE_TEXT, TEXT, TOGGLES, WORDS_TEXT, RECORD_TEXT, type BindersSettings, type FocusToggle, type ParagraphToggle, type Prop, type Toggle } from './settings-data';
 import { parseGoal } from './focus/session';
@@ -31,18 +32,21 @@ export class BindersSettingTab extends PluginSettingTab {
 	private async changed(): Promise<void> {
 		await this.save();
 		// (Obsidian reads the definitions again and draws them)
-		this.update();
+		this.redraw();
 	}
 
+	/** Obsidian reads the definitions again and draws them (its `update`, which older typings don't have). */
+	private redraw(): void { (this as unknown as { update(): void }).update(); }
+
 	/** Obsidian draws the tab from these, and can search them. */
-	getSettingDefinitions(): SettingDefinitionItem[] {
+	getSettingDefinitions(): SettingSection[] {
 		// (the settings are read when a button is pressed, not now: Obsidian keeps a list's buttons from the first time
 		// it draws them, which is before the plugin has loaded its settings)
 		const s = this.s;
 		return [
 			// (hiding notes is done by the same patch that orders the explorer: without the one, the other can't be on)
-			{ type: 'group', heading: 'File explorer', items: TOGGLES.map((k): SettingDefinition => ({ name: TEXT[k][0], desc: TEXT[k][1], control: { type: 'toggle', key: k }, ...(k === 'hideBinderNotes' ? { disabled: () => !this.s.orderExplorer } : {}) })) },
-			{ type: 'group', heading: 'Paragraphs', items: PARAGRAPH_TOGGLES.map((k): SettingDefinition => ({ name: PARAGRAPH_TEXT[k][0], desc: PARAGRAPH_TEXT[k][1], control: { type: 'toggle', key: k } })) },
+			{ type: 'group', heading: 'File explorer', items: TOGGLES.map((k): SettingRow => ({ name: TEXT[k][0], desc: TEXT[k][1], control: { type: 'toggle', key: k }, ...(k === 'hideBinderNotes' ? { disabled: () => !this.s.orderExplorer } : {}) })) },
+			{ type: 'group', heading: 'Paragraphs', items: PARAGRAPH_TOGGLES.map((k): SettingRow => ({ name: PARAGRAPH_TEXT[k][0], desc: PARAGRAPH_TEXT[k][1], control: { type: 'toggle', key: k } })) },
 			{ type: 'group', heading: 'Sidebar', items: [{ name: SIDE_TEXT[0], desc: SIDE_TEXT[1], control: { type: 'toggle', key: 'sidePanes' } }] },
 			{ type: 'group', heading: 'Word counts', items: [{ name: WORDS_TEXT[0], desc: WORDS_TEXT[1], control: { type: 'toggle', key: 'bookWords' } }] },
 			{ type: 'group', heading: 'Progress', items: [
@@ -52,7 +56,7 @@ export class BindersSettingTab extends PluginSettingTab {
 			{
 				type: 'list', heading: 'Labels', cls: 'binders-settings-labels',
 				emptyState: 'No labels. A note’s label then shows in the color it names, if it names one.',
-				items: s.labels.map((l, i): SettingDefinition => ({ name: l.name, render: (setting) => { this.labelRow(setting, i); } })),
+				items: s.labels.map((l, i): SettingRow => ({ name: l.name, render: (setting) => { this.labelRow(setting, i); } })),
 				onReorder: (from, to) => { move(this.s.labels, from, to); void this.changed(); },
 				onDelete: (i) => { this.s.labels.splice(i, 1); void this.changed(); },
 				addItem: { name: 'Add label', action: () => this.addLabel() },
@@ -61,14 +65,14 @@ export class BindersSettingTab extends PluginSettingTab {
 			{
 				type: 'list', heading: 'Statuses', cls: 'binders-settings-statuses',
 				emptyState: 'No statuses. The ones your notes already use are still offered.',
-				items: s.statuses.map((name, i): SettingDefinition => ({ name, render: (setting) => { this.statusRow(setting, i); } })),
+				items: s.statuses.map((name, i): SettingRow => ({ name, render: (setting) => { this.statusRow(setting, i); } })),
 				onReorder: (from, to) => { move(this.s.statuses, from, to); void this.changed(); },
 				onDelete: (i) => { this.s.statuses.splice(i, 1); void this.changed(); },
 				addItem: { name: 'Add status', action: () => this.addStatus() },
 				extraButtons: [(b) => b.setIcon('rotate-ccw').setTooltip('Restore the default statuses').onClick(() => void this.restore('statuses'))],
 			},
 			// focus mode: what shows besides the text, each to turn on or off (typewriter scrolling and dimming are on to begin with)
-			{ type: 'group', heading: 'Focus mode', items: [...focusToggles(Platform.isMobile).map((k): SettingDefinition => ({ name: FOCUS_TEXT[k][0], desc: FOCUS_TEXT[k][1], control: { type: 'toggle', key: k } })), { name: FOCUS_TEXT.focusGoal[0], desc: FOCUS_TEXT.focusGoal[1], render: (setting) => { this.goalRow(setting); } }] },
+			{ type: 'group', heading: 'Focus mode', items: [...focusToggles(Platform.isMobile).map((k): SettingRow => ({ name: FOCUS_TEXT[k][0], desc: FOCUS_TEXT[k][1], control: { type: 'toggle', key: k } })), { name: FOCUS_TEXT.focusGoal[0], desc: FOCUS_TEXT.focusGoal[1], render: (setting) => { this.goalRow(setting); } }] },
 			{ type: 'group', heading: 'Export', items: [
 				{ name: 'Exports folder', desc: 'Where exported files go on a phone or tablet, and where the save dialog starts on a computer. A name is a folder beside each binder; a path, such as Books/Exports, is one folder for the whole vault.', render: (setting) => { this.textRow(setting, 'exportsFolder', 'Exports'); } },
 				{ name: 'Remembered places', desc: '', render: (setting) => { this.placesRow(setting); } },
@@ -76,7 +80,7 @@ export class BindersSettingTab extends PluginSettingTab {
 				{ name: 'Contact details', desc: 'For the title page of a manuscript: an address, an email, a phone number, a line each.', render: (setting) => { this.contactRow(setting); } },
 				{ name: 'Styles folder', desc: 'The folder at the top of the vault that holds your export styles, one file each. Binders keeps it out of the file explorer. To sync styles with Obsidian Sync, turn on “Sync all other types”.', render: (setting) => { this.textRow(setting, 'stylesFolder', 'Export styles'); } },
 			] },
-			{ type: 'group', heading: 'Property names', items: PROPS.map((k): SettingDefinition => ({ name: TEXT[k][0], desc: TEXT[k][1], render: (setting) => { this.propRow(setting, k); } })) },
+			{ type: 'group', heading: 'Property names', items: PROPS.map((k): SettingRow => ({ name: TEXT[k][0], desc: TEXT[k][1], render: (setting) => { this.propRow(setting, k); } })) },
 		];
 	}
 
@@ -239,7 +243,7 @@ export class BindersSettingTab extends PluginSettingTab {
 		setting.settingEl.addClass('binders-settings-places');
 		const list = places(this.plugin), name = (p: string) => p.split('/').pop() ?? p;
 		setting.setDesc(list.length ? `${list.length === 1 ? 'One export saves' : `${list.length} exports save`} without asking on this device: ${list.map((p) => `${name(p.folder)} (${KINDS.find((k) => k.id === p.kind)?.name ?? p.kind}) to ${p.path}`).join('; ')}.` : 'Every export asks where to save. After one is saved, its window offers to save there next time without asking.');
-		setting.addButton((b) => b.setButtonText('Ask again').setDisabled(!list.length).onClick(() => { forgetPlaces(this.plugin); this.update(); }));
+		setting.addButton((b) => b.setButtonText('Ask again').setDisabled(!list.length).onClick(() => { forgetPlaces(this.plugin); this.redraw(); }));
 	}
 
 	/** The property a note's synopsis, status, label or target is kept in: a name of its own, taken when the field is left. */
