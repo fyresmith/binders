@@ -181,12 +181,6 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 
 - Fixes from a round of testing: links on tab-led lines after a rename, Longform groups, Scrivener round trips, export and focus mode on a phone, and Left and Right arrows crossing between notes in the manuscript.
 
-## 0.49.23 (2026-10-10)
-
-### Changed
-
-- A test now checks Binders' own replace bar in the manuscript, not Obsidian's.
-
 ## 0.49.22 (2026-10-10)
 
 ### Fixed
@@ -339,12 +333,6 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 
 - This release gathers the paragraph fixes, the command "Start a paragraph with a tab", and the fixes to bringing back everything.
 
-## 0.48.2 (2026-10-09)
-
-### Changed
-
-- Nothing a writer will notice: 94 more tests of paragraphs begun with a tab, and the two findings still open are listed.
-
 ## 0.48.1 (2026-10-09)
 
 ### Fixed
@@ -411,12 +399,6 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 
 - Tab on an empty line in a binder's note, and the tab Enter carries on, is drawn as the paragraph's indent at once: no guide line, and the cursor no longer moves sideways when the first letter is typed. Four spaces fill the indent as a tab does.
 
-## 0.46.24 (2026-10-09)
-
-### Changed
-
-- Nothing a writer will notice: which model the designer role runs on.
-
 ## 0.46.23 (2026-10-09)
 
 ### Fixed
@@ -441,18 +423,6 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 
 - In a snapshot's Show changes, a paragraph that starts with a tab is indented as it is in the note, instead of sitting flush left.
 
-## 0.46.19 (2026-10-09)
-
-### Changed
-
-- Nothing a writer will notice: which model each kind of ticket runs on.
-
-## 0.46.18 (2026-10-09)
-
-### Changed
-
-- Nothing a writer will notice: which model each agent role runs on.
-
 ## 0.46.17 (2026-10-09)
 
 ### Fixed
@@ -465,35 +435,17 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 
 - Since 0.44.16: "Bring back..." on a snapshot of a folder or the binder (the text and the order, or everything), and the last round of fixes to Export, on a computer, a phone and a tablet.
 
-## 0.46.15 (2026-10-09)
-
-### Changed
-
-- Nothing a writer sees: one test of export styles now tests what Binders promises, and two round-trip findings through Scrivener are listed as open.
-
 ## 0.46.14 (2026-10-09)
 
 ### Changed
 
 - The manual now says that a note with Windows line breaks or a byte-order mark, brought back while it is open in an editor, gets every word and line back and is then saved by Obsidian's editor with its own line breaks, as any note you type in is.
 
-## 0.46.13 (2026-10-09)
-
-### Changed
-
-- Nothing a writer sees: a round-trip test now accepts the vault's own spelling of a status.
-
 ## 0.46.12 (2026-10-09)
 
 ### Fixed
 
 - A table that went out to a Scrivener project comes back as a table, with its rows together, instead of with a blank line between each row.
-
-## 0.46.11 (2026-10-09)
-
-### Changed
-
-- Nothing a writer sees: tests written before "Everything" became the screen's first choice now choose their scope.
 
 ## 0.46.10 (2026-10-09)
 
@@ -531,12 +483,6 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 
 - On a phone, the Export window of an empty binder now says "Nothing to export" above its Export button, as it does on a computer.
 
-## 0.46.4 (2026-10-09)
-
-### Changed
-
-- Nothing a writer sees: the style editor's sliders are the size of Obsidian's own, and the test now says so.
-
 ## 0.46.3 (2026-10-09)
 
 ### Fixed
@@ -549,12 +495,6 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 
 - On a phone, a long chapter name in Export's Contents wraps onto a second line instead of being cut off by its chapter label.
 
-## 0.46.1 (2026-10-09)
-
-### Changed
-
-- Nothing a writer sees: seven test scenarios that failed on their own steps are taken out.
-
 ## 0.46.0 (2026-10-09)
 
 ### Added
@@ -565,12 +505,6 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 ### Changed
 
 - The "Bring back..." screen now opens on "Everything"; "The text and the order" is still there.
-
-## 0.45.22 (2026-10-09)
-
-### Changed
-
-- Nothing a writer sees: a test's name.
 
 ## 0.45.21 (2026-10-09)
 
@@ -583,24 +517,6 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 ### Fixed
 
 - "Export again" on a binder whose notes have all gone, or are all left out, now says there is nothing to export and leaves the earlier file as it is.
-
-## 0.45.19 (2026-10-09)
-
-### Changed
-
-- Nothing a writer sees: six new sets of tests, with the bugs they found left failing until each is fixed.
-
-## 0.45.18 (2026-10-09)
-
-### Changed
-
-- Nothing a writer sees: the roadmap says export's QA round is finished, and what is still to be checked in other programs.
-
-## 0.45.17 (2026-10-09)
-
-### Changed
-
-- Nothing a writer sees: the design notes for export say how the QA round's fixes work.
 
 ## 0.45.16 (2026-10-09)
 
@@ -631,18 +547,6 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 ### Fixed
 
 - A comment inside a sentence no longer leaves a double space in the exported book.
-
-## 0.45.11 (2026-10-09)
-
-### Changed
-
-- Nothing a writer sees: a round of tests over every kind of export, on a computer, a phone and a tablet.
-
-## 0.45.10 (2026-10-09)
-
-### Changed
-
-- Nothing a writer sees: the design notes for export say how the last fixes work.
 
 ## 0.45.9 (2026-10-09)
 
@@ -708,12 +612,6 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 
 - Bringing back a folder's snapshot never makes, renames, moves or deletes a note, and leaves properties as they are; a note that changes while it is being brought back is left alone and named.
 
-## 0.44.17 (2026-10-09)
-
-### Changed
-
-- Nothing a writer sees: the contributors' rules and the roadmap now say what bringing back a whole snapshot may do, and what is left of it to build.
-
 ## 0.44.16 (2026-10-07)
 
 ### Fixed
@@ -756,35 +654,15 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 
 - Nothing you'll notice: three style rules were rewritten in a form Obsidian's plugin review prefers.
 
-## 0.44.9 (2026-10-07)
-
-### Fixed
-
-- Nothing a writer will notice: a few lines of code and style that Obsidian's plugin review flagged are written the way it prefers.
-
-## 0.44.8 (2026-10-06)
-
-### Changed
-
-- Nothing a writer will notice: releases are published as full releases, which Obsidian's directory can see, and no longer as pre-releases.
-
 ## 0.44.7 (2026-10-06)
 
 ### Changed
 
 - The README and the manual say how to install Binders from Obsidian's community plugins, with a link to its page there.
 
-## 0.44.6 (2026-10-06)
-
-### Changed
-
-- Nothing a writer will notice: the plugin's manifest keeps the version of the last release between releases, so installing never looks for a release that isn't there.
-
 ## 0.44.5 (2026-10-06)
 
-### Changed
-
-- Nothing a writer will notice: the project's notes for its developers say the first beta is released.
+No changes a writer would notice.
 
 ## 0.44.4 (2026-10-06)
 
@@ -809,12 +687,6 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 ### Fixed
 
 - On a phone, the binder view's title is centred again: the Snapshots button is no longer in the header there, and Take a snapshot and Show snapshots... are under More options. Tablets and computers keep the button.
-
-## 0.44.1 (2026-10-06)
-
-### Fixed
-
-- Nothing a writer will notice: older tests expect what has been built since they were written, and two phone and tablet tests now run at the screen sizes they name.
 
 ## 0.44.0 (2026-10-06)
 
@@ -879,12 +751,6 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 
 - Take a snapshot of every note. A folder's or binder's snapshot takes its place; snapshots it took stay each note's own.
 
-## 0.40.9 (2026-10-06)
-
-### Changed
-
-- Nothing a writer will notice: the notices for the typefaces, hyphenation patterns and libraries inside the plugin now travel in its own file, as their licences ask.
-
 ## 0.40.8 (2026-10-06)
 
 ### Added
@@ -895,29 +761,11 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 
 - The hyphenation patterns in exported pages are now TeX's current ones, with their makers' notices: a few words break in better places (in English, 'manuscript' and 'something'; German, Spanish, Italian and Portuguese use newer patterns).
 
-## 0.40.7 (2026-10-06)
-
-### Removed
-
-- Nothing a writer will notice: the notes that carried the work to a cloud session are taken out, now that it is merged.
-
 ## 0.40.6 (2026-10-06)
 
 ### Changed
 
 - The menu beside Export says "Show the Exports folder", where it said "Show where exports go".
-
-## 0.40.5 (2026-10-06)
-
-### Changed
-
-- The handoff note says what the cloud session shipped, fixed and left open.
-
-## 0.40.4 (2026-10-06)
-
-### Fixed
-
-- Older tests expect the "Export as" menu item and column, leave the styles folder out of the property names, and tap a menu item only once its menu has stopped scrolling.
 
 ## 0.40.3 (2026-10-06)
 
@@ -950,12 +798,6 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 
 - The scrollbar beside a PDF's pages follows the light or dark theme.
 - A phone no longer says where a PDF it can't make would be saved.
-
-## 0.39.1 (2026-10-06)
-
-### Changed
-
-- The developer notes describe the pages and the PDF as built.
 
 ## 0.39.0 (2026-10-06)
 
@@ -997,18 +839,6 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 
 - Deleting an export style that binders use now gives them the style it was based on, as the delete dialog says, instead of the first built-in style.
 
-## 0.37.2 (2026-10-06)
-
-### Fixed
-
-- A test of deleting a style no longer depends on whether the computer has a system trash.
-
-## 0.37.1 (2026-10-06)
-
-### Changed
-
-- The developer notes describe export styles, the style editor, Export as and Export again as built.
-
 ## 0.37.0 (2026-10-06)
 
 ### Added
@@ -1043,30 +873,6 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 ### Added
 
 - A second book style, Modern: Source Serif, a large plain numeral at the left (a chapter's title under it), scene breaks as space.
-
-## 0.33.8 (2026-10-06)
-
-### Fixed
-
-- The end-to-end tests now start Obsidian when run as root, as in a cloud sandbox or a container.
-
-## 0.33.7 (2026-10-06)
-
-### Changed
-
-- Nothing a writer will notice: the handoff note records the finished PDF work waiting on its branch.
-
-## 0.33.6 (2026-10-06)
-
-### Changed
-
-- Nothing a writer will notice: a script sets up a new machine for the tests, and the design notes record what has been turned down.
-
-## 0.33.5 (2026-10-06)
-
-### Changed
-
-- Nothing a writer will notice: the state of unfinished work, and the designs and research behind it, are written into the repository.
 
 ## 0.33.4 (2026-10-06)
 
@@ -1127,23 +933,11 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 
 - The documentation is now a manual in the docs folder, a page per topic.
 
-## 0.32.3 (2026-10-06)
-
-### Changed
-
-- Nothing a writer will notice: the design, architecture and development notes moved to docs/dev, to make room for a user manual in docs.
-
 ## 0.32.2 (2026-10-06)
 
 ### Changed
 
 - The README is titled Obsidian Binders, has a table of contents and an Installation section, and its limitations list is brought up to date.
-
-## 0.32.1 (2026-10-06)
-
-### Fixed
-
-- Nothing a writer will notice: a settings test expects the new focus mode switch.
 
 ## 0.32.0 (2026-10-06)
 
@@ -1190,12 +984,6 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 
 - The Export window no longer asks for your name when the book already has an author.
 
-## 0.29.4 (2026-10-06)
-
-### Changed
-
-- Nothing a writer will notice yet: the parts of Export that make an ebook, with a test that no word is dropped or reordered and EPUBCheck in the test run.
-
 ## 0.29.3 (2026-10-06)
 
 ### Fixed
@@ -1222,12 +1010,6 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - A project you have since opened in Scrivener is never written over: export offers to save beside it instead.
 - On a phone or tablet the project is zipped into the Exports folder and handed to the share sheet.
 
-## 0.28.1 (2026-10-06)
-
-### Changed
-
-- Nothing a writer will notice yet: the part of Export that writes a Scrivener project, with a test that no word is dropped or reordered.
-
 ## 0.28.0 (2026-10-06)
 
 ### Added
@@ -1244,12 +1026,6 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 ### Changed
 
 - The README and the format notes describe the inspector, the contents and scene notes.
-
-## 0.27.1 (2026-10-06)
-
-### Changed
-
-- Nothing a writer will notice: tests for the inspector and the contents.
 
 ## 0.27.0 (2026-10-06)
 
@@ -1273,23 +1049,11 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 
 - Merging notes joins their notes as it joins their synopses.
 
-## 0.24.9 (2026-10-06)
-
-### Changed
-
-- Nothing a writer will notice: the views share one way of reading and writing a card's details.
-
 ## 0.24.8 (2026-10-06)
 
 ### Changed
 
 - The demo vault (npm run demo-vault) now has a set of complete example books to try Binders on: a full-length novel with a story bible, a novella, a novel typed with tabs, a story collection, a handbook with footnotes, tables and figures, a draft in progress, short books in German and French, other scripts, a Longform project, and a binder with a scene for everything export has to decide about. The stress binders moved into a folder of their own.
-
-## 0.24.7 (2026-10-06)
-
-### Fixed
-
-- Nothing a writer will notice: the phone tests that expected an editor without a tap now tap first, and the check that unsaved phone typing survives an outside edit runs again.
 
 ## 0.24.6 (2026-10-06)
 
@@ -1314,12 +1078,6 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 ### Fixed
 
 - A link written just before a merge or a split now follows it to the note that has the text, even when Obsidian hasn't indexed the link yet.
-
-## 0.24.2 (2026-10-06)
-
-### Fixed
-
-- Nothing a writer will notice: two tests of links following a merge or a split no longer depend on which test ran before them.
 
 ## 0.24.1 (2026-10-05)
 
@@ -1347,24 +1105,6 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - On a computer Export asks where to save, starting in an Exports folder beside the binder, and can remember the place. On a phone or tablet the file goes to the Exports folder and then to the share sheet.
 - Settings: Exports folder, Remembered places, Your name, Contact details.
 
-## 0.22.9 (2026-10-05)
-
-### Changed
-
-- Nothing a writer will notice yet: the part of Export that writes a Word file, with a test that no word is dropped, repeated or reordered.
-
-## 0.22.8 (2026-10-05)
-
-### Changed
-
-- Nothing a writer will notice yet: the part of Export that reads a binder into a book.
-
-## 0.22.7 (2026-10-05)
-
-### Changed
-
-- Nothing a writer will notice: the working rules now name the commands that rewrite text and the one exception for links in tab paragraphs.
-
 ## 0.22.6 (2026-10-05)
 
 ### Changed
@@ -1389,12 +1129,6 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 
 - A manuscript in a window of its own keeps drawing sections and making editors while the main window is minimised, and the page no longer jumps when a section above the one you're reading grows.
 
-## 0.22.2 (2026-10-05)
-
-### Changed
-
-- Nothing a writer will notice: a check for an older editor was removed from the manuscript.
-
 ## 0.22.1 (2026-10-05)
 
 ### Fixed
@@ -1412,12 +1146,6 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 ### Changed
 
 - Binders now needs Obsidian 1.13.4 or later: the oldest 1.13 there is an installer for, and the oldest it has been run on.
-
-## 0.20.2 (2026-10-05)
-
-### Fixed
-
-- Nothing a writer will notice: a phone test no longer taps while the page is still coasting from a swipe.
 
 ## 0.20.1 (2026-10-05)
 
@@ -1510,23 +1238,11 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 
 - Quitting Obsidian is no longer held up by an open binder view that has nothing left to save.
 
-## 0.15.6 (2026-10-05)
-
-### Fixed
-
-- Nothing a writer will notice: a settings test no longer fails when it runs after a test that simulates quitting.
-
 ## 0.15.5 (2026-10-05)
 
 ### Fixed
 
 - In a pane only a few dozen pixels wide, what you type into a card's synopsis or name now comes out in the order typed, not backwards.
-
-## 0.15.4 (2026-10-05)
-
-### Changed
-
-- Nothing a writer will notice: the working rules now say main is pushed as fixes ship, and the map of the code lists the helper for views in their own window.
 
 ## 0.15.3 (2026-10-05)
 
@@ -1539,12 +1255,6 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 ### Changed
 
 - The post-1.0 roadmap prioritizes saved manuscript filters, a scene-linked revision queue, and merge recovery, with scope limits to keep the writing workflow lean.
-
-## 0.15.1 (2026-10-05)
-
-### Changed
-
-- Nothing a writer will notice: the project's rules now say what each part of the version number means.
 
 ## 0.15.0 (2026-10-05)
 
@@ -1564,12 +1274,6 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 
 - Ungroup now takes the emptied folder away, to the trash, with its synopsis, label and target. Undo last move brings the folder back with all of them and puts its notes back inside, in order. A folder that still holds something, such as text written in its folder note, stays.
 
-## 0.12.154 (2026-10-05)
-
-### Fixed
-
-- Nothing a writer will notice: the tests put the window and the sidebars back before each test, and several measurements now wait for the layout to settle, so the suite no longer fails on a busy machine.
-
 ## 0.12.153 (2026-10-05)
 
 ### Fixed
@@ -1588,59 +1292,11 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 
 - In a pane or on a phone narrower than 360 px, the corkboard/outliner/manuscript button shows its icon alone, leaving the room to the folder's name and the word count; its name is its tooltip.
 
-## 0.12.150 (2026-10-05)
-
-### Changed
-
-- Nothing a writer will notice: the team's working rules now have agents run only the tests for what they changed, and one dedicated runner run the whole suite at the end of a session.
-
-## 0.12.149 (2026-10-02)
-
-### Changed
-
-- Nothing a writer will notice: a test of the phone's outliner swipes to a column that is now out of sight before tapping it.
-
-## 0.12.148 (2026-10-02)
-
-### Changed
-
-- Nothing a writer will notice: one more of Obsidian's parts that a style rule relies on is listed.
-
-## 0.12.147 (2026-10-02)
-
-### Changed
-
-- Nothing a writer will notice: the list of Obsidian's undocumented parts that Binders relies on says, for each, what the code really does when it is missing and which test covers it.
-
-## 0.12.146 (2026-10-02)
-
-### Changed
-
-- Tests now check what the README tells a writer: the keyboard lists for all three views, what Binders writes and never touches, undo, compile, and troubleshooting. One sentence about copied folders says what happens, not what may.
-
 ## 0.12.145 (2026-10-02)
 
 ### Fixed
 
 - On a very small phone held sideways with the keyboard up, the header no longer prints its title across the line you are typing in the manuscript: it slides away, as it does in a note, and comes back when you stop.
-
-## 0.12.144 (2026-10-02)
-
-### Changed
-
-- Nothing a writer will notice: the last of Obsidian's undocumented parts that had no test has one.
-
-## 0.12.143 (2026-10-02)
-
-### Changed
-
-- Nothing a writer will notice: styles are now read from the window the element is in, which matters in popout windows.
-
-## 0.12.142 (2026-10-02)
-
-### Changed
-
-- Nothing a writer will notice: the record of test rounds says what the sixth round found, what was fixed and what is still open.
 
 ## 0.12.141 (2026-10-02)
 
@@ -1660,24 +1316,6 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 
 - On a phone, an outliner with folders inside folders no longer cuts its last column through the middle: the column is whole, a swipe to the side away.
 
-## 0.12.138 (2026-10-02)
-
-### Changed
-
-- Nothing a writer will notice: two tests check that the binder note and a note whose synopsis is being typed are whole after the app is reloaded.
-
-## 0.12.137 (2026-10-02)
-
-### Changed
-
-- Nothing a writer will notice: a pause before renaming a new folder or revealing a new note no longer runs if the plugin is turned off in that moment.
-
-## 0.12.136 (2026-10-02)
-
-### Changed
-
-- Nothing a writer will notice: the architecture, development and plan documents and the roadmap match the code as it is, and say what this round's fixes established.
-
 ## 0.12.135 (2026-10-02)
 
 ### Fixed
@@ -1690,23 +1328,11 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 
 - Words deleted or undone in the manuscript could come back if the note was written again by something else (a sync, another plugin) before the manuscript had saved.
 
-## 0.12.133 (2026-10-02)
-
-### Changed
-
-- Nothing a writer will notice: each file format rule is stated once in its place, and three more of Obsidian's undocumented parts that the code relies on are listed.
-
 ## 0.12.132 (2026-10-02)
 
 ### Changed
 
 - The README describes the folder card, the keys, undo for the binder in front and how the views behave on a phone as they are now.
-
-## 0.12.131 (2026-10-02)
-
-### Added
-
-- Nothing a writer will notice: the tests of the sixth QA round (writing, scale, store, boards, menus, phone, tablet, features) are part of the suite, and the findings that are still open are listed with why.
 
 ## 0.12.130 (2026-10-02)
 
@@ -1719,12 +1345,6 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 ### Fixed
 
 - Deleting a folder with thousands of notes from a binder, or the whole binder, takes a moment instead of several seconds.
-
-## 0.12.128 (2026-10-02)
-
-### Changed
-
-- Nothing a writer will notice: four older tests measure the phone's indent, row height and short view as they are now, and say what going into a folder does to the keyboard.
 
 ## 0.12.127 (2026-10-02)
 
@@ -1744,35 +1364,11 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 
 - Reloading Obsidian in the moment a reorder or a synopsis was waiting to be saved could have left the binder note, or that note, empty. On a computer nothing is now started as the page goes; quitting still saves first.
 
-## 0.12.124 (2026-10-02)
-
-### Changed
-
-- Nothing a writer will notice: a phone test scrolls the line it types on clear of Obsidian's bar first.
-
 ## 0.12.123 (2026-10-02)
 
 ### Fixed
 
 - Reloading Obsidian within a couple of seconds of typing in the manuscript could leave that note empty. The note now stays as it was last saved.
-
-## 0.12.122 (2026-10-02)
-
-### Changed
-
-- Nothing a writer will notice: the first release's notes will be that version's entry alone, a comment no longer trips a text-matching check, and the Obsidian types are pinned to a version.
-
-## 0.12.121 (2026-10-02)
-
-### Changed
-
-- Nothing a writer will notice: the design notes record the decisions made about phones, counts and rings, and the notes for contributors say where the project stands.
-
-## 0.12.120 (2026-10-02)
-
-### Changed
-
-- Nothing a writer will notice: five older tests describe the folder card, the outliner's header, the Filter button, the phone's word count and the phone's indent as they are now.
 
 ## 0.12.119 (2026-10-02)
 
@@ -1804,12 +1400,6 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 
 - A file and a note named after it (paper.pdf and paper.pdf.md) in a binder no longer show as the same note twice; each has its own place, and the note is in the manuscript and a compile once.
 
-## 0.12.114 (2026-10-02)
-
-### Changed
-
-- Nothing a writer will notice: two tests of the phone's outliner and corkboard measure the place they check instead of assuming it.
-
 ## 0.12.113 (2026-10-02)
 
 ### Fixed
@@ -1821,18 +1411,6 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 ### Fixed
 
 - Sections with images, embedded notes, math, long code blocks, a table at the top, task lists or quotes no longer shift the page when you click into them.
-
-## 0.12.111 (2026-10-02)
-
-### Changed
-
-- Nothing a writer will notice: three tests describe the look and the folder card as they are now.
-
-## 0.12.110 (2026-10-02)
-
-### Changed
-
-- Nothing a writer will notice: comments corrected and code that could no longer run removed.
 
 ## 0.12.109 (2026-10-02)
 
@@ -1894,12 +1472,6 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 
 - In the manuscript a screen reader found no headings to move by: a folder's heading was announced only as a link.
 
-## 0.12.99 (2026-10-02)
-
-### Changed
-
-- Nothing a writer will notice: comments corrected, and one helper where there were two.
-
 ## 0.12.98 (2026-10-02)
 
 ### Changed
@@ -1950,12 +1522,6 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 
 - With very large text or in a very narrow pane, the view's name in the toolbar now gives way so that “New” is not pushed off the edge.
 
-## 0.12.91 (2026-10-02)
-
-### Changed
-
-- Nothing a writer will notice: the plan no longer lists dropping a card on a folder in the breadcrumb as missing when arranged by label.
-
 ## 0.12.90 (2026-10-02)
 
 ### Changed
@@ -1967,12 +1533,6 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 ### Added
 
 - On the corkboard by label, a card dragged onto a folder in the breadcrumb moves out to that folder, as it does on the grid.
-
-## 0.12.88 (2026-10-02)
-
-### Changed
-
-- Nothing a writer will notice: a helper that was written twice is written once, and two unused values are gone.
 
 ## 0.12.87 (2026-10-02)
 
@@ -2015,12 +1575,6 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 
 - “No label”, “No status”, an emptied target or an empty synopsis no longer gives a folder a hidden folder note it has no use for.
 
-## 0.12.81 (2026-10-02)
-
-### Changed
-
-- Nothing a writer will notice: comments on the helpers the views share.
-
 ## 0.12.80 (2026-10-02)
 
 ### Changed
@@ -2033,12 +1587,6 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 
 - On a phone or tablet, tapping the outliner's first row right after opening it no longer counts as keyboard focus.
 
-## 0.12.78 (2026-10-02)
-
-### Fixed
-
-- Nothing a writer will notice: a test that looked in the vault's trash could read a note an earlier test had put there. The trash is now emptied between tests.
-
 ## 0.12.77 (2026-10-02)
 
 ### Fixed
@@ -2050,12 +1598,6 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 ### Changed
 
 - On a phone with the keyboard up and little room, the manuscript now runs under Obsidian's header as a note does, so a phone on its side has three lines or more to write in.
-
-## 0.12.75 (2026-10-02)
-
-### Changed
-
-- Nothing a writer will notice: comments on the text helpers, and one line-ending helper where there were two.
 
 ## 0.12.74 (2026-10-02)
 
@@ -2134,12 +1676,6 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 
 - Taking a snapshot, compiling, merging or splitting no longer rewrites a note that is merely open in a tab: a file with Windows line breaks keeps them unless you type in it.
 
-## 0.12.62 (2026-10-02)
-
-### Changed
-
-- Nothing a writer will notice yet: the manuscript keeps the cursor clear of anything that covers the top of its page.
-
 ## 0.12.61 (2026-10-02)
 
 ### Fixed
@@ -2207,12 +1743,6 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 
 - If another plugin that also changes the file explorer was turned off, binders could fall back to name order until Obsidian was restarted. Binder order now returns by itself.
 
-## 0.12.50 (2026-10-02)
-
-### Changed
-
-- Nothing a writer will notice: the file format document says what Binders takes for a note's properties, and what setting a property does to them.
-
 ## 0.12.49 (2026-10-02)
 
 ### Fixed
@@ -2230,12 +1760,6 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 ### Fixed
 
 - A folder's card no longer names a picture, a PDF or a canvas kept in the folder as if it were a note.
-
-## 0.12.46 (2026-10-02)
-
-### Added
-
-- Nothing a writer will notice: the tests can run in several Obsidians at once, and the development guide covers the demo vault, the runner and how to run one unit test.
 
 ## 0.12.45 (2026-10-02)
 
@@ -2315,12 +1839,6 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 
 - The README's pictures show the plugin as it looks now, with new ones for arranging by label, snapshots and focus mode.
 
-## 0.12.32 (2026-10-02)
-
-### Fixed
-
-- Nothing a writer will notice: stopping the tests part-way no longer leaves Obsidian running.
-
 ## 0.12.31 (2026-10-02)
 
 ### Added
@@ -2330,12 +1848,6 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 ### Changed
 
 - Building the plugin now installs it into the test vault by itself.
-
-## 0.12.30 (2026-10-02)
-
-### Changed
-
-- Nothing a writer will notice: three tests of the corkboard on a phone now describe the folder card as it has been since 0.12.17.
 
 ## 0.12.29 (2026-10-02)
 
@@ -2367,30 +1879,6 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 
 - The README has a troubleshooting section for the problems a writer is likely to meet.
 
-## 0.12.24 (2026-10-02)
-
-### Changed
-
-- Nothing a writer will notice: editors now indent code with tabs as the code is, the working rules name the modules that hold Obsidian's undocumented parts, and an old design note says what became of it.
-
-## 0.12.23 (2026-10-02)
-
-### Changed
-
-- Nothing a writer will notice: the plan says what is built and what was decided, and the README mentions Move to and dragging a card out of the view.
-
-## 0.12.22 (2026-10-02)
-
-### Changed
-
-- Nothing a writer will notice: tests can now run Obsidian with a real hovering mouse, so hover styles and tooltips are checked.
-
-## 0.12.21 (2026-10-02)
-
-### Changed
-
-- Nothing a writer will notice: the file format and internals documents now say exactly what the code does.
-
 ## 0.12.20 (2026-10-02)
 
 ### Changed
@@ -2402,12 +1890,6 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 ### Fixed
 
 - Pointing at the + at the end of the outliner's column headers now says “Columns”.
-
-## 0.12.18 (2026-10-02)
-
-### Added
-
-- Nothing a writer will notice: a guide to how the code is laid out, for people who work on Binders.
 
 ## 0.12.17 (2026-10-02)
 
@@ -2445,24 +1927,6 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 
 - Nothing you'll notice: the code that undoes moves now lives in its own file.
 
-## 0.12.12 (2026-10-02)
-
-### Changed
-
-- Nothing a writer will notice: what the last full test round found, and what is still open, is written down.
-
-## 0.12.11 (2026-10-02)
-
-### Changed
-
-- Nothing a writer will notice: tests for things known to be unfinished are listed, and reported apart from real failures.
-
-## 0.12.10 (2026-10-02)
-
-### Changed
-
-- Nothing a writer will notice: a test now expects the binder's note to take its folder's new name, as it has since 0.9.
-
 ## 0.12.9 (2026-10-02)
 
 ### Fixed
@@ -2481,18 +1945,6 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 ### Changed
 
 - The corkboard's Arrange menu always lists the same choices: in a grid, by label across or by label down, each one click away. The button's icon shows which is on.
-
-## 0.12.6 (2026-10-02)
-
-### Changed
-
-- Nothing a writer will notice: the project's notes for contributors say what is built and what is left.
-
-## 0.12.5 (2026-10-02)
-
-### Changed
-
-- Nothing a writer will notice: three small cleanups in the code that the checks pointed out.
 
 ## 0.12.4 (2026-10-02)
 
@@ -2531,12 +1983,6 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 ### Changed
 
 - "Dim other paragraphs" is on by default in focus mode. If you have changed Binders' settings before, yours stay as they are.
-
-## 0.11.3 (2026-10-02)
-
-### Changed
-
-- A test now expects a binder moved into another to keep the order of its scenes and folders.
 
 ## 0.11.2 (2026-10-02)
 
@@ -2689,24 +2135,6 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 ### Changed
 
 - Design rounds now go in stages (questions, one sheet of options, then one build), and what makes Binders look native is written down in one place.
-
-## 0.9.4 (2026-10-01)
-
-### Changed
-
-- The roadmap now has import from a Scrivener project after export, and the Scrivener export's open questions are answered.
-
-## 0.9.3 (2026-10-01)
-
-### Changed
-
-- The roadmap's export now includes a Scrivener project, alongside EPUB, DOCX and PDF.
-
-## 0.9.2 (2026-10-01)
-
-### Added
-
-- Agents working on Binders now have named roles (developer, QA, designer) instead of one generic label.
 
 ## 0.9.1 (2026-10-01)
 
@@ -2995,35 +2423,11 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 
 - Renaming or deleting a plotline now renames or removes its text in each scene's plot property.
 
-## 0.3.1 (2026-09-30)
-
-### Changed
-
-- Internal: property edits apply to the note as written, not a cached copy.
-
 ## 0.3.0 (2026-09-30)
 
 ### Added
 
 - A plot grid of scenes against plotlines: toggle cells, add, rename, color, reorder and delete plotlines, and drag scenes into a new order.
-
-## 0.2.3 (2026-09-30)
-
-### Fixed
-
-- Internal: end-to-end tests can now press Obsidian hotkeys.
-
-## 0.2.2 (2026-09-30)
-
-### Changed
-
-- Internal: proof that the manuscript can edit notes in place safely, and the notes for building it.
-
-## 0.2.1 (2026-09-30)
-
-### Changed
-
-- Internal: the contract the corkboard, plot grid and manuscript views share.
 
 ## 0.2.0 (2026-09-30)
 
