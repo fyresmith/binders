@@ -95,7 +95,7 @@ Scenes along story time, each at its story date and numbered as the manuscript h
 drawn short, and scenes with no date wait in a tray. Time runs down, or across on a computer or tablet. Set dates
 from the menu, outliner or inspector; dragging to set a date is not built yet. [More](docs/timeline.md)
 
-![Timeline](docs/images/timeline.png)
+![Timeline](docs/images/timeline-dark.png)
 
 ## Import a manuscript
 
