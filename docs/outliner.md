@@ -19,6 +19,7 @@ The title comes first, with the synopsis under it. The other columns are yours t
 | **Export** | Whether the note is included when the binder is exported |
 | **Export as** | The part the note plays in the book: a chapter, a scene, front matter. Click it on a selected row for its menu. See [Book details and structure](book-details.md#overruling-it) |
 | **Notes** | Your [notes on the scene](scene-notes.md), which are never exported |
+| **Revision** | How many of your [revision tasks](revision-tasks.md) about the note are not done yet; for a folder, about it and anything in it. Click it on a selected row to open the Revision pane |
 | **Story date** | When the note happens in the story, in words (`14 June 1987`). Type it in words or as `1987-06-14`; nothing typed takes it away. Sorted by story time, with undated notes last whichever way it runs, and something that isn't a date is shown as typed, muted. A folder without a date of its own shows its earliest note's, faint. See [Story date](story-date.md) |
 | **Created**, **Modified** | When the note was created and last changed |
 | Any property | A property of your notes, such as a POV or a date |
@@ -65,8 +66,45 @@ folder has none. See [How your files look](files.md#folder-notes).
 
 Folders fold with the arrow beside them. **Expand all** and **Collapse all** are in the view's **More options**.
 
-A folder's row adds up the words of the notes in it, and their targets if it has none of its own. The last row does
-the same for everything shown.
+A folder's row adds up the words of the notes in it, and their targets if it has none of its own.
+
+## The last row
+
+The last row stays at the foot of the outliner while the rows scroll under it. It says what is counted: "99 notes",
+"14 notes in Part two" when you are in a folder, "31 notes shown" under a filter. Everything in it is of the notes that
+show.
+
+Under each column is a summary of it. Words, Target, Progress and Revision are added up until you choose otherwise.
+Click a column's cell in the last row to choose, as in a base:
+
+| Column | Summaries |
+|---|---|
+| Numbers (Words, Target, Revision, a number property) | Sum, Average, Median, Min, Max, Range, Filled, Empty |
+| Dates (Story date, Created, Modified, a date property) | Earliest, Latest, Range, Filled, Empty |
+| Ticks (Export, a checkbox property) | Checked, Unchecked |
+| Names (Label, Status, a text or list property such as `pov` or `characters`) | By value, Filled, Empty, Unique |
+| Notes | Filled, Empty |
+
+**None** takes the summary away. A summary you chose is named before its value ("Median 994"). What you choose is kept
+with the outliner's columns.
+
+### By value
+
+On a column of names, **By value** shows how many values are in use ("3 values"). Click it for the values, each with
+its notes and their words: "Ines · 31 notes · 33,057 words", and "No pov" for the notes that have none. Statuses and
+labels are in the order your settings list them, other values with the most notes first. A link is the note it
+points at, and a name is the same name in any case, as the [filter](filters.md#how-things-are-compared) has it.
+
+Choose a value to see those notes: it puts on a filter, in every mode, and the counts agree with the menu. With a
+filter already on, the value is added to it (both must be true); the filter's line under the toolbar takes it all
+off. A saved filter is never changed this way: what you get is a filter that is not saved. (A filter where *any* or
+*none* of the conditions are true can't take one more that must be true, so the value replaces it.)
+
+On a list property, such as `characters`, a note is counted under each of its values, so the words add up to more than
+the book. The menu says so. **Summary** at its foot chooses another summary.
+
+The Revision total counts each task once, though it is about two scenes, and at the top of the binder it counts the
+tasks about the whole book too.
 
 ## Rows
 
@@ -78,7 +116,7 @@ Drag a row between two rows, onto a folder, or below everything.
 ## Under a filter
 
 With a [filter](filters.md) on, the rows are the notes that match, under the folders that have any; a folder's words count what
-shows. A note that stops matching stays, dimmed, until you press **Refresh** in the line under the toolbar.
+shows, and so does the last row. A note that stops matching stays, dimmed, until you press **Refresh** in the line under the toolbar.
 
 ## Keyboard
 

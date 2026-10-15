@@ -12,8 +12,12 @@ import type { BinderMode, ModeContext, ModeFactory, SceneProps } from './mode';
 import { OutlinerColumns, showUnder } from './outliner-columns';
 import { watchSize } from './windows';
 import { setStoryDate } from './props';
-import { parseStoryDate, showStoryDate, whyNotStoryDate } from '../time/date';
-import { TITLE, builtIn, columnName, columnWidth, parseTarget, progress, readColumns, readSort, text, whyNotTarget, type ColumnSpec, type Sort } from './outliner-data';
+import { parseStoryDate, readStoryDate, showStoryDate, whyNotStoryDate } from '../time/date';
+import { TITLE, addWords, builtIn, columnName, columnWidth, parseTarget, progress, propOf, readColumns, readSort, text, whyNotTarget, type ColumnSpec, type Sort } from './outliner-data';
+import { checkSummary, countSummary, dateSummary, keepAs, numberSummary, offered, summaryOf, type SumKind, type Tally, type Tallied } from './outliner-summary';
+import { boolOf, daysOf, isEmpty, numberOf, type Condition } from '../filter/conditions';
+import { REVISION_ICON, REVISION_VIEW } from '../inspector/revision-pane';
+import { showSide } from '../inspector/views';
 import { OutlinerModel, type Row } from './outliner-model';
 import { cellParts, readTyped } from './outliner-typed';
 import { kindOf } from '../inspector/property-widgets';
@@ -137,6 +141,10 @@ class Outliner implements BinderMode {
 		this.head = this.table.createDiv({ cls: 'binders-outliner-head', attr: { role: 'row' } });
 		this.body = this.table.createDiv({ cls: 'binders-outliner-body', attr: { role: 'rowgroup' } });
 		this.foot = this.table.createDiv({ cls: 'binders-outliner-foot', attr: { role: 'row' } });
+		// a summary's menu: what it shows, or for "By value" the values to choose from
+		const summary = (e: Event) => { const td = (e.target as HTMLElement).closest<HTMLElement>('.binders-outliner-summary.is-menu'); if (!td) return; e.stopPropagation(); this.summaryMenu(td); };
+		this.foot.addEventListener('click', summary);
+		this.foot.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); summary(e); } });
 		this.cols = new OutlinerColumns({
 			ctx: this.ctx, root: this.root, table: this.table, head: this.head,
 			columns: () => this.columns(), setColumns: (cols) => this.setColumns(cols),
@@ -581,6 +589,12 @@ class Outliner implements BinderMode {
 				this.tickByCell(td, box);
 				return null;
 			}
+			case 'revision': {
+				// unfinished tasks about it; on a selected row a click opens the Revision pane, which follows the row
+				const n = this.model.revision(item);
+				if (n) { td.addClass('is-menu'); td.createSpan({ cls: 'binders-outliner-value', text: n.toLocaleString(), attr: { 'aria-label': `${n} unfinished revision ${n === 1 ? 'task' : 'tasks'}` } }); }
+				return null;
+			}
 			case 'created': case 'modified':
 				if (item instanceof TFile) td.createSpan({ cls: 'binders-outliner-value', text: date(id === 'created' ? item.stat.ctime : item.stat.mtime) });
 				return null;
@@ -648,25 +662,162 @@ class Outliner implements BinderMode {
 		});
 	}
 
-	/** The last row: how many notes show, and the columns that add up. */
+	/** The last row: how many notes show, and for each column the summary chosen for it (outliner-summary.ts), of the
+	    notes that show. It stays in sight at the foot, as a base's summaries do. */
 	private drawFoot(cols: ColumnSpec[], rows: Row[]): void {
 		this.foot.empty();
-		const scenes = this.model.scenesIn(this.ctx.folder);
+		const scenes = this.model.scenesIn(this.ctx.folder), folder = this.ctx.folder;
 		const title = this.foot.createDiv({ cls: 'binders-outliner-cell mod-title', attr: { role: 'gridcell' } });
-		title.createSpan({ text: rows.length ? `${scenes.length.toLocaleString()} ${scenes.length === 1 ? 'note' : 'notes'}` : '' });
-		let words: number | null = 0;
-		for (const f of scenes) { const w = this.ctx.words(f); if (w == null) { words = null; break; } words += w; }
-		const own = this.model.props(this.ctx.folder).target, target = own > 0 ? own : scenes.reduce((a, f) => a + this.ctx.props(f).target, 0);
+		// what is counted, said: the folder shown (when it isn't the whole binder), and "shown" under a filter
+		const n = `${scenes.length.toLocaleString()} ${scenes.length === 1 ? 'note' : 'notes'}`;
+		const scope = this.ctx.filtering() ? `${n} shown` : folder !== this.ctx.binder.folder ? `${n} in ${folder.name}` : n;
+		if (rows.length) title.createSpan({ cls: 'binders-outliner-scope', text: scope });
 		cols.forEach((c, i) => {
-			const td = this.foot.createDiv({ cls: 'binders-outliner-cell', attr: { role: 'gridcell' } });
+			const td = this.foot.createDiv({ cls: 'binders-outliner-cell binders-outliner-summary', attr: { role: 'gridcell', 'data-col': c.id } });
 			td.setCssStyles({ width: `var(--binders-ol-c${i})` });
 			if (builtIn(c.id)?.numeric) td.addClass('mod-numeric');
 			if (!rows.length) return;
-			if (c.id === 'words' && words != null) td.setText(words.toLocaleString());
-			if (c.id === 'target' && target) td.setText(target.toLocaleString());
-			if (c.id === 'progress') { const done = progress(words, target); if (done != null) td.setText(`${Math.floor(done * 100)}%`); }
+			const kind = this.sumKind(c.id, scenes), fn = summaryOf(c.id, kind, c.summary);
+			if (kind === 'none') return;
+			td.addClass('is-menu');
+			td.setAttr('tabindex', '-1');
+			const box = td.createDiv({ cls: 'binders-outliner-summary-content' });
+			// (the offer is drawn by the style sheet, so it is no text of the row's: a screen reader has the cell's label)
+			if (!fn) { box.createSpan({ cls: 'binders-outliner-summary-placeholder', attr: { 'data-text': 'Summarize' } }); td.setAttr('aria-label', `Summarize ${columnName(c.id).toLowerCase()}`); return; }
+			const value = this.summaryValue(c.id, kind, fn.id, scenes);
+			// ("By value" says how many there are, and its menu what they are)
+			if (fn.id === 'values') { const n = Number(value.replace(/\D/g, '')) || 0; box.createSpan({ cls: 'binders-outliner-summary-value', text: `${value} ${n === 1 ? 'value' : 'values'}` }); }
+			// (a column's own sum, as the last row has always shown it, goes without its name; one the writer chose says it)
+			else { if (c.summary) box.createSpan({ cls: 'binders-outliner-summary-name', text: fn.name }); box.createSpan({ cls: 'binders-outliner-summary-value', text: value }); }
+			td.setAttr('aria-label', `${columnName(c.id)}: ${fn.name.toLowerCase()} ${value}`);
 		});
 		this.foot.createDiv({ cls: 'binders-outliner-cell mod-filler', attr: { role: 'presentation' } });
+	}
+
+	/** What kind of summaries a column can have: a property's by the type Obsidian gives it. */
+	private sumKind(id: string, files: TFile[]): SumKind {
+		switch (id) {
+			case 'words': case 'target': case 'revision': return 'number';
+			case 'progress': return 'progress';
+			case 'storydate': case 'created': case 'modified': return 'date';
+			case 'export': return 'checkbox';
+			case 'label': case 'status': return 'name';
+			case 'notes': return 'text';
+			case 'role': return 'none';
+		}
+		const prop = propOf(id);
+		if (!prop) return 'none';
+		const sample = files.map((f) => this.model.frontmatter(f)[prop]).find((v) => v != null);
+		const k = kindOf(this.ctx.app, prop, sample).kind;
+		return k === 'number' ? 'number' : k === 'checkbox' ? 'checkbox' : k === 'date' || k === 'datetime' ? 'date' : k === 'unknown' || !this.ctx.tally ? 'text' : 'name';
+	}
+
+	/** The property the filter knows a column of names by. */
+	private filterProp(id: string): string | null {
+		return id === 'status' ? this.settings.statusProp : id === 'label' ? this.settings.labelProp : propOf(id);
+	}
+
+	/** The values of a column of names over the notes, in the order their own settings list them (statuses, labels), or
+	    most notes first. */
+	private tallied(id: string, files: TFile[]): Tally<TFile> | null {
+		const prop = this.filterProp(id);
+		if (!prop || !this.ctx.tally) return null;
+		const t = this.ctx.tally(files, prop);
+		const order = id === 'status' ? this.settings.statuses : id === 'label' ? this.settings.labels.map((l) => l.name) : null;
+		if (order) {
+			const at = (v: Tallied<TFile>) => { const i = order.findIndex((o) => o.toLowerCase() === v.raw.toLowerCase()); return i < 0 ? order.length : i; };
+			t.values.sort((a, b) => at(a) - at(b));
+		}
+		// (as settings spell them, as the rows show them, whatever case a note has them in)
+		if (id === 'label') for (const v of t.values) v.shown = labelName(v.raw, this.settings.labels);
+		if (id === 'status') for (const v of t.values) v.shown = this.settings.statuses.find((x) => x.toLowerCase() === v.raw.toLowerCase()) ?? v.shown;
+		return t;
+	}
+
+	/** A column's summary of the notes, as the last row shows it. */
+	private summaryValue(id: string, kind: SumKind, fn: string, files: TFile[]): string {
+		const fm = (f: TFile, prop: string) => this.model.frontmatter(f)[prop];
+		if (kind === 'progress' || (id === 'target' && fn === 'total')) {
+			const own = this.model.props(this.ctx.folder).target, target = own > 0 ? own : files.reduce((a, f) => a + this.ctx.props(f).target, 0);
+			if (id === 'target') return target ? target.toLocaleString() : '';
+			const done = progress(addWords(files, (f) => this.ctx.words(f)), target);
+			return done == null ? '' : `${Math.floor(done * 100)}%`;
+		}
+		if (kind === 'number') {
+			// (a task about two scenes is one task: the total is counted over the tasks, not added up over the notes)
+			if (id === 'revision' && fn === 'sum') return this.model.revision(this.ctx.folder, true).toLocaleString();
+			const values = files.map((f): number | null => {
+				if (id === 'words') return this.ctx.words(f);
+				if (id === 'target') return this.ctx.props(f).target || null;
+				if (id === 'revision') return this.model.revision(f);
+				const prop = propOf(id);
+				return prop ? numberOf(fm(f, prop)) : null;
+			});
+			// (words still being counted: nothing yet, rather than a sum that is short)
+			if (id === 'words' && values.some((v) => v == null) && fn !== 'filled' && fn !== 'empty') return '';
+			return numberSummary(fn, values);
+		}
+		if (kind === 'date') {
+			if (id === 'created' || id === 'modified') {
+				const ms = files.map((f) => (id === 'created' ? f.stat.ctime : f.stat.mtime));
+				return dateSummary(fn, ms, (x) => x, (x) => date(x), (a, b) => (b - a) / 864e5);
+			}
+			const prop = id === 'storydate' ? this.settings.storyDateProp : propOf(id) ?? '';
+			const ds = files.map((f) => { const raw = fm(f, prop), d = readStoryDate(raw), days = daysOf(raw); return d && days ? { d, days } : null; });
+			return dateSummary(fn, ds, (x) => x.days[0], (x) => showStoryDate(x.d), (a, b) => b.days[1] - a.days[0] + 1);
+		}
+		if (kind === 'checkbox') {
+			const prop = propOf(id);
+			return checkSummary(fn, files.map((f) => (id === 'export' ? isExported(this.ctx.plugin, f) : prop ? boolOf(fm(f, prop)) : null)));
+		}
+		if (kind === 'name') { const t = this.tallied(id, files); return t ? countSummary(fn, t, files.length) : ''; }
+		if (kind === 'text') {
+			const prop = this.model.propFor(id);
+			const t: Tally<TFile> = { values: [], none: files.filter((f) => !prop || isEmpty(fm(f, prop))), several: false };
+			return countSummary(fn, t, files.length);
+		}
+		return '';
+	}
+
+	/** A click on a summary: for "By value", the values (choose one to see its notes); else the summaries to choose from. */
+	private summaryMenu(td: HTMLElement): void {
+		const id = td.dataset.col ?? '', c = this.columns().find((x) => x.id === id);
+		if (!c) return;
+		const scenes = this.model.scenesIn(this.ctx.folder), kind = this.sumKind(id, scenes), fn = summaryOf(id, kind, c.summary);
+		const menu = new Menu();
+		const choose = (m: Menu) => {
+			for (const f of offered(id, kind)) m.addItem((i) => i.setSection('summary').setTitle(f.name).setChecked(fn?.id === f.id).onClick(() => this.setSummary(id, f.id)));
+			m.addItem((i) => i.setSection('summary').setTitle('None').setChecked(!fn).onClick(() => this.setSummary(id, null)));
+		};
+		const t = fn?.id === 'values' ? this.tallied(id, scenes) : null, prop = this.filterProp(id);
+		if (t && prop) {
+			const words = (files: TFile[]) => files.reduce((a, f) => a + (this.ctx.words(f) ?? 0), 0);
+			const said = (files: TFile[]) => `${files.length.toLocaleString()} ${files.length === 1 ? 'note' : 'notes'} · ${wordsLabel(words(files))}`;
+			const row = (name: string, files: TFile[], cond: Condition) => menu.addItem((i) => {
+				const title = createFragment((f) => { f.createSpan({ cls: 'binders-summary-value-name', text: name }); f.createSpan({ cls: 'binders-summary-value-count', text: said(files) }); });
+				i.setSection('values').setTitle(title).onClick(() => this.ctx.narrow?.(cond));
+			});
+			const op = t.list ? 'contains any of' : 'is';
+			for (const v of t.values) row(v.shown, v.files, { property: prop, operator: op, value: [v.raw] });
+			if (t.none.length) row(`No ${columnName(id).toLowerCase()}`, t.none, { property: prop, operator: 'is empty' });
+			if (t.several) menu.addItem((i) => i.setSection('note').setTitle('A note with two values is counted under each').setDisabled(true));
+			menu.addItem((i) => { i.setSection('summary').setTitle('Summary').setIcon('sigma'); submenu(i, choose, menu); });
+		} else {
+			choose(menu);
+			if (id === 'revision') menu.addItem((i) => i.setSection('action').setTitle('Show revision tasks').setIcon(REVISION_ICON).onClick(() => void showSide(this.ctx.plugin, REVISION_VIEW)));
+		}
+		td.addClass('has-active-menu');
+		menu.onHide(() => td.removeClass('has-active-menu'));
+		showUnder(menu, td);
+	}
+
+	private setSummary(id: string, fn: string | null): void {
+		this.setColumns(this.columns().map((c) => {
+			if (c.id !== id) return c;
+			const keep = keepAs(id, fn), out: ColumnSpec = { ...c };
+			if (keep) out.summary = keep; else delete out.summary;
+			return out;
+		}));
 	}
 
 	// ---- selection ----
@@ -864,6 +1015,7 @@ class Outliner implements BinderMode {
 
 	/** A label or status cell: its menu, under it, for the row (or the rows selected with it). */
 	private cellMenu(cell: HTMLElement, row: HTMLElement): void {
+		if (cell.dataset.col === 'revision') { void showSide(this.ctx.plugin, REVISION_VIEW); return; }
 		if (this.ro) return;
 		const at = this.item(row.dataset.path), items = at ? this.withSelection(at) : [], menu = new Menu();
 		if (cell.dataset.col === 'label') labelItems(this.ctx, menu, items); else if (cell.dataset.col === 'role') exportAsItems(this.ctx.plugin, menu, this.ctx.binder, items); else statusItems(this.ctx, menu, items);

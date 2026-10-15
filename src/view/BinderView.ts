@@ -9,7 +9,8 @@ import { hasSnapshots, takeFolderSnapshot } from '../binder-snapshots';
 import type BindersPlugin from '../main';
 import { commitAll, commitFocused, editable, editingIn, type Editable } from './edit';
 import { keepOpen, readableLineLength, refreshHeader, submenu } from './internals';
-import { emptyDef, readDefs, writeDef, type FilterDef } from '../filter/conditions';
+import { emptyDef, readDefs, writeDef, type Condition, type FilterDef } from '../filter/conditions';
+import { tally } from './outliner-summary';
 import { editFilters, type FilterEdit } from '../filter/saved';
 import { FilterPopover } from './filter-popover';
 import { Subset } from './subset';
@@ -328,6 +329,9 @@ export class BinderView extends ItemView {
 			if (!p || !this.binder || f === p || f.startsWith(p + '/')) this.schedule();
 		});
 		this.register(() => this.store.offref(ref));
+		// (the outliner's Revision column counts the binder's revision tasks, which are read from their note when it changes)
+		const rev = this.plugin.revision?.on('changed', () => this.schedule());
+		if (rev) this.register(() => this.plugin.revision.offref(rev));
 		const hist = this.store.on('history', () => this.drawUndo());
 		this.register(() => this.store.offref(hist));
 		this.registerEvent(metadataCache.on('changed', (file) => {
@@ -977,6 +981,15 @@ export class BinderView extends ItemView {
 		return `${all.filter((f) => this.visible(f)).length} of ${all.length} ${all.length === 1 ? 'note' : 'notes'}`;
 	}
 
+	/** One more condition, with the filter that is on (when its conditions must all be true; with "any" or "none" it can't
+	    be said in one list, so the new condition stands alone). Never written into a saved filter: the result is not
+	    saved, and the saved one stays as it was. */
+	private narrow(c: Condition): void {
+		const on = this.subset.on() ? this.subset.def : null;
+		const keep = on && on.match === 'all' ? on.conditions.map((x) => ({ ...x })) : [];
+		this.setFilter({ match: 'all', conditions: [...keep, c] });
+	}
+
 	private setFilter(filter: FilterDef, quiet = false): void {
 		// (changing the conditions is asking for the page afresh: what no longer matches goes, but the section being typed in)
 		if (this.subset.set(filter)) this.subset.letGo(this.typingIn());
@@ -1119,6 +1132,8 @@ export class BinderView extends ItemView {
 			filtering: () => this.subset.on(),
 			stale: (f) => this.isStale(f),
 			clearFilter: () => this.setFilter(emptyDef()),
+			tally: (files, property) => ({ ...tally(files, (f) => this.subset.valueOf(f, property), this.subset.env), list: this.subset.kindOf(property) === 'list' }),
+			narrow: (c) => this.narrow(c),
 			selectionChanged: () => this.inspect(),
 			find: (replace) => this.showSearch(replace),
 			option: <T>(key: string, fallback: T): T => (key in this.options ? this.options[key] : fallback) as T,

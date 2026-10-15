@@ -2,6 +2,12 @@
 
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for when a number changes. Commits add entries under Unreleased (`npm run ship`); `npm run release` turns them into a version.
 
+## Unreleased
+
+### Added
+
+- The outliner's last row stays in sight and can summarize each column (sum, average, median, range, earliest, latest, or each value with its notes and words; choosing a value shows those notes), and a new Revision column counts each scene's unfinished revision tasks.
+
 ## 0.52.0 (2026-10-12)
 
 ### Added

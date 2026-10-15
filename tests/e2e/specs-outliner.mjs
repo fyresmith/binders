@@ -586,7 +586,7 @@ test('a row’s menu is a card’s menu; Delete asks first; the filter hides row
 	await filterToggle(p, 'Revised');
 	await p.sleep(250);
 	t.eq(j(await names(p)), j(['Part One', 'Part One/Arrival.md']), 'only what passes the filter, and the folder it’s in');
-	t.eq(await p.ev(`document.querySelector('${O} .binders-outliner-foot .binders-outliner-cell').textContent`), '1 note', 'the last row counts what shows');
+	t.eq(await p.ev(`document.querySelector('${O} .binders-outliner-foot .binders-outliner-cell').textContent`), '1 note shown', 'the last row counts what shows, and says it is what shows');
 }));
 
 test('a property column edits the property: text, a number, a list, a tick', withTidy(async (p, h, t) => {

@@ -234,6 +234,20 @@ here; that is what keeps the next round short.
   - Tests find a row by its title wherever it is: `tests/e2e/menu-routes.mjs` opens the drawer first (one map of
     title to drawer), and the helpers `choose`, `clickMenu` and the `menuTap`s go through it.
 
+- Learned designing the outliner's summaries (2026-10-15; the maintainer chose A, built):
+  - Bases' summaries are a last row that sticks to the foot of the table (`.bases-table-footer`, `position: sticky;
+    bottom: 0`, on a phone as tall as the row and the navigation bar together) and one more under each group's
+    heading. A cell is the function's name, small and muted, then its value, set to the cell's end; a click opens a
+    chooser. The functions: Sum, Average, Median, Min, Max, Range, Stddev for numbers; Earliest, Latest, Range for
+    dates; Checked, Unchecked for a tick; Empty, Filled, Unique for anything. All are one value: a breakdown by value
+    is Group by with a sum, which the outliner's "By value" menu does instead, with a filter as the way to the notes.
+  - Counts that lead to notes are grouped exactly as the filter groups values (`tally` in `outliner-summary.ts`), or
+    the menu says 33 notes and the filter shows 31.
+  - A summary the row always showed (the words added up) keeps its look with no name; a summary chosen says its name.
+    Unnamed, a phone's narrow Words column shows the whole number, where "Sum" cut it to "S.".
+  - An offer that shows on hover ("Summarize") is drawn by the style sheet (`content: attr(...)`), so it is not text
+    of the row: tests and screen readers read the cells as they were.
+
 **Rejected, don't propose again:** a colored stripe along the top of a card, pill chips, thin accent or progress
 lines, decoration for its own sake, anything on a card that isn't the writer's own (no badges for snapshots and the
 like). The maintainer's word for these was "AI generated".

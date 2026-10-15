@@ -1006,7 +1006,7 @@ test('folding: folders in folders keep their own state; totals add up through ev
 	await filterToggle(p, 'Revised');
 	await p.sleep(300);
 	t.eq(j(await names(p)), j(['Part One', 'Part One/Arrival.md', 'Part One/Chapter A']), 'filtered: the revised notes, and the folders they’re in (one of them folded)');
-	t.eq((await foot(p))[0], '2 notes', 'the last row counts the notes that pass, in sight or folded away');
+	t.eq((await foot(p))[0], '2 notes shown', 'the last row counts the notes that pass, in sight or folded away, and says they are what shows');
 	await shot(p, 'filtered');
 	t.eq(p.errors.length, 0, 'no errors: ' + p.errors.join(' ; '));
 }));

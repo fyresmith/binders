@@ -5,7 +5,7 @@ import { rank } from './labels';
    Pure, so it can be unit-tested. */
 
 /** A column as it's kept: a built-in one by its id, or a note property as `prop:<name>`; `width` in px once resized. */
-export interface ColumnSpec { id: string; width?: number }
+export interface ColumnSpec { id: string; width?: number; summary?: string }
 
 /** One of Binders' own columns: its name and icon in the "Columns" menu, its width until it's resized, whether it holds
     numbers (set to the right), and what it shows, in a sentence. */
@@ -23,6 +23,7 @@ export const BUILT_IN: readonly BuiltIn[] = [
 	{ id: 'export', name: 'Export', icon: 'book-up', width: 76, about: 'Whether the note is included when the binder is exported' },
 	{ id: 'role', name: 'Export as', icon: 'book-open', width: 132, about: 'The part the note plays in the book: a chapter, a scene, front matter' },
 	{ id: 'notes', name: 'Notes', icon: 'notebook-pen', width: 200, about: 'Your notes on the note, which are never exported' },
+	{ id: 'revision', name: 'Revision', icon: 'list-checks', width: 96, numeric: true, about: 'Unfinished revision tasks about the note; for a folder, about anything in it' },
 	{ id: 'created', name: 'Created', icon: 'calendar-plus', width: 110, numeric: true, about: 'When the note was created' },
 	{ id: 'modified', name: 'Modified', icon: 'calendar-clock', width: 110, numeric: true, about: 'When the note was last changed' },
 ];
@@ -61,7 +62,8 @@ export function readColumns(v: unknown): ColumnSpec[] | null {
 		const id = said === 'compile' ? 'export' : said;
 		if (typeof id !== 'string' || !isColumn(id) || out.some((c) => c.id === id)) continue;
 		const w = x && typeof x === 'object' ? (x as { width?: unknown }).width : undefined;
-		out.push(typeof w === 'number' && isFinite(w) ? { id, width: clampWidth(w) } : { id });
+		const sum = x && typeof x === 'object' ? (x as { summary?: unknown }).summary : undefined;
+		out.push({ id, ...(typeof w === 'number' && isFinite(w) ? { width: clampWidth(w) } : {}), ...(typeof sum === 'string' && sum ? { summary: sum } : {}) });
 	}
 	return out;
 }

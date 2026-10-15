@@ -87,6 +87,23 @@ export class OutlinerModel {
 		return this.ctx.filtering() ? all.filter((f) => this.ctx.visible(f)) : all;
 	}
 
+	/** Unfinished revision tasks about an item: a note's own, a folder's about it or anything in it (with a filter on, the
+	    notes that show). The whole folder shown (`book`): those, and at the top of the binder the tasks about the book. A
+	    task about two scenes is counted once. */
+	revision(item: TAbstractFile, book = false): number {
+		const rev = this.ctx.plugin.revision;
+		if (!rev || this.longform) return 0;
+		if (item instanceof TFile || (!book && !this.ctx.filtering())) return rev.openFor(item);
+		if (!(item instanceof TFolder)) return 0;
+		const keys = new Set([item.path, ...this.scenesIn(item).map((f) => f.path), ...this.folders(item).map((f) => f.path)]);
+		const top = book && item === this.ctx.binder.folder && !this.ctx.filtering(), seen = new Set<unknown>();
+		for (const g of rev.list(this.ctx.binder).groups) {
+			if (!(g.place.kind === 'item' && keys.has(g.place.key)) && !(top && g.place.kind === 'book')) continue;
+			for (const t of g.tasks) if (!t.done) seen.add(t);
+		}
+		return seen.size;
+	}
+
 	/** An item's target: its own, or for a folder without one, its notes' targets together (`own` false). */
 	target(item: TAbstractFile): { n: number; own: boolean } {
 		const own = this.props(item).target;
@@ -128,6 +145,7 @@ export class OutlinerModel {
 			// (a note that has none, or something that isn't a date, comes last whichever way the column runs)
 			case 'storydate': { const d = this.story(item).date; return d ? storyKey(d) : null; }
 			case 'export': return isExported(this.ctx.plugin, item);
+			case 'revision': return this.revision(item) || null;
 			case 'role': return saidRole(this.played(item)).text;
 		}
 		const prop = this.propFor(id), v = prop ? this.frontmatter(item)[prop] : null;
@@ -145,6 +163,7 @@ export class OutlinerModel {
 			case 'modified': return item instanceof TFile ? item.stat.mtime : null;
 			case 'storydate': { const s = this.story(item); return [s.raw ?? null, s.own, s.date ? storyKey(s.date) : null]; }
 			case 'export': return [isExported(this.ctx.plugin, item), this.leftOut(item)];
+			case 'revision': return this.revision(item);
 			case 'role': { const p = this.played(item); return p ? `${p.role}|${p.said ?? ''}` : null; }
 		}
 		const prop = this.propFor(id);

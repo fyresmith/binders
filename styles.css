@@ -610,14 +610,99 @@
 	padding-inline-start: calc(var(--binders-ol-pad) + var(--icon-s) + var(--size-4-1));
 }
 
+/* It stays in sight at the foot of the pane, as a base's summaries do (`.bases-table-footer`), over the rows; a row
+   gone to with the keyboard stops above it. */
+.binders-outliner-foot {
+	position: sticky;
+	bottom: 0;
+	z-index: 3;
+	background-color: var(--bases-table-summary-background, var(--background-primary));
+}
+
+.binders-outliner {
+	scroll-padding-bottom: var(--binders-ol-row);
+}
+
+/* A summary: its name small and muted, then its value, set to the cell's end, as a base's summary cell is. */
+.binders-outliner-summary {
+	justify-content: flex-end;
+}
+
+.binders-outliner-summary-content {
+	display: flex;
+	align-items: baseline;
+	justify-content: flex-end;
+	gap: var(--size-2-3);
+	min-width: 0;
+	overflow: hidden;
+	white-space: nowrap;
+}
+
+.binders-outliner-summary-name {
+	font-size: var(--font-smaller);
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.binders-outliner-summary-value {
+	flex: none;
+	font-variant-numeric: tabular-nums;
+}
+
+/* A column with no summary offers one where the pointer is, as a base's does, and nowhere else. */
+.binders-outliner-summary-placeholder {
+	opacity: 0;
+	color: var(--text-faint);
+}
+
+.binders-outliner-summary-placeholder::before {
+	content: attr(data-text);
+}
+
+@media (hover: hover) {
+	.binders-outliner-summary.is-menu:hover {
+		--binders-ol-tint: linear-gradient(var(--background-modifier-hover), var(--background-modifier-hover));
+	}
+	.binders-outliner-summary:hover .binders-outliner-summary-placeholder {
+		opacity: 1;
+	}
+}
+
+.binders-outliner-summary.has-active-menu {
+	--binders-ol-tint: linear-gradient(var(--background-modifier-hover), var(--background-modifier-hover));
+}
+
+.binders-outliner-summary.has-active-menu .binders-outliner-summary-placeholder,
+.binders-outliner-summary:focus-visible .binders-outliner-summary-placeholder {
+	opacity: 1;
+}
+
+/* A value in a summary's menu, with its notes and words set to the menu's end, one under another. */
+.menu-item-title:has(> .binders-summary-value-count) {
+	display: flex;
+	flex: 1 1 auto;
+	align-items: baseline;
+}
+
+.binders-summary-value-count {
+	margin-inline-start: auto;
+	padding-inline-start: var(--size-4-6);
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	font-variant-numeric: tabular-nums;
+}
+
+/* On a phone the last row reaches under Obsidian's floating navigation bar, as a base's does. */
+.is-phone .binders-outliner-foot {
+	padding-bottom: var(--view-bottom-spacing, 0px);
+}
+
 /* Room after the last row to drop a row at the end, and on phones for Obsidian's floating navigation bar. */
 .binders-outliner-table {
 	padding-bottom: var(--size-4-8);
 }
 
-.is-phone .binders-outliner-table {
-	padding-bottom: calc(var(--size-4-8) + var(--view-bottom-spacing, 0px));
-}
+/* (on a phone the last row itself reaches under Obsidian's navigation bar: see below) */
 
 /* Pointed at, selected, focused: as an item in the file explorer is */
 @media (hover: hover) {
@@ -7644,4 +7729,9 @@ input.binders-filter-name {
 
 .is-phone .modal:is(.binders-snapshots, .binders-pot, .binders-import, .binders-book-details, .binders-revision-capture, .binders-split-many, .binders-folder-snapshots-back, .binders-folder-snapshots-interrupted, .binders-leftovers) .modal-title {
 	max-width: calc(100% - var(--size-4-18) * 2);
+}
+
+/* (and on a phone, above the last row as well as the navigation bar) */
+.is-phone .binders-outliner {
+	scroll-padding-bottom: calc(var(--view-bottom-spacing, 0px) + var(--binders-ol-row) + var(--size-4-2));
 }

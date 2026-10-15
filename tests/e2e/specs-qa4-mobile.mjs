@@ -627,10 +627,10 @@ test('phone outliner: a column’s header opens its menu, “+” adds a column,
 		await tap(p, ch.x, ch.y);
 		t.eq(await rows(), n, 'and unfolds it');
 		// the end: the last row and the totals above the navigation bar
-		const end = await p.ev(`(() => { ${OUT}.scrollTop = ${OUT}.scrollHeight; const R = ${R}; return { foot: R(document.querySelector('${LEAF} .binders-outliner-foot')), text: document.querySelector('${LEAF} .binders-outliner-foot').textContent }; })()`);
+		const end = await p.ev(`(() => { ${OUT}.scrollTop = ${OUT}.scrollHeight; const R = ${R}; return { foot: R(document.querySelector('${LEAF} .binders-outliner-foot .binders-outliner-cell.mod-title')), text: document.querySelector('${LEAF} .binders-outliner-foot').textContent }; })()`);
 		const nav = await navbarTop(p);
 		await shot(p, 'outliner-end');
-		t.ok(nav != null && end.foot[1] + end.foot[3] <= nav, `the totals row (${j(end.foot)}) is above the navigation bar (top ${nav})`);
+		t.ok(nav != null && end.foot[1] + end.foot[3] <= nav, `the totals row’s cells (${j(end.foot)}) are above the navigation bar (top ${nav}); the row itself reaches under it, as a base’s does`);
 		t.ok(/7 notes/.test(end.text), 'and counts the notes: ' + end.text);
 	});
 });

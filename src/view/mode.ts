@@ -2,6 +2,8 @@ import type { App, Component, Menu, PaneType, TAbstractFile, TFile, TFolder } fr
 import type { EditorView } from '@codemirror/view';
 import type { Binder, BinderStore } from '../binders';
 import type BindersPlugin from '../main';
+import type { Condition } from '../filter/conditions';
+import type { Tally } from './outliner-summary';
 
 /* The contract between the binder view (BinderView.ts) and its modes: corkboard, outliner, manuscript. The view owns
    the header, the switcher and the subscriptions; a mode only draws the folder it's given into its container. */
@@ -49,6 +51,12 @@ export interface ModeContext {
 	filtering(): boolean;
 	/** Shown only because it passed the filter before and no longer does (it stays until the writer refreshes). */
 	stale?(file: TFile): boolean;
+	/** Optional: the values a property holds over these notes, grouped as the filter groups them (the outliner's "By
+	    value"), so that `narrow` to one shows exactly the notes counted under it. */
+	tally?(files: TFile[], property: string): Tally<TFile>;
+	/** Optional: the filter that is on, with one more condition that must also be true. A saved filter is not changed:
+	    what results is a filter that is not saved. */
+	narrow?(c: Condition): void;
 	/** Takes the filter off, so all the notes show (the empty state's way out). Without it, the state has no button. */
 	clearFilter?(): void;
 	/** A per-view option (kept with the view in the workspace, so it survives a reload). */
