@@ -22,7 +22,7 @@ jobs:
           fetch-depth: 0 # the tags, to find the previous release for the notes
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22 # as the e2e workflow; 20 decodes windows-1252 as Latin-1, and the RTF import tests fail on it
           cache: npm
       # the e2e suite must have passed for the commit this release was made from (its parent: the release commit changes
       # only the version files and the changelog), unless the release was made with --skip-suite, whose reason is in the
