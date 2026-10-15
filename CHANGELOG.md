@@ -2,7 +2,7 @@
 
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for when a number changes. Commits add entries under Unreleased (`npm run ship`); `npm run release` turns them into a version.
 
-## Unreleased
+## 0.53.0 (2026-10-15)
 
 ### Added
 
