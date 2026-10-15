@@ -4,8 +4,8 @@
 
 <p align="center">A binder in the file explorer · a corkboard · an outliner · an editable manuscript · a story timeline</p>
 
-Folders in Obsidian list their notes by name. Books don't work that way. Binders turns a folder into a **binder**: its
-chapters and scenes keep the order you give them, in Obsidian's own file explorer. Open a binder to see the same notes
+Folders in Obsidian list their notes by name. Books don't work that way. Binders turns a folder into a **binder**, like
+Scrivener's: its chapters and scenes keep the order you give them, in Obsidian's own file explorer. Open a binder to see the same notes
 as a corkboard, an outliner, one continuous manuscript you can edit, or a timeline of the story.
 
 Everything stays plain Markdown. A binder is a folder plus one note that holds its order, and everything about a scene
@@ -14,25 +14,24 @@ is in that scene's own properties. Turn Binders off and your notes are still ord
 > **Public beta.** Binders is in public beta. Phone and tablet support is new and has had little testing on real
 > devices. Report what you find in the [issue tracker](https://github.com/fyresmith/binders/issues).
 
-This README and the [manual](docs/README.md) follow the code on `main`, including features not yet released.
-The [Unreleased entries](CHANGELOG.md#unreleased) say what is coming in the next release. Installing through
-Obsidian, BRAT or a release download gives you the published plugin; its documentation is in that release's tag.
-
 ## What it does
 
 - **Order.** Notes and folders keep the order you give them, in the file explorer and everywhere else.
 - **Four views of one binder.** A corkboard of index cards, an outliner with columns you pick, the whole
-  manuscript as one page you can edit, and a timeline of its scenes by story date.
-- **Scrivener-style tools.** Labels, statuses and word count targets; an inspector; split, merge, duplicate and
-  group scenes; snapshots of a scene, a folder or the whole binder, so you can rewrite without losing the old text;
-  undo and redo of moves, properties, renames, new notes, deletes, merges and splits.
+  manuscript as one page you can edit (or as its synopses, to read the outline), and a timeline of its scenes by
+  story date, with your own calendar if the book needs one.
+- **Plan.** Labels and statuses; filters by any property, saved with the binder; your own properties (point of
+  view, characters, a place) pinned to the inspector; new binders and notes from templates.
+- **Track.** Word count targets for a scene, a chapter or the book; a deadline that says whether you are on pace;
+  a Progress window with the book's words over time and the days you wrote.
+- **Revise.** Snapshots of a scene, a folder or the whole binder, to compare or bring back; revision tasks tied to
+  their scenes; split, merge, duplicate and group scenes; find and replace across the book; undo and redo of moves,
+  properties, renames, deletes, merges and splits.
 - **Export.** A submission manuscript in standard manuscript format (Word or PDF), an ebook (EPUB) for Kindle,
-  Apple Books and Kobo, a print-ready paperback PDF, the binder itself as a Scrivener project, or the whole binder
-  as one note. Book styles you can change, with the real pages beside them.
-- **Import from Scrivener.** A Scrivener 3 project, or a zipped backup of one, as a new binder: you see it before it is made.
-- **Import a manuscript.** A Word file, a Markdown note or a text file as a new binder, split at its chapters,
-  with a preview you can put right before anything is made. The source stays as it is.
-- **Find and replace.** Search every note of a binder; replace one match (taken back with Undo in the editor), or replace all after a review and a snapshot, with Undo.
+  Apple Books and Kobo, a print-ready paperback PDF, a Scrivener project, or one note. Book styles you can change,
+  with the real pages beside them, and named exports (Submission, Kindle, Paperback 6 × 9) kept with the book.
+- **Import.** A Scrivener 3 project, or a Word, OpenDocument, rich text, Markdown or text file, as a new binder
+  split at its chapters, with a preview you can put right first. The source stays as it is.
 - **Focus mode.** The text and nothing else, with typewriter scrolling.
 - **Longform.** Longform projects open as binders, and convert to them.
 - **Phones and tablets.** The same views, by touch, on iOS and Android.
@@ -92,52 +91,16 @@ formatting work as they do in the note itself. [More](docs/manuscript.md)
 ### Timeline
 
 Scenes along story time, each at its story date and numbered as the manuscript has it. Long empty stretches are
-drawn short, and scenes with no date wait in a tray. Time runs down, or across on a computer or tablet. Set dates
-from the menu, outliner or inspector; dragging to set a date is not built yet. [More](docs/timeline.md)
+drawn short, and scenes with no date wait in a tray. Time runs down, or across on a computer or tablet. Drag a card
+to give it another date, or set dates from the menu, outliner or inspector. [More](docs/timeline.md)
 
 ![Timeline](docs/images/timeline-dark.png)
 
-## Import a manuscript
-
-Run **Import a manuscript...** to bring in a `.docx`, Markdown or text file. Chapters and scene breaks become notes
-and folders, shown before they are made. Join, rename or split them in the preview. A note outside a binder has
-**Make a binder from this note...** in its file explorer menu. [More](docs/import-manuscript.md)
-
-## Find and replace
-
-Press Ctrl+F in a binder view to search every note of the binder, in binder order: in the manuscript as one page, on the
-corkboard and timeline, and in the outliner, by lighting the cards and rows that match. A link's target and a tag are not touched
-unless you type them, and **Replace all** shows every change in context first, takes a snapshot, and can be undone; **Replace** changes one match, and the editor's Undo takes it back.
-[More](docs/find-and-replace.md)
-
-## Import from Scrivener
-
-Run **Import from Scrivener...** from the command palette and choose a project, or a zipped backup of one. The
-dialog shows the binder as it will be, and any note of it as it will read, before anything is made. The order,
-synopses, notes, labels, statuses, targets and snapshots come across; Research can be left behind. The project
-itself is never changed, and every original file is kept beside the notes.
-[More](docs/import-scrivener.md)
-
 ## Your files
 
-A binder is a folder with a binder note, named like the folder, whose `contents` property is the order:
-
-```yaml
----
-binder: 1
-contents:
-  - Prologue
-  - Part One/
-  - Part One/Arrival
-  - Epilogue
----
-```
-
-Each scene is an ordinary note, and what its card shows (`synopsis`, `status`, `label`, `target`) are its
-properties. Binders writes its own properties and the ones you edit through its views. Text changes where you
-type or ask for a split, merge, rewrite, snapshot restore or replacement. A whole snapshot restore can also put
-properties, names and locations back, after review. Links on tab-led paragraphs follow an Obsidian-approved rename.
-[How your files look](docs/files.md) has the whole account.
+A binder is a folder plus one note that holds its order. Each scene is an ordinary note, and what its card shows
+(synopsis, status, label, target) are its properties. Binders changes a note's text only where you type or ask it
+to. [How your files look](docs/files.md) has the whole account.
 
 ## Limitations
 
@@ -174,8 +137,10 @@ It reads and writes outside your vault only through the files and places you cho
 | [Manual](docs/README.md) | Everything Binders does, a page per topic |
 | [Getting started](docs/getting-started.md) | From an empty folder to a first exported file |
 | [The binder view](docs/binder-view.md) | Corkboard, outliner, manuscript, timeline, the inspector |
-| [Import a manuscript](docs/import-manuscript.md) | Word, Markdown or plain text as a new binder |
-| [Story date](docs/story-date.md) · [Timeline](docs/timeline.md) | When scenes happen, and how that reads against manuscript order |
+| [Import a manuscript](docs/import-manuscript.md) | Word, OpenDocument, rich text, Markdown or plain text as a new binder |
+| [Story date](docs/story-date.md) · [Timeline](docs/timeline.md) | When scenes happen, a book's own calendar, and how that reads against manuscript order |
+| [Filters](docs/filters.md) · [Inspector](docs/inspector.md) · [Templates](docs/templates.md) | Showing part of a binder, a scene's details, starting from a pattern |
+| [Progress](docs/progress.md) · [Revision tasks](docs/revision-tasks.md) | Targets, deadlines and words over time; what each scene still needs |
 | [Undo and redo](docs/undo.md) | What can be taken back, and when it is safe to do so |
 | [Export](docs/export.md) · [Styles](docs/export-styles.md) | Manuscript, ebook, paperback, Scrivener project, one note |
 | [Import from Scrivener](docs/import-scrivener.md) | A Scrivener 3 project as a new binder |
@@ -185,7 +150,7 @@ It reads and writes outside your vault only through the files and places you cho
 | [Commands](docs/commands.md) · [Settings](docs/settings.md) | Reference |
 | [Troubleshooting](docs/troubleshooting.md) · [Questions and answers](docs/faq.md) | When something isn't as you expect |
 | [Roadmap](ROADMAP.md) · [Changelog](CHANGELOG.md) | What's planned, and what changed |
-| [Contributing](AGENTS.md) · [Design and architecture](docs/dev/) | For contributors |
+| [Contributing](CONTRIBUTING.md) · [Design and architecture](docs/dev/) | For contributors |
 | [Issues](https://github.com/fyresmith/binders/issues) | Report a problem or ask for something |
 
 ## License
