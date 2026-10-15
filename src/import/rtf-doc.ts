@@ -191,7 +191,9 @@ export function readRtfDocument(data: Uint8Array): DocxFile {
 		}
 		if (SKIP.has(kind)) return;
 		// a part a reader that doesn't know it is told to pass over (`\*`), unless it is one known to hold text
-		if (!own && g.tokens.some((t) => typeof t === 'object' && 'word' in t && t.word === '*') && !['shppict', 'shptxt', 'result'].includes(kind)) return;
+		// (`\*` opens the group: LibreOffice writes `\*\cs12` further in, inside a link's result, and that is no destination)
+		const first = g.tokens[0];
+		if (!own && typeof first === 'object' && 'word' in first && first.word === '*' && !['shppict', 'shptxt', 'result'].includes(kind)) return;
 		if (kind === 'shptxt') found.textBoxes++;
 
 		for (let i = 0; i < g.tokens.length; i++) {

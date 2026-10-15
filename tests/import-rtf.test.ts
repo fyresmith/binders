@@ -159,6 +159,13 @@ function same(plan: ImportPlan, want: string, notes: string, what: string): void
 	same(make(bare), want, '', 'a header with no version number');
 }
 
+// ---- LibreOffice writes `\*\cs12` inside a link's result, which is no ignorable destination: the link's words are the writer's ----
+{
+	const link = '{\\field{\\*\\fldinst HYPERLINK "http://example.org/" }{\\fldrslt \\*\\cs12\\cf2\\ul\\fs24 Sehensw\\\'fcrdigkeiten und mehr}}';
+	const bytes = rtf([H('One'), P(`See ${link} for more.`), body('a')].join(''));
+	same(make(bytes), ['One', 'See Sehenswürdigkeiten und mehr for more.', words(120, 'a')].join(' '), '', 'a link whose result begins with \\*\\cs');
+}
+
 // ---- refused, plainly ----
 {
 	eq(throws(() => readRtfDocument(strToU8('Just some text'))), 'This rich text file can’t be read: the file isn’t rich text.', 'refused: not rich text');
