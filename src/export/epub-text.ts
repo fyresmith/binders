@@ -117,5 +117,5 @@ export function sectionHtml(s: Section, x: Shared): string {
 
 /** The title page Binders makes: the title, the subtitle, the author, and no word of Binders' own. */
 export function titlePageHtml(book: Book): string {
-	return `<section class="titlepage" epub:type="titlepage" aria-labelledby="h">\n<h1 id="h">${esc(book.title)}</h1>${book.subtitle ? `\n<p class="subtitle">${esc(book.subtitle)}</p>` : ''}${book.author.trim() ? `\n<p class="author">${esc(book.author.trim())}</p>` : ''}\n</section>`;
+	return `<section class="titlepage" epub:type="titlepage" aria-labelledby="h">\n<h1 id="h">${esc(book.title)}</h1>${book.subtitle ? `\n<p class="subtitle">${esc(book.subtitle)}</p>` : ''}${book.series ? `\n<p class="series">${esc(book.series)}</p>` : ''}${book.author.trim() ? `\n<p class="author">${esc(book.author.trim())}</p>` : ''}${book.publisher ? `\n<p class="imprint">${esc(book.publisher)}</p>` : ''}\n</section>`;
 }

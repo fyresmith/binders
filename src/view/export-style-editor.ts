@@ -1,4 +1,5 @@
 import { ButtonComponent, DropdownComponent, Menu, Notice, Platform, Setting, SliderComponent, setIcon } from 'obsidian';
+import { EXPORTS_PROP, namesStyle } from '../export/presets';
 import type BindersPlugin from '../main';
 import type { Desktop } from '../export/desktop';
 import { keyword, surname } from '../export/docx';
@@ -187,7 +188,7 @@ export function drawStyleEditor(side: HTMLElement, h: StyleEditorHost): StyleEdi
 		} else if (!(await share(data, file, 'text/plain'))) new Notice(r.hasFile ? `This style is the file ${styles.path(r.name)} in this vault.` : 'There is nowhere to share it to from here.');
 	};
 	const remove = async (r: Resolved) => {
-		const used = plugin.binders.all().filter((b) => plugin.app.metadataCache.getFileCache(b.note)?.frontmatter?.[h.family === 'book' ? 'book-style' : 'manuscript-style'] === r.name).length;
+		const used = plugin.binders.all().filter((b) => { const fm = plugin.app.metadataCache.getFileCache(b.note)?.frontmatter; return fm?.[h.family === 'book' ? 'book-style' : 'manuscript-style'] === r.name || namesStyle(fm?.[EXPORTS_PROP], h.family, r.name); }).length;
 		if (!(await confirm(plugin.app, { title: 'Delete this style', text: `“${r.name}” goes to the trash.${used ? ` ${used === 1 ? 'One binder uses' : `${used} binders use`} it, and will use ${r.basedOn} in its place.` : ''} Styles based on it keep how they look.`, cta: 'Delete', warning: true }))) return;
 		const next = r.basedOn;
 		await styles.remove(r);

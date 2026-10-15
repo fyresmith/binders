@@ -35,7 +35,7 @@ const FILE: { id: string; title: string; kind: Kind; icon: string }[] = [
 const day = (ms: number): string => { const d = new Date(ms), p = (n: number) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };
 const nameOf = (target: string): string => target.split('/').pop() ?? target;
 // (properties that are Binders' own bookkeeping, or Obsidian's, and no use to a writer's filter)
-const HIDDEN = ['position', 'binder', 'contents', 'longform', COMPILE_PROP, 'aliases', 'cssclasses', 'plotlines', 'plotlineColors', 'plot', 'filters'];
+const HIDDEN = ['position', 'binder', 'contents', 'longform', COMPILE_PROP, 'aliases', 'cssclasses', 'plotlines', 'plotlineColors', 'plot', 'filters', 'exports'];
 
 export class Subset {
 	def: FilterDef = emptyDef();

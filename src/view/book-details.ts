@@ -1,6 +1,6 @@
-import { FuzzySuggestModal, Modal, Notice, Setting, TFile, type TFolder } from 'obsidian';
+import { FuzzySuggestModal, Menu, Modal, Notice, Setting, TFile, type TFolder } from 'obsidian';
 import type BindersPlugin from '../main';
-import { LANGUAGES, languageName, type Details } from '../export/details';
+import { CONTRIBUTOR_ROLES, LANGUAGES, languageName, type Contributor, type Details } from '../export/details';
 import { bookDetails, saveDetails } from '../export/export';
 import { STRUCTURES, type Structure } from '../export/model';
 
@@ -24,9 +24,21 @@ export class BookDetailsModal extends Modal {
 		contentEl.createEl('p', { cls: 'binders-book-details-about', text: `What every export of “${binder}” shares. Kept in the binder note’s properties.` });
 		if (locked) contentEl.createEl('p', { cls: 'binders-book-details-locked', text: locked });
 		const keep = (change: Partial<Details>) => { void saveDetails(plugin, folder, change).catch((e) => { new Notice(`Book details weren’t kept. ${e instanceof Error ? e.message : String(e)}`); }); };
-		const text = (name: string, key: 'title' | 'subtitle' | 'author' | 'copyright', placeholder: string, desc = '') => {
+		type Said = 'title' | 'subtitle' | 'author' | 'copyright' | 'series' | 'seriesNumber' | 'publisher' | 'edition' | 'published' | 'description' | 'rights';
+		const text = (name: string, key: Said, placeholder: string, desc = '', long = false) => {
 			const row = new Setting(contentEl).setName(name);
 			if (desc) row.setDesc(desc);
+			if (long) {
+				row.setClass('binders-book-details-long');
+				row.addTextArea((t) => {
+					t.setValue(d[key]).setPlaceholder(placeholder).setDisabled(!!locked);
+					t.inputEl.dataset.bindersKey = key;
+					t.inputEl.rows = 3;
+					const take = () => { const v = t.getValue().trim(); if (v !== d[key]) { d[key] = v; keep({ [key]: v }); } };
+					t.inputEl.addEventListener('blur', take);
+				});
+				return;
+			}
 			row.addText((t) => {
 				t.setValue(d[key]).setPlaceholder(placeholder).setDisabled(!!locked);
 				t.inputEl.dataset.bindersKey = key;
@@ -64,7 +76,57 @@ export class BookDetailsModal extends Modal {
 			dd.setValue(d.language).setDisabled(!!locked).onChange((v) => { d.language = v; keep({ language: v }); });
 			dd.selectEl.dataset.bindersKey = 'language';
 		});
+		// what a published book says of itself: on its title and copyright pages, and inside the ebook's file
+		new Setting(contentEl).setName('Publishing').setHeading();
+		text('Series', 'series', 'None', 'Under the title, on the title page.');
+		text('Number in the series', 'seriesNumber', '1');
+		text('Publisher', 'publisher', 'None', 'At the foot of the title page, and on the copyright page.');
+		text('Edition', 'edition', 'First edition', 'On the copyright page.');
+		text('Published', 'published', `${new Date().getFullYear()}-11-03`, 'A date, or a year: on the copyright page, and in the ebook.');
+		text('Description', 'description', 'What a store shows of the book', 'In the ebook, where a reader’s library shows it.', true);
+		new Setting(contentEl).setName('Keywords').setDesc('In the ebook. Separate them with commas.').addText((t) => {
+			t.setValue(d.keywords.join(', ')).setPlaceholder('None').setDisabled(!!locked);
+			t.inputEl.dataset.bindersKey = 'keywords';
+			t.inputEl.addEventListener('change', () => { d.keywords = t.getValue().split(',').map((k) => k.trim()).filter((k) => k); keep({ keywords: d.keywords }); });
+		});
+		this.contributors(contentEl, d.contributors, !!locked, (list) => { d.contributors = list; keep({ contributors: list }); });
+		text('More on the copyright page', 'rights', 'All rights reserved.', 'Each line as it is typed, after the rest.', true);
 		new Setting(contentEl).addButton((b) => b.setButtonText('Done').setCta().onClick(() => this.close()));
+	}
+
+	/** The people who made the book with the author: one row each, its role as its name and the person in its field;
+	    "Add" asks which role. */
+	private contributors(el: HTMLElement, list: Contributor[], locked: boolean, set: (list: Contributor[]) => void): void {
+		// (drawn among Book details' own rows, not in a box of their own, so Obsidian draws the lines between them; a
+		// mark where they go, and the rows drawn last time, taken away when they are drawn again)
+		const at = el.createDiv({ cls: 'binders-book-details-people' });
+		let drawn: Element[] = [];
+		const roleName = (role: string) => CONTRIBUTOR_ROLES.find(([v]) => v === role)?.[1] ?? role[0].toUpperCase() + role.slice(1);
+		const draw = (focus = -1) => {
+			for (const e of drawn) e.remove();
+			const box = createDiv();
+			const head = new Setting(box).setName('Contributors').setDesc('On the copyright page, and in the ebook.');
+			if (!locked) head.addButton((b) => {
+				b.setButtonText('Add...').onClick((e) => {
+					const m = new Menu();
+					for (const [v, name] of CONTRIBUTOR_ROLES) m.addItem((i) => i.setTitle(name).onClick(() => { list = [...list, { role: v, name: '' }]; draw(list.length - 1); }));
+					m.showAtMouseEvent(e);
+				});
+				b.buttonEl.dataset.bindersKey = 'add-contributor';
+			});
+			list.forEach((c, i) => {
+				const row = new Setting(box).setName(roleName(c.role)).setClass('binders-book-details-person');
+				row.addText((t) => {
+					t.setPlaceholder('Name').setValue(c.name).setDisabled(locked);
+					t.inputEl.addEventListener('change', () => { list = list.map((x, j) => (j === i ? { ...x, name: t.getValue().trim() } : x)); set(list.filter((x) => x.name)); });
+					if (i === focus) window.setTimeout(() => t.inputEl.focus(), 0);
+				});
+				if (!locked) row.addExtraButton((b) => b.setIcon('x').setTooltip('Remove').onClick(() => { list = list.filter((_, j) => j !== i); set(list.filter((x) => x.name)); draw(); }));
+			});
+			drawn = Array.from(box.children);
+			at.before(...drawn);
+		};
+		draw();
 	}
 
 	onClose(): void {

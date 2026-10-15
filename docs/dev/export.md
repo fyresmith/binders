@@ -177,9 +177,10 @@ title page. **Per device** (plugin data): the places remembered for each binder.
 
 Obsidian's two-pane dialog, the one File recovery and Snapshots use.
 
-- **Left:** the book's name with one button (Book details); the five kinds, each a row with what it is for; under
-  them the chosen kind's two or three choices (Style, and Page, File or Cover); at the foot, where the file goes,
-  and what export will have to leave out or change, each line opening its note.
+- **Left:** the book's name with one button (Book details); the book's exports, each a row with what it makes (the
+  five kinds until the writer names others: "A book's exports, as built"); under them the chosen export's few
+  choices (Style, and Page, File or Cover, What goes out, ISBN); at the foot, where the file goes, and what export
+  will have to leave out or change, each line opening its note.
 - **Right:** a bar with what is being made and how big it is, "Contents", the one filled button, **Export**, and a
   menu. Under it the preview.
 - **No decision is needed before the first file.** The kind is the last one used (Manuscript the first time), the
@@ -695,3 +696,48 @@ Where the design was silent, as built:
 - **The manuscript's "by" and "about N words" stay in English** whatever the book's language: standard manuscript
   format is an English-language convention. Left as step 1 built it; to be decided.
 
+
+## A book's exports, as built (2026-10-15)
+
+The maintainer: "expand the export to handle scrivener level workflows. Right now the export feels just a bit flimsy
+and non-capable compared to Scriveners deep and weighty export system." A design round (research of Compile, then
+direction A built and chosen: "I like this. Run it.") kept direction C, roles and styles, and added what gives
+Compile its weight without its maze: many ready outputs, a clear part of the book, the right front and back matter
+for each, and a store-ready book's own details. Every one of them shows in the preview.
+
+- **Named exports, per binder**, in the binder note's `exports` (file-format.md, "Export"), as saved filters are in
+  `filters`: a plain property that syncs and travels with the book, not a hidden file. The sidebar's list is them;
+  a binder that has named none has the five kinds, one each, and nothing is written until one is changed (the first
+  change writes all five, then it). Rows are the sidebar's own (`modal-sidebar-list-item`): the name over a line of
+  what it makes ("Word · Standard manuscript · Part Two"), no icon or tag. New export (a kind), Duplicate,
+  Rename..., Delete: the row's own menu and a drawer, "This export", in the bar's More menu; each asks for a name in
+  Binders' small dialog. The last export is never deleted.
+- **What an export holds:** its kind, a style's name (the vault's: an export never copies a style, so there are not
+  two places to change one look), a paperback's page, a manuscript's file and paper, what goes out, its numbering,
+  which front and back matter it leaves out, and an ebook's or paperback's ISBN. Choosing one changes nothing else:
+  not Book details, not the binder's own `book-style`, `manuscript-style` and `page-size`, which are now only what an
+  export with none of its own takes. A choice made in the window is kept with the export (no Save), and held by the
+  window until the note reads back the same, so a quick second change isn't lost to a stale read.
+- **What goes out:** the whole book, a folder, a saved filter (through the views' own `Subset`), or the cards
+  selected as the window opened (never written, gone when the window closes). With part of the book, front and back
+  matter don't go, and chapters are numbered as in the whole book unless "Numbering" says from 1: `buildBook` counts
+  what doesn't go and leaves it out (`keep`, `fromOne`). A folder or filter that is gone is a thing to look at and
+  turns Export off: never a different scope, silently.
+- **Front and back matter per export:** a box at the start of each such row of Contents, and of each page Binders
+  makes (title, copyright, contents). Kept as what the export leaves out (`leave out`), a note by its link so a
+  rename is followed (by Obsidian's link updating when it is on, else by Binders a moment later). The manuscript's
+  old "Front and back matter" switch is gone: a manuscript takes none until they are ticked (the setting it wrote is
+  still read). On a phone Contents with its boxes is the pane's whole width.
+- **Publishing details** in Book details' "Publishing" group, as plain binder-note properties: series and number,
+  publisher, edition, published, description, keywords, contributors (`Role: Name`), more lines for the copyright
+  page. On the title page: the series under the title, the publisher at its foot. The copyright page is made in
+  groups (the line and the rights; the edition and the ISBN; the contributors; the publisher). In the EPUB: an
+  ISBN identifier, `dc:publisher`, `dc:date`, `dc:description`, `dc:subject`, `dc:contributor` with MARC roles, and
+  `belongs-to-collection`. The ISBN is the export's, since an edition is an export.
+- **Files and places:** an export whose name isn't its kind's makes "The Lighthouse (Kindle).epub" and remembers
+  its own place, so two manuscripts never write one file. "Export again" makes the export last made, by its name;
+  "Export with..." lists the binder's exports and opens the window on one.
+- **Renames:** a style renamed or deleted is renamed in each export of its family that named it, as `book-style` is;
+  a folder kept as what goes out follows its folder renamed or moved inside the binder.
+- **Left for later:** "Export all" (several exports in one go), chapter openings and running heads with a
+  chapter's title (the next round), an outline and a proof copy, replacements.

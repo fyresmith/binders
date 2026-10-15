@@ -392,11 +392,11 @@ export class BinderView extends ItemView {
 			if (lastExport(this.plugin, folder)) menu.addItem((i) => {
 				i.setSection('binders-book').setTitle('Export').setIcon('book-up');
 				submenu(i, (m) => {
-					m.addItem((x) => x.setTitle('Export...').setIcon('book-up').onClick(() => new ExportModal(this.plugin, folder).open()));
+					m.addItem((x) => x.setTitle('Export...').setIcon('book-up').onClick(() => new ExportModal(this.plugin, folder, { selection: this.selectedItems() }).open()));
 					m.addItem((x) => x.setTitle('Export again').setIcon('book-check').onClick(() => void exportAgain(this.plugin, folder)));
 				}, menu);
 			});
-			else menu.addItem((i) => i.setSection('binders-book').setTitle('Export...').setIcon('book-up').onClick(() => new ExportModal(this.plugin, folder).open()));
+			else menu.addItem((i) => i.setSection('binders-book').setTitle('Export...').setIcon('book-up').onClick(() => new ExportModal(this.plugin, folder, { selection: this.selectedItems() }).open()));
 			// (the binder's own view: the whole binder, kept as a template for New binder; a phone's sheet is full, and has it in the file explorer's menu)
 			const own = this.store.binderOf(folder);
 			if (!Platform.isPhone && own && own.kind === 'binder' && own.folder === folder && !own.problem) menu.addItem((i) => i.setSection('binders-book').setTitle('Save as binder template...').setIcon('copy-plus').onClick(() => saveTemplateDialog(this.plugin, own)));

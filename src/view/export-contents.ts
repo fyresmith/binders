@@ -17,18 +17,37 @@ export interface ContentsHost {
 	/** "Export as" for the item at a path, as a menu at `at` (an element to hang it under, or where the pointer is).
 	    Absent where roles can't be overruled (a Longform project, a binder that can't be written). */
 	menu?: (path: string, at: HTMLElement | MouseEvent) => void;
+	/** Takes a page or a note of front or back matter into this export, or leaves it out (a made page by its words, a
+	    note by its path without `.md`). Absent where the export can't be changed. */
+	take?: (key: string, on: boolean) => void;
+	/** The pages Binders would make, with whether this export takes each. */
+	made?: { key: string; name: string; taken: boolean }[];
+}
+
+/** A box at a row's start that says whether this export takes it. */
+function takeBox(self: HTMLElement, name: string, on: boolean, take: (on: boolean) => void): void {
+	const box = self.createEl('input', { cls: 'binders-export-take', type: 'checkbox', attr: { 'aria-label': `${name}: in this export` } });
+	box.checked = on;
+	self.prepend(box);
+	box.addEventListener('click', (e) => e.stopPropagation());
+	box.addEventListener('change', () => take(box.checked));
 }
 
 export function drawContents(el: HTMLElement, book: Book, h: ContentsHost): void {
 	el.empty();
 	el.setAttrs({ role: 'list', 'aria-label': 'Contents' });
-	// the pages Binders makes: listed so the book is whole here, with nothing to open or overrule
-	for (const s of book.sections) {
-		if (!s.made || !MADE[s.matter ?? '']) continue;
+	// the pages Binders makes: listed so the book is whole here, with nothing to open or overrule (but whether this
+	// export takes them)
+	const made = h.made ?? book.sections.filter((s) => s.made && MADE[s.matter ?? '']).map((s) => ({ key: '', name: MADE[s.matter ?? ''], taken: true }));
+	const take = h.take;
+	el.toggleClass('has-takes', !!take);
+	for (const m of made) {
 		const row = el.createDiv({ cls: 'tree-item nav-file', attr: { role: 'listitem' } });
-		const self = row.createDiv({ cls: 'tree-item-self nav-file-title binders-export-row binders-export-made', attr: { 'aria-label': `${MADE[s.matter ?? '']}, made for the book` } });
+		const self = row.createDiv({ cls: 'tree-item-self nav-file-title binders-export-row binders-export-made', attr: { 'aria-label': `${m.name}, made for the book` } });
 		self.setCssProps({ '--binders-export-depth': '0' });
-		self.createDiv({ cls: 'tree-item-inner nav-file-title-content', text: MADE[s.matter ?? ''] });
+		self.toggleClass('binders-export-out', !m.taken);
+		self.createDiv({ cls: 'tree-item-inner nav-file-title-content', text: m.name });
+		if (take && m.key) takeBox(self, m.name, m.taken, (on) => take(m.key, on));
 	}
 	if (!book.outline.length) el.createDiv({ cls: 'binders-export-none', text: 'Nothing here is exported.' });
 	for (const r of book.outline) {
@@ -36,7 +55,8 @@ export function drawContents(el: HTMLElement, book: Book, h: ContentsHost): void
 		const row = el.createDiv({ cls: 'tree-item nav-file', attr: { role: 'listitem' } });
 		const self = row.createDiv({ cls: 'tree-item-self nav-file-title binders-export-row', attr: { 'data-path': r.path } });
 		self.setCssProps({ '--binders-export-depth': String(r.depth) });
-		self.toggleClass('binders-export-out', r.role === 'out');
+		self.toggleClass('binders-export-out', r.role === 'out' || r.taken === false);
+		if (take && r.taken !== undefined && !r.folder) takeBox(self, r.name, r.taken, (on) => take(r.path.replace(/\.md$/i, ''), on));
 		const name = self.createDiv({ cls: 'tree-item-inner nav-file-title-content', text: r.name });
 		if (!r.folder) {
 			// (the name is the way to the note; the row is clicked anywhere for it)

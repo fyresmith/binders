@@ -5458,6 +5458,24 @@ body:not(.is-phone) .binders-export .binders-export-options .setting-item.settin
 	font-size: 0.9em;
 }
 
+/* The series under the title, and the publisher at the title page's foot, as the ebook's own CSS sets them. */
+.binders-export-paper.mod-ebook .binders-export-series,
+.binders-export-paper.mod-ebook .binders-export-imprint {
+	text-indent: 0;
+	text-align: center;
+	font-size: 0.85em;
+	font-variant-caps: all-small-caps;
+	letter-spacing: 0.12em;
+}
+
+.binders-export-paper.mod-ebook .binders-export-series {
+	margin-top: 0.9em;
+}
+
+.binders-export-paper.mod-ebook .binders-export-imprint {
+	margin-top: 5em;
+}
+
 .binders-export-paper.mod-ebook .mod-copyright p {
 	text-indent: 0;
 	font-size: 0.85em;
@@ -7999,4 +8017,34 @@ input.binders-filter-name {
 	display: flex;
 	align-items: center;
 	padding-top: var(--size-4-3);
+}
+
+/* Whether this export takes a page or a note of front or back matter: a box at the row's start, as a task's. With
+   boxes in it, the list is a little wider, so a note's name beside its box and its role is still read. */
+.binders-export-outline:has(.has-takes) {
+	flex-basis: 16.5em;
+}
+
+.binders-export-outline .binders-export-take {
+	flex: none;
+	margin: 0 var(--size-4-2) 0 0;
+}
+
+
+/* On a phone, Contents with its boxes is the pane's whole width: beside a page it left a name a letter wide. */
+.is-phone .binders-export .binders-export-outline:has(.has-takes) {
+	flex-basis: 100%;
+	border-inline-end: 0;
+}
+
+.is-phone .binders-export .binders-export-outline:has(.has-takes) + .binders-export-stage {
+	display: none;
+}
+
+.is-mobile .binders-export-outline .binders-export-take {
+	align-self: center;
+}
+
+.binders-book-details-people {
+	display: none;
 }

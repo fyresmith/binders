@@ -84,9 +84,9 @@ const bodyWords = (p) => p.ev(`(() => { const d = ${FRAME}.contentDocument, out 
 test('a paperback: the kind and its choices, the pages in the window, and a PDF that is those pages', async (p, h, t, before) => {
 	await withAuthor(p);
 	await open(p);
-	t.eq((await p.ev(`[...document.querySelectorAll('${WIN} [role="option"]')].map(e => e.getAttribute('aria-label'))`)).join('|'), 'Manuscript: Word, in standard manuscript format|Ebook: EPUB, for Kindle, Apple Books and Kobo|Paperback: PDF, ready for print|Scrivener project: The binder itself, for Scrivener 3|One note: Markdown, in this vault', 'Paperback is between Ebook and Scrivener project');
+	t.eq((await p.ev(`[...document.querySelectorAll('${WIN} [role="option"]')].map(e => e.getAttribute('aria-label'))`)).join('|'), 'Manuscript: Word · Standard manuscript|Ebook: EPUB · Classic|Paperback: PDF · Classic · 5 × 8 in|Scrivener project: The binder itself, for Scrivener 3|One note: Markdown, in this vault', 'Paperback is between Ebook and Scrivener project, and says what it makes');
 	await pick(p, 'Paperback');
-	t.eq((await rows(p)).join('|'), 'Style|Page', 'its choices: a book style and a page');
+	t.eq((await rows(p)).join('|'), 'Style|Page|What goes out|ISBN', 'its choices: a book style, a page, what goes out and this edition’s ISBN');
 	t.eq((await p.ev(`[...document.querySelectorAll('${WIN} select[data-binders-key="page"] option')].map(o => o.textContent)`)).join('|'), '5 × 8 in|5.25 × 8 in|5.5 × 8.5 in|6 × 9 in|A5', 'the trim sizes');
 	t.ok(await laidOut(p), 'the pages are laid out in the window');
 	const shown = await pages(p);
@@ -179,9 +179,9 @@ function checkPdf(t, at, shown, o = {}) {
 test('a manuscript as a PDF: the File and Paper choices, standard manuscript format on its pages, the header on each', async (p, h, t, before) => {
 	await withAuthor(p);
 	await open(p);
-	t.eq((await rows(p)).join('|'), 'Style|Front and back matter|File', 'a manuscript has a File choice');
+	t.eq((await rows(p)).join('|'), 'Style|File|What goes out', 'a manuscript has a File choice');
 	await choose(p, 'file', 'pdf');
-	t.eq((await rows(p)).join('|'), 'Style|Front and back matter|File|Paper', 'a PDF has its paper');
+	t.eq((await rows(p)).join('|'), 'Style|File|Paper|What goes out', 'a PDF has its paper');
 	t.ok(await laidOut(p), 'the pages are laid out in the window');
 	let shown = await pages(p);
 	t.eq(await detail(p), `${shown.length} pages · Letter`, 'the bar says how many pages, on Letter');
@@ -201,7 +201,10 @@ test('a manuscript as a PDF: the File and Paper choices, standard manuscript for
 	t.ok(existsSync(at), 'a PDF, in Exports beside the binder');
 	keep(at, 'test-vault-manuscript-a4.pdf');
 	checkPdf(t, at, shown, { size: '(A4)' });
-	same(t, before, await texts(p));
+	// (the file and the paper are this export's own, kept in the binder note's `exports`; no other note changes)
+	t.ok(await until(p, `(() => { const e = app.metadataCache.getCache(${j(BINDER_NOTE)})?.frontmatter?.exports?.find?.(x => x.name === 'Manuscript'); return e?.file === 'pdf' && e?.paper === 'a4'; })()`, 4000), 'the PDF and A4 are kept with this export');
+	t.eq((await p.ev(`app.vault.adapter.read(${j(BINDER_NOTE)})`)).replace(/\nexports:\n(?:  .*\n)+/, '\n'), before[BINDER_NOTE], 'and nothing else in the binder note changed');
+	same(t, before, await texts(p), { skip: [BINDER_NOTE] });
 });
 
 test('the page: a larger one holds more, is kept with the book, and is the PDF’s size', async (p, h, t) => {
@@ -213,7 +216,7 @@ test('the page: a larger one holds more, is kept with the book, and is the PDF�
 	t.ok(await laidOut(p), 'the pages are laid out again');
 	const shown = await pages(p);
 	t.eq(await detail(p), `${shown.length} pages · 6 × 9 in`, 'the bar follows');
-	t.ok(await until(p, `app.metadataCache.getCache('The Lighthouse/The Lighthouse.md')?.frontmatter?.['page-size'] === '6x9'`, 4000), 'the size is kept in the binder note, as `page-size`');
+	t.ok(await until(p, `app.metadataCache.getCache('The Lighthouse/The Lighthouse.md')?.frontmatter?.exports?.find?.(e => e.name === 'Paperback')?.page === '6x9'`, 4000), 'the size is kept with this export, in the binder note’s `exports`');
 	await closeAll(p);
 	await open(p);
 	t.eq(await p.ev(`document.querySelector('${WIN} select[data-binders-key="page"]').value`), '6x9', 'and is there when the window is opened again');
@@ -238,7 +241,9 @@ test('where a PDF can’t be made: the window says so, shows the pages, and has 
 	await choose(p, 'file', 'pdf');
 	t.ok(!(await buttons(p)).includes('Export') && (await p.ev(`!!document.querySelector('${WIN} .binders-export-nopdf')`)), 'a manuscript as a PDF is the same');
 	t.ok(!existsSync(join(p.vaultDir, 'Exports')), 'nothing was written');
-	same(t, before, await texts(p));
+	// (PDF is this export's own file, kept in the binder note's `exports`: nothing else in that note changes)
+	t.eq((await p.ev(`app.vault.adapter.read(${j(BINDER_NOTE)})`)).replace(/\nexports:\n(?:  .*\n)+/, '\n'), before[BINDER_NOTE], 'the binder note gained the export’s file in `exports`, and nothing else');
+	same(t, before, await texts(p), { skip: [BINDER_NOTE] });
 }, { noPrinter: true });
 
 test('the real way to a PDF is found on a computer', async (p, h, t) => {
@@ -276,7 +281,7 @@ specs.push({ name: 'export pdf: a phone: Paperback says “PDF, made on a comput
 			await pick(p, 'Paperback');
 			t.eq(await p.ev(`[...document.querySelectorAll('${WIN} [role="option"]')].find(e => e.getAttribute('aria-selected') === 'true').getAttribute('aria-label')`), 'Paperback: PDF, made on a computer', 'the row says where it is made');
 			t.ok((await p.ev(`document.querySelector('${WIN} .binders-export-nopdf')?.textContent ?? ''`)).startsWith('A PDF is made by Obsidian on a computer.'), 'and a sentence under its choices');
-			t.eq((await rows(p)).join('|'), 'Style|Page|Book details', 'its style and its page can be chosen here');
+			t.eq((await rows(p)).join('|'), 'Style|Page|What goes out|ISBN|Book details', 'its style, its page, what goes out and its ISBN can be chosen here');
 			t.ok(await p.ev(`!document.querySelector('${WIN} .binders-export-place')`), 'and nothing says a file will go anywhere');
 			t.eq((await p.ev(`[...document.querySelectorAll('${WIN} .binders-export-phone-row button')].map(b => b.textContent)`)).join('|'), 'Preview', 'Preview, and no Export');
 			await shot(p, 'phone-paperback-choices');
@@ -515,7 +520,7 @@ test('a paperback in Modern: the vault’s styles in its Style row, its pages wo
 		const opener = shown.find((s) => /opener/.test(s.cls) && /chapter/.test(s.cls) && s.text.includes('Arrival'));
 		t.ok(opener && /^1\s+Arrival/.test(opener.text.trim()), `the first chapter opens with Modern’s plain numeral, its title beside it (“${opener?.text.slice(0, 20)}”)`);
 		sameWords(t, words(await bodyWords(p)), sourceWords(before), 'word for word: the pages hold the notes’ words, in binder order');
-		t.ok((await p.ev(`app.vault.adapter.read(${j(BINDER_NOTE)})`)).includes('book-style: Modern'), 'the style is kept with the binder');
+		t.ok(await until(p, `app.metadataCache.getCache(${j(BINDER_NOTE)})?.frontmatter?.exports?.find?.(e => e.name === 'Paperback')?.style === 'Modern'`, 4000), 'the style is kept with this export, in the binder note’s `exports`');
 
 		await press(p, 'Export');
 		t.ok(await saved(p), 'the bar says it was saved');
@@ -631,7 +636,9 @@ test('a manuscript exported as Word, then again as a PDF: the Word file is kept,
 	await p.sleep(500);
 	t.eq(readFileSync(pdfAt).subarray(0, 5).toString(), '%PDF-', 'Export again made the PDF, under its own name');
 	t.eq(readFileSync(docxAt).subarray(0, 2).toString(), 'PK', 'and the Word file is still a Word file');
-	same(t, before, await texts(p));
+	// (PDF is this export's own file, kept in the binder note's `exports`: nothing else in that note changes)
+	t.eq((await p.ev(`app.vault.adapter.read(${j(BINDER_NOTE)})`)).replace(/\nexports:\n(?:  .*\n)+/, '\n'), before[BINDER_NOTE], 'the binder note gained the export’s file in `exports`, and nothing else');
+	same(t, before, await texts(p), { skip: [BINDER_NOTE] });
 });
 
 test('a book’s pictures are given back when its pages are laid out again, and when the window closes', async (p, h, t) => {
@@ -719,7 +726,7 @@ test('Cancel, or closing the window, while a PDF prints stops the printer at onc
 
 // ---- Step 6: the book's choices changed in its note while the window is open ----
 
-test('the Page and Style rows follow `page-size` and `book-style` changed in the binder note while the window is open', async (p, h, t) => {
+test('an export with no page or style of its own follows `page-size` and `book-style` changed in the binder note while the window is open', async (p, h, t) => {
 	await withAuthor(p);
 	await open(p);
 	await pick(p, 'Paperback');
@@ -738,12 +745,16 @@ test('the Page and Style rows follow `page-size` and `book-style` changed in the
 	t.eq(await value('page'), '6x9', 'the page stays as it was');
 	await note(`delete fm['page-size']; delete fm['book-style'];`);
 	t.ok(await until(p, `document.querySelector('${WIN} select[data-binders-key="page"]')?.value === '5x8' && document.querySelector('${WIN} select[data-binders-key="style"]')?.value === 'Classic'`, 6000), 'both taken out of the note: the rows are as they come again');
-	// a choice made in the window is still the window's: another property of the note changing doesn't undo it
+	// a choice made in the window is the export's own: another property of the note changing doesn't undo it, nor
+	// does the binder's own size
 	await choose(p, 'page', 'a5');
-	await until(p, `app.metadataCache.getCache(${j(BINDER_NOTE)})?.frontmatter?.['page-size'] === 'a5'`, 4000);
+	await until(p, `app.metadataCache.getCache(${j(BINDER_NOTE)})?.frontmatter?.exports?.find?.(e => e.name === 'Paperback')?.page === 'a5'`, 4000);
 	await note(`fm.subtitle = 'A novel';`);
 	await p.sleep(1200);
 	t.eq(await value('page'), 'a5', 'a size chosen in the window stays when something else in the note changes');
+	await note(`fm['page-size'] = '6x9';`);
+	await p.sleep(1200);
+	t.eq(await value('page'), 'a5', 'and when the binder’s own size changes: the export has its own now');
 });
 
 // ---- Step 6: the typeface warning is the pages', and goes with them ----

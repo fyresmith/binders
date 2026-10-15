@@ -309,9 +309,9 @@ try {
 	await p.sleep(400);
 
 	// the Export window: an ebook with its preview; a paperback, with the pages as they will print; the style editor
-	const kind = async (id) => { const at = await need(`${WIN} [data-binders-key="kind-${id}"]`, `the kind “${id}”`); await p.click(at.x, at.y); await p.sleep(600); };
+	const kind = async (id) => { const at = await need(`${WIN} [data-kind="${id}"]`, `the kind “${id}”`); await p.click(at.x, at.y); await p.sleep(600); };
 	await command('export');
-	await until(`!!document.querySelector('${WIN} [data-binders-key="kind-ebook"]')`, 'the Export window');
+	await until(`!!document.querySelector('${WIN} [data-kind="ebook"]')`, 'the Export window');
 	await kind('ebook');
 	await until(`!!document.querySelector('${WIN} .binders-export-paper.mod-ebook h1, ${WIN} .binders-export-paper.mod-ebook p')`, 'the ebook’s preview');
 	await p.ev(`(() => { const h = [...document.querySelectorAll('${WIN} .binders-export-paper.mod-ebook h1, ${WIN} .binders-export-paper.mod-ebook h2')].find(e => /Arrival/.test(e.textContent)); const box = document.querySelector('${WIN} .binders-export-preview'); if (h) { let s = h.parentElement; while (s && s.scrollHeight <= s.clientHeight + 4) s = s.parentElement; (s ?? box).scrollTop += h.getBoundingClientRect().top - (s ?? box).getBoundingClientRect().top - 90; } return 1; })()`);
@@ -405,7 +405,7 @@ try {
 		await pl.openBinder(app.vault.getAbstractFileByPath('The Lighthouse'));
 		app.commands.executeCommandById('binders:export');
 	})().then(() => 1)`);
-	await until(`!!document.querySelector('${WIN} [data-binders-key="kind-scrivener"]')`, 'the Export window, for the project');
+	await until(`!!document.querySelector('${WIN} [data-kind="scrivener"]')`, 'the Export window, for the project');
 	await kind('scrivener');
 	await p.sleep(1500);
 	await p.ev(`(() => { [...document.querySelectorAll('${WIN} button')].find(b => b.textContent === 'Export').click(); return 1; })()`);

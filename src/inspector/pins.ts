@@ -49,7 +49,7 @@ export function ownNames(s: { synopsisProp: string; statusProp: string; labelPro
 		// a note's: whether it is exported, and as what
 		'export', 'compile', 'export-as',
 		// a binder's, a folder's: what is in it, and its book
-		'binder', 'contents', 'longform', PINS_PROP, 'filters', 'revision',
+		'binder', 'contents', 'longform', PINS_PROP, 'filters', 'exports', 'revision',
 		// a binder's, a folder's: when it is due (the Progress window sets these)
 		'deadline', 'writing-days',
 		'structure', 'title', 'subtitle', 'author', 'language', 'cover', 'copyright', 'title-page', 'contents-page', 'page-size', 'manuscript-style', 'book-style',

@@ -263,7 +263,7 @@ const fmOf = (p, path) => p.ev(`(async () => { const t = await app.vault.adapter
 const styleIs = (p) => p.ev(`${key('style-name')}?.value ?? ''`);
 const answer = async (p, label) => { await until(p, `[...document.querySelectorAll('.modal-container:last-of-type button')].some(b => b.textContent === ${j(label)})`); await p.ev(`(() => { [...document.querySelectorAll('.modal-container:last-of-type button')].find(b => b.textContent === ${j(label)}).click(); return 1; })()`); await p.sleep(300); };
 
-test('a style of one’s own: Duplicate makes it, it is renamed and deleted, and the binder that uses it follows', async (p, h, t, before) => {
+test('a style of one’s own: Duplicate makes it, it is renamed and deleted, and the export that uses it follows', async (p, h, t, before) => {
 	await withAuthor(p);
 	await openEbook(p);
 	await edit(p);
@@ -278,7 +278,7 @@ test('a style of one’s own: Duplicate makes it, it is renamed and deleted, and
 	await settle(p);
 	t.eq(onDisk(p, 'Classic 2'), '---\nexport-style: 1\nbased-on: Classic\n---\n', 'its file: based on Classic, nothing changed yet');
 	t.eq(await p.ev(`[...${key('style-scene-break')}.selectedOptions][0].textContent`), '⁂', 'it starts as the style it was made from is now');
-	t.ok((await fmOf(p, 'The Lighthouse/The Lighthouse.md')).includes('book-style: Classic 2'), 'and the binder uses it from now on');
+	t.ok(await until(p, `app.metadataCache.getCache('The Lighthouse/The Lighthouse.md')?.frontmatter?.exports?.find?.(e => e.name === 'Ebook')?.style === 'Classic 2'`, 6000), 'and this export uses it from now on (kept in the binder note’s `exports`)');
 	await choose(p, 'paragraphs', 'Space between');
 	await settle(p);
 	t.eq(onDisk(p, 'Classic 2'), '---\nexport-style: 1\nbased-on: Classic\nparagraphs: spaced\n---\n', 'a change to it is written to its own file');
@@ -290,8 +290,7 @@ test('a style of one’s own: Duplicate makes it, it is renamed and deleted, and
 	await until(p, `${styles}.text('Wide and airy') !== null`, 6000);
 	await settle(p);
 	t.eq(files(p).join(), 'Classic.bookstyle,Wide and airy.bookstyle', 'renamed: its file has the new name');
-	await until(p, `app.metadataCache.getCache('The Lighthouse/The Lighthouse.md')?.frontmatter?.['book-style'] === 'Wide and airy'`, 6000);
-	t.ok((await fmOf(p, 'The Lighthouse/The Lighthouse.md')).includes('book-style: Wide and airy'), 'the binder that used it still does, under its new name');
+	t.ok(await until(p, `app.metadataCache.getCache('The Lighthouse/The Lighthouse.md')?.frontmatter?.exports?.find?.(e => e.name === 'Ebook')?.style === 'Wide and airy'`, 6000), 'the export that used it still does, under its new name');
 	t.eq(await styleIs(p), 'Wide and airy', 'the editor has it under the new name');
 	// a name that is taken, and one a file can't have
 	await p.ev(`(() => { const i = ${key('style-name')}; i.focus(); i.value = 'classic'; i.dispatchEvent(new Event('blur')); return 1; })()`);
@@ -320,7 +319,8 @@ test('a style of one’s own: Duplicate makes it, it is renamed and deleted, and
 	await click(p, 'style-back');
 	t.eq(await p.ev(`[...${key('style')}.options].map(o => o.value).join()`), 'Classic,Modern', 'the Style dropdown lists what there is');
 	const binderNote = await fmOf(p, BINDER);
-	t.eq(binderNote.replace("book-style: Classic\n", ""), before[BINDER], 'the binder note gained its style’s name among its properties, and nothing else in it changed');
+	t.eq(await p.ev(`app.metadataCache.getCache(${j(BINDER)})?.frontmatter?.exports?.find?.(e => e.name === 'Ebook')?.style`), 'Classic', 'the export names the style the deleted one was based on');
+	t.eq(binderNote.replace(/exports:\n(?:  .*\n)+/, ''), before[BINDER], 'the binder note gained its exports among its properties, and nothing else in it changed');
 }, { prepare: SHAPED, skip: [BINDER] });
 
 test('deleting a style keeps the styles based on it as they look; renaming it keeps them based on it', async (p, h, t) => {

@@ -31,7 +31,7 @@ neighbours, for example the store and `snapshots.ts`, which follow each other's 
  ───────────────────────────────────────────────────────────────────────────────────
  pure logic, no Obsidian: model.ts  longform.ts  scene-text.ts  snapshot-text.ts  settings-data.ts
    export/model.ts  markdown.ts  typography.ts  roles.ts  book.ts  picture.ts  docx.ts  docx-parts.ts
-                    style.ts  details.ts  epub.ts  epub-text.ts  epub-css.ts
+                    style.ts  details.ts  epub.ts  epub-text.ts  epub-css.ts  presets.ts
    find/search.ts  focus/session.ts  view/labels.ts  view/outliner-data.ts  view/outliner-summary.ts  view/lanes-data.ts  view/file-drag-data.ts
    view/timeline-data.ts  time/date.ts  filter/filter.ts
    docx/  import/{doc,docx,odt,rtf-doc,detect,text,manuscript,plan}.ts  import/scriv/
@@ -144,7 +144,9 @@ word-for-word test (development.md) holds each writer to "no word dropped, repea
 | `src/view/export-contents.ts` | "Contents" in the Export window (`drawContents`): the made pages, every item with its role, a row that opens its note and a role that opens "Export as". | |
 | `src/view/export-again.ts` | "Export again" (`exportAgain`): the last export of a binder made once more with no window. | Remember a place "without asking": it only goes where the last one went. |
 | `src/view/book-details.ts` | Book details (`BookDetailsModal`): Obsidian's setting rows over the binder note's own properties, kept as they are changed; `pickCover`. A binder that can't be written (a newer format, a Longform project) is shown and not changed. | |
-| `src/view/export.ts`, `export-preview.ts` | The Export window (`ExportModal`): Obsidian's two-pane dialog with the kinds that exist (Manuscript, Ebook, Paperback, Scrivener project, One note), their choices, where the file goes, the warnings; the bar, Contents, and the preview (`export-preview.ts` draws a manuscript's text on paper from the book model, the outline, and, for a PDF, the pages themselves: `drawPages`). A phone has the choices first and the preview second. | Write anything itself: it asks `export/export.ts` and `scenes.ts`. |
+| `src/export/presets.ts` | A binder's exports (the binder note's `exports`): `readPresets` (the five kinds, one each, until a binder has written some), `editPresets` (new, set, rename, delete, each from the list as the note has it, keeping what it can't read), `takes` (which front and back matter an export takes), `followInExports` and `renameStyleInExports` (a folder, a note or a style renamed). Pure. | Hold a look of its own: an export names a vault-wide style. |
+| `src/view/export-presets.ts` | The exports where they meet the vault: `presetsOf` and `editExports` (only `exports` written), `work` (an export worked out into what `readBook` takes: its style, page, file, what goes out through a saved filter's `Subset`, which front and back matter), `followExports` (renames, after Obsidian's own link updating), the export last chosen on this device, `placeOf` and `fileOf` (each export's own place and file name), and "Export with..." (`PresetSuggest`). The window, Export again and the command all work an export out here. | Write any property but `exports`. |
+| `src/view/export.ts`, `export-preview.ts` | The Export window (`ExportModal`): Obsidian's two-pane dialog with the book's exports (the five kinds until the writer names others), their choices (with what goes out and an ISBN), where the file goes, the warnings; the bar, Contents, and the preview (`export-preview.ts` draws a manuscript's text on paper from the book model, the outline, and, for a PDF, the pages themselves: `drawPages`). A phone has the choices first and the preview second. | Write anything itself: it asks `export/export.ts` and `scenes.ts`. |
 
 ### The binder view
 

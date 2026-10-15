@@ -4,7 +4,7 @@ import { isExported, isNote, saveOpen } from '../scenes';
 import { parts } from '../scene-text';
 import { checkFormat, isBinderNote } from '../model';
 import { bookNeeds, buildBook, type Resolver } from './book';
-import { applyDetails, readDetails, type Details } from './details';
+import { applyDetails, imprintOf, readDetails, seriesLine, type Details } from './details';
 import type { Desktop, Stamp } from './desktop';
 import { writeDocx } from './docx';
 import { writeEpub } from './epub';
@@ -60,7 +60,7 @@ export async function saveDetails(plugin: BindersPlugin, folder: TFolder, change
     makes for a book (a title page, a copyright page, the contents) and its cover, as an ebook has them. `asTyped`:
     quotes and dashes are left as they were typed (a book style can say so). `withCover`:
     with the cover (a printed book has none inside it). */
-export async function readBook(plugin: BindersPlugin, folder: TFolder, matter: boolean, asBook = false, asTyped = false, withCover = asBook): Promise<{ book: Book; words: number }> {
+export async function readBook(plugin: BindersPlugin, folder: TFolder, matter: boolean | ((path: string) => boolean), asBook = false, asTyped = false, withCover = asBook, part: Part = {}): Promise<{ book: Book; words: number }> {
 	const { app, binders: store, settings } = plugin, binder = store.binderOf(folder);
 	if (!binder) throw new Error(`“${folder.name}” isn’t in a binder.`);
 	const fm = (f: TFile | null): Record<string, unknown> => (f ? app.metadataCache.getFileCache(f)?.frontmatter ?? {} : {});
@@ -123,13 +123,21 @@ export async function readBook(plugin: BindersPlugin, folder: TFolder, matter: b
 		flat: binder.kind === 'longform',
 		matter,
 		asTyped,
-		made: asBook ? { titlePage: d.titlePage, contents: d.contents } : undefined,
+		made: asBook ? { titlePage: d.titlePage && part.made?.('title page') !== false, copyright: part.made?.('copyright page') !== false, contents: part.made?.('contents page') === false ? 'never' : d.contents } : undefined,
+		keep: part.keep, fromOne: part.fromOne,
+		series: seriesLine(d), publisher: d.publisher,
+		imprint: imprintOf(d, part.isbn ?? '', asBook),
+		about: { isbn: part.isbn ?? '', series: d.series, seriesNumber: d.seriesNumber, publisher: d.publisher, published: d.published, description: d.description, keywords: d.keywords, contributors: d.contributors },
 	}, resolve);
 	const said = (text: string) => book.warnings.unshift({ path: binder.note.path, name: 'Book details', text });
 	if (coverSaid) said(coverSaid);
 	if (typeof own.language === 'string' && own.language.trim() && !d.language) said(`“${own.language.trim()}” isn’t a language Binders can read. The book is taken to be in English until one is chosen.`);
 	return { book, words: bookWords(book) };
 }
+/** What an export takes of the book, beyond the kind: only part of it (`keep`, by a note's path; `fromOne`: numbered
+    from 1), which pages Binders makes it takes (`made`, by their words: "title page"), and its edition's ISBN. */
+export interface Part { keep?: (path: string) => boolean; fromOne?: boolean; made?: (page: string) => boolean; isbn?: string }
+
 const safeDecode = (s: string): string => { try { return decodeURIComponent(s); } catch { return s; } };
 
 /** The manuscript of a book as a Word file. */
@@ -160,16 +168,17 @@ export function exportsFolder(plugin: BindersPlugin, folder: TFolder): string {
 /** What this device remembers about saving: for each binder and kind, the place chosen "without asking"; and for the
     files export wrote, what each was when it left it. Kept in the device's own storage, not in the vault's settings:
     a path on this disk means nothing on another. */
-interface Memory { places: Record<string, string>; written: Record<string, Stamp>; last: Record<string, Last> }
+interface Memory { places: Record<string, string>; written: Record<string, Stamp>; last: Record<string, Last>; presets: Record<string, string> }
 /** The last export of a binder (or a folder of one) on this device: what kind, and where it went. */
 export interface Last { kind: string; where: 'disk' | 'vault'; path: string }
 const MEMORY = 'binders-export', WRITTEN_KEPT = 60;
-const placeKey = (folder: TFolder, kind: Kind) => `${kind}\n${folder.path}`;
+/** A place is remembered for a kind of export of a folder, or (`manuscript/Critique group`) for one of a binder's named exports. */
+const placeKey = (folder: TFolder, kind: string) => `${kind}\n${folder.path}`;
 
 export function memory(plugin: BindersPlugin): Memory {
 	const m = plugin.app.loadLocalStorage(MEMORY) as Partial<Memory> | null;
 	const rec = <T>(v: unknown): Record<string, T> => (v && typeof v === 'object' && !Array.isArray(v) ? { ...(v as Record<string, T>) } : {});
-	return { places: rec<string>(m?.places), written: rec<Stamp>(m?.written), last: rec<Last>(m?.last) };
+	return { places: rec<string>(m?.places), written: rec<Stamp>(m?.written), last: rec<Last>(m?.last), presets: rec<string>(m?.presets) };
 }
 export function remember(plugin: BindersPlugin, change: (m: Memory) => void): void {
 	const m = memory(plugin);
@@ -197,12 +206,12 @@ export function followRename(plugin: BindersPlugin, f: TAbstractFile, old: strin
 
 /** The place remembered for a kind of export of a folder, or null: then export asks. With `extension`, the place for
     a file of that ending: a manuscript remembered as a Word file and made as a PDF goes beside it, never over it. */
-export function placeFor(plugin: BindersPlugin, folder: TFolder, kind: Kind, extension?: string): string | null {
+export function placeFor(plugin: BindersPlugin, folder: TFolder, kind: string, extension?: string): string | null {
 	const kept = memory(plugin).places[placeKey(folder, kind)] ?? null;
 	if (!kept || !extension || kept.toLowerCase().endsWith(`.${extension.toLowerCase()}`)) return kept;
 	return `${kept.replace(/\.[^./\\]*$/, '')}.${extension}`;
 }
-export function setPlace(plugin: BindersPlugin, folder: TFolder, kind: Kind, path: string | null): void {
+export function setPlace(plugin: BindersPlugin, folder: TFolder, kind: string, path: string | null): void {
 	remember(plugin, (m) => { if (path) m.places[placeKey(folder, kind)] = path; else delete m.places[placeKey(folder, kind)]; });
 }
 /** The last export of a folder on this device, for "Export again"; null if there was none. */
@@ -227,7 +236,8 @@ export interface Saved { where: 'disk' | 'vault'; path: string; shown: string }
 
 export interface SaveOptions {
 	folder: TFolder;
-	kind: Kind;
+	/** The kind, or the named export (`placeOf`): what the place is remembered for. */
+	kind: string;
 	/** The file's name without its ending, and its ending. */
 	name: string;
 	extension: string;

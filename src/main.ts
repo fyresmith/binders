@@ -25,6 +25,7 @@ import { ExportModal } from './view/export';
 import { PROGRESS_ICON, ProgressModal } from './view/progress';
 import { CalendarModal } from './view/calendar-modal';
 import { exportAgain } from './view/export-again';
+import { PresetSuggest, followExports } from './view/export-presets';
 import { Styles } from './export/styles';
 import { importDesktop } from './import/desktop';
 import { ImportScrivenerModal } from './view/import-scrivener';
@@ -139,7 +140,7 @@ export default class BindersPlugin extends Plugin {
 		this.registerEvent(this.app.workspace.on('file-menu', (menu, file, source) => { if (source !== ITEM_MENU) this.fileMenu(menu, file, source); }));
 		this.registerEvent(this.app.workspace.on('files-menu', (menu, files, source) => { if (source !== ITEM_MENU) this.filesMenu(menu, files, source); }));
 		// (export's stamps follow a renamed or moved folder or file: see followRename)
-		this.registerEvent(this.app.vault.on('rename', (f, old) => followRename(this, f, old)));
+		this.registerEvent(this.app.vault.on('rename', (f, old) => { followRename(this, f, old); followExports(this, f, old); }));
 		const active = () => this.app.workspace.getActiveFile();
 		this.snapshotCommands(active);
 		this.addCommand({ id: 'open-binder', name: 'Open binder', checkCallback: (checking) => {
@@ -273,7 +274,15 @@ export default class BindersPlugin extends Plugin {
 			const view = this.app.workspace.getActiveViewOfType(BinderView), file = active();
 			const folder = view?.folder ?? (file && this.binders.binderOf(file)?.folder) ?? null;
 			if (!folder) return false;
-			if (!checking) new ExportModal(this, folder).open();
+			if (!checking) new ExportModal(this, folder, { selection: view?.folder === folder ? view.selectedItems() : [] }).open();
+			return true;
+			} });
+			// one of the binder's exports, chosen by its name, in the window
+			this.addCommand({ id: 'export-with', name: 'Export with...', icon: 'book-up', checkCallback: (checking) => {
+			const view = this.app.workspace.getActiveViewOfType(BinderView), file = active();
+			const folder = view?.folder ?? (file && this.binders.binderOf(file)?.folder) ?? null;
+			if (!folder) return false;
+			if (!checking) new PresetSuggest(this, folder, (p) => new ExportModal(this, folder, { preset: p.name }).open()).open();
 			return true;
 			} });
 			// the last export of the binder in front made once more, with no window (the window, if there was none yet)

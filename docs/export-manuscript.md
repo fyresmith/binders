@@ -17,10 +17,13 @@ Choose **Manuscript** in the [Export window](export.md).
 | Choice | What it does |
 |---|---|
 | **Style** | See the three styles below. The sliders button beside it is **Edit this style** |
-| **Front and back matter** | Off as it comes. A dedication, acknowledgements and the like are left out of a manuscript unless you turn this on |
 | **File** | **Word (.docx)** or **PDF** |
 | **Paper** | For a PDF: **Letter** or **A4** |
+| **What goes out** | The whole book, a folder, a saved filter, or the selected cards: see [What goes out](export.md#what-goes-out). With part of the book, **Numbering** says whether chapters keep their numbers from the whole book or start from 1 |
 | **Your name** | Asked for once, when neither the book nor Binders' settings has an author. It is kept in Binders' settings |
+
+A dedication, acknowledgements and the like are left out of a manuscript as it comes. To take one, tick its box in
+**Contents**.
 
 ### Styles
 

@@ -93,6 +93,7 @@ export function writeEpub(book: Book, style: BookStyle, o: EbookDetails = {}): U
 		book.subtitle ? `<meta property="dcterms:alternative">${esc(book.subtitle)}</meta>` : '',
 		book.author.trim() ? `<dc:creator id="creator">${esc(book.author.trim())}</dc:creator>\n\t<meta refines="#creator" property="role" scheme="marc:relators">aut</meta>` : '',
 		`<dc:language>${lang}</dc:language>`,
+		...aboutMeta(book),
 		book.copyright ? `<dc:rights>${esc(book.copyright.replace(/\n/g, ' '))}</dc:rights>` : '',
 		`<meta property="dcterms:modified">${(o.when ?? new Date()).toISOString().replace(/\.\d+Z$/, 'Z')}</meta>`,
 		cover ? '<meta name="cover" content="cover-image"/>' : '',
@@ -122,4 +123,23 @@ export function writeEpub(book: Book, style: BookStyle, o: EbookDetails = {}): U
 	if (cover) zip[`OEBPS/images/cover.${cover.type === 'jpeg' ? 'jpg' : cover.type}`] = [cover.data, { level: 0 }];
 	for (const p of pictures) zip[`OEBPS/images/${p.name}`] = [p.picture.data, { level: 0 }];
 	return zipSync(zip, { level: 6 });
+}
+
+/** MARC's codes for the people who made a book with its author. */
+const RELATORS: Record<string, string> = { editor: 'edt', translator: 'trl', illustrator: 'ill', 'cover designer': 'cov', narrator: 'nrt' };
+/** What Book details says of a published book, as the package's metadata: its ISBN, publisher, date, description,
+    keywords, the people who made it, and the series it is in (EPUB 3's collection). */
+function aboutMeta(book: Book): string[] {
+	const a = book.about;
+	if (!a) return [];
+	const date = /^\d{4}(-\d{2}(-\d{2})?)?$/.test(a.published) ? a.published : '';
+	return [
+		a.isbn ? `<dc:identifier id="isbn">urn:isbn:${esc(a.isbn.replace(/[^0-9Xx]/g, ''))}</dc:identifier>` : '',
+		a.publisher ? `<dc:publisher>${esc(a.publisher)}</dc:publisher>` : '',
+		date ? `<dc:date>${date}</dc:date>` : '',
+		a.description ? `<dc:description>${esc(a.description)}</dc:description>` : '',
+		...a.keywords.map((k) => `<dc:subject>${esc(k)}</dc:subject>`),
+		...a.contributors.map((c, i) => `<dc:contributor id="contrib${i + 1}">${esc(c.name)}</dc:contributor>${RELATORS[c.role] ? `\n\t<meta refines="#contrib${i + 1}" property="role" scheme="marc:relators">${RELATORS[c.role]}</meta>` : ''}`),
+		a.series ? `<meta property="belongs-to-collection" id="series">${esc(a.series)}</meta>\n\t<meta refines="#series" property="collection-type">series</meta>${/^\d+$/.test(a.seriesNumber) ? `\n\t<meta refines="#series" property="group-position">${a.seriesNumber}</meta>` : ''}` : '',
+	];
 }

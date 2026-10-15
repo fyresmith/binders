@@ -95,11 +95,20 @@ export interface OutlineRow {
 	said: Role | null;
 	/** A part's or chapter's number, when it has one. */
 	number: number | null;
+	/** For front and back matter: whether this export takes it. */
+	taken?: boolean;
 }
 
 export interface Book {
 	title: string;
 	subtitle: string;
+	/** The series line and the publisher, for the title page; "" or absent for none. */
+	series?: string;
+	publisher?: string;
+	/** Lines of the copyright page after the copyright line. */
+	imprint?: string[];
+	/** What the ebook's file says of the book beyond its title: for stores and a reader's library. */
+	about?: { isbn: string; series: string; seriesNumber: string; publisher: string; published: string; description: string; keywords: string[]; contributors: { role: string; name: string }[] };
 	author: string;
 	/** The copyright line, a line of it to a line: "" when there is none. */
 	copyright: string;

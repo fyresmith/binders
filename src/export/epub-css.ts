@@ -48,6 +48,8 @@ export function ebookCss(s: BookStyle): string {
 		`.titlepage h1 { font-size: 1.9em; letter-spacing: ${left ? '0' : '0.06em'}; margin: 22% 0 0.9em; text-transform: none; font-style: normal; }`,
 		`.titlepage p { text-indent: 0; margin-bottom: 0.9em; }`,
 		`.titlepage p.subtitle { font-style: italic; }`,
+		'.titlepage p.series, .titlepage p.imprint { font-size: 0.85em; font-variant: small-caps; letter-spacing: 0.08em; }',
+		'.titlepage p.imprint { margin-top: 5em; }',
 		`.titlepage p.author { margin-top: 2.5em;${left ? '' : ' letter-spacing: 0.12em; text-transform: uppercase; font-size: 0.9em;'} }`,
 		'section.copyright p { text-indent: 0; font-size: 0.85em; margin-bottom: 0.8em; }',
 		'section.dedication, section.epigraph { text-align: center; font-style: italic; }',

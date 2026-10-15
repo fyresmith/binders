@@ -14,6 +14,8 @@ gives an ebook its shape, not its type: how a chapter opens, its first words, th
 |---|---|
 | **Style** | The book's shape: **Classic**, **Modern**, or a style of your own. The sliders button beside it is **Edit this style** |
 | **Cover** | **Choose...** a PNG or a JPEG from your vault. **Change...** offers **No cover** as well |
+| **What goes out** | The whole book, a folder, a saved filter, or the selected cards: see [What goes out](export.md#what-goes-out). With part of the book, **Numbering** says whether chapters keep their numbers from the whole book or start from 1 |
+| **ISBN** | This edition's: on the copyright page and in the ebook's own details. Each ebook export has its own |
 
 **Classic** sets:
 

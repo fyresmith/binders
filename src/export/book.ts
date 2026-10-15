@@ -25,8 +25,21 @@ export interface BookOptions {
 	language?: string;
 	/** The structure rule; guessed from the binder's shape when not said. */
 	structure?: Structure | null;
-	/** Front and back matter in the book (a manuscript leaves them out unless asked). */
-	matter: boolean;
+	/** Front and back matter in the book (a manuscript leaves them out unless asked): all or none, or by the note's
+	    path (an export that takes some and not others). */
+	matter: boolean | ((path: string) => boolean);
+	/** Only part of the book goes out: the notes this keeps (by path), and the folders that hold one. Front and back
+	    matter outside it don't go. */
+	keep?: (path: string) => boolean;
+	/** With `keep`: chapters and parts numbered from 1 among what goes out, not as in the whole book. */
+	fromOne?: boolean;
+	/** A line of the series the book is in ("The Corran Trilogy, Book One"), and its publisher: on the title page. */
+	series?: string;
+	publisher?: string;
+	/** More lines of the copyright page, after the copyright line: rights, the edition, the ISBN, credits. */
+	imprint?: string[];
+	/** What the ebook's file says of the book beyond its title. */
+	about?: Book['about'];
 	/** Quotes, dashes and ellipses typeset (the default), or as typed. */
 	asTyped?: boolean;
 	/** A Longform project: a flat list, every note a chapter. */
@@ -55,7 +68,7 @@ const said = (n: string) => n.split('|')[0].trim();
 export function buildBook(items: readonly SourceItem[], o: BookOptions, resolve: Resolver = {}): Book {
 	const structure = o.structure ?? (o.flat ? 'notes' : guessStructure(items)), language = o.language || 'en';
 	const { placed, deep } = assignRoles(items, structure);
-	const book: Book = { title: o.title, subtitle: o.subtitle?.trim() ?? '', author: o.author, copyright: '', cover: o.cover ?? null, language, structure, guessed: !o.structure, sections: [], notes: [], warnings: [], outline: [] };
+	const book: Book = { about: o.about, title: o.title, subtitle: o.subtitle?.trim() ?? '', series: o.series?.trim() ?? '', publisher: o.publisher?.trim() ?? '', author: o.author, copyright: '', cover: o.cover ?? null, language, structure, guessed: !o.structure, sections: [], notes: [], warnings: [], outline: [] };
 	const warn = (item: SourceItem, text: string) => { if (!book.warnings.some((w) => w.path === item.path && w.text === text)) book.warnings.push({ path: item.path, name: item.name, text }); };
 	for (const f of deep) warn(f, 'This folder is deeper than the book’s structure reaches: it only groups its notes.');
 
@@ -105,17 +118,29 @@ export function buildBook(items: readonly SourceItem[], o: BookOptions, resolve:
 		return blocks;
 	};
 
-	let parts = 0, chapters = 0, open: Section | null = null;
+	// what goes out, when only part of the book does: the notes kept, and every folder that holds one
+	const held = new Set<string>();
+	const hold = (list: readonly SourceItem[]): boolean => {
+		let any = false;
+		for (const it of list) if (it.kind === 'folder' ? hold(it.children ?? []) && (held.add(it.path), true) : it.included && o.keep?.(it.path)) any = true;
+		return any;
+	};
+	if (o.keep) hold(items);
+	const kept = (it: SourceItem): boolean => !o.keep || (it.kind === 'folder' ? held.has(it.path) : o.keep(it.path));
+	const takes = (path: string): boolean => (typeof o.matter === 'function' ? o.matter(path) : o.matter);
+
+	let parts = 0, chapters = 0, open: Section | null = null, going = true;
 	const begin = (role: Section['role'], item: SourceItem | null, blocks: Block[]): Section => {
 		let title = item ? titleFrom(item.name) : '';
 		// a level-one heading at the top of a note is its title, and isn't set twice
 		const first = blocks[0];
 		if (item?.kind === 'note' && first?.kind === 'heading' && first.level === 1) { title = plain(first.runs).trim(); blocks = blocks.slice(1); }
-		const numbered = role === 'part' || (role === 'chapter' && !UNNUMBERED.test(title));
+		// (with only part of the book going out, what doesn't go still counts, unless numbering starts at 1)
+		const numbered = (role === 'part' || (role === 'chapter' && !UNNUMBERED.test(title))) && (going || !o.fromOne);
 		const s: Section = { id: '', role, number: !numbered ? null : role === 'part' ? ++parts : ++chapters, title: role === 'front' || role === 'back' ? title || (item?.name ?? '') : title, blocks: [], paths: item ? [item.path] : [] };
 		if (item && (role === 'front' || role === 'back')) { const m = matterOf(item.name); if (m) s.matter = m; }
 		add(s, blocks);
-		book.sections.push(s);
+		if (going) book.sections.push(s);
 		return s;
 	};
 	/** More text for a section: after a scene break, if it has text already. */
@@ -128,23 +153,30 @@ export function buildBook(items: readonly SourceItem[], o: BookOptions, resolve:
 	for (const p of placed) {
 		const { item, role } = p;
 		let number: number | null = null;
+		going = kept(item);
+		// (front and back matter go only with the whole book)
+		if ((role === 'front' || role === 'back') && o.keep) continue;
 		if (role === 'out' || role === 'group') { /* nothing of its own */ }
-		else if (role === 'front' || role === 'back') { if (item.kind === 'note' && o.matter) begin(role, item, read(item)); if (item.kind === 'note') open = null; }
+		else if (role === 'front' || role === 'back') { if (item.kind === 'note' && takes(item.path)) begin(role, item, read(item)); if (item.kind === 'note') open = null; }
 		else if (role === 'scene') {
-			if (item.kind === 'note') {
+			if (item.kind === 'note' && going) {
 				if (!open) open = begin('chapter', null, []);
 				open.paths.push(item.path);
 				add(open, read(item));
 			}
 		} else {
-			const s = begin(role, item, item.kind === 'note' ? read(item) : []);
+			const s = begin(role, item, item.kind === 'note' && going ? read(item) : []);
 			number = s.number;
 			open = role === 'chapter' ? s : null;
 		}
-		book.outline.push({ name: item.name, path: item.path, depth: p.depth, folder: item.kind === 'folder', role, auto: p.auto, said: readRole(item.exportAs), number });
+		if (going) book.outline.push({ name: item.name, path: item.path, depth: p.depth, folder: item.kind === 'folder', role, auto: p.auto, said: readRole(item.exportAs), number, ...(role === 'front' || role === 'back' ? { taken: item.kind === 'note' && takes(item.path) } : {}) });
 	}
 	renumber(book);
 	book.copyright = (o.copyright?.trim() || (o.author.trim() ? `© ${o.year ?? new Date().getFullYear()} ${o.author.trim()}` : '')).split(/\r?\n/).map((l) => l.trim()).filter((l) => l).join('\n');
+	// (a line left empty is a line between two groups of the copyright page: never two, never first or last)
+	book.imprint = (o.imprint ?? []).map((l) => l.trim()).filter((l, i, all) => l || (i > 0 && all[i - 1].trim() !== ''));
+	while (book.imprint.length && !book.imprint[book.imprint.length - 1]) book.imprint.pop();
+	if (!book.copyright) while (book.imprint.length && !book.imprint[0]) book.imprint.shift();
 	if (o.made) makePages(book, o.made);
 	name(book);
 	// a link to a note of the book leads to the section that note is in
@@ -162,7 +194,8 @@ function makePages(book: Book, o: NonNullable<BookOptions['made']>): void {
 	const page = (matter: Matter, blocks: Block[] = []): Section => ({ id: '', role: 'front', matter, made: true, number: null, title: '', blocks, paths: [] });
 	const lead: Section[] = [];
 	if (o.titlePage !== false && !has('title-page')) lead.push(page('title-page'));
-	if (o.copyright !== false && book.copyright && !has('copyright')) lead.push(page('copyright', book.copyright.split('\n').map((l): Block => ({ kind: 'p', runs: [{ kind: 'text', text: l }] }))));
+	const lines = [...(book.copyright ? book.copyright.split('\n') : []), ...(book.imprint ?? [])];
+	if (o.copyright !== false && lines.length && !has('copyright')) lead.push(page('copyright', lines.map((l): Block => ({ kind: 'p', runs: [{ kind: 'text', text: l || '\u00a0' }] }))));
 	const contents = o.contents ?? 'titled';
 	const listed = contents === 'always' || (contents === 'titled' && book.sections.some((s) => s.role === 'chapter' && s.title));
 	book.sections.unshift(...lead);

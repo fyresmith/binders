@@ -485,7 +485,7 @@ test('each manuscript style is a different Word file: Courier’s font and under
 	t.eq(w(cou), w(std), 'the words are the same in Courier');
 	t.eq(w(plain), w(std), 'and in Plain');
 	const note = await p.ev(`app.vault.adapter.read(${j(L + 'The Lighthouse.md')}).then(s => s.split('---')[1])`);
-	t.ok(/export-style|style/i.test(note) && /Plain/.test(note), 'the style chosen is in the binder note: ' + note.split('\n').filter((l) => /style/i.test(l)).join(' / '));
+	t.ok(/export-style|style/i.test(note) && /Plain/.test(note), 'the style chosen is kept with the export, in the binder note: ' + note.split('\n').filter((l) => /style/i.test(l)).join(' / '));
 }, { changes: true });
 
 test('the book styles: Classic and Modern each make an EPUB that EPUBCheck passes and a paperback set in a different typeface; the choice is for this book', async (p, h, t) => {
@@ -513,7 +513,7 @@ test('the book styles: Classic and Modern each make an EPUB that EPUBCheck passe
 	t.eq(await p.ev(`document.querySelector('${WIN} select[data-binders-key="style"]').value`), 'Classic', 'a second binder starts on the default style, not on the last one chosen for another book');
 }, { changes: true });
 
-test('front and back matter: off, a manuscript leaves them out; on, they take their places; an ebook always has them, front before the chapters and back after', async (p, h, t) => {
+test('front and back matter: a manuscript leaves them out to begin with; ticked in Contents, they take their places; an ebook has them, front before the chapters and back after', async (p, h, t) => {
 	await writeRaw(p, L + 'Prologue.md', '---\nexport-as: front matter\n---\nFOR-MARA-DEDICATION.\n');
 	await writeRaw(p, L + 'Epilogue.md', '---\nexport-as: back matter\n---\nTHANKS-TO-THE-KEEPERS.\n');
 	await p.sleep(600);
@@ -521,16 +521,22 @@ test('front and back matter: off, a manuscript leaves them out; on, they take th
 	await press(p, 'Export');
 	await saved(p);
 	let d = docx(await target(p));
-	t.ok(!d.all.includes('FOR-MARA') && !d.all.includes('THANKS-TO'), 'off: neither is in the manuscript');
+	t.ok(!d.all.includes('FOR-MARA') && !d.all.includes('THANKS-TO'), 'to begin with, neither is in the manuscript');
 	await closeAll(p);
 	await open(p);
-	await p.ev(`(() => { document.querySelector('${WIN} [data-binders-key="matter"]').click(); return 1; })()`);
-	await p.sleep(500);
+	// (each is ticked in Contents: this export takes it)
+	await p.ev(`(() => { document.querySelector('${WIN} .binders-snapshots-compare').click(); return 1; })()`);
+	for (const name of ['Prologue', 'Epilogue']) {
+		await until(p, `!!document.querySelector('${WIN} .binders-export-row[data-path="${L}${name}.md"] .binders-export-take:not(:checked)')`, 4000);
+		await p.ev(`(() => { document.querySelector('${WIN} .binders-export-row[data-path="${L}${name}.md"] .binders-export-take').click(); return 1; })()`);
+		await until(p, `!!document.querySelector('${WIN} .binders-export-row[data-path="${L}${name}.md"] .binders-export-take:checked')`, 4000);
+	}
+	await p.sleep(300);
 	await press(p, 'Export');
 	await saved(p);
 	d = docx(await target(p));
 	const iF = d.all.indexOf('FOR-MARA-DEDICATION'), iA = d.all.indexOf('The supply boat left'), iB = d.all.indexOf('THANKS-TO-THE-KEEPERS');
-	t.ok(iF > 0 && iA > iF && iB > iA, 'on: the dedication first, the chapters, then the thanks');
+	t.ok(iF > 0 && iA > iF && iB > iA, 'ticked: the dedication first, the chapters, then the thanks');
 	await closeAll(p);
 	const e = epub(await make(p, 'The Lighthouse', 'Ebook'));
 	const b = e.body;
@@ -840,7 +846,7 @@ const sizes = (t, list, where) => {
 const kindTap = (p, name) => tapEl(p, `[...document.querySelectorAll('${WIN} [role="option"]')].find(e => e.querySelector('.binders-snapshots-item-name').textContent === ${j(name)})`);
 const sayings = (p) => p.ev(`document.querySelector('${WIN}').innerText`);
 
-test('a phone: every kind’s controls can be touched and are touchable-sized, none sticks out; the window says what a PDF needs and that a project is zipped', async (p, h, t) => {
+test('a phone: every kind’s controls can be touched and are touchable-sized, none sticks out; the window says what a PDF needs and that a project is zipped', async (p, h, t, before) => {
 	await onMobile(p, 390, 844, async () => {
 		await open2(p);
 		for (const kind of ['Manuscript', 'Ebook', 'Paperback', 'Scrivener project', 'One note']) {
@@ -860,7 +866,9 @@ test('a phone: every kind’s controls can be touched and are touchable-sized, n
 		t.ok(!exportable, 'and there is no Export that cannot work');
 		await choose(p, 'file', 'docx');
 	});
-});
+	// (the file chosen is the export's own, kept in the binder note's `exports`: nothing else in that note changes)
+	t.eq((await p.ev(`app.vault.adapter.read(${j(L + 'The Lighthouse.md')})`)).replace(/\nexports:\n(?:  .*\n)+/, '\n'), before[L + 'The Lighthouse.md'], 'the binder note gained the export’s file in `exports`, and nothing else');
+}, { skip: [L + 'The Lighthouse.md'] });
 
 test('a phone: One note and a Scrivener project by touch; the Scrivener zip is whole word for word and the note has the text', async (p, h, t, before) => {
 	await onMobile(p, 390, 844, async () => {

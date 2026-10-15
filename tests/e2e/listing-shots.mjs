@@ -194,8 +194,8 @@ try {
 	// 5. export: a paperback, a chapter's last page and the next one's opening as they will print
 	const WIN = '.modal.binders-export';
 	await command('export');
-	await until(`!!document.querySelector('${WIN} [data-binders-key="kind-paperback"]')`, 'the Export window');
-	const kind = await need(`${WIN} [data-binders-key="kind-paperback"]`, 'the paperback');
+	await until(`!!document.querySelector('${WIN} [data-kind="paperback"]')`, 'the Export window');
+	const kind = await need(`${WIN} [data-kind="paperback"]`, 'the paperback');
 	await p.click(kind.x, kind.y);
 	await until(`/pages?\\b/.test(document.querySelector('${WIN}')?.innerText ?? '') && !/Laying out/.test(document.querySelector('${WIN}')?.innerText ?? '')`, 'the paperback’s pages', 60000);
 	await p.sleep(1500);
@@ -238,8 +238,8 @@ try {
 	// 4. export: the book as an ebook, as it will read
 	await show('corkboard');
 	await command('export');
-	await until(`!!document.querySelector('.modal.binders-export [data-binders-key="kind-ebook"]')`, 'the Export window on a phone');
-	await p.ev(`(() => { document.querySelector('.modal.binders-export [data-binders-key="kind-ebook"]').click(); return 1; })()`);
+	await until(`!!document.querySelector('.modal.binders-export [data-kind="ebook"]')`, 'the Export window on a phone');
+	await p.ev(`(() => { document.querySelector('.modal.binders-export [data-kind="ebook"]').click(); return 1; })()`);
 	await p.sleep(3000);
 	await noNotices();
 	await shot('mobile-4-export');

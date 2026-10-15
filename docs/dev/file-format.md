@@ -599,7 +599,7 @@ it. Binders writes `x`. A line that is not a well-formed task is text, and is ne
 
 What export reads from notes. All of it is optional, so this is still format 1. Exporting never writes to a note.
 The book's own details, in the binder note, are written by **Book details** and the **Cover** button of the Export
-window (and the style chosen there, and a style's new name when one is renamed), and by nothing else: only the properties in the second table, only when the writer changes one, through
+window (and a style's new name when one is renamed), and by nothing else: only the properties in the second table, only when the writer changes one, through
 Obsidian's property writer (the note's text and its other properties are untouched), never in a binder whose format
 is newer than this version reads, and never in a Longform project's note. A detail that says nothing is taken out
 of the note, not written empty. `export-as` and `export: false` are written by "Export as" (a card's and a row's menu, the
@@ -630,15 +630,71 @@ in Scrivener, which it never compiles), and every other property of a note (cust
 | `cover` | text | The cover: a PNG or a JPEG in the vault, as a link (`"[[cover.png]]"`, which Obsidian follows when the picture is renamed) or a path. In the ebook it is the book's cover image |
 | `title-page` | checkbox | `false`: no title page is made. Written only when it is off. A note of the book named "Title page" takes the made one's place |
 | `contents-page` | text | `always` or `never`. Without it a contents page is made when a chapter has a title. (An ebook's own list of contents, the one a reading app shows, is always there) |
-| `book-style` | text | The book style chosen for this binder, by name (`Classic`, `Modern`, or a style of the writer's own: see "Export styles"). Written when one is chosen; a name that is no style is read as Classic |
-| `manuscript-style` | text | The manuscript style chosen for this binder, likewise. Without it, the one last used in the vault |
+| `book-style` | text | The binder's own book style, by name (`Classic`, `Modern`, or a style of the writer's own: see "Export styles"): what an ebook or paperback export that names no style of its own is set in. Written before exports had styles of their own, and by a style's rename; no longer written when a style is chosen in the window (that is the export's, in `exports`). A name that is no style is read as Classic |
+| `manuscript-style` | text | The binder's own manuscript style, likewise. Without it, the one last used in the vault |
 | `structure` | text | Which rule gives folders and notes their roles: `chapters and scenes` (folders are chapters, notes are scenes), `parts and chapters` (folders are parts, notes are chapters), `parts, chapters and scenes`, or `every note a chapter`. Without it Binders reads the rule off the binder's shape: no folders, every note a chapter; folders one deep, parts and chapters if every top folder's name starts with "Part", "Book" or "Act", else chapters and scenes; deeper, parts, chapters and scenes. A Longform project is every note a chapter |
-| `page-size` | text | The paperback trim size chosen in the Export window, by its id in `src/export/pages/geometry.ts` (`a5`, for example). An unrecognised id falls back to the default size, 5 × 8 inches |
+| `page-size` | text | The binder's own paperback trim size, by its id in `src/export/pages/geometry.ts` (`a5`, for example): what a paperback export with no page of its own is set on. No longer written by the window (the page chosen there is the export's). An unrecognised id falls back to the default size, 5 × 8 inches |
+| `series`, `series-number` | text | The series the book is in and its place in it: under the title on the title page ("The Corran Light, Book Two"; a number from 1 to 99 in words) and, in the ebook, EPUB 3's `belongs-to-collection` with its `group-position` (a whole number only) |
+| `publisher` | text | At the foot of the title page, last on the copyright page ("Published by …"), and the ebook's `dc:publisher` |
+| `edition` | text | On the copyright page, with the year `published` says ("First edition, 2026") |
+| `published` | text | When the book is published: `2026-11-03`, `2026-11` or `2026` (the ebook's `dc:date`; anything else is only on the copyright page, by its year) |
+| `description` | text | The ebook's `dc:description`, what a store and a reader's library show |
+| `keywords` | list | The ebook's `dc:subject`s (a text with commas is read as the list) |
+| `contributors` | list | One person each, as `Role: Name` (`Editor: June Hale`): on the copyright page ("Edited by June Hale") and the ebook's `dc:contributor` with its MARC role for an editor, translator, illustrator, cover designer or narrator. A line that isn't `Role: Name` is passed over |
+| `rights` | text | More lines for the copyright page, each as typed, after the copyright line ("All rights reserved.", a disclaimer) |
+| `exports` | list of maps | The binder's exports: see below |
+
+Book details writes the publishing properties above as it writes the others: one at a time, only when changed, and
+taken out of the note when emptied. On the copyright page they come in groups with a line between them: the
+copyright line and `rights`; the edition and the export's ISBN; the contributors; the publisher. A manuscript has no
+copyright page and none of them.
+
+**`exports`, the binder's exports** (2026-10-15). A list of maps, in the order the Export window lists them; written
+only by the Export window, a style renamed or deleted, and a folder or note renamed or moved (below). Until a binder
+has one, its exports are the five kinds, one each, named for them (`Manuscript`, `Ebook`, `Paperback`, `Scrivener
+project`, `One note`), and opening or choosing among them writes nothing; the first change made to one writes all
+five out, then the change. An entry this Binders can't read (no `name`, a `kind` it doesn't know, not a map) is kept
+where it is and passed over; a key it doesn't know is kept in its entry when the entry is changed.
+
+```yaml
+exports:
+  - name: Critique group      # unique in the binder, compared as text is
+    kind: manuscript          # manuscript, ebook, paperback, scrivener, note
+    style: Standard manuscript   # optional: a style of the kind's family; without it the binder's own
+    file: docx                # optional, a manuscript's: docx or pdf; without it the vault's setting
+    paper: a4                 # optional, a manuscript PDF's: letter or a4
+    folder: Part Two          # optional: only this folder goes out (its path in the binder)
+    numbering: from 1         # optional, with a folder or a filter: chapters numbered from 1
+  - name: Kindle
+    kind: ebook
+    page: 6x9                 # optional, a paperback's trim size; without it the binder's `page-size`
+    filter: Mara's chapters   # optional: only the notes a saved filter (`filters`) keeps go out
+    isbn: 978-1-7390112-0-4   # optional, an ebook's or a paperback's: on its copyright page and in the ebook
+    leave out:                # optional: front and back matter, and the pages Binders makes, this export doesn't take
+      - "[[The Lighthouse/Also by (Kobo)]]"
+      - copyright page        # also: title page, contents page
+```
+
+- **What goes out:** the whole book, unless `folder` or `filter` says otherwise (`folder` first if both). A folder
+  or filter that isn't there any more is said in the window and nothing is exported. With part of the book, front
+  and back matter don't go, and chapters and parts are numbered as in the whole book unless `numbering: from 1`.
+  The selected cards are a choice of the window only, never written.
+- **`leave out`:** without it an export takes what its kind takes (a manuscript none, unless the window's old
+  "Front and back matter" switch was left on, which Binders still reads from its settings; an ebook and a
+  paperback all). With it (even empty) the export takes every page
+  and note of front or back matter but those listed. A note is a link, followed as Obsidian follows it from the
+  binder note.
+- **Renames followed:** a style renamed or deleted is renamed in each entry of its family that named it (as
+  `book-style` is). A folder renamed or moved within the binder is renamed in `folder`; a note renamed or moved is
+  renamed in `leave out`, unless the link already leads to it (Obsidian's own link updating, when on, got there
+  first). Only `exports` is written, and never in a binder of a newer format or a Longform project's note.
 
 **What isn't in any note:**
 
 - The folder exported files go to, "Your name" and the contact details for a manuscript's title page are Binders'
-  settings, as is the kind and the manuscript style last used (per vault, not per binder, for now).
+  settings, as is the kind last used, the manuscript style and the manuscript's file and paper that an export
+  with none of its own takes (per vault).
+- The export last chosen in each binder is kept on the device with the places below (`presets`).
 - The places exports are saved "without asking", and what each exported file was when export left it (its size and
   time, to tell a file that has been changed since), are kept on the device, in Obsidian's own local storage for the
   vault: a path on one computer's disk means nothing on another.
@@ -719,7 +775,7 @@ scene-break: "⁂"
 changed writes that row's line; Reset takes every row's line out of a built-in style's file; a built-in style's file
 that then says nothing (no property of the writer's, no CSS) is removed; Duplicate makes a file with `based-on` and
 nothing else; Rename renames the file, rewrites `based-on` in the styles based on it, and the `book-style` or
-`manuscript-style` of the binder notes that named it; Delete moves the file to the trash (as Obsidian is set to
+`manuscript-style` of the binder notes that named it, and the `style` of their `exports` of that family; Delete moves the file to the trash (as Obsidian is set to
 delete), after the styles based on it have been given what they had from it, so they look as they did. A file
 changed, added or deleted by anything else (another program, sync) is read again at once.
 

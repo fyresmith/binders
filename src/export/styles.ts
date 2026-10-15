@@ -3,6 +3,7 @@ import type BindersPlugin from '../main';
 import { checkFormat, isBinderNote } from '../model';
 import type { ManuscriptStyle } from './docx-parts';
 import { applyDetails } from './details';
+import { EXPORTS_PROP, namesStyle, renameStyleInExports } from './presets';
 import { STYLE_EXT, STYLE_VERSION, freeName, listStyles, readStyleFile, resolveStyle, saysNothing, standalone, styleNameProblem, writeStyleFile, type Resolved, type StyleFile } from './style-file';
 import { FIRST, rowsOf, toBookStyle, toManuscriptStyle, type Family, type StyleValue } from './style-rows';
 import type { BookStyle } from './style';
@@ -292,9 +293,17 @@ export class Styles {
 		const { plugin } = this, { app } = plugin, key = family === 'book' ? 'book-style' : 'manuscript-style';
 		if (family === 'manuscript' && plugin.settings.exportStyle === was) { plugin.settings.exportStyle = now; await plugin.saveData(plugin.settings); }
 		for (const b of plugin.binders.all()) {
-			if (b.kind !== 'binder' || b.problem || app.metadataCache.getFileCache(b.note)?.frontmatter?.[key] !== was) continue;
+			// (the binder's own style, and the exports of it that name one: `exports`)
+			const fm0 = app.metadataCache.getFileCache(b.note)?.frontmatter;
+			if (b.kind !== 'binder' || b.problem || (fm0?.[key] !== was && !namesStyle(fm0?.[EXPORTS_PROP], family, was))) continue;
 			try {
-				await app.fileManager.processFrontMatter(b.note, (fm: Record<string, unknown>) => { if (!isBinderNote(fm) || fm[key] !== was) return; checkFormat(fm); applyDetails(fm, family === 'book' ? { bookStyle: now } : { manuscriptStyle: now }); });
+				await app.fileManager.processFrontMatter(b.note, (fm: Record<string, unknown>) => {
+					if (!isBinderNote(fm)) return;
+					checkFormat(fm);
+					if (fm[key] === was) applyDetails(fm, family === 'book' ? { bookStyle: now } : { manuscriptStyle: now });
+					const exports = renameStyleInExports(fm[EXPORTS_PROP], family, was, now);
+					if (exports) fm[EXPORTS_PROP] = exports;
+				});
 			} catch { /* a note that can't be written keeps the old name, and falls back to the first style */ }
 		}
 	}

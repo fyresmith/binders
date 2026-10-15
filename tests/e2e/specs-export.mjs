@@ -74,7 +74,7 @@ test('the window opens on a manuscript: the kinds that exist, the choices, the t
 	t.eq(await p.ev(`document.querySelector('${WIN} [role="option"][aria-selected="true"] .binders-snapshots-item-name').textContent`), 'Manuscript', 'a manuscript the first time');
 	t.eq(await p.ev(`document.querySelector('${WIN} .binders-snapshots-name').textContent`), 'Manuscript', 'the bar names what is being made');
 	t.ok(/^\d+ words · 7 chapters$/.test(await p.ev(`document.querySelector('${WIN} .binders-snapshots-detail').textContent`)), 'and how big it is');
-	t.eq((await p.ev(`[...document.querySelectorAll('${WIN} .binders-export-options .setting-item-name')].map(e => e.textContent)`)).join('|'), 'Style|Front and back matter|File|Your name', 'its choices: the style, front and back matter, and (until it is said) the writer’s name');
+	t.eq((await p.ev(`[...document.querySelectorAll('${WIN} .binders-export-options .setting-item-name')].map(e => e.textContent)`)).join('|'), 'Style|File|What goes out|Your name', 'its choices: the style, the file, what goes out, and (until it is said) the writer’s name (front and back matter are chosen in Contents)');
 	t.eq((await p.ev(`[...document.querySelectorAll('${WIN} .binders-export-heading')].map(e => e.innerText.replace(/\\n/g, ' / '))`)).join('|'), 'Prologue|Part One|Chapter One / Arrival|Chapter Two / The keeper|Chapter Three / Storm warning|Part Two|Chapter Four / The wreck|Chapter Five / Lights out|Epilogue', 'the text, with the headings the manuscript will have');
 	const paper = await p.ev(`(() => { const s = getComputedStyle(document.querySelector('${WIN} .binders-export-paper')); return s.backgroundColor + ' ' + s.color; })()`);
 	t.eq(paper, 'rgb(255, 255, 255) rgb(0, 0, 0)', 'paper is white and ink black, whatever the theme');
@@ -228,7 +228,7 @@ test('roles: export-as, export: false and compile: false are honoured; Contents 
 	await p.ev(`(() => { document.querySelector('${WIN} .binders-snapshots-compare').click(); return 1; })()`);
 	await until(p, `!!document.querySelector('${WIN} .binders-export-outline .binders-export-row')`);
 	const rows = await p.ev(`[...document.querySelectorAll('${WIN} .binders-export-outline .binders-export-row')].map(r => r.querySelector('.nav-file-title-content').textContent + '=' + (r.querySelector('.nav-file-tag')?.textContent ?? '') + (r.classList.contains('binders-export-out') ? '!' : ''))`);
-	t.eq(rows.join('|'), 'Prologue=Chapter|Part One=Part 1|Arrival=Chapter 1|The keeper=Left out!|Storm warning=Scene|Part Two=Part 2|The wreck=Left out!|Lights out=Chapter 2|Epilogue=Back matter', 'each item with its role; what is left out is faint');
+	t.eq(rows.join('|'), 'Prologue=Chapter|Part One=Part 1|Arrival=Chapter 1|The keeper=Left out!|Storm warning=Scene|Part Two=Part 2|The wreck=Left out!|Lights out=Chapter 2|Epilogue=Back matter!', 'each item with its role; what is left out is faint (and back matter, which a manuscript doesn’t take unless its box is ticked)');
 	t.ok((await p.ev(`document.querySelector('${WIN} .binders-export-structure').textContent`)).startsWith('Folders are parts, notes are chapters'), 'and the structure it was read by');
 	await press(p, 'Export');
 	await saved(p);
@@ -294,7 +294,7 @@ test('one note: what Compile was, from the window, with tabs taken off paragraph
 test('by keyboard, and for a screen reader: the kinds are a list, the arrows choose, Tab reaches Export, Escape closes', async (p, h, t) => {
 	await open(p);
 	t.eq(await p.ev(`(() => { const a = document.activeElement; return a?.getAttribute('role') + ':' + a?.querySelector('.binders-snapshots-item-name')?.textContent; })()`), 'option:Manuscript', 'the keyboard starts on the kind chosen');
-	t.eq(await p.ev(`(() => { const l = document.querySelector('${WIN} [role="listbox"]'); return l.getAttribute('aria-label') + '|' + [...l.querySelectorAll('[role="option"]')].map(o => o.getAttribute('aria-label')).join('|'); })()`), 'What to make|Manuscript: Word, in standard manuscript format|Ebook: EPUB, for Kindle, Apple Books and Kobo|Paperback: PDF, ready for print|Scrivener project: The binder itself, for Scrivener 3|One note: Markdown, in this vault', 'the list and its rows are named');
+	t.eq(await p.ev(`(() => { const l = document.querySelector('${WIN} [role="listbox"]'); return l.getAttribute('aria-label') + '|' + [...l.querySelectorAll('[role="option"]')].map(o => o.getAttribute('aria-label')).join('|'); })()`), 'This book’s exports|Manuscript: Word · Standard manuscript|Ebook: EPUB · Classic|Paperback: PDF · Classic · 5 × 8 in|Scrivener project: The binder itself, for Scrivener 3|One note: Markdown, in this vault', 'the list and its rows are named: each export, and what it makes');
 	await p.key('ArrowDown');
 	await until(p, `document.querySelector('${WIN} .binders-snapshots-name').textContent === 'Ebook'`);
 	t.eq(await p.ev(`document.activeElement?.querySelector('.binders-snapshots-item-name')?.textContent`), 'Ebook', 'Down chooses the next kind, and the keyboard stays in the list');
@@ -318,7 +318,7 @@ test('by keyboard, and for a screen reader: the kinds are a list, the arrows cho
 	await until(p, `!!document.querySelector('${WIN} .binders-export-paper .binders-export-section')`);
 	const seen = [];
 	for (let i = 0; i < 12; i++) { await p.key('Tab'); seen.push(await p.ev(`(() => { const a = document.activeElement; return a?.dataset.bindersKey || a?.getAttribute('aria-label') || a?.textContent || a?.tagName; })()`)); if (seen[seen.length - 1] === 'Export') break; }
-	t.ok(seen.includes('style') && seen.includes('matter') && seen.includes('Contents') && seen[seen.length - 1] === 'Export', `Tab goes through the choices to Contents and Export (${seen.join(', ')})`);
+	t.ok(seen.includes('style') && seen.includes('scope') && seen.includes('Contents') && seen[seen.length - 1] === 'Export', `Tab goes through the choices to Contents and Export (${seen.join(', ')})`);
 	t.eq(await p.ev(`(() => { const c = document.querySelector('${WIN} .binders-snapshots-compare'); return c.getAttribute('role') + ' ' + c.getAttribute('aria-pressed'); })()`), 'button false', 'Contents is a button that says whether it is on');
 	await p.key('Enter');
 	t.ok(await saved(p), 'Enter on Export exports');
@@ -422,8 +422,8 @@ test('the Ebook kind: its choices, its text in the shape of the style, and what 
 	await withAuthor(p);
 	await openEbook(p);
 	t.eq((await kinds(p)).join('|'), 'Manuscript|Ebook|Paperback|Scrivener project|One note', 'the kinds built so far, in the design’s order');
-	t.eq(await p.ev(`document.querySelector('${WIN} [role="option"][aria-selected="true"]').getAttribute('aria-label')`), 'Ebook: EPUB, for Kindle, Apple Books and Kobo', 'the ebook, and what it is for');
-	t.eq((await p.ev(`[...document.querySelectorAll('${WIN} .binders-export-options .setting-item-name')].map(e => e.textContent)`)).join('|'), 'Style|Cover', 'its choices: the style and the cover');
+	t.eq(await p.ev(`document.querySelector('${WIN} [role="option"][aria-selected="true"]').getAttribute('aria-label')`), 'Ebook: EPUB · Classic', 'the ebook, and what it makes');
+	t.eq((await p.ev(`[...document.querySelectorAll('${WIN} .binders-export-options .setting-item-name')].map(e => e.textContent)`)).join('|'), 'Style|Cover|What goes out|ISBN', 'its choices: the style, the cover, what goes out and this edition’s ISBN');
 	t.eq(await p.ev(`(() => { const s = document.querySelector('${WIN} [data-binders-key="style"]'); return [...s.options].map(o => o.textContent).join() + '=' + s.value; })()`), 'Classic,Modern=Classic', 'the book styles built in, the first chosen');
 	t.ok(/^\d+ words · 7 chapters$/.test(await p.ev(`document.querySelector('${WIN} .binders-snapshots-detail').textContent`)), 'the bar says how big it is');
 	const heads = await p.ev(`[...document.querySelectorAll('${EBOOK} .binders-export-section')].map(s => s.querySelector('.binders-export-title, .binders-export-heading')?.innerText.replace(/\\n+/g, ' / ') ?? (s.classList.contains('mod-copyright') ? '(copyright)' : ''))`);
@@ -477,7 +477,7 @@ test('Book details: kept as the binder note’s own properties and nothing else;
 	await openEbook(p);
 	await p.ev(`(() => { document.querySelector('${WIN} [data-binders-key="details"]').click(); return 1; })()`);
 	t.ok(await until(p, `!!document.querySelector('${DETAILS} [data-binders-key="title"]')`), 'the button beside the book’s name opens Book details');
-	t.eq((await p.ev(`[...document.querySelectorAll('${DETAILS} .setting-item-name')].map(e => e.textContent)`)).filter((n) => n).join('|'), 'Title|Subtitle|Author|Structure|Title page|Copyright page|Contents page|Language', 'its rows');
+	t.eq((await p.ev(`[...document.querySelectorAll('${DETAILS} .setting-item-name')].map(e => e.textContent)`)).filter((n) => n).join('|'), 'Title|Subtitle|Author|Structure|Title page|Copyright page|Contents page|Language|Publishing|Series|Number in the series|Publisher|Edition|Published|Description|Keywords|Contributors|More on the copyright page', 'its rows: the book, then what a published book says of itself');
 	t.eq(await p.ev(`document.querySelector('${DETAILS} [data-binders-key="title"]').placeholder`), 'The Lighthouse', 'the title is the folder’s name until one is said');
 	t.ok(await p.ev(`document.querySelector('${DETAILS} [data-binders-key="language"]').tagName === 'SELECT' && document.querySelector('${DETAILS} [data-binders-key="language"]').options.length > 40`), 'the language is chosen from a list, not typed');
 	await detail(p, 'title', 'The Lighthouse Keeper');
@@ -671,7 +671,7 @@ specs.push({ name: 'export: an ebook on a phone and a tablet: three kinds, its r
 		t.eq((await kinds(p)).join('|'), 'Manuscript|Ebook|Paperback|Scrivener project|One note', 'the same three kinds');
 		await tapEl(p, `[...document.querySelectorAll('${WIN} [role="option"]')].find(e => e.querySelector('.binders-snapshots-item-name').textContent === 'Ebook')`);
 		t.ok(await until(p, `document.querySelector('${WIN} .binders-export-place')?.textContent === 'Goes to Exports/The Lighthouse.epub, then to where you share it'`, 6000), 'the ebook is chosen, and says where its file will go');
-		t.eq((await p.ev(`[...document.querySelectorAll('${WIN} .binders-export-options .setting-item-name')].map(e => e.textContent)`)).join('|'), 'Style|Cover|Book details|Your name', 'its rows: the style, the cover, Book details, and (until it is said) the writer’s name');
+		t.eq((await p.ev(`[...document.querySelectorAll('${WIN} .binders-export-options .setting-item-name')].map(e => e.textContent)`)).join('|'), 'Style|Cover|What goes out|ISBN|Book details|Your name', 'its rows: the style, the cover, what goes out, this edition’s ISBN, Book details, and (until it is said) the writer’s name');
 		const rows = await p.ev(`(() => { const m = document.querySelector('${WIN}').getBoundingClientRect(); return [...document.querySelectorAll('${WIN} [role="option"], ${WIN} .setting-item, ${WIN} .binders-export-phone-row button')].map(e => { const r = e.getBoundingClientRect(), n = e.querySelector('.setting-item-name'); return { what: (n ?? e).textContent.slice(0, 24), inside: r.left >= m.left - 1 && r.right <= m.right + 1, cut: !!n && n.scrollWidth > n.clientWidth + 1, tall: r.height }; }); })()`);
 		for (const r of rows) t.ok(r.inside && !r.cut && r.tall >= 40, `“${r.what}” is whole, on the screen, and big enough to tap (${JSON.stringify(r)})`);
 		t.ok(await p.ev(`(() => { const s = document.querySelector('${WIN} .binders-export-side .modal-sidebar-inner') ?? document.querySelector('${WIN} .binders-export-side'), b = ${button('Export')}.getBoundingClientRect(); return b.bottom <= window.innerHeight + 1 || s.scrollHeight > s.clientHeight; })()`), 'Export is on the screen, or the choices scroll to it');

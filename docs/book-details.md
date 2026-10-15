@@ -20,11 +20,27 @@ under the choices. **Book details...** is in the window's **More** menu too.
 | **Contents page** | When a contents page is made: **When chapters have titles**, **Always** or **Never** |
 | **Language** | Which quotation marks are set, and what the book says it is written in. Chosen from a list |
 
+Under **Publishing**, what a published book says of itself. Each row says where it shows:
+
+| Detail | Where it shows |
+|---|---|
+| **Series**, **Number in the series** | Under the title on the title page ("The Corran Light, Book Two"), and in the ebook |
+| **Publisher** | At the foot of the title page, last on the copyright page, and in the ebook |
+| **Edition** | On the copyright page, with the year it is published: "First edition, 2026" |
+| **Published** | A date or a year: on the copyright page, and in the ebook |
+| **Description** | In the ebook, where a store and a reader's library show it |
+| **Keywords** | In the ebook. Separate them with commas |
+| **Contributors** | One row each (**Add...** asks the role: editor, translator, illustrator, cover designer, narrator): on the copyright page ("Edited by June Hale") and in the ebook |
+| **More on the copyright page** | More lines, each as typed: "All rights reserved.", a disclaimer |
+
+The ISBN isn't here: each ebook or paperback export has its own (the **ISBN** row in the Export window), since a
+Kindle edition and a paperback have different ones.
+
 There is no Save button. Each detail is kept as you change it, as a property of the binder note and nowhere else.
 One you clear is taken out of the note again. Nothing else in the note is touched.
 
-The book's [styles](export-styles.md), its cover and a paperback's page size are kept in the binder note too. They
-are chosen in the Export window, not here.
+The book's cover, and its [exports](export.md#the-books-exports) with their styles and pages, are kept in the binder
+note too. They are chosen in the Export window, not here.
 
 A note of the book named "Title page" or "Copyright" takes the made page's place.
 
@@ -66,8 +82,8 @@ These are front or back matter:
   by, Copyright or Title page;
 - everything in a folder named "Front matter" or "Back matter".
 
-An ebook and a paperback include them, each on a page of its own. A manuscript leaves them out unless you turn on
-**Front and back matter**.
+An ebook and a paperback include them, each on a page of its own. A manuscript leaves them out unless you tick them
+in **Contents** in the Export window. Any one of them can be left out of one export only, by its box there.
 
 ### Overruling it
 

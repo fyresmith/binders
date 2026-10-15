@@ -64,7 +64,9 @@ export class BookFlow {
 			if (look.titlePage) { const page = this.el('div', 'made'); look.titlePage(page); blocks.push(page); return flow; }
 			blocks.push(this.el('h1', '', book.title));
 			if (book.subtitle) blocks.push(this.el('p', 'subtitle', book.subtitle));
+			if (book.series) blocks.push(this.el('p', 'series', book.series));
 			if (book.author.trim()) blocks.push(this.el('p', 'author', book.author.trim()));
+			if (book.publisher) blocks.push(this.el('p', 'imprint', book.publisher));
 			return flow;
 		}
 		if (s.made && s.matter === 'contents') {

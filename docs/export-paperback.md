@@ -25,6 +25,8 @@ A PDF is made on a computer. See [On a phone or tablet](#on-a-phone-or-tablet).
 |---|---|
 | **Style** | The book style: **Classic**, **Modern**, or one of your own. See below |
 | **Page** | The trim size: **5 × 8 in**, **5.25 × 8 in**, **5.5 × 8.5 in**, **6 × 9 in** or **A5** |
+| **What goes out** | The whole book, a folder, a saved filter, or the selected cards: see [What goes out](export.md#what-goes-out) |
+| **ISBN** | This edition's, on the copyright page. Each paperback export has its own |
 
 Both are kept with the book, in its binder note.
 

@@ -122,7 +122,7 @@ test('the window’s menu shows the Exports folder; settings name the styles fol
 	await open(p);
 	const more = async () => { await p.ev(`(() => { document.querySelector('${WIN} [aria-label="More"]').click(); return 1; })()`); await until(p, `!!document.querySelector('.menu')`); };
 	await more();
-	t.eq((await menuItems(p)).join('|'), 'Choose where to save...|Show the Exports folder|Edit this style|Book details...', 'the menu beside Export');
+	t.eq((await menuItems(p)).join('|'), 'Choose where to save...|Show the Exports folder|Edit this style|Book details...|This export', 'the menu beside Export, with this export’s own drawer last');
 	await clickMenu(p, 'Show the Exports folder');
 	t.ok(await told(p, 'Nothing has been saved there yet'), 'before anything is exported there is no folder to show, and it says so');
 	t.eq(await p.ev(`window.__shown`), null, 'nothing is opened');

@@ -76,6 +76,8 @@ export function bookCss(s: BookStyle, g: Geometry, family: string): string {
 		`.page.title-page h1 { font-size: ${n(Math.max(22, g.size * 2.1))}; line-height: 1.25; letter-spacing: ${left ? '0' : '0.04em'}; font-variant-caps: normal; text-transform: none; font-style: normal; padding: ${n(Math.round(g.lines * 0.22) * g.lead)} 0 0; }`,
 		`.page.title-page p { text-indent: 0; margin-top: ${n(g.lead)}; } .page.title-page p.subtitle { font-style: italic; }`,
 		`.page.title-page p.author { margin-top: ${n(2 * g.lead)}; ${left ? '' : 'font-variant-caps: all-small-caps; letter-spacing: 0.16em;'} }`,
+		`.page.title-page p.series { font-size: ${n(small)}; font-variant-caps: all-small-caps; letter-spacing: 0.12em; }`,
+		`.page.title-page p.imprint { position: absolute; left: 0; right: 0; bottom: 0; margin: 0; font-size: ${n(small)}; ${left ? '' : 'font-variant-caps: all-small-caps; letter-spacing: 0.16em;'} }`,
 		`.page.part h1 { padding-top: ${n(Math.round(g.lines * 0.3) * g.lead)}; }`,
 		`.page.copyright .text { position: absolute; left: 0; right: 0; bottom: 0; text-align: start; hyphens: none; font-size: ${n(noteSize)}; line-height: 12pt; }`,
 		'.page.copyright p { text-indent: 0; margin-top: 6pt; }',

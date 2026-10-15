@@ -1,6 +1,6 @@
-import { ButtonComponent, Component, MarkdownRenderer, Menu, Modal, Notice, Platform, Setting, TFile, setIcon, type TFolder } from 'obsidian';
+import { ButtonComponent, Component, MarkdownRenderer, Menu, Modal, Notice, Platform, Setting, TFile, TFolder, setIcon, type TAbstractFile } from 'obsidian';
 import type BindersPlugin from '../main';
-import { DOCX_MIME, KINDS, NO_PDF, PDF_MIME, bookDetails, ebook, exportsFolder, fileName, manuscript, noteLast, pagesPdf, placeFor, readBook, save, saveDetails, setPlace, share, shownPath, type Kind, type Saved } from '../export/export';
+import { DOCX_MIME, KINDS, NO_PDF, PDF_MIME, bookDetails, ebook, exportsFolder, fileName, manuscript, noteLast, pagesPdf, placeFor, readBook, save, setPlace, share, shownPath, type Kind, type Saved } from '../export/export';
 import { PAPER_SIZES, TRIM_SIZES, paperSize, trimSize } from '../export/pages/geometry';
 import { bookPages, manuscriptPages, withTitlePage, type PagesSpec } from '../export/pages/layout';
 import { EPUB_MIME } from '../export/epub';
@@ -16,8 +16,11 @@ import { drawContents } from './export-contents';
 import { drawEbook, drawManuscript, showPages } from './export-preview';
 import { drawStyleEditor, dress, runningHead, styleRow, type StyleEditor, type StyleEditorHost } from './export-style-editor';
 import { drawScriv, exportScriv, scrivChoices, scrivDetail, scrivFile } from './export-scriv';
-import { historyLook } from './internals';
-import { confirm } from './modals';
+import { editExports, fileOf, lastPreset, noteKey, notePreset, placeOf, presetsOf, work, type Worked } from './export-presets';
+import { MADE_PAGES, blank, freeName, type Preset } from '../export/presets';
+import { bookWords } from '../export/model';
+import { historyLook, submenu } from './internals';
+import { ask, confirm } from './modals';
 import { wordsIn } from './words';
 
 /* The Export window: Obsidian's two-pane dialog, the one File recovery and Snapshots use. On the left what to make
@@ -36,10 +39,10 @@ const PDF_ELSEWHERE = 'A PDF is made by Obsidian on a computer. Here you can loo
 
 /** A book as the pages of a PDF: a paperback's (a book style on a trim size) or a manuscript's (a manuscript style on
     the paper in settings, with its title page). The window and Export again lay a PDF out with this one function. */
-export function pagedBook(plugin: BindersPlugin, book: Book, words: number, o: { book: string; page: string } | { manuscript: string }): { book: Book; spec: PagesSpec } {
+export function pagedBook(plugin: BindersPlugin, book: Book, words: number, o: { book: string; page: string } | { manuscript: string; paper?: string }): { book: Book; spec: PagesSpec } {
 	if ('book' in o) return { book, spec: bookPages(book, plugin.styles.book(o.book), trimSize(o.page), words) };
 	const s = plugin.settings, style = plugin.styles.manuscript(o.manuscript), whole = style.titlePage ? withTitlePage(book) : book;
-	return { book: whole, spec: manuscriptPages(whole, style, paperSize(s.exportPaper), { contact: s.contact.split(/\r?\n/).map((l) => l.trim()).filter((l) => l), words }) };
+	return { book: whole, spec: manuscriptPages(whole, style, paperSize(o.paper || s.exportPaper), { contact: s.contact.split(/\r?\n/).map((l) => l.trim()).filter((l) => l), words }) };
 }
 
 /** The family of styles a kind is set in: an ebook's and a paperback's are book styles. */
@@ -50,18 +53,21 @@ export const NOTHING = 'Nothing here is exported: the binder has no notes, or th
 const familyOf = (kind: Kind): Family => (kind === 'ebook' || kind === 'paperback' ? 'book' : 'manuscript');
 
 export class ExportModal extends Modal {
-	private kind: Kind;
-	private style: string;
-	/** The book style, kept in the binder note (`book-style`) with the book's other details. */
-	private bookStyle: string;
-	/** The paperback's page (a trim size's id), kept in the binder note (`page-size`). */
-	private pageSize = '';
+	/** The binder's exports, and the one chosen (by its name). */
+	private presets: { list: Preset[]; locked: string | null };
+	private current: string;
+	/** The chosen export, worked out: its style, its page, what goes out. Worked out again at each draw and read. */
+	private w!: Worked;
+	/** The cards selected as the window opened, and whether this export is of them (never kept in the export). */
+	private picked: TAbstractFile[] | null;
+	private ofSelection = false;
+	/** The exports as this window last changed them, until the binder note says the same. */
+	private held: Preset[] | null = null;
 	/** How many pages the PDF being shown has, once they are laid out. */
 	private pages: number | null = null;
 	/** What the pages being shown say of their typeface (it doesn't hold the book's script), or nothing. It is the
 	    pages' and not the book's: it goes with the style, its typeface and the kind, none of which reads the notes again. */
 	private face = '';
-	private matter: boolean;
 	private o: CompileOptions;
 	private path: string;
 	private side!: HTMLElement;
@@ -92,50 +98,62 @@ export class ExportModal extends Modal {
 	private editor: (StyleEditor & { kind: 'manuscript' | 'ebook' | 'paperback' }) | null = null;
 	private quotes = '';
 
-	constructor(private plugin: BindersPlugin, private folder: TFolder) {
+	constructor(private plugin: BindersPlugin, private folder: TFolder, open: { preset?: string; selection?: TAbstractFile[] } = {}) {
 		super(plugin.app);
 		const s = plugin.settings;
-		this.kind = s.exportKind;
-		this.style = plugin.styles.get(s.exportStyle, 'manuscript').name;
-		this.bookStyle = plugin.styles.get('', 'book').name;
-		this.follow(true);
-		this.matter = s.exportMatter;
+		this.presets = presetsOf(plugin, folder);
+		const list = this.presets.list, find = (name: string | null | undefined) => (name ? list.find((p) => p.name.toLowerCase() === name.toLowerCase()) : undefined);
+		// (the export last used here, if it is of the kind last used in this vault: the vault's kind is what a binder never
+		// exported from opens on)
+		const last = find(lastPreset(plugin, folder));
+		this.current = (find(open.preset) ?? (last?.kind === s.exportKind ? last : undefined) ?? list.find((p) => p.kind === s.exportKind) ?? list[0]).name;
+		// (only notes and folders of what is being exported, and more than one: one card is its own folder's export)
+		const inside = (open.selection ?? []).filter((f) => f.path.startsWith(`${folder.path}/`));
+		this.picked = inside.length > 1 ? inside : null;
 		this.o = { ...COMPILE_DEFAULTS, ...s.compile };
 		this.path = oneNotePath(plugin, folder);
+		this.rework();
 	}
 
-	/** What the binder note said of the book's styles and its page when it was last looked at. */
-	private said = { book: '', manuscript: '', page: '' };
-	/** The book's styles and its page as the binder note has them. They are read as the window opens and each time
-	    the book is read again, and one that has changed in the note since (typed there, set in another window, come by
-	    sync) is the window's from then on. One that hasn't changed there stays as the window has it: a choice made here
-	    that couldn't be kept in the note (a Longform project's) holds for this window. */
-	private follow(first = false): void {
-		const { plugin } = this, was = this.said;
-		let d;
-		try { d = bookDetails(plugin, this.folder).details; } catch { return; } // (not a binder: reading it says so)
-		// (a binder's own manuscript style, or the one last used in this vault)
-		if (first || d.manuscriptStyle !== was.manuscript) this.style = plugin.styles.get(d.manuscriptStyle || plugin.settings.exportStyle, 'manuscript').name;
-		if (first || d.bookStyle !== was.book) this.bookStyle = plugin.styles.get(d.bookStyle, 'book').name;
-		if (first || d.pageSize !== was.page) this.pageSize = trimSize(d.pageSize).id;
-		this.said = { book: d.bookStyle, manuscript: d.manuscriptStyle, page: d.pageSize };
+	private get preset(): Preset { return this.presets.list.find((p) => p.name.toLowerCase() === this.current.toLowerCase()) ?? this.presets.list[0]; }
+	private get kind(): Kind { return this.preset.kind; }
+	private get style(): string { return this.w.style; }
+	private get bookStyle(): string { return this.w.style; }
+	private get pageSize(): string { return this.w.page; }
+	/** The export worked out again: the binder's exports as its note says now, and the chosen one's choices. */
+	private rework(): void {
+		const read = presetsOf(this.plugin, this.folder);
+		// (a change made here and not yet read back from the note is held until it is: the note is written, then read)
+		if (this.held && JSON.stringify(read.list) === JSON.stringify(this.held)) this.held = null;
+		this.presets = this.held ? { ...read, list: this.held } : read;
+		if (!this.presets.list.some((p) => p.name.toLowerCase() === this.current.toLowerCase())) this.current = this.presets.list[0].name;
+		this.w = work(this.plugin, this.folder, this.preset, this.ofSelection ? this.picked : null);
+	}
+	/** A choice of this export changed: it is kept in the binder note's `exports` (and held here at once). */
+	private setPreset(change: Partial<Preset>, reread: boolean): void {
+		const was = this.preset, now = { ...was, ...change };
+		this.presets.list = this.presets.list.map((p) => (p === was ? now : p));
+		if (!this.presets.locked) this.held = this.presets.list;
+		this.w = work(this.plugin, this.folder, now, this.ofSelection ? this.picked : null);
+		if (!this.presets.locked) void editExports(this.plugin, this.folder, { kind: 'set', name: now.name, preset: now }).catch((e) => new Notice(`The export wasn’t kept. ${e instanceof Error ? e.message : String(e)}`));
+		this.changed(reread, false);
 	}
 
 	private get host() { return this.plugin.exportHost.desktop(this.app); }
 	/** The kind being made, when it is a book's file (not a Scrivener project, which is the binder itself, and not one note). */
 	private get file(): 'manuscript' | 'ebook' | 'paperback' | null { return this.kind === 'manuscript' || this.kind === 'ebook' || this.kind === 'paperback' ? this.kind : null; }
 	/** True when what is being made is a PDF: a paperback, or a manuscript whose file is one. */
-	private get pdf(): boolean { return this.kind === 'paperback' || (this.kind === 'manuscript' && this.plugin.settings.exportFile === 'pdf'); }
+	private get pdf(): boolean { return this.kind === 'paperback' || (this.kind === 'manuscript' && this.w.file === 'pdf'); }
 	/** True when a PDF is being made and can't be here (a phone, a tablet, an Obsidian without webviews). */
 	private get noPdf(): boolean { return this.pdf && !this.plugin.exportHost.printer(); }
 	/** True when the book has been read and nothing in it is exported (no note, or every one left out): there is no
 	    file to make then, only the pages Binders would put around nothing. */
-	private get empty(): boolean { return !!this.file && !!this.book && nothing(this.book); }
+	private get empty(): boolean { return !!this.file && ((!!this.book && nothing(this.book)) || !!this.w.problem); }
 	/** The file of the kind being made: a manuscript's is Word's or a PDF. */
 	private get made() { return FILES[this.pdf ? 'paperback' : this.kind === 'ebook' ? 'ebook' : 'manuscript']; }
 	/** How the pages of a PDF are laid out: the book (a manuscript's with its title page) and the style on its page. */
 	private paged(book: Book): { book: Book; spec: PagesSpec } {
-		return pagedBook(this.plugin, book, this.words, this.kind === 'paperback' ? { book: this.bookStyle, page: this.pageSize } : { manuscript: this.style });
+		return pagedBook(this.plugin, book, this.words, this.kind === 'paperback' ? { book: this.bookStyle, page: this.pageSize } : { manuscript: this.style, paper: this.w.paper });
 	}
 
 	/** Book details, the binder's: when the window is closed, the book is read again with them. */
@@ -189,16 +207,17 @@ export class ExportModal extends Modal {
 	private toChoices(): void { this.pane.detach(); this.back?.detach(); this.contentEl.appendChild(this.side); }
 
 	/** A choice was made: it is kept, and what is shown follows it. `reread`: the notes are read again for it. */
-	private changed(reread: boolean): void {
+	private changed(reread: boolean, again = true): void {
 		const s = this.plugin.settings;
-		s.exportKind = this.kind; s.exportStyle = this.style; s.exportMatter = this.matter; s.compile = { ...this.o };
+		s.exportKind = this.kind; s.compile = { ...this.o };
+		notePreset(this.plugin, this.folder, this.preset.name);
 		void this.plugin.saveData(s);
 		this.saved = null;
-		this.draw();
+		this.draw(again);
 		if (reread) { window.clearTimeout(this.timer); this.timer = window.setTimeout(() => { void this.load(); }, 120); } else this.preview();
 	}
 
-	private draw(): void { this.choices(); this.bar(); }
+	private draw(again = true): void { if (again) this.rework(); this.choices(); this.bar(); }
 
 	/** Reads what is to be made, for the preview and the counts. A later read takes an earlier one's place. */
 	private load(): Promise<void> {
@@ -213,8 +232,8 @@ export class ExportModal extends Modal {
 		if (turn !== this.loading) return;
 		try {
 			if (this.file) {
-				this.follow();
-				const { book, words } = await readBook(this.plugin, this.folder, this.kind !== 'manuscript' || this.matter, this.kind !== 'manuscript', this.asTyped(), this.kind === 'ebook');
+				this.rework();
+				const { book, words } = await readBook(this.plugin, this.folder, this.w.matter, this.kind !== 'manuscript', this.asTyped(), this.kind === 'ebook', this.w.part);
 				if (turn !== this.loading) return;
 				this.book = book; this.words = words; this.quotes = this.asTyped() ? 'as typed' : '';
 				} else if (this.kind === 'scrivener') {
@@ -255,18 +274,18 @@ export class ExportModal extends Modal {
 				b.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.details(); } });
 			}
 		}
-		const list = inner.createDiv({ cls: 'modal-sidebar-list binders-export-kinds', attr: { role: 'listbox', 'aria-label': 'What to make' } });
+		const list = inner.createDiv({ cls: 'modal-sidebar-list binders-export-kinds', attr: { role: 'listbox', 'aria-label': 'This book’s exports' } });
 		const items: HTMLElement[] = [];
-		for (const k of KINDS) {
-			// (a phone and a tablet make no PDF, and the row says so)
-			const on = k.id === this.kind, detail = k.id === 'paperback' && Platform.isMobile ? 'PDF, made on a computer' : k.detail;
-			const el = list.createDiv({ cls: 'modal-sidebar-list-item file-recovery-list-item-header tappable binders-snapshots-item', attr: { role: 'option', tabindex: on ? '0' : '-1', 'aria-selected': String(on), 'aria-label': `${k.name}: ${detail}`, 'data-binders-key': `kind-${k.id}` } });
+		for (const p of this.presets.list) {
+			const on = p === this.preset, detail = this.presetDetail(p);
+			const el = list.createDiv({ cls: 'modal-sidebar-list-item file-recovery-list-item-header tappable binders-snapshots-item', attr: { role: 'option', tabindex: on ? '0' : '-1', 'aria-selected': String(on), 'aria-label': `${p.name}: ${detail}`, 'data-binders-key': `export-${p.name}`, 'data-kind': p.kind } });
 			el.toggleClass('is-active', on);
 			const d = el.createDiv({ cls: 'modal-sidebar-list-item-details' });
-			d.createDiv({ cls: 'binders-snapshots-item-name', text: k.name });
+			d.createDiv({ cls: 'binders-snapshots-item-name', text: p.name });
 			d.createDiv({ cls: 'binders-snapshots-item-detail', text: detail });
-			const pick = () => { if (this.kind === k.id || this.busy) return; this.kind = k.id; this.face = ''; this.contents = false; this.changed(true); };
+			const pick = () => { if (p === this.preset || this.busy) return; this.choose(p.name); };
 			el.addEventListener('click', pick);
+			el.addEventListener('contextmenu', (e) => { e.preventDefault(); if (p !== this.preset) this.choose(p.name); this.presetMenu(e); });
 			el.addEventListener('keydown', (e) => {
 				if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); return; }
 				const i = items.indexOf(el), to = e.key === 'ArrowDown' ? items[i + 1] : e.key === 'ArrowUp' ? items[i - 1] : e.key === 'Home' ? items[0] : e.key === 'End' ? items[items.length - 1] : null;
@@ -279,24 +298,24 @@ export class ExportModal extends Modal {
 		}
 		const el = inner.createDiv({ cls: 'binders-export-options' });
 		const toggle = (key: string, name: string, on: boolean, set: (v: boolean) => void, reread = true) => new Setting(el).setName(name).addToggle((t) => { t.setValue(on).onChange((v) => { set(v); this.changed(reread); }); t.toggleEl.dataset.bindersKey = key; });
+		const p = this.preset, w = this.w;
 		if (this.kind === 'manuscript') {
 			styleRow(el, this.plugin, 'manuscript', this.style, (v) => this.chooseStyle('manuscript', v), () => this.edit());
-			toggle('matter', 'Front and back matter', this.matter, (v) => { this.matter = v; });
 			new Setting(el).setName('File').addDropdown((d) => {
 				d.addOption('docx', 'Word (.docx)').addOption('pdf', 'PDF');
-				d.setValue(s.exportFile).onChange((v) => { s.exportFile = v === 'pdf' ? 'pdf' : 'docx'; this.changed(false); });
+				d.setValue(w.file).onChange((v) => this.setPreset({ file: v === 'pdf' ? 'pdf' : 'docx' }, false));
 				d.selectEl.dataset.bindersKey = 'file';
 			});
 			if (this.pdf) new Setting(el).setName('Paper').addDropdown((d) => {
 				for (const size of PAPER_SIZES) d.addOption(size.id, size.name);
-				d.setValue(paperSize(s.exportPaper).id).onChange((v) => { s.exportPaper = v; this.changed(false); });
+				d.setValue(w.paper).onChange((v) => this.setPreset({ paper: v }, false));
 				d.selectEl.dataset.bindersKey = 'paper';
 			});
 		} else if (this.kind === 'paperback') {
 			styleRow(el, this.plugin, 'book', this.bookStyle, (v) => this.chooseStyle('book', v), () => this.edit());
 			new Setting(el).setName('Page').addDropdown((d) => {
 				for (const size of TRIM_SIZES) d.addOption(size.id, size.name);
-				d.setValue(this.pageSize).onChange((v) => { this.pageSize = v; void saveDetails(this.plugin, this.folder, { pageSize: v === TRIM_SIZES[0].id ? '' : v }).catch(() => { /* as the style: it holds for this window */ }); this.changed(false); });
+				d.setValue(this.pageSize).onChange((v) => this.setPreset({ page: v }, false));
 				d.selectEl.dataset.bindersKey = 'page';
 			});
 		} else if (this.kind === 'ebook') {
@@ -305,6 +324,15 @@ export class ExportModal extends Modal {
 			new Setting(el).setName('Cover').addButton((b) => {
 				b.setButtonText(cover).onClick(() => pickCover(this.plugin, this.folder, () => { if (this.contentEl.isConnected) void this.load(); }));
 				b.buttonEl.dataset.bindersKey = 'cover';
+			});
+		}
+		if (this.file) {
+			this.scopeRows(el);
+			if (this.kind !== 'manuscript') new Setting(el).setName('ISBN').addText((t) => {
+				t.setPlaceholder('None').setValue(p.isbn);
+				t.inputEl.dataset.bindersKey = 'isbn';
+				t.inputEl.setAttrs({ inputmode: 'numeric', 'aria-label': `ISBN of this ${this.kind === 'ebook' ? 'ebook' : 'paperback'}` });
+				t.inputEl.addEventListener('change', () => { const v = t.getValue().trim(); if (v !== this.preset.isbn) this.setPreset({ isbn: v }, true); });
 			});
 		}
 		if (this.file) {
@@ -346,23 +374,140 @@ export class ExportModal extends Modal {
 	}
 	private asking = false;
 
+	// ---- the exports ----
+
+	/** What an export's row says under its name: its file, its style, its page, and what goes out when it isn't the whole book. */
+	private presetDetail(p: Preset): string {
+		const w = p === this.preset ? this.w : work(this.plugin, this.folder, p);
+		const scope = p.scope.kind === 'book' ? '' : ` · ${w.scope}`;
+		if (p.kind === 'manuscript') return `${w.file === 'pdf' ? 'PDF' : 'Word'} · ${w.style}${scope}`;
+		if (p.kind === 'ebook') return `EPUB · ${w.style}${scope}`;
+		if (p.kind === 'paperback') return Platform.isMobile ? 'PDF, made on a computer' : `PDF · ${w.style} · ${trimSize(w.page).name}${scope}`;
+		return KINDS.find((k) => k.id === p.kind)?.detail ?? '';
+	}
+	/** Another export chosen: its choices and its book. */
+	private choose(name: string): void { this.current = name; this.ofSelection = false; this.face = ''; this.contents = false; this.changed(true); }
+
+	/** What goes out, and how its chapters are numbered: the whole book, a folder, a saved filter, the selected cards. */
+	private scopeRows(el: HTMLElement): void {
+		const p = this.preset, binder = this.plugin.binders.binderOf(this.folder), root = binder?.folder ?? this.folder;
+		const folders: TFolder[] = [];
+		const walk = (f: TFolder, depth: number) => { for (const c of this.plugin.binders.orderedChildren(f) ?? []) if (c instanceof TFolder) { folders.push(c); if (depth < 2) walk(c, depth + 1); } };
+		walk(this.folder, 0);
+		const filters = binder ? this.plugin.binders.savedFilters(binder).filter((f) => f.name) : [];
+		const value = this.ofSelection ? 'selection' : p.scope.kind === 'folder' ? `folder:${p.scope.path}` : p.scope.kind === 'filter' ? `filter:${p.scope.name}` : 'book';
+		new Setting(el).setName('What goes out').addDropdown((d) => {
+			d.addOption('book', this.folder === root ? 'The whole book' : `All of “${this.folder.name}”`);
+			const group = (label: string) => d.selectEl.createEl('optgroup', { attr: { label } });
+			if (this.picked) group('Selected').createEl('option', { value: 'selection', text: `The ${this.picked.length.toLocaleString()} selected cards` });
+			if (folders.length) { const g = group('A folder'); for (const f of folders) g.createEl('option', { value: `folder:${f.path.slice(root.path.length + 1)}`, text: `${'\u2003'.repeat(f.path.split('/').length - this.folder.path.split('/').length - 1)}${f.name}` }); }
+			if (filters.length) { const g = group('A saved filter'); for (const f of filters) g.createEl('option', { value: `filter:${f.name}`, text: f.name ?? '' }); }
+			// (one kept that is gone: said as it is, until another is chosen)
+			if (![...Array.from(d.selectEl.options)].some((o) => o.value === value)) d.addOption(value, this.w.scope || value);
+			d.setValue(value).onChange((v) => {
+				this.ofSelection = v === 'selection';
+				if (this.ofSelection) { this.rework(); this.changed(true); return; }
+				this.setPreset({ scope: v.startsWith('folder:') ? { kind: 'folder', path: v.slice(7) } : v.startsWith('filter:') ? { kind: 'filter', name: v.slice(7) } : { kind: 'book' } }, true);
+			});
+			d.selectEl.dataset.bindersKey = 'scope';
+		});
+		if (value === 'book') return;
+		new Setting(el).setName('Numbering').addDropdown((d) => {
+			d.addOption('book', 'As in the book').addOption('one', 'From 1');
+			d.setValue(p.fromOne ? 'one' : 'book').onChange((v) => this.setPreset({ fromOne: v === 'one' }, true));
+			d.selectEl.dataset.bindersKey = 'numbering';
+		});
+	}
+
+	/** The menu of this book's exports: a new one, this one duplicated, renamed or deleted. On a row (its own menu),
+	    and in the bar's More menu as a drawer. */
+	private presetMenu(at: MouseEvent | HTMLElement): void {
+		const m = new Menu();
+		this.presetItems(m);
+		if (at instanceof MouseEvent) m.showAtMouseEvent(at); else { const r = at.getBoundingClientRect(); m.showAtPosition({ x: r.left, y: r.bottom }); }
+	}
+	private presetItems(m: Menu): void {
+		const p = this.preset, locked = this.presets.locked, names = this.presets.list.map((x) => x.name);
+		m.addItem((i) => {
+			i.setTitle('New export').setIcon('plus').setDisabled(!!locked);
+			submenu(i, (sub) => { for (const k of KINDS) sub.addItem((x) => x.setTitle(k.name).setIcon('plus').onClick(() => void this.add(blank(freeName(k.name, names), k.id)))); }, m);
+		});
+		m.addItem((i) => i.setTitle('Duplicate').setIcon('copy').setDisabled(!!locked).onClick(() => void this.add({ ...p, name: freeName(p.name, names) })));
+		m.addItem((i) => i.setTitle('Rename...').setIcon('pencil').setDisabled(!!locked).onClick(() => void this.rename()));
+		m.addSeparator();
+		m.addItem((i) => { i.setTitle('Delete').setIcon('trash-2').setDisabled(!!locked || names.length < 2).onClick(() => void this.remove()); i.setWarning(true); });
+	}
+	private async add(p: Preset): Promise<void> {
+		const name = await ask(this.app, { title: 'New export', placeholder: 'Its name: Submission, Kindle, Paperback 6 × 9', cta: 'Add', value: p.name, check: (v) => (this.presets.list.some((x) => x.name.toLowerCase() === v.trim().toLowerCase()) ? 'This book has an export of that name.' : null) });
+		if (!name) return;
+		const now = { ...p, name: name.trim() };
+		try { await editExports(this.plugin, this.folder, { kind: 'add', preset: now, after: this.preset.name }); } catch (e) { new Notice(e instanceof Error ? e.message : String(e)); return; }
+		const i = this.presets.list.indexOf(this.preset);
+		this.presets.list = [...this.presets.list.slice(0, i + 1), now, ...this.presets.list.slice(i + 1)];
+		this.held = this.presets.list;
+		this.choose(now.name);
+	}
+	private async rename(): Promise<void> {
+		const was = this.preset.name;
+		const name = await ask(this.app, { title: 'Rename this export', placeholder: 'Its name', cta: 'Rename', value: was, check: (v) => (v.trim().toLowerCase() !== was.toLowerCase() && this.presets.list.some((x) => x.name.toLowerCase() === v.trim().toLowerCase()) ? 'This book has an export of that name.' : null) });
+		if (!name || name.trim() === was) return;
+		try { await editExports(this.plugin, this.folder, { kind: 'rename', name: was, to: name.trim() }); } catch (e) { new Notice(e instanceof Error ? e.message : String(e)); return; }
+		this.presets.list = this.presets.list.map((x) => (x.name === was ? { ...x, name: name.trim() } : x));
+		this.held = this.presets.list;
+		this.current = name.trim();
+		this.changed(false, false);
+	}
+	private async remove(): Promise<void> {
+		const p = this.preset;
+		if (!(await confirm(this.app, { title: `Delete “${p.name}”`, text: 'The export is taken off this book’s list. Nothing that was exported is deleted, and no note is changed.', cta: 'Delete', warning: true }))) return;
+		try { await editExports(this.plugin, this.folder, { kind: 'delete', name: p.name }); } catch (e) { new Notice(e instanceof Error ? e.message : String(e)); return; }
+		this.presets.list = this.presets.list.filter((x) => x !== p);
+		this.held = this.presets.list;
+		this.choose(this.presets.list[0].name);
+	}
+
+	/** The pages Binders would make for this book, and whether this export takes each: listed in Contents even when it
+	    doesn't, so it can be taken again. A manuscript makes none (its title page is its style's). */
+	private madeRows(book: Book): { key: string; name: string; taken: boolean }[] {
+		if (this.kind === 'manuscript' || this.w.part.keep) return [];
+		let d; try { d = bookDetails(this.plugin, this.folder).details; } catch { return []; }
+		const has = (m: string) => book.sections.some((s) => s.made && s.matter === m);
+		const rows = [
+			{ key: 'title page', name: 'Title page', taken: has('title-page'), can: d.titlePage && !book.sections.some((s) => !s.made && s.matter === 'title-page') },
+			{ key: 'copyright page', name: 'Copyright', taken: has('copyright'), can: !book.sections.some((s) => !s.made && s.matter === 'copyright') },
+			{ key: 'contents page', name: 'Contents', taken: has('contents'), can: d.contents !== 'never' },
+		];
+		return rows.filter((r) => r.taken || r.can).map(({ key, name, taken }) => ({ key, name, taken }));
+	}
+
+	/** A page or a note of front or back matter taken into this export, or left out of it. */
+	private take(key: string, on: boolean): void {
+		const p = this.preset, matter = (this.book?.outline ?? []).filter((r) => (r.role === 'front' || r.role === 'back') && !r.folder).map((r) => `[[${noteKey(r.path)}]]`);
+		// (an export that has said nothing takes what its kind takes: written out, it says the same, and then the change)
+		let out = p.leaveOut ?? (this.w.matterByDefault ? [] : matter);
+		const bare = (k: string) => k.replace(/^\[\[|\]\]$/g, '').toLowerCase();
+		out = out.filter((k) => bare(k) !== bare(key));
+		if (!on) out.push(MADE_PAGES.includes(key as typeof MADE_PAGES[number]) ? key : `[[${key}]]`);
+		this.setPreset({ leaveOut: out }, true);
+	}
+
 	// ---- the style, and its editor ----
 
-	private styleName(kind = this.kind): string { return familyOf(kind) === 'book' ? this.bookStyle : this.style; }
+	private styleName(): string { return this.w.style; }
 	private asTyped(): boolean { return familyOf(this.kind) === 'book' && this.plugin.styles.get(this.bookStyle, 'book').values.quotes === 'as typed'; }
-	/** A style was chosen: it is this binder's from now on (kept with its Book details, where they can be written). */
-	private chooseStyle(family: Family, name: string): void {
-		if (family === 'book') this.bookStyle = name; else this.style = name;
+	/** A style was chosen: it is this export's from now on (kept in the binder note's `exports`). */
+	private chooseStyle(_family: Family, name: string): void {
+		const typed = this.asTyped();
 		this.face = '';
-		void saveDetails(this.plugin, this.folder, family === 'book' ? { bookStyle: name } : { manuscriptStyle: name }).catch(() => { /* a binder that can't be written: the style holds for this window */ });
-		this.changed(this.asTyped() !== (this.quotes === 'as typed'));
+		this.setPreset({ style: name }, false);
+		if (this.asTyped() !== typed) void this.load();
 	}
 	private edit(): void { this.editing = true; this.contents = false; this.draw(); this.preview(); this.side.querySelector<HTMLElement>('[data-binders-key="style-back"]')?.focus(); }
 	private editorHost(kind: 'manuscript' | 'ebook' | 'paperback'): StyleEditorHost {
 		const family = familyOf(kind);
 		return {
 			plugin: this.plugin, family, pages: kind !== 'ebook', desktop: this.host,
-			name: () => this.styleName(kind),
+			name: () => this.styleName(),
 			choose: (name) => this.chooseStyle(family, name),
 			back: () => { this.editing = false; this.draw(); this.side.querySelector<HTMLElement>('[data-binders-key="edit-style"]')?.focus(); },
 			preview: Platform.isPhone ? () => this.toPane() : undefined,
@@ -375,9 +520,8 @@ export class ExportModal extends Modal {
 		this.editor?.refresh();
 		// (a file saved a moment ago is not this style's any more: Export is offered again)
 		if (this.saved) { this.saved = null; this.bar(); }
-		// (a style that is gone, renamed or deleted elsewhere: the choice falls back with it)
-		const now = this.plugin.styles.get(this.styleName(), familyOf(this.kind)).name;
-		if (now !== this.styleName()) { if (familyOf(this.kind) === 'book') this.bookStyle = now; else this.style = now; }
+		// (a style that is gone, renamed or deleted elsewhere: the choice falls back with it, as it is worked out again)
+		this.rework();
 		if (!this.editing) this.choices();
 		window.clearTimeout(this.timer);
 		const reread = this.asTyped() !== (this.quotes === 'as typed');
@@ -391,23 +535,24 @@ export class ExportModal extends Modal {
 		if (this.kind !== 'note') {
 			// (a Scrivener project is a folder: where one can't be written, it is zipped into the vault)
 			const kind = this.kind, host = kind === 'scrivener' && !all?.writeFolder ? null : all;
-			const kept = host ? placeFor(this.plugin, this.folder, kind, kind === 'scrivener' ? undefined : this.made.extension) : null;
+			const kept = host ? placeFor(this.plugin, this.folder, placeOf(this.preset), kind === 'scrivener' ? undefined : this.made.extension) : null;
 			if (host && (kept || this.saved)) {
 				place(kept ? `Saves to ${this.shown(kept)}` : `Saved to ${this.saved?.shown ?? ''}`);
 				const label = foot.createEl('label', { cls: 'mod-checkbox binders-export-remember' });
 				const box = label.createEl('input', { type: 'checkbox', attr: { 'data-binders-key': 'remember' } });
 				box.checked = !!kept;
-				box.addEventListener('change', () => { setPlace(this.plugin, this.folder, kind, box.checked ? this.saved?.path ?? kept : null); this.draw(); });
+				box.addEventListener('change', () => { setPlace(this.plugin, this.folder, placeOf(this.preset), box.checked ? this.saved?.path ?? kept : null); this.draw(); });
 				label.appendText('Save here next time without asking');
 			} else if (!host && !this.noPdf) {
 				const to = `${exportsFolder(this.plugin, this.folder)}/${kind === 'scrivener' ? scrivFile(this.folder, host) : `${this.fileName()}.${this.made.extension}`}`;
 				place(Platform.isMobile ? `Goes to ${to}, then to where you share it` : `Goes to ${to}, in this vault`);
 			}
 			// (what a style's file has that can't be read is said with the rest: its line opens the editor)
-			const styled = kind === 'scrivener' ? [] : this.plugin.styles.get(this.styleName(kind), familyOf(kind)).warnings.map((text) => ({ path: '', name: 'Style', text }));
+			const styled = kind === 'scrivener' ? [] : this.plugin.styles.get(this.styleName(), familyOf(kind)).warnings.map((text) => ({ path: '', name: 'Style', text }));
 			// (and a typeface that doesn't hold the book's script, while it is pages that are being made)
 			const face = this.pdf && this.face ? [{ path: this.plugin.binders.binderOf(this.folder)?.note.path ?? '', name: 'Book details', text: this.face }] : [];
-			const warnings = [...styled, ...face, ...(kind === 'scrivener' ? this.scriv?.warnings : this.book?.warnings) ?? []];
+			const scope = this.file && this.w.problem ? [{ path: '', name: 'What goes out', text: this.w.problem }] : [];
+			const warnings = [...scope, ...styled, ...face, ...(kind === 'scrivener' ? this.scriv?.warnings : this.book?.warnings) ?? []];
 			if (warnings.length) {
 				const head = foot.createDiv({ cls: 'binders-export-warn-head' });
 				setIcon(head.createSpan({ cls: 'binders-export-warn-icon' }), 'alert-triangle');
@@ -437,7 +582,7 @@ export class ExportModal extends Modal {
 		}
 	}
 
-	private fileName(): string { return fileName(this.book?.title ?? this.folder.name); }
+	private fileName(): string { return fileName(fileOf(this.book?.title ?? this.folder.name, this.preset)); }
 	/** A place on the disk as it's said: from the vault's folder, when it is in it. */
 	private shown(path: string): string { const h = this.host; return h ? shownPath(h, path) : path; }
 
@@ -477,10 +622,13 @@ export class ExportModal extends Modal {
 
 	private bar(): void {
 		const k = KINDS.find((x) => x.id === this.kind) ?? KINDS[0], host = this.host, saved = this.saved;
-		this.nameEl.setText(k.name);
+		this.nameEl.setText(this.preset.name || k.name);
 		const n = (count: number, one: string, many = `${one}s`) => `${count.toLocaleString()} ${count === 1 ? one : many}`;
 		const chapters = this.book?.sections.filter((s) => s.role === 'chapter').length ?? 0;
-		this.detailEl.setText(this.kind === 'scrivener' ? scrivDetail(this.scriv) : this.pdf ? (this.book ? `${this.pages == null ? n(this.words, 'word') : n(this.pages, 'page')} · ${(this.kind === 'paperback' ? trimSize(this.pageSize) : paperSize(this.plugin.settings.exportPaper)).name}` : '') : this.kind !== 'note' ? (this.book ? `${n(this.words, 'word')} · ${n(chapters, 'chapter')}` : '') : this.note ? `${n(this.note.scenes, 'note')} · ${n(this.words, 'word')}` : '');
+		// (what goes out, when it isn't the whole book, and the words of the text: front and back matter aren't counted)
+		const scope = this.file && this.w.scope ? `${this.w.scope} · ` : '';
+		const text = this.book ? bookWords({ ...this.book, sections: this.book.sections.filter((s) => s.role !== 'front' && s.role !== 'back'), notes: [] }) : 0;
+		this.detailEl.setText(scope + (this.kind === 'scrivener' ? scrivDetail(this.scriv) : this.pdf ? (this.book ? `${this.pages == null ? n(this.words, 'word') : n(this.pages, 'page')} · ${(this.kind === 'paperback' ? trimSize(this.pageSize) : paperSize(this.w.paper)).name}` : '') : this.kind !== 'note' ? (this.book ? `${n(text, 'word')} · ${n(chapters, 'chapter')}` : '') : this.note ? `${n(this.note.scenes, 'note')} · ${n(this.words, 'word')}` : ''));
 		const focused = this.actions.contains(this.modalEl.doc.activeElement);
 		this.actions.empty();
 		const status = (text: string) => this.actions.createSpan({ cls: 'binders-export-status', text, attr: { role: 'status', 'aria-live': 'polite' } });
@@ -520,6 +668,7 @@ export class ExportModal extends Modal {
 				if (host) m.addItem((i) => i.setTitle('Show the Exports folder').setIcon('folder').onClick(() => void this.showExports()));
 				if (this.file && !this.editing) m.addItem((i) => i.setTitle('Edit this style').setIcon('sliders-horizontal').onClick(() => this.edit()));
 				if (this.file) m.addItem((i) => i.setTitle('Book details...').setIcon('book-open').onClick(() => this.details()));
+				m.addItem((i) => { i.setTitle('This export').setIcon('list'); submenu(i, (sub) => this.presetItems(sub), m); });
 				if (e) m.showAtMouseEvent(e); else { const r = more.getBoundingClientRect(); m.showAtPosition({ x: r.left, y: r.bottom }); }
 			};
 			more.addEventListener('click', (e) => menu(e));
@@ -545,7 +694,7 @@ export class ExportModal extends Modal {
 			if (this.contents) {
 				const side = el.createDiv({ cls: 'binders-export-outline nav-files-container' });
 				side.createDiv({ cls: 'binders-export-structure', text: `${STRUCTURES[book.structure][1]}${book.guessed ? ' (read from the binder’s shape)' : ''}.` });
-				drawContents(side.createDiv(), book, { open: (path) => this.openNote(path), menu: this.canOverrule() ? (path, at) => this.roleMenu(path, at) : undefined });
+				drawContents(side.createDiv(), book, { open: (path) => this.openNote(path), menu: this.canOverrule() ? (path, at) => this.roleMenu(path, at) : undefined, take: this.presets.locked ? undefined : (key, on) => this.take(key, on), made: this.madeRows(book) });
 			}
 			const stage = el.createDiv({ cls: 'binders-export-stage' });
 			if (this.pdf) {
@@ -622,7 +771,8 @@ export class ExportModal extends Modal {
 			}
 			const kind = this.kind, pdf = this.pdf, { extension, type, mime } = this.made;
 			if (this.noPdf) throw new Error(NO_PDF);
-			const { book, words } = await readBook(this.plugin, this.folder, kind !== 'manuscript' || this.matter, kind !== 'manuscript', this.asTyped(), kind === 'ebook');
+			if (this.w.problem) throw new Error(this.w.problem);
+			const { book, words } = await readBook(this.plugin, this.folder, this.w.matter, kind !== 'manuscript', this.asTyped(), kind === 'ebook', this.w.part);
 			if (this.cancelled) return;
 			this.book = book; this.words = words;
 			// (every note left out since the window read them: there is no book to make)
@@ -641,12 +791,13 @@ export class ExportModal extends Modal {
 			this.say('Saving…');
 			const name = this.fileName();
 			const saved = await save(this.plugin, this.host, data, {
-				folder: this.folder, kind, name, extension, type, ask,
+				folder: this.folder, kind: placeOf(this.preset), name, extension, type, ask,
 				replace: (shown) => confirm(this.app, { title: 'Replace this file', text: `“${shown}” is already there, and isn’t a file this export made (or it has been changed since). Replace it?`, cta: 'Replace' }),
 			});
 			if (!saved) return;
 			this.saved = saved;
 			noteLast(this.plugin, this.folder, kind, saved);
+			notePreset(this.plugin, this.folder, this.preset.name);
 			new Notice(`Exported “${book.title}” to ${saved.shown}.`);
 			if (saved.where === 'vault' && Platform.isMobile) await share(data, `${name}.${extension}`, mime);
 		} catch (e) {

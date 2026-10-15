@@ -145,7 +145,9 @@ export function drawEbook(el: HTMLElement, book: Book, style: BookStyle): () => 
 		if (s.made && s.matter === 'title-page') {
 			sec.createEl('h1', { cls: 'binders-export-title', text: book.title });
 			if (book.subtitle) sec.createEl('p', { cls: 'binders-export-subtitle', text: book.subtitle });
+			if (book.series) sec.createEl('p', { cls: 'binders-export-series', text: book.series });
 			if (book.author.trim()) sec.createEl('p', { cls: 'binders-export-by', text: book.author.trim() });
+			if (book.publisher) sec.createEl('p', { cls: 'binders-export-imprint', text: book.publisher });
 			return;
 		}
 		if (s.made && s.matter === 'contents') {
