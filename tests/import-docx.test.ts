@@ -312,6 +312,19 @@ const body = (seed: string, n = 120) => p(words(n, seed));
 	}
 }
 
+// ---- sections: how the next one starts, and the paragraph that only marks where one ends ----
+{
+	const end = (type?: string) => `<w:p><w:pPr><w:sectPr>${type ? `<w:type w:val="${type}"/>` : ''}</w:sectPr></w:pPr></w:p>`;
+	const lines = (k: string) => p(r(`The ${k}`, '<w:b/>'), { jc: 'center' });
+	// (LibreOffice writes a section's end as a paragraph of its own, empty: Word puts it on the last paragraph)
+	const bytes = docx([lines('Storm'), body('a'), end(), lines('Calm'), body('b'), end('continuous'), p(words(30, 'c')), end(), lines('End'), body('d')].join(''));
+	const doc = settle(readDocx(bytes), 'final');
+	eq(doc.paras.filter((x) => !x.runs.length).length, 0, 'sections: a paragraph that only marks a section\'s end, with no words, is no empty line');
+	// (Storm, a | Calm, b: continuous | c | End, d: a section's type is written at its end, and says how it began)
+	eq(doc.paras.map((x) => (x.pageBefore ? 'P' : '-')).join(''), '----PP-', 'sections: a section starts a page unless it is written as continuous');
+	same(bytes, make(bytes).plan, 'sections');
+}
+
 // ---- hidden text is left out, and said ----
 {
 	const styles = STYLES.replace('</w:styles>', '<w:style w:type="character" w:styleId="Secret"><w:name w:val="Secret"/><w:rPr><w:vanish/></w:rPr></w:style></w:styles>');

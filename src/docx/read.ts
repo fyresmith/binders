@@ -41,6 +41,8 @@ export interface DocxPara {
 	numbered: boolean;
 	/** Some of its text was hidden (and left out): one with nothing else is no paragraph the writer sees. */
 	hadHidden?: boolean;
+	/** It holds the end of a section (`w:sectPr`): one with no words is a mark of the layout, not an empty line. */
+	section?: boolean;
 }
 export interface DocxFile {
 	/** The program that wrote it, from the file's own account ("Microsoft Office Word", "LibreOffice", "Binders"). */
@@ -69,6 +71,10 @@ function body(xml: string, c: Ctx, into: Map<number, DocxPara[]> | null): DocxPa
 	const path: string[] = [];
 	const revs: Rev[] = [], fields: { instr: string }[] = [], sdts: boolean[] = [];
 	let skip = 0, href: string | undefined, tbl = 0, textBox = 0, nextPage = false, note = -1;
+	// Where sections end (the paragraph after each), and how each section starts: a section's `w:type` is how it
+	// begins, and is written at its end, so whether the paragraph after a section's end starts a page is the next
+	// section's to say (a new page unless it is "continuous").
+	const ends: number[] = [], types: string[] = [];
 	let hiding = false;
 	let run: { b: boolean; i: boolean; s: boolean; u: boolean; rStyle: string | null; vanish: boolean } | null = null, collecting: 't' | 'instr' | null = null;
 	const top = () => stack[stack.length - 1];
@@ -135,7 +141,10 @@ function body(xml: string, c: Ctx, into: Map<number, DocxPara[]> | null): DocxPa
 		if (into && note < 0 && name !== 'w:footnotes' && name !== 'w:endnotes' && name !== 'w:comments') { if (name === 'w:p') { stack.push({ p: blank(c), tocAtStart: false }); } continue; }
 		const t = top();
 		switch (name) {
-			case 'w:p': stack.push({ p: { ...blank(c), inTable: tbl > 0, textBox: textBox > 0, pageBefore: nextPage }, tocAtStart: tocNow() }); nextPage = false; break;
+			case 'w:p': stack.push({ p: { ...blank(c), inTable: tbl > 0, textBox: textBox > 0, pageBefore: false }, tocAtStart: tocNow() }); if (nextPage && !into) ends.push(out.length); nextPage = false; break;
+			// (the last section's properties are the body's own)
+			case 'w:sectPr': if (!path.includes('w:pPr')) types.push('nextPage'); break;
+			case 'w:type': if (path.includes('w:sectPr') && !path.includes('w:pPr')) types[types.length - 1] = a['w:val'] ?? 'nextPage'; break;
 			case 'w:tbl': tbl++; c.found.tables++; break;
 			case 'w:txbxContent': textBox++; c.found.textBoxes++; break;
 			case 'w:sdt': sdts.push(false); break;
@@ -182,9 +191,11 @@ function body(xml: string, c: Ctx, into: Map<number, DocxPara[]> | null): DocxPa
 			else if (name === 'w:ind') { p.indent = { first: a['w:hanging'] ? -int(a['w:hanging']) : a['w:firstLine'] !== undefined ? int(a['w:firstLine']) : p.indent.first, left: a['w:left'] !== undefined || a['w:start'] !== undefined ? int(a['w:left'] ?? a['w:start']) : p.indent.left, right: a['w:right'] !== undefined || a['w:end'] !== undefined ? int(a['w:right'] ?? a['w:end']) : p.indent.right }; (p as DocxPara & { directInd?: true }).directInd = true; }
 			else if (name === 'w:ilvl') p.list = { id: p.list?.id ?? 0, level: int(a['w:val']), ordered: false };
 			else if (name === 'w:numId') p.list = int(a['w:val']) ? { id: int(a['w:val']), level: p.list?.level ?? 0, ordered: false } : null;
-			else if (name === 'w:sectPr') nextPage = true;
+			else if (name === 'w:sectPr') { nextPage = true; cur.p.section = true; types.push('nextPage'); }
+			else if (name === 'w:type' && path.includes('w:sectPr')) types[types.length - 1] = a['w:val'] ?? 'nextPage';
 		}
 	}
+	ends.forEach((at, k) => { if (out[at] && types[k + 1] !== 'continuous') out[at].pageBefore = true; });
 	return out;
 }
 

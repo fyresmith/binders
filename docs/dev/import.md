@@ -128,8 +128,10 @@ it, so `detect` and `planManuscript` are the same for Word and for Markdown, and
   style's), tabs, line and page breaks, links (`w:hyperlink` by relationship), footnote and endnote references, comment
   range anchors, pictures (counted), fields (an instruction is never text; one that begins `TOC` marks its paragraphs), a
   content control whose `docPartGallery` is "Table of Contents", tables (their paragraphs, in order), text boxes
-  (`w:txbxContent`, whose paragraphs are read once: `mc:Fallback` is skipped), a section's end (the next paragraph starts a
-  page).
+  (`w:txbxContent`, whose paragraphs are read once: `mc:Fallback` is skipped), a section's end: the paragraph after it starts
+  a page unless the next section is `continuous` (a section's `w:type` says how it begins, and is written at its end), and a
+  paragraph with no words that only holds a `w:sectPr` (LibreOffice writes one) is no paragraph at all, so not an empty line
+  that could read as a scene break.
 - **Hidden text** (`w:vanish`, `w:specVanish`, directly or by a character style): left out, each place counted and said
   (`found.hidden`, "This file has hidden text in N places"); a paragraph whose only words were hidden is none
   (`DocxPara.hadHidden`). The maintainer's decision, 2026-10-15, for all three formats.
@@ -172,7 +174,8 @@ written from the file format's specification and the tests' own fixtures.
    with password" in Word produces one).
 7. That `docProps/app.xml`'s `<Application>` names the program ("Binders" is checked: a Binders file's first-line indents
    read back as tab paragraphs).
-8. That a `w:sectPr` in a paragraph's properties starts the next page.
+8. That a `w:sectPr` in a paragraph's properties ends a section, whose `w:type` says how that section began (and so
+   whether the paragraph after the previous one starts a page). LibreOffice writes it so; Word is not checked.
 
 **Files the maintainer needs to make**, each saved beside a plain-text copy made by the same program's own "Save as text",
 the trusted oracle (the importer's words must equal that file's), in `tests/fixtures/import/`:

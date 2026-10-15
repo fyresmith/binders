@@ -79,7 +79,7 @@ export function settle(file: DocxFile, as: 'final' | 'original', o: SettleOption
 		// a paragraph whose every run was a deletion is not an empty paragraph the writer typed
 		if (!para.runs.length && p.runs.some((r) => !isMark(r) && gone(r.rev, as))) { page ||= para.pageBefore; continue; }
 		// nor is one whose only words were hidden: it isn't seen, so it isn't an empty line between scenes
-		if (!para.runs.length && p.hadHidden) { page ||= para.pageBefore; continue; }
+		if (!para.runs.length && (p.hadHidden || p.section)) { page ||= para.pageBefore; continue; }
 		paras.push(para);
 		// a page break that ends a paragraph starts the next on a new page
 		const last = [...p.runs].reverse().find((r): r is DocxRun => !isMark(r));

@@ -11,6 +11,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 ### Fixed
 
 - Hidden text in a Word file is no longer brought in as ordinary text: it is left out, and the import says how many places had it.
+- A Word file's continuous section breaks no longer start a page, and a section break on an empty line of its own (as LibreOffice writes one) is no longer taken for a scene break.
 
 ## 0.52.0 (2026-10-12)
 
