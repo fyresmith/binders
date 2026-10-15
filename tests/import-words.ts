@@ -4,10 +4,20 @@ import { tokens, type Words } from './export-words';
 /* The Word import's word-for-word oracle: the words of any .docx, read by regular expressions that share no code with
    the importer's reader (src/docx/). In document order: every `w:t`, a revision that was deleted left out (`w:del`
    and `w:moveFrom`; their text is `w:delText` anyway), field instructions left out, the second copy of a text box
-   (`mc:Fallback`) left out, and each footnote's words held apart, in the order of their marks. */
+   (`mc:Fallback`) left out, hidden text left out (a run with `w:vanish`, or in a character style that has it), and
+   each footnote's words held apart, in the order of their marks. */
 
 const unxml = (s: string): string => s.replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#x([0-9a-f]+);/gi, (_m, h: string) => String.fromCodePoint(parseInt(h, 16))).replace(/&#(\d+);/g, (_m, d: string) => String.fromCodePoint(Number(d))).replace(/&amp;/g, '&');
+/** The ids of the character styles that hide their text. */
+let hiddenStyles = new Set<string>();
+const hiddenRun = (run: string): boolean => {
+	const props = /<w:rPr>([\s\S]*?)<\/w:rPr>/.exec(run)?.[1] ?? '';
+	if (/<w:vanish(?: w:val="(?:1|true|on)")?\/>/.test(props)) return true;
+	const style = /<w:rStyle w:val="([^"]*)"/.exec(props)?.[1];
+	return !!style && hiddenStyles.has(style);
+};
 const settled = (xml: string): string => xml
+	.replace(/<w:r\b[^>]*>[\s\S]*?<\/w:r>/g, (run) => (hiddenRun(run) ? '' : run))
 	.replace(/<mc:Fallback>[\s\S]*?<\/mc:Fallback>/g, '')
 	.replace(/<w:(del|moveFrom)\b[^>]*>[\s\S]*?<\/w:\1>/g, '')
 	.replace(/<w:instrText[^>]*>[\s\S]*?<\/w:instrText>/g, '');
@@ -17,6 +27,7 @@ const flat = (xml: string, mark: string): string => [...settled(xml).matchAll(/<
 /** `comments`: the words of each comment in the margin come where its range ends, its author's first (the way import keeps them). */
 export function docxWords(bytes: Uint8Array, o: { comments?: boolean } = {}): Words {
 	const raw = unzipSync(bytes), read = (name: string) => (raw[name] ? strFromU8(raw[name]) : '');
+	hiddenStyles = new Set([...read('word/styles.xml').matchAll(/<w:style\b[^>]*w:styleId="([^"]*)"[^>]*>([\s\S]*?)<\/w:style>/g)].filter((m) => /<w:vanish(?: w:val="(?:1|true|on)")?\/>/.test(m[2])).map((m) => m[1]));
 	const text = flat(read('word/document.xml'), '');
 	const notes = new Map<string, string>();
 	for (const [file, key] of [['footnotes', 'footnote'], ['endnotes', 'endnote']] as const) {

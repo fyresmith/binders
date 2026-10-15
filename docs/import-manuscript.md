@@ -138,6 +138,8 @@ stood. Pictures of another kind are counted and said, and not brought in.
 
 What doesn't come across, each said in the things to look at:
 
+- **Hidden text** (Word's Hidden, under Font) isn't brought in, and the number of places is said. A paragraph that was
+  all hidden isn't an empty line either. The original file, kept in **Research/Originals**, still has it.
 - **Tables** come in as their text, cell after cell, with a sentence saying so: their layout isn't kept. (A Markdown table
   would be neater to read but a table's cells can hold several paragraphs, and a chapter may start inside one.)
 - **Text boxes** come in once, where the box is.

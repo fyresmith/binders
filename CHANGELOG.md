@@ -8,6 +8,10 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 
 - The outliner's last row stays in sight and can summarize each column (sum, average, median, range, earliest, latest, or each value with its notes and words; choosing a value shows those notes), and a new Revision column counts each scene's unfinished revision tasks.
 
+### Fixed
+
+- Hidden text in a Word file is no longer brought in as ordinary text: it is left out, and the import says how many places had it.
+
 ## 0.52.0 (2026-10-12)
 
 ### Added

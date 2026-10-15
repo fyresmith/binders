@@ -16,6 +16,8 @@ export interface Style {
 	first: number | null; left: number | null; right: number | null;
 	pageBefore: boolean;
 	b: boolean | null; i: boolean | null; caps: boolean | null;
+	/** Its text is hidden. */
+	vanish: boolean | null;
 	/** The style numbers its paragraphs (a heading numbered by the file: it may have no text of its own). */
 	numbered: boolean | null;
 }
@@ -38,7 +40,7 @@ export function readStyles(xml: string | null): Map<string, Style> {
 		if (e.t !== 'open') continue;
 		const a = e.attrs;
 		if (e.name === 'w:style') {
-			cur = { id: a['w:styleId'] ?? '', name: '', type: a['w:type'] ?? 'paragraph', basedOn: null, outline: null, align: null, first: null, left: null, right: null, pageBefore: false, b: null, i: null, caps: null, numbered: null };
+			cur = { id: a['w:styleId'] ?? '', name: '', type: a['w:type'] ?? 'paragraph', basedOn: null, outline: null, align: null, first: null, left: null, right: null, pageBefore: false, b: null, i: null, caps: null, vanish: null, numbered: null };
 			if (cur.id) out.set(cur.id, cur);
 		} else if (!cur) continue;
 		else if (e.name === 'w:name') cur.name = (a['w:val'] ?? '').toLowerCase();
@@ -57,19 +59,20 @@ export function readStyles(xml: string | null): Map<string, Style> {
 		} else if (inRPr && e.name === 'w:b') cur.b = on(a['w:val']);
 		else if (inRPr && e.name === 'w:i') cur.i = on(a['w:val']);
 		else if (inRPr && e.name === 'w:caps') cur.caps = on(a['w:val']);
+		else if (inRPr && e.name === 'w:vanish') cur.vanish = on(a['w:val']);
 	}
 	return out;
 }
 
 /** What a style is, with what its chain gives: the nearest that says wins. */
 export function resolve(styles: Styles, id: string | null): Style {
-	const out: Style = { id: id ?? '', name: '', type: 'paragraph', basedOn: null, outline: null, align: null, first: null, left: null, right: null, pageBefore: false, b: null, i: null, caps: null, numbered: null };
+	const out: Style = { id: id ?? '', name: '', type: 'paragraph', basedOn: null, outline: null, align: null, first: null, left: null, right: null, pageBefore: false, b: null, i: null, caps: null, vanish: null, numbered: null };
 	const seen = new Set<string>();
 	for (let s = id ? styles.get(id) : undefined, depth = 0; s && !seen.has(s.id) && depth < 24; s = s.basedOn ? styles.get(s.basedOn) : undefined, depth++) {
 		seen.add(s.id);
 		if (depth === 0) { out.name = s.name; out.type = s.type; }
 		out.outline ??= s.outline; out.align ??= s.align; out.first ??= s.first; out.left ??= s.left; out.right ??= s.right;
-		out.pageBefore ||= s.pageBefore; out.b ??= s.b; out.i ??= s.i; out.caps ??= s.caps; out.numbered ??= s.numbered;
+		out.pageBefore ||= s.pageBefore; out.b ??= s.b; out.i ??= s.i; out.caps ??= s.caps; out.vanish ??= s.vanish; out.numbered ??= s.numbered;
 	}
 	return out;
 }

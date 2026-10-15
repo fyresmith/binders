@@ -39,6 +39,8 @@ export interface DocxPara {
 	textBox: boolean;
 	/** Its style numbers it, or it has a list of its own. */
 	numbered: boolean;
+	/** Some of its text was hidden (and left out): one with nothing else is no paragraph the writer sees. */
+	hadHidden?: boolean;
 }
 export interface DocxFile {
 	/** The program that wrote it, from the file's own account ("Microsoft Office Word", "LibreOffice", "Binders"). */
@@ -50,7 +52,7 @@ export interface DocxFile {
 	comments: Map<string, { author: string; text: string }>;
 	/** A picture's file by the relationship that names it, inflated now: PNG, JPEG or another kind, with its ending. */
 	picture(rid: string): { ext: string; load(): Uint8Array | null } | null;
-	found: { inserted: number; deleted: number; comments: number; underlined: number; italic: number; headers: boolean; textBoxes: number; tables: number; pictures: number; endnotes: number };
+	found: { inserted: number; deleted: number; comments: number; underlined: number; italic: number; headers: boolean; textBoxes: number; tables: number; pictures: number; endnotes: number; /** Places with hidden text, which is left out. */ hidden: number };
 }
 
 /** The most paragraphs a file may hold. */
@@ -67,7 +69,8 @@ function body(xml: string, c: Ctx, into: Map<number, DocxPara[]> | null): DocxPa
 	const path: string[] = [];
 	const revs: Rev[] = [], fields: { instr: string }[] = [], sdts: boolean[] = [];
 	let skip = 0, href: string | undefined, tbl = 0, textBox = 0, nextPage = false, note = -1;
-	let run: { b: boolean; i: boolean; s: boolean; u: boolean; rStyle: string | null } | null = null, collecting: 't' | 'instr' | null = null;
+	let hiding = false;
+	let run: { b: boolean; i: boolean; s: boolean; u: boolean; rStyle: string | null; vanish: boolean } | null = null, collecting: 't' | 'instr' | null = null;
 	const top = () => stack[stack.length - 1];
 	const tocNow = () => fields.some((f) => /^\s*TOC\b/i.test(f.instr)) || sdts.some(Boolean);
 	const rev = (): Rev | undefined => revs[revs.length - 1];
@@ -76,6 +79,9 @@ function body(xml: string, c: Ctx, into: Map<number, DocxPara[]> | null): DocxPa
 		const t = top();
 		if (!t || !run) return;
 		const st = resolve(c.styles, run.rStyle);
+		// hidden text is left out, and each place counted (a hidden passage is often split over several runs)
+		if (run.vanish || st.vanish === true) { if (text.trim()) { t.p.hadHidden = true; if (!hiding) { c.found.hidden++; hiding = true; } } return; }
+		if (text.trim()) hiding = false;
 		const b = run.b || st.b === true, i = run.i || st.i === true;
 		if (run.u && text.trim()) c.found.underlined++;
 		if (i && text.trim()) c.found.italic++;
@@ -146,7 +152,7 @@ function body(xml: string, c: Ctx, into: Map<number, DocxPara[]> | null): DocxPa
 				}
 				break;
 			}
-			case 'w:r': run = { b: false, i: false, s: false, u: false, rStyle: null }; break;
+			case 'w:r': run = { b: false, i: false, s: false, u: false, rStyle: null, vanish: false }; break;
 			case 'w:commentRangeStart': case 'w:commentRangeEnd': if (t) t.p.runs.push({ kind: name === 'w:commentRangeStart' ? 'comment-start' : 'comment-end', id: a['w:id'] ?? '' }); if (name === 'w:commentRangeStart') c.found.comments++; break;
 			case 'w:tab': if (run && t && path[path.length - 2] === 'w:r') push({ kind: 'tab' }); break;
 			case 'w:br': case 'w:cr': if (run && t) push({ kind: 'br', page: a['w:type'] === 'page' }); break;
@@ -166,6 +172,7 @@ function body(xml: string, c: Ctx, into: Map<number, DocxPara[]> | null): DocxPa
 			else if (name === 'w:strike' || name === 'w:dstrike') run.s = on(a['w:val']);
 			else if (name === 'w:u') run.u = on(a['w:val']);
 			else if (name === 'w:rStyle') run.rStyle = a['w:val'] ?? null;
+			else if (name === 'w:vanish' || name === 'w:specVanish') run.vanish = on(a['w:val']);
 		} else if (path.includes('w:pPr')) {
 			const p = cur.p;
 			if (name === 'w:pStyle') p.style = a['w:val'] ?? '';
@@ -210,7 +217,7 @@ export function readDocx(bytes: Uint8Array): DocxFile {
 	const byType = (suffix: string): string | null => { const r = [...pkg.rels.values()].find((x) => !x.external && x.type.endsWith(suffix)); return r ? partText(pkg, r.target) : null; };
 	const stylesXml = byType('/styles') ?? part(`${dir}styles.xml`);
 	const styles = readStyles(stylesXml);
-	const found: DocxFile['found'] = { inserted: 0, deleted: 0, comments: 0, underlined: 0, italic: 0, headers: false, textBoxes: 0, tables: 0, pictures: 0, endnotes: 0 };
+	const found: DocxFile['found'] = { inserted: 0, deleted: 0, comments: 0, underlined: 0, italic: 0, headers: false, textBoxes: 0, tables: 0, pictures: 0, endnotes: 0, hidden: 0 };
 	const c: Ctx = { styles, numbering: readNumbering(byType('/numbering') ?? part(`${dir}numbering.xml`)), rels: pkg.rels, fallback: defaultStyle(stylesXml), found };
 	const mainXml = partText(pkg, pkg.main);
 	if (mainXml === null) throw new Error('This zip file isn’t a Word file: it has no document in it.');

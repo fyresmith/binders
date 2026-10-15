@@ -312,6 +312,19 @@ const body = (seed: string, n = 120) => p(words(n, seed));
 	}
 }
 
+// ---- hidden text is left out, and said ----
+{
+	const styles = STYLES.replace('</w:styles>', '<w:style w:type="character" w:styleId="Secret"><w:name w:val="Secret"/><w:rPr><w:vanish/></w:rPr></w:style></w:styles>');
+	const bytes = docx([H('One'), p(`${r('Seen ')}${r('unseen words ', '<w:vanish/>')}${r('and seen.')}`), p(`${r('Also ')}${r('styled away ', '<w:rStyle w:val="Secret"/>')}${r('seen.')}`), p(r('kept ', '<w:vanish w:val="0"/>') + r('too.')), body('h'), H('Two'), body('i')].join(''), { styles });
+	const { plan } = make(bytes);
+	const text = plan.notes.map((n) => n.body).join('\n');
+	ok(!/unseen|styled away/.test(text), 'hidden: text hidden by hand or by its character style isn\'t brought in');
+	ok(/Seen and seen\./.test(text) && /Also seen\./.test(text) && /kept too\./.test(text), 'hidden: the words around it are, and text whose hiding is turned off is too');
+	ok(plan.said.some((x) => x.text === 'This file has hidden text in 2 places. It isn’t brought in; the original file keeps it.'), 'hidden: how many places is said');
+	same(bytes, plan, 'hidden');
+	ok(!make(docx([H('One'), body('a'), H('Two'), body('b')].join(''))).plan.said.some((x) => /hidden/.test(x.text)), 'hidden: a file with none says nothing of it');
+}
+
 // ---- refused, plainly ----
 {
 	eq(throws(() => readWord(docx(''), 'E.docx', { bytes: docx('') }, { tabs: true })), 'This Word file has no text in it.', 'a file with no text is refused');

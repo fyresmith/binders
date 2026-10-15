@@ -40,6 +40,6 @@ export interface SourceDoc {
 	/** The pictures that are kept (PNG and JPEG): their bytes are inflated when asked for, and only then. */
 	pictures: { ext: string; load(): Uint8Array | null }[];
 	/** `underlined`: underlining is read as italics. `hasUnderline`, `hasItalic`: the file has some. */
-	found: { revisions: number; comments: number; underlined: boolean; hasUnderline: boolean; hasItalic: boolean; headers: boolean; textBoxes: number; tables: number; pictures: number; otherPictures: number; endnotes: number };
+	found: { revisions: number; comments: number; underlined: boolean; hasUnderline: boolean; hasItalic: boolean; headers: boolean; textBoxes: number; tables: number; pictures: number; otherPictures: number; endnotes: number; hidden: number };
 	said: string[];
 }

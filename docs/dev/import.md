@@ -130,6 +130,9 @@ it, so `detect` and `planManuscript` are the same for Word and for Markdown, and
   content control whose `docPartGallery` is "Table of Contents", tables (their paragraphs, in order), text boxes
   (`w:txbxContent`, whose paragraphs are read once: `mc:Fallback` is skipped), a section's end (the next paragraph starts a
   page).
+- **Hidden text** (`w:vanish`, `w:specVanish`, directly or by a character style): left out, each place counted and said
+  (`found.hidden`, "This file has hidden text in N places"); a paragraph whose only words were hidden is none
+  (`DocxPara.hadHidden`). The maintainer's decision, 2026-10-15, for all three formats.
 - **Revisions** (`read.ts` keeps every one, `settle.ts` resolves): `w:ins`, `w:del`, `w:moveFrom`, `w:moveTo`, and a paragraph
   mark's. Import starts with `settle(file, 'final')`: deletions and moved-from text are gone, a deleted paragraph mark joins the
   paragraph to the next. The dialog's **Reject all** chooses `'original'` instead.

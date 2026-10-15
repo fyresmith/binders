@@ -78,6 +78,8 @@ export function settle(file: DocxFile, as: 'final' | 'original', o: SettleOption
 		page = false;
 		// a paragraph whose every run was a deletion is not an empty paragraph the writer typed
 		if (!para.runs.length && p.runs.some((r) => !isMark(r) && gone(r.rev, as))) { page ||= para.pageBefore; continue; }
+		// nor is one whose only words were hidden: it isn't seen, so it isn't an empty line between scenes
+		if (!para.runs.length && p.hadHidden) { page ||= para.pageBefore; continue; }
 		paras.push(para);
 		// a page break that ends a paragraph starts the next on a new page
 		const last = [...p.runs].reverse().find((r): r is DocxRun => !isMark(r));
@@ -95,6 +97,7 @@ export function settle(file: DocxFile, as: 'final' | 'original', o: SettleOption
 	if (pictures.length) said.push(`${pictures.length.toLocaleString()} ${pictures.length === 1 ? 'picture is' : 'pictures are'} kept as files in Research/Attachments, where each stood.`);
 	if (otherPictures) said.push(`${otherPictures.toLocaleString()} ${otherPictures === 1 ? 'picture' : 'pictures'} of a kind other than PNG or JPEG ${otherPictures === 1 ? 'isn’t' : 'aren’t'} brought in.`);
 	if (file.found.endnotes) said.push('Endnotes come in as footnotes.');
+	if (file.found.hidden) said.push(`This file has hidden text in ${file.found.hidden.toLocaleString()} ${file.found.hidden === 1 ? 'place' : 'places'}. It isn’t brought in; the original file keeps it.`);
 	if (underline) said.push(hasItalic ? 'Underlined text is made italic, as you chose.' : 'Underlined text is read as italics: the file has no italics of its own.');
-	return { producer: file.producer, paras, notes, pictures, found: { revisions, comments, underlined: underline, hasUnderline, hasItalic, headers: file.found.headers, textBoxes: file.found.textBoxes, tables: file.found.tables, pictures: pictures.length, otherPictures, endnotes: file.found.endnotes }, said };
+	return { producer: file.producer, paras, notes, pictures, found: { revisions, comments, underlined: underline, hasUnderline, hasItalic, headers: file.found.headers, textBoxes: file.found.textBoxes, tables: file.found.tables, pictures: pictures.length, otherPictures, endnotes: file.found.endnotes, hidden: file.found.hidden }, said };
 }
