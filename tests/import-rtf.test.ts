@@ -139,6 +139,20 @@ function same(plan: ImportPlan, want: string, notes: string, what: string): void
 	ok(!textOf(make(bytes, { tabs: false })).includes('\tShe'), 'TextEdit: without "Start a paragraph with a tab", the tabs go, and that is said');
 }
 
+// ---- real files: what programs really write around the document ----
+{
+	const good = [H('One'), body('a')].join('');
+	const want = ['One', words(120, 'a')].join(' ');
+	// Evernote and some clipboards end the file with a NUL after the last brace; Word and LibreOffice read it all the same
+	same(make(new Uint8Array([...rtf(good), 0])), want, '', 'a NUL after the last brace');
+	same(make(new Uint8Array([...rtf(good), 13, 10, 0, 0])), want, '', 'a line end and NULs after the last brace');
+	// a "}" that closes the document early would drop what follows: refused, as before
+	eq(throws(() => readRtfDocument(strToU8('{\\rtf1\\ansi Hello}\\par more words}'))), 'This rich text file can’t be read: the file is damaged.', 'text after the last brace is still refused');
+	// some programs write no version number, "{\rtf\ansi" (LibreOffice and Word read it)
+	const bare = strToU8(new TextDecoder().decode(rtf(good)).replace('{\\rtf1', '{\\rtf'));
+	same(make(bare), want, '', 'a header with no version number');
+}
+
 // ---- refused, plainly ----
 {
 	eq(throws(() => readRtfDocument(strToU8('Just some text'))), 'This rich text file can’t be read: the file isn’t rich text.', 'refused: not rich text');

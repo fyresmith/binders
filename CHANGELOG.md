@@ -23,6 +23,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - A Word file's continuous section breaks no longer start a page, and a section break on an empty line of its own (as LibreOffice writes one) is no longer taken for a scene break.
 - A story date that isn't in the calendar is refused with the reason ("February has 28 days in 2001.").
 - The import preview no longer leaves a gap under each paragraph for the “Start a note here” button: it shows on hover or keyboard focus, in the space between paragraphs, without moving the text, and is always shown on phones and tablets.
+- Rich text files that end in a stray NUL character, or that give no version number, now import instead of being refused.
 
 ## 0.52.0 (2026-10-12)
 

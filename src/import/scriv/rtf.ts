@@ -31,7 +31,8 @@ export function parse(data: Uint8Array): Group {
 	if (data.length > 32 * 1024 * 1024) throw new Error('the file is larger than 32 MB');
 	let s = '';
 	for (let i = 0; i < data.length; i += 8192) s += String.fromCharCode(...data.subarray(i, i + 8192));
-	if (!/^\{\\rtf1\b/.test(s)) throw new Error('the file isn’t rich text');
+	// (some programs write no version number, "{\rtf\ansi"; and a NUL after the last brace, which is no part of the file)
+	if (!/^\{\\rtf(?![a-z])/i.test(s)) throw new Error('the file isn’t rich text');
 	let at = 0, count = 0;
 	const group = (depth: number): Group => {
 		if (depth > 100 || ++count > 500_000) throw new Error('the file is nested too deeply to read');
@@ -71,7 +72,7 @@ export function parse(data: Uint8Array): Group {
 		throw new Error(CUT);
 	};
 	const root = group(0);
-	if (s.slice(at).trim()) throw new Error(DAMAGED);
+	if ([...s.slice(at)].some((ch) => ch > ' ')) throw new Error(DAMAGED);
 	return root;
 }
 
