@@ -35,6 +35,12 @@ export function docToScan(doc: SourceDoc, o: { tabs: boolean }): ManuscriptRead[
 	const said = [...doc.said];
 	let text = '', empties = 0, page = false, tabbed = false, prevList = false, headingNotes = 0;
 	const units: Unit[] = [];
+	// The size most of the book is set in, by its letters: a short line set larger is a sign of a heading, as bold is
+	// (never a heading by itself). Only when the file says what sizes its text is in.
+	const sizes = new Map<number, number>();
+	for (const p of doc.paras) if (p.size) sizes.set(p.size, (sizes.get(p.size) ?? 0) + p.runs.reduce((n, r) => n + (r.kind === 'text' ? r.text.length : 0), 0));
+	const body = [...sizes].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+	const large = (p: Para): boolean => !!body && !!p.size && p.size >= body * 1.2 && p.size - body >= 4;
 	/** A paragraph's runs, for a heading with its breaks as " - " and without what isn't a name (a comment, a picture). */
 	const runsOf = (p: Para, heading: boolean) => p.runs.filter((r) => !heading || (r.kind !== 'comment' && r.kind !== 'picture')).map((r, i, all) => (heading && r.kind === 'br' ? { kind: 'text' as const, text: i > 0 && i < all.length - 1 ? ' - ' : '', b: false, i: false, s: false } : r));
 	const md = (p: Para, heading: boolean, nested = false): string => runsToMarkdown(runsOf(p, heading), (n) => doc.notes[n].map((q) => md(q, false, true)).filter(Boolean).join(' '), nested);
@@ -67,7 +73,7 @@ export function docToScan(doc: SourceDoc, o: { tabs: boolean }): ManuscriptRead[
 		const caps = isCaps(t);
 		const bold = p.runs.every((r) => r.kind !== 'text' || !r.text.trim() || r.b);
 		units.push(unit(t, {
-			heading: level, raw: level !== null ? body : undefined, pageBefore: p.pageBefore || page, centered: p.align === 'center', emphatic: (bold && wordCount(t) > 0) || caps,
+			heading: level, raw: level !== null ? body : undefined, pageBefore: p.pageBefore || page, centered: p.align === 'center', emphatic: ((bold || large(p)) && wordCount(t) > 0) || caps,
 			marker, gap: 1 + empties, toc: p.toc, start, end: text.length, words: marker ? 0 : wordCount(t), empty: false,
 		}));
 		empties = 0;

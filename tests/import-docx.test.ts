@@ -312,6 +312,23 @@ const body = (seed: string, n = 120) => p(words(n, seed));
 	}
 }
 
+// ---- larger text: a sign of a heading, as bold is, never a heading by itself ----
+{
+	const sized = (sz: number) => (c: string, k: number) => [p(`<w:r><w:br w:type="page"/></w:r>${r(c, `<w:sz w:val="${sz}"/>`)}`), body(`z${k}`)];
+	const book = (sz: number) => docx(['The Storm', 'The Calm', 'The End'].flatMap(sized(sz)).join(''), { styles: STYLES.replace('<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style>', '<w:docDefaults><w:rPrDefault><w:rPr><w:sz w:val="24"/></w:rPr></w:rPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style>') });
+	const { found, plan } = make(book(36));
+	eq(found.signal, 'pages', 'larger text: plain 18 pt lines after page breaks, in a book set in 12 pt, start chapters');
+	eq(rows(plan), 'The Storm\nThe Calm\nThe End', 'larger text: the chapters are named by those lines');
+	same(book(36), plan, 'larger text');
+	eq(make(book(26)).found.signal, 'none', 'larger text: a line only a point larger is no sign');
+	eq(make(book(24)).found.signal, 'none', 'larger text: the same lines at the body size are no sign');
+	// by the paragraph's style, with the size the file sets as its default
+	const styled = docx(['The Storm', 'The Calm'].flatMap((c, k) => [p(`<w:r><w:br w:type="page"/></w:r>${r(c)}`, { style: 'Big' }), body(`y${k}`)]).join(''), { styles: STYLES.replace('</w:styles>', '<w:style w:type="paragraph" w:styleId="Big"><w:name w:val="Big"/><w:rPr><w:sz w:val="40"/></w:rPr></w:style></w:styles>') });
+	eq(make(styled).found.signal, 'pages', 'larger text: a size from the paragraph\'s style is read too');
+	// without a page break before it, a larger line is no chapter: it is only a sign
+	eq(make(docx([body('a'), p(r('The Storm', '<w:sz w:val="48"/>')), body('b'), p(r('The Calm', '<w:sz w:val="48"/>')), body('c')].join(''))).found.signal, 'none', 'larger text: alone, it starts no chapter');
+}
+
 // ---- sections: how the next one starts, and the paragraph that only marks where one ends ----
 {
 	const end = (type?: string) => `<w:p><w:pPr><w:sectPr>${type ? `<w:type w:val="${type}"/>` : ''}</w:sectPr></w:pPr></w:p>`;

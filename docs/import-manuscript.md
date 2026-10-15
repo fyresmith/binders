@@ -72,7 +72,10 @@ Binders tries these in order, and uses the first that finds two or more chapters
 2. **Lines like "Chapter 12".** A short line, with no full stop, that reads as a title: "Chapter 3", "CHAPTER THREE",
    "Chapter 3: The storm", "Prologue", "Epilogue". A number alone on its line is one only if it is centered or comes
    after a page break (a form feed, in a text file). A typed list of contents isn't taken for chapters.
-3. **Page breaks.** In a text file, a form feed before a short centered or capital line.
+3. **Page breaks.** A short centered, bold, capital or larger line after a page break (in a text file, a form feed).
+
+In a Word file, a line set larger than the book's text (a fifth larger, and at least 2 points) counts as bold does: it
+is a sign of a chapter's title, beside a page break or words like "Chapter 12", and never starts a chapter by itself.
 
 If there are none, the whole text comes in as **one note**, and the dialog says so. Binders never cuts by length:
 split it where you like with **Split scene at cursor**.

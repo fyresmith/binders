@@ -30,6 +30,8 @@ export interface Para {
 	inTable: boolean;
 	/** The file numbers it (a heading may then have no text). */
 	numbered: boolean;
+	/** The size most of its text is set in, in half-points, when the file says (a sign of a heading, beside bold). */
+	size: number | null;
 }
 
 export interface SourceDoc {

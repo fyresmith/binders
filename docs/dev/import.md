@@ -135,6 +135,10 @@ it, so `detect` and `planManuscript` are the same for Word and for Markdown, and
 - **Hidden text** (`w:vanish`, `w:specVanish`, directly or by a character style): left out, each place counted and said
   (`found.hidden`, "This file has hidden text in N places"); a paragraph whose only words were hidden is none
   (`DocxPara.hadHidden`). The maintainer's decision, 2026-10-15, for all three formats.
+- **Size** (`w:sz`, the run's, its character style's, its paragraph style's, then `w:docDefaults`, else 10 pt): each
+  paragraph carries the size most of its letters are in (`Para.size`). `docToScan` takes the size most of the book's
+  letters are in as the body's, and a paragraph at least 1.2 times that and 2 pt larger is `emphatic`, as a bold one is: a
+  sign for R2 and R3, never a heading by itself (the maintainer's decision, 2026-10-15, for all three formats).
 - **Revisions** (`read.ts` keeps every one, `settle.ts` resolves): `w:ins`, `w:del`, `w:moveFrom`, `w:moveTo`, and a paragraph
   mark's. Import starts with `settle(file, 'final')`: deletions and moved-from text are gone, a deleted paragraph mark joins the
   paragraph to the next. The dialog's **Reject all** chooses `'original'` instead.

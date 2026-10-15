@@ -23,7 +23,8 @@ export function settle(file: DocxFile, as: 'final' | 'original', o: SettleOption
 	const kept = (p: DocxPara): (DocxRun | DocxMark)[] => p.runs.filter((r) => isMark(r) || !gone(r.rev, as));
 
 	const convert = (p: DocxPara, runs: (DocxRun | DocxMark)[], deep: boolean): Para => {
-		const out: Run[] = [];
+		const out: Run[] = [], sizes = new Map<number, number>();
+		for (const r of runs) if (!isMark(r) && r.kind === 'text' && r.sz) sizes.set(r.sz, (sizes.get(r.sz) ?? 0) + r.text.trim().length);
 		let leadTab = false, pageFirst = false;
 		for (const r of runs) {
 			if (isMark(r)) {
@@ -62,7 +63,7 @@ export function settle(file: DocxFile, as: 'final' | 'original', o: SettleOption
 				out.push({ kind: 'note', note: at });
 			}
 		}
-		return { runs: out, style: p.style, outline: p.outline, align: p.align, pageBefore: p.pageBefore || pageFirst, indent: p.indent, list: p.list ? { level: p.list.level, ordered: p.list.ordered } : null, leadTab, toc: p.toc, inTable: p.inTable, numbered: p.numbered };
+		return { runs: out, style: p.style, outline: p.outline, align: p.align, pageBefore: p.pageBefore || pageFirst, indent: p.indent, list: p.list ? { level: p.list.level, ordered: p.list.ordered } : null, leadTab, toc: p.toc, inTable: p.inTable, numbered: p.numbered, size: [...sizes].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null };
 	};
 
 	const paras: Para[] = [];

@@ -1,5 +1,5 @@
 import { partText, readPackage, type Package } from './package';
-import { defaultStyle, readNumbering, readStyles, resolve, type Numbering, type Styles } from './styles';
+import { defaultSize, defaultStyle, readNumbering, readStyles, resolve, type Numbering, type Styles } from './styles';
 import { events } from './xml';
 
 /* A .docx read into paragraphs, exactly as the file has them, with every tracked change and comment anchor still
@@ -13,7 +13,7 @@ import { events } from './xml';
 
 export interface Rev { kind: 'ins' | 'del' | 'moveFrom' | 'moveTo'; author: string; date: string; id: string }
 export type DocxRun = (
-	| { kind: 'text'; text: string; b: boolean; i: boolean; s: boolean; u: boolean; href?: string }
+	| { kind: 'text'; text: string; b: boolean; i: boolean; s: boolean; u: boolean; href?: string; /** In half-points, where the file says. */ sz?: number | null }
 	| { kind: 'tab' }
 	| { kind: 'br'; page: boolean }
 	| { kind: 'note'; id: number; end: boolean }
@@ -63,7 +63,7 @@ export const MAX_PARAS = 500_000;
 const on = (v: string | undefined): boolean => v === undefined || !/^(0|false|off|none)$/i.test(v);
 const int = (v: string | undefined): number => { const n = Number(v); return Number.isFinite(n) ? Math.trunc(n) : 0; };
 
-interface Ctx { styles: Styles; numbering: Numbering; rels: Package['rels']; fallback: string; found: DocxFile['found'] }
+interface Ctx { styles: Styles; numbering: Numbering; rels: Package['rels']; fallback: string; found: DocxFile['found']; size: number }
 
 /** One part's paragraphs. `into`: where a footnote's or endnote's paragraphs go, by id (the main part: null). */
 function body(xml: string, c: Ctx, into: Map<number, DocxPara[]> | null): DocxPara[] {
@@ -76,7 +76,7 @@ function body(xml: string, c: Ctx, into: Map<number, DocxPara[]> | null): DocxPa
 	// section's to say (a new page unless it is "continuous").
 	const ends: number[] = [], types: string[] = [];
 	let hiding = false;
-	let run: { b: boolean; i: boolean; s: boolean; u: boolean; rStyle: string | null; vanish: boolean } | null = null, collecting: 't' | 'instr' | null = null;
+	let run: { b: boolean; i: boolean; s: boolean; u: boolean; rStyle: string | null; sz: number | null; vanish: boolean } | null = null, collecting: 't' | 'instr' | null = null;
 	const top = () => stack[stack.length - 1];
 	const tocNow = () => fields.some((f) => /^\s*TOC\b/i.test(f.instr)) || sdts.some(Boolean);
 	const rev = (): Rev | undefined => revs[revs.length - 1];
@@ -88,15 +88,15 @@ function body(xml: string, c: Ctx, into: Map<number, DocxPara[]> | null): DocxPa
 		// hidden text is left out, and each place counted (a hidden passage is often split over several runs)
 		if (run.vanish || st.vanish === true) { if (text.trim()) { t.p.hadHidden = true; if (!hiding) { c.found.hidden++; hiding = true; } } return; }
 		if (text.trim()) hiding = false;
-		const b = run.b || st.b === true, i = run.i || st.i === true;
+		const b = run.b || st.b === true, i = run.i || st.i === true, sz = run.sz ?? st.sz;
 		if (run.u && text.trim()) c.found.underlined++;
 		if (i && text.trim()) c.found.italic++;
 		const last = t.p.runs[t.p.runs.length - 1];
-		const r: DocxRun = { kind: 'text', text, b, i, s: run.s, u: run.u, ...(href ? { href } : {}) };
+		const r: DocxRun = { kind: 'text', text, b, i, s: run.s, u: run.u, sz, ...(href ? { href } : {}) };
 		const v = rev();
 		if (v) r.rev = v;
 		// (runs that are alike are one: Word splits a word at every edit)
-		if (last && last.kind === 'text' && !('id' in last) && last.b === b && last.i === i && last.s === run.s && last.u === run.u && last.href === r.href && last.rev === r.rev) last.text += text;
+		if (last && last.kind === 'text' && !('id' in last) && last.b === b && last.i === i && last.s === run.s && last.u === run.u && last.sz === sz && last.href === r.href && last.rev === r.rev) last.text += text;
 		else t.p.runs.push(r);
 		t.tocAtStart ||= tocNow();
 	};
@@ -161,7 +161,7 @@ function body(xml: string, c: Ctx, into: Map<number, DocxPara[]> | null): DocxPa
 				}
 				break;
 			}
-			case 'w:r': run = { b: false, i: false, s: false, u: false, rStyle: null, vanish: false }; break;
+			case 'w:r': run = { b: false, i: false, s: false, u: false, rStyle: null, sz: null, vanish: false }; break;
 			case 'w:commentRangeStart': case 'w:commentRangeEnd': if (t) t.p.runs.push({ kind: name === 'w:commentRangeStart' ? 'comment-start' : 'comment-end', id: a['w:id'] ?? '' }); if (name === 'w:commentRangeStart') c.found.comments++; break;
 			case 'w:tab': if (run && t && path[path.length - 2] === 'w:r') push({ kind: 'tab' }); break;
 			case 'w:br': case 'w:cr': if (run && t) push({ kind: 'br', page: a['w:type'] === 'page' }); break;
@@ -181,6 +181,7 @@ function body(xml: string, c: Ctx, into: Map<number, DocxPara[]> | null): DocxPa
 			else if (name === 'w:strike' || name === 'w:dstrike') run.s = on(a['w:val']);
 			else if (name === 'w:u') run.u = on(a['w:val']);
 			else if (name === 'w:rStyle') run.rStyle = a['w:val'] ?? null;
+			else if (name === 'w:sz') { const n = int(a['w:val']); run.sz = n > 0 ? n : null; }
 			else if (name === 'w:vanish' || name === 'w:specVanish') run.vanish = on(a['w:val']);
 		} else if (path.includes('w:pPr')) {
 			const p = cur.p;
@@ -218,6 +219,8 @@ function styled(paras: DocxPara[], c: Ctx): void {
 		delete direct.directInd;
 		if (p.list) p.list.ordered = c.numbering.ordered(p.list.id, p.list.level);
 		p.numbered = !!p.list || st.numbered === true;
+		// (a run that names no size has its paragraph style's, else the file's default)
+		for (const r of p.runs) if (r.kind === 'text' && r.sz == null) r.sz = st.sz ?? c.size;
 	}
 }
 
@@ -229,7 +232,7 @@ export function readDocx(bytes: Uint8Array): DocxFile {
 	const stylesXml = byType('/styles') ?? part(`${dir}styles.xml`);
 	const styles = readStyles(stylesXml);
 	const found: DocxFile['found'] = { inserted: 0, deleted: 0, comments: 0, underlined: 0, italic: 0, headers: false, textBoxes: 0, tables: 0, pictures: 0, endnotes: 0, hidden: 0 };
-	const c: Ctx = { styles, numbering: readNumbering(byType('/numbering') ?? part(`${dir}numbering.xml`)), rels: pkg.rels, fallback: defaultStyle(stylesXml), found };
+	const c: Ctx = { styles, numbering: readNumbering(byType('/numbering') ?? part(`${dir}numbering.xml`)), rels: pkg.rels, fallback: defaultStyle(stylesXml), found, size: defaultSize(stylesXml) };
 	const mainXml = partText(pkg, pkg.main);
 	if (mainXml === null) throw new Error('This zip file isn’t a Word file: it has no document in it.');
 	const paras = body(mainXml, c, null);
