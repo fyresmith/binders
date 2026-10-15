@@ -274,6 +274,20 @@ here; that is what keeps the next round short.
   - A `Menu`'s rows can't be reached from a script by building one and calling `onPaneMenu`: click the view's own
     "More options" button and the row by its title.
 
+- Learned designing binder templates (2026-10-15; the round is under "Rounds" below):
+  - The binder note already has a `structure` property (export's rule for parts, chapters and scenes): what a new
+    binder starts from is called a "template" where a writer reads it, not a "structure".
+  - Obsidian's Templates plugin keeps its folder and date formats in `internalPlugins.getEnabledPluginById('templates')
+    .options` (no API); it fills `{{title}}`, `{{date}}`, `{{time}}` and `{{date:FORMAT}}` over the whole text,
+    properties included, case aside. `app.emulateMobile` reloads plugins, so that option set in memory is lost: set it
+    again after.
+  - A `SuggestModal` on a phone is Obsidian's mobile prompt (the field at the foot) with no work of ours: the cheapest
+    native choice by touch.
+  - A notice on a phone lies over the top of the file explorer: shown while a new binder's name is typed there, it
+    took the tap meant for the binder's row. Undo is offered there by the binder's own toolbar instead.
+  - A note with `binder` in its properties makes its folder a binder: a template note can't carry it, so a binder kept
+    in the templates folder is a binder template, never a note template.
+
 **Rejected, don't propose again:** a colored stripe along the top of a card, pill chips, thin accent or progress
 lines, decoration for its own sake, anything on a card that isn't the writer's own (no badges for snapshots and the
 like). The maintainer's word for these was "AI generated".
@@ -446,6 +460,17 @@ and B, a rule across the page where an era begins, the years carrying its short 
   put right: a date written then would be in a calendar the writer didn't mean.
 - **Given up:** B; a date written with its era (`12 LQ`) or its month's name, which would need notes rewritten when
   an era or a month is renamed; an era that starts on a day; weekdays; a calendar note shared by several binders.
+
+**Binder templates and templates for new notes (2026-10-15).** Roadmap item 6. Two ways to offer a template in New
+binder were built: A, Obsidian's own prompt ("Insert template"'s), "Empty binder" first so Enter is what New binder
+always made; B, the two-pane dialog with a preview of the binder a template makes. He chose A and every recommendation
+of the round: "template" where a writer reads it (the binder note's `structure` is export's); the writer's templates
+are binders (or Longform projects) in Obsidian's templates folder, no setting of our own; "Save as binder template"
+keeps everything but snapshots, the record and, unless ticked, the notes' text; Binders' own two are Chapters and
+scenes and Three acts, a prompt being a synopsis; a folder's `template` is inherited, an empty one says none; it is
+used by notes made by hand in Binders only; `{{title}}` is filled with the name typed; Templater's commands are copied,
+never run, and its write on creation is part of making the note; a new binder is one change Undo takes away while it
+is as made. Given up: B's preview, a row in the Inspector or a line on a card for a folder's template.
 
 ## How a design round runs: narrow, then build
 

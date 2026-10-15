@@ -1,6 +1,7 @@
 // The core file explorer: binder order, hidden binder and folder notes, the binder icon, click to open, dragging to
 // reorder, mobile.
 import { contents } from './view-helpers.mjs';
+import { startEmpty } from './menu-routes.mjs';
 
 export const specs = [];
 const test = (name, fn) => specs.push({ name: 'explorer: ' + name, fn });
@@ -372,7 +373,7 @@ test('a click that opens a folder’s view doesn’t fold it; once its view is i
 	t.eq(await collapsed('The Lighthouse'), false, 'and another unfolds it');
 });
 
-test('“New binder” in the menu of the explorer’s empty space, and of a folder outside binders: a binder, its name ready to type', async (p, h, t) => {
+test('“New binder” in the menu of the explorer’s empty space, and of a folder outside binders: Enter in its prompt makes an empty binder, its name ready to type', async (p, h, t) => {
 	await rows(p);
 	const items = () => p.ev(`[...document.querySelectorAll('.menu .menu-item-title')].map(e => e.textContent)`);
 	const pane = await p.at('.workspace-leaf-content[data-type="file-explorer"] .nav-files-container');
@@ -381,7 +382,8 @@ test('“New binder” in the menu of the explorer’s empty space, and of a fol
 	t.ok(list.includes('New binder'), 'the empty space’s menu has it: ' + list.join(', '));
 	t.ok(list.indexOf('New binder') > list.indexOf('New note') && list.indexOf('New note') >= 0, 'with “New note” and “New folder”');
 	await p.ev(`(() => { [...document.querySelectorAll('.menu .menu-item')].find(e => e.querySelector('.menu-item-title')?.textContent === 'New binder').click(); return 1; })()`);
-	await p.sleep(700);
+	t.ok(await startEmpty(p), 'it asks what the binder starts from, and Enter takes “Empty binder”');
+	await p.sleep(400);
 	try {
 		t.ok(await p.ev(`${pl}.binders.isBinderFolder(app.vault.getAbstractFileByPath('Untitled binder'))`), 'a new folder that is a binder');
 		t.ok(await p.ev(`!!document.activeElement?.closest('.nav-folder-title[data-path="Untitled binder"]') && document.activeElement.isContentEditable`), 'its name is ready to type over');

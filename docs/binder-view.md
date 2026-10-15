@@ -39,7 +39,7 @@ From left to right:
 | **Undo** and **Redo** | Take back and make again the last change made by hand to the binder. Dimmed when there is nothing to do; the tooltip says what it would do. On a narrow pane **Redo** is in **More options** instead, and on a touch screen in a pane under about 300 px so is **Undo**. See [Undo and redo](undo.md) |
 | **Arrange** | On the corkboard: lays the cards out in a grid or by label. See [Corkboard](corkboard.md#arrange-by-label). On the timeline: which way time runs, down or across. See [Timeline](timeline.md#time-down-or-across) |
 | **Filter** | Shows only the notes that match conditions on any property, in all four modes ([Filters](filters.md)) |
-| **New** | Makes a new note or a new folder (on the timeline, a note) |
+| **New** | Makes a new note or a new folder (on the timeline, a note); with a templates folder, also a note from a template, and the template this folder's new notes start from (see [Templates](templates.md)) |
 | The focus button | Manuscript only, at the end of the toolbar: goes into [focus mode](focus-mode.md) |
 
 On a phone the buttons show their icons alone.

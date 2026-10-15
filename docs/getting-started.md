@@ -12,7 +12,8 @@ A binder is a folder whose notes and subfolders keep the order you give them.
 To start a new one:
 
 1. Right-click empty space in the file explorer and choose **New binder**. (Or run **New binder** from the command
-   palette.)
+   palette.) It asks what to start from: press **Enter** for an empty binder, or pick a template such as **Chapters
+   and scenes** or **Three acts** (see [Templates](templates.md)).
 2. A folder named "Untitled binder" appears with its name ready to type over. Call it after your book, say
    "The Lighthouse", and press Enter.
 

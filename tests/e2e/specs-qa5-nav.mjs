@@ -9,7 +9,7 @@
 //
 // QA5_SHOTS=<dir> saves screenshots of every step there; QA5_LOG=1 prints what each scenario measured.
 import { mkdirSync } from 'fs';
-import { throughDrawers } from './menu-routes.mjs';
+import { startEmpty, throughDrawers } from './menu-routes.mjs';
 import { B, PL, VIEW, card, closeMenus, contents, flush, j, menuItems, openView, read, reload, texts, tidy, until, viewState } from './view-helpers.mjs';
 
 export const specs = [];
@@ -295,6 +295,7 @@ test('phone explorer: “New binder” makes one where the list is, its name sel
 		await showExplorer(p, []);
 		await emptyMenu(p);
 		t.ok(await menuTap(p, 'New binder'), 'New binder');
+		t.ok(await startEmpty(p, { tap: true }), 'it asks what the binder starts from; a tap on “Empty binder”');
 		await until(p, `document.activeElement?.isContentEditable`, 4000);
 		await p.sleep(500);
 		await shot(p, 'new-binder-naming');
@@ -340,6 +341,7 @@ bug('phone explorer: a binder made by “New binder” and named has its binder 
 		await showExplorer(p, []);
 		await emptyMenu(p);
 		await menuTap(p, 'New binder');
+		await startEmpty(p, { tap: true });
 		await until(p, `document.activeElement?.isContentEditable`, 4000);
 		await p.sleep(500);
 		await p.type('My book');
@@ -1593,7 +1595,7 @@ bug6('phone: “New binder” from the command palette shows the binder it made,
 		const list = await palette(p, 'New binder');
 		const hit = await p.ev(`(() => { const e = [...document.querySelectorAll('.prompt .suggestion-item')].find(e => /New binder/.test(e.textContent)); if (!e) return null; const r = e.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
 		f.offered = list.some((x) => /New binder/.test(x));
-		if (hit) await tap(p, hit.x, hit.y); else await closePalette(p);
+		if (hit) { await tap(p, hit.x, hit.y); await startEmpty(p, { tap: true }); } else await closePalette(p);
 		await until(p, `!!app.vault.getAbstractFileByPath('Untitled binder')`, 4000);
 		await p.sleep(2000);
 		await shot(p, 'qa6-new-binder-from-palette');

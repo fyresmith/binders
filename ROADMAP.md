@@ -63,8 +63,12 @@ Added in 0.52.0:
 
 ## Implemented on main, not yet released
 
-Nothing yet: everything built is in 0.52.0. See [Unreleased](CHANGELOG.md#unreleased) for changes that will ship
-together once there are any.
+See [Unreleased](CHANGELOG.md#unreleased) for the changes that will ship together.
+
+- [x] **Binder templates and templates for new notes:** New binder starts from an empty binder, chapters and
+      scenes, three acts, or a binder of the writer's own kept in the templates folder; "Save as binder template";
+      a folder chooses a template note for its new notes, inherited by its subfolders. Undo takes a new binder or
+      note away while it is as made. [Templates](docs/templates.md)
 
 ## Features before 1.0
 
@@ -143,8 +147,9 @@ agrees with the underlying counts, and stays useful in a novel-sized binder with
 
 ### 6. Binder structures and scene templates
 
-- [ ] Offer optional structures in New binder: a chapter-and-scene skeleton, three acts, or the writer's own saved
+- [x] Offer optional structures in New binder: a chapter-and-scene skeleton, three acts, or the writer's own saved
       binder, with its folders, synopses and targets. Let a folder choose a template note for new scenes.
+      Implemented on main (called "templates" where a writer reads it: [Templates](docs/templates.md)).
 
 Structures are plain binders, saved and shared as such. Templates are ordinary notes with properties and optional
 planning prompts; follow Obsidian's template conventions. Complete when a structure or template can be inspected

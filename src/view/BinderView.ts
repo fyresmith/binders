@@ -1,3 +1,4 @@
+import { saveTemplateDialog } from './template-items';
 import { FileSystemAdapter, ItemView, Keymap, Menu, Notice, Platform, Scope, type Events, TFile, TFolder, setIcon, type PaneType, type TAbstractFile, type ViewStateResult, type WorkspaceLeaf } from 'obsidian';
 import type { Binder } from '../binders';
 import { ExportModal } from './export';
@@ -396,6 +397,9 @@ export class BinderView extends ItemView {
 				}, menu);
 			});
 			else menu.addItem((i) => i.setSection('binders-book').setTitle('Export...').setIcon('book-up').onClick(() => new ExportModal(this.plugin, folder).open()));
+			// (the binder's own view: the whole binder, kept as a template for New binder; a phone's sheet is full, and has it in the file explorer's menu)
+			const own = this.store.binderOf(folder);
+			if (!Platform.isPhone && own && own.kind === 'binder' && own.folder === folder && !own.problem) menu.addItem((i) => i.setSection('binders-book').setTitle('Save as binder template...').setIcon('copy-plus').onClick(() => saveTemplateDialog(this.plugin, own)));
 			const note = this.store.folderNote(folder), binder = this.store.binderOf(folder)?.folder === folder;
 			menu.addItem((i) => i.setSection('binders-note').setTitle('Show progress').setIcon(PROGRESS_ICON).onClick(() => new ProgressModal(this.plugin, folder).open()));
 			// (the whole book as a list in the sidebar, with where this view is)

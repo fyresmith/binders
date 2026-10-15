@@ -1,6 +1,6 @@
 import { drawValue, hasWidgets, kindOf } from './inspector/property-widgets';
 import { foundExtension } from './find/highlight';
-import { Keymap, MarkdownView, Notice, Platform, Plugin, TFile, TFolder, addIcon, normalizePath, type Menu, type PaneType, type TAbstractFile, type WorkspaceLeaf } from 'obsidian';
+import { Keymap, MarkdownView, Notice, Platform, Plugin, TFile, TFolder, addIcon, type Menu, type PaneType, type TAbstractFile, type WorkspaceLeaf } from 'obsidian';
 import { BinderStore, type Binder } from './binders';
 import { BY_LABEL, BinderView, MODES, VIEW_TYPE } from './view/BinderView';
 import { ITEM_MENU } from './view/actions';
@@ -45,6 +45,9 @@ import { FolderSnapshotsModal, takeFolder } from './view/binder-snapshots';
 import { showInterrupted } from './view/bring-back';
 import { bringBackNow, deleteFolderSnapshot, folderSnapshots, hasSnapshots, makeFromSnapshot, nameFolderSnapshot, type FolderSnapshot } from './binder-snapshots';
 import { LeftoversModal, SNAPSHOT_VIEW, SnapshotView, SnapshotsModal, folderSnapshotItems, snapshotItems, startRewrite, take } from './view/snapshots';
+import { newBinder as newBinderChoice } from './view/new-binder';
+import { saveTemplateDialog } from './view/template-items';
+import { saveAs } from './structures';
 
 /* The plugin: builds the store, the explorer patch, the binder view and its modes, focus mode and the settings tab;
    registers the commands and the items Binders adds to Obsidian's file menus; and opens a binder view. It holds no logic
@@ -180,7 +183,7 @@ export default class BindersPlugin extends Plugin {
 		// a binder from nothing: beside the note that's open if that's outside a binder, else at the top of the vault
 		this.addCommand({ id: 'new-binder', name: 'New binder', icon: 'book', callback: () => {
 			const file = active(), parent = file?.parent && !this.binders.binderOf(file) ? file.parent : this.app.vault.getRoot();
-			void this.newBinder(parent);
+			this.newBinder(parent);
 		} });
 		this.addCommand({ id: 'new-scene', name: 'New scene here', checkCallback: (checking) => {
 			const file = active(), folder = this.folderOf(file);
@@ -393,7 +396,7 @@ export default class BindersPlugin extends Plugin {
 		}
 		// (beside "New note" and "New folder", wherever those are offered outside a binder: the vault's own menu too)
 		if (file instanceof TFolder && !b.binderOf(file)) {
-			menu.addItem((i) => i.setSection('action-primary').setTitle('New binder').setIcon('book').onClick(() => void this.newBinder(file)));
+			menu.addItem((i) => i.setSection('action-primary').setTitle('New binder').setIcon('book').onClick(() => this.newBinder(file)));
 		}
 		// a note outside a binder, made into one: the note is the source and is left as it is
 		if (file instanceof TFile && file.extension === 'md' && !b.binderOf(file)) {
@@ -406,6 +409,8 @@ export default class BindersPlugin extends Plugin {
 		if (file instanceof TFolder && b.binderOf(file) && !b.problem(file)) {
 			menu.addItem((i) => i.setSection('action-primary').setTitle('New scene here').setIcon('file-plus').onClick(() => void this.newScene(file)));
 		}
+		// (a binder's own folder, or the folder a Longform project's index note is in)
+		{ const own = file instanceof TFolder ? b.all().find((x) => (x.kind === 'binder' ? x.folder : x.note.parent) === file) : null; if (own && !own.problem) menu.addItem((i) => i.setSection('action').setTitle('Save as binder template...').setIcon('copy-plus').onClick(() => saveTemplateDialog(this, own))); }
 		if (file instanceof TFolder && b.binderOf(file)) menu.addItem((i) => i.setSection('action').setTitle('Export...').setIcon('book-up').onClick(() => new ExportModal(this, file).open()));
 		// a note in a binder: its card, and a new note right after it
 		const folder = file.parent;
@@ -479,18 +484,31 @@ export default class BindersPlugin extends Plugin {
 	}
 
 	/** A new folder in `parent` that's a binder from the start, its name ready to type in the file explorer. */
-	private async newBinder(parent: TFolder) {
-		const { vault } = this.app, at = (name: string) => normalizePath(`${parent.path}/${name}`);
-		let name = 'Untitled binder';
-		for (let n = 1; vault.getAbstractFileByPath(at(name)); n++) name = `Untitled binder ${n}`;
-		const folder = await this.tell(vault.createFolder(at(name)));
-		if (!folder || !(await this.tell(this.binders.makeBinder(folder)))) return;
-		this.later(() => {
-			// (once the explorer has its row) its name ready to type there; with the explorer out of sight (the command,
-			// with a phone's drawer shut), the new binder opens instead, so there's something to see
-			if (!renameInExplorer(this.app, folder)) void this.openBinder(folder);
-		}, 100);
+	/** "New binder": what it starts from is asked (view/new-binder.ts), then the binder is made in `parent` and its name
+	    is ready to type in the file explorer; with the explorer out of sight (the command, with a phone's drawer shut),
+	    the binder opens instead, so there's something to see. Undo is a click away, in a notice, as after a delete. */
+	private newBinder(parent: TFolder): void {
+		newBinderChoice(this, parent, (folder) => {
+			// (not on a phone: there a notice lies over the top of the file explorer, on the rows a tap is meant for,
+			// while the name is typed; Undo is in the new binder's toolbar)
+			if (!Platform.isPhone) this.madeNotice(folder);
+			// (once the explorer has its row)
+			this.later(() => { if (!renameInExplorer(this.app, folder)) void this.openBinder(folder); }, 100);
+		});
 	}
+
+	/** "Made “Untitled binder”." with Undo in it, as after a delete. */
+	private madeNotice(folder: TFolder): void {
+		let n: Notice | null = null;
+		const undoable = !!this.binders.undoable(folder);
+		n = new Notice(createFragment((f) => {
+			f.createSpan({ text: `Made “${folder.name}”.` });
+			if (undoable) f.createEl('button', { text: 'Undo', cls: 'binders-notice-undo' }).addEventListener('click', () => { n?.hide(); void this.undoMove(folder, false); });
+		}), 8000);
+	}
+
+	/** Saves a binder as a binder template (structures.ts): "Save as binder template...". */
+	saveBinderTemplate(binder: Binder, name: string, text: boolean): Promise<TFolder> { return saveAs(this, binder, name, text); }
 
 	private async newScene(folder: TFolder, index?: number) {
 		const file = await this.tell(this.binders.newSceneByHand(folder, index));

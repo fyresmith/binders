@@ -1,3 +1,4 @@
+import { templateRows } from './template-items';
 import { Keymap, Menu, Notice, TFile, setIcon, type PaneType, type TAbstractFile } from 'obsidian';
 import { emptyState, itemMenu, plain, removeItems, renameItem, setStory } from './actions';
 import { buildCard, cardKey, overPane, owedFocus, typingNow, type CardEditors, type CardHost } from './card';
@@ -384,6 +385,7 @@ class Timeline implements BinderMode {
 
 	newMenu(menu: Menu): void {
 		menu.addItem((i) => i.setSection('new').setTitle('New note').setIcon('file-plus').onClick(() => this.create('note')));
+		templateRows(this.ctx.plugin, menu, this.ctx.folder, () => this.create('note'));
 	}
 
 	filterChanged(): void { this.made.clear(); }

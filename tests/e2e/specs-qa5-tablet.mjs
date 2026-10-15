@@ -12,7 +12,7 @@
 // is the stack's.
 import { tapToggle, tapClear } from './filter-helpers.mjs';
 import { mkdirSync } from 'fs';
-import { menuItemsAllTouch, throughDrawers } from './menu-routes.mjs';
+import { menuItemsAllTouch, startEmpty, throughDrawers } from './menu-routes.mjs';
 import { B, PL, VIEW, card, closeMenus, contents, flush, j, menuItems, openView, read, reload, split, texts, tidy, until, viewState } from './view-helpers.mjs';
 
 export const specs = [];
@@ -322,6 +322,7 @@ for (const [dev, size] of [['phone (390 × 844)', PHONE], ['small phone (320 × 
 			S.ok(isSheet(await sheet(p)), 'which is a sheet');
 			await shot(p, `${tag}-1a-01-empty-menu`);
 			await pick(p, 'New binder');
+			S.ok(await startEmpty(p, { tap: true }), 'it asks what the binder starts from; a tap on “Empty binder”');
 			await until(p, `document.activeElement?.classList.contains('nav-folder-title-content')`, 3000);
 			await shot(p, `${tag}-1a-02-naming`);
 			S.eq(await p.ev(`getSelection().toString()`), 'Untitled binder', 'the new binder’s name is selected, ready to type over');
@@ -911,6 +912,7 @@ for (const [dev, size] of TABLETS) {
 			S.ok(s0 && !isSheet(s0), 'the explorer’s menu is a popover on a tablet: ' + j(s0));
 			await shot(p, `${tag}-2a-01-menu`);
 			await pick(p, 'New binder');
+			S.ok(await startEmpty(p, { tap: true }), 'it asks what the binder starts from; a tap on “Empty binder”');
 			await until(p, `document.activeElement?.classList.contains('nav-folder-title-content')`, 3000);
 			S.eq(await p.ev(`getSelection().toString()`), 'Untitled binder', 'the new binder’s name is selected');
 			await keys(p, 'Novel');
@@ -2250,6 +2252,7 @@ bug('“New binder”, named: the binder note takes the folder’s name, as the 
 		await p.ev(`(() => { const c = document.querySelector('.nav-files-container'); const r = c.getBoundingClientRect(); c.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: r.left + 100, clientY: r.bottom - 60, button: 0 })); return 1; })()`);
 		await p.sleep(500);
 		await pick(p, 'New binder');
+		await startEmpty(p, { tap: true });
 		await until(p, `document.activeElement?.classList.contains('nav-folder-title-content')`, 3000);
 		await p.type('Novel');
 		await p.key('Enter');

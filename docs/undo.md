@@ -52,7 +52,12 @@ a notice says so. Renames made in Obsidian's own file explorer are not in the hi
 **New notes, new folders and copies**
 
 - a note or folder made with **New** or **New note after this**, and a copy of a note (**More › Duplicate**). The name you type
-  for a new note is part of making it: one **Undo** takes the note away.
+  for a new note is part of making it: one **Undo** takes the note away. A note made from a [template](templates.md) is
+  the same, and what Templater writes into it as it is made is part of making it too;
+- a binder made with **New binder** (empty, or from a template): **Undo**, in the notice that says it was made or in the
+  new binder's toolbar, takes the whole binder to the trash, only while every file in it is still exactly as it was made.
+  It isn't made again by **Redo**: use **New binder**;
+- a folder's **Template for new notes**.
 
 Undo takes a new note away (to the trash) only if it is still exactly as it was made: if you typed in it, or set a
 synopsis, status or anything else on it from outside, nothing is taken and a notice says the note "has been written in

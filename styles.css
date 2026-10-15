@@ -7993,3 +7993,10 @@ input.binders-filter-name {
 .is-phone .binders-outliner {
 	scroll-padding-bottom: calc(var(--view-bottom-spacing, 0px) + var(--binders-ol-row) + var(--size-4-2));
 }
+
+/* Save as binder template: "Keep the notes' text", as Obsidian's own "Don't ask again" sits under a field. */
+.binders-save-template-text {
+	display: flex;
+	align-items: center;
+	padding-top: var(--size-4-3);
+}

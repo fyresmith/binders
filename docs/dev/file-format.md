@@ -45,6 +45,7 @@ Anything you like: notes on the book, links, a to-do list.
 | `calendar` | map | Optional: the book's own calendar. `months` is a list, each `- Name: days` (or `{ name, days }`; 1 to 99 days, at most 99 months), or `none` for a book counted in years only; `leap` is an optional list of rules, each `month` (a month's name or number), `days` (default 1), `every` and optionally `except` and `unless` (years). Absent, or `Gregorian`, is the ordinary calendar. A scene's `story-date` keeps its ISO shape in it: the year on the book's one count, the month by its number in `months` (`0802-11-14`); so renaming a month or an era rewrites no note. Read tolerantly: a month without a name or a length is passed over; a value that can't be read at all (`calendar: Middle-earth`, `months: twelve`), or a leap rule for a month there isn't, makes the calendar one Binders can't read, and then no story date is written in the binder until it is put right (the timeline says so). Written only by the Calendar dialog, as one change Undo takes back, never in a binder of a newer format or a Longform project's index note. Not part of the format version: a Binders that doesn't know it reads the book's dates in the ordinary calendar (a month past twelve is then not a date, and left as written). |
 | `eras` | list of maps | Optional: named stretches of the book's years, each `name`, optionally `abbr` (else the initials of the name, leaving out "the", "of", "a" and "an"), `from` (its first year on the book's count; only the first era may have none, and runs from the start of time) and `counts: down` (its years count down to 1, the year before the next era begins, as BC does). Read in order of `from`. They change how years are shown and typed ("12 LQ"), never what is written. Written with `calendar`, by the same dialog. |
 | `synopsis`, `status`, `label` | | The binder's own card data, as for scenes (below). |
+| `template` | link or text | Optional: the template new notes in the binder start from, as a link to a note (`template: "[[Scene]]"`), usually one in the templates folder of Obsidian's Templates plugin. A folder note may have it too, for its folder; a folder without it takes the nearest folder's above it that has it, up to the binder note. Empty (`template: ""`, or a link that leads to no note) says none: new notes there start empty, whatever a folder above says. Written by the New menu's "Template for new notes" (one change in the undo history; "Same as …" takes the property away). Not part of the format version: a Binders that doesn't know it leaves it alone. See [Templates](../templates.md). |
 | `revision` | link | Optional. The binder's revision note, as a link: `revision: "[[Revision]]"`. Written when the first revision task is added (see "Revision tasks", below); a writer can point it at a note they already keep. Not part of the format version: a Binders that doesn't know it leaves it as it finds it. |
 
 `binder` and `contents` are fixed names. The others are read under the names set in settings, as for scenes.
@@ -70,6 +71,7 @@ row.
   becomes that folder's note and stops showing as a scene; Binders says so. Binders itself refuses such a rename or
   move.
 - A folder without a `target` of its own shows its notes' targets added together.
+- A folder note's `template` names the template the folder's new notes start from (the binder note's table, above).
 
 ## Rules
 
@@ -205,6 +207,18 @@ the commands you run on it:
   stays and a notice says the text is in both. Redo writes the new note again, as the split wrote it.
 - "Merge" appends the other notes' text to the first, a blank line between, joins their synopses and their notes the same way, reads
   the result back to check every note's text is in it, and only then moves the others to the trash.
+- A note made with New (or New scene here, New note after this) in a folder with a template, or with "New note from
+  template", is made with the template's text: its properties as written (so their types are kept), `{{title}}`,
+  `{{date}}` and `{{time}}` filled as Obsidian's Templates plugin fills them, Templater's `<% %>` left as written, and
+  `binder` and `contents` left out. When the name typed for it is saved, its `{{title}}` is filled again with that
+  name, only if the note is still byte for byte what was made; it is part of making the note, which one Undo takes away.
+- "New binder" from a template makes a new folder: one of Binders' own is written as notes with only a synopsis, the
+  binder note last with the order; one of the writer's (a binder or Longform project in the templates folder) is copied
+  byte for byte, without its `Snapshots` folder, its own note renamed with it. Undo takes the new folder to the trash
+  only while every file in it is still exactly as made.
+- "Save as binder template" writes a copy of a binder in the templates folder, the same way, and changes nothing in
+  the binder. Without "Keep the notes' text", each note in the copy keeps its properties block as written and no text;
+  the binder note, folder notes and the revision note are copied whole.
 - "Duplicate" copies files byte for byte. A copied folder keeps its order, and its folder note is renamed to match
   (as is the folder note of a folder copied outside Binders: see "Keeping the list up to date").
 - "Export" writes a file (a Word manuscript where you say, or in the `Exports` folder; or one new note outside the

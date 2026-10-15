@@ -1,3 +1,4 @@
+import { templateRows } from './template-items';
 import { Keymap, Menu, Notice, TFile, TFolder, setIcon, type PaneType, type TAbstractFile } from 'obsidian';
 import { emptyState, isNote, itemMenu, nameOf, noteOf, plain, removeItems, renameItem } from './actions';
 import { buildCard, cardKey, crumbAt, heir, numberCards, overPane, owedFocus, passing, sumWords, typingNow, type CardEditors, type CardHost } from './card';
@@ -288,6 +289,7 @@ class ByLabel implements BinderMode {
 	newMenu(menu: Menu): void {
 		menu.addItem((i) => i.setSection('new').setTitle('New note').setIcon('file-plus').onClick(() => this.create('note')));
 		if (!this.longform) menu.addItem((i) => i.setSection('new').setTitle('New folder').setIcon('folder-plus').onClick(() => this.create('folder')));
+		if (!this.longform) templateRows(this.ctx.plugin, menu, this.ctx.folder, () => this.create('note'));
 	}
 
 	filterChanged(): void { this.made.clear(); }

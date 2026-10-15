@@ -6,7 +6,7 @@
 // "qa6 menus: ..." pass; "BUG: qa6 menus: ..." are confirmed bugs (they fail now and pass once fixed); "UX: ..." are
 // wished behaviour. The inventory of every item is in the push folder's findings/qa6-menus-inventory.md.
 import { filterToggle, clearFilter, tick, tapTick, tapSel, closeFilter, openFilter, chooseProperty, clickEl, pickerItems, pick, rows, rowSel, POP } from './filter-helpers.mjs';
-import { expand, real } from './menu-routes.mjs';
+import { expand, real, startEmpty } from './menu-routes.mjs';
 import { B, PL, VIEW, answer, card, closeMenus, contents, exists, file, flush, j, openView, read, reload, split, texts, tidy, until, viewState } from './view-helpers.mjs';
 
 export const specs = [];
@@ -1538,7 +1538,8 @@ test('explorer, a folder outside any binder: Make this folder a binder, New bind
 	await p.ev(`(async () => { await app.vault.createFolder('Shelf'); })().then(() => 1)`);
 	await p.sleep(500);
 	await ex(p, 'Shelf', 'New binder');
-	await p.sleep(1200);
+	t.ok(await startEmpty(p), 'it asks what the binder starts from; Enter takes “Empty binder”');
+	await p.sleep(900);
 	t.ok(await exists2(p, 'Shelf/Untitled binder'), 'a folder “Untitled binder” in Shelf');
 	t.ok(await exists2(p, 'Shelf/Untitled binder/Untitled binder.md'), 'with its binder note');
 	t.ok(await p.ev(`document.activeElement?.closest('.nav-folder-title') !== null || document.activeElement?.classList.contains('is-being-renamed') || !!document.querySelector('.is-being-renamed')`), 'its name is ready to type in the explorer: ' + (await focusIs(p)));
@@ -1883,7 +1884,8 @@ test('palette: with nothing open, only the commands that need nothing are offere
 	t.ok(!on.some((x) => ['open-binder', 'show-corkboard', 'show-outliner', 'show-manuscript', 'make-binder', 'new-scene', 'set-target', 'split-scene', 'take-snapshot', 'move-up', 'move-down'].includes(x)), 'and the ones that need a note or a view are not: ' + on.join(', '));
 	const before = await p.ev(`app.vault.getRoot().children.filter(f => f.children).map(f => f.path).sort()`);
 	t.ok(await runCommand(p, 'binders:new-binder') !== undefined, 'New binder runs');
-	await p.sleep(1200);
+	t.ok(await startEmpty(p), 'and asks what the binder starts from; Enter takes “Empty binder”');
+	await p.sleep(900);
 	const after = await p.ev(`app.vault.getRoot().children.filter(f => f.children).map(f => f.path).sort()`);
 	t.ok(after.length === before.length + 1, 'a folder is made at the top of the vault: ' + j(after));
 	t.ok(await exists2(p, 'Untitled binder/Untitled binder.md'), 'with its binder note');

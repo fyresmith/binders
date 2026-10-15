@@ -5,6 +5,7 @@ import type { ExplorerSource } from './explorer';
 import type BindersPlugin from './main';
 import { applyOps, checkFormat, diskList, FORMAT_VERSION, isBinderNote, isFolderNote, nameOf, orderChildren, parentOf, readIndex, relPath, removeFrom, settleNames, stepIndex, UnsupportedBinder, type ListOp } from './model';
 import { removeEmptyFolder } from './folder-remove';
+import { fill as fillTemplate, templateFor, templaterWillWrite } from './templates';
 import { editProperties, readProperties } from './properties';
 import { nextName, parts } from './scene-text';
 import { COMPILE_PROP, EXPORT_PROP, saveOpen } from './scenes';
@@ -15,13 +16,14 @@ import { OrderHandler } from './history/order';
 import { PropsHandler } from './history/props';
 import { RevisionHandler } from './history/revision';
 import { CreateHandler } from './history/create';
+import { MadeHandler, filesUnder, ownRecord } from './history/made';
 import { MergeHandler } from './history/merge';
 import { SplitHandler, type SplitHost } from './history/split';
 import { confirm } from './view/modals';
 import { RemoveHandler } from './history/remove';
 import { itemName, nameProblem, pathWith, RenameHandler } from './history/rename';
 import { sameValue } from './history/values';
-import type { Entry, Kept, PropChange } from './history/types';
+import type { CreateStep, Entry, Kept, MadeStep, PropChange } from './history/types';
 import { SNAPSHOTS } from './snapshot-text';
 import { isRecordFile } from './progress/format';
 import { historyDir } from './progress/record';
@@ -265,7 +267,7 @@ export class BinderStore extends Events implements ExplorerSource {
 		this.history.onChange = () => { this.trigger('history'); };
 		this.order = new OrderHandler(this.app, host, this.history);
 		const removal = new RemoveHandler(this.app, { keep: (item, room) => this.keep(item, room), reinstate: (made, tree) => this.reinstate(made, tree), settle: host.settle, repoint: (a, c) => this.history.repoint(a, c), room: () => this.history.limits.bytes }, this.order);
-		this.history.handlers = { order: this.order, props: new PropsHandler(this.app, host), split: new SplitHandler(() => this.splitHost), remove: removal, merge: new MergeHandler(this.app, { settle: host.settle, offer: (title, text, cta) => confirm(this.app, { title, text, cta }), say: (text) => { new Notice(text, 10000); }, repoint: (a, c) => this.history.repoint(a, c) }, removal), create: new CreateHandler(this.app, { settle: host.settle, folderNote: (f) => this.folderNote(f), orderedChildren: host.orderedChildren, takeAway: host.takeAway, bringBack: host.bringBack, repoint: (a, c) => this.history.repoint(a, c) }, this.order), rename: new RenameHandler(this.app, { binderFolderOf: (item) => this.binderOf(item)?.folder ?? null, settle: host.settle }), revision: new RevisionHandler(this.app, { revision: () => this.plugin.revision, binderOf: (note) => this.binderOf(note) }) };
+		this.history.handlers = { order: this.order, props: new PropsHandler(this.app, host), split: new SplitHandler(() => this.splitHost), remove: removal, merge: new MergeHandler(this.app, { settle: host.settle, offer: (title, text, cta) => confirm(this.app, { title, text, cta }), say: (text) => { new Notice(text, 10000); }, repoint: (a, c) => this.history.repoint(a, c) }, removal), create: new CreateHandler(this.app, { settle: host.settle, folderNote: (f) => this.folderNote(f), orderedChildren: host.orderedChildren, takeAway: host.takeAway, bringBack: host.bringBack, repoint: (a, c) => this.history.repoint(a, c) }, this.order), rename: new RenameHandler(this.app, { binderFolderOf: (item) => this.binderOf(item)?.folder ?? null, settle: host.settle }), revision: new RevisionHandler(this.app, { revision: () => this.plugin.revision, binderOf: (note) => this.binderOf(note) }), made: new MadeHandler(this.app, { settle: host.settle }) };
 		let done: () => void = () => {}, settle: () => void = () => {};
 		this.ready = new Promise((r) => { done = r; });
 		this.settled = new Promise((r) => { settle = r; });
@@ -810,9 +812,55 @@ export class BinderStore extends Events implements ExplorerSource {
 			await this.app.fileManager.renameFile(item, to);
 			// (the name typed for a note or folder just made is part of making it: one change)
 			const top = binder ? [...this.history.undos].reverse().find((e) => e.note === binder.note) : null, first = top?.steps[0];
-			if (top && top.steps.length === 1 && first?.kind === 'create' && first.file === item && !first.undone) { top.label = `New ${item instanceof TFolder ? 'folder' : 'note'} “${name}”`; return; }
+			if (top && top.steps.length === 1 && first?.kind === 'create' && first.file === item && !first.undone) {
+				top.label = `New ${item instanceof TFolder ? 'folder' : 'note'} “${name}”`;
+				if (first.template && item instanceof TFile) await this.refill(item, first, name);
+				return;
+			}
 			if (binder) this.history.record({ note: binder.note, label: `Rename “${was}” to “${name}”`, steps: [{ kind: 'rename', file: item, before: was, after: name }] });
 		})());
+	}
+
+	/** Remembers a binder just made by New binder (structures.ts), every file in it as it is once Binders has found it
+	    and written its list: one change, which Undo takes away while all of it is still exactly so. False if it can't
+	    be remembered (not found as a binder in time, or too big to keep). */
+	async recordMade(folder: TFolder, label: string): Promise<boolean> {
+		let binder: Binder | null = null;
+		for (let i = 0; i < 50 && !(binder = this.binderOf(folder)); i++) await sleep(100);
+		if (!binder || binder.problem) return false;
+		await this.flush();
+		await sleep(250);
+		await this.flush();
+		const files: MadeStep['files'] = [];
+		let total = 0;
+		for (const p of await filesUnder(this.app, folder.path)) {
+			if (ownRecord(folder.path, p)) continue;
+			const bytes = await this.app.vault.adapter.readBinary(p);
+			total += bytes.byteLength;
+			files.push({ rel: p.slice(folder.path.length + 1), bytes });
+		}
+		if (total > this.history.limits.bytes) return false;
+		this.history.record({ note: binder.note, label, bytes: total, steps: [{ kind: 'made', folder, files, ownNote: binder.note.parent === folder && binder.note.basename === folder.name ? binder.note.name : undefined }] });
+		return true;
+	}
+
+	/** A note just made from a template, named: its {{title}} is filled again with the name, if the note is still byte
+	    for byte what was made (nothing typed into it, nothing set on it). Part of making it: Undo takes the note away. */
+	private async refill(file: TFile, step: CreateStep, name: string): Promise<void> {
+		const t = step.template, was = step.bytes;
+		if (!t || !was || t.title === name) return;
+		const before = fillTemplate(this.app, t.raw, t.title, t.at), after = fillTemplate(this.app, t.raw, name, t.at);
+		step.template = undefined;
+		if (before === after) return;
+		if (!sameBytes(await this.app.vault.adapter.readBinary(file.path), was)) return;
+		let wrote = false;
+		await this.app.vault.process(file, (text) => {
+			// (the text as it is written: anything else in it now and it is left as it is)
+			if (text !== before) return text;
+			wrote = true;
+			return after;
+		});
+		if (wrote) { step.bytes = await this.app.vault.adapter.readBinary(file.path); step.template = { ...t, title: name }; }
 	}
 
 	/** Deletes notes and folders as the writer did by hand (the confirmation is the view's): each goes to the trash as
@@ -887,13 +935,51 @@ export class BinderStore extends Events implements ExplorerSource {
 		if (tree.pos) await this.order.restore(made, tree.pos);
 	}
 
-	/** The same as `newScene`, for a note the writer made by hand: one change that "Undo" takes away. */
-	newSceneByHand(folder: TFolder, index = Infinity, title = 'Untitled', depth?: number, content = ''): Promise<TFile> {
+	/** A template for the next note made by hand only ("New note from template"), set just before a view makes it
+	    where its "New note" would: taken by the first `newSceneByHand` within a few seconds, then forgotten. */
+	private once: { file: TFile; at: number } | null = null;
+	useTemplateOnce(file: TFile): void { this.once = { file, at: Date.now() }; }
+
+	/** The same as `newScene`, for a note the writer made by hand: one change that "Undo" takes away. An empty note
+	    starts from a template (docs/templates.md): `template`, else one asked for once, else the folder's; null for none.
+	    Its {{title}} is the title it is made with, and filled again with the name typed for it (`rename`). */
+	newSceneByHand(folder: TFolder, index = Infinity, title = 'Untitled', depth?: number, content = '', template?: TFile | null): Promise<TFile> {
 		return this.history.track((async () => {
+			const once = this.once && Date.now() - this.once.at < 5000 ? this.once.file : null;
+			this.once = null;
+			let made: { raw: string; title: string; at: number } | undefined;
+			if (!content && template !== null) {
+				const t = template ?? once ?? templateFor(this.plugin, folder)?.file;
+				if (t) {
+					const raw = await this.app.vault.cachedRead(t), at = Date.now();
+					content = fillTemplate(this.app, raw, title, at);
+					made = { raw, title, at };
+				}
+			}
 			const file = await this.newScene(folder, index, title, depth, content);
-			await this.recordCreate(file, `New note “${file.basename}”`);
+			const step = await this.recordCreate(file, `New note “${file.basename}”`);
+			if (step && made) step.template = { ...made, title: file.basename };
+			// Templater, set to run on new files, writes into the note a moment after it is made: what it wrote is
+			// part of making it, so Undo still takes the note away (and the name typed meanwhile is asked for as usual)
+			if (step && templaterWillWrite(this.app, file, content)) void this.afterTemplater(file, step);
 			return file;
 		})());
+	}
+
+	/** Waits (up to three seconds) for Templater's write to a note just made, then counts it as what the note was made
+	    with. Only its first write, and only while the note is still the one made and not yet taken away. */
+	private async afterTemplater(file: TFile, step: CreateStep): Promise<void> {
+		const was = step.bytes;
+		for (let i = 0; i < 30; i++) {
+			await sleep(100);
+			if (step.undone || step.file !== file || this.app.vault.getAbstractFileByPath(file.path) !== file || step.bytes !== was) return;
+			const now = await this.app.vault.adapter.readBinary(file.path).catch((): null => null);
+			if (now && was && !sameBytes(now, was)) {
+				step.bytes = now;
+				if (step.template) step.template = undefined; // (Templater's text: {{title}} is no longer ours to fill)
+				return;
+			}
+		}
 	}
 
 	/** The same as `newFolder`, for a folder the writer made by hand. */
@@ -906,11 +992,13 @@ export class BinderStore extends Events implements ExplorerSource {
 	}
 
 	/** Remembers a note or folder just made by hand, where it stands and (a note) what it holds. */
-	private async recordCreate(item: TFile | TFolder, label: string): Promise<void> {
+	private async recordCreate(item: TFile | TFolder, label: string): Promise<CreateStep | null> {
 		const binder = this.binderOf(item);
-		if (!binder || binder.problem) return;
+		if (!binder || binder.problem) return null;
 		const bytes = item instanceof TFile ? await this.app.vault.adapter.readBinary(item.path) : null;
-		this.history.record({ note: binder.note, label, bytes: bytes?.byteLength ?? 0, steps: [{ kind: 'create', file: item, name: item.name, pos: this.order.posOf(item), bytes }] });
+		const step: CreateStep = { kind: 'create', file: item, name: item.name, pos: this.order.posOf(item), bytes };
+		this.history.record({ note: binder.note, label, bytes: bytes?.byteLength ?? 0, steps: [step] });
+		return step;
 	}
 
 	/** What "Undo" (or "Redo") would take back in this binder, or null. */
@@ -1871,6 +1959,8 @@ export class BinderStore extends Events implements ExplorerSource {
 		}, 0);
 	}
 }
+
+const sleep = (ms: number): Promise<void> => new Promise((r) => { window.setTimeout(r, ms); });
 
 /** Are two files' bytes the same? */
 function sameBytes(a: ArrayBuffer, b: ArrayBuffer): boolean {

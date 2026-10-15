@@ -1,3 +1,4 @@
+import { templateRows } from './template-items';
 import { Keymap, Menu, Notice, TFile, TFolder, setIcon, type PaneType, type TAbstractFile } from 'obsidian';
 import { buildCard, cardKey, countLabel, crumbAt, heir, numberCards, overPane, owedFocus, typingNow, type CardHost } from './card';
 import type { Editable } from './edit';
@@ -323,13 +324,15 @@ class Corkboard implements BinderMode {
 
 	newMenu(menu: Menu, sec?: HTMLElement | null): void {
 		// (in a group's own menu, at that group's end; from the toolbar, after the selected card, as in the other modes)
-		menu.addItem((i) => i.setSection('new').setTitle('New note').setIcon('file-plus').onClick(() => {
-			const g = sec ? this.groups[Number(sec.dataset.group)] : null;
+		const g = sec ? this.groups[Number(sec.dataset.group)] : null;
+		const here = () => {
 			if (!g) { this.create('note'); return; }
 			const sibs = this.store.orderedChildren(g.folder) ?? [];
 			void this.newNote(g.folder, g.end ? Math.max(0, sibs.indexOf(g.end)) : Infinity, g.depth);
-		}));
+		};
+		menu.addItem((i) => i.setSection('new').setTitle('New note').setIcon('file-plus').onClick(here));
 		if (!this.longform) menu.addItem((i) => i.setSection('new').setTitle('New folder').setIcon('folder-plus').onClick(() => void this.newFolder()));
+		if (!this.longform) templateRows(this.ctx.plugin, menu, g?.folder ?? this.ctx.folder, here);
 	}
 
 	/** How a card shows its label: with its border and its face tinted, as a colored card on a canvas (the default), or

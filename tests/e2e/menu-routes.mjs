@@ -88,3 +88,16 @@ export async function menuItemsAllTouch(p, tap) {
 	}
 	return [...out];
 }
+
+/** "New binder" asks what the binder starts from (Obsidian's prompt): this answers "Empty binder", the first row, with
+    Enter (or, `tap`, by a click on it, as a finger would), and waits for the prompt to go. False if it never came. */
+export async function startEmpty(p, { tap = false, name = 'Empty binder' } = {}) {
+	const row = `[...document.querySelectorAll('.binders-start-picker .suggestion-item')].find(e => e.querySelector('.suggestion-title')?.textContent === ${JSON.stringify(name)})`;
+	for (let i = 0; i < 40 && !(await p.ev(`!!${row}`)); i++) await p.sleep(100);
+	if (!(await p.ev(`!!${row}`))) return false;
+	if (tap || name !== 'Empty binder') await p.ev(`(() => { ${row}.click(); return 1; })()`);
+	else await p.key('Enter');
+	for (let i = 0; i < 30 && (await p.ev(`!!document.querySelector('.binders-start-picker')`)); i++) await p.sleep(100);
+	await p.sleep(300);
+	return true;
+}

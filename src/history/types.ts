@@ -34,7 +34,7 @@ export interface RenameStep { kind: 'rename'; file: TAbstractFile; before: strin
 /** A note or folder made by hand. `pos`: where it stands (and, taken away, where it stood). `bytes`: what a note held when
     it was made (checked before it is taken away, and what it is made again from). `kept`: a folder's note, when taken
     away. `undone`: it has been taken away, and is the one to be made again. */
-export interface CreateStep { kind: 'create'; file: TAbstractFile; name: string; pos: Pos | null; bytes: ArrayBuffer | null; kept?: { note: ArrayBuffer | null }; undone?: boolean }
+export interface CreateStep { kind: 'create'; file: TAbstractFile; name: string; pos: Pos | null; bytes: ArrayBuffer | null; kept?: { note: ArrayBuffer | null }; undone?: boolean; /** a note made from a template: its text as the template has it (before {{title}} and the rest were filled), the title it was filled with and when, so that the name typed for it fills it again */ template?: { raw: string; title: string; at: number } }
 
 /** What a delete keeps of one item that went: where it stood, its name, and what was in it byte for byte (a note: one
     file with no `rel`; a folder: its folders and files by their path in it), the objects it was (so entries about them can
@@ -68,7 +68,11 @@ export type RevisionStep =
 	| { kind: 'revision'; op: 'tick'; binder: TFile; note: TFile; line: number; before: string; after: string; markAt: number; done: boolean }
 	| { kind: 'revision'; op: 'add'; binder: TFile; note: TFile; lines: string; added: string; made: boolean };
 
-export type Step = OrderStep | PropsStep | RenameStep | CreateStep | RemoveStep | MergeStep | SplitStep | RevisionStep;
+/** A whole binder made by New binder: its folder, and every file it was made with, by path in it, byte for byte (what
+    is under its `Snapshots` folder is Binders' own, and not kept). `undone`: taken away. */
+export interface MadeStep { kind: 'made'; folder: TFolder; files: { rel: string; bytes: ArrayBuffer }[]; undone?: boolean; /** the binder note's file name when it was named like the folder (it is renamed with it: "Untitled binder.md" named in the file explorer is "Mara.md") */ ownNote?: string }
+
+export type Step = OrderStep | PropsStep | RenameStep | CreateStep | RemoveStep | MergeStep | SplitStep | RevisionStep | MadeStep;
 export type StepKind = Step['kind'];
 
 /** One thing done by hand, in the binder whose note is `note`. `bytes`: what it keeps in memory beyond its labels

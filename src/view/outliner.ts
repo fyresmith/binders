@@ -1,3 +1,4 @@
+import { templateRows } from './template-items';
 import { exportAsItems, saidRole } from './export-as';
 import { Keymap, Menu, Notice, Platform, TFile, TFolder, setIcon, type EventRef, type TAbstractFile } from 'obsidian';
 import { isExported, emptyState, plain, itemMenu, labelItems, nameOf, noteOf, removeItems, renameItem, setAll, setExported, statusItems } from './actions';
@@ -305,6 +306,7 @@ class Outliner implements BinderMode {
 	newMenu(menu: Menu): void {
 		menu.addItem((i) => i.setSection('new').setTitle('New note').setIcon('file-plus').onClick(() => void this.create('note')));
 		if (!this.longform) menu.addItem((i) => i.setSection('new').setTitle('New folder').setIcon('folder-plus').onClick(() => void this.create('folder')));
+		if (!this.longform) templateRows(this.ctx.plugin, menu, this.ctx.folder, () => void this.create('note'));
 	}
 
 	// ---- the model ----

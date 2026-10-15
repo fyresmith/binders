@@ -511,3 +511,14 @@ fallback from `historyLook`), and its list from the tree's (`tree-item`, `tree-i
 the Contents pane's is. A note's title over its text is Obsidian's `inline-title`. If one of these names changes the
 dialog works and looks plainer; `specs-import-scrivener.mjs` ("the dialog is one of the family") measures the
 bar's line and walks the tree with the keyboard.
+
+## Templates: the core plugin's settings and Templater's (checked on Obsidian 1.13.7, desktop and `app.emulateMobile(true)`)
+
+Neither has an API for its settings. Both are read in one module, `src/templates.ts`, each in a `try`, and each may be
+missing (a plugin off, a setting unset). Nothing of either is ever written, and none of Templater's code is run.
+
+| Internal | Where | What for | Without it | Test |
+|---|---|---|---|---|
+| `app.internalPlugins.getEnabledPluginById('templates').options` (`folder`, `dateFormat`, `timeFormat`) | `templatesFolder`, `formats` | The templates folder (note templates and binder templates are what is in it), and the formats `{{date}}` and `{{time}}` are filled with, as the core plugin fills them | Templater's folder, else none: New binder offers Binders' two templates and the New menu no template rows; the formats are the core plugin's defaults (`YYYY-MM-DD`, `HH:mm`) | `specs-templates.mjs` (every test sets the folder this way) |
+| `app.plugins.enabledPlugins`, `app.plugins.plugins['templater-obsidian'].settings` (`templates_folder`, `trigger_on_file_creation`, `enable_folder_templates`, `folder_templates`) | `templatesFolder`, `templaterWillWrite` | Templater's folder when the core plugin has none; whether Templater will write into a note just made (its commands in it, or an empty note in a folder Templater has a template for), so that the store waits for that write and counts it as part of making the note | No folder from Templater, and nothing waited for: a note Templater writes into a moment after it is made is then "written in since it was made", and Undo leaves it | `specs-templates.mjs` ("Templater, set to run on new files", with a stand-in for Templater's settings and its write) |
+

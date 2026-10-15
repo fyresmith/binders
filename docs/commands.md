@@ -13,7 +13,7 @@ Most commands only appear where they apply: with a binder view in front, or with
 |---|---|---|
 | **Import from Scrivener...** | Makes a new binder from a Scrivener 3 project, or a zipped backup of one, and shows it first. See [Import from Scrivener](import-scrivener.md) | Anywhere |
 | **Import a manuscript...** | Makes a new binder from a Word file, a Markdown note or a text file, split where its chapters start, and shows it first. A zipped Scrivener backup chosen there goes to the Scrivener import. See [Import a manuscript](import-manuscript.md) | Anywhere |
-| **New binder** | Makes a new folder that is a binder, beside the open note if that's outside a binder, else at the top of the vault | Anywhere |
+| **New binder** | Makes a new folder that is a binder, beside the open note if that's outside a binder, else at the top of the vault. It asks first what the binder starts from: empty, or a template. See [Templates](templates.md) | Anywhere |
 | **Make this folder a binder** | Turns the open note's folder into a binder | A note in a folder that isn't in a binder |
 | **Open binder** | Opens the binder view on the folder of the open note, with the note's card selected | A note of a binder |
 | **Convert to binder** | Turns a Longform project into a binder. See [Coming from Longform](longform.md) | A note or view of a Longform project |

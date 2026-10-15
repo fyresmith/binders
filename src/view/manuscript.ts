@@ -1,3 +1,4 @@
+import { templateRows } from './template-items';
 import { Component, Keymap, MarkdownRenderer, Menu, Notice, Platform, TFile, TFolder, normalizePath, setIcon, type Events, type TAbstractFile } from 'obsidian';
 import type { EditorView } from '@codemirror/view';
 import { caretRect } from '../focus/dom';
@@ -505,6 +506,7 @@ class Manuscript implements BinderMode {
 
 	newMenu(menu: Menu): void {
 		menu.addItem((i) => i.setSection('new').setTitle('New note').setIcon('file-plus').onClick(() => this.create('note')));
+		templateRows(this.ctx.plugin, menu, this.ctx.folder, () => this.create('note'));
 	}
 
 	/** A new note after the section the caret is in (or last), its title ready to be typed. */

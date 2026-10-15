@@ -911,7 +911,7 @@ Not built yet:
 - Dropping a card onto a folder's card while the corkboard is arranged by label (onto a folder in the breadcrumb works,
   as it does on the grid and in the outliner).
 - Options for the outliner's totals row.
-- Templates for new scenes.
+- Templates for new scenes. (Built 2026-10-15: [Templates](../templates.md).)
 - Dragging a note from the file explorer onto the corkboard (the other way, a card out to the explorer, is built).
 - Automatic snapshots on a timer, and pruning old ones.
 

@@ -358,7 +358,7 @@ test('drag: a note dragged from the explorer onto a note’s text inserts a link
 // Menus
 // ================================================================================================================
 
-const isOurs = (x) => ['Open binder', 'Show in binder', 'New scene here', 'New scene after this', 'Export...', 'Move up', 'Move down', 'Convert to binder', 'Make this folder a binder', 'New binder', 'New folder from selection', 'Take a snapshot', 'Rewrite...', 'Show snapshots...', 'Snapshots of notes that are gone...', 'Split at headings...', 'Make a binder from this note...'].includes(x) || /^Merge \d+ notes$/.test(x);
+const isOurs = (x) => ['Open binder', 'Show in binder', 'New scene here', 'New scene after this', 'Save as binder template...', 'Export...', 'Move up', 'Move down', 'Convert to binder', 'Make this folder a binder', 'New binder', 'New folder from selection', 'Take a snapshot', 'Rewrite...', 'Show snapshots...', 'Snapshots of notes that are gone...', 'Split at headings...', 'Make a binder from this note...'].includes(x) || /^Merge \d+ notes$/.test(x);
 /** A menu without Binders' items (and without the separators that leaves doubled or dangling). */
 const stock = (m) => m.filter((x) => !isOurs(x)).filter((x, i, a) => !(x === '---' && (i === 0 || a[i - 1] === '---'))).filter((x, i, a) => !(x === '---' && i === a.length - 1));
 const menuIcons = (p) => p.ev(`Object.fromEntries([...document.querySelectorAll('.menu .menu-item')].map(e => [e.querySelector('.menu-item-title')?.textContent, [...(e.querySelector('.menu-item-icon svg')?.classList ?? [])].find(c => c.startsWith('lucide-')) ?? null]))`);
@@ -400,12 +400,12 @@ test('menus: what’s offered where — scenes, folders, the binder’s own note
 	await rows(p, '', [...FOLDERS, 'Plain', LF, 'Newer', 'Newer/Sub']);
 	const ours = async (path) => { const m = await rightClick(p, path); await closeMenu(p); if (!m) throw new Error(`no menu for ${path}`); return m.filter(isOurs); };
 	const want = {
-		[L]: ['Open binder', 'New scene here', 'Export...', 'Take a snapshot', 'Show snapshots...'], [`${L}/Part One`]: ['Open binder', 'New scene here', 'Export...', 'Take a snapshot', 'Show snapshots...', 'Move up', 'Move down'],
+		[L]: ['Open binder', 'New scene here', 'Save as binder template...', 'Export...', 'Take a snapshot', 'Show snapshots...'], [`${L}/Part One`]: ['Open binder', 'New scene here', 'Export...', 'Take a snapshot', 'Show snapshots...', 'Move up', 'Move down'],
 		[`${L}/Prologue.md`]: ['Show in binder', 'Split at headings...', 'New scene after this', 'Take a snapshot', 'Rewrite...', 'Show snapshots...', 'Move down'], [`${L}/Part One/The keeper.md`]: ['Show in binder', 'Split at headings...', 'New scene after this', 'Take a snapshot', 'Rewrite...', 'Show snapshots...', 'Move up', 'Move down'],
 		// (the binder's own note, where the quick switcher lands for a binder's name, leads to its binder)
 		[NOTE]: ['Open binder'], [`${L}/Part One/Part One.md`]: [], [`${L}/map.png`]: ['Show in binder', 'Move up'],
 		Plain: ['Make this folder a binder', 'New binder'], 'Plain/x.md': ['Make a binder from this note...'], 'Loose.md': ['Make a binder from this note...'],
-		[LF]: ['Open binder', 'New scene here', 'Convert to binder', 'Export...', 'Take a snapshot', 'Show snapshots...'], [`${LF}/Index.md`]: ['Open binder', 'Convert to binder'], [`${LF}/Island.md`]: ['Show in binder', 'Split at headings...', 'New scene after this', 'Take a snapshot', 'Rewrite...', 'Show snapshots...', 'Move up', 'Move down'], [`${LF}/Notes on ferries.md`]: [],
+		[LF]: ['Open binder', 'New scene here', 'Convert to binder', 'Save as binder template...', 'Export...', 'Take a snapshot', 'Show snapshots...'], [`${LF}/Index.md`]: ['Open binder', 'Convert to binder'], [`${LF}/Island.md`]: ['Show in binder', 'Split at headings...', 'New scene after this', 'Take a snapshot', 'Rewrite...', 'Show snapshots...', 'Move up', 'Move down'], [`${LF}/Notes on ferries.md`]: [],
 		// a binder Binders can't change: it can be opened and exported, and a note's snapshots read, nothing more
 		Newer: ['Open binder', 'Export...', 'Show snapshots...'], 'Newer/Zed.md': ['Show in binder', 'Show snapshots...'], 'Newer/Sub': ['Open binder', 'Export...', 'Show snapshots...'], 'Newer/Newer.md': ['Open binder'],
 	};
