@@ -10,7 +10,7 @@ import type { DocxFile, DocxMark, DocxPara, DocxRun, Rev } from './read';
 export interface SettleOptions { underline?: 'plain' | 'italic'; comments?: boolean }
 
 const isMark = (r: DocxRun | DocxMark): r is DocxMark => /^comment/.test(r.kind);
-const gone = (rev: Rev | undefined, as: 'final' | 'original'): boolean => !!rev && (as === 'final' ? rev.kind === 'del' || rev.kind === 'moveFrom' : rev.kind === 'ins' || rev.kind === 'moveTo');
+const gone = (rev: Rev | undefined, as: 'final' | 'original'): boolean => !!rev && (as === 'final' ? rev.kind === 'del' || rev.kind === 'moveFrom' : rev.kind === 'ins' || rev.kind === 'moveTo' || !!rev.also);
 
 export function settle(file: DocxFile, as: 'final' | 'original', o: SettleOptions = {}): SourceDoc {
 	const notes: Para[][] = [], order = new Map<number, number>();

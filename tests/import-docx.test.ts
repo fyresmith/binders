@@ -156,6 +156,12 @@ const body = (seed: string, n = 120) => p(words(n, seed));
 	ok(!tokens(plan.notes.map((n) => n.body).join(' ')).includes('deleted'), 'changes: deleted words are not in the notes');
 	const moved = docx(`<w:p><w:moveFrom w:id="1" w:author="A" w:date="d"><w:r><w:t>moved away </w:t></w:r></w:moveFrom><w:moveTo w:id="2" w:author="A" w:date="d"><w:r><w:t>moved here</w:t></w:r></w:moveTo></w:p>`);
 	eq(settle(readDocx(moved), 'final').paras[0].runs.map((x) => (x.kind === 'text' ? x.text : '')).join(''), 'moved here', 'changes: a move is its destination');
+	// a change inside another (Word writes these when two people edit): text one wrote and another deleted was never in the
+	// original and isn't in the final; text one inserted and then moved away is gone from the final too
+	const text1 = (b: Uint8Array, as: 'final' | 'original') => settle(readDocx(b), as).paras.map((q) => q.runs.map((x) => (x.kind === 'text' ? x.text : '')).join('')).join('|');
+	const nested = docx(`<w:p>${r('A ')}<w:ins w:id="1" w:author="A" w:date="d"><w:del w:id="2" w:author="B" w:date="d"><w:r><w:delText>written then deleted </w:delText></w:r></w:del></w:ins>${r('B ')}<w:moveFrom w:id="3" w:author="A" w:date="d"><w:ins w:id="4" w:author="A" w:date="d"><w:r><w:t>inserted then moved </w:t></w:r></w:ins></w:moveFrom>${r('C')}</w:p>`);
+	eq(text1(nested, 'final'), 'A B C', 'changes: text inserted by one and deleted by another, or inserted and then moved away, is gone from the final');
+	eq(text1(nested, 'original'), 'A B C', 'changes: and was never in the original');
 }
 
 // ---- footnotes, endnotes, links, lists, quotes ----

@@ -11,7 +11,8 @@ import { events } from './xml';
    fields and content controls that make a table of contents. What is not read, and counted so it can be said:
    headers and footers, pictures, text in shapes that aren't text boxes. */
 
-export interface Rev { kind: 'ins' | 'del' | 'moveFrom' | 'moveTo'; author: string; date: string; id: string }
+/** `also`: a deletion or a move away that is inside an insertion or a move here (Word writes it when two people edit): the text was never in the original. */
+export interface Rev { kind: 'ins' | 'del' | 'moveFrom' | 'moveTo'; author: string; date: string; id: string; also?: boolean }
 export type DocxRun = (
 	| { kind: 'text'; text: string; b: boolean; i: boolean; s: boolean; u: boolean; href?: string; /** In half-points, where the file says. */ sz?: number | null }
 	| { kind: 'tab' }
@@ -81,7 +82,17 @@ function body(xml: string, c: Ctx, into: Map<number, DocxPara[]> | null): DocxPa
 	let run: { b: boolean; i: boolean; s: boolean; u: boolean; rStyle: string | null; sz: number | null; vanish: boolean } | null = null, collecting: 't' | 'instr' | null = null;
 	const top = () => stack[stack.length - 1];
 	const tocNow = () => fields.some((f) => /^\s*TOC\b/i.test(f.instr)) || sdts.some(Boolean);
-	const rev = (): Rev | undefined => revs[revs.length - 1];
+	// (the change a run is in: the innermost, or, where a deletion and an insertion are both around it, the deletion marked as also an insertion)
+	const both = new WeakMap<Rev, Rev>();
+	const rev = (): Rev | undefined => {
+		const inner = revs[revs.length - 1];
+		if (revs.length < 2) return inner;
+		const away = revs.find((v) => v.kind === 'del' || v.kind === 'moveFrom'), here = revs.some((v) => v.kind === 'ins' || v.kind === 'moveTo');
+		if (!away || !here) return inner;
+		let merged = both.get(away);
+		if (!merged) both.set(away, merged = { ...away, also: true });
+		return merged;
+	};
 	const push = (r: DocxRun) => { const t = top(); if (!t) return; const v = rev(); if (v) r.rev = v; t.p.runs.push(r); };
 	const add = (text: string) => {
 		const t = top();

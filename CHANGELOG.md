@@ -28,6 +28,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - OpenDocument import no longer loses the words after a shape anchored in a paragraph.
 - Rich text import no longer loses the words of some links, as LibreOffice writes them: a whole table of contents could vanish.
 - Rich text import now brings in the text of text boxes, such as captions in frames.
+- Word import no longer brings in text that one person inserted and another deleted, when Reject all is chosen.
 
 ## 0.52.0 (2026-10-12)
 
