@@ -4,6 +4,8 @@
 
 <p align="center">A binder in the file explorer · a corkboard · an outliner · an editable manuscript · a story timeline</p>
 
+<p align="center"><img src="docs/images/binder-modes.webp" width="880" alt="A scene card is dragged to the front of a novel's corkboard and the file explorer follows; the same book is then shown as one manuscript page, an outline and a timeline, and the card is dragged back."></p>
+
 Folders in Obsidian list their notes by name. Books don't work that way. Binders turns a folder into a **binder**, like
 Scrivener's: its chapters and scenes keep the order you give them, in Obsidian's own file explorer. Open a binder to see the same notes
 as a corkboard, an outliner, one continuous manuscript you can edit, or a timeline of the story.
