@@ -401,8 +401,8 @@ class ByLabel implements BinderMode {
 
 		// the lines, each with its head: its name and how many notes are on it, in its color
 		const chrome: HTMLElement[] = [createDiv({ cls: 'binders-lane-gutter', attr: { 'aria-hidden': 'true' } })];
-		const heads = createDiv({ cls: 'binders-lane-heads' });
-		chrome.push(heads);
+		// (the heads are the grid's own items, after the gutter and before the lines, so the Tab order is theirs)
+		const heads: HTMLElement[] = [];
 		lanes.forEach((label, li) => {
 			const u = used.get(label), name = this.laneName(label);
 			const about = u ? `${name}: ${u.count} ${u.count === 1 ? 'note' : 'notes'}${u.words == null ? '' : ', ' + wordsLabel(u.words)}` : `${name}: no notes`;
@@ -414,10 +414,11 @@ class ByLabel implements BinderMode {
 			track.dataset.lane = String(li);
 			track.setCssProps({ '--binders-lane': String(li + 1) });
 			chrome.push(track);
-			const head = heads.createDiv({ cls: 'binders-lane-head' + (u ? '' : ' is-empty'), attr: { role: 'button', tabindex: li === Math.min(this.headStop, lanes.length - 1) ? '0' : '-1', 'aria-haspopup': 'menu', 'aria-label': `${about}. Menu` } });
+			const head = createDiv({ cls: 'binders-lane-head' + (u ? '' : ' is-empty'), attr: { role: 'button', tabindex: li === Math.min(this.headStop, lanes.length - 1) ? '0' : '-1', 'aria-haspopup': 'menu', 'aria-label': `${about}. Menu` } });
 			paintLabel(head, label, presets);
 			head.dataset.lane = String(li);
 			head.setCssProps({ '--binders-lane': String(li + 1) });
+			heads.push(head);
 			// (the cap is what's seen and pressed; the head around it is as long as the column, and carries the line on)
 			const cap = head.createSpan({ cls: 'binders-lane-cap' });
 			cap.createSpan({ cls: 'binders-lane-name', text: name });
@@ -431,7 +432,7 @@ class ByLabel implements BinderMode {
 				const back = e.key === 'ArrowUp' || e.key === (this.rtl ? 'ArrowRight' : 'ArrowLeft'), on = e.key === 'ArrowDown' || e.key === (this.rtl ? 'ArrowLeft' : 'ArrowRight');
 				if ((!back && !on) || e.altKey || Keymap.isModEvent(e)) return;
 				e.preventDefault(); e.stopPropagation();
-				const to = heads.querySelector<HTMLElement>(`.binders-lane-head[data-lane="${li + (back ? -1 : 1)}"]`);
+				const to = heads[li + (back ? -1 : 1)];
 				if (!to) return;
 				head.setAttr('tabindex', '-1');
 				to.setAttr('tabindex', '0');
@@ -439,6 +440,7 @@ class ByLabel implements BinderMode {
 				to.focus();
 			});
 		});
+		chrome.splice(1, 0, ...heads);
 		// (runs of the same track written once: a thousand cards are one `repeat`)
 		const packed: string[] = [];
 		for (let i = 0; i < tracks.length;) { let n = 1; while (tracks[i + n] === tracks[i]) n++; packed.push(n > 1 ? `repeat(${n}, ${tracks[i]})` : tracks[i]); i += n; }

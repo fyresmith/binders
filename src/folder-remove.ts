@@ -21,7 +21,7 @@ export async function removeEmptyFolder(app: App, folder: TFolder): Promise<bool
 			await fs.promises.rmdir(adapter.getFullPath(normalizePath(path)));
 			// (the vault's tree is told at once, as Obsidian's own removals do, and otherwise catches up when its watcher sees it)
 			await (adapter as unknown as { reconcileInternalFile?(p: string): Promise<void> }).reconcileInternalFile?.(path).catch((): void => undefined);
-			for (let i = 0; i < 100 && vault.getAbstractFileByPath(path) === folder; i++) await new Promise((r) => setTimeout(r, 20));
+			for (let i = 0; i < 100 && vault.getAbstractFileByPath(path) === folder; i++) await new Promise((r) => window.setTimeout(r, 20));
 			return true;
 		}
 		const disk = await adapter.list(path);

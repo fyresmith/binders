@@ -678,7 +678,7 @@
 }
 
 /* A value in a summary's menu, with its notes and words set to the menu's end, one under another. */
-.menu-item-title:has(> .binders-summary-value-count) {
+.binders-summary-value {
 	display: flex;
 	flex: 1 1 auto;
 	align-items: baseline;
@@ -2699,10 +2699,6 @@
    border, as wide as the line, and a faint tint, as a labeled card has), which the line leaves from the middle of.
    The cap's face is opaque: the cards scroll under it. The head itself is as long as the column of heads, and draws
    the line from its cap to the column's end, over what the heads stand on. */
-.binders-lane-heads {
-	display: contents;
-}
-
 .binders-lane-head {
 	--binders-line: var(--background-modifier-border-hover);
 	--binders-head-tint: color-mix(in oklch, var(--text-muted) 8%, var(--background-primary));
@@ -3065,7 +3061,7 @@
 	width: 1px;
 	height: 1px;
 	overflow: hidden;
-	clip-path: inset(50%);
+	opacity: 0;
 	white-space: nowrap;
 }
 
@@ -3688,7 +3684,7 @@ body.binders-focus .workspace .mod-root .workspace-tabs.mod-stacked .workspace-t
 	width: 1px;
 	height: 1px;
 	overflow: hidden;
-	clip-path: inset(50%);
+	opacity: 0;
 	white-space: nowrap;
 }
 
@@ -7262,7 +7258,7 @@ body:not(.is-phone) .binders-snapshots .sync-history-content {
 	width: 1px;
 	height: 1px;
 	overflow: hidden;
-	clip-path: inset(50%);
+	opacity: 0;
 	white-space: nowrap;
 }
 
@@ -8046,7 +8042,7 @@ input.binders-filter-name {
 
 /* Whether this export takes a page or a note of front or back matter: a box at the row's start, as a task's. With
    boxes in it, the list is a little wider, so a note's name beside its box and its role is still read. */
-.binders-export-outline:has(.has-takes) {
+.binders-export-outline.has-takes {
 	flex-basis: 16.5em;
 }
 
@@ -8057,12 +8053,12 @@ input.binders-filter-name {
 
 
 /* On a phone, Contents with its boxes is the pane's whole width: beside a page it left a name a letter wide. */
-.is-phone .binders-export .binders-export-outline:has(.has-takes) {
+.is-phone .binders-export .binders-export-outline.has-takes {
 	flex-basis: 100%;
 	border-inline-end: 0;
 }
 
-.is-phone .binders-export .binders-export-outline:has(.has-takes) + .binders-export-stage {
+.is-phone .binders-export .binders-export-outline.has-takes + .binders-export-stage {
 	display: none;
 }
 

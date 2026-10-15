@@ -693,6 +693,7 @@ export class ExportModal extends Modal {
 			if (!book) { el.createDiv({ cls: 'binders-export-stage' }).createDiv({ cls: 'binders-export-none', text: 'Reading the notes…' }); return; }
 			if (this.contents) {
 				const side = el.createDiv({ cls: 'binders-export-outline nav-files-container' });
+				side.toggleClass('has-takes', !this.presets.locked);
 				side.createDiv({ cls: 'binders-export-structure', text: `${STRUCTURES[book.structure][1]}${book.guessed ? ' (read from the binder’s shape)' : ''}.` });
 				drawContents(side.createDiv(), book, { open: (path) => this.openNote(path), menu: this.canOverrule() ? (path, at) => this.roleMenu(path, at) : undefined, take: this.presets.locked ? undefined : (key, on) => this.take(key, on), made: this.madeRows(book) });
 			}

@@ -806,7 +806,7 @@ class Outliner implements BinderMode {
 			const words = (files: TFile[]) => files.reduce((a, f) => a + (this.ctx.words(f) ?? 0), 0);
 			const said = (files: TFile[]) => `${files.length.toLocaleString()} ${files.length === 1 ? 'note' : 'notes'} · ${wordsLabel(words(files))}`;
 			const row = (name: string, files: TFile[], cond: Condition) => menu.addItem((i) => {
-				const title = createFragment((f) => { f.createSpan({ cls: 'binders-summary-value-name', text: name }); f.createSpan({ cls: 'binders-summary-value-count', text: said(files) }); });
+				const title = createFragment((f) => { const v = f.createSpan({ cls: 'binders-summary-value' }); v.createSpan({ cls: 'binders-summary-value-name', text: name }); v.createSpan({ cls: 'binders-summary-value-count', text: said(files) }); });
 				i.setSection('values').setTitle(title).onClick(() => this.ctx.narrow?.(cond));
 			});
 			const op = t.list ? 'contains any of' : 'is';
