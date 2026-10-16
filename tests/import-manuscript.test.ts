@@ -228,4 +228,14 @@ const sourceMd = (t: string) => noteWords(t.replace(/^---\n[\s\S]*?\n---\n/, '')
 	ok(spent < 4000, `long: 200,000 words are read and planned in time (${spent} ms)`);
 	eq(firstDifference(tokens(chapters), planned(plan, tokens)), null, 'long: word for word');
 }
+
+// ---- a long run of spaces, in time ----
+{
+	// a scene's trailing spaces are trimmed in time, not in time that grows as the square of a run of spaces inside it
+	const gap = ' '.repeat(100000), t0 = Date.now();
+	const { plan } = make(md(`## A\n\n${prose(300, 'a')} x${gap}y \t\n\n## B\n\n${prose(300, 'b')}\n`));
+	const spent = Date.now() - t0;
+	ok(text(plan, 'Book/A.md').endsWith(`x${gap}y\n`), 'spaces: a long run of spaces in a scene is kept, and the spaces after its last word are not');
+	ok(spent < 1000, `spaces: and the book is planned in time (${spent} ms)`);
+}
 done('import manuscript');

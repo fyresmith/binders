@@ -51,7 +51,8 @@ export function runsToMarkdown(runs: readonly Run[], note: (index: number) => st
 		if (r.kind === 'comment') { pieces.push(`%%${r.text.replace(/%%/g, '% %').replace(/\s+/g, ' ')}%%`); continue; }
 		if (r.kind === 'picture') { pieces.push(`![[${PICTURE_MARK}${r.index}]]`); first = false; continue; }
 		if (r.kind !== 'text') continue;
-		const m = /^(\s*)([\s\S]*?)(\s*)$/.exec(r.text) ?? [r.text, '', r.text, ''];
+		// the spaces at its edges, found by trimming: a pattern for them backtracks, in time that grows as the square of a run of spaces
+		const lead = r.text.length - r.text.trimStart().length, mid = r.text.trim(), m = [r.text, r.text.slice(0, lead), mid, r.text.slice(lead + mid.length)];
 		if (!m[2]) { pieces.push(r.text); continue; }
 		const mark = `${r.s ? '~~' : ''}${r.b && r.i ? '***' : r.b ? '**' : r.i ? '*' : ''}`, close = [...mark].reverse().join('');
 		let body = `${mark}${text(m[2])}${close}`;

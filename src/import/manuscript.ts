@@ -191,7 +191,7 @@ export function planManuscript(read: ManuscriptRead, o: ManuscriptOptions): { pl
 	const piece = (s: Scene): string => {
 		if (s.from >= s.to) return '';
 		const raw = text.slice(units[s.from].start, units[s.to - 1].end);
-		const body = raw.trim() ? raw.replace(/\s+$/, '').replace(new RegExp(`!\\[\\[${PICTURE_MARK}(\\d+)\\]\\]`, 'g'), (_m, i: string) => embed(Number(i))) : '';
+		const body = raw.trim() ? raw.trimEnd().replace(new RegExp(`!\\[\\[${PICTURE_MARK}(\\d+)\\]\\]`, 'g'), (_m, i: string) => embed(Number(i))) : '';
 		return body.trim() ? `${body}\n` : '';
 	};
 	const has = (s: Scene): boolean => piece(s) !== '';

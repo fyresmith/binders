@@ -68,6 +68,11 @@ const body = (seed: string, n = 120) => p(words(n, seed));
 	eq(runsToMarkdown([t('see'), t(' here', { href: 'https://e.com/a (b)' })], () => ''), 'see[ here](https://e.com/a%20%28b%29)'.replace('see[ here]', 'see [here]'), 'markdown: a link');
 	eq(runsToMarkdown([t('Text'), { kind: 'note', note: 0 }], () => 'The note, with [a link] and a ] bracket'), 'Text^[The note, with [a link] and a ] bracket]', 'markdown: a footnote is in place');
 	eq(runsToMarkdown([t('a'), { kind: 'br' }, t('b')], () => ''), 'a  \nb', 'markdown: a line break is two spaces and a newline');
+	eq(runsToMarkdown([t(' \tword \n', { i: true }), t('   ', { b: true })], () => ''), ' \t*word* \n   ', 'markdown: any space at a run’s edge stays outside its marks, and a run of only spaces is as it was');
+	// a long run of spaces inside a run (a file of a few KB can hold one): its edges are found in time, not in time that grows as its square
+	const gap = ' '.repeat(150000), t0 = Date.now(), long = runsToMarkdown([t(`x${gap}y`, { i: true })], () => ''), spent = Date.now() - t0;
+	ok(long === `*x${gap}y*`, 'markdown: a long run of spaces inside a run is kept');
+	ok(spent < 1000, `markdown: and is read in time (${spent} ms)`);
 }
 
 // ---- headings: by style name, by outline level ----
