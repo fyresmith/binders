@@ -1,5 +1,5 @@
 import { webLink } from '../doc';
-import { escapeMarkdown } from '../markdown';
+import { asComment, escapeMarkdown } from '../markdown';
 /* Independent RTF reader. A group owns its formatting and code page; fields and pictures are destinations,
    not paragraphs. Unrepresentable formatting is reported and its original is kept by the import plan. */
 export interface Control { word: string; n?: number }
@@ -148,7 +148,7 @@ export function readRtf(data: Uint8Array, options: RtfOptions = {}): RichText {
 		// (a comment as Word writes one: the writer's words, kept as a comment)
 		if (kind === 'annotation' && !special) {
 			const body = markdown(visit(g, s, true)).trim();
-			return body ? [{ text: `%%${body.replace(/%%/g, '')}%%`, raw: true }] : out;
+			return body ? [{ text: asComment(body.replace(/%%/g, '')), raw: true }] : out;
 		}
 		if (kind === 'upr') {
 			const alternatives = g.tokens.filter((t): t is Group => typeof t === 'object' && 'tokens' in t);
@@ -295,7 +295,7 @@ export function readRtf(data: Uint8Array, options: RtfOptions = {}): RichText {
 			const annotation = m[0].startsWith('{\\Scrv_annot'), from = annotation ? m[0].indexOf('\\text=') + 6 : 10, to = m[0].indexOf(annotation ? '\\end_Scrv_annot' : '\\end_Scrv_fn');
 			if (from < 6 || to < from) throw new Error(DAMAGED);
 			const text = range(m.index + from, m.index + to);
-			if (annotation) body += `%%${text}%%`; else { notes.push(text.trim()); body += `[^${notes.length}]`; }
+			if (annotation) body += asComment(text); else { notes.push(text.trim()); body += `[^${notes.length}]`; }
 			at = m.index + m[0].length;
 		}
 		body += range(at, literal.length);

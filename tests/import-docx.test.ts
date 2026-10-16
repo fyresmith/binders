@@ -9,7 +9,7 @@ import { settle } from '../src/docx/settle';
 import { readWord } from '../src/import/docx';
 import { planManuscript, type ManuscriptOptions } from '../src/import/manuscript';
 import type { ImportPlan } from '../src/import/plan';
-import { runsToMarkdown } from '../src/import/markdown';
+import { asComment, runsToMarkdown } from '../src/import/markdown';
 import { firstDifference, tokens } from './export-words';
 import { docxWords, plannedWords } from './import-words';
 import { NS, STYLES, br, comment, del, docx, esc, footnote, ins, mark, p, r, words } from './import-docx-fixtures';
@@ -76,6 +76,18 @@ const body = (seed: string, n = 120) => p(words(n, seed));
 	const gap = ' '.repeat(150000), t0 = Date.now(), long = runsToMarkdown([t(`x${gap}y`, { i: true })], () => ''), spent = Date.now() - t0;
 	ok(long === `*x${gap}y*`, 'markdown: a long run of spaces inside a run is kept');
 	ok(spent < 1000, `markdown: and is read in time (${spent} ms)`);
+	// A comment's words can't end it early: Obsidian ends a comment at the first `%%`, and shows what comes after it
+	// (reading view's own rule, `%%(.*?)%%` from the left)
+	const c = (text: string) => ({ kind: 'comment' as const, text }), shown = (md: string) => md.replace(/%%.*?%%/g, '');
+	eq(runsToMarkdown([t('Words'), c('Eve: x%%%<img src=https://e.com/b.gif>%%%y')], () => ''), 'Words%%Eve: x% % %<img src=https://e.com/b.gif>% % %y%%', 'markdown: a comment with %%% in it is still one comment');
+	eq(runsToMarkdown([t('Words'), c('Ann: no  percent\nsigns')], () => ''), 'Words%%Ann: no percent signs%%', 'markdown: a comment with no % is as it was');
+	eq(shown(runsToMarkdown([t('Up 5%'), c('%<b>P</b>%'), c('%Q'), t(' after')], () => '')), 'Up 5 after', 'markdown: a % at a comment’s edge, beside a % before it or another comment, doesn’t end it');
+	const alphabet = ['%', 'P', ' '], all = (n: number): string[] => (n ? all(n - 1).flatMap((s) => alphabet.map((a) => s + a)) : ['']);
+	const texts = [0, 1, 2, 3, 4, 5].flatMap(all), leaks: string[] = [];
+	for (const x of texts) for (const before of ['', '%', 'a%']) for (const after of ['', '%', asComment('%P%')]) {
+		if (shown(before + asComment(x) + after).includes('P')) leaks.push(JSON.stringify(before + asComment(x) + after));
+	}
+	eq(leaks.slice(0, 3).join(' '), '', `markdown: no comment's words, of ${texts.length} made of %, P and spaces, show beside a % or another comment`);
 }
 
 // ---- headings: by style name, by outline level ----

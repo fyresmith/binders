@@ -169,6 +169,15 @@ eq(usual.markdown, 'An ordinary paragraph.\n', 'an ordinary document as a Mac wr
 eq(usual.warnings.join('|'), '', 'has nothing to look at: a size, a color and what a program keeps for itself are in every file');
 ok(rich('{\\rtf1 Some {\\ul underlined} words.}').warnings.some((w) => /Underlining/.test(w)), 'what a writer put on words by hand, and is lost, is said');
 eq(rich('{\\rtf1 Before{\\*\\annotation{\\*\\atnauthor Me}A note in the margin.} after.}').markdown, 'Before%%A note in the margin.%% after.\n', 'a comment as Word writes one is kept as a comment');
+// A comment's words can't end it early: Obsidian ends a comment at the first `%%`, and shows what comes after it
+// (reading view's own rule, `%%(.*?)%%` from the left), so a % at either edge, beside a % before it, gets a space
+const shown = (md: string) => md.replace(/%%.*?%%/g, '');
+const edged = rich('{\\rtf1 Up 5%{\\*\\annotation{\\*\\atnauthor Me}%see P} after.}').markdown;
+eq(edged, 'Up 5%%% %see P%% after.\n', 'a comment as Word writes one that starts with a % is still one comment');
+ok(!shown(edged).includes('see P'), 'and its words stay hidden');
+const inline = rich('{\\rtf1 Up 5%\\{\\\\Scrv_annot \\\\text=%see P%\\\\end_Scrv_annot\\}%Q}').markdown;
+eq(inline, 'Up 5%%% %see P% %%%Q\n', 'an inline annotation with a % at either edge is still one comment');
+ok(!shown(inline).includes('see P'), 'and its words stay hidden');
 let wrapped: Uint8Array | null = null;
 eq(readRtf(bytes('{\\rtf1 A{\\*\\shppict{\\pict\\pngblip 0a0b}}{\\nonshppict{\\pict\\wmetafile8 ffff}}Z}'), { picture: (b) => { wrapped = b; return '![[p.png]]'; } }).markdown, 'A![[p.png]]Z\n', 'a picture as Word wraps one is kept, once');
 ok(!!wrapped && equalBytes(wrapped, Uint8Array.of(10, 11)), 'byte for byte');

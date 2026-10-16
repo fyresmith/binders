@@ -25,6 +25,11 @@ export const escapeMarkdown = (text: string): string => text
 /** What stands for a kept picture in a text, until a plan knows where it will be: `![[binders-import-picture-3]]`. */
 export const PICTURE_MARK = 'binders-import-picture-';
 
+/** Text as an Obsidian comment, `%%text%%`, that ends where it should. Obsidian ends a comment at the first `%%`, so a
+    `%` beside another, or at either end (beside the comment's own `%%`, or a `%` just before it), gets a space next
+    to it: `%%%` is `% % %`. Text with no `%` is as it was. */
+export const asComment = (text: string): string => `%%${text.replace(/%(?=%)/g, '% ').replace(/^%/, ' %').replace(/%$/, '% ')}%%`;
+
 /** A paragraph's runs as Markdown that reads back as the same words, formatted. Runs that are alike join first. A
     space at the edge of a run stays outside its marks (`*a *` is no italic). Text is escaped where Obsidian would take
     it for markup, with the rules for the start of a line applied only to the first piece. `note` gives a footnote's
@@ -48,7 +53,7 @@ export function runsToMarkdown(runs: readonly Run[], note: (index: number) => st
 	for (const r of joined) {
 		if (r.kind === 'br') { pieces.push('  \n'); first = true; continue; }
 		if (r.kind === 'note') { pieces.push(`^[${note(r.note).replace(/\n+/g, ' ').trim()}]`); first = false; continue; }
-		if (r.kind === 'comment') { pieces.push(`%%${r.text.replace(/%%/g, '% %').replace(/\s+/g, ' ')}%%`); continue; }
+		if (r.kind === 'comment') { pieces.push(asComment(r.text.replace(/\s+/g, ' '))); continue; }
 		if (r.kind === 'picture') { pieces.push(`![[${PICTURE_MARK}${r.index}]]`); first = false; continue; }
 		if (r.kind !== 'text') continue;
 		// the spaces at its edges, found by trimming: a pattern for them backtracks, in time that grows as the square of a run of spaces
