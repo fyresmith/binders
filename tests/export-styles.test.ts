@@ -38,6 +38,20 @@ const row = (family: 'book' | 'manuscript', key: string) => rowsOf(family).find(
 	eq(freeName('Classic', (n) => n === 'Classic 2'), 'Classic 3', 'the first free name');
 }
 
+// ---- a file someone sent can't hang Obsidian: a long run of spaces is read in one pass ----
+{
+	const run = ' '.repeat(40000), text = `---\nbased-on: Classic\nx: a${run}b\ny:${run}a\u2028b\nz:${run}a\rb\nw: a${run}# c\n---\n`;
+	const t0 = Date.now(), f = readStyleFile(text);
+	saysNothing(text);
+	writeStyleFile(text, 'Classic', { margins: 'wide' });
+	const ms = Date.now() - t0;
+	ok(ms < 1000, `a value with a long run of spaces in it, or a line break after one, is read and changed in good time (${ms} ms)`);
+	ok(f.props.get('x') === `a${run}b` && !f.props.has('y') && !f.props.has('z') && f.props.get('w') === 'a', 'and is read as it was: the spaces kept, a line with a break in its value no property, a comment taken off');
+	// (what a line is, at its edges: a line break among the spaces after the colon, one after the value, none)
+	const g = readStyleFile('---\na: \u2028 one\nb:\u2028\nc:two\nd: three\u2028\ne :  four  # five\nf: six#seven\ng: "eight" # nine\n---\n');
+	eq([...g.props].map(([k, v]) => `${k}=${String(v)}`).join('|'), 'a=one|b=|e=four|f=six#seven|g=eight', 'which lines are properties, and their values, are as they were');
+}
+
 // ---- resolving: the differences over what it is based on ----
 {
 	const none = resolveStyle('Classic', new Map())!;

@@ -22,7 +22,10 @@ export interface StyleFile {
 	css: string;
 }
 
-const KEY = /^([A-Za-z][\w-]*)\s*:(?:\s+(.*)|\s*)$/;
+// (the value starts at its first character that isn't a space, so the spaces before it can be taken only one way: a
+// line that can't match, a line break after a long run of them, fails at once, not again from each place in the run,
+// which a style's file someone sent could use to hang Obsidian)
+const KEY = /^([A-Za-z][\w-]*)\s*:(?:\s+(\S.*|)|\s*)$/;
 
 function scalar(raw: string): StyleValue | undefined {
 	let s = raw.trim();
@@ -32,7 +35,10 @@ function scalar(raw: string): StyleValue | undefined {
 		try { return JSON.parse(`"${m[1]}"`) as string; } catch { return undefined; }
 	}
 	if (s.startsWith('\'')) { const m = /^'((?:[^']|'')*)'\s*(?:#.*)?$/.exec(s); return m ? m[1].replace(/''/g, '\'') : undefined; }
-	s = s.replace(/\s+#.*$/, '').trim();
+	// (a comment starts at the first `#` with a space before it: found in one pass, as a pattern over the spaces before
+	// it would try every place in a long run of them)
+	const hash = s.search(/\s#/);
+	s = (hash < 0 ? s : s.slice(0, hash)).trim();
 	if (!s || /^[[{|>&*!%@`]/.test(s)) return s ? undefined : '';
 	if (s === 'true' || s === 'false') return s === 'true';
 	if (/^-?\d+(\.\d+)?$/.test(s)) return Number(s);
