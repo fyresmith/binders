@@ -1217,8 +1217,21 @@
 
 /* ---- Binder view: toolbar, notice, synopsis ---- */
 
-/* Names for screen readers, not tooltips: Obsidian shows an element's aria-label on hover unless it's told not to. The
-   toolbar's buttons show theirs only when their labels are hidden (narrow panes, below). */
+/* Names for screen readers, not tooltips: Obsidian shows an element's aria-label on hover unless it's told not to.
+   Binders names its regions, rows, cards and counts for a screen reader, so on every surface of its own (its views and
+   panes, its windows, its settings, the filter's menus) nothing shows one but an icon with no name beside it, as in
+   Obsidian's own. (Every window of Binders' has a class starting `binders-`: `binders-modal` where it has no other.)
+   The toolbar's buttons show theirs only when their labels are hidden (narrow panes, below). */
+.workspace-leaf-content[data-type^="binders-"],
+.modal[class*="binders-"],
+.binders-settings,
+.binders-filter-menu,
+.binders-picker {
+	--no-tooltip: true;
+}
+:is(.workspace-leaf-content[data-type^="binders-"], .modal[class*="binders-"], .binders-settings, .binders-filter-menu, .binders-picker) .clickable-icon {
+	--no-tooltip: false;
+}
 .binders-card,
 .binders-editable,
 .binders-group-title,

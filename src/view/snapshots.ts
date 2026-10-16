@@ -66,6 +66,7 @@ export class RewriteModal extends Modal {
 	constructor(private plugin: BindersPlugin, private scene: TFile, private then: (blank: boolean, kept: Snapshot) => void) { super(plugin.app); }
 
 	onOpen(): void {
+		this.modalEl.addClass('binders-modal');
 		this.setTitle(`Rewrite “${this.scene.basename}”`);
 		this.contentEl.createEl('p', { text: 'A snapshot of the text as it is now is taken first, to read, compare and bring back whenever you like. Then start again: from this text, or from a blank page.' });
 		const box = this.contentEl.createDiv({ cls: 'binders-ask' });

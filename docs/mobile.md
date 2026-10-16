@@ -54,7 +54,7 @@ On a phone the toolbar's buttons are icons. **New** is a plus sign.
 - **Targets:** in a pane narrower than 360 px the word count in the toolbar is its number alone. Tap it to open the
   progress window, where the target and the deadline are set. In an even narrower one it goes, and **Set word count
   target** in the command palette sets a target there. The bar and its tick for the plan to a deadline are left out in
-  a pane under 440 px, as the bar is; the count's tooltip (its label, for a screen reader) still says the day's share.
+  a pane under 440 px, as the bar is; the count's label, for a screen reader, still says the day's share.
 - **Undo:** an **Undo** button, an arrow icon, is in the toolbar in every mode; it is dimmed when there is nothing to take back, and touching it takes back the last change. After you delete something, a notice with an **Undo** button stays for eight seconds. A phone has no room for **Redo** beside the toolbar's **Undo**: it is in the view's **More options** menu, which also says what each will do.
 
 ## Filters

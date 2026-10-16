@@ -2000,7 +2000,7 @@
 			"UX: qa6 menus: consistency: the three snapshot items read the same on a card, in the explorer, in More options and in the note header",
 			"UX: qa6 menus: consistency: putting several explorer items in a folder is one item, not two with different names",
 			"UX: qa6 menus: consistency: Rename in a folder heading’s menu has the icon and the section the card’s Rename has",
-			"qa6 menus: hover: the tooltips (word count, the outliner’s “Columns” plus, Focus mode, the note header’s Snapshots and More options) read plainly, in sentence case",
+			"qa6 menus: hover: the tooltips (the outliner’s “Columns” plus, Focus mode, the note header’s Snapshots and More options) read plainly, in sentence case; the word count, a word and not an icon, has none",
 			"qa6 menus: hover: hover-only states (the empty synopsis shows on a hovered card, rows and headers tint, the word count and a toolbar button light up)",
 			"qa6 menus: 320 px phone, with the keyboard up: a dialog with a field (Set target, New status) keeps its buttons in reach, and the Filter sheet fits the shorter screen",
 			"qa6 menus: 390 px phone, with the keyboard up: a dialog with a field (Set target, New status) keeps its buttons in reach, and the Filter sheet fits the shorter screen",

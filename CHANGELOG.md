@@ -2,6 +2,12 @@
 
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for when a number changes. Commits add entries under Unreleased (`npm run ship`); `npm run release` turns them into a version.
 
+## Unreleased
+
+### Fixed
+
+- Tooltips no longer pop up over the timeline, the word count, the Revision pane, the Export window, dialogs' fields and the settings; icons with no name beside them still say what they are.
+
 ## 0.53.3 (2026-10-16)
 
 ### Fixed

@@ -23,7 +23,11 @@ const RESERVED = ['binder', 'contents', 'longform', EXPORT_PROP, COMPILE_PROP, '
 
 /** Binders' tab in Obsidian's settings: the file explorer's switches, labels, statuses, focus mode, property names. */
 export class BindersSettingTab extends PluginSettingTab {
-	constructor(app: App, private plugin: BindersPlugin) { super(app, plugin); }
+	constructor(app: App, private plugin: BindersPlugin) {
+		super(app, plugin);
+		// (its fields are named for a screen reader: styles.css keeps those names from showing as tooltips)
+		this.containerEl.addClass('binders-settings');
+	}
 
 	private get s(): BindersSettings { return this.plugin.settings; }
 	private save(): Promise<void> { return this.plugin.saveSettings(); }

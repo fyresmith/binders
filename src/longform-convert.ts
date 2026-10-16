@@ -14,6 +14,7 @@ export class ConvertModal extends Modal {
 
 	onOpen(): void {
 		const { contentEl } = this, name = this.binder.folder.name;
+		this.modalEl.addClass('binders-modal');
 		this.setTitle('Convert to binder');
 		contentEl.createEl('p', { text: `“${name}” is a Longform project. As a binder, it keeps its own order in a binder note, and can have subfolders.` });
 		new Setting(contentEl).setName('Move groups into folders')

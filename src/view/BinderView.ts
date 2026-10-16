@@ -1157,9 +1157,9 @@ export class BinderView extends ItemView {
 		new ProgressModal(this.plugin, binder.folder, { scope: rel.includes('/') ? '' : rel }).open();
 	}
 
-	/** The plan of the folder shown, for the bar's tick and the count's tooltip: what a day is to be and where the plan
-	    has the book today. The tick needs the record (read in a moment, and the toolbar drawn again); the words a day
-	    don't. Null without a target and a deadline, or once the target is reached or the date has passed. */
+	/** The plan of the folder shown, for the bar's tick and the count's name (said by a screen reader): what a day is to
+	    be and where the plan has the book today. The tick needs the record (read in a moment, and the toolbar drawn
+	    again); the words a day don't. Null without a target and a deadline, or once the target is reached or the date has passed. */
 	private planCache: { key: string; tick: number | null } | null = null;
 	private planNow(folder: TFolder, goal: number, words: number | null): { said: string; tick: number | null } | null {
 		const binder = this.binder, note = this.store.folderNote(folder), fm = note ? this.app.metadataCache.getFileCache(note)?.frontmatter : undefined;

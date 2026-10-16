@@ -15,6 +15,7 @@ function askShift(ctx: ModeContext, count: number): Promise<{ by: number; unit: 
 	return new Promise((resolve) => {
 		let way: 'earlier' | 'later' = 'later', unit: ShiftUnit = 'd', typed = '1', ok = false;
 		const m = new Modal(ctx.app);
+		m.modalEl.addClass('binders-modal');
 		m.setTitle('Shift story dates');
 		m.contentEl.createEl('p', { text: `Moves the story dates of ${count} scenes together, keeping the space between them.` });
 		new Setting(m.contentEl).setName('Move').addDropdown((d: DropdownComponent) => d.addOption('later', 'Later').addOption('earlier', 'Earlier').setValue(way).onChange((v) => { way = v === 'earlier' ? 'earlier' : 'later'; }));

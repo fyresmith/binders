@@ -2734,10 +2734,12 @@ test('a Longform project: the views’ menus leave out what a flat project can�
 
 const needsHover = async (p, t) => { if ((await p.pointer()) === 'mouse') return false; console.log('    · skipped: needs a hovering mouse (--hover)'); return true; };
 
-test('hover: the tooltips (word count, the outliner’s “Columns” plus, Focus mode, the note header’s Snapshots and More options) read plainly, in sentence case', tidied(async (p, h, t) => {
+test('hover: the tooltips (the outliner’s “Columns” plus, Focus mode, the note header’s Snapshots and More options) read plainly, in sentence case; the word count, a word and not an icon, has none', tidied(async (p, h, t) => {
 	if (await needsHover(p, t)) return;
 	await fresh(p);
-	t.eq(await p.hover(`${LEAF} .binders-word-count`), 'Words in this folder. Show progress', 'word count says what it counts and what a click does');
+	// (the maintainer, 2026-10-16: tooltips where no icon needs one are in the way. The count says it to a screen reader)
+	t.eq(await p.ev(`document.querySelector('${LEAF} .binders-word-count').getAttribute('aria-label')`), 'Words in this folder. Show progress', 'word count says what it counts and what a click does, to a screen reader');
+	t.eq(await p.hover(`${LEAF} .binders-word-count`, { ms: 1200 }), null, 'and shows no tooltip');
 	await p.move(5, 5, 3);
 	await setMode(p, 'outliner');
 	t.eq(await p.hover(`${LEAF} .binders-outliner-th.mod-add`), 'Columns', 'the plus in the outliner’s header');

@@ -35,6 +35,7 @@ export function confirm(app: App, o: { title: string; text: string; cta: string;
 	return new Promise((resolve) => {
 		let ok = false;
 		const m = new Modal(app);
+		m.modalEl.addClass('binders-modal');
 		m.setTitle(o.title);
 		m.contentEl.createEl('p', { text: o.text });
 		const go = buttons(m, o.cta, () => { ok = true; m.close(); }, o.warning);
@@ -62,6 +63,7 @@ export function ask(app: App, o: { title: string; placeholder: string; cta: stri
 	return new Promise((resolve) => {
 		let value = o.value ?? '', ok = false;
 		const m = new Modal(app);
+		m.modalEl.addClass('binders-modal');
 		m.setTitle(o.title);
 		const f = field(m, o.placeholder, value);
 		// (a number: a phone shows its number keys)
@@ -86,6 +88,7 @@ export function pickColor(app: App, o: { title: string; value: string; cta: stri
 	return new Promise((resolve) => {
 		let value = hexColor(o.value) ?? '#808080', ok = false;
 		const m = new Modal(app);
+		m.modalEl.addClass('binders-modal');
 		m.setTitle(o.title);
 		const f = field(m, 'Hex color, such as #7c3aed', value);
 		// "7c3aed" is a color too: the # is only how it's usually written
@@ -120,6 +123,7 @@ export function newLabel(app: App, taken: readonly LabelPreset[]): Promise<Label
 		const used = new Set(taken.map((l) => l.color));
 		let name = '', color: string = PALETTE.find((c) => !used.has(c)) ?? PALETTE[0], ok = false;
 		const m = new Modal(app);
+		m.modalEl.addClass('binders-modal');
 		m.setTitle('New label');
 		const f = field(m, 'Name, such as a character or a storyline', name);
 		f.text.inputEl.setAttr('aria-label', 'Label name');
