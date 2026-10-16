@@ -16,6 +16,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - Importing a document with a very long run of spaces no longer freezes Obsidian.
 - Importing a text or Markdown file with a very long run of spaces inside a line no longer freezes Obsidian.
 - A binder whose calendar has a leap rule that takes days away no longer freezes Obsidian on "Shift story dates"; the rule is reported as one Binders can't read.
+- Links in an imported Word or rich text file are kept only when they go to a web page or an email address, as in the other importers, and an address can no longer break the note's text around it.
 
 ## 0.53.3 (2026-10-16)
 

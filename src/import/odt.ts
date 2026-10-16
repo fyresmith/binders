@@ -3,6 +3,7 @@ import type { DocxFile, DocxMark, DocxPara, DocxRun, Rev } from '../docx/read';
 import { MAX_PARAS } from '../docx/read';
 import { MAX_PART } from '../docx/package';
 import { events } from '../docx/xml';
+import { webLink } from './doc';
 import { MAX_BYTES, readZip, type ZipWording } from './source';
 
 /* An OpenDocument text (.odt, a template .ott, or the flat .fodt) read as a word processor's document, in the shape
@@ -314,7 +315,7 @@ export function readOdt(data: Uint8Array): DocxFile {
 				break;
 			}
 			case 'text:span': spans.push(a['text:style-name'] ?? ''); break;
-			case 'text:a': hrefs.push(/^(https?:|mailto:)/i.test(a['xlink:href'] ?? '') ? a['xlink:href'] : undefined); break;
+			case 'text:a': hrefs.push(webLink(a['xlink:href'] ?? '') ? a['xlink:href'] : undefined); break;
 			case 'text:s': add(' '.repeat(Math.min(1000, Math.max(1, Number(a['text:c'] ?? 1) || 1))), false); break;
 			case 'text:tab': push({ kind: 'tab' }); break;
 			case 'text:line-break': push({ kind: 'br', page: false }); break;

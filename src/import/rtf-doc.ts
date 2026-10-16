@@ -1,5 +1,6 @@
 import type { DocxFile, DocxMark, DocxPara, DocxRun, Rev } from '../docx/read';
 import { CHARSETS, decodePage, dest, parse, type Group } from './scriv/rtf';
+import { webLink } from './doc';
 
 /* A rich text file (.rtf) read as a word processor's document, the same shape a Word file is read into
    (`DocxFile`), so `settle` and the manuscript import treat both alike: tracked changes still in place, comments
@@ -89,9 +90,11 @@ export function readRtfDocument(data: Uint8Array): DocxFile {
 		if (c.href) c = { ...c, u: false };
 		if (c.u && t.trim()) found.underlined++;
 		if (c.i && t.trim()) found.italic++;
+		// (only a link to a web page or a mail address is kept, as in the other importers: any other is its words alone)
+		const href = c.href && webLink(c.href) ? c.href : undefined;
 		const p = open(), last = p.runs[p.runs.length - 1];
-		if (last && last.kind === 'text' && last.b === c.b && last.i === c.i && last.s === c.s && last.u === c.u && last.sz === c.fs && last.href === c.href && last.rev === rev) { last.text += t; return; }
-		const r: DocxRun = { kind: 'text', text: t, b: c.b, i: c.i, s: c.s, u: c.u, sz: c.fs, ...(c.href ? { href: c.href } : {}) };
+		if (last && last.kind === 'text' && last.b === c.b && last.i === c.i && last.s === c.s && last.u === c.u && last.sz === c.fs && last.href === href && last.rev === rev) { last.text += t; return; }
+		const r: DocxRun = { kind: 'text', text: t, b: c.b, i: c.i, s: c.s, u: c.u, sz: c.fs, ...(href ? { href } : {}) };
 		if (rev) r.rev = rev;
 		p.runs.push(r);
 	};

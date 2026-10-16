@@ -191,5 +191,8 @@ function same(plan: ImportPlan, want: string, notes: string, what: string): void
 	eq(read(rtf([H('One'), body('a')].join(''))).name, 'Book', 'title (rtf): with no Title, the file’s name is kept');
 	eq(read(rtf([P('The Salt Road', 3), body('a')].join(''))).name, 'The Salt Road','title (rtf): a file’s name does not matter when it has a Title');
 	eq(read(rtf([H('The Salt Road', 1), body('a')].join(''))).name, 'Book', 'title (rtf): a heading is not the Title');
+	const links = rtf([H('One'), P('{\\field{\\*\\fldinst HYPERLINK "file://attacker-host/share/run.exe"}{\\fldrslt {\\ul\\cf2 run it}}}, {\\field{\\*\\fldinst HYPERLINK \\\\l "_Ref1"}{\\fldrslt {\\ul see above}}} and {\\field{\\*\\fldinst HYPERLINK "mailto:a@example.org"}{\\fldrslt {\\ul write}}}.'), body('a'), H('Two'), body('b')].join(''));
+	ok(read(links).scan.text.includes('run it, see above and [write](mailto:a@example.org).'), 'fields: a link to a file or a place in the file is its words, one to a mail address is a link');
+	eq(read(links).word?.hasUnderline, false, 'fields: and a link left as its words still has no underlining of the writer\'s');
 }
 done('import rtf');

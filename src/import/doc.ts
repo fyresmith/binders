@@ -13,6 +13,10 @@ export type Run =
 	/** A comment from the margin, at the end of the words it is on: who wrote it, and what. */
 	| { kind: 'comment'; text: string };
 
+/** A link every importer keeps: to a web page or a mail address. Any other (a file, an app's own, a script) comes in
+    as its words alone. */
+export const webLink = (href: string): boolean => /^(https?:|mailto:)/i.test(href);
+
 export interface Para {
 	runs: Run[];
 	/** The style's built-in name, lower case ("heading 1", "title", "normal"), never its id. */

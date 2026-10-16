@@ -56,7 +56,9 @@ export function runsToMarkdown(runs: readonly Run[], note: (index: number) => st
 		if (!m[2]) { pieces.push(r.text); continue; }
 		const mark = `${r.s ? '~~' : ''}${r.b && r.i ? '***' : r.b ? '**' : r.i ? '*' : ''}`, close = [...mark].reverse().join('');
 		let body = `${mark}${text(m[2])}${close}`;
-		if (r.href) body = `[${body.replace(/\]/g, '\\]')}](${r.href.replace(/[() ]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0')}`)})`;
+		// (the address is encoded wherever it could end the link, its line or a footnote around it, or begin markup: white
+		// space, a control character, a bracket, `<`, `>`, a backtick, a backslash)
+		if (r.href) body = `[${body.replace(/\]/g, '\\]')}](${r.href.replace(/[\s\p{Cc}()<>`[\]\\]/gu, (c) => (c < '\u0080' ? `%${c.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0')}` : encodeURIComponent(c)))})`;
 		pieces.push(m[1] + body + m[3]);
 	}
 	return pieces.join('');

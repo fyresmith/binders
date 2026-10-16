@@ -1,6 +1,7 @@
 import { partText, readPackage, type Package } from './package';
 import { defaultSize, defaultStyle, readNumbering, readStyles, resolve, type Numbering, type Styles } from './styles';
 import { events } from './xml';
+import { webLink } from '../import/doc';
 
 /* A .docx read into paragraphs, exactly as the file has them, with every tracked change and comment anchor still
    in place: this reader never resolves a revision. `settle` (settle.ts) is what import calls; an "editor's changes"
@@ -165,7 +166,7 @@ function body(xml: string, c: Ctx, into: Map<number, DocxPara[]> | null): DocxPa
 			case 'w:fldSimple': fields.push({ instr: a['w:instr'] ?? '' }); break;
 			case 'w:fldChar': { const k = a['w:fldCharType']; if (k === 'begin') fields.push({ instr: '' }); else if (k === 'end') fields.pop(); break; }
 			case 'w:instrText': collecting = 'instr'; break;
-			case 'w:hyperlink': { const rel = a['r:id'] ? c.rels.get(a['r:id']) : undefined; href = rel?.external ? rel.target : undefined; break; }
+			case 'w:hyperlink': { const rel = a['r:id'] ? c.rels.get(a['r:id']) : undefined; href = rel?.external && webLink(rel.target) ? rel.target : undefined; break; }
 			case 'w:ins': case 'w:del': case 'w:moveFrom': case 'w:moveTo': {
 				const r: Rev = { kind: name.slice(2) as Rev['kind'], author: a['w:author'] ?? '', date: a['w:date'] ?? '', id: a['w:id'] ?? '' };
 				if (path.includes('w:rPr') && path.includes('w:pPr')) { if (t) t.p.markRev = r; if (r.kind === 'ins' || r.kind === 'moveTo') c.found.inserted++; else c.found.deleted++; } else if (path.includes('w:pPr')) { /* (a revision of the paragraph's own properties) */ } else {

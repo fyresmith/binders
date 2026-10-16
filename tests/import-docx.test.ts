@@ -66,6 +66,9 @@ const body = (seed: string, n = 120) => p(words(n, seed));
 	eq(runsToMarkdown([t('# not a heading, 1. not a list')], () => ''), '\\# not a heading, 1. not a list', 'markdown: the start of a line is escaped');
 	eq(runsToMarkdown([t('Word '), t('#tag mid-line')], () => ''), 'Word \\#tag mid-line', 'markdown: only where it would mean something');
 	eq(runsToMarkdown([t('see'), t(' here', { href: 'https://e.com/a (b)' })], () => ''), 'see[ here](https://e.com/a%20%28b%29)'.replace('see[ here]', 'see [here]'), 'markdown: a link');
+	eq(runsToMarkdown([t('x', { href: 'https://x\n\n<iframe\tsrc=https://e.com>\r`a`[b]\\\u0000 ' })], () => ''), '[x](https://x%0A%0A%3Ciframe%09src=https://e.com%3E%0D%60a%60%5Bb%5D%5C%00%E2%80%A8)', 'markdown: a link\'s address can\'t end the link or its line, or begin markup');
+	eq(runsToMarkdown([t('x', { href: 'https://e.com/a]^[b' })], () => '', true), '[x](https://e.com/a%5D^%5Bb)', 'markdown: nor end a footnote it is in');
+	eq(runsToMarkdown([t('x', { href: 'https://e.com/a?b=1&c=%20d#e' }), t(' and '), t('me', { href: 'mailto:a@b.c?subject=Hi' })], () => ''), '[x](https://e.com/a?b=1&c=%20d#e) and [me](mailto:a@b.c?subject=Hi)', 'markdown: an ordinary address is written as it is');
 	eq(runsToMarkdown([t('Text'), { kind: 'note', note: 0 }], () => 'The note, with [a link] and a ] bracket'), 'Text^[The note, with [a link] and a ] bracket]', 'markdown: a footnote is in place');
 	eq(runsToMarkdown([t('a'), { kind: 'br' }, t('b')], () => ''), 'a  \nb', 'markdown: a line break is two spaces and a newline');
 	eq(runsToMarkdown([t(' \tword \n', { i: true }), t('   ', { b: true })], () => ''), ' \t*word* \n   ', 'markdown: any space at a run’s edge stays outside its marks, and a run of only spaces is as it was');
@@ -182,6 +185,19 @@ const body = (seed: string, n = 120) => p(words(n, seed));
 	ok(make(ends).plan.notes.find((n) => n.title === 'One')?.body.includes('Text^[An endnote.]'), 'notes: an endnote comes in as a footnote');
 	ok(make(ends).plan.said.some((s) => /Endnotes come in as footnotes/.test(s.text)), 'notes: and is said');
 	same(ends, make(ends).plan, 'endnotes');
+}
+
+// ---- links: only to a web page or a mail address, and never markup ----
+{
+	const rel = (id: string, target: string) => `<Relationship Id="${id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="${target}" TargetMode="External"/>`;
+	const rels = rel('rIdX', 'https://x&#10;&#10;&lt;iframe&#9;src=https://attacker.example/login&gt;&lt;/iframe&gt;&#10;&#10;') + rel('rIdY', 'file://attacker-host/share/run.exe') + rel('rIdZ', 'obsidian://open?vault=a');
+	const link = (id: string, text: string) => `<w:hyperlink r:id="${id}">${r(text)}</w:hyperlink>`;
+	const bytes = docx([H('One'), p(`${r('See ')}${link('rIdX', 'this')}${r(', ')}${link('rIdY', 'run it')}${r(', ')}${link('rIdZ', 'open it')}${r(' and ')}${link('rIdL', 'that')}${r('.')}`), body('z'), H('Two'), body('b')].join(''), { rels });
+	const { plan } = make(bytes);
+	const one = plan.notes.find((n) => n.title === 'One')?.body ?? '';
+	ok(one.includes('See [this](https://x%0A%0A%3Ciframe%09src=https://attacker.example/login%3E%3C/iframe%3E%0A%0A), run it, open it and [that](https://example.com/a?b=1&c=2).'), 'links: an address that would end its line is encoded, one to a file or an app is its words, a web link is kept');
+	ok(!/<iframe/i.test(one), 'links: no markup gets into the note from an address');
+	same(bytes, plan, 'links');
 }
 
 // ---- a text box is read once ----

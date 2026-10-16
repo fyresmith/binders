@@ -1,3 +1,4 @@
+import { webLink } from '../doc';
 import { escapeMarkdown } from '../markdown';
 /* Independent RTF reader. A group owns its formatting and code page; fields and pictures are destinations,
    not paragraphs. Unrepresentable formatting is reported and its original is kept by the import plan. */
@@ -253,7 +254,7 @@ export function readRtf(data: Uint8Array, options: RtfOptions = {}): RichText {
 			if (r.url) {
 				const uuid = /^scrivlnk:\/\/(?:[^/]+\/)?([\da-f-]+)\/?$/i.exec(r.url)?.[1];
 				if (uuid) { const link = options.link?.(uuid, r.text); if (link) said = link; else warn('A link to a document that isn’t brought in is plain text here.'); }
-				else if (/^(https?:|mailto:)/i.test(r.url)) said = `[${said}](${r.url.replace(/[\s()<>\\]/g, (c) => encodeURIComponent(c))})`;
+				else if (webLink(r.url)) said = `[${said}](${r.url.replace(/[\s()<>\\]/g, (c) => encodeURIComponent(c))})`;
 				else warn('A link that isn’t to a web page or to a document is plain text here.');
 			}
 			text += said;

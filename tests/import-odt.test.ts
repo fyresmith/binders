@@ -125,6 +125,8 @@ function same(bytes: Uint8Array, plan: ImportPlan, what: string, o: { original?:
 	ok(text.includes('Plain *italic* and **strong** and ~~gone~~ and ***both***.'), 'formatting: italic, bold and struck, from automatic and named text styles');
 	ok(text.includes('*A whole paragraph set in italics by hand.*'), 'formatting: a paragraph made italic by hand (an automatic style) is italic');
 	ok(text.includes('[a link](https://example.org/a) and not one.'), 'formatting: a web link is kept, a link to a file is its words');
+	const sly = read(odt([H('One'), P('<text:a xlink:href="https://x&#10;&#10;&lt;iframe src=https://e.com&gt;&#10;">this</text:a>.'), body('a'), H('Two'), body('b')].join(''))).scan.text;
+	ok(sly.includes('[this](https://x%0A%0A%3Ciframe%20src=https://e.com%3E%0A).') && !sly.includes('<iframe'), 'formatting: a web link\'s address can\'t end its line or bring in markup');
 	const underlined = odt([H('One'), P('It was <text:span text:style-name="T3">never</text:span> so.'), body('a'), H('Two'), body('b')].join(''));
 	ok(read(underlined).scan.text.includes('It was *never* so.'), 'formatting: underlining is read as italics in a file with no italics');
 	ok(read(odt([H('One'), P('<text:span text:style-name="T3">under</text:span> and <text:span text:style-name="T1">ital</text:span>'), body('a'), H('Two'), body('b')].join(''))).word?.hasUnderline === true, 'formatting: a file with both asks what to do with the underlining');
