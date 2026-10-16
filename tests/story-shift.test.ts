@@ -14,6 +14,10 @@ eq(shift('1987-02-28', 2, 'd'), '1987-03-02', 'and not across one that is not th
 eq(shift('1987-06-14', 0, 'd'), '1987-06-14', 'by nothing: as it is');
 eq(shift('1987-06-14', 800, 'd'), '1989-08-22', 'a long way on');
 eq(shift('0001-01-01', -1, 'd'), '0000-12-31', 'across year 0');
+eq(shift('9999-12-30', 1, 'd'), '9999-12-31', 'to the last day there is');
+eq(shift('9999-12-31', 1, 'd'), null, 'and not past it');
+eq(shift('1987-06-14', 5000000, 'd'), null, 'nor thirteen thousand years on');
+eq(shift('1987-06-14', -5000000, 'd'), null, 'or back');
 eq(shift('1987-06-14T21:30', 1, 'd'), '1987-06-15T21:30', 'a typed time goes along');
 eq(shift('1987-06', 3, 'd'), null, 'a month cannot be moved by days');
 eq(shift('1987', 3, 'd'), null, 'nor a year');

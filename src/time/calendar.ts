@@ -68,7 +68,7 @@ export function readCalendarDef(calendar: unknown, eras: unknown): { def: Calend
 		if (def.months?.length) for (const r of Array.isArray(c.leap) ? c.leap : c.leap ? [c.leap] : []) {
 			const o = (r ?? {}) as Record<string, unknown>, every = int(o.every), days = int(o.days) ?? 1;
 			const m = int(o.month) ?? def.months.findIndex((x) => x.name.toLowerCase() === str(o.month).toLowerCase()) + 1;
-			if (every && every > 0 && m >= 1 && m <= def.months.length && days) def.leaps.push({ month: m, days, every, except: int(o.except) ?? undefined, unless: int(o.unless) ?? undefined });
+			if (every && every > 0 && m >= 1 && m <= def.months.length && days >= 1) def.leaps.push({ month: m, days, every, except: int(o.except) ?? undefined, unless: int(o.unless) ?? undefined });
 			else problems.push('A leap rule can’t be read, and is left out.');
 		}
 	} else if (calendar != null && !/^\s*(gregorian)?\s*$/i.test(str(calendar))) problems.push('The calendar can’t be read: the ordinary calendar is used.');

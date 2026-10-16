@@ -1,7 +1,7 @@
 import { PRESETS, calendarFrom, eraAbbr, eraOf, makeCalendar, readCalendarDef, writeCalendarDef } from '../src/time/calendar';
-import { GREGORIAN, compareStoryDates, exampleDates, parseStoryDate, readStoryDate, showStoryDate, storyKey, whyNotStoryDate, writeStoryDate } from '../src/time/date';
+import { GREGORIAN, compareStoryDates, exampleDates, parseStoryDate, readStoryDate, showStoryDate, storyKey, whyNotStoryDate, writeStoryDate, type Calendar, type StoryDate } from '../src/time/date';
 import { shiftDate } from '../src/time/shift';
-import { dateText, dropTargets, gapText, span, timeline, unfoldTargets } from '../src/view/timeline-data';
+import { MOST_DAYS, dateText, dropTargets, gapText, span, timeline, unfoldTargets } from '../src/view/timeline-data';
 import { daysOf, kindFrom, passes, problem } from '../src/filter/conditions';
 import { done, eq, ok } from './harness';
 
@@ -26,6 +26,11 @@ const parse = (t: string) => { const d = parseStoryDate(t, cal); return d ? writ
 	ok(readCalendarDef('Middle-earth', null).problems.length > 0, 'a calendar that is text and no calendar is a problem');
 	ok(readCalendarDef({ months: 'twelve' }, null).problems.length > 0, 'months that can’t be read are a problem');
 	ok(readCalendarDef({ months: [{ Thaw: 30 }], leap: [{ month: 'Frost', every: 4 }] }, null).problems.length > 0, 'a leap rule for a month there isn’t is a problem');
+	const leapOf = (days: number) => readCalendarDef({ months: [{ Summer: 90 }, { Winter: 90 }], leap: [{ month: 'Winter', days, every: 10 }] }, null);
+	ok(leapOf(-1000).problems.length > 0, 'a leap rule that takes days away is a problem');
+	eq(leapOf(-1000).def.leaps.length, 0, 'and is left out');
+	eq(leapOf(120).problems.length, 0, 'one that adds more days than a month has is no problem');
+	eq(j(leapOf(120).def.leaps), j([{ month: 2, days: 120, every: 10 }]), 'and is read');
 	ok(readCalendarDef(null, [{ name: 'A' }, { name: 'B' }]).problems.length > 0, 'two eras with no first year is a problem');
 	eq(j(readCalendarDef(null, ERAS).def.eras.map((e) => e.name)), j(['Before the Drowning', 'The Age of Lamps', 'The Long Quiet']), 'eras in order of their first year');
 	eq(j(readCalendarDef(null, [ERAS[2], ERAS[0], ERAS[1]]).def.eras.map((e) => e.abbr)), j(['BD', 'AL', 'LQ']), 'whatever order the note lists them in');
@@ -158,6 +163,23 @@ const parse = (t: string) => { const d = parseStoryDate(t, cal); return d ? writ
 	eq(j(shiftDate({ y: 8000, m: 3, d: 4 }, -10, 'd', cal)), j({ y: 8000, m: 2, d: 24 }), 'far from year 0, the search starts near enough');
 	eq(j(shiftDate({ y: 8000, m: 1, d: 4 }, -10, 'd', cal)), j({ y: 7999, m: 13, d: 24 }), 'and over the end of a year');
 	eq(j(shiftDate({ y: -39 }, 40, 'y', cal)), j({ y: 1 }), 'by years, from an era counting down');
+}
+
+// a calendar whose years run backward (from a binder note's leap rules) can't keep a shift looking forever
+{
+	// (the calendar counts its steps, so a search that never ends fails here rather than hanging the run)
+	const counted = (c: Calendar): Calendar => { let n = 0; return { ...c, toDay: (y, m, d) => { if (++n > 200000) throw new Error('still looking'); return c.toDay(y, m, d); } }; };
+	const shift = (date: StoryDate, by: number, c: Calendar) => { try { return j(shiftDate(date, by, 'd', counted(c))); } catch (e) { return (e as Error).message; } };
+	const t0 = Date.now();
+	const taken = calendarFrom({ months: Array.from({ length: 12 }, (_, i) => ({ [`M${i + 1}`]: 31 })), leap: [{ month: 1, days: -1000, every: 2 }] }, null);
+	eq(shift({ y: 1987, m: 6, d: 14 }, 3, taken), j({ y: 1987, m: 6, d: 17 }), 'a leap rule of -1000 days is left out, and dates move as they would without it');
+	const backward = { months: [{ A: 1 }], leap: [{ month: 'A', days: 5, every: 4, except: 1 }] };
+	eq(readCalendarDef(backward, null).problems.length, 0, 'a rule of whole days whose `except` takes away more leap years than `every` gives is read');
+	eq(shift({ y: 1, m: 1, d: 1 }, 1, calendarFrom(backward, null)), 'null', 'and a date in it is left where it is, not looked for forever');
+	eq(shift({ y: 1, m: 2, d: 5 }, 1, makeCalendar({ months: [{ name: 'A', days: 1 }, { name: 'B', days: 10 }], leaps: [{ month: 1, days: -30, every: 2 }], eras: [] })), 'null', 'nor in a calendar made with days taken away');
+	ok(Date.now() - t0 < 2000, `and soon (${Date.now() - t0} ms)`);
+	const huge = calendarFrom({ months: [{ A: 1 }, { B: 1 }], leap: [{ month: 'A', days: 900000, every: 1 }] }, null);
+	eq(dropTargets({ y: 1, m: 1, d: 1 }, { y: 1, m: 2, d: 1 }, huge).dates.length, MOST_DAYS, 'a gap in a month of 900,001 days unfolds into no more than MOST_DAYS days');
 }
 
 // filters: a date compared in the book's calendar

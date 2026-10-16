@@ -213,10 +213,14 @@ export function whereAcross(plan: AcrossPlan, x: number, near: number): { group:
 
 // ---- what a gap unfolds into, and how a day stands after a drop (for dragging, which is not built yet) ----
 
+/** The most days a gap unfolds into: far more than two years of any calendar, unless a binder note's leap rule adds
+    tens of thousands of days (which would otherwise be counted out one by one while a card is carried). */
+export const MOST_DAYS = 100000;
+
 /** What the stretch between two dates unfolds into while a card is carried over it: the dates in it, sized to the
-    gap. The years with nothing in them for a gap of years; the months for a gap of months; the days for a gap of days.
-    A drop on one writes exactly that ("1931"; "1931-04"; "1931-04-02"). Empty when the two dates touch. (A gap of a
-    thousand years is a thousand years here: whoever shows them decides how many to draw at once.) */
+    gap. The years with nothing in them for a gap of years; the months for a gap of months; the days for a gap of days,
+    up to `MOST_DAYS`. A drop on one writes exactly that ("1931"; "1931-04"; "1931-04-02"). Empty when the two dates
+    touch. (A gap of a thousand years is a thousand years here: whoever shows them decides how many to draw at once.) */
 export function dropTargets(before: StoryDate, after: StoryDate, cal: Calendar = GREGORIAN): { unit: 'y' | 'm' | 'd'; dates: StoryDate[] } {
 	const from = span(before, cal)[1], to = span(after, cal)[0], days = to - from - 1;
 	if (days <= 0) return { unit: 'd', dates: [] };
@@ -235,7 +239,7 @@ export function dropTargets(before: StoryDate, after: StoryDate, cal: Calendar =
 	}
 	const dates: StoryDate[] = [];
 	let at = { y: b.y, m: b.m, d: before.d ?? cal.daysIn(b.y, b.m) };
-	for (let i = 0; i < days; i++) {
+	for (let i = 0; i < Math.min(days, MOST_DAYS); i++) {
 		at = at.d < cal.daysIn(at.y, at.m) ? { ...at, d: at.d + 1 } : { ...next(at), d: 1 };
 		dates.push(at);
 	}

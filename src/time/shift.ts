@@ -9,13 +9,15 @@ export type ShiftUnit = 'd' | 'm' | 'y';
 
 const MAX_YEAR = 9999;
 
-/** The date a day number falls on in a calendar (the inverse of `toDay`). */
-function fromDay(cal: Calendar, day: number): { y: number; m: number; d: number } {
+/** The date a day number falls on in a calendar (the inverse of `toDay`); null past the years there are. */
+function fromDay(cal: Calendar, day: number): { y: number; m: number; d: number } | null {
 	// (a first guess from the calendar's own year, counted from its year 0, then put right: a book's own calendar counts
-	// its days from its year 0, the ordinary one from 1970)
-	let y = Math.floor((day - cal.toDay(0, 1, 1)) / cal.yearLength);
-	while (cal.toDay(y, 1, 1) > day) y--;
-	while (cal.toDay(y + 1, 1, 1) <= day) y++;
+	// its days from its year 0, the ordinary one from 1970. The search stays within the years there are, so a calendar
+	// whose years don't follow one another, from a binder note's leap rules, ends it rather than leaving it to run forever)
+	const most = MAX_YEAR + 1;
+	let y = Math.max(-most, Math.min(most, Math.floor((day - cal.toDay(0, 1, 1)) / cal.yearLength)));
+	while (cal.toDay(y, 1, 1) > day) if (--y < -most) return null;
+	while (cal.toDay(y + 1, 1, 1) <= day) if (++y > most) return null;
 	let m = 1;
 	while (m < cal.monthsIn(y) && cal.toDay(y, m + 1, 1) <= day) m++;
 	return { y, m, d: day - cal.toDay(y, m, 1) + 1 };
@@ -35,7 +37,7 @@ export function shiftDate(date: StoryDate, by: number, unit: ShiftUnit, cal: Cal
 	if (unit === 'd') {
 		if (date.d == null) return null;
 		const at = fromDay(cal, cal.toDay(date.y, date.m ?? 1, date.d) + by);
-		return out(at.y, at.m, at.d);
+		return at ? out(at.y, at.m, at.d) : null;
 	}
 	if (unit === 'm') {
 		if (date.m == null) return null;

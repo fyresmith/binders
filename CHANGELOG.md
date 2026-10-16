@@ -15,6 +15,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - A style file with a very long run of spaces in a line no longer freezes Obsidian when it is added or read.
 - Importing a document with a very long run of spaces no longer freezes Obsidian.
 - Importing a text or Markdown file with a very long run of spaces inside a line no longer freezes Obsidian.
+- A binder whose calendar has a leap rule that takes days away no longer freezes Obsidian on "Shift story dates"; the rule is reported as one Binders can't read.
 
 ## 0.53.3 (2026-10-16)
 
