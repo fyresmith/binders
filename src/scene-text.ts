@@ -26,7 +26,9 @@
 
 const BREAK = '(?:\\r\\n|\\n|\\r)';
 const OPEN = new RegExp(`^\\uFEFF?---${BREAK}`), CLOSE = new RegExp(`(?:^|${BREAK})---`), REST = new RegExp(`^[ \\t]*(?:${BREAK}|$)`);
-const NOTHING = new RegExp(`^(?:[ \\t]*(?:#[^\\r\\n]*)?(?:${BREAK}|$))*$`);
+// (in NOTHING a `\r` is a break alone only when no `\n` follows: a `\r\n` it could also take for two breaks gives a block
+// that isn't nothing 2^n ways to be tried, n its `\r\n` lines, and Obsidian hangs on it. Blocks it takes are the same.)
+const NOTHING = new RegExp(`^(?:[ \\t]*(?:#[^\\r\\n]*)?(?:\\r\\n|\\n|\\r(?!\\n)|$))*$`);
 
 /** Reads YAML, as Obsidian does: `scenes.ts` hands over Obsidian's own `parseYaml` when the plugin loads (this file
     imports nothing of Obsidian's). Without it (unit tests, in Node) `looksLikeMapping` stands in. */

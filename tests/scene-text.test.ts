@@ -143,6 +143,14 @@ const NOTE = '---\nsynopsis: Mara arrives.\nstatus: draft\n---\nThe boat left he
 	ok(!blockIsText('---\n---\nText.\n') && !blockIsText('---\n# c\n---\n'), 'nor is a block with nothing in it');
 	ok(!blockIsText('---\n\nA rule at the top, and no other.\n') && !blockIsText('Text.\n') && !blockIsText(''), 'nor a note that opens with no block at all');
 
+	// many blank and comment lines with Windows line endings, then something: answered at once (each `\r\n` once a
+	// break, not two ways, or the time doubles with every line: 26 lines took over a second, 40 hung Obsidian)
+	const CRLF = '\r\n# c\r\n'.repeat(13), t0 = performance.now();
+	props(`---\r\n${CRLF}a: 1\r\n---\r\nText.\r\n`, `---\r\n${CRLF}a: 1\r\n---\r\n`, 'blank and comment lines, then a key');
+	whole(`---\r\n${CRLF}Lost paragraph.\r\n---\r\nKept.\r\n`, 'blank and comment lines, then a paragraph');
+	props(`---\r\n${CRLF}---\r\nText.\r\n`, `---\r\n${CRLF}---\r\n`, 'blank and comment lines and nothing else');
+	ok(performance.now() - t0 < 200, 'a block of many Windows lines is read at once');
+
 	// shown by Obsidian's renderer, a text that opens with a rule must not be taken for properties again
 	eq(forRender(RULE), '\n' + RULE, 'a text that opens with a rule is rendered from a blank line');
 	eq(forRender('---\nstatus: draft\n---\nText.\n'), '\n---\nstatus: draft\n---\nText.\n', 'so nothing in it reads as properties, whatever is between its rules');
