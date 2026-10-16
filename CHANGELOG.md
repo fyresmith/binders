@@ -11,6 +11,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - A note whose properties begin with many blank or comment lines with Windows line endings no longer freezes Obsidian.
 - A note named "__proto__" or "constructor", or such a name in another device's history file, is now recorded as a note and no longer upsets Obsidian or other plugins.
 - A Longform project's ignoredFiles pattern with many wildcards no longer freezes Obsidian.
+- Find in a binder no longer freezes Obsidian on a note with a long run of backticks.
 
 ## 0.53.3 (2026-10-16)
 

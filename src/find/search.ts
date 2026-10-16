@@ -21,13 +21,34 @@ export interface FindOptions { matchCase: boolean }
 
 const literal = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-/* One pass over a stretch of prose. Groups: 1 and 2 inline code (the ticks, what's between), 3 and 4 comments, 5 a
-   wikilink's or embed's target, 6 a Markdown link's destination, 7 a tag (without its `#`; not after a word, so
-   `a#b` and a URL's fragment aren't tags, and not a number alone), 8 the part of a web address after its scheme (or
-   `www.`), 9 a block id (without its `^`), 10 an HTML tag with a name and only quoted attribute values (a `<` that
-   doesn't make a whole tag is prose). Code spans end at a blank line, as in Markdown. */
-const INLINE = /(`+)((?:(?!\n[ \t]*\n)[\s\S])*?[^`])\1(?!`)|%%([\s\S]*?)%%|<!--([\s\S]*?)-->|(?<!\\)\[\[([^\]|\n]*)(?:\|[^\]\n]*)?\]\]|\[[^\]\n]*\]\(([^)\n]*)\)|(?<![\p{L}\p{N}_&/\\#])#([\p{L}\p{N}_\-/]*[\p{L}_\-/][\p{L}\p{N}_\-/]*)|(?<![\p{L}\p{N}_])(?:https?:\/\/|www\.)([^\s<>]+)|(?:^|[ \t])\^([A-Za-z0-9-]+)[ \t]*\r?$|(<\/?[A-Za-z][\w-]*(?:\s+[A-Za-z_:][\w:.-]*(?:\s*=\s*(?:"[^"]*"|'[^']*'))?)*\s*\/?>)/gmu;
+/* One pass over a stretch of prose. Groups: 1 a run of backticks (the inline code it may open is in codeSpans), 2 and
+   3 comments, 4 a wikilink's or embed's target, 5 a Markdown link's destination, 6 a tag (without its `#`; not after
+   a word, so `a#b` and a URL's fragment aren't tags, and not a number alone), 7 the part of a web address after its
+   scheme (or `www.`), 8 a block id (without its `^`), 9 an HTML tag with a name and only quoted attribute values (a
+   `<` that doesn't make a whole tag is prose). */
+const INLINE = /(`+)|%%([\s\S]*?)%%|<!--([\s\S]*?)-->|(?<!\\)\[\[([^\]|\n]*)(?:\|[^\]\n]*)?\]\]|\[[^\]\n]*\]\(([^)\n]*)\)|(?<![\p{L}\p{N}_&/\\#])#([\p{L}\p{N}_\-/]*[\p{L}_\-/][\p{L}\p{N}_\-/]*)|(?<![\p{L}\p{N}_])(?:https?:\/\/|www\.)([^\s<>]+)|(?:^|[ \t])\^([A-Za-z0-9-]+)[ \t]*\r?$|(<\/?[A-Za-z][\w-]*(?:\s+[A-Za-z_:][\w:.-]*(?:\s*=\s*(?:"[^"]*"|'[^']*'))?)*\s*\/?>)/gmu;
 const FENCE = /^ {0,3}(`{3,}|~{3,})/;
+
+/* The inline code a stretch holds, found in one pass: as a pattern with a backreference it took minutes on a long run
+   of backticks that nothing closed. A run of n backticks opens code that the first later run of exactly k closes, k
+   the longest such run up to n before the paragraph ends (a blank line; a code span never crosses one), and the
+   opening run's other n - k ticks are inside the code. By where each run that opens code starts: k, and where the
+   closing run starts. */
+const codeSpans = (part: string): Map<number, [number, number]> => {
+	const runs = Array.from(part.matchAll(/`+/g), (r) => [r.index, r[0].length]), out = new Map<number, [number, number]>();
+	// from the last run back: the lengths of the runs after this one in its paragraph, ascending, and where the first
+	// run of each starts
+	let lens: number[] = [], first: number[] = [];
+	for (let i = runs.length - 1; i >= 0; i--) {
+		const [at, n] = runs[i];
+		if (i + 1 < runs.length && /\n[ \t]*\n/.test(part.slice(at + n, runs[i + 1][0]))) { lens = []; first = []; }
+		let lo = 0, hi = lens.length;
+		while (lo < hi) { const mid = (lo + hi) >> 1; if (lens[mid] <= n) lo = mid + 1; else hi = mid; }
+		if (lo) out.set(at, [lens[lo - 1], first[lo - 1]]);
+		if (lens[lo - 1] === n) first[lo - 1] = at; else { lens.splice(lo, 0, n); first.splice(lo, 0, at); }
+	}
+	return out;
+};
 
 /** The stretches of a text (from `from`: its properties are skipped) that a query doesn't reach, in order, none over
     another. */
@@ -35,22 +56,26 @@ export function shielded(text: string, from = 0): Hit[] {
 	const out: Hit[] = [];
 	const prose = (a: number, b: number): void => {
 		if (b <= a) return;
-		const part = text.slice(a, b);
+		const part = text.slice(a, b), code = codeSpans(part);
 		INLINE.lastIndex = 0;
 		for (let m = INLINE.exec(part); m; m = INLINE.exec(part)) {
 			const at = a + m.index, end = at + m[0].length;
-			if (m[1] != null) out.push({ from: at + m[1].length, to: end - m[1].length });
-			else if (m[3] != null) out.push({ from: at + 2, to: at + 2 + m[3].length });
-			else if (m[4] != null) out.push({ from: at + 4, to: at + 4 + m[4].length });
-			else if (m[5] != null) out.push({ from: at + 2, to: at + 2 + m[5].length });
-			else if (m[6] != null) out.push({ from: end - 1 - m[6].length, to: end - 1 });
-			else if (m[7] != null) out.push({ from: at + 1, to: end });
-			else if (m[8] != null) out.push({ from: end - m[8].length, to: end });
-			else if (m[9] != null) out.push({ from: at + m[0].indexOf('^') + 1, to: at + m[0].indexOf('^') + 1 + m[9].length });
-			else if (m[10] != null) {
-				const name = /^<\/?[A-Za-z][\w-]*/.exec(m[10])?.[0] ?? '', skip = name.indexOf('<') + 1 + (name[1] === '/' ? 1 : 0);
+			if (m[1] != null) {
+				// (a run is met at its start; one that opens nothing is prose, and the pass goes on after it)
+				const c = code.get(m.index);
+				if (c) { out.push({ from: at + c[0], to: a + c[1] }); INLINE.lastIndex = c[1] + c[0]; }
+			}
+			else if (m[2] != null) out.push({ from: at + 2, to: at + 2 + m[2].length });
+			else if (m[3] != null) out.push({ from: at + 4, to: at + 4 + m[3].length });
+			else if (m[4] != null) out.push({ from: at + 2, to: at + 2 + m[4].length });
+			else if (m[5] != null) out.push({ from: end - 1 - m[5].length, to: end - 1 });
+			else if (m[6] != null) out.push({ from: at + 1, to: end });
+			else if (m[7] != null) out.push({ from: end - m[7].length, to: end });
+			else if (m[8] != null) out.push({ from: at + m[0].indexOf('^') + 1, to: at + m[0].indexOf('^') + 1 + m[8].length });
+			else if (m[9] != null) {
+				const name = /^<\/?[A-Za-z][\w-]*/.exec(m[9])?.[0] ?? '', skip = name.indexOf('<') + 1 + (name[1] === '/' ? 1 : 0);
 				out.push({ from: at + skip, to: at + name.length });
-				for (const v of m[10].matchAll(/=\s*("[^"]*"|'[^']*')/g)) out.push({ from: at + v.index + v[0].length - v[1].length + 1, to: at + v.index + v[0].length - 1 });
+				for (const v of m[9].matchAll(/=\s*("[^"]*"|'[^']*')/g)) out.push({ from: at + v.index + v[0].length - v[1].length + 1, to: at + v.index + v[0].length - 1 });
 			}
 		}
 	};

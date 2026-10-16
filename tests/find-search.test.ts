@@ -60,6 +60,16 @@ const swap = (text: string, q: string, by: string, opt = o) => replaceIn(text, f
 	eq(swap('a ` b\n\nMara ` c', 'Mara', 'Maren'), 'a ` b\n\nMaren ` c', 'a lone backtick opens nothing across a blank line');
 	eq(swap('\tIndented Mara\n\tMara again', 'Mara', 'Maren'), '\tIndented Maren\n\tMaren again', 'a tab-led line is a paragraph, not code');
 	eq(swap('x', '', 'y'), 'x', 'an empty query finds nothing');
+	eq(swap('``Mara` Mara', 'Mara', 'M'), '``Mara` M', 'a run only a shorter one closes: the code is between them');
+	eq(swap('`` Mara ``` Mara', 'Mara', 'M'), '`` M ``` M', 'a run nothing closes is prose');
+	eq(swap('a ` b\n \t\nMara ` c', 'Mara', 'M'), 'a ` b\n \t\nM ` c', 'a blank line with spaces on it ends the paragraph');
+}
+
+// a long run of backticks that nothing closes is read in time (it took minutes: a note could freeze Obsidian)
+{
+	const note = 'Mara ' + '`'.repeat(600) + 'a'.repeat(10000), t0 = Date.now(), hits = findIn(note, 'Mara', o), ms = Date.now() - t0;
+	eq(hits.length, 1, 'the word before it is found');
+	eq(ms < 500, true, `in under half a second (${ms} ms)`);
 }
 
 // bare web addresses, block ids and HTML are where something leads
