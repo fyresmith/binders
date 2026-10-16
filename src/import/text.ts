@@ -55,6 +55,25 @@ function propertiesOf(text: string): string {
 	return /^---[ \t]*\n(?:[\s\S]*?\n)?(?:---|\.\.\.)[ \t]*(?:\n|$)/.exec(text)?.[0] ?? '';
 }
 
+/** An ATX heading's level and its text, with a closing run of #s and the spaces and tabs at its end taken off, or null:
+    what `/^ {0,3}(#{1,6})[ \t]+(.*?)(?:[ \t]+#+)?[ \t]*$/` found, read here from each end by hand. That pattern
+    backtracks over a long run of spaces inside the line, in time that grows with its square: a file could hang
+    Obsidian with one. */
+function atxHeading(line: string): { level: number; text: string } | null {
+	const open = /^ {0,3}(#{1,6})[ \t]+/.exec(line);
+	// (the pattern's `.` took no line break, so a line with one is no heading)
+	if (!open || /[\n\r\u2028\u2029]/.test(line)) return null;
+	const rest = line.slice(open[0].length), sp = (i: number) => rest[i] === ' ' || rest[i] === '\t';
+	let end = rest.length;
+	while (end > 0 && sp(end - 1)) end--;
+	// a closing run of #s counts only after a space or a tab
+	let hashes = end;
+	while (hashes > 0 && rest[hashes - 1] === '#') hashes--;
+	let before = hashes;
+	while (before > 0 && sp(before - 1)) before--;
+	return { level: open[1].length, text: rest.slice(0, hashes < end && before < hashes ? before : end) };
+}
+
 /** Markdown (a note, a `.md` file) as units. Headings are ATX (`# Title`) outside code, comments and math; a mark
     between scenes counts only on a line of its own between blank ones (under a line of text it would be Markdown's
     other kind of heading); everything else is a paragraph, which ends at a blank line or at a heading. */
@@ -85,11 +104,11 @@ export function scanMarkdown(text: string): Scan {
 			open = { close: fence ? new RegExp(`^ {0,3}${fence[1][0]}{${fence[1].length},}\\s*$`) : math ? /^\s*\$\$\s*$/ : comment ? /%%/ : /-->/, start, end, gap: blank };
 			continue;
 		}
-		const h = /^ {0,3}(#{1,6})[ \t]+(.*?)(?:[ \t]+#+)?[ \t]*$/.exec(line);
-		if (h && h[2].trim() && !/^#+$/.test(h[2].trim())) {
+		const h = atxHeading(line);
+		if (h && h.text.trim() && !/^#+$/.test(h.text.trim())) {
 			flush();
-			const t = h[2].trim();
-			units.push(unit(t, { heading: h[1].length, gap: blank, start, end, emphatic: false }));
+			const t = h.text.trim();
+			units.push(unit(t, { heading: h.level, gap: blank, start, end, emphatic: false }));
 			blank = 0;
 			continue;
 		}
@@ -116,8 +135,9 @@ export function scanPlain(raw: string, o: { tabs: boolean }): Scan {
 	const paras: Para[] = [];
 	let cur: Para | null = null, gap = 0, page = false;
 	for (const line0 of raw.split('\n')) {
-		// (a form feed is a page break in a text file; it is no character of the writing)
-		const form = line0.includes('\f'), line = line0.replace(/\f/g, '').replace(/\s+$/, '');
+		// (a form feed is a page break in a text file; it is no character of the writing. trimEnd, not /\s+$/, which is
+		// tried from every space of a long run inside the line, in time that grows with its square)
+		const form = line0.includes('\f'), line = line0.replace(/\f/g, '').trimEnd();
 		if (form) { cur = null; page = true; }
 		if (!line.trim()) { cur = null; gap++; continue; }
 		const lead = /^[ \t]*/.exec(line)?.[0] ?? '';

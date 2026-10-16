@@ -199,6 +199,26 @@ const sourceMd = (t: string) => noteWords(t.replace(/^---\n[\s\S]*?\n---\n/, '')
 	eq(bom.units[0].text, 'A', 'markdown: a byte-order mark does not hide the first heading');
 }
 
+// ---- a long run of spaces inside a line, in time ----
+{
+	// (/\s+$/ and the heading's old pattern went over the run again from each space in it: seconds for this, and a file
+	// of a few megabytes kept Obsidian from answering)
+	const run = ' '.repeat(100000), timed = <T>(f: () => T): [T, number] => { const t0 = Date.now(), r = f(); return [r, Date.now() - t0]; };
+	const [p, plainMs] = timed(() => scanPlain(`a${run}b\n`, { tabs: true }));
+	ok(plainMs < 1000, `spaces: a line of text with a long run of spaces in it is read in time (${plainMs} ms)`);
+	ok(p.units.length === 1 && p.units[0].text === `a${run}b`, 'spaces: and kept whole');
+	const [h, headMs] = timed(() => scanMarkdown(`# a${run}b\n`));
+	ok(headMs < 1000, `spaces: so is a heading with one (${headMs} ms)`);
+	ok(h.units.length === 1 && h.units[0].heading === 1 && h.units[0].text === `a${run}b`, 'spaces: and it is still a heading, whole');
+	eq(scanMarkdown(`## a${run}##${run}\n`).units[0]?.text, 'a', 'spaces: a closing run of #s after them is still taken off');
+	// the same headings as the pattern that was replaced, on every short line of these characters
+	const was = (line: string) => { const m = /^ {0,3}(#{1,6})[ \t]+(.*?)(?:[ \t]+#+)?[ \t]*$/.exec(line); return m && m[2].trim() && !/^#+$/.test(m[2].trim()) ? `${m[1].length} ${m[2].trim()}` : '-'; };
+	const is = (line: string) => { const u = scanMarkdown(line).units.find((x) => x.heading !== null); return u ? `${u.heading} ${u.text}` : '-'; };
+	const tails = (n: number): string[] => (n ? tails(n - 1).flatMap((l) => [' ', '\t', '#', 'a', '\r', '\u00a0'].map((c) => l + c)) : ['']);
+	const lines = [0, 1, 2, 3, 4, 5].flatMap(tails).flatMap((l) => ['', '   ', '    ', '######', '#######'].map((lead) => lead + l));
+	eq(JSON.stringify(lines.find((l) => was(l) !== is(l))), undefined, `spaces: headings are found as before (${lines.length} lines)`);
+}
+
 // ---- the original ----
 {
 	const fromDevice = make(plain(`CHAPTER ONE\n\n${prose(50, 'a')}\n\nCHAPTER TWO\n\n${prose(50, 'b')}\n`)).plan;
