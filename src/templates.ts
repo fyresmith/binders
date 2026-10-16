@@ -1,4 +1,4 @@
-import { TFile, TFolder, moment, normalizePath, type App } from 'obsidian';
+import { TFile, TFolder, normalizePath, type App } from 'obsidian';
 import type BindersPlugin from './main';
 import { DEFAULT_FORMATS, noteText, type Formats } from './template-text';
 
@@ -67,7 +67,7 @@ export function noteTemplates(plugin: BindersPlugin): TFile[] {
 
 /** A new note's text from a template's raw text: `at` is when its date and time are (ms). */
 export function fill(app: App, raw: string, title: string, at: number): string {
-	const m = moment(at);
+	const m = window.moment(at);
 	return noteText(raw, title, (f) => m.format(f), formats(app));
 }
 
