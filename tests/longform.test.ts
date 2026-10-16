@@ -50,6 +50,20 @@ const flat = (s: Scene[]) => s.map((x) => '  '.repeat(x.indent) + x.title).join(
 	ok(isIgnored('ab', ['a?']) && !isIgnored('abc', ['a?']), '? matches one character');
 	ok(!isIgnored('xNotes', ['Notes*']), 'the whole name');
 	ok(isIgnored('a.b (1)', ['a.b (1)']) && !isIgnored('axb (1)', ['a.b (1)']), 'dots and brackets are literal');
+	ok(!isIgnored('a\nb', ['a*']) && !isIgnored('a\rb', ['a?b']) && isIgnored('a\nb', ['a\nb']), 'a wildcard never takes a line break');
+	ok(isIgnored('a*b', ['a*b']) && isIgnored('a?', ['a*']) && !isIgnored('', ['?']) && isIgnored('', ['**']), '* and ? in a name are text');
+	// exactly what the RegExp it used to build matched, on many small patterns and names
+	const before = (name: string, p: string) => new RegExp('^' + p.replace(/[.+^${}()|[\]\\/&=!,]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.') + '$').test(name);
+	const pat = ['*', '*', '?', 'a', 'b', '.', '\n', '\u2028', '(', '\\', '$'], txt = ['a', 'b', '.', '\n', '\r', '\u2029', '*', '?', '\\', '(', '$'];
+	let seed = 7, differ = 0;
+	const pick = (xs: string[], n: number) => { let s = ''; for (let k = 0; k < n; k++) { seed = (seed * 1103515245 + 12345) >>> 0; s += xs[(seed >>> 8) % xs.length]; } return s; };
+	for (let k = 0; k < 20000; k++) { const p = pick(pat, k % 7), name = pick(txt, k % 9); if (isIgnored(name, [p]) !== before(name, p)) differ++; }
+	eq(differ, 0, 'the same answers as the RegExp');
+	// a shared vault's index note can hold any pattern: `*********!` as a RegExp took seconds on this name
+	const t0 = Date.now();
+	ok(!isIgnored('a'.repeat(30), ['*'.repeat(9) + '!', '*a'.repeat(12) + '!']), 'many stars, no match');
+	ok(isIgnored('a'.repeat(30) + '!', ['*'.repeat(9) + '!']), 'many stars, a match');
+	ok(Date.now() - t0 < 200, `many stars, at once (${Date.now() - t0} ms)`);
 }
 
 // what shows: listed scenes that exist, then unlisted notes by name, minus ignored ones

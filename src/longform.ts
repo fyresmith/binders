@@ -82,7 +82,25 @@ export function nest(scenes: Scene[]): unknown[] {
 
 /** Longform's `ignoredFiles` wildcards: `*` any text, `?` one character, the whole name. */
 export function isIgnored(name: string, patterns: string[]): boolean {
-	return patterns.some((p) => new RegExp('^' + p.replace(/[.+^${}()|[\]\\/&=!,]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.') + '$').test(name));
+	return patterns.some((p) => wildcardMatch(name, p));
+}
+
+// What `.` matches in a RegExp, as these wildcards always have: anything but a line break.
+const lineBreak = (c: string) => c === '\n' || c === '\r' || c === '\u2028' || c === '\u2029';
+
+/** One pattern against the whole name, by hand rather than as a RegExp: the patterns come from a note anyone may have
+    written, and `*****…!` as `.*.*.*…` backtracks for minutes. This retries only the last `*` (the earliest place
+    for each piece between stars is always the best one), so it's at most name × pattern steps. */
+function wildcardMatch(s: string, p: string): boolean {
+	let i = 0, j = 0, star = -1, mark = 0;
+	while (i < s.length) {
+		if (p[j] === '*') { star = j++; mark = i; }
+		else if (j < p.length && (p[j] === '?' ? !lineBreak(s[i]) : p[j] === s[i])) { i++; j++; }
+		else if (star >= 0 && !lineBreak(s[mark])) { j = star + 1; i = ++mark; }
+		else return false;
+	}
+	while (p[j] === '*') j++;
+	return j === p.length;
 }
 
 const byName = (a: string, b: string) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
