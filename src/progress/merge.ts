@@ -111,7 +111,8 @@ export function merge(sources: Source[]): Merged {
 	const byDay = new Map<string, MergedDay>(), stamped = new Map<string, number>(), sittings = new Map<string, Sitting[]>();
 	for (const { device, line } of lines.values()) {
 		let m = byDay.get(line.d);
-		if (!m) { m = { day: line.d, notes: {}, added: 0, cut: 0, block: 0, minutes: 0, hours: {}, phone: 0, sittings: [], status: {}, elsewhere: null, devices: [] }; byDay.set(line.d, m); }
+		// (`notes` with no prototype: a name another device's file gives, "__proto__" or "constructor", is a note's)
+		if (!m) { m = { day: line.d, notes: Object.create(null) as MergedDay['notes'], added: 0, cut: 0, block: 0, minutes: 0, hours: {}, phone: 0, sittings: [], status: {}, elsewhere: null, devices: [] }; byDay.set(line.d, m); }
 		if (!m.devices.includes(device)) m.devices.push(device);
 		for (const [path, c] of Object.entries(line.n)) {
 			const to = follow(path, line.d), n = (m.notes[to] ??= [0, 0, 0, 0]);
@@ -170,7 +171,7 @@ export function toHistory(m: Merged, statuses?: string[]): History {
 	const due = plans.filter((e) => e.kind === 'deadline' && e.scope === '');
 	due.forEach((e, i) => { if (e.to && !(due[i + 1] && due[i + 1].day <= e.to)) marks.push({ day: e.to, kind: 'deadline', what: e.words ? `${fmt(e.words)} words due` : 'Due' }); });
 	const days: Day[] = m.days.map((d) => {
-		const notes: Day['notes'] = {};
+		const notes = Object.create(null) as Day['notes'];
 		for (const [p, c] of Object.entries(d.notes)) notes[p] = [c[0], c[1], c[2] - c[3]];
 		for (const s of Object.keys(d.status)) if (s && !seen.includes(s)) seen.push(s);
 		return { day: d.day, notes, minutes: d.minutes, hours: d.hours, phone: d.phone, moves: moves.get(d.day) ?? 0, status: d.status, total: d.total, scenes: d.scenes, elsewhere: d.elsewhere, sittings: d.sittings };

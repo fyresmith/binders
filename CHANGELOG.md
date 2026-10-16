@@ -9,6 +9,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - Tooltips no longer pop up over the timeline, the word count, the Revision pane, the Export window, dialogs' fields and the settings; icons with no name beside them still say what they are.
 - The progress window no longer flashes as a small empty dialog before the full page: it opens with the record already drawn.
 - A note whose properties begin with many blank or comment lines with Windows line endings no longer freezes Obsidian.
+- A note named "__proto__" or "constructor", or such a name in another device's history file, is now recorded as a note and no longer upsets Obsidian or other plugins.
 
 ## 0.53.3 (2026-10-16)
 

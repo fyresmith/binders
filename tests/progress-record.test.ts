@@ -369,4 +369,37 @@ eq(readSettings({}).recordProgress, true, 'recording is on to begin with');
 eq(readSettings({ recordProgress: false }).recordProgress, false, 'turned off, it stays off');
 eq(readSettings({ recordProgress: 'no' }).recordProgress, true, 'a value that is not a switch is the default');
 
+// ---- a note named "__proto__" or "constructor" is a note: its count changes no object but the record's ----
+// (last in the file: on code that has the bug, these pollute every object in the process)
+{
+	const own = (o: object, k: string): boolean => Object.prototype.hasOwnProperty.call(o, k);
+	const clean = (): boolean => ['0', '1', '2', '3'].every((k) => !own(Object.prototype, k) && !own(Object, k) && !own(Object.prototype.toString, k));
+	// another device's file, as anyone who can write in the vault could plant it: a day's typing, then a rename to "__proto__"
+	const planted = [
+		JSON.stringify({ 'binders-history': 1, device: 'abcdef', label: 'X', kind: 'desktop', year: 2026 }),
+		JSON.stringify({ t: 'day', d: '2026-01-01', u: 1, k: 'desktop', n: { a: [1, 1, 1, 1] }, h: {}, s: [], m: 0 }),
+		JSON.stringify({ t: 'ev', at: t(2026, 1, 1, 13), d: '2026-01-01', k: 'renamed', from: 'a', to: '__proto__' }),
+	].join('\n') + '\n';
+	const m = merge([{ device: 'abcdef', file: parseFile(planted) }]);
+	ok(clean(), 'a rename to "__proto__" in another device’s file changes no object but the record’s');
+	eq(JSON.stringify(m.days[0].notes['__proto__']), JSON.stringify([1, 1, 1, 1]), 'its words are under that name');
+	eq(JSON.stringify(toHistory(m).days[0].notes['__proto__']), JSON.stringify([1, 1, 0]), 'and in the history');
+	// this device's typing in notes of those names, written, read back and added to
+	const l = new Ledger(A, 2026);
+	l.typed(t(2026, 2, 1), '__proto__', 3, 1);
+	l.typed(t(2026, 2, 1, 12, 1), 'constructor', 2, 0);
+	l.block(t(2026, 2, 1, 12, 2), 'toString', 60);
+	ok(clean(), 'typing in notes named "__proto__", "constructor" and "toString" changes no object but the record’s');
+	const text = l.serialize(), back = parseFile(text);
+	eq(JSON.stringify(back.days[0].n), '{"__proto__":[3,1,0,0],"constructor":[2,0,0,0],"toString":[0,0,60,0]}', 'each is written and read back under its name');
+	eq(new Ledger(A, 2026, back).serialize(), text, 'read and written again, it is the same file');
+	const live = new Ledger(A, 2026);
+	live.typed(t(2026, 2, 1, 13), '__proto__', 1, 0);
+	live.absorb(back);
+	eq(JSON.stringify(live.get('2026-02-01')?.n['__proto__']), JSON.stringify([4, 1, 0, 0]), 'and added to typing counted before the file was read');
+	const merged = merge([{ device: A.id, file: back }]);
+	eq(Object.keys(merged.days[0].notes).join('|'), '__proto__|constructor|toString', 'and merged under its name');
+	ok(clean(), 'still no object but the record’s is changed');
+}
+
 done('progress record');

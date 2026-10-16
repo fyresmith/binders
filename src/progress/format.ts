@@ -69,7 +69,8 @@ const kind = (v: unknown): Kind => (KINDS as unknown[]).includes(v) ? v as Kind 
 
 function readDay(o: Record<string, unknown>): DayLine | null {
 	if (!text(o.d) || !DAY.test(o.d)) return null;
-	const n: Record<string, Count> = {}, h: Record<string, number> = {}, s: Sitting[] = [];
+	// (by note, with no prototype: a note may be named "__proto__" or "constructor", and the file is anyone's to write)
+	const n = Object.create(null) as Record<string, Count>, h: Record<string, number> = {}, s: Sitting[] = [];
 	for (const [path, v] of Object.entries(obj(o.n) ?? {})) {
 		if (Array.isArray(v) && v.length === 4) { const c = v.map(whole); if (c.every((x) => x !== null)) n[path] = c as Count; }
 	}

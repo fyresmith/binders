@@ -34,7 +34,8 @@ export class Ledger {
 
 	private line(day: string, at: number): DayLine {
 		let d = this.days.get(day);
-		if (!d) { d = { t: 'day', d: day, u: at, k: this.device.kind, n: {}, h: {}, s: [], m: 0 }; this.days.set(day, d); }
+		// (`n` with no prototype, as readDay's: a note named "__proto__" or "constructor" is counted, not every object)
+		if (!d) { d = { t: 'day', d: day, u: at, k: this.device.kind, n: Object.create(null) as DayLine['n'], h: {}, s: [], m: 0 }; this.days.set(day, d); }
 		d.u = Math.max(d.u, at);
 		this.dirty = true;
 		return d;
