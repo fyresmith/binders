@@ -13,7 +13,9 @@ You are a developer on Binders, an Obsidian plugin. Read `AGENTS.md` first: it i
   when it is finished. Never run `npm run release` or tag: a release is made only when the maintainer asks for one
   (his rule, 2026-10-10: "releases should not be triggered wantonly ... Only if I issue it").
 - A bug fix starts with a failing test. New behavior gets tests: pure logic in unit tests, anything the user sees or
-  any vault change in e2e. `npm run check`, your new tests and the one or two
+  any vault change in e2e. Write a test only if it would fail when the code is broken in a way that matters (the
+  maintainer's rule, 2026-10-15; `AGENTS.md`, "Tests"): for each new test, break the code the way it guards
+  against, see it fail, put the code back, and name that bug in your report. `npm run check`, your new tests and the one or two
   spec files that directly cover what you changed must pass before you report. Don't run wider than that: the whole
   suite runs on GitHub for every commit on `main` (`npm run suite -- --wait` reads its verdict).
 - When you change something a writer already has (a menu's rows, a name, a default, where a control is, what is

@@ -142,7 +142,21 @@ npm run ship -- "Docs: what the limits are" --internal
 | `npm run suite` | The whole suite on GitHub Actions for `main`'s tip: starts it, or reports the run already there; `-- --wait` follows it and prints the verdict (exit 0 or 1); `-- --accept "<part of a name>" "<why>"` lists a failure of it as an open finding |
 | `npm run check` | Build + lint + unit tests |
 
-- New behavior gets tests: pure logic in unit tests, anything the user sees or any vault change in e2e.
+- **A test is written only if it would fail when the code is broken in a way that matters** (the maintainer's
+  rule, 2026-10-15: "Only write a test if it would actually fail when the code is broken in a way that matters.").
+  - Before writing one, name the bug it catches: a way the code could break that a writer would notice (words lost,
+    the wrong order, an action that does nothing, a wrong number, a broken export).
+  - Then break the code that way, watch the test fail for that reason, and put the code back. A developer does this
+    in its own worktree and says in its report which bug each new test was seen to catch. A QA agent, who doesn't
+    edit `src/`, names the bug for each scenario, and the coordinator checks the weakest of them the same way.
+  - A test that would still pass with the feature broken is not written: one that only checks an element exists,
+    that a call didn't throw, that a menu row is at a position, or what the test itself set up. Nor is one that
+    repeats a check another test already makes.
+  - A test in the suite found to fail this rule is made to catch the bug it was meant for, or removed with the
+    reason in the commit. This is the one way a test may be removed without the behavior having changed.
+  - A look test is held to it too: it names what a writer would see go wrong, not a pixel no one would notice.
+- New behavior gets tests, under the rule above: pure logic in unit tests, anything the user sees or any vault change
+  in e2e.
 - A bug fix starts with a failing test.
 - **A change to what exists updates the tests that describe it, in the same ticket** (the maintainer's rule,
   2026-10-12, after the regrouped menus shipped with eight spec files still looking for rows where they used to be,
