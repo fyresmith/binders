@@ -7,6 +7,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 ### Fixed
 
 - Tooltips no longer pop up over the timeline, the word count, the Revision pane, the Export window, dialogs' fields and the settings; icons with no name beside them still say what they are.
+- The progress window no longer flashes as a small empty dialog before the full page: it opens with the record already drawn.
 
 ## 0.53.3 (2026-10-16)
 

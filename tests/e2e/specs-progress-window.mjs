@@ -81,6 +81,22 @@ test('opens from the command and from the view’s More options, over the binder
 	t.eq(p.errors.filter((e) => /binders/i.test(e)).length, 0, 'with no error');
 });
 
+test('a click on the word count opens the window already drawn: its first frame is the page, never an empty dialog that grows into it', async (p, h, t) => {
+	await plant(p, L, novel(await scenesOf(p, L), recordToday()).files);
+	await shut(p);
+	await openView(p);
+	// (what the window is on the first frame it is painted: a frame callback runs after the code that opened it, before the
+	// paint. The record is read slowly, as on a phone or with a long record: a window opened before it was read was empty)
+	await p.ev(`(() => { const pr = ${P}; pr.__read ??= pr.read; pr.read = (f) => new Promise((ok) => setTimeout(ok, 400)).then(() => pr.__read(f)); window.__potFirst = null; const mo = new MutationObserver(() => { const m = document.querySelector(${j(WIN)}); if (!m) return; mo.disconnect(); requestAnimationFrame(() => { window.__potFirst = { page: m.classList.contains('mod-page'), life: !!m.querySelector('.binders-chart-life'), nothing: !!m.querySelector('.binders-pot-nothing') }; }); }); mo.observe(document.body, { childList: true, subtree: true }); return 1; })()`);
+	try {
+		const at = await p.at('.workspace-leaf.mod-active .binders-word-count');
+		await p.click(at.x, at.y);
+		await until(p, `!!window.__potFirst`, 6000);
+	} finally { await p.ev(`(() => { const pr = ${P}; pr.read = pr.__read; delete pr.__read; return 1; })()`); }
+	t.eq(await p.ev(`JSON.stringify(window.__potFirst)`), j({ page: true, life: true, nothing: false }), 'the first frame is the page with the book’s life on it');
+	await shut(p);
+});
+
 test('three years on two devices: every part of the page, a table behind each chart, the ranges, and the book’s own total', async (p, h, t) => {
 	const scenes = await scenesOf(p, L), words = scenes.reduce((a, s) => a + s.words, 0);
 	await plant(p, L, novel(scenes, recordToday()).files);

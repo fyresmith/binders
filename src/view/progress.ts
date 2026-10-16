@@ -38,6 +38,8 @@ const LETTERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'], WEEKDAYS = ['Sunday', 'Mond
 /** How many parts are listed before "Show all". */
 const PARTS_SHOWN = 16;
 
+type Read = { merged: Merged | null; why: string; stopped: string };
+
 export class ProgressModal extends Modal {
 	private fixedDay: string | null;
 	private history: History | null = null;
@@ -75,6 +77,14 @@ export class ProgressModal extends Modal {
 		return f instanceof TFolder ? f : this.binderFolder;
 	}
 
+	/** The record is read before the window shows, so it opens as it will be drawn: the page, or the small dialog that
+	    says there is none. Opened first and read after, it showed as an empty dialog that grew into the page. */
+	private first: Promise<Read> | null = null;
+	open(): void {
+		const first = this.first = this.fetch();
+		void first.then(() => super.open(), () => super.open());
+	}
+
 	onOpen(): void {
 		const { plugin } = this, root = this.binderFolder.path + '/';
 		this.open_ = true;
@@ -87,7 +97,9 @@ export class ProgressModal extends Modal {
 		this.life.register(() => plugin.progress.listeners.delete(changed));
 		this.life.registerEvent(this.app.vault.on('modify', (f) => { if (f instanceof TFile && f.extension === 'md' && f.path.startsWith(root)) { this.texts = null; changed(); } }));
 		this.life.registerEvent(this.app.metadataCache.on('changed', (f) => { if (f.path.startsWith(root)) this.later(150, false); }));
-		void this.load();
+		const first = this.first;
+		this.first = null;
+		void this.load(first);
 	}
 
 	onClose(): void {
@@ -107,21 +119,28 @@ export class ProgressModal extends Modal {
 	}
 
 	/** Reads the record. A binder that isn't recorded now may still have one from before: it is read and shown. */
-	private async load(): Promise<void> {
-		const { plugin } = this, binder = this.binder, go = ++this.reading;
-		let merged: Merged | null = null, why = '';
-		this.stopped = '';
+	private async fetch(): Promise<Read> {
+		const { plugin } = this, binder = this.binder;
+		let merged: Merged | null = null, why = '', stopped = '';
 		if (binder) {
 			const live = plugin.progress.recordOf(binder);
 			if (live?.blocked) why = `${live.blocked}, so Binders keeps no record of this binder there. Its record is kept in a binder’s Snapshots folder, and a folder of your own is left alone.`;
 			else if (live) merged = await plugin.progress.read(binder.folder);
 			else {
 				try { merged = await new BinderRecord(this.app, binder.folder, () => plugin.progress.device()).readAll(); } catch { merged = null; }
-				this.stopped = binder.problem ? 'This binder can’t be changed by this version of Binders, so its writing is not being recorded.' : 'Recording is off, so nothing is being added.';
+				stopped = binder.problem ? 'This binder can’t be changed by this version of Binders, so its writing is not being recorded.' : 'Recording is off, so nothing is being added.';
 				why = binder.problem ? `${binder.problem} Its writing is not recorded.` : 'Binders isn’t keeping a record of your writing, so there is nothing to show. Turn on “Keep a record of your writing” in settings to begin.';
 			}
 		}
+		return { merged, why, stopped };
+	}
+
+	/** Reads the record and shows it. */
+	private async load(read: Promise<Read> | null = null): Promise<void> {
+		const { plugin } = this, go = ++this.reading;
+		const { merged, why, stopped } = await (read ?? this.fetch()).catch((): Read => ({ merged: null, why: '', stopped: '' }));
 		if (go !== this.reading || !this.open_) return;
+		this.stopped = stopped;
 		this.history = merged ? toHistory(merged, plugin.settings.statuses) : null;
 		this.why = why;
 		if (!this.history?.days.length) { this.nothing(why); return; }
