@@ -291,6 +291,33 @@ here; that is what keeps the next round short.
   - Beside a page on a phone, a list with a box at each row's start leaves a name a letter wide: there it takes the
     pane's whole width.
 
+- Learned designing a binder's settings (2026-10-16, stage 1):
+  - Obsidian 1.13's settings has a row that opens a page: `Setting.setNavigable` (in `app.js`, not in
+    `obsidian.d.ts`) adds `mod-navigable tappable` and a `setting-item-chevron` with Lucide's `chevron-right`; the
+    page is `setting-page` > `setting-page-titlebar` + `setting-page-content`. Public: `SettingGroup` (1.11, a
+    heading over rows, as the settings tab's groups) and `SettingDefinitionPage` with `displayValue` (1.13.1, the
+    value shown on the row), but only inside a `PluginSettingTab`; in a dialog of our own the look is by the classes.
+  - Obsidian's own tabs put a list behind such a row, with a count as its value: CSS snippets, fonts, excluded files,
+    the ribbon and the phone's toolbar (`type:"page"` in `app.js`). Opening a page from code is `app.setting.openPage`
+    (internal). Its tabs are short: an unheaded group of the main things first, three or four headings, "Advanced"
+    last, a one-sentence description, a dropdown for a choice.
+  - Headless, the 1.13 settings window is 1 × 1 px: to photograph it, `setBounds` its `BrowserWindow` (found through
+    `require('electron').remote`) and `capturePage()` (`test-dist/settings-dump.mjs` in the round's worktree). With
+    `app.emulateMobile(true)` the settings are in the main page, and an ordinary screenshot takes them.
+- Learned building the settings once-over (2026-10-16; direction B, the maintainer took every default):
+  - A plugin's tab gets Obsidian's pages for nothing: `{ type: 'page', name, desc, displayValue, items }` among a group's
+    items. The settings' search finds the rows on a page too ("Purple" finds a label). A dropdown is a
+    `control: { type: 'dropdown', options }`, read and written through the tab's `getControlValue` and
+    `setControlValue`, so a setting kept as a switch can be shown as a choice of two. `visible: () => …` hides a row
+    (`display: none`; it stays in the page), and the tab's `update()` draws the open page again too.
+  - A page's rows are made before they are in the window: anything asked of the theme while drawing one (a computed
+    color) comes back empty, and is asked again once the row is connected. A page drawn again goes back to its top,
+    and a short page has no room to bring its last row above a phone's keyboard: a row just added is scrolled into
+    sight, and the list's page on a phone ends in room to scroll into.
+  - A page's back arrow (`.setting-page-titlebar`) is Obsidian's, with no name; tests that look for unnamed controls
+    leave it out. A disabled toggle goes in its `control` (`disabled`), not on the row, where Obsidian ignores it.
+  - A page lives outside the tab's element (`app.setting.getCurrentPageEl()`); tests reach a row through
+    `tests/e2e/settings-routes.mjs`, which knows which page each row is on and opens it as a writer does.
 - Learned designing binder templates (2026-10-15; the round is under "Rounds" below):
   - The binder note already has a `structure` property (export's rule for parts, chapters and scenes): what a new
     binder starts from is called a "template" where a writer reads it, not a "structure".
