@@ -76,6 +76,7 @@ const MANUSCRIPT: readonly Group[] = [
 	{ name: 'Pages', rows: [
 		{ key: 'header', name: 'Along the top', kind: 'pick', options: [['Surname / TITLE / page', 'Surname / TITLE / page'], ['page', 'The page number'], ['none', 'Nothing']] },
 		{ key: 'title-page', name: 'Title page', kind: 'pick', options: [[true, 'With contact details and word count'], [false, 'None']] },
+		{ key: 'first-page-header', name: 'Header on the first page', kind: 'pick', options: [[true, 'Shown'], [false, 'Left off']] },
 	] },
 ];
 
@@ -103,7 +104,7 @@ export function readValue(row: Row, raw: unknown): StyleValue | undefined {
 
 // ---- a style as its values, and back ----
 
-const M_KEYS: readonly (readonly [string, keyof ManuscriptStyle])[] = [['typeface', 'typeface'], ['line-spacing', 'lineSpacing'], ['italics', 'italics'], ['chapter-starts', 'chapterStarts'], ['scene-break', 'sceneBreak'], ['header', 'header'], ['title-page', 'titlePage']];
+const M_KEYS: readonly (readonly [string, keyof ManuscriptStyle])[] = [['typeface', 'typeface'], ['line-spacing', 'lineSpacing'], ['italics', 'italics'], ['chapter-starts', 'chapterStarts'], ['scene-break', 'sceneBreak'], ['header', 'header'], ['title-page', 'titlePage'], ['first-page-header', 'firstPageHeader']];
 
 export const bookValues = (s: BookStyle): StyleValues => Object.fromEntries(rowsOf('book').map((r) => [r.key, (s as unknown as StyleValues)[r.key]]));
 export const manuscriptValues = (s: ManuscriptStyle): StyleValues => Object.fromEntries(M_KEYS.map(([k, f]) => [k, s[f]]));

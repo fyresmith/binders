@@ -66,6 +66,7 @@ IV" with the chapter's title under it. A line whose title is empty is dropped.
 | | **Scene break** | `#`, `***` or `* * *` |
 | **Pages** | **Along the top** | **Surname / TITLE / page**, **The page number** or **Nothing** |
 | | **Title page** | **With contact details and word count**, or **None** |
+| | **Header on the first page** | **Shown** (the default), or **Left off**: the first page of the text has no header and no page number along the top, in Word (its own "different first page") and in the PDF. That page is still counted, so the next says 2. |
 
 ## Built-in styles and your own
 

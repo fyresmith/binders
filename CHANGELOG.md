@@ -4,6 +4,10 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 
 ## Unreleased
 
+### Added
+
+- A manuscript export style has a “Header on the first page” choice: set it to “Left off” and the first page of the text has no header, in the Word file and the PDF; the next page still says 2.
+
 ### Fixed
 
 - Tooltips no longer pop up over the timeline, the word count, the Revision pane, the Export window, dialogs' fields and the settings; icons with no name beside them still say what they are.

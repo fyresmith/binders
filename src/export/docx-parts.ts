@@ -13,13 +13,15 @@ export interface ManuscriptStyle {
 	sceneBreak: string;
 	header: 'Surname / TITLE / page' | 'page' | 'none';
 	titlePage: boolean;
+	/** Whether the first page of the text has the header too. Off: Word's own "different first page", and that page is still counted. */
+	firstPageHeader: boolean;
 }
 
 /** The three built in (docs/dev/export.md, "Styles"). The first is what a manuscript starts as. */
 export const MANUSCRIPT_STYLES: readonly ManuscriptStyle[] = [
-	{ name: 'Standard manuscript', typeface: 'Times New Roman', lineSpacing: 'double', italics: 'italic', chapterStarts: 'a third of the way down', sceneBreak: '#', header: 'Surname / TITLE / page', titlePage: true },
-	{ name: 'Standard manuscript, Courier', typeface: 'Courier New', lineSpacing: 'double', italics: 'underlined', chapterStarts: 'a third of the way down', sceneBreak: '#', header: 'Surname / TITLE / page', titlePage: true },
-	{ name: 'Plain, for a typesetter', typeface: 'Times New Roman', lineSpacing: 'single', italics: 'italic', chapterStarts: 'at the top', sceneBreak: '***', header: 'none', titlePage: false },
+	{ name: 'Standard manuscript', typeface: 'Times New Roman', lineSpacing: 'double', italics: 'italic', chapterStarts: 'a third of the way down', sceneBreak: '#', header: 'Surname / TITLE / page', titlePage: true, firstPageHeader: true },
+	{ name: 'Standard manuscript, Courier', typeface: 'Courier New', lineSpacing: 'double', italics: 'underlined', chapterStarts: 'a third of the way down', sceneBreak: '#', header: 'Surname / TITLE / page', titlePage: true, firstPageHeader: true },
+	{ name: 'Plain, for a typesetter', typeface: 'Times New Roman', lineSpacing: 'single', italics: 'italic', chapterStarts: 'at the top', sceneBreak: '***', header: 'none', titlePage: false, firstPageHeader: true },
 ];
 export const manuscriptStyle = (name: unknown): ManuscriptStyle => MANUSCRIPT_STYLES.find((s) => s.name === name) ?? MANUSCRIPT_STYLES[0];
 
@@ -79,10 +81,10 @@ export const relsXml = (rels: readonly Rel[]): string => `${XML}<Relationships x
 
 export const rootRels = (): string => `${XML}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${REL}/officeDocument" Target="word/document.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/><Relationship Id="rId3" Type="${REL}/extended-properties" Target="docProps/app.xml"/></Relationships>`;
 
-export function contentTypes(o: { header: boolean; numbering: boolean; images: readonly string[] }): string {
+export function contentTypes(o: { header: boolean; firstHeader?: boolean; numbering: boolean; images: readonly string[] }): string {
 	const main = 'application/vnd.openxmlformats-officedocument.wordprocessingml', part = (name: string, type: string) => `<Override PartName="/${name}" ContentType="${type}"/>`;
 	const mime = { png: 'image/png', jpeg: 'image/jpeg', gif: 'image/gif' } as Record<string, string>;
-	return `${XML}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>${o.images.map((t) => `<Default Extension="${t}" ContentType="${mime[t]}"/>`).join('')}${part('word/document.xml', `${main}.document.main+xml`)}${part('word/styles.xml', `${main}.styles+xml`)}${part('word/settings.xml', `${main}.settings+xml`)}${part('word/footnotes.xml', `${main}.footnotes+xml`)}${o.numbering ? part('word/numbering.xml', `${main}.numbering+xml`) : ''}${o.header ? part('word/header1.xml', `${main}.header+xml`) : ''}${part('docProps/core.xml', 'application/vnd.openxmlformats-package.core-properties+xml')}${part('docProps/app.xml', 'application/vnd.openxmlformats-officedocument.extended-properties+xml')}</Types>`;
+	return `${XML}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>${o.images.map((t) => `<Default Extension="${t}" ContentType="${mime[t]}"/>`).join('')}${part('word/document.xml', `${main}.document.main+xml`)}${part('word/styles.xml', `${main}.styles+xml`)}${part('word/settings.xml', `${main}.settings+xml`)}${part('word/footnotes.xml', `${main}.footnotes+xml`)}${o.numbering ? part('word/numbering.xml', `${main}.numbering+xml`) : ''}${o.header ? part('word/header1.xml', `${main}.header+xml`) : ''}${o.firstHeader ? part('word/header2.xml', `${main}.header+xml`) : ''}${part('docProps/core.xml', 'application/vnd.openxmlformats-package.core-properties+xml')}${part('docProps/app.xml', 'application/vnd.openxmlformats-officedocument.extended-properties+xml')}</Types>`;
 }
 
 export const coreXml = (title: string, author: string, language: string, when: Date): string => {

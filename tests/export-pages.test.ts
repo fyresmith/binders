@@ -141,6 +141,9 @@ function run(H: number, flows: Flow<Blk>[], notes: Record<number, number> = {}):
 	eq(furnish(pages, { heads: 'none', numbers: 'none', title: 'T', author: 'A', front }).every((x) => !x.head && !x.folio), true, 'a style can have neither');
 	const ms = furnish([{ kind: 'display', section: 0 }, { kind: 'opener', section: 1 }, { kind: 'body', section: 1 }], { heads: 'none', numbers: 'none', title: '', author: '', header: 'Vane / LIGHTHOUSE / {page}', front: [true, false] });
 	eq(ms.map((x) => x.head || '-').join(' | '), '- | Vane / LIGHTHOUSE / 1 | Vane / LIGHTHOUSE / 2', 'a manuscript counts from its first page of text');
+	const bare = furnish([{ kind: 'display', section: 0 }, { kind: 'opener', section: 1 }, { kind: 'body', section: 1 }, { kind: 'body', section: 1 }], { heads: 'none', numbers: 'none', title: '', author: '', header: 'Vane / LIGHTHOUSE / {page}', bareFirst: true, front: [true, false] });
+	eq(bare.map((x) => x.head || '-').join(' | '), '- | - | Vane / LIGHTHOUSE / 2 | Vane / LIGHTHOUSE / 3', 'a manuscript with no header on its first page: that page is still counted, so the second says 2');
+	eq(bare.map((x) => x.number).join(' '), ' 1 2 3', 'and the numbers are as they were');
 }
 
 // ---- the page's measures ----

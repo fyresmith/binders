@@ -760,6 +760,7 @@ scene-break: "⁂"
   | `scene-break` | the mark, up to 12 characters |
   | `header` | `Surname / TITLE / page`, `page`, `none` |
   | `title-page` | `true`, `false` |
+  | `first-page-header` | `true` (the default), `false`: the first page of the text has no header; it is still counted |
 
 - **A value Binders can't read** (a word that isn't one of a row's, a number outside its range, a list) falls back
   to the style it is based on, and is listed in the Export window with what there is to look at. The rest of the

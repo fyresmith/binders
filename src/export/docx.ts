@@ -129,7 +129,13 @@ export function writeDocx(book: Book, style: ManuscriptStyle, details: Manuscrip
 	const body: string[] = [], author = book.author.trim(), approx = aboutWords(details.words);
 	const header = style.header !== 'none';
 	// (`first`: the pages are counted from the text's first, whatever came before it)
-	const sect = (head: boolean, first = true) => `<w:sectPr>${head ? `<w:headerReference w:type="default" r:id="${doc.rel('header', 'header1.xml')}"/>` : ''}${PAGE}${first ? '<w:pgNumType w:start="1"/>' : ''}</w:sectPr>`;
+	// (`bare`: the text's first page has no header. Word's own "different first page": an empty first header and
+	// `titlePg`, on the first chapter's section only; the page is still counted)
+	const bare = header && !style.firstPageHeader;
+	const sect = (head: boolean, first = true) => {
+		const own = head && first && bare;
+		return `<w:sectPr>${head ? `<w:headerReference w:type="default" r:id="${doc.rel('header', 'header1.xml')}"/>` : ''}${own ? `<w:headerReference w:type="first" r:id="${doc.rel('header', 'header2.xml')}"/>` : ''}${PAGE}${first ? '<w:pgNumType w:start="1"/>' : ''}${own ? '<w:titlePg/>' : ''}</w:sectPr>`;
+	};
 	// (the links every text has, in an order that never changes)
 	doc.rel('styles', 'styles.xml'); doc.rel('settings', 'settings.xml'); doc.rel('footnotes', 'footnotes.xml');
 	if (style.titlePage) {
@@ -158,7 +164,7 @@ export function writeDocx(book: Book, style: ManuscriptStyle, details: Manuscrip
 	const notes = book.notes.map((n, i) => (marked.has(i) ? `<w:footnote w:id="${i + 2}">${flow(flatten(n, book), foot, 'FootnoteText', ref)}</w:footnote>` : '')).join('');
 
 	const files: Record<string, string> = {
-		'[Content_Types].xml': contentTypes({ header, numbering: nums.length > 0, images: [...new Set([...media.keys()].map((p) => p.type))] }),
+		'[Content_Types].xml': contentTypes({ header, firstHeader: bare, numbering: nums.length > 0, images: [...new Set([...media.keys()].map((p) => p.type))] }),
 		'_rels/.rels': rootRels(),
 		'docProps/core.xml': coreXml(book.title, author, book.language, details.when ?? new Date()),
 		'docProps/app.xml': appXml(),
@@ -173,6 +179,7 @@ export function writeDocx(book: Book, style: ManuscriptStyle, details: Manuscrip
 		const said = style.header === 'page' ? '' : [surname(author), keyword(book.title), ''].filter((x, i) => x || i === 2).join(' / ');
 		files['word/header1.xml'] = `${XML}<w:hdr ${W}><w:p><w:pPr><w:pStyle w:val="Header"/></w:pPr>${said ? `<w:r>${t(said)}</w:r>` : ''}${field}</w:p></w:hdr>`;
 	}
+	if (bare) files['word/header2.xml'] = `${XML}<w:hdr ${W}><w:p><w:pPr><w:pStyle w:val="Header"/></w:pPr></w:p></w:hdr>`;
 	files['word/_rels/document.xml.rels'] = relsXml(doc.rels);
 	if (foot.rels.length) files['word/_rels/footnotes.xml.rels'] = relsXml(foot.rels);
 

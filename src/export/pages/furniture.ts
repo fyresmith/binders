@@ -11,6 +11,8 @@ export interface Furnish {
 	title: string;
 	author: string;
 	header?: string;
+	/** A manuscript: the first page of the text has no head (it is still counted). */
+	bareFirst?: boolean;
 	/** For each section: whether it is front matter (counted in Roman numerals, with no running head). */
 	front: readonly boolean[];
 }
@@ -30,7 +32,7 @@ export interface Furniture {
       page of the first part or chapter. So the contents can be as long as they like without moving a page number.
     - A blank page and a display page (a title page, a dedication, a part's own page) are counted and show nothing.
     - A section's first page has no running head, and its number at the foot.
-    - A manuscript counts from its first page of text, and every page of text has its header. */
+    - A manuscript counts from its first page of text, and every page of text has its header, unless `bareFirst` leaves it off the first. */
 export function furnish(pages: readonly Opened[], o: Furnish): Furniture[] {
 	const isFront = (p: Opened) => p.section < 0 || o.front[p.section];
 	let start = pages.findIndex((p) => p.section >= 0 && !o.front[p.section]);
@@ -41,7 +43,7 @@ export function furnish(pages: readonly Opened[], o: Furnish): Furniture[] {
 		const counted = o.header !== undefined ? i >= start && start >= 0 : true;
 		const number = !counted ? '' : i < start ? roman(i + 1).toLowerCase() : String(i - start + 1);
 		const odd = i % 2 === 0, shown = p.kind === 'opener' || p.kind === 'body';
-		if (o.header !== undefined) return { odd, number, head: shown ? o.header.replace('{page}', number) : '', folio: '' as const };
+		if (o.header !== undefined) return { odd, number, head: shown && !(o.bareFirst && i === start) ? o.header.replace('{page}', number) : '', folio: '' as const };
 		if (!shown || o.numbers === 'none' && (o.heads === 'none' || p.kind === 'opener' || isFront(p))) return { odd, number, head: '', folio: '' as const };
 		const plain = p.kind === 'opener' || isFront(p);
 		const head = plain || o.heads === 'none' ? '' : o.heads === 'title' || odd ? o.title : o.author || o.title;

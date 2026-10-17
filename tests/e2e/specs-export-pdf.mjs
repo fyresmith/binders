@@ -207,6 +207,34 @@ test('a manuscript as a PDF: the File and Paper choices, standard manuscript for
 	same(t, before, await texts(p), { skip: [BINDER_NOTE] });
 });
 
+test('a manuscript as a PDF with no header on the first page: that page is bare and counted, the second says 2, and the printed file agrees', async (p, h, t) => {
+	await withAuthor(p);
+	const text = '---\nexport-style: 1\nbased-on: Standard manuscript\nfirst-page-header: false\n---\n';
+	await p.ev(`(async () => { const s = ${PL}.styles; await app.vault.adapter.mkdir('Export styles').catch(() => {}); await app.vault.adapter.write('Export styles/Bare first.bookstyle', ${j(text)}); })().then(() => 1)`);
+	await until(p, `${PL}.styles.text('Bare first') === ${j(text)}`, 8000);
+	try {
+		await open(p);
+		await choose(p, 'file', 'pdf');
+		await choose(p, 'style', 'Bare first');
+		t.ok(await laidOut(p), 'the pages are laid out');
+		const shown = await pages(p);
+		t.ok(/title-page/.test(shown[0].cls) && !shown[0].head, 'the title page has no header');
+		t.eq(shown[1].head, '', 'the first page of text has none either');
+		t.eq(shown[2].head, 'Lindqvist / LIGHTHOUSE / 2', 'the next is page 2: the first page was counted');
+		t.ok(shown.slice(2).every((s, i) => s.head === `Lindqvist / LIGHTHOUSE / ${i + 2}`), 'and so is every page after');
+		await press(p, 'Export');
+		t.ok(await saved(p), 'the bar says it was saved');
+		const at = join(p.vaultDir, 'Exports', 'The Lighthouse.pdf');
+		if (!TOOLS.text) loud(t, 'pdftotext'); else {
+			const printed = pdfPages(at);
+			t.ok(!printed[1].includes('LIGHTHOUSE /'), 'the printed first page of text has no header');
+			t.ok(printed[2].includes('Lindqvist / LIGHTHOUSE / 2'), 'the printed second page of text says 2');
+		}
+	} finally {
+		await p.ev(`(async () => { const f = app.vault.getAbstractFileByPath('Export styles'); if (f) await app.vault.delete(f, true); await ${PL}.styles.reload(); ${PL}.settings.exportStyle = ''; })().then(() => 1)`);
+	}
+});
+
 test('the page: a larger one holds more, is kept with the book, and is the PDF’s size', async (p, h, t) => {
 	await withAuthor(p);
 	await open(p);

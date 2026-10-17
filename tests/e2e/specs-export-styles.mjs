@@ -209,12 +209,12 @@ const SHEET = `(() => {
 const sheet = (p, test, ms = 6000) => until(p, `(() => { try { return (${test})(${SHEET}); } catch { return false; } })()`, ms);
 const part = (path, name) => { const z = unzipSync(new Uint8Array(readFileSync(path))); return z[name] ? strFromU8(z[name]) : null; };
 
-test('every row of a manuscript style changes the preview and the Word file: seven rows, kept in the style’s file', async (p, h, t, before) => {
+test('every row of a manuscript style changes the preview and the Word file: eight rows, kept in the style’s file', async (p, h, t, before) => {
 	await withAuthor(p);
 	await open(p);
 	t.eq(await p.ev(`${key('style')}.value`), 'Standard manuscript', 'the manuscript’s style');
 	await edit(p);
-	t.eq((await rows(p)).join(' / '), 'Text: Typeface, Line spacing, Italics / Chapters and breaks: A chapter starts, Scene break / Pages: Along the top, Title page', 'a manuscript style’s seven rows');
+	t.eq((await rows(p)).join(' / '), 'Text: Typeface, Line spacing, Italics / Chapters and breaks: A chapter starts, Scene break / Pages: Along the top, Title page, Header on the first page', 'a manuscript style’s eight rows');
 	t.eq(await note(p), 'Built in', 'built in');
 	t.ok(!(await p.ev(`!!document.querySelector('${ED} .binders-style-note.mod-foot')`)), 'nothing is left to a reader here');
 	const was = await p.ev(SHEET);
@@ -235,9 +235,11 @@ test('every row of a manuscript style changes the preview and the Word file: sev
 	t.ok(await sheet(p, `(s) => s.head === '1'`), 'Along the top: the page number alone');
 	await choose(p, 'title-page', 'None');
 	t.ok(await sheet(p, `(s) => !s.title`), 'Title page: none');
-	t.eq(await note(p), 'Built in · 7 changes Reset', 'seven rows, seven changes');
+	await choose(p, 'first-page-header', 'Left off');
+	t.ok(await sheet(p, `(s) => s.head === null`), 'Header on the first page: left off, so the preview shows none');
+	t.eq(await note(p), 'Built in · 8 changes Reset', 'eight rows, eight changes');
 	await settle(p);
-	t.eq(onDisk(p, 'Standard manuscript'), '---\nexport-style: 1\nbased-on: Standard manuscript\ntypeface: Courier New\nline-spacing: single\nitalics: underlined\nchapter-starts: at the top\nscene-break: "***"\nheader: page\ntitle-page: false\n---\n', 'the file, under a manuscript style’s names');
+	t.eq(onDisk(p, 'Standard manuscript'), '---\nexport-style: 1\nbased-on: Standard manuscript\ntypeface: Courier New\nline-spacing: single\nitalics: underlined\nchapter-starts: at the top\nscene-break: "***"\nheader: page\ntitle-page: false\nfirst-page-header: false\n---\n','the file, under a manuscript style’s names');
 
 	await press(p, 'Export');
 	t.ok(await saved(p), 'exported with the changed style');
@@ -249,13 +251,17 @@ test('every row of a manuscript style changes the preview and the Word file: sev
 	t.ok(d.paras.some((x) => x.style === 'SceneBreak' && x.text === '***'), 'the scene break’s mark');
 	t.eq(d.header.trim(), '1', 'the page number alone along the top');
 	t.ok(!d.paras.some((x) => x.style === 'Title'), 'no title page');
+	t.ok(part(at, 'word/document.xml').includes('<w:titlePg/>') && part(at, 'word/header2.xml') !== null && !/<w:t[ >]/.test(part(at, 'word/header2.xml')), 'the first page has Word’s own empty first header');
 	t.eq(words(d.body.join(' ')).join(' '), sourceWords(before).join(' '), 'word for word, with a changed style: the words in the file are the words of the notes');
 
+	await choose(p, 'first-page-header', 'Shown');
+	t.ok(await sheet(p, `(s) => s.head === '1'`), 'Header on the first page: shown again');
 	await choose(p, 'header', 'Nothing');
 	t.ok(await sheet(p, `(s) => s.head === null`), 'Along the top: nothing');
 	await click(p, 'style-back');
 	await press(p, 'Export');
 	t.ok(await saved(p), 'exported again');
+	t.eq(part(at, 'word/header2.xml'), null, 'and no first header');
 	t.eq(part(at, 'word/header1.xml'), null, 'and the file has no header at all');
 }, { prepare: async (p) => { await SHAPED(p); await p.ev(`app.vault.process(app.vault.getAbstractFileByPath('The Lighthouse/Part One/Arrival.md'), (t) => t + '\\nAnd *stressed* once.\\n').then(() => 1)`); await p.sleep(300); }, to: undefined });
 

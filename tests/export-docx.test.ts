@@ -97,6 +97,13 @@ function wordForWord(b: TestBinder, what: string): { words: number; ms: number; 
 
 	const courier = readDocx(writeDocx(book, COURIER, { contact: [], words: 1, when: WHEN }));
 	ok(courier.files['word/styles.xml'].includes('w:ascii="Courier New"') && /<w:rPr><w:u w:val="single"\/><\/w:rPr><w:t[^>]*>stress</.test(courier.files['word/document.xml']), 'the Courier style underlines italics');
+	ok(!doc.includes('titlePg') && !d.files['word/header2.xml'] && !doc.includes('w:type="first"'), 'by default the first page of the text has the header too');
+	const bareDoc = readDocx(writeDocx(book, { ...STANDARD, firstPageHeader: false }, { contact: [], words: 1, when: WHEN }));
+	const bareXml = bareDoc.files['word/document.xml'];
+	ok((bareXml.match(/<w:titlePg\/>/g) ?? []).length === 1 && (bareXml.match(/w:type="first"/g) ?? []).length === 1 && /<w:pgNumType w:start="1"\/><w:titlePg\/>/.test(bareXml), 'no header on the first page: Word’s own different first page, in the first chapter’s section only, still counted from one');
+	ok(!/<w:r>/.test(bareDoc.files['word/header2.xml']) && bareDoc.files['[Content_Types].xml'].includes('/word/header2.xml') && bareDoc.files['word/_rels/document.xml.rels'].includes('header2.xml') && bareDoc.files['word/header1.xml'].includes(' PAGE '), 'its first header is empty and in the package; the running header is as it was');
+	sound(writeDocx(book, { ...STANDARD, firstPageHeader: false }, { contact: [], words: 1, when: WHEN }), 'no header on the first page');
+	ok(!readDocx(writeDocx(book, { ...PLAIN, firstPageHeader: false }, { contact: [], words: 1, when: WHEN })).files['word/header2.xml'], 'with no header at all there is no first header either');
 	const plain = readDocx(writeDocx(book, PLAIN, { contact: [], words: 1, when: WHEN }));
 	ok(!plain.files['word/header1.xml'] && !plain.files['word/document.xml'].includes('w:val="Title"') && plain.files['word/styles.xml'].includes('w:line="240"') && plain.files['word/document.xml'].includes('>***<'), 'the typesetter’s style: single-spaced, no title page or header, *** breaks');
 	sound(writeDocx(book, PLAIN, { contact: [], words: 1 }), 'the typesetter’s style');

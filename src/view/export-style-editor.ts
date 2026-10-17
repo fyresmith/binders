@@ -249,7 +249,7 @@ export function dress<T extends BookStyle | ManuscriptStyle>(scroll: HTMLElement
 /** A manuscript's running head, on the sheet the preview draws: once, at its top, as Word sets it on every page. */
 export function runningHead(scroll: HTMLElement, book: Book, style: ManuscriptStyle): void {
 	const paper = scroll.querySelector<HTMLElement>('.binders-export-paper');
-	if (!paper || style.header === 'none') return;
+	if (!paper || style.header === 'none' || !style.firstPageHeader) return;
 	const said = style.header === 'page' ? '1' : [surname(book.author), keyword(book.title), '1'].filter((x) => x).join(' / ');
 	// (over the first page of the text: a title page has none)
 	const head = createDiv({ cls: 'binders-export-running', text: said, attr: { 'aria-label': `Along the top of each page: ${said}` } }), first = paper.querySelector('.binders-export-section:not(.binders-export-titlepage)');

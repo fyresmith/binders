@@ -133,7 +133,7 @@ change. What it offers, and no more:
 | Text | Typeface; size; line spacing; paragraphs (first line indented, or space between); lines (justified and hyphenated, or ragged right); quotes and dashes (typeset, or as typed) | Typeface (Times New Roman, Courier); line spacing; italics (italic, underlined) |
 | Chapters | Heading ("Chapter One", "Chapter 1", "One", "1", "I", with its title, its title only, or the writer's own pattern); lettering; heading size; placed in the middle or at the left; space above; opens on a right-hand page or the next; first words (small capitals, or as the rest) | A chapter starts a third of the way down, or at the top; the scene break's mark |
 | Scene breaks | The mark, or space only | |
-| Pages | Along the top (author and title, title, nothing); page numbers (foot, top outside, none); margins (narrow, normal, wide) | Along the top (Surname / TITLE / page, the page number, nothing); title page |
+| Pages | Along the top (author and title, title, nothing); page numbers (foot, top outside, none); margins (narrow, normal, wide) | Along the top (Surname / TITLE / page, the page number, nothing); title page; header on the first page (shown, left off) |
 
 - A heading pattern of the writer's own uses `{number}`, `{number:words}`, `{number:roman}` and `{title}`; `/` starts
   a new line; a line whose `{title}` is empty is dropped.
@@ -475,7 +475,7 @@ Where the design was silent, or the code said otherwise:
 8. **A manuscript's style is the binder's** (`manuscript-style`, as the design lists it), falling back to the one
    last used in the vault.
 9. **The manuscript preview shows the running head once**, over the first page of the text, so the "Along the top"
-   row has something to change in a preview that isn't pages yet.
+   row has something to change in a preview that isn't pages yet. With "Header on the first page" left off it shows none.
 10. **The size and line-spacing sliders** go by 0.5 pt and 0.01 (the design's 0.02 can't land on Modern's 1.45).
 11. **Contents.** The pages Binders makes are listed first, quietly. A row opens its note; its role, at the row's
     end, is the button for "Export as" (and the row's own menu). A folder that only groups shows its menu on hover
@@ -535,7 +535,10 @@ for 5 × 8 in); the manuscript's file and paper are kept in Binders' settings, a
 **Numbers.** Front matter is counted in small Roman numerals; the text starts at 1 on the first page of the first
 part or chapter (so the contents can be any length without moving a number). A chapter's first page has no running
 head and its number at the foot, whatever the style. A manuscript counts from its first page of text and has its
-header on every page of text.
+header on every page of text, unless the style's `first-page-header` is off: then the first page of text has none
+(`bareFirst` in `furnish`; in Word an empty first header and `<w:titlePg/>` on the first chapter's section only), and is
+counted all the same. Off is not the default: the standard manuscript formats put the header on every page of text
+after the title page, so a style turns it off for a house that asks.
 
 **Margins.** Three names. On 5 × 8 in: narrow 0.6 in inside and 0.4 outside, normal 0.7 and 0.5, wide 0.82 and 0.62;
 a larger page has them larger in proportion. The inside margin is never less than the printers' table asks for the

@@ -62,7 +62,7 @@ export function manuscriptPages(book: Book, style: ManuscriptStyle, paper: PageS
 		geometry: g, css: manuscriptCss(style, g), typeface: style.typeface, language, rtl: isRtl(language),
 		look: { heading: headingLines, mark: style.sceneBreak, lead: false, recto: false, titlePage, plain: true },
 		hyphens: false,
-		furnish: { heads: 'none', numbers: 'none', title: book.title, author: book.author.trim(), header },
+		furnish: { heads: 'none', numbers: 'none', title: book.title, author: book.author.trim(), header, bareFirst: !style.firstPageHeader },
 		warning: '',
 	};
 }
