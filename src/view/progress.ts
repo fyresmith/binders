@@ -143,7 +143,7 @@ export class ProgressModal extends Modal {
 		const { merged, why, stopped } = await (read ?? this.fetch()).catch((): Read => ({ merged: null, why: '', stopped: '' }));
 		if (go !== this.reading || !this.open_) return;
 		this.stopped = stopped;
-		this.history = merged ? toHistory(merged, plugin.settings.statuses) : null;
+		this.history = merged ? toHistory(merged, plugin.binders.statusesOf(this.binderFolder)) : null;
 		this.why = why;
 		if (!this.history?.days.length) { this.nothing(why); return; }
 		if (!this.body) {

@@ -2,8 +2,9 @@
 // and Statuses pages of Binder settings, kept in the binder note (`labels`, `statuses`), used by that binder's notes
 // and no other's. Every test that writes reads the files back: only the binder note's own property changes, and notes
 // are never changed by choosing a list.
-import { B, NOTE, PL, answer, card, closeMenus, file, hoverMenu, j, menuItems, openView, read, same, split, texts, until, withTidy } from './view-helpers.mjs';
+import { B, NOTE, PL, VIEW, answer, card, closeMenus, file, hoverMenu, j, menuItems, openView, read, same, split, texts, until, withTidy } from './view-helpers.mjs';
 import { D, close, fm, mk, moreOptions, openDialog, showPage, typeIn } from './specs-binder-settings.mjs';
+import { PHONE, onDevice } from './specs-qa5-manuscript.mjs';
 
 export const specs = [];
 const SECOND = 'Second/Second.md';
@@ -166,3 +167,66 @@ test('“Save as binder template” carries the binder’s own labels and status
 	const copy = await p.ev(`(async () => { const f = app.vault.getMarkdownFiles().find((x) => x.path.startsWith('Templates/Kept lists/') && !x.path.slice(21).includes('/') && x.basename !== 'Prologue'); return f ? app.vault.adapter.read(f.path) : app.vault.getFiles().map((x) => x.path).filter((x) => x.startsWith('Templates')).join(); })()`);
 	t.ok(/labels:\s*\n\s*- Mara: blue/.test(copy) && /statuses:\s*\n\s*- Rough\s*\n\s*- Fair/.test(copy), 'the template’s binder note has both lists: ' + copy.slice(0, 300));
 });
+
+test('with a binder’s own labels, the filter’s label choices, the label menu (the inspector’s is the same one) and the lanes’ order follow that binder’s list; the statuses of its record do too', async (p, h, t) => {
+	const a = NOTE.replace('The Lighthouse.md', 'Prologue.md'), b = NOTE.replace('The Lighthouse.md', 'Epilogue.md');
+	await p.ev(`app.fileManager.processFrontMatter(${file(NOTE)}, (f) => { f.labels = [{ Zed: 'purple' }, { Mara: 'blue' }]; f.statuses = ['Rough', 'Fair']; }).then(() => 1)`);
+	await label(p, a, 'Mara');
+	await label(p, b, 'Zed');
+	await wait(p, `app.metadataCache.getFileCache(${file(b)})?.frontmatter?.label === 'Zed' && app.metadataCache.getFileCache(${file(NOTE)})?.frontmatter?.labels?.length === 2`);
+	// the lanes: after “No label”, the binder’s list in its order (the vault’s would be Red first)
+	await openView(p, 'The Lighthouse');
+	await p.ev(`(async () => { const v = ${VIEW}; await v.leaf.setViewState({ type: 'binders-view', active: true, state: { ...v.getState(), mode: 'corkboard', options: { arrange: 'label' } } }); })().then(() => 1)`);
+	await wait(p, `!!document.querySelector('.workspace-leaf.mod-active .binders-lanes > .binders-lane')`);
+	await p.sleep(500);
+	const heads = await p.ev(`[...document.querySelectorAll('.workspace-leaf.mod-active .binders-lane-head')].map((e) => (e.getAttribute('aria-label') ?? '').split(':')[0])`);
+	t.eq(j(heads.slice(0, 3)), j(['No label', 'Zed', 'Mara']), 'the lines are the binder’s labels, in its order: ' + j(heads));
+	// the filter's label choices
+	const values = await p.ev(`${VIEW}.subset.field('label').values.map((v) => v.raw)`);
+	t.eq(j(values), j(['Zed', 'Mara']), 'the filter offers the labels in use, in the binder’s order');
+	// the menu that sets a label (the inspector's label row opens this one)
+	await p.ev(`(() => { const e = document.querySelector(${j(card(b))}); const r = e.getBoundingClientRect(); e.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: r.x + 10, clientY: r.y + 10, button: 2 })); return 1; })()`);
+	await p.sleep(500);
+	await hoverMenu(p, 'Set label');
+	const items = await menuItems(p);
+	t.eq(j(items.slice(items.indexOf('Zed'), items.indexOf('Zed') + 2)), j(['Zed', 'Mara']), 'the menu offers the binder’s labels in its order: ' + j(items));
+	t.ok(!items.includes('Red'), 'the vault’s labels are not offered');
+	await closeMenus(p);
+	// the record's statuses
+	const st = await p.ev(`${PL}.progress.history(${file('The Lighthouse')}).then((h) => h ? h.statuses : null)`);
+	t.ok(st === null || j(st) === j(['Rough', 'Fair']), 'the record reads the binder’s statuses: ' + j(st));
+});
+
+test('Goal refuses a target below the words the book has, as the Progress window does, and writes nothing', async (p, h, t) => {
+	await openDialog(p, 'goal');
+	await typeIn(p, `${D} [data-binders-key="goal-target"]`, '5');
+	await p.sleep(700);
+	t.ok(/words already/.test(await p.ev(`document.querySelector('${D} .binders-pot-form-problem')?.textContent ?? ''`)), 'it says the book has more already');
+	t.ok(!(await fm(p)).target, 'and nothing is written');
+});
+
+test('a page’s intro is as small as Book’s, and a click on a page leaves no focus on Book', async (p, h, t) => {
+	await openDialog(p, 'book');
+	const size = () => p.ev(`getComputedStyle(document.querySelector('${D} .binders-book-details-about')).fontSize`);
+	const book = await size();
+	await showPage(p, 'goal');
+	t.eq(await size(), book, 'Goal’s intro is Book’s size');
+	t.eq(await p.ev(`document.querySelector('${D} [data-binders-key="page-book"]').matches(':focus')`), false, 'Book does not keep the focus');
+});
+
+test('on a phone the list opens with no page selected, and Back leaves none', async (p, h, t) => {
+	await onDevice(p, PHONE, async () => {
+		await openView(p, 'The Lighthouse');
+		await p.ev(`(() => { app.commands.executeCommandById('binders:open-binder-settings'); return 1; })()`);
+		await wait(p, `!!document.querySelector('${D} .binders-bset-pages')`);
+		t.eq(await p.ev(`document.querySelectorAll('${D} .binders-bset-pages .is-active').length`), 0, 'no row is selected in the list');
+		await p.ev(`(() => { document.querySelector('${D} [data-binders-key="page-goal"]').click(); return 1; })()`);
+		await wait(p, `document.querySelector('${D} .binders-bset-body')?.dataset.page === 'goal'`);
+		await p.ev(`(() => { document.querySelector('${D} .modal-setting-back-button').click(); return 1; })()`);
+		await wait(p, `!!document.querySelector('${D} .binders-bset-pages')?.isConnected`);
+		t.eq(await p.ev(`document.querySelectorAll('${D} .binders-bset-pages .is-active').length`), 0, 'and none after Back');
+	});
+});
+
+// (these four check what a writer sees, not that their work is safe: core, not guard)
+for (const s of specs.slice(-4)) delete s.tier;

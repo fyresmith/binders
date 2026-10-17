@@ -457,10 +457,15 @@ export class ImportWindow extends Modal {
 				this.say(`Importing… ${done.toLocaleString()} of ${n(plan.files.size, 'file')}`);
 			});
 			// (added to the settings as they are now, not to a copy from when the dialog opened)
-			const s = this.plugin.settings;
-			for (const l of plan.labels) if (!s.labels.some((v) => v.name.toLowerCase() === l.name.toLowerCase())) s.labels.push(l);
-			for (const status of plan.statuses) if (!s.statuses.includes(status)) s.statuses.push(status);
-			await this.plugin.saveSettings();
+			// (a binder with lists of its own gets them in those; else the vault's)
+			const s = this.plugin.settings, store = this.plugin.binders, target = store.binderOf(folder);
+			const ownL = store.ownLabels(target), ownS = store.ownStatuses(target);
+			const labels = ownL ? [...ownL] : s.labels, statuses = ownS ? [...ownS] : s.statuses;
+			for (const l of plan.labels) if (!labels.some((v) => v.name.toLowerCase() === l.name.toLowerCase())) labels.push(l);
+			for (const status of plan.statuses) if (!statuses.includes(status)) statuses.push(status);
+			if (target && ownL) await store.setOwnLabels(target, labels);
+			if (target && ownS) await store.setOwnStatuses(target, statuses);
+			if (!ownL || !ownS) await this.plugin.saveSettings();
 			this.close();
 			await this.plugin.openBinder(folder);
 			this.plugin.progress.event(folder, { k: 'import', n: plan.sceneCount, w: plan.notes.reduce((n, x) => n + this.plugin.progress.words(x.body), 0) });

@@ -34,7 +34,7 @@ export async function readScriv(plugin: BindersPlugin, folder: TFolder, o: Scriv
 	const fm = (f: TFile | null): Record<string, unknown> => (f ? app.metadataCache.getFileCache(f)?.frontmatter ?? {} : {});
 	const body = async (f: TFile | null): Promise<string> => (f ? parts(await app.vault.cachedRead(f)).body : '');
 	const said = (v: unknown): string => (typeof v === 'string' ? v.trim() : typeof v === 'number' ? String(v) : '');
-	const own = new Set([s.synopsisProp, s.statusProp, s.labelProp, s.targetProp, s.notesProp, ...NOT_FIELDS]), names = s.labels.map((l) => l.name);
+	const own = new Set([s.synopsisProp, s.statusProp, s.labelProp, s.targetProp, s.notesProp, ...NOT_FIELDS]), labels = store.labelsOf(binder), statuses = store.statusesOf(binder), names = labels.map((l) => l.name);
 	const card = (f: TFile | null, fields = true): Partial<ScrivItem> => {
 		const p = fm(f), props: Record<string, string> = {};
 		if (fields) for (const [k, v] of Object.entries(p)) {
@@ -69,7 +69,7 @@ export async function readScriv(plugin: BindersPlugin, folder: TFolder, o: Scriv
 	const top = store.folderNote(folder), bookNote = fm(binder.note), language = said(bookNote.language);
 	const source: ScrivSource = {
 		name: folder.name, path: folder.path, items, loose, flat: longform, language: language || 'en',
-		structure: readStructure(bookNote.structure), labels: s.labels, statuses: s.statuses,
+		structure: readStructure(bookNote.structure), labels, statuses,
 		note: top && !longform ? { kind: 'note', name: folder.name, path: top.path, included: true, text: await body(top), ...card(top, false) } : undefined,
 	};
 

@@ -8,6 +8,8 @@ import { parseTarget, whyNotTarget } from './outliner-data';
 import { drawPlanFields, type PlanDraft } from './plan-form';
 import { readProps, writeKeys } from './props';
 import { setTemplate } from './template-items';
+import { wordsIn } from './words';
+import { parts } from '../scene-text';
 
 /* The Goal and New notes pages of Binder settings (view/binder-settings.ts). Each change is kept as it is made, and is
    one step for "Undo" to take back. */
@@ -24,25 +26,32 @@ export function drawGoal(host: PageHost): { refresh: () => void } {
 	const draw = () => {
 		el.empty();
 		d = read();
-		el.createEl('p', { cls: 'binders-book-details-about', text: `The words “${name}” is to have, and the day they are to be written by. The Progress window paces the writing by it.` });
+		el.createEl('p', { cls: 'binders-book-details-about', text: `What “${name}” is to come to, and by when. The Progress window paces the writing by it.` });
 		const form = el.createDiv({ cls: 'binders-bset-goal' });
 		const problem = el.createDiv({ cls: 'binders-pot-form-problem', attr: { role: 'status', 'aria-live': 'polite' } });
 		const write = async (patch: Record<string, unknown>, label: string) => {
 			try { await writeKeys(plugin, [{ file: binder.note, patch }], `${label} of “${name}”`); host.refreshSide(); } catch (e) { new Notice(e instanceof Error ? e.message : String(e)); }
 		};
-		const changed = (field: 'target' | 'deadline' | 'days') => {
-			const n = parseTarget(d.target) ?? -1;
+		// the words the book has now, as the Progress window counts them
+		const total = async (): Promise<number> => {
+			let n = 0;
+			for (const f of plugin.binders.scenes(binder.folder)) n += wordsIn(plugin, parts(await plugin.app.vault.cachedRead(f)).body);
+			return n;
+		};
+		const changed = async (field: 'target' | 'deadline' | 'days') => {
+			const n = parseTarget(d.target) ?? -1, words = n > 0 || d.deadline ? await total() : 0;
 			problem.setText('');
 			if (n < 0) { problem.setText(whyNotTarget(d.target) ?? ''); return; }
 			if (field === 'target') {
+				if (n > 0 && n <= words) { problem.setText(`The book has ${Math.round(words).toLocaleString('en-US')} words already. Choose a target above that.`); return; }
 				if (d.deadline && n === 0) { problem.setText('A deadline needs a target. Remove the deadline first.'); return; }
-				if (d.deadline) { const why = planProblem({ target: n, deadline: d.deadline, days: d.days, total: 0 }, recordDay(Date.now())); if (why) { problem.setText(why); return; } }
+				if (d.deadline) { const why = planProblem({ target: n, deadline: d.deadline, days: d.days, total: words }, recordDay(Date.now())); if (why) { problem.setText(why); return; } }
 				void write({ [s.targetProp]: n || undefined }, n ? 'Set the target' : 'Remove the target');
 				return;
 			}
 			if (field === 'deadline') {
 				if (!d.deadline) { void write({ [DEADLINE_PROP]: undefined, [DAYS_PROP]: undefined }, 'Remove the deadline'); return; }
-				const why = planProblem({ target: n, deadline: d.deadline, days: d.days, total: 0 }, recordDay(Date.now()));
+				const why = planProblem({ target: n, deadline: d.deadline, days: d.days, total: words }, recordDay(Date.now()));
 				if (why) { problem.setText(why); return; }
 				void write({ [DEADLINE_PROP]: d.deadline, [DAYS_PROP]: writeWritingDays(d.days) }, 'Set the deadline');
 				return;
@@ -50,7 +59,7 @@ export function drawGoal(host: PageHost): { refresh: () => void } {
 			if (!d.days.length) { problem.setText('Choose at least one day to write on.'); return; }
 			void write({ [DAYS_PROP]: writeWritingDays(d.days) }, 'Change the writing days');
 		};
-		drawPlanFields(form, d, { about: 'The words the book is to have.', key: 'goal', locked, changed });
+		drawPlanFields(form, d, { about: 'The words the book is to have.', key: 'goal', locked, changed: (f) => { void changed(f); } });
 		if (d.deadline && !locked) new Setting(el).addButton((b) => {
 			b.setButtonText('Remove the deadline').onClick(() => { d.deadline = ''; void write({ [DEADLINE_PROP]: undefined, [DAYS_PROP]: undefined }, 'Remove the deadline').then(draw); });
 			b.buttonEl.dataset.bindersKey = 'goal-remove';

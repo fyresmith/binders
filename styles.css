@@ -5557,6 +5557,7 @@ body:not(.is-phone) .binders-export .binders-export-options .setting-item.settin
 
 /* Book details: Obsidian's own setting rows; what can't be changed says why. */
 .binders-book-details .binders-book-details-about,
+.binders-bset .binders-book-details-about,
 .binders-book-details .binders-book-details-locked {
 	margin: 0 0 var(--size-4-3);
 	color: var(--text-muted);
@@ -8298,4 +8299,10 @@ input.binders-filter-name {
 
 .is-phone .binders-bset .binders-snapshots-name {
 	display: inline;
+}
+
+/* a page of the sidebar rings only when the keyboard is on it (as Export's list does), not for a click or for focus put there */
+.binders-bset .binders-snapshots-item:focus:not(:focus-visible) {
+	outline: none;
+	box-shadow: none;
 }

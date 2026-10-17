@@ -45,6 +45,8 @@ export class BinderSettingsModal extends Modal {
 	private current: { refresh?: () => void } | null = null;
 	private timer = 0;
 	private asked: boolean;
+	/** A phone is showing the list of pages, and no page is the chosen one. */
+	private listing = false;
 
 	constructor(private plugin: BindersPlugin, readonly note: TFile, private from: TAbstractFile, page: SettingsPage | undefined, private done?: () => void) {
 		super(plugin.app);
@@ -68,6 +70,7 @@ export class BinderSettingsModal extends Modal {
 	/** Shows another page (in the dialog that is open). */
 	show(page: SettingsPage): void {
 		this.page = page;
+		this.listing = false;
 		this.sidebar();
 		this.drawPage();
 		if (Platform.isPhone) this.toPane();
@@ -103,7 +106,7 @@ export class BinderSettingsModal extends Modal {
 		}));
 		this.sidebar();
 		this.drawPage();
-		if (Platform.isPhone) { if (this.asked) this.toPane(); }
+		if (Platform.isPhone) { if (this.asked) this.toPane(); else { this.listing = true; this.sidebar(); } }
 		else window.setTimeout(() => this.side.querySelector<HTMLElement>('[role="option"][tabindex="0"]')?.focus(), 0);
 	}
 
@@ -116,8 +119,8 @@ export class BinderSettingsModal extends Modal {
 		if (this.done) window.setTimeout(this.done, 80);
 	}
 
-	private toPane(): void { this.side.detach(); this.contentEl.appendChild(this.pane); if (this.back) this.modalEl.appendChild(this.back); }
-	private toList(): void { this.pane.detach(); this.back?.detach(); this.contentEl.appendChild(this.side); }
+	private toPane(): void { this.listing = false; this.sidebar(); this.side.detach(); this.contentEl.appendChild(this.pane); if (this.back) this.modalEl.appendChild(this.back); }
+	private toList(): void { this.listing = true; this.sidebar(); this.pane.detach(); this.back?.detach(); this.contentEl.appendChild(this.side); }
 
 	// ---- the pages' list ----
 
@@ -137,7 +140,7 @@ export class BinderSettingsModal extends Modal {
 	}
 
 	private sidebar(): void {
-		const active = this.side.doc.activeElement, held = active?.instanceOf(HTMLElement) && this.side.contains(active) ? active.dataset.bindersKey : undefined;
+		const active = this.side.doc.activeElement, held = active?.instanceOf(HTMLElement) && this.side.contains(active) ? `page-${this.page}` : undefined;
 		this.side.empty();
 		const inner = this.side.createDiv({ cls: 'modal-sidebar-inner' });
 		const head = inner.createDiv({ cls: 'binders-snapshots-head binders-bset-head' });
@@ -145,7 +148,7 @@ export class BinderSettingsModal extends Modal {
 		const list = inner.createDiv({ cls: 'modal-sidebar-list binders-bset-pages', attr: { role: 'listbox', 'aria-label': 'Binder settings' } });
 		const items: HTMLElement[] = [];
 		for (const [id, name] of PAGES) {
-			const on = id === this.page, detail = this.detail(id);
+			const on = id === this.page && !this.listing, detail = this.detail(id);
 			const el = list.createDiv({ cls: 'modal-sidebar-list-item file-recovery-list-item-header tappable binders-snapshots-item', attr: { role: 'option', tabindex: on ? '0' : '-1', 'aria-selected': String(on), 'aria-label': `${name}: ${detail}`, 'data-binders-key': `page-${id}` } });
 			el.toggleClass('is-active', on);
 			const d = el.createDiv({ cls: 'modal-sidebar-list-item-details' });

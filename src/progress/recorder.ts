@@ -386,7 +386,7 @@ export class Progress {
 
 	async history(folder: TFolder): Promise<History | null> {
 		const m = await this.read(folder);
-		return m ? toHistory(m, this.plugin.settings.statuses) : null;
+		return m ? toHistory(m, this.plugin.binders.statusesOf(folder)) : null;
 	}
 
 	/** The record as a history, kept for a few seconds for what asks often (the toolbar's plan): dropped when
