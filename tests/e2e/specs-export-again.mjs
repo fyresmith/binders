@@ -4,6 +4,7 @@
 import { existsSync, readFileSync, statSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { PL, VIEW, clickMenu, j, menuItems, openView, same, texts, until, withTidy } from './view-helpers.mjs';
+import { SHOWN, showRow } from './settings-routes.mjs';
 import { WIN, asked, closeAll, docx, epub, notices, onMobile, open, open2, openEbook, press, run, saved, standIn, tapEl, withAuthor } from './specs-export.mjs';
 
 export const specs = [];
@@ -133,11 +134,12 @@ test('the window’s menu shows the Exports folder; settings name the styles fol
 	await until(p, `window.__shown !== null`, 5000);
 	t.eq(await p.ev(`window.__shown`), join(p.vaultDir, 'Exports'), 'after an export: the Exports folder, in the system’s file manager');
 	await closeAll(p);
-	await p.ev(`(() => { app.setting.open(); app.setting.openTabById('binders'); return 1; })()`);
-	const tab = `app.setting.activeTab.containerEl`;
+	// (the folders are on the Folders page of the tab)
+	await showRow(p, 'Styles folder');
+	const tab = SHOWN;
 	await until(p, `!!${tab}.querySelector('.binders-settings-styles')`);
 	t.eq(await p.ev(`${tab}.querySelector('.binders-settings-styles input').value + '|' + ${tab}.querySelector('.binders-settings-styles .setting-item-name').textContent`), 'Export styles|Styles folder', 'settings: the styles folder, by name');
-	t.eq(await p.ev(`(() => { const rows = [...${tab}.querySelectorAll('.setting-item')].map(r => r.querySelector('.setting-item-name')?.textContent), i = rows.indexOf('Exports folder'); return rows.slice(i, i + 5).join('|'); })()`), 'Exports folder|Remembered places|Your name|Contact details|Styles folder', 'export’s rows, in the design’s order');
+	t.eq(await p.ev(`(() => { const rows = [...${tab}.querySelectorAll('.setting-item')].map(r => r.querySelector('.setting-item-name')?.textContent), i = rows.indexOf('Exports folder'); return rows.slice(i, i + 3).join('|'); })()`), 'Exports folder|Styles folder|Remembered places', 'export’s rows, in the design’s order');
 	// a name with a slash isn't one folder at the top of the vault
 	await p.ev(`(() => { const i = ${tab}.querySelector('.binders-settings-styles input'); i.focus(); i.value = 'a/b'; i.dispatchEvent(new Event('input')); i.blur(); return 1; })()`);
 	await p.sleep(400);

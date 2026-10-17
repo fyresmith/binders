@@ -7,6 +7,7 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { PL, VIEW, clickMenu, closeMenus, j, menuItems, openView, reload, texts, until, withTidy } from './view-helpers.mjs';
+import { SHOWN, showPage } from './settings-routes.mjs';
 
 export const specs = [];
 const F = `${PL}.focus`;
@@ -1126,23 +1127,26 @@ test('fullscreen: for real, the window goes to fullscreen with focus mode and co
 
 // ---- the settings tab ----
 
-test('settings: a “Focus mode” group with every option; a change there shows on the page at once', async (p, h, t) => {
-	const TAB = `app.setting.activeTab.containerEl`;
+test('settings: a “Focus mode” page with every option, and the day’s goal on the tab; a change there shows on the page at once', async (p, h, t) => {
+	const TAB = SHOWN;
 	await set(p, OFF);
 	await openNote(p, KEEPER);
 	await enter(p, h);
-	await p.ev(`(() => { app.setting.open(); app.setting.openTabById('binders'); return 1; })()`);
-	await until(p, `[...${TAB}.querySelectorAll('.setting-item-heading, .setting-group .setting-item-name')].some(e => e.textContent === 'Focus mode')`);
-	const rows = await p.ev(`(() => { const c = ${TAB}, all = [...c.querySelectorAll('.setting-item')], names = all.map(e => e.querySelector('.setting-item-name')?.textContent ?? ''); const from = names.indexOf('Typewriter scrolling'); return all.slice(from, from + 8).map(e => ({ name: e.querySelector('.setting-item-name').textContent, desc: !!e.querySelector('.setting-item-description')?.textContent, on: e.querySelector('.checkbox-container') ? e.querySelector('.checkbox-container').classList.contains('is-enabled') : e.querySelector('input[type="text"]')?.value })); })()`);
-	t.eq(j(rows.map((r) => r.name)), j(['Typewriter scrolling', 'Show the scenes before and after', 'Show where you are', 'Show word counts', 'Dim other paragraphs', 'Dim the background', 'Enter fullscreen', 'Words to write today']), 'the options, in plain words');
-	t.eq(j(rows.map((r) => r.on)), j([true, false, false, false, false, false, false, '']), 'each shows whether it is on');
+	// (the options are on the Focus mode page, opened by its row on the tab)
+	await showPage(p, 'Focus mode');
+	await until(p, `[...${TAB}.querySelectorAll('.setting-item-name')].some(e => e.textContent === 'Typewriter scrolling')`);
+	const rows = await p.ev(`(() => { const c = ${TAB}, all = [...c.querySelectorAll('.setting-item')], names = all.map(e => e.querySelector('.setting-item-name')?.textContent ?? ''); const from = names.indexOf('Typewriter scrolling'); return all.slice(from, from + 7).map(e => ({ name: e.querySelector('.setting-item-name').textContent, desc: !!e.querySelector('.setting-item-description')?.textContent, on: e.querySelector('.checkbox-container') ? e.querySelector('.checkbox-container').classList.contains('is-enabled') : e.querySelector('input[type="text"]')?.value })); })()`);
+	t.eq(j(rows.map((r) => r.name)), j(['Typewriter scrolling', 'Show the scenes before and after', 'Show where you are', 'Show word counts', 'Dim other paragraphs', 'Dim the background', 'Enter fullscreen']), 'the options, in plain words');
+	t.eq(j(rows.map((r) => r.on)), j([true, false, false, false, false, false, false]), 'each shows whether it is on');
 	t.ok(rows.every((r) => r.desc), 'each says what it does');
 	// turn one on there
 	await p.ev(`(() => { const row = [...${TAB}.querySelectorAll('.setting-item')].find(e => e.querySelector('.setting-item-name')?.textContent === 'Show where you are'); row.querySelector('.checkbox-container').click(); return 1; })()`);
 	await p.sleep(500);
 	t.eq(await p.ev(`${PL}.settings.focusPlace`), true, 'a toggle there is taken');
 	t.ok(await p.ev(`!!document.querySelector('.binders-focus-leaf .binders-focus-note')`), 'and the page in focus has it at once');
-	// the goal
+	// the goal, on the tab
+	await showPage(p, null);
+	t.eq(await p.ev(`!![...${TAB}.querySelectorAll('.setting-item')].find(e => e.querySelector('.setting-item-name')?.textContent === 'Words to write today')?.querySelector('.setting-item-description')?.textContent`), true, 'the goal says what it is');
 	await p.ev(`(() => { const row = [...${TAB}.querySelectorAll('.setting-item')].find(e => e.querySelector('.setting-item-name')?.textContent === 'Words to write today'); const el = row.querySelector('input[type="text"]'); el.focus(); el.value = '1,200'; el.dispatchEvent(new Event('input', { bubbles: true })); el.blur(); el.dispatchEvent(new FocusEvent('blur')); return 1; })()`);
 	await p.sleep(400);
 	t.eq(await p.ev(`${PL}.settings.focusGoal`), 1200, 'a goal typed there is taken as a number');

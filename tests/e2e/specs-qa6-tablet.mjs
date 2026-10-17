@@ -8,6 +8,7 @@ import { mkdirSync } from 'fs';
 import { closeFilter, chooseProperty, clickEl, pick, rowSel } from './filter-helpers.mjs';
 import { throughDrawers } from './menu-routes.mjs';
 import { B, VIEW, closeMenus, contents, flush, j, menuItems, openView, read, reload, tidy, until, viewState } from './view-helpers.mjs';
+import { SHOWN, showPage } from './settings-routes.mjs';
 
 export const specs = [];
 const test = (name, fn) => specs.push({ name: 'qa6: ' + name, fn });
@@ -1171,20 +1172,25 @@ const drawerOpenNow = (p) => p.ev(`!app.workspace.leftSplit.collapsed`);
 // ======================================================================== settings
 // (Obsidian 1.13 opens the settings in a window of their own: here 1 px wide, so only names and states are looked at, not layout)
 a11y('settings: the label colour pickers (an `<input type="color">` in each label’s row) have a name (they have none: they are tab stops a screen reader says nothing of)', async (p, h, t) => {
-	await p.ev(`(() => { app.setting.open(); app.setting.openTabById('binders'); return 1; })()`);
-	await p.sleep(900);
-	const info = await p.ev(`(() => {
-		const tab = app.setting.activeTab?.containerEl; if (!tab) return null;
+	// (the tab and each of its pages: the labels' pickers are on the Labels page)
+	const info = [];
+	for (const page of [null, 'Labels', 'Statuses', 'Focus mode', 'Folders', 'Property names']) {
+		await showPage(p, page);
+		await p.sleep(300);
+		info.push(...await p.ev(`(() => {
+		const tab = ${SHOWN}; if (!tab) return [];
 		const out = [];
 		for (const e of tab.querySelectorAll('input, select, textarea, button, [role="button"], .clickable-icon, .checkbox-container')) {
 			if (e.classList.contains('is-measuring')) continue; // (Obsidian’s own: it sizes a dropdown by a copy)
+			if (e.closest('.setting-page-titlebar')) continue; // (Obsidian’s own: a page’s way back to the tab)
 			const row = e.closest('.setting-item');
 			const rowName = row?.querySelector('.setting-item-name')?.textContent?.trim() ?? '';
 			const own = (e.getAttribute('aria-label') || e.getAttribute('title') || (e.matches('button, [role="button"]') ? e.textContent : '') || e.getAttribute('placeholder') || '').trim();
 			out.push({ tag: e.tagName.toLowerCase() + (e.type ? '[' + e.type + ']' : ''), cls: String(e.className).split(' ')[0], own: own.slice(0, 30), rowName: rowName.slice(0, 30) });
 		}
 		return out;
-	})()`);
+	})()`));
+	}
 	await p.key('Escape'); await p.sleep(300);
 	await p.ev(`app.setting.close()`);
 	log('settings controls', info?.length);

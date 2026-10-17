@@ -81,6 +81,24 @@ export function openPluginSettings(app: App, id: string): boolean {
 	try { setting.open(); setting.openTabById(id); return true; } catch { return false; }
 }
 
+/** The pages of Binders' settings tab, by the names of the rows that open them (src/settings.ts). */
+export type BindersSettingsPage = 'labels' | 'statuses' | 'focus' | 'folders' | 'properties';
+const SETTINGS_PAGES: Record<BindersSettingsPage, string> = { labels: 'Labels', statuses: 'Statuses', focus: 'Focus mode', folders: 'Folders', properties: 'Property names' };
+
+/* One page of Binders' settings ("Edit labels…" opens the Labels page). Obsidian 1.13 has no way in the API to open a
+   tab's page: its own `setting.openPage` wants a page object made by code it doesn't export. So the tab is opened as
+   above, and the row that opens the page is clicked, as a writer would: a `.setting-item.mod-navigable` whose name is
+   the page's. Without such a row the tab is left open at its top. False only when the settings can't be opened. */
+export function openBindersSettingsPage(app: App, page: BindersSettingsPage): boolean {
+	if (!openPluginSettings(app, 'binders')) return false;
+	try {
+		const tab = (app as unknown as { setting?: { activeTab?: { containerEl?: HTMLElement } } }).setting?.activeTab?.containerEl;
+		const row = tab ? Array.from(tab.querySelectorAll<HTMLElement>('.setting-item.mod-navigable')).find((r) => r.querySelector('.setting-item-name')?.textContent === SETTINGS_PAGES[page]) : undefined;
+		row?.click();
+	} catch { /* the tab is open, at its top */ }
+	return true;
+}
+
 /* A new note opened with its title ready to type over, as one made in the file explorer is. Obsidian does it with the
    undocumented ephemeral state `{ rename: 'all' }` on opening a file. Obsidian versions that don't know it ignore it:
    the note opens, and is renamed the usual ways. */

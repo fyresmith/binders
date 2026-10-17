@@ -11,6 +11,7 @@
 import { mkdirSync } from 'fs';
 import { startEmpty, throughDrawers } from './menu-routes.mjs';
 import { B, PL, VIEW, card, closeMenus, contents, flush, j, menuItems, openView, read, reload, texts, tidy, until, viewState } from './view-helpers.mjs';
+import { SHOWN, showPage, showRow } from './settings-routes.mjs';
 
 export const specs = [];
 const test = (name, fn) => specs.push({ name: 'qa5 nav: ' + name, fn });
@@ -170,12 +171,14 @@ const select = (p, paths) => p.ev(`(() => { const v = app.workspace.getLeavesOfT
 const selectedCards = (p) => p.ev(`[...document.querySelectorAll('.binders-view .binders-card.is-selected')].map(c => c.dataset.path)`);
 const MORE = `${LEAF} .view-actions .clickable-icon[aria-label="More options"]`;
 const NAVBACK = `document.querySelector('.mobile-navbar-action-back button')`, NAVFWD = `document.querySelector('.mobile-navbar-action-forward button')`;
-const openSettings = async (p) => {
-	await p.ev(`(() => { app.setting.open(); app.setting.openTabById('binders'); return 1; })()`);
-	await until(p, `app.setting.activeTab?.containerEl.querySelectorAll('.binders-settings-label').length > 0`);
+/** Binders' settings at one of the tab's pages (opened by its row, as a writer does), or at the tab itself for null. */
+const openSettings = async (p, page = null) => {
+	await showPage(p, page);
+	await until(p, `${SHOWN}.querySelectorAll('.setting-item').length > 0`);
 	await p.sleep(700);
 };
-const TAB = `app.setting.activeTab.containerEl`;
+/** The rows shown now: the tab's, or the page's. */
+const TAB = SHOWN;
 /** A menu's “Export...” and the command open the Export window on the kind last used: this is a writer who made one note last time. */
 const NOTE_KIND = `(() => { app.plugins.plugins.binders.settings.exportKind = 'note'; return 1; })()`;
 /** The Export window on “One note” (what Compile was), by the command. On a phone: its choices, with Preview, Copy and Export at their foot. */
@@ -1153,28 +1156,38 @@ test('phone settings: the switches work by touch and “Hide binder and folder n
 		t.ok(await p.ev(`[...document.querySelectorAll('.modal.mod-settings .vertical-tab-nav-item')].some(e => e.textContent === 'Binders')`), 'Binders is in the settings’ list');
 		await openSettings(p);
 		await shot(p, 'settings-top');
-		t.eq(j(await p.ev(`[...${TAB}.querySelectorAll('.setting-item-heading')].map(e => e.textContent)`)), j(['File explorer', 'Paragraphs', 'Sidebar', 'Word counts', 'Progress', 'Labels', 'Statuses', 'Focus mode', 'Export', 'Property names']), 'its ten parts');
-		t.eq(j(await p.ev(`['exports', 'places', 'author', 'contact'].map(c => ${TAB}.querySelector('.binders-settings-' + c + ' .setting-item-name')?.textContent ?? null)`)), j(['Exports folder', 'Remembered places', 'Your name', 'Contact details']), 'Export’s four rows');
+		t.eq(j(await p.ev(`[...${TAB}.querySelectorAll('.setting-item-heading')].map(e => e.textContent)`)), j(['File explorer', 'Paragraphs', 'Labels and statuses', 'Writing', 'Export', 'Advanced']), 'its six headed parts, under the main rows');
+		t.eq(j(await p.ev(`['author', 'contact'].map(c => ${TAB}.querySelector('.binders-settings-' + c + ' .setting-item-name')?.textContent ?? null)`)), j(['Your name', 'Contact details']), 'Export’s rows on the tab');
 		t.ok(await p.ev(`${TAB}.scrollWidth <= ${TAB}.clientWidth + 1`), 'nothing wider than the screen');
-		const toggles = () => p.ev(`[...${TAB}.querySelectorAll('.checkbox-container')].slice(0, 4).map(e => { e.scrollIntoView({ block: 'nearest' }); return (${R})(e); })`);
+		// (the four explorer switches by their names, in the order the flags below say them)
+		const EXPLORER = ['Order binders in the file explorer', 'Open binders from the file explorer', 'Hide binder and folder notes', 'Show label colors in the file explorer'];
+		const SWITCH = (i) => `[...${TAB}.querySelectorAll('.setting-item')].find(r => r.querySelector('.setting-item-name')?.textContent === ${j(EXPLORER[i])}).querySelector('.checkbox-container')`;
+		const toggles = () => p.ev(`${j(EXPLORER)}.map(n => [...${TAB}.querySelectorAll('.setting-item')].find(r => r.querySelector('.setting-item-name')?.textContent === n).querySelector('.checkbox-container')).map(e => { e.scrollIntoView({ block: 'nearest' }); return (${R})(e); })`);
 		const flags = () => p.ev(`(({ orderExplorer, openOnClick, hideBinderNotes, explorerLabels }) => [orderExplorer, openOnClick, hideBinderNotes, explorerLabels].join())(${PL}.settings)`);
-		let tg = await toggles();
-		t.eq(await p.ev(`${TAB}.querySelectorAll('.checkbox-container').length`), 15, 'four explorer switches, two for paragraphs, one for the sidebar, one for word counts, one for the progress record and six focus switches');
+		// (each switch is brought into sight before it's measured and tapped: they are not all on one screen)
+		const tapSwitch = async (i) => { await p.ev(`(() => { ${SWITCH(i)}.scrollIntoView({ block: 'center' }); return 1; })()`); await p.sleep(250); const r = await p.ev(`(${R})(${SWITCH(i)})`); await tap(p, r[0] + r[2] / 2, r[1] + r[3] / 2); };
+		const tg = await toggles();
+		t.eq(await p.ev(`${TAB}.querySelectorAll('.checkbox-container').length`), 8, 'on the tab: four explorer switches, the sidebar’s, two for paragraphs and the progress record’s');
 		t.ok(tg.length === 4 && tg.every((r) => r[2] >= 44 && r[3] >= 28), 'four explorer switches, each a finger wide: ' + j(tg));
-		await tap(p, tg[0][0] + tg[0][2] / 2, tg[0][1] + tg[0][3] / 2);
+		await tapSwitch(0);
 		await p.sleep(700);
 		await shot(p, 'settings-order-off');
 		t.eq(j([await flags(), await p.ev(`${PL}.explorer.status`)]), j(['false,true,true,true', 'off']), 'the first, tapped, turns ordering off');
 		t.ok(await p.ev(`[...${TAB}.querySelectorAll('.setting-item')].find(s => /Hide binder/.test(s.textContent)).classList.contains('is-disabled')`), 'and greys out “Hide binder and folder notes”');
-		tg = await toggles();
-		await tap(p, tg[2][0] + tg[2][2] / 2, tg[2][1] + tg[2][3] / 2);
+		await tapSwitch(2);
 		await p.sleep(500);
 		t.eq(await flags(), 'false,true,true,true', 'which a tap can’t change meanwhile');
-		await tap(p, tg[0][0] + tg[0][2] / 2, tg[0][1] + tg[0][3] / 2);
+		await tapSwitch(0);
 		await p.sleep(700);
-		for (const i of [1, 3]) { tg = await toggles(); await tap(p, tg[i][0] + tg[i][2] / 2, tg[i][1] + tg[i][3] / 2); await p.sleep(500); }
+		for (const i of [1, 3]) { await tapSwitch(i); await p.sleep(500); }
 		t.eq(j([await flags(), await p.ev(`${PL}.explorer.status`)]), j(['true,false,true,false', 'patched']), 'ordering back on; the second and fourth switch off by touch');
+		// focus mode's six (no fullscreen on a phone), and export's folders, each on a page
+		await openSettings(p, 'Focus mode');
+		t.eq(await p.ev(`${TAB}.querySelectorAll('.checkbox-container').length`), 6, 'Focus mode’s page: its six switches');
+		await openSettings(p, 'Folders');
+		t.eq(j(await p.ev(`['exports', 'styles', 'places'].map(c => ${TAB}.querySelector('.binders-settings-' + c + ' .setting-item-name')?.textContent ?? null)`)), j(['Exports folder', 'Styles folder', 'Remembered places']), 'the Folders page’s three rows');
 		// add a label
+		await openSettings(p, 'Labels');
 		const at = async (find) => { await p.ev(`(() => { (${find}).scrollIntoView({ block: 'center' }); return 1; })()`); await p.sleep(300); const r = await p.ev(`(${R})(${find})`); return { x: r[0] + r[2] / 2, y: r[1] + r[3] / 2, r }; };
 		const names = () => p.ev(`${PL}.settings.labels.map(l => l.name).join()`);
 		let a = await at(`[...${TAB}.querySelectorAll('.binders-settings-labels *')].find(e => e.childElementCount === 0 && e.textContent === 'Add label')`);
@@ -1252,7 +1265,7 @@ test('phone settings: the switches work by touch and “Hide binder and folder n
 
 test('phone settings: statuses are added, renamed (asking about the notes), reordered and deleted by touch; a property name that’s taken or reserved is refused in words, an emptied one goes back to its default, a new one is kept; at 320 px nothing is wider than the screen', async (p, h, t) => {
 	await onDevice(p, PHONE, async () => {
-		await openSettings(p);
+		await openSettings(p, 'Statuses');
 		const at = async (find) => { await p.ev(`(() => { (${find}).scrollIntoView({ block: 'center' }); return 1; })()`); await p.sleep(300); const r = await p.ev(`(${R})(${find})`); return { x: r[0] + r[2] / 2, y: r[1] + r[3] / 2, r }; };
 		const statuses = () => p.ev(`${PL}.settings.statuses.join()`);
 		let a = await at(`[...${TAB}.querySelectorAll('.binders-settings-statuses *')].find(e => e.childElementCount === 0 && e.textContent === 'Add status')`);
@@ -1293,21 +1306,22 @@ test('phone settings: statuses are added, renamed (asking about the notes), reor
 		await tap(p, a.x, a.y);
 		await p.sleep(700);
 		t.eq(await statuses(), 'Idea,Revised,Done,Proofread', 'and its ✕ deletes it');
-		// property names
-		const props = `[...${TAB}.querySelectorAll('.setting-item:not(.binders-settings-label):not(.binders-settings-status):not(.binders-settings-goal):not(.binders-settings-exports):not(.binders-settings-author):not(.binders-settings-styles):not(.binders-settings-device) input[type="text"]')]`;
+		// property names, on their page
+		await openSettings(p, 'Property names');
+		const props = `[...${TAB}.querySelectorAll('.binders-settings-props input[type="text"]')]`;
 		const fields = await p.ev(`${props}.map(i => { i.scrollIntoView({ block: 'center' }); return { v: i.value, ph: i.placeholder, r: (${R})(i) }; })`);
-		t.eq(j(fields.map((x) => [x.v, x.ph])), j([['synopsis', 'synopsis'], ['status', 'status'], ['label', 'label'], ['target', 'target'], ['story-date', 'story-date'], ['story-order', 'story-order'], ['notes', 'notes']]), 'seven property names');
+		t.eq(j(fields.map((x) => [x.v, x.ph])), j([['title', 'title'], ['synopsis', 'synopsis'], ['status', 'status'], ['label', 'label'], ['target', 'target'], ['story-date', 'story-date'], ['story-order', 'story-order'], ['notes', 'notes']]), 'eight property names');
 		t.ok(fields.every((x) => x.r[2] >= 200 && x.r[3] >= 40), 'in wide, finger-tall fields');
 		for (const [v, value, why] of [['status', 'synopsis', /“status” is the property for the status/], ['contents', 'synopsis', /Binders keeps “contents” for itself/], ['', 'synopsis', null], ['summary', 'summary', null]]) {
 			await clearNotices(p);
-			a = await at(`${props}[0]`);
+			a = await at(`${props}[1]`);
 			await tap(p, a.x, a.y);
-			await p.ev(`(() => { ${props}[0].select(); return 1; })()`);
+			await p.ev(`(() => { ${props}[1].select(); return 1; })()`);
 			if (v) await p.type(v); else await p.key('Backspace');
 			await p.key('Enter');
 			await p.sleep(700);
 			const n = await notices(p);
-			t.eq(j([await p.ev(`${props}[0].value`), await p.ev(`${PL}.settings.synopsisProp`)]), j([value, value]), `the synopsis’s property typed as “${v}”: ${value}`);
+			t.eq(j([await p.ev(`${props}[1].value`), await p.ev(`${PL}.settings.synopsisProp`)]), j([value, value]), `the synopsis’s property typed as “${v}”: ${value}`);
 			t.ok(why ? n.some((x) => why.test(x)) : n.length === 0, `and ${why ? 'it says why not' : 'nothing is said'}: ${j(n)}`);
 		}
 		await shot(p, 'settings-props');
@@ -1320,7 +1334,7 @@ test('phone settings: statuses are added, renamed (asking about the notes), reor
 
 bug('phone settings: a label’s color menu shows the color’s name whole (the menu is 90 px wide whatever it says: “Orange” reads “Orang”, “Custom” “Custo”, while Obsidian has measured that they need 98 px and more)', async (p, h, t) => {
 	await onDevice(p, PHONE, async () => {
-		await openSettings(p);
+		await openSettings(p, 'Labels');
 		await p.ev(`(() => { ${TAB}.querySelectorAll('.binders-settings-label')[1].scrollIntoView({ block: 'center' }); return 1; })()`);
 		await p.sleep(400);
 		await shot(p, 'bug-settings-color-menu');
@@ -1333,9 +1347,9 @@ bug('phone settings: a label’s color menu shows the color’s name whole (the 
 
 ux('phone settings: a property’s name is typed without the keyboard capitalizing or correcting it (the fields have no `autocapitalize="none"`: “summary” comes out “Summary” on a phone, which is another property)', async (p, h, t) => {
 	await onDevice(p, PHONE, async () => {
-		await openSettings(p);
-		const fields = await p.ev(`[...${TAB}.querySelectorAll('.setting-item:not(.binders-settings-label):not(.binders-settings-status):not(.binders-settings-goal):not(.binders-settings-exports):not(.binders-settings-author):not(.binders-settings-styles):not(.binders-settings-device) input[type="text"]')].map(i => ({ value: i.value, autocapitalize: i.getAttribute('autocapitalize'), autocorrect: i.getAttribute('autocorrect') }))`);
-		t.ok(fields.length === 7 && fields.every((f) => /^(none|off)$/.test(f.autocapitalize ?? '')), 'each field turns capitals off: ' + j(fields));
+		await openSettings(p, 'Property names');
+		const fields = await p.ev(`[...${TAB}.querySelectorAll('.binders-settings-props input[type="text"]')].map(i => ({ value: i.value, autocapitalize: i.getAttribute('autocapitalize'), autocorrect: i.getAttribute('autocorrect') }))`);
+		t.ok(fields.length === 8 && fields.every((f) => /^(none|off)$/.test(f.autocapitalize ?? '')), 'each field turns capitals off: ' + j(fields));
 	});
 });
 
@@ -1535,11 +1549,15 @@ test('tablet: the same binder in two tabs shows a change in both, the explorer m
 		d = await dialog(p);
 		t.ok(fitsScreen(d) && d.focus.startsWith('INPUT'), '“Set target” too, its field focused');
 		await closeDialog(p);
-		await openSettings(p);
+		// (the labels and the statuses, each on its page)
+		await openSettings(p, 'Labels');
 		await shot(p, 'tablet-settings');
-		const rows = await p.ev(`[...${TAB}.querySelectorAll('.binders-settings-label, .binders-settings-status')].map(s => Math.round(s.getBoundingClientRect().height))`);
+		const rows = await p.ev(`[...${TAB}.querySelectorAll('.binders-settings-label')].map(s => Math.round(s.getBoundingClientRect().height))`);
+		const colors = await p.ev(`[...${TAB}.querySelectorAll('.binders-settings-label select:not(.is-measuring)')].every(s => s.getBoundingClientRect().width + 1 >= parseFloat(s.style.getPropertyValue('--dropdown-fitted-width')))`);
+		await openSettings(p, 'Statuses');
+		rows.push(...await p.ev(`[...${TAB}.querySelectorAll('.binders-settings-status')].map(s => Math.round(s.getBoundingClientRect().height))`));
 		t.ok(rows.length === 12 && rows.every((x) => x <= 64), 'in the settings every label and status is one row: ' + j(rows));
-		t.ok(await p.ev(`[...${TAB}.querySelectorAll('.binders-settings-label select:not(.is-measuring)')].every(s => s.getBoundingClientRect().width + 1 >= parseFloat(s.style.getPropertyValue('--dropdown-fitted-width')))`), 'and the color menus show their names whole');
+		t.ok(colors, 'and the color menus show their names whole');
 	});
 });
 

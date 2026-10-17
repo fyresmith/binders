@@ -3,9 +3,11 @@
 // plugin disabled and enabled ("a restart") with the value still there. Tests named "qa11 settings: …" pass;
 // "BUG: …" are confirmed bugs (they fail now and stay as the regression); "NIT: …" are small things.
 import { PL, VIEW, answer, j, read, split, until, withTidy, openView } from './view-helpers.mjs';
+import { SHOWN, openTab, pageNow, showPage, showRow } from './settings-routes.mjs';
 
 export const specs = [];
-const TAB = 'app.setting.activeTab.containerEl';
+// (the rows shown now: the tab's, or those of the page one of its rows opened; settings-routes.mjs knows which is where)
+const TAB = SHOWN;
 const EXP = `app.workspace.getLeavesOfType('file-explorer')[0].view`;
 const EXPLEAF = '.workspace-leaf-content[data-type="file-explorer"]';
 const L = 'The Lighthouse/';
@@ -39,26 +41,26 @@ const test = (name, fn) => specs.push({ name: 'qa11 settings: ' + name, fn: with
 // In Obsidian 1.13 the settings open in a window of their own, which the driver's mouse and keys don't reach: so a
 // switch or button is clicked with a click() on its element, and a field is typed into by setting its value and
 // sending the input and key events the field listens for (as specs.mjs does). The events are the ones a writer's are.
+// A row on one of the tab's pages (Labels, Focus mode, Folders, Property names) is reached as a writer reaches it: by
+// a click on the tab's row that opens the page (settings-routes.mjs).
 
-const SETTINGS_OPEN = `!!app.setting?.activeTab?.containerEl?.isConnected`;
-const openSettings = async (p) => {
-	await p.ev(`(() => { app.setting.open(); app.setting.openTabById('binders'); return 1; })()`);
-	await until(p, `${TAB}.querySelectorAll('.setting-item').length > 5`, 4000);
-	await p.sleep(300);
-};
+const SETTINGS_OPEN = `!!app.setting?.activeTab && !!app.setting.getCurrentPageEl?.()?.isConnected`;
+const openSettings = (p) => openTab(p);
 /** Open, as the tab is when it's shown: a test that revealed the explorer or a view may have closed it. */
 const ensureSettings = async (p) => { if (!(await p.ev(SETTINGS_OPEN))) await openSettings(p); };
 const closeSettings = (p) => p.ev(`(() => { try { app.setting.close(); } catch {} return 1; })()`).then(() => p.sleep(300));
-/** The tab's row whose name is this (a group's heading is a row too). */
+/** An element's expression that knows which row it is in, so a tap or typing first goes where that row is shown. */
+const at = (row, expr) => Object.assign(new String(expr), { row });
+/** The row shown now whose name is this (a group's heading is a row too). */
 const ROW = (name) => `[...${TAB}.querySelectorAll('.setting-item')].find(r => r.querySelector('.setting-item-name')?.textContent === ${j(name)})`;
-const CHECK = (name) => `${ROW(name)}?.querySelector('.checkbox-container')`;
-const FIELD = (name) => `${ROW(name)}?.querySelector('input[type="text"], textarea')`;
+const CHECK = (name) => at(name, `${ROW(name)}?.querySelector('.checkbox-container')`);
+const FIELD = (name) => at(name, `${ROW(name)}?.querySelector('input[type="text"], textarea')`);
 /** The documents a notice or a dialog may be in: the main window, and the settings' window. */
 const DOCS = `[...new Set([document, app.setting?.activeTab?.containerEl?.ownerDocument].filter(Boolean))]`;
 const notices = (p) => p.ev(`${DOCS}.flatMap(d => [...d.querySelectorAll('.notice')]).map(n => n.textContent).join(' | ')`);
 /** A click as a writer's: the element's own click, which Obsidian's switch and buttons listen for. */
 async function tap(p, el) {
-	await ensureSettings(p);
+	if (el.row) await showRow(p, el.row); else await ensureSettings(p);
 	const ok = await p.ev(`(() => { const e = ${el}; if (!e) return false; e.click(); return true; })()`);
 	if (!ok) throw new Error('nothing to click: ' + el.slice(0, 140));
 	await p.sleep(300);
@@ -67,7 +69,7 @@ async function tap(p, el) {
 const KEY = (k) => ({ Enter: 'Enter', Escape: 'Escape' })[k];
 /** Types into a field the way a writer does: its text selected, typed, then Enter, Tab or Escape. */
 async function typeInto(p, el, text, end = 'Enter') {
-	await ensureSettings(p);
+	if (el.row) await showRow(p, el.row); else await ensureSettings(p);
 	const ok = await p.ev(`(() => { const i = ${el}; if (!i) return false; i.focus(); i.select(); return true; })()`);
 	if (!ok) throw new Error('no field: ' + el.slice(0, 140));
 	await p.ev(`(() => { const i = ${el}; const proto = i.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype; Object.getOwnPropertyDescriptor(proto, 'value').set.call(i, ${j(text)}); i.dispatchEvent(new Event('input', { bubbles: true })); return 1; })()`);
@@ -76,15 +78,26 @@ async function typeInto(p, el, text, end = 'Enter') {
 	else if (end === 'Tab') await p.ev(`(() => { ${el}.blur(); return 1; })()`);
 	await p.sleep(450);
 }
-const checked = (p, name) => p.ev(`(() => { const c = ${CHECK(name)}; return c ? c.classList.contains('is-enabled') : null; })()`);
-const disabled = (p, name) => p.ev(`(() => { const r = ${ROW(name)}; const c = r?.querySelector('.checkbox-container'); const i = r?.querySelector('input[type="checkbox"]'); return !!(i?.disabled || c?.classList.contains('is-disabled') || r?.classList.contains('is-disabled')); })()`);
+const checked = async (p, name) => (await showRow(p, name), p.ev(`(() => { const c = ${CHECK(name)}; return c ? c.classList.contains('is-enabled') : null; })()`));
+const disabled = async (p, name) => (await showRow(p, name), p.ev(`(() => { const r = ${ROW(name)}; const c = r?.querySelector('.checkbox-container'); const i = r?.querySelector('input[type="checkbox"]'); return !!(i?.disabled || c?.classList.contains('is-disabled') || r?.classList.contains('is-disabled')); })()`));
 /** Sets a switch by clicking it, when it isn't already as asked. */
 async function setSwitch(p, name, on) {
-	await ensureSettings(p);
+	await showRow(p, name);
 	if ((await checked(p, name)) !== on) await tap(p, CHECK(name));
 	await until(p, `${ROW(name)}?.querySelector('.checkbox-container')?.classList.contains('is-enabled') === ${on}`, 2000);
 }
-const field = (p, name) => p.ev(`${FIELD(name)}?.value ?? null`);
+const field = async (p, name) => (await showRow(p, name), p.ev(`${FIELD(name)}?.value ?? null`));
+/** A dropdown's value, and a choice made in it as a writer makes one. */
+const SELECT = (name) => at(name, `${ROW(name)}?.querySelector('select')`);
+const dropdown = async (p, name) => (await showRow(p, name), p.ev(`${SELECT(name)}?.value ?? null`));
+async function choose(p, name, value) {
+	await showRow(p, name);
+	const ok = await p.ev(`(() => { const s = ${SELECT(name)}; if (!s) return false; s.value = ${j(value)}; s.dispatchEvent(new Event('change', { bubbles: true })); return true; })()`);
+	if (!ok) throw new Error('no dropdown: ' + name);
+	await p.sleep(400);
+}
+/** What a row that opens a page says at its end (“8 labels”). */
+const pageValue = async (p, page) => (await openTab(p), p.ev(`${ROW(page)}?.querySelector('.setting-item-value')?.textContent ?? null`));
 const dataFile = (p) => p.ev(`app.vault.adapter.read(${DATA}).then(t => JSON.parse(t), () => null)`);
 /** The saved setting, once it's on disk (saves are written in the background). */
 async function saved(p, key, want, ms = 3000) {
@@ -124,18 +137,23 @@ const same = (t, a, b, m) => t.eq(j(a), j(b), m);
 const DEFAULTS_SWITCHES = {
 	'Order binders in the file explorer': true, 'Open binders from the file explorer': true, 'Hide binder and folder notes': true,
 	'Show label colors in the file explorer': true, 'Start a paragraph with a tab': true, 'Indent paragraphs': false,
-	'Show the inspector and contents with a binder': true, 'Count words as the exported book does': true,
+	'Show the inspector and contents with a binder': true, 'Keep a record of your writing': true,
 	'Typewriter scrolling': true, 'Show the scenes before and after': false, 'Show where you are': false, 'Show word counts': false,
 	'Dim other paragraphs': true, 'Dim the background': true, 'Enter fullscreen': false,
 };
 const DEFAULT_TEXT = { 'Exports folder': 'Exports', 'Your name': '', 'Styles folder': 'Export styles', 'Words to write today': '', 'Title': 'title', 'Synopsis': 'synopsis', 'Status': 'status', 'Label': 'label', 'Target': 'target', 'Story date': 'story-date', 'Story order': 'story-order', 'Notes': 'notes' };
-const GROUPS = ['File explorer', 'Paragraphs', 'Sidebar', 'Word counts', 'Progress', 'Labels', 'Statuses', 'Focus mode', 'Export', 'Property names'];
+const GROUPS = ['File explorer', 'Paragraphs', 'Labels and statuses', 'Writing', 'Export', 'Advanced'];
+/** The rows that open a page, in the tab's order, with what each says at its end on a fresh vault (on a computer). */
+const PAGES = { Labels: '8 labels', Statuses: 'Idea, Draft, Revised, Done', 'Focus mode': '3 of 7 on', Folders: 'Exports', 'Property names': 'Binders’ own' };
 
 test('a fresh vault: every control shows the default the docs give, in the order the docs list them', async (p, h, t) => {
 	await openSettings(p);
 	try {
 		const groups = await p.ev(`[...${TAB}.querySelectorAll('.setting-item.setting-item-heading .setting-item-name')].map(e => e.textContent)`);
 		same(t, groups, GROUPS, 'the headings, in the order docs/settings.md has them');
+		same(t, await p.ev(`[...${TAB}.querySelectorAll('.setting-item.mod-navigable .setting-item-name')].map(e => e.textContent)`), Object.keys(PAGES), 'the rows that open a page, in order');
+		for (const [page, says] of Object.entries(PAGES)) t.eq(await pageValue(p, page), says, `“${page}” says “${says}” at its end`);
+		t.eq(await dropdown(p, 'Count words'), 'book', '“Count words” is “As an export would” on a fresh vault');
 		for (const [name, on] of Object.entries(DEFAULTS_SWITCHES)) {
 			const v = await checked(p, name);
 			t.eq(v, on, `“${name}” is ${on ? 'on' : 'off'} on a fresh vault`);
@@ -144,22 +162,30 @@ test('a fresh vault: every control shows the default the docs give, in the order
 			const v = await field(p, name);
 			t.eq(v, want, `“${name}” holds its default`);
 		}
+		await showRow(p, 'Words to write today');
 		t.eq(await p.ev(`${FIELD('Words to write today')}.placeholder`), 'None', 'the goal says None');
+		await showRow(p, 'Exports folder');
 		t.eq(await p.ev(`${FIELD('Exports folder')}.placeholder`), 'Exports', 'the Exports folder placeholder is the default');
+		await showRow(p, 'Contact details');
 		t.eq(await p.ev(`${TAB}.querySelector('.binders-settings-contact textarea').value`), '', 'contact details are empty');
+		await showRow(p, 'labels');
 		const names = await p.ev(`[...${TAB}.querySelectorAll('.binders-settings-label input[type="text"]')].map(i => i.value)`);
 		same(t, names, ['Red', 'Orange', 'Yellow', 'Green', 'Cyan', 'Blue', 'Purple', 'Pink'], 'the eight labels, in order');
+		await showRow(p, 'statuses');
 		const sts = await p.ev(`[...${TAB}.querySelectorAll('.binders-settings-status input[type="text"]')].map(i => i.value)`);
 		same(t, sts, ['Idea', 'Draft', 'Revised', 'Done'], 'the four statuses, in order');
-		t.ok(await disabled(p, 'Remembered places') || await p.ev(`${TAB}.querySelector('.binders-settings-places button').disabled`), '“Ask again” is off until an export is remembered');
+		t.ok(await disabled(p, 'Remembered places') || await (showRow(p, 'Remembered places').then(() => p.ev(`${TAB}.querySelector('.binders-settings-places button').disabled`))), '“Ask again” is off until an export is remembered');
 		t.ok(!(await disabled(p, 'Hide binder and folder notes')), 'Hide binder and folder notes is on the tab, and usable, with order on');
 	} finally { await closeSettings(p); }
 });
 
-test('the tab’s words: sentence case, no “please”, a full stop at each sentence’s end, and no shouting', async (p, h, t) => {
+test('the tab’s words, and its pages’: sentence case, no “please”, a full stop at each sentence’s end, and no shouting', async (p, h, t) => {
 	await openSettings(p);
 	try {
-		const texts = await p.ev(`(() => {
+		const texts = [];
+		for (const page of [null, ...Object.keys(PAGES)]) {
+			if (page) await showPage(p, page); else await openTab(p);
+			texts.push(...await p.ev(`(() => {
 			const out = [];
 			for (const r of ${TAB}.querySelectorAll('.setting-item')) {
 				const n = r.querySelector('.setting-item-name')?.textContent, d = r.querySelector('.setting-item-description')?.textContent;
@@ -169,9 +195,10 @@ test('the tab’s words: sentence case, no “please”, a full stop at each sen
 			for (const b of ${TAB}.querySelectorAll('button, [aria-label]')) { const a = b.getAttribute('aria-label') || b.getAttribute('title') || b.textContent; if (a && a.trim()) out.push(['label', a.trim()]); }
 			for (const i of ${TAB}.querySelectorAll('input[placeholder], textarea[placeholder]')) out.push(['placeholder', i.placeholder]);
 			return out;
-		})()`);
+		})()`));
+		}
 		// a word that starts a sentence, or a file path, or one of Obsidian's own names, may be capitalized
-		const KEPT = new Set(['Obsidian', 'Sync', 'Custom', 'Manuscript', 'Ebook', 'Paperback', 'Scrivener', 'Red', 'Orange', 'Yellow', 'Green', 'Cyan', 'Blue', 'Purple', 'Pink', 'Label', 'Status', 'Target', 'Notes', 'Synopsis', 'Export', 'Exports', 'Idea', 'Draft', 'Revised', 'Done', 'None', 'Books/Exports', 'Snapshots', 'History']);
+		const KEPT = new Set(['Obsidian', 'Sync', 'Binders', 'Custom', 'Manuscript', 'Ebook', 'Paperback', 'Scrivener', 'Red', 'Orange', 'Yellow', 'Green', 'Cyan', 'Blue', 'Purple', 'Pink', 'Label', 'Status', 'Target', 'Notes', 'Synopsis', 'Export', 'Exports', 'Idea', 'Draft', 'Revised', 'Done', 'None', 'Books/Exports', 'Snapshots', 'History']);
 		const bad = [];
 		for (const [kind, s] of texts) {
 			if (/please/i.test(s)) bad.push(`${kind} “${s}” says please`);
@@ -322,22 +349,70 @@ test('the paragraph switches save, and are on disk after a restart, as the tab s
 	} finally { await closeSettings(p); }
 });
 
-test('“Count words as the exported book does”: turned off in the tab, it stays on: nothing is saved, and it is on again after a restart', async (p, h, t) => {
+test('“Count words”: “As Obsidian’s status bar” chosen in the tab is saved, and still chosen after a restart; “As an export would” again is saved too', async (p, h, t) => {
 	await openSettings(p);
 	try {
-		await setSwitch(p, 'Count words as the exported book does', false);
-		t.eq(await checked(p, 'Count words as the exported book does'), false, 'the switch shows off');
+		await choose(p, 'Count words', 'obsidian');
+		t.eq(await dropdown(p, 'Count words'), 'obsidian', 'the dropdown shows As Obsidian’s status bar');
 		t.eq(await saved(p, 'bookWords', false), false, 'and the setting is saved as off');
 		t.eq(await pluginSetting(p, 'bookWords'), false, 'the plugin has it off');
 	} finally { await closeSettings(p); }
 	await restart(p);
 	await openSettings(p);
 	try {
-		t.eq(await checked(p, 'Count words as the exported book does'), false, 'after a restart, the switch is off as it was left');
+		t.eq(await dropdown(p, 'Count words'), 'obsidian', 'after a restart, the dropdown is as it was left');
+		await choose(p, 'Count words', 'book');
+		t.eq(await saved(p, 'bookWords', true), true, 'As an export would: saved as on');
 	} finally { await closeSettings(p); }
-	await restart(p);
+});
+
+test('“This device is called” is shown only while “Keep a record of your writing” is on', async (p, h, t) => {
 	await openSettings(p);
-	try { await setSwitch(p, 'Count words as the exported book does', true); } finally { await closeSettings(p); }
+	try {
+		// (a row that isn't to be seen is kept, hidden, as Obsidian hides one: so it is asked whether it shows)
+		const SEEN = `(() => { const r = ${ROW('This device is called')}; return !!r && r.isShown(); })()`;
+		const shown = () => p.ev(SEEN);
+		t.eq(await shown(), true, 'with the record on, the device’s name is there');
+		await setSwitch(p, 'Keep a record of your writing', false);
+		await until(p, `!${SEEN}`, 2000);
+		t.eq(await shown(), false, 'with it off, the row goes');
+		t.eq(await saved(p, 'recordProgress', false), false, 'and the record is saved as off');
+		await setSwitch(p, 'Keep a record of your writing', true);
+		await until(p, SEEN, 2000);
+		t.eq(await shown(), true, 'on again, the row is back');
+	} finally { await closeSettings(p); }
+});
+
+test('a page opened from code (openBindersSettingsPage, as “Edit labels…” does): each page by its name; a page there is no row for leaves the tab open at its top', async (p, h, t) => {
+	const TABOBJ = `app.setting.pluginTabs.find(x => x.id === 'binders')`;
+	try {
+		for (const [page, title] of [['labels', 'Labels'], ['statuses', 'Statuses'], ['focus', 'Focus mode'], ['folders', 'Folders'], ['properties', 'Property names']]) {
+			await closeSettings(p);
+			t.eq(await p.ev(`${TABOBJ}.showPage(${j(page)})`), true, `${page}: the settings open`);
+			await until(p, `app.setting.pageStack?.length > 0`, 2000);
+			t.eq(await pageNow(p), title, `${page}: at the ${title} page`);
+		}
+		await closeSettings(p);
+		t.eq(await p.ev(`${TABOBJ}.showPage('nothing')`), true, 'a page with no row: the settings still open');
+		await p.sleep(400);
+		t.eq(await pageNow(p), null, 'at the tab');
+		t.eq(await p.ev(`app.setting.activeTab?.id`), 'binders', 'Binders’ tab');
+	} finally { await closeSettings(p); }
+});
+
+test('a row that opens a page: the page has the rows, and Back goes to the tab; Focus mode’s row counts what is on', async (p, h, t) => {
+	await openSettings(p);
+	try {
+		await showRow(p, 'labels');
+		t.eq(await pageNow(p), 'Labels', 'the Labels row opens the Labels page');
+		t.eq(await p.ev(`${TAB}.querySelectorAll('.binders-settings-label').length`), 8, 'and has the eight labels');
+		await p.ev(`(() => { app.setting.closePage(); return 1; })()`);
+		await p.sleep(400);
+		t.eq(await pageNow(p), null, 'back: the tab');
+		await setSwitch(p, 'Show word counts', true);
+		t.eq(await pageValue(p, 'Focus mode'), '4 of 7 on', 'one more switch on, and the row says 4 of 7');
+		await setSwitch(p, 'Show word counts', false);
+	} finally { await closeSettings(p); }
 });
 
 // ---- focus mode: each switch changes an open focus session at once ----
@@ -436,7 +511,7 @@ test('words to write today: a decimal point is taken out, so “1.5” becomes a
 // ---- labels ----
 
 test('a label renamed in the tab asks about the notes that have it: “Change it” changes them on disk, a duplicate name is refused, Escape puts a name back and keeps the tab', async (p, h, t) => {
-	const label = (i) => `${TAB}.querySelectorAll('.binders-settings-label input[type="text"]')[${i}]`;
+	const label = (i) => at('labels', `${TAB}.querySelectorAll('.binders-settings-label input[type="text"]')[${i}]`);
 	await p.ev(`app.fileManager.processFrontMatter(app.vault.getAbstractFileByPath(${j(KEEPER)}), fm => { fm.label = 'Red'; }).then(() => 1)`);
 	await p.sleep(300);
 	await openSettings(p);
@@ -463,7 +538,7 @@ test('a label renamed in the tab asks about the notes that have it: “Change it
 });
 
 test('a label renamed in the tab, and Cancel on the question: the note keeps the old name on disk, and the list has the new one', async (p, h, t) => {
-	const label = (i) => `${TAB}.querySelectorAll('.binders-settings-label input[type="text"]')[${i}]`;
+	const label = (i) => at('labels', `${TAB}.querySelectorAll('.binders-settings-label input[type="text"]')[${i}]`);
 	await p.ev(`app.fileManager.processFrontMatter(app.vault.getAbstractFileByPath(${j(KEEPER)}), fm => { fm.label = 'Red'; }).then(() => 1)`);
 	await p.sleep(300);
 	await openSettings(p);
@@ -507,7 +582,7 @@ test('your name and contact details: the name is kept when Tab leaves it, Escape
 		await typeInto(p, FIELD('Your name'), 'Someone else', 'Escape');
 		t.eq(await field(p, 'Your name'), 'Ada Writer', 'Escape in the name puts it back');
 		t.ok(await p.ev(SETTINGS_OPEN), 'and keeps the tab open');
-		const contact = `${TAB}.querySelector('.binders-settings-contact textarea')`;
+		const contact = at('Contact details', `${TAB}.querySelector('.binders-settings-contact textarea')`);
 		await typeInto(p, contact, '12 Lane Road\nada@example.com', null);
 		await p.sleep(200);
 		// (Escape sent as a key event doesn't close Obsidian's settings window here, so the tab is closed as Escape closes it)
@@ -519,6 +594,7 @@ test('your name and contact details: the name is kept when Tab leaves it, Escape
 	await restart(p);
 	await openSettings(p);
 	try {
+		await showRow(p, 'Contact details');
 		t.eq(await p.ev(`${TAB}.querySelector('.binders-settings-contact textarea').value`), '12 Lane Road\nada@example.com', 'after a restart the contact details are there');
 	} finally { await closeSettings(p); }
 });
@@ -589,12 +665,12 @@ test('property names: a new name is read from the notes, a name another property
 
 test('remembered places: “Ask again” is on once an export is remembered, lists it, and forgets it on the device', async (p, h, t) => {
 	await p.ev(`app.saveLocalStorage('binders-export', { places: { 'manuscript\\nThe Lighthouse': '/Documents/Book.docx' }, written: {}, last: {} })`);
-	await openSettings(p);
+	await showRow(p, 'Remembered places');
 	try {
 		const desc = () => p.ev(`${TAB}.querySelector('.binders-settings-places .setting-item-description').textContent`);
 		t.ok((await desc()).includes('The Lighthouse (Manuscript) to /Documents/Book.docx'), `the place is listed: “${await desc()}”`);
 		t.eq(await p.ev(`${TAB}.querySelector('.binders-settings-places button').disabled`), false, '“Ask again” is on');
-		await tap(p, `${TAB}.querySelector('.binders-settings-places button')`);
+		await tap(p, at('Remembered places', `${TAB}.querySelector('.binders-settings-places button')`));
 		await p.sleep(300);
 		t.ok((await desc()).startsWith('Every export asks'), 'after Ask again, every export asks');
 		t.eq(await p.ev(`${TAB}.querySelector('.binders-settings-places button').disabled`), true, '“Ask again” is off again');

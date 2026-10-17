@@ -86,7 +86,7 @@ them often.
 
 With **Show word counts** on, focus mode shows the scene's words and the words written today in the binder.
 
-- **Words to write today** is a goal for a day's writing in a binder. Set it in settings, or with **Set a goal for
+- **Words to write today** is a goal for a day's writing in a binder. Set it in settings, under **Writing**, or with **Set a goal for
   today...** in the menu. When it's reached the count turns the color of a target met, and nothing else happens.
 - **The words written today** are the words you added less the words you cut by typing in the binder, from
   [the record of your writing](progress.md). They are counted whether you're in focus or not. A paste or a cut of more

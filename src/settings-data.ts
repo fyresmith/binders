@@ -110,31 +110,33 @@ export const FOCUS_TOGGLES: FocusToggle[] = ['focusTypewriter', 'focusNeighbours
 export const focusToggles = (mobile: boolean): FocusToggle[] => FOCUS_TOGGLES.filter((k) => !mobile || k !== 'focusFullscreen');
 /** The names and descriptions of focus mode's options, shared by the settings tab and focus mode's own menu. */
 export const FOCUS_TEXT: Record<FocusToggle | 'focusGoal', readonly [string, string]> = {
-	focusTypewriter: ['Typewriter scrolling', 'While you write at the end of a scene, the line you’re on stays at one height and the page moves under it. Anywhere else in the text, the page scrolls as it always does.'],
-	focusNeighbours: ['Show the scenes before and after', 'In a note, the end of the scene before is shown above its text and the start of the scene after below it, as in the manuscript. Click one to go there.'],
-	focusPlace: ['Show where you are', 'The scene’s place in the binder and its synopsis, beside the text. They go while you type.'],
-	focusNumbers: ['Show word counts', 'The scene’s words, with its target, and the words written today in the binder. They go while you type and come back when you pause.'],
-	focusDim: ['Dim other paragraphs', 'While you type, every paragraph but the one you’re in steps well back.'],
-	focusDark: ['Dim the background', 'The page turns a deep charcoal while you’re in focus mode, with light text on it, in a light theme too.'],
-	focusFullscreen: ['Enter fullscreen', 'Focus mode takes the whole screen, and gives it back when you leave.'],
-	focusGoal: ['Words to write today', 'A goal for a day’s writing in a binder, shown with the word counts. Leave empty for none.'],
+	focusTypewriter: ['Typewriter scrolling', 'At the end of a scene, the line you’re on stays at one height and the page moves under it.'],
+	focusNeighbours: ['Show the scenes before and after', 'The end of the scene before and the start of the scene after, above and below the text. Click one to go there.'],
+	focusPlace: ['Show where you are', 'The scene’s place in the binder and its synopsis, beside the text, while you aren’t typing.'],
+	focusNumbers: ['Show word counts', 'The scene’s words and the words written today, while you aren’t typing.'],
+	focusDim: ['Dim other paragraphs', 'While you type, every paragraph but the one you’re in steps back.'],
+	focusDark: ['Dim the background', 'A deep charcoal page with light text, in a light theme too.'],
+	focusFullscreen: ['Enter fullscreen', 'Focus mode takes the whole screen.'],
+	focusGoal: ['Words to write today', 'A goal for a day’s writing in a binder, shown with focus mode’s word counts. Leave empty for none.'],
 };
 
-/** The word counts' one switch, as the settings tab says it. */
-export const WORDS_TEXT: readonly [string, string] = ['Count words as the exported book does', 'Comments, the hidden part of a link and a note’s properties aren’t counted, so a card, a target and the toolbar say what an export of the binder says. Turn this off to count as Obsidian’s status bar does.'];
+/** How words are counted, as the settings tab says it: a choice of two, so a dropdown. */
+export const WORDS_TEXT: readonly [string, string] = ['Count words', 'For cards, targets and the toolbar. An export leaves out comments, the hidden part of a link and properties.'];
+/** The dropdown's two ways, by the value the tab gives each (`bookWords` on, and off). */
+export const WORDS_OPTIONS: Record<'book' | 'obsidian', string> = { book: 'As an export would', obsidian: 'As Obsidian’s status bar' };
 
 /** The record of a binder's writing: its switch and where it is kept, as the settings tab says them. */
-export const RECORD_TEXT: readonly [string, string] = ['Keep a record of your writing', 'Binders keeps a record of each binder’s writing in its Snapshots folder, in History: one plain-text file for each device and year, with the words added and cut in each note, the hours, and what you did to the binder. It holds no text from your notes and is never sent anywhere. Turn this off to stop recording; nothing already recorded is deleted. To sync it with Obsidian Sync, turn on “Sync all other types”.'];
+export const RECORD_TEXT: readonly [string, string] = ['Keep a record of your writing', 'The words you add and cut in each binder, day by day, kept in its Snapshots folder, in History. It holds no text from your notes and is never sent anywhere; turned off, nothing already recorded is deleted.'];
 
 /** The sidebar's one switch, as the settings tab says it. */
-export const SIDE_TEXT: readonly [string, string] = ['Show the inspector and contents with a binder', 'Opening a binder puts the inspector and the contents among the right sidebar’s tabs, if they aren’t there. Turn this off to open them yourself, and to keep them closed once you close them.'];
+export const SIDE_TEXT: readonly [string, string] = ['Show the inspector and contents with a binder', 'Opening a binder adds them to the right sidebar, if they aren’t there. Turn this off to open them yourself.'];
 
 /** How paragraphs are shown in a binder’s notes (paragraphs/paragraphs.ts). */
 export type ParagraphToggle = 'tabParagraphs' | 'indentParagraphs';
 export const PARAGRAPH_TOGGLES: ParagraphToggle[] = ['tabParagraphs', 'indentParagraphs'];
 export const PARAGRAPH_TEXT: Record<ParagraphToggle, readonly [string, string]> = {
-	tabParagraphs: ['Start a paragraph with a tab', 'In a binder’s notes, a line that starts with a tab is shown as an indented paragraph. Obsidian shows such a line as code. The note keeps the tab you typed.'],
-	indentParagraphs: ['Indent paragraphs', 'In a binder’s notes, the first line of a paragraph that follows another is indented, as in a printed book. Nothing is added to the note.'],
+	tabParagraphs: ['Start a paragraph with a tab', 'In a binder’s notes, a line that starts with a tab is shown as an indented paragraph, not as code. The note keeps the tab.'],
+	indentParagraphs: ['Indent paragraphs', 'In a binder’s notes, a paragraph that follows another starts indented, as in a printed book. Nothing is added to the note.'],
 };
 
 /** The file explorer’s four switches. */
@@ -147,18 +149,18 @@ export const PROPS: Prop[] = ['titleProp', 'synopsisProp', 'statusProp', 'labelP
 
 /** Their names and descriptions in the settings tab. */
 export const TEXT: Record<Toggle | Prop, readonly [string, string]> = {
-	orderExplorer: ['Order binders in the file explorer', 'Show the notes and folders in a binder in its own order instead of by name, and drag them there to reorder. Turn this off if another plugin replaces the file explorer.'],
-	openOnClick: ['Open binders from the file explorer', 'Clicking a binder, or a folder inside one, opens its binder view.'],
-	hideBinderNotes: ['Hide binder and folder notes', 'Don’t list a binder’s own note, or a folder’s note named like it, in the file explorer. Clicking the folder opens them in the binder view.'],
-	explorerLabels: ['Show label colors in the file explorer', 'A dot in its label’s color beside each labeled note and folder in a binder.'],
-	titleProp: ['Title', 'The property that holds a note’s title. A note that has one is shown by it, in place of its file name, in the binder views and the file explorer. Its file name stays as it is.'],
-	synopsisProp: ['Synopsis', 'The property that holds a note’s card text.'],
-	statusProp: ['Status', 'The property that holds a note’s status, such as draft or revised.'],
-	labelProp: ['Label', 'The property that holds a note’s label.'],
-	targetProp: ['Target', 'The property that holds a word count target: a note’s own, a folder’s, or the binder’s.'],
-	storyDateProp: ['Story date', 'The property that holds when a scene happens in the story, such as 1987-06-14, 1987-06 or 1987.'],
-	storyOrderProp: ['Story order', 'The property that holds a scene’s place among the scenes of the same story date: 1 for the first. Binders sets it when you drag a scene within a day, and takes it away when a scene’s date changes.'],
-	notesProp: ['Notes', 'The property that holds your notes on a note or folder. They are never exported.'],
+	orderExplorer: ['Order binders in the file explorer', 'A binder’s notes and folders are listed in its own order, and can be dragged there to reorder. Turn this off if another plugin replaces the file explorer.'],
+	openOnClick: ['Open binders from the file explorer', 'Clicking a binder, or a folder in one, opens its binder view.'],
+	hideBinderNotes: ['Hide binder and folder notes', 'Binder and folder notes aren’t listed. Clicking the folder opens them in the binder view.'],
+	explorerLabels: ['Show label colors in the file explorer', 'A dot in its label’s color beside each labeled note and folder.'],
+	titleProp: ['Title', 'A note’s title, shown in place of its file name. The file name stays as it is.'],
+	synopsisProp: ['Synopsis', 'A note’s card text.'],
+	statusProp: ['Status', 'A note’s status, such as draft or revised.'],
+	labelProp: ['Label', 'A note’s label.'],
+	targetProp: ['Target', 'A word count target: a note’s, a folder’s or the binder’s.'],
+	storyDateProp: ['Story date', 'When a scene happens in the story, such as 1987-06-14, 1987-06 or 1987.'],
+	storyOrderProp: ['Story order', 'A scene’s place among the scenes of the same story date: 1 for the first.'],
+	notesProp: ['Notes', 'Your notes on a note or folder. They are never exported.'],
 };
 
 /** How many exported notes are remembered (the latest). */

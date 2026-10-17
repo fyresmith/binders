@@ -10,6 +10,7 @@
 // board (`into`, `upTo`), and what was a heading's (its synopsis, its menu, its count) is the stack's.
 import { filterToggle, clearFilter, openFilter, closeFilter, chooseProperty, clickEl, pickerItems, pick, rowSel } from './filter-helpers.mjs';
 import { B, PL, VIEW, answer, card, clickMenu, closeMenus, contents, exists, flush, hoverMenu, j, menuItems, openView, read, reload, same, split, texts, until, withTidy as tidyAfter } from './view-helpers.mjs';
+import { SHOWN, showPage } from './settings-routes.mjs';
 
 export const specs = [];
 const SHOTS = process.env.QA4_SHOTS || '';
@@ -391,20 +392,24 @@ test('1a. a new novel from nothing: a folder made a binder, twenty scenes from t
 	for (const n of NAMES.slice(10)) t.eq(await read(p, `${N}${n}.md`), '---\nstatus: Idea\nlabel: "#7c3aed"\n---\n', `“${n}” has the status and a color of its own`);
 	t.ok(await inView(p), 'the keyboard is still in the outliner: ' + await focus(p));
 
-	// settings: a label and a status added and named; one of each renamed, the question answered both ways
-	const TAB = `app.setting.activeTab.containerEl`;
+	// settings: a label and a status added and named; one of each renamed, the question answered both ways (the labels
+	// and the statuses each on their page of the tab, opened by its row)
+	const TAB = SHOWN;
 	const typeName = (kind, i, value) => p.ev(`(() => { const el = ${TAB}.querySelectorAll('.binders-settings-${kind} input[type="text"]')[${i}]; el.focus(); el.value = ${j(value)}; el.dispatchEvent(new Event('input', { bubbles: true })); el.blur(); el.dispatchEvent(new FocusEvent('blur')); return 1; })()`).then(() => p.sleep(300));
 	const add = (label) => p.ev(`(() => { const b = ${TAB}.querySelector('[aria-label="${label}"]'); if (!b) return false; b.click(); return true; })()`).then(async (ok) => { await p.sleep(350); return ok; });
-	await p.ev(`(() => { app.setting.open(); app.setting.openTabById('binders'); return 1; })()`);
+	await showPage(p, 'Labels');
 	await until(p, `${TAB}.querySelectorAll('.binders-settings-label').length > 0`);
 	t.ok(await add('Add label'), 'a label can be added');
 	await typeName('labels', 8, 'Subplot');
+	await showPage(p, 'Statuses');
 	t.ok(await add('Add status'), 'and a status');
 	await typeName('statuses', 4, 'Final');
+	await showPage(p, 'Labels');
 	await typeName('labels', 5, 'Sea');
 	t.ok(/10 notes have the label “Blue”\. Change it to “Sea” there too\?/.test(await modal(p) ?? await p.ev(`[...${TAB}.ownerDocument.querySelectorAll('.modal')].pop()?.textContent ?? ''`)), 'renaming a label asks about the notes that have it');
 	t.ok(await answer(p, 'Change them'), 'yes');
 	await until(p, `app.metadataCache.getFileCache(app.vault.getAbstractFileByPath('Novel/Ten.md'))?.frontmatter?.label === 'Sea'`);
+	await showPage(p, 'Statuses');
 	await typeName('statuses', 1, 'First draft');
 	t.ok(await answer(p, 'Cancel'), 'renaming a status asks too; this time, no');
 	await p.sleep(300);

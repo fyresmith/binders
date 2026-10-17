@@ -13,6 +13,7 @@
 import { tapTick, tapSel } from './filter-helpers.mjs';
 import { mkdirSync } from 'fs';
 import { throughDrawers } from './menu-routes.mjs';
+import { SHOWN, showPage, showRow } from './settings-routes.mjs';
 import { B, PL, VIEW, card, closeMenus, contents, flush, j, menuItems, openView, read, reload, texts, tidy, until, viewState } from './view-helpers.mjs';
 
 export const specs = [];
@@ -1072,14 +1073,22 @@ ux('phone: Binders’ dialogs look like Obsidian’s own there: a sheet along th
 
 test('small phone (320 px): in the settings, a label’s name, color, well, delete and drag handle all fit and can be hit; statuses and property names too', async (p, h, t) => {
 	await onDevice(p, SMALL, async () => {
-		await p.ev(`(() => { app.setting.open(); app.setting.openTabById('binders'); return 1; })()`);
-		await until(p, `app.setting.activeTab?.containerEl.querySelectorAll('.binders-settings-label').length > 0`);
+		// (the labels, the statuses, the property names and the folders are each on a page of the tab, opened by its row)
+		await showPage(p, 'Labels');
+		await until(p, `${SHOWN}.querySelectorAll('.binders-settings-label').length > 0`);
 		await p.sleep(600);
-		const TAB = `app.setting.activeTab.containerEl`;
+		const TAB = SHOWN;
 		const see = async (sel, name) => { await p.ev(`(() => { ${TAB}.querySelector(${j(sel)}).scrollIntoView({ block: 'start' }); return 1; })()`); await p.sleep(300); await shot(p, name); };
 		await see('.binders-settings-labels', 'settings-320-labels');
 		t.ok(await p.ev(`${TAB}.scrollWidth <= ${TAB}.clientWidth + 1`), 'nothing is wider than the screen');
-		const rows = await p.ev(`(() => { const R = ${R}; const of = (row) => ({ row: R(row), name: R(row.querySelector('.setting-item-name input')), select: R(row.querySelector('select')), well: R(row.querySelector('input[type="color"]')), icons: [...row.querySelectorAll('.setting-item-control .clickable-icon, .setting-item-control .extra-setting-button')].map(e => [e.getAttribute('aria-label'), ...R(e)]) }); return { labels: [...${TAB}.querySelectorAll('.binders-settings-label')].map(of), statuses: [...${TAB}.querySelectorAll('.binders-settings-status')].map(of), props: [...([...${TAB}.querySelectorAll('.setting-group')].find(g => g.querySelector('.setting-item-heading .setting-item-name')?.textContent === 'Property names')?.querySelectorAll('input[type="text"]') ?? [])].map(R), text: ${TAB}.innerText }; })()`);
+		const OF = `(row) => { const R = ${R}; return { row: R(row), name: R(row.querySelector('.setting-item-name input')), select: R(row.querySelector('select')), well: R(row.querySelector('input[type="color"]')), icons: [...row.querySelectorAll('.setting-item-control .clickable-icon, .setting-item-control .extra-setting-button')].map(e => [e.getAttribute('aria-label'), ...R(e)]) }; }`;
+		const rows = { labels: await p.ev(`[...${TAB}.querySelectorAll('.binders-settings-label')].map(${OF})`), text: await p.ev(`${TAB}.innerText`) };
+		await showPage(p, 'Statuses');
+		rows.statuses = await p.ev(`[...${TAB}.querySelectorAll('.binders-settings-status')].map(${OF})`);
+		rows.text += await p.ev(`${TAB}.innerText`);
+		await showPage(p, 'Property names');
+		rows.props = await p.ev(`[...${TAB}.querySelectorAll('.binders-settings-props input[type="text"]')].map(${R})`);
+		await showPage(p, 'Labels');
 		t.eq(rows.labels.length, 8, 'eight labels');
 		for (const r of rows.labels) {
 			const parts = [r.name, r.select, r.well, ...r.icons.map((i) => i.slice(1))];
@@ -1091,6 +1100,7 @@ test('small phone (320 px): in the settings, a label’s name, color, well, dele
 			for (let i = 1; i < line.length; i++) t.ok(line[i][0] >= line[i - 1][0] + line[i - 1][2], 'its controls don’t overlap: ' + j(line));
 			t.eq(j(r.icons.map((i) => i[0])), j(['Delete', 'Drag to rearrange']), 'with Obsidian’s own delete and drag handle');
 		}
+		await showPage(p, 'Statuses');
 		await see('.binders-settings-statuses', 'settings-320-statuses');
 		t.eq(rows.statuses.length, 4, 'four statuses');
 		t.ok(rows.statuses.every((r) => r.name[2] >= 200 && r.name[3] >= 40), 'a status’s name is wide and tall enough');
@@ -1099,13 +1109,18 @@ test('small phone (320 px): in the settings, a label’s name, color, well, dele
 		t.eq(rows.props.length, 8, 'eight property names');
 		t.ok(rows.props.every((r) => r[2] >= 200 && r[3] >= 40), 'each field wide and tall enough: ' + j(rows.props));
 		// the rows that came after this test was written: focus mode's goal, and export's folders, places, name and contact
-		const later = await p.ev(`(async () => { const R = ${R}, out = []; for (const cls of ['goal', 'exports', 'places', 'author', 'contact', 'styles']) { const row = ${TAB}.querySelector('.binders-settings-' + cls), c = row?.querySelector('input, textarea, button'); if (!c) { out.push({ cls }); continue; } c.scrollIntoView({ block: 'center' }); await new Promise(r => setTimeout(r, 120)); const b = c.getBoundingClientRect(), hit = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2); out.push({ cls, row: R(row), name: R(row.querySelector('.setting-item-name')), desc: R(row.querySelector('.setting-item-description')), control: R(c), hit: hit === c || c.contains(hit) }); } return out; })()`);
+		const later = [];
+		for (const [cls, where] of [['goal', 'Words to write today'], ['author', 'Your name'], ['contact', 'Contact details'], ['exports', 'Exports folder'], ['places', 'Remembered places'], ['styles', 'Styles folder']]) {
+			await showRow(p, where);
+			later.push(...await p.ev(`(async () => { const R = ${R}, out = []; { const cls = ${j(cls)}, row = ${TAB}.querySelector('.binders-settings-' + cls), c = row?.querySelector('input, textarea, button'); if (!c) { out.push({ cls }); return out; } c.scrollIntoView({ block: 'center' }); await new Promise(r => setTimeout(r, 120)); const b = c.getBoundingClientRect(), hit = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2); out.push({ cls, row: R(row), name: R(row.querySelector('.setting-item-name')), desc: R(row.querySelector('.setting-item-description')), control: R(c), hit: hit === c || c.contains(hit) }); } return out; })()`));
+		}
 		for (const r of later) {
 			t.ok(r.control && r.row[0] >= 0 && r.row[0] + r.row[2] <= SMALL[0] && [r.name, r.desc, r.control].every((x) => x && x[0] >= r.row[0] && x[0] + x[2] <= r.row[0] + r.row[2] + 1), `“${r.cls}”: its name, what it says and its field are inside its row, and the row on the screen: ` + j(r));
 			t.ok(r.control[2] >= 200 && r.control[3] >= 40 && r.hit, `“${r.cls}”: its field is wide and tall enough, and a finger lands on it: ` + j(r));
 		}
 		t.ok(await p.ev(`${TAB}.scrollWidth <= ${TAB}.clientWidth + 1`), 'and still nothing is wider than the screen');
 		// a name typed by touch is kept
+		await showPage(p, 'Statuses');
 		const first = `${TAB}.querySelector('.binders-settings-status .setting-item-name input')`;
 		await p.ev(`(() => { ${first}.scrollIntoView({ block: 'center' }); return 1; })()`);
 		await p.sleep(300);
@@ -1117,6 +1132,7 @@ test('small phone (320 px): in the settings, a label’s name, color, well, dele
 		await p.key('Enter');
 		await p.sleep(500);
 		t.eq(await p.ev(`${PL}.settings.statuses[0]`), 'Sketch', 'and Enter keeps the new name');
+		await showPage(p, 'Property names');
 		await p.ev(`(() => { ${TAB}.scrollTop = ${TAB}.scrollHeight; const s = [...(function* () { let e = ${TAB}; while (e) { yield e; e = e.parentElement; } })()].find(e => e.scrollHeight > e.clientHeight + 2); if (s) s.scrollTop = s.scrollHeight; return 1; })()`);
 		await p.sleep(300);
 		await shot(p, 'settings-320-properties');
@@ -1125,10 +1141,10 @@ test('small phone (320 px): in the settings, a label’s name, color, well, dele
 
 ux('phone: in the settings a status is one row (its name, then delete and the drag handle beside it); it takes two, the icons alone on the second, 112 px in all', async (p, h, t) => {
 	await onDevice(p, PHONE, async () => {
-		await p.ev(`(() => { app.setting.open(); app.setting.openTabById('binders'); return 1; })()`);
-		await until(p, `app.setting.activeTab?.containerEl.querySelectorAll('.binders-settings-status').length > 0`);
+		await showPage(p, 'Statuses');
+		await until(p, `${SHOWN}.querySelectorAll('.binders-settings-status').length > 0`);
 		await p.sleep(600);
-		const r = await p.ev(`(() => { const R = ${R}; const row = app.setting.activeTab.containerEl.querySelector('.binders-settings-status'); row.scrollIntoView({ block: 'center' }); return { row: R(row), name: R(row.querySelector('.setting-item-name input')), icon: R(row.querySelector('.setting-item-control .clickable-icon')) }; })()`);
+		const r = await p.ev(`(() => { const R = ${R}; const row = ${SHOWN}.querySelector('.binders-settings-status'); row.scrollIntoView({ block: 'center' }); return { row: R(row), name: R(row.querySelector('.setting-item-name input')), icon: R(row.querySelector('.setting-item-control .clickable-icon')) }; })()`);
 		await p.sleep(300);
 		await shot(p, 'ux-settings-status-row');
 		t.ok(r.icon[1] < r.name[1] + r.name[3], `the icons are on the name’s line: ${j(r)}`);

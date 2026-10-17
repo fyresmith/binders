@@ -1,6 +1,6 @@
 // Word counts that agree with the book (src/view/book-words.ts, word-counter.ts; the rule is in docs/dev/plan.md,
-// "What a word of the book is"). With "Count words as the exported book does" on, as it is to begin with, every place
-// that shows or uses a count says what the export window says; off, what Obsidian's status bar says. Changing the
+// "What a word of the book is"). With "Count words" on "As an export would", as it is to begin with, every place
+// that shows or uses a count says what the export window says; on "As Obsidian’s status bar", what Obsidian's status bar says. Changing the
 // setting changes no note and doesn't touch the day's words.
 import { PL, VIEW, closeMenus, file, j, openView, texts, until, withTidy } from './view-helpers.mjs';
 

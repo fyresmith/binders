@@ -95,7 +95,7 @@ test('binders: the hide setting is on by default and in the settings tab', async
 	await p.ev(`(() => { app.setting.open(); app.setting.openTabById('binders'); return 1; })()`); await p.sleep(600);
 	try {
 		const txt = await p.ev(`app.setting.activeTab.containerEl.innerText`);
-		t.ok(/Hide binder and folder notes/.test(txt) && /Synopsis/.test(txt), 'shown with the property names');
+		t.ok(/Hide binder and folder notes/.test(txt) && /Property names/.test(txt), 'shown, with the row that opens the property names');
 	} finally { await p.ev(`(() => { app.setting.close(); return 1; })()`); }
 });
 

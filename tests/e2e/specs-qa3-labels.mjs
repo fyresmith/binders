@@ -7,6 +7,7 @@
 // reached through the tab's containerEl, and real keys and pointer events are sent to it through Electron.
 import { tick, tapTick, tapDone, clearFilter, closeFilter, openFilter as openPopover, chooseProperty, clickEl, pickerItems, rowSel } from './filter-helpers.mjs';
 import { B, NOTE, PL, VIEW, answer, card, cards, clickMenu, closeMenus, exists, file, hoverMenu, j, menuItems, openView, read, reload, same, texts, until, viewState, withTidy } from './view-helpers.mjs';
+import { SHOWN, showPage } from './settings-routes.mjs';
 
 export const specs = [];
 const L = 'The Lighthouse/';
@@ -31,12 +32,14 @@ const saved = (p) => p.ev(`app.vault.adapter.read(app.vault.configDir + '/plugin
 const labels = (p) => p.ev(`JSON.stringify(${PL}.settings.labels)`).then(JSON.parse);
 
 // ---- the settings window ----
-const TAB = `app.setting.activeTab.containerEl`, SDOC = `${TAB}.ownerDocument`;
+// (the rows shown now: the tab's, or a page's; the labels and the statuses are each on a page, opened by its row)
+const TAB = SHOWN, SDOC = `${TAB}.ownerDocument`;
 const SWIN = `require('@electron/remote').BrowserWindow.getAllWindows().find(w => /^Settings/.test(w.getTitle()))`;
-/** Opens Binders' settings; if they're a window of their own, gives it a size so its rows can be pointed at. */
-async function openSettings(p, w = 1100, h = 1700) {
-	await p.ev(`(() => { app.setting.open(); app.setting.openTabById('binders'); return 1; })()`);
-	await until(p, `${TAB}.querySelectorAll('.binders-settings-label').length > 0 || !!${TAB}.querySelector('.binders-settings-labels')`);
+/** Opens Binders' settings at a page of the tab (the Labels page unless asked; null for the tab itself); if they're a
+    window of their own, gives it a size so its rows can be pointed at. */
+async function openSettings(p, w = 1100, h = 1700, page = 'Labels') {
+	await showPage(p, page);
+	if (page === 'Labels') await until(p, `${TAB}.querySelectorAll('.binders-settings-label').length > 0 || !!${TAB}.querySelector('.binders-settings-labels')`);
 	const popout = await p.ev(`${SDOC} !== document`);
 	if (popout) { await p.ev(`(() => { ${SWIN}.setContentSize(${w}, ${h}); return 1; })()`); await p.sleep(300); }
 	return popout;
@@ -141,12 +144,14 @@ test('settings: labels and statuses reorder by their drag handles (real pointer)
 	await sdrag(p, popout, a.x, a.y, b.x, b.y + 8);
 	t.eq(j((await labels(p)).map((l) => l.name)), j(['Orange', 'Yellow', 'Green', 'Red', 'Cyan', 'Blue', 'Purple', 'Pink']), 'Red dragged below Green');
 	t.eq(j((await saved(p)).labels.map((l) => l.name).slice(0, 4)), j(['Orange', 'Yellow', 'Green', 'Red']), 'and saved');
-	// (the statuses are below the Progress heading now, past the window's foot: bring them in view first)
+	// (the statuses are on a page of their own)
+	await showPage(p, 'Statuses');
 	await p.ev(`(() => { ${TAB}.querySelector('.binders-settings-status').scrollIntoView({ block: 'center' }); return 1; })()`);
 	await p.sleep(200);
 	const c = await sat(p, '.binders-settings-status .mod-drag-handle', 3), d = await sat(p, '.binders-settings-status .mod-drag-handle', 0);
 	await sdrag(p, popout, c.x, c.y, d.x, d.y - 8);
 	t.eq(j(await p.ev(`${PL}.settings.statuses`)), j(['Done', 'Idea', 'Draft', 'Revised']), 'Done dragged to the top');
+	await showPage(p, 'Labels');
 	await typeName(p, 'labels', 0, 'First');
 	t.eq(j((await labels(p))[0]), j({ name: 'First', color: 'orange' }), 'the row now first is the one renamed');
 	// deleting, then renaming what took its place
@@ -167,6 +172,7 @@ test('settings: names are trimmed and may be long or emoji; a clash in another c
 	t.ok(await p.ev(`${TAB}.scrollWidth <= ${TAB}.clientWidth + 1`), 'and doesn’t widen the page');
 	await typeName(p, 'labels', 2, 'RED');
 	t.eq((await labels(p))[2].name.length, 300, 'a name another label has in another case is refused');
+	await showPage(p, 'Statuses');
 	await typeName(p, 'statuses', 1, 'IDEA');
 	t.eq(j(await p.ev(`${PL}.settings.statuses`)), j(['Idea', 'Draft', 'Revised', 'Done']), 'the same for statuses');
 	// Obsidian's settings search
@@ -242,24 +248,27 @@ test('settings: every toggle applies at once; a label property of another name i
 	await setFm(p, L + 'Prologue.md', { label: 'red', colour: 'blue' });
 	await showExplorer(p);
 	const rows = () => p.ev(`[...document.querySelectorAll('${EX} .tree-item-self')].map(r => (r.dataset.path || '').replace('The Lighthouse/', '') + (r.querySelector('.binders-explorer-label') ? '•' : ''))`);
-	await openSettings(p);
-	const toggle = (i) => p.ev(`(() => { ${TAB}.querySelectorAll('.checkbox-container')[${i}].click(); return 1; })()`).then(() => p.sleep(500));
-	await toggle(3);
+	await openSettings(p, undefined, undefined, null);
+	// (a switch by its row's name, not its place on the tab)
+	const toggle = (name) => p.ev(`(() => { [...${TAB}.querySelectorAll('.setting-item')].find(r => r.querySelector('.setting-item-name')?.textContent === ${j(name)}).querySelector('.checkbox-container').click(); return 1; })()`).then(() => p.sleep(500));
+	const COLORS = 'Show label colors in the file explorer', HIDE = 'Hide binder and folder notes', ORDER = 'Order binders in the file explorer';
+	await toggle(COLORS);
 	t.ok(!(await rows()).some((r) => r.endsWith('•')), '“Show label colors” off: the dots go at once');
-	await toggle(3);
+	await toggle(COLORS);
 	t.ok((await rows()).includes('Prologue.md•'), 'and on again');
-	await toggle(2);
+	await toggle(HIDE);
 	t.ok((await rows()).includes('The Lighthouse.md'), '“Hide binder and folder notes” off: the binder note shows at once');
-	await toggle(2);
-	await toggle(0);
+	await toggle(HIDE);
+	await toggle(ORDER);
 	// (the explorer re-sorts after the toggle: wait for it, not for a fixed time)
 	for (let i = 0; i < 40 && (await rows()).filter((r) => r && !r.includes('/'))[0] === 'Prologue.md•'; i++) await p.sleep(150);
 	const byName = (await rows()).filter((r) => r && !r.includes('/') && !['Longform demo', 'The Lighthouse'].includes(r));
 	t.eq(j(byName.filter((r) => r !== 'The Lighthouse.md')), j(['Part One', 'Part Two', 'Epilogue.md', 'Prologue.md•']), '“Order binders” off: by name at once');
-	await toggle(0);
-	// the label property's name, typed in its field
-	const typeProp = (i, v) => p.ev(`(() => { const el = [...${TAB}.querySelectorAll('.setting-group:last-child input[type=text]')][${i}]; el.focus(); el.value = ${j(v)}; el.dispatchEvent(new Event('input', { bubbles: true })); el.blur(); el.dispatchEvent(new FocusEvent('blur')); return 1; })()`).then(() => p.sleep(300));
-	await typeProp(2, 'colour');
+	await toggle(ORDER);
+	// the label property's name, typed in its field (on the Property names page)
+	await showPage(p, 'Property names');
+	const typeProp = (name, v) => p.ev(`(() => { const el = [...${TAB}.querySelectorAll('.setting-item')].find(r => r.querySelector('.setting-item-name')?.textContent === ${j(name)}).querySelector('input[type=text]'); el.focus(); el.value = ${j(v)}; el.dispatchEvent(new Event('input', { bubbles: true })); el.blur(); el.dispatchEvent(new FocusEvent('blur')); return 1; })()`).then(() => p.sleep(300));
+	await typeProp('Label', 'colour');
 	t.eq(await p.ev(`${PL}.settings.labelProp`), 'colour', 'the Label property renamed');
 	await closeSettings(p);
 	await openView(p);
@@ -270,8 +279,8 @@ test('settings: every toggle applies at once; a label property of another name i
 	await until(p, `app.metadataCache.getFileCache(${file(L + 'Prologue.md')})?.frontmatter?.colour === 'Green'`);
 	const f = await fm(p, L + 'Prologue.md');
 	t.eq(j([f.colour, f.label]), j(['Green', 'red']), 'the menu writes the new property and leaves the old one alone');
-	await openSettings(p);
-	await typeProp(2, '   ');
+	await openSettings(p, undefined, undefined, 'Property names');
+	await typeProp('Label', '   ');
 	t.eq(await p.ev(`${PL}.settings.labelProp`), 'label', 'an emptied name goes back to the default');
 });
 
@@ -582,11 +591,13 @@ test('phone: the filter and the target dialog work by touch; the settings have r
 		const b = await p.ev(`[...document.querySelectorAll('.modal button')].map(b => Math.round(b.getBoundingClientRect().height))`);
 		t.ok(b.every((x) => x >= 40), 'its buttons are big enough for a finger: ' + j(b));
 		await p.ev(`document.querySelectorAll('.modal-close-button').forEach(b => b.click())`);
-		await p.ev(`(() => { app.setting.open(); app.setting.openTabById('binders'); return 1; })()`);
-		await until(p, `app.setting.activeTab?.containerEl.querySelectorAll('.binders-settings-label').length > 0`);
-		const text = await p.ev(`app.setting.activeTab.containerEl.innerText`);
-		t.ok(/Add label/.test(text) && /Add status/.test(text), 'the lists end in “Add label” and “Add status”');
-		t.ok(await p.ev(`app.setting.activeTab.containerEl.scrollWidth <= app.setting.activeTab.containerEl.clientWidth + 1`), 'and nothing is wider than the screen');
+		// (each list on its page, opened by its row)
+		for (const [page, add] of [['Labels', 'Add label'], ['Statuses', 'Add status']]) {
+			await showPage(p, page);
+			await until(p, `${TAB}.querySelectorAll('.binders-settings-${page === 'Labels' ? 'label' : 'status'}').length > 0`);
+			t.ok((await p.ev(`${TAB}.innerText`)).includes(add), `the ${page.toLowerCase()} end in “${add}”`);
+			t.ok(await p.ev(`${TAB}.scrollWidth <= ${TAB}.clientWidth + 1`), `and nothing on the ${page} page is wider than the screen`);
+		}
 	});
 });
 
@@ -597,18 +608,19 @@ test('phone: the filter and the target dialog work by touch; the settings have r
 bug('settings: the color probe of a label row is unseen, and there’s one of it however often the list is redrawn', async (p, h, t) => {
 	await openSettings(p);
 	const probes = () => p.ev(`[...${TAB}.querySelectorAll('.binders-settings-label')].map(r => [...r.querySelectorAll('.binders-settings-probe')].map(d => Math.round(d.getBoundingClientRect().width)))`);
-	// redraw the list a few times: add, then delete, a status (a change that isn't to any label)
+	// redraw the list a few times, as a change to the settings does (Obsidian reads the tab again and draws its page)
 	for (let i = 0; i < 3; i++) {
-		await p.ev(`(() => { ${TAB}.querySelector('[aria-label="Add status"]').click(); return 1; })()`);
-		await p.sleep(350);
-		await p.ev(`(() => { const rows = ${TAB}.querySelectorAll('.binders-settings-status'); rows[rows.length - 1].querySelector('[aria-label="Delete"]').click(); return 1; })()`);
+		await p.ev(`(() => { app.setting.activeTab.update(); return 1; })()`);
 		await p.sleep(350);
 	}
 	const now = await probes();
 	t.eq(Math.max(...now.map((r) => r.length)), 1, 'one probe a row, not one more each time the tab is drawn: ' + j(now.map((r) => r.length)));
 	t.eq(Math.max(...now.flat()), 0, 'and it takes no room (it’s 8px wide, a stray dot after the drag handle)');
-	// so the two lists' buttons line up
-	const x = await p.ev(`[${TAB}.querySelector('.binders-settings-label [aria-label="Delete"]'), ${TAB}.querySelector('.binders-settings-status [aria-label="Delete"]')].map(e => Math.round(e.getBoundingClientRect().left))`);
+	// so the two lists' buttons line up, each on its page
+	const left = (cls) => p.ev(`Math.round(${TAB}.querySelector('.binders-settings-${cls} [aria-label="Delete"]').getBoundingClientRect().left)`);
+	const x = [await left('label')];
+	await showPage(p, 'Statuses');
+	x.push(await left('status'));
 	t.eq(x[0], x[1], 'the labels’ delete buttons are in line with the statuses’');
 });
 
@@ -783,7 +795,7 @@ ux('settings: “Hide binder and folder notes” still hides them when “Order 
 	await set(p, { orderExplorer: false });
 	await p.sleep(400);
 	const shows = await listed();
-	await openSettings(p);
+	await openSettings(p, undefined, undefined, null);
 	const disabled = await p.ev(`(() => { const rows = [...${TAB}.querySelectorAll('.setting-item')], r = rows.find(x => x.querySelector('.setting-item-name')?.textContent === 'Hide binder and folder notes'); return !!r && (r.classList.contains('is-disabled') || !!r.querySelector('.checkbox-container.is-disabled, [disabled]')); })()`);
 	t.ok(!shows || disabled, 'with ordering off the binder note is still hidden, or the toggle shows it has no effect (the note is listed; the toggle still looks on)');
 });
@@ -816,8 +828,8 @@ ux('settings: restoring the default labels asks first when there are labels of y
 });
 
 ux('settings: two properties can’t be given the same name', async (p, h, t) => {
-	await openSettings(p);
-	await p.ev(`(() => { const el = [...${TAB}.querySelectorAll('.setting-group:last-child input[type=text]')][2]; el.focus(); el.value = 'status'; el.dispatchEvent(new Event('input', { bubbles: true })); el.blur(); el.dispatchEvent(new FocusEvent('blur')); return 1; })()`);
+	await openSettings(p, undefined, undefined, 'Property names');
+	await p.ev(`(() => { const el = [...${TAB}.querySelectorAll('.setting-item')].find(r => r.querySelector('.setting-item-name')?.textContent === 'Label').querySelector('input[type=text]'); el.focus(); el.value = 'status'; el.dispatchEvent(new Event('input', { bubbles: true })); el.blur(); el.dispatchEvent(new FocusEvent('blur')); return 1; })()`);
 	await p.sleep(400);
 	const s = await p.ev(`[${PL}.settings.statusProp, ${PL}.settings.labelProp]`);
 	t.ok(s[0] !== s[1], `Label and Status don’t share “${s[0]}” (they do: every status shows as a label, and “Set label” overwrites the status)`);
@@ -977,10 +989,10 @@ ux('tint: the word count on a tinted card reads as well as text must (4.5:1), as
 
 ux('phone: in the settings, a label’s color list shows the color’s name', async (p, h, t) => {
 	await onPhone(p, async () => {
-		await p.ev(`(() => { app.setting.open(); app.setting.openTabById('binders'); return 1; })()`);
-		await until(p, `app.setting.activeTab?.containerEl.querySelectorAll('.binders-settings-label').length > 0`);
+		await showPage(p, 'Labels');
+		await until(p, `${TAB}.querySelectorAll('.binders-settings-label').length > 0`);
 		await p.sleep(400);
-		const w = await p.ev(`(() => { const r = app.setting.activeTab.containerEl.querySelectorAll('.binders-settings-label')[1]; r.scrollIntoView({ block: 'center' }); return { dd: Math.round(r.querySelector('select[aria-label="Color"]').getBoundingClientRect().width), name: Math.round(r.querySelector('input[type=text]').getBoundingClientRect().width) }; })()`);
+		const w = await p.ev(`(() => { const r = ${TAB}.querySelectorAll('.binders-settings-label')[1]; r.scrollIntoView({ block: 'center' }); return { dd: Math.round(r.querySelector('select[aria-label="Color"]').getBoundingClientRect().width), name: Math.round(r.querySelector('input[type=text]').getBoundingClientRect().width) }; })()`);
 		t.ok(w.dd >= 90, `the list is wide enough to read “Orange” (it’s ${w.dd}px: only its arrows show; the name field is ${w.name}px)`);
 	});
 });

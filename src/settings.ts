@@ -1,7 +1,7 @@
 import { Notice, Platform, PluginSettingTab, Setting, TextComponent, type App } from 'obsidian';
-import type { SettingRow, SettingSection } from './setting-definitions';
+import type { SettingRow, SettingSection, ToggleRow } from './setting-definitions';
 import type BindersPlugin from './main';
-import { DEFAULT_SETTINGS, FOCUS_TEXT, FOCUS_TOGGLES, focusToggles, PARAGRAPH_TEXT, PARAGRAPH_TOGGLES, PROPS, SIDE_TEXT, TEXT, TOGGLES, WORDS_TEXT, RECORD_TEXT, type BindersSettings, type FocusToggle, type ParagraphToggle, type Prop, type Toggle } from './settings-data';
+import { DEFAULT_SETTINGS, FOCUS_TEXT, FOCUS_TOGGLES, focusToggles, PARAGRAPH_TEXT, PARAGRAPH_TOGGLES, PROPS, SIDE_TEXT, TEXT, TOGGLES, WORDS_OPTIONS, WORDS_TEXT, RECORD_TEXT, type BindersSettings, type FocusToggle, type ParagraphToggle, type Prop, type Toggle } from './settings-data';
 import { parseGoal } from './focus/session';
 import { COMPILE_PROP, EXPORT_PROP } from './scenes';
 import { DEFAULT_LABELS, DEFAULT_STATUSES, PALETTE, colorCss, display, freeName, hexColor } from './view/labels';
@@ -9,6 +9,7 @@ import { renameValue } from './filter/saved';
 import { readProperties } from './properties';
 import { confirm } from './view/modals';
 import { KINDS, forgetPlaces, places } from './export/export';
+import { openBindersSettingsPage, type BindersSettingsPage } from './view/internals';
 
 /* The settings tab, declarative: Obsidian draws it from `getSettingDefinitions`, and can search it.
    What the settings are, and how saved ones are read back, is settings-data.ts. Renaming a label or a status asks
@@ -18,6 +19,13 @@ export { DEFAULT_SETTINGS, readSettings, type BindersSettings } from './settings
 
 /** The color dropdown's value for a color of the writer's own (a hex color, not one of the theme's). */
 const CUSTOM = 'custom';
+/** The word count dropdown's key: it stands for `bookWords`, which is kept as a switch. */
+const WORDS_KEY = 'wordCount';
+/** The line at the head of the Labels and Statuses pages, or none. (Once a binder can have lists of its own, in its
+    settings, this says so: "A binder can have its own, in its settings.") */
+const OWN_LINE: string | null = null;
+/** The Labels and Statuses pages' head line, as a group of its own, when there is one. */
+const ownLine = (): SettingSection[] => (OWN_LINE ? [{ type: 'group', cls: 'binders-settings-about', items: [{ name: OWN_LINE }] }] : []);
 /** Property names Binders keeps for itself: a note's synopsis, status, label or target can't be kept under one. */
 const RESERVED = ['binder', 'contents', 'longform', EXPORT_PROP, COMPILE_PROP, 'export-as'];
 
@@ -28,6 +36,9 @@ export class BindersSettingTab extends PluginSettingTab {
 		// (its fields are named for a screen reader: styles.css keeps those names from showing as tooltips)
 		this.containerEl.addClass('binders-settings');
 	}
+
+	/** The settings open at one of this tab's pages ("Edit labels…" and the binder's own settings come here). */
+	showPage(page: BindersSettingsPage): boolean { return openBindersSettingsPage(this.app, page); }
 
 	private get s(): BindersSettings { return this.plugin.settings; }
 	private save(): Promise<void> { return this.plugin.saveSettings(); }
@@ -42,63 +53,117 @@ export class BindersSettingTab extends PluginSettingTab {
 	/** Obsidian reads the definitions again and draws them (its `update`, which older typings don't have). */
 	private redraw(): void { (this as unknown as { update(): void }).update(); }
 
-	/** Obsidian draws the tab from these, and can search them. */
+	/** Obsidian draws the tab from these, and can search them. As Obsidian's own tabs are: the main things first under
+	    no heading, a few groups, and each list or set of rarely changed rows behind a row that opens a page of its own,
+	    with what is on it said at the row's end. */
 	getSettingDefinitions(): SettingSection[] {
 		// (the settings are read when a button is pressed, not now: Obsidian keeps a list's buttons from the first time
 		// it draws them, which is before the plugin has loaded its settings)
 		const s = this.s;
+		const toggle = (k: Toggle | ParagraphToggle | FocusToggle | 'sidePanes' | 'recordProgress', [name, desc]: readonly [string, string], more: Partial<ToggleRow> = {}): ToggleRow => ({ name, desc, control: { type: 'toggle', key: k }, ...more });
+		const plural = (n: number, one: string, many: string) => (n === 1 ? `1 ${one}` : `${n} ${many}`);
 		return [
+			{ type: 'group', items: [
+				toggle('openOnClick', TEXT.openOnClick),
+				toggle('sidePanes', SIDE_TEXT, { aliases: ['inspector', 'contents', 'sidebar'] }),
+				{ name: WORDS_TEXT[0], desc: WORDS_TEXT[1], aliases: ['word count', 'words'], control: { type: 'dropdown', key: WORDS_KEY, options: WORDS_OPTIONS } },
+			] },
 			// (hiding notes is done by the same patch that orders the explorer: without the one, the other can't be on)
-			{ type: 'group', heading: 'File explorer', items: TOGGLES.map((k): SettingRow => ({ name: TEXT[k][0], desc: TEXT[k][1], control: { type: 'toggle', key: k }, ...(k === 'hideBinderNotes' ? { disabled: () => !this.s.orderExplorer } : {}) })) },
-			{ type: 'group', heading: 'Paragraphs', items: PARAGRAPH_TOGGLES.map((k): SettingRow => ({ name: PARAGRAPH_TEXT[k][0], desc: PARAGRAPH_TEXT[k][1], control: { type: 'toggle', key: k } })) },
-			{ type: 'group', heading: 'Sidebar', items: [{ name: SIDE_TEXT[0], desc: SIDE_TEXT[1], control: { type: 'toggle', key: 'sidePanes' } }] },
-			{ type: 'group', heading: 'Word counts', items: [{ name: WORDS_TEXT[0], desc: WORDS_TEXT[1], control: { type: 'toggle', key: 'bookWords' } }] },
-			{ type: 'group', heading: 'Progress', items: [
-				{ name: RECORD_TEXT[0], desc: RECORD_TEXT[1], control: { type: 'toggle', key: 'recordProgress' } },
-				{ name: 'This device is called', desc: 'How this device is named in the record’s files, so you can tell your devices apart.', render: (setting) => { this.deviceRow(setting); } },
+			{ type: 'group', heading: 'File explorer', items: [
+				toggle('orderExplorer', TEXT.orderExplorer),
+				{ name: TEXT.hideBinderNotes[0], desc: TEXT.hideBinderNotes[1], control: { type: 'toggle', key: 'hideBinderNotes', disabled: () => !this.s.orderExplorer } },
+				toggle('explorerLabels', TEXT.explorerLabels, { aliases: ['colors', 'colours', 'dots'] }),
 			] },
-			{
-				type: 'list', heading: 'Labels', cls: 'binders-settings-labels',
-				emptyState: 'No labels. A note’s label then shows in the color it names, if it names one.',
-				items: s.labels.map((l, i): SettingRow => ({ name: l.name, render: (setting) => { this.labelRow(setting, i); } })),
-				onReorder: (from, to) => { move(this.s.labels, from, to); void this.changed(); },
-				onDelete: (i) => { this.s.labels.splice(i, 1); void this.changed(); },
-				addItem: { name: 'Add label', action: () => this.addLabel() },
-				extraButtons: [(b) => b.setIcon('rotate-ccw').setTooltip('Restore the default labels').onClick(() => void this.restore('labels'))],
-			},
-			{
-				type: 'list', heading: 'Statuses', cls: 'binders-settings-statuses',
-				emptyState: 'No statuses. The ones your notes already use are still offered.',
-				items: s.statuses.map((name, i): SettingRow => ({ name, render: (setting) => { this.statusRow(setting, i); } })),
-				onReorder: (from, to) => { move(this.s.statuses, from, to); void this.changed(); },
-				onDelete: (i) => { this.s.statuses.splice(i, 1); void this.changed(); },
-				addItem: { name: 'Add status', action: () => this.addStatus() },
-				extraButtons: [(b) => b.setIcon('rotate-ccw').setTooltip('Restore the default statuses').onClick(() => void this.restore('statuses'))],
-			},
-			// focus mode: what shows besides the text, each to turn on or off (typewriter scrolling and dimming are on to begin with)
-			{ type: 'group', heading: 'Focus mode', items: [...focusToggles(Platform.isMobile).map((k): SettingRow => ({ name: FOCUS_TEXT[k][0], desc: FOCUS_TEXT[k][1], control: { type: 'toggle', key: k } })), { name: FOCUS_TEXT.focusGoal[0], desc: FOCUS_TEXT.focusGoal[1], render: (setting) => { this.goalRow(setting); } }] },
+			{ type: 'group', heading: 'Paragraphs', items: PARAGRAPH_TOGGLES.map((k) => toggle(k, PARAGRAPH_TEXT[k], { aliases: ['indent', 'tab'] })) },
+			{ type: 'group', heading: 'Labels and statuses', items: [
+				{
+					type: 'page', name: 'Labels', desc: 'The labels a note can have, each a name and a color.', aliases: ['colors', 'colours', 'lanes'],
+					displayValue: () => (this.s.labels.length ? plural(this.s.labels.length, 'label', 'labels') : 'None'),
+					items: [
+						...ownLine(),
+						{
+							type: 'list', cls: 'binders-settings-labels',
+							emptyState: 'No labels. A note’s label then shows in the color it names, if it names one.',
+							items: s.labels.map((l, i): SettingRow => ({ name: l.name, render: (setting) => { this.labelRow(setting, i); } })),
+							onReorder: (from, to) => { move(this.s.labels, from, to); void this.changed(); },
+							onDelete: (i) => { this.s.labels.splice(i, 1); void this.changed(); },
+							addItem: { name: 'Add label', action: () => this.addLabel() },
+							extraButtons: [(b) => b.setIcon('rotate-ccw').setTooltip('Restore the default labels').onClick(() => void this.restore('labels'))],
+						},
+					],
+				},
+				{
+					type: 'page', name: 'Statuses', desc: 'The statuses a note can have, in the order a draft goes through them.', aliases: ['draft', 'revised'],
+					displayValue: () => { const st = this.s.statuses; return !st.length ? 'None' : st.join(', ').length <= 32 ? st.join(', ') : plural(st.length, 'status', 'statuses'); },
+					items: [
+						...ownLine(),
+						{
+							type: 'list', cls: 'binders-settings-statuses',
+							emptyState: 'No statuses. The ones your notes already use are still offered.',
+							items: s.statuses.map((name, i): SettingRow => ({ name, render: (setting) => { this.statusRow(setting, i); } })),
+							onReorder: (from, to) => { move(this.s.statuses, from, to); void this.changed(); },
+							onDelete: (i) => { this.s.statuses.splice(i, 1); void this.changed(); },
+							addItem: { name: 'Add status', action: () => this.addStatus() },
+							extraButtons: [(b) => b.setIcon('rotate-ccw').setTooltip('Restore the default statuses').onClick(() => void this.restore('statuses'))],
+						},
+					],
+				},
+			] },
+			{ type: 'group', heading: 'Writing', items: [
+				// focus mode: what shows besides the text, each to turn on or off (typewriter scrolling and dimming are on to begin with)
+				{
+					type: 'page', name: 'Focus mode', desc: 'What shows besides your text in focus mode.', aliases: ['typewriter', 'fullscreen', 'dim'],
+					displayValue: () => { const ks = focusToggles(Platform.isMobile), on = ks.filter((k) => this.s[k]).length; return on ? `${on} of ${ks.length} on` : 'None on'; },
+					items: [{ type: 'group', items: focusToggles(Platform.isMobile).map((k) => toggle(k, FOCUS_TEXT[k])) }],
+				},
+				{ name: FOCUS_TEXT.focusGoal[0], desc: FOCUS_TEXT.focusGoal[1], aliases: ['daily goal', 'goal'], render: (setting) => { this.goalRow(setting); } },
+				toggle('recordProgress', RECORD_TEXT, { aliases: ['progress', 'history'] }),
+				{ name: 'This device is called', desc: 'How this device is named in the record, so you can tell your devices apart.', visible: () => this.s.recordProgress, render: (setting) => { this.deviceRow(setting); } },
+			] },
 			{ type: 'group', heading: 'Export', items: [
-				{ name: 'Exports folder', desc: 'Where exported files go on a phone or tablet, and where the save dialog starts on a computer. A name is a folder beside each binder; a path, such as Books/Exports, is one folder for the whole vault.', render: (setting) => { this.textRow(setting, 'exportsFolder', 'Exports'); } },
-				{ name: 'Remembered places', desc: '', render: (setting) => { this.placesRow(setting); } },
-				{ name: 'Your name', desc: 'The author of a book that doesn’t say otherwise.', render: (setting) => { this.textRow(setting, 'authorName', ''); } },
-				{ name: 'Contact details', desc: 'For the title page of a manuscript: an address, an email, a phone number, a line each.', render: (setting) => { this.contactRow(setting); } },
-				{ name: 'Styles folder', desc: 'The folder at the top of the vault that holds your export styles, one file each. Binders keeps it out of the file explorer. To sync styles with Obsidian Sync, turn on “Sync all other types”.', render: (setting) => { this.textRow(setting, 'stylesFolder', 'Export styles'); } },
+				{ name: 'Your name', desc: 'The author of a book that doesn’t name one.', aliases: ['author'], render: (setting) => { this.textRow(setting, 'authorName', ''); } },
+				{ name: 'Contact details', desc: 'For a manuscript’s title page: an address, an email, a phone number, a line each.', aliases: ['address', 'email'], render: (setting) => { this.contactRow(setting); } },
+				{
+					type: 'page', name: 'Folders', desc: 'Where exports and export styles are kept, and where exports save without asking.', aliases: ['exports folder', 'styles folder', 'remembered places'],
+					displayValue: () => this.s.exportsFolder,
+					items: [{ type: 'group', items: [
+						{ name: 'Exports folder', desc: 'Where exports go on a phone or tablet, and where saving starts on a computer. A name is a folder beside each binder; a path, such as Books/Exports, is one folder for the whole vault.', render: (setting) => { this.textRow(setting, 'exportsFolder', 'Exports'); } },
+						{ name: 'Styles folder', desc: 'The folder at the top of the vault that holds your export styles, one file each. Changing its name moves them.', render: (setting) => { this.textRow(setting, 'stylesFolder', 'Export styles'); } },
+						{ name: 'Remembered places', desc: '', render: (setting) => { this.placesRow(setting); } },
+					] }],
+				},
 			] },
-			{ type: 'group', heading: 'Property names', items: PROPS.map((k): SettingRow => ({ name: TEXT[k][0], desc: TEXT[k][1], render: (setting) => { this.propRow(setting, k); } })) },
+			{ type: 'group', heading: 'Advanced', items: [
+				{
+					type: 'page', name: 'Property names', desc: 'The properties Binders reads and writes, if your notes already use other names.', aliases: PROPS.map((k) => TEXT[k][0].toLowerCase()),
+					displayValue: () => { const n = PROPS.filter((k) => this.s[k] !== DEFAULT_SETTINGS[k]).length; return n ? `${n} changed` : 'Binders’ own'; },
+					items: [
+						{ type: 'group', cls: 'binders-settings-about', items: [{ name: 'Changing a name here doesn’t rename the property in your notes. Binders reads the new one from then on.' }] },
+						{ type: 'group', cls: 'binders-settings-props', items: PROPS.map((k): SettingRow => ({ name: TEXT[k][0], desc: TEXT[k][1], render: (setting) => { this.propRow(setting, k); } })) },
+					],
+				},
+			] },
 		];
 	}
 
-	/** Obsidian calls this when a toggle defined above is switched. */
+	/** Obsidian asks a control's value here: the word count's dropdown says, as a choice, the switch it stands for. */
+	getControlValue(key: string): unknown {
+		if (key === WORDS_KEY) return this.s.bookWords ? 'book' : 'obsidian';
+		return (this.s as unknown as Record<string, unknown>)[key];
+	}
+
+	/** Obsidian calls this when a toggle or the dropdown defined above is changed. */
 	async setControlValue(key: string, value: unknown): Promise<void> {
 		const s = this.s;
 		if ((TOGGLES as string[]).includes(key) && typeof value === 'boolean') s[key as Toggle] = value;
 		if ((FOCUS_TOGGLES as string[]).includes(key) && typeof value === 'boolean') s[key as FocusToggle] = value;
 		if ((PARAGRAPH_TOGGLES as string[]).includes(key) && typeof value === 'boolean') s[key as ParagraphToggle] = value;
 		if (key === 'sidePanes' && typeof value === 'boolean') s.sidePanes = value;
-		if (key === 'bookWords' && typeof value === 'boolean') s.bookWords = value;
+		if (key === WORDS_KEY && (value === 'book' || value === 'obsidian')) s.bookWords = value === 'book';
 		if (key === 'recordProgress' && typeof value === 'boolean') s.recordProgress = value;
-		// (what depends on it is drawn again: hiding notes can't be on without ordering)
-		if (key === 'orderExplorer') await this.changed(); else await this.save();
+		// (what depends on it is drawn again: hiding notes can't be on without ordering, and the device's name is shown
+		// only with the record)
+		if (key === 'orderExplorer' || key === 'recordProgress') await this.changed(); else await this.save();
 	}
 
 	/** The defaults back, after asking if that would take away labels or statuses of the writer's own. */
@@ -283,8 +348,12 @@ export class BindersSettingTab extends PluginSettingTab {
 
 	/** A row just added: its name is ready to type over. */
 	private focusLast(group: string): void {
-		const inputs = this.containerEl.querySelectorAll<HTMLInputElement>(`${group} input[type="text"]`);
+		// (the list is on a page of its own, which Obsidian draws outside the tab's element: so the settings' window is looked in)
+		const inputs = this.containerEl.doc.querySelectorAll<HTMLInputElement>(`${group} input[type="text"]`);
 		const last = inputs[inputs.length - 1];
+		// (a page drawn again may be scrolled back to its top: the new row is brought into sight, above where a
+		// phone's keyboard comes)
+		last?.scrollIntoView({ block: 'center' });
 		last?.focus();
 		last?.select();
 	}
@@ -333,6 +402,10 @@ export class BindersSettingTab extends PluginSettingTab {
 			setting.addColorPicker((c) => {
 				picker = c;
 				c.setValue(shown(dot));
+				// (a page's rows are made before they are put in its window, where the theme's color can't be asked yet:
+				// it's asked again once the row is in)
+				const settle = (n: number) => { if (dot.isConnected) c.setValue(shown(dot)); else if (n < 40) window.setTimeout(() => settle(n + 1), 25); };
+				if (!dot.isConnected) settle(0);
 				c.onChange((hex) => {
 					if (hexColor(hex) === hexColor(shown(dot)) && !hexColor(label.color)) return; // set by the dropdown, not picked
 					label.color = hexColor(hex) ?? label.color;

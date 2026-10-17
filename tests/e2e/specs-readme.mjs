@@ -1,6 +1,7 @@
 // What the README tells a writer, one test per claim (ticket readme-claims). A test that fails is a sentence that's
 // wrong: named "README (wrong): ..." and left failing.
 import { B, NOTE, PL, VIEW, card, cards, clickMenu, closeMenus, contents, exists, file, flush, j, menuItems, openView, read, same, selected, split, texts, until, viewState, withTidy, writeRaw } from './view-helpers.mjs';
+import { SHOWN, showPage } from './settings-routes.mjs';
 
 export const specs = [];
 const test = (name, fn) => specs.push({ name: 'README: ' + name, fn });
@@ -429,9 +430,13 @@ test('Undoing a move: Ctrl+Z and Ctrl+Shift+Z in the binder view undo and redo t
 }));
 test('Settings: every setting the README table names is on the settings page, with the defaults it states', async (p, h, t) => {
 	const names = ['Order binders in the file explorer', 'Open binders from the file explorer', 'Hide binder and folder notes', 'Show label colors in the file explorer', 'Labels', 'Statuses', 'Typewriter scrolling', 'Show the scenes before and after', 'Show where you are', 'Show word counts', 'Dim other paragraphs', 'Enter fullscreen', 'Words to write today'];
-	await p.ev(`(async () => { app.setting.open(); app.setting.openTabById('binders'); })().then(() => 1)`);
-	await p.sleep(800);
-	const shown = await p.ev(`[...new Set([document, app.setting.activeTab?.containerEl?.ownerDocument].filter(Boolean))].flatMap(d => [...d.querySelectorAll('.setting-item-name')].map(e => e.textContent))`);
+	// (on the tab, or on a page one of its rows opens: Focus mode, Folders, Property names)
+	const shown = [];
+	for (const page of [null, 'Focus mode', 'Folders', 'Property names']) {
+		await showPage(p, page);
+		await p.sleep(300);
+		shown.push(...await p.ev(`[...${SHOWN}.querySelectorAll('.setting-item-name')].map(e => e.textContent)`));
+	}
 	for (const n of names) t.ok(shown.includes(n), `“${n}” is on the settings page` + (shown.includes(n) ? '' : ': ' + j(shown)));
 	t.ok(['Synopsis', 'Status', 'Label', 'Target'].every((n) => shown.some((s) => s === n || s.startsWith(n))), 'the four property names are there: ' + j(shown.slice(-8)));
 	await p.ev(`(() => { app.setting.close(); return 1; })()`);

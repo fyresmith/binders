@@ -9,6 +9,10 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - A manuscript export style has a “Header on the first page” choice: set it to “Left off” and the first page of the text has no header, in the Word file and the PDF; the next page still says 2.
 - A note's “title” property is shown in place of its file name in the binder views, the side panes, find and replace, the file explorer and an export's headings; editing a shown name changes the title and leaves the file alone. The property's name can be changed under Property names in settings.
 
+### Changed
+
+- Binders' settings are shorter and grouped like Obsidian's own: labels, statuses, focus mode, export folders and property names each open on a page of their own and say at a glance what is on it; how words are counted is now a dropdown, and Words to write today is under Writing.
+
 ### Fixed
 
 - Tooltips no longer pop up over the timeline, the word count, the Revision pane, the Export window, dialogs' fields and the settings; icons with no name beside them still say what they are.

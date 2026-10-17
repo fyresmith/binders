@@ -5,6 +5,7 @@ import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { strFromU8, unzipSync } from 'fflate';
 import { B, NOTE, PL, VIEW, card, clickMenu, closeMenus, hoverMenu, exists, file, flush, j, menuItems, openView, read, reload, same, split, texts, until, withTidy, writeRaw } from './view-helpers.mjs';
+import { SHOWN, showPage } from './settings-routes.mjs';
 
 export const specs = [];
 const L = 'The Lighthouse/';
@@ -117,10 +118,11 @@ test('11 focus: focus mode on and off leaves the note’s text untouched', async
 });
 
 // 12. Settings: every toggle flipped and flipped back
-test('12 settings: the Binders tab opens; every toggle flips and flips back, and the page is as it was', async (p, h, t) => {
-	const TAB = `app.setting.activeTab.containerEl`;
-	await p.ev(`(() => { app.setting.open(); app.setting.openTabById('binders'); return 1; })()`);
-	await until(p, `${TAB}.querySelectorAll('.binders-settings-label').length > 0 || ${TAB}.querySelectorAll('input[type="checkbox"]').length > 0`, 5000);
+test('12 settings: the Binders tab opens; every toggle flips and flips back, on the tab and on the Focus mode page, and each is as it was', async (p, h, t) => {
+	const TAB = SHOWN;
+	for (const page of [null, 'Focus mode']) {
+	await showPage(p, page);
+	await until(p, `${TAB}.querySelectorAll('input[type="checkbox"]').length > 0`, 5000);
 	const state = () => p.ev(`[...${TAB}.querySelectorAll('input[type="checkbox"]')].map(b => (b.closest('.setting-item')?.querySelector('.setting-item-name')?.textContent ?? '?') + '=' + b.checked)`);
 	const flip = (i) => p.ev(`(() => { const b = [...${TAB}.querySelectorAll('input[type="checkbox"]')][${i}]; if (!b) return false; b.click(); return true; })()`);
 	const start = await state();
@@ -131,6 +133,7 @@ test('12 settings: the Binders tab opens; every toggle flips and flips back, and
 		await flip(i);
 		await p.sleep(250);
 	}
-	t.eq(sorted(await state()), sorted(start), 'every toggle is back where it was');
+	t.eq(sorted(await state()), sorted(start), `every toggle ${page ? 'on the ' + page + ' page' : 'on the tab'} is back where it was`);
+	}
 	await p.key('Escape');
 });

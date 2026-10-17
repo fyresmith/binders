@@ -5,6 +5,7 @@
 // Tests named "qa11 inspector-labels: …", and "BUG: qa11 inspector-labels: …" where a bug is confirmed (they fail until
 // fixed). Golden rules 2 and 3: every change is checked against the note's properties and body on disk.
 import { PL, VIEW, answer, clickMenu, closeMenus, file, j, menuItems, openView, read, reload, split, until, withTidy } from './view-helpers.mjs';
+import { SHOWN, showPage } from './settings-routes.mjs';
 
 export const specs = [];
 const test = (name, fn) => specs.push({ name: 'qa11 inspector-labels: ' + name, fn: withTidy(run(fn)) });
@@ -68,10 +69,11 @@ async function field(p, f) {
 const sharedBody = (p, path) => read(p, path).then((t) => split(t).body);
 
 // ---- settings ----
-const TAB = `app.setting.activeTab.containerEl`;
-async function openSettings(p) {
-	await p.ev(`(() => { app.setting.open(); app.setting.openTabById('binders'); return 1; })()`);
-	await until(p, `${TAB}.querySelectorAll('.binders-settings-label').length > 0`);
+// (the labels and the statuses are each on a page of the tab, opened by its row)
+const TAB = SHOWN;
+async function openSettings(p, page = 'Labels') {
+	await showPage(p, page);
+	await until(p, `${TAB}.querySelectorAll('.binders-settings-${page === 'Labels' ? 'label' : 'status'}').length > 0`);
 	await p.sleep(200);
 }
 const closeSettings = (p) => p.ev(`(() => { try { app.setting.close(); } catch {} return 1; })()`).then(() => p.sleep(250));
@@ -148,7 +150,7 @@ test('a status renamed in settings: the folder note and every note that had it c
 	await setFm(p, note, { status: 'Draft' });
 	await setFm(p, KEEPER, { status: 'draft' });
 	await setFm(p, WRECK, { status: 'Draft' });
-	await openSettings(p);
+	await openSettings(p, 'Statuses');
 	await typeName(p, 'status', 1, 'Drafting');
 	await until(p, `[...new Set([document, app.setting?.activeTab?.containerEl?.ownerDocument].filter(Boolean))].flatMap(d => [...d.querySelectorAll('.modal')]).some(m => m.textContent.includes('have the status'))`, 4000);
 	const asked = await p.ev(`[...new Set([document, app.setting?.activeTab?.containerEl?.ownerDocument].filter(Boolean))].flatMap(d => [...d.querySelectorAll('.modal')]).map(m => m.textContent).join(' | ')`);

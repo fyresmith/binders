@@ -7,6 +7,7 @@
 // wished behaviour. The inventory of every item is in the push folder's findings/qa6-menus-inventory.md.
 import { filterToggle, clearFilter, tick, tapTick, tapSel, closeFilter, openFilter, chooseProperty, clickEl, pickerItems, pick, rows, rowSel, POP } from './filter-helpers.mjs';
 import { expand, real, startEmpty } from './menu-routes.mjs';
+import { SHOWN, showPage, showRow } from './settings-routes.mjs';
 import { B, PL, VIEW, answer, card, closeMenus, contents, exists, file, flush, j, openView, read, reload, split, texts, tidy, until, viewState } from './view-helpers.mjs';
 
 export const specs = [];
@@ -1671,10 +1672,11 @@ test('a note’s tab: its “More options” menu has Show in binder, New scene 
 // the settings tab: every toggle both ways, with its effect live and after a reload; the property names; the lists
 // ================================================================================================================
 
-const TAB = `app.setting.activeTab.containerEl`;
-const openSettings = async (p) => {
-	await p.ev(`(() => { app.setting.open(); app.setting.openTabById('binders'); return 1; })()`);
-	await until(p, `app.setting?.activeTab?.id === 'binders' && ${TAB}.querySelectorAll('.setting-item').length > 3`, 4000);
+// (the rows shown now: the tab's, or those of a page one of its rows opened; settings-routes.mjs knows which is where)
+const TAB = SHOWN;
+const openSettings = async (p, page = null) => {
+	await showPage(p, page);
+	await until(p, `app.setting?.activeTab?.id === 'binders' && ${TAB}.querySelectorAll('.setting-item').length > 0`, 4000);
 	await p.sleep(300);
 	// (Obsidian 1.13 shows the settings in a window of their own. A test that simulates a quit closes that window; the
 	// next one made takes `activeWindow` with it, and a dialog opened from the settings then opens there, where these
@@ -1683,8 +1685,8 @@ const openSettings = async (p) => {
 };
 const closeSettings = (p) => p.ev(`(() => { try { app.setting.close(); } catch {} return 1; })()`).then(() => p.sleep(250));
 const rowOf = (name) => `[...${TAB}.querySelectorAll('.setting-item')].find(s => s.querySelector('.setting-item-name')?.textContent === ${j(name)})`;
-const toggleState = (p, name) => p.ev(`(${rowOf(name)})?.querySelector('.checkbox-container')?.classList.contains('is-enabled')`);
-const flipToggle = async (p, name) => { await p.ev(`(${rowOf(name)}).querySelector('.checkbox-container').click()`); await p.sleep(500); };
+const toggleState = async (p, name) => { await showRow(p, name); return p.ev(`(${rowOf(name)})?.querySelector('.checkbox-container')?.classList.contains('is-enabled')`); };
+const flipToggle = async (p, name) => { await showRow(p, name); await p.focusMain(); await p.ev(`(${rowOf(name)}).querySelector('.checkbox-container').click()`); await p.sleep(500); };
 const setting = (p, key) => p.ev(`${PL}.settings[${j(key)}]`);
 
 test('settings: the explorer toggles each both ways, with the effect in the explorer at once and after a reload', tidied(async (p, h, t) => {
@@ -1695,7 +1697,8 @@ test('settings: the explorer toggles each both ways, with the effect in the expl
 	await openSettings(p);
 	const groups = await p.ev(`[...${TAB}.querySelectorAll('.setting-item.setting-item-heading, .setting-item-heading')].map(e => e.textContent)`);
 	log('setting headings:', j(groups));
-	t.eq(j(await p.ev(`[...${TAB}.querySelectorAll('.setting-item')].slice(0, 4).map(s => s.querySelector('.setting-item-name')?.textContent)`)).includes('Order binders in the file explorer'), true, 'the four explorer toggles lead');
+	t.eq(await p.ev(`${TAB}.querySelector('.setting-item .setting-item-name')?.textContent`), 'Open binders from the file explorer', 'the tab leads with opening binders from the file explorer');
+	t.eq(j(await p.ev(`[...([...${TAB}.querySelectorAll('.setting-group')].find(g => g.querySelector('.setting-item-heading')?.textContent === 'File explorer')?.querySelectorAll('.setting-item:not(.setting-item-heading) .setting-item-name') ?? [])].map(e => e.textContent)`)), j(['Order binders in the file explorer', 'Hide binder and folder notes', 'Show label colors in the file explorer']), 'and the File explorer group has the other three');
 	const names = ['Order binders in the file explorer', 'Open binders from the file explorer', 'Hide binder and folder notes', 'Show label colors in the file explorer'];
 	const keys = ['orderExplorer', 'openOnClick', 'hideBinderNotes', 'explorerLabels'];
 	for (let i = 0; i < 4; i++) t.eq(await toggleState(p, names[i]), await setting(p, keys[i]), `“${names[i]}” shows its value`);
@@ -1747,7 +1750,8 @@ test('settings: the explorer toggles each both ways, with the effect in the expl
 }));
 
 test('settings: the focus mode toggles and the goal, each both ways; the focus menu follows; a reload keeps them', tidied(async (p, h, t) => {
-	await openSettings(p);
+	// (the toggles are on the Focus mode page, opened by its row; the goal is on the tab)
+	await openSettings(p, 'Focus mode');
 	const rows = await p.ev(`[...${TAB}.querySelectorAll('.setting-item')].map(s => s.querySelector('.setting-item-name')?.textContent)`);
 	log('settings rows:', j(rows));
 	const FOCUS = { 'Typewriter scrolling': 'focusTypewriter', 'Show the scenes before and after': 'focusNeighbours', 'Show where you are': 'focusPlace', 'Show word counts': 'focusNumbers', 'Dim other paragraphs': 'focusDim', 'Enter fullscreen': 'focusFullscreen' };
@@ -1761,6 +1765,7 @@ test('settings: the focus mode toggles and the goal, each both ways; the focus m
 		t.eq(await setting(p, key), was, `and back to ${was}`);
 	}
 	// the goal
+	await openSettings(p);
 	const input = `(${rowOf('Words to write today')}).querySelector('input')`;
 	await p.ev(`(() => { const i = ${input}; i.focus(); i.value = '500'; i.dispatchEvent(new Event('input', { bubbles: true })); i.blur(); return 1; })()`);
 	await p.sleep(600);
@@ -1777,9 +1782,9 @@ test('settings: the focus mode toggles and the goal, each both ways; the focus m
 
 test('settings: the property names (synopsis, status, label, target): a new name is read at once by the views; clashes and reserved names are refused with a reason; empty goes back to the default', tidied(async (p, h, t) => {
 	await fresh(p);
-	await openSettings(p);
+	await openSettings(p, 'Property names');
 	const field = (name) => `(${rowOf(name)}).querySelector('input')`;
-	const type = async (name, value) => { await p.ev(`(() => { const i = ${field(name)}; i.focus(); i.value = ${j(value)}; i.dispatchEvent(new Event('input', { bubbles: true })); i.blur(); return 1; })()`); await p.sleep(600); };
+	const type = async (name, value) => { await showRow(p, name); await p.ev(`(() => { const i = ${field(name)}; i.focus(); i.value = ${j(value)}; i.dispatchEvent(new Event('input', { bubbles: true })); i.blur(); return 1; })()`); await p.sleep(600); };
 	t.eq(await p.ev(`${field('Synopsis')}.value`), 'synopsis', 'the default is shown');
 	await type('Synopsis', 'status');
 	t.eq(await setting(p, 'synopsisProp'), 'synopsis', 'the status property’s name is refused for the synopsis');
@@ -1804,10 +1809,14 @@ test('settings: the property names (synopsis, status, label, target): a new name
 }));
 
 test('settings: Labels and Statuses lists: add, rename (offers to rename in notes), reorder, delete, the colour, and “Restore the default…” asks first', tidied(async (p, h, t) => {
-	await openSettings(p);
 	const was = await p.ev(`JSON.stringify(${PL}.settings.labels)`);
 	const wasS = await p.ev(`JSON.stringify(${PL}.settings.statuses)`);
-	const buttons = await p.ev(`[...${TAB}.querySelectorAll('button, .clickable-icon, .extra-setting-button')].map(b => (b.getAttribute('aria-label') || b.textContent || '').trim()).filter(Boolean)`);
+	// (each list on its page, opened by its row)
+	const BUTTONS = `[...${TAB}.querySelectorAll('button, .clickable-icon, .extra-setting-button')].map(b => (b.getAttribute('aria-label') || b.textContent || '').trim()).filter(Boolean)`;
+	await openSettings(p, 'Labels');
+	const buttons = await p.ev(BUTTONS);
+	await openSettings(p, 'Statuses');
+	buttons.push(...await p.ev(BUTTONS));
 	log('settings buttons:', j(buttons));
 	t.ok(buttons.includes('Add label') && buttons.includes('Add status'), 'Add label and Add status');
 	t.ok(buttons.includes('Restore the default labels') && buttons.includes('Restore the default statuses'), 'and a Restore for each');

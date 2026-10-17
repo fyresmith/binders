@@ -606,10 +606,10 @@ test('a Longform project is recorded in its own Snapshots folder, and its index 
 	await p.ev(`(async () => { const a = app.vault.adapter; if (await a.exists(${j(LF + '/Snapshots')})) await a.rmdir(${j(LF + '/Snapshots')}, true); })().then(() => 1)`);
 });
 
-test('settings: a “Progress” group says a record is kept, where, and that it holds no text, with a switch; this device can be named', async (p, h, t) => {
+test('settings: the record’s switch, under “Writing”, says a record is kept, where, and that it holds no text; this device can be named', async (p, h, t) => {
 	const TAB = `app.setting.activeTab.containerEl`;
 	await p.ev(`(() => { ${P}.setDevice(null); app.setting.open(); app.setting.openTabById('binders'); return 1; })()`);
-	await until(p, `[...${TAB}.querySelectorAll('.setting-item-heading, .setting-group .setting-item-name')].some(e => e.textContent === 'Progress')`);
+	await until(p, `[...${TAB}.querySelectorAll('.setting-item-heading, .setting-group .setting-item-name')].some(e => e.textContent === 'Writing')`);
 	const row = (name) => `[...${TAB}.querySelectorAll('.setting-item')].find(e => e.querySelector('.setting-item-name')?.textContent === ${j(name)})`;
 	const desc = await p.ev(`${row('Keep a record of your writing')}.querySelector('.setting-item-description').textContent`);
 	t.ok(/Snapshots folder, in History/.test(desc) && /holds no text/.test(desc) && /never sent anywhere/.test(desc) && /nothing already recorded is deleted/.test(desc), 'it says where, that it holds no text, and what turning it off does: ' + desc);

@@ -86,6 +86,33 @@
 	max-width: none;
 }
 
+/* Settings: the sentence at the head of a page ("A binder can have its own…") is said as a description, under the
+   page's title, not as a row in a box. */
+.setting-group.binders-settings-about .setting-items {
+	background: none;
+	border: none;
+	box-shadow: none;
+	padding: 0;
+}
+
+.setting-group.binders-settings-about .setting-item {
+	padding: 0 var(--size-4-4);
+	min-height: 0;
+}
+
+.setting-group.binders-settings-about .setting-item-name {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+/* On a phone the labels and the statuses end in room to scroll into, as a note's editor does past its end: a row
+   just added, at the foot of the list, is brought up to the middle, above where the keyboard comes, not under it.
+   (On the tab they were followed by the rest of the settings, which gave that room.) */
+.is-phone .setting-group.binders-settings-labels,
+.is-phone .setting-group.binders-settings-statuses {
+	margin-bottom: 40vh;
+}
+
 .binders-label-dot.binders-settings-probe,
 .binders-settings-probe {
 	display: none;
@@ -1226,11 +1253,12 @@
 .workspace-leaf-content[data-type^="binders-"],
 .modal[class*="binders-"],
 .binders-settings,
+.setting-group[class*="binders-settings-"],
 .binders-filter-menu,
 .binders-picker {
 	--no-tooltip: true;
 }
-:is(.workspace-leaf-content[data-type^="binders-"], .modal[class*="binders-"], .binders-settings, .binders-filter-menu, .binders-picker) .clickable-icon {
+:is(.workspace-leaf-content[data-type^="binders-"], .modal[class*="binders-"], .binders-settings, .setting-group[class*="binders-settings-"], .binders-filter-menu, .binders-picker) .clickable-icon {
 	--no-tooltip: false;
 }
 .binders-card,

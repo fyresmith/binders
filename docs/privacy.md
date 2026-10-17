@@ -8,7 +8,7 @@ What it reads and writes is on your device:
   files in the `Exports` folder. See [How your files look](files.md).
 - **Outside your vault, on a computer, written:** an exported file, and a copy of an export style you choose to
   share, each only where you choose in the system's save dialog. See [Export](export.md#where-the-file-goes).
-  Exporting again to a place you chose before writes there again; **Remembered places** in settings lists the ones
+  Exporting again to a place you chose before writes there again; **Remembered places**, in **Folders** in settings, lists the ones
   saved without asking.
 - **Outside your vault, read:** the Scrivener project, zip, Word file, text file or Markdown file you choose to import, a style's file you choose to add,
   and, to tell whether an exported file is still as export left it, that file's size and date.

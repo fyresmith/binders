@@ -123,7 +123,7 @@ straight to the same place.
 - A file already there that export didn't write, or that has been changed since, is asked about before it is
   replaced.
 - To be asked again, choose **Choose where to save...** in the window's **More** menu, untick the box, or choose
-  **Ask again** under **Remembered places** in Binders' settings.
+  **Ask again** under **Remembered places**, in **Folders** in Binders' settings.
 - **Show the Exports folder**, in the **More** menu, opens that folder in your file manager. The folder is made when
   a file is first saved there.
 - A manuscript exported as a PDF to the place its Word file was saved goes beside the Word file, not over it.
@@ -137,7 +137,7 @@ app. A Scrivener project is zipped first. A PDF isn't made there: see [Paperback
 
 ### The Exports folder
 
-- **Exports folder** in Binders' settings renames it. A name, such as `Exports`, is a folder beside each binder. A
+- **Exports folder**, in **Folders** in Binders' settings, renames it. A name, such as `Exports`, is a folder beside each binder. A
   path, such as `Books/Exports`, is one folder for the whole vault.
 - Obsidian lists a .docx or an .epub in its file explorer only with **Detect all file extensions** turned on, under
   **Settings → Files and links**. The files are there either way.

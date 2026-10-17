@@ -1,14 +1,23 @@
 # Settings
 
 Every setting, under **Settings → Community plugins → Binders**. They are listed here in the order the settings page
-has them.
+has them. A row with an arrow at its end (**Labels**, **Statuses**, **Focus mode**, **Folders**, **Property names**)
+opens a page of its own, and says at its end what is on it: "8 labels", "3 of 7 on". The settings' search finds the
+rows on those pages too.
+
+## At the top
+
+| Setting | Default | What it does |
+|---|---|---|
+| **Open binders from the file explorer** | On | Clicking a binder, or a folder inside one, opens its binder view |
+| **Show the inspector and contents with a binder** | On | Opening a binder puts the inspector and the contents among the right sidebar's tabs, if they aren't there. Turn this off to open them yourself, and to keep them closed once you close them. See [The inspector and the contents](inspector.md) |
+| **Count words** | As an export would | **As an export would**: every count in Binders is the book's, so comments, a link's hidden part, web addresses and properties aren't counted. **As Obsidian's status bar**: as Obsidian counts them. See [how words are counted](labels-statuses-targets.md#how-words-are-counted) |
 
 ## File explorer
 
 | Setting | Default | What it does |
 |---|---|---|
 | **Order binders in the file explorer** | On | Shows the notes and folders in a binder in its own order instead of by name, and lets you drag them there to reorder. Turn this off if another plugin replaces the file explorer |
-| **Open binders from the file explorer** | On | Clicking a binder, or a folder inside one, opens its binder view |
 | **Hide binder and folder notes** | On | Doesn't list a binder's own note, or a folder's note named like it, in the file explorer. Only applies while **Order binders in the file explorer** is on |
 | **Show label colors in the file explorer** | On | A dot in its label's color beside each labeled note and folder in a binder |
 
@@ -23,41 +32,21 @@ See [The file explorer](file-explorer.md).
 
 See [Paragraphs](paragraphs.md).
 
-## Sidebar
+## Labels and statuses
 
-| Setting | Default | What it does |
-|---|---|---|
-| **Show the inspector and contents with a binder** | On | Opening a binder puts the inspector and the contents among the right sidebar's tabs, if they aren't there. Turn this off to open them yourself, and to keep them closed once you close them |
-
-See [The inspector and the contents](inspector.md).
-
-## Word counts
-
-| Setting | Default | What it does |
-|---|---|---|
-| **Count words as the exported book does** | On | Every count in Binders is the book's: comments, a link's hidden part, web addresses and properties aren't counted. Turn it off to count as Obsidian's status bar does. See [how words are counted](labels-statuses-targets.md#how-words-are-counted) |
-
-
-## Progress
-
-| Setting | Default | What it does |
-|---|---|---|
-| **Keep a record of your writing** | On | Binders keeps a record of each binder's writing in its `Snapshots` folder, in `History`: numbers and names, never text. Turn this off to stop recording; nothing already recorded is deleted. See [The record of your writing](progress.md) |
-| **This device is called** | Mac, Windows PC, iPhone… | How this device is named in the record's files. Kept on this device, not in the settings that sync |
-
-## Labels
+### Labels
 
 The labels a note can have: a name and a color each. The defaults are Red, Orange, Yellow, Green, Cyan, Blue, Purple
 and Pink.
 
-- **Add label** adds one.
+- **Add label** (the plus) adds one.
 - Type in a label's name to rename it. Binders then asks whether to rename it in the notes that have it.
 - Choose a color from the list (your theme's own shade of it), or **Custom** and pick any color.
 - Drag a label to reorder it. Menus list labels in this order.
 - Delete a label with the button on its row. Notes that have it keep it.
 - The button with the circular arrow, **Restore the default labels**, puts the defaults back, after asking.
 
-## Statuses
+### Statuses
 
 The statuses a note can have, in the order a draft goes through them. The defaults are Idea, Draft, Revised and
 Done.
@@ -66,7 +55,16 @@ Done.
 
 See [Labels, statuses and targets](labels-statuses-targets.md).
 
-## Focus mode
+## Writing
+
+| Setting | Default | What it does |
+|---|---|---|
+| **Focus mode** | | A page: what shows besides your text in focus mode (below) |
+| **Words to write today** | None | A goal for a day's writing in a binder, shown with focus mode's word counts. Leave empty for none. See [Focus mode](focus-mode.md#word-counts-and-a-goal-for-the-day) |
+| **Keep a record of your writing** | On | Binders keeps a record of each binder's writing in its `Snapshots` folder, in `History`: numbers and names, never text. Turn this off to stop recording; nothing already recorded is deleted. To sync it with Obsidian Sync, turn on **Sync all other types**. See [The record of your writing](progress.md) |
+| **This device is called** | Mac, Windows PC, iPhone… | How this device is named in the record's files. Kept on this device, not in the settings that sync. Shown while the record is on |
+
+### Focus mode
 
 | Setting | Default | What it does |
 |---|---|---|
@@ -77,25 +75,33 @@ See [Labels, statuses and targets](labels-statuses-targets.md).
 | **Dim other paragraphs** | On | While you type, every paragraph but the one you're in steps well back |
 | **Dim the background** | On | The page turns a deep charcoal while you're in focus mode, with light text on it, in a light theme too |
 | **Enter fullscreen** | Off | Focus mode takes the whole screen, and gives it back when you leave. Not shown on phones and tablets |
-| **Words to write today** | None | A goal for a day's writing in a binder, shown with the word counts. Leave empty for none |
 
-See [Focus mode](focus-mode.md).
+The same switches are in focus mode's own menu. See [Focus mode](focus-mode.md).
 
 ## Export
 
 | Setting | Default | What it does |
 |---|---|---|
-| **Exports folder** | `Exports` | Where exported files go on a phone or tablet, and where the save dialog starts on a computer. A name is a folder beside each binder; a path, such as `Books/Exports`, is one folder for the whole vault |
-| **Remembered places** | None | The exports this device saves without asking. **Ask again** forgets them, so every export asks where to save |
 | **Your name** | Empty | The author of a book that doesn't say otherwise |
 | **Contact details** | Empty | For the title page of a manuscript: an address, an email, a phone number, a line each |
+| **Folders** | | A page: where exports and styles are kept, and the places exports save to without asking (below) |
+
+### Folders
+
+| Setting | Default | What it does |
+|---|---|---|
+| **Exports folder** | `Exports` | Where exported files go on a phone or tablet, and where the save dialog starts on a computer. A name is a folder beside each binder; a path, such as `Books/Exports`, is one folder for the whole vault |
 | **Styles folder** | `Export styles` | The folder at the top of the vault that holds your export styles, one file each. Binders keeps it out of the file explorer. Changing the name renames the folder, and the styles go with it. To sync styles with Obsidian Sync, turn on **Sync all other types** |
+| **Remembered places** | None | The exports this device saves without asking. **Ask again** forgets them, so every export asks where to save |
 
 See [Export](export.md) and [Styles](export-styles.md).
 
-## Property names
+## Advanced
 
-The properties that hold each of these, if your notes already use other names.
+### Property names
+
+The properties that hold each of these, if your notes already use other names. The row says **Binders' own** while
+every name is the default, and how many you changed otherwise.
 
 | Setting | Default | What it holds |
 |---|---|---|

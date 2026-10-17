@@ -166,7 +166,7 @@ In a binder of a newer format, and one that can't have snapshots, nothing can be
 - It counts typing in Obsidian's own editors. Edits made in another program, or on a device without Binders, are not
   typing, and are only known by the difference they make to the book's total.
 - Words are counted as Obsidian's status bar counts them, a few characters at a time as you type; the book's total is
-  counted as the exported book has it (**Count words as the exported book does**). The two can differ a little, most
+  counted as the exported book has it (**Count words**: **As an export would**). The two can differ a little, most
   in a book that embeds notes in others, and the difference shows as *changed elsewhere*.
 - With Obsidian Sync it is carried only with **Sync all other types** on. A phone that has not synced yet stamps a
   total that is short of the other devices' words; the next day's total is true again.

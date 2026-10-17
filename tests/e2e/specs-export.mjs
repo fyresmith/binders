@@ -9,6 +9,7 @@ import { join } from 'path';
 import { crc32, deflateSync } from 'zlib';
 import { strFromU8, unzipSync } from 'fflate';
 import { PL, clickMenu, file, j, openView, reload, same, split, texts, until, withTidy, writeRaw } from './view-helpers.mjs';
+import { SHOWN, showRow } from './settings-routes.mjs';
 
 export const specs = [];
 // (what the style editor's tests, specs-export-styles.mjs, share with these)
@@ -153,9 +154,9 @@ test('“Save here next time without asking”: the dialog is skipped, a file ch
 	await saved(p);
 	t.eq((await asked(p)).length, 2, '“Choose where to save...” asks again');
 	await closeAll(p);
-	// Binders' settings: the place is listed, and "Ask again" forgets it
-	await p.ev(`(() => { app.setting.open(); app.setting.openTabById('binders'); return 1; })()`);
-	const row = `(app.setting.activeTab.containerEl.querySelector('.binders-settings-places'))`;
+	// Binders' settings (the Folders page): the place is listed, and "Ask again" forgets it
+	await showRow(p, 'Remembered places');
+	const row = `(${SHOWN}.querySelector('.binders-settings-places'))`;
 	await until(p, `!!${row}`);
 	t.ok((await p.ev(`${row}.querySelector('.setting-item-description').textContent`)).includes('The Lighthouse (Manuscript) to '), 'settings list the place remembered');
 	await p.ev(`(() => { ${row}.querySelector('button').click(); return 1; })()`);

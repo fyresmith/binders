@@ -87,8 +87,8 @@ Binders counts the words that end up in the book, so a card, a target and an exp
   totals. The Export window counts only what is exported, so its number can be lower.
 - **The day's words** in focus mode follow the same rule.
 
-To count as Obsidian's status bar does, turn off **Count words as the exported book does** in
-[Settings](settings.md#word-counts). Changing it leaves the day's words as they were. A note with comments or links
+To count as Obsidian's status bar does, choose **As Obsidian's status bar** under **Count words** in
+[Settings](settings.md). Changing it leaves the day's words as they were. A note with comments or links
 shows fewer words with the setting on, so a target that was only just met can be just short.
 
 ## The filter

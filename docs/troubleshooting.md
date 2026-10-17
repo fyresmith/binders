@@ -101,7 +101,7 @@ Obsidian lists a .docx or an .epub in its file explorer only with **Detect all f
 ## Export doesn't ask where to save any more
 
 You ticked **Save here next time without asking**. Choose **Choose where to save...** in the Export window's
-**More** menu, or **Ask again** under **Remembered places** in Binders' settings.
+**More** menu, or **Ask again** under **Remembered places**, in **Folders** in Binders' settings.
 
 ## A Scrivener project doesn't open
 

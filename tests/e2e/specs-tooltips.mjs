@@ -6,6 +6,7 @@
 // Needs a hovering mouse (`BINDERS_HOVER=1`): without one, these say so and pass without looking.
 import { VIEW, j, openView, until, withTidy } from './view-helpers.mjs';
 import { seed } from './specs-timeline.mjs';
+import { SHOWN, showPage } from './settings-routes.mjs';
 
 export const specs = [];
 const test = (name, fn) => specs.push({ name: 'tooltips: ' + name, fn: withTidy(fn) });
@@ -57,11 +58,16 @@ test('the small dialogs and the settings: no tooltip over a field (Rewrite’s n
 	t.eq(await tipAt(p, '.modal input[aria-label="Name for the snapshot"]'), null, 'Rewrite’s name for the snapshot');
 	t.eq(j(await shown(p, '.modal')), j([]), 'nothing else in the dialog');
 	for (let i = 0; i < 3 && (await p.ev(`document.querySelectorAll('.modal-container').length`)); i++) { await p.key('Escape'); await p.sleep(200); }
-	await p.ev(`(() => { app.setting.open(); app.setting.openTabById('binders'); return 1; })()`);
 	// (Obsidian 1.13 draws the settings in a window of their own, where the driver's pointer doesn't go: what Obsidian
-	// reads there before it shows a tooltip, `--no-tooltip`, is read instead)
-	await until(p, `!!app.setting.activeTab?.containerEl?.querySelector('input[aria-label="Label name"]')`, 8000);
-	const tips = await p.ev(`(() => { const c = app.setting.activeTab.containerEl, w = c.ownerDocument.defaultView, on = (e) => w.getComputedStyle(e).getPropertyValue('--no-tooltip').trim() !== 'true'; return JSON.stringify({ fields: [...c.querySelectorAll('[aria-label]:not(.clickable-icon)')].filter(on).map(e => e.getAttribute('aria-label')), icons: [...c.querySelectorAll('.clickable-icon[aria-label]')].filter(e => !on(e)).map(e => e.getAttribute('aria-label')), iconCount: c.querySelectorAll('.clickable-icon[aria-label]').length }); })()`).then(JSON.parse);
+	// reads there before it shows a tooltip, `--no-tooltip`, is read instead; on the tab, and on the Labels and Statuses
+	// pages, where the named fields are)
+	const tips = { fields: [], icons: [], iconCount: 0 };
+	for (const page of [null, 'Labels', 'Statuses']) {
+		await showPage(p, page);
+		if (page === 'Labels') await until(p, `!!${SHOWN}?.querySelector('input[aria-label="Label name"]')`, 8000);
+		const got = await p.ev(`(() => { const c = ${SHOWN}, w = c.ownerDocument.defaultView, on = (e) => w.getComputedStyle(e).getPropertyValue('--no-tooltip').trim() !== 'true'; return JSON.stringify({ fields: [...c.querySelectorAll('[aria-label]:not(.clickable-icon)')].filter(on).map(e => e.getAttribute('aria-label')), icons: [...c.querySelectorAll('.clickable-icon[aria-label]')].filter(e => !on(e)).map(e => e.getAttribute('aria-label')), iconCount: c.querySelectorAll('.clickable-icon[aria-label]').length }); })()`).then(JSON.parse);
+		tips.fields.push(...got.fields); tips.icons.push(...got.icons); tips.iconCount += got.iconCount;
+	}
 	t.eq(j(tips.fields), j([]), 'no field or row of the settings shows its name on hover (a label’s name, its colour, a status)');
 	t.ok(tips.iconCount > 0, 'the settings have icons with names: ' + tips.iconCount);
 	t.eq(j(tips.icons), j([]), 'and each of them still shows its name on hover (Add label, Delete, Drag to rearrange)');

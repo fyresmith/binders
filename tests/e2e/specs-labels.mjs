@@ -2,6 +2,7 @@
 // a card offers and shows (presets, a color of your own, a tint), label dots in the file explorer, and word count
 // targets on cards. Settings are the plugin's own data (never a note), so each test puts them back.
 import { NOTE, PL, answer, card, clickMenu, closeMenus, file, hoverMenu, j, menuItems, openView, read, same, split, texts, until, withTidy } from './view-helpers.mjs';
+import { SHOWN, showPage } from './settings-routes.mjs';
 
 export const specs = [];
 const L = 'The Lighthouse/';
@@ -12,9 +13,10 @@ const test = (name, fn) => specs.push({ name: 'labels: ' + name, fn: withTidy(as
 const set = (p, s) => p.ev(`(async () => { Object.assign(${PL}.settings, ${j(s)}); await ${PL}.saveSettings(); })().then(() => 1)`).then(() => p.sleep(300));
 const fm = (p, path) => p.ev(`JSON.stringify(app.metadataCache.getFileCache(${file(path)})?.frontmatter ?? null)`).then(JSON.parse);
 const saved = (p) => p.ev(`app.vault.adapter.read(app.vault.configDir + '/plugins/binders/data.json')`).then(JSON.parse);
-// The settings dialog may be a window of its own: its page is reached through the tab, and worked by events.
-const TAB = `app.setting.activeTab.containerEl`;
-const openSettings = async (p) => { await p.ev(`(() => { app.setting.open(); app.setting.openTabById('binders'); return 1; })()`); await until(p, `${TAB}.querySelectorAll('.binders-settings-label').length > 0`); };
+// The settings dialog may be a window of its own: its page is reached through the tab, and worked by events. The
+// labels and the statuses are each on a page of the tab, opened by its row (settings-routes.mjs).
+const TAB = SHOWN;
+const openSettings = async (p, page) => { await showPage(p, page); await until(p, `${TAB}.querySelectorAll('.binders-settings-${page === 'Labels' ? 'label' : 'status'}').length > 0`); };
 const names = (p, kind) => p.ev(`[...${TAB}.querySelectorAll('.binders-settings-${kind} input[type="text"]')].map(i => i.value)`);
 const typeName = (p, kind, i, value) => p.ev(`(() => { const el = ${TAB}.querySelectorAll('.binders-settings-${kind} input[type="text"]')[${i}]; el.focus(); el.value = ${j(value)}; el.dispatchEvent(new Event('input', { bubbles: true })); el.blur(); el.dispatchEvent(new FocusEvent('blur')); return 1; })()`).then(() => p.sleep(200));
 const press = (p, label, within = '') => p.ev(`(() => { const b = ${TAB}.querySelector(${j(`${within} [aria-label="${label}"]`.trim())}); if (!b) return false; b.click(); return true; })()`).then(async (ok) => { await p.sleep(350); return ok; });
@@ -24,7 +26,7 @@ const setLabelMenu = async (p, path) => { const c = await p.at(card(L + path)); 
 
 test('settings: the labels list — rename, recolor, a color of your own, add, delete, restore; saved in the plugin’s data, never in a note', async (p, h, t) => {
 	const before = await texts(p);
-	await openSettings(p);
+	await openSettings(p, 'Labels');
 	t.eq(j(await names(p, 'labels')), j(['Red', 'Orange', 'Yellow', 'Green', 'Cyan', 'Blue', 'Purple', 'Pink']), 'the eight labels, named for their colors');
 	// rename
 	await typeName(p, 'labels', 0, 'Mara');
@@ -65,7 +67,7 @@ test('settings: the labels list — rename, recolor, a color of your own, add, d
 });
 
 test('settings: the statuses list — add, rename, delete, restore; the binder view offers them in that order', async (p, h, t) => {
-	await openSettings(p);
+	await openSettings(p, 'Statuses');
 	t.eq(j(await names(p, 'statuses')), j(['Idea', 'Draft', 'Revised', 'Done']), 'the four statuses');
 	t.ok(await press(p, 'Add status'), 'there is an “Add status” button');
 	t.eq(j(await p.ev(`${PL}.settings.statuses`)), j(['Idea', 'Draft', 'Revised', 'Done', 'New status']), 'a new status, last');
@@ -85,7 +87,7 @@ test('settings: the statuses list — add, rename, delete, restore; the binder v
 	// (Epilogue is "idea", which settings no longer have: statuses notes use are still offered, after the list, as written)
 	t.eq(j(items.slice(-7)), j(['Draft', 'Revised', 'Done', 'Final', 'idea', 'New status...', 'No status']), 'the menu lists the statuses from settings in their order, then the ones only notes use: ' + j(items));
 	await closeMenus(p);
-	await openSettings(p);
+	await openSettings(p, 'Statuses');
 	await press(p, 'Restore the default statuses');
 	await answer(p, 'Restore');
 	t.eq(j(await names(p, 'statuses')), j(['Idea', 'Draft', 'Revised', 'Done']), 'the defaults are back');

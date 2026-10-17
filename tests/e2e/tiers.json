@@ -1860,7 +1860,7 @@
 			"qa11 mobile: the manuscript on a phone, swept through by a finger, draws every section in sight (titles and text) at each step"
 		],
 		"tests/e2e/specs-qa11-settings.mjs": [
-			"qa11 settings: the tab’s words: sentence case, no “please”, a full stop at each sentence’s end, and no shouting"
+			"qa11 settings: the tab’s words, and its pages’: sentence case, no “please”, a full stop at each sentence’s end, and no shouting"
 		],
 		"tests/e2e/specs-qa2-corkboard.mjs": [
 			"qa2 corkboard: BUG: a narrow pane (one column): a stack with a long name doesn’t widen the cards past the pane",
