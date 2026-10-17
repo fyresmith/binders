@@ -4,7 +4,7 @@ import { emptyState, isNote, itemMenu, nameOf, noteOf, plain, removeItems, renam
 import { buildCard, cardKey, crumbAt, heir, numberCards, overPane, owedFocus, passing, sumWords, typingNow, type CardEditors, type CardHost } from './card';
 import { Press, SelectBox, glide, held, places, settle, visibleBottom } from './drag';
 import { FileDrag } from './file-drag';
-import { openPluginSettings } from './internals';
+import { openBinderSettings } from './binder-settings';
 import { cardsDrawer } from './menu-groups';
 import { labelDot, labelName, paintLabel, presetOf } from './labels';
 import { CARD_SIZES, announceText, beside, changeText, flatRuns, insertAt, laneAt, laneList, laneOf, lanePitch, readLines, readSize, resolveDrop, type CardSize, type Lines, type Run, type Stop } from './lanes-data';
@@ -96,7 +96,7 @@ class ByLabel implements BinderMode {
 	constructor(private container: HTMLElement, private ctx: ModeContext) {}
 
 	private get store() { return this.ctx.store; }
-	private get presets() { return this.ctx.plugin.settings.labels; }
+	private get presets() { return this.ctx.store.labelsOf(this.ctx.binder); }
 	private get longform(): boolean { return this.ctx.binder.kind === 'longform'; }
 	private get narrow(): boolean { const w = this.container.clientWidth; return w > 0 && w < NARROW; }
 	private get lines(): Lines { return readLines(this.ctx.option<unknown>('lines', 'across')); }
@@ -1100,16 +1100,21 @@ class ByLabel implements BinderMode {
 			if (el) { this.show(el); el.focus({ preventScroll: true }); }
 		}));
 		menu.addItem((i) => i.setSection('labels').setTitle('New label...').setIcon('plus').onClick(() => void this.addLabel()));
-		menu.addItem((i) => i.setSection('labels').setTitle('Edit labels...').setIcon('settings').onClick(() => openPluginSettings(this.ctx.app, this.ctx.plugin.manifest.id)));
+		menu.addItem((i) => i.setSection('labels').setTitle('Edit labels...').setIcon('settings').onClick(() => openBinderSettings(this.ctx.plugin, this.ctx.binder, 'labels')));
 		return menu;
 	}
 
-	/** Asks for a label's name and color, and adds it to the labels in settings: a new line, after the others. */
+	/** Asks for a label's name and color, and adds it to the labels in settings (or the binder's own): a new line, after the others. */
 	private async addLabel(): Promise<void> {
-		const s = this.ctx.plugin.settings, made = await newLabel(this.ctx.app, s.labels);
+		const s = this.ctx.plugin.settings, store = this.ctx.store, own = store.ownLabels(this.ctx.binder), made = await newLabel(this.ctx.app, own ?? s.labels);
 		if (!made) return;
-		s.labels = [...s.labels, made];
-		await this.ctx.plugin.saveSettings();
+		// (a binder with labels of its own gets the new line in its own list)
+		if (own) {
+			try { await store.setOwnLabels(this.ctx.binder, [...own, made]); } catch (e) { new Notice(plain(e)); return; }
+		} else {
+			s.labels = [...s.labels, made];
+			await this.ctx.plugin.saveSettings();
+		}
 		if (!this.busy()) this.draw();
 	}
 }

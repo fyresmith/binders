@@ -53,7 +53,7 @@ Without a calendar of its own (below), a book's dates are in the ordinary calend
 ## A book's own calendar
 
 A book can have its own months, leap days and eras: **Calendar...** in the timeline's **More options**, or the command
-**Edit calendar...**. They are kept in the binder note (see [How your files look](files.md)), and every place that
+**Edit calendar...** (which opens the Calendar page of [Binder settings](binder-settings.md)). They are kept in the binder note (see [How your files look](files.md)), and every place that
 shows or takes a story date uses them: the outliner, the inspector, **Set story date...**, the timeline, **Shift
 story dates...** and filters.
 

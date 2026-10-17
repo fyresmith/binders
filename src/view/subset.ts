@@ -48,6 +48,11 @@ export class Subset {
 	constructor(private plugin: BindersPlugin, private files: () => TFile[], private words: (f: TFile) => number | null) {}
 
 	private get app(): App { return this.plugin.app; }
+	/** The statuses and labels in force over this binder's notes: its own lists, if it keeps them, else the vault's. */
+	private get lists(): { statuses: string[]; labels: string[] } {
+		const store = this.plugin.binders, at = this.files()[0] ?? null;
+		return { statuses: store.statusesOf(at), labels: store.labelsOf(at).map((l) => l.name) };
+	}
 	/** The properties that hold status and label. */
 	get props(): StateProps { const s = this.plugin.settings; return { status: s.statusProp, label: s.labelProp }; }
 
@@ -58,8 +63,7 @@ export class Subset {
 
 	/** A view's saved filter (the old two lists, or conditions) as a filter; null if there was none. */
 	read(saved: unknown): FilterDef | null {
-		const s = this.plugin.settings;
-		return readState(saved, s.statuses, s.labels.map((l) => l.name), this.props);
+		return readState(saved, this.lists.statuses, this.lists.labels, this.props);
 	}
 	/** Takes a view's saved filter. False if there was none (the filter is as it was). What is remembered about the filter
 	    (`seen`) is let go only if its conditions are not the same: a change of mode sets the state again and is no change. */
@@ -213,8 +217,8 @@ export class Subset {
 		const own: [string, string, Kind, string][] = [[s.statusProp, 'Status', 'text', 'circle-dot'], [s.labelProp, 'Label', 'text', 'palette'], [s.targetProp, 'Target', 'number', 'target'], [s.storyDateProp, 'Story date', 'date', 'calendar'], [EXPORT_PROP, 'Include in export', 'checkbox', 'book-up']];
 		for (const [id, title, kind, icon] of own) {
 			const values = inUse(id, kind);
-			if (id === s.statusProp) values.sort((a, b) => rank(a.raw, s.statuses) - rank(b.raw, s.statuses));
-			if (id === s.labelProp) values.sort((a, b) => rank(a.raw, s.labels.map((l) => l.name)) - rank(b.raw, s.labels.map((l) => l.name)));
+			if (id === s.statusProp) values.sort((a, b) => rank(a.raw, this.lists.statuses) - rank(b.raw, this.lists.statuses));
+			if (id === s.labelProp) values.sort((a, b) => rank(a.raw, this.lists.labels) - rank(b.raw, this.lists.labels));
 			out.push({ id, title, kind, icon, own: true, values });
 		}
 		const skip = new Set([...own.map((o) => o[0]), s.storyOrderProp, ...HIDDEN]);

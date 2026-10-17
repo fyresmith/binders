@@ -406,6 +406,7 @@ test('a row that opens a page: the page has the rows, and Back goes to the tab; 
 		await showRow(p, 'labels');
 		t.eq(await pageNow(p), 'Labels', 'the Labels row opens the Labels page');
 		t.eq(await p.ev(`${TAB}.querySelectorAll('.binders-settings-label').length`), 8, 'and has the eight labels');
+		t.ok((await p.ev(`${SHOWN}.textContent`)).includes('A binder can have its own, in its settings.'), 'and says a binder can have its own labels, in its settings');
 		await p.ev(`(() => { app.setting.closePage(); return 1; })()`);
 		await p.sleep(400);
 		t.eq(await pageNow(p), null, 'back: the tab');

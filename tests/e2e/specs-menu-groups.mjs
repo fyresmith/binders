@@ -196,7 +196,7 @@ test('More options: Find, the mode’s own rows, then Cards, undo and redo, the 
 	log('More options (corkboard):', j(names(it)));
 	const n = names(it);
 	t.ok(!['Corkboard', 'Outliner', 'Manuscript', 'Timeline', 'Arrange', 'In a grid', 'By label, across', 'By label, down', 'Show notes in subfolders', 'Show unused labels', 'Card size'].some((x) => n.includes(x)), 'the modes and Arrange are the toolbar’s, not here');
-	for (const x of ['Find in binder', 'Find and replace in binder', 'Cards', 'Add revision task', 'Snapshots', 'Export...', 'Show progress', 'Show contents', 'Open binder note']) t.ok(n.includes(x), `${x} is there`);
+	for (const x of ['Find in binder', 'Find and replace in binder', 'Cards', 'Add revision task', 'Snapshots', 'Export...', 'Show progress', 'Show contents', 'Binder settings...', 'Open binder note']) t.ok(n.includes(x), `${x} is there`);
 	t.ok(n.indexOf('Find in binder') < n.indexOf('Cards') && n.indexOf('Cards') < n.indexOf('Add revision task') && n.indexOf('Add revision task') < n.indexOf('Snapshots') && n.indexOf('Snapshots') < n.indexOf('Export...') && n.indexOf('Export...') < n.indexOf('Show progress') && n.indexOf('Show progress') < n.indexOf('Open binder note'), 'in order');
 	await closeMenus(p);
 	await moreOptions(p);

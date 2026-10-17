@@ -9,7 +9,7 @@ import { paintLabel } from './labels';
 import { CARD_SIZES, readSize, type CardSize } from './lanes-data';
 import { ask } from './modals';
 import { eraOf } from '../time/calendar';
-import { CalendarModal } from './calendar-modal';
+import { openBinderSettings } from './binder-settings';
 import { readStory, setStoryPlaces, type StoryWrite } from './props';
 import { GREGORIAN, exampleDates, parseStoryDate, showStoryDate, whyNotStoryDate, writeStoryDate, type Calendar, type StoryDate, type StoryPlace } from '../time/date';
 import { TIMELINE_SHAPES, columnsFor, dateKey, dateText, dropWords, gapText, planAcross, planDrop, readShape, slotAt, timeline, unfoldTargets, whereAcross, yearText, yearsOf, type AcrossPlan, type Group, type Shape } from './timeline-data';
@@ -380,7 +380,7 @@ class Timeline implements BinderMode {
 			{ title: 'Tint cards with their label color', icon: 'paint-bucket', on: this.tint, flip: () => this.set('labelStyle', this.tint ? 'stripe' : 'tint') },
 		]);
 		// the book's own calendar and its eras (a Longform project keeps no calendar)
-		if (this.ctx.binder.kind === 'binder') menu.addItem((i) => i.setSection('view').setTitle('Calendar...').setIcon('calendar-range').onClick(() => new CalendarModal(this.ctx.plugin, this.ctx.binder).open()));
+		if (this.ctx.binder.kind === 'binder') menu.addItem((i) => i.setSection('view').setTitle('Calendar...').setIcon('calendar-range').onClick(() => openBinderSettings(this.ctx.plugin, this.ctx.binder, 'calendar')));
 	}
 
 	newMenu(menu: Menu): void {
@@ -408,7 +408,7 @@ class Timeline implements BinderMode {
 
 	private signature(): string {
 		const s = this.ctx.plugin.settings;
-		return JSON.stringify([this.ctx.readOnly, s.labels, s.storyDateProp, s.storyOrderProp, this.tint, this.layout, this.size, this.trayOpen, this.ctx.filtering(), this.calendarKey(),
+		return JSON.stringify([this.ctx.readOnly, this.ctx.store.labelsOf(this.ctx.binder), s.storyDateProp, s.storyOrderProp, this.tint, this.layout, this.size, this.trayOpen, this.ctx.filtering(), this.calendarKey(),
 			this.scenes().map((f) => { const st = readStory(this.ctx.plugin, f); return [cardKey(this.ctx, f), st.raw, st.order]; })]);
 	}
 
@@ -739,7 +739,7 @@ class Timeline implements BinderMode {
 	private attach(path: string): HTMLElement | null {
 		const s = this.spots.get(path);
 		if (!s) return null;
-		const key = JSON.stringify([this.ctx.readOnly, this.ctx.plugin.settings.labels, cardKey(this.ctx, s.file), s.n, s.date]);
+		const key = JSON.stringify([this.ctx.readOnly, this.ctx.store.labelsOf(this.ctx.binder), cardKey(this.ctx, s.file), s.n, s.date]);
 		let d = this.cards.get(path);
 		if (!d || d.key !== key) {
 			const had = d?.el.contains(this.board.doc.activeElement);
@@ -931,7 +931,7 @@ class Timeline implements BinderMode {
 		copy.addClass('mod-dragged-item');
 		copy.setCssStyles({ width: `${r.width}px`, height: `${r.height}px` });
 		copy.setCssProps({ '--binders-card-lines': getComputedStyle(card).getPropertyValue('--binders-card-lines') });
-		paintLabel(copy, card.dataset.label ?? '', this.ctx.plugin.settings.labels);
+		paintLabel(copy, card.dataset.label ?? '', this.ctx.store.labelsOf(this.ctx.binder));
 		ghost.appendChild(copy);
 		if (files.length > 1) {
 			ghost.addClass('is-multiple');

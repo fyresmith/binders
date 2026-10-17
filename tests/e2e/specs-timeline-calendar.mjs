@@ -1,4 +1,4 @@
-// A book's own calendar and its eras (src/time/calendar.ts, src/view/calendar-modal.ts): kept in the binder note, read
+// A book's own calendar and its eras (src/time/calendar.ts, src/view/calendar-form.ts (the Calendar page of Binder settings)): kept in the binder note, read
 // everywhere a story date is; a date typed in the book's words is written on the book's one count with its month as a
 // number; eras are headings on the timeline that stay in sight; the Calendar dialog writes the binder note only, or
 // with the dates of months that moved when the writer asks; a calendar that can't be read is said, and no date is
@@ -28,9 +28,9 @@ const resetHistory = (p) => p.ev(`(() => { ${B}.undos = []; ${B}.redos = []; ret
 const undo = async (p) => { const u = await p.at('.workspace-leaf.mod-active .binders-undo-button'); await p.click(u.x, u.y); await p.sleep(400); await flush(p); };
 const openCalendar = async (p) => {
 	await p.ev(`(() => { app.commands.executeCommandById('binders:edit-calendar'); return 1; })()`);
-	await until(p, `!!document.querySelector('.binders-calendar-modal')`);
+	await until(p, `!!document.querySelector('.binders-bset .binders-calendar-form')`);
 };
-const save = async (p) => { const b = await p.at('.binders-calendar-modal .mod-cta'); await p.click(b.x, b.y); await until(p, `!document.querySelector('.binders-calendar-modal')`, 6000); await flush(p); };
+const save = async (p) => { await p.ev(`(() => { const b = document.querySelector('.binders-bset [data-binders-key="calendar-save"]'); b.scrollIntoView({ block: 'center' }); b.click(); return 1; })()`); await until(p, `[...document.querySelectorAll('.notice')].some((n) => n.textContent === 'The calendar was saved.')`, 6000); await p.sleep(300); await p.key('Escape'); await until(p, `!document.querySelector('.modal.binders-bset')`, 3000); await flush(p); };
 /** Types into the dialog's field, as a writer does. */
 const setField = (p, sel, i, value) => p.ev(`(() => { const x = document.querySelectorAll(${j(sel)})[${i}]; x.value = ${j(value)}; x.dispatchEvent(new Event('input', { bubbles: true })); return 1; })()`);
 const askDate = async (p, path) => {

@@ -168,11 +168,11 @@ test('cards: a label is a preset by name, a theme color by name, or a color of y
 	t.eq((await cardLabel(p, 'Prologue.md')).has, false, 'and the card has no label');
 	same(t, before, await texts(p), { skip: [L + 'Prologue.md', L + 'Part One/Arrival.md', L + 'Part One/The keeper.md'] });
 	for (const f of ['Prologue.md', 'Part One/Arrival.md', 'Part One/The keeper.md']) t.eq(split(await read(p, L + f)).body, split(before[L + f]).body, `${f}: text untouched`);
-	// "Edit labels..." opens Binders' settings
+	// "Edit labels..." opens Binder settings, at its Labels page
 	await setLabelMenu(p, 'Epilogue.md');
 	await clickMenu(p, 'Edit labels...');
-	await until(p, `app.setting.activeTab?.id === 'binders'`);
-	t.eq(await p.ev(`app.setting.activeTab?.id`), 'binders', '“Edit labels...” opens Binders’ settings');
+	await until(p, `!!document.querySelector('.modal.binders-bset [data-page="labels"]')`);
+	t.ok(await p.ev(`!!document.querySelector('.modal.binders-bset [data-page="labels"]')`), '“Edit labels...” opens Binder settings at Labels');
 });
 
 test('cards: “Tint cards with their label color” washes a labeled card in its color, and is remembered', async (p, h, t) => {

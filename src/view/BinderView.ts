@@ -20,6 +20,7 @@ import { TIMELINE_ICON, TIMELINE_SHAPES, readShape } from './timeline-data';
 import { ask } from './modals';
 import { parseTarget, whyNotTarget } from './outliner-data';
 import { readProps, writeBatch, writeProps } from './props';
+import { openBinderSettings } from './binder-settings';
 import type { BinderMode, ModeContext, SceneProps } from './mode';
 import type { EditorView } from '@codemirror/view';
 import { PROGRESS_ICON, ProgressModal } from './progress';
@@ -405,7 +406,9 @@ export class BinderView extends ItemView {
 			menu.addItem((i) => i.setSection('binders-note').setTitle('Show progress').setIcon(PROGRESS_ICON).onClick(() => new ProgressModal(this.plugin, folder).open()));
 			// (the whole book as a list in the sidebar, with where this view is)
 			menu.addItem((i) => i.setSection('binders-note').setTitle('Show contents').setIcon('book-open').onClick(() => this.plugin.showContents()));
-			if (note) menu.addItem((i) => i.setSection('binders-note').setTitle(binder ? 'Open binder note' : 'Open folder note').setIcon('file-text').onClick((e) => void this.app.workspace.getLeaf(Keymap.isModEvent(e)).openFile(note)));
+			// (the binder's settings; on a phone the sheet is full, so its note is opened from the dialog's Book page instead)
+			if (this.store.binderOf(folder)) menu.addItem((i) => i.setSection('binders-note').setTitle('Binder settings...').setIcon('settings-2').onClick(() => { openBinderSettings(this.plugin, folder); }));
+			if (note && !(binder && Platform.isPhone)) menu.addItem((i) => i.setSection('binders-note').setTitle(binder ? 'Open binder note' : 'Open folder note').setIcon('file-text').onClick((e) => void this.app.workspace.getLeaf(Keymap.isModEvent(e)).openFile(note)));
 		}
 		super.onPaneMenu(menu, source);
 	}
@@ -846,7 +849,7 @@ export class BinderView extends ItemView {
 			subset: this.subset,
 			apply: (f) => this.setFilter(f),
 			count: () => this.countSaid(),
-			labels: () => this.plugin.settings.labels,
+			labels: () => this.store.labelsOf(this.binder),
 			saved: () => this.savedList(),
 			edit: (label, op) => this.editSaved(label, op),
 			canSave: () => (this.binder ? this.store.whyNoFilters(this.binder) : 'Open a binder to save a filter.'),

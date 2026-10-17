@@ -11,7 +11,7 @@
 import { inflateSync } from 'zlib';
 import { mkdirSync, readFileSync } from 'fs';
 import { join } from 'path';
-import { menuItemsAllTouch } from './menu-routes.mjs';
+import { menuItemsAllTouch, openBinderNoteFromSettings } from './menu-routes.mjs';
 import { VIEW, closeMenus, contents, exists, j, menuItems, openView, until, withTidy } from './view-helpers.mjs';
 import { LEAF, PHONE, TABLET, binder, dialogs, disk, metrics, notices, onDevice, swipe, tap, tapText, hold, touch, menuTap, keys, openMs, saveAll, snap } from './specs-qa5-manuscript.mjs';
 
@@ -213,13 +213,13 @@ test('the tablet switches mode from the toolbar’s mode button (corkboard, outl
 // More options: what it holds, and what each item does (phone)
 // =====================================================================================================================
 
-test('the view’s More options on a phone lists Find, Export..., Show contents and Open binder note, in that order, and not the modes (the toolbar’s); Show contents and Open binder note do what they say', on(PHONE, async (p, h, t) => {
+test('the view’s More options on a phone lists Find, Export..., Show contents and Binder settings..., in that order, and not the modes (the toolbar’s); Show contents does what it says, and the binder note opens from the settings’ Book page', on(PHONE, async (p, h, t) => {
 	await binder(p, 'Novel', scenes(4));
 	await openView(p, 'Novel');
 	await mode(p, 'corkboard');
 	await more(p);
 	const items = await menuItems(p);
-	const want = ['Find in binder', 'Export...', 'Show contents', 'Open binder note'];
+	const want = ['Find in binder', 'Export...', 'Show contents', 'Binder settings...'];
 	t.ok(inOrder(items, want), `the items, in order: ${items.join(', ')}`);
 	t.ok(!items.some((x) => ['Corkboard', 'Outliner', 'Manuscript', 'Timeline'].includes(x)), `the modes are not in it: ${items.join(', ')}`);
 	await menuTap(p, 'Show contents');
@@ -228,7 +228,8 @@ test('the view’s More options on a phone lists Find, Export..., Show contents 
 	await p.ev(`app.workspace.rightSplit?.collapse?.(); app.workspace.leftSplit?.collapse?.()`); await p.sleep(500);
 	await openView(p, 'Novel');
 	await more(p);
-	t.ok(await menuTap(p, 'Open binder note'), 'Open binder note is tapped');
+	t.ok(await menuTap(p, 'Binder settings...'), 'Binder settings... is tapped');
+	await openBinderNoteFromSettings(p);
 	await p.sleep(900);
 	t.eq(await p.ev(`app.workspace.getActiveFile()?.path ?? null`), NOVEL, 'the binder note is the note in front');
 }));

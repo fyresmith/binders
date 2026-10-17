@@ -8,10 +8,12 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 
 - A manuscript export style has a “Header on the first page” choice: set it to “Left off” and the first page of the text has no header, in the Word file and the PDF; the next page still says 2.
 - A note's “title” property is shown in place of its file name in the binder views, the side panes, find and replace, the file explorer and an export's headings; editing a shown name changes the title and leaves the file alone. The property's name can be changed under Property names in settings.
+- Binder settings: one window for what a binder keeps about itself (book details, goal, labels, statuses, the template for new notes and its calendar), from More options, the file explorer's menu on a binder, or the command Open binder settings. A binder can have its own labels and statuses in place of the vault's.
 
 ### Changed
 
 - Binders' settings are shorter and grouped like Obsidian's own: labels, statuses, focus mode, export folders and property names each open on a page of their own and say at a glance what is on it; how words are counted is now a dropdown, and Words to write today is under Writing.
+- Book details and the calendar are pages of Binder settings now (Export's Book details... and Edit calendar... open them there), and Edit labels... opens the binder's Labels page. On a phone, Open binder note is in Binder settings, on its Book page.
 
 ### Fixed
 

@@ -37,7 +37,8 @@ See [Paragraphs](paragraphs.md).
 ### Labels
 
 The labels a note can have: a name and a color each. The defaults are Red, Orange, Yellow, Green, Cyan, Blue, Purple
-and Pink.
+and Pink. A binder can have its own, in its settings (see [Binder settings](binder-settings.md)); these are the ones
+every other binder uses.
 
 - **Add label** (the plus) adds one.
 - Type in a label's name to rename it. Binders then asks whether to rename it in the notes that have it.
@@ -51,7 +52,8 @@ and Pink.
 The statuses a note can have, in the order a draft goes through them. The defaults are Idea, Draft, Revised and
 Done.
 
-**Add status**, rename, reorder, delete and **Restore the default statuses** work as for labels.
+**Add status**, rename, reorder, delete and **Restore the default statuses** work as for labels. A binder can have its
+own, in its settings.
 
 See [Labels, statuses and targets](labels-statuses-targets.md).
 

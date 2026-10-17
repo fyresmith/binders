@@ -101,3 +101,13 @@ export async function startEmpty(p, { tap = false, name = 'Empty binder' } = {})
 	await p.sleep(300);
 	return true;
 }
+
+/** On a phone the binder's note is not in the view's More options (the sheet is full): it is opened from Binder settings,
+    on the Book page. This taps through the dialog's list and the page to its "Open binder note" row. */
+export async function openBinderNoteFromSettings(p) {
+	for (const key of ['page-book', 'open-binder-note']) {
+		for (let i = 0; i < 40 && !(await p.ev(`!!document.querySelector('.binders-bset [data-binders-key="${key}"]')`)); i++) await p.sleep(100);
+		await p.ev(`(() => { document.querySelector('.binders-bset [data-binders-key="${key}"]').click(); return 1; })()`);
+		await p.sleep(400);
+	}
+}

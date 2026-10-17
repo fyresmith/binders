@@ -27,6 +27,9 @@ export class OutlinerModel {
 
 	private get store() { return this.ctx.store; }
 	private get settings() { return this.ctx.plugin.settings; }
+	/** The labels and statuses of this binder: its own, if it keeps them, else the vault's. */
+	private get labels() { return this.ctx.store.labelsOf(this.ctx.binder); }
+	private get statuses() { return this.ctx.store.statusesOf(this.ctx.binder); }
 	private get longform(): boolean { return this.ctx.binder.kind === 'longform'; }
 
 	children(folder: TFolder): (TFile | TFolder)[] {
@@ -135,8 +138,8 @@ export class OutlinerModel {
 		switch (id) {
 			case TITLE: return nameOf(item);
 			// in the order settings list them, then by name
-			case 'label': return p.label ? rankedKey(p.label, this.settings.labels.map((l) => l.name), labelName(p.label, this.settings.labels)) : '';
-			case 'status': return p.status ? rankedKey(p.status, this.settings.statuses, p.status) : '';
+			case 'label': return p.label ? rankedKey(p.label, this.labels.map((l) => l.name), labelName(p.label, this.labels)) : '';
+			case 'status': return p.status ? rankedKey(p.status, this.statuses, p.status) : '';
 			case 'words': return this.words(item);
 			case 'target': return this.target(item).n || null;
 			case 'progress': return progress(this.words(item), this.target(item).n);

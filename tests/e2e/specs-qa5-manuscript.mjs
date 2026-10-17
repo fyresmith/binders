@@ -1228,7 +1228,7 @@ test('phone: “New” makes a note after the section with the caret, named in p
 	await tap(p, more.x, more.y, 500);
 	const items = await menuItems(p);
 	await shot(p, 'more-options');
-	for (const x of ['Export...', 'Open binder note']) t.ok(items.includes(x), `“${x}” is in More options: ${j(items)}`);
+	for (const x of ['Export...', 'Binder settings...']) t.ok(items.includes(x), `“${x}” is in More options: ${j(items)}`);
 	t.ok(!items.some((x) => ['Corkboard', 'Outliner', 'Manuscript', 'Timeline'].includes(x)), `the modes are not in More options, they are the toolbar’s: ${j(items)}`);
 	t.ok(!!(await p.at(`${LEAF} .binders-mode-button`)), 'the mode button is in the toolbar');
 	await gone(p);

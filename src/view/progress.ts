@@ -3,7 +3,8 @@ import type BindersPlugin from '../main';
 import { recordDay } from '../progress/day';
 import { toHistory, type Merged } from '../progress/merge';
 import { count, fmt, monthName, num, sayDay, type History } from '../progress/model';
-import { DAYS_PROP, DEADLINE_PROP, WEEK, offDays, planFrom, planProblem, readDeadline, readWritingDays, saidDays, writeWritingDays } from '../progress/plan';
+import { drawPlanFields } from './plan-form';
+import { DAYS_PROP, DEADLINE_PROP, offDays, planFrom, planProblem, readDeadline, readWritingDays, saidDays, writeWritingDays } from '../progress/plan';
 import { BinderRecord } from '../progress/record';
 import { FIRST_DAYS, alike, baseOf, chapters, facts, hourSaid, hourShape, pace, parts, plannedAt, projected, rows as rowsOf, share, stage, statusSeries, weekdayShape, type Fact, type Pace, type Row } from '../progress/stats';
 import { textFacts, type SceneText } from '../progress/text';
@@ -450,22 +451,8 @@ export class ProgressModal extends Modal {
 	private planForm(parent: HTMLElement, cur: { target: number; deadline: string | null; days: number[] }, total: number, has: boolean): void {
 		const d = this.draft ??= { target: cur.target ? String(cur.target) : '', deadline: cur.deadline ?? '', days: [...cur.days], problem: '' };
 		const form = parent.createDiv({ cls: 'binders-pot-form', attr: { role: 'group', 'aria-label': has ? 'Change the plan' : 'Set a deadline' } });
-		new Setting(form).setName('Word count target').setDesc(this.within ? 'The words this folder is to have.' : 'The words the book is to have.').addText((t) => {
-			t.setPlaceholder('Such as 80,000').setValue(d.target).onChange((v) => { d.target = v; });
-			t.inputEl.setAttrs({ inputmode: 'numeric', 'data-binders-key': 'form-target', 'aria-label': 'Word count target' });
-		});
-		new Setting(form).setName('Deadline').setDesc('The day the words are to be written by.').addText((t) => {
-			t.inputEl.type = 'date';
-			t.setValue(d.deadline).onChange((v) => { d.deadline = v; });
-			t.inputEl.setAttrs({ 'data-binders-key': 'form-deadline', 'aria-label': 'Deadline' });
-		});
-		const row = new Setting(form).setName('Writing days').setDesc('The days of the week that are written on. The plan shares the words among them.');
-		const group = row.controlEl.createDiv({ cls: 'binders-pot-weekdays', attr: { role: 'group', 'aria-label': 'Writing days' } });
-		for (const day of WEEK) {
-			const full = new Date(Date.UTC(2026, 9, 11 + day)).toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' }), on = d.days.includes(day);
-			const b = group.createEl('button', { cls: `text-icon-button binders-pot-weekday${on ? ' is-active' : ''}`, text: LETTERS[day], attr: { 'aria-label': full, 'aria-pressed': String(on), 'data-binders-key': `form-day-${day}` } });
-			b.addEventListener('click', () => { d.days = d.days.includes(day) ? d.days.filter((x) => x !== day) : [...d.days, day]; b.toggleClass('is-active', d.days.includes(day)); b.setAttr('aria-pressed', String(d.days.includes(day))); });
-		}
+		// (the same rows as Binder settings' Goal page)
+		drawPlanFields(form, d, { about: this.within ? 'The words this folder is to have.' : 'The words the book is to have.', key: 'form' });
 		const problem = form.createDiv({ cls: 'binders-pot-form-problem', text: d.problem, attr: { role: 'status', 'aria-live': 'polite' } });
 		const label = has ? 'Change the plan' : 'Set a deadline';
 		const buttons = new Setting(form).setClass('binders-pot-form-buttons');

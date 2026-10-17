@@ -99,6 +99,7 @@ The three dots in the view's header open a menu with, after Obsidian's **Split r
   exported. See [Export](export.md).
 - **Show progress**, which opens the binder's [progress](progress.md): how it has grown, and when.
 - **Show contents**, which opens the [contents](inspector.md#the-contents) in the sidebar.
+- **Binder settings...**: the [binder's settings](binder-settings.md).
 - **Open binder note**, or **Open folder note** inside a folder. This is how you reach the note that holds a
   binder's or folder's own data while it is hidden in the file explorer.
 

@@ -97,7 +97,7 @@ export class ContentsPane {
 	private entries(binder: Binder): Entry[] {
 		const store = this.plugin.binders, out: Entry[] = [], cache = this.plugin.app.metadataCache;
 		// (a label alone is read, as every view reads one: not the rest of a note's card data, for each of thousands)
-		const prop = this.plugin.settings.labelProp, names = this.plugin.settings.labels.map((l) => l.name);
+		const prop = this.plugin.settings.labelProp, names = store.labelsOf(binder).map((l) => l.name);
 		const walk = (folder: TFolder, depth: number) => {
 			for (const c of store.orderedChildren(folder) ?? []) {
 				const note = c instanceof TFolder ? store.folderNote(c) : c instanceof TFile ? c : null;
@@ -113,7 +113,7 @@ export class ContentsPane {
 	/** Puts the list right: rows that are gone leave, new ones are made, and each is where it belongs and says what
 	    it should. A row that hasn't changed isn't touched. */
 	private sync(binder: Binder): void {
-		const list = this.list, presets = this.plugin.settings.labels, entries = this.entries(binder);
+		const list = this.list, presets = this.plugin.binders.labelsOf(binder), entries = this.entries(binder);
 		if (!this.book || !this.book.isConnected) {
 			this.clear();
 			// the book itself, as a heading: a click shows the whole of it

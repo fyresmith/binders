@@ -203,8 +203,8 @@ test('publishing details: written by Book details, on the ebook’s title and co
 	await note(p, `fm.exports = [{ name: 'Kindle', kind: 'ebook', isbn: '978-1-7390112-0-4' }];`);
 	await open(p);
 	await p.ev(`(() => { document.querySelector('${WIN} [aria-label="Book details"]').click(); return 1; })()`);
-	await until(p, `!!document.querySelector('.modal.binders-book-details [data-binders-key="series"]')`, 4000);
-	const set = (key, value) => p.ev(`(() => { const e = document.querySelector('.modal.binders-book-details [data-binders-key="${key}"]'); e.value = ${j(value)}; e.dispatchEvent(new Event('input', { bubbles: true })); e.dispatchEvent(new Event('change', { bubbles: true })); e.dispatchEvent(new Event('blur')); return 1; })()`).then(() => p.sleep(300));
+	await until(p, `!!document.querySelector('.modal.binders-bset .binders-book-details [data-binders-key="series"]')`, 4000);
+	const set = (key, value) => p.ev(`(() => { const e = document.querySelector('.modal.binders-bset .binders-book-details [data-binders-key="${key}"]'); e.value = ${j(value)}; e.dispatchEvent(new Event('input', { bubbles: true })); e.dispatchEvent(new Event('change', { bubbles: true })); e.dispatchEvent(new Event('blur')); return 1; })()`).then(() => p.sleep(300));
 	await set('series', 'The Corran Light');
 	await set('seriesNumber', '2');
 	await set('publisher', 'Lantern Press');
@@ -213,12 +213,12 @@ test('publishing details: written by Book details, on the ebook’s title and co
 	await set('description', 'A keeper and a light.');
 	await set('rights', 'All rights reserved.');
 	await set('keywords', 'sea, Cornwall');
-	await p.ev(`(() => { [...document.querySelectorAll('.modal.binders-book-details button')].find(b => b.textContent === 'Add...').click(); return 1; })()`);
+	await p.ev(`(() => { [...document.querySelectorAll('.modal.binders-bset .binders-book-details button')].find(b => b.textContent === 'Add...').click(); return 1; })()`);
 	await p.sleep(300);
 	await clickMenu(p, 'Editor');
-	await p.ev(`(() => { const i = [...document.querySelectorAll('.modal.binders-book-details .binders-book-details-person input')].pop(); i.value = 'June Hale'; i.dispatchEvent(new Event('change')); return 1; })()`);
+	await p.ev(`(() => { const i = [...document.querySelectorAll('.modal.binders-bset .binders-book-details .binders-book-details-person input')].pop(); i.value = 'June Hale'; i.dispatchEvent(new Event('change')); return 1; })()`);
 	await p.sleep(400);
-	await answer(p, 'Done');
+	await p.key('Escape');
 	await until(p, `app.metadataCache.getCache(${j(BINDER)})?.frontmatter?.contributors?.[0] === 'Editor: June Hale'`, 6000);
 	const fm = await p.ev(`JSON.stringify(app.metadataCache.getCache(${j(BINDER)}).frontmatter)`).then((s) => JSON.parse(s));
 	t.eq([fm.series, fm['series-number'], fm.publisher, fm.edition, fm.published, fm.description, fm.rights, fm.keywords.join(), fm.contributors.join()].join('|'), 'The Corran Light|2|Lantern Press|First edition|2026-11-03|A keeper and a light.|All rights reserved.|sea,Cornwall|Editor: June Hale', 'each kept as a plain property of the binder note');

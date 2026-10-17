@@ -24,7 +24,7 @@ import { followRename } from './export/export';
 import { printer } from './export/pdf';
 import { ExportModal } from './view/export';
 import { PROGRESS_ICON, ProgressModal } from './view/progress';
-import { CalendarModal } from './view/calendar-modal';
+import { openBinderSettings } from './view/binder-settings';
 import { exportAgain } from './view/export-again';
 import { PresetSuggest, followExports } from './view/export-presets';
 import { Styles } from './export/styles';
@@ -269,7 +269,15 @@ export default class BindersPlugin extends Plugin {
 			const binder = view?.folder ? this.binders.binderOf(view.folder) : file ? this.binders.binderOf(file) : null;
 			// (a Longform project keeps no calendar; a binder of a newer format can't be changed)
 			if (!binder || binder.kind !== 'binder' || binder.problem) return false;
-			if (!checking) new CalendarModal(this, binder).open();
+			if (!checking) openBinderSettings(this, binder, 'calendar');
+			return true;
+		} });
+		// everything a binder keeps about itself, in one dialog (view/binder-settings.ts)
+		this.addCommand({ id: 'open-binder-settings', name: 'Open binder settings', icon: 'settings-2', checkCallback: (checking) => {
+			const view = this.app.workspace.getActiveViewOfType(BinderView), file = active();
+			const binder = view?.folder ? this.binders.binderOf(view.folder) : file ? this.binders.binderOf(file) : null;
+			if (!binder) return false;
+			if (!checking) openBinderSettings(this, view?.folder ?? file ?? binder);
 			return true;
 		} });
 		this.addCommand({ id: 'export', name: 'Export binder', icon: 'book-up', checkCallback: (checking) => {
@@ -423,6 +431,8 @@ export default class BindersPlugin extends Plugin {
 		// (a binder's own folder, or the folder a Longform project's index note is in)
 		{ const own = file instanceof TFolder ? b.all().find((x) => (x.kind === 'binder' ? x.folder : x.note.parent) === file) : null; if (own && !own.problem) menu.addItem((i) => i.setSection('action').setTitle('Save as binder template...').setIcon('copy-plus').onClick(() => saveTemplateDialog(this, own))); }
 		if (file instanceof TFolder && b.binderOf(file)) menu.addItem((i) => i.setSection('action').setTitle('Export...').setIcon('book-up').onClick(() => new ExportModal(this, file).open()));
+		// (a binder's own folder: a folder inside it has the binder's settings from the view's More options)
+		if (file instanceof TFolder && b.binderOf(file)?.folder === file) menu.addItem((i) => i.setSection('action').setTitle('Binder settings...').setIcon('settings-2').onClick(() => { openBinderSettings(this, file); }));
 		// a note in a binder: its card, and a new note right after it
 		const folder = file.parent;
 		if (file instanceof TFile && folder && b.binderOf(file) && !b.isHiddenNote(file) && (b.orderedChildren(folder) ?? []).includes(file)) {

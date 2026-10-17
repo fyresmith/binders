@@ -1320,7 +1320,7 @@ test('lines by label: a line head’s menu (New note with this label, Select its
 	await context(p, `${LEAF} .binders-lane-head.mod-label-red`);
 	await choose(p, 'Edit labels...');
 	await p.sleep(900);
-	t.eq(await p.ev(`app.setting?.activeTab?.id ?? null`), 'binders', 'Edit labels... opens Binders’ tab of the settings');
+	t.ok(await p.ev(`!!document.querySelector('.modal.binders-bset [data-page="labels"]')`), 'Edit labels... opens Binder settings at Labels');
 	await p.ev(`(() => { try { app.setting.close(); } catch {} return 1; })()`);
 	await p.key('Escape');
 	// the card menu in lines has the usual items

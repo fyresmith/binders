@@ -23,7 +23,7 @@ const CUSTOM = 'custom';
 const WORDS_KEY = 'wordCount';
 /** The line at the head of the Labels and Statuses pages, or none. (Once a binder can have lists of its own, in its
     settings, this says so: "A binder can have its own, in its settings.") */
-const OWN_LINE: string | null = null;
+const OWN_LINE: string | null = 'A binder can have its own, in its settings.';
 /** The Labels and Statuses pages' head line, as a group of its own, when there is one. */
 const ownLine = (): SettingSection[] => (OWN_LINE ? [{ type: 'group', cls: 'binders-settings-about', items: [{ name: OWN_LINE }] }] : []);
 /** Property names Binders keeps for itself: a note's synopsis, status, label or target can't be kept under one. */
@@ -184,7 +184,8 @@ export class BindersSettingTab extends PluginSettingTab {
 	private async renamed(kind: 'label' | 'status', old: string, now: string): Promise<void> {
 		const { app, plugin } = this, prop = kind === 'label' ? this.s.labelProp : this.s.statusProp;
 		const has = (v: unknown) => typeof v === 'string' && v.trim().toLowerCase() === old.toLowerCase();
-		const notes = app.vault.getMarkdownFiles().filter((f) => plugin.binders.binderOf(f) && has(app.metadataCache.getFileCache(f)?.frontmatter?.[prop]));
+		// (a binder with a list of its own is renamed in its own settings)
+		const notes = app.vault.getMarkdownFiles().filter((f) => plugin.binders.binderOf(f) && !(kind === 'label' ? plugin.binders.ownLabels(plugin.binders.binderOf(f)) : plugin.binders.ownStatuses(plugin.binders.binderOf(f))) && has(app.metadataCache.getFileCache(f)?.frontmatter?.[prop]));
 		if (!notes.length) { await this.renameInFilters(kind, old, now); return; }
 		const ok = await confirm(app, {
 			title: `Rename the ${kind} in your notes`,

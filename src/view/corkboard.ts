@@ -102,7 +102,7 @@ class Corkboard implements BinderMode {
 	/** A Longform project has no folders: its indented scenes show in groups under the scene they belong to. (In a
 	    binder every item of the folder shown is a card in one grid, in the binder's order, a folder as one card.) */
 	private get longform(): boolean { return this.ctx.binder.kind === 'longform'; }
-	private get presets() { return this.ctx.plugin.settings.labels; }
+	private get presets() { return this.ctx.store.labelsOf(this.ctx.binder); }
 
 	render(): void {
 		this.container.addClass('binders-corkboard');

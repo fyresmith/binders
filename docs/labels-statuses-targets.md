@@ -16,7 +16,8 @@ Rename them to what the colors mean in your book: a point of view, a storyline, 
 - your labels from settings, then any other labels the binder's notes already use;
 - **Custom color...**, for a color on that note alone;
 - **No label**;
-- **Edit labels...**, which opens Binders' settings.
+- **Edit labels...**, which opens the Labels page of [Binder settings](binder-settings.md). A binder can have its own
+  labels and statuses there, in place of the vault's.
 
 **Where a label shows:**
 

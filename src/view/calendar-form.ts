@@ -1,14 +1,15 @@
-import { ButtonComponent, DropdownComponent, Menu, Modal, Notice, TFile, setIcon } from 'obsidian';
+import { ButtonComponent, DropdownComponent, Menu, Notice, TFile, setIcon } from 'obsidian';
+import type { App } from 'obsidian';
 import { shownName } from '../shown-name';
 import type BindersPlugin from '../main';
 import type { Binder } from '../binders';
 import { PRESETS, eraAbbr, makeCalendar, readCalendarDef, writeCalendarDef, type CalendarDef, type MonthDef } from '../time/calendar';
 import { exampleDates, parseStoryDate, readStoryDate, showStoryDate, writeStoryDate, type Calendar, type StoryDate } from '../time/date';
-import { buttonRow } from './modals';
 
-/* "Calendar...": a book's own calendar and its eras, edited as Bases' "Configure view" is (groups of rows, a label over
-   each field), and kept in the binder note's `calendar` and `eras` (time/calendar.ts). What is edited is a draft; the
-   one button writes it, as one change that "Undo" takes back. A scene's story date is written only when the writer
+/* The Calendar page of Binder settings: a book's own calendar and its eras, edited as Bases' "Configure view" is (groups
+   of rows, a label over each field), and kept in the binder note's `calendar` and `eras` (time/calendar.ts). It is the
+   one page that does not keep a change as it is made: what is edited is a draft, and its one Save writes it, as one
+   change that "Undo" takes back. A scene's story date is written only when the writer
    asks for it: when months are moved, a written "11" would mean another month, and "Move their dates with their
    months" (off until ticked) writes those dates so they keep reading as they do. Otherwise a date reads in the new
    calendar as it is written, and what that does to the book's dates is said before it is saved. */
@@ -19,7 +20,7 @@ type Draft = MonthDef & { was?: number };
 /** A dated note, and its date as the binder's calendar reads it now. */
 interface Dated { file: TFile; raw: unknown; date: StoryDate }
 
-export class CalendarModal extends Modal {
+export class CalendarForm {
 	private def: Omit<CalendarDef, 'months'> & { months: Draft[] | null };
 	private form!: HTMLElement;
 	private about!: HTMLElement;
@@ -28,24 +29,32 @@ export class CalendarModal extends Modal {
 	/** The month being dragged, by its place in the draft. */
 	private dragging: number | null = null;
 
-	constructor(private plugin: BindersPlugin, private binder: Binder) {
-		super(plugin.app);
+	private app: App;
+
+	/** `root`: where the form is drawn; `saved`: called once the calendar is written. */
+	constructor(private plugin: BindersPlugin, private binder: Binder, private root: HTMLElement, private saved: () => void) {
+		this.app = plugin.app;
 		const fm = plugin.app.metadataCache.getFileCache(binder.note)?.frontmatter;
 		this.def = structuredClone(readCalendarDef(fm?.calendar, fm?.eras).def);
 		this.def.months?.forEach((m, i) => { m.was = i + 1; });
 	}
 
-	onOpen(): void {
-		this.setTitle('Calendar');
-		this.modalEl.addClass('binders-calendar-modal');
+	/** Draws the form, with the one Save button at its foot. `locked`: why nothing can be changed, or null. */
+	open(locked: string | null): void {
+		const el = this.root;
+		el.createDiv({ cls: 'binders-calendar-says', text: 'Saving the calendar can change what the story dates already written mean: what it would do is said below, before you save.' });
 		// (a calendar the binder note has and Binders can't read: what it could read is shown, and Save writes that)
 		const problem = this.plugin.binders.calendarProblem(this.binder);
-		if (problem) this.contentEl.createDiv({ cls: 'binders-calendar-dates mod-warning binders-calendar-problem', text: `${problem.replace(/ Story dates.*$/, '')} What could be read is shown here; Save writes it as shown.` });
-		this.form = this.contentEl.createDiv({ cls: 'bases-toolbar-menu-form view-config-menu binders-calendar-form' });
-		this.about = this.contentEl.createDiv({ cls: 'binders-calendar-about', attr: { role: 'status' } });
-		const row = buttonRow(this);
-		new ButtonComponent(row).setButtonText('Save').setCta().onClick(() => void this.save());
+		if (problem) el.createDiv({ cls: 'binders-calendar-dates mod-warning binders-calendar-problem', text: `${problem.replace(/ Story dates.*$/, '')} What could be read is shown here; Save writes it as shown.` });
+		this.form = el.createDiv({ cls: 'bases-toolbar-menu-form view-config-menu binders-calendar-form' });
+		this.about = el.createDiv({ cls: 'binders-calendar-about', attr: { role: 'status' } });
+		const row = el.createDiv({ cls: 'binders-calendar-save' });
+		const save = new ButtonComponent(row).setButtonText('Save').setCta().onClick(() => void this.save());
+		save.buttonEl.dataset.bindersKey = 'calendar-save';
+		if (locked) { save.setDisabled(true); el.addClass('is-locked'); }
 		this.draw();
+		// (nothing in a locked calendar is changed: its fields are shown and not enabled)
+		if (locked) for (const x of Array.from(this.form.querySelectorAll<HTMLInputElement | HTMLSelectElement>('input, select'))) x.disabled = true;
 	}
 
 	private get cal(): Calendar { return makeCalendar(this.def); }
@@ -318,9 +327,8 @@ export class CalendarModal extends Modal {
 			// (the dates that keep their months: written in the same step, so Undo takes the calendar and them back together)
 			if (this.follow) for (const x of this.followed(this.dated(), this.cal)) writes.push({ note: x.file, patch: { [key]: writeStoryDate(x.date) } });
 			await this.plugin.binders.setByHand(writes.length > 1 ? `Change the calendar and ${writes.length - 1} story ${writes.length === 2 ? 'date' : 'dates'}` : 'Change the calendar', writes, { calendar: 'the calendar', eras: 'the eras', [key]: 'story date' });
-			this.close();
+			new Notice('The calendar was saved.', 2500);
+			this.saved();
 		} catch (e) { new Notice(e instanceof Error ? e.message : String(e)); }
 	}
-
-	onClose(): void { this.contentEl.empty(); }
 }

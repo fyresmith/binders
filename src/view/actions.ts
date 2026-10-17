@@ -7,7 +7,8 @@ import { shiftDialog } from './shift-dates';
 import { GREGORIAN, exampleDates, parseStoryDate, showStoryDate, whyNotStoryDate, type StoryDate } from '../time/date';
 import { COMPILE_PROP, EXPORT_PROP, isExported, isNote, mergeScenes, saveOpen, synopsisFromText } from '../scenes';
 import { ExportModal } from './export';
-import { fitItemMenu, openPluginSettings, submenu, trashPhrase } from './internals';
+import { fitItemMenu, submenu, trashPhrase } from './internals';
+import { openBinderSettings } from './binder-settings';
 import { hexColor, labelCss, labelDot, labelName, presetOf } from './labels';
 import { ask, confirm, pickColor } from './modals';
 import type { ModeContext } from './mode';
@@ -124,15 +125,15 @@ function shared(ctx: ModeContext, items: TAbstractFile[], key: 'status' | 'label
 	return vals.size === 1 ? [...vals][0] : null;
 }
 
-/** The statuses to choose from: the ones in settings, in their order, then any others the binder's notes use. */
+/** The statuses to choose from: the binder’s (or settings’) in their order, then any others the binder's notes use. */
 export function statusChoices(ctx: ModeContext): string[] {
-	const presets = ctx.plugin.settings.statuses;
+	const presets = ctx.store.statusesOf(ctx.binder);
 	return [...presets, ...inUse(ctx, 'status').filter((s) => !presets.some((p) => same(p, s)))];
 }
 
-/** The labels to choose from: the ones in settings, then any others the binder's notes use (custom colors aside). */
+/** The labels to choose from: the binder’s (or settings’), then any others the binder's notes use (custom colors aside). */
 export function labelChoices(ctx: ModeContext): string[] {
-	const presets = ctx.plugin.settings.labels;
+	const presets = ctx.store.labelsOf(ctx.binder);
 	return [...presets.map((p) => p.name), ...inUse(ctx, 'label').filter((l) => !presetOf(l, presets) && !hexColor(l))];
 }
 
@@ -161,7 +162,7 @@ function shownColor(css: string | null): string | null {
 /** The labels to set, as a menu's items: the ones in settings, others in use, a color of the note's own, none, and
     "Edit labels...". */
 export function labelItems(ctx: ModeContext, m: Menu, items: TAbstractFile[]): void {
-	const presets = ctx.plugin.settings.labels, now = shared(ctx, items, 'label');
+	const presets = ctx.store.labelsOf(ctx.binder), now = shared(ctx, items, 'label');
 	for (const l of labelChoices(ctx)) {
 		const t = createFragment();
 		labelDot(t, l, presets);
@@ -181,7 +182,7 @@ export function labelItems(ctx: ModeContext, m: Menu, items: TAbstractFile[]): v
 		if (!custom) x.setIcon('pipette');
 	});
 	if (now !== '') m.addItem((x) => x.setSection('custom').setTitle('No label').setIcon('x').onClick(() => void setAll(ctx, items, { label: '' })));
-	m.addItem((x) => x.setSection('settings').setTitle('Edit labels...').setIcon('settings').onClick(() => openPluginSettings(ctx.app, ctx.plugin.manifest.id)));
+	m.addItem((x) => x.setSection('settings').setTitle('Edit labels...').setIcon('settings').onClick(() => openBinderSettings(ctx.plugin, ctx.binder, 'labels')));
 }
 
 /** Asks for a word count target for the items; nothing typed takes it away. */

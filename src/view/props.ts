@@ -19,12 +19,12 @@ const text = (v: unknown): string => (typeof v === 'string' ? v : typeof v === '
 /** Reads a note's card data from its properties. */
 export function readProps(plugin: BindersPlugin, file: TFile): SceneProps {
 	const fm = plugin.app.metadataCache.getFileCache(file)?.frontmatter ?? {};
-	const s = plugin.settings;
+	const s = plugin.settings, store = plugin.binders;
 	return {
 		synopsis: text(fm[s.synopsisProp]),
-		// as settings spell them, whatever case the note has them in
-		status: canonical(text(fm[s.statusProp]), s.statuses),
-		label: readLabel(fm[s.labelProp], s.labels.map((l) => l.name)),
+		// as the binder's lists (or settings') spell them, whatever case the note has them in
+		status: canonical(text(fm[s.statusProp]), store.statusesOf(file)),
+		label: readLabel(fm[s.labelProp], store.labelsOf(file).map((l) => l.name)),
 		target: readTarget(fm[s.targetProp]),
 	};
 }

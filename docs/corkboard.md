@@ -169,7 +169,7 @@ Click a line's name for its menu:
 - **New note with this label** (or **New note**, on the line for cards with no label).
 - **Select its notes**.
 - **New label...**: a name and a color, added to the labels in settings.
-- **Edit labels...**: opens Binders' settings.
+- **Edit labels...**: opens the Labels page of [Binder settings](binder-settings.md), where the binder can have labels of its own.
 
 Double-click a line where there's no card to make a note there, with that line's label.
 

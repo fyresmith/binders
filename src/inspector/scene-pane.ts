@@ -173,7 +173,7 @@ export class ScenePane {
 			b.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
 			return b;
 		};
-		const presets = plugin.settings.labels;
+		const presets = ctx.store.labelsOf(ctx.binder);
 		const label = shared('label'), lb = pick('label', this.row(rows, 'palette', 'Label'), (m) => labelItems(ctx, m, items));
 		if (label) { labelDot(lb, label, presets); lb.createSpan({ text: labelName(label, presets) }); } else lb.createSpan({ cls: 'binders-inspector-none', text: label === null ? 'Mixed' : 'No label' });
 		const status = shared('status'), sb = pick('status', this.row(rows, 'circle-dot', 'Status'), (m) => statusItems(ctx, m, items));

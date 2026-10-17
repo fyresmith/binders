@@ -77,13 +77,13 @@ function heldList(ctx: ModeContext, card: HTMLElement, folder: TFolder): void {
 		if (c instanceof TFolder) setIcon(row.createSpan({ cls: 'binders-card-held-icon' }), 'lucide-folder');
 		row.createSpan({ cls: 'binders-card-held-name', text: nameOf(c) });
 		const note = noteOf(ctx, c), label = note ? ctx.props(note).label : '';
-		if (label) labelDot(row, label, ctx.plugin.settings.labels);
+		if (label) labelDot(row, label, ctx.store.labelsOf(ctx.binder));
 	}
 }
 
 /** Draws an item's card (not yet in the page). */
 export function buildCard(host: CardHost, f: TAbstractFile): { el: HTMLElement; editors: CardEditors } {
-	const ctx = host.ctx, presets = ctx.plugin.settings.labels;
+	const ctx = host.ctx, presets = ctx.store.labelsOf(ctx.binder);
 	const folder = f instanceof TFolder;
 	const note = noteOf(ctx, f);
 	const p = note ? ctx.props(note) : { synopsis: '', status: '', label: '', target: 0 };

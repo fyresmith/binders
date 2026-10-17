@@ -6,8 +6,10 @@ become parts, chapters and scenes, and what your Markdown turns into. It applies
 
 ## Book details
 
-In the [Export window](export.md), click the button beside the book's name. On a phone it is **Book details**
-under the choices. **Book details...** is in the window's **More** menu too.
+Book details are the **Book** page of [Binder settings](binder-settings.md). Open it from the [Export window](export.md):
+click the button beside the book's name (on a phone it is **Book details** under the choices, and **Book details...**
+is in the window's **More** menu too), or open Binder settings from the binder view's **More options**. A change is kept
+as you make it; there is no Done.
 
 | Detail | What it is |
 |---|---|

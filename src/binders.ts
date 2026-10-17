@@ -28,7 +28,8 @@ import { SNAPSHOTS } from './snapshot-text';
 import { isRecordFile } from './progress/format';
 import { historyDir } from './progress/record';
 import { followSnapshots, isOwn } from './snapshots';
-import { labelCss, readLabel } from './view/labels';
+import { labelCss, readLabel, type LabelPreset } from './view/labels';
+import { LABELS_PROP, STATUSES_PROP, readOwnLabels, readOwnStatuses, writeOwnLabels } from './binder-lists';
 import { afterGroup, applySceneOps, conversionPlan, isIgnored, isLongformIndex, longformRunning, readProject, sameScenes, sceneGroups, shownScenes, writeScenes, type Project, type Scene, type SceneOp } from './longform';
 import { shownName } from './shown-name';
 
@@ -457,9 +458,49 @@ export class BinderStore extends Events implements ExplorerSource {
 		if (!this.at(item.path) || this.isHiddenNote(item)) return null;
 		const note = item instanceof TFolder ? this.folderNote(item) : item instanceof TFile && item.extension === 'md' ? item : null;
 		const s = this.plugin.settings, label = note ? this.app.metadataCache.getFileCache(note)?.frontmatter?.[s.labelProp] as unknown : null;
-		// (read as the cards read it: a list's first entry, a color in any spelling)
-		const name = readLabel(label, s.labels.map((l) => l.name));
-		return name ? labelCss(name, s.labels) : null;
+		// (read as the cards read it: a list's first entry, a color in any spelling; against the binder's own labels, if it has them)
+		const labels = this.labelsOf(item), name = readLabel(label, labels.map((l) => l.name));
+		return name ? labelCss(name, labels) : null;
+	}
+
+	/** The binder note's own labels, if it keeps its own (`labels`; binder-lists.ts), else null. */
+	ownLabels(binder: Binder | null): LabelPreset[] | null {
+		return binder && binder.kind === 'binder' ? readOwnLabels(this.app.metadataCache.getFileCache(binder.note)?.frontmatter?.[LABELS_PROP]) : null;
+	}
+	/** The binder note's own statuses, if it keeps its own (`statuses`), else null. */
+	ownStatuses(binder: Binder | null): string[] | null {
+		return binder && binder.kind === 'binder' ? readOwnStatuses(this.app.metadataCache.getFileCache(binder.note)?.frontmatter?.[STATUSES_PROP]) : null;
+	}
+	/** The labels that apply to this note, folder or binder: its binder's own, else the vault's (Binders' settings).
+	    Anything outside a binder has the vault's. */
+	labelsOf(item?: TAbstractFile | Binder | string | null): LabelPreset[] {
+		return this.ownLabels(this.binderFor(item)) ?? this.plugin.settings.labels;
+	}
+	/** The statuses that apply to this note, folder or binder, the same way. */
+	statusesOf(item?: TAbstractFile | Binder | string | null): string[] {
+		return this.ownStatuses(this.binderFor(item)) ?? this.plugin.settings.statuses;
+	}
+	/** Why this binder's own lists can't be written, in words, or null: a newer format, or a Longform project. */
+	whyNoLists(binder: Binder): string | null {
+		return binder.kind !== 'binder' ? 'A Longform project keeps its labels and statuses in the vault’s lists: convert it to a binder to give it its own.' : binder.problem ? 'This binder was made by a newer version of Binders: it is read only.' : null;
+	}
+	/** Gives the binder its own labels (the list, in its note's `labels`), or takes them away (null: the vault's apply
+	    again). Only that property is written, and no note's own label is changed. Not a step of "Undo": a list is
+	    not in the history, as an inspector pin is not. */
+	async setOwnLabels(binder: Binder, list: LabelPreset[] | null): Promise<void> {
+		const why = this.whyNoLists(binder);
+		if (why) throw new Error(why);
+		await this.setProps(binder.note, { [LABELS_PROP]: list ? writeOwnLabels(list) : undefined });
+	}
+	/** The same for the binder's own statuses (`statuses`). */
+	async setOwnStatuses(binder: Binder, list: string[] | null): Promise<void> {
+		const why = this.whyNoLists(binder);
+		if (why) throw new Error(why);
+		await this.setProps(binder.note, { [STATUSES_PROP]: list ? [...list] : undefined });
+	}
+	private binderFor(item?: TAbstractFile | Binder | string | null): Binder | null {
+		if (!item) return null;
+		return typeof item !== 'string' && 'kind' in item && 'note' in item ? item : this.binderOf(item);
 	}
 
 	problem(item: TAbstractFile | string): string | null { return this.binderOf(item)?.problem ?? null; }
@@ -1942,10 +1983,12 @@ export class BinderStore extends Events implements ExplorerSource {
 
 	/** Runs `fn`, then tells subscribers only if the binder's order or problem changed (e.g. not for its body text). */
 	private ifChanged(s: State, fn: () => void): void {
-		const before = JSON.stringify([s.problem, this.contents(s)]);
+		// (the binder's own labels and statuses are shown by every view of it: when they change it is told too)
+		const key = () => JSON.stringify([s.problem, this.contents(s), this.ownLabels(s), this.ownStatuses(s)]);
+		const before = key();
 		fn();
 		this.touch(s, false);
-		if (JSON.stringify([s.problem, this.contents(s)]) !== before) this.emit(s.path);
+		if (key() !== before) this.emit(s.path);
 	}
 
 	/** Coalesced, so a folder of 40 notes moving tells views once. */

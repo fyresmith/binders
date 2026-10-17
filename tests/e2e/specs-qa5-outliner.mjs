@@ -1153,7 +1153,7 @@ test('phone toolbar: the options sheet shows and hides columns and folds everyth
 		f.more = { items: await items(p), sheet: await sheet(p) };
 		await shot(p, 'toolbar-more');
 		c.ok(isSheet(f.more.sheet), 'the options are a sheet');
-		for (const x of ['Show synopses ✓', 'Columns', 'Expand all', 'Collapse all', 'Export...', 'Open binder note']) c.ok(f.more.items.includes(x), `“${x}” is in it`);
+		for (const x of ['Show synopses ✓', 'Columns', 'Expand all', 'Collapse all', 'Export...', 'Binder settings...']) c.ok(f.more.items.includes(x), `“${x}” is in it`);
 		// (the modes are the toolbar's now, not More options': the mode button is on the phone's toolbar)
 		c.ok(!f.more.items.some((x) => /^(Corkboard|Outliner|Manuscript|Timeline)/.test(x)), 'the modes are not in it: they are the toolbar’s');
 		c.ok(!!(await p.at(`${LEAF} .binders-mode-button`)), 'the mode button is in the phone’s toolbar');

@@ -9,7 +9,7 @@
 //
 // QA5_SHOTS=<dir> saves screenshots of every step there; QA5_LOG=1 prints what each scenario measured.
 import { mkdirSync } from 'fs';
-import { startEmpty, throughDrawers } from './menu-routes.mjs';
+import { openBinderNoteFromSettings, startEmpty, throughDrawers } from './menu-routes.mjs';
 import { B, PL, VIEW, card, closeMenus, contents, flush, j, menuItems, openView, read, reload, texts, tidy, until, viewState } from './view-helpers.mjs';
 import { SHOWN, showPage, showRow } from './settings-routes.mjs';
 
@@ -249,18 +249,18 @@ test('phone explorer: every row’s menu is a sheet with Binders’ items where 
 		await p.ev(FUTURE);
 		await p.sleep(1200);
 		await showExplorer(p, ['The Lighthouse', L + 'Part One', 'Longform demo', 'Future', 'Plain']);
-		const OURS = ['Open binder', 'Show in binder', 'New scene here', 'New scene after this', 'Make this folder a binder', 'New binder', 'Convert to binder', 'Export...', 'Move up', 'Move down', 'Merge 2 notes', 'New folder from selection'];
+		const OURS = ['Open binder', 'Show in binder', 'New scene here', 'New scene after this', 'Make this folder a binder', 'New binder', 'Convert to binder', 'Export...', 'Binder settings...', 'Move up', 'Move down', 'Merge 2 notes', 'New folder from selection'];
 		const want = {
-			'The Lighthouse': ['Open binder', 'New scene here', 'Export...'],
+			'The Lighthouse': ['Open binder', 'New scene here', 'Export...', 'Binder settings...'],
 			[L + 'Part One']: ['Open binder', 'New scene here', 'Export...', 'Move up', 'Move down'],
 			[L + 'Prologue.md']: ['Show in binder', 'New scene after this', 'Move down'],
 			[L + 'Part One/Storm warning.md']: ['Show in binder', 'New scene after this', 'Move up'],
 			'Plain': ['Make this folder a binder', 'New binder'],
 			'Plain/A note.md': [],
-			'Longform demo': ['Open binder', 'New scene here', 'Convert to binder', 'Export...'],
+			'Longform demo': ['Open binder', 'New scene here', 'Convert to binder', 'Export...', 'Binder settings...'],
 			'Longform demo/Harbor.md': ['Show in binder', 'New scene after this', 'Move down'],
 			'Longform demo/Notes on ferries.md': [],
-			'Future': ['Open binder', 'Export...'],
+			'Future': ['Open binder', 'Export...', 'Binder settings...'],
 			'Future/One.md': ['Show in binder'],
 		};
 		for (const [path, items] of Object.entries(want)) {
@@ -707,7 +707,7 @@ bug('phone: “Show in binder” and “Open binder” on a binder’s last note
 	});
 });
 
-test('phone: “Show in binder” in a scene’s “More options” opens the binder on its card; “Open binder note” in the view’s opens the note, and Back returns', async (p, h, t) => {
+test('phone: “Show in binder” in a scene’s “More options” opens the binder on its card; the note is opened from “Binder settings...” in the view’s (its Book page), and Back returns', async (p, h, t) => {
 	await onDevice(p, PHONE, async () => {
 		await h.open(L + 'Epilogue.md');
 		await p.sleep(600);
@@ -720,7 +720,8 @@ test('phone: “Show in binder” in a scene’s “More options” opens the bi
 		t.eq(j([(await viewState(p)).folder, j(await selectedCards(p))]), j(['The Lighthouse', j([L + 'Epilogue.md'])]), 'the binder, with the note’s card selected');
 		await tap(p, more.x, more.y);
 		await p.sleep(500);
-		t.ok(await menuTap(p, 'Open binder note'), 'Open binder note');
+		t.ok(await menuTap(p, 'Binder settings...'), 'Binder settings...');
+		await openBinderNoteFromSettings(p);
 		await until(p, `app.workspace.getActiveFile()?.path === ${j(L + 'The Lighthouse.md')}`);
 		await p.sleep(600);
 		t.eq(await activeFile(p), L + 'The Lighthouse.md', 'the binder note opens');
@@ -813,15 +814,15 @@ test('tablet header: the Snapshots button stays beside “More options” (a pho
 	});
 });
 
-test('phone header: “More options” in each mode is a sheet of finger-tall rows: Find, the mode’s own options (Cards), the Snapshots drawer, “Export...” and the binder’s note (the modes and Arrange are the toolbar’s); a folder without a note of its own offers none', async (p, h, t) => {
+test('phone header: “More options” in each mode is a sheet of finger-tall rows: Find, the mode’s own options (Cards), the Snapshots drawer, “Export...” and the binder’s settings (the modes and Arrange are the toolbar’s); a folder without a note of its own offers none', async (p, h, t) => {
 	await onDevice(p, PHONE, async () => {
 		await open(p);
 		const more = await p.at(MORE);
 		t.ok(more.w >= 40 && more.h >= 40, `the button is ${Math.round(more.w)} × ${Math.round(more.h)} px`);
 		const want = {
-			corkboard: ['Close', 'Pin', 'Find in binder', 'Find and replace in binder', 'Cards', 'Add revision task', 'Snapshots', 'Export...', 'Show progress', 'Show contents', 'Open binder note'],
-			outliner: ['Close', 'Pin', 'Find in binder', 'Find and replace in binder', 'Show synopses', 'Columns', 'Expand all', 'Collapse all', 'Add revision task', 'Snapshots', 'Export...', 'Show progress', 'Show contents', 'Open binder note'],
-			manuscript: ['Close', 'Pin', 'Find in binder', 'Find and replace in binder', 'Show synopses', 'Add revision task', 'Snapshots', 'Export...', 'Show progress', 'Show contents', 'Open binder note'],
+			corkboard: ['Close', 'Pin', 'Find in binder', 'Find and replace in binder', 'Cards', 'Add revision task', 'Snapshots', 'Export...', 'Show progress', 'Show contents', 'Binder settings...'],
+			outliner: ['Close', 'Pin', 'Find in binder', 'Find and replace in binder', 'Show synopses', 'Columns', 'Expand all', 'Collapse all', 'Add revision task', 'Snapshots', 'Export...', 'Show progress', 'Show contents', 'Binder settings...'],
+			manuscript: ['Close', 'Pin', 'Find in binder', 'Find and replace in binder', 'Show synopses', 'Add revision task', 'Snapshots', 'Export...', 'Show progress', 'Show contents', 'Binder settings...'],
 		};
 		for (const [mode, items] of Object.entries(want)) {
 			await setMode(p, mode);
@@ -862,7 +863,7 @@ test('phone header: “More options” in each mode is a sheet of finger-tall ro
 		await tap(p, more.x, more.y);
 		await p.sleep(500);
 		const inFolder = await menuItems(p);
-		t.eq(j(inFolder), j([...want.corkboard.slice(0, -1)]), 'in a folder with no note of its own: everything the binder’s sheet has (Export, snapshots, Contents), and no note to open');
+		t.eq(j(inFolder), j(want.corkboard), 'in a folder with no note of its own: everything the binder’s sheet has (Export, snapshots, Contents, the binder’s settings), and no note to open (a phone has that on the settings’ Book page)');
 		await p.ev(NOTE_KIND);
 		await menuTap(p, 'Export...');
 		await until(p, `!!document.querySelector('.modal .binders-export-path')`);
@@ -897,39 +898,39 @@ test('phone commands: the palette offers Binders’ commands where they apply an
 		// that walk the tasks too: a plain note has none of them)
 		const WALK = ['Go to next revision task', 'Go to previous revision task', 'Mark revision task done'], REVISE = ['Add revision task', ...WALK, 'Show progress'];
 		// (the book's calendar: wherever a binder that can be changed is in view, or a scene of one is open; a Longform project keeps none)
-		const CAL = 'Edit calendar...';
+		const CAL = 'Edit calendar...', SET = 'Open binder settings';
 		const EXPORT = ['Export binder', 'Export again', 'Export with...'], VIEWS = ['Show corkboard', 'Show outliner', 'Show manuscript', 'Show timeline', 'Find in binder', 'Find and replace in binder', ...EXPORT], ARRANGE = 'Arrange corkboard by label', FOCUS = 'Toggle focus mode', STEP = ['Go to previous scene', 'Go to next scene'];
 		// snapshots: the binder's, wherever a binder is in view; a scene's own too, where a scene is open
 		const ALL = ['Take a snapshot of the binder', 'Show snapshots of the binder'], SCENE = ['Take a snapshot', 'Rewrite', 'Show snapshots', 'Split at headings...', 'Start a paragraph with a tab', ...ALL];
 		await check('nothing open', []);
 		await open(p);
-		await check('a binder’s corkboard', [...VIEWS, ...REVISE, CAL, 'New scene here', 'Set word count target', ...ALL, ARRANGE]);
+		await check('a binder’s corkboard', [SET, ...VIEWS, ...REVISE, CAL, 'New scene here', 'Set word count target', ...ALL, ARRANGE]);
 		await setMode(p, 'outliner');
-		await check('its outliner', [...VIEWS, ...REVISE, CAL, 'New scene here', 'Set word count target', ...ALL]);
+		await check('its outliner', [SET, ...VIEWS, ...REVISE, CAL, 'New scene here', 'Set word count target', ...ALL]);
 		await setMode(p, 'manuscript');
-		await check('its manuscript, no caret in it', [...VIEWS, ...REVISE, CAL, 'New scene here', 'Set word count target', ...ALL, FOCUS, 'Show synopses']);
+		await check('its manuscript, no caret in it', [SET, ...VIEWS, ...REVISE, CAL, 'New scene here', 'Set word count target', ...ALL, FOCUS, 'Show synopses']);
 		await setMode(p, 'corkboard');
 		await h.open(L + 'Part One/Arrival.md');
-		await check('a scene, first in its folder', ['Open binder', ...EXPORT, ...REVISE, CAL, 'New scene here', 'Split scene at cursor', 'Move down', ...SCENE, FOCUS, ...STEP]);
+		await check('a scene, first in its folder', [SET, 'Open binder', ...EXPORT, ...REVISE, CAL, 'New scene here', 'Split scene at cursor', 'Move down', ...SCENE, FOCUS, ...STEP]);
 		await h.open(L + 'Part One/Storm warning.md');
-		await check('a scene, last in its folder', ['Open binder', ...EXPORT, ...REVISE, CAL, 'New scene here', 'Split scene at cursor', 'Move up', ...SCENE, FOCUS, ...STEP]);
+		await check('a scene, last in its folder', [SET, 'Open binder', ...EXPORT, ...REVISE, CAL, 'New scene here', 'Split scene at cursor', 'Move up', ...SCENE, FOCUS, ...STEP]);
 		await h.open(L + 'The Lighthouse.md');
-		await check('the binder note', ['Open binder', ...EXPORT, ...REVISE, CAL, 'New scene here', ...ALL]);
+		await check('the binder note', [SET, 'Open binder', ...EXPORT, ...REVISE, CAL, 'New scene here', ...ALL]);
 		await h.open('Longform demo/Index.md');
-		await check('a Longform project’s index', ['Open binder', ...EXPORT, ...REVISE, 'New scene here', 'Convert to binder', ...ALL]);
+		await check('a Longform project’s index', [SET, 'Open binder', ...EXPORT, ...REVISE, 'New scene here', 'Convert to binder', ...ALL]);
 		await h.open('Longform demo/Harbor.md');
-		await check('a Longform scene', ['Open binder', ...EXPORT, ...REVISE, 'New scene here', 'Convert to binder', 'Split scene at cursor', 'Move down', ...SCENE, FOCUS, 'Go to next scene']);
+		await check('a Longform scene', [SET, 'Open binder', ...EXPORT, ...REVISE, 'New scene here', 'Convert to binder', 'Split scene at cursor', 'Move down', ...SCENE, FOCUS, 'Go to next scene']);
 		await open(p, 'Longform demo');
-		await check('a Longform project’s view', [...VIEWS, ...REVISE, 'New scene here', 'Set word count target', 'Convert to binder', ...ALL, ARRANGE]);
+		await check('a Longform project’s view', [SET, ...VIEWS, ...REVISE, 'New scene here', 'Set word count target', 'Convert to binder', ...ALL, ARRANGE]);
 		await h.open('Plain/A note.md');
 		await check('a note in a plain folder', ['Make this folder a binder']);
 		await h.open('Loose.md');
 		await check('a note in the vault’s root', []);
 		// (a binder that can't be changed can still be looked at: its snapshots are shown, none is taken)
 		await h.open('Future/One.md');
-		await check('a scene of a read-only binder', ['Open binder', ...EXPORT, ...REVISE, 'Show snapshots', ALL[1], FOCUS, 'Start a paragraph with a tab']);
+		await check('a scene of a read-only binder', [SET, 'Open binder', ...EXPORT, ...REVISE, 'Show snapshots', ALL[1], FOCUS, 'Start a paragraph with a tab']);
 		await open(p, 'Future');
-		await check('a read-only binder’s view', [...VIEWS, ...REVISE, ALL[1], ARRANGE]);
+		await check('a read-only binder’s view', [SET, ...VIEWS, ...REVISE, ALL[1], ARRANGE]);
 		// a command run from the palette by touch
 		await open(p);
 		await palette(p, 'Show outliner');
@@ -1418,7 +1419,7 @@ test('phone: a Longform project in the explorer and as a binder: its scenes in L
 		await p.sleep(500);
 		const items = await menuItems(p);
 		await gone(p);
-		t.ok(!items.includes('Show subfolders as stacks') && items.includes('Open binder note') && items.includes('Export...'), 'More options: no stacks, where there are no folders: ' + j(items));
+		t.ok(!items.includes('Show subfolders as stacks') && items.includes('Binder settings...') && items.includes('Export...'), 'More options: no stacks, where there are no folders: ' + j(items));
 	});
 });
 

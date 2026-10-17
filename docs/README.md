@@ -60,6 +60,7 @@ New here? Read [Installation](installation.md), then [Getting started](getting-s
 | Page | What it covers |
 |---|---|
 | [Export](export.md) | The Export window, where files go, Export again, leaving a note out |
+| [Binder settings](binder-settings.md) | One dialog for a binder's book details, goal, own labels and statuses, new-note template and calendar |
 | [Book details and structure](book-details.md) | Title and author, how folders become parts and chapters, what your Markdown becomes |
 | [Styles](export-styles.md) | Choosing a style, changing one, making and sharing your own |
 | [Manuscript (Word or PDF)](export-manuscript.md) | A submission manuscript in standard manuscript format |

@@ -94,6 +94,8 @@ class Outliner implements BinderMode {
 	private get ro(): boolean { return this.ctx.readOnly; }
 	private get longform(): boolean { return this.ctx.binder.kind === 'longform'; }
 	private get settings() { return this.ctx.plugin.settings; }
+	private get labels() { return this.ctx.store.labelsOf(this.ctx.binder); }
+	private get statuses() { return this.ctx.store.statusesOf(this.ctx.binder); }
 
 	// ---- what the view keeps ----
 
@@ -418,7 +420,7 @@ class Outliner implements BinderMode {
 		if (headKey !== this.headKey) { this.headKey = headKey; this.cols.draw(cols, sort); }
 
 		// everything a row shows: when it's the same, the row drawn last time is used again
-		const shared = JSON.stringify([this.labelCompact, cols.map((c) => c.id), ro, synopses, this.settings.labels, !!sort]);
+		const shared = JSON.stringify([this.labelCompact, cols.map((c) => c.id), ro, synopses, this.labels, !!sort]);
 		const drawn = new Map<string, Drawn>(), fresh: HTMLElement[] = [];
 		let at: ChildNode | null = this.body.firstChild;
 		for (const r of rows) {
@@ -518,7 +520,7 @@ class Outliner implements BinderMode {
 
 	/** Fills a cell. Returns its field, if it has one to type in, so a key or a menu can start it. */
 	private drawCell(td: HTMLElement, id: string, item: TFile | TFolder, p: SceneProps, row: HTMLElement): Editable | null {
-		const ro = this.ro, presets = this.settings.labels;
+		const ro = this.ro, presets = this.labels;
 		switch (id) {
 			case 'label':
 				if (!ro) td.addClass('is-menu');
@@ -733,14 +735,14 @@ class Outliner implements BinderMode {
 		const prop = this.filterProp(id);
 		if (!prop || !this.ctx.tally) return null;
 		const t = this.ctx.tally(files, prop);
-		const order = id === 'status' ? this.settings.statuses : id === 'label' ? this.settings.labels.map((l) => l.name) : null;
+		const order = id === 'status' ? this.statuses : id === 'label' ? this.labels.map((l) => l.name) : null;
 		if (order) {
 			const at = (v: Tallied<TFile>) => { const i = order.findIndex((o) => o.toLowerCase() === v.raw.toLowerCase()); return i < 0 ? order.length : i; };
 			t.values.sort((a, b) => at(a) - at(b));
 		}
 		// (as settings spell them, as the rows show them, whatever case a note has them in)
-		if (id === 'label') for (const v of t.values) v.shown = labelName(v.raw, this.settings.labels);
-		if (id === 'status') for (const v of t.values) v.shown = this.settings.statuses.find((x) => x.toLowerCase() === v.raw.toLowerCase()) ?? v.shown;
+		if (id === 'label') for (const v of t.values) v.shown = labelName(v.raw, this.labels);
+		if (id === 'status') for (const v of t.values) v.shown = this.statuses.find((x) => x.toLowerCase() === v.raw.toLowerCase()) ?? v.shown;
 		return t;
 	}
 

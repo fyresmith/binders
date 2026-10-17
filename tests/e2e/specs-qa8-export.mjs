@@ -583,8 +583,8 @@ test('Book details with “&”, “<”, quotes, a colon and a slash in the tit
 test('an export beside a typed Title: the preview’s name follows Book details at once, and the Word file’s header', async (p, h, t) => {
 	await open(p);
 	await p.ev(`(() => { document.querySelector('${WIN} [data-binders-key="details"]').click(); return 1; })()`);
-	await until(p, `!!document.querySelector('.modal.binders-book-details [data-binders-key="title"]')`);
-	await p.ev(`(() => { const e = document.querySelector('.modal.binders-book-details [data-binders-key="title"]'); e.value = 'Beacon Years'; e.dispatchEvent(new Event('input', { bubbles: true })); e.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+	await until(p, `!!document.querySelector('.modal.binders-bset .binders-book-details [data-binders-key="title"]')`);
+	await p.ev(`(() => { const e = document.querySelector('.modal.binders-bset .binders-book-details [data-binders-key="title"]'); e.value = 'Beacon Years'; e.dispatchEvent(new Event('input', { bubbles: true })); e.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
 	await p.sleep(700);
 	await p.key('Escape');
 	await p.sleep(500);

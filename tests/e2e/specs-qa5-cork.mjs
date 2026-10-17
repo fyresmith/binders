@@ -16,7 +16,7 @@
 import { tapSel, tapTick, tapDone, tapToggle, tapClear } from './filter-helpers.mjs';
 import { mkdirSync } from 'fs';
 import { scaled, slowness } from './machine-speed.mjs';
-import { menuItemsAllTouch, throughDrawers } from './menu-routes.mjs';
+import { menuItemsAllTouch, openBinderNoteFromSettings, throughDrawers } from './menu-routes.mjs';
 import { B, PL, VIEW, card, closeMenus, contents, flush, j, menuItems, openView, read, reload, texts, tidy, until, viewState, writeRaw } from './view-helpers.mjs';
 
 export const specs = [];
@@ -572,13 +572,13 @@ test('the board’s own sheet (a long press on the board): “New note”, “Ne
 	});
 });
 
-test('“More options”: Find, the board’s options (Cards), “Snapshots”, “Export...” and “Open binder note” are there; a mode picked from the toolbar switches; “Open binder note” opens it', async (p, h, t) => {
+test('“More options”: Find, the board’s options (Cards), “Snapshots”, “Export...” and “Binder settings...” are there; a mode picked from the toolbar switches; the note opens from the settings’ Book page', async (p, h, t) => {
 	await onDevice(p, PHONE, async () => {
 		await open(p);
 		await moreMenu(p);
 		const items = await menuItems(p);
 		say('more', j(items));
-		for (const x of ['Find in binder', 'Cards', 'Snapshots', 'Export...', 'Open binder note']) t.ok(items.includes(x), `“${x}” is in it`);
+		for (const x of ['Find in binder', 'Cards', 'Snapshots', 'Export...', 'Binder settings...']) t.ok(items.includes(x), `“${x}” is in it`);
 		t.ok(!['Corkboard', 'Outliner', 'Manuscript', 'Card size'].some((x) => items.includes(x)), 'and no modes (the toolbar’s) and no loose “Card size” (it is under Cards)');
 		t.ok(!items.includes('Show subfolders as stacks'), 'and no “Show subfolders as stacks” (a folder is always a stack)');
 		// (“Export...” opens the window on the kind last used: one note, as a writer who made one last time)
@@ -598,7 +598,8 @@ test('“More options”: Find, the board’s options (Cards), “Snapshots”, 
 		t.ok(await menuTap(p, 'Corkboard'), 'Corkboard');
 		await until(p, `!!document.querySelector('${LEAF} .binders-mode-corkboard')`);
 		await moreMenu(p);
-		t.ok(await menuTap(p, 'Open binder note'), 'Open binder note');
+		t.ok(await menuTap(p, 'Binder settings...'), 'Binder settings...');
+		await openBinderNoteFromSettings(p);
 		await until(p, `app.workspace.getActiveFile()?.path === ${j(L + 'The Lighthouse.md')}`);
 		t.eq(await p.ev(`app.workspace.getActiveFile()?.path ?? null`), L + 'The Lighthouse.md', 'the binder note opens');
 	});
@@ -1475,10 +1476,10 @@ test('statuses and labels by touch: “New status...”, “No status”, a labe
 		await flush(p);
 		t.eq(await prop(p, L + A, 'label'), null, '“No label” takes it away');
 		await pick('Set label', 'Edit labels...');
-		await until(p, `app.setting.activeTab?.id === 'binders'`, 4000);
+		await until(p, `!!document.querySelector('.modal.binders-bset [data-page="labels"]')`, 4000);
 		await p.sleep(500);
 		await shot(p, 'edit-labels-settings');
-		t.eq(await p.ev(`app.setting.activeTab?.id ?? null`), 'binders', '“Edit labels...” opens Binders’ settings');
+		t.ok(await p.ev(`!!document.querySelector('.modal.binders-bset [data-page="labels"]')`), '“Edit labels...” opens Binder settings at Labels');
 		t.eq(await menus(p), 0, 'with no sheet over them');
 	});
 });

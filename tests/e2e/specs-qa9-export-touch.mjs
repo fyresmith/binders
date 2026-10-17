@@ -52,7 +52,7 @@ for (const [label, w, h2, tap] of [
 			await kindTap(p, 'Ebook');
 			await p.sleep(400);
 			await tapEl(p, tap.startsWith('button(') ? button('Edit...') : tap);
-			t.ok(await until(p, `!!document.querySelector('.modal.binders-book-details')`, 4000), 'Book details opens');
+			t.ok(await until(p, `!!document.querySelector('.modal.binders-bset .binders-book-details')`, 4000), 'Book details opens');
 			const inputs = await boxes(p, '.binders-book-details input[type="text"]');
 			t.ok(inputs.length >= 3, 'its fields are on screen (' + inputs.length + ')');
 			t.eq(JSON.stringify(inputs.filter(i => i.h < 36).map(i => i.name + ' ' + i.h + ' px')), '[]', 'every field is 36 px high or more');
@@ -61,8 +61,8 @@ for (const [label, w, h2, tap] of [
 				await p.ev(`(() => { const e = document.querySelector('.binders-book-details input[data-binders-key="${key}"]'); e.value = ${j(value)}; e.dispatchEvent(new Event('input')); e.dispatchEvent(new Event('change')); e.blur(); return 1; })()`);
 				await p.sleep(300);
 			}
-			await tapEl(p, `[...document.querySelectorAll('.binders-book-details button')].find(b => b.textContent === 'Done')`);
-			await until(p, `!document.querySelector('.modal.binders-book-details')`, 3000);
+			await p.key('Escape');
+			await until(p, `!document.querySelector('.modal.binders-bset')`, 3000);
 			const note = await p.ev(`app.vault.adapter.read(${j(L + 'The Lighthouse.md')})`);
 			t.ok(/title: ["']?The Long Night/.test(note), 'the title is kept in the binder note');
 			t.ok(/author: ["']?Ada Tester/.test(note), 'the author is kept in the binder note');

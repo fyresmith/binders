@@ -6395,14 +6395,21 @@ body:not(.is-phone) .binders-snapshots .sync-history-content {
 
 /* -- "Calendar...": the book's months, leap days and eras, as Bases' "Configure view" lays out a form -- */
 
-.binders-calendar-modal {
-	width: min(520px, 100%);
-}
-
 .binders-calendar-form {
-	max-height: min(56vh, 520px);
 	padding-inline: 0 var(--size-4-2);
 	overflow-x: hidden;
+}
+
+.binders-calendar-says,
+.binders-calendar-save {
+	margin-block: var(--size-4-3);
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.binders-calendar-save {
+	display: flex;
+	justify-content: flex-end;
 }
 
 .binders-calendar-form .input-group-divider {
@@ -8064,14 +8071,14 @@ input.binders-filter-name {
    `binders-dialog` is on the small dialogs (modals.ts), which have no ✕; the others are marked by what they are, and
    keep the room the ✕ takes on both sides of the centered title. */
 .is-phone .binders-dialog .modal-title,
-.is-phone .modal:is(.binders-snapshots, .binders-pot, .binders-import, .binders-book-details, .binders-revision-capture, .binders-split-many, .binders-folder-snapshots-back, .binders-folder-snapshots-interrupted, .binders-leftovers) .modal-title {
+.is-phone .modal:is(.binders-snapshots, .binders-bset, .binders-pot, .binders-import, .binders-book-details, .binders-revision-capture, .binders-split-many, .binders-folder-snapshots-back, .binders-folder-snapshots-interrupted, .binders-leftovers) .modal-title {
 	white-space: normal;
 	overflow: visible;
 	overflow-wrap: anywhere;
 	text-overflow: clip;
 }
 
-.is-phone .modal:is(.binders-snapshots, .binders-pot, .binders-import, .binders-book-details, .binders-revision-capture, .binders-split-many, .binders-folder-snapshots-back, .binders-folder-snapshots-interrupted, .binders-leftovers) .modal-title {
+.is-phone .modal:is(.binders-snapshots, .binders-bset, .binders-pot, .binders-import, .binders-book-details, .binders-revision-capture, .binders-split-many, .binders-folder-snapshots-back, .binders-folder-snapshots-interrupted, .binders-leftovers) .modal-title {
 	max-width: calc(100% - var(--size-4-18) * 2);
 }
 
@@ -8115,4 +8122,180 @@ input.binders-filter-name {
 
 .binders-book-details-people {
 	display: none;
+}
+
+/* ---- Binder settings (view/binder-settings.ts): Obsidian's two-pane dialog, as Export wears it. ---- */
+
+.binders-bset .modal-sidebar-inner {
+	display: flex;
+	flex-direction: column;
+	min-height: 100%;
+}
+
+.binders-bset.mod-sidebar-layout .modal-content,
+.binders-bset .binders-bset-side {
+	min-height: 0;
+}
+
+.binders-bset .binders-bset-side {
+	overflow-y: auto;
+}
+
+.binders-bset .sync-history-content {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+}
+
+/* the page scrolls under the bar, and the window doesn't grow */
+.binders-bset .binders-bset-body {
+	flex: 1 1 0;
+	min-height: 0;
+	overflow-y: auto;
+	padding: var(--size-4-3) var(--size-4-6) var(--size-4-6);
+}
+
+.binders-bset .binders-bset-pages {
+	flex: 0 0 auto;
+}
+
+.binders-bset-from,
+.binders-bset-locked p {
+	margin: 0 0 var(--size-4-3);
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.binders-bset-locked {
+	margin-bottom: var(--size-4-3);
+}
+
+.binders-bset-locked p {
+	color: var(--text-warning);
+}
+
+.binders-bset-convert {
+	display: flex;
+}
+
+/* the labels and the statuses: the vault's, read only, or the binder's own, a row each */
+.binders-bset-list {
+	display: flex;
+	flex-direction: column;
+}
+
+.binders-bset-empty {
+	padding: var(--size-4-3) 0;
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.binders-bset-row.mod-vault {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	min-height: var(--input-height);
+	padding: var(--size-4-1) 0;
+	border-top: var(--border-width) solid var(--background-modifier-border);
+}
+
+.binders-bset-row.setting-item {
+	align-items: center;
+	gap: var(--size-4-2);
+}
+
+.binders-bset-row.setting-item .setting-item-info {
+	flex: 1 1 auto;
+	min-width: 0;
+	margin: 0;
+}
+
+.binders-bset-row.setting-item .setting-item-info {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+}
+
+.binders-bset-row.setting-item .setting-item-name {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.binders-bset-row.setting-item .setting-item-name input {
+	width: 100%;
+}
+
+.binders-bset-grip {
+	flex: none;
+	cursor: grab;
+	color: var(--text-faint);
+}
+
+.binders-bset-row.is-being-dragged {
+	opacity: 0.5;
+}
+
+.binders-bset-row.mod-drop-before {
+	box-shadow: 0 -2px 0 0 var(--interactive-accent);
+}
+
+.binders-bset-row.mod-drop-after {
+	box-shadow: 0 2px 0 0 var(--interactive-accent);
+}
+
+.binders-bset-vault {
+	padding-top: var(--size-4-3);
+}
+
+.binders-bset-link {
+	color: var(--text-accent);
+	font-size: var(--font-ui-small);
+}
+
+.binders-bset-add {
+	border-top: none;
+}
+
+/* Goal: the weekday buttons, as the Progress window's form has them */
+.binders-bset button.binders-pot-weekday {
+	width: auto;
+	min-width: 0;
+	height: var(--input-height);
+	padding: 0;
+	justify-content: center;
+	color: var(--text-muted);
+}
+
+.binders-bset button.binders-pot-weekday.is-active {
+	background-color: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+.binders-bset .binders-pot-form-problem {
+	padding: var(--size-4-1) 0;
+	font-size: var(--font-ui-small);
+	color: var(--text-warning);
+}
+
+.binders-bset .binders-pot-form-problem:empty {
+	display: none;
+}
+
+.binders-bset .binders-bset-goal .setting-item input[type="text"][inputmode] {
+	width: 140px;
+}
+
+/* a phone: the pages' list, then a page; the page's rows are one line each, as in Obsidian's settings */
+.is-phone .binders-bset .binders-bset-body {
+	padding-inline: var(--size-4-4);
+}
+
+.is-phone .binders-bset .binders-snapshots-bar {
+	flex: 0 0 auto;
+	height: auto;
+	padding-block: var(--size-4-2);
+}
+
+.is-phone .binders-bset .binders-snapshots-name {
+	display: inline;
 }

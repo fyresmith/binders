@@ -514,7 +514,7 @@ test('phone corkboard: “New” in the toolbar makes a note, named on its card;
 		await p.sleep(300);
 		await shot(p, 'cork-options-sheet');
 		t.ok(isSheet(await sheet(p)), 'the options are a sheet');
-		for (const x of ['Cards', 'Find in binder', 'Open binder note']) t.ok((await menuItems(p)).includes(x), `“${x}” is in it`);
+		for (const x of ['Cards', 'Find in binder', 'Binder settings...']) t.ok((await menuItems(p)).includes(x), `“${x}” is in it`);
 		t.ok(!(await menuItems(p)).includes('Show subfolders as stacks'), 'and no “Show subfolders as stacks”: a folder is always one');
 		await gone(p);
 		await pick('Number the cards');

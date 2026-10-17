@@ -10,7 +10,8 @@ import { oneNoteText, isExported, oneNotePath, writeOneNote } from '../scenes';
 import { COMPILE_DEFAULTS, forRender, type CompileOptions } from '../scene-text';
 import type { ScrivProject } from '../export/scriv/project';
 import { readScriv } from '../export/scriv/vault';
-import { BookDetailsModal, pickCover } from './book-details';
+import { pickCover } from './book-details';
+import { openBinderSettings } from './binder-settings';
 import { exportAsItems } from './export-as';
 import { drawContents } from './export-contents';
 import { drawEbook, drawManuscript, showPages } from './export-preview';
@@ -157,7 +158,7 @@ export class ExportModal extends Modal {
 	}
 
 	/** Book details, the binder's: when the window is closed, the book is read again with them. */
-	private details(): void { new BookDetailsModal(this.plugin, this.folder, () => { if (this.contentEl.isConnected) void this.load(); }).open(); }
+	private details(): void { openBinderSettings(this.plugin, this.folder, 'book', () => { if (this.contentEl.isConnected) void this.load(); }); }
 	private heading(): string { return `Export “${this.folder.name}”`; }
 
 	onOpen(): void {

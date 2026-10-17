@@ -410,7 +410,9 @@ async function openEbook(p, folder = 'The Lighthouse') {
 	await p.sleep(200);
 }
 const NOTE = `${L}The Lighthouse.md`;
-const DETAILS = '.modal.binders-book-details';
+const DETAILS = '.modal.binders-bset .binders-book-details';
+/** Why Binder settings' pages can't be changed (a newer format, a Longform project), said once at the top of each. */
+const DETAILS_LOCK = '.modal.binders-bset .binders-bset-locked';
 const fm = (p, path = NOTE) => p.ev(`app.vault.adapter.read(${j(path)}).then(t => t)`).then((t) => split(t));
 /** Sets one of Book details' fields as a writer does: typed and left, chosen, or switched. */
 const detail = async (p, key, value) => {
@@ -494,7 +496,7 @@ test('Book details: kept as the binder note’s own properties and nothing else;
 	t.ok(now.yaml.startsWith(was.yaml), 'what the note had (its format, its order, the writer’s own properties) is as it was, in place');
 	t.eq(now.yaml.slice(was.yaml.length).trim().split('\n').map((l) => l.split(':')[0]).sort().join(), 'author,contents-page,copyright,language,structure,subtitle,title', 'and only Book details’ own properties are added');
 	t.ok(now.yaml.includes('language: en-GB') && now.yaml.includes('structure: every note a chapter') && now.yaml.includes('contents-page: never'), 'written as the file format has them');
-	await p.ev(`(() => { [...document.querySelectorAll('${DETAILS} button')].find(b => b.textContent === 'Done').click(); return 1; })()`);
+	await p.key('Escape');
 	t.ok(await until(p, `document.querySelector('${EBOOK} .binders-export-title')?.textContent === 'The Lighthouse Keeper' && !document.querySelector('${EBOOK} .mod-contents')`, 6000), 'the window reads the book again: its title, and no contents page');
 	t.eq(await p.ev(`[document.querySelector('${EBOOK} .binders-export-subtitle').textContent, document.querySelector('${EBOOK} .binders-export-by').textContent, document.querySelector('${EBOOK} .mod-copyright').textContent, document.querySelector('${EBOOK}').lang].join('|')`), 'A short novel|M. L. Lindqvist|Copyright © 2026 M. L. Lindqvist. All rights reserved.|en-GB', 'its subtitle, its author, its copyright line, its language');
 	t.ok(!(await p.ev(`!!document.querySelector('${EBOOK} .mod-part')`)), 'and its structure: every note a chapter, no parts');
@@ -517,7 +519,7 @@ test('Book details and the cover never write to a binder in a newer format, or t
 	await until(p, `!!document.querySelector('${WIN} [role="option"]')`, 6000);
 	await p.ev(`(() => { document.querySelector('${WIN} [data-binders-key="details"]').click(); return 1; })()`);
 	await until(p, `!!document.querySelector('${DETAILS} [data-binders-key="title"]')`);
-	t.ok((await p.ev(`document.querySelector('${DETAILS} .binders-book-details-locked')?.textContent ?? ''`)).includes('newer version of Binders'), 'Book details says why nothing can be changed');
+	t.ok((await p.ev(`document.querySelector('${DETAILS_LOCK}')?.textContent ?? ''`)).includes('newer version of Binders'), 'Book details says why nothing can be changed');
 	t.eq((await p.ev(`[...document.querySelectorAll('${DETAILS} input[type="text"], ${DETAILS} select:not([aria-hidden]), ${DETAILS} .checkbox-container')].filter(e => !(e.disabled || e.classList.contains('is-disabled'))).map(e => e.dataset.bindersKey ?? e.outerHTML.slice(0, 90))`)).join(), '', 'and every field is shut');
 	// (and if a field were written to all the same, the note is refused, not rewritten)
 	await detail(p, 'title', 'Forced');
@@ -532,7 +534,7 @@ test('Book details and the cover never write to a binder in a newer format, or t
 	await until(p, `!!document.querySelector('${WIN} [role="option"]')`, 6000);
 	await p.ev(`(() => { document.querySelector('${WIN} [data-binders-key="details"]').click(); return 1; })()`);
 	await until(p, `!!document.querySelector('${DETAILS} [data-binders-key="title"]')`);
-	t.ok((await p.ev(`document.querySelector('${DETAILS} .binders-book-details-locked')?.textContent ?? ''`)).includes('Longform'), 'a Longform project’s details are Longform’s to keep');
+	t.ok((await p.ev(`document.querySelector('${DETAILS_LOCK}')?.textContent ?? ''`)).includes('Longform'), 'a Longform project’s details are Longform’s to keep');
 	await detail(p, 'title', 'Forced');
 	await p.sleep(500);
 	await closeAll(p);
