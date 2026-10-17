@@ -43,9 +43,9 @@ export function movedPin(raw: unknown, name: string, by: -1 | 1): unknown[] {
 
 /** The names of properties Binders keeps for itself, lower-cased: the ones settings name and the ones it writes in a
     binder's, a folder's and a note's properties. A row for one of these would be a second, plainer copy of a field. */
-export function ownNames(s: { synopsisProp: string; statusProp: string; labelProp: string; targetProp: string; storyDateProp: string; storyOrderProp: string; notesProp: string }): Set<string> {
+export function ownNames(s: { synopsisProp: string; statusProp: string; labelProp: string; targetProp: string; storyDateProp: string; storyOrderProp: string; notesProp: string; titleProp?: string }): Set<string> {
 	return new Set([
-		s.synopsisProp, s.statusProp, s.labelProp, s.targetProp, s.storyDateProp, s.storyOrderProp, s.notesProp,
+		s.titleProp ?? 'title', s.synopsisProp, s.statusProp, s.labelProp, s.targetProp, s.storyDateProp, s.storyOrderProp, s.notesProp,
 		// a note's: whether it is exported, and as what
 		'export', 'compile', 'export-as',
 		// a binder's, a folder's: what is in it, and its book

@@ -549,9 +549,9 @@ class Corkboard implements BinderMode {
 	/** Longform: the heading of scenes indented under a scene. Clicking it selects that scene's card. */
 	private drawSceneHeading(parent: HTMLElement, head: TFile, items: TAbstractFile[]): void {
 		const row = parent.createDiv({ cls: 'binders-group-heading' }).createDiv({ cls: 'binders-group-title-row' });
-		const title = row.createDiv({ cls: 'binders-group-title', attr: { role: 'link', tabindex: '0', 'aria-label': `Go to ${head.basename}` } });
+		const title = row.createDiv({ cls: 'binders-group-title', attr: { role: 'link', tabindex: '0', 'aria-label': `Go to ${nameOf(head)}` } });
 		setIcon(title.createSpan({ cls: 'binders-group-icon' }), 'corner-down-right');
-		title.createSpan({ text: head.basename });
+		title.createSpan({ text: nameOf(head) });
 		const go = () => this.reveal(head);
 		title.addEventListener('click', go);
 		title.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.stopPropagation(); go(); } });

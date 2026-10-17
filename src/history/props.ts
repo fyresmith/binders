@@ -1,6 +1,7 @@
 import { TFile, TFolder, type App, type TAbstractFile } from 'obsidian';
 import type { Handler, PropsStep } from './types';
 import { sameValue } from './values';
+import { shownName } from '../shown-name';
 
 /* Properties given to items by hand, and taking them back: each property is set to what it was before (or, made
    again, to what it was given). Exact, not tolerant: a step is taken back only if every property is still as the step
@@ -17,7 +18,7 @@ export interface PropsHost {
 }
 
 /** The name a writer knows an item by: a folder's note by its folder. */
-const nameOf = (f: TAbstractFile): string => (f instanceof TFolder ? f.name : f instanceof TFile ? (f.parent && f.basename === f.parent.name ? f.parent.name : f.basename) : f.name);
+const nameOf = (f: TAbstractFile): string => (f instanceof TFolder ? f.name : f instanceof TFile ? (f.parent && f.basename === f.parent.name ? f.parent.name : shownName(f)) : f.name);
 
 export class PropsHandler implements Handler<PropsStep> {
 	constructor(private app: App, private host: PropsHost) {}

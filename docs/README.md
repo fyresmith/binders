@@ -43,6 +43,7 @@ New here? Read [Installation](installation.md), then [Getting started](getting-s
 |---|---|
 | [Labels, statuses and targets](labels-statuses-targets.md) | Colors, stages of a draft, word count targets, the filter |
 | [Story date](story-date.md) | When a scene happens in the story: setting it, sorting by it, seeing it on the timeline, and putting a book in story order |
+| [Titles](titles.md) | Show a name other than the file name for a note |
 | [Scene notes](scene-notes.md) | Your own notes on a scene, kept out of the book |
 | [Templates](templates.md) | A new binder from a template (chapters and scenes, three acts, or your own), and a template for a folder's new notes |
 | [Revision tasks](revision-tasks.md) | Noting what a scene needs while you draft, and working through the unfinished tasks in the order of the book |

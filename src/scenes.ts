@@ -13,6 +13,7 @@ import type { SplitHost } from './history/split';
 import type { Kept } from './history/types';
 import { confirm } from './view/modals';
 import { readNotes, writeKeys, writeNotes } from './view/props';
+import { shownName } from './shown-name';
 
 /* Working on scenes as a writer does in Scrivener: splitting one in two where the cursor is, merging several into one,
    giving one a synopsis from its opening lines, and a binder's text made into a single note (export's "One note"). The text rules are in
@@ -149,6 +150,7 @@ async function splitSceneNow(plugin: BindersPlugin, editor: Editor, file: TFile,
 	try { const y: unknown = front ? parseYaml(yaml) : null; if (y && typeof y === 'object' && !Array.isArray(y)) props = { ...y }; } catch { /* properties that can't be read aren't copied */ }
 	// the synopsis describes the whole and stays with the first half; other names for this note aren't the new one's
 	delete props[settings.synopsisProp];
+	delete props[settings.titleProp]; // (the title names the whole; the new note is shown by its own file name)
 	delete props.aliases;
 	delete props.alias;
 	const content = (Object.keys(props).length ? `---\n${stringifyYaml(props)}---\n` : '') + tail;
@@ -174,7 +176,7 @@ async function splitSceneNow(plugin: BindersPlugin, editor: Editor, file: TFile,
 		if (splits.length > SPLITS_KEPT) splits.shift();
 		// (and in the binder's history, where Undo last change takes it back by the same rules)
 		const binder = store.binderOf(file);
-		if (binder && !binder.problem) store.history.record({ note: binder.note, label: `Split “${file.basename}”`, steps: [{ kind: 'split', items: [made1] }] });
+		if (binder && !binder.problem) store.history.record({ note: binder.note, label: `Split “${shownName(file)}”`, steps: [{ kind: 'split', items: [made1] }] });
 		return made;
 	} catch (e) { say(e); return null; }
 }
@@ -265,11 +267,11 @@ export function splitHistory(plugin: BindersPlugin): SplitHost {
 			for (const s of all(items)) {
 				await saveOpen(app, [s.first, ...s.notes.flatMap((n) => (n.made ? [n.made] : []))]);
 				const cur = lf(await app.vault.read(s.first));
-				if (cur !== lf(redo ? s.before : s.head)) throw new Error(`“${s.first.basename}” has been changed since the split${redo ? ' was undone' : ''}, so it stays as it is.`);
+				if (cur !== lf(redo ? s.before : s.head)) throw new Error(`“${shownName(s.first)}” has been changed since the split${redo ? ' was undone' : ''}, so it stays as it is.`);
 				if (!redo) {
 					for (const n of s.notes) {
 						const made = n.made;
-						if (!made || app.vault.getAbstractFileByPath(made.path) !== made || made.path !== n.path || (await app.vault.read(made)) !== n.content) throw new Error(`“${made?.basename ?? n.title}” has been changed since the split, so the split stays.${s.notes.length > 1 ? ` A snapshot of “${s.first.basename}” from before the split is among its snapshots.` : ''}`);
+						if (!made || app.vault.getAbstractFileByPath(made.path) !== made || made.path !== n.path || (await app.vault.read(made)) !== n.content) throw new Error(`“${made?.basename ?? n.title}” has been changed since the split, so the split stays.${s.notes.length > 1 ? ` A snapshot of “${shownName(s.first)}” from before the split is among its snapshots.` : ''}`);
 					}
 				}
 			}
@@ -360,7 +362,7 @@ async function settleSplit(plugin: BindersPlugin, s: Split, editor: Editor | nul
 	if (!s.notes.some((n) => n.made) || s.kept) return;
 	// (deleted by hand since: there's nothing to take back, and nothing is in two places)
 	if (!present.length) { forget(); return; }
-	const stays = (who: Made, why: string) => { new Notice(`“${who.made?.basename ?? who.title}” ${why}, so ${s.notes.length > 1 ? 'the new notes stay' : 'it stays'}. Its text is in “${s.first.basename}” as well now.${s.notes.length > 1 ? ` A snapshot of “${s.first.basename}” from before the split is among its snapshots.` : ''}`, 10000); s.kept = true; };
+	const stays = (who: Made, why: string) => { new Notice(`“${who.made?.basename ?? who.title}” ${why}, so ${s.notes.length > 1 ? 'the new notes stay' : 'it stays'}. Its text is in “${shownName(s.first)}” as well now.${s.notes.length > 1 ? ` A snapshot of “${shownName(s.first)}” from before the split is among its snapshots.` : ''}`, 10000); s.kept = true; };
 	try {
 		// what's typed anywhere in any of them and not saved yet is on disk before they're compared with what the split wrote
 		await saveOpen(app, [s.first, ...present.map((x) => x.file)]);
@@ -375,7 +377,7 @@ async function settleSplit(plugin: BindersPlugin, s: Split, editor: Editor | nul
 		if (await unchanged()) return;
 		// the first note must have the second half on disk, as it stood there, before the new ones are let go (words typed
 		// elsewhere in it since the undo are no matter)
-		if (!lf(await app.vault.read(s.first)).includes(lf(s.back))) { stays(present[0].n, `couldn’t be taken away, because “${s.first.basename}” changed as the split was undone`); return; }
+		if (!lf(await app.vault.read(s.first)).includes(lf(s.back))) { stays(present[0].n, `couldn’t be taken away, because “${shownName(s.first)}” changed as the split was undone`); return; }
 		// links that followed a heading or a block to a new note lead back to where it is again
 		await pointers('first');
 		if (await unchanged()) return;
@@ -414,6 +416,7 @@ async function splitManyNow(plugin: BindersPlugin, file: TFile, planned: string,
 		let props: Record<string, unknown> = {};
 		try { const y: unknown = front ? parseYaml(yaml) : null; if (y && typeof y === 'object' && !Array.isArray(y)) props = { ...y }; } catch { /* properties that can't be read aren't copied */ }
 		delete props[settings.synopsisProp];
+		delete props[settings.titleProp];
 		delete props.aliases;
 		delete props.alias;
 		const lead = Object.keys(props).length ? `---\n${stringifyYaml(props)}---\n` : '';
@@ -456,7 +459,7 @@ async function splitManyNow(plugin: BindersPlugin, file: TFile, planned: string,
 				return cur.includes('\r\n') ? out.replace(/\n/g, '\r\n') : out;
 			});
 		}
-		if (bare(await app.vault.read(file)) !== bare(head)) throw new Error(`“${file.basename}” changed while it was being split. The new notes were kept; nothing was removed.`);
+		if (bare(await app.vault.read(file)) !== bare(head)) throw new Error(`“${shownName(file)}” changed while it was being split. The new notes were kept; nothing was removed.`);
 		const madeFiles = created.filter((f): f is TFile => f instanceof TFile);
 		created.length = 0;
 		// links to the headings and blocks that went with the other pieces follow them: one pass over the vault for all
@@ -466,12 +469,12 @@ async function splitManyNow(plugin: BindersPlugin, file: TFile, planned: string,
 		splits.push(record);
 		if (splits.length > SPLITS_KEPT) splits.shift();
 		const binder = store.binderOf(file);
-		if (binder && !binder.problem) store.history.record({ note: binder.note, label: `Split “${file.basename}” into ${pieces.length} notes`, steps: [{ kind: 'split', items: [record] }] });
+		if (binder && !binder.problem) store.history.record({ note: binder.note, label: `Split “${shownName(file)}” into ${pieces.length} notes`, steps: [{ kind: 'split', items: [record] }] });
 		return madeFiles;
 	} catch (e) {
 		say(e);
 		// (what was made before the text could be let go of is only a copy: it stays, said, for the writer to look at)
-		if (created.length) new Notice(`${created.length === 1 ? 'A new note was' : `${created.length} new notes were`} made before it stopped, and kept. “${file.basename}” is as it was.`, 10000);
+		if (created.length) new Notice(`${created.length === 1 ? 'A new note was' : `${created.length} new notes were`} made before it stopped, and kept. “${shownName(file)}” is as it was.`, 10000);
 		return null;
 	}
 }
@@ -491,7 +494,7 @@ async function mergeScenesNow(plugin: BindersPlugin, files: TFile[]): Promise<TF
 	const links = linksTo(app, rest), follow = updatesLinks(app);
 	const ok = await confirm(app, {
 		title: `Merge ${files.length} notes`,
-		text: `Their text is joined into “${first.basename}” in this order, with a blank line between, and so are their synopses and notes. ${rest.length === 1 ? `“${rest[0].basename}”` : `The other ${rest.length}`} ${trashPhrase(app, rest.length > 1)}, with ${rest.length === 1 ? 'its' : 'their'} other properties.${links ? ` ${links === 1 ? 'One link' : `${links} links`} to ${rest.length === 1 ? 'it' : 'them'} will ${follow ? `lead to “${first.basename}”` : 'no longer lead anywhere'}.` : ''}`,
+		text: `Their text is joined into “${shownName(first)}” in this order, with a blank line between, and so are their synopses and notes. ${rest.length === 1 ? `“${shownName(rest[0])}”` : `The other ${rest.length}`} ${trashPhrase(app, rest.length > 1)}, with ${rest.length === 1 ? 'its' : 'their'} other properties.${links ? ` ${links === 1 ? 'One link' : `${links} links`} to ${rest.length === 1 ? 'it' : 'them'} will ${follow ? `lead to “${shownName(first)}”` : 'no longer lead anywhere'}.` : ''}`,
 		cta: 'Merge',
 	});
 	if (!ok) return null;
@@ -521,7 +524,7 @@ async function mergeScenesNow(plugin: BindersPlugin, files: TFile[]): Promise<TF
 		if (!bodies.every((b) => flat(now).includes(flat(b)))) throw new Error('The merged note doesn’t have all the text, so nothing was deleted.');
 		const safeToRemove = async (f: TFile, i: number): Promise<void> => {
 			await saveOpen(app, [first, f]);
-			const changed = new Error(`The notes changed during the merge. “${f.basename}” and the remaining notes were kept.`);
+			const changed = new Error(`The notes changed during the merge. “${shownName(f)}” and the remaining notes were kept.`);
 			if (first.path !== paths[0] || f.path !== paths[i + 1] || app.vault.getAbstractFileByPath(first.path) !== first || app.vault.getAbstractFileByPath(f.path) !== f) throw changed;
 			// A link write, another note's deletion, or a slow save leaves time for sync and more typing. The merged
 			// copy must still be there, and the source (properties too) must still be the note that was read.
@@ -546,7 +549,7 @@ async function mergeScenesNow(plugin: BindersPlugin, files: TFile[]): Promise<TF
 		if (binder && keeps && keeps.every((k) => !!k)) {
 			const kept = keeps.filter((k): k is NonNullable<typeof k> => !!k), merged = await app.vault.adapter.readBinary(first.path);
 			const bytes = firstBefore.byteLength + merged.byteLength + kept.reduce((n, k) => n + k.files.reduce((m, x) => m + x.bytes.byteLength, 0), 0);
-			if (bytes <= store.history.limits.bytes) store.history.record({ note: binder.note, label: `Merge ${files.length} notes into “${first.basename}”`, bytes, steps: [{ kind: 'merge', first, before: firstBefore, merged, gone: kept, links }] });
+			if (bytes <= store.history.limits.bytes) store.history.record({ note: binder.note, label: `Merge ${files.length} notes into “${shownName(first)}”`, bytes, steps: [{ kind: 'merge', first, before: firstBefore, merged, gone: kept, links }] });
 		}
 		return first;
 	} catch (e) { say(e); return null; }
@@ -563,11 +566,11 @@ export async function synopsisFromText(plugin: BindersPlugin, files: TFile[]): P
 			const next = synopsisFrom(await app.vault.cachedRead(f));
 			const now: unknown = app.metadataCache.getFileCache(f)?.frontmatter?.[settings.synopsisProp], has = typeof now === 'string' && !!now.trim();
 			if (!next || next === now) continue;
-			if (has && (files.length > 1 || !(await confirm(app, { title: 'Replace the synopsis', text: `“${f.basename}” already has a synopsis. Replace it with the note’s opening lines?`, cta: 'Replace' })))) continue;
+			if (has && (files.length > 1 || !(await confirm(app, { title: 'Replace the synopsis', text: `“${shownName(f)}” already has a synopsis. Replace it with the note’s opening lines?`, cta: 'Replace' })))) continue;
 			writes.push({ file: f, patch: { [settings.synopsisProp]: next } });
 		}
 		// (one change for all of them: one "Undo" takes the synopses back)
-		await writeKeys(plugin, writes, writes.length === 1 ? `Set synopsis of “${writes[0].file.basename}” from its text` : `Set synopsis of ${writes.length} notes from their text`);
+		await writeKeys(plugin, writes, writes.length === 1 ? `Set synopsis of “${shownName(writes[0].file)}” from its text` : `Set synopsis of ${writes.length} notes from their text`);
 	} catch (e) { say(e); return 0; }
 	return writes.length;
 }
@@ -591,11 +594,11 @@ export async function oneNoteText(plugin: BindersPlugin, folder: TFolder, option
 		for (const c of store.orderedChildren(f) ?? []) {
 			if (!isExported(plugin, c)) continue;
 			if (c instanceof TFolder) { items.push({ kind: 'folder', name: c.name, depth }); await walk(c, depth + 1); }
-			else if (isNote(c)) { items.push({ kind: 'scene', name: c.basename, depth, text: await body(c) }); scenes++; }
+			else if (isNote(c)) { items.push({ kind: 'scene', name: shownName(c), depth, text: await body(c) }); scenes++; }
 		}
 	};
 	await saveOpen(app, store.scenes(folder));
-	if (store.binderOf(folder)?.kind === 'longform') for (const f of store.scenes(folder)) { if (isExported(plugin, f)) { items.push({ kind: 'scene', name: f.basename, depth: 0, text: await body(f) }); scenes++; } }
+	if (store.binderOf(folder)?.kind === 'longform') for (const f of store.scenes(folder)) { if (isExported(plugin, f)) { items.push({ kind: 'scene', name: shownName(f), depth: 0, text: await body(f) }); scenes++; } }
 	else await walk(folder, 0);
 	return { text: compile(folder.name, items, options), scenes };
 }
@@ -644,6 +647,6 @@ export async function writeOneNote(plugin: BindersPlugin, folder: TFolder, typed
 	if (open) app.workspace.setActiveLeaf(open, { focus: true });
 	// (on a phone in the tab the binder is in, so Back returns to it: a tab of its own there is out of sight)
 	else await app.workspace.getLeaf(Platform.isPhone ? false : 'tab').openFile(file);
-	new Notice(`Exported ${scenes.toLocaleString()} ${scenes === 1 ? 'note' : 'notes'} into “${file.basename}”.`);
+	new Notice(`Exported ${scenes.toLocaleString()} ${scenes === 1 ? 'note' : 'notes'} into “${shownName(file)}”.`);
 	return file;
 }

@@ -10,6 +10,9 @@ them, and you can drag them there to reorder.
 - **Binder order.** A binder's notes and folders are listed in the binder's order, not by name.
 - **The word "binder"** at the end of a binder folder's row, as a canvas says "canvas".
 - **The open folder is marked.** The folder a binder view is showing is marked as the open note is.
+- **Titles.** A note that has a [title](titles.md) shows it instead of its file name. Obsidian's own rename
+  in the explorer still renames the file, starting from its file name. This goes with *Order binders in the file
+  explorer*: turn that off and the explorer shows file names.
 - **Label dots.** Labeled notes and folders show a dot in their label's color.
 - **No binder or folder notes.** The note that holds a binder's data, and a folder's, are hidden, since the binder
   view shows what they hold.

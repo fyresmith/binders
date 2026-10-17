@@ -33,6 +33,7 @@ import { FindBar, type At, type FindHost, type FindSource } from './find-bar';
 import { unpaint } from '../find/highlight';
 import { BoardFind } from './find-board';
 import { capture } from '../revision/capture';
+import { shownName } from '../shown-name';
 
 /* The binder view: one folder of a binder, shown as a corkboard, an outliner or a manuscript. The view owns the toolbar
    (breadcrumb, word count, filter, mode), the folder's synopsis and the subscriptions; the mode draws the rest (mode.ts).
@@ -1073,7 +1074,7 @@ export class BinderView extends ItemView {
 				return f.path;
 			},
 			// (the notes of the folder shown and the folders in it, as the view lists them: with a filter on, the ones that show)
-			sources: (): FindSource[] => (this.folder ? this.store.scenes(this.folder).filter((f) => !this.current?.filters || this.visible(f)).map((f) => ({ id: f.path, name: f.basename, file: f })) : []),
+			sources: (): FindSource[] => (this.folder ? this.store.scenes(this.folder).filter((f) => !this.current?.filters || this.visible(f)).map((f) => ({ id: f.path, name: shownName(f), file: f })) : []),
 			here: () => {
 				if (!board()) return this.current?.foundFrom?.() ?? null;
 				const c = this.current?.current?.();

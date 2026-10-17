@@ -9,6 +9,7 @@ import { corkboard } from './view/corkboard';
 import { byLabel } from './view/lanes';
 import { timelineMode } from './view/timeline';
 import { TIMELINE_ICON, TIMELINE_ICON_SVG } from './view/timeline-data';
+import { useShownNames } from './shown-name';
 import { BindersSettingTab, readSettings, type BindersSettings } from './settings';
 import { dropNewFolderItem, installExplorer, renameInExplorer, type Explorer } from './explorer';
 import type { ModeFactory } from './view/mode';
@@ -114,6 +115,7 @@ export default class BindersPlugin extends Plugin {
 		// (the timeline's icon is Binders' own: Obsidian's set has none that says a line of time)
 		addIcon(TIMELINE_ICON, TIMELINE_ICON_SVG);
 		await this.loadSettings();
+		useShownNames(this.app, () => this.settings.titleProp);
 		this.binders = new BinderStore(this);
 		this.revision = new Revision(this); // (before the record, which asks it which notes are not the binder's)
 		this.progress = new Progress(this);

@@ -10,6 +10,7 @@ import { historyLook, refreshHeader, submenu, trashPhrase } from './internals';
 import { ask, buttonRow, cancelButton, confirm } from './modals';
 import { folderItems } from './binder-snapshots';
 import { wordsIn, wordsLabel } from './words';
+import { shownName } from '../shown-name';
 
 /* Snapshots, to the writer: "Take a snapshot", "Rewrite", the dialog that lists a note's snapshots, and a pane that
    shows one beside the note. The dialog is laid out as Obsidian's own File recovery and Sync history dialogs are, with
@@ -53,7 +54,7 @@ export async function take(plugin: BindersPlugin, scenes: TFile[], title = ''): 
 		say(`${made ? `Took a snapshot of ${notes(made)}, then stopped. ` : ''}${e instanceof Error ? e.message : String(e)}`, 8000);
 		return;
 	}
-	const one = scenes.length === 1 ? `“${scenes[0].basename}”` : null;
+	const one = scenes.length === 1 ? `“${shownName(scenes[0])}”` : null;
 	if (made) say(`Took a snapshot of ${one ?? notes(made)}${title ? `, named “${title}”` : ''}.${!one && same ? ` ${same === 1 ? 'One hasn’t' : `${same} haven’t`} changed since ${same === 1 ? 'its' : 'their'} last snapshot.` : ''}`);
 	else if (same) say(one ? `${one} hasn’t changed since its last snapshot.` : 'None of them has changed since its last snapshot.');
 	else say(one ? 'There’s no text to take a snapshot of yet.' : 'None of them has any text yet.');
@@ -67,7 +68,7 @@ export class RewriteModal extends Modal {
 
 	onOpen(): void {
 		this.modalEl.addClass('binders-modal');
-		this.setTitle(`Rewrite “${this.scene.basename}”`);
+		this.setTitle(`Rewrite “${shownName(this.scene)}”`);
 		this.contentEl.createEl('p', { text: 'A snapshot of the text as it is now is taken first, to read, compare and bring back whenever you like. Then start again: from this text, or from a blank page.' });
 		const box = this.contentEl.createDiv({ cls: 'binders-ask' });
 		this.name = new TextComponent(box).setPlaceholder('A name for the snapshot, if you like');
@@ -113,7 +114,7 @@ export function startRewrite(plugin: BindersPlugin, scene: TFile): void {
 			if (leaf?.view instanceof MarkdownView && leaf.view.getMode() === 'source') leaf.view.editor.focus();
 			// (in the manuscript, the cursor back in the section it was in)
 			if (inManuscript && !Platform.isMobile) liveEditors(scene)[0]?.editor?.focus();
-			say(blank ? `A blank page for “${scene.basename}”. Its text is kept as a snapshot${kept.title ? `, “${kept.title}”` : ''}.` : `Took a snapshot of “${scene.basename}”${kept.title ? `, named “${kept.title}”` : ''}.`, blank ? 6000 : undefined);
+			say(blank ? `A blank page for “${shownName(scene)}”. Its text is kept as a snapshot${kept.title ? `, “${kept.title}”` : ''}.` : `Took a snapshot of “${shownName(scene)}”${kept.title ? `, named “${kept.title}”` : ''}.`, blank ? 6000 : undefined);
 		})().catch(tell);
 	}).open();
 }
@@ -306,7 +307,7 @@ export class SnapshotsModal extends Modal {
 		super(plugin.app);
 		this.scene = of instanceof TFile ? of : null;
 		this.dir = of instanceof TFile ? snapshotsDir(plugin, of) ?? '\0' : of.dir.path;
-		this.name = of instanceof TFile ? of.basename : of.path.slice(of.path.lastIndexOf('/') + 1);
+		this.name = of instanceof TFile ? shownName(of) : of.path.slice(of.path.lastIndexOf('/') + 1);
 		const problem = plugin.binders.problem(this.dir);
 		this.readOnly = !!problem;
 		this.why = `This binder can’t be changed. ${problem ?? ''}`;
@@ -621,7 +622,7 @@ export class LeftoversModal extends Modal {
 			const row = new Setting(contentEl).setName(left.path).setDesc(`${left.count} ${left.count === 1 ? 'snapshot' : 'snapshots'}`);
 			row.addButton((b) => b.setButtonText('Show').onClick(() => new SnapshotsModal(this.plugin, left).open()));
 			if (!ro) row.addButton((b) => b.setButtonText('Give to a note...').onClick(() => new ScenePicker(this.plugin, this.binder, (scene) => {
-				void attach(this.plugin, left, scene).then(() => say(`“${scene.basename}” now has the ${left.count === 1 ? 'snapshot' : `${left.count} snapshots`} of “${left.path.slice(left.path.lastIndexOf('/') + 1)}”.`), tell);
+				void attach(this.plugin, left, scene).then(() => say(`“${shownName(scene)}” now has the ${left.count === 1 ? 'snapshot' : `${left.count} snapshots`} of “${left.path.slice(left.path.lastIndexOf('/') + 1)}”.`), tell);
 			}).open()));
 		}
 	}

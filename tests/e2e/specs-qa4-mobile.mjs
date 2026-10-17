@@ -1096,7 +1096,7 @@ test('small phone (320 px): in the settings, a label’s name, color, well, dele
 		t.ok(rows.statuses.every((r) => r.name[2] >= 200 && r.name[3] >= 40), 'a status’s name is wide and tall enough');
 		t.ok(/Add label/.test(rows.text) && /Add status/.test(rows.text), 'the lists end in “Add label” and “Add status”');
 		// (the fields under “Property names”, one for each property that has a name: the notes' has had one since 0.26)
-		t.eq(rows.props.length, 7, 'seven property names');
+		t.eq(rows.props.length, 8, 'eight property names');
 		t.ok(rows.props.every((r) => r[2] >= 200 && r[3] >= 40), 'each field wide and tall enough: ' + j(rows.props));
 		// the rows that came after this test was written: focus mode's goal, and export's folders, places, name and contact
 		const later = await p.ev(`(async () => { const R = ${R}, out = []; for (const cls of ['goal', 'exports', 'places', 'author', 'contact', 'styles']) { const row = ${TAB}.querySelector('.binders-settings-' + cls), c = row?.querySelector('input, textarea, button'); if (!c) { out.push({ cls }); continue; } c.scrollIntoView({ block: 'center' }); await new Promise(r => setTimeout(r, 120)); const b = c.getBoundingClientRect(), hit = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2); out.push({ cls, row: R(row), name: R(row.querySelector('.setting-item-name')), desc: R(row.querySelector('.setting-item-description')), control: R(c), hit: hit === c || c.contains(hit) }); } return out; })()`);

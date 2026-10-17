@@ -1,6 +1,6 @@
 import { templateRows } from './template-items';
 import { Keymap, Menu, Notice, TFile, setIcon, type PaneType, type TAbstractFile } from 'obsidian';
-import { emptyState, itemMenu, plain, removeItems, renameItem, setStory } from './actions';
+import { emptyState, itemMenu, nameOf, plain, removeItems, renameItem, setStory } from './actions';
 import { buildCard, cardKey, overPane, owedFocus, typingNow, type CardEditors, type CardHost } from './card';
 import { Press, SelectBox, held as heldFor, visibleBottom } from './drag';
 import { FileDrag } from './file-drag';
@@ -747,7 +747,7 @@ class Timeline implements BinderMode {
 			const { el, editors } = buildCard(this.host, s.file);
 			el.querySelector(':scope > .binders-card-head > .binders-card-number')?.setText(String(s.n));
 			// (its date and its number are part of its name here: where it stands is what this board is about)
-			el.setAttr('aria-label', `${s.file.basename}, ${s.date ? showStoryDate(s.date, this.cal) : 'no date'}, scene ${s.n}`);
+			el.setAttr('aria-label', `${nameOf(s.file)}, ${s.date ? showStoryDate(s.date, this.cal) : 'no date'}, scene ${s.n}`);
 			d = { el, key, editors };
 			this.cards.set(path, d);
 			if (had) window.setTimeout(() => { if (this.cards.get(path)?.el === el && !typingNow(el.doc)) el.focus({ preventScroll: true }); }, 0);
@@ -1183,7 +1183,7 @@ class Timeline implements BinderMode {
 			if (this.ctx.readOnly) throw new Error('This binder is read only.');
 			// (a note that went while it was in hand: nothing is written)
 			if (files.some((f) => this.ctx.app.vault.getAbstractFileByPath(f.path) !== f)) throw new Error('A note was removed while it was being moved, so nothing was changed.');
-			const subject = files.length === 1 ? `“${files[0].basename}”` : `${files.length} scenes`;
+			const subject = files.length === 1 ? `“${nameOf(files[0])}”` : `${files.length} scenes`;
 			if (to.kind === 'tray') {
 				const dated = files.filter((f) => this.placeOf(f));
 				if (dated.length) await setStoryPlaces(this.ctx.plugin, dated.map((file): StoryWrite => ({ file, date: null })), `Remove story date of ${subject}`);

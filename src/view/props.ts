@@ -3,6 +3,7 @@ import { EXPORT_AS } from '../export/export';
 import type { Role } from '../export/model';
 import { writeRole } from '../export/roles';
 import { COMPILE_PROP, EXPORT_PROP } from '../scenes';
+import { shownName } from '../shown-name';
 import type BindersPlugin from '../main';
 import { canonical, readLabel } from './labels';
 import { readTarget } from './outliner-data';
@@ -31,14 +32,14 @@ export function readProps(plugin: BindersPlugin, file: TFile): SceneProps {
 /** What a property is called to the writer, in a sentence about changing it ("the synopsis of “Arrival”"). */
 function noun(plugin: BindersPlugin, key: string): string {
 	const s = plugin.settings;
-	return key === s.synopsisProp ? 'synopsis' : key === s.statusProp ? 'status' : key === s.labelProp ? 'label' : key === s.targetProp ? 'word count target' : key === s.storyDateProp ? 'story date' : key === s.storyOrderProp ? 'story order' : key === s.notesProp ? 'notes'
+	return key === s.titleProp ? 'title' : key === s.synopsisProp ? 'synopsis' : key === s.statusProp ? 'status' : key === s.labelProp ? 'label' : key === s.targetProp ? 'word count target' : key === s.storyDateProp ? 'story date' : key === s.storyOrderProp ? 'story order' : key === s.notesProp ? 'notes'
 		: key === EXPORT_AS ? '“Export as”' : key === EXPORT_PROP || key === COMPILE_PROP ? 'export setting' : `“${key}” property`;
 }
 
 /** How a change to properties is told: "Set status of “Arrival”", "Leave 3 items out of export". */
 function describe(plugin: BindersPlugin, writes: { file: TFile; patch: Record<string, unknown> }[]): { label: string; what: Record<string, string> } {
 	const files = [...new Set(writes.map((w) => w.file))], keys = [...new Set(writes.flatMap((w) => Object.keys(w.patch)))];
-	const name = (f: TFile) => (f.parent && f.basename === f.parent.name ? f.parent.name : f.basename);
+	const name = (f: TFile) => (f.parent && f.basename === f.parent.name ? f.parent.name : shownName(f));
 	const subject = files.length === 1 ? `“${name(files[0])}”` : `${files.length} items`;
 	const what = Object.fromEntries(keys.map((k) => [k, noun(plugin, k)]));
 	const values = writes.flatMap((w) => Object.entries(w.patch));

@@ -30,6 +30,7 @@ import { historyDir } from './progress/record';
 import { followSnapshots, isOwn } from './snapshots';
 import { labelCss, readLabel } from './view/labels';
 import { afterGroup, applySceneOps, conversionPlan, isIgnored, isLongformIndex, longformRunning, readProject, sameScenes, sceneGroups, shownScenes, writeScenes, type Project, type Scene, type SceneOp } from './longform';
+import { shownName } from './shown-name';
 
 /* The binders in the vault: finds them, keeps each one's order in step with the vault, and writes changes back.
    Views and the explorer use only this; `model.ts` does the list logic, this file does the vault.
@@ -234,7 +235,7 @@ class State implements Binder {
 /** An item of a binder: its path as the list writes it, and the file or folder. */
 interface Item { rel: string; file: TAbstractFile }
 /** What "Undo" calls a move of these items. */
-const moveLabel = (items: TAbstractFile[]): string => (items.length === 1 ? `Move “${items[0] instanceof TFile ? items[0].basename : items[0].name}”` : `Move ${items.length} items`);
+const moveLabel = (items: TAbstractFile[]): string => (items.length === 1 ? `Move “${items[0] instanceof TFile ? shownName(items[0]) : items[0].name}”` : `Move ${items.length} items`);
 
 /** Every binder in the vault, kept in step with it: the one place a binder is read, changed or undone
     (`plugin.binders`). The header above lists what it offers. */
@@ -575,7 +576,7 @@ export class BinderStore extends Events implements ExplorerSource {
 	whyNot(item: TAbstractFile, folder: TFolder): string | null {
 		const t = this.at(folder.path);
 		if (!t || t.problem || t.frozen || this.isHiddenNote(item)) return '';
-		const base = item instanceof TFile ? item.basename : item.name;
+		const base = item instanceof TFile ? shownName(item) : item.name;
 		if (t.kind === 'longform') {
 			if (folder !== t.folder || !(item instanceof TFile) || item.extension !== 'md') return '';
 			if (item.parent === folder) return (this.orderedChildren(folder) ?? []).includes(item) ? null : '';
@@ -1079,7 +1080,7 @@ export class BinderStore extends Events implements ExplorerSource {
 				const rel = this.relOf(t.folder.path, made.path, false);
 				if (rel) this.queue(t, { op: 'move', item: rel, folder: this.folderRel(t, folder), index });
 			}
-			await this.recordCreate(made, `Duplicate “${item.basename}”`);
+			await this.recordCreate(made, `Duplicate “${shownName(item)}”`);
 			return made;
 		}
 		if (!(item instanceof TFolder) || t.kind === 'longform') throw new Error('That can’t be copied.');
@@ -1181,7 +1182,7 @@ export class BinderStore extends Events implements ExplorerSource {
 		this.adopting.add(copy);
 		try {
 			const { vault } = this.app, st = this.plugin.settings;
-			const props = [st.synopsisProp, st.statusProp, st.labelProp, st.targetProp, st.storyDateProp, st.storyOrderProp, st.notesProp, EXPORT_PROP, COMPILE_PROP];
+			const props = [st.titleProp, st.synopsisProp, st.statusProp, st.labelProp, st.targetProp, st.storyDateProp, st.storyOrderProp, st.notesProp, EXPORT_PROP, COMPILE_PROP];
 			for (let i = 0; i < ADOPT_TRIES; i++) {
 				if (i) await sleep(ADOPT_WAIT);
 				const here = (f: TAbstractFile) => vault.getAbstractFileByPath(f.path) === f;
@@ -1222,7 +1223,7 @@ export class BinderStore extends Events implements ExplorerSource {
 		const base = title.replace(/[\\/:]/g, ' ').trim().replace(/^\.+\s*/, '') || 'Untitled', names = new Set(items.map((f) => (f instanceof TFile ? f.basename : f.name)));
 		let name = base;
 		for (let n = 1; names.has(name) || this.app.vault.getAbstractFileByPath(normalizePath(`${parent.path}/${name}`)) || (parent === t.folder && name === SNAPSHOTS); n++) name = `${base} ${n}`; // ("Snapshots" at the top of a binder is taken)
-		const label = items.length === 1 ? `Put “${items[0] instanceof TFile ? items[0].basename : items[0].name}” in a folder` : `Put ${items.length} items in a folder`;
+		const label = items.length === 1 ? `Put “${items[0] instanceof TFile ? shownName(items[0]) : items[0].name}” in a folder` : `Put ${items.length} items in a folder`;
 		return this.change(label, items, async () => {
 			const made = await this.newFolder(parent, Math.max(0, (this.orderedChildren(parent) ?? []).indexOf(items[0])), name);
 			let i = 0;
@@ -1239,7 +1240,7 @@ export class BinderStore extends Events implements ExplorerSource {
 		if (!parent) return;
 		const t = this.writable(parent);
 		if (folder === t.folder || t.kind === 'longform') throw new Error('A binder’s own folder can’t be emptied this way.');
-		const items = this.orderedChildren(folder) ?? [], name = (f: TAbstractFile) => (f instanceof TFile ? f.basename : f.name);
+		const items = this.orderedChildren(folder) ?? [], name = (f: TAbstractFile) => (f instanceof TFile ? shownName(f) : f.name);
 		// (nothing to move out: not a change, so nothing "Undo" could take back, and the folder isn't touched)
 		if (!items.length) return;
 		// all of them can come out, or none does
@@ -1533,7 +1534,7 @@ export class BinderStore extends Events implements ExplorerSource {
 		if (file instanceof TFile && file.extension === 'md' && file.parent && o && n && n.kind === 'binder' && file !== n.note && file.basename === file.parent.name && file.parent !== n.folder) {
 			// (not when it was the folder's note already, nor when it's a folder's note following its folder's new name)
 			const was = oldPath.replace(/\.md$/i, '').split('/'), wasNote = was.length > 1 && was[was.length - 1] === was[was.length - 2];
-			if (!wasNote && !this.own.delete(file.path)) new Notice(`“${file.basename}” is now the note of the folder “${file.parent.name}”, so it no longer shows as a scene. Rename it to make it a scene again.`, 8000);
+			if (!wasNote && !this.own.delete(file.path)) new Notice(`“${shownName(file)}” is now the note of the folder “${file.parent.name}”, so it no longer shows as a scene. Rename it to make it a scene again.`, 8000);
 		}
 		// Longform projects know scenes by name; a note moving between a project and a binder is handled half by each
 		if (o?.kind === 'longform' || n?.kind === 'longform') {

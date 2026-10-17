@@ -8,6 +8,7 @@ import { wordsLabel } from '../view/words';
 import type { Follow, Target } from './follow';
 import { goToItem } from './go';
 import { FollowingView, showSide } from './views';
+import { shownName } from '../shown-name';
 
 /* The contents of a binder, a view in the sidebar: the whole book as one list in reading order, with where the
    writer is. A click goes there in the binder view that's open (the manuscript scrolls to the section, a board opens
@@ -101,7 +102,7 @@ export class ContentsPane {
 			for (const c of store.orderedChildren(folder) ?? []) {
 				const note = c instanceof TFolder ? store.folderNote(c) : c instanceof TFile ? c : null;
 				// (a Longform project's scenes are indented under one another, not in folders)
-				out.push({ item: c, path: c.path, name: c instanceof TFile ? c.basename : c.name, depth: depth + (store.depthOf(c) ?? 0), label: note ? readLabel(cache.getFileCache(note)?.frontmatter?.[prop], names) : '', folder: c instanceof TFolder });
+				out.push({ item: c, path: c.path, name: c instanceof TFile ? shownName(c) : c.name, depth: depth + (store.depthOf(c) ?? 0), label: note ? readLabel(cache.getFileCache(note)?.frontmatter?.[prop], names) : '', folder: c instanceof TFolder });
 				if (c instanceof TFolder) walk(c, depth + 1);
 			}
 		};

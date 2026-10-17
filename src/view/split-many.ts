@@ -5,6 +5,7 @@ import { choicesFor, planSplit, type SplitBy } from '../split-text';
 import { lf, parts } from '../scene-text';
 import { wordsIn } from './words';
 import { buttonRow, cancelButton } from './modals';
+import { shownName } from '../shown-name';
 
 /* "Split at headings...": a note of a binder cut into several. A small dialog (Obsidian's own look for one): where to
    cut (a heading level, the scene breaks, or a line of the writer's own), the notes it will make with their names, which
@@ -53,7 +54,7 @@ class SplitManyModal extends Modal {
 	onOpen(): void {
 		const { contentEl, modalEl } = this;
 		modalEl.addClass('binders-split-many');
-		this.setTitle(`Split “${this.file.basename}”`);
+		this.setTitle(`Split “${shownName(this.file)}”`);
 		const c = choicesFor(this.text);
 		new Setting(contentEl).setName('Split at').addDropdown((d) => {
 			for (const h of c.headings) d.addOption(`h${h.level}`, `Heading ${h.level} (${h.count})`);
@@ -84,7 +85,7 @@ class SplitManyModal extends Modal {
 		const pieces = this.pieces();
 		this.list.empty();
 		const first = this.list.createDiv({ cls: 'binders-split-many-row is-first', attr: { role: 'listitem' } });
-		first.createSpan({ cls: 'binders-split-many-name', text: this.file.basename });
+		first.createSpan({ cls: 'binders-split-many-name', text: shownName(this.file) });
 		first.createSpan({ cls: 'binders-split-many-words', text: `stays as the first note · ${n(wordsIn(this.plugin, parts(pieces[0]?.text ?? '').body), 'word')}` });
 		pieces.slice(1).forEach((p, k) => {
 			const row = this.list.createDiv({ cls: 'binders-split-many-row', attr: { role: 'listitem' } });
@@ -103,6 +104,6 @@ class SplitManyModal extends Modal {
 		const pieces = this.pieces().map((p, i) => ({ title: i > 0 ? p.title.trim() || 'Untitled' : '', text: p.text }));
 		const made = await splitMany(this.plugin, this.file, this.text, pieces, { folder: this.folder && this.canFolder() });
 		this.busy = false;
-		if (made) { this.close(); new Notice(`Split “${this.file.basename}” into ${pieces.length} notes. Undo last change takes it back.`); } else this.draw();
+		if (made) { this.close(); new Notice(`Split “${shownName(this.file)}” into ${pieces.length} notes. Undo last change takes it back.`); } else this.draw();
 	}
 }

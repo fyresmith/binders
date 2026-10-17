@@ -1,4 +1,5 @@
 import { ButtonComponent, DropdownComponent, Menu, Modal, Notice, TFile, setIcon } from 'obsidian';
+import { shownName } from '../shown-name';
 import type BindersPlugin from '../main';
 import type { Binder } from '../binders';
 import { PRESETS, eraAbbr, makeCalendar, readCalendarDef, writeCalendarDef, type CalendarDef, type MonthDef } from '../time/calendar';
@@ -278,7 +279,7 @@ export class CalendarModal extends Modal {
 			if (reads.length) parts.push(`${reads.length} would read differently (${showStoryDate(reads[0].date, was)} would be ${showStoryDate(readStoryDate(reads[0].raw, cal) ?? reads[0].date, cal)}).`);
 		}
 		if (gone.length) {
-			const names = gone.slice(0, 2).map((x) => `“${x.file.basename}”`).join(' and ') + (gone.length > 2 ? ` and ${gone.length - 2} more` : '');
+			const names = gone.slice(0, 2).map((x) => `“${shownName(x.file)}”`).join(' and ') + (gone.length > 2 ? ` and ${gone.length - 2} more` : '');
 			parts.push(`${names} would have ${gone.length === 1 ? 'a date' : 'dates'} this calendar hasn’t got (${showStoryDate(gone[0].date, was)}): ${gone.length === 1 ? 'it would wait' : 'they would wait'} in the timeline’s tray, as written, until dated again.`);
 		}
 		el.createDiv({ cls: 'binders-calendar-dates' + (gone.length ? ' mod-warning' : ''), text: parts.join(' ') });

@@ -1,6 +1,7 @@
 import { TFile, TFolder } from 'obsidian';
 import { editable, type Editable } from './edit';
 import type { ModeContext } from './mode';
+import { shownName } from '../shown-name';
 
 /* The manuscript showing each note's synopsis where its text would be (the Synopses switch): a read-through of the
    book's outline down its own page. A folder stays a heading with its synopsis under it; a note is its title and its
@@ -38,7 +39,7 @@ export function drawLine(ctx: ModeContext, e: Shown, into: HTMLElement, after: H
 	if (had?.ed.el.isConnected && (had.ed.editing || had.read === value)) return;
 	const el = had?.ed.el, focused = !!el && (el === el.doc.activeElement);
 	el?.remove();
-	const name = folder?.name ?? file?.basename ?? '';
+	const name = folder?.name ?? (file ? shownName(file) : '');
 	const ed = editable(into, {
 		cls: LINE, value, placeholder: 'Add a synopsis', label: `Synopsis of ${name}`, readOnly: ctx.readOnly, focusable: true,
 		// (a folder's note is made when something is saved, and not before)

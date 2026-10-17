@@ -144,7 +144,7 @@ export class OutlinerColumns {
 		const cols = this.h.columns(), has = (id: string) => cols.some((c) => c.id === id);
 		const flip = (id: string) => { this.h.setColumns(has(id) ? cols.filter((c) => c.id !== id) : [...cols, { id }]); if (!has(id)) this.showColumn(id); };
 		for (const b of BUILT_IN) menu.addItem((i) => i.setSection('built-in').setTitle(b.name).setIcon(b.icon).setChecked(has(b.id)).onClick(() => flip(b.id)));
-		const s = this.h.ctx.plugin.settings, own = [s.synopsisProp, s.statusProp, s.labelProp, s.targetProp, s.storyDateProp, s.storyOrderProp, s.notesProp, EXPORT_PROP, COMPILE_PROP, 'export-as', 'binder', 'contents', 'longform', 'aliases', 'cssclasses'];
+		const s = this.h.ctx.plugin.settings, own = [s.titleProp, s.synopsisProp, s.statusProp, s.labelProp, s.targetProp, s.storyDateProp, s.storyOrderProp, s.notesProp, EXPORT_PROP, COMPILE_PROP, 'export-as', 'binder', 'contents', 'longform', 'aliases', 'cssclasses'];
 		const shown = cols.map((c) => propOf(c.id)).filter((p): p is string => !!p);
 		const found = suggestProps(this.h.ctx.store.scenes(this.h.ctx.binder.folder).map((f) => (this.h.ctx.app.metadataCache.getFileCache(f)?.frontmatter ?? {})), [...own, ...shown]);
 		for (const p of [...shown, ...found.slice(0, 12)]) menu.addItem((i) => i.setSection('props').setTitle(p).setIcon('text').setChecked(has(propId(p))).onClick(() => flip(propId(p))));

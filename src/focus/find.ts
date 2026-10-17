@@ -4,6 +4,7 @@ import type BindersPlugin from '../main';
 import { paint, rangesIn, setFound, shows, unpaint } from '../find/highlight';
 import { takeSnapshot } from '../snapshots';
 import { FindBar, type FindHost, type FindSource } from '../view/find-bar';
+import { shownName } from '../shown-name';
 
 /* Find in a note that shows the scenes before and after it (focus mode's "Show the scenes before and after"): the
    one case where Binders takes the place of Obsidian's own bar in a note's tab. What is shown is what is looked
@@ -27,7 +28,7 @@ export function hookSearch(plugin: BindersPlugin, view: MarkdownView, near: () =
 		sources: () => {
 			const out: FindSource[] = [], b = drawn('is-before'), a = drawn('is-after'), f = view.file;
 			if (b) out.push({ id: 'before', name: 'The scene before', file: null, drawn: b });
-			if (f) out.push({ id: f.path, name: f.basename, file: f });
+			if (f) out.push({ id: f.path, name: shownName(f), file: f });
 			if (a) out.push({ id: 'after', name: 'The scene after', file: null, drawn: a });
 			return out;
 		},
@@ -55,7 +56,7 @@ export function hookSearch(plugin: BindersPlugin, view: MarkdownView, near: () =
 		snapshot: () => {
 			const f = view.file;
 			if (!f || plugin.binders.problem(f)) return null;
-			return { of: 'note', name: f.basename, root: f.parent?.path ?? '', take: async (why) => { await takeSnapshot(plugin, f, why); } };
+			return { of: 'note', name: shownName(f), root: f.parent?.path ?? '', take: async (why) => { await takeSnapshot(plugin, f, why); } };
 		},
 		locked: () => (view.file && plugin.binders.problem(view.file) ? 'Nothing can be replaced here.' : null),
 		replacesOne: () => true,

@@ -4,6 +4,7 @@ import type { EditorView } from '@codemirror/view';
 import { caretRect } from '../focus/dom';
 import { bodyStart, forRender, moved } from '../scene-text';
 import { markManuscript } from './manuscript-filter';
+import { shownName, titleOf } from '../shown-name';
 import { badName, emptyState, itemMenu, plain, removeItems, renameItem } from './actions';
 import { vimMode } from './internals';
 import { visibleBottom } from './drag';
@@ -673,7 +674,7 @@ class Manuscript implements BinderMode {
 			let e = this.byKey.get(w.key);
 			if (!e) e = w.key instanceof TFile ? this.makeScene(w.key) : this.makeHeading(w.key, w.depth);
 			if (e.kind === 'heading') this.updateHeading(e, w.depth);
-			else if (!e.renaming) e.titleEl.setText(e.file.basename);
+			else if (!e.renaming) e.titleEl.setText(shownName(e.file));
 			if (keep.has(e)) continue;
 			keep.add(e);
 			next.push(e);
@@ -793,7 +794,7 @@ class Manuscript implements BinderMode {
 	private makeScene(file: TFile): Scene {
 		const el = createDiv({ cls: 'binders-manuscript-scene' });
 		const head = el.createDiv({ cls: 'binders-manuscript-break' });
-		const titleEl = head.createDiv({ cls: 'binders-manuscript-title', text: file.basename, attr: { tabindex: '0', role: 'link' } });
+		const titleEl = head.createDiv({ cls: 'binders-manuscript-title', text: shownName(file), attr: { tabindex: '0', role: 'link' } });
 		const bodyEl = el.createDiv({ cls: 'binders-manuscript-body' });
 		// a guess at its height until it's rendered, so the page is about the right length from the start
 		if (!this.outline) bodyEl.setCssStyles({ minHeight: `${Math.min(4000, 24 + Math.ceil(file.stat.size / 80) * 26)}px` });
@@ -1520,7 +1521,7 @@ class Manuscript implements BinderMode {
 	    leaves the name as it was. A name that can't be used stays in the title to be changed, with a word why. */
 	private rename(s: Scene, typed?: string): void {
 		if (s.renaming || this.ctx.readOnly) return;
-		const el = s.titleEl, old = s.file.basename, doc = this.root.ownerDocument;
+		const el = s.titleEl, old = shownName(s.file), doc = this.root.ownerDocument;
 		s.renaming = true;
 		this.asked++;
 		if (typed != null) el.setText(typed);
@@ -1541,20 +1542,23 @@ class Manuscript implements BinderMode {
 			el.scrollLeft = 0;
 			s.renaming = false;
 			const name = (el.textContent ?? '').replace(/\s+/g, ' ').trim();
-			el.setText(s.file.basename);
+			el.setText(shownName(s.file));
 			// (Escape, or nothing changed: back to the text if that's where the rename was started from, else on the title)
 			if (!commit || !name || name === old || this.dead) { if (!leaving && !this.dead) { if (this.caret?.file === s.file && !this.outline) void this.focusScene(s, 'caret', undefined, false); else el.focus(); } return; }
+			// (a note that has a title is renamed by it: the title changes and the file keeps its name)
+			const titled = titleOf(s.file) != null;
 			const to = normalizePath(`${s.file.parent?.path ?? ''}/${name}.${s.file.extension}`);
 			const clash = this.app.vault.getAbstractFileByPath(to), same = to.toLowerCase() === s.file.path.toLowerCase();
-			const why = badName(name) ?? (name === s.file.parent?.name ? 'A note can’t have its folder’s name: it would become the folder’s note.' : clash && !same ? `There’s already a note called “${name}” here.` : null);
+			const why = titled ? null : badName(name) ?? (name === s.file.parent?.name ? 'A note can’t have its folder’s name: it would become the folder’s note.' : clash && !same ? `There’s already a note called “${name}” here.` : null);
 			if (why) {
 				new Notice(why);
 				// what was typed isn't lost: it's there to be changed (unless the title was left for something else)
 				if (!leaving) this.rename(s, name);
 				return;
 			}
-			try { await this.ctx.store.rename(s.file, name); } catch (e) { new Notice(plain(e)); }
-			el.setText(s.file.basename);
+			let wrote = true;
+			try { if (titled) await renameItem(this.ctx, s.file, name); else await this.ctx.store.rename(s.file, name); } catch (e) { wrote = false; new Notice(plain(e)); }
+			el.setText(titled && wrote ? name : shownName(s.file));
 			// (with synopses showing the title keeps the keyboard: there is no text to put it in)
 			if (!leaving && !this.dead) { if (this.outline) el.focus(); else void this.focusScene(s, this.caret?.file === s.file ? 'caret' : 'start', undefined, this.caret?.file !== s.file); }
 		};

@@ -7,6 +7,7 @@ import { saveOpen } from '../scenes';
 import { isScene } from '../snapshots';
 import { append, parse, setDone, taskLines, type Task } from './tasks';
 import { Walk } from './walk';
+import { shownName } from '../shown-name';
 
 /* A binder's revision tasks: where its revision note is, what the note says now, which scene each task is about and
    where that scene comes in the manuscript. The note is the truth: it is read again whenever it changes (typed in,
@@ -188,9 +189,9 @@ export class Revision extends Events {
 		if (store.binderOf(dest)?.note === binder.note) {
 			// (a folder's own note stands for the folder)
 			const item = store.isHiddenNote(dest) ? dest.parent : isScene(this.plugin, dest) ? dest : null;
-			if (item && order.has(item.path)) return { kind: 'item', key: item.path, name: item instanceof TFile ? item.basename : item.name, item, at: order.get(item.path) ?? 0 };
+			if (item && order.has(item.path)) return { kind: 'item', key: item.path, name: item instanceof TFile ? shownName(item) : item.name, item, at: order.get(item.path) ?? 0 };
 		}
-		return lead ? { kind: 'outside', key: `!${dest.path}`, name: dest.basename, item: dest, at: Infinity } : null;
+		return lead ? { kind: 'outside', key: `!${dest.path}`, name: shownName(dest), item: dest, at: Infinity } : null;
 	}
 
 	/** The binder's tasks, under what each is about, in manuscript order. A task about two scenes is under both and
@@ -265,7 +266,7 @@ export class Revision extends Events {
 				added = next.slice(was.length);
 				return next;
 			});
-			if (blocked) throw new Error(`“${existing.basename}” ends inside a block of code, so a task added there would not be one. Nothing was written.`);
+			if (blocked) throw new Error(`“${shownName(existing)}” ends inside a block of code, so a task added there would not be one. Nothing was written.`);
 			this.texts.set(existing.path, now);
 			this.trigger('changed');
 			return { note: existing, lines: task, added, made: false };
@@ -322,7 +323,7 @@ export class Revision extends Events {
 		const note = this.noteOf(binder);
 		if (!note || binder.kind !== 'binder' || binder.problem) { this.tell(binder.problem ? `This binder can’t be changed. ${binder.problem}` : 'There is no revision note to tick a task in.'); return null; }
 		const wrote = await this.tickLine(note, task, done);
-		if (!wrote) { this.tell(`That task has changed in “${note.basename}”. Nothing was written.`); return null; }
+		if (!wrote) { this.tell(`That task has changed in “${shownName(note)}”. Nothing was written.`); return null; }
 		// (one step in the binder's history: taken back only if the line is still as this left it; history/revision.ts)
 		this.plugin.binders.history.record({ note: binder.note, label: done ? 'Mark revision task done' : 'Mark revision task not done', steps: [{ kind: 'revision', op: 'tick', binder: binder.note, note, line: wrote.line, before: task.raw, after: wrote.raw, markAt: task.markAt, done }] });
 		return wrote.raw;

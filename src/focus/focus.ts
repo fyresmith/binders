@@ -18,6 +18,7 @@ import { wordsIn } from '../view/words';
 import { caretRect, editorDoc, editorView, lightTheme, noteColumn, panesAbove, tailRoom } from './dom';
 import { recordDay } from '../progress/day';
 import { Session, atEnd, bodyStart, dayOf, excerpt, parseGoal } from './session';
+import { shownName } from '../shown-name';
 
 /* Focus mode: a quiet way to write a note of a binder, in a tab or in the manuscript. It is a state of the view that's
    already open, never a view of its own: the editor being typed in is not remounted, moved or reloaded on the way in
@@ -668,13 +669,13 @@ export class Focus {
 		if (!want || !col) { hold(); return; }
 		const comp = on.nearComp = on.comp.addChild(new Component()), store = this.plugin.binders;
 		const make = (f: TFile, d: number): HTMLElement => {
-			const el = createDiv({ cls: `binders-focus-near ${d < 0 ? 'is-before' : 'is-after'}`, attr: { role: 'link', tabindex: '0', 'aria-label': `${d < 0 ? 'Previous' : 'Next'} scene: ${f.basename}` } });
+			const el = createDiv({ cls: `binders-focus-near ${d < 0 ? 'is-before' : 'is-after'}`, attr: { role: 'link', tabindex: '0', 'aria-label': `${d < 0 ? 'Previous' : 'Next'} scene: ${shownName(f)}` } });
 			// a folder that starts between the two is said, as the manuscript says it
 			const later = d < 0 ? file : f, earlier = d < 0 ? f : file;
 			const heading = later.parent && later.parent !== earlier.parent && (store.orderedChildren(later.parent) ?? []).find((c) => c instanceof TFile) === later ? later.parent.name : null;
 			const head = () => { if (heading) el.createDiv({ cls: 'binders-manuscript-heading markdown-rendered' }).createEl('h1', { text: heading }); };
 			if (d > 0) head();
-			el.createDiv({ cls: 'binders-manuscript-break' }).createDiv({ cls: 'binders-manuscript-title', text: f.basename });
+			el.createDiv({ cls: 'binders-manuscript-break' }).createDiv({ cls: 'binders-manuscript-title', text: shownName(f) });
 			const body = el.createDiv({ cls: 'binders-focus-near-text markdown-rendered' });
 			void this.plugin.app.vault.cachedRead(f).then(async (raw) => {
 				if (this.on !== on || on.nearComp !== comp) return;
@@ -691,7 +692,7 @@ export class Focus {
 		};
 		// this note's own title, as a section of the manuscript has it (its inline title is hidden with its properties)
 		const here = createDiv({ cls: 'binders-focus-near is-here' });
-		here.createDiv({ cls: 'binders-manuscript-break' }).createDiv({ cls: 'binders-manuscript-title', text: file.basename });
+		here.createDiv({ cls: 'binders-manuscript-break' }).createDiv({ cls: 'binders-manuscript-title', text: shownName(file) });
 		if (before) { const el = make(before, -1); col.above(el); on.near.push(el); }
 		col.above(here);
 		on.near.push(here);
@@ -880,7 +881,7 @@ export class Focus {
 			const chain: string[] = [];
 			for (let f = file?.parent ?? null; f && f !== binder.folder; f = f.parent) chain.unshift(f.name);
 			if (!chain.length) chain.push(binder.folder.name);
-			if (file) chain.push(file.basename);
+			if (file) chain.push(shownName(file));
 			chain.forEach((name, i) => {
 				if (i) setIcon(place.createSpan({ cls: 'binders-focus-sep', attr: { 'aria-hidden': 'true' } }), 'chevron-right');
 				place.createSpan({ cls: i === chain.length - 1 ? 'binders-focus-here' : '', text: name });
@@ -930,7 +931,7 @@ export class Focus {
 		for (const d of [-1, 1]) {
 			if (!this.step(d, true)) continue;
 			const to = file && on.leaf.view instanceof MarkdownView ? this.neighbour(file, d) : null;
-			menu.addItem((i) => i.setSection('go').setTitle(`${d < 0 ? 'Previous' : 'Next'} scene${to ? `: ${to.basename}` : ''}`).setIcon(d < 0 ? 'arrow-up' : 'arrow-down').onClick(() => { this.step(d, false); }));
+			menu.addItem((i) => i.setSection('go').setTitle(`${d < 0 ? 'Previous' : 'Next'} scene${to ? `: ${shownName(to)}` : ''}`).setIcon(d < 0 ? 'arrow-up' : 'arrow-down').onClick(() => { this.step(d, false); }));
 		}
 		menu.addItem((i) => i.setSection('leave').setTitle('Leave focus mode').setIcon('minimize-2').onClick(() => this.leave()));
 	}

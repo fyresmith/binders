@@ -16,6 +16,8 @@ export interface BindersSettings {
 	/** Show each note's label color beside its name in the file explorer. */
 	explorerLabels: boolean;
 	/** The property names scenes use; changeable so Binders can share a vault's existing names. */
+	/** The property that holds a note's title: shown in place of its file name where Binders shows the note. */
+	titleProp: string;
 	synopsisProp: string;
 	statusProp: string;
 	labelProp: string;
@@ -92,7 +94,7 @@ export interface BindersSettings {
 /** What a new vault starts with. */
 export const DEFAULT_SETTINGS: BindersSettings = {
 	orderExplorer: true, openOnClick: true, hideBinderNotes: true, explorerLabels: true,
-	synopsisProp: 'synopsis', statusProp: 'status', labelProp: 'label', targetProp: 'target', storyDateProp: 'story-date', storyOrderProp: 'story-order', notesProp: 'notes',
+	titleProp: 'title', synopsisProp: 'synopsis', statusProp: 'status', labelProp: 'label', targetProp: 'target', storyDateProp: 'story-date', storyOrderProp: 'story-order', notesProp: 'notes',
 	labels: DEFAULT_LABELS, statuses: DEFAULT_STATUSES, outlinerColumns: DEFAULT_COLUMNS, compile: COMPILE_DEFAULTS, compiled: {}, compiledTo: {},
 	exportsFolder: 'Exports', stylesFolder: 'Export styles', authorName: '', contact: '', exportKind: 'manuscript', exportFile: 'docx', exportPaper: 'letter', exportStyle: '', exportMatter: false, exportOutside: true, exportSnapshots: true,
 	tabParagraphs: true, indentParagraphs: false, sidePanes: true,
@@ -137,11 +139,11 @@ export const PARAGRAPH_TEXT: Record<ParagraphToggle, readonly [string, string]> 
 
 /** The file explorer’s four switches. */
 export type Toggle = 'orderExplorer' | 'openOnClick' | 'hideBinderNotes' | 'explorerLabels';
-/** The five property names settings can change. */
-export type Prop = 'synopsisProp' | 'statusProp' | 'labelProp' | 'targetProp' | 'storyDateProp' | 'storyOrderProp' | 'notesProp';
+/** The property names settings can change. */
+export type Prop = 'titleProp' | 'synopsisProp' | 'statusProp' | 'labelProp' | 'targetProp' | 'storyDateProp' | 'storyOrderProp' | 'notesProp';
 /** Both in the order the settings tab lists them. */
 export const TOGGLES: Toggle[] = ['orderExplorer', 'openOnClick', 'hideBinderNotes', 'explorerLabels'];
-export const PROPS: Prop[] = ['synopsisProp', 'statusProp', 'labelProp', 'targetProp', 'storyDateProp', 'storyOrderProp', 'notesProp'];
+export const PROPS: Prop[] = ['titleProp', 'synopsisProp', 'statusProp', 'labelProp', 'targetProp', 'storyDateProp', 'storyOrderProp', 'notesProp'];
 
 /** Their names and descriptions in the settings tab. */
 export const TEXT: Record<Toggle | Prop, readonly [string, string]> = {
@@ -149,6 +151,7 @@ export const TEXT: Record<Toggle | Prop, readonly [string, string]> = {
 	openOnClick: ['Open binders from the file explorer', 'Clicking a binder, or a folder inside one, opens its binder view.'],
 	hideBinderNotes: ['Hide binder and folder notes', 'Don’t list a binder’s own note, or a folder’s note named like it, in the file explorer. Clicking the folder opens them in the binder view.'],
 	explorerLabels: ['Show label colors in the file explorer', 'A dot in its label’s color beside each labeled note and folder in a binder.'],
+	titleProp: ['Title', 'The property that holds a note’s title. A note that has one is shown by it, in place of its file name, in the binder views and the file explorer. Its file name stays as it is.'],
 	synopsisProp: ['Synopsis', 'The property that holds a note’s card text.'],
 	statusProp: ['Status', 'The property that holds a note’s status, such as draft or revised.'],
 	labelProp: ['Label', 'The property that holds a note’s label.'],

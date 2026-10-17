@@ -64,6 +64,7 @@ Each entry says what the module owns and what it must never do.
 | File | What it is | Must never |
 |---|---|---|
 | `src/main.ts` | `BindersPlugin`: the lifecycle (`onload` builds the store, the explorer patch, the views, focus mode), every command, the file and files menus, `openBinder`, and the small actions the commands run (make a binder, new scene, move up and down, undo). Every action runs through `tell()`, which shows a failure as a notice instead of failing silently. | Hold logic that a view or the store needs: commands call into them. |
+| `src/shown-name.ts` | The name Binders shows for a note: `shownName(file)` is its title property (named in settings) else its file name, read through the metadata cache. Display only: paths, renames, links and anything that identifies a file keep using `basename`. `useShownNames` is called once on load; `shownNameAt(path, fallback)` is for pure builders handed paths (export's `book.ts`). Editing a shown name goes through `renameItem` (`src/view/actions.ts`), which writes the property for a note that has one |
 | `src/settings-data.ts` | What the settings are (`BindersSettings`), their defaults, and `readSettings`, which makes whatever was saved whole again (missing keys get defaults; lists that aren't well formed are put right). Pure. | Import Obsidian. |
 | `src/settings.ts` | The settings tab, declarative: Obsidian draws it from `getSettingDefinitions`. Renaming a label or status asks whether to rename it in the notes that use it. | Rewrite notes without asking. |
 

@@ -5,6 +5,7 @@ import type BindersPlugin from '../main';
 import { BinderView } from '../view/BinderView';
 import { LONGFORM } from './store';
 import { quoted } from './tasks';
+import { shownName } from '../shown-name';
 
 /* "Add revision task": Obsidian's own prompt (the quick switcher's, the command palette's), with one field. Under it,
    where a switcher lists notes, is what the task will be about: the scene in hand first, so Enter is all it takes,
@@ -92,7 +93,7 @@ export function capture(plugin: BindersPlugin, checking = false, given?: { binde
 	const rows: About[] = [];
 	if (items.length > 1) rows.push({ items, name: `${items.length} notes`, kind: 'Together', passage: '' });
 	else if (one) {
-		rows.push({ items: [one], name: one instanceof TFile ? one.basename : one.name, kind: one instanceof TFolder ? 'Folder' : one.parent && one.parent !== binder.folder ? one.parent.name : '', passage });
+		rows.push({ items: [one], name: one instanceof TFile ? shownName(one) : one.name, kind: one instanceof TFolder ? 'Folder' : one.parent && one.parent !== binder.folder ? one.parent.name : '', passage });
 		for (let f = one.parent; f && f !== binder.folder && f.path.startsWith(binder.folder.path + '/'); f = f.parent) rows.push({ items: [f], name: f.name, kind: 'Folder', passage: '' });
 	}
 	rows.push({ items: [], name: binder.folder.name, kind: 'The whole book', passage: '' });

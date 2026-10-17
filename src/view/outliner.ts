@@ -423,7 +423,7 @@ class Outliner implements BinderMode {
 		let at: ChildNode | null = this.body.firstChild;
 		for (const r of rows) {
 			const path = r.item.path, open = r.item instanceof TFolder && !collapsed.has(path);
-			const key = shared + JSON.stringify([path, r.depth, open, r.item instanceof TFolder && this.model.children(r.item).some((f) => this.isShown(f)), this.model.props(r.item), cols.map((c) => this.model.cellKey(r.item, c.id))]);
+			const key = shared + JSON.stringify([path, nameOf(r.item), r.depth, open, r.item instanceof TFolder && this.model.children(r.item).some((f) => this.isShown(f)), this.model.props(r.item), cols.map((c) => this.model.cellKey(r.item, c.id))]);
 			const hit = this.drawn.get(path);
 			const row = hit && hit.key === key && hit.item === r.item && !drawn.has(path) ? hit : this.drawRow(r, cols, open, key);
 			drawn.set(path, row);

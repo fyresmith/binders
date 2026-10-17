@@ -7,6 +7,7 @@ import { lf, parts } from '../scene-text';
 import { saveOpen } from '../scenes';
 import { liveEditors } from './editable-embed';
 import { reviewReplace } from './find-review';
+import { shownName } from '../shown-name';
 
 /* Find and replace across a binder: the bar. It is Obsidian's own find bar (`document-search-container` and what is
    in it, by its classes, with its keys), given more than one note to look through. What it looks through, and how a
@@ -407,7 +408,7 @@ export class FindBar {
 			await saveOpen(plugin.app, d.notes.map((x) => x.file));
 			for (const x of d.notes) {
 				try {
-					const now = await this.read({ id: x.file.path, name: x.file.basename, file: x.file }, true);
+					const now = await this.read({ id: x.file.path, name: shownName(x.file), file: x.file }, true);
 					// (a note already back as it was, say by its editor's undo or a snapshot, has nothing to put back: it is neither
 					// put back nor changed since)
 					if (now === x.before) continue;

@@ -1,3 +1,4 @@
+import { shownName, titleOf } from '../shown-name';
 import { openSplitMany } from './split-many';
 import { exportAsItems } from './export-as';
 import { Menu, Notice, Platform, TFile, TFolder, setIcon, type TAbstractFile } from 'obsidian';
@@ -29,15 +30,22 @@ export { badName };
 export { isNote };
 /** An item's name as it shows: a note's without ".md", a folder's as it is. (Not `nameOf` in model.ts, which reads the
     last part of a path in a binder's list.) */
-export const nameOf = (f: TAbstractFile): string => (f instanceof TFile ? f.basename : f.name);
+export const nameOf = (f: TAbstractFile): string => (f instanceof TFile ? shownName(f) : f.name);
 
 /** Where an item's card data lives: the note itself, or a folder's folder note (null until it has one). */
 export function noteOf(ctx: ModeContext, f: TAbstractFile): TFile | null {
 	return f instanceof TFolder ? ctx.store.folderNote(f) : f instanceof TFile ? f : null;
 }
 
-/** Renames a note or folder where it is, as one change that Undo takes back. Throws, with why, when the name can't be used. */
+/** Renames a note or folder where it is, as one change that Undo takes back. Throws, with why, when the name can't be used.
+    A note that has a title is shown by it, so editing its name changes the title and leaves the file alone. */
 export async function renameItem(ctx: ModeContext, f: TAbstractFile, name: string): Promise<void> {
+	if (f instanceof TFile && titleOf(f) != null) {
+		const t = name.replace(/\s+/g, ' ').trim();
+		if (t === titleOf(f)) return;
+		try { await writeKeys(ctx.plugin, [{ file: f, patch: { [ctx.plugin.settings.titleProp]: t || undefined } }]); } catch (e) { throw new Error(plain(e)); }
+		return;
+	}
 	try { await ctx.store.rename(f, name); } catch (e) { throw new Error(plain(e)); }
 }
 

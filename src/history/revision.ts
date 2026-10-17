@@ -3,6 +3,7 @@ import type { Binder } from '../binders';
 import type { Revision } from '../revision/store';
 import { setDone } from '../revision/tasks';
 import type { Handler, RevisionStep } from './types';
+import { shownName } from '../shown-name';
 
 /* Revision tasks, and taking them back (golden rule 3, the fourth exception). Exact, not tolerant: a tick is undone
    (or made again) only if the line is still exactly as the step left it, and one box is the one character changed; an
@@ -29,7 +30,7 @@ export class RevisionHandler implements Handler<RevisionStep> {
 
 	async check(step: RevisionStep, redo: boolean): Promise<void> {
 		if (!this.host.binderOf(step.binder)) throw new Error('That binder is not there now.');
-		const text = await this.disk(step), name = step.note.basename;
+		const text = await this.disk(step), name = shownName(step.note);
 		if (step.op === 'tick') {
 			const raw = redo ? step.before : step.after, want = redo ? step.done : !step.done;
 			if (text === null || setDone(text, { line: step.line, raw, markAt: step.markAt }, want) === null) throw new Error(`The task in “${name}” has changed since, so it stays as it is.`);
@@ -40,7 +41,7 @@ export class RevisionHandler implements Handler<RevisionStep> {
 	}
 
 	async apply(step: RevisionStep, redo: boolean): Promise<void> {
-		const rev = this.host.revision(), binder = this.host.binderOf(step.binder), name = step.note.basename;
+		const rev = this.host.revision(), binder = this.host.binderOf(step.binder), name = shownName(step.note);
 		if (!binder) return;
 		if (step.op === 'tick') {
 			const raw = redo ? step.before : step.after, want = redo ? step.done : !step.done;

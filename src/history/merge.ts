@@ -1,6 +1,7 @@
 import { TFile, type App, type TAbstractFile } from 'obsidian';
 import type { RemoveHandler } from './remove';
 import { Declined, type Handler, type MergeStep } from './types';
+import { shownName } from '../shown-name';
 
 /* A merge made by hand, and taking it back. The first note goes back to its whole file as it was only if it is still
    exactly the merged text (what is typed and not saved is written first, and counts); the merged-away notes are made
@@ -36,7 +37,7 @@ export class MergeHandler implements Handler<MergeStep, { changed: boolean }> {
 	private bytes(f: TFile): Promise<ArrayBuffer> { return this.app.vault.adapter.readBinary(f.path); }
 
 	async check(step: MergeStep, redo: boolean): Promise<{ changed: boolean }> {
-		const first = step.first, name = first.basename;
+		const first = step.first, name = shownName(first);
 		await this.host.settle([first, ...step.gone.map((k) => k.file).filter((f): f is TFile => f instanceof TFile)]);
 		if (redo) {
 			if (!same(await this.bytes(first), step.before)) throw new Error(`“${name}” has been changed since the merge was undone, so the notes are not merged again.`);
@@ -51,7 +52,7 @@ export class MergeHandler implements Handler<MergeStep, { changed: boolean }> {
 	}
 
 	async apply(step: MergeStep, redo: boolean, plan: { changed: boolean }): Promise<void> {
-		const { vault } = this.app, first = step.first, name = first.basename;
+		const { vault } = this.app, first = step.first, name = shownName(first);
 		if (redo) {
 			// (asked again of the disk: what was checked is what is there)
 			if (!same(await this.bytes(first), step.before)) throw new Error(`“${name}” has been changed since the merge was undone, so the notes are not merged again.`);

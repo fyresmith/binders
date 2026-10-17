@@ -7,6 +7,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 ### Added
 
 - A manuscript export style has a “Header on the first page” choice: set it to “Left off” and the first page of the text has no header, in the Word file and the PDF; the next page still says 2.
+- A note's “title” property is shown in place of its file name in the binder views, the side panes, find and replace, the file explorer and an export's headings; editing a shown name changes the title and leaves the file alone. The property's name can be changed under Property names in settings.
 
 ### Fixed
 

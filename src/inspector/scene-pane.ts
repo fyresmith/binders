@@ -18,6 +18,7 @@ import { wordsIn, wordsLabel } from '../view/words';
 import type { Follow, Target } from './follow';
 import { PinnedRows } from './pinned-props';
 import { ROLE_NAMES, rolesOf, type Played } from './roles';
+import { shownName } from '../shown-name';
 
 /* The inspector's pane on what is in hand: a note, a folder (its data is in its folder note), the binder, or several
    at once. A synopsis, the label, status and target, whether it's exported and as what, notes on it, and a note's
@@ -142,7 +143,7 @@ export class ScenePane {
 		// what it is, and how long
 		const head = el.createDiv({ cls: 'binders-inspector-head' });
 		const folders = items.filter((f) => f instanceof TFolder).length;
-		head.createDiv({ cls: 'binders-inspector-name', text: one ? (one instanceof TFile ? one.basename : one.name) : folders ? `${count(items.length, 'item')} selected` : `${count(items.length, 'note')} selected` });
+		head.createDiv({ cls: 'binders-inspector-name', text: one ? (one instanceof TFile ? shownName(one) : one.name) : folders ? `${count(items.length, 'item')} selected` : `${count(items.length, 'note')} selected` });
 		const n = this.words.sum(notes), target = one ? props[0].target : 0;
 		const parts: string[] = [];
 		if (one instanceof TFolder || !one) parts.push(count(notes.length, 'note'));

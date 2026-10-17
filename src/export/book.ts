@@ -3,6 +3,7 @@ import { inlines, plain, type Block, type Book, type Matter, type Picture, type 
 import { isPictureName } from './picture';
 import { UNNUMBERED, assignRoles, guessStructure, readRole, titleFrom, type SourceItem } from './roles';
 import { typesetBlocks } from './typography';
+import { shownNameAt } from '../shown-name';
 
 /* A binder put together as a book: every included note read (markdown.ts), given its role (roles.ts), and joined
    into the sections a writer sets, with what was embedded brought in and what couldn't be said as a warning. Pure:
@@ -65,11 +66,14 @@ const slug = (name: string): string => name.normalize('NFKD').replace(/[\u0300-\
 
 const said = (n: string) => n.split('|')[0].trim();
 
+/** What a note is called in the book's headings and outline: its title property, else its file name. */
+const label = (it: SourceItem): string => (it.kind === 'note' ? shownNameAt(it.path, it.name) : it.name);
+
 export function buildBook(items: readonly SourceItem[], o: BookOptions, resolve: Resolver = {}): Book {
 	const structure = o.structure ?? (o.flat ? 'notes' : guessStructure(items)), language = o.language || 'en';
 	const { placed, deep } = assignRoles(items, structure);
 	const book: Book = { about: o.about, title: o.title, subtitle: o.subtitle?.trim() ?? '', series: o.series?.trim() ?? '', publisher: o.publisher?.trim() ?? '', author: o.author, copyright: '', cover: o.cover ?? null, language, structure, guessed: !o.structure, sections: [], notes: [], warnings: [], outline: [] };
-	const warn = (item: SourceItem, text: string) => { if (!book.warnings.some((w) => w.path === item.path && w.text === text)) book.warnings.push({ path: item.path, name: item.name, text }); };
+	const warn = (item: SourceItem, text: string) => { if (!book.warnings.some((w) => w.path === item.path && w.text === text)) book.warnings.push({ path: item.path, name: label(item), text }); };
 	for (const f of deep) warn(f, 'This folder is deeper than the book’s structure reaches: it only groups its notes.');
 
 	/** A note's blocks as the book has them: what it embeds brought in, its footnotes numbered with the book's. */
@@ -131,14 +135,14 @@ export function buildBook(items: readonly SourceItem[], o: BookOptions, resolve:
 
 	let parts = 0, chapters = 0, open: Section | null = null, going = true;
 	const begin = (role: Section['role'], item: SourceItem | null, blocks: Block[]): Section => {
-		let title = item ? titleFrom(item.name) : '';
+		let title = item ? titleFrom(label(item)) : '';
 		// a level-one heading at the top of a note is its title, and isn't set twice
 		const first = blocks[0];
 		if (item?.kind === 'note' && first?.kind === 'heading' && first.level === 1) { title = plain(first.runs).trim(); blocks = blocks.slice(1); }
 		// (with only part of the book going out, what doesn't go still counts, unless numbering starts at 1)
 		const numbered = (role === 'part' || (role === 'chapter' && !UNNUMBERED.test(title))) && (going || !o.fromOne);
-		const s: Section = { id: '', role, number: !numbered ? null : role === 'part' ? ++parts : ++chapters, title: role === 'front' || role === 'back' ? title || (item?.name ?? '') : title, blocks: [], paths: item ? [item.path] : [] };
-		if (item && (role === 'front' || role === 'back')) { const m = matterOf(item.name); if (m) s.matter = m; }
+		const s: Section = { id: '', role, number: !numbered ? null : role === 'part' ? ++parts : ++chapters, title: role === 'front' || role === 'back' ? title || (item ? label(item) : '') : title, blocks: [], paths: item ? [item.path] : [] };
+		if (item && (role === 'front' || role === 'back')) { const m = matterOf(label(item)) ?? matterOf(item.name); if (m) s.matter = m; }
 		add(s, blocks);
 		if (going) book.sections.push(s);
 		return s;
@@ -169,7 +173,7 @@ export function buildBook(items: readonly SourceItem[], o: BookOptions, resolve:
 			number = s.number;
 			open = role === 'chapter' ? s : null;
 		}
-		if (going) book.outline.push({ name: item.name, path: item.path, depth: p.depth, folder: item.kind === 'folder', role, auto: p.auto, said: readRole(item.exportAs), number, ...(role === 'front' || role === 'back' ? { taken: item.kind === 'note' && takes(item.path) } : {}) });
+		if (going) book.outline.push({ name: label(item), path: item.path, depth: p.depth, folder: item.kind === 'folder', role, auto: p.auto, said: readRole(item.exportAs), number, ...(role === 'front' || role === 'back' ? { taken: item.kind === 'note' && takes(item.path) } : {}) });
 	}
 	renumber(book);
 	book.copyright = (o.copyright?.trim() || (o.author.trim() ? `© ${o.year ?? new Date().getFullYear()} ${o.author.trim()}` : '')).split(/\r?\n/).map((l) => l.trim()).filter((l) => l).join('\n');

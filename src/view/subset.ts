@@ -8,6 +8,7 @@ import { propertyType } from './internals';
 import { rank } from './labels';
 import { readProps } from './props';
 import { GREGORIAN, type Calendar } from '../time/date';
+import { shownName } from '../shown-name';
 
 /* The subset of a binder a view shows: its filter (conditions.ts) over the notes of the binder, with what the filter
    needs from the vault, which its pure module asks for: a note's value for a property, the kind of a property, the note
@@ -157,7 +158,7 @@ export class Subset {
 	valueOf(file: TFile, property: string): unknown {
 		const s = this.plugin.settings;
 		if (property === 'file.words') return this.words(file) ?? undefined;
-		if (property === 'file.name') return file.basename;
+		if (property === 'file.name') return shownName(file);
 		if (property === 'file.folder') return file.parent?.name ?? '';
 		if (property === 'file.ctime') return day(file.stat.ctime);
 		if (property === 'file.mtime') return day(file.stat.mtime);

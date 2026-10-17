@@ -1,5 +1,6 @@
 import { TFile, TFolder } from 'obsidian';
 import type { ModeContext } from './mode';
+import { shownName } from '../shown-name';
 
 /* The manuscript under a filter says what it left out and what it would leave out now. Before a section (or a folder's
    heading) that doesn't follow the one above it in the book, a line says how many notes lie between ("2 notes not shown",
@@ -8,7 +9,7 @@ import type { ModeContext } from './mode';
 
 const NAMES = 20;
 const say = (files: TFile[]): string => `${files.length} ${files.length === 1 ? 'note' : 'notes'} not shown`;
-const named = (files: TFile[]): string => files.slice(0, NAMES).map((f) => f.basename).join(', ') + (files.length > NAMES ? ` and ${files.length - NAMES} more` : '');
+const named = (files: TFile[]): string => files.slice(0, NAMES).map((f) => shownName(f)).join(', ') + (files.length > NAMES ? ` and ${files.length - NAMES} more` : '');
 
 export function markManuscript(ctx: ModeContext, entries: { key: TFile | TFolder; el: HTMLElement }[]): void {
 	const byKey = new Map(entries.map((e) => [e.key, e.el]));

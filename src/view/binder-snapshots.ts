@@ -19,6 +19,7 @@ import { wordsIn, wordsLabel } from './words';
 
 import { count, dirOf, nameOf, quoted, tell, commitFields } from './binder-snapshot-util';
 import { BringBackModal, InterruptedModal } from './bring-back';
+import { shownName } from '../shown-name';
 const sizeOf = (s: { notes: number; words: number }) => `${count(s.notes, 'note')} · ${wordsLabel(s.words)}`;
 /** What a snapshot is called where it has no name: when it was taken. */
 const called = (s: FolderSnapshot) => s.title || when(s.taken);
@@ -628,7 +629,7 @@ export class FolderSnapshotsModal extends Modal {
 				const f = r.now ? app.vault.getAbstractFileByPath(`${this.folder.path}/${r.now.path}`) : null;
 				if (!(f instanceof TFile) || !isScene(this.plugin, f)) throw new Error('That note isn’t there any more.');
 				const { kept } = await bringBackText(this.plugin, f, parts(then.text).body, `Before bringing back ${s.title || 'a snapshot'}`);
-				say(`Brought back the text of “${f.basename}” from ${quoted(s)}.${kept ? ' The text it replaced is kept as a snapshot of the note.' : ''}`, 6000);
+				say(`Brought back the text of “${shownName(f)}” from ${quoted(s)}.${kept ? ' The text it replaced is kept as a snapshot of the note.' : ''}`, 6000);
 			}
 			this.now = null;
 			this.page = 'contents';

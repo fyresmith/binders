@@ -84,6 +84,7 @@ The supply boat left Mara on the jetty with two cases and a letter she had not o
 
 | Property | What it holds |
 |---|---|
+| `title` | The name shown for the note, in place of its file name, in the binder views, the inspector, the contents, the file explorer and the book's headings. The file keeps its name; see [Titles](titles.md) |
 | `synopsis` | The text on the note's card |
 | `status` | The note's status, such as Draft |
 | `label` | The name of a label from settings, one of the theme's colors (`blue`), or a color of its own (`#7c3aed`) |

@@ -6,7 +6,8 @@
    to show in a folder. Everything undocumented is in the "Internals" block below and listed in docs/dev/internals.md. If the
    method is missing, Binders says so once and the explorer keeps Obsidian's own order. */
 import { around } from 'monkey-around';
-import { Keymap, Notice, Platform, TAbstractFile, TFolder, type App, type EventRef, type Menu, type PaneType, type Plugin, type View } from 'obsidian';
+import { titleOf } from './shown-name';
+import { Keymap, Notice, Platform, TAbstractFile, TFile, TFolder, type App, type EventRef, type Menu, type PaneType, type Plugin, type View } from 'obsidian';
 
 /** What the explorer needs to know about binders. The binder store implements it. */
 export interface ExplorerSource {
@@ -224,10 +225,73 @@ export function installExplorer(plugin: Plugin, source: ExplorerSource, settings
 		ended(it.selfEl);
 	};
 
+	/** A note with a title shows it in place of its file name, as the Front Matter Title plugin does: only the row's text
+	    changes (Obsidian's own rename still renames the file, and starts from the file's name). What was written is kept,
+	    so the file's name goes back when the title goes, the setting is off, or the plugin unloads. Internal: the row's
+	    `innerEl` (or its `.tree-item-inner`); without it, rows keep the file name. */
+	const titled = new WeakMap<HTMLElement, string>();
+	/** The row a rename was just started on: left alone until it has been edited (or has plainly not been). */
+	let renaming: { inner: HTMLElement; saw: boolean; at: number } | null = null;
+	const retitle = (it: ExplorerItem) => {
+		const inner = it.innerEl ?? it.selfEl?.querySelector<HTMLElement>(':scope > .tree-item-inner');
+		if (!inner) return;
+		const f = it.file;
+		// (not while the name is being edited in place: that is the file's name)
+		if (inner.isContentEditable || inner.querySelector('input')) { if (renaming?.inner === inner) renaming.saw = true; return; }
+		if (renaming?.inner === inner) { if (!renaming.saw && Date.now() - renaming.at < 1500) return; renaming = null; }
+		const want = loaded && settings().orderExplorer && f instanceof TFile && f.extension === 'md' && source.inBinder(f) ? titleOf(f) : null;
+		const wrote = titled.get(inner);
+		if (want != null) {
+			if (inner.textContent !== want) inner.setText(want);
+			titled.set(inner, want);
+		} else if (wrote !== undefined) {
+			titled.delete(inner);
+			if (f instanceof TFile && inner.textContent === wrote) inner.setText(f.basename);
+		}
+	};
+
+	/** A row given back its file's name (a rename starts from the text in the row). */
+	const plain = (it: ExplorerItem) => {
+		const inner = it.innerEl ?? it.selfEl?.querySelector<HTMLElement>(':scope > .tree-item-inner');
+		if (!inner || !(it.file instanceof TFile)) return;
+		renaming = { inner, saw: false, at: Date.now() };
+		if (!titled.has(inner)) return;
+		titled.delete(inner);
+		inner.setText(it.file.basename);
+	};
+
+	/** Obsidian writes a row's text again when it draws the row (the first time a folder is opened, or after a rename), after
+	    the sort. So each explorer is watched, and a row whose text changes is given its title again. */
+	const watched = new WeakSet<ExplorerView>();
+	const watchers: MutationObserver[] = [];
+	const watch = (v: ExplorerView) => {
+		if (watched.has(v) || typeof MutationObserver === 'undefined') return;
+		watched.add(v);
+		const seen = new Set<string>();
+		const one = (el: Element | null | undefined) => {
+			const path = el?.closest<HTMLElement>('.tree-item-self')?.dataset.path;
+			if (!path || seen.has(path)) return;
+			seen.add(path);
+			const it = v.fileItems[path];
+			if (it) retitle(it);
+		};
+		const again = new MutationObserver((records) => {
+			seen.clear();
+			for (const r of records) {
+				// (rows made as a folder opens arrive as added nodes; a row's own text changes under it)
+				one(r.target.nodeType === 1 ? r.target as Element : r.target.parentElement);
+				for (const n of Array.from(r.addedNodes)) if (n.nodeType === 1) { const e = n as Element; one(e); e.querySelectorAll('.tree-item-self').forEach(one); }
+			}
+		});
+		again.observe(v.containerEl, { childList: true, characterData: true, subtree: true });
+		watchers.push(again);
+	};
+
 	/** A binder folder says what it is at the end of its row, as Obsidian says "canvas" or "base" after a file that
 	    isn't a note (its own `nav-file-tag`); anything else has none. And every item's label dot. */
 	const mark = (it: ExplorerItem) => {
 		dot(it);
+		retitle(it);
 		if (!(it.file instanceof TFolder) || !it.selfEl) return;
 		const want = loaded && source.isBinderFolder(it.file), el = it.selfEl.querySelector(':scope > .binders-folder-tag');
 		if (want && !el) it.selfEl.createDiv({ cls: 'nav-file-tag binders-folder-tag', text: 'binder' });
@@ -257,6 +321,11 @@ export function installExplorer(plugin: Plugin, source: ExplorerSource, settings
 		// patch the class, not one view, so an explorer that's closed and reopened keeps binder order
 		const proto = Object.getPrototypeOf(views[0]) as ExplorerView;
 		unpatch = around(proto, {
+			// Obsidian's rename starts from the text in the row: a note shown by its title is renamed by its file name
+			...(typeof proto.startRenameFile === 'function' ? { startRenameFile: (next: (file: TAbstractFile) => unknown) => function (this: ExplorerView, file: TAbstractFile) {
+				try { const it = this.fileItems[file.path]; if (it) plain(it); } catch { /* the row keeps what it shows */ }
+				return next.call(this, file);
+			} } : {}),
 			getSortedFolderItems: (next: (folder: TFolder) => ExplorerItem[]) => function (this: ExplorerView, folder: TFolder) {
 				reached = true;
 				const items = next.call(this, folder);
@@ -292,7 +361,7 @@ export function installExplorer(plugin: Plugin, source: ExplorerSource, settings
 		if (!unpatch) patch();
 		if (unpatch) status = on ? 'patched' : 'off';
 		const { views } = explorerViews(app);
-		for (const v of views) { for (const k in v.fileItems) { const it = v.fileItems[k]; if (it) mark(it); } resort(v); }
+		for (const v of views) { watch(v); for (const k in v.fileItems) { const it = v.fileItems[k]; if (it) mark(it); } resort(v); }
 		active();
 	};
 
@@ -553,7 +622,7 @@ export function installExplorer(plugin: Plugin, source: ExplorerSource, settings
 		plugin.register(() => source.offref(ref));
 		// a note's label changed: its dot (and its folder's, if it's the folder's note)
 		plugin.registerEvent(app.metadataCache.on('changed', (file) => {
-			for (const v of explorerViews(app).views) for (const p of [file.path, file.parent?.path]) { const it = p ? v.fileItems[p] : null; if (it) dot(it); }
+			for (const v of explorerViews(app).views) for (const p of [file.path, file.parent?.path]) { const it = p ? v.fileItems[p] : null; if (it) { dot(it); retitle(it); } }
 		}));
 		listen(document);
 		// an explorer moved to a window of its own works there too
@@ -566,11 +635,12 @@ export function installExplorer(plugin: Plugin, source: ExplorerSource, settings
 
 	plugin.register(() => {
 		loaded = false;
+		for (const w of watchers) w.disconnect();
 		hideLine();
 		springOpen(null);
 		active();
 		unpatch?.(); unpatch = null;
-		for (const v of explorerViews(app).views) { for (const k in v.fileItems) { const row = v.fileItems[k]?.selfEl; row?.querySelectorAll(':scope > .binders-folder-tag, :scope > .binders-explorer-label').forEach((el) => el.remove()); row?.removeClass(ENDED); } resort(v); }
+		for (const v of explorerViews(app).views) { for (const k in v.fileItems) { const it = v.fileItems[k]; if (it) retitle(it); const row = it?.selfEl; row?.querySelectorAll(':scope > .binders-folder-tag, :scope > .binders-explorer-label').forEach((el) => el.remove()); row?.removeClass(ENDED); } resort(v); }
 	});
 
 	return { refresh, active, get status() { return status; } };

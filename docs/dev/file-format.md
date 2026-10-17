@@ -142,11 +142,12 @@ row.
 
 ## Scene properties
 
-Each note in a binder can have these properties. They are ordinary Obsidian properties. The names of the first four,
+Each note in a binder can have these properties. They are ordinary Obsidian properties. The names of `title`, the first four,
 of `story-date`, `story-order` and of `notes` can be changed in settings; `export` and `export-as` are fixed.
 
 | Property | Type | Used for |
 |---|---|---|
+| `title` | text (or a number) | The name Binders shows for the note, wherever it shows a note's name (cards, outliner rows, manuscript headings, the inspector, the contents, find and replace, menus and notices, the file explorer, and the headings and contents of an export) in place of the file name (the name can be changed in settings). Whitespace is folded and trimmed; empty, a list or a yes/no is none. The file's name, its path and the links to it are not touched: the title is display only. Editing a shown name in a card, an outliner row or a manuscript heading writes this property when the note has it, and renames the file when it doesn't (the file explorer's own rename always renames the file). A new note has none. A split note's new notes do not copy it. A folder is always shown by its name. Binders reads it through Obsidian's metadata cache (`src/shown-name.ts`). |
 | `synopsis` | text | The corkboard card's text, and the text under the title in the outliner |
 | `status` | text | A chip on the card, a column in the outliner, and a filter. Settings list the statuses offered (Idea, Draft, Revised, Done to start with); any other text works too |
 | `label` | text | The note's color: the border and tint of its card, a dot in the outliner and in the file explorer, and a filter. See below |

@@ -99,6 +99,7 @@ The properties that hold each of these, if your notes already use other names.
 
 | Setting | Default | What it holds |
 |---|---|---|
+| **Title** | `title` | A note's title. A note that has one is shown by it instead of its file name. See [Titles](titles.md) |
 | **Synopsis** | `synopsis` | A note's card text |
 | **Status** | `status` | A note's status, such as draft or revised |
 | **Label** | `label` | A note's label |
