@@ -84,7 +84,15 @@ export interface Found {
 const RANK: Record<Level, number> = { part: 0, chapter: 1, scene: 2 };
 
 /** A line's words with emphasis and the marks of a heading off, to be matched against what a title reads like. */
-const plain = (text: string): string => text.trim().replace(/^[*_~`]+|[*_~`]+$/g, '').trim();
+// (a walk in from each end, not a regex: /[*_~`]+$/ is quadratic on a long run of marks in the middle of a line)
+const MARK = (c: string | undefined): boolean => c === '*' || c === '_' || c === '~' || c === '`';
+const plain = (text: string): string => {
+	const s = text.trim();
+	let a = 0, b = s.length;
+	while (a < b && MARK(s[a])) a++;
+	while (b > a && MARK(s[b - 1])) b--;
+	return s.slice(a, b).trim();
+};
 
 const NUMBERED = new RegExp(`^(?:chapter|part|book|act)\\s+${NUMBER}(?:\\.|\\s*[-–—:.)]\\s*\\S.*)?$`, 'i');
 const NUMBERED_LOOSE = new RegExp(`^(?:chapter|part|book|act)\\s+${NUMBER}\\b`, 'i');

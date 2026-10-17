@@ -152,4 +152,15 @@ const book = (level: number, names: string[]): Unit[] => names.flatMap((n) => [h
 	ok(readsAsTitle('Chapter twenty-one'), 'agreement: a spelled number');
 	ok(readsAsTitle('Book II'), 'agreement: Book and a Roman numeral');
 }
+// ---- a long run of marks in a line is read in linear time (the mark-stripping pattern was quadratic) ----
+{
+	const t0 = performance.now();
+	const r = readsAsTitle('a' + '*'.repeat(120000) + 'b');
+	const ms = performance.now() - t0;
+	ok(!r, 'speed: a line of a long mark run reads as nothing');
+	ok(ms < 1500, `speed: a long run of marks in a line reads in time (${Math.round(ms)} ms)`);
+	ok(readsAsTitle('*_~`Chapter One`_*'), 'marks: wrapped marks are stripped');
+	ok(readsAsTitle('**Chapter 1**'), 'marks: bold chapter line reads');
+	ok(!readsAsTitle('*****'), 'marks: a line of nothing but marks reads as nothing');
+}
 done('import detect');
