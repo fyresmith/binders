@@ -22,11 +22,12 @@ export interface FindOptions { matchCase: boolean }
 const literal = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /* One pass over a stretch of prose. Groups: 1 a run of backticks (the inline code it may open is in codeSpans), 2 and
-   3 comments, 4 a wikilink's or embed's target, 5 a Markdown link's destination, 6 a tag (without its `#`; not after
-   a word, so `a#b` and a URL's fragment aren't tags, and not a number alone), 7 the part of a web address after its
-   scheme (or `www.`), 8 a block id (without its `^`), 9 an HTML tag with a name and only quoted attribute values (a
-   `<` that doesn't make a whole tag is prose). */
-const INLINE = /(`+)|%%([\s\S]*?)%%|<!--([\s\S]*?)-->|(?<!\\)\[\[([^\]|\n]*)(?:\|[^\]\n]*)?\]\]|\[[^\]\n]*\]\(([^)\n]*)\)|(?<![\p{L}\p{N}_&/\\#])#([\p{L}\p{N}_\-/]*[\p{L}_\-/][\p{L}\p{N}_\-/]*)|(?<![\p{L}\p{N}_])(?:https?:\/\/|www\.)([^\s<>]+)|(?:^|[ \t])\^([A-Za-z0-9-]+)[ \t]*\r?$|(<\/?[A-Za-z][\w-]*(?:\s+[A-Za-z_:][\w:.-]*(?:\s*=\s*(?:"[^"]*"|'[^']*'))?)*\s*\/?>)/gmu;
+   3 the opening mark of a comment (`%%`, `<!--`; its closer is looked up in the loop, see prose), 4 a wikilink's or
+   embed's target, 5 a Markdown link's destination, 6 a tag (without its `#`; not after a word, so `a#b` and a URL's
+   fragment aren't tags, and not a number alone), 7 the part of a web address after its scheme (or `www.`), 8 a block
+   id (without its `^`), 9 an HTML tag with a name and only quoted attribute values (a `<` that doesn't make a whole
+   tag is prose). */
+const INLINE = /(`+)|(%%)|(<!--)|(?<!\\)\[\[([^\]|\n]*)(?:\|[^\]\n]*)?\]\]|\[[^\]\n]*\]\(([^)\n]*)\)|(?<![\p{L}\p{N}_&/\\#])#([\p{L}\p{N}_\-/]*[\p{L}_\-/][\p{L}\p{N}_\-/]*)|(?<![\p{L}\p{N}_])(?:https?:\/\/|www\.)([^\s<>]+)|(?:^|[ \t])\^([A-Za-z0-9-]+)[ \t]*\r?$|(<\/?[A-Za-z][\w-]*(?:\s+[A-Za-z_:][\w:.-]*(?:\s*=\s*(?:"[^"]*"|'[^']*'))?)*\s*\/?>)/gmu;
 const FENCE = /^ {0,3}(`{3,}|~{3,})/;
 
 /* The inline code a stretch holds, found in one pass: as a pattern with a backreference it took minutes on a long run
@@ -58,6 +59,10 @@ export function shielded(text: string, from = 0): Hit[] {
 		if (b <= a) return;
 		const part = text.slice(a, b), code = codeSpans(part);
 		INLINE.lastIndex = 0;
+		// a comment closes at the first closer after its opener; none after one point means none after any later opener
+		// either, so the closer is looked up once and an opener with none is text (the pass goes on from the next character).
+		// (`%%` needs no more: a second `%%` closes the first, so only the last two marks can be left open)
+		let noPct = false, noArrow = false;
 		for (let m = INLINE.exec(part); m; m = INLINE.exec(part)) {
 			const at = a + m.index, end = at + m[0].length;
 			if (m[1] != null) {
@@ -65,8 +70,13 @@ export function shielded(text: string, from = 0): Hit[] {
 				const c = code.get(m.index);
 				if (c) { out.push({ from: at + c[0], to: a + c[1] }); INLINE.lastIndex = c[1] + c[0]; }
 			}
-			else if (m[2] != null) out.push({ from: at + 2, to: at + 2 + m[2].length });
-			else if (m[3] != null) out.push({ from: at + 4, to: at + 4 + m[3].length });
+			else if (m[2] != null || m[3] != null) {
+				const pct = m[2] != null, mark = pct ? 2 : 4;
+				const gone = pct ? noPct : noArrow;
+				const q = gone ? -1 : part.indexOf(pct ? '%%' : '-->', m.index + mark);
+				if (q < 0) { if (pct) noPct = true; else noArrow = true; INLINE.lastIndex = m.index + 1; }
+				else { out.push({ from: at + mark, to: a + q }); INLINE.lastIndex = q + (pct ? 2 : 3); }
+			}
 			else if (m[4] != null) out.push({ from: at + 2, to: at + 2 + m[4].length });
 			else if (m[5] != null) out.push({ from: end - 1 - m[5].length, to: end - 1 });
 			else if (m[6] != null) out.push({ from: at + 1, to: end });

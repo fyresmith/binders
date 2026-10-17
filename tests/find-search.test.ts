@@ -1,5 +1,5 @@
 import { apply, findIn, findPlain, inverse, replaceIn, shielded } from '../src/find/search';
-import { done, eq } from './harness';
+import { done, eq, ok } from './harness';
 
 const o = { matchCase: false };
 const found = (text: string, q: string, opt = o) => findIn(text, q, opt).map((h) => text.slice(h.from, h.to) + '@' + h.from).join(' ');
@@ -106,6 +106,18 @@ const swap = (text: string, q: string, by: string, opt = o) => replaceIn(text, f
 	eq(swap('```\nMara\n```\n    Mara\n\n    `x` Mara', 'Mara', 'M'), '```\nMara\n```\n    M\n\n    `x` Mara', 'a line right after a fence, and inline code inside an indented block');
 	eq(swap('\tMara\n\n\t    Mara', 'Mara', 'M'), '\tM\n\n\t    M', 'a tab first: prose');
 	eq(shielded('    a `b` %% c\n\n    d %%').length, 1, 'overlapping guards are one');
+}
+
+// a comment that never closes is text, and a note full of them is still quick (each opener once, not a rescan to the end)
+{
+	const t0 = Date.now();
+	const hits = shielded('<!--'.repeat(50000) + ' Mara');
+	ok(Date.now() - t0 < 1000, 'two hundred KB of unclosed <!-- takes well under a second');
+	eq(hits.length, 0, 'and none of them guards anything');
+	eq(swap('<!-- a <!-- b\nMara', 'Mara', 'Maren'), '<!-- a <!-- b\nMaren', 'an unclosed comment is text: what follows is prose');
+	eq(swap('<!-- a <!-- b -->\nMara', 'Mara', 'Maren'), '<!-- a <!-- b -->\nMaren', 'the first opener takes the first closer, and the rest is prose');
+	eq(swap('Mara <!-- x --> <!-- y', 'Mara', 'M'), 'M <!-- x --> <!-- y', 'a closed comment is shielded, an unclosed one after it is text');
+	eq(swap('%% a %% <!-- b\nMara', 'Mara', 'M'), '%% a %% <!-- b\nM', 'a comment mark after a closed one is text');
 }
 
 // Turkish İ with Match case off; ı is its own letter
