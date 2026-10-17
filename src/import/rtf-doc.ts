@@ -175,7 +175,7 @@ export function readRtfDocument(data: Uint8Array): DocxFile {
 			push({ kind: 'note', id, end: endnote });
 			return;
 		}
-		if (kind === 'listtext' || kind === 'pntext') { pp.label = plainText(g).replace(/\s+$/, ''); return; }
+		if (kind === 'listtext' || kind === 'pntext') { pp.label = plainText(g).trimEnd(); return; }
 		if (kind === 'field') {
 			const groups = g.tokens.filter((t): t is Group => typeof t === 'object' && 'tokens' in t);
 			const inst = plainText(groups.find((t) => dest(t) === 'fldinst') ?? { tokens: [] }), result = groups.find((t) => dest(t) === 'fldrslt');

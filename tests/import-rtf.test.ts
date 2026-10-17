@@ -195,4 +195,13 @@ function same(plan: ImportPlan, want: string, notes: string, what: string): void
 	ok(read(links).scan.text.includes('run it, see above and [write](mailto:a@example.org).'), 'fields: a link to a file or a place in the file is its words, one to a mail address is a link');
 	eq(read(links).word?.hasUnderline, false, 'fields: and a link left as its words still has no underlining of the writer\'s');
 }
+// ---- a list label with a long run of spaces in it is read in linear time (trimming its end was quadratic) ----
+{
+	const label = `x${' '.repeat(120000)}y`;
+	const t0 = performance.now();
+	const text = read(rtf([`\\pard\\plain {\\listtext ${label}\\tab}an item\\par\n`, body('a')].join(''))).scan.text;
+	const ms = performance.now() - t0;
+	ok(text.includes('an item'), 'speed: the item under a long label is read');
+	ok(ms < 1500, `speed: a list label of a long run of spaces is read in time (${Math.round(ms)} ms)`);
+}
 done('import rtf');

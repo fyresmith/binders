@@ -102,4 +102,12 @@ const join = (ps: { text: string }[]) => ps.map((p) => p.text).join('');
 	}
 	ok(n > 700, `chance: ${n} cuts of random notes, each joined to the note, byte for byte`);
 }
+// ---- a long run of spaces inside a piece is trimmed in linear time (the trailing trim was quadratic) ----
+{
+	const t0 = performance.now();
+	const out = moveDefinitions([`x${' '.repeat(120000)}y [^1] is marked here.\n`, '[^1]: Note.\n']);
+	const ms = performance.now() - t0;
+	ok(out[0].includes('[^1]: Note.') && out[1].indexOf('[^1]') < 0, 'speed: a definition is still moved past a long run of spaces');
+	ok(ms < 1500, `speed: a piece with a long run of spaces is cut in time (${Math.round(ms)} ms)`);
+}
 done('split text');

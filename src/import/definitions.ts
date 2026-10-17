@@ -53,7 +53,8 @@ export function moveDefinitions(pieces: readonly string[]): string[] {
 	}
 	for (let i = 0; i < pieces.length; i++) {
 		const add = moves.filter(({ d, to }) => to.includes(i) && d.piece !== i).map(({ d }) => d.lines.join('\n'));
-		if (add.length) out[i] = `${out[i].replace(/\s+$/, '')}\n\n${add.join('\n')}\n`;
+		// (trimEnd, not /\s+$/: the regex is quadratic on a long run of spaces inside the text)
+		if (add.length) out[i] = `${out[i].trimEnd()}\n\n${add.join('\n')}\n`;
 	}
 	return out;
 }
