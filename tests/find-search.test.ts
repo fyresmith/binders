@@ -120,6 +120,20 @@ const swap = (text: string, q: string, by: string, opt = o) => replaceIn(text, f
 	eq(swap('%% a %% <!-- b\nMara', 'Mara', 'M'), '%% a %% <!-- b\nM', 'a comment mark after a closed one is text');
 }
 
+// a line of brackets that open no link is quick (each `[` looks for its own end, not a scan to the line's end)
+{
+	const t0 = Date.now();
+	const hits = shielded('['.repeat(60000) + ' Mara');
+	ok(Date.now() - t0 < 1000, 'sixty thousand `[` on one line take well under a second');
+	eq(hits.length, 0, 'and none of them guards anything');
+	const t1 = Date.now();
+	shielded('[[a|'.repeat(20000) + ' Mara');
+	ok(Date.now() - t1 < 1000, 'twenty thousand `[[a|` on one line take well under a second');
+	eq(swap('[[a]] [[b|c]] [[d\nMara', 'Mara', 'M'), '[[a]] [[b|c]] [[d\nM', 'links that close, and one that is cut by a line end');
+	eq(swap('[x](y) [a](b c\nMara', 'Mara', 'M'), '[x](y) [a](b c\nM', 'a Markdown link, and one whose destination is cut by a line end');
+	eq(swap('\\[[Mara]] [[Mara]]', 'Mara', 'M'), '\\[[M]] [[Mara]]', 'an escaped bracket is no link: its words are prose; the link after it is not');
+}
+
 // Turkish İ with Match case off; ı is its own letter
 {
 	eq(found('İstanbul, istanbul, ISTANBUL and İSTANBUL.', 'istanbul'), 'İstanbul@0 istanbul@10 ISTANBUL@20 İSTANBUL@33', 'all four');

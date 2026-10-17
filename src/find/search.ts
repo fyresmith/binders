@@ -22,13 +22,42 @@ export interface FindOptions { matchCase: boolean }
 const literal = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /* One pass over a stretch of prose. Groups: 1 a run of backticks (the inline code it may open is in codeSpans), 2 and
-   3 the opening mark of a comment (`%%`, `<!--`; its closer is looked up in the loop, see prose), 4 a wikilink's or
-   embed's target, 5 a Markdown link's destination, 6 a tag (without its `#`; not after a word, so `a#b` and a URL's
-   fragment aren't tags, and not a number alone), 7 the part of a web address after its scheme (or `www.`), 8 a block
-   id (without its `^`), 9 an HTML tag with a name and only quoted attribute values (a `<` that doesn't make a whole
-   tag is prose). */
-const INLINE = /(`+)|(%%)|(<!--)|(?<!\\)\[\[([^\]|\n]*)(?:\|[^\]\n]*)?\]\]|\[[^\]\n]*\]\(([^)\n]*)\)|(?<![\p{L}\p{N}_&/\\#])#([\p{L}\p{N}_\-/]*[\p{L}_\-/][\p{L}\p{N}_\-/]*)|(?<![\p{L}\p{N}_])(?:https?:\/\/|www\.)([^\s<>]+)|(?:^|[ \t])\^([A-Za-z0-9-]+)[ \t]*\r?$|(<\/?[A-Za-z][\w-]*(?:\s+[A-Za-z_:][\w:.-]*(?:\s*=\s*(?:"[^"]*"|'[^']*'))?)*\s*\/?>)/gmu;
+   3 the opening mark of a comment (`%%`, `<!--`; its closer is looked up in the loop, see prose), 4 a `[` (a wikilink
+   or a Markdown link it opens is looked up in the loop, see linkAt), 5 a tag (without its `#`; not after a word, so
+   `a#b` and a URL's fragment aren't tags, and not a number alone), 6 the part of a web address after its scheme (or
+   `www.`), 7 a block id (without its `^`), 8 an HTML tag with a name and only quoted attribute values (a `<` that
+   doesn't make a whole tag is prose). */
+const INLINE = /(`+)|(%%)|(<!--)|(\[)|(?<![\p{L}\p{N}_&/\\#])#([\p{L}\p{N}_\-/]*[\p{L}_\-/][\p{L}\p{N}_\-/]*)|(?<![\p{L}\p{N}_])(?:https?:\/\/|www\.)([^\s<>]+)|(?:^|[ \t])\^([A-Za-z0-9-]+)[ \t]*\r?$|(<\/?[A-Za-z][\w-]*(?:\s+[A-Za-z_:][\w:.-]*(?:\s*=\s*(?:"[^"]*"|'[^']*'))?)*\s*\/?>)/gmu;
 const FENCE = /^ {0,3}(`{3,}|~{3,})/;
+
+/* A link's marks are found by where a character first stops it, not by a pattern that runs to the line's end for each `[`
+   (a line of `[` took half a minute). `firstAt` is the first place in a sorted list from `from` (-1 if none). */
+const firstAt = (list: readonly number[], from: number): number => {
+	let lo = 0, hi = list.length;
+	while (lo < hi) { const mid = (lo + hi) >> 1; if (list[mid] < from) lo = mid + 1; else hi = mid; }
+	return lo < list.length ? list[lo] : -1;
+};
+const spots = (s: string, re: RegExp): number[] => Array.from(s.matchAll(re), (x) => x.index);
+
+/* The link a `[` at `p` of a part opens, if any, as the hit of its target and where it ends (the same as the patterns
+   `\[\[([^\]|\n]*)(?:\|[^\]\n]*)?\]\]` (not after a `\`) and `\[[^\]\n]*\]\(([^)\n]*)\)`, which it replaces).
+   `brk` holds the places of `]`, `|` and newlines, `line` those of `]` and newlines, `paren` those of `)` and newlines. */
+const linkAt = (part: string, base: number, p: number, brk: number[], line: number[], paren: number[]): { from: number; to: number; end: number } | null => {
+	if (part[p + 1] === '[' && part[p - 1] !== '\\') {
+		const c = firstAt(brk, p + 2);
+		if (c >= 0 && part[c] === ']' && part[c + 1] === ']') return { from: base + p + 2, to: base + c, end: c + 2 };
+		if (c >= 0 && part[c] === '|') {
+			const s = firstAt(line, c + 1);
+			if (s >= 0 && part[s] === ']' && part[s + 1] === ']') return { from: base + p + 2, to: base + c, end: s + 2 };
+		}
+	}
+	const e = firstAt(line, p + 1);
+	if (e >= 0 && part[e] === ']' && part[e + 1] === '(') {
+		const d = firstAt(paren, e + 2);
+		if (d >= 0 && part[d] === ')') return { from: base + e + 2, to: base + d, end: d + 1 };
+	}
+	return null;
+};
 
 /* The inline code a stretch holds, found in one pass: as a pattern with a backreference it took minutes on a long run
    of backticks that nothing closed. A run of n backticks opens code that the first later run of exactly k closes, k
@@ -63,6 +92,8 @@ export function shielded(text: string, from = 0): Hit[] {
 		// either, so the closer is looked up once and an opener with none is text (the pass goes on from the next character).
 		// (`%%` needs no more: a second `%%` closes the first, so only the last two marks can be left open)
 		let noPct = false, noArrow = false;
+		// (the places a link's marks stop at, for linkAt; only a part with a `[` needs them)
+		const brk = part.includes('[') ? spots(part, /[\]|\n]/g) : [], line = part.includes('[') ? spots(part, /[\]\n]/g) : [], paren = part.includes('[') ? spots(part, /[)\n]/g) : [];
 		for (let m = INLINE.exec(part); m; m = INLINE.exec(part)) {
 			const at = a + m.index, end = at + m[0].length;
 			if (m[1] != null) {
@@ -77,15 +108,19 @@ export function shielded(text: string, from = 0): Hit[] {
 				if (q < 0) { if (pct) noPct = true; else noArrow = true; INLINE.lastIndex = m.index + 1; }
 				else { out.push({ from: at + mark, to: a + q }); INLINE.lastIndex = q + (pct ? 2 : 3); }
 			}
-			else if (m[4] != null) out.push({ from: at + 2, to: at + 2 + m[4].length });
-			else if (m[5] != null) out.push({ from: end - 1 - m[5].length, to: end - 1 });
-			else if (m[6] != null) out.push({ from: at + 1, to: end });
-			else if (m[7] != null) out.push({ from: end - m[7].length, to: end });
-			else if (m[8] != null) out.push({ from: at + m[0].indexOf('^') + 1, to: at + m[0].indexOf('^') + 1 + m[8].length });
-			else if (m[9] != null) {
-				const name = /^<\/?[A-Za-z][\w-]*/.exec(m[9])?.[0] ?? '', skip = name.indexOf('<') + 1 + (name[1] === '/' ? 1 : 0);
+			else if (m[4] != null) {
+				// (a `[` that opens no link is prose, and the pass goes on after it)
+				const l = linkAt(part, a, m.index, brk, line, paren);
+				if (l) { out.push({ from: l.from, to: l.to }); INLINE.lastIndex = l.end; }
+				else INLINE.lastIndex = m.index + 1;
+			}
+			else if (m[5] != null) out.push({ from: at + 1, to: end });
+			else if (m[6] != null) out.push({ from: end - m[6].length, to: end });
+			else if (m[7] != null) out.push({ from: at + m[0].indexOf('^') + 1, to: at + m[0].indexOf('^') + 1 + m[7].length });
+			else if (m[8] != null) {
+				const name = /^<\/?[A-Za-z][\w-]*/.exec(m[8])?.[0] ?? '', skip = name.indexOf('<') + 1 + (name[1] === '/' ? 1 : 0);
 				out.push({ from: at + skip, to: at + name.length });
-				for (const v of m[9].matchAll(/=\s*("[^"]*"|'[^']*')/g)) out.push({ from: at + v.index + v[0].length - v[1].length + 1, to: at + v.index + v[0].length - 1 });
+				for (const v of m[8].matchAll(/=\s*("[^"]*"|'[^']*')/g)) out.push({ from: at + v.index + v[0].length - v[1].length + 1, to: at + v.index + v[0].length - 1 });
 			}
 		}
 	};
