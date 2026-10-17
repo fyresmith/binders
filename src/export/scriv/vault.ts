@@ -3,6 +3,7 @@ import { zipSync } from 'fflate';
 import type BindersPlugin from '../../main';
 import { isExported, isNote, saveOpen } from '../../scenes';
 import { parts } from '../../scene-text';
+import { shownName } from '../../shown-name';
 import { snapshotsOf } from '../../snapshots';
 import { readLabel } from '../../view/labels';
 import { readTarget } from '../../view/outliner-data';
@@ -55,7 +56,7 @@ export async function readScriv(plugin: BindersPlugin, folder: TFolder, o: Scriv
 		}
 		if (!isNote(f)) return null;
 		const snapshots = o.snapshots ? (await snapshotsOf(plugin, f)).map((x) => ({ title: x.title, when: x.taken, text: x.body })) : [];
-		return { kind: 'note', name: f.basename, path: f.path, included: isExported(plugin, f), exportAs: fm(f)[EXPORT_AS], text: await body(f), ...card(f), snapshots };
+		return { kind: 'note', name: f.basename, title: shownName(f), path: f.path, included: isExported(plugin, f), exportAs: fm(f)[EXPORT_AS], text: await body(f), ...card(f), snapshots };
 	};
 	const items: ScrivItem[] = [], longform = binder.kind === 'longform', scenes = longform ? store.scenes(folder) : [];
 	for (const c of longform ? scenes : store.orderedChildren(folder) ?? []) { const it = await item(c); if (it) items.push(it); }
@@ -63,7 +64,7 @@ export async function readScriv(plugin: BindersPlugin, folder: TFolder, o: Scriv
 	const loose: ScrivItem[] = [];
 	if (longform) for (const c of [...folder.children].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }))) {
 		if (!isNote(c) || c === binder.note || scenes.includes(c)) continue;
-		loose.push({ kind: 'note', name: c.basename, path: c.path, included: false, text: await body(c), ...card(c) });
+		loose.push({ kind: 'note', name: c.basename, title: shownName(c), path: c.path, included: false, text: await body(c), ...card(c) });
 	}
 	const top = store.folderNote(folder), bookNote = fm(binder.note), language = said(bookNote.language);
 	const source: ScrivSource = {

@@ -217,7 +217,8 @@ export interface Fact { group: string; label: string; value: string; note: strin
 
 const hour = (x: number): string => (x === 0 ? 'midnight' : x === 12 ? 'noon' : x < 12 ? `${x} am` : `${x - 12} pm`);
 
-export function facts(h: History, rs: Row[], scope = ''): Fact[] {
+/** What the window says of a note, by its path in the binder (no ".md"): its name as it is shown (`label`), else its file name. */
+export function facts(h: History, rs: Row[], scope = '', label: (path: string) => string = last): Fact[] {
 	const out: Fact[] = [];
 	if (!rs.length) return out;
 	const add = (group: string, label: string, value: string, note = ''): void => { out.push({ group, label, value, note }); };
@@ -303,13 +304,13 @@ export function facts(h: History, rs: Row[], scope = ''): Fact[] {
 	const scenes = [...per];
 	if (scenes.length >= 3) {
 		const back = max(scenes, (s) => s[1].days);
-		if (back && back[1].days >= 3) add('Scenes', 'The scene you came back to most', last(back[0]), `written on ${count(back[1].days, 'day')}`);
+		if (back && back[1].days >= 3) add('Scenes', 'The scene you came back to most', label(back[0]), `written on ${count(back[1].days, 'day')}`);
 		const rewritten = max(scenes.filter((s) => s[1].added > 300), (s) => s[1].cut / s[1].added);
-		if (rewritten && rewritten[1].cut > 200) add('Scenes', 'Rewritten most', last(rewritten[0]), `${fmt(rewritten[1].added)} typed, ${fmt(rewritten[1].cut)} cut`);
+		if (rewritten && rewritten[1].cut > 200) add('Scenes', 'Rewritten most', label(rewritten[0]), `${fmt(rewritten[1].added)} typed, ${fmt(rewritten[1].cut)} cut`);
 		const most = max(days_, (d) => Object.keys(d.notes).filter((p) => inScope(p, scope)).length), mostN = most ? Object.keys(most.notes).filter((p) => inScope(p, scope)).length : 0;
 		if (most && mostN >= 3) add('Scenes', 'Most scenes in a day', fmt(mostN), sayDay(num(most.day)));
 	}
-	if (scenes.length && base <= 50) { const first = scenes.reduce((a, s) => (s[1].first < a[1].first ? s : a)); add('Scenes', 'It began with', last(first[0]), sayDay(first[1].first, { weekday: true })); }
+	if (scenes.length && base <= 50) { const first = scenes.reduce((a, s) => (s[1].first < a[1].first ? s : a)); add('Scenes', 'It began with', label(first[0]), sayDay(first[1].first, { weekday: true })); }
 	if (scope === '' && (h.orders ?? 0) > 0) add('Scenes', 'Times the order changed', fmt(h.orders ?? 0), '');
 
 	// what came and went without typing

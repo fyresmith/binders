@@ -239,7 +239,8 @@ export function installExplorer(plugin: Plugin, source: ExplorerSource, settings
 		// (not while the name is being edited in place: that is the file's name)
 		if (inner.isContentEditable || inner.querySelector('input')) { if (renaming?.inner === inner) renaming.saw = true; return; }
 		if (renaming?.inner === inner) { if (!renaming.saw && Date.now() - renaming.at < 1500) return; renaming = null; }
-		const want = loaded && settings().orderExplorer && f instanceof TFile && f.extension === 'md' && source.inBinder(f) ? titleOf(f) : null;
+		// (whatever the order setting says: the titles are not the order)
+		const want = loaded && f instanceof TFile && f.extension === 'md' && source.inBinder(f) ? titleOf(f) : null;
 		const wrote = titled.get(inner);
 		if (want != null) {
 			if (inner.textContent !== want) inner.setText(want);

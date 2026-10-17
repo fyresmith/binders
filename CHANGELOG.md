@@ -29,6 +29,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - Find in a binder no longer freezes Obsidian on a note with many <!-- comments that never close.
 - A calendar whose years average no days no longer makes "Shift story dates" write a date with no year or day in it; those scenes are left where they are.
 - Find in a binder no longer freezes Obsidian on a long line of square brackets.
+- A note's title now shows in the file explorer whether or not binder order is on, and in the Progress window, the snapshot windows and an exported Scrivener project.
 
 ## 0.53.3 (2026-10-16)
 

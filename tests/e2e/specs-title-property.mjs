@@ -2,7 +2,11 @@
 // note's name (the views, the inspector, the contents, the file explorer, export's headings), and editing a shown name
 // changes the property, not the file's name. A note without one is shown, and renamed, by its file name as ever.
 import { WIN, closeAll, open as openExport } from './specs-export.mjs';
-import { NOTE, PL, VIEW, clickMenu, j, openView, read, split, texts, until, withTidy, writeRaw } from './view-helpers.mjs';
+import { B, NOTE, PL, VIEW, clickMenu, j, openView, read, split, texts, until, withTidy, writeRaw } from './view-helpers.mjs';
+import { plant, lastDays, recordToday, scenesOf } from './progress-history.mjs';
+
+import { readFileSync, readdirSync, statSync } from 'fs';
+import { join } from 'path';
 
 export const specs = [];
 const test = (name, fn, o = {}) => specs.push({ name: 'title property: ' + name, fn: withTidy(fn), ...o });
@@ -168,13 +172,14 @@ test('the property’s name is a setting: renaming it switches to the other prop
 	t.eq(await explorerName(p, ARRIVAL), 'Arrival', 'both ways');
 });
 
-test('with the explorer patch off, the file explorer shows file names', async (p, h, t) => {
+test('the file explorer shows the title whether or not binder order is on', async (p, h, t) => {
 	await titled(p, ARRIVAL);
-	t.eq(await explorerName(p, ARRIVAL), TITLE, 'on: the title');
+	t.eq(await explorerName(p, ARRIVAL), TITLE, 'order on: the title');
 	await setSettings(p, { orderExplorer: false });
-	t.eq(await explorerName(p, ARRIVAL), 'Arrival', 'order off: the file name');
+	t.eq(await explorerName(p, ARRIVAL), TITLE, 'order off: the title too (the order is the only thing that setting turns off)');
+	t.eq(await explorerName(p, KEEPER), 'The keeper', 'and a note without one its file name');
 	await setSettings(p, { orderExplorer: true });
-	t.eq(await explorerName(p, ARRIVAL), TITLE, 'and the title is back with the order');
+	t.eq(await explorerName(p, ARRIVAL), TITLE, 'and the title is still there with the order back on');
 	// a note outside every binder is never touched
 	await writeRaw(p, 'Loose.md', '---\ntitle: Not in a binder\n---\nText.\n');
 	await p.sleep(500);
@@ -207,3 +212,88 @@ test('Obsidian’s own rename in the file explorer still renames the file, and l
 	t.eq((await frontmatter(p, L + 'Part One/Landfall.md')).title, TITLE, 'the title is as it was');
 	t.eq(await explorerName(p, L + 'Part One/Landfall.md'), TITLE, 'and still what the explorer shows');
 }, { tier: 'guard' });
+
+const POT = '.modal.binders-pot', FSNAP = '.modal.binders-folder-snapshots', BINDER = 'The Lighthouse';
+/** Closes whatever windows and menus are open. */
+async function closeWindows(p) {
+	for (let i = 0; i < 4 && (await p.ev(`document.querySelectorAll('.modal-container, .menu').length`)); i++) { await p.key('Escape'); await p.sleep(200); }
+}
+/** The progress window on a binder, with its page drawn. */
+async function progressWindow(p, folder = BINDER) {
+	await closeWindows(p);
+	await openView(p, folder);
+	await p.ev(`app.commands.executeCommandById('binders:show-progress')`);
+	await until(p, `!!document.querySelector('${POT} .binders-chart-life, ${POT} .binders-pot-nothing')`, 6000);
+	await p.sleep(250);
+}
+const openNote = (p, path) => p.ev(`app.workspace.openLinkText(${j(path)}, '', false).then(() => 1)`).then(() => p.sleep(500));
+
+test('the progress window names a note by its title, in the text’s facts and in the parts', async (p, h, t) => {
+	// the longest note in a folder is the one the record and the text both name
+	const scenes = await scenesOf(p, BINDER), today = recordToday();
+	const inFolder = scenes.filter((s) => s.rel.includes('/') && s.words > 0), top = inFolder.reduce((a, s) => (s.words > a.words ? s : a));
+	const folder = top.rel.slice(0, top.rel.indexOf('/')), LONG = 'The longest one';
+	const base = top.rel.slice(top.rel.lastIndexOf('/') + 1);
+	await titled(p, `${L}${top.rel}.md`, LONG);
+	await plant(p, BINDER, lastDays(scenes, today, 20).files);
+	await progressWindow(p);
+	t.eq((await frontmatter(p, `${L}${top.rel}.md`)).title, LONG, 'the note has its title');
+	await p.ev(`(() => { const s = document.querySelector('${POT} select.binders-pot-scope'); s.value = ${j(folder)}; s.dispatchEvent(new Event('change')); return 1; })()`);
+	await p.sleep(400);
+	const f = await p.ev(`Object.fromEntries([...document.querySelectorAll('${POT} dt.binders-pot-fact-label')].map(dt => [dt.textContent, dt.nextElementSibling.querySelector('.binders-pot-fact-value').textContent]))`);
+	t.eq(f['Longest scene'], LONG, 'the text’s “Longest scene” is the title: ' + j(f['Longest scene']));
+	const names = await p.ev(`(() => { const d = [...document.querySelectorAll('${POT} .binders-pot-table')].find(x => x.querySelector('caption')?.textContent === 'When each was written'); return d ? [...d.querySelectorAll('tbody th')].map(e => e.textContent) : null; })()`);
+	t.ok(!!names && names.includes(LONG) && !names.includes(base), 'the parts table names it by the title: ' + j(names));
+	await closeWindows(p);
+});
+
+test('snapshot windows: a note’s is headed by its title, and a folder’s list names a note by its title', async (p, h, t) => {
+	await titled(p, ARRIVAL);
+	await openView(p, BINDER);
+	await p.ev(`app.commands.executeCommandById('binders:take-snapshots')`);
+	await p.sleep(800);
+	await p.ev(`${B}.snapshotsSettle().then(() => 1)`);
+	await openView(p, BINDER);
+	await p.ev(`app.commands.executeCommandById('binders:show-binder-snapshots')`);
+	await until(p, `!!document.querySelector('${FSNAP}')`, 6000);
+	await p.sleep(300);
+	await p.ev(`(() => { const r = document.querySelector('${FSNAP} .binders-snapshots-list .modal-sidebar-list-item, ${FSNAP} .binders-snapshots-list [role="option"]'); r?.click(); return 1; })()`);
+	await p.sleep(400);
+	const rows = await p.ev(`[...document.querySelectorAll('${FSNAP} .binders-folder-snapshots-row .tree-item-inner')].map(e => e.textContent)`);
+	t.ok(rows.includes(TITLE) && !rows.includes('Arrival'), 'the folder snapshot lists the note by its title: ' + rows.join(' | '));
+	await closeWindows(p);
+	await openNote(p, ARRIVAL);
+	await p.ev(`app.commands.executeCommandById('binders:show-snapshots')`);
+	await until(p, `!!document.querySelector('.modal.binders-snapshots')`, 6000);
+	t.eq(await p.ev(`document.querySelector('.modal.binders-snapshots .modal-title')?.textContent ?? null`), `Snapshots of “${TITLE}”`, 'the note’s snapshots are headed by its title');
+	await closeWindows(p);
+});
+
+test('the Scrivener project names a titled note by its title, and its file name is kept for the links', async (p, h, t) => {
+	await p.ev(`(async () => { app.saveLocalStorage('binders-export', null); const pl = ${PL}; pl.settings.exportKind = 'manuscript'; pl.settings.exportOutside = true; pl.settings.exportSnapshots = true; await pl.saveData(pl.settings); })().then(() => 1)`);
+	await titled(p, ARRIVAL);
+	// (the save dialog stands in: the folder is written where it would be, in Exports, and read back here)
+	await p.ev(`(() => { const pl = ${PL}; window.__bx ??= { real: pl.exportHost.desktop }; pl.exportHost.desktop = (app) => { const d = window.__bx.real(app); return d && { ...d, pick: async (start) => start }; }; return 1; })()`);
+	try {
+		await openView(p, BINDER);
+		await p.ev(`app.commands.executeCommandById('binders:export')`);
+		await until(p, `!!document.querySelector('.modal.binders-export [role="option"]')`, 6000);
+		await p.sleep(300);
+		await p.ev(`(() => { [...document.querySelectorAll('.modal.binders-export [role="option"]')].find(e => e.querySelector('.binders-snapshots-item-name').textContent === 'Scrivener project').click(); return 1; })()`);
+		await until(p, `!!document.querySelector('.modal.binders-export .binders-export-binder .binders-export-row')`, 8000);
+		await p.sleep(300);
+		await p.ev(`[...document.querySelectorAll('.modal.binders-export button')].filter(b => b.textContent === 'Export' && b.getBoundingClientRect().width).pop().click()`);
+		await until(p, `(document.querySelector('.modal.binders-export .binders-export-status')?.textContent ?? '').startsWith('Saved to')`, 10000);
+		const at = join(p.vaultDir, 'Exports', 'The Lighthouse.scriv'), files = {};
+		const walk = (dir, rel) => { for (const n of readdirSync(dir)) { const full = join(dir, n), r = rel ? `${rel}/${n}` : n; if (statSync(full).isDirectory()) walk(full, r); else files[r] = readFileSync(full); } };
+		walk(at, '');
+		const x = Buffer.from(files[Object.keys(files).find((n) => n.endsWith('.scrivx'))]).toString('utf8');
+		const items = [...x.matchAll(/<BinderItem UUID="([^"]+)" Type="([^"]+)"[^>]*>\s*<Title>([^<]*)<\/Title>\s*<MetaData>([\s\S]*?)<\/MetaData>/g)].map((m) => ({ type: m[2], title: m[3], meta: m[4] }));
+		const note = items.find((i) => i.title === TITLE);
+		t.ok(!!note && note.type === 'Text', 'the binder item is titled by the title: ' + items.map((i) => i.title).join('|'));
+		t.ok(!items.some((i) => i.title === 'Arrival') && !!note?.meta.includes('<Value>Part One/Arrival</Value>'), 'and its path in the binder is still the file’s');
+	} finally {
+		await closeWindows(p);
+		await p.ev(`(async () => { const pl = ${PL}; if (window.__bx) pl.exportHost.desktop = window.__bx.real; app.saveLocalStorage('binders-export', null); pl.settings.exportKind = 'manuscript'; pl.settings.exportOutside = true; pl.settings.exportSnapshots = true; await pl.saveData(pl.settings); })().then(() => 1)`);
+	}
+});

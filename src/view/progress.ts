@@ -7,6 +7,7 @@ import { DAYS_PROP, DEADLINE_PROP, WEEK, offDays, planFrom, planProblem, readDea
 import { BinderRecord } from '../progress/record';
 import { FIRST_DAYS, alike, baseOf, chapters, facts, hourSaid, hourShape, pace, parts, plannedAt, projected, rows as rowsOf, share, stage, statusSeries, weekdayShape, type Fact, type Pace, type Row } from '../progress/stats';
 import { textFacts, type SceneText } from '../progress/text';
+import { shownName, shownNameAt } from '../shown-name';
 import { buttonRow } from './modals';
 import { drawBars, drawCalendar, drawFirstDays, drawLife, drawStatus, drawStrip, table } from './progress-charts';
 import type { Plan } from '../progress/model';
@@ -197,7 +198,7 @@ export class ProgressModal extends Modal {
 		const root = this.binderFolder, go = this.reading, out: SceneText[] = [];
 		for (const f of this.plugin.binders.scenes(root)) {
 			const text = await this.app.vault.cachedRead(f), body = text.replace(/^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/, '');
-			out.push({ name: f.path.slice(root.path.length + 1).replace(/\.md$/, ''), text: body, words: this.plugin.progress.words(text) });
+			out.push({ name: f.path.slice(root.path.length + 1).replace(/\.md$/, ''), text: body, words: this.plugin.progress.words(text), shown: shownName(f) });
 		}
 		if (go !== this.reading || !this.open_) return;
 		this.texts = out;
@@ -208,6 +209,10 @@ export class ProgressModal extends Modal {
 
 	/** The words under a folder of the binder as counted now, or undefined until every note is counted. */
 	private wordsNow(folder: TFolder): number | undefined { return this.counter.sum(this.plugin.binders.scenes(folder)) ?? undefined; }
+
+	/** A note of the binder, by its path in it (no ".md"), as the window names it: its title, else its file name. A note
+	    that is gone keeps the name the record has (the last part of its path). */
+	private shownAt = (path: string): string => shownNameAt(`${this.binderFolder.path}/${path}.md`, path.slice(path.lastIndexOf('/') + 1));
 
 	private draw(): void {
 		const h = this.history, body = this.body;
@@ -331,8 +336,9 @@ export class ProgressModal extends Modal {
 		// ---- the parts ----
 		const items = (this.plugin.binders.orderedChildren(this.scopeFolder) ?? []);
 		if (!first && items.length > 1) {
-			const nowBy: Record<string, number> = {}, names: string[] = [];
-			for (const c of items) { const name = c instanceof TFolder ? c.name : c.name.replace(/\.md$/, ''), w = c instanceof TFolder ? this.wordsNow(c) : c instanceof TFile ? this.counter.get(c) ?? undefined : undefined; names.push(name); if (w !== undefined) nowBy[name] = w; }
+			// (a part is keyed by its file name, as the record names it; it is drawn by its shown name: a folder's own, a note's title)
+			const nowBy: Record<string, number> = {}, names: string[] = [], shown = new Map<string, string>();
+			for (const c of items) { const name = c instanceof TFolder ? c.name : c.name.replace(/\.md$/, ''), w = c instanceof TFolder ? this.wordsNow(c) : c instanceof TFile ? this.counter.get(c) ?? undefined : undefined; names.push(name); shown.set(name, c instanceof TFile ? shownName(c) : name); if (w !== undefined) nowBy[name] = w; }
 			const list = parts(h, rs, names, scope, nowBy).filter((x) => x.now > 0 || x.totals.some((v) => v > 0));
 			if (list.length > 1) {
 				const s = this.section(body, items.some((c) => c instanceof TFolder) ? 'The parts' : 'The scenes', 'when each was written');
@@ -349,7 +355,7 @@ export class ProgressModal extends Modal {
 				const some = this.allParts ? list : list.slice(0, PARTS_SHOWN);
 				some.forEach((part, k) => {
 					const row = grid.createDiv({ cls: 'binders-pot-part' });
-					row.createDiv({ cls: 'binders-pot-part-name', text: part.name });
+					row.createDiv({ cls: 'binders-pot-part-name', text: shown.get(part.name) ?? part.name });
 					drawStrip(row.createDiv({ cls: 'binders-pot-chart' }), months[k], [q(0.3), q(0.6), q(0.85)], stripW, 16, starts.map((a) => rs[a].n));
 					row.createDiv({ cls: 'binders-pot-part-words', text: fmt(part.now) });
 					if (!narrow) row.createDiv({ cls: 'binders-pot-part-note', text: part.grewMost ? `most of it in ${part.grewMost}` : '' });
@@ -358,7 +364,7 @@ export class ProgressModal extends Modal {
 					const b = s.createEl('button', { cls: 'binders-pot-quiet', text: this.allParts ? `Show the first ${PARTS_SHOWN}` : `Show all ${list.length}`, attr: { 'data-binders-key': 'all-parts', 'aria-expanded': String(this.allParts) } });
 					b.addEventListener('click', () => { this.allParts = !this.allParts; this.draw(); });
 				}
-				table(s, 'When each was written', ['Name', 'Words now', 'Grew most in'], list.map((x) => [x.name, fmt(x.now), x.grewMost]));
+				table(s, 'When each was written', ['Name', 'Words now', 'Grew most in'], list.map((x) => [shown.get(x.name) ?? x.name, fmt(x.now), x.grewMost]));
 			}
 		}
 
@@ -378,7 +384,7 @@ export class ProgressModal extends Modal {
 
 		// ---- records and oddities: each a name, a number and a line ----
 		const scenes = this.texts?.filter((x) => !scope || x.name.startsWith(scope + '/')) ?? [];
-		const all: Fact[] = [...facts(h, rs, scope), ...textFacts(scenes)];
+		const all: Fact[] = [...facts(h, rs, scope, this.shownAt), ...textFacts(scenes)];
 		if (all.length) {
 			const s = this.section(body, first ? 'So far' : 'Records and oddities', '');
 			const grid = s.createDiv({ cls: 'binders-pot-facts' });

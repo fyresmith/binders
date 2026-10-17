@@ -48,12 +48,12 @@ function summary(c: Changes): string {
 }
 
 /** What is different about one item, for the end of its row. */
-function said(r: Row): string {
+function said(r: Row, renamedAs: string): string {
 	if (r.gone) return 'gone';
 	if (r.fresh) return 'new';
 	const out: string[] = [];
 	if (r.rewritten) out.push(r.added || r.removed ? [r.added ? `+${r.added.toLocaleString()}` : '', r.removed ? `−${r.removed.toLocaleString()}` : ''].filter((x) => x).join(' ') + (r.added + r.removed === 1 ? ' word' : ' words') : 'rewritten');
-	if (r.renamed) out.push(`now “${r.renamed}”`);
+	if (r.renamed) out.push(`now “${renamedAs}”`);
 	if (r.into != null) out.push(r.into ? `moved to “${nameOf(r.into)}”` : 'moved out of its folder');
 	else if (r.reordered) out.push('moved');
 	if (r.props.length) out.push(r.props.length > 3 ? `${r.props.slice(0, 3).join(', ')} and ${r.props.length - 3} more` : r.props.join(', '));
@@ -420,14 +420,14 @@ export class FolderSnapshotsModal extends Modal {
 		const one = (r: Row, into: HTMLElement): HTMLElement => {
 			const item = into.createDiv({ cls: 'tree-item binders-folder-snapshots-row' });
 			const self = item.createDiv({ cls: 'tree-item-self is-clickable', attr: { tabindex: '0', role: 'treeitem' } });
-			const size = words.get(r), diff = marked && differs(r) ? said(r) : '';
+			const size = words.get(r), diff = marked && differs(r) ? said(r, this.shownOf(r)) : '';
 			if (r.kind === 'folder') {
 				self.addClass('mod-collapsible');
 				setIcon(self.createDiv({ cls: 'tree-item-icon collapse-icon' }), 'right-triangle');
 				self.setAttr('aria-expanded', 'true');
 			}
 			const inner = self.createDiv({ cls: 'tree-item-inner' });
-			const name = r.then?.role ? (r.then.role === 'binder note' ? 'The binder’s own properties' : 'The folder’s own properties') : r.name;
+			const name = r.then?.role ? (r.then.role === 'binder note' ? 'The binder’s own properties' : 'The folder’s own properties') : this.shownOf(r);
 			if (marked && r.gone) inner.createEl('del', { text: name }); else if (marked && r.fresh) inner.createEl('ins', { text: name }); else inner.setText(name);
 			const flair = diff || (r.kind === 'folder' ? (size ? count(size.notes, 'note') : '') : r.kind === 'file' ? 'not a note' : size ? size.words.toLocaleString() : '');
 			if (flair) self.createDiv({ cls: 'tree-item-flair-outer' }).createSpan({ cls: 'tree-item-flair', text: flair });
@@ -508,14 +508,22 @@ export class FolderSnapshotsModal extends Modal {
 
 	// ---- one note of it ----
 
+	/** A row as the window names it: a note that is in the folder now by its shown name (its title, if it has one), else
+	    the name the snapshot has. Folders and what is gone are named as they were. */
+	private shownOf(r: Row): string {
+		if (r.kind !== 'note' || !r.now) return r.name;
+		const f = this.app.vault.getAbstractFileByPath(`${this.folder.path}/${r.now.path}`);
+		return f instanceof TFile ? shownName(f) : r.name;
+	}
+
 	private note(el: HTMLElement, s: FolderSnapshot | null, r: Row, _then: State, _now: State, _c: Changes | null): void {
 		const crumb = el.createDiv({ cls: 'binders-folder-snapshots-crumb' });
 		const backTo = () => { this.page = 'contents'; void this.reshow(); };
 		iconButton(crumb, 'arrow-left', 'Back to the contents', backTo);
 		const e = (r.then ?? r.now), where = dirOf(e.path).split('/').filter((x) => x);
 		crumb.createSpan({ cls: 'binders-folder-snapshots-crumb-path', text: [...where, ''].join(' / ') });
-		crumb.createSpan({ cls: 'binders-folder-snapshots-crumb-name', text: r.name });
-		const diff = said(r);
+		crumb.createSpan({ cls: 'binders-folder-snapshots-crumb-name', text: this.shownOf(r) });
+		const diff = said(r, this.shownOf(r));
 		if (s && differs(r)) crumb.createSpan({ cls: 'binders-folder-snapshots-crumb-said', text: diff });
 		const before = parts(r.then?.text ?? '').body, after = parts(r.now?.text ?? '').body;
 		const text = r.then ? before : after;
@@ -545,8 +553,9 @@ export class FolderSnapshotsModal extends Modal {
 			}
 			run = 0; runEl = null;
 			const head = view.createEl(r.kind === 'folder' ? (r.depth ? 'h2' : 'h1') : 'h3', { cls: r.kind === 'folder' ? 'binders-folder-snapshots-read-folder' : 'binders-folder-snapshots-read-note' });
-			if (c && r.gone) head.createEl('del', { text: r.name }); else if (c && r.fresh) head.createEl('ins', { text: r.name }); else head.setText(r.name);
-			if (c && differs(r)) head.createSpan({ cls: 'binders-folder-snapshots-read-said', text: said(r) });
+			const name = this.shownOf(r);
+			if (c && r.gone) head.createEl('del', { text: name }); else if (c && r.fresh) head.createEl('ins', { text: name }); else head.setText(name);
+			if (c && differs(r)) head.createSpan({ cls: 'binders-folder-snapshots-read-said', text: said(r, name) });
 			if (r.kind !== 'note') continue;
 			const before = parts(r.then?.text ?? '').body, after = parts(r.now?.text ?? '').body, text = r.then ? before : after;
 			const body = view.createDiv({ cls: 'binders-folder-snapshots-read-text' });
@@ -624,7 +633,7 @@ export class FolderSnapshotsModal extends Modal {
 		try {
 			if (r.gone) {
 				const made = await remakeNote(this.plugin, this.folder, state.entries, then);
-				say(`“${r.name}” is back, as it stood ${whenIn(s.taken)}${made.basename !== r.name ? `, as “${made.basename}”: a note named “${r.name}” is there now` : ''}.`, 6000);
+				say(`“${shownName(made)}” is back, as it stood ${whenIn(s.taken)}${made.basename !== r.name ? `, as “${made.basename}”: a note named “${r.name}” is there now` : ''}.`, 6000);
 			} else {
 				const f = r.now ? app.vault.getAbstractFileByPath(`${this.folder.path}/${r.now.path}`) : null;
 				if (!(f instanceof TFile) || !isScene(this.plugin, f)) throw new Error('That note isn’t there any more.');

@@ -10,7 +10,7 @@ import { historyLook, refreshHeader, submenu, trashPhrase } from './internals';
 import { ask, buttonRow, cancelButton, confirm } from './modals';
 import { folderItems } from './binder-snapshots';
 import { wordsIn, wordsLabel } from './words';
-import { shownName } from '../shown-name';
+import { shownName, shownNameAt } from '../shown-name';
 
 /* Snapshots, to the writer: "Take a snapshot", "Rewrite", the dialog that lists a note's snapshots, and a pane that
    shows one beside the note. The dialog is laid out as Obsidian's own File recovery and Sync history dialogs are, with
@@ -135,7 +135,7 @@ export class SnapshotView extends ItemView {
 	getDisplayText(): string {
 		const name = this.path.slice(this.path.lastIndexOf('/') + 1).replace(/\.[^.]+$/, ''), named = readSnapshotName(name, this.beside());
 		const what = named ? named.title || when(named.when.getTime()) : name;
-		return this.path ? `${this.of ? this.of.slice(this.of.lastIndexOf('/') + 1).replace(/\.md$/i, '') + ': ' : ''}${what}` : 'Snapshot';
+		return this.path ? `${this.of ? shownNameAt(this.of, this.of.slice(this.of.lastIndexOf('/') + 1).replace(/\.md$/i, '')) + ': ' : ''}${what}` : 'Snapshot';
 	}
 	/** Is a snapshot of this name beside the one shown? (A count after a name is told from a number the writer typed.) */
 	private beside(): (name: string) => boolean {

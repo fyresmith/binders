@@ -17,6 +17,9 @@ export interface ScrivSnapshot { title: string; when: number; text: string }
 
 /** A note or folder of the binder with what Binders knows about it. A folder's `text` is its folder note's. */
 export interface ScrivItem extends SourceItem {
+	/** What the item is called in the project: a note's shown name (its title, else its file name). `name` stays the file's:
+	    links and paths go by it. Not set: `name`. */
+	title?: string;
 	synopsis?: string;
 	label?: string;
 	status?: string;
@@ -198,10 +201,10 @@ export function writeScriv(src: ScrivSource, o: ScrivOptions): ScrivProject {
 		const fields: [string, string][] = [[PATH_FIELD, rel(it)]];
 		for (const [k, v] of Object.entries(it.props ?? {})) if (v.trim()) fields.push([fieldId(k), v.trim()]);
 		if (it.kind === 'folder') folders++; else documents++;
-		rows.push({ title: it.name, depth: depth + 1, kind: it.kind === 'folder' ? 'folder' : 'text', status: (it.status ?? '').trim(), included, path: it === noteDoc ? src.note?.path ?? it.path : it.path });
+		rows.push({ title: it.title ?? it.name, depth: depth + 1, kind: it.kind === 'folder' ? 'folder' : 'text', status: (it.status ?? '').trim(), included, path: it === noteDoc ? src.note?.path ?? it.path : it.path });
 		const created = new Date(it.created ?? it.modified ?? when.getTime()), modified = new Date(it.modified ?? it.created ?? when.getTime());
 		return {
-			id, type: it.kind === 'folder' ? 'Folder' : 'Text', title: it.name, created, modified, included,
+			id, type: it.kind === 'folder' ? 'Folder' : 'Text', title: it.title ?? it.name, created, modified, included,
 			label: labelId(it.label), status: listed(lists.statuses, it.status),
 			section: ITEM_SECTION_TYPES && wanted && wanted !== (it.kind === 'folder' ? lists.folderType : lists.textType) ? wanted : null,
 			target: it.target && it.target > 0 ? Math.round(it.target) : 0, fields,

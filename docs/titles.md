@@ -20,9 +20,12 @@ A note that has a title is shown by it everywhere Binders shows the note's name:
 - the inspector, the contents, the revision pane, and find and replace
 - menus and notices that name the note
 - the headings and the contents list of an export
-- the file explorer, for notes in a binder (it goes with the *Order binders in the file explorer* setting)
+- the file explorer, for notes in a binder (whether or not *Order binders in the file explorer* is on)
+- the Progress window: the parts, the records and the text's facts, for notes that still exist
+- the snapshot windows: a note's heading, and the notes of a folder's snapshot, for notes that are still there
+- the Scrivener project: a note's item is titled by it (the file name stays on disk, and is what links go by)
 
-A note without one is shown by its file name, as before. A title that is empty counts as none. A folder is always shown
+A note without one is shown by its file name, as before. A note that is gone is named as its record or snapshot has it. A title that is empty counts as none. A folder is always shown
 by its name.
 
 ## Changing it
