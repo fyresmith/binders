@@ -182,6 +182,20 @@ const parse = (t: string) => { const d = parseStoryDate(t, cal); return d ? writ
 	eq(dropTargets({ y: 1, m: 1, d: 1 }, { y: 1, m: 2, d: 1 }, huge).dates.length, MOST_DAYS, 'a gap in a month of 900,001 days unfolds into no more than MOST_DAYS days');
 }
 
+// a calendar whose years average no days (a leap rule that takes away as many days as it gives): a shift in it lands on a
+// real day or is refused, never on a date whose year or day is not a number (that date would be written into the note)
+{
+	const none = calendarFrom({ months: [{ A: 3 }], leap: [{ month: 'A', days: 4, every: 4, except: 1 }] }, null);
+	eq(none.yearLength, 0, 'a year of no days on average');
+	eq(j(shiftDate({ y: 1, m: 1, d: 1 }, -3, 'd', none)), j({ y: 0, m: 1, d: 1 }), 'a shift onto day 0 lands on the first day of year 0');
+	let bad = '';
+	for (let y = -3; y <= 3; y++) for (let m = 1; m <= 3; m++) for (let d = 1; d <= 3; d++) for (let by = -12; by <= 12; by++) {
+		const r = shiftDate({ y, m, d }, by, 'd', none);
+		if (r && !(Number.isInteger(r.y) && Number.isInteger(r.m) && Number.isInteger(r.d))) bad = j(r);
+	}
+	eq(bad, '', 'no shift by days in it gives a date with a part that is not a whole number');
+}
+
 // filters: a date compared in the book's calendar
 {
 	ok(!!daysOf('0802-13-30', cal), 'the thirteenth month is a date to a filter in this book');

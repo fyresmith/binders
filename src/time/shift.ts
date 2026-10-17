@@ -16,6 +16,8 @@ function fromDay(cal: Calendar, day: number): { y: number; m: number; d: number 
 	// whose years don't follow one another, from a binder note's leap rules, ends it rather than leaving it to run forever)
 	const most = MAX_YEAR + 1;
 	let y = Math.max(-most, Math.min(most, Math.floor((day - cal.toDay(0, 1, 1)) / cal.yearLength)));
+	// (a calendar whose years average no days has no guess: 0/0 is NaN, and the walk starts from year 0 instead)
+	if (!Number.isFinite(y)) y = 0;
 	while (cal.toDay(y, 1, 1) > day) if (--y < -most) return null;
 	while (cal.toDay(y + 1, 1, 1) <= day) if (++y > most) return null;
 	let m = 1;
@@ -25,9 +27,11 @@ function fromDay(cal: Calendar, day: number): { y: number; m: number; d: number 
 
 /** A date moved by `by` units (negative: earlier); null when it can't be moved that way. */
 export function shiftDate(date: StoryDate, by: number, unit: ShiftUnit, cal: Calendar = GREGORIAN): StoryDate | null {
-	if (!Number.isInteger(by)) return null;
+	if (!Number.isInteger(by) || !Number.isFinite(date.y)) return null;
+	// (the last check before a date is written: a part that isn't a whole number is never let through)
 	const out = (y: number, m: number | undefined, d: number | undefined): StoryDate | null => {
-		if (Math.abs(y) > MAX_YEAR) return null;
+		if (!Number.isInteger(y) || Math.abs(y) > MAX_YEAR) return null;
+		if ((m != null && !Number.isInteger(m)) || (d != null && !Number.isInteger(d))) return null;
 		const x: StoryDate = { y: y + 0 };
 		if (m != null) x.m = m;
 		if (d != null) x.d = d;

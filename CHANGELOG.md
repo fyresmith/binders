@@ -27,6 +27,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - Importing a rich text file with a long run of spaces in a list's number, or a Markdown file whose footnotes move between scenes, no longer freezes Obsidian.
 - Importing a file with a long run of * _ ~ or ` marks inside a line no longer freezes Obsidian.
 - Find in a binder no longer freezes Obsidian on a note with many <!-- comments that never close.
+- A calendar whose years average no days no longer makes "Shift story dates" write a date with no year or day in it; those scenes are left where they are.
 
 ## 0.53.3 (2026-10-16)
 
