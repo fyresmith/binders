@@ -941,14 +941,15 @@
 }
 
 /* A section's editor is as wide as the page and never scrolls up and down by itself (the manuscript does). In a note
-   of its own it's a scroller, which here would keep a scrollbar's width free at the side; and a table's handles reach a
-   little past the text, which a note has margins for: here the editor reaches into the page's margins by as much, so
-   only a table really wider than the page scrolls sideways. */
+   of its own it's a scroller, which here would keep a scrollbar's width free at the side. Its box reaches into the
+   page's side margin by the whole of it (--file-margins-x, the room a note keeps for a plugin's gutter handles), so a
+   handle drawn left of the text stays inside the box and shows (issue #36); the padding takes the text back to the
+   page's edge. Only a table really wider than the page scrolls sideways, inside the page and its margins. */
 .binders-manuscript .markdown-source-view.mod-cm6 .cm-scroller {
 	overflow: auto hidden;
 	scrollbar-gutter: auto;
-	margin-inline: calc(-1 * var(--size-4-4));
-	padding-inline: var(--size-4-4);
+	margin-inline: calc(-1 * var(--file-margins-x));
+	padding-inline: var(--file-margins-x);
 }
 
 .binders-manuscript {
