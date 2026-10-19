@@ -2,7 +2,7 @@ import { ButtonComponent, Component, Modal, Notice, Platform, Setting, TFile, TF
 import type BindersPlugin from '../main';
 import type { Binder } from '../binders';
 import { ConvertModal } from '../longform-convert';
-import { titleOf } from '../shown-name';
+import { propertyTitleOf } from '../shown-name';
 import { ownTemplate } from '../templates';
 import { bookDetails } from '../export/export';
 import { drawBookDetails } from './book-details';
@@ -64,7 +64,7 @@ export class BinderSettingsModal extends Modal {
 	/** The binder's name as it is shown: the title its note has, else its folder's. */
 	private get name(): string {
 		const b = this.binder;
-		return !b ? this.note.basename : titleOf(b.note) ?? b.folder.name;
+		return !b ? this.note.basename : propertyTitleOf(b.note) ?? b.folder.name;
 	}
 
 	/** Shows another page (in the dialog that is open). */

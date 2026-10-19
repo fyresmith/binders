@@ -105,6 +105,9 @@ See [Export](export.md) and [Styles](export-styles.md).
 The properties that hold each of these, if your notes already use other names. The row says **Binders' own** while
 every name is the default, and how many you changed otherwise.
 
+**Name a note from** (above the names) says where a note with no title gets its shown name: its file name (the
+default), the first heading 1 to 6 it has, or the first heading of any level. See [Titles](titles.md#from-a-heading).
+
 | Setting | Default | What it holds |
 |---|---|---|
 | **Title** | `title` | A note's title. A note that has one is shown by it instead of its file name. See [Titles](titles.md) |

@@ -28,10 +28,36 @@ A note that has a title is shown by it everywhere Binders shows the note's name:
 A note without one is shown by its file name, as before. A note that is gone is named as its record or snapshot has it. A title that is empty counts as none. A folder is always shown
 by its name.
 
+## From a heading
+
+If your notes open with their title as a heading rather than a property, Binders can read it there. Under *Property
+names* in [Settings](settings.md#property-names), **Name a note from** offers *Its title property or file name* (the
+default), *First heading 1* to *First heading 6*, and *First heading of any level*. It is one setting for the whole vault.
+
+```md
+## #26-10-19-14-41-39
+
+### The supply boat
+#### Mara arrives
+```
+
+With *First heading 3*, this note is shown as "The supply boat". The first heading of that level is the one used, and
+a heading that says nothing in words (a lone tag or a comment) is passed over.
+
+- What a heading shows that isn't words is left out: tags (`#working-title`), comments (`<!-- ... -->`), the brackets
+  of links (`[[Note|the scene]]` is "the scene") and emphasis marks.
+- A `title` property still comes first: the property, then the heading, then the file name.
+- It follows the note as you edit it: change the heading and the name changes.
+- It is read from the note and never written to it. Editing the name in Binders (a card, an outliner row, a manuscript
+  heading) writes a `title` property, which then wins over the heading; the heading and the file are left as they are.
+  Take the property away and the heading is shown again.
+- In an export the heading is the note's title and is printed once: the heading in the note's text is not printed
+  again. (A heading 1 at the top of a note already was its chapter title.)
+
 ## Changing it
 
-Editing a name in a card, an outliner row or a manuscript heading changes the `title` property when the note has one,
-and leaves the file alone. A note without a title is renamed, as before. Undo takes either back.
+Editing a name in a card, an outliner row or a manuscript heading changes the `title` property when the note has one
+(or is named from a heading), and leaves the file alone. A note without a title is renamed, as before. Undo takes either back.
 
 Obsidian's own rename in the file explorer (and in a tab's menu) always renames the file, starting from its file name.
 

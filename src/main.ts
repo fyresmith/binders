@@ -115,7 +115,7 @@ export default class BindersPlugin extends Plugin {
 		// (the timeline's icon is Binders' own: Obsidian's set has none that says a line of time)
 		addIcon(TIMELINE_ICON, TIMELINE_ICON_SVG);
 		await this.loadSettings();
-		useShownNames(this.app, () => this.settings.titleProp);
+		useShownNames(this.app, () => this.settings.titleProp, () => this.settings.titleFrom);
 		this.binders = new BinderStore(this);
 		this.revision = new Revision(this); // (before the record, which asks it which notes are not the binder's)
 		this.progress = new Progress(this);

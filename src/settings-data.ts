@@ -1,6 +1,7 @@
 import { DEFAULT_LABELS, DEFAULT_STATUSES, readLabels, readStatuses, type LabelPreset } from './view/labels';
 import { DEFAULT_COLUMNS, readColumns, type ColumnSpec } from './view/outliner-data';
 import { COMPILE_DEFAULTS, type CompileOptions } from './scene-text';
+import { TITLE_FROM, type TitleFrom } from './shown-name';
 
 /* Binders' settings as data: what they are, their defaults, and reading them back from what was saved. Pure (the
    settings tab is in settings.ts), so it can be unit-tested. */
@@ -18,6 +19,8 @@ export interface BindersSettings {
 	/** The property names scenes use; changeable so Binders can share a vault's existing names. */
 	/** The property that holds a note's title: shown in place of its file name where Binders shows the note. */
 	titleProp: string;
+	/** Where a note with no title property gets its shown name: its file name, or the first heading of a level or of any. */
+	titleFrom: TitleFrom;
 	synopsisProp: string;
 	statusProp: string;
 	labelProp: string;
@@ -94,7 +97,7 @@ export interface BindersSettings {
 /** What a new vault starts with. */
 export const DEFAULT_SETTINGS: BindersSettings = {
 	orderExplorer: true, openOnClick: true, hideBinderNotes: true, explorerLabels: true,
-	titleProp: 'title', synopsisProp: 'synopsis', statusProp: 'status', labelProp: 'label', targetProp: 'target', storyDateProp: 'story-date', storyOrderProp: 'story-order', notesProp: 'notes',
+	titleFrom: 'property', titleProp: 'title', synopsisProp: 'synopsis', statusProp: 'status', labelProp: 'label', targetProp: 'target', storyDateProp: 'story-date', storyOrderProp: 'story-order', notesProp: 'notes',
 	labels: DEFAULT_LABELS, statuses: DEFAULT_STATUSES, outlinerColumns: DEFAULT_COLUMNS, compile: COMPILE_DEFAULTS, compiled: {}, compiledTo: {},
 	exportsFolder: 'Exports', stylesFolder: 'Export styles', authorName: '', contact: '', exportKind: 'manuscript', exportFile: 'docx', exportPaper: 'letter', exportStyle: '', exportMatter: false, exportOutside: true, exportSnapshots: true,
 	tabParagraphs: true, indentParagraphs: false, sidePanes: true,
@@ -123,6 +126,8 @@ export const FOCUS_TEXT: Record<FocusToggle | 'focusGoal', readonly [string, str
 /** How words are counted, as the settings tab says it: a choice of two, so a dropdown. */
 export const WORDS_TEXT: readonly [string, string] = ['Count words', 'For cards, targets and the toolbar. An export leaves out comments, the hidden part of a link and properties.'];
 /** The dropdown's two ways, by the value the tab gives each (`bookWords` on, and off). */
+export const TITLE_FROM_TEXT: readonly [string, string] = ['Name a note from', 'A note with no title property is named by the first heading you choose, read from the note and never changed there. Renaming it from Binders writes a title.'];
+export const TITLE_FROM_OPTIONS: Record<TitleFrom, string> = { property: 'Its title property or file name', h1: 'First heading 1', h2: 'First heading 2', h3: 'First heading 3', h4: 'First heading 4', h5: 'First heading 5', h6: 'First heading 6', any: 'First heading of any level' };
 export const WORDS_OPTIONS: Record<'book' | 'obsidian', string> = { book: 'As an export would', obsidian: 'As Obsidian’s status bar' };
 
 /** The record of a binder's writing: its switch and where it is kept, as the settings tab says them. */
@@ -171,6 +176,7 @@ export function readSettings(data: unknown): BindersSettings {
 	const d = (data && typeof data === 'object' ? data : {}) as Record<string, unknown>;
 	const s: BindersSettings = { ...DEFAULT_SETTINGS };
 	for (const k of TOGGLES) if (typeof d[k] === 'boolean') s[k] = d[k];
+	if (typeof d.titleFrom === 'string' && (TITLE_FROM as readonly string[]).includes(d.titleFrom)) s.titleFrom = d.titleFrom as TitleFrom;
 	for (const k of PROPS) { const v = d[k]; if (typeof v === 'string' && v.trim()) s[k] = v.trim(); }
 	s.labels = (readLabels(d.labels) ?? DEFAULT_LABELS).map((l) => ({ ...l }));
 	s.statuses = [...(readStatuses(d.statuses) ?? DEFAULT_STATUSES)];

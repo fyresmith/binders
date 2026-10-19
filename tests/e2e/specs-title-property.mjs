@@ -3,6 +3,7 @@
 // changes the property, not the file's name. A note without one is shown, and renamed, by its file name as ever.
 import { WIN, closeAll, open as openExport } from './specs-export.mjs';
 import { B, NOTE, PL, VIEW, clickMenu, j, openView, read, split, texts, until, withTidy, writeRaw } from './view-helpers.mjs';
+import { showPage } from './settings-routes.mjs';
 import { plant, lastDays, recordToday, scenesOf } from './progress-history.mjs';
 
 import { readFileSync, readdirSync, statSync } from 'fs';
@@ -296,4 +297,72 @@ test('the Scrivener project names a titled note by its title, and its file name 
 		await closeWindows(p);
 		await p.ev(`(async () => { const pl = ${PL}; if (window.__bx) pl.exportHost.desktop = window.__bx.real; app.saveLocalStorage('binders-export', null); pl.settings.exportKind = 'manuscript'; pl.settings.exportOutside = true; pl.settings.exportSnapshots = true; await pl.saveData(pl.settings); })().then(() => 1)`);
 	}
+});
+
+// A note named by a heading (the "Name a note from" setting; GitHub issue #34): read from the metadata cache, never
+// written back to the note.
+const STAMP = '## #26-10-19-14-41-39 <!-- timestamp -->\n\n### Actual **title** #working\n#### Sub\n\n';
+/** Puts the timestamp-then-title headings at the top of a note's text, after its properties. */
+async function headed(p, path, h = STAMP) {
+	const { yaml, body } = split(await read(p, path));
+	await writeRaw(p, path, `---\n${yaml}\n---\n${h}${body}`);
+	await until(p, `(app.metadataCache.getFileCache(app.vault.getAbstractFileByPath(${j(path)}))?.headings?.length ?? 0) > 0`, 4000);
+	await p.sleep(300);
+}
+
+test('named from the first heading of a level: the views and the explorer show it, and it follows the note as it is edited', async (p, h, t) => {
+	await headed(p, ARRIVAL);
+	await setSettings(p, { titleFrom: 'h3' });
+	await mode(p, 'corkboard');
+	const title = `${ACTIVE} .binders-card[data-path=${j(ARRIVAL)}] .binders-card-title`;
+	t.eq(await one(p, title), 'Actual title', 'the card shows the third-level heading, without its emphasis and tag, not the stamp');
+	t.eq(await one(p, `${ACTIVE} .binders-card[data-path=${j(KEEPER)}] .binders-card-title`), 'The keeper', 'a note with no such heading keeps its file name');
+	t.eq(await explorerName(p, ARRIVAL), 'Actual title', 'and so does the file explorer');
+	await writeRaw(p, ARRIVAL, (await read(p, ARRIVAL)).replace('### Actual', '### Newer'));
+	t.ok(await until(p, `document.querySelector(${j(title)})?.textContent === 'Newer title'`, 4000), 'editing the heading changes the card');
+	await titled(p, ARRIVAL);
+	t.ok(await until(p, `document.querySelector(${j(title)})?.textContent === ${j(TITLE)}`, 4000), 'a title property wins over the heading');
+});
+
+test('renaming a note named by a heading writes a title and leaves its text and file name alone', async (p, h, t) => {
+	await headed(p, ARRIVAL);
+	await setSettings(p, { titleFrom: 'h3' });
+	const before = await read(p, ARRIVAL);
+	await mode(p, 'corkboard');
+	const card = `${ACTIVE} .binders-card[data-path=${j(ARRIVAL)}]`;
+	const c = await p.at(card);
+	await p.right(c.x, c.y);
+	await clickMenu(p, 'Rename');
+	t.eq(await p.ev(`document.activeElement.value`), 'Actual title', 'the rename starts from the name shown');
+	await p.key('a', 'ctrl');
+	await p.type('Landfall');
+	await p.key('Enter');
+	t.ok(await until(p, `app.metadataCache.getFileCache(app.vault.getAbstractFileByPath(${j(ARRIVAL)}))?.frontmatter?.title === 'Landfall'`, 4000), 'the note has the title');
+	await p.ev(`${PL}.binders.flush().then(() => 1)`);
+	const after = await read(p, ARRIVAL);
+	t.ok(after.includes(STAMP), 'its headings are as they were');
+	t.eq(after.replace(/^title: Landfall\n/m, ''), before, 'only a title line was added');
+	t.ok(!!(await texts(p))[ARRIVAL], 'the file keeps its name');
+}, { tier: 'guard' });
+
+test('export prints a note named by a heading once', async (p, h, t) => {
+	await headed(p, ARRIVAL, '### Actual title\n\n');
+	await setSettings(p, { titleFrom: 'h3' });
+	await openExport(p);
+	// (the preview's own text, line by line: the chapter's heading and the note's text)
+	const lines = await p.ev(`document.querySelector('${WIN}').innerText.split('\\n').map((l) => l.trim()).filter((l) => l === 'Actual title')`);
+	t.eq(lines.length, 1, 'the title is in the preview once');
+	await closeAll(p);
+});
+
+test('the setting is in the settings, under Property names, and choosing it there changes the names shown', async (p, h, t) => {
+	await headed(p, ARRIVAL);
+	await mode(p, 'corkboard');
+	const title = `${ACTIVE} .binders-card[data-path=${j(ARRIVAL)}] .binders-card-title`;
+	t.eq(await one(p, title), 'Arrival', 'to begin with, the file name');
+	await showPage(p, 'Property names');
+	const ok = await p.ev(`(() => { const r = [...app.setting.activeTab.containerEl.ownerDocument.querySelectorAll('.setting-item')].find((e) => e.querySelector('.setting-item-name')?.textContent === 'Name a note from'); const s = r?.querySelector('select'); if (!s) return false; s.value = 'h3'; s.dispatchEvent(new Event('change', { bubbles: true })); return true; })()`);
+	t.ok(ok, 'the choice is a dropdown on the Property names page');
+	await p.ev(`app.setting.close()`);
+	t.ok(await until(p, `document.querySelector(${j(title)})?.textContent === 'Actual title'`, 4000), 'and the card is named by the heading');
 });

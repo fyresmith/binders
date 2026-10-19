@@ -2,6 +2,12 @@
 
 All notable changes to Binders. Versions follow [semantic versioning](https://semver.org): see AGENTS.md for when a number changes. Commits add entries under Unreleased (`npm run ship`); `npm run release` turns them into a version.
 
+## Unreleased
+
+### Added
+
+- A new setting, Name a note from, lets a note take its shown name from its first heading (of a level you choose, or of any level) instead of its file name, for notes that open with their title.
+
 ## 0.54.0 (2026-10-17)
 
 ### Added

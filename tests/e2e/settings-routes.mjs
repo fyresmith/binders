@@ -9,7 +9,7 @@ export const PAGE_OF = {
 	'Typewriter scrolling': 'Focus mode', 'Show the scenes before and after': 'Focus mode', 'Show where you are': 'Focus mode', 'Show word counts': 'Focus mode',
 	'Dim other paragraphs': 'Focus mode', 'Dim the background': 'Focus mode', 'Enter fullscreen': 'Focus mode',
 	'Exports folder': 'Folders', 'Styles folder': 'Folders', 'Remembered places': 'Folders', 'binders-settings-exports': 'Folders', 'binders-settings-styles': 'Folders', 'binders-settings-places': 'Folders',
-	Title: 'Property names', Synopsis: 'Property names', Status: 'Property names', Label: 'Property names', Target: 'Property names',
+	'Name a note from': 'Property names', Title: 'Property names', Synopsis: 'Property names', Status: 'Property names', Label: 'Property names', Target: 'Property names',
 	'Story date': 'Property names', 'Story order': 'Property names', Notes: 'Property names', 'binders-settings-props': 'Property names',
 };
 

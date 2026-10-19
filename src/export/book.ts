@@ -3,7 +3,7 @@ import { inlines, plain, type Block, type Book, type Matter, type Picture, type 
 import { isPictureName } from './picture';
 import { UNNUMBERED, assignRoles, guessStructure, readRole, titleFrom, type SourceItem } from './roles';
 import { typesetBlocks } from './typography';
-import { shownNameAt } from '../shown-name';
+import { cleanHeading, fromHeadingAt, shownNameAt } from '../shown-name';
 
 /* A binder put together as a book: every included note read (markdown.ts), given its role (roles.ts), and joined
    into the sections a writer sets, with what was embedded brought in and what couldn't be said as a warning. Pure:
@@ -139,6 +139,8 @@ export function buildBook(items: readonly SourceItem[], o: BookOptions, resolve:
 		// a level-one heading at the top of a note is its title, and isn't set twice
 		const first = blocks[0];
 		if (item?.kind === 'note' && first?.kind === 'heading' && first.level === 1) { title = plain(first.runs).trim(); blocks = blocks.slice(1); }
+		// a note named by a heading further down (the writer's choice) has that heading once: as the section's title
+		else if (item?.kind === 'note' && fromHeadingAt(item.path)) { const at = blocks.findIndex((b) => b.kind === 'heading' && plain(b.runs).trim() && cleanHeading(plain(b.runs)) === label(item)); if (at >= 0) blocks = blocks.filter((_, i) => i !== at); }
 		// (with only part of the book going out, what doesn't go still counts, unless numbering starts at 1)
 		const numbered = (role === 'part' || (role === 'chapter' && !UNNUMBERED.test(title))) && (going || !o.fromOne);
 		const s: Section = { id: '', role, number: !numbered ? null : role === 'part' ? ++parts : ++chapters, title: role === 'front' || role === 'back' ? title || (item ? label(item) : '') : title, blocks: [], paths: item ? [item.path] : [] };

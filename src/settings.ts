@@ -1,7 +1,8 @@
 import { Notice, Platform, PluginSettingTab, Setting, TextComponent, type App } from 'obsidian';
 import type { SettingRow, SettingSection, ToggleRow } from './setting-definitions';
 import type BindersPlugin from './main';
-import { DEFAULT_SETTINGS, FOCUS_TEXT, FOCUS_TOGGLES, focusToggles, PARAGRAPH_TEXT, PARAGRAPH_TOGGLES, PROPS, SIDE_TEXT, TEXT, TOGGLES, WORDS_OPTIONS, WORDS_TEXT, RECORD_TEXT, type BindersSettings, type FocusToggle, type ParagraphToggle, type Prop, type Toggle } from './settings-data';
+import { DEFAULT_SETTINGS, FOCUS_TEXT, FOCUS_TOGGLES, focusToggles, PARAGRAPH_TEXT, PARAGRAPH_TOGGLES, PROPS, SIDE_TEXT, TEXT, TITLE_FROM_OPTIONS, TITLE_FROM_TEXT, TOGGLES, WORDS_OPTIONS, WORDS_TEXT, RECORD_TEXT, type BindersSettings, type FocusToggle, type ParagraphToggle, type Prop, type Toggle } from './settings-data';
+import { TITLE_FROM, type TitleFrom } from './shown-name';
 import { parseGoal } from './focus/session';
 import { COMPILE_PROP, EXPORT_PROP } from './scenes';
 import { DEFAULT_LABELS, DEFAULT_STATUSES, PALETTE, colorCss, display, freeName, hexColor } from './view/labels';
@@ -139,6 +140,7 @@ export class BindersSettingTab extends PluginSettingTab {
 					displayValue: () => { const n = PROPS.filter((k) => this.s[k] !== DEFAULT_SETTINGS[k]).length; return n ? `${n} changed` : 'Binders’ own'; },
 					items: [
 						{ type: 'group', cls: 'binders-settings-about', items: [{ name: 'Changing a name here doesn’t rename the property in your notes. Binders reads the new one from then on.' }] },
+						{ type: 'group', items: [{ name: TITLE_FROM_TEXT[0], desc: TITLE_FROM_TEXT[1], aliases: ['title', 'heading', 'name'], control: { type: 'dropdown', key: 'titleFrom', options: TITLE_FROM_OPTIONS } }] },
 						{ type: 'group', cls: 'binders-settings-props', items: PROPS.map((k): SettingRow => ({ name: TEXT[k][0], desc: TEXT[k][1], render: (setting) => { this.propRow(setting, k); } })) },
 					],
 				},
@@ -161,6 +163,7 @@ export class BindersSettingTab extends PluginSettingTab {
 		if (key === 'sidePanes' && typeof value === 'boolean') s.sidePanes = value;
 		if (key === WORDS_KEY && (value === 'book' || value === 'obsidian')) s.bookWords = value === 'book';
 		if (key === 'recordProgress' && typeof value === 'boolean') s.recordProgress = value;
+		if (key === 'titleFrom' && typeof value === 'string' && (TITLE_FROM as readonly string[]).includes(value)) s.titleFrom = value as TitleFrom;
 		// (what depends on it is drawn again: hiding notes can't be on without ordering, and the device's name is shown
 		// only with the record)
 		if (key === 'orderExplorer' || key === 'recordProgress') await this.changed(); else await this.save();
