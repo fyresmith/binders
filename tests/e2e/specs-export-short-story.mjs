@@ -92,3 +92,46 @@ specs.push({
 		}
 	}),
 });
+
+/** A style of the writer's own, in the styles folder, and taken away again. */
+const withStyle = async (p, name, text) => {
+	await p.ev(`(async () => { await app.vault.adapter.mkdir('Export styles').catch(() => {}); await app.vault.adapter.write('Export styles/${name}.bookstyle', ${j(text)}); })().then(() => 1)`);
+	await until(p, `${PL}.styles.text(${j(name)}) === ${j(text)}`, 8000);
+};
+const dropStyles = (p) => p.ev(`(async () => { const f = app.vault.getAbstractFileByPath('Export styles'); if (f) await app.vault.delete(f, true); await ${PL}.styles.reload(); })().then(() => 1)`);
+
+specs.push({
+	name: 'export short story: a style can leave the “by” line out from under the title, in the window’s pages, its Word preview and the Word file',
+	fn: withTidy(async (p, h, t) => {
+		await p.ev(`(() => { app.saveLocalStorage('binders-export', null); return 1; })()`);
+		await standIn(p);
+		await makeStory(p);
+		await withStyle(p, 'No by', '---\nexport-style: 1\nbased-on: Short story\nby-line: false\n---\n');
+		await until(p, `!!${PL}.binders.binderOf('Salt')`, 8000);
+		try {
+			await openView(p, 'Salt');
+			await run(p, 'export');
+			await until(p, `!!document.querySelector('${WIN} [role="option"]')`, 6000);
+			await p.sleep(150);
+			await choose(p, 'file', 'pdf');
+			await choose(p, 'style', 'Short story');
+			t.ok(await laidOut(p), 'the pages are laid out');
+			t.ok((await pages(p))[0].text.includes('by Mara Lindqvist'), 'the Short story style keeps “by Mara Lindqvist” under the title');
+			await choose(p, 'style', 'No by');
+			t.ok(await laidOut(p), 'laid out again');
+			const first = (await pages(p))[0].text;
+			t.ok(!first.includes('by Mara') && first.includes('Salt') && first.includes('The sea was flat.'), 'a style with the by-line off: no “by” line, the title and the story are still there');
+			await choose(p, 'file', 'docx');
+			await until(p, `!!document.querySelector('${WIN} .binders-export-paper .mod-opening')`, 8000);
+			t.eq(await p.ev(`(() => { const s = document.querySelector('${WIN} .binders-export-paper .mod-opening'); return [!!s.querySelector('.binders-export-title'), !!s.querySelector('.binders-export-by')].join(); })()`), 'true,false', 'the Word preview has the title and no “by” line');
+			await press(p, 'Export');
+			t.ok(await saved(p), 'the Word file was saved');
+			const docx = strFromU8(unzipSync(new Uint8Array(readFileSync(join(p.vaultDir, 'Exports', 'Salt.docx'))))['word/document.xml']);
+			t.ok(docx.includes('>Salt<') && !docx.includes('by Mara Lindqvist'), 'and the file has the title and no “by” line');
+		} finally {
+			await closeAll(p);
+			await dropStyles(p);
+			await p.ev(`(async () => { const pl = ${PL}; Object.assign(pl.settings, { exportKind: 'manuscript', exportStyle: '' }); await pl.saveData(pl.settings); app.saveLocalStorage('binders-export', null); const f = app.vault.getAbstractFileByPath('Salt'); if (f) await app.vault.delete(f, true); })().then(() => 1)`);
+		}
+	}),
+});

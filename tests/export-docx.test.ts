@@ -138,6 +138,9 @@ function wordForWord(b: TestBinder, what: string): { words: number; ms: number; 
 	eq(d.headings.join('|'), '', 'a story of one chapter has no heading over it: not “Chapter One”');
 	ok(doc.includes('>#<') && (doc.match(/<w:titlePg\/>/g) ?? []).length === 1, 'its scenes are parted by the break, and the first page has no header');
 	sound(writeDocx(story, SHORT, details), 'a short story');
+	// the by-line is the style's choice, on the first page of the text and on a title page of its own alike
+	const noBy = (st: typeof SHORT) => readDocx(writeDocx(story, { ...st, byline: false }, details)).files['word/document.xml'];
+	ok(!noBy(SHORT).includes('by Mara Lindqvist') && noBy(SHORT).includes('>Salt<') && !noBy(STANDARD).includes('by Mara Lindqvist') && noBy(STANDARD).includes('>Salt<') && readDocx(writeDocx(story, STANDARD, details)).files['word/document.xml'].includes('by Mara Lindqvist'), 'without the by-line, no “by” under the title in either place; the title stays, and with it on it is there');
 	// a longer one: its first chapter follows the title on the page, the next starts a page as ever
 	const two = readDocx(writeDocx(buildBook([folder('Salt road', [note('a', 'First.')]), folder('Tide', [note('b', 'Second.')])], { title: 'Salt', author: 'Mara Lindqvist', matter: false, structure: 'chapters' }), SHORT, details)).files['word/document.xml'];
 	ok(/Chapter One.*?First\./.test(two) && !two.slice(0, two.indexOf('First.')).includes('<w:sectPr>') && (two.match(/<w:pageBreakBefore w:val="0"\/>/g) ?? []).length === 1 && two.indexOf('<w:pageBreakBefore w:val="0"/>') < two.indexOf('Chapter Two'), 'a story of several chapters: the first heading follows the title on its page, and the second begins a new one');

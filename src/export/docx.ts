@@ -144,15 +144,15 @@ export function writeDocx(book: Book, style: ManuscriptStyle, details: Manuscrip
 	// (the links every text has, in an order that never changes)
 	doc.rel('styles', 'styles.xml'); doc.rel('settings', 'settings.xml'); doc.rel('footnotes', 'footnotes.xml');
 	// (a short story's title is on the first page of the text: no page of its own, and its first section follows it there)
-	const opening = style.titlePage === 'first page', onFirst = opening ? openingSection(book) : null, line = style.lineSpacing === 'double' ? 480 : style.lineSpacing === 'single' ? 240 : 360;
+	const by = !!author && style.byline, opening = style.titlePage === 'first page', onFirst = opening ? openingSection(book) : null, line = style.lineSpacing === 'double' ? 480 : style.lineSpacing === 'single' ? 240 : 360;
 	const space = (before: number, after: number) => `<w:spacing w:before="${before}" w:after="${after}" w:line="${line}" w:lineRule="auto"/>`;
 	if (style.titlePage) {
 		// contact details and the count at the top, the title halfway down; no header on a page of its own. A short story's title is a quarter of the way down, then "by" and the name, and the story under it
 		const contact = [author, ...details.contact].filter((l) => l.trim());
 		body.push(`<w:p><w:pPr><w:pStyle w:val="Contact"/><w:tabs><w:tab w:val="right" w:pos="9360"/></w:tabs></w:pPr><w:r>${t(contact[0] ?? '')}</w:r>${approx ? `<w:r><w:tab/>${t(approx)}</w:r>` : ''}</w:p>`);
 		for (const l of contact.slice(1)) body.push(words('Contact', l));
-		body.push(words('Title', book.title, opening ? space(TITLE_LINES * line, author ? 0 : line) : ''));
-		if (author) body.push(words('Byline', `by ${author}`, opening ? space(0, line) : ''));
+		body.push(words('Title', book.title, opening ? space(TITLE_LINES * line, by ? 0 : line) : ''));
+		if (by) body.push(words('Byline', `by ${author}`, opening ? space(0, line) : ''));
 		if (!opening) body.push(`<w:p><w:pPr><w:pStyle w:val="Byline"/>${sect(false)}</w:pPr></w:p>`);
 	}
 	book.sections.forEach((s, i) => {

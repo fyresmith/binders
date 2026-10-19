@@ -203,14 +203,14 @@ const SHEET = `(() => {
 	return {
 		courier: paper.classList.contains('mod-courier'), spacing: paper.dataset.spacing, underline: paper.classList.contains('mod-underline') && getComputedStyle(paper.querySelector('em')).textDecorationLine === 'underline',
 		top: paper.classList.contains('mod-top'), mark: paper.querySelector('.binders-export-break')?.textContent ?? null,
-		head: paper.querySelector('.binders-export-running')?.textContent ?? null, title: !!paper.querySelector('.binders-export-titlepage'),
+		head: paper.querySelector('.binders-export-running')?.textContent ?? null, title: !!paper.querySelector('.binders-export-titlepage'), by: !!paper.querySelector('.binders-export-by'),
 		heads: [...paper.querySelectorAll('.binders-export-heading')].map((h) => h.innerText.replace(/\s+/g, ' ').trim()),
 	};
 })()`;
 const sheet = (p, test, ms = 6000) => until(p, `(() => { try { return (${test})(${SHEET}); } catch { return false; } })()`, ms);
 const part = (path, name) => { const z = unzipSync(new Uint8Array(readFileSync(path))); return z[name] ? strFromU8(z[name]) : null; };
 
-test('every row of a manuscript style changes the preview and the Word file: nine rows, kept in the style’s file', async (p, h, t, before) => {
+test('every row of a manuscript style changes the preview and the Word file: ten rows, kept in the style’s file', async (p, h, t, before) => {
 	await withAuthor(p);
 	// (a chapter with a title, to see the heading choice act on it; `before` has the notes as they were)
 	await p.ev(`app.fileManager.renameFile(app.vault.getAbstractFileByPath('The Lighthouse/Part One'), 'The Lighthouse/01 The Arrival').then(() => 1)`);
@@ -218,11 +218,11 @@ test('every row of a manuscript style changes the preview and the Word file: nin
 	await open(p);
 	t.eq(await p.ev(`${key('style')}.value`), 'Standard manuscript', 'the manuscript’s style');
 	await edit(p);
-	t.eq((await rows(p)).join(' / '), 'Text: Typeface, Line spacing, Italics / Chapters and breaks: Heading, A chapter starts, Scene break / Pages: Along the top, Title page, Header on the first page', 'a manuscript style’s nine rows');
+	t.eq((await rows(p)).join(' / '), 'Text: Typeface, Line spacing, Italics / Chapters and breaks: Heading, A chapter starts, Scene break / Pages: Along the top, Title page, Name under the title, Header on the first page', 'a manuscript style’s ten rows');
 	t.eq(await note(p), 'Built in', 'built in');
 	t.ok(!(await p.ev(`!!document.querySelector('${ED} .binders-style-note.mod-foot')`)), 'nothing is left to a reader here');
 	const was = await p.ev(SHEET);
-	t.eq(JSON.stringify({ ...was, heads: undefined }), JSON.stringify({ courier: false, spacing: '2', underline: false, top: false, mark: '#', head: 'Lindqvist / LIGHTHOUSE / 1', title: true }), 'Standard manuscript, before anything is changed');
+	t.eq(JSON.stringify({ ...was, heads: undefined }), JSON.stringify({ courier: false, spacing: '2', underline: false, top: false, mark: '#', head: 'Lindqvist / LIGHTHOUSE / 1', title: true, by: true }), 'Standard manuscript, before anything is changed');
 	await shot(p, 'editor-manuscript-opened');
 
 	await choose(p, 'typeface', 'Courier');
@@ -239,13 +239,15 @@ test('every row of a manuscript style changes the preview and the Word file: nin
 	t.ok(await sheet(p, `(s) => s.mark === '***'`), 'Scene break: the mark chosen');
 	await choose(p, 'header', 'The page number');
 	t.ok(await sheet(p, `(s) => s.head === '1'`), 'Along the top: the page number alone');
+	await choose(p, 'by-line', 'The title alone');
+	t.ok(await sheet(p, `(s) => s.title && !s.by`), 'Name under the title: the title alone, so the title page has no “by” line');
 	await choose(p, 'title-page', 'None');
 	t.ok(await sheet(p, `(s) => !s.title`), 'Title page: none');
 	await choose(p, 'first-page-header', 'Left off');
 	t.ok(await sheet(p, `(s) => s.head === null`), 'Header on the first page: left off, so the preview shows none');
-	t.eq(await note(p), 'Built in · 9 changes Reset', 'nine rows, nine changes');
+	t.eq(await note(p), 'Built in · 10 changes Reset', 'ten rows, ten changes');
 	await settle(p);
-	t.eq(onDisk(p, 'Standard manuscript'), '---\nexport-style: 1\nbased-on: Standard manuscript\ntypeface: Courier New\nline-spacing: single\nitalics: underlined\nheading: title only\nchapter-starts: at the top\nscene-break: "***"\nheader: page\ntitle-page: false\nfirst-page-header: false\n---\n','the file, under a manuscript style’s names');
+	t.eq(onDisk(p, 'Standard manuscript'), '---\nexport-style: 1\nbased-on: Standard manuscript\ntypeface: Courier New\nline-spacing: single\nitalics: underlined\nheading: title only\nchapter-starts: at the top\nscene-break: "***"\nheader: page\nby-line: false\ntitle-page: false\nfirst-page-header: false\n---\n','the file, under a manuscript style’s names');
 
 	await press(p, 'Export');
 	t.ok(await saved(p), 'exported with the changed style');

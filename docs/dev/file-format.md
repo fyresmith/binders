@@ -764,6 +764,7 @@ scene-break: "⁂"
   | `scene-break` | the mark, up to 12 characters |
   | `header` | `Surname / TITLE / page`, `page`, `none` |
   | `title-page` | `true` (a page of its own), `first page` (the short story's: contact details and the count at the top of the first page of the text, the title a quarter of the way down, the story under it; no heading over a story of one chapter), `false` |
+  | `by-line` | `true` (the default): "by Author" under the title, on a title page and on the first page of the text; `false`: the title alone |
   | `first-page-header` | `true` (the default), `false`: the first page of the text has no header; it is still counted |
 
 - **A value Binders can't read** (a word that isn't one of a row's, a number outside its range, a list) falls back

@@ -137,7 +137,7 @@ change. What it offers, and no more:
 | Text | Typeface; size; line spacing; paragraphs (first line indented, or space between); lines (justified and hyphenated, or ragged right); quotes and dashes (typeset, or as typed) | Typeface (Times New Roman, Courier, Courier Prime, or a font's name typed); line spacing; italics (italic, underlined) |
 | Chapters | Heading ("Chapter One", "Chapter 1", "One", "1", "I", with its title, its title only, or the writer's own pattern); lettering; heading size; placed in the middle or at the left; space above; opens on a right-hand page or the next; first words (small capitals, or as the rest) | Heading (Chapter One and its title, its title only, Chapter One only); a chapter starts a third of the way down, or at the top; the scene break's mark |
 | Scene breaks | The mark, or space only | |
-| Pages | Along the top (author and title, title, nothing); page numbers (foot, top outside, none); margins (narrow, normal, wide) | Along the top (Surname / TITLE / page, the page number, nothing); title page; header on the first page (shown, left off) |
+| Pages | Along the top (author and title, title, nothing); page numbers (foot, top outside, none); margins (narrow, normal, wide) | Along the top (Surname / TITLE / page, the page number, nothing); title page; the name under the title (“by” and the name, or the title alone); header on the first page (shown, left off) |
 
 - A heading pattern of the writer's own uses `{number}`, `{number:words}`, `{number:roman}` and `{title}`; `/` starts
   a new line; a line whose `{title}` is empty is dropped.

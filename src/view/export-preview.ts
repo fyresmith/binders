@@ -63,7 +63,7 @@ export function drawManuscript(el: HTMLElement, book: Book, style: ManuscriptSty
 		for (const line of [book.author, ...details.contact].filter((l) => l.trim())) who.createDiv({ text: line });
 		if (aboutWords(details.words)) top.createDiv({ text: aboutWords(details.words) });
 		page.createEl('h1', { cls: 'binders-export-title', text: book.title });
-		if (book.author.trim()) page.createEl('p', { cls: 'binders-export-by', text: `by ${book.author.trim()}` });
+		if (style.byline && book.author.trim()) page.createEl('p', { cls: 'binders-export-by', text: `by ${book.author.trim()}` });
 	};
 	const first = style.titlePage === 'first page' ? openingSection(book) : null;
 	const section = (s: Section) => {

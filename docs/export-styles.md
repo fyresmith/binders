@@ -67,6 +67,7 @@ IV" with the chapter's title under it. A line whose title is empty is dropped.
 | | **Scene break** | `#`, `***` or `* * *` |
 | **Pages** | **Along the top** | **Surname / TITLE / page**, **The page number** or **Nothing** |
 | | **Title page** | **On a page of its own** (contact details and word count at the top, the title halfway down), **On the first page of the text** (a short story's: the same, with the title a quarter of the way down and the story under it, and no "Chapter One" over a story of one chapter) or **None** |
+| | **Name under the title** | **“by” and the name** (the default: "by Mara Lindqvist" under the title, on a title page of its own and on the first page of the text alike) or **The title alone** |
 | | **Header on the first page** | **Shown** (the default), or **Left off**: the first page of the text has no header and no page number along the top, in Word (its own "different first page") and in the PDF. That page is still counted, so the next says 2. |
 
 ### A manuscript's typeface

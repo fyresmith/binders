@@ -60,7 +60,7 @@ export function manuscriptPages(book: Book, style: ManuscriptStyle, paper: PageS
 		for (const line of [book.author, ...details.contact].filter((l) => l.trim())) who.append(el(doc, 'p', '', line), ' ');
 		if (aboutWords(details.words)) top.append(el(doc, 'p', '', aboutWords(details.words)));
 		page.append(' ', el(doc, 'h1', '', book.title), ' ');
-		if (book.author.trim()) page.append(el(doc, 'p', 'by', `by ${book.author.trim()}`));
+		if (style.byline && book.author.trim()) page.append(el(doc, 'p', 'by', `by ${book.author.trim()}`));
 	};
 	// a short story's title is the top of its first page of text (no page of its own), and a story of one chapter has no heading
 	const opening = style.titlePage === 'first page', lone = opening && loneChapter(book);
