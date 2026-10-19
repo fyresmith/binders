@@ -26,10 +26,14 @@ export const aboutWords = (n: number): string => (n > 0 ? `about ${roundedWords(
 export const keyword = (title: string): string => title.trim().replace(/^(the|a|an)\s+/i, '').toUpperCase();
 export const surname = (author: string): string => author.trim().split(/\s+/).pop() ?? '';
 
-/** A section's heading, a line each: "Chapter One" and its title; a name alone for a prologue or a dedication. */
-export function headingLines(s: Section): string[] {
+/** A section's heading, a line each: "Chapter One" and its title; a name alone for a prologue or a dedication.
+    `how`: the style's choice. A numbered section's heading is never empty: where the choice leaves it nothing to
+    say (its title alone, and it has none), its number stands in. */
+export function headingLines(s: Section, how: ManuscriptStyle['heading'] = 'chapter and title'): string[] {
 	const number = s.number == null ? '' : `${s.role === 'part' ? 'Part' : 'Chapter'} ${numberWords(s.number)}`;
-	return [number, s.title].filter((l) => l);
+	const lines = how === 'title only' ? [s.title] : how === 'chapter only' ? [number || s.title] : [number, s.title];
+	const kept = lines.filter((l) => l);
+	return kept.length ? kept : [number].filter((l) => l);
 }
 
 /** One XML part being written (the text, or the footnotes): each has its own links and pictures. */
@@ -157,7 +161,7 @@ export function writeDocx(book: Book, style: ManuscriptStyle, details: Manuscrip
 		// before ends in a paragraph a point high, which holds that section's page settings.
 		if (i) body.push(`<w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="20" w:lineRule="exact"/><w:ind w:firstLine="0"/><w:rPr><w:sz w:val="2"/><w:szCs w:val="2"/></w:rPr>${sect(header, i === 1)}</w:pPr></w:p>`);
 		// (the story that begins under its title has no page break before it, and no room above; one chapter alone has no heading)
-		const lines = s === onFirst && loneChapter(book) ? [] : headingLines(s);
+		const lines = s === onFirst && loneChapter(book) ? [] : headingLines(s, style.heading);
 		if (s !== onFirst) body.push(words('Heading1', lines.join('\n')));
 		else if (lines.length) body.push(words('Heading1', lines.join('\n'), `<w:pageBreakBefore w:val="0"/>${space(0, line)}`));
 		body.push(flow(s.blocks, doc));

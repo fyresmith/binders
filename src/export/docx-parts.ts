@@ -9,6 +9,8 @@ export interface ManuscriptStyle {
 	lineSpacing: 'double' | 'one and a half' | 'single';
 	italics: 'italic' | 'underlined';
 	chapterStarts: 'a third of the way down' | 'at the top';
+	/** What a chapter's heading says: its number and its title, its title alone, or its number alone. */
+	heading: 'chapter and title' | 'title only' | 'chapter only';
 	/** The scene break's mark. */
 	sceneBreak: string;
 	header: 'Surname / TITLE / page' | 'page' | 'none';
@@ -20,10 +22,10 @@ export interface ManuscriptStyle {
 
 /** The four built in (docs/dev/export.md, "Styles"). The first is what a manuscript starts as. */
 export const MANUSCRIPT_STYLES: readonly ManuscriptStyle[] = [
-	{ name: 'Standard manuscript', typeface: 'Times New Roman', lineSpacing: 'double', italics: 'italic', chapterStarts: 'a third of the way down', sceneBreak: '#', header: 'Surname / TITLE / page', titlePage: true, firstPageHeader: true },
-	{ name: 'Standard manuscript, Courier', typeface: 'Courier New', lineSpacing: 'double', italics: 'underlined', chapterStarts: 'a third of the way down', sceneBreak: '#', header: 'Surname / TITLE / page', titlePage: true, firstPageHeader: true },
-	{ name: 'Plain, for a typesetter', typeface: 'Times New Roman', lineSpacing: 'single', italics: 'italic', chapterStarts: 'at the top', sceneBreak: '***', header: 'none', titlePage: false, firstPageHeader: true },
-	{ name: 'Short story', typeface: 'Times New Roman', lineSpacing: 'double', italics: 'italic', chapterStarts: 'a third of the way down', sceneBreak: '#', header: 'Surname / TITLE / page', titlePage: 'first page', firstPageHeader: false },
+	{ name: 'Standard manuscript', typeface: 'Times New Roman', lineSpacing: 'double', italics: 'italic', heading: 'chapter and title', chapterStarts: 'a third of the way down', sceneBreak: '#', header: 'Surname / TITLE / page', titlePage: true, firstPageHeader: true },
+	{ name: 'Standard manuscript, Courier', typeface: 'Courier New', lineSpacing: 'double', italics: 'underlined', heading: 'chapter and title', chapterStarts: 'a third of the way down', sceneBreak: '#', header: 'Surname / TITLE / page', titlePage: true, firstPageHeader: true },
+	{ name: 'Plain, for a typesetter', typeface: 'Times New Roman', lineSpacing: 'single', italics: 'italic', heading: 'chapter and title', chapterStarts: 'at the top', sceneBreak: '***', header: 'none', titlePage: false, firstPageHeader: true },
+	{ name: 'Short story', typeface: 'Times New Roman', lineSpacing: 'double', italics: 'italic', heading: 'chapter and title', chapterStarts: 'a third of the way down', sceneBreak: '#', header: 'Surname / TITLE / page', titlePage: 'first page', firstPageHeader: false },
 ];
 export const manuscriptStyle = (name: unknown): ManuscriptStyle => MANUSCRIPT_STYLES.find((s) => s.name === name) ?? MANUSCRIPT_STYLES[0];
 

@@ -113,6 +113,11 @@ function wordForWord(b: TestBinder, what: string): { words: number; ms: number; 
 	ok(!/about [\d,]+ words/.test(none) && none.includes('1 Shore Road'), 'the title page of a book with no words: the contact details, and no count');
 	eq([keyword('The Lighthouse'), keyword('A Salt Road'), surname('Mara Lindqvist'), surname('')].join('|'), 'LIGHTHOUSE|SALT ROAD|Lindqvist|', 'the header’s words');
 	eq(headingLines({ id: 'part-2', role: 'part', number: 2, title: 'The Island', blocks: [], paths: [] }).join('|'), 'Part Two|The Island', 'a part’s heading');
+	// the style's Heading choice reaches the file: a title alone, a number alone, and never an empty heading
+	const choice = (heading: 'chapter and title' | 'title only' | 'chapter only') => readDocx(writeDocx(book, { ...STANDARD, heading }, { contact: [], words: 1, when: WHEN })).headings.join('|');
+	eq(choice('chapter and title'), 'Prologue|Part One|Chapter One The jetty|Chapter Two', 'the default keeps the number and the title');
+	eq(choice('title only'), 'Prologue|Part One|The jetty|Chapter Two', 'Its title only: the title, and a chapter with none is still headed by its number');
+	eq(choice('chapter only'), 'Prologue|Part One|Chapter One|Chapter Two', 'Chapter One only: the number, and a prologue keeps its name');
 	eq(esc('a<b>&"\u0001\uD800'), 'a&lt;b&gt;&amp;&quot;', 'text is made safe for XML');
 	sound(writeDocx(buildBook([], { title: 'Empty', author: '', matter: false }), STANDARD, { contact: [], words: 0 }), 'an empty binder');
 }

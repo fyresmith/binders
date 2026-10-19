@@ -11,7 +11,7 @@ const row = (family: 'book' | 'manuscript', key: string) => rowsOf(family).find(
 // ---- the rows: what the editor offers is what a file has ----
 {
 	eq(rowsOf('book').map((r) => r.key).join(), 'typeface,type-size,line-spacing,paragraphs,alignment,quotes,chapter-heading,heading-lettering,heading-size,heading-alignment,space-above,chapter-opens,first-words,scene-break,running-heads,page-numbers,margins', 'a book style’s rows, by the file’s names');
-	eq(rowsOf('manuscript').map((r) => r.key).join(), 'typeface,line-spacing,italics,chapter-starts,scene-break,header,title-page,first-page-header', 'a manuscript style’s eight');
+	eq(rowsOf('manuscript').map((r) => r.key).join(), 'typeface,line-spacing,italics,heading,chapter-starts,scene-break,header,title-page,first-page-header', 'a manuscript style’s nine');
 	eq(GROUPS.book.map((g) => `${g.name} ${g.rows.length}`).join(), 'Text 6,Chapters 7,Scene breaks 1,Pages 3', 'in the design’s groups');
 	eq(rowsOf('book').filter((r) => !r.pages).map((r) => r.key).join(), 'paragraphs,quotes,chapter-heading,heading-lettering,heading-size,heading-alignment,first-words,scene-break', 'the rows an ebook decides');
 	for (const [name, b] of BUILT_IN) for (const r of rowsOf(b.family)) ok(readValue(r, b.values[r.key]) === b.values[r.key], `${name}: its own ${r.key} is a value the row takes`);

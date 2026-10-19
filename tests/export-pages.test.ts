@@ -6,6 +6,8 @@ import { TRIM_SIZES, bookGeometry, gutter, manuscriptGeometry, paperSize, trimSi
 import { Hyphenator, SHY, unhyphenated } from '../src/export/pages/hyphenate';
 import { hyphenatorFor } from '../src/export/pages/patterns';
 import { manuscriptStyle } from '../src/export/docx-parts';
+import { manuscriptPages } from '../src/export/pages/layout';
+import { buildBook } from '../src/export/book';
 import { pdfPages, withInfo } from '../src/export/pdf-info';
 import { done, eq, ok } from './harness';
 
@@ -162,6 +164,10 @@ function run(H: number, flows: Flow<Blk>[], notes: Record<number, number> = {}):
 	ok(bookGeometry(CLASSIC, trimSize('6x9')).lines > g.lines, 'a larger page holds more');
 	const m = manuscriptGeometry(manuscriptStyle('Standard manuscript'), paperSize('letter'));
 	eq(`${m.lead} ${m.lines} ${m.inside}`, '24 27 72', 'a manuscript: double-spaced, an inch all round');
+	// the manuscript PDF's chapter heading follows the style's Heading choice, as the Word file's does
+	const sheet = buildBook([], { title: 'T', author: 'A', matter: false }), chapter = { id: 'c', role: 'chapter' as const, number: 3, title: 'The island', blocks: [], paths: [] };
+	const headed = (heading: 'chapter and title' | 'title only' | 'chapter only') => manuscriptPages(sheet, { ...manuscriptStyle('Standard manuscript'), heading }, paperSize('letter'), { contact: [], words: 0 }).look.heading(chapter).join('|');
+	eq([headed('chapter and title'), headed('title only'), headed('chapter only')].join(' / '), 'Chapter Three|The island / The island / Chapter Three', 'the PDF’s heading, three ways');
 }
 
 // ---- hyphenation ----

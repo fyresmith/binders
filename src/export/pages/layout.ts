@@ -63,7 +63,7 @@ export function manuscriptPages(book: Book, style: ManuscriptStyle, paper: PageS
 	const opening = style.titlePage === 'first page', lone = opening && loneChapter(book);
 	return {
 		geometry: g, css: manuscriptCss(style, g), typeface: style.typeface, language, rtl: isRtl(language),
-		look: { heading: lone ? () => [] : headingLines, mark: style.sceneBreak, lead: false, recto: false, titlePage, ...(opening ? { opening: titlePage } : {}), plain: true },
+		look: { heading: lone ? () => [] : (s) => headingLines(s, style.heading), mark: style.sceneBreak, lead: false, recto: false, titlePage, ...(opening ? { opening: titlePage } : {}), plain: true },
 		hyphens: false,
 		furnish: { heads: 'none', numbers: 'none', title: book.title, author: book.author.trim(), header, bareFirst: !style.firstPageHeader },
 		warning: '',

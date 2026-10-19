@@ -759,6 +759,7 @@ scene-break: "⁂"
   | `typeface` | `Times New Roman`, `Courier New` |
   | `line-spacing` | `double`, `one and a half`, `single` |
   | `italics` | `italic`, `underlined` |
+  | `heading` | `chapter and title` (the default), `title only`, `chapter only`; a chapter with no title is headed by its number under `title only` |
   | `chapter-starts` | `a third of the way down`, `at the top` |
   | `scene-break` | the mark, up to 12 characters |
   | `header` | `Surname / TITLE / page`, `page`, `none` |

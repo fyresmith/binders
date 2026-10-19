@@ -62,7 +62,8 @@ IV" with the chapter's title under it. A line whose title is empty is dropped.
 | **Text** | **Typeface** | **Times New Roman** or **Courier** |
 | | **Line spacing** | **Double**, **One and a half** or **Single** |
 | | **Italics** | **Italic** or **Underlined** |
-| **Chapters and breaks** | **A chapter starts** | **A third of the way down a new page**, or **At the top of a new page** |
+| **Chapters and breaks** | **Heading** | What a chapter's heading says, in Word and in the PDF: **Chapter One, then its title** (the default), **Its title only**, or **Chapter One only**. A chapter with no title of its own is headed by its number under **Its title only**, never by an empty line; a prologue or a dedication keeps its name |
+| | **A chapter starts** | **A third of the way down a new page**, or **At the top of a new page** |
 | | **Scene break** | `#`, `***` or `* * *` |
 | **Pages** | **Along the top** | **Surname / TITLE / page**, **The page number** or **Nothing** |
 | | **Title page** | **On a page of its own** (contact details and word count at the top, the title halfway down), **On the first page of the text** (a short story's: the same, with the title a quarter of the way down and the story under it, and no "Chapter One" over a story of one chapter) or **None** |

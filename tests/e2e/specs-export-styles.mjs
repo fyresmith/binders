@@ -204,21 +204,25 @@ const SHEET = `(() => {
 		courier: paper.classList.contains('mod-courier'), spacing: paper.dataset.spacing, underline: paper.classList.contains('mod-underline') && getComputedStyle(paper.querySelector('em')).textDecorationLine === 'underline',
 		top: paper.classList.contains('mod-top'), mark: paper.querySelector('.binders-export-break')?.textContent ?? null,
 		head: paper.querySelector('.binders-export-running')?.textContent ?? null, title: !!paper.querySelector('.binders-export-titlepage'),
+		heads: [...paper.querySelectorAll('.binders-export-heading')].map((h) => h.innerText.replace(/\s+/g, ' ').trim()),
 	};
 })()`;
 const sheet = (p, test, ms = 6000) => until(p, `(() => { try { return (${test})(${SHEET}); } catch { return false; } })()`, ms);
 const part = (path, name) => { const z = unzipSync(new Uint8Array(readFileSync(path))); return z[name] ? strFromU8(z[name]) : null; };
 
-test('every row of a manuscript style changes the preview and the Word file: eight rows, kept in the style’s file', async (p, h, t, before) => {
+test('every row of a manuscript style changes the preview and the Word file: nine rows, kept in the style’s file', async (p, h, t, before) => {
 	await withAuthor(p);
+	// (a chapter with a title, to see the heading choice act on it; `before` has the notes as they were)
+	await p.ev(`app.fileManager.renameFile(app.vault.getAbstractFileByPath('The Lighthouse/Part One'), 'The Lighthouse/01 The Arrival').then(() => 1)`);
+	await p.sleep(600);
 	await open(p);
 	t.eq(await p.ev(`${key('style')}.value`), 'Standard manuscript', 'the manuscript’s style');
 	await edit(p);
-	t.eq((await rows(p)).join(' / '), 'Text: Typeface, Line spacing, Italics / Chapters and breaks: A chapter starts, Scene break / Pages: Along the top, Title page, Header on the first page', 'a manuscript style’s eight rows');
+	t.eq((await rows(p)).join(' / '), 'Text: Typeface, Line spacing, Italics / Chapters and breaks: Heading, A chapter starts, Scene break / Pages: Along the top, Title page, Header on the first page', 'a manuscript style’s nine rows');
 	t.eq(await note(p), 'Built in', 'built in');
 	t.ok(!(await p.ev(`!!document.querySelector('${ED} .binders-style-note.mod-foot')`)), 'nothing is left to a reader here');
 	const was = await p.ev(SHEET);
-	t.eq(JSON.stringify(was), JSON.stringify({ courier: false, spacing: '2', underline: false, top: false, mark: '#', head: 'Lindqvist / LIGHTHOUSE / 1', title: true }), 'Standard manuscript, before anything is changed');
+	t.eq(JSON.stringify({ ...was, heads: undefined }), JSON.stringify({ courier: false, spacing: '2', underline: false, top: false, mark: '#', head: 'Lindqvist / LIGHTHOUSE / 1', title: true }), 'Standard manuscript, before anything is changed');
 	await shot(p, 'editor-manuscript-opened');
 
 	await choose(p, 'typeface', 'Courier');
@@ -227,6 +231,8 @@ test('every row of a manuscript style changes the preview and the Word file: eig
 	t.ok(await sheet(p, `(s) => s.spacing === '1'`), 'Line spacing: single');
 	await choose(p, 'italics', 'Underlined');
 	t.ok(await sheet(p, `(s) => s.underline`), 'Italics: underlined');
+	await choose(p, 'heading', 'Its title only');
+	t.ok(await sheet(p, `(s) => s.heads.includes('The Arrival') && !s.heads.some((h) => h.includes('Chapter One'))`), 'Heading: its title only, so a titled chapter loses its number (an untitled one keeps it)');
 	await choose(p, 'chapter-starts', 'At the top of a new page');
 	t.ok(await sheet(p, `(s) => s.top`), 'A chapter starts: at the top');
 	await choose(p, 'scene-break', '***');
@@ -237,14 +243,15 @@ test('every row of a manuscript style changes the preview and the Word file: eig
 	t.ok(await sheet(p, `(s) => !s.title`), 'Title page: none');
 	await choose(p, 'first-page-header', 'Left off');
 	t.ok(await sheet(p, `(s) => s.head === null`), 'Header on the first page: left off, so the preview shows none');
-	t.eq(await note(p), 'Built in · 8 changes Reset', 'eight rows, eight changes');
+	t.eq(await note(p), 'Built in · 9 changes Reset', 'nine rows, nine changes');
 	await settle(p);
-	t.eq(onDisk(p, 'Standard manuscript'), '---\nexport-style: 1\nbased-on: Standard manuscript\ntypeface: Courier New\nline-spacing: single\nitalics: underlined\nchapter-starts: at the top\nscene-break: "***"\nheader: page\ntitle-page: false\nfirst-page-header: false\n---\n','the file, under a manuscript style’s names');
+	t.eq(onDisk(p, 'Standard manuscript'), '---\nexport-style: 1\nbased-on: Standard manuscript\ntypeface: Courier New\nline-spacing: single\nitalics: underlined\nheading: title only\nchapter-starts: at the top\nscene-break: "***"\nheader: page\ntitle-page: false\nfirst-page-header: false\n---\n','the file, under a manuscript style’s names');
 
 	await press(p, 'Export');
 	t.ok(await saved(p), 'exported with the changed style');
 	const at = join(p.vaultDir, 'Exports', 'The Lighthouse.docx'), d = docx(at), look = part(at, 'word/styles.xml');
 	t.ok(look.includes('<w:rFonts w:ascii="Courier New"'), 'the Word file: Courier');
+	t.eq(d.headings.join('|'), (await p.ev(SHEET)).heads.join('|'), 'the Word file’s headings are the preview’s: the title alone');
 	t.ok(/w:styleId="Normal">[\s\S]*?w:line="240"/.test(look), 'single-spaced');
 	t.ok(/w:styleId="Heading1">[\s\S]*?<w:spacing w:before="0"/.test(look), 'a chapter at the top of its page');
 	t.ok(part(at, 'word/document.xml').includes('<w:u w:val="single"/>') && !part(at, 'word/document.xml').includes('<w:i/>'), 'italics underlined');
@@ -263,7 +270,10 @@ test('every row of a manuscript style changes the preview and the Word file: eig
 	t.ok(await saved(p), 'exported again');
 	t.eq(part(at, 'word/header2.xml'), null, 'and no first header');
 	t.eq(part(at, 'word/header1.xml'), null, 'and the file has no header at all');
-}, { prepare: async (p) => { await SHAPED(p); await p.ev(`app.vault.process(app.vault.getAbstractFileByPath('The Lighthouse/Part One/Arrival.md'), (t) => t + '\\nAnd *stressed* once.\\n').then(() => 1)`); await p.sleep(300); }, to: undefined });
+	await closeAll(p);
+	await p.ev(`app.fileManager.renameFile(app.vault.getAbstractFileByPath('The Lighthouse/01 The Arrival'), 'The Lighthouse/Part One').then(() => 1)`);
+	await p.sleep(600);
+}, { prepare: async (p) => { await SHAPED(p); await p.ev(`app.vault.process(app.vault.getAbstractFileByPath('The Lighthouse/Part One/Arrival.md'), (t) => t + '\\nAnd *stressed* once.\\n').then(() => 1)`); }, to: undefined, skip: [BINDER] });
 
 const fmOf = (p, path) => p.ev(`(async () => { const t = await app.vault.adapter.read(${j(path)}); return t; })()`);
 const styleIs = (p) => p.ev(`${key('style-name')}?.value ?? ''`);

@@ -45,7 +45,7 @@ the title there with **Title page: On the first page of the text**, which any ma
 The style you choose is kept with the book, in its binder note. A book that hasn't chosen one uses the style last
 used in the vault.
 
-To change a style or make your own (the typeface, the line spacing, italics underlined, where a chapter starts, the
+To change a style or make your own (the typeface, the line spacing, italics underlined, what a chapter's heading says, where a chapter starts, the
 scene break, what runs along the top, the title page), see [Styles](export-styles.md).
 
 ## As a PDF
