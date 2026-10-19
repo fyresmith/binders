@@ -120,7 +120,7 @@ A style is how each role is set. Two families: **manuscript** styles (Word and P
 and the paperback together: choose once and they are the same book).
 
 **Built in:** manuscript: Standard manuscript (Times New Roman, Shunn's modern format); Standard manuscript, Courier
-(italics underlined); Plain, for a typesetter (single-spaced, no title page or header, `***` breaks); Short story (double-spaced, `title-page: first page`,
+(italics underlined); Plain, for a typesetter (single-spaced, no title page or header, `***` breaks); Short story (double-spaced, `title-page: first page`, `one-chapter: no heading`,
 no header on the first page). Book:
 **Classic** (EB Garamond: a centred small-capital chapter line, first words in small capitals, three asterisks, the
 author and the title along the top, the page number at the foot) and **Modern** (Source Serif: a large plain numeral
@@ -135,7 +135,7 @@ change. What it offers, and no more:
 | Group | Book styles | Manuscript styles |
 |---|---|---|
 | Text | Typeface; size; line spacing; paragraphs (first line indented, or space between); lines (justified and hyphenated, or ragged right); quotes and dashes (typeset, or as typed) | Typeface (Times New Roman, Courier, Courier Prime, or a font's name typed); line spacing; italics (italic, underlined) |
-| Chapters | Heading ("Chapter One", "Chapter 1", "One", "1", "I", with its title, its title only, or the writer's own pattern); lettering; heading size; placed in the middle or at the left; space above; opens on a right-hand page or the next; first words (small capitals, or as the rest) | Heading (Chapter One and its title, its title only, Chapter One only); a chapter starts a third of the way down, or at the top; the scene break's mark |
+| Chapters | Heading ("Chapter One", "Chapter 1", "One", "1", "I", with its title, its title only, or the writer's own pattern); lettering; heading size; placed in the middle or at the left; space above; opens on a right-hand page or the next; first words (small capitals, or as the rest) | Heading (Chapter One and its title, its title only, Chapter One only, no heading); a story of one chapter (no heading, its heading); a chapter starts a third of the way down, or at the top; the scene break's mark |
 | Scene breaks | The mark, or space only | |
 | Pages | Along the top (author and title, title, nothing); page numbers (foot, top outside, none); margins (narrow, normal, wide) | Along the top (Surname / TITLE / page, the page number, nothing); title page; the name under the title (“by” and the name, or the title alone); header on the first page (shown, left off) |
 

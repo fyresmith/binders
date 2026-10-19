@@ -90,7 +90,9 @@ export class BookFlow {
 		if (look.opening && s === book.sections.find((x) => !x.made)) { const top = this.el('div', 'made opening'); look.opening(top); blocks.push(top); }
 		// (a dedication and an epigraph stand alone on their page: a book doesn't print the word over them)
 		const lines = !look.plain && (s.matter === 'dedication' || s.matter === 'epigraph') ? [] : look.heading(s);
+		// (a manuscript's chapter with no heading keeps the room above where it would have been, as the Word file does; not under a title)
 		if (lines.length) blocks.push(this.heading(lines));
+		else if (look.plain && !s.made && !(look.opening && s === book.sections.find((x) => !x.made))) blocks.push(this.heading([]));
 		this.blocks(blocks, s.blocks, { depth: 0, quote: false, first: true, lead: look.lead && s.role === 'chapter', foot: false });
 		return flow;
 	}

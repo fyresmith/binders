@@ -1,5 +1,5 @@
-import { aboutWords, headingLines } from '../export/docx';
-import { loneChapter, openingSection } from '../export/first-page';
+import { aboutWords, sectionHeading } from '../export/docx';
+import { openingSection } from '../export/first-page';
 import type { ManuscriptStyle } from '../export/docx-parts';
 import { contentsOf } from '../export/epub';
 import { leadSplit } from '../export/epub-text';
@@ -69,7 +69,7 @@ export function drawManuscript(el: HTMLElement, book: Book, style: ManuscriptSty
 	const section = (s: Section) => {
 		const sec = paper.createEl('section', { cls: `binders-export-section mod-${s.role}${s === first ? ' mod-opening' : ''}` });
 		if (s === first) title(sec);
-		const lines = s === first && loneChapter(book) ? [] : headingLines(s, style.heading);
+		const lines = sectionHeading(book, s, style);
 		if (lines.length) {
 			const h = sec.createEl('h2', { cls: 'binders-export-heading' });
 			lines.forEach((line, i) => { if (i) h.createEl('br'); h.appendText(line); });

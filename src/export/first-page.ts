@@ -7,8 +7,8 @@ import type { Book, Section } from './model';
 /** The section the story begins with, which shares its first page with the title; null when the book has none. */
 export const openingSection = (book: Book): Section | null => book.sections.find((s) => !s.made) ?? null;
 
-/** A story of one chapter needs no heading over it ("Chapter One" under the title says nothing): what the story is
-    called is the title above it. A book of several chapters has its headings as ever. */
+/** A story of one chapter: the style's "A story of one chapter" row can leave its heading out ("Chapter One" under
+    the title says nothing, the story is called what the title above it says). A book of several chapters has its headings as ever. */
 export function loneChapter(book: Book): boolean {
 	const text = book.sections.filter((s) => !s.made);
 	return text.length === 1 && text[0].role === 'chapter';

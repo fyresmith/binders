@@ -72,7 +72,8 @@ const MANUSCRIPT: readonly Group[] = [
 		{ key: 'italics', name: 'Italics', kind: 'pick', options: [['italic', 'Italic'], ['underlined', 'Underlined']] },
 	] },
 	{ name: 'Chapters and breaks', rows: [
-		{ key: 'heading', name: 'Heading', kind: 'pick', options: [['chapter and title', 'Chapter One, then its title'], ['title only', 'Its title only'], ['chapter only', 'Chapter One only']] },
+		{ key: 'heading', name: 'Heading', kind: 'pick', options: [['chapter and title', 'Chapter One, then its title'], ['title only', 'Its title only'], ['chapter only', 'Chapter One only'], ['none', 'No heading']] },
+		{ key: 'one-chapter', name: 'A story of one chapter', kind: 'pick', options: [['no heading', 'No heading'], ['its heading', 'Its heading, as set above']] },
 		{ key: 'chapter-starts', name: 'A chapter starts', kind: 'pick', options: [['a third of the way down', 'A third of the way down a new page'], ['at the top', 'At the top of a new page']] },
 		{ key: 'scene-break', name: 'Scene break', kind: 'mark', options: [['#', '#'], ['***', '***'], ['* * *', '* * *']] },
 	] },
@@ -108,7 +109,7 @@ export function readValue(row: Row, raw: unknown): StyleValue | undefined {
 
 // ---- a style as its values, and back ----
 
-const M_KEYS: readonly (readonly [string, keyof ManuscriptStyle])[] = [['typeface', 'typeface'], ['line-spacing', 'lineSpacing'], ['italics', 'italics'], ['heading', 'heading'], ['chapter-starts', 'chapterStarts'], ['scene-break', 'sceneBreak'], ['header', 'header'], ['title-page', 'titlePage'], ['first-page-header', 'firstPageHeader'], ['by-line', 'byline']];
+const M_KEYS: readonly (readonly [string, keyof ManuscriptStyle])[] = [['typeface', 'typeface'], ['line-spacing', 'lineSpacing'], ['italics', 'italics'], ['heading', 'heading'], ['chapter-starts', 'chapterStarts'], ['scene-break', 'sceneBreak'], ['header', 'header'], ['title-page', 'titlePage'], ['first-page-header', 'firstPageHeader'], ['by-line', 'byline'], ['one-chapter', 'oneChapter']];
 
 export const bookValues = (s: BookStyle): StyleValues => Object.fromEntries(rowsOf('book').map((r) => [r.key, (s as unknown as StyleValues)[r.key]]));
 export const manuscriptValues = (s: ManuscriptStyle): StyleValues => Object.fromEntries(M_KEYS.map(([k, f]) => [k, s[f]]));

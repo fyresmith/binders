@@ -62,7 +62,8 @@ IV" with the chapter's title under it. A line whose title is empty is dropped.
 | **Text** | **Typeface** | **Times New Roman**, **Courier** (Courier New), **Courier Prime**, or **Your own...**: the name of any font, typed. See [A manuscript's typeface](#a-manuscripts-typeface) |
 | | **Line spacing** | **Double**, **One and a half** or **Single** |
 | | **Italics** | **Italic** or **Underlined** |
-| **Chapters and breaks** | **Heading** | What a chapter's heading says, in Word and in the PDF: **Chapter One, then its title** (the default), **Its title only**, or **Chapter One only**. A chapter with no title of its own is headed by its number under **Its title only**, never by an empty line; a prologue or a dedication keeps its name |
+| **Chapters and breaks** | **Heading** | What a chapter's heading says, in Word and in the PDF: **Chapter One, then its title** (the default), **Its title only**, **Chapter One only**, or **No heading** (every heading is left out; each chapter still starts a new page, with the room its heading would have had). A chapter with no title of its own is headed by its number under **Its title only**, never by an empty line; a prologue or a dedication keeps its name |
+| | **A story of one chapter** | A manuscript of one chapter (a story, whose notes are its scenes): **No heading** (the Short story style's) or **Its heading, as set above**. Chapters of a longer piece are headed as **Heading** says |
 | | **A chapter starts** | **A third of the way down a new page**, or **At the top of a new page** |
 | | **Scene break** | `#`, `***` or `* * *` |
 | **Pages** | **Along the top** | **Surname / TITLE / page**, **The page number** or **Nothing** |

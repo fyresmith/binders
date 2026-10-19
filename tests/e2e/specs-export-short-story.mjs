@@ -135,3 +135,42 @@ specs.push({
 		}
 	}),
 });
+
+specs.push({
+	name: 'export short story: the heading over a story of one chapter is a choice, and “No heading” leaves every heading out, in the window’s pages and the Word file',
+	fn: withTidy(async (p, h, t) => {
+		await p.ev(`(() => { app.saveLocalStorage('binders-export', null); return 1; })()`);
+		await standIn(p);
+		await makeStory(p);
+		await withStyle(p, 'Headed story', '---\nexport-style: 1\nbased-on: Short story\none-chapter: its heading\n---\n');
+		await withStyle(p, 'Headless', '---\nexport-style: 1\nbased-on: Standard manuscript\nheading: none\n---\n');
+		await until(p, `!!${PL}.binders.binderOf('Salt')`, 8000);
+		try {
+			await openView(p, 'Salt');
+			await run(p, 'export');
+			await until(p, `!!document.querySelector('${WIN} [role="option"]')`, 6000);
+			await p.sleep(150);
+			await choose(p, 'file', 'pdf');
+			await choose(p, 'style', 'Headed story');
+			t.ok(await laidOut(p), 'the pages are laid out');
+			const first = (await pages(p))[0].text;
+			t.ok(first.indexOf('Salt') < first.indexOf('Chapter One') && first.indexOf('Chapter One') < first.indexOf('The sea was flat.'), 'a style that sets the lone chapter’s heading: “Chapter One” stands between the title and the story');
+			await choose(p, 'style', 'Headless');
+			t.ok(await laidOut(p), 'laid out again');
+			const shown = await pages(p), all = shown.map((s) => s.text).join('\n');
+			t.ok(/title-page/.test(shown[0].cls) && !/Chapter/.test(all), 'No heading: the title page, and no “Chapter One” anywhere');
+			t.ok(shown[1].text.includes('The sea was flat.') && all.includes('Then the wind came.'), 'and the story is there, all of it');
+			await choose(p, 'file', 'docx');
+			await until(p, `!!document.querySelector('${WIN} .binders-export-paper')`, 8000);
+			t.eq(await p.ev(`document.querySelectorAll('${WIN} .binders-export-paper .binders-export-heading').length`), 0, 'the Word preview has no heading');
+			await press(p, 'Export');
+			t.ok(await saved(p), 'the Word file was saved');
+			const xml = strFromU8(unzipSync(new Uint8Array(readFileSync(join(p.vaultDir, 'Exports', 'Salt.docx'))))['word/document.xml']);
+			t.ok(!xml.includes('w:val="Heading1"') && xml.includes('The sea was flat.') && xml.includes('Then the wind came.'), 'the Word file has no heading, and every word of the story');
+		} finally {
+			await closeAll(p);
+			await dropStyles(p);
+			await p.ev(`(async () => { const pl = ${PL}; Object.assign(pl.settings, { exportKind: 'manuscript', exportStyle: '' }); await pl.saveData(pl.settings); app.saveLocalStorage('binders-export', null); const f = app.vault.getAbstractFileByPath('Salt'); if (f) await app.vault.delete(f, true); })().then(() => 1)`);
+		}
+	}),
+});

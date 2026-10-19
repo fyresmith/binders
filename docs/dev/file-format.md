@@ -759,11 +759,12 @@ scene-break: "⁂"
   | `typeface` | `Times New Roman`, `Courier New`, `Courier Prime`, or any font's name (up to 80 characters): Word names it; the PDF uses it if the computer has it, else Courier or Times |
   | `line-spacing` | `double`, `one and a half`, `single` |
   | `italics` | `italic`, `underlined` |
-  | `heading` | `chapter and title` (the default), `title only`, `chapter only`; a chapter with no title is headed by its number under `title only` |
+  | `heading` | `chapter and title` (the default), `title only`, `chapter only`, `none` (no heading of any kind; the chapter starts its page with the room its heading would have had); a chapter with no title is headed by its number under `title only` |
+  | `one-chapter` | `no heading` (a manuscript that is one chapter has no heading over it; the short story's), `its heading` (the default: headed as `heading` says) |
   | `chapter-starts` | `a third of the way down`, `at the top` |
   | `scene-break` | the mark, up to 12 characters |
   | `header` | `Surname / TITLE / page`, `page`, `none` |
-  | `title-page` | `true` (a page of its own), `first page` (the short story's: contact details and the count at the top of the first page of the text, the title a quarter of the way down, the story under it; no heading over a story of one chapter), `false` |
+  | `title-page` | `true` (a page of its own), `first page` (the short story's: contact details and the count at the top of the first page of the text, the title a quarter of the way down, the story under it), `false` |
   | `by-line` | `true` (the default): "by Author" under the title, on a title page and on the first page of the text; `false`: the title alone |
   | `first-page-header` | `true` (the default), `false`: the first page of the text has no header; it is still counted |
 

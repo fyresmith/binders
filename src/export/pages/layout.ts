@@ -1,7 +1,6 @@
-import { aboutWords, headingLines, keyword, surname } from '../docx';
+import { aboutWords, keyword, sectionHeading, surname } from '../docx';
 import { fallbackWarning, isStandard } from '../manuscript-font';
 import type { ManuscriptStyle } from '../docx-parts';
-import { loneChapter } from '../first-page';
 import type { Book, Picture } from '../model';
 import { bookHeading, isRtl, type BookStyle } from '../style';
 import { bookCss, manuscriptCss } from './css';
@@ -62,11 +61,11 @@ export function manuscriptPages(book: Book, style: ManuscriptStyle, paper: PageS
 		page.append(' ', el(doc, 'h1', '', book.title), ' ');
 		if (style.byline && book.author.trim()) page.append(el(doc, 'p', 'by', `by ${book.author.trim()}`));
 	};
-	// a short story's title is the top of its first page of text (no page of its own), and a story of one chapter has no heading
-	const opening = style.titlePage === 'first page', lone = opening && loneChapter(book);
+	// a short story's title is the top of its first page of text (no page of its own)
+	const opening = style.titlePage === 'first page';
 	return {
 		geometry: g, css: manuscriptCss(style, g), typeface: style.typeface, language, rtl: isRtl(language),
-		look: { heading: lone ? () => [] : (s) => headingLines(s, style.heading), mark: style.sceneBreak, lead: false, recto: false, titlePage, ...(opening ? { opening: titlePage } : {}), plain: true },
+		look: { heading: (s) => sectionHeading(book, s, style), mark: style.sceneBreak, lead: false, recto: false, titlePage, ...(opening ? { opening: titlePage } : {}), plain: true },
 		hyphens: false,
 		furnish: { heads: 'none', numbers: 'none', title: book.title, author: book.author.trim(), header, bareFirst: !style.firstPageHeader },
 		warning: '',

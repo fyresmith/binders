@@ -178,6 +178,9 @@ function run(H: number, flows: Flow<Blk>[], notes: Record<number, number> = {}):
 	const sheet = buildBook([], { title: 'T', author: 'A', matter: false }), chapter = { id: 'c', role: 'chapter' as const, number: 3, title: 'The island', blocks: [], paths: [] };
 	const headed = (heading: 'chapter and title' | 'title only' | 'chapter only') => manuscriptPages(sheet, { ...manuscriptStyle('Standard manuscript'), heading }, paperSize('letter'), { contact: [], words: 0 }).look.heading(chapter).join('|');
 	eq([headed('chapter and title'), headed('title only'), headed('chapter only')].join(' / '), 'Chapter Three|The island / The island / Chapter Three', 'the PDF’s heading, three ways');
+	// no heading at all, and the one chapter of a story left without one if the style says so
+	const lone = { ...sheet, sections: [chapter] }, headOf = (b: typeof sheet, st: Partial<ReturnType<typeof manuscriptStyle>>) => manuscriptPages(b, { ...manuscriptStyle('Standard manuscript'), ...st }, paperSize('letter'), { contact: [], words: 0 }).look.heading(chapter).join('|');
+	eq([headOf(sheet, { heading: 'none' }), headOf(lone, { oneChapter: 'no heading' }), headOf(lone, {}), headOf({ ...sheet, sections: [chapter, { ...chapter, id: 'd' }] }, { oneChapter: 'no heading' })].join(' / '), ' /  / Chapter Three|The island / Chapter Three|The island', 'the PDF’s heading: none when the style says none, none over the one chapter of a story if it says so, and as ever otherwise');
 }
 
 // ---- hyphenation ----

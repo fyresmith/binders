@@ -40,7 +40,11 @@ Put a story's notes side by side in the binder, set **Structure** to **Folders a
 choose the **Short story** style. The notes are the scenes of one chapter, parted by the scene break, and a story of one
 chapter has no "Chapter One" over it: the title is above. It is the same in the Word file and in the PDF. (A longer
 piece with folders has its chapters headed as ever; the first follows the title on the first page.) The style puts
-the title there with **Title page: On the first page of the text**, which any manuscript style can choose.
+the title there with **Title page: On the first page of the text**, which any manuscript style can choose. Whether a
+story of one chapter has a heading is the style's **A story of one chapter** row: **No heading** (the Short story
+style's) or **Its heading, as set above**. And **Heading: No heading** leaves out every heading, a chapter's, a
+part's and a prologue's: each chapter still starts its own page, with the room above it that its heading would
+have had.
 
 The style you choose is kept with the book, in its binder note. A book that hasn't chosen one uses the style last
 used in the vault.

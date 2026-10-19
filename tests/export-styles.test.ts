@@ -11,7 +11,7 @@ const row = (family: 'book' | 'manuscript', key: string) => rowsOf(family).find(
 // ---- the rows: what the editor offers is what a file has ----
 {
 	eq(rowsOf('book').map((r) => r.key).join(), 'typeface,type-size,line-spacing,paragraphs,alignment,quotes,chapter-heading,heading-lettering,heading-size,heading-alignment,space-above,chapter-opens,first-words,scene-break,running-heads,page-numbers,margins', 'a book style’s rows, by the file’s names');
-	eq(rowsOf('manuscript').map((r) => r.key).join(), 'typeface,line-spacing,italics,heading,chapter-starts,scene-break,header,title-page,by-line,first-page-header', 'a manuscript style’s ten');
+	eq(rowsOf('manuscript').map((r) => r.key).join(), 'typeface,line-spacing,italics,heading,one-chapter,chapter-starts,scene-break,header,title-page,by-line,first-page-header', 'a manuscript style’s eleven');
 	const face = row('manuscript', 'typeface');
 	eq(['Courier Prime', 'Cousine', ' Garamond ', 'x'.repeat(81), 'two\nlines'].map((v) => readValue(face, v) ?? '-').join('|'), 'Courier Prime|Cousine|Garamond|-|-', 'a manuscript typeface is a name: one of the three offered, or any the writer types');
 	eq(GROUPS.book.map((g) => `${g.name} ${g.rows.length}`).join(), 'Text 6,Chapters 7,Scene breaks 1,Pages 3', 'in the design’s groups');

@@ -30,11 +30,17 @@ export const surname = (author: string): string => author.trim().split(/\s+/).po
     `how`: the style's choice. A numbered section's heading is never empty: where the choice leaves it nothing to
     say (its title alone, and it has none), its number stands in. */
 export function headingLines(s: Section, how: ManuscriptStyle['heading'] = 'chapter and title'): string[] {
+	if (how === 'none') return [];
 	const number = s.number == null ? '' : `${s.role === 'part' ? 'Part' : 'Chapter'} ${numberWords(s.number)}`;
 	const lines = how === 'title only' ? [s.title] : how === 'chapter only' ? [number || s.title] : [number, s.title];
 	const kept = lines.filter((l) => l);
 	return kept.length ? kept : [number].filter((l) => l);
 }
+
+/** The heading a section is printed with in this book: none over the one chapter of a story, if the style says so,
+    and none at all when the style's Heading is "No heading". */
+export const sectionHeading = (book: Book, s: Section, style: ManuscriptStyle): string[] =>
+	style.oneChapter === 'no heading' && loneChapter(book) ? [] : headingLines(s, style.heading);
 
 /** One XML part being written (the text, or the footnotes): each has its own links and pictures. */
 class Part {
@@ -161,8 +167,9 @@ export function writeDocx(book: Book, style: ManuscriptStyle, details: Manuscrip
 		// before ends in a paragraph a point high, which holds that section's page settings.
 		if (i) body.push(`<w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="20" w:lineRule="exact"/><w:ind w:firstLine="0"/><w:rPr><w:sz w:val="2"/><w:szCs w:val="2"/></w:rPr>${sect(header, i === 1)}</w:pPr></w:p>`);
 		// (the story that begins under its title has no page break before it, and no room above; one chapter alone has no heading)
-		const lines = s === onFirst && loneChapter(book) ? [] : headingLines(s, style.heading);
-		if (s !== onFirst) body.push(words('Heading1', lines.join('\n')));
+		const lines = sectionHeading(book, s, style);
+		// (a chapter with no heading keeps the room above it that its heading would have had, as an ordinary paragraph)
+		if (s !== onFirst) body.push(lines.length ? words('Heading1', lines.join('\n')) : para('Normal', '', space(style.chapterStarts === 'at the top' ? 0 : 4320, line)));
 		else if (lines.length) body.push(words('Heading1', lines.join('\n'), `<w:pageBreakBefore w:val="0"/>${space(0, line)}`));
 		body.push(flow(s.blocks, doc));
 	});

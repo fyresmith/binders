@@ -210,7 +210,7 @@ const SHEET = `(() => {
 const sheet = (p, test, ms = 6000) => until(p, `(() => { try { return (${test})(${SHEET}); } catch { return false; } })()`, ms);
 const part = (path, name) => { const z = unzipSync(new Uint8Array(readFileSync(path))); return z[name] ? strFromU8(z[name]) : null; };
 
-test('every row of a manuscript style changes the preview and the Word file: ten rows, kept in the style’s file', async (p, h, t, before) => {
+test('every row of a manuscript style changes the preview and the Word file: eleven rows, ten of them acting on this book (the other, a story of one chapter, is tried in specs-export-short-story.mjs), kept in the style’s file', async (p, h, t, before) => {
 	await withAuthor(p);
 	// (a chapter with a title, to see the heading choice act on it; `before` has the notes as they were)
 	await p.ev(`app.fileManager.renameFile(app.vault.getAbstractFileByPath('The Lighthouse/Part One'), 'The Lighthouse/01 The Arrival').then(() => 1)`);
@@ -218,7 +218,7 @@ test('every row of a manuscript style changes the preview and the Word file: ten
 	await open(p);
 	t.eq(await p.ev(`${key('style')}.value`), 'Standard manuscript', 'the manuscript’s style');
 	await edit(p);
-	t.eq((await rows(p)).join(' / '), 'Text: Typeface, Line spacing, Italics / Chapters and breaks: Heading, A chapter starts, Scene break / Pages: Along the top, Title page, Name under the title, Header on the first page', 'a manuscript style’s ten rows');
+	t.eq((await rows(p)).join(' / '), 'Text: Typeface, Line spacing, Italics / Chapters and breaks: Heading, A story of one chapter, A chapter starts, Scene break / Pages: Along the top, Title page, Name under the title, Header on the first page', 'a manuscript style’s eleven rows');
 	t.eq(await note(p), 'Built in', 'built in');
 	t.ok(!(await p.ev(`!!document.querySelector('${ED} .binders-style-note.mod-foot')`)), 'nothing is left to a reader here');
 	const was = await p.ev(SHEET);
