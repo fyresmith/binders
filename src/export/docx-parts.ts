@@ -5,7 +5,8 @@
 /** How a manuscript is set: what the Style choice in the window names, and what its editor will change. */
 export interface ManuscriptStyle {
 	name: string;
-	typeface: 'Times New Roman' | 'Courier New';
+	/** A font's name: Times New Roman, Courier New, Courier Prime, or any the writer types. Word names it and uses it if it is installed. */
+	typeface: string;
 	lineSpacing: 'double' | 'one and a half' | 'single';
 	italics: 'italic' | 'underlined';
 	chapterStarts: 'a third of the way down' | 'at the top';
@@ -44,12 +45,12 @@ export const esc = (s: string): string => s
 const LINE = { double: 480, 'one and a half': 360, single: 240 } as const;
 
 export function stylesXml(s: ManuscriptStyle, language: string): string {
-	const line = LINE[s.lineSpacing], spacing = `<w:spacing w:before="0" w:after="0" w:line="${line}" w:lineRule="auto"/>`, single = '<w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/>';
+	const face = esc(s.typeface), line = LINE[s.lineSpacing], spacing = `<w:spacing w:before="0" w:after="0" w:line="${line}" w:lineRule="auto"/>`, single = '<w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/>';
 	const style = (id: string, name: string, ppr: string, rpr = '', next = '') => `<w:style w:type="paragraph" w:styleId="${id}"><w:name w:val="${name}"/><w:basedOn w:val="Normal"/>${next ? `<w:next w:val="${next}"/>` : ''}<w:qFormat/><w:pPr>${ppr}</w:pPr>${rpr ? `<w:rPr>${rpr}</w:rPr>` : ''}</w:style>`;
 	const flush = '<w:ind w:firstLine="0"/>', mono = '<w:rFonts w:ascii="Courier New" w:hAnsi="Courier New" w:cs="Courier New" w:eastAsia="Courier New"/>';
 	const heading = (n: number) => style(`Heading${n}`, `heading ${n}`, `<w:keepNext/><w:spacing w:before="${line}" w:after="0" w:line="${line}" w:lineRule="auto"/>${flush}<w:outlineLvl w:val="${n - 1}"/>`, n === 2 ? '<w:b/>' : n === 3 ? '<w:b/><w:i/>' : '<w:i/>', 'Normal');
 	return `${XML}<w:styles ${W}>
-<w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="${s.typeface}" w:hAnsi="${s.typeface}" w:cs="${s.typeface}" w:eastAsia="${s.typeface}"/><w:sz w:val="24"/><w:szCs w:val="24"/><w:lang w:val="${esc(language)}"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr>${spacing}</w:pPr></w:pPrDefault></w:docDefaults>
+<w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="${face}" w:hAnsi="${face}" w:cs="${face}" w:eastAsia="${face}"/><w:sz w:val="24"/><w:szCs w:val="24"/><w:lang w:val="${esc(language)}"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr>${spacing}</w:pPr></w:pPrDefault></w:docDefaults>
 <w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/><w:pPr><w:widowControl w:val="0"/>${spacing}<w:ind w:firstLine="720"/></w:pPr></w:style>
 <w:style w:type="character" w:default="1" w:styleId="DefaultParagraphFont"><w:name w:val="Default Paragraph Font"/><w:uiPriority w:val="1"/><w:semiHidden/></w:style>
 ${style('Heading1', 'heading 1', `<w:keepNext/><w:pageBreakBefore/><w:spacing w:before="${s.chapterStarts === 'at the top' ? 0 : 4320}" w:after="${line}" w:line="${line}" w:lineRule="auto"/>${flush}<w:jc w:val="center"/><w:outlineLvl w:val="0"/>`, '', 'Normal')}

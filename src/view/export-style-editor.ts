@@ -137,10 +137,10 @@ export function drawStyleEditor(side: HTMLElement, h: StyleEditorHost): StyleEdi
 		if (row.kind === 'mark' && listed < 0) options.push([now, String(now)]);
 		options.forEach(([, label], i) => { d.addOption(String(i), label); });
 		if (row.kind === 'pattern') d.addOption(OWN, 'Your own...');
-		const own = row.kind === 'pattern' && (listed < 0 || ownOpen);
+		const own = row.kind === 'pattern' && (listed < 0 || ownOpen), ownKey = `style-own-${row.key === 'chapter-heading' ? 'heading' : row.key}`, ownText = row.own ?? { label: 'Your own heading', hint: '{number}, {number:words}, {number:roman} and {title}; a / starts a new line.' };
 		d.setValue(own ? OWN : String(options.findIndex(([v]) => v === now)));
 		d.onChange((v) => {
-			if (v === OWN) { ownOpen = true; draw(); form.querySelector<HTMLElement>('[data-binders-key="style-own-heading"]')?.focus(); return; }
+			if (v === OWN) { ownOpen = true; draw(); form.querySelector<HTMLElement>(`[data-binders-key="${ownKey}"]`)?.focus(); return; }
 			ownOpen = false;
 			set(row.key, options[Number(v)][0]);
 			if (own) { draw(); form.querySelector<HTMLElement>(`[data-binders-key="style-${row.key}"]`)?.focus(); }
@@ -150,11 +150,11 @@ export function drawStyleEditor(side: HTMLElement, h: StyleEditorHost): StyleEdi
 		// the writer's own heading: the pattern itself, typed
 		const mine = parent.createDiv({ cls: 'input-row binders-style-own' });
 		mine.createDiv({ cls: 'input-row-label', text: 'Your own' });
-		const text = mine.createDiv({ cls: 'input-row-content' }).createEl('input', { type: 'text', attr: { spellcheck: 'false', maxlength: String(PATTERN_MAX), 'aria-label': 'Your own heading', 'aria-describedby': 'binders-style-own-hint', 'data-binders-key': 'style-own-heading' } });
+		const text = mine.createDiv({ cls: 'input-row-content' }).createEl('input', { type: 'text', attr: { spellcheck: 'false', maxlength: String(PATTERN_MAX), 'aria-label': ownText.label, 'aria-describedby': 'binders-style-own-hint', 'data-binders-key': ownKey } });
 		text.value = String(now);
 		text.disabled = locked;
 		text.addEventListener('input', () => { if (text.value.trim()) set(row.key, text.value.trim()); });
-		mine.createDiv({ cls: 'binders-style-note', text: '{number}, {number:words}, {number:roman} and {title}; a / starts a new line.', attr: { id: 'binders-style-own-hint' } });
+		mine.createDiv({ cls: 'binders-style-note', text: ownText.hint, attr: { id: 'binders-style-own-hint' } });
 	};
 
 	const menu = () => {

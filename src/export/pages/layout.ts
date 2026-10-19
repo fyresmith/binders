@@ -1,4 +1,5 @@
 import { aboutWords, headingLines, keyword, surname } from '../docx';
+import { fallbackWarning, isStandard } from '../manuscript-font';
 import type { ManuscriptStyle } from '../docx-parts';
 import { loneChapter } from '../first-page';
 import type { Book, Picture } from '../model';
@@ -8,7 +9,7 @@ import { DomHost, pageText, type PageBox } from './dom';
 import { el } from './el';
 import { fill } from './fill';
 import { BookFlow, type Look } from './flow';
-import { carried, fontStack, fontWarning, loadFonts } from './fonts';
+import { carried, fontStack, fontWarning, installed, loadFonts } from './fonts';
 import { furnish, type Furnish, type Furniture } from './furniture';
 import { bookGeometry, estimatePages, gutter, manuscriptGeometry, type Geometry, type PageSize } from './geometry';
 import { hyphenatorFor } from './patterns';
@@ -31,6 +32,8 @@ export interface PagesSpec {
 	furnish: Omit<Furnish, 'front'>;
 	/** Something to tell the writer (the typeface doesn't hold the book's script); "" for nothing. */
 	warning: string;
+	/** A typeface the pages have only if this computer does (a manuscript style's own): its name, and what to say if it doesn't. */
+	ifInstalled?: { name: string; warning: string };
 	/** The same book with more room at its spine, when it came to so many pages that it needs it; else null. */
 	thicker?: (pages: number) => PagesSpec | null;
 }
@@ -67,6 +70,7 @@ export function manuscriptPages(book: Book, style: ManuscriptStyle, paper: PageS
 		hyphens: false,
 		furnish: { heads: 'none', numbers: 'none', title: book.title, author: book.author.trim(), header, bareFirst: !style.firstPageHeader },
 		warning: '',
+		ifInstalled: carried(style.typeface) || isStandard(style.typeface) ? undefined : { name: style.typeface, warning: fallbackWarning(style.typeface) },
 	};
 }
 
@@ -145,6 +149,8 @@ export interface Laid {
 	html(): string;
 	/** How long the layout took, in milliseconds. */
 	took: number;
+	/** What to tell the writer of a typeface the pages are set without, because this computer hasn't it; "" for nothing. */
+	missing: string;
 }
 
 /** A turn of the event loop: the window can draw and take a click. Not a timer: a window that isn't in front has its
@@ -165,6 +171,7 @@ export async function layPages(stage: Stage, book: Book, spec: PagesSpec, o: Lay
 	stage.book.lang = spec.language;
 	if (carried(spec.typeface) && !stage.faces.has(spec.typeface)) { await loadFonts(doc, spec.typeface); stage.faces.add(spec.typeface); }
 	if (o.cancelled?.()) return null;
+	const missing = spec.ifInstalled && !installed(spec.ifInstalled.name) ? spec.ifInstalled.warning : '';
 
 	const urls = new Map<string, Picture>(), hyphenator = spec.hyphens ? hyphenatorFor(spec.language) : null;
 	const wide = (g.width - g.inside - g.outside) * PX, tall = (g.block - g.lead) * PX;
@@ -197,7 +204,7 @@ export async function layPages(stage: Stage, book: Book, spec: PagesSpec, o: Lay
 	const furniture = furnish(step.value, { ...spec.furnish, front: flow.flows.map((f) => f.front) });
 	dress(doc, host.pages, furniture, flow, spec);
 	return {
-		spec, pages: host.pages, furniture, over, took: performance.now() - began,
+		spec, pages: host.pages, furniture, over, took: performance.now() - began, missing,
 		texts: () => host.pages.map(pageText),
 		html: () => host.pages.map((p) => { let html = p.page.outerHTML; for (const [url, pic] of urls) html = html.split(url).join(`data:image/${pic.type};base64,${base64(pic.data)}`); return html; }).join('\n'),
 	};

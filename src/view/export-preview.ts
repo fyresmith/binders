@@ -3,6 +3,7 @@ import { loneChapter, openingSection } from '../export/first-page';
 import type { ManuscriptStyle } from '../export/docx-parts';
 import { contentsOf } from '../export/epub';
 import { leadSplit } from '../export/epub-text';
+import { manuscriptFamily } from '../export/manuscript-font';
 import { bookWords, plain, type Block, type Book, type Inline, type Section } from '../export/model';
 import { against, bookHeading, bookWord, isRtl, type BookStyle } from '../export/style';
 import { Platform } from 'obsidian';
@@ -20,7 +21,9 @@ import { bookPages, layPages, openStage, type Laid, type PagesSpec } from '../ex
 export function drawManuscript(el: HTMLElement, book: Book, style: ManuscriptStyle, details: { contact: string[]; words: number }): () => void {
 	el.empty();
 	const paper = el.createDiv({ cls: 'binders-export-paper', attr: { lang: book.language } });
+	// (a typeface of the writer's own is set as the pages are: its name, then Courier or Times)
 	paper.toggleClass('mod-courier', style.typeface === 'Courier New');
+	if (style.typeface !== 'Times New Roman' && style.typeface !== 'Courier New') { paper.addClass('mod-own-font'); paper.setCssProps({ '--binders-paper-font': manuscriptFamily(style.typeface) }); }
 	paper.dataset.spacing = style.lineSpacing === 'double' ? '2' : style.lineSpacing === 'single' ? '1' : '1.5';
 	paper.toggleClass('mod-underline', style.italics === 'underlined');
 	paper.toggleClass('mod-top', style.chapterStarts === 'at the top');

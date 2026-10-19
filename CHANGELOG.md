@@ -9,6 +9,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - A new setting, Name a note from, lets a note take its shown name from its first heading (of a level you choose, or of any level) instead of its file name, for notes that open with their title.
 - Manuscript styles can put the title on the first page of the text, with your name and the word count above it and the story under it, in the Word file, the PDF and the preview; a new built-in Short story style uses it.
 - A manuscript style has a Heading row (Word and PDF): Chapter One then its title (as before), its title only, or Chapter One only.
+- A manuscript's typeface can be Courier Prime (built in, and embedded in the PDF) or any font you name; the Word file names it, and the PDF says so when this computer lacks it.
 
 ### Changed
 

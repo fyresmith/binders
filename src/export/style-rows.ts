@@ -16,7 +16,7 @@ export interface Row {
 	/** What the editor calls it. */
 	name: string;
 	/** `pick`: one of `options`. `slide`: a number from `min` to `max`. `mark`: a scene break's mark, one of
-	    `options` or a few characters of the writer's own. `pattern`: a chapter heading, likewise. */
+	    `options` or a few characters of the writer's own. `pattern`: a chapter heading, or a typeface's name, likewise. */
 	kind: 'pick' | 'slide' | 'mark' | 'pattern';
 	options?: readonly (readonly [value: StyleValue, label: string])[];
 	min?: number;
@@ -25,6 +25,8 @@ export interface Row {
 	unit?: string;
 	/** A book style's row that is the pages' alone: in an ebook the reader decides it. */
 	pages?: boolean;
+	/** A `pattern` row with something of the writer's own other than a chapter heading: what its field is called and says. */
+	own?: { label: string; hint: string };
 }
 export interface Group { name: string; rows: readonly Row[] }
 
@@ -65,7 +67,7 @@ const BOOK: readonly Group[] = [
 
 const MANUSCRIPT: readonly Group[] = [
 	{ name: 'Text', rows: [
-		{ key: 'typeface', name: 'Typeface', kind: 'pick', options: [['Times New Roman', 'Times New Roman'], ['Courier New', 'Courier']] },
+		{ key: 'typeface', name: 'Typeface', kind: 'pattern', options: [['Times New Roman', 'Times New Roman'], ['Courier New', 'Courier'], ['Courier Prime', 'Courier Prime']], own: { label: 'Your own typeface', hint: 'A font’s name, as Word lists it. The Word file names it, and a computer that opens the file needs it installed. The PDF uses it only if this computer has it, and says so if not.' } },
 		{ key: 'line-spacing', name: 'Line spacing', kind: 'pick', options: [['double', 'Double'], ['one and a half', 'One and a half'], ['single', 'Single']] },
 		{ key: 'italics', name: 'Italics', kind: 'pick', options: [['italic', 'Italic'], ['underlined', 'Underlined']] },
 	] },

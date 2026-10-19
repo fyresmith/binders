@@ -481,7 +481,7 @@ still puts back what it changes; the runner is there for the one that fails befo
 | `run-tests.mjs` | `npm test [-- name]` | Bundles and runs the unit tests |
 | `hyphenation-patterns.mjs` | `node scripts/hyphenation-patterns.mjs` (`--check`, `--from <folder>`) | Makes the hyphenation patterns in `src/export/pages/patterns/` from TeX's hyph-utf8 files at one commit, each with its licence at its head. Run it only to add a language or take a newer commit (see "Where the patterns come from" in [export.md](export.md)) |
 | `source-serif-fonts.mjs` | `node scripts/source-serif-fonts.mjs` (`--check`) | Fetches the four Source Serif 4 files and their licence in `src/export/fonts/` from Adobe's release at one commit and checks each against its SHA-256. They are carried unmodified: never subset, convert or recompress them (see "Fonts" in [export.md](export.md)) |
-| `subset-fonts.py` | `python3 scripts/subset-fonts.py <folder of .ttf>` | Cuts EB Garamond's static files down to what `src/export/fonts/eb-garamond-*.woff2` hold. EB Garamond only: a typeface whose licence reserves its name can't be cut down |
+| `subset-fonts.py` | `python3 scripts/subset-fonts.py <folder of .ttf>` | Cuts EB Garamond's and Courier Prime's static files down to what `src/export/fonts/eb-garamond-*.woff2` and `courier-prime-*.woff2` hold. Those two only: a typeface whose licence reserves its name can't be cut down |
 
 `esbuild.config.mjs` (the build) and `version-bump.mjs` (called by `npm version`, so by `release`) are at the top of the
 project. The e2e tools are in `tests/e2e/`: `driver.mjs`, `run.mjs`, `run-all.mjs`, `screenshots.mjs`.

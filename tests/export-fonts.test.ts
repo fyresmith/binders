@@ -41,7 +41,12 @@ ok(notices.includes(TAG) && notices.includes(COMMIT), 'and say which release the
 const css = fontFaceCss('Source Serif 4');
 eq((css.match(/@font-face/g) ?? []).length, 4, 'four faces of Source Serif 4 for the printed document');
 for (const file of FILES.filter((f) => f.from.endsWith('.woff2'))) ok(css.includes(readFileSync(join(FONTS, carriedAs(file))).toString('base64')), `${carriedAs(file)} is handed to the pages whole`);
-ok(carried('Source Serif 4') && carried('EB Garamond') && !carried('Georgia'), 'two families are carried');
+ok(carried('Source Serif 4') && carried('EB Garamond') && carried('Courier Prime') && !carried('Georgia'), 'three families are carried');
+// Courier Prime (a manuscript's PDF): all four faces go to the printed document, from the files in the repository
+const prime = fontFaceCss('Courier Prime');
+eq((prime.match(/@font-face/g) ?? []).length, 4, 'four faces of Courier Prime for the printed document');
+for (const f of ['regular', 'italic', 'bold', 'bold-italic']) ok(prime.includes(readFileSync(join(FONTS, `courier-prime-${f}.woff2`)).toString('base64')), `courier-prime-${f}.woff2 is handed to the pages whole`);
+ok(notices.includes('Courier Prime') && readFileSync(join(FONTS, 'OFL-CourierPrime.txt'), 'utf8').includes('Courier Prime Project Authors'), 'and its notice travels with it');
 
 const SERIF = 'The pages are set in this computer’s own serif instead.';
 // Latin: the style's own typeface first, in both

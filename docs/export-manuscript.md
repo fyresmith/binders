@@ -45,7 +45,7 @@ the title there with **Title page: On the first page of the text**, which any ma
 The style you choose is kept with the book, in its binder note. A book that hasn't chosen one uses the style last
 used in the vault.
 
-To change a style or make your own (the typeface, the line spacing, italics underlined, what a chapter's heading says, where a chapter starts, the
+To change a style or make your own (the typeface, the line spacing, italics underlined, the typeface (including Courier Prime, or any font you name), what a chapter's heading says, where a chapter starts, the
 scene break, what runs along the top, the title page), see [Styles](export-styles.md).
 
 ## As a PDF
@@ -55,6 +55,8 @@ and spacing.
 
 - The window shows the pages themselves, exactly as they will print, and the bar says how many there are.
 - The header and its page number are on every page of the text. The title page has neither.
+- The typeface is embedded in the PDF. A font of your own that this computer doesn't have is replaced by Courier or
+  Times, and the window says so; see [A manuscript's typeface](export-styles.md#a-manuscripts-typeface).
 - A PDF is made on a computer. On a phone or tablet you can look at the pages, and export it on a computer.
 - **File** and **Paper** are kept in Binders' settings, for the vault.
 - Exporting the PDF to the place the Word file went puts it beside the Word file.

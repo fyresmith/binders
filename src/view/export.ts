@@ -551,7 +551,7 @@ export class ExportModal extends Modal {
 			// (what a style's file has that can't be read is said with the rest: its line opens the editor)
 			const styled = kind === 'scrivener' ? [] : this.plugin.styles.get(this.styleName(), familyOf(kind)).warnings.map((text) => ({ path: '', name: 'Style', text }));
 			// (and a typeface that doesn't hold the book's script, while it is pages that are being made)
-			const face = this.pdf && this.face ? [{ path: this.plugin.binders.binderOf(this.folder)?.note.path ?? '', name: 'Book details', text: this.face }] : [];
+			const face = this.pdf && this.face ? [this.kind === 'manuscript' ? { path: '', name: 'Style', text: this.face } : { path: this.plugin.binders.binderOf(this.folder)?.note.path ?? '', name: 'Book details', text: this.face }] : [];
 			const scope = this.file && this.w.problem ? [{ path: '', name: 'What goes out', text: this.w.problem }] : [];
 			const warnings = [...scope, ...styled, ...face, ...(kind === 'scrivener' ? this.scriv?.warnings : this.book?.warnings) ?? []];
 			if (warnings.length) {
@@ -702,11 +702,12 @@ export class ExportModal extends Modal {
 			if (this.pdf) {
 				// the very pages that are printed: laid out here as they are for the file
 				const { book: whole, spec } = this.paged(book), turn = this.loading;
-				// (a typeface that doesn't hold the book's script: said with the other things to look at)
+				// (a typeface that doesn't hold the book's script: said with the other things to look at. One this computer lacks, a
+				// manuscript's own, is known once the pages are laid out, below)
 				this.faceSaid(spec.warning);
 				const view = showPages(stage, whole, spec, { progress: (pages) => { if (turn === this.loading && this.stop === view.stop) this.detailEl.setText(pages == null ? this.detailEl.getText() : `Laying out the pages… ${pages.toLocaleString()}`); } });
 				this.stop = view.stop;
-				void view.laid.then((laid) => { if (!laid || this.stop !== view.stop) return; this.pages = laid.pages.length; this.previewEl.dataset.pages = String(laid.pages.length); this.previewEl.dataset.took = String(Math.round(laid.took)); this.bar(); }, (e) => { if (this.stop === view.stop) new Notice(e instanceof Error ? e.message : String(e)); });
+				void view.laid.then((laid) => { if (!laid || this.stop !== view.stop) return; this.faceSaid(laid.missing || spec.warning); this.pages = laid.pages.length; this.previewEl.dataset.pages = String(laid.pages.length); this.previewEl.dataset.took = String(Math.round(laid.took)); this.bar(); }, (e) => { if (this.stop === view.stop) new Notice(e instanceof Error ? e.message : String(e)); });
 				return;
 			}
 			if (this.kind === 'ebook') {

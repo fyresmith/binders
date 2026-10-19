@@ -5225,6 +5225,10 @@ body:not(.is-phone) .binders-export .binders-export-options .setting-item.settin
 	font-family: "Courier New", "Courier Prime", "Liberation Mono", Courier, monospace;
 }
 
+.binders-export-paper.mod-own-font {
+	font-family: var(--binders-paper-font);
+}
+
 .binders-export-paper :is(p, h1, h2, h3, blockquote, ul, ol, pre, table) {
 	margin: 0;
 	font: inherit;

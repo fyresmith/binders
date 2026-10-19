@@ -831,3 +831,45 @@ test('the typeface warning goes when it no longer holds: as another kind is chos
 		t.ok(await until(p, `${warned} === 1`, 3000), 'changed back: the warning is there again, once');
 	} finally { await unstyle(p); }
 });
+
+// ---- a manuscript's typeface: Courier Prime travels in the PDF; a font of the writer's own is the computer's ----
+
+test('a manuscript PDF in Courier Prime has that font in the file; a font of your own that this computer lacks is replaced, and the window says so', async (p, h, t) => {
+	try {
+		await withAuthor(p);
+		await open(p);
+		await choose(p, 'file', 'pdf');
+		t.ok(await laidOut(p), 'the pages are laid out');
+		const key = (k) => `document.querySelector('${WIN} [data-binders-key="${k}"]')`;
+		const lacks = `[...document.querySelectorAll('${WIN} .binders-export-warn-text')].filter(e => e.textContent.includes('isn’t on this computer')).map(e => e.textContent)`;
+		await p.ev(`(() => { ${key('edit-style')}.click(); return 1; })()`);
+		await until(p, `!!${key('style-typeface')}`, 6000);
+		const choice = (label) => p.ev(`(() => { const s = ${key('style-typeface')}; s.value = [...s.options].find(o => o.textContent === ${j(label)}).value; s.dispatchEvent(new Event('change')); return 1; })()`);
+
+		await choice('Courier Prime');
+		t.ok(await laidAgain(p), 'Courier Prime chosen: the pages are laid out again');
+		t.ok(/^"?Courier Prime/.test(await typeface(p)), `the pages are set in Courier Prime (${await typeface(p)})`);
+		await p.ev(`(() => { ${key('style-back')}.click(); return 1; })()`);
+		await until(p, `!!${key('edit-style')}`, 6000);
+		t.eq((await p.ev(lacks)).length, 0, 'and the window has nothing to say of it: it travels in the plugin');
+		await press(p, 'Export');
+		t.ok(await saved(p), 'exported');
+		const at = join(p.vaultDir, 'Exports', 'The Lighthouse.pdf');
+		if (!TOOLS.fonts) loud(t, 'pdffonts'); else t.ok(pdfFonts(at).some((f) => /CourierPrime/.test(f.name) && f.embedded), `the PDF has Courier Prime embedded (${pdfFonts(at).map((f) => f.name).join(', ')})`);
+
+		await p.ev(`(() => { ${key('edit-style')}.click(); return 1; })()`);
+		await until(p, `!!${key('style-typeface')}`, 6000);
+		await choice('Your own...');
+		await until(p, `!!${key('style-own-typeface')}`, 4000);
+		await p.ev(`(() => { const i = ${key('style-own-typeface')}; i.value = 'Zzyzx Typewriter Mono'; i.dispatchEvent(new Event('input')); return 1; })()`);
+		t.ok(await laidAgain(p), 'a font nobody has, typed in: the pages are laid out again');
+		// (the editor takes the place of the list of things to look at while it is open)
+		await p.ev(`(() => { ${key('style-back')}.click(); return 1; })()`);
+		await until(p, `!!${key('edit-style')}`, 6000);
+		t.ok(await until(p, `${lacks}.length === 1`, 4000), 'the window lists it among the things to look at');
+		const said = (await p.ev(lacks))[0] ?? '';
+		t.ok(said.includes('“Zzyzx Typewriter Mono”') && said.includes('set in Courier instead') && said.includes('Word file still names'), `saying what happened to it, and that Word has the name (${said})`);
+		t.ok(/^"?Zzyzx Typewriter Mono"?, "Courier New"/.test(await typeface(p)), `the pages are set in its stand-in, Courier (${await typeface(p)})`);
+		t.eq(JSON.stringify((await p.ev(`app.vault.adapter.read(${j(`${STYLES_DIR}/Standard manuscript.bookstyle`)})`)).match(/typeface: .*/)?.[0]), JSON.stringify('typeface: Zzyzx Typewriter Mono'), 'and the name is what the style’s file keeps');
+	} finally { await unstyle(p); }
+});

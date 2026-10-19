@@ -756,7 +756,7 @@ scene-break: "⁂"
 
   | A manuscript style | Values |
   |---|---|
-  | `typeface` | `Times New Roman`, `Courier New` |
+  | `typeface` | `Times New Roman`, `Courier New`, `Courier Prime`, or any font's name (up to 80 characters): Word names it; the PDF uses it if the computer has it, else Courier or Times |
   | `line-spacing` | `double`, `one and a half`, `single` |
   | `italics` | `italic`, `underlined` |
   | `heading` | `chapter and title` (the default), `title only`, `chapter only`; a chapter with no title is headed by its number under `title only` |

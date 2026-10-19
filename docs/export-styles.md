@@ -59,7 +59,7 @@ IV" with the chapter's title under it. A line whose title is empty is dropped.
 
 | Group | Row | What it sets |
 |---|---|---|
-| **Text** | **Typeface** | **Times New Roman** or **Courier** |
+| **Text** | **Typeface** | **Times New Roman**, **Courier** (Courier New), **Courier Prime**, or **Your own...**: the name of any font, typed. See [A manuscript's typeface](#a-manuscripts-typeface) |
 | | **Line spacing** | **Double**, **One and a half** or **Single** |
 | | **Italics** | **Italic** or **Underlined** |
 | **Chapters and breaks** | **Heading** | What a chapter's heading says, in Word and in the PDF: **Chapter One, then its title** (the default), **Its title only**, or **Chapter One only**. A chapter with no title of its own is headed by its number under **Its title only**, never by an empty line; a prologue or a dedication keeps its name |
@@ -68,6 +68,20 @@ IV" with the chapter's title under it. A line whose title is empty is dropped.
 | **Pages** | **Along the top** | **Surname / TITLE / page**, **The page number** or **Nothing** |
 | | **Title page** | **On a page of its own** (contact details and word count at the top, the title halfway down), **On the first page of the text** (a short story's: the same, with the title a quarter of the way down and the story under it, and no "Chapter One" over a story of one chapter) or **None** |
 | | **Header on the first page** | **Shown** (the default), or **Left off**: the first page of the text has no header and no page number along the top, in Word (its own "different first page") and in the PDF. That page is still counted, so the next says 2. |
+
+### A manuscript's typeface
+
+- **Times New Roman** and **Courier** are the two every computer with Word has. **Courier Prime** is a typewriter face
+  (free, under the SIL Open Font License) that Binders carries, so the PDF has it on any computer.
+- **Your own...** takes the name of any font, as Word lists it ("Garamond", "Cousine", "Courier Prime"). Type it exactly.
+- **The Word file only names the font.** It doesn't carry it. Word uses the font if the computer that opens the file has
+  it, and otherwise sets the text in a font of its own choosing. To be sure of how an editor sees the manuscript, use
+  **Times New Roman** or **Courier**, or send a PDF.
+- **The PDF carries the font, or says why not.** Times New Roman, Courier and Courier Prime are always right. For a font
+  of your own, the PDF uses it if this computer has it. If it doesn't, the PDF is set in Courier (for a name that says
+  it is monospaced: Courier, Mono, Typewriter...) or in Times, and the Export window lists that under **things to
+  look at**. The Word file still names your font.
+- Binders doesn't read font files from your vault. Install a font on the computer first.
 
 ## Built-in styles and your own
 
@@ -139,7 +153,7 @@ The properties and their values are listed in the [file format](dev/file-format.
 
 ## Limits
 
-- The typefaces are the two inside Binders for a book style, and Times New Roman or Courier for a manuscript.
+- A book style has the two typefaces inside Binders (EB Garamond and Source Serif 4). A manuscript has Times New Roman, Courier and Courier Prime, or the name of any font for the Word file (above).
 - A style file made by a newer version of Binders is listed, saying so, and isn't used or changed. Update Binders.
 - A file in the styles folder that isn't a style's is listed, saying it can't be read, and is left alone.
 - A style is for the vault it is in. To use one in another vault, share it or copy its file.

@@ -134,7 +134,7 @@ change. What it offers, and no more:
 
 | Group | Book styles | Manuscript styles |
 |---|---|---|
-| Text | Typeface; size; line spacing; paragraphs (first line indented, or space between); lines (justified and hyphenated, or ragged right); quotes and dashes (typeset, or as typed) | Typeface (Times New Roman, Courier); line spacing; italics (italic, underlined) |
+| Text | Typeface; size; line spacing; paragraphs (first line indented, or space between); lines (justified and hyphenated, or ragged right); quotes and dashes (typeset, or as typed) | Typeface (Times New Roman, Courier, Courier Prime, or a font's name typed); line spacing; italics (italic, underlined) |
 | Chapters | Heading ("Chapter One", "Chapter 1", "One", "1", "I", with its title, its title only, or the writer's own pattern); lettering; heading size; placed in the middle or at the left; space above; opens on a right-hand page or the next; first words (small capitals, or as the rest) | Heading (Chapter One and its title, its title only, Chapter One only); a chapter starts a third of the way down, or at the top; the scene break's mark |
 | Scene breaks | The mark, or space only | |
 | Pages | Along the top (author and title, title, nothing); page numbers (foot, top outside, none); margins (narrow, normal, wide) | Along the top (Surname / TITLE / page, the page number, nothing); title page; header on the first page (shown, left off) |
@@ -589,9 +589,10 @@ the words a file breaks by hand (`\hyphenation`) come too and are believed befor
   German, Spanish, Italian and Portuguese are upstream's newer sets. The demo vault's eleven books came to the same
   1,113 pages before and after.
 
-**Fonts.** EB Garamond and Source Serif 4, four faces each (regular, italic, bold, bold italic; Source Serif's bold
-is its Semibold), as static WOFF2 files inside `main.js`. Both are SIL Open Font License; the notices are
-`src/export/fonts/OFL-EBGaramond.txt` and `OFL-SourceSerif4.md`, and [THIRD-PARTY-NOTICES.md](../../THIRD-PARTY-NOTICES.md),
+**Fonts.** EB Garamond and Source Serif 4, and Courier Prime for a manuscript's PDF (cut down like EB Garamond, 58 kB
+as files; no Reserved Font Name), four faces each (regular, italic, bold, bold italic; Source Serif's bold
+is its Semibold), as static WOFF2 files inside `main.js`. All are SIL Open Font License; the notices are
+`src/export/fonts/OFL-EBGaramond.txt`, `OFL-SourceSerif4.md` and `OFL-CourierPrime.txt`, and [THIRD-PARTY-NOTICES.md](../../THIRD-PARTY-NOTICES.md),
 which heads `main.js`, carries the licence where the files go.
 
 - **EB Garamond is cut down** to Latin, Latin-1, Latin Extended-A, Vietnamese, punctuation and the features a book

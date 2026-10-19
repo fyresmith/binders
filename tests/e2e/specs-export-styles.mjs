@@ -275,6 +275,23 @@ test('every row of a manuscript style changes the preview and the Word file: nin
 	await p.sleep(600);
 }, { prepare: async (p) => { await SHAPED(p); await p.ev(`app.vault.process(app.vault.getAbstractFileByPath('The Lighthouse/Part One/Arrival.md'), (t) => t + '\\nAnd *stressed* once.\\n').then(() => 1)`); }, to: undefined, skip: [BINDER] });
 
+test('a typeface of your own: the preview is set in it, the Word file names it exactly, and the style keeps the name', async (p, h, t) => {
+	await withAuthor(p);
+	await open(p);
+	await edit(p);
+	await choose(p, 'typeface', 'Your own...');
+	t.ok(await p.ev(`document.activeElement === ${key('style-own-typeface')}`), '“Your own...” opens a field for the font’s name, ready to type in');
+	t.ok((await p.ev(`document.getElementById('binders-style-own-hint').textContent`)).includes('needs it installed'), 'with what the Word file does with the name under it');
+	await p.ev(`(() => { const i = ${key('style-own-typeface')}; i.value = 'Garamond Premier Pro'; i.dispatchEvent(new Event('input')); return 1; })()`);
+	t.ok(await until(p, `/^"?Garamond Premier Pro"?, "Times New Roman"/.test(getComputedStyle(document.querySelector('${PAPER}')).fontFamily)`, 6000), 'the preview is set in it, with Times behind');
+	await settle(p);
+	t.ok((onDisk(p, 'Standard manuscript') ?? '').includes('typeface: Garamond Premier Pro\n'), 'the style’s file keeps the name');
+	await press(p, 'Export');
+	t.ok(await saved(p), 'exported');
+	const look = part(join(p.vaultDir, 'Exports', 'The Lighthouse.docx'), 'word/styles.xml');
+	t.ok(look.includes('<w:rFonts w:ascii="Garamond Premier Pro" w:hAnsi="Garamond Premier Pro"'), 'the Word file names that font for its text');
+});
+
 const fmOf = (p, path) => p.ev(`(async () => { const t = await app.vault.adapter.read(${j(path)}); return t; })()`);
 const styleIs = (p) => p.ev(`${key('style-name')}?.value ?? ''`);
 const answer = async (p, label) => { await until(p, `[...document.querySelectorAll('.modal-container:last-of-type button')].some(b => b.textContent === ${j(label)})`); await p.ev(`(() => { [...document.querySelectorAll('.modal-container:last-of-type button')].find(b => b.textContent === ${j(label)}).click(); return 1; })()`); await p.sleep(300); };

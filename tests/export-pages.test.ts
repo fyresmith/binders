@@ -6,6 +6,8 @@ import { TRIM_SIZES, bookGeometry, gutter, manuscriptGeometry, paperSize, trimSi
 import { Hyphenator, SHY, unhyphenated } from '../src/export/pages/hyphenate';
 import { hyphenatorFor } from '../src/export/pages/patterns';
 import { manuscriptStyle } from '../src/export/docx-parts';
+import { fallbackWarning } from '../src/export/manuscript-font';
+import { manuscriptCss } from '../src/export/pages/css';
 import { manuscriptPages } from '../src/export/pages/layout';
 import { buildBook } from '../src/export/book';
 import { pdfPages, withInfo } from '../src/export/pdf-info';
@@ -164,6 +166,14 @@ function run(H: number, flows: Flow<Blk>[], notes: Record<number, number> = {}):
 	ok(bookGeometry(CLASSIC, trimSize('6x9')).lines > g.lines, 'a larger page holds more');
 	const m = manuscriptGeometry(manuscriptStyle('Standard manuscript'), paperSize('letter'));
 	eq(`${m.lead} ${m.lines} ${m.inside}`, '24 27 72', 'a manuscript: double-spaced, an inch all round');
+	// the PDF's typeface: a font of the writer's own first, then Courier for a monospaced name and Times for the rest; a
+	// name can't break out of the stylesheet; one the pages don't carry is only known once a computer is asked
+	const css = (typeface: string) => manuscriptCss({ ...manuscriptStyle('Standard manuscript'), typeface }, m);
+	ok(css('Cousine Mono').includes('font: 12pt/24pt "Cousine Mono", "Courier New"') && css('Garamond').includes('font: 12pt/24pt "Garamond", "Times New Roman"'), 'the pages are set in the typeface named, then Courier for a monospaced name and Times for another');
+	ok(!css('Bad"; } body { x: y').includes('} body') && css('Courier Prime').includes('"Courier Prime", "Courier New"'), 'a name is kept inside its quotes');
+	const spec = (typeface: string) => manuscriptPages(buildBook([], { title: 'T', author: 'A', matter: false }), { ...manuscriptStyle('Standard manuscript'), typeface }, paperSize('letter'), { contact: [], words: 0 });
+	eq(['Times New Roman', 'Courier New', 'Courier Prime', 'Cousine'].map((f) => spec(f).ifInstalled?.name ?? '-').join('|'), '-|-|-|Cousine', 'only a typeface the pages neither carry nor stand in for waits to see if the computer has it');
+	ok(spec('Cousine').ifInstalled?.warning === fallbackWarning('Cousine') && fallbackWarning('Cousine').includes('set in Courier instead') && fallbackWarning('Garamond').includes('set in Times instead') && fallbackWarning('Garamond').includes('Word file still names “Garamond”'), 'and says what it is set in instead, and that the Word file still names it');
 	// the manuscript PDF's chapter heading follows the style's Heading choice, as the Word file's does
 	const sheet = buildBook([], { title: 'T', author: 'A', matter: false }), chapter = { id: 'c', role: 'chapter' as const, number: 3, title: 'The island', blocks: [], paths: [] };
 	const headed = (heading: 'chapter and title' | 'title only' | 'chapter only') => manuscriptPages(sheet, { ...manuscriptStyle('Standard manuscript'), heading }, paperSize('letter'), { contact: [], words: 0 }).look.heading(chapter).join('|');

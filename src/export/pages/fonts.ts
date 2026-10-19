@@ -1,3 +1,7 @@
+import courierBold from '../fonts/courier-prime-bold.woff2';
+import courierBoldItalic from '../fonts/courier-prime-bold-italic.woff2';
+import courierItalic from '../fonts/courier-prime-italic.woff2';
+import courier from '../fonts/courier-prime-regular.woff2';
 import garamondBold from '../fonts/eb-garamond-bold.woff2';
 import garamondBoldItalic from '../fonts/eb-garamond-bold-italic.woff2';
 import garamondItalic from '../fonts/eb-garamond-italic.woff2';
@@ -7,7 +11,8 @@ import source from '../fonts/SourceSerif4-Regular.ttf.woff2';
 import sourceBold from '../fonts/SourceSerif4-Semibold.ttf.woff2';
 import sourceBoldItalic from '../fonts/SourceSerif4-SemiboldIt.ttf.woff2';
 
-/* The typefaces Binders carries for the pages: EB Garamond (Classic) and Source Serif 4 (Modern), both under the SIL
+/* The typefaces Binders carries for the pages: EB Garamond (Classic) and Source Serif 4 (Modern), and Courier Prime for
+   a manuscript's PDF, all under the SIL
    Open Font License (the notices are in src/export/fonts/). They are inside main.js as static files: a variable font
    would be embedded in the PDF as Type 3, drawn and not text. EB Garamond is cut down to what a book in the Latin
    alphabet needs (scripts/subset-fonts.py). Source Serif 4 is NOT cut down and must not be: its licence keeps the
@@ -20,6 +25,8 @@ import sourceBoldItalic from '../fonts/SourceSerif4-SemiboldIt.ttf.woff2';
 const FAMILIES: Record<string, readonly [string, string, string, string]> = {
 	'EB Garamond': [garamond, garamondItalic, garamondBold, garamondBoldItalic],
 	'Source Serif 4': [source, sourceItalic, sourceBold, sourceBoldItalic],
+	// (for a manuscript's PDF: the Courier it can always have; a book style doesn't offer it)
+	'Courier Prime': [courier, courierItalic, courierBold, courierBoldItalic],
 };
 const FACES = [['400', 'normal'], ['400', 'italic'], ['700', 'normal'], ['700', 'italic']] as const;
 
@@ -71,6 +78,16 @@ export async function loadFonts(doc: Document, typeface: string): Promise<void> 
 		doc.fonts.add(face);
 		await face.load();
 	}));
+}
+
+/** Whether this computer has a font of that name, as the document sees it: text set in it, and then in each of the
+    generic families alone, measures differently in at least one when the font is there. True when it can't tell. */
+export function installed(name: string): boolean {
+	// (an offscreen canvas: it sees the computer's fonts, which is what is asked)
+	const ctx = typeof OffscreenCanvas === 'function' ? new OffscreenCanvas(1, 1).getContext('2d') : null;
+	if (!ctx) return true;
+	const own = `"${name.replace(/["\\]/g, '')}"`, width = (stack: string): number => { ctx.font = `72px ${stack}`; return ctx.measureText('mmmmmmmmmmlli.WQ@').width; };
+	return ['monospace', 'serif', 'sans-serif'].some((generic) => width(`${own}, ${generic}`) !== width(generic));
 }
 
 /** The same faces as `@font-face` rules, for the document that is printed (it is another process: it is handed text). */

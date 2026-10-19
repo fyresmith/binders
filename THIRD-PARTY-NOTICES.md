@@ -352,10 +352,11 @@ From the head of `hyph-pt.tex`:
 
 ## Typefaces
 
-The Classic book style is set in EB Garamond and the Modern one in Source Serif 4. Four faces of each (regular,
-italic, bold, bold italic) are inside `main.js` as WOFF2 files; the files are in `src/export/fonts/`, with each
-family's own notice beside them (`OFL-EBGaramond.txt`, `OFL-SourceSerif4.md`). A PDF that Binders exports has the
-letters it uses of them embedded. Both families are under the SIL Open Font License, version 1.1, given once below.
+The Classic book style is set in EB Garamond and the Modern one in Source Serif 4, and a manuscript's PDF can be set
+in Courier Prime. Four faces of each (regular, italic, bold, bold italic) are inside `main.js` as WOFF2 files; the
+files are in `src/export/fonts/`, with each family's own notice beside them (`OFL-EBGaramond.txt`,
+`OFL-SourceSerif4.md`, `OFL-CourierPrime.txt`). A PDF that Binders exports has the letters it uses of them embedded.
+All three families are under the SIL Open Font License, version 1.1, given once below.
 
 - **EB Garamond** is a Modified Version: its four files are cut down to the Latin alphabet and what a book needs of
   it (`scripts/subset-fonts.py`). Its licence declares no Reserved Font Name, so the files keep the family's name.
@@ -367,10 +368,23 @@ letters it uses of them embedded. Both families are under the SIL Open Font Lice
   licence reserves the name "Source" to unmodified files. `scripts/source-serif-fonts.mjs` fetches them and checks
   each against its SHA-256, and a test fails if a file in the repository is not the one released.
 
+- **Courier Prime** is a Modified Version: its four files are cut down the same way as EB Garamond's
+  (`scripts/subset-fonts.py`). Its licence declares no Reserved Font Name, so the files keep the family's name.
+
 ### EB Garamond
 
 ```text
 Copyright 2017 The EB Garamond Project Authors (https://github.com/octaviopardo/EBGaramond12)
+
+This Font Software is licensed under the SIL Open Font License, Version 1.1.
+```
+
+No Reserved Font Name is declared.
+
+### Courier Prime
+
+```text
+Copyright 2015 The Courier Prime Project Authors (https://github.com/quoteunquoteapps/CourierPrime).
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
 ```

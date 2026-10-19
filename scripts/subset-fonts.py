@@ -1,9 +1,9 @@
 """Makes the EB Garamond files Binders carries for the pages (src/export/fonts/eb-garamond-*.woff2) from the family's
-static TrueType files (SIL Open Font License; the notice is beside the files).
+static TrueType files, and Courier Prime's (SIL Open Font License; the notices are beside the files).
 
     python3 scripts/subset-fonts.py <folder with the .ttf files>     needs: pip install fonttools brotli
 
-EB Garamond ONLY. Its licence declares no Reserved Font Name, so a cut-down file may keep the family's name. Source
+EB Garamond and Courier Prime ONLY. Their licences declare no Reserved Font Name, so a cut-down file may keep the family's name. Source
 Serif 4's reserves "Source": a subset is a Modified Version and may not be called Source Serif, so that family is
 carried as Adobe's own files, untouched (scripts/source-serif-fonts.mjs). Before adding a typeface here, read the
 first lines of its licence: "with Reserved Font Name" means it can't be cut down and keep its name.
@@ -20,6 +20,9 @@ FEATURES = "kern,liga,clig,calt,ccmp,locl,mark,mkmk,smcp,c2sc,onum,lnum,pnum,tnu
 FILES = {
     "EBGaramond-Regular": "eb-garamond-regular", "EBGaramond-Italic": "eb-garamond-italic",
     "EBGaramond-Bold": "eb-garamond-bold", "EBGaramond-BoldItalic": "eb-garamond-bold-italic",
+    # Courier Prime (a manuscript's PDF), from the same folder; its licence declares no Reserved Font Name either
+    "CourierPrime-Regular": "courier-prime-regular", "CourierPrime-Italic": "courier-prime-italic",
+    "CourierPrime-Bold": "courier-prime-bold", "CourierPrime-BoldItalic": "courier-prime-bold-italic",
 }
 
 source = sys.argv[1]

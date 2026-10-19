@@ -113,6 +113,10 @@ function wordForWord(b: TestBinder, what: string): { words: number; ms: number; 
 	ok(!/about [\d,]+ words/.test(none) && none.includes('1 Shore Road'), 'the title page of a book with no words: the contact details, and no count');
 	eq([keyword('The Lighthouse'), keyword('A Salt Road'), surname('Mara Lindqvist'), surname('')].join('|'), 'LIGHTHOUSE|SALT ROAD|Lindqvist|', 'the header’s words');
 	eq(headingLines({ id: 'part-2', role: 'part', number: 2, title: 'The Island', blocks: [], paths: [] }).join('|'), 'Part Two|The Island', 'a part’s heading');
+	// a typeface of the writer's own is named in the file as typed, and can't break it
+	const font = (typeface: string) => readDocx(writeDocx(book, { ...STANDARD, typeface }, { contact: [], words: 1, when: WHEN })).files['word/styles.xml'];
+	ok(font('Courier Prime').includes('<w:rFonts w:ascii="Courier Prime" w:hAnsi="Courier Prime" w:cs="Courier Prime" w:eastAsia="Courier Prime"/>'), 'Courier Prime is the document’s font');
+	ok(font('Garamond & "Sons" <1>').includes('w:ascii="Garamond &amp; &quot;Sons&quot; &lt;1&gt;"'), 'a name with marks of XML in it is written safely');
 	// the style's Heading choice reaches the file: a title alone, a number alone, and never an empty heading
 	const choice = (heading: 'chapter and title' | 'title only' | 'chapter only') => readDocx(writeDocx(book, { ...STANDARD, heading }, { contact: [], words: 1, when: WHEN })).headings.join('|');
 	eq(choice('chapter and title'), 'Prologue|Part One|Chapter One The jetty|Chapter Two', 'the default keeps the number and the title');

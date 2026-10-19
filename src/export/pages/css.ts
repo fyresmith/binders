@@ -3,6 +3,7 @@ import { TITLE_LINES } from '../first-page';
 import type { BookStyle } from '../style';
 import type { Geometry } from './geometry';
 import { BREAK_AFTER, TEXT_INDENT } from '../css-names';
+import { manuscriptFamily } from '../manuscript-font';
 
 /* A style as the stylesheet of its pages: the same rules for the pages in the window and the pages that are
    printed, so one is the other. Every vertical measure is a whole number of lines (or half a line, twice), so the
@@ -93,7 +94,7 @@ export function bookCss(s: BookStyle, g: Geometry, family: string): string {
 
 /** A manuscript style on its page: standard manuscript format, as the Word file has it. */
 export function manuscriptCss(s: ManuscriptStyle, g: Geometry): string {
-	const family = s.typeface === 'Courier New' ? '"Courier New", "Courier Prime", Cousine, "Liberation Mono", monospace' : '"Times New Roman", Tinos, "Liberation Serif", Times, serif';
+	const family = manuscriptFamily(s.typeface);
 	return [
 		...core(g, { family, step: 36, noteSize: 12, noteLead: g.lead, justified: false }),
 		`p { ${TEXT_INDENT}: 36pt; }`,
