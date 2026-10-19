@@ -5,6 +5,7 @@ import type { Role } from '../export/model';
 import { assignRoles, guessStructure, readLooseNotes, readRole, readStructure, type SourceItem } from '../export/roles';
 import type BindersPlugin from '../main';
 import { COMPILE_PROP, EXPORT_PROP, isNote } from '../scenes';
+import { shownNameAt } from '../shown-name';
 
 /* The part each note and folder of a binder plays when it is exported, as the inspector says it: what export itself
    would make of it (export/roles.ts, the one rule), read from the properties as they are now. No note's text is read:
@@ -36,7 +37,7 @@ export function rolesOf(plugin: BindersPlugin, binder: Binder): Map<string, Play
 	// (a Longform project is its scenes in order, as export reads it)
 	for (const c of binder.kind === 'longform' ? store.scenes(binder.folder) : store.orderedChildren(binder.folder) ?? []) { const it = item(c, true); if (it) items.push(it); }
 	const out = new Map<string, Played>();
-	const { placed } = assignRoles(items, readStructure(fm(binder.note).structure) ?? guessStructure(items), readLooseNotes(fm(binder.note)['loose-notes']));
+	const { placed } = assignRoles(items, readStructure(fm(binder.note).structure) ?? guessStructure(items), { looseNotes: readLooseNotes(fm(binder.note)['loose-notes']), shown: (it) => (it.kind === 'note' ? shownNameAt(it.path, it.name) : it.name) });
 	for (const p of placed) out.set(p.item.path, { role: p.role, auto: p.auto, said: readRole(p.item.exportAs) });
 	return out;
 }

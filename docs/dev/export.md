@@ -51,7 +51,7 @@ structure, cover, copyright line and language.
 
 - Folders are chapters, notes are scenes. (Notes side by side at the top are the scenes of one chapter, with no title of
   its own, until a folder comes: `roles.ts` makes each a scene, `book.ts` opens one chapter for the run; Book details' `loose-notes: each a chapter` makes each a chapter instead. A note named
-  as an unnumbered chapter (Prologue, Epilogue…), or with `export-as: chapter`, is a chapter of its own and ends the run;
+  as an unnumbered chapter (Prologue, Epilogue…) or as a numbered one (a chapter word and its number: "Chapter 3"; not a bare "3"), by its shown name or its file's, or with `export-as: chapter`, is a chapter of its own and ends the run;
   front and back matter by name or place are as ever.)
 - Folders are parts, notes are chapters.
 - Parts, chapters and scenes.

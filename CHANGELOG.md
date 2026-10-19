@@ -18,6 +18,10 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 
 - Under “Folders are chapters, notes are scenes”, notes side by side at the top of a binder are now the scenes of one chapter, parted by the scene break, until a folder or a chapter named Prologue or Epilogue comes. Before, each was a chapter of its own and a binder of loose notes never had a scene break.
 
+### Fixed
+
+- A note at the top of a binder named as a numbered chapter (“Chapter 3”), or shown as a Prologue or Epilogue by its title, is a chapter of its own and no longer joins the scenes around it.
+
 ## 0.54.0 (2026-10-17)
 
 ### Added

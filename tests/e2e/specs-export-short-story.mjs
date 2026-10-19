@@ -206,3 +206,26 @@ specs.push({
 		}
 	}),
 });
+
+specs.push({
+	name: 'export short story: a loose note shown as “Prologue” by its title property is a chapter of its own, not a scene of the run',
+	fn: withTidy(async (p, h, t) => {
+		await p.ev(`(() => { app.saveLocalStorage('binders-export', null); return 1; })()`);
+		await standIn(p);
+		await makeStory(p);
+		await p.ev(`(async () => { const f = app.vault.getAbstractFileByPath('Salt/One.md'); await app.vault.modify(f, '---\\ntitle: Prologue\\n---\\n' + await app.vault.read(f)); })().then(() => 1)`);
+		await until(p, `app.metadataCache.getCache('Salt/One.md')?.frontmatter?.title === 'Prologue'`, 8000);
+		await until(p, `!!${PL}.binders.binderOf('Salt')`, 8000);
+		try {
+			await openView(p, 'Salt');
+			await run(p, 'export');
+			await until(p, `!!document.querySelector('${WIN} [role="option"]')`, 6000);
+			await p.sleep(150);
+			await choose(p, 'file', 'docx');
+			t.ok(await until(p, `[...document.querySelectorAll('${WIN} .binders-export-paper .binders-export-heading')].map(h => h.textContent.trim()).join('|') === 'Prologue|Chapter One'`, 8000), 'the note shown as Prologue is its own chapter, and the other begins the first numbered one');
+		} finally {
+			await closeAll(p);
+			await p.ev(`(async () => { const pl = ${PL}; Object.assign(pl.settings, { exportKind: 'manuscript', exportStyle: '' }); await pl.saveData(pl.settings); app.saveLocalStorage('binders-export', null); const f = app.vault.getAbstractFileByPath('Salt'); if (f) await app.vault.delete(f, true); })().then(() => 1)`);
+		}
+	}),
+});

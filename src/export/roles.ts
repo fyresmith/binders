@@ -80,7 +80,13 @@ function folderRole(structure: Structure, within: 'top' | 'part' | 'chapter'): R
 
 /** Every item of the binder, in order, with its role. `deep`: the folders the rule doesn't reach, which only group
     their notes (a warning says so). */
-export function assignRoles(items: readonly SourceItem[], structure: Structure, looseNotes: LooseNotes = 'one chapter'): { placed: Placed[]; deep: SourceItem[] } {
+export interface RoleOptions {
+	/** What notes outside a folder are, under "folders are chapters, notes are scenes". */
+	looseNotes?: LooseNotes;
+	/** The name a note is shown by (its title property or heading, as the book's headings have it); its file name when not given. */
+	shown?: (item: SourceItem) => string;
+}
+export function assignRoles(items: readonly SourceItem[], structure: Structure, o: RoleOptions = {}): { placed: Placed[]; deep: SourceItem[] } {
 	const placed: Placed[] = [], deep: SourceItem[] = [];
 	// notes with a front- or back-matter name before the first thing that isn't one, and after the last
 	const named = (it: SourceItem) => it.kind === 'note' && it.included && MATTER.test(it.name.trim());
@@ -94,8 +100,8 @@ export function assignRoles(items: readonly SourceItem[], structure: Structure, 
 			if (it.kind === 'note') {
 				const byPlace = depth === 0 && named(it) ? (i < lead ? 'front' : i >= tail ? 'back' : null) : null;
 				// (under "folders are chapters", a note on the binder's top level is a scene of the run of such notes around it, until
-				// a folder comes: book.ts joins the run into one chapter. A note that is a chapter by name stays one, and breaks the run)
-				const loose = looseNotes === 'one chapter' && structure === 'chapters' && within === 'top' && !UNNUMBERED.test(titleFrom(it.name));
+				// a folder comes: book.ts joins the run into one chapter. A note that is a chapter by name, by its shown name or its file's, stays one, and breaks the run)
+				const loose = (o.looseNotes ?? 'one chapter') === 'one chapter' && structure === 'chapters' && within === 'top' && ![it.name, o.shown?.(it) ?? ''].some(chapterByName);
 				const auto: Role = matter ?? byPlace ?? (within === 'chapter' || loose ? 'scene' : 'chapter');
 				placed.push({ item: it, depth, role: said ?? auto, auto });
 				return;
@@ -122,6 +128,12 @@ const ONLY_NUMBER = new RegExp(`^(?:(?:chapter|part|book|act)\\s+${NUMBER}|${BAR
 const NUMBERED = new RegExp(`^(?:chapter|part|book|act)\\s+${NUMBER}\\s*[-–—:.]\\s*`, 'i');
 /** Chapters that have a name and no number. */
 export const UNNUMBERED = /^(prologue|epilogue|interlude|introduction|foreword|preface|afterword)$/i;
+
+const CHAPTER_WORD_NUMBER = new RegExp(`^(?:chapter|part|book|act)\\s+${NUMBER}(?:\\s*[-–—:.].*)?$`, 'i');
+/** A name that makes a note a chapter of its own among loose ones: "Prologue", "Epilogue" and the like, or a chapter's
+    number said with its word ("Chapter 3", "Chapter Three", "Part II: The wreck"). A bare "3" or "03 - Storm" is not: it is
+    how a writer orders scenes. */
+export const chapterByName = (name: string): boolean => !!name.trim() && (UNNUMBERED.test(titleFrom(name)) || CHAPTER_WORD_NUMBER.test(name.trim()));
 
 /** A chapter's or part's title from its note's or folder's name: without the number it starts with ("03 - Storm
     warning" is "Storm warning"), and nothing if the name is only a number, "Chapter 3" or "Part One". */

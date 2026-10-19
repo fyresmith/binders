@@ -60,7 +60,7 @@ works it out from the binder's shape.
 | The binder's shape | What export makes of it |
 |---|---|
 | No folders | Every note is a chapter |
-| Folders one level deep | Folders are chapters, and the notes in them are scenes, joined with a scene break. Notes at the top, side by side, are the scenes of one chapter in the same way, until a folder comes; a note named Prologue, Epilogue and the like is a chapter of its own and ends the run, and so is a note you set to Chapter in **Export as**. **Notes outside a folder** in Book details can make each of them a chapter of its own instead |
+| Folders one level deep | Folders are chapters, and the notes in them are scenes, joined with a scene break. Notes at the top, side by side, are the scenes of one chapter in the same way, until a folder comes; a note named Prologue, Epilogue and the like (by its title, if it has one, or its file's name) or named as a numbered chapter ("Chapter 3", "Chapter Three: The wreck") is a chapter of its own and ends the run, and so is a note you set to Chapter in **Export as**. A bare "3" or "03 - Storm" is a scene, as scenes are often numbered. **Notes outside a folder** in Book details can make each of them a chapter of its own instead |
 | Top folders all named "Part…", "Book…" or "Act…" | Folders are parts, notes are chapters |
 | Folders in folders | Parts, chapters and scenes |
 | A Longform project | Every note is a chapter |
