@@ -354,7 +354,7 @@ has footnotes, since a program's "save as text" puts them where it likes). Unset
 
 ## Round trip (`tests/import-roundtrip.test.ts`)
 
-A binder exported by `writeDocx` in each of the three manuscript styles and imported again: the words equal a second reader's;
+A binder exported by `writeDocx` in each manuscript style and imported again: the words equal a second reader's;
 the words that went in come back; chapters and parts and their titles are the book's sections (by `titleFrom`); every word has
 the italics, bold and strike it had. By design it cannot return straight quotes (export typesets them), comments, block ids,
 tag lines or the notes' names. A book is not compared for chapters and formatting when it has one chapter with subheadings

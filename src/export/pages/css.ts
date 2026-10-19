@@ -1,4 +1,5 @@
 import type { ManuscriptStyle } from '../docx-parts';
+import { TITLE_LINES } from '../first-page';
 import type { BookStyle } from '../style';
 import type { Geometry } from './geometry';
 import { BREAK_AFTER, TEXT_INDENT } from '../css-names';
@@ -105,6 +106,9 @@ export function manuscriptCss(s: ManuscriptStyle, g: Geometry): string {
 		`.page.title-page .contact { display: flex; justify-content: space-between; line-height: 14pt; } .page.title-page p { ${TEXT_INDENT}: 0; }`,
 		`.page.title-page h1 { text-transform: uppercase; padding: ${n(Math.round(g.lines * 0.36) * g.lead)} 0 0; }`,
 		'.page.title-page p.by { text-align: center; }',
+		// a short story's title, at the top of the first page of its text
+		`.opening { padding-bottom: ${n(g.lead)}; } .opening .contact { display: flex; justify-content: space-between; line-height: 14pt; } .opening p { ${TEXT_INDENT}: 0; }`,
+		`.opening h1 { text-transform: uppercase; padding: ${n(TITLE_LINES * g.lead)} 0 0; } .opening p.by { text-align: center; } .opening + h1 { padding-top: 0; }`,
 		`p.toc { display: flex; gap: 1em; ${TEXT_INDENT}: 0; } p.toc .n { margin-inline-start: auto; }`,
 	].filter((r) => r).join('\n') + '\n';
 }

@@ -1,5 +1,6 @@
 import { aboutWords, headingLines, keyword, surname } from '../docx';
 import type { ManuscriptStyle } from '../docx-parts';
+import { loneChapter } from '../first-page';
 import type { Book, Picture } from '../model';
 import { bookHeading, isRtl, type BookStyle } from '../style';
 import { bookCss, manuscriptCss } from './css';
@@ -25,7 +26,7 @@ export interface PagesSpec {
 	typeface: string;
 	language: string;
 	rtl: boolean;
-	look: Pick<Look, 'heading' | 'mark' | 'lead' | 'recto' | 'titlePage' | 'style' | 'plain'>;
+	look: Pick<Look, 'heading' | 'mark' | 'lead' | 'recto' | 'titlePage' | 'opening' | 'style' | 'plain'>;
 	hyphens: boolean;
 	furnish: Omit<Furnish, 'front'>;
 	/** Something to tell the writer (the typeface doesn't hold the book's script); "" for nothing. */
@@ -58,16 +59,19 @@ export function manuscriptPages(book: Book, style: ManuscriptStyle, paper: PageS
 		page.append(' ', el(doc, 'h1', '', book.title), ' ');
 		if (book.author.trim()) page.append(el(doc, 'p', 'by', `by ${book.author.trim()}`));
 	};
+	// a short story's title is the top of its first page of text (no page of its own), and a story of one chapter has no heading
+	const opening = style.titlePage === 'first page', lone = opening && loneChapter(book);
 	return {
 		geometry: g, css: manuscriptCss(style, g), typeface: style.typeface, language, rtl: isRtl(language),
-		look: { heading: headingLines, mark: style.sceneBreak, lead: false, recto: false, titlePage, plain: true },
+		look: { heading: lone ? () => [] : headingLines, mark: style.sceneBreak, lead: false, recto: false, titlePage, ...(opening ? { opening: titlePage } : {}), plain: true },
 		hyphens: false,
 		furnish: { heads: 'none', numbers: 'none', title: book.title, author: book.author.trim(), header, bareFirst: !style.firstPageHeader },
 		warning: '',
 	};
 }
 
-/** A manuscript has its own title page, which the book model doesn't make: the book with one in front. */
+/** A manuscript has its own title page, which the book model doesn't make: the book with one in front. (A short story
+    has none: its title is on the first page of the text.) */
 export function withTitlePage(book: Book): Book {
 	return { ...book, sections: [{ id: 'title-page', role: 'front', matter: 'title-page', made: true, number: null, title: '', blocks: [], paths: [] }, ...book.sections] };
 }

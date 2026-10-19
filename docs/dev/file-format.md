@@ -726,7 +726,7 @@ scene-break: "⁂"
   listed with the styles, saying so, is not used (the style it would change, or Classic, is used as it comes), and
   is **never written**: not by the editor, not by Reset (golden rule 6).
 - **`based-on`** names the style whose values this one starts from: a built-in style (Classic, Modern; Standard
-  manuscript, Standard manuscript, Courier, Plain, for a typesetter) or another file's style. It also says the
+  manuscript, Standard manuscript, Courier, Plain, for a typesetter, Short story) or another file's style. It also says the
   family: a style is a book style or a manuscript style by the built-in one at the bottom of what it is based on.
   A file named for a built-in style holds the changes made to that style, over the style as it comes. A style based
   on a built-in one is based on it *as it is changed in this vault*. A missing `based-on`, one that names no style,
@@ -762,7 +762,7 @@ scene-break: "⁂"
   | `chapter-starts` | `a third of the way down`, `at the top` |
   | `scene-break` | the mark, up to 12 characters |
   | `header` | `Surname / TITLE / page`, `page`, `none` |
-  | `title-page` | `true`, `false` |
+  | `title-page` | `true` (a page of its own), `first page` (the short story's: contact details and the count at the top of the first page of the text, the title a quarter of the way down, the story under it; no heading over a story of one chapter), `false` |
   | `first-page-header` | `true` (the default), `false`: the first page of the text has no header; it is still counted |
 
 - **A value Binders can't read** (a word that isn't one of a row's, a number outside its range, a list) falls back

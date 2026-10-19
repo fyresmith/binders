@@ -120,7 +120,8 @@ A style is how each role is set. Two families: **manuscript** styles (Word and P
 and the paperback together: choose once and they are the same book).
 
 **Built in:** manuscript: Standard manuscript (Times New Roman, Shunn's modern format); Standard manuscript, Courier
-(italics underlined); Plain, for a typesetter (single-spaced, no title page or header, `***` breaks). Book:
+(italics underlined); Plain, for a typesetter (single-spaced, no title page or header, `***` breaks); Short story (double-spaced, `title-page: first page`,
+no header on the first page). Book:
 **Classic** (EB Garamond: a centred small-capital chapter line, first words in small capitals, three asterisks, the
 author and the title along the top, the page number at the foot) and **Modern** (Source Serif: a large plain numeral
 at the left, breaks as space, the title and the page number together at the top outside). Both typefaces are SIL

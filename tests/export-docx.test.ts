@@ -117,6 +117,23 @@ function wordForWord(b: TestBinder, what: string): { words: number; ms: number; 
 	sound(writeDocx(buildBook([], { title: 'Empty', author: '', matter: false }), STANDARD, { contact: [], words: 0 }), 'an empty binder');
 }
 
+// a short story: no title page, the title on the first page of the text, and the story under it (#41)
+{
+	const SHORT = MANUSCRIPT_STYLES.find((x) => x.name === 'Short story')!;
+	const details = { contact: ['12 Harbour Row'], words: 1474, when: WHEN };
+	// loose notes under "folders are chapters" are one chapter: a story
+	const story = buildBook([note('One', 'The sea was flat.'), note('Two', 'Then the wind came.')], { title: 'Salt', author: 'Mara Lindqvist', matter: false, structure: 'chapters' });
+	const d = readDocx(writeDocx(story, SHORT, details)), doc = d.files['word/document.xml'], at = (x: string) => doc.indexOf(x);
+	ok(at('Mara Lindqvist') < at('about 1,500 words') && at('about 1,500 words') < at('>Salt<') && at('>Salt<') < at('by Mara Lindqvist') && at('by Mara Lindqvist') < at('The sea was flat.'), 'a short story: the name and the count at the top, the title under them, then the story');
+	ok(!doc.slice(0, at('The sea was flat.')).includes('<w:sectPr>'), 'and the story is on the title’s page: no page of its own for the title');
+	eq(d.headings.join('|'), '', 'a story of one chapter has no heading over it: not “Chapter One”');
+	ok(doc.includes('>#<') && (doc.match(/<w:titlePg\/>/g) ?? []).length === 1, 'its scenes are parted by the break, and the first page has no header');
+	sound(writeDocx(story, SHORT, details), 'a short story');
+	// a longer one: its first chapter follows the title on the page, the next starts a page as ever
+	const two = readDocx(writeDocx(buildBook([folder('Salt road', [note('a', 'First.')]), folder('Tide', [note('b', 'Second.')])], { title: 'Salt', author: 'Mara Lindqvist', matter: false, structure: 'chapters' }), SHORT, details)).files['word/document.xml'];
+	ok(/Chapter One.*?First\./.test(two) && !two.slice(0, two.indexOf('First.')).includes('<w:sectPr>') && (two.match(/<w:pageBreakBefore w:val="0"\/>/g) ?? []).length === 1 && two.indexOf('<w:pageBreakBefore w:val="0"/>') < two.indexOf('Chapter Two'), 'a story of several chapters: the first heading follows the title on its page, and the second begins a new one');
+}
+
 // ---- pictures; a footnote marked twice; a footnote in a footnote ----
 {
 	const png = new Uint8Array(40);

@@ -42,7 +42,7 @@ const PDF_ELSEWHERE = 'A PDF is made by Obsidian on a computer. Here you can loo
     the paper in settings, with its title page). The window and Export again lay a PDF out with this one function. */
 export function pagedBook(plugin: BindersPlugin, book: Book, words: number, o: { book: string; page: string } | { manuscript: string; paper?: string }): { book: Book; spec: PagesSpec } {
 	if ('book' in o) return { book, spec: bookPages(book, plugin.styles.book(o.book), trimSize(o.page), words) };
-	const s = plugin.settings, style = plugin.styles.manuscript(o.manuscript), whole = style.titlePage ? withTitlePage(book) : book;
+	const s = plugin.settings, style = plugin.styles.manuscript(o.manuscript), whole = style.titlePage === true ? withTitlePage(book) : book;
 	return { book: whole, spec: manuscriptPages(whole, style, paperSize(o.paper || s.exportPaper), { contact: s.contact.split(/\r?\n/).map((l) => l.trim()).filter((l) => l), words }) };
 }
 

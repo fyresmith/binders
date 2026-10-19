@@ -27,6 +27,8 @@ export interface Look {
 	fit(p: Picture): [width: number, height: number];
 	/** The title page, when it is made a way of the look's own (a manuscript's). */
 	titlePage?: (page: HTMLElement) => void;
+	/** A short story's title, at the top of the first page of its text: the same lines as the title page, set into that page. */
+	opening?: (block: HTMLElement) => void;
 	/** A manuscript: only its title page is a page set by itself; a part is headed as a chapter is. */
 	plain?: boolean;
 	/** The style the contents are named by (a book's). */
@@ -85,6 +87,7 @@ export class BookFlow {
 			if (look.style) list(contentsOf(book, look.style).filter((e) => book.sections.indexOf(e.s) > at), false);
 			return flow;
 		}
+		if (look.opening && s === book.sections.find((x) => !x.made)) { const top = this.el('div', 'made opening'); look.opening(top); blocks.push(top); }
 		// (a dedication and an epigraph stand alone on their page: a book doesn't print the word over them)
 		const lines = !look.plain && (s.matter === 'dedication' || s.matter === 'epigraph') ? [] : look.heading(s);
 		if (lines.length) blocks.push(this.heading(lines));

@@ -1,5 +1,6 @@
 import { strToU8, zipSync } from 'fflate';
 import { DRAWING, W, XML, appXml, contentTypes, coreXml, esc, numberingXml, relsXml, rootRels, settingsXml, stylesXml, type ManuscriptStyle, type Rel } from './docx-parts';
+import { TITLE_LINES, loneChapter, openingSection } from './first-page';
 import { numberWords, type Block, type Book, type Inline, type Picture, type Section, type Text } from './model';
 
 /* The Word writer: a book as a .docx in standard manuscript format, with real Word styles (Heading 1 chapters, a
@@ -81,7 +82,7 @@ export function writeDocx(book: Book, style: ManuscriptStyle, details: Manuscrip
 		return r.href ? `<w:hyperlink r:id="${part.rel('hyperlink', r.href)}">${textRun(set, r.text, '<w:rStyle w:val="Hyperlink"/>')}</w:hyperlink>` : textRun(set, r.text);
 	}).join('');
 	const para = (styleId: string, inner: string, ppr = '') => `<w:p><w:pPr><w:pStyle w:val="${styleId}"/>${ppr}</w:pPr>${inner}</w:p>`;
-	const words = (styleId: string, text: string) => para(styleId, text.split('\n').map((l, i) => `${i ? '<w:r><w:br/></w:r>' : ''}<w:r>${t(l)}</w:r>`).join(''));
+	const words = (styleId: string, text: string, ppr = '') => para(styleId, text.split('\n').map((l, i) => `${i ? '<w:r><w:br/></w:r>' : ''}<w:r>${t(l)}</w:r>`).join(''), ppr);
 
 	const drawing = (p: Picture, alt: string, part: Part): string => {
 		const k = Math.min(1, MAX_W / (p.width * 9525), MAX_H / (p.height * 9525)), cx = Math.round(p.width * 9525 * k), cy = Math.round(p.height * 9525 * k), id = ++drawings;
@@ -138,21 +139,27 @@ export function writeDocx(book: Book, style: ManuscriptStyle, details: Manuscrip
 	};
 	// (the links every text has, in an order that never changes)
 	doc.rel('styles', 'styles.xml'); doc.rel('settings', 'settings.xml'); doc.rel('footnotes', 'footnotes.xml');
+	// (a short story's title is on the first page of the text: no page of its own, and its first section follows it there)
+	const opening = style.titlePage === 'first page', onFirst = opening ? openingSection(book) : null, line = style.lineSpacing === 'double' ? 480 : style.lineSpacing === 'single' ? 240 : 360;
+	const space = (before: number, after: number) => `<w:spacing w:before="${before}" w:after="${after}" w:line="${line}" w:lineRule="auto"/>`;
 	if (style.titlePage) {
-		// contact details and the count at the top, the title halfway down; no header on this page
+		// contact details and the count at the top, the title halfway down; no header on a page of its own. A short story's title is a quarter of the way down, then "by" and the name, and the story under it
 		const contact = [author, ...details.contact].filter((l) => l.trim());
 		body.push(`<w:p><w:pPr><w:pStyle w:val="Contact"/><w:tabs><w:tab w:val="right" w:pos="9360"/></w:tabs></w:pPr><w:r>${t(contact[0] ?? '')}</w:r>${approx ? `<w:r><w:tab/>${t(approx)}</w:r>` : ''}</w:p>`);
 		for (const l of contact.slice(1)) body.push(words('Contact', l));
-		body.push(words('Title', book.title));
-		if (author) body.push(words('Byline', `by ${author}`));
-		body.push(`<w:p><w:pPr><w:pStyle w:val="Byline"/>${sect(false)}</w:pPr></w:p>`);
+		body.push(words('Title', book.title, opening ? space(TITLE_LINES * line, author ? 0 : line) : ''));
+		if (author) body.push(words('Byline', `by ${author}`, opening ? space(0, line) : ''));
+		if (!opening) body.push(`<w:p><w:pPr><w:pStyle w:val="Byline"/>${sect(false)}</w:pPr></w:p>`);
 	}
 	book.sections.forEach((s, i) => {
 		// Each chapter is a section of the file as well as a new page: the room above a chapter's heading is kept at
 		// the top of a section by every word processor, and at the top of a mere new page only by some. The section
 		// before ends in a paragraph a point high, which holds that section's page settings.
 		if (i) body.push(`<w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="20" w:lineRule="exact"/><w:ind w:firstLine="0"/><w:rPr><w:sz w:val="2"/><w:szCs w:val="2"/></w:rPr>${sect(header, i === 1)}</w:pPr></w:p>`);
-		body.push(words('Heading1', headingLines(s).join('\n')));
+		// (the story that begins under its title has no page break before it, and no room above; one chapter alone has no heading)
+		const lines = s === onFirst && loneChapter(book) ? [] : headingLines(s);
+		if (s !== onFirst) body.push(words('Heading1', lines.join('\n')));
+		else if (lines.length) body.push(words('Heading1', lines.join('\n'), `<w:pageBreakBefore w:val="0"/>${space(0, line)}`));
 		body.push(flow(s.blocks, doc));
 	});
 	if (!book.sections.length) body.push(para('Normal', ''));

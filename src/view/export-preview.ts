@@ -1,4 +1,5 @@
 import { aboutWords, headingLines } from '../export/docx';
+import { loneChapter, openingSection } from '../export/first-page';
 import type { ManuscriptStyle } from '../export/docx-parts';
 import { contentsOf } from '../export/epub';
 import { leadSplit } from '../export/epub-text';
@@ -53,10 +54,23 @@ export function drawManuscript(el: HTMLElement, book: Book, style: ManuscriptSty
 			}
 		}
 	};
+	/** The title, with the contact details and the count: a page of its own, or the top of the story's first page. */
+	const title = (page: HTMLElement) => {
+		const top = page.createDiv({ cls: 'binders-export-contact' }), who = top.createDiv();
+		for (const line of [book.author, ...details.contact].filter((l) => l.trim())) who.createDiv({ text: line });
+		if (aboutWords(details.words)) top.createDiv({ text: aboutWords(details.words) });
+		page.createEl('h1', { cls: 'binders-export-title', text: book.title });
+		if (book.author.trim()) page.createEl('p', { cls: 'binders-export-by', text: `by ${book.author.trim()}` });
+	};
+	const first = style.titlePage === 'first page' ? openingSection(book) : null;
 	const section = (s: Section) => {
-		const sec = paper.createEl('section', { cls: `binders-export-section mod-${s.role}` });
-		const h = sec.createEl('h2', { cls: 'binders-export-heading' });
-		headingLines(s).forEach((line, i) => { if (i) h.createEl('br'); h.appendText(line); });
+		const sec = paper.createEl('section', { cls: `binders-export-section mod-${s.role}${s === first ? ' mod-opening' : ''}` });
+		if (s === first) title(sec);
+		const lines = s === first && loneChapter(book) ? [] : headingLines(s);
+		if (lines.length) {
+			const h = sec.createEl('h2', { cls: 'binders-export-heading' });
+			lines.forEach((line, i) => { if (i) h.createEl('br'); h.appendText(line); });
+		}
 		const notes: number[] = [];
 		blocks(sec, s.blocks, notes);
 		if (notes.length) {
@@ -70,14 +84,7 @@ export function drawManuscript(el: HTMLElement, book: Book, style: ManuscriptSty
 		}
 	};
 
-	if (style.titlePage) {
-		const page = paper.createEl('section', { cls: 'binders-export-section binders-export-titlepage' });
-		const top = page.createDiv({ cls: 'binders-export-contact' }), who = top.createDiv();
-		for (const line of [book.author, ...details.contact].filter((l) => l.trim())) who.createDiv({ text: line });
-		if (aboutWords(details.words)) top.createDiv({ text: aboutWords(details.words) });
-		page.createEl('h1', { cls: 'binders-export-title', text: book.title });
-		if (book.author.trim()) page.createEl('p', { cls: 'binders-export-by', text: `by ${book.author.trim()}` });
-	}
+	if (style.titlePage === true) title(paper.createEl('section', { cls: 'binders-export-section binders-export-titlepage' }));
 	if (!book.sections.length) paper.createEl('p', { cls: 'binders-export-none', text: 'Nothing here is exported: the binder has no notes, or they are all left out.' });
 
 	// the first sections at once, the rest a few at a time

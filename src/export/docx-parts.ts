@@ -12,16 +12,18 @@ export interface ManuscriptStyle {
 	/** The scene break's mark. */
 	sceneBreak: string;
 	header: 'Surname / TITLE / page' | 'page' | 'none';
-	titlePage: boolean;
+	/** `true`: a page of its own. `'first page'`: the short story's, contact details and the count at the top and the title a few lines down, on the first page of the text. `false`: none. */
+	titlePage: boolean | 'first page';
 	/** Whether the first page of the text has the header too. Off: Word's own "different first page", and that page is still counted. */
 	firstPageHeader: boolean;
 }
 
-/** The three built in (docs/dev/export.md, "Styles"). The first is what a manuscript starts as. */
+/** The four built in (docs/dev/export.md, "Styles"). The first is what a manuscript starts as. */
 export const MANUSCRIPT_STYLES: readonly ManuscriptStyle[] = [
 	{ name: 'Standard manuscript', typeface: 'Times New Roman', lineSpacing: 'double', italics: 'italic', chapterStarts: 'a third of the way down', sceneBreak: '#', header: 'Surname / TITLE / page', titlePage: true, firstPageHeader: true },
 	{ name: 'Standard manuscript, Courier', typeface: 'Courier New', lineSpacing: 'double', italics: 'underlined', chapterStarts: 'a third of the way down', sceneBreak: '#', header: 'Surname / TITLE / page', titlePage: true, firstPageHeader: true },
 	{ name: 'Plain, for a typesetter', typeface: 'Times New Roman', lineSpacing: 'single', italics: 'italic', chapterStarts: 'at the top', sceneBreak: '***', header: 'none', titlePage: false, firstPageHeader: true },
+	{ name: 'Short story', typeface: 'Times New Roman', lineSpacing: 'double', italics: 'italic', chapterStarts: 'a third of the way down', sceneBreak: '#', header: 'Surname / TITLE / page', titlePage: 'first page', firstPageHeader: false },
 ];
 export const manuscriptStyle = (name: unknown): ManuscriptStyle => MANUSCRIPT_STYLES.find((s) => s.name === name) ?? MANUSCRIPT_STYLES[0];
 

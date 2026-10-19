@@ -80,6 +80,9 @@ const row = (family: 'book' | 'manuscript', key: string) => rowsOf(family).find(
 	ok(lost.basedOn === 'Classic' && lost.values.margins === 'narrow' && lost.values['type-size'] === 12 && /isn’t among the styles/.test(lost.warnings[0]), 'a missing base falls back to Classic, with its own changes kept');
 	const a = resolveStyle('Agent', files)!;
 	eq([a.family, a.changes, toManuscriptStyle('Agent', a.values).lineSpacing, toManuscriptStyle('Agent', a.values).titlePage].join('|'), 'manuscript|2|single|false', 'a manuscript style of one’s own');
+	// the title page: on a page of its own (true), none (false), or on the first page of the text (the short story's)
+	const own = shelf({ Story: `---\nbased-on: ${MANUSCRIPT_STYLES[0].name}\ntitle-page: first page\n---\n`, Own: `---\nbased-on: Short story\ntitle-page: true\n---\n`, Odd: `---\nbased-on: Short story\ntitle-page: sideways\n---\n` });
+	eq(['Story', 'Own', 'Odd'].map((n) => String(toManuscriptStyle(n, resolveStyle(n, own)!.values).titlePage)).join(), 'first page,true,first page', 'a style file says where the title page is: on the first page of the text, on a page of its own, and a value that can’t be read is the base’s');
 	const later = resolveStyle('Later', files)!;
 	eq([later.state, later.values.margins, later.values.typeface, later.warnings.length].join('|'), 'newer|normal|EB Garamond|1', 'a newer file is listed and not used');
 	const torn = resolveStyle('Torn', files)!;

@@ -8,7 +8,7 @@ There are two kinds of style:
 - **Book styles** set an [ebook](export-ebook.md) and a [paperback](export-paperback.md). Built in: **Classic** and
   **Modern**.
 - **Manuscript styles** set a [manuscript](export-manuscript.md). Built in: **Standard manuscript**, **Standard
-  manuscript, Courier** and **Plain, for a typesetter**.
+  manuscript, Courier**, **Plain, for a typesetter** and **Short story**.
 
 Choose one with **Style** in the [Export window](export.md). The style you choose is kept with the book, in its
 binder note, so each book has its own.
@@ -65,7 +65,7 @@ IV" with the chapter's title under it. A line whose title is empty is dropped.
 | **Chapters and breaks** | **A chapter starts** | **A third of the way down a new page**, or **At the top of a new page** |
 | | **Scene break** | `#`, `***` or `* * *` |
 | **Pages** | **Along the top** | **Surname / TITLE / page**, **The page number** or **Nothing** |
-| | **Title page** | **With contact details and word count**, or **None** |
+| | **Title page** | **On a page of its own** (contact details and word count at the top, the title halfway down), **On the first page of the text** (a short story's: the same, with the title a quarter of the way down and the story under it, and no "Chapter One" over a story of one chapter) or **None** |
 | | **Header on the first page** | **Shown** (the default), or **Left off**: the first page of the text has no header and no page number along the top, in Word (its own "different first page") and in the PDF. That page is still counted, so the next says 2. |
 
 ## Built-in styles and your own

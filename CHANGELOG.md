@@ -7,6 +7,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 ### Added
 
 - A new setting, Name a note from, lets a note take its shown name from its first heading (of a level you choose, or of any level) instead of its file name, for notes that open with their title.
+- Manuscript styles can put the title on the first page of the text, with your name and the word count above it and the story under it, in the Word file, the PDF and the preview; a new built-in Short story style uses it.
 
 ### Changed
 

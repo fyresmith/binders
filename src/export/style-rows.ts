@@ -75,7 +75,7 @@ const MANUSCRIPT: readonly Group[] = [
 	] },
 	{ name: 'Pages', rows: [
 		{ key: 'header', name: 'Along the top', kind: 'pick', options: [['Surname / TITLE / page', 'Surname / TITLE / page'], ['page', 'The page number'], ['none', 'Nothing']] },
-		{ key: 'title-page', name: 'Title page', kind: 'pick', options: [[true, 'With contact details and word count'], [false, 'None']] },
+		{ key: 'title-page', name: 'Title page', kind: 'pick', options: [[true, 'On a page of its own'], ['first page', 'On the first page of the text'], [false, 'None']] },
 		{ key: 'first-page-header', name: 'Header on the first page', kind: 'pick', options: [[true, 'Shown'], [false, 'Left off']] },
 	] },
 ];

@@ -32,6 +32,15 @@ A dedication, acknowledgements and the like are left out of a manuscript as it c
 | **Standard manuscript** | As described above |
 | **Standard manuscript, Courier** | The same in Courier New, with italics underlined |
 | **Plain, for a typesetter** | Single-spaced, no title page or header, chapters starting at the top of a page, `***` between scenes |
+| **Short story** | No page for the title: your name, contact details and the word count at the top of the first page, the title a quarter of the way down it, "by" and your name under it, and the story beginning under that. No header on the first page; "Surname / TITLE / 2" from the second |
+
+### A short story
+
+Put a story's notes side by side in the binder, set **Structure** to **Folders are chapters, notes are scenes**, and
+choose the **Short story** style. The notes are the scenes of one chapter, parted by the scene break, and a story of one
+chapter has no "Chapter One" over it: the title is above. It is the same in the Word file and in the PDF. (A longer
+piece with folders has its chapters headed as ever; the first follows the title on the first page.) The style puts
+the title there with **Title page: On the first page of the text**, which any manuscript style can choose.
 
 The style you choose is kept with the book, in its binder note. A book that hasn't chosen one uses the style last
 used in the vault.

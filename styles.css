@@ -5347,6 +5347,19 @@ body:not(.is-phone) .binders-export .binders-export-options .setting-item.settin
 	font-weight: normal;
 }
 
+/* a short story's title is at the top of its first page, a quarter of the way down, and the story is under it */
+.binders-export-paper .mod-opening .binders-export-title {
+	padding-top: calc(7em * var(--binders-paper-line));
+}
+
+.binders-export-paper .mod-opening .binders-export-by {
+	padding-bottom: calc(1em * var(--binders-paper-line));
+}
+
+.binders-export-paper .mod-opening .binders-export-heading {
+	padding-top: 0;
+}
+
 .is-phone .binders-export-paper {
 	padding: var(--size-4-8) var(--size-4-4);
 	font-size: 11pt;
