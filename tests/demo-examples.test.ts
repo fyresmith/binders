@@ -161,7 +161,7 @@ for (const s of examples) {
 {
 	const at = E('The Varga Job'), { book } = bookOf(at), notes = under(at).filter((p) => p.endsWith('.md') && !p.startsWith(`${at}/Snapshots/`));
 	ok(book.structure === 'chapters' && book.guessed, 'the draft: chapters and scenes, guessed');
-	eq(book.outline.filter((r) => r.role !== r.auto && r.role !== 'out').map((r) => `${r.name}: ${r.auto} to ${r.role}`).join('; '), 'A note before: chapter to front; The letter Varga never sent: scene to chapter; The vault, three tries: chapter to group; Coda: chapter to scene; Thanks: chapter to back', 'export-as overrules the guess on five items');
+	eq(book.outline.filter((r) => r.role !== r.auto && r.role !== 'out').map((r) => `${r.name}: ${r.auto} to ${r.role}`).join('; '), 'A note before: scene to front; The letter Varga never sent: scene to chapter; The vault, three tries: chapter to group; Thanks: scene to back', 'export-as overrules the guess on four items');
 	const statuses = new Set(notes.map((p) => props(p).status).filter(Boolean));
 	ok(['Idea', 'Draft', 'draft', 'Revised', 'Needs research', 'Cut'].every((st) => statuses.has(st)), `mixed statuses, some the writer’s own (${[...statuses].join(', ')})`);
 	const empty = notes.filter((p) => props(p).synopsis && !body(p).trim() && props(p).status === 'Idea');

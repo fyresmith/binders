@@ -5,6 +5,8 @@ import { inBinder, type ImportPlan } from '../src/import/plan';
 import { parts } from '../src/scene-text';
 import { tokens, firstDifference } from './export-words';
 import { noteWords } from './export-scriv-words';
+import { buildBook } from '../src/export/book';
+import { readStructure, type SourceItem } from '../src/export/roles';
 import { ok, eq, done } from './harness';
 
 /* Markdown and plain text into a binder (src/import/text.ts, manuscript.ts): what is made, and the word-for-word
@@ -59,6 +61,14 @@ const clean = `---\ntags: [novel]\n---\n# The Lighthouse\n\nBy Mara.\n\n## Chapt
 	eq(names.slice(2, 3).join(), 'Chapter 1 - The jetty', 'clean: “Chapter 1: The jetty” is named with its separator, for export to strip the number');
 	eq(names.slice(-2).join(), 'Chapter 2,Chapter 3', 'clean: a chapter of one scene is a note at the top');
 	eq(binderProps(plan).structure, 'chapters and scenes', 'clean: the rule is written down, not left to be guessed');
+	// exported as that rule reads it, the chapters made of one scene are still chapters: loose notes side by side at the top are otherwise the scenes of one
+	const items: SourceItem[] = [];
+	for (const n of plan.notes.slice(1)) {
+		const it: SourceItem = { kind: n.folder ? 'folder' : 'note', name: n.title, path: n.path, text: n.body, included: true, exportAs: props(text(plan, n.path))['export-as'], children: n.folder ? [] : undefined };
+		if (n.depth === 1) items.push(it); else items[items.length - 1].children?.push(it);
+	}
+	const exported = buildBook(items, { title: 'T', author: '', matter: false, structure: readStructure(binderProps(plan).structure) });
+	eq(exported.sections.filter((x) => x.role === 'chapter').length, 3, 'clean: and exported, it is three chapters: the folder and the two notes beside it, not the two notes as one');
 	eq(JSON.stringify(binderProps(plan).contents), JSON.stringify(['Front matter/', 'Front matter/Title page', 'Chapter 1 - The jetty/', `Chapter 1 - The jetty/${names[3]}`, `Chapter 1 - The jetty/${names[4]}`, 'Chapter 2', 'Chapter 3']), 'clean: the binder’s order, a folder before what it holds');
 	ok(plan.notes[0].folder && plan.notes[0].path === 'Book/Book.md', 'clean: the first row is the binder’s own');
 	const two = plan.notes.find((n) => n.path === 'Book/Chapter 2.md');

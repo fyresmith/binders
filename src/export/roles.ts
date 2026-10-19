@@ -86,7 +86,10 @@ export function assignRoles(items: readonly SourceItem[], structure: Structure):
 			const said = readRole(it.exportAs);
 			if (it.kind === 'note') {
 				const byPlace = depth === 0 && named(it) ? (i < lead ? 'front' : i >= tail ? 'back' : null) : null;
-				const auto: Role = matter ?? byPlace ?? (within === 'chapter' ? 'scene' : 'chapter');
+				// (under "folders are chapters", a note on the binder's top level is a scene of the run of such notes around it, until
+				// a folder comes: book.ts joins the run into one chapter. A note that is a chapter by name stays one, and breaks the run)
+				const loose = structure === 'chapters' && within === 'top' && !UNNUMBERED.test(titleFrom(it.name));
+				const auto: Role = matter ?? byPlace ?? (within === 'chapter' || loose ? 'scene' : 'chapter');
 				placed.push({ item: it, depth, role: said ?? auto, auto });
 				return;
 			}

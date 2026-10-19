@@ -133,7 +133,7 @@ export function buildBook(items: readonly SourceItem[], o: BookOptions, resolve:
 	const kept = (it: SourceItem): boolean => !o.keep || (it.kind === 'folder' ? held.has(it.path) : o.keep(it.path));
 	const takes = (path: string): boolean => (typeof o.matter === 'function' ? o.matter(path) : o.matter);
 
-	let parts = 0, chapters = 0, open: Section | null = null, going = true;
+	let parts = 0, chapters = 0, open: Section | null = null, run: Section | null = null, going = true;
 	const begin = (role: Section['role'], item: SourceItem | null, blocks: Block[]): Section => {
 		let title = item ? titleFrom(label(item)) : '';
 		// a level-one heading at the top of a note is its title, and isn't set twice
@@ -162,11 +162,14 @@ export function buildBook(items: readonly SourceItem[], o: BookOptions, resolve:
 		going = kept(item);
 		// (front and back matter go only with the whole book)
 		if ((role === 'front' || role === 'back') && o.keep) continue;
+		if (role !== 'out' && role !== 'group' && !(role === 'scene' && p.depth === 0 && p.auto === 'scene')) run = null;
 		if (role === 'out' || role === 'group') { /* nothing of its own */ }
 		else if (role === 'front' || role === 'back') { if (item.kind === 'note' && takes(item.path)) begin(role, item, read(item)); if (item.kind === 'note') open = null; }
 		else if (role === 'scene') {
 			if (item.kind === 'note' && going) {
-				if (!open) open = begin('chapter', null, []);
+				// (a loose note on the top level joins the run of them: one chapter, with no title of its own, until a folder or a named chapter comes)
+				if (p.depth === 0 && p.auto === 'scene') { if (!run) run = open = begin('chapter', null, []); else open = run; }
+				else if (!open) open = begin('chapter', null, []);
 				open.paths.push(item.path);
 				add(open, read(item));
 			}

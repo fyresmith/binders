@@ -358,6 +358,9 @@ export function planManuscript(read: ManuscriptRead, o: ManuscriptOptions): { pl
 	}
 	const hasParts = tops.some((t) => 'chapters' in t);
 	const structure: Structure = hasParts ? (chapterFolders.any ? 'parts-chapters' : 'parts') : chapterFolders.any ? 'chapters' : 'notes';
+	// (under "folders are chapters" the loose notes of the top level are scenes of one chapter, in export; a chapter of one scene here is a
+	// note among the folders, so it says it is a chapter)
+	if (structure === 'chapters') for (const n of plan.notes) if (n.level === 'chapter' && !n.folder && !n.path.slice(root.length + 1).includes('/')) plan.files.set(n.path, enc.encode(note({ 'export-as': 'chapter' }, n.body)));
 
 	// ---- the original, and the binder note ----
 	if ('bytes' in read.origin || placed.size) {

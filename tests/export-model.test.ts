@@ -136,7 +136,7 @@ const roles = (items: SourceItem[], s = guessStructure(items)) => assignRoles(it
 	eq(roles(lighthouse), 'Prologue:chapter Part One:part Arrival:chapter The keeper:chapter Part Two:part The wreck:chapter Epilogue:chapter', 'its roles');
 	const plainFolders = [folder('Storm', [note('a'), note('b')]), note('Alone')];
 	eq(guessStructure(plainFolders), 'chapters', 'other folders are chapters');
-	eq(roles(plainFolders), 'Storm:chapter a:scene b:scene Alone:chapter', 'notes in them scenes; a note at the top a chapter');
+	eq(roles(plainFolders), 'Storm:chapter a:scene b:scene Alone:scene', 'notes in them scenes; a note at the top a scene of the run of loose notes (book.ts joins them into one chapter)');
 	const deep = [folder('Part One', [folder('One', [note('a'), folder('Deeper', [note('b')])]), note('loose')])];
 	eq(guessStructure(deep), 'parts-chapters', 'two levels of folders: parts, chapters and scenes');
 	eq(roles(deep), 'Part One:part One:chapter a:scene Deeper:group b:scene loose:chapter', 'its roles');
@@ -174,6 +174,12 @@ const roles = (items: SourceItem[], s = guessStructure(items)) => assignRoles(it
 	eq(kinds(scenes.sections[0].blocks), 'p break p', 'scenes join with one scene break; an empty one adds none');
 	ok(scenes.guessed && scenes.structure === 'chapters', 'the structure is guessed, and said to be');
 	eq(buildBook([folder('Group', [note('a')])], { title: '', author: '', matter: false, flat: true }).structure, 'notes', 'a Longform project: every note a chapter');
+	// "folders are chapters, notes are scenes": loose notes side by side at the top are the scenes of one chapter, until a folder comes (#40)
+	const mixed = buildBook([note('Dedication', 'For M.'), note('One', 'First.'), note('Two', 'Second.'), folder('Storm', [note('a', 'Inside.')]), note('Three', 'Third.'), note('Four', 'Fourth.'), note('Epilogue', 'End.'), note('Five', 'Fifth.'), note('Thanks', 'Thanks.', { exportAs: 'back matter' })], { title: '', author: '', matter: false, structure: 'chapters' });
+	eq(mixed.sections.map((x) => `${x.role}${x.number ?? ''}[${x.title}]:${kinds(x.blocks)}`).join(' '), 'chapter1[]:p break p chapter2[Storm]:p chapter3[]:p break p chapter[Epilogue]:p chapter4[]:p', 'loose notes join with a scene break into one chapter; a folder, and a chapter by name, end the run');
+	eq(mixed.outline.map((r) => `${r.name}=${r.role}${r.number ?? ''}`).join(' '), 'Dedication=front One=scene Two=scene Storm=chapter2 a=scene Three=scene Four=scene Epilogue=chapter Five=scene Thanks=back', 'and Contents shows them as scenes');
+	eq(buildBook([note('One', 'First.'), note('Two', 'Second.', { exportAs: 'chapter' })], { title: '', author: '', matter: false, structure: 'chapters' }).sections.length, 2, 'a note that says it is a chapter is one');
+	eq(buildBook([note('One', 'First.'), note('Two', 'Second.')], { title: '', author: '', matter: false, structure: 'notes' }).sections.length, 2, 'every note a chapter is unchanged');
 }
 
 // embeds, one level deep; pictures; warnings with their note

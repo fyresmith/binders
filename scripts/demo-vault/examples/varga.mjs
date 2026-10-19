@@ -38,7 +38,7 @@ export function varga(add, rand) {
 	};
 	const items = [
 		s('Start here', { export: false, label: 'Yellow' }, '# Where this draft stands\n\n- [x] Act one reads\n- [ ] The plan has a hole in it (on purpose?)\n- [ ] Nothing after the vault is written\n- [ ] Decide whether Ilse is in on it from the start\n\nCut scenes are in their own folder, left out of export. Snapshots were taken before each big cut.\n'),
-		s('A note before', { 'export-as': 'front matter', synopsis: 'To the reader of this draft. A note at the top would be a chapter: it is front matter by hand.' }, 'This is a second draft. The first had a tunnel in it.\n'),
+		s('A note before', { 'export-as': 'front matter', synopsis: 'To the reader of this draft. A note at the top would be a scene of a chapter of loose notes: it is front matter by hand.' }, 'This is a second draft. The first had a tunnel in it.\n'),
 		folder('Opening', [
 			s('The door', { synopsis: 'The vault door, described by the one person who loves it.', status: 'Revised', label: 'Blue', target: 800 }, 950),
 			s('Lena', { synopsis: 'Lena at the laundry, the day before Marek finds her.', status: 'Revised', label: 'Blue', target: 1000 }, 1050),
@@ -69,7 +69,7 @@ export function varga(add, rand) {
 			s('What Ilse did', { status: 'Idea', label: 'Red' }),
 			s('Eight o’clock', { synopsis: 'The time lock opens whether anyone likes it or not.', status: 'Idea', label: 'Red', target: 1500 }),
 		], { synopsis: 'One night.', status: 'Idea', target: 8000 }),
-		s('Coda', { synopsis: 'A page that goes on from the last chapter: a scene by hand, where a note at the top would be a chapter.', status: 'Idea', label: 'Blue', 'export-as': 'scene', target: 300 }, 120),
+		s('Coda', { synopsis: 'A page that goes on from the last chapter: a scene of that chapter by hand, where a loose note at the top would start a chapter of its own.', status: 'Idea', label: 'Blue', 'export-as': 'scene', target: 300 }, 120),
 		s('Thanks', { 'export-as': 'back matter', synopsis: 'Back matter by hand: its name is not one export knows.' }, 'To the locksmith who answered my questions and asked none of his own.\n'),
 		folder('Cut scenes', [
 			s('The tunnel (cut)', { synopsis: 'The whole tunnel plot, from the first draft.', status: 'Cut', label: 'Pink' }, 800),

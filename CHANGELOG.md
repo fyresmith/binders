@@ -8,6 +8,10 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 
 - A new setting, Name a note from, lets a note take its shown name from its first heading (of a level you choose, or of any level) instead of its file name, for notes that open with their title.
 
+### Changed
+
+- Under “Folders are chapters, notes are scenes”, notes side by side at the top of a binder are now the scenes of one chapter, parted by the scene break, until a folder or a chapter named Prologue or Epilogue comes. Before, each was a chapter of its own and a binder of loose notes never had a scene break.
+
 ## 0.54.0 (2026-10-17)
 
 ### Added

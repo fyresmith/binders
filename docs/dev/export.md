@@ -49,7 +49,10 @@ structure, cover, copyright line and language.
 
 **The structure rule** says which is which. One of four, chosen in Book details:
 
-- Folders are chapters, notes are scenes. (A note at the top is a chapter of one scene.)
+- Folders are chapters, notes are scenes. (Notes side by side at the top are the scenes of one chapter, with no title of
+  its own, until a folder comes: `roles.ts` makes each a scene, `book.ts` opens one chapter for the run. A note named
+  as an unnumbered chapter (Prologue, Epilogue…), or with `export-as: chapter`, is a chapter of its own and ends the run;
+  front and back matter by name or place are as ever.)
 - Folders are parts, notes are chapters.
 - Parts, chapters and scenes.
 - Every note is a chapter. (Folders only group. A Longform project is this.)

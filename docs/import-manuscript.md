@@ -92,7 +92,8 @@ list before importing.
 
 ## What is made
 
-- **A chapter with one scene** is a note at the top of the binder. **With more**, it is a folder of notes.
+- **A chapter with one scene** is a note at the top of the binder, set to export as a chapter (`export-as: chapter`),
+  so that notes side by side there are not read as the scenes of one. **With more**, it is a folder of notes.
 - **Parts** are folders holding their chapters.
 - **Everything before the first chapter** goes in a **Front matter** folder: a title page, and a note each for
   a Dedication, an Epigraph and the like, if they have a heading of that name.

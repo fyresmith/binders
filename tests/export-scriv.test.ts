@@ -89,7 +89,7 @@ const sound = (m: ReturnType<typeof made>, what: string) => ok(!m.problems.lengt
 	sound(m, 'section types');
 	ok(new RegExp(`<Folders>\\s*<Type>${type('Chapter')}</Type>`).test(x) && new RegExp(`<Files>\\s*<Type>${type('Scene')}</Type>`).test(x), 'folders are chapters and notes are scenes, by default');
 	const by = (title: string) => m.items.find((i) => i.title === title)?.section ?? null;
-	eq([by('Chapter 1'), by('Scene 1'), by('Scene 2'), by('Coda'), by('Dedication')].join(), [null, null, type('Chapter'), type('Chapter'), type('Front matter')].join(), 'an item says its type only when it isn’t the default');
+	eq([by('Chapter 1'), by('Scene 1'), by('Scene 2'), by('Coda'), by('Dedication')].join(), [null, null, type('Chapter'), null, type('Front matter')].join(), 'an item says its type only when it isn’t the default: a loose note at the top is a scene of the run of such notes, which is the default');
 	const c = m.str('Settings/compile.xml') ?? '';
 	ok(c.includes(`<Type ID="${type('Chapter')}">NEW-PAGE-HEADER-WITH-TEXT</Type>`) && c.includes(`<Type ID="${type('Scene')}">TEXT-SECTION</Type>`) && c.includes('<ProjectTitle>B</ProjectTitle>'), 'compile.xml gives each type a layout');
 }
