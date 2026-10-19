@@ -1,7 +1,7 @@
 import { needs, parseBody, parseNote, type Parsed } from './markdown';
 import { inlines, plain, type Block, type Book, type Matter, type Picture, type Section, type Structure, type Warning } from './model';
 import { isPictureName } from './picture';
-import { UNNUMBERED, assignRoles, guessStructure, readRole, titleFrom, type SourceItem } from './roles';
+import { UNNUMBERED, assignRoles, guessStructure, readRole, titleFrom, type LooseNotes, type SourceItem } from './roles';
 import { typesetBlocks } from './typography';
 import { cleanHeading, fromHeadingAt, shownNameAt } from '../shown-name';
 
@@ -26,6 +26,8 @@ export interface BookOptions {
 	language?: string;
 	/** The structure rule; guessed from the binder's shape when not said. */
 	structure?: Structure | null;
+	/** Under "Folders are chapters, notes are scenes": what a note outside any folder is (scenes of one chapter, the default, or a chapter each). */
+	looseNotes?: LooseNotes;
 	/** Front and back matter in the book (a manuscript leaves them out unless asked): all or none, or by the note's
 	    path (an export that takes some and not others). */
 	matter: boolean | ((path: string) => boolean);
@@ -71,7 +73,7 @@ const label = (it: SourceItem): string => (it.kind === 'note' ? shownNameAt(it.p
 
 export function buildBook(items: readonly SourceItem[], o: BookOptions, resolve: Resolver = {}): Book {
 	const structure = o.structure ?? (o.flat ? 'notes' : guessStructure(items)), language = o.language || 'en';
-	const { placed, deep } = assignRoles(items, structure);
+	const { placed, deep } = assignRoles(items, structure, o.looseNotes);
 	const book: Book = { about: o.about, title: o.title, subtitle: o.subtitle?.trim() ?? '', series: o.series?.trim() ?? '', publisher: o.publisher?.trim() ?? '', author: o.author, copyright: '', cover: o.cover ?? null, language, structure, guessed: !o.structure, sections: [], notes: [], warnings: [], outline: [] };
 	const warn = (item: SourceItem, text: string) => { if (!book.warnings.some((w) => w.path === item.path && w.text === text)) book.warnings.push({ path: item.path, name: label(item), text }); };
 	for (const f of deep) warn(f, 'This folder is deeper than the book’s structure reaches: it only groups its notes.');

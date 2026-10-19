@@ -17,6 +17,7 @@ as you make it; there is no Done.
 | **Subtitle** | Set under the title on the title page |
 | **Author** | Your name from Binders' settings unless you say |
 | **Structure** | What a folder and a note are in the book. **Read from the binder's shape** unless you choose. See [below](#how-a-binder-becomes-a-book) |
+| **Notes outside a folder** | Under **Folders are chapters, notes are scenes**: the notes at the top of the binder, beside its folders, are **Scenes of one chapter** (the default: a run of them is one chapter, as for a short story) or **A chapter of its own each** |
 | **Title page** | Whether a title page is made |
 | **Copyright page** | The copyright page's line. With none, and an author, the page says "© year author" |
 | **Contents page** | When a contents page is made: **When chapters have titles**, **Always** or **Never** |
@@ -59,7 +60,7 @@ works it out from the binder's shape.
 | The binder's shape | What export makes of it |
 |---|---|
 | No folders | Every note is a chapter |
-| Folders one level deep | Folders are chapters, and the notes in them are scenes, joined with a scene break. Notes at the top, side by side, are the scenes of one chapter in the same way, until a folder comes; a note named Prologue, Epilogue and the like is a chapter of its own and ends the run, and so is a note you set to Chapter in **Export as** |
+| Folders one level deep | Folders are chapters, and the notes in them are scenes, joined with a scene break. Notes at the top, side by side, are the scenes of one chapter in the same way, until a folder comes; a note named Prologue, Epilogue and the like is a chapter of its own and ends the run, and so is a note you set to Chapter in **Export as**. **Notes outside a folder** in Book details can make each of them a chapter of its own instead |
 | Top folders all named "Part…", "Book…" or "Act…" | Folders are parts, notes are chapters |
 | Folders in folders | Parts, chapters and scenes |
 | A Longform project | Every note is a chapter |

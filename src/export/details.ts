@@ -1,6 +1,6 @@
 import type { Contents } from './book';
 import type { Structure } from './model';
-import { readStructure } from './roles';
+import { readLooseNotes, readStructure, type LooseNotes } from './roles';
 import { STRUCTURES, numberWords } from './model';
 
 /* Book details: what every export of a binder shares, kept as properties of its binder note (docs/dev/file-format.md,
@@ -13,6 +13,8 @@ export interface Details {
 	author: string;
 	/** The structure rule; null while it is guessed. */
 	structure: Structure | null;
+	/** Under "Folders are chapters, notes are scenes": notes outside a folder are the scenes of one chapter, or a chapter each. */
+	looseNotes: LooseNotes;
 	/** The cover: a picture in the vault, by its path or name; "" for none. */
 	cover: string;
 	/** The copyright line (lines); "" for the one Binders makes. */
@@ -43,7 +45,7 @@ export interface Contributor { role: string; name: string }
 export const CONTRIBUTOR_ROLES: [string, string][] = [['editor', 'Editor'], ['translator', 'Translator'], ['illustrator', 'Illustrator'], ['cover designer', 'Cover designer'], ['narrator', 'Narrator']];
 
 /** The binder note's properties that are a book's details: the only ones Book details ever writes. */
-export const DETAIL_PROPS = ['title', 'subtitle', 'author', 'structure', 'cover', 'copyright', 'language', 'title-page', 'contents-page', 'book-style', 'manuscript-style', 'page-size', 'series', 'series-number', 'publisher', 'edition', 'published', 'description', 'keywords', 'contributors', 'rights'] as const;
+export const DETAIL_PROPS = ['title', 'subtitle', 'author', 'structure', 'loose-notes', 'cover', 'copyright', 'language', 'title-page', 'contents-page', 'book-style', 'manuscript-style', 'page-size', 'series', 'series-number', 'publisher', 'edition', 'published', 'description', 'keywords', 'contributors', 'rights'] as const;
 
 const text = (v: unknown): string => (typeof v === 'string' ? v.trim() : typeof v === 'number' ? String(v) : '');
 /** A property that names a file, as its path or name: `[[cover.png]]`, `[[Art/cover.png|the cover]]`, `Art/cover.png`. */
@@ -83,6 +85,7 @@ export function readDetails(fm: Record<string, unknown>): Details {
 	return {
 		title: text(fm.title), subtitle: text(fm.subtitle), author: text(fm.author),
 		structure: readStructure(fm.structure),
+		looseNotes: readLooseNotes(fm['loose-notes']),
 		cover: linked(fm.cover),
 		copyright: text(fm.copyright),
 		language: languageTag(fm.language) ?? '',
@@ -104,6 +107,7 @@ export function applyDetails(fm: Record<string, unknown>, d: Partial<Details>): 
 	if (d.subtitle !== undefined) set('subtitle', d.subtitle.trim());
 	if (d.author !== undefined) set('author', d.author.trim());
 	if (d.structure !== undefined) set('structure', d.structure ? STRUCTURES[d.structure][0] : '');
+	if (d.looseNotes !== undefined) set('loose-notes', d.looseNotes === 'one chapter' ? '' : d.looseNotes);
 	if (d.cover !== undefined) set('cover', d.cover.trim() ? `[[${d.cover.trim()}]]` : '');
 	if (d.copyright !== undefined) set('copyright', d.copyright.trim());
 	if (d.language !== undefined) set('language', languageTag(d.language) ?? '');

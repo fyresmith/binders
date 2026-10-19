@@ -12,7 +12,7 @@ import { EXPORT_AS, exportsFolder, fileName, memory, placeFor, remember, save, s
 import { needs } from '../markdown';
 import type { Picture } from '../model';
 import { isPictureName, pictureOf } from '../picture';
-import { readStructure } from '../roles';
+import { readLooseNotes, readStructure } from '../roles';
 import { scrivFiles, writeScriv, type ScrivItem, type ScrivOptions, type ScrivProject, type ScrivSource } from './project';
 import { readText } from './text';
 
@@ -69,7 +69,7 @@ export async function readScriv(plugin: BindersPlugin, folder: TFolder, o: Scriv
 	const top = store.folderNote(folder), bookNote = fm(binder.note), language = said(bookNote.language);
 	const source: ScrivSource = {
 		name: folder.name, path: folder.path, items, loose, flat: longform, language: language || 'en',
-		structure: readStructure(bookNote.structure), labels, statuses,
+		structure: readStructure(bookNote.structure), looseNotes: readLooseNotes(bookNote['loose-notes']), labels, statuses,
 		note: top && !longform ? { kind: 'note', name: folder.name, path: top.path, included: true, text: await body(top), ...card(top, false) } : undefined,
 	};
 

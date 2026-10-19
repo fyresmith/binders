@@ -120,6 +120,7 @@ export async function readBook(plugin: BindersPlugin, folder: TFolder, matter: b
 		cover,
 		language: d.language || 'en',
 		structure: d.structure,
+		looseNotes: d.looseNotes,
 		flat: binder.kind === 'longform',
 		matter,
 		asTyped,

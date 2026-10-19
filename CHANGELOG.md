@@ -12,6 +12,7 @@ All notable changes to Binders. Versions follow [semantic versioning](https://se
 - A manuscript's typeface can be Courier Prime (built in, and embedded in the PDF) or any font you name; the Word file names it, and the PDF says so when this computer lacks it.
 - A manuscript style can leave “by Author” out from under the title, on a title page of its own or on the first page of the text.
 - A manuscript style’s Heading can be “No heading”, and “A story of one chapter” chooses whether a story of one chapter has its heading.
+- Book details has “Notes outside a folder”: under “Folders are chapters, notes are scenes”, the notes beside the folders are the scenes of one chapter (as before) or a chapter each.
 
 ### Changed
 

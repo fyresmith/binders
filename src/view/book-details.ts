@@ -3,6 +3,7 @@ import type BindersPlugin from '../main';
 import { CONTRIBUTOR_ROLES, LANGUAGES, languageName, type Contributor, type Details } from '../export/details';
 import { bookDetails, saveDetails } from '../export/export';
 import { STRUCTURES, type Structure } from '../export/model';
+import { LOOSE_NOTES, type LooseNotes } from '../export/roles';
 
 /* Book details: what every export of a binder shares (its title, its author, its structure, its made pages, its
    language), kept as properties of the binder note. Obsidian's own setting rows, on the Book page of Binder settings
@@ -54,6 +55,11 @@ export function drawBookDetails(contentEl: HTMLElement, plugin: BindersPlugin, f
 		for (const k of Object.keys(STRUCTURES) as Structure[]) dd.addOption(k, STRUCTURES[k][1]);
 		dd.setValue(d.structure ?? '').setDisabled(!!locked).onChange((v) => { d.structure = (v || null) as Structure | null; keep({ structure: d.structure }); });
 		dd.selectEl.dataset.bindersKey = 'structure';
+	});
+	new Setting(contentEl).setName('Notes outside a folder').setDesc('Where folders are chapters and notes are scenes: the notes at the top of the binder, beside its folders.').addDropdown((dd) => {
+		for (const [k, label] of LOOSE_NOTES) dd.addOption(k, label);
+		dd.setValue(d.looseNotes).setDisabled(!!locked).onChange((v) => { d.looseNotes = v as LooseNotes; keep({ looseNotes: d.looseNotes }); });
+		dd.selectEl.dataset.bindersKey = 'loose-notes';
 	});
 	new Setting(contentEl).setName('Title page').setDesc(own('Title page')).addToggle((t) => {
 		t.setValue(d.titlePage).setDisabled(!!locked).onChange((v) => { d.titlePage = v; keep({ titlePage: v }); });

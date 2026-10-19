@@ -112,7 +112,7 @@ the file explorer with the binder note. When you rename the folder, its folder n
 ## Book details
 
 The details of an exported book are properties of the binder note: `title`, `subtitle`, `author`, `structure`,
-`cover`, `copyright`, `language`, `title-page`, `contents-page`, `book-style`, `manuscript-style` and `page-size`.
+`cover`, `copyright`, `language`, `loose-notes`, `title-page`, `contents-page`, `book-style`, `manuscript-style` and `page-size`.
 They are written only when you change one in [Book details](book-details.md), or choose a cover, a style or a
 paperback's page in the Export window. One you clear is taken out of the note.
 

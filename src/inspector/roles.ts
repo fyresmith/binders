@@ -2,7 +2,7 @@ import { TFile, TFolder, type TAbstractFile } from 'obsidian';
 import type { Binder } from '../binders';
 import { EXPORT_AS } from '../export/export';
 import type { Role } from '../export/model';
-import { assignRoles, guessStructure, readRole, readStructure, type SourceItem } from '../export/roles';
+import { assignRoles, guessStructure, readLooseNotes, readRole, readStructure, type SourceItem } from '../export/roles';
 import type BindersPlugin from '../main';
 import { COMPILE_PROP, EXPORT_PROP, isNote } from '../scenes';
 
@@ -36,7 +36,7 @@ export function rolesOf(plugin: BindersPlugin, binder: Binder): Map<string, Play
 	// (a Longform project is its scenes in order, as export reads it)
 	for (const c of binder.kind === 'longform' ? store.scenes(binder.folder) : store.orderedChildren(binder.folder) ?? []) { const it = item(c, true); if (it) items.push(it); }
 	const out = new Map<string, Played>();
-	const { placed } = assignRoles(items, readStructure(fm(binder.note).structure) ?? guessStructure(items));
+	const { placed } = assignRoles(items, readStructure(fm(binder.note).structure) ?? guessStructure(items), readLooseNotes(fm(binder.note)['loose-notes']));
 	for (const p of placed) out.set(p.item.path, { role: p.role, auto: p.auto, said: readRole(p.item.exportAs) });
 	return out;
 }

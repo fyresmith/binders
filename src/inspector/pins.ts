@@ -52,7 +52,7 @@ export function ownNames(s: { synopsisProp: string; statusProp: string; labelPro
 		'binder', 'contents', 'longform', PINS_PROP, 'filters', 'exports', 'revision',
 		// a binder's, a folder's: when it is due (the Progress window sets these)
 		'deadline', 'writing-days',
-		'structure', 'title', 'subtitle', 'author', 'language', 'cover', 'copyright', 'title-page', 'contents-page', 'page-size', 'manuscript-style', 'book-style',
+		'structure', 'title', 'subtitle', 'author', 'language', 'cover', 'copyright', 'title-page', 'contents-page', 'page-size', 'manuscript-style', 'book-style', 'loose-notes',
 	].map((n) => n.toLowerCase()));
 }
 

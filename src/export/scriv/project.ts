@@ -1,6 +1,6 @@
 import { display, hexColor } from '../../view/labels';
 import { blocksText, countWords, type Picture, type Role, type Structure, type Warning } from '../model';
-import { assignRoles, guessStructure, type SourceItem } from '../roles';
+import { assignRoles, guessStructure, type LooseNotes, type SourceItem } from '../roles';
 import { FORMAT, FULL_SHAPE, ITEM_SECTION_TYPES, KEYWORDS, NEUTRAL_HEX, PALETTE_HEX, PATH_FIELD, floats, scrivDate, snapshotRtf, uuid, xml } from './parts';
 import { plainRtf, rtf, type RtfContext } from './rtf';
 import { ROOTS, compileXml, rootId, scrivx, type Doc, type Lists } from './scrivx';
@@ -46,6 +46,7 @@ export interface ScrivSource {
 	/** Notes in the binder's folder that are no part of it (a Longform project has them). */
 	loose?: ScrivItem[];
 	structure?: Structure | null;
+	looseNotes?: LooseNotes;
 	flat?: boolean;
 	language?: string;
 	/** The labels and statuses in Binders' settings, in their order. */
@@ -155,7 +156,7 @@ export function writeScriv(src: ScrivSource, o: ScrivOptions): ScrivProject {
 		return id;
 	};
 	const structure = src.structure ?? (src.flat ? 'notes' : guessStructure(draft));
-	const roles = new Map<SourceItem, Role>(assignRoles(draft, structure).placed.map((p) => [p.item, p.role]));
+	const roles = new Map<SourceItem, Role>(assignRoles(draft, structure, src.looseNotes).placed.map((p) => [p.item, p.role]));
 	const typeId = (role: Role) => uuid(ns, `type:${role}`);
 	lists.folderType = typeId(DEFAULTS[structure][0]);
 	lists.textType = typeId(DEFAULTS[structure][1]);

@@ -480,7 +480,7 @@ test('Book details: kept as the binder note’s own properties and nothing else;
 	await openEbook(p);
 	await p.ev(`(() => { document.querySelector('${WIN} [data-binders-key="details"]').click(); return 1; })()`);
 	t.ok(await until(p, `!!document.querySelector('${DETAILS} [data-binders-key="title"]')`), 'the button beside the book’s name opens Book details');
-	t.eq((await p.ev(`[...document.querySelectorAll('${DETAILS} .setting-item-name')].map(e => e.textContent)`)).filter((n) => n).join('|'), 'Title|Subtitle|Author|Structure|Title page|Copyright page|Contents page|Language|Publishing|Series|Number in the series|Publisher|Edition|Published|Description|Keywords|Contributors|More on the copyright page', 'its rows: the book, then what a published book says of itself');
+	t.eq((await p.ev(`[...document.querySelectorAll('${DETAILS} .setting-item-name')].map(e => e.textContent)`)).filter((n) => n).join('|'), 'Title|Subtitle|Author|Structure|Notes outside a folder|Title page|Copyright page|Contents page|Language|Publishing|Series|Number in the series|Publisher|Edition|Published|Description|Keywords|Contributors|More on the copyright page', 'its rows: the book, then what a published book says of itself');
 	t.eq(await p.ev(`document.querySelector('${DETAILS} [data-binders-key="title"]').placeholder`), 'The Lighthouse', 'the title is the folder’s name until one is said');
 	t.ok(await p.ev(`document.querySelector('${DETAILS} [data-binders-key="language"]').tagName === 'SELECT' && document.querySelector('${DETAILS} [data-binders-key="language"]').options.length > 40`), 'the language is chosen from a list, not typed');
 	await detail(p, 'title', 'The Lighthouse Keeper');

@@ -50,7 +50,7 @@ structure, cover, copyright line and language.
 **The structure rule** says which is which. One of four, chosen in Book details:
 
 - Folders are chapters, notes are scenes. (Notes side by side at the top are the scenes of one chapter, with no title of
-  its own, until a folder comes: `roles.ts` makes each a scene, `book.ts` opens one chapter for the run. A note named
+  its own, until a folder comes: `roles.ts` makes each a scene, `book.ts` opens one chapter for the run; Book details' `loose-notes: each a chapter` makes each a chapter instead. A note named
   as an unnumbered chapter (Prologue, Epilogue…), or with `export-as: chapter`, is a chapter of its own and ends the run;
   front and back matter by name or place are as ever.)
 - Folders are parts, notes are chapters.
@@ -173,7 +173,7 @@ written), then optional CSS.
   will open the file by hand ("Show the style's file"); it reaches the ebook and the PDF, not Word.
 
 **Kept per binder**, in the binder note, all optional (so still format 1): `title`, `subtitle`, `author`,
-`structure`, `cover`, `copyright`, `language`, and what it last used: `book-style`, `manuscript-style`, `page-size`.
+`structure`, `loose-notes`, `cover`, `copyright`, `language`, and what it last used: `book-style`, `manuscript-style`, `page-size`.
 **Per vault** (settings): the Exports folder, the styles folder, "Your name", contact details for a manuscript's
 title page. **Per device** (plugin data): the places remembered for each binder.
 

@@ -31,6 +31,13 @@ export function readRole(v: unknown): Role | null {
 /** A role as `export-as` is written. */
 export const writeRole = (r: Role): string => (r === 'front' ? 'front matter' : r === 'back' ? 'back matter' : r);
 
+/** What a note outside any folder, on the binder's top level, is under "Folders are chapters, notes are scenes": a
+    scene of the run of such notes around it (`one chapter`, the default), or a chapter of its own (`each a chapter`). */
+export type LooseNotes = 'one chapter' | 'each a chapter';
+export const LOOSE_NOTES: readonly (readonly [LooseNotes, string])[] = [['one chapter', 'Scenes of one chapter'], ['each a chapter', 'A chapter of its own each']];
+/** `loose-notes` in a binder note, read: anything but "each a chapter" is the default. */
+export const readLooseNotes = (v: unknown): LooseNotes => (typeof v === 'string' && /^each a chapter$/i.test(v.trim()) ? 'each a chapter' : 'one chapter');
+
 /** `structure` in a binder note, read: one of the four rules, or null (then it is guessed). */
 export function readStructure(v: unknown): Structure | null {
 	if (typeof v !== 'string') return null;
@@ -73,7 +80,7 @@ function folderRole(structure: Structure, within: 'top' | 'part' | 'chapter'): R
 
 /** Every item of the binder, in order, with its role. `deep`: the folders the rule doesn't reach, which only group
     their notes (a warning says so). */
-export function assignRoles(items: readonly SourceItem[], structure: Structure): { placed: Placed[]; deep: SourceItem[] } {
+export function assignRoles(items: readonly SourceItem[], structure: Structure, looseNotes: LooseNotes = 'one chapter'): { placed: Placed[]; deep: SourceItem[] } {
 	const placed: Placed[] = [], deep: SourceItem[] = [];
 	// notes with a front- or back-matter name before the first thing that isn't one, and after the last
 	const named = (it: SourceItem) => it.kind === 'note' && it.included && MATTER.test(it.name.trim());
@@ -88,7 +95,7 @@ export function assignRoles(items: readonly SourceItem[], structure: Structure):
 				const byPlace = depth === 0 && named(it) ? (i < lead ? 'front' : i >= tail ? 'back' : null) : null;
 				// (under "folders are chapters", a note on the binder's top level is a scene of the run of such notes around it, until
 				// a folder comes: book.ts joins the run into one chapter. A note that is a chapter by name stays one, and breaks the run)
-				const loose = structure === 'chapters' && within === 'top' && !UNNUMBERED.test(titleFrom(it.name));
+				const loose = looseNotes === 'one chapter' && structure === 'chapters' && within === 'top' && !UNNUMBERED.test(titleFrom(it.name));
 				const auto: Role = matter ?? byPlace ?? (within === 'chapter' || loose ? 'scene' : 'chapter');
 				placed.push({ item: it, depth, role: said ?? auto, auto });
 				return;

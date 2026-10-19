@@ -174,3 +174,35 @@ specs.push({
 		}
 	}),
 });
+
+specs.push({
+	name: 'export short story: Book details can make each note outside a folder a chapter of its own, kept in the binder note, and the manuscript has them so',
+	fn: withTidy(async (p, h, t) => {
+		await p.ev(`(() => { app.saveLocalStorage('binders-export', null); return 1; })()`);
+		await standIn(p);
+		await makeStory(p);
+		await until(p, `!!${PL}.binders.binderOf('Salt')`, 8000);
+		const chapters = (xml) => (xml.match(/w:val="Heading1"/g) ?? []).length;
+		try {
+			await openView(p, 'Salt');
+			await run(p, 'export');
+			await until(p, `!!document.querySelector('${WIN} [role="option"]')`, 6000);
+			await p.sleep(150);
+			await choose(p, 'file', 'docx');
+			const docx = () => strFromU8(unzipSync(new Uint8Array(readFileSync(join(p.vaultDir, 'Exports', 'Salt.docx'))))['word/document.xml']);
+			await p.ev(`(() => { document.querySelector('${WIN} [data-binders-key="details"]').click(); return 1; })()`);
+			const field = '.modal.binders-bset .binders-book-details [data-binders-key="loose-notes"]';
+			t.ok(await until(p, `!!document.querySelector('${field}')`, 6000), 'Book details has the choice');
+			await p.ev(`(() => { const s = document.querySelector('${field}'); s.value = 'each a chapter'; s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+			t.ok(await until(p, `app.vault.adapter.read('Salt/Salt.md').then(x => x.includes('loose-notes: each a chapter'))`, 4000), 'it is kept in the binder note as the file format has it');
+			await p.key('Escape');
+			t.ok(await until(p, `document.querySelectorAll('${WIN} .binders-export-paper .binders-export-heading').length === 2`, 8000), 'the window reads the book again: two chapters in its preview');
+			await press(p, 'Export');
+			t.ok(await saved(p), 'the Word file was saved');
+			t.eq(chapters(docx()), 2, 'and each note is a chapter of its own in the manuscript');
+		} finally {
+			await closeAll(p);
+			await p.ev(`(async () => { const pl = ${PL}; Object.assign(pl.settings, { exportKind: 'manuscript', exportStyle: '' }); await pl.saveData(pl.settings); app.saveLocalStorage('binders-export', null); const f = app.vault.getAbstractFileByPath('Salt'); if (f) await app.vault.delete(f, true); })().then(() => 1)`);
+		}
+	}),
+});
